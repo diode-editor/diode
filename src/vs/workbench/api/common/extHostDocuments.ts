@@ -70,6 +70,15 @@ export type WordDefinitionLookup = (languageId: string) => RegExp | undefined;
 
 const NO_WORD_DEFINITIONS: WordDefinitionLookup = () => undefined;
 
+/**
+ * Сохранение документа ядром по uri (`$trySaveDocument` эталона): `true` —
+ * записан. Живёт в {@link DocumentRegistry}, проводку к хосту ставит namespace.
+ */
+export type DocumentSaver = (uri: Uri) => Promise<boolean>;
+
+/** Без хоста сохранять некому — честное «не сохранено». */
+const NO_SAVER: DocumentSaver = () => Promise.resolve(false);
+
 export class ExtHostTextDocument implements vscode.TextDocument {
     /** Идентичность ресурса — источник правды, как в `vscode.TextDocument.uri`. */
     public readonly uri: Uri;
@@ -112,6 +121,7 @@ export class ExtHostTextDocument implements vscode.TextDocument {
     public constructor(
         uri: Uri,
         private readonly wordDefinitionFor: WordDefinitionLookup = NO_WORD_DEFINITIONS,
+        private readonly saver: DocumentSaver = NO_SAVER,
     ) {
         this.uri = uri;
     }
@@ -253,13 +263,13 @@ export class ExtHostTextDocument implements vscode.TextDocument {
     }
 
     /**
-     * Сохранение по просьбе расширения. RPC «сохранить документ по uri» к хосту
-     * нет, поэтому честное `false` («не сохранено») вместо молчаливого успеха;
-     * закрытый документ — отказ, как upstream.
+     * Сохранение по просьбе расширения — ядром, тем же путём, что `workspace.save`
+     * (save-участники, запись провайдером схемы). `false` — документ в ядре не
+     * открыт или запись не удалась; закрытый документ — отказ, как upstream.
      */
     public save(): Promise<boolean> {
         if (this.isClosed) return Promise.reject(new Error("Document has been closed"));
-        return Promise.resolve(false);
+        return this.saver(this.uri);
     }
 
     public get lineCount(): number {
@@ -312,6 +322,12 @@ export class DocumentRegistry {
     /** Определение слова языка для `getWordRangeAtPosition` всех документов (и эфемерных). */
     public readonly wordDefinitionFor: WordDefinitionLookup = (languageId) => this.wordDefinitions.get(languageId);
 
+    /** Сохранение ядром ({@link ExtHostTextDocument.save}); ставит namespace с RPC. */
+    public saver: DocumentSaver = NO_SAVER;
+
+    /** Стабильная обёртка над {@link saver}: документ переживает его замену. */
+    public readonly saveDocument: DocumentSaver = (uri) => this.saver(uri);
+
     /** `undefined` снимает определение — язык возвращается к дефолтному слову. */
     public setWordDefinitionFor(languageId: string, wordDefinition: RegExp | undefined): void {
         this.wordDefinitions.set(languageId, wordDefinition);
@@ -326,7 +342,7 @@ export class DocumentRegistry {
         const key = uri.toString();
         let doc = this.documents.get(key);
         if (doc === undefined) {
-            doc = new ExtHostTextDocument(uri, this.wordDefinitionFor);
+            doc = new ExtHostTextDocument(uri, this.wordDefinitionFor, this.saveDocument);
             this.documents.set(key, doc);
         }
         return doc;

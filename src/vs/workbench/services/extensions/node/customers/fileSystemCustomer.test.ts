@@ -38,6 +38,46 @@ describe("FileSystemCustomer — уход спавна", () => {
         );
     });
 
+    it("записываемость схем — из объявления субпроцесса и уходит вместе с ним", async () => {
+        const customer = new FileSystemCustomer(NULL_EXTENSION_FILE_WATCHER);
+        const { peer, attached } = attach(customer);
+        peer.notify("workspace.fileSystemProvidersChanged", { schemes: ["git", "rw"], readonly: ["git"] });
+        await flushMicrotasks();
+
+        expect(customer.isReadonlyFileSystem("git")).toBe(true);
+        expect(customer.isReadonlyFileSystem("rw")).toBe(false);
+        attached.dispose();
+        // Схем больше нет; незнакомая схема — не «только чтение», а просто нет провайдера.
+        expect(customer.getFileSystemSchemes()).toEqual([]);
+        expect(customer.isReadonlyFileSystem("git")).toBe(false);
+    });
+
+    it("stat и запись уходят запросами к субпроцессу; без спавна — отказ", async () => {
+        const customer = new FileSystemCustomer(NULL_EXTENSION_FILE_WATCHER);
+        const { peer, attached } = attach(customer);
+        const writes: unknown[] = [];
+        peer.handleRequest("workspace.fs.stat", (params) =>
+            Promise.resolve(
+                (params as { uri: string }).uri === "rw:/a" ? { type: 1, ctime: 0, mtime: 2, size: 3 } : null,
+            ),
+        );
+        peer.handleRequest("workspace.fs.writeFile", (params) => {
+            writes.push(params);
+            return Promise.resolve(null);
+        });
+
+        await expect(customer.statProvidedFile(Uri.parse("rw:/a"))).resolves.toEqual({ type: 1, mtime: 2, size: 3 });
+        await expect(customer.statProvidedFile(Uri.parse("rw:/b"))).resolves.toBeNull();
+        await customer.writeProvidedFile(Uri.parse("rw:/a"), new TextEncoder().encode("правка"));
+        expect(writes).toEqual([{ uri: "rw:/a", content: Buffer.from("правка").toString("base64") }]);
+
+        attached.dispose();
+        await expect(customer.statProvidedFile(Uri.parse("rw:/a"))).rejects.toThrow("extension host is not running");
+        await expect(customer.writeProvidedFile(Uri.parse("rw:/a"), new Uint8Array())).rejects.toThrow(
+            "extension host is not running",
+        );
+    });
+
     it("субпроцесс без схем ФС на уходе событие не порождает", () => {
         const customer = new FileSystemCustomer(NULL_EXTENSION_FILE_WATCHER);
         const changed = vi.fn();

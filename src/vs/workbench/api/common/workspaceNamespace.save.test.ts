@@ -24,7 +24,7 @@ function makeWorkspace() {
         owner: new ExtensionOwner(),
     };
     const workspace = createWorkspaceNamespace(ctx);
-    return { stub, workspace };
+    return { stub, workspace, registry };
 }
 
 describe("workspace.saveAll — продюсер RPC", () => {
@@ -69,5 +69,22 @@ describe("workspace.save — продюсер RPC", () => {
         stub.responder = () => null;
 
         await expect(workspace.save(Uri.file("/proj/closed.go"))).resolves.toBeUndefined();
+    });
+});
+
+describe("TextDocument.save — продюсер RPC", () => {
+    it("уезжает тем же workspace.save; ответ с uri — true, null — false", async () => {
+        const { stub, registry } = makeWorkspace();
+        const doc = registry.getOrCreate(Uri.parse("_claude_fs_right:/repo/a.ts"));
+
+        stub.responder = (_method, params) => params;
+        await expect(doc.save()).resolves.toBe(true);
+        stub.responder = () => null;
+        await expect(doc.save()).resolves.toBe(false);
+
+        expect(stub.requests).toStrictEqual([
+            { method: "workspace.save", params: { uri: "_claude_fs_right:/repo/a.ts" } },
+            { method: "workspace.save", params: { uri: "_claude_fs_right:/repo/a.ts" } },
+        ]);
     });
 });

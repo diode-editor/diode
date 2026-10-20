@@ -92,8 +92,8 @@
 | `asRelativePath` | ✅ | |
 | `applyEdit` | 🟡 | настоящий bulk edit: текстовые правки по ОТКРЫТЫМ (через буфер, остаётся «грязным») и ЗАКРЫТЫМ (запись на диск) ресурсам плюс файловые операции `createFile`/`deleteFile`/`renameFile` с опциями `overwrite`/`ignoreIfExists`/`ignoreIfNotExists`, в порядке добавления; весь edit — ОДИН шаг отмены в истории всех открытых затронутых файлов (Ctrl+Z из любой их вкладки). `metadata.isRefactoring` — затронутые файлы сохраняются по `files.refactoring.autoSave`. All-or-nothing: read-only ресурс, нечитаемый файл, коллизия имени или пересекающиеся правки отбивают edit целиком (`false`). Отклонения: `recursive` у `deleteFile` игнорируется (удаление всегда рекурсивное — в корзину уходит всё дерево), `WorkspaceEditEntryMetadata` отбрасывается (preview-режима нет), `contents` в виде `DataTransferFile` игнорируется |
 | `createFileSystemWatcher` | ✅ | настоящие watcher'ы: `RelativePattern`, `ignore*Events`, excludes из `files.watcherExclude` |
-| `fs` | 🟡 | вся поверхность `FileSystem`: `stat`, `readFile`, `writeFile`, `readDirectory`, `createDirectory`, `delete` (с `recursive`), `rename` и `copy` (с `overwrite`), `isWritableFileSystem`. Работает локально через `node:fs` — без RPC на хост. Отклонения: `useTrash` у `delete` игнорируется (корзины у терминального редактора нет), а `isWritableFileSystem` отвечает `true` только про `file` — про схему провайдера расширения честный `undefined`. Схему, за которой не стоит ни диск, ни провайдер, ловит гейт `Unavailable` |
-| `registerFileSystemProvider` | 🟡 | читающая часть: `watch`/`stat`/`readFile`/`onDidChangeFile` |
+| `fs` | 🟡 | вся поверхность `FileSystem`: `stat`, `readFile`, `writeFile`, `readDirectory`, `createDirectory`, `delete` (с `recursive`), `rename` и `copy` (с `overwrite`), `isWritableFileSystem`. Схема `file` — локально через `node:fs`, без RPC на хост; схема провайдера расширения этого же субпроцесса — сам провайдер (`stat`, `readFile`, `writeFile`; в read-only схему — `NoPermissions`), прочие операции у такой схемы пока `Unavailable`. Отклонения: `useTrash` у `delete` игнорируется (корзины у терминального редактора нет). `isWritableFileSystem`: `file` — `true`, схема провайдера — по его `isReadonly`, незнакомая — `undefined`, как в эталоне. Схему, за которой не стоит ни диск, ни провайдер, ловит гейт `Unavailable` |
+| `registerFileSystemProvider` | 🟡 | `watch`/`stat`/`readFile`/`writeFile`/`onDidChangeFile` и опция `isReadonly`. Ресурс пишущего провайдера стороной диффа (`vscode.diff`) — живой документ под своим uri, как в эталоне: правится, сохраняется записью провайдера (с `onWillSave`/`onDidSave`), чистый буфер перечитывается по `onDidChangeFile` — на этом работает предложенный дифф Claude Code. Отклонения: такой ресурс открывается только стороной диффа, не обычной вкладкой (`showTextDocument`/`vscode.open`); `openTextDocument` по схеме провайдера отдаёт документ, прочитанный провайдером, но в ядре его не открывает; ядро не зовёт `watch`, `readDirectory`, `createDirectory`, `delete`, `rename`, `copy`; `isCaseSensitive` игнорируется; провайдер без `writeFile` считается read-only (сверх эталона: писать в него нечем) |
 | `findFiles` | 🟡 | поиск по glob своим обходом дерева в субпроцессе (в эталоне за ним стоит ripgrep в ядре). Поддержаны обе формы `GlobPattern` (строка — по всем папкам воркспейса, `RelativePattern` — по своей базе), три значения `exclude` (`undefined` — настройка `files.exclude`, `null` — никаких, шаблон — вместо настройки), `maxResults` и токен отмены. Отклонения: глобы матчатся нашим `glob.ts` (диапазонов `[0-9]` нет) и у обхода есть предел в 5000 каталогов на запрос |
 | `registerTextDocumentContentProvider` | ✅ | недисковые ресурсы (`jdt:` у Java) открываются read-only вкладкой; `onDidChange` перечитывает открытую; `openTextDocument` по такой схеме спрашивает провайдера |
 | `isTrusted`, `onDidGrantWorkspaceTrust` | 🟡 | модели доверия нет — всегда `true`, событие не стреляет |
@@ -116,7 +116,7 @@ webview — потолок.
 
 | член | статус | комментарий |
 | --- | :-: | --- |
-| `activeTextEditor`, `visibleTextEditors` | ✅ | |
+| `activeTextEditor`, `visibleTextEditors` | ✅ | стороны видимой дифф-вкладки — тоже видимые редакторы, как два редактора диффа эталона; отклонение: сторона-снимок (git-ревизия, буфер обмена, «на диске») своего документа под uri стороны не имеет и в `visibleTextEditors` не попадает |
 | `onDidChangeActiveTextEditor`, `onDidChangeVisibleTextEditors`, `onDidChangeTextEditorViewColumn` | ✅ | |
 | `state`, `onDidChangeWindowState` | ✅ | |
 | `showTextDocument` | 🟡 | открывает ресурс, но возвращает активный редактор |
@@ -354,7 +354,7 @@ Namespace есть, потому что `golang.go` заводит контро�
 | тип | активно | не активно |
 | --- | :-: | --- |
 | `TextEditor` | 7/12 | `visibleRanges`, `insertSnippet`, `revealRange`, `show`, `hide` |
-| `TextDocument` | 19/19 | — (класс документа проверяется компилятором: `implements vscode.TextDocument`). 🟡 `save` — всегда `false` («не сохранено»), у закрытого документа — отказ, как upstream: запроса «сохранить документ по uri» к хосту пока нет. `getWordRangeAtPosition` — дефолтное определение слова upstream (`DEFAULT_WORD_REGEXP`) либо регекс расширения; языковых word-definition (`wordPattern`) нет, регекс, матчащий пустую строку, — исключение. Рабочие и `offsetAt`/`positionAt`/`validateRange`/`validatePosition` (на их отсутствии молча ломался формат стокового prettier) |
+| `TextDocument` | 19/19 | — (класс документа проверяется компилятором: `implements vscode.TextDocument`). `save` — ядром, тем же путём, что `workspace.save` (`$trySaveDocument` эталона): save-участники, запись провайдером схемы; не открытый в ядре документ — `false`, закрытый — отказ, как upstream. `getWordRangeAtPosition` — дефолтное определение слова upstream (`DEFAULT_WORD_REGEXP`) либо регекс расширения; языковых word-definition (`wordPattern`) нет, регекс, матчащий пустую строку, — исключение. Рабочие и `offsetAt`/`positionAt`/`validateRange`/`validatePosition` (на их отсутствии молча ломался формат стокового prettier) |
 | `TextEditorOptions` | 3/5 | `cursorStyle`, `lineNumbers` |
 | `TerminalOptions` | 12/13 | `iconPath` |
 | `TreeViewOptions` | 4/5 | `dragAndDropController` (drag-and-drop в TUI нет) |
@@ -363,7 +363,7 @@ Namespace есть, потому что `golang.go` заводит контро�
 | `WorkspaceEdit` | 11/11 | — |
 | `WorkspaceEditEntryMetadata` | 3/4 | `iconPath` |
 | `FileStat` | 4/5 | `permissions` |
-| `FileSystemProvider` | 4/10 | `readDirectory`, `createDirectory`, `writeFile`, `delete`, `rename`, `copy` |
+| `FileSystemProvider` | 5/10 | `readDirectory`, `createDirectory`, `delete`, `rename`, `copy` |
 | `DocumentFilter` | 3/4 | `notebookType` |
 | `CompletionItem` | 9/16 | `tags`, `sortText`, `filterText`, `preselect`, `commitCharacters`, `keepWhitespace`, `textEdit`. `additionalTextEdits` — и в самом списке (gopls), и догруженные resolve'ом (tsserver) |
 | `DocumentRangeFormattingEditProvider` | 1/2 | `provideDocumentRangesFormattingEdits` |

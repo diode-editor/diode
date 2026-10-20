@@ -1,15 +1,26 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { Uri } from "../../../base/common/uri.ts";
+import {
+    FileOperation,
+    FileOperationResult,
+    FileSystemProviderCapabilities,
+    FileType,
+} from "../../../platform/files/common/files.ts";
 import { FileService } from "../../../platform/files/common/fileService.ts";
 import type { IExtensionFileSystemBridge } from "../common/iExtensionFileSystem.ts";
 import { NULL_EXTENSION_FILE_SYSTEM_BRIDGE } from "../common/iExtensionFileSystem.ts";
 
 import { FileSystemProviderAdapter } from "./fileSystemProviderAdapter.ts";
 
-/** Управляемый мост: схемы и события изменений задаются тестом. */
-function fakeBridge(initial: string[] = []) {
+/**
+ * Управляемый мост: схемы, их записываемость и события изменений задаются
+ * тестом; записи ложатся в память (`stat` видит только записанное).
+ */
+function fakeBridge(initial: string[] = [], initialWritable: string[] = []) {
     let schemes = [...initial];
+    let writable = new Set(initialWritable);
+    const written = new Map<string, Uint8Array>();
     const schemeListeners: (() => void)[] = [];
     const fileListeners: ((uris: readonly Uri[]) => void)[] = [];
     const bridge: IExtensionFileSystemBridge = {
@@ -18,7 +29,19 @@ function fakeBridge(initial: string[] = []) {
             schemeListeners.push(cb);
             return { dispose: () => schemeListeners.splice(schemeListeners.indexOf(cb), 1) };
         },
-        readProvidedFile: (uri) => Promise.resolve(new TextEncoder().encode(`содержимое ${uri.toString()}`)),
+        isReadonlyFileSystem: (scheme) => !writable.has(scheme),
+        readProvidedFile: (uri) =>
+            Promise.resolve(written.get(uri.toString()) ?? new TextEncoder().encode(`содержимое ${uri.toString()}`)),
+        statProvidedFile: (uri) => {
+            const content = written.get(uri.toString());
+            return Promise.resolve(
+                content === undefined ? null : { type: FileType.File, mtime: content.length, size: content.length },
+            );
+        },
+        writeProvidedFile: (uri, content) => {
+            written.set(uri.toString(), content);
+            return Promise.resolve();
+        },
         onDidChangeProvidedFile: (cb) => {
             fileListeners.push(cb);
             return { dispose: () => fileListeners.splice(fileListeners.indexOf(cb), 1) };
@@ -26,8 +49,10 @@ function fakeBridge(initial: string[] = []) {
     };
     return {
         bridge,
-        setSchemes: (next: string[]) => {
+        written,
+        setSchemes: (next: string[], nextWritable: string[] = []) => {
             schemes = next;
+            writable = new Set(nextWritable);
             for (const cb of [...schemeListeners]) cb();
         },
         fireChange: (uris: readonly Uri[]) => {
@@ -80,11 +105,13 @@ describe("FileSystemProviderAdapter", () => {
         const registry = new FileService();
         const harness = fakeBridge(["git"]);
         new FileSystemProviderAdapter(harness.bridge, registry);
+        const register = vi.spyOn(registry, "registerProvider");
 
         expect(() => {
             harness.setSchemes(["git"]);
         }).not.toThrow();
         expect(registry.hasProvider(Uri.from({ scheme: "git", path: "/" }))).toBe(true);
+        expect(register).not.toHaveBeenCalled();
     });
 
     it("событие изменения фильтруется по схеме поставщика", () => {
@@ -123,6 +150,55 @@ describe("FileSystemProviderAdapter", () => {
         expect(harness.fileListenerCount).toBe(0);
     });
 
+    it("пишущая схема: запись уходит провайдеру, сервис видит Create, затем Write", async () => {
+        const registry = new FileService();
+        const harness = fakeBridge(["_claude_fs_right"], ["_claude_fs_right"]);
+        new FileSystemProviderAdapter(harness.bridge, registry);
+        const right = Uri.from({ scheme: "_claude_fs_right", path: "/repo/a.ts" });
+        const operations = vi.fn();
+        registry.onDidRunOperation(operations);
+
+        expect(registry.hasCapability(right, FileSystemProviderCapabilities.Readonly)).toBe(false);
+        // Ресурса ещё нет: stat провайдера — null, сервис создаёт.
+        await registry.writeFile(right, new TextEncoder().encode("первое"));
+        const stat = await registry.writeFile(right, new TextEncoder().encode("второе"));
+
+        await expect(registry.stat(right.with({ path: "/repo/missing.ts" }))).rejects.toThrow(
+            "'_claude_fs_right:/repo/missing.ts' does not exist",
+        );
+        expect(new TextDecoder().decode(harness.written.get(right.toString()))).toBe("второе");
+        expect(stat.size).toBe(new TextEncoder().encode("второе").length);
+        expect(operations.mock.calls.map(([e]) => (e as { operation: FileOperation }).operation)).toEqual([
+            FileOperation.Create,
+            FileOperation.Write,
+        ]);
+    });
+
+    it("read-only схема: запись — PermissionDenied, мост не зовётся", async () => {
+        const registry = new FileService();
+        const harness = fakeBridge(["git"]);
+        new FileSystemProviderAdapter(harness.bridge, registry);
+
+        expect(registry.hasCapability(gitUri, FileSystemProviderCapabilities.Readonly)).toBe(true);
+        await expect(registry.writeFile(gitUri, new Uint8Array())).rejects.toMatchObject({
+            result: FileOperationResult.PermissionDenied,
+        });
+        expect(harness.written.size).toBe(0);
+    });
+
+    it("схема, сменившая записываемость, перерегистрируется", () => {
+        const registry = new FileService();
+        const harness = fakeBridge(["demo"]);
+        new FileSystemProviderAdapter(harness.bridge, registry);
+        const uri = Uri.from({ scheme: "demo", path: "/x" });
+
+        harness.setSchemes(["demo"], ["demo"]);
+        expect(registry.hasCapability(uri, FileSystemProviderCapabilities.Readonly)).toBe(false);
+
+        harness.setSchemes(["demo"]);
+        expect(registry.hasCapability(uri, FileSystemProviderCapabilities.Readonly)).toBe(true);
+    });
+
     it("с NULL-мостом ничего не регистрирует", () => {
         const registry = new FileService();
         new FileSystemProviderAdapter(NULL_EXTENSION_FILE_SYSTEM_BRIDGE, registry);
@@ -143,5 +219,10 @@ describe("NULL_EXTENSION_FILE_SYSTEM_BRIDGE", () => {
             bridge.onDidChangeProvidedFile(() => undefined).dispose();
         }).not.toThrow();
         await expect(bridge.readProvidedFile(gitUri)).rejects.toThrow(/extension host is not running/);
+        await expect(bridge.statProvidedFile(gitUri)).rejects.toThrow(/extension host is not running/);
+        await expect(bridge.writeProvidedFile(gitUri, new Uint8Array())).rejects.toThrow(
+            /extension host is not running/,
+        );
+        expect(bridge.isReadonlyFileSystem("git")).toBe(true);
     });
 });

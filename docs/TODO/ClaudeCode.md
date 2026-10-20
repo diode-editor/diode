@@ -42,9 +42,11 @@ Open in Terminal`) открывает `claude` **вкладкой редакто
 4. ~~**Точка меню `editor/title`**~~ — сделано: панель действий справа от
    вкладок; accept/reject диффа — кнопки ✓/↺, `Open in Terminal` (SVG-иконка) —
    в «⋯».
-5. **Предложенный дифф** (пункт 3): запись в ФС провайдера расширения и
-   редактируемый документ на чужой схеме, `tabGroups` с `TabInputTextDiff` и
-   закрытием дифф-вкладки.
+5. [x] **Предложенный дифф** (20.10.2026, 2.1.304) — подробности в «3.
+   Предложенный дифф» ниже. `openDiff` открывает дифф-вкладку с ✓/↺; все
+   исходы доходят до CLI: сохранение (с правками человека) и ✓ — `FILE_SAVED`,
+   ↺ и закрытие вкладки — `DIFF_REJECTED`; `close_tab`/`closeAllDiffTabs`
+   закрывают без диалога. Глазами в настоящем `claude` — за человеком.
 6. [x] **Диагностики** (пункт 4): `languages.getDiagnostics`,
    `onDidChangeDiagnostics` — обратный путь из `MarkerService` в субпроцесс.
 7. [x] **Магазин и стоковый e2e** (20.10.2026): запись
@@ -195,17 +197,44 @@ pty расширения (устройство — docs/arch/Extensions.md, «Т
 вкладки (= reject), сохранение документа (= FILE_SAVED с текстом правой
 стороны, которую пользователь мог править).
 
-- [ ] `registerFileSystemProvider` с записью и **редактируемым** документом на
-      чужой схеме (сейчас только читающая часть; `onDidChangeTextDocument`,
-      `onWillSaveTextDocument` уже есть).
-- [ ] `tabGroups` с `TabInputTextDiff` и отслеживанием закрытия дифф-вкладки
-      (сейчас снимки без гарантии идентичности); расширение опрашивает
-      `tabGroups.all`.
+Сверено с бандлом 2.1.304 (20.10.2026): в терминальном режиме (MCP-инструмент
+`openDiff`) схемы — `_claude_fs_left`/`_claude_fs_right` (`_claude_vscode_fs_*`
+— путь webview-чата), ключ — `claude-code.viewingProposedDiff`, команды —
+`claude-code.{accept,reject}ProposedDiff`. Левая сторона — файл с диска (у
+грязного буфера — копия с диска в `_claude_fs_left`), сохранение принимается
+только при `files.autoSave === "off"`, `close_tab` CLI сначала сохраняет
+правую сторону (`TextDocument.save()`), потом `tabGroups.close`.
+
+- [x] `registerFileSystemProvider` с записью и **редактируемым** документом на
+      чужой схеме: `writeFile`/`stat` через хост, `isReadonly`, ресурс пишущей
+      схемы — живая сторона диффа под своим uri (правка, сохранение с
+      will-save, перечитка по `onDidChangeFile`); `openTextDocument` по схеме
+      провайдера; настоящий `TextDocument.save()`. Устройство —
+      [docs/arch/Extensions.md](../arch/Extensions.md), «Провайдеры ФС
+      расширений».
+- [x] `tabGroups` с `TabInputTextDiff` и закрытием дифф-вкладки — уже было;
+      идентичность `Tab` расширению не нужна (сравнивает `input.modified` по
+      строке, закрывает устаревшим `Tab` — адрес `(groupId, uri)` живой).
+      Не хватало другого: стороны диффа не были `visibleTextEditors`, и ключ
+      `claude-code.viewingProposedDiff` не зажигался — теперь стороны-модели
+      видимой дифф-вкладки видимы, как два редактора диффа эталона.
+- [x] Настройка `files.autoSave` (дословно эталон, действует только `off`) —
+      без неё расширение не считало сохранение принятием.
 - [x] Вклад `editor/title` из `contributes.menus` с `when`
       `claude-vscode.viewingProposedDiff` — кнопки accept/reject у вкладки
       (`setContext` есть) — см. «Раскладка».
 - [ ] Перехват команды `type`/`default:type` расширение делает в try/catch —
       допустимо не поддерживать.
+- [ ] `comments.createCommentController` (треды на ханках) — у нас инертный
+      (#627), диффу не мешает; тредов в диффе нет.
+
+Проверка: e2e-сценарий `proposed-diff` (фикстурное расширение
+`proposed-diff-demo` повторяет `openDiff` 2.1.304: провайдер, гонка исходов,
+ключ по видимости) и вживую на стоковом vsix пробным WebSocket-клиентом к
+ide-серверу (как в «Живой проверке контекста»): `openDiff` → правка правой
+стороны + Ctrl+S → `FILE_SAVED` с правленым текстом; ✓ → `FILE_SAVED`; ↺ и
+Ctrl+W → `DIFF_REJECTED`; `close_tab`/`closeAllDiffTabs` → вкладка закрыта
+без диалога, ключ гаснет.
 
 ### 4. Диагностики
 

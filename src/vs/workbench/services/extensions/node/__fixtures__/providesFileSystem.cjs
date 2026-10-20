@@ -8,6 +8,10 @@
  * Содержимое выводится из пути ресурса, чтобы тест мог проверить, что до
  * провайдера доехал именно запрошенный URI. `fire()` через команду позволяет
  * тесту дёрнуть onDidChangeFile из субпроцесса и увидеть его на хосте.
+ *
+ * Вторая схема, `memo:`, — ПИШУЩИЙ провайдер в памяти (форма провайдера правой
+ * стороны предложенного диффа Claude Code): хост пишет в него сохранением,
+ * `memo.read` отдаёт тесту записанное.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -34,6 +38,34 @@ exports.activate = function activate(context) {
             },
             { isReadonly: true },
         ),
+    );
+
+    const memo = new Map();
+    context.subscriptions.push(
+        vscode.workspace.registerFileSystemProvider("memo", {
+            onDidChangeFile: new vscode.EventEmitter().event,
+            watch: function () {
+                return new vscode.Disposable(function () {});
+            },
+            stat: function (uri) {
+                const entry = memo.get(uri.path);
+                if (entry === undefined) throw vscode.FileSystemError.FileNotFound(uri);
+                return { type: vscode.FileType.File, ctime: 0, mtime: entry.mtime, size: entry.data.length };
+            },
+            readFile: function (uri) {
+                const entry = memo.get(uri.path);
+                if (entry === undefined) throw vscode.FileSystemError.FileNotFound(uri);
+                return entry.data;
+            },
+            writeFile: function (uri, data, options) {
+                if (!options.create || !options.overwrite) throw vscode.FileSystemError.NoPermissions(uri);
+                memo.set(uri.path, { data: data, mtime: memo.size + 1 });
+            },
+        }),
+        vscode.commands.registerCommand("memo.read", function (path) {
+            const entry = memo.get(path);
+            return entry === undefined ? null : new TextDecoder().decode(entry.data);
+        }),
     );
 
     context.subscriptions.push(

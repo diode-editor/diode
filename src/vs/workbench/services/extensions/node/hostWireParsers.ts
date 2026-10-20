@@ -12,6 +12,7 @@ import type {
     ISemanticTokensEdits,
 } from "../../../../editor/common/languages/iSemanticTokensSource.ts";
 import { createFoldingRegion, type IFoldingRegion } from "../../../../editor/contrib/folding/iFoldingRegion.ts";
+import type { IStat } from "../../../../platform/files/common/files.ts";
 import type {
     IEnvironmentVariableCollectionDescription,
     IEnvironmentVariableMutator,
@@ -655,6 +656,17 @@ export function parseWireFileDecorations(raw: unknown): IWireFileDecoration[] {
 // ─── workspace.fs и провайдеры содержимого ──────────────────────────────────
 
 /** Разбирает ответ `workspace.fs.readFile` в байты. Бросает на структурно чужом ответе. */
+/** Разбирает ответ `workspace.fs.stat`; `null` — ресурса нет. Бросает на чужой форме. */
+export function parseWireFileStat(raw: unknown): IStat | null {
+    if (raw === null) return null;
+    if (typeof raw !== "object") throw new Error("workspace.fs.stat: result must be an object");
+    const { type, mtime, size } = raw as { type?: unknown; mtime?: unknown; size?: unknown };
+    if (!isFiniteNumber(type) || !isFiniteNumber(mtime) || !isFiniteNumber(size)) {
+        throw new Error("workspace.fs.stat: type, mtime and size must be numbers");
+    }
+    return { type, mtime, size };
+}
+
 export function parseWireReadFileResult(raw: unknown): Uint8Array {
     if (typeof raw !== "object" || raw === null) throw new Error("workspace.fs.readFile: result must be an object");
     const content = (raw as { content?: unknown }).content;
@@ -684,6 +696,18 @@ export function parseWireSchemes(raw: unknown): string[] {
     const schemes = (raw as { schemes?: unknown } | null)?.schemes;
     if (!Array.isArray(schemes)) return [];
     return schemes.filter((s): s is string => typeof s === "string");
+}
+
+/**
+ * Разбирает `workspace.fileSystemProvidersChanged`: схемы и те из них, что только
+ * для чтения. Без поля `readonly` (старый субпроцесс) — все только для чтения:
+ * запись в провайдера, который о ней не просил, хуже отказа.
+ */
+export function parseWireFileSystemSchemes(raw: unknown): { schemes: string[]; readonly: string[] } {
+    const schemes = parseWireSchemes(raw);
+    const field = (raw as { readonly?: unknown } | null)?.readonly;
+    if (!Array.isArray(field)) return { schemes, readonly: schemes };
+    return { schemes, readonly: schemes.filter((scheme) => field.includes(scheme)) };
 }
 
 // ─── Коллекции окружения расширений ─────────────────────────────────────────

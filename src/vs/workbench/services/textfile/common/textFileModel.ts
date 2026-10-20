@@ -64,7 +64,8 @@ export const ORPHAN_CHECK_DELAY_MS = 100;
  * поверх буфера ({@link BaseTextEditorModel}: документ, язык, EOL, история) — ось
  * кодировки, dirty-статус против диска, запись на диск (save/saveAs + save-участник)
  * и слежение за файлом (авто-перечитка чистого буфера / флаг конфликта у
- * «грязного»). Файл с диска либо безымянный буфер; синтетика (Output, виртуальные
+ * «грязного»). Файл с диска, ресурс пишущего провайдера ФС расширения
+ * ({@link openProvided}) либо безымянный буфер; синтетика (Output, виртуальные
  * документы, снимки) — `SyntheticTextModel`. Не singleton-сервис: экземпляр на
  * файл, создаёт владелец (`EditorService`).
  */
@@ -94,6 +95,8 @@ export class TextFileModel extends BaseTextEditorModel {
     private orphanCheck: ReturnType<typeof setTimeout> | null = null;
     /** Номер последней перечитки с диска: асинхронный reopen сверяет его, прежде чем писать в документ. */
     private loadGeneration = 0;
+    /** Подписка на изменения ресурса провайдера ({@link openProvided}). */
+    private providedWatch: IDisposable | null = null;
 
     /** Кодировка, в которой документ читается с диска и пишется на диск. */
     public get encoding(): string {
@@ -225,6 +228,7 @@ export class TextFileModel extends BaseTextEditorModel {
                 // Stryker disable next-line UpdateOperator: см. readDiskBytes
                 this.loadGeneration++;
                 this.fileWatch?.dispose();
+                this.providedWatch?.dispose();
                 this.cancelOrphanCheck();
             },
         });
@@ -263,6 +267,62 @@ export class TextFileModel extends BaseTextEditorModel {
         this.loadDocumentFromDisk(filePath);
         this.adoptWorkspaceUndo(filePath, path.basename(filePath));
         this.startWatchingFile(filePath);
+    }
+
+    /**
+     * Ресурс провайдера ФС расширения (`_claude_fs_right:` у Claude Code) —
+     * как файл в эталоне (`TextFileEditorModel` поверх `IFileService` любой
+     * схемы): правится, сохраняется записью провайдера через файловый сервис
+     * (с save-участниками), чистый буфер перечитывается по `onDidChangeFile`.
+     * Байты читает вызывающий (чтение провайдера асинхронное, а модель
+     * рождается в реестре синхронно); кодировка — сниф BOM, иначе utf-8.
+     */
+    public openProvided(uri: Uri, bytes: Uint8Array): void {
+        if (uri.scheme === "file" || uri.scheme === "untitled") {
+            throw new Error(`TextFileModel.openProvided: ожидается ресурс провайдера, получен ${uri.scheme}:`);
+        }
+        this.uriValue = uri;
+        this.applyProvided(bytes);
+        this.providedWatch = this.files.onDidFilesChange((uris) => {
+            if (uris.some((changed) => changed.toString() === uri.toString())) void this.reloadProvided();
+        });
+    }
+
+    /** Ресурс провайдера ФС ({@link openProvided}): не диск и не безымянный буфер. */
+    private get isProvided(): boolean {
+        return this.providedWatch !== null;
+    }
+
+    private applyProvided(bytes: Uint8Array): void {
+        const { text, encoding } = decodeBufferByBOM(Buffer.from(bytes));
+        this.applyEncoding(encoding);
+        this.replaceText(text);
+        this.doc.setLanguage(this.resolveLanguageId(this.uriValue.path));
+    }
+
+    /**
+     * Провайдер сообщил об изменении ресурса. Своя же запись (сохранение)
+     * тоже приходит событием — её отличаем по тексту: тот же текст не
+     * перечитываем, иначе сохранение стирало бы историю отмены. «Грязный»
+     * буфер не трогаем — взводим конфликт, как у файла.
+     */
+    private async reloadProvided(): Promise<void> {
+        // Stryker disable next-line UpdateOperator: см. readDiskBytes
+        const generation = ++this.loadGeneration;
+        let bytes: Uint8Array;
+        try {
+            bytes = (await this.files.readFile(this.uriValue)).value;
+        } catch {
+            return;
+        }
+        if (generation !== this.loadGeneration) return;
+        if (decodeBufferByBOM(Buffer.from(bytes)).text === this.doc.serialize()) return;
+        if (this.isModified) {
+            this.setDiskConflict(true);
+            return;
+        }
+        this.applyProvided(bytes);
+        this.fireDiskStateChange();
     }
 
     /**
@@ -321,11 +381,14 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     public async save(options?: { overwrite?: boolean }): Promise<SaveOutcome> {
-        if (this.filePath === null) return "no-file";
+        const filePath = this.filePath;
+        if (filePath === null && !this.isProvided) return "no-file";
         // Защита от затирания параллельных правок: если файл на диске изменился
         // внешним процессом с момента открытия/последней записи — не пишем, а
         // сообщаем о конфликте. Повторный вызов с overwrite: true форсит запись.
-        if (options?.overwrite !== true && this.hasExternalChange(this.filePath)) {
+        // У ресурса провайдера снимка нет: его конфликт взводит перечитка.
+        // Stryker disable next-line ConditionalExpression: эквивалентный — без файла `diskStat` пуст, и stat «нет файла» от него не отличается
+        if (options?.overwrite !== true && filePath !== null && this.hasExternalChange(filePath)) {
             this.setDiskConflict(true);
             return "conflict";
         }
@@ -345,7 +408,7 @@ export class TextFileModel extends BaseTextEditorModel {
             this.setDiskConflict(true);
             return "conflict";
         }
-        this.diskStat = { mtimeMs: written.mtime, size: written.size };
+        if (filePath !== null) this.diskStat = { mtimeMs: written.mtime, size: written.size };
         this.markSaved();
         this.setDiskConflict(false);
         // Сохранение пересоздало удалённый файл.
@@ -423,8 +486,11 @@ export class TextFileModel extends BaseTextEditorModel {
      * marker.
      */
     public async saveAs(newPath: string): Promise<void> {
-        // Смена идентичности на месте: у безымянного буфера это переход untitled: → file:.
+        // Смена идентичности на месте: у безымянного буфера это переход untitled: → file:,
+        // у ресурса провайдера — уход на диск (слежение за провайдером снимается).
         this.uriValue = Uri.file(path.resolve(newPath));
+        this.providedWatch?.dispose();
+        this.providedWatch = null;
         const participation = this.saveParticipant?.participate(this) ?? null;
         if (participation !== null) await participation;
         const bytes = await encodeChunks(this.doc.createSnapshot(), this.encodingValue);

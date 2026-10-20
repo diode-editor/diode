@@ -55,6 +55,8 @@ import type {
     IWireExtensionCatalog,
     IWireExtensionId,
     IWireFileDecorationsChanged,
+    IWireFileStat,
+    IWireFileSystemSchemes,
     IWireFoldingParams,
     IWireFormattingParams,
     IWireHandleUri,
@@ -133,6 +135,7 @@ import type {
     IWireWatcherEvents,
     IWireWillSaveParams,
     IWireWorkspaceInitialize,
+    IWireWriteFileParams,
     WireCodeAction,
     WireFoldingRange,
     WireRenamePrepare,
@@ -191,6 +194,9 @@ export interface IHostToSubprocess {
         readonly "languages.provideSelectionRanges": readonly [IWireSelectionRangeParams, IRange[][]];
 
         readonly "workspace.fs.readFile": readonly [IWireUriParams, IWireReadFileResult];
+        readonly "workspace.fs.stat": readonly [IWireUriParams, IWireFileStat | null];
+        /** Запись в ресурс провайдера (сохранение документа на его схеме, `$writeFile` эталона). */
+        readonly "workspace.fs.writeFile": readonly [IWireWriteFileParams, null];
         readonly "workspace.provideTextDocumentContent": readonly [IWireUriParams, IWireTextContentResult];
         readonly "workspace.willSaveTextDocument": readonly [IWireWillSaveParams, WireTextEdit[]];
 
@@ -316,7 +322,7 @@ export interface ISubprocessToHost {
         readonly "languages.setLanguageConfiguration": IWireLanguageConfiguration;
         readonly "languages.unsetLanguageConfiguration": IWireProviderHandle;
 
-        readonly "workspace.fileSystemProvidersChanged": IWireSchemes;
+        readonly "workspace.fileSystemProvidersChanged": IWireFileSystemSchemes;
         readonly "workspace.fs.didChangeFile": IWireChangedFiles;
         readonly "workspace.textDocumentContentProvidersChanged": IWireSchemes;
         readonly "workspace.textDocumentContentChanged": IWireUriParams;

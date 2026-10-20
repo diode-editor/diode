@@ -110,6 +110,20 @@ export class TextFileModelService extends Disposable {
         return this.registry.acquire(uri);
     }
 
+    /**
+     * {@link acquire} ресурса пишущего провайдера ФС расширения: та же общая
+     * модель, но первое открытие сначала читает ресурс файловым сервисом
+     * (чтение провайдера асинхронное). Отказ чтения — отказ промиса.
+     */
+    public async acquireProvided(uri: Uri): Promise<ITextFileModelReference> {
+        if (this.registry.get(uri) === null) {
+            const { value } = await this.files.readFile(uri);
+            // Пока читали, модель мог открыть другой — тогда берём её, а не читанное.
+            return this.registry.acquire(uri, () => this.createProvidedModel(uri, value));
+        }
+        return this.registry.acquire(uri);
+    }
+
     /** Открытая модель ресурса, если есть; без создания и без изменения ref-count. */
     public get(uri: Uri): TextFileModel | null {
         return this.registry.get(uri);
@@ -136,6 +150,14 @@ export class TextFileModelService extends Disposable {
         const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
         this.wireModel(model);
         model.openFile(uri);
+        return model;
+    }
+
+    /** Фабрика ресурса провайдера: байты уже прочитаны ({@link acquireProvided}). */
+    private createProvidedModel(uri: Uri, bytes: Uint8Array): TextFileModel {
+        const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
+        this.wireModel(model);
+        model.openProvided(uri, bytes);
         return model;
     }
 

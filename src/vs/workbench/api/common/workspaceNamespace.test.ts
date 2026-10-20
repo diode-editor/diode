@@ -10,7 +10,16 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { DocumentRegistry, DocumentSyncTracker } from "./extHostDocuments.ts";
 import { type IStubRpc, makeStubRpc } from "./testStubRpc.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
-import { ConfigurationTarget, EndOfLine, Position, Range, TextEdit, Uri } from "./vscodeTypes.ts";
+import {
+    ConfigurationTarget,
+    EndOfLine,
+    FileSystemError,
+    MarkdownString,
+    Position,
+    Range,
+    TextEdit,
+    Uri,
+} from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
@@ -772,8 +781,28 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
 
         expect(stub.notifies).toContainEqual({
             method: "workspace.fileSystemProvidersChanged",
-            params: { schemes: ["git"] },
+            params: { schemes: ["git"], readonly: ["git"] },
         });
+    });
+
+    it("read-only — по isReadonly (и с причиной-MarkdownString) и у провайдера без writeFile", () => {
+        const { stub, workspace } = makeCtx();
+        const writable = { ...provider("x"), writeFile: () => undefined };
+
+        workspace.registerFileSystemProvider("rw", writable as never);
+        workspace.registerFileSystemProvider("flag", writable as never, { isReadonly: true });
+        workspace.registerFileSystemProvider("reason", writable as never, {
+            isReadonly: new MarkdownString("ревизия"),
+        });
+        workspace.registerFileSystemProvider("nowrite", provider("x") as never);
+
+        expect(stub.notifies.at(-1)).toEqual({
+            method: "workspace.fileSystemProvidersChanged",
+            params: { schemes: ["rw", "flag", "reason", "nowrite"], readonly: ["flag", "reason", "nowrite"] },
+        });
+        expect(workspace.fs.isWritableFileSystem("rw")).toBe(true);
+        expect(workspace.fs.isWritableFileSystem("flag")).toBe(false);
+        expect(workspace.fs.isWritableFileSystem("unknown")).toBeUndefined();
     });
 
     it("dispose регистрации снимает схему у хоста", () => {
@@ -783,7 +812,7 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
 
         expect(stub.notifies.at(-1)).toEqual({
             method: "workspace.fileSystemProvidersChanged",
-            params: { schemes: [] },
+            params: { schemes: [], readonly: [] },
         });
     });
 
@@ -796,10 +825,98 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
         expect(Buffer.from((result as { content: string }).content, "base64").toString("utf8")).toBe("оригинал");
     });
 
-    it("readFile без строкового uri — ошибка, а не чтение мусора", async () => {
+    it("запрос хоста writeFile пишет провайдеру целиком: создать или перезаписать", async () => {
+        const { stub, workspace } = makeCtx();
+        const writeFile = vi.fn();
+        workspace.registerFileSystemProvider("rw", { ...provider("x"), writeFile } as never);
+
+        await expect(
+            stub.callRequest("workspace.fs.writeFile", {
+                uri: "rw:/repo/a.ts",
+                content: Buffer.from("правка").toString("base64"),
+            }),
+        ).resolves.toBeNull();
+
+        expect(writeFile).toHaveBeenCalledTimes(1);
+        const [uri, content, options] = writeFile.mock.calls[0] as [Uri, Uint8Array, unknown];
+        expect(uri.toString()).toBe("rw:/repo/a.ts");
+        expect(Buffer.from(content).toString("utf8")).toBe("правка");
+        expect(options).toEqual({ create: true, overwrite: true });
+    });
+
+    it("writeFile в read-only схему — NoPermissions, провайдер не зовётся", async () => {
+        const { stub, workspace } = makeCtx();
+        const writeFile = vi.fn();
+        workspace.registerFileSystemProvider("ro", { ...provider("x"), writeFile } as never, { isReadonly: true });
+
+        await expect(stub.callRequest("workspace.fs.writeFile", { uri: "ro:/a", content: "" })).rejects.toMatchObject({
+            code: "NoPermissions",
+        });
+        await expect(stub.callRequest("workspace.fs.writeFile", { uri: "ro:/a" })).rejects.toThrow(
+            /content must be a string/,
+        );
+        expect(writeFile).not.toHaveBeenCalled();
+    });
+
+    it("запрос хоста stat: метаданные провайдера; FileNotFound — null, прочие ошибки — отказ", async () => {
+        const { stub, workspace } = makeCtx();
+        let failure: Error | null = null;
+        workspace.registerFileSystemProvider("rw", {
+            ...provider("x"),
+            stat: () => {
+                if (failure !== null) throw failure;
+                return { type: 1, ctime: 2, mtime: 3, size: 4, permissions: 1 };
+            },
+        } as never);
+
+        await expect(stub.callRequest("workspace.fs.stat", { uri: "rw:/a" })).resolves.toEqual({
+            type: 1,
+            ctime: 2,
+            mtime: 3,
+            size: 4,
+        });
+        failure = FileSystemError.FileNotFound();
+        await expect(stub.callRequest("workspace.fs.stat", { uri: "rw:/a" })).resolves.toBeNull();
+        failure = FileSystemError.Unavailable();
+        await expect(stub.callRequest("workspace.fs.stat", { uri: "rw:/a" })).rejects.toMatchObject({
+            code: "Unavailable",
+        });
+    });
+
+    it("openTextDocument на схеме провайдера читает провайдером", async () => {
+        const { workspace } = makeCtx();
+        workspace.registerFileSystemProvider("rw", provider("предложено\n") as never);
+
+        const doc = await workspace.openTextDocument(Uri.parse("rw:/repo/a.ts"));
+
+        expect(doc.uri.toString()).toBe("rw:/repo/a.ts");
+        expect(doc.getText()).toBe("предложено\n");
+    });
+
+    it("workspace.fs маршрутизирует stat и writeFile схемы провайдеру", async () => {
+        const { workspace } = makeCtx();
+        const writeFile = vi.fn();
+        workspace.registerFileSystemProvider("rw", { ...provider("x"), writeFile } as never);
+        workspace.registerFileSystemProvider("ro", provider("x") as never);
+
+        await expect(workspace.fs.stat(Uri.parse("rw:/a"))).resolves.toMatchObject({ type: 1 });
+        await workspace.fs.writeFile(Uri.parse("rw:/a"), new Uint8Array([1]));
+        expect(writeFile).toHaveBeenCalledWith(expect.anything(), new Uint8Array([1]), {
+            create: true,
+            overwrite: true,
+        });
+        await expect(workspace.fs.writeFile(Uri.parse("ro:/a"), new Uint8Array())).rejects.toMatchObject({
+            code: "NoPermissions",
+        });
+        await expect(workspace.fs.stat(Uri.parse("none:/a"))).rejects.toMatchObject({ code: "Unavailable" });
+    });
+
+    it("запрос к провайдеру без строкового uri — ошибка с именем запроса, а не чтение мусора", async () => {
         const { stub } = makeCtx();
 
-        await expect(stub.callRequest("workspace.fs.readFile", { uri: 42 })).rejects.toThrow(/uri must be a string/);
+        for (const method of ["workspace.fs.readFile", "workspace.fs.stat", "workspace.fs.writeFile"]) {
+            await expect(stub.callRequest(method, { uri: 42 })).rejects.toThrow(`${method}: uri must be a string`);
+        }
     });
 
     it("readFile по незарегистрированной схеме — ошибка", async () => {

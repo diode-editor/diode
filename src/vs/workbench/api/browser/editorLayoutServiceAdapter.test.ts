@@ -401,6 +401,53 @@ describe("EditorLayoutServiceAdapter", () => {
         expect(tabs[1].modified).toBe(Uri.file(ws.path("a.ts")).toString());
         expect(tabs[2].original).toBeUndefined();
         expect(tabs[2].modified).toBeUndefined();
+        // Снимки своего документа под uri стороны не имеют — редакторов нет.
+        expect(tabs[1].sideEditors).toEqual([]);
+    });
+
+    it("снимок: sideEditors — uri документов сторон-моделей, снимочная сторона не входит", () => {
+        const shared = service.textFileModels.acquire(Uri.file(ws.path("a.ts")));
+        const owned = service.textFileModels.createUntitledModel();
+        service.openPane(
+            new DiffEditorPane2(
+                NULL_LANGUAGE_SERVICE,
+                new UndoRedoService(),
+                diskFileService(),
+                new TokenizationRegistry(),
+                NULL_TOKEN_STYLE_RESOLVER,
+                {
+                    uri: Uri.parse("diode-diff:/a.ts?pair"),
+                    label: "пара",
+                    originalLabel: "a.ts",
+                    modifiedLabel: "Untitled",
+                    original: { kind: "shared", ref: shared },
+                    modified: { kind: "owned", model: owned },
+                    languageId: "plaintext",
+                },
+            ),
+        );
+        service.openPane(
+            new DiffEditorPane2(
+                NULL_LANGUAGE_SERVICE,
+                new UndoRedoService(),
+                diskFileService(),
+                new TokenizationRegistry(),
+                NULL_TOKEN_STYLE_RESOLVER,
+                {
+                    uri: Uri.parse("diode-diff:/a.ts?half"),
+                    label: "половина",
+                    originalLabel: "HEAD",
+                    modifiedLabel: "a.ts",
+                    original: { kind: "snapshot", text: "alpha" },
+                    modified: { kind: "shared", ref: service.textFileModels.acquire(Uri.file(ws.path("a.ts"))) },
+                    languageId: "plaintext",
+                },
+            ),
+        );
+
+        const [pair, half] = adapter.getLayoutSnapshot().groups[0].tabs;
+        expect(pair.sideEditors).toEqual([Uri.file(ws.path("a.ts")).toString(), owned.uri.toString()]);
+        expect(half.sideEditors).toEqual([Uri.file(ws.path("a.ts")).toString()]);
     });
 
     it("showTextDocument: Beside при нехватке места — фолбэк в активную группу", async () => {

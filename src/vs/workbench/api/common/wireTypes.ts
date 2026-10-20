@@ -221,6 +221,13 @@ export interface IWireTabSnapshot {
     readonly original?: string;
     /** kind=diff: uri modified-стороны. */
     readonly modified?: string;
+    /**
+     * kind=diff: uri документов сторон-моделей (живой файл, ресурс пишущего
+     * провайдера, untitled) — у видимой дифф-вкладки это `visibleTextEditors`,
+     * как два редактора диффа у эталона. Сторона-снимок (git-ревизия, буфер
+     * обмена) документа под своим uri не имеет и сюда не входит.
+     */
+    readonly sideEditors?: readonly string[];
     readonly languageId?: string;
     readonly selections?: readonly IWireSelection[];
 }
@@ -263,6 +270,7 @@ export function parseWireEditorLayout(raw: unknown): IWireEditorLayout | null {
             if (typeof t.label !== "string") return null;
             if (typeof t.isActive !== "boolean" || typeof t.isDirty !== "boolean") return null;
             if (t.kind !== "text" && t.kind !== "diff" && t.kind !== "unknown") return null;
+            const sideEditors = parseWireStringArray(t.sideEditors);
             tabs.push({
                 uri: t.uri,
                 label: t.label,
@@ -271,6 +279,7 @@ export function parseWireEditorLayout(raw: unknown): IWireEditorLayout | null {
                 kind: t.kind,
                 ...(typeof t.original === "string" ? { original: t.original } : {}),
                 ...(typeof t.modified === "string" ? { modified: t.modified } : {}),
+                ...(sideEditors !== undefined ? { sideEditors } : {}),
                 ...(typeof t.languageId === "string" ? { languageId: t.languageId } : {}),
                 ...(Array.isArray(t.selections) ? { selections: parseWireSelections(t.selections) } : {}),
             });
@@ -1271,6 +1280,29 @@ export function parseRange(raw: unknown): IRange | null {
  */
 export interface IWireReadFileResult {
     content: string;
+}
+
+/** Запись хоста в ресурс провайдера ФС (`workspace.fs.writeFile`, host → subprocess); `content` — base64. */
+export interface IWireWriteFileParams {
+    readonly uri: string;
+    readonly content: string;
+}
+
+/** Метаданные ресурса провайдера ФС (`workspace.fs.stat`) — `vscode.FileStat` без `permissions`. */
+export interface IWireFileStat {
+    readonly type: number;
+    readonly ctime: number;
+    readonly mtime: number;
+    readonly size: number;
+}
+
+/**
+ * Схемы провайдеров ФС субпроцесса (`workspace.fileSystemProvidersChanged`);
+ * `readonly` — подмножество `schemes`, у которых запись запрещена (`isReadonly`
+ * или провайдер без `writeFile`).
+ */
+export interface IWireFileSystemSchemes extends IWireSchemes {
+    readonly readonly?: readonly string[];
 }
 
 // ── workspace.registerTextDocumentContentProvider: содержимое недисковых ─────

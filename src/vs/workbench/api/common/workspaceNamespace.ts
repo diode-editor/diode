@@ -28,6 +28,7 @@ import {
 } from "./vscodeTypes.ts";
 import {
     type IWireApplyWorkspaceEditParams,
+    type IWireFileStat,
     type IWireReadFileResult,
     type IWireTextContentResult,
     type IWireWorkspaceFolder,
@@ -202,6 +203,8 @@ export function createWorkspaceNamespace(
         new DisposableImpl(() => undefined),
 ): typeof vscode.workspace {
     const { rpc, registry, documentSync, configStore } = ctx;
+    // `TextDocument.save()` — тем же путём, что `workspace.save`.
+    registry.saver = async (uri) => (await rpc.request("workspace.save", { uri: uri.toString() })) !== null;
 
     let workspaceFolders: IWorkspaceFolder[] = [];
     /** Файл `.code-workspace` окна (`workspace.workspaceFile`); нет — папка открыта напрямую или окно пустое. */
@@ -214,20 +217,58 @@ export function createWorkspaceNamespace(
     const fsProviders = new SubprocessFileSystemProviders();
 
     fsProviders.onDidChangeSchemes(() => {
-        rpc.notify("workspace.fileSystemProvidersChanged", { schemes: fsProviders.schemes() });
+        rpc.notify("workspace.fileSystemProvidersChanged", {
+            schemes: fsProviders.schemes(),
+            readonly: fsProviders.readonly(),
+        });
     });
     fsProviders.onDidChangeFile((uris) => {
         rpc.notify("workspace.fs.didChangeFile", { uris: uris.map((u) => u.toString()) });
     });
 
-    rpc.handleRequest("workspace.fs.readFile", async (params): Promise<IWireReadFileResult> => {
-        const p: { uri?: unknown } = params;
-        if (typeof p.uri !== "string") throw new Error("workspace.fs.readFile: uri must be a string");
-        const uri = Uri.parse(p.uri);
+    /** Провайдер схемы ресурса из запроса хоста; кривой uri или чужая схема — отказ. */
+    function providedResource(method: string, raw: unknown): { uri: Uri; provider: vscode.FileSystemProvider } {
+        if (typeof raw !== "string") throw new Error(`${method}: uri must be a string`);
+        const uri = Uri.parse(raw);
         const provider = fsProviders.get(uri.scheme);
         if (provider === undefined) throw new Error(`no file system provider for scheme "${uri.scheme}"`);
+        return { uri, provider };
+    }
+
+    rpc.handleRequest("workspace.fs.readFile", async (params): Promise<IWireReadFileResult> => {
+        const p: { uri?: unknown } = params;
+        const { uri, provider } = providedResource("workspace.fs.readFile", p.uri);
         const content = await provider.readFile(uri);
         return { content: Buffer.from(content).toString("base64") };
+    });
+
+    // Ресурса нет — `null`, а не отказ: по проводу едет только текст ошибки, а
+    // ядру (запись нового файла) нужен именно код `FileNotFound`.
+    rpc.handleRequest("workspace.fs.stat", async (params): Promise<IWireFileStat | null> => {
+        const p: { uri?: unknown } = params;
+        const { uri, provider } = providedResource("workspace.fs.stat", p.uri);
+        try {
+            const { type, ctime, mtime, size } = await provider.stat(uri);
+            return { type, ctime, mtime, size };
+        } catch (error) {
+            if (error instanceof Error && (error as { code?: unknown }).code === "FileNotFound") return null;
+            throw error;
+        }
+    });
+
+    // Запись ядра в ресурс провайдера: сохранение документа на его схеме
+    // (`$writeFile` эталона). Флаги — как у записи редактором: создать или
+    // перезаписать целиком.
+    rpc.handleRequest("workspace.fs.writeFile", async (params): Promise<null> => {
+        const p: { uri?: unknown; content?: unknown } = params;
+        const { uri, provider } = providedResource("workspace.fs.writeFile", p.uri);
+        if (typeof p.content !== "string") throw new Error("workspace.fs.writeFile: content must be a string");
+        if (fsProviders.isWritable(uri.scheme) !== true) throw FileSystemError.NoPermissions(uri);
+        await provider.writeFile(uri, new Uint8Array(Buffer.from(p.content, "base64")), {
+            create: true,
+            overwrite: true,
+        });
+        return null;
     });
 
     // ── Провайдеры содержимого по схеме ─────────────────────────────────────
@@ -550,10 +591,21 @@ export function createWorkspaceNamespace(
             return makeEphemeralDocument(uri, content, "utf8");
         }
 
+        // Схема провайдера ФС этого же субпроцесса (`_claude_fs_right:` у
+        // Claude Code) — читаем провайдером в эфемерный документ, как файл ниже.
+        const fsProvider = fsProviders.get(uri.scheme);
+        if (fsProvider !== undefined) {
+            const { text, encoding } = await decodeBuffer(
+                Buffer.from(await fsProvider.readFile(uri)),
+                options?.encoding,
+            );
+            return makeEphemeralDocument(uri, text, encoding);
+        }
+
         // Промах реестра: читаем файл с диска в ЭФЕМЕРНЫЙ документ (в реестр не
-        // кладём — это не открытый буфер). Читать умеем только с диска, поэтому для
-        // не-file схемы честно отказываем, а не скармливаем `fsPath` в node:fs
-        // (у не-file схем это не путь).
+        // кладём — это не открытый буфер). Прочих схем с диска не читаем —
+        // честно отказываем, а не скармливаем `fsPath` в node:fs (у не-file
+        // схем это не путь).
         if (uri.scheme !== "file") throw FileSystemError.Unavailable(uri);
 
         // Читаем сырые байты и декодируем осью encoding ядра: explicit-кодировка
@@ -591,7 +643,7 @@ export function createWorkspaceNamespace(
 
     /** Документ вне реестра открытых буферов: EOL детектим из текста, как ядро. */
     function makeEphemeralDocument(uri: Uri, text: string, encoding: string): ExtHostTextDocument {
-        const doc = new ExtHostTextDocument(uri, ctx.registry.wordDefinitionFor);
+        const doc = new ExtHostTextDocument(uri, registry.wordDefinitionFor, registry.saveDocument);
         doc.applyFull({
             uri: uri.toString(),
             text,
@@ -625,8 +677,12 @@ export function createWorkspaceNamespace(
         // workspace.fs — локальный доступ к диску субпроцесса (без RPC).
         fs: createFileSystemNamespace(ctx.disk.fs, fsProviders),
 
-        registerFileSystemProvider: (scheme: string, provider: vscode.FileSystemProvider): vscode.Disposable => {
-            const registration = fsProviders.register(scheme, provider);
+        registerFileSystemProvider: (
+            scheme: string,
+            provider: vscode.FileSystemProvider,
+            options?: { readonly isCaseSensitive?: boolean; readonly isReadonly?: boolean | vscode.MarkdownString },
+        ): vscode.Disposable => {
+            const registration = fsProviders.register(scheme, provider, options);
             return new DisposableImpl(() => {
                 registration.dispose();
             });

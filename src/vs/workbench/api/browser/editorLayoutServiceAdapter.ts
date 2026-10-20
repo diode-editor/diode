@@ -201,6 +201,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
                 kind: "diff",
                 ...(pane.originalUri !== null ? { original: pane.originalUri.toString() } : {}),
                 ...(pane.modifiedUri !== null ? { modified: pane.modifiedUri.toString() } : {}),
+                sideEditors: diffSideEditors(pane),
             };
         }
         // Вкладка не текстового и не дифф-вида (Keyboard Shortcuts, страница
@@ -218,6 +219,16 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             ...(isActive ? { selections: pane.viewState.selections.map(toWireSelection) } : {}),
         };
     }
+}
+
+/** Uri документов сторон-моделей диффа (см. `IWireTabSnapshot.sideEditors`). */
+function diffSideEditors(pane: DiffEditorPane2): string[] {
+    const snapshots = pane.snapshotSides();
+    const [original, modified] = pane.sidePanes();
+    return [
+        ...(snapshots.includes("original") ? [] : [original.uri.toString()]),
+        ...(snapshots.includes("modified") ? [] : [modified.uri.toString()]),
+    ];
 }
 
 function toWireSelection(selection: {

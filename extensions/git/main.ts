@@ -245,6 +245,10 @@ class GitDecorations {
                             throw vscode.FileSystemError.FileNotFound(uri);
                         }
                     },
+                    // Ревизии неизменяемы; ядро и не позовёт — схема `isReadonly`.
+                    writeFile: (uri) => {
+                        throw vscode.FileSystemError.NoPermissions(uri);
+                    },
                 },
                 { isReadonly: true },
             ),

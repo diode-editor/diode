@@ -319,7 +319,42 @@ describe("WindowNamespace — layout-диффер (editor.layoutChanged)", () =>
         expect(window.visibleTextEditors.length).toBe(0);
     });
 
-    it("активная diff-вкладка не даёт видимого текстового редактора", () => {
+    it("активная diff-вкладка: стороны-модели (sideEditors) — видимые редакторы, событие на появление и уход", () => {
+        // Claude Code ставит `viewingProposedDiff` по onDidChangeVisibleTextEditors:
+        // видна ли сторона на его схеме.
+        const { stub, window, tabs } = makeCtx();
+        const right = "_claude_fs_right:/p/b.ts";
+        const seen: string[][] = [];
+        tabs.onDidChangeVisibleTextEditors((editors) => seen.push(editors.map((e) => e.document.uri.toString())));
+        const diffTab = (isActive: boolean) => ({
+            ...tab("diode-diff:/p/b.ts?pair", { isActive, label: "[Claude Code] b.ts" }),
+            kind: "diff",
+            original: A,
+            modified: right,
+            sideEditors: [A, right],
+        });
+        const layout = (diffActive: boolean) => ({
+            groups: [
+                {
+                    groupId: 1,
+                    viewColumn: 1,
+                    isActive: true,
+                    tabs: [tab(B, { isActive: !diffActive }), diffTab(diffActive)],
+                },
+            ],
+        });
+
+        stub.fire("editor.layoutChanged", layout(true));
+        expect(window.visibleTextEditors.map((e) => [e.document.uri.toString(), e.viewColumn])).toEqual([
+            [A, 1],
+            [right, 1],
+        ]);
+        stub.fire("editor.layoutChanged", layout(false));
+
+        expect(seen).toEqual([[A, right], [B]]);
+    });
+
+    it("активная diff-вкладка без сторон-моделей (снимки) не даёт видимого текстового редактора", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.layoutChanged", {
             groups: [
