@@ -10,8 +10,8 @@ import { frameToText } from "./helpers/frame.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Функциональные e2e commit input box (спека docs/TODO/SourceControl.md,
-// US-13…US-20): поле над секциями, фокус-переходы, персист черновика; commit-
+// Функциональные e2e commit input box (устройство — docs/arch/workbench/SourceControl.md,
+// бывшие US-13…US-20): поле над секциями, фокус-переходы, персист черновика; commit-
 // сценарии добавляются вместе с фазой 6 (git.commit).
 
 const SWITCH_KEYS = [

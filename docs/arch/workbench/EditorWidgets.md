@@ -65,6 +65,37 @@
   микротаске), делегаторы select*/accept/hide для команд, `onFocusChanged`
   (зовёт `WorkbenchContextKeys.handleFocusChange` при смене фокуса —
   клавиатурный уход с редактора закрывает попап).
+- **Панель описания приезжает асинхронно** (`resolve`), уже после показа списка, а overlay-сессия
+  запоминает геометрию на `openAt`: в дереве панель есть, в кадре — нет. Поэтому после смены
+  содержимого сессия пере-анкорится (`SuggestComponent.refreshDetailsLayout`; `markDirty` на виджете
+  не помогает), тот же путь — при сворачивании панели.
+
+### Авто-открытие при наборе (quick suggest)
+
+Приведено к эталону (`SuggestModel._doTriggerQuickSuggest`, `LineContext.shouldAutoTrigger`,
+`_waitForInlineCompletionsAndTrigger`); код — `quickSuggestions.ts` + `CompletionService.doQuickSuggest`.
+
+- **Слово, а не символ**: попап открывается, только если каретка в конце слова (или сразу за его первым
+  символом) и слово не число; слово — `DEFAULT_WORD_REGEXP` эталона (пробел, скобка, `.`, `-`, `42`
+  попап не открывают; кириллица — открывает). Языкового `wordPattern` нет.
+- **Где — `editor.quickSuggestions`**: дефолт эталона — код `offWhenInlineCompletions`, комментарии и
+  строки `off`. Вид токена — по TextMate-скоупам символа перед кареткой (`comment`/`string`,
+  `meta.embedded` — снова код). Для `[json]`/`[jsonc]` строки включены `configurationDefaults`
+  расширения `diode-settings`, иначе ключи settings.json не подсказывались бы.
+- **Ничего не подошло — попапа нет**; авто-попап закрывается, когда добор отфильтровал список в ноль
+  (неполный — перезапрашивается). Явный Ctrl+Space показывает полный список. **Отступление:** попап по
+  триггер-символу ведёт себя как явный — наш префикс после символа включает его (`d.`: `WORD_CHAR`
+  берёт точку ради ключей settings.json), и без провайдерского `range` не подошло бы ничего.
+- **Задержка** — `editor.quickSuggestionsDelay` (10 мс); по триггер-символу — следующим тиком.
+- **Уступает призраку**: в `offWhenInlineCompletions` при inline-провайдере и
+  `editor.inlineSuggest.enabled` сначала ждёт исхода запроса призрака — показан → попапа нет, пусто →
+  открывается, нет ответа 750 мс → открывается, а запрос призрака бросается. Плюс
+  `editor.inlineSuggest.suppressSuggestions`, `editor.suggestOnTriggerCharacters`.
+- **`editor.wordBasedSuggestions`** — пять режимов эталона; дефолт `offWithInlineSuggestions` = как
+  `matchingDocuments`, гасит слова только при inline-провайдере И включённом Copilot
+  (`github.copilot.enable`) — с Supermaven без Copilot слова остаются, как в vscode.
+- Не сделано: режим `inline` (попап просто не открывает), провайдерский `suppressSuggestions`,
+  `snippetsPreventQuickSuggestions`, retrigger при переходе к новому слову (`_onNewContext`).
 
 ## Подсказка параметров
 

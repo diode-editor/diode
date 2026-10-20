@@ -47,7 +47,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [SyntaxHighlighting](SyntaxHighlighting.md) — подсветка синтаксиса (TextMate и семантические токены LSP готовы; далее scope-селекторы, background токенизация)
 - [~] [Theming](Theming.md) — цветовые темы (встроенные, пикер, live-reload, темы от расширений / установка из магазина готовы; открыто — подсветка текущей строки, группировка пикера, `IWorkbenchColors`, `workbench.colorCustomizations`)
 - [~] [DiffViewer](DiffViewer.md) — смотрелка изменений: остались фаза 2 (интерактив: раскрытие свёртки жестом, Switch Side, F7) и фаза 6 (краевые случаи: большой файл, бинарник, whitespace). История движка и этапов — [Diff](Diff.md), дифф v2 на двух настоящих редакторах — [DiffEditable](DiffEditable.md) (сделан, в конце — follow-up'ы)
-- [~] [SourceControl](SourceControl.md) — полный Source Control сделан (фазы 0–14); открыты follow-up'ы: `diode.scm.publishBusy`, UI-e2e для sync/branch/stash
+- [~] [SourceControl](SourceControl.md) — Source Control и GRAPH сделаны ([arch](../arch/workbench/SourceControl.md)); открыты `diode.scm.publishBusy`, UI-e2e для sync/branch/stash и follow-up'ы графа (пикер ref'ов, дифф коммита, действия на бейджах)
 - [~] [Search](Search.md) — поиск по файлам: базовый срез готов; дальше — кросс-платформенный rg, replace, `search.exclude`, история запросов
 - [~] [MultiCursor](MultiCursor.md) — мульти-курсор готов; дальше — распределяющая вставка, колоночное выделение, связка `matchCase` с find-виджетом
 - [x] [Marketplace](Marketplace.md) — курируемый магазин расширений сделан (шаги 1–4: формат реестра, файловый + HTTP-источники, `--install-extension <id>` из публичного реестра, прогон магазина `e2e/marketplace/`); открытые вопросы — в документах Marketplace/ExtensionsView
@@ -82,7 +82,6 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [Problems](Problems.md) — маркер-сервис, squiggle и панель готовы; далее — счётчик в статус-баре, доп. поставщики (расширения/matchers)
 - [~] [TerminalPanelBugs](TerminalPanelBugs.md) — баги панели/терминала из e2e-прогона MVP закрыты; осталась необработанная ошибка спавна шелла на неподдерживаемой платформе
 - [~] [IntegratedTerminal](IntegratedTerminal.md) — встроенный терминал интегрирован; далее — кросс-платформенная упаковка + CI-матрица, UX (скролбэк/выделение/ссылки), сплиты/rename терминалов, minimumContrastRatio и прочая цветовая механика xterm.js, commandsToSkipShell
-- [x] [SourceControlGraph](SourceControlGraph.md) — панель GRAPH сделана; в документе остались follow-up'ы (пикер ref'ов, compare/diff коммита, действия на бейджах)
 
 ---
 

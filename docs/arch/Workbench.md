@@ -25,6 +25,7 @@ DI-модули и профили — `src/vs/diode/modules/` (см. [../DI.md](
 | [ExtensionsView.md](workbench/ExtensionsView.md) | магазин расширений в UI |
 | [KeybindingsEditor.md](workbench/KeybindingsEditor.md) | редактор Keyboard Shortcuts и user-слой биндингов |
 | [Tasks.md](workbench/Tasks.md) | задачи (`contrib/tasks`) |
+| [SourceControl.md](workbench/SourceControl.md) | Source Control: мосты к расширению git, группы ресурсов, граф коммитов |
 
 ## Модель Service ↔ Component
 
