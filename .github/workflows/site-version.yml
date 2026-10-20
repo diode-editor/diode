@@ -1,0 +1,70 @@
+name: Site version
+
+# Версия diode в футере лендинга diode-editor.github.io. Зовётся из release.yml
+# отдельной job `site` после публикации релиза: упадёт — job красная, но релиз и
+# остальные каналы уже не зависят от неё. Руками (workflow_dispatch) — перевыложить
+# версию без нового релиза, например после починки токена.
+#
+# Версия в index.html сайта статическая; её переписывает scripts/set-diode-version.mjs
+# репозитория сайта, коммит в main, GitHub Pages выкладывает сам.
+#
+# Секрет SITE_PAT — fine-grained PAT на один репозиторий diode-editor.github.io,
+# Contents: Read and write. В отличие от каналов в release.yml, без секрета job
+# не пропускается молча, а падает: иначе отставший сайт никто не заметит.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Тег релиза, vX.Y.Z"
+        required: true
+        type: string
+    secrets:
+      SITE_PAT:
+        required: false
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Тег релиза, vX.Y.Z"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check token
+        run: |
+          if [ -z "$SITE_PAT" ]; then
+            echo "::error::secret SITE_PAT is not set — site version not updated (packaging/README.md, «Сайт»)"
+            exit 1
+          fi
+        env:
+          SITE_PAT: ${{ secrets.SITE_PAT }}
+
+      - uses: actions/checkout@v4
+        with:
+          repository: diode-editor/diode-editor.github.io
+          token: ${{ secrets.SITE_PAT }}
+          path: site
+
+      - name: Commit version to site
+        working-directory: site
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          node scripts/set-diode-version.mjs "$VERSION"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git diff --cached --quiet && { echo "site already shows $VERSION"; exit 0; }
+          git commit -m "chore(site): diode ${VERSION}"
+          # Воркфлоу реестра сайта коммитит в тот же main — при гонке подтягиваемся и пробуем ещё.
+          for attempt in 1 2 3; do
+            git push && exit 0
+            sleep $((attempt * 5))
+            git pull --rebase
+          done
+          exit 1

@@ -7,9 +7,11 @@ name: Release
 #   packages — .deb + метаданные плоского apt-репозитория, ассетами в этот же релиз;
 #   npm      — @diode-editor/diode (тонкая обёртка, качает бинарь из релиза; OIDC, без токена);
 #   brew     — cask в diode-editor/homebrew-tap (не формула: формула без бутылки требует CLT на macOS);
-#   winget   — PR в microsoft/winget-pkgs.
+#   winget   — PR в microsoft/winget-pkgs;
+#   site     — версия в футере diode-editor.github.io (site-version.yml).
 # Каждый канал — отдельная job: упавший npm не мешает brew. Канал молча пропускается,
 # если его секрет не задан (env HAS_* ниже) — так релиз работает и без всех ключей.
+# Исключение — site: без SITE_PAT она падает, чтобы отставший сайт был виден.
 on:
   push:
     tags:
@@ -193,3 +195,12 @@ jobs:
           .\wingetcreate.exe update DiodeEditor.Diode --urls $url --version $version --submit --token $env:WINGET_TOKEN
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
+
+  # Версия на лендинге. Отдельный воркфлоу, чтобы её можно было перевыложить руками.
+  site:
+    needs: release
+    uses: ./.github/workflows/site-version.yml
+    with:
+      version: ${{ github.ref_name }}
+    secrets:
+      SITE_PAT: ${{ secrets.SITE_PAT }}

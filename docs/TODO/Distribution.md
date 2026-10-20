@@ -29,6 +29,8 @@
       Command Line Tools — на этом упала первая живая установка v0.4.0 на macOS 14.
 - [x] winget — три манифеста `DiodeEditor.Diode`, `InstallerType: portable`.
 - [x] `release.yml` — jobs `packages`, `npm`, `brew`, `winget`; каждая молча пропускается без своего секрета.
+- [x] Job `site` (`site-version.yml`) — версия в футере лендинга коммитом в репозиторий сайта; без секрета
+      падает красной, релизу не мешает; руками — `gh workflow run site-version.yml -f version=vX.Y.Z`.
 - [x] `README.md` — quick install первым, ниже команды остальных каналов; детали на INSTALL.md.
 
 ## Чтобы заработало (руками, один раз)
@@ -44,6 +46,8 @@
 - [x] `REPOSITORY_PAT` имеет push в `homebrew-tap`: джоба `brew` релиза v0.4.0 обновила формулу
       сама. (Если токен когда-нибудь меняется: classic со scope `repo` покрывает все репозитории
       организации, fine-grained — только перечисленные в «Repository access» с Contents: read and write.)
+- [ ] Секрет `SITE_PAT` (fine-grained, только `diode-editor.github.io`, Contents: read and write) — до него
+      job `site` красная; проверить первым же релизом или ручным запуском `site-version.yml`.
 - [~] Первая подача в winget: PR [microsoft/winget-pkgs#442141](https://github.com/microsoft/winget-pkgs/pull/442141)
       (2026-09-27, ветка `DiodeEditor.Diode-0.3.0` в форке `tihonove/winget-pkgs`, коммит через
       Git Data API — клон с `tree:0` при push дотягивает всё дерево). После мержа — секрет
