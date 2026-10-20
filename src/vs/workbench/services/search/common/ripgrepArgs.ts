@@ -24,8 +24,9 @@ export function anchorRgGlob(glob: string): string {
 
 /**
  * `--glob !<g>` на каждый шаблон исключения (пустые пропускаются), якорёные.
- * Только для Quick Open: текстовый поиск передаёт шаблоны как есть — туда же
- * идёт поле «files to exclude», где `foo` значит «на любой глубине».
+ * Общий для Quick Open и текстового поиска; поле «files to exclude», где `foo`
+ * значит «на любой глубине», приходит сюда уже развёрнутым в `**\/foo`
+ * (`parseSearchFieldGlobs`).
  */
 export function rgExcludeArgs(excludes: readonly string[]): string[] {
     const args: string[] = [];

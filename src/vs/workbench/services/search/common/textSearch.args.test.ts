@@ -80,12 +80,30 @@ describe("buildRgArgs", () => {
     // ── Include / exclude globs ───────────────────────────────────────────────────
 
     it("maps includes to --glob and excludes to negated --glob", () => {
-        const args = buildRgArgs(query({ includes: ["*.ts", "*.js"], excludes: ["dist"] }), ROOT)!;
-        expect(args).toContain("*.ts");
-        expect(args).toContain("*.js");
-        expect(args).toContain("!dist");
+        const args = buildRgArgs(query({ includes: ["**/*.ts", "**/*.js"], excludes: ["**/dist"] }), ROOT)!;
+        expect(args).toContain("**/*.ts");
+        expect(args).toContain("**/*.js");
+        expect(args).toContain("!**/dist");
         // one --glob per include + exclude
         expect(args.filter((a) => a === "--glob")).toHaveLength(3);
+    });
+
+    it("anchors globs without `**` to the search root, as the reference `getRgArgs` does", () => {
+        // `"common": true` в `files.exclude` — только `<корень>/common`; без якоря rg
+        // выкинул бы и `nci/common/**`.
+        const args = buildRgArgs(query({ includes: ["src/*.ts"], excludes: ["common", "out/"] }), ROOT)!;
+        expect(args).toContain("/src/*.ts");
+        expect(args).toContain("!/common");
+        // хвостовой `/` срезается, как у Quick Open
+        expect(args).toContain("!/out");
+        expect(args).not.toContain("!common");
+    });
+
+    it("leaves already-anchored globs as they are", () => {
+        const args = buildRgArgs(query({ includes: ["/src/**"], excludes: ["/out", "**/tmp"] }), ROOT)!;
+        expect(args).toContain("/src/**");
+        expect(args).toContain("!/out");
+        expect(args).toContain("!**/tmp");
     });
 
     it("ignores empty glob entries", () => {

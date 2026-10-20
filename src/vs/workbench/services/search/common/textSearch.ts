@@ -13,10 +13,11 @@
  * minimal surface this slice needs.
  */
 
+import { splitGlobAware } from "../../../../base/common/glob.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IUseIgnoreFiles } from "../../../common/configuration/excludeSettings.ts";
 
-import { rgIgnoreFilesArgs } from "./ripgrepArgs.ts";
+import { anchorRgGlob, rgExcludeArgs, rgIgnoreFilesArgs } from "./ripgrepArgs.ts";
 
 /** A single content-search request, one per query/toggle change. */
 export interface ITextSearchQuery {
@@ -28,9 +29,18 @@ export interface ITextSearchQuery {
     isCaseSensitive: boolean;
     /** Match whole words only (`rg -w`). */
     isWholeWord: boolean;
-    /** Include globs (`rg --glob <g>`); empty means "everything". */
+    /**
+     * Include globs (`rg --glob <g>`); empty means "everything". Like
+     * {@link excludes}, matched against the path from the search root.
+     */
     includes: readonly string[];
-    /** Exclude globs (`rg --glob !<g>`). */
+    /**
+     * Exclude globs (`rg --glob !<g>`), matched against the path from the
+     * search root — the semantics of `files.exclude`/`search.exclude`: `common`
+     * is `<root>/common` only, `**\/common` is any depth. Text typed into the
+     * view's fields goes through {@link parseSearchFieldGlobs} first, which is
+     * what gives a bare `foo` there its "any depth" meaning.
+     */
     excludes: readonly string[];
     /** Which ignore files rg honours (`search.useIgnoreFiles` and friends). */
     useIgnoreFiles: IUseIgnoreFiles;
@@ -106,6 +116,46 @@ export function validateRegex(pattern: string): string | null {
 }
 
 /**
+ * Разбирает текст поля «files to include» / «files to exclude» в шаблоны
+ * {@link ITextSearchQuery} (от корня поиска) — `parseSearchPaths` эталона для
+ * одной папки:
+ * - список через запятую, запятая внутри `{…}`/`[…]` не делит;
+ * - `foo` — на любой глубине: `**\/foo` и всё под ним `**\/foo/**`;
+ * - `.js` — сокращение `*.js`; хвостовой `/` срезается;
+ * - `./src` — путь от корня: `src` и `src/**`; `.` — вся папка.
+ *
+ * Пути вне корня (`../x`) и абсолютные пути эталон превращает в другие корни
+ * поиска; у нас корень один, и такие сегменты пропускаются.
+ */
+export function parseSearchFieldGlobs(value: string): string[] {
+    const globs: string[] = [];
+    for (const raw of splitGlobAware(value, ",")) {
+        const segment = raw.trim();
+        if (/^\.\.?([/\\]|$)/u.test(segment)) {
+            const relative = segment
+                .replace(/\\/gu, "/")
+                .replace(/^\.(\/|$)/u, "")
+                .replace(/\/+$/u, "");
+            if (relative.startsWith("..")) continue;
+            if (relative === "") globs.push("**");
+            else globs.push(relative, `${relative}/**`);
+            continue;
+        }
+        let glob = segment.replace(/[/\\]+$/u, "");
+        if (glob === "" || isAbsolutePath(glob)) continue;
+        if (glob.startsWith(".")) glob = `*${glob}`;
+        // `**/**` склеивается: `**/*.ts` даёт `**/*.ts/**` и `**/*.ts`, а не `**/**/*.ts`.
+        globs.push(...[`**/${glob}/**`, `**/${glob}`].map((g) => g.replace(/\*\*\/\*\*/gu, "**")));
+    }
+    return globs;
+}
+
+/** Абсолютный путь в posix- или windows-форме — без `node:path`, модуль браузерный. */
+function isAbsolutePath(segment: string): boolean {
+    return segment.startsWith("/") || /^[a-zA-Z]:[/\\]/u.test(segment) || segment.startsWith("\\\\");
+}
+
+/**
  * Builds the `rg` argument vector for {@link query}, searching under
  * `searchPath`. The caller spawns `rg` with these args (and typically that same
  * path as cwd). Returns `null` when there is nothing to search for (empty
@@ -127,12 +177,13 @@ export function buildRgArgs(query: ITextSearchQuery, searchPath: string): string
     if (!query.isRegExp) args.push("--fixed-strings");
     args.push("-e", query.pattern);
 
+    // Шаблоны якорятся к корню, как `getRgArgs` эталона: у rg шаблон без `/`
+    // матчится на любой глубине, и `"common": true` из `files.exclude` молча
+    // выкидывал бы из поиска `nci/common/**`, который Explorer показывает.
     for (const glob of query.includes) {
-        if (glob !== "") args.push("--glob", glob);
+        if (glob !== "") args.push("--glob", anchorRgGlob(glob));
     }
-    for (const glob of query.excludes) {
-        if (glob !== "") args.push("--glob", `!${glob}`);
-    }
+    args.push(...rgExcludeArgs(query.excludes));
     // `--hidden`, как у эталона и у Quick Open (`buildRgFilesArgs`): dot-файлы
     // режут `files.exclude` и ignore-файлы, а не точка в имени.
     args.push("--hidden", ...rgIgnoreFilesArgs(query.useIgnoreFiles));

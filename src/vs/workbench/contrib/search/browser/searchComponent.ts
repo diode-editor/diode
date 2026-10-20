@@ -41,7 +41,7 @@ import type {
     ITextSearchQuery,
     ITextSearchService,
 } from "../../../services/search/common/textSearch.ts";
-import { TextSearchServiceDIToken } from "../../../services/search/common/textSearch.ts";
+import { parseSearchFieldGlobs, TextSearchServiceDIToken } from "../../../services/search/common/textSearch.ts";
 
 import {
     buildFileRow,
@@ -761,14 +761,16 @@ export class SearchComponent extends Component implements IContextKeyContributor
             isRegExp: this.regex,
             isCaseSensitive: this.caseSensitive,
             isWholeWord: this.wholeWord,
-            includes: splitGlobs(this.includeInput.inputState.value),
+            includes: parseSearchFieldGlobs(this.includeInput.inputState.value),
             // Настройки идут ПЕРЕД набранным в «files to exclude», а не вместо:
             // у эталона поиск по содержимому применяет оба набора настроек, а
             // поле — это уточнение запроса поверх них. Настройка читается на
             // каждый запрос, поэтому правка применяется к следующему же поиску.
+            // Шаблоны настроек — от корня (`common` — только `<корень>/common`),
+            // набранное — на любой глубине: поле разворачивается в `**/…`.
             excludes: [
                 ...searchExcludeGlobs(this.configurationService),
-                ...splitGlobs(this.excludeInput.inputState.value),
+                ...parseSearchFieldGlobs(this.excludeInput.inputState.value),
             ],
             useIgnoreFiles: readUseIgnoreFiles(this.configurationService),
         };
@@ -815,14 +817,6 @@ function fileRowId(group: IFileGroup): string {
 
 function folderRowId(path: string): string {
     return `dir:${path}`;
-}
-
-/** Splits a comma-separated glob field into trimmed, non-empty globs. */
-function splitGlobs(value: string): string[] {
-    return value
-        .split(",")
-        .map((g) => g.trim())
-        .filter((g) => g !== "");
 }
 
 /**

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { globToRegExp, matchAnyGlob, matchGlob, matchRelativeGlob } from "./glob.ts";
+import { globToRegExp, matchAnyGlob, matchGlob, matchRelativeGlob, splitGlobAware } from "./glob.ts";
 
 describe("glob", () => {
     it("`*` не переходит через разделитель сегментов", () => {
@@ -72,5 +72,29 @@ describe("glob", () => {
     it("matchRelativeGlob: путь вне base не матчит, даже с общим префиксом имени", () => {
         expect(matchRelativeGlob({ base: "/home/user", pattern: "**" }, "/home/other/a.json")).toBe(false);
         expect(matchRelativeGlob({ base: "/home/user", pattern: "**" }, "/home/username/a.json")).toBe(false);
+    });
+});
+
+describe("splitGlobAware", () => {
+    it("делит по разделителю", () => {
+        expect(splitGlobAware("a,b,c", ",")).toEqual(["a", "b", "c"]);
+    });
+
+    it("не режет `{…}` и `[…]`", () => {
+        expect(splitGlobAware("*.{ts,js},out", ",")).toEqual(["*.{ts,js}", "out"]);
+        expect(splitGlobAware("[,a],b", ",")).toEqual(["[,a]", "b"]);
+    });
+
+    it("после закрытой группы снова делит", () => {
+        expect(splitGlobAware("{a,b},[c,d],e", ",")).toEqual(["{a,b}", "[c,d]", "e"]);
+    });
+
+    it("пустая строка — пустой список; пустая середина сохраняется, пустой хвост — нет", () => {
+        expect(splitGlobAware("", ",")).toEqual([]);
+        expect(splitGlobAware("a,,b,", ",")).toEqual(["a", "", "b"]);
+    });
+
+    it("разделителем может быть любой символ", () => {
+        expect(splitGlobAware("a/{b/c}/d", "/")).toEqual(["a", "{b/c}", "d"]);
     });
 });

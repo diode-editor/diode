@@ -291,8 +291,9 @@ describe("SearchComponent", () => {
             pattern: "foo",
             isCaseSensitive: true,
             isWholeWord: true,
-            includes: ["*.ts", "*.js"],
-            excludes: ["dist"],
+            // набранное в поля — «на любой глубине», как у эталона
+            includes: ["**/*.ts/**", "**/*.ts", "**/*.js/**", "**/*.js"],
+            excludes: ["**/dist/**", "**/dist"],
         });
     });
 
@@ -302,7 +303,7 @@ describe("SearchComponent", () => {
         const { service } = fakeSearch([]);
         const spy = vi.spyOn(service, "search");
         const values: Record<string, unknown> = {
-            "files.exclude": { "**/.git": true },
+            "files.exclude": { "**/.git": true, common: true },
             "search.exclude": { "**/node_modules": true, "**/off": false },
         };
         const configuration: IConfigurationService = {
@@ -316,7 +317,15 @@ describe("SearchComponent", () => {
         exclude.onChange?.("*.min.js");
         typeQuery(component, "foo");
 
-        expect(spy.mock.calls.at(-1)?.[0].excludes).toEqual(["**/.git", "**/node_modules", "*.min.js"]);
+        // Шаблон настройки уходит как есть (от корня — якорит `buildRgArgs`),
+        // набранное в поле разворачивается «на любой глубине».
+        expect(spy.mock.calls.at(-1)?.[0].excludes).toEqual([
+            "**/.git",
+            "common",
+            "**/node_modules",
+            "**/*.min.js/**",
+            "**/*.min.js",
+        ]);
     });
 
     it("appends to the same file group when its matches span several events", () => {

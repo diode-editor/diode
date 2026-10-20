@@ -94,3 +94,30 @@ export function matchRelativeGlob(pattern: IRelativePattern, path: string): bool
     if (!path.startsWith(base)) return false;
     return matchGlob(pattern.pattern, path.slice(base.length));
 }
+
+/**
+ * Делит строку шаблонов по `splitChar`, не разрезая группы `{…}` и `[…]`:
+ * `*.{ts,js}, out` по запятой — это два шаблона, а не три. Повторяет upstream
+ * `splitGlobAware` (`base/common/glob.ts`): пустые сегменты в середине
+ * сохраняются, пустой хвост — нет.
+ */
+export function splitGlobAware(pattern: string, splitChar: string): string[] {
+    const segments: string[] = [];
+    let inBraces = false;
+    let inBrackets = false;
+    let current = "";
+    for (const char of pattern) {
+        if (char === splitChar && !inBraces && !inBrackets) {
+            segments.push(current);
+            current = "";
+            continue;
+        }
+        if (char === "{") inBraces = true;
+        else if (char === "}") inBraces = false;
+        else if (char === "[") inBrackets = true;
+        else if (char === "]") inBrackets = false;
+        current += char;
+    }
+    if (current !== "") segments.push(current);
+    return segments;
+}
