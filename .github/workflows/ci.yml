@@ -1,7 +1,7 @@
 name: CI
 
 # Ручной запуск — удалённый раннер тяжёлых гейтов для ветки без PR
-# (`npm run ci:run -- <gate>`, scripts/ci-run.mjs; docs/TESTING.md#гейты-в-ci-без-pr).
+# (`npm run ci:run -- <gate>`, scripts/ci-run.mjs; .claude/skills/heavy-run/SKILL.md, «Гейт в CI без PR»).
 # `token` нужен только затем, чтобы скрипт нашёл свой прогон по имени среди
 # соседних; у push/PR имя пустое → GitHub ставит обычное.
 run-name: "${{ github.event_name == 'workflow_dispatch' && format('ci {0} {1}', inputs.gate, inputs.token) || '' }}"
@@ -277,7 +277,7 @@ jobs:
         if: steps.mutation.outcome == 'failure'
         run: |
           echo "Мутационный гейт красный: настоящие выжившие (real) или мутанты без вердикта —"
-          echo "классы и причины в комментарии к PR / summary прогона, разбор — docs/TESTING.md."
+          echo "классы и причины в комментарии к PR / summary прогона, разбор — docs/MUTATION.md."
           echo "real — убиваем тестом либо гасим: // Stryker disable next-line <мутатор>: причина"
           echo "phantom гейт уже разоблачил сам — их чинить и гасить не нужно."
           exit 1

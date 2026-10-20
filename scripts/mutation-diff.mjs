@@ -411,7 +411,7 @@ function verdict(report, verdicts = []) {
     if (blocking.length > 0) {
         console.log(
             `Без вердикта ${String(blocking.length)} мутантов (${formatSummary(blocking)}) — гейт красный, ` +
-                "пока их не разберут (docs/TESTING.md).",
+                "пока их не разберут (docs/MUTATION.md).",
         );
     }
     finish(passed ? "passed" : "failed", passed ? 0 : 1, {
@@ -479,7 +479,7 @@ if (candidates.length === 0) verdict(firstReport);
 
 console.log(
     `\nНе убито Stryker'ом: ${String(candidates.length)}. Перепроверяю каждого вживлением точного мутанта ` +
-        "(фантом / настоящий / без вердикта — см. docs/TESTING.md):",
+        "(фантом / настоящий / без вердикта — см. docs/MUTATION.md):",
 );
 let verdicts = [];
 try {

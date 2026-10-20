@@ -203,7 +203,7 @@ export class ProblemsComponent extends Component {
             // координатам маркера в ЧУЖОМ, всё ещё активном редакторе, а без
             // проверки на `null` — в никуда (маркер можно активировать и с
             // пустой полосой вкладок).
-            // Stryker disable next-line OptionalChaining: снятие `?.` заставляет переход кинуть ПОСЛЕ await, то есть мимо стека теста — раннер падает на сериализации unhandled error вместо честного «мутант выжил/убит». Локализация ошибок слушателя — #275, см. docs/TESTING.md
+            // Stryker disable next-line OptionalChaining: снятие `?.` заставляет переход кинуть ПОСЛЕ await, то есть мимо стека теста — раннер падает на сериализации unhandled error вместо честного «мутант выжил/убит». Локализация ошибок слушателя — #275, см. docs/MUTATION.md
             if (editor?.uri.toString() !== uri.toString()) return;
             const start = marker.range.start;
             editor.goToPosition(start.line, start.character);
