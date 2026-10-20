@@ -2,7 +2,7 @@
 
 **Статус**: `[~]` — план согласован с человеком 2026-10-19; B1 (фоновая и вьюпортная
 токенизация), A1+A2 (вендор PieceTree с upstream-тестами), A3 (`TextDocument` на PieceTree) и A4
-(полный текст с горячих путей) сделаны. Порядок — по очереди, каждый шаг вливается до следующего:
+(полный текст с горячих путей) и B2 (бинарные токены) сделаны. Порядок — по очереди, каждый шаг вливается до следующего:
 **B1 → A1+A2 → A3 → A4 → (замер) B2 → B3**. Жадные O(N) проходы вью — отдельно, этап 2
 [OpenPerformance](OpenPerformance.md).
 
@@ -70,7 +70,7 @@ upstream-файлами.
 Не перенесено: `editor.largeFileOptimizations` / `isTooLargeForTokenization` (20 МБ / 300k строк) —
 этап 4 OpenPerformance; отладочный «второй фон» (`backgroundTokenizerShouldOnlyVerifyTokens`) — с B3.
 
-### [~] B2. Бинарные токены + colorMap
+### [x] B2. Бинарные токены + colorMap
 `tokenizeLine2` vscode-textmate, `LineTokens`/`ContiguousTokensStore` эталона вместо шимов.
 Сначала — замер доли памяти/кадра на скоупы. Задевает тему (colorMap), рендер, семантические
 токены, потребителей скоупов (`smartSelect/tokenCodeAt`, автозакрытие, `standardTokenType.ts` —
@@ -100,6 +100,60 @@ upstream-файлами.
 
 Вывод: выигрыш — сотни МБ кучи и паузы GC на больших файлах, B2 делаем. Скрипты замера —
 в описании PR B2.
+
+**Сделано.** Токены — формат эталона по всей цепочке:
+- **вендор** (скрипт, дословно): `encodedTokenAttributes.ts`, `tokens/lineTokens.ts` (иссечён
+  `getStandardTokenTypeAtPosition` — читает `model.tokenization` эталона),
+  `tokens/contiguousMultilineTokens{,Builder}.ts` (с (де)сериализацией — пригодится воркеру B3),
+  `tokens/contiguousTokensEditing.ts`, `languages/nullTokenize.ts`; иссечения
+  `getTokenTypeIfInsertingCharacter`/`tokenizeLinesAt` в `textModelTokens.ts` сняты. Шим
+  `languages.ts` — upstream-контракт (`EncodedTokenizationResult`, `ITokenizationSupport.tokenizeEncoded`,
+  `ILanguageIdCodec`); новый шим `base/common/buffer.ts` (uint32 BE). Наши `iLineTokens.ts`,
+  `iTokenizationSupport.ts` удалены;
+- **TextMate** — `IGrammar.tokenizeLine2` с лимитом 500 мс и сохранением состояния, как
+  `TextMateTokenizationSupport` эталона; язык в метаданных — 0 (кодек стора, языки по id не
+  кодируем);
+- **тема** — `createTextMateTheme` (upstream `ColorThemeData.tokenColors` + `tokenColorMap`) →
+  `Registry.setTheme` грамматик и `TokenizationRegistry.setColorMap`, чьё событие по каждому
+  языку перетокенизирует документы (как у эталона); та же тема повторно — без перетокенизации.
+  Свой резолвер скоупов (`TokenThemeResolver`) удалён — тему матчит vscode-textmate;
+- **рендер** — `ColorMapTokenStyleResolver`: стиль по битам метаданных, цвета из colorMap
+  (`ColorId` 1/2 — цвета редактора), кэш по метаданным; вид токена (`standardTokenType.ts`:
+  автокомплит, smart select) — `StandardTokenType` из метаданных;
+- **хранение** — свой кэш `Uint32Array` на строку в `DocumentTokenStore` (концы токенов +
+  метаданные), наружу — upstream `LineTokens`. `ContiguousTokensStore` эталона **не перенесён**:
+  он сдвигает токены правленых строк, а у нас правленая строка пуста до пересчёта (отступление
+  B1, на нём стоит вьюпорт-память). Перейти на него — отдельный шаг вместе со снятием этих
+  отступлений;
+- **семантические токены** — наш оверлей как был (скоупов не держит; стиль при отрисовке).
+
+Видимо изменились только цвета там, где прежний резолвер скоупов расходился с VS Code:
+посимвольное сравнение старого и нового стиля на 10 файлах (TS, JS, JSON, Markdown, Python,
+Go, YAML) по 6 встроенным темам — Dark Modern, Light Modern, Dark+, Light+ без единого
+расхождения (593k символов); Monokai — пунктуация строк/комментариев и строки JSON (его
+безскоупное правило перекрывало цвет, эталон такие правила игнорирует; родительский селектор
+`meta.structure.dictionary.json string…`), Dark 2026 — заголовки Markdown
+(`markup.heading entity.name`). Не перенесено: цвета лог-токенов по умолчанию
+(`token.info-token` и др.), `tokenTypes`/`embeddedLanguages` грамматик из `contributes.grammars`.
+
+**Замер после** (те же условия): heap токенов xlarge **652 → 48 МБ** (2.2 М токенов с темой Dark
+Modern), GC за полную токенизацию 1.2–2.3 с → 0.27 с, макс. пауза **278 → 28 мс**, mark-compact
+2 → 1 (28 мс). Стиль в кадре 50×120 — 0.22 → 0.024 мс. **RSS живого бинаря** (SEA, drive,
+xlarge открыт и оставлен, замер каждые 15 с): main 655 → 1021 МБ к 45 с, держится ~955 МБ;
+B2 444 → 465 МБ, к 150 с — 397 МБ.
+
+`bench:open` (локально, 2 круга main/B2 поочерёдно по 3 прогона, медианы кругов): всё в
+пределах шума — бенч правит xlarge сразу после открытия, когда фон только начал, и peak RSS
+снимает до конца фона; выигрыш B2 — в установившемся режиме (RSS выше).
+
+| | до текста | до подсветки | peak RSS | вставка | Enter | undo (Enter) | undo (символ) |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `small` main | 296 / 293 | 461 / 459 | 225 / 219 | 60 / 56 | 28 / 39 | 23 / 19 | 24 / 22 |
+| `small` B2 | 289 / 316 | 482 / 475 | 217 / 217 | 73 / 57 | 21 / 26 | 22 / 25 | 20 / 24 |
+| `large` main | 594 / 648 | 852 / 894 | 284 / 278 | 107 / 134 | 98 / 105 | 73 / 83 | 68 / 85 |
+| `large` B2 | 732 / 570 | 963 / 761 | 270 / 269 | 86 / 109 | 90 / 65 | 67 / 79 | 55 / 90 |
+| `xlarge` main | 2931 / 3086 | 3244 / 3502 | 481 / 479 | 414 / 341 | 601 / 510 | 441 / 433 | 469 / 470 |
+| `xlarge` B2 | 2984 / 2968 | 3287 / 3235 | 468 / 470 | 387 / 288 | 479 / 521 | 467 / 407 | 532 / 500 |
 
 ### [ ] B3. Воркер
 Порт `workbench/services/textMate/browser/backgroundTokenization/`
