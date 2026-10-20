@@ -173,8 +173,10 @@ env-флагом, который выставляет спавнящая сто�
 исходник. Ровно ради такого переиспользования и держится парность путей с vscode: upstream
 там — чистые функции без DOM, DI и реактивщины, и ложатся они по тем же путям. Тем же
 механизмом перенесена токенизация модели (`editor/common/model/textModelTokens.ts`: фон,
-эвристика вьюпорта, хранилище состояний) — план дальнейших переносов (PieceTree, бинарные
-токены) в [TODO/VscodeModel.md](TODO/VscodeModel.md). Перенесённый код живёт в координатах
+эвристика вьюпорта, хранилище состояний) и хранение текста — PieceTree
+(`editor/common/model/pieceTreeTextBuffer/`, пока без потребителя) с поиском по буферу
+(`model/textModelSearch.ts`); план дальнейших переносов (подключение PieceTree, бинарные
+токены) — в [TODO/VscodeModel.md](TODO/VscodeModel.md). Перенесённый код живёт в координатах
 эталона (строки и колонки с 1), ядро — 0-based; ±1 — только в адаптере
 ([arch/Editor.md](arch/Editor.md#координаты-ядро-0-based-вендор-1-based)).
 
@@ -189,6 +191,11 @@ env-флагом, который выставляет спавнящая сто�
   `tokens/lineTokens.ts`, `tokens/contiguousMultilineTokens*.ts` — ещё и шов формата: эталон
   возит бинарные токены (`Uint32Array`), а наши — стеки скоупов; перенесённый алгоритм их только
   передаёт, поэтому формат подменяется в шиме (замена на upstream — шаг B2).
+- **Upstream-тесты — по upstream-путям.** Тесты эталона переносятся тем же скриптом и лежат
+  там же, где у эталона (`editor/test/common/model/pieceTreeTextBuffer/`), а не колокацией:
+  так их относительные импорты остаются дословными. Mocha-глобалы `suite`/`test` скрипт
+  импортирует из `src/TestUtils/mochaCompat.ts`; хелперы эталона, на которые смотрят импорты
+  тестов (`base/test/common/utils.ts`, `editor/test/common/testTextModel.ts`), — шимы.
 - **Виджет не переносим.** `editor/browser/widget/diffEditor/` (24 файла) построен на двух
   monaco-`ICodeEditor`, DOM-оверлеях и `observable` — оттуда берём решения, а не строки.
 - **Ловушка: два `IRange`.** В `editor/common/core/` сосуществуют наш `iRange.ts`

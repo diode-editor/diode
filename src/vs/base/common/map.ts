@@ -51,3 +51,38 @@ export class SetMap<K, V> {
         return values;
     }
 }
+
+/**
+ * Кэш с вытеснением давно не тронутых: `get` и `set` делают ключ самым
+ * свежим, при переполнении сверх `limit` выбрасываются самые старые.
+ * Upstream строит его на `LinkedMap` (Touch, ratio); у нас — на порядке
+ * вставки `Map`, без ratio (перенесённый код зовёт только `new LRUCache(n)`,
+ * `get`, `set`).
+ */
+export class LRUCache<K, V> {
+    private readonly map = new Map<K, V>();
+
+    public constructor(private readonly limit: number) {}
+
+    public get size(): number {
+        return this.map.size;
+    }
+
+    public get(key: K): V | undefined {
+        if (!this.map.has(key)) return undefined;
+        const value = this.map.get(key) as V;
+        this.map.delete(key);
+        this.map.set(key, value);
+        return value;
+    }
+
+    public set(key: K, value: V): this {
+        this.map.delete(key);
+        this.map.set(key, value);
+        for (const oldest of this.map.keys()) {
+            if (this.map.size <= this.limit) break;
+            this.map.delete(oldest);
+        }
+        return this;
+    }
+}

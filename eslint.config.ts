@@ -27,6 +27,12 @@ export default tseslint.config(
             "src/vs/base/common/stopwatch.ts",
             "src/vs/editor/common/model/{textModelTokens,fixedArray}.ts",
             "src/vs/editor/common/core/misc/eolCounter.ts",
+            "src/vs/editor/common/model/pieceTreeTextBuffer/**",
+            "src/vs/editor/common/model/textModelSearch.ts",
+            "src/vs/editor/common/core/{textChange,wordCharacterClassifier,characterClassifier}.ts",
+            "src/vs/base/common/uint.ts",
+            // Upstream-тесты PieceTree — тоже дословная копия (mocha-стиль, табы).
+            "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
             // Тестовые ДАННЫЕ корпуса: чужие исходники, а не наш код.
             "**/__fixtures__/**",
         ],

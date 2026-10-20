@@ -1,7 +1,7 @@
 # Модель документа и токенизация из VS Code
 
 **Статус**: `[~]` — план согласован с человеком 2026-10-19; B1 (фоновая и вьюпортная
-токенизация) сделан. Порядок — по очереди, каждый шаг вливается до следующего:
+токенизация) и A1+A2 (вендор PieceTree с upstream-тестами) сделаны. Порядок — по очереди, каждый шаг вливается до следующего:
 **B1 → A1+A2 → A3 → A4 → (замер) B2 → B3**. Жадные O(N) проходы вью — отдельно, этап 2
 [OpenPerformance](OpenPerformance.md).
 
@@ -88,15 +88,38 @@ upstream-файлами.
 (красно-чёрное дерево кусков с кэшем стартов строк), см.
 [блог](https://code.visualstudio.com/blogs/2018/03/23/text-buffer-reimplementation).
 
-### [ ] A1. Вендор PieceTree
+### [x] A1. Вендор PieceTree
+Перенесено дословно (`scripts/import-vscode-editor.mjs`):
 `model/pieceTreeTextBuffer/{pieceTreeBase,rbTreeBase,pieceTreeTextBuffer,pieceTreeTextBufferBuilder}.ts`
-(~3.1k строк), `core/textChange.ts`, нужное из `model.ts` (1.6k строк интерфейсов — иссечения или
-расширение шима). `core/misc/eolCounter.ts` уже перенесён с B1. Пока никем не используется.
-Исходный буфер — сразу **чанкованный** (≤ 64 КБ, как `PieceTreeTextBufferBuilder`), иначе
-стриминг этапа 4 OpenPerformance переделает его заново.
+без единого иссечения; `core/textChange.ts`; поиск по буферу `findMatchesLineByLine` —
+`model/textModelSearch.ts`, `core/{wordCharacterClassifier,characterClassifier}.ts`,
+`base/common/uint.ts`. Пока никем не используется (в `dist/main.cjs` не попадает — tree-shaking).
 
-### [ ] A2. Вендор upstream-тестов PieceTree
-Фаззинг-тесты эталона — главная гарантия корректности перенесённого дерева.
+Иссечено (причины — в скрипте):
+- `TextChange` — бинарная сериализация (`write`/`read`, для undo-стека эталона в `Uint8Array`):
+  тянет `base/common/buffer.ts` и `core/stringBuilder.ts`;
+- `textModelSearch.ts` — `SearchParams` (разбор запроса виджета поиска, `strings.createRegExp`)
+  и `TextModelSearch` (поиск по `TextModel` целиком). Остались `Searcher`, `createFindMatch`,
+  `isValidMatch` — их и зовёт PieceTree. Если поиску понадобится `SearchParams` — вернуть
+  иссечение и дописать шим `strings.createRegExp`.
+
+`model.ts` — **расширение шима**, а не вендор с иссечениями: из 1.6k строк нужны ~15 объявлений
+контракта буфера (`ITextBuffer`, `ITextBufferFactory`, `EndOfLinePreference`, `FindMatch`,
+`SearchData`, `ApplyEditsResult`…), а файл целиком тянет ~20 модулей (декорации, события модели,
+языки, undo) — иссечений было бы больше, чем оставленного. Прочие шимы: `strings.ts`
+(+10 функций), `map.ts` (`LRUCache` на порядке вставки `Map`), `lazy.ts` (upstream не проходит
+наш `strict`: `unknown` из `catch` в поле `Error`), `date.ts` (`safeIntl.Segmenter`),
+`mirrorTextModel.ts` (`IModelContentChange` в полной форме: `rangeOffset`/`rangeLength`),
+`lifecycle.ts` — алиас `Disposable._register` (имя эталона; наш `register`).
+
+### [x] A2. Вендор upstream-тестов PieceTree
+`editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts` — по upstream-пути,
+дословно, перегенерируется `--check`. **87 из 87** кейсов идут в vitest и зелёные (~0.2 с), ни
+один не иссечён. Mocha-глобалы — импорт из `src/TestUtils/mochaCompat.ts`, который скрипт
+вставляет после баннера (`this.timeout()` — пустышка). Сьют `snapshot` зовёт `createTextModel`
+эталона (весь `TextModel` с DI) — шим `editor/test/common/testTextModel.ts` ведёт эти кейсы к
+буферу тем же путём, что `TextModel` эталона (фабрика билдера, `ValidAnnotatedEditOperation`,
+`createSnapshot(false)`).
 
 ### [ ] A3. `TextDocument` поверх PieceTree за тем же `ITextDocument`
 Контракт, который обязан сохраниться (тесты `textDocument.*` остаются зелёными **без правок**):

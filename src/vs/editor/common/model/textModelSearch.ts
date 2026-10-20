@@ -1,0 +1,235 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+//@diode:vendored microsoft/vscode@1.127.0 src/vs/editor/common/model/textModelSearch.ts
+// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-editor.mjs (см. AGENTS.md).
+
+import { CharCode } from '../../../base/common/charCode.ts';
+import * as strings from '../../../base/common/strings.ts';
+import { WordCharacterClass, WordCharacterClassifier, getMapForWordSeparators } from '../core/wordCharacterClassifier.ts';
+import { Position } from '../core/position.ts';
+import { Range } from '../core/range.ts';
+import { EndOfLinePreference, FindMatch, SearchData } from '../model.ts';
+
+const LIMIT_FIND_COUNT = 999;
+
+
+export function isMultilineRegexSource(searchString: string): boolean {
+	if (!searchString || searchString.length === 0) {
+		return false;
+	}
+
+	for (let i = 0, len = searchString.length; i < len; i++) {
+		const chCode = searchString.charCodeAt(i);
+
+		if (chCode === CharCode.LineFeed) {
+			return true;
+		}
+
+		if (chCode === CharCode.Backslash) {
+
+			// move to next char
+			i++;
+
+			if (i >= len) {
+				// string ends with a \
+				break;
+			}
+
+			const nextChCode = searchString.charCodeAt(i);
+			if (nextChCode === CharCode.n || nextChCode === CharCode.r || nextChCode === CharCode.W) {
+				return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+export function createFindMatch(range: Range, rawMatches: RegExpExecArray, captureMatches: boolean): FindMatch {
+	if (!captureMatches) {
+		return new FindMatch(range, null);
+	}
+	const matches: string[] = [];
+	for (let i = 0, len = rawMatches.length; i < len; i++) {
+		matches[i] = rawMatches[i];
+	}
+	return new FindMatch(range, matches);
+}
+
+class LineFeedCounter {
+
+	private readonly _lineFeedsOffsets: number[];
+
+	constructor(text: string) {
+		const lineFeedsOffsets: number[] = [];
+		let lineFeedsOffsetsLen = 0;
+		for (let i = 0, textLen = text.length; i < textLen; i++) {
+			if (text.charCodeAt(i) === CharCode.LineFeed) {
+				lineFeedsOffsets[lineFeedsOffsetsLen++] = i;
+			}
+		}
+		this._lineFeedsOffsets = lineFeedsOffsets;
+	}
+
+	public findLineFeedCountBeforeOffset(offset: number): number {
+		const lineFeedsOffsets = this._lineFeedsOffsets;
+		let min = 0;
+		let max = lineFeedsOffsets.length - 1;
+
+		if (max === -1) {
+			// no line feeds
+			return 0;
+		}
+
+		if (offset <= lineFeedsOffsets[0]) {
+			// before first line feed
+			return 0;
+		}
+
+		while (min < max) {
+			const mid = min + ((max - min) / 2 >> 0);
+
+			if (lineFeedsOffsets[mid] >= offset) {
+				max = mid - 1;
+			} else {
+				if (lineFeedsOffsets[mid + 1] >= offset) {
+					// bingo!
+					min = mid;
+					max = mid;
+				} else {
+					min = mid + 1;
+				}
+			}
+		}
+		return min + 1;
+	}
+}
+
+
+function leftIsWordBounday(wordSeparators: WordCharacterClassifier, text: string, textLength: number, matchStartIndex: number, matchLength: number): boolean {
+	if (matchStartIndex === 0) {
+		// Match starts at start of string
+		return true;
+	}
+
+	const charBefore = text.charCodeAt(matchStartIndex - 1);
+	if (wordSeparators.get(charBefore) !== WordCharacterClass.Regular) {
+		// The character before the match is a word separator
+		return true;
+	}
+
+	if (charBefore === CharCode.CarriageReturn || charBefore === CharCode.LineFeed) {
+		// The character before the match is line break or carriage return.
+		return true;
+	}
+
+	if (matchLength > 0) {
+		const firstCharInMatch = text.charCodeAt(matchStartIndex);
+		if (wordSeparators.get(firstCharInMatch) !== WordCharacterClass.Regular) {
+			// The first character inside the match is a word separator
+			return true;
+		}
+	}
+
+	return false;
+}
+
+function rightIsWordBounday(wordSeparators: WordCharacterClassifier, text: string, textLength: number, matchStartIndex: number, matchLength: number): boolean {
+	if (matchStartIndex + matchLength === textLength) {
+		// Match ends at end of string
+		return true;
+	}
+
+	const charAfter = text.charCodeAt(matchStartIndex + matchLength);
+	if (wordSeparators.get(charAfter) !== WordCharacterClass.Regular) {
+		// The character after the match is a word separator
+		return true;
+	}
+
+	if (charAfter === CharCode.CarriageReturn || charAfter === CharCode.LineFeed) {
+		// The character after the match is line break or carriage return.
+		return true;
+	}
+
+	if (matchLength > 0) {
+		const lastCharInMatch = text.charCodeAt(matchStartIndex + matchLength - 1);
+		if (wordSeparators.get(lastCharInMatch) !== WordCharacterClass.Regular) {
+			// The last character in the match is a word separator
+			return true;
+		}
+	}
+
+	return false;
+}
+
+export function isValidMatch(wordSeparators: WordCharacterClassifier, text: string, textLength: number, matchStartIndex: number, matchLength: number): boolean {
+	return (
+		leftIsWordBounday(wordSeparators, text, textLength, matchStartIndex, matchLength)
+		&& rightIsWordBounday(wordSeparators, text, textLength, matchStartIndex, matchLength)
+	);
+}
+
+export class Searcher {
+	public readonly _wordSeparators: WordCharacterClassifier | null;
+	private readonly _searchRegex: RegExp;
+	private _prevMatchStartIndex: number;
+	private _prevMatchLength: number;
+
+	constructor(wordSeparators: WordCharacterClassifier | null, searchRegex: RegExp,) {
+		this._wordSeparators = wordSeparators;
+		this._searchRegex = searchRegex;
+		this._prevMatchStartIndex = -1;
+		this._prevMatchLength = 0;
+	}
+
+	public reset(lastIndex: number): void {
+		this._searchRegex.lastIndex = lastIndex;
+		this._prevMatchStartIndex = -1;
+		this._prevMatchLength = 0;
+	}
+
+	public next(text: string): RegExpExecArray | null {
+		const textLength = text.length;
+
+		let m: RegExpExecArray | null;
+		do {
+			if (this._prevMatchStartIndex + this._prevMatchLength === textLength) {
+				// Reached the end of the line
+				return null;
+			}
+
+			m = this._searchRegex.exec(text);
+			if (!m) {
+				return null;
+			}
+
+			const matchStartIndex = m.index;
+			const matchLength = m[0].length;
+			if (matchStartIndex === this._prevMatchStartIndex && matchLength === this._prevMatchLength) {
+				if (matchLength === 0) {
+					// the search result is an empty string and won't advance `regex.lastIndex`, so `regex.exec` will stuck here
+					// we attempt to recover from that by advancing by two if surrogate pair found and by one otherwise
+					if (strings.getNextCodePoint(text, textLength, this._searchRegex.lastIndex) > 0xFFFF) {
+						this._searchRegex.lastIndex += 2;
+					} else {
+						this._searchRegex.lastIndex += 1;
+					}
+					continue;
+				}
+				// Exit early if the regex matches the same range twice
+				return null;
+			}
+			this._prevMatchStartIndex = matchStartIndex;
+			this._prevMatchLength = matchLength;
+
+			if (!this._wordSeparators || isValidMatch(this._wordSeparators, text, textLength, matchStartIndex, matchLength)) {
+				return m;
+			}
+
+		} while (m);
+
+		return null;
+	}
+}

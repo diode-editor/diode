@@ -97,6 +97,15 @@ const EXCLUDED = [
     /^src\/vs\/base\/common\/(charCode|stopwatch)\.ts$/,
     /^src\/vs\/editor\/common\/model\/(textModelTokens|fixedArray)\.ts$/,
     /^src\/vs\/editor\/common\/core\/misc\/eolCounter\.ts$/,
+    /^src\/vs\/editor\/common\/model\/pieceTreeTextBuffer\//,
+    /^src\/vs\/editor\/common\/model\/textModelSearch\.ts$/,
+    /^src\/vs\/editor\/common\/core\/(textChange|wordCharacterClassifier|characterClassifier)\.ts$/,
+    /^src\/vs\/base\/common\/uint\.ts$/,
+    // Тестовые шимы по путям upstream для перенесённых upstream-тестов — те же
+    // тестовые хелперы, что и src/TestUtils/ (см. выше): мутант в них убивается
+    // только «тестом про тест».
+    /^src\/vs\/editor\/test\/common\/testTextModel\.ts$/,
+    /^src\/vs\/base\/test\//,
     // Точка входа расширения. Её путь отдают extension host'у, а тот запускает
     // ОТДЕЛЬНЫЙ процесс — `globalThis.__stryker__` через границу процесса не
     // проходит, поэтому активный мутант в дочернем процессе не включается, а его
