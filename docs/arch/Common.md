@@ -15,6 +15,17 @@
 - **Сравнение — по `uri.toString()`**, а не `path.resolve(a) === path.resolve(b)`. Реестры ключуются строкой `uri.toString()`: `Map` не сравнивает `Uri` по значению, поэтому вопрос не «Uri или строка», а «какая строка» — каноничную даёт сам `Uri`. Строку **извне** (ответ провайдера расширения, LSP, аргумент команды) с ней напрямую не сравнивают: сначала `Uri.parse(s).toString()` — у `jdt:`-ссылок redhat.java `Uri.parse(s).toString() !== s` (query перекодируется), и сравнение сырых строк уводило каретку мимо строки определения, а `ProblemsComponent.revealMarker` без сверки ресурса — в чужой активный редактор (#363). Повторный `parse` уже стабилен.
 - **Гейт дисковых операций — по `uri.scheme === "file"`**, а не по «путь непустой»: `fsPath` у не-file схемы не бросает, а возвращает путь как есть (`untitled:Untitled-1` → `"Untitled-1"`), и такой «путь» уйдёт в `node:fs` как относительный.
 
+**Виртуальные read-only документы.** Ресурс с не-`file:` схемой, содержимое которого даёт провайдер
+расширения (`workspace.registerTextDocumentContentProvider`: `jdt:` у `redhat.java` — класс из jar,
+исходник JDK, декомпиляция; `git:`-ревизии), открывается настоящей read-only вкладкой: порт
+`IVirtualDocumentSource` (шов ядра) → `EditorService.openUri` → синтетическая модель
+(`TextFileModel.openSynthetic`) + `readOnly`. Схемы объявляет субпроцесс, содержимое едет обратным
+запросом `workspace.provideTextDocumentContent`, `onDidChange` провайдера перечитывает открытую
+вкладку. Грабля, закрытая вместе с фичей: такой ресурс раньше **убивал процесс** — `openFile` бросал
+на не-`file:` схеме, промис команды никто не ждал. Теперь `openUri` не отклоняется никогда, команды
+возвращают промис, `CommandRegistry.execute` вешает обработчик отказа (см. «Надёжность процесса»
+ниже). Демо — `e2e/scenarios/virtualDocument.scenario.ts`.
+
 IO-абстракции (интерфейс + no-op/in-memory заглушка), которыми пользуются разные слои: `IClipboard`/`InMemoryClipboard`, `IFileClipboard`/`InMemoryFileClipboard`, `IFileWatcher`/`NULL_FILE_WATCHER` (слежение за отдельным файлом; реальная `ChokidarFileWatcher` и DI-токен `IFileWatcherDIToken` — в `platform/files/` (`node/chokidarFileWatcher.ts`, `common/iFileWatcherDIToken.ts`), но интерфейс живёт здесь, чтобы им мог пользоваться и слой Configuration для live-reload настроек). Разбор ошибок watcher'ов — `describeFileWatchError` (`src/vs/platform/files/common/fileWatchErrors.ts`): переводит ошибку (`ENOSPC`/`EMFILE` — упёрлись в лимит inotify) в код + подсказку по тюнингу; им пользуются оба реальных watcher'а (`ChokidarFileWatcher`, `ExplorerService`), чтобы текст рекомендации был один.
 
 ## Отмена и устаревание: `cancellation.ts`
@@ -111,7 +122,7 @@ stdio без `inherit` (типом). Пользователи — watcher-про
 Сквозные правила; каждое уже стоило падения редактора или субпроцесса расширений.
 
 - **Свой дочерний процесс — только через `GuardedChildProcess`** (выше). `error` у `ChildProcess` слушается обязательно и подпиской `on`, а не `once`; `try/catch` вокруг `send` не спасает (закрытый канал отвечает `false` синхронно, `ERR_IPC_CHANNEL_CLOSED` приходит событием позже), а после `error` событие `exit` может не прийти вовсе ([ARCHITECTURE.md](../ARCHITECTURE.md#роли-процессов-форк-самого-себя)).
-- **Команда не роняет процесс.** Обработчик команды возвращает свой промис, а не `void`; `CommandRegistry.execute` вешает обработчик отказа на исходный промис, не подменяя его (ждущему отказ обязан доехать); `openUri` не отклоняется никогда; последняя страховка — `process.on("unhandledRejection")` в `main.ts` и в субпроцессе расширений ([TODO/Uri.md](../TODO/Uri.md#виртуальные-read-only-документы-сделано)).
+- **Команда не роняет процесс.** Обработчик команды возвращает свой промис, а не `void`; `CommandRegistry.execute` вешает обработчик отказа на исходный промис, не подменяя его (ждущему отказ обязан доехать); `openUri` не отклоняется никогда; последняя страховка — `process.on("unhandledRejection")` в `main.ts` и в субпроцессе расширений ([TODO/Uri.md](#uri)).
 - **Отказ host-обработчика RPC — это отказ промиса у расширения**, и необработанный отказ в коде расширения бьёт по всему субпроцессу. Поломка нашей поверхности (сток бросил) расширению стоить не должна: нейтральный ответ + строка в лог (образец — `window.showMessage` в `services/extensions/node/customers/windowCustomer.ts`).
 - **Отсутствующая зависимость — null-объект, а не `undefined`** (`NULL_LOGGER`, `NULL_LANGUAGE_SERVICE`, `NULL_FILE_WATCHER`, `NULL_VIRTUAL_DOCUMENT_SOURCE`); обработчик отказа — хвостом `.catch(...)`, а не вторым аргументом `then`. Обе формы убирают ветки, которые иначе дают `RuntimeError` мутанта или эквивалентного выжившего ([MUTATION.md](../MUTATION.md#раннер-упал-на-мутанте--тоже-не-проверено-и-это-почти-всегда-наш-код)).
 
@@ -300,6 +311,13 @@ npm run bench:services -- /tmp/traces/*.json [--sort=self|inclusive|start] [--to
 
 ## Common/Logging/
 Логирование в стиле VS Code: один `ILogService` на процесс (`ILogServiceDIToken`), из него `ILogger` per channel (dotted, напр. `extensions.host`). Уровень канала резолвится walk-up по точкам → wildcard `*` → дефолт. Sinks (`ILogSink`) — fan-out fire-and-forget: `RingBufferSink` (источник для будущей Output-вкладки) и `FileSink` (append-only). В тестах биндится `NULL_LOG_SERVICE`. Человекочитаемое имя канала для селектора Output даёт его создатель — `createLogger(id, { label })` (аналог `ILoggerOptions.name` vscode); `ILogService.getRegisteredChannels()`/`onDidRegisterChannel` отдают такие каналы, и `OutputService` переносит их в реестр Output. Канал без метки появляется в селекторе под сырым id, когда в него впервые напишут.
+
+Правила:
+- **Никаких прямых `console.*` в рантайме** (после bootstrap-CLI); тесты и explore — исключение.
+- **Sink не бросает**: свою ошибку пишет в `process.stderr` (если можно) и проглатывает.
+- **Имена каналов** — `<area>` или `<area>.<sub>`; у расширений — `extensions.<id>`.
+- **Дефолтный уровень — `Trace`**, пока идёт активная разработка; снизить до `Info` — пункт
+  [TODO/Logging.md](../TODO/Logging.md).
 
 Неочевидные гейты:
 - **dev vs packaged:** `FileSink` (`./diode.log`) добавляется только когда `isPackagedRuntime() === false`; в упакованных сборках файлового sink нет. Гейт идёт именно по `isPackagedRuntime()` (`base/node/assets/packagedRuntime.ts`), а не по `isSeaBinary()`: self-extract — тоже прод, но `isSea()` там `false`, и по старому гейту прод писал бы `diode.log` в cwd пользователя.

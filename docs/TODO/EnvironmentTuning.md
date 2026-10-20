@@ -91,101 +91,27 @@
 
 ### [~] tmux + kitty: Ctrl+Tab / Ctrl+Shift+<key> не доходят (приходит голый Tab/легаси)
 
-Расследование закрыто бисекцией по слоям (демо — `src/demos/keyDiagnosticsDemo.ts`,
-оно включает те же режимы, что бэкенд, и печатает сырые байты → токены → событие →
-биндинг → tier). Ниже — итог, что уже сделано в коде, и что осталось.
+Разобрано: модификатор теряется на стыке kitty→tmux (kitty не понимает `modifyOtherKeys`, которым
+tmux просит расширенные клавиши); лечится только tmux ≥ 3.5 с `extended-keys always` +
+`extended-keys-format csi-u`. Устройство, бисекция по слоям и почему не чиним кодом —
+[arch/workbench/Keyboard.md](../arch/workbench/Keyboard.md#где-теряется-клавиша-tmux-kitty-iterm2);
+рецепт для пользователя и фолбэк `Ctrl+PageDown`/`Ctrl+PageUp` — [public/TMUX.md](../public/TMUX.md).
 
-- **Симптом.** Внутри tmux Ctrl+Tab не переключает вкладку (приходит голый `0x09`),
-  Ctrl+Shift+<буква> не приходит вовсе. Индикатор tier при этом может врать — см. ловушку ниже.
-
-- **Где теряется (доказано бисекцией).**
-  - **kitty + ssh, без tmux** → всё идеально: Ctrl+Tab = `\x1b[9;5u`, tier=kitty, полный
-    протокол (release-события, репорты модификаторов). ssh байт-прозрачен, не виноват.
-  - **+ tmux 3.4** (локально И по ssh) → Ctrl+Tab деградирует в `0x09`. Модификатор гибнет
-    на стыке **kitty→tmux**: tmux просит расширенные клавиши у внешнего терминала через
-    xterm-`modifyOtherKeys`, а **kitty его принципиально не поддерживает** (позиция автора
-    kitty — только свой протокол). Запрос игнорируется, kitty остаётся в legacy, и tmux
-    физически не получает Ctrl у Tab — добавить его на выходе он не может.
-  - Подтверждение источником: tmux PR
-    [#4038](https://github.com/tmux/tmux/pull/4038) «Improve support for extended key
-    reporting modes» — переработка ровно этого; из него выросла опция `extended-keys-format`
-    (csi-u/xterm). Работа **доехала в tmux 3.5**; в **3.4** опции нет (`invalid option`).
-  - Вывод по версиям: **tmux 3.4 — не дожать**; **tmux 3.5+** — фикс (`extended-keys always`
-    + при необходимости `set -g extended-keys-format csi-u`). См. также kitty #5508 → #4075.
-
-- **Ловушка: индикатор tier ≠ доставка клавиш.** `extended-keys` поднимается ещё и по
-  env-хинту (`KITTY_WINDOW_ID` и т.п.). Локально (без ssh) хинт на месте → tier показывает
-  `csi-u`, хотя реальные расширенные клавиши tmux 3.4 НЕ доставляет. По ssh хинт срезается
-  → `legacy`. Поэтому «индикатор csi-u» не равно «Ctrl+Tab работает».
-
-- **Что уже сделано в diode (коммиты `chore:`).**
-  - Бэкенд шлёт ещё и xterm-`modifyOtherKeys` (`\x1b[>4;2m`) рядом с kitty-enable
-    (`tuidom/backend/nodeTerminalBackend.ts`) — это помогает терминалам/мультиплексорам, которые
-    его понимают; на чистом kitty работает kitty-протокол. С tmux 3.4+kitty не спасает (см. выше).
-  - Runtime-детект tier из фактически пришедшей CSI-u клавиши
-    (`TerminalEnvironmentService.noteExtendedKeysObserved()` + хук в `WorkbenchComponent`) — индикатор
-    и tier-gated биндинги поднимаются по реальному вводу, а не только по пробе/хинту.
-  - Диагностический демо `src/demos/keyDiagnosticsDemo.ts`.
-  - Ловушка выше (индикатор ≠ доставка) больше не стоит пользователю команд:
-    фолбэки дефолтных биндов безусловны, а канонический бинд, который терминал
-    без extended keys не передаёт, объявлен под `tier != 'legacy'` — чтобы
-    подсказка в палитре и меню не обещала нерабочее. Правило и его гейт сборки —
-    в [arch/workbench/Commands.md](../arch/workbench/Commands.md#конвенции-системы-команд)
-    (#376).
-
-- **Что подкрутить (пользователю).**
-  - **tmux 3.5+** для самого Ctrl+Tab. В `~/.tmux.conf`:
-    ```tmux
-    set -s extended-keys always
-    set -g extended-keys-format csi-u   # только tmux ≥ 3.5
-    set -as terminal-features ',*:extkeys'
-    ```
-  - **Фолбэк уже сейчас (любой tmux):** `Ctrl+PageDown`/`Ctrl+PageUp` (и `Alt+PageUp/Down`)
-    переключают вкладки и **без** extended-keys — модификаторы на спец-клавишах кодируются
-    стандартным `;mod`-параметром, который tmux пропускает всегда
-    (`src/vs/workbench/Actions/TabActions.ts`).
-
-- **Дальнейшие шаги (detect & advise — суть трекера).**
-  - Детектить ситуацию «внутри tmux, но расширенные клавиши фактически не приходят» (например:
-    `mode_tmux` активен, а `noteExtendedKeysObserved` так и не сработал спустя N вводов) и
-    подсказать пользователю: «жми Ctrl+PageDown, либо tmux ≥ 3.5 для Ctrl+Tab».
-  - Способ подачи — из раздела «как доносить» выше (статусбар/нотификация/doctor).
-
-- **Почему не чиним кодом.** Авто-`tmux set` мутирует серверную опцию чужого tmux — отвергнуто.
-  Возврат DCS passthrough для input-режимов — прошлый баг (утечка кодировки во все панели,
-  ломался Ctrl+S-префикс; коммит `3d20e6f`). И главное — на tmux 3.4 проблема в самом tmux,
-  кодом diode не решается в принципе.
+- [ ] **Детектить и подсказывать.** Ситуация «внутри tmux, но расширенные клавиши фактически не
+  приходят» (`mode_tmux` активен, а `noteExtendedKeysObserved` так и не сработал спустя N вводов) →
+  подсказка: «жми Ctrl+PageDown, либо tmux ≥ 3.5 для Ctrl+Tab». Способ подачи — из раздела «как
+  доносить» выше.
 
 ### [ ] Мак: Cmd, Option и tmux — что подсказывать маководу
 
-Мак-раскладка и Keyboard Doctor — [MacKeybindings](MacKeybindings.md). Доктор уже
-отдаёт рецепты под опознанный эмулятор (`emulatorRecipes`), но пока только в
-отчёте. Здесь — то, что надо довести до «детектим и подсказываем».
+Мак-раскладка и Keyboard Doctor — [arch/workbench/Keyboard.md](../arch/workbench/Keyboard.md),
+таблица эмуляторов и рецептов — [MacKeybindings](MacKeybindings.md#эмуляторы--не-проверено-на-живом-маке).
+Доктор уже отдаёт рецепт под опознанный эмулятор, но только в отчёте. Довести до «детектим и
+подсказываем»:
 
-- **iTerm2 и `CSI >4;2m`.** iTerm2 трактует любой `CSI >4;n m` как сброс
-  kitty-стека. Бэкенд слал modifyOtherKeys после kitty-push — откат в legacy, Cmd
-  уходил в меню-бар. Починено в движке (tuidom
-  [#13](https://github.com/tuidom/tuidom/pull/13), `@tuidom/*` 0.3.0): kitty-push
-  теперь последним; тот же порядок повторяет `keyDiagnosticsDemo.ts`. Живьём на
-  iTerm2 не проверено — ждём отчёт Keyboard Doctor.
-- **tmux и Cmd.** У tmux три модификатора: Cmd и Option пишутся в один бит, и Cmd+S
-  приезжает байт в байт как Option+S. Cmd под tmux не доезжает никогда, поэтому
-  мак-рунг под tmux не выше `extended`. Подсказка пользователю: Cmd-раскладка
-  только без tmux; внутри tmux — Ctrl-подслой. Для Ctrl+Shift/Ctrl+Tab нужен
-  `extended-keys always` + `extended-keys-format csi-u` (tmux ≥ 3.5), см. пункт выше.
-- **tmux и `LC_DIODE_PLATFORM`.** Свой env под tmux застывает на момент создания
-  сессии, поэтому diode спрашивает `tmux show-environment`. Туда переменная попадает
-  только с `set -ag update-environment LC_DIODE_PLATFORM`. Подсказать, если под tmux
-  ОС осталась «default», а клиент — маковский терминал.
-- **Рецепты эмуляторов** (не проверено, из документации):
-  - iTerm2 — Left/Right Command = Super, «Apps can change how keys are reported»,
-    Left Option = Esc+;
-  - kitty — `macos_option_as_alt left`, снять Cmd-шорткаты, нужные редактору;
-  - ghostty — `macos-option-as-alt = left`, `alt+arrow_left/right=unbind`
-    (иначе шлёт legacy `ESC b`);
-  - WezTerm — `enable_kitty_keyboard`,
-    `send_composed_key_when_left_alt_is_pressed = false`;
-  - Terminal.app — Cmd невозможен, Option — галка «Use Option as Meta key».
-- **Дальше:** показывать рецепт не только в отчёте доктора, а подсказкой, когда
-  окружение опознано как мак, а рунг ниже возможного для эмулятора. Например,
-  iTerm2 без tmux, а super так и не пришёл.
+- [ ] Рецепт эмулятора — подсказкой, когда окружение опознано как мак, а рунг ниже возможного для
+  эмулятора (например, iTerm2 без tmux, а super так и не пришёл).
+- [ ] Под tmux ОС осталась «default», а клиент — маковский терминал: подсказать
+  `set -ag update-environment LC_DIODE_PLATFORM`.
+- [ ] Под tmux: Cmd-раскладка только без tmux, внутри — Ctrl-подслой; для Ctrl+Shift/Ctrl+Tab —
+  tmux ≥ 3.5 (пункт выше).

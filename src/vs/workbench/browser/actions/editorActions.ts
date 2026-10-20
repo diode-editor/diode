@@ -201,7 +201,7 @@ export const cursorBottomSelectAction: CommandAction = {
 // клавиш — под tmux он поднимается по env-хинту внешнего терминала и по первой
 // пришедшей CSI-u клавише, а расширенные клавиши tmux при этом не доставляет.
 // Гейт выключал фолбэк ровно там, где он нужен. Несколько биндов на команду —
-// норма VS Code. Детали: docs/TODO/EnvironmentTuning.md.
+// норма VS Code. Детали: docs/arch/workbench/Keyboard.md.
 export const cursorWordLeftAction: CommandAction = {
     id: "cursorWordLeft",
     title: "Cursor Word Left",

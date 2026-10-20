@@ -10,29 +10,6 @@
 
 ---
 
-## Визуальный ориентир
-
-### NVChad — референс для UI/UX
-
-Проект: https://github.com/NvChad/NvChad
-
-NVChad — конфигурация Neovim с красивым UI, быстрым рендерингом и продуманной визуальной частью. Ориентируемся на него в плане:
-
-- **Внешний вид**: цветовые темы (base46), statusline, tabufline, общая эстетика
-- **Иконки**: nvim-web-devicons — файловые иконки, иконки типов файлов в дереве и табах
-- **Рендеринг UI-элементов**: telescope (fuzzy finder с превью), nvim-tree (файловое дерево), cheatsheets
-- **Цветовые схемы**: onedark и другие темы из base46 как отправная точка для палитры
-
-Ключевые плагины NVChad для вдохновения:
-
-- [base46](https://github.com/NvChad/base46) — темы и подсветка
-- [NvChad UI](https://github.com/NvChad/ui) — statusline, tabufline, theme switcher
-- [nvim-web-devicons](https://github.com/kyazdani42/nvim-web-devicons) — иконки файлов
-- [telescope.nvim](https://github.com/nvim-telescope/telescope.nvim) — поиск файлов с превью
-- [nvim-tree.lua](https://github.com/kyazdani42/nvim-tree.lua) — файловое дерево
-
----
-
 ## Крупные задачи
 
 - [ ] [Formatting](Formatting.md) — prettier и выбор форматтера (пункт 5 ParityBacklog, охват сужен: сначала prettier). Замерено: TS/JS форматирует tsserver, markdown/json не покрыты никем; провайдер выбирается первым матчащим, `editor.defaultFormatter` нет — отсюда риск конфликта prettier×tsserver
@@ -44,7 +21,7 @@ NVChad — конфигурация Neovim с красивым UI, быстры�
 - [~] [ClaudeCode](ClaudeCode.md) — интеграция с Claude Code: стоковое `Anthropic.claude-code` в режиме `useTerminal` в нашем магазине (v0.9.7) — `claude` вкладкой справа, контекст редактора, `getDiagnostics`, предложенный дифф с ✓/↺; открыты хвосты — уведомление на webview-команды, стоковые тесты терминала, `claude` во вторичной панели
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
 - [ ] [EngineWidgetRepatriation](EngineWidgetRepatriation.md) — прикладные виджеты, оставшиеся в `@tuidom/elements` (completionlist, editorgroup, editorpart, terminal, menuBar; `panel` и `workbenchlayout` переехали): по критерию «публичный API не упоминает понятий Diode» им место у нас
-- [~] [SyntaxHighlighting](SyntaxHighlighting.md) — подсветка синтаксиса (TextMate и семантические токены LSP готовы; далее scope-селекторы, background токенизация)
+- [~] [SyntaxHighlighting](SyntaxHighlighting.md) — подсветка синтаксиса (TextMate и семантические токены LSP готовы; скоупы темы матчит vscode-textmate; далее — шебанг и прочий language detection, `editor.action.changeLanguage`, bracket pair colorization)
 - [~] [Theming](Theming.md) — цветовые темы (встроенные, пикер, live-reload, темы от расширений / установка из магазина готовы; открыто — подсветка текущей строки, группировка пикера, `IWorkbenchColors`, `workbench.colorCustomizations`)
 - [~] [DiffViewer](DiffViewer.md) — смотрелка изменений: остались фаза 2 (интерактив: раскрытие свёртки жестом, Switch Side, F7) и фаза 6 (краевые случаи: большой файл, бинарник, whitespace). История движка и этапов — [Diff](Diff.md), дифф v2 на двух настоящих редакторах — [DiffEditable](DiffEditable.md) (сделан, в конце — follow-up'ы)
 - [~] [SourceControl](SourceControl.md) — полный Source Control сделан (фазы 0–14); открыты follow-up'ы: `diode.scm.publishBusy`, UI-e2e для sync/branch/stash

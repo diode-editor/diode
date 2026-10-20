@@ -61,5 +61,4 @@ damage-tracking'ом кадра (2026-08-04).** Обнаружено на Output
 - **Ленивое окно вьюпорта**: даже с cap `DisplayLine` аллоцирует до 10k слотов, а
   `charAtColumn`/`graphemeAtColumn` — линейный скан по слотам; окно по видимым
   колонкам убрало бы и это. Тогда же — горизонтальный скролл в хвост без обрезки.
-- **large-file режим** (VS Code `largeFileOptimizations`): порог по размеру файла,
-  гасящий дорогие фичи при открытии гигантских файлов.
+- large-file режим (`largeFileOptimizations`) — в [OpenPerformance](OpenPerformance.md), этап 4.

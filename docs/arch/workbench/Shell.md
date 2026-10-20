@@ -59,6 +59,27 @@
   единственную загрузку делает `activate()`. Решение и его мотивы —
   [docs/TODO/Startup.md](../../TODO/Startup.md).
 
+### Запуск без аргументов: пустое окно
+
+`diode` без позиционных аргументов поднимает **пустое окно**: воркспейс не открывается (ни корня
+Explorer, ни индекса файлов, ни вотчеров; расширения видят `workspace.workspaceFolders ===
+undefined`), **текущий каталог не трогается вообще** — `cd ~ && diode` не должен уходить обходить
+домашний каталог, вкладки прошлой сессии не восстанавливаются (сессия живёт у воркспейса). Сайдбар
+собран, Explorer говорит «No folder opened.», магазин работает; выход — `workbench.action.files.openFolder`.
+Регистрация вьюлетов поэтому расцеплена с `setWorkspaceFolder` (`registerViewContainers()` — из
+`mount()`), а Open Folder на живом окне наполняет дерево через `refresh()`.
+
+Почему не как у других:
+
+| подход | кто так делает | почему не взяли |
+| --- | --- | --- |
+| восстановить последний воркспейс | vscode (`window.restoreWindows`), zed, jetbrains | в GUI-IDE это замена бессмысленной cwd; в терминале даёт «стою в одном проекте, открылся другой» |
+| открыть cwd как папку (`code .`) | terminal-native | cwd бывает `~` или `/`, и запуск уходит в обход гигантского дерева |
+| пустой scratch-буфер | vim, helix, emacs, micro, nano, kakoune | у них нет workspace folder, а у нас есть — буфер не решает, что делать с Explorer/Search/SCM |
+
+Пустое окно ничего не угадывает; недавние папки, действия и справку принесёт welcome page
+([TODO/Startup.md](../../TODO/Startup.md)).
+
 ## Жизненный цикл
 
 Сервис — `services/lifecycle/browser/lifecycleService.ts`.

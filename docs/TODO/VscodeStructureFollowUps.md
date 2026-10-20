@@ -95,44 +95,9 @@
 Оставшееся наследие «прикладные виджеты в движке» — отдельная задача
 [EngineWidgetRepatriation.md](EngineWidgetRepatriation.md).
 
-## Механика (пути повторяем, механизм — нет; узаконено, ревизия по мере надобности)
+## Механика
 
-- Явные массивы регистраций (`WORKBENCH_CONTRIBUTIONS`, `MENU_CONTRIBUTIONS`,
-  `QUICK_ACCESS_PROVIDERS`, `CONFIGURATION_CONTRIBUTIONS`,
-  `COLOR_CONTRIBUTIONS`) вместо `Registry.as(...)` + import-side-effect
-  `*.contribution.ts`.
-- DI на токенах со `static dependencies` вместо `createDecorator`-декораторов
-  (erasable syntax / SEA).
-- Тесты колокацией рядом с кодом, а не в `test/`-деревьях (оси на тесты не
-  проверяются).
-- Dev-тулинг (`Inspector`, `TestUtils`, `StoryRunner`, `demos`) — в `src/` вне
-  `vs/`.
-- Пара Service ↔ Component — три узаконенные формы (Part над сервисом, сервис —
-  владелец виджета, сервис — владелец layout-контрола), правила «сервис не знает
-  view» нет, как и в upstream — см. [arch/Workbench.md](../arch/Workbench.md#модель-service--component).
-  Известные отклонения (сервис конструирует панели редактора и диалоги, `?:`-хуки
-  `EditorService`, `attachHost` от корня) перечислены там же с адресами задач.
-- Состав фичи — путь upstream (всё, что фича регистрирует, лежит в
-  `contrib/<f>/`, центр знает фичу одной строкой в агрегаторе
-  `workbench.common.main.ts`), механизм наш: явный экспорт фичи вместо
-  `<f>.contribution.ts` с побочным эффектом импорта. Канон —
-  [arch/Workbench.md](../arch/Workbench.md#состав-фичи), таблица оставшегося долга
-  с адресами задач — [ниже](#где-канон-состав-фичи-ещё-не-выполнен).
-  Необязательные хвосты H6 (узлы конфигурации фич в `contrib/<f>/common/`,
-  revision-команды из `diff/compareActions.ts` в scm, DI-дескриптор фичи вместо
-  блоков `workbenchModule.ts`) записаны там же. Разнос
-  `workbenchModule.ts` на модули фич отдельно от этого дескриптора не делаем
-  (исследование C5): без него число правок на фичу не уменьшается — те же
-  строки переезжают из одного центрального места в другое.
-- Жизненный цикл (`LifecycleService`, C6) — узкий срез upstream: четыре фазы
-  `LifecyclePhase` с `when()`/`onDidChangePhase` и прощание
-  `onWillShutdown`+`join`/`onShutdownSync`. Не переносим: `WorkbenchPhase` ×4 с
-  lazy/onEditor-инстанцированием (фаза contribution'а — это фаза жизненного
-  цикла, `ready`/`eventually`), veto-события поверх confirm-save,
-  `ShutdownReason.CLOSE/LOAD` и `StartupKind`. `eventually` — сразу после
-  первого кадра, а не таймер 2.5 с: это бенч-критично. Общего bootstrap'а
-  prod/test нет, как и в upstream: `startWorkbench` гоняют юниты на тестовом
-  контейнере, харнесс его не повторяет.
+Пути повторяем, механизм — нет: узаконенный список отличий — [ARCHITECTURE.md](../ARCHITECTURE.md#пути-повторяем-механизм--нет).
 
 ## Где канон «Состав фичи» ещё не выполнен
 
@@ -154,7 +119,6 @@
 
 - [x] `Emitter`/`event.ts` из `vs/base/common/event.ts` вместо ad-hoc массивов
   колбэков — сделано, свой узкий шим с именами эталона: [arch/Common.md](../arch/Common.md#события-eventts).
-- [ ] PieceTree (`pieceTreeTextBuffer`) — см. [VscodeModel.md](VscodeModel.md), ветка A.
 - [ ] Эталонный дефолт событий активации (пусто значит пусто, без неявного
   `*`): механизм готов (`computeActivationEvents`), но дефолт `*` оставлен —
   на нём держатся опубликованные в магазине записи без `activationEvents`
@@ -169,8 +133,6 @@
   подключения уже есть — `shutdown(reason, then)`; нужна причина `"signal"` и
   обработчики (для SIGINT — хук в tuidom).
 - [ ] Разнос `EditorViewState` на viewModel/viewLayout/cursor.
-- [ ] `ProxyIdentifier`-типизация RPC extension host'а (сейчас строковая
-  адресация методов).
 - [ ] Семантические переименования файлов под upstream-имена (кодмод делал
   только camelCase): `geometryPromitives.ts`→`geometry.ts`,
   `iRange.ts`→`range.ts` и т.п. (`disposable.ts`→`lifecycle.ts` закрыт:

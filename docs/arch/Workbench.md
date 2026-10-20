@@ -14,6 +14,7 @@ DI-модули и профили — `src/vs/diode/modules/` (см. [../DI.md](
 |---|---|
 | [Contributions.md](workbench/Contributions.md) | workbench-contributions и их фазы, узлы конфигурации фич |
 | [Commands.md](workbench/Commands.md) | конвенции системы команд, кейбинды и их досягаемость, when-вычислитель, контекст-ключи, клавиатурный диспатч, где живут экшены |
+| [Keyboard.md](workbench/Keyboard.md) | ОС клавиатуры, мак-лестница и мак-раскладка, Keyboard Doctor, где теряется клавиша в tmux/kitty/iTerm2 |
 | [Menus.md](workbench/Menus.md) | `MenuRegistry`/`MenuService`, точки меню, пункты расширений, `enablement` |
 | [Shell.md](workbench/Shell.md) | корневой компонент и последовательность старта, жизненный цикл, layout, строка меню, статус-бар, нижняя и вторичная боковая панели |
 | [Views.md](workbench/Views.md) | модель container↔view (`ViewsService`), расположение видов, общие контролы списков |
@@ -184,7 +185,7 @@ contribution'ы. Так же устроено и в VS Code. Обязатель�
 `workbench.common.main.ts` подключает фичу строкой импорта. Механизм мы не
 повторяем: вместо import-side-effect и `Registry.as` фича делает **явный экспорт**, а
 агрегатор собирает экспорты в **явные массивы** (см.
-[VscodeStructureFollowUps.md](../TODO/VscodeStructureFollowUps.md), раздел «Механика»).
+[ARCHITECTURE.md](../ARCHITECTURE.md#пути-повторяем-механизм--нет)).
 
 | Элемент | Где | Имя | Когда нужен |
 |---|---|---|---|
