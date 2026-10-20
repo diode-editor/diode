@@ -1,7 +1,7 @@
 # Terraform: стоковое `hashicorp.terraform`
 
 Статус: **PR1 (активация) сделан, PR2–PR3 открыты.** Родственные документы:
-[Extensions.md](Extensions.md) (фаза 8b — деревья), [Marketplace.md](Marketplace.md),
+[Extensions.md](Extensions.md) (фаза 8b — деревья), [Marketplace.md](../arch/Marketplace.md),
 матрица [API-COVERAGE.md](../public/API-COVERAGE.md).
 
 Цель — стоковое расширение `hashicorp.terraform` из Open VSX (платформенный vsix со

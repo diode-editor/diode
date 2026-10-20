@@ -89,7 +89,7 @@
   `IExtensionRegistrySource`: каталог (`FileExtensionRegistrySource`) или сеть
   (`HttpExtensionRegistrySource`); выбирает `createRegistrySource` по значению `--registry`, без
   флага — публичный реестр. Формат и политика наполнения —
-  [docs/TODO/Marketplace.md](../TODO/Marketplace.md).
+  [Marketplace.md](Marketplace.md).
   - **`extensionDependencies` ставятся вместе с расширением** — без вопросов, как VS Code
     (`getAllDepsAndPackExtensions`), и из CLI, и кнопкой Install на странице. Сначала всё
     **готовится** (версия, артефакт, `sha256`, манифест прямо из `.vsix` — `readVsixManifest`,

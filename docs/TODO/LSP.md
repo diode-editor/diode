@@ -208,7 +208,7 @@ diode ручные, так что `"explicit"` ≡ `true`) и `editor.formatOnSa
   закоммиченной фикстуры (политика — [TESTING.md](../TESTING.md)). Folding у
   python — indentation-based ядра (сервер `textDocument/foldingRange` не
   реализует). Запись `proxy-openvsx` в реестре магазина — сделана
-  ([Marketplace.md](Marketplace.md)); дальше — gopls: стоковый `golang.go`, сервер ставит себе само расширение (`go install`), пул задач — [GoLSP.md](GoLSP.md).
+  ([Marketplace.md](../arch/Marketplace.md)); дальше — gopls: стоковый `golang.go`, сервер ставит себе само расширение (`go install`), пул задач — [GoLSP.md](GoLSP.md).
 - **Второй Python-сервер — ruff сделан (#305)**: настоящий `charliermarsh.ruff`
   с open-vsx рядом с basedpyright — линт-диагностики (pull с re-pull на
   правку буфера), quickfix по диагностике (safe-фикс `isPreferred`),
@@ -217,7 +217,7 @@ diode ручные, так что `"explicit"` ≡ `true`) и `editor.formatOnSa
   `ruff server` (Python не нужен). Дистрибуция — **платформенные vsix**
   (universal у ruff нет): ось `targetPlatform` в магазине + восстановление
   exec-бита нативных бинарей в `installVsix` (PR 1, diode#306), запись 6
-  платформ в реестре ([Marketplace.md](Marketplace.md)). Курируемый дефолт
+  платформ в реестре ([Marketplace.md](../arch/Marketplace.md)). Курируемый дефолт
   `ruff.importStrategy: "useBundled"` (`curatedConfigInjection`; манифестный
   `fromEnvironment` сканирует окружение — bundled детерминирован, а
   `nativeServer: "auto"` сам выбирает native: bundled заведомо ≥ 0.5.3).
