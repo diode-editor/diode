@@ -16,6 +16,7 @@ import {
 } from "../../src/TestUtils/goFixture.ts";
 import { APP_JAVA, APP_JAVA_PATH, POM_XML } from "../../src/TestUtils/javaFixture.ts";
 import { startHeadlessApp } from "../helpers/appSession.ts";
+import { CLAUDE_CODE_ID, claudeCodeSessionEnv, IdeProbe, waitForIdeLock } from "../helpers/claudeIde.ts";
 import { waitForEslintDiagnostics } from "../helpers/eslintReady.ts";
 import { findNode } from "../helpers/inspectorClient.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
@@ -391,6 +392,38 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 await app.session.waitForText((text) => text.includes("# Hello") && text.includes("- item one"), {
                     timeoutMs: 60_000,
                 });
+            } finally {
+                await app.dispose();
+            }
+        },
+    },
+    {
+        // kind: "proxy-openvsx", платформенный vsix (~130 МБ, внутри бинарь CLI)
+        // — стоковый Claude Code в терминальном режиме. Работа расширения здесь —
+        // ide-сервер, к которому подключается `claude`: пункт «✻ Claude Code» и
+        // лок `~/.claude/ide/<port>.lock` пишутся в конце activate(), а MCP
+        // `initialize` отвечает сервер с `ideName` из `env.appName`. Настоящий
+        // CLI не запускаем — вместо него пробный клиент; контекст, диагностики и
+        // терминал проверяет e2e claudeCode.test.ts.
+        id: CLAUDE_CODE_ID,
+        expectFiles: ["package.json", "extension.js"],
+        run: async (ctx) => {
+            const file = join(ctx.root, "notes.md");
+            writeFileSync(file, "# notes\n");
+            const app = await startHeadlessApp({
+                root: ctx.root,
+                keepRoot: true,
+                open: [file],
+                env: claudeCodeSessionEnv(),
+            });
+            try {
+                await app.session.waitForText((text) => text.includes("✻ Claude Code"), { timeoutMs: 60_000 });
+                const lock = await waitForIdeLock(app.env.home);
+                const { probe, serverInfo } = await IdeProbe.connect(lock);
+                probe.close();
+                if (lock.ideName !== "Diode" || serverInfo.name !== "Claude Code Diode MCP") {
+                    throw new Error(`ide-сервер не от Diode: лок ${lock.ideName}, сервер ${serverInfo.name}`);
+                }
             } finally {
                 await app.dispose();
             }

@@ -47,8 +47,16 @@ Open in Terminal`) открывает `claude` **вкладкой редакто
    закрытием дифф-вкладки.
 6. [x] **Диагностики** (пункт 4): `languages.getDiagnostics`,
    `onDidChangeDiagnostics` — обратный путь из `MarkerService` в субпроцесс.
-7. **Магазин и стоковый e2e**: запись `Anthropic.claude-code` в реестр
-   (платформенные vsix), стоковый сценарий через `fetchStockVsix`.
+7. [x] **Магазин и стоковый e2e** (20.10.2026): запись
+   `Anthropic.claude-code@2.1.304` в реестре (сайт#20; шесть платформенных vsix,
+   `engines.diode >=0.9.5`, `support: partial`). В `limits` предложенный дифф —
+   отдельным пунктом «Proposed edits are not shown as a diff tab…»: закрыв
+   пункт 5, его снять (и сказать о вкладке в `works`/readme). Тесты ставят
+   расширение по id из магазина: смоук в `e2e/marketplace/checks.ts`, e2e
+   `claudeCode.test.ts` (лок, MCP, выделение, `Ctrl+Alt+K`, `getDiagnostics`,
+   вкладка `claude` справа, `CLAUDE_CODE_SSE_PORT` в терминале панели),
+   сценарий `claude-code`. Вместо CLI — пробный клиент и подставной `claude`
+   (docs/TESTING.md, «Claude Code без настоящего CLI»).
 8. **Стоковые тесты терминала**: Code Runner, direnv, сьют по образцу
    Terminals Manager (пункт 2).
 9. **`claude` во вторичной боковой панели** — сама панель влита (#649, #654,
@@ -141,9 +149,8 @@ diagnostic client»). Белого списка имён IDE в CLI нет: ва
       (`workbench.action.url.openUrl`). Без галочки «больше не спрашивать» и без
       установки отсутствующего расширения (отступления — в матрице). Протокол ОС
       и `--open-url` не подключены: у TUI нет регистрации `diode://` в системе.
-- [ ] Запись `Anthropic.claude-code` в реестр магазина (платформенные vsix,
-      ~120 МБ — лимиты валидатора см. [JavaLSP.md](JavaLSP.md)). Без неё
-      стоковый e2e-сценарий не скачать через `fetchStockVsix`.
+- [x] Запись `Anthropic.claude-code` в реестр магазина (платформенные vsix,
+      125–138 МБ — в лимите 256 МиБ валидатора и клиента) — пункт 7 сводки.
 - [x] Матрица API-COVERAGE обновлена.
 
 ### 2. Терминал для расширений (крупное)
