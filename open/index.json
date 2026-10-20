@@ -950,5 +950,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-20-fae07b2bdf21.json",
+    "generatedAt": "2026-10-20T22:07:30.259Z",
+    "commit": "fae07b2bdf21",
+    "binaryVersion": "nightly-fae07b2",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
