@@ -18,6 +18,10 @@ import { FileSearchService } from "./fileSearchService.ts";
 
 const ROOT = path.join(process.cwd()); // /workspaces/vexx
 const SRC = path.join(ROOT, "src");
+// Пустой запрос отдаёт первые maxResults записей индекса в порядке обхода, а
+// файлов в src/ больше любого «большого» числа: при пороге 2000 и 2340 файлах
+// «файл есть в индексе» зависело от порядка обхода (в песочнице Stryker — красно).
+const ALL_FILES = Number.POSITIVE_INFINITY;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -54,30 +58,29 @@ describe("FileSearchService — integration against real project", () => {
         });
 
         it("indexes WorkbenchComponent.ts", () => {
-            // pass large maxResults — default 50 may not cover all files
-            const paths = relativePaths(service.search("", 2000));
+            const paths = relativePaths(service.search("", ALL_FILES));
             expect(paths.some((p) => p.includes("workbenchComponent.ts"))).toBe(true);
         });
 
         it("indexes files in nested directories", () => {
-            const paths = relativePaths(service.search("", 2000));
+            const paths = relativePaths(service.search("", ALL_FILES));
             expect(paths.some((p) => p.includes("workbench/"))).toBe(true);
             expect(paths.some((p) => p.includes("platform/"))).toBe(true);
             expect(paths.some((p) => p.includes("editor/"))).toBe(true);
         });
 
         it("does not include node_modules files", () => {
-            const paths = relativePaths(service.search("", 2000));
+            const paths = relativePaths(service.search("", ALL_FILES));
             expect(paths.every((p) => !p.includes("node_modules"))).toBe(true);
         });
 
         it("does not include .git files", () => {
-            const paths = relativePaths(service.search("", 2000));
+            const paths = relativePaths(service.search("", ALL_FILES));
             expect(paths.every((p) => !p.startsWith(".git"))).toBe(true);
         });
 
         it("all relative paths use forward slashes", () => {
-            const paths = relativePaths(service.search("", 2000));
+            const paths = relativePaths(service.search("", ALL_FILES));
             expect(paths.every((p) => !p.includes("\\"))).toBe(true);
         });
     });
