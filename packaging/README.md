@@ -12,6 +12,7 @@
 | npm | [`npm/`](npm/) — пакет `@diode-editor/diode` | job `npm` |
 | Homebrew | [`render.mjs`](render.mjs) → `Casks/diode.rb` в `diode-editor/homebrew-tap` (cask, не формула: формула без бутылки требует CLT на macOS) | job `brew` |
 | winget | [`render.mjs`](render.mjs) → манифесты `DiodeEditor.Diode` | первая подача руками, дальше job `winget` |
+| Сайт | версия в футере `diode-editor.github.io` (`scripts/set-diode-version.mjs` репозитория сайта) | job `site` → [`site-version.yml`](../.github/workflows/site-version.yml) |
 
 ## Локальная проверка
 
@@ -62,6 +63,20 @@ organization `diode-editor`, repository `diode`, workflow filename `release.yml`
 2. В форке `microsoft/winget-pkgs` положить `packaging/out/winget/DiodeEditor.Diode/X.Y.Z/*.yaml`
    в `manifests/d/DiodeEditor/Diode/X.Y.Z/`, проверить `winget validate <папка>`, открыть PR.
 3. После мержа — секрет `WINGET_TOKEN` (PAT с `public_repo`), и следующие версии подаёт `release.yml`.
+
+## Сайт: версия на лендинге
+
+Версия в футере `diode-editor.github.io` статическая: после публикации релиза job `site`
+(`site-version.yml`) коммитит её в `main` сайта, Pages выкладывают сами. Упавшая job не мешает
+релизу и каналам, но горит красным — и без секрета тоже: молча отставший сайт никто не заметит.
+
+Секрет `SITE_PAT` — fine-grained PAT: Resource owner `diode-editor`, Only select repositories →
+`diode-editor.github.io`, Repository permissions → Contents: Read and write.
+
+```sh
+gh secret set SITE_PAT -R diode-editor/diode
+gh workflow run site-version.yml -R diode-editor/diode -f version=vX.Y.Z   # перевыложить руками
+```
 
 ## apt: все версии в плоском репозитории
 
