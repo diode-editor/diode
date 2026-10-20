@@ -153,6 +153,13 @@ PR влит `--admin`.
   - [ ] `workbench.fileCreate.test.ts` › «create via context menu › New File... entry
     prompts and creates a file»: `expected false to be true`. Уронил dry run мутаций
     на #662 (ран 39231486646) — вердикта нет, PR-диффом не задет.
+  - [ ] `editorElement.performance.test.ts` › «combined render frame: contentWidth +
+    buildVisibleLines × 100 cursor moves — must be fast»: порог 100 мс по стенке, на
+    нагруженном раннере выходит за него. Самый частый флак в истории сессий (ловили
+    ≈17 сессий за 12–20.10); `gh run rerun --failed` зеленит. Кандидат на перевод с
+    порога стенки на счётчик работы.
+  - [ ] `fileSearchService.integration.test.ts` › «indexes files in nested directories»:
+    ловили несколько сессий 18–20.10, PR-диффом не задет; `gh run rerun --failed` зеленит.
   - [ ] `treeWatcherMain.integration.test.ts` › «правка файла на диске доезжает до
     колбэка в процессе редактора»: `expected 'changed' to be 'created'` —
     похоже, первым долетает событие создания файла, а не правки.

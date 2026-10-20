@@ -17,6 +17,24 @@ Stop в том же ходу (`stop_hook_active`) пропускается.
 Лизу на тяжёлые прогоны проверяет отдельный глобальный хук (`~/.claude/settings.json`, см. скилл
 `heavy-run`), здесь её нет.
 
+## Изоляция worktree Claude Code (не наш хук)
+
+Сессия, вошедшая в `.claude/worktrees/<имя>` (EnterWorktree), получает встроенную проверку самого
+Claude Code. Это не хук из этого каталога, править тут нечего. Проверка отказывает Bash-команде,
+если не может доказать, что та не выводит git за пределы worktree. Тексты отказа:
+«command is too complex to verify», «This session is isolated in the worktree». По истории сессий
+это самый частый отказ: сотни раз в большинстве worktree-сессий.
+
+| Отказывается | Делай так |
+|---|---|
+| `$(…)`, переменные и функции оболочки, вычисляемые аргументы (`sed -n "$(…)p"`, циклы) | одна простая команда на вызов; цепочка `&&` из простых (prettier, vitest, grep) проходит |
+| многострочная правка или выборка через heredoc `python3 -` вперемешку с другими командами | скрипт в scratchpad (инструмент Write) и один вызов `python3 -I <скрипт> <аргументы>` |
+| `npm run git:push` / `git:pr-status` / `git:fetch` («npm с git среди операндов») | `node scripts/git/push.mjs <ветка>`, `node scripts/git/pr-status.mjs <PR>`, … |
+| `cd <tuidom> && git …`, Bash-правки в соседнем checkout'е | `git -C <абсолютный путь> …`; правки там — инструментами Edit/Write; push tuidom — `git -C … push https://github.com/tuidom/tuidom.git <ref>` (`push origin` ловит ssh-предохранитель) |
+| `npm run -s drive -- …` с переменными или функциями-обёртками | каждая команда drive — отдельным простым вызовом |
+| команда с env-префиксом (`PATH=… claude-lease run …`) | короткий `.sh` в scratchpad, вызов `bash <скрипт>` |
+| `gh pr create --body-file - <<EOF …`, если в тексте встречается «git» | тело — файлом в scratchpad (Write), `--body-file <путь>` |
+
 Тесты: `node --test .claude/hooks/hooks.test.mjs`; в CI они идут в составе `npm run test:scripts`
 (job `mutation`, шаг «Gate self-test»).
 
