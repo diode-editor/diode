@@ -698,5 +698,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-20-add7d781ab53.json",
+    "generatedAt": "2026-10-20T04:46:32.332Z",
+    "commit": "add7d781ab53",
+    "binaryVersion": "nightly-add7d78",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
