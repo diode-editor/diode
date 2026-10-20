@@ -1,8 +1,10 @@
 import { DisposableStore, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import type { IExtensionTerminalEvents, IExtensionTerminalSink } from "../../../api/common/iExtensionWindowSinks.ts";
 import type {
     IWireTerminalCreate,
     IWireTerminalLaunch,
+    IWireTerminalLocation,
     IWireTerminalOpened,
     IWireTerminalRef,
 } from "../../../api/common/wireTypes.ts";
@@ -10,6 +12,7 @@ import type { ViewsService } from "../../../browser/parts/views/viewsService.ts"
 import type { IExtensionPtyTerminalOptions, IExtensionPtyTerminals } from "../common/extensionPtyTerminals.ts";
 import type { ExtensionPtySessionFactory, IExtensionPtySession } from "../common/terminalSessionFactory.ts";
 
+import type { ITerminalEditorLocation, TerminalEditorService } from "./terminalEditorService.ts";
 import {
     INITIAL_COLS,
     INITIAL_ROWS,
@@ -19,12 +22,26 @@ import {
     type TerminalService,
 } from "./terminalService.ts";
 
+/** Что мосту нужно от {@link TerminalEditorService}: вкладки-терминалы. */
+export type IExtensionEditorTerminals = Pick<TerminalEditorService, "createTerminal" | "splitInstance" | "reveal">;
+
+/**
+ * Куда встаёт терминал расширения (`resolveLocation` эталона): вид TERMINAL,
+ * вкладка в области редакторов или рядом с редакторным родителем.
+ */
+type TerminalPlace =
+    | { readonly kind: "panel" }
+    | { readonly kind: "editor"; readonly location: ITerminalEditorLocation }
+    | { readonly kind: "split"; readonly parentId: number };
+
 /**
  * Мост `window.createTerminal` расширений к {@link TerminalService}
  * (`MainThreadTerminalService` эталона): шелл расширения — обычный инстанс
- * встроенного терминала с его опциями, `show`/`hide` водят нижнюю панель на
- * вкладке TERMINAL, а жизнь ВСЕХ инстансов (и шеллов человека) уходит
- * подписчику — так `window.terminals` видит каждый терминал, как у эталона.
+ * встроенного терминала с его опциями; `location` ставит его в вид TERMINAL
+ * или вкладкой в область редакторов ({@link TerminalEditorService});
+ * `show`/`hide` водят вид TERMINAL либо вкладку, а жизнь ВСЕХ инстансов (и
+ * шеллов человека) уходит подписчику — так `window.terminals` видит каждый
+ * терминал, как у эталона.
  *
  * Свой терминал субпроцесс адресует `extHostId`, пока не узнал хостовый id
  * из `opened`; адаптер помнит соответствие до `reset()` (смерть субпроцесса).
@@ -56,12 +73,16 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         private readonly terminals: TerminalService,
         private readonly views: ViewsService,
         private readonly createPtySession: ExtensionPtySessionFactory,
+        private readonly editorTerminals: IExtensionEditorTerminals,
+        private readonly configuration: IConfigurationService,
     ) {}
 
     public snapshot(): { readonly terminals: readonly IWireTerminalOpened[]; readonly activeId: number | null } {
-        const all = [...this.terminals.getInstances(), ...this.terminals.getBackgroundInstances()].sort(
-            (a, b) => a.id - b.id,
-        );
+        const all = [
+            ...this.terminals.getInstances(),
+            ...this.terminals.getBackgroundInstances(),
+            ...this.terminals.getEditorInstances(),
+        ].sort((a, b) => a.id - b.id);
         return {
             terminals: all.map((instance) => this.toOpened(instance)),
             activeId: this.terminals.getActiveInstance()?.id ?? null,
@@ -108,15 +129,17 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         // Повтор метки — не наш случай (субпроцесс минтит их монотонно); второй
         // инстанс под той же меткой сделал бы первый неадресуемым.
         if (this.byExtHostId.has(request.extHostId)) return;
+        // Родителя адресуем до заведения: метка нового ещё ничего не значит.
+        const place = this.resolvePlace(request.location);
         this.creating = request.extHostId;
         try {
             if (request.pty === true) {
-                this.createPty(request.extHostId, request.name ?? "");
+                this.createPty(request.extHostId, request.name ?? "", place);
                 return;
             }
             // Опции провода — те же поля, что у `createInstance` (разбор их уже
-            // отфильтровал); лишняя метка сервису не мешает.
-            const instance = this.terminals.createInstance(request);
+            // отфильтровал); лишние метка и место сервису не мешают.
+            const instance = this.createIn(place, request);
             this.byExtHostId.set(request.extHostId, instance.id);
         } finally {
             this.creating = undefined;
@@ -124,14 +147,19 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
     }
 
     /**
-     * `Terminal.show` (`$show` эталона): инстанс — активный (фоновый переезжает
-     * в список вкладок), вид TERMINAL показан там, где стоит, фокус — в
+     * `Terminal.show` (`$show` эталона): фоновый переезжает в список вкладок
+     * своего места; редакторный — его вкладка показана (`revealActiveEditor`),
+     * панельный — активный, вид TERMINAL показан там, где стоит; фокус — в
      * терминал, если не `preserveFocus`.
      */
     public show(terminal: IWireTerminalRef, preserveFocus: boolean): void {
         const id = this.resolve(terminal);
         if (id === undefined) return;
         this.terminals.showInstance(id);
+        if (this.terminals.getInstance(id)?.target === "editor") {
+            this.editorTerminals.reveal(id, preserveFocus);
+            return;
+        }
         this.views.openView(TERMINAL_VIEW_ID, false, false);
         if (!preserveFocus) this.terminals.focusActive();
     }
@@ -199,13 +227,14 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
      * размером — сразу, как `$startExtensionTerminal` эталона при создании
      * инстанса. Настоящий размер виджета придёт `ptyResize` после раскладки.
      */
-    private createPty(extHostId: number, name: string): void {
-        this.byExtHostId.set(extHostId, this.createPtySessionInstance(name, {}));
+    private createPty(extHostId: number, name: string, place: TerminalPlace): void {
+        this.byExtHostId.set(extHostId, this.createPtySessionInstance(name, {}, place));
     }
 
     private createPtySessionInstance(
         name: string,
         extra: Pick<ITerminalCreateOptions, "message" | "waitOnExit">,
+        place: TerminalPlace = { kind: "panel" },
     ): number {
         // Id инстанса узнаём после createInstance; ввод и ресайз виджета раньше не случаются.
         // Stryker disable next-line UnaryOperator: плейсхолдер до createInstance — колбэки сессии его не видят
@@ -222,11 +251,46 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
             },
         });
         // Пустое имя сервис и так считает «не задано».
-        const instance = this.terminals.createInstance({ ...extra, name, session });
+        const instance = this.createIn(place, { ...extra, name, session });
         instanceId = instance.id;
         this.ptySessions.set(instance.id, session);
         this.events?.ptyStart(instance.id, INITIAL_COLS, INITIAL_ROWS);
         return instance.id;
+    }
+
+    /**
+     * Место по `location` провода: без него — `terminal.integrated.defaultLocation`;
+     * родитель — туда же, где он: редакторный — вкладкой справа от его группы,
+     * панельный — в вид (сплитов в виде нет). Родитель, которого уже нет, —
+     * как отсутствие `location` (у эталона опция пропадает так же).
+     */
+    private resolvePlace(location: IWireTerminalLocation | undefined): TerminalPlace {
+        if (location === 1) return { kind: "panel" };
+        if (location === 2) return { kind: "editor", location: {} };
+        if (location !== undefined && "viewColumn" in location) {
+            return {
+                kind: "editor",
+                location: { viewColumn: location.viewColumn, preserveFocus: location.preserveFocus === true },
+            };
+        }
+        const parent =
+            location === undefined ? null : this.terminals.getInstance(this.resolve(location.parentTerminal));
+        if (parent !== null)
+            return parent.target === "editor" ? { kind: "split", parentId: parent.id } : { kind: "panel" };
+        return this.configuration.get("terminal.integrated.defaultLocation") === "editor"
+            ? { kind: "editor", location: {} }
+            : { kind: "panel" };
+    }
+
+    private createIn(place: TerminalPlace, options: ITerminalCreateOptions): ITerminalInstance {
+        switch (place.kind) {
+            case "panel":
+                return this.terminals.createInstance(options);
+            case "split":
+                return this.editorTerminals.splitInstance(place.parentId, options);
+            case "editor":
+                return this.editorTerminals.createTerminal(options, place.location);
+        }
     }
 
     private resolve(terminal: IWireTerminalRef): number | undefined {

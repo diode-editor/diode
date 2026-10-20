@@ -11,6 +11,7 @@ const context: EditorTitleMenuContext = {
     groupId: 3,
     index: 2,
     path: "/workspace/alpha.ts",
+    resourceScheme: "file",
     tabCount: 4,
     hasTabsToTheRight: true,
     hasSavedTabs: true,

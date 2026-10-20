@@ -182,6 +182,10 @@ export interface ContextKeyTypes {
     terminalCount: number;
     /** Whether the terminal tabs widget is focused. */
     terminalTabsFocus: boolean;
+    /** Whether a terminal in the editor area is focused. */
+    terminalEditorFocus: boolean;
+    /** Whether a terminal in the editor area is the active editor. */
+    terminalEditorActive: boolean;
 
     // -- Tasks contexts --
     /** True while at least one task is running (`TASK_RUNNING_STATE` эталона). */

@@ -7,7 +7,7 @@
  * (`window.terminals`, `activeTerminal`, события, `exitStatus`), пишется в
  * пункты статус-бара `ev:`/`ls:`/`act:` — их видно в кадре.
  *
- * Используется e2e-сценарием extensionTerminal и ручной проверкой:
+ * Используется e2e-сценариями extensionTerminal и terminalEditor и ручной проверкой:
  *   diode --user-data-dir=<каталог с этой фикстурой> <какой-нибудь файл>
  */
 exports.activate = function activate(context) {
@@ -42,6 +42,17 @@ exports.activate = function activate(context) {
             demo = vscode.window.createTerminal({ name: "Demo Runner", env: { DEMO_GREETING: "hello" } });
             demo.sendText('echo "$DEMO_GREETING from Demo Runner"');
             demo.show();
+        }),
+        // Агент вкладкой справа — форма `claude-vscode.terminal.open` стокового
+        // Claude Code: терминал в области редакторов, колонка Beside.
+        vscode.commands.registerCommand("terminalDemo.beside", () => {
+            const agent = vscode.window.createTerminal({
+                name: "Demo Agent",
+                location: { viewColumn: vscode.ViewColumn.Beside },
+                isTransient: true,
+            });
+            agent.sendText('echo "agent ready"');
+            agent.show();
         }),
         vscode.commands.registerCommand("terminalDemo.list", () => report("list")),
         vscode.commands.registerCommand("terminalDemo.dispose", () => demo && demo.dispose()),

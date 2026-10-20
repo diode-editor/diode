@@ -193,6 +193,7 @@ import { TASKS_ACTIONS } from "./contrib/tasks/browser/taskActions.ts";
 import { TaskServiceDIToken } from "./contrib/tasks/browser/taskService.ts";
 import { TaskStatusBarContributionDIToken } from "./contrib/tasks/browser/taskStatusBarContribution.ts";
 import { TERMINAL_ACTIONS } from "./contrib/terminal/browser/terminalActions.ts";
+import { TerminalEditorServiceDIToken } from "./contrib/terminal/browser/terminalEditorService.ts";
 import { TerminalPanelComponentDIToken } from "./contrib/terminal/browser/terminalPanelComponent.ts";
 import { TerminalServiceDIToken } from "./contrib/terminal/browser/terminalService.ts";
 import { THEME_ACTIONS } from "./contrib/themes/browser/themeActions.ts";
@@ -513,6 +514,7 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     ScmInputComponentDIToken,
     TerminalServiceDIToken,
     TerminalPanelComponentDIToken,
+    TerminalEditorServiceDIToken,
     TabSwitcherComponentDIToken,
     // «У документа есть провайдер такой-то фичи» — видимость пунктов контекст-меню.
     LanguageFeatureContextKeysDIToken,

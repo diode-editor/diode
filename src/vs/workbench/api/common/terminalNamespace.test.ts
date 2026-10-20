@@ -63,6 +63,30 @@ describe("window.createTerminal — формы вызова уходят одн�
         expect(sent("terminal.create")).toStrictEqual([{ extHostId: 1, env: {} }]);
     });
 
+    it("location: TerminalLocation числом, колонка как есть, родитель — адресом; прочее не уезжает", () => {
+        const { ns, sent, stub } = setup();
+        const own = ns.createTerminal({ name: "own" });
+        stub.fire("terminal.opened", { id: 7, name: "bash", launch: { shellPath: "/bin/bash", cwd: "/" } });
+        const foreign = ns.terminals[1];
+        const gone = ns.createTerminal({ name: "gone" });
+        gone.dispose();
+        const create = (location: unknown): unknown => {
+            ns.createTerminal({ location } as vscode.TerminalOptions);
+            return (sent("terminal.create").at(-1) as { location?: unknown }).location;
+        };
+        expect(create(1)).toBe(1);
+        expect(create(2)).toBe(2);
+        expect(create(3)).toBeUndefined();
+        expect(create({ viewColumn: -2, preserveFocus: true })).toStrictEqual({ viewColumn: -2, preserveFocus: true });
+        expect(create({ viewColumn: 1, preserveFocus: false })).toStrictEqual({ viewColumn: 1 });
+        expect(create({ parentTerminal: own })).toStrictEqual({ parentTerminal: { extHostId: 1 } });
+        expect(create({ parentTerminal: foreign })).toStrictEqual({ parentTerminal: { id: 7 } });
+        // Отпущенный и незнакомый родитель — поля нет вовсе (а не `{}`).
+        ns.createTerminal({ location: { parentTerminal: gone } });
+        ns.createTerminal({ location: { parentTerminal: {} as vscode.Terminal } });
+        for (const params of sent("terminal.create").slice(-2)) expect(params).not.toHaveProperty("location");
+    });
+
     it("терминал виден в terminals сразу, имя — заданное, creationOptions заморожены", () => {
         const { ns } = setup();
         const options: vscode.TerminalOptions = { name: "log" };

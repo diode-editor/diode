@@ -2,7 +2,8 @@
     "pairs": [
         "alt+down: showNextParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > editor.action.moveLinesDownAction [textInputFocus && !editorReadonly]",
         "alt+up: showPrevParameterHint [parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible] > editor.action.moveLinesUpAction [textInputFocus && !editorReadonly]",
-        "ctrl+down: workbench.action.nextEditorInGroup [(textViewFocus && editorTabsMultiple) && (tabSwitcherVisible)] > scrollLineDown [(textViewFocus) && (!(macKeys >= 1))]",
+        "ctrl+down: workbench.action.nextEditorInGroup [(textViewFocus && editorTabsMultiple || terminalEditorFocus && editorTabsMultiple) && (tabSwitcherVisible)] > scrollLineDown [(textViewFocus) && (!(macKeys >= 1))]",
+        "ctrl+down: workbench.action.nextEditorInGroup [(textViewFocus && editorTabsMultiple || terminalEditorFocus && editorTabsMultiple) && (tabSwitcherVisible)] > search.focus.nextInputBox [(searchViewletVisible && searchInputBoxFocus) && (!(macKeys >= 3))]",
         "ctrl+k ctrl+f: workbench.action.navigateForward > editor.action.formatSelection [(textInputFocus && !editorReadonly) && (!(macKeys >= 3))]",
         "ctrl+k ctrl+u: editor.action.showHover [textInputFocus] > editor.action.removeCommentLine [(textInputFocus && !editorReadonly) && (!(macKeys >= 3))]",
         "ctrl+n: selectNextSuggestion [(suggestWidgetVisible) && (macKeys >= 3)] > cursorDown [(textViewFocus) && (macKeys >= 3)]",
@@ -10,7 +11,9 @@
         "ctrl+p: selectPrevSuggestion [(suggestWidgetVisible) && (macKeys >= 3)] > cursorUp [(textViewFocus) && (macKeys >= 3)]",
         "ctrl+p: showPrevParameterHint [(parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible) && (macKeys >= 3)] > cursorUp [(textViewFocus) && (macKeys >= 3)]",
         "ctrl+space: toggleSuggestionDetails [suggestWidgetVisible] > editor.action.triggerSuggest [textInputFocus]",
-        "ctrl+up: workbench.action.previousEditorInGroup [(textViewFocus && editorTabsMultiple) && (tabSwitcherVisible)] > scrollLineUp [(textViewFocus) && (!(macKeys >= 1))]",
+        "ctrl+up: workbench.action.previousEditorInGroup [(textViewFocus && editorTabsMultiple || terminalEditorFocus && editorTabsMultiple) && (tabSwitcherVisible)] > scrollLineUp [(textViewFocus) && (!(macKeys >= 1))]",
+        "ctrl+up: workbench.action.previousEditorInGroup [(textViewFocus && editorTabsMultiple || terminalEditorFocus && editorTabsMultiple) && (tabSwitcherVisible)] > search.action.focusSearchFromResults [(searchViewletVisible && firstMatchFocus) && (!(macKeys >= 3))]",
+        "ctrl+up: workbench.action.previousEditorInGroup [(textViewFocus && editorTabsMultiple || terminalEditorFocus && editorTabsMultiple) && (tabSwitcherVisible)] > search.focus.previousInputBox [(searchViewletVisible && searchInputBoxFocus) && (!(macKeys >= 3))]",
         "delete: workbench.action.terminal.killActiveTab [terminalTabsFocus] > deleteRight [textInputFocus && !editorReadonly]",
         "delete: workbench.action.terminal.killActiveTab [terminalTabsFocus] > fileOperations.deleteFile [listFocus]",
         "delete: workbench.action.terminal.killActiveTab [terminalTabsFocus] > input.deleteRight [inputWidgetFocus]",
@@ -891,6 +894,7 @@
         "workbench.action.terminal.focusPrevious": "ctrl+pageup",
         "workbench.action.terminal.focusTabs": "ctrl+k \\",
         "workbench.action.terminal.killActiveTab": "delete",
+        "workbench.action.terminal.killEditor": "ctrl+w",
         "workbench.action.terminal.new": {
             "*": "ctrl+shift+`",
             "pc legacy #0": "ctrl+k alt+t",

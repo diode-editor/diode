@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { FakeEditorTerminals } from "../../../../../TestUtils/FakeEditorTerminals.ts";
 import { FakeExtensionPtySession } from "../../../../../TestUtils/FakeExtensionPtySession.ts";
 import { FakeTerminalSurface } from "../../../../../TestUtils/FakeTerminalSurface.ts";
 import { createTestConfigurationService } from "../../../../../TestUtils/testConfigurationService.ts";
@@ -14,11 +15,12 @@ import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 // и как пересказывает инстансы. Сквозной контракт с проводом —
 // services/extensions/node/customers/terminalCustomer.test.ts.
 
-function setup() {
+function setup(settings: Record<string, unknown> = {}) {
     const views = makeViewsHarness();
     const sessions: FakeTerminalSurface[] = [];
     const factoryCalls: ITerminalSessionOptions[] = [];
-    const service = new TerminalService(views.service, createTestConfigurationService({}), (o) => {
+    const configuration = createTestConfigurationService(settings);
+    const service = new TerminalService(views.service, configuration, (o) => {
         factoryCalls.push(o);
         const surface = new FakeTerminalSurface(o.shell ?? "/bin/bash");
         sessions.push(surface);
@@ -26,11 +28,18 @@ function setup() {
     });
     views.service.attachRegisteredContainers();
     const ptySessions: FakeExtensionPtySession[] = [];
-    const adapter = new ExtensionTerminalAdapter(service, views.service, (o) => {
-        const session = new FakeExtensionPtySession(o);
-        ptySessions.push(session);
-        return session;
-    });
+    const editorTerminals = new FakeEditorTerminals(service);
+    const adapter = new ExtensionTerminalAdapter(
+        service,
+        views.service,
+        (o) => {
+            const session = new FakeExtensionPtySession(o);
+            ptySessions.push(session);
+            return session;
+        },
+        editorTerminals,
+        configuration,
+    );
     const events = {
         opened: vi.fn<IExtensionTerminalEvents["opened"]>(),
         closed: vi.fn<IExtensionTerminalEvents["closed"]>(),
@@ -40,7 +49,7 @@ function setup() {
         ptyResize: vi.fn<IExtensionTerminalEvents["ptyResize"]>(),
     };
     const subscription = adapter.subscribe(events);
-    return { views, service, sessions, ptySessions, factoryCalls, adapter, events, subscription };
+    return { views, service, sessions, ptySessions, factoryCalls, adapter, events, subscription, editorTerminals };
 }
 
 describe("ExtensionTerminalAdapter", () => {
@@ -261,6 +270,8 @@ describe("ExtensionTerminalAdapter — pty-терминал задачи (Custom
         const id = h.adapter.createPtyInstance({ name: "pty task", message: "Executing", waitOnExit: "bye" });
         const instance = h.service.getInstance(id);
         expect(instance?.title).toBe("pty task");
+        // Терминал задачи — в виде TERMINAL, и при defaultLocation.
+        expect(h.service.getInstances()).toStrictEqual([instance]);
         expect(h.ptySessions[0].printed).toStrictEqual(["Executing\r\n"]);
         expect(h.events.ptyStart).toHaveBeenCalledWith(id, 80, 24);
         expect(h.events.opened.mock.calls[0][0]).not.toHaveProperty("extHostId");
@@ -289,6 +300,51 @@ describe("ExtensionTerminalAdapter — pty-терминал задачи (Custom
         h.adapter.ptyExit({ id }, undefined);
         h.service.closeInstance(id);
         expect(h.events.closed).toHaveBeenCalledWith({ id, reason: "user" });
+        h.service.dispose();
+    });
+});
+
+describe("ExtensionTerminalAdapter — место терминала", () => {
+    it("без location — terminal.integrated.defaultLocation: view в вид, editor вкладкой", () => {
+        const view = setup();
+        view.adapter.create({ extHostId: 1 });
+        expect(view.service.getInstances()).toHaveLength(1);
+        expect(view.editorTerminals.created).toStrictEqual([]);
+        view.service.dispose();
+
+        const editor = setup({ "terminal.integrated.defaultLocation": "editor" });
+        editor.adapter.create({ extHostId: 1 });
+        editor.adapter.create({ extHostId: 2, location: 1 });
+        expect(editor.editorTerminals.created).toStrictEqual([{ id: 1, location: {} }]);
+        expect(editor.service.getInstances().map((i) => i.id)).toStrictEqual([2]);
+        editor.service.dispose();
+    });
+
+    it("родитель в виде — новый тоже в вид; неизвестный родитель — как без location", () => {
+        const h = setup({ "terminal.integrated.defaultLocation": "editor" });
+        h.adapter.create({ extHostId: 1, location: 1 });
+        h.adapter.create({ extHostId: 2, location: { parentTerminal: { extHostId: 1 } } });
+        h.adapter.create({ extHostId: 3, location: { parentTerminal: { id: 99 } } });
+        expect(h.service.getInstances().map((i) => i.id)).toStrictEqual([1, 2]);
+        expect(h.editorTerminals.created).toStrictEqual([{ id: 3, location: {} }]);
+        h.service.dispose();
+    });
+
+    it("снимок нового субпроцесса содержит и вкладки-терминалы; hide редакторного вид не трогает", () => {
+        const h = setup();
+        h.adapter.create({ extHostId: 1 });
+        h.adapter.create({ extHostId: 2, location: 2 });
+        expect(h.adapter.snapshot().terminals.map((t) => t.id)).toStrictEqual([1, 2]);
+
+        h.adapter.show({ extHostId: 1 }, true);
+        h.adapter.hide({ extHostId: 2 });
+        expect(h.views.panelService.visible).toBe(true);
+        h.adapter.show({ extHostId: 2 }, false);
+        expect(h.editorTerminals.revealed).toStrictEqual([{ id: 2, preserveFocus: false }]);
+        // Хостовый id, которого уже нет, — молча.
+        expect(() => {
+            h.adapter.show({ id: 999 }, false);
+        }).not.toThrow();
         h.service.dispose();
     });
 });

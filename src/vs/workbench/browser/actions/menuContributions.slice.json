@@ -32,6 +32,9 @@
             "workbench.action.closeUnmodifiedEditors",
             "workbench.action.closeAllEditors"
         ],
+        "2_files": [
+            "workbench.action.terminal.moveToTerminalPanel"
+        ],
         "2_split": [
             "workbench.action.splitEditorRight",
             "workbench.action.splitEditorDown"
@@ -360,6 +363,9 @@
         ]
     },
     "TerminalTabContext": {
+        "1_create": [
+            "workbench.action.terminal.moveToEditor"
+        ],
         "7_kill": [
             "workbench.action.terminal.killActiveTab"
         ]

@@ -4,11 +4,21 @@ import { IConfigurationServiceDIToken } from "../../../../platform/configuration
 import type { ServiceAccessor } from "../../../../platform/instantiation/common/diContainer.ts";
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { KeybindingWeight } from "../../../../platform/keybinding/common/keybindingResolver.ts";
-import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
+import { resolveTabTarget } from "../../../browser/actions/editorTabTarget.ts";
+import {
+    editorTabTargetArg,
+    type EditorTitleMenuContext,
+    viewMenuVisible,
+} from "../../../browser/actions/menuContexts.ts";
 import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quickInputService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import { WorkbenchContextKeysDIToken } from "../../../browser/workbenchContextKeys.ts";
+import { SIDE_GROUP } from "../../../services/editor/common/editorGroupColumn.ts";
+import { EditorGroupsServiceDIToken } from "../../../services/editor/common/editorGroupsService.ts";
+import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
+import { TERMINAL_EDITOR_SCHEME, TerminalEditorPane } from "./terminalEditorPane.ts";
+import { TerminalEditorServiceDIToken } from "./terminalEditorService.ts";
 import type { TerminalTabMenuContext } from "./terminalPanelComponent.ts";
 import { SWITCH_TERMINAL_COMMAND_ID, TerminalPanelComponentDIToken } from "./terminalPanelComponent.ts";
 import { TERMINAL_VIEW_ID, TerminalServiceDIToken } from "./terminalService.ts";
@@ -110,9 +120,98 @@ export const newTerminalAction: CommandAction = {
         { menuId: MenuId.MenubarTerminalMenu, group: "1_create", order: 1 },
     ],
     run(accessor) {
-        showTerminalView(accessor);
-        accessor.get(TerminalServiceDIToken).newTerminal();
+        // `terminal.integrated.defaultLocation: editor` — новый терминал вкладкой
+        // в активной группе (`createTerminal` эталона без `location`).
+        if (accessor.get(IConfigurationServiceDIToken).get("terminal.integrated.defaultLocation") === "editor") {
+            accessor.get(TerminalEditorServiceDIToken).createTerminal();
+        } else {
+            showTerminalView(accessor);
+            accessor.get(TerminalServiceDIToken).newTerminal();
+        }
         accessor.get(WorkbenchContextKeysDIToken).update();
+    },
+};
+
+export const createTerminalEditorAction: CommandAction = {
+    id: "workbench.action.createTerminalEditor",
+    title: "Terminal: Create New Terminal in Editor Area",
+    // Ключи освежает сама смена фокуса: вкладка открывается с фокусом.
+    run(accessor) {
+        accessor.get(TerminalEditorServiceDIToken).createTerminal();
+    },
+};
+
+export const createTerminalEditorSideAction: CommandAction = {
+    id: "workbench.action.createTerminalEditorSide",
+    title: "Terminal: Create New Terminal in Editor Area to the Side",
+    run(accessor) {
+        accessor.get(TerminalEditorServiceDIToken).createTerminal({}, { viewColumn: SIDE_GROUP });
+    },
+};
+
+/**
+ * Перенос терминала вида TERMINAL вкладкой в область редакторов: цель — инстанс
+ * из меню вкладки терминала, иначе активный (`activeInstanceType: 'view'` эталона).
+ */
+export const moveToEditorAction: CommandAction = {
+    id: "workbench.action.terminal.moveToEditor",
+    title: "Terminal: Move Terminal into Editor Area",
+    shortTitle: "Move Terminal into Editor Area",
+    when: "terminalIsOpen",
+    menus: [{ menuId: MenuId.TerminalTabContext, group: "1_create", order: 2, args: menuInstanceArg }],
+    run(accessor, instanceId) {
+        const id =
+            typeof instanceId === "number" ? instanceId : accessor.get(TerminalServiceDIToken).getActiveInstance()?.id;
+        // Stryker disable next-line ConditionalExpression: эквивалентный — перенос неизвестного id сервис и так пропускает; проверка — сужение для типа
+        if (id === undefined) return;
+        // Фокус уходит во вкладку — ключи освежает его смена.
+        accessor.get(TerminalEditorServiceDIToken).moveToEditor(id);
+    },
+};
+
+/**
+ * Возврат вкладки-терминала в вид TERMINAL: цель — вкладка из её меню, иначе
+ * активная вкладка, если она терминал. Вид показан с фокусом в терминале.
+ */
+export const moveToTerminalPanelAction: CommandAction = {
+    id: "workbench.action.terminal.moveToTerminalPanel",
+    title: "Terminal: Move Terminal into Panel",
+    shortTitle: "Move Terminal into Panel",
+    when: "terminalEditorActive",
+    menus: [
+        {
+            menuId: MenuId.EditorTitleContext,
+            group: "2_files",
+            order: 10,
+            args: editorTabTargetArg,
+            visible: (context) => (context as EditorTitleMenuContext).resourceScheme === TERMINAL_EDITOR_SCHEME,
+        },
+    ],
+    run(accessor, ...args) {
+        const target = resolveTabTarget(accessor.get(EditorGroupsServiceDIToken), args);
+        const pane = target?.group.getPane(target.index);
+        if (!(pane instanceof TerminalEditorPane)) return;
+        accessor.get(TerminalEditorServiceDIToken).moveToPanel(pane.instance.id);
+        showPanel(accessor);
+    },
+};
+
+/**
+ * Ctrl+W во вкладке-терминале закрывает вкладку (и убивает процесс), как у
+ * эталона: в шелл клавиша не уходит. Закрытие — та же команда, что у вкладки
+ * любого вида.
+ */
+export const killEditorAction: CommandAction = {
+    id: "workbench.action.terminal.killEditor",
+    title: "Terminal: Kill the Active Terminal in Editor Area",
+    keybinding: parseKeybinding("mod+w"),
+    when: "terminalFocus && terminalEditorFocus",
+    weight: KeybindingWeight.WorkbenchContrib,
+    run(accessor) {
+        const groups = accessor.get(EditorGroupsServiceDIToken);
+        const pane = groups.activeGroup.activePane;
+        if (!(pane instanceof TerminalEditorPane)) return;
+        void accessor.get(EditorServiceDIToken).closeEditor(groups.activeGroup, pane);
     },
 };
 
@@ -146,12 +245,13 @@ export const focusTabsAction: CommandAction = {
 };
 
 // Ctrl+PgDn/PgUp у редактора листают вкладки (`textViewFocus`), здесь — терминалы
-// (`terminalFocus`): when-клаузы не пересекаются, как у эталона.
+// вида (`terminalFocus`): when-клаузы не пересекаются, как у эталона. Во
+// вкладке-терминале клавиши остаются области редакторов (`!terminalEditorFocus`).
 export const focusNextTerminalAction: CommandAction = {
     id: "workbench.action.terminal.focusNext",
     title: "Terminal: Focus Next Terminal Group",
     keybinding: parseKeybinding("ctrl+pagedown"),
-    when: "terminalFocus",
+    when: "terminalFocus && !terminalEditorFocus",
     weight: KeybindingWeight.WorkbenchContrib,
     run(accessor) {
         accessor.get(TerminalServiceDIToken).setActiveToNext();
@@ -163,7 +263,7 @@ export const focusPreviousTerminalAction: CommandAction = {
     id: "workbench.action.terminal.focusPrevious",
     title: "Terminal: Focus Previous Terminal Group",
     keybinding: parseKeybinding("ctrl+pageup"),
-    when: "terminalFocus",
+    when: "terminalFocus && !terminalEditorFocus",
     weight: KeybindingWeight.WorkbenchContrib,
     run(accessor) {
         accessor.get(TerminalServiceDIToken).setActiveToPrevious();
@@ -299,6 +399,11 @@ export const quickOpenTermAction: CommandAction = {
 export const TERMINAL_ACTIONS: readonly CommandAction[] = [
     toggleTerminalAction,
     newTerminalAction,
+    createTerminalEditorAction,
+    createTerminalEditorSideAction,
+    moveToEditorAction,
+    moveToTerminalPanelAction,
+    killEditorAction,
     focusTerminalAction,
     focusTabsAction,
     focusNextTerminalAction,

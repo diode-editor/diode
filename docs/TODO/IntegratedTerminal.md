@@ -132,11 +132,50 @@ node-pty на Unix — это `pty.node` (нативный аддон) + бин�
 `singleTerminal`, а `focusNext`/`focusPrevious` ходят по терминалам.
 
 **Настройки** приехали дословно: `terminal.integrated.tabs.enabled`, `tabs.hideCondition`, `tabs.location`,
-`tabs.showActiveTerminal`, `tabs.focusMode`, `terminal.integrated.hideOnLastClosed`. **Не поддержаны**:
+`tabs.showActiveTerminal`, `tabs.focusMode`, `terminal.integrated.hideOnLastClosed`,
+`terminal.integrated.defaultLocation`. **Не поддержаны**:
 `tabs.showActions` (кнопка Kill в заголовке видна всегда), `tabs.title`/`tabs.description`/`tabs.separator`
 (нет трекинга процесса и cwd — имя всегда имя шелла), `tabs.defaultIcon`/`tabs.defaultColor`,
 `tabs.enableAnimation`, `tabs.allowAgentCliTitle`, `confirmOnKill`. Нет и узкого «иконочного» режима
 списка (`singleTerminalOrNarrow` сведён к `singleTerminal`) и перетаскиваемой ширины списка.
+
+## Терминал в области редакторов (`TerminalLocation.Editor`)
+
+Как `TerminalEditorService` + `TerminalEditorInput` эталона: терминал — вкладкой в группе редакторов,
+рядом с файлами. Так стоковый Claude Code (`claude-vscode.terminal.open`) открывает `claude` справа
+(`location: { viewColumn: ViewColumn.Beside }`).
+
+- **Место инстанса** — `ITerminalInstance.target` (`panel`/`editor`). `TerminalService` держит
+  редакторные отдельным списком (`getEditorInstances`): вид TERMINAL их не видит, активным
+  инстансом (`getActiveInstance`, `window.activeTerminal`) они не становятся; `onDidCreateInstance`/
+  `onDidDisposeInstance` — по всем. `moveToEditor`/`moveToPanel` переселяют инстанс без процесса:
+  уход из вида — как закрытие (смена активного, `hideOnLastClosed`).
+- **Вкладка** — `TerminalEditorPane` (`contrib/terminal/browser/`): `TerminalViewElement` над сессией
+  инстанса, ресурс `vscode-terminal:/<id>`, метка — имя терминала (следит за перезапуском под другим
+  именем), цвета — те же, что у панели (`applyTerminalColors`). Владелец — `TerminalEditorService`:
+  `createTerminal(options, { viewColumn | group, preserveFocus })` (колонка — `columnToEditorGroup`,
+  общий с `showTextDocument`: Active, Beside — группа справа или новая, 1..9), `splitInstance`
+  (справа от группы родителя), `reveal`, `moveToEditor`/`moveToPanel`. Жизни связаны: закрыли
+  вкладку — процесс убит (`user`); процесс вышел или его закрыло расширение — вкладка закрыта
+  (пустая группа уходит с ней); `waitOnExit` — вкладка ждёт клавишу. Перенос вкладки между группами
+  процесс не трогает.
+- **Сплит и копия вкладки** (фабрика `workbench.editors.terminal`) заводят в целевой группе НОВЫЙ
+  шелл (`TerminalEditorInput.copy()` эталона); рестарт вкладка не переживает — процессы терминалов
+  не сохраняются.
+- **Клавиши**: `Ctrl+W` во вкладке-терминале закрывает её (`workbench.action.terminal.killEditor`,
+  `terminalFocus && terminalEditorFocus`), в виде TERMINAL `Ctrl+W` остаётся шеллу; `Ctrl+PgDn/PgUp`
+  и `Ctrl+Tab` листают вкладки (`… || terminalEditorFocus`), `focusNext`/`focusPrevious` терминалов —
+  только в виде (`!terminalEditorFocus`), как у эталона. Ключи `terminalEditorFocus`/`terminalEditorActive`.
+- **Команды**: `Terminal: Create New Terminal in Editor Area` (`createTerminalEditor`), `… to the Side`
+  (`createTerminalEditorSide`), `Move Terminal into Editor Area` (`terminal.moveToEditor`, и в меню
+  вкладки терминала), `Move Terminal into Panel` (`terminal.moveToTerminalPanel`, и в меню вкладки
+  редактора у вкладки-терминала). Настройка `terminal.integrated.defaultLocation` (`view`/`editor`) —
+  куда `Create New Terminal` и `createTerminal` расширения без `location` ставят терминал.
+
+**Отступления:** вкладка-терминал не становится активным терминалом (у эталона фокус вкладки делает
+её `activeInstance`); нет `confirmOnKill` (закрытие вкладки с бегущим процессом не спрашивает), иконки
+терминала на вкладке (иконка — по имени, как у файла), `Move Terminal into New Window`/`New Terminal
+Window` (окон нет), `CreateTerminalEditorSameGroup` и перетаскивания вкладки в вид TERMINAL.
 
 ## Терминал задачи: ожидание после выхода и перезапуск на месте
 
@@ -221,7 +260,8 @@ Scaleway, MacStadium, MacinCloud). Windows тестируется локальн
   внутри панели; вместе с ними — `hideCondition: singleGroup` по группам и префиксы `┌ ├ └` в списке.
 - [ ] **Rename терминала** (`rename`, `renameActiveTab` — F2 в списке, inline-ввод) и `tabs.title`/
   `tabs.description`/`tabs.separator` с переменными `${process}`, `${cwdFolder}` (нужен трекинг процесса и cwd).
-- [ ] **Терминал как редактор** (`moveToEditor`, `moveToTerminalPanel`).
+- [x] **Терминал как редактор** (`TerminalLocation.Editor`, `moveToEditor`, `moveToTerminalPanel`,
+      `defaultLocation`) — раздел «Терминал в области редакторов».
 - [ ] **Иконки и цвета вкладок** (`tabs.defaultIcon`, `tabs.defaultColor`, Change Icon/Color), статусы
   вкладок (`tabs.enableAnimation`).
 - [ ] **Ширина списка вкладок**: sash и узкий «иконочный» режим (`isTerminalTabsNarrow`,

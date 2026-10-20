@@ -98,6 +98,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "terminal.integrated.tabs.location": "window",
     "terminal.integrated.tabs.focusMode": "window",
     "terminal.integrated.hideOnLastClosed": "window",
+    "terminal.integrated.defaultLocation": "window",
     // Хост-терминал один на процесс — не на окно и не на папку.
     "terminal.integrated.colorSource": "application",
 

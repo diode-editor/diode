@@ -65,6 +65,7 @@ import {
     type IWireStatusBarItem,
     type IWireStatusBarItemDispose,
     type IWireTerminalCreate,
+    type IWireTerminalLocation,
     type IWireTerminalPtyData,
     type IWireTerminalPtyExit,
     type IWireTerminalRef,
@@ -391,11 +392,13 @@ export function parseWireTerminalCreate(raw: unknown): IWireTerminalCreate | nul
     const p = raw as TerminalEnvelope;
     if (!isFiniteNumber(p?.extHostId)) return null;
     // Pty расширения: процесса на нашей стороне нет — шелловые опции не к чему.
+    const location = parseWireTerminalLocation(p.location);
     if (p.pty === true) {
         return {
             extHostId: p.extHostId,
             pty: true,
             ...(typeof p.name === "string" && p.name !== "" ? { name: p.name } : {}),
+            ...(location !== undefined ? { location } : {}),
         };
     }
     const shellArgs = parseWireStringArray(p.shellArgs);
@@ -410,7 +413,19 @@ export function parseWireTerminalCreate(raw: unknown): IWireTerminalCreate | nul
         ...(p.strictEnv === true ? { strictEnv: true } : {}),
         ...(p.hideFromUser === true ? { hideFromUser: true } : {}),
         ...(typeof p.message === "string" ? { message: p.message } : {}),
+        ...(location !== undefined ? { location } : {}),
     };
+}
+
+/** `location` терминала; непонятное — «не задано» (терминал встанет по настройке). */
+function parseWireTerminalLocation(raw: unknown): IWireTerminalLocation | undefined {
+    if (raw === 1 || raw === 2) return raw;
+    const p = raw as TerminalEnvelope;
+    if (isFiniteNumber(p?.viewColumn)) {
+        return { viewColumn: p.viewColumn, ...(p.preserveFocus === true ? { preserveFocus: true } : {}) };
+    }
+    const parentTerminal = parseWireTerminalRef(p?.parentTerminal);
+    return parentTerminal === null ? undefined : { parentTerminal };
 }
 
 /** Валидирует `terminal.hide` / `terminal.dispose`. */

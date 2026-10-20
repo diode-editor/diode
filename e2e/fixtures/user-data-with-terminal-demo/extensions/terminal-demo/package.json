@@ -18,6 +18,10 @@
                 "title": "Terminal Demo: Run in Terminal"
             },
             {
+                "command": "terminalDemo.beside",
+                "title": "Terminal Demo: Open Agent Beside"
+            },
+            {
                 "command": "terminalDemo.list",
                 "title": "Terminal Demo: List Terminals"
             },

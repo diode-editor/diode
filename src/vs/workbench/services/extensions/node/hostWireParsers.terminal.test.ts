@@ -14,6 +14,25 @@ describe("parseWireTerminalCreate", () => {
         expect(parseWireTerminalCreate({ extHostId: 1 })).toStrictEqual({ extHostId: 1 });
     });
 
+    it("location: TerminalLocation числом, колонка, родитель; мусор — «не задано»", () => {
+        const loc = (location: unknown) => parseWireTerminalCreate({ extHostId: 1, location })?.location;
+        expect(loc(1)).toBe(1);
+        expect(loc(2)).toBe(2);
+        expect(loc({ viewColumn: -2 })).toStrictEqual({ viewColumn: -2 });
+        expect(loc({ viewColumn: 3, preserveFocus: true })).toStrictEqual({ viewColumn: 3, preserveFocus: true });
+        expect(loc({ viewColumn: 3, preserveFocus: "yes" })).toStrictEqual({ viewColumn: 3 });
+        expect(loc({ parentTerminal: { id: 4 } })).toStrictEqual({ parentTerminal: { id: 4 } });
+        expect(loc({ parentTerminal: { extHostId: 5 } })).toStrictEqual({ parentTerminal: { extHostId: 5 } });
+        for (const junk of [undefined, 0, 3, "2", null, {}, { viewColumn: "1" }, { parentTerminal: {} }]) {
+            expect(parseWireTerminalCreate({ extHostId: 1, location: junk })).toStrictEqual({ extHostId: 1 });
+        }
+        expect(parseWireTerminalCreate({ extHostId: 1, pty: true, location: { viewColumn: -2 } })).toStrictEqual({
+            extHostId: 1,
+            pty: true,
+            location: { viewColumn: -2 },
+        });
+    });
+
     it("без числовой метки — null", () => {
         expect(parseWireTerminalCreate(null)).toBeNull();
         expect(parseWireTerminalCreate("x")).toBeNull();

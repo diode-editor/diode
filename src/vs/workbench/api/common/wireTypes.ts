@@ -781,7 +781,22 @@ export interface IWireTerminalCreate {
     readonly strictEnv?: boolean;
     readonly hideFromUser?: boolean;
     readonly message?: string;
+    /** Где показать терминал; без поля — `terminal.integrated.defaultLocation`. */
+    readonly location?: IWireTerminalLocation;
 }
+
+/**
+ * `TerminalOptions.location` на проводе (`_serializeParentTerminal` эталона):
+ * `1` — панель, `2` — область редакторов (активная группа) — числа
+ * `vscode.TerminalLocation`; `{ viewColumn }` — область редакторов в колонке
+ * (`vscode.ViewColumn`: -1 Active, -2 Beside, 1..9); `{ parentTerminal }` —
+ * рядом с терминалом-родителем, туда же, где стоит он.
+ */
+export type IWireTerminalLocation =
+    | 1
+    | 2
+    | { readonly viewColumn: number; readonly preserveFocus?: true }
+    | { readonly parentTerminal: IWireTerminalRef };
 
 /** Параметры `terminal.show` (subprocess → host). */
 export interface IWireTerminalShow {

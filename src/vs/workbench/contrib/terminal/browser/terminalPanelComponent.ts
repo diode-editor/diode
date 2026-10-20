@@ -324,13 +324,16 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
     }
 }
 
-/** Держит ли фокус сам виджет или что-то в его поддереве. */
 /**
  * Цвета терминала → сессия (палитра 0..15) и виджет: фон/текст хоста перекрывают
  * токены `terminal.background`/`terminal.foreground` в var-scope виджета, без них
- * виджет видит токены темы.
+ * виджет видит токены темы. Общая с вкладкой-терминалом области редакторов.
  */
-function applyTerminalColors(instance: ITerminalInstance, widget: TerminalViewElement, colors: ITerminalColors): void {
+export function applyTerminalColors(
+    instance: ITerminalInstance,
+    widget: TerminalViewElement,
+    colors: ITerminalColors,
+): void {
     instance.session.setAnsiColors(colors.ansi);
     const vars: Record<string, number> = {};
     if (colors.background !== undefined) vars["terminal.background"] = colors.background;
@@ -338,6 +341,7 @@ function applyTerminalColors(instance: ITerminalInstance, widget: TerminalViewEl
     widget.setStyleVars(vars);
 }
 
+/** Держит ли фокус сам виджет или что-то в его поддереве. */
 function holdsFocus(widget: TerminalViewElement): boolean {
     const active = widget.getRoot()?.focusManager?.activeElement ?? null;
     return active?.getAncestorPath().includes(widget) === true;

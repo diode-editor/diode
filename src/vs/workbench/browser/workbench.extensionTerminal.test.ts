@@ -4,7 +4,9 @@ import { afterEach, describe, expect, it } from "vitest";
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 import type { FakeTerminalSurface } from "../../../TestUtils/FakeTerminalSurface.ts";
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
+import { IConfigurationServiceDIToken } from "../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { ExtensionTerminalAdapter } from "../contrib/terminal/browser/extensionTerminalAdapter.ts";
+import { TerminalEditorServiceDIToken } from "../contrib/terminal/browser/terminalEditorService.ts";
 import {
     TERMINAL_VIEW_ID,
     type TerminalService,
@@ -33,6 +35,8 @@ describe("Workbench — терминал расширения", () => {
             terminal,
             h.container.get(ViewsServiceDIToken),
             h.container.get(ExtensionPtySessionFactoryDIToken),
+            h.container.get(TerminalEditorServiceDIToken),
+            h.container.get(IConfigurationServiceDIToken),
         );
     }
 
