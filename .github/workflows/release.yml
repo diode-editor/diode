@@ -103,7 +103,10 @@ jobs:
 
       - name: Build apt repository metadata
         if: env.HAS_APT_KEY == 'true'
-        run: packaging/apt/build-repo.sh repo
+        # apt-ftparchive (пакет apt-utils) пропал из образа ubuntu-latest — ставим явно.
+        run: |
+          command -v apt-ftparchive >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends apt-utils; }
+          packaging/apt/build-repo.sh repo
         env:
           APT_GPG_PASSPHRASE: ${{ secrets.APT_GPG_PASSPHRASE }}
           APT_HISTORY: ${{ runner.temp }}/apt-history
