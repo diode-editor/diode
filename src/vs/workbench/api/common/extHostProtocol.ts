@@ -145,26 +145,13 @@ import type {
 } from "./wireTypes.ts";
 
 /**
- * Карта протокола extension host'а (upstream — `extHost.protocol.ts`): какие
- * методы шлёт каждая сторона, с какими параметрами и что получает в ответ.
- * Только типы — на проводе ничего не меняется. Направление проверяет
- * компилятор: хост не может послать метод, обработчик которого живёт на
- * хосте, а обработчик субпроцесса обязан вернуть объявленную форму.
- *
- * Параметры — то, что ШЛЁТ отправитель. Принимающая сторона вправе смотреть на
- * них осторожнее (поля необязательны — по проводу едет что прислали), но это
- * её локальное сужение доверия, а не контракт. Ответ языковых запросов
- * (`languages.*`, `workspace.willSaveTextDocument`) хост не перепроверяет:
- * форму гарантирует сериализатор субпроцесса — единственное место утиной
- * проверки объекта расширения. Прочие ответы субпроцесса пока проходят
- * `parseWire*`.
- *
- * Карта описывает все методы провода, кроме служебного `$/cancelRequest`
- * (его ведёт сам `RpcEndpoint`). Метод вне карты не скомпилируется: новый
- * метод провода начинается с записи здесь.
+ * Карта протокола (upstream — `extHost.protocol.ts`), только типы. Параметры —
+ * то, что ШЛЁТ отправитель; принимающая сторона вправе сузить доверие локально.
+ * Ответы языковых запросов хост не перепроверяет: форму гарантирует сериализатор
+ * субпроцесса. Метод вне карты не скомпилируется (кроме `$/cancelRequest` —
+ * его ведёт `RpcEndpoint`).
  */
 
-/** Запросы и нотификации хоста к субпроцессу. */
 export interface IHostToSubprocess {
     readonly requests: {
         readonly "languages.provideCompletionItems": readonly [IWireCompletionParams, ICoreCompletionResult[]];
@@ -195,19 +182,17 @@ export interface IHostToSubprocess {
 
         readonly "workspace.fs.readFile": readonly [IWireUriParams, IWireReadFileResult];
         readonly "workspace.fs.stat": readonly [IWireUriParams, IWireFileStat | null];
-        /** Запись в ресурс провайдера (сохранение документа на его схеме, `$writeFile` эталона). */
+        /** `$writeFile` эталона. */
         readonly "workspace.fs.writeFile": readonly [IWireWriteFileParams, null];
         readonly "workspace.provideTextDocumentContent": readonly [IWireUriParams, IWireTextContentResult];
         readonly "workspace.willSaveTextDocument": readonly [IWireWillSaveParams, WireTextEdit[]];
 
-        /** Команда, заведённая расширением: результат — что вернул его колбэк. */
         readonly "commands.executeCommand": readonly [IWireExecuteCommandParams, unknown];
 
         readonly "window.inputBox.validate": readonly [IWireInputBoxValidate, IWireValidationMessage | null];
-        /** URI обработчику расширения (`$handleExternalUri`): ответ — когда обработчик отработал. */
+        /** Ответ — когда обработчик отработал. */
         readonly "window.handleUri": readonly [IWireHandleUri, null];
 
-        /** Задачи провайдера расширения (`$provideTasks`). */
         readonly "tasks.provideTasks": readonly [IWireTaskProviderHandle, IWireTask[]];
 
         readonly "host.activateExtension": readonly [IWireActivateExtensionParams, null];
@@ -216,7 +201,7 @@ export interface IHostToSubprocess {
     };
     readonly notifications: {
         readonly "languages.releaseDocumentSemanticTokens": IWireReleaseSemanticTokens;
-        /** Чужие маркеры MarkerService (`$acceptMarkersChange`): зеркало для `languages.getDiagnostics`. */
+        /** Чужие маркеры MarkerService: зеркало для `languages.getDiagnostics`. */
         readonly "diagnostics.markersChanged": IWireMarkersChanged;
 
         readonly "workspace.initialize": IWireWorkspaceInitialize;
@@ -226,7 +211,7 @@ export interface IHostToSubprocess {
         readonly "workspace.watcher.events": IWireWatcherEvents;
 
         readonly "editor.didOpen": IWireDocumentSyncSnapshot;
-        /** Правки дельтой либо полный снапшот (flush — замена содержимого целиком). */
+        /** Полный снапшот — flush, замена содержимого целиком. */
         readonly "editor.didChange": IWireDocumentChangedEvent | IWireDocumentSyncSnapshot;
         readonly "editor.didClose": IWireUriParams;
         readonly "editor.activeEditorChanged": IActiveEditorMeta;
@@ -241,7 +226,7 @@ export interface IHostToSubprocess {
         readonly "extensions.catalog": IWireExtensionCatalog;
         readonly "extensions.activated": IWireExtensionId;
 
-        /** Коллекции окружения, которые хранит хост (`$initEnvironmentVariableCollections`), — до первой активации. */
+        /** До первой активации. */
         readonly "terminal.initEnvironmentVariableCollections": IWireEnvironmentVariableCollections;
         readonly "terminal.opened": IWireTerminalOpened;
         readonly "terminal.closed": IWireTerminalClosed;
@@ -257,18 +242,14 @@ export interface IHostToSubprocess {
     };
 }
 
-/** Запросы и нотификации субпроцесса к хосту. */
 export interface ISubprocessToHost {
     readonly requests: {
         readonly "workspace.applyEdit": readonly [IWireApplyWorkspaceEditParams, boolean];
-        /**
-         * `workspace.openTextDocument({ content, language })`: ответ уезжает ПОСЛЕ
-         * `editor.didOpen` нового документа — после `await` он уже в реестре.
-         */
+        /** Ответ уезжает ПОСЛЕ `editor.didOpen` нового документа — после `await` он уже в реестре. */
         readonly "workspace.createUntitledDocument": readonly [IWireCreateUntitledParams, IWireUriParams];
-        /** `workspace.saveAll` (`$saveAll`): `true` — сохранено всё. */
+        /** `true` — сохранено всё. */
         readonly "workspace.saveAll": readonly [IWireSaveAllParams, boolean];
-        /** `workspace.save` (`$save` без Save As). */
+        /** Без Save As. */
         readonly "workspace.save": readonly [IWireUriParams, IWireSaveResult];
 
         readonly "editor.setOptions": readonly [IWireSetEditorOptionsParams, null];
@@ -279,7 +260,6 @@ export interface ISubprocessToHost {
         readonly "editor.closeTabs": readonly [IWireCloseTabsParams, boolean];
         readonly "editor.closeGroups": readonly [IWireCloseGroupsParams, boolean];
 
-        /** Команда ядра: результат — что вернул её обработчик. */
         readonly "commands.executeCommand": readonly [IWireExecuteCommandParams, unknown];
 
         readonly "window.showInputBox": readonly [IWireInputBoxRequest, IWireInputBoxResult];
@@ -299,26 +279,18 @@ export interface ISubprocessToHost {
 
         readonly "memento.update": readonly [IWireMementoUpdate, null];
 
-        /**
-         * `WorkspaceConfiguration.update(...)` → settings.json цели. Ответ — после
-         * записи; новое значение приезжает раньше него `workspace.configurationChanged`.
-         */
+        /** Ответ — после записи; новое значение приезжает раньше него `workspace.configurationChanged`. */
         readonly "configuration.update": readonly [IWireConfigurationUpdate, null];
 
-        /** `tasks.fetchTasks` (`$fetchTasks`). */
         readonly "tasks.fetch": readonly [IWireTaskFilter, IWireTask[]];
-        /**
-         * `tasks.executeTask` (`$getTaskExecution` + `$executeTask`): ответ — когда
-         * задача запущена, а не когда кончилась.
-         */
+        /** Ответ — когда задача запущена, а не когда кончилась. */
         readonly "tasks.execute": readonly [WireTaskExecuteRequest, IWireTaskExecution];
     };
     readonly notifications: {
         readonly "languages.register": IWireLanguageProviderRegistration;
         readonly "languages.unregister": IWireLanguageProviderUnregistration;
-        /** `onDidChangeSemanticTokens` провайдера `handle` (upstream `$emitDocumentSemanticTokensEvent`). */
         readonly "languages.didChangeSemanticTokens": IWireProviderHandle;
-        /** `languages.setLanguageConfiguration` — слой конфигурации языка; снятие — по тому же `handle`. */
+        /** Снятие — по тому же `handle`. */
         readonly "languages.setLanguageConfiguration": IWireLanguageConfiguration;
         readonly "languages.unsetLanguageConfiguration": IWireProviderHandle;
 
@@ -356,7 +328,6 @@ export interface ISubprocessToHost {
         readonly "output.append": IWireOutputAppend;
         readonly "output.show": IWireOutputShow;
 
-        /** Коллекция окружения расширения целиком (`$setEnvironmentVariableCollection`). */
         readonly "terminal.setEnvironmentVariableCollection": IWireSetEnvironmentVariableCollection;
         readonly "terminal.create": IWireTerminalCreate;
         readonly "terminal.show": IWireTerminalShow;
@@ -368,16 +339,13 @@ export interface ISubprocessToHost {
 
         readonly "tasks.registerProvider": IWireTaskProviderRegistration;
         readonly "tasks.unregisterProvider": IWireTaskProviderHandle;
-        /** `TaskExecution.terminate()` (`$terminateTask`). */
         readonly "tasks.terminate": IWireTaskExecutionId;
 
-        /** Сигнал готовности: можно слать `host.activateExtension`. */
+        /** Можно слать `host.activateExtension`. */
         readonly "host.ready": null;
     };
 }
 
-/** RPC хоста: шлёт {@link IHostToSubprocess}, принимает {@link ISubprocessToHost}. */
 export type HostRpc = RpcEndpoint<IHostToSubprocess, ISubprocessToHost>;
 
-/** RPC субпроцесса: зеркало {@link HostRpc}. */
 export type SubprocessRpc = RpcEndpoint<ISubprocessToHost, IHostToSubprocess>;

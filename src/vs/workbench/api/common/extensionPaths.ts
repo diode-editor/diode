@@ -1,24 +1,16 @@
 import * as path from "node:path";
 
 /**
- * Индекс «корень расширения на ФС → id расширения» — по нему субпроцесс узнаёт,
- * чей модуль сделал `require("vscode")`/`import "vscode"` (аналог
- * `ExtensionPaths` эталона, `extHostExtensionService.ts`).
- *
- * Поиск — самый длинный корень, который является ПРЕДКОМ пути по сегментам:
- * `/a/foo` матчит `/a/foo/x.js`, но не `/a/foobar/x.js`. Вложенное расширение
- * (корень внутри корня другого) выигрывает у внешнего.
+ * Корень матчится по сегментам: `/a/foo` — предок `/a/foo/x.js`, но не
+ * `/a/foobar/x.js`; вложенное расширение выигрывает у внешнего.
  */
 export class ExtensionPaths {
     private readonly roots = new Map<string, string>();
     private readonly realpath: (p: string) => string;
 
     /**
-     * @param options.realpath — разворачивает симлинки корня (node-сторона,
-     *   `fs.realpathSync.native`). Модули Node грузит по РЕАЛЬНОМУ пути
-     *   (`parent.filename`, `parentURL`), а каталог расширения может лежать за
-     *   симлинком — поэтому корень индексируется под обоими именами. Сбой
-     *   (`ENOENT` у синтетического пути builtin'а) — индексируем только как есть.
+     * Node грузит модули по РЕАЛЬНОМУ пути, а каталог расширения может лежать за
+     * симлинком, поэтому корень индексируется под обоими именами.
      */
     public constructor(options: { readonly realpath?: (p: string) => string } = {}) {
         // Stryker disable next-line ArrowFunction: эквивалентен — `path.resolve(undefined)` бросает, сбой realpath ловится в add(), и корень индексируется как есть, ровно как с тождественной функцией
@@ -35,7 +27,6 @@ export class ExtensionPaths {
         }
     }
 
-    /** id расширения, которому принадлежит `fsPath`, или `undefined`. */
     public findByPath(fsPath: string): string | undefined {
         let candidate = path.resolve(fsPath);
         for (;;) {

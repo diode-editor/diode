@@ -10,9 +10,7 @@ import { OutputService } from "../../services/output/common/outputService.ts";
 
 import { ExtensionOutputAdapter } from "./extensionOutputAdapter.ts";
 
-// Мост output-каналов расширений в панель Output: настоящие
-// OutputChannelRegistry + LogService + RingBufferSink + OutputService (сетап
-// как outputService.test) — связка и есть предмет теста.
+// Настоящие реестр, лог и OutputService: предмет теста — связка.
 
 function makeAdapter() {
     const logService = new LogService();

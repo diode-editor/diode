@@ -28,7 +28,6 @@ const DEFS = Uri.file("/proj/defs.ts");
 
 const TEXT = "const a = b;\n";
 
-/** Открывает документ в зеркале субпроцесса — как `editor.didOpen` хоста. */
 function openDoc(ctx: IVscodeHostContext, text = TEXT, languageId = "typescript"): void {
     ctx.documentSync.open({ uri: URI, languageId, version: 1, text });
 }

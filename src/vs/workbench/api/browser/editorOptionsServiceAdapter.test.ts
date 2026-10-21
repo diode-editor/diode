@@ -6,16 +6,8 @@ import type { IEditorGroupsService } from "../../services/editor/common/editorGr
 import type { IEditorService } from "../../services/editor/common/editorService.ts";
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
-/** Исполнитель bulk edit'ов: этим тестам он не нужен — честный отказ. */
 const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 
-/**
- * Минимальный стаб IEditorService — адаптер спрашивает у него **вкладку**
- * (`getActiveTabEditor()`), а не focus-aware активный редактор: фокус в нижней
- * панели не должен подменять расширению `activeTextEditor`. Здесь нам нужен
- * случай «нет активного редактора».
- */
-/** Групповой срез фасада: одна группа (id 1, колонка 1) — мета и таргетинг. */
 const GROUP_SURFACE = {
     groupOf: () => ({ id: 1 }),
     activeGroup: { id: 1 },
@@ -31,7 +23,6 @@ function groupWithNoActiveEditor(): IEditorService {
     } as unknown as IEditorService;
 }
 
-/** Фейк сервиса редакторов отвечает и за полосу групп (groupOf/activeGroup/viewColumnOf). */
 function createAdapter(fake: IEditorService, workspaceEdits: IBulkEditService): EditorOptionsServiceAdapter {
     return new EditorOptionsServiceAdapter(fake, fake as unknown as IEditorGroupsService, workspaceEdits);
 }
@@ -82,8 +73,6 @@ describe("EditorOptionsServiceAdapter", () => {
     });
 
     it("getActiveEditorFilePath() отдаёт null для безымянного буфера, а не мусорный путь", () => {
-        // fsPath у untitled: вернул бы относительный "Untitled-1" — потребителю
-        // (editorconfig) такой «путь» скармливать нельзя.
         const group = {
             getActiveTabEditor: () => ({
                 uri: Uri.parse("untitled:Untitled-1"),
@@ -103,7 +92,6 @@ describe("EditorOptionsServiceAdapter", () => {
                 isModified: true,
                 encoding: "windows1251",
                 eol: 2,
-                // У настоящей панели viewState есть всегда; без выделений — пустой список.
                 viewState: { selections: [] },
             }),
         } as unknown as IEditorService;
@@ -142,11 +130,9 @@ describe("EditorOptionsServiceAdapter", () => {
         const received: unknown[] = [];
         const subscription = adapter.onActiveEditorChanged((meta) => received.push(meta));
 
-        // The adapter passes the group's disposable straight through.
         expect(subscription).toBe(groupDisposable);
         expect(registered).toBeDefined();
 
-        // Active editor present → its meta is forwarded.
         registered!({
             uri: Uri.file("/a/b.ts"),
             languageId: "typescript",
@@ -157,7 +143,6 @@ describe("EditorOptionsServiceAdapter", () => {
                 selections: [{ anchor: { line: 0, character: 2 }, active: { line: 1, character: 4 } }],
             },
         });
-        // No active editor → nulls are forwarded.
         registered!(null);
 
         expect(received).toEqual([
@@ -231,8 +216,6 @@ describe("EditorOptionsServiceAdapter", () => {
         const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
         const adapter = createAdapter(group, NO_BULK_EDITS);
 
-        // Перекрытые правки документ применил бы по уже съеденному тексту —
-        // порча содержимого и сломанный undo; vscode такой edit отбивает.
         const overlapping = [
             { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 5 } }, text: "x" },
             { range: { start: { line: 0, character: 3 }, end: { line: 0, character: 8 } }, text: "y" },
@@ -250,7 +233,6 @@ describe("EditorOptionsServiceAdapter", () => {
         const group = { ...GROUP_SURFACE, getActiveTabEditor: () => editor } as unknown as IEditorService;
         const adapter = createAdapter(group, NO_BULK_EDITS);
         expect(adapter.applyActiveEditorEdits(Uri.file("/a/b.ts").toString(), [])).toBe(false);
-        // Без активного редактора — тихий no-op, а не исключение.
         expect(() => {
             createAdapter(groupWithNoActiveEditor(), NO_BULK_EDITS).setActiveEditorSelections("x", []);
         }).not.toThrow();
@@ -296,16 +278,10 @@ describe("EditorOptionsServiceAdapter", () => {
         ]);
     });
 
-    // ── onActiveEditorSelectionChanged (#194) ────────────────────────────────
-    // Продюсер `editor.selectionChanged`. Тест именно на «кто и когда шлёт»: без
-    // него `activeTextEditor.selection` в расширении навсегда залипает на моменте
-    // открытия файла, и любая команда, читающая выделение, молча ничего не делает.
+    // #194: без продюсера `editor.selectionChanged` `activeTextEditor.selection` в расширении
+    // навсегда залипает на моменте открытия файла.
 
-    /**
-     * Группа с одним редактором, у которого присваивание `viewState.selections`
-     * реально фаерит `onDidChangeActiveEditorSelection` — как в живом
-     * IEditorService. Нужно, чтобы проверить эхо-гард на настоящем пути.
-     */
+    /** Присваивание `viewState.selections` фаерит событие, как живой IEditorService, — для эхо-гарда. */
     function groupWithLiveSelections(): { group: IEditorService; selections: () => unknown[] } {
         const listeners: (() => void)[] = [];
         let current: unknown[] = [{ anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 } }];
@@ -373,7 +349,6 @@ describe("EditorOptionsServiceAdapter", () => {
         viewState.selections = [{ anchor: { line: 4, character: 0 }, active: { line: 4, character: 2 } }] as never;
         await Promise.resolve();
 
-        // Одна нотификация — и в ней последнее состояние, а не первое.
         expect(seen).toHaveLength(1);
         expect((seen[0] as { selections: { activeLine: number }[] }).selections[0].activeLine).toBe(4);
     });
@@ -389,8 +364,7 @@ describe("EditorOptionsServiceAdapter", () => {
         ]);
         await Promise.resolve();
 
-        // Выделение применено, но обратной нотификации нет — иначе расширение
-        // получало бы эхо на каждое собственное `TextEditor.selection =`.
+        // Без эха: иначе расширение получало бы событие на каждое собственное `TextEditor.selection =`.
         expect(selections()).toHaveLength(1);
         expect(seen).toHaveLength(0);
     });

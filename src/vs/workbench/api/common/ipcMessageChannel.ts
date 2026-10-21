@@ -3,13 +3,7 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 import type { IMessageChannel } from "./iMessageChannel.ts";
 
-/**
- * Минимальный интерфейс endpoint'а node IPC. Совместим как с `process` внутри
- * subprocess, так и с `ChildProcess` на parent-стороне.
- *
- * Все используемые методы — это пересечение API `NodeJS.Process` и
- * `ChildProcess` для IPC-канала.
- */
+/** Пересечение `NodeJS.Process` и `ChildProcess`: годится по обе стороны IPC. */
 export interface IIpcEndpoint {
     send(message: unknown): boolean;
     on(event: "message", listener: (msg: unknown) => void): unknown;
@@ -18,16 +12,7 @@ export interface IIpcEndpoint {
     off(event: "disconnect", listener: () => void): unknown;
 }
 
-/**
- * `IMessageChannel` поверх Node IPC-канала (`child_process.fork` /
- * `child_process.spawn(..., { stdio: [..., 'ipc'] })`).
- *
- * - `postMessage` -> `endpoint.send` (silent no-op после dispose/disconnect).
- * - Сериализация выполняется самим Node IPC (structured clone-ish JSON).
- * - При `disconnect`-событии endpoint считается мёртвым: новые `postMessage`
- *   игнорируются, существующие подписки получают это как естественный конец
- *   потока сообщений. Endpoint НЕ убивается (это ответственность владельца).
- */
+/** После `disconnect` новые `postMessage` молча игнорируются; endpoint канал не убивает — это забота владельца. */
 export class IpcMessageChannel implements IMessageChannel {
     private readonly endpoint: IIpcEndpoint;
     private readonly onMessageEmitter = new Emitter<unknown>();

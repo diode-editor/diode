@@ -8,18 +8,11 @@ import type { IEditorService } from "../../services/editor/common/editorService.
 import type { IActiveEditorSelections } from "../common/iEditorOptionsService.ts";
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
-/** Исполнитель bulk edit'ов: этим тестам он не нужен — честный отказ. */
 const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 
-// Продюсер поля `kind` у `editor.selectionChanged` — «кто и по какому жесту его
-// шлёт». Источник снимается СИНХРОННО в обработчике, а нотификация уезжает
-// отложенно (коалесинг в тик): без синхронного снятия `kind` был бы всегда
-// undefined, а событие расширения — без вида.
+// `kind` снимается синхронно в обработчике, а нотификация уезжает в тик: без синхронного
+// снятия он был бы всегда undefined.
 
-/**
- * Группа с одним живым редактором: присваивание `viewState.selections` фаерит
- * подписчиков `onDidChangeActiveEditorSelection`, как настоящий IEditorService.
- */
 function liveGroup(): { group: IEditorService; move: (character: number) => void } {
     const listeners: (() => void)[] = [];
     let current: unknown[] = [{ anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 } }];
@@ -64,7 +57,6 @@ function liveGroup(): { group: IEditorService; move: (character: number) => void
     };
 }
 
-/** Двигает каретку внутри объявленного источника и возвращает то, что уехало. */
 async function notifiedFor(source: CursorChangeSource | undefined): Promise<IActiveEditorSelections> {
     const { group, move } = liveGroup();
     const adapter = createAdapter(group, NO_BULK_EDITS);
@@ -80,7 +72,6 @@ async function notifiedFor(source: CursorChangeSource | undefined): Promise<IAct
     return seen[0];
 }
 
-/** Фейк сервиса редакторов отвечает и за полосу групп (groupOf/activeGroup/viewColumnOf). */
 function createAdapter(fake: IEditorService, workspaceEdits: IBulkEditService): EditorOptionsServiceAdapter {
     return new EditorOptionsServiceAdapter(fake, fake as unknown as IEditorGroupsService, workspaceEdits);
 }

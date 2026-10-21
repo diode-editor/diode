@@ -18,14 +18,8 @@ import { darkPlusTheme } from "../../services/themes/common/themes/darkPlus.ts";
 import { ThemeService } from "../../services/themes/common/themeService.ts";
 
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
-/** Исполнитель bulk edit'ов: этим тестам он не нужен — честный отказ. */
 const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 
-/**
- * Адресация по группам поверх настоящего EditorService: `groupId` в
- * `setActiveEditorSelections` ставит выделение конкретной вью (AS-10), а правки
- * `applyActiveEditorEdits` находят документ в любой группе, не только активной.
- */
 describe("EditorOptionsServiceAdapter — адресация по группам", () => {
     let ws: ITempWorkspace;
     let service: EditorService;
@@ -55,7 +49,6 @@ describe("EditorOptionsServiceAdapter — адресация по группам
         ws.dispose();
     });
 
-    /** Текстовая вкладка группы по позиции — с проверкой вида. */
     function editorAt(groupIndex: number, tabIndex: number): TextEditorPane {
         const pane = service.editorGroups.groups[groupIndex].getPane(tabIndex);
         expect(pane instanceof TextEditorPane).toBe(true);
@@ -64,7 +57,7 @@ describe("EditorOptionsServiceAdapter — адресация по группам
 
     it("setActiveEditorSelections с groupId ставит выделение вью ТОЙ группы (AS-10)", () => {
         service.openFile(ws.path("a.ts"));
-        service.splitActiveGroup(); // группа 2 — дубль a.ts со своим viewState
+        service.splitActiveGroup();
         service.editorGroups.focusGroup({ index: 0 });
         const uri = editorAt(0, 0).uri.toString();
 
@@ -74,7 +67,6 @@ describe("EditorOptionsServiceAdapter — адресация по группам
             service.editorGroups.groups[1].id,
         );
 
-        // Выделение уехало во вторую группу, вью первой не тронута.
         expect(editorAt(1, 0).viewState.selections[0].active).toEqual({ line: 1, character: 2 });
         expect(editorAt(0, 0).viewState.selections[0].active).toEqual({ line: 0, character: 0 });
     });

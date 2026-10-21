@@ -7,10 +7,6 @@ import { EditorServiceDIToken } from "../../services/editor/common/editorService
 
 import { EditorLayoutServiceAdapter } from "./editorLayoutServiceAdapter.ts";
 
-/**
- * Вкладка не текстового и не дифф-вида (Keyboard Shortcuts) в снимке для
- * `window.tabGroups`: настоящая вкладка из настоящей команды, а не фейк.
- */
 describe("EditorLayoutServiceAdapter — вкладка чужого вида", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;

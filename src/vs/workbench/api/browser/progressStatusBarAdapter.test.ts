@@ -5,9 +5,6 @@ import { StatusBarService } from "../../services/statusbar/common/statusBarServi
 
 import { ProgressStatusBarAdapter } from "./progressStatusBarAdapter.ts";
 
-// Мост withProgress → статус-бар: запись со спиннером живёт от start до end,
-// report обновляет сообщение/процент, таймеры не переживают end/dispose.
-
 describe("ProgressStatusBarAdapter", () => {
     let statusBar: StatusBarService;
     let adapter: ProgressStatusBarAdapter;
@@ -72,7 +69,6 @@ describe("ProgressStatusBarAdapter", () => {
         adapter.end(1);
         expect(texts()).toEqual(["⠋ Go"]);
 
-        // Повторный start того же handle — защитная замена, а не дубль.
         adapter.start(2, "Go (restart)");
         expect(texts()).toEqual(["⠋ Go (restart)"]);
     });

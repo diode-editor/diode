@@ -5,11 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { IIpcEndpoint } from "./ipcMessageChannel.ts";
 import { IpcMessageChannel } from "./ipcMessageChannel.ts";
 
-/**
- * Стаб IPC-endpoint поверх двух связанных EventEmitter'ов: что отправлено
- * через `send`, эмитится как `'message'` на peer'е (асинхронно, как реальный
- * Node IPC).
- */
+/** Доставка асинхронная, как у настоящего Node IPC. */
 class FakeIpcEndpoint extends EventEmitter implements IIpcEndpoint {
     public peer: FakeIpcEndpoint | null = null;
     public sent: unknown[] = [];
@@ -114,7 +110,7 @@ describe("IpcMessageChannel", () => {
         const chA = new IpcMessageChannel(a);
         const chB = new IpcMessageChannel(b);
         const sendSpy = vi.spyOn(a, "send");
-        b.kill(); // эмитим disconnect на endpoint a? нет, на b. отдельно:
+        b.kill();
         a.emit("disconnect");
         chA.postMessage("dropped");
         expect(sendSpy).not.toHaveBeenCalled();
@@ -155,7 +151,6 @@ describe("IpcMessageChannel", () => {
         // Первый postMessage ловит исключение и помечает alive=false.
         ch.postMessage("first");
 
-        // Теперь send не должен вызываться вовсе (канал мёртв).
         const sendSpy = vi.fn((): boolean => true);
         a.send = sendSpy;
         ch.postMessage("second");
@@ -171,7 +166,6 @@ describe("IpcMessageChannel", () => {
 
         const received: unknown[] = [];
         const sub = chB.onMessage((m) => received.push(m));
-        // Disposable безопасно вызывается и ничего не ломает.
         expect(() => {
             sub.dispose();
         }).not.toThrow();
@@ -198,7 +192,6 @@ describe("IpcMessageChannel", () => {
         const received: unknown[] = [];
         ch.onMessage((m) => received.push(m));
         ch.dispose();
-        // Симулируем поздно доставленное сообщение от endpoint'а.
         messageListeners[0]({ late: true });
         expect(received).toEqual([]);
     });

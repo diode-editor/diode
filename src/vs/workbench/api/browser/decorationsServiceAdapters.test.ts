@@ -15,7 +15,6 @@ import { EditorDecorationsServiceAdapter } from "./editorDecorationsServiceAdapt
 import { FileDecorationsServiceAdapter } from "./fileDecorationsServiceAdapter.ts";
 import { ThemeColorResolverAdapter } from "./themeColorResolverAdapter.ts";
 
-/** Мини-редактор с наблюдаемым setGutterChangeDecorations. */
 function fakeEditor(uri: Uri) {
     const received: (readonly IGutterChangeDecoration[])[] = [];
     return {
@@ -45,9 +44,7 @@ describe("EditorDecorationsServiceAdapter", () => {
     });
 
     it("сверяет ресурсы, а не сырые строки: канонизацию даёт Uri", () => {
-        // Ненормализованный путь не долетает сюда: `path.resolve` стоит в единственной
-        // точке подъёма (`IEditorService.openFile`), а сюда ресурс приходит уже
-        // каноничным — субпроцесс шлёт `document.uri.toString()`.
+        // Нормализует путь только `IEditorService.openFile`: сюда ресурс приходит уже каноничным.
         const match = fakeEditor(Uri.file(path.resolve("/proj/./sub/../a.ts")));
         const adapter = new EditorDecorationsServiceAdapter(fakeGroup([match]));
         adapter.setGutterChangeDecorations(Uri.file("/proj/a.ts").toString(), []);
@@ -90,13 +87,13 @@ describe("ThemeColorResolverAdapter", () => {
         const adapter = new ThemeColorResolverAdapter(theme);
         let fired = 0;
         const disposable = adapter.onDidChange(() => fired++);
-        expect(fired).toBe(0); // начальный синхронный вызов проглочен
+        expect(fired).toBe(0);
 
         theme.setTheme(WorkbenchTheme.fromThemeFile(lightPlusTheme));
         expect(fired).toBe(1);
 
         disposable.dispose();
         theme.setTheme(WorkbenchTheme.fromThemeFile(darkPlusTheme));
-        expect(fired).toBe(1); // после dispose — тишина
+        expect(fired).toBe(1);
     });
 });

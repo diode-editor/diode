@@ -8,9 +8,8 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-// Наивный language status item: в UI не проецируется, но обязан быть честным
-// держателем полей — ruff пишет в text/severity/busy состояние сервера при
-// каждом его переходе и зовёт dispose при рестарте.
+// В UI не проецируется, но ruff пишет в text/severity/busy состояние сервера при каждом
+// переходе и зовёт dispose при рестарте.
 
 function makeLanguages(): ReturnType<typeof createLanguagesNamespace>["languages"] {
     const registry = new DocumentRegistry();

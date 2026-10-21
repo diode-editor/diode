@@ -9,7 +9,6 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { createFileSystemNamespace, SubprocessFileSystemProviders } from "./fileSystemNamespace.ts";
 import { FileSystemError, FileType, Uri } from "./vscodeTypes.ts";
 
-/** Роутер поверх настоящего диска субпроцесса — так, как его собирает `workspaceNamespace`. */
 const disk = (): ReturnType<typeof createNodeExtHostDisk>["fs"] => createNodeExtHostDisk().fs;
 let wfs: ReturnType<typeof createFileSystemNamespace>;
 const uri = (p: string) => Uri.file(p) as never;
@@ -80,10 +79,6 @@ describe("FileSystemNamespace — writeFile errors", () => {
     });
 });
 
-/**
- * `workspace.fs` в VS Code — роутер по `uri.scheme`. Локальный диск обслуживает только
- * `file`; для прочих схем нужен честный отказ, а не чтение/запись `uri.fsPath` мимо схемы.
- */
 describe("FileSystemNamespace — роутинг по схеме", () => {
     const nonFile = (raw: string) => Uri.parse(raw) as never;
 
@@ -123,7 +118,6 @@ describe("FileSystemNamespace — роутинг по схеме", () => {
 describe("SubprocessFileSystemProviders", () => {
     const gitUri = Uri.parse("git:/repo/a.ts") as never;
 
-    /** Минимальный read-only провайдер: отдаёт текст и умеет вручную фаерить изменения. */
     function provider(content: string) {
         const listeners: ((events: { uri: unknown }[]) => void)[] = [];
         return {

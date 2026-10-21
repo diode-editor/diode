@@ -10,10 +10,6 @@ import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts"
 import { Position, Range, TextEdit, Uri, WorkspaceEdit } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-// Субпроцессная сторона rename: ядро зовёт провайдера по handle, правки
-// провайдера ложатся через deps.applyEdit (существующий путь
-// workspace.applyEdit — bulk edit, одним шагом отмены).
-
 function makeCtx(deps?: Partial<ICodeActionDeps>): {
     stub: IStubRpc;
     languages: typeof vscode.languages;
@@ -42,8 +38,6 @@ function makeCtx(deps?: Partial<ICodeActionDeps>): {
         executeCommand: () => Promise.resolve(undefined),
         ...deps,
     });
-    // Документ открыт document sync'ом (как `editor.didOpen`): запросы текста
-    // не везут, провайдер читает зеркало версии 1.
     ctx.documentSync.open({ uri: URI, languageId: "typescript", version: 1, text: TEXT });
     return { stub, languages, appliedEdits, appliedMetadata, documentSync: ctx.documentSync };
 }
@@ -59,7 +53,7 @@ function renameParams(overrides: Record<string, unknown> = {}): Record<string, u
     return { ...prepareParams(), newName: "renamed", ...overrides };
 }
 
-/** Правка-пустышка: что именно переименовано, решает провайдер — нам важен сам edit. */
+/** Что именно переименовано, решает провайдер — нам важен сам edit. */
 function renameEdit(newName: string): WorkspaceEdit {
     const edit = new WorkspaceEdit();
     edit.set(Uri.parse(URI) as unknown as vscode.Uri, [
@@ -298,11 +292,8 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
         register();
         register();
 
-        // Без `handle` в параметрах провайдера не ищем вовсе.
         expect(await stub.callRequest("languages.prepareRename", prepareParams({ handle: undefined }))).toBeNull();
         expect(seen).toEqual([]);
-        // Текст провайдер видит из зеркала документа (версия 1) — запрос его
-        // не везёт.
         expect(await stub.callRequest("languages.prepareRename", prepareParams())).toEqual({ placeholder: "c" });
         expect(seen).toEqual([TEXT]);
     });
@@ -318,7 +309,6 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
             expect(await stub.callRequest("languages.prepareRename", prepareParams(overrides))).toBeNull();
         }
         expect(prepareRename).not.toHaveBeenCalled();
-        // Версия зеркала — провайдер зовётся.
         expect(await stub.callRequest("languages.prepareRename", prepareParams({ version: 2 }))).toEqual({
             placeholder: "value",
         });
@@ -347,10 +337,8 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
 
         expect(await stub.callRequest("languages.provideRenameEdits", renameParams())).toEqual({ applied: true });
         expect(appliedEdits).toHaveLength(1);
-        // Переименование — рефакторинг: эталон шлёт `respectAutoSaveConfig: true`.
         expect(appliedMetadata).toEqual([{ isRefactoring: true }]);
         expect(appliedEdits[0].get(Uri.parse(URI) as unknown as vscode.Uri)[0].newText).toBe("renamed");
-        // Новое имя и позиция доезжают провайдеру дословно.
         const [document, position, newName] = provideRenameEdits.mock.calls[0] as unknown as [
             vscode.TextDocument,
             Position,

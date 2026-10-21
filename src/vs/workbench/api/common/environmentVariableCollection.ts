@@ -12,18 +12,11 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { EnvironmentVariableMutatorType } from "./vscodeTypes.ts";
 import { parseWireEnvironmentVariableCollections } from "./wireTypes.ts";
 
-/** Коллекция с `getScoped` — то, что видит расширение (`GlobalEnvironmentVariableCollection`). */
 type ScopedCollection = vscode.GlobalEnvironmentVariableCollection;
 
 /**
- * `ExtensionContext.environmentVariableCollection` — коллекции расширений в
- * субпроцессе (`getEnvironmentVariableCollection` и
- * `UnifiedEnvironmentVariableCollection` эталона, `extHostTerminalService.ts`).
- * Коллекция расширения живёт дольше его активации (повторная активация видит
- * её же); каждое изменение сразу уходит хосту целиком
- * (`terminal.setEnvironmentVariableCollection`) — следующий же терминал
- * создаётся уже с ним. Хост на подъёме субпроцесса присылает сохранённые
- * коллекции (`terminal.initEnvironmentVariableCollections`).
+ * Коллекция расширения живёт дольше его активации; каждое изменение сразу
+ * уходит хосту целиком — следующий же терминал создаётся уже с ним.
  */
 export class ExtHostEnvironmentVariableCollections {
     private readonly collections = new Map<string, UnifiedEnvironmentVariableCollection>();
@@ -36,7 +29,6 @@ export class ExtHostEnvironmentVariableCollections {
         });
     }
 
-    /** Коллекция расширения (без области — глобальная для воркспейса). */
     public get(extensionId: string): ScopedCollection {
         let collection = this.collections.get(extensionId);
         if (collection === undefined) {
@@ -60,7 +52,6 @@ export class ExtHostEnvironmentVariableCollections {
     }
 }
 
-/** Ключ области: uri папки, без папки — пусто. */
 function scopeKey(scope: vscode.EnvironmentVariableScope | undefined): string {
     return scope?.workspaceFolder?.uri.toString() ?? "";
 }
@@ -70,17 +61,16 @@ function mutatorKey(variable: string, scope: vscode.EnvironmentVariableScope | u
     return key === "" ? variable : `${variable}:::${key}`;
 }
 
-/** Область расширения → провод: папка без `Uri` (по ней применяется только `index`). */
+/** Папка без `Uri`: по ней применяется только `index`. */
 function toWireScope(scope: vscode.EnvironmentVariableScope | undefined): IEnvironmentVariableScope | undefined {
-    // Без папки коллекция области — сама глобальная (`getScoped({})` отдаёт её же):
-    // область у её мутаторов не пишется.
+    // Без папки коллекция области — сама глобальная (`getScoped({})` отдаёт её же).
     const folder = scope?.workspaceFolder;
     return folder === undefined
         ? undefined
         : { workspaceFolder: { uri: folder.uri.toString(), name: folder.name, index: folder.index } };
 }
 
-/** Мутатор расширению — без переменной и области (`convertMutator` эталона). */
+/** Как `convertMutator` эталона. */
 function toApiMutator(mutator: IEnvironmentVariableMutator): vscode.EnvironmentVariableMutator {
     return {
         type: mutator.type as unknown as vscode.EnvironmentVariableMutatorType,
@@ -89,7 +79,6 @@ function toApiMutator(mutator: IEnvironmentVariableMutator): vscode.EnvironmentV
     };
 }
 
-/** Все области одной коллекции расширения. */
 class UnifiedEnvironmentVariableCollection {
     public readonly map: Map<string, IEnvironmentVariableMutator>;
     public readonly descriptionMap = new Map<string, IEnvironmentVariableCollectionDescription>();
@@ -208,7 +197,7 @@ class UnifiedEnvironmentVariableCollection {
         scope: vscode.EnvironmentVariableScope | undefined,
     ): void {
         const key = scopeKey(scope);
-        // Строка описания (до первого абзаца у MarkdownString — эталон бережёт так UI).
+        // До первого абзаца у MarkdownString — эталон бережёт так UI.
         const text = typeof description === "string" ? description : description?.value.split("\n\n")[0];
         const current = this.descriptionMap.get(key);
         if (current !== undefined && current.description === text) return;

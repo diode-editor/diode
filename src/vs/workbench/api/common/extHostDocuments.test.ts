@@ -63,7 +63,6 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
     it("isUntitled выводится из схемы untitled:", () => {
         const doc = new DocumentRegistry().getOrCreate(Uri.parse("untitled:Untitled-1"));
         expect(doc.isUntitled).toBe(true);
-        // fileName — shorthand для fsPath «independent of the uri scheme».
         expect(doc.fileName).toBe("Untitled-1");
     });
 
@@ -90,7 +89,6 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
         const reg = new DocumentRegistry();
         const doc = reg.upsertFull({ uri: Uri.file("/a.ts").toString(), text: "a\n", version: 7 });
         expect(doc.version).toBe(7);
-        // Без явной версии — снова локальный инкремент от текущего значения.
         reg.upsertFull({ uri: Uri.file("/a.ts").toString(), text: "b\n" });
         expect(doc.version).toBe(8);
     });
@@ -107,7 +105,6 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
         const reg = new DocumentRegistry();
         const doc = reg.upsertFull({ uri: Uri.file("/a.ts").toString(), text: "a\n", eol: EndOfLine.CRLF });
         expect(doc.eol).toBe(EndOfLine.CRLF);
-        // Следующий снапшот без eol не сбрасывает уже установленный.
         reg.upsertFull({ uri: Uri.file("/a.ts").toString(), text: "b\n" });
         expect(doc.eol).toBe(EndOfLine.CRLF);
     });
@@ -130,7 +127,7 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
         expect(l0.rangeIncludingLineBreak.end.line).toBe(1);
         expect(l0.rangeIncludingLineBreak.end.character).toBe(0);
         const l1 = doc.lineAt(1);
-        expect(l1.rangeIncludingLineBreak.end.line).toBe(1); // нет переноса
+        expect(l1.rangeIncludingLineBreak.end.line).toBe(1);
         expect(l1.rangeIncludingLineBreak.end.character).toBe(2);
     });
 
@@ -205,7 +202,7 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
         const { tracker, log, changes } = makeTracker();
         const doc = tracker.open({ uri: URI, text: "ab\ncd" });
         const same = tracker.open({ uri: URI, text: "x" });
-        expect(same).toBe(doc); // стабильная идентичность документа
+        expect(same).toBe(doc);
         expect(log).toEqual(["open:ab\ncd", "change:x"]);
         const change = changes[0].contentChanges[0];
         // Диапазон посчитан ДО мутации реестра — по тексту "ab\ncd".
@@ -227,7 +224,6 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
         expect(result === doc).toBe(true);
         expect(doc.isClosed).toBe(true);
         expect(closed).toEqual(["a"]);
-        // Расширения вправе держать ссылку на закрытый документ — реестр его не теряет.
         expect(registry.get(Uri.parse(URI)) === doc).toBe(true);
     });
 

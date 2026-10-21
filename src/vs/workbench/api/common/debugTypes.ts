@@ -1,12 +1,8 @@
 import type * as vscode from "vscode";
 
 /**
- * Значения-типы `vscode.debug` по эталону (`extHostTypes.ts`). Дебаггера в
- * Diode нет (namespace — null-объект, `debugNoop.ts`), но расширение
- * конструирует эти классы само: `golang.go` отдаёт `new DebugAdapterServer(port)`
- * из своей фабрики дескрипторов и держит `new DebugAdapterInlineImplementation`
- * для встроенного адаптера, а точки останова создают
- * `new SourceBreakpoint(location)` — без значения падал бы уже `new`.
+ * Дебаггера нет, но расширения конструируют эти классы сами (`golang.go` —
+ * `new DebugAdapterServer(port)`) — без значения падал бы уже `new`.
  */
 
 export enum DebugConsoleMode {
@@ -42,7 +38,7 @@ export class Breakpoint implements vscode.Breakpoint {
         if (typeof mode === "string") this.mode = mode;
     }
 
-    /** Ленивый uuid, как у эталона: id одной точки стабилен на всё время жизни. */
+    /** Ленивый, как у эталона: id точки стабилен на всё время жизни. */
     public get id(): string {
         this.ownId ??= globalThis.crypto.randomUUID();
         return this.ownId;
@@ -61,7 +57,7 @@ export class SourceBreakpoint extends Breakpoint implements vscode.SourceBreakpo
         mode?: string,
     ) {
         super(enabled, condition, hitCondition, logMessage, mode);
-        // Типы обещают Location, но JS-расширение может передать что угодно; эталон проверяет ровно null.
+        // JS-расширение может передать что угодно; эталон проверяет ровно null.
         if ((location as vscode.Location | null) === null) throw new Error("Illegal argument: location");
         this.location = location;
     }

@@ -11,7 +11,6 @@ function makeVscode() {
     return { stub, vscode: namespace };
 }
 
-/** warn-строки Output, которые ушли человеку. */
 function warnings(stub: ReturnType<typeof makeStubRpc>): string[] {
     return stub.notifies
         .filter((n) => n.method === "output.append")

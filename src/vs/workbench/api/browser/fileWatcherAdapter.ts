@@ -3,16 +3,8 @@ import type { ITreeFileChange, ITreeFileWatcher } from "../../../platform/files/
 import type { IExtensionFileWatcher } from "../common/iExtensionFileWatcher.ts";
 
 /**
- * Реализация {@link IExtensionFileWatcher} поверх {@link ITreeFileWatcher}:
- * добавляет к нему то, чего не хватает host'у, — excludes из настройки
- * `files.watcherExclude` (разбор — `watcherExcludeGlobs` в
- * `common/configuration/excludeSettings.ts`) и дополнительные корни из
- * `files.watcherInclude` (каталоги-симлинки внутри базы, за которые обход сам
- * не заходит; разрешение — `watcherIncludesUnder` в `api/node/watcherIncludes.ts`).
- *
- * Обе настройки читаются **на каждый** `watch()`, а не запоминаются в
- * конструкторе: настройка живая, и расширение, поднявшее watcher после её
- * правки, должно увидеть новый набор.
+ * Excludes `files.watcherExclude` и корни `files.watcherInclude` (симлинки, за которые обход не
+ * заходит) читаются на каждый `watch()`: настройка живая.
  */
 export class FileWatcherAdapter implements IExtensionFileWatcher {
     public constructor(

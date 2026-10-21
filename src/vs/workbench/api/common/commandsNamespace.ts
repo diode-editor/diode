@@ -8,22 +8,8 @@ import { DisposableImpl } from "./vscodeTypes.ts";
 type CommandHandler = (...args: unknown[]) => unknown;
 
 /**
- * Реализация `vscode.commands` внутри subprocess'а — мост команд поверх
- * симметричного {@link SubprocessRpc}.
- *
- * Две стороны моста:
- * - **subprocess → host**: `registerCommand` кладёт колбэк в локальную Map и
- *   уведомляет хост (`commands.registerCommand`), чтобы тот завёл прокси в своём
- *   `CommandRegistry`; `executeCommand` для чужой (нелокальной) команды уходит
- *   `request`'ом на хост.
- * - **host → subprocess**: когда ядро исполняет прокси-команду (напр. палитра
- *   запускает `EditorConfig.generate`), хост шлёт `request commands.executeCommand`,
- *   который мы обрабатываем ниже, гоняя локальный колбэк.
- *
- * `owner` — окружающий владелец (см. {@link ExtensionOwner}): id расширения,
- * зарегистрировавшего команду, попадает в её предупреждения в stderr.
- * `apiCommands` — встроенные API-команды (`vscode.open`, см. apiCommands.ts):
- * исполняются здесь же, хосту не объявляются.
+ * `apiCommands` (`vscode.open`…) исполняются здесь же и хосту не объявляются;
+ * id расширения из `owner` попадает в предупреждения в stderr.
  */
 export function buildCommandsNamespace(
     rpc: SubprocessRpc,
@@ -33,7 +19,6 @@ export function buildCommandsNamespace(
 ): typeof vscode.commands {
     const localCommands = new Map<string, CommandHandler>();
 
-    // Входящий запрос от хоста: исполнить локально зарегистрированную команду.
     rpc.handleRequest("commands.executeCommand", (params): unknown => {
         const { id, args } = parseExecuteParams(params);
         const handler = localCommands.get(id);
@@ -52,8 +37,7 @@ export function buildCommandsNamespace(
         localCommands.set(id, bound);
         rpc.notify("commands.registerCommand", { id });
         return new DisposableImpl(() => {
-            // Снимаем только свою регистрацию: повторный register тем же id мог
-            // перезаписать колбэк — тогда чужой dispose не должен его убрать.
+            // Повторный register тем же id мог перезаписать колбэк — чужой dispose не должен его убрать.
             if (localCommands.get(id) === bound) {
                 localCommands.delete(id);
                 rpc.notify("commands.unregisterCommand", { id });
@@ -61,19 +45,14 @@ export function buildCommandsNamespace(
         });
     };
 
-    // Команда «только при активном редакторе» (семантика VS Code): без него —
-    // предупреждение в stderr и no-op, с ним — колбэк получает редактор и
-    // edit-builder. Builder у нас пустышка: применение батча правок шло бы через
-    // `workspace.applyEdit`-путь, которого ещё нет (docs/public/API-COVERAGE.md); известные
-    // потребители (`basedpyright.organizeimports`) читают только `editor.document`
-    // и шлют запрос серверу сами.
+    // Builder — пустышка: известные потребители (`basedpyright.organizeimports`)
+    // читают только `editor.document` и шлют запрос серверу сами.
     const registerTextEditorCommand = (
         id: string,
         callback: (editor: vscode.TextEditor, edit: vscode.TextEditorEdit, ...args: unknown[]) => void,
         thisArg?: unknown,
     ): vscode.Disposable => {
-        // Владелец — в момент регистрации: исполнение придёт много позже, когда
-        // окружающего владельца уже нет.
+        // Владелец — в момент регистрации: при исполнении окружающего владельца уже нет.
         const extensionId = owner?.current;
         const tag = extensionId === undefined ? "" : `[${extensionId}] `;
         return registerCommand(id, (...args: unknown[]): unknown => {
@@ -86,12 +65,10 @@ export function buildCommandsNamespace(
         });
     };
 
-    // Возвращаем Promise — он совместим с `Thenable<T>` из типов vscode.
     const executeCommand = <T = unknown>(id: string, ...args: unknown[]): Promise<T> => {
         const handler = localCommands.get(id) ?? apiCommands.get(id);
         if (handler !== undefined) {
-            // Исполнение внутри executor'а: синхронный отказ (невалидный аргумент
-            // API-команды) уходит отказом промиса, как у эталона, а не исключением.
+            // Внутри executor'а: синхронный отказ API-команды уходит отказом промиса, как у эталона.
             return new Promise<T>((resolve) => {
                 resolve(handler(...args) as T);
             });
@@ -106,7 +83,6 @@ export function buildCommandsNamespace(
     });
 }
 
-/** Инертный edit-builder для {@link buildCommandsNamespace registerTextEditorCommand}. */
 const noopTextEditorEdit: vscode.TextEditorEdit = {
     replace: (): void => undefined,
     insert: (): void => undefined,

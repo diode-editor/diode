@@ -16,15 +16,8 @@ interface ILiveRegistration {
 }
 
 /**
- * Держит в {@link ILanguageFeaturesService} прокси языковых провайдеров
- * субпроцесса (upstream `MainThreadLanguageFeatures`): на каждую регистрацию
- * `languages.register` — прокси в реестре нужной фичи, который зовёт хост с
- * handle провайдера; снятие или смерть субпроцесса снимает прокси. Живёт в слое
- * Extensions — реестр ядра про host не знает.
- *
- * Набор регистраций пересобирается по событию моста, а не по дельтам: адаптер
- * может появиться позже первых регистраций, а смерть субпроцесса приходит
- * одним событием «всё снято».
+ * Как upstream `MainThreadLanguageFeatures`. Набор пересобирается по событию моста, а не по
+ * дельтам: адаптер может появиться позже первых регистраций, смерть субпроцесса — одно событие.
  */
 export class LanguageFeaturesAdapter extends Disposable {
     private readonly registrations = new Map<number, ILiveRegistration>();
@@ -48,7 +41,6 @@ export class LanguageFeaturesAdapter extends Disposable {
         this.sync();
     }
 
-    /** Приводит прокси в реестрах к текущему списку регистраций субпроцесса. */
     private sync(): void {
         const wanted = new Map(this.bridge.getLanguageProviders().map((reg) => [reg.handle, reg]));
 
@@ -66,7 +58,6 @@ export class LanguageFeaturesAdapter extends Disposable {
         }
     }
 
-    /** По фабрике прокси на вид фичи: реестр нужной фичи + вызов хоста с handle. */
     private readonly proxyFactories: Readonly<
         Record<WireLanguageFeatureKind, (reg: IWireLanguageProviderRegistration) => IDisposable>
     > = {
@@ -156,7 +147,6 @@ export class LanguageFeaturesAdapter extends Disposable {
             }),
     };
 
-    /** `onDidChangeSemanticTokens` одного провайдера — срез общего события моста по handle. */
     private semanticTokensChangeEvent(handle: number): Event<void> {
         return (listener) =>
             this.bridge.onDidChangeSemanticTokens((changed) => {

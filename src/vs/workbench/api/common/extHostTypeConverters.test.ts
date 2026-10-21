@@ -36,20 +36,12 @@ import {
     WorkspaceEdit,
 } from "./vscodeTypes.ts";
 
-// Конвертеры «объект расширения ↔ провод» субпроцесса. Объект расширения
-// утиный: поля публичны и записываемы, а `Range` может прийти из чужого бандла.
-// Битый диапазон (чужая форма, не конечная координата) везде собирает один
-// `rangeFrom` — и везде он выпадает, а не роняет вызов расширения.
-
-/** Диапазон на проводе — core `IRange`. */
 const RANGE = { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } };
-/** Тот же диапазон чужим утиным объектом (другой бандл `vscode`-типов). */
+/** Та же форма чужим утиным объектом (другой бандл `vscode`-типов). */
 const FOREIGN = { start: { line: 0, character: 1 }, end: { line: 0, character: 2 } };
-/** Перевёрнутый утиный диапазон (`end` раньше `start`). */
 const REVERSED = { start: { line: 0, character: 2 }, end: { line: 0, character: 1 } };
-/** Диапазон без границ — `start`/`end` нет вовсе. */
 const SHAPELESS = { line: 0 };
-/** Диапазон расширения с не конечной координатой (`Position` клампит к нулю, но `NaN` пропускает). */
+/** `Position` клампит к нулю, но `NaN` пропускает. */
 const NAN_RANGE = new Range(NaN, 1, 0, 2);
 const URI_A = Uri.file("/proj/a.ts");
 
@@ -433,7 +425,7 @@ describe("правки текста", () => {
 });
 
 describe("serializeWorkspaceEdit — битые диапазоны", () => {
-    /** Правка с подменённым диапазоном: поле `range` у TextEdit публично и записываемо. */
+    /** Поле `range` у TextEdit публично и записываемо. */
     function brokenEdit(range: unknown): TextEdit {
         const edit = new TextEdit(new Range(0, 0, 0, 0), "bad");
         (edit as { range: unknown }).range = range;
@@ -499,7 +491,7 @@ describe("toVscodeSignatureHelp", () => {
         expect(first.activeParameter).toBe(1);
         expect(first.parameters[0]).toBeInstanceOf(ParameterInformation);
         expect(first.parameters[0]).toMatchObject({ label: "name", documentation: "кого" });
-        // Пара офсетов — своя изменяемая копия: readonly-кортеж ядра провайдеру не отдаём.
+        // Своя изменяемая копия: readonly-кортеж ядра провайдеру не отдаём.
         expect(first.parameters[1].label).toEqual([6, 10]);
         expect(first.parameters[1].label).not.toBe(offsets);
         expect(first.parameters[1].documentation).toBeUndefined();

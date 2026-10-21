@@ -7,9 +7,6 @@ import { createAuthenticationNoop } from "./authenticationNoop.ts";
 import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 
-// `vscode.authentication` как null-объект: входа нет, сессий нет, провайдеры
-// принимаются и не зовутся. Форма проверок — эталонная (mainThreadAuthentication).
-
 function makeAuth() {
     const stub = makeStubRpc();
     return { stub, auth: createAuthenticationNoop(stub.rpc) };
@@ -23,7 +20,6 @@ function outputLines(
         .map((n) => n.params as { channel: string; label: string; level: string; value: string });
 }
 
-/** Провайдер, который кричит, если его позвали: входа нет — звать некому. */
 function silentProvider(): vscode.AuthenticationProvider {
     const fail = (): never => {
         throw new Error("провайдер не должен вызываться");

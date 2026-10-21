@@ -1,28 +1,13 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
-/**
- * Тонкий «port» поверх host-реестра команд ({@link CommandRegistry}), нужный
- * {@link ExtensionHost} для двустороннего моста команд без прямой зависимости
- * на слой Workbench внутри runtime'а расширения.
- *
- * Паттерн повторяет {@link IEditorOptionsService} — адаптер живёт в слое
- * Extensions, ядро про host ничего не знает.
- */
+/** Порт: мост команд без зависимости runtime'а расширений на слой Workbench. */
 export interface ICommandService {
-    /**
-     * Исполняет команду ядра по идентификатору. Бросает, если команды нет —
-     * так reject доходит до сабпроцесса (семантика `vscode.commands.executeCommand`).
-     */
+    /** Бросает, если команды нет: так reject доходит до субпроцесса. */
     execute(id: string, args: readonly unknown[]): unknown;
 
     /**
-     * Регистрирует прокси-команду расширения в host-реестре. `invoke` уводит
-     * исполнение обратно в сабпроцесс (обратный RPC). `title` (из
-     * `contributes.commands`) делает команду видимой в палитре — без него она
-     * исполнима по id, но не показывается в списке. `category` (оттуда же) —
-     * группа команды: в палитре она становится префиксом подписи («Java: Clean
-     * Workspace»), в сам заголовок не входит. Возвращает Disposable, снимающий
-     * регистрацию.
+     * Без `title` команда исполнима по id, но в палитре не видна. `category` —
+     * префикс подписи в палитре («Java: Clean Workspace»), в заголовок не входит.
      */
     registerProxy(
         id: string,
@@ -32,9 +17,6 @@ export interface ICommandService {
     ): IDisposable;
 }
 
-/**
- * No-op реализация — для тестов/профилей, где мост команд не задействован.
- */
 export const NULL_COMMAND_SERVICE: ICommandService = {
     execute: () => undefined,
     registerProxy: () => ({ dispose: () => undefined }),

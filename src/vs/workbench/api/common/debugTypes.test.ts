@@ -43,7 +43,6 @@ describe("значения-типы vscode.debug — по эталону", () =>
             logMessage: "hit {x}",
             mode: "hw",
         });
-        // Не-строки (JS-расширение) отбрасываются, как у эталона.
         const loose = new FunctionBreakpoint("f", "yes" as never, 1 as never, 2 as never, 3 as never, 4 as never);
         expect(loose.enabled).toBe(true);
         expect(loose.condition).toBeUndefined();

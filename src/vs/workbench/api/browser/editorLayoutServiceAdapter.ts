@@ -25,12 +25,7 @@ import type {
     IWireUriParams,
 } from "../common/wireTypes.ts";
 
-/**
- * Реализация {@link IEditorLayoutService} поверх полосы групп `IEditorService`:
- * снимки для `editor.layoutChanged` (коалесинг per-microtask), исполнение
- * `showTextDocument` (семантика `ViewColumn`: Active/Beside/1..9 с догоняющим
- * созданием хвостовых групп — AS-5) и закрытий из `window.tabGroups`.
- */
+/** ViewColumn `showTextDocument` сверх числа групп догоняет создание хвостовых групп (AS-5). */
 export class EditorLayoutServiceAdapter extends Disposable implements IEditorLayoutService {
     private readonly onDidChangeLayoutEmitter = this.register(new Emitter<IWireEditorLayout>());
     private flushScheduled = false;
@@ -51,7 +46,6 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
                 this.scheduleLayoutPush();
             }),
         );
-        // Смена вкладок/меток/dirty — агрегатное событие фасада.
         this.register(
             editors.onDidChangeEditors(() => {
                 this.scheduleLayoutPush();
@@ -79,9 +73,6 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         const previousActive = this.groups.activeGroup;
         const target = columnToEditorGroup(this.groups, params.viewColumn ?? ACTIVE_GROUP);
 
-        // Открытие в конкретной группе: активируем её (без фокуса при
-        // preserveFocus) и открываем ресурс фасадом — дедуп пер-группный. Уже
-        // активная группа — no-op полосы.
         this.groups.focusGroup(target.id, { focus: false });
         // Ждём открытия: недисковый ресурс (`jdt:`) приезжает от провайдера
         // схемы обещанием, и выделение из `params` надо ставить уже в него.
@@ -91,11 +82,8 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         const editor = opened.activePane;
         if (isTextEditorPane(editor) && params.selection !== undefined) {
             const s = params.selection;
-            // Позиции приехали от расширения и про наш текст ничего не знают:
-            // `showTextDocument` со ставшей неверной позицией (устаревший индекс
-            // символов, чужая ревизия файла) ставил каретку за конец строки, а
-            // это падение первого же кадра на highlight вхождений. Кламп — как у
-            // выделений через `editor.selections` в соседнем адаптере.
+            // Позиции расширения могут не совпасть с нашим текстом (устаревший индекс, чужая ревизия):
+            // каретка за концом строки роняет первый кадр на highlight вхождений.
             const doc = editor.model.document;
             const anchor = clampPositionToDocument(doc, { line: s.anchorLine, character: s.anchorCharacter });
             const active = clampPositionToDocument(doc, { line: s.activeLine, character: s.activeCharacter });
@@ -105,9 +93,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             editor.revealRange({ start: active, end: active });
         }
 
-        // preserveFocus: документ открыт в целевой колонке, но активная группа
-        // (и фокус) остаются прежними — семантика VS Code. Группа не менялась —
-        // no-op полосы.
+        // preserveFocus: активная группа и фокус остаются прежними, как в VS Code.
         if (!focus) this.groups.focusGroup(previousActive.id, { focus: false });
 
         // Ответ обязан уехать ПОСЛЕ layoutChanged — флашит хост перед reply.
@@ -129,12 +115,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         return { uri: uri.toString() };
     }
 
-    /**
-     * Программное закрытие вкладок — тот же confirm-флоу, что у пользователя
-     * (upstream `MainThreadEditorTabs.$closeTab`): цели собираются по группам,
-     * каждая группа закрывается одной серией, ответ — `true`, если закрыто всё.
-     * Вкладка или группа, которой уже нет, — идемпотентный успех.
-     */
+    /** Тот же confirm-флоу, что у пользователя (upstream `MainThreadEditorTabs.$closeTab`); уже закрытая вкладка — успех. */
     public async closeTabs(params: IWireCloseTabsParams): Promise<boolean> {
         const targets: { group: EditorGroup; pane: IEditorPane }[] = [];
         for (const target of params.tabs) {
@@ -151,11 +132,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         return allClosed;
     }
 
-    /**
-     * Закрывает группы целиком (upstream `$closeGroup`): вето в одной группе не
-     * мешает закрыть остальные, ответ — `true`, если закрыты все. Опустевшая
-     * группа схлопывается сама.
-     */
+    /** Вето в одной группе не мешает закрыть остальные (upstream `$closeGroup`). */
     public async closeGroups(params: IWireCloseGroupsParams): Promise<boolean> {
         let allClosed = true;
         for (const groupId of params.groupIds) {
@@ -165,8 +142,6 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         }
         return allClosed;
     }
-
-    // ─── Снимки ──────────────────────────────────────────────────────────────
 
     private scheduleLayoutPush(): void {
         this.pendingLayout = true;
@@ -204,9 +179,7 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
                 sideEditors: diffSideEditors(pane),
             };
         }
-        // Вкладка не текстового и не дифф-вида (Keyboard Shortcuts, страница
-        // расширения) — `TabInputUnknown` у vscode: расширению она не «текстовый
-        // редактор», и выдавать её за текст по её uri нельзя.
+        // Не текст и не дифф (`TabInputUnknown` у vscode): выдавать её за текст по uri нельзя.
         if (!(pane instanceof TextEditorPane)) {
             return { ...base, kind: "unknown" };
         }
@@ -214,14 +187,12 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
             ...base,
             kind: "text",
             languageId: pane.languageId,
-            // Выделения — только у активной вкладки: это «видимый редактор»,
-            // его selection сеется расширению из снимка.
+            // Выделения — только у активной вкладки: её selection сеется расширению из снимка.
             ...(isActive ? { selections: pane.viewState.selections.map(toWireSelection) } : {}),
         };
     }
 }
 
-/** Uri документов сторон-моделей диффа (см. `IWireTabSnapshot.sideEditors`). */
 function diffSideEditors(pane: DiffEditorPane2): string[] {
     const snapshots = pane.snapshotSides();
     const [original, modified] = pane.sidePanes();

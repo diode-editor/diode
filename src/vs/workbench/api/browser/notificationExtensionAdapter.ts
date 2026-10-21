@@ -2,18 +2,8 @@ import type { NotificationService } from "../../services/notification/browser/no
 import type { INotificationRequest, INotificationSink } from "../common/iExtensionWindowSinks.ts";
 import type { IWireMessageItem } from "../common/wireTypes.ts";
 
-/**
- * Мост `window.show{Information,Warning,Error}Message` расширений к поверхности
- * сообщений приложения (реализация {@link INotificationSink}): просьба
- * субпроцесса поднимает тот же тост/диалог, которым пользуются наши команды, а
- * нажатая кнопка уезжает обратно расширению. Проводка — `extensionHostModule`
- * (сток `ExtensionHost.notificationSink`).
- *
- * Адаптер держит показы по `handle`: гасить по смерти субпроцесса можно только
- * СВОИ — сообщения, поднятые ядром, к расширению отношения не имеют.
- */
+/** Гасить по смерти субпроцесса можно только свои показы — сообщения ядра к расширению отношения не имеют. */
 export class NotificationExtensionAdapter implements INotificationSink {
-    /** id внутри сервиса по handle показа — живут только незакрытые сообщения. */
     private readonly openMessages = new Map<number, number>();
 
     public constructor(private readonly notifications: NotificationService) {}
@@ -46,11 +36,7 @@ export class NotificationExtensionAdapter implements INotificationSink {
     }
 }
 
-/**
- * Индекс кнопки, которую вернуть при закрытии модального окна по Escape
- * (`MessageItem.isCloseAffordance`). Первая помеченная — как в эталоне;
- * `undefined` — расширение не помечало ни одной.
- */
+/** Первая помеченная `isCloseAffordance` — как в эталоне. */
 export function findCloseAffordance(items: readonly IWireMessageItem[]): number | undefined {
     const index = items.findIndex((item) => item.isCloseAffordance);
     return index < 0 ? undefined : index;

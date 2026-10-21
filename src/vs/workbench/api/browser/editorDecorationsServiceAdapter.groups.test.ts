@@ -19,10 +19,6 @@ import { ThemeService } from "../../services/themes/common/themeService.ts";
 
 import { EditorDecorationsServiceAdapter } from "./editorDecorationsServiceAdapter.ts";
 
-/**
- * Gutter-полоски quick-diff/SCM поверх настоящего EditorService со сплитом:
- * их получает каждая вкладка ресурса, а не только вкладки активной группы.
- */
 describe("EditorDecorationsServiceAdapter — все группы", () => {
     let ws: ITempWorkspace;
     let service: EditorService;
@@ -49,7 +45,7 @@ describe("EditorDecorationsServiceAdapter — все группы", () => {
 
     it("декорации ресурса доходят до его вкладки в неактивной группе", () => {
         service.openFile(ws.path("a.ts"));
-        service.splitActiveGroup(); // группа 2 — дубль a.ts
+        service.splitActiveGroup();
         service.editorGroups.focusGroup({ index: 0 });
         const inactive = service.editorGroups.groups[1].getPane(0);
         expect(inactive instanceof TextEditorPane).toBe(true);

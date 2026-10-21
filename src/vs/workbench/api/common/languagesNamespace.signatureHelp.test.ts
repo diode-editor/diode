@@ -21,8 +21,6 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
         disk: createNodeExtHostDisk(),
         owner: new ExtensionOwner(),
     };
-    // Документ открыт document sync'ом (как `editor.didOpen`): запросы текста
-    // не везут, провайдер читает зеркало версии 1.
     ctx.documentSync.open({ uri: URI, languageId: "typescript", version: 1, text: TEXT });
     return { ctx, stub };
 }
@@ -45,7 +43,6 @@ function requestParams(overrides: Record<string, unknown> = {}): Record<string, 
     };
 }
 
-/** `vscode.SignatureHelp` в той форме, которую строит конвертер клиента. */
 function help(label: string, parameterLabel: string | [number, number] = "name: string"): vscode.SignatureHelp {
     const signature = new SignatureInformation(label, new MarkdownString("Здоровается."));
     signature.parameters = [new ParameterInformation(parameterLabel, new MarkdownString("кого"))];
@@ -387,7 +384,6 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
             { provideSignatureHelp: () => help("greet(name: string): void") },
         );
 
-        // Каждая битая форма — «подсказки нет», целая — доезжает.
         for (let handle = 0; handle < 11; handle++) {
             expect(await stub.callRequest("languages.provideSignatureHelp", requestParams({ handle }))).toBeNull();
         }
@@ -520,7 +516,6 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
         });
 
         expect(seen.doc?.getText()).toBe(TEXT);
-        // languageId в запросе не пришёл — язык документа из didOpen остаётся.
         expect(seen.doc?.languageId).toBe("typescript");
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);

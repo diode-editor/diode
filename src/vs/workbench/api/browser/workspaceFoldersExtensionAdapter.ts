@@ -3,14 +3,8 @@ import type { IWorkspaceFoldersSink } from "../common/iWorkspaceFoldersSink.ts";
 import type { IWireUpdateWorkspaceFolders } from "../common/wireTypes.ts";
 
 /**
- * Мост `workspace.updateWorkspaceFolders` расширений к окну (реализация
- * {@link IWorkspaceFoldersSink}). Multi-root у нас нет (docs/TODO/MultiRoot.md),
- * поэтому выполним только итог ровно в одну папку — она открывается, как
- * `File: Open Folder` (субпроцесс расширений перезапускается — как reload окна у
- * эталона, который в таком случае входит в новый воркспейс). Любой другой итог
- * (вторая папка, пустое окно) — тост ошибки с формулировкой эталона
- * (`Extension '{0}' failed to update workspace folders: {1}`); расширению при
- * этом уже вернулся `false` (решение человека: «false + тост»).
+ * Multi-root нет: выполним только итог ровно в одну папку (как `File: Open Folder`). Иначе —
+ * тост с формулировкой эталона, расширению уже вернулся `false` (решение человека).
  */
 export class WorkspaceFoldersExtensionAdapter implements IWorkspaceFoldersSink {
     public constructor(

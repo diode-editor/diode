@@ -14,12 +14,6 @@ import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts"
 import { CancellationError, CodeAction } from "./vscodeTypes.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-/**
- * Отмена и сбои провайдеров языковых фич на стороне субпроцесса: каждый
- * провайдер получает настоящий токен (срок ответа хоста его отменяет), а сбой
- * провайдера пишется в stderr — кроме честной отмены.
- */
-
 const URI = "file:///proj/main.ts";
 const DOC = { uri: URI, languageId: "typescript", version: 1 };
 const POS = { ...DOC, handle: 0, line: 0, character: 1 };
@@ -42,24 +36,18 @@ function makeCtx(rpc: SubprocessRpc): IVscodeHostContext {
 type Languages = typeof vscode.languages;
 type ProviderCall = (token: vscode.CancellationToken) => unknown;
 
-/**
- * Случай: как зарегистрировать провайдера, чей вызов делегирован `call`, и
- * какой запрос хоста до него доходит. `prepare` — запросы, без которых целевой
- * не к чему применить (resolve ищет пункт в кэше предыдущего ответа).
- */
+/** `prepare` — запросы, без которых целевой не к чему применить: resolve ищет пункт в кэше предыдущего ответа. */
 interface ICase {
     readonly name: string;
     readonly method: string;
     readonly register: (languages: Languages, call: ProviderCall) => void;
     readonly params: (prepared: unknown) => unknown;
     readonly prepare?: (request: (method: string, params: unknown) => Promise<unknown>) => Promise<unknown>;
-    /** Имя в строке stderr при сбое провайдера. */
     readonly failure: string;
     /** Отказ провайдера уходит хосту исключением, а не пустым ответом (семантические токены). */
     readonly rethrows?: boolean;
 }
 
-/** Дожидается запроса; у случаев с `rethrows` он обязан кончиться отказом. */
 async function settle(c: ICase, request: Promise<unknown>): Promise<void> {
     if (c.rethrows === true) await expect(request, c.name).rejects.toBeInstanceOf(Error);
     else await request;
@@ -258,7 +246,6 @@ describe("LanguagesNamespace — срок ответа хоста отменяе
             c.register(languages, (token) => {
                 seen = token;
                 token.onCancellationRequested(() => fired.push("cancelled"));
-                // Провайдер честно ждёт отмены и отвечает пустым.
                 return new Promise((resolve) => {
                     token.onCancellationRequested(() => {
                         resolve(undefined);
@@ -366,7 +353,7 @@ describe("LanguagesNamespace — сбой провайдера в stderr", () =>
 });
 
 describe("LanguagesNamespace — отмена останавливает обход цепочки провайдеров", () => {
-    /** Цепочки: completion и folding (inline — в своём тесте). */
+    /** Inline — в своём тесте. */
     const CHAINS = CASES.filter((c) => c.method === "languages.provideCompletionItems" || c.name === "folding");
 
     it("после отмены следующий провайдер не опрашивается", async () => {

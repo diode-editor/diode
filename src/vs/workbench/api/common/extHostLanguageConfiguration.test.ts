@@ -51,7 +51,6 @@ describe("languages.setLanguageConfiguration", () => {
                     ],
                 },
             ],
-            // Не применяются ядром — на провод не едут.
             indentationRules: { increaseIndentPattern: /{$/, decreaseIndentPattern: /^}/ },
             onEnterRules: [{ beforeText: /^\/\//, action: { indentAction: IndentAction.None, appendText: "// " } }],
         });
@@ -108,19 +107,16 @@ describe("languages.setLanguageConfiguration", () => {
             languageId: "plaintext",
             text: "foo.bar-baz",
         });
-        // Дефолтное слово режет по `.` и `-`.
         expect(doc.getWordRangeAtPosition(new Position(0, 5))).toEqual(new Range(0, 4, 0, 7));
 
         const disposable = setLanguageConfiguration("go", { wordPattern: /[\w.-]+/g });
         expect(doc.getWordRangeAtPosition(new Position(0, 5))).toEqual(new Range(0, 0, 0, 11));
         expect(other.getWordRangeAtPosition(new Position(0, 5))).toEqual(new Range(0, 4, 0, 7));
-        // Явный регекс вызова побеждает определение языка.
         expect(doc.getWordRangeAtPosition(new Position(0, 5), /[a-z]+/)).toEqual(new Range(0, 4, 0, 7));
 
         disposable.dispose();
         expect(doc.getWordRangeAtPosition(new Position(0, 5))).toEqual(new Range(0, 0, 0, 11));
 
-        // Конфигурация без wordPattern снимает определение.
         setLanguageConfiguration("go", {});
         expect(doc.getWordRangeAtPosition(new Position(0, 5))).toEqual(new Range(0, 4, 0, 7));
     });

@@ -4,22 +4,12 @@ import { score } from "../../../editor/common/languageSelector.ts";
 
 import type { IWireLanguageFilter } from "./wireTypes.ts";
 
-/**
- * `languages.match` (upstream `ExtHostLanguages.match` → `score`): насколько
- * селектор расширения подходит документу — 10 точное совпадение, 5 по `*`,
- * 0 не подходит. Считает общий с ядром `editor/common/languageSelector.score`
- * по DTO селектора, так что субпроцесс и реестр ядра не расходятся в матчинге.
- */
+/** Общий с ядром `languageSelector.score`: субпроцесс и реестр ядра не расходятся в матчинге. */
 export function scoreDocumentSelector(selector: vscode.DocumentSelector, doc: vscode.TextDocument): number {
     return score(toWireLanguageFilters(selector), doc.uri, doc.languageId);
 }
 
-/**
- * Селектор расширения → DTO для `languages.register` (upstream
- * `ExtHostLanguageFeatures._transformDocumentSelector`): строка разворачивается
- * в `{ language }`, `RelativePattern` — в `{ base: fsPath, pattern }`, одиночный
- * фильтр — в массив из одного. Скоринг по DTO делает ядро.
- */
+/** Как `ExtHostLanguageFeatures._transformDocumentSelector` эталона. */
 export function toWireLanguageFilters(selector: vscode.DocumentSelector): IWireLanguageFilter[] {
     const items: readonly (string | vscode.DocumentFilter)[] = Array.isArray(selector)
         ? (selector as readonly (string | vscode.DocumentFilter)[])

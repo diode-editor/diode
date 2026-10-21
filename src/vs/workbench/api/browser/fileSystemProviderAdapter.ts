@@ -11,20 +11,12 @@ import {
 import type { IExtensionFileSystemBridge } from "../common/iExtensionFileSystem.ts";
 
 /**
- * Держит регистрации в {@link IFileService} в соответствии с
- * набором схем, объявленным субпроцессом ({@link IExtensionFileSystemBridge}).
- * Живёт в слое Extensions — ядро про host не знает.
- *
- * Схемы приходят и уходят вместе с активацией расширений, поэтому регистрации
- * пересобираются по событию: появившиеся — регистрируются, исчезнувшие —
- * снимаются. Событие изменения содержимого одно на все схемы, поэтому каждый
- * зарегистрированный поставщик фильтрует его по своей схеме — иначе правка в
- * `git:` будила бы потребителей `output:`.
+ * Событие изменений одно на все схемы: каждый поставщик фильтрует его по своей, иначе правка
+ * в `git:` будила бы потребителей `output:`.
  */
 export class FileSystemProviderAdapter extends Disposable {
     private readonly bridge: IExtensionFileSystemBridge;
     private readonly registry: IFileService;
-    /** Регистрация схемы и с какой записываемостью она сделана. */
     private readonly registrations = new Map<
         string,
         { readonly readonly: boolean; readonly registration: IDisposable }
@@ -48,11 +40,7 @@ export class FileSystemProviderAdapter extends Disposable {
         this.sync();
     }
 
-    /**
-     * Приводит набор регистраций к текущему списку схем субпроцесса. Схема,
-     * сменившая записываемость (расширение перерегистрировало провайдера), —
-     * перерегистрируется: capabilities у провайдера ядра неизменяемы.
-     */
+    /** Схема, сменившая записываемость, перерегистрируется: capabilities у провайдера ядра неизменяемы. */
     private sync(): void {
         const wanted = new Map(
             this.bridge.getFileSystemSchemes().map((scheme) => [scheme, this.bridge.isReadonlyFileSystem(scheme)]),
@@ -70,11 +58,7 @@ export class FileSystemProviderAdapter extends Disposable {
         }
     }
 
-    /**
-     * Чтение — всегда; запись и stat — только у пишущей схемы: `stat` нужен
-     * сервису для записи (etag, Create/Write), а у read-only схемы был бы лишним
-     * кругом RPC перед каждым чтением.
-     */
+    /** `stat` нужен сервису только для записи: у read-only схемы он был бы лишним кругом RPC на каждое чтение. */
     private registerScheme(scheme: string, readonly: boolean): IDisposable {
         const provider: IFileSystemProvider = {
             capabilities: readonly ? FileSystemProviderCapabilities.Readonly : FileSystemProviderCapabilities.None,

@@ -21,8 +21,6 @@ function makeCtx(stub: IStubRpc = makeStubRpc()): { ctx: IVscodeHostContext; stu
         disk: createNodeExtHostDisk(),
         owner: new ExtensionOwner(),
     };
-    // Документ открыт document sync'ом (как `editor.didOpen`): запросы текста
-    // не везут, провайдер читает зеркало версии 1.
     ctx.documentSync.open({ uri: URI, languageId: "typescript", version: 1, text: TEXT });
     return { ctx, stub };
 }
@@ -192,7 +190,6 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);
         expect(seen.context?.triggerKind).toBe(1); // Automatic
-        // Текст — из зеркала; languageId в запросе не пришёл — язык из didOpen.
         expect(seen.doc?.getText()).toBe(TEXT);
         expect(seen.doc?.languageId).toBe("typescript");
     });
@@ -239,7 +236,6 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
             [],
             [],
         ]);
-        // Без handles — пустой ответ.
         expect(
             await stub.callRequest("languages.provideInlineCompletions", requestParams({ handles: undefined })),
         ).toStrictEqual([]);
@@ -355,7 +351,6 @@ describe("LanguagesNamespace — отмена provideInlineCompletions", () => {
         release();
 
         expect(await pending).toStrictEqual([[], []]);
-        // Цепочка остановилась на отмене: до B работа не доехала.
         expect(polled).toEqual(["A"]);
     });
 

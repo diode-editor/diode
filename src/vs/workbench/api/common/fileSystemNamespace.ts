@@ -6,21 +6,9 @@ import type { IDiskFileSystem } from "./extHostDisk.ts";
 import { FileSystemError } from "./vscodeTypes.ts";
 
 /**
- * `vscode.workspace.fs` на стороне subprocess.
- *
- * Схему `file` обслуживает локальный диск субпроцесса ({@link IDiskFileSystem},
- * привязка к `node:fs` — `api/node/extHostDisk.ts`): целевой файл живёт на той
- * же машине и не является открытым буфером ядра, поэтому RPC не нужен (в
- * отличие от will-save, который ходит за текстом активного документа на хост).
- *
- * Это роутер по `uri.scheme`, как в VS Code: `file` — локальный диск, схема
- * провайдера расширения (`registerFileSystemProvider`) — сам провайдер (чтение,
- * stat и запись; прочие операции пока только у диска). Схема без провайдера
- * получает `FileSystemError.Unavailable` — честный отказ вместо чтения/записи
- * мусора мимо схемы.
- *
- * Ошибки диска приходят {@link FileSystemError} с тем же `code`, что и в
- * VS Code, чтобы расширения ловили их по `err.code === "FileNotFound"`.
+ * `file` — прямо на диск субпроцесса, без RPC: файл живёт на той же машине и не
+ * является буфером ядра. Ошибки — {@link FileSystemError} с `code` VS Code:
+ * расширения ловят их по `err.code === "FileNotFound"`.
  */
 export type IFileSystemNamespace = Pick<
     vscode.FileSystem,
@@ -36,24 +24,14 @@ export type IFileSystemNamespace = Pick<
 >;
 
 /**
- * Гейт схемы для операций, которые умеет только локальный диск (`stat`, `writeFile`).
- *
- * Без этого гейта промах тихий и разрушительный: `fsPath` у не-file схемы не бросает,
- * а отдаёт путь как есть (`untitled:Untitled-1` → `"Untitled-1"`), поэтому `writeFile`
- * создавал бы `$CWD/Untitled-1` вместо ошибки.
+ * `fsPath` не-file схемы не бросает (`untitled:Untitled-1` → `"Untitled-1"`):
+ * без гейта `writeFile` создал бы `$CWD/Untitled-1` вместо ошибки (#107).
  */
 function assertFileScheme(uri: vscode.Uri): void {
     if (uri.scheme !== "file") throw FileSystemError.Unavailable(uri);
 }
 
-/**
- * Реестр `FileSystemProvider`'ов, зарегистрированных расширениями субпроцесса
- * (`workspace.registerFileSystemProvider`).
- *
- * Живёт здесь, а не в `workspaceNamespace`, чтобы роутинг `workspace.fs` по схеме
- * тестировался без RPC: сам реестр — чистая логика, а проводка событий на хост
- * остаётся у namespace'а, у которого есть `rpc`.
- */
+/** Здесь, а не в `workspaceNamespace`: роутинг по схеме тестируется без RPC. */
 export class SubprocessFileSystemProviders {
     private readonly providers = new Map<string, vscode.FileSystemProvider>();
     private readonly readonlySchemes = new Set<string>();
@@ -62,10 +40,8 @@ export class SubprocessFileSystemProviders {
     private readonly changeSubscriptions = new Map<string, vscode.Disposable>();
 
     /**
-     * Регистрирует провайдера схемы. Занятая схема — ошибка, как в VS Code.
-     * Только для чтения — по `isReadonly` (эталон: `Readonly` в capabilities)
-     * и, сверх эталона, у провайдера без `writeFile`: расширение на JS такого
-     * провайдера собрать может, а писать в него нечем.
+     * Сверх эталона только для чтения и провайдер без `writeFile`: расширение на JS
+     * такого собрать может, а писать в него нечем.
      */
     public register(
         scheme: string,
@@ -82,8 +58,7 @@ export class SubprocessFileSystemProviders {
         if (Boolean(options?.isReadonly) || !writable) {
             this.readonlySchemes.add(scheme);
         }
-        // Провайдер сообщает об изменениях сам (для git: — сдвинулся HEAD/индекс);
-        // пересылаем это наружу, чтобы ядро сбросило кэш оригиналов.
+        // Для git: сдвинулся HEAD/индекс — ядро сбрасывает кэш оригиналов.
         this.changeSubscriptions.set(
             scheme,
             provider.onDidChangeFile((events) => {
@@ -109,17 +84,15 @@ export class SubprocessFileSystemProviders {
         return this.providers.get(scheme);
     }
 
-    /** Схемы, которые субпроцесс готов обслуживать (снимок для хоста). */
     public schemes(): string[] {
         return [...this.providers.keys()];
     }
 
-    /** Схемы провайдеров только для чтения (подмножество {@link schemes}). */
     public readonly(): string[] {
         return [...this.readonlySchemes];
     }
 
-    /** Записываема ли схема: `undefined` — провайдера нет. */
+    /** `undefined` — провайдера схемы нет. */
     public isWritable(scheme: string): boolean | undefined {
         if (!this.providers.has(scheme)) return undefined;
         return !this.readonlySchemes.has(scheme);
@@ -138,17 +111,11 @@ export function createFileSystemNamespace(
     disk: IDiskFileSystem,
     providers?: SubprocessFileSystemProviders,
 ): IFileSystemNamespace {
-    /**
-     * Роутер по схеме — та же роль, что у `workspace.fs` в VS Code. `file` идёт
-     * на локальный диск, прочие схемы — зарегистрированному провайдеру
-     * расширения; схема без провайдера получает честный `Unavailable`.
-     */
     async function readFile(uri: vscode.Uri): Promise<Uint8Array> {
         if (uri.scheme !== "file") return await providerOf(uri).readFile(uri);
         return disk.readFile(uri);
     }
 
-    /** Провайдер не-file схемы; без провайдера — `Unavailable`. */
     function providerOf(uri: vscode.Uri): vscode.FileSystemProvider {
         const provider = providers?.get(uri.scheme);
         if (provider === undefined) throw FileSystemError.Unavailable(uri);
@@ -194,8 +161,7 @@ export function createFileSystemNamespace(
             assertFileScheme(target);
             await disk.copy(source, target, options);
         },
-        // `file` записываем всегда; схема провайдера — по его `isReadonly`;
-        // незнакомая схема — `undefined` («редактор не знает такой ФС»), как в эталоне.
+        // Незнакомая схема — `undefined` («редактор не знает такой ФС»), как в эталоне.
         isWritableFileSystem: (scheme: string): boolean | undefined =>
             scheme === "file" ? true : providers?.isWritable(scheme),
     };

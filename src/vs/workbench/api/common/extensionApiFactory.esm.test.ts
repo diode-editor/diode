@@ -2,9 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { buildVscodeEsmShim } from "./extensionApiFactory.ts";
 
-// Генерация виртуального ESM-модуля `"vscode"`. Что ESM-расширение реально
-// получает своё API, закрывает `extensionHost.extensionIdentity.test.ts` в
-// настоящем субпроцессе.
+// Что ESM-расширение реально получает своё API, закрывает
+// `extensionHost.extensionIdentity.test.ts` в настоящем субпроцессе.
 
 const KEY = Symbol.for("diode.vscodeApi");
 

@@ -6,36 +6,16 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { DisposableImpl, EventEmitter } from "./vscodeTypes.ts";
 
 /**
- * `vscode.debug` как null-объект: дебаггера (DAP) в Diode нет и пока не
- * планируется (решение человека, docs/arch/StockExtensions.md), а отсутствие namespace'а
- * убивало расширение ЦЕЛИКОМ. `golang.go` регистрирует провайдер конфигураций
- * и фабрику адаптера посреди `activate()` — `Cannot read properties of
- * undefined (reading 'registerDebugConfigurationProvider')` обрывал активацию,
- * и ~60 команд `go.*` после этой точки так и не регистрировались (gopls при
- * этом уже жил).
- *
- * Форма — эталонная (`extHostDebugService.ts`), поведение — «сессий нет и не
- * будет»:
- * - `register*` — `Disposable`, провайдеры и фабрики никто не зовёт (у эталона
- *   их зовёт запуск сессии, которого у нас не бывает);
- * - `activeDebugSession`/`activeStackItem` — `undefined`, `breakpoints` — пусто,
- *   события не стреляют, `activeDebugConsole` — консоль, которую некому
- *   показать (эталон с неактивной сессией вывод тоже не показывает);
- * - `startDebugging` — `false` («не удалось начать»), `stopDebugging` —
- *   выполнено (останавливать нечего), `add/removeBreakpoints` — no-op;
- * - `asDebugSourceUri` — честный, по эталону: чистая функция над DAP-`Source`.
- *
- * Человеку — одна warn-строка в Output на тип отладчика за жизнь субпроцесса
- * (и одна — на попытку запуска), иначе единственным следом остался бы
- * `diode.log`. События активации `onDebug*` при этом не стреляют (🕐 в
- * API-COVERAGE).
+ * Дебаггера нет (docs/arch/StockExtensions.md), но без namespace'а `golang.go`
+ * падал посреди `activate()` на `registerDebugConfigurationProvider`, и ~60
+ * команд `go.*` не регистрировались. Форма — эталонная, поведение — «сессий нет
+ * и не будет»; человеку — одна warn-строка в Output на тип отладчика.
  */
 
-/** Канал панели Output для отказа: `extensions` уже в реестре ядра (label «Extensions»). */
 const OUTPUT_CHANNEL = "extensions";
 const OUTPUT_LABEL = "Extensions";
 
-/** Ключ отказа запуска в общем наборе «уже сказали» — не пересекается с типами отладчиков. */
+/** Не пересекается с типами отладчиков. */
 const START_KEY = "\0start";
 
 export function createDebugNoop(rpc: SubprocessRpc): typeof vscode.debug {
@@ -76,7 +56,7 @@ export function createDebugNoop(rpc: SubprocessRpc): typeof vscode.debug {
             reportDebugType(debugType);
             return noopDisposable();
         },
-        // Трекеры вешают и на чужие типы (`*`) — сами по себе о дебаггере расширения не говорят.
+        // Трекеры вешают и на чужие типы (`*`) — о дебаггере расширения не говорят.
         registerDebugAdapterTrackerFactory: noopDisposable,
         startDebugging: (): Promise<boolean> => {
             report(START_KEY, "запуск отладки в TUI пока не поддержан — сессия не начата");
@@ -89,13 +69,11 @@ export function createDebugNoop(rpc: SubprocessRpc): typeof vscode.debug {
     };
 }
 
-/** Эталон `ExtHostDebugServiceBase.asDebugSourceUri` дословно по смыслу. */
+/** Как `ExtHostDebugServiceBase.asDebugSourceUri` эталона. */
 function asDebugSourceUri(source: vscode.DebugProtocolSource, session?: vscode.DebugSession): vscode.Uri {
-    // DebugProtocolSource — непрозрачный тип: поля DAP-`Source` читаем как есть.
     const { path, sourceReference } = source as { path?: unknown; sourceReference?: unknown };
     const pathText = typeof path === "string" ? path : "";
     if (typeof sourceReference === "number" && sourceReference > 0) {
-        // Содержимое достаётся DAP-запросом `source` — `debug:`-uri с ссылкой.
         let debug = `debug:${encodeURIComponent(pathText)}`;
         let sep = "?";
         if (session !== undefined) {
