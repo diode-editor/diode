@@ -4,13 +4,9 @@ import type { EditorViewState } from "../../common/viewModel/editorViewState.ts"
 import { computeWordOccurrences } from "../find/computeWordOccurrences.ts";
 
 /**
- * F7 / Shift+F7: каретка на начало следующего/предыдущего подсвеченного вхождения слова
- * под ней (upstream `WordHighlighter.moveNext/moveBack`). Переход циклический; вхождение,
- * на которое встали, остаётся подсвеченным — слово под кареткой то же.
- *
- * Набор вхождений — тот же, что рисует `EditorElement.getOccurrenceHighlights`: подсветки
- * нет при мультикурсоре и непустом выделении, значит и переходить не по чему (upstream
- * гасит команду предусловием `hasWordHighlights`).
+ * Upstream `WordHighlighter.moveNext/moveBack`. Набор вхождений — тот же, что рисует
+ * `EditorElement.getOccurrenceHighlights`: при мультикурсоре и непустом выделении подсветки
+ * нет — и переходить не по чему (upstream гасит команду предусловием `hasWordHighlights`).
  */
 export function moveToWordHighlight(viewState: EditorViewState, direction: 1 | -1): void {
     if (viewState.selections.length !== 1) return;
@@ -18,7 +14,7 @@ export function moveToWordHighlight(viewState: EditorViewState, direction: 1 | -
     if (!isSelectionCollapsed(primary)) return;
     const highlights = computeWordOccurrences(viewState.document, primary.active);
     if (highlights.length === 0) return;
-    // Первое вхождение, содержащее каретку (границы включительно, как upstream `containsPosition`).
+    // Границы включительно, как upstream `containsPosition`.
     const index = highlights.findIndex((range) => rangeContainsPosition(range, primary.active));
     const dest = highlights[(index + direction + highlights.length) % highlights.length];
     viewState.goToPosition(dest.start.line, dest.start.character);

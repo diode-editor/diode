@@ -1,9 +1,7 @@
 import type { ICancellationToken } from "../../../base/common/cancellation.ts";
-/** Чем спровоцирован запрос подсказки (значения `vscode.SignatureHelpTriggerKind`). */
+/** Значения `vscode.SignatureHelpTriggerKind`. */
 export const SignatureHelpTriggerKind = {
-    /** Ручной вызов командой. */
     Invoke: 1,
-    /** Набран триггер-символ (`(`, `,`, `<` у tsserver) или ретриггер-символ. */
     TriggerCharacter: 2,
     /** Правка или движение каретки при уже открытой подсказке. */
     ContentChange: 3,
@@ -11,58 +9,43 @@ export const SignatureHelpTriggerKind = {
 
 export type SignatureHelpTriggerKind = (typeof SignatureHelpTriggerKind)[keyof typeof SignatureHelpTriggerKind];
 
-/**
- * Запрос «какая сигнатура вызывается в этой позиции», отправляемый
- * signature-help-провайдеру. Несёт полный снапшот текста + позицию каретки
- * (у хоста нет реестра документов — как definition/hover, снапшот целиком).
- */
 export interface ISignatureHelpRequest {
-    /** Ресурс активного документа как `uri.toString()`. */
+    /** `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Версия документа на момент запроса: текст провайдер берёт из своей синхронизированной копии. */
+    /** Текст провайдер берёт из своей синхронизированной копии этой версии. */
     readonly versionId: number;
-    /** Позиция каретки, 0-based. */
+    /** 0-based. */
     readonly line: number;
     readonly character: number;
     readonly triggerKind: SignatureHelpTriggerKind;
-    /** Набранный символ, когда `triggerKind === TriggerCharacter`. */
     readonly triggerCharacter?: string;
-    /** Подсказка уже показана — сервер по этому флагу удерживает выбранную перегрузку. */
     readonly isRetrigger: boolean;
     /**
-     * Показываемая сейчас подсказка (только при ретриггере). Нужна серверу,
-     * чтобы после запятой не сбросить перегрузку, которую пользователь выбрал
-     * стрелками: tsserver ищет прежнюю сигнатуру среди новых по метке.
+     * Только при ретриггере: чтобы после запятой не сбросить перегрузку,
+     * выбранную стрелками, — tsserver ищет прежнюю сигнатуру среди новых по метке.
      */
     readonly activeSignatureHelp?: ICoreSignatureHelp;
 }
 
 /**
- * Параметр сигнатуры. `label` — либо подстрока метки сигнатуры, либо пара
- * офсетов `[start, end)` внутри неё (обе формы легальны: клиент объявляет
- * серверу `labelOffsetSupport`). Документация — сырой markdown, как у hover:
- * стрип разметки — забота UI.
+ * `label` — подстрока метки сигнатуры или офсеты `[start, end)` внутри неё
+ * (клиент объявляет `labelOffsetSupport`). Документация — сырой markdown.
  */
 export interface ICoreParameterInfo {
     readonly label: string | readonly [number, number];
     readonly documentation?: string;
 }
 
-/** Одна сигнатура (перегрузка) вызываемого символа. */
 export interface ICoreSignature {
     readonly label: string;
     readonly documentation?: string;
     readonly parameters: readonly ICoreParameterInfo[];
-    /** Активный параметр именно этой сигнатуры; нет — берётся общий. */
+    /** Нет — берётся общий. */
     readonly activeParameter?: number;
 }
 
-/**
- * Подсказка параметров в ядре (десериализованная форма `vscode.SignatureHelp`).
- * `activeParameter` может приехать `-1` — «активного параметра нет»
- * (`noActiveParameterSupport` протокола).
- */
+/** `activeParameter` может приехать `-1` — «активного нет» (`noActiveParameterSupport`). */
 export interface ICoreSignatureHelp {
     readonly signatures: readonly ICoreSignature[];
     readonly activeSignature: number;
@@ -70,22 +53,12 @@ export interface ICoreSignatureHelp {
 }
 
 /**
- * Один провайдер подсказки параметров в реестре
- * `ILanguageFeaturesService.signatureHelpProvider` (upstream
- * `languages.SignatureHelpProvider` + метаданные регистрации). Потребитель
- * спрашивает подошедших по очереди до ПЕРВОГО ответа (в отличие от
- * hover/references, где ответы склеиваются — так предписывает vscode API).
- * `null` = подсказки нет.
+ * upstream `languages.SignatureHelpProvider`. Потребитель спрашивает по очереди
+ * до ПЕРВОГО ответа, а не склеивает, как hover/references — так велит vscode API.
  */
 export interface SignatureHelpProvider {
-    /** Символы, набор которых сам открывает подсказку («(», «,», «<» у tsserver). */
     readonly triggerCharacters: readonly string[];
-    /** Символы, перезапрашивающие подсказку, пока она показана («)»). */
+    /** Перезапрашивают подсказку, пока она показана («)»). */
     readonly retriggerCharacters: readonly string[];
-    /**
-     * `token` отменяется, как только ответ перестал быть нужен (новый запрос,
-     * закрытие попапа, правка или уход каретки) — отмена доезжает до провайдера
-     * расширения, и language-сервер бросает ненужную работу.
-     */
     provideSignatureHelp(request: ISignatureHelpRequest, token: ICancellationToken): Promise<ICoreSignatureHelp | null>;
 }

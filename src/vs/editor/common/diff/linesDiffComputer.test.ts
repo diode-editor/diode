@@ -9,13 +9,7 @@ import { MyersDiffAlgorithm } from "./defaultLinesDiffComputer/algorithms/myersD
 import { LinesSliceCharSequence } from "./defaultLinesDiffComputer/linesSliceCharSequence.ts";
 import { getLineRangeMapping, RangeMapping } from "./rangeMapping.ts";
 
-/**
- * Юнит-тесты внутренностей перенесённого diff-движка, портированные с
- * `src/vs/editor/test/node/diffing/defaultLinesDiffComputer.test.ts`
- * (mocha → vitest; `ensureNoDisposablesAreLeakedInTestSuite` выброшен —
- * у нас нет их disposable-трекера). Контракт публичного API — в
- * `linesDiffComputer.contract.test.ts`, весь корпус — в `diffFixtures.test.ts`.
- */
+/** Порт upstream `editor/test/node/diffing/defaultLinesDiffComputer.test.ts`. */
 
 describe("MyersDiffAlgorithm", () => {
     it("считает посимвольный дифф двух похожих строк", () => {
@@ -24,8 +18,7 @@ describe("MyersDiffAlgorithm", () => {
 
         const result = new MyersDiffAlgorithm().compute(s1, s2);
 
-        // upstream-версия этого кейса — смоук без ассертов; у нас проверяем, что
-        // движок действительно нашёл различия и не упёрся в таймаут.
+        // Отступление: upstream-версия кейса — смоук без ассертов.
         expect(result.hitTimeout).toBe(false);
         expect(result.diffs.length).toBeGreaterThan(0);
     });

@@ -73,17 +73,14 @@ describe("WordTokenizer", () => {
     });
 
     it("merges adjacent tokens with equal metadata", () => {
-        // Identifiers, spaces and punctuation are all default text — one token.
         expect(tokenize("foo bar (baz)")).toEqual([
             { startIndex: 0, foreground: TEXT, tokenType: StandardTokenType.Other },
         ]);
-        // Two keywords separated by a space are not adjacent — the space splits them.
         expect(tokenize("if return").map((t) => [t.startIndex, t.foreground])).toEqual([
             [0, WordTokenColor.keyword],
             [2, TEXT],
             [3, WordTokenColor.keyword],
         ]);
-        // Adjacent strings merge too.
         expect(tokenize("'a''b'")).toHaveLength(1);
     });
 
@@ -101,13 +98,9 @@ describe("WordTokenizer", () => {
     });
 
     it("treats an escaped quote inside a string as part of the string token", () => {
-        // The backslash escapes the inner quote, so the string does not terminate
-        // until the final quote — the whole literal is one string token.
         const tokens = tokenize('"a\\"b" x');
         expect(tokens[0].foreground).toBe(WordTokenColor.string);
 
-        // The text after the string only starts once it closes; if the escape
-        // were mishandled the string would have ended early and the text would shift.
         expect(tokens[1]).toEqual({ startIndex: 6, foreground: TEXT, tokenType: StandardTokenType.Other });
     });
 
@@ -121,8 +114,6 @@ describe("WordTokenizer", () => {
     });
 
     it("treats digits inside an identifier as identifier parts, not numbers", () => {
-        // The trailing/embedded digits are consumed by isIdentPart, so `foo2` and
-        // `bar3baz` are identifiers — no number token is emitted.
         expect(tokenize("foo2 bar3baz")).toEqual([
             { startIndex: 0, foreground: TEXT, tokenType: StandardTokenType.Other },
         ]);

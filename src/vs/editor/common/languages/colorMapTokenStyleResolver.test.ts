@@ -25,7 +25,7 @@ describe("ColorMapTokenStyleResolver", () => {
         expect(resolver.resolve(tokenMetadata({ foreground: ColorId.None })).fg).toBeUndefined();
         expect(resolver.resolve(tokenMetadata({ background: ColorId.DefaultBackground })).bg).toBeUndefined();
         expect(resolver.resolve(tokenMetadata({ background: ColorId.DefaultForeground })).bg).toBeUndefined();
-        // Индекс 2 для текста — уже не «умолчание»: это цвет фона редактора как цвет текста.
+        // Индекс 2 для текста — не «умолчание», а цвет фона редактора.
         expect(resolver.resolve(tokenMetadata({ foreground: ColorId.DefaultBackground })).fg).toBe(
             packRgb(0x1f, 0x1f, 0x1f),
         );

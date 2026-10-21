@@ -57,7 +57,6 @@ describe("getCodeActions", () => {
         expect(items.map((item) => item.action.title)).toEqual(["exact", "any"]);
         expect(items[0].provider).toBe(exact);
         expect(items[1].provider).toBe(any);
-        // Токен запроса — каждому спрошенному провайдеру.
         expect(exact.provideCodeActions).toHaveBeenCalledWith(REQUEST, TOKEN);
         expect(any.provideCodeActions).toHaveBeenCalledWith(REQUEST, TOKEN);
     });

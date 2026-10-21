@@ -4,7 +4,6 @@ import type { IState } from "../iState.ts";
 import { NULL_STATE } from "../iState.ts";
 import { nullTokenizeEncoded } from "../nullTokenize.ts";
 
-/** Язык без грамматики: вся строка — один токен цвета по умолчанию (upstream `nullTokenizeEncoded`). */
 export class PlainTextTokenizer implements ITokenizationSupport {
     public getInitialState(): IState {
         return NULL_STATE;

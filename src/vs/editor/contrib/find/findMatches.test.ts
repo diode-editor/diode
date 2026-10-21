@@ -36,7 +36,6 @@ describe("findMatches", () => {
     it("does not return overlapping matches", () => {
         const doc = new TextDocument("aaaa");
         const matches = findMatches(doc, "aa");
-        // Non-overlapping: positions 0 and 2 (not 0,1,2).
         expect(matches.map((m) => m.start.character)).toEqual([0, 2]);
     });
 
@@ -72,7 +71,6 @@ describe("findTextMatches — границы слова", () => {
         );
 
     it("слово у самого начала и у самого конца строки — целое слово", () => {
-        // За краями строки символов нет, и край считается границей слова.
         expect(whole("text context text", "text")).toEqual([0, 13]);
     });
 

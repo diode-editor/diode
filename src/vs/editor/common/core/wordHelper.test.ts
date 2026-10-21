@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { DEFAULT_WORD_REGEXP, getWordAtText, regExpMatchesEmptyString } from "./wordHelper.ts";
 
-/** Слово под `character` строкой — для компактных ожиданий. */
 function wordAt(text: string, character: number, regex: RegExp = DEFAULT_WORD_REGEXP): string | null {
     const word = getWordAtText(character, regex, text);
     return word === null ? null : text.slice(word.start, word.end);
@@ -53,7 +52,6 @@ describe("getWordAtText — дефолтное определение слова
     });
 
     it("сканирование идёт от начала строки, а не от позиции", () => {
-        // Слово, начатое раньше позиции, остаётся целым: `x`, затем `-1.5`.
         expect(getWordAtText(3, DEFAULT_WORD_REGEXP, "x-1.5")).toEqual({ start: 1, end: 5 });
     });
 });

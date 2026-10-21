@@ -11,7 +11,6 @@ function occurrences(text: string, line: number, character: number) {
 
 describe("computeWordOccurrences", () => {
     it("finds every occurrence of the word the cursor sits inside", () => {
-        // "foo bar foo" — cursor inside the first "foo".
         expect(occurrences("foo bar foo", 0, 1)).toEqual([createRange(0, 0, 0, 3), createRange(0, 8, 0, 11)]);
     });
 
@@ -29,7 +28,6 @@ describe("computeWordOccurrences", () => {
     });
 
     it("treats the caret just past a word's end as being on that word", () => {
-        // "foo bar" — caret at offset 3, immediately after "foo".
         expect(occurrences("foo bar foo", 0, 3)).toEqual([createRange(0, 0, 0, 3), createRange(0, 8, 0, 11)]);
     });
 
@@ -48,12 +46,10 @@ describe("computeWordOccurrences", () => {
     });
 
     it("matches whole words only — substrings are ignored", () => {
-        // "text in context" — "context" contains "text" but must not match.
         expect(occurrences("text in context", 0, 0)).toEqual([createRange(0, 0, 0, 4)]);
     });
 
     it("is case-sensitive", () => {
-        // Cursor on lower-case "foo"; "Foo" and "FOO" must not match.
         expect(occurrences("foo Foo FOO foo", 0, 0)).toEqual([createRange(0, 0, 0, 3), createRange(0, 12, 0, 15)]);
     });
 
@@ -66,12 +62,8 @@ describe("computeWordOccurrences", () => {
     });
 
     /**
-     * Highlight зовётся из `EditorElement.render`, и каретка приходит из
-     * состояния вью — за кадр она бывает «протухшей» (правка мимо вью, позиция от
-     * расширения). Колонка за концом строки роняла ВЕСЬ редактор
-     * (`TypeError: Cannot read properties of undefined (reading 'length')`
-     * в `isWordChar`), поэтому граница проверяется именно здесь, на живом
-     * документе, а не только у `findWordRangeAt`.
+     * Каретка из состояния вью бывает «протухшей» (правка мимо вью, позиция от расширения):
+     * колонка за концом строки роняла из `render` ВЕСЬ редактор (`TypeError` в `isWordChar`).
      */
     it("колонка за концом строки не роняет highlight, а берёт слово у конца", () => {
         expect(occurrences("bar\nbar", 0, 9)).toEqual([createRange(0, 0, 0, 3), createRange(1, 0, 1, 3)]);

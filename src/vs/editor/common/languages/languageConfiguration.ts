@@ -6,31 +6,16 @@ import type {
     ISurroundingPair,
 } from "../../../platform/extensions/common/iLanguageConfiguration.ts";
 
-/**
- * Дефолт VS Code для `autoCloseBefore`: авто-закрытие пары срабатывает, только
- * когда сразу за кареткой один из этих символов (или конец строки). Не даёт
- * скобке/кавычке дописывать пару посреди слова.
- */
+/** Дефолт VS Code: пара не дописывается посреди слова. */
 export const DEFAULT_AUTO_CLOSE_BEFORE = ";:.,=}])> \n\t";
 
-/** Нормализованная пара авто-закрытия: всегда `{ open, close, notIn }`. */
 export interface IResolvedAutoClosingPair {
     readonly open: string;
     readonly close: string;
     readonly notIn: readonly ("string" | "comment")[];
 }
 
-/**
- * `language-configuration.json`, приведённый к виду для потребителей —
- * команд комментирования и перехватчика набора. Сырой формат
- * ({@link ILanguageConfiguration}) допускает несколько кодировок одного и
- * того же (`CharacterPair` против `{ open, close }`) и наследование
- * отсутствующих секций; здесь всё это уже разрешено, как в
- * `ResolvedLanguageConfiguration` VS Code:
- *
- *  - `autoClosingPairs` отсутствуют → выводятся из `brackets`;
- *  - `surroundingPairs` отсутствуют → совпадают с `autoClosingPairs`.
- */
+/** Как `ResolvedLanguageConfiguration` VS Code: кодировки и наследование секций уже разрешены. */
 export interface IResolvedLanguageConfiguration {
     readonly comments: ICommentRule | undefined;
     readonly brackets: readonly CharacterPair[];
@@ -39,7 +24,6 @@ export interface IResolvedLanguageConfiguration {
     readonly autoCloseBefore: string;
 }
 
-/** Конфигурация языка, у которого файла конфигурации нет вовсе (plaintext). */
 export const EMPTY_LANGUAGE_CONFIGURATION: IResolvedLanguageConfiguration = {
     comments: undefined,
     brackets: [],
@@ -61,9 +45,8 @@ function isArrayOf<T>(value: readonly T[] | undefined): value is readonly T[] {
 }
 
 function toAutoClosingPair(value: CharacterPair | IAutoClosingPair | null): IResolvedAutoClosingPair | undefined {
-    // JSONC без валидации схемы: запись может оказаться чем угодно (null, число,
-    // строка). Отсекаем только null — на нём падает чтение поля; всё остальное
-    // отсеется проверкой на строки ниже (у числа нет ни [0], ни .open).
+    // JSONC без валидации схемы: отсекаем только null — на нём падает чтение
+    // поля; прочий мусор отсеет проверка на строки ниже.
     if (value === null) return undefined;
     const open = isCharacterPair(value) ? value[0] : value.open;
     const close = isCharacterPair(value) ? value[1] : value.close;
@@ -84,10 +67,6 @@ function toCharacterPair(value: CharacterPair | ISurroundingPair | null | undefi
     return [open, close];
 }
 
-/**
- * Разбирает секцию-массив: не-массив (JSONC не валидирован схемой) — пустая
- * секция, разобранные записи — без тех, что конвертер отверг.
- */
 function mapSection<T, R>(value: readonly T[] | undefined, convert: (entry: T) => R | undefined): R[] {
     if (!isArrayOf(value)) return [];
     const result: R[] = [];
@@ -98,24 +77,17 @@ function mapSection<T, R>(value: readonly T[] | undefined, convert: (entry: T) =
     return result;
 }
 
-/**
- * Разворачивает сырой `language-configuration.json` в
- * {@link IResolvedLanguageConfiguration}. Битые записи (не-строки, пустые
- * open/close) молча отбрасываются — реальные файлы расширений пишутся руками,
- * и одна кривая пара не должна отключать язык целиком.
- */
+/** Битые записи молча отбрасываются: одна кривая пара не должна отключать язык целиком. */
 export function resolveLanguageConfiguration(raw: ILanguageConfiguration): IResolvedLanguageConfiguration {
     const comments = resolveComments(raw.comments);
 
     const brackets = mapSection(raw.brackets, toCharacterPair);
 
-    // Как в VS Code: без своей секции autoClosingPairs пары выводятся из brackets.
     const autoClosingPairs =
         raw.autoClosingPairs !== undefined
             ? mapSection(raw.autoClosingPairs, toAutoClosingPair)
             : brackets.map((pair) => ({ open: pair[0], close: pair[1], notIn: [] as const }));
 
-    // Как в VS Code: без своей секции surroundingPairs обрамляют те же пары, что закрываются.
     const surroundingPairs =
         raw.surroundingPairs !== undefined
             ? mapSection(raw.surroundingPairs, toCharacterPair)

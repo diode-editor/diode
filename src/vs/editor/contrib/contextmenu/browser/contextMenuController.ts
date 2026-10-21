@@ -15,14 +15,13 @@ import { createCursorSelection, selectionToRange } from "../../../common/core/iS
 
 export const ContextMenuControllerDIToken = token<ContextMenuController>("EditorContextMenuController");
 
-/** Позиция внутри одного из выделений (границы включительно, как в upstream `containsPosition`). */
+/** Границы включительно, как в upstream `containsPosition`. */
 function selectionsContain(editor: EditorElement, position: IPosition): boolean {
     return editor.viewState.selections.some((selection) =>
         rangeContainsPosition(selectionToRange(selection), position),
     );
 }
 
-/** Ближайший EditorElement вверх от цели события (клик мог прийти потомку). */
 function findEditor(target: TUIElement | null): EditorElement | null {
     let current: TUIElement | null = target;
     while (current !== null) {
@@ -33,16 +32,9 @@ function findEditor(target: TUIElement | null): EditorElement | null {
 }
 
 /**
- * Политика контекстного меню редактора (аналог `editor/contrib/contextmenu`
- * VS Code) — первый editor-contrib с DI-токеном. Слушает событие "contextmenu"
- * на стабильной обвязке пары ({@link attach} на `EditorComponent.view` —
- * ScrollBarDecorator переживает пересоздание EditorElement при перечитке),
- * сам EditorElement берёт из цели события — attach статeless, per-editor
- * состояния нет.
- *
- * Политика как в upstream: клик вне выделения переставляет каретку, внутри —
- * не трогает; Shift+F10 якорит меню на каретке; `editor.contextmenu: false`
- * оставляет только перестановку каретки. Состав пунктов — MenuId.EditorContext.
+ * Аналог `editor/contrib/contextmenu` VS Code. {@link attach} — на
+ * `EditorComponent.view`: обвязка переживает пересоздание EditorElement при
+ * перечитке, поэтому сам редактор берётся из цели события.
  */
 export class ContextMenuController {
     public static dependencies = [ContextMenuServiceDIToken, IConfigurationServiceDIToken] as const;
@@ -66,8 +58,7 @@ export class ContextMenuController {
 
         let anchor: OverlayAnchorPosition;
         if (event.trigger === "mouse") {
-            // Каретка — на позицию клика, если клик пришёлся вне выделений
-            // (upstream двигает её и при выключенном editor.contextmenu).
+            // Upstream двигает каретку и при выключенном editor.contextmenu.
             const pos = editor.docPositionAt(
                 event.screenX - editor.globalPosition.x,
                 event.screenY - editor.globalPosition.y,
@@ -77,7 +68,6 @@ export class ContextMenuController {
             }
             anchor = { screenX: event.screenX, screenY: event.screenY };
         } else {
-            // Клавиатура: якорь — каретка; вне вьюпорта — левый верхний угол.
             const cell = editor.getCaretScreenCell() ?? editor.globalPosition;
             anchor = { screenX: cell.x, screenY: cell.y };
         }

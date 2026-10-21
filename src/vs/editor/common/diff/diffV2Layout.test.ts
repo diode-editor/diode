@@ -13,12 +13,6 @@ import {
 } from "./diffV2Layout.ts";
 import { DiffViewModel } from "./diffViewModel.ts";
 
-/**
- * Раскладка v2: вход — пара текстов и настоящий движок (как в
- * diffViewModel.test.ts); главный гейт — инвариант «у сторон одинаковое число
- * строк вью», проверяемый настоящими EditorViewState с зонами и фолдами.
- */
-
 const COMPUTER = new DefaultLinesDiffComputer();
 
 function layoutOf(original: string[], modified: string[], collapsed = false) {
@@ -37,7 +31,6 @@ function layoutOf(original: string[], modified: string[], collapsed = false) {
     return { layout, original, modified };
 }
 
-/** Стороны на настоящих view-state: число строк вью обязано совпасть. */
 function viewLineCounts(input: ReturnType<typeof layoutOf>): { original: number; modified: number } {
     const sides = { original: input.original, modified: input.modified };
     const result = { original: 0, modified: 0 };
@@ -127,7 +120,6 @@ describe("computeDiffV2Layout — свёртка unchanged", () => {
         const originalFolds = input.layout.original.foldingRegions;
         expect(originalFolds.length).toBeGreaterThan(0);
         expect(originalFolds.every((r) => r.isCollapsed)).toBe(true);
-        // Плашки парные и подписаны.
         const originalPlaques = input.layout.original.decorations.zones?.filter((z) => z.text !== undefined) ?? [];
         const modifiedPlaques = input.layout.modified.decorations.zones?.filter((z) => z.text !== undefined) ?? [];
         expect(originalPlaques.length).toBe(modifiedPlaques.length);
@@ -229,7 +221,6 @@ describe("computeInlineLayout — один редактор с зонами-пр
         expect(ghost?.lines?.map((line) => line.text)).toEqual(["dead1", "dead2"]);
         expect(ghost?.lines?.every((line) => line.bgToken === "diffEditor.removedLineBackground")).toBe(true);
         expect(layout.zones.find((zone) => zone.afterLine === 0)?.size).toBe(2);
-        // Добавленная строка помечена как в side-by-side.
         expect(layout.decorations.gutterMarkers).toEqual([{ line: 1, char: "+" }]);
         expect(layout.decorations.lineBackgrounds).toEqual([
             { startLine: 1, endLine: 1, colorToken: "diffEditor.insertedLineBackground" },
@@ -316,7 +307,6 @@ describe("mergeZoneDecorationsByAnchor", () => {
 
         expect(merged).toHaveLength(2);
         const combined = merged.find((zone) => zone.afterLine === 2);
-        // Плашка — первой строкой (порядок массива = порядок строк зоны).
         expect(combined?.lines?.map((line) => line.text)).toEqual(["⋯ 5 unchanged lines", "ghost"]);
         expect(combined?.lines?.[0].colorToken).toBe("diffEditor.unchangedRegionForeground");
         expect(combined?.lines?.[1].bgToken).toBe("diffEditor.removedLineBackground");

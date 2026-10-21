@@ -5,9 +5,7 @@ import { EMPTY_LANGUAGE_CONFIGURATION } from "./languageConfiguration.ts";
 
 describe("NULL_LANGUAGE_CONFIGURATION_SERVICE", () => {
     it("отдаёт пустую конфигурацию всем языкам сразу и после загрузки", async () => {
-        // Контракт заглушки: get() сразу даёт EMPTY (а не undefined «ещё не
-        // загружено») — фичи поверх конфигурации в тестовых контейнерах
-        // должны быть выключены, а не вечно ждать загрузки.
+        // EMPTY, а не undefined: в тестовых контейнерах фичи выключены, а не ждут загрузки вечно.
         expect(NULL_LANGUAGE_CONFIGURATION_SERVICE.get("typescript")).toBe(EMPTY_LANGUAGE_CONFIGURATION);
         await expect(NULL_LANGUAGE_CONFIGURATION_SERVICE.ensureLoaded("typescript")).resolves.toBe(
             EMPTY_LANGUAGE_CONFIGURATION,

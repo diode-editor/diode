@@ -19,8 +19,6 @@ import { EditorViewState } from "../../common/viewModel/editorViewState.ts";
 import type { IFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 import { createFoldingRegion } from "../../contrib/folding/iFoldingRegion.ts";
 
-// ─── Constants ──────────────────────────────────────────────
-
 const CURSOR_CHAR = "█";
 const SELECT_CHAR = "░";
 
@@ -30,28 +28,17 @@ const TRACK_PREFIX_SELECT = "select:";
 const TRACK_PREFIX_TOKENS = "tokens:";
 const TRACK_PREFIX_FOLDING = "folding:";
 
-// Folding track symbols
 const FOLD_EXPANDED_START = "v";
 const FOLD_COLLAPSED_START = ">";
 const FOLD_BODY = "|";
 const FOLD_END = "^";
 
-// ─── Tagged Template ────────────────────────────────────────
-
-/**
- * Tagged template literal for editor state DSL strings.
- * Dedents the string and trims leading/trailing blank lines.
- */
 export function editorState(strings: TemplateStringsArray, ...values: unknown[]): string {
     const raw = String.raw(strings, ...values);
     return dedentAndTrim(raw);
 }
 
-// ─── parseDSL ───────────────────────────────────────────────
-
 /**
- * Parses a multi-track DSL string into an EditorViewState.
- *
  * Tracks:
  *   text:    — document text lines
  *   cursor:  — cursor positions (█ character)
@@ -75,7 +62,6 @@ export function parseDSL(dsl: string): EditorViewState {
         if (rawLine.startsWith(TRACK_PREFIX_TEXT)) {
             currentDocLine++;
             const content = rawLine.substring(TRACK_PREFIX_TEXT.length);
-            // Strip exactly one leading space if present (track separator)
             textLines.push(content.startsWith(" ") ? content.substring(1) : content);
         } else if (rawLine.startsWith(TRACK_PREFIX_CURSOR)) {
             const content = rawLine.substring(TRACK_PREFIX_CURSOR.length);
@@ -92,20 +78,16 @@ export function parseDSL(dsl: string): EditorViewState {
         }
     }
 
-    // Build document
     const documentText = textLines.join("\n");
     const doc = new TextDocument(documentText);
 
-    // Parse cursors and selections
     const selections: ISelection[] = [];
 
-    // Collect cursor-only positions (█ on cursor track without select track)
     for (const [lineIdx, track] of cursorTrackByLine) {
         const selectTrack = selectTrackByLine.get(lineIdx);
         for (let i = 0; i < track.length; i++) {
             if (track[i] === CURSOR_CHAR) {
                 if (selectTrack) {
-                    // Cursor is within a selection — will be handled in selection parsing
                     continue;
                 }
                 selections.push(createCursorSelection(lineIdx, i));
@@ -113,12 +95,9 @@ export function parseDSL(dsl: string): EditorViewState {
         }
     }
 
-    // Parse selections: find contiguous ░ ranges, use █ as anchor/active indicator
-    // For multi-line selections, we need to collect ░ ranges across consecutive lines
     parseSelections(cursorTrackByLine, selectTrackByLine, textLines, selections);
 
-    // Parse tokens — attach them via a token store. We use PlainTextTokenizer
-    // as a placeholder support; tokens are pushed externally via setLineTokens.
+    // PlainTextTokenizer — заглушка: токены кладутся снаружи через setLineTokens.
     let tokenStore: DocumentTokenStore | undefined;
     for (const [lineIdx, track] of tokensTrackByLine) {
         const tokens = parseTokenTrack(track, doc.getLineContent(lineIdx).length);
@@ -128,10 +107,8 @@ export function parseDSL(dsl: string): EditorViewState {
         }
     }
 
-    // Sort selections by position
     selections.sort((a, b) => comparePositions(a.active, b.active));
 
-    // Parse folding regions
     const foldingRegions = parseFoldingTracks(foldingTrackByLine);
 
     const state = new EditorViewState(doc, selections.length > 0 ? selections : undefined);
@@ -144,11 +121,6 @@ export function parseDSL(dsl: string): EditorViewState {
     return state;
 }
 
-// ─── renderToDSL ────────────────────────────────────────────
-
-/**
- * Renders an EditorViewState to a multi-track DSL string.
- */
 export function renderToDSL(state: EditorViewState): string {
     const doc = state.document;
     const lines: string[] = [];
@@ -157,26 +129,22 @@ export function renderToDSL(state: EditorViewState): string {
         const textContent = doc.getLineContent(lineIdx);
         lines.push(`${TRACK_PREFIX_TEXT} ${textContent}`);
 
-        // Render cursor track
         const cursorTrack = renderCursorTrack(state.selections, lineIdx, textContent.length);
         if (cursorTrack !== null) {
             lines.push(`${TRACK_PREFIX_CURSOR} ${cursorTrack}`);
         }
 
-        // Render select track
         const selectTrack = renderSelectTrack(state.selections, lineIdx, textContent.length);
         if (selectTrack !== null) {
             lines.push(`${TRACK_PREFIX_SELECT} ${selectTrack}`);
         }
 
-        // Render tokens track
         const tokens = state.tokenStore?.getLineTokens(lineIdx);
         const tokensTrack = tokens === undefined ? "" : renderTokensTrack(tokens);
         if (tokensTrack !== "") {
             lines.push(`${TRACK_PREFIX_TOKENS} ${tokensTrack}`);
         }
 
-        // Render folding track
         const foldingChar = renderFoldingChar(state.foldedRegions, lineIdx);
         if (foldingChar !== null) {
             lines.push(`${TRACK_PREFIX_FOLDING} ${foldingChar}`);
@@ -186,18 +154,11 @@ export function renderToDSL(state: EditorViewState): string {
     return lines.join("\n");
 }
 
-// ─── expectEditorState ──────────────────────────────────────
-
-/**
- * Asserts that an EditorViewState matches the expected DSL string.
- */
 export function expectEditorState(state: EditorViewState, expected: string): void {
     const actual = renderToDSL(state);
     const normalizedExpected = dedentAndTrim(expected);
     expect(actual).toBe(normalizedExpected);
 }
-
-// ─── Private: Parsing Helpers ───────────────────────────────
 
 function parseSelections(
     cursorTrackByLine: Map<number, string>,
@@ -205,23 +166,18 @@ function parseSelections(
     textLines: string[],
     selections: ISelection[],
 ): void {
-    // For each line that has a select track, find ░ ranges and locate the cursor █ within
-    // For simplicity in MVP: each contiguous run of ░ on a single line is one selection.
-    // The █ on the cursor track indicates the active end.
-
+    // Each contiguous run of ░ on a single line is one selection; █ marks the active end.
     for (const [lineIdx, selectTrack] of selectTrackByLine) {
         const cursorTrack = cursorTrackByLine.get(lineIdx);
         let i = 0;
         while (i < selectTrack.length) {
             if (selectTrack[i] === SELECT_CHAR) {
-                // Find start and end of this ░ run
                 const selectStart = i;
                 while (i < selectTrack.length && selectTrack[i] === SELECT_CHAR) {
                     i++;
                 }
                 const selectEnd = i;
 
-                // Find cursor position on this line (within or at edges of selection)
                 let cursorPos: number | null = null;
                 if (cursorTrack) {
                     for (let c = 0; c < cursorTrack.length; c++) {
@@ -233,30 +189,12 @@ function parseSelections(
                 }
 
                 if (cursorPos !== null) {
-                    // Cursor defines the active position
-                    // If cursor is at selectStart → active = start, anchor = end (backward selection)
-                    // If cursor is at selectEnd → active = end, anchor = start (forward selection)
                     if (cursorPos <= selectStart) {
-                        selections.push(
-                            createSelection(
-                                lineIdx,
-                                selectEnd, // anchor (end of selection)
-                                lineIdx,
-                                cursorPos, // active (cursor)
-                            ),
-                        );
+                        selections.push(createSelection(lineIdx, selectEnd, lineIdx, cursorPos));
                     } else {
-                        selections.push(
-                            createSelection(
-                                lineIdx,
-                                selectStart, // anchor (start of selection)
-                                lineIdx,
-                                cursorPos, // active (cursor)
-                            ),
-                        );
+                        selections.push(createSelection(lineIdx, selectStart, lineIdx, cursorPos));
                     }
                 } else {
-                    // No cursor on this line — treat as forward selection
                     selections.push(createSelection(lineIdx, selectStart, lineIdx, selectEnd));
                 }
             } else {
@@ -266,13 +204,7 @@ function parseSelections(
     }
 }
 
-/**
- * Трек токенов → бинарные токены строки (концы токенов + метаданные). Символ
- * трека кодируется в метаданные индексом цвета (`foreground` = код символа):
- * у бинарных токенов нет «дыр», поэтому пробел («нет токена») — токен с
- * цветом 0. Последний токен тянется до конца строки, как и раньше. Трек без
- * единого не-пробела — токенов нет.
- */
+/** Символ трека кодируется индексом цвета (`foreground` = код символа); последний токен тянется до конца строки. */
 function parseTokenTrack(track: string, lineLength: number): Uint32Array | undefined {
     const starts: [number, number][] = [];
     for (let i = 0; i < Math.min(track.length, lineLength); i++) {
@@ -282,12 +214,9 @@ function parseTokenTrack(track: string, lineLength: number): Uint32Array | undef
     return storedTokens(starts, lineLength);
 }
 
-/** Символ трека → метаданные с цветом = код символа (пробел — 32, рендер вернёт пробел). */
 function trackCharMetadata(ch: string): number {
     return (ch.charCodeAt(0) << MetadataConsts.FOREGROUND_OFFSET) >>> 0;
 }
-
-// ─── Private: Rendering Helpers ─────────────────────────────
 
 function renderCursorTrack(selections: readonly ISelection[], lineIdx: number, lineLength: number): string | null {
     const positions: number[] = [];
@@ -353,17 +282,10 @@ function renderTokensTrack(tokens: LineTokens): string {
     return trimTrailingSpaces(chars.join(""));
 }
 
-// ─── Private: Folding Helpers ───────────────────────────────
-
-/**
- * Parses folding track lines into an array of IFoldingRegion.
- * Symbols: 'v' = expanded start, '>' = collapsed start, '|' = body, '^' = end.
- * The first non-space character of the folding track determines the role of the line.
- */
+/** The first non-space character of the folding track determines the role of the line. */
 function parseFoldingTracks(foldingTrackByLine: Map<number, string>): IFoldingRegion[] {
     const regions: IFoldingRegion[] = [];
 
-    // Collect starts: lines with 'v' or '>'
     const starts: { line: number; collapsed: boolean }[] = [];
     for (const [lineIdx, track] of foldingTrackByLine) {
         const ch = track.trim().charAt(0);
@@ -374,11 +296,8 @@ function parseFoldingTracks(foldingTrackByLine: Map<number, string>): IFoldingRe
         }
     }
 
-    // Sort starts by line number
     starts.sort((a, b) => a.line - b.line);
 
-    // For each start, find matching '^' end
-    // Use a stack for nested regions
     const stack: { line: number; collapsed: boolean }[] = [];
     const sortedLines = [...foldingTrackByLine.entries()].sort(([a], [b]) => a - b);
 
@@ -396,14 +315,10 @@ function parseFoldingTracks(foldingTrackByLine: Map<number, string>): IFoldingRe
         }
     }
 
-    // Sort regions by startLine
     regions.sort((a, b) => a.startLine - b.startLine);
     return regions;
 }
 
-/**
- * Renders the folding character for a given document line, or null if no folding.
- */
 function renderFoldingChar(foldedRegions: readonly IFoldingRegion[], lineIdx: number): string | null {
     for (const region of foldedRegions) {
         if (region.startLine === lineIdx) {
@@ -419,12 +334,9 @@ function renderFoldingChar(foldedRegions: readonly IFoldingRegion[], lineIdx: nu
     return null;
 }
 
-// ─── Private: String Utilities ──────────────────────────────
-
 function dedentAndTrim(text: string): string {
     const lines = text.split("\n");
 
-    // Remove leading and trailing blank lines
     while (lines.length > 0 && lines[0].trim() === "") {
         lines.shift();
     }
@@ -432,7 +344,6 @@ function dedentAndTrim(text: string): string {
         lines.pop();
     }
 
-    // Find minimum indentation
     let minIndent = Infinity;
     for (const line of lines) {
         if (line.trim() === "") continue;
@@ -444,7 +355,6 @@ function dedentAndTrim(text: string): string {
         minIndent = 0;
     }
 
-    // Remove common indentation
     return lines.map((line) => line.substring(minIndent)).join("\n");
 }
 

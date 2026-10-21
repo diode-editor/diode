@@ -72,8 +72,7 @@ describe("toggleLineComment", () => {
     });
 
     it("выделения, отданные в обратном документном порядке, обрабатываются как прямые", () => {
-        // Мультикурсор не обязан приходить отсортированным (Alt+клик снизу
-        // вверх): команда сортирует сама, иначе дедуп строк и сдвиги едут.
+        // Alt+клик снизу вверх; без сортировки дедуп строк и сдвиги едут.
         const reversed = makeState("aaa\nbbb\nccc", [
             createCursorSelection(2, 1),
             createCursorSelection(1, 0),
@@ -133,7 +132,6 @@ describe("addLineComment / removeLineComment", () => {
         expect(state.document.getText()).toBe("// // aaa");
         const removed = removeLineComment(state, TS);
         expect(state.document.getText()).toBe("// aaa");
-        // Метка шага истории — что покажет «Undo …» и по чему шаги различают в стеке.
         expect(added?.label).toBe("addLineComment");
         expect(removed?.label).toBe("removeLineComment");
     });
@@ -195,14 +193,11 @@ describe("toggleBlockComment", () => {
     });
 
     it("выделения одной строки в обратном порядке дают тот же результат, что прямые", () => {
-        // Сдвиг от правок соседа считается в документном порядке — команда
-        // обязана отсортировать выделения сама.
         const state = makeState("aa bb", [createSelection(0, 3, 0, 5), createSelection(0, 0, 0, 2)]);
         toggleBlockComment(state, TS);
 
         expect(state.document.getText()).toBe("/* aa */ /* bb */");
-        // Без сортировки сдвиг от правок соседа лёг бы не на то выделение:
-        // порядок здесь документный, и тексты обязаны совпасть поштучно.
+        // Без сортировки сдвиг от правок соседа лёг бы не на то выделение.
         const texts = state.selections.map((sel) => state.document.getTextInRange(selectionToRange(sel)));
         expect(texts).toEqual(["aa", "bb"]);
     });

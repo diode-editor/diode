@@ -6,14 +6,8 @@ import { createCursorSelection, createSelection } from "../../common/core/iSelec
 import type { ITextEdit } from "../../common/core/iTextEdit.ts";
 import { createTextEdit } from "../../common/core/iTextEdit.ts";
 
-/**
- * Блочное комментирование (VS Code `BlockCommentCommand`): один диапазон —
- * один план. Чистые функции: на входе минимальный порт чтения документа и
- * нормализованный диапазон выделения, на выходе — правки и выделение после
- * них. Токены вставляются с пробелом между токеном и содержимым (VS Code
- * `editor.comments.insertSpace: true`), снимаются вместе с этим пробелом,
- * если он есть.
- */
+// VS Code `BlockCommentCommand` с `editor.comments.insertSpace: true`: токены
+// снимаются вместе со своим пробелом, если он есть.
 
 export interface IBlockCommentDocument {
     getLineContent(line: number): string;
@@ -22,22 +16,10 @@ export interface IBlockCommentDocument {
 
 export interface IBlockCommentPlan {
     readonly edits: readonly ITextEdit[];
-    /** Выделение после применения правок (восстанавливается поверх дефолтного). */
+    /** Восстанавливается поверх дефолтного выделения после правок. */
     readonly selection: ISelection;
 }
 
-/**
- * Тоггл блочного комментария для одного выделения:
- *
- *  - пустое выделение внутри пары на своей строке → пара снимается;
- *  - пустое выделение вне пары → вставляется `/*∙∙*\/`, каретка между
- *    пробелами;
- *  - выделение, начинающееся открывающим и кончающееся закрывающим токеном →
- *    токены снимаются, выделение сжимается до содержимого;
- *  - выделение, обёрнутое токенами СНАРУЖИ (вплотную к границам) → снимаются
- *    наружные, выделение остаётся на своём тексте;
- *  - иначе выделение оборачивается парой и продолжает покрывать прежний текст.
- */
 export function planToggleBlockComment(
     doc: IBlockCommentDocument,
     range: IRange,
@@ -58,10 +40,7 @@ export function planToggleBlockComment(
 function planAtCursor(doc: IBlockCommentDocument, pos: IPosition, open: string, close: string): IBlockCommentPlan {
     const enclosing = findEnclosingComment(doc.getLineContent(pos.line), pos.character, open, close);
     if (enclosing !== null) {
-        // Снятие — та же механика, что у выделения ровно по паре: строим
-        // диапазон от открывающего токена до закрывающего и переиспользуем её,
-        // а каретку проводим сквозь получившиеся правки. Проверять диапазон
-        // нечего — он построен по НАЙДЕННОЙ паре, поэтому зовём снятие напрямую.
+        // Диапазон построен по найденной паре — проверять нечего, снятие зовём напрямую.
         const range = createRange(pos.line, enclosing.start, pos.line, enclosing.end);
         const plan = removeSurroundingTokens(range, doc.getTextInRange(range), open, close);
         return {
@@ -78,10 +57,8 @@ function planAtCursor(doc: IBlockCommentDocument, pos: IPosition, open: string, 
 }
 
 /**
- * Границы пары, охватывающей каретку, в пределах её строки — `[start, end)`
- * вместе с токенами, либо `null`, если каретка вне пары. Границы принадлежат
- * самой паре: каретка на открывающем токене и вплотную за закрывающим (`/* x *\/|`)
- * считается внутри — как у парных скобок в VS Code.
+ * `[start, end)` вместе с токенами. Каретка на открывающем токене и вплотную
+ * за закрывающим (`/* x *\/|`) — внутри, как у парных скобок в VS Code.
  */
 function findEnclosingComment(
     text: string,
@@ -102,18 +79,12 @@ function findEnclosingComment(
     return { start: openIdx, end: closeIdx + close.length };
 }
 
-/**
- * Колонка после применения правок-удалений своей строки (координаты правок —
- * исходные, куски не пересекаются): точка внутри удалённого куска прижимается
- * к его началу, правее — едет влево на его длину.
- */
+/** Координаты правок-удалений — исходные, куски не пересекаются. */
 function characterAfterEdits(character: number, edits: readonly ITextEdit[]): number {
     let result = character;
     for (const edit of edits) {
         const start = edit.range.start.character;
         const length = edit.range.end.character - start;
-        // Сколько символов куска осталось левее точки: ноль для точки левее
-        // куска, вся длина — для точки правее него.
         result -= Math.min(Math.max(character - start, 0), length);
     }
     return result;
@@ -132,11 +103,7 @@ function tryRemoveInside(
     return removeSurroundingTokens(range, text, open, close);
 }
 
-/**
- * Снимает токены с краёв диапазона, чей текст заведомо ими и ограничен
- * (`text` — содержимое `range`). Вместе с токеном уходит его пробел, если он
- * есть; выделение после правок покрывает то, что было внутри пары.
- */
+/** `text` — содержимое `range`, заведомо ограниченное токенами. */
 function removeSurroundingTokens(range: IRange, text: string, open: string, close: string): IBlockCommentPlan {
     let openRun = open.length + (text[open.length] === " " ? 1 : 0);
     let closeRun = close.length + (text[text.length - close.length - 1] === " " ? 1 : 0);

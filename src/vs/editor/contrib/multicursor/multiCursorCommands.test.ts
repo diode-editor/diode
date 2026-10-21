@@ -13,12 +13,11 @@ import {
     selectHighlights,
 } from "./multiCursorCommands.ts";
 
-/** Тексты выделений в документном порядке — самый читаемый ассерт для этих команд. */
 function texts(state: EditorViewState): string[] {
     return state.selections.map((sel) => state.document.getTextInRange(selectionToRange(sel)));
 }
 
-/** Диапазоны выделений как [строка, начало, конец]; все они однострочные. */
+/** `[строка, начало, конец]` — все выделения однострочные. */
 function spans(state: EditorViewState): number[][] {
     return state.selections.map((sel) => {
         const range = selectionToRange(sel);
@@ -66,7 +65,7 @@ describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
 
     it("от непустого выделения сразу добавляет второе вхождение", () => {
         const state = makeState("foobar foobar");
-        state.selections = [createSelection(0, 0, 0, 4)]; // "foob"
+        state.selections = [createSelection(0, 0, 0, 4)];
 
         addSelectionToNextFindMatch(state);
         expect(spans(state)).toEqual([
@@ -204,9 +203,7 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
     });
 
     it("выделения, различающиеся регистром, общим текстом не считаются", () => {
-        // Поиск здесь регистрозависимый, и гейт общности обязан считать так же:
-        // сочти он Foo и foo одним текстом, шаг ушёл бы продолжать поиск по тексту,
-        // которого во втором выделении нет.
+        // Поиск регистрозависимый — гейт общности обязан считать так же.
         const state = makeState("Foo foo Foo");
         state.selections = [createSelection(0, 0, 0, 3), createSelection(0, 4, 0, 7)];
 

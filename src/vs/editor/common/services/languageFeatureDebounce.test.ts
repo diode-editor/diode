@@ -51,7 +51,6 @@ describe("FeatureDebounce", () => {
         const debounce = new FeatureDebounce(0, 100_000);
         debounce.update("first", 9000);
         for (let i = 0; i < 50; i++) debounce.update(`doc${String(i)}`, 100);
-        // «first» вытеснен: его ответ больше не в общем среднем и не в своём ключе.
         expect(debounce.get("new")).toBe(100);
         expect(debounce.get("first")).toBe(100);
         expect(debounce.get("doc0")).toBe(100);

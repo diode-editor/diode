@@ -4,11 +4,8 @@ import type { FoldingRangeProvider, IFoldingRequest } from "../../common/languag
 import type { IFoldingRegion } from "./iFoldingRegion.ts";
 
 /**
- * Области сворачивания от всех подошедших документу провайдеров (upstream
- * `editor/contrib/folding/browser/syntaxRangeProvider.ts`): спрашиваем
- * параллельно одним объектом запроса (по нему хост склеит вызовы в один RPC),
- * склеиваем в порядке `ordered`. Сбойный провайдер = областей нет; слияние с
- * indentation-фолдами — у потребителя (`EditorComponent`).
+ * Upstream `editor/contrib/folding/browser/syntaxRangeProvider.ts`. Один объект
+ * запроса на всех: по нему хост склеит вызовы в один RPC.
  */
 export async function provideFoldingRanges(
     providers: readonly FoldingRangeProvider[],

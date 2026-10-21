@@ -1,37 +1,25 @@
 import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IRange } from "../core/iRange.ts";
 
-/**
- * Запрос инлайн-подсказки (ghost text), отправляемый inline-completion-источнику.
- * Несёт полный снапшот текста + позицию каретки — как {@link ./iCompletionSource.ts:ICompletionRequest}
- * (у хоста нет реестра документов).
- */
 export interface IInlineCompletionRequest {
-    /** Ресурс активного документа как `uri.toString()`. */
+    /** `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Версия документа на момент запроса: текст провайдер берёт из своей синхронизированной копии. */
+    /** Текст провайдер берёт из своей синхронизированной копии этой версии. */
     readonly versionId: number;
-    /** Позиция каретки, 0-based. */
+    /** 0-based. */
     readonly line: number;
     readonly character: number;
-    /**
-     * Чем спровоцирован запрос (`vscode.InlineCompletionTriggerKind`): 0 —
-     * Invoke (явная команда), 1 — Automatic (пауза при наборе). По контракту
-     * vscode на Invoke провайдер может вернуть несколько вариантов, на
-     * Automatic достаточно одного.
-     */
+    /** По контракту vscode на Invoke провайдер может вернуть несколько вариантов, на Automatic — один. */
     readonly triggerKind: InlineCompletionTriggerKind;
     /**
-     * Сколько ждать ответ источника, мс (`editor.inlineSuggest.requestTimeout`).
-     * Едет с КАЖДЫМ запросом, а не фиксируется при создании источника: иначе
-     * правка настройки применялась бы только после перезапуска редактора.
-     * Не задан — источник берёт свой дефолт.
+     * Мс. Едет с КАЖДЫМ запросом, а не фиксируется при создании источника: иначе
+     * правка настройки применялась бы только после перезапуска.
      */
     readonly timeoutMs?: number;
 }
 
-/** Чем спровоцирован запрос (значения `vscode.InlineCompletionTriggerKind`). */
+/** Значения `vscode.InlineCompletionTriggerKind`. */
 export const InlineCompletionTriggerKind = {
     Invoke: 0,
     Automatic: 1,
@@ -40,35 +28,18 @@ export const InlineCompletionTriggerKind = {
 export type InlineCompletionTriggerKind =
     (typeof InlineCompletionTriggerKind)[keyof typeof InlineCompletionTriggerKind];
 
-/**
- * Пункт инлайн-подсказки в ядре (десериализованная форма расширенческого
- * `vscode.InlineCompletionItem`). `insertText` уже нормализован: `SnippetString`
- * субпроцесс сериализует текстом со стрипом плейсхолдеров.
- */
+/** `SnippetString` субпроцесс сериализует в `insertText` со стрипом плейсхолдеров. */
 export interface ICoreInlineCompletionItem {
-    /** Текст, которым заменяется {@link range} (и превью, и вставка). */
     readonly insertText: string;
-    /**
-     * Гейт показа: подсказка показывается, только если заменяемый текст —
-     * префикс `filterText ?? insertText` (контракт vscode.d.ts).
-     */
+    /** Показ, только если заменяемый текст — префикс `filterText ?? insertText` (контракт vscode.d.ts). */
     readonly filterText?: string;
-    /**
-     * Заменяемый диапазон (по d.ts — в пределах одной строки); без него
-     * вставка идёт в позицию каретки запроса.
-     */
+    /** В пределах одной строки; без него вставка — в позицию каретки запроса. */
     readonly range?: IRange;
 }
 
 /**
- * Провайдер инлайн-подсказок в реестре
- * `ILanguageFeaturesService.inlineCompletionsProvider` (upstream
- * `languages.InlineCompletionsProvider`). Пустой массив = подсказок нет.
- *
- * `token` отменяется, как только ответ перестал быть нужен (новый запрос,
- * правка, уход каретки, Esc, смена редактора). Отмена доезжает до самого
- * провайдера расширения — за ghost text может стоять платный LLM-вызов, и
- * молча дожидаться его ответа, чтобы выбросить, мы не вправе.
+ * upstream `languages.InlineCompletionsProvider`. Отмена `token` доезжает до
+ * провайдера расширения — за ghost text может стоять платный LLM-вызов.
  */
 export interface InlineCompletionsProvider {
     provideInlineCompletions(

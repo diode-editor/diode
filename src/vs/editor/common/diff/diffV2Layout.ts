@@ -14,21 +14,14 @@ import type { IUnchangedRegion } from "./diffViewModel.ts";
 import type { DetailedLineRangeMapping } from "./rangeMapping.ts";
 
 /**
- * Раскладка диффа v2 (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): из результата движка
- * (`changes` + свёртка unchanged + intra-line) собрать для КАЖДОЙ стороны —
- * настоящего редактора — зоны-филлеры, фолд-регионы и внешние декорации.
- * Чистая логика без TUI: тестируется как DiffViewModel.
- *
- * Инвариант (гейт панели): при одинаковом состоянии свёртки у обеих сторон
- * одинаковое число строк вью — зоны компенсируют разницу длин изменённых
- * блоков, свёрнутые куски одинаковой длины по построению (unchanged), плашки
- * парные.
+ * docs/arch/workbench/EditorPart.md, «Дифф-вкладка». Инвариант (гейт панели):
+ * при одинаковой свёртке у обеих сторон одинаковое число строк вью — зоны
+ * компенсируют разницу длин изменённых блоков, плашки парные.
  */
 
-/** Заполнитель зоны-филлера — тот же, что был у рисованной смотрелки. */
 export const DIFF_FILLER_CHAR = "░";
 
-/** Текст плашки при пустом диффе (US-11): весь файл — один unchanged-кусок. */
+/** US-11. */
 export const IDENTICAL_NOTICE = "The files are identical";
 
 export interface IDiffV2SideLayout {
@@ -76,14 +69,13 @@ function computeSide(
     for (const change of changes) {
         const own = side === "original" ? change.original : change.modified;
         const other = side === "original" ? change.modified : change.original;
-        // 1-based LineRange → 0-based [start..endExcl).
+        // 1-based LineRange → 0-based.
         const start = own.startLineNumber - 1;
         const endExclusive = own.endLineNumberExclusive - 1;
         const ownLength = endExclusive - start;
         const otherLength = other.endLineNumberExclusive - other.startLineNumber;
 
-        // Зона-филлер напротив избытка строк другой стороны; при чистой
-        // вставке/удалении (own пуст) якорь — строка перед местом изменения.
+        // При чистой вставке/удалении (own пуст) якорь — строка перед местом изменения.
         if (otherLength > ownLength) {
             const afterLine = endExclusive - 1;
             zones.push({ afterLine, size: otherLength - ownLength });
@@ -109,9 +101,6 @@ function computeSide(
         }
     }
 
-    // Пустой дифф (US-11): нотис-зона перед первой строкой обеих сторон —
-    // содержимое видно, сообщение говорит главное. Живой дифф вернёт зоны
-    // изменений, как только стороны разойдутся.
     if (changes.length === 0) {
         zones.push({ afterLine: -1, size: 1 });
         zoneDecorations.push({
@@ -134,9 +123,7 @@ function computeSide(
         const endLine = Math.min(lastHidden, lineCount - 1);
         if (endLine <= headerLine) continue;
         foldingRegions.push({ startLine: headerLine, endLine, isCollapsed: true });
-        // Плашка «⋯ N unchanged lines»: зона с якорем на скрытой строке —
-        // выживает после заголовка свернувшего региона; при развороте панель
-        // пересчитает раскладку и плашка исчезнет.
+        // Якорь на скрытой строке — плашка выживает после заголовка свернувшего региона.
         const placeholderAnchor = Math.max(headerLine, firstHidden);
         zones.push({ afterLine: placeholderAnchor, size: 1 });
         zoneDecorations.push({
@@ -159,17 +146,10 @@ function computeSide(
 }
 
 /**
- * Inline-раскладка (узкий терминал, DiffEditable PR-6): ОДИН редактор —
- * modified на всю ширину; удалённые строки original показываются
- * «зонами-призраками» с их текстом на фоне removed перед своим ганком (механика
- * upstream inline view). Фоны added, intra-line и маркеры `+` — как у
- * modified-стороны side-by-side; свёртка unchanged — по modified-координатам,
- * плашки без парности. Выравнивать нечего — филлеров нет.
- *
- * Плашка свёрнутого куска и призрак соседнего ганка могут делить якорь
- * (`setViewZones` сливает такие зоны) — содержимое склеивает
- * {@link mergeZoneDecorationsByAnchor} на выходе панели, ПОСЛЕ фильтрации
- * плашек по свёрнутости.
+ * Один редактор modified; удалённые строки — зоны-призраки перед своим ганком
+ * (механика upstream inline view). Плашка свёртки и призрак могут делить якорь —
+ * их склеивает {@link mergeZoneDecorationsByAnchor} на выходе панели, ПОСЛЕ
+ * фильтрации плашек по свёрнутости.
  */
 export function computeInlineLayout(
     changes: readonly DetailedLineRangeMapping[],
@@ -210,8 +190,7 @@ export function computeInlineLayout(
         const origStart = change.original.startLineNumber - 1;
         const origEndExclusive = change.original.endLineNumberExclusive - 1;
 
-        // Призрак удалённых строк — перед местом изменения (`-1` у ганка в
-        // начале файла нормализует setViewZones: зона перед первой строкой).
+        // `-1` у ганка в начале файла setViewZones понимает как зону перед первой строкой.
         if (origEndExclusive > origStart) {
             const afterLine = modStart - 1;
             const lines = originalLines.slice(origStart, origEndExclusive).map((text) => ({
@@ -262,11 +241,8 @@ export function computeInlineLayout(
 }
 
 /**
- * Склейка зон-декораций с общим якорем в одну многострочную: `setViewZones`
- * сливает такие зоны (size суммируется), а рендер адресует декорации
+ * `setViewZones` сливает зоны с общим якорем, а рендер адресует декорации
  * `Map<якорь, декорация>` — без склейки вторая декорация молча пропала бы.
- * Порядок строк = порядок декораций в массиве; `text`-декорация становится
- * строкой со своим цветом.
  */
 export function mergeZoneDecorationsByAnchor(decorations: readonly IViewZoneDecoration[]): IViewZoneDecoration[] {
     const byAnchor = new Map<number, IViewZoneDecoration[]>();

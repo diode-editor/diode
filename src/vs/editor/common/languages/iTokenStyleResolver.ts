@@ -1,10 +1,5 @@
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
 
-/**
- * Resolved style for a token, decoupled from any theme implementation.
- * Editor depends on this interface; concrete resolvers live in the Theme
- * layer (or in a future LSP semantic-tokens provider).
- */
 export interface ResolvedTokenStyle {
     readonly fg?: number;
     readonly bg?: number;
@@ -23,17 +18,11 @@ export const EMPTY_RESOLVED_TOKEN_STYLE: ResolvedTokenStyle = {
     strikethrough: false,
 };
 
-/**
- * Стиль токена по его метаданным (`encodedTokenAttributes.ts`): начертание —
- * из битов `FontStyle`, цвета — индексы colorMap темы. Цвета по умолчанию
- * (`ColorId.DefaultForeground`/`DefaultBackground`) — `undefined`: ячейка
- * берёт цвета редактора.
- */
+/** Цвета по умолчанию (`ColorId.Default*`) — `undefined`: ячейка берёт цвета редактора. */
 export interface ITokenStyleResolver {
     resolve(metadata: number): ResolvedTokenStyle;
 }
 
-/** Resolver that returns the empty style for everything (no highlighting). */
 export const NULL_TOKEN_STYLE_RESOLVER: ITokenStyleResolver = {
     resolve(): ResolvedTokenStyle {
         return EMPTY_RESOLVED_TOKEN_STYLE;

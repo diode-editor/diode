@@ -19,22 +19,11 @@ import {
     selectionsShareText,
 } from "./multiCursorSession.ts";
 
-/**
- * Семейство «выделить следующее вхождение» (VS Code `editor/contrib/multicursor`).
- *
- * Тела команд живут здесь чистыми функциями над `EditorViewState`: состояние сессии — поле
- * модели, а вся стейт-машина — данные, которые легко покрыть юнит-тестами без DI и подписок.
- */
-
-/** Выделение из диапазона, направленное слева направо. */
 function selectionFromRange(range: IRange): ISelection {
     return createSelection(range.start.line, range.start.character, range.end.line, range.end.character);
 }
 
-/**
- * Живая сессия для очередного шага, либо `null` — шаг израсходован на подготовку
- * (первый Ctrl+D только выделяет слово под кареткой) или искать нечего.
- */
+/** `null` — шаг израсходован на подготовку (первый Ctrl+D только выделяет слово) или искать нечего. */
 function ensureSession(viewState: EditorViewState): IMultiCursorFindSession | null {
     const versionId = viewState.document.versionId;
     const session = viewState.multiCursorSession;
@@ -62,11 +51,9 @@ function ensureSession(viewState: EditorViewState): IMultiCursorFindSession | nu
     const captured = captureSession(spec, spec.range, viewState.selections, versionId);
     viewState.multiCursorSession = captured;
 
-    // Первый Ctrl+D от каретки только выделяет слово — следующее вхождение добавит второй.
     return collapsed ? null : captured;
 }
 
-/** Каждое схлопнутое выделение расширяется до слова под ним; непустые не трогаем. */
 function expandCollapsedToWords(viewState: EditorViewState): void {
     const expanded = viewState.selections.map((sel) => {
         if (!isSelectionCollapsed(sel)) return sel;
@@ -78,11 +65,7 @@ function expandCollapsedToWords(viewState: EditorViewState): void {
     }
 }
 
-/**
- * Один шаг поиска. `mode: "add"` добавляет найденное вхождение новым выделением,
- * `"move"` переносит на него последнее добавленное (VS Code Ctrl+K Ctrl+D — «пропустить
- * это совпадение»).
- */
+/** `"move"` переносит на найденное последнее добавленное (VS Code Ctrl+K Ctrl+D). */
 function step(viewState: EditorViewState, direction: 1 | -1, mode: "add" | "move"): void {
     const session = ensureSession(viewState);
     if (session === null) return;
@@ -107,35 +90,27 @@ function step(viewState: EditorViewState, direction: 1 | -1, mode: "add" | "move
     viewState.revealSelection(added);
 }
 
-/** Ctrl+D: выделить слово под кареткой, затем добавлять следующие вхождения. */
 export function addSelectionToNextFindMatch(viewState: EditorViewState): void {
     step(viewState, 1, "add");
 }
 
-/** То же вверх по документу. */
 export function addSelectionToPreviousFindMatch(viewState: EditorViewState): void {
     step(viewState, -1, "add");
 }
 
-/** Ctrl+K Ctrl+D: перенести последнее добавленное выделение на следующее вхождение. */
 export function moveSelectionToNextFindMatch(viewState: EditorViewState): void {
     // Stryker disable next-line StringLiteral: step() сравнивает режим только с "add", поэтому "move" и любая другая строка идут одной ветвью — подмена ненаблюдаема
     step(viewState, 1, "move");
 }
 
-/** То же вверх по документу. */
 export function moveSelectionToPreviousFindMatch(viewState: EditorViewState): void {
     // Stryker disable next-line StringLiteral: см. moveSelectionToNextFindMatch — режим сравнивается только с "add"
     step(viewState, -1, "move");
 }
 
 /**
- * Ctrl+Shift+L: каретка на каждое вхождение разом. В отличие от Ctrl+D, шага «сначала
- * выделить слово» нет — от схлопнутой каретки сразу выделяются все вхождения её слова.
- *
- * Вьюпорт намеренно не двигаем: пользователь смотрит в конкретное место, и прыжок к
- * первичному (то есть самому верхнему) выделению увёз бы его в начало файла. Хотя бы одно
- * вхождение всегда есть — искомый текст взят из самого документа.
+ * Вьюпорт намеренно не двигаем: прыжок к первичному (самому верхнему) выделению увёз бы
+ * в начало файла. Хотя бы одно вхождение всегда есть — искомый текст взят из документа.
  */
 export function selectHighlights(viewState: EditorViewState): void {
     const versionId = viewState.document.versionId;
@@ -154,11 +129,7 @@ export function selectHighlights(viewState: EditorViewState): void {
     viewState.multiCursorSession = captureSession(spec, matches[matches.length - 1], viewState.selections, versionId);
 }
 
-/**
- * Ctrl+Shift+Alt+I: каретка в конец каждой строки, которую задевает выделение. Схлопнутые
- * выделения ничего не дают; у последней строки каретка появляется, только если выделение
- * реально в неё зашло (паритет с `getCursorsForSelection` в VS Code).
- */
+/** У последней строки каретка — только если выделение в неё зашло (`getCursorsForSelection` VS Code). */
 export function insertCursorAtEndOfEachLineSelected(viewState: EditorViewState): void {
     const carets: ISelection[] = [];
     for (const selection of viewState.selections) {

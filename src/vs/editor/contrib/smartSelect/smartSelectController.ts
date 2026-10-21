@@ -4,14 +4,14 @@ import { type IRange, rangeContainsPosition, rangesEqual } from "../../common/co
 import { createSelection, type ISelection, selectionToRange } from "../../common/core/iSelection.ts";
 import type { EditorViewState } from "../../common/viewModel/editorViewState.ts";
 
-/** Иерархия одной каретки и текущая ступень в ней (upstream `SelectionRanges`). */
+/** Upstream `SelectionRanges`. */
 class SelectionRanges {
     public constructor(
         public readonly index: number,
         public readonly ranges: readonly IRange[],
     ) {}
 
-    /** Шаг вширь или вглубь; ступень, равная текущей, проскакивается. За краем — стоим. */
+    /** Ступень, равная текущей, проскакивается. */
     public mov(forward: boolean): SelectionRanges {
         const index = this.index + (forward ? 1 : -1);
         if (index < 0 || index >= this.ranges.length) return this;
@@ -20,15 +20,11 @@ class SelectionRanges {
     }
 }
 
-/** Иерархии выделений для позиций кареток — `provideSelectionRanges` с данными документа. */
 export type ComputeSelectionRanges = (positions: readonly IPosition[]) => Promise<IRange[][]>;
 
 /**
- * Expand / Shrink Selection одного редактора (upstream `SmartSelectController`).
- * Первый шаг спрашивает иерархии для активных концов кареток и запоминает их
- * стеком; следующие шаги ходят по нему вширь и вглубь. Любая смена выделения
- * не этим контроллером (движение каретки, набор, мышь) забывает стек — как и
- * правка документа, даже без сдвига каретки.
+ * Upstream `SmartSelectController`. Любая смена выделения не этим контроллером
+ * забывает стек — как и правка документа, даже без сдвига каретки.
  */
 export class SmartSelectController {
     private state: SelectionRanges[] | undefined;
@@ -47,14 +43,11 @@ export class SmartSelectController {
             const selections = this.viewState.selections;
             const versionId = document.versionId;
             const ranges = await compute(selections.map((selection) => selection.active));
-            // Ответ без иерархии на каждую каретку — невалиден.
             if (ranges.length !== selections.length) return;
-            // Пока считали, человек ушёл кареткой или правил — ответ протух.
             if (document.versionId !== versionId || !sameSelections(this.viewState.selections, selections)) return;
 
             this.state = ranges.map((oneRanges, i) => {
                 const selected = selectionToRange(selections[i]);
-                // Ступени внутри текущего выделения не нужны; первая — само выделение.
                 const enclosing = oneRanges.filter(
                     (range) =>
                         rangeContainsPosition(range, selected.start) && rangeContainsPosition(range, selected.end),

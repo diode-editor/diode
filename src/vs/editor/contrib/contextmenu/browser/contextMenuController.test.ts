@@ -57,7 +57,6 @@ function setup(text = "hello world\nsecond line", configuration?: IConfiguration
     return { app, editor, view, executed };
 }
 
-/** Правый press+release по локальной точке редактора — честный мышиный путь. */
 function rightClick(app: TestApp, editor: EditorElement, localX: number, localY: number): void {
     const x = editor.globalPosition.x + localX + 1; // MouseToken 1-based
     const y = editor.globalPosition.y + localY + 1;
@@ -104,11 +103,7 @@ describe("editor/contrib/contextmenu — ContextMenuController", () => {
 
         const popup = openPopup(app);
         expect(popup).not.toBeNull();
-        // Состав — дословно upstream'ский (группы `1_modification`,
-        // `9_cutcopypaste`, `z_commands`). Пункты языковых фич (Go to
-        // Definition, Rename Symbol, Format Document, …) гейтятся ключами
-        // `editorHas*Provider`, а в этом минимальном приложении провайдеров
-        // нет — потому их здесь и не видно.
+        // Пункты языковых фич гейтятся ключами `editorHas*Provider`, а провайдеров здесь нет.
         expect(popup?.entries.map((e) => (e.type === "separator" ? "─" : e.label))).toEqual([
             "Change All Occurrences",
             "─",
@@ -174,7 +169,6 @@ describe("editor/contrib/contextmenu — ContextMenuController", () => {
         expect(items.length).toBe(1);
         const caret = editor.getCaretScreenCell();
         expect(caret).not.toBeNull();
-        // Попап открыт строкой ниже якоря (preferBelow), по x — от каретки.
         expect(items[0].position.x).toBe(caret!.x);
         expect(items[0].position.y).toBe(caret!.y + 1);
     });

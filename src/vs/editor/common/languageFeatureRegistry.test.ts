@@ -34,7 +34,6 @@ describe("LanguageFeatureRegistry", () => {
         const registry = new LanguageFeatureRegistry<string>();
         registry.register("markdown", "md");
         registry.register("*", "any");
-        // Под ts «md» уезжает в хвост (score 0); под md он снова первый.
         expect(registry.ordered(ts)).toEqual(["any"]);
         expect(registry.ordered(md)).toEqual(["md", "any"]);
     });
@@ -53,8 +52,7 @@ describe("LanguageFeatureRegistry", () => {
         const registry = new LanguageFeatureRegistry<string>();
         registry.register({ language: "*", exclusive: true }, "exclusive");
         registry.register("typescript", "later");
-        // По score «later» (10) обогнал бы «exclusive» (5), но эксклюзивный подошёл
-        // первым в обходе — и обнулил всех, включая ещё не посчитанных.
+        // По score «later» (10) обогнал бы «exclusive» (5), но эксклюзивный обнуляет всех.
         expect(registry.ordered(ts)).toEqual(["exclusive"]);
         expect(registry.ordered(md)).toEqual(["exclusive"]);
     });
@@ -90,7 +88,6 @@ describe("LanguageFeatureRegistry", () => {
         const registry = new LanguageFeatureRegistry<string>();
         const kept = vi.fn();
         const removed = vi.fn();
-        // Снимаемый слушатель — первый в списке: граница индекса 0.
         const sub = registry.onDidChange(removed);
         registry.onDidChange(kept);
         sub.dispose();

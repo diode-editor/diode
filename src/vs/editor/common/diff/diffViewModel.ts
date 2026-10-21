@@ -2,58 +2,36 @@ import type { DetailedLineRangeMapping } from "./rangeMapping.ts";
 import { LineRangeMapping } from "./rangeMapping.ts";
 
 /**
- * Модель отображения диффа: превращает результат {@link DefaultLinesDiffComputer}
- * в упорядоченный список строк вью, в котором неизменённые куски при желании
- * схлопнуты в плейсхолдер «⋯ N строк».
- *
- * **Модель не знает о тексте — только о номерах строк.** Контент по этим номерам
- * достаёт рендер. Отсюда даром получается ленивость, ради которой всё и
- * затевалось: модель физически не может затащить в память файл целиком, поэтому
- * превью изменения одной строки в стомегабайтном файле стоит столько же, сколько
- * превью изменения в маленьком.
- *
- * Аналог у upstream — `editor/browser/widget/diffEditor/diffEditorViewModel.ts`,
- * но там модель завязана на `observable` и на пару monaco-редакторов; у нас это
- * чистая логика в `editor/common`, поэтому перенесён алгоритм, а не код.
+ * **Модель не знает о тексте — только о номерах строк**, контент достаёт рендер:
+ * так превью правки одной строки в стомегабайтном файле стоит столько же, сколько
+ * в маленьком. Алгоритм upstream `diffEditorViewModel.ts`, без его `observable`.
  */
 
-/** Строка вью: либо строка одной из сторон, либо свёрнутый кусок. */
 export type IDiffViewRow =
     | { readonly kind: "unchanged"; readonly originalLine: number; readonly modifiedLine: number }
     | { readonly kind: "deleted"; readonly originalLine: number }
     | { readonly kind: "added"; readonly modifiedLine: number }
     | { readonly kind: "collapsed"; readonly hiddenLineCount: number; readonly regionIndex: number };
 
-/** Свёрнутый (полностью или частично) неизменённый кусок. Номера строк 0-based. */
+/** Номера строк 0-based. */
 export interface IUnchangedRegion {
     readonly originalStartLine: number;
     readonly modifiedStartLine: number;
-    /** Всего строк в куске — включая уже раскрытые. */
+    /** Включая уже раскрытые. */
     readonly lineCount: number;
-    /** Раскрыто сверху / снизу. */
     readonly visibleTop: number;
     readonly visibleBottom: number;
-    /** Сколько ещё спрятано; `0` — кусок раскрыт полностью. */
     readonly hiddenLineCount: number;
 }
 
 export interface IDiffViewOptions {
-    /**
-     * Прятать неизменённые куски. Дефолт `false` — как
-     * `diffEditor.hideUnchangedRegions.enabled` в upstream: показываем файл целиком.
-     * Свёртка нужна там, где материализовать файл дорого или негде (превью из
-     * списка изменений, просмотр коммита, мало строк на экране).
-     */
     readonly hideUnchangedRegions: boolean;
-    /** Сколько строк оставлять видимыми по краям свёрнутого куска. */
     readonly contextLineCount: number;
-    /** Короче этого не прячем — плейсхолдер вместо двух строк только мешает. */
     readonly minimumHiddenLineCount: number;
-    /** Шаг частичного раскрытия. */
     readonly revealLineCount: number;
 }
 
-/** Дефолты повторяют `diffEditorDefaultOptions.hideUnchangedRegions` в upstream. */
+/** Как `diffEditorDefaultOptions.hideUnchangedRegions` в upstream. */
 export const DEFAULT_DIFF_VIEW_OPTIONS: IDiffViewOptions = {
     hideUnchangedRegions: false,
     contextLineCount: 3,
@@ -61,7 +39,7 @@ export const DEFAULT_DIFF_VIEW_OPTIONS: IDiffViewOptions = {
     revealLineCount: 20,
 };
 
-/** Состояние раскрытия куска. Внутри модели номера строк 1-based, как в `LineRange`. */
+/** Внутри модели номера строк 1-based, как в `LineRange`. */
 interface IRegionState {
     originalLineNumber: number;
     modifiedLineNumber: number;
@@ -76,7 +54,6 @@ export class DiffViewModel {
     private readonly modifiedLineCount: number;
     private readonly options: IDiffViewOptions;
     private readonly regionStates: IRegionState[];
-    /** Пересобирается лениво: раскрытие куска только сбрасывает кэш. */
     private rowsCache: readonly IDiffViewRow[] | null = null;
 
     public constructor(
@@ -108,11 +85,7 @@ export class DiffViewModel {
         }));
     }
 
-    /**
-     * Раскрывает кусок: без `from` — целиком, иначе `lineCount` строк с указанного
-     * края (по умолчанию — шаг `revealLineCount`). Раскрытие сверх размера куска
-     * клампится. Неизвестный индекс — no-op.
-     */
+    /** Без `from` — целиком. */
     public expandRegion(index: number, from?: "top" | "bottom", lineCount?: number): void {
         const state = this.regionStates.at(index);
         if (state === undefined || index < 0) return;
@@ -135,12 +108,7 @@ export class DiffViewModel {
         for (let i = 0; i < this.regionStates.length; i++) this.expandRegion(i);
     }
 
-    /**
-     * Портированный `UnchangedRegion.fromDiffs` из upstream: инвертируем изменения
-     * (получая неизменённые промежутки) и срезаем у каждого контекст — с одной
-     * стороны у краёв файла, с обеих в середине. Промежутки, от которых после
-     * среза осталось меньше `minimumHiddenLineCount`, не прячем вовсе.
-     */
+    /** Портированный `UnchangedRegion.fromDiffs` из upstream. */
     private computeRegions(): IRegionState[] {
         const { contextLineCount: context, minimumHiddenLineCount: minHidden } = this.options;
         const result: IRegionState[] = [];
@@ -177,12 +145,6 @@ export class DiffViewModel {
         return result;
     }
 
-    /**
-     * Разворачивает изменения в строки вью: неизменённый промежуток → удалённые
-     * строки → добавленные, и так по каждому изменению, плюс хвост после
-     * последнего. Порядок «сначала удалённые, потом добавленные» — то, как
-     * inline-дифф читается глазами.
-     */
     private buildRows(): IDiffViewRow[] {
         const rows: IDiffViewRow[] = [];
         let originalLine = 1;

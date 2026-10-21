@@ -57,7 +57,6 @@ class FakeRangeProvider implements DocumentRangeSemanticTokensProvider {
 
 const THEME: ISemanticTokenStyleResolver = { ...NULL_SEMANTIC_TOKEN_STYLE_RESOLVER, semanticHighlighting: true };
 
-/** Документ из `count` строк вида `line N`. */
 function documentOf(count: number): TextDocument {
     return new TextDocument(Array.from({ length: count }, (_, i) => `line ${String(i)}`).join("\n"), "java");
 }

@@ -6,7 +6,6 @@ function plan(lines: string[], which: number[], mode: "toggle" | "add" | "remove
     return planLineComments((line) => lines[line], which, token, mode);
 }
 
-/** Применяет план к строкам — ассертим наблюдаемый текст, а не устройство правок. */
 function apply(lines: string[], which: number[], mode: "toggle" | "add" | "remove" = "toggle", token = "//") {
     const result = [...lines];
     const p = plan(lines, which, mode, token);

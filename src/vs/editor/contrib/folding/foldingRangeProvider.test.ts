@@ -39,10 +39,6 @@ describe("computeIndentationFolds", () => {
     });
 
     it("detects a single indented block", () => {
-        // 0: f() {
-        // 1:   a
-        // 2:   b
-        // 3: }
         expect(folds("f() {\n  a\n  b\n}")).toEqual([{ startLine: 0, endLine: 2 }]);
     });
 
@@ -56,10 +52,6 @@ describe("computeIndentationFolds", () => {
     });
 
     it("detects nested regions", () => {
-        // 0: a:
-        // 1:   b:
-        // 2:     c
-        // 3:   d
         expect(folds("a:\n  b:\n    c\n  d")).toEqual([
             { startLine: 0, endLine: 3 },
             { startLine: 1, endLine: 2 },
@@ -67,18 +59,10 @@ describe("computeIndentationFolds", () => {
     });
 
     it("attaches trailing blank lines to the enclosing region", () => {
-        // 0: a:
-        // 1:   b
-        // 2: (blank)
-        // 3: c
         expect(folds("a:\n  b\n\nc")).toEqual([{ startLine: 0, endLine: 2 }]);
     });
 
     it("closes a region when indentation returns to the header level", () => {
-        // 0: a:
-        // 1:   b
-        // 2: c:
-        // 3:   d
         expect(folds("a:\n  b\nc:\n  d")).toEqual([
             { startLine: 0, endLine: 1 },
             { startLine: 2, endLine: 3 },

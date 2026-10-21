@@ -1,58 +1,25 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
 
-/**
- * Сервис определения language id по пути к файлу.
- *
- * Реализуется в `Extensions/LanguageRegistry`. Editor/Workbench зависят
- * только от этого интерфейса — это та же дисциплина, что и с
- * {@link ITokenStyleResolver}: тип живёт здесь, реализация — в верхних
- * слоях. Никаких прямых импортов `Extensions/*` из Editor/Workbench.
- */
 export interface ILanguageService {
-    /**
-     * Возвращает language id для данного абсолютного или относительного
-     * пути к файлу, либо `undefined`, если язык не зарегистрирован
-     * (потребитель тогда обычно откатывается на `"plaintext"`).
-     */
+    /** `undefined` — язык не зарегистрирован (потребитель обычно берёт `"plaintext"`). */
     getLanguageIdForResource(filePath: string): string | undefined;
 
-    /**
-     * Человекочитаемое имя языка для UI (конвенция VS Code: первый alias
-     * из `contributes.languages`, например `"TypeScript"` для
-     * `typescript`). `undefined`, если язык не зарегистрирован или без
-     * alias'ов — потребитель откатывается на сырой language id.
-     */
+    /** Конвенция VS Code: первый alias из `contributes.languages`. */
     getLanguageDisplayName(languageId: string): string | undefined;
 
-    /**
-     * Основное расширение языка вместе с точкой (`".ts"` для `typescript`) —
-     * обратная операция к {@link getLanguageIdForResource}. Конвенция та же, что
-     * у alias'ов: первое из `contributes.languages`. `undefined`, если язык не
-     * зарегистрирован или не заявил ни одного расширения.
-     *
-     * Нужно там, где имя файла надо предложить, а не разобрать: Save As
-     * безымянного буфера отталкивается от его языка (`plaintext` → `.txt`).
-     */
+    /** С точкой (`".ts"`); первое из `contributes.languages`. */
     getExtensionForLanguage(languageId: string): string | undefined;
 
     /**
-     * Модели понадобились фичи языка (аналог `requestRichLanguageFeatures` у
-     * vscode): документ открылся с этим языком или сменил на него. Так узнают
-     * те, кто поднимает фичи лениво, — сейчас это активация расширений по
-     * `onLanguage:<id>`. Сигнал один на язык за жизнь окна: повторный запрос
-     * того же языка — no-op.
+     * Аналог `requestRichLanguageFeatures` у vscode (активация по
+     * `onLanguage:<id>`). Сигнал один на язык за жизнь окна.
      */
     requestLanguageFeatures(languageId: string): void;
 
-    /** Язык запрошен впервые (см. {@link requestLanguageFeatures}). */
     onDidRequestLanguageFeatures(listener: (languageId: string) => void): IDisposable;
 }
 
-/**
- * Заглушка для случаев, когда `ILanguageService` ещё не подключён
- * (тесты, ранний bootstrap). Всегда возвращает `undefined`.
- */
 export const NULL_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: () => undefined,
     getLanguageDisplayName: () => undefined,

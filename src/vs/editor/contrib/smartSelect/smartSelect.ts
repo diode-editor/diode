@@ -16,30 +16,21 @@ export interface ISelectionRangesOptions {
     readonly selectSubwords: boolean;
 }
 
-/** Всё, из чего собираются диапазоны одного запроса. */
 export interface ISelectionRangesInput {
     readonly document: ITextDocument;
     readonly uri: string;
     readonly positions: readonly IPosition[];
-    /** Языковые провайдеры, подошедшие документу (`registry.ordered`). */
     readonly providers: readonly SelectionRangeProvider[];
-    /** Скобки языка (`brackets` language configuration) — для фоллбека без провайдеров. */
+    /** Для фоллбека без провайдеров. */
     readonly brackets: readonly CharacterPair[];
     readonly isCodeAt?: IsCodeAt;
     readonly options: ISelectionRangesOptions;
 }
 
 /**
- * Иерархии выделений для каждой позиции, от внутренней к внешней (upstream
- * `smartSelect.ts:provideSelectionRanges`). Провайдер слов спрашивается
- * всегда; скобочный — только когда языковых провайдеров нет. Ответы
- * сливаются: сортировка от узкого к широкому, затем цепочка, где каждый
- * следующий диапазон строго содержит предыдущий. С
- * `selectLeadingAndTrailingWhitespace` при переходе на другие строки
- * вставляются ступени «строки без отступа» и «строки целиком».
- *
- * Ответ провайдера, не выровненный по позициям, отбрасывается целиком; сбой
- * провайдера — «ответа нет», остальные не страдают.
+ * Upstream `smartSelect.ts:provideSelectionRanges`: от внутреннего к внешнему,
+ * каждый следующий строго содержит предыдущий. Ответ провайдера, не выровненный
+ * по позициям, отбрасывается целиком.
  */
 export async function provideSelectionRanges(
     input: ISelectionRangesInput,
@@ -77,16 +68,11 @@ function rangeContainsRange(outer: IRange, inner: IRange): boolean {
     return comparePositions(outer.start, inner.start) <= 0 && comparePositions(inner.end, outer.end) <= 0;
 }
 
-/** «Строго шире»: содержит и не совпадает. */
 function strictlyContains(outer: IRange, inner: IRange): boolean {
     return rangeContainsRange(outer, inner) && !rangesEqual(outer, inner);
 }
 
-/**
- * Узкие первыми: позднее начало — раньше, при равном начале — раньше конец.
- * Дальше цепочка: диапазон, не содержащий предыдущий (пересекающийся сбоку)
- * или равный ему, выпадает.
- */
+/** Диапазон, пересекающийся с предыдущим сбоку или равный ему, выпадает. */
 function toChain(ranges: IRange[]): IRange[] {
     ranges.sort((a, b) => comparePositions(b.start, a.start) || comparePositions(a.end, b.end));
     const chain: IRange[] = [];
@@ -97,11 +83,7 @@ function toChain(ranges: IRange[]): IRange[] {
     return chain;
 }
 
-/**
- * Ступени между диапазоном и следующим, который выходит на другие строки:
- * те же строки без отступа и хвостовых пробелов, затем строки целиком
- * (каждая — только если строго между соседями).
- */
+/** Ступени «строки без отступа» и «строки целиком» — только строго между соседями. */
 function withLineTrivia(document: ITextDocument, chain: readonly IRange[]): IRange[] {
     const result: IRange[] = [];
     let prev: IRange | undefined;

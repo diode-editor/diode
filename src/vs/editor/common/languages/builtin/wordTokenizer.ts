@@ -55,11 +55,7 @@ const KEYWORDS = new Set([
     "enum",
 ]);
 
-/**
- * Цвета классов слов — id в colorMap темы (`ColorId`): у демо-токенизатора
- * темы нет, тест ставит резолверу colorMap, где по этим индексам свои цвета.
- * Идентификаторы и прочий текст — цвет по умолчанию.
- */
+/** Индексы colorMap: у демо-токенизатора темы нет, тест ставит резолверу свой colorMap. */
 export const WordTokenColor = {
     keyword: 3,
     number: 4,
@@ -96,13 +92,7 @@ function isDigit(ch: string): boolean {
     return ch >= "0" && ch <= "9";
 }
 
-/**
- * Tiny stateless tokenizer for demos and tests.
- * Recognises keywords, numbers, double-/single-quoted strings, line comments
- * (`//`), and identifiers. Anything else is emitted as default text. Соседние
- * токены одного вида склеиваются (как у `tokenizeLine2`). Multi-line
- * constructs are not supported.
- */
+/** Для демо и тестов. Соседние токены одного вида склеиваются, как у `tokenizeLine2`. */
 export class WordTokenizer implements ITokenizationSupport {
     public getInitialState(): IState {
         return NULL_STATE;

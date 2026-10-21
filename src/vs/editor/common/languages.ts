@@ -3,12 +3,8 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/editor/common/languages.ts
-// Узкое извлечение под перенесённую токенизацию (model/textModelTokens.ts,
-// tokens/*, languages/nullTokenize.ts; см. шапку src/vs/base/common/arrays.ts).
-// Upstream — ~2.5k строк провайдеров языковых фич; здесь только контракт
-// токенизатора. Токены — бинарные, как у эталона (B2, docs/TODO/VscodeModel.md):
-// `Uint32Array`, по два числа на токен — начало и метаданные
-// (`encodedTokenAttributes.ts`).
+// Узкое извлечение: из ~2.5k строк upstream — только контракт токенизатора
+// под перенесённую токенизацию.
 
 import type { LanguageId } from "./encodedTokenAttributes.ts";
 import type { IState } from "./languages/iState.ts";
@@ -42,11 +38,7 @@ export class TokenizationResult {
     }
 }
 
-/**
- * Шрифт куска строки (upstream — для токенов с другим шрифтом/кеглем). Наш
- * vscode-textmate (9.3) шрифтов не отдаёт, терминалу они ни к чему: массив
- * всегда пуст — поле держим ради формы upstream-конструктора.
- */
+/** Наш vscode-textmate шрифтов не отдаёт: массив всегда пуст, держим ради формы upstream-конструктора. */
 export interface IFontToken {
     readonly startIndex: number;
     readonly endIndex: number;
@@ -72,20 +64,13 @@ export class EncodedTokenizationResult {
     }
 }
 
-/**
- * Построчный токенизатор. Upstream требует ещё `tokenize` (токены строками —
- * для раскраски вне модели) и умеет свой фоновый токенизатор
- * (`createBackgroundTokenizer`, воркер — B3); нам нужен бинарный путь.
- */
+/** Без upstream `tokenize` и `createBackgroundTokenizer`: нужен только бинарный путь. */
 export interface ITokenizationSupport {
     getInitialState(): IState;
     tokenizeEncoded(line: string, hasEOL: boolean, state: IState): EncodedTokenizationResult;
 }
 
-/**
- * Числовой id языка в метаданных токена. Языки по id у нас не кодируются
- * (встроенные языки грамматик не различаем): кодек токен-стора отдаёт 0.
- */
+/** Встроенные языки грамматик не различаем: кодек токен-стора отдаёт 0. */
 export interface ILanguageIdCodec {
     encodeLanguageId(languageId: string): LanguageId;
     decodeLanguageId(languageId: LanguageId): string;

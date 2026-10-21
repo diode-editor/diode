@@ -13,9 +13,6 @@ function makeStubSupport(): ITokenizationSupport {
     };
 }
 
-// Focused on the change-notification semantics around register()'s dispose
-// (lines 21-24) and onDidChange (lines 33-41): which mutations fire onDidChange
-// and which stay silent.
 describe("TokenizationRegistry — change notifications", () => {
     it("does not fire onDidChange on subscription, only on register()", () => {
         const reg = new TokenizationRegistry();
@@ -69,7 +66,6 @@ describe("TokenizationRegistry — change notifications", () => {
         reg.register("css", fresh);
 
         expect(reg.get("css")).toBe(fresh);
-        // register, dispose, register again.
         expect(seen).toEqual(["css", "css", "css"]);
     });
 
@@ -102,8 +98,6 @@ describe("TokenizationRegistry — change notifications", () => {
     });
 });
 
-// colorMap темы: токены держат индексы цветов, поэтому смена темы — событие
-// по каждому языку с support'ом (владельцы токенов перетокенизируют документы).
 describe("TokenizationRegistry — colorMap", () => {
     it("getColorMap() — null, пока тему не ставили", () => {
         expect(new TokenizationRegistry().getColorMap()).toBeNull();
@@ -122,7 +116,6 @@ describe("TokenizationRegistry — colorMap", () => {
         reg.setColorMap(colorMap);
 
         expect(reg.getColorMap()).toBe(colorMap);
-        // Незагруженный ленивый язык (rust) токенов не держит — молчим про него.
         expect([...seen].sort()).toEqual(["css", "typescript"]);
     });
 

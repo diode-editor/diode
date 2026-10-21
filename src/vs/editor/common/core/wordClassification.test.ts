@@ -27,17 +27,10 @@ describe("findWordRangeAt", () => {
 
     it("на пробеле и пунктуации слова нет", () => {
         expect(findWordRangeAt(" foo", 0)).toBeNull();
-        // Между двумя разделителями: ни под кареткой, ни перед ней слова нет.
         expect(findWordRangeAt("a..b", 2)).toBeNull();
         expect(findWordRangeAt("", 0)).toBeNull();
     });
 
-    /**
-     * Позиция каретки приезжает из состояния вью и бывает «протухшей» на кадр
-     * (правка мимо вью, позиция от расширения). Раньше такая позиция роняла ВЕСЬ
-     * редактор: `line[character - 1]` давал undefined, и чтение `.length` летело
-     * из render — highlight вхождений зовётся оттуда, и ловить исключение некому.
-     */
     describe("позиция вне строки", () => {
         it("за концом строки — слово у конца, без падения", () => {
             expect(findWordRangeAt("foo", 4)).toEqual({ start: 0, end: 3 });
@@ -55,7 +48,6 @@ describe("findWordRangeAt", () => {
         });
 
         it("дробная позиция обрезается к целой колонке", () => {
-            // 3.9 — это всё ещё колонка 3 (конец «foo»), а не начало «bar».
             expect(findWordRangeAt("foo bar", 3.9)).toEqual({ start: 0, end: 3 });
         });
 

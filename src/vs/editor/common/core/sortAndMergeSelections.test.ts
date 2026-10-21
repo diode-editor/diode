@@ -4,7 +4,7 @@ import type { ISelection } from "./iSelection.ts";
 import { createCursorSelection, createSelection } from "./iSelection.ts";
 import { sortAndMergeSelections } from "./sortAndMergeSelections.ts";
 
-/** Компактный вид выделения для ассертов: [anchorLine, anchorCh, activeLine, activeCh]. */
+/** [anchorLine, anchorCh, activeLine, activeCh]. */
 function shape(selection: ISelection): number[] {
     return [selection.anchor.line, selection.anchor.character, selection.active.line, selection.active.character];
 }
@@ -34,7 +34,6 @@ describe("sortAndMergeSelections — сортировка", () => {
     });
 
     it("сортирует по началу диапазона, а не по active (обратное выделение)", () => {
-        // Обратное выделение (2,0)→(0,0): его начало — строка 0, значит оно первое.
         const backwards = createSelection(2, 0, 0, 0);
         const later = createCursorSelection(3, 0);
         expect(sortAndMergeSelections([later, backwards])[0]).toBe(backwards);
@@ -43,7 +42,6 @@ describe("sortAndMergeSelections — сортировка", () => {
     it("при общем начале порядок задаёт конец диапазона, а не стабильность sort", () => {
         const longer = createSelection(0, 0, 0, 6);
         const shorter = createSelection(0, 0, 0, 2);
-        // Оба порядка на входе дают один и тот же результат — это и есть детерминизм.
         expect(sortAndMergeSelections([longer, shorter])).toHaveLength(1);
         expect(shape(sortAndMergeSelections([longer, shorter])[0])).toEqual([0, 0, 0, 6]);
         expect(shape(sortAndMergeSelections([shorter, longer])[0])).toEqual([0, 0, 0, 6]);
@@ -134,7 +132,6 @@ describe("sortAndMergeSelections — слияние непустых выдел�
 
 describe("sortAndMergeSelections — направление и idealColumn", () => {
     it("направление наследуется от позже добавленного (он идёт вторым, LTR)", () => {
-        // Первое — обратное, второе (позже добавленное) — прямое: побеждает прямое.
         const result = sortAndMergeSelections([createSelection(0, 4, 0, 0), createSelection(0, 2, 0, 7)]);
         expect(shape(result[0])).toEqual([0, 0, 0, 7]);
     });
@@ -145,7 +142,6 @@ describe("sortAndMergeSelections — направление и idealColumn", () 
     });
 
     it("позже добавленный побеждает независимо от места в документе", () => {
-        // Победитель (index 1) начинается РАНЬШЕ, то есть после сортировки идёт первым.
         const result = sortAndMergeSelections([createSelection(0, 3, 0, 7), createSelection(0, 5, 0, 1)]);
         expect(shape(result[0])).toEqual([0, 7, 0, 1]);
     });
@@ -157,7 +153,6 @@ describe("sortAndMergeSelections — направление и idealColumn", () 
     });
 
     it("idealColumn сбрасывается, когда active победителя переехал", () => {
-        // Победитель обратный: его active в 2, а объединение начинается в 0 — колонка врала бы.
         const winner = createSelection(0, 5, 0, 2, 42);
         const result = sortAndMergeSelections([createSelection(0, 0, 0, 4), winner]);
         expect(shape(result[0])).toEqual([0, 5, 0, 0]);
