@@ -18,12 +18,6 @@ import { splitPathMatchRanges } from "./pathMatchRanges.ts";
 
 export const FilesQuickAccessProviderDIToken = token<FilesQuickAccessProvider>("FilesQuickAccessProvider");
 
-/**
- * Дефолтный (файловый) провайдер Quick Open: fuzzy-поиск поверх
- * {@link IFileSearchService} с поддержкой суффикса `file:line[:col]`. Индекс
- * строится в фоне — пока показ открыт, провайдер живо обновляет список по мере
- * роста индекса; ввод дорогой, поэтому запросы дебаунсятся (`debounceQuery`).
- */
 export class FilesQuickAccessProvider implements IQuickAccessProvider {
     public static readonly PREFIX = "";
 
@@ -36,7 +30,6 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
 
     public readonly debounceQuery = true;
 
-    /** Живая подписка на рост индекса — только пока пикер открыт. */
     private readonly indexSubscription = new MutableDisposable();
 
     public constructor(
@@ -51,12 +44,9 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
     }
 
     public onShow(refresh: (preserveSelection: boolean) => void): void {
-        // Kick a throttled background re-index and refresh the list live as
-        // it grows (the index builds in the background, not on a watcher).
         this.fileSearch.refreshIfStale();
         this.indexSubscription.value = this.fileSearch.onIndexChanged(() => {
-            // The list grew in the background for the same query — refresh the
-            // results without resetting the cursor the user is navigating.
+            // Список вырос в фоне для того же запроса — курсор не сбрасываем.
             refresh(true);
         });
     }
@@ -75,7 +65,6 @@ export class FilesQuickAccessProvider implements IQuickAccessProvider {
             const basename = nodePath.basename(r.entry.relativePath);
             const dir = nodePath.dirname(r.entry.relativePath);
 
-            // Split matchedIndices into basename vs. directory ranges for highlighting
             const { labelRanges, descriptionRanges } = splitPathMatchRanges(
                 r.matchedIndices,
                 r.entry.relativePath.length - basename.length,

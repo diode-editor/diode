@@ -22,9 +22,8 @@ const DECORATION_COLORS_SETTING = "explorer.decorations.colors";
 const DECORATION_BADGES_SETTING = "explorer.decorations.badges";
 
 /**
- * Цепочка строк дерева от корня до `filePath`. Предков раскрываем по ходу:
- * компактную цепочку (`explorer.compactFolders`) провайдер узнаёт, только
- * когда её голову раскрыли, а она решает, какая строка следующая.
+ * Предков раскрываем по ходу: компактную цепочку провайдер узнаёт, только когда её
+ * голову раскрыли, а она решает, какая строка следующая.
  */
 async function revealChain(
     view: IExplorerView,
@@ -47,31 +46,17 @@ async function revealChain(
             chain.push(node);
             await view.expand(node);
         }
-        // После раскрытия `node.path` — последняя папка его цепочки. Цель не
-        // под ней — значит, цель и есть эта строка: сама последняя папка или
-        // промежуточная, свёрнутая в строку (эталон выделяет компактный узел,
-        // текущий сегмент при этом не трогает — `setIndex` зовут только клик и
-        // команды `*CompressedFolder`).
-        // Так же — устаревшая цепочка (вход появился в промежуточной папке, а
-        // наблюдатель ещё не дошёл): выделяем ближайшую строку, что его содержит.
+        // Цель не под последней папкой цепочки — значит, цель и есть эта строка (эталон выделяет
+        // компактный узел, текущий сегмент не трогая). Так же — устаревшая цепочка: ближайшая строка.
         if (!filePath.startsWith(node.path + path.sep)) return chain;
-        // Каждый шаг обязан уйти хотя бы на сегмент глубже. `node.path` может
-        // остаться выше `childPath`: провайдер знает цепочку, а узел строки её
-        // ещё не получил, и `expand` уже раскрытого ключа — no-op, который его
-        // не обновит. Шагнуть в `node.path` тогда — снова прийти к той же
-        // строке, и так без конца: `expand` резолвится микротаском, цикл не
-        // отдаёт event loop, и редактор висит намертво (так и было на большом
-        // монорепо). Спускаемся на сегмент сами.
+        // Каждый шаг обязан уйти хотя бы на сегмент глубже: `node.path` может остаться выше
+        // `childPath` (узел строки цепочку ещё не получил, `expand` раскрытого — no-op), и цикл
+        // на микротасках вешал редактор намертво на большом монорепо.
         dir = node.path.startsWith(dir + path.sep) ? node.path : childPath;
     }
 }
 
-/**
- * Минимальный срез дерева Explorer'а, нужный сервису: refresh/reveal/фокус,
- * выбор и подсветка «вырезанных». `TreeViewElement<FileTreeNode>` соответствует
- * ему структурно; регистрирует его `ExplorerComponent` через {@link ExplorerService.attachView}
- * (сервис про конкретные контролы/компоненты не знает).
- */
+/** `TreeViewElement<FileTreeNode>` соответствует структурно; сервис про конкретные контролы не знает. */
 export interface IExplorerView {
     refresh(): Promise<void>;
     expand(element: FileTreeNode): Promise<void>;
@@ -90,16 +75,8 @@ export interface IExplorerView {
 }
 
 /**
- * Сервис Explorer'а (аналог `IExplorerService` VS Code): корень СВОЕГО дерева,
- * провайдер данных дерева ({@link FileTreeDataProvider}), reveal/refresh,
- * выбор, статус-декорации файлов и подсветка «вырезанных» (следует за
- * {@link IFileClipboard}). View приходит через шов {@link IExplorerView} —
- * без него операции над деревом деградируют в no-op.
- *
- * Источником правды о папках воркспейса этот сервис больше НЕ является: за
- * корнем ходят в `IWorkspaceContextService` (`platform/workspace/common`).
- * Здесь остался только корень дерева — он же приезжает от владельца папки
- * (`WorkbenchComponent.setWorkspaceFolder`) через {@link setRootPath}.
+ * Аналог `IExplorerService` VS Code. Без {@link IExplorerView} операции над деревом — no-op.
+ * Источник правды о папках воркспейса — `IWorkspaceContextService`, здесь только корень дерева.
  */
 export class ExplorerService extends Disposable {
     public static dependencies = [
@@ -109,7 +86,6 @@ export class ExplorerService extends Disposable {
         ITreeFileWatcherDIToken,
     ] as const;
 
-    /** Активный провайдер дерева (создаётся в {@link setRootPath}); читает его компонент. */
     public provider: FileTreeDataProvider | null = null;
 
     private rootPath: string | null = null;
@@ -128,18 +104,13 @@ export class ExplorerService extends Disposable {
     ) {
         super();
         this.configurationService = configurationService;
-        // Подсветка «вырезанных» файлов в дереве следует за состоянием буфера.
         this.register(
             fileClipboard.onDidChange((entry) => {
                 this.setCutPaths(entry?.mode === "cut" ? entry.paths : []);
             }),
         );
-        // `files.exclude` живая: провайдер читает её на каждый readdir, но
-        // перечитать дерево ему никто не скажет — говорим здесь. Сам набор
-        // шаблонов в сравнении не участвует: дифф ключей уже посчитал
-        // ConfigurationService, а лишний refresh дешевле пропущенного.
-        // `explorer.compactFolders` — так же: найденные цепочки собираются
-        // заново (от `files.exclude` зависит, единственный ли ребёнок у папки).
+        // `files.exclude` и `explorer.compactFolders` живые, но перечитать дерево провайдеру никто
+        // не скажет; набор шаблонов не сравниваем — лишний refresh дешевле пропущенного.
         this.register(
             configurationService.onDidChangeConfiguration((event) => {
                 if (
@@ -160,7 +131,6 @@ export class ExplorerService extends Disposable {
         );
     }
 
-    /** Смена корня перестраивает провайдер и оповещает подписчиков (компонент строит новое дерево). */
     public readonly onDidChangeRoot = this.onDidChangeRootEmitter.event;
 
     public setRootPath(rootPath: string): void {
@@ -177,7 +147,7 @@ export class ExplorerService extends Disposable {
         this.onDidChangeRootEmitter.fire();
     }
 
-    /** Регистрация дерева компонентом (null — отцепить). */
+    /** `null` — отцепить. */
     public attachView(view: IExplorerView | null): void {
         this.view = view;
     }
@@ -192,10 +162,7 @@ export class ExplorerService extends Disposable {
         this.view?.focus();
     }
 
-    /**
-     * Раскрывает дерево до файла `filePath` и выделяет его. Путь вне корня игнорируется.
-     * Возвращает `true`, если файл лежит внутри корня (и попытка раскрытия выполнена).
-     */
+    /** Путь вне корня игнорируется; `true` — файл внутри корня. */
     public async revealPath(filePath: string): Promise<boolean> {
         // Провайдер есть ровно тогда, когда есть корень (оба ставит setRootPath).
         const provider = this.provider;
@@ -209,11 +176,7 @@ export class ExplorerService extends Disposable {
         return true;
     }
 
-    /**
-     * Автоматически подсвечивает активный файл в дереве при смене активного редактора,
-     * если включена настройка `explorer.autoReveal`. Фокус не отбирается у редактора —
-     * меняется только выделение/скролл дерева (в отличие от явной команды reveal).
-     */
+    /** Фокус у редактора не отбирается — в отличие от явной команды reveal. */
     public autoRevealActiveFile(filePath: string | null): void {
         const autoReveal = this.configurationService.get("explorer.autoReveal");
         if (!autoReveal) return;
@@ -221,20 +184,13 @@ export class ExplorerService extends Disposable {
         void this.revealPath(filePath);
     }
 
-    /**
-     * Путь, за который отвечает строка узла: у компактной строки — папка её
-     * текущего сегмента (эталон: `CompressedNavigationController.current`), у
-     * обычной — сам `node.path`.
-     */
+    /** У компактной строки — папка текущего сегмента (`CompressedNavigationController.current` эталона). */
     public nodePath(node: FileTreeNode): string {
         if (!node.compactParents || !this.view) return node.path;
         return nodeSegments(node)[this.view.getSegmentIndex(node)] ?? node.path;
     }
 
-    /**
-     * Состояние текущего сегмента строки под курсором — для контекст-ключей
-     * `explorerViewletCompressed*`; `null` — строка не компактная или дерева нет.
-     */
+    /** Для контекст-ключей `explorerViewletCompressed*`; `null` — строка не компактная или дерева нет. */
     public getCompressedFocus(): { readonly first: boolean; readonly last: boolean } | null {
         const node = this.view?.getSelectedNode() ?? null;
         if (!node?.compactParents || !this.view) return null;
@@ -242,7 +198,6 @@ export class ExplorerService extends Disposable {
         return { first: index === 0, last: index === node.compactParents.length };
     }
 
-    /** Команды `*CompressedFolder`: сдвиг текущего сегмента строки под курсором. */
     public moveCompressedFocus(target: "previous" | "next" | "first" | "last"): void {
         switch (target) {
             case "previous":
@@ -261,10 +216,8 @@ export class ExplorerService extends Disposable {
     }
 
     /**
-     * Пути выбранных узлов (множественный выбор либо узел под курсором), как
-     * `getContext` эталона: одна строка — компактная отдаёт папку текущего
-     * сегмента; мультивыбор — компактная строка отдаёт все папки цепочки
-     * (вставка потом схлопывает вложенные, см. `buildPasteEdits`).
+     * Как `getContext` эталона: одна компактная строка отдаёт папку текущего сегмента, в
+     * мультивыборе — все папки цепочки (вставка потом схлопывает вложенные).
      */
     public getSelectedPaths(): string[] {
         const nodes = this.view?.getSelectedNodes() ?? [];
@@ -272,37 +225,25 @@ export class ExplorerService extends Disposable {
         return nodes.flatMap((node) => nodeSegments(node));
     }
 
-    /** Путь выбранного ФАЙЛА под курсором; каталог или пустое дерево — `null` (Open to the Side). */
+    /** Каталог или пустое дерево — `null`. */
     public getSelectedFilePath(): string | null {
         const node = this.view?.getSelectedNode() ?? null;
         return node !== null && !node.isDirectory ? node.path : null;
     }
 
-    /**
-     * Каталог, в который должна выполняться вставка: сам узел под курсором, если это
-     * папка, иначе — его родитель. При пустом дереве — корень.
-     */
     public getPasteTargetDir(): string | null {
         const node = this.view?.getSelectedNode() ?? null;
         if (!node) return this.rootPath;
         return node.isDirectory ? this.nodePath(node) : path.dirname(node.path);
     }
 
-    /**
-     * Проставляет статус-декорации файлов (цвет имени + бейдж) по абсолютному
-     * пути и перерисовывает дерево. Декорации с `propagate` всплывают к папкам
-     * ({@link bubbleFileDecorations}). Цвета приходят уже резолвнутыми — тема тут
-     * ни при чём. Пустой список снимает все декорации.
-     */
+    /** Декорации с `propagate` всплывают к папкам; цвета уже резолвнуты, пустой список снимает все. */
     public setFileDecorations(entries: readonly IFileDecorationEntry[]): void {
         this.fileDecorations = entries;
         this.applyFileDecorations();
     }
 
-    /**
-     * Раздаёт провайдеру держимый набор с учётом `explorer.decorations.colors`
-     * и `explorer.decorations.badges` (эталон гасит ими цвет и бейдж у всех строк).
-     */
+    /** `explorer.decorations.colors`/`badges` гасят цвет и бейдж у всех строк, как в эталоне. */
     private applyFileDecorations(): void {
         if (!this.provider || !this.view) return;
         const colors = this.configurationService.get(DECORATION_COLORS_SETTING);
@@ -316,7 +257,6 @@ export class ExplorerService extends Disposable {
         void this.view.refresh();
     }
 
-    /** Подсвечивает «вырезанные» пути приглушённым цветом (или снимает подсветку). */
     private setCutPaths(paths: string[]): void {
         if (!this.view) return;
         if (paths.length === 0) {

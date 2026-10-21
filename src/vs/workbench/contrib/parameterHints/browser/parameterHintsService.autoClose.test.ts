@@ -31,16 +31,13 @@ const withParens: ILanguageConfigurationService = {
     ensureLoaded: () => Promise.resolve(PARENS),
 };
 
-/** Даёт setTimeout(…, 0) авто-триггера отработать. */
 function flushTimers(): Promise<void> {
     return new Promise((res) => setTimeout(res, 5));
 }
 
 /**
- * Набор триггер-символа узнаётся по событию редактора `onDidType`, а не по
- * «строка выросла ровно на символ»: с авто-закрытием пары `(` вставляет `()`
- * (строка растёт на 2), а typeover `)` строку не меняет вовсе. Раньше в обоих
- * случаях подсказка параметров молчала.
+ * С авто-закрытием `(` вставляет `()` (строка +2), а typeover `)` строку не меняет вовсе — набор
+ * узнаётся только по `onDidType`.
  */
 describe("ParameterHintsService — набор с авто-закрытием пары", () => {
     let ws: ITempWorkspace;

@@ -15,7 +15,6 @@ interface IFakeWatch {
     disposed: boolean;
 }
 
-/** Наблюдатель дерева, которым тест управляет руками. */
 function fakeTreeWatcher(): ITreeFileWatcher & { watches: IFakeWatch[]; live(): string[] } {
     const watches: IFakeWatch[] = [];
     return {

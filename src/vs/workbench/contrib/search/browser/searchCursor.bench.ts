@@ -8,17 +8,9 @@ import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 
 import { buildFileRow, buildMatchRow, type ISearchRowStyles } from "./searchResultRows.ts";
 
-// Сквозной репро тормозов курсора в дереве результатов поиска.
-// Запуск: `npm run test:perf`.
-//
-// Одна итерация = ArrowDown + ArrowUp через настоящий парсер ввода, то есть
-// 4 полных синхронных кадра (keydown + keypress на каждое нажатие). Три
-// фикстуры разделяют вклад двух главных стоимостей:
-//   - длина строки: 2× сегментация DisplayLine на каждый видимый ряд за кадр;
-//   - число строк: O(N) стилевой обход всех дочерних строк на движение курсора.
-//
-// NB: фикстуры на верхнем уровне модуля — в режиме `vitest bench` тяжёлый
-// beforeAll отрабатывает некорректно (бенч не набирает сэмплов).
+// Репро тормозов курсора в дереве результатов поиска (`npm run test:perf`). Итерация — ArrowDown +
+// ArrowUp через настоящий парсер ввода (4 кадра); фикстуры разводят вклад длины строки и числа строк.
+// Фикстуры — на верхнем уровне модуля: в `vitest bench` тяжёлый beforeAll не набирает сэмплов.
 
 const STYLES: ISearchRowStyles = {
     dimFg: packRgb(128, 128, 128),
@@ -44,9 +36,8 @@ function makeSearchApp(rowCount: number, afterLength: number): TestApp {
         }
     }
     const app = TestApp.createWithContent(list, new Size(45, 35));
-    // Меряем движок, а не харнес: assertValidTree (DFS по всем строкам после
-    // каждого кадра, в проде выключен) на 10k-фикстуре давал ~9 мс/кадр и
-    // хоронил измеряемую стоимость.
+    // Меряем движок, а не харнес: assertValidTree (DFS после каждого кадра, в проде выключен) на
+    // 10k-фикстуре давал ~9 мс/кадр и хоронил измеряемую стоимость.
     app.app.validateTreeAfterRender = false;
     list.focus();
     app.render();

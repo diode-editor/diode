@@ -8,11 +8,8 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 export const InputWidgetServiceDIToken = token<InputWidgetService>("InputWidgetService");
 
 /**
- * Редактирующие команды однострочных полей (клипборд, undo, навигация) поверх
- * сфокусированного {@link InputElement}. Своих ключей у сервиса нет
- * (`inputWidgetFocus` центральный), но активное поле он забирает в том же
- * опросе IContextKeyContributor (перед резолвом каждого биндинга и на смене
- * фокуса) — тайминг тот же, что был у центра, когда он раздавал поле сам.
+ * Своих ключей нет (`inputWidgetFocus` центральный), но активное поле сервис забирает в том же
+ * опросе IContextKeyContributor — перед резолвом каждого биндинга и на смене фокуса.
  */
 export class InputWidgetService implements IContextKeyContributor {
     public static dependencies = [] as const;
@@ -26,8 +23,6 @@ export class InputWidgetService implements IContextKeyContributor {
     public updateContextKeys(_contextKeys: unknown, active: TUIElement | null): void {
         this.setActive(active instanceof InputElement ? active : null);
     }
-
-    // ─── Cursor movement ─────────────────────────────────────
 
     public cursorLeft(): void {
         this.activeInput?.inputState.moveCursorLeft();
@@ -59,8 +54,6 @@ export class InputWidgetService implements IContextKeyContributor {
         this.activeInput?.markDirty();
     }
 
-    // ─── Editing ─────────────────────────────────────────────
-
     public deleteLeft(): void {
         if (!this.activeInput) return;
         this.activeInput.inputState.deleteLeft();
@@ -89,8 +82,6 @@ export class InputWidgetService implements IContextKeyContributor {
         this.activeInput.markDirty();
     }
 
-    // ─── Undo / Redo ─────────────────────────────────────────
-
     public undo(): void {
         if (!this.activeInput) return;
         this.activeInput.inputState.undo();
@@ -104,8 +95,6 @@ export class InputWidgetService implements IContextKeyContributor {
         this.activeInput.onChange?.(this.activeInput.inputState.value);
         this.activeInput.markDirty();
     }
-
-    // ─── Selection ───────────────────────────────────────────
 
     public selectLeft(): void {
         this.activeInput?.inputState.selectLeft();
@@ -141,8 +130,6 @@ export class InputWidgetService implements IContextKeyContributor {
         this.activeInput?.inputState.selectAll();
         this.activeInput?.markDirty();
     }
-
-    // ─── Clipboard ───────────────────────────────────────────
 
     public async copy(clipboard: IClipboard): Promise<void> {
         const input = this.activeInput;

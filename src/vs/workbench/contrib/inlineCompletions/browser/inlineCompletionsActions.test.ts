@@ -15,7 +15,6 @@ import {
 import type { InlineCompletionsService } from "./inlineCompletionsService.ts";
 import { InlineCompletionsServiceDIToken } from "./inlineCompletionsService.ts";
 
-/** Контейнер с фейком ровно того сервиса, который дёргают эти экшены. */
 function makeAccessor(): { accessor: Container; calls: string[] } {
     const calls: string[] = [];
     const accessor = new Container();
@@ -48,13 +47,9 @@ describe("inlineCompletionsActions — объявления", () => {
         expect(commitInlineSuggestAction.id).toBe("editor.action.inlineSuggest.commit");
         expect(hideInlineSuggestAction.id).toBe("editor.action.inlineSuggest.hide");
 
-        // Tab у commit: гейты — попап побеждает, подсказка «с отступа» при
-        // каретке в отступе Tab не крадёт.
         expect(commitInlineSuggestAction.when).toBe(
             "inlineSuggestionVisible && !suggestWidgetVisible && inlineSuggestionHasIndentationLessThanTabSize",
         );
-        // Escape у hide: кроме показанного призрака — ещё и окно ожидания
-        // ответа провайдера (там гасить нечего, но отменять есть что).
         expect(hideInlineSuggestAction.when).toBe(
             "inlineSuggestionVisible || (inlineSuggestionRequestPending && textInputFocus)",
         );
@@ -84,15 +79,11 @@ describe("inlineCompletionsActions — объявления", () => {
     it("биндинги: Tab у commit, Escape у hide, Alt+\\ у trigger", () => {
         expect(keybindingOf(commitInlineSuggestAction)).toBe("Tab");
         expect(keybindingOf(hideInlineSuggestAction)).toBe("Escape");
-        // Комбинация Copilot'а (в ядре vscode клавиши у команды нет). В редакторе
-        // горячих клавиш она обязана показаться ровно так — колонка Keybinding.
+        // В редакторе горячих клавиш она обязана показаться ровно так.
         expect(keybindingOf(triggerInlineSuggestAction)).toBe("Alt+\\");
     });
 
     it("Alt+\\ разбирается в тот же keydown, что шлёт терминал (ESC + \\)", () => {
-        // Терминал отдаёт Alt+пунктуация как ESC-префикс, tuidom разбирает это
-        // в `{key: "\\", altKey: true}` — бинд обязан совпасть побайтно, иначе
-        // команда не резолвится (грабля непереносимых комбинаций).
         expect(triggerInlineSuggestAction.keybinding).toEqual({
             key: "\\",
             ctrlKey: false,

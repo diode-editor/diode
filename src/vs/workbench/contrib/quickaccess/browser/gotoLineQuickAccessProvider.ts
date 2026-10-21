@@ -4,11 +4,7 @@ import type { IJumpRecorder } from "../../../services/history/browser/historySer
 import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
 import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
 
-/**
- * The active editor as seen by Go-to-Line. Structurally satisfied by
- * editor pane; kept as a narrow interface so the provider does not depend
- * on the whole editor. All values are 0-based (document coordinates).
- */
+/** Координаты 0-based. */
 export interface IGotoLineEditor {
     readonly lineCount: number;
     readonly primaryCursorLine: number;
@@ -16,13 +12,7 @@ export interface IGotoLineEditor {
     goToPosition(line: number, column?: number): void;
 }
 
-/**
- * Источник активного редактора для Go-to-Line (`:`-режим и `file:line`).
- * Интерфейсный шов: `EditorService` соответствует ему
- * структурно; биндинг — в `Workbench/Modules/WorkbenchModule.ts`. Читается
- * лениво — accept `file:line` берёт редактор *после* открытия файла, так что
- * прыжок происходит в свежеактивированном редакторе.
- */
+/** Читается лениво: accept `file:line` берёт редактор уже после открытия файла. */
 export interface IGotoLineEditorSource {
     getActiveEditor(): IGotoLineEditor | null;
 }
@@ -31,11 +21,6 @@ export const GotoLineEditorSourceDIToken = token<IGotoLineEditorSource>("GotoLin
 
 export const GotoLineQuickAccessProviderDIToken = token<GotoLineQuickAccessProvider>("GotoLineQuickAccessProvider");
 
-/**
- * Go-to-Line (`:`): единственная строка — actionable «Go to line N», как
- * только набран номер, иначе информационный хинт. VS Code показывает ту же
- * однострочную аффордансу вместо списка.
- */
 export class GotoLineQuickAccessProvider implements IQuickAccessProvider {
     public static readonly PREFIX = ":";
 
@@ -46,7 +31,6 @@ export class GotoLineQuickAccessProvider implements IQuickAccessProvider {
         private readonly jumps: IJumpRecorder,
     ) {}
 
-    /** VS Code-style hint for Go-to-Line mode, showing the current position. */
     public getPlaceholder(): string {
         const editor = this.editorSource.getActiveEditor();
         if (editor === null) return "Go to line";
@@ -81,13 +65,8 @@ export class GotoLineQuickAccessProvider implements IQuickAccessProvider {
 }
 
 /**
- * Jumps the active editor to a 1-based line/column, converting to 0-based.
- * Re-reads the active editor at accept time: it may have vanished — or, for
- * `file:line`, may have just been opened by the accept itself.
- *
- * `jumps` оборачивает переход целиком (открытие файла — тоже внутри, см.
- * `filesQuickAccessProvider`), чтобы история навигации получила ровно две
- * записи: точку, откуда прыгнули, и цель.
+ * `line`/`column` 1-based. Редактор перечитывается при accept: он мог исчезнуть или только что
+ * открыться (`file:line`). `jumps` оборачивает и открытие файла — в истории ровно две записи.
  */
 export function navigateActiveEditor(source: IGotoLineEditorSource, line: number, column: number | undefined): void {
     const editor = source.getActiveEditor();

@@ -28,23 +28,14 @@ import { queryRefs } from "../../scm/browser/syncActions.ts";
 
 import { compareLabelOf, openDiffPair, showCompareNotice } from "./openDiffPair.ts";
 
-/**
- * Семейство команд сравнения файлов (таблица — docs/arch/workbench/EditorPart.md,
- * «Сравнение — пара сторон»). Каждая команда — тонкая обёртка над {@link openDiffPair}:
- * она лишь решает, чем заполнить две стороны.
- */
-
-/** Активный текстовый редактор, иначе — `null`; команды сравнения гейтятся им. */
 function activeTextEditor(accessor: ServiceAccessor): TextEditorPane | null {
     return accessor.get(EditorServiceDIToken).getActiveEditor();
 }
 
-/** US-6: версия с диска ↔ живой буфер активного файла. */
 async function compareWithSaved(accessor: ServiceAccessor): Promise<void> {
     const editor = activeTextEditor(accessor);
     if (editor === null) return;
     if (editor.absoluteFilePath === null) {
-        // Untitled: на диске нечего сравнивать — это не сбой, а границы команды.
         showCompareNotice(accessor, "Cannot compare: the file has no saved version on disk");
         return;
     }
@@ -64,14 +55,12 @@ async function compareWithSaved(accessor: ServiceAccessor): Promise<void> {
     }
 }
 
-/** US-5: содержимое буфера обмена ↔ активный файл. */
 async function compareWithClipboard(accessor: ServiceAccessor): Promise<void> {
     const editor = activeTextEditor(accessor);
     if (editor === null) return;
 
-    // Внутренний регистр Diode, не системный буфер: OSC 52 read намеренно не
-    // используется (см. OscClipboard) — текст из другого приложения сюда не
-    // попадёт, и сравнение с пустым в этом случае честнее зависшего запроса.
+    // Внутренний регистр Diode, не системный буфер: OSC 52 read намеренно не используется (см. OscClipboard),
+    // и сравнение с пустым честнее зависшего запроса.
     const text = await accessor.get(ClipboardDIToken).readText();
     const name = compareLabelOf(editor.uri);
     await openDiffPair(accessor, {
@@ -80,17 +69,9 @@ async function compareWithClipboard(accessor: ServiceAccessor): Promise<void> {
     });
 }
 
-// ─── Select for Compare / Compare with Selected (US-4) ───────────────────────
-
-/**
- * Отложенный «Select for Compare». Модульное состояние, а не сервис: это один
- * uri на всё приложение, живущий до рестарта (как в VS Code); двери к нему —
- * только две команды ниже, а when-ключ `resourceSelectedForCompare` даёт
- * меню знать о выборе без чтения самого uri.
- */
+/** Модульное состояние, а не сервис: один uri на приложение до рестарта, как в VS Code. */
 let selectedForCompare: Uri | null = null;
 
-/** Сброс между тестами: состояние модульное, тесты его делят. */
 export function resetSelectedForCompare(): void {
     selectedForCompare = null;
 }
@@ -118,14 +99,7 @@ async function compareWithSelected(accessor: ServiceAccessor, filePath: unknown)
     if (result === "unreadable") showCompareNotice(accessor, "Cannot compare: file is not readable");
 }
 
-// ─── Compare Active File With... (US-3, US-9) ──────────────────────────────────
-
-/**
- * Пикер второй стороны: открытые вкладки (сверху — они «под рукой», и среди
- * них untitled), затем файлы workspace. Различитель одинаковых basename —
- * `description` (полный/относительный путь); выбор маппится по паре
- * label+description, а не по одному label.
- */
+/** Выбор маппится по паре label+description: у одинаковых basename различается только description. */
 async function compareActiveFileWith(accessor: ServiceAccessor): Promise<void> {
     const editors = accessor.get(EditorServiceDIToken);
     const active = editors.getActiveEditor();
@@ -136,8 +110,7 @@ async function compareActiveFileWith(accessor: ServiceAccessor): Promise<void> {
         .get(EditorGroupsServiceDIToken)
         .groups.flatMap((group) => [...group.getPanes()])
         .filter((p) => p.uri.toString() !== active.uri.toString() && p.uri.scheme !== "diode-diff");
-    // Индекс строится в фоне (Quick Open живёт с этим через рост списка по мере
-    // ввода); статичному пикеру нужен готовый снимок — ждём и подстёгиваем.
+    // Индекс строится в фоне; статичному пикеру нужен готовый снимок — ждём и подстёгиваем.
     const search = accessor.get(FileSearchServiceDIToken);
     search.refreshIfStale();
     await search.ready;
@@ -148,7 +121,6 @@ async function compareActiveFileWith(accessor: ServiceAccessor): Promise<void> {
             .filter((f) => Uri.file(f.entry.absolutePath).toString() !== active.uri.toString())
             .map((f) => ({ label: f.entry.basename, description: Uri.file(f.entry.absolutePath).toString() })),
     ];
-    // Один файл может быть и вкладкой, и результатом поиска — вкладка выше, дубль долой.
     const seen = new Set<string>();
     const unique = items.filter((item) => {
         if (seen.has(item.description)) return false;
@@ -173,12 +145,7 @@ async function compareActiveFileWith(accessor: ServiceAccessor): Promise<void> {
     if (result === "unreadable") showCompareNotice(accessor, "Cannot compare: file is not readable");
 }
 
-// ─── Compare Active File with Revision… (US-7) ───────────────────────────────
-
-/**
- * Пикер ревизии: ветки и теги репозитория, текущая ветка помечена. `null` —
- * отмена; пустой список ref'ов показывает нотис сам.
- */
+/** `null` — отмена; пустой список ref'ов показывает нотис сам. */
 async function pickRevisionRef(accessor: ServiceAccessor, title: string): Promise<string | null> {
     const refs = await queryRefs(accessor);
     if (refs.length === 0) {
@@ -212,14 +179,7 @@ async function compareWithRevision(accessor: ServiceAccessor): Promise<void> {
     }
 }
 
-// ─── Open File at Revision… (DiffEditable PR-1) ──────────────────────────────
-
-/**
- * Открывает файл на выбранной ревизии обычной **read-only текстовой вкладкой**
- * (`a.ts (ref)` с замком): контент читается `git:`-провайдером, вкладка-снимок
- * живёт мимо диска и персиста сессии. Первая видимая ступень editable-диффа
- * (docs/arch/workbench/EditorPart.md, «Дифф-вкладка») и давний хвост задачи из Uri.md.
- */
+/** Read-only вкладка-снимок `a.ts (ref)`: читается `git:`-провайдером, живёт мимо диска и персиста сессии. */
 async function openFileAtRevision(accessor: ServiceAccessor): Promise<void> {
     const editors = accessor.get(EditorServiceDIToken);
     const active = editors.getActiveEditor();
@@ -244,7 +204,6 @@ async function openFileAtRevision(accessor: ServiceAccessor): Promise<void> {
     try {
         text = new TextDecoder().decode((await providers.readFile(revisionUri)).value);
     } catch {
-        // Файла на этой ревизии нет — честный нотис, а не пустая вкладка.
         showCompareNotice(accessor, `Cannot open: the file does not exist on ${ref}`);
         return;
     }
@@ -256,15 +215,7 @@ async function openFileAtRevision(accessor: ServiceAccessor): Promise<void> {
     });
 }
 
-// ─── File: Compare New Untitled Text Files (US-37) ───────────────────────────
-
-/**
- * Дифф двух свежих пустых безымянных буферов — обе стороны **редактируются
- * прямо в дифф-вкладке**, живой пересчёт подхватывает набор/вставку (VS Code
- * `CompareNewUntitledTextFilesAction` — команда, ради которой затевалась вся
- * дуга editable-диффа). Номера буферов — из общего счётчика untitled: метки
- * стабильны и Save As стороны работает штатно.
- */
+/** Номера буферов — из общего счётчика untitled: метки стабильны, и Save As стороны работает штатно. */
 async function compareNewUntitledTextFiles(accessor: ServiceAccessor): Promise<void> {
     const models = accessor.get(TextFileModelServiceDIToken);
     const original = models.createUntitledModel();
@@ -285,14 +236,7 @@ async function compareNewUntitledTextFiles(accessor: ServiceAccessor): Promise<v
     });
 }
 
-// ─── Diff: Revert Hunk ───────────────────────────────────────────────────────
-
-/**
- * Откат ганка под кареткой активной дифф-вкладки: строки modified заменяются
- * строками original (аналог стрелки на ганке в VS Code, `diffEditor.revert`).
- * Правка undoable; живой пересчёт сам убирает разметку. Вне дифф-вкладки —
- * тихий no-op (без кейбинда контекст-ключ не нужен).
- */
+/** Вне дифф-вкладки — тихий no-op: без кейбинда контекст-ключ не нужен. */
 function revertDiffHunk(accessor: ServiceAccessor): void {
     const pane = accessor.get(EditorServiceDIToken).getActiveTabPane();
     if (!(pane instanceof DiffEditorPane2)) return;
@@ -301,15 +245,7 @@ function revertDiffHunk(accessor: ServiceAccessor): void {
     if (result === "read-only") showCompareNotice(accessor, "Cannot revert: the modified side is read-only");
 }
 
-// ─── Diff: Toggle Inline View (US-22) ────────────────────────────────────────
-
-/**
- * Тумблер режима дифф-вкладок: inline ↔ side-by-side. Выбор персистится
- * (`DIFF_VIEW_MODE_STATE`) и применяется ко ВСЕМ открытым дифф-вкладкам и всем
- * будущим — режим отображения это привычка, а не свойство конкретной пары.
- * Вне активной дифф-вкладки — тихий no-op (следующий переключаемый режим
- * осмыслен только от текущего).
- */
+/** Режим применяется ко всем открытым и будущим дифф-вкладкам: это привычка, а не свойство пары. */
 function toggleInlineView(accessor: ServiceAccessor): void {
     const editors = accessor.get(EditorServiceDIToken);
     const active = editors.getActiveTabPane();
@@ -323,17 +259,11 @@ function toggleInlineView(accessor: ServiceAccessor): void {
     }
 }
 
-// ─── vscode.diff (US-12, AS-20) ──────────────────────────────────────────────
-
-/** `ViewColumn.Beside` из vscode API. `ViewColumn.Active` (-1) — дефолт и так. */
+/** `ViewColumn.Beside`; `ViewColumn.Active` (-1) — дефолт и так. */
 const VIEW_COLUMN_BESIDE = -2;
 
-/**
- * Целевая колонка из 4-го аргумента `vscode.diff` (`ViewColumn` числом либо
- * `TextDocumentShowOptions` с `viewColumn`). Существующая колонка N —
- * активируется; `Beside`/колонка за краем — новая группа справа (нет места —
- * фолбэк в активную, как у Open to the Side); `Active` и мусор — активная.
- */
+/** Существующая колонка N активируется; `Beside`/колонка за краем — новая группа справа (нет места —
+ * активная, как у Open to the Side); `Active` и мусор — активная. */
 function applyViewColumn(accessor: ServiceAccessor, raw: unknown): void {
     const groups = accessor.get(EditorGroupsServiceDIToken);
     const value = typeof raw === "number" ? raw : (raw as { viewColumn?: unknown } | undefined)?.viewColumn;
@@ -348,10 +278,8 @@ function applyViewColumn(accessor: ServiceAccessor, raw: unknown): void {
 }
 
 async function vscodeDiff(accessor: ServiceAccessor, ...args: unknown[]): Promise<void> {
-    // Из субпроцесса аргументы приходят одним массивом (мост
-    // `commands.executeCommand` передаёт `args` как есть), из ядра — varargs;
-    // uri там сериализованы `Uri.toJSON()` в компоненты (`{$mid, scheme, path}`)
-    // либо строками — {@link reviveWireUri} понимает оба вида (и сам Uri).
+    // Из субпроцесса аргументы приходят одним массивом, из ядра — varargs; uri — компонентами
+    // `Uri.toJSON()` или строками, {@link reviveWireUri} понимает оба вида.
     const list = args.length === 1 && Array.isArray(args[0]) ? (args[0] as unknown[]) : args;
     const left = reviveWireUri(list[0]);
     const right = reviveWireUri(list[1]);
@@ -367,8 +295,6 @@ async function vscodeDiff(accessor: ServiceAccessor, ...args: unknown[]): Promis
         ...(title !== undefined ? { title } : {}),
     });
 }
-
-// ─── Регистрации ─────────────────────────────────────────────────────────────
 
 export const compareWithSavedAction: CommandAction = {
     id: "workbench.files.action.compareWithSaved",
@@ -467,13 +393,7 @@ export const openFileAtRevisionAction: CommandAction = {
     },
 };
 
-/**
- * Программный вход с контрактом VS Code (`vscode.diff(left, right, title?)`):
- * ext-host исполняет команды ядра по id через мост, поэтому стоковым
- * расширениям ничего адаптировать не нужно. Регистрируется без title —
- * низкоуровневым `CommandRegistry.register`, минуя `CommandAction`, — и потому
- * в палитре не показывается (как и в VS Code).
- */
+/** Без title, низкоуровневым `CommandRegistry.register` — поэтому в палитре не показывается (как в VS Code). */
 export function registerVscodeDiffCommand(
     commands: { register(id: string, handler: (...args: unknown[]) => unknown): IDisposable },
     accessor: ServiceAccessor,
@@ -481,7 +401,6 @@ export function registerVscodeDiffCommand(
     return commands.register("vscode.diff", (...args) => vscodeDiff(accessor, ...args));
 }
 
-/** Экшены сравнения файлов (семейство diff). Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const COMPARE_ACTIONS: readonly CommandAction[] = [
     compareWithSavedAction,
     compareWithClipboardAction,

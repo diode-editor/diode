@@ -8,7 +8,6 @@ import { testLayoutService } from "../../../../../TestUtils/testLayoutService.ts
 
 import { SuggestComponent } from "./suggestComponent.ts";
 
-/** Компонент на корне 80×24 с одним пунктом — попапу есть что показывать. */
 function setup(): { component: SuggestComponent; app: TestApp } {
     const body = new BodyElement();
     const app = TestApp.create(body, new Size(80, 24));
@@ -65,10 +64,7 @@ describe("SuggestComponent — overlay-сессия", () => {
     });
 });
 
-/**
- * Попап живёт у каретки: каждый путь показа и движения обязан пере-анкорить
- * сессию, иначе слой оставит его там, где он был (или в углу экрана).
- */
+/** Каждый путь показа и движения обязан пере-анкорить сессию, иначе слой оставит попап на месте. */
 describe("SuggestComponent — позиция попапа у каретки", () => {
     it("openAt ставит попап под якорь", () => {
         const { component, app } = setup();

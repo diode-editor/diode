@@ -28,7 +28,6 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
     };
 }
 
-/** Сервис-фейк: важны только карточки и событие их смены. */
 function fakeService(initial: IExtensionListEntry[]): {
     service: IExtensionsWorkbenchService;
     update: (entries: IExtensionListEntry[]) => void;
@@ -70,7 +69,6 @@ const META: IRegistryExtensionMeta = {
     versions: [],
 };
 
-/** Действия-фейк: записывают вызовы и отдают заранее заданный исход. */
 function fakeActions(
     results: { install?: IExtensionInstallResult; uninstall?: IExtensionOperationResult } = {},
 ): IExtensionPageActions & { calls: string[] } {
@@ -96,7 +94,6 @@ function mount(pane: ExtensionEditorPane): void {
     TestApp.createWithContent(pane.view).render();
 }
 
-/** Нажимает кнопку шапки (Enter — как с клавиатуры) и ждёт завершения операции. */
 function press(pane: ExtensionEditorPane, kind: string): Promise<void> {
     pressSync(pane, kind);
     // Операция асинхронная: даём промису установки/удаления дойти до конца.
@@ -108,7 +105,6 @@ function pressSync(pane: ExtensionEditorPane, kind: string): void {
     button.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
 }
 
-/** Подписи кнопок шапки — их же читает пользователь. */
 function buttonLabels(pane: ExtensionEditorPane): string[] {
     const buttons = headerState(pane).buttons as { label: string }[];
     return buttons.map((b) => b.label);

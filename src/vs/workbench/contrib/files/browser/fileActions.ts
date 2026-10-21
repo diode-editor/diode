@@ -27,26 +27,14 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 
-/**
- * Смена воркспейса (Open Folder, Open Workspace from File). Интерфейсный шов:
- * Workbench объявляет, владелец приложения (`WorkbenchComponent`: дерево,
- * стейт, поисковый индекс, cwd терминалов) соответствует структурно; биндинг —
- * в `Workbench/Modules/WorkbenchModule.ts`.
- */
+/** Реализует `WorkbenchComponent` (структурно); биндинг — в `Workbench/Modules/WorkbenchModule.ts`. */
 export interface IWorkspaceFolderOpener {
     setWorkspaceFolder(dirPath: string): void;
-    /** Воркспейс из файла `.code-workspace`, уже разобранного (`parseWorkspaceFile`). */
     openWorkspaceFile(filePath: string, contents: IWorkspaceFileContents): void;
 }
 
 export const WorkspaceFolderOpenerDIToken = token<IWorkspaceFolderOpener>("WorkspaceFolderOpener");
 
-/**
- * Open File (`workbench.action.files.openFile`): диалог выбора файла
- * ({@link IFileDialogService} — порт SimpleFileDialog эталона), выбранный файл
- * открывается в активной группе (команда `workbench.openFile`). Диалог стоит в
- * папке воркспейса (без неё — в домашнем каталоге).
- */
 async function runOpenFile(accessor: ServiceAccessor): Promise<void> {
     const picked = await accessor
         .get(FileDialogServiceDIToken)
@@ -56,11 +44,6 @@ async function runOpenFile(accessor: ServiceAccessor): Promise<void> {
     if (file !== undefined) accessor.get(CommandRegistryDIToken).execute("workbench.openFile", file.fsPath);
 }
 
-/**
- * Open Folder (`workbench.action.files.openFolder`): тот же диалог в режиме
- * «только папки»; выбранная папка становится корнем воркспейса (дерево, боковая
- * панель и индекс Quick Open переезжают на неё).
- */
 async function runOpenFolder(accessor: ServiceAccessor): Promise<void> {
     const picked = await accessor
         .get(FileDialogServiceDIToken)
@@ -69,13 +52,6 @@ async function runOpenFolder(accessor: ServiceAccessor): Promise<void> {
     if (folder !== undefined) accessor.get(WorkspaceFolderOpenerDIToken).setWorkspaceFolder(folder.fsPath);
 }
 
-/**
- * Open Workspace from File flow (VS Code `workbench.action.openWorkspace`):
- * prompt for a `.code-workspace` path, validate that it opens — the file parses,
- * names exactly one folder and that folder exists, every reason shown inline —
- * then switch the window to that workspace: its folder, its settings and its own
- * per-workspace state.
- */
 async function runOpenWorkspace(accessor: ServiceAccessor): Promise<void> {
     const quickInput = accessor.get(QuickInputServiceDIToken);
     const fileOperations = accessor.get(FileOperationsServiceDIToken);
@@ -84,7 +60,7 @@ async function runOpenWorkspace(accessor: ServiceAccessor): Promise<void> {
         readText: async (filePath) => new TextDecoder().decode((await files.readFile(Uri.file(filePath))).value),
         isDirectory: async (filePath) => (await statOrNull(files, filePath))?.isDirectory === true,
     };
-    // Every reason the file cannot be opened, as the inline error; `null` — it opens.
+    // `null` — файл открывается.
     const check = async (filePath: string): Promise<string | null> => {
         if (!hasWorkspaceFileExtension(filePath)) return `Not a workspace file (*.${WORKSPACE_EXTENSION}): ${filePath}`;
         try {
@@ -116,12 +92,7 @@ async function runOpenWorkspace(accessor: ServiceAccessor): Promise<void> {
     accessor.get(WorkspaceFolderOpenerDIToken).openWorkspaceFile(resolved, contents);
 }
 
-/**
- * Explicit Save (Ctrl+S / menu). Saves the active editor; if the file was
- * modified on disk by another process since it was opened, the write is
- * blocked (to avoid clobbering the parallel changes) and an Overwrite/Cancel
- * dialog is shown instead — mirroring VS Code's dirty-write protection.
- */
+/** Файл изменён на диске другим процессом — запись блокируется диалогом Overwrite/Cancel, как dirty-write protection VS Code. */
 async function runSave(accessor: ServiceAccessor): Promise<void> {
     const editorService = accessor.get(EditorServiceDIToken);
     // Сохраняем вкладку: у detached-панели (Output) файла нет, и `save()` увёл бы
@@ -130,7 +101,6 @@ async function runSave(accessor: ServiceAccessor): Promise<void> {
     if (editor === null) return;
     const outcome = await editor.save();
     if (outcome === "no-file") {
-        // Безымянный буфер (Ctrl+N) — пути ещё нет, уводим в Save As.
         await runSaveAs(accessor);
         return;
     }
@@ -157,21 +127,14 @@ async function runSave(accessor: ServiceAccessor): Promise<void> {
     }
 }
 
-/**
- * Save As (`workbench.action.files.saveAs`): диалог сохранения
- * ({@link IFileDialogService}), запись — `TextFileModel.saveAs`. Перезапись
- * существующего файла диалог спрашивает сам (вопрос эталона), поэтому здесь
- * подтверждения нет.
- */
+/** Перезапись существующего файла диалог спрашивает сам (вопрос эталона) — здесь подтверждения нет. */
 async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
     const editorService = accessor.get(EditorServiceDIToken);
     const editor = editorService.getActiveTabEditor();
     if (!editor) return;
     const files = accessor.get(IFileServiceDIToken);
 
-    // Безымянный буфер (Ctrl+N) не имеет пути — стартуем от папки воркспейса
-    // (без неё — cwd) и предложенного имени (`Untitled-3.txt`: метка буфера +
-    // расширение его языка).
+    // Безымянный буфер стартует от папки воркспейса (без неё — cwd) и предложенного имени `Untitled-3.txt`.
     const folder = accessor.get(IWorkspaceContextServiceDIToken).getWorkspace().folders.at(0)?.uri.fsPath;
     const seed =
         editor.uri.scheme === "file"
@@ -187,10 +150,8 @@ async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
         if (editor.fileModel !== null) {
             await editor.saveAs(resolved);
         } else {
-            // Синтетика (виртуальный документ, снимок): своего файла у неё нет,
-            // и перепривязать буфер не к чему — копия пишется на диск и
-            // открывается обычным файлом (как upstream Save As не-файлового
-            // ресурса), а исходная вкладка остаётся собой.
+            // Синтетике (виртуальный документ, снимок) перепривязать буфер не к чему: копия пишется
+            // на диск и открывается обычным файлом, как upstream Save As не-файлового ресурса.
             await files.writeFile(
                 Uri.file(resolved),
                 await encodeChunks(editor.model.document.createSnapshot(), editor.encoding),
@@ -213,7 +174,6 @@ export const fileSaveAction: CommandAction = {
     shortTitle: "Save",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "3_save", order: 10 }],
     keybinding: parseKeybinding("mod+s"),
-    // Additional chord binding for save: Ctrl+K then S (Cmd+K S on a Mac with Cmd).
     keybindings: [parseChord("mod+k s")],
     run(accessor) {
         void runSave(accessor);
@@ -237,13 +197,10 @@ export const fileSaveAsAction: CommandAction = {
     title: "File: Save As...",
     shortTitle: "Save As...",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "3_save", order: 20 }],
-    // Парой к Ctrl+K S (save): Alt во второй части обязателен — голая вторая
-    // часть аккорда утекает парным keypress'ом в документ (docs/TODO/README.md,
-    // «Клавиатура»), а Save As меняет вкладку. Канонический Ctrl+Shift+S — там,
-    // где терминал различает Shift.
+    // Alt во второй части обязателен: голая вторая часть аккорда утекает парным keypress'ом
+    // в документ (docs/TODO/README.md, «Клавиатура»). Ctrl+Shift+S — там, где терминал различает Shift.
     keybinding: parseChord("ctrl+k alt+s"),
     keybindings: [{ keys: parseKeybinding("mod+shift+s"), when: "tier != 'legacy'" }],
-    // Промис — команде: отказ доходит до общего обработчика CommandRegistry.execute.
     run(accessor) {
         return runSaveAs(accessor);
     },
@@ -255,7 +212,6 @@ export const fileOpenAction: CommandAction = {
     shortTitle: "Open File...",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "2_open", order: 10 }],
     keybinding: parseKeybinding("mod+o"),
-    // Промис — команде: отказ доходит до общего обработчика CommandRegistry.execute.
     run(accessor) {
         return runOpenFile(accessor);
     },
@@ -267,7 +223,6 @@ export const fileOpenFolderAction: CommandAction = {
     shortTitle: "Open Folder...",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "2_open", order: 20 }],
     keybinding: parseChord("ctrl+k ctrl+o"),
-    // Промис — команде: отказ доходит до общего обработчика CommandRegistry.execute.
     run(accessor) {
         return runOpenFolder(accessor);
     },
@@ -281,31 +236,21 @@ export const openWorkspaceAction: CommandAction = {
     run: runOpenWorkspace,
 };
 
-/**
- * Переключает режим «только чтение» у активной вкладки на время сессии
- * (VS Code `workbench.action.files.toggleActiveEditorReadonlyInSession`).
- * Session-скоуп: флаг живёт на редакторе, на диск и в настройки не попадает —
- * конфигурационный слой (`files.readonlyInclude`/`readonlyExclude`) отдельно.
- * Без дефолтного шортката, как и в VS Code: только палитра команд.
- */
+/** Session-скоуп: флаг живёт на редакторе, на диск и в настройки не попадает. Без шортката, как в VS Code. */
 export const toggleActiveEditorReadonlyInSessionAction: CommandAction = {
     id: "workbench.action.files.toggleActiveEditorReadonlyInSession",
     title: "File: Toggle Active Editor Read-only in Session",
     run(accessor) {
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
-        // Detached-панель (Output) — не вкладка: её read-only принадлежит фиче,
-        // а не пользователю. Аналог `ActiveEditorCanToggleReadonlyContext` в VS
-        // Code, где inherently-readonly вход session-тумблеру не поддаётся.
+        // Detached-панель (Output) — не вкладка: её read-only принадлежит фиче (`ActiveEditorCanToggleReadonlyContext` эталона).
         if (editor === null || editor.detached) return;
         editor.readOnly = !editor.readOnly;
-        // Ключ `editorReadonly` — производная от состояния редактора, а не от
-        // фокуса, поэтому сам он не пересчитается: гоним обновление руками, как
-        // это делает newUntitledFileAction после смены состава вкладок.
+        // `editorReadonly` — производная от состояния редактора, а не от фокуса: сам не пересчитается.
         accessor.get(WorkbenchContextKeysDIToken).update();
     },
 };
 
-/** Stat пути на диске; `null` — его нет (или он недоступен). */
+/** `null` — пути нет или он недоступен. */
 async function statOrNull(files: IFileService, fsPath: string): Promise<IFileStat | null> {
     try {
         return await files.stat(Uri.file(fsPath));

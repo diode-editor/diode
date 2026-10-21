@@ -18,19 +18,10 @@ export const DiffSnapshotRefreshContributionDIToken = token<DiffSnapshotRefreshC
 /** Пауза на серию событий провайдера (git шевелит `.git` пачками при rebase/commit). */
 const REFRESH_DEBOUNCE_MS = 200;
 
-/**
- * US-31: живые снимочные стороны дифф-вкладок. Живые (file-) стороны диффа v2
- * обновляются сами через общие модели, а снимки (`git:`-ревизия) — только
- * повторным вызовом команды. Эта контрибуция слушает `onDidChangeFile` реестра
- * провайдеров (git-расширение фаерит по ресурсам, которые у него читали: HEAD
- * сдвинулся коммитом из терминала — US-31) и освежает снимочные стороны
- * открытых дифф-вкладок, чьи ресурсы затронуты. Неизменившийся текст панель
- * отбрасывает сама (no-op — каретка и скролл не сбрасываются зря).
- */
+/** US-31: снимочные стороны (`git:`-ревизия) сами не обновляются — освежаем их по `onDidChangeFile` провайдеров. */
 export class DiffSnapshotRefreshContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [EditorGroupsServiceDIToken, IFileServiceDIToken] as const;
 
-    /** Накопленные изменённые ресурсы до срабатывания debounce. */
     private readonly pending = new Set<string>();
     private debounceTimer: ReturnType<typeof setTimeout> | undefined;
     /** Монотонный номер прогона: устаревшие асинхронные чтения не перетирают свежие. */

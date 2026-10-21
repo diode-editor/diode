@@ -15,11 +15,7 @@ import {
 import { ExplorerServiceDIToken } from "./explorerService.ts";
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 
-/**
- * Команды copy/cut/paste для explorer поверх `FileOperationsService` (файловый
- * буфер + обратимые правки). Все под `listFocus`, так что ctrl+c/x/v не
- * конфликтуют с редакторскими (те под `textInputFocus`).
- */
+/** Все под `listFocus`, так что ctrl+c/x/v не конфликтуют с редакторскими (те под `textInputFocus`). */
 export const fileCopyAction: CommandAction = {
     id: "fileOperations.copy",
     title: "File: Copy",
@@ -57,11 +53,8 @@ export const filePasteAction: CommandAction = {
 };
 
 /**
- * Копирует полный (абсолютный) путь выбранного файла в системный буфер обмена.
- * Байнд VS Code — Shift+Alt+C (специально не Ctrl+*, чтобы не схлопнуться с
- * `fileOperations.copy` на Ctrl+C в legacy-терминалах); shift под Alt терминал
- * без extended keys не передаёт, поэтому рядом — безусловный Ctrl+K Alt+C,
- * парный к Ctrl+K Ctrl+C у copyRelativePath.
+ * Байнд VS Code — Shift+Alt+C; shift под Alt терминал без extended keys не передаёт, поэтому
+ * рядом безусловный Ctrl+K Alt+C (парный к Ctrl+K Ctrl+C у copyRelativePath).
  */
 export const fileCopyPathAction: CommandAction = {
     id: "fileOperations.copyPath",
@@ -86,11 +79,7 @@ export const fileCopyPathAction: CommandAction = {
     },
 };
 
-/**
- * Копирует путь выбранного файла относительно корня workspace в системный буфер обмена.
- * Байнд VS Code — аккорд Ctrl+K Ctrl+Shift+C; вторая часть не различает Shift без
- * extended keys, поэтому рядом безусловный fallback на Ctrl+K Ctrl+C.
- */
+/** Вторая часть аккорда Ctrl+K Ctrl+Shift+C без extended keys Shift не различает — рядом fallback Ctrl+K Ctrl+C. */
 export const fileCopyRelativePathAction: CommandAction = {
     id: "fileOperations.copyRelativePath",
     title: "File: Copy Relative Path",
@@ -112,9 +101,7 @@ export const fileCopyRelativePathAction: CommandAction = {
         const explorer = accessor.get(ExplorerServiceDIToken);
         const filePath = (args[0] as string | undefined) ?? explorer.getSelectedPaths()[0];
         if (!filePath) return;
-        // Корень — из IWorkspaceContextService; `folders.at(0)` здесь и есть видимое
-        // сужение до однопапочной семантики (в мульти-руте базой станет папка
-        // самого файла — этап F в docs/TODO/MultiRoot.md).
+        // `folders.at(0)` — сужение до одной папки (в мульти-руте база — папка файла, этап F в docs/TODO/MultiRoot.md).
         const root = accessor.get(IWorkspaceContextServiceDIToken).getWorkspace().folders.at(0)?.uri.fsPath;
         const relative = root === undefined ? filePath : path.relative(root, filePath);
         return accessor.get(ClipboardDIToken).writeText(relative);

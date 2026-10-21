@@ -4,19 +4,9 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 
 import { CompletionServiceDIToken } from "./completionService.ts";
 
-/** Вес suggest-попапа (upstream: EditorContrib + 90): его Enter/Tab/Escape/стрелки сильнее редактора, find и призрака inline. */
+/** upstream: EditorContrib + 90 — сильнее редактора, find и призрака inline. */
 const SUGGEST_WEIGHT = KeybindingWeight.EditorContrib + 90;
 
-// Тонкие экшены suggest-попапа поверх CompletionService (этап 10:
-// run-обработчики живут в самих экшенах, как у find/quick-open). Экшены под
-// `suggestWidgetVisible` перебивают cursorDown/indentLines при открытом попапе
-// весом SUGGEST_WEIGHT.
-
-/**
- * Открывает completion-попап у каретки (`editor.action.triggerSuggest`).
- * Дефолтный кейбинд — Ctrl+Space при фокусе редактора. Команда также
- * вызывается расширениями (editorconfig после вставки свойства).
- */
 export const triggerSuggestAction: CommandAction = {
     id: "editor.action.triggerSuggest",
     weight: SUGGEST_WEIGHT,
@@ -85,10 +75,8 @@ export const acceptSelectedSuggestionAction: CommandAction = {
 };
 
 /**
- * Разворачивает/сворачивает панель описания у попапа. Кейбинд тот же Ctrl+Space,
- * что и у `editor.action.triggerSuggest`, — и это намеренно, как в VS Code:
- * `when: suggestWidgetVisible` и вес на ступень выше triggerSuggest дают ему
- * победу ровно пока попап открыт.
+ * Тот же Ctrl+Space, что у triggerSuggest, — намеренно, как в VS Code: `when: suggestWidgetVisible`
+ * и вес выше дают ему победу, пока попап открыт.
  */
 export const toggleSuggestionDetailsAction: CommandAction = {
     id: "toggleSuggestionDetails",
@@ -112,7 +100,6 @@ export const hideSuggestWidgetAction: CommandAction = {
     },
 };
 
-/** Экшены suggest-попапа. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const SUGGEST_ACTIONS: readonly CommandAction[] = [
     triggerSuggestAction,
     selectNextSuggestionAction,

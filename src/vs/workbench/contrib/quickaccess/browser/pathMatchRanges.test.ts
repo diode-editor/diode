@@ -46,11 +46,8 @@ describe("splitPathMatchRanges", () => {
     });
 });
 
-// Запрос из нескольких термов приносит индексы несколькими кусками — проверяем,
-// что куски не склеиваются в один диапазон и не уезжают в чужую половину строки.
 describe("splitPathMatchRanges — запрос из нескольких термов", () => {
     it("куски из разных половин остаются каждый в своей колонке", () => {
-        // "src/other.ts" + запрос `src other`: 0..2 — каталог, 4..8 — имя.
         expect(splitPathMatchRanges([0, 1, 2, 4, 5, 6, 7, 8], 4)).toEqual({
             labelRanges: [[0, 5]],
             descriptionRanges: [[0, 3]],
@@ -58,7 +55,6 @@ describe("splitPathMatchRanges — запрос из нескольких тер
     });
 
     it("два куска внутри лейбла — два диапазона, а не один сплошной", () => {
-        // "other.ts" + запрос `oth ts`: индексы 4,5,6 и 10,11.
         expect(splitPathMatchRanges([4, 5, 6, 10, 11], 4)).toEqual({
             labelRanges: [
                 [0, 3],

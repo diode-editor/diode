@@ -30,7 +30,6 @@ function createService(options?: {
     );
 }
 
-/** Наблюдаемый фейковый view дерева (шов IExplorerView). */
 function fakeView(overrides?: Partial<IExplorerView>): IExplorerView & {
     refreshCount: number;
     revealed: FileTreeNode[][];
@@ -78,12 +77,9 @@ describe("ExplorerService — операции до присвоения кор�
     it("returns an empty selection and a null paste target without a view", () => {
         const service = createService();
 
-        // Корня дерева ещё нет — провайдера тоже (компонент рисует по нему
-        // плейсхолдер «No folder opened.»).
         expect(service.provider).toBeNull();
         expect(service.getSelectedPaths()).toEqual([]);
         expect(service.getPasteTargetDir()).toBeNull();
-        // Фокус и refresh без дерева — no-op, не должны падать.
         expect(() => {
             service.focus();
         }).not.toThrow();
@@ -99,7 +95,6 @@ describe("ExplorerService — операции до присвоения кор�
     it("cut-highlight from the file clipboard is a no-op without a view", () => {
         const clipboard = new InMemoryFileClipboard();
         const service = createService({ clipboard });
-        // Подсветка «вырезанных» без дерева — no-op, не должна падать.
         expect(() => {
             clipboard.write(["/x"], "cut");
             clipboard.clear();
@@ -181,7 +176,6 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
     it("getSelectedFilePath: файл → путь, каталог и пустое дерево → null (Open to the Side)", () => {
         const service = createService();
 
-        // Без view выбранного узла нет.
         expect(service.getSelectedFilePath()).toBeNull();
 
         service.attachView(
@@ -189,7 +183,6 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
         );
         expect(service.getSelectedFilePath()).toBe("/root/dir/a.ts");
 
-        // Каталог — не файл: открывать «в сторону» нечего.
         service.attachView(
             fakeView({ getSelectedNode: () => ({ name: "dir", path: "/root/dir", isDirectory: true }) }),
         );
@@ -233,10 +226,8 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
     });
 
     it("строка цепочки, которая отстала от провайдера, не останавливает спуск: reveal доходит до файла", async () => {
-        // Провайдер знает цепочку pkg → pkg/a → pkg/a/b, а строка, которую
-        // отдаёт findNode, её не получила: `path` — голова. `expand` раскрытого
-        // ключа её не обновит. Раньше reveal снова и снова шагал в голову —
-        // бесконечный цикл на микротасках, редактор висел намертво.
+        // Провайдер знает цепочку pkg → pkg/a → pkg/a/b, а строка от findNode — нет (`path` — голова),
+        // и `expand` раскрытого ключа её не обновит: reveal зацикливался на микротасках.
         const ws = createTempWorkspace({ prefix: "diode-explorer-svc-reveal-stale-" });
         const service = createService();
         service.setRootPath(ws.dir);
@@ -345,7 +336,6 @@ describe("ExplorerService — autoRevealActiveFile", () => {
 });
 
 describe("ExplorerService — files.exclude", () => {
-    /** Настройки с живым событием: правка эмитит onDidChangeConfiguration. */
     function emittingConfig(values: Record<string, unknown>): IConfigurationService & {
         set(key: string, value: unknown): void;
     } {

@@ -12,14 +12,9 @@ export interface IFileDecorationEntry {
 export const BUBBLE_BADGE = "●";
 
 /**
- * Собирает декорации строк дерева: свои у каждого пути плюс всплывшие к папкам
- * от потомков с `propagate` (VS Code `DecorationsService.getDecoration(uri,
- * includeChildren)`). Как в эталоне, веса у декораций расширений равные, поэтому
- * цвет папки — её собственный, а без него — первого всплывшего потомка в порядке
- * обхода дерева (сегменты по алфавиту, родитель раньше детей). Бейдж папки с
- * всплывшими потомками — {@link BUBBLE_BADGE} вместо буквы: свою букву папка при
- * этом теряет, как и в эталоне (`bubbleBadgeClassName`). Всплывают только пути
- * под `rootPath` и только до него: сам корень строкой дерева не бывает.
+ * Как `DecorationsService.getDecoration(uri, includeChildren)` эталона: веса равные, поэтому цвет
+ * папки — свой, а без него — первого всплывшего потомка в порядке обхода; свою букву папка с
+ * всплывшими теряет ({@link BUBBLE_BADGE}). Сам корень строкой дерева не бывает.
  */
 export function bubbleFileDecorations(
     entries: readonly IFileDecorationEntry[],
@@ -44,11 +39,7 @@ export function bubbleFileDecorations(
     return result;
 }
 
-/**
- * Путь (относительно корня) не выходит за корень. Сам корень (`""`) и его
- * родитель (`".."`) проходят, но всплывать им некуда: предков под корнем у
- * них нет.
- */
+/** Корень (`""`) и `".."` проходят, но всплывать им некуда. */
 function isInside(relative: string): boolean {
     return !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
 }

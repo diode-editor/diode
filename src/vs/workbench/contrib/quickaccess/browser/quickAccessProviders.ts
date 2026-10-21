@@ -8,12 +8,7 @@ import {
     OpenEditorsQuickAccessProviderDIToken,
 } from "./openEditorsQuickAccessProvider.ts";
 
-/**
- * Явный список quick-access-провайдеров — наш аналог vscode-овского
- * `Registry.as(Extensions.Quickaccess).registerQuickAccessProvider(...)`,
- * без import-side-effects. Порядок записей не важен: реестр выбирает по
- * самому длинному подошедшему префиксу.
- */
+/** Порядок записей не важен: реестр выбирает по самому длинному подошедшему префиксу. */
 export const QUICK_ACCESS_PROVIDERS: readonly IQuickAccessProviderDescriptor[] = [
     { prefix: FilesQuickAccessProvider.PREFIX, provider: FilesQuickAccessProviderDIToken },
     { prefix: CommandsQuickAccessProvider.PREFIX, provider: CommandsQuickAccessProviderDIToken },

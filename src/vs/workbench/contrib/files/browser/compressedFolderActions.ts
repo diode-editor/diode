@@ -5,11 +5,8 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 import { ExplorerServiceDIToken } from "./explorerService.ts";
 
 /**
- * Навигация по сегментам компактной строки Explorer'а (`explorer.compactFolders`)
- * — эталонные `previousCompressedFolder` и соседи из `fileCommands.ts`: те же id,
- * клавиши, `when` и вес `WorkbenchContrib + 10` (перебивает `list.focusFirst`/
- * `list.focusLast` на Home/End). На краю цепочки ключ First/Last снимает бинд, и
- * клавиша уходит дереву: Left сворачивает/идёт к родителю, Home — в начало списка.
+ * Эталонные `previousCompressedFolder` и соседи: те же id, клавиши, `when` и вес `WorkbenchContrib + 10`
+ * (перебивает `list.focusFirst`/`list.focusLast`). На краю цепочки клавиша уходит дереву.
  */
 const COMPRESSED_FOCUS = "filesExplorerFocus && !inputWidgetFocus && explorerViewletCompressedFocus";
 const NOT_FIRST = `${COMPRESSED_FOCUS} && !explorerViewletCompressedFirstFocus`;

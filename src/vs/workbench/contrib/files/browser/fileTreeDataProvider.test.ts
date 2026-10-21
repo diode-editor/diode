@@ -20,7 +20,6 @@ interface IFakeWatch {
     disposed: boolean;
 }
 
-/** Наблюдатель дерева, которым тест управляет руками. */
 function fakeTreeWatcher(): ITreeFileWatcher & { watches: IFakeWatch[] } {
     const watches: IFakeWatch[] = [];
     return {
@@ -49,7 +48,6 @@ describe("FileTreeDataProvider", () => {
     let provider: FileTreeDataProvider;
     let files: FileService;
     let watcher: ReturnType<typeof fakeTreeWatcher>;
-    /** Шаблоны `files.exclude`: меняются по ходу теста — настройка живая. */
     let excludes: string[];
     /** `explorer.compactFolders`: здесь выключена — сжатие проверяет fileTreeDataProvider.compactFolders.test.ts. */
     let compact: boolean;
@@ -182,7 +180,6 @@ describe("FileTreeDataProvider", () => {
             fs.mkdirSync(ws.path("c-dir"));
 
             const children = await provider.getChildren();
-            // Directories first (sorted), then the file.
             expect(children.map((c) => c.name)).toEqual(["a-dir", "c-dir", "b-file.ts"]);
             expect(children.map((c) => c.isDirectory)).toEqual([true, true, false]);
         });
@@ -223,7 +220,6 @@ describe("FileTreeDataProvider", () => {
             const node = { name: "link.ts", path: "/link.ts", isDirectory: false, isSymbolicLink: true };
             const item = provider.getTreeItem(node);
             expect(item.symlink).toBe(true);
-            // The type icon is preserved — same as a non-symlink .ts file (icon not hidden).
             const plain = provider.getTreeItem({ name: "link.ts", path: "/link.ts", isDirectory: false });
             expect(item.icon).toBe(plain.icon);
             expect(item.iconColor).toBe(plain.iconColor);
@@ -295,7 +291,6 @@ describe("FileTreeDataProvider", () => {
             // Пробел справа — отступ буквы от края панели (см. getTreeItem).
             expect(decorated.badge).toBe("M ");
 
-            // A file not present in the status map stays undecorated.
             const plain = provider.getTreeItem({ name: "other.ts", path: "/other.ts", isDirectory: false });
             expect(plain.labelColor).toBeUndefined();
             expect(plain.badge).toBeUndefined();

@@ -7,19 +7,10 @@ import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarSer
 
 import { EXTENSIONS_VIEW_ID, EXTENSIONS_VIEWLET_ID, ExtensionsComponentDIToken } from "./extensionsComponent.ts";
 
-/** nf-cod-refresh — inline-кнопка заголовка Extensions. */
+/** nf-cod-refresh */
 const REFRESH_ICON = "\ueb37";
 
-/**
- * Показать вьюлет Extensions (Ctrl+Shift+X, как в VS Code) — сделать активным,
- * раскрыть сайдбар и сфокусировать строку поиска. Activity bar у нас нет,
- * поэтому переключение вьюлетов — команды `workbench.view.*`. Порядок в меню
- * View — после Source Control, как в VS Code.
- *
- * Рядом с каноничным биндом — leader-аккорд: на legacy-терминале Ctrl+Shift+X
- * неотличим от Ctrl+X, а «полный» терминал может забрать Ctrl+Shift+* себе
- * (та же причина, что у Search).
- */
+/** Leader-аккорд рядом с каноничным биндом: на legacy-терминале Ctrl+Shift+X неотличим от Ctrl+X (как у Search). */
 export const showExtensionsAction: CommandAction = {
     id: "workbench.view.extensions",
     title: "View: Show Extensions",
@@ -32,11 +23,6 @@ export const showExtensionsAction: CommandAction = {
     },
 };
 
-/**
- * Перечитать каталог магазина: кнопка в заголовке секции и команда палитры.
- * Индекс кэширован на сессию, поэтому обновление — явное действие
- * пользователя, а не фоновый опрос реестра.
- */
 export const refreshExtensionsAction: CommandAction = {
     id: "extensions.refresh",
     title: "Extensions: Refresh",
@@ -61,5 +47,4 @@ export const refreshExtensionsAction: CommandAction = {
     },
 };
 
-/** Экшены магазина расширений. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const EXTENSIONS_ACTIONS: readonly CommandAction[] = [showExtensionsAction, refreshExtensionsAction];

@@ -5,24 +5,12 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 
 import { InlineCompletionsServiceDIToken } from "./inlineCompletionsService.ts";
 
-/** Вес призрака inline: Tab/Escape у него сильнее find и Tab-отступа, но слабее открытого suggest-попапа (Escape сначала закрывает попап). */
+/** Сильнее find и Tab-отступа, слабее открытого suggest-попапа (Escape сначала закрывает попап). */
 const INLINE_WEIGHT = KeybindingWeight.EditorContrib + 80;
 
-// Тонкие экшены призрачных подсказок поверх InlineCompletionsService. Id команд
-// и when-ключи — дословно VS Code (`editor.action.inlineSuggest.*`,
-// `inlineSuggestionVisible`). Вес INLINE_WEIGHT ниже suggest-попапа, поэтому при
-// открытом попапе Tab достаётся acceptSelectedSuggestion (у commit к тому же
-// `!suggestWidgetVisible`).
-
 /**
- * Явный запрос подсказки у каретки (без дебаунса,
- * `InlineCompletionTriggerKind.Invoke`) — работает и при выключенном
- * `editor.inlineSuggest.enabled`, это и есть ручной режим.
- *
- * Alt+\ — не из ядра vscode (там у команды дефолтной клавиши нет вовсе);
- * комбинация приходит от расширения GitHub Copilot, пользователь её знает, а
- * конфликта у нас нет. Терминал шлёт её как ESC + `\`, что разбирается в
- * `{key: "\\", altKey: true}` (tuidom `tokenize` → `esc-char`).
+ * Работает и при выключенном `editor.inlineSuggest.enabled` — это и есть ручной режим. Alt+\ — от
+ * GitHub Copilot (в ядре vscode клавиши нет); терминал шлёт ESC + `\` → `{key: "\\", altKey: true}`.
  */
 export const triggerInlineSuggestAction: CommandAction = {
     id: "editor.action.inlineSuggest.trigger",
@@ -35,10 +23,8 @@ export const triggerInlineSuggestAction: CommandAction = {
 };
 
 /**
- * Принять показанную подсказку. Tab, но: не при открытом suggest-попапе (там
- * Tab принимает пункт попапа) и не когда подсказка начинается с ≥ таба отступа
- * при каретке в отступе — тогда Tab продолжает индентить (ключ
- * `inlineSuggestionHasIndentationLessThanTabSize`, как в VS Code).
+ * Tab не принимает, когда подсказка начинается с ≥ таба отступа при каретке в отступе — тогда Tab
+ * индентит (как в VS Code).
  */
 export const commitInlineSuggestAction: CommandAction = {
     id: "editor.action.inlineSuggest.commit",
@@ -52,11 +38,8 @@ export const commitInlineSuggestAction: CommandAction = {
 };
 
 /**
- * Спрятать показанную подсказку (Escape) — и отменить запрос, который ещё в
- * полёте: `inlineSuggestionRequestPending` продлевает биндинг на окно ожидания
- * ответа, когда показывать ещё нечего. Гейт по `textInputFocus` обязателен:
- * ожидание невидимо, и без него Escape в find-виджете или квик-пике уходил бы
- * призрачным подсказкам.
+ * Отменяет и запрос в полёте: `inlineSuggestionRequestPending` продлевает биндинг на ожидание ответа.
+ * Гейт `textInputFocus` обязателен — иначе сюда уходил бы Escape find-виджета и квик-пика.
  */
 export const hideInlineSuggestAction: CommandAction = {
     id: "editor.action.inlineSuggest.hide",
@@ -69,7 +52,6 @@ export const hideInlineSuggestAction: CommandAction = {
     },
 };
 
-/** Экшены призрачных подсказок. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const INLINE_COMPLETIONS_ACTIONS: readonly CommandAction[] = [
     triggerInlineSuggestAction,
     commitInlineSuggestAction,

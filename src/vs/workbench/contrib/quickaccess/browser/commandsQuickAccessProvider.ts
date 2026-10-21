@@ -17,7 +17,6 @@ import { toMatchRanges } from "./pathMatchRanges.ts";
 
 export const CommandsQuickAccessProviderDIToken = token<CommandsQuickAccessProvider>("CommandsQuickAccessProvider");
 
-/** Команда, прошедшая фильтр: подпись и совпадение запроса с ней. */
 interface MatchedCommand {
     readonly id: string;
     readonly label: string;
@@ -25,20 +24,8 @@ interface MatchedCommand {
 }
 
 /**
- * Command palette (`>`): команды с заголовками из {@link CommandRegistry},
- * fuzzy-фильтр по подписи, шорткат — актуальный кейбинд команды в текущем
- * контексте.
- *
- * Подпись — `category: title` ({@link commandPaletteLabel}), как в VS Code:
- * «Java: Switch to Standard Mode». Фильтр идёт по ней же, то есть набранное
- * `java` находит все команды группы Java.
- *
- * Фильтр — тот же `prepareQuery`, что у файлового пикера: пробел разделяет
- * термы, совпасть обязаны все. Поэтому `go line` находит «Go to Line/Column…»
- * (на подстрочном поиске запрос не находил ничего), а `toggle panel` —
- * «View: Toggle Panel Visibility». Список сортируется по очкам совпадения;
- * сортировка стабильная, так что у пустого запроса порядок остаётся порядком
- * реестра.
+ * Подпись — `category: title`, как в VS Code; фильтр по ней — `prepareQuery` файлового пикера.
+ * Сортировка стабильная: у пустого запроса остаётся порядок реестра.
  */
 export class CommandsQuickAccessProvider implements IQuickAccessProvider {
     public static readonly PREFIX = ">";
@@ -56,18 +43,13 @@ export class CommandsQuickAccessProvider implements IQuickAccessProvider {
     }
 
     public getItems(query: string): QuickAccessItem[] {
-        // Запрос разбирается один раз на показ, а не на каждую команду.
         const prepared = prepareQuery(query.slice(CommandsQuickAccessProvider.PREFIX.length));
-        // Недоступную сейчас команду не показываем вовсе — так же поступает
-        // VS Code: `precondition` уезжает в `when` пункта палитры. Гасить пункт
-        // на месте мы не умеем, а показывать неработающий — хуже, чем не
-        // показывать (исполнить его всё равно не даст guard самой команды).
+        // Недоступную команду не показываем, как VS Code (`precondition` уезжает в `when`
+        // пункта палитры): гасить пункт на месте мы не умеем.
         const all = this.commands
             .listCommands()
             .filter((cmd) => cmd.enablement === undefined || this.contextKeys.evaluate(cmd.enablement));
 
-        // Отдельной ветки под пустой запрос нет: он совпадает с любой подписью
-        // на нулевые очки и без подсветки, то есть фильтр сам отдаёт весь список.
         const matched = all.flatMap((cmd): MatchedCommand[] => {
             const label = commandPaletteLabel(cmd);
             const match = fuzzyMatchPrepared(prepared, label);

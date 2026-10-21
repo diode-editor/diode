@@ -18,26 +18,16 @@ import { describeExtensionButtons } from "./extensionPageButtons.ts";
 import type { IExtensionPageContent } from "./extensionPageContent.ts";
 import { ExtensionPageElement } from "./extensionPageElement.ts";
 
-/**
- * Схема ресурса вкладки расширения. Настоящего файла за ней нет — это
- * идентичность вкладки: `EditorService.openPane` по ней и переключается на уже
- * открытую страницу вместо второй такой же (как `diff:` у дифф-вкладки).
- */
+/** Идентичность вкладки, а не файл: по ней `EditorService.openPane` переключается на уже открытую страницу. */
 export const EXTENSION_SCHEME = "extension";
 
-/** Ресурс страницы расширения по его id. */
 export function extensionUri(id: string): Uri {
     return Uri.from({ scheme: EXTENSION_SCHEME, path: id });
 }
 
 /**
- * Вкладка расширения: метаданные записи, кнопки установки/удаления и readme
- * реестра (см. {@link ExtensionPageElement}). Read-only и без текстовой
- * проекции — `viewState` у неё нет, поэтому команды курсора её просто не видят.
- *
- * Страница живёт дольше одного показа: состояние расширения может смениться,
- * пока вкладка открыта (установка, удаление, Refresh каталога), — поэтому
- * панель подписана на сервис и перечитывает свою карточку по событию.
+ * Без текстовой проекции — `viewState` нет, команды курсора её не видят. Подписана на сервис:
+ * карточка может смениться, пока вкладка открыта.
  */
 export class ExtensionEditorPane extends Disposable implements IEditorPane {
     public readonly uri: Uri;
@@ -48,13 +38,8 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
     private readonly element: ExtensionPageElement;
     private readonly onDidChangeStateEmitter = this.register(new Emitter<void>());
     private labelValue: string;
-    /** Идёт установка/удаление: кнопки гаснут, вторая операция не запускается. */
     private busy = false;
-    /**
-     * Ждём перезагрузки окна. Флаг монотонный и живёт в панели, а не только в
-     * карточке: удалённое расширение, которого нет в реестре, из карточек
-     * исчезает — а сказать про перезагрузку всё равно надо.
-     */
+    /** Монотонный и живёт в панели: удалённое расширение вне реестра из карточек исчезает, а про перезагрузку сказать надо. */
     private needsReload: boolean;
     private operationError: string | null = null;
 
@@ -115,7 +100,6 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
         this.element.setContent(this.content(), this.buttons());
     }
 
-    /** Нажали кнопку шапки. */
     private activateButton(kind: ExtensionButtonKind): void {
         if (kind === "reload") {
             this.actions.reloadWindow();
@@ -129,10 +113,6 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
         void this.runOperation(() => this.actions.install(this.entry.id));
     }
 
-    /**
-     * Гоняет операцию с гашением кнопок. Ошибка остаётся на странице текстом, а
-     * кнопки снова доступны — повторить можно тут же.
-     */
     private async runOperation(run: () => Promise<IExtensionOperationResult>): Promise<void> {
         this.busy = true;
         this.operationError = null;
@@ -150,13 +130,10 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
         this.element.focus();
     }
 
-    /** Перечитывает карточку из сервиса (установка, удаление, Refresh каталога). */
     private syncEntry(): void {
         const fresh = this.service.getEntries().find((e) => e.id === this.entry.id);
         if (fresh === undefined) {
-            // Карточка исчезла — значит расширение удалено и записи в реестре у
-            // него нет. Вкладку не закрываем (закрывать чужую под пользователем
-            // хуже), но врать про «установлено» она больше не должна.
+            // Карточка исчезла — удалено и вне реестра. Чужую вкладку под пользователем не закрываем.
             this.entry = { ...this.entry, installedVersion: null };
             this.render();
             return;

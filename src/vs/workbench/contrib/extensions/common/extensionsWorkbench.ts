@@ -10,27 +10,15 @@ import {
 } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
-/**
- * Контракт магазина для UI (Extensions view): карточка списка, её состояние и
- * сервис, который эти карточки отдаёт.
- *
- * Контракт живёт в `common/`, а реализация — в `node/` (сеть + файловая система),
- * поэтому вьюлет из `browser/` зависит только от токена и типов. Иначе пришлось
- * бы разрешать импорт `browser → node` записью-исключением в
- * `scripts/check-layers.mjs`, а список таких исключений растить незачем.
- */
+// Контракт в `common/`, реализация в `node/`: иначе вьюлету из `browser/` понадобилось бы
+// исключение `browser → node` в scripts/check-layers.mjs.
 
 /**
- * Состояние карточки — то, что показывает бейдж строки и кнопка страницы:
- * - `available` — есть в реестре, не установлено, совместимо;
- * - `installed` — установлена версия, совпадающая с последней в реестре (или
- *   запись установлена мимо магазина — тогда {@link IExtensionListEntry.latestVersion} пуст);
- * - `outdated` — установлено, но в реестре есть версия новее;
- * - `incompatible` — последняя версия реестра не проходит `engines` этой сборки.
+ * `installed` — версия совпадает с последней в реестре либо запись мимо магазина (`latestVersion` пуст);
+ * `incompatible` — последняя версия реестра не проходит `engines` этой сборки.
  */
 export type ExtensionAvailability = "available" | "installed" | "outdated" | "incompatible";
 
-/** Карточка списка: слияние записи индекса реестра и установленного на диске. */
 export interface IExtensionListEntry {
     /** `publisher.name`. */
     readonly id: string;
@@ -40,83 +28,51 @@ export interface IExtensionListEntry {
     readonly description: string;
     /** `undefined` — карточки нет в реестре (расширение поставлено мимо магазина). */
     readonly kind: RegistryExtensionKind | undefined;
-    /**
-     * Курационная пометка о поддержке из реестра; `undefined` — пометки нет
-     * (записи в реестре нет либо реестр её не проставил).
-     */
+    /** `undefined` — записи в реестре нет либо реестр пометку не проставил. */
     readonly support: IRegistrySupport | undefined;
     /** Последняя версия в реестре; `null` — записи в реестре нет. */
     readonly latestVersion: string | null;
     /** Установленная версия; `null` — не установлено. */
     readonly installedVersion: string | null;
     readonly availability: ExtensionAvailability;
-    /**
-     * Расширение ставили или удаляли в этой сессии: биты на диске уже те, но
-     * вклады сканируются один раз на старте, поэтому «работает» оно только
-     * после перезагрузки окна (`workbench.action.reloadWindow`).
-     */
+    /** Ставили/удаляли в этой сессии: вклады сканируются один раз на старте, заработает после перезагрузки окна. */
     readonly needsReload: boolean;
 }
 
-/**
- * Итог установки/удаления. Ошибка — значение, а не исключение: причина едет в
- * UI текстом (несовместимая версия, битый sha256, недоступный реестр), как и
- * ошибка чтения каталога.
- */
+/** Ошибка — значение, а не исключение: причина едет в UI текстом, как и ошибка чтения каталога. */
 export type IExtensionOperationResult = { readonly ok: true } | { readonly ok: false; readonly error: string };
 
-/** Итог установки: у успеха есть версия, которая встала. */
 export type IExtensionInstallResult =
     | { readonly ok: true; readonly version: string }
     | { readonly ok: false; readonly error: string };
 
-/**
- * Магазин глазами workbench: каталог реестра, склеенный с установленным.
- * Сетевые сбои наружу не бросаются — каталог просто пуст, а причина лежит в
- * {@link getCatalogError}: установленные расширения видны и без сети.
- */
+/** Сетевые сбои наружу не бросаются: каталог пуст, причина — в {@link getCatalogError}. */
 export interface IExtensionsWorkbenchService {
-    /**
-     * Первое чтение каталога; повторные вызовы ничего не делают. Зовётся при
-     * первом показе вьюлета — на старте в сеть не ходим.
-     */
+    /** Зовётся при первом показе вьюлета — на старте в сеть не ходим; повторные вызовы ничего не делают. */
     ensureLoaded(): Promise<void>;
 
-    /** Явный Refresh: перечитать индекс реестра и список установленных. */
     refresh(): Promise<void>;
 
     /** Карточки: сначала записи реестра, затем установленное вне реестра. */
     getEntries(): readonly IExtensionListEntry[];
 
-    /** Почему каталог пуст (текст сетевой ошибки), либо `null`. */
     getCatalogError(): string | null;
 
     /** Полная мета для страницы расширения; `undefined` — реестр не знает id. */
     getMeta(id: string): Promise<IRegistryExtensionMeta | undefined>;
 
-    /**
-     * Ставит последнюю совместимую версию из реестра и включает её в активный
-     * профиль. Она же операция «обновить»: предыдущие версии того же id
-     * сносятся установкой — версия одна на все профили.
-     */
+    /** Она же «обновить»: прежние версии того же id сносятся — версия одна на все профили. */
     install(id: string): Promise<IExtensionInstallResult>;
 
-    /**
-     * Убирает расширение из активного профиля; с диска (все версии) — когда
-     * оно не нужно ни одному профилю.
-     */
+    /** С диска (все версии) — когда расширение не нужно ни одному профилю. */
     uninstall(id: string): Promise<IExtensionOperationResult>;
 
-    /** Состав карточек или ошибка каталога изменились. */
     onDidChange(listener: () => void): IDisposable;
 }
 
 export const ExtensionsWorkbenchServiceDIToken = token<IExtensionsWorkbenchService>("ExtensionsWorkbenchService");
 
-/**
- * Фильтр списка по строке поиска — той же семантикой, что `searchRegistryIndex`
- * (общий предикат в `registryFormat.ts`): пустой запрос отдаёт всё.
- */
+/** Семантика `searchRegistryIndex` (общий предикат в `registryFormat.ts`). */
 export function filterExtensionEntries(entries: readonly IExtensionListEntry[], query: string): IExtensionListEntry[] {
     const needle = normalizeExtensionQuery(query);
     return entries.filter((entry) => matchesExtensionQuery(entry, needle));

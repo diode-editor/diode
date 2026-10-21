@@ -60,8 +60,6 @@ function makeGotoLineEditor(lineCount = 100, cursorLine = 4, cursorColumn = 2): 
     };
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
 function makeFileEntry(relativePath: string, absolutePath = `/root/${relativePath}`): FileSearchEntry {
     const basename = relativePath.split("/").pop() ?? relativePath;
     const basenameLower = basename.toLowerCase();
@@ -98,12 +96,10 @@ function makeFileSearchStub(results: FileSearchResult[] = []): FileSearchService
     } as unknown as FileSearchService;
 }
 
-/** Фоновый обход индекса опубликовал новые записи (см. {@link makeFileSearchStub}). */
 function fireIndexChanged(fileSearch: FileSearchService): void {
     (fileSearch as unknown as { fireIndexChanged(): void }).fireIndexChanged();
 }
 
-/** Открытая вкладка глазами пикера `edt `: ресурс, метка, маркер правок. */
 function makeOpenEditorPane(absolutePath: string, modified = false): IEditorPane {
     return {
         uri: Uri.file(absolutePath),
@@ -112,7 +108,6 @@ function makeOpenEditorPane(absolutePath: string, modified = false): IEditorPane
     } as unknown as IEditorPane;
 }
 
-/** Источник открытых редакторов: MRU-список плюс след перехода на вкладку. */
 interface FakeOpenEditorsSource extends IOpenEditorsSource {
     revealed: IEditorPane[];
 }
@@ -127,14 +122,12 @@ function makeOpenEditorsSource(panes: IEditorPane[] = []): FakeOpenEditorsSource
     };
 }
 
-/** Контекст воркспейса с одной открытой папкой — базой относительных путей пикера. */
 function workspaceWithRoot(root: string): WorkspaceContextService {
     const workspace = new WorkspaceContextService();
     workspace.setWorkspaceFolder(root);
     return workspace;
 }
 
-/** Реестр с настоящими провайдерами поверх стабов зависимостей (без DI-контейнера). */
 function makeQuickAccessRegistry(deps: {
     fileSearch: FileSearchService;
     commands: CommandRegistry;
@@ -164,7 +157,6 @@ function makeQuickAccessRegistry(deps: {
     return new QuickAccessRegistry(accessor, QUICK_ACCESS_PROVIDERS);
 }
 
-/** Мутабельный источник активного редактора: тесты подменяют getActiveEditor по ходу. */
 interface MutableGotoLineSource extends IGotoLineEditorSource {
     getActiveEditor: () => IGotoLineEditor | null;
 }
@@ -216,13 +208,7 @@ function createService(
     };
 }
 
-// ─── Tests ───────────────────────────────────────────────────────────────────
-
 describe("QuickOpenService — общий виджет", () => {
-    // Риск общего оверлея: множественный выбор расширения оставляет на виджете
-    // чекбоксы и свой режим Enter. Quick Open обязан сбросить их за собой,
-    // иначе в палитре появляются `[ ] ` перед каждой командой, а Enter уходит
-    // в колбэк множественного выбора и команда не исполняется.
     it("сбрасывает режим множественного выбора, оставшийся от чужого показа", () => {
         const { service, view } = createService();
         view.canPickMany = true;
@@ -237,8 +223,6 @@ describe("QuickOpenService — общий виджет", () => {
         expect(view.onAcceptMany).toBeNull();
     });
 
-    // Тот же риск у маски: после поля пароля расширения Quick Open рисовал бы
-    // звёздочки вместо запроса — человек искал бы файл вслепую.
     it("снимает маску, оставшуюся от чужого поля пароля", () => {
         const { service, view } = createService();
         view.password = true;
@@ -260,7 +244,6 @@ describe("QuickOpenService — общий виджет", () => {
             },
             "Test: Quick Open Reset",
         );
-        // Виджет достался палитре в состоянии множественного выбора.
         view.canPickMany = true;
         view.onAcceptMany = () => undefined;
 
@@ -304,7 +287,6 @@ describe("QuickOpenService — open/close", () => {
         service.show();
         const setVisibleSpy = vi.spyOn(body.overlayLayer, "setVisible");
         service.show();
-        // setVisible should not be called again (already visible, just focuses)
         expect(setVisibleSpy).not.toHaveBeenCalled();
     });
 
@@ -320,9 +302,7 @@ describe("QuickOpenService — open/close", () => {
         service.show();
         expect(body.overlayLayer.hasVisibleItems()).toBe(true);
 
-        // A mousedown whose target is the body (outside the QuickPick widget) closes it.
-        // The press is NOT consumed, so it still passes through to whatever sits below —
-        // matching VS Code's quick-pick dismissal behaviour.
+        // Нажатие не поглощается и проходит дальше — как quick pick в VS Code.
         body.dispatchEvent(
             new TUIMouseEvent("mousedown", {
                 screenX: 0,
@@ -339,14 +319,11 @@ describe("QuickOpenService — open/close", () => {
     it("close() on a never-opened picker is a no-op", () => {
         const { service, fileSearch } = createService();
         service.close();
-        // Early return: the picker never subscribed to the index, and close()
-        // does not reach the provider either.
         expect(fileSearch.onIndexChanged).not.toHaveBeenCalled();
     });
 
     it("close() restores focus to previously focused element", () => {
         const { service, body, testApp } = createService();
-        // Put something focusable in the body and focus it first
         const dummyInput = new InputElement();
         dummyInput.focusable = true;
         body.setContent(dummyInput);
@@ -386,7 +363,6 @@ describe("QuickOpenService — files mode", () => {
         view.setQuery("App");
         (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
 
-        // Simulate the background walk publishing more entries.
         fireIndexChanged(fileSearch);
 
         expect(fileSearch.search).toHaveBeenCalledWith("App", 50);
@@ -395,15 +371,12 @@ describe("QuickOpenService — files mode", () => {
     it("a late index-changed callback after close does not re-run the search", () => {
         const { service, fileSearch } = createService();
         service.show();
-        // Capture the index-changed handler the controller installed.
         const handler = vi.mocked(fileSearch.onIndexChanged).mock.calls.at(-1)?.[0];
         expect(handler).toBeDefined();
 
         service.close();
         (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
 
-        // Fire the captured callback after the session is closed: handleIndexChanged
-        // must bail out (session not open) and not query the index.
         handler?.(undefined);
         expect(fileSearch.search).not.toHaveBeenCalled();
     });
@@ -411,7 +384,7 @@ describe("QuickOpenService — files mode", () => {
     it("switching to command mode stops live file refreshes", () => {
         const { service, fileSearch, view } = createService();
         service.show();
-        view.onQueryChange?.(">cmd"); // now in command mode
+        view.onQueryChange?.(">cmd");
         (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
 
         fireIndexChanged(fileSearch);
@@ -430,8 +403,7 @@ describe("QuickOpenService — files mode", () => {
     });
 
     it("a background index refresh preserves the cursor mid-navigation", () => {
-        // Reproduces the huge-monorepo bug: while the index streams in, the list
-        // is re-published every ~50ms; the cursor must stay where the user put it.
+        // Огромный монорепо: пока индекс стримится, список перепубликуется каждые ~50ms.
         const results = [
             makeSearchResult("src/a.ts"),
             makeSearchResult("src/b.ts"),
@@ -445,10 +417,8 @@ describe("QuickOpenService — files mode", () => {
         testApp.sendKey("ArrowDown");
         expect(view.selectedIndex).toBe(2);
 
-        // Background walk publishes more entries → onIndexChanged fires.
         fireIndexChanged(fileSearch);
 
-        // Cursor preserved (previously it snapped back to 0).
         expect(view.selectedIndex).toBe(2);
         expect(view.items[2].label).toBe("c.ts");
     });
@@ -462,7 +432,6 @@ describe("QuickOpenService — files mode", () => {
         testApp.sendKey("ArrowDown");
         expect(view.selectedIndex).toBe(2);
 
-        // Typing a new query is a real query change → selection resets.
         view.onQueryChange?.("a");
         expect(view.selectedIndex).toBe(0);
     });
@@ -520,7 +489,6 @@ describe("QuickOpenService — files mode", () => {
         service.show();
         const item = view.items[0];
         expect(item.descriptionMatchRanges).toEqual([[0, 3]]);
-        // Nothing matched inside the basename.
         expect(item.labelMatchRanges).toEqual([]);
     });
 
@@ -580,14 +548,12 @@ describe("QuickOpenService — files mode", () => {
         const execSpy = vi.spyOn(commands, "execute");
         service.show();
 
-        // A bare item carrying no routing metadata (no commandId, no absolutePath).
         const bareItem: QuickPickItem = { label: "orphan" };
         view.onAccept?.(bareItem, 0);
         await new Promise<void>((r) => {
             queueMicrotask(r);
         });
 
-        // Neither branch fires: no command executed, picker stays open.
         expect(execSpy).not.toHaveBeenCalled();
         expect(body.overlayLayer.hasVisibleItems()).toBe(true);
     });
@@ -888,7 +854,6 @@ describe("QuickOpenService — position and size", () => {
     });
 
     it("open() without an attached host is a no-op for positioning", () => {
-        // No attachHost() → the component has no host body and no overlay session.
         const commands = new CommandRegistry();
         const fileSearch = makeFileSearchStub();
         const component = makeComponent();
@@ -904,14 +869,10 @@ describe("QuickOpenService — position and size", () => {
             component,
         );
 
-        // open() reaches updatePosition, which must early-return without throwing
-        // because there is no host body to measure against.
         expect(() => {
             svc.show();
         }).not.toThrow();
-        // preferredWidth keeps its default since positioning was skipped (no recompute).
         expect(component.view.preferredWidth).toBe(60);
-        // Без сессии компонент считается закрытым; live-обновления индекса не запрашивают поиск.
         expect(component.isOpen()).toBe(false);
         (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
         fireIndexChanged(fileSearch);
@@ -953,15 +914,14 @@ describe("QuickOpenService — file-search debounce", () => {
             service.show();
             (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
 
-            view.onQueryChange?.("A"); // leading → runs now
-            view.onQueryChange?.("Ap"); // within cooldown → pending
-            view.onQueryChange?.("App"); // within cooldown → replaces pending
+            view.onQueryChange?.("A");
+            view.onQueryChange?.("Ap");
+            view.onQueryChange?.("App");
 
-            // Only the leading run has happened so far.
             expect(fileSearch.search).toHaveBeenCalledTimes(1);
             expect(fileSearch.search).toHaveBeenLastCalledWith("A", 50);
 
-            vi.runAllTimers(); // trailing fires with the latest query
+            vi.runAllTimers();
 
             expect(fileSearch.search).toHaveBeenCalledTimes(2);
             expect(fileSearch.search).toHaveBeenLastCalledWith("App", 50);
@@ -977,7 +937,7 @@ describe("QuickOpenService — file-search debounce", () => {
             service.show();
             (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
 
-            view.onQueryChange?.("App"); // leading only
+            view.onQueryChange?.("App");
             vi.runAllTimers();
 
             expect(fileSearch.search).toHaveBeenCalledTimes(1);
@@ -993,13 +953,12 @@ describe("QuickOpenService — file-search debounce", () => {
             service.show();
             (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
 
-            view.onQueryChange?.("A"); // leading
-            view.onQueryChange?.("Ap"); // pending
+            view.onQueryChange?.("A");
+            view.onQueryChange?.("Ap");
             service.close();
 
             vi.runAllTimers();
 
-            // Only the leading run; the trailing one was cancelled on close.
             expect(fileSearch.search).toHaveBeenCalledTimes(1);
         } finally {
             vi.useRealTimers();
@@ -1013,13 +972,12 @@ describe("QuickOpenService — file-search debounce", () => {
             service.show();
             (fileSearch.search as ReturnType<typeof vi.fn>).mockClear();
 
-            view.onQueryChange?.("A"); // file leading
-            view.onQueryChange?.("Ap"); // file pending
-            view.onQueryChange?.(">cmd"); // command mode → sync, cancels pending
+            view.onQueryChange?.("A");
+            view.onQueryChange?.("Ap");
+            view.onQueryChange?.(">cmd");
 
             vi.runAllTimers();
 
-            // The pending file trailing run was dropped; only the leading file run ran.
             expect(fileSearch.search).toHaveBeenCalledTimes(1);
             expect(fileSearch.search).toHaveBeenLastCalledWith("A", 50);
         } finally {

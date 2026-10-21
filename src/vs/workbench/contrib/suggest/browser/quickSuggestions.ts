@@ -1,17 +1,10 @@
 import { DEFAULT_WORD_REGEXP, getWordAtText } from "../../../../editor/common/core/wordHelper.ts";
 import type { StandardTokenType } from "../../../../editor/common/languages/standardTokenType.ts";
 
-/**
- * Авто-открытие suggest при наборе («quick suggestions») — калька upstream:
- * `EditorQuickSuggestions` (`editor/common/config/editorOptions.ts`),
- * `QuickSuggestionsOptions` (`editor/contrib/suggest/browser/suggest.ts`) и
- * `LineContext.shouldAutoTrigger` (`suggestModel.ts`).
- */
+// Калька upstream `EditorQuickSuggestions`, `QuickSuggestionsOptions` и `LineContext.shouldAutoTrigger`.
 
-/** Режим для одного вида токенов (значения `editor.quickSuggestions` эталона). */
 export type QuickSuggestionsValue = "on" | "inline" | "off" | "offWhenInlineCompletions";
 
-/** Нормализованная настройка: режим на каждый вид токенов. */
 export interface IQuickSuggestionsOptions {
     readonly other: QuickSuggestionsValue;
     readonly comments: QuickSuggestionsValue;
@@ -20,18 +13,13 @@ export interface IQuickSuggestionsOptions {
 
 const QUICK_SUGGESTIONS_VALUES: readonly QuickSuggestionsValue[] = ["on", "inline", "off", "offWhenInlineCompletions"];
 
-/** Дефолт эталона: в коде — пока нет призрачных подсказок, в комментариях и строках — нет. */
 export const QUICK_SUGGESTIONS_DEFAULT: IQuickSuggestionsOptions = {
     other: "offWhenInlineCompletions",
     comments: "off",
     strings: "off",
 };
 
-/**
- * Значение `editor.quickSuggestions` → режим по видам токенов (upstream
- * `EditorQuickSuggestions.validate`): `true`/`false` — всё вкл/выкл, строка —
- * один режим на все виды, объект — по полям; недостающее и мусор — дефолт.
- */
+/** upstream `EditorQuickSuggestions.validate`: недостающее и мусор — дефолт. */
 export function readQuickSuggestions(input: unknown): IQuickSuggestionsOptions {
     if (typeof input === "boolean") {
         const value = input ? "on" : "off";
@@ -55,7 +43,6 @@ function toValue(input: unknown, fallback: QuickSuggestionsValue): QuickSuggesti
     return QUICK_SUGGESTIONS_VALUES.find((value) => value === input) ?? fallback;
 }
 
-/** Режим для вида токена (upstream `QuickSuggestionsOptions.valueFor`). */
 export function valueFor(config: IQuickSuggestionsOptions, tokenType: StandardTokenType): QuickSuggestionsValue {
     switch (tokenType) {
         case "comment":
@@ -68,11 +55,8 @@ export function valueFor(config: IQuickSuggestionsOptions, tokenType: StandardTo
 }
 
 /**
- * Стоит ли авто-открывать suggest при каретке `character` в строке `line`
- * (upstream `LineContext.shouldAutoTrigger`): под кареткой слово, каретка в его
- * конце (или сразу за первым символом — набор буквы перед словом), и слово —
- * не число. Слово — по дефолтному определению эталона: `.` и `-` его рвут,
- * так что `foo.` и `a -` попап не открывают, а `42` и `1.5` — тоже.
+ * upstream `LineContext.shouldAutoTrigger`: каретка в конце слова (или за первым символом — буква
+ * перед словом), слово — не число. `.` и `-` слово рвут: `foo.` и `a -` попап не открывают.
  */
 export function shouldAutoTrigger(line: string, character: number): boolean {
     const word = getWordAtText(character, DEFAULT_WORD_REGEXP, line);

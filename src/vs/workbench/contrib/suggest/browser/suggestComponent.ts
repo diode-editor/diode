@@ -15,30 +15,15 @@ import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutSer
 
 export const SuggestComponentDIToken = token<SuggestComponent>("SuggestComponent");
 
-/**
- * Компонент suggest-попапа: владеет {@link CompletionListElement} и его
- * overlay-сессией у каретки редактора. Вся логика автодополнения (источники,
- * триггеры, префикс/re-filter, accept) живёт в
- * {@link import("./completionService.ts").CompletionService} —
- * компонент только показывает/двигает попап и раздаёт вызовы контролу.
- *
- * Не {@link import("../../../browser/component.ts").ThemedComponent}: CompletionListElement
- * токены editorSuggestWidget.* резолвятся из палитры темы на корне (Н3).
- * дефолт контрола), маппинг на ключи темы — отдельная задача.
- *
- * Overlay-хост — корневая view окна из {@link LayoutService.mainContainer}:
- * сессия создаётся в конструкторе.
- */
+/** Не ThemedComponent: токены `editorSuggestWidget.*` резолвятся из палитры темы на корне. */
 export class SuggestComponent extends Component {
     public static dependencies = [LayoutServiceDIToken] as const;
 
-    /** Виджет целиком: список + панель описания (она же — элемент оверлея). */
     public readonly widget: CompletionWidgetElement;
 
     private readonly overlay: CaretAnchoredOverlay;
-    /** Корневая view — по её ширине выбирается сторона панели описания. */
+    /** По её ширине выбирается сторона панели описания. */
     private readonly hostView: BodyElement;
-    /** Последний якорь у каретки (для пересчёта стороны панели). */
     private lastAnchor: OverlayAnchorPosition | null = null;
 
     public constructor(layoutService: LayoutService) {
@@ -51,26 +36,19 @@ export class SuggestComponent extends Component {
         this.overlay = this.register(new CaretAnchoredOverlay(this.hostView, this.widget));
     }
 
-    /** Список пунктов — сам виджет остаётся владельцем и оверлей-элементом. */
     public get view(): CompletionListElement {
         return this.widget.list;
     }
 
-    /** Панель описания выбранного пункта (чтение — тесты и измерения). */
     public get details(): CompletionDetailsElement {
         return this.widget.details;
     }
 
-    /**
-     * Наполняет панель описанием и пере-раскладывает попап под её новую ширину
-     * (см. {@link refreshDetailsLayout}).
-     */
     public setDetailsContent(content: CompletionDetailsContent | null): void {
         this.widget.details.setContent(content);
         this.refreshDetailsLayout();
     }
 
-    /** Показывать ли панель описания (тумблер `toggleSuggestionDetails`). */
     public get detailsVisible(): boolean {
         return this.widget.detailsVisible;
     }
@@ -79,15 +57,11 @@ export class SuggestComponent extends Component {
         this.widget.detailsVisible = value;
     }
 
-    /** Открыт ли попап (для `suggestWidgetVisible` и делегаторов команд). */
     public isOpen(): boolean {
         return this.overlay.isOpen();
     }
 
-    /**
-     * Позиционирует попап у каретки и открывает сессию. Фокус НЕ забирает —
-     * редактор остаётся активным (VS Code-like).
-     */
+    /** Фокус НЕ забирает — редактор остаётся активным, как в VS Code. */
     public openAt(anchor: OverlayAnchorPosition): void {
         this.lastAnchor = anchor;
         this.chooseDetailsSide(anchor);
@@ -95,14 +69,8 @@ export class SuggestComponent extends Component {
     }
 
     /**
-     * Пере-раскладывает попап под текущее содержимое панели: выбирает сторону и
-     * пере-анкорит overlay-сессию.
-     *
-     * Нужен отдельным шагом, потому что описание приезжает АСИНХРОННО (resolve)
-     * уже после показа списка: на момент `openAt` виджет ещё шириной в один
-     * список. Без пере-анкора слой оставляет позицию и damage от прежней
-     * геометрии — панель есть в раскладке, но на экране её нет (проверено на
-     * настоящем бинаре).
+     * Отдельный шаг: описание приезжает асинхронно (resolve) после показа списка, и без пере-анкора
+     * слой оставлял позицию и damage прежней геометрии — панели на экране не было.
      */
     public refreshDetailsLayout(): void {
         const anchor = this.lastAnchor;
@@ -112,9 +80,8 @@ export class SuggestComponent extends Component {
     }
 
     /**
-     * Панель описания — справа от списка, а если справа не помещается, слева
-     * (как в VS Code). Без переворота оверлей сдвинул бы виджет целиком влево, и
-     * список уехал бы от каретки.
+     * Справа, а если не помещается — слева (как в VS Code): иначе оверлей сдвинул бы виджет целиком,
+     * и список уехал бы от каретки.
      */
     private chooseDetailsSide(anchor: OverlayAnchorPosition): void {
         const screenWidth = this.hostView.layoutSize.width;
@@ -123,13 +90,11 @@ export class SuggestComponent extends Component {
         this.widget.detailsSide = anchor.screenX + needed <= screenWidth ? "right" : "left";
     }
 
-    /** Двигает открытый попап вслед за кареткой (re-filter при наборе). */
     public setAnchor(anchor: OverlayAnchorPosition): void {
         this.lastAnchor = anchor;
         this.overlay.setAnchor(anchor);
     }
 
-    /** Закрывает сессию; no-op, если уже закрыта (это гарантирует сам слой). */
     public close(): void {
         this.overlay.close();
     }

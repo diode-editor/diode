@@ -15,7 +15,6 @@ import {
 import type { ParameterHintsService } from "./parameterHintsService.ts";
 import { ParameterHintsServiceDIToken } from "./parameterHintsService.ts";
 
-/** Контейнер с фейком ровно того сервиса, который дёргают эти экшены. */
 function makeAccessor(): { accessor: Container; calls: string[] } {
     const calls: string[] = [];
     const accessor = new Container();
@@ -52,11 +51,7 @@ describe("parameterHintsActions — объявления", () => {
     });
 
     it("ручной вызов: аккорд основной, Ctrl+Shift+Space — вторым биндом", () => {
-        // Ctrl+K Ctrl+P занят палитрой команд (legacy-фолбэк Ctrl+Shift+P),
-        // поэтому вторая клавиша чорда — Ctrl+Space.
         expect(keybindingOf(triggerParameterHintsAction)).toBe("Ctrl+K Ctrl+Space");
-        // Канонический бинд VS Code остаётся вторым: на legacy-tier'е он
-        // неотличим от Ctrl+Space, который уже занят triggerSuggest.
         expect(triggerParameterHintsAction.keybindings).toHaveLength(1);
         expect(triggerParameterHintsAction.when).toBe("textInputFocus");
     });
@@ -64,11 +59,9 @@ describe("parameterHintsActions — объявления", () => {
     it("стрелки перехватываются только при показанном попапе и нескольких сигнатурах", () => {
         expect(keybindingOf(showNextParameterHintAction)).toBe("Down");
         expect(keybindingOf(showPrevParameterHintAction)).toBe("Up");
-        // Alt+стрелки — вторым биндом, как в VS Code.
         expect(showNextParameterHintAction.keybindings).toHaveLength(1);
         expect(showPrevParameterHintAction.keybindings).toHaveLength(1);
         for (const action of [showNextParameterHintAction, showPrevParameterHintAction]) {
-            // При открытом попапе автодополнения стрелки принадлежат ему.
             expect(action.when).toBe(
                 "parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible",
             );

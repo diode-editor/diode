@@ -45,10 +45,7 @@ import { SuggestComponent } from "./suggestComponent.ts";
 interface FakeEditor {
     editor: TextEditorPane;
     applyExternalEdits: ReturnType<typeof vi.fn<(edits: ITextEdit[], label: string) => void>>;
-    /**
-     * Набор с клавиатуры: обновляет строку/каретку, шлёт content+cursor, а затем
-     * `onDidType` символом слева от каретки (как редактор после правки набора).
-     */
+    /** content+cursor, затем `onDidType` символом слева от каретки (как редактор после правки набора). */
     type: (line: string, character: number, lineNo?: number) => void;
     /** Правка мимо набора (вставка, accept, удаление): content+cursor без `onDidType`. */
     edit: (line: string, character: number, lineNo?: number) => void;
@@ -56,15 +53,10 @@ interface FakeEditor {
     fireTyped: (text: string) => void;
     /** Чистое движение каретки: шлёт только cursor (без content-маркера). */
     move: (lineNo: number, character: number) => void;
-    /** Непустое выделение: anchor != active. */
     setSelection: (anchorChar: number, activeChar: number) => void;
-    /** Мультикурсор: сколько кареток отдаёт `viewState.selections`. */
     setCursorCount: (count: number) => void;
     setAnchorNull: (value: boolean) => void;
-    /**
-     * Токены строки каретки — пары `[начало, метаданные]`; стор отдаёт их
-     * `LineTokens` на текущий текст строки. `undefined` — стора нет.
-     */
+    /** Пары `[начало, метаданные]`; `undefined` — стора нет. */
     setTokens: (tokens: TokenPairs | undefined) => void;
 }
 
@@ -193,7 +185,6 @@ function makeEditor(lineContent: string, character: number, docText = lineConten
     };
 }
 
-/** Ответ источника «полным списком» — форма {@link ICoreCompletionResult}. */
 function completionResult(items: readonly ICoreCompletionItem[], isIncomplete = false): ICoreCompletionResult {
     return { items, isIncomplete };
 }
@@ -202,9 +193,8 @@ type FakeCompletionSource = CompletionItemProvider["provideCompletionItems"] | u
 type FakeCompletionResolver = ((id: string) => Promise<ICoreResolvedCompletion | null>) | undefined;
 
 /**
- * Языковые «швы» фейковой группы: тесты задают источник, resolve и триггеры
- * прямо на ней (и меняют по ходу), а {@link createService} превращает их в
- * провайдера реестра под `*` — ровно то, что в проде делает прокси расширения.
+ * Тесты задают источник, resolve и триггеры на группе по ходу; {@link createService} делает из них
+ * провайдера реестра под `*`, как прокси расширения в проде.
  */
 interface IFakeLanguageSeams {
     completionSource?: FakeCompletionSource;
@@ -212,7 +202,6 @@ interface IFakeLanguageSeams {
     completionTriggerCharacters?: readonly string[];
 }
 
-/** Реестр с одним провайдером, читающим швы группы на каждый вызов. */
 function languageFeaturesOf(group: IEditorService): LanguageFeaturesService {
     const seams = group as unknown as IFakeLanguageSeams;
     const languageFeatures = new LanguageFeaturesService();
@@ -245,10 +234,7 @@ function makeGroup(
     } as unknown as IEditorService;
 }
 
-/**
- * Состояние в памяти: NULL_STATE_SERVICE всегда отдаёт дефолт и не годится там,
- * где проверяется «выбор пользователя переживает рестарт».
- */
+/** NULL_STATE_SERVICE всегда отдаёт дефолт — не годится для «выбор переживает рестарт». */
 function makeStateService(): IStateService {
     const store = new Map<string, unknown>();
     return {
@@ -265,21 +251,14 @@ function makeStateService(): IStateService {
     };
 }
 
-/** Схемы ключей приложения — по ним заглушка конфига отдаёт дефолты и отбраковывает мусор. */
 const APP_SCHEMAS = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getConfigurationProperties();
 
-/**
- * Настройки теста: плоские ключи и секции языков (`"[json]": {…}`). Живые —
- * сервис читает их на каждом обращении, тест вправе менять по ходу.
- */
+/** Живые: сервис читает их на каждом обращении, тест вправе менять по ходу. */
 type TestSettings = Record<string, unknown>;
 
 const settingsOf = new WeakMap<CompletionService, TestSettings>();
 
-/**
- * Конфиг поверх {@link TestSettings}: значение секции языка главнее плоского,
- * значение вне схемы ключа (и отсутствующее) — дефолт схемы, как у настоящего сервиса.
- */
+/** Секция языка главнее плоского ключа; вне схемы и отсутствующее — дефолт схемы, как у настоящего сервиса. */
 function makeConfiguration(settings: TestSettings): IConfigurationService {
     return {
         get: (key: string, overrides?: IConfigurationOverrides): unknown => {
@@ -295,17 +274,13 @@ function makeConfiguration(settings: TestSettings): IConfigurationService {
     } as unknown as IConfigurationService;
 }
 
-/** Меняет настройку уже созданного сервиса (live-reload в проде). */
 function setSetting(service: CompletionService, key: string, value: unknown): void {
     const settings = settingsOf.get(service);
     if (settings === undefined) throw new Error("сервис создан мимо createService");
     settings[key] = value;
 }
 
-/**
- * Сервис с конфигом теста. Дефолт задержки quick suggest — 0: авто-suggest
- * детерминированно срабатывает на следующем тике.
- */
+/** Задержка quick suggest — 0: авто-suggest детерминированно срабатывает на следующем тике. */
 function newService(
     component: SuggestComponent,
     group: IEditorService,
@@ -329,7 +304,6 @@ function newService(
     return service;
 }
 
-/** Пара component+service с фейковым CommandRegistry (шпион `execute`). */
 function createService(
     group: IEditorService,
     state: IStateService = makeStateService(),
@@ -344,7 +318,6 @@ function createService(
 } {
     const execute = vi.fn();
     const commands = { execute } as unknown as CommandRegistry;
-    // Корневая view — хост попапа: компонент создаёт сессию на её слое сразу.
     const body = new BodyElement();
     const component = new SuggestComponent(testLayoutService(body));
     const focusTracker = new FocusTracker();
@@ -362,7 +335,6 @@ function setup(items: readonly ICoreCompletionItem[], lineContent = "ind", chara
     return { service, component, body, testApp, fake, source, execute, focusTracker, editor: fake.editor };
 }
 
-/** Даёт setTimeout(…, 0) авто-suggest'а отработать. */
 function flushTimers(): Promise<void> {
     return new Promise((res) => setTimeout(res, 5));
 }
@@ -399,8 +371,7 @@ describe("CompletionService", () => {
         await service.trigger();
         expect(body.overlayLayer.hasVisibleItems()).toBe(true);
         expect(service.isOpen()).toBe(true);
-        expect(component.view.isFocused).toBe(false); // редактор сохраняет фокус
-        // Префикс "ind" отфильтровал "root".
+        expect(component.view.isFocused).toBe(false);
         expect(component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
     });
 
@@ -412,7 +383,6 @@ describe("CompletionService", () => {
 
         service.acceptSelected();
         const [edits] = fake.applyExternalEdits.mock.calls[0];
-        // Заменяется только слово `ind`, присваивание слева не трогаем.
         expect(edits[0].range).toEqual({ start: { line: 0, character: 4 }, end: { line: 0, character: 7 } });
     });
 
@@ -421,8 +391,6 @@ describe("CompletionService", () => {
         const closed = vi.fn();
         const subscription = service.onDidClose(closed);
 
-        // Попап ещё не открывался — close() (его зовут либерально, например
-        // bindEditor) не должен изображать событие закрытия.
         service.close();
         expect(closed).not.toHaveBeenCalled();
 
@@ -431,12 +399,10 @@ describe("CompletionService", () => {
         service.hide(); // Esc-путь сходится в close()
         expect(closed).toHaveBeenCalledTimes(1);
 
-        // Повторное закрытие уже закрытого — не событие.
         service.close();
         expect(closed).toHaveBeenCalledTimes(1);
 
-        // Отписка снимает слушателя; повторный dispose — безвредный no-op и
-        // НЕ задевает других подписчиков (splice(-1) снял бы последнего).
+        // Повторный dispose не должен задеть других подписчиков (splice(-1) снял бы последнего).
         const other = vi.fn();
         service.onDidClose(other);
         await service.trigger();
@@ -580,7 +546,6 @@ describe("CompletionService", () => {
             await flushTimers();
             expect(component.details.isEmpty).toBe(false);
 
-            // Фильтр, не совпавший ни с чем: выбранного пункта больше нет.
             component.view.setFilter("zzzz");
             expect(component.details.isEmpty).toBe(true);
         });
@@ -597,7 +562,7 @@ describe("CompletionService", () => {
             service.selectPrevious(); // назад на первый — уже в кэше
             await flushTimers();
 
-            expect(resolver).toHaveBeenCalledTimes(2); // по одному разу на пункт
+            expect(resolver).toHaveBeenCalledTimes(2);
         });
 
         it("источник без резолвера панель не ломает", async () => {
@@ -658,7 +623,7 @@ describe("CompletionService", () => {
             service.acceptSelected();
             await flushTimers();
 
-            expect(resolver).toHaveBeenCalledTimes(1); // второй раз не ходили
+            expect(resolver).toHaveBeenCalledTimes(1);
             const [edits] = fake.applyExternalEdits.mock.calls[0];
             expect(edits).toHaveLength(2);
             expect(edits[1].text).toBe("# header\n");
@@ -706,14 +671,13 @@ describe("CompletionService", () => {
             await service.trigger();
             service.toggleDetails();
             await flushTimers();
-            service.selectNext(); // ушли на второй пункт
+            service.selectNext();
             await flushTimers();
             expect(component.details.linesFor(40).join(" ")).toContain("detail for 1.1");
 
             release!({ detail: "detail for 1.0" });
             await flushTimers();
 
-            // Запоздалый ответ по первому пункту не подменяет описание второго.
             expect(component.details.linesFor(40).join(" ")).toContain("detail for 1.1");
         });
 
@@ -789,8 +753,7 @@ describe("CompletionService", () => {
             service.acceptSelected();
             await flushTimers();
 
-            // Панель описания скрыта (дефолт), то есть resolve к моменту accept не
-            // случился — вставка обязана дождаться его сама, иначе импорт теряется.
+            // Панель описания скрыта (дефолт): resolve до accept не случился, вставка ждёт его сама.
             expect(fake.applyExternalEdits).toHaveBeenCalledTimes(1);
             const [edits, label] = fake.applyExternalEdits.mock.calls[0];
             expect(label).toBe("Accept Completion");
@@ -908,9 +871,6 @@ describe("CompletionService", () => {
     });
 
     it("расходящиеся range провайдеров → префикс считает ядро", async () => {
-        // Два пункта с разными началами range: общей границы нет, значит
-        // провайдеру верить нельзя и работает свой wordStart (иначе префикс
-        // был бы случайным).
         const items: ICoreCompletionItem[] = [
             {
                 label: "indent_style",
@@ -958,9 +918,7 @@ describe("CompletionService", () => {
 
         expect(component.view.items[0].filterText).toBe(".toISOString");
         expect(component.view.items[0].sortText).toBe("11");
-        // Префикс — от границы сервера (`.`), поэтому оба пункта видны, а
-        // словами из буфера список не разбавлен. При равном sortText порядок
-        // остаётся серверным (сервер уже отсортировал).
+        // При равном sortText порядок остаётся серверным.
         expect(component.view.items.map((i) => i.label)).toEqual(["toISOString", "getTime"]);
     });
 
@@ -973,7 +931,7 @@ describe("CompletionService", () => {
         setSetting(service, "editor.quickSuggestionsDelay", 5);
         TestApp.create(body, new Size(80, 24));
 
-        await service.trigger(); // попап открыт
+        await service.trigger();
         expect(service.isOpen()).toBe(true);
 
         fake.type("di", 2); // запланировали авто-suggest…
@@ -990,17 +948,15 @@ describe("CompletionService", () => {
         const { service, source, fake } = setup(ITEMS);
         setSetting(service, "editor.quickSuggestionsDelay", 50); // достаточно, чтобы успеть отменить
 
-        fake.type("inde", 4); // запланировали авто-suggest
-        await service.trigger(); // ручной триггер отменяет отложенный
+        fake.type("inde", 4);
+        await service.trigger();
         // Ждём заведомо дольше задержки: без отмены отложенный успел бы выстрелить.
         await new Promise((resolve) => setTimeout(resolve, 100));
 
-        expect(source).toHaveBeenCalledTimes(1); // отложенный не выстрелил вторым
+        expect(source).toHaveBeenCalledTimes(1);
     });
 
     it("range провайдера, начинающийся ПОСЛЕ каретки, отдаёт префикс ядру", async () => {
-        // Такой range не описывает набранное слово (он правее каретки) — доверять
-        // ему как границе префикса нельзя.
         const items: ICoreCompletionItem[] = [
             {
                 label: "indent_style",
@@ -1026,8 +982,6 @@ describe("CompletionService", () => {
         fake.type("inde", 4);
         await flushTimers();
 
-        // Сервер отфильтровал список под ПРЕЖНИЙ префикс — сужать его локально
-        // нельзя, подходящих пунктов в нём может не быть вовсе.
         expect(source).toHaveBeenCalledTimes(2);
     });
 
@@ -1054,7 +1008,6 @@ describe("CompletionService", () => {
         resolveSlow!(completionResult(ITEMS));
         await slow;
 
-        // Медленный ответ пришёл последним — но он устарел и попап не поднимает.
         expect(service.isOpen()).toBe(false);
     });
 
@@ -1096,10 +1049,9 @@ describe("CompletionService", () => {
         expect(tokens.map((token) => token.isCancellationRequested)).toEqual([true]);
     });
 
-    // Срока ответа у провайдеров нет (language server на холодном старте думает
-    // секунды), поэтому запрос «в полёте» обязан сам знать, нужен ли ещё ответ.
+    // Срока ответа нет (LS на холодном старте думает секунды): запрос в полёте сам знает, нужен ли ответ.
     describe("запрос в полёте: ответа ещё нет, попап не открыт", () => {
-        /** Источник, отвечающий по команде теста; токены запросов — в `cancelled()`. */
+        /** Токены запросов — в `cancelled()`. */
         function pendingSetup(line: string, character: number) {
             const fake = makeEditor(line, character, line);
             const tokens: ICancellationToken[] = [];
@@ -1205,9 +1157,8 @@ describe("CompletionService", () => {
             expect(edits[0].range).toEqual({ start: { line: 0, character: 0 }, end: { line: 0, character: 5 } });
         });
 
-        // Форма ответа gopls через middleware vscode-go: список неполный, у всех
-        // пунктов `filterText` первого, `range` пустой сразу после точки —
-        // фильтрует сервер, клиент обязан перезапрашивать.
+        // Форма ответа gopls через vscode-go: список неполный, у всех `filterText` первого, `range` пустой
+        // сразу после точки — фильтрует сервер.
         const goMember = (label: string): ICoreCompletionItem => ({
             label,
             insertText: label,
@@ -1342,10 +1293,8 @@ describe("CompletionService", () => {
         expect(component.view.items).toHaveLength(3);
     });
 
-    // Провайдер вправе прислать собственный range (diode-settings накрывает им кавычки,
-    // чтобы вставить `"editor.tabSize"` вместо голого ключа). Range — снапшот момента
-    // триггера, а попап при доборе символов не перезапрашивается, поэтому его конец
-    // обязан догонять каретку.
+    // Провайдерский range (diode-settings накрывает им кавычки) — снимок момента триггера, попап при
+    // доборе не перезапрашивается: конец range обязан догонять каретку.
     describe("provider range", () => {
         /** Элемент с явным range на `"e` (кавычка + первая буква) в строке `{ "e`. */
         const QUOTED: ICoreCompletionItem[] = [
@@ -1372,8 +1321,7 @@ describe("CompletionService", () => {
             await service.trigger();
             expect(service.isOpen()).toBe(true);
 
-            // Добираем `di` → `{ "edi`. Попап только ре-фильтруется, провайдера не
-            // перезапрашиваем, поэтому его range всё ещё указывает на `"e`.
+            // Добрали `di`: попап только ре-фильтруется, range провайдера всё ещё указывает на `"e`.
             fake.type('{ "edi', 6);
             expect(service.isOpen()).toBe(true);
 
@@ -1396,7 +1344,6 @@ describe("CompletionService", () => {
             service.acceptSelected();
 
             const [edits] = fake.applyExternalEdits.mock.calls[0];
-            // Range сжался вслед за кареткой: заменяем `"`, а не `"e`.
             expect(edits[0].range).toEqual({ start: { line: 0, character: 2 }, end: { line: 0, character: 3 } });
         });
 
@@ -1428,11 +1375,8 @@ describe("CompletionService", () => {
         });
     });
 
-    // Пока попап видим, Enter принадлежит `acceptSelectedSuggestion`
-    // (when: suggestWidgetVisible) — открытый «на всякий случай» попап крадёт
-    // перенос строки и заменяет набранное пунктом списка. Поэтому любой
-    // несловесный добор обязан его закрывать, в том числе когда границу
-    // префикса задал провайдер (её пересчёт запрещён, см. refilterOpen).
+    // Пока попап видим, Enter принадлежит `acceptSelectedSuggestion`: открытый «на всякий случай» попап
+    // крадёт перенос строки — и при провайдерской границе префикса тоже.
     describe("несловесный добор закрывает попап", () => {
         /** Пункты tsserver-формы: у всех общий range, то есть граница «от провайдера». */
         const PROVIDER_ANCHORED: ICoreCompletionItem[] = [
@@ -1588,13 +1532,11 @@ describe("CompletionService", () => {
         expect(execute).toHaveBeenCalledWith("c.noargs");
     });
 
-    // ─── Re-filter по мере набора (попап открыт) ───────────────────────────────
-
     it("набор сужает список и попап следует за кареткой", async () => {
         const { service, component, fake } = setup(ITEMS);
         await service.trigger();
         expect(component.view.items).toHaveLength(2);
-        fake.type("indent_st", 9); // префикс расширился — сужаем до одного
+        fake.type("indent_st", 9);
         expect(component.view.items.map((i) => i.label)).toEqual(["indent_style"]);
         expect(service.isOpen()).toBe(true);
     });
@@ -1602,7 +1544,7 @@ describe("CompletionService", () => {
     it("набор без совпадений оставляет последний непустой список (не закрывает)", async () => {
         const { service, component, fake } = setup(ITEMS);
         await service.trigger();
-        fake.type("indq", 4); // ничего не матчит
+        fake.type("indq", 4);
         expect(component.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
         expect(service.isOpen()).toBe(true);
     });
@@ -1610,14 +1552,14 @@ describe("CompletionService", () => {
     it("смена строки закрывает попап", async () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
-        fake.move(1, 0); // ушли на другую строку
+        fake.move(1, 0);
         expect(service.isOpen()).toBe(false);
     });
 
     it("непустое выделение закрывает попап", async () => {
         const { service, fake } = setup(ITEMS);
         await service.trigger();
-        fake.setSelection(1, 3); // anchor != active
+        fake.setSelection(1, 3);
         expect(service.isOpen()).toBe(false);
     });
 
@@ -1629,8 +1571,6 @@ describe("CompletionService", () => {
         fake.setCursorCount(2);
         expect(service.isOpen()).toBe(false);
 
-        // Ручной Ctrl+Space тоже обязан быть no-op: попап якорится на одной каретке,
-        // а accept вставил бы правку мимо остальных.
         await service.trigger();
         expect(service.isOpen()).toBe(false);
     });
@@ -1642,8 +1582,6 @@ describe("CompletionService", () => {
         fake.type("indent", 6);
         expect(service.isOpen()).toBe(false);
     });
-
-    // ─── Авто-suggest (попап закрыт) ───────────────────────────────────────────
 
     it("набор word-символа авто-открывает попап", async () => {
         const { service, fake, source } = setup(ITEMS); // старт: "ind", каретка 3
@@ -1687,7 +1625,7 @@ describe("CompletionService", () => {
         expect(service.isOpen()).toBe(true);
         focusTracker.fire(new EditorElement(new EditorViewState(new TextDocument(""))));
         expect(service.isOpen()).toBe(true);
-        focusTracker.fire(null); // фокус ушёл с редактора
+        focusTracker.fire(null);
         expect(service.isOpen()).toBe(false);
     });
 
@@ -1754,9 +1692,8 @@ describe("CompletionService", () => {
     });
 
     it("уехавшее начало слова закрывает попап, даже когда добора не было", async () => {
-        // Правка ЛЕВЕЕ каретки (удалили пробел перед словом): добора с триггера
-        // нет, поэтому проверку «добор словесный» этот путь проходит, а слово
-        // теперь начинается не там, где встал префикс.
+        // Правка ЛЕВЕЕ каретки: добора с триггера нет, проверку «добор словесный» путь проходит, а слово
+        // начинается уже не там, где встал префикс.
         const { service, fake } = setup(ITEMS, "a ind", 5, "a ind");
         await service.trigger();
         expect(service.isOpen()).toBe(true);
@@ -1767,9 +1704,6 @@ describe("CompletionService", () => {
     });
 
     it("авто-suggest открывает только набор word-символа одной кареткой", async () => {
-        // Из закрытого состояния: правки мимо набора (вставка, undo) — событий
-        // `onDidType` у них нет; набор не-word символа; набор мультикурсором и
-        // при выделении.
         const attempts: ((fake: FakeEditor) => void)[] = [
             (fake) => {
                 fake.edit("inde", 4); // вставка/undo одного символа — не набор
@@ -1787,7 +1721,7 @@ describe("CompletionService", () => {
             },
         ];
         for (const attempt of attempts) {
-            const { service, fake, source } = setup(ITEMS); // "ind", каретка 3
+            const { service, fake, source } = setup(ITEMS);
             attempt(fake);
             await flushTimers();
             expect(source).not.toHaveBeenCalled();
@@ -1810,7 +1744,6 @@ describe("CompletionService", () => {
     });
 });
 
-/** Состояние призрака, которым управляет тест (как его видит suggest). */
 function fakeInlineState(): IInlineSuggestionsState & {
     visible: boolean;
     loading: boolean;
@@ -1837,10 +1770,7 @@ function fakeInlineState(): IInlineSuggestionsState & {
     return state;
 }
 
-/**
- * Сервис с источником автодополнения и (по желанию) inline-провайдером в реестре
- * — под ним действует режим `offWhenInlineCompletions`.
- */
+/** Inline-провайдер в реестре включает режим `offWhenInlineCompletions`. */
 function quickSetup(options: { line?: string; character?: number; settings?: TestSettings; inline?: boolean } = {}) {
     const line = options.line ?? "ind";
     const fake = makeEditor(line, options.character ?? line.length, line);
@@ -1939,7 +1869,6 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         await flushTimers();
         expect(source).not.toHaveBeenCalled();
 
-        // Код — открывается.
         fake.setTokens([[0, CODE_TOKEN]]);
         fake.type('"indent', 7);
         await flushTimers();
@@ -1978,7 +1907,6 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
     });
 
     it("editor.quickSuggestionsDelay: попап ждёт задержку", async () => {
-        // Секция языка — настройка читается для языка документа.
         const { service, fake } = quickSetup({
             settings: { "[editorconfig]": { "editor.quickSuggestionsDelay": 40 } },
         });
@@ -2267,7 +2195,6 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         await flushTimers();
         expect(source).not.toHaveBeenCalled();
 
-        // Призрака нет — по символу открывается.
         inline.visible = false;
         fake.type("inde..", 6);
         await flushTimers();
@@ -2341,7 +2268,6 @@ describe("CompletionService — quick suggest (эталон suggestModel)", () =
         fake.type("ind", 3);
         await flushTimers();
         expect(service.isOpen()).toBe(true);
-        // Добор при неполном списке не закрывает локально, а перезапрашивает.
         fake.type("indq", 4);
         expect(service.isOpen()).toBe(true);
         await flushTimers();
@@ -2425,7 +2351,6 @@ describe("CompletionService — editor.wordBasedSuggestions", () => {
     it("offWithInlineSuggestions гасит слова, только если есть inline-провайдер И включены AI-подсказки продукта", async () => {
         // Inline-провайдер есть, но `github.copilot.enable` не задан — слова остаются (как у эталона без Copilot).
         expect(await wordSetup({}, { inline: true }).labels()).toEqual(["alpha", "beta", "gamma"]);
-        // Включены для всех языков — слов нет.
         expect(await wordSetup({ "github.copilot.enable": { "*": true } }, { inline: true }).labels()).toEqual([]);
         // Без inline-провайдера настройка Copilot ничего не гасит.
         expect(await wordSetup({ "github.copilot.enable": { "*": true } }).labels()).toEqual([
@@ -2433,14 +2358,12 @@ describe("CompletionService — editor.wordBasedSuggestions", () => {
             "beta",
             "gamma",
         ]);
-        // Ключ языка главнее `*`.
         expect(
             await wordSetup({ "github.copilot.enable": { "*": true, editorconfig: false } }, { inline: true }).labels(),
         ).toEqual(["alpha", "beta", "gamma"]);
         expect(
             await wordSetup({ "github.copilot.enable": { "*": false, editorconfig: true } }, { inline: true }).labels(),
         ).toEqual([]);
-        // Не объект — выключены.
         expect(await wordSetup({ "github.copilot.enable": null }, { inline: true }).labels()).toEqual([
             "alpha",
             "beta",

@@ -21,13 +21,6 @@ import { TextFileModelServiceDIToken } from "../../../services/textfile/common/t
 
 import { openDiffPair } from "./openDiffPair.ts";
 
-/**
- * Сторона на схеме провайдера ФС расширения. Пишущий провайдер (правая сторона
- * предложенного диффа Claude Code) — живая модель под настоящим uri: правится
- * прямо в диффе и сохраняется в провайдера, как в эталоне. Read-only провайдер
- * (`git:`) — снимок, как прежде.
- */
-
 /** Тот же провайдер в памяти, но объявленный только для чтения (как `git:` с `isReadonly`). */
 function readonlyView(provider: InMemoryFileSystemProvider): IFileSystemProvider {
     return {

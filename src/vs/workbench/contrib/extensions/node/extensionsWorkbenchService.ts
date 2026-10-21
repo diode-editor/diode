@@ -22,18 +22,8 @@ import type {
 } from "../common/extensionsWorkbench.ts";
 
 /**
- * Магазин для UI: каталог реестра, склеенный с расширениями активного профиля.
- * Установка кладёт расширение в общий каталог и включает его в профиль;
- * удаление убирает из профиля, а с диска — когда оно не нужно ни одному
- * профилю ({@link ProfileExtensions}).
- *
- * Живёт в `node/`, потому что ходит в сеть (через источник) и читает каталог
- * расширений; вьюлет знает только контракт из `common/`.
- *
- * Каталог кэшируется в памяти на сессию: индекс тянется один раз при первом
- * показе вьюлета, фильтрация локальная, а перечитывание — явный Refresh.
- * Дискового кэша с TTL нет сознательно — это отдельный слой хранения со своей
- * инвалидацией (см. docs/arch/workbench/ExtensionsView.md).
+ * Каталог кэшируется в памяти на сессию, перечитывание — явный Refresh. Дискового кэша с TTL нет
+ * сознательно: это отдельный слой со своей инвалидацией (docs/arch/workbench/ExtensionsView.md).
  */
 export class ExtensionsWorkbenchService extends Disposable implements IExtensionsWorkbenchService {
     private readonly onDidChangeEmitter = this.register(new Emitter<void>());
@@ -41,18 +31,12 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
     /** Что ставили/удаляли в этой сессии: до перезагрузки окна вклады не поедут. */
     private readonly pendingReload = new Set<string>();
 
-    /**
-     * Каталог реестра вместе с semver, которым считается совместимость карточек:
-     * semver — ленивый кусок бандла, и грузится он здесь же, вместе с индексом,
-     * а не на старте (до первого показа вьюлета каталога нет).
-     */
+    /** semver — ленивый кусок бандла: грузится вместе с индексом, а не на старте. */
     private catalog: { readonly index: IRegistryIndex; readonly semver: Semver } | null = null;
-    // Оба поля наполняет конструктор: установленное известно сразу, без сети,
-    // и «пустого» состояния у сервиса не бывает даже мгновение.
     private installed: readonly IInstalledExtension[];
     private catalogError: string | null = null;
     private entries: readonly IExtensionListEntry[];
-    /** Первое чтение: null — ещё не начиналось. Держим промис, а не флаг, — параллельные показы ждут один фетч. */
+    /** Промис, а не флаг: параллельные показы ждут один фетч. */
     private loading: Promise<void> | null = null;
 
     public constructor(
@@ -61,8 +45,6 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         private readonly host: IHostVersions,
     ) {
         super();
-        // Установленное известно и без сети — читаем сразу, чтобы секция
-        // INSTALLED была наполнена ещё до первого запроса к реестру.
         this.installed = profile.list();
         this.entries = this.computeEntries();
     }
@@ -85,12 +67,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         return this.catalogError;
     }
 
-    /**
-     * Мета для страницы расширения. Кэшируется вместе с промахом (`undefined`):
-     * «такого id в реестре нет» — тоже ответ, и переспрашивать его при каждом
-     * открытии вкладки незачем. Сетевой сбой не кэшируется — он бросается
-     * вызывающему, который покажет ошибку и даст повторить.
-     */
+    /** Промах (`undefined`) кэшируется — «нет в реестре» тоже ответ; сетевой сбой — нет, он бросается вызывающему. */
     public async getMeta(id: string): Promise<IRegistryExtensionMeta | undefined> {
         if (this.metaCache.has(id)) return this.metaCache.get(id);
         const meta = await this.source.getMeta(id);
@@ -98,21 +75,15 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         return meta;
     }
 
-    /**
-     * Установка последней совместимой версии. Она же «обновить»: `installVsix`
-     * внутри сносит прочие версии того же id, поэтому отдельной операции
-     * обновления не существует.
-     */
+    /** Она же «обновить»: `installVsix` внутри сносит прочие версии того же id. */
     public async install(id: string): Promise<IExtensionInstallResult> {
         try {
-            // Зависимости (`extensionDependencies`) ставятся вместе с ним, без
-            // вопросов, как в VS Code, — и тоже ждут перезагрузки окна.
+            // Зависимости ставятся без вопросов, как в VS Code, и тоже ждут перезагрузки окна.
             const { version, dependencies } = await installFromRegistry(this.source, id, {
                 extensionsDir: this.profile.extensionsDir,
                 host: this.host,
             });
-            // В профиль — вместе с зависимостями, и с теми, что уже лежали на
-            // диске для другого профиля.
+            // В профиль — и зависимости, уже лежавшие на диске для другого профиля.
             this.profile.add([id]);
             for (const dep of dependencies) this.pendingReload.add(dep.id);
             this.markChanged(id);
@@ -122,7 +93,6 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         }
     }
 
-    /** Удаление из профиля; с диска — когда ни одному профилю оно не нужно. */
     public uninstall(id: string): Promise<IExtensionOperationResult> {
         try {
             const { removed } = this.profile.remove(id);
@@ -138,10 +108,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         }
     }
 
-    /**
-     * Состав установленного изменился: перечитываем диск и помечаем расширение
-     * как ждущее перезагрузки окна — вклады сканируются один раз на старте.
-     */
+    /** Вклады сканируются один раз на старте — изменённое ждёт перезагрузки окна. */
     private markChanged(id: string): void {
         this.pendingReload.add(id);
         this.reloadInstalled();
@@ -149,7 +116,6 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 
     public readonly onDidChange = this.onDidChangeEmitter.event;
 
-    /** Перечитывает установленное с диска (после установки/удаления). */
     public reloadInstalled(): void {
         this.installed = this.profile.list();
         this.rebuildEntries();
@@ -174,12 +140,7 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
         this.fireChange();
     }
 
-    /**
-     * Склейка каталога и установленного: сначала записи реестра (порядок
-     * индекса), затем установленное, которого в реестре нет. Запись, которая
-     * есть и там и там, — одна карточка: иначе установленное из магазина
-     * показалось бы ещё раз, уже как «мимо магазина».
-     */
+    /** Запись реестра и установленное — одна карточка: иначе установленное из магазина показалось бы ещё раз как «мимо магазина». */
     private computeEntries(): readonly IExtensionListEntry[] {
         const installedById = new Map(this.installed.map((e) => [e.id, e]));
         const entries: IExtensionListEntry[] = [];
@@ -222,9 +183,8 @@ export class ExtensionsWorkbenchService extends Disposable implements IExtension
 }
 
 /**
- * Состояние карточки реестра. Несовместимость проверяется по `latest.engines`
- * (в индексе других версий нет) и считается сильнее «установлено»: пользователю
- * важнее знать, что обновляться некуда, чем что версия старая.
+ * Несовместимость — по `latest.engines` (других версий в индексе нет) и сильнее «установлено»:
+ * важнее знать, что обновляться некуда.
  */
 function availabilityOf(
     entry: IRegistryIndexEntry,
@@ -237,12 +197,7 @@ function availabilityOf(
     return installed.version === entry.latest.version ? "installed" : "outdated";
 }
 
-/**
- * Карточка расширения, поставленного мимо магазина (`--install-extension foo.vsix`
- * или каталог в `extensions/`, ставший составом профиля при миграции): всё, что
- * о нём известно, — его манифест.
- * Такая запись всегда `installed`: сравнивать не с чем.
- */
+/** Поставлено мимо магазина: известен только манифест, запись всегда `installed`. */
 function toSideloadedEntry(installed: IInstalledExtension, needsReload: boolean): IExtensionListEntry {
     const dot = installed.id.indexOf(".");
     return {
@@ -260,7 +215,6 @@ function toSideloadedEntry(installed: IInstalledExtension, needsReload: boolean)
     };
 }
 
-/** Текст ошибки операции — то, что увидит пользователь на странице. */
 function messageOf(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }

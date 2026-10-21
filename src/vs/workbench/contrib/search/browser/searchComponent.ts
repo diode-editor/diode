@@ -55,34 +55,23 @@ import { buildSearchTree, type SearchTreeNode } from "./searchResultTree.ts";
 
 export const SearchComponentDIToken = token<SearchComponent>("SearchComponent");
 
-/** Id вьюлета Search в сайдбаре (он же id merged-контейнера, см. `workbench.view.search`). */
 export const SEARCH_VIEWLET_ID = "search";
 
-/** Id единственной view merged-контейнера Search (контекст меню «⋯», конвенция SCM). */
 export const SEARCH_VIEW_ID = "workbench.search.results";
 
-/**
- * Пустое состояние Search без открытой папки. Текст у эталона другой («Only open
- * editors are currently searched») — у него поиск по открытым редакторам есть, у
- * нас запрос уходит в ripgrep по корню, поэтому обещать нечего.
- */
+// Текст не эталонный («Only open editors are currently searched»): поиска по
+// открытым редакторам у нас нет, запрос уходит в ripgrep по корню.
 const SEARCH_WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "text", text: "Search needs an open folder." },
     { kind: "text", text: "" },
     { kind: "button", label: "Open Folder", command: "workbench.action.files.openFolder" },
 ];
 
-/** Редактор, в котором раскрывается позиция результата поиска. */
 export interface ISearchRevealEditor {
     goToPosition(line: number, column?: number): void;
     revealRange(range: IRange): void;
 }
 
-/**
- * Минимальный срез группы редакторов для открытия результата: открыть файл и
- * довести до позиции. `EditorService` соответствует ему структурно — связывание
- * делает DI-модуль (как {@link import("../../markers/browser/problemsComponent.ts").MarkerRevealTargetDIToken}).
- */
 export interface ISearchRevealTarget {
     openUri(uri: Uri): void;
     getActiveEditor(): ISearchRevealEditor | null;
@@ -90,30 +79,22 @@ export interface ISearchRevealTarget {
 
 export const SearchRevealTargetDIToken = token<ISearchRevealTarget>("SearchRevealTarget");
 
-/** Debounce before a query/toggle change spawns ripgrep (avoids a process per keystroke). */
 const SEARCH_DEBOUNCE_MS = 150;
-/**
- * Троттл полной пересборки строк в tree-режиме при стриме результатов: новый
- * файл может расколоть компакт-цепочку папок, а ListViewElement умеет только
- * append — проще пересобрать целиком, но не чаще раза в интервал.
- */
+// ListViewElement умеет только append, а новый файл может расколоть компакт-цепочку
+// папок — tree-режим пересобирается целиком, но не чаще раза в интервал.
 const TREE_REBUILD_THROTTLE_MS = 100;
 
-/** Toggle button glyphs (TUI analogues of VS Code's case/word/regex icons). */
 const CASE_GLYPH = "Aa";
 const WORD_GLYPH = "\\b";
 const REGEX_GLYPH = ".*";
-/** Кнопка под строкой запроса — тумблер блока include/exclude (VS Code: Toggle Search Details). */
 const DETAILS_GLYPH = "···";
 
-/** Одна файл-группа накопленной модели результатов (порядок — порядок стрима). */
 interface IFileGroup {
     readonly absolutePath: string;
     readonly relPath: string;
     readonly matches: ITextMatch[];
 }
 
-/** Метаданные строки списка — для активации и рестайла при смене темы. */
 type RowMeta =
     | { readonly kind: "folder"; readonly element: TextLabelElement; readonly path: string }
     | { readonly kind: "file"; readonly element: TextLabelElement; readonly group: IFileGroup }
@@ -124,20 +105,6 @@ type RowMeta =
           readonly match: ITextMatch;
       };
 
-/**
- * Search view (left sidebar): a query input + case/whole-word/regex toggles,
- * files-to-include/exclude inputs, a result count, and the streamed results
- * list. Search-as-you-type (debounced) drives {@link TextSearchService}; results
- * stream into a virtualised {@link ListViewElement}. Режим `list` — файлы
- * плоским списком (матчи сворачиваются под файлом, инкрементальный стрим);
- * режим `tree` — иерархия каталогов с компакцией одиночных цепочек
- * ({@link buildSearchTree}), пересборка строк по троттлу
- * (`search.action.viewAsTree`/`viewAsList`, персист по-проектно).
- * Enter/double-click on a match opens the file at the
- * match position via the {@link ISearchRevealTarget} seam. Living в сайдбаре как
- * merged одно-view контейнер ({@link ViewsService}, mergeSingleView): заголовок
- * `SEARCH` с меню «⋯» рисует PaneHeaderElement, тело — {@link HeaderBodyViewElement}.
- */
 export class SearchComponent extends Component implements IContextKeyContributor {
     public static dependencies = [
         TextSearchServiceDIToken,
@@ -163,13 +130,8 @@ export class SearchComponent extends Component implements IContextKeyContributor
     private readonly headerStack = new VStackElement();
     private readonly queryRow: HFlexElement;
     private readonly detailsRow: HFlexElement;
-    /** Пустая строка-зазор между include и exclude в раскрытых деталях. */
     private readonly detailsGapRow = new FillerElement();
-    /**
-     * Результаты — виртуализирующий список; публичен для команд list-навигации и
-     * тестов. Typeahead выключен: в панели поиска набор букв — это уточнение
-     * запроса, а не прыжки по результатам (в отличие от дерева файлов).
-     */
+    // Typeahead выключен: набор букв в панели поиска уточняет запрос, а не прыгает по результатам.
     public readonly results = new ListViewElement({ typeahead: false });
     private readonly scrollBars: ScrollBarDecorator;
 
@@ -177,7 +139,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
     private wholeWord = false;
     private regex = false;
 
-    /** Раскрыт ли блок include/exclude (VS Code: query details). */
     private detailsExpanded: boolean;
     private viewMode: SearchViewMode;
     private groups = new Map<string, IFileGroup>();
@@ -185,15 +146,10 @@ export class SearchComponent extends Component implements IContextKeyContributor
     private matchCount = 0;
     private handle: ISearchHandle | null = null;
     private debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    /** Отложенная пересборка строк tree-режима при стриме (см. TREE_REBUILD_THROTTLE_MS). */
     private treeRebuildTimer: ReturnType<typeof setTimeout> | null = null;
-    /** Дебаунс пересчёта data-ключей hasSearchResult/viewHasSomeCollapsibleResult. */
     private resultKeysTimer: ReturnType<typeof setTimeout> | null = null;
-    /** Родитель каждой строки — видимость/глубина для поэтапного Collapse All. */
     private rowParents = new Map<string, string | null>();
-    /** Первая строка результатов — ключ firstMatchFocus (возврат Up в инпуты). */
     private firstRowId: string | null = null;
-    /** Последний поиск: колбэки и complete перебитого поиска игнорируются. */
     private readonly latestSearch = new LatestRequest();
 
     public constructor(
@@ -210,16 +166,12 @@ export class SearchComponent extends Component implements IContextKeyContributor
 
         this.viewMode = this.stateService.get(SEARCH_VIEW_MODE_STATE);
         this.detailsExpanded = this.stateService.get(SEARCH_QUERY_DETAILS_STATE);
-        // Workspace-стор проекта открыт (Open Folder или бутстрап) — состояние
-        // view теперь читается из него, а не из стора пустого окна.
         this.register(
             this.stateService.onDidOpenWorkspace(() => {
                 this.restoreViewState();
             }),
         );
-        // Data-ключ для toggled в меню «⋯»: ContextMenuService не дёргает
-        // updateContextKeys, поэтому ключ сетится в момент изменения (прецедент
-        // activeOutputChannel).
+        // ContextMenuService не дёргает updateContextKeys — ключ для toggled в «⋯» сетим при изменении.
         this.contextKeys.set("searchViewMode", this.viewMode);
 
         this.queryInput.placeholder = "Search";
@@ -265,8 +217,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.queryRow = this.buildQueryRow();
         this.detailsRow = this.buildDetailsRow();
         this.rebuildHeader();
-        // Инпуты и счётчик не прижаты к краям панели — отступы по колонке слева
-        // и справа (прецедент: ChangesComponent паддит список изменений).
         const paddedHeader = new PaddingContainerElement(this.headerStack, { left: 1, right: 1 });
 
         this.root = new HeaderBodyViewElement(paddedHeader, this.scrollBars);
@@ -283,8 +233,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
             order: 1,
             visibleContextKey: "searchViewletVisible",
         });
-        // Тело единственной view merged-контейнера Search: заголовок секции —
-        // заголовок вьюлета, «⋯»-меню приходит от PaneHeaderElement.
         viewsService.registerView({
             canMoveView: true,
             id: SEARCH_VIEW_ID,
@@ -292,10 +240,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
             title: "SEARCH",
             order: 10,
             body: this.root,
-            // Корень запроса — папка воркспейса (см. runSearch), поэтому без
-            // папки искать физически негде: вместо рабочего с виду поля, которое
-            // на любой запрос молча отвечает «No results», секция честно говорит,
-            // чего не хватает, и даёт кнопку это исправить.
+            // Корень запроса — папка воркспейса (runSearch): без неё поле молча отвечало бы «No results».
             requiresWorkspaceFolder: true,
             placeholder: SEARCH_WELCOME,
             focus: () => {
@@ -318,17 +263,11 @@ export class SearchComponent extends Component implements IContextKeyContributor
         return this.root;
     }
 
-    /** Focuses the query input (called when the Search view is shown). */
     public focus(): void {
         this.queryInput.focus();
     }
 
-    /**
-     * Collapse All с VS Code-поведением «поуровнево, с самого глубокого»
-     * (CollapseDeepestExpandedLevel): (1) видны матч-строки → свернуть все
-     * файл-строки (папки остаются раскрытыми); (2) иначе в tree-режиме видно
-     * что-то глубже корня → свернуть всё рекурсивно; (3) иначе свернуть всё.
-     */
+    /** Как CollapseDeepestExpandedLevel эталона: видны матчи → свернуть только файлы, иначе — всё. */
     public collapseDeepestLevel(): void {
         const anyMatchVisible = [...this.rowMeta].some(([id, meta]) => meta.kind === "match" && this.isRowVisible(id));
         for (const [id, meta] of this.rowMeta) {
@@ -339,7 +278,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.refreshResultKeys();
     }
 
-    /** Expand All — развернуть все свёрнутые строки. */
     public expandAll(): void {
         for (const id of this.results.getCollapsedIds()) {
             this.results.setCollapsed(id, false);
@@ -347,11 +285,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.refreshResultKeys();
     }
 
-    /**
-     * Кольцо фокуса «вниз» (Down/Ctrl+Down из инпутов): query → include (если
-     * детали раскрыты) → exclude → список результатов; скрытые инпуты
-     * пропускаются (VS Code: focusNextInputBox).
-     */
     public focusNextInputBox(): void {
         if (this.queryInput.isFocused) {
             if (this.detailsExpanded) {
@@ -370,7 +303,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
         }
     }
 
-    /** Кольцо фокуса «вверх»: exclude → include → query; из query — no-op (верх кольца). */
     public focusPreviousInputBox(): void {
         if (this.excludeInput.isFocused) {
             this.includeInput.focus();
@@ -381,10 +313,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
         }
     }
 
-    /**
-     * Up с первой строки результатов — назад в инпуты: exclude при раскрытых
-     * деталях, иначе query (VS Code: focusSearchFromResults / moveFocusFromResults).
-     */
     public focusSearchFromResults(): void {
         if (this.detailsExpanded) {
             this.excludeInput.focus();
@@ -393,12 +321,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
         }
     }
 
-    /**
-     * Фокусные ключи поиска (IContextKeyContributor): `searchViewletFocus` —
-     * активный элемент внутри тела view, `searchInputBoxFocus` — один из трёх
-     * инпутов, `firstMatchFocus` — список результатов с курсором на первой строке
-     * (возврат Up в инпуты).
-     */
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
         contextKeys.set("searchViewletFocus", this.containsFocus(active));
         contextKeys.set("searchInputBoxFocus", this.isInputBoxFocused(active));
@@ -425,7 +347,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
         return this.viewMode;
     }
 
-    /** Переключает вид дерево/плоско, пересобирая строки из модели (без нового rg). */
     public setViewMode(mode: SearchViewMode): void {
         if (mode === this.viewMode) return;
         this.viewMode = mode;
@@ -434,12 +355,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.rebuildRows();
     }
 
-    /**
-     * Восстанавливает состояние view из workspace-стора: режим дерево/плоско и
-     * раскрытость блока include/exclude. Зовётся после `openWorkspace`, без
-     * write-through. Детали раскрываются и при непустых полях (паритет VS Code:
-     * непустые паттерны не должны прятаться).
-     */
+    /** Детали раскрываются и при непустых полях: непустые паттерны не прячем (паритет VS Code). */
     public restoreViewState(): void {
         const mode = this.stateService.get(SEARCH_VIEW_MODE_STATE);
         if (mode !== this.viewMode) {
@@ -458,16 +374,10 @@ export class SearchComponent extends Component implements IContextKeyContributor
         }
     }
 
-    /** Раскрыт ли блок include/exclude — кольцо фокуса пропускает скрытые инпуты. */
     public isQueryDetailsShown(): boolean {
         return this.detailsExpanded;
     }
 
-    /**
-     * Тумблер блока include/exclude (VS Code: Toggle Search Details,
-     * Ctrl+Shift+J). Раскрытие уводит фокус в include, скрытие возвращает его в
-     * строку запроса; `moveFocus: false` — только смена раскрытости (restore).
-     */
     public toggleQueryDetails(show?: boolean, moveFocus = true): void {
         const next = show ?? !this.detailsExpanded;
         if (next !== this.detailsExpanded) {
@@ -484,11 +394,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
         }
     }
 
-    /**
-     * Пересобирает строки хедера под текущую раскрытость деталей. Строка «···»
-     * (правый край) — одновременно вертикальный зазор между строкой запроса и
-     * остальным блоком; между include и exclude — пустая строка-Filler.
-     */
+    // Строка «···» — заодно вертикальный зазор между строкой запроса и остальным блоком.
     private rebuildHeader(): void {
         const rows: TUIElement[] = [this.queryRow, this.detailsRow];
         if (this.detailsExpanded) {
@@ -532,7 +438,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
     }
 
     private onToggleChanged(): void {
-        // «Включённый» вид тумблера — состояние checked на самой кнопке (Н3).
         this.caseButton.setChecked(this.caseSensitive);
         this.wordButton.setChecked(this.wholeWord);
         this.regexButton.setChecked(this.regex);
@@ -558,9 +463,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.results.clear();
         this.scheduleResultKeysUpdate();
 
-        // Корень запроса — из IWorkspaceContextService; `folders.at(0)` здесь и есть
-        // видимое сужение до однопапочной семантики (N корней = N процессов rg и
-        // группировка результатов по папкам — этап C в docs/TODO/MultiRoot.md).
+        // `folders.at(0)` — осознанное сужение до одной папки (мульти-корень — этап C в docs/TODO/MultiRoot.md).
         const root = this.workspaceContext.getWorkspace().folders.at(0)?.uri.fsPath ?? null;
         const query = this.buildQuery();
         if (root === null || query.pattern === "") {
@@ -593,8 +496,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
             this.matchCount++;
         }
         if (this.viewMode === "list") {
-            // Плоский список растёт инкрементально: файл-строка при первом матче
-            // файла, дальше — только его матчи и счётчик.
             if (isNewGroup) this.appendFileRow(group, group.relPath);
             for (let i = group.matches.length - match.matches.length; i < group.matches.length; i++) {
                 this.appendMatchRow(group, group.matches[i], i, fileRowId(group));
@@ -602,8 +503,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
             const fileMeta = this.rowMeta.get(fileRowId(group)) as Extract<RowMeta, { kind: "file" }>;
             formatFileRow(fileMeta.element, group.relPath, group.matches.length, this.rowStyles());
         } else {
-            // Дерево пересобирается целиком (компакт-цепочки может расколоть
-            // новый файл) — по троттлу, финальный flush на завершении поиска.
             this.scheduleTreeRebuild();
         }
         this.updateCount(true);
@@ -632,7 +531,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.results.appendRow(element, { label, parentId });
     }
 
-    /** Общая бухгалтерия строки: метаданные, родитель, первая строка, data-ключи. */
     private registerRow(id: string, meta: RowMeta, parentId: string | undefined): void {
         this.rowMeta.set(id, meta);
         this.rowParents.set(id, parentId ?? null);
@@ -640,7 +538,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.scheduleResultKeysUpdate();
     }
 
-    /** Видима ли строка: ни один предок не свёрнут. */
     private isRowVisible(id: string): boolean {
         for (let parent = this.rowParents.get(id); parent != null; parent = this.rowParents.get(parent)) {
             if (this.results.isCollapsed(parent)) return false;
@@ -662,10 +559,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
         }
     }
 
-    /**
-     * Data-ключи hasSearchResult/viewHasSomeCollapsibleResult — с дебаунсом
-     * (стрим зовёт на каждую строку; скан проекции на каждую был бы O(n²)).
-     */
+    // Дебаунс: стрим зовёт на каждую строку, а скан проекции на каждую — O(n²).
     private scheduleResultKeysUpdate(): void {
         if (this.resultKeysTimer !== null) return;
         this.resultKeysTimer = setTimeout(() => {
@@ -687,7 +581,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
         }, TREE_REBUILD_THROTTLE_MS);
     }
 
-    /** Пересборка «сейчас», если троттл ещё ждёт (завершение поиска). */
     private flushTreeRebuild(): void {
         if (this.treeRebuildTimer === null) return;
         clearTimeout(this.treeRebuildTimer);
@@ -695,12 +588,8 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.rebuildRows();
     }
 
-    /**
-     * Пересобирает строки списка из накопленной модели (смена режима, стрим в
-     * tree-режиме, восстановление). Свёрнутость и курсор переживают пересборку
-     * по стабильным id; свёрнутая компакт-цепочка при расколе теряет
-     * свёрнутость — её id умирает вместе с цепочкой.
-     */
+    // Свёрнутость и курсор переживают пересборку по стабильным id; свёрнутая компакт-цепочка
+    // при расколе свёрнутость теряет — её id умирает вместе с цепочкой.
     private rebuildRows(): void {
         const cursorId = this.results.getCursorElement()?.id ?? null;
         const collapsedIds = this.results.getCollapsedIds();
@@ -726,7 +615,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
         }
     }
 
-    /** Enter/двойной клик: папка/файл сворачиваются, матч открывается на позиции. */
     private activateRow(rowId: string): void {
         const meta = this.rowMeta.get(rowId);
         /* v8 ignore start -- defensive: every appended row has meta under its id */
@@ -740,7 +628,6 @@ export class SearchComponent extends Component implements IContextKeyContributor
             this.results.toggleCollapsed(fileRowId(meta.group));
             return;
         }
-        // Переход целиком — одна запись истории (см. IJumpRecorder).
         this.jumps.jump(() => {
             this.revealTarget.openUri(Uri.file(meta.group.absolutePath));
             const editor = this.revealTarget.getActiveEditor();
@@ -762,12 +649,8 @@ export class SearchComponent extends Component implements IContextKeyContributor
             isCaseSensitive: this.caseSensitive,
             isWholeWord: this.wholeWord,
             includes: parseSearchFieldGlobs(this.includeInput.inputState.value),
-            // Настройки идут ПЕРЕД набранным в «files to exclude», а не вместо:
-            // у эталона поиск по содержимому применяет оба набора настроек, а
-            // поле — это уточнение запроса поверх них. Настройка читается на
-            // каждый запрос, поэтому правка применяется к следующему же поиску.
-            // Шаблоны настроек — от корня (`common` — только `<корень>/common`),
-            // набранное — на любой глубине: поле разворачивается в `**/…`.
+            // Настройки — перед набранным, а не вместо: поле уточняет запрос поверх них, как в эталоне.
+            // Шаблоны настроек — от корня (`common` — только `<корень>/common`), набранное — на любой глубине (`**/…`).
             excludes: [
                 ...searchExcludeGlobs(this.configurationService),
                 ...parseSearchFieldGlobs(this.excludeInput.inputState.value),
@@ -819,12 +702,8 @@ function folderRowId(path: string): string {
     return `dir:${path}`;
 }
 
-/**
- * Displays a matched file as a workspace-relative path (falls back to absolute),
- * with separators normalised to `/`. Handles both POSIX (`/`) and Windows (`\`)
- * paths, since ripgrep reports native separators — a long unstripped absolute
- * path would otherwise clip the basename off the right edge of the list.
- */
+// ripgrep отдаёт родные разделители (`/` и `\`); не срезанный абсолютный путь обрезал бы
+// basename у правого края списка.
 function labelFor(absolutePath: string, root: string): string {
     const rel = absolutePath.startsWith(root) ? absolutePath.slice(root.length).replace(/^[/\\]+/u, "") : absolutePath;
     return rel.replace(/\\/gu, "/");

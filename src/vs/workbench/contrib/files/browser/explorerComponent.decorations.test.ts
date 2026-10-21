@@ -25,11 +25,7 @@ const MODIFIED = packRgb(226, 192, 141);
 const UNTRACKED = packRgb(115, 201, 145);
 const DELETED = packRgb(199, 78, 57);
 
-/**
- * Декорации папок до кадра (VS Code: папка с изменёнными внутри — цвет потомка
- * и бейдж «●»): настоящее дерево Explorer'а над настоящим диском, настройки с
- * дефолтами приложения.
- */
+/** Как в VS Code: папка с изменёнными внутри — цвет потомка и бейдж «●». Настоящее дерево над настоящим диском. */
 describe("ExplorerComponent — декорации всплывают к папкам", () => {
     let ws: ITempWorkspace;
     let config: InMemoryConfigurationService;
@@ -37,7 +33,6 @@ describe("ExplorerComponent — декорации всплывают к пап�
     let component: ExplorerComponent;
     let app: TestApp;
 
-    /** Строки кадра без пустых хвостов. */
     function rows(): string[] {
         app.render();
         return app.backend
@@ -55,7 +50,6 @@ describe("ExplorerComponent — декорации всплывают к пап�
         return { y, row: all[y] };
     }
 
-    /** Цвет первой буквы метки `text`. */
     function labelFg(text: string): number | undefined {
         const { y, row } = rowOf(text);
         return app.backend.getFgAt(new Point(row.indexOf(text), y));
@@ -122,13 +116,11 @@ describe("ExplorerComponent — декорации всплывают к пап�
 
         expect(badgeOf("src")).toBe("●");
         expect(labelFg("src")).toBe(MODIFIED);
-        // Соседние папки и файлы — без декораций.
         expect(badgeOf("pkg")).toBe("");
         expect(badgeOf("README.md")).toBe("");
 
-        // Раскрыли: промежуточная папка тоже с «●», сам файл — со своей буквой.
-        // Раскрываем через reveal, а не стрелками от «первой строки»: курсора до первого
-        // нажатия может не быть, и тогда стрелки раскрывали pkg вместо src (флак CI).
+        // Раскрываем через reveal, а не стрелками: курсора до первого нажатия может не быть, и стрелки
+        // раскрывали pkg вместо src (флак CI).
         service.focus();
         await service.revealPath(ws.path("src/lib/util.ts"));
         await vi.waitFor(() => {

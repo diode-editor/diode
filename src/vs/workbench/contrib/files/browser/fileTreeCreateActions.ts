@@ -10,12 +10,7 @@ const NEW_FILE_ICON = "";
 /** nf-cod-new_folder — она же для каталога. */
 const NEW_FOLDER_ICON = "";
 
-/**
- * Команды создания в explorer поверх `FileOperationsService.runCreate` (промпт
- * имени + обратимое создание). Без кейбиндингов: вызываются из контекст-меню
- * дерева и палитры команд, как `explorer.newFile`/`explorer.newFolder` в VS Code.
- * Под `listFocus`.
- */
+/** Без кейбиндингов, как `explorer.newFile`/`explorer.newFolder` в VS Code. */
 export const explorerNewFileAction: CommandAction = {
     id: "explorer.newFile",
     title: "File: New File",

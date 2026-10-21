@@ -31,12 +31,7 @@ function render(element: ParameterHintsElement) {
     return renderElement(element, width, height, { themeVars: true });
 }
 
-/**
- * Ручной рендер в `TerminalScreen` — единственный путь к флагам стиля ячейки:
- * `MockTerminalBackend` из `renderElement` хранит только текст и цвета (сам
- * `renderElement` про этот случай и пишет «для доступа к TerminalScreen —
- * ручной сетап»).
- */
+/** Ручной рендер в `TerminalScreen`: `MockTerminalBackend` хранит только текст и цвета, без флагов стиля. */
 function renderToScreen(element: ParameterHintsElement): TerminalScreen {
     const size = new Size(element.getMinIntrinsicWidth(0), element.getMinIntrinsicHeight(0));
     const termScreen = new TerminalScreen(size);
@@ -221,9 +216,7 @@ describe("ParameterHintsElement — цвета", () => {
         const second = backend.getTextAt(new Point(0, 2), element.getMinIntrinsicWidth(0));
         const ageX = second.indexOf("age");
         expect(backend.getFgAt(new Point(ageX, 2))).toBe(vars["editorHoverWidget.highlightForeground"]);
-        // Отступ под счётчиком — обычный фон, без подсветки.
         expect(backend.getFgAt(new Point(2, 2))).toBe(vars["editorHoverWidget.foreground"]);
-        // Счётчик первой строки — тоже обычным цветом.
         expect(backend.getFgAt(new Point(2, 1))).toBe(vars["editorHoverWidget.foreground"]);
     });
 
@@ -268,12 +261,9 @@ describe("ParameterHintsElement — цвета", () => {
 
         expect(backend.getTextAt(new Point(6, 2), 6)).toBe("string");
         expect(backend.getFgAt(new Point(6, 2))).toBe(vars["editorHoverWidget.highlightForeground"]);
-        // Отступ под счётчиком офсетами метки не является: считай его частью
-        // метки — и подсветка первого параметра залила бы пустое место.
         for (const x of [2, 3, 4, 5]) {
             expect(backend.getFgAt(new Point(x, 2))).toBe(vars["editorHoverWidget.foreground"]);
         }
-        // Следом за диапазоном — обычный цвет.
         expect(backend.getFgAt(new Point(12, 2))).toBe(vars["editorHoverWidget.foreground"]);
     });
 

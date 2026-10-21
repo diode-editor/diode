@@ -1,12 +1,6 @@
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
-/**
- * Кнопки страницы расширения как данные: что показать и что из этого доступно.
- * Чистая функция — её читают тесты, а элемент лишь делает из описания
- * `ButtonElement`ы (тот же приём, что `describeExtensionRow` у строк списка).
- */
-
-/** Что делает кнопка. `update` — та же установка: она сносит прежние версии. */
+/** `update` — та же установка: она сносит прежние версии. */
 export type ExtensionButtonKind = "install" | "update" | "uninstall" | "reload";
 
 export interface IExtensionButton {
@@ -17,9 +11,7 @@ export interface IExtensionButton {
 }
 
 export interface IExtensionButtonState {
-    /** Идёт установка/удаление: кнопки гаснут, чтобы не запустить вторую операцию. */
     readonly busy: boolean;
-    /** Расширение ставили/удаляли в этой сессии — вклады доедут после перезагрузки окна. */
     readonly needsReload: boolean;
 }
 
@@ -30,10 +22,8 @@ export function describeExtensionButtons(entry: IExtensionListEntry, state: IExt
     if (state.needsReload) buttons.push({ kind: "reload", label: "Reload Window", enabled: true });
     const compatible = entry.availability !== "incompatible";
     if (entry.installedVersion === null) {
-        // Ставить нечего, если записи в реестре нет (расширение поставили из
-        // файла и уже удалили): кнопка вела бы прямиком в «not found in registry».
-        // Несовместимое, наоборот, показываем выключенной кнопкой — «поставить
-        // нельзя» это ответ, а отсутствие кнопки читается как недоделка.
+        // Записи в реестре нет — кнопка вела бы в «not found in registry». Несовместимое — выключенной
+        // кнопкой: «поставить нельзя» — ответ, а отсутствие кнопки читается как недоделка.
         if (entry.latestVersion !== null) {
             buttons.push({ kind: "install", label: "Install", enabled: compatible });
         }

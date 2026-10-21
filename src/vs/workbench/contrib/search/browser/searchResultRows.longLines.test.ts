@@ -5,11 +5,8 @@ import { buildRgArgs, parseRgMatchLine } from "../../../services/search/common/t
 
 import { buildMatchRow, type ISearchRowStyles } from "./searchResultRows.ts";
 
-// Регресс-тесты диагностики тормозов окна поиска: хвост совпавшей строки
-// капается у истока — в splitPreviewByBytes при
-// разборе rg --json. Без капа один матч в минифицированном/lock-файле клал в
-// TextLabelElement строку на сотни килобайт, которую рендер пересегментировал
-// на каждом кадре.
+// Регресс тормозов окна поиска: без капа хвоста в splitPreviewByBytes один матч в минифицированном/lock-файле
+// клал в TextLabelElement строку на сотни килобайт, которую рендер пересегментировал на каждом кадре.
 
 const STYLES: ISearchRowStyles = {
     dimFg: packRgb(128, 128, 128),

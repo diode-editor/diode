@@ -30,14 +30,8 @@ import { activeParameterSpan } from "./signatureLayout.ts";
 export const ParameterHintsServiceDIToken = token<ParameterHintsService>("ParameterHintsService");
 
 /**
- * Логика подсказки параметров. Открывается сама при наборе триггер-символа
- * сервера (`(`, `,`, `<` у tsserver) и по команде
- * `editor.action.triggerParameterHints`; пока показана — перезапрашивается на
- * каждую правку и движение каретки (так активный параметр следует за набором),
- * а ответ `null` её закрывает — именно так закрывающая скобка гасит попап.
- *
- * Пара к {@link ParameterHintsComponent} по образцу suggest/hover: компонент
- * владеет попапом и его overlay-сессией, сервис — запросами и состоянием.
+ * Пока показана — перезапрашивается на каждую правку и движение каретки (активный параметр следует
+ * за набором), а ответ `null` её закрывает: так закрывающая скобка гасит попап.
  */
 export class ParameterHintsService extends Disposable implements IContextKeyContributor {
     public static dependencies = [
@@ -47,12 +41,10 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         LanguageFeaturesServiceDIToken,
     ] as const;
 
-    /** Задержка авто-запроса, мс (в тестах — 0). У suggest её роль играет настройка `editor.quickSuggestionsDelay`. */
+    /** Мс; у suggest её роль играет `editor.quickSuggestionsDelay`. */
     public triggerDelayMs = 120;
 
-    /** Guard от устаревших ответов: пока ходили за подсказкой, запрос мог смениться. */
     private readonly latest = new LatestRequest();
-    /** Отложенный авто-запрос: вид и символ берутся из {@link scheduledTrigger}. */
     private readonly triggerScheduler = this.register(
         new RunOnceScheduler(() => {
             void this.trigger(this.scheduledTrigger.kind, this.scheduledTrigger.character);
@@ -60,7 +52,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
     );
     // Без затравки: `scheduleTrigger` пишет поле до каждого `schedule()`, раньше него раннер не зовётся.
     private scheduledTrigger!: { kind: TriggerKind; character: string | undefined };
-    /** Показанная сейчас подсказка (она же — эхо `activeSignatureHelp` серверу). */
+    /** Она же — эхо `activeSignatureHelp` серверу. */
     private currentHelp: ICoreSignatureHelp | null = null;
     private activeSignatureIndex = 0;
 
@@ -79,10 +71,8 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         );
         this.register(
             bindActiveEditor(this.group, (editor, store) => {
-                // Смена редактора при открытом попапе в приложении уже сопровождается
-                // сменой фокуса (её ловит подписка на FocusTracker), поэтому в юните пропуск этого
-                // закрытия не наблюдается — вызов держим для программной смены редактора
-                // без участия фокуса (восстановление сессии, split).
+                // В приложении смена редактора приходит вместе со сменой фокуса; вызов — для программной смены
+                // (восстановление сессии, split).
                 // Stryker disable next-line CallExpression: см. выше
                 this.close();
                 if (editor === null) return;
@@ -100,11 +90,6 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         );
     }
 
-    /**
-     * Запрашивает подсказку для позиции каретки и показывает попап. No-op, если
-     * нет активного редактора или провайдеров для документа; пустой ответ
-     * закрывает попап.
-     */
     public async trigger(
         triggerKind: TriggerKind = SignatureHelpTriggerKind.Invoke,
         character?: string,
@@ -136,11 +121,8 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
                     ? { activeSignatureHelp: { ...this.currentHelp, activeSignature: this.activeSignatureIndex } }
                     : {}),
             },
-            // Перезапрос и закрытие подсказки отменяют запрос и у провайдера.
             ticket.token,
         );
-        // Пока ходили за ответом, попап могли закрыть или перезапросить — старый
-        // ответ не имеет права перекрыть новое состояние.
         if (ticket.isStale()) return;
         if (help === null) {
             this.close();
@@ -159,22 +141,16 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         this.component.openAt(anchor);
     }
 
-    /** Открыт ли попап (для `parameterHintsVisible` и делегаторов команд). */
     public isOpen(): boolean {
         return this.component.isOpen();
     }
 
-    /**
-     * IContextKeyContributor: `parameterHintsVisible` и
-     * `parameterHintsMultipleSignatures` — стрелки листают перегрузки, только
-     * когда их больше одной.
-     */
     public updateContextKeys(contextKeys: ContextKeyService): void {
         contextKeys.set("parameterHintsVisible", this.isOpen());
         contextKeys.set("parameterHintsMultipleSignatures", (this.currentHelp?.signatures.length ?? 0) > 1);
     }
 
-    /** Следующая перегрузка — локально, без запроса к серверу. */
+    /** Локально, без запроса к серверу. */
     public nextSignature(): void {
         this.stepSignature(1);
     }
@@ -189,7 +165,6 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         this.component.setHint(null);
         this.currentHelp = null;
         this.activeSignatureIndex = 0;
-        // Ответ «в полёте» больше не нужен: его билет устареет и ответ будет отброшен.
         this.latest.cancel();
     }
 
@@ -201,7 +176,6 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         this.renderHint();
     }
 
-    /** Перекладывает текущую подсказку в попап (после запроса и после листания). */
     private renderHint(): void {
         const help = this.currentHelp;
         /* v8 ignore start -- defensive: рендер зовут только при живой подсказке */
@@ -209,7 +183,6 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         if (help === null) return;
         /* v8 ignore stop */
         const signature = help.signatures[this.activeSignatureIndex];
-        // Сигнатура вправе задать свой активный параметр — он важнее общего.
         const activeParameter = signature.activeParameter ?? help.activeParameter;
         const documentation = [signature.parameters[activeParameter]?.documentation, signature.documentation]
             .flatMap((doc) => (doc === undefined ? [] : splitMarkdownSections(doc)))
@@ -223,11 +196,8 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
     }
 
     /**
-     * Набор символа (событие редактора, а не «строка выросла на символ»): триггер
-     * сервера открывает подсказку, а пока она показана — ретриггер-символ (`)`)
-     * уходит серверу в контексте, ответ на нём обычно пустой, и подсказка
-     * закрывается сама. Приходит ПОСЛЕ события каретки той же правки и
-     * перезаводит запланированный им `ContentChange` своим видом.
+     * Ретриггер-символ (`)`) уходит серверу в контексте, ответ обычно пустой — подсказка закрывается
+     * сама. Приходит ПОСЛЕ события каретки и перезаводит запланированный им `ContentChange` своим видом.
      */
     private onDidType(editor: TextEditorPane, text: string): void {
         // Триггеры — метаданные провайдеров, подошедших именно этому документу:
@@ -238,11 +208,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         if (triggers || retriggers) this.scheduleTrigger(SignatureHelpTriggerKind.TriggerCharacter, text);
     }
 
-    /**
-     * Правка или движение каретки: пока подсказка показана, она перезапрашивается
-     * (иначе активный параметр застыл бы на первом). Выделение вместо каретки
-     * подсказку закрывает.
-     */
+    /** Без перезапроса активный параметр застыл бы на первом. */
     private onCaretChanged(): void {
         const editor = this.group.getActiveEditor();
         /* v8 ignore start -- defensive: события приходят от привязанного редактора */
@@ -251,9 +217,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
         /* v8 ignore stop */
         const selections = editor.viewState.selections;
         if (selections.length !== 1 || !isSelectionCollapsed(selections[0])) {
-            // Выделение, а не каретка: показывать подсказку вызова не для чего.
-            // `close()` идемпотентен и заодно снимает отложенный запрос — иначе
-            // набранная перед выделением «(» открыла бы попап уже поверх него.
+            // `close()` снимает и отложенный запрос — иначе «(» перед выделением открыла бы попап поверх него.
             this.close();
             return;
         }
@@ -270,7 +234,7 @@ export class ParameterHintsService extends Disposable implements IContextKeyCont
     }
 }
 
-/** Индекс активной сигнатуры в границах списка (сервер вправе прислать любой). */
+/** Сервер вправе прислать любой индекс. */
 function clampIndex(index: number, length: number): number {
     // Stryker disable next-line EqualityOperator: на index === 0 обе границы дают ноль — тот же индекс, что и без клампа
     if (index < 0 || index >= length) return 0;

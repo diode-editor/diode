@@ -17,11 +17,7 @@ import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 import { EXPLORER_VIEW_ID, EXPLORER_VIEWLET_ID, ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
 
-/**
- * Explorer идёт тем же путём, что Search и SCM: сам он владеет только телом
- * секции, а заголовок, «⋯»-меню и кнопки даёт общая модель контейнеров. Тест
- * держит именно это — что компонент ничего не рисует сам.
- */
+/** Компонент ничего не рисует сам: заголовок, «⋯»-меню и кнопки даёт общая модель контейнеров. */
 describe("ExplorerComponent — контейнер сайдбара", () => {
     let ws: ITempWorkspace;
     let h: IViewsHarness;
@@ -66,7 +62,6 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
             title: "EXPLORER",
             collapsible: false,
         });
-        // Вид переносится — например, во вторичную боковую панель.
         expect(h.service.canMoveView(EXPLORER_VIEW_ID)).toBe(true);
     });
 

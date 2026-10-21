@@ -21,13 +21,9 @@ import { ExplorerService } from "./explorerService.ts";
 import type { FileTreeDataProvider } from "./fileTreeDataProvider.ts";
 
 /**
- * Гонка, на которой редактор висел намертво (большое монорепо, `explorer.autoReveal`
- * при закрытии вкладок): раскрытие головы компактной цепочки ждёт ФС, а родителя
- * в это время перечитывают. Строку в дереве начинает держать новый объект
- * листинга — без цепочки, `path` у него голова. Провайдер цепочку при этом знает,
- * `findNode` отдаёт для любой её папки эту строку, и `revealChain` крутился на
- * голове без конца: `expand` раскрытого ключа — no-op, резолвится микротаском,
- * event loop не получает управления ни разу.
+ * Гонка, на которой редактор висел (большое монорепо, `explorer.autoReveal`): раскрытие головы
+ * цепочки ждёт ФС, а родителя перечитывают — строку держит новый объект без цепочки, и
+ * `revealChain` крутился на голове микротасками, не отдавая event loop.
  */
 describe("ExplorerComponent — compactFolders: reveal после перечитывания родителя посреди раскрытия", () => {
     let ws: ITempWorkspace;
@@ -47,11 +43,7 @@ describe("ExplorerComponent — compactFolders: reveal после перечит
             .filter((row) => row.trim() !== "");
     }
 
-    /**
-     * Зависание — бесконечный цикл на микротасках: таймаут vitest в нём не
-     * сработает никогда, воркер встанет. Ограничиваем число обращений к
-     * `findNode`, чтобы регрессия падала ошибкой, а не вешала прогон.
-     */
+    /** Цикл на микротасках таймаут vitest не прервёт — ограничиваем обращения к `findNode`, чтобы регрессия падала, а не вешала прогон. */
     function failInsteadOfHanging(provider: FileTreeDataProvider): void {
         const findNode = provider.findNode.bind(provider);
         let calls = 0;

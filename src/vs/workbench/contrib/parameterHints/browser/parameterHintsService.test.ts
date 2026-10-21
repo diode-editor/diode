@@ -27,19 +27,16 @@ import { CompletionServiceDIToken } from "../../suggest/browser/completionServic
 import { ParameterHintsComponentDIToken } from "./parameterHintsComponent.ts";
 import { ParameterHintsServiceDIToken } from "./parameterHintsService.ts";
 
-/** Значение ключа, который сервис выставляет как IContextKeyContributor. */
 function contextKey(contributor: IContextKeyContributor, key: ContextKey): unknown {
     const keys = new ContextKeyService();
     contributor.updateContextKeys(keys, null);
     return keys.get(key);
 }
 
-/** Даёт setTimeout(…, 0) авто-триггера отработать. */
 function flushTimers(): Promise<void> {
     return new Promise((res) => setTimeout(res, 5));
 }
 
-/** Ждёт заведомо дольше задержки авто-триггера (проверки «запрос НЕ ушёл»). */
 function waitPastDelay(ms: number): Promise<void> {
     return new Promise((res) => setTimeout(res, ms));
 }
@@ -73,7 +70,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(80, 24) });
         h.workbench.openFile(ws.path("main.ts"));
         h.workbench.focusEditor();
-        service().triggerDelayMs = 0; // детерминированный авто-триггер в тестах
+        service().triggerDelayMs = 0;
     });
 
     afterEach(() => {
@@ -83,10 +80,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
     const group = () => h.container.get(EditorServiceDIToken);
     let registration: IDisposable | undefined;
-    /**
-     * Единственный провайдер подсказки для любого документа (снимает прежнего)
-     * с триггерами tsserver: «(», «,», «<» открывают, «)» перезапрашивает.
-     */
+    /** Снимает прежнего; триггеры tsserver: «(», «,», «<» открывают, «)» перезапрашивает. */
     const useSource = (provideSignatureHelp: SignatureHelpProvider["provideSignatureHelp"]): void => {
         registration?.dispose();
         registration = h.container.get(LanguageFeaturesServiceDIToken).signatureHelpProvider.register("*", {
@@ -140,7 +134,6 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
         expect(service().isOpen()).toBe(true);
         expect(lines()).toEqual(["greet(name: string, age: number): void"]);
-        // Фокус остался в редакторе.
         expect(group().getActiveEditor()).not.toBeNull();
     });
 
@@ -185,7 +178,6 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         await waitPastDelay(60);
         await flushMicrotasks();
 
-        // Отложенный запрос снят — иначе после ручного прилетел бы второй ответ.
         expect(source).toHaveBeenCalledTimes(1);
     });
 
@@ -296,7 +288,6 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
             triggerCharacter: ",",
             isRetrigger: true,
         });
-        // Эхо показанной подсказки — по нему сервер удерживает перегрузку.
         expect(seen[1].activeSignatureHelp).toEqual({ ...help(), activeSignature: 0 });
     });
 
@@ -345,7 +336,6 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         await service().trigger();
         expect(service().isOpen()).toBe(true);
 
-        // Два курсора — «одна каретка в вызове» больше не про этот случай.
         h.testApp.sendKey("Ctrl+Alt+ArrowDown");
         expect(group().getActiveEditor()?.viewState.selections).toHaveLength(2);
         await flushTimers();
@@ -439,15 +429,13 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
             return Promise.resolve(help());
         });
 
-        // Вставка целого куска с триггер-символом внутри попап не открывает
-        // (та же эвристика, что у автодополнения; в VS Code вставка тоже молчит).
+        // Вставка куска с триггер-символом внутри — не набор (как у автодополнения и в VS Code).
         group().getActiveEditor()?.viewState.insertText("greet(");
         await flushTimers();
         await flushMicrotasks();
         expect(seen).toHaveLength(0);
         expect(service().isOpen()).toBe(false);
 
-        // А при показанной подсказке вставка — обычная правка: перезапрос.
         await service().trigger();
         group().getActiveEditor()?.viewState.insertText("abc");
         await flushTimers();
@@ -502,8 +490,7 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         await waitPastDelay(60);
         await flushMicrotasks();
 
-        // Содержимое очищено (иначе оно мигнёт при следующем открытии), а
-        // отложенный запрос снят.
+        // Иначе содержимое мигнёт при следующем открытии.
         expect(component().view.hint).toBeNull();
         expect(source).toHaveBeenCalledTimes(1);
     });
@@ -549,7 +536,6 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
         service().nextSignature();
         expect(lines()[0]).toBe("2/2 greet(name: string): void");
-        // По кругу: со второй — снова на первую.
         service().nextSignature();
         expect(lines()[0]).toBe("1/2 greet(name: string, age: number): void");
         service().previousSignature();
@@ -650,7 +636,6 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
 
         await service().trigger();
 
-        // Подсвечен второй параметр: диапазон считается от него.
         expect(component().view.linesFor(60)).toEqual([GREET.label]);
         const start = GREET.label.indexOf("age: number");
         expect(component().view.hint?.activeSpan).toEqual([start, start + "age: number".length]);
@@ -695,14 +680,12 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         useSource(() => Promise.resolve(help()));
         const editor = group().getActiveEditor()!;
 
-        // Показанный попап без якоря жить не может — уход каретки его гасит.
         await service().trigger();
         expect(service().isOpen()).toBe(true);
         editor.getCaretAnchor = () => null;
         await service().trigger();
         expect(service().isOpen()).toBe(false);
 
-        // И повторно уже не открывается.
         await service().trigger();
         expect(service().isOpen()).toBe(false);
     });
@@ -805,7 +788,6 @@ describe("ParameterHintsService — показ, авто-триггер и пе�
         expect(completion.isOpen()).toBe(true);
         expect(service().isOpen()).toBe(true);
 
-        // Стрелка вниз ходит по списку пунктов, перегрузку не листает.
         h.testApp.sendKey("ArrowDown");
         expect(lines()[0]).toBe("1/2 greet(name: string, age: number): void");
 
