@@ -15,18 +15,12 @@ import type { DetailedLineRangeMapping, RangeMapping } from "./rangeMapping.ts";
 import { RangeMapping as RangeMappingClass } from "./rangeMapping.ts";
 
 /**
- * Фикстурный корпус upstream — главный гейт качества вендоринга
- * `vs/editor/common/diff` (см. AGENTS.md и docs/ARCHITECTURE.md).
+ * Фикстурный корпус upstream (`editor/test/node/diffing/fixtures.test.ts`) —
+ * главный гейт качества вендоринга `vs/editor/common/diff`.
  *
- * Каждый кейс — папка в `__fixtures__/` с парой файлов `1.*`/`2.*` и эталоном
- * `advanced.expected.diff.json`, где лежит и содержимое обоих файлов, и
- * ожидаемый результат `DefaultLinesDiffComputer`. Портировано с
- * `src/vs/editor/test/node/diffing/fixtures.test.ts` (mocha → vitest).
- *
- * ОТЛИЧИЕ ОТ UPSTREAM: у них раннер при расхождении ПЕРЕЗАПИСЫВАЕТ эталон
- * (удобно, когда ты же и меняешь алгоритм). Нам это ровно противопоказано:
- * перенос не имеет права «починиться» молчаливой правкой ожиданий. Поэтому
- * читаем только, а обновление — осознанное, через `UPDATE_DIFF_FIXTURES=1`.
+ * ОТЛИЧИЕ ОТ UPSTREAM: там раннер при расхождении ПЕРЕЗАПИСЫВАЕТ эталон, а
+ * перенос не имеет права «починиться» молчаливой правкой ожиданий. Обновление —
+ * только осознанное, через `UPDATE_DIFF_FIXTURES=1`.
  */
 
 const FIXTURES_DIR = join(import.meta.dirname, "__fixtures__");
@@ -56,7 +50,7 @@ interface IDiffingResult {
     moves?: IMoveInfo[];
 }
 
-/** Нормализация переводов строк — эталоны сняты на LF. */
+/** Эталоны сняты на LF. */
 function readNormalized(path: string): string {
     return readFileSync(path, "utf8").replaceAll("\r\n", "\n").replaceAll("\r", "\n");
 }
@@ -72,11 +66,7 @@ function toTextEdit(rangeMappings: readonly RangeMapping[], modified: AbstractTe
     );
 }
 
-/**
- * Property-проверка: применение всех `innerChanges` к оригиналу обязано дать
- * ровно модифицированный текст. Ловит внутренне противоречивый результат даже
- * там, где эталон совпал бы.
- */
+/** Ловит внутренне противоречивый результат даже там, где эталон совпал бы. */
 function assertDiffCorrectness(diff: LinesDiff, original: string[], modified: string[]): void {
     const allInnerChanges = diff.changes.flatMap((c) => c.innerChanges ?? []);
     const edit = toTextEdit(allInnerChanges, new ArrayText(modified));
@@ -141,8 +131,7 @@ function computeResult(folder: string): IDiffingResult {
 
 describe("diffing fixtures (upstream corpus)", () => {
     beforeEach(() => {
-        // Как в фикстурном раннере upstream: во время тестов нарушение инварианта
-        // в assertFn обязано валить кейс, а не тихо уходить в лог.
+        // Как в раннере upstream: нарушение инварианта в assertFn валит кейс, а не уходит в лог.
         setUnexpectedErrorHandler((e) => {
             throw e instanceof Error ? e : new Error(String(e));
         });
@@ -156,8 +145,7 @@ describe("diffing fixtures (upstream corpus)", () => {
     const folders = readdirSync(FIXTURES_DIR).sort();
 
     it("корпус на месте", () => {
-        // Гейт на случай, если фикстуры не доехали: пустой readdir дал бы ноль
-        // кейсов и зелёный прогон, который ничего не проверил.
+        // Пустой readdir дал бы зелёный прогон, который ничего не проверил.
         expect(folders.length).toBeGreaterThanOrEqual(58);
     });
 

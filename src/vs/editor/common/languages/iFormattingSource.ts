@@ -2,40 +2,20 @@ import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IRange } from "../core/iRange.ts";
 import type { ITextEdit } from "../core/iTextEdit.ts";
 
-/**
- * Запрос «отформатируй документ (или диапазон)», отправляемый
- * formatting-источнику. Несёт полный снапшот текста (у хоста нет реестра
- * документов — как definition/hover, снапшот целиком) и настройки отступов
- * активного редактора (`vscode.FormattingOptions`).
- */
 export interface IFormattingRequest {
-    /** Ресурс активного документа как `uri.toString()`. */
+    /** `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Версия документа на момент запроса: текст провайдер берёт из своей синхронизированной копии. */
+    /** Текст провайдер берёт из своей синхронизированной копии этой версии. */
     readonly versionId: number;
-    /** Ширина таба активного редактора. */
     readonly tabSize: number;
-    /** Отступы пробелами (`false` — табами). */
     readonly insertSpaces: boolean;
-    /**
-     * Диапазон для Format Selection (0-based, end эксклюзивен по символу).
-     * Отсутствие поля — форматируется весь документ.
-     */
+    /** 0-based, end эксклюзивен. Нет — весь документ. */
     readonly range?: IRange;
 }
 
-/**
- * Провайдер форматирования документа в реестре
- * `ILanguageFeaturesService.documentFormattingEditProvider` (upstream
- * `languages.DocumentFormattingEditProvider`). Пустой ответ — менять нечего
- * (или провайдер не ответил вовремя). Выбор провайдера — `editor/contrib/format`.
- */
+/** upstream `languages.DocumentFormattingEditProvider`. */
 export interface DocumentFormattingEditProvider {
-    /**
-     * `token` отменяется, как только ответ перестал быть нужен (правка
-     * документа за время запроса) — отмена доезжает до провайдера расширения.
-     */
     provideDocumentFormattingEdits(
         request: IFormattingRequest,
         token: ICancellationToken,
@@ -43,16 +23,10 @@ export interface DocumentFormattingEditProvider {
 }
 
 /**
- * Провайдер форматирования диапазона в реестре
- * `ILanguageFeaturesService.documentRangeFormattingEditProvider` (upstream
- * `languages.DocumentRangeFormattingEditProvider`). Он же — «синтетический»
- * форматтер документа: на полный диапазон, когда документного нет.
+ * upstream `languages.DocumentRangeFormattingEditProvider`. Он же —
+ * форматтер документа на полный диапазон, когда документного нет.
  */
 export interface DocumentRangeFormattingEditProvider {
-    /**
-     * `token` отменяется, как только ответ перестал быть нужен (правка
-     * документа за время запроса) — отмена доезжает до провайдера расширения.
-     */
     provideDocumentRangeFormattingEdits(
         request: IFormattingRequest & { readonly range: IRange },
         token: ICancellationToken,

@@ -141,8 +141,6 @@ describe("isSessionCurrent", () => {
     });
 
     it("изменился только idealColumn — сессия ЖИВА", () => {
-        // idealColumn двигает вертикальная навигация мимо курсора; рвать сессию из-за него
-        // значило бы терять её на ровном месте.
         expect(isSessionCurrent(session, [withIdealColumn(selections[0], 42)], doc.versionId)).toBe(true);
     });
 });
@@ -163,8 +161,7 @@ describe("selectionsShareText", () => {
     });
 
     it("две схлопнутые каретки общего текста не образуют", () => {
-        // У обеих текст пустой, то есть формально «одинаковый». Общность ломает
-        // сам факт пустоты, а не различие: продолжать поиск здесь нечем.
+        // Пустые тексты формально «одинаковы» — общность ломает сам факт пустоты.
         expect(selectionsShareText(doc, [createCursorSelection(0, 0), createCursorSelection(1, 0)], true)).toBe(false);
     });
 
@@ -173,10 +170,8 @@ describe("selectionsShareText", () => {
     });
 
     it("регистр складывается вниз — как в самом поиске", () => {
-        // `ß` и `ss` при складывании ВВЕРХ обе дают `SS` и сошлись бы за один текст,
-        // а сканер вхождений сравнивает по нижнему регистру и считает их разными.
-        // Разойдись эти две операции — Ctrl+D продолжал бы сессию по тексту,
-        // которого поиск в документе не находит.
+        // `ß` и `ss` вверх обе дают `SS`, а сканер вхождений сравнивает по нижнему регистру:
+        // разойдись они — Ctrl+D продолжал бы сессию по тексту, которого поиск не находит.
         const sharp = new TextDocument("ß ss");
         const selections = [createSelection(0, 0, 0, 1), createSelection(0, 2, 0, 4)];
         expect(selectionsShareText(sharp, selections, false)).toBe(false);

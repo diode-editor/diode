@@ -3,7 +3,6 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
 import type { ITokenizationSupport } from "../languages.ts";
 
-/** Ленивая регистрация: фабрика + кеш её запуска и итоговой регистрации. */
 interface ILazyEntry {
     readonly factory: () => Promise<ITokenizationSupport | null>;
     loading?: Promise<ITokenizationSupport | undefined>;
@@ -11,26 +10,16 @@ interface ILazyEntry {
 }
 
 /**
- * Registry that maps a `languageId` to its {@link ITokenizationSupport}.
- *
- * Mirrors `monaco.languages.TokenizationRegistry`. Language detection (which
- * languageId belongs to which file) is intentionally out of scope — that
- * concern lives in higher layers (controllers / language services).
- *
- * Поддерживает два режима регистрации:
- *   - {@link register} — support готов, кладём сразу;
- *   - {@link registerLazy} — support создаётся фабрикой при первом {@link load}.
- *     Нужен, чтобы не парсить все грамматики на старте: `get()` до загрузки
- *     отдаёт `undefined` (вызывающий берёт fallback), а когда `load()` доедет —
- *     фаерится {@link onDidChange} и потребитель пересаживается на настоящий
- *     токенайзер.
+ * Как `monaco.languages.TokenizationRegistry`. {@link registerLazy} — чтобы не
+ * парсить все грамматики на старте: до {@link load} `get()` отдаёт `undefined`
+ * (fallback), по загрузке фаерится {@link onDidChange}.
  */
 export class TokenizationRegistry {
     private supports = new Map<string, ITokenizationSupport>();
     private lazy = new Map<string, ILazyEntry>();
     private readonly onDidChangeEmitter = new Emitter<string>();
     public readonly onDidChange = this.onDidChangeEmitter.event;
-    /** Языки, чей support менялся под {@link hold}; `undefined` — не держим. */
+    /** `undefined` — не держим. */
     private heldChanges: Set<string> | undefined;
     private colorMap: readonly string[] | null = null;
 
@@ -48,15 +37,8 @@ export class TokenizationRegistry {
     }
 
     /**
-     * Регистрирует фабрику support'а без его создания. Фабрика запускается
-     * ровно один раз — при первом {@link load} этого языка.
-     *
-     * `onDidChange` здесь НЕ фаерится: эффективный токенайзер не изменился
-     * (`get()` по-прежнему отдаёт `undefined`), а фаер спровоцировал бы
-     * потребителей загрузить все языки разом — ровно то, от чего уходим.
-     *
-     * Как и {@link register}, повторная регистрация того же языка побеждает:
-     * disposable перекрытой записи становится no-op.
+     * `onDidChange` здесь НЕ фаерится: эффективный токенайзер не изменился, а
+     * фаер спровоцировал бы потребителей загрузить все языки разом.
      */
     public registerLazy(languageId: string, factory: () => Promise<ITokenizationSupport | null>): IDisposable {
         const entry: ILazyEntry = { factory };
@@ -71,15 +53,11 @@ export class TokenizationRegistry {
     }
 
     /**
-     * Догружает support языка, если он был зарегистрирован лениво. Идемпотентен:
-     * фабрика вызывается один раз, результат (в том числе неудача) кешируется.
-     *
-     * **Никогда не реджектится** — вызывающие дёргают его fire-and-forget
-     * (`void load(...)`), а отклонённый промис дал бы unhandled rejection.
+     * Фабрика зовётся один раз, неудача тоже кешируется. **Никогда не
+     * реджектится** — вызывающие дёргают его fire-and-forget.
      */
     public load(languageId: string): Promise<ITokenizationSupport | undefined> {
         const entry = this.lazy.get(languageId);
-        // Не ленивый (или вовсе неизвестный) язык — отдаём что есть.
         if (entry === undefined) return Promise.resolve(this.supports.get(languageId));
         // Кеш живёт на entry, а не в `supports`: иначе eager-регистрация того же
         // языка навсегда перекрыла бы фабрику. Присваиваем ДО первого await —
@@ -89,23 +67,19 @@ export class TokenizationRegistry {
     }
 
     /**
-     * colorMap темы подсветки (upstream `setColorMap`): цвета по индексам,
-     * которые токенизаторы кладут в метаданные токенов (`ColorId`). Токены,
-     * посчитанные по прежней теме, держат прежние индексы, поэтому, как у
-     * эталона, событие уходит по каждому зарегистрированному языку — владельцы
-     * токенов перетокенизируют документы.
+     * Токены прежней темы держат прежние индексы `ColorId`, поэтому, как у
+     * эталона, событие уходит по каждому языку — владельцы перетокенизируют.
      */
     public setColorMap(colorMap: readonly string[]): void {
         this.colorMap = colorMap;
         for (const languageId of this.supports.keys()) this.fireChange(languageId);
     }
 
-    /** colorMap темы ({@link setColorMap}); `null` — тему ещё не ставили. */
+    /** `null` — тему ещё не ставили. */
     public getColorMap(): readonly string[] | null {
         return this.colorMap;
     }
 
-    /** Языки с ленивой регистрацией — для фонового прогрева. */
     public lazyLanguageIds(): string[] {
         return [...this.lazy.keys()];
     }
@@ -116,18 +90,10 @@ export class TokenizationRegistry {
     }
 
     /**
-     * Придержать выдачу support'ов: пока держим, {@link get} отдаёт `undefined`
-     * (потребитель рисует на fallback'е), а `onDidChange` молчит — эффективный
-     * токенайзер не меняется. Загрузка ({@link load}) идёт как обычно. Отпуск —
-     * `onDidChange` по каждому языку с support'ом и по каждому, что менялся под
-     * придержкой: потребители пересаживаются тем же путём, что и при поздно
-     * доехавшей грамматике.
-     *
-     * Зачем: стартовый кадр с текстом не ждёт первой токенизации. Первая
-     * токенизация грамматики компилирует её regex'ы (TypeScript — ~160 мс на
-     * вьюпорт), и в кадре она откладывала бы текст. Эталон тоже рисует
-     * редактор без токенов, а вьюпорт токенизирует после рендера
-     * (`AttachedViewHandler` у `TokenizerSyntaxTokenBackend`).
+     * Пока держим, {@link get} отдаёт `undefined`, а `onDidChange` молчит; отпуск
+     * фаерит по всем языкам. Зачем: стартовый кадр не ждёт первой токенизации —
+     * она компилирует regex'ы грамматики (TypeScript — ~160 мс на вьюпорт).
+     * Эталон тоже токенизирует вьюпорт после рендера (`AttachedViewHandler`).
      */
     public hold(): IDisposable {
         if (this.heldChanges !== undefined) throw new Error("TokenizationRegistry: already held");
@@ -147,14 +113,11 @@ export class TokenizationRegistry {
         try {
             support = await entry.factory();
         } catch {
-            // Ошибку кешируем, а не ретраим: одна попытка на язык, дальше он
-            // остаётся на fallback-токенайзере. Логирование — забота фабрики,
-            // она знает про грамматику и scope.
+            // Не ретраим: язык остаётся на fallback. Логирует фабрика — она знает грамматику.
             return undefined;
         }
         if (support === null) return undefined;
-        // Запись могли снять (dispose) или перекрыть, пока фабрика работала —
-        // тогда регистрировать support уже некуда.
+        // Запись могли снять или перекрыть, пока фабрика работала.
         if (this.lazy.get(languageId) !== entry) return undefined;
         entry.registration = this.register(languageId, support);
         return support;

@@ -13,26 +13,18 @@ import { getDocumentRangeSemanticTokens } from "../common/getSemanticTokens.ts";
 
 import type { ISemanticTokensModel } from "./documentSemanticTokens.ts";
 
-/** Видимая область вью в строках документа (0-based, включительно). */
+/** Строки документа, 0-based, включительно. */
 export interface IVisibleLineRange {
     readonly startLine: number;
     readonly endLine: number;
 }
 
-/** Вью редактора глазами range-провайдера: что видно и когда это меняется. */
 export interface ISemanticTokensViewport {
     getVisibleLineRange(): IVisibleLineRange | null;
     readonly onDidChangeVisibleRange: Event<void>;
 }
 
-/**
- * Токены видимой области от range-провайдера — перенос
- * `ViewportSemanticTokensContribution` эталона (по экземпляру на вью):
- * работает, только пока у документа нет полного набора токенов; запрос — на
- * видимые строки ± высота вьюпорта (не меньше 20 строк) после адаптивной паузы
- * 100–500 мс; любой триггер отменяет запросы в полёте, а ответ по устаревшей
- * версии документа отбрасывается.
- */
+/** Перенос `ViewportSemanticTokensContribution` эталона, по экземпляру на вью. */
 export class ViewportSemanticTokens extends Disposable {
     private readonly scheduler: RunOnceScheduler;
     private outstandingRequests: CancellationTokenSource[] = [];
@@ -131,9 +123,8 @@ export class ViewportSemanticTokens extends Disposable {
                 this.debounce.update(this.model.uri.toString(), Date.now() - started);
                 this.outstandingRequests = this.outstandingRequests.filter((request) => request !== cancellation);
                 if (cancellation.token.isCancellationRequested) return;
-                // Обе проверки — страховка: провайдер есть (registry.has проверен в том
-                // же такте), так что result не null, а правка документа отменяет запрос
-                // (выше) — ответ по старой версии сюда не доходит.
+                // Страховка: registry.has проверен в том же такте, а правка документа
+                // отменяет запрос — ответ по старой версии сюда не доходит.
                 // Stryker disable next-line ConditionalExpression,LogicalOperator: эквивалентны — см. выше
                 if (result === null || this.model.document.versionId !== requestVersionId) return;
                 if (result.tokens == null) return;

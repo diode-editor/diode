@@ -11,15 +11,7 @@ import { planToggleBlockComment } from "./blockComments.ts";
 import type { ILineShift, LineCommentMode } from "./lineComments.ts";
 import { planLineComments, remapPositionForShifts } from "./lineComments.ts";
 
-/**
- * Команды комментирования (VS Code `editor/contrib/comment`) — чистые функции
- * над `EditorViewState`, как соседний `multiCursorCommands`. Токены приходят
- * снаружи (`ICommentRule` из language configuration активного языка); правки
- * всех выделений применяются одним undo-шагом, выделения после — переезжают
- * вслед за текстом, а не схлопываются.
- */
-
-/** Строки, накрытые выделением; хвост на колонке 0 не в счёт (как в VS Code). */
+/** Хвост на колонке 0 не в счёт (как в VS Code). */
 function touchedLines(sel: ISelection): number[] {
     const range = selectionToRange(sel);
     let endLine = range.end.line;
@@ -32,27 +24,21 @@ function touchedLines(sel: ISelection): number[] {
 }
 
 /**
- * Выделения в документном порядке. Порядок гарантирует сам `EditorViewState`:
- * его сеттер прогоняет любой набор через `sortAndMergeSelections` (аналог
- * `CursorCollection.normalize` VS Code), так что мультикурсор, набранный снизу
- * вверх, доезжает сюда уже отсортированным — и накопление сдвигов от правок
- * соседей по строке считается слева направо.
+ * Порядок гарантирует сеттер `EditorViewState` (`sortAndMergeSelections`):
+ * накопление сдвигов от правок соседей по строке считается слева направо.
  */
 function inDocumentOrder(viewState: EditorViewState): readonly ISelection[] {
     return viewState.selections;
 }
 
-/** Toggle line comment (`editor.action.commentLine`, Ctrl+/). */
 export function toggleLineComment(viewState: EditorViewState, comments: ICommentRule): IUndoElement | undefined {
     return runLineComments(viewState, comments, "toggle");
 }
 
-/** Add line comment (`editor.action.addCommentLine`, Ctrl+K Ctrl+C). */
 export function addLineComment(viewState: EditorViewState, comments: ICommentRule): IUndoElement | undefined {
     return runLineComments(viewState, comments, "add");
 }
 
-/** Remove line comment (`editor.action.removeCommentLine`, Ctrl+K Ctrl+U). */
 export function removeLineComment(viewState: EditorViewState, comments: ICommentRule): IUndoElement | undefined {
     return runLineComments(viewState, comments, "remove");
 }
@@ -64,9 +50,7 @@ function runLineComments(
 ): IUndoElement | undefined {
     const lineComment = comments.lineComment;
     if (lineComment === undefined) {
-        // Язык без построчного токена (CSS, HTML): toggle падает на блочные
-        // токены вокруг содержимого строк — как в VS Code. Принудительные
-        // add/remove без токена — no-op.
+        // Как в VS Code: toggle падает на блочные токены, принудительные add/remove — no-op.
         return mode === "toggle" ? blockCommentLines(viewState, comments) : undefined;
     }
 
@@ -77,9 +61,7 @@ function runLineComments(
     // не наблюдаема — у неё нет строки, и remapPositionForShifts пропускает такую (shift.line !== pos.line)
     const shifts: ILineShift[] = [];
     for (const sel of inDocumentOrder(viewState)) {
-        // Строки, уже разобранные предыдущим выделением, выпадают: два курсора
-        // на одной строке комментируют её однажды. Пустой остаток безвреден —
-        // план пустого набора строк пуст.
+        // Два курсора на одной строке комментируют её однажды.
         const lines = touchedLines(sel).filter((line) => !usedLines.has(line));
         for (const line of lines) usedLines.add(line);
 
@@ -96,14 +78,12 @@ function runLineComments(
         return createSelection(anchor.line, anchor.character, active.line, active.character);
     });
 
-    // Метка шага истории по режиму: toggleLineComment / addLineComment / removeLineComment.
     const element = viewState.applyEdits(edits, `${mode}LineComment`);
     if (element === undefined) return undefined;
     viewState.restoreSelections(remapped);
     return { ...element, afterSelections: viewState.cloneSelections() };
 }
 
-/** Toggle block comment (`editor.action.blockComment`, Shift+Alt+A). */
 export function toggleBlockComment(viewState: EditorViewState, comments: ICommentRule): IUndoElement | undefined {
     const pair = comments.blockComment;
     if (pair === undefined) return undefined;
@@ -114,7 +94,6 @@ export function toggleBlockComment(viewState: EditorViewState, comments: ICommen
     return applyBlockCommentPlans(viewState, plans, "blockComment");
 }
 
-/** Line-comment-фолбэк для языков без построчного токена: блочная пара вокруг содержимого строк. */
 function blockCommentLines(viewState: EditorViewState, comments: ICommentRule): IUndoElement | undefined {
     const pair = comments.blockComment;
     if (pair === undefined) return undefined;
@@ -134,11 +113,8 @@ function blockCommentLines(viewState: EditorViewState, comments: ICommentRule): 
 }
 
 /**
- * Применяет планы всех выделений одним undo-шагом и восстанавливает
- * выделения из планов. Планы построены в изоляции друг от друга — правки
- * ПРЕДЫДУЩИХ планов на той же строке сдвигают выделение более позднего
- * (блочные токены переводов строки не содержат, так что дрейф всегда
- * почтрочный и только по колонкам).
+ * Планы построены в изоляции: правки предыдущих на той же строке сдвигают
+ * выделение более позднего (только по колонкам — токены без переводов строки).
  */
 function applyBlockCommentPlans(
     viewState: EditorViewState,

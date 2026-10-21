@@ -2,10 +2,6 @@ import { comparePositions } from "./iPosition.ts";
 import type { IRange } from "./iRange.ts";
 import { createRange } from "./iRange.ts";
 
-/**
- * Represents a single text edit operation.
- * Replaces text in `range` with `text`. Empty `text` = deletion. Empty range = insertion.
- */
 export interface ITextEdit {
     readonly range: IRange;
     readonly text: string;
@@ -35,9 +31,8 @@ export function createDeleteEdit(
 }
 
 /**
- * Документный порядок правок батча: по началу, при равных началах — по концу.
- * Его держит `ITextDocument.applyEdits` (и в нём же отдаёт обратные правки),
- * поэтому кто зипует свои правки с обратными, сортирует тем же компаратором.
+ * В этом порядке `ITextDocument.applyEdits` отдаёт обратные правки — кто зипует
+ * свои правки с обратными, сортирует тем же компаратором.
  */
 export function compareTextEditsInDocumentOrder(a: ITextEdit, b: ITextEdit): number {
     const cmp = comparePositions(a.range.start, b.range.start);
@@ -46,17 +41,10 @@ export function compareTextEditsInDocumentOrder(a: ITextEdit, b: ITextEdit): num
 }
 
 /**
- * Есть ли в батче правки, чьи диапазоны пересекаются.
- *
- * Непересечение — условие контракта `ITextDocument.applyEdits`: он применяет
- * батч снизу вверх (координаты нижних правок не плывут) и считает обратные
- * правки по накопленному сдвигу. Перекрытые правки он применит по уже
- * съеденному тексту — тихая порча содержимого и сломанный undo. Поэтому батч из
- * ненадёжного источника (правки расширения) проверяется на входе и отбивается
- * целиком, как `Overlapping ranges are not allowed` в vscode.
- *
- * Стык (`конец предыдущей === начало следующей`) и несколько вставок нулевой
- * ширины в одну точку пересечением НЕ считаются — это законный батч.
+ * Перекрытые правки `ITextDocument.applyEdits` применил бы по уже съеденному
+ * тексту — тихая порча и сломанный undo. Батч из ненадёжного источника
+ * отбивается целиком, как `Overlapping ranges are not allowed` в vscode. Стык
+ * и вставки нулевой ширины в одну точку пересечением НЕ считаются.
  */
 export function hasOverlappingEdits(edits: readonly ITextEdit[]): boolean {
     const sorted = [...edits].sort((a, b) => comparePositions(a.range.start, b.range.start));

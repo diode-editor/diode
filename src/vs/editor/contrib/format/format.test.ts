@@ -17,7 +17,6 @@ const REQUEST: IFormattingRequest = {
     tabSize: 4,
     insertSpaces: true,
 };
-/** Диапазон всего документа «a\nbc\n\ndef» — его формат отдаёт range-провайдеру. */
 const WHOLE = documentRange("a\nbc\n\ndef");
 const TOKEN = new CancellationTokenSource().token;
 const edit = (text: string): ITextEdit => ({ range: createRange(0, 0, 0, 0), text });
@@ -53,7 +52,6 @@ describe("format — выбор форматтера по реестрам", () 
 
         expect(hasDocumentFormatter(features, TS)).toBe(true);
         expect(await formatDocument(features, TS, REQUEST, WHOLE, TOKEN)).toEqual([edit("synthetic")]);
-        // Переданный диапазон всего документа: от (0,0) до конца последней строки «def».
         expect(provide.mock.calls[0]?.[0]).toEqual({ ...REQUEST, range: createRange(0, 0, 3, 3) });
         expect(provide.mock.calls[0]?.[1]).toBe(TOKEN);
     });

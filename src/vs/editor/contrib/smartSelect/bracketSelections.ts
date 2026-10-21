@@ -6,13 +6,10 @@ import type { ITextDocument } from "../../common/model/iTextDocument.ts";
 
 import { firstNonWhitespaceIndex } from "./lineText.ts";
 
-/**
- * Код ли символ `character` строки `line` (а не строка или комментарий):
- * скобки в литералах и комментариях пару не образуют.
- */
+/** Скобки в литералах и комментариях пару не образуют. */
 export type IsCodeAt = (line: number, character: number) => boolean;
 
-/** Скобка в тексте: `key` — открывающая скобка её пары. */
+/** `key` — открывающая скобка пары. */
 interface IBracketHit {
     readonly line: number;
     readonly start: number;
@@ -22,16 +19,10 @@ interface IBracketHit {
 }
 
 /**
- * Диапазоны по скобкам (upstream `smartSelect/browser/bracketSelections.ts`):
- * для каждой объемлющей пары — внутренность и пара целиком, а у многострочной
- * пары ещё и «с заголовком» — от начала строки с открывающей скобкой (или
- * строки над ней, если скобка стоит на своей строке).
- *
- * Эталон ходит по `model.bracketPairs` (скобки токенизатора); у нас скобки —
- * пары `brackets` из language configuration, найденные в тексте, а скобки
- * в строках и комментариях отсекает {@link IsCodeAt}. Бюджета времени эталона
- * (30 мс на раунд, два раунда) нет: скан линейный и идёт по команде, а не
- * на каждое нажатие.
+ * Upstream `smartSelect/browser/bracketSelections.ts`. Отклонения: скобки —
+ * пары `brackets` из language configuration, найденные в тексте (а не
+ * `model.bracketPairs` токенизатора); бюджета 30 мс на раунд нет — скан
+ * линейный и идёт по команде, а не на каждое нажатие.
  */
 export function provideBracketSelectionRanges(
     document: ITextDocument,
@@ -52,10 +43,7 @@ export function provideBracketSelectionRanges(
     });
 }
 
-/**
- * Скобки за позицией, в документном порядке, — незакрытые внутри: на каждую
- * пару по ключу очередь закрывающих, ближайшая первой (`_bracketsRightYield`).
- */
+/** `_bracketsRightYield`: очередь незакрытых закрывающих по ключу, ближайшая первой. */
 function collectUnmatchedClosings(scanner: BracketScanner, position: IPosition): Map<string, IBracketHit[]> {
     const closings = new Map<string, IBracketHit[]>();
     const depth = new Map<string, number>();
@@ -77,11 +65,7 @@ function collectUnmatchedClosings(scanner: BracketScanner, position: IPosition):
     return closings;
 }
 
-/**
- * Скобки перед позицией, от ближней к дальней: незакрытая внутри открывающая
- * получает ближайшую из незакрытых закрывающих того же ключа
- * (`_bracketsLeftYield`).
- */
+/** `_bracketsLeftYield`. */
 function pairUnmatchedOpenings(
     scanner: BracketScanner,
     position: IPosition,
@@ -140,7 +124,7 @@ function addBracketLeading(document: ITextDocument, bracket: IRange, bucket: IRa
     }
 }
 
-/** Скобки документа построчно, с кэшем на один запрос (каретки сканируют одни и те же строки). */
+/** Кэш на один запрос: каретки сканируют одни и те же строки. */
 class BracketScanner {
     /** Скобки, длинные первыми: `[[` не должна распасться на две `[`. */
     private readonly candidates: readonly { readonly text: string; readonly isOpen: boolean; readonly key: string }[];

@@ -1,27 +1,17 @@
 /**
- * End-of-line sequence used when a document is serialized to disk.
- *
- * Numeric values match the VS Code public `EndOfLine` enum (LF = 1, CRLF = 2),
- * which keeps a future extension-bridge mapping trivial. Internally documents
- * always store line content without terminators (LF-canonical); the EOL is a
- * separate axis applied only at the disk boundary.
+ * Значения — как у публичного `EndOfLine` VS Code. Документ хранит строки без
+ * терминаторов; EOL применяется только на границе с диском.
  */
 export enum EndOfLine {
     LF = 1,
     CRLF = 2,
 }
 
-/** Maps an {@link EndOfLine} to the concrete character sequence. */
 export function eolToSequence(eol: EndOfLine): "\n" | "\r\n" {
     return eol === EndOfLine.CRLF ? "\r\n" : "\n";
 }
 
-/**
- * Detects the prevailing end-of-line sequence in raw text.
- *
- * Counts `\r\n` versus lone `\n`; the majority wins. Ties and text without any
- * line breaks resolve to {@link EndOfLine.LF}.
- */
+/** Большинство побеждает; ничья и текст без переводов строк — LF. */
 export function detectEndOfLine(text: string): EndOfLine {
     let crlf = 0;
     let index = text.indexOf("\r\n");

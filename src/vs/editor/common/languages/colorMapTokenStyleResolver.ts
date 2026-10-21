@@ -3,24 +3,20 @@ import { ColorId, FontStyle, MetadataConsts, TokenMetadata } from "../encodedTok
 
 import type { ITokenStyleResolver, ResolvedTokenStyle } from "./iTokenStyleResolver.ts";
 
-/** Источник colorMap темы — `TokenizationRegistry` (upstream `TokenizationRegistry.getColorMap`). */
 export interface IColorMapSource {
     getColorMap(): readonly string[] | null;
 }
 
-/** Биты метаданных, от которых зависит стиль: язык и вид токена на него не влияют. */
+/** Язык и вид токена на стиль не влияют. */
 const STYLE_MASK =
     (MetadataConsts.FONT_STYLE_MASK | MetadataConsts.FOREGROUND_MASK | MetadataConsts.BACKGROUND_MASK) >>> 0;
 
 /**
- * Стиль токена по метаданным и colorMap темы — то, что у эталона делают CSS-
- * классы `mtk<id>` (`generateTokensCSSForColorMap`). colorMap читается у
- * источника на каждый вызов: сменилась тема (новый массив) — разобранные цвета
- * и кэш стилей сбрасываются сами.
+ * У эталона — CSS-классы `mtk<id>`. colorMap читается на каждый вызов: сменилась
+ * тема (новый массив) — кэш сбрасывается сам.
  */
 export class ColorMapTokenStyleResolver implements ITokenStyleResolver {
     private readonly source: IColorMapSource;
-    /** colorMap, по которому разобраны {@link colors}; `undefined` — ещё ни по какому. */
     private colorMap: readonly string[] | undefined = undefined;
     private colors: (number | undefined)[] = [];
     private readonly cache = new Map<number, ResolvedTokenStyle>();
@@ -31,7 +27,6 @@ export class ColorMapTokenStyleResolver implements ITokenStyleResolver {
 
     public resolve(metadata: number): ResolvedTokenStyle {
         const colorMap = this.source.getColorMap();
-        // Темы ещё нет (null) — цветов нет, остаются пустые.
         if (colorMap !== null && colorMap !== this.colorMap) {
             this.colorMap = colorMap;
             this.colors = colorMap.map((color) => (color === "" ? undefined : parseHexColor(color)));

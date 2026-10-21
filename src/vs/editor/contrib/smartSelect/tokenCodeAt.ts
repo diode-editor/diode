@@ -5,11 +5,8 @@ import type { DocumentTokenStore } from "../../common/tokens/documentTokenStore.
 import type { IsCodeAt } from "./bracketSelections.ts";
 
 /**
- * Скобки в строках и комментариях пару не образуют (эталон судит по токенам
- * TextMate). Строки до самой нижней каретки доводятся точно
- * (`forceTokenization` — явная команда, ей можно); у строк за ними токены
- * эвристические или устаревшие — их скобки считаются кодом. Без грамматики
- * (`store` нет) код — всё.
+ * `forceTokenization` до нижней каретки — явной команде можно; у строк за ней
+ * токены эвристические или устаревшие — их скобки считаются кодом.
  */
 export function tokenCodeAt(store: DocumentTokenStore | undefined, positions: readonly IPosition[]): IsCodeAt {
     if (store === undefined) return () => true;

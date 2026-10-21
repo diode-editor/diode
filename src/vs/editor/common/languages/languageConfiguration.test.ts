@@ -86,7 +86,6 @@ describe("resolveLanguageConfiguration", () => {
     });
 
     it("drops malformed pairs instead of failing the whole configuration", () => {
-        // Реальные файлы парсятся из JSONC без валидации схемы — формы могут быть любыми.
         const raw = {
             comments: { blockComment: ["/*", ""] },
             brackets: [["{", "}"], ["", "]"], ["("], "junk", 42, null],
@@ -94,8 +93,7 @@ describe("resolveLanguageConfiguration", () => {
                 { open: "{", close: "}" },
                 { open: "", close: ")" },
                 { open: "(", close: "" },
-                // Не-строковый open при валидном close: length-проверки такую
-                // запись пропустили бы, отсекает её именно проверка типа.
+                // length-проверки такую запись пропустили бы — отсекает проверка типа.
                 { open: 5, close: ")" },
                 { open: "(", close: 5 },
                 { open: "'" },

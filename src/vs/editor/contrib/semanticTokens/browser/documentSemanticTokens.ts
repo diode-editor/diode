@@ -32,16 +32,14 @@ import { isSemanticColoringEnabled, SEMANTIC_HIGHLIGHTING_SETTING_ID } from "../
 
 import { type ISemanticTokensViewport, ViewportSemanticTokens } from "./viewportSemanticTokens.ts";
 
-/** Модель глазами семантической подсветки: документ, язык и ресурс. */
 export interface ISemanticTokensModel extends ILanguageFeatureTarget {
     readonly document: ITextDocument;
     readonly onDidChangeLanguage: Event<unknown>;
 }
 
-/** Ссылка вью на семантические токены своего документа; dispose — вью закрыта. */
 export interface ISemanticTokensReference extends IDisposable {
     readonly store: SemanticTokensStore;
-    /** Токены видимой области этой вью от range-провайдера (пока нет полного набора). */
+    /** Range-провайдер нужен, пока нет полного набора. */
     attachViewport(viewport: ISemanticTokensViewport): IDisposable;
 }
 
@@ -53,14 +51,8 @@ interface IEntry {
 }
 
 /**
- * Семантическая подсветка документов, открытых в редакторах, — перенос
- * `DocumentSemanticTokensFeature` эталона. На документ — одно хранилище
- * токенов (общее для всех его вью) и, пока подсветка включена
- * (`editor.semanticHighlighting.enabled` / флаг темы), один
- * {@link ModelSemanticColoring}, который ходит к провайдеру документа.
- *
- * Документ «прикреплён к редактору», пока на него есть ссылка
- * ({@link attach}); последняя снятая ссылка забывает его целиком.
+ * Перенос `DocumentSemanticTokensFeature` эталона: на документ — одно хранилище
+ * токенов на все его вью; последняя снятая ссылка ({@link attach}) забывает документ целиком.
  */
 export class DocumentSemanticTokensFeature extends Disposable {
     public static dependencies = [
@@ -104,12 +96,10 @@ export class DocumentSemanticTokensFeature extends Disposable {
         });
     }
 
-    /** Тема семантических токенов — её же редактор зовёт при отрисовке. */
     public get styleResolver(): ISemanticTokenStyleResolver {
         return this.theme;
     }
 
-    /** Вью документа открыта: его токены и (если включено) их запрос у провайдера. */
     public attach(model: ISemanticTokensModel): ISemanticTokensReference {
         let entry = this.entries.get(model.document);
         if (entry === undefined) {
@@ -170,7 +160,7 @@ export const DocumentSemanticTokensFeatureDIToken = token<DocumentSemanticTokens
     "DocumentSemanticTokensFeature",
 );
 
-/** Ответ провайдера, от которого считается следующая дельта; dispose — release у провайдера. */
+/** Ответ, от которого считается следующая дельта. */
 class SemanticTokensResponse {
     public constructor(
         public readonly provider: DocumentSemanticTokensProvider,
@@ -184,15 +174,9 @@ class SemanticTokensResponse {
 }
 
 /**
- * Запросы токенов одного документа — перенос `ModelSemanticColoring` эталона:
- *
- * - первый запрос сразу, дальше — не чаще адаптивной паузы (300–2000 мс)
- *   после правки (правка не отодвигает уже запланированный запрос);
- * - запрос в полёте не отменяется правкой: его ответ сдвигается правками,
- *   сделанными за время запроса, и запрос планируется снова;
- * - смена языка — отмена, release и немедленный перезапрос;
- * - `onDidChange` провайдера — немедленный перезапрос (или после текущего);
- * - дельта (`SemanticTokensEdits`) накладывается на данные прошлого ответа.
+ * Перенос `ModelSemanticColoring` эталона: правка не отодвигает уже
+ * запланированный запрос и не отменяет запрос в полёте — его ответ сдвигается
+ * правками, сделанными за время запроса.
  *
  * Отступление (согласовано): смена темы токены не стирает и сервер не
  * перезапрашивает — стиль берётся при отрисовке.
@@ -231,7 +215,6 @@ export class ModelSemanticColoring extends Disposable {
         );
         this.register(
             model.onDidChangeLanguage(() => {
-                // clear any outstanding state
                 this.currentResponse?.dispose();
                 this.currentResponse = null;
                 this.currentRequest?.cancel();
@@ -266,7 +249,6 @@ export class ModelSemanticColoring extends Disposable {
 
     private handleProviderDidChange(): void {
         if (this.currentRequest !== null) {
-            // there is already a request running
             this.providersChangedDuringRequest = true;
             return;
         }
@@ -290,11 +272,9 @@ export class ModelSemanticColoring extends Disposable {
 
     private fetchNow(): void {
         if (this.currentRequest !== null) {
-            // there is already a request running, let it finish...
             return;
         }
         if (!this.registry.has(this.model)) {
-            // there is no provider
             if (this.currentResponse !== null) this.tokens.set(null, false);
             return;
         }
@@ -349,7 +329,6 @@ export class ModelSemanticColoring extends Disposable {
                     }
                 },
             )
-            // Сбой разбора ответа — не тихий unhandled rejection.
             .catch(onUnexpectedError);
     }
 
@@ -371,7 +350,6 @@ export class ModelSemanticColoring extends Disposable {
         this.currentResponse?.dispose();
         this.currentResponse = null;
         if (this.isDisposed) {
-            // disposed!
             if (received !== null) provider.releaseDocumentSemanticTokens(received.resultId);
             return;
         }
@@ -384,13 +362,11 @@ export class ModelSemanticColoring extends Disposable {
         let tokens: ISemanticTokens;
         if (isSemanticTokensEdits(received)) {
             if (currentResponse === null) {
-                // not possible!
                 this.tokens.set(null, true);
                 return;
             }
             const data = applySemanticTokensEdits(currentResponse.data, received);
             if (data === null) {
-                // The edits are invalid and there's no way to recover
                 this.tokens.set(null, true);
                 return;
             }
@@ -416,7 +392,6 @@ export class ModelSemanticColoring extends Disposable {
  */
 export function applySemanticTokensEdits(srcData: Uint32Array, edits: ISemanticTokensEdits): Uint32Array | null {
     if (edits.edits.length === 0) {
-        // nothing to do!
         return srcData;
     }
     let deltaLength = 0;
@@ -449,7 +424,6 @@ export function applySemanticTokensEdits(srcData: Uint32Array, edits: ISemanticT
 }
 
 function copy(src: Uint32Array, srcOffset: number, dest: Uint32Array, destOffset: number, length: number): void {
-    // protect against overflows
     // Stryker disable next-line ArithmeticOperator: запись типизированного массива за границей и так игнорируется, а src вызывающие не перечитывают (srcOffset + length ≤ src.length)
     const count = Math.min(length, dest.length - destOffset, src.length - srcOffset);
     for (let i = 0; i < count; i++) {

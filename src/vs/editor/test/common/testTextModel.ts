@@ -3,14 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/editor/test/common/testTextModel.ts
-// Путь upstream — для дословно перенесённых upstream-тестов PieceTree
-// (`model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts`, сьют `snapshot`).
-// Upstream `createTextModel` поднимает весь `TextModel` с DI-сервисами; его мы
-// не переносим (docs/TODO/VscodeModel.md, ветка C). Здесь — ровно путь, которым
-// TextModel эталона ведёт эти кейсы к буферу: фабрика из
-// `PieceTreeTextBufferBuilder` (нормализация EOL, LF по умолчанию — как
-// `TextModel.DEFAULT_CREATION_OPTIONS`), правки — `ValidAnnotatedEditOperation`
-// без флагов, снапшот — `createSnapshot(false)`.
+// Для дословно перенесённых upstream-тестов PieceTree. Весь `TextModel` с DI мы не
+// переносим (docs/TODO/VscodeModel.md, ветка C) — здесь ровно путь, которым TextModel
+// эталона ведёт эти кейсы к буферу (LF по умолчанию, как `TextModel.DEFAULT_CREATION_OPTIONS`).
 
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { Range } from "../../common/core/range.ts";

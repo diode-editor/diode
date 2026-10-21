@@ -2,75 +2,47 @@ import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IRange } from "../core/iRange.ts";
 
 /**
- * Запрос «какие code actions доступны в этом диапазоне», отправляемый
- * code-action-источнику. Несёт полный снапшот текста (у хоста нет реестра
- * документов — как definition/hover, снапшот целиком). Контекстные диагностики
- * НЕ передаются: субпроцесс собирает их сам из своих DiagnosticCollection —
- * так серверу возвращаются ТЕ ЖЕ объекты диагностик (с приватным `data`
- * протокол-конвертера клиента), а не наша lossy-копия.
+ * Контекстные диагностики НЕ передаются: субпроцесс собирает их сам из своих
+ * DiagnosticCollection — так серверу возвращаются ТЕ ЖЕ объекты (с приватным
+ * `data` протокол-конвертера клиента), а не наша lossy-копия.
  */
 export interface ICodeActionRequest {
-    /** Ресурс активного документа как `uri.toString()`. */
+    /** `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Версия документа на момент запроса: текст провайдер берёт из своей синхронизированной копии. */
+    /** Текст провайдер берёт из своей синхронизированной копии этой версии. */
     readonly versionId: number;
-    /** Диапазон запроса (выделение/каретка; source-команды шлют весь документ). */
     readonly range: IRange;
-    /**
-     * LSP `CodeActionContext.only`: запрошенный вид действий
-     * (`source.organizeImports`, `source.fixAll`, `quickfix`, …). Отсутствие —
-     * без фильтра.
-     */
+    /** LSP `CodeActionContext.only`; отсутствие — без фильтра. */
     readonly only?: string;
 }
 
 /**
- * Один доступный code action в ядре — только метаданные для показа/выбора.
- * Сами правки остаются в субпроцессе: применение идёт по {@link CodeActionSource.apply}
- * с `id` (правки едут существующим RPC `workspace.applyEdit`, команды
- * исполняются там же — ядру не нужен ни WorkspaceEdit, ни vscode.Command).
+ * Только метаданные: правки остаются в субпроцессе и применяются по `id` через
+ * {@link CodeActionProvider.applyCodeAction}.
  */
 export interface ICoreCodeAction {
-    /** Ключ действия в кэше субпроцесса (`"<cacheId>.<index>"`). */
+    /** `"<cacheId>.<index>"` в кэше субпроцесса. */
     readonly id: string;
     readonly title: string;
-    /** Иерархический вид (`quickfix`, `source.fixAll.ruff`, …); у голых команд отсутствует. */
+    /** У голых команд отсутствует. */
     readonly kind?: string;
-    /** Провайдер пометил действие предпочтительным (auto-fix выбирает его). */
     readonly isPreferred?: boolean;
-    /**
-     * Причина, по которой действие сейчас неприменимо (`CodeAction.disabled`):
-     * такое действие меню показывает неактивным с причиной вместо заголовка, а
-     * авто-применение (organize imports, on save) его пропускает — как эталон.
-     */
+    /** Меню показывает такое действие неактивным с причиной, авто-применение пропускает — как эталон. */
     readonly disabled?: string;
 }
 
-/**
- * Провайдер code actions в реестре `ILanguageFeaturesService.codeActionProvider`
- * (upstream `languages.CodeActionProvider` + метаданные регистрации).
- * `provideCodeActions` возвращает доступные действия (пустой список — их нет),
- * `applyCodeAction` резолвит и применяет своё действие: `false` — действие
- * протухло (кэш вытеснен), правки не применились или команда упала.
- */
+/** upstream `languages.CodeActionProvider` + метаданные регистрации. */
 export interface CodeActionProvider {
-    /**
-     * Виды, которые провайдер вообще отдаёт (`providedCodeActionKinds`); пустой
-     * список — любые. Провайдера, чьи виды не пересекаются с запрошенным
-     * `only`, не спрашивают.
-     */
+    /** Пустой список — любые. */
     readonly providedCodeActionKinds: readonly string[];
     provideCodeActions(request: ICodeActionRequest, token: ICancellationToken): Promise<readonly ICoreCodeAction[]>;
+    /** `false` — действие протухло (кэш вытеснен), правки не применились или команда упала. */
     applyCodeAction(id: string, options?: IApplyCodeActionOptions): Promise<boolean>;
 }
 
-/** Повод применения действия (`ApplyCodeActionReason` эталона в нужном нам объёме). */
+/** `ApplyCodeActionReason` эталона в нужном нам объёме. */
 export interface IApplyCodeActionOptions {
-    /**
-     * Действие применяет конвейер сохранения (`editor.codeActionsOnSave`). Его
-     * правки не подпадают под `files.refactoring.autoSave` — как у эталона,
-     * где `respectAutoSaveConfig` снят для `ApplyCodeActionReason.OnSave`.
-     */
+    /** Правки не подпадают под `files.refactoring.autoSave` — как у эталона для `OnSave`. */
     readonly onSave?: boolean;
 }

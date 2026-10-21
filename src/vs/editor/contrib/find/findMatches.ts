@@ -3,22 +3,12 @@ import { createRange } from "../../common/core/iRange.ts";
 import { isWordChar } from "../../common/core/wordClassification.ts";
 import type { ITextDocument } from "../../common/model/iTextDocument.ts";
 
-/** Как сравнивать: регистр и границы слова (оси VS Code `Aa` и `\b`). */
 export interface ITextMatchOptions {
     readonly matchCase: boolean;
     readonly wholeWord: boolean;
 }
 
-/**
- * Все вхождения `query` в документном порядке: построчно (простой запрос не пересекает
- * перевод строки), без перекрытий. Пустой запрос не находит ничего — как в VS Code;
- * запрос из пробелов пробелы находит.
- *
- * Один сканер на всех потребителей: подсветку find-виджета (`findMatches`), подсветку
- * вхождений слова под кареткой (`computeWordOccurrences`) и семейство «выделить следующее
- * вхождение». Оси регистра и границ слова параметризованы, чтобы третий вариант не стал
- * третьей копией цикла.
- */
+/** Построчно, без перекрытий. Пустой запрос не находит ничего — как в VS Code. */
 export function findTextMatches(document: ITextDocument, query: string, options: ITextMatchOptions): IRange[] {
     if (query.length === 0) return [];
 
@@ -33,8 +23,7 @@ export function findTextMatches(document: ITextDocument, query: string, options:
         for (;;) {
             const idx = haystack.indexOf(needle, from);
             if (idx === -1) break;
-            // Шаг сканера двигается и у отбракованного совпадения: `от idx + 1` дал бы
-            // перекрывающиеся вхождения, которых потребители не ждут.
+            // Не `idx + 1` и у отбракованного совпадения: перекрытий потребители не ждут.
             from = idx + queryLen;
             if (options.wholeWord && !isWholeWordAt(content, idx, queryLen)) continue;
             matches.push(createRange(line, idx, line, idx + queryLen));
@@ -44,9 +33,7 @@ export function findTextMatches(document: ITextDocument, query: string, options:
     return matches;
 }
 
-/** Совпадение не окружено символами слова (граница слова с обеих сторон). */
 function isWholeWordAt(content: string, idx: number, length: number): boolean {
-    // Обе заглушки — пустая строка: за краем строки символа нет, и это граница слова.
     // Stryker disable next-line StringLiteral: isWordChar отвечает false на всё, что не ровно один символ, поэтому любая непустая подмена ведёт себя как пустая строка
     const before = idx > 0 ? content[idx - 1] : "";
     // Stryker disable next-line StringLiteral: см. выше — подмена заглушки ненаблюдаема
@@ -54,10 +41,6 @@ function isWholeWordAt(content: string, idx: number, length: number): boolean {
     return !isWordChar(before) && !isWordChar(after);
 }
 
-/**
- * Вхождения подстроки без учёта регистра — поверхность find-виджета.
- * Тонкая обёртка над {@link findTextMatches}.
- */
 export function findMatches(document: ITextDocument, query: string): IRange[] {
     // Stryker disable next-line ObjectLiteral: findTextMatches читает поля как истинностные значения, и отсутствующее поле равносильно false
     return findTextMatches(document, query, { matchCase: false, wholeWord: false });

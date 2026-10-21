@@ -4,11 +4,7 @@ import { DefaultLinesDiffComputer } from "./defaultLinesDiffComputer/defaultLine
 import type { IDiffViewOptions, IDiffViewRow } from "./diffViewModel.ts";
 import { DEFAULT_DIFF_VIEW_OPTIONS, DiffViewModel } from "./diffViewModel.ts";
 
-/**
- * Вход задаём парой текстов и настоящим движком, а не выдуманными `LineRange`:
- * так тест проверяет связку «дифф → модель» целиком и краснеет, если перекат
- * пина изменит форму результата. Ожидания сняты с реальных прогонов.
- */
+/** Вход — тексты и настоящий движок, а не выдуманные `LineRange`: перекат пина краснеет здесь. */
 
 const COMPUTER = new DefaultLinesDiffComputer();
 
@@ -39,7 +35,6 @@ function sketch(rows: readonly IDiffViewRow[]): string {
         .join(" ");
 }
 
-/** Только вид строк — когда номера не важны, а важна форма. */
 function shape(rows: readonly IDiffViewRow[]): string {
     return rows
         .map((row) =>
@@ -48,7 +43,6 @@ function shape(rows: readonly IDiffViewRow[]): string {
         .join("");
 }
 
-/** N строк с уникальным содержимым. */
 const lines = (count: number): string[] => Array.from({ length: count }, (_, i) => `line${String(i)}`);
 
 const COLLAPSED: Partial<IDiffViewOptions> = { hideUnchangedRegions: true };
@@ -74,7 +68,6 @@ describe("DiffViewModel — полнофайловый режим (дефолт)
     });
 
     it("правка идёт как удалённая строка, затем добавленная", () => {
-        // Порядок важен: именно так inline-дифф читается глазами.
         expect(sketch(model(["a", "b", "c"], ["a", "B", "c"]).rows)).toBe("=0/0 -1 +1 =2/2");
     });
 
@@ -113,14 +106,11 @@ describe("DiffViewModel — свёртка неизменённых кусков
         const atStart = model(lines(20), ["X", ...lines(20).slice(1)], COLLAPSED);
         const atEnd = model(lines(20), [...lines(20).slice(0, 19), "X"], COLLAPSED);
 
-        // Сверху контекста нет — над первой строкой ничего не бывает.
         expect(sketch(atStart.rows)).toBe("-0 +0 =1/1 =2/2 =3/3 [⋯16#0]");
         expect(sketch(atEnd.rows)).toBe("[⋯16#0] =16/16 =17/17 =18/18 -19 +19");
     });
 
     it("короткий промежуток между изменениями не сворачивается", () => {
-        // Три строки между правками: контекста по 3 с двух сторон не хватает,
-        // плейсхолдер вместо трёх строк только мешал бы.
         expect(shape(model(["a", "b", "c", "d", "e"], ["A", "b", "c", "d", "E"], COLLAPSED).rows)).toBe("-+===-+");
     });
 
@@ -163,7 +153,6 @@ describe("DiffViewModel — свёртка неизменённых кусков
         const modified = [...lines(20).slice(0, 9), "X", ...lines(20).slice(10)];
         const m = model(original, modified, { hideUnchangedRegions: true, contextLineCount: 1 });
 
-        // Контекст 1 вместо 3 — видимых строк вокруг правки меньше, скрытых больше.
         expect(sketch(m.rows)).toBe("[⋯8#0] =8/8 -9 +9 =10/10 [⋯9#1]");
     });
 
@@ -195,7 +184,6 @@ describe("DiffViewModel — раскрытие", () => {
 
         expect(m.regions[1].hiddenLineCount).toBe(13);
         expect(m.regions[1].visibleTop).toBe(4);
-        // Четыре строки добавились ДО плейсхолдера.
         expect(shape(m.rows)).toBe(before.replace("+===⋯", "+=======⋯"));
     });
 
@@ -242,8 +230,7 @@ describe("DiffViewModel — раскрытие", () => {
     });
 
     it("неизвестный индекс — no-op, включая отрицательный", () => {
-        // Важно: `at(-1)` в JS вернул бы последний элемент, поэтому гейт по индексу
-        // обязателен — иначе expandRegion(-1) молча раскрывал бы чужой кусок.
+        // `at(-1)` вернул бы последний элемент — expandRegion(-1) раскрыл бы чужой кусок.
         const m = build();
         const before = sketch(m.rows);
 

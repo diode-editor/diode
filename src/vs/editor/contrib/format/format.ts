@@ -5,20 +5,13 @@ import type { ILanguageFeatureTarget } from "../../common/languageFeatureRegistr
 import type { IFormattingRequest } from "../../common/languages/iFormattingSource.ts";
 import type { ILanguageFeaturesService } from "../../common/services/languageFeatures.ts";
 
-/**
- * Выбор форматтера по реестрам (upstream
- * `editor/contrib/format/browser/format.ts`): документные провайдеры по score,
- * за ними — range-провайдеры как «синтетические» форматтеры документа (на
- * полный диапазон; пометка vscode API у registerDocumentRangeFormattingEditProvider).
- * Берётся первый; `editor.defaultFormatter` и пикер форматтеров не поддержаны
- * (нужна идентичность расширения в регистрации).
- *
- * Ответы трёхзначные: `null` — форматтера для документа нет («нет
- * форматтера» в UI), пустой массив — менять нечего (или провайдер сбойнул /
- * не ответил вовремя — молчаливый no-op), иначе — правки.
- */
+// Upstream `editor/contrib/format/browser/format.ts`: range-провайдеры — «синтетические»
+// форматтеры документа на полный диапазон. `editor.defaultFormatter` и пикер не
+// поддержаны (нужна идентичность расширения в регистрации).
+//
+// Ответы трёхзначные: `null` — форматтера нет, пустой массив — менять нечего (или
+// провайдер сбойнул — молчаливый no-op), иначе — правки.
 
-/** Есть ли для документа форматтер — документный или range (для on-save). */
 export function hasDocumentFormatter(
     languageFeatures: ILanguageFeaturesService,
     target: ILanguageFeatureTarget,
@@ -29,11 +22,7 @@ export function hasDocumentFormatter(
     );
 }
 
-/**
- * Format Document: правки лучшего форматтера документа; `null` — форматтера нет.
- * `range` — диапазон всего документа ({@link documentRange}): без форматтера
- * документа его отдают range-форматтеру (текста в запросе нет).
- */
+/** `range` — весь документ ({@link documentRange}): текста в запросе range-форматтеру нет. */
 export async function formatDocument(
     languageFeatures: ILanguageFeaturesService,
     target: ILanguageFeatureTarget,
@@ -48,7 +37,6 @@ export async function formatDocument(
     return synthetic.provideDocumentRangeFormattingEdits({ ...request, range }, token).catch(() => []);
 }
 
-/** Format Selection: правки лучшего range-форматтера; `null` — форматтера нет. */
 export async function formatRange(
     languageFeatures: ILanguageFeaturesService,
     target: ILanguageFeatureTarget,
@@ -60,7 +48,7 @@ export async function formatRange(
     return provider.provideDocumentRangeFormattingEdits(request, token).catch(() => []);
 }
 
-/** Диапазон всего документа (LF-канонический текст). */
+/** `text` — LF-канонический. */
 export function documentRange(text: string): IRange {
     const lines = text.split("\n");
     const lastLine = lines.length - 1;

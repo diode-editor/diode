@@ -11,7 +11,6 @@ describe("NULL_LANGUAGE_SERVICE", () => {
 
         expect(heard).toEqual([]);
         expect(NULL_LANGUAGE_SERVICE.getLanguageIdForResource("/a.ts")).toBeUndefined();
-        // Подписка — настоящий IDisposable: потребитель зовёт dispose() без проверок.
         expect(() => {
             subscription.dispose();
         }).not.toThrow();

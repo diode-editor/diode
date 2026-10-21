@@ -115,7 +115,7 @@ function setup(selector = "*"): IFixture {
     return { features, configuration, theme, feature, provider, document, model: modelOf(document) };
 }
 
-/** Счётчик живых подписок на правки документа (ставить до attach). */
+/** Ставить до attach. */
 function countContentListeners(document: TextDocument): () => number {
     const subscribe = document.onDidChangeModelContent;
     let live = 0;
@@ -134,7 +134,6 @@ function countContentListeners(document: TextDocument): () => number {
     return () => live;
 }
 
-/** Дать отработать таймеру `ms` и промисам ответа. */
 async function tick(ms = 0): Promise<void> {
     await vi.advanceTimersByTimeAsync(ms);
 }
@@ -543,8 +542,7 @@ describe("DocumentSemanticTokensFeature / ModelSemanticColoring", () => {
         await tick();
         provider.last().resolve(full("1", 0, 4, 3, 0, 0));
         await tick();
-        // Смена темы при включённой подсветке токены не стирает (стиль — при отрисовке)
-        // и сервер не перезапрашивает.
+        // Стиль берётся при отрисовке — смена темы токены не стирает.
         theme.fire();
         await tick(2000);
         expect(ref.store.hasSomeSemanticTokens()).toBe(true);

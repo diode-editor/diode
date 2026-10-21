@@ -20,7 +20,6 @@ import type { SignatureHelpProvider } from "../languages/iSignatureHelpSource.ts
 
 import type { ILanguageFeaturesService } from "./languageFeatures.ts";
 
-/** Реализация {@link ILanguageFeaturesService}: по пустому реестру на фичу. */
 export class LanguageFeaturesService implements ILanguageFeaturesService {
     public readonly hoverProvider = new LanguageFeatureRegistry<HoverProvider>();
     public readonly definitionProvider = new LanguageFeatureRegistry<DefinitionProvider>();

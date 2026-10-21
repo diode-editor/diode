@@ -9,11 +9,7 @@ import type {
     ISemanticTokensRequest,
 } from "../../../common/languages/iSemanticTokensSource.ts";
 
-/**
- * Выбор провайдеров и опрос — перенос `getSemanticTokens.ts` эталона: из
- * провайдеров документа берётся только старшая группа по score; её провайдеры
- * спрашиваются параллельно, `lastResultId` получает лишь давший прошлый ответ.
- */
+// Перенос `getSemanticTokens.ts` эталона: спрашивается только старшая группа по score.
 
 export interface IDocumentSemanticTokensResult {
     readonly provider: DocumentSemanticTokensProvider;
@@ -30,9 +26,8 @@ function highestGroup<T>(registry: LanguageFeatureRegistry<T>, target: ILanguage
 }
 
 /**
- * Первый ответ с токенами; ошибка провайдера (раньше всех ответов с токенами)
- * — исключением: вызывающий оставит прежние токены. Ни у кого токенов нет —
- * ответ первого провайдера (пустой). Провайдеров нет — `null`.
+ * Ошибка провайдера раньше всех ответов с токенами — исключением: вызывающий
+ * оставит прежние токены. Провайдеров нет — `null`.
  */
 export async function getDocumentSemanticTokens(
     registry: LanguageFeatureRegistry<DocumentSemanticTokensProvider>,

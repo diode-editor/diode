@@ -3,8 +3,7 @@ import type { Event } from "../../../base/common/event.ts";
 import type { IRange } from "../core/iRange.ts";
 
 /**
- * Семантические токены в ядре — форма upstream `languages.SemanticTokens*`
- * (`vs/editor/common/languages.ts`). `data` — пятёрки
+ * Форма upstream `languages.SemanticTokens*`. `data` — пятёрки
  * `deltaLine, deltaStartChar, length, tokenType, tokenModifiers`; тип — индекс
  * в `legend.tokenTypes`, модификаторы — биты по `legend.tokenModifiers`.
  */
@@ -30,25 +29,20 @@ export interface ISemanticTokensEdits {
     readonly edits: readonly ISemanticTokensEdit[];
 }
 
-/** Документ запроса: текст провайдер берёт из своей синхронизированной копии этой версии. */
+/** Текст провайдер берёт из своей синхронизированной копии этой версии. */
 export interface ISemanticTokensRequest {
-    /** Ресурс как `uri.toString()`. */
+    /** `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
     readonly versionId: number;
 }
 
 export interface IRangeSemanticTokensRequest extends ISemanticTokensRequest {
-    /** Диапазон, 0-based. */
+    /** 0-based. */
     readonly range: IRange;
 }
 
-/**
- * Провайдер токенов всего документа в реестре
- * `ILanguageFeaturesService.documentSemanticTokensProvider` (upstream
- * `DocumentSemanticTokensProvider`). `lastResultId` — `resultId` прошлого
- * ответа ЭТОГО провайдера: по нему он вправе ответить дельтой.
- */
+/** `lastResultId` — прошлого ответа ЭТОГО провайдера: по нему он вправе ответить дельтой. */
 export interface DocumentSemanticTokensProvider {
     readonly onDidChange?: Event<void>;
     getLegend(): ISemanticTokensLegend;
@@ -61,10 +55,7 @@ export interface DocumentSemanticTokensProvider {
     releaseDocumentSemanticTokens(resultId: string | undefined): void;
 }
 
-/**
- * Провайдер токенов диапазона (upstream `DocumentRangeSemanticTokensProvider`):
- * видимая область, пока нет полного набора документа.
- */
+/** Видимая область, пока нет полного набора документа. */
 export interface DocumentRangeSemanticTokensProvider {
     readonly onDidChange?: Event<void>;
     getLegend(): ISemanticTokensLegend;

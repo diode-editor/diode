@@ -6,12 +6,6 @@ import { DefaultLinesDiffComputer } from "./defaultLinesDiffComputer/defaultLine
 import { DiffInnerRanges } from "./diffInnerRanges.ts";
 import { DetailedLineRangeMapping } from "./rangeMapping.ts";
 
-/**
- * Вход — пара текстов и настоящий движок: intra-line диапазоны считает
- * `DefaultLinesDiffComputer`, здесь проверяется только проекция его
- * 1-based `RangeMapping` в 0-based отрезки строк.
- */
-
 function ranges(original: string[], modified: string[]): DiffInnerRanges {
     const diff = new DefaultLinesDiffComputer().computeDiff(original, modified, {
         ignoreTrimWhitespace: false,
@@ -25,7 +19,6 @@ describe("DiffInnerRanges", () => {
     it("правка внутри строки даёт отрезок изменённого фрагмента с обеих сторон", () => {
         const inner = ranges(["const value = 1;"], ["const value = 42;"]);
 
-        // Изменён фрагмент вокруг «1» → «42»; отрезки 0-based, end эксклюзивный.
         const original = inner.get("original", 0);
         const modified = inner.get("modified", 0);
         expect(original.length).toBeGreaterThan(0);
@@ -52,13 +45,10 @@ describe("DiffInnerRanges", () => {
     });
 
     it("многострочный диапазон режется по строкам, хвосты — до конца строки", () => {
-        // Замена куска, накрывающего перенос строки: движок отдаёт один Range
-        // на несколько строк.
         const inner = ranges(["start middle end", "tail"], ["start X", "Y tail"]);
 
         const first = inner.get("original", 0);
         expect(first.length).toBeGreaterThan(0);
-        // Отрезок первой строки дотягивается «до конца строки».
         expect(first.at(-1)?.end).toBe(Number.MAX_SAFE_INTEGER);
     });
 

@@ -3,7 +3,6 @@ import type { IRange } from "./iRange.ts";
 import type { ISelection } from "./iSelection.ts";
 import { createSelection, isSelectionCollapsed, selectionToRange } from "./iSelection.ts";
 
-/** Выделение вместе со своим нормализованным диапазоном и позицией во ВХОДНОМ массиве. */
 interface IOrderedSelection {
     readonly selection: ISelection;
     readonly range: IRange;
@@ -12,27 +11,13 @@ interface IOrderedSelection {
 }
 
 /**
- * Сортирует выделения в документном порядке и сливает пересекающиеся — наш аналог
- * `CursorCollection.normalize` из VS Code.
- *
- * Правило слияния пары (после сортировки по началу диапазона):
- * - хотя бы одно **схлопнуто** → сливаем даже КАСАЮЩИЕСЯ (`next.start <= cur.end`): каретка
- *   внутри чужого выделения и две каретки в одной точке — это один курсор;
- * - **оба непустые** → сливаем только настоящее пересечение (`next.start < cur.end`): два
- *   выделения встык (`ab|cd`) остаются разными, как в VS Code.
- *
- * Результат пары — диапазон-объединение. НАПРАВЛЕНИЕ (какой конец активен) наследуется от
- * позже добавленного участника — то есть от большего индекса во входном массиве: команды
- * мультикурсора дописывают новое выделение в хвост, значит именно им рулит пользователь.
- * `idealColumn` переносится, только если `active` победителя не сдвинулся; иначе он врал бы
- * про колонку (fallback `getIdealColumn` вернёт `active.character`).
- *
- * Сортировка сравнивает не только `start`, но и `end`: без тайбрейка порядок двух выделений
- * с общим началом держался бы лишь на стабильности `Array.prototype.sort`, а слиянию нужен
- * детерминизм.
+ * Аналог `CursorCollection.normalize` из VS Code. Касание сливается, только если
+ * одно из пары — каретка: два выделения встык (`ab|cd`) остаются разными.
+ * Направление наследуется от позже добавленного: мультикурсор дописывает новое
+ * выделение в хвост, им и рулит пользователь. `idealColumn` переносится, только
+ * если `active` победителя не сдвинулся — иначе он врал бы про колонку.
  */
 export function sortAndMergeSelections(selections: readonly ISelection[]): ISelection[] {
-    // Быстрый путь: подавляющее большинство вызовов — один курсор.
     // Stryker disable next-line EqualityOperator: на одном выделении длинный путь возвращает тот же объект (сортировка и слияние на единственном элементе — no-op), так что порог — только про скорость; пустой вход обе границы отсекают одинаково
     if (selections.length <= 1) return [...selections];
 
@@ -41,6 +26,7 @@ export function sortAndMergeSelections(selections: readonly ISelection[]): ISele
         range: selectionToRange(selection),
         index,
     }));
+    // Тайбрейк по `end`: слиянию нужен детерминизм, а не стабильность `sort`.
     ordered.sort(
         (a, b) => comparePositions(a.range.start, b.range.start) || comparePositions(a.range.end, b.range.end),
     );
@@ -59,14 +45,12 @@ export function sortAndMergeSelections(selections: readonly ISelection[]): ISele
     return merged.map((entry) => entry.selection);
 }
 
-/** Пересекаются ли соседи; касание считается пересечением, только если одно из них — каретка. */
 function overlaps(previous: IOrderedSelection, current: IOrderedSelection): boolean {
     const touchCounts = isSelectionCollapsed(previous.selection) || isSelectionCollapsed(current.selection);
     const comparison = comparePositions(current.range.start, previous.range.end);
     return touchCounts ? comparison <= 0 : comparison < 0;
 }
 
-/** Объединение двух пересекающихся выделений; направление — от позже добавленного. */
 function mergePair(previous: IOrderedSelection, current: IOrderedSelection): IOrderedSelection {
     const start = previous.range.start;
     // Stryker disable next-line EqualityOperator: при нулевом сравнении оба конца — одна и та же позиция, и любая из ветвей даёт равное значение
@@ -82,8 +66,7 @@ function mergePair(previous: IOrderedSelection, current: IOrderedSelection): IOr
     return {
         selection: createSelection(anchor.line, anchor.character, active.line, active.character, idealColumn),
         range: { start, end },
-        // Слияние наследует «возраст» победителя: каскад из трёх выделений должен и дальше
-        // сравнивать себя с новичками по нему, а не по случайному участнику.
+        // Каскад из трёх выделений сравнивает себя с новичками по возрасту победителя.
         index: winner.index,
     };
 }

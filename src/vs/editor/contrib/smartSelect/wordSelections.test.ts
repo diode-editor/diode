@@ -6,7 +6,6 @@ import { TextDocument } from "../../common/model/textDocument.ts";
 
 import { provideWordSelectionRanges } from "./wordSelections.ts";
 
-/** Тексты ступеней одной каретки — самый читаемый ассерт. */
 function steps(text: string, line: number, character: number, selectSubwords = true): string[] {
     const document = new TextDocument(text);
     const [ranges] = provideWordSelectionRanges(document, [createPosition(line, character)], selectSubwords);

@@ -19,15 +19,6 @@ import type {
 } from "../languages/iSemanticTokensSource.ts";
 import type { SignatureHelpProvider } from "../languages/iSignatureHelpSource.ts";
 
-/**
- * Реестры языковых провайдеров ядра (upstream
- * `vs/editor/common/services/languageFeatures.ts`): по реестру на фичу.
- * Провайдеры extension host'а регистрируются сюда прокси по handle, встроенные
- * провайдеры ядра — тем же путём; потребители спрашивают `ordered(document)`.
- *
- * Поля добавляются по мере переезда фич с полей-швов `EditorService`
- * (docs/TODO — G2).
- */
 export interface ILanguageFeaturesService {
     readonly hoverProvider: LanguageFeatureRegistry<HoverProvider>;
     readonly definitionProvider: LanguageFeatureRegistry<DefinitionProvider>;

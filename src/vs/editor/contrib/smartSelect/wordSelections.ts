@@ -5,12 +5,7 @@ import type { ITextDocument } from "../../common/model/iTextDocument.ts";
 
 import { documentRange, isBlankLine } from "./lineText.ts";
 
-/**
- * Диапазоны «по словам» (upstream `smartSelect/browser/wordSelections.ts`):
- * подслово (`foo` в `fooBar`/`foo_bar`), слово, строка из одних пробелов и весь
- * документ. Этот провайдер спрашивается всегда — даже когда есть языковые, —
- * поэтому выделение до документа есть у любого файла.
- */
+/** Upstream `smartSelect/browser/wordSelections.ts`. */
 export function provideWordSelectionRanges(
     document: ITextDocument,
     positions: readonly IPosition[],
@@ -45,17 +40,14 @@ const isUpper = (ch: string): boolean => ch >= "A" && ch <= "Z";
 const isSeparator = (ch: string): boolean => ch === "_" || ch === "-";
 
 /**
- * Подслово слова `word` вокруг смещения `offset` (upstream `_addInWordRanges`):
- * границы — `_`/`-` и переход camelCase. Обход и его условия — дословно эталон,
- * включая асимметрию (`lastCh` переживает левый проход и открывает правый).
+ * Upstream `_addInWordRanges` дословно, включая асимметрию (`lastCh` переживает
+ * левый проход и открывает правый).
  */
 function subwordAt(word: string, offset: number): { start: number; end: number } | null {
     let start = offset;
     let end = offset;
-    // `charAt` за концом слова даёт "" — ни буква, ни разделитель.
     let lastCh = "";
 
-    // Левая граница.
     for (; start >= 0; start--) {
         const ch = word.charAt(start);
         if (start !== offset && isSeparator(ch)) break; // foo-bar ИЛИ foo_bar
@@ -64,7 +56,6 @@ function subwordAt(word: string, offset: number): { start: number; end: number }
     }
     start += 1;
 
-    // Правая граница.
     for (; end < word.length; end++) {
         const ch = word.charAt(end);
         if (isUpper(ch) && isLower(lastCh)) break; // fooBar

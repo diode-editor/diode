@@ -13,8 +13,6 @@ function makeStubSupport(): ITokenizationSupport {
     };
 }
 
-// Придержка до первого кадра: support'ы грузятся, но не выдаются, а отпуск
-// пересаживает потребителей тем же `onDidChange`, что и поздняя грамматика.
 describe("TokenizationRegistry — hold", () => {
     it("под придержкой get() отдаёт undefined, после отпуска — support", () => {
         const reg = new TokenizationRegistry();
@@ -88,7 +86,6 @@ describe("TokenizationRegistry — hold", () => {
         held.dispose();
 
         expect(seen).toEqual([]);
-        // Отпущенная придержка не мешает новой.
         const again = reg.hold();
         expect(reg.get("css")).toBeUndefined();
         again.dispose();

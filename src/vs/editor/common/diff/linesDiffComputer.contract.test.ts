@@ -4,13 +4,8 @@ import { DefaultLinesDiffComputer } from "./defaultLinesDiffComputer/defaultLine
 import type { ILinesDiffComputerOptions } from "./linesDiffComputer.ts";
 
 /**
- * Контракт публичного API перенесённого движка — того, на что будут опираться
- * будущие потребители (diff view model, живые change-bars в гуттере).
- *
- * Это НЕ пересказ тестов upstream (полный корпус — `diffFixtures.test.ts`), а
- * фиксация ровно тех свойств, на которые мы закладываемся: форма результата,
- * работа intra-line подсветки, реакция на опции. Все ожидания сняты с реальных
- * прогонов, а не выведены из чтения кода.
+ * Не пересказ upstream (корпус — `diffFixtures.test.ts`), а свойства, на которые
+ * мы закладываемся. Ожидания сняты с реальных прогонов, а не выведены из кода.
  */
 
 const BASE: ILinesDiffComputerOptions = {
@@ -53,8 +48,6 @@ describe("DefaultLinesDiffComputer — контракт", () => {
     });
 
     it("innerChanges сужают правку до изменившихся символов", () => {
-        // Ради этого свойства и брали upstream: построчного диффа мало, для
-        // подсветки внутри строки нужен посимвольный.
         const result = diff(["const a = 1;"], ["const a = 2;"]);
         expect(result.changes).toHaveLength(1);
         expect(result.changes[0].innerChanges?.map((i) => i.toString())).toEqual(["{[1,11 -> 1,12]->[1,11 -> 1,12]}"]);
@@ -78,8 +71,6 @@ describe("DefaultLinesDiffComputer — контракт", () => {
     });
 
     it("maxComputationTimeMs поднимает hitTimeout вместо зависания", () => {
-        // Важно для больших файлов: движок обязан отдать грубый результат, а не
-        // уйти в счёт на минуты. Ответ при этом остаётся валидным дифом.
         const original = Array.from({ length: 4000 }, (_, i) => `line ${i}`);
         const modified = Array.from({ length: 4000 }, (_, i) => `LINE ${(i * 7) % 4000}`);
 

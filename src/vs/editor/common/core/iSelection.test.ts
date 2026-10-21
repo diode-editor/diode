@@ -23,7 +23,6 @@ describe("withIdealColumn", () => {
         const sel = createCursorSelection(0, 5);
         withIdealColumn(sel, 100);
 
-        // Original keeps its implicit ideal column (falls back to active.character).
         expect(sel.idealColumn).toBeUndefined();
         expect(getIdealColumn(sel)).toBe(5);
     });

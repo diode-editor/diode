@@ -8,7 +8,6 @@ import { standardTokenTypeAt } from "./standardTokenType.ts";
 
 const codec = { encodeLanguageId: (): number => 0, decodeLanguageId: (): string => "test" };
 
-/** Токены строки `text` из пар «начало + вид токена». */
 function lineTokens(text: string, tokens: readonly (readonly [number, StandardTokenType])[]): LineTokens {
     const pairs = tokens.map(([start, tokenType]) => [start, tokenMetadata({ tokenType })] as const);
     return new LineTokens(storedTokens(pairs, text.length), text, codec);

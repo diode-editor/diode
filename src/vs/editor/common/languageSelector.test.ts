@@ -4,11 +4,7 @@ import { Uri } from "../../base/common/uri.ts";
 
 import { isExclusive, type LanguageSelector, score } from "./languageSelector.ts";
 
-/**
- * Порт upstream `src/vs/editor/test/common/modes/languageSelector.test.ts` без
- * notebook- и `hasAccessToAllModels`-кейсов (у нас их нет — см. шапку
- * languageSelector.ts) плюс наши: `RelativePattern`, `exclusive`.
- */
+/** Порт upstream `editor/test/common/modes/languageSelector.test.ts` без notebook-кейсов. */
 describe("languageSelector.score", () => {
     const model = { language: "farboo", uri: Uri.parse("file:///testbed/file.fb") };
 
@@ -85,8 +81,7 @@ describe("languageSelector.score", () => {
     });
 
     it("pattern, равный пути буквально, матчит и с glob-символами в имени", () => {
-        // Как glob `{x}` значит альтернативу и путь с фигурными скобками не матчит —
-        // спасает только буквальное сравнение.
+        // Как glob `{x}` — альтернатива: спасает только буквальное сравнение.
         expect(score({ pattern: "/a/{x}.ts" }, Uri.file("/a/{x}.ts"), "typescript")).toBe(10);
     });
 

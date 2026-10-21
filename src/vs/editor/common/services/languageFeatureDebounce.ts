@@ -1,11 +1,7 @@
 /**
- * Адаптивная пауза перед повторным запросом языковой фичи — перенос
- * `FeatureDebounceInformation` эталона (`languageFeatureDebounce.ts`): среднее
- * по последним шести длительностям ответа, зажатое в `[min, max]`; без истории —
- * общее среднее по документам либо `1.5 × min`.
- *
- * Отличие от эталона — ключ: документ, а не документ плюс набор провайдеров
- * (смена провайдеров здесь редка, а запрос после неё и так уходит сразу).
+ * Перенос `FeatureDebounceInformation` эталона. Отличие — ключ: документ, а не
+ * документ плюс набор провайдеров (смена провайдеров редка, запрос после неё и
+ * так уходит сразу).
  */
 
 const WINDOW = 6;
@@ -36,13 +32,13 @@ export class FeatureDebounce {
         private readonly max: number,
     ) {}
 
-    /** Пауза для документа `key`, мс. */
+    /** Мс. */
     public get(key: string): number {
         const avg = this.cache.get(key);
         return avg === undefined ? this.default() : this.clamp(avg.value);
     }
 
-    /** Учесть длительность очередного ответа по документу `key`, мс. */
+    /** `elapsed` в мс. */
     public update(key: string, elapsed: number): number {
         let avg = this.cache.get(key);
         if (avg === undefined) {
@@ -54,7 +50,6 @@ export class FeatureDebounce {
         return this.clamp(avg.update(elapsed));
     }
 
-    /** Map помнит порядок вставки: первый ключ — самый старый документ. */
     private evictOldest(): void {
         for (const key of this.cache.keys()) {
             this.cache.delete(key);

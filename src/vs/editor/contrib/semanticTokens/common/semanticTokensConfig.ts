@@ -3,11 +3,7 @@ import type { ISemanticTokenStyleResolver } from "../../../common/languages/iSem
 
 export const SEMANTIC_HIGHLIGHTING_SETTING_ID = "editor.semanticHighlighting.enabled";
 
-/**
- * Включена ли семантическая подсветка документа языка `languageId`
- * (`isSemanticColoringEnabled` эталона): булево значение настройки (с учётом
- * языковой секции) решает само, `configuredByTheme` — флаг активной темы.
- */
+/** `isSemanticColoringEnabled` эталона: `configuredByTheme` — флаг активной темы. */
 export function isSemanticColoringEnabled(
     languageId: string,
     configuration: IConfigurationService,

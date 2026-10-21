@@ -4,20 +4,11 @@ import type { ITextEdit } from "../../common/core/iTextEdit.ts";
 import { createTextEdit } from "../../common/core/iTextEdit.ts";
 import { getLeadingWhitespace } from "../../common/languages/autoIndent.ts";
 
-/**
- * Построчное комментирование (VS Code `LineCommentCommand`): анализ набора
- * строк и план правок для toggle/add/remove. Чистые функции без `EditorViewState`
- * — сюда входят только содержимое строк и токен комментария, наружу выходят
- * `ITextEdit`-ы и дескрипторы сдвигов для ремапа выделений.
- */
+// VS Code `LineCommentCommand`.
 
 export type LineCommentMode = "toggle" | "add" | "remove";
 
-/**
- * Сдвиг текста внутри одной строки: вставка (`delta > 0`) или удаление
- * (`delta < 0`) `|delta|` символов начиная с `column`. По нему ремапится
- * выделение после применения правок ({@link remapPositionForShifts}).
- */
+/** Вставка (`delta > 0`) или удаление (`delta < 0`) `|delta|` символов начиная с `column`. */
 export interface ILineShift {
     readonly line: number;
     readonly column: number;
@@ -34,7 +25,7 @@ interface ILineInfo {
     readonly indentLength: number;
     readonly isBlank: boolean;
     readonly isCommented: boolean;
-    /** Длина маркера с хвостовым пробелом, если он есть — столько снимает remove. */
+    /** С хвостовым пробелом, если он есть, — столько снимает remove. */
     readonly markerLength: number;
 }
 
@@ -46,21 +37,7 @@ function analyzeLine(content: string, token: string, line: number): ILineInfo {
     return { line, indentLength, isBlank, isCommented, markerLength };
 }
 
-/**
- * План правок построчного комментирования для набора строк одного выделения.
- * Семантика VS Code:
- *
- *  - пустые (whitespace-only) строки пропускаются — и при анализе, и при
- *    вставке; но если пустые ВСЕ строки, комментируются все;
- *  - toggle снимает маркеры, только когда закомментирована КАЖДАЯ значимая
- *    строка, иначе добавляет;
- *  - вставка идёт единой колонкой — минимальным отступом значимых строк
- *    (маркеры выравниваются, а не прыгают по отступам);
- *  - маркер вставляется с пробелом (`"// "`), снимается вместе с одним
- *    пробелом после него, если тот есть.
- *
- * `null` — правок нет (remove на строках без маркеров).
- */
+/** Семантика VS Code: пустые строки пропускаются, вставка — единой колонкой минимального отступа. */
 export function planLineComments(
     getLineContent: (line: number) => string,
     lines: readonly number[],
@@ -106,11 +83,8 @@ export function planLineComments(
 }
 
 /**
- * Ремапит позицию через набор построчных сдвигов ({@link ILineShift}).
- * Конвенция та же, что у `shiftIndent` в `EditorViewState`: точка на колонке 0
- * заякорена (вставка в начало строки не утаскивает каретку с начала), точка
- * левее сдвига не трогается, внутри удалённого куска — прижимается к его
- * началу, правее — едет на дельту.
+ * Конвенция `shiftIndent` из `EditorViewState`: точка на колонке 0 заякорена
+ * (вставка в начало строки не утаскивает каретку с начала).
  */
 export function remapPositionForShifts(pos: IPosition, shifts: readonly ILineShift[]): IPosition {
     let character = pos.character;

@@ -13,16 +13,12 @@ function makeStubSupport(): ITokenizationSupport {
     };
 }
 
-/** Промис, который резолвится снаружи — чтобы держать фабрику in-flight. */
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
     let resolve!: (value: T) => void;
     const promise = new Promise<T>((r) => (resolve = r));
     return { promise, resolve };
 }
 
-// Ленивая регистрация: грамматика не парсится, пока язык не понадобился.
-// register()/get()/onDidChange из этих тестов не проверяются — они в
-// TokenizationRegistry.Notifications.test.ts.
 describe("TokenizationRegistry — lazy registration", () => {
     it("registerLazy() не зовёт фабрику и не фаерит onDidChange", () => {
         const reg = new TokenizationRegistry();
@@ -120,8 +116,6 @@ describe("TokenizationRegistry — lazy registration", () => {
         reg.register("css", makeStubSupport());
         reg.registerLazy("css", async () => lazySupport);
 
-        // Кеш загрузки живёт на lazy-записи, а не в `supports` — иначе eager-запись
-        // навсегда бы затенила фабрику.
         expect(await reg.load("css")).toBe(lazySupport);
         expect(reg.get("css")).toBe(lazySupport);
     });
@@ -141,8 +135,6 @@ describe("TokenizationRegistry — lazy registration", () => {
         const reg = new TokenizationRegistry();
         reg.registerLazy("css", () => Promise.reject(new Error("boom")));
 
-        // Критично: EditorComponent зовёт `void load(...)`, реджект дал бы
-        // unhandled rejection и уронил процесс.
         await expect(reg.load("css")).resolves.toBeUndefined();
         expect(reg.get("css")).toBeUndefined();
     });

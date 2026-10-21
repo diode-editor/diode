@@ -13,24 +13,17 @@ export interface SemanticTokenStyle {
     readonly strikethrough?: boolean;
 }
 
-/**
- * Тема глазами семантических токенов: классификация `(тип, модификаторы,
- * язык)` → стиль (`IColorTheme.getTokenStyleMetadata` эталона) и признак
- * `semanticHighlighting` активной темы. Реализация — слой Theme
- * (`SemanticTokenStyleResolver`).
- */
+/** `IColorTheme.getTokenStyleMetadata` эталона. */
 export interface ISemanticTokenStyleResolver {
     /** `null` — ни один атрибут не задан: токен не перекрывает TextMate. */
     resolve(type: string, modifiers: readonly string[], languageId: string): SemanticTokenStyle | null;
 
-    /** `semanticHighlighting` активной темы — значение `configuredByTheme` настройки. */
+    /** Значение `configuredByTheme` настройки. */
     readonly semanticHighlighting: boolean;
 
-    /** Сменилась тема или классификация: стили, полученные раньше, устарели. */
     readonly onDidChange: Event<void>;
 }
 
-/** Без темы: ничего не стилизуется, семантическая подсветка выключена. */
 export const NULL_SEMANTIC_TOKEN_STYLE_RESOLVER: ISemanticTokenStyleResolver = {
     resolve: () => null,
     semanticHighlighting: false,
