@@ -197,7 +197,7 @@
     "e2e/scenarios/multiCursor.scenario.ts": 1,
     "e2e/scenarios/narrowTerminal.scenario.ts": 1,
     "e2e/scenarios/noFolderWelcome.scenario.ts": 1,
-    "e2e/scenarios/notifications.scenario.ts": 3,
+    "e2e/scenarios/notifications.scenario.ts": 2,
     "e2e/scenarios/onSaveFixes.scenario.ts": 2,
     "e2e/scenarios/openAtRevision.scenario.ts": 1,
     "e2e/scenarios/openEditorsPicker.scenario.ts": 1,
