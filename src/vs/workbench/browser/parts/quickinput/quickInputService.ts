@@ -53,6 +53,10 @@ function isThenable(value: unknown): value is Promise<InputValidation | null> {
     return typeof (value as { then?: unknown } | null)?.then === "function";
 }
 
+function blocksAccept(validation: InputValidation | null): boolean {
+    return validation !== null && (typeof validation === "string" || validation.severity === "error");
+}
+
 /**
  * The widget and overlay session are owned by {@link QuickInputComponent}, shared with QuickOpenService:
  * every show re-initializes the widget's state and callbacks, and a new show cancels the previous one.
@@ -104,26 +108,37 @@ export class QuickInputService {
                 }
                 view.markDirty();
             };
-            const runValidation = (query: string): void => {
-                if (validate === undefined) {
-                    showValidation(null);
-                    return;
-                }
+            let latest: { query: string; outcome: Promise<InputValidation | null> } | undefined;
+            const runValidation = (query: string): Promise<InputValidation | null> => {
                 const ticket = validation.start();
-                const outcome = validate(query);
-                if (!isThenable(outcome)) {
-                    showValidation(outcome);
-                    return;
+                const raw = validate === undefined ? null : validate(query);
+                const outcome = Promise.resolve(raw);
+                latest = { query, outcome };
+                if (!isThenable(raw)) {
+                    showValidation(raw);
+                } else {
+                    void raw.then((result) => {
+                        if (ticket.isStale() || this.pendingResolve !== owner) return;
+                        showValidation(result);
+                    });
                 }
+                return outcome;
+            };
+            view.onQueryChange = (query) => {
+                void runValidation(query);
+            };
+            // As upstream: Enter waits for the outcome on this exact text. The message on screen may
+            // still be the previous text's while a slow check (a disk lookup) is in flight.
+            view.onAcceptValue = (value) => {
+                const outcome = latest?.query === value ? latest.outcome : runValidation(value);
                 void outcome.then((result) => {
-                    if (ticket.isStale() || this.pendingResolve !== owner) return;
-                    showValidation(result);
+                    if (this.pendingResolve !== owner || blocksAccept(result)) return;
+                    this.settle(value);
                 });
             };
-            view.onQueryChange = runValidation;
 
             view.setQuery(opts.value ?? "");
-            runValidation(view.getQuery());
+            void runValidation(view.getQuery());
 
             this.component.show();
         });

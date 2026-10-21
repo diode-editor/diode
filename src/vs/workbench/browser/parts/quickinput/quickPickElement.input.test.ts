@@ -79,7 +79,7 @@ describe("QuickPickElement — keyboard", () => {
         expect(onAcceptValue).toHaveBeenCalledWith("note.txt");
     });
 
-    it("a hard validation error blocks Enter in both modes", () => {
+    it("a hard validation error blocks Enter on an item; in value mode the owner decides", () => {
         const picker = makePicker(makeItems(2));
         const onAccept = vi.fn();
         const onAcceptValue = vi.fn();
@@ -91,9 +91,10 @@ describe("QuickPickElement — keyboard", () => {
         press(picker, "Enter");
         expect(onAccept).not.toHaveBeenCalled();
 
+        // The message may belong to the previous text: QuickInputService.input re-checks the current one.
         picker.acceptMode = "value";
         press(picker, "Enter");
-        expect(onAcceptValue).not.toHaveBeenCalled();
+        expect(onAcceptValue).toHaveBeenCalledOnce();
     });
 
     it("a warning does not block Enter", () => {
