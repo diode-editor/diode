@@ -20,19 +20,21 @@ const base = (sep < 0 ? args : args.slice(0, sep))[0] ?? "origin/main";
 const only = sep < 0 ? [] : args.slice(sep + 1);
 
 const CODE = /\.(?:[cm]?[jt]s|tsx)$/;
+// Маркер — директива, а не упоминание: считается только в начале строки комментария
+// (после `//`, `/*`, `*` и декора `──`). Иначе ужатие прозы «маркеры (Stryker, TODO, …)»
+// или `` `/* v8 ignore */` `` в JSDoc роняет гейт, хотя ни одна директива не пропала.
 const MARKERS = [
-    /Stryker (?:disable|restore)/g,
-    /[cv]8 ignore|istanbul ignore/g,
-    /eslint-(?:disable|enable)/g,
-    /prettier-ignore/g,
-    /@ts-(?:expect-error|ignore|nocheck)/g,
-    /@deprecated/g,
-    /@vitest-environment/g,
-    /@diode:/g,
-    /(?<!\/)\b(?:TODO|FIXME|HACK|XXX)\b(?!\/)/g,
-    /^\/\/\/ <reference/gm,
-    /^#!/g,
+    /^Stryker (?:disable|restore)/,
+    /^(?:[cv]8|istanbul) ignore/,
+    /^eslint-(?:disable|enable)/,
+    /^prettier-ignore/,
+    /^@ts-(?:expect-error|ignore|nocheck)/,
+    /^@deprecated/,
+    /^@vitest-environment/,
+    /^@diode:/,
+    /^(?:TODO|FIXME|HACK|XXX)\b/,
 ];
+const FILE_MARKERS = [/^\/\/\/ <reference/gm, /^#!/g];
 const FROZEN = [/\/vscode\.d\.ts$/, /\/vscode-dts\//];
 
 const git = (...a) => execFileSync("git", a, { encoding: "utf8", maxBuffer: 1 << 28 });
@@ -44,9 +46,44 @@ const removed = git("diff", "--name-only", "--diff-filter=DR", base, "--", ...on
     .filter(Boolean);
 
 const printer = ts.createPrinter({ removeComments: true });
+const kindOf = (path) =>
+    path.endsWith(".tsx") ? ts.ScriptKind.TSX : /\.[cm]?js$/.test(path) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
 function codeOf(path, text) {
-    const kind = path.endsWith(".tsx") ? ts.ScriptKind.TSX : /\.[cm]?js$/.test(path) ? ts.ScriptKind.JS : ts.ScriptKind.TS;
-    return printer.printFile(ts.createSourceFile(path, text, ts.ScriptTarget.Latest, false, kind));
+    return printer.printFile(ts.createSourceFile(path, text, ts.ScriptTarget.Latest, false, kindOf(path)));
+}
+
+// Обход через getChildren, а не forEachChild: тому не видны токены, и комментарий
+// перед `}` пустого блока (`catch { /* c8 ignore next */ }`) потерялся бы.
+function commentLines(path, text) {
+    const sf = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, kindOf(path));
+    const seen = new Set();
+    const lines = [];
+    const take = (ranges) => {
+        for (const r of ranges ?? []) {
+            if (seen.has(r.pos)) continue;
+            seen.add(r.pos);
+            const body = text
+                .slice(r.pos, r.end)
+                .replace(/^\/[/*]/, "")
+                .replace(/\*\/$/, "");
+            for (const line of body.split("\n")) lines.push(line.replace(/^[\s*─—–-]*/, ""));
+        }
+    };
+    const visit = (node) => {
+        take(ts.getLeadingCommentRanges(text, node.getFullStart()));
+        take(ts.getTrailingCommentRanges(text, node.getEnd()));
+        for (const child of node.getChildren(sf)) visit(child);
+    };
+    visit(sf);
+    return lines;
+}
+
+function markerCounts(path, text) {
+    const lines = commentLines(path, text);
+    return [
+        ...MARKERS.map((re) => [re.source, lines.filter((l) => re.test(l)).length]),
+        ...FILE_MARKERS.map((re) => [re.source, text.match(re)?.length ?? 0]),
+    ];
 }
 
 const problems = [];
@@ -59,10 +96,9 @@ for (const f of changed) {
         continue;
     }
     if (codeOf(f, before) !== codeOf(f, after)) problems.push(`${f}: изменён код, а не только комментарии`);
-    for (const re of MARKERS) {
-        const was = before.match(re)?.length ?? 0;
-        const now = after.match(re)?.length ?? 0;
-        if (was !== now) problems.push(`${f}: маркер ${re.source} — было ${was}, стало ${now}`);
+    const now = markerCounts(f, after);
+    for (const [i, [marker, was]] of markerCounts(f, before).entries()) {
+        if (was !== now[i][1]) problems.push(`${f}: маркер ${marker} — было ${was}, стало ${now[i][1]}`);
     }
 }
 
