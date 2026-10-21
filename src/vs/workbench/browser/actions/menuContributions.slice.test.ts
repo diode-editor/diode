@@ -41,8 +41,8 @@ function menuSlice(items: readonly MenuContribution[]): Record<string, Record<st
     return slice;
 }
 
-describe("срез раскладки меню", () => {
-    it("пункты каждой группы каждого меню стоят в эталонном порядке", () => {
+describe("menu layout slice", () => {
+    it("items of every group of every menu are in upstream order", () => {
         const current = menuSlice(MENU_CONTRIBUTIONS);
         if (process.env.UPDATE_SLICE === "1") writeFileSync(SLICE_URL, `${JSON.stringify(current, null, 4)}\n`);
         const reference = JSON.parse(readFileSync(SLICE_URL, "utf8")) as typeof current;

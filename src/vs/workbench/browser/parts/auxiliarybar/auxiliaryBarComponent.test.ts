@@ -46,8 +46,8 @@ function scene(rooted: "none" | "bare" | "focus"): IScene & { readonly focusMana
     return { service, component, focusEditor, content, focusManager };
 }
 
-describe("AuxiliaryBarComponent — ключи контекста", () => {
-    it("без фокуса вовсе auxiliaryBarFocus ложен", () => {
+describe("AuxiliaryBarComponent — context keys", () => {
+    it("with no focus at all auxiliaryBarFocus is false", () => {
         const { component } = scene("none");
         const contextKeys = new ContextKeyService();
         component.updateContextKeys(contextKeys, null);
@@ -55,9 +55,9 @@ describe("AuxiliaryBarComponent — ключи контекста", () => {
     });
 });
 
-describe("AuxiliaryBarFocusContribution — края", () => {
+describe("AuxiliaryBarFocusContribution — edge cases", () => {
     // setupFiles turns a listener exception into a test failure, so "no-op" here also means "no error".
-    it("часть вне дерева или корень без менеджера фокуса: скрытие — no-op", () => {
+    it("part outside the tree or root without a focus manager: hiding is a no-op", () => {
         for (const rooted of ["none", "bare"] as const) {
             const { service, focusEditor } = scene(rooted);
             service.setVisible(true);
@@ -66,14 +66,14 @@ describe("AuxiliaryBarFocusContribution — края", () => {
         }
     });
 
-    it("фокуса нет — скрытие его никуда не переносит", () => {
+    it("no focus — hiding does not move it anywhere", () => {
         const { service, focusEditor } = scene("focus");
         service.setVisible(true);
         service.setVisible(false);
         expect(focusEditor).not.toHaveBeenCalled();
     });
 
-    it("показ части фокус её контента не отпускает, скрытие — отпускает", () => {
+    it("showing the part keeps focus on its content, hiding releases it", () => {
         const { service, focusEditor, content, focusManager } = scene("focus");
         focusManager!.setFocus(content);
         service.setVisible(true);

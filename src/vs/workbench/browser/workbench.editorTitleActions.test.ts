@@ -36,7 +36,7 @@ function click(x: number, y: number, action: "press" | "release"): MouseToken {
     };
 }
 
-describe("Workbench — панель действий группы (editor/title)", () => {
+describe("Workbench — group action bar (editor/title)", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     const runs: string[] = [];
@@ -99,7 +99,7 @@ describe("Workbench — панель действий группы (editor/title
         ws.dispose();
     });
 
-    it("без видимых пунктов ряд вкладок прежний; when включился — кнопки справа от вкладок", async () => {
+    it("without visible items the tab row is unchanged; once when holds, buttons appear right of the tabs", async () => {
         boot();
         const before = tabRow();
         expect(before).not.toContain(CHECK);
@@ -117,7 +117,7 @@ describe("Workbench — панель действий группы (editor/title
         expect(tabRow()).toBe(before);
     });
 
-    it("workbench.editor.editorActionsLocation: hidden и titleBar прячут панель, default — показывает", async () => {
+    it("workbench.editor.editorActionsLocation: hidden and titleBar hide the bar, default shows it", async () => {
         boot({ "workbench.editor.editorActionsLocation": "hidden" });
         keys().setRaw("demo.viewingProposedDiff", true);
         await flush();
@@ -130,7 +130,7 @@ describe("Workbench — панель действий группы (editor/title
         expect(tabRow()).toContain(CHECK);
     });
 
-    it("клик по кнопке исполняет её команду", async () => {
+    it("clicking a button runs its command", async () => {
         boot();
         keys().setRaw("demo.viewingProposedDiff", true);
         await flush();
@@ -140,7 +140,7 @@ describe("Workbench — панель действий группы (editor/title
         expect(runs).toStrictEqual(["demo.reject"]);
     });
 
-    it("пункт без иконки — в «⋯»: попап с подписью, выбор исполняет команду", async () => {
+    it("an item without an icon goes into «⋯»: a popup with its label, choosing it runs the command", async () => {
         boot();
         keys().setRaw("demo.useTerminal", true);
         await flush();
@@ -155,7 +155,7 @@ describe("Workbench — панель действий группы (editor/title
         expect(runs).toStrictEqual(["demo.open"]);
     });
 
-    it("панель — без подписи, в цвете ряда вкладок и вне Tab-обхода", async () => {
+    it("the bar has no label, uses the tab row color and is outside Tab traversal", async () => {
         boot();
         keys().setRaw("demo.viewingProposedDiff", true);
         await flush();
@@ -167,7 +167,7 @@ describe("Workbench — панель действий группы (editor/title
         expect(panel?.resolvedStyle.bg).toBe(tabsBg);
     });
 
-    it("пункт, заведённый после старта, появляется без смены контекста", async () => {
+    it("an item registered after startup appears without a context change", async () => {
         boot();
         await flush();
         h.container.get(MenuRegistryDIToken).appendMenuItem({
@@ -180,7 +180,7 @@ describe("Workbench — панель действий группы (editor/title
         expect(tabRow()).toContain(CHECK);
     });
 
-    it("новая группа приходит с панелью сразу", async () => {
+    it("a new group comes with the bar right away", async () => {
         boot();
         keys().setRaw("demo.viewingProposedDiff", true);
         await flush();
@@ -188,7 +188,7 @@ describe("Workbench — панель действий группы (editor/title
         expect(tabRow().split(CHECK)).toHaveLength(3);
     });
 
-    it("чужая настройка панель не пере-резолвит", async () => {
+    it("an unrelated setting does not re-resolve the bar", async () => {
         boot();
         await flush();
         const resolve = vi.spyOn(h.container.get(MenuServiceDIToken), "getEntryGroups");
@@ -196,7 +196,7 @@ describe("Workbench — панель действий группы (editor/title
         expect(resolve.mock.calls.filter(([menuId]) => menuId === MenuId.EditorTitle)).toStrictEqual([]);
     });
 
-    it("у каждой группы своя панель; пункт видит свою группу в контексте", async () => {
+    it("each group has its own bar; an item sees its own group in the context", async () => {
         boot();
         h.commands.execute("workbench.action.splitEditor");
         const groups = h.container.get(EditorGroupsServiceDIToken).groups;

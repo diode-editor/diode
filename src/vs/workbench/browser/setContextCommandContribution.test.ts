@@ -15,7 +15,7 @@ function setup(): { commands: CommandRegistry; contextKeys: ContextKeyService } 
 
 describe("SetContextCommandContribution", () => {
     // Before the command was registered, the call was rejected as "command not found".
-    it("setContext кладёт значение в when-контекст, и when-выражение его видит", () => {
+    it("setContext puts the value into the when context and a when expression sees it", () => {
         const { commands, contextKeys } = setup();
 
         commands.execute("setContext", "supermaven.hasJumped", true);
@@ -23,7 +23,7 @@ describe("SetContextCommandContribution", () => {
         expect(contextKeys.evaluate("supermaven.hasJumped")).toBe(true);
     });
 
-    it("повторный вызов перезаписывает значение", () => {
+    it("a repeated call overwrites the value", () => {
         const { commands, contextKeys } = setup();
 
         commands.execute("setContext", "myext.armed", true);
@@ -32,7 +32,7 @@ describe("SetContextCommandContribution", () => {
         expect(contextKeys.evaluate("myext.armed")).toBe(false);
     });
 
-    it("массив доезжает оператором in — как ключ VS Code со списком", () => {
+    it("an array works with the in operator, like a VS Code list key", () => {
         const { commands, contextKeys } = setup();
 
         commands.execute("setContext", "myext.supportedFiles", ["a.ts", "b.ts"]);
@@ -42,7 +42,7 @@ describe("SetContextCommandContribution", () => {
         expect(contextKeys.evaluate("myext.current not in myext.supportedFiles")).toBe(false);
     });
 
-    it("строки и числа доезжают сравнениями", () => {
+    it("strings and numbers work with comparisons", () => {
         const { commands, contextKeys } = setup();
 
         commands.execute("setContext", "myext.mode", "fast");
@@ -52,7 +52,7 @@ describe("SetContextCommandContribution", () => {
         expect(contextKeys.evaluate("myext.count > 2")).toBe(true);
     });
 
-    it("пустой или нестроковый ключ игнорируется", () => {
+    it("an empty or non-string key is ignored", () => {
         const { commands, contextKeys } = setup();
 
         expect(commands.execute("setContext", "", true)).toBeUndefined();
@@ -68,12 +68,12 @@ describe("SetContextCommandContribution", () => {
         expect(contextKeys.evaluate("textInputFocus")).toBe(true);
     });
 
-    it("команда без title — в палитру не попадает", () => {
+    it("the command has no title and stays out of the command palette", () => {
         const { commands } = setup();
         expect(commands.listCommands().some((c) => c.id === "setContext")).toBe(false);
     });
 
-    it("dispose снимает регистрацию", () => {
+    it("dispose removes the registration", () => {
         const commands = new CommandRegistry();
         const contribution = new SetContextCommandContribution(commands, new ContextKeyService());
         expect(commands.has("setContext")).toBe(true);
@@ -84,7 +84,7 @@ describe("SetContextCommandContribution", () => {
 });
 
 describe("normalizeContextValue", () => {
-    it("примитивы проходят как есть", () => {
+    it("primitives pass through as is", () => {
         expect(normalizeContextValue(true)).toBe(true);
         expect(normalizeContextValue(false)).toBe(false);
         expect(normalizeContextValue("ready")).toBe("ready");
@@ -93,17 +93,17 @@ describe("normalizeContextValue", () => {
         expect(normalizeContextValue(-1.5)).toBe(-1.5);
     });
 
-    it("null/undefined — это false: у нас непрописанный ключ читается так же", () => {
+    it("null/undefined is false: an unset key reads the same way here", () => {
         expect(normalizeContextValue(null)).toBe(false);
         expect(normalizeContextValue(undefined)).toBe(false);
     });
 
-    it("NaN и Infinity сводятся к своей истинности", () => {
+    it("NaN and Infinity reduce to their truthiness", () => {
         expect(normalizeContextValue(Number.NaN)).toBe(false);
         expect(normalizeContextValue(Number.POSITIVE_INFINITY)).toBe(true);
     });
 
-    it("массив и объект хранятся как есть — под оператор in; из массива остаются примитивы", () => {
+    it("arrays and objects are stored as is for the in operator; arrays keep only primitives", () => {
         expect(normalizeContextValue([])).toEqual([]);
         expect(normalizeContextValue(["a", 1, true, null, { x: 1 }])).toEqual(["a", 1, true]);
         const map = { "a.ts": true };

@@ -73,7 +73,7 @@ function setup(): HoverHarness {
 }
 
 describe("StatusBarComponent hover", () => {
-    it("кликабельный сегмент под курсором красится в statusBarItem.hover*", () => {
+    it("a clickable segment under the mouse is painted with statusBarItem.hover*", () => {
         const { app, cellsOf } = setup();
         const cells = cellsOf("Alpha");
 
@@ -87,7 +87,7 @@ describe("StatusBarComponent hover", () => {
         expect(app.backend.getFgAt(new Point(cells[1], 0))).toBe(HOVER_FG);
     });
 
-    it("инертный сегмент под курсором не подсвечивается", () => {
+    it("an inert segment under the mouse is not highlighted", () => {
         const { app, cellsOf } = setup();
         const cells = cellsOf("Beta");
 
@@ -99,7 +99,7 @@ describe("StatusBarComponent hover", () => {
         }
     });
 
-    it("уход курсора с сегмента гасит подсветку", () => {
+    it("the mouse leaving the segment clears the highlight", () => {
         const { app, cellsOf } = setup();
         const cells = cellsOf("Alpha");
 
@@ -112,7 +112,7 @@ describe("StatusBarComponent hover", () => {
         expect(app.backend.getBgAt(new Point(cells[1], 0))).toBe(BAR_BG);
     });
 
-    it("подсветка едет за курсором: соседний кликабельный сегмент перехватывает её", () => {
+    it("the highlight follows the mouse: a neighboring clickable segment takes it over", () => {
         const { app, cellsOf } = setup();
         const alpha = cellsOf("Alpha");
         const gamma = cellsOf("Gamma");

@@ -178,22 +178,22 @@ function currentSlice(registry: KeybindingRegistry): ISlice {
     return { pairs: pairwiseSlice(registry), signatures: signatureSlice(registry) };
 }
 
-describe("срез приоритета дефолтных биндов", () => {
+describe("default keybinding priority slice", () => {
     const registry = registerBuiltins();
     const current = currentSlice(registry);
     if (process.env.UPDATE_SLICE === "1") writeFileSync(SLICE_URL, `${JSON.stringify(current, null, 4)}\n`);
     const reference = JSON.parse(readFileSync(SLICE_URL, "utf8")) as ISlice;
 
-    it("попарное старшинство совпадает с эталоном", () => {
+    it("pairwise precedence matches upstream", () => {
         expect(current.pairs.length).toBeGreaterThan(20);
         expect(current.pairs).toEqual(reference.pairs);
     });
 
-    it("подписи команд совпадают с эталоном", () => {
+    it("command labels match upstream", () => {
         expect(current.signatures).toEqual(reference.signatures);
     });
 
-    it("старшинство в срезе — то, что реально выбирает резолвер", () => {
+    it("precedence in the slice is what the resolver actually picks", () => {
         // Pairs the grid does not cover are skipped — the pairwise form above checks them.
         let checked = 0;
         const entries = registry.listBindings();
@@ -218,7 +218,7 @@ describe("срез приоритета дефолтных биндов", () => 
 
     // Measurement for F1: how many pairs rely only on registration order. Once families
     // get weights (F1, PR3) the test is enabled and must match the snapshot.
-    it("порядок регистрации не влияет на старшинство", () => {
+    it("registration order does not affect precedence", () => {
         const reversed = registerBuiltins([...WORKBENCH_ACTIONS].reverse());
         expect(pairwiseSlice(reversed)).toEqual(reference.pairs);
     });

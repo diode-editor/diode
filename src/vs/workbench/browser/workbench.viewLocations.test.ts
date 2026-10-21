@@ -53,7 +53,7 @@ function focusView(h: IAppHarness, viewId: string): void {
     h.container.get(WorkbenchContextKeysDIToken).update();
 }
 
-describe("Workbench — перенос видов командами", () => {
+describe("Workbench: moving views with commands", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -72,7 +72,7 @@ describe("Workbench — перенос видов командами", () => {
         ws.dispose();
     });
 
-    it("Move Focused View → New Secondary Side Bar Entry: SEARCH справа, в сайдбаре его нет, фокус в нём", async () => {
+    it("Move Focused View → New Secondary Side Bar Entry: SEARCH on the right, gone from the sidebar, focused", async () => {
         focusView(h, SEARCH_VIEW_ID);
         expect(h.container.get(ContextKeyServiceDIToken).get("focusedView")).toBe(SEARCH_VIEW_ID);
 
@@ -94,13 +94,13 @@ describe("Workbench — перенос видов командами", () => {
         expect(frame(h)[1].slice(part.globalPosition.x)).toContain("SEARCH");
     });
 
-    it("без вида в фокусе Move Focused View погашена", () => {
+    it("without a focused view Move Focused View is disabled", () => {
         h.container.get(WorkbenchContextKeysDIToken).update();
         void h.commands.execute("workbench.action.moveFocusedView");
         expect(frame(h).join("\n")).not.toContain("Select a Destination for the View");
     });
 
-    it("непереносимый вид — сообщение об ошибке, выбора места нет", async () => {
+    it("a non-movable view shows an error message, no location choice", async () => {
         h.container.get(ViewsServiceDIToken).openViewContainer(EXTENSIONS_VIEWLET_ID, true);
         h.container.get(WorkbenchContextKeysDIToken).update();
         expect(h.container.get(ContextKeyServiceDIToken).get("focusedView")).not.toBe("");
@@ -111,7 +111,7 @@ describe("Workbench — перенос видов командами", () => {
         expect(frame(h).join("\n")).not.toContain("Select a Destination for the View");
     });
 
-    it("Move View: сначала вид, потом место", async () => {
+    it("Move View: first the view, then the location", async () => {
         void h.commands.execute("workbench.action.moveView");
         const screen = frame(h).join("\n");
         expect(screen).toContain("Select a View to Move");
@@ -130,7 +130,7 @@ describe("Workbench — перенос видов командами", () => {
         );
     });
 
-    it("Move Panel Views To Secondary Side Bar и обратно", () => {
+    it("Move Panel Views To Secondary Side Bar and back", () => {
         // Make a non-first tab active in the panel, so it's visible that exactly that one opens.
         h.container.get(PanelServiceDIToken).setActiveView(OUTPUT_VIEW_ID);
         void h.commands.execute("workbench.action.movePanelToSecondarySideBar");
@@ -145,19 +145,19 @@ describe("Workbench — перенос видов командами", () => {
         expect(h.container.get(PanelServiceDIToken).visible).toBe(true);
     });
 
-    it("пустую часть-источник Move Panel… не трогает", () => {
+    it("Move Panel… leaves an empty source part alone", () => {
         void h.commands.execute("workbench.action.moveSecondarySideBarToPanel");
         expect(h.container.get(PanelServiceDIToken).visible).toBe(false);
     });
 
-    it("Reset View Locations возвращает всё на места", () => {
+    it("Reset View Locations puts everything back", () => {
         void h.commands.execute("workbench.action.movePanelToSecondarySideBar");
         void h.commands.execute("workbench.action.resetViewLocations");
         expect(auxiliaryTabs(h)).toEqual([]);
         expect(panelTabs(h)).toEqual(["PROBLEMS", "OUTPUT", "TERMINAL"]);
     });
 
-    it("Reset Focused View Location возвращает вид с фокусом домой", () => {
+    it("Reset Focused View Location returns the focused view home", () => {
         const views = h.container.get(ViewsServiceDIToken);
         views.moveViewToLocation(SEARCH_VIEW_ID, "auxiliarybar");
         focusView(h, SEARCH_VIEW_ID);
@@ -167,7 +167,7 @@ describe("Workbench — перенос видов командами", () => {
         expect(h.workbench.workbenchLayout.getLeftPanelVisible()).toBe(true);
     });
 
-    it("пустая вторичная панель подсказывает, как в неё попасть", () => {
+    it("an empty secondary side bar hints how to get views into it", () => {
         void h.commands.execute("workbench.action.toggleAuxiliaryBar");
         const part = h.workbench.workbenchLayout.getRightPanel()!;
         const text = frame(h)
@@ -178,7 +178,7 @@ describe("Workbench — перенос видов командами", () => {
     });
 });
 
-describe("Workbench — переносы переживают перезапуск", () => {
+describe("Workbench: moved views survive a restart", () => {
     let ws: ITempWorkspace;
     let userData: ITempWorkspace;
     let writers: StateService[];
@@ -201,7 +201,7 @@ describe("Workbench — переносы переживают перезапус
         return { h: createAppTestHarness({ workspaceFolder: ws.dir, stateService: state, size: SIZE }), state };
     }
 
-    it("OUTPUT во вторичной панели и сама панель видна после перезапуска", () => {
+    it("OUTPUT stays in the secondary side bar and the side bar is visible after a restart", () => {
         const first = launch();
         first.h.container.get(ViewsServiceDIToken).moveViewToLocation(OUTPUT_VIEW_ID, "auxiliarybar");
         first.h.container.get(ViewsServiceDIToken).openView(OUTPUT_VIEW_ID, true);

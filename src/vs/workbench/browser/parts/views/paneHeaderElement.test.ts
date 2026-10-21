@@ -39,7 +39,7 @@ function mouse(
 }
 
 describe("PaneHeaderElement", () => {
-    it("геттеры и inspectState отражают состояние", () => {
+    it("getters and inspectState reflect the state", () => {
         const { header } = makeHeader();
         expect(header.isExpanded).toBe(true);
         expect(header.isDragEnabled).toBe(false);
@@ -56,19 +56,19 @@ describe("PaneHeaderElement", () => {
         });
     });
 
-    it("setExpanded в то же состояние — no-op", () => {
+    it("setExpanded to the same state is a no-op", () => {
         const { header } = makeHeader();
         header.setExpanded(true);
         expect(header.isExpanded).toBe(true);
     });
 
-    it("интринсики — ровно одна строка", () => {
+    it("intrinsics are exactly one row", () => {
         const { header } = makeHeader();
         expect(header.getMinIntrinsicHeight(30)).toBe(1);
         expect(header.getMaxIntrinsicHeight(30)).toBe(1);
     });
 
-    it("на узком заголовке кнопка ⋯ заклипована — клик в её зону сворачивает", () => {
+    it("on a narrow header the ⋯ button is clipped: a click in its zone collapses", () => {
         const { header, onToggle, onMenu } = makeHeader(4);
         mouse(header, "mousedown", { localX: 3 });
         mouse(header, "mouseup", { localX: 3 });
@@ -76,7 +76,7 @@ describe("PaneHeaderElement", () => {
         expect(onMenu).not.toHaveBeenCalled();
     });
 
-    it("после начала drag репортится каждый move, включая возврат на строку нажатия", () => {
+    it("after a drag starts every move is reported, including returning to the press row", () => {
         const { header, onDrag, onToggle } = makeHeader();
         header.setDragEnabled(true);
         mouse(header, "mousedown", { localX: 2, screenY: 5 });
@@ -87,7 +87,7 @@ describe("PaneHeaderElement", () => {
         expect(onToggle).not.toHaveBeenCalled();
     });
 
-    it("движение только по X в строке нажатия — не drag, отпускание остаётся кликом", () => {
+    it("moving only along X in the press row is not a drag, release stays a click", () => {
         const { header, onDrag, onToggle } = makeHeader();
         header.setDragEnabled(true);
         mouse(header, "mousedown", { localX: 2, screenY: 5 });
@@ -97,7 +97,7 @@ describe("PaneHeaderElement", () => {
         expect(onToggle).toHaveBeenCalledOnce();
     });
 
-    it("mouseup без нажатия и правая кнопка не сворачивают", () => {
+    it("mouseup without a press and the right button do not collapse", () => {
         const { header, onToggle } = makeHeader();
         mouse(header, "mouseup", { localX: 2 });
         mouse(header, "mousedown", { localX: 2, button: "right" });
@@ -106,7 +106,7 @@ describe("PaneHeaderElement", () => {
     });
 });
 
-describe("PaneHeaderElement — несворачиваемый (collapsible: false)", () => {
+describe("PaneHeaderElement — non-collapsible (collapsible: false)", () => {
     function makeFixedHeader(): ReturnType<typeof makeHeader> {
         const header = new PaneHeaderElement("SEARCH", { collapsible: false });
         const onToggle = vi.fn();
@@ -119,7 +119,7 @@ describe("PaneHeaderElement — несворачиваемый (collapsible: fal
         return { header, onToggle, onDrag, onMenu };
     }
 
-    it("клик по заголовку вне зоны ⋯ не вызывает onToggle", () => {
+    it("a header click outside the ⋯ zone does not call onToggle", () => {
         const { header, onToggle, onMenu } = makeFixedHeader();
         mouse(header, "mousedown", { localX: 2 });
         mouse(header, "mouseup", { localX: 2 });
@@ -127,7 +127,7 @@ describe("PaneHeaderElement — несворачиваемый (collapsible: fal
         expect(onMenu).not.toHaveBeenCalled();
     });
 
-    it("клик в зону ⋯ по-прежнему открывает меню", () => {
+    it("a click in the ⋯ zone still opens the menu", () => {
         const { header, onToggle, onMenu } = makeFixedHeader();
         mouse(header, "mousedown", { localX: 28 });
         mouse(header, "mouseup", { localX: 28 });
@@ -135,14 +135,14 @@ describe("PaneHeaderElement — несворачиваемый (collapsible: fal
         expect(onToggle).not.toHaveBeenCalled();
     });
 
-    it("без шеврона в заголовке, inspectState отражает collapsible", () => {
+    it("no chevron in the header, inspectState reflects collapsible", () => {
         const { header } = makeFixedHeader();
         expect(header.inspectState()).toMatchObject({ title: "SEARCH", collapsible: false });
     });
 });
 
-describe("PaneHeaderElement — inline-кнопки и виджет", () => {
-    it("клик по кнопке зовёт onAction, а не сворачивание", () => {
+describe("PaneHeaderElement — inline buttons and widget", () => {
+    it("a button click calls onAction, not collapse", () => {
         const { header, onToggle } = makeHeader();
         const onAction = vi.fn();
         header.onAction = onAction;
@@ -155,13 +155,13 @@ describe("PaneHeaderElement — inline-кнопки и виджет", () => {
         expect(onToggle).not.toHaveBeenCalled();
     });
 
-    it("setTitle меняет надпись секции", () => {
+    it("setTitle changes the section label", () => {
         const { header } = makeHeader();
         header.setTitle("SOURCE CONTROL");
         expect(header.inspectState()).toMatchObject({ title: "SOURCE CONTROL" });
     });
 
-    it("виджет заголовка попадает в дерево заголовка", () => {
+    it("the title widget lands in the header tree", () => {
         const { header } = makeHeader();
         const widget = new FillerElement();
         widget.id = "channel-picker";

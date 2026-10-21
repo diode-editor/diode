@@ -33,7 +33,7 @@ describe("Workbench — Open File / Open Folder", () => {
     const root = (): string =>
         h.container.get(IWorkspaceContextServiceDIToken).getWorkspace().folders[0]?.uri.fsPath ?? "";
 
-    it("Open File открывает диалог в папке воркспейса: путь в строке, каталог под ней", async () => {
+    it("Open File opens the dialog in the workspace folder: path in the input, directory below it", async () => {
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.openFile");
         await dialog.settle({
@@ -44,7 +44,7 @@ describe("Workbench — Open File / Open Folder", () => {
         dialog.key("Escape");
     });
 
-    it("начало имени и Enter открывают файл во вкладке", async () => {
+    it("a name prefix and Enter open the file in a tab", async () => {
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.openFile");
         await dialog.settle({ query: ws.dir + path.sep });
@@ -57,7 +57,7 @@ describe("Workbench — Open File / Open Folder", () => {
         });
     });
 
-    it("набранный абсолютный путь — в каталог и к файлу", async () => {
+    it("a typed absolute path goes to the directory and the file", async () => {
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.openFile");
         await dialog.settle({ query: ws.dir + path.sep });
@@ -70,7 +70,7 @@ describe("Workbench — Open File / Open Folder", () => {
         });
     });
 
-    it("несуществующий файл — сообщение эталона, ничего не открыто", async () => {
+    it("a nonexistent file shows the upstream message, nothing is opened", async () => {
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.openFile");
         await dialog.settle({ query: ws.dir + path.sep });
@@ -83,7 +83,7 @@ describe("Workbench — Open File / Open Folder", () => {
         expect(tabLabels(h.testApp).some((l) => l.includes("nope.txt"))).toBe(false);
     });
 
-    it("Open File: Enter на каталоге без подсветки — «Please select a file.»", async () => {
+    it("Open File: Enter on a directory without a highlight shows 'Please select a file.'", async () => {
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.openFile");
         await dialog.settle({ query: ws.dir + path.sep, items: ["..", "sub", "alpha.txt", "beta.txt"] });
@@ -94,7 +94,7 @@ describe("Workbench — Open File / Open Folder", () => {
         dialog.key("Escape");
     });
 
-    it("«~/» переводит в домашний каталог", async () => {
+    it("'~/' goes to the home directory", async () => {
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.openFile");
         await dialog.settle({ query: ws.dir + path.sep });
@@ -103,7 +103,7 @@ describe("Workbench — Open File / Open Folder", () => {
         dialog.key("Escape");
     });
 
-    it("Escape отменяет Open File: вкладок нет, оверлей закрыт", async () => {
+    it("Escape cancels Open File: no tabs, the overlay is closed", async () => {
         const dialog = fileDialogDriver(h);
         const run = h.commands.execute("workbench.action.files.openFile") as Promise<void>;
         await dialog.settle({ query: ws.dir + path.sep });
@@ -115,7 +115,7 @@ describe("Workbench — Open File / Open Folder", () => {
         expect(tabLabels(h.testApp).some((l) => l.includes(".txt"))).toBe(false);
     });
 
-    it("Ctrl+O открывает Open File, Ctrl+K Ctrl+O — Open Folder", async () => {
+    it("Ctrl+O opens Open File, Ctrl+K Ctrl+O opens Open Folder", async () => {
         const dialog = fileDialogDriver(h);
         h.testApp.sendKey("Ctrl+O");
         await dialog.settle({ title: "Open File" });
@@ -126,7 +126,7 @@ describe("Workbench — Open File / Open Folder", () => {
         dialog.key("Escape");
     });
 
-    it("Open Folder: только каталоги; войти и Enter на пути — новый корень воркспейса", async () => {
+    it("Open Folder: directories only; entering one and Enter on the path sets a new workspace root", async () => {
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.openFolder");
         await dialog.settle({ title: "Open Folder", query: ws.dir + path.sep, items: ["..", "sub"] });
@@ -138,7 +138,7 @@ describe("Workbench — Open File / Open Folder", () => {
         });
     });
 
-    it("Open Folder: файл вместо папки — «Please select a folder.»", async () => {
+    it("Open Folder: a file instead of a folder shows 'Please select a folder.'", async () => {
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.openFolder");
         await dialog.settle({ query: ws.dir + path.sep });
@@ -151,7 +151,7 @@ describe("Workbench — Open File / Open Folder", () => {
         expect(root()).toBe(ws.dir);
     });
 
-    it("Escape отменяет Open Folder без смены корня", async () => {
+    it("Escape cancels Open Folder without changing the root", async () => {
         const dialog = fileDialogDriver(h);
         const run = h.commands.execute("workbench.action.files.openFolder") as Promise<void>;
         await dialog.settle({ query: ws.dir + path.sep });
@@ -164,8 +164,8 @@ describe("Workbench — Open File / Open Folder", () => {
     });
 });
 
-describe("Workbench — Open File без папки", () => {
-    it("диалог стоит в домашнем каталоге (`defaultFilePath` эталона)", async () => {
+describe("Workbench: Open File without a folder", () => {
+    it("the dialog starts in the home directory (upstream `defaultFilePath`)", async () => {
         const h = createAppTestHarness();
         try {
             const dialog = fileDialogDriver(h);

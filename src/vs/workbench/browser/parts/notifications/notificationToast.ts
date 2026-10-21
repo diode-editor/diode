@@ -40,7 +40,7 @@ export const TOAST_MAX_LINES = 6;
 /** Like the "×" on an upstream toast (`notification.clear`). */
 export const TOAST_CLOSE_LABEL = "×";
 
-export const TOAST_HINT_FOCUSED = "←/→ · Enter — выбрать · Esc — закрыть";
+export const TOAST_HINT_FOCUSED = "←/→ · Enter — choose · Esc — close";
 
 /**
  * A toast never takes focus, so first tell HOW to reach the buttons — otherwise
@@ -48,8 +48,8 @@ export const TOAST_HINT_FOCUSED = "←/→ · Enter — выбрать · Esc �
  * (the user may rebind it); without a binding, name the command.
  */
 export function toastUnfocusedHint(answerKeyLabel: string | undefined): string {
-    if (answerKeyLabel === undefined) return "«Notifications: Focus Message» — ответить";
-    return `${answerKeyLabel} — ответить`;
+    if (answerKeyLabel === undefined) return '"Notifications: Focus Message" — reply';
+    return `${answerKeyLabel} — reply`;
 }
 
 /**

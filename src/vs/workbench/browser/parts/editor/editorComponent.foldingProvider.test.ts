@@ -43,7 +43,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         return ctrl;
     }
 
-    it("provider-регион появляется там, где indentation-фолдов нет", async () => {
+    it("a provider region appears where there are no indentation folds", async () => {
         // Five unindented lines — indentation folding yields no regions.
         const ctrl = open("a\nb\nc\nd\ne");
         expect(starts(ctrl)).toEqual([]);
@@ -56,7 +56,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 0)?.endLine).toBe(3);
     });
 
-    it("union: provider ∪ indentation (обе области сохраняются)", async () => {
+    it("union: provider ∪ indentation (both ranges are kept)", async () => {
         // Indentation region 0..2 (header + two indented lines); the provider adds 3..4.
         const ctrl = open("header\n  x\n  y\nfooter\nmore");
         expect(starts(ctrl)).toEqual([0]);
@@ -67,7 +67,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(starts(ctrl)).toEqual([0, 3]);
     });
 
-    it("provider выигрывает по общей startLine", async () => {
+    it("provider wins on a shared startLine", async () => {
         // Indentation gives 0..2; the provider returns 0..3 on the same line → 0..3 wins.
         const ctrl = open("header\n  x\n  y\nfooter");
         expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 0)?.endLine).toBe(2);
@@ -78,7 +78,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 0)?.endLine).toBe(3);
     });
 
-    it("collapsed переносится через provider-мерж по startLine", async () => {
+    it("collapsed survives the provider merge by startLine", async () => {
         const ctrl = open("a\nb\nc\nd\ne");
         providers.register("*", providerOf([{ startLine: 0, endLine: 3, isCollapsed: false }]));
         await flush();
@@ -91,7 +91,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 0)?.isCollapsed).toBe(true);
     });
 
-    it("провайдер упал/таймаут → остаются indentation-фолды (без throw)", async () => {
+    it("provider failed/timed out → indentation folds remain (no throw)", async () => {
         const ctrl = open("header\n  x\n  y\nfooter");
         expect(starts(ctrl)).toEqual([0]);
 
@@ -105,7 +105,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(starts(ctrl)).toEqual([0]);
     });
 
-    it("провайдер чужого языка не спрашивается: области не подъезжают", async () => {
+    it("a provider for another language is not asked: no ranges arrive", async () => {
         const ctrl = open("a\nb\nc\nd\ne");
         let asked = false;
         providers.register("typescript", {
@@ -120,7 +120,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(starts(ctrl)).toEqual([]);
     });
 
-    it("снятие провайдера пересчитывает области: его регионы уходят", async () => {
+    it("unregistering the provider recomputes ranges: its regions go away", async () => {
         const ctrl = open("a\nb\nc\nd\ne");
         const registration = providers.register("*", providerOf([{ startLine: 0, endLine: 3, isCollapsed: false }]));
         await flush();
@@ -132,7 +132,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(starts(ctrl)).toEqual([]);
     });
 
-    it("запоздавший ответ снятого провайдера не возвращает его области", async () => {
+    it("a late response from an unregistered provider does not bring its ranges back", async () => {
         const ctrl = open("a\nb\nc\nd\ne");
         let answer: (regions: IFoldingRegion[]) => void = () => undefined;
         const registration = providers.register("*", {
@@ -150,7 +150,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(starts(ctrl)).toEqual([]);
     });
 
-    it("пустой ответ провайдера → остаются только indentation-фолды", async () => {
+    it("empty provider response → only indentation folds remain", async () => {
         const ctrl = open("header\n  x\n  y\nfooter");
         expect(starts(ctrl)).toEqual([0]);
 
@@ -160,7 +160,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(starts(ctrl)).toEqual([0]);
     });
 
-    it("ответ, пришедший после закрытия редактора, не применяется", async () => {
+    it("a response arriving after the editor is closed is not applied", async () => {
         const ctrl = open("a\nb\nc\nd\ne");
         let resolve: (regions: IFoldingRegion[]) => void = () => undefined;
         providers.register("*", {
@@ -178,7 +178,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(starts(ctrl)).toEqual([]);
     });
 
-    it("закрытие редактора отменяет запрос и у провайдера", async () => {
+    it("closing the editor cancels the request at the provider too", async () => {
         const ctrl = open("a\nb\nc\nd\ne");
         const tokens: ICancellationToken[] = [];
         providers.register("*", {
@@ -196,7 +196,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         expect(tokens.every((token) => token.isCancellationRequested)).toBe(true);
     });
 
-    describe("правка до ответа провайдера", () => {
+    describe("edit before the provider responds", () => {
         // A multi-line signature, as in Java: by indentation, "first(" is a region of
         // the parameters only (1..2), and the body is its own region at ") {" (3..4);
         // the provider returns the whole method (1..4).
@@ -242,7 +242,7 @@ describe("EditorComponent – extension folding provider merge", () => {
             return renderElement(ctrl.component.view, 40, 12, { themeVars: true }).screenToString();
         }
 
-        it("свёрнутый метод с многострочной сигнатурой не разворачивается на нажатие клавиши", async () => {
+        it("a folded method with a multi-line signature does not unfold on a keystroke", async () => {
             const ctrl = open(source);
             const provider = registerDeferredProvider();
             await flush();
@@ -269,7 +269,7 @@ describe("EditorComponent – extension folding provider merge", () => {
             });
         });
 
-        it("пустой ответ провайдера после правки → indentation-фолды", async () => {
+        it("empty provider response after an edit → indentation folds", async () => {
             const ctrl = open(source);
             const provider = registerDeferredProvider();
             await flush();

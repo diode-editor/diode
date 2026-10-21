@@ -92,7 +92,7 @@ describe("TabActions", () => {
         expect(cycleMru).toHaveBeenCalledWith(-1);
     });
 
-    it("метаданные nextEditor/previousEditor: заголовки, бинды с Alt-дублями, when", () => {
+    it("nextEditor/previousEditor metadata: titles, keybindings with Alt duplicates, when", () => {
         expect(nextEditorAction.title).toBe("Open Next Editor");
         expect(previousEditorAction.title).toBe("Open Previous Editor");
         expect(nextEditorAction.when).toBe("textViewFocus || terminalEditorFocus");
@@ -103,7 +103,7 @@ describe("TabActions", () => {
         expect(previousEditorAction.keybindings).toEqual([parseKeybinding("alt+pageup")]);
     });
 
-    it("nextEditor / previousEditor циклируют по визуальному порядку без hold-сессии", () => {
+    it("nextEditor / previousEditor cycle in visual order without a hold session", () => {
         const cycleEditor = vi.fn();
         const endMruCycle = vi.fn();
         const group: GroupStub = {

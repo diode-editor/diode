@@ -20,7 +20,7 @@ describe("Workbench contributions", () => {
         h.dispose();
     });
 
-    it("фаза Ready наступает в mount(): статус-contribution'ы опубликовали сегменты", () => {
+    it("the Ready phase is reached in mount(): status contributions have published their segments", () => {
         // The terminal env + editor-status contributions are instantiated in mount()
         // (Ready), so the status bar already has entries by now.
         const statusBar = h.container.get(StatusBarServiceDIToken);
@@ -28,7 +28,7 @@ describe("Workbench contributions", () => {
         expect(statusBar.entries().length).toBeGreaterThan(0);
     });
 
-    it("переход в Eventually не падает при пустой фазе", () => {
+    it("moving to Eventually does not throw on an empty phase", () => {
         expect(() => {
             h.container.get(LifecycleServiceDIToken).setPhase("eventually");
         }).not.toThrow();
@@ -37,7 +37,7 @@ describe("Workbench contributions", () => {
     // Upstream keeps Output channels on `LifecyclePhase.Restored` and instantiates
     // them on idle: at Ready they are not there yet, they arrive first in the
     // transition to Eventually (in the app — after the highlighted frame).
-    it("afterRestored: на Ready селектора каналов Output ещё нет, с Eventually — есть", () => {
+    it("afterRestored: the Output channel selector is absent at Ready and present at Eventually", () => {
         const menus = h.container.get(MenuServiceDIToken);
         const hasSwitchOutput = (): boolean =>
             menus.hasItems(

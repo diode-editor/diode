@@ -38,7 +38,7 @@ function repaintsEditor(act: (pane: TextEditorPane) => void): boolean {
 }
 
 describe("EditorComponent.setWordWrap", () => {
-    it("смена режима доезжает до экрана (markDirty)", () => {
+    it("a mode change reaches the screen (markDirty)", () => {
         expect(
             repaintsEditor((pane) => {
                 pane.setWordWrap("on", 80);
@@ -46,7 +46,7 @@ describe("EditorComponent.setWordWrap", () => {
         ).toBe(true);
     });
 
-    it("повторное применение тех же значений — no-op без перерисовки", () => {
+    it("reapplying the same values is a no-op without a redraw", () => {
         expect(
             repaintsEditor((pane) => {
                 pane.setWordWrap("off", 80);
@@ -54,7 +54,7 @@ describe("EditorComponent.setWordWrap", () => {
         ).toBe(false);
     });
 
-    it("включение переноса сбрасывает горизонтальный скролл и показывает ряд каретки", () => {
+    it("enabling wrap resets horizontal scroll and reveals the cursor row", () => {
         const pane = openPane(`${"aaaa bbbb ".repeat(250)}end`);
         const viewState = pane.viewState;
         viewState.goToPosition(0, 2400); // end of a long line — scrolled to the right
@@ -67,7 +67,7 @@ describe("EditorComponent.setWordWrap", () => {
         expect(viewState.scrollTop).toBeGreaterThan(0);
     });
 
-    it("смена колонки при выключенном переносе скролл не трогает", () => {
+    it("changing the column with wrap off leaves scroll alone", () => {
         const pane = openPane(`${"aaaa bbbb ".repeat(20)}end`);
         const viewState = pane.viewState;
         // The cursor is inside the visible window — the reveal in setWordWrap does not move the scroll.

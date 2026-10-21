@@ -40,8 +40,8 @@ function mount(items: QuickPickItem[]): { picker: QuickPickElement; app: TestApp
 
 const FIRST_ROW_Y = 4; // 1-based: border(1) + query(2) + separator(3) + first item(4)
 
-describe("QuickPickElement — мышь", () => {
-    it("наведение ведёт выделение за собой", () => {
+describe("QuickPickElement — mouse", () => {
+    it("hover moves the selection along", () => {
         const { picker, app } = mount(makeItems(3));
         expect(picker.selectedIndex).toBe(0);
 
@@ -49,7 +49,7 @@ describe("QuickPickElement — мышь", () => {
         expect(picker.selectedIndex).toBe(2);
     });
 
-    it("наведение не будит живое превью — это не навигация", () => {
+    it("hover does not wake the live preview — it is not navigation", () => {
         const { picker, app } = mount(makeItems(3));
         const onActive = vi.fn();
         picker.onActiveItemChanged = onActive;
@@ -59,7 +59,7 @@ describe("QuickPickElement — мышь", () => {
         expect(onActive).not.toHaveBeenCalled();
     });
 
-    it("клик по строке выделяет её и принимает", () => {
+    it("clicking a row selects and accepts it", () => {
         const { picker, app } = mount(makeItems(3));
         const onAccept = vi.fn();
         picker.onAccept = onAccept;
@@ -70,7 +70,7 @@ describe("QuickPickElement — мышь", () => {
         expect(onAccept).toHaveBeenCalledWith(expect.objectContaining({ label: "file-2.ts" }), 1);
     });
 
-    it("клик по строке запроса и рамке ничего не принимает", () => {
+    it("clicking the query row or the border accepts nothing", () => {
         const { picker, app } = mount(makeItems(3));
         const onAccept = vi.fn();
         picker.onAccept = onAccept;
@@ -81,7 +81,7 @@ describe("QuickPickElement — мышь", () => {
         expect(onAccept).not.toHaveBeenCalled();
     });
 
-    it("правая кнопка строку не принимает — это событие контекстного меню", () => {
+    it("the right button does not accept a row — it is a context menu event", () => {
         const { picker, app } = mount(makeItems(3));
         const onAccept = vi.fn();
         picker.onAccept = onAccept;
@@ -92,7 +92,7 @@ describe("QuickPickElement — мышь", () => {
         expect(onAccept).not.toHaveBeenCalled();
     });
 
-    it("мышь мимо списка выделение не двигает", () => {
+    it("the mouse outside the list does not move the selection", () => {
         const { picker, app } = mount(makeItems(3));
         app.backend.simulateMouse(token({ action: "move", x: 5, y: FIRST_ROW_Y + 1 }));
         expect(picker.selectedIndex).toBe(1);
@@ -101,7 +101,7 @@ describe("QuickPickElement — мышь", () => {
         expect(picker.selectedIndex).toBe(1);
     });
 
-    it("на пустом списке мышь ничего не трогает", () => {
+    it("on an empty list the mouse changes nothing", () => {
         const { picker, app } = mount([]);
         const onAccept = vi.fn();
         picker.onAccept = onAccept;
@@ -114,7 +114,7 @@ describe("QuickPickElement — мышь", () => {
         expect(onAccept).not.toHaveBeenCalled();
     });
 
-    it("клик по хвосту списка ниже последней строки ничего не принимает", () => {
+    it("clicking below the last row of the list accepts nothing", () => {
         const { picker, app } = mount(makeItems(2));
         const onAccept = vi.fn();
         picker.onAccept = onAccept;
@@ -125,7 +125,7 @@ describe("QuickPickElement — мышь", () => {
         expect(onAccept).not.toHaveBeenCalled();
     });
 
-    it("клик по строке блокируется жёсткой ошибкой валидации", () => {
+    it("clicking a row is blocked by a hard validation error", () => {
         const { picker, app } = mount(makeItems(3));
         const onAccept = vi.fn();
         picker.onAccept = onAccept;

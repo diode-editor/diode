@@ -88,8 +88,8 @@ function row(screen: TerminalScreen, y: number, width = 20): string {
     return text;
 }
 
-describe("PanelContainerElement: опции вида части", () => {
-    it("по умолчанию — нижняя панель: полоса границы, шапка на второй строке, контент с отступом 2", () => {
+describe("PanelContainerElement: part appearance options", () => {
+    it("defaults to the bottom panel: border strip, header on the second row, content indented by 2", () => {
         const panel = new PanelContainerElement();
         panel.addView({ id: "a", title: "ONE", content: new MarkerContent("M") });
         const screen = paint(panel);
@@ -100,7 +100,7 @@ describe("PanelContainerElement: опции вида части", () => {
         expect(at(screen, 5, 4).bg).toBe(PANEL_BG);
     });
 
-    it("вид сайдбара: фон и текст sideBar.*, без полосы, шапка на первой строке, контент с колонки 1", () => {
+    it("sidebar look: sideBar.* background and text, no strip, header on the first row, content from column 1", () => {
         const panel = new PanelContainerElement(SIDE_BAR_OPTIONS);
         panel.addView({ id: "a", title: "ONE", content: new MarkerContent("M") });
         const screen = paint(panel);
@@ -112,7 +112,7 @@ describe("PanelContainerElement: опции вида части", () => {
         expect(at(screen, 5, 4).bg).toBe(SIDEBAR_BG);
     });
 
-    it("вид сайдбара: контент занимает всё под шапкой, кроме колонки саша", () => {
+    it("sidebar look: content fills everything below the header except the sash column", () => {
         const panel = new PanelContainerElement(SIDE_BAR_OPTIONS);
         const content = new MarkerContent("M");
         panel.addView({ id: "a", title: "ONE", content });
@@ -120,7 +120,7 @@ describe("PanelContainerElement: опции вида части", () => {
         expect(content.layoutSize).toEqual(new Size(19, 5));
     });
 
-    describe("вид сайдбара: мышь работает на первой строке", () => {
+    describe("sidebar look: the mouse works on the first row", () => {
         function scene(): { root: TUIElement; panel: PanelContainerElement; dispatcher: MouseEventDispatcher } {
             const root = new HostElement();
             root.setAsRoot();
@@ -135,7 +135,7 @@ describe("PanelContainerElement: опции вида части", () => {
             return { root, panel, dispatcher: new MouseEventDispatcher() };
         }
 
-        it("клик по табу на строке 0 переключает вкладку", () => {
+        it("a click on a tab on row 0 switches the tab", () => {
             const { root, panel, dispatcher } = scene();
             const activated: string[] = [];
             panel.onActivateView = (id) => activated.push(id);
@@ -146,13 +146,13 @@ describe("PanelContainerElement: опции вида части", () => {
             expect((panel.inspectState() as { tabRow: number }).tabRow).toBe(0);
         });
 
-        it("строка под шапкой — уже контент, клик табы не трогает", () => {
+        it("the row below the header is already content, a click leaves the tabs alone", () => {
             const { root, panel, dispatcher } = scene();
             dispatcher.handleMouseToken(press(8, 1), root);
             expect(panel.getActiveViewId()).toBe("a");
         });
 
-        it("кнопка закрытия — в правом конце строки 0", () => {
+        it("the close button is at the right end of row 0", () => {
             const { root, panel, dispatcher } = scene();
             let closed = 0;
             panel.onClose = () => closed++;
@@ -161,15 +161,15 @@ describe("PanelContainerElement: опции вида части", () => {
         });
     });
 
-    it("placeholder вкладки — под шапкой с отступом контента", () => {
+    it("the tab placeholder is below the header with the content indent", () => {
         const panel = new PanelContainerElement(SIDE_BAR_OPTIONS);
         panel.addView({ id: "a", title: "ONE", content: null, placeholder: "Empty" });
         const screen = paint(panel);
         expect(row(screen, 1)).toBe(" Empty".padEnd(20));
     });
 
-    describe("сообщение пустой части", () => {
-        it("без вкладок — подсказка с переносом по словам под пустой шапкой", () => {
+    describe("empty part message", () => {
+        it("without tabs — a word-wrapped hint below the empty header", () => {
             const panel = new PanelContainerElement({
                 ...SIDE_BAR_OPTIONS,
                 emptyMessage: "Move a view here to see it.",
@@ -184,7 +184,7 @@ describe("PanelContainerElement: опции вида части", () => {
             expect(at(screen, 12, 1).fg).not.toBe(DESCRIPTION_FG);
         });
 
-        it("не вылезает за нижний край части", () => {
+        it("does not overflow the bottom edge of the part", () => {
             const panel = new PanelContainerElement({ ...SIDE_BAR_OPTIONS, emptyMessage: "one two three four" });
             const screen = paint(panel, new Size(6, 3));
             expect(row(screen, 1, 6)).toBe(" one  ");
@@ -193,14 +193,14 @@ describe("PanelContainerElement: опции вида части", () => {
             expect(at(screen, 1, 3).bg).not.toBe(SIDEBAR_BG);
         });
 
-        it("с вкладками подсказки нет", () => {
+        it("no hint when there are tabs", () => {
             const panel = new PanelContainerElement({ ...SIDE_BAR_OPTIONS, emptyMessage: "Nothing" });
             panel.addView({ id: "a", title: "ONE", content: null });
             const screen = paint(panel);
             expect(row(screen, 1)).toBe(" ".repeat(20));
         });
 
-        it("без опции пустая часть пуста", () => {
+        it("without the option an empty part stays blank", () => {
             const panel = new PanelContainerElement(SIDE_BAR_OPTIONS);
             const screen = paint(panel);
             expect(row(screen, 1)).toBe(" ".repeat(20));

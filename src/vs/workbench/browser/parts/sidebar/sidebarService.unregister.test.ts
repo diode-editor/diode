@@ -20,7 +20,7 @@ const viewA = { id: "a" } as unknown as TUIElement;
 const viewB = { id: "b" } as unknown as TUIElement;
 
 describe("SidebarService.unregisterViewlet", () => {
-    it("снятый активный вьюлет освобождает сайдбар", () => {
+    it("an unregistered active viewlet frees the sidebar", () => {
         const { service, content } = setup();
         service.registerViewlet("a", viewA, () => undefined);
         service.showViewlet("a", false);
@@ -31,7 +31,7 @@ describe("SidebarService.unregisterViewlet", () => {
         expect(service.getActiveViewletId()).toBeNull();
     });
 
-    it("снятие неактивного вьюлета активный не трогает", () => {
+    it("unregistering an inactive viewlet leaves the active one alone", () => {
         const { service, content } = setup();
         service.registerViewlet("a", viewA, () => undefined);
         service.registerViewlet("b", viewB, () => undefined);
@@ -41,7 +41,7 @@ describe("SidebarService.unregisterViewlet", () => {
         expect(content).toEqual([viewA]);
     });
 
-    it("снятый вьюлет больше не выставляет свой ключ видимости", () => {
+    it("an unregistered viewlet no longer sets its visibility key", () => {
         const { service } = setup();
         const keys = new ContextKeyService();
         service.registerViewlet("a", viewA, () => undefined, "searchViewletVisible");
@@ -52,7 +52,7 @@ describe("SidebarService.unregisterViewlet", () => {
         expect(keys.get("searchViewletVisible")).toBe(true);
     });
 
-    it("неизвестный id — no-op", () => {
+    it("unknown id is a no-op", () => {
         const { service, content } = setup();
         service.unregisterViewlet("ghost");
         expect(content).toEqual([]);

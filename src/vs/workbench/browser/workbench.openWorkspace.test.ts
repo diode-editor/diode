@@ -48,7 +48,7 @@ describe("Workbench — Open Workspace from File", () => {
         });
     }
 
-    it("каждая причина, по которой файл не открыть, — сообщением прямо в поле", async () => {
+    it("every reason a file cannot be opened shows as a message right in the input", async () => {
         const input = prompt();
         const cases: [string, string][] = [
             [ws.path("notes.txt"), `Not a workspace file (*.code-workspace): ${ws.path("notes.txt")}`],
@@ -73,7 +73,7 @@ describe("Workbench — Open Workspace from File", () => {
         });
     });
 
-    it("принятый файл открывает воркспейс: папка из файла, файл — в configuration", async () => {
+    it("an accepted file opens the workspace: folder from the file, the file as configuration", async () => {
         await accept("web.code-workspace");
 
         const workspace = h.container.get(IWorkspaceContextServiceDIToken).getWorkspace();
@@ -81,12 +81,12 @@ describe("Workbench — Open Workspace from File", () => {
         expect(workspace.folders.map((f) => [f.uri.fsPath, f.name])).toEqual([[ws.path("packages/web"), "Web"]]);
     });
 
-    it("поле подсказывает, какой файл ждут", () => {
+    it("the input hints which file is expected", () => {
         expect(prompt().placeholder).toBe("Enter a .code-workspace file path");
     });
 
     // The command returns a promise: a rejection inside it would surface here instead of getting lost.
-    it("Escape и пустой Enter ничего не открывают, команда завершается без отказа", async () => {
+    it("Escape and an empty Enter open nothing, the command completes without rejecting", async () => {
         const escaped = h.commands.execute("workbench.action.openWorkspace");
         h.testApp.render();
         const input = quickPickByTitle(h.testApp, "Open Workspace from File");

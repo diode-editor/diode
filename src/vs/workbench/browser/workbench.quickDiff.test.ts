@@ -28,7 +28,7 @@ const BAR_DASHED = "┋"; // modification (VS Code dirty-diff draws it dashed)
 const ORIGINAL_TEXT = "line one\nline two\nline three\n";
 const DOCUMENT_LINES = 4;
 
-describe("Workbench — живой гуттер quick diff", () => {
+describe("Workbench: live quick diff gutter", () => {
     let ws: ITempWorkspace;
     let workbench: WorkbenchComponent;
     let commands: CommandRegistry;
@@ -96,14 +96,14 @@ describe("Workbench — живой гуттер quick diff", () => {
         return found;
     }
 
-    it("чистый буфер — баров в гуттере нет", async () => {
+    it("a clean buffer has no bars in the gutter", async () => {
         await settle(300);
         testApp.render();
 
         expect(barsOnScreen()).toEqual([]);
     });
 
-    it("правка БЕЗ сохранения красит изменённую строку — регрессия на залипший гуттер", async () => {
+    it("an edit WITHOUT saving colors the changed line (regression for a stale gutter)", async () => {
         await settle(300);
         testApp.render();
         expect(barsOnScreen()).toEqual([]);
@@ -125,7 +125,7 @@ describe("Workbench — живой гуттер quick diff", () => {
         expect(testApp.backend.getFgAt(new Point(barColumn(), top + 1))).toBe(modifiedColor);
     });
 
-    it("возврат текста к исходному убирает бар", async () => {
+    it("reverting the text to the original removes the bar", async () => {
         const editor = editors.getActiveEditor();
         editor!.goToPosition(1, 0);
         editor!.viewState.type("X");

@@ -17,17 +17,17 @@ describe("windowTitle", () => {
     const empty: IWorkspace = { id: null, folders: [] };
     const folder: IWorkspace = { id: "x", folders: [{ uri: Uri.file("/p/app"), name: "app", index: 0 }] };
 
-    it("пустое окно в Default — только имя приложения", () => {
+    it("empty window in Default — just the app name", () => {
         expect(windowTitle(empty, defaultProfile)).toBe(APP_NAME);
     });
 
-    it("папка и именованный профиль — через разделитель эталона; у Default профиля в заголовке нет", () => {
+    it("folder and a named profile — with the upstream separator; Default has no profile in the title", () => {
         expect(windowTitle(folder, work)).toBe("app - Work - Diode");
         expect(windowTitle(folder, defaultProfile)).toBe("app - Diode");
         expect(windowTitle(empty, work)).toBe("Work - Diode");
     });
 
-    it("окно из .code-workspace зовётся по файлу, как workspace.name расширений", () => {
+    it("a .code-workspace window is named after the file, like workspace.name for extensions", () => {
         const fromFile: IWorkspace = { ...folder, configuration: Uri.file("/p/web.code-workspace") };
         expect(windowTitle(fromFile, work)).toBe("web (Workspace) - Work - Diode");
     });
@@ -40,7 +40,7 @@ describe("WindowTitleContribution", () => {
         contribution?.dispose();
     });
 
-    it("ставит заголовок при подъёме и на смену воркспейса; после dispose — нет", () => {
+    it("sets the title on startup and on workspace change; not after dispose", () => {
         const titles: string[] = [];
         const workspaceContext = new WorkspaceContextService();
         contribution = new WindowTitleContribution(workspaceContext, { currentProfile: work }, (title) =>

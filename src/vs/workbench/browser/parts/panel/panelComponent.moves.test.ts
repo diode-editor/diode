@@ -10,8 +10,8 @@ import { PanelComponent } from "./panelComponent.ts";
 import { PanelContainerElement } from "./panelContainerElement.ts";
 import { PanelService } from "./panelService.ts";
 
-describe("PanelComponent — вкладки уходят и возвращаются", () => {
-    it("снятая в реестре вкладка уходит из таб-строки", () => {
+describe("PanelComponent — tabs leave and come back", () => {
+    it("a tab removed from the registry leaves the tab row", () => {
         const service = new PanelService();
         const component = new PanelComponent(service, new CommandRegistry());
         service.addView({ id: "a", title: "A" });
@@ -21,7 +21,7 @@ describe("PanelComponent — вкладки уходят и возвращают
         expect(component.view.getActiveViewId()).toBe("b");
     });
 
-    it("вернувшаяся вкладка встаёт на позицию из реестра, а не в хвост", () => {
+    it("a returning tab takes its registry position, not the end", () => {
         const service = new PanelService();
         const component = new PanelComponent(service, new CommandRegistry());
         service.addView({ id: "a", title: "A" });
@@ -31,7 +31,7 @@ describe("PanelComponent — вкладки уходят и возвращают
         expect(component.view.getViewIds()).toEqual(["a", "b"]);
     });
 
-    it("контрол: снятая активная передаёт активность первой оставшейся, неактивная — не трогает", () => {
+    it("control: removing the active tab activates the first remaining one, removing an inactive one changes nothing", () => {
         const view = new PanelContainerElement();
         for (const id of ["a", "b", "c"]) view.addView({ id, title: id, content: null });
         view.setActiveView("b");
@@ -44,14 +44,14 @@ describe("PanelComponent — вкладки уходят и возвращают
         expect(view.getViewIds()).toEqual([]);
     });
 
-    it("снятие незнакомой контролу вкладки — no-op", () => {
+    it("removing a tab unknown to the control — no-op", () => {
         const view = new PanelContainerElement();
         for (const id of ["a", "b"]) view.addView({ id, title: id, content: null });
         view.removeView("ghost");
         expect(view.getViewIds()).toEqual(["a", "b"]);
     });
 
-    it("контент снятой вкладки уходит из дерева, контент новой активной — показан", () => {
+    it("the removed tab's content leaves the tree, the new active tab's content is shown", () => {
         const view = new PanelContainerElement();
         const a = new TUIElement();
         const b = new TUIElement();
@@ -63,7 +63,7 @@ describe("PanelComponent — вкладки уходят и возвращают
     });
 });
 
-describe("PanelComponent — контекстное меню вкладки", () => {
+describe("PanelComponent — tab context menu", () => {
     function scene() {
         const service = new PanelService();
         const component = new PanelComponent(service, new CommandRegistry());
@@ -89,7 +89,7 @@ describe("PanelComponent — контекстное меню вкладки", ()
         return { component, requests, menu };
     }
 
-    it("правый клик по вкладке — запрос меню с её id, точкой клика и владельцем-панелью", () => {
+    it("a right click on a tab requests a menu with its id, the click point and the owning panel", () => {
         const { component, requests, menu } = scene();
         // The panel tab row is its row 1; OUTPUT occupies panel columns 11..18.
         expect(menu("mouse", 5 + 13, 3 + 1)).toBe(true);
@@ -97,7 +97,7 @@ describe("PanelComponent — контекстное меню вкладки", ()
         expect(component.view.getActiveViewId()).toBe("problems");
     });
 
-    it("Shift+F10 — меню активной вкладки под её началом", () => {
+    it("Shift+F10 — the active tab's menu below its start", () => {
         const { component, requests, menu } = scene();
         menu("keyboard", 0, 0);
         expect(requests).toEqual([
@@ -105,7 +105,7 @@ describe("PanelComponent — контекстное меню вкладки", ()
         ]);
     });
 
-    it("попадание по колонкам: вкладка — от первой колонки своего сегмента до последней", () => {
+    it("column hit test: a tab spans from the first column of its segment to the last", () => {
         const { requests, menu } = scene();
         let map = "";
         for (let x = 0; x < 24; x++) {
@@ -117,7 +117,7 @@ describe("PanelComponent — контекстное меню вкладки", ()
         expect(map).toBe(".ppppppppppoooooooo.....");
     });
 
-    it("Shift+F10 — меню именно активной вкладки, не первой", () => {
+    it("Shift+F10 — the menu of the active tab specifically, not the first one", () => {
         const { component, requests, menu } = scene();
         component.view.setActiveView("output");
         menu("keyboard", 0, 0);
@@ -126,7 +126,7 @@ describe("PanelComponent — контекстное меню вкладки", ()
         ]);
     });
 
-    it("без подписчика на меню вкладки — событие гасится без ошибки", () => {
+    it("without a tab menu subscriber — the event is consumed without an error", () => {
         const view = new PanelContainerElement();
         view.addView({ id: "a", title: "A", content: null });
         view.layout(BoxConstraints.tight(new Size(20, 4)));
@@ -142,7 +142,7 @@ describe("PanelComponent — контекстное меню вкладки", ()
         expect(event.defaultPrevented).toBe(true);
     });
 
-    it("мимо вкладок и вне таб-строки меню не просит и событие не гасит", () => {
+    it("off the tabs and outside the tab row requests no menu and does not consume the event", () => {
         const { requests, menu } = scene();
         expect(menu("mouse", 5 + 30, 3 + 1)).toBe(false);
         expect(menu("mouse", 5 + 13, 3 + 4)).toBe(false);
@@ -150,7 +150,7 @@ describe("PanelComponent — контекстное меню вкладки", ()
         expect(requests).toEqual([]);
     });
 
-    it("событие, всплывшее из контента вкладки, — не меню вкладки", () => {
+    it("an event bubbled up from tab content is not a tab menu", () => {
         const service = new PanelService();
         const component = new PanelComponent(service, new CommandRegistry());
         const content = new TUIElement();

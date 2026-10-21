@@ -92,9 +92,9 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
 
 const registered = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getConfigurationProperties();
 
-describe("CONFIGURATION_CONTRIBUTIONS — scope каждого ключа", () => {
+describe("CONFIGURATION_CONTRIBUTIONS: scope of every key", () => {
     // A new key without an entry here fails the test, so "can this be set per folder?" is decided when the key is added.
-    it("таблица ожиданий покрывает ровно зарегистрированные ключи", () => {
+    it("the expectation table covers exactly the registered keys", () => {
         expect([...registered.keys()].sort()).toEqual(Object.keys(EXPECTED_SCOPES).sort());
     });
 
@@ -103,7 +103,7 @@ describe("CONFIGURATION_CONTRIBUTIONS — scope каждого ключа", () =
     });
 
     // Catches a typo like "resources" even if the table above is updated together with the registration.
-    it("все скоупы — из объявленного набора", () => {
+    it("all scopes come from the declared set", () => {
         const allowed: readonly ConfigurationScope[] = [
             "application",
             "machine",

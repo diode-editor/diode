@@ -1,6 +1,6 @@
 {
-  "source": "Default Keybindings of Visual Studio Code 1.138.0 (Linux, macOS), команды, которые есть в diode",
-  "note": "Срез эталона для теста мак-паритета (macKeybindings.test.ts); обновлять при сверке с новой версией VS Code.",
+  "source": "Default Keybindings of Visual Studio Code 1.138.0 (Linux, macOS), commands that exist in diode",
+  "note": "Upstream slice for the mac parity test (macKeybindings.test.ts); update when reconciling with a new VS Code version.",
   "commands": {
     "acceptSelectedSuggestion": {
       "vscodeCommand": "acceptSelectedSuggestion",

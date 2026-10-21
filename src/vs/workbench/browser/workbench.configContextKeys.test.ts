@@ -9,7 +9,7 @@ import { KeybindingRegistryDIToken, parseKeybinding } from "../../platform/keybi
 // The binding shape of the stock Claude Code extension (`when: config.claudeCode.useTerminal`).
 // F9 instead of Ctrl+Esc: the latter is distinguishable only in kitty/csi-u, and the point here is `when`.
 
-describe("Workbench — when-ключи config.*", () => {
+describe("Workbench — config.* when keys", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let configuration: InMemoryConfigurationService;
@@ -19,7 +19,7 @@ describe("Workbench — when-ключи config.*", () => {
         ws.dispose();
     });
 
-    it("бинд с when: config.* срабатывает по настройке и гаснет, когда её выключили", async () => {
+    it("a keybinding with when: config.* fires per the setting and is disabled once it is turned off", async () => {
         ws = createTempWorkspace({ prefix: "diode-config-keys-", files: { "a.txt": "alpha\n" } });
         configuration = createTestConfigurationService({ "claudeCode.useTerminal": true });
         h = createAppTestHarness({

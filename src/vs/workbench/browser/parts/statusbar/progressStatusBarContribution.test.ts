@@ -28,7 +28,7 @@ describe("ProgressStatusBarContribution", () => {
         return statusBar.entries().map((entry) => entry.text);
     }
 
-    it("window-прогресс появляется записью со спиннером и снимается", async () => {
+    it("window progress appears as an entry with a spinner and is removed", async () => {
         let done!: () => void;
         const running = progress.withProgress(
             { location: "window", title: "Pushing…" },
@@ -52,7 +52,7 @@ describe("ProgressStatusBarContribution", () => {
         expect(texts()).toEqual([]);
     });
 
-    it("прогресс секции статус-бар не трогает", () => {
+    it("section progress leaves the status bar alone", () => {
         void progress.withProgress(
             { location: "view", viewId: "workbench.scm.changes", title: "Committing…" },
             () => new Promise<void>(() => {}),
@@ -61,7 +61,7 @@ describe("ProgressStatusBarContribution", () => {
         expect(texts()).toEqual([]);
     });
 
-    it("dispose снимает живую запись", () => {
+    it("dispose removes the live entry", () => {
         void progress.withProgress({ location: "window", title: "Fetching…" }, () => new Promise<void>(() => {}));
         vi.advanceTimersByTime(300);
         expect(texts()).toHaveLength(1);

@@ -9,7 +9,7 @@ import type { EditorElement } from "../../editor/browser/editorElement.ts";
 /** `editorCursor.foreground` from Dark+: the block cursor's background in the frame. */
 const CARET_BG = packRgb(0xae, 0xaf, 0xad);
 
-describe("Workbench — мультикурсор с настоящей клавиатуры", () => {
+describe("Workbench — multi-cursor from a real keyboard", () => {
     let ws: ITempWorkspace;
 
     function createTestContext(content: string): { h: IAppHarness; editor: EditorElement } {
@@ -32,7 +32,7 @@ describe("Workbench — мультикурсор с настоящей клав�
         ws.dispose();
     });
 
-    it("Ctrl+Alt+ArrowDown добавляет каретку строкой ниже", () => {
+    it("Ctrl+Alt+ArrowDown adds a cursor on the line below", () => {
         const { h, editor } = createTestContext("alpha\nbeta\ngamma");
 
         h.testApp.sendKey("Ctrl+Alt+ArrowDown");
@@ -43,7 +43,7 @@ describe("Workbench — мультикурсор с настоящей клав�
         ]);
     });
 
-    it("Shift+Alt+ArrowDown — тот же результат (запасной бинд для legacy-терминалов)", () => {
+    it("Shift+Alt+ArrowDown gives the same result (fallback keybinding for legacy terminals)", () => {
         const { h, editor } = createTestContext("alpha\nbeta\ngamma");
 
         h.testApp.sendKey("Shift+Alt+ArrowDown");
@@ -51,7 +51,7 @@ describe("Workbench — мультикурсор с настоящей клав�
         expect(editor.viewState.selections).toHaveLength(2);
     });
 
-    it("Ctrl+Alt+ArrowUp с нижней каретки достраивает пачку вверх", () => {
+    it("Ctrl+Alt+ArrowUp from the bottom cursor extends the group upward", () => {
         const { h, editor } = createTestContext("alpha\nbeta\ngamma");
         editor.viewState.goToPosition(2, 0);
 
@@ -60,7 +60,7 @@ describe("Workbench — мультикурсор с настоящей клав�
         expect(actives(editor).map((pair) => pair[0])).toEqual([1, 2]);
     });
 
-    it("печать вставляет символ во все каретки", () => {
+    it("typing inserts the character at every cursor", () => {
         const { h, editor } = createTestContext("alpha\nbeta");
 
         h.testApp.sendKey("Ctrl+Alt+ArrowDown");
@@ -69,7 +69,7 @@ describe("Workbench — мультикурсор с настоящей клав�
         expect(editor.viewState.document.getText()).toBe("Xalpha\nXbeta");
     });
 
-    it("Backspace удаляет во всех каретках", () => {
+    it("Backspace deletes at every cursor", () => {
         const { h, editor } = createTestContext("alpha\nbeta");
         editor.viewState.goToPosition(0, 1);
 
@@ -79,7 +79,7 @@ describe("Workbench — мультикурсор с настоящей клав�
         expect(editor.viewState.document.getText()).toBe("lpha\neta");
     });
 
-    it("Escape снимает вторичные каретки", () => {
+    it("Escape removes secondary cursors", () => {
         const { h, editor } = createTestContext("alpha\nbeta");
 
         h.testApp.sendKey("Ctrl+Alt+ArrowDown");
@@ -89,7 +89,7 @@ describe("Workbench — мультикурсор с настоящей клав�
         expect(editor.viewState.selections).toHaveLength(1);
     });
 
-    it("вторая каретка доходит до кадра, а не только до модели", () => {
+    it("the second cursor reaches the frame, not just the model", () => {
         const { h, editor } = createTestContext("alpha\nbeta");
 
         h.testApp.sendKey("Ctrl+Alt+ArrowDown");
@@ -100,7 +100,7 @@ describe("Workbench — мультикурсор с настоящей клав�
         expect(h.testApp.backend.getBgAt(new Point(origin.x + gw, origin.y + 1))).toBe(CARET_BG);
     });
 
-    it("статус-бар показывает счётчик выделений", () => {
+    it("the status bar shows the selection count", () => {
         const { h } = createTestContext("alpha\nbeta");
 
         h.testApp.sendKey("Ctrl+Alt+ArrowDown");

@@ -94,12 +94,12 @@ describe("EditorEditActions — deletion mutates the real document", () => {
         expect(editor.getText()).toBe("world");
     });
 
-    it("redo: Cmd/Ctrl+Shift+Z и Ctrl+Y — основной redo эталона на pc", () => {
+    it("redo: Cmd/Ctrl+Shift+Z and Ctrl+Y — the upstream primary redo on pc", () => {
         expect(redoAction.keybinding).toEqual(parseKeybinding("mod+shift+z"));
         expect(redoAction.keybindings).toEqual([parseKeybinding("ctrl+y")]);
     });
 
-    it("deleteAllLeft: id/title как у VS Code, без pc-бинда", () => {
+    it("deleteAllLeft: id/title as in VS Code, no pc keybinding", () => {
         expect([deleteAllLeftAction.id, deleteAllLeftAction.title]).toEqual(["deleteAllLeft", "Delete All Left"]);
         expect(deleteAllLeftAction.keybinding).toBeUndefined();
         expect(deleteAllLeftAction.when).toBe("textInputFocus && !editorReadonly");

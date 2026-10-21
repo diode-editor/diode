@@ -49,8 +49,8 @@ function sashes(layout: WorkbenchLayoutElement): SashElement[] {
     return layout.getChildren().filter((c) => c instanceof SashElement);
 }
 
-describe("WorkbenchLayoutElement: drag сашей мышью", () => {
-    it("вертикальный саш сайдбара ведёт ширину по колонке курсора, с учётом смещения раскладки", () => {
+describe("WorkbenchLayoutElement: dragging sashes with the mouse", () => {
+    it("the vertical sidebar sash tracks width by the pointer column, accounting for the layout offset", () => {
         const layout = rooted(new Offset(5, 2));
         const dispatcher = new MouseEventDispatcher();
         // The sash is at column 5 + 20; dragging to column 40 → width 35.
@@ -60,7 +60,7 @@ describe("WorkbenchLayoutElement: drag сашей мышью", () => {
         expect(layout.getLeftPanelWidth()).toBe(35);
     });
 
-    it("горизонтальный саш панели ведёт высоту по строке курсора", () => {
+    it("the horizontal panel sash tracks height by the pointer row", () => {
         const layout = rooted(new Offset(0, 1), { bottom: true });
         const dispatcher = new MouseEventDispatcher();
         // The panel bottom is row 1 + 24; the top of a 6-row panel is row 19.
@@ -70,7 +70,7 @@ describe("WorkbenchLayoutElement: drag сашей мышью", () => {
         expect(layout.getBottomPanelHeight()).toBe(10);
     });
 
-    it("вертикальный саш правой панели ведёт ширину по колонке курсора, а не по строке", () => {
+    it("the vertical right panel sash tracks width by the pointer column, not the row", () => {
         const layout = rooted(new Offset(5, 2), { right: true });
         const dispatcher = new MouseEventDispatcher();
         // The right panel defaults to 20 columns (a quarter of 80): the sash is at column 5 + 60.
@@ -84,10 +84,10 @@ describe("WorkbenchLayoutElement: drag сашей мышью", () => {
     // Only a real frame clears the frame flag (`needsRepaint`), while the mouse hit test itself
     // clears layout dirtiness — so this is the only way to see the repaint request.
     it.each([
-        ["сайдбара", 20, 12, 40, 12],
-        ["панели", 40, 18, 40, 10],
-        ["правой панели", 60, 5, 50, 5],
-    ])("drag саша %s заказывает кадр", (_name, pressX, pressY, moveX, moveY) => {
+        ["sidebar", 20, 12, 40, 12],
+        ["panel", 40, 18, 40, 10],
+        ["right panel", 60, 5, 50, 5],
+    ])("dragging the %s sash requests a frame", (_name, pressX, pressY, moveX, moveY) => {
         const layout = new WorkbenchLayoutElement();
         layout.setLeftPanel(new TUIElement());
         layout.setCenterContent(new TUIElement());
@@ -107,8 +107,8 @@ describe("WorkbenchLayoutElement: drag сашей мышью", () => {
     });
 });
 
-describe("WorkbenchLayoutElement: перерисовку команды заказывают сами", () => {
-    it("nudge и reset ширины помечают раскладку грязной", () => {
+describe("WorkbenchLayoutElement: commands request the repaint themselves", () => {
+    it("width nudge and reset mark the layout dirty", () => {
         const layout = rooted(new Offset(0, 0));
         expect(layout.isLayoutDirty).toBe(false);
         layout.nudgeLeftPanelWidth(3);
@@ -119,7 +119,7 @@ describe("WorkbenchLayoutElement: перерисовку команды зака
         expect(layout.isLayoutDirty).toBe(true);
     });
 
-    it("nudge правой ширины и высоты панели помечают раскладку грязной", () => {
+    it("right width and panel height nudges mark the layout dirty", () => {
         const layout = rooted(new Offset(0, 0), { right: true, bottom: true });
         expect(layout.isLayoutDirty).toBe(false);
         layout.nudgeRightPanelWidth(3);
@@ -131,8 +131,8 @@ describe("WorkbenchLayoutElement: перерисовку команды зака
     });
 });
 
-describe("WorkbenchLayoutElement: скрытое не раскладывается", () => {
-    it("видимая нижняя панель без элемента: саш скрыт, редактор во всю высоту", () => {
+describe("WorkbenchLayoutElement: hidden parts are not laid out", () => {
+    it("a visible bottom panel without an element: the sash is hidden, the editor takes the full height", () => {
         const layout = new WorkbenchLayoutElement();
         const center = new TUIElement();
         layout.setCenterContent(center);
@@ -143,7 +143,7 @@ describe("WorkbenchLayoutElement: скрытое не раскладываетс
         expect(center.layoutSize).toEqual(new Size(80, 24));
     });
 
-    it("скрытая нижняя панель и её саш не получают раскладки", () => {
+    it("a hidden bottom panel and its sash get no layout", () => {
         const layout = new WorkbenchLayoutElement();
         const bottom = new TUIElement();
         layout.setCenterContent(new TUIElement());
@@ -154,7 +154,7 @@ describe("WorkbenchLayoutElement: скрытое не раскладываетс
         expect(sashes(layout).at(-1)!.isLayoutDirty).toBe(true);
     });
 
-    it("скрытая правая панель и её саш не получают раскладки", () => {
+    it("a hidden right panel and its sash get no layout", () => {
         const layout = new WorkbenchLayoutElement();
         const right = new TUIElement();
         layout.setCenterContent(new TUIElement());
@@ -165,7 +165,7 @@ describe("WorkbenchLayoutElement: скрытое не раскладываетс
         expect(sashes(layout)[1].isLayoutDirty).toBe(true);
     });
 
-    it("саш скрытого сайдбара не получает раскладки", () => {
+    it("the sash of a hidden sidebar gets no layout", () => {
         const layout = new WorkbenchLayoutElement();
         layout.setLeftPanel(new TUIElement());
         layout.setCenterContent(new TUIElement());

@@ -14,21 +14,21 @@ const context: EditorTitleMenuContext = {
     isPreview: false,
 };
 
-describe("аргументы пунктов контекст-меню вкладки", () => {
-    it("адрес вкладки — пара чисел в порядке (группа, индекс)", () => {
+describe("tab context menu item arguments", () => {
+    it("the tab address is a pair of numbers in (group, index) order", () => {
         expect(editorTabTargetArg(context)).toEqual([3, 2]);
     });
 
-    it("обе части адреса — именно числа", () => {
+    it("both parts of the address are numbers", () => {
         // The command treats empty or non-numeric arguments as an invocation from the command palette.
         expect(editorTabTargetArg(context).map((value) => typeof value)).toEqual(["number", "number"]);
     });
 
-    it("файловым пунктам едет путь вкладки", () => {
+    it("file items receive the tab path", () => {
         expect(editorTabPathArg(context)).toEqual(["/workspace/alpha.ts"]);
     });
 
-    it("у вкладки без файла на диске файловые пункты прячутся", () => {
+    it("file items are hidden for a tab without a file on disk", () => {
         expect(editorTabIsFile(context)).toBe(true);
         expect(editorTabIsFile({ ...context, path: null })).toBe(false);
     });

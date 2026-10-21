@@ -63,8 +63,8 @@ describe("WorkbenchStateService", () => {
     });
     const openPaths = () => editors.editorGroups.activeGroup.getPanes().map((pane) => pane.uri.fsPath);
 
-    describe("снимок", () => {
-        it("пишет вкладки рецептами и файлами; активная — индексом в каждом списке", () => {
+    describe("snapshot", () => {
+        it("writes tabs as recipes and files; the active one as an index in each list", () => {
             make();
             editors.newUntitled();
             editors.openFile(ws.path("a.ts"));
@@ -85,7 +85,7 @@ describe("WorkbenchStateService", () => {
             });
         });
 
-        it("пустая группа — активной вкладки нет", () => {
+        it("an empty group has no active tab", () => {
             make().captureOpenEditors();
 
             expect(state.get(EDITOR_GROUPS_STATE)?.groups).toEqual([
@@ -93,7 +93,7 @@ describe("WorkbenchStateService", () => {
             ]);
         });
 
-        it("активная вкладка, которую не сохранить, — активной в снимке нет", () => {
+        it("an active tab that cannot be saved leaves no active tab in the snapshot", () => {
             make();
             editors.openFile(ws.path("a.ts"));
             editors.newUntitled();
@@ -101,7 +101,7 @@ describe("WorkbenchStateService", () => {
             expect(state.get(EDITOR_GROUPS_STATE)?.groups[0]).toMatchObject({ activeIndex: -1, activeEditor: -1 });
         });
 
-        it("write-through по смене активного редактора; подписка снимается с сервисом", () => {
+        it("writes through on active editor change; the subscription is disposed with the service", () => {
             const service = make();
             editors.openFile(ws.path("a.ts"));
             expect(state.get(OPEN_EDITORS_STATE).files).toEqual([ws.path("a.ts")]);
@@ -112,8 +112,8 @@ describe("WorkbenchStateService", () => {
         });
     });
 
-    describe("рестор", () => {
-        it("по записям: открывает уцелевшие вкладки и активирует сохранённую", () => {
+    describe("restore", () => {
+        it("from records: opens the surviving tabs and activates the saved one", () => {
             state.store(EDITOR_GROUPS_STATE, {
                 orientation: "columns",
                 groups: [
@@ -134,7 +134,7 @@ describe("WorkbenchStateService", () => {
             expect(editors.editorGroups.activeGroup.activePane?.uri.fsPath).toBe(ws.path("b.ts"));
         });
 
-        it("несколько групп: активной становится сохранённая, фокус содержимого не трогается", () => {
+        it("several groups: the saved one becomes active, content focus is not touched", () => {
             state.store(EDITOR_GROUPS_STATE, {
                 orientation: "columns",
                 groups: [
@@ -157,7 +157,7 @@ describe("WorkbenchStateService", () => {
             expect(focused).toEqual([]);
         });
 
-        it("по записям без activeEditor — первая вкладка", () => {
+        it("from records without activeEditor: the first tab", () => {
             state.store(EDITOR_GROUPS_STATE, {
                 orientation: "columns",
                 groups: [{ files: [], activeIndex: -1, editors: [fileEditor("a.ts"), fileEditor("b.ts")] }],
@@ -170,7 +170,7 @@ describe("WorkbenchStateService", () => {
             expect(editors.editorGroups.activeGroup.activeIndex).toBe(0);
         });
 
-        it("старый снимок без editors поднимается по files", () => {
+        it("an old snapshot without editors is restored from files", () => {
             state.store(EDITOR_GROUPS_STATE, {
                 orientation: "columns",
                 groups: [{ files: [ws.path("a.ts"), ws.path("b.ts")], activeIndex: 1 }],
@@ -184,7 +184,7 @@ describe("WorkbenchStateService", () => {
             expect(editors.editorGroups.activeGroup.activeIndex).toBe(1);
         });
 
-        it("плоский legacy-ключ: пропавший файл пропущен, активный переиндексирован", () => {
+        it("flat legacy key: a missing file is skipped, the active one is reindexed", () => {
             state.store(OPEN_EDITORS_STATE, {
                 files: [ws.path("a.ts"), "/gone/missing.ts", ws.path("b.ts")],
                 activeIndex: 2,
@@ -196,7 +196,7 @@ describe("WorkbenchStateService", () => {
             expect(editors.editorGroups.activeGroup.activePane?.uri.fsPath).toBe(ws.path("b.ts"));
         });
 
-        it("сохранённая активная вкладка пропала — активна первая", () => {
+        it("the saved active tab is gone, so the first one is active", () => {
             state.store(OPEN_EDITORS_STATE, { files: [ws.path("a.ts"), "/gone/x.ts"], activeIndex: 1 });
 
             make().restoreOpenEditors();
@@ -205,7 +205,7 @@ describe("WorkbenchStateService", () => {
             expect(editors.editorGroups.activeGroup.activeIndex).toBe(0);
         });
 
-        it("ни одной уцелевшей вкладки — ничего не открывает", () => {
+        it("no surviving tabs: opens nothing", () => {
             state.store(OPEN_EDITORS_STATE, { files: ["/gone/x.ts"], activeIndex: 0 });
 
             make().restoreOpenEditors();
@@ -214,13 +214,13 @@ describe("WorkbenchStateService", () => {
             expect(editors.editorGroups.groups.length).toBe(1);
         });
 
-        it("пустой снимок — ничего не делает", () => {
+        it("an empty snapshot does nothing", () => {
             make().restoreOpenEditors();
 
             expect(editors.editorGroups.activeGroup.editorCount).toBe(0);
         });
 
-        it("рестор открывает без фокуса и кончается снимком фактической полосы", () => {
+        it("restore opens without focus and ends with a snapshot of the actual group strip", () => {
             state.store(OPEN_EDITORS_STATE, { files: [ws.path("a.ts"), "/gone/x.ts"], activeIndex: 0 });
 
             make().restoreOpenEditors();
@@ -229,7 +229,7 @@ describe("WorkbenchStateService", () => {
         });
     });
 
-    it("пишет workspace-состояние в стор открытого проекта", () => {
+    it("writes workspace state to the store of the open project", () => {
         const paths = resolveUserDataPaths({ homedir: "/never", userDataDir: ws.path(".user") });
         const service = make();
         const workspaceId = computeWorkspaceId("/projects/gamma");

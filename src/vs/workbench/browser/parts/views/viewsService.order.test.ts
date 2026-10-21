@@ -18,8 +18,8 @@ function tabs(h: IViewsHarness): string[] {
  * were created and registered them: reordering resolution at the workbench root must not
  * silently reorder panel tabs and sidebar viewlets.
  */
-describe("ViewsService — порядок контейнеров и дефолтный вьюлет", () => {
-    it("attachRegisteredContainers строит вкладки панели по order, первая становится активной", () => {
+describe("ViewsService — container order and the default viewlet", () => {
+    it("attachRegisteredContainers builds panel tabs by order, the first becomes active", () => {
         const h = makeViewsHarness();
         register(h, { id: "terminal", location: "panel", order: 2 });
         register(h, { id: "problems", location: "panel", order: 0 });
@@ -31,7 +31,7 @@ describe("ViewsService — порядок контейнеров и дефолт
         expect(h.panelService.getActiveViewId()).toBe("problems");
     });
 
-    it("вьюлеты сайдбара регистрируются по order", () => {
+    it("sidebar viewlets register by order", () => {
         const h = makeViewsHarness();
         register(h, { id: "search", location: "sidebar", order: 1 });
         register(h, { id: "explorer", location: "sidebar", order: 0 });
@@ -41,7 +41,7 @@ describe("ViewsService — порядок контейнеров и дефолт
         expect(h.viewlets).toEqual(["explorer", "search"]);
     });
 
-    it("контейнер без order встаёт после упорядоченных, равный order сохраняет порядок регистрации", () => {
+    it("a container without order goes after ordered ones, equal order keeps registration order", () => {
         const h = makeViewsHarness();
         register(h, { id: "late", location: "panel" });
         register(h, { id: "first", location: "panel", order: 1 });
@@ -53,7 +53,7 @@ describe("ViewsService — порядок контейнеров и дефолт
         expect(tabs(h)).toEqual(["zero", "first", "second", "late"]);
     });
 
-    it("поздний attachContainer вставляет вкладку в позицию по order", () => {
+    it("a late attachContainer inserts the tab at its order position", () => {
         const h = makeViewsHarness();
         register(h, { id: "a", location: "panel", order: 0 });
         register(h, { id: "c", location: "panel", order: 2 });
@@ -67,7 +67,7 @@ describe("ViewsService — порядок контейнеров и дефолт
         expect(tabs(h)).toEqual(["a", "b", "c", "c2"]);
     });
 
-    it("позицию вкладки не сдвигают контейнеры сайдбара и ещё не построенные", () => {
+    it("sidebar containers and not yet built ones do not shift the tab position", () => {
         const h = makeViewsHarness();
         register(h, { id: "explorer", location: "sidebar", order: 0 });
         register(h, { id: "pending", location: "panel", order: 0 });
@@ -81,7 +81,7 @@ describe("ViewsService — порядок контейнеров и дефолт
         expect(tabs(h)).toEqual(["x", "y"]);
     });
 
-    it("показывает дефолтный вьюлет без reveal — видимость сайдбара не трогает", () => {
+    it("shows the default viewlet without reveal: sidebar visibility is untouched", () => {
         const h = makeViewsHarness();
         register(h, { id: "search", location: "sidebar", order: 1 });
         register(h, { id: "explorer", location: "sidebar", order: 0, isDefault: true });
@@ -91,7 +91,7 @@ describe("ViewsService — порядок контейнеров и дефолт
         expect(h.shownViewlets).toEqual([{ id: "explorer", reveal: false }]);
     });
 
-    it("без дефолтного контейнера вьюлет не показывается", () => {
+    it("without a default container no viewlet is shown", () => {
         const h = makeViewsHarness();
         register(h, { id: "search", location: "sidebar", order: 1 });
 
@@ -100,7 +100,7 @@ describe("ViewsService — порядок контейнеров и дефолт
         expect(h.shownViewlets).toEqual([]);
     });
 
-    it("пропускает контейнеры, в которые только записались view, и уже построенные", () => {
+    it("skips containers that only had views registered into them, and already built ones", () => {
         const h = makeViewsHarness();
         h.service.registerView(testView("orphan.view", "orphan", 10));
         register(h, { id: "output", location: "panel", order: 1 });

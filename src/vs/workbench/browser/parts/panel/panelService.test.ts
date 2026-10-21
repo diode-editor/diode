@@ -106,7 +106,7 @@ describe("PanelService — view registry", () => {
         expect(onViews).not.toHaveBeenCalled();
     });
 
-    it("setViewActions по неизвестной вкладке — no-op", () => {
+    it("setViewActions for an unknown tab — no-op", () => {
         const service = new PanelService();
         service.addView({ id: "a", title: "A" });
         let fired = 0;

@@ -31,7 +31,7 @@ describe("Workbench — find navigation & recompute", () => {
         expect(ctx.activeEditor().viewState.currentSearchMatchIndex).toBe(0);
     });
 
-    it("в сплите Enter ходит по совпадениям активной группы, а не первой", () => {
+    it("in a split, Enter moves through the matches of the active group, not the first one", () => {
         ctx = createFindApp("foo bar foo");
         ctx.harness.commands.execute("workbench.action.splitEditor");
         ctx.testApp.render();

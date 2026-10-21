@@ -42,8 +42,8 @@ function run(groups: GroupStub[], ...args: unknown[]): void {
     commands.execute(keepEditorAction.id, ...args);
 }
 
-describe("keepEditorAction — цель команды", () => {
-    it("адрес из меню прикалывает вкладку ПОД КУРСОРОМ, а не активную", () => {
+describe("keepEditorAction — command target", () => {
+    it("an address from the menu pins the tab UNDER THE POINTER, not the active one", () => {
         const group = makeGroup(3, ["a.ts", "b.ts"], 1);
 
         run([group], 3, 0);
@@ -51,7 +51,7 @@ describe("keepEditorAction — цель команды", () => {
         expect(group.pinned).toEqual(["a.ts"]);
     });
 
-    it("без адреса (Ctrl+K Enter, палитра) — активная вкладка", () => {
+    it("without an address (Ctrl+K Enter, command palette) — the active tab", () => {
         const group = makeGroup(3, ["a.ts", "b.ts"], 1);
 
         run([group]);
@@ -59,7 +59,7 @@ describe("keepEditorAction — цель команды", () => {
         expect(group.pinned).toEqual(["b.ts"]);
     });
 
-    it("протухший адрес не прикалывает НИЧЕГО и не бросает", () => {
+    it("a stale address pins NOTHING and does not throw", () => {
         // A menu command must not fall back to the active tab.
         const group = makeGroup(3, ["a.ts"], 0);
 
@@ -70,7 +70,7 @@ describe("keepEditorAction — цель команды", () => {
         expect(group.pinned).toEqual([]);
     });
 
-    it("пустая группа без адреса — команда молчит, а не падает", () => {
+    it("an empty group without an address — the command is a no-op, not a crash", () => {
         // The command palette skips the `editorGroupHasEditors` gate, so the command itself
         // must handle "no target".
         const group = makeGroup(3, [], -1);

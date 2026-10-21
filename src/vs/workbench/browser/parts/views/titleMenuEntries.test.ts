@@ -9,7 +9,7 @@ function item(id: string, icon?: string): ResolvedMenuEntry {
 }
 
 describe("titleMenuEntries", () => {
-    it("кнопками — только пункты `navigation` с иконкой; пункты с иконкой других групп — в «⋯»", () => {
+    it("only `navigation` items with an icon become buttons; icon items of other groups go into ⋯", () => {
         const groups: IMenuEntryGroup[] = [
             { group: "1_other", entries: [item("other.icon", "*")] },
             { group: "navigation", entries: [item("nav.icon", "+"), item("nav.plain")] },
@@ -23,13 +23,13 @@ describe("titleMenuEntries", () => {
         ]);
     });
 
-    it("кнопкой не становятся пункт без id и подменю с иконкой", () => {
+    it("an item without an id and a submenu with an icon do not become buttons", () => {
         const noId: ResolvedMenuEntry = { label: "no id", icon: "+", enabled: true };
         const submenu: ResolvedMenuEntry = { type: "submenu", label: "sub", icon: "+", entries: [] };
         expect(inlineActions([{ group: "navigation", entries: [noId, submenu] }])).toStrictEqual([]);
     });
 
-    it("опустевшая без кнопок группа `navigation` между другими не оставляет в «⋯» лишнего разделителя", () => {
+    it("a `navigation` group emptied of buttons between others leaves no extra separator in ⋯", () => {
         const groups: IMenuEntryGroup[] = [
             { group: "1_first", entries: [item("first")] },
             { group: "navigation", entries: [item("nav.icon", "+")] },

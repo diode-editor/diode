@@ -11,7 +11,7 @@ import { SyntheticTextModel } from "../../../common/editor/syntheticTextModel.ts
 import { EditorComponent } from "./editorComponent.ts";
 import { isTextEditorPane, TextEditorPane } from "./textEditorPane.ts";
 
-describe("TextEditorPane над синтетической моделью", () => {
+describe("TextEditorPane over a synthetic model", () => {
     function syntheticPane(): TextEditorPane<SyntheticTextModel> {
         const model = new SyntheticTextModel(
             NULL_LANGUAGE_SERVICE,
@@ -24,7 +24,7 @@ describe("TextEditorPane над синтетической моделью", () =
         return new TextEditorPane(model, component);
     }
 
-    it("файловых осей нет: имя, путь, конфликт, удаление, кодировка по умолчанию", () => {
+    it("no file axes: name, path, conflict, deletion, default encoding", () => {
         const pane = syntheticPane();
 
         expect(pane.fileModel).toBeNull();
@@ -37,7 +37,7 @@ describe("TextEditorPane над синтетической моделью", () =
         pane.dispose();
     });
 
-    it("сохранять и перечитывать нечего: no-file, false, кодировка не меняется", async () => {
+    it("nothing to save or reload: no-file, false, encoding does not change", async () => {
         const pane = syntheticPane();
 
         expect(await pane.save()).toBe("no-file");
@@ -50,7 +50,7 @@ describe("TextEditorPane над синтетической моделью", () =
         pane.dispose();
     });
 
-    it("файловые события молчат, подписки на них безопасны", () => {
+    it("file events stay silent, subscribing to them is safe", () => {
         const pane = syntheticPane();
         let fired = 0;
         const subscriptions = [
@@ -67,17 +67,17 @@ describe("TextEditorPane над синтетической моделью", () =
         pane.dispose();
     });
 
-    it("открыть файл или Save As поверх синтетики — ошибка, а не тихий no-op", () => {
+    it("opening a file or Save As over a synthetic buffer throws instead of a silent no-op", () => {
         const pane = syntheticPane();
 
         expect(() => {
             pane.openFile(Uri.file("/tmp/x.txt"));
-        }).toThrow(/openFile: у буфера jdt:/);
-        expect(() => pane.saveAs("/tmp/x.txt")).toThrow(/saveAs: у буфера jdt:/);
+        }).toThrow(/openFile: buffer jdt:/);
+        expect(() => pane.saveAs("/tmp/x.txt")).toThrow(/saveAs: buffer jdt:/);
         pane.dispose();
     });
 
-    it("isTextEditorPane узнаёт текстовую вкладку над любой моделью", () => {
+    it("isTextEditorPane recognizes a text tab over any model", () => {
         const pane = syntheticPane();
 
         expect(isTextEditorPane(pane)).toBe(true);

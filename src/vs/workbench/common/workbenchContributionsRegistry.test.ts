@@ -34,7 +34,7 @@ function fakeAccessor(instances: Map<Token<unknown>, unknown>): {
 }
 
 describe("WorkbenchContributionsRegistry", () => {
-    it("instantiateByPhase резолвит только contribution'ы своей фазы", () => {
+    it("instantiateByPhase resolves only the contributions of its phase", () => {
         const readyToken = { id: "restored" } as Token<IWorkbenchContribution>;
         const eventuallyToken = { id: "eventually" } as Token<IWorkbenchContribution>;
         const ready = new FakeContribution();
@@ -58,7 +58,7 @@ describe("WorkbenchContributionsRegistry", () => {
         expect(resolved).toEqual([readyToken, eventuallyToken]);
     });
 
-    it("blockStartup — своя пачка в порядке записей, переходы жизненного цикла её не трогают", () => {
+    it("blockStartup is its own batch in registration order; lifecycle transitions do not touch it", () => {
         const firstToken = { id: "first" } as Token<IWorkbenchContribution>;
         const secondToken = { id: "second" } as Token<IWorkbenchContribution>;
         const readyToken = { id: "ready" } as Token<IWorkbenchContribution>;
@@ -83,7 +83,7 @@ describe("WorkbenchContributionsRegistry", () => {
         expect(resolved).toEqual([firstToken, secondToken, readyToken]);
     });
 
-    it("пустая фаза ничего не резолвит", () => {
+    it("an empty phase resolves nothing", () => {
         const readyToken = { id: "restored" } as Token<IWorkbenchContribution>;
         const { accessor, resolved } = fakeAccessor(
             new Map<Token<unknown>, unknown>([[readyToken, new FakeContribution()]]),
@@ -95,7 +95,7 @@ describe("WorkbenchContributionsRegistry", () => {
         expect(resolved).toEqual([]);
     });
 
-    it("dispose реестра сматывает все инстанцированные contribution'ы", () => {
+    it("disposing the registry disposes all instantiated contributions", () => {
         const token = { id: "c" } as Token<IWorkbenchContribution>;
         const contribution = new FakeContribution();
         const { accessor } = fakeAccessor(new Map<Token<unknown>, unknown>([[token, contribution]]));
@@ -107,7 +107,7 @@ describe("WorkbenchContributionsRegistry", () => {
         expect(contribution.disposedFlag).toBe(true);
     });
 
-    it("afterRestored — своего перехода нет: идёт первым в переходе в eventually, раньше пачки eventually", () => {
+    it("afterRestored has no transition of its own: it runs first on the transition to eventually, before the eventually batch", () => {
         const eventuallyToken = { id: "eventually" } as Token<IWorkbenchContribution>;
         const afterRestoredToken = { id: "afterRestored" } as Token<IWorkbenchContribution>;
         const { accessor, resolved } = fakeAccessor(
@@ -130,12 +130,12 @@ describe("WorkbenchContributionsRegistry", () => {
         expect(resolved).toEqual([afterRestoredToken, eventuallyToken]);
     });
 
-    describe("под трассой созданий", () => {
+    describe("under the creation trace", () => {
         afterEach(() => {
             resetInstantiationTrace();
         });
 
-        it("контрибуция помечена фазой и флагом, её зависимость — фазой и родителем", () => {
+        it("the contribution is tagged with phase and flag, its dependency with phase and parent", () => {
             const tracer = enableInstantiationTrace();
             const DepDIToken = token<object>("Dep");
             const ContribDIToken = token<IWorkbenchContribution>("Contrib");
@@ -163,7 +163,7 @@ describe("WorkbenchContributionsRegistry", () => {
             expect(tracer.getEntries().at(-1)).toMatchObject({ id: "Later", phase: null, contribution: false });
         });
 
-        it("уже созданная контрибуция записи не даёт и флаг не протекает дальше", () => {
+        it("an already created contribution yields no record and the flag does not leak further", () => {
             const tracer = enableInstantiationTrace();
             const ContribDIToken = token<IWorkbenchContribution>("Contrib");
             const OtherDIToken = token<object>("Other");

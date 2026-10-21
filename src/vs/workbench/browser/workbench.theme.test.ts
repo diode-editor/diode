@@ -43,7 +43,7 @@ describe("Workbench — theme application", () => {
  * Regression: the SCM header (ViewContainerHeaderElement) took tuidom's
  * `titledPanel.titleForeground` (#828282) and rendered dimmer than Explorer/Search.
  */
-describe("Workbench — цвет заголовков вьюлетов", () => {
+describe("Workbench: viewlet header color", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -66,7 +66,7 @@ describe("Workbench — цвет заголовков вьюлетов", () => {
         return header!.resolvedStyle.fg;
     }
 
-    it("Explorer, Search и Source Control красят заголовок одним цветом", () => {
+    it("Explorer, Search and Source Control paint the header in the same color", () => {
         // Explorer and Search are merged, so PaneHeaderElement carries the header;
         // SCM (CHANGES + GRAPH) has a separate container header.
         const explorer = headerFg("workbench.view.explorer", "#paneHeader-workbench-explorer-fileView");
@@ -79,12 +79,12 @@ describe("Workbench — цвет заголовков вьюлетов", () => {
         expect(scm).toBe(0xbbbbbb);
     });
 
-    it("заголовки секций SCM берут sideBarSectionHeader.foreground", () => {
+    it("SCM section headers use sideBarSectionHeader.foreground", () => {
         // Dark+ does not set this token — the value comes from the registry defaults.
         expect(headerFg("workbench.view.scm", "#paneHeader-workbench-scm-changes")).toBe(0xcccccc);
     });
 
-    it("тема без заголовочных токенов не роняет заголовки на дефолт tuidom", () => {
+    it("a theme without header tokens does not drop headers to the tuidom default", () => {
         // Monokai sets neither sideBarTitle.foreground nor the section token: without
         // registry defaults they would stay at the engine's #828282.
         const themeService = h.container.get(ThemeServiceDIToken);

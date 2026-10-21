@@ -14,7 +14,7 @@ import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchCompon
 const SHOW_SEARCH = "workbench.view.search";
 const SHOW_EXPLORER = "workbench.view.explorer";
 
-describe("Workbench — вьюлет Search в сайдбаре", () => {
+describe("Workbench: Search viewlet in the sidebar", () => {
     let ws: ITempWorkspace;
     let workbench: WorkbenchComponent;
     let commands: CommandRegistry;
@@ -40,20 +40,20 @@ describe("Workbench — вьюлет Search в сайдбаре", () => {
         ws.dispose();
     });
 
-    it("по умолчанию сайдбар показывает Explorer, а не Search", () => {
+    it("by default the sidebar shows Explorer, not Search", () => {
         testApp.render();
         expect(sidebar.getActiveViewletId()).toBe("explorer");
         expect(testApp.backend.screenToString()).toContain("EXPLORER");
     });
 
-    it("workbench.view.search показывает Search в сайдбаре и фокусирует запрос", () => {
+    it("workbench.view.search shows Search in the sidebar and focuses the query", () => {
         commands.execute(SHOW_SEARCH);
         testApp.render();
         expect(sidebar.getActiveViewletId()).toBe("search");
         expect(testApp.backend.screenToString()).toContain("SEARCH");
     });
 
-    it("Down из строки запроса уводит фокус в список результатов (кольцо, полный путь клавиши)", () => {
+    it("Down from the query input moves focus to the results list (ring, full key path)", () => {
         commands.execute(SHOW_SEARCH);
         testApp.render();
         const query = testApp.querySelector("InputElement");
@@ -64,7 +64,7 @@ describe("Workbench — вьюлет Search в сайдбаре", () => {
         expect(testApp.app.focusManager?.activeElement?.id).toBe("searchResults");
     });
 
-    it("Ctrl+Down работает как Down (паритет с VS Code)", () => {
+    it("Ctrl+Down works like Down (parity with VS Code)", () => {
         commands.execute(SHOW_SEARCH);
         testApp.render();
         testApp.sendKey("Ctrl+ArrowDown");
@@ -72,7 +72,7 @@ describe("Workbench — вьюлет Search в сайдбаре", () => {
         expect(testApp.app.focusManager?.activeElement?.id).toBe("searchResults");
     });
 
-    it("переключение Explorer ↔ Search меняет содержимое сайдбара", () => {
+    it("switching Explorer ↔ Search changes the sidebar content", () => {
         commands.execute(SHOW_SEARCH);
         testApp.render();
         expect(testApp.backend.screenToString()).toContain("SEARCH");

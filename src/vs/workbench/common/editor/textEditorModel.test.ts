@@ -35,7 +35,7 @@ describe("BaseTextEditorModel", () => {
         return { restored, restoreSelections: (selections: readonly ISelection[]) => restored.push(selections) };
     }
 
-    it("смена EOL — шаг истории с меткой, без ресурсов у буфера без файла; та же EOL — без шага", () => {
+    it("changing EOL is a labeled history step with no resources for a buffer without a file; the same EOL adds no step", () => {
         const { undoRedo, model } = setup();
 
         model.setEol(EndOfLine.LF);
@@ -48,7 +48,7 @@ describe("BaseTextEditorModel", () => {
         expect(model.eol).toBe(EndOfLine.CRLF);
     });
 
-    it("смена EOL без явной вью берёт выделения первой прикреплённой; undo/redo возвращают их действующей", () => {
+    it("changing EOL without an explicit view takes the selections of the first attached one; undo/redo restore them to the acting view", () => {
         const { model } = setup();
         const first = fakeTarget([createCursorSelection(1, 0)]);
         model.attachEditTarget(first);
@@ -64,7 +64,7 @@ describe("BaseTextEditorModel", () => {
         expect(view.restored).toEqual([[createCursorSelection(1, 0)], [createCursorSelection(1, 0)]]);
     });
 
-    it("смена EOL и программные правки перерисовывают все прикреплённые вью", () => {
+    it("changing EOL and programmatic edits repaint all attached views", () => {
         const { model } = setup();
         const a = fakeTarget([]);
         const b = fakeTarget([]);
@@ -78,14 +78,14 @@ describe("BaseTextEditorModel", () => {
         expect([a.dirtied, b.dirtied]).toEqual([3, 3]);
     });
 
-    it("у каждой модели свой контекст отмены", () => {
+    it("each model has its own undo context", () => {
         const { model } = setup();
         const other = setup().model;
 
         expect(other.undoContext).not.toBe(model.undoContext);
     });
 
-    it("смена EOL без прикреплённой вью снимает пустые выделения", () => {
+    it("changing EOL without an attached view records empty selections", () => {
         const { model } = setup();
         model.setEol(EndOfLine.CRLF);
 
@@ -95,7 +95,7 @@ describe("BaseTextEditorModel", () => {
         expect(view.restored).toEqual([[]]);
     });
 
-    it("действующая вью живёт один вызов: шаг, откаченный мимо модели, её не трогает", () => {
+    it("the acting view lives for one call: a step undone bypassing the model does not touch it", () => {
         const { undoRedo, model } = setup();
         model.setEol(EndOfLine.CRLF);
         model.setEol(EndOfLine.LF);
@@ -110,7 +110,7 @@ describe("BaseTextEditorModel", () => {
         expect(view.restored).toHaveLength(2);
     });
 
-    it("закрытие модели очищает её историю отмены", () => {
+    it("disposing the model clears its undo history", () => {
         const { undoRedo, model } = setup();
         model.setEol(EndOfLine.CRLF);
         expect(undoRedo.peekUndo(model.undoContext)).toBeDefined();

@@ -16,7 +16,7 @@ describe("Workbench — suggest widget keyboard integration", () => {
         await ctx.completion.trigger();
     }
 
-    it("попап открывается, не забирая фокус у редактора", async () => {
+    it("the popup opens without taking focus from the editor", async () => {
         ctx = createSuggestApp("indent_style indent_size i");
         await open();
         expect(ctx.completion.isOpen()).toBe(true);
@@ -24,7 +24,7 @@ describe("Workbench — suggest widget keyboard integration", () => {
         expect(ctx.completion.view.items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
     });
 
-    it("ArrowDown при открытом попапе двигает выбор (не курсор редактора)", async () => {
+    it("ArrowDown with the popup open moves the selection (not the editor cursor)", async () => {
         ctx = createSuggestApp("indent_style indent_size i");
         await open();
         const caretBefore = ctx.activeEditor().viewState.selections[0].active;
@@ -37,7 +37,7 @@ describe("Workbench — suggest widget keyboard integration", () => {
         expect(ctx.activeEditor().viewState.selections[0].active).toEqual(caretBefore);
     });
 
-    it("ArrowUp / PageDown / PageUp тоже маршрутизируются в suggest-команды", async () => {
+    it("ArrowUp / PageDown / PageUp are routed to suggest commands too", async () => {
         ctx = createSuggestApp("indent_style indent_size i");
         await open();
         ctx.testApp.sendKey("ArrowDown");
@@ -51,7 +51,7 @@ describe("Workbench — suggest widget keyboard integration", () => {
         expect(ctx.activeEditor().viewState.selections[0].active.line).toBe(0);
     });
 
-    it("Enter принимает выбранный пункт без вставки перевода строки", async () => {
+    it("Enter accepts the selected item without inserting a line break", async () => {
         ctx = createSuggestApp("indent_style indent_size i");
         await open();
         ctx.testApp.sendKey("ArrowDown"); // select indent_size
@@ -64,7 +64,7 @@ describe("Workbench — suggest widget keyboard integration", () => {
         expect(ctx.completion.isOpen()).toBe(false);
     });
 
-    it("Escape закрывает попап, фокус остаётся в редакторе", async () => {
+    it("Escape closes the popup, focus stays in the editor", async () => {
         ctx = createSuggestApp("indent_style indent_size i");
         await open();
         expect(ctx.completion.isOpen()).toBe(true);
@@ -75,7 +75,7 @@ describe("Workbench — suggest widget keyboard integration", () => {
         expect(ctx.testApp.focusedElement?.constructor.name).toBe("EditorElement");
     });
 
-    it("Ctrl+Space при открытом попапе переключает панель описания, а не перезапрашивает список", async () => {
+    it("Ctrl+Space with the popup open toggles the details pane instead of requesting the list again", async () => {
         ctx = createSuggestApp("indent_style indent_size i");
         await open();
         expect(ctx.completion.isOpen()).toBe(true);
@@ -90,7 +90,7 @@ describe("Workbench — suggest widget keyboard integration", () => {
         expect(ctx.completion.isOpen()).toBe(true);
     });
 
-    it("ArrowDown при закрытом попапе двигает курсор редактора (cursorDown)", () => {
+    it("ArrowDown with the popup closed moves the editor cursor (cursorDown)", () => {
         ctx = createSuggestApp("aa\nbb");
         expect(ctx.completion.isOpen()).toBe(false);
         expect(ctx.activeEditor().viewState.selections[0].active.line).toBe(0);

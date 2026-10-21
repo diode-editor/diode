@@ -228,7 +228,7 @@ export function withMacKeybindings(
         return { keys, when: combineWhen(when, notMacKeys()) };
     });
     if (pcOnly.size > 0) {
-        throw new Error(`${action.id}: pcOnly ${[...pcOnly].join(", ")} не найден среди биндов команды`);
+        throw new Error(`${action.id}: pcOnly ${[...pcOnly].join(", ")} not found among the command's bindings`);
     }
     for (const { keys, from } of delta.mac ?? []) {
         bindings.push({ keys: parseChord(keys), when: macKeysAtLeast(from) });

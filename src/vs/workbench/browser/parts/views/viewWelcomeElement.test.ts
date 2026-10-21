@@ -40,8 +40,8 @@ function lines(backend: MockTerminalBackend, count: number): string[] {
     return Array.from({ length: count }, (_, y) => backend.getTextAt(new Point(0, y), width).trimEnd().trimStart());
 }
 
-describe("ViewWelcomeElement — отрисовка", () => {
-    it("текст переносится по словам под ширину секции, кнопка — на своей строке", () => {
+describe("ViewWelcomeElement — rendering", () => {
+    it("text word-wraps to the section width, the button is on its own row", () => {
         const { welcome } = make();
         const backend = renderElement(welcome, 29, 6, { themeVars: true });
 
@@ -49,14 +49,14 @@ describe("ViewWelcomeElement — отрисовка", () => {
         expect(lines(backend, 6)).toEqual(["You have not yet opened a", "folder.", "", "[ Open Folder ]", "", ""]);
     });
 
-    it("на широкой секции абзац умещается в строку — перенос ничего не придумывает", () => {
+    it("on a wide section a paragraph fits in one row: wrapping invents nothing", () => {
         const { welcome } = make();
         const backend = renderElement(welcome, 40, 4, { themeVars: true });
 
         expect(lines(backend, 4)).toEqual(["You have not yet opened a folder.", "", "[ Open Folder ]", ""]);
     });
 
-    it("перерисовка на другой ширине пересчитывает перенос", () => {
+    it("re-rendering at another width recomputes wrapping", () => {
         const { welcome } = make();
         renderElement(welcome, 40, 4, { themeVars: true });
         const backend = renderElement(welcome, 29, 6, { themeVars: true });
@@ -64,7 +64,7 @@ describe("ViewWelcomeElement — отрисовка", () => {
         expect(lines(backend, 6)).toEqual(["You have not yet opened a", "folder.", "", "[ Open Folder ]", "", ""]);
     });
 
-    it("несколько кнопок встают каждая на свою строку, в порядке блоков", () => {
+    it("several buttons each get their own row, in block order", () => {
         const { welcome } = make([
             { kind: "text", text: "Nothing here yet." },
             { kind: "button", label: "First", command: "first" },
@@ -75,7 +75,7 @@ describe("ViewWelcomeElement — отрисовка", () => {
         expect(lines(backend, 3)).toEqual(["Nothing here yet.", "[ First ]", "[ Second ]"]);
     });
 
-    it("слово шире секции режется, а не теряется", () => {
+    it("a word wider than the section is cut, not lost", () => {
         const { welcome } = make([{ kind: "text", text: "unsplittableverylongword" }]);
         const backend = renderElement(welcome, 10, 3, { themeVars: true });
 
@@ -83,7 +83,7 @@ describe("ViewWelcomeElement — отрисовка", () => {
         expect(lines(backend, 3)).toEqual(["unsplitta", "bleverylo", "ngword"]);
     });
 
-    it("текст подписан descriptionForeground — тем же токеном, что и плоская подсказка", () => {
+    it("text uses descriptionForeground, the same token as the plain hint", () => {
         const { welcome } = make();
         const backend = renderElement(welcome, 40, 3, { themeVars: true });
 
@@ -91,8 +91,8 @@ describe("ViewWelcomeElement — отрисовка", () => {
     });
 });
 
-describe("ViewWelcomeElement — кнопки", () => {
-    it("кнопка запускает свою команду с объявленными аргументами", () => {
+describe("ViewWelcomeElement — buttons", () => {
+    it("a button runs its command with the declared arguments", () => {
         const { welcome, ran } = make([
             { kind: "button", label: "Open Folder", command: "workbench.action.files.openFolder" },
             { kind: "button", label: "Clone", command: "git.clone", args: ["https://example.invalid/r.git"] },
@@ -107,12 +107,12 @@ describe("ViewWelcomeElement — кнопки", () => {
         ]);
     });
 
-    it("кнопки фокусируемые — значит достижимы Tab-обходом движка", () => {
+    it("buttons are focusable, so the engine's Tab traversal reaches them", () => {
         const { welcome } = make();
         expect(welcome.getDepthFirstFocusableOrder()).toEqual(buttons(welcome));
     });
 
-    it("focusFirstButton ставит фокус на первую кнопку, и Enter по ней запускает команду", () => {
+    it("focusFirstButton focuses the first button, and Enter on it runs the command", () => {
         const { welcome, ran } = make();
         const app = TestApp.createWithContent(welcome, new Size(30, 4));
 
@@ -123,7 +123,7 @@ describe("ViewWelcomeElement — кнопки", () => {
         expect(ran).toEqual([{ command: "workbench.action.files.openFolder", args: [] }]);
     });
 
-    it("Tab доводит фокус до кнопки и без focusFirstButton — обход движка её видит", () => {
+    it("Tab reaches the button even without focusFirstButton: the engine traversal sees it", () => {
         const { welcome, ran } = make();
         const app = TestApp.createWithContent(welcome, new Size(30, 4));
 
@@ -133,7 +133,7 @@ describe("ViewWelcomeElement — кнопки", () => {
         expect(ran).toEqual([{ command: "workbench.action.files.openFolder", args: [] }]);
     });
 
-    it("пустое состояние без кнопок — focusFirstButton отвечает false и фокус не трогает", () => {
+    it("an empty state without buttons: focusFirstButton returns false and leaves focus alone", () => {
         const { welcome } = make([{ kind: "text", text: "No output yet." }]);
         const app = TestApp.createWithContent(welcome, new Size(30, 2));
 

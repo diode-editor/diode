@@ -13,7 +13,7 @@ function tabLabels(h: IAppHarness): string[] {
     return strip.getItemElements().map((item) => item.getLabel());
 }
 
-describe("Workbench — предпросмотр вкладок из дерева", () => {
+describe("Workbench: preview tabs from the tree", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -44,7 +44,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
         await h.workbench.activate();
         h.testApp.render();
         const tree = h.testApp.querySelector("TreeViewElement");
-        if (tree === null) throw new Error("дерево не найдено");
+        if (tree === null) throw new Error("tree not found");
         tree.focus();
         h.testApp.render();
         for (let step = 0; step < index; step++) h.testApp.sendKey("ArrowDown");
@@ -54,7 +54,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
 
     function activateAgainInTree(index: number): void {
         const tree = h.testApp.querySelector("TreeViewElement");
-        if (tree === null) throw new Error("дерево не найдено");
+        if (tree === null) throw new Error("tree not found");
         tree.focus();
         h.testApp.render();
         // The tree's cursor stays from the previous activation — move it back to the start first.
@@ -64,7 +64,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
         h.testApp.render();
     }
 
-    it("обход дерева не копит вкладки: второй файл занимает слот первого", async () => {
+    it("walking the tree does not pile up tabs: the second file takes the first one's slot", async () => {
         boot();
         await activateInTree(0);
         expect(tabLabels(h)).toEqual(["alpha.txt"]);
@@ -74,7 +74,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
         expect(tabLabels(h)).toEqual(["beta.txt"]);
     });
 
-    it("правка прикалывает превью — следующий файл открывается рядом", async () => {
+    it("an edit pins the preview, so the next file opens beside it", async () => {
         boot();
         await activateInTree(0);
 
@@ -85,7 +85,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
         expect(tabLabels(h)).toEqual(["alpha.txt", "beta.txt"]);
     });
 
-    it("Ctrl+K Enter прикалывает превью, не меняя его содержимое", async () => {
+    it("Ctrl+K Enter pins the preview without changing its content", async () => {
         boot();
         await activateInTree(0);
 
@@ -98,7 +98,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
         expect(h.activeEditor().getText()).toBe("Beta");
     });
 
-    it("приколотая вкладка и следующее превью живут рядом, а превью замещается", async () => {
+    it("a pinned tab and the next preview coexist, and the preview gets replaced", async () => {
         boot();
         await activateInTree(0);
         h.testApp.sendKey("Ctrl+K");
@@ -111,7 +111,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
         expect(tabLabels(h)).toEqual(["alpha.txt", "gamma.txt"]);
     });
 
-    it("`workbench.openFile` без опций (CLI, Quick Open) превью не делает", async () => {
+    it("`workbench.openFile` without options (CLI, Quick Open) does not open a preview", async () => {
         boot();
         await activateInTree(0);
 
@@ -122,11 +122,11 @@ describe("Workbench — предпросмотр вкладок из дерев�
         expect(tabLabels(h)).toEqual(["alpha.txt", "beta.txt"]);
     });
 
-    it("замещение с `focus: false` фокус не уводит", async () => {
+    it("replacing with `focus: false` does not move focus", async () => {
         boot();
         await activateInTree(0);
         const tree = h.testApp.querySelector("TreeViewElement");
-        if (tree === null) throw new Error("дерево не найдено");
+        if (tree === null) throw new Error("tree not found");
         tree.focus();
         h.testApp.render();
 
@@ -141,7 +141,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
         expect(h.testApp.focusedElement).toBe(tree);
     });
 
-    it("с выключенной настройкой дерево копит вкладки, как до фичи", async () => {
+    it("with the setting off the tree piles up tabs, as before the feature", async () => {
         boot(createTestConfigurationService({ "workbench.editor.enablePreview": false }));
         await activateInTree(0);
 

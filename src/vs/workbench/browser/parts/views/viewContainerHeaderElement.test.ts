@@ -58,7 +58,7 @@ function mouse(
 }
 
 describe("ViewContainerHeaderElement", () => {
-    it("одна строка, название и inspectState", () => {
+    it("one row, title and inspectState", () => {
         const { header } = makeHeader();
         expect(header.getMinIntrinsicHeight(30)).toBe(1);
         expect(header.getMaxIntrinsicHeight(30)).toBe(1);
@@ -67,7 +67,7 @@ describe("ViewContainerHeaderElement", () => {
         expect(header.inspectState()).toEqual({ title: "SCM", busy: false });
     });
 
-    it("клик по ⋯ открывает меню, клик по кнопке — её действие", () => {
+    it("a click on ⋯ opens the menu, a click on a button runs its action", () => {
         const { header, onMenu, onAction } = makeHeader();
         mouse(header, "mousedown", { localX: 28 });
         mouse(header, "mouseup", { localX: 28 });
@@ -78,7 +78,7 @@ describe("ViewContainerHeaderElement", () => {
         expect(onAction).toHaveBeenCalledWith("scm.refresh");
     });
 
-    it("клик по названию ничего не делает — контейнер не сворачивается", () => {
+    it("a click on the title does nothing: the container does not collapse", () => {
         const { header, onMenu, onAction } = makeHeader();
         mouse(header, "mousedown", { localX: 3 });
         mouse(header, "mouseup", { localX: 3 });
@@ -86,7 +86,7 @@ describe("ViewContainerHeaderElement", () => {
         expect(onAction).not.toHaveBeenCalled();
     });
 
-    it("mouseup без нажатия и правая кнопка мимо — не срабатывают", () => {
+    it("mouseup without a press and a stray right button do not trigger", () => {
         const { header, onMenu } = makeHeader();
         mouse(header, "mouseup", { localX: 28 });
         mouse(header, "mousedown", { localX: 28, button: "right" });
@@ -94,7 +94,7 @@ describe("ViewContainerHeaderElement", () => {
         expect(onMenu).not.toHaveBeenCalled();
     });
 
-    it("полоса контролов: виджет, скрытая «⋯» и интринсик-ширина по содержимому", () => {
+    it("controls strip: widget, hidden ⋯ and intrinsic width from content", () => {
         const header = new ViewContainerHeaderElement("");
         const widget = new FillerElement();
         widget.id = "channel-picker";
@@ -108,7 +108,7 @@ describe("ViewContainerHeaderElement", () => {
         expect(header.getMaxIntrinsicWidth(1)).toBe(1 + 3);
     });
 
-    it("перехваченный кем-то mouseup меню не открывает", () => {
+    it("a mouseup intercepted by someone else does not open the menu", () => {
         const { header, onMenu } = makeHeader();
         mouse(header, "mousedown", { localX: 28 });
         const up = new TUIMouseEvent("mouseup", {
@@ -123,7 +123,7 @@ describe("ViewContainerHeaderElement", () => {
         expect(onMenu).not.toHaveBeenCalled();
     });
 
-    it("клик через приложение доходит до заголовка, а не до его лейблов", () => {
+    it("a click through the app reaches the header, not its labels", () => {
         // Hit testing of children is off, otherwise the section's pointer capture wouldn't work;
         // test with a real click through the tree, not dispatchEvent.
         const header = new ViewContainerHeaderElement("SOURCE CONTROL");
@@ -137,7 +137,7 @@ describe("ViewContainerHeaderElement", () => {
         expect(onMenu).toHaveBeenCalledOnce();
     });
 
-    it("виджет в заголовке кликается: мышь доходит до него, а не до заголовка", () => {
+    it("a widget in the header is clickable: the mouse reaches it, not the header", () => {
         // Regression: the header took the mouse from ALL children, so the Output
         // channel picker rendered but couldn't be clicked.
         const header = new ViewContainerHeaderElement("");
@@ -153,7 +153,7 @@ describe("ViewContainerHeaderElement", () => {
         expect(app.root.elementFromPoint(new Point(header.globalPosition.x, header.globalPosition.y))).toBe(header);
     });
 
-    it("наведение подсвечивает кнопку под курсором, уход — гасит", () => {
+    it("hover highlights the button under the pointer, leaving clears it", () => {
         const { header } = makeHeader();
         const bg = (x: number): number => renderElement(header, 30, 1, { themeVars: true }).getBgAt(new Point(x, 0));
         const restBg = bg(25);
@@ -165,7 +165,7 @@ describe("ViewContainerHeaderElement", () => {
         expect(bg(25)).toBe(restBg);
     });
 
-    it("Shift+F10 якорит меню к кнопке ⋯, правый клик — к курсору", () => {
+    it("Shift+F10 anchors the menu to the ⋯ button, a right click to the pointer", () => {
         const { header, onMenu } = makeHeader();
         header.dispatchEvent(
             new TUIContextMenuEvent({

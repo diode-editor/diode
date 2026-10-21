@@ -46,7 +46,7 @@ async function startupThemes(colorTheme: string): Promise<{
     return { theme, registry, logger };
 }
 
-describe("Workbench — тема расширения на старте (US-3)", () => {
+describe("Workbench — extension theme at startup (US-3)", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness | undefined;
 
@@ -60,7 +60,7 @@ describe("Workbench — тема расширения на старте (US-3)",
         ws.dispose();
     });
 
-    it("первый кадр уже в Sample Dark: фон редактора и статус-бара — цвета из файла темы расширения", async () => {
+    it("the first frame is already in Sample Dark: editor and status bar backgrounds come from the extension theme file", async () => {
         const { theme, registry } = await startupThemes("Sample Dark");
         expect(theme?.name).toBe("Sample Dark");
 
@@ -89,7 +89,7 @@ describe("Workbench — тема расширения на старте (US-3)",
         expect(h.container.get(ThemeRegistryDIToken).list().at(-1)).toEqual({ label: "Sample Dark", type: "dark" });
     });
 
-    it("US-5: тема из настроек не установлена — первый кадр в Dark Modern, в логе откат с именем темы", async () => {
+    it("US-5: the theme from settings is not installed — first frame in Dark Modern, the log shows the fallback with the theme name", async () => {
         const { theme, logger } = await startupThemes("Missing Theme");
         expect(theme?.name).toBe(DEFAULT_COLOR_THEME);
         expect(logger.warn).toHaveBeenCalledWith(

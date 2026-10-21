@@ -190,7 +190,7 @@ export class EditorPartComponent extends Component {
             groups.map((group) => {
                 const component = this.groupComponents.get(group.id);
                 /* v8 ignore start -- the component is created by the loop above */
-                if (component === undefined) throw new Error("editor part: группа без контрола");
+                if (component === undefined) throw new Error("editor part: group without a control");
                 /* v8 ignore stop */
                 return component.view;
             }),

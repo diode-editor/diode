@@ -25,42 +25,42 @@ function reader(values: Readonly<Record<string, unknown>>): IExcludeConfigReader
 }
 
 describe("parseExcludeSetting", () => {
-    it("берёт только включённые шаблоны", () => {
+    it("takes only enabled patterns", () => {
         expect(parseExcludeSetting({ "a/**": true, "b/**": false, "c/**": true })).toEqual(["a/**", "c/**"]);
     });
 
-    it("не-карта даёт пустой набор", () => {
+    it("a non-map yields an empty set", () => {
         expect(parseExcludeSetting(undefined)).toEqual([]);
         expect(parseExcludeSetting(null)).toEqual([]);
         expect(parseExcludeSetting(["a/**"])).toEqual([]);
         expect(parseExcludeSetting("a/**")).toEqual([]);
     });
 
-    it("значения кроме true не включают шаблон", () => {
+    it("values other than true do not enable a pattern", () => {
         expect(parseExcludeSetting({ "a/**": 1, "b/**": "yes" })).toEqual([]);
     });
 });
 
-describe("сборки наборов по потребителям", () => {
+describe("per-consumer set builders", () => {
     const config = reader({
         [FILES_EXCLUDE_SETTING]: { "**/.git": true, "**/off": false },
         [SEARCH_EXCLUDE_SETTING]: { "**/node_modules": true },
         [WATCHER_EXCLUDE_SETTING]: { "**/dist": true },
     });
 
-    it("files.exclude — только свой ключ", () => {
+    it("files.exclude uses only its own key", () => {
         expect(filesExcludeGlobs(config)).toEqual(["**/.git"]);
     });
 
-    it("поиск складывает files.exclude и search.exclude, в этом порядке", () => {
+    it("search combines files.exclude and search.exclude, in that order", () => {
         expect(searchExcludeGlobs(config)).toEqual(["**/.git", "**/node_modules"]);
     });
 
-    it("watcher живёт на своём наборе и соседей не видит", () => {
+    it("the watcher uses its own set and does not see the others", () => {
         expect(watcherExcludeGlobs(config)).toEqual(["**/dist"]);
     });
 
-    it("search.exclude дополняет, а не заменяет: `files.exclude` остаётся в поиске", () => {
+    it("search.exclude adds to, not replaces: `files.exclude` stays in search", () => {
         const onlySearch = reader({ [SEARCH_EXCLUDE_SETTING]: { "**/node_modules": true } });
         expect(searchExcludeGlobs(onlySearch)).toEqual(["**/node_modules"]);
         const onlyFiles = reader({ [FILES_EXCLUDE_SETTING]: { "**/.git": true } });
@@ -69,25 +69,25 @@ describe("сборки наборов по потребителям", () => {
 });
 
 describe("isExcludedPath", () => {
-    it("`**/<имя>` матчит вход и в корне, и на глубине", () => {
+    it("`**/<name>` matches an entry both at the root and nested", () => {
         expect(isExcludedPath("__pycache__", ["**/__pycache__"])).toBe(true);
         expect(isExcludedPath("pkg/sub/__pycache__", ["**/__pycache__"])).toBe(true);
     });
 
-    it("шаблон без `**/` якорится в корне", () => {
+    it("a pattern without `**/` is anchored at the root", () => {
         expect(isExcludedPath("out", ["out"])).toBe(true);
         expect(isExcludedPath("pkg/out", ["out"])).toBe(false);
     });
 
-    it("сам корень не исключается никогда", () => {
+    it("the root itself is never excluded", () => {
         expect(isExcludedPath("", ["**/anything", "**"])).toBe(false);
     });
 
-    it("пустой набор не исключает ничего", () => {
+    it("an empty set excludes nothing", () => {
         expect(isExcludedPath("node_modules", [])).toBe(false);
     });
 
-    it("похожее имя не задевается", () => {
+    it("a similar name is not affected", () => {
         expect(isExcludedPath("outline.ts", ["**/out"])).toBe(false);
         expect(isExcludedPath("node_modules_backup", ["**/node_modules"])).toBe(false);
     });
@@ -95,7 +95,7 @@ describe("isExcludedPath", () => {
 
 // Paths are listed explicitly rather than derived from the patterns; otherwise the test would be rewritten
 // along with a typo in the default.
-describe("дефолты files.exclude / search.exclude", () => {
+describe("files.exclude / search.exclude defaults", () => {
     function merged(userValue: Readonly<Record<string, unknown>> = {}): IExcludeConfigReader {
         const defaults = ConfigurationModel.fromRaw(
             new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getDefaultConfiguration(),
@@ -151,37 +151,37 @@ describe("дефолты files.exclude / search.exclude", () => {
         ".claude/settings.json",
     ];
 
-    it.each(hiddenEverywhere)("скрыт и в дереве, и в поиске: %s", (relative) => {
+    it.each(hiddenEverywhere)("hidden in both the tree and search: %s", (relative) => {
         const config = merged();
         expect(isExcludedPath(relative, filesExcludeGlobs(config))).toBe(true);
         expect(isExcludedPath(relative, searchExcludeGlobs(config))).toBe(true);
     });
 
-    it.each(hiddenInSearchOnly)("в дереве виден, в поиске нет: %s", (relative) => {
+    it.each(hiddenInSearchOnly)("visible in the tree, not in search: %s", (relative) => {
         const config = merged();
         expect(isExcludedPath(relative, filesExcludeGlobs(config))).toBe(false);
         expect(isExcludedPath(relative, searchExcludeGlobs(config))).toBe(true);
     });
 
-    it.each(visibleAndSearchable)("виден и ищется: %s", (relative) => {
+    it.each(visibleAndSearchable)("visible and searchable: %s", (relative) => {
         const config = merged();
         expect(isExcludedPath(relative, searchExcludeGlobs(config))).toBe(false);
     });
 
-    it("node_modules в дереве ВИДЕН — осознанное выравнивание на эталон", () => {
+    it("node_modules IS visible in the tree: a deliberate alignment with upstream", () => {
         const config = merged();
         expect(filesExcludeGlobs(config)).not.toContain("**/node_modules");
         expect(parseExcludeSetting(config.get(SEARCH_EXCLUDE_SETTING))).toContain("**/node_modules");
     });
 
-    it("свой шаблон добавляется к дефолтным, а не заменяет их", () => {
+    it("a custom pattern is added to the defaults, not replacing them", () => {
         const config = merged({ [FILES_EXCLUDE_SETTING]: { "**/vendor": true } });
         const globs = filesExcludeGlobs(config);
         expect(globs).toContain("**/vendor");
         expect(globs).toContain("**/.git");
     });
 
-    it("ненужный дефолт гасится значением false", () => {
+    it("an unwanted default is turned off with false", () => {
         const config = merged({ [FILES_EXCLUDE_SETTING]: { "**/__pycache__": false } });
         const globs = filesExcludeGlobs(config);
         expect(globs).not.toContain("**/__pycache__");
@@ -189,13 +189,13 @@ describe("дефолты files.exclude / search.exclude", () => {
         expect(isExcludedPath("pkg/__pycache__", globs)).toBe(false);
     });
 
-    it("погашенный дефолт `files.exclude` не возвращается через поиск", () => {
+    it("a turned-off `files.exclude` default does not come back through search", () => {
         // Otherwise `false` in one setting would be silently overridden by the other.
         const config = merged({ [FILES_EXCLUDE_SETTING]: { "**/.git": false } });
         expect(isExcludedPath(".git", searchExcludeGlobs(config))).toBe(false);
     });
 
-    it("все дефолтные шаблоны включены: карта `{ glob: true }`, как в эталоне", () => {
+    it("all default patterns are enabled: a `{ glob: true }` map, as upstream", () => {
         for (const key of [FILES_EXCLUDE_SETTING, SEARCH_EXCLUDE_SETTING]) {
             const value = merged().get(key) as Record<string, unknown>;
             expect(
@@ -205,7 +205,7 @@ describe("дефолты files.exclude / search.exclude", () => {
         }
     });
 
-    it("каждый дефолт — в форме `**/<имя>`: скрывается САМ вход", () => {
+    it("every default has the form `**/<name>`: the entry ITSELF is hidden", () => {
         // `**/<name>/**` doesn't match the directory: it would stay in the tree as empty, and traversal would enter it.
         const config = merged();
         for (const glob of [...filesExcludeGlobs(config), ...parseExcludeSetting(config.get(SEARCH_EXCLUDE_SETTING))]) {
@@ -216,11 +216,11 @@ describe("дефолты files.exclude / search.exclude", () => {
 });
 
 describe("readUseIgnoreFiles", () => {
-    it("без значений — дефолты эталона: свои ignore-файлы да, родительские и глобальный нет", () => {
+    it("without values, upstream defaults apply: own ignore files yes, parent and global no", () => {
         expect(readUseIgnoreFiles(reader({}))).toEqual({ local: true, parent: false, global: false });
     });
 
-    it("зарегистрированные дефолты дают то же самое", () => {
+    it("the registered defaults give the same result", () => {
         const defaults = ConfigurationModel.fromRaw(
             new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getDefaultConfiguration(),
         );
@@ -231,7 +231,7 @@ describe("readUseIgnoreFiles", () => {
         });
     });
 
-    it("читает все три ключа", () => {
+    it("reads all three keys", () => {
         expect(
             readUseIgnoreFiles(
                 reader({
@@ -243,7 +243,7 @@ describe("readUseIgnoreFiles", () => {
         ).toEqual({ local: false, parent: true, global: true });
     });
 
-    it("битое значение — дефолт, а не включение и не выключение", () => {
+    it("a malformed value falls back to the default, neither on nor off", () => {
         expect(
             readUseIgnoreFiles(
                 reader({

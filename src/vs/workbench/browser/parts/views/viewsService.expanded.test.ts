@@ -13,8 +13,8 @@ function makeScm(): ReturnType<typeof makeViewsHarness> {
     return h;
 }
 
-describe("ViewsService: раскрытость секций", () => {
-    it("до attachContainer секция не раскрыта — её тела ещё нет ни в одном дереве", () => {
+describe("ViewsService: section expanded state", () => {
+    it("before attachContainer a section is not expanded: its body is not in any tree yet", () => {
         const h = makeScm();
         expect(h.service.isViewExpanded("scm.graph")).toBe(false);
 
@@ -22,7 +22,7 @@ describe("ViewsService: раскрытость секций", () => {
         expect(h.service.isViewExpanded("scm.graph")).toBe(true);
     });
 
-    it("свёрнутая шевроном секция не раскрыта, соседняя — раскрыта", () => {
+    it("a section collapsed by the chevron is not expanded, its neighbor is", () => {
         const h = makeScm();
         h.service.attachContainer("scm");
 
@@ -31,7 +31,7 @@ describe("ViewsService: раскрытость секций", () => {
         expect(h.service.isViewExpanded("scm.changes")).toBe(true);
     });
 
-    it("скрытая через «Views» секция не раскрыта", () => {
+    it("a section hidden via 'Views' is not expanded", () => {
         const h = makeScm();
         h.service.attachContainer("scm");
 
@@ -39,7 +39,7 @@ describe("ViewsService: раскрытость секций", () => {
         expect(h.service.isViewExpanded("scm.graph")).toBe(false);
     });
 
-    it("merged-секция раскрыта всегда: единственная видимая не сворачивается", () => {
+    it("a merged section is always expanded: the only visible one does not collapse", () => {
         const h = makeScm();
         h.service.attachContainer("scm");
         h.paneView("scm").toggleCollapsed("scm.graph");
@@ -50,7 +50,7 @@ describe("ViewsService: раскрытость секций", () => {
         expect(h.service.isViewExpanded("scm.graph")).toBe(true);
     });
 
-    it("restoreViewsState извещает о восстановленной свёрнутости", () => {
+    it("restoreViewsState notifies about restored collapsed state", () => {
         const h = makeScm();
         h.service.attachContainer("scm");
         const seen: [string, boolean][] = [];
@@ -64,7 +64,7 @@ describe("ViewsService: раскрытость секций", () => {
         expect(h.service.isViewExpanded("scm.graph")).toBe(false);
     });
 
-    it("событие приходит на каждое изменение и только на него", () => {
+    it("the event fires on every change and only on a change", () => {
         const h = makeScm();
         const seen: [string, boolean][] = [];
         h.service.onDidChangeViewExpanded(({ viewId, expanded }) => seen.push([viewId, expanded]));
@@ -85,7 +85,7 @@ describe("ViewsService: раскрытость секций", () => {
         expect(seen).toEqual([["scm.stashes", true]]);
     });
 
-    it("подписку можно снять", () => {
+    it("the subscription can be disposed", () => {
         const h = makeScm();
         const listener = vi.fn();
         h.service.onDidChangeViewExpanded(listener).dispose();

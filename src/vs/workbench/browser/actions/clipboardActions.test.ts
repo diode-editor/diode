@@ -82,8 +82,8 @@ describe("clipboardCopyAction", () => {
         expect(editor.getText()).toBe("hello world");
     });
 
-    it("без открытой панели буфер обмена не трогает", async () => {
-        const clipboard = memoryClipboard("прежнее");
+    it("leaves the clipboard alone without an open pane", async () => {
+        const clipboard = memoryClipboard("previous");
         const ctrl = createTestActiveEditorService(null); // no open tabs
         const commands = new CommandRegistry();
         const accessor = new Container();
@@ -94,10 +94,10 @@ describe("clipboardCopyAction", () => {
         await commands.execute(clipboardCopyAction.id);
 
         // Were a non-empty stub in place of the empty list, the clipboard would get overwritten with unselected text.
-        expect(await clipboard.readText()).toBe("прежнее");
+        expect(await clipboard.readText()).toBe("previous");
     });
 
-    it("пустое выделение копирует строку целиком (emptySelectionClipboard)", async () => {
+    it("an empty selection copies the whole line (emptySelectionClipboard)", async () => {
         const clipboard = memoryClipboard("previous");
         const { editor, exec } = openEditor("hello world\nsecond", clipboard);
         editor.viewState.selections = [createCursorSelection(0, 3)];
@@ -108,7 +108,7 @@ describe("clipboardCopyAction", () => {
         expect(editor.getText()).toBe("hello world\nsecond");
     });
 
-    it("при выключенном emptySelectionClipboard пустое выделение не трогает буфер", async () => {
+    it("with emptySelectionClipboard off, an empty selection leaves the clipboard alone", async () => {
         const clipboard = memoryClipboard("previous");
         const { editor, exec } = openEditor("hello world", clipboard, false);
         editor.viewState.selections = [createCursorSelection(0, 3)];
@@ -118,7 +118,7 @@ describe("clipboardCopyAction", () => {
         expect(await clipboard.readText()).toBe("previous");
     });
 
-    it("настройка не задана вовсе — действует дефолт true, строка копируется", async () => {
+    it("setting not set at all — default true applies, the line is copied", async () => {
         const clipboard = memoryClipboard();
         const editor = createEditorPane();
         editor.openFile(Uri.file(ws.writeFile("doc.txt", "hello world")));
@@ -137,7 +137,7 @@ describe("clipboardCopyAction", () => {
         expect(await clipboard.readText()).toBe("hello world\n");
     });
 
-    it("склеивает выделения мультикурсора через перевод строки", async () => {
+    it("joins multi-cursor selections with a newline", async () => {
         const clipboard = memoryClipboard();
         const { editor, exec } = openEditor("alpha beta", clipboard);
         editor.viewState.selections = [createSelection(0, 0, 0, 5), createSelection(0, 6, 0, 10)];
@@ -147,7 +147,7 @@ describe("clipboardCopyAction", () => {
         expect(await clipboard.readText()).toBe("alpha\nbeta");
     });
 
-    it("схлопнутые каретки не добавляют пустых строк", async () => {
+    it("collapsed cursors add no empty lines", async () => {
         const clipboard = memoryClipboard();
         const { editor, exec } = openEditor("alpha beta", clipboard);
         editor.viewState.selections = [createSelection(0, 0, 0, 5), createCursorSelection(0, 8)];
@@ -170,7 +170,7 @@ describe("clipboardCutAction", () => {
         expect(editor.getText()).toBe("world");
     });
 
-    it("пустое выделение вырезает строку целиком (emptySelectionClipboard)", async () => {
+    it("an empty selection cuts the whole line (emptySelectionClipboard)", async () => {
         const clipboard = memoryClipboard();
         const { editor, exec } = openEditor("first\nsecond", clipboard);
         editor.viewState.selections = [createCursorSelection(0, 3)];
@@ -181,7 +181,7 @@ describe("clipboardCutAction", () => {
         expect(editor.getText()).toBe("second");
     });
 
-    it("при выключенном emptySelectionClipboard пустое выделение не режет ничего", async () => {
+    it("with emptySelectionClipboard off, an empty selection cuts nothing", async () => {
         const clipboard = memoryClipboard("previous");
         const { editor, exec } = openEditor("hello world", clipboard, false);
         editor.viewState.selections = [createCursorSelection(0, 3)];
@@ -192,7 +192,7 @@ describe("clipboardCutAction", () => {
         expect(editor.getText()).toBe("hello world");
     });
 
-    it("в мультикурсоре копирует ровно то, что удаляет", async () => {
+    it("with multiple cursors, copies exactly what it deletes", async () => {
         // Regression: Cut took the text of the primary selection only but deleted all selections.
         const clipboard = memoryClipboard();
         const { editor, exec } = openEditor("alpha beta gamma", clipboard);
@@ -266,8 +266,8 @@ describe("clipboardCutAction defensive delete handling", () => {
     });
 });
 
-describe("линейная вставка строки, скопированной пустым выделением", () => {
-    it("copy без выделения → paste кладёт строку выше курсорной, каретка остаётся у текста", async () => {
+describe("full-line paste of a line copied with an empty selection", () => {
+    it("copy without a selection → paste puts the line above the cursor line, the cursor stays with the text", async () => {
         const clipboard = memoryClipboard();
         const { editor, exec } = openEditor("first\nsecond\nthird", clipboard);
         editor.viewState.selections = [createCursorSelection(0, 2)];
@@ -280,7 +280,7 @@ describe("линейная вставка строки, скопированно
         expect(editor.viewState.selections[0].active).toEqual({ line: 3, character: 3 });
     });
 
-    it("cut пустым выделением → paste восстанавливает строку выше курсорной", async () => {
+    it("cut with an empty selection → paste restores the line above the cursor line", async () => {
         const clipboard = memoryClipboard();
         const { editor, exec } = openEditor("first\nsecond", clipboard);
         editor.viewState.selections = [createCursorSelection(0, 0)];
@@ -295,7 +295,7 @@ describe("линейная вставка строки, скопированно
         expect(editor.viewState.selections[0].active).toEqual({ line: 1, character: 3 });
     });
 
-    it("строка, скопированная НЕпустым выделением, вставляется в позицию каретки", async () => {
+    it("a line copied with a NON-empty selection is pasted at the cursor position", async () => {
         const clipboard = memoryClipboard();
         const { editor, exec } = openEditor("first\nsecond", clipboard);
         editor.viewState.selections = [createSelection(0, 0, 1, 0)]; // the whole "first\n"
@@ -307,7 +307,7 @@ describe("линейная вставка строки, скопированно
         expect(editor.getText()).toBe("first\nsecfirst\nond");
     });
 
-    it("тот же текст, записанный в буфер мимо copy, вставляется как обычно", async () => {
+    it("the same text written to the clipboard bypassing copy is pasted as usual", async () => {
         const clipboard = memoryClipboard("stranger\n");
         const { editor, exec } = openEditor("ab", clipboard);
         editor.viewState.selections = [createCursorSelection(0, 1)];
@@ -317,7 +317,7 @@ describe("линейная вставка строки, скопированно
         expect(editor.getText()).toBe("astranger\nb");
     });
 
-    it("при выключенном emptySelectionClipboard линейной вставки нет", async () => {
+    it("with emptySelectionClipboard off, there is no full-line paste", async () => {
         const clipboard = memoryClipboard();
         const first = openEditor("line\nrest", clipboard);
         first.editor.viewState.selections = [createCursorSelection(0, 0)];

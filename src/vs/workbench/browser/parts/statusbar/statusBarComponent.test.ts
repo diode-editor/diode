@@ -154,7 +154,7 @@ describe("StatusBarComponent", () => {
     });
 
     describe("clicks", () => {
-        it("клик по левой записи с onClick зовёт её колбэк", () => {
+        it("clicking a left entry with onClick calls its callback", () => {
             const { component, statusBarService } = createStatusBarHarness();
             let clicked = 0;
             statusBarService.addEntry({
@@ -169,21 +169,21 @@ describe("StatusBarComponent", () => {
             expect(clicked).toBe(1);
         });
 
-        it("запись без onClick инертна", () => {
+        it("an entry without onClick is inert", () => {
             const { component } = createStatusBarHarness();
             expect(() => {
                 clickSegment(component.view, "legacy");
             }).not.toThrow();
         });
 
-        it("clickSegment по несуществующему сегменту бросает", () => {
+        it("clickSegment on a missing segment throws", () => {
             const { component } = createStatusBarHarness();
             expect(() => {
                 clickSegment(component.view, "no-such-segment");
             }).toThrow('no segment "no-such-segment"');
         });
 
-        it("клик по лейблу снятой записи — no-op (лейбл остался в пуле)", () => {
+        it("clicking the label of a removed entry is a no-op (the label stayed in the pool)", () => {
             const { component, statusBarService } = createStatusBarHarness();
             let clicked = 0;
             const hint = statusBarService.addEntry({

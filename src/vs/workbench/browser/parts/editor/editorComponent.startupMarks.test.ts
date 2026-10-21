@@ -10,7 +10,7 @@ import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLang
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 
 // The bench reads the startup ladder marks from the DIODE_STARTUP_TRACE trace.
-describe("EditorComponent + TextFileModel — вехи старта", () => {
+describe("EditorComponent + TextFileModel — startup marks", () => {
     let ws: ITempWorkspace;
     const typescriptLanguageService: ILanguageService = {
         ...NULL_LANGUAGE_SERVICE,
@@ -27,14 +27,14 @@ describe("EditorComponent + TextFileModel — вехи старта", () => {
         ws.dispose();
     });
 
-    it("без включённой трассы открытие файла не ставит ни одной метки", () => {
+    it("without tracing enabled, opening a file sets no marks", () => {
         const ctrl = createEditorPane();
         ctrl.openFile(Uri.file(ws.writeFile("a.txt", "hello\nworld\n")));
         expect(getMarks()).toEqual([]);
         ctrl.dispose();
     });
 
-    it("чтение → декодирование → документ: три вехи по порядку с размерами файла", () => {
+    it("read → decode → document: three marks in order with file sizes", () => {
         enablePerformanceMarks();
         const ctrl = createEditorPane();
         ctrl.openFile(Uri.file(ws.writeFile("a.txt", "hello\nworld\n")));
@@ -49,7 +49,7 @@ describe("EditorComponent + TextFileModel — вехи старта", () => {
         ctrl.dispose();
     });
 
-    it("токенайзер из реестра на руках — веха editor:tokenizer-ready с языком", () => {
+    it("tokenizer from the registry at hand — editor:tokenizer-ready mark with the language", () => {
         enablePerformanceMarks();
         const registry = new TokenizationRegistry();
         registry.register("typescript", new PlainTextTokenizer());
@@ -67,7 +67,7 @@ describe("EditorComponent + TextFileModel — вехи старта", () => {
         ctrl.dispose();
     });
 
-    it("реестр без поддержки языка — fallback на plaintext без вехи tokenizer-ready", () => {
+    it("registry without the language — fallback to plaintext without a tokenizer-ready mark", () => {
         enablePerformanceMarks();
         const ctrl = createEditorPane({
             registry: new TokenizationRegistry(),

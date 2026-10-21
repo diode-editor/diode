@@ -84,7 +84,7 @@ describe("QuickInputService.input", () => {
         await expect(result).resolves.toBe("x");
     });
 
-    it("password включает маску на виджете, а резолвится настоящим значением", async () => {
+    it("password masks the widget but resolves with the real value", async () => {
         const { service, component, testApp } = createService();
         const result = service.input({ password: true });
         testApp.sendKey("a");
@@ -98,7 +98,7 @@ describe("QuickInputService.input", () => {
         await expect(result).resolves.toBe("ab");
     });
 
-    it("валидация под маской получает настоящий текст", () => {
+    it("validation under the mask receives the real text", () => {
         const { service, testApp } = createService();
         const seen: string[] = [];
         void service.input({
@@ -114,7 +114,7 @@ describe("QuickInputService.input", () => {
         expect(seen).toEqual(["", "h", "hi"]);
     });
 
-    it("показ без password маску снимает — следующее поле не слепое", () => {
+    it("showing without password clears the mask — the next input is not blind", () => {
         const { service, component } = createService();
         void service.input({ password: true });
         void service.input({});
@@ -122,7 +122,7 @@ describe("QuickInputService.input", () => {
         expect(component.view.password).toBe(false);
     });
 
-    it("список после поля пароля маску не наследует", () => {
+    it("a list after a password input does not inherit the mask", () => {
         const { service, component } = createService();
         void service.input({ password: true });
         void service.quickPick({ items: [{ label: "alpha" }] });

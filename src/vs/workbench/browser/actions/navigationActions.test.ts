@@ -28,7 +28,7 @@ function setup(tier: string) {
 }
 
 describe("NavigationActions", () => {
-    it("Go Back просит историю шагнуть назад", () => {
+    it("Go Back asks the history to step back", () => {
         const { commands, history } = setup("kitty");
 
         commands.execute("workbench.action.navigateBack");
@@ -37,7 +37,7 @@ describe("NavigationActions", () => {
         expect(history.goForward).not.toHaveBeenCalled();
     });
 
-    it("Go Forward просит историю шагнуть вперёд", () => {
+    it("Go Forward asks the history to step forward", () => {
         const { commands, history } = setup("kitty");
 
         commands.execute("workbench.action.navigateForward");
@@ -45,7 +45,7 @@ describe("NavigationActions", () => {
         expect(history.goForward).toHaveBeenCalledOnce();
     });
 
-    it("на расширенном tier работают канонические комбинации VS Code", () => {
+    it("on the extended tier the canonical VS Code chords work", () => {
         const { keybindings, contextKeys } = setup("kitty");
 
         expect(keybindings.resolveKey(key({ key: "-", ctrlKey: true, altKey: true }), contextKeys)).toMatchObject({
@@ -58,7 +58,7 @@ describe("NavigationActions", () => {
         });
     });
 
-    it("на legacy канонические комбинации не резолвятся, а аккорд работает", () => {
+    it("on legacy the canonical chords do not resolve, but the chord fallback works", () => {
         const { keybindings, contextKeys } = setup("legacy");
 
         expect(keybindings.resolveKey(key({ key: "-", ctrlKey: true, altKey: true }), contextKeys)).not.toMatchObject({

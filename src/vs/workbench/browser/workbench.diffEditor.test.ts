@@ -28,7 +28,7 @@ import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchCompon
 const AT_HEAD = "alpha\nbravo\ncharlie\ndelta\n";
 const COMPARE = "diode.scm.compareWithHead";
 
-describe("Workbench — вкладка diff", () => {
+describe("Workbench — diff tab", () => {
     let ws: ITempWorkspace;
     let workbench: WorkbenchComponent;
     let commands: CommandRegistry;
@@ -78,7 +78,7 @@ describe("Workbench — вкладка diff", () => {
         editor?.viewState.type("XX");
     }
 
-    it("команда открывает вкладку с диффом и показывает - и + строки", async () => {
+    it("the command opens a diff tab and shows - and + lines", async () => {
         editBuffer();
 
         commands.execute(COMPARE);
@@ -91,7 +91,7 @@ describe("Workbench — вкладка diff", () => {
         expect(screen).toMatch(/2\+\s+XXbravo/u);
     });
 
-    it("вкладка диффа закрывается без диалога сохранения", async () => {
+    it("the diff tab closes without a save dialog", async () => {
         editBuffer();
         commands.execute(COMPARE);
         await settle(10);
@@ -108,7 +108,7 @@ describe("Workbench — вкладка diff", () => {
         expect(testApp.backend.screenToString()).not.toContain("↔ HEAD");
     });
 
-    it("повторный вызов переключает на существующую вкладку, а не плодит новые", async () => {
+    it("a repeated call switches to the existing tab instead of opening new ones", async () => {
         editBuffer();
         commands.execute(COMPARE);
         await settle(10);
@@ -121,7 +121,7 @@ describe("Workbench — вкладка diff", () => {
         expect(editors.editorGroups.activeGroup.editorCount).toBe(countAfterFirst);
     });
 
-    it("повторный вызов после новой правки показывает свежий снимок, а не устаревший", async () => {
+    it("a repeated call after a new edit shows a fresh snapshot, not a stale one", async () => {
         editBuffer();
         commands.execute(COMPARE);
         await settle(10);
@@ -144,7 +144,7 @@ describe("Workbench — вкладка diff", () => {
         );
     });
 
-    it("возврат на файл возвращает обычный редактор", async () => {
+    it("going back to the file restores the regular editor", async () => {
         editBuffer();
         commands.execute(COMPARE);
         await settle(10);
@@ -159,7 +159,7 @@ describe("Workbench — вкладка diff", () => {
         expect(screen).not.toMatch(/2-\s+bravo/u);
     });
 
-    it("без версии в git вкладка не открывается, а в статус-баре появляется сообщение", async () => {
+    it("without a git version the tab does not open and the status bar shows a message", async () => {
         // Remove the SCM command: this is how an untracked file or a missing extension looks.
         const { container, bindApp } = createTestContainer();
         const bare = container.get(WorkbenchComponentDIToken);
@@ -189,7 +189,7 @@ describe("Workbench — вкладка diff", () => {
         testApp.render();
     }
 
-    it("активная панель отдаёт свою сторону как настоящий текстовый редактор", async () => {
+    it("the active pane exposes its side as a real text editor", async () => {
         await openDiff();
 
         expect(editors.getActiveViewState()).not.toBeNull();
@@ -199,7 +199,7 @@ describe("Workbench — вкладка diff", () => {
         expect(side?.uri.toString()).toBe(Uri.file(ws.path("a.txt")).toString());
     });
 
-    it("фокус в диффе даёт textViewFocus и textInputFocus живой стороны", async () => {
+    it("focus in the diff sets textViewFocus and textInputFocus of the live side", async () => {
         await openDiff();
         const contextKeys = container.get(ContextKeyServiceDIToken);
 
@@ -208,7 +208,7 @@ describe("Workbench — вкладка diff", () => {
         expect(contextKeys.evaluate("editorReadonly")).toBe(false);
     });
 
-    it("команды курсора двигают каретку по диффу", async () => {
+    it("cursor commands move the cursor through the diff", async () => {
         await openDiff();
 
         commands.execute("cursorDown");
@@ -220,7 +220,7 @@ describe("Workbench — вкладка diff", () => {
         expect(active?.character).toBeGreaterThan(0);
     });
 
-    it("Ctrl+A и Copy кладут в буфер текст диффа без номеров строк и маркеров", async () => {
+    it("Ctrl+A and Copy put the diff text on the clipboard without line numbers or markers", async () => {
         await openDiff();
 
         commands.execute("editor.action.selectAll");
@@ -233,7 +233,7 @@ describe("Workbench — вкладка diff", () => {
         expect(copied).not.toContain("unchanged line");
     });
 
-    it("команды правки на диффе ничего не делают", async () => {
+    it("edit commands do nothing on the diff", async () => {
         await openDiff();
         const before = editors.getActiveViewState()?.document.getText();
 
@@ -244,7 +244,7 @@ describe("Workbench — вкладка diff", () => {
     });
 });
 
-describe("Workbench — вкладка diff, отказы", () => {
+describe("Workbench — diff tab, failures", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -261,7 +261,7 @@ describe("Workbench — вкладка diff, отказы", () => {
         const registry = new FileService();
         registry.registerProvider("git", {
             capabilities: FileSystemProviderCapabilities.Readonly,
-            readFile: () => Promise.reject(new Error("git недоступен")),
+            readFile: () => Promise.reject(new Error("git unavailable")),
             onDidChangeFile: Event.None,
         });
         container.bind(IFileServiceDIToken, () => registry);
@@ -281,7 +281,7 @@ describe("Workbench — вкладка diff, отказы", () => {
         return { workbench, commands, editors, app, statusBar: container.get(StatusBarServiceDIToken) };
     }
 
-    it("ошибка чтения оригинала не открывает вкладку и не роняет команду", async () => {
+    it("an error reading the original does not open a tab or crash the command", async () => {
         const { workbench, commands, editors, app } = await withFailingProvider();
 
         commands.execute(COMPARE);
@@ -293,7 +293,7 @@ describe("Workbench — вкладка diff, отказы", () => {
         workbench.dispose();
     });
 
-    it("сообщение о невозможности сравнить со временем исчезает", async () => {
+    it("the cannot-compare message disappears over time", async () => {
         const { workbench, commands, app, statusBar } = await withFailingProvider();
 
         vi.useFakeTimers();
@@ -311,7 +311,7 @@ describe("Workbench — вкладка diff, отказы", () => {
     });
 });
 
-describe("Workbench — дифф без открытого файла (openDiffWithHead)", () => {
+describe("Workbench — diff without an open file (openDiffWithHead)", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -343,7 +343,7 @@ describe("Workbench — дифф без открытого файла (openDiffW
         return { container, workbench, editors, app };
     }
 
-    it("modified читается с диска: открывается одна дифф-вкладка, файловая — нет", async () => {
+    it("modified is read from disk: one diff tab opens, no file tab", async () => {
         const { container, workbench, editors, app } = mountWorkbench();
 
         const result = await openDiffWithHead(container, Uri.file(ws.path("a.txt")));
@@ -359,7 +359,7 @@ describe("Workbench — дифф без открытого файла (openDiffW
         workbench.dispose();
     });
 
-    it("нечитающийся с диска файл (удалён) даёт дифф «HEAD ↔ пусто»", async () => {
+    it("a file unreadable from disk (deleted) yields a «HEAD ↔ empty» diff", async () => {
         const { container, workbench, app } = mountWorkbench();
 
         // The extension is unknown to the language service, which also covers the languageId
@@ -377,7 +377,7 @@ describe("Workbench — дифф без открытого файла (openDiffW
         workbench.dispose();
     });
 
-    it("«оригинала нет» возвращается вызывающему без побочных эффектов", async () => {
+    it("«no original» is returned to the caller without side effects", async () => {
         // ORIGINAL_RESOURCE_COMMAND is not registered: there is no SCM extension.
         const { container, bindApp } = createTestContainer();
         const workbench = container.get(WorkbenchComponentDIToken);
@@ -397,7 +397,7 @@ describe("Workbench — дифф без открытого файла (openDiffW
     });
 });
 
-describe("Workbench — дифф на широком терминале (side-by-side)", () => {
+describe("Workbench — diff on a wide terminal (side-by-side)", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -432,7 +432,7 @@ describe("Workbench — дифф на широком терминале (side-by
         return { workbench, commands, editors, app, statusBar: container.get(StatusBarServiceDIToken) };
     }
 
-    it("команда открывает две колонки с подписями сторон и выровненной правкой", async () => {
+    it("the command opens two columns with side labels and an aligned edit", async () => {
         const { workbench, commands, editors, app } = await mountWide();
         const editor = editors.getActiveEditor();
         editor?.goToPosition(1, 0);
@@ -459,8 +459,8 @@ describe("Workbench — дифф на широком терминале (side-by
     });
 });
 
-describe("Workbench — вкладка diff, вырожденные случаи", () => {
-    it("без активного редактора команда просто ничего не делает", async () => {
+describe("Workbench — diff tab, edge cases", () => {
+    it("without an active editor the command does nothing", async () => {
         const ws = createTempWorkspace({ prefix: "diode-diff-empty-", files: {} });
         const { container, bindApp } = createTestContainer();
         const workbench = container.get(WorkbenchComponentDIToken);
@@ -481,7 +481,7 @@ describe("Workbench — вкладка diff, вырожденные случаи
         ws.dispose();
     });
 
-    it("SCM дало ресурс, но провайдера схемы нет — вкладка не открывается", async () => {
+    it("SCM returns a resource but there is no scheme provider — the tab does not open", async () => {
         const ws = createTempWorkspace({ prefix: "diode-diff-noprov-", files: { "a.txt": AT_HEAD } });
         const { container, bindApp } = createTestContainer();
         container.bind(IFileServiceDIToken, () => new FileService());
@@ -509,7 +509,7 @@ describe("Workbench — вкладка diff, вырожденные случаи
         ws.dispose();
     });
 
-    it("SCM ответило «оригинала нет» — вкладка не открывается", async () => {
+    it("SCM reports «no original» — the tab does not open", async () => {
         const ws = createTempWorkspace({ prefix: "diode-diff-none-", files: { "a.txt": AT_HEAD } });
         const { container, bindApp } = createTestContainer();
         const registry = new FileService();

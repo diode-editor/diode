@@ -6,7 +6,7 @@ import { NotificationService } from "../services/notification/browser/notificati
 import { UndoRefusalNotificationContribution } from "./undoRefusalNotificationContribution.ts";
 
 describe("UndoRefusalNotificationContribution", () => {
-    it("отказ отмены шага нескольких документов становится предупреждением", async () => {
+    it("a refused undo of a multi-document step becomes a warning", async () => {
         const undoRedo = new UndoRedoService();
         const notifications = new NotificationService();
         const contribution = new UndoRefusalNotificationContribution(undoRedo, notifications);

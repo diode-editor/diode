@@ -23,8 +23,8 @@ function makeItems(count: number): QuickPickItem[] {
     return Array.from({ length: count }, (_, i) => ({ label: `file-${String(i + 1)}.ts` }));
 }
 
-describe("QuickPickElement — клавиатура", () => {
-    it("стрелки двигают выделение без заворота", () => {
+describe("QuickPickElement — keyboard", () => {
+    it("arrow keys move the selection without wrapping", () => {
         const picker = makePicker(makeItems(3));
         expect(picker.selectedIndex).toBe(0);
 
@@ -39,7 +39,7 @@ describe("QuickPickElement — клавиатура", () => {
         expect(picker.selectedIndex).toBe(2);
     });
 
-    it("PageDown/PageUp ходят на окно списка", () => {
+    it("PageDown/PageUp move by one list page", () => {
         const picker = makePicker(makeItems(30));
         press(picker, "PageDown");
         expect(picker.selectedIndex).toBe(picker.maxVisibleItems);
@@ -48,7 +48,7 @@ describe("QuickPickElement — клавиатура", () => {
         expect(picker.selectedIndex).toBe(0);
     });
 
-    it("Enter в режиме item отдаёт выделенный предмет", () => {
+    it("Enter in item mode returns the selected item", () => {
         const picker = makePicker(makeItems(3));
         const onAccept = vi.fn();
         picker.onAccept = onAccept;
@@ -59,7 +59,7 @@ describe("QuickPickElement — клавиатура", () => {
         expect(onAccept).toHaveBeenCalledWith(expect.objectContaining({ label: "file-2.ts" }), 1);
     });
 
-    it("Enter на пустом списке в режиме item молчит", () => {
+    it("Enter on an empty list in item mode does nothing", () => {
         const picker = makePicker([]);
         const onAccept = vi.fn();
         picker.onAccept = onAccept;
@@ -68,7 +68,7 @@ describe("QuickPickElement — клавиатура", () => {
         expect(onAccept).not.toHaveBeenCalled();
     });
 
-    it("Enter в режиме value отдаёт текст запроса", () => {
+    it("Enter in value mode returns the query text", () => {
         const picker = makePicker([]);
         picker.acceptMode = "value";
         const onAcceptValue = vi.fn();
@@ -79,7 +79,7 @@ describe("QuickPickElement — клавиатура", () => {
         expect(onAcceptValue).toHaveBeenCalledWith("note.txt");
     });
 
-    it("жёсткая ошибка валидации блокирует Enter в обоих режимах", () => {
+    it("a hard validation error blocks Enter in both modes", () => {
         const picker = makePicker(makeItems(2));
         const onAccept = vi.fn();
         const onAcceptValue = vi.fn();
@@ -96,7 +96,7 @@ describe("QuickPickElement — клавиатура", () => {
         expect(onAcceptValue).not.toHaveBeenCalled();
     });
 
-    it("предупреждение Enter не блокирует", () => {
+    it("a warning does not block Enter", () => {
         const picker = makePicker(makeItems(2));
         const onAccept = vi.fn();
         picker.onAccept = onAccept;
@@ -107,7 +107,7 @@ describe("QuickPickElement — клавиатура", () => {
         expect(onAccept).toHaveBeenCalledOnce();
     });
 
-    it("Escape отменяет", () => {
+    it("Escape cancels", () => {
         const picker = makePicker([]);
         const onCancel = vi.fn();
         picker.onCancel = onCancel;
@@ -116,7 +116,7 @@ describe("QuickPickElement — клавиатура", () => {
         expect(onCancel).toHaveBeenCalledOnce();
     });
 
-    it("правка строки запроса даёт onQueryChange", () => {
+    it("editing the query row fires onQueryChange", () => {
         const picker = makePicker([]);
         const onQueryChange = vi.fn();
         picker.onQueryChange = onQueryChange;
@@ -128,7 +128,7 @@ describe("QuickPickElement — клавиатура", () => {
 });
 
 describe("QuickPickElement — onActiveItemChanged", () => {
-    it("файрится на навигации пользователя", () => {
+    it("fires on user navigation", () => {
         const picker = makePicker(makeItems(3));
         const onActive = vi.fn();
         picker.onActiveItemChanged = onActive;
@@ -139,7 +139,7 @@ describe("QuickPickElement — onActiveItemChanged", () => {
 
     // QuickInputService relies on this contract: it covers programmatic repositioning
     // with its own notifyActive().
-    it("молчит на items=, refreshItems и setActiveIndex", () => {
+    it("stays silent on items=, refreshItems and setActiveIndex", () => {
         const picker = makePicker(makeItems(3));
         const onActive = vi.fn();
         picker.onActiveItemChanged = onActive;
@@ -157,7 +157,7 @@ describe("QuickPickElement — onActiveItemChanged", () => {
 });
 
 describe("QuickPickElement — refreshItems", () => {
-    it("держит курсор на прежнем предмете, когда список дорос", () => {
+    it("keeps the cursor on the previous item when the list grows", () => {
         const picker = makePicker(makeItems(3));
         press(picker, "ArrowDown");
         press(picker, "ArrowDown");
@@ -168,7 +168,7 @@ describe("QuickPickElement — refreshItems", () => {
         expect(picker.items[picker.selectedIndex].label).toBe("file-3.ts");
     });
 
-    it("клампит курсор, когда прежний предмет исчез", () => {
+    it("clamps the cursor when the previous item is gone", () => {
         const picker = makePicker(makeItems(5));
         press(picker, "ArrowDown");
         press(picker, "ArrowDown");
@@ -178,7 +178,7 @@ describe("QuickPickElement — refreshItems", () => {
         expect(picker.selectedIndex).toBe(1);
     });
 
-    it("пустой рефреш сбрасывает выделение", () => {
+    it("an empty refresh resets the selection", () => {
         const picker = makePicker(makeItems(3));
         press(picker, "ArrowDown");
 
@@ -187,7 +187,7 @@ describe("QuickPickElement — refreshItems", () => {
         expect(picker.items).toHaveLength(0);
     });
 
-    it("items= возвращает курсор наверх", () => {
+    it("items= moves the cursor back to the top", () => {
         const picker = makePicker(makeItems(3));
         press(picker, "ArrowDown");
         expect(picker.selectedIndex).toBe(1);
@@ -197,21 +197,21 @@ describe("QuickPickElement — refreshItems", () => {
     });
 });
 
-describe("QuickPickElement — пустой список", () => {
-    it("стрелки на пустом списке ничего не делают", () => {
+describe("QuickPickElement — empty list", () => {
+    it("arrow keys on an empty list do nothing", () => {
         const picker = makePicker([]);
         press(picker, "ArrowDown");
         press(picker, "ArrowUp");
         expect(picker.selectedIndex).toBe(0);
     });
 
-    it("setActiveIndex на пустом списке молчит", () => {
+    it("setActiveIndex on an empty list does nothing", () => {
         const picker = makePicker([]);
         picker.setActiveIndex(3);
         expect(picker.selectedIndex).toBe(0);
     });
 
-    it("refreshItems с пустого старта берёт первый предмет", () => {
+    it("refreshItems from an empty start takes the first item", () => {
         const picker = makePicker([]);
         picker.refreshItems(makeItems(3));
         expect(picker.selectedIndex).toBe(0);
@@ -219,8 +219,8 @@ describe("QuickPickElement — пустой список", () => {
     });
 });
 
-describe("QuickPickElement — предметы", () => {
-    it("предмет доезжает до onAccept целиком, вместе с чужими полями", () => {
+describe("QuickPickElement — items", () => {
+    it("the item reaches onAccept whole, including foreign fields", () => {
         const item = { label: "main.ts", absolutePath: "/tmp/main.ts" };
         const picker = makePicker([item]);
         const onAccept = vi.fn();
@@ -231,7 +231,7 @@ describe("QuickPickElement — предметы", () => {
         expect(onAccept.mock.calls[0][0]).toBe(item);
     });
 
-    it("setActiveIndex клампится в границы", () => {
+    it("setActiveIndex is clamped to bounds", () => {
         const picker = makePicker(makeItems(3));
         picker.setActiveIndex(99);
         expect(picker.selectedIndex).toBe(2);

@@ -40,7 +40,7 @@ describe("ViewProgressContribution", () => {
         vi.useRealTimers();
     });
 
-    it("раскладывает кадры по секциям и снимает их у закончивших", async () => {
+    it("distributes frames to sections and removes them from finished ones", async () => {
         const target = fakeViews();
         const contribution = new ViewProgressContribution(progress, target.views);
 
@@ -90,7 +90,7 @@ describe("ViewProgressContribution", () => {
         contribution.dispose();
     });
 
-    it("секции независимы", async () => {
+    it("sections are independent", async () => {
         const target = fakeViews();
         const contribution = new ViewProgressContribution(progress, target.views);
 
@@ -114,7 +114,7 @@ describe("ViewProgressContribution", () => {
         contribution.dispose();
     });
 
-    it("window-прогресс заголовков не трогает", () => {
+    it("window progress does not touch headers", () => {
         const target = fakeViews();
         const contribution = new ViewProgressContribution(progress, target.views);
 
@@ -125,7 +125,7 @@ describe("ViewProgressContribution", () => {
         contribution.dispose();
     });
 
-    it("после dispose кадры больше не раскладываются", () => {
+    it("after dispose frames are no longer distributed", () => {
         const target = fakeViews();
         const contribution = new ViewProgressContribution(progress, target.views);
         contribution.dispose();

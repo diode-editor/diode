@@ -36,7 +36,7 @@ describe("Workbench — read-only editor", () => {
         return h.container.get(ContextKeyServiceDIToken);
     }
 
-    it("без открытых редакторов toggle — no-op, а не падение", () => {
+    it("without open editors toggle is a no-op, not a crash", () => {
         h.commands.execute("workbench.action.closeActiveEditor");
         expect(h.container.get(EditorServiceDIToken).getActiveEditor()).toBeNull();
 
@@ -44,13 +44,13 @@ describe("Workbench — read-only editor", () => {
         expect(contextKeys().get("editorReadonly")).toBe(false);
     });
 
-    describe("контекст-ключ editorReadonly", () => {
-        it("по умолчанию false у сфокусированного редактора", () => {
+    describe("editorReadonly context key", () => {
+        it("false by default for the focused editor", () => {
             expect(contextKeys().get("textInputFocus")).toBe(true);
             expect(contextKeys().get("editorReadonly")).toBe(false);
         });
 
-        it("команда toggle поднимает и опускает его", () => {
+        it("the toggle command sets and clears it", () => {
             h.commands.execute(TOGGLE_READONLY);
             expect(contextKeys().get("editorReadonly")).toBe(true);
 
@@ -58,7 +58,7 @@ describe("Workbench — read-only editor", () => {
             expect(contextKeys().get("editorReadonly")).toBe(false);
         });
 
-        it("сбрасывается, когда фокус ушёл из редактора", () => {
+        it("resets when focus leaves the editor", () => {
             // Otherwise the key would stick from the previous editor and suppress commands
             // where there is no read-only at all.
             h.commands.execute(TOGGLE_READONLY);
@@ -72,7 +72,7 @@ describe("Workbench — read-only editor", () => {
         });
     });
 
-    describe("мутирующие команды не доезжают до документа", () => {
+    describe("mutating commands do not reach the document", () => {
         // Through the command registry rather than a direct viewState call: this tests the
         // when clause, which the core unit tests don't touch by design.
         const mutating = [
@@ -85,7 +85,7 @@ describe("Workbench — read-only editor", () => {
         ];
 
         for (const command of mutating) {
-            it(`${command} — документ не меняется`, () => {
+            it(`${command} leaves the document unchanged`, () => {
                 h.commands.execute(TOGGLE_READONLY);
 
                 h.commands.execute(command);
@@ -95,7 +95,7 @@ describe("Workbench — read-only editor", () => {
             });
         }
 
-        it("ввод с клавиатуры не меняет документ и не пачкает буфер", () => {
+        it("keyboard input does not change the document or dirty the buffer", () => {
             h.commands.execute(TOGGLE_READONLY);
 
             h.testApp.sendKey("X");
@@ -107,8 +107,8 @@ describe("Workbench — read-only editor", () => {
         });
     });
 
-    describe("чтение остаётся доступным", () => {
-        it("навигация и выделение работают", () => {
+    describe("reading stays available", () => {
+        it("navigation and selection work", () => {
             h.commands.execute(TOGGLE_READONLY);
 
             h.commands.execute("cursorRight");
@@ -118,7 +118,7 @@ describe("Workbench — read-only editor", () => {
             expect(h.activeEditor().viewState.getSelectedText()).toBe("Alpha");
         });
 
-        it("копирование разрешено, вырезание — нет", () => {
+        it("copy is allowed, cut is not", () => {
             h.commands.execute("editor.action.selectAll");
             h.commands.execute(TOGGLE_READONLY);
 
@@ -128,7 +128,7 @@ describe("Workbench — read-only editor", () => {
         });
     });
 
-    describe("вкладка помечена замком", () => {
+    describe("the tab is marked with a lock", () => {
         // Down to the frame, not to TabInfo: without the EditorService → syncTabs subscription the lock
         // appeared only on the next tab switch.
         const LOCK = "\uea75"; // nf-cod-lock, see editorTabItemElement.ts
@@ -138,11 +138,11 @@ describe("Workbench — read-only editor", () => {
             return h.testApp.backend.screenToString();
         }
 
-        it("замка нет, пока редактор writable", () => {
+        it("no lock while the editor is writable", () => {
             expect(frame()).not.toContain(LOCK);
         });
 
-        it("toggle показывает и убирает замок", () => {
+        it("toggle shows and removes the lock", () => {
             h.commands.execute(TOGGLE_READONLY);
             expect(frame()).toContain(LOCK);
 
@@ -151,7 +151,7 @@ describe("Workbench — read-only editor", () => {
         });
     });
 
-    describe("гейт when-клауз (слой кейбиндов)", () => {
+    describe("when-clause gate (keybinding layer)", () => {
         // The EditorViewState/TextEditorPane guards hold the line on their own, so the when clause can't be
         // observed via the document — verified: the tests above pass even with `&& !editorReadonly` removed.
         function resolve(key: string, ctrlKey = false) {
@@ -160,7 +160,7 @@ describe("Workbench — read-only editor", () => {
                 .resolveKey({ key, ctrlKey, shiftKey: false, altKey: false, metaKey: false }, contextKeys());
         }
 
-        it("Backspace резолвится в deleteLeft, пока редактор writable", () => {
+        it("Backspace resolves to deleteLeft while the editor is writable", () => {
             expect(resolve("Backspace")).toEqual({
                 kind: "command",
                 commandId: "deleteLeft",
@@ -168,17 +168,17 @@ describe("Workbench — read-only editor", () => {
             });
         });
 
-        it("в read-only Backspace не резолвится ни в какую команду", () => {
+        it("in read-only Backspace resolves to no command", () => {
             h.commands.execute(TOGGLE_READONLY);
             expect(resolve("Backspace")).toEqual({ kind: "none" });
         });
 
-        it("Ctrl+Z в read-only не резолвится в undo", () => {
+        it("Ctrl+Z in read-only does not resolve to undo", () => {
             h.commands.execute(TOGGLE_READONLY);
             expect(resolve("z", true)).toEqual({ kind: "none" });
         });
 
-        it("немутирующие кейбинды в read-only остаются рабочими", () => {
+        it("non-mutating keybindings keep working in read-only", () => {
             h.commands.execute(TOGGLE_READONLY);
             expect(resolve("ArrowRight")).toEqual({
                 kind: "command",
@@ -193,8 +193,8 @@ describe("Workbench — read-only editor", () => {
         });
     });
 
-    describe("пути мимо EditorViewState", () => {
-        it("undo/redo не откатывают правки, сделанные до включения флага", () => {
+    describe("paths bypassing EditorViewState", () => {
+        it("undo/redo do not revert edits made before the flag was set", () => {
             // The edits went to the undo stack while the editor was writable; in read-only
             // undoing is as much a document mutation as typing.
             h.testApp.sendKey("X");
@@ -206,7 +206,7 @@ describe("Workbench — read-only editor", () => {
             expect(h.activeEditor().getText()).toBe("XAlpha");
         });
 
-        it("applyExternalEdits не проходит — общий вход suggest, rename/bulkEdit и extension host", () => {
+        it("applyExternalEdits is blocked: the shared entry for suggest, rename/bulkEdit and the extension host", () => {
             // Suggest, rename/bulkEdit and the extension host converge on applyExternalEdits →
             // EditorViewState.applyEdits; when clauses don't cover programmatic paths.
             h.commands.execute(TOGGLE_READONLY);
@@ -217,7 +217,7 @@ describe("Workbench — read-only editor", () => {
             expect(h.activeEditor().isModified).toBe(false);
         });
 
-        it("TextEditorPane сам отбивает setEol/setEncoding/redo", () => {
+        it("TextEditorPane itself rejects setEol/setEncoding/redo", () => {
             // Programmatic calls bypass both the when clause and the command's early exit.
             const editor = h.activeEditor();
             const eolBefore = editor.eol;
@@ -236,7 +236,7 @@ describe("Workbench — read-only editor", () => {
             expect(editor.getText()).toBe("Alpha");
         });
 
-        it("повторная установка того же значения не будит подписчиков", () => {
+        it("setting the same value again does not wake subscribers", () => {
             const editor = h.activeEditor();
             let fired = 0;
             const sub = editor.onDidChangeReadOnly(() => {
@@ -252,7 +252,7 @@ describe("Workbench — read-only editor", () => {
             expect(fired).toBe(1);
         });
 
-        it("перечитка документа не снимает read-only", async () => {
+        it("reloading the document does not clear read-only", async () => {
             // rebuildForReloadedDocument recreates EditorViewState and used to lose the flag: after
             // "Reopen with Encoding" the tab silently became editable.
             const editor = h.activeEditor();
@@ -268,7 +268,7 @@ describe("Workbench — read-only editor", () => {
             expect(editor.viewState.type("X")).toBeUndefined();
         });
 
-        it("смена EOL заблокирована", () => {
+        it("changing EOL is blocked", () => {
             const before = h.activeEditor().eol;
             h.commands.execute(TOGGLE_READONLY);
 

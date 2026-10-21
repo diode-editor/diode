@@ -68,8 +68,8 @@ function twoTabs(): PanelContainerElement {
     return panel;
 }
 
-describe("PanelContainerElement: отрисовка", () => {
-    it("заливает фоном ровно свой прямоугольник и ни колонкой больше", () => {
+describe("PanelContainerElement: rendering", () => {
+    it("fills exactly its own rectangle with the background, not a column more", () => {
         const screen = paint(twoTabs(), new Size(20, 5));
 
         expect(at(screen, 0, 4).bg).toBe(BG);
@@ -82,7 +82,7 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(at(screen, 0, 5).bg).not.toBe(BG);
     });
 
-    it("рисует полосу верхней границы во всю ширину и только на нулевой строке", () => {
+    it("draws the top border strip across the full width and only on row zero", () => {
         const screen = paint(twoTabs(), new Size(20, 5));
 
         expect(row(screen, 0, 0, 20)).toBe("─".repeat(20));
@@ -92,7 +92,7 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(at(screen, 0, 1).char).not.toBe("─");
     });
 
-    it("отбивает названия вкладок пробелами ровно по одному с каждой стороны", () => {
+    it("pads tab names with exactly one space on each side", () => {
         const screen = paint(twoTabs(), new Size(20, 5));
 
         expect(row(screen, 1, 0, 16)).toBe("  PROBLEMS  OUT ");
@@ -101,7 +101,7 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(at(screen, 2, 1).fg).toBe(TITLE_FG);
     });
 
-    it("не красит таб-строку дальше последней вкладки", () => {
+    it("does not paint the tab row past the last tab", () => {
         const screen = paint(twoTabs(), new Size(20, 5));
 
         // Column 16 is right after the tab row tail: fill color, NOT the label color.
@@ -109,7 +109,7 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(at(screen, 16, 1).fg).toBe(at(screen, 5, 3).fg);
     });
 
-    it("обрезает таб-строку по правому краю панели, не вылезая за него", () => {
+    it("clips the tab row at the right panel edge without overflowing it", () => {
         const screen = paint(twoTabs(), new Size(8, 4));
 
         expect(row(screen, 1, 0, 8)).toBe("  PRO × ");
@@ -117,7 +117,7 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(at(screen, 8, 1).bg).not.toBe(BG);
     });
 
-    it("подчёркивает активную вкладку — только под глифами названия", () => {
+    it("underlines the active tab — only under the name glyphs", () => {
         const panel = twoTabs();
         const screen = paint(panel, new Size(20, 5));
 
@@ -134,7 +134,7 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(at(after, 11, 1).style).toBe(StyleFlags.None);
     });
 
-    it("рисует placeholder под названием вкладки и обрезает его по краю панели", () => {
+    it("draws the placeholder below the tab name and clips it at the panel edge", () => {
         const panel = themed();
         panel.addView({ id: "a", title: "P", content: null, placeholder: "0123456789ABCDEF" });
         const screen = paint(panel, new Size(10, 5));
@@ -145,7 +145,7 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(at(screen, 10, 2).bg).not.toBe(BG);
     });
 
-    it("кончает placeholder на его последнем символе, а не красит хвост строки", () => {
+    it("ends the placeholder at its last character instead of painting the rest of the row", () => {
         const panel = themed();
         panel.addView({ id: "a", title: "P", content: null, placeholder: "No problems." });
         const screen = paint(panel, new Size(20, 5));
@@ -155,7 +155,7 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(at(screen, 14, 2).fg).toBe(at(screen, 5, 3).fg);
     });
 
-    it("placeholder не показывается у вкладки, у которой контент есть", () => {
+    it("the placeholder is not shown for a tab that has content", () => {
         // With content the welcome state must stay silent, even if the text is set.
         const panel = themed();
         panel.addView({ id: "a", title: "P", content: new MarkerContent("X"), placeholder: "hidden" });
@@ -165,7 +165,7 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(row(screen, 2, 0, 10)).toBe("  X       ");
     });
 
-    it("не рисует placeholder, когда строки контента нет вовсе", () => {
+    it("does not draw the placeholder when there is no content row at all", () => {
         // No room for content; a write to a nonexistent row is visible only on a screen larger than the panel.
         const panel = themed();
         panel.addView({ id: "a", title: "P", content: null, placeholder: "hidden" });
@@ -176,7 +176,7 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(at(screen, 2, 2).bg).not.toBe(BG);
     });
 
-    it("вкладка с контентом и без placeholder'а рисуется и раскладывается", () => {
+    it("a tab with content and no placeholder renders and lays out", () => {
         const panel = themed();
         const content = new MarkerContent("X");
         panel.addView({ id: "a", title: "P", content });
@@ -186,7 +186,7 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(content.layoutSize).toEqual(new Size(18, 3));
     });
 
-    it("панель без вкладок вовсе раскладывается и рисуется", () => {
+    it("a panel with no tabs at all lays out and renders", () => {
         // Reading the active tab must be optional, otherwise the frame crashes.
         const panel = themed();
 

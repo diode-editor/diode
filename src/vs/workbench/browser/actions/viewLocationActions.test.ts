@@ -109,7 +109,7 @@ function containerOf(h: IViewsHarness, viewId: string): string | null {
 }
 
 describe("Move Focused View", () => {
-    it("без вида с фокусом — модальная ошибка", async () => {
+    it("without a focused view — a modal error", async () => {
         const { accessor, errors, picks } = scene();
         await moveFocusedViewAction.run(accessor);
         expect(errors).toEqual([
@@ -118,21 +118,21 @@ describe("Move Focused View", () => {
         expect(picks).toEqual([]);
     });
 
-    it("пробельный id — тоже «нет вида»", async () => {
+    it("a whitespace id also means 'no view'", async () => {
         const { accessor, errors, contextKeys } = scene();
         contextKeys.set("focusedView", "  ");
         await moveFocusedViewAction.run(accessor);
         expect(errors).toEqual([expect.objectContaining({ message: "There is no view currently focused." })]);
     });
 
-    it("непереносимый вид — своя ошибка", async () => {
+    it("a non-movable view — its own error", async () => {
         const { accessor, errors, contextKeys } = scene();
         contextKeys.set("focusedView", "outline");
         await moveFocusedViewAction.run(accessor);
         expect(errors).toEqual([expect.objectContaining({ message: "The currently focused view is not movable." })]);
     });
 
-    it("места: новые записи, затем чужие контейнеры по группам, без своего и не принимающих", async () => {
+    it("locations: new entries, then other containers by group, excluding its own and non-accepting ones", async () => {
         const { accessor, contextKeys, picks } = scene();
         contextKeys.set("focusedView", "log");
         await moveFocusedViewAction.run(accessor);
@@ -152,7 +152,7 @@ describe("Move Focused View", () => {
         ]);
     });
 
-    it("скрытая секция: в заголовке её id", async () => {
+    it("hidden section: its id in the title", async () => {
         const { h, accessor, contextKeys, picks } = scene();
         h.service.setViewVisible("log", false);
         contextKeys.set("focusedView", "log");
@@ -160,7 +160,7 @@ describe("Move Focused View", () => {
         expect(picks[0].title).toBe("View: Move log");
     });
 
-    it("единственный вид контейнера: новой записи на его же месте нет", async () => {
+    it("the only view of a container: no new entry for its own location", async () => {
         const { accessor, contextKeys, picks } = scene();
         contextKeys.set("focusedView", "terminal");
         await moveFocusedViewAction.run(accessor);
@@ -168,7 +168,7 @@ describe("Move Focused View", () => {
         expect(picks[0].items.slice(0, 2)).toEqual(["New Side Bar Entry", "New Secondary Side Bar Entry"]);
     });
 
-    it("выбор новой записи переносит вид и фокусирует его", async () => {
+    it("picking a new entry moves the view and focuses it", async () => {
         const { h, accessor, contextKeys, focused } = scene(() => "New Secondary Side Bar Entry");
         contextKeys.set("focusedView", "terminal");
         await moveFocusedViewAction.run(accessor);
@@ -176,14 +176,14 @@ describe("Move Focused View", () => {
         expect(focused).toEqual(["terminal"]);
     });
 
-    it("выбор контейнера кладёт вид в него", async () => {
+    it("picking a container puts the view into it", async () => {
         const { h, accessor, contextKeys } = scene(() => "PROBLEMS");
         contextKeys.set("focusedView", "log");
         await moveFocusedViewAction.run(accessor);
         expect(containerOf(h, "log")).toBe(PROBLEMS);
     });
 
-    it("отмена ничего не двигает", async () => {
+    it("cancel moves nothing", async () => {
         const { h, accessor, contextKeys, focused } = scene(() => null);
         contextKeys.set("focusedView", "log");
         await moveFocusedViewAction.run(accessor);
@@ -193,7 +193,7 @@ describe("Move Focused View", () => {
 });
 
 describe("Move View", () => {
-    it("первый шаг: переносимые виды по местам, вид с фокусом подсвечен", async () => {
+    it("first step: movable views by location, the focused view is highlighted", async () => {
         const { accessor, contextKeys, picks } = scene();
         contextKeys.set("focusedView", "output");
         await moveViewAction.run(accessor);
@@ -213,14 +213,14 @@ describe("Move View", () => {
         ]);
     });
 
-    it("вид с фокусом не из списка — подсвечен первый пункт", async () => {
+    it("focused view not in the list — the first item is highlighted", async () => {
         const { accessor, contextKeys, picks } = scene();
         contextKeys.set("focusedView", "outline");
         await moveViewAction.run(accessor);
         expect(picks[0].activeIndex).toBe(0);
     });
 
-    it("выбранный вид — во второй шаг", async () => {
+    it("the picked view goes to the second step", async () => {
         const { h, accessor, picks } = scene((options) =>
             options.title === undefined ? "PROBLEMS" : "New Side Bar Entry",
         );
@@ -229,7 +229,7 @@ describe("Move View", () => {
         expect(h.service.getViewContainerLocation(containerOf(h, "problems")!)).toBe("sidebar");
     });
 
-    it("отмена первого шага — второго нет", async () => {
+    it("canceling the first step — no second step", async () => {
         const { accessor, picks } = scene(() => null);
         await moveViewAction.run(accessor);
         expect(picks).toHaveLength(1);
@@ -237,7 +237,7 @@ describe("Move View", () => {
 });
 
 describe("Reset Focused View Location", () => {
-    it("без вида или с неизвестным видом — ошибка", async () => {
+    it("without a view or with an unknown view — an error", async () => {
         for (const viewId of [" ", "ghost"]) {
             const { accessor, contextKeys, errors } = scene();
             contextKeys.set("focusedView", viewId);
@@ -246,7 +246,7 @@ describe("Reset Focused View Location", () => {
         }
     });
 
-    it("вид на своём месте — ничего не делает", async () => {
+    it("a view in its own location — does nothing", async () => {
         const { accessor, contextKeys, errors, focused } = scene();
         contextKeys.set("focusedView", "terminal");
         await resetFocusedViewLocationAction.run(accessor);
@@ -254,7 +254,7 @@ describe("Reset Focused View Location", () => {
         expect(focused).toEqual([]);
     });
 
-    it("перенесённый вид возвращается домой и получает фокус", async () => {
+    it("a moved view returns home and gets focus", async () => {
         const { h, accessor, contextKeys, focused } = scene();
         h.service.moveViewToLocation("terminal", "auxiliarybar");
         contextKeys.set("focusedView", "terminal");
@@ -264,8 +264,8 @@ describe("Reset Focused View Location", () => {
     });
 });
 
-describe("Move Panel Views To Secondary Side Bar и обратно", () => {
-    it("в пустую часть: все контейнеры переезжают, часть видна, активный открыт и в фокусе", async () => {
+describe("Move Panel Views To Secondary Side Bar and back", () => {
+    it("into an empty part: all containers move, the part is visible, the active one is open and focused", async () => {
         const { h, accessor, focused } = scene();
         h.panelService.setActiveView(OUTPUT);
         await movePanelToSecondarySideBarAction.run(accessor);
@@ -276,7 +276,7 @@ describe("Move Panel Views To Secondary Side Bar и обратно", () => {
         expect(focused).toEqual(["output"]);
     });
 
-    it("в непустую часть: её активная вкладка остаётся, фокус не трогаем", async () => {
+    it("into a non-empty part: its active tab stays, focus is left alone", async () => {
         const { h, accessor, focused } = scene();
         h.service.moveViewContainerToLocation(TERMINAL, "auxiliarybar");
         const active = h.auxiliaryBarService.getActiveViewId();
@@ -287,13 +287,13 @@ describe("Move Panel Views To Secondary Side Bar и обратно", () => {
         expect(focused).toEqual([]);
     });
 
-    it("из пустой части — no-op", async () => {
+    it("from an empty part — no-op", async () => {
         const { h, accessor } = scene();
         await moveSecondarySideBarToPanelAction.run(accessor);
         expect(h.panelService.visible).toBe(false);
     });
 
-    it("обратно: вторичная панель уезжает в нижнюю", async () => {
+    it("back: the secondary side bar moves into the bottom panel", async () => {
         const { h, accessor } = scene();
         h.service.moveViewContainerToLocation(TERMINAL, "auxiliarybar");
         await moveSecondarySideBarToPanelAction.run(accessor);

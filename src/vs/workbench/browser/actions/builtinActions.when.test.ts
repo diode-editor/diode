@@ -44,15 +44,15 @@ function builtinWhens(): Set<string> {
     return whens;
 }
 
-describe("when-строки встроенных регистраций", () => {
-    it("каждая разбирается парсером (иначе бинд или пункт молча мёртв)", () => {
+describe("when clauses of built-in registrations", () => {
+    it("each one parses (otherwise the keybinding or item is silently dead)", () => {
         const whens = builtinWhens();
         expect(whens.size).toBeGreaterThan(50);
         const broken = [...whens].filter((when) => parseWhen(when) === undefined);
         expect(broken).toEqual([]);
     });
 
-    it("каждая ссылается только на объявленные ключи (опечатка в when иначе молча даёт false)", () => {
+    it("each one references only declared keys (otherwise a typo in when silently yields false)", () => {
         const declared = declaredContextKeys();
         expect(declared.has("textInputFocus")).toBe(true); // interface parsing works
         expect(declared.has("editorFocus")).toBe(false); // commented-out fields are not declared

@@ -26,31 +26,31 @@ function labels(...paths: string[]): string[] {
     return computeTabLabels(panes, (editor) => editor.label);
 }
 
-describe("computeTabLabels — разводка тёзок минимальным суффиксом пути", () => {
-    it("без тёзок метки — просто имена файлов", () => {
+describe("computeTabLabels — disambiguating same-name files by the minimal path suffix", () => {
+    it("without same-name files labels are plain file names", () => {
         expect(labels("/p/a.ts", "/p/b.ts")).toEqual(["a.ts", "b.ts"]);
     });
 
-    it("тёзки получают минимальный различающий сегмент родителя", () => {
+    it("same-name files get the minimal distinguishing parent segment", () => {
         expect(labels("/p/x/a.ts", "/p/y/a.ts", "/p/b.ts")).toEqual(["a.ts — x", "a.ts — y", "b.ts"]);
     });
 
-    it("совпадающий последний сегмент — суффикс растёт до различающего хвоста", () => {
+    it("matching last segment — the suffix grows to the distinguishing tail", () => {
         // dirs: [x, s] and [s]: k=1 collides (s/s); the long path becomes unique
         // at k=2 ("x/s"), the short one at k=2 too (its tail is still "s", but the
         // other tail is now "x/s"). Uniqueness exactly at k = maxK is the loop boundary.
         expect(labels("/x/s/a.ts", "/s/a.ts")).toEqual(["a.ts — x/s", "a.ts — s"]);
     });
 
-    it("файл у корня: пустые сегменты пути не участвуют в суффиксе", () => {
+    it("file at the root: empty path segments are not part of the suffix", () => {
         // Without filter(Boolean), dirname("/") would yield [""] and "/m/n" ["", "m", "n"],
         // giving the suffixes a leading separator.
         expect(labels("/n/a.ts", "/m/n/a.ts")).toEqual(["a.ts — n", "a.ts — m/n"]);
     });
 });
 
-describe("computeTabLabels — удалённый файл", () => {
-    it("у orphaned-вкладки хвост (deleted), у живой и у панели без понятия — нет", () => {
+describe("computeTabLabels — deleted file", () => {
+    it("an orphaned tab gets the (deleted) suffix, a live tab and a pane without the notion do not", () => {
         const deleted = { ...pane("/p/a.ts"), isOrphaned: true };
         const alive = { ...pane("/p/b.ts"), isOrphaned: false };
         const other = pane("/p/c.ts");
@@ -62,7 +62,7 @@ describe("computeTabLabels — удалённый файл", () => {
         expect(DELETED_TAB_SUFFIX).toBe(" (deleted)");
     });
 
-    it("хвост идёт после различающего суффикса и тёзок не разводит", () => {
+    it("the suffix goes after the distinguishing path suffix and does not disambiguate same-name files", () => {
         const deleted = { ...pane("/x/a.ts"), isOrphaned: true };
         expect(computeTabLabels([deleted, pane("/y/a.ts")], (editor) => editor.label)).toEqual([
             `a.ts — x${DELETED_TAB_SUFFIX}`,

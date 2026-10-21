@@ -36,14 +36,14 @@ function findList(element: TUIElement): ListViewElement | undefined {
 
 function listOf(picker: QuickPickElement): ListViewElement {
     const list = findList(picker);
-    if (list === undefined) throw new Error("в пикере нет списка");
+    if (list === undefined) throw new Error("picker has no list");
     return list;
 }
 
 const items = (...labels: string[]): QuickPickItem[] => labels.map((label) => ({ label }));
 
-describe("QuickPickElement — без подсветки (clearActive)", () => {
-    it("снимает курсор списка, и Enter принимает набранное, а не строку", () => {
+describe("QuickPickElement — no highlight (clearActive)", () => {
+    it("clears the list cursor, and Enter accepts the typed value, not a row", () => {
         const picker = makePicker(items("a", "b", "c"));
         const onAccept = vi.fn();
         const onAcceptEmpty = vi.fn();
@@ -59,7 +59,7 @@ describe("QuickPickElement — без подсветки (clearActive)", () => {
         expect(onAccept).not.toHaveBeenCalled();
     });
 
-    it("новые строки того же запроса подсветку не возвращают", () => {
+    it("new rows for the same query do not bring the highlight back", () => {
         const picker = makePicker(items("a"));
         picker.clearActive();
 
@@ -70,7 +70,7 @@ describe("QuickPickElement — без подсветки (clearActive)", () => {
         expect(listOf(picker).rowCount).toBe(2);
     });
 
-    it("с подсветкой на первой строке обновление ищет прежний предмет", () => {
+    it("with the highlight on the first row, a refresh looks for the previous item", () => {
         const picker = makePicker(items("b", "c"));
 
         picker.refreshItems(items("a", "b"));
@@ -78,7 +78,7 @@ describe("QuickPickElement — без подсветки (clearActive)", () => {
         expect(picker.selectedIndex).toBe(1);
     });
 
-    it("смена отметок и ширины подсветку не возвращают", () => {
+    it("changing checks and width does not bring the highlight back", () => {
         const picker = makePicker(items("a", "b", "c"));
         picker.canPickMany = true;
         picker.clearActive();
@@ -91,7 +91,7 @@ describe("QuickPickElement — без подсветки (clearActive)", () => {
         expect(listOf(picker).isCursorCleared).toBe(true);
     });
 
-    it("с подсветкой — и на первой строке — те же пересборки курсор не снимают", () => {
+    it("with the highlight — even on the first row — the same rebuilds keep the cursor", () => {
         const picker = makePicker(items("a", "b", "c"));
         picker.canPickMany = true;
 
@@ -104,7 +104,7 @@ describe("QuickPickElement — без подсветки (clearActive)", () => {
         expect(picker.selectedIndex).toBe(0);
     });
 
-    it("Space без подсветки ничего не отмечает", () => {
+    it("Space without a highlight checks nothing", () => {
         const picker = makePicker(items("a", "b", "c"));
         picker.canPickMany = true;
         picker.clearActive();
@@ -114,7 +114,7 @@ describe("QuickPickElement — без подсветки (clearActive)", () => {
         expect(picker.checkedItems.size).toBe(0);
     });
 
-    it("↓ встаёт на первую строку, ↑ — на последнюю", () => {
+    it("↓ moves to the first row, ↑ to the last", () => {
         const picker = makePicker(items("a", "b", "c"));
         picker.clearActive();
         press(picker, "ArrowDown");
@@ -126,8 +126,8 @@ describe("QuickPickElement — без подсветки (clearActive)", () => {
     });
 });
 
-describe("QuickPickElement — PageDown у конца списка", () => {
-    it("встаёт на последнюю строку, когда до конца меньше окна", () => {
+describe("QuickPickElement — PageDown near the end of the list", () => {
+    it("moves to the last row when less than a page remains", () => {
         const picker = makePicker(items(...Array.from({ length: 30 }, (_, i) => `f${String(i)}`)));
         picker.setActiveIndex(27);
 

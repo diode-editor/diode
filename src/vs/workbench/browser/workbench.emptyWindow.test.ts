@@ -15,7 +15,7 @@ import { TerminalSessionFactoryDIToken } from "../contrib/terminal/common/termin
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 import type { PaneViewElement } from "./parts/views/paneViewElement.ts";
 
-describe("Workbench — окно без воркспейса", () => {
+describe("Workbench — window without a workspace", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let terminalOptions: ITerminalSessionOptions[];
@@ -51,7 +51,7 @@ describe("Workbench — окно без воркспейса", () => {
         ws.dispose();
     });
 
-    it("сайдбар собран и показывает Explorer с welcome вместо дерева", () => {
+    it("the sidebar is built and shows Explorer with a welcome view instead of the tree", () => {
         expect(h.container.get(SidebarServiceDIToken).getActiveViewletId()).toBe(EXPLORER_VIEWLET_ID);
         const shown = screen();
         expect(shown).toContain("EXPLORER");
@@ -59,7 +59,7 @@ describe("Workbench — окно без воркспейса", () => {
         expect(shown).toContain("[ Open Folder ]");
     });
 
-    it("кнопка welcome ведёт в ту же команду Open Folder, что и бинд", () => {
+    it("the welcome button leads to the same Open Folder command as the keybinding", () => {
         const button = welcomeButton();
         const ran: string[] = [];
         // Stub the command itself: the test covers the "button → command" route, not
@@ -73,13 +73,13 @@ describe("Workbench — окно без воркспейса", () => {
         expect(ran).toEqual(["openFolder"]);
     });
 
-    it("фокус Explorer'а в пустом окне стоит на кнопке welcome — выход одним Enter'ом", () => {
+    it("Explorer focus in an empty window sits on the welcome button — one Enter to get out", () => {
         h.commands.execute("workbench.view.explorer");
 
         expect(h.testApp.focusedElement).toBe(welcomeButton());
     });
 
-    it("Search без папки не делает вид, что ищет, — честное пустое состояние", () => {
+    it("Search without a folder does not pretend to search — an honest empty state", () => {
         h.commands.execute("workbench.view.search");
         const shown = screen();
         expect(shown).toContain("SEARCH");
@@ -87,14 +87,14 @@ describe("Workbench — окно без воркспейса", () => {
         expect(shown).toContain("[ Open Folder ]");
     });
 
-    it("Source Control без папки тоже говорит, чего не хватает", () => {
+    it("Source Control without a folder also says what is missing", () => {
         h.commands.execute("workbench.view.scm");
         const shown = screen();
         expect(shown).toContain("To use source control, open a");
         expect(shown).toContain("[ Open Folder ]");
     });
 
-    it("GRAPH без папки — подсказка вместо пустой истории, и без второй кнопки", () => {
+    it("GRAPH without a folder — a hint instead of an empty history, and no second button", () => {
         h.commands.execute("workbench.view.scm");
         // The section is collapsed by default; its body is hidden until expanded.
         const paneView = h.testApp.querySelector("#viewContainer-scm") as PaneViewElement;
@@ -105,7 +105,7 @@ describe("Workbench — окно без воркспейса", () => {
         expect(shown.split("[ Open Folder ]")).toHaveLength(2);
     });
 
-    it("остальные вьюлеты тоже на месте — магазин открывается без папки", () => {
+    it("the other viewlets are in place too — the marketplace opens without a folder", () => {
         h.commands.execute("workbench.view.extensions");
         expect(h.container.get(SidebarServiceDIToken).getActiveViewletId()).toBe(EXTENSIONS_VIEWLET_ID);
         const shown = screen();
@@ -113,14 +113,14 @@ describe("Workbench — окно без воркспейса", () => {
         expect(shown).toContain("Search Extensions");
     });
 
-    it("не открывает ни одного редактора", () => {
+    it("opens no editors", () => {
         expect(h.container.get(SidebarServiceDIToken).getActiveViewletId()).not.toBeNull();
         expect(h.testApp.querySelectorAll("TreeViewElement")).toHaveLength(0);
     });
 
     // Deliberately without `activate()`: Open Folder does not call it, and `TreeViewElement` loads
     // nodes only via refresh(); without the refresh in setWorkspaceFolder the tree is empty.
-    it("Open Folder из пустого окна наполняет дерево, а не просто убирает подсказку", async () => {
+    it("Open Folder from an empty window populates the tree, not just removes the hint", async () => {
         h.workbench.setWorkspaceFolder(ws.dir);
         await h.workbench.fileIndexReady;
         await vi.waitFor(() => {
@@ -132,7 +132,7 @@ describe("Workbench — окно без воркспейса", () => {
         expect(shown).not.toContain("You have not yet opened a");
     });
 
-    it("Open Folder расклеивает и Search с Source Control — их welcome уходит", () => {
+    it("Open Folder also unlocks Search and Source Control — their welcome goes away", () => {
         h.workbench.setWorkspaceFolder(ws.dir);
 
         h.commands.execute("workbench.view.search");
@@ -142,7 +142,7 @@ describe("Workbench — окно без воркспейса", () => {
     });
 
     // Producer test for `terminalService.setWorkingDirectory` in setWorkspaceFolder.
-    it("новые терминалы поднимаются в открытой папке, а не в cwd процесса", () => {
+    it("new terminals start in the opened folder, not in the process cwd", () => {
         const terminals = h.container.get(TerminalServiceDIToken);
         terminals.newTerminal();
         expect(terminalOptions.at(-1)?.cwd).toBe(process.cwd());

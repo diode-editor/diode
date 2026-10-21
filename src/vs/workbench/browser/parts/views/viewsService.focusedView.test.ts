@@ -26,26 +26,26 @@ function scene() {
     return { h, first: first.body!, popup, keys, body };
 }
 
-describe("ViewsService — вид с фокусом (focusedView)", () => {
-    it("фокус в теле секции — её id", () => {
+describe("ViewsService — focused view (focusedView)", () => {
+    it("focus in a section body yields its id", () => {
         const { h, first } = scene();
         expect(h.service.getFocusedViewId(first)).toBe("first");
     });
 
-    it("фокус в пустом состоянии секции — тоже её id", () => {
+    it("focus in a section's empty state also yields its id", () => {
         const { h } = scene();
         const placeholder = h.paneView(PANEL).querySelector("#viewPlaceholder-second")!;
         expect(h.service.getFocusedViewId(placeholder)).toBe("second");
     });
 
-    it("фокус вне видов и без фокуса — null", () => {
+    it("focus outside views and no focus yield null", () => {
         const { h, body } = scene();
         expect(h.service.getFocusedViewId(body)).toBeNull();
         expect(h.service.getFocusedViewId(null)).toBeNull();
         expect(h.service.getFocusedViewId(new TUIElement())).toBeNull();
     });
 
-    it("ключ: вид → его id; уход в другую часть окна — пусто", () => {
+    it("context key: view → its id; moving to another part of the window clears it", () => {
         const { h, first, body, keys } = scene();
         h.service.updateContextKeys(keys, first);
         expect(keys.get("focusedView")).toBe("first");
@@ -53,7 +53,7 @@ describe("ViewsService — вид с фокусом (focusedView)", () => {
         expect(keys.get("focusedView")).toBe("");
     });
 
-    it("фокус в оверлее (палитра) и промежуточный null ключ не сбрасывают", () => {
+    it("focus in an overlay (palette) and a transient null do not reset the key", () => {
         const { h, first, popup, keys } = scene();
         h.service.updateContextKeys(keys, first);
         h.service.updateContextKeys(keys, null);

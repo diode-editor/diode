@@ -21,8 +21,8 @@ function setup(): { service: SidebarService; layout: { visible: boolean } } {
     return { service, layout };
 }
 
-describe("SidebarService — вьюлет на экране", () => {
-    it("isViewletVisible: активен и сайдбар виден", () => {
+describe("SidebarService — viewlet on screen", () => {
+    it("isViewletVisible: active and the sidebar is visible", () => {
         const { service, layout } = setup();
         expect(service.isViewletVisible("a")).toBe(true);
         expect(service.isViewletVisible("b")).toBe(false);
@@ -30,7 +30,7 @@ describe("SidebarService — вьюлет на экране", () => {
         expect(service.isViewletVisible("a")).toBe(false);
     });
 
-    it("hideViewlet прячет сайдбар только для активного вьюлета", () => {
+    it("hideViewlet hides the sidebar only for the active viewlet", () => {
         const { service, layout } = setup();
         service.hideViewlet("b");
         expect(layout.visible).toBe(true);
@@ -38,7 +38,7 @@ describe("SidebarService — вьюлет на экране", () => {
         expect(layout.visible).toBe(false);
     });
 
-    it("hideViewlet скрытого сайдбара не показывает", () => {
+    it("hideViewlet does not show a hidden sidebar", () => {
         const { service, layout } = setup();
         layout.visible = false;
         service.hideViewlet("a");

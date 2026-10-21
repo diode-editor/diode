@@ -12,8 +12,8 @@ import { WORKBENCH_ACTIONS } from "../../workbench.common.main.ts";
 
 const SLICE_URL = new URL("./builtinActions.palette.slice.json", import.meta.url);
 
-describe("срез порядка палитры команд", () => {
-    it("встроенные команды регистрируются в эталонном порядке", () => {
+describe("command palette order slice", () => {
+    it("built-in commands register in upstream order", () => {
         const current = WORKBENCH_ACTIONS.map((action) => action.id);
         if (process.env.UPDATE_SLICE === "1") writeFileSync(SLICE_URL, `${JSON.stringify(current, null, 4)}\n`);
         const reference = JSON.parse(readFileSync(SLICE_URL, "utf8")) as string[];

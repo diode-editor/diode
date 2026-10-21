@@ -74,20 +74,20 @@ describe("Workbench — Output panel", () => {
         return h.container.get(OutputServiceDIToken);
     }
 
-    it("регистрирует вкладку OUTPUT между PROBLEMS и TERMINAL", () => {
+    it("registers the OUTPUT tab between PROBLEMS and TERMINAL", () => {
         const panel = h.workbench.workbenchLayout.getBottomPanel();
         expect(panel).not.toBeNull();
         h.commands.execute(TOGGLE_OUTPUT);
         expect(frame()).toContain("OUTPUT");
     });
 
-    it("показывает записи активного канала в кадре", () => {
+    it("shows the active channel's entries in the frame", () => {
         h.commands.execute(TOGGLE_OUTPUT);
 
         expect(frame()).toContain("diode starting");
     });
 
-    it("смена канала перерисовывает содержимое", () => {
+    it("switching the channel repaints the content", () => {
         h.commands.execute(TOGGLE_OUTPUT);
         expect(frame()).toContain("diode starting");
 
@@ -98,7 +98,7 @@ describe("Workbench — Output panel", () => {
         expect(text).not.toContain("diode starting");
     });
 
-    it("живой хвост дописывает строку без переоткрытия вкладки", () => {
+    it("the live tail appends a line without reopening the tab", () => {
         h.commands.execute(TOGGLE_OUTPUT);
 
         logService.createLogger("bootstrap").info("extension host started");
@@ -106,7 +106,7 @@ describe("Workbench — Output panel", () => {
         expect(frame()).toContain("extension host started");
     });
 
-    it("запись в неактивный канал в кадр не попадает", () => {
+    it("an entry in an inactive channel does not reach the frame", () => {
         h.commands.execute(TOGGLE_OUTPUT);
 
         logService.createLogger("configuration").info("not shown");
@@ -114,12 +114,12 @@ describe("Workbench — Output panel", () => {
         expect(frame()).not.toContain("not shown");
     });
 
-    it("уровень записи оформлен скобками — под грамматику log", () => {
+    it("the entry level is bracketed to match the log grammar", () => {
         h.commands.execute(TOGGLE_OUTPUT);
         expect(frame()).toContain("[info] diode starting");
     });
 
-    it("записи до открытия вкладки не теряются — при открытии они уже в кадре", () => {
+    it("entries written before the tab opens are not lost: they are in the frame on open", () => {
         // The editor is created lazily, so a tail that arrived earlier must come
         // from history instead of getting lost between the service and the editor.
         logService.createLogger("bootstrap").info("before opening");
@@ -129,7 +129,7 @@ describe("Workbench — Output panel", () => {
         expect(frame()).toContain("before opening");
     });
 
-    it("повторное открытие вкладки не задваивает содержимое", () => {
+    it("reopening the tab does not duplicate the content", () => {
         h.commands.execute(TOGGLE_OUTPUT);
         h.commands.execute(TOGGLE_OUTPUT);
         h.commands.execute(TOGGLE_OUTPUT);
@@ -138,7 +138,7 @@ describe("Workbench — Output panel", () => {
         expect(occurrences).toBe(1);
     });
 
-    it("клик по вкладке OUTPUT наполняет её, а не только команда", () => {
+    it("clicking the OUTPUT tab fills it, not only the command", () => {
         // A tab click goes through `activateView`, the toggle command through `setActiveView`
         // without an activation event: without an activateView subscription the tab would be empty.
         const panelService = h.container.get(PanelServiceDIToken);
@@ -149,7 +149,7 @@ describe("Workbench — Output panel", () => {
         expect(frame()).toContain("diode starting");
     });
 
-    it("reveal контейнера панели наполняет вкладку (шов focus дескриптора)", () => {
+    it("revealing the panel container fills the tab (descriptor focus seam)", () => {
         const outputTab = (): TUIElement =>
             h.container
                 .get(PanelServiceDIToken)
@@ -163,7 +163,7 @@ describe("Workbench — Output panel", () => {
         expect(outputTab().querySelector(placeholder)).toBeNull();
     });
 
-    it("фон лога — фон панели, а не редактора", () => {
+    it("the log background is the panel background, not the editor's", () => {
         // editor.background stood out as a rectangle inside the panel (Dark+: #181818 vs #1E1E1E).
         const theme = h.container.get(ThemeServiceDIToken).theme;
         const panelBg = theme.getRequiredColor("panel.background");
@@ -179,7 +179,7 @@ describe("Workbench — Output panel", () => {
         expect(h.testApp.backend.getBgAt(new Point(origin.x, origin.y + editor.layoutSize.height - 1))).toBe(panelBg);
     });
 
-    it("активация соседней вкладки панели Output не трогает", () => {
+    it("activating a sibling panel tab does not touch Output", () => {
         h.commands.execute(TOGGLE_OUTPUT);
         const panelService = h.container.get(PanelServiceDIToken);
 
@@ -189,7 +189,7 @@ describe("Workbench — Output panel", () => {
     });
 });
 
-describe("Workbench — Output: селектор канала", () => {
+describe("Workbench: Output channel selector", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -222,12 +222,12 @@ describe("Workbench — Output: селектор канала", () => {
         return h.testApp.backend.screenToString();
     }
 
-    it("подпись селектора — label активного канала, а не сырой id", () => {
+    it("the selector caption is the active channel's label, not the raw id", () => {
         expect(frame()).toContain("Bootstrap");
         expect(frame()).not.toContain("PROBLEMS  OUTPUT  TERMINAL   bootstrap");
     });
 
-    it("селектор в шапке не дублируется кнопкой «⋯» с тем же списком", () => {
+    it("the header selector is not duplicated by a ⋯ button with the same list", () => {
         // No "⋯" button: its only item duplicated the selector; in VS Code a submenu
         // with `isSelection` renders as a SelectBox and stays out of the overflow.
         const tabRow = frame()
@@ -237,7 +237,7 @@ describe("Workbench — Output: селектор канала", () => {
         expect(tabRow).not.toContain("⋯");
     });
 
-    it("подпись идёт за сменой канала", () => {
+    it("the caption follows the channel switch", () => {
         h.container.get(OutputServiceDIToken).showChannel("configuration");
 
         const text = frame();
@@ -245,7 +245,7 @@ describe("Workbench — Output: селектор канала", () => {
         expect(text).toContain("empty settings");
     });
 
-    it("канал зарегистрирован как команда — её видно и в палитре", () => {
+    it("a channel is registered as a command, visible in the command palette too", () => {
         // The channel is registered after the panel comes up (the extension host starts later) —
         // the label must still reach both the selector and the command palette.
         h.container.get(ILogServiceDIToken).createLogger("extensions.host", { label: "Extension Host" });
@@ -253,14 +253,14 @@ describe("Workbench — Output: селектор канала", () => {
         expect(titles).toContain("Output: Show Extension Host");
     });
 
-    it("команда канала переключает активный канал", () => {
+    it("the channel command switches the active channel", () => {
         h.commands.execute("workbench.action.output.show.configuration");
 
         expect(h.container.get(OutputServiceDIToken).getActiveChannelId()).toBe("configuration");
         expect(frame()).toContain("Configuration");
     });
 
-    it("активный канал помечен в submenu — на нём держится подпись селектора", () => {
+    it("the active channel is checked in the submenu; the selector caption relies on it", () => {
         const menu = h.container.get(MenuServiceDIToken).createMenu(SwitchOutputMenu);
         const marked = () =>
             menu
@@ -276,7 +276,7 @@ describe("Workbench — Output: селектор канала", () => {
         menu.dispose();
     });
 
-    it("выбор в селекторе переключает канал — через ту же команду", () => {
+    it("picking in the selector switches the channel through the same command", () => {
         // Selection runs `workbench.action.output.show.<id>` instead of calling the service:
         // mouse and command palette share one route.
         const selector = h.testApp.querySelector("SelectBoxElement") as SelectBoxElement | null;
@@ -291,7 +291,7 @@ describe("Workbench — Output: селектор канала", () => {
         expect(frame()).toContain("empty settings");
     });
 
-    it("канал, появившийся в рантайме, доезжает до селектора", () => {
+    it("a channel added at runtime reaches the selector", () => {
         const logService = h.container.get(ILogServiceDIToken);
         logService.createLogger("brand.new").info("hi");
 
@@ -301,7 +301,7 @@ describe("Workbench — Output: селектор канала", () => {
         menu.dispose();
     });
 
-    it("повторное появление канала не двоит пункт селектора", () => {
+    it("a channel added again does not duplicate the selector item", () => {
         // A channel arrives both from the registry and from the live stream — registration is idempotent.
         const logService = h.container.get(ILogServiceDIToken);
         logService.createLogger("brand.new").info("one");
@@ -315,7 +315,7 @@ describe("Workbench — Output: селектор канала", () => {
 });
 
 /** Regressions from the black-box run of PR #197: each case reproduces a report. */
-describe("Workbench — Output: регрессии", () => {
+describe("Workbench: Output regressions", () => {
     let ws: ITempWorkspace;
     let userData: ITempWorkspace;
     let h: IAppHarness;
@@ -371,7 +371,7 @@ describe("Workbench — Output: регрессии", () => {
         return pane!;
     }
 
-    it("BUG-1: смена канала не теряет фокус", () => {
+    it("BUG-1: switching the channel keeps focus", () => {
         // `replaceOwnedContent` rebuilds the `EditorElement`; the old one left the tree
         // along with focus, and keystrokes went nowhere.
         outputPane();
@@ -389,7 +389,7 @@ describe("Workbench — Output: регрессии", () => {
         expect(pane!.viewState.selections[0].active.line).not.toBe(before);
     });
 
-    it("BUG-2: read-only с панели Output снять нельзя", () => {
+    it("BUG-2: read-only cannot be removed from the Output panel", () => {
         const pane = outputPane();
         const before = pane.getText();
 
@@ -400,7 +400,7 @@ describe("Workbench — Output: регрессии", () => {
         expect(pane.getText()).toBe(before);
     });
 
-    it("BUG-2: у обычной вкладки read-only по-прежнему переключается", () => {
+    it("BUG-2: read-only still toggles on a regular tab", () => {
         // Control: the guard must not block the command where it is actually needed.
         h.workbench.focusEditor();
 
@@ -409,7 +409,7 @@ describe("Workbench — Output: регрессии", () => {
         expect(h.container.get(EditorServiceDIToken).getEditors()[0].readOnly).toBe(true);
     });
 
-    it("BUG-2: расширение видит вкладку, а не панель Output", () => {
+    it("BUG-2: the extension sees the tab, not the Output panel", () => {
         outputPane();
 
         const adapter = new EditorOptionsServiceAdapter(
@@ -421,7 +421,7 @@ describe("Workbench — Output: регрессии", () => {
         expect(adapter.getActiveEditorMeta().uri).toBe(Uri.file(ws.path("alpha.txt")).toString());
     });
 
-    it("BUG-3: живой хвост не схлопывает выделение", () => {
+    it("BUG-3: the live tail does not collapse the selection", () => {
         const pane = outputPane();
         pane.viewState.selections = [createSelection(0, 0, 0, 5)];
         const selected = pane.viewState.getSelectedText();
@@ -432,7 +432,7 @@ describe("Workbench — Output: регрессии", () => {
         expect(pane.viewState.getSelectedText()).toBe(selected);
     });
 
-    it("BUG-3: хвост не утаскивает вьюпорт, пока читают старые строки", () => {
+    it("BUG-3: the tail does not drag the viewport while older lines are being read", () => {
         const pane = outputPane();
         for (let i = 0; i < 50; i++) logService.createLogger("bootstrap").info(`line ${String(i)}`);
         pane.goToPosition(0, 0);
@@ -442,7 +442,7 @@ describe("Workbench — Output: регрессии", () => {
         expect(pane.viewState.selections[0].active.line).toBe(0);
     });
 
-    it("BUG-3: у конца документа автоскролл продолжает работать", () => {
+    it("BUG-3: auto-scroll keeps working at the end of the document", () => {
         // Control: the guard must not kill autoscroll itself.
         const pane = outputPane();
         const before = pane.viewState.selections[0].active.line;
@@ -452,7 +452,7 @@ describe("Workbench — Output: регрессии", () => {
         expect(pane.viewState.selections[0].active.line).toBeGreaterThan(before);
     });
 
-    it("BUG-4: Ctrl+F при фокусе в Output ищет по логу, а не по файлу за панелью", () => {
+    it("BUG-4: Ctrl+F with focus in Output searches the log, not the file behind the panel", () => {
         // `diode starting` exists only in the log, `Alpha` only in the file.
         outputPane();
         const find = h.container.get(FindComponentDIToken);
@@ -467,7 +467,7 @@ describe("Workbench — Output: регрессии", () => {
         expect(h.testApp.backend.screenToString()).not.toContain("No results");
     });
 
-    it("BUG-6: после восстановления сессии вкладка сразу наполнена", () => {
+    it("BUG-6: after session restore the tab is filled right away", () => {
         // The panel stayed open on OUTPUT — on the next launch there is no activation
         // event, so the content must load by itself.
         const state1 = newState();
@@ -490,7 +490,7 @@ describe("Workbench — Output: регрессии", () => {
  * Focus-aware `getActiveEditor()` hands the detached panel to everyone, and
  * consumers with tab semantics break on it in different ways.
  */
-describe("Workbench — Output: потребители, которым нужна вкладка", () => {
+describe("Workbench: Output consumers that need the tab", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let logService: LogService;
@@ -521,7 +521,7 @@ describe("Workbench — Output: потребители, которым нужн�
         ws.dispose();
     });
 
-    it("живая запись в Output не гасит область редактора", () => {
+    it("a live write to Output does not blank the editor area", () => {
         // The tail fires onDidChangeEditors → the group re-inserted content from the
         // focus-aware active editor and swapped in Output instead of the file:
         // the whole center of the screen went blank.
@@ -534,7 +534,7 @@ describe("Workbench — Output: потребители, которым нужн�
         expect(h.testApp.backend.screenToString()).toContain("AAAA");
     });
 
-    it("Ctrl+W при фокусе в Output спрашивает про несохранённую вкладку", async () => {
+    it("Ctrl+W with focus in Output asks about the unsaved tab", async () => {
         // dirty was asked of the focus-aware active editor — Output is never
         // modified, so a modified tab would close silently.
         const editorService = h.container.get(EditorServiceDIToken);
@@ -549,7 +549,7 @@ describe("Workbench — Output: потребители, которым нужн�
         expect(editorService.editorGroups.activeGroup.editorCount).toBe(1);
     });
 
-    it("Ctrl+S при фокусе в Output сохраняет вкладку, а не уводит в Save As", async () => {
+    it("Ctrl+S with focus in Output saves the tab instead of going to Save As", async () => {
         const tab = h.container.get(EditorServiceDIToken).getEditors()[0];
         tab.viewState.type("X");
 
@@ -560,7 +560,7 @@ describe("Workbench — Output: потребители, которым нужн�
         });
     });
 
-    it("персист активной вкладки переживает фокус в панели", () => {
+    it("persisting the active tab survives focus in the panel", () => {
         const stateService = h.container.get(WorkbenchStateServiceDIToken);
 
         stateService.captureOpenEditors();
@@ -571,8 +571,8 @@ describe("Workbench — Output: потребители, которым нужн�
     });
 });
 
-describe("Workbench — Output: пустые каналы", () => {
-    it("канал без записей открывается пустым редактором, а не падением", () => {
+describe("Workbench: Output empty channels", () => {
+    it("a channel without entries opens as an empty editor instead of crashing", () => {
         // As in VS Code: a labeled channel is visible from logger creation, even when empty.
         const ws = createTempWorkspace({ prefix: "diode-output-empty-" });
         const logService = new LogService();
@@ -594,7 +594,7 @@ describe("Workbench — Output: пустые каналы", () => {
         ws.dispose();
     });
 
-    it("с пустым реестром вкладка показывает placeholder", () => {
+    it("with an empty registry the tab shows a placeholder", () => {
         // The "no active channel at all" branch: unreachable in the app, because
         // bootstrap registers labeled channels before the UI comes up, but the component contract
         // must hold it — otherwise an empty registry would yield an editor without a channel.
@@ -618,7 +618,7 @@ describe("Workbench — Output: пустые каналы", () => {
     });
 });
 
-describe("Workbench — Output: редактор вне таб-строки", () => {
+describe("Workbench: Output editor outside the tab strip", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -644,7 +644,7 @@ describe("Workbench — Output: редактор вне таб-строки", ()
         ws.dispose();
     });
 
-    it("Output не появляется во вкладках редакторов", () => {
+    it("Output does not appear among editor tabs", () => {
         h.commands.execute(TOGGLE_OUTPUT);
 
         const editorService = h.container.get(EditorServiceDIToken);
@@ -652,7 +652,7 @@ describe("Workbench — Output: редактор вне таб-строки", ()
         expect(editorService.getEditors()[0].fileName).toBe("alpha.txt");
     });
 
-    it("пока фокус в Output, активный редактор — он, а не файл за панелью", () => {
+    it("while focus is in Output, it is the active editor, not the file behind the panel", () => {
         // Otherwise arrows and Ctrl+F in the panel would edit / move the cursor in the file.
         const editorService = h.container.get(EditorServiceDIToken);
         h.commands.execute(TOGGLE_OUTPUT);
@@ -662,7 +662,7 @@ describe("Workbench — Output: редактор вне таб-строки", ()
         expect(active?.uri.scheme).toBe("output");
     });
 
-    it("Output read-only: набор в него не проходит", () => {
+    it("Output is read-only: typing into it does nothing", () => {
         const editorService = h.container.get(EditorServiceDIToken);
         h.commands.execute(TOGGLE_OUTPUT);
         const active = editorService.getActiveEditor();
@@ -673,7 +673,7 @@ describe("Workbench — Output: редактор вне таб-строки", ()
         expect(active?.getText()).toBe(before);
     });
 
-    it("скрытие панели уводит фокус во вкладку, а не обратно в Output", () => {
+    it("hiding the panel moves focus to the tab, not back to Output", () => {
         // `PanelFocusContribution` calls `focusEditor()`; if it went through the focus-aware
         // getActiveEditor, focus would return to the hidden panel.
         const editorService = h.container.get(EditorServiceDIToken);
@@ -690,7 +690,7 @@ describe("Workbench — Output: редактор вне таб-строки", ()
         expect(focused!.getAncestorPath()).toContain(tabEditor.view);
     });
 
-    it("после ухода фокуса из панели активным снова становится файл", () => {
+    it("after focus leaves the panel the file becomes active again", () => {
         const editorService = h.container.get(EditorServiceDIToken);
         h.commands.execute(TOGGLE_OUTPUT);
         expect(editorService.getActiveEditor()?.uri.scheme).toBe("output");

@@ -20,7 +20,7 @@ import { TextFileModel } from "../../../services/textfile/common/textFileModel.t
 
 import { EditorComponent } from "./editorComponent.ts";
 
-describe("EditorComponent: авто-закрытие из language configuration", () => {
+describe("EditorComponent: auto-closing from the language configuration", () => {
     let ws: ITempWorkspace;
 
     const TS_LIKE: IResolvedLanguageConfiguration = {
@@ -68,7 +68,7 @@ describe("EditorComponent: авто-закрытие из language configuration
         component.view.getChild().dispatchEvent(new TUIKeyboardEvent("keypress", { key }));
     }
 
-    it("скобка в ts-файле закрывается парой из конфигурации языка", () => {
+    it("a bracket in a ts file is closed with the pair from the language configuration", () => {
         const { service, warmed } = stubService({ typescript: TS_LIKE });
         const { model, component } = createComponent("a.ts", "", service);
 
@@ -77,7 +77,7 @@ describe("EditorComponent: авто-закрытие из language configuration
         expect(model.document.getText()).toBe("{}");
     });
 
-    it("язык без конфигурации набирает скобку как обычный символ", () => {
+    it("a language without a configuration types the bracket as a plain character", () => {
         const { service } = stubService({});
         const { model, component } = createComponent("a.txt", "", service);
 
@@ -85,7 +85,7 @@ describe("EditorComponent: авто-закрытие из language configuration
         expect(model.document.getText()).toBe("{");
     });
 
-    it("после перечитки файла с диска авто-закрытие продолжает работать", () => {
+    it("auto-closing keeps working after a file reload from disk", () => {
         // A reload recreates the document, the view state and the EditorElement itself —
         // the configuration source must move to the new widget along with them.
         const { service } = stubService({ typescript: TS_LIKE });
@@ -97,7 +97,7 @@ describe("EditorComponent: авто-закрытие из language configuration
         expect(model.document.getText()).toBe("{}");
     });
 
-    it("смена языка греет конфигурацию нового языка и меняет поведение набора", () => {
+    it("a language change warms up the new language's configuration and changes typing behavior", () => {
         const { service, warmed } = stubService({ typescript: TS_LIKE });
         const { model, component } = createComponent("a.txt", "", service);
 

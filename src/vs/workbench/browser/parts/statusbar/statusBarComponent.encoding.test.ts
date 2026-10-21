@@ -32,19 +32,19 @@ describe("StatusBarComponent — encoding & EOL segments", () => {
         process.env = savedEnv;
     });
 
-    it("без активного редактора сегментов Encoding/EOL нет", () => {
+    it("no Encoding/EOL segments without an active editor", () => {
         const { component } = createStatusBarHarness();
         expect(itemTexts(component)).toEqual(["legacy"]);
     });
 
-    it("порядок правых сегментов как в VS Code: Ln/Col · Encoding · EOL · Language", () => {
+    it("right segment order as in VS Code: Ln/Col · Encoding · EOL · Language", () => {
         const { component, source } = createStatusBarHarness();
         source.openEditor();
 
         expect(itemTexts(component)).toEqual(["legacy", "Ln 1, Col 1", "Tab Size: 4", "UTF-8", "LF", "plaintext"]);
     });
 
-    it("сегмент кодировки показывает statusLabel и трекает setEncoding без ручного обновления", () => {
+    it("the encoding segment shows statusLabel and tracks setEncoding without a manual update", () => {
         const { component, source } = createStatusBarHarness();
         const editor = source.openEditor();
 
@@ -53,7 +53,7 @@ describe("StatusBarComponent — encoding & EOL segments", () => {
         expect(itemTexts(component)).toContain("Windows 1251");
     });
 
-    it("сегмент EOL трекает setEol без ручного обновления", () => {
+    it("the EOL segment tracks setEol without a manual update", () => {
         const { component, source } = createStatusBarHarness();
         const editor = source.openEditor();
 
@@ -63,7 +63,7 @@ describe("StatusBarComponent — encoding & EOL segments", () => {
         expect(itemTexts(component)).not.toContain("LF");
     });
 
-    it("клик по сегментам исполняет команды changeEncoding / changeEOL", () => {
+    it("clicking the segments runs the changeEncoding / changeEOL commands", () => {
         const { component, source, commands } = createStatusBarHarness();
         source.openEditor();
 
@@ -77,7 +77,7 @@ describe("StatusBarComponent — encoding & EOL segments", () => {
         expect(executed).toEqual(["enc", "eol"]);
     });
 
-    it("переподписывается при смене активного редактора", () => {
+    it("resubscribes when the active editor changes", () => {
         const { component, source } = createStatusBarHarness();
         const firstEditor = source.openEditor();
         source.openEditor();

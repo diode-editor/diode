@@ -91,7 +91,7 @@ interface Harness {
 function menuItems(app: TestApp): (string | null)[] {
     const menu = app.querySelector("PopupMenuElement");
     const state = menu?.inspectState();
-    if (state === undefined) throw new Error("контекстное меню не открыто");
+    if (state === undefined) throw new Error("context menu is not open");
     return state.items as (string | null)[];
 }
 
@@ -168,7 +168,7 @@ function createHarness(): Harness {
     };
 }
 
-describe("EditorGroupComponent — контекстное меню вкладки", () => {
+describe("EditorGroupComponent — tab context menu", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -196,7 +196,7 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         harness.app.render();
     }
 
-    it("правый клик по вкладке открывает меню и НЕ делает её активной", () => {
+    it("right click on a tab opens the menu and does NOT activate it", () => {
         const harness = createHarness();
         openFiles(harness, "a.ts", "b.ts", "c.ts");
         expect(harness.activeIndex()).toBe(2);
@@ -207,7 +207,7 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         expect(harness.activeIndex()).toBe(2);
     });
 
-    it("правый клик по крестику вкладку не закрывает — только открывает меню", () => {
+    it("right click on the close button does not close the tab — only opens the menu", () => {
         const harness = createHarness();
         openFiles(harness, "a.ts", "b.ts");
 
@@ -217,7 +217,7 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         expect(isMenuOpen(harness.app)).toBe(true);
     });
 
-    it("левый клик по тому же крестику вкладку закрывает (контроль)", () => {
+    it("left click on the same close button closes the tab (control)", () => {
         const harness = createHarness();
         openFiles(harness, "a.ts", "b.ts");
 
@@ -227,7 +227,7 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         expect(isMenuOpen(harness.app)).toBe(false);
     });
 
-    it("состав меню на средней вкладке — полный, с разделителями по группам", () => {
+    it("menu on a middle tab is complete, with separators between groups", () => {
         const harness = createHarness();
         openFiles(harness, "a.ts", "b.ts", "c.ts");
 
@@ -250,7 +250,7 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         ]);
     });
 
-    it("на последней вкладке нет «Close to the Right»", () => {
+    it("the last tab has no 'Close to the Right'", () => {
         const harness = createHarness();
         openFiles(harness, "a.ts", "b.ts");
 
@@ -260,7 +260,7 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         expect(menuItems(harness.app)).toContain("Close Others");
     });
 
-    it("у единственной вкладки нет ни «Close Others», ни «Close to the Right»", () => {
+    it("a single tab has neither 'Close Others' nor 'Close to the Right'", () => {
         const harness = createHarness();
         openFiles(harness, "a.ts");
 
@@ -272,7 +272,7 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         expect(items).toContain("Close");
     });
 
-    it("у безымянного буфера нет файловых пунктов", () => {
+    it("an untitled buffer has no file items", () => {
         const harness = createHarness();
         harness.service.newUntitled();
         harness.app.render();
@@ -285,7 +285,7 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         expect(items).not.toContain("Reveal in Explorer View");
     });
 
-    it("у вкладки диффа тоже нет файловых пунктов — пути у неё нет", () => {
+    it("a diff tab has no file items either — it has no path", () => {
         const harness = createHarness();
         const diff = new DiffEditorPane2(
             NULL_LANGUAGE_SERVICE,
@@ -314,11 +314,11 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         expect(items).toContain("Close");
     });
 
-    it("«Close Saved» виден, когда изменена только часть вкладок", () => {
+    it("'Close Saved' is shown when only some tabs are modified", () => {
         const harness = createHarness();
         openFiles(harness, "a.ts", "b.ts", "c.ts");
         const pane = harness.service.getActiveEditor();
-        if (pane === null) throw new Error("вкладка не открылась");
+        if (pane === null) throw new Error("tab did not open");
         pane.pushUndo(pane.viewState.type("dirty"));
         harness.app.render();
 
@@ -330,11 +330,11 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         expect(menuItems(harness.app)).toContain("Close Saved");
     });
 
-    it("«Close Saved» прячется, когда все вкладки изменены", () => {
+    it("'Close Saved' is hidden when all tabs are modified", () => {
         const harness = createHarness();
         openFiles(harness, "a.ts");
         const pane = harness.service.getActiveEditor();
-        if (pane === null) throw new Error("вкладка не открылась");
+        if (pane === null) throw new Error("tab did not open");
         pane.pushUndo(pane.viewState.type("dirty"));
         harness.app.render();
 
@@ -343,7 +343,7 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         expect(menuItems(harness.app)).not.toContain("Close Saved");
     });
 
-    it("«Keep Open» виден у вкладки-предпросмотра", () => {
+    it("'Keep Open' is shown on a preview tab", () => {
         const harness = createHarness();
         openPreview(harness, "a.ts");
 
@@ -352,7 +352,7 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         expect(menuItems(harness.app)).toContain("Keep Open");
     });
 
-    it("«Keep Open» прячется у приколотой вкладки — прикалывать нечего", () => {
+    it("'Keep Open' is hidden on a pinned tab — nothing to pin", () => {
         const harness = createHarness();
         openFiles(harness, "a.ts");
 
@@ -361,7 +361,7 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         expect(menuItems(harness.app)).not.toContain("Keep Open");
     });
 
-    it("«Keep Open» решается по вкладке под курсором, а не по активной", () => {
+    it("'Keep Open' depends on the tab under the mouse, not the active one", () => {
         const harness = createHarness();
         openFiles(harness, "a.ts");
         openPreview(harness, "b.ts");

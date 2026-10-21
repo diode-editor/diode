@@ -39,7 +39,7 @@ export default defineScenario({
         await editor.capture("question");
 
         await editor.sendKey("F6");
-        await editor.waitForText((t) => t.includes("Enter — выбрать"));
+        await editor.waitForText((t) => t.includes("Enter — choose"));
         await editor.capture("question-focused");
 
         await editor.sendKey("ArrowRight");

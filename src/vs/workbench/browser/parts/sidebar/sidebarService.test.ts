@@ -27,7 +27,7 @@ const viewA = { id: "a" } as unknown as TUIElement;
 const viewB = { id: "b" } as unknown as TUIElement;
 
 describe("SidebarService", () => {
-    it("showViewlet подменяет контент, раскрывает сайдбар и фокусирует вьюлет", () => {
+    it("showViewlet swaps the content, reveals the sidebar and focuses the viewlet", () => {
         const { layout, content, visibleCalls } = fakeLayout();
         const service = new SidebarService(layout);
         const focus = vi.fn();
@@ -41,7 +41,7 @@ describe("SidebarService", () => {
         expect(service.getActiveViewletId()).toBe("explorer");
     });
 
-    it("reveal=false ставит контент, но не трогает видимость и фокус (стартовая установка)", () => {
+    it("reveal=false sets the content but leaves visibility and focus alone (startup setup)", () => {
         const { layout, content, visibleCalls } = fakeLayout();
         const service = new SidebarService(layout);
         const focus = vi.fn();
@@ -55,7 +55,7 @@ describe("SidebarService", () => {
         expect(service.getActiveViewletId()).toBe("explorer");
     });
 
-    it("переключает активный вьюлет", () => {
+    it("switches the active viewlet", () => {
         const { layout, content } = fakeLayout();
         const service = new SidebarService(layout);
         service.registerViewlet("explorer", viewA, () => undefined);
@@ -68,7 +68,7 @@ describe("SidebarService", () => {
         expect(service.getActiveViewletId()).toBe("scm");
     });
 
-    it("неизвестный id — no-op", () => {
+    it("unknown id is a no-op", () => {
         const { layout, content } = fakeLayout();
         const service = new SidebarService(layout);
 
@@ -78,7 +78,7 @@ describe("SidebarService", () => {
         expect(service.getActiveViewletId()).toBeNull();
     });
 
-    it("ключ «вьюлет показан» — истинен у активного вьюлета при видимом сайдбаре", () => {
+    it("the 'viewlet visible' key is true for the active viewlet while the sidebar is visible", () => {
         const { layout, setSidebarShown } = fakeLayout();
         const service = new SidebarService(layout);
         service.registerViewlet("explorer", viewA, () => undefined);
@@ -107,7 +107,7 @@ describe("SidebarService", () => {
         expect(set.mock.calls.map(([key]) => key)).not.toContain(undefined);
     });
 
-    it("onDidChangeActiveViewlet — только на смену активного вьюлета, и на стартовую установку тоже", () => {
+    it("onDidChangeActiveViewlet fires only on an active viewlet change, including the startup setup", () => {
         const { layout } = fakeLayout();
         const service = new SidebarService(layout);
         service.registerViewlet("explorer", viewA, vi.fn());

@@ -18,8 +18,8 @@ function collapsedMap(h: ReturnType<typeof makeViewsHarness>): Record<string, bo
     return Object.fromEntries(paneView.getPaneIds().map((id) => [id, paneView.isCollapsed(id)]));
 }
 
-describe("ViewsService: дефолт свёрнутости дескриптора", () => {
-    it("collapsed: true — секция появляется свёрнутой, соседняя развёрнута", () => {
+describe("ViewsService: descriptor default collapsed state", () => {
+    it("collapsed: true: the section appears collapsed, its neighbor expanded", () => {
         const h = makeScm();
         h.service.attachContainer("scm");
 
@@ -28,7 +28,7 @@ describe("ViewsService: дефолт свёрнутости дескриптор
         expect(h.service.isViewExpanded("scm.changes")).toBe(true);
     });
 
-    it("без collapsed секция развёрнута — дефолт дефолта не изменился", () => {
+    it("without collapsed the section is expanded: the default default is unchanged", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         h.service.registerView(view("scm.changes", "scm", 10));
@@ -38,7 +38,7 @@ describe("ViewsService: дефолт свёрнутости дескриптор
         expect(collapsedMap(h)).toEqual({ "scm.changes": false, "scm.graph": false });
     });
 
-    it("сохранённая развёрнутость ПЕРЕБИВАЕТ дефолт: развернул — осталось развёрнутым", () => {
+    it("saved expanded state OVERRIDES the default: expanded stays expanded", () => {
         const h = makeScm();
         h.stored.set(SIDEBAR_VIEWS_STATE.key, {
             scm: { collapsed: { "scm.changes": false, "scm.graph": false }, weights: {}, hidden: [] },
@@ -49,7 +49,7 @@ describe("ViewsService: дефолт свёрнутости дескриптор
         expect(collapsedMap(h)).toEqual({ "scm.changes": false, "scm.graph": false });
     });
 
-    it("сохранённая свёрнутость применяется и к секции без дефолта", () => {
+    it("saved collapsed state also applies to a section without a default", () => {
         const h = makeScm();
         h.stored.set(SIDEBAR_VIEWS_STATE.key, {
             scm: { collapsed: { "scm.changes": true, "scm.graph": false }, weights: {}, hidden: [] },
@@ -60,7 +60,7 @@ describe("ViewsService: дефолт свёрнутости дескриптор
         expect(collapsedMap(h)).toEqual({ "scm.changes": true, "scm.graph": false });
     });
 
-    it("секции, которой в сторе нет, достаётся дефолт — а не состояние соседей", () => {
+    it("a section missing from storage gets its default, not its neighbors' state", () => {
         const h = makeScm();
         // The store only knows CHANGES: GRAPH appeared in a newer editor version.
         h.stored.set(SIDEBAR_VIEWS_STATE.key, {
@@ -72,7 +72,7 @@ describe("ViewsService: дефолт свёрнутости дескриптор
         expect(collapsedMap(h)).toEqual({ "scm.changes": false, "scm.graph": true });
     });
 
-    it("стор прошлых версий (массив id) читается: перечисленные свёрнуты, остальным дефолт", () => {
+    it("legacy storage (an id array) is read: listed ones are collapsed, the rest get their default", () => {
         const h = makeScm();
         h.stored.set(SIDEBAR_VIEWS_STATE.key, {
             scm: { collapsed: ["scm.changes"], weights: {}, hidden: [] },
@@ -83,7 +83,7 @@ describe("ViewsService: дефолт свёрнутости дескриптор
         expect(collapsedMap(h)).toEqual({ "scm.changes": true, "scm.graph": true });
     });
 
-    it("пустой массив прошлого стора ничего не сворачивает — у всех свой дефолт", () => {
+    it("an empty legacy array collapses nothing: each keeps its default", () => {
         const h = makeScm();
         h.stored.set(SIDEBAR_VIEWS_STATE.key, { scm: { collapsed: [], weights: {}, hidden: [] } });
         h.service.attachContainer("scm");
@@ -92,7 +92,7 @@ describe("ViewsService: дефолт свёрнутости дескриптор
         expect(collapsedMap(h)).toEqual({ "scm.changes": false, "scm.graph": true });
     });
 
-    it("разворот дефолтно свёрнутой секции уезжает в стор как явное false", () => {
+    it("expanding a section collapsed by default is stored as an explicit false", () => {
         const h = makeScm();
         h.service.attachContainer("scm");
 
@@ -102,7 +102,7 @@ describe("ViewsService: дефолт свёрнутости дескриптор
         });
     });
 
-    it("пересборка контейнера не возвращает дефолт секции, развёрнутой пользователем", () => {
+    it("rebuilding the container does not restore the default of a section the user expanded", () => {
         const h = makeScm();
         h.service.attachContainer("scm");
         h.paneView("scm").toggleCollapsed("scm.graph");
@@ -115,7 +115,7 @@ describe("ViewsService: дефолт свёрнутости дескриптор
         });
     });
 
-    it("merged-контейнер игнорирует дефолт: единственная видимая секция не сворачивается", () => {
+    it("a merged container ignores the default: the only visible section does not collapse", () => {
         const h = makeScm();
         h.service.attachContainer("scm");
 
@@ -124,7 +124,7 @@ describe("ViewsService: дефолт свёрнутости дескриптор
         expect(h.service.isViewExpanded("scm.graph")).toBe(true);
     });
 
-    it("возвращённая из скрытия секция снова встаёт по дефолту", () => {
+    it("a section returned from hiding comes back with its default", () => {
         const h = makeScm();
         h.service.attachContainer("scm");
 

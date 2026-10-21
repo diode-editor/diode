@@ -37,12 +37,12 @@ function viewWithBody(
 
 function bodyShown(h: IViewsHarness, containerId: string, descriptor: IViewDescriptor): boolean {
     const body = descriptor.body;
-    if (body === null) throw new Error("bodyShown: дескриптор без тела");
+    if (body === null) throw new Error("bodyShown: descriptor without a body");
     return h.paneView(containerId).querySelector(`#${String(body.id)}`) === body;
 }
 
-describe("ViewsService: интерактивное пустое состояние (viewsWelcome)", () => {
-    it("placeholder блоками рисуется welcome-контролом, а строкой — плоской подсказкой", () => {
+describe("ViewsService: interactive empty state (viewsWelcome)", () => {
+    it("a block placeholder renders as a welcome control, a string one as a plain hint", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "sb", title: "SB", location: "sidebar" });
         h.service.registerView(view("sb.rich", "sb", 10, { body: null, placeholder: WELCOME }));
@@ -55,7 +55,7 @@ describe("ViewsService: интерактивное пустое состояни
         expect((flat as TextLabelElement).getText()).toBe("No output yet.");
     });
 
-    it("кнопка welcome исполняет объявленную команду через реестр команд", () => {
+    it("a welcome button runs the declared command through the command registry", () => {
         const h = makeViewsHarness();
         const ran: unknown[][] = [];
         h.commands.register("openFolder", (...args: unknown[]) => {
@@ -72,7 +72,7 @@ describe("ViewsService: интерактивное пустое состояни
         expect(ran).toEqual([[]]);
     });
 
-    it("welcome у секции без placeholder'а не появляется — пустое состояние остаётся плоским", () => {
+    it("a section without a placeholder gets no welcome: the empty state stays plain", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "sb", title: "SB", location: "sidebar" });
         h.service.registerView(view("sb.empty", "sb", 10, { body: null }));
@@ -84,7 +84,7 @@ describe("ViewsService: интерактивное пустое состояни
     });
 });
 
-describe("ViewsService: секция требует открытой папки", () => {
+describe("ViewsService: section requires an open folder", () => {
     /** Search in miniature: the body is built up front, but without a folder there is nowhere to search. */
     function makeSearch(): { h: IViewsHarness; descriptor: IViewDescriptor } {
         const h = makeViewsHarness();
@@ -98,14 +98,14 @@ describe("ViewsService: секция требует открытой папки"
         return { h, descriptor };
     }
 
-    it("без папки тело перекрыто welcome, хотя тело уже построено", () => {
+    it("without a folder the body is covered by welcome, although the body is already built", () => {
         const { h, descriptor } = makeSearch();
 
         expect(placeholderOf(h, "search", "search.results")).toBeInstanceOf(ViewWelcomeElement);
         expect(bodyShown(h, "search", descriptor)).toBe(false);
     });
 
-    it("открыли папку — welcome уходит, на экране тело секции", () => {
+    it("opening a folder removes welcome, the section body is on screen", () => {
         const { h, descriptor } = makeSearch();
 
         h.workspace.setWorkspaceFolder("/tmp/some-project");
@@ -114,7 +114,7 @@ describe("ViewsService: секция требует открытой папки"
         expect(bodyShown(h, "search", descriptor)).toBe(true);
     });
 
-    it("секция без флага папкой не гейтится — её тело видно и в пустом окне", () => {
+    it("a section without the flag is not gated by a folder: its body is visible in an empty window too", () => {
         const h = makeViewsHarness();
         const descriptor = viewWithBody("ext.list", "ext", 10);
         h.service.registerContainer({ id: "ext", title: "EXTENSIONS", location: "sidebar" });
@@ -129,7 +129,7 @@ describe("ViewsService: секция требует открытой папки"
         expect(bodyShown(h, "ext", descriptor)).toBe(true);
     });
 
-    it("смена папки не показывает обратно скрытую пользователем секцию", () => {
+    it("changing the folder does not re-show a section hidden by the user", () => {
         const h = makeViewsHarness();
         const changes = viewWithBody("scm.changes", "scm", 10, {
             requiresWorkspaceFolder: true,
@@ -149,7 +149,7 @@ describe("ViewsService: секция требует открытой папки"
         expect(bodyShown(h, "scm", changes)).toBe(true);
     });
 
-    it("setViewBody на погашенной секции запоминает тело, но на экране остаётся welcome", () => {
+    it("setViewBody on a gated section remembers the body, but welcome stays on screen", () => {
         const { h } = makeSearch();
         const next = new FillerElement();
         next.id = "search-next";
@@ -161,7 +161,7 @@ describe("ViewsService: секция требует открытой папки"
         expect(h.paneView("search").querySelector("#search-next")).toBe(next);
     });
 
-    it("погашенная секция в контейнере, который ещё не приаттачен, папку переживает молча", () => {
+    it("a gated section in a not yet attached container survives a folder change silently", () => {
         const h = makeViewsHarness();
         h.service.registerView(
             view("later.view", "later", 10, { requiresWorkspaceFolder: true, placeholder: WELCOME }),
@@ -173,8 +173,8 @@ describe("ViewsService: секция требует открытой папки"
     });
 });
 
-describe("ViewsService: фокус на пустом состоянии", () => {
-    it("фокус контейнера уходит на кнопку welcome, а не в невидимое тело", () => {
+describe("ViewsService: focus on the empty state", () => {
+    it("container focus goes to the welcome button, not into the invisible body", () => {
         const h = makeViewsHarness();
         let bodyFocused = 0;
         h.service.registerContainer({ id: "search", title: "SEARCH", location: "sidebar" });
@@ -197,7 +197,7 @@ describe("ViewsService: фокус на пустом состоянии", () => 
         expect(bodyFocused).toBe(1);
     });
 
-    it("пустое состояние без кнопок фокус не перехватывает — он уходит в секцию", () => {
+    it("an empty state without buttons does not take focus: it goes into the section", () => {
         const h = makeViewsHarness();
         let bodyFocused = 0;
         h.service.registerContainer({ id: "out", title: "OUTPUT", location: "sidebar" });

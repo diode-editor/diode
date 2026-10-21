@@ -79,7 +79,7 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("editorTabsMultiple")).toBe(false);
     });
 
-    it("workbenchState — состояние окна из IWorkspaceContextService (upstream-ключ команд воркспейса)", () => {
+    it("workbenchState is the window state from IWorkspaceContextService (upstream key of workspace commands)", () => {
         const h = makeHarness();
         h.service.update();
         expect(h.contextKeys.get("workbenchState")).toBe("empty");
@@ -98,7 +98,7 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("editorGroupHasEditors")).toBe(false);
     });
 
-    it("опрашивает контрибьюторов фич по порядку списка — с сервисом ключей и активным элементом", () => {
+    it("queries feature contributors in list order, with the context key service and the active element", () => {
         const calls: { name: string; keys: ContextKeyService; active: TUIElement | null }[] = [];
         const contributor = (name: string): IContextKeyContributor => ({
             updateContextKeys: (keys, active) => {

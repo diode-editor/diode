@@ -47,7 +47,7 @@ describe("Workbench — Preferences commands", () => {
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(settingsFile));
         });
 
-        it("openSettingsJson (golang.go: «Open Settings» в тосте) seeds a missing settings.json and opens it", async () => {
+        it("openSettingsJson (golang.go: 'Open Settings' in a toast) seeds a missing settings.json and opens it", async () => {
             await h.commands.execute("workbench.action.openSettingsJson");
 
             expect(fs.readFileSync(settingsFile, "utf-8")).toBe("{}\n");
@@ -81,7 +81,7 @@ describe("Workbench — Preferences commands", () => {
             expect(screen).toContain("Default");
         });
 
-        it("повторное openGlobalKeybindings переключает на открытую вкладку, а не плодит вторую", () => {
+        it("a repeated openGlobalKeybindings switches to the open tab instead of opening a second one", () => {
             const editorService = h.container.get(EditorServiceDIToken);
             h.commands.execute("workbench.action.openGlobalKeybindings");
             const openedCount = editorService.editorGroups.activeGroup.getPanes().length;
@@ -102,8 +102,8 @@ describe("Workbench — Preferences commands", () => {
         });
     });
 
-    describe("settings.json воркспейса", () => {
-        it("openWorkspaceSettingsFile создаёт .diode/settings.json открытой папки заготовкой и открывает его", async () => {
+    describe("workspace settings.json", () => {
+        it("openWorkspaceSettingsFile creates .diode/settings.json in the open folder from a template and opens it", async () => {
             ws = createTempWorkspace({ prefix: "diode-prefs-" });
             h = createAppTestHarness({ workspaceFolder: ws.dir });
             const file = ws.path(".diode/settings.json");
@@ -114,7 +114,7 @@ describe("Workbench — Preferences commands", () => {
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(file));
         });
 
-        it("openWorkspaceSettings открывает тот же JSON и не перетирает существующий файл", async () => {
+        it("openWorkspaceSettings opens the same JSON and does not overwrite an existing file", async () => {
             ws = createTempWorkspace({
                 prefix: "diode-prefs-",
                 files: { ".diode/settings.json": '{ "editor.tabSize": 2 }\n' },
@@ -127,7 +127,7 @@ describe("Workbench — Preferences commands", () => {
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(ws.path(".diode/settings.json")));
         });
 
-        it("без папки команд воркспейса в палитре нет, а вызов по id файлов не создаёт", async () => {
+        it("without a folder the workspace commands are not in the command palette, and invoking them by id creates no files", async () => {
             ws = createTempWorkspace({ prefix: "diode-prefs-" });
             h = createAppTestHarness({});
             const contextKeys = h.container.get(ContextKeyServiceDIToken);
@@ -145,7 +145,7 @@ describe("Workbench — Preferences commands", () => {
         });
     });
 
-    describe("окно из .code-workspace", () => {
+    describe("window from a .code-workspace", () => {
         const WORKSPACE_FILE_TEXT = '{ "folders": [{ "path": "." }], "settings": {} }\n';
 
         function openWorkspaceFile(): string {
@@ -169,7 +169,7 @@ describe("Workbench — Preferences commands", () => {
         }
 
         // As upstream: the workspace settings of such a window are the file's `settings` block.
-        it("Open Workspace Settings открывает сам файл воркспейса и его не трогает", async () => {
+        it("Open Workspace Settings opens the workspace file itself and leaves it untouched", async () => {
             const file = openWorkspaceFile();
 
             await h.commands.execute("workbench.action.openWorkspaceSettings");
@@ -179,7 +179,7 @@ describe("Workbench — Preferences commands", () => {
             expect(fs.existsSync(ws.path(".diode"))).toBe(false);
         });
 
-        it("Open Folder Settings (JSON) — .diode/settings.json папки заготовкой; в палитре только здесь", async () => {
+        it("Open Folder Settings (JSON) creates the folder's .diode/settings.json from a template; it is in the command palette only here", async () => {
             openWorkspaceFile();
             expect(enabledIds("workbench.action.openFolderSettings")).toEqual([
                 "workbench.action.openFolderSettings",
@@ -192,7 +192,7 @@ describe("Workbench — Preferences commands", () => {
             expect(h.activeEditor().absoluteFilePath).toBe(path.resolve(ws.path(".diode/settings.json")));
         });
 
-        it("в окне из папки команд настроек папки в палитре нет", () => {
+        it("in a folder window the folder settings commands are not in the command palette", () => {
             ws = createTempWorkspace({ prefix: "diode-prefs-" });
             h = createAppTestHarness({ workspaceFolder: ws.dir });
             h.container.get(WorkbenchContextKeysDIToken).update();
@@ -200,7 +200,7 @@ describe("Workbench — Preferences commands", () => {
         });
     });
 
-    describe("запись биндинга из вкладки — сквозной путь", () => {
+    describe("recording a keybinding from the tab, end to end", () => {
         let keybindingsFile: string;
 
         beforeEach(() => {
@@ -209,7 +209,7 @@ describe("Workbench — Preferences commands", () => {
             h = createAppTestHarness({ environment: { keybindingsResource: keybindingsFile } });
         });
 
-        it("рекордер пишет комбинацию: файл на диске, строка обновилась, команда работает сразу", async () => {
+        it("the recorder writes the combination: file on disk, row updated, the command works at once", async () => {
             const executed: string[] = [];
             h.commands.register(
                 "test.custom",

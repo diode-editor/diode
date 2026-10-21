@@ -24,8 +24,8 @@ function scene(): { h: IViewsHarness; shown: string[]; activated: string[] } {
     return { h, shown, activated };
 }
 
-describe("ViewsService — вид на экране (isViewShown / closeView)", () => {
-    it("вид на экране: контейнер активен в своей части и часть видна", () => {
+describe("ViewsService — view on screen (isViewShown / closeView)", () => {
+    it("a view is on screen: its container is active in its part and the part is visible", () => {
         const { h } = scene();
         expect(h.service.isViewShown("problems")).toBe(false);
         h.panelService.setVisible(true);
@@ -33,7 +33,7 @@ describe("ViewsService — вид на экране (isViewShown / closeView)", 
         expect(h.service.isViewShown("terminal")).toBe(false);
     });
 
-    it("после переноса — на новом месте", () => {
+    it("after a move it is in the new location", () => {
         const { h } = scene();
         h.service.moveViewToLocation("terminal", "auxiliarybar");
         h.auxiliaryBarService.setVisible(true);
@@ -41,14 +41,14 @@ describe("ViewsService — вид на экране (isViewShown / closeView)", 
         expect(h.panelService.visible).toBe(false);
     });
 
-    it("вьюлет сайдбара на экране, пока он активен", () => {
+    it("a sidebar viewlet is on screen while it is active", () => {
         const { h } = scene();
         expect(h.service.isViewShown("search")).toBe(false);
         h.showViewlet(SEARCH);
         expect(h.service.isViewShown("search")).toBe(true);
     });
 
-    it("скрытая секция и неизвестный вид — не на экране", () => {
+    it("a hidden section and an unknown view are not on screen", () => {
         const { h } = scene();
         h.service.registerView(testView("extra", PROBLEMS, 20));
         h.panelService.setVisible(true);
@@ -57,7 +57,7 @@ describe("ViewsService — вид на экране (isViewShown / closeView)", 
         expect(h.service.isViewShown("ghost")).toBe(false);
     });
 
-    it("closeView прячет часть, если вид в ней активен, и не трогает её, если вид в фоне", () => {
+    it("closeView hides the part if the view is active in it and leaves it alone if the view is in the background", () => {
         const { h } = scene();
         h.panelService.setVisible(true);
         h.service.closeView("terminal");
@@ -66,7 +66,7 @@ describe("ViewsService — вид на экране (isViewShown / closeView)", 
         expect(h.panelService.visible).toBe(false);
     });
 
-    it("closeView вьюлета прячет сайдбар; неизвестный вид — no-op", () => {
+    it("closeView of a viewlet hides the sidebar; an unknown view is a no-op", () => {
         const { h } = scene();
         h.showViewlet(SEARCH);
         h.service.closeView("search");
@@ -75,8 +75,8 @@ describe("ViewsService — вид на экране (isViewShown / closeView)", 
     });
 });
 
-describe("ViewsService — openView без активации", () => {
-    it("показывает вкладку и часть, но ленивые фичи не будит", () => {
+describe("ViewsService — openView without activation", () => {
+    it("shows the tab and the part but does not wake lazy features", () => {
         const { h, activated, shown } = scene();
         h.service.moveViewToLocation("terminal", "auxiliarybar");
         activated.length = 0;
@@ -86,14 +86,14 @@ describe("ViewsService — openView без активации", () => {
         expect(activated).toEqual([]);
     });
 
-    it("с активацией — будит", () => {
+    it("with activation it wakes them", () => {
         const { h, activated } = scene();
         h.service.openView("terminal");
         expect(activated).toEqual(["terminal"]);
         expect(h.panelService.getActiveViewId()).toBe(TERMINAL);
     });
 
-    it("фокус — только по просьбе", () => {
+    it("focuses only on request", () => {
         const h = makeViewsHarness();
         const focus = vi.fn();
         h.service.registerContainer({ id: PROBLEMS, title: "PROBLEMS", location: "panel", order: 0 });
@@ -105,21 +105,21 @@ describe("ViewsService — openView без активации", () => {
         expect(focus).toHaveBeenCalledTimes(1);
     });
 
-    it("вьюлет сайдбара показывается и без активации", () => {
+    it("a sidebar viewlet shows even without activation", () => {
         const { h } = scene();
         h.service.openView("search", false, false);
         expect(h.shownViewlets.at(-1)).toEqual({ id: SEARCH, reveal: true });
     });
 });
 
-describe("ViewsService — события показа и активации видов", () => {
-    it("первая вкладка части при сборке — «показан»", () => {
+describe("ViewsService — view show and activation events", () => {
+    it("the first tab of a part on build is 'shown'", () => {
         const { shown } = scene();
         expect(shown).toContain("problems");
         expect(shown).not.toContain("terminal");
     });
 
-    it("смена активной вкладки — «показан», клик — ещё и «активирован»", () => {
+    it("switching the active tab is 'shown', a click is also 'activated'", () => {
         const { h, shown, activated } = scene();
         shown.length = 0;
         h.panelService.setActiveView(TERMINAL);
@@ -129,7 +129,7 @@ describe("ViewsService — события показа и активации в�
         expect(activated).toEqual(["problems"]);
     });
 
-    it("переехавший вид шлёт события из новой части", () => {
+    it("a moved view fires events from its new part", () => {
         const { h, shown, activated } = scene();
         h.service.moveViewToLocation("terminal", "auxiliarybar");
         // The auxiliary bar's only tab became active during the build.
@@ -139,14 +139,14 @@ describe("ViewsService — события показа и активации в�
         expect(activated).toEqual(["terminal"]);
     });
 
-    it("показ вьюлета сайдбара — «показан»", () => {
+    it("showing a sidebar viewlet is 'shown'", () => {
         const { h, shown } = scene();
         shown.length = 0;
         h.showViewlet(SEARCH);
         expect(shown).toEqual(["search"]);
     });
 
-    it("скрытая секция событий не получает", () => {
+    it("a hidden section gets no events", () => {
         const { h, shown } = scene();
         h.service.registerView(testView("extra", TERMINAL, 20));
         h.service.setViewVisible("extra", false);
@@ -155,7 +155,7 @@ describe("ViewsService — события показа и активации в�
         expect(shown).toEqual(["terminal"]);
     });
 
-    it("событие о незнакомой вкладке — тишина", () => {
+    it("an event for an unknown tab is ignored", () => {
         const { h, shown } = scene();
         shown.length = 0;
         h.panelService.addView({ id: "foreign", title: "FOREIGN" });
