@@ -12,6 +12,9 @@ import type { ITerminalInstance } from "./terminalService.ts";
 
 export const TERMINAL_EDITOR_SCHEME = "vscode-terminal";
 
+/** Upstream `terminalEditorId`; `workbench.editor.autoLockGroups` locks its group by default. */
+export const TERMINAL_EDITOR_ID = "terminalEditor";
+
 /** The resource is the tab's identity within the group. */
 export function terminalEditorUri(instanceId: number): Uri {
     return Uri.from({ scheme: TERMINAL_EDITOR_SCHEME, path: `/${String(instanceId)}` });
@@ -27,6 +30,7 @@ export class TerminalEditorPane extends Disposable implements IEditorPane {
     public readonly isModified = false;
     // Upstream's terminal tab has no lock: its input's `Readonly` is about text commands.
     public readonly readOnly = false;
+    public readonly editorId = TERMINAL_EDITOR_ID;
 
     private readonly widget: TerminalViewElement;
     private readonly onDidChangeStateEmitter = this.register(new Emitter<void>());

@@ -2,6 +2,7 @@ import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { describe, expect, it } from "vitest";
 
 import { Uri } from "../../../../base/common/uri.ts";
+import { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
@@ -57,7 +58,7 @@ function recordingLog(sink: string[]): ILogService {
 
 function setup() {
     const logs: string[] = [];
-    const service = new EditorGroupsService(recordingLog(logs));
+    const service = new EditorGroupsService(recordingLog(logs), new InMemoryConfigurationService());
     const events: string[] = [];
     const groupEvents: IGroupsChangeEvent[] = [];
     const focusedGroups: EditorGroup[] = [];

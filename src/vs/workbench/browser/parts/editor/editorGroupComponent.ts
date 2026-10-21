@@ -43,7 +43,7 @@ export class EditorGroupComponent extends Component {
     ) {
         super();
         this.titleActions =
-            titleActions === undefined ? null : this.register(new EditorTitleActions(group.id, titleActions));
+            titleActions === undefined ? null : this.register(new EditorTitleActions(group, titleActions));
         this.titleRow.layoutStyle = { height: vflexFixed(1), width: "fill" };
         this.view = new OverlayHostElement();
         // Group id, not ViewColumn: column numbers are recomputed when groups collapse.

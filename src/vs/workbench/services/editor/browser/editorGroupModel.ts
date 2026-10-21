@@ -33,10 +33,13 @@ export class EditorGroup extends Disposable {
     private mruCyclePointer = 0;
     /** By reference, not index: indices shift when neighbors are inserted/closed (like `preview` in upstream `editorGroupModel`). */
     private previewPaneValue: IEditorPane | null = null;
+    private locked = false;
 
     private readonly onDidChangeEditorsEmitter = new Emitter<void>();
     private readonly onDidChangeActivePaneEmitter = new Emitter<IEditorPane | null>();
     private readonly onDidChangeMruCycleEmitter = new Emitter<MruCycleState | null>();
+    private readonly onDidChangeLockedEmitter = new Emitter<boolean>();
+    private readonly onDidInsertPaneEmitter = new Emitter<IEditorPane>();
 
     public constructor(public readonly id: GroupId) {
         super();
@@ -58,6 +61,11 @@ export class EditorGroup extends Disposable {
 
     public readonly onDidChangeMruCycle = this.onDidChangeMruCycleEmitter.event;
 
+    public readonly onDidChangeLocked = this.onDidChangeLockedEmitter.event;
+
+    /** A new tab, not a preview taking the previous one's slot: upstream `isNew` for auto-locking. */
+    public readonly onDidInsertPane = this.onDidInsertPaneEmitter.event;
+
     public get activeIndex(): number {
         return this.activeIndexValue;
     }
@@ -69,6 +77,20 @@ export class EditorGroup extends Disposable {
     public get activePane(): IEditorPane | null {
         if (this.activeIndexValue < 0 || this.activeIndexValue >= this.panes.length) return null;
         return this.panes[this.activeIndexValue];
+    }
+
+    /**
+     * Upstream `isLocked`: opening without an explicit group skips a locked group unless the resource is
+     * already open in it (`editorGroupFinder.ts`). An explicit group (a user gesture, a column) is honored.
+     */
+    public get isLocked(): boolean {
+        return this.locked;
+    }
+
+    public lock(locked: boolean): void {
+        if (this.locked === locked) return;
+        this.locked = locked;
+        this.onDidChangeLockedEmitter.fire(locked);
     }
 
     public get previewPane(): IEditorPane | null {
@@ -107,6 +129,7 @@ export class EditorGroup extends Disposable {
         this.panes.splice(index, 0, pane);
         this.trackPane(pane, options);
         if (index <= this.activeIndexValue) this.activeIndexValue++;
+        this.onDidInsertPaneEmitter.fire(pane);
     }
 
     /**

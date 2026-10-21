@@ -65,6 +65,12 @@ export class WorkbenchContextKeys extends Disposable {
         this.dispatcher.updateContextKeys = () => {
             this.update();
         };
+        // Auto-lock happens while opening, with no focus change of its own.
+        this.register(
+            groups.onDidChangeGroupLocked(() => {
+                this.update();
+            }),
+        );
     }
 
     public attachView(view: BodyElement): void {
@@ -110,6 +116,7 @@ export class WorkbenchContextKeys extends Disposable {
             "activeEditorGroupLast",
             this.groups.activeGroup === this.groups.groups[this.groups.groups.length - 1],
         );
+        this.contextKeys.set("activeEditorGroupLocked", this.groups.activeGroup.isLocked);
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
         // Upstream key: workspace commands show in the command palette only with a folder open.
         this.contextKeys.set("workbenchState", this.workspaceContext.getWorkbenchState());

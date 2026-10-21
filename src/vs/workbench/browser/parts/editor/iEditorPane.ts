@@ -4,6 +4,9 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { EditorViewState } from "../../../../editor/common/viewModel/editorViewState.ts";
 
+/** Upstream `DEFAULT_EDITOR_ASSOCIATION.id`: the text editor, also both sides of a text diff. */
+export const DEFAULT_EDITOR_ID = "default";
+
 /**
  * What a group needs from any pane (in vscode that is `EditorInput` + `EditorPane`; here the pane
  * is both its own model and view). Everything text-specific lives on {@link TextEditorPane}.
@@ -18,6 +21,9 @@ export interface IEditorPane extends IDisposable {
     readonly view: TUIElement;
 
     readonly isModified: boolean;
+
+    /** Upstream `EditorInput.editorId`: the key in `workbench.editor.autoLockGroups`. */
+    readonly editorId?: string;
 
     readonly readOnly: boolean;
 

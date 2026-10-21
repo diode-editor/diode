@@ -98,7 +98,16 @@ export interface EditorTitleMenuContext {
 /** Each group has its own bar, so the item learns which one it is in. */
 export interface EditorTitleBarMenuContext {
     readonly groupId: GroupId;
+    /** Per group, unlike the `activeEditorGroupLocked` key: an inactive locked group shows its own unlock button. */
+    readonly groupLocked: boolean;
 }
+
+export const editorTitleBarGroupArg = (context: unknown): readonly unknown[] => [
+    (context as EditorTitleBarMenuContext).groupId,
+];
+
+export const editorTitleBarGroupLocked = (context: unknown): boolean =>
+    (context as EditorTitleBarMenuContext).groupLocked;
 
 export const editorTabTargetArg = (context: unknown): readonly unknown[] => {
     const ctx = context as EditorTitleMenuContext;

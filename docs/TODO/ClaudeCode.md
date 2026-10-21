@@ -9,6 +9,26 @@
 
 ## Осталось
 
+- [~] **Файлы открываются в группе с `claude`.** Open File из SCM, диффы, `openFile` CLI попадали в
+  активную группу — ту, где терминал `claude`. В эталоне группу запирает
+  `workbench.editor.autoLockGroups.terminalEditor`, а `findGroup` обходит запертые. Делается
+  блокировка групп по эталону ([EditorPart.md](../arch/workbench/EditorPart.md#группы-редакторов)).
+- [ ] **Внизу открывается пустой терминал.** Расширение после диффа, `close_tab`, ✓/↺ и
+  at-mention зовёт `window.activeTerminal?.show()`, чтобы вернуть фокус в `claude`. У нас
+  терминал вкладкой никогда не активен (`terminalEditorService.ts`, отступление в
+  [Extensions.md](../arch/Extensions.md)), `activeTerminal` — последний шелл панели TERMINAL, его
+  `show()` раскрывает панель. По эталону: активный инстанс по хостам (`_hostActiveTerminals`,
+  `TerminalEditorService.onDidChangeActiveInstance`).
+- [ ] **`claude` в боковой панели.** `Open in Side Bar` — путь webview (`claudeVSCodeSidebarSecondary`),
+  у нас молчит. У `claude-vscode.terminal.open` есть третий аргумент `"bottom"` — терминал в
+  `terminal.integrated.defaultLocation`, т.е. туда, где стоит вид TERMINAL (его можно перенести во
+  вторичную панель). Кандидат: своя команда «Open in Terminal (Secondary Side Bar)» + уведомление
+  «в TUI недоступно» на webview-командах; решение за человеком.
+- [ ] **На удалённой машине «Launching Claude Code» и тишина.** До `createTerminal` расширение ничего
+  не ждёт (спиннер — таймер 2 с), значит отказ в нашем `terminal.create` после RPC: исключение
+  глотается в warn канала «Extension Host (RPC)», файла лога в упакованной сборке нет. Подозрение —
+  node-pty (glibc, `noexec` кэша). Разбирать на месте; в любом случае — тост об отказе создания
+  терминала, `terminal.closed` расширению, внятная ошибка загрузки node-pty, warn+ в файл.
 - [ ] **Webview-команды молчат.** `Open in New Window`, `Open in New Tab`, `Open in Side Bar`,
   `Alt+K` в TUI ничего не делают, след — строка в логе (`createWebviewPanel` no-op,
   `workbench.action.moveEditorToNewWindow` not found). Человеку нужно хотя бы уведомление «в TUI

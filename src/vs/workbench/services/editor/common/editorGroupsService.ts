@@ -31,6 +31,7 @@ export interface IEditorGroupsService {
     readonly onDidGroupsChange: Event<IGroupsChangeEvent>;
     readonly onDidChangeEditors: Event<void>;
     readonly onDidChangeActivePane: Event<IEditorPane | null>;
+    readonly onDidChangeGroupLocked: Event<EditorGroup>;
 
     /** Unset: available space is not checked. */
     canAddGroupHook?: () => boolean;
@@ -51,8 +52,12 @@ export interface IEditorGroupsService {
     moveActiveEditorToGroup(direction: "next" | "previous", options?: { focus?: boolean }): void;
     openInNeighborGroup(direction: "next" | "previous", fill: (group: EditorGroup) => void): void;
     /** The group becomes active before `fill` runs; the change event fires after. */
-    openInGroup(group: EditorGroup, fill: () => void): void;
+    openInGroup<T>(group: EditorGroup, fill: () => T): T;
     sideGroup(): EditorGroup;
+    /** Most recently active first; the active group is first. */
+    getGroupsByMru(): EditorGroup[];
+    /** Does not activate the new group; `null` when it does not fit. */
+    addGroup(location: EditorGroup, position: "before" | "after"): EditorGroup | null;
     joinTwoGroups(): void;
     joinAllGroups(): void;
     moveActiveGroup(direction: "next" | "previous"): void;

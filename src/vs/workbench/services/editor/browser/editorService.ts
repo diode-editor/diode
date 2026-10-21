@@ -46,6 +46,7 @@ import type { SaveOutcome, TextFileModel } from "../../textfile/common/textFileM
 import { TextFileModelService, TextFileModelServiceDIToken } from "../../textfile/common/textFileModelService.ts";
 import type { ThemeService } from "../../themes/common/themeService.ts";
 import { ThemeServiceDIToken } from "../../themes/common/themeTokens.ts";
+import { findGroup, peekGroup } from "../common/editorGroupFinder.ts";
 import type { IEditorGroupsService } from "../common/editorGroupsService.ts";
 import { EditorGroupsServiceDIToken } from "../common/editorGroupsService.ts";
 import type { IEditorSavedMeta, IEditorService, IOpenUriOptions, IUntitledOptions } from "../common/editorService.ts";
@@ -202,7 +203,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                 this.untitledWithoutEditor.clear();
             }),
         );
-        this.editorGroups = editorGroups ?? this.register(new EditorGroupsService(logService));
+        this.editorGroups = editorGroups ?? this.register(new EditorGroupsService(logService, configurationService));
         const fileService = files ?? this.register(new FileService());
         this.textFileModels =
             textFileModels ??
@@ -467,10 +468,18 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     }
 
     /** If the resource is already open in the group, switches to that tab and disposes the given `pane`. */
-    public openPane(
-        pane: IEditorPane,
-        { focus = true, group = this.editorGroups.activeGroup }: { focus?: boolean; group?: EditorGroup } = {},
-    ): void {
+    public openPane(pane: IEditorPane, { focus = true, group }: { focus?: boolean; group?: EditorGroup } = {}): void {
+        if (group !== undefined) {
+            this.insertOrRevealPane(group, pane, focus);
+            return;
+        }
+        const target = findGroup(this.editorGroups, pane.uri, undefined);
+        this.editorGroups.openInGroup(target, () => {
+            this.insertOrRevealPane(target, pane, focus);
+        });
+    }
+
+    private insertOrRevealPane(group: EditorGroup, pane: IEditorPane, focus: boolean): void {
         const existingIndex = group.findPaneIndex(pane.uri);
         if (existingIndex >= 0) {
             pane.dispose();
@@ -523,7 +532,17 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         uri: Uri,
         { text, languageId, label, focus = true }: { text: string; languageId: string; label: string; focus?: boolean },
     ): TextEditorPane {
-        const group = this.editorGroups.activeGroup;
+        const group = findGroup(this.editorGroups, uri, undefined);
+        return this.editorGroups.openInGroup(group, () =>
+            this.openTextSnapshotIn(group, uri, { text, languageId, label, focus }),
+        );
+    }
+
+    private openTextSnapshotIn(
+        group: EditorGroup,
+        uri: Uri,
+        { text, languageId, label, focus }: { text: string; languageId: string; label: string; focus: boolean },
+    ): TextEditorPane {
         const existingIndex = group.findPaneIndex(uri);
         if (existingIndex >= 0) {
             const existing = this.replaceVirtualContent(group, existingIndex, text);
@@ -605,7 +624,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         { focus = true, group: where, viewState, preview = false }: IOpenUriOptions,
     ): void {
         // Identity is the whole resource within the group, not the basename.
-        const group = where === "beside" ? this.editorGroups.sideGroup() : (where ?? this.editorGroups.activeGroup);
+        const group = findGroup(this.editorGroups, uri, where);
         this.editorGroups.openInGroup(group, () => {
             this.openInResolvedGroup(group, uri, content, { focus, viewState, preview });
         });
@@ -670,10 +689,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
 
     /** No side effects, unlike {@link openResolvedUri}: doesn't activate the group or create a neighbor. */
     private isOpenInTargetGroup(uri: Uri, where?: "beside" | EditorGroup): boolean {
-        const group =
-            where === "beside"
-                ? this.editorGroups.groups.at(this.editorGroups.groups.indexOf(this.editorGroups.activeGroup) + 1)
-                : (where ?? this.editorGroups.activeGroup);
+        const group = peekGroup(this.editorGroups, uri, where);
         return group !== undefined && group.findPaneIndex(uri) >= 0;
     }
 
@@ -774,9 +790,11 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         const model = this.textFileModels.createUntitledModel();
         const editor = this.paneBuilder.build(model);
         this.editorConfiguration.apply(editor);
-        const group = this.editorGroups.activeGroup;
-        group.insertPane(editor);
-        group.activateTab(group.editorCount - 1, { focus });
+        const group = findGroup(this.editorGroups, undefined, undefined);
+        this.editorGroups.openInGroup(group, () => {
+            group.insertPane(editor);
+            group.activateTab(group.editorCount - 1, { focus });
+        });
     }
 
     /**
@@ -800,7 +818,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         this.untitledWithoutEditor.delete(model.uri.toString());
         const editor = this.paneBuilder.build(model);
         this.editorConfiguration.apply(editor);
-        const group = where === "beside" ? this.editorGroups.sideGroup() : (where ?? this.editorGroups.activeGroup);
+        const group = findGroup(this.editorGroups, model.uri, where);
         this.editorGroups.openInGroup(group, () => {
             group.insertPane(editor);
             group.activateTab(group.editorCount - 1, { focus });
