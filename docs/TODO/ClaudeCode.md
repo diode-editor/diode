@@ -9,10 +9,10 @@
 
 ## Осталось
 
-- [~] **Файлы открываются в группе с `claude`.** Open File из SCM, диффы, `openFile` CLI попадали в
-  активную группу — ту, где терминал `claude`. В эталоне группу запирает
-  `workbench.editor.autoLockGroups.terminalEditor`, а `findGroup` обходит запертые. Делается
-  блокировка групп по эталону ([EditorPart.md](../arch/workbench/EditorPart.md#группы-редакторов)).
+- [x] **Файлы открываются в группе с `claude`.** Open File из SCM, диффы, `openFile` CLI попадали в
+  активную группу — ту, где терминал `claude`. Сделана блокировка групп по эталону (#771):
+  `workbench.editor.autoLockGroups.terminalEditor` запирает группу терминала, `findGroup` обходит
+  запертые ([EditorPart.md](../arch/workbench/EditorPart.md#группы-редакторов)).
 - [ ] **Внизу открывается пустой терминал.** Расширение после диффа, `close_tab`, ✓/↺ и
   at-mention зовёт `window.activeTerminal?.show()`, чтобы вернуть фокус в `claude`. У нас
   терминал вкладкой никогда не активен (`terminalEditorService.ts`, отступление в
