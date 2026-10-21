@@ -1,10 +1,6 @@
 import { safeRefArg } from "./syncArgs.ts";
 
-/**
- * Сборка argv branch/merge/rebase-операций. Все имена/ref'ы проходят
- * {@link safeRefArg} (защита от argument injection); невалидные параметры —
- * `null`, диспетчер отвечает `{ok: false}`.
- */
+/** Все имена/ref'ы — через {@link safeRefArg} (argument injection). */
 export function checkoutArgs(params: Record<string, unknown>): string[] | null {
     const ref = safeRefArg(params.ref);
     if (ref === null) return null;
@@ -45,7 +41,6 @@ export function cherryPickArgs(params: Record<string, unknown>): string[] | null
     return sha === null ? null : ["cherry-pick", sha];
 }
 
-/** `git push <remote> --delete <ref>` — удаление remote-ветки/тега. */
 export function pushDeleteArgs(params: Record<string, unknown>): string[] | null {
     const remote = safeRefArg(params.remote);
     const ref = safeRefArg(params.ref);

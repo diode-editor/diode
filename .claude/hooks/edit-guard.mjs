@@ -1,9 +1,7 @@
 #!/usr/bin/env node
-// PreToolUse(Edit|Write|NotebookEdit): сессия живёт в worktree
-// (`<репо>/.claude/worktrees/<имя>`), а правка целится в тот же репозиторий
-// МИМО него — в основной checkout или в соседний worktree. Так правки уже
-// уезжали в main: путь собран от корня репозитория по памяти, а не от
-// текущего worktree. Файлы вне репозитория (память, scratchpad) не трогаем.
+// PreToolUse(Edit|Write|NotebookEdit): правка мимо текущего worktree в тот же
+// репозиторий. Так правки уже уезжали в main: путь собран от корня репо по памяти.
+// Файлы вне репозитория (память, scratchpad) не трогаем.
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 

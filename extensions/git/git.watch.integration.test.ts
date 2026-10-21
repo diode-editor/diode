@@ -20,13 +20,8 @@ import { PUBLISH_REPO_STATE_COMMAND } from "../../src/vs/workbench/contrib/scm/b
 import type { IExtensionRegistration } from "../../src/vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
 /**
- * Живость git-состояния: изменения приезжают в ядро **без участия редактора** —
- * так, как их делает пользователь в терминале рядом или чужой инструмент.
- *
- * Тест намеренно берёт настоящий файловый watcher ядра и настоящий git: до
- * этой работы расширение узнавало о правках только из своих же сохранений, и
- * такой сценарий (правка снаружи, `git add` из терминала, checkout, работа в
- * linked worktree) молча не работал.
+ * Настоящий watcher ядра и настоящий git: расширение, узнававшее о правках только
+ * из своих сохранений, молча не видело правок снаружи (терминал, checkout, worktree).
  */
 
 const GIT_MAIN = fileURLToPath(new URL("./main.ts", import.meta.url));
@@ -60,7 +55,6 @@ function gitRegistration(): IExtensionRegistration {
     };
 }
 
-/** Настоящий watcher ядра — как в проде (`extensionHostModule`). */
 function realWatcher(): FileWatcherAdapter {
     return new FileWatcherAdapter(new ChokidarTreeWatcher(), () => []);
 }
@@ -97,11 +91,7 @@ describe("builtin git plugin — живое слежение", () => {
         workDir = undefined;
     });
 
-    /**
-     * Готовит репозиторий и поднимает харнесс с настоящим watcher'ом. Каталог
-     * заводим сами (а не берём `harness.tmpDir`): корень воркспейса должен
-     * существовать до старта — в worktree-сценарии он вложенный.
-     */
+    /** Не `harness.tmpDir`: корень воркспейса должен существовать до старта, а в worktree-сценарии он вложенный. */
     async function startOver(
         makeWorkspace: (dir: string) => string,
     ): Promise<{ changes: IPublishedChange[][]; repoStates: IPublishedRepoState[]; root: string }> {
@@ -117,8 +107,7 @@ describe("builtin git plugin — живое слежение", () => {
             repoStates.push(payload as IPublishedRepoState);
         });
         await registerAndActivate(harness.host, gitRegistration());
-        // Даём chokidar доскан­ировать дерево: до `ready` он считает всё
-        // найденное начальным состоянием и с ignoreInitial глотает.
+        // До `ready` chokidar с ignoreInitial глотает всё найденное.
         await settle(400);
         return { changes, repoStates, root };
     }
@@ -169,10 +158,8 @@ describe("builtin git plugin — живое слежение", () => {
     }, 30000);
 
     it("обновление ref'а upstream'а снаружи двигает ahead/behind", async () => {
-        // `refs/remotes/origin/main` лежит НЕ в первом уровне `.git`, поэтому
-        // watcher служебного каталога его не видит — за ним следит отдельный
-        // transient-watcher, пересаживаемый вместе с веткой. Двигаем ref
-        // напрямую (`update-ref`), чтобы в тесте не сработал никакой другой путь.
+        // `update-ref` напрямую: ref глубже первого уровня `.git`, и никакой
+        // другой путь, кроме watcher'а ref'а, сработать не должен.
         const { repoStates, root } = await startOver((dir) => {
             const bare = path.join(dir, "remote.git");
             const work = path.join(dir, "work");
@@ -183,16 +170,14 @@ describe("builtin git plugin — живое слежение", () => {
             git(work, "push", "-q", "-u", "origin", "HEAD:refs/heads/main");
             return work;
         });
-        // Коммит, которого нет в HEAD, — им и «уедет вперёд» удалённая ветка.
         git(root, "checkout", "-q", "-b", "side");
         git(root, "commit", "-q", "--allow-empty", "-m", "ahead");
         const aheadSha = git(root, "rev-parse", "HEAD").trim();
         git(root, "checkout", "-q", "-");
         git(root, "branch", "-qD", "side");
         expect(await waitFor(() => repoStates.find((s) => s.upstream === "origin/main"))).toBeDefined();
-        // Ждём тишины: рефреши от подготовки (checkout/commit/branch -D) должны
-        // отработать ДО правки ref'а — иначе «behind» мог бы приехать с ними, и
-        // тест проходил бы без watcher'а ref'а вовсе.
+        // Тишина: иначе «behind» мог бы приехать с рефрешами подготовки, и тест
+        // проходил бы без watcher'а ref'а вовсе.
         await settle(800);
         const quiet = repoStates.length;
 

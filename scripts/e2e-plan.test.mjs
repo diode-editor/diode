@@ -82,7 +82,6 @@ test("verdict: флак — упал в первом, прошёл во втор
 
     assert.equal(verdict(first, { failed: [] }).ok, true);
     assert.equal(verdict({ failed: [] }, null).ok, true);
-    // второго прохода не было — всё упавшее красное
     assert.deepEqual(verdict(first, null), { ok: false, flaky: [], broken: first.failed });
 });
 

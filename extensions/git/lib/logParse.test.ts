@@ -7,7 +7,6 @@ const SHA_A = "a".repeat(40);
 const SHA_B = "b".repeat(40);
 const SHA_C = "c".repeat(40);
 
-/** Одна запись формата: семь NUL-разделённых полей. */
 function entry(fields: {
     sha: string;
     shortSha?: string;
@@ -28,7 +27,6 @@ function entry(fields: {
     ].join("\0");
 }
 
-/** Ожидаемая запись с дефолтами полей, которые тест не проверяет. */
 function expected(fields: Partial<ILogEntry> & { sha: string }): ILogEntry {
     return {
         shortSha: fields.sha.slice(0, 8),

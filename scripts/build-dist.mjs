@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 /**
- * Общая часть всех упаковок: `dist/main.cjs` + `dist/diode.bundle`.
- *
- * Дальше форматы расходятся — SEA (`build-sea.mjs`) вшивает bundle в бинарь,
- * self-extract (`build-selfextract.mjs`) кладёт его файлом рядом с `main.cjs`, —
- * но исходные артефакты у них общие и собираются одинаково.
+ * Общая часть упаковок SEA (`build-sea.mjs`, вшивает бандлы ассетами) и self-extract
+ * (`build-selfextract.mjs`, кладёт файлами рядом с `main.cjs`).
  */
 
 import { execFileSync } from "node:child_process";
@@ -20,10 +17,7 @@ import { buildRipgrepBundle } from "./pack-ripgrep.mjs";
 import { buildTsServerBundle } from "./pack-ts-server.mjs";
 
 /**
- * Собирает `main.cjs`, `diode.bundle` и остальные бандлы в `distDir` (по умолчанию
- * `<repoRoot>/dist`). Другой каталог нужен e2e: там сборка неизменяемая и живёт в
- * кэше по хешу исходников (`scripts/e2e-artifacts.mjs`), а не в рабочем `dist/`,
- * который `tsup clean` сносит целиком.
+ * Другой `distDir` нужен e2e: неизменяемая сборка в кэше по хешу (`scripts/e2e-artifacts.mjs`).
  *
  * @param {{ repoRoot: string, distDir?: string }} params
  * @returns {Promise<{ distDir: string, mainJsPath: string, bundlePath: string, nodePtyBundlePath: string, ripgrepBundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ id: string, asset: string, path: string }> }>}
@@ -31,16 +25,12 @@ import { buildTsServerBundle } from "./pack-ts-server.mjs";
 export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "dist") }) {
     mkdirSync(distDir, { recursive: true });
 
-    // 1. Бандлим приложение в единственный <distDir>/main.cjs (tsup, splitting: false).
-    // `clean: true` из tsup.config.ts чистит именно out-dir — чужой каталог не задевает.
-    // CLI tsup напрямую, массивом аргументов: путь не проходит через шелл (на
-    // Windows `npx` требует его, а кавычки/обратные слэши там ломаются).
+    // CLI tsup напрямую, массивом аргументов: на Windows `npx` требует шелл, а
+    // кавычки и обратные слэши пути там ломаются.
     const tsupCli = join(repoRoot, "node_modules", "tsup", "dist", "cli-default.js");
     console.log(`> tsup --out-dir ${distDir}`);
     execFileSync(process.execPath, [tsupCli, "--out-dir", distDir], { stdio: "inherit", cwd: repoRoot });
 
-    // 1a. Ленивые куски (scripts/build-lazy-chunks.mjs) → <distDir>/lazy/<id>.cjs и
-    // храповик на граф первого кадра: кусок, протёкший в main.cjs, роняет сборку.
     const lazyChunks = await buildLazyChunks({ repoRoot, distDir });
     const mainMetafile = JSON.parse(readFileSync(join(distDir, "metafile-cjs.json"), "utf8"));
     const lazyErrors = verifyLazyChunks({ mainMetafile, chunks: lazyChunks });
@@ -49,21 +39,17 @@ export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "d
     }
     console.log(`[build-dist] Lazy chunks: ${lazyChunks.map((c) => c.asset).join(", ")}`);
 
-    // 2. Компилируем «кодовые» builtin'ы (git, …) → <dir>/out/extension.cjs ДО упаковки,
-    // иначе скомпилированный entry не попадёт в diode.bundle.
+    // ДО упаковки, иначе скомпилированный entry не попадёт в diode.bundle.
     const builtExtensions = await buildExtensions({ repoRoot });
     console.log(
         `[build-dist] Compiled ${builtExtensions.length} code-builtin(s): ${builtExtensions.map((b) => b.id).join(", ") || "—"}`,
     );
 
-    // 3. Пакуем onig.wasm + src/Extensions/builtin/** в единый dist/diode.bundle.
     const { bundle, inputs } = buildDiodeBundle({ repoRoot });
     const bundlePath = join(distDir, "diode.bundle");
     writeFileSync(bundlePath, bundle);
     console.log(`[build-dist] Packed ${inputs.length} assets → ${bundlePath} (${(bundle.length / 1024).toFixed(1)} KB)`);
 
-    // 4. Пакуем рантайм-раскладку node-pty (нативный PTY) в dist/node-pty.bundle.
-    // SEA вшивает его ассетом, self-extract кладёт node-pty в node_modules payload'а.
     const { bundle: ptyBundle, inputs: ptyInputs } = buildNodePtyBundle({ repoRoot });
     const nodePtyBundlePath = join(distDir, "node-pty.bundle");
     writeFileSync(nodePtyBundlePath, ptyBundle);
@@ -71,8 +57,6 @@ export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "d
         `[build-dist] Packed ${ptyInputs.length} node-pty files → ${nodePtyBundlePath} (${(ptyBundle.length / 1024).toFixed(1)} KB)`,
     );
 
-    // 5. Пакуем бинарь ripgrep в dist/rg.bundle. SEA вшивает его ассетом; self-extract
-    // берёт rg из @vscode/ripgrep в node_modules payload'а (dev-путь loadRipgrep.ts).
     const { bundle: rgBundle, binaryName: rgBinaryName } = buildRipgrepBundle({ repoRoot });
     const ripgrepBundlePath = join(distDir, "rg.bundle");
     writeFileSync(ripgrepBundlePath, rgBundle);
@@ -80,15 +64,10 @@ export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "d
         `[build-dist] Packed ripgrep (${rgBinaryName}) → ${ripgrepBundlePath} (${(rgBundle.length / 1024 / 1024).toFixed(1)} MB)`,
     );
 
-    // 6. Пакуем typescript-language-server + минимальный TypeScript в
-    // dist/ts-server.bundle — «батарейки вшиты»: LSP из коробки без node_modules
-    // в проекте и без node в PATH. SEA вшивает ассетом, self-extract кладёт
-    // файлом рядом с main.cjs (loadTsServer.ts распаковывает в кэш).
     const { bundle: tsBundle, fileCount: tsFileCount } = buildTsServerBundle({ repoRoot });
     const tsServerBundlePath = join(distDir, "ts-server.bundle");
     writeFileSync(tsServerBundlePath, tsBundle);
-    // Дайджест — сайдкаром рядом (`<имя>.sha256`, вшивается и копируется вместе с
-    // бандлом): по нему рантайм строит каталог распаковки без хэша 13 МБ на старте
+    // Сайдкар: по нему рантайм строит каталог распаковки без хэша 13 МБ на старте
     // (`packagedAssetCacheDirByName` в packagedAsset.ts).
     writeFileSync(`${tsServerBundlePath}.sha256`, createHash("sha256").update(tsBundle).digest("hex"));
     console.log(

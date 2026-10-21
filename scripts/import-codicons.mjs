@@ -1,27 +1,16 @@
 #!/usr/bin/env node
 /**
- * Генерирует `src/vs/base/common/codicons.generated.ts` — таблицу
- * «имя codicon'а → символ шрифта» из upstream `microsoft/vscode`.
+ * Генерирует `src/vs/base/common/codicons.generated.ts` — «имя codicon'а → символ
+ * шрифта» из upstream. Кодпоинты в приватной области Unicode не вывести, только взять
+ * у upstream, а ручная копия протухнет на первом обновлении пина.
  *
- * Зачем она нужна: расширения пишут в статус-бар текст вида `$(check) Ready`,
- * и без таблицы в полосе повиснет литерал `$(check)`. Кодпоинты живут в
- * приватной области Unicode (nerd-font/codicon), их нельзя ни вывести, ни
- * угадать — только взять у upstream. Поэтому файл генерируемый: ручная копия
- * из 700 строк протухнет на первом же обновлении пина.
+ * Источник — `codiconsLibrary.ts` (таблица) и `codicons.ts` (`codiconsDerived`: часть
+ * ссылается на имя из библиотеки, а не на кодпоинт).
  *
- * Источник — два файла upstream:
- *   - `src/vs/base/common/codiconsLibrary.ts` — сама таблица (генерируется у них
- *     из microsoft/vscode-codicons);
- *   - `src/vs/base/common/codicons.ts` — производные имена (`codiconsDerived`),
- *     часть которых ссылается на имя из библиотеки, а не на кодпоинт.
+ * Пин — в лок-степе с `extensions/VSCODE_VERSION` и `scripts/import-vscode-dts.mjs`.
  *
- * Пин тега согласован с `extensions/VSCODE_VERSION` и `scripts/import-vscode-dts.mjs`
- * — держите их в лок-степе.
- *
- * Режимы:
- *   (без флагов) — перегенерировать файл (требует сети: git clone);
- *   --check      — сверить, что файл в репозитории равен свежесгенерированному
- *                  (drift guard, требует сети). Exit 1 при расхождении.
+ *   (без флагов) — перегенерировать (git clone, нужна сеть);
+ *   --check      — сверить файл со свежесгенерированным, exit 1 при дрейфе.
  *
  * Usage: node scripts/import-codicons.mjs [--check]
  */
@@ -74,9 +63,8 @@ function fetchUpstream() {
 }
 
 /**
- * Разбирает `register('<имя>', 0x<кодпоинт> | '<другое имя>')` в порядке
- * появления. Ссылка по имени резолвится в уже разобранный кодпоинт — ровно
- * как это делает `codiconsUtil.register` у upstream.
+ * `register('<имя>', 0x<кодпоинт> | '<другое имя>')` по порядку: ссылка по имени —
+ * в уже разобранный кодпоинт, как `codiconsUtil.register` у upstream.
  */
 function parseRegistrations(source, into) {
     const re = /register\(\s*'([a-z0-9-]+)'\s*,\s*(0x[0-9a-fA-F]+|'[a-z0-9-]+')\s*\)/gu;
@@ -110,8 +98,7 @@ function render(entries, commit) {
     ];
     for (const [name, codepoint] of entries) {
         const escaped = `\\u${codepoint.toString(16).padStart(4, "0")}`;
-        // Кавычки только там, где имя не идентификатор (у codicon'ов это дефис) —
-        // так же, как их расставил бы prettier (quoteProps: as-needed).
+        // Как расставил бы prettier (quoteProps: as-needed).
         const key = /^[A-Za-z_$][A-Za-z0-9_$]*$/u.test(name) ? name : JSON.stringify(name);
         lines.push(`    ${key}: "${escaped}",`);
     }

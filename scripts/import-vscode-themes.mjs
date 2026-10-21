@@ -28,10 +28,8 @@ const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = resolve(SCRIPT_DIR, "..", "src", "vs", "workbench", "services", "themes", "common", "themes");
 
 /**
- * Themes to import. `entry` is the top-of-chain JSON (relative to `RAW_BASE`);
- * `type` and `name` are forced onto the flattened output so we don't depend on
- * the source files carrying them. `export` is the generated const name and the
- * output file basename.
+ * `entry` is the top-of-chain JSON (relative to `RAW_BASE`); `type` and `name`
+ * are forced so we don't depend on the source files carrying them.
  */
 const THEMES = [
     {
@@ -149,7 +147,6 @@ function emit(themeDef, flat) {
     return outPath;
 }
 
-/** `darkModernTheme` → `darkModern`. */
 function basenameFor(exportName) {
     return exportName.replace(/Theme$/, "");
 }

@@ -36,7 +36,6 @@ describe("remoteArgs", () => {
             "release",
             sha,
         ]);
-        // Мусорный ref не превращается в аргумент: тег просто встанет на HEAD.
         expect(tagCreateArgs({ name: "v1.0", ref: "--force" })).toEqual(["tag", "v1.0"]);
     });
 });

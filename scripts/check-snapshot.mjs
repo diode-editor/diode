@@ -1,33 +1,18 @@
 #!/usr/bin/env node
 /**
- * Гейт V8-снапшота ядра (`npm run snapshot-check`, CI job `static`).
+ * Гейт V8-снапшота ядра (`npm run snapshot-check`). Верхний уровень `dist/main.cjs`
+ * исполняется один раз, при сборке на CI: прочитанное им окружение запекается и молча
+ * врёт у пользователя — сборка снапшота падает только на нативных объектах.
+ * Правила — docs/arch/Common.md («Верхний уровень модулей и V8-снапшот»).
  *
- * SEA-бинарь стартует из снапшота (`useSnapshot`, scripts/build-sea.mjs): верхний
- * уровень модулей `dist/main.cjs` исполняется ОДИН раз — при сборке, на машине CI,
- * а пользователю приезжает готовая куча. Всё, что верхний уровень прочитал из
- * окружения процесса, запекается и молча врёт у пользователя: сборка снапшота от
- * этого не падает, падает она только на нативных объектах (`Intl.*`, сокеты,
- * парсеры). Правила — docs/arch/Common.md («Верхний уровень модулей и V8-снапшот»).
+ *  1. Ловушки (`snapshot-audit-prelude.cjs`): чтения окружения, времени, случайности
+ *     и таймеры на верхнем уровне; исключения — {@link ALLOWED_TOP_LEVEL}.
+ *  2. Отравленная сборка: метки в node-пути, cwd, env и argv; меток в блобе не больше,
+ *     чем у пустого снапшота того же node (тот сам кладёт `execPath` и `argv`).
+ *  3. Тот же блоб в чистом окружении: `--version`, CLI расширений, run-as-node видят
+ *     окружение запуска.
  *
- * Три проверки:
- *  1. **Ловушки** (`snapshot-audit-prelude.cjs` перед `main.cjs`): каждое чтение
- *     окружения, времени, случайности и таймер на верхнем уровне — со стеком и
- *     модулем-виновником. Исключения — {@link ALLOWED_TOP_LEVEL} с причиной.
- *  2. **Отравленная сборка**: снапшот настоящего `main.cjs` собирается тем же
- *     входом, что у бинаря (`snapshot-entry.cjs`: eager-компиляция), node из
- *     каталога с меткой, в cwd с меткой, с метками в HOME, TMPDIR, XDG_*, PATH,
- *     TERM, LANG, argv. Меток в блобе не может быть больше, чем у пустого
- *     снапшота того же node (он сам кладёт туда `execPath` и `argv` сборки и
- *     обновляет их на старте). Лишняя метка — значение окружения запеклось в куче,
- *     в том числе через ленивый синглтон, инициализированный при сборке.
- *  3. **Поведение после десериализации** того же отравленного блоба в чистом
- *     окружении: `--version`, CLI расширений пишет в HOME запуска, run-as-node
- *     (`-e` и скрипт) видит `require`, `module`, `require.main`, argv, cwd, HOME
- *     и TMPDIR запуска.
- *
- * Сборка снапшота — `node --snapshot-blob`, без SEA: куча та же, а бинарь (секунды
- * и сотни МБ) не нужен. Сам бинарь со снапшотом проверяют e2e на SEA и самотест
- * `build-sea.mjs` на каждой платформе релиза.
+ * Без SEA: куча та же, а бинарь (секунды и сотни МБ) не нужен.
  *
  *   node scripts/check-snapshot.mjs                 # собрать main.cjs во временный каталог (tsup)
  *   node scripts/check-snapshot.mjs --main <путь>   # проверить готовый main.cjs
@@ -45,9 +30,6 @@ const repoRoot = resolve(import.meta.dirname, "..");
 const PRELUDE = join(import.meta.dirname, "snapshot-audit-prelude.cjs");
 
 /**
- * Чтения на верхнем уровне, которые запекаются осознанно. Ключ — что прочитано
- * (`what` ловушки) и модуль бандла, значение — почему это безопасно.
- *
  * @type {ReadonlyArray<{ what: string, module: string, why: string }>}
  */
 export const ALLOWED_TOP_LEVEL = [
@@ -58,10 +40,7 @@ export const ALLOWED_TOP_LEVEL = [
     },
 ];
 
-/**
- * Метки отравленного окружения сборки. Латиница с цифрой: строка однобайтная, и в
- * блобе её видно как есть (двухбайтные ищутся отдельно, UTF-16LE).
- */
+/** Латиница с цифрой: однобайтная строка видна в блобе как есть (UTF-16LE ищется отдельно). */
 const MARKS = {
     cwd: "Zq7snapCwd",
     execPath: "Zq7snapExec",
@@ -76,7 +55,6 @@ const MARKS = {
     env: "Zq7snapEnv",
 };
 
-/** Окружение сборки с метками — всё, откуда код берёт пути и настройки пользователя. */
 function poisonedEnv() {
     const env = {
         PATH: `${join("/", MARKS.path)}${process.platform === "win32" ? ";" : ":"}${process.env.PATH ?? ""}`,
@@ -113,17 +91,13 @@ function poisonedEnv() {
     return env;
 }
 
-/** Окружение без NODE_OPTIONS: флаги V8 сборки — только {@link SNAPSHOT_BUILD_FLAGS}, как у build-sea. */
+/** Флаги V8 сборки — только {@link SNAPSHOT_BUILD_FLAGS}, как у build-sea. */
 function cleanEnv(extra = {}) {
     const env = { ...process.env, ...extra };
     delete env.NODE_OPTIONS;
     return env;
 }
 
-/**
- * Собирает снапшот `entry` и возвращает stderr сборки; падает с ним, если сборка
- * упала (нативный объект на верхнем уровне: «global handle not serialized»).
- */
 function buildSnapshot({ node, entry, blob, cwd, env, extraArgs = [] }) {
     const result = spawnSync(node, [...SNAPSHOT_BUILD_FLAGS, "--snapshot-blob", blob, "--build-snapshot", entry, ...extraArgs], {
         cwd,
@@ -139,7 +113,7 @@ function buildSnapshot({ node, entry, blob, cwd, env, extraArgs = [] }) {
     return result.stderr ?? "";
 }
 
-/** Без предупреждений «not yet fully verified» о встроенных модулях: они есть на каждой сборке. */
+/** Предупреждения о встроенных модулях есть на каждой сборке — шум. */
 function stripSnapshotWarnings(stderr) {
     return stderr
         .split("\n")
@@ -151,7 +125,7 @@ function stripSnapshotWarnings(stderr) {
         .trim();
 }
 
-/** Модуль бандла по строке: esbuild пишет `// <путь>` перед каждым модулем. */
+/** esbuild пишет `// <путь>` перед каждым модулем бандла. */
 function moduleIndex(source) {
     const lines = source.split("\n");
     const starts = [];
@@ -170,9 +144,6 @@ function moduleIndex(source) {
 }
 
 /**
- * Проверка 1: ловушки на верхнем уровне. Возвращает нарушения — чтения не из
- * {@link ALLOWED_TOP_LEVEL}, сгруппированные по месту.
- *
  * @param {{ mainPath: string, workDir: string, node?: string }} params
  * @returns {Array<{ what: string, module: string, line: number, code: string, allowed: boolean }>}
  */
@@ -197,10 +168,8 @@ export function auditTopLevel({ mainPath, workDir, node = process.execPath }) {
     /** @type {Map<string, { what: string, module: string, line: number, code: string, allowed: boolean }>} */
     const found = new Map();
     for (const { what, stack } of hits) {
-        // stack[0] — сама ловушка в прелюдии, дальше — до первого кадра бандла. Node
-        // между ними — это либо наш вызов (`path.resolve` читает cwd, `os.tmpdir` —
-        // env), либо его собственная кухня: предупреждения и загрузчик встроенных
-        // модулей (`process.pid` в тексте предупреждения). Вторую пропускаем.
+        // Кадры node между ловушкой и бандлом — либо наш вызов (`path.resolve` читает cwd),
+        // либо его собственная кухня (предупреждения, загрузчик модулей) — её пропускаем.
         const index = stack.findIndex((f, i) => {
             if (i === 0) return false;
             const match = entryFrame.exec(f);
@@ -222,16 +191,11 @@ export function auditTopLevel({ mainPath, workDir, node = process.execPath }) {
 }
 
 /**
- * Проверка 2: снапшот `main.cjs`, собранный в отравленном окружении. Возвращает
- * метки, которых в блобе больше, чем в пустом снапшоте того же node, и путь блоба
- * (его же гоняет проверка 3).
- *
  * @param {{ mainPath: string, workDir: string }} params
  * @returns {{ leaks: Array<{ mark: string, value: string, inMain: number, inEmpty: number }>, blob: string, node: string }}
  */
 export function findBakedEnvironment({ mainPath, workDir }) {
-    // Свой node в каталоге с меткой: execPath сборки тоже окружение (в SEA execPath —
-    // сам бинарь, а у сборщика — node).
+    // execPath сборки — тоже окружение (в SEA это сам бинарь).
     const nodeDir = join(workDir, MARKS.execPath);
     mkdirSync(nodeDir, { recursive: true });
     const node = join(nodeDir, basename(process.execPath));
@@ -246,7 +210,6 @@ export function findBakedEnvironment({ mainPath, workDir }) {
     const emptyBlob = join(workDir, "empty.blob");
     const mainBlob = join(workDir, "main.blob");
     buildSnapshot({ node, entry: empty, blob: emptyBlob, cwd, env, extraArgs: [MARKS.argv] });
-    // Тот же вход, что у бинаря (build-sea.mjs): main.cjs, скомпилированный eagerly.
     buildSnapshot({
         node,
         entry: SNAPSHOT_ENTRY,
@@ -272,11 +235,8 @@ export function findBakedEnvironment({ mainPath, workDir }) {
 }
 
 /**
- * Проверка 3: поведение после десериализации отравленного блоба в чистом окружении.
- * Возвращает список расхождений (пустой — всё как у пользователя).
- *
- * Запускает обычный `process.execPath` (тот же node, что собирал блоб, но не из
- * каталога с меткой): иначе путь рантайма в тексте ошибки выглядел бы утечкой.
+ * Обычный `process.execPath`, не node из каталога с меткой: иначе путь рантайма в
+ * тексте ошибки выглядел бы утечкой.
  *
  * @param {{ mainPath: string, blob: string, workDir: string }} params
  * @returns {string[]}
@@ -300,8 +260,7 @@ export function checkDeserializedBehaviour({ mainPath, blob, workDir }) {
         APPDATA: join(runHome, "AppData", "Roaming"),
         LOCALAPPDATA: join(runHome, "AppData", "Local"),
     });
-    // argv[1] у SEA — путь бинаря; здесь — main.cjs, как у `node dist/main.cjs`.
-    // `plain` — тот же main.cjs без снапшота: эталон, с которым сверяется вывод.
+    // `plain` — без снапшота: эталон, с которым сверяется вывод.
     const run = (args, extraEnv = {}, { plain = false } = {}) =>
         spawnSync(node, [...(plain ? [] : ["--snapshot-blob", blob]), mainPath, ...args], {
             cwd: runCwd,
@@ -309,7 +268,6 @@ export function checkDeserializedBehaviour({ mainPath, blob, workDir }) {
             encoding: "utf8",
             timeout: 30_000,
         });
-    /** Пробник run-as-node: вывод из снапшота обязан совпасть с выводом без него и с `expected`. */
     const probe = (name, args, expected) => {
         const fromSnapshot = run(args, { DIODE_RUN_AS_NODE: "1" });
         const plain = run(args, { DIODE_RUN_AS_NODE: "1" }, { plain: true });
@@ -327,14 +285,12 @@ export function checkDeserializedBehaviour({ mainPath, blob, workDir }) {
     const version = run(["--version"]);
     if (version.status !== 0 || version.stdout.trim() === "") problems.push(`--version: ${describe(version)}`);
 
-    // CLI расширений резолвит каталог данных пользователя от HOME запуска.
     const list = run(["--list-extensions"]);
     if (list.status !== 0) problems.push(`--list-extensions: ${describe(list)}`);
     else if (readdirSync(runHome).length === 0) {
         problems.push("--list-extensions не создал данные пользователя в HOME запуска — каталог запечён при сборке?");
     }
 
-    // run-as-node: -e исполняется CJS-модулем в cwd запуска, argv без слота скрипта.
     const evalCode =
         'const os = require("node:os"); process.stdout.write(JSON.stringify({ cwd: process.cwd(), home: os.homedir(), ' +
         'tmp: os.tmpdir(), argv: process.argv.slice(1), filename: __filename, module: typeof module, ' +
@@ -349,9 +305,8 @@ export function checkDeserializedBehaviour({ mainPath, blob, workDir }) {
         path: "function",
     });
 
-    // run-as-node: чужой скрипт с относительным require — как language-сервер.
-    // `require.main === module` у него false и без снапшота: скрипт грузит import()
-    // синтетического модуля (importModule.ts), — эталон тот же.
+    // Как language-сервер. `require.main === module` false и без снапшота: скрипт грузит
+    // import() синтетического модуля (importModule.ts).
     const scriptDir = join(workDir, "script");
     mkdirSync(scriptDir, { recursive: true });
     writeFileSync(join(scriptDir, "dep.cjs"), "module.exports = 42;\n");
@@ -369,9 +324,8 @@ export function checkDeserializedBehaviour({ mainPath, blob, workDir }) {
         cwd: runCwd,
     });
 
-    // run-as-node: рабочий поток с сетью — фоновый анализ pyright. node до 26.11 в
-    // процессе из user-снапшота падал SIGABRT на первом `stream_wrap` в воркере
-    // (`shutdown_wrap_template_.IsEmpty()`, nodejs/node#65978).
+    // Как фоновый анализ pyright: node до 26.11 из user-снапшота падал SIGABRT на
+    // первом `stream_wrap` в воркере (nodejs/node#65978).
     const workerScript = join(scriptDir, "worker.cjs");
     writeFileSync(
         workerScript,
@@ -398,7 +352,6 @@ function escapeRegExp(text) {
     return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Собирает `main.cjs` во временный каталог тем же tsup, что и релиз. */
 function buildMain(outDir) {
     const tsupCli = join(repoRoot, "node_modules", "tsup", "dist", "cli-default.js");
     execFileSync(process.execPath, [tsupCli, "--out-dir", outDir, "--silent"], { stdio: "inherit", cwd: repoRoot });

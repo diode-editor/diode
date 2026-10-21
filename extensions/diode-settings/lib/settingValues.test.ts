@@ -40,9 +40,7 @@ describe("completionValuesFor", () => {
     });
 });
 
-// Схема — сгенерированный артефакт (scripts/generate-settings-schema.mjs), и
-// задача «подсказывать значения» держится на её enum'ах. Тут сторожим сам факт их
-// наличия: без них подсказки молча выродятся в один дефолт.
+// Без enum'ов сгенерированной схемы подсказки молча выродятся в один дефолт.
 describe("SETTINGS_SCHEMA — enum'ы на месте", () => {
     function entry(key: string) {
         const found = SETTINGS_SCHEMA.find((e) => e.key === key);
@@ -58,7 +56,6 @@ describe("SETTINGS_SCHEMA — enum'ы на месте", () => {
         const themes = entry("workbench.colorTheme").enum;
         expect(themes).toContain("Dark Modern");
         expect(themes).toContain("Light Modern");
-        // Дефолт обязан быть выбираемым значением.
         expect(themes).toContain(entry("workbench.colorTheme").default);
     });
 

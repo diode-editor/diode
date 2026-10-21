@@ -35,20 +35,17 @@ test("computeBuildKey: стабилен и меняется ровно от вх
     assert.match(base, /^[0-9a-f]{16}$/);
     assert.equal(computeBuildKey(repo, {}), base, "тот же вход — тот же ключ");
 
-    // Тесты и всё вне входов сборки бинарь не меняют.
     writeFileSync(join(repo, "e2e", "x.test.ts"), "changed\n");
     writeFileSync(join(repo, "src", "main.test.ts"), "new test\n");
     writeFileSync(join(repo, "README.md"), "docs\n");
     assert.equal(computeBuildKey(repo, {}), base);
 
-    // Незакоммиченная правка исходника — новый ключ; откат — старый.
     writeFileSync(join(repo, "src", "main.ts"), "export const a = 2;\n");
     const edited = computeBuildKey(repo, {});
     assert.notEqual(edited, base);
     writeFileSync(join(repo, "src", "main.ts"), "export const a = 1;\n");
     assert.equal(computeBuildKey(repo, {}), base);
 
-    // Новый неотслеживаемый исходник — тоже вход.
     writeFileSync(join(repo, "src", "extra.ts"), "x\n");
     const withUntracked = computeBuildKey(repo, {});
     assert.notEqual(withUntracked, base);
@@ -56,16 +53,14 @@ test("computeBuildKey: стабилен и меняется ровно от вх
     const untrackedY = computeBuildKey(repo, {});
     assert.notEqual(untrackedY, withUntracked, "содержимое неотслеживаемого файла — в ключе");
 
-    // Коммит того же содержимого ключ не меняет: ключ — от содержимого, а не от git.
+    // Ключ — от содержимого, а не от git.
     execFileSync("git", ["add", "."], { cwd: repo });
     execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "more"], { cwd: repo });
     assert.equal(computeBuildKey(repo, {}), untrackedY);
 
-    // Удалённый из рабочей копии файл — уже не вход.
     removeTree(join(repo, "src", "extra.ts"));
     assert.notEqual(computeBuildKey(repo, {}), untrackedY);
 
-    // Зашиваемая версия — часть ключа.
     assert.notEqual(computeBuildKey(repo, { DIODE_VERSION: "1.2.3" }), computeBuildKey(repo, {}));
 });
 
@@ -89,7 +84,6 @@ test("acquireLock: второй ждёт, замок мёртвого владе
     release();
     assert.equal(existsSync(lock), false);
 
-    // Владелец мёртв — замок снят без ожидания.
     mkdirSync(lock);
     writeFileSync(join(lock, "owner"), "999999");
     const logs = [];
@@ -100,7 +94,6 @@ test("acquireLock: второй ждёт, замок мёртвого владе
 
 test("acquireLock: соседний процесс держит замок — дожидаемся его", async () => {
     const lock = join(dir, "k.lock");
-    // Сосед берёт замок и отпускает через ~1,5 с.
     const holder = spawn(
         process.execPath,
         [
@@ -122,7 +115,6 @@ test("acquireLock: соседний процесс держит замок — �
     await new Promise((resolve) => holder.once("exit", resolve));
 });
 
-/** Готовая запись кэша: каталог с манифестом, «использованная» `ageSec` назад. */
 function entry(root, key, ageSec, files = { binary: "diode" }) {
     const path = join(root, key);
     mkdirSync(path, { recursive: true });

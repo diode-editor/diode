@@ -23,8 +23,7 @@ describe("diode-lsp-typescript — resolveServer", () => {
         expect(commandFor("/x/run-cli.cjs", DIODE_SEA, [])).toEqual({
             command: "/opt/dist/diode",
             args: ["/x/run-cli.cjs"],
-            // SEA: бинарь уходит в node-режим; флаг наследуется внуками
-            // (tsserver форкается сервером через process.execPath).
+            // Флаг наследуется внуками: tsserver форкается через process.execPath.
             env: { DIODE_EXTENSION_HOST: undefined, DIODE_RUN_AS_NODE: "1" },
         });
         expect(commandFor("/usr/bin/tls-wrap", DIODE_SEA)).toEqual({
@@ -39,31 +38,25 @@ describe("diode-lsp-typescript — resolveServer", () => {
             resolveServerCommand(TS_SPEC, settingPath, ["/ws"], BUNDLED, NODE, exists);
         const wsEntry = "/ws/node_modules/typescript-language-server/lib/cli.mjs";
 
-        // Настройка задана и существует — побеждает.
         const fromSetting = resolve("/custom/server.mjs", (p) => p === "/custom/server.mjs");
         expect(fromSetting?.command.args[0]).toBe("/custom/server.mjs");
         expect(fromSetting?.isBundled).toBe(false);
 
-        // Настройки нет — воркспейсная версия сервера. Кандидат — JS-энтрипоинт
-        // (НЕ `.bin`-шим!) и запускается нашим рантаймом: шим исполнялся бы
-        // напрямую и через шебанг `#!/usr/bin/env node` требовал системный node
-        // (реальный отказ на машине без node: env: 'node': No such file, 127).
+        // JS-энтрипоинт, НЕ `.bin`-шим: шебанг требовал бы системный node
+        // (реальный отказ: env: 'node': No such file, 127).
         const fromWorkspace = resolve("", (p) => p === wsEntry);
         expect(fromWorkspace?.command).toMatchObject({ command: "/opt/dist/node", args: [wsEntry, "--stdio"] });
         expect(fromWorkspace?.isBundled).toBe(false);
 
-        // Дефолт — вшитый сервер из поставки.
         const fromBundled = resolve("", (p) => p === BUNDLED);
         expect(fromBundled?.command.args[0]).toBe(BUNDLED);
         expect(fromBundled?.command.command).toBe("/opt/dist/node");
         expect(fromBundled?.isBundled).toBe(true);
 
-        // Ничего на диске нет — PATH-кандидат без проверки существования.
         const fromPath = resolve("", () => false);
         expect(fromPath?.command).toMatchObject({ command: "typescript-language-server", args: ["--stdio"] });
         expect(fromPath?.isBundled).toBe(false);
 
-        // Несуществующая настройка пропускается в пользу следующего кандидата.
         expect(resolve("/gone/server", (p) => p === BUNDLED)?.isBundled).toBe(true);
     });
 

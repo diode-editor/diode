@@ -1,25 +1,13 @@
 /**
  * Самотест собранного бинаря: он должен **реально стартовать**.
  *
- * Без шебанга сознательно: файл импортируется из тестов, а vitest на Windows
- * инлайнит его через esbuild transform, который (в отличие от bundle) шебанг НЕ
- * срезает — `#!` остаётся в ESM-выводе и падает как SyntaxError. Скрипт всё равно
- * запускается через `node scripts/…`, так что шебанг тут не нужен.
+ * Без шебанга сознательно: vitest на Windows инлайнит файл через esbuild transform,
+ * который шебанг НЕ срезает, — `#!` падает в ESM как SyntaxError.
  *
- * История вопроса (#143): предыдущая версия проверки смотрела только на
- * `result.error` от `spawnSync` и запускала бинарь без аргументов. Segfault
- * на Intel macOS даёт `error === undefined`, `status === null`, `signal === "SIGSEGV"`,
- * поэтому крах логировался как «spawn OK, exited with code null» — и битый ассет
- * уехал в релиз.
- *
- * Отсюда контракт: `<bin> --version` → `signal === null`, `status === 0`, непустой stdout.
- * `--version` выбран потому, что это единственная ветка, которая гарантированно
- * завершается сама и не требует TTY: запуск без аргументов теперь поднимает пустое
- * окно и ждёт TTY (раньше — печатал «Usage» и выходил с кодом 1), так что для
- * самотеста он не годится тем более.
- *
- * Оговорка: `--version` отрабатывает до `createDefaultAssetAccess()`, поэтому самотест
- * ловит краш до `main()`, но не битый `diode.bundle` — за это отвечают e2e.
+ * Урок #143: segfault даёт `error === undefined`, `status === null`, и проверка одного
+ * `result.error` пропустила битый ассет в релиз. Поэтому смотрим `signal` и `status`.
+ * `--version` — единственная ветка, что завершается сама без TTY; она отрабатывает до
+ * `createDefaultAssetAccess()`, так что битый `diode.bundle` ловят e2e, а не самотест.
  */
 
 import { spawnSync } from "node:child_process";
@@ -28,10 +16,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 /**
- * @param {string} binaryPath Абсолютный путь к собранному бинарю.
+ * @param {string} binaryPath
  * @param {{ timeoutMs?: number, cwd?: string }} [options]
- * @returns {string} Напечатанная бинарём версия (trimmed).
- * @throws {Error} Если бинарь не запустился, упал по сигналу или вернул != 0.
+ * @returns {string}
  */
 export function smokeTestBinary(binaryPath, options = {}) {
     const { timeoutMs = 30_000, cwd } = options;
@@ -46,7 +33,6 @@ export function smokeTestBinary(binaryPath, options = {}) {
         throw new Error(`[smoke] Binary cannot be executed (${result.error.code ?? "?"}): ${result.error.message}`);
     }
     if (result.signal !== null) {
-        // Ровно этот случай и есть #143: SIGSEGV в статических инициализаторах до main().
         throw new Error(
             `[smoke] Binary crashed with signal ${result.signal} — it does not start at all.\n` +
                 `${describeOutput(result)}`,
@@ -69,15 +55,12 @@ function describeOutput(result) {
 }
 
 /**
- * Самотест node-режима (`DIODE_RUN_AS_NODE=1`): бинарь обязан исполнять внешний
- * JS как node — на этом стоит запуск вшитого language-сервера (SEA-поставка
- * без node в PATH). Проверяются обе механики загрузки: CJS через createRequire
- * и динамический `import()` ESM с top-level await из внешнего CJS-шима
- * (embedder-хук SEA перехватывает только import из вшитого main — runAsNode.ts).
+ * На node-режиме стоит вшитый language-сервер. Обе механики загрузки: CJS и `import()`
+ * ESM с top-level await из внешнего CJS-шима (embedder-хук SEA ловит только import из
+ * вшитого main — runAsNode.ts).
  *
- * @param {string} binaryPath Абсолютный путь к собранному бинарю.
+ * @param {string} binaryPath
  * @param {{ timeoutMs?: number }} [options]
- * @throws {Error} Если node-режим не исполняет скрипты или вывод не совпал.
  */
 export function smokeTestNodeMode(binaryPath, options = {}) {
     const { timeoutMs = 30_000 } = options;
@@ -111,8 +94,7 @@ export function smokeTestNodeMode(binaryPath, options = {}) {
             throw new Error(`[smoke:node] unexpected output.\n${describeOutput(result)}`);
         }
 
-        // Прямая загрузка ESM с top-level await (пользовательский serverPath =
-        // cli.mjs): runAsNode обязан брать его без внешнего CJS-шима.
+        // Пользовательский serverPath = cli.mjs: без внешнего CJS-шима.
         const direct = spawnSync(binaryPath, [join(dir, "inner.mjs")], {
             timeout: timeoutMs,
             stdio: "pipe",
@@ -125,11 +107,8 @@ export function smokeTestNodeMode(binaryPath, options = {}) {
             );
         }
 
-        // Рабочий поток с сетью — как фоновый анализ pyright (basedpyright). В процессе
-        // из V8-снапшота (SEA `useSnapshot`) node до 26.11 падал SIGABRT на первом же
-        // `stream_wrap` в воркере (`shutdown_wrap_template_.IsEmpty()`): `node:net`,
-        // `node:http`, `node:v8`. e2e pythonLsp идёт только на linux, а самотест — на
-        // каждой SEA-платформе релиза.
+        // Как фоновый анализ pyright: node до 26.11 из V8-снапшота падал SIGABRT на первом
+        // `stream_wrap` в воркере. e2e pythonLsp идёт только на linux, самотест — везде.
         writeFileSync(
             join(dir, "worker.cjs"),
             'const { Worker } = require("node:worker_threads");\n' +

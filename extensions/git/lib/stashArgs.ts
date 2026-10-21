@@ -1,8 +1,3 @@
-/**
- * Сборка argv stash-операций. Индекс стэша валидируется строго
- * (`stash@{N}` — приходит из нашего же пикера), сообщение — свободный текст
- * (значение после `-m`, инъекция флагов невозможна).
- */
 const STASH_INDEX_RE = /^stash@\{\d+\}$/;
 
 function safeStashIndex(value: unknown): string | null {
@@ -15,6 +10,7 @@ export function stashPushArgs(params: Record<string, unknown>): string[] {
     if (params.includeUntracked === true) args.push("-u");
     if (params.staged === true) args.push("--staged");
     if (typeof params.message === "string" && params.message.trim() !== "") {
+        // Значение после `-m` — инъекция флагов невозможна.
         args.push("-m", params.message.trim());
     }
     return args;

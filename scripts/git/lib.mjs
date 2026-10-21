@@ -7,11 +7,7 @@ import path from "node:path";
 // DIODE_GIT_URL — подмена для проверки помощников на локальном bare-репозитории.
 export const REPO_URL = process.env.DIODE_GIT_URL ?? "https://github.com/diode-editor/diode.git";
 
-/**
- * Помощники ходят в сеть по REPO_URL, а не по origin, поэтому сначала
- * убеждаемся, что этот checkout — и правда diode: иначе запуск из чужого
- * клона (или песочницы без DIODE_GIT_URL) пушнул бы его ветки в diode.
- */
+/** Сеть — по REPO_URL, а не origin: запуск из чужого клона пушнул бы его ветки в diode. */
 export function assertDiodeCheckout() {
     if (process.env.DIODE_GIT_URL !== undefined) return;
     const r = cap("git", ["remote", "get-url", "origin"], { allowFail: true });
@@ -25,7 +21,6 @@ export function die(msg, code = 1) {
     process.exit(code);
 }
 
-/** Запуск с захватом вывода; бросает при ненулевом коде, если не `allowFail`. */
 export function cap(cmd, args, { allowFail = false, input } = {}) {
     const r = spawnSync(cmd, args, { encoding: "utf8", input, maxBuffer: 256 * 1024 * 1024 });
     if (r.error) throw r.error;
@@ -35,7 +30,6 @@ export function cap(cmd, args, { allowFail = false, input } = {}) {
     return { ok: r.status === 0, out: r.stdout.trim(), err: r.stderr.trim() };
 }
 
-/** Запуск с выводом в терминал, эхо команды; код выхода — наружу. */
 export function loud(cmd, args) {
     console.log(`> ${cmd} ${args.join(" ")}`);
     const r = spawnSync(cmd, args, { stdio: "inherit" });
@@ -54,15 +48,14 @@ export function short(sha) {
     return sha.slice(0, 10);
 }
 
-/** SHA ветки на сервере (по https), `undefined` — ветки там нет. */
+/** `undefined` — ветки на сервере нет. */
 export function remoteSha(branch) {
     const out = git("ls-remote", REPO_URL, `refs/heads/${branch}`);
     return out === "" ? undefined : out.split(/\s+/)[0];
 }
 
-// Ожидаемый SHA ветки на сервере, снятый git:stack-rebase ДО переписывания
-// истории. git:push отдаёт его в --force-with-lease: снятый в момент push он
-// ничего бы не защищал. Лежит в git-каталоге worktree, не в дереве.
+// SHA на сервере, снятый git:stack-rebase ДО переписывания истории: снятый в момент
+// push, он ничего бы не защищал в --force-with-lease.
 function leaseFile(branch) {
     return path.join(git("rev-parse", "--git-common-dir"), "diode-push-lease", branch.replaceAll("/", "__"));
 }

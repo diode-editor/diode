@@ -1,8 +1,4 @@
-/**
- * Сборка argv сетевых операций из параметров `diode.git.op`. Значения remote/ref
- * приходят из-за границы процесса — {@link safeRefArg} отбрасывает всё, что
- * похоже на флаг (защита от argument injection), пустые строки и не-строки.
- */
+/** Отбрасывает всё, похожее на флаг (argument injection): значения приходят из-за границы процесса. */
 export function safeRefArg(value: unknown): string | null {
     if (typeof value !== "string") return null;
     const trimmed = value.trim();

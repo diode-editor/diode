@@ -1,24 +1,14 @@
 #!/usr/bin/env node
 /**
- * Упаковка typescript-language-server + минимального TypeScript в ассет
- * `ts-server.bundle` — «батарейки вшиты»: LSP работает из коробки без
- * node_modules в проекте и без node в PATH (контекст — docs/arch/Extensions.md, «Builtin LSP-клиент»).
+ * typescript-language-server + минимальный TypeScript → ассет `ts-server.bundle`:
+ * LSP из коробки без node_modules в проекте и node в PATH (docs/arch/Extensions.md).
  *
- * Состав (фиксированные списки, никаких «взять всё»):
- *  - `typescript-language-server/lib/cli.mjs` — готовый однофайловый
- *    rollup-бандл самого сервера (ESM, рантайм-зависимостей нет) + package.json;
- *  - `node_modules/typescript/lib/*` — ровно то, что нужно tsserver'у в
- *    рантайме: шим tsserver.js + _tsserver.js + монолит typescript.js +
- *    typesMap.json + watchGuard.js (Windows-путь) + стандартные lib.*.d.ts.
- *    Выбрасываются: локали (~4.4 МБ), tsc (~6 МБ), tsserverlibrary, *.map,
- *    typingsInstaller (ATA выключен для bundled-пути — см. resolveServer.ts).
+ * Списки фиксированные: выброшены локали (~4.4 МБ), tsc (~6 МБ), tsserverlibrary,
+ * *.map и typingsInstaller (ATA для bundled-пути выключен, resolveServer.ts).
  *
- * Раскладка `node_modules/typescript/...` — намеренная: cli.mjs резолвит
- * bundled TypeScript через `require.resolve("typescript")` относительно себя,
- * так что распакованный кэш работает без initializationOptions.
- *
- * Виртуальные пути обязаны совпадать с константами в
- * `src/vs/workbench/services/extensions/node/loadTsServer.ts`.
+ * Раскладка `node_modules/typescript/...` намеренная: cli.mjs находит TypeScript
+ * `require.resolve`'ом от себя, без initializationOptions. Виртуальные пути обязаны
+ * совпадать с константами `loadTsServer.ts`.
  */
 
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -27,15 +17,13 @@ import { dirname, join, resolve } from "node:path";
 
 import { packBundle } from "./pack-assets.mjs";
 
-/** Файлы typescript/lib, нужные tsserver'у в рантайме (кроме lib.*.d.ts — они по фильтру). */
+/** watchGuard.js — для Windows. */
 const TYPESCRIPT_LIB_FILES = ["tsserver.js", "_tsserver.js", "typescript.js", "typesMap.json", "watchGuard.js"];
 
 /**
- * CJS-шим запуска сервера под «diode как node» (SEA). Динамический `import()`
- * из вшитого SEA-main перехватывается embedder-хуком (умеет только builtin'ы),
- * а `require(esm)` не берёт cli.mjs из-за top-level await — но `import()` из
- * ВНЕШНЕГО CJS-файла идёт настоящим ESM-loader'ом (проверено на бинаре).
- * bundled serverPath указывает на этот шим.
+ * `import()` из вшитого SEA-main ловит embedder-хук (только builtin'ы), а
+ * `require(esm)` не берёт cli.mjs из-за top-level await; `import()` из ВНЕШНЕГО
+ * CJS-файла идёт настоящим ESM-loader'ом (проверено на бинаре).
  */
 const RUN_CLI_CJS = `"use strict";
 // diode: CJS-шим для SEA-режима — см. scripts/pack-ts-server.mjs.
@@ -47,12 +35,9 @@ import(pathToFileURL(join(__dirname, "cli.mjs")).href).catch((err) => {
 });
 `;
 
-/** Стандартные библиотеки компилятора: lib.d.ts / lib.<target>.d.ts. */
 const TYPESCRIPT_STDLIB_RE = /^lib(\..+)?\.d\.ts$/;
 
 /**
- * Собирает `ts-server.bundle` из node_modules сборки.
- *
  * @param {{ repoRoot: string }} params
  * @returns {{ bundle: Buffer, fileCount: number }}
  */
@@ -100,7 +85,6 @@ export function buildTsServerBundle({ repoRoot }) {
     return { bundle: packBundle(inputs), fileCount: inputs.length };
 }
 
-// Прямой запуск: `node scripts/pack-ts-server.mjs` → dist/ts-server.bundle.
 if (import.meta.url === `file://${process.argv[1]}`) {
     const repoRoot = resolve(import.meta.dirname, "..");
     const { bundle, fileCount } = buildTsServerBundle({ repoRoot });

@@ -1,13 +1,8 @@
 #!/usr/bin/env node
 /**
- * Прогнать гейт CI на своей ветке без PR и дождаться вердикта.
- *
- * Тяжёлые гейты (мутационный, e2e, покрытие) на общей маленькой машине идут под
- * лизой и по одному; раннер GitHub — это ещё одна машина, свободная всегда.
- * Скрипт пушит текущую ветку, запускает `ci.yml` вручную (`workflow_dispatch`)
- * с выбранным гейтом, ждёт конца и возвращает его вердикт кодом выхода. На
- * провале — хвост логов упавших шагов в консоль, логи целиком и артефакты
- * прогона (отчёт Stryker, лог e2e) в `reports/ci/<run id>/`.
+ * Прогнать гейт CI на своей ветке без PR (`workflow_dispatch`) и вернуть вердикт
+ * кодом выхода — раннер GitHub свободен, когда локальная машина занята лизой.
+ * Логи и артефакты прогона — в `reports/ci/<run id>/`.
  *
  * Использование:
  *   node scripts/ci-run.mjs <gate> [--base <sha>] [--no-push] [--tail <строк>]
@@ -52,7 +47,6 @@ function tryRun(cmd, args) {
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// ── аргументы ──
 const argv = process.argv.slice(2);
 let gate;
 let base;
@@ -69,7 +63,6 @@ for (let i = 0; i < argv.length; i++) {
 if (gate === undefined || !GATES.includes(gate)) fail(`укажи гейт: ${GATES.join(" | ")}`);
 if (!Number.isInteger(tail) || tail < 0) fail("--tail ждёт число строк");
 
-// ── ветка и репозиторий ──
 const branch = run("git", ["rev-parse", "--abbrev-ref", "HEAD"]);
 if (branch === "HEAD") fail("detached HEAD — нужен checkout ветки");
 if (branch === "main" && push) fail("в main не пушим; гейт на main гоняет сам push в main");
@@ -85,7 +78,6 @@ if (run("git", ["status", "--porcelain", "--untracked-files=no"]) !== "") {
     console.error("ci-run: в рабочем дереве есть незакоммиченные правки — в CI уедет только HEAD");
 }
 
-// ── push ──
 if (push) {
     console.log(`push ${branch} → ${httpsUrl}`);
     const res = spawnSync("git", ["push", httpsUrl, `HEAD:refs/heads/${branch}`], { cwd: repoRoot, stdio: "inherit" });
@@ -100,7 +92,6 @@ if (push) {
 const remoteHead = tryRun("git", ["ls-remote", httpsUrl, `refs/heads/${branch}`])?.split(/\s+/)[0];
 if (remoteHead !== head) fail(`на remote ${branch} = ${remoteHead ?? "<нет ветки>"}, а HEAD = ${head}: CI прогнал бы не то`);
 
-// ── база мутационного гейта ──
 if ((gate === "mutation" || gate === "all") && base === undefined) {
     if (tryRun("git", ["fetch", "--quiet", "--no-prune", "origin", "main"]) === undefined) {
         console.error("ci-run: git fetch origin main не прошёл — merge-base по локальному origin/main");
@@ -109,7 +100,6 @@ if ((gate === "mutation" || gate === "all") && base === undefined) {
     if (base === undefined) fail("нет merge-base с origin/main — передай --base <sha>");
 }
 
-// ── dispatch ──
 const token = `${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`;
 const fields = ["-f", `gate=${gate}`, "-f", `token=${token}`];
 if (base !== undefined) fields.push("-f", `base=${base}`);
@@ -137,9 +127,7 @@ for (const deadline = Date.now() + FIND_TIMEOUT_MS; runId === undefined; ) {
 }
 console.log(`run ${runId}: ${runUrl}`);
 
-// ── ожидание ──
-// Своим опросом, а не `gh run watch`: тот без TTY перепечатывает всю таблицу
-// каждый тик, и лог фоновой задачи пухнет. Печатаем только смену статусов job'ов.
+// Не `gh run watch`: без TTY он перепечатывает всю таблицу каждый тик, и лог фоновой задачи пухнет.
 const seen = new Map();
 let view;
 for (;;) {
@@ -161,7 +149,6 @@ for (;;) {
     await sleep(POLL_MS);
 }
 
-// ── вердикт ──
 const ok = view.conclusion === "success";
 const outDir = path.join(repoRoot, "reports", "ci", String(runId));
 console.log(`\n${ok ? "ЗЕЛЁНЫЙ" : "КРАСНЫЙ"}: ${view.conclusion} — ${runUrl}`);
@@ -172,10 +159,8 @@ if (tryRun("gh", ["run", "download", String(runId), "-R", repo, "-D", outDir]) !
     console.log(`артефакты: ${path.relative(repoRoot, outDir)}/`);
 }
 
-// Не `--log-failed`: гейты в ci.yml идут шагами с continue-on-error, и упавшим
-// там числится только финальный `Gate` — сама ошибка (tsc, Stryker) в его логе
-// не видна. Берём лог упавшего job'а целиком и показываем хвост каждого шага,
-// где есть `##[error]`: так помечается и шаг, «упавший» под continue-on-error.
+// Не `--log-failed`: шаги гейтов идут с continue-on-error, упавшим числится только
+// финальный `Gate`, а сама ошибка — в шаге с `##[error]`.
 if (!ok) {
     mkdirSync(outDir, { recursive: true });
     for (const job of view.jobs.filter((j) => j.conclusion !== "success" && j.conclusion !== "skipped")) {

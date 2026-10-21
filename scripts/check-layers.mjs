@@ -1,40 +1,21 @@
 #!/usr/bin/env node
 /**
- * Проверка двух осей vscode-раскладки `src/vs/*` (аналог upstream-правил
- * `local/code-layering` + `code-import-patterns` и `layersChecker`):
+ * Проверка двух осей раскладки `src/vs/*` (аналог upstream `code-layering`,
+ * `code-import-patterns` и `layersChecker`):
  *
- *  1. Вертикальные слои (зоны, импортировать можно только свою и нижние):
+ *  1. Слои (импорт — только своего и нижних):
  *     base/common → base/node → platform → editor → workbench → diode.
- *     «Браузер» целиком (DOM-ядро, виджеты, rendering/input/backend,
- *     Inspector) — внешние npm-пакеты `@tuidom/*` (github.com/tuidom/tuidom);
- *     сам пакет физически не может импортировать src/vs.
  *  2. Окружения: common → [common], browser → [common, browser],
- *     node → [common, node]. Окружение файла — первый сегмент
- *     common/browser/node в его пути; `vs/tui/{rendering,input}` считаются
- *     common (чистые структуры/парсинг), `vs/tui/backend` и `vs/diode` — node.
- *  3. Импорты движка `@tuidom/*` размечены той же осью окружений по подпути
- *     (TUIDOM_ENVS): чистый срез `core/common`, `core/input` — common; DOM,
- *     rendering, виджеты, inspector — browser; бэкенды терминала — node;
- *     `@tuidom/testing` — только тесты. `base/common` значений из движка не
- *     берёт вовсе. `@tuidom/core/common/disposable` запрещён во всём `src/`
- *     (и `import type` тоже): примитив жизненного цикла — наш
- *     `vs/base/common/lifecycle.ts` (docs/arch/Common.md#жизненный-цикл-lifecyclets).
- *  4. common/browser не импортируют модули ОС — `node:*` и голые имена
- *     встроенных модулей (кроме `node:path`: чистые строковые функции), а также
- *     node-only npm-пакеты (NODE_ONLY_PACKAGES); `import type` тоже считается —
- *     тип `fs.Dirent` в сигнатуре так же привязывает к Node. Сложившийся долг —
- *     храповик NODE_IMPORT_DEBT: новый импорт вне списка и запись списка, которой
- *     больше нет в коде, — оба нарушение (docs/ARCHITECTURE.md, ось окружений).
+ *     node → [common, node]; окружение — первый сегмент common/browser/node в пути.
+ *  3. `@tuidom/*` размечен той же осью по подпути (TUIDOM_ENVS); `base/common`
+ *     значений из движка не берёт; `@tuidom/core/common/disposable` запрещён во
+ *     всём `src/`, `import type` тоже — примитив наш, `vs/base/common/lifecycle.ts`.
+ *  4. common/browser не импортируют модули ОС (кроме `node:path`) и
+ *     NODE_ONLY_PACKAGES; `import type` считается — тип `fs.Dirent` в сигнатуре
+ *     тоже привязывает к Node. Долг — храповик NODE_IMPORT_DEBT.
  *
- * Не считаются зависимостями: jsdoc-ссылки в комментариях и `import type`
- * (типы стираются при компиляции — как в upstream layersChecker).
- *
- * Файлы вне `src/vs` (dev-тулинг: Inspector, TestUtils, StoryRunner, demos) и
- * импорты в них не проверяются. Точечные признанные нарушения — EXCEPTIONS
- * (каждое с комментарием-обоснованием); цель — пустой список.
- *
- * До миграции (PR 2.1) `src/vs` не существует — скрипт сообщает и выходит
- * зелёным, чтобы npm-скрипт можно было завести заранее.
+ * Для осей 1–3 jsdoc-ссылки и `import type` — не зависимости (как в upstream
+ * layersChecker). Файлы вне `src/vs` не проверяются.
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -44,8 +25,7 @@ import * as path from "node:path";
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const vsRoot = path.join(repoRoot, "src", "vs");
 
-// ── Зоны (порядок = высота слоя) ────────────────────────────────────────────
-
+// Порядок = высота слоя.
 const ZONES = [
     "src/vs/base/common",
     "src/vs/base/node",
@@ -56,14 +36,11 @@ const ZONES = [
 ];
 
 /**
- * Признанные нарушения: [префикс файла, префикс импорта]. Каждая запись —
- * осознанный долг с обоснованием; новые не добавлять без записи в
+ * [префикс файла, префикс импорта]; новые — только с записью в
  * docs/TODO/VscodeStructureFollowUps.md.
  */
 const EXCEPTIONS = [
-    // Single-process TUI: «browser»-сторона зовёт node-сервисы напрямую, без
-    // RPC-моста vscode (IFileService и т.п.). Признанный долг — см.
-    // docs/TODO/VscodeStructureFollowUps.md.
+    // Single-process TUI: «browser»-сторона зовёт node-сервисы напрямую, без RPC-моста vscode.
     ["src/vs/workbench/browser/", "src/vs/workbench/services/terminalEnvironment/node/"],
     ["src/vs/workbench/services/keybinding/browser/", "src/vs/workbench/services/terminalEnvironment/node/"],
     // Мост тема→стили держит unthemed-дефолты у виджета редактора; разнос —
@@ -74,14 +51,7 @@ const EXCEPTIONS = [
     ["src/vs/base/common/fileIcons.ts", "@tuidom/core/common/colorUtils"],
 ];
 
-// ── Направление внутри workbench ─────────────────────────────────────────────
-
-/**
- * Ядро workbench'а не знает фич (как `code-layering` у upstream): нетестовые
- * value-импорты из этих каталогов в `src/vs/workbench/contrib/` запрещены.
- * Фича регистрирует себя сама; знать её всю разрешено только агрегатору и
- * сборке приложения (`vs/diode`), к которым правило не применяется.
- */
+/** Ядро workbench'а не знает фич (как `code-layering` у upstream): импорт отсюда в contrib запрещён. */
 const WORKBENCH_CORE_DIRS = [
     "src/vs/workbench/browser/",
     "src/vs/workbench/common/",
@@ -90,12 +60,7 @@ const WORKBENCH_CORE_DIRS = [
 ];
 const WORKBENCH_CONTRIB_DIR = "src/vs/workbench/contrib/";
 
-/**
- * Храповик: файлы ядра, которые ещё импортируют фичи. Новые сюда не
- * добавляются; запись, которая больше не нужна, — тоже нарушение (её надо
- * удалить), так что список только сокращается. Цель — пустой. План — E4 и
- * docs/TODO/VscodeStructureFollowUps.md.
- */
+/** Храповик: новые сюда не добавляются, ненужная запись — тоже нарушение. План — E4. */
 const DIRECTION_EXCEPTIONS = [
     // Корень: ссылки на фичи в setWorkspaceFolder/activate/restore (E4 PR5).
     "src/vs/workbench/browser/workbenchComponent.ts",
@@ -105,48 +70,32 @@ const DIRECTION_EXCEPTIONS = [
     "src/vs/workbench/browser/actions/layoutActions.ts",
 ];
 
-/**
- * Окружение подпути движка: та же ось, что у нашего кода. Первое совпадение
- * побеждает; неразмеченный подпуть — нарушение (разметь его здесь).
- */
+/** Первое совпадение побеждает; неразмеченный подпуть — нарушение. */
 const TUIDOM_ENVS = [
     [/^@tuidom\/core\/(common|input)\//, "common"],
     [/^@tuidom\/(core\/(dom|rendering|backend)|elements|inspector)\//, "browser"],
     [/^@tuidom\/(terminal|headless)-backend\//, "node"],
-    // Ни в одно окружение не входит — значит, доступен только тестам (они
-    // гейтом не проверяются) и сборке приложения `vs/diode` (тестовый профиль).
+    // Ни в одно окружение не входит: доступен только тестам и тестовому профилю `vs/diode`.
     [/^@tuidom\/testing\//, "test"],
 ];
 
-/** npm-пакеты, которые работают только под Node (нативные модули, ФС/процессы). */
 const NODE_ONLY_PACKAGES = new Set(["chokidar", "node-pty", "yauzl"]);
 
-/** Встроенные модули Node, разрешённые в common/browser: чистые функции без ОС. */
 const ALLOWED_NODE_BUILTINS = new Set(["node:path"]);
 
-/**
- * Храповик: сложившиеся импорты ОС-модулей из common/browser — [файл, модуль,
- * кто снимает]. Цель — пустой список; записи убираются вместе с импортом
- * (гейт падает и на устаревшую запись). Остаток — PR 5 в
- * docs/TODO/FileService.md.
- */
+/** Храповик: гейт падает и на устаревшую запись. Остаток — PR 5 в docs/TODO/FileService.md. */
 const NODE_IMPORT_DEBT = [
-    // Идентичность воркспейса — sha256 пути; вне файлового сервиса.
     ["src/vs/platform/workspace/common/workspaceId.ts", "node:crypto"],
-    // Extension host: env.machineId и т.п.; вне файлового сервиса.
     ["src/vs/workbench/api/common/vscodeNamespace.ts", "node:crypto"],
-    // Рестор вкладок и история навигации проверяют существование файла синхронно:
-    // рестор синхронен по устройству (бутстрапу нужны пути до первого кадра), и
-    // асинхронным он станет вместе с загрузкой модели (PR 5); история —
-    // открытый вопрос в docs/TODO/FileService.md, до решения поведение не меняем.
+    // Синхронная проверка существования: рестор синхронен по устройству (пути
+    // нужны до первого кадра) и асинхронным станет с загрузкой модели (PR 5);
+    // история — открытый вопрос в docs/TODO/FileService.md.
     ["src/vs/workbench/services/editor/browser/editorPaneFactory.ts", "node:fs"],
     ["src/vs/workbench/services/history/browser/historyService.ts", "node:fs"],
-    // Модель пишет через IFileService (PR 4); загрузка с диска пока синхронная —
-    // переезжает вместе с асинхронным открытием (PR 5).
+    // Синхронная загрузка с диска переезжает вместе с асинхронным открытием (PR 5).
     ["src/vs/workbench/services/textfile/common/textFileModel.ts", "node:fs"],
 ];
 
-/** ОС-модуль спецификатора (`fs` → `node:fs`) либо null, если он не ОС-модуль. */
 function osModuleOf(specifier) {
     if (specifier.startsWith(".")) return null;
     const name = specifier.startsWith("node:") ? specifier : `node:${specifier}`;
@@ -158,7 +107,6 @@ function osModuleOf(specifier) {
     return NODE_ONLY_PACKAGES.has(pkg) ? pkg : null;
 }
 
-/** Импорты ОС-модулей из common/browser (`import type` включительно), сверка с храповиком. */
 function checkNodeImports(rel, env, content, seenDebt, violations) {
     if (env !== "common" && env !== "browser") return;
     for (const m of content.matchAll(/(?:\bfrom|\bimport)\s*\(?\s*(["'])([^"']+)\1/g)) {
@@ -175,7 +123,6 @@ function checkNodeImports(rel, env, content, seenDebt, violations) {
     }
 }
 
-/** Импорт, запрещённый во всём `src/`: примитив живёт в vs/base/common/lifecycle.ts. */
 const TUIDOM_DISPOSABLE = "@tuidom/core/common/disposable";
 
 function tuidomEnvOf(specifier) {
@@ -191,11 +138,7 @@ function zoneOf(rel) {
     return best;
 }
 
-/**
- * Файлы-источники, не участвующие в проверке: колокационные тесты, stories и
- * бенчи (пересекают оси легально — поднимают полное приложение; у vscode они
- * живут в test/-деревьях), учебная песочница textMate/learning и тест-утилиты.
- */
+/** Тесты, stories и бенчи пересекают оси легально: поднимают полное приложение (у vscode они в test/-деревьях). */
 function isCheckedSource(rel) {
     if (/\.(test|stories|bench)\.(ts|tsx)$/.test(rel)) return false;
     if (/(^|\.)testUtils\.ts$/i.test(rel)) return false;
@@ -203,19 +146,18 @@ function isCheckedSource(rel) {
     return true;
 }
 
-/** Точечные env-оверрайды: чистые контракты в node/browser-каталогах. */
+/** Чистые контракты в node/browser-каталогах. */
 const ENV_OVERRIDES = new Map([]);
 
 function envOf(rel) {
     const override = ENV_OVERRIDES.get(rel);
     if (override !== undefined) return override;
-    // diode — сборка приложения (DI-профили, entry): единственный слой, которому
-    // env-ось не применяется — он по определению склеивает browser и node.
+    // Сборка приложения по определению склеивает browser и node.
     if (rel.startsWith("src/vs/diode/")) return null;
     for (const seg of rel.split("/")) {
         if (seg === "common" || seg === "browser" || seg === "node") return seg;
     }
-    return null; // окружение не размечено — ось окружений не проверяем
+    return null;
 }
 
 const ENV_ALLOWED = {
@@ -223,8 +165,6 @@ const ENV_ALLOWED = {
     browser: new Set(["common", "browser"]),
     node: new Set(["common", "node"]),
 };
-
-// ── Обход ───────────────────────────────────────────────────────────────────
 
 function listFiles(dirAbs, out = []) {
     for (const entry of readdirSync(dirAbs, { withFileTypes: true })) {
@@ -235,11 +175,7 @@ function listFiles(dirAbs, out = []) {
     return out;
 }
 
-/**
- * DI-правило «токен рядом со своим типом»: файл, зовущий `token<T>()`, обязан
- * объявлять `T` сам или импортировать его из своего слоя/ниже — иначе токен
- * семантически ведёт в слой выше себя (см. docs/DI.md «Где объявлять токены»).
- */
+/** «Токен рядом со своим типом» (docs/DI.md): `T` из `token<T>()` — не из слоя выше. */
 function checkTokenDeclarations(rel, raw, zoneIdx, violations) {
     for (const m of raw.matchAll(/\btoken\s*<\s*([A-Za-z0-9_]+)\b/g)) {
         const typeName = m[1];
@@ -247,7 +183,7 @@ function checkTokenDeclarations(rel, raw, zoneIdx, violations) {
         const importMatch = raw.match(
             new RegExp(`import[^;]*\\{[^}]*\\b${typeName}\\b[^}]*\\}\\s*from\\s*["']([^"']+)["']`),
         );
-        if (!importMatch) continue; // тип не найден — не наша ось (re-export и т.п.)
+        if (!importMatch) continue; // re-export и т.п. — не наша ось
         const target = path
             .normalize(path.join(path.dirname(rel), importMatch[1]))
             .split(path.sep)
@@ -263,7 +199,6 @@ function stripComments(raw) {
     return raw.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 }
 
-/** Значения из движка: окружение подпути и запрет на значения в base/common. */
 function checkTuidomImports(rel, zone, env, content, violations) {
     for (const m of content.matchAll(/(["'])(@tuidom\/[^"']+)\1/g)) {
         const specifier = m[2];
@@ -283,7 +218,7 @@ function checkTuidomImports(rel, zone, env, content, violations) {
     }
 }
 
-/** `@tuidom/core/common/disposable` — во всём `src/`, тесты и `import type` включительно. */
+/** Во всём `src/`, тесты и `import type` включительно. */
 function checkDisposableImports(violations) {
     for (const abs of listFiles(path.join(repoRoot, "src"))) {
         const rel = path.relative(repoRoot, abs).split(path.sep).join("/");
@@ -314,10 +249,8 @@ function main() {
         const raw = readFileSync(abs, "utf8");
         checkTokenDeclarations(rel, raw, zoneIdx, violations);
         checkNodeImports(rel, env, stripComments(raw), seenDebt, violations);
-        // Комментарии (jsdoc {@link import(...)}) и type-only импорты — не
-        // зависимости времени исполнения. Форма спецификатора перечислена явно:
-        // ленивое `type\s[\s\S]*?from` начиналось и на `export type X = …` и
-        // глотало код до ближайшего `from "…";`, пряча импорты за ним.
+        // Форма спецификатора перечислена явно: ленивое `type\s[\s\S]*?from`
+        // цеплялось за `export type X = …` и глотало код до ближайшего `from`.
         const content = stripComments(raw).replace(
             /(?:import|export)\s+type\s+(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s*["'][^"']+["'];/g,
             "",
@@ -329,7 +262,7 @@ function main() {
                 .normalize(path.join(path.dirname(rel), m[2]))
                 .split(path.sep)
                 .join("/");
-            if (!target.startsWith("src/vs/")) continue; // dev-тулинг вне осей
+            if (!target.startsWith("src/vs/")) continue;
             if (target.startsWith(WORKBENCH_CONTRIB_DIR) && WORKBENCH_CORE_DIRS.some((d) => rel.startsWith(d))) {
                 if (DIRECTION_EXCEPTIONS.includes(rel)) usedDirectionExceptions.add(rel);
                 else violations.push(`${rel} → ${target}  (направление: ядро workbench не импортирует contrib)`);

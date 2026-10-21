@@ -1,18 +1,9 @@
 #!/usr/bin/env node
 /**
- * Генератор каталога ключей настроек для builtin-расширения `diode-settings`.
- *
- * Собирает известные ключи настроек из двух реальных источников:
- *  - configuration-узлы приложения (`CONFIGURATION_CONTRIBUTIONS` из
- *    `src/vs/workbench/common/configuration/configurationContributions.ts`) — те же, из
- *    которых runtime собирает `ConfigurationRegistry` (defaults-слой + валидация);
- *  - `contributes.configuration.properties` всех builtin-расширений (rich: type,
- *    default, description, enum) — тот же набор, что валидирует SettingsDiagnostics.
- *
- * Пишет детерминированный (сортировка по ключу) `settings-schema.generated.ts`
- * в каталог `diode-settings/`. Файл коммитится (его импортирует `main.ts`,
- * видимый для tsc), а `build:extensions` держит его в актуальном состоянии.
- * Узлы извлекаются esbuild-bundle + import data-URL (как каталог тем).
+ * Каталог ключей настроек для `diode-settings` (`settings-schema.generated.ts`): узлы
+ * `CONFIGURATION_CONTRIBUTIONS` приложения плюс `contributes.configuration` всех
+ * builtin-расширений. Файл коммитится — его импортирует `main.ts`, видимый для tsc;
+ * в актуальном состоянии его держит `build:extensions`.
  */
 
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -21,10 +12,7 @@ import { join, resolve } from "node:path";
 import { build } from "esbuild";
 import { format, resolveConfig } from "prettier";
 
-/**
- * Configuration-узлы приложения. У файла узлов есть импорты (типы реестра,
- * DEFAULT_COLOR_THEME) — поэтому bundle, как у каталога тем.
- */
+/** У файла узлов есть импорты — поэтому bundle, а не transform. */
 async function loadAppConfiguration(repoRoot) {
     const entry = resolve(repoRoot, "src", "vs", "workbench", "common", "configuration", "configurationContributions.ts");
     const result = await build({
@@ -53,12 +41,7 @@ async function loadAppConfiguration(repoRoot) {
     return out;
 }
 
-/**
- * Лейблы встроенных тем — допустимые значения `workbench.colorTheme`. В отличие от
- * `defaults.ts`, у `themes/builtinThemes.ts` есть импорты, поэтому нужен bundle,
- * а не transform. Каталог статичен на этапе сборки: темы, приносимые расширениями
- * (`contributes.themes`), сюда не попадут.
- */
+/** Каталог статичен на этапе сборки: темы из `contributes.themes` сюда не попадут. */
 async function loadThemeNames(repoRoot) {
     const entry = resolve(repoRoot, "src", "vs", "workbench", "services", "themes", "common", "themes", "builtinThemes.ts");
     const result = await build({
@@ -84,7 +67,7 @@ function collectBuiltinContributions(repoRoot) {
         try {
             pkg = JSON.parse(readFileSync(join(builtinDir, dir.name, "package.json"), "utf8"));
         } catch {
-            continue; // не расширение / битый манифест — пропускаем
+            continue;
         }
         const cfg = pkg?.contributes?.configuration;
         const blocks = Array.isArray(cfg) ? cfg : cfg ? [cfg] : [];
@@ -103,7 +86,6 @@ function collectBuiltinContributions(repoRoot) {
     return entries;
 }
 
-/** Убирает undefined-поля, чтобы JSON.stringify не оставлял дыр и вывод был чистым. */
 function prune(entry) {
     const out = {};
     for (const [k, v] of Object.entries(entry)) if (v !== undefined) out[k] = v;
@@ -145,15 +127,13 @@ ${body}
 ];
 `;
     const outPath = resolve(repoRoot, "extensions", "diode-settings", "settings-schema.generated.ts");
-    // Форматируем тем же prettier, которым линтуется репозиторий: иначе
-    // регенерация и `npm run lint` наперегонки правят один файл.
+    // Иначе регенерация и `npm run lint` наперегонки правят один файл.
     const prettierOptions = await resolveConfig(outPath);
     const formatted = await format(file, { ...prettierOptions, parser: "typescript" });
     writeFileSync(outPath, formatted, "utf8");
     return { outPath, count: entries.length };
 }
 
-// Прямой запуск: `node scripts/generate-settings-schema.mjs`
 if (import.meta.url === `file://${process.argv[1]}`) {
     const repoRoot = resolve(import.meta.dirname, "..");
     const { outPath, count } = await generateSettingsSchema({ repoRoot });

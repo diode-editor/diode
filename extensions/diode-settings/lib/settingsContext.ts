@@ -6,13 +6,11 @@ export interface IOffsetRange {
     readonly end: number;
 }
 
-/** Caret sits where a setting key goes. */
 export interface ISettingsKeyContext {
     readonly kind: "key";
     readonly replaceRange: IOffsetRange;
 }
 
-/** Caret sits in the value slot of `key`. */
 export interface ISettingsValueContext {
     readonly kind: "value";
     readonly key: string;
@@ -21,21 +19,12 @@ export interface ISettingsValueContext {
 
 export type SettingsCompletionContext = ISettingsKeyContext | ISettingsValueContext | null;
 
-/** Characters that make up a settings key or a bare literal (mirrors the core's completion prefix). */
+/** Mirrors the core's completion prefix. */
 const TOKEN_CHAR = /[\w.-]/;
 
 /**
- * Classifies the caret inside a `settings.json` for completion: is a key expected
- * here, or a value (and for which key), and what exactly should be replaced.
- *
- * `null` means "not our business" — nested objects, array elements, or anywhere
- * the caret isn't a top-level entry of the settings map.
- *
- * Uses `jsonc-parser`'s `getLocation`, which is error-tolerant: while the user
- * types, the document is almost always invalid JSON.
- *
- * `section` — where the settings map lives: the document root for `settings.json`,
- * the `settings` property for a `.code-workspace` file.
+ * `null` — the caret isn't a top-level entry of the settings map.
+ * `section` — `settings` for a `.code-workspace` file; omitted for `settings.json`.
  */
 export function getSettingsCompletionContext(
     text: string,
@@ -46,8 +35,7 @@ export function getSettingsCompletionContext(
     const depth = section === undefined ? 0 : 1;
     if (section !== undefined && location.path[0] !== section) return null;
 
-    // The settings map is flat — only its direct entries carry schema. Nested
-    // objects (e.g. `terminal.capabilities: { … }`) have a longer path; stay out.
+    // Only direct entries carry schema; nested objects have a longer path.
     if (location.path.length !== depth + 1) return null;
 
     const replaceRange = tokenRangeAt(text, offset);
@@ -59,15 +47,9 @@ export function getSettingsCompletionContext(
 }
 
 /**
- * The span the completion should overwrite: the token under the caret, plus the
- * quotes around it when it is a quoted string.
- *
- * Computed by scanning rather than read off the parse tree on purpose —
- * `getLocation().previousNode` disappears exactly in the half-typed states that
- * matter (`{ edi`, `"x": t`), because they are not valid JSON yet.
- *
- * Including the quotes is what keeps them from doubling up: the provider inserts
- * `"editor.tabSize"` over `"edi"`, not next to it.
+ * Scanned, not read off the parse tree: `getLocation().previousNode` disappears
+ * exactly in half-typed states (`{ edi`, `"x": t`). Quotes are included so the
+ * provider's `"editor.tabSize"` replaces `"edi"` instead of doubling them.
  */
 function tokenRangeAt(text: string, offset: number): IOffsetRange {
     let start = offset;
@@ -82,7 +64,7 @@ function tokenRangeAt(text: string, offset: number): IOffsetRange {
     return { start, end };
 }
 
-/** `{line, character}` (0-based) → offset into `text`. Clamped to the text length. */
+/** 0-based; clamped to the text length. */
 export function positionToOffset(text: string, line: number, character: number): number {
     let offset = 0;
     for (let i = 0; i < line; i++) {
@@ -93,7 +75,7 @@ export function positionToOffset(text: string, line: number, character: number):
     return Math.min(offset + character, text.length);
 }
 
-/** Offset into `text` → `{line, character}` (0-based). */
+/** 0-based. */
 export function offsetToPosition(text: string, offset: number): { line: number; character: number } {
     const clamped = Math.min(Math.max(offset, 0), text.length);
     let line = 0;

@@ -1,27 +1,13 @@
 #!/usr/bin/env node
 /**
- * `npm run test:e2e`: прогон e2e с автоповтором упавших файлов.
+ * `npm run test:e2e`: весь набор, затем упавшие файлы ещё раз — ОДНИМ воркером на
+ * том же бинаре из кэша. Прошедшие со второго раза печатаются как FLAKY (и в
+ * `$GITHUB_STEP_SUMMARY`), а не прячутся.
  *
- *   Проход 1 — весь набор (или то, что отфильтровано аргументами), воркеров по
- *              ядрам и памяти (`planWorkers`), JSON-репорт в reports/e2e/.
- *   Проход 2 — только упавшие файлы, ОДНИМ воркером, на том же неизменяемом бинаре
- *              из кэша (scripts/e2e-artifacts.mjs — второй globalSetup попадает в кэш).
+ * Не `retry` vitest: тот повторяет в том же воркере, под той же нагрузкой и молча.
  *
- * Вердикт: код 0 — только если второй проход зелёный. Файлы, упавшие в первом и
- * прошедшие во втором, — **FLAKY**: печатаются списком вместе с упавшими тестами
- * и сообщениями (и в `$GITHUB_STEP_SUMMARY` в CI). Флак не прячется: его видно в
- * каждом прогоне, пока его не починят.
- *
- * Почему не `retry` vitest: он повторяет тест в том же воркере, под той же
- * нагрузкой и молча — флак становится невидимым. Здесь повтор — в тишине одного
- * воркера, а флак — в итоге.
- *
- * Когда повтора нет:
- *  - упало больше {@link RETRY_MAX} файлов — это не флак, а поломка (повтор
- *    стоил бы ещё один полный прогон);
- *  - vitest вышел с ошибкой, но упавших файлов в репорте нет (необработанная
- *    ошибка, упавший globalSetup) — повторять нечего;
- *  - `DIODE_E2E_RETRY=0`.
+ * Повтора нет, если упало больше {@link RETRY_MAX} файлов (это поломка, не флак), если
+ * упавших файлов в репорте нет (упал globalSetup) и при `DIODE_E2E_RETRY=0`.
  *
  * Аргументы передаются vitest как есть: `npm run test:e2e -- e2e/mouse.test.ts`.
  */
@@ -42,14 +28,12 @@ let interrupted = false;
 let current = null;
 for (const signal of ["SIGINT", "SIGTERM"]) {
     process.on(signal, () => {
-        // Ctrl+C терминал шлёт всей группе — vitest получит его сам; SIGTERM
-        // (лиза, CI) — передаём. Второго прохода после прерывания не будет.
+        // Ctrl+C терминал шлёт всей группе, а SIGTERM (лиза, CI) надо передать.
         interrupted = true;
         current?.kill(signal);
     });
 }
 
-/** Один проход vitest; возвращает код выхода и разобранный репорт (или null). */
 function runPass(name, args, workers) {
     const reportPath = join(reportDir, `${name}.json`);
     rmSync(reportPath, { force: true });
@@ -112,7 +96,7 @@ async function main() {
         console.error(`\n[e2e] упало файлов: ${String(failedFiles.length)} — перепрогон поодиночке:\n  ${failedFiles.join("\n  ")}`);
         const rerun = await runPass("pass2", failedFiles, 1);
         if (interrupted) return 130;
-        // Нет репорта или ошибка без упавших файлов — считаем, что все остались красными.
+        // Нет репорта или ошибка без упавших файлов — все остались красными.
         second = rerun.report !== null && !(rerun.code !== 0 && rerun.report.failed.length === 0) ? rerun.report : first.report;
     } else if (failedFiles.length > RETRY_MAX) {
         console.error(`\n[e2e] упало файлов: ${String(failedFiles.length)} > ${String(RETRY_MAX)} — это не флак, повтора не будет`);

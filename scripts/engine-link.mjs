@@ -9,17 +9,12 @@
 //   npm run engine:status                # что сейчас стоит в node_modules
 //   npm run engine:unlink                # вернуть движок из реестра (npm ci)
 //
-// Почему только tgz, а не `npm link` / `file:` / симлинк: в репозитории tuidom
-// `exports` пакетов указывают на `./src/*.ts`, на dist их подменяет только
-// build-package.mjs на время `npm pack`. Симлинк отдал бы diode .ts-исходники:
-// tsx это проглотит, а голый node, tsup и SEA-сборка — нет.
+// Только tgz, не `npm link` / `file:` / симлинк: `exports` пакетов tuidom указывают
+// на `./src/*.ts`, на dist их подменяет build-package.mjs лишь на время `npm pack`.
+// Симлинк отдал бы .ts — tsx проглотит, а голый node, tsup и SEA — нет.
 //
-// Почему все пакеты ОДНОЙ командой: межпакетные зависимости движка — точные
-// пины. Поставь elements отдельно — npm притащит под него вторую core из
-// реестра, и instanceof/синглтоны между копиями сломаются.
-//
-// Правило проекта (AGENTS.md): на неопубликованную версию движка diode не
-// завязываем — это только локальная проверка, в коммит она не попадает.
+// Все пакеты ОДНОЙ командой: межпакетные зависимости — точные пины, и отдельный
+// elements притащил бы вторую core из реестра (ломаются instanceof и синглтоны).
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -55,7 +50,6 @@ function manifestsClean() {
     return sh("git", ["diff", "--quiet", "--", ...MANIFESTS]).status === 0;
 }
 
-/** exports пакета указывают на dist/*.js, а не на src/*.ts. */
 function exportsPointToDist(pkg) {
     const flat = JSON.stringify(pkg.exports ?? {});
     return flat.includes("./dist/") && !flat.includes(".ts");
@@ -93,7 +87,6 @@ function link(opts) {
     const sha = sh("git", ["-C", tuidom, "rev-parse", "HEAD"]).stdout.trim();
     const dirty = sh("git", ["-C", tuidom, "status", "--porcelain", "--", "packages"]).stdout.trim() !== "";
 
-    // Сборка + pack (+ смоук на голом node) — штатным скриптом движка.
     must("npm", ["run", "pack", ...(opts.smoke ? [] : ["--", "--no-smoke"])], { cwd: tuidom });
 
     for (const name of PACKAGES) {
@@ -118,7 +111,6 @@ function link(opts) {
 
     must("npm", ["install", "--no-save", "--no-audit", "--no-fund", ...tgz.map((t) => `./${t}`)]);
 
-    // --- Проверки: подмена ровно та, какой задумана ---
     if (!manifestsClean()) {
         sh("git", ["checkout", "--", ...MANIFESTS]);
         die(`npm install изменил ${MANIFESTS.join("/")} — вернул из git. Подмена в node_modules осталась,
@@ -131,9 +123,7 @@ function link(opts) {
         die(`в node_modules ${new Set(copies).size} копий @tuidom/core:\n  ${[...new Set(copies)].join("\n  ")}
 Две копии ломают instanceof и синглтоны движка. Откати: npm run engine:unlink.`);
     }
-    // Версия совпадает с реестровой сплошь и рядом (правка движка до бампа),
-    // поэтому сверяем не версию, а integrity: npm пишет в скрытый lockfile
-    // node_modules/.package-lock.json, откуда и с каким sha512 он поставил пакет.
+    // Integrity, а не версия: до бампа версия совпадает с реестровой.
     const hidden = readJson(path.join("node_modules", ".package-lock.json")).packages;
     for (const [i, name] of PACKAGES.entries()) {
         const entry = hidden[`node_modules/@tuidom/${name}`];

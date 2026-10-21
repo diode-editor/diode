@@ -1,9 +1,5 @@
-// Где лежит и откуда берётся бинарь для текущей платформы.
-//
-// Пакет тонкий: в npm уезжают только эти файлы, а сам редактор (50–160 МБ, внутри
-// свой Node) скачивается из GitHub Releases того же тега, что и версия пакета,
-// в `vendor/` рядом с пакетом. sha256 сверяется с сайдкаром `<asset>.sha256`
-// из релиза.
+// Пакет тонкий: редактор (50–160 МБ, свой Node) качается в `vendor/` из GitHub
+// Releases того же тега, что и версия пакета; sha256 — по сайдкару `<asset>.sha256`.
 
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -39,10 +35,7 @@ async function fetchBytes(url) {
     return Buffer.from(await response.arrayBuffer());
 }
 
-/**
- * Скачивает бинарь релиза `v<version>` в `vendor/`. Бросает при сетевой ошибке или
- * несовпадении sha256; отсутствие сайдкара (старые релизы) — предупреждение.
- */
+/** Нет сайдкара (старые релизы) — только предупреждение. */
 export async function download({ version = packageVersion(), log = console.error } = {}) {
     const asset = assetName();
     const base = `https://github.com/${REPO}/releases/download/v${version}/${asset}`;

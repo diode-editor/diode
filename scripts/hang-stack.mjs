@@ -4,16 +4,12 @@
  *
  *   node scripts/hang-stack.mjs <pid> [--samples N]
  *
- * Редактор «замёрз и ест CPU» — значит, главный поток не отдаёт event loop:
- * синхронный цикл или цикл на микротасках (`await` уже резолвленного промиса).
- * Сам он ничего не скажет, а убитый процесс не скажет уже ничего. Скрипт шлёт
- * процессу SIGUSR1 (Node поднимает инспектор, в SEA-бинаре тоже), просит
- * `Debugger.pause` — V8 останавливает исполнение даже посреди тугого цикла —
- * и печатает N сэмплов стека. Одинаковые сэмплы — это и есть место зависания.
- * Простаивающий процесс на паузу не встанет, пока не проснётся (нажми клавишу).
+ * SIGUSR1 поднимает инспектор (и в SEA), `Debugger.pause` останавливает V8 даже посреди
+ * тугого цикла; одинаковые сэмплы — место зависания. Простаивающий процесс на паузу не
+ * встанет, пока не проснётся (нажми клавишу).
  *
- * Номера строк — в бандле (`~/.cache/diode/<версия>/main.cjs`); функцию там
- * видно по имени, исходник — по комментарию-пути `// src/...` выше неё.
+ * Номера строк — в бандле (`~/.cache/diode/<версия>/main.cjs`); исходник — по
+ * комментарию-пути `// src/...` выше функции.
  */
 
 import { readdirSync, readFileSync, readlinkSync } from "node:fs";
@@ -26,7 +22,6 @@ if (!Number.isInteger(pid) || pid <= 0) {
     process.exit(2);
 }
 
-/** Порт инспектора процесса: тот, что он слушает после SIGUSR1 (обычно 9229). */
 async function inspectorUrl() {
     process.kill(pid, "SIGUSR1");
     for (let attempt = 0; attempt < 50; attempt++) {
@@ -43,7 +38,7 @@ async function inspectorUrl() {
     throw new Error(`процесс ${pid} не поднял инспектор`);
 }
 
-/** TCP-порты, которые слушает процесс: его сокеты из /proc/<pid>/fd против LISTEN-записей /proc/net/tcp*. */
+/** Сокеты процесса из /proc/<pid>/fd против LISTEN-записей /proc/net/tcp*. */
 function listeningPorts() {
     const own = new Set();
     for (const fd of readdirSync(`/proc/${pid}/fd`)) {
@@ -62,7 +57,6 @@ function listeningPorts() {
             if (cols[3] === "0A" && own.has(cols[9])) ports.push(parseInt(cols[1].split(":")[1], 16));
         }
     }
-    // 9229 — дефолт инспектора: пробуем первым.
     return ports.sort((a, b) => Number(b === 9229) - Number(a === 9229));
 }
 

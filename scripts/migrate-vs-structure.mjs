@@ -1,22 +1,11 @@
 #!/usr/bin/env node
 /**
- * Кодмод big-bang миграции src/ на vscode-раскладку `src/vs/*` (план PR 2.1).
+ * Кодмод big-bang миграции src/ на vscode-раскладку `src/vs/*`.
  *
- * Что делает:
- *  1. Считает полную таблицу переездов файл→файл из правил ниже
- *     (каталожные префиксы + точечные оверрайды + camelCase имён файлов).
- *  2. `--dry-run` (дефолт): печатает план, непокрытые файлы и коллизии.
- *  3. `--apply`: выполняет `git mv`, переписывает относительные импорты во
- *     ВСЕХ .ts/.tsx файлах репо (у нас импорты всегда с расширением `.ts` —
- *     см. AGENTS.md, это делает резолв надёжным) и применяет текстовые замены
- *     путей в конфигах (package.json, tsup, vitest, scripts/*.mjs).
- *
- * Вне скоупа (правится руками в PR 2.1): docs/*, семантические переименования
- * (Disposable→lifecycle и т.п.), разнос per-feature contrib глубже таблицы.
- *
- * Оси целевой раскладки — как у vscode: слои base→tui→platform→editor→
- * workbench→vexx (vs/tui — «движок браузера», наш слой вне vscode-стека),
- * внутри — окружения common/browser/node. Проверка осей — scripts/check-layers.mjs.
+ *  --dry-run (дефолт) — печатает план, непокрытые файлы и коллизии (`--print` — таблицу);
+ *  --apply            — `git mv`, переписывает относительные импорты во всех .ts/.tsx
+ *                       (резолв надёжен, потому что импорты всегда с расширением) и
+ *                       пути в конфигах.
  */
 
 import { execFileSync } from "node:child_process";
@@ -25,14 +14,7 @@ import * as path from "node:path";
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 
-// ── camelCase имён файлов ────────────────────────────────────────────────────
-
-/**
- * PascalCase/UPPER-акроним → camelCase по vscode-конвенции:
- * "TUIElement" → "tuiElement", "IRange" → "iRange", "DisplayLine" →
- * "displayLine", "CJK" → "cjk". Сегменты составных имён
- * ("EditorViewState.Folding.test.ts") конвертируются каждый по отдельности.
- */
+/** "TUIElement" → "tuiElement", "IRange" → "iRange", "CJK" → "cjk". */
 export function camelSegment(seg) {
     if (!/^[A-Z]/.test(seg)) return seg;
     const m = /^([A-Z]+)(.*)$/.exec(seg);
@@ -46,13 +28,11 @@ export function camelSegment(seg) {
 
 export function camelBasename(basename) {
     const parts = basename.split(".");
-    const ext = parts.pop(); // ts | tsx | d (для vscode.d.ts не используется — оверрайд)
+    const ext = parts.pop();
     return [...parts.map(camelSegment), ext].join(".");
 }
 
-// ── Точечные оверрайды (полный старый путь → полный новый путь) ─────────────
-// Имена здесь уже итоговые (camelCase применён вручную).
-
+// Имена уже итоговые: camelCase к ним не применяется.
 const FILE_MAP = new Map(
     Object.entries({
         "src/main.ts": "src/vs/vexx/main.ts",
@@ -60,7 +40,6 @@ const FILE_MAP = new Map(
         // Барел темы: реэкспортирует и platform-половину, и ThemeService —
         // едет на workbench-сторону (ей можно импортировать platform).
         "src/Theme/index.ts": "src/vs/workbench/services/themes/common/index.ts",
-        // Модуль терминального окружения живёт рядом со своим сервисом.
         "src/Workbench/Services/TerminalEnvironment/TerminalEnvironmentModule.ts":
             "src/vs/workbench/services/terminalEnvironment/node/terminalEnvironmentModule.ts",
         // Контракт между терминальным виджетом (browser) и PTY-сессией (node) —
@@ -69,9 +48,7 @@ const FILE_MAP = new Map(
     }),
 );
 
-// ── Правила по basename внутри каталога (первый матч по регекспу) ───────────
-
-/** Общий обработчик каталога: список [regex по basename, целевой каталог]. */
+/** Первый подошедший regex по basename. */
 function byBasename(rules, fallback) {
     return (basename) => {
         for (const [re, dir] of rules) {
@@ -141,8 +118,6 @@ const editorTokenizationRules = byBasename(
     "src/vs/editor/common/languages",
 );
 
-// ── Widgets: раскладка по ui/<widget>/ как vs/base/browser/ui ───────────────
-
 const WIDGET_DIR_OVERRIDES = {
     scrollable: "scrollbar",
     scrollbarrenderer: "scrollbar",
@@ -179,8 +154,6 @@ function widgetDir(basename) {
     const dir = WIDGET_DIR_OVERRIDES[key] ?? key;
     return `src/vs/base/browser/ui/${dir}`;
 }
-
-// ── Workbench/Services: platform / services / contrib ───────────────────────
 
 const workbenchServicesRules = byBasename(
     [
@@ -304,9 +277,7 @@ const extensionsHostRules = byBasename(
     "src/vs/workbench/api/common",
 );
 
-// ── Каталожные правила (префикс каталога → правило) ─────────────────────────
 // Порядок не важен: выбирается самый длинный подошедший префикс.
-
 const DIR_RULES = {
     "src/Common": commonRules,
     "src/Common/Assets": commonAssetsRules,
@@ -372,17 +343,12 @@ const DIR_RULES = {
     "src/Extensions/Host/__fixtures__": () => "src/vs/workbench/services/extensions/node/__fixtures__",
 };
 
-/** Каталоги, которые сознательно остаются вне src/vs (dev-тулинг). */
 const UNMOVED_PREFIXES = ["src/Inspector", "src/TestUtils", "src/StoryRunner", "src/demos"];
 
-/** Builtin-расширения поднимаются в корневой extensions/ (как у upstream). */
 const BUILTIN_EXTENSIONS_FROM = "src/Extensions/builtin";
 const BUILTIN_EXTENSIONS_TO = "extensions";
 
-// ── Текстовые замены путей в конфигах/скриптах ──────────────────────────────
-
-// Префиксные замены (для глобов и каталогов); точные пути файлов конфиги
-// получают из таблицы переездов (см. rewriteConfigPaths).
+// Только для глобов и каталогов; точные пути файлов берутся из таблицы переездов.
 const TEXT_REPLACEMENTS = [
     ["src/main.ts", "src/vs/vexx/main.ts"],
     ["src/Extensions/builtin", "extensions"],
@@ -393,11 +359,9 @@ const TEXT_REPLACEMENTS = [
 ];
 
 /**
- * Точечные правки кода после переезда (пути, вычисляемые от import.meta.url,
- * сегментированные resolve(root, "src", …), vitest-глобы). Ключ — НОВЫЙ путь
- * файла. Ненайденный паттерн — warning (дрейф между веткой и таблицей виден,
- * но не валит прогон: часть паттернов существует только до/после мерджа
- * PR фазы 1).
+ * Пути, которые импорт-переписчик не видит (от import.meta.url, resolve(root, "src", …)).
+ * Ключ — НОВЫЙ путь файла. Ненайденный паттерн — warning, а не падение: часть
+ * паттернов существует только до или после мерджа PR фазы 1.
  */
 const FILE_FIXUPS = {
     "src/vs/base/node/assets/createDefaultAssetAccess.ts": [
@@ -485,8 +449,6 @@ const TEXT_REPLACEMENT_FILES = [
     "scripts/import-vscode-themes.mjs",
 ];
 
-// ── Вычисление таблицы переездов ────────────────────────────────────────────
-
 function listFiles(dir, out = []) {
     for (const entry of readdirSync(path.join(repoRoot, dir), { withFileTypes: true })) {
         const rel = `${dir}/${entry.name}`;
@@ -507,7 +469,6 @@ export function mapFile(rel) {
     }
     const dir = path.dirname(rel);
     const basename = path.basename(rel);
-    // Самый длинный подошедший каталожный префикс.
     let bestPrefix = null;
     for (const prefix of Object.keys(DIR_RULES)) {
         if ((dir === prefix || dir.startsWith(`${prefix}/`)) && (bestPrefix === null || prefix.length > bestPrefix.length)) {
@@ -532,7 +493,6 @@ export function computeMoves() {
             moves.set(rel, to);
         }
     }
-    // Коллизии: два источника в один целевой путь, либо цель уже существует.
     const byTarget = new Map();
     const collisions = [];
     for (const [from, to] of moves) {
@@ -543,18 +503,9 @@ export function computeMoves() {
     return { moves, unmapped, collisions };
 }
 
-// ── Переписывание импортов ──────────────────────────────────────────────────
-
-/**
- * Переписывает относительные пути в кавычках, указывающие на переехавшие
- * файлы: `from "./x.ts"`, `import("./x.ts")`, jsdoc-`{@link import("...")}`,
- * плюс пути фикстур (.cjs/.mjs/.json) в тестах.
- * Опирается на конвенцию «в импортах всегда расширение файла».
- */
 export function rewriteImports(fileRel, content, moves) {
     const fileNewDir = path.dirname(moves.get(fileRel) ?? fileRel);
-    // Только в импорт-контекстах: голые строковые литералы с ./-путями — это
-    // данные тестов (виртуальные пути ассетов), их трогать нельзя.
+    // Только в импорт-контекстах: голые литералы с ./-путями — данные тестов (виртуальные пути ассетов).
     return content.replace(
         /(from\s*|import\s*\(\s*|require\s*\(\s*|new URL\(\s*|vi\.(?:mock|doMock|importActual|importMock)[^(]*\(\s*|^import\s+)(["'])(\.\.?\/[^"']+?\.(?:ts|tsx|cjs|mjs|json))\2/gm,
         (whole, prefix, quote, spec) => {
@@ -569,8 +520,6 @@ export function rewriteImports(fileRel, content, moves) {
         },
     );
 }
-
-// ── Применение ──────────────────────────────────────────────────────────────
 
 function gitMv(from, to) {
     mkdirSync(path.dirname(path.join(repoRoot, to)), { recursive: true });
@@ -602,18 +551,15 @@ function main() {
         process.exit(1);
     }
 
-    // 1. Переезды.
     for (const [from, to] of moves) gitMv(from, to);
 
-    // 2. Импорты — во всех .ts/.tsx репо (src, e2e, тесты, конфиги-ts).
     const roots = ["src", "e2e", "extensions"].filter((r) => existsSync(path.join(repoRoot, r)));
     const tsFiles = [];
     for (const r of roots) listFiles(r, tsFiles);
     for (const extra of ["tsup.config.ts", "vitest.config.ts", "vitest.e2e.config.ts", "vitest.perf.config.ts"]) {
         if (existsSync(path.join(repoRoot, extra))) tsFiles.push(extra);
     }
-    // Таблица переездов адресуется СТАРЫМИ путями; файлы уже лежат по новым.
-    // Для резолва импортов файла нужен его старый путь: обратный индекс.
+    // Таблица адресуется СТАРЫМИ путями, а файлы уже лежат по новым.
     const newToOld = new Map([...moves].map(([from, to]) => [to, from]));
     for (const rel of tsFiles) {
         if (!/\.(ts|tsx)$/.test(rel)) continue;
@@ -624,9 +570,7 @@ function main() {
         if (next !== content) writeFileSync(abs, next, "utf8");
     }
 
-    // 3. Текстовые замены в конфигах и скриптах: сначала точные пути файлов
-    // через таблицу переездов (ловит и camelCase-переименования), затем
-    // префиксные замены для каталогов и глобов.
+    // Сначала точные пути по таблице (ловит и camelCase-переименования), затем префиксы.
     for (const rel of TEXT_REPLACEMENT_FILES) {
         const abs = path.join(repoRoot, rel);
         if (!existsSync(abs)) continue;
@@ -638,7 +582,6 @@ function main() {
         writeFileSync(abs, content, "utf8");
     }
 
-    // 4. Точечные правки кода (см. FILE_FIXUPS).
     for (const [rel, fixups] of Object.entries(FILE_FIXUPS)) {
         const abs = path.join(repoRoot, rel);
         if (!existsSync(abs)) {

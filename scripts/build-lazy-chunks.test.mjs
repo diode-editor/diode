@@ -25,7 +25,6 @@ import {
 const repoRoot = resolve(import.meta.dirname, "..");
 const { LAZY_CHUNK_WRAPPER } = createRequire(import.meta.url)("./lazy-chunk-code-cache.cjs");
 
-/** metafile main.cjs: входы и импорты единственного выхода. */
 const main = (inputs, imports = []) => ({
     inputs: {},
     outputs: {
@@ -33,7 +32,6 @@ const main = (inputs, imports = []) => ({
         "dist/main.cjs.map": { inputs: {}, imports: [] },
     },
 });
-/** metafile куска: входы и импорты его выхода. */
 const chunk = (id, inputs, imports = []) => ({
     id,
     metafile: {
@@ -102,7 +100,7 @@ test("verifyLazyChunks: кусок тянет внешний не-builtin — н
     assert.deepEqual(errors, ["yauzl: кусок тянет внешний модуль pend — в SEA его не будет"]);
 });
 
-/** metafile куска из нашего кода: входы с размером в куске (байты), вход-модуль и бюджет копии. */
+/** `sizes` — байты в куске. */
 const entryChunk = (id, entry, sizes, sharedBudgetKb = 1) => ({
     id,
     entry,
@@ -210,7 +208,6 @@ test('lazyEntryChunksPlugin: import() входа куска — внешний i
         output.imports.filter((i) => i.path === role.id),
         [{ path: role.id, kind: "dynamic-import", external: true }],
     );
-    // Вход роли не вклеен, а соседний модуль — вклеен как обычно.
     assert.equal(Object.keys(output.inputs).includes(role.entry), false);
     assert.equal(Object.keys(output.inputs).includes("scripts/build-lazy-chunks.mjs"), true);
 });
@@ -232,12 +229,10 @@ test("importMetaUrlShim: import.meta.url в CJS — URL главного скр�
         });
         const code = result.outputFiles[0].text;
         assert.equal(code.includes("import.meta"), false);
-        // Ядро: бандл — сам главный скрипт.
         const core = join(dir, "main.cjs");
         writeFileSync(core, `${code}\nconsole.log(module.exports());\n`);
         assert.equal(execFileSync(process.execPath, [core], { encoding: "utf8" }).trim(), pathToFileURL(core).href);
-        // Кусок: исполняется загрузчиком в обёртке (filename `diode:lazy/…`), главный
-        // скрипт — другой. Смена главного после загрузки видна: значение не запечено.
+        // Смена главного скрипта после загрузки куска видна: значение не запечено.
         const loader = join(dir, "loader.cjs");
         writeFileSync(
             loader,
@@ -277,9 +272,8 @@ test("buildLazyChunks: каждый кусок из списка собирае�
             // Пустой main.cjs: проверяется только самодостаточность куска.
             assert.deepEqual(verifyLazyChunks({ mainMetafile: main([]), chunks: [c] }), []);
         }
-        // Исполнение — как у загрузчика: обёртка модуля и require только builtin'ов.
-        // Метаданные этого не ловят: UMD-сборка пакета зовёт require внутри фабрики,
-        // и бандл падает только в рантайме («Cannot find module './impl/format'»).
+        // Метаданные не ловят UMD-сборку с require внутри фабрики — она падает только
+        // в рантайме («Cannot find module './impl/format'»).
         for (const c of chunks) {
             const wrapper = new vm.Script(`(function (exports, require, module) {${readFileSync(c.path, "utf8")}\n})`, {
                 filename: c.asset,
@@ -288,7 +282,6 @@ test("buildLazyChunks: каждый кусок из списка собирае�
             wrapper(module.exports, createRequire(process.execPath), module);
             assert.notDeepEqual(Object.keys(module.exports), [], `${c.id}: кусок ничего не экспортирует`);
         }
-        // Кусок из нашего кода несёт свой вход и бюджет — их читает гейт.
         const role = chunks.find((c) => c.id === "roles/extension-host");
         assert.equal(role.entry, "src/vs/diode/roles/extensionHostRole.ts");
         assert.equal(Object.keys(role.metafile.inputs).includes(role.entry), true);
@@ -303,8 +296,7 @@ test("buildLazyChunkCodeCaches: кэш, снятый процессом из с�
         const code = "exports.x = (function () { return 1; })();\n";
         const path = join(dir, "x.cjs");
         writeFileSync(path, code);
-        // Вход снапшота — как run-as-node бинаря: своя куча, после десериализации
-        // грузит скрипт из argv и кладёт его путь в argv[1] (src/vs/diode/runAsNode.ts).
+        // Как run-as-node бинаря: своя куча, скрипт из argv, его путь — в argv[1].
         const runner = join(dir, "runner.cjs");
         writeFileSync(
             runner,

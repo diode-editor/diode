@@ -1,25 +1,15 @@
 #!/usr/bin/env node
 /**
- * Превращает `reports/mutation/mutation.json` в markdown для комментария в PR
- * и для тикета ночного прогона.
+ * `reports/mutation/mutation.json` → markdown для комментария в PR и тикета ночного
+ * прогона; перечисляются только выжившие.
  *
- * Смысл отчёта — выжившие мутанты: это места, где код можно испортить, и ни один
- * тест не заметит. Убитых не перечисляем — их сотни, и они означают, что всё хорошо.
+ * Показываем diff строки, а не «мутатор → замена»: `ConditionalExpression → true`
+ * без файла ничего не говорит. Исходник — из самого отчёта (`files[].source`), так
+ * что рендер не зависит от текущего дерева.
  *
- * Показываем не «мутатор → замена», а настоящий diff строки: `ConditionalExpression
- * → true` не говорит читателю ничего, пока он не откроет файл и не найдёт место.
- * Исходник берём из самого отчёта (`files[].source`) — он там есть целиком,
- * поэтому рендер не зависит от того, откуда запущен скрипт и что сейчас в дереве.
- *
- * Мутанты со статусом `Ignored` в знаменатель балла не входят — так же, как
- * исключения покрытия. Их два разных вида, и различаются они только причиной:
- * погашенные `// Stryker disable` (решение автора, видно в ревью) и пропущенные
- * флагом `--ignoreStatic` (решение прогона). `RuntimeError`/`CompileError` в
- * знаменатель тоже не входят — счёт ровно как у Stryker'а (`scoreReport`).
- *
- * ✅/❌ в шапке — вердикт самого гейта из `gate.json` рядом с отчётом
- * (его пишет `mutation-diff.mjs`). Нет файла — отчёт открыли руками, и
- * значок считается по порогу из конфига.
+ * `Ignored` двух видов различаются только причиной: `// Stryker disable` (решение
+ * автора) и `--ignoreStatic` (решение прогона). ✅/❌ — вердикт гейта из
+ * `gate.json`; нет файла — по порогу конфига.
  *
  * Использование: node scripts/mutation-report.mjs [<путь к mutation.json>]
  * Ссылки на строки появляются, если заданы GITHUB_REPOSITORY и MUTATION_SHA.
@@ -31,7 +21,6 @@ import * as path from "node:path";
 import { scoreReport } from "./mutation-gate.mjs";
 import { BLOCKING_CLASSES, CLASSES } from "./mutation-inject.mjs";
 
-/** Подписи классов перепроверки — те же, что в консоли verify-mutants.mjs. */
 const CLASS_LABELS = {
     real: "настоящий",
     phantom: "фантом",
@@ -51,7 +40,6 @@ if (!existsSync(reportPath)) {
 
 const report = JSON.parse(readFileSync(reportPath, "utf8"));
 
-/** Порог из конфига — чтобы отчёт не расходился с тем, по чему падает гейт. */
 function breakThreshold() {
     try {
         const config = JSON.parse(readFileSync(path.join(repoRoot, "stryker.config.json"), "utf8"));
@@ -66,12 +54,10 @@ const repo = process.env.GITHUB_REPOSITORY ?? "";
 const sha = process.env.MUTATION_SHA ?? "";
 const canLink = repo !== "" && sha !== "";
 
-/** Сколько выживших расписываем подробно и в какой бюджет символов укладываемся. */
 const DETAIL_LIMIT = 40;
-// Комментарий в GitHub обрезается на 65536 символах; берём с запасом, чтобы
-// хвост отчёта («показано N из M») точно уместился.
+// GitHub режет комментарий на 65536 символах; запас — под хвост «показано N из M».
 const CHAR_BUDGET = 55_000;
-/** Многострочный мутант (вырезанное тело функции) режем — целиком он бесполезен. */
+/** Многострочный мутант (вырезанное тело функции) целиком бесполезен. */
 const SNIPPET_LINES = 3;
 
 function lineLink(file, line) {
@@ -79,10 +65,6 @@ function lineLink(file, line) {
     return `[строка ${line}](https://github.com/${repo}/blob/${sha}/${file}#L${line})`;
 }
 
-/**
- * Собирает «до/после» для мутанта: берёт строки исходника, которые он накрывает,
- * и подменяет в них ровно диапазон [start, end).
- */
 function renderDiff(source, mutant) {
     const lines = source.split("\n");
     const { start, end } = mutant.location;
@@ -101,7 +83,6 @@ function renderDiff(source, mutant) {
     return { original: clip(original), mutated: clip(mutated) };
 }
 
-/** Вердикт гейта, если отчёт пришёл из `mutation-diff.mjs`. */
 function gateOutcome() {
     const gatePath = path.join(path.dirname(reportPath), "gate.json");
     if (!existsSync(gatePath)) return null;
@@ -109,14 +90,13 @@ function gateOutcome() {
 }
 
 const survivors = [];
-let silenced = 0; // погашены `// Stryker disable` — осознанное решение автора
-let skippedStatic = 0; // пропущены `--ignoreStatic` — решение прогона, не автора
+let silenced = 0; // погашены `// Stryker disable`
+let skippedStatic = 0; // пропущены `--ignoreStatic`
 let noCoverage = 0;
 let total = 0;
-// Классы перепроверки вживлением (`verification`, пишет verify-mutants.mjs).
 const classes = Object.fromEntries(CLASSES.map((name) => [name, 0]));
 let verified = 0;
-const undecided = []; // классы без вердикта — красят гейт сами, мимо балла
+const undecided = []; // красят гейт сами, мимо балла
 
 for (const [file, data] of Object.entries(report.files)) {
     for (const mutant of data.mutants) {
@@ -226,8 +206,6 @@ if (survivors.length === 0) {
         byFile.get(entry.file).push(entry);
     }
     const sorted = [...byFile].sort((a, b) => b[1].length - a[1].length);
-    // Внутри файла — по порядку строк: читатель идёт по коду сверху вниз, а не
-    // в том порядке, в каком Stryker их сгенерировал.
     for (const [, entries] of sorted) {
         entries.sort(
             (a, b) =>
@@ -243,8 +221,6 @@ if (survivors.length === 0) {
     for (const [file, entries] of sorted) {
         if (truncated) break;
         const block = [];
-        // В заголовке — сколько мест требует внимания: выжившие и непокрытые
-        // вместе, потому что в списке ниже они идут вперемешку по номерам строк.
         const uncoveredHere = entries.filter((e) => e.uncovered).length;
         const detail =
             uncoveredHere > 0 && uncoveredHere < entries.length
@@ -255,9 +231,7 @@ if (survivors.length === 0) {
         );
         block.push("");
 
-        // Считаем отдельно: блок может не влезть в бюджет и быть отброшен целиком,
-        // и тогда его записи в общий счётчик попасть не должны — иначе «расписано N»
-        // завысит правду ровно там, где честность и нужна.
+        // Отдельно от `shown`: не влезший в бюджет блок отбрасывается целиком и не должен завысить «расписано N».
         let shownInBlock = 0;
         for (const { mutant, source, uncovered } of entries) {
             if (shown + shownInBlock >= DETAIL_LIMIT) {
@@ -299,7 +273,6 @@ if (survivors.length === 0) {
         out.push(text);
     }
 
-    // Молча обрезанный список читался бы как «вот и всё» — говорим, сколько скрыли.
     if (truncated || shown < survivors.length) {
         out.push(
             `_Расписано ${shown} из ${survivors.length}. Остальные — в HTML-отчёте из артефактов прогона._`,
