@@ -597,7 +597,7 @@
   запись (провайдер о ней тоже сообщает) отличается по тексту и историю отмены не стирает.
   Потребитель — сторона диффа (`openDiffPair.resolveSide`: пишущая схема — сторона `shared` под
   настоящим uri, read-only — снимок, как прежде); на этом стоит предложенный дифф Claude Code
-  ([TODO/ClaudeCode.md](../TODO/ClaudeCode.md), «Предложенный дифф»). Стороны-модели видимой
+  ([StockExtensions.md](StockExtensions.md#claude-code-anthropicclaude-code-в-терминальном-режиме), «Протокол предложенного диффа»). Стороны-модели видимой
   дифф-вкладки едут в снимке полосы (`IWireTabSnapshot.sideEditors`) и становятся
   `visibleTextEditors` — по ним расширение ставит свой when-ключ. `TextDocument.save()` — тот же
   `workspace.save`, что у `workspace.save(uri)`.

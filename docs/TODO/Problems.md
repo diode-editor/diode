@@ -16,7 +16,7 @@ Panel + дерево Problems) — см. [arch/Editor.md](../arch/Editor.md) (Ed
 
 ### [ ] 3. Дополнительные поставщики
 - JSON Schema-валидация целиком (типы/enum'ы, не только неизвестные ключи).
-- Problem matchers тасков — по мере появления слоёв.
+- Problem matchers задач — пункт в [Tasks](Tasks.md) (по мере надобности).
 - Подмешать дефолты `contributes.configuration` расширений в валидатор `settings.json`
   (иначе реальные VS Code-настройки, ещё не реализованные в Diode, помечаются как неизвестные).
 

@@ -51,7 +51,11 @@ exports.activate = function activate(context) {
                 location: { viewColumn: vscode.ViewColumn.Beside },
                 isTransient: true,
             });
-            agent.sendText('echo "agent ready"');
+            // Строки «agent ready» в самой команде нет: в узкой группе справа
+            // команда переносится по длине промпта (имя хоста раннера), и
+            // «agent ready», разрезанное переносом, ждалось бы вечно. Вывод —
+            // 11 символов — помещается в строку всегда.
+            agent.sendText("printf 'agent %s\\n' ready");
             agent.show();
         }),
         vscode.commands.registerCommand("terminalDemo.list", () => report("list")),

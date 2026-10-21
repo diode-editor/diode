@@ -16,8 +16,12 @@ import { defineScenario, repoRoot } from "./framework.ts";
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-terminal-demo");
 
-/** И команда агента, и её вывод в кадре: «agent ready» встречается дважды. */
-const echoed = (t: string): boolean => t.split("agent ready").length >= 3;
+/**
+ * Вывод команды агента в кадре. Команда — `printf 'agent %s\n' ready`: строки «agent ready»
+ * в ней нет, поэтому совпадение — только вывод, то есть шелл команду исполнил. Ждать саму
+ * команду нельзя: в узкой группе справа она переносится по длине промпта (имя хоста).
+ */
+const echoed = (t: string): boolean => t.includes("agent ready");
 
 /** Исполняет команду через палитру (F1 → заголовок → Enter). */
 async function runCommand(editor: ScenarioDriver, title: string): Promise<void> {

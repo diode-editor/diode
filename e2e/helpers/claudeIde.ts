@@ -9,8 +9,8 @@ import { waitUntil } from "./waitFor.ts";
 // Общее у тестов стокового Anthropic.claude-code (смоук магазина, e2e
 // claudeCode, сценарий claude-code): окружение сессии и пробный клиент
 // ide-сервера расширения вместо настоящего `claude` — тот требует подписку и
-// сеть и в тестах не запускается (docs/TODO/ClaudeCode.md, «Живая проверка
-// контекста»).
+// сеть и в тестах не запускается (docs/TESTING.md, «Claude Code без
+// настоящего CLI»).
 
 /** id записи в магазине. */
 export const CLAUDE_CODE_ID = "Anthropic.claude-code";

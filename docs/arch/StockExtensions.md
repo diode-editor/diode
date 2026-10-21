@@ -188,3 +188,72 @@ CLI и `terraform init`; форматирование требует terraform �
   синхронно в `activate()`, LSP-клиент — после хендшейка с сервером, секундами позже, поэтому на
   `.ts` выигрывает prettier при любом разумном прогреве (замерено на бинаре). Пользователь, поставивший
   prettier, этого и хочет; выбор форматтера — в трекере.
+
+## Claude Code: `Anthropic.claude-code` в терминальном режиме
+
+**Решение.** Из четырёх вариантов (терминал с `claude` в сайдбаре; стоковое расширение; своя
+чат-панель поверх `claude -p --input-format stream-json`; свой MCP-сервер + хуки) взято **стоковое
+расширение в режиме `claudeCode.useTerminal`** (курируемый дефолт `true`):
+
+- расширение лежит в Open VSX, версии в лок-степе с CLI; пользователь ставит его из магазина, мы
+  ничего не бандлим;
+- в терминальном режиме `ide`-MCP-сервер (WebSocket, лок `~/.claude/ide/<port>.lock`) хостит само
+  расширение, CLI к нему подключается: закрытый протокол реализован их кодом — мы его не реверсим, а
+  только даём расширению API VS Code (принцип VISION);
+- авторизация — пользовательский `claude` с его подпиской: вход claude.ai предлагаем не мы;
+- своя чат-панель отвергнута: гонка с UX харнесса, серая зона авторизации, а главное — Claude Code
+  сам TUI, «нативный UI» и «терминальный режим» у нас совпадают.
+
+**Что даёт терминальный режим:** выделение и открытый файл уходят в CLI (`selection_changed`,
+`at_mentioned` по `Ctrl+Alt+K`), диагностики по запросу (`getDiagnostics`), `openFile`, а правка при
+запросе разрешения открывается **дифф-вкладкой** с ✓/↺. Инлайн-предложения в стиле Copilot есть
+только у webview-режима, в TUI невозможного. Условия на стороне CLI: `/config` → «Diff tool» = `auto`
+(пункт виден только при подключённой IDE), режим разрешений `default` (в accept-edits/bypass дифф не
+показывается), подключение проверяется `/ide`. В `-p` режиме CLI к IDE не подключается вовсе.
+
+**Как CLI находит IDE.** Белого списка имён IDE в CLI нет: валидация — совпадение порта из окружения
+(`CLAUDE_CODE_SSE_PORT`, его кладёт `environmentVariableCollection` в окружение каждого нашего
+терминала) с локом либо `pid` лока в предках процесса `claude`. Лок пишется с `ideName: "Diode"`.
+Сервер держит одного клиента: новое подключение выбивает прежнее.
+
+**Раскладка.** Все точки входа терминального режима (пункт статус-бара «✻ Claude Code», кнопка
+`editor/title` с `when: config.claudeCode.useTerminal`, `Ctrl+Esc` →
+`claude-vscode.terminal.open.keyboard`, палитра) зовут `claude-vscode.terminal.open` →
+`createTerminal({ location: { viewColumn: ViewColumn.Beside }, isTransient: true })` — терминал
+вкладкой в группе справа; это и есть «правая панель» в VS Code. Вторичная боковая панель у
+расширения — только для webview-чата. Свой терминал через `tabGroups`/`TabInputTerminal` оно не
+ищет. `Ctrl+Esc` жив только с kitty/csi-u (в legacy это Esc).
+
+**Грабли активации** (порядок падений): `NotebookCellOutputItem.error(...).mime` на верхнем уровне
+модуля (без класса модуль не грузится) → `window.registerUriHandler` → `context.extension.packageJSON`
+→ `context.environmentVariableCollection`; позже — `onDidChangeTerminalShellIntegration` (ждёт 3 с и
+уходит в `sendText`), `comments.createCommentController` (тред на ханк диффа — у нас инертный),
+`languages.onDidChangeDiagnostics` — без него расширение рвало каждое подключение CLI
+(`DiagnosticStreamManager.startStreaming` бросал в `.catch` подключения, и тот закрывал сокет: `/ide`
+видит IDE, но ни выделения, ни at-mention не приходит). Стек ошибки активации теряется на RPC
+(`rpcEndpoint.ts` шлёт только `message`); экспорты esbuild-бандла — геттеры, так что
+`module.exports.activate = …` для полифила молча игнорируется.
+
+**Контекст.** Выделение — через 300 мс дебаунса расширения `selection_changed` с текстом, путём и
+диапазоном; на подключении расширение досылает последнее выделение через 500 мс. Открытый файл —
+тем же событием с пустым выделением на любое движение каретки (своего
+`onDidChangeActiveTextEditor` у расширения нет), поэтому возврат на вкладку с сохранённым выделением
+обязан слать `onDidChangeTextEditorSelection`, как эталон после `restoreState` (в активной группе —
+после смены активного редактора, иначе фильтр `textEditor === activeTextEditor` его отбросит).
+`Ctrl+Alt+K` (`claude-code.insertAtMentioned`) — at-mention терминального CLI; `Alt+K`
+(`claude-vscode.insertAtMention`) — путь webview-чата и у нас молчит, как и `Open in New
+Window/Tab/Side Bar`.
+
+**Протокол предложенного диффа** (MCP-инструмент `openDiff`, сверено с 2.1.304): правая сторона
+кладётся в ФС расширения со схемой `_claude_fs_right` (`_claude_vscode_fs_*` — путь webview-чата),
+левая — файл с диска (у грязного буфера — копия с диска в `_claude_fs_left`), открывается
+`vscode.diff(left, right, title, { preview: false })`. Ключ `claude-code.viewingProposedDiff` зажигается
+по видимости сторон диффа (`visibleTextEditors`), кнопки ✓/↺ — `claude-code.{accept,reject}ProposedDiff`
+в `editor/title`. Дальше гонка исходов: ✓ и сохранение правой стороны (с правками человека) —
+`FILE_SAVED` с её текстом, ↺ и закрытие вкладки — `DIFF_REJECTED`; сохранение принимается только при
+`files.autoSave === "off"`; `close_tab`/`closeAllDiffTabs` CLI сначала сохраняет правую сторону
+(`TextDocument.save()`), потом `tabGroups.close` — без диалога. Идентичность `Tab` расширению не нужна:
+оно сравнивает `input.modified` по строке. Нужное от нас — провайдер ФС с записью и **редактируемым**
+документом на чужой схеме ([Extensions.md](Extensions.md), «Провайдеры ФС расширений»), настоящий
+`TextDocument.save()`, `files.autoSave`. Перехват команды `type` расширение делает в try/catch — не
+поддерживаем.

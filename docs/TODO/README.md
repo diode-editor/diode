@@ -12,11 +12,12 @@
 
 ## Крупные задачи
 
+- [~] [FirstRelease](FirstRelease.md) — первый публичный релиз и пост: скоуп пересмотрен 2026-10-13 (дистрибуция и витрина сделаны); открыто — честные цифры и страница бенчмарков, эссе и ответы на вопросы, кадр-доказательство на лендинге, большие файлы (этап 2 OpenPerformance)
 - [~] [PreviewEditors](PreviewEditors.md) — режим предпросмотра вкладок: фаза 1 сделана (preview-флаг, замещение, прикалывание правкой/Ctrl+K Enter/сплитом, `workbench.editor.enablePreview`). Открыто: гейт «Keep Editor» по настройке, остальные точки открытия; движок → tuidom: курсив метки и активация одиночным кликом
 - [~] [Profiles](Profiles.md) — профили пользователя: итерации 1–2 сделаны (#601, #602: реестр в `User/globalStorage/storage.json`, привязка профиля к воркспейсу, `Profiles: Switch/New/Delete Profile...` с перезагрузкой окна, эталонная семантика настроек именованного профиля, свой `extensions.json` у профиля над общим каталогом). Открыто: хвосты 1–2 (два окна на одном user-data-dir затирают `storage.json`, подсказки в settings.json профиля, одна версия расширения на все профили, уборка общего каталога), итерация 3 (`useDefaultFlags`, `applyToAllProfiles`, пустое окно), итерация 4 (Profiles editor, Export/Import, горячее переключение)
 - [~] [LanguageServers](LanguageServers.md) — языковые серверы поверх стокового `vscode-languageclient`: TypeScript, Python (basedpyright + ruff), eslint, Java, Go, Terraform, prettier работают; открыто — F12 при нескольких целях, гонка didClose/didOpen с folding, перезапрос неполного completion, thematic break в hover, lombok-дефолт Java, деревья и HCP у Terraform, выбор форматтера
-- [~] [Tasks](Tasks.md) — задачи (tasks): первая итерация сделана (#572, #575) — Run Task / Rerun / Terminate / Restart / Show Running из `.diode/tasks.json` и провайдеров расширений, терминал задачи с честным reuse, `vscode.tasks` (провайдеры, `executeTask`, события, `CustomExecution`); без problem matchers; Configure Task с шаблонами и кастомизация задач провайдеров в tasks.json. Дальше — отложенное из документа: группы build/test, `dependsOn`, `inputs`, `resolveTask` провайдера, автозапуск, история пикера
-- [~] [SecondarySideBar](SecondarySideBar.md) — вторичная боковая панель (auxiliary bar эталона) и перенос в неё видов и контейнеров из сайдбара и нижней панели; приёмка — TERMINAL справа с живым шеллом. Стек: PR0 (перенос `WorkbenchLayoutElement`) сделан, PR1 (часть) в работе, дальше модель расположения и живые виды
+- [~] [Tasks](Tasks.md) — задачи (tasks): первая итерация сделана (#572, #575) — Run Task / Rerun / Terminate / Restart / Show Running из `.diode/tasks.json` и провайдеров расширений, терминал задачи с честным reuse, `vscode.tasks` (провайдеры, `executeTask`, события, `CustomExecution`), Configure Task с шаблонами. Дальше — группы build/test, `dependsOn`, `inputs`, `resolveTask` провайдера, автозапуск, история пикера; problem matchers — по мере надобности (решение человека 2026-10-21)
+- [~] [SecondarySideBar](SecondarySideBar.md) — вторичная боковая панель сделана (стек #649, #654, #660, #661: auxiliary bar эталона, перенос видов и контейнеров, живые TERMINAL/Output/Problems справа); открыто — `workbench.sideBar.location`, развёртывание панели, перетаскивание видов мышью, стартовый размер PTY в узкой панели, переживание перезапуска шеллом
 - [~] [ClaudeCode](ClaudeCode.md) — интеграция с Claude Code: стоковое `Anthropic.claude-code` в режиме `useTerminal` в нашем магазине (v0.9.7) — `claude` вкладкой справа, контекст редактора, `getDiagnostics`, предложенный дифф с ✓/↺; открыты хвосты — уведомление на webview-команды, стоковые тесты терминала, `claude` во вторичной панели
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
 - [ ] [EngineWidgetRepatriation](EngineWidgetRepatriation.md) — прикладные виджеты, оставшиеся в `@tuidom/elements` (completionlist, editorgroup, editorpart, terminal, menuBar; `panel` и `workbenchlayout` переехали): по критерию «публичный API не упоминает понятий Diode» им место у нас
@@ -42,7 +43,7 @@
 - [~] [LongLinePerformance](LongLinePerformance.md) — фриз длинных строк снят порогом рендера, межредакторная связь — damage-tracking'ом; открыто: пер-строчный кеш `DisplayLine`, reveal-по-клику, конфиг порога
 - [~] [FileTreePerformance](FileTreePerformance.md) — производительность больших файловых деревьев (главные блокеры сняты; остались точечные фиксы)
 - [~] [MacKeybindings](MacKeybindings.md) — мак-раскладка: ОС клавиатуры по лестнице сигналов (с XTVERSION), мак-рунги `legacy < extended < cmd` с `cap_super`, токен `mod`, полный паритет с мак-раскладкой VS Code 1.138 (сверка тестом со срезом эталона), Keyboard Doctor для фидбека сделаны; дальше — фидбек с живого мака, мост Cmd для tmux, найденные сверкой дыры pc-паритета
-- [ ] [EnvironmentTuning](EnvironmentTuning.md) — подсказки пользователю по тюнингу окружения (терминал/tmux/ssh); пункты — tmux extended-keys для Ctrl+Tab, лимит inotify (ENOSPC) с уведомлением как в VS Code
+- [~] [EnvironmentTuning](EnvironmentTuning.md) — подсказки пользователю по тюнингу окружения (терминал/tmux/ssh): как доносить до пользователя (открытый вопрос), лимит inotify (ENOSPC) с уведомлением как в VS Code, детект tmux без extended-keys, подсказки маководу
 - [~] [Distribution](Distribution.md) — каналы дистрибуции (`install.sh`, apt, npm, Homebrew cask, winget) работают с v0.4.0, устройство — [packaging/README.md](../../packaging/README.md); открыто — `SITE_PAT`, первая подача в winget, ручная проверка Windows-SEA, quick install на сайте, новые каналы и подпись
 - [~] [Folding](Folding.md) — indentation-фолдинг и API-провайдеры готовы; далее — region-маркеры/language-configuration, hover-контролы, персист свёрток
 - [~] [Uri](Uri.md) — ядро на `Uri` готово, виртуальные read-only документы (`registerTextDocumentContentProvider`) доведены до вкладки; далее — `untitled:`-провайдер, язык безымянных буферов, кэш содержимого
@@ -90,33 +91,6 @@
 
 ---
 
-## Позиционирование и сайт
-
-### [ ] Публичный роадмап + статус «альфа»
-
-Страница роадмапа (в доке или на сайте) и явный статус «alpha» на главной (рядом с версией).
-Смысл — управление ожиданиями: альфу не прячем, а показываем, куда идём и как быстро.
-Ключевой заявляемый пункт — конечная цель: **полная поддержка API расширений VS Code там, где
-она имеет смысл в терминале** (см. VISION.md «Что говорить вовне»). Ссылка с главной.
-
-### [ ] Страница бенчмарков + ссылка с главной
-
-Заготовка страницы — [docs/public/BENCHMARKS.md](../public/BENCHMARKS.md): структура и лестница
-готовы, осталось снять сравнительную таблицу одним прогоном, заполнить методику и дать ссылку
-с главной страницы сайта (diode-editor.github.io). Скорость — допуск на поле
-(см. [VISION.md](../VISION.md#скорость--допуск-на-поле)); цифра публичная — значит должна быть
-воспроизводимая и защищённая:
-
-- **Лестница старта**, а не одно число: пол Node 77мс → первый кадр 87мс → редактор готов 103мс
-  (26мс воркбенча поверх пола Node); extension host лениво, LSP асинхронно.
-- **Сравнительная таблица, снятая своей рукой** на одной машине: vim · nvim голый ·
-  nvim+LazyVim/NVChad · helix · diode. Против голого vim проигрываем — называем честно.
-- **Методика**: железо, условия (питание/батарея), как мерили, как воспроизвести.
-- **Бюджет старта в CI** (`vitest.perf.config.ts` / `test:perf`) — зафиксировать, пока цифра
-  хорошая: публичное число обязано быть защищено тестом.
-
----
-
 ## Кодировки
 
 ### [ ] `files.encoding` — дефолтная кодировка из настроек
@@ -150,7 +124,10 @@ emoji терминально-зависима, terminfo этого не соде
 
 ## Клавиатура
 
-### [ ] Утечка парного keypress в отцепленный редактор (баг движка tuidom)
+### [ ] Утечка парного keypress в отцепленный редактор (движок → tuidom)
+
+Баг движка: по правилу этого файла задача уезжает в репозиторий tuidom; здесь — до заведения
+её там и ради обхода на нашей стороне.
 
 Команда, которая переключает активную вкладку, отцепляет от дерева
 `EditorElement`, бывший целью её `keydown`. Парный `keypress` закреплён за той же

@@ -60,11 +60,14 @@
   (шелл/процесс ↔ `CustomExecution`) — у эталона так можно, у нас такая задача получает новый
   терминал.
 - [ ] `task.quickOpen.showAll` (медленный одноуровневый пикер).
+- [ ] **Problem matchers — по мере надобности** (решение человека 2026-10-21: не «не будет», а когда
+  понадобятся). Сейчас `problemMatcher` (`$tsc`, `$eslint-stylish`, …) принимается и игнорируется;
+  `isBackground`-задача без матчера «бежит» до выхода процесса — так ведёт себя и эталон без
+  матчера. Вместе с матчерами: разбор вывода задачи в маркеры PROBLEMS (`IMarkerService`), фоновые
+  задачи с `beginsPattern`/`endsPattern`, Show Task Log, toggleProblems,
+  `task.problemMatchers.neverPrompt`.
 
 ## Не будет (вне цели)
 
-- Problem matchers (`problemMatcher`, `$tsc`, `$eslint-stylish`, …) — поле принимается и
-  игнорируется; `isBackground`-задача без матчера «бежит» до выхода процесса — так ведёт себя и
-  эталон без матчера. Отсюда же нет Show Task Log, toggleProblems, `task.problemMatchers.neverPrompt`.
 - Переподключение к задачам после перезагрузки окна (`task.reconnection`).
 - Уведомление ОС о завершении задачи (`task.notifyWindowOnTaskCompletion`).
