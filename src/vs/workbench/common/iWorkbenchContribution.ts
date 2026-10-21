@@ -3,21 +3,21 @@ import type { Token } from "../../platform/instantiation/common/diContainer.ts";
 import type { LifecyclePhase } from "../services/lifecycle/common/lifecyclePhase.ts";
 
 /**
- * Как `IWorkbenchContribution` vscode: вся работа — в конструкторе, `dispose()` её
- * сматывает. У нашего DI нет Delayed-прокси: тяжёлый сервис в `static dependencies`
- * сконструируется в момент прогона фазы — резолвь его лениво через {@link ServiceAccessor}.
+ * Like vscode's `IWorkbenchContribution`: all work happens in the constructor, `dispose()` undoes it.
+ * Our DI has no Delayed proxy: a heavy service in `static dependencies` is constructed when
+ * the phase runs, so resolve it lazily through {@link ServiceAccessor}.
  */
 export type IWorkbenchContribution = IDisposable;
 
 /**
- * Аналог `WorkbenchPhase` vscode:
- * - `blockStartup` (≈ `BlockStartup`) — в конструкторе `WorkbenchComponent`, до
- *   открытия папки и старта extension host'а;
- * - `ready` (≈ `BlockRestore`) — в `WorkbenchComponent.mount()`, до открытия файлов;
- * - `afterRestored` (≈ `AfterRestored`) — после кадра с подсветкой, первым делом
- *   перехода в `eventually`. Не на фазе `restored`: она наступает до кадра с
- *   текстом, и всё, что висит на ней, откладывало бы кадр;
- * - `eventually` — idle после первого кадра.
+ * Counterpart of vscode's `WorkbenchPhase`:
+ * - `blockStartup` (≈ `BlockStartup`) — in the `WorkbenchComponent` constructor, before
+ *   the folder is opened and the extension host starts;
+ * - `ready` (≈ `BlockRestore`) — in `WorkbenchComponent.mount()`, before files are opened;
+ * - `afterRestored` (≈ `AfterRestored`) — after the frame with syntax highlighting, first thing in the
+ *   transition to `eventually`. Not on the `restored` phase: it comes before the frame with
+ *   text, and anything hooked to it would delay that frame;
+ * - `eventually` — idle after the first frame.
  */
 export type WorkbenchContributionPhase =
     | "blockStartup"

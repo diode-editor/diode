@@ -4,7 +4,7 @@ export const explorerConfiguration = {
     id: "explorer",
     title: "File Explorer",
     properties: {
-        // Безвозвратное удаление спрашивает подтверждение всегда, независимо от значения.
+        // Permanent deletion always asks for confirmation, regardless of the value.
         "explorer.confirmDelete": {
             scope: "window",
             type: "boolean",
@@ -23,8 +23,8 @@ export const explorerConfiguration = {
             default: true,
             description: "Automatically reveal and select the active file in the explorer tree.",
         },
-        // Сжатая цепочка — одна метка «a/b/c»: выбирать её сегменты по
-        // отдельности (как в эталоне) не умеем, действия бьют в последнюю папку.
+        // A compacted chain is a single "a/b/c" label: we can't select its segments
+        // individually (as upstream does), so actions target the last folder.
         "explorer.compactFolders": {
             scope: "window",
             type: "boolean",
@@ -32,7 +32,7 @@ export const explorerConfiguration = {
                 "Controls whether the Explorer should render folders in a compact form. In such a form, single child folders will be compressed in a combined tree element. Useful for Java package structures, for example.",
             default: true,
         },
-        // Без цвета бейдж рисуется цветом строки: у дерева один цвет на имя и бейдж.
+        // Without colors the badge uses the row color: the tree has one color for both name and badge.
         "explorer.decorations.colors": {
             scope: "window",
             type: "boolean",

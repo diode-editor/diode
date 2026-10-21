@@ -7,11 +7,11 @@ import type { UndoRedoService } from "../../../platform/undoRedo/common/undoRedo
 import { BaseTextEditorModel } from "./textEditorModel.ts";
 
 /**
- * Содержимое даёт владелец (Output-канал, виртуальный документ, снимочная сторона
- * диффа), а не диск. Как голый `ITextModel` из `IModelService.createModel` эталона.
+ * Content comes from the owner (an Output channel, a virtual document, the snapshot side of
+ * a diff), not from disk. Like a bare `ITextModel` from upstream's `IModelService.createModel`.
  */
 export class SyntheticTextModel extends BaseTextEditorModel {
-    /** Язык задаётся явно: выводить его из «пути» вида `output:extensions` нечем. */
+    /** The language is explicit: there is nothing to infer it from in a "path" like `output:extensions`. */
     public constructor(
         languageService: ILanguageService,
         undoRedoService: UndoRedoService,
@@ -23,16 +23,16 @@ export class SyntheticTextModel extends BaseTextEditorModel {
     }
 
     /**
-     * Мимо `EditorViewState` намеренно: там read-only-гард, а владелец писать обязан
-     * (как `OutputChannelModel` vscode). Только append: правка в конце не сдвигает
-     * выделения и фолды — произвольные правки идут через {@link applyExternalEdits}.
+     * Bypasses `EditorViewState` on purpose: it has a read-only guard, but the owner must be able to write
+     * (like vscode's `OutputChannelModel`). Append only: an edit at the end doesn't shift
+     * selections and folds; arbitrary edits go through {@link applyExternalEdits}.
      */
     public appendContent(text: string): void {
         if (text.length === 0) return;
         const line = this.doc.lineCount - 1;
         const column = this.doc.getLineLength(line);
         this.doc.applyEdits([createTextEdit(createRange(line, column, line, column), text)]);
-        // У ресурса без диска «несохранённых изменений» не бывает.
+        // A resource without a disk backing never has unsaved changes.
         this.markSaved();
         this.broadcastMarkDirty();
     }

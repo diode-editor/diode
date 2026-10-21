@@ -1,6 +1,6 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
-/** Дословно `extensions.contribution.ts` эталона; `items: string` наша схема не выражает. */
+/** Verbatim from upstream's `extensions.contribution.ts`; our schema can't express `items: string`. */
 export const extensionsConfiguration = {
     id: "extensions",
     title: "Extensions",

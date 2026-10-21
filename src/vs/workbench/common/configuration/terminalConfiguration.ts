@@ -37,7 +37,7 @@ export const terminalConfiguration = {
             default: {},
             description: "Declare custom manual-only terminal modes usable in when-clauses.",
         },
-        // `terminal.integrated.*` — дословно эталон; неподдержанные ключи — docs/arch/workbench/Terminal.md.
+        // `terminal.integrated.*` is verbatim from upstream; unsupported keys are in docs/arch/workbench/Terminal.md.
         "terminal.integrated.tabs.enabled": {
             scope: "window",
             type: "boolean",
@@ -109,7 +109,7 @@ export const terminalConfiguration = {
             description:
                 "Whether to hide the terminal view when the last terminal is closed. This will only happen when the terminal is the only visible view in the view container.",
         },
-        // Своя: у vscode нет хост-терминала, цвета встроенного всегда из темы — это дефолт "theme".
+        // Ours: vscode has no host terminal, and its integrated one always takes colors from the theme (our "theme" default).
         "terminal.integrated.colorSource": {
             scope: "application",
             type: "string",

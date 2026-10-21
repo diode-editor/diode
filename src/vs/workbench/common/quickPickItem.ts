@@ -1,6 +1,6 @@
 /**
- * Провайдеры расширяют предмет структурно своими полями (`QuickAccessItem.accept`,
- * абсолютный путь файла) — виджет обязан носить предмет целиком, не пересобирая его.
+ * Providers extend the item structurally with their own fields (`QuickAccessItem.accept`, an absolute
+ * file path), so the widget must carry the item as is, without rebuilding it.
  */
 export interface QuickPickItem {
     /** Nerd font icon character (e.g. a file icon like ""). */
@@ -16,8 +16,8 @@ export interface QuickPickItem {
     descriptionMatchRanges?: readonly [number, number][];
 }
 
-/** `error` блокирует Enter. */
+/** `error` blocks Enter. */
 export type ValidationSeverity = "error" | "warning" | "info";
 
-/** `"item"` — принять строку списка, `"value"` — введённый текст (флейвор InputBox). */
+/** `"item"` accepts the list row, `"value"` accepts the typed text (the InputBox flavor). */
 export type QuickPickAcceptMode = "item" | "value";

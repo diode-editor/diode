@@ -14,9 +14,9 @@ export const WorkbenchContributionsRegistryDIToken = token<WorkbenchContribution
 );
 
 /**
- * Владеет жизнью созданных contribution'ов. `blockStartup` корень прогоняет сам
- * в конструкторе, прочие фазы — по переходам `LifecycleService`; у `afterRestored`
- * своего перехода нет: его пачка идёт первой в переходе в `eventually`.
+ * Owns the lifetime of instantiated contributions. The root runs `blockStartup` itself in its
+ * constructor, other phases run on `LifecycleService` transitions; `afterRestored` has no
+ * transition of its own: its batch runs first in the transition to `eventually`.
  */
 export class WorkbenchContributionsRegistry extends Disposable {
     public static dependencies = [ServiceAccessorDIToken, WorkbenchContributionsDIToken] as const;
@@ -28,7 +28,7 @@ export class WorkbenchContributionsRegistry extends Disposable {
         super();
     }
 
-    /** Фазы, на которые contribution'ов нет (`starting`, `restored`), ничего не резолвят. */
+    /** Phases without contributions (`starting`, `restored`) resolve nothing. */
     public instantiateByPhase(phase: WorkbenchContributionPhase | LifecyclePhase): void {
         if (phase === "eventually") this.instantiate("afterRestored");
         this.instantiate(phase);

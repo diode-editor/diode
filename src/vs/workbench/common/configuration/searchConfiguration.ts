@@ -4,10 +4,10 @@ export const searchConfiguration = {
     id: "search",
     title: "Search",
     properties: {
-        // Форма `**/<имя>`: обход индекса и ripgrep режут ветку целиком, не читая её.
-        // К набору эталона добавлены: зависимости Python, результат сборки (найти свою
-        // функцию ещё и в бандле — шум) и полные копии репозитория (множат каждый
-        // результат). Не весь `.claude`: настройки и скиллы как раз ищут.
+        // `**/<name>` form: the index walk and ripgrep prune the whole branch without reading it.
+        // Added to upstream's set: Python dependencies, build output (finding your function in the
+        // bundle too is noise) and full repository copies (they multiply every result).
+        // Not all of `.claude`: settings and skills are exactly what people search for.
         "search.exclude": {
             scope: "resource",
             type: "object",
@@ -30,8 +30,8 @@ export const searchConfiguration = {
             description:
                 "Glob patterns to exclude from search, in addition to files.exclude. Matched relative to the folder.",
         },
-        // Дословно эталон (`markdownDescription` → `description`, `{0}` подставлен). Действуют на
-        // оба поиска — по именам и по содержимому: флаги rg собирает один `rgIgnoreFilesArgs`.
+        // Verbatim from upstream (`markdownDescription` → `description`, `{0}` substituted). Applies to
+        // both file name and content search: a single `rgIgnoreFilesArgs` builds the rg flags.
         "search.useIgnoreFiles": {
             scope: "resource",
             type: "boolean",

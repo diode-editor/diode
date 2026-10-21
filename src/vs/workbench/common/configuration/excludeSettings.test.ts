@@ -93,8 +93,8 @@ describe("isExcludedPath", () => {
     });
 });
 
-// Пути перечислены явно, а не выведены из шаблонов: иначе тест переписывался бы
-// вместе с опечаткой в дефолте.
+// Paths are listed explicitly rather than derived from the patterns; otherwise the test would be rewritten
+// along with a typo in the default.
 describe("дефолты files.exclude / search.exclude", () => {
     function merged(userValue: Readonly<Record<string, unknown>> = {}): IExcludeConfigReader {
         const defaults = ConfigurationModel.fromRaw(
@@ -146,7 +146,7 @@ describe("дефолты files.exclude / search.exclude", () => {
         "distribution",
         "outline.ts",
         "node_modules_backup",
-        // `.claude` исключён не весь: настройки и скиллы как раз ищут.
+        // `.claude` is not excluded entirely: settings and skills are exactly what people search for.
         ".claude",
         ".claude/settings.json",
     ];
@@ -190,7 +190,7 @@ describe("дефолты files.exclude / search.exclude", () => {
     });
 
     it("погашенный дефолт `files.exclude` не возвращается через поиск", () => {
-        // Иначе `false` в одной настройке молча перебивался бы второй.
+        // Otherwise `false` in one setting would be silently overridden by the other.
         const config = merged({ [FILES_EXCLUDE_SETTING]: { "**/.git": false } });
         expect(isExcludedPath(".git", searchExcludeGlobs(config))).toBe(false);
     });
@@ -206,7 +206,7 @@ describe("дефолты files.exclude / search.exclude", () => {
     });
 
     it("каждый дефолт — в форме `**/<имя>`: скрывается САМ вход", () => {
-        // `**/<имя>/**` каталог не матчит: он остался бы в дереве пустым, а обход спускался бы внутрь.
+        // `**/<name>/**` doesn't match the directory: it would stay in the tree as empty, and traversal would enter it.
         const config = merged();
         for (const glob of [...filesExcludeGlobs(config), ...parseExcludeSetting(config.get(SEARCH_EXCLUDE_SETTING))]) {
             expect(glob.startsWith("**/"), glob).toBe(true);
