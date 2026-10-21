@@ -1,9 +1,9 @@
 import * as path from "node:path";
 
-// Путь — строкой, как в строке запроса: у каталога разделитель на конце; сравнение —
-// без учёта регистра, как `extUriIgnorePathCase` эталона на локальной ФС.
+// Paths are strings as in the query line: a directory ends with a separator; comparison is
+// case-insensitive, like upstream `extUriIgnorePathCase` on the local file system.
 
-/** `*` в `extensions` — любое. */
+/** `*` in `extensions` matches any. */
 export interface IFileDialogFilter {
     readonly name: string;
     readonly extensions: readonly string[];
@@ -21,7 +21,7 @@ export function withSeparator(value: string): string {
     return endsWithSeparator(value) ? value : value + path.sep;
 }
 
-/** Без разделителя на конце; корень (`/`) остаётся корнем. */
+/** The root (`/`) stays the root. */
 export function stripTrailingSeparator(value: string): string {
     return value.length > 1 && endsWithSeparator(value) ? value.substring(0, value.length - 1) : value;
 }
@@ -34,7 +34,7 @@ export function expandTilde(value: string, home: string): string {
     return path.join(home, value.substring(1));
 }
 
-/** Склейка, при которой набранные `.` и `..` остаются в строке как есть. */
+/** Joins so that typed `.` and `..` stay in the string as is. */
 export function pathAppend(base: string, additional: string): string {
     if (additional === ".." || additional === ".") return withSeparator(base) + additional;
     return path.join(base, additional);
@@ -44,7 +44,7 @@ export function startsWithIgnoreCase(value: string, prefix: string): boolean {
     return value.toLowerCase().startsWith(prefix.toLowerCase());
 }
 
-/** Имя файла, которое ФС примет (`isValidBasename` эталона в упрощении). */
+/** A file name the file system accepts (simplified upstream `isValidBasename`). */
 export function isValidBasename(name: string, platform: NodeJS.Platform = process.platform): boolean {
     if (name === "" || name === "." || name === "..") return false;
     if (/[/\\]/.test(name)) return false;
@@ -57,7 +57,7 @@ export function matchesFilters(file: string, filters: readonly IFileDialogFilter
     return filters.some((filter) => filter.extensions.some((ext) => ext === "*" || file.endsWith(`.${ext}`)));
 }
 
-/** Подходящего расширения нет — дописывается первое расширение первого фильтра (`addPostfix` эталона). */
+/** Without a matching extension appends the first extension of the first filter (upstream `addPostfix`). */
 export function withFilterExtension(picked: string, filters: readonly IFileDialogFilter[] | undefined): string {
     if (filters === undefined || endsWithSeparator(picked)) return picked;
     const current = path.extname(picked).substring(1);

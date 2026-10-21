@@ -1,12 +1,12 @@
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
-/** Без запроса окно поднимается с тем же профилем и аргументами; воркспейс замещает позиционные аргументы. */
+/** Without a request the window comes back with the same profile and arguments; a workspace replaces the positional arguments. */
 export interface IRelaunchRequest {
     readonly profile?: string | undefined;
     readonly workspace?: string | undefined;
 }
 
-/** Чем заканчивается прощание; ресурсы к моменту вызова уже отпущены его участниками. */
+/** How shutdown ends; by the time it is called, participants have already released their resources. */
 export interface IHostProcess {
     exit(): void;
     restart(relaunch?: IRelaunchRequest): void;

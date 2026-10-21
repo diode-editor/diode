@@ -9,7 +9,7 @@ function rules(content: string): { key?: string; command: string; when?: string 
     return parseJsonc(content, [], { allowTrailingComma: true }) as { key?: string; command: string; when?: string }[];
 }
 
-/** Фикстура с комментариями и trailing comma — то, что реально пишут руками. */
+/** A fixture with comments and a trailing comma — what people actually write by hand. */
 const FIXTURE = `[
     // мой любимый бинд
     { "key": "ctrl+h", "command": "editor.action.startFindReplaceAction" },
@@ -22,7 +22,7 @@ describe("appendKeybindingRule", () => {
         const next = appendKeybindingRule(FIXTURE, { key: "ctrl+k ctrl+u", command: "editor.action.showHover" });
 
         expect(next).toContain("// мой любимый бинд");
-        // Вставка, а не перезапись последнего.
+        // An insertion, not an overwrite of the last one.
         const parsed = rules(next);
         expect(parsed).toHaveLength(3);
         expect(parsed.map((r) => r.command)).toEqual([
@@ -138,8 +138,8 @@ describe("removeKeybindingRules", () => {
             return false;
         });
 
-        // Не-объект (5), правило без command ({key:"orphan"}) и с пустым command
-        // до предиката не доходят.
+        // A non-object (5), a rule without command ({key:"orphan"}) and one with an empty
+        // command never reach the predicate.
         expect(seen.map((r) => r.command)).toEqual(["a", "b", "c", "d"]);
         expect(seen.map((r) => r.when)).toEqual(["listFocus", undefined, undefined, undefined]);
         expect(seen.map((r) => r.key)).toEqual(["ctrl+s", "", "", ""]);

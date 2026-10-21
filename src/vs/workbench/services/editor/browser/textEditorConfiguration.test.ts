@@ -298,8 +298,8 @@ describe("TextEditorConfiguration", () => {
         });
     });
 
-    // Defaults-слой из реестра, как в проде: его отсутствие в стабах прятало баг — `get("editor.tabSize")`
-    // отдавал 4 на файле с любым отступом, а `setIndentOptions` глушил детекцию.
+    // Registry defaults layer, as in production: its absence in stubs hid a bug — `get("editor.tabSize")`
+    // returned 4 on a file with any indentation, and `setIndentOptions` suppressed detection.
     describe("indentation: конфиг с defaults-слоем реестра", () => {
         const TWO_SPACE_FILE = "function foo() {\n  const x = 1;\n}\n";
 

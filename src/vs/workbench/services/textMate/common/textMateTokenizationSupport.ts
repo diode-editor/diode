@@ -9,13 +9,13 @@ import { nullTokenizeEncoded } from "../../../../editor/common/languages/nullTok
 
 import { TextMateState } from "./textMateState.ts";
 
-/** Защита от ReDoS в oniguruma — upstream `editor.maxTokenizationLineLength`; длиннее — один токен. */
+/** ReDoS guard for oniguruma, upstream `editor.maxTokenizationLineLength`; a longer line is one token. */
 const MAX_LINE_LENGTH = 20_000;
 
-/** Upstream: строку, на которую грамматика тратит больше, бросаем недотокенизированной. */
+/** Upstream: a line the grammar spends longer on is left partially tokenized. */
 const TIME_LIMIT_MS = 500;
 
-/** Upstream `TextMateTokenizationSupport.tokenizeEncoded`: цвет в токенах — индекс colorMap темы. */
+/** Upstream `TextMateTokenizationSupport.tokenizeEncoded`: the color in tokens is a theme colorMap index. */
 export class TextMateTokenizationSupport implements ITokenizationSupport {
     private readonly grammar: IGrammar;
 
@@ -38,13 +38,13 @@ export class TextMateTokenizationSupport implements ITokenizationSupport {
 
         const result = this.grammar.tokenizeLine2(line, state.stack, TIME_LIMIT_MS);
         if (result.stoppedEarly) {
-            // Как у эталона: токены, что успели, и состояние начала строки.
-            // Stryker disable next-line ArrayDeclaration: шрифтов у токенов нет, массив никто не читает
+            // As upstream: the tokens produced so far and the line's start state.
+            // Stryker disable next-line ArrayDeclaration: tokens have no fonts, nobody reads the array
             return new EncodedTokenizationResult(result.tokens, [], state);
         }
-        // Неизменное состояние — тот же объект: экономим аллокацию на строку.
+        // An unchanged state is the same object: saves an allocation per line.
         const endState = state.stack.equals(result.ruleStack) ? state : new TextMateState(result.ruleStack);
-        // Stryker disable next-line ArrayDeclaration: см. выше
+        // Stryker disable next-line ArrayDeclaration: see above
         return new EncodedTokenizationResult(result.tokens, [], endState);
     }
 }

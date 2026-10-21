@@ -65,12 +65,12 @@ describe("HistoryService — чистка стека и группы", () => {
         source.open(alpha());
         source.open(beta());
         source.open(gamma());
-        service.goBack(); // указатель на beta
+        service.goBack(); // pointer at beta
 
         fs.rmSync(ws.path("beta.ts"));
         service.goForward();
 
-        // Уехал бы указатель вперёд — Forward упёрся бы в конец стека, и каретка осталась бы на beta.
+        // Had the pointer moved forward, Forward would hit the end of the stack and the cursor would stay on beta.
         expect(source.caret()).toMatchObject({ uri: gamma() });
         expect(service.getEntries()).toHaveLength(2);
     });
@@ -79,12 +79,12 @@ describe("HistoryService — чистка стека и группы", () => {
         source.open(alpha());
         source.open(beta());
         source.open(gamma());
-        service.goBack(); // указатель на beta
+        service.goBack(); // pointer at beta
 
         fs.rmSync(ws.path("gamma.ts"));
         service.goBack();
 
-        // Кейс выше берёт указатель в нуле, где Math.max прячет лишний декремент; здесь он в единице.
+        // The case above has the pointer at zero, where Math.max hides an extra decrement; here it is at one.
         expect(source.caret()).toMatchObject({ uri: alpha() });
         expect(service.currentIndex).toBe(0);
     });
@@ -94,13 +94,13 @@ describe("HistoryService — чистка стека и группы", () => {
         source.open(alpha());
         source.moveCaret(150);
         source.open(beta());
-        // Строки 150 в переоткрытом файле больше нет.
+        // Line 150 no longer exists in the reopened file.
         source.close(alpha());
         source.lineCounts.set(alpha(), 3);
 
         service.goBack();
 
-        // Прыжок на последнюю строку был бы значимым, но восстановление записью не считается.
+        // A jump to the last line would be significant, but a restore does not count as a record.
         expect(source.caret()).toMatchObject({ uri: alpha(), line: 2 });
         service.goForward();
         expect(source.caret()).toMatchObject({ uri: beta() });
@@ -121,8 +121,8 @@ describe("HistoryService — чистка стека и группы", () => {
     });
 
     it("безымянный буфер, открытый в одной группе из двух, остаётся достижимым", () => {
-        // Группы заводим до записей: достижимость безымянного считается по ВСЕМ
-        // группам полосы, и хватать должно одной — той, где он открыт.
+        // Groups are created before the entries: reachability of an untitled is checked across ALL
+        // groups of the strip, and one must suffice, the one where it is open.
         source.addGroup(2);
         source.focusGroup(1);
         source.open(UNTITLED);
@@ -152,7 +152,7 @@ describe("HistoryService — чистка стека и группы", () => {
         source.close(UNTITLED);
         source.openUriCalls.length = 0;
 
-        // Настоящий openUri по закрытому untitled: бросил бы — запись обязана уйти раньше.
+        // Real openUri on a closed untitled: it would throw, so the entry must be gone before.
         service.goBack();
 
         expect(source.openUriCalls).toEqual([]);

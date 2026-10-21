@@ -10,10 +10,10 @@ import { applyFormattingEdits } from "../../../browser/parts/editor/applyFormatt
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 import type { SaveParticipant } from "../../textfile/common/iSaveParticipant.ts";
 
-// Сначала source-действия (`editor.codeActionsOnSave`), затем формат: правки ложатся в буфер ДО записи.
-// Настройка читается в момент сохранения.
+// Source actions (`editor.codeActionsOnSave`) first, then format: edits land in the buffer BEFORE the write.
+// The setting is read at save time.
 
-/** Панель ищется по ресурсу снапшота: сохраняться может и неактивная вкладка. */
+/** The pane is looked up by the snapshot resource: an inactive tab can be saved too. */
 export interface IOnSaveParticipantHost {
     readonly configuration: IConfigurationService;
     readonly languageFeatures: ILanguageFeaturesService;
@@ -21,8 +21,8 @@ export interface IOnSaveParticipantHost {
 }
 
 /**
- * Форма VS Code: `true | "explicit" | "always"` включают вид (все сохранения diode ручные, так что
- * `"explicit"` ≡ `true`); массив — все виды включены. Порядок прогона — порядок ключей.
+ * VS Code shape: `true | "explicit" | "always"` enable a kind (all diode saves are manual, so
+ * `"explicit"` ≡ `true`); an array enables all listed kinds. Run order is key order.
  */
 export function enabledCodeActionKindsOnSave(configuration: IConfigurationService, languageId?: string): string[] {
     const raw: unknown = configuration.get("editor.codeActionsOnSave", { overrideIdentifier: languageId });
@@ -36,16 +36,16 @@ export function enabledCodeActionKindsOnSave(configuration: IConfigurationServic
 }
 
 /**
- * `only` матчится в субпроцессе иерархически (`source.fixAll` берёт и `source.fixAll.ruff`). Правки
- * применяет субпроцесс через `workspace.applyEdit` во время await, так что следующий вид читает
- * СВЕЖИЙ текст из панели — снапшот к тому моменту устарел.
+ * `only` matches hierarchically in the subprocess (`source.fixAll` includes `source.fixAll.ruff`). The subprocess
+ * applies edits via `workspace.applyEdit` during the await, so the next kind reads FRESH text from the pane —
+ * the snapshot is stale by then.
  */
 export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost): SaveParticipant {
     return async (snapshot) => {
         const target = { uri: Uri.parse(snapshot.uri), languageId: snapshot.languageId };
         if (!host.languageFeatures.codeActionProvider.has(target)) return [];
         for (const kind of enabledCodeActionKindsOnSave(host.configuration, snapshot.languageId)) {
-            // Свежие границы и версия — из панели: действия прошлого вида могли уже править буфер.
+            // Fresh range and version come from the pane: the previous kind's actions may already have edited the buffer.
             const pane = host.paneForUri(snapshot.uri);
             const items = await getCodeActions(
                 host.languageFeatures.codeActionProvider,
@@ -57,11 +57,11 @@ export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost)
                     range: pane !== null ? documentRange(pane.model.document) : textRange(snapshot.text),
                     only: kind,
                 },
-                // Конвейер сохранения отмены не знает: участник дожидается ответа.
+                // The save pipeline has no cancellation: the participant waits for the response.
                 CancellationTokenNone,
             );
             for (const { action, provider } of items) {
-                // Неактивные не применяются (эталон берёт `validActions`).
+                // Disabled actions are not applied (upstream takes `validActions`).
                 if (action.disabled !== undefined) continue;
                 await provider.applyCodeAction(action.id, { onSave: true });
             }
@@ -71,8 +71,8 @@ export function createCodeActionsOnSaveParticipant(host: IOnSaveParticipantHost)
 }
 
 /**
- * Формат по свежему тексту (code actions до него могли править буфер); устаревший ответ отбрасывается.
- * Нет провайдера/панели — молчаливый no-op: сохранение не место для нотисов «нет форматтера».
+ * Formats the fresh text (code actions may have edited the buffer before); a stale response is discarded.
+ * No provider/pane — a silent no-op: saving is no place for "no formatter" notifications.
  */
 export function createFormatOnSaveParticipant(host: IOnSaveParticipantHost): SaveParticipant {
     return async (snapshot) => {
@@ -92,7 +92,7 @@ export function createFormatOnSaveParticipant(host: IOnSaveParticipantHost): Sav
                 insertSpaces: pane.viewState.insertSpaces,
             },
             documentRange(pane.model.document),
-            // Устаревший ответ отбрасывает сверка версии ниже; своей отмены у конвейера нет.
+            // The version check below discards a stale response; the pipeline has no cancellation of its own.
             CancellationTokenNone,
         );
         if (edits === null || edits.length === 0) return [];
@@ -102,7 +102,7 @@ export function createFormatOnSaveParticipant(host: IOnSaveParticipantHost): Sav
     };
 }
 
-/** Сохранение без вкладки. */
+/** Saving without a tab. */
 function textRange(text: string): IRange {
     const lines = text.split("\n");
     return createRange(0, 0, lines.length - 1, lines[lines.length - 1].length);

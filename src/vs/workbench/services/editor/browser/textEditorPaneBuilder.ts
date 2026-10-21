@@ -21,8 +21,8 @@ import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel
 export const TextEditorPaneBuilderDIToken = token<TextEditorPaneBuilder>("TextEditorPaneBuilder");
 
 /**
- * Модели не создаёт и `editor.*` не применяет. Не путать с `IEditorPaneFactory`: те описывают
- * и восстанавливают вкладку, этот собирает её вью.
+ * Does not create models or apply `editor.*`. Not to be confused with `IEditorPaneFactory`: those describe
+ * and restore a tab, this one assembles its view.
  */
 export class TextEditorPaneBuilder {
     public static dependencies = [
@@ -43,7 +43,7 @@ export class TextEditorPaneBuilder {
         private readonly semanticTokens?: DocumentSemanticTokensFeature,
     ) {}
 
-    /** `modelOwnership` — ссылка реестра, которой владеет вкладка; без неё вкладка владеет моделью единолично. */
+    /** `modelOwnership` — the registry reference the tab owns; without it the tab owns the model exclusively. */
     public build<TModel extends BaseTextEditorModel>(
         model: TModel,
         modelOwnership?: IDisposable,
@@ -57,8 +57,8 @@ export class TextEditorPaneBuilder {
             this.semanticTokens,
         );
         const editor = new TextEditorPane(model, component, modelOwnership);
-        // Политика контекстного меню редактора слушает "contextmenu" на обвязке
-        // пары; сам элемент контроллер берёт из цели события.
+        // The editor context menu policy listens for "contextmenu" on the pair's wrapper;
+        // the controller takes the element itself from the event target.
         this.contextMenuController.attach(component.view);
         return editor;
     }

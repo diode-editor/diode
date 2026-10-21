@@ -31,9 +31,9 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
     let diskStateEvents: number;
 
     beforeEach(() => {
-        // Фейкаем только таймеры, которые проверяем: setImmediate остаётся настоящим —
-        // на нём фоновая токенизация открытого буфера (DocumentTokenStore), и её
-        // кусок, ждущий очереди, — не утечка этого сценария.
+        // Fake only the timers under test: setImmediate stays real, since background
+        // tokenization of the open buffer (DocumentTokenStore) runs on it, and its
+        // queued chunk is not a leak of this scenario.
         vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
         ws = createTempWorkspace({ prefix: "diode-orphaned-" });
         watcher = new FakeFileWatcher();
@@ -63,7 +63,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         vi.advanceTimersByTime(ORPHAN_CHECK_DELAY_MS);
     }
 
-    /** Переносом, как корзина: mtime и размер те же до наносекунды. */
+    /** By rename, like the trash: mtime and size stay identical to the nanosecond. */
     function trashAndRestore(fp: string): void {
         fs.renameSync(fp, `${fp}.trashed`);
         watcher.fire(fp);
@@ -78,7 +78,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
 
         fs.rmSync(fp);
         watcher.fire(fp);
-        // До конца паузы — ещё не удаление (может быть атомарная запись).
+        // Before the delay ends it is not yet a deletion (it may be an atomic write).
         vi.advanceTimersByTime(ORPHAN_CHECK_DELAY_MS - 1);
         expect(pane.model.isOrphaned).toBe(false);
         expect(orphanedEvents).toBe(0);
@@ -136,7 +136,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(pane.model.isOrphaned).toBe(false);
         expect(pane.getText()).toBe("v1\n");
         expect(pane.isModified).toBe(false);
-        // Только смены флага (взвёлся, снялся): перечитки тот же файл не вызывает.
+        // Only flag changes (set, cleared): the same file does not trigger a reload.
         expect(diskStateEvents).toBe(2);
     });
 
@@ -234,7 +234,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         await pane.saveAs(ws.path("b.txt"));
         expect(pane.model.isOrphaned).toBe(false);
 
-        // Пауза старого пути, запущенная до saveAs, флаг не возвращает.
+        // The old path's delay started before saveAs does not bring the flag back.
         const pane2 = createEditorPane();
         pane2.model.fileWatcher = watcher;
         const other = ws.writeFile("c.txt", "c\n");

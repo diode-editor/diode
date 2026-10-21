@@ -305,7 +305,7 @@ describe("TerminalEnvironmentService", () => {
 
         it("под tmux застывший process.env не читается — живое значение приходит из tmux", async () => {
             process.env.TMUX = "/tmp/x,1,0";
-            process.env.LC_DIODE_PLATFORM = "linux"; // застыло на момент создания сессии
+            process.env.LC_DIODE_PLATFORM = "linux"; // frozen at session creation
             const tmux = vi.fn(() =>
                 Promise.resolve<TmuxClientInfo>({ envPlatform: "mac", termType: "kitty(0.45.0)" }),
             );
@@ -316,7 +316,7 @@ describe("TerminalEnvironmentService", () => {
             expect(service.osSource).toBe("default");
 
             service.detectTmuxClient();
-            service.detectTmuxClient(); // повторный вызов — no-op
+            service.detectTmuxClient(); // a repeated call is a no-op
             await vi.waitFor(() => {
                 expect(service.os).toBe("mac");
             });
@@ -384,7 +384,7 @@ describe("TerminalEnvironmentService", () => {
                 Promise.resolve<TmuxClientInfo>({ termType: "kitty(0.45.0)" }),
             );
             service.detect();
-            // Ответ «tmux 3.4» не должен стать именем внешнего терминала.
+            // The "tmux 3.4" reply must not become the outer terminal's name.
             expect(service.terminalName).toBeUndefined();
             service.detectTmuxClient();
             await vi.waitFor(() => {
@@ -404,7 +404,7 @@ describe("TerminalEnvironmentService", () => {
             expect(service.os).toBe("mac");
             expect(changed).toBe(1);
             service.noteTerminalName("WezTerm");
-            expect(service.os).toBe("mac"); // незнакомое имя ничего не отменяет
+            expect(service.os).toBe("mac"); // an unknown name cancels nothing
             expect(changed).toBe(1);
         });
     });

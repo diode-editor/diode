@@ -10,8 +10,8 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { UndoRedoService, WORKSPACE_UNDO_CONTEXT } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
-// `applyExternalEditsDetached` — шов bulk edit'а: правка ложится в историю документа, а шаг
-// общей истории забирает вызывающий, чтобы собрать ОДИН шаг на весь `workspace.applyEdit`.
+// `applyExternalEditsDetached` is the bulk edit seam: the edit lands in the document history, while
+// the caller takes the shared history step to build ONE step for the whole `workspace.applyEdit`.
 
 let tmpDir: string;
 let ws: ITempWorkspace;
@@ -135,7 +135,7 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         void step.undo();
         expect(step.canRedo?.()).toBe(true);
 
-        // Набор текста чистит стек повтора: наш шаг там больше не верхний.
+        // Typing clears the redo stack, so our step is no longer on top there.
         pane.pushUndo(pane.viewState.type("typed"));
 
         expect(step.canRedo?.()).toBe(false);

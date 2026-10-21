@@ -47,8 +47,8 @@ describe("LayoutService", () => {
     }
 
     afterEach(() => {
-        // Писателя глушим ДО сноса каталога: debounced-запись,
-        // сработавшая после `rmSync`, пересоздаёт его.
+        // Silence the writer BEFORE removing the directory: a debounced write
+        // firing after `rmSync` recreates it.
         state.dispose();
         ws.dispose();
     });
@@ -89,7 +89,7 @@ describe("LayoutService", () => {
             state.store(PANEL_VISIBLE_STATE, true);
             const { service } = make();
             service.restoreLayout();
-            // Иначе первый toggle после рестора отработал бы вхолостую.
+            // Otherwise the first toggle after restore would be a no-op.
             expect(panelService.visible).toBe(true);
         });
 
@@ -157,8 +157,8 @@ describe("LayoutService", () => {
             const { service, layout } = make();
             const before = layout.getLeftPanelWidth();
             service.nudgeSidebarWidth(3);
-            // Вне layout-прохода элемент клампит к своему (нулевому) размеру контейнера —
-            // важно лишь, что вызов дошёл до элемента и записался в стор.
+            // Outside a layout pass the element clamps to its (zero) container size;
+            // all that matters is that the call reached the element and was stored.
             expect(state.get(SIDEBAR_WIDTH_STATE)).toBe(layout.getLeftPanelWidth());
             service.resetSidebarWidth();
             expect(layout.getLeftPanelWidth()).toBe(before);

@@ -74,21 +74,21 @@ const PREVIEW_SETTING_KEY = "workbench.editor.enablePreview";
 
 const CLOSE_ON_FILE_DELETE_SETTING_KEY = "workbench.editor.closeOnFileDelete";
 
-/** Не `String(error)`: на Error тот добавил бы префикс «Error: ». */
+/** Not `String(error)`: for an Error it would add the "Error: " prefix. */
 function describeError(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
 
-/** Без reveal: позиция пришла из вкладки, где и так была видима. */
+/** No reveal: the position comes from a tab where it was already visible. */
 function applyViewState(editor: TextEditorPane, viewState: ITextEditorViewState): void {
     editor.viewState.selections = [...viewState.selections];
     editor.viewState.scrollTop = viewState.scrollTop;
     editor.viewState.scrollLeft = viewState.scrollLeft;
 }
 
-/** `null` — перенос ресурс не задел (эталон: `isEqualOrParent` + `joinPath` в `EditorService.handleMovedFile`). */
+/** `null`: the move didn't touch the resource (upstream: `isEqualOrParent` + `joinPath` in `EditorService.handleMovedFile`). */
 export function movedResource(resource: Uri, source: Uri, target: Uri): Uri | null {
-    // Пути сравнимы только в одной схеме: у безымянного буфера «путь» относительный.
+    // Paths compare only within one scheme: an untitled buffer's "path" is relative.
     if (resource.scheme !== source.scheme) return null;
     const relative = path.relative(source.fsPath, resource.fsPath);
     if (relative === ".." || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return null;
@@ -96,12 +96,12 @@ export function movedResource(resource: Uri, source: Uri, target: Uri): Uri | nu
 }
 
 function holdsFocus(view: IEditorPane["view"]): boolean {
-    // Stryker disable next-line OptionalChaining: у корня смонтированного дерева FocusManager есть всегда, у несмонтированной вкладки `getRoot()` и так `null`
+    // Stryker disable next-line OptionalChaining: the root of a mounted tree always has a FocusManager; for an unmounted tab `getRoot()` is `null` anyway
     const active = view.getRoot()?.focusManager?.activeElement ?? null;
     return active?.getAncestorPath().includes(view) === true;
 }
 
-/** Аналог upstream `EditorService`. Про `EditorGroupComponent` не знает: тот сам подписан на свою группу. */
+/** Counterpart of upstream `EditorService`. Knows nothing of `EditorGroupComponent`: it subscribes to its own group. */
 export class EditorService extends Disposable implements IEditorService, IShutdownParticipant, IActivatable {
     public static dependencies = [
         ThemeServiceDIToken,
@@ -124,7 +124,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     ] as const;
 
     public readonly editorGroups: IEditorGroupsService;
-    /** Редакторы вне таб-строки (Output): код вкладок о них не знает, виден detached только в {@link getActivePane}. */
+    /** Editors outside the tab bar (Output): tab code doesn't know them; a detached pane shows up only in {@link getActivePane}. */
     private detachedPanes: TextEditorPane[] = [];
     private themeService: ThemeService;
     private languageService: ILanguageService;
@@ -147,15 +147,15 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
 
     private readonly onDidFailOpenEmitter = new Emitter<{ readonly uri: Uri; readonly reason: string }>();
     /**
-     * Зависимости от `NotificationService` нет намеренно: показ сообщения — работа композиции. Молчать
-     * нельзя: Go to Definition в библиотеку без провайдера иначе выглядит как «клавиша не работает».
+     * No dependency on `NotificationService` on purpose: showing the message is the composition's job. Staying
+     * silent is not an option: Go to Definition into a library without a provider would look like "the key is broken".
      */
     public readonly onDidFailOpen = this.onDidFailOpenEmitter.event;
 
-    /** Сервис владеет моделью, пока первое {@link openUri} не заберёт её во вкладку. */
+    /** The service owns the model until the first {@link openUri} hands it to a tab. */
     private readonly untitledWithoutEditor = new Map<string, TextFileModel>();
 
-    /** Читается в момент сохранения: присваивание видно и уже открытым редакторам. */
+    /** Read at save time, so an assignment also reaches already open editors. */
     public get saveParticipant(): SaveParticipant | undefined {
         return this.saveParticipantValue;
     }
@@ -164,14 +164,14 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         this.saveParticipantValue = participant;
     }
 
-    /** Подписка сама переезжает на новый активный редактор: следить за вкладками потребителю не нужно. */
+    /** The subscription follows the new active editor by itself: consumers don't have to track tabs. */
     public readonly onDidChangeActiveEditorSelection = this.onDidChangeActiveEditorSelectionEmitter.event;
 
     public readonly onActiveEditorChanged = this.onActiveEditorChangedEmitter.event;
 
     public readonly onEditorSaved = this.onEditorSavedEmitter.event;
 
-    /** Файрится ДО {@link onActiveEditorChanged}: к листенерам (и фокусу) view активного редактора уже в дереве. */
+    /** Fires BEFORE {@link onActiveEditorChanged}: by the time listeners (and focus) run, the active editor's view is in the tree. */
     public readonly onDidChangeEditors = this.onDidChangeEditorsEmitter.event;
 
     public constructor(
@@ -185,11 +185,11 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         contextMenuController: ContextMenuController,
         logService: ILogService,
         languageConfigurationService: ILanguageConfigurationService = NULL_LANGUAGE_CONFIGURATION_SERVICE,
-        // Без хоста закрытие грязной вкладки громко упадёт, а не потеряет правки молча.
+        // Without a host, closing a dirty tab fails loudly instead of silently losing edits.
         dialogService: DialogService = new DialogService(),
         contributedPaneFactories: readonly IEditorPaneFactory<unknown>[] = [],
         languageFeatures: ILanguageFeaturesService = new LanguageFeaturesService(),
-        // Дефолт без провайдеров: сохранение громко падает, а не пишет мимо.
+        // The default has no providers: saving fails loudly instead of writing somewhere else.
         files?: IFileService,
         textFileModels?: TextFileModelService,
         paneBuilder?: TextEditorPaneBuilder,
@@ -220,7 +220,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         this.languageService = languageService;
         this.configurationService = configurationService;
         this.undoRedoService = undoRedoService;
-        // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала и его метка — подпись в селекторе Output, поведения логирования не задают
+        // Stryker disable next-line StringLiteral,ObjectLiteral: the channel name and label are captions in the Output selector and don't affect logging behavior
         this.logger = logService.createLogger("workbench.editorGroups", { label: "Editor Groups" });
         this.paneFactories = [createTextEditorPaneFactory(this), ...contributedPaneFactories];
         this.closeHandler = new EditorCloseHandler(dialogService, {
@@ -231,16 +231,16 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
             languageFeatures,
             paneForUri: (uri) => this.textPanes().find((pane) => pane.uri.toString() === uri) ?? null,
         };
-        // Пайплайн собирается в момент save по живым настройкам; порядок VS Code:
-        // code actions → формат → will-save расширений.
+        // The pipeline is assembled at save time from live settings; VS Code order:
+        // code actions → format → extensions' will-save.
         const codeActionsOnSave = createCodeActionsOnSaveParticipant(onSaveHost);
         const formatOnSave = createFormatOnSaveParticipant(onSaveHost);
         this.register(
             this.textFileModels.addSaveParticipant((model) =>
-                // Отсев — экономия прохода: без провайдера и видов участник и так no-op.
-                // Stryker disable next-line ConditionalExpression,LogicalOperator: эквивалентен — см. выше
+                // The filter only saves a pass: without a provider and kinds the participant is a no-op anyway.
+                // Stryker disable next-line ConditionalExpression,LogicalOperator: equivalent, see above
                 languageFeatures.codeActionProvider.has(model) &&
-                // Stryker disable next-line EqualityOperator,ConditionalExpression: участник без включённых видов — no-op (провайдера не зовёт), а запись и так асинхронная; отсев только экономит проход
+                // Stryker disable next-line EqualityOperator,ConditionalExpression: a participant with no enabled kinds is a no-op (doesn't call the provider), and the write is async anyway; the filter only saves a pass
                 enabledCodeActionKindsOnSave(configurationService, model.languageId).length > 0
                     ? codeActionsOnSave
                     : null,
@@ -248,8 +248,8 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         );
         this.register(
             this.textFileModels.addSaveParticipant((model) =>
-                // То же у формата: без форматтера formatDocument отдаёт null — no-op.
-                // Stryker disable next-line ConditionalExpression,LogicalOperator: эквивалентен — см. выше
+                // Same for format: without a formatter formatDocument returns null, a no-op.
+                // Stryker disable next-line ConditionalExpression,LogicalOperator: equivalent, see above
                 hasDocumentFormatter(languageFeatures, model) &&
                 configurationService.get("editor.formatOnSave", { overrideIdentifier: model.languageId })
                     ? formatOnSave
@@ -273,32 +273,32 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                 this.fireActiveEditorChanged(pane);
             }),
         );
-        // Стороны диффа — тоже редактирующие поверхности: editor.* обязаны доехать и до них.
+        // Diff sides are editing surfaces too: editor.* must reach them as well.
         this.editorConfiguration = this.register(
             new TextEditorConfiguration(this.configurationService, () => [
                 ...this.textPanes(),
                 ...this.diffSidePanes(),
             ]),
         );
-        // Новый язык — другие `"[lang]"`-секции настроек.
+        // A new language means different `"[lang]"` settings sections.
         this.register(
             this.textFileModels.onDidChangeModelLanguage(() => {
                 this.editorConfiguration.reapply();
             }),
         );
-        // Вкладки едут за перенесённым файлом (эталон `onDidRunFileOperation` → `handleMovedFile`):
-        // иначе первое сохранение воскрешало файл по старому пути.
+        // Tabs follow a moved file (upstream `onDidRunFileOperation` → `handleMovedFile`):
+        // otherwise the first save would resurrect the file at the old path.
         this.register(
             fileService.onDidRunOperation((event) => {
-                // Stryker disable next-line ConditionalExpression: у Move сервис кладёт `target` всегда — проверка лишь сужает тип
+                // Stryker disable next-line ConditionalExpression: for Move the service always sets `target`; the check only narrows the type
                 if (event.operation === FileOperation.Move && event.target !== undefined) {
                     this.handleMovedFile(event.resource, event.target);
                 }
                 if (event.operation === FileOperation.Delete) this.handleDeletedFile(event.resource);
             }),
         );
-        // Удалён снаружи: при `closeOnFileDelete` чистые вкладки уходят (эталон
-        // `handleDeletedFile(…, isExternal: true)`), иначе остаются зачёркнутыми.
+        // Deleted externally: with `closeOnFileDelete` clean tabs close (upstream
+        // `handleDeletedFile(…, isExternal: true)`), otherwise they stay struck through.
         this.register(
             this.textFileModels.onDidChangeModelOrphaned((model) => {
                 if (!model.isOrphaned) return;
@@ -306,8 +306,8 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                 this.closeCleanEditors((pane) => pane.fileModel === model);
             }),
         );
-        // Выключили предпросмотр — висящие превью прикалываем, иначе следующее открытие
-        // заместило бы вкладку (эталон: onDidChangeEditorPartOptions).
+        // Preview turned off: pin lingering previews, otherwise the next open would
+        // replace the tab (upstream: onDidChangeEditorPartOptions).
         this.register(
             this.configurationService.onDidChangeConfiguration((event) => {
                 if (!event.affectsConfiguration(PREVIEW_SETTING_KEY) || this.isPreviewEnabled()) return;
@@ -319,7 +319,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         );
     }
 
-    /** Вкладку, которую повторить нельзя (untitled), новая группа не получает и остаётся пустой. */
+    /** A tab that can't be replayed (untitled) is not given to the new group, which stays empty. */
     public splitActiveGroup({
         focus = true,
         position,
@@ -327,8 +327,8 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         const source = this.editorGroups.activeGroup;
         return this.editorGroups.splitActiveGroup(
             (group, sourcePane) => {
-                // Сплит — заявка «этот файл мне нужен»: источник прикалываем, чтобы следующее
-                // превью не заместило половину сплита (эталон так же).
+                // A split says "I need this file": pin the source so the next preview
+                // doesn't replace half of the split (upstream does the same).
                 source.pinPane(sourcePane);
                 const recipe = this.describePane(sourcePane);
                 if (recipe !== undefined) void recipe.factory.open(recipe.descriptor, { group, focus });
@@ -337,12 +337,12 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         );
     }
 
-    /** Вкладку, которую повторить нельзя (untitled), не копируем вовсе. */
+    /** A tab that can't be replayed (untitled) is not copied at all. */
     public copyActiveEditorToGroup(direction: "next" | "previous", { focus = true }: { focus?: boolean } = {}): void {
         const source = this.editorGroups.activeGroup;
         const sourcePane = source.activePane;
-        // Мутант эквивалентен: у пустой группы рецепта нет и так.
-        // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
+        // The mutant is equivalent: an empty group has no recipe anyway.
+        // Stryker disable next-line ConditionalExpression: equivalent, see above
         if (sourcePane === null) return;
         const recipe = this.describePane(sourcePane);
         if (recipe === undefined) return;
@@ -365,7 +365,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return undefined;
     }
 
-    /** Вкладка → запись сессии; `undefined` — вкладка рестарт не переживает. */
+    /** Tab → session entry; `undefined`: the tab doesn't survive a restart. */
     public serializeEditor(pane: IEditorPane): ISerializedEditor | undefined {
         const recipe = this.recipeOf(pane);
         if (recipe === undefined) return undefined;
@@ -373,7 +373,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return value === undefined ? undefined : { typeId: recipe.factory.typeId, value };
     }
 
-    /** `undefined` — вида нет (сборка новее/старее) или повторить нельзя: такие записи молча выпадают, как у upstream. */
+    /** `undefined`: unknown kind (newer/older build) or not replayable; such entries are silently dropped, as upstream. */
     public deserializeEditor(
         entry: ISerializedEditor,
     ): { factory: IEditorPaneFactory<unknown>; descriptor: unknown } | undefined {
@@ -389,9 +389,9 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     }
 
     /**
-     * Вкладка замещается, а не переименовывается на месте: держатели ресурса по uri (документы
-     * расширений, маркеры, quick diff) видят честные «закрыли — открыли», как в эталоне.
-     * Стороны дифф-вкладок не трогаем — их ресурсы фиксирует владелец диффа.
+     * The tab is replaced, not renamed in place: holders of the resource by uri (extension
+     * documents, markers, quick diff) see an honest close-then-open, as upstream.
+     * Diff tab sides are left alone: the diff's owner fixes their resources.
      */
     private handleMovedFile(source: Uri, target: Uri): void {
         for (const group of this.editorGroups.groups) {
@@ -402,7 +402,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                 const resource = movedResource(pane.uri, source, target);
                 if (resource === null) continue;
                 const ref = this.textFileModels.acquire(resource);
-                // Файл в двух группах — одна модель: вторая заливка того же текста ничего не меняет.
+                // A file in two groups has one model: a second fill with the same text changes nothing.
                 if (pane.fileModel.isModified) ref.model.restoreUnsavedContents(pane.fileModel.getText());
                 const editor = this.paneBuilder.build(ref.model, ref);
                 this.editorConfiguration.apply(editor);
@@ -411,41 +411,41 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                     scrollTop: pane.viewState.scrollTop,
                     scrollLeft: pane.viewState.scrollLeft,
                 });
-                // Фокус может держать только активная вкладка: неактивные не смонтированы.
+                // Only the active tab can hold focus: inactive ones are not mounted.
                 if (holdsFocus(pane.view)) focusActive = true;
                 group.replacePane(index, editor, { preview: !group.isPinned(pane) });
                 moved = true;
             }
-            // Замещение событий не шлёт: перерисовку и смену активного даёт повторная активация.
+            // Replacing fires no events: re-activation provides the repaint and the active change.
             if (moved) group.activateTab(group.activeIndex, { focus: focusActive });
         }
     }
 
     /**
-     * Чистые вкладки закрываются независимо от `closeOnFileDelete` (эталон `isExternal: false`);
-     * грязная остаётся и зачеркнётся, когда watcher сделает модель orphaned.
+     * Clean tabs close regardless of `closeOnFileDelete` (upstream `isExternal: false`);
+     * a dirty one stays and gets struck through once the watcher makes the model orphaned.
      */
     public handleDeletedFile(resource: Uri): void {
-        // Перенос «на себя» не-`null` ровно для ресурса, равного `resource` или лежащего под ним.
+        // A move "onto itself" is non-`null` exactly for a resource equal to `resource` or under it.
         this.closeCleanEditors((pane) => movedResource(pane.uri, resource, resource) !== null);
     }
 
-    /** Стороны диффа не трогаем — их ресурсы фиксирует владелец диффа. */
+    /** Diff sides are left alone: the diff's owner fixes their resources. */
     private closeCleanEditors(matches: (pane: TextEditorPane) => boolean): void {
-        // Копия списка: опустевшая группа уходит из полосы прямо в цикле.
+        // Copy the list: a group that becomes empty leaves the strip right inside the loop.
         for (const group of [...this.editorGroups.groups]) {
             const panes = group
                 .getPanes()
                 .filter((pane): pane is TextEditorPane => pane instanceof TextEditorPane)
                 .filter((pane) => pane.fileModel !== null && !pane.isModified && matches(pane));
-            // Чистые вкладки подтверждения не спрашивают — закрытие синхронно.
+            // Clean tabs ask for no confirmation, so closing is synchronous.
             void this.closeEditors(group, panes);
         }
     }
 
     /**
-     * Фокус внутри detached-панели (Output) делает активной её: иначе стрелки и Ctrl+F шли бы
-     * в файл за панелью. Аналог `ICodeEditorService.getFocusedCodeEditor()`.
+     * Focus inside a detached pane (Output) makes it active: otherwise arrows and Ctrl+F would go
+     * to the file behind the pane. Counterpart of `ICodeEditorService.getFocusedCodeEditor()`.
      */
     public getActivePane(): IEditorPane | null {
         const focused = this.focusedDetachedPane();
@@ -454,8 +454,8 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     }
 
     /**
-     * Без detached-панелей: нужна тем, кто вставляет контент в область редактора, уводит фокус
-     * ИЗ панели и показывает расширениям `activeTextEditor` (фокус в панели его не подменяет, как в VS Code).
+     * Ignores detached panes: needed by those that insert content into the editor area, move focus
+     * OUT of the pane, and expose `activeTextEditor` to extensions (focus in the pane doesn't replace it, as in VS Code).
      */
     public getActiveTabPane(): IEditorPane | null {
         return this.editorGroups.activeGroup.activePane;
@@ -466,7 +466,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return this.detachedPanes.find((pane) => holdsFocus(pane.view)) ?? null;
     }
 
-    /** Ресурс уже открыт в группе — переключает на ту вкладку, а переданную `pane` освобождает. */
+    /** If the resource is already open in the group, switches to that tab and disposes the given `pane`. */
     public openPane(
         pane: IEditorPane,
         { focus = true, group = this.editorGroups.activeGroup }: { focus?: boolean; group?: EditorGroup } = {},
@@ -481,34 +481,34 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         group.activateTab(group.editorCount - 1, { focus });
     }
 
-    /** `null` и на панели другого вида: потребители текста молча ничего не делают на диффе. */
+    /** `null` also for a pane of another kind: text consumers silently do nothing on a diff. */
     public getActiveEditor(): TextEditorPane | null {
         const pane = this.getActivePane();
-        // Стороны диффа — настоящие текстовые панели: молчаливый null онемел бы всю вкладку
-        // (резолвнувшаяся команда съедает клавишу).
+        // Diff sides are real text panes: a silent null would mute the whole tab
+        // (the resolved command swallows the key).
         if (pane instanceof DiffEditorPane2) return pane.activeTextPane;
         return pane instanceof TextEditorPane ? pane : null;
     }
 
-    /** Уже {@link getActiveEditor}: так дифф ходит кареткой тем же кодом, что и редактор, оставаясь read-only. */
+    /** Narrower than {@link getActiveEditor} (view state only): the diff moves its cursor with the same code as the editor while staying read-only. */
     public getActiveViewState(): EditorViewState | null {
         return this.getActivePane()?.viewState ?? null;
     }
 
     public getActiveTabEditor(): TextEditorPane | null {
         const pane = this.getActiveTabPane();
-        // Активная сторона диффа: Ctrl+S, Save As и editor-options расширений работают по ней.
+        // The active diff side: Ctrl+S, Save As, and extension editor-options act on it.
         if (pane instanceof DiffEditorPane2) return pane.activeTextPane;
         return pane instanceof TextEditorPane ? pane : null;
     }
 
-    /** Вне таб-строки: ни в `getPanes`, ни в персисте сессии, ни в shutdown. Куда вставить `pane.view`, решает владелец. */
+    /** Outside the tab bar: not in `getPanes`, session persistence, or shutdown. The owner decides where to insert `pane.view`. */
     public openDetached(uri: Uri, languageId: string): TextEditorPane<SyntheticTextModel> {
-        // Синтетический ресурс уникален по построению — модель мимо реестра.
+        // A synthetic resource is unique by construction, so the model bypasses the registry.
         const model = new SyntheticTextModel(this.languageService, this.undoRedoService, uri, languageId);
         const editor = this.paneBuilder.build(model);
         editor.detached = true;
-        // Вкладочные панели обвязывает группа; detached — сам сервис.
+        // The group wires tab panes; the service wires detached ones itself.
         this.wirePane(editor);
         this.editorConfiguration.apply(editor);
         this.detachedPanes.push(editor);
@@ -516,8 +516,8 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     }
 
     /**
-     * Read-only вкладка с контентом от вызывающего (файл на ревизии из `git:`): ни watcher'а, ни save,
-     * ни персиста. Повторный вызов с тем же uri обновляет содержимое — ветка могла сдвинуться.
+     * Read-only tab with caller-supplied content (a file at a revision from `git:`): no watcher, no save,
+     * no persistence. A repeat call with the same uri updates the content, since the branch may have moved.
      */
     public openTextSnapshot(
         uri: Uri,
@@ -527,8 +527,8 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         const existingIndex = group.findPaneIndex(uri);
         if (existingIndex >= 0) {
             const existing = this.replaceVirtualContent(group, existingIndex, text);
-            /* v8 ignore start -- defensive: снимок по этому uri открывает только этот метод, вид панели известен */
-            // Stryker disable next-line ConditionalExpression: недостижимая ветвь по той же причине, что и для покрытия — панель по этому ресурсу заводит только этот метод
+            /* v8 ignore start -- defensive: only this method opens a snapshot at this uri, so the pane kind is known */
+            // Stryker disable next-line ConditionalExpression: unreachable branch for the same reason as for coverage: only this method creates a pane for this resource
             if (existing !== null) {
                 /* v8 ignore stop */
                 group.activateTab(existingIndex, { focus });
@@ -574,16 +574,16 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return paths;
     }
 
-    /** `path.resolve` вплотную перед `Uri.file`: тот относительный путь не резолвит, а префиксует слэшем. */
+    /** `path.resolve` right before `Uri.file`: the latter doesn't resolve a relative path but prefixes it with a slash. */
     public openFile(filePath: string, options: IOpenUriOptions = {}): void {
         void this.openUri(Uri.file(path.resolve(filePath)), options);
     }
 
     /**
-     * **Обещание никогда не отклоняется**: вызывающие роняют его в `void`, а необработанный отказ
-     * убивает редактор (так F12 в `jdt:`-ресурс уносил его целиком) — неудачи уходят в лог и
-     * {@link onDidFailOpen}. Асинхронен только впервые открываемый недисковый ресурс: файл с диска и
-     * уже открытая вкладка открываются до первого `await`.
+     * **The promise never rejects**: callers drop it into `void`, and an unhandled rejection
+     * kills the editor (F12 into a `jdt:` resource used to take it down entirely); failures go to the log and
+     * {@link onDidFailOpen}. Only a non-disk resource opened for the first time is async: a file from disk and
+     * an already open tab open before the first `await`.
      */
     public openUri(uri: Uri, options: IOpenUriOptions = {}): Promise<void> {
         if (uri.scheme === "file" || this.isOpenInTargetGroup(uri, options.group)) {
@@ -598,13 +598,13 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return this.openVirtualUri(uri, options);
     }
 
-    /** `content`: `null` — файл с диска или уже открытая вкладка, строка — свежий недисковый ресурс. */
+    /** `content`: `null` for a file from disk or an already open tab, a string for a fresh non-disk resource. */
     private openResolvedUri(
         uri: Uri,
         content: string | null,
         { focus = true, group: where, viewState, preview = false }: IOpenUriOptions,
     ): void {
-        // Идентичность — по ресурсу целиком в пределах группы, а не по basename.
+        // Identity is the whole resource within the group, not the basename.
         const group = where === "beside" ? this.editorGroups.sideGroup() : (where ?? this.editorGroups.activeGroup);
         this.editorGroups.openInGroup(group, () => {
             this.openInResolvedGroup(group, uri, content, { focus, viewState, preview });
@@ -621,16 +621,16 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
             preview,
         }: { focus: boolean; viewState: ITextEditorViewState | undefined; preview: boolean },
     ): void {
-        // Превью — только по просьбе вызывающего (дерево Explorer) и при включённой настройке,
-        // как в эталоне с выключенными enablePreviewFrom*.
+        // Preview only on the caller's request (the Explorer tree) and with the setting on,
+        // as upstream with enablePreviewFrom* turned off.
         const asPreview = preview && this.isPreviewEnabled();
         const existingIndex = group.findPaneIndex(uri);
         if (existingIndex >= 0) {
-            // Повторное не-превью открытие прикалывает вкладку (эталон: doOpenEditor).
+            // A repeat non-preview open pins the tab (upstream: doOpenEditor).
             if (!asPreview) group.pinPane(group.getPanes()[existingIndex]);
             group.activateTab(existingIndex, { focus });
         } else {
-            // Вкладка владеет ссылкой на модель, а не самой моделью.
+            // The tab owns a reference to the model, not the model itself.
             let editor: TextEditorPane;
             if (content !== null) {
                 editor = this.createVirtualPane(uri, content);
@@ -640,7 +640,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
                 this.editorConfiguration.apply(editor);
             }
             if (viewState !== undefined) applyViewState(editor, viewState);
-            // Новое превью занимает слот предыдущего, иначе поехали бы порядок вкладок и фокус.
+            // A new preview takes the previous one's slot, otherwise tab order and focus would shift.
             const replacedIndex = asPreview ? this.previewIndexToReplace(group) : -1;
             if (replacedIndex >= 0) {
                 group.replacePane(replacedIndex, editor, { preview: true });
@@ -653,11 +653,11 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     }
 
     private isPreviewEnabled(): boolean {
-        // Без своего фолбэка: дефолт гарантирует схема, иначе разъедется с ней.
+        // No fallback of our own: the schema guarantees the default; a local one would drift from it.
         return this.configurationService.get(PREVIEW_SETTING_KEY);
     }
 
-    /** Грязное превью не замещаем, а прикалываем: иначе потеряли бы несохранённые правки. */
+    /** A dirty preview is pinned rather than replaced: otherwise unsaved edits would be lost. */
     private previewIndexToReplace(group: EditorGroup): number {
         const preview = group.previewPane;
         if (preview === null) return -1;
@@ -668,7 +668,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return group.getPanes().indexOf(preview);
     }
 
-    /** Без побочных эффектов, в отличие от {@link openResolvedUri}: не активирует группу и не заводит соседнюю. */
+    /** No side effects, unlike {@link openResolvedUri}: doesn't activate the group or create a neighbor. */
     private isOpenInTargetGroup(uri: Uri, where?: "beside" | EditorGroup): boolean {
         const group =
             where === "beside"
@@ -678,8 +678,8 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     }
 
     /**
-     * Провайдера схемы может не быть, он может отказать или сломаться — во всех случаях человек
-     * обязан увидеть, почему ничего не открылось ({@link onDidFailOpen}).
+     * The scheme may have no provider, or it may refuse or break; in every case the user
+     * must see why nothing opened ({@link onDidFailOpen}).
      */
     private async openVirtualUri(uri: Uri, options: IOpenUriOptions): Promise<void> {
         const source = this.virtualDocumentSource;
@@ -701,27 +701,27 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         this.openResolvedUri(uri, content, options);
     }
 
-    /** `output:` и снимочные стороны диффа не восстановимы: их содержимое пишет владелец вкладки, ресурс его не адресует. */
+    /** `output:` and snapshot diff sides are not restorable: the tab owner writes their content, the resource doesn't address it. */
     public canRestore(uri: Uri): boolean {
         if (uri.scheme === "file" || uri.scheme === "untitled") return true;
         return this.virtualDocumentSource.canProvide(uri.scheme);
     }
 
-    /** Неоткрытый ресурс вкладку не заводит — человек её не просил. Отказ провайдера — только в лог: освежение фоновое. */
+    /** A resource that isn't open gets no tab: the user didn't ask for one. A provider failure only goes to the log: the refresh is in the background. */
     public refreshVirtualDocument(uri: Uri): void {
         const key = uri.toString();
-        // Вкладка недискового ресурса текстовая и синтетическая по построению: проверки лишь сужают тип.
-        // Stryker disable next-line MethodExpression: эквивалентен — см. выше
+        // A non-disk resource's tab is text and synthetic by construction: the checks only narrow the type.
+        // Stryker disable next-line MethodExpression: equivalent, see above
         const textPanes = this.allPanes().filter(isTextEditorPane);
         const targets = textPanes.flatMap((pane) =>
             pane.uri.toString() === key &&
-            // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
+            // Stryker disable next-line ConditionalExpression: equivalent, see above
             pane.model instanceof SyntheticTextModel
                 ? [pane.model]
                 : [],
         );
         if (targets.length === 0) return;
-        // `.catch` хвостом, а не вторым аргументом `then`: накрывает и поломку заливки текста.
+        // `.catch` at the tail, not as the second `then` argument: it also covers a failure while filling in the text.
         void this.virtualDocumentSource
             .provide(uri)
             .then((content) => {
@@ -733,7 +733,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
             });
     }
 
-    /** Язык — из «пути» ресурса: у `jdt://contents/…/StringUtils.java` он честный. */
+    /** Language comes from the resource "path": for `jdt://contents/…/StringUtils.java` it is accurate. */
     private createVirtualPane(
         uri: Uri,
         content: string,
@@ -754,11 +754,11 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return editor;
     }
 
-    /** `null` — на этой позиции панель другого вида. */
+    /** `null`: the pane at this position is of another kind. */
     private replaceVirtualContent(group: EditorGroup, index: number, content: string): TextEditorPane | null {
         const pane = group.getPane(index);
-        /* v8 ignore start -- defensive: вкладку по этому ресурсу заводит только createVirtualPane */
-        // Stryker disable next-line ConditionalExpression,LogicalOperator: недостижимая ветвь по той же причине, что и для покрытия
+        /* v8 ignore start -- defensive: only createVirtualPane creates a tab for this resource */
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: unreachable branch for the same reason as for coverage
         if (!(pane instanceof TextEditorPane) || !(pane.model instanceof SyntheticTextModel)) return null;
         /* v8 ignore stop */
         pane.model.replaceContent(content);
@@ -780,22 +780,22 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     }
 
     /**
-     * `workspace.openTextDocument({ content })` (`$tryCreateDocument` эталона): документ сразу открыт
-     * расширениям, вкладку заводит `showTextDocument` через {@link openUri}. Непустой текст — грязный буфер.
+     * `workspace.openTextDocument({ content })` (upstream `$tryCreateDocument`): the document is open for
+     * extensions right away; `showTextDocument` creates the tab via {@link openUri}. Non-empty text makes a dirty buffer.
      */
     public createUntitled({ content, languageId, encoding }: IUntitledOptions = {}): Uri {
         const model = this.textFileModels.createUntitledModel();
         if (languageId !== undefined) model.setLanguage(languageId);
-        // Stryker disable next-line ConditionalExpression: эквивалентен — неизвестную (и отсутствующую) кодировку setEncoding и так пропускает
+        // Stryker disable next-line ConditionalExpression: equivalent: setEncoding skips an unknown (or missing) encoding anyway
         if (encoding !== undefined) model.setEncoding(encoding);
-        // Пустой текст — не правка: буфер остаётся чистым (`!!initialValue` эталона).
+        // Empty text is not an edit: the buffer stays clean (upstream `!!initialValue`).
         if (content !== undefined && content !== "") model.restoreUnsavedContents(content);
         this.untitledWithoutEditor.set(model.uri.toString(), model);
         this.fireEditorsChanged();
         return model.uri;
     }
 
-    /** Владение моделью переходит к вкладке. */
+    /** Model ownership passes to the tab. */
     private openUntitledWithoutEditor(model: TextFileModel, { focus = true, group: where }: IOpenUriOptions): void {
         this.untitledWithoutEditor.delete(model.uri.toString());
         const editor = this.paneBuilder.build(model);
@@ -807,7 +807,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         });
     }
 
-    /** Только для панелей вне таб-строки: вкладочные обвязывает сама группа в `insertPane`. */
+    /** Only for panes outside the tab bar: the group wires tab panes itself in `insertPane`. */
     private wirePane(pane: IEditorPane): void {
         this.register(pane);
         this.register(
@@ -818,18 +818,18 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     }
 
     public async activate(): Promise<void> {
-        // Пока нечего активировать: async-инициализация редакторов (LSP и т.п.) —
-        // будущий шов сервисного слоя.
+        // Nothing to activate yet: async editor initialization (LSP etc.) is
+        // a future seam of the service layer.
     }
 
-    /** Фокус вкладки (не панели), любого вида: дифф тоже получает ввод. */
+    /** Focuses the tab (not the pane), of any kind: a diff gets input too. */
     public focusEditor(): void {
         this.getActiveTabPane()?.focusEditor();
     }
 
     /**
-     * `isStillDirty` ловит вкладки, закрытые, пока человек отвечал на предыдущие диалоги. Save при выходе
-     * перезаписывает файл даже при внешних изменениях — выбор человека не должен пропасть.
+     * `isStillDirty` catches tabs closed while the user was answering earlier dialogs. Save on exit
+     * overwrites the file even with external changes: the user's choice must not be lost.
      */
     public collectDirty(): readonly IShutdownDirtyItem[] {
         return this.dirtyEditors().map((editor) => ({
@@ -841,9 +841,9 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     }
 
     /**
-     * `saveAll` эталона. Безымянный буфер пропускается (Save As посреди запуска задачи не открываем),
-     * изменённый на диске файл не перезаписывается. С `includeUntitled` эталон спрашивает путь диалогом;
-     * у нас его нет, и оставшийся безымянный буфер — честный `false`.
+     * Upstream `saveAll`. An untitled buffer is skipped (we don't open Save As in the middle of a task run),
+     * a file changed on disk is not overwritten. With `includeUntitled` upstream asks for a path in a dialog;
+     * we have none, so a remaining untitled buffer yields an honest `false`.
      */
     public async saveAll(options?: { includeUntitled?: boolean }): Promise<boolean> {
         let success = true;
@@ -855,7 +855,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return success;
     }
 
-    /** `$save` эталона без Save As: пишется и чистый буфер (`force`). */
+    /** Upstream `$save` without Save As: a clean buffer is written too (`force`). */
     public async save(resource: Uri): Promise<Uri | undefined> {
         const key = resource.toString();
         const editor = this.getTextSurfaces().find((pane) => pane.uri.toString() === key);
@@ -873,8 +873,8 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
     }
 
     /**
-     * По одному на модель. Стороны диффа — после вкладок: у вкладки метка красивее, а дифф добавляет
-     * только свои буферы (untitled-стороны, файл без обычной вкладки).
+     * One per model. Diff sides come after tabs: a tab has a nicer label, and a diff adds
+     * only its own buffers (untitled sides, a file without a regular tab).
      */
     private dirtyEditors(): TextEditorPane[] {
         const seenModels = new Set<BaseTextEditorModel>();
@@ -895,19 +895,19 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return this.closeHandler.dirtyExclusiveDiffSides(pane);
     }
 
-    /** `false` — человек отменил или Save не удался. Позиция вне полосы — закрывать нечего, `true`. */
+    /** `false`: the user cancelled or Save failed. A position outside the strip means nothing to close, `true`. */
     public closeEditor(group: EditorGroup, target: IEditorPane | number): Promise<boolean> {
         const pane = typeof target === "number" ? group.getPane(target) : target;
         if (pane === null) return Promise.resolve(true);
         return this.closeEditors(group, [pane]);
     }
 
-    /** Порядок `panes` — порядок диалогов; первое вето обрывает серию. */
+    /** `panes` order is the dialog order; the first veto stops the series. */
     public closeEditors(group: EditorGroup, panes: readonly IEditorPane[]): Promise<boolean> {
         return this.closeHandler.confirmAndClose(group, panes);
     }
 
-    /** С хвоста, как Ctrl+K W: диалоги идут справа налево, Cancel прерывает серию. */
+    /** From the tail, like Ctrl+K W: dialogs go right to left, Cancel stops the series. */
     public closeAllEditors(group: EditorGroup): Promise<boolean> {
         return this.closeEditors(group, [...group.getPanes()].reverse());
     }
@@ -916,7 +916,7 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         return editor.label;
     }
 
-    /** Расширение — из текущего языка буфера: сменили язык — предложение едет следом. */
+    /** The extension comes from the buffer's current language: change the language and the suggestion follows. */
     public suggestedSaveName(editor: TextEditorPane): string {
         const name = this.displayName(editor);
         const extension = this.languageService.getExtensionForLanguage(editor.languageId);
@@ -927,14 +927,14 @@ export class EditorService extends Disposable implements IEditorService, IShutdo
         this.onDidChangeEditorsEmitter.fire();
     }
 
-    /** Наружу — только текстовая панель: для потребителей текста дифф — «нет активного редактора». */
+    /** Only a text pane is exposed: for text consumers a diff means "no active editor". */
     private fireActiveEditorChanged(pane: IEditorPane | null): void {
         const editor = pane instanceof TextEditorPane ? pane : null;
         this.rebindActiveSelectionForwarding(editor);
         this.onActiveEditorChangedEmitter.fire(editor);
     }
 
-    /** Слушателей {@link onDidChangeActiveEditorSelection} не дёргаем: смену видно через {@link onActiveEditorChanged}. */
+    /** Doesn't notify {@link onDidChangeActiveEditorSelection} listeners: the change is visible via {@link onActiveEditorChanged}. */
     private rebindActiveSelectionForwarding(editor: TextEditorPane | null): void {
         this.activeSelectionSubscription?.dispose();
         this.activeSelectionSubscription = undefined;

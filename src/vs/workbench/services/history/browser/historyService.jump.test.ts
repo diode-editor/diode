@@ -88,7 +88,7 @@ describe("HistoryService — шов прыжка", () => {
         const target = "jdt://contents/lib.jar/pkg/Foo.java";
 
         await service.jumpAsync(async () => {
-            // Содержимое недискового ресурса приезжает от провайдера через тик.
+            // Content of a non-disk resource arrives from the provider a tick later.
             await Promise.resolve();
             source.open(target);
             source.moveCaret(50);

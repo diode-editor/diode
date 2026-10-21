@@ -7,9 +7,10 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 export const FocusTrackerDIToken = token<FocusTracker>("FocusTracker");
 
 /**
- * Отдельный сервис без зависимостей, а не событие центра: центр резолвит фичи при создании,
- * и подписка фичи на него замкнула бы DI в цикл. `WorkbenchContextKeys.handleFocusChange`
- * зовёт {@link fire} после обновления контекст-ключей — подписчик видит свежий контекст.
+ * A standalone service with no dependencies rather than a workbench event: the workbench resolves
+ * features on creation, so a feature subscribing to it would close a DI cycle.
+ * `WorkbenchContextKeys.handleFocusChange` calls {@link fire} after updating context keys, so
+ * subscribers see the fresh context.
  */
 export class FocusTracker implements IDisposable {
     public static dependencies = [] as const;

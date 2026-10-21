@@ -254,7 +254,7 @@ describe("FileSearchService — search()", () => {
         const TREE = ["src/other.ts", "src/main.ts", "lib/other.ts"];
 
         it("`src other` matches path + basename across the separator", async () => {
-            // Регрессия: пробел уходил в матчер буквой, и запрос из двух слов не находил ничего.
+            // Regression: the space went to the matcher as a literal char, so a two-word query found nothing.
             ({ service, ws } = await makeService(TREE));
             const paths = service.search("src other").map((r) => r.entry.relativePath);
             expect(paths).toEqual(["src/other.ts"]);

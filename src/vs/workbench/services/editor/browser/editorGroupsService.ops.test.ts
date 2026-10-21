@@ -72,7 +72,7 @@ function setup() {
     return { service, logs, events, groupEvents, focusedGroups };
 }
 
-/** Открывает вкладку в группе без фокуса (как рестор). */
+/** Opens a tab in the group without focus (like restore). */
 function open(group: EditorGroup, name: string): FakePane {
     const pane = new FakePane(name);
     group.insertPane(pane);

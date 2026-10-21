@@ -3,35 +3,35 @@ import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.
 import type { Uri } from "../../../../base/common/uri.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 
-/** Не ViewColumn: номер колонки пересчитывается при схлопывании/перестановке, а id остаётся. */
+/** Not a ViewColumn: the column number is recomputed on collapse/reorder, while the id stays. */
 export type GroupId = number;
 
-/** `null` в {@link EditorGroup.onDidChangeMruCycle} — серия Ctrl+Tab кончилась. */
+/** `null` in {@link EditorGroup.onDidChangeMruCycle} — the Ctrl+Tab series has ended. */
 export interface MruCycleState {
     readonly panes: readonly IEditorPane[];
     readonly pointer: number;
 }
 
 /**
- * Группа владеет своими панелями: `closeTab` диспозит вкладку, `detachPane` снимает БЕЗ dispose.
- * Порядок событий {@link activateTab} — {@link onDidChangeEditors} → фокус → {@link onDidChangeActivePane}:
- * сначала view вставляет контент в дерево, потом его можно фокусировать.
+ * The group owns its panes: `closeTab` disposes the tab, `detachPane` removes it WITHOUT dispose.
+ * {@link activateTab} event order — {@link onDidChangeEditors} → focus → {@link onDidChangeActivePane}:
+ * the view inserts the content into the tree first, then it can be focused.
  */
 export class EditorGroup extends Disposable {
     private panes: IEditorPane[] = [];
     private activeIndexValue = -1;
     private readonly paneSubscriptions = new Map<IEditorPane, IDisposable>();
 
-    /** mru[0] — активная/последняя. */
+    /** mru[0] — the active/most recent one. */
     private mruOrder: IEditorPane[] = [];
     /**
-     * Пока серия Ctrl+Tab идёт, список заморожен (`mruCycleList`), а выбор не коммитится в начало
-     * `mruOrder` — иначе нельзя было бы уйти глубже второй вкладки.
+     * While a Ctrl+Tab series runs, the list is frozen (`mruCycleList`) and the choice is not committed to the front
+     * of `mruOrder` — otherwise one could never go deeper than the second tab.
      */
     private cyclingActive = false;
     private mruCycleList: IEditorPane[] = [];
     private mruCyclePointer = 0;
-    /** Ссылкой, а не индексом: индексы ездят при вставке/закрытии соседей (как `preview` в `editorGroupModel` эталона). */
+    /** By reference, not index: indices shift when neighbors are inserted/closed (like `preview` in upstream `editorGroupModel`). */
     private previewPaneValue: IEditorPane | null = null;
 
     private readonly onDidChangeEditorsEmitter = new Emitter<void>();
@@ -51,7 +51,7 @@ export class EditorGroup extends Disposable {
         });
     }
 
-    /** Файрится ДО {@link onDidChangeActivePane}: к листенерам (и фокусу) view активной вкладки уже в дереве. */
+    /** Fires BEFORE {@link onDidChangeActivePane}: by the time listeners (and focus) run, the active tab's view is in the tree. */
     public readonly onDidChangeEditors = this.onDidChangeEditorsEmitter.event;
 
     public readonly onDidChangeActivePane = this.onDidChangeActivePaneEmitter.event;
@@ -75,12 +75,12 @@ export class EditorGroup extends Disposable {
         return this.previewPaneValue;
     }
 
-    /** Всё, что не предпросмотр, приколото — как в эталоне. */
+    /** Everything that is not a preview is pinned — as upstream. */
     public isPinned(pane: IEditorPane): boolean {
         return this.previewPaneValue !== pane;
     }
 
-    /** No-op для уже приколотой — поэтому зовётся из всех триггеров без оглядки на состояние. */
+    /** No-op for an already pinned tab — so every trigger calls it regardless of state. */
     public pinPane(pane: IEditorPane): void {
         if (this.previewPaneValue !== pane) return;
         this.previewPaneValue = null;
@@ -92,7 +92,7 @@ export class EditorGroup extends Disposable {
         return this.panes[index];
     }
 
-    /** Живой массив, не копия. */
+    /** A live array, not a copy. */
     public getPanes(): readonly IEditorPane[] {
         return this.panes;
     }
@@ -101,7 +101,7 @@ export class EditorGroup extends Disposable {
         return this.panes.findIndex((pane) => pane.uri.toString() === uri.toString());
     }
 
-    /** Не активирует — это решает вызывающий; группа с этого момента владеет вкладкой. */
+    /** Does not activate — the caller decides; from now on the group owns the tab. */
     public insertPane(pane: IEditorPane, options: { index?: number; preview?: boolean } = {}): void {
         const index = options.index ?? this.panes.length;
         this.panes.splice(index, 0, pane);
@@ -110,11 +110,11 @@ export class EditorGroup extends Disposable {
     }
 
     /**
-     * Порядок полосы и индекс активной не трогаются: следующее превью занимает слот предыдущего.
-     * Старая вкладка диспозится. События не шлёт — их пошлёт {@link activateTab} вызывающего.
+     * Strip order and the active index are untouched: the next preview takes the previous one's slot.
+     * The old tab is disposed. Fires no events — the caller's {@link activateTab} fires them.
      */
     public replacePane(index: number, pane: IEditorPane, options: { preview?: boolean } = {}): void {
-        /* v8 ignore start -- defensive: индекс приходит из getPanes().indexOf собственной панели */
+        /* v8 ignore start -- defensive: the index comes from getPanes().indexOf of the group's own pane */
         if (index < 0 || index >= this.panes.length) return;
         /* v8 ignore stop */
         const replaced = this.panes[index];
@@ -128,8 +128,8 @@ export class EditorGroup extends Disposable {
     }
 
     /**
-     * Защёлка «первая правка прикалывает» живёт здесь, а не у триггера ввода: правка приезжает и извне
-     * (`applyEdit`, bulk edit, участник сохранения) и тоже обязана приколоть вкладку.
+     * The "first edit pins" latch lives here, not at the input trigger: edits also arrive from outside
+     * (`applyEdit`, bulk edit, save participant) and must pin the tab too.
      */
     private trackPane(pane: IEditorPane, { preview = false }: { preview?: boolean }): void {
         this.paneSubscriptions.set(
@@ -139,25 +139,25 @@ export class EditorGroup extends Disposable {
                 this.fireEditorsChanged();
             }),
         );
-        // Вкладка может приехать уже грязной (сплит, общая модель) — предпросмотром не становится:
-        // её несохранённые правки замещение потеряло бы.
+        // A tab may arrive already dirty (split, shared model) — it does not become a preview:
+        // replacing it would lose its unsaved edits.
         if (preview && !pane.isModified) this.previewPaneValue = pane;
     }
 
     private forgetPane(pane: IEditorPane): void {
         this.paneSubscriptions.get(pane)?.dispose();
-        // Stryker disable next-line CallExpression: эквивалентен — удаление чистит только запись Map, сама подписка погашена строкой выше, и поведения за ней больше нет
+        // Stryker disable next-line CallExpression: equivalent — deleting only clears the Map entry, the subscription itself is disposed on the line above, and no behavior depends on it
         this.paneSubscriptions.delete(pane);
         if (this.previewPaneValue === pane) this.previewPaneValue = null;
     }
 
-    /** Защёлка: undo до сохранённой версии вкладку в предпросмотр не возвращает. */
+    /** Latch: undo back to the saved version does not return the tab to preview. */
     private pinOnFirstEdit(pane: IEditorPane): void {
         if (!pane.isModified) return;
         if (this.previewPaneValue === pane) this.previewPaneValue = null;
     }
 
-    /** Владение переходит вызывающему: вставить в другую группу или задиспозить. */
+    /** Ownership passes to the caller: insert into another group or dispose. */
     public detachPane(index: number): IEditorPane | null {
         if (index < 0 || index >= this.panes.length) return null;
         const pane = this.panes[index];
@@ -169,8 +169,8 @@ export class EditorGroup extends Disposable {
     public activateTab(index: number, { focus = true, mru = false }: { focus?: boolean; mru?: boolean } = {}): void {
         if (index < 0 || index >= this.panes.length) return;
 
-        // Обычное переключение завершает серию Ctrl+Tab и коммитит в MRU:
-        // сперва — выбранную в серии вкладку, затем целевую.
+        // A regular switch ends the Ctrl+Tab series and commits to MRU:
+        // first the tab chosen in the series, then the target.
         if (!mru) {
             if (this.cyclingActive) {
                 this.commitActiveToMru();
@@ -182,13 +182,13 @@ export class EditorGroup extends Disposable {
         this.activeIndexValue = index;
 
         const pane = this.panes[index];
-        // До фокуса: фокусировать можно только элемент, стоящий в дереве.
+        // Before focus: only an element that is in the tree can be focused.
         this.fireEditorsChanged();
         if (focus) this.focusEditor();
         this.fireActivePaneChanged(pane);
     }
 
-    /** `1` — к более давним вкладкам, `-1` — к более недавним. */
+    /** `1` — toward older tabs, `-1` — toward more recent ones. */
     public cycleMru(direction: 1 | -1): void {
         if (this.panes.length < 2) return;
 
@@ -202,7 +202,7 @@ export class EditorGroup extends Disposable {
         const length = this.mruCycleList.length;
         /* v8 ignore start -- defensive: cyclingActive is cleared on any structural change, so the frozen list always has ≥2 open editors here */
         if (length < 2) {
-            // Stryker disable next-line CallExpression: ветка недостижима по той же причине, что и для покрытия
+            // Stryker disable next-line CallExpression: unreachable branch for the same reason as for coverage
             this.stopMruCycle();
             return;
         }
@@ -213,7 +213,7 @@ export class EditorGroup extends Disposable {
         const targetIndex = this.panes.indexOf(target);
         /* v8 ignore start -- defensive: closing a tab clears cyclingActive, so the frozen target is always still open */
         if (targetIndex < 0) {
-            // Stryker disable next-line CallExpression: ветка недостижима по той же причине, что и для покрытия
+            // Stryker disable next-line CallExpression: unreachable branch for the same reason as for coverage
             this.stopMruCycle();
             return;
         }
@@ -223,8 +223,8 @@ export class EditorGroup extends Disposable {
     }
 
     /**
-     * По отпусканию Ctrl: быстрые Ctrl+Tab с отпусканием тумблерят два последних редактора,
-     * удержание Ctrl с повторными Tab проходит вглубь стека.
+     * On Ctrl release: quick Ctrl+Tab presses with release toggle the two most recent editors,
+     * holding Ctrl with repeated Tab walks deeper into the stack.
      */
     public endMruCycle(): void {
         if (!this.cyclingActive) return;
@@ -237,11 +237,11 @@ export class EditorGroup extends Disposable {
     }
 
     /**
-     * В отличие от {@link getMruOrder}, все вкладки: `insertPane` в стек не пишет, и вкладка, приехавшая
-     * merge'ом и ни разу не активированная, в `mruOrder` отсутствует — она идёт следом в порядке полосы.
+     * Unlike {@link getMruOrder}, all tabs: `insertPane` does not write to the stack, and a tab that arrived
+     * via merge and was never activated is missing from `mruOrder` — it follows in strip order.
      */
     public getMruPanes(): IEditorPane[] {
-        // Лишних панелей в стеке не бывает — их вычищает `removePaneAt`; не хватать может только новых.
+        // The stack never has extra panes — `removePaneAt` purges them; only new ones can be missing.
         return [...this.mruOrder, ...this.panes.filter((pane) => !this.mruOrder.includes(pane))];
     }
 
@@ -253,7 +253,7 @@ export class EditorGroup extends Disposable {
         this.removePaneAt(index, pane, { dispose: true });
     }
 
-    /** Любого вида: дифф тоже должен получать ввод. */
+    /** Any kind: a diff must receive input too. */
     public focusEditor(): void {
         this.activePane?.focusEditor();
     }
@@ -263,7 +263,7 @@ export class EditorGroup extends Disposable {
 
         this.panes.splice(index, 1);
         const mruIndex = this.mruOrder.indexOf(pane);
-        /* v8 ignore start -- defensive: каждая открытая вкладка присутствует в mruOrder */
+        /* v8 ignore start -- defensive: every open tab is present in mruOrder */
         if (mruIndex >= 0) this.mruOrder.splice(mruIndex, 1);
         /* v8 ignore stop */
         if (dispose) pane.dispose();
@@ -292,12 +292,12 @@ export class EditorGroup extends Disposable {
 
     private commitActiveToMru(): void {
         const current = this.activePane;
-        /* v8 ignore start -- defensive: коммит вызывается только когда есть активная вкладка */
+        /* v8 ignore start -- defensive: commit is called only when there is an active tab */
         if (current) this.moveToMruFront(current);
         /* v8 ignore stop */
     }
 
-    /** No-op вне серии, чтобы структурные изменения не будили список переключателя. */
+    /** No-op outside a series, so structural changes do not wake the switcher list. */
     private stopMruCycle(): void {
         if (!this.cyclingActive) return;
         this.cyclingActive = false;

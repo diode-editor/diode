@@ -10,7 +10,7 @@ describe("HistoryService — стек навигации", () => {
     let ws: ITempWorkspace;
     let source: FakeHistoryEditorSource;
 
-    // Записи чистятся по факту существования файла, поэтому ресурсы — настоящие.
+    // Entries are pruned by whether the file exists, so the resources are real.
     beforeEach(() => {
         ws = createTempWorkspace({
             prefix: "diode-history-",
@@ -27,7 +27,7 @@ describe("HistoryService — стек навигации", () => {
     const alpha = (): string => uri("alpha.ts");
     const beta = (): string => uri("beta.ts");
 
-    /** Сервис создаётся после сида — чтобы проверять и подхват активного редактора. */
+    /** The service is created after seeding, to also check pickup of the active editor. */
     const createService = (): HistoryService => new HistoryService(source, source);
 
     it("пустой стек: идти некуда, goBack/goForward — no-op", () => {
@@ -120,7 +120,7 @@ describe("HistoryService — стек навигации", () => {
 
         const entries = service.getEntries();
         expect(entries).toHaveLength(50);
-        // Всего было 61 запись (стартовая + 60 прыжков), выпали первые 11.
+        // 61 entries in total (initial + 60 jumps), the first 11 dropped.
         expect(entries[0]).toMatchObject({ line: 220 });
         expect(entries[49]).toMatchObject({ line: 1200 });
         expect(service.currentIndex).toBe(49);

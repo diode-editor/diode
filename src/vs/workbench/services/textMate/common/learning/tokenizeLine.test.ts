@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { createTestRegistry } from "./testRegistry.ts";
 
-/** Учебные тесты: форма результата `IGrammar.tokenizeLine` и базовый scope-стек. */
+/** Learning tests: the shape of the `IGrammar.tokenizeLine` result and the basic scope stack. */
 describe("vscode-textmate :: tokenizeLine", () => {
     it("возвращает массив токенов, ruleStack и флаг stoppedEarly", async () => {
         const reg = createTestRegistry();
@@ -28,7 +28,6 @@ describe("vscode-textmate :: tokenizeLine", () => {
 
         expect(first.startIndex).toBe(0);
         expect(typeof first.endIndex).toBe("number");
-        // root scope всегда первый
         expect(first.scopes[0]).toBe("source.js");
     });
 

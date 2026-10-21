@@ -97,7 +97,7 @@ describe("TextFileModelService", () => {
         service.addSaveParticipant(() => null);
         service.addSaveParticipant(() => participant("last"));
         removed.dispose();
-        // Повторное снятие — no-op: соседей не трогает.
+        // Removing twice is a no-op and leaves the neighbors alone.
         removed.dispose();
         const ref = service.acquire(Uri.file(ws.writeFile("s.txt", "x")));
         ref.model.attachEditTarget({

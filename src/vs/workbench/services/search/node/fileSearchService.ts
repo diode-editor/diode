@@ -29,8 +29,8 @@ const NOTIFY_DEBOUNCE_MS = 50;
 const STALE_AFTER_MS = 10_000;
 
 /**
- * Без постоянного рекурсивного watcher'а — он морил цикл рендера и ввода; свежесть —
- * `refreshIfStale()` при открытии Quick Open, новый файл может появиться с задержкой.
+ * No persistent recursive watcher — it starved the render and input loop; freshness comes
+ * from `refreshIfStale()` when Quick Open opens, so a new file may show up with a delay.
  */
 export class FileSearchService extends Disposable implements IFileSearchService {
     public static dependencies = [IConfigurationServiceDIToken] as const;
@@ -53,8 +53,8 @@ export class FileSearchService extends Disposable implements IFileSearchService 
     private resolvedRgPath: string | null;
 
     /**
-     * Индекс режет и `files.exclude`, и `search.exclude` (`searchExcludeGlobs`); правка
-     * настроек пересобирает его сразу — иначе исключённое висело бы до перезапуска.
+     * The index honors both `files.exclude` and `search.exclude` (`searchExcludeGlobs`); a
+     * settings change rebuilds it at once — otherwise excluded files would linger until restart.
      */
     public constructor(
         private readonly configurationService: IConfigurationService,
@@ -67,8 +67,8 @@ export class FileSearchService extends Disposable implements IFileSearchService 
             configurationService.onDidChangeConfiguration((event) => {
                 if (!affecting.some((key) => event.affectsConfiguration(key))) return;
                 if (this.isDisposedLocal) return;
-                // Снимаем throttle: индекс устарел по содержанию, а не по
-                // времени. Окно без папки отсеет сам `startIndexing`.
+                // Bypass the throttle: the index is stale by content, not by
+                // time. `startIndexing` itself skips a window without a folder.
                 this.lastIndexedAt = 0;
                 this.readyPromise = this.startIndexing();
             }),
@@ -150,7 +150,7 @@ export class FileSearchService extends Disposable implements IFileSearchService 
     }
 
     private startIndexing(): Promise<void> {
-        // Окно без папки сюда тоже попадает (правка `files.exclude`), но обходить там нечего.
+        // A window without a folder gets here too (a `files.exclude` change), but there is nothing to walk.
         if (this.rootPath === null) return Promise.resolve();
         const root = this.rootPath;
         const generation = ++this.walkGeneration;
@@ -163,7 +163,7 @@ export class FileSearchService extends Disposable implements IFileSearchService 
         return new Promise<void>((resolve) => setImmediate(resolve))
             .then(() => this.walk(root, generation))
             .catch(() => {
-                /* rg не загрузился (битый ассет сборки) — индекс пуст, редактор жив */
+                /* rg failed to load (broken build asset) — the index stays empty, the editor keeps running */
             })
             .finally(() => {
                 if (generation === this.walkGeneration) this.indexing = false;
@@ -171,8 +171,8 @@ export class FileSearchService extends Disposable implements IFileSearchService 
     }
 
     /**
-     * `rg --files`, как у эталона: rg уважает ignore-файлы и режет исключённые ветки до
-     * спуска в них. Вывод разбирается по мере прихода — индекс растёт вживую.
+     * `rg --files`, like upstream: rg honors ignore files and prunes excluded subtrees before
+     * descending into them. Output is parsed as it arrives, so the index grows live.
      */
     private walk(root: string, generation: number): Promise<void> {
         if (this.cancelled(generation)) return Promise.resolve();
@@ -182,14 +182,14 @@ export class FileSearchService extends Disposable implements IFileSearchService 
         const live = this.entries.length === 0;
         if (live) this.entries = next;
 
-        // Настройки — одни на обход: их правка всё равно пересобирает индекс целиком.
+        // Settings are read once per walk: changing them rebuilds the whole index anyway.
         const args = buildRgFilesArgs(
             searchExcludeGlobs(this.configurationService),
             readUseIgnoreFiles(this.configurationService),
         );
         const child = spawn(this.rgPath(), args, { cwd: root });
-        // Конец — по `close`: после `exit` в stdout ещё могут оставаться строки.
-        // Stryker disable next-line StringLiteral: логгера у сервиса нет — метка в лог не попадает
+        // End on `close`: stdout may still hold lines after `exit`.
+        // Stryker disable next-line StringLiteral: the service has no logger — the label never reaches a log
         const guard = new GuardedChildProcess(child, { label: "rg", waitForStdio: true });
         this.walker = guard;
 
@@ -202,12 +202,12 @@ export class FileSearchService extends Disposable implements IFileSearchService 
 
         return new Promise<void>((resolve) => {
             guard.onDidEnd(() => {
-                // `walker` не обнуляем: `kill` вышедшему безвреден (см. killWalker).
-                // Код выхода не смотрим: 1 — «файлов нет», 2 — rg упёрся в
-                // нечитаемый каталог, но остальное перечислил; несуществующий
-                // корень (`error` спавна) — пустой индекс, а не отказ.
+                // `walker` is not cleared: killing an exited process is harmless (see killWalker).
+                // The exit code is ignored: 1 means "no files", 2 means rg hit an
+                // unreadable directory but listed the rest; a missing root (spawn
+                // `error`) yields an empty index, not a failure.
                 if (!this.cancelled(generation)) {
-                    // При живом наполнении `entries` уже и есть `next`.
+                    // With live filling, `entries` already is `next`.
                     this.entries = next;
                     this.isIndexed = true;
                     this.lastIndexedAt = Date.now();
@@ -219,7 +219,7 @@ export class FileSearchService extends Disposable implements IFileSearchService 
     }
 
     /**
-     * `kill`, а не `dispose` guard'а: dispose гасит и `onDidEnd`, и `ready` не дорешился бы.
+     * `kill`, not the guard's `dispose`: dispose also silences `onDidEnd`, so `ready` would never settle.
      */
     private killWalker(): void {
         this.walker?.child.kill();

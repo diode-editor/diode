@@ -16,12 +16,12 @@ import { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 
 export const TextFileModelServiceDIToken = token<TextFileModelService>("TextFileModelService");
 
-/** `null` — не участвует в ЭТОМ save. Спрашивается при сохранении: настройки и провайдеры живые. */
+/** `null`: does not take part in THIS save. Queried on each save, since settings and providers are live. */
 export type SaveParticipantProvider = (model: TextFileModel) => SaveParticipant | null;
 
 /**
- * Аналог `ITextFileService.files`/`.untitled`. Вкладок и вью не знает — их строит
- * `EditorService`; синтетические буферы (Output, `jdt:`, снимки) сюда не входят.
+ * Counterpart of `ITextFileService.files`/`.untitled`. Knows nothing of tabs and views, which
+ * `EditorService` builds; synthetic buffers (Output, `jdt:`, snapshots) are not included.
  */
 export class TextFileModelService extends Disposable {
     public static dependencies = [
@@ -32,26 +32,26 @@ export class TextFileModelService extends Disposable {
     ] as const;
 
     private readonly registry = new TextFileModelRegistry((uri) => this.createFileModel(uri));
-    /** Не переиспользуется при закрытии вкладок — как в VS Code, номер стабилен за буфером. */
+    /** Not reused when tabs close: as in VS Code, the number sticks to its buffer. */
     private untitledCounter = 0;
     private readonly saveParticipantProviders: SaveParticipantProvider[] = [];
     private readonly saveParticipant = new TextFileSaveParticipant((model) =>
-        // Мусор вместо пропуска пайплайн и так проглотил бы как сбойного
-        // участника — мутант ненаблюдаем.
-        // Stryker disable next-line ArrayDeclaration: эквивалентен — см. выше
+        // The pipeline would swallow garbage instead of a skip as a failing participant
+        // anyway, so the mutant is unobservable.
+        // Stryker disable next-line ArrayDeclaration: equivalent, see above
         this.saveParticipantProviders.flatMap((provider) => provider(model) ?? []),
     );
     private readonly onDidSaveModelEmitter = this.register(new Emitter<TextFileModel>());
     private readonly onDidChangeModelLanguageEmitter = this.register(new Emitter<TextFileModel>());
     private readonly onDidChangeModelOrphanedEmitter = this.register(new Emitter<TextFileModel>());
 
-    /** После того, как реестр перепривязал ключ (saveAs мог сменить ресурс). */
+    /** Fires after the registry rebinds the key (saveAs may have changed the resource). */
     public readonly onDidSaveModel = this.onDidSaveModelEmitter.event;
 
-    /** Настройки `"[lang]"` читаются заново. */
+    /** `"[lang]"` settings are re-read. */
     public readonly onDidChangeModelLanguage = this.onDidChangeModelLanguageEmitter.event;
 
-    /** `ITextFileEditorModelManager.onDidChangeOrphaned` эталона. */
+    /** Upstream `ITextFileEditorModelManager.onDidChangeOrphaned`. */
     public readonly onDidChangeModelOrphaned = this.onDidChangeModelOrphanedEmitter.event;
 
     public constructor(
@@ -63,7 +63,7 @@ export class TextFileModelService extends Disposable {
         super();
     }
 
-    /** Порядок регистрации — порядок исполнения. */
+    /** Registration order is execution order. */
     public addSaveParticipant(provider: SaveParticipantProvider): IDisposable {
         this.saveParticipantProviders.push(provider);
         return {
@@ -74,16 +74,16 @@ export class TextFileModelService extends Disposable {
         };
     }
 
-    /** Тот же документ у всех вкладок и сторон диффа файла. Владелец обязан освободить ссылку. */
+    /** The same document for all tabs and diff sides of a file. The owner must release the reference. */
     public acquire(uri: Uri): ITextFileModelReference {
         return this.registry.acquire(uri);
     }
 
-    /** Первое открытие читает ресурс файловым сервисом (чтение провайдера асинхронное). */
+    /** The first open reads the resource through the file service (provider reads are async). */
     public async acquireProvided(uri: Uri): Promise<ITextFileModelReference> {
         if (this.registry.get(uri) === null) {
             const { value } = await this.files.readFile(uri);
-            // Пока читали, модель мог открыть другой — тогда берём её, а не читанное.
+            // Someone else may have opened the model during the read; then take it, not what was read.
             return this.registry.acquire(uri, () => this.createProvidedModel(uri, value));
         }
         return this.registry.acquire(uri);
@@ -93,7 +93,7 @@ export class TextFileModelService extends Disposable {
         return this.registry.get(uri);
     }
 
-    /** Мимо реестра (уникален по построению). Владение — у вызывающего (вкладка или панель диффа). */
+    /** Bypasses the registry (unique by construction). Owned by the caller (a tab or a diff pane). */
     public createUntitledModel(): TextFileModel {
         const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
         this.wireModel(model);
@@ -101,7 +101,7 @@ export class TextFileModelService extends Disposable {
         return model;
     }
 
-    /** Наблюдатель ставится до openFile ({@link wireModel}), чтобы слежение началось с первой загрузки. */
+    /** The watcher is set before openFile ({@link wireModel}) so watching starts from the first load. */
     private createFileModel(uri: Uri): TextFileModel {
         const model = new TextFileModel(this.languageService, this.undoRedoService, this.files);
         this.wireModel(model);
@@ -116,12 +116,12 @@ export class TextFileModelService extends Disposable {
         return model;
     }
 
-    /** Один раз на документ, а не на вкладку: обвязка принадлежит файлу. */
+    /** Once per document, not per tab: the wiring belongs to the file. */
     private wireModel(model: TextFileModel): void {
         model.fileWatcher = this.fileWatcher;
         model.saveParticipant = this.saveParticipant;
-        // Подписка первой — раньше вкладок: реестр должен перепривязать ключ до того, как
-        // вкладки перерисуют имя после saveAs. Эмиттер модели снимает её вместе с собой.
+        // Subscribes first, before tabs: the registry must rebind the key before tabs
+        // repaint the name after saveAs. The model's emitter disposes it along with itself.
         model.onDidSaveDocument(() => {
             this.registry.handleUriChanged(model);
             this.onDidSaveModelEmitter.fire(model);

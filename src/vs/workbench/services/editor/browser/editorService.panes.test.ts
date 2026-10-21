@@ -62,11 +62,11 @@ class FakePane implements IEditorPane {
     }
 
     public focusEditor(): void {
-        // Фокус фейковой панели никуда не ведёт — важно лишь, что группа его зовёт.
+        // Focusing the fake pane leads nowhere; what matters is that the group calls it.
     }
 
     public getSelectedTexts(): string[] {
-        return []; // понятия выделения у панели нет
+        return []; // the pane has no notion of selection
     }
 
     public dispose(): void {
@@ -154,7 +154,7 @@ describe("EditorService — сужение текстовой поверхнос
     });
 
     it("подписчики активного редактора видят переключение на дифф как «нет редактора»", () => {
-        // Статус-бар, find, host-адаптеры не должны получать панель без курсора, языка и кодировки.
+        // Status bar, find, and host adapters must not get a pane without a cursor, language, and encoding.
         const service = createEditorService();
         const seen: unknown[] = [];
         service.onActiveEditorChanged((editor) => seen.push(editor));
@@ -168,7 +168,7 @@ describe("EditorService — сужение текстовой поверхнос
         const service = createEditorService();
         service.openPane(new FakePane(fakeUri("diff")));
 
-        // Так выглядит каждая из 26 команд в editorActions.ts.
+        // This is what each of the 26 commands in editorActions.ts looks like.
         expect(() => service.getActiveEditor()?.viewState.cursorDown()).not.toThrow();
         expect(() => service.getActiveEditor()?.save()).not.toThrow();
     });

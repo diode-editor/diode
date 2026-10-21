@@ -17,7 +17,7 @@ describe("LifecycleService — фазы старта", () => {
         const lifecycle = createLifecycle();
         const seen: string[] = [];
         lifecycle.onDidChangePhase((phase) => {
-            // Слушатель видит уже новую фазу: переход совершился до оповещения.
+            // The listener already sees the new phase: the transition happens before notification.
             seen.push(`${phase}/${lifecycle.phase}`);
         });
 

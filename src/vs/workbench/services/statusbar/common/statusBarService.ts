@@ -5,14 +5,14 @@ import type { IStateService } from "../../../../platform/state/common/iStateServ
 import { StateServiceDIToken } from "../../../../platform/state/common/iStateService.ts";
 import { STATUS_BAR_HIDDEN_STATE } from "../../../common/stateKeys.ts";
 
-/** Аналог VS Code `IStatusbarEntry`. */
+/** Counterpart of VS Code `IStatusbarEntry`. */
 export interface IStatusBarEntry {
     readonly id: string;
     readonly text: string;
-    /** Для меню видимости; запись без имени (chord-хинт, прогресс) в меню нет и скрыть её нельзя. */
+    /** For the visibility menu; an entry without a name (chord hint, progress) is not in the menu and can't be hidden. */
     readonly name?: string;
     readonly alignment: "left" | "right";
-    /** Выше priority — левее, для обеих сторон (как в VS Code). */
+    /** Higher priority is further left, on both sides (as in VS Code). */
     readonly priority: number;
     readonly onClick?: () => void;
 }
@@ -24,8 +24,8 @@ export interface IStatusBarEntryHandle extends IDisposable {
 export const StatusBarServiceDIToken = token<StatusBarService>("StatusBarService");
 
 /**
- * Аналог VS Code `IStatusbarService`. Скрытые пользователем id глобальны
- * ({@link STATUS_BAR_HIDDEN_STATE}) и в {@link entries} не попадают.
+ * Counterpart of VS Code `IStatusbarService`. Ids hidden by the user are global
+ * ({@link STATUS_BAR_HIDDEN_STATE}) and excluded from {@link entries}.
  */
 export class StatusBarService {
     public static dependencies = [StateServiceDIToken] as const;
@@ -65,7 +65,7 @@ export class StatusBarService {
         return this.allEntries().filter((entry) => !this.hidden.has(entry.id));
     }
 
-    /** Включая скрытые: left, затем right; внутри — по убыванию priority, при равенстве — порядок добавления. */
+    /** Includes hidden ones: left, then right; within a side by descending priority, ties in insertion order. */
     public allEntries(): readonly IStatusBarEntry[] {
         const byPriority = (a: IStatusBarEntry, b: IStatusBarEntry): number => b.priority - a.priority;
         const left = this.entryList.filter((e) => e.alignment === "left").sort(byPriority);
@@ -73,12 +73,12 @@ export class StatusBarService {
         return [...left, ...right];
     }
 
-    /** И для ещё не добавленной записи. */
+    /** Also for an entry not added yet. */
     public isHidden(id: string): boolean {
         return this.hidden.has(id);
     }
 
-    /** Запись без `name` скрыть нельзя: её нет в меню, и вернуть её было бы нечем. */
+    /** An entry without `name` can't be hidden: it's not in the menu, so nothing could bring it back. */
     public setHidden(id: string, hidden: boolean): void {
         if (this.hidden.has(id) === hidden) return;
         if (hidden && !this.entryList.some((entry) => entry.id === id && entry.name !== undefined)) return;

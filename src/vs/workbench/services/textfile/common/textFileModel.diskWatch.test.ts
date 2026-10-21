@@ -43,8 +43,8 @@ describe("TextFileModel — external change detection", () => {
     }
 
     /**
-     * mtime явно: две записи одного размера подряд на этой ФС получают тот же mtimeMs
-     * (~80% пар, замерено) — тест зависел бы от загрузки машины.
+     * Explicit mtime: two back-to-back writes of the same size on this file system get the same
+     * mtimeMs (~80% of pairs, measured), so the test would depend on machine load.
      */
     function writeFileExternally(filePath: string, content: string): void {
         fs.writeFileSync(filePath, content, "utf-8");

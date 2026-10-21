@@ -64,17 +64,17 @@ export function validateRegex(pattern: string): string | null {
 }
 
 /**
- * Разбирает текст поля «files to include» / «files to exclude» в шаблоны
- * {@link ITextSearchQuery} (от корня поиска) — `parseSearchPaths` эталона для
- * одной папки:
- * - список через запятую, запятая внутри `{…}`/`[…]` не делит;
- * - `foo` — на любой глубине: `**\/foo` и всё под ним `**\/foo/**`;
- * - `.js` — сокращение `*.js`; хвостовой `/` срезается;
- * - `./src` — путь от корня: `src` и `src/**`.
+ * Parses the "files to include" / "files to exclude" field into
+ * {@link ITextSearchQuery} globs (relative to the search root) — upstream
+ * `parseSearchPaths` for a single folder:
+ * - comma-separated list; a comma inside `{…}`/`[…]` does not split;
+ * - `foo` matches at any depth: `**\/foo` and everything under it `**\/foo/**`;
+ * - `.js` is shorthand for `*.js`; a trailing `/` is trimmed;
+ * - `./src` is a root-relative path: `src` and `src/**`.
  *
- * `.` (сам корень), пути вне корня (`../x`) и абсолютные пути эталон
- * превращает в корни поиска; у нас корень один, и такие сегменты шаблонов не
- * дают.
+ * Upstream turns `.` (the root itself), paths outside the root (`../x`) and
+ * absolute paths into search roots; we have a single root, so such segments
+ * yield no globs.
  */
 export function parseSearchFieldGlobs(value: string): string[] {
     const globs: string[] = [];
@@ -85,8 +85,8 @@ export function parseSearchFieldGlobs(value: string): string[] {
                 .replace(/\\/gu, "/")
                 .replace(/^\.(\/|$)/u, "")
                 .replace(/\/+$/u, "");
-            // `.` — сам корень: у эталона это корень поиска без шаблона. Шаблон
-            // `**` был бы не тем же самым — `--glob` у rg перебивает `.gitignore`.
+            // `.` is the root itself: upstream makes it a search root without a glob.
+            // A `**` glob is not the same — rg's `--glob` overrides `.gitignore`.
             if (relative === "" || relative.startsWith("..")) continue;
             globs.push(relative, `${relative}/**`);
             continue;
@@ -94,13 +94,13 @@ export function parseSearchFieldGlobs(value: string): string[] {
         let glob = segment.replace(/[/\\]+$/u, "");
         if (glob === "" || isAbsolutePath(glob)) continue;
         if (glob.startsWith(".")) glob = `*${glob}`;
-        // `**/**` склеивается: `**/*.ts` даёт `**/*.ts/**` и `**/*.ts`, а не `**/**/*.ts`.
+        // `**/**` collapses: `**/*.ts` yields `**/*.ts/**` and `**/*.ts`, not `**/**/*.ts`.
         globs.push(...[`**/${glob}/**`, `**/${glob}`].map((g) => g.replace(/\*\*\/\*\*/gu, "**")));
     }
     return globs;
 }
 
-/** Без `node:path`: модуль браузерный. */
+/** No `node:path`: this is a browser module. */
 function isAbsolutePath(segment: string): boolean {
     return segment.startsWith("/") || /^[a-zA-Z]:[/\\]/u.test(segment) || segment.startsWith("\\\\");
 }
@@ -118,15 +118,15 @@ export function buildRgArgs(query: ITextSearchQuery, searchPath: string): string
     if (!query.isRegExp) args.push("--fixed-strings");
     args.push("-e", query.pattern);
 
-    // Шаблоны якорятся к корню, как `getRgArgs` эталона: у rg шаблон без `/`
-    // матчится на любой глубине, и `"common": true` из `files.exclude` молча
-    // выкидывал бы из поиска `nci/common/**`, который Explorer показывает.
+    // Globs are anchored to the root, like upstream `getRgArgs`: rg matches a glob
+    // without `/` at any depth, so `"common": true` from `files.exclude` would
+    // silently drop `nci/common/**`, which Explorer shows.
     for (const glob of query.includes) {
         if (glob !== "") args.push("--glob", anchorRgGlob(glob));
     }
     args.push(...rgExcludeArgs(query.excludes));
-    // `--hidden`, как у эталона и у Quick Open (`buildRgFilesArgs`): dot-файлы
-    // режут `files.exclude` и ignore-файлы, а не точка в имени.
+    // `--hidden`, like upstream and Quick Open (`buildRgFilesArgs`): dotfiles are
+    // filtered by `files.exclude` and ignore files, not by the leading dot.
     args.push("--hidden", ...rgIgnoreFilesArgs(query.useIgnoreFiles));
 
     args.push("--", searchPath);
@@ -136,8 +136,9 @@ export function buildRgArgs(query: ITextSearchQuery, searchPath: string): string
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 
-// Капаем только хвост: он нужен лишь отрисовке, без капа матч в минифицированном
-// файле тащит в строку сотни килобайт. `before` капать нельзя — от него считается startColumn.
+// Only the tail is capped: it is needed just for rendering, and uncapped, a match in a
+// minified file drags hundreds of kilobytes into the line. `before` must not be capped —
+// startColumn is computed from it.
 const MAX_AFTER_CHARS = 256;
 
 /**
@@ -150,8 +151,8 @@ function splitPreviewByBytes(lineText: string, startByte: number, endByte: numbe
     const inside = decoder.decode(bytes.subarray(startByte, endByte));
     let after = decoder.decode(bytes.subarray(endByte)).replace(/\r?\n$/, "");
     if (after.length > MAX_AFTER_CHARS) {
-        // Режем после декодирования (срез по байтам дал бы U+FFFD посреди
-        // мультибайтового символа) и не разрываем суррогатную пару.
+        // Cut after decoding (a byte cut would leave U+FFFD in the middle of a
+        // multibyte character) and never split a surrogate pair.
         let cut = MAX_AFTER_CHARS;
         const lead = after.charCodeAt(cut - 1);
         if (lead >= 0xd800 && lead <= 0xdbff) cut--;

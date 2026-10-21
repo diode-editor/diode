@@ -6,7 +6,7 @@ export const NotificationServiceDIToken = token<NotificationService>("Notificati
 
 export type NotificationSeverity = "info" | "warn" | "error";
 
-/** `NotificationsToasts.PURGE_TIMEOUT` эталона. */
+/** Upstream `NotificationsToasts.PURGE_TIMEOUT`. */
 export const NOTIFICATION_AUTO_HIDE_MS: Readonly<Record<NotificationSeverity, number>> = {
     info: 10000,
     warn: 12000,
@@ -14,28 +14,28 @@ export const NOTIFICATION_AUTO_HIDE_MS: Readonly<Record<NotificationSeverity, nu
 };
 
 /**
- * `NotificationsToasts.MAX_NOTIFICATIONS` эталона. Остальные ждут очереди: центра
- * уведомлений нет, и спрятать сообщение насовсем значило бы его потерять.
+ * Upstream `NotificationsToasts.MAX_NOTIFICATIONS`. The rest wait in a queue: there is no
+ * notification center, so hiding a message for good would lose it.
  */
 export const MAX_VISIBLE_NOTIFICATIONS = 3;
 
 /**
- * Конечный, а не вечный: расширение с `await show*Message(...)` стоит, пока живёт
- * показ, — вечный вопрос подвешивал `vscode-languageclient` перезапуск языкового
- * сервера (красный Windows-CI). У модального таймера нет: закрывать окно из-под рук хуже.
+ * Finite, not infinite: an extension doing `await show*Message(...)` is blocked while the
+ * message is shown, and an endless question hung the `vscode-languageclient` language
+ * server restart (red Windows CI). Modals have no timer: closing a dialog under the user's hands is worse.
  */
 export const NOTIFICATION_ASK_TIMEOUT_MS = 60000;
 
 export interface INotificationMessage {
     readonly severity: NotificationSeverity;
     readonly message: string;
-    /** Показывается только у модального сообщения. */
+    /** Shown only for modal messages. */
     readonly detail?: string;
     readonly modal: boolean;
     readonly items: readonly string[];
     /**
-     * Кнопка для Escape у модального окна (`MessageItem.isCloseAffordance`); у
-     * немодального игнорируется, как в эталоне.
+     * The Escape button of a modal (`MessageItem.isCloseAffordance`); ignored for
+     * non-modal messages, as upstream.
      */
     readonly closeAffordance?: number;
 }
@@ -44,10 +44,10 @@ export interface IActiveNotification extends INotificationMessage {
     readonly id: number;
 }
 
-/** `id` доступен сразу: мост расширений гасит показы умершего субпроцесса. */
+/** `id` is available immediately: the extension bridge dismisses messages of a dead subprocess. */
 export interface INotificationHandle {
     readonly id: number;
-    /** `undefined` — закрыто без выбора. */
+    /** `undefined` means closed without a choice. */
     readonly answered: Promise<number | undefined>;
 }
 
@@ -59,35 +59,35 @@ interface IPassiveEntry {
 interface IAskEntry {
     readonly notification: IActiveNotification;
     readonly resolve: (index: number | undefined) => void;
-    /** У модального сообщения таймера нет. */
+    /** Modal messages have no timer. */
     timer: ReturnType<typeof setTimeout> | null;
 }
 
 /**
- * Аналог `INotificationService`. Два рода сообщений:
- * - без кнопок и не модальное — пассивный тост: уезжает сам, а обещание резолвится
- *   `undefined` СРАЗУ (отступление: в эталоне ждёт закрытия тоста — подвесило бы
+ * Counterpart of `INotificationService`. Two kinds of messages:
+ * - no buttons and not modal: a passive toast that goes away by itself, and the promise resolves
+ *   `undefined` IMMEDIATELY (deviation: upstream waits for the toast to close, which would hang
  *   `await showErrorMessage(...)`);
- * - с кнопками или модальное — вопрос: по одному за раз, остальные в очереди.
+ * - with buttons or modal: a question, one at a time, the rest queued.
  *
- * Отступление в обе стороны: в эталоне липкий только error с кнопками, а прочие
- * вопросы уезжают в центр уведомлений. Центра нет — вопрос живёт дольше тоста
- * («Activate / Use free version» у AI-автодополнения другой двери не имеет), но конечно.
- * Таймеры тостов и вопросов запускаются, когда сообщение стало видимым, — иначе
- * ждавшее очереди истекло бы, ни разу не показавшись.
+ * Deviation both ways: upstream, only an error with buttons is sticky, other questions
+ * move to the notification center. There is no center, so a question lives longer than a toast
+ * (AI completion's "Activate / Use free version" has no other door), but not forever.
+ * Toast and question timers start once the message becomes visible, otherwise
+ * a queued one would expire without ever being shown.
  */
 export class NotificationService extends Disposable {
     public static dependencies = [] as const;
 
     private readonly onDidChangeEmitter = this.register(new Emitter<void>());
     private nextId = 1;
-    /** Старый → новый; видны первые {@link MAX_VISIBLE_NOTIFICATIONS}. */
+    /** Oldest → newest; the first {@link MAX_VISIBLE_NOTIFICATIONS} are visible. */
     private readonly passiveList: IPassiveEntry[] = [];
     private readonly askList: IAskEntry[] = [];
 
     public constructor() {
         super();
-        // Живые вопросы доводятся до «закрыто без выбора» — иначе задавший ждал бы вечно.
+        // Pending questions settle as "closed without a choice", otherwise the asker would wait forever.
         this.register({
             dispose: () => {
                 this.clearAll();
@@ -98,7 +98,7 @@ export class NotificationService extends Disposable {
     public readonly onDidChange = this.onDidChangeEmitter.event;
 
     public show(message: INotificationMessage): INotificationHandle {
-        // Stryker disable next-line UpdateOperator: от счётчика нужна только уникальность адреса, направление шага ненаблюдаемо — `--` даёт такие же различимые id
+        // Stryker disable next-line UpdateOperator: the counter only needs unique ids, the step direction is unobservable since `--` yields equally distinct ids
         const notification: IActiveNotification = { ...message, id: this.nextId++ };
         if (this.isPassive(message)) {
             this.passiveList.push({ notification, timer: null });
@@ -123,8 +123,8 @@ export class NotificationService extends Disposable {
     }
 
     /**
-     * Модальное идёт без очереди: за тостом-вопросом, который фокуса не берёт и
-     * может остаться незамеченным, его бы не увидели вовсе.
+     * A modal skips the queue: behind a question toast, which doesn't take focus and
+     * may go unnoticed, it would never be seen.
      */
     public current(): IActiveNotification | null {
         return this.currentEntry()?.notification ?? null;
@@ -139,7 +139,7 @@ export class NotificationService extends Disposable {
         return Math.max(0, this.askList.length - 1);
     }
 
-    /** Индекс вне набора кнопок — закрытие: ответ не про этот показ. */
+    /** An index outside the buttons means close: the answer isn't about this message. */
     public answer(id: number, index: number): void {
         const at = this.askList.findIndex((e) => e.notification.id === id);
         if (at < 0) return;
@@ -147,7 +147,7 @@ export class NotificationService extends Disposable {
         this.settleAsk(at, index >= 0 && index < items.length ? index : undefined);
     }
 
-    /** Повторный вызов на том же id — no-op. */
+    /** A repeated call with the same id is a no-op. */
     public dismiss(id: number): void {
         const ask = this.askList.findIndex((e) => e.notification.id === id);
         if (ask >= 0) {
@@ -177,14 +177,14 @@ export class NotificationService extends Disposable {
         return this.passiveList.length === 0 && this.askList.length === 0;
     }
 
-    /** Модальное пассивным не бывает даже без кнопок: закрыть его человек обязан сам. */
+    /** A modal is never passive, even without buttons: the user must close it. */
     private isPassive(message: INotificationMessage): boolean {
         return !message.modal && message.items.length === 0;
     }
 
     /**
-     * По позиции, а не записи: оба вызывающих её уже нашли, лишний поиск потребовал
-     * бы ветки «не нашли» — состояния, которого нет.
+     * Takes a position, not an entry: both callers have already found it, and another lookup
+     * would need a "not found" branch for a state that can't happen.
      */
     private settleAsk(at: number, index: number | undefined): void {
         const [entry] = this.askList.splice(at, 1);
@@ -214,7 +214,7 @@ export class NotificationService extends Disposable {
     }
 
     private clearTimer(entry: IPassiveEntry | IAskEntry): void {
-        // Stryker disable next-line ConditionalExpression: без гарда вызов был бы `clearTimeout(null)` — та же пустая операция
+        // Stryker disable next-line ConditionalExpression: without the guard the call would be `clearTimeout(null)`, the same no-op
         if (entry.timer === null) return;
         clearTimeout(entry.timer);
         entry.timer = null;

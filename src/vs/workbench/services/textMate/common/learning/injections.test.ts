@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 import { createTestRegistry } from "./testRegistry.ts";
 
 /**
- * Учебные тесты на injection-грамматики: jsdoc отдаётся из `getInjections("source.js")`, а
- * `vscode-textmate` сам применяет её по `injectionSelector`.
+ * Learning tests for injection grammars: jsdoc is returned from `getInjections("source.js")`, and
+ * `vscode-textmate` applies it by `injectionSelector` itself.
  */
 describe("vscode-textmate :: injections (jsdoc)", () => {
     it("`@param` внутри `/** ... */` получает scope `storage.type.class.jsdoc`", async () => {
@@ -44,8 +44,8 @@ describe("vscode-textmate :: injections (jsdoc)", () => {
         const line = "// @param x";
         const result = g.tokenizeLine(line, INITIAL);
 
-        // injectionSelector у jsdoc.injection — `L:comment.block.documentation`,
-        // line-comment имеет `comment.line` → injection не должен сработать
+        // jsdoc.injection's injectionSelector is `L:comment.block.documentation`;
+        // a line comment has `comment.line`, so the injection must not apply
         for (const tok of result.tokens) {
             expect(tok.scopes).not.toContain("storage.type.class.jsdoc");
         }

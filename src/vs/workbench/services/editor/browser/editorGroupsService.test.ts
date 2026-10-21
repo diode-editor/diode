@@ -17,7 +17,7 @@ import type { IEditorGroupsService } from "../common/editorGroupsService.ts";
 
 import { EditorService } from "./editorService.ts";
 
-/** Порядок событий — контракт (`docs/arch/workbench/EditorPart.md`): вкладки → активный редактор → активная группа. */
+/** Event order is a contract (`docs/arch/workbench/EditorPart.md`): tabs → active editor → active group. */
 describe("IEditorGroupsService — события на границе с EditorService", () => {
     let ws: ITempWorkspace;
     let editors: EditorService;

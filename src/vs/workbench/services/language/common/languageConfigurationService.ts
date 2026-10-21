@@ -16,19 +16,19 @@ export interface ILanguageConfigurationPathSource {
 }
 
 /**
- * Формат — JSONC (в стоковых файлах комментарии и висячие запятые), политика разбора — как у
- * `settings.json`: ошибки в лог, частичный результат в дело. Кэш по языку навсегда, включая
- * неудачи: горячей перезагрузки вкладов нет (`reloadWindow`). Слои {@link register} — как
- * `ComposedLanguageConfiguration` эталона: секция слоя заменяет секцию файла целиком, поздний
- * слой побеждает, разворачивается уже результат слияния (пары выводятся из скобок слоя).
+ * The format is JSONC (stock files have comments and trailing commas), the parsing policy is as for
+ * `settings.json`: errors go to the log, the partial result is used. The per-language cache is permanent, including
+ * failures: there is no hot reload of contributions (`reloadWindow`). {@link register} layers work as
+ * upstream `ComposedLanguageConfiguration`: a layer section replaces the file section entirely, the later
+ * layer wins, and the merged result is what gets expanded (pairs are derived from the layer's brackets).
  */
 export class LanguageConfigurationService implements ILanguageConfigurationService {
-    /** Сырой файл языка; `null` — загружен, но файла нет или он битый. */
+    /** Raw language file; `null` means loaded, but the file is missing or broken. */
     private readonly files = new Map<string, ILanguageConfiguration | null>();
     private readonly flights = new Map<string, Promise<IResolvedLanguageConfiguration>>();
-    /** Слои расширений по языку, в порядке регистрации. */
+    /** Extension layers per language, in registration order. */
     private readonly layers = new Map<string, ILanguageConfiguration[]>();
-    /** Развёрнутая конфигурация — кэш до смены слоёв языка. */
+    /** Expanded configuration, cached until the language's layers change. */
     private readonly resolved = new Map<string, IResolvedLanguageConfiguration>();
 
     public constructor(
@@ -65,7 +65,7 @@ export class LanguageConfigurationService implements ILanguageConfigurationServi
         }
         layers.push(layer);
         this.resolved.delete(languageId);
-        // toDisposable срабатывает один раз — слой в массиве ещё есть.
+        // toDisposable fires once, so the layer is still in the array.
         return toDisposable(() => {
             layers.splice(layers.indexOf(layer), 1);
             this.resolved.delete(languageId);
@@ -73,11 +73,11 @@ export class LanguageConfigurationService implements ILanguageConfigurationServi
     }
 
     public ensureLoaded(languageId: string): Promise<IResolvedLanguageConfiguration> {
-        // Один промис на язык и после settle: к ассету второй раз не идут.
+        // One promise per language, even after settling: the asset is not fetched twice.
         let flight = this.flights.get(languageId);
         if (flight === undefined) {
             flight = this.load(languageId).then((file) => {
-                // Слой мог прийти раньше файла — get() сливает их (до файла кэша нет).
+                // A layer may arrive before the file; get() merges them (no cache before the file).
                 this.files.set(languageId, file);
                 return this.get(languageId) ?? EMPTY_LANGUAGE_CONFIGURATION;
             });
@@ -115,7 +115,7 @@ export class LanguageConfigurationService implements ILanguageConfigurationServi
     }
 }
 
-/** Только заданные секции слоя: `undefined`-поле не должно затирать секцию файла. */
+/** Only the sections the layer sets: an `undefined` field must not overwrite the file section. */
 function definedSections(layer: ILanguageConfiguration): ILanguageConfiguration {
     return Object.fromEntries(Object.entries(layer).filter(([, value]) => value !== undefined));
 }

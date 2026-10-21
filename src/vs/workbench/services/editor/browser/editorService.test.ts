@@ -547,7 +547,7 @@ describe("EditorService", () => {
         it("не открыт, безымянный, конфликт с диском или сбой записи — undefined", async () => {
             const ctrl = createEditorService();
             await expect(ctrl.save(Uri.file(path.join(tmpDir, "none.ts")))).resolves.toBeUndefined();
-            // Открытые файлы не подменяют запрошенный ресурс.
+            // Open files don't stand in for the requested resource.
             const open = writeFile("open.ts", "a\nb");
             ctrl.openFile(open);
             ctrl.getActiveEditor()!.setEol(EndOfLine.CRLF);
@@ -695,7 +695,7 @@ describe("EditorService", () => {
                 saved.push(snapshot.uri);
                 return Promise.resolve([]);
             };
-            // Присваивание ПОСЛЕ открытия: host подключается позже первого файла.
+            // Assigned AFTER opening: the host connects later than the first file.
             ctrl.saveParticipant = participant;
             expect(ctrl.saveParticipant).toBe(participant);
 
@@ -736,7 +736,7 @@ describe("EditorService", () => {
             expect(seen).toEqual([{ uri: Uri.file(fp).toString(), languageId: "typescript" }]);
 
             sub.dispose();
-            sub.dispose(); // повторный dispose — no-op (idx === -1)
+            sub.dispose(); // a second dispose is a no-op (idx === -1)
             await ctrl.getActiveEditor()?.save();
             expect(seen).toHaveLength(1);
         });
@@ -748,7 +748,7 @@ describe("EditorService", () => {
             const a = writeFile("a.ts", "A");
             const b = writeFile("b.ts", "B");
             ctrl.openFile(a);
-            ctrl.newUntitled(); // без пути на диске — в снимок не попадает
+            ctrl.newUntitled(); // no path on disk, so not in the snapshot
             ctrl.openFile(b);
             expect(ctrl.getOpenFilePaths()).toEqual([a, b]);
         });
@@ -767,14 +767,14 @@ describe("EditorService", () => {
             ctrl.getActiveEditor()!.viewState.selections = [createCursorSelection(1, 0)];
             expect(seen).toEqual([Uri.file(a).toString()]);
 
-            // Открыли вторую вкладку — подписка обязана переехать на неё сама,
-            // иначе host проецировал бы выделение прошлого редактора.
+            // A second tab opened: the subscription must move to it by itself,
+            // otherwise the host would project the previous editor's selection.
             ctrl.openFile(b);
             ctrl.getActiveEditor()!.viewState.selections = [createCursorSelection(1, 1)];
             expect(seen).toEqual([Uri.file(a).toString(), Uri.file(b).toString()]);
 
             sub.dispose();
-            sub.dispose(); // повторный dispose — no-op (idx === -1)
+            sub.dispose(); // a second dispose is a no-op (idx === -1)
             ctrl.getActiveEditor()!.viewState.selections = [createCursorSelection(0, 0)];
             expect(seen).toHaveLength(2);
         });

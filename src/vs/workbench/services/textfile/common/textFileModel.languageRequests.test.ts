@@ -22,7 +22,7 @@ function recordingLanguageService(): ILanguageService & { requests: string[] } {
     };
 }
 
-/** Отсюда активация расширений по `onLanguage:` для любой модели, а не только активного редактора. */
+/** Drives `onLanguage:` extension activation for any model, not only the active editor. */
 describe("TextFileModel — запрос фич языка", () => {
     let ws: ITempWorkspace;
     let languages: ReturnType<typeof recordingLanguageService>;

@@ -8,8 +8,8 @@ import type { IFileMatch, ITextSearchQuery } from "../common/textSearch.ts";
 
 import { TextSearchService } from "./textSearchService.ts";
 
-// Поддельный `rg` печатает заготовленный вывод: ровно лимит, отмена посреди чанка и код
-// выхода 2 воспроизводятся детерминированно.
+// A fake `rg` prints canned output, so an exact limit, cancellation mid-chunk and exit
+// code 2 reproduce deterministically.
 
 const QUERY: ITextSearchQuery = {
     pattern: "foo",
@@ -73,7 +73,7 @@ describe.skipIf(process.platform === "win32")("TextSearchService — проти�
         expect(atLimit.limitHit).toBe(true);
         expect(atLimit.matchCount).toBe(10_000);
 
-        // Лишняя строка в том же чанке — уже после отмены: в счёт не идёт.
+        // The extra line in the same chunk comes after cancellation and is not counted.
         const overLimit = await run(fakeRg({ stdoutLines: lines }));
         expect(overLimit.matchCount).toBe(10_000);
         expect(overLimit.fileCount).toBe(10_000);

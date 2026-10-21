@@ -14,7 +14,7 @@ function fakeEnv() {
         activeModes: new Set(["local"]),
         getKnownModeNames: () => ["local", "envContribCustom"],
         isModeActive: (name: string) => env.activeModes.has(name),
-        // Только super: ключ cap_super обязан спросить именно его.
+        // Only super: the cap_super key must ask exactly for it.
         hasCapability: (cap: string) => cap === "super",
         onDidChange: (l: () => void) => {
             listener = l;

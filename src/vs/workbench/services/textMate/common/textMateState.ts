@@ -3,8 +3,8 @@ import type { StateStack } from "vscode-textmate";
 import type { IState } from "../../../../editor/common/languages/iState.ts";
 
 /**
- * `StateStack` иммутабелен (`clone()` — self), `equals()` сравнивает контент: так
- * `DocumentTokenStore` обрывает перетокенизацию хвоста, когда end-state стабилизировался.
+ * `StateStack` is immutable (`clone()` returns self), `equals()` compares content: this is how
+ * `DocumentTokenStore` stops retokenizing the tail once the end state has stabilized.
  */
 export class TextMateState implements IState {
     public readonly stack: StateStack;

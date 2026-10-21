@@ -81,8 +81,8 @@ describe("TextMateGrammarLoader", () => {
         const line = "/** @param {string} x */";
         const tokens = support!.tokenizeEncoded(line, true, support!.getInitialState()).tokens;
 
-        // Без инъекции весь комментарий — зелёный цвет комментария; jsdoc красит
-        // тег `@param` как storage.type.
+        // Without the injection the whole comment is the comment green; jsdoc paints
+        // the `@param` tag as storage.type.
         expect(colorAt(tokens, line.indexOf("@param"), theme.colorMap)).toBe("#569CD6");
         expect(colorAt(tokens, 0, theme.colorMap)).toBe("#6A9955");
         loader.dispose();

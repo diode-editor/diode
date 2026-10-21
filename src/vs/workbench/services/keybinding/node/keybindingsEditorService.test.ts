@@ -25,7 +25,7 @@ afterEach(() => {
     ws.dispose();
 });
 
-/** Путь «в файл внутри файла» — запись в него гарантированно падает. */
+/** A "file inside a file" path — writing to it is guaranteed to fail. */
 function unwritableEnvironment(): { keybindingsResource: string } {
     const blocker = ws.path("blocker");
     fs.writeFileSync(blocker, "", "utf-8");
@@ -198,7 +198,7 @@ describe("defineKeybinding", () => {
         await h.service.defineKeybinding("other.command", parseChord("f9"), h.entryOf("other.command"));
 
         const content = h.fileContent();
-        // Комментарий заменяемого правила уходит вместе с ним — он его и аннотировал.
+        // The replaced rule's comment goes with it — it annotated that rule.
         expect(content).toContain("// pinned by hand");
         expect(content).toContain('"key": "ctrl+h"');
         expect(content).toContain('"key": "f9"');
@@ -448,13 +448,13 @@ describe("выбор правила и запись файла — тонкос�
         expect(Array.isArray(rules)).toBe(true);
         expect(rules).toHaveLength(2);
         expect(rules.map((r) => r.command).sort()).toEqual(["-test.save", "test.save"]);
-        // Файл заканчивается закрытой скобкой массива — стартовый контент был "",
-        // а не мусор (иначе modify оставил бы хвост после `]`).
+        // The file ends with the closing array bracket — the starting content was "",
+        // not junk (otherwise modify would leave a tail after `]`).
         expect(h.fileContent().trimEnd().endsWith("]")).toBe(true);
     });
 
     it("matchesUserRule снимает ровно совпадающее правило: другое command/key/when остаются", async () => {
-        // Четыре user-правила, отличающиеся ровно одним полем от цели {save, ctrl+s, listFocus}.
+        // Four user rules, each differing from the target {save, ctrl+s, listFocus} in exactly one field.
         const h = makeHarness(`[
     { "key": "ctrl+s", "command": "save", "when": "listFocus" },
     { "key": "ctrl+s", "command": "other", "when": "listFocus" },
@@ -534,7 +534,7 @@ describe("выбор правила и запись файла — тонкос�
             { keybindingsResource: path.join(blocker, "keybindings.json") },
             NULL_LOG_SERVICE,
         );
-        // Bootstrap-снятие дефолта файл не пишет.
+        // A bootstrap unbind of a default does not write the file.
         service.applyUserKeybindings([{ key: "ctrl+s", command: "-test.save" }]);
         expect(registry.getKeybindingForCommand("test.save")).toBeUndefined();
 

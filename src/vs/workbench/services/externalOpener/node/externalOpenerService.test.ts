@@ -16,7 +16,7 @@ import {
     systemHandler,
 } from "./externalOpenerService.ts";
 
-/** Ждёт появления файла: отвязанный процесс пишет его уже после нашего resolve. */
+/** The detached process writes the file only after our promise resolves. */
 async function waitForFile(path: string, timeoutMs = 5000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     while (!existsSync(path)) {
@@ -54,7 +54,7 @@ function makeEnv(patch: Partial<IExternalOpenerEnvironment> = {}): IExternalOpen
         },
         showInfo: (message) => shown.push(message),
         ...patch,
-        // После `patch`: буфер и журналы всегда наши — их читают ассерты.
+        // After `patch`: the clipboard and logs are always ours, the assertions read them.
         clipboard,
         shown,
         launched,
@@ -163,8 +163,8 @@ describe("ExternalOpenerService", () => {
 
 describe("spawnDetached", () => {
     it("обработчик не пишет в наш терминал и не держит наш процесс", () => {
-        // Инвариант про КАДР: браузер, унаследовавший наши потоки, затёр бы
-        // интерфейс своим выводом, а без detached — задержал бы выход редактора.
+        // FRAME invariant: a browser inheriting our streams would clobber the UI
+        // with its output, and without detached it would delay editor exit.
         expect(HANDLER_SPAWN_OPTIONS).toEqual({ detached: true, stdio: "ignore" });
     });
 
@@ -175,7 +175,7 @@ describe("spawnDetached", () => {
             await expect(
                 spawnDetached(process.execPath, ["-e", `require("fs").writeFileSync(${JSON.stringify(marker)}, "ok")`]),
             ).resolves.toBe(true);
-            // Аргументы доехали — иначе процесс просто открыл бы REPL и файла нет.
+            // The arguments arrived: otherwise the process would just open a REPL and write no file.
             await waitForFile(marker);
             expect(readFileSync(marker, "utf8")).toBe("ok");
         } finally {
@@ -188,7 +188,7 @@ describe("spawnDetached", () => {
     });
 
     it("синхронный отказ spawn тоже становится false, а не исключением наружу", async () => {
-        // NUL в имени команды роняет `spawn` синхронно, минуя событие `error`.
+        // A NUL in the command name makes `spawn` throw synchronously, bypassing the `error` event.
         await expect(spawnDetached("node ", [])).resolves.toBe(false);
     });
 });

@@ -183,7 +183,7 @@ describe("EditorGroup", () => {
         group.onDidChangeActivePane(() => paneFired++);
 
         editorsFirst.dispose();
-        editorsFirst.dispose(); // indexOf === -1 — второй слушатель не снят
+        editorsFirst.dispose(); // indexOf === -1 — the second listener is not removed
         paneFirst.dispose();
         paneFirst.dispose();
 
@@ -197,7 +197,7 @@ describe("EditorGroup", () => {
         group.activateTab(0);
         group.activateTab(1);
         group.activateTab(2);
-        // MRU: c, b, a. Один шаг серии уходит к b.
+        // MRU: c, b, a. One step of the series goes to b.
         group.cycleMru(1);
         expect(group.activePane === panes[1]).toBe(true);
         group.cycleMru(1);

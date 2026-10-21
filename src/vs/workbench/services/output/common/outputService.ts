@@ -13,24 +13,24 @@ import { LogHistoryDIToken, OutputChannelRegistryDIToken } from "./output.ts";
 
 export const OutputServiceDIToken = token<OutputService>("OutputService");
 
-/** `HH:MM:SS.mmm` локального времени — префикс строки, как в логах VS Code. */
+/** Local `HH:MM:SS.mmm` line prefix, as in VS Code logs. */
 function formatTimestamp(timestamp: number): string {
     const d = new Date(timestamp);
     const pad = (n: number, width = 2): string => String(n).padStart(width, "0");
     return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
 }
 
-/** Аргументы записи хвостом строки. Несериализуемое (циклы, BigInt) — через String(). */
+/** Entry arguments as the line tail. Non-serializable values (cycles, BigInt) go through String(). */
 function formatArgs(args: readonly unknown[]): string {
     if (args.length === 0) return "";
     const parts = args.map((arg) => {
-        // Ошибка — текстом сообщения, как `format` у логгеров эталона
-        // (`toErrorMessage`): JSON у `Error` — `{}` (поля не перечислимы), а у
-        // пришедшей по RPC — служебный `{"name":…,"message":…}` вместо текста.
+        // An error prints as its message, like `format` in upstream loggers
+        // (`toErrorMessage`): JSON of an `Error` is `{}` (non-enumerable fields), and of
+        // one received over RPC the internal `{"name":…,"message":…}` instead of text.
         if (arg instanceof Error) return arg.message;
         try {
-            // JSON.stringify(undefined) отдаёт undefined, хотя тип обещает string, —
-            // тогда печатаем сырой вид.
+            // JSON.stringify(undefined) returns undefined although the type promises string;
+            // print the raw form then.
             const json = JSON.stringify(arg) as string | undefined;
             return json ?? String(arg);
         } catch {
@@ -40,15 +40,15 @@ function formatArgs(args: readonly unknown[]): string {
     return ` ${parts.join(" ")}`;
 }
 
-/** Стоковая грамматика `log` подсвечивает уровень именно в квадратных скобках — раскраска без своих цветов. */
+/** The stock `log` grammar highlights the level only in square brackets, giving colors without our own. */
 export function formatOutputLine(entry: LogEntry): string {
     return `${formatTimestamp(entry.timestamp)} [${logLevelName(entry.level)}] ${entry.message}${formatArgs(entry.args)}`;
 }
 
 /**
- * Аналог `IOutputService`. Каналы с меткой создателя логгера переносятся в реестр из
- * `ILogService` (как `logs.contribution` vscode); канал без объявления, от которого идут
- * записи, добирается с `label = id`: `createLogger` заводится ad hoc, иначе подсистемы не было бы в селекторе.
+ * Counterpart of `IOutputService`. Channels labeled by the logger creator are copied into the registry from
+ * `ILogService` (like vscode `logs.contribution`); an undeclared channel that receives
+ * entries is registered with `label = id`: `createLogger` is ad hoc, otherwise the subsystem would be missing from the selector.
  */
 export class OutputService extends Disposable {
     public static dependencies = [
@@ -75,7 +75,7 @@ export class OutputService extends Disposable {
                 this.registry.registerChannel(descriptor);
             }),
         );
-        // Каналы, уже успевшие написать до подъёма UI, но без метки.
+        // Channels that wrote before the UI came up, but have no label.
         for (const channel of this.history.getChannels()) this.ensureChannel(channel);
         this.setActiveChannel(this.registry.getChannels()[0]?.id ?? null);
         this.register(
@@ -85,8 +85,8 @@ export class OutputService extends Disposable {
                 this.onDidAppendToActiveChannelEmitter.fire(entry);
             }),
         );
-        // Канал мог быть объявлен позже, чем поднялся сервис (расширения) — тогда
-        // он становится активным, если активного ещё не было.
+        // A channel may be declared after the service came up (extensions); then
+        // it becomes active if there was no active one yet.
         this.register(
             this.registry.onDidRegisterChannel((descriptor) => {
                 if (this.activeChannelId === null) this.setActiveChannel(descriptor.id);
@@ -111,7 +111,7 @@ export class OutputService extends Disposable {
         return this.activeChannelId;
     }
 
-    /** VS Code `showChannel`. Неизвестный id — no-op. */
+    /** VS Code `showChannel`. An unknown id is a no-op. */
     public showChannel(id: string): void {
         if (this.registry.getChannel(id) === undefined || this.activeChannelId === id) return;
         this.setActiveChannel(id);
@@ -119,8 +119,8 @@ export class OutputService extends Disposable {
     }
 
     /**
-     * Ключ ставится здесь, а не в подписчике: на нём висит `toggled` пунктов селектора, и
-     * подписчик мог бы отработать позже того, кто пункты перечитывает.
+     * The key is set here, not in a subscriber: selector items' `toggled` hangs on it, and
+     * a subscriber could run after whoever re-reads the items.
      */
     private setActiveChannel(id: string | null): void {
         this.activeChannelId = id;

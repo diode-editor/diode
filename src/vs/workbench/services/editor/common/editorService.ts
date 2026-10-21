@@ -20,9 +20,9 @@ import type { TextEditorConfiguration } from "../browser/textEditorConfiguration
 import type { IEditorGroupsService } from "./editorGroupsService.ts";
 import type { IVirtualDocumentSource } from "./iVirtualDocumentSource.ts";
 
-/** `$tryCreateDocument` эталона. */
+/** Upstream `$tryCreateDocument`. */
 export interface IUntitledOptions {
-    /** Непустой делает буфер изменённым, как в эталоне. */
+    /** Non-empty makes the buffer dirty, as upstream. */
     readonly content?: string | undefined;
     readonly languageId?: string | undefined;
     readonly encoding?: string | undefined;
@@ -30,13 +30,13 @@ export interface IUntitledOptions {
 
 export interface IOpenUriOptions {
     readonly focus?: boolean;
-    /** Группа — ровно в неё (повтор вкладки по рецепту). */
+    /** A group means exactly that group (replaying a tab from a recipe). */
     readonly group?: "beside" | EditorGroup;
-    /** У уже открытой вкладки не трогаются. */
+    /** Left untouched on an already open tab. */
     readonly viewState?: ITextEditorViewState;
     /**
-     * Вкладка превью в группе одна, следующее превью занимает её слот. Просят только двери,
-     * где эталон тоже превьюит (дерево Explorer); гасится `workbench.editor.enablePreview`.
+     * A group has one preview tab; the next preview takes its slot. Only entry points where
+     * upstream also previews (the Explorer tree) ask for it; `workbench.editor.enablePreview` turns it off.
      */
     readonly preview?: boolean;
 }
@@ -48,38 +48,38 @@ export interface IEditorSavedMeta {
 }
 
 /**
- * Аналог `IEditorService`; полоса групп — отдельная роль ({@link IEditorGroupsService}).
- * Узкие швы фич (`IGotoLineEditorSource`, …) остаются своими интерфейсами: они уже ролевые.
+ * Counterpart of `IEditorService`; the group strip is a separate role ({@link IEditorGroupsService}).
+ * Narrow feature seams (`IGotoLineEditorSource`, …) keep their own interfaces: they are already role-based.
  */
 export interface IEditorService extends IShutdownParticipant, IActivatable, IDisposable {
-    /** При фокусе в detached-панели — она. */
+    /** The detached pane when it has focus. */
     getActivePane(): IEditorPane | null;
-    /** Без учёта detached-панелей. */
+    /** Ignores detached panes. */
     getActiveTabPane(): IEditorPane | null;
-    /** Сторона диффа — тоже. */
+    /** Includes a diff side. */
     getActiveEditor(): TextEditorPane | null;
-    /** Без учёта detached-панелей. */
+    /** Ignores detached panes. */
     getActiveTabEditor(): TextEditorPane | null;
     getActiveViewState(): EditorViewState | null;
     focusEditor(): void;
-    /** Переключение на дифф — `null`. */
+    /** Switching to a diff fires `null`. */
     readonly onActiveEditorChanged: Event<TextEditorPane | null>;
     readonly onDidChangeActiveEditorSelection: Event<TextEditorPane>;
 
-    /** ВСЕХ групп. */
+    /** Across ALL groups. */
     getEditors(): readonly TextEditorPane[];
     /**
-     * Вкладки и стороны дифф-вкладок (сторона бывает правимой моделью без своей вкладки): по
-     * ним зовут языковых провайдеров, их документы синхронизируются с host'ом. Output — нет.
+     * Tabs and diff tab sides (a side can be an editable model without a tab of its own): language
+     * providers are called for them, and their documents sync with the host. Output is not included.
      */
     getTextSurfaces(): readonly TextEditorPane[];
-    /** Документы уже открыты расширениям, но человек их ещё не видит. */
+    /** Documents already open for extensions but not yet visible to the user. */
     getUntitledModelsWithoutEditor(): readonly TextFileModel[];
-    /** В порядке вкладок, без безымянных и недисковых. */
+    /** In tab order, without untitled and non-disk ones. */
     getOpenFilePaths(): string[];
-    /** Изменённые на диске не перезаписывает. `true` — сохранено всё. */
+    /** Doesn't overwrite files changed on disk. `true` means everything was saved. */
     saveAll(options?: { includeUntitled?: boolean }): Promise<boolean>;
-    /** `undefined` — не открыт или не сохранился. */
+    /** `undefined`: not open or not saved. */
     save(resource: Uri): Promise<Uri | undefined>;
     readonly onDidChangeEditors: Event<void>;
     readonly onEditorSaved: Event<IEditorSavedMeta>;
@@ -89,15 +89,15 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     openFile(filePath: string, options?: IOpenUriOptions): void;
     openUri(uri: Uri, options?: IOpenUriOptions): Promise<void>;
     openPane(pane: IEditorPane, options?: { focus?: boolean; group?: EditorGroup }): void;
-    /** Read-only, содержимое вызывающего (файл на ревизии). */
+    /** Read-only, with caller-supplied content (a file at a revision). */
     openTextSnapshot(
         uri: Uri,
         options: { text: string; languageId: string; label: string; focus?: boolean },
     ): TextEditorPane;
-    /** Вне таб-строки (нижняя панель Output). */
+    /** Outside the tab bar (the bottom Output panel). */
     openDetached(uri: Uri, languageId: string): TextEditorPane<SyntheticTextModel>;
     newUntitled(options?: { focus?: boolean }): void;
-    /** `workspace.openTextDocument({ content, language })`; показывает его {@link openUri}. */
+    /** `workspace.openTextDocument({ content, language })`; {@link openUri} shows it. */
     createUntitled(options?: IUntitledOptions): Uri;
     canRestore(uri: Uri): boolean;
     readonly onDidFailOpen: Event<{ readonly uri: Uri; readonly reason: string }>;
@@ -114,11 +114,11 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     closeEditors(group: EditorGroup, panes: readonly IEditorPane[]): Promise<boolean>;
     closeAllEditors(group: EditorGroup): Promise<boolean>;
     /**
-     * Удаление через файловый сервис доходит само (`FileOperation.Delete`); зовут те, кто
-     * удаляет мимо сервиса (корзина).
+     * Deletes through the file service arrive on their own (`FileOperation.Delete`); callers are
+     * those that delete bypassing the service (trash).
      */
     handleDeletedFile(resource: Uri): void;
-    /** Документ больше нигде не виден. */
+    /** The document is not visible anywhere else. */
     needsCloseConfirm(pane: IEditorPane): boolean;
     dirtyExclusiveDiffSides(pane: DiffEditorPane2): TextEditorPane[];
 
@@ -129,7 +129,7 @@ export interface IEditorService extends IShutdownParticipant, IActivatable, IDis
     saveParticipant: SaveParticipant | undefined;
     /** `registerTextDocumentContentProvider`. */
     virtualDocumentSource: IVirtualDocumentSource;
-    /** По `onDidChange` провайдера. */
+    /** On the provider's `onDidChange`. */
     refreshVirtualDocument(uri: Uri): void;
 }
 

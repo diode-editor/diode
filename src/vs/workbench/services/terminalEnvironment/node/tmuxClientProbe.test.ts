@@ -10,7 +10,7 @@ describe("parseShowEnvironment", () => {
     it.each<[string | undefined, string | undefined]>([
         ["LC_DIODE_PLATFORM=mac\n", "mac"],
         ["LC_DIODE_PLATFORM=\n", ""],
-        ["-LC_DIODE_PLATFORM\n", undefined], // переменная удалена из окружения сессии
+        ["-LC_DIODE_PLATFORM\n", undefined], // the variable is removed from the session environment
         ["unknown variable: LC_DIODE_PLATFORM", undefined],
         [undefined, undefined],
     ])("%j → %j", (output, expected) => {

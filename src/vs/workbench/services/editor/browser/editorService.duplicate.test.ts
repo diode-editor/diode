@@ -130,7 +130,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
         service.openSerializedEditor(notAFile, target);
 
         expect(service.editorGroups.activeGroup.editorCount).toBe(0);
-        // Путь существует, но это не file: — текстовая фабрика такое не пишет и не читает.
+        // The path exists, but it isn't file:, which the text factory neither writes nor reads.
         expect(service.deserializeEditor(notAFile)).toBeUndefined();
     });
 
@@ -208,8 +208,8 @@ describe("EditorService — повтор вкладки без фокуса", ()
 
     it("Keyboard Shortcuts одна на окно: сплит её не повторяет, копия — no-op", () => {
         const service = h.container.get(EditorServiceDIToken);
-        // Провайдер на любую схему: текстовая фабрика отказывается по виду
-        // вкладки, а не потому, что её схему никто не обслуживает.
+        // A provider for any scheme: the text factory refuses because of the tab kind,
+        // not because nobody serves its scheme.
         service.virtualDocumentSource = { canProvide: () => true, provide: () => Promise.resolve("x\n") };
         h.commands.execute("workbench.action.openGlobalKeybindings");
 

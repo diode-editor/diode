@@ -34,7 +34,7 @@ export interface IExtendedKeysObserver {
     noteSuperObserved(): void;
 }
 
-// Как в VS Code.
+// Same as VS Code.
 const CHORD_TIMEOUT_MS = 5000;
 
 const CHORD_NOT_FOUND_MS = 4000;
@@ -44,9 +44,9 @@ const CHORD_NOT_FOUND_MS = 4000;
 // would act on a panel behind the still-visible overlay. See dispatchKeyDown.
 const FOCUS_SCOPED_CONTEXT_KEYS = ["inputWidgetFocus", "textInputFocus", "textViewFocus", "listFocus"] as const;
 
-/** Бинд требует фокус-ключ истинным (в позиции не под отрицанием: `!listFocus` — не фокус-скоупный). */
+/** The binding requires a focus key to be true (in a non-negated position: `!listFocus` is not focus-scoped). */
 function isFocusScopedWhen(when: string | undefined): boolean {
-    // Stryker disable next-line ConditionalExpression: эквивалентный — разбор undefined тоже даёт undefined (парсер ловит своё исключение), ветка — для типов
+    // Stryker disable next-line ConditionalExpression: equivalent — parsing undefined also yields undefined (the parser catches its own exception); the branch is for types
     const expr = when === undefined ? undefined : deserializeWhen(when);
     if (expr === undefined) return false;
     const positive = whenPositiveKeys(expr);
@@ -78,8 +78,8 @@ function eventToKeybinding(event: TUIKeyboardEvent): Keybinding {
 }
 
 /**
- * Не владеет view: WorkbenchComponent вешает capture/bubble-листенеры на BodyElement и
- * подставляет хуки {@link updateContextKeys} и {@link hasKeyboardCapturingOverlay}.
+ * Does not own the view: WorkbenchComponent attaches capture/bubble listeners to BodyElement and
+ * supplies the {@link updateContextKeys} and {@link hasKeyboardCapturingOverlay} hooks.
  */
 export class KeybindingDispatcher extends Disposable {
     public static dependencies = [
@@ -93,7 +93,7 @@ export class KeybindingDispatcher extends Disposable {
     ] as const;
 
     public updateContextKeys: () => void = () => {
-        /* по умолчанию no-op; владелец view подставляет свою реализацию */
+        /* no-op by default; the view owner supplies its own implementation */
     };
 
     public hasKeyboardCapturingOverlay: () => boolean = () => false;
@@ -127,7 +127,7 @@ export class KeybindingDispatcher extends Disposable {
         this.statusBarService = statusBarService;
         this.armory = armory;
         this.terminalEnv = terminalEnv;
-        // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала и его метка — подпись в селекторе Output, поведения логирования не задают
+        // Stryker disable next-line StringLiteral,ObjectLiteral: the channel name and label are captions in the Output selector and do not affect logging behavior
         this.logger = logService.createLogger("input.keybindings", { label: "Keybindings" });
         this.register({
             dispose: () => {
@@ -160,29 +160,29 @@ export class KeybindingDispatcher extends Disposable {
     public readonly handleKeyDown = (event: TUIKeyboardEvent): void => {
         if (this.dispatchKeyDown(event)) {
             event.preventDefault();
-            // Съеденная клавиша не доходит до прочих слушателей корня — мнемоник меню.
+            // A consumed key does not reach the root's other listeners — menu mnemonics.
             event.stopImmediatePropagation();
         }
     };
 
-    // Отпускание модификатора завершает «hold-сессии» команд (MRU-вкладки) через
-    // ModifierReleaseArmory. keyup одиночного модификатора шлёт только Kitty с event types.
+    // Releasing a modifier ends command "hold sessions" (MRU tabs) via
+    // ModifierReleaseArmory. Only Kitty with event types sends keyup for a lone modifier.
     public readonly handleKeyUp = (event: TUIKeyboardEvent): void => {
         this.armory.fireRelease(event.key);
     };
 
     private observeExtendedKeys(event: TUIKeyboardEvent): void {
-        // Super-бит кодирует только Kitty, так что увиденный meta доказывает и его, и extended-keys.
-        // ДО резолва: контекст-ключи перечитываются на этом же нажатии, и первый Cmd+S уже найдёт Cmd-бинд.
+        // Only Kitty encodes the Super bit, so an observed meta proves both it and extended-keys.
+        // BEFORE resolving: context keys are re-read on this same keypress, so the first Cmd+S already finds the Cmd binding.
         if (event.metaKey && !this.terminalEnv.hasCapability("super")) this.terminalEnv.noteSuperObserved();
         if (this.terminalEnv.hasCapability("extended-keys")) return;
         if (CSI_U_KEY_RAW.test(event.raw)) this.terminalEnv.noteExtendedKeysObserved();
     }
 
-    /** `true` — клавиша съедена (вызывающий делает preventDefault). */
+    /** `true` means the key was consumed (the caller calls preventDefault). */
     public dispatchKeyDown(event: TUIKeyboardEvent): boolean {
-        // Нажатие, не продлившее hold-сессию, её завершает: на legacy-терминале keyup модификатора
-        // не приходит, и серия Ctrl+Tab жила бы до следующего переключения.
+        // A keypress that does not extend the hold session ends it: legacy terminals send no modifier
+        // keyup, so a Ctrl+Tab series would otherwise live until the next switch.
         const armedBefore = isModifierKey(event.key) ? null : this.armory.pendingGeneration;
         try {
             return this.dispatchResolvedKeyDown(event);
@@ -211,7 +211,7 @@ export class KeybindingDispatcher extends Disposable {
             pendingBefore,
             result: res.kind,
             commandId: res.kind === "command" ? res.commandId : undefined,
-            // Лог — для разработчика: стабильная pc-форма, без глифов мака.
+            // The log is for developers: stable pc form, no mac glyphs.
             chord: res.kind === "chord" ? formatKeybinding(res.chord) : undefined,
         });
 
@@ -247,18 +247,18 @@ export class KeybindingDispatcher extends Disposable {
                 return false;
             }
             this.setChordHint(null);
-            // Модификаторы аккорда — для hold-сессий (MRU-вкладки). Через контекст, а не позиционный
-            // аргумент — чтобы не конфликтовать с собственными аргументами команд.
+            // Chord modifiers are for hold sessions (MRU tabs). Passed via context, not as a positional
+            // argument, so they do not clash with the commands' own arguments.
             const trigger: CommandTrigger = {
                 ctrlKey: event.ctrlKey,
                 shiftKey: event.shiftKey,
                 altKey: event.altKey,
                 metaKey: event.metaKey,
             };
-            // Без args команда зовётся без аргументов: не подсовывать undefined командам с дефолтами.
+            // Without args the command is called with no arguments: do not pass undefined to commands with defaults.
             const commandArgs = res.args === undefined ? [] : [res.args];
-            // Стрелки и Shift-выделение у нас — команды, а расширение обязано увидеть их как
-            // Keyboard, а не Command (cursorChangeSource.ts).
+            // Arrows and Shift selection are commands here, but extensions must see them as
+            // Keyboard, not Command (cursorChangeSource.ts).
             withCursorChangeSource("keyboard", () => {
                 this.armory.withTrigger(trigger, () => this.commands.execute(res.commandId, ...commandArgs));
             });
@@ -283,7 +283,7 @@ export class KeybindingDispatcher extends Disposable {
         return false;
     }
 
-    /** Живёт обычной записью StatusBarService левее прочих левых сегментов. */
+    /** Lives as a regular StatusBarService entry, left of the other left-side segments. */
     private setChordHint(text: string | null): void {
         if (text === null) {
             this.chordHintEntry?.dispose();

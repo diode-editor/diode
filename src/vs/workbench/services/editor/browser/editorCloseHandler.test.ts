@@ -177,7 +177,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         const second = service().closeEditor(group(), dirty);
         await settle();
 
-        // Второй диалог не открывался: ответ на первый решает оба запроса.
+        // No second dialog was opened: the answer to the first resolves both requests.
         expect(dialogs().getOpenConfirmSaveDialog()).toBe(dialog);
         dialog?.onDontSave?.();
 
@@ -223,7 +223,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
 
         const closed = service().closeAllEditors(group());
         await settle();
-        // c.txt закрылась до вопроса про b.txt, до a.txt очередь не дошла.
+        // c.txt closed before the question about b.txt, a.txt was never reached.
         expect(labels()).toEqual(["a.txt", "b.txt"]);
         dialogs().getOpenConfirmSaveDialog()?.onCancel?.();
 
@@ -237,7 +237,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         const [a, , c] = group().getPanes();
 
         const closed = service().closeEditors(group(), [a, c]);
-        // a закрылась сразу, c ждёт ответа.
+        // a closed immediately, c awaits an answer.
         expect(labels()).toEqual(["b.txt", "c.txt"]);
         await settle();
         dialogs().getOpenConfirmSaveDialog()?.onDontSave?.();

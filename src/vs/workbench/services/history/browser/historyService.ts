@@ -5,7 +5,7 @@ import type { Uri } from "../../../../base/common/uri.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IWorkbenchContribution } from "../../../common/iWorkbenchContribution.ts";
 
-/** `TextEditorPane` соответствует структурно; связывает DI-модуль ({@link HistoryEditorSourceDIToken}). */
+/** `TextEditorPane` matches structurally; bound by the DI module ({@link HistoryEditorSourceDIToken}). */
 export interface IHistoryEditor {
     readonly uri: Uri;
     /** 0-based. */
@@ -24,8 +24,8 @@ export interface IHistoryEditorSource {
     getActiveEditor(): IHistoryEditor | null;
     openUri(uri: Uri, options?: { focus?: boolean }): void;
     /**
-     * Недисковый ресурс — только пока его схему обслуживает провайдер содержимого
-     * (`jdt:`); остальное история не записывает: вернуться туда она не сможет.
+     * A non-disk resource only while a content provider serves its scheme
+     * (`jdt:`); history records nothing else, since it could not go back there.
      */
     canRestore(uri: Uri): boolean;
     onActiveEditorChanged(listener: (editor: IHistoryEditor | null) => void): IDisposable;
@@ -33,13 +33,13 @@ export interface IHistoryEditorSource {
 }
 
 /**
- * Обёртка, а не флаг «следующее перемещение — прыжок»: между `openUri` и `goToPosition`
- * история видит новый редактор с кареткой в `0:0`, и первый Go Back вёл бы туда.
- * Кладёт ровно две записи — origin и цель, в обход порога значимости.
+ * A wrapper rather than a "next move is a jump" flag: between `openUri` and `goToPosition`
+ * history sees the new editor with the cursor at `0:0`, and the first Go Back would lead there.
+ * Pushes exactly two entries, origin and target, bypassing the significance threshold.
  */
 export interface IJumpRecorder {
     jump<T>(navigate: () => T): T;
-    /** Цель может приехать от провайдера схемы обещанием (`jdt:`) — точку назначения снимаем после. */
+    /** The target may arrive from a scheme provider as a promise (`jdt:`), so the destination is captured afterwards. */
     jumpAsync(navigate: () => Promise<void>): Promise<void>;
 }
 
@@ -48,7 +48,7 @@ export const NULL_JUMP_RECORDER: IJumpRecorder = {
     jumpAsync: (navigate) => navigate(),
 };
 
-// Stryker disable StringLiteral: token() возвращает новый Token, и разрешение зависимостей идёт по ссылке на него — строка внутри остаётся отладочной меткой, подменить её нечем наблюдаемым
+// Stryker disable StringLiteral: token() returns a new Token and dependency resolution goes by reference to it; the string inside is only a debug label, replacing it has no observable effect
 export const HistoryEditorSourceDIToken = token<IHistoryEditorSource>("HistoryEditorSource");
 
 export interface IHistoryGroupsSource {
@@ -71,29 +71,29 @@ export interface IHistoryEntry {
     readonly groupId: number;
 }
 
-/** Кап стека — как `EditorNavigationStack.MAX_STACK_SIZE` у VS Code. */
+/** Stack cap, as VS Code `EditorNavigationStack.MAX_STACK_SIZE`. */
 const MAX_STACK_SIZE = 50;
 
-/** `MAX_SELECTION_LINE_DISTANCE` VS Code: ближе порога — обновить текущую запись, а не завести новую. */
+/** VS Code `MAX_SELECTION_LINE_DISTANCE`: closer than this updates the current entry instead of adding one. */
 const SIGNIFICANT_LINE_DISTANCE = 10;
 
 /**
- * Аналог `IHistoryService` + `EditorNavigationStack`. Инвариант: `entries[index]`
- * зеркалит живую каретку — мелкое движение перезаписывает запись, а не растит стек.
+ * Counterpart of `IHistoryService` + `EditorNavigationStack`. Invariant: `entries[index]`
+ * mirrors the live cursor: a small move overwrites the entry instead of growing the stack.
  *
- * Синхронного флага `suspended` достаточно: `EditorViewState.selections` синхронно
- * зовёт `fireCursorChange()`, дальше событие форвардится без микротасков; открытие
- * ресурса и активация вкладки синхронны так же.
+ * A synchronous `suspended` flag is enough: `EditorViewState.selections` synchronously
+ * calls `fireCursorChange()`, the event is then forwarded without microtasks; opening a
+ * resource and activating a tab are synchronous as well.
  *
- * Стек один на приложение (у VS Code — глобальный и на группу); группа хранится в записи.
+ * One stack per app (VS Code has a global one and one per group); the group is stored in the entry.
  */
 export class HistoryService extends Disposable implements IWorkbenchContribution, IJumpRecorder {
     public static dependencies = [HistoryEditorSourceDIToken, HistoryGroupsSourceDIToken] as const;
 
     private readonly entries: IHistoryEntry[] = [];
-    /** `-1`, пока стек пуст. */
+    /** `-1` while the stack is empty. */
     private index = -1;
-    /** Пока true, неявные продюсеры молчат: это мы сами двигаем каретку. */
+    /** While true, implicit producers stay silent: we are moving the cursor ourselves. */
     private suspended = false;
 
     public constructor(
@@ -113,7 +113,7 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
             }),
         );
 
-        // Подхватываем редактор, ставший активным до создания сервиса.
+        // Pick up an editor that became active before the service was created.
         this.recordEditor(this.source.getActiveEditor());
     }
 
@@ -170,8 +170,8 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
     }
 
     private endJump(origin: IHistoryEntry | null): void {
-        // origin форсом: намеренный прыжок не должен съедаться порогом значимости.
-        // Если позиция не изменилась, `record` просто освежит текущую запись.
+        // origin is forced: an intentional jump must not be swallowed by the significance threshold.
+        // If the position has not changed, `record` just refreshes the current entry.
         if (origin !== null) this.record(origin, true);
         const target = this.capture();
         if (target !== null) this.record(target, true);
@@ -185,7 +185,7 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
         this.restore(this.entries[target]);
     }
 
-    /** Без `suspended` восстановление записалось бы новой записью и отсекло forward-хвост. */
+    /** Without `suspended` the restore would be recorded as a new entry and cut off the forward tail. */
     private restore(entry: IHistoryEntry): void {
         this.suspended = true;
         try {
@@ -194,14 +194,14 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
             }
             this.source.openUri(entry.uri, { focus: true });
             const editor = this.source.getActiveEditor();
-            /* v8 ignore start -- defensive: openUri либо активирует вкладку ресурса, либо
-               заводит её; нечитаемые схемы отсеяны ещё при захвате записи */
-            // Stryker disable next-line ConditionalExpression,LogicalOperator: ветка недостижима по той же причине, что и для покрытия
+            /* v8 ignore start -- defensive: openUri either activates the resource's tab or
+   creates it; unreadable schemes are filtered out when the entry is captured */
+            // Stryker disable next-line ConditionalExpression,LogicalOperator: the branch is unreachable for the same reason as for coverage
             if (editor?.uri.toString() !== entry.uri.toString()) return;
             /* v8 ignore stop */
             editor.goToPosition(entry.line, entry.character);
-            // goToPosition клампит позицию к границам документа — записываем ту,
-            // куда каретка встала на самом деле, иначе повторный Back застрянет.
+            // goToPosition clamps the position to the document bounds: record where
+            // the cursor actually landed, otherwise a repeated Back gets stuck.
             this.entries[this.index] = {
                 uri: entry.uri,
                 line: editor.primaryCursorLine,
@@ -221,8 +221,8 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
 
     private capture(editor: IHistoryEditor | null = this.source.getActiveEditor()): IHistoryEntry | null {
         if (editor === null) return null;
-        // `output:` и снимочные стороны диффа мимо: их содержимое пишет владелец вкладки,
-        // а не адресуемый ресурс.
+        // `output:` and snapshot diff sides are skipped: their content is written by the tab owner,
+        // not an addressable resource.
         if (!this.source.canRestore(editor.uri)) return null;
         return {
             uri: editor.uri,
@@ -232,7 +232,7 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
         };
     }
 
-    /** `force` обходит порог значимости, но не схлопывание записи в ту же самую точку. */
+    /** `force` bypasses the significance threshold, but not collapsing an entry into the very same point. */
     private record(entry: IHistoryEntry, force: boolean): void {
         if (this.suspended) return;
         const current = this.entries[this.index] as IHistoryEntry | undefined;
@@ -246,9 +246,9 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
             return;
         }
         if (!force && sameUri && Math.abs(current.line - entry.line) < SIGNIFICANT_LINE_DISTANCE) {
-            // Схлопывание соседних записей одного файла — именно веткой replace, а
-            // не отдельным проходом по стеку: проход съел бы origin форсированного
-            // прыжка на пару строк (Go to Definition рядом с местом вызова).
+            // Adjacent entries of one file collapse precisely in the replace branch, not
+            // in a separate pass over the stack: such a pass would eat the origin of a forced
+            // jump of a couple of lines (Go to Definition next to the call site).
             this.entries[this.index] = entry;
             return;
         }
@@ -263,9 +263,9 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
     }
 
     /**
-     * Лениво, только из {@link navigate}: `onDidChangeEditors` приходит на каждое нажатие
-     * (через `onDidChangeContent` панели), а чистка со `statSync` по полусотне записей —
-     * сотни раз в секунду. Поэтому и `canGoBack`/`canGoForward` оптимистичны.
+     * Lazy, only from {@link navigate}: `onDidChangeEditors` fires on every keystroke
+     * (via the pane's `onDidChangeContent`), and pruning with `statSync` over fifty entries
+     * would run hundreds of times a second. Hence `canGoBack`/`canGoForward` are optimistic.
      */
     private prune(): void {
         const kept: IHistoryEntry[] = [];
@@ -278,23 +278,23 @@ export class HistoryService extends Disposable implements IWorkbenchContribution
             }
         }
         this.entries.splice(0, this.entries.length, ...kept);
-        // Ранний выход только сокращает путь: при пустом kept общая формула ниже даёт
-        // Math.min(что-то неотрицательное, -1), то есть тот же -1.
-        // Stryker disable next-line ConditionalExpression: см. выше
+        // The early exit only shortens the path: with an empty kept the general formula below gives
+        // Math.min(something non-negative, -1), i.e. the same -1.
+        // Stryker disable next-line ConditionalExpression: see above
         if (kept.length === 0) {
             this.index = -1;
             return;
         }
-        // Верхний зажим сработать не может: выпавших после указателя не больше, чем позиций
-        // после него, значит nextIndex ≤ kept.length - 1. Страховка на случай смены инварианта.
-        // Stryker disable next-line ArithmeticOperator: недостижимая ветвь зажима, см. выше
+        // The upper clamp cannot fire: no more entries drop after the pointer than there are positions
+        // after it, so nextIndex <= kept.length - 1. A safeguard in case the invariant changes.
+        // Stryker disable next-line ArithmeticOperator: unreachable clamp branch, see above
         this.index = Math.min(Math.max(nextIndex, 0), kept.length - 1);
     }
 
     /**
-     * Закрытая вкладка файла историю не покидает — Back её переоткроет, как VS Code.
-     * Выбрасываем удалённый с диска файл (открылся бы пустой буфер) и закрытый
-     * `untitled:`, по которому `openUri` бросит.
+     * A closed file tab stays in history: Back reopens it, as in VS Code.
+     * Drops a file deleted from disk (it would open an empty buffer) and a closed
+     * `untitled:`, on which `openUri` throws.
      */
     private isReachable(entry: IHistoryEntry): boolean {
         if (entry.uri.scheme === "file") return fs.existsSync(entry.uri.fsPath);

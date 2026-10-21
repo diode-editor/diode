@@ -1,21 +1,21 @@
 import type { Uri } from "../../../../base/common/uri.ts";
 
 /**
- * Недисковые ресурсы, чей текст даёт провайдер расширения
- * (`registerTextDocumentContentProvider`: `jdt:` у `redhat.java`). Read-only по
- * построению — контракт `TextDocumentContentProvider`.
+ * Non-disk resources whose text comes from an extension provider
+ * (`registerTextDocumentContentProvider`: `jdt:` in `redhat.java`). Read-only by
+ * construction, per the `TextDocumentContentProvider` contract.
  */
 export interface IVirtualDocumentSource {
     canProvide(scheme: string): boolean;
 
     /**
-     * `null` — поставщик схемы есть, но ресурс не отдал (`ProviderResult`). Отклонение —
-     * поставщик сломался; вызывающий обязан это пережить.
+     * `null`: the scheme has a provider, but it returned nothing for the resource
+     * (`ProviderResult`). A rejection means the provider broke; the caller must survive it.
      */
     provide(uri: Uri): Promise<string | null>;
 }
 
-/** Дефолт `EditorService`, пока композиция не подключила настоящий. */
+/** `EditorService` default until the composition wires in the real one. */
 export const NULL_VIRTUAL_DOCUMENT_SOURCE: IVirtualDocumentSource = {
     canProvide: () => false,
     provide: () => Promise.resolve(null),

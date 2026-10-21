@@ -125,10 +125,10 @@ describe("LanguageConfigurationService", () => {
     });
 
     it("logs a non-Error rejection reason as-is", async () => {
-        // FS-провайдеры и бандл могут реджектить чем угодно — не только Error.
+        // FS providers and the bundle may reject with anything, not only Error.
         const logger = createLogger();
         const assets = new MemoryAssets({});
-        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- сьют проверяет ИМЕННО не-Error отказ
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the suite checks precisely a non-Error rejection
         assets.readText = () => Promise.reject("EACCES");
         const service = new LanguageConfigurationService(
             assets,

@@ -79,7 +79,7 @@ describe("SimpleFileDialog — открытие", () => {
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
         testApp.sendKey("ArrowDown");
-        // «..» не дописывается никогда.
+        // ".." is never completed.
         await settle({ query: "/ws/", activeIndex: 0 });
         testApp.sendKey("ArrowDown");
         await settle({ query: "/ws/docs", activeIndex: 1 });
@@ -198,7 +198,7 @@ describe("SimpleFileDialog — сохранение", () => {
         const { dialog, settle, testApp, component } = await setup();
         const result = dialog.showSaveDialog({ defaultUri: Uri.file("/ws/new.txt"), title: "Save As" });
         await settle({ query: "/ws/new.txt", title: "Save As" });
-        // Имя без расширения выделено: набор заменит его, «.txt» останется.
+        // The name without its extension is selected: typing replaces it and ".txt" stays.
         expect(component.view.inputElement.inputState.cursorOffset).toBe("/ws/new".length);
         expect(component.view.inputElement.inputState.selectedText).toBe("new");
         testApp.sendKey("Enter");
@@ -255,12 +255,12 @@ describe("SimpleFileDialog — набор пути", () => {
         const { dialog, settle, testApp, type } = await setup();
         void dialog.showOpenDialog({ defaultUri: Uri.file("/ws/src") });
         await settle({ query: "/ws/src/", items: ["..", "a.ts", "b.ts"] });
-        // Разделитель на конце каталог не меняет: пути сравниваются без него.
+        // A trailing separator does not change the directory: paths are compared without it.
         testApp.sendKey("Backspace");
         await settle({ query: "/ws/src", items: ["..", "a.ts", "b.ts"] });
         testApp.sendKey("Backspace");
         await settle({ query: "/ws/sr", items: ["..", "docs", "src", "readme.md", "report.txt"], activeIndex: -1 });
-        // Подсветку, как у эталона, ставит следующая буква.
+        // As upstream, the next letter sets the highlight.
         type("c");
         await settle({ query: "/ws/src", activeIndex: 2 });
     });
@@ -269,7 +269,7 @@ describe("SimpleFileDialog — набор пути", () => {
         const { dialog, settle, type } = await setup();
         void dialog.showOpenDialog({ defaultUri: Uri.file("/ws/src") });
         await settle({ query: "/ws/src/" });
-        // «.» сам по себе каталог не меняет.
+        // "." alone does not change the directory.
         type(".");
         await settle({ query: "/ws/src/.", items: ["..", "a.ts", "b.ts"] });
         type(".");
@@ -363,10 +363,10 @@ describe("SimpleFileDialog — набор пути", () => {
         await settle({ query: "/ws/src", activeIndex: 2 });
         testApp.sendKey("Enter");
         await settle({ query: "/ws/src/", items: ["..", "a.ts", "b.ts"] });
-        // Подгрузка дошла до конца — набор дальше снова подсвечивает.
+        // Loading has finished, so further typing highlights again.
         type("b");
         await settle({ query: "/ws/src/b", activeIndex: 2 });
-        // Вход в каталог принятием не был — следующий Enter принимает файл.
+        // Entering the directory was not an accept, so the next Enter accepts the file.
         testApp.sendKey("Enter");
         await expect(result).resolves.toEqual([Uri.file("/ws/src/b.ts")]);
     });
@@ -763,7 +763,7 @@ describe("SimpleFileDialog — ход принятия", () => {
     });
 });
 
-/** Придерживает подгрузку каталога `folder` до `release`. */
+/** Holds the load of directory `folder` until `release`. */
 function holdFolder(files: FileService, folder: string): { started: () => Promise<void>; release: () => void } {
     const resolve = files.resolve.bind(files);
     let release = (): void => undefined;
@@ -837,7 +837,7 @@ describe("SimpleFileDialog — во время подгрузки каталог
         await settle({ query: "/ws/src" });
         await new Promise((done) => setTimeout(done, 50));
         expect(view()).toMatchObject({ activeIndex: -1 });
-        // Подгрузка без force набранное не трогает: в строке остаётся «/ws/src».
+        // A load without force leaves typed input alone: the line keeps "/ws/src".
         release();
         await settle({ items: ["..", "a.ts", "b.ts"] });
         expect(view()).toMatchObject({ query: "/ws/src" });
@@ -859,7 +859,7 @@ describe("SimpleFileDialog — во время подгрузки каталог
     });
 });
 
-/** Придерживает stat пути `target` до `release`. */
+/** Holds the stat of path `target` until `release`. */
 function holdStat(files: FileService, target: string): { started: () => Promise<void>; release: () => void } {
     const stat = files.stat.bind(files);
     let release = (): void => undefined;
@@ -933,7 +933,7 @@ describe("SimpleFileDialog — набор: края", () => {
         const { dialog, settle, type } = await setup();
         void dialog.showSaveDialog({ defaultUri: Uri.file("/ws/x") });
         await settle({ query: "/ws/x" });
-        // Имя выделено — буква его заменяет.
+        // The name is selected, so a letter replaces it.
         type("r");
         await settle({ query: "/ws/r" });
         await new Promise((done) => setTimeout(done, 30));

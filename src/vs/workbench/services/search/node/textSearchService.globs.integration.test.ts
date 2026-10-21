@@ -10,14 +10,14 @@ import { parseSearchFieldGlobs } from "../common/textSearch.ts";
 import { TextSearchService } from "./textSearchService.ts";
 
 /**
- * Юнит-тесты `buildRgArgs` проверяют аргументы, а не то, как их понимает rg: баг
- * «`"common": true` в `files.exclude` прячет `nci/common/**`» был по ним зелёным. Запрос
- * собирается как в Search view: шаблоны настроек — от корня, поля — через {@link parseSearchFieldGlobs}.
+ * `buildRgArgs` unit tests check the arguments, not how rg interprets them: the bug
+ * "`"common": true` in `files.exclude` hides `nci/common/**`" passed them green. The query
+ * is built as in the Search view: setting globs are root-relative, fields go through {@link parseSearchFieldGlobs}.
  */
 
 const NEEDLE = "needle";
 
-/** Файлы фикстуры с {@link NEEDLE}. `ignored/` закрыт `.gitignore`, `linked` — симлинк на `nci`. */
+/** Fixture files containing {@link NEEDLE}. `ignored/` is covered by `.gitignore`, `linked` is a symlink to `nci`. */
 const FILES = [
     ".hidden/h.txt",
     "build.log",
@@ -32,7 +32,7 @@ const FILES = [
     "src/common/x.ts",
 ];
 
-/** Что находит поиск без шаблонов: всё, кроме `.gitignore`-нутого (и симлинка). */
+/** What a search without globs finds: everything except `.gitignore`d files (and the symlink). */
 const VISIBLE = FILES.filter((f) => !f.startsWith("ignored/"));
 
 function without(...excluded: string[]): string[] {
@@ -40,15 +40,15 @@ function without(...excluded: string[]): string[] {
 }
 
 interface ISearchSpec {
-    /** `files.exclude` + `search.exclude` — шаблоны от корня. */
+    /** `files.exclude` + `search.exclude`: root-relative globs. */
     settings?: string[];
     include?: string;
     exclude?: string;
     useIgnoreFiles?: IUseIgnoreFiles;
 }
 
-// Корень с пробелом и `+`, как у worktree `users+name+TICKET`: якорь `/x`
-// отсчитывается от корня поиска, и спецсимволы в его пути не должны мешать.
+// A root with a space and `+`, like a `users+name+TICKET` worktree: the `/x` anchor
+// is relative to the search root, and special characters in its path must not interfere.
 describe("TextSearchService: какие файлы находит поиск (настоящий rg, корень `diode glob+root`)", () => {
     let ws: ITempWorkspace;
     let service: TextSearchService;
@@ -57,7 +57,7 @@ describe("TextSearchService: какие файлы находит поиск (н
         ws = createTempWorkspace({ prefix: "diode glob+root+" });
         for (const file of FILES) ws.writeFile(file, `${NEEDLE}\n`);
         ws.writeFile(".gitignore", "ignored/\n");
-        // Как `bazel-<имя worktree>` в монорепе: симлинк на каталог внутри корня.
+        // Like `bazel-<worktree name>` in a monorepo: a symlink to a directory inside the root.
         if (process.platform !== "win32") symlinkSync(ws.path("nci"), ws.path("linked"), "dir");
         service = new TextSearchService();
     });
@@ -100,7 +100,7 @@ describe("TextSearchService: какие файлы находит поиск (н
 
     describe("шаблоны настроек — от корня", () => {
         it.each<[string[], string[]]>([
-            // Регрессия: монорепа прячет корневой `/common`, а с ним пропадал `nci/common/**`.
+            // Regression: a monorepo hides the root `/common`, and `nci/common/**` vanished with it.
             [["common"], without("common/a.txt")],
             [["common/"], without("common/a.txt")],
             [["common/**"], without("common/a.txt")],
@@ -144,7 +144,7 @@ describe("TextSearchService: какие файлы находит поиск (н
                 "./src, *.log",
                 ["build.log", "nci/build.log", "src/app.css", "src/app.js", "src/app.ts", "src/common/x.ts"],
             ],
-            // `.` — весь корень, и `.gitignore` по-прежнему уважается
+            // `.` is the whole root, and `.gitignore` is still honored
             [".", VISIBLE],
         ])("%j", async (include, expected) => {
             expect(await found({ include })).toEqual(expected);

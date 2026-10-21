@@ -8,7 +8,7 @@ import vsctm from "vscode-textmate";
 import { createDevAssetAccess } from "../../../../../base/node/assets/createDefaultAssetAccess.ts";
 import { getOnigLib } from "../onigLib.ts";
 
-// Свежий Registry на тест, `onigLib` общий — WASM грузится один раз на процесс.
+// A fresh Registry per test, a shared `onigLib`: WASM loads once per process.
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const builtinDir = path.resolve(here, "..", "..", "..", "..", "..", "..", "..", "extensions");

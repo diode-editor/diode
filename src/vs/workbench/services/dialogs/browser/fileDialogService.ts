@@ -11,8 +11,8 @@ import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quic
 import { type IOpenDialogOptions, type ISaveDialogOptions, SimpleFileDialog } from "./simpleFileDialog.ts";
 
 /**
- * `IFileDialogService` эталона. Нативного диалога в терминале нет — всегда {@link SimpleFileDialog}
- * (`files.simpleDialog.enable` эталона). Без `defaultUri` — папка воркспейса, без неё — дом.
+ * Upstream `IFileDialogService`. A terminal has no native dialog, so it is always {@link SimpleFileDialog}
+ * (upstream `files.simpleDialog.enable`). Without `defaultUri` starts in the workspace folder, without one in home.
  */
 export interface IFileDialogService {
     showOpenDialog(options?: IOpenDialogOptions): Promise<Uri[] | undefined>;
@@ -44,7 +44,7 @@ export class FileDialogService implements IFileDialogService {
         return this.createDialog().showSaveDialog(options);
     }
 
-    /** Диалог одноразовый: у каждого показа своё состояние набора и подгрузки. */
+    /** The dialog is single-use: each show has its own typing and loading state. */
     private createDialog(): SimpleFileDialog {
         const userHome = this.environment.userHome;
         return new SimpleFileDialog(this.quickInput, this.files, {

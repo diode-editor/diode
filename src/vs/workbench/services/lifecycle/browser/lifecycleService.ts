@@ -8,26 +8,26 @@ export const LifecycleServiceDIToken = token<LifecycleService>("LifecycleService
 
 export interface IShutdownDirtyItem {
     readonly name: string;
-    /** Пока отвечали по предыдущим, вкладку могли закрыть — такой элемент пропускается. */
+    /** The tab may have been closed while earlier items were answered; such an item is skipped. */
     isStillDirty(): boolean;
     /**
-     * Перезаписывает файл и при внешних изменениях — выбор пользователя не должен пропасть.
-     * `false` — не сохранилось (untitled без пути, ошибка записи): прощание отменяется.
+     * Overwrites the file even if it changed on disk: the user's choice must not be lost.
+     * `false` means nothing was saved (untitled without a path, write error) and shutdown is cancelled.
      */
     save(): Promise<boolean>;
 }
 
-/** Аналог vscode `onBeforeShutdown`-вето. */
+/** Counterpart of the vscode `onBeforeShutdown` veto. */
 export interface IShutdownParticipant {
     collectDirty(): readonly IShutdownDirtyItem[];
 }
 
-/** Почему приложение прощается: от причины зависит только то, что будет после (выход или новый процесс). */
+/** Why the app shuts down: the reason only affects what comes after (exit or a new process). */
 export type ShutdownReason = "quit" | "reload" | "inspector";
 
 /**
- * Аналог vscode `WillShutdownEvent`. Фаза ждёт промисы {@link join}, но не дольше общего
- * тайм-аута — зависший участник не держит выход.
+ * Counterpart of vscode `WillShutdownEvent`. The phase awaits {@link join} promises, but no longer
+ * than the shared timeout, so a hung participant doesn't block exit.
  */
 export interface IWillShutdownEvent {
     readonly reason: ShutdownReason;
@@ -38,15 +38,15 @@ export interface ILifecycleSubscription {
     dispose(): void;
 }
 
-/** Покрывает вежливую остановку extension host'а: RPC `host.shutdown` ждёт до 1.5 с, дальше SIGTERM. */
+/** Covers a graceful extension host stop: RPC `host.shutdown` waits up to 1.5 s, then SIGTERM. */
 export const SHUTDOWN_JOIN_TIMEOUT_MS = 2000;
 
 /**
- * Аналог vscode `ILifecycleService`. Прощание — в два шага: {@link requestShutdown}
- * (подтверждение «грязного», Cancel прерывает) и {@link shutdown}, единый для выхода,
- * перезагрузки и инспектора: async-фаза {@link onWillShutdown} с общим тайм-аутом, затем
- * {@link onShutdownSync} в порядке, обратном подписке, и только потом `then` вызывающего.
- * Участники подписываются сами там, где создаются, — новый ресурс не вписывают в каждый путь выхода.
+ * Counterpart of vscode `ILifecycleService`. Shutdown takes two steps: {@link requestShutdown}
+ * (confirm dirty items, Cancel aborts) and {@link shutdown}, shared by quit, reload and the
+ * inspector: an async {@link onWillShutdown} phase with a shared timeout, then
+ * {@link onShutdownSync} in reverse subscription order, and only then the caller's `then`.
+ * Participants subscribe where they are created, so a new resource isn't wired into every exit path.
  */
 export class LifecycleService {
     public static dependencies = [DialogServiceDIToken] as const;
@@ -76,8 +76,8 @@ export class LifecycleService {
     }
 
     /**
-     * Пропущенные промежуточные фазы проходятся по порядку (их слушатели тоже срабатывают);
-     * повтор текущей — no-op, откат назад — ошибка в порядке старта.
+     * Skipped intermediate phases are passed in order (their listeners fire too);
+     * repeating the current phase is a no-op, going backwards is a startup ordering bug.
      */
     public setPhase(phase: LifecyclePhase): void {
         const target = LIFECYCLE_PHASES.indexOf(phase);
@@ -92,7 +92,7 @@ export class LifecycleService {
         }
     }
 
-    /** Синхронно в момент перехода, в отличие от {@link when}. */
+    /** Fires synchronously at the transition, unlike {@link when}. */
     public onDidChangePhase(listener: (phase: LifecyclePhase) => void): ILifecycleSubscription {
         return subscribe(this.phaseListeners, listener);
     }
@@ -110,8 +110,8 @@ export class LifecycleService {
     }
 
     /**
-     * Без «грязных» элементов `onProceed` зовётся синхронно (до первого await). Cancel, как и
-     * Save, который не сохранил, оставляет приложение как есть.
+     * Without dirty items `onProceed` is called synchronously (before the first await). Cancel, like
+     * a Save that failed to save, leaves the app as is.
      */
     public async requestShutdown(onProceed: () => unknown): Promise<void> {
         for (const participant of this.participants) {
@@ -125,22 +125,22 @@ export class LifecycleService {
         await onProceed();
     }
 
-    /** Здесь отпускают то, что требует ответа (субпроцессы). */
+    /** Release here whatever needs a reply (subprocesses). */
     public onWillShutdown(listener: (event: IWillShutdownEvent) => void): ILifecycleSubscription {
         return subscribe(this.willShutdownListeners, listener);
     }
 
     /**
-     * Только синхронный код: после `then` event loop может больше не провернуться (перезагрузка
-     * блокирует его запуском нового процесса).
+     * Synchronous code only: after `then` the event loop may never turn again (reload
+     * blocks it by launching a new process).
      */
     public onShutdownSync(listener: () => void): ILifecycleSubscription {
         return subscribe(this.shutdownSyncListeners, listener);
     }
 
     /**
-     * Повторный вызов присоединяется к первому прощанию. Сбой участника не останавливает
-     * остальных: на выходе отступать уже некуда.
+     * A repeated call joins the first shutdown. A failing participant doesn't stop the
+     * others: there is no going back at exit.
      */
     public shutdown(reason: ShutdownReason, then: () => void): Promise<void> {
         this.shutdownPromise ??= this.doShutdown(reason, then);
@@ -159,7 +159,7 @@ export class LifecycleService {
             try {
                 listener(event);
             } catch {
-                // участник не смог начать прощание — остальные всё равно прощаются
+                // a participant failed to start shutting down; the others still shut down
             }
         }
         let timer: ReturnType<typeof setTimeout> | undefined;
@@ -172,7 +172,7 @@ export class LifecycleService {
             try {
                 listener();
             } catch {
-                // то же: синхронный шаг одного участника не держит остальных
+                // same: one participant's synchronous step doesn't hold up the others
             }
         }
         then();

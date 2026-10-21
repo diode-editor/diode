@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { parseSearchFieldGlobs } from "./textSearch.ts";
 
-// Ожидания — `parseSearchPaths` эталона (`queryBuilder.ts`) для одной папки.
+// Expectations follow upstream `parseSearchPaths` (`queryBuilder.ts`) for a single folder.
 describe("parseSearchFieldGlobs", () => {
     it.each<[string, string, string[]]>([
         ["пустое поле", "", []],
@@ -18,7 +18,7 @@ describe("parseSearchFieldGlobs", () => {
         ["`./x` — путь от корня", "./common", ["common", "common/**"]],
         ["`.\\x` — путь от корня в windows-форме", ".\\nci\\common", ["nci/common", "nci/common/**"]],
         ["`./x/` — хвост срезается", "./common/", ["common", "common/**"]],
-        // `**` перебил бы `.gitignore` (`--glob` у rg сильнее ignore-файлов)
+        // `**` would override `.gitignore` (rg's `--glob` beats ignore files)
         ["`.` — сам корень, шаблона не даёт", ".", []],
         ["`./` — сам корень, шаблона не даёт", "./", []],
         ["`..` — вне корня, пропускается", "..", []],

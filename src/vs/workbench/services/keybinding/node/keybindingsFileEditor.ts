@@ -3,39 +3,39 @@ import { applyEdits, modify, parse as parseJsonc } from "jsonc-parser";
 import type { IUserKeybindingRule } from "../../../../platform/keybinding/common/userKeybindings.ts";
 
 /**
- * Минимальные text edits jsonc-parser (`modify` + `applyEdits`): комментарии и
- * форматирование пользователя выживают.
+ * Minimal jsonc-parser text edits (`modify` + `applyEdits`): the user's comments and
+ * formatting survive.
  */
 
 const MODIFY_OPTIONS = { formattingOptions: { insertSpaces: true, tabSize: 4 } };
 
-/** Пустой/отсутствующий файл стартует с пустого массива (как сидирование `openUserConfigFile`). */
+/** An empty/missing file starts as an empty array (like `openUserConfigFile` seeding). */
 function ensureArrayContent(content: string): string {
-    // Stryker disable next-line ConditionalExpression,MethodExpression,StringLiteral: сид — защитный; jsonc-parser `modify` и на «» и на пробельном входе даёт валидный массив сам, так что пропуск/подмена сида результат не меняет.
+    // Stryker disable next-line ConditionalExpression,MethodExpression,StringLiteral: the seed is defensive; jsonc-parser `modify` produces a valid array on its own for both "" and whitespace input, so skipping/replacing the seed does not change the result.
     return content.trim() === "" ? "[]\n" : content;
 }
 
-/** Правило в порядке ключей VS Code; `when` не пишется, когда его нет. */
+/** The rule in VS Code key order; `when` is omitted when absent. */
 function ruleAsJson(rule: IUserKeybindingRule): Record<string, unknown> {
     const json: Record<string, unknown> = { key: rule.key, command: rule.command };
-    // Stryker disable next-line ConditionalExpression,EqualityOperator: обратная ветка пишет `when: undefined`, а jsonc-parser undefined-значение опускает — результат неотличим.
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: the inverted branch writes `when: undefined`, and jsonc-parser omits undefined values — the result is indistinguishable.
     if (rule.when !== undefined) json.when = rule.when;
-    // Stryker disable next-line ConditionalExpression,EqualityOperator: та же симметрия — `args: undefined` jsonc-parser опускает.
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: same symmetry — jsonc-parser omits `args: undefined`.
     if (rule.args !== undefined) json.args = rule.args;
     return json;
 }
 
 export function appendKeybindingRule(content: string, rule: IUserKeybindingRule): string {
     const base = ensureArrayContent(content);
-    // Stryker disable next-line BooleanLiteral: для пути [-1] modify дописывает элемент и без isArrayInsertion — флаг здесь на явность, поведение то же.
+    // Stryker disable next-line BooleanLiteral: for path [-1] modify appends the element even without isArrayInsertion — the flag is for explicitness, behavior is the same.
     const edits = modify(base, [-1], ruleAsJson(rule), { ...MODIFY_OPTIONS, isArrayInsertion: true });
     return applyEdits(base, edits);
 }
 
-/** Толерантна к мусору в массиве: файл правят руками, битая запись не должна ронять операцию. */
+/** Tolerates junk in the array: the file is hand-edited, and a broken entry must not fail the operation. */
 export function removeKeybindingRules(content: string, predicate: (rule: IUserKeybindingRule) => boolean): string {
     const base = ensureArrayContent(content);
-    // Stryker disable next-line ObjectLiteral,ArrayDeclaration,BooleanLiteral: опции толерантности парсера — на корректном и на tolerant-разбираемом входе результат тот же.
+    // Stryker disable next-line ObjectLiteral,ArrayDeclaration,BooleanLiteral: parser tolerance options — the result is the same on valid and tolerantly parsed input.
     const parsed: unknown = parseJsonc(base, [], { allowTrailingComma: true });
     if (!Array.isArray(parsed)) return base;
 
@@ -45,7 +45,7 @@ export function removeKeybindingRules(content: string, predicate: (rule: IUserKe
         if (rule !== null && predicate(rule)) doomed.push(index);
     });
 
-    // С конца: удаление сдвигает индексы последующих элементов.
+    // From the end: a removal shifts the indices of the following elements.
     let next = base;
     for (const index of doomed.reverse()) {
         next = applyEdits(next, modify(next, [index], undefined, MODIFY_OPTIONS));
@@ -54,10 +54,10 @@ export function removeKeybindingRules(content: string, predicate: (rule: IUserKe
 }
 
 function asRule(raw: unknown): IUserKeybindingRule | null {
-    // Stryker disable next-line ConditionalExpression,LogicalOperator: защитный отсев; `typeof raw !== "object"` избыточен рядом с проверкой command ниже (у примитивов `.command` === undefined → отсев там же), а null ловит `raw === null` — мутации не меняют, что доходит до предиката.
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: defensive filter; `typeof raw !== "object"` is redundant next to the command check below (primitives have `.command` === undefined and are filtered there), and `raw === null` catches null — mutations do not change what reaches the predicate.
     if (typeof raw !== "object" || raw === null) return null;
     const rule = raw as Record<string, unknown>;
-    // Stryker disable next-line ConditionalExpression,EqualityOperator: пустой command — не правило; `=== ""` часть отсева, но пустая строка как command и так недопустима (в файле её нет), так что ветка не меняет наблюдаемого состава.
+    // Stryker disable next-line ConditionalExpression,EqualityOperator: an empty command is not a rule; `=== ""` is part of the filter, but an empty command is invalid anyway (the file has none), so the branch does not change the observable set.
     if (typeof rule.command !== "string" || rule.command === "") return null;
     return {
         key: typeof rule.key === "string" ? rule.key : "",

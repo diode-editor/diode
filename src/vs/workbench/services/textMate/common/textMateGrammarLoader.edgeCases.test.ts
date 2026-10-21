@@ -41,8 +41,8 @@ class MemoryGrammarAssets implements IAssetAccess {
 }
 
 /**
- * Тема, красящая скоупы фикстур своими цветами: токены бинарные, и скоуп
- * виден в них только цветом (индексом colorMap).
+ * A theme that paints fixture scopes in their own colors: tokens are binary, and a scope
+ * shows in them only as a color (colorMap index).
  */
 const MARKER_THEME: ITextMateTheme = {
     settings: [

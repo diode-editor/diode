@@ -1,14 +1,14 @@
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 import type { IUserDataProfile } from "../../../../platform/userDataProfile/common/userDataProfile.ts";
 
-/** У эталона профиль переключается на лету; у нас он фиксирован на процесс, смена — перезагрузка окна. */
+/** Upstream switches profiles on the fly; here the profile is fixed per process, switching reloads the window. */
 export interface IUserDataProfileService {
     readonly currentProfile: IUserDataProfile;
 }
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference, so the string is only a debug label
 export const IUserDataProfileServiceDIToken = token<IUserDataProfileService>("UserDataProfileService");
 
-/** Категория команд профилей в палитре (`PROFILES_CATEGORY` эталона). */
+/** Command palette category for profile commands (upstream `PROFILES_CATEGORY`). */
 export const PROFILES_TITLE = "Profiles";
 export const PROFILES_CATEGORY = PROFILES_TITLE;

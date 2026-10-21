@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { createTestRegistry } from "./testRegistry.ts";
 
-/** Учебные тесты: `ruleStack` течёт через многострочные конструкции, `equals()` ловит сходимость. */
+/** Learning tests: `ruleStack` flows through multiline constructs, `equals()` detects convergence. */
 describe("vscode-textmate :: multiline state", () => {
     it("после открытия `/*` состояние НЕ равно INITIAL", async () => {
         const reg = createTestRegistry();
@@ -36,9 +36,9 @@ describe("vscode-textmate :: multiline state", () => {
         const r2 = g.tokenizeLine("line2", r1.ruleStack);
         const r3 = g.tokenizeLine("line3", r2.ruleStack);
 
-        // r1 уже завершилось состоянием «внутри комментария»;
-        // последующие строки сохраняют то же состояние — DocumentTokenStore
-        // использует это чтобы прервать background re-tokenization.
+        // r1 already ended in the "inside a comment" state;
+        // subsequent lines keep the same state, which DocumentTokenStore
+        // uses to stop background retokenization.
         expect(r1.ruleStack.equals(r2.ruleStack)).toBe(true);
         expect(r2.ruleStack.equals(r3.ruleStack)).toBe(true);
     });
@@ -51,7 +51,7 @@ describe("vscode-textmate :: multiline state", () => {
         const r1 = g.tokenizeLine("/* hello", INITIAL);
         const r2 = g.tokenizeLine("world */ const x = 1;", r1.ruleStack);
 
-        // в `r2` после `*/` появляется обычный JS-токен `const`
+        // after `*/` in `r2` a regular JS token `const` appears
         const constTok = r2.tokens.find((t) => "world */ const x = 1;".slice(t.startIndex, t.endIndex) === "const");
         expect(constTok).toBeDefined();
         expect(constTok!.scopes).toContain("storage.type.js");

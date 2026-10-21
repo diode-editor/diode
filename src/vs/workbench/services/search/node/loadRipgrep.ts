@@ -1,5 +1,5 @@
-// Два пути, как loadNodePty: dev — @vscode/ripgrep из node_modules; сборка — ассет
-// `rg.bundle`, распакованный в кэш (исполняемый файл не запустить из JS-blob).
+// Two paths, like loadNodePty: dev uses @vscode/ripgrep from node_modules; the build uses
+// the `rg.bundle` asset extracted into the cache (an executable cannot run from a JS blob).
 
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -12,12 +12,12 @@ const ASSET_NAME = "rg.bundle";
 let cached: string | null = null;
 
 export function loadRipgrepPath(): string {
-    // Stryker disable next-line AssignmentOperator: без кэша путь тот же — теряется только экономия повторного чтения ассета
+    // Stryker disable next-line AssignmentOperator: without the cache the path is the same — only the saved asset re-read is lost
     cached ??= resolveRipgrepPath();
     return cached;
 }
 
-/** `bundle === null` — dev (@vscode/ripgrep). Имя бинаря в бандле — как в pack-ripgrep.mjs. */
+/** `bundle === null` means dev (@vscode/ripgrep). The binary name inside the bundle matches pack-ripgrep.mjs. */
 export function resolveRipgrepPath(
     bundle: Uint8Array | null = readPackagedAsset(ASSET_NAME),
     cacheRoot?: string,

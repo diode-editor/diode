@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createTestRegistry } from "./testRegistry.ts";
 
-/** Учебные тесты: как `vscode-textmate.Registry` находит и загружает грамматики. */
+/** Learning tests: how `vscode-textmate.Registry` finds and loads grammars. */
 describe("vscode-textmate :: Registry", () => {
     it("loadGrammar возвращает IGrammar для известного scopeName", async () => {
         const registry = createTestRegistry();

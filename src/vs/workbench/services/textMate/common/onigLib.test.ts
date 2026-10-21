@@ -3,10 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-// Загрузка onig-движка — на пути к первой подсветке. `loadWASM` с байтами
-// проверяет `instanceof Response`, а ленивый глобал `Response` тянет undici
-// вместе с `http` (~40 мс на старте). Проверка — в свежем процессе: в воркере
-// vitest undici может быть уже загружен кем угодно.
+// Loading the onig engine is on the path to the first highlight. `loadWASM` with bytes
+// checks `instanceof Response`, and the lazy `Response` global pulls in undici
+// together with `http` (~40 ms at startup). The check runs in a fresh process: in a vitest
+// worker undici may already be loaded by anyone.
 
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
 const ONIG_LIB = new URL("./onigLib.ts", import.meta.url).href;

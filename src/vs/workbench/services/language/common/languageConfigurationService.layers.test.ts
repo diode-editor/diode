@@ -6,9 +6,9 @@ import { NULL_LOGGER } from "../../../../platform/log/common/nullLogService.ts";
 
 import { LanguageConfigurationService } from "./languageConfigurationService.ts";
 
-// Слои `languages.setLanguageConfiguration` поверх language-configuration.json —
-// как `ComposedLanguageConfiguration` эталона: поле слоя заменяет поле файла,
-// поздний слой побеждает ранний, разворачивается уже результат слияния.
+// `languages.setLanguageConfiguration` layers over language-configuration.json,
+// as upstream `ComposedLanguageConfiguration`: a layer field replaces the file field,
+// a later layer wins over an earlier one, and the merged result is what gets expanded.
 
 const GO_CONFIG_PATH = "ext/go/language-configuration.json";
 const GO_FILE = JSON.stringify({
@@ -71,7 +71,7 @@ describe("LanguageConfigurationService — слои расширений", () =>
         expect(service.get("go")?.comments?.lineComment).toBe("--");
         second.dispose();
         expect(service.get("go")?.comments?.lineComment).toBe("#");
-        // Повторный dispose безвреден и не снимает чужой слой.
+        // A repeated dispose is harmless and does not remove someone else's layer.
         second.dispose();
         expect(service.get("go")?.comments?.lineComment).toBe("#");
         first.dispose();

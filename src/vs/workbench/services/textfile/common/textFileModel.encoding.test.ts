@@ -62,7 +62,7 @@ describe("TextFileModel — encoding axis", () => {
         const controller = createEditorPane();
         const fp = writeBytes("cyr.txt", iconv.encode("Привет, мир!\n", "windows1251"));
         controller.openFile(Uri.file(fp));
-        // Как utf8 — кракозябры.
+        // Decoded as utf8 it is mojibake.
         expect(controller.getText()).not.toContain("Привет");
 
         expect(await controller.reopenWithEncoding("windows1251")).toBe(true);
@@ -77,8 +77,8 @@ describe("TextFileModel — encoding axis", () => {
         controller.dispose();
     });
 
-    // iconv-lite — ленивый кусок бандла (encoding.ts): шов не должен срабатывать
-    // на открытии и записи обычного файла, иначе кусок грузится на каждом запуске.
+    // iconv-lite is a lazy chunk (encoding.ts): the seam must not fire when opening
+    // and writing a regular file, otherwise the chunk loads on every run.
     it("открытие, правка и запись utf-8 и UTF-16 файла не грузят iconv; reopen в windows-1251 — грузит", async () => {
         const requested: string[] = [];
         setLazyModuleLoader(<T>(id: string, importer: () => Promise<T>) => {
@@ -112,8 +112,8 @@ describe("TextFileModel — encoding axis", () => {
         }
     });
 
-    // Декод в явной кодировке асинхронный (не-Unicode ждёт iconv): всё, что
-    // случилось с буфером, пока он шёл, побеждает устаревший результат.
+    // Decoding with an explicit encoding is async (non-Unicode waits for iconv): whatever
+    // happened to the buffer meanwhile wins over the stale result.
     describe("reopenWithEncoding, обогнанный до конца декода", () => {
         it("revertToDisk — перечитка выигрывает, reopen не применяется", async () => {
             const controller = createEditorPane();
@@ -265,7 +265,7 @@ describe("TextFileModel — encoding axis", () => {
         let fired = 0;
         const subscription = controller.onDidChangeEncoding(() => fired++);
         subscription.dispose();
-        subscription.dispose(); // второй dispose: слушателя уже нет в списке
+        subscription.dispose(); // second dispose: the listener is no longer in the list
         controller.setEncoding("koi8r");
         expect(fired).toBe(0);
         controller.dispose();

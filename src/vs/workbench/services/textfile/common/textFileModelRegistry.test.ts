@@ -117,7 +117,7 @@ describe("TextFileModelRegistry", () => {
         const refA = registry.acquire(uriA);
         const refB = registry.acquire(uriB);
 
-        // A сохраняется поверх пути B — ключ b.txt уже занят моделью B.
+        // A is saved over path B, whose key b.txt is already taken by model B.
         await refA.model.saveAs(uriB.fsPath);
         registry.handleUriChanged(refA.model);
 
@@ -137,7 +137,7 @@ describe("TextFileModelRegistry", () => {
         await refA.model.saveAs(uriB.fsPath);
         registry.handleUriChanged(refA.model);
 
-        // Второй переезд — уже с key === null: снимать старый ключ не с чего.
+        // The second move already has key === null: there is no old key to remove.
         const freePath = ws.path("c.txt");
         await refA.model.saveAs(freePath);
         registry.handleUriChanged(refA.model);
