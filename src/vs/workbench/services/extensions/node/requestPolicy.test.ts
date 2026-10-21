@@ -22,7 +22,7 @@ function rpcAnswering(answer: () => Promise<unknown>) {
 }
 
 describe("loggingRequest", () => {
-    it("ответ проходит как есть, параметры и опции — до транспорта; лог молчит", async () => {
+    it("the response passes as is, params and options reach the transport; the log is silent", async () => {
         const logger = spyLogger();
         const { rpc, calls } = rpcAnswering(() => Promise.resolve("ok"));
         const request = loggingRequest(rpc, logger as unknown as ILogger);
@@ -34,7 +34,7 @@ describe("loggingRequest", () => {
         expect(logger.warn).not.toHaveBeenCalled();
     });
 
-    it("истёкший срок — debug с текстом таймаута, отказ пробрасывается", async () => {
+    it("an expired deadline logs debug with the timeout text, the rejection propagates", async () => {
         const logger = spyLogger();
         const timeout = new TimeoutError("workspace.fs.readFile", 5);
         const { rpc } = rpcAnswering(() => Promise.reject(timeout));
@@ -44,7 +44,7 @@ describe("loggingRequest", () => {
         expect(logger.warn).not.toHaveBeenCalled();
     });
 
-    it("отказ — warn с методом и самой ошибкой (стек расширения), отказ пробрасывается", async () => {
+    it("a rejection logs warn with the method and the error itself (extension stack), the rejection propagates", async () => {
         const logger = spyLogger();
         const failure = new Error("provider crashed");
         const { rpc } = rpcAnswering(() => Promise.reject(failure));
@@ -54,7 +54,7 @@ describe("loggingRequest", () => {
         expect(logger.debug).not.toHaveBeenCalled();
     });
 
-    it("без логгера отказы просто пробрасываются", async () => {
+    it("without a logger rejections just propagate", async () => {
         const { rpc } = rpcAnswering(() => Promise.reject(new TimeoutError("workspace.fs.readFile", 1)));
         await expect(
             loggingRequest(rpc, undefined)("workspace.fs.readFile", { uri: "file:///a" }, {}),
@@ -68,7 +68,7 @@ describe("loggingRequest", () => {
 
 describe("DEFAULT_REQUEST_TIMEOUTS", () => {
     // `languages.provideCompletionItems` is intentionally absent: completion waits without a deadline.
-    it("сроки по методам провода — прежние дефолты опций хоста", () => {
+    it("per-method wire deadlines match the previous host option defaults", () => {
         expect(DEFAULT_REQUEST_TIMEOUTS).toEqual({
             "workspace.willSaveTextDocument": 1500,
             "languages.resolveCompletionItem": 1500,

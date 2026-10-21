@@ -46,7 +46,7 @@ const REDHAT_JAVA: IExtensionContributions = {
 };
 
 describe("registerExtensionSemanticTokens", () => {
-    it("типы с superType, модификаторы и пробы ложатся в реестр (redhat.java)", () => {
+    it("types with superType, modifiers and probe scopes land in the registry (redhat.java)", () => {
         const registry = createDefaultTokenClassificationRegistry();
         const before = registry.getTokenStylingDefaultRules().length;
         const logger = createLoggerSpy();
@@ -78,7 +78,7 @@ describe("registerExtensionSemanticTokens", () => {
         expect(logger.error).not.toHaveBeenCalled();
     });
 
-    it("пробел в скоупе — путь скоупов; без language — селектор для всех языков", () => {
+    it("space in a scope means a scope path; without language — a selector for all languages", () => {
         const registry = new TokenClassificationRegistry();
         registerExtensionSemanticTokens(
             [ext({ semanticTokenScopes: [{ scopes: { decorator: ["meta.decorator entity.name.function"] } }] })],
@@ -89,7 +89,7 @@ describe("registerExtensionSemanticTokens", () => {
         expect(rule.selector.match("decorator", [], "python")).toBe(100);
     });
 
-    it("расширения без contributes или без семантики не трогают реестр и не пишут ошибок", () => {
+    it("extensions without contributes or semantics leave the registry alone and log no errors", () => {
         const registry = new TokenClassificationRegistry();
         const logger = createLoggerSpy();
         registerExtensionSemanticTokens([ext(undefined), ext({ themes: [] })], registry, logger);
@@ -99,7 +99,7 @@ describe("registerExtensionSemanticTokens", () => {
         expect(registry.getTokenStylingDefaultRules()).toEqual([]);
     });
 
-    it("невалидные элементы — ошибка в лог с id расширения (тексты эталона) и пропуск", () => {
+    it("invalid entries — a logged error with the extension id (upstream texts) and skip", () => {
         const registry = new TokenClassificationRegistry();
         const logger = createLoggerSpy();
         registerExtensionSemanticTokens(
@@ -152,7 +152,7 @@ describe("registerExtensionSemanticTokens", () => {
         ]);
     });
 
-    it("null-элементы и нестроковый id — ошибка, а не падение; смешанный массив скоупов отвергается", () => {
+    it("null entries and a non-string id are an error, not a crash; a mixed scope array is rejected", () => {
         const registry = new TokenClassificationRegistry();
         const logger = createLoggerSpy();
         registerExtensionSemanticTokens(
@@ -178,7 +178,7 @@ describe("registerExtensionSemanticTokens", () => {
         ]);
     });
 
-    it("без логгера ошибки не роняют регистрацию", () => {
+    it("without a logger errors do not break registration", () => {
         const registry = new TokenClassificationRegistry();
         expect(() => {
             registerExtensionSemanticTokens([ext({ semanticTokenTypes: [{ id: "" }] })], registry);

@@ -80,8 +80,8 @@ const JDT_URI_RAW =
     "jdt://contents/commons-lang3-3.14.0.jar/org.apache.commons.lang3/StringUtils.java" +
     "?=mvn-proj/%5C/home%5C/vscode%5C/.m2%5C/repository%3D/maven.pomderived=/true";
 
-describe("EditorService.openUri — недисковые ресурсы", () => {
-    it("открывает read-only вкладку с содержимым провайдера, языком и меткой из ресурса", async () => {
+describe("EditorService.openUri — non-disk resources", () => {
+    it("opens a read-only tab with the provider's content and a language and label from the resource", async () => {
         const service = createEditorService(JAVA_LANGUAGE_SERVICE);
         service.virtualDocumentSource = makeSource("jdt", () => Promise.resolve("public class StringUtils {}\n"));
 
@@ -96,7 +96,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("язык неизвестной схеме ресурса — plaintext, а не отказ", async () => {
+    it("the language for an unknown resource scheme is plaintext, not a failure", async () => {
         const service = createEditorService(JAVA_LANGUAGE_SERVICE);
         service.virtualDocumentSource = makeSource("demo", () => Promise.resolve("hello\n"));
 
@@ -106,7 +106,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("повторное открытие активирует существующую вкладку СИНХРОННО и провайдера не тревожит", async () => {
+    it("reopening activates the existing tab SYNCHRONOUSLY and does not call the provider", async () => {
         const service = createEditorService();
         const provide = vi.fn<(uri: Uri) => Promise<string | null>>().mockResolvedValue("x\n");
         service.virtualDocumentSource = makeSource("demo", provide);
@@ -124,7 +124,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("нет источника вовсе — сообщение, а не падение", async () => {
+    it("no source at all: a message, not a crash", async () => {
         const service = createEditorService();
         const failures: { uri: string; reason: string }[] = [];
         service.onDidFailOpen(({ uri, reason }) => failures.push({ uri: uri.toString(), reason }));
@@ -137,7 +137,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("провайдер есть, но не для этой схемы — сообщение с её именем", async () => {
+    it("a provider exists but not for this scheme: a message naming it", async () => {
         const service = createEditorService();
         const failures: string[] = [];
         service.onDidFailOpen(({ reason }) => failures.push(reason));
@@ -150,7 +150,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("провайдер сломался — причина доходит до человека, процесс живёт", async () => {
+    it("the provider fails: the reason reaches the user, the process survives", async () => {
         const service = createEditorService();
         const failures: string[] = [];
         service.onDidFailOpen(({ reason }) => failures.push(reason));
@@ -165,7 +165,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("провайдер отклонился не-Error значением — причина всё равно читаемая", async () => {
+    it("the provider rejects with a non-Error value: the reason is still readable", async () => {
         const service = createEditorService();
         const failures: string[] = [];
         service.onDidFailOpen(({ reason }) => failures.push(reason));
@@ -179,7 +179,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("провайдер отказался отдать ресурс (null) — вкладки нет, сообщение есть", async () => {
+    it("the provider declines the resource (null): no tab, a message", async () => {
         const service = createEditorService();
         const failures: string[] = [];
         service.onDidFailOpen(({ reason }) => failures.push(reason));
@@ -192,7 +192,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("без подписчика onDidFailOpen неудача всё равно не бросает", async () => {
+    it("without an onDidFailOpen subscriber a failure still does not throw", async () => {
         const service = createEditorService();
 
         await expect(service.openUri(Uri.parse("jdt:///Foo.java"))).resolves.toBeUndefined();
@@ -200,7 +200,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("file: открывается СИНХРОННО — обещание можно игнорировать", () => {
+    it("file: opens SYNCHRONOUSLY, the promise can be ignored", () => {
         const service = createEditorService();
 
         void service.openUri(Uri.file("/tmp/sync.txt"));
@@ -210,7 +210,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("beside-группа не создаётся, когда открывать нечем", async () => {
+    it("the beside group is not created when there is nothing to open", async () => {
         const service = createEditorService();
         service.openFile("/tmp/a.txt");
 
@@ -220,7 +220,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         expect(service.editorGroups.groups.length).toBe(1);
         service.dispose();
     });
-    it("к вкладке применяются editor.*-настройки — она полноценный редактор, а не превью", async () => {
+    it("editor.* settings apply to the tab: it is a full editor, not a preview", async () => {
         const service = createEditorService(NULL_LANGUAGE_SERVICE, {
             configurationService: stubConfigurationService({
                 "editor.wordWrap": "bounded",
@@ -239,7 +239,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("причина отказа уходит в лог с ресурсом целиком", async () => {
+    it("the failure reason is logged with the full resource", async () => {
         const logged: string[] = [];
         const service = createEditorService(NULL_LANGUAGE_SERVICE, { logService: recordingLogService(logged) });
 
@@ -249,7 +249,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("beside: уже открытый там ресурс переиспользуется, а не запрашивается заново", async () => {
+    it("beside: a resource already open there is reused, not requested again", async () => {
         const service = createEditorService();
         const provide = vi.fn<(uri: Uri) => Promise<string | null>>().mockResolvedValue("x\n");
         service.virtualDocumentSource = makeSource("demo", provide);
@@ -270,7 +270,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.dispose();
     });
 
-    it("beside ищет соседа СПРАВА: тот же ресурс слева повторного открытия не отменяет", async () => {
+    it("beside looks for the neighbour on the RIGHT: the same resource on the left does not prevent reopening", async () => {
         const service = createEditorService();
         const provide = vi.fn<(uri: Uri) => Promise<string | null>>().mockResolvedValue("x\n");
         service.virtualDocumentSource = makeSource("demo", provide);
@@ -287,8 +287,8 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
     });
 });
 
-describe("EditorService.canRestore — что история умеет открыть заново", () => {
-    it("диск и безымянный буфер — всегда", () => {
+describe("EditorService.canRestore — what history can reopen", () => {
+    it("disk and untitled buffer: always", () => {
         const service = createEditorService();
 
         expect(service.canRestore(Uri.file("/tmp/a.ts"))).toBe(true);
@@ -296,7 +296,7 @@ describe("EditorService.canRestore — что история умеет откр
         service.dispose();
     });
 
-    it("недисковый — только пока его схему обслуживает провайдер", () => {
+    it("non-disk: only while a provider serves its scheme", () => {
         const service = createEditorService();
         const jdt = Uri.parse("jdt:///Foo.java");
 
@@ -310,7 +310,7 @@ describe("EditorService.canRestore — что история умеет откр
     });
 
     describe("EditorService.refreshVirtualDocument", () => {
-        it("перечитывает открытую вкладку по onDidChange провайдера", async () => {
+        it("rereads the open tab on the provider's onDidChange", async () => {
             const service = createEditorService();
             let content = "v1\n";
             service.virtualDocumentSource = makeSource("demo", () => Promise.resolve(content));
@@ -326,7 +326,7 @@ describe("EditorService.canRestore — что история умеет откр
             service.dispose();
         });
 
-        it("освежается ТОЛЬКО вкладка этого ресурса — соседние не трогаем", async () => {
+        it("ONLY this resource's tab is refreshed, neighbours are left alone", async () => {
             const errors: string[] = [];
             const service = createEditorService(NULL_LANGUAGE_SERVICE, { logService: recordingLogService(errors) });
             const contents = new Map<string, string>([
@@ -353,7 +353,7 @@ describe("EditorService.canRestore — что история умеет откр
             service.dispose();
         });
 
-        it("отказ освежения называет ресурс и причину в логе", async () => {
+        it("a refresh failure logs the resource and the reason", async () => {
             const logged: string[] = [];
             const service = createEditorService(NULL_LANGUAGE_SERVICE, { logService: recordingLogService(logged) });
             let fail = false;
@@ -373,7 +373,7 @@ describe("EditorService.canRestore — что история умеет откр
             service.dispose();
         });
 
-        it("ресурс не открыт — вкладку по событию провайдера не заводим", async () => {
+        it("resource not open: the provider event does not create a tab", async () => {
             const service = createEditorService();
             const provide = vi.fn<(uri: Uri) => Promise<string | null>>().mockResolvedValue("x\n");
             service.virtualDocumentSource = makeSource("demo", provide);
@@ -386,7 +386,7 @@ describe("EditorService.canRestore — что история умеет откр
             service.dispose();
         });
 
-        it("отказ провайдера при освежении не бросает и не стирает содержимое", async () => {
+        it("a provider failure on refresh does not throw or wipe the content", async () => {
             const service = createEditorService();
             let fail = false;
             service.virtualDocumentSource = makeSource("demo", () =>
@@ -404,7 +404,7 @@ describe("EditorService.canRestore — что история умеет откр
             service.dispose();
         });
 
-        it("источник сняли (умер extension host) — освежать нечем, вкладка цела", async () => {
+        it("the source is removed (extension host died): nothing to refresh, the tab is intact", async () => {
             const service = createEditorService();
             service.virtualDocumentSource = makeSource("demo", () => Promise.resolve("v1\n"));
             const uri = Uri.parse("demo:///a");
@@ -421,7 +421,7 @@ describe("EditorService.canRestore — что история умеет откр
             service.dispose();
         });
 
-        it("провайдер отказался отдать содержимое (null) — вкладка прежняя, и это не ошибка", async () => {
+        it("the provider declines the content (null): the tab is unchanged and this is not an error", async () => {
             const logged: string[] = [];
             const service = createEditorService(NULL_LANGUAGE_SERVICE, { logService: recordingLogService(logged) });
             let content: string | null = "v1\n";
@@ -443,8 +443,8 @@ describe("EditorService.canRestore — что история умеет откр
     });
 });
 
-describe("EditorService.openUri — фокус при открытии недискового ресурса", () => {
-    it("focus: false не уводит фокус из текущего редактора", async () => {
+describe("EditorService.openUri — focus when opening a non-disk resource", () => {
+    it("focus: false keeps focus in the current editor", async () => {
         const ws = createTempWorkspace({ prefix: "diode-virtual-focus-" });
         const h = createAppTestHarness({ workspaceFolder: ws.dir });
         try {
@@ -467,7 +467,7 @@ describe("EditorService.openUri — фокус при открытии неди�
         }
     });
 
-    it("по умолчанию фокус уходит в открытую вкладку", async () => {
+    it("by default focus moves to the opened tab", async () => {
         const ws = createTempWorkspace({ prefix: "diode-virtual-focus-" });
         const h = createAppTestHarness({ workspaceFolder: ws.dir });
         try {

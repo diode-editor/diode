@@ -48,7 +48,7 @@ function makeHost(open = true): { host: ExtensionHost; peer: RpcEndpoint } {
 }
 
 describe("ExtensionHost — inline completions (in-process)", () => {
-    it("вызовы прокси с одним запросом — один RPC с пачкой handle; ответы — по своим", async () => {
+    it("proxy calls with one request make one RPC with a batch of handles; responses go to their owners", async () => {
         const { host, peer } = makeHost();
         const seen = vi.fn((params: unknown) => {
             void params;
@@ -78,7 +78,7 @@ describe("ExtensionHost — inline completions (in-process)", () => {
         );
     });
 
-    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+    it("document not open in the subprocess: empty without RPC", async () => {
         const { host, peer } = makeHost(false);
         const seen = vi.fn(() => [[{ insertText: "x" }]]);
         peer.handleRequest("languages.provideInlineCompletions", seen);
@@ -87,7 +87,7 @@ describe("ExtensionHost — inline completions (in-process)", () => {
         expect(seen).not.toHaveBeenCalled();
     });
 
-    it("после остановки субпроцесса запрос не уходит", async () => {
+    it("no request is sent after the subprocess stops", async () => {
         const { host, peer } = makeHost();
         const seen = vi.fn(() => [[{ insertText: "x" }]]);
         peer.handleRequest("languages.provideInlineCompletions", seen);
@@ -98,7 +98,7 @@ describe("ExtensionHost — inline completions (in-process)", () => {
         expect(seen).not.toHaveBeenCalled();
     });
 
-    it("отмена ядра доезжает до токена субпроцесса и снимает работу провайдера", async () => {
+    it("core cancellation reaches the subprocess token and stops the provider's work", async () => {
         const { host, peer } = makeHost();
         let seen: ICancellationToken | null = null;
         let release: (value: unknown) => void = () => undefined;
@@ -124,7 +124,7 @@ describe("ExtensionHost — inline completions (in-process)", () => {
         expect(await pending).toEqual([{ insertText: "late" }]);
     });
 
-    it("истёкший таймаут отменяет запрос у субпроцесса", async () => {
+    it("an expired timeout cancels the subprocess request", async () => {
         const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
             requestTimeouts: { "languages.provideInlineCompletions": 20 },
         });

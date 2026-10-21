@@ -66,7 +66,7 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
     }
 }
 
-describe("ExtensionHost — форматирование от стокового typescript-language-server", () => {
+describe("ExtensionHost — formatting from the stock typescript-language-server", () => {
     beforeAll(async () => {
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
@@ -74,7 +74,7 @@ describe("ExtensionHost — форматирование от стокового
         await buildExtensions({ repoRoot: REPO_ROOT });
     }, 120_000);
 
-    it("Shift+Alt+F-команда прогоняет правки tsserver'а до буфера", { timeout: 180_000 }, async () => {
+    it("the Shift+Alt+F command carries tsserver edits to the buffer", { timeout: 180_000 }, async () => {
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: TS_LANGUAGE_SERVICE,
             activateEvents: [],
@@ -91,7 +91,7 @@ describe("ExtensionHost — форматирование от стокового
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:typescript");
 
-            const edits = await until("formatting edits от tsserver", async () => {
+            const edits = await until("formatting edits from tsserver", async () => {
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: mainUri,
                     languageId: "typescript",

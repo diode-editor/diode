@@ -56,7 +56,7 @@ describe("ExtensionHost — ExtensionContext.globalState / workspaceState", () =
         }
     }
 
-    it("memento переживает перезапуск: глобальный и воркспейсный, и доступен прямо в activate()", async () => {
+    it("memento survives a restart, both global and workspace, and is available right in activate()", async () => {
         const first = newState();
         await withHarness(first, async (harness) => {
             expect(await harness.commandRegistry.execute("test.memento.shownAtActivate")).toBe(false);
@@ -74,7 +74,7 @@ describe("ExtensionHost — ExtensionContext.globalState / workspaceState", () =
         });
     });
 
-    it("опустевший memento удаляет запись в сторе", async () => {
+    it("an emptied memento deletes the store entry", async () => {
         const state = newState();
         await withHarness(state, async (harness) => {
             await harness.commandRegistry.execute("test.memento.update", true, "k", 1);
@@ -84,7 +84,7 @@ describe("ExtensionHost — ExtensionContext.globalState / workspaceState", () =
         expect(createExtensionStateStore(state).get(ID, true)).toEqual({});
     });
 
-    it("workspaceState из чужого воркспейса отбрасывается с предупреждением, globalState пишется", async () => {
+    it("workspaceState from another workspace is dropped with a warning, globalState is written", async () => {
         const state = newState();
         let workspaceHome: string | null = "/storage/alpha";
         const warn = vi.fn();
@@ -111,7 +111,7 @@ describe("ExtensionHost — ExtensionContext.globalState / workspaceState", () =
         );
     });
 
-    it("и без логгера отброшенная запись не роняет update расширения", async () => {
+    it("even without a logger a dropped write does not fail the extension's update", async () => {
         const state = newState();
         let workspaceHome: string | null = "/storage/alpha";
         await withHarness(

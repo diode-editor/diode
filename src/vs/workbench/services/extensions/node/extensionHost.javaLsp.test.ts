@@ -23,7 +23,7 @@ import type { WireMarker } from "../../../api/common/wireTypes.ts";
 // would mask the real cause with "Cannot read properties of undefined".
 let installed: IInstalledJava | undefined;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.java (jdt.ls, сквозняк)", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock redhat.java (jdt.ls, end to end)", () => {
     beforeAll(async () => {
         installed = await installJava();
         expect(installed.registration.id).toBe(JAVA_ID);
@@ -34,7 +34,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
     });
 
     it(
-        "активация по workspaceContains:, диагностика приезжает и уходит после несохранённой правки",
+        "activation on workspaceContains:, a diagnostic arrives and goes away after an unsaved edit",
         { timeout: 300_000 },
         async () => {
             const published: { resource: string; markers: readonly WireMarker[] }[] = [];
@@ -70,7 +70,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                 // A diagnostic from the REAL jdt.ls is the readiness signal: it arrives
                 // only after m2e has imported and built the project.
                 const mismatch = await until(
-                    "диагностика Type mismatch в App.java",
+                    "Type mismatch diagnostic in App.java",
                     () => {
                         const hit = markersFor(appUri).find((m) =>
                             m.message.includes("cannot convert from String to int"),
@@ -87,7 +87,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                     .getActiveEditor()
                     ?.applyExternalEdits([createTextEdit(createRange(9, 8, 9, 11), "String")], "fix type");
                 await until(
-                    "Type mismatch ушла после правки",
+                    "Type mismatch gone after the edit",
                     () =>
                         Promise.resolve(
                             markersFor(appUri).some((m) => m.message.includes("cannot convert from String to int"))

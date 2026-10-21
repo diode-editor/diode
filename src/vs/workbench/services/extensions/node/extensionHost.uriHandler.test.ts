@@ -5,8 +5,8 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { NULL_LOGGER } from "../../../../platform/log/common/nullLogService.ts";
 import { ExtensionUrlHandler } from "../common/extensionUrlHandler.ts";
 
-describe("ExtensionHost — обработчики URI расширений (subprocess)", () => {
-    it("URL ленивому расширению: активация по onUri, буфер и прямая доставка", async () => {
+describe("ExtensionHost — extension URI handlers (subprocess)", () => {
+    it("URL to a lazy extension: activation by onUri, buffering and direct delivery", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [{ ...extensionFixture("Test.Uri", "uriHandler.cjs"), activationEvents: ["onUri:test.uri"] }],
             activateEvents: [],

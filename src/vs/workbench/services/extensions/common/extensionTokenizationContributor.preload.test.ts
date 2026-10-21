@@ -51,7 +51,7 @@ function makeExtWithTwoGrammars(): IExtension {
 const dummyAssets = {} as IAssetAccess;
 
 describe("ExtensionTokenizationContributor — background preload", () => {
-    it("preloadAll() загружает все зарегистрированные языки", async () => {
+    it("preloadAll() loads all registered languages", async () => {
         const loadSupport = vi.fn().mockResolvedValue(makeStubSupport());
         MockedLoader.mockImplementationOnce(function () {
             return { loadSupport, dispose: vi.fn() } as never;
@@ -72,7 +72,7 @@ describe("ExtensionTokenizationContributor — background preload", () => {
         contributor.dispose();
     });
 
-    it("preloadAll() не перезагружает язык, который уже подтянул редактор", async () => {
+    it("preloadAll() does not reload a language the editor already loaded", async () => {
         const loadSupport = vi.fn().mockResolvedValue(makeStubSupport());
         MockedLoader.mockImplementationOnce(function () {
             return { loadSupport, dispose: vi.fn() } as never;
@@ -89,7 +89,7 @@ describe("ExtensionTokenizationContributor — background preload", () => {
         expect(loadSupport).toHaveBeenCalledTimes(2);
     });
 
-    it("preloadAll() прекращает работу, если contributor задиспозили на лету", async () => {
+    it("preloadAll() stops if the contributor is disposed midway", async () => {
         let resolveFirst!: (support: ITokenizationSupport) => void;
         const first = new Promise<ITokenizationSupport>((r) => (resolveFirst = r));
         const loadSupport = vi.fn().mockReturnValueOnce(first).mockResolvedValue(makeStubSupport());

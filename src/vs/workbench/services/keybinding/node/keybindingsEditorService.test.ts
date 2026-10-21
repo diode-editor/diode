@@ -62,7 +62,7 @@ function makeHarness(fileContent?: string): IHarness {
                         candidate.commandId === commandId &&
                         (chordSpec === undefined || chordsEqual(candidate.chord, parseChord(chordSpec))),
                 );
-            expect(entry, `запись ${commandId} не найдена в реестре`).toBeDefined();
+            expect(entry, `entry ${commandId} not found in the registry`).toBeDefined();
             return entry!;
         },
         fileContent: () => fs.readFileSync(file, "utf-8"),
@@ -86,7 +86,7 @@ function makeHarness(fileContent?: string): IHarness {
 }
 
 describe("applyUserKeybindings (bootstrap)", () => {
-    it("правило добавляет user-биндинг, который перебивает дефолтный", () => {
+    it("a rule adds a user binding that overrides the default", () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
 
@@ -96,7 +96,7 @@ describe("applyUserKeybindings (bootstrap)", () => {
         expect(h.entryOf("user.custom").source).toBe("user");
     });
 
-    it("«-command» с ключом снимает конкретный биндинг, без ключа — все", () => {
+    it("'-command' with a key removes that binding, without a key removes all", () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
         h.registry.register(parseChord("ctrl+shift+s"), "test.save");
@@ -109,7 +109,7 @@ describe("applyUserKeybindings (bootstrap)", () => {
         expect(h.resolves("ctrl+shift+s")).toBeUndefined();
     });
 
-    it("args правила доезжают до реестра и резолюции (бинд с префиллом)", () => {
+    it("rule args reach the registry and resolution (binding with prefill)", () => {
         const h = makeHarness();
 
         h.service.applyUserKeybindings([{ key: "f6", command: "workbench.action.quickOpen", args: "src/" }]);
@@ -125,7 +125,7 @@ describe("applyUserKeybindings (bootstrap)", () => {
 });
 
 describe("defineKeybinding", () => {
-    it("замена дефолта: файл получает пару «новое правило + unbind», реестр — мгновенно", async () => {
+    it("replacing a default: the file gets a 'new rule + unbind' pair, the registry updates at once", async () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save", "textViewFocus");
 
@@ -142,7 +142,7 @@ describe("defineKeybinding", () => {
         expect(h.entryOf("test.save", "f6").source).toBe("user");
     });
 
-    it("замена user-правила переписывает его, не плодя unbind", async () => {
+    it("replacing a user rule rewrites it without adding unbind", async () => {
         const h = makeHarness();
         h.service.applyUserKeybindings([{ key: "f6", command: "my.command" }]);
 
@@ -157,7 +157,7 @@ describe("defineKeybinding", () => {
         expect(h.resolves("f6")).toBeUndefined();
     });
 
-    it("перебинд user-правила сохраняет его args — в файле и в реестре", async () => {
+    it("rebinding a user rule keeps its args in the file and in the registry", async () => {
         const h = makeHarness();
         h.service.applyUserKeybindings([{ key: "f6", command: "my.command", args: { text: "src/" } }]);
 
@@ -171,7 +171,7 @@ describe("defineKeybinding", () => {
         expect(res.kind === "command" && res.args).toEqual({ text: "src/" });
     });
 
-    it("без previous — добавление ещё одного биндинга", async () => {
+    it("without previous, adds another binding", async () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
 
@@ -183,7 +183,7 @@ describe("defineKeybinding", () => {
         expect(h.resolves("f6")).toBe("test.save");
     });
 
-    it("правка существующего файла сохраняет комментарии соседних правил", async () => {
+    it("editing an existing file keeps comments of neighbouring rules", async () => {
         const h = makeHarness(`[
     // pinned by hand
     { "key": "ctrl+h", "command": "hand.made" },
@@ -207,7 +207,7 @@ describe("defineKeybinding", () => {
 });
 
 describe("removeKeybinding", () => {
-    it("дефолт снимается unbind-правилом в файле и из реестра", async () => {
+    it("a default is removed by an unbind rule in the file and from the registry", async () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
 
@@ -218,7 +218,7 @@ describe("removeKeybinding", () => {
         expect(h.resolves("ctrl+s")).toBeUndefined();
     });
 
-    it("user-правило удаляется из файла без unbind", async () => {
+    it("a user rule is deleted from the file without unbind", async () => {
         const h = makeHarness();
         h.service.applyUserKeybindings([{ key: "f6", command: "my.command" }]);
 
@@ -231,7 +231,7 @@ describe("removeKeybinding", () => {
 });
 
 describe("resetKeybinding", () => {
-    it("возвращает дефолт, снятый переопределением в этом же сеансе", async () => {
+    it("restores a default removed by an override in the same session", async () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
         await h.service.defineKeybinding("test.save", parseChord("f6"), h.entryOf("test.save"));
@@ -245,7 +245,7 @@ describe("resetKeybinding", () => {
         expect(h.entryOf("test.save").source).toBe("default");
     });
 
-    it("возвращает дефолт, снятый unbind-правилом ещё на bootstrap", async () => {
+    it("restores a default removed by an unbind rule at bootstrap", async () => {
         const h = makeHarness(`[
     { "key": "ctrl+s", "command": "-test.save" }
 ]
@@ -261,7 +261,7 @@ describe("resetKeybinding", () => {
         expect(h.resolves("ctrl+s")).toBe("test.save");
     });
 
-    it("восстановленная после reset запись сохраняет args", async () => {
+    it("an entry restored after reset keeps its args", async () => {
         const h = makeHarness(`[
     { "key": "f6", "command": "-ext.withArgs" }
 ]
@@ -277,7 +277,7 @@ describe("resetKeybinding", () => {
         expect(res.kind === "command" && res.args).toEqual({ verbose: true });
     });
 
-    it("восстановленный дефолт возвращается на прежний приоритет, а не в конец реестра", async () => {
+    it("a restored default returns to its previous priority, not to the end of the registry", async () => {
         const h = makeHarness();
         h.registry.register(parseChord("escape"), "test.first");
         h.registry.register(parseChord("escape"), "test.second");
@@ -290,7 +290,7 @@ describe("resetKeybinding", () => {
         expect(h.registry.listBindings().map((entry) => entry.commandId)).toEqual(["test.first", "test.second"]);
     });
 
-    it("user-бинд сильнее бинда расширения, даже если слой расширений пришёл позже", async () => {
+    it("a user binding beats an extension binding even if the extension layer arrives later", async () => {
         const h = makeHarness();
         await h.service.defineKeybinding("user.cmd", parseChord("f6"));
         h.registry.setExtensionKeybindings([{ command: "ext.cmd", chord: parseChord("f6") }]);
@@ -298,7 +298,7 @@ describe("resetKeybinding", () => {
         expect(h.resolves("f6")).toBe("user.cmd");
     });
 
-    it("reset команды без user-правил — no-op с ok", async () => {
+    it("reset of a command without user rules is a no-op with ok", async () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
 
@@ -310,7 +310,7 @@ describe("resetKeybinding", () => {
 });
 
 describe("hasUserModifications", () => {
-    it("false без правок, true после define и bootstrap-unbind, false после reset", async () => {
+    it("false without edits, true after define and bootstrap unbind, false after reset", async () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
         expect(h.service.hasUserModifications("test.save")).toBe(false);
@@ -325,7 +325,7 @@ describe("hasUserModifications", () => {
         expect(h.service.hasUserModifications("test.save")).toBe(true);
     });
 
-    it("правило другой команды не считается правкой этой", () => {
+    it("a rule of another command does not count as an edit of this one", () => {
         const h = makeHarness();
         h.service.applyUserKeybindings([
             { key: "f6", command: "other.cmd" },
@@ -335,13 +335,13 @@ describe("hasUserModifications", () => {
         expect(h.service.hasUserModifications("other.cmd")).toBe(true);
     });
 
-    it("true когда в файле есть правило команды", async () => {
+    it("true when the file has a rule for the command", async () => {
         const h = makeHarness();
         await h.service.defineKeybinding("brand.new", parseChord("f6"));
         expect(h.service.hasUserModifications("brand.new")).toBe(true);
     });
 
-    it("true когда в файле есть только снятие команды", async () => {
+    it("true when the file only has a removal of the command", async () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
         await h.service.removeKeybinding(h.entryOf("test.save"));
@@ -349,8 +349,8 @@ describe("hasUserModifications", () => {
     });
 });
 
-describe("исходы и события", () => {
-    it("removeKeybinding и resetKeybinding при ошибке записи — отказ без правок реестра", async () => {
+describe("outcomes and events", () => {
+    it("removeKeybinding and resetKeybinding on a write error fail without touching the registry", async () => {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+s"), "test.save");
         const service = new KeybindingsEditorService(registry, unwritableEnvironment(), NULL_LOG_SERVICE);
@@ -361,7 +361,7 @@ describe("исходы и события", () => {
         expect(registry.listBindings()).toHaveLength(1);
     });
 
-    it("ошибка записи возвращается результатом, реестр не тронут", async () => {
+    it("a write error is returned as the result, the registry is untouched", async () => {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+s"), "test.save");
         const blocker = ws.path("blocker");
@@ -378,7 +378,7 @@ describe("исходы и события", () => {
         expect(registry.listBindings()).toHaveLength(1);
     });
 
-    it("успешная мутация эмитит onDidChange, отписка работает", async () => {
+    it("a successful mutation emits onDidChange, unsubscribing works", async () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
         let fired = 0;
@@ -394,7 +394,7 @@ describe("исходы и события", () => {
         expect(fired).toBe(1);
     });
 
-    it("провальная мутация onDidChange не эмитит", async () => {
+    it("a failed mutation does not emit onDidChange", async () => {
         const registry = new KeybindingRegistry();
         const service = new KeybindingsEditorService(registry, unwritableEnvironment(), NULL_LOG_SERVICE);
         let fired = 0;
@@ -407,7 +407,7 @@ describe("исходы и события", () => {
         expect(fired).toBe(0);
     });
 
-    it("remove и reset тоже эмитят onDidChange", async () => {
+    it("remove and reset emit onDidChange too", async () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
         let fired = 0;
@@ -423,8 +423,8 @@ describe("исходы и события", () => {
     });
 });
 
-describe("выбор правила и запись файла — тонкости", () => {
-    it("define без previous поверх непустого файла не трогает существующие правила", async () => {
+describe("rule selection and file writing — subtleties", () => {
+    it("define without previous over a non-empty file leaves existing rules alone", async () => {
         const h = makeHarness(`[
     { "key": "ctrl+h", "command": "other.command" }
 ]
@@ -438,7 +438,7 @@ describe("выбор правила и запись файла — тонкос�
         expect(rules.map((r) => r.command).sort()).toEqual(["other.command", "test.save"]);
     });
 
-    it("define в несуществующий файл даёт ровно одно валидное правило", async () => {
+    it("define into a nonexistent file yields exactly one valid rule", async () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
 
@@ -453,7 +453,7 @@ describe("выбор правила и запись файла — тонкос�
         expect(h.fileContent().trimEnd().endsWith("]")).toBe(true);
     });
 
-    it("matchesUserRule снимает ровно совпадающее правило: другое command/key/when остаются", async () => {
+    it("matchesUserRule removes only the exactly matching rule: other command/key/when stay", async () => {
         // Four user rules, each differing from the target {save, ctrl+s, listFocus} in exactly one field.
         const h = makeHarness(`[
     { "key": "ctrl+s", "command": "save", "when": "listFocus" },
@@ -484,7 +484,7 @@ describe("выбор правила и запись файла — тонкос�
         expect(rules.some((r) => r.when === "editorFocus")).toBe(true);
     });
 
-    it("remove снимает ТОЛЬКО user-правило с совпадающим when (matchesUserRule чувствителен к when)", async () => {
+    it("remove removes ONLY the user rule with a matching when (matchesUserRule is when-sensitive)", async () => {
         const h = makeHarness(`[
     { "key": "f6", "command": "dup.cmd", "when": "listFocus" },
     { "key": "f6", "command": "dup.cmd", "when": "textViewFocus" }
@@ -505,7 +505,7 @@ describe("выбор правила и запись файла — тонкос�
         expect(remaining[0].when).toBe("textViewFocus");
     });
 
-    it("remove user-правила без when не задевает user-правило с when на той же комбинации", async () => {
+    it("removing a user rule without when does not affect a user rule with when on the same combination", async () => {
         const h = makeHarness(`[
     { "key": "f6", "command": "dup.cmd" },
     { "key": "f6", "command": "dup.cmd", "when": "listFocus" }
@@ -524,7 +524,7 @@ describe("выбор правила и запись файла — тонкос�
         expect(remaining[0].when).toBe("listFocus");
     });
 
-    it("проваленный reset (ошибка записи) НЕ трогает реестр — ранний выход по !result.ok", async () => {
+    it("a failed reset (write error) does NOT touch the registry: early exit on !result.ok", async () => {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+s"), "test.save");
         const blocker = ws.path("blocker");
@@ -544,7 +544,7 @@ describe("выбор правила и запись файла — тонкос�
         expect(registry.getKeybindingForCommand("test.save")).toBeUndefined();
     });
 
-    it("remove единственного user-биндинга очищает леджер (added фильтруется, не уезжает в removedDefaults)", async () => {
+    it("removing the only user binding clears the ledger (added is filtered, not moved to removedDefaults)", async () => {
         const h = makeHarness(`[{ "key": "f6", "command": "my.cmd" }]\n`);
         h.service.applyUserKeybindings([{ key: "f6", command: "my.cmd" }]);
         expect(h.service.hasUserModifications("my.cmd")).toBe(true);
@@ -554,7 +554,7 @@ describe("выбор правила и запись файла — тонкос�
         expect(h.service.hasUserModifications("my.cmd")).toBe(false);
     });
 
-    it("remove одного из двух user-биндингов оставляет другой живым и он снимается reset'ом", async () => {
+    it("removing one of two user bindings keeps the other alive, and reset removes it", async () => {
         const h = makeHarness(`[
     { "key": "f6", "command": "dup.cmd" },
     { "key": "f7", "command": "dup.cmd" }
@@ -572,7 +572,7 @@ describe("выбор правила и запись файла — тонкос�
         expect(h.resolves("f7")).toBeUndefined();
     });
 
-    it("reset убирает и прямое правило, и -command той же команды, чужие не трогает", async () => {
+    it("reset removes both the direct rule and -command of the same command, leaves others alone", async () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
         h.registry.register(parseChord("ctrl+h"), "other.command");

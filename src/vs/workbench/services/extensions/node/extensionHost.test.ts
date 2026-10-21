@@ -62,7 +62,7 @@ function createHost(svc: IEditorOptionsService): ExtensionHost {
 }
 
 describe("ExtensionHost (subprocess)", () => {
-    it("registerExtension активирует extension через subprocess", async () => {
+    it("registerExtension activates the extension via the subprocess", async () => {
         const svc = new FakeOptionsService();
         const host = createHost(svc);
         await registerAndActivate(host, extensionFixture("noop-a", "noopExtension.cjs"));
@@ -72,7 +72,7 @@ describe("ExtensionHost (subprocess)", () => {
         await settle(100);
     });
 
-    it("отклоняет повторную регистрацию того же id", async () => {
+    it("rejects a repeated registration of the same id", async () => {
         const svc = new FakeOptionsService();
         const host = createHost(svc);
         const reg = extensionFixture("dup", "noopExtension.cjs");
@@ -82,14 +82,14 @@ describe("ExtensionHost (subprocess)", () => {
         await settle(100);
     });
 
-    it("после dispose registerExtension бросает", async () => {
+    it("registerExtension throws after dispose", async () => {
         const svc = new FakeOptionsService();
         const host = createHost(svc);
         host.dispose();
         expect(() => host.registerExtension(extensionFixture("late", "noopExtension.cjs"))).toThrow(/disposed/);
     });
 
-    it("unregisterExtension убирает конкретное расширение", async () => {
+    it("unregisterExtension removes a specific extension", async () => {
         const svc = new FakeOptionsService();
         const host = createHost(svc);
         await registerAndActivate(host, extensionFixture("x", "noopExtension.cjs"));
@@ -104,7 +104,7 @@ describe("ExtensionHost (subprocess)", () => {
 });
 
 describe("EditorOptionsServiceAdapter", () => {
-    it("возвращает null когда нет активного редактора", () => {
+    it("returns null when there is no active editor", () => {
         const adapter = new EditorOptionsServiceAdapter(
             {
                 getActiveTabEditor: () => null,

@@ -71,8 +71,8 @@ function makeHost(
     return { host, peer };
 }
 
-describe("ExtensionHost — форматирование по handle (in-process)", () => {
-    it("запрос несёт handle; range едет core-диапазоном и не выдумывается без него", async () => {
+describe("ExtensionHost — formatting by handle (in-process)", () => {
+    it("the request carries the handle; range goes as a core range and is not invented without one", async () => {
         const { host, peer } = makeHost();
         const seen: unknown[] = [];
         peer.handleRequest("languages.provideFormattingEdits", (params) => {
@@ -99,7 +99,7 @@ describe("ExtensionHost — форматирование по handle (in-process
         ]);
     });
 
-    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+    it("document not open in the subprocess: empty without RPC", async () => {
         const { host, peer } = makeHost({ open: false });
         const provide = vi.fn(() => Promise.resolve([WIRE_EDIT]));
         peer.handleRequest("languages.provideFormattingEdits", provide);
@@ -108,7 +108,7 @@ describe("ExtensionHost — форматирование по handle (in-process
         expect(provide).not.toHaveBeenCalled();
     });
 
-    it("документ ровно в порог синхронизации проходит, больше порога — пусто без RPC и запись в лог", async () => {
+    it("a document exactly at the sync threshold passes; above it, empty without RPC and a log entry", async () => {
         const length = DOCUMENT.text.length;
         const atLimit = makeHost({ maxSyncedDocumentChars: length });
         const provide = vi.fn(() => Promise.resolve([WIRE_EDIT]));
@@ -127,7 +127,7 @@ describe("ExtensionHost — форматирование по handle (in-process
         });
     });
 
-    it("после остановки субпроцесса запрос не уходит", async () => {
+    it("no request is sent after the subprocess stops", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn(() => Promise.resolve([WIRE_EDIT]));
         peer.handleRequest("languages.provideFormattingEdits", provide);
@@ -138,7 +138,7 @@ describe("ExtensionHost — форматирование по handle (in-process
         expect(provide).not.toHaveBeenCalled();
     });
 
-    it("слишком большой документ без логгера — тот же [], без падения на warn", async () => {
+    it("a too-large document without a logger yields the same [], no crash on warn", async () => {
         const { host, peer } = makeHost({ maxSyncedDocumentChars: DOCUMENT.text.length - 1 });
         const provide = vi.fn(() => Promise.resolve([WIRE_EDIT]));
         peer.handleRequest("languages.provideFormattingEdits", provide);
@@ -147,7 +147,7 @@ describe("ExtensionHost — форматирование по handle (in-process
         expect(provide).not.toHaveBeenCalled();
     });
 
-    it("отмена ядра доезжает до токена субпроцесса (provideFormattingEdits)", async () => {
+    it("core cancellation reaches the subprocess token (provideFormattingEdits)", async () => {
         const { host, peer } = makeHost();
         let seen: ICancellationToken | null = null;
         peer.handleRequest("languages.provideFormattingEdits", (_params, token) => {

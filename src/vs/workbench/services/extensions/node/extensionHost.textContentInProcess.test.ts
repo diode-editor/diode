@@ -40,8 +40,8 @@ function makeHost() {
     return { host, peer, attachRpc };
 }
 
-describe("ExtensionHost — провайдеры содержимого недисковых ресурсов (in-process)", () => {
-    it("список схем обновляется по нотификации субпроцесса", async () => {
+describe("ExtensionHost — content providers for non-disk resources (in-process)", () => {
+    it("the scheme list updates on a subprocess notification", async () => {
         const { host, peer } = makeHost();
 
         peer.notify("workspace.textDocumentContentProvidersChanged", { schemes: ["jdt", "class"] });
@@ -52,19 +52,19 @@ describe("ExtensionHost — провайдеры содержимого неди
         expect(host.hasTextContentProvider("git")).toBe(false);
     });
 
-    it("нестроковые схемы отфильтровываются, не-массив даёт пустой список", async () => {
+    it("non-string schemes are filtered out, a non-array gives an empty list", async () => {
         const { host, peer } = makeHost();
 
         peer.notify("workspace.textDocumentContentProvidersChanged", { schemes: ["jdt", 42, null] });
         await flushMicrotasks();
         expect(host.hasTextContentProvider("jdt")).toBe(true);
 
-        peer.notify("workspace.textDocumentContentProvidersChanged", { schemes: "не массив" });
+        peer.notify("workspace.textDocumentContentProvidersChanged", { schemes: "not an array" });
         await flushMicrotasks();
         expect(host.hasTextContentProvider("jdt")).toBe(false);
     });
 
-    it("до первой подписки список слушателей пуст — уведомление никого не зовёт", async () => {
+    it("before the first subscription the listener list is empty: the notification calls nobody", async () => {
         const { host, peer } = makeHost();
 
         peer.notify("workspace.textDocumentContentChanged", { uri: "jdt:/Foo.java" });
@@ -78,7 +78,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         expect(seen).toHaveBeenCalledTimes(1);
     });
 
-    it("сообщение об изменении ресурса доходит до подписчиков", async () => {
+    it("a resource change message reaches subscribers", async () => {
         const { host, peer } = makeHost();
         const seen: string[] = [];
         host.onDidChangeTextContent((uri) => seen.push(uri.toString()));
@@ -89,7 +89,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         expect(seen).toEqual(["jdt:/Foo.java"]);
     });
 
-    it("структурно чужое сообщение об изменении подписчиков не будит", async () => {
+    it("a structurally foreign change message wakes no subscribers", async () => {
         const { host, peer } = makeHost();
         const seen = vi.fn();
         host.onDidChangeTextContent(seen);
@@ -101,7 +101,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         expect(seen).not.toHaveBeenCalled();
     });
 
-    it("отписка от изменений содержимого работает", async () => {
+    it("unsubscribing from content changes works", async () => {
         const { host, peer } = makeHost();
         const seen = vi.fn();
         host.onDidChangeTextContent(seen).dispose();
@@ -112,7 +112,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         expect(seen).not.toHaveBeenCalled();
     });
 
-    it("повторный dispose подписки не снимает ЧУЖУЮ", async () => {
+    it("a repeated subscription dispose does not remove SOMEONE ELSE'S", async () => {
         const { host, peer } = makeHost();
         const first = vi.fn();
         const second = vi.fn();
@@ -130,7 +130,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         expect(second).toHaveBeenCalledTimes(1);
     });
 
-    it("без субпроцесса запрос содержимого отклоняется, а не молчит", async () => {
+    it("without a subprocess a content request is rejected rather than left hanging", async () => {
         const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {});
 
         await expect(host.provideTextDocumentContent(Uri.parse("jdt:/Foo.java"))).rejects.toThrow(
@@ -138,7 +138,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         );
     });
 
-    it("ответ субпроцесса разбирается: строка, null и структурный мусор", async () => {
+    it("the subprocess answer is parsed: string, null and structural garbage", async () => {
         const { host, peer, attachRpc } = makeHost();
         attachRpc();
         let reply: unknown = { content: "class Foo {}" };

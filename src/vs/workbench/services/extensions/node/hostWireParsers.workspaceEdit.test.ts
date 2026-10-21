@@ -5,7 +5,7 @@ import { parseWireApplyWorkspaceEditParams } from "./hostWireParsers.ts";
 const EDIT = { range: { start: { line: 0, character: 1 }, end: { line: 2, character: 3 } }, text: "x" };
 
 describe("parseWireApplyWorkspaceEditParams", () => {
-    it("валидные операции проходят как есть, в исходном порядке", () => {
+    it("valid operations pass as is, in original order", () => {
         expect(
             parseWireApplyWorkspaceEditParams({
                 ops: [
@@ -25,7 +25,7 @@ describe("parseWireApplyWorkspaceEditParams", () => {
         ]);
     });
 
-    it("каждая опция доезжает по отдельности", () => {
+    it("each option comes through on its own", () => {
         expect(
             parseWireApplyWorkspaceEditParams({
                 ops: [
@@ -39,7 +39,7 @@ describe("parseWireApplyWorkspaceEditParams", () => {
         ]);
     });
 
-    it("опции без значения не выдумываются: отсутствие ≠ false", () => {
+    it("absent options are not invented: absent ≠ false", () => {
         expect(
             parseWireApplyWorkspaceEditParams({
                 ops: [
@@ -55,7 +55,7 @@ describe("parseWireApplyWorkspaceEditParams", () => {
         ]);
     });
 
-    it("нестроковые/ложные значения опций отбрасываются, а не приводятся к boolean", () => {
+    it("mistyped/false option values are dropped, not coerced to boolean", () => {
         expect(
             parseWireApplyWorkspaceEditParams({
                 ops: [
@@ -69,7 +69,7 @@ describe("parseWireApplyWorkspaceEditParams", () => {
         ]);
     });
 
-    it("мусор вместо параметров даёт null, а не исключение", () => {
+    it("garbage params yield null, not an exception", () => {
         expect(parseWireApplyWorkspaceEditParams(null)).toBeNull();
         // `undefined` separately from null: even property access throws on it.
         expect(parseWireApplyWorkspaceEditParams(undefined)).toBeNull();
@@ -80,27 +80,27 @@ describe("parseWireApplyWorkspaceEditParams", () => {
         expect(parseWireApplyWorkspaceEditParams({ edits: [{ resource: "file:///a.ts", edits: [EDIT] }] })).toBeNull();
     });
 
-    it("пустой набор операций — пустой список (отличим от мусора)", () => {
+    it("an empty operation set yields an empty list (distinct from garbage)", () => {
         expect(parseWireApplyWorkspaceEditParams({ ops: [] })).toEqual([]);
     });
 
     it.each([
-        ["не объект", [null]],
+        ["not an object", [null]],
         // `undefined` separately from null: even property access throws on it.
-        ["операция undefined", [undefined]],
-        ["строка вместо операции", ["junk"]],
-        ["неизвестный kind", [{ kind: "notebook", resource: "file:///a.ts" }]],
+        ["undefined operation", [undefined]],
+        ["string instead of operation", ["junk"]],
+        ["unknown kind", [{ kind: "notebook", resource: "file:///a.ts" }]],
         // An unknown kind with rename fields must not slip through as a rename.
-        ["неизвестный kind с from/to", [{ kind: "notebook", from: "file:///a.ts", to: "file:///b.ts" }]],
-        ["kind отсутствует", [{ resource: "file:///a.ts", edits: [EDIT] }]],
-        ["нестроковый resource", [{ kind: "text", resource: 5, edits: [EDIT] }]],
-        ["текстовая без правок", [{ kind: "text", resource: "file:///a.ts", edits: [] }]],
-        ["все правки мусорные", [{ kind: "text", resource: "file:///a.ts", edits: [{ range: null, text: "x" }] }]],
-        ["create без resource", [{ kind: "create" }]],
-        ["delete без resource", [{ kind: "delete", resource: 7 }]],
-        ["rename без to", [{ kind: "rename", from: "file:///a.ts" }]],
-        ["rename без from", [{ kind: "rename", to: "file:///a.ts" }]],
-    ])("мусорная операция (%s) отбивает весь набор", (_name, ops) => {
+        ["unknown kind with from/to", [{ kind: "notebook", from: "file:///a.ts", to: "file:///b.ts" }]],
+        ["missing kind", [{ resource: "file:///a.ts", edits: [EDIT] }]],
+        ["non-string resource", [{ kind: "text", resource: 5, edits: [EDIT] }]],
+        ["text operation without edits", [{ kind: "text", resource: "file:///a.ts", edits: [] }]],
+        ["all edits are garbage", [{ kind: "text", resource: "file:///a.ts", edits: [{ range: null, text: "x" }] }]],
+        ["create without resource", [{ kind: "create" }]],
+        ["delete without resource", [{ kind: "delete", resource: 7 }]],
+        ["rename without to", [{ kind: "rename", from: "file:///a.ts" }]],
+        ["rename without from", [{ kind: "rename", to: "file:///a.ts" }]],
+    ])("garbage operation (%s) rejects the whole set", (_name, ops) => {
         expect(parseWireApplyWorkspaceEditParams({ ops })).toBeNull();
         expect(
             parseWireApplyWorkspaceEditParams({
@@ -109,7 +109,7 @@ describe("parseWireApplyWorkspaceEditParams", () => {
         ).toBeNull();
     });
 
-    it("невалидные правки ВНУТРИ ресурса отбрасываются поштучно (их автор — конвертер клиента)", () => {
+    it("invalid edits INSIDE a resource are dropped one by one (the client converter authors them)", () => {
         expect(
             parseWireApplyWorkspaceEditParams({
                 ops: [{ kind: "text", resource: "file:///a.ts", edits: [{ range: EDIT.range, text: 7 }, EDIT] }],

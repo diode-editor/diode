@@ -39,7 +39,7 @@ async function dumpLog(harness: IExtensionHarness): Promise<IDumpEntry[]> {
 }
 
 describe("ExtensionHost — document sync producer (subprocess)", () => {
-    it("правка в настоящем редакторе доезжает до расширения точной правкой с версией модели", async () => {
+    it("an edit in the real editor reaches the extension as an exact change with the model version", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "const a = 1;\n" },
             extensions: [extensionFixture("test.docSync", "recordsDocumentSync.cjs")],
@@ -80,7 +80,7 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
         }
     });
 
-    it("didOpen на смену активного редактора; повторное открытие не дублирует событие", async () => {
+    it("didOpen on an active editor change; reopening does not duplicate the event", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.docSync", "recordsDocumentSync.cjs")],
         });
@@ -105,7 +105,7 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
         }
     });
 
-    it("закрытие последней вкладки документа доезжает как didClose", async () => {
+    it("closing the document's last tab arrives as didClose", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "const a = 1;\n" },
             extensions: [extensionFixture("test.docSync", "recordsDocumentSync.cjs")],
@@ -124,7 +124,7 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
         }
     });
 
-    it("активация после открытия файла: workspace.textDocuments уже несёт полный текст", async () => {
+    it("activation after opening a file: workspace.textDocuments already carries the full text", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [
                 extensionFixture("test.noop", "noopExtension.cjs"),

@@ -11,7 +11,7 @@ import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
 let installed: IInstalledRuff;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый ruff.vsix (Python-линт, сквозняк)", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock ruff.vsix (Python lint, end to end)", () => {
     beforeAll(async () => {
         installed = await installRuff();
         expect(installed.registration.id).toBe(RUFF_ID);
@@ -21,7 +21,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый ruff.vs
         installed.dispose();
     });
 
-    it("активация без ошибок, F401 приезжает и уходит после несохранённой правки", { timeout: 240_000 }, async () => {
+    it("activation without errors, F401 arrives and goes away after an unsaved edit", { timeout: 240_000 }, async () => {
         const published: { resource: string; markers: readonly WireMarker[] }[] = [];
         const outputLines: { level: string; value: string }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
@@ -46,7 +46,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый ruff.vs
             expect(harness.host.hasExtension(RUFF_ID)).toBe(true);
 
             // Pull diagnostics from the REAL bundled `ruff server` serve as the readiness signal.
-            const f401 = await until("диагностика F401 в lint.py", () => {
+            const f401 = await until("F401 diagnostic in lint.py", () => {
                 const hit = markersFor(lintUri).find((m) => /F401|unused/.test(`${m.code ?? ""} ${m.message}`));
                 return Promise.resolve(hit ?? null);
             });
@@ -57,7 +57,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый ruff.vs
             harness.group
                 .getActiveEditor()
                 ?.applyExternalEdits([createTextEdit(createRange(0, 0, 1, 0), "")], "drop unused import");
-            await until("F401 ушла после правки", () =>
+            await until("F401 gone after the edit", () =>
                 Promise.resolve(
                     markersFor(lintUri).some((m) => /F401|unused/.test(`${m.code ?? ""} ${m.message}`)) ? null : true,
                 ),

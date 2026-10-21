@@ -24,7 +24,7 @@ import type { ICoreHover } from "../../../../editor/common/languages/iHoverSourc
 
 let installed: IInstalledBasedpyright;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover от стокового basedpyright", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover from the stock basedpyright", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
     }, 120_000);
@@ -33,7 +33,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover от стоков�
         installed.dispose();
     });
 
-    it("сигнатура функции под кареткой доезжает markdown-блоком до ядра", { timeout: 240_000 }, async () => {
+    it("the signature of the function under the cursor reaches the core as a markdown block", { timeout: 240_000 }, async () => {
         const outputLines: { level: string; value: string }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: PY_LANGUAGE_SERVICE,
@@ -52,7 +52,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover от стоков�
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:python");
 
-            const hovers = await until("hover над `greet`", async () => {
+            const hovers = await until("hover over `greet`", async () => {
                 const found: readonly ICoreHover[] = await provideHovers(harness, {
                     uri: mainUri,
                     languageId: "python",

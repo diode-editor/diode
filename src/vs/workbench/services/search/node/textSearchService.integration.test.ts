@@ -171,7 +171,7 @@ describe("TextSearchService (against real ripgrep)", () => {
         await expect(handle.complete).resolves.toBeDefined();
     });
 
-    it.skipIf(process.platform === "win32")("строки, дописанные в stdout после выхода rg, не теряются", async () => {
+    it.skipIf(process.platform === "win32")("lines appended to stdout after rg exits are not lost", async () => {
         ws = createTempWorkspace({ prefix: "diode-textsearch-" });
         const line = JSON.stringify({
             type: "match",

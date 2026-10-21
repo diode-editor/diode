@@ -84,8 +84,8 @@ function makeHost(
     return { host, peer };
 }
 
-describe("ExtensionHost — references-запрос по handle (in-process)", () => {
-    it("запрос несёт handle провайдера", async () => {
+describe("ExtensionHost — references request by handle (in-process)", () => {
+    it("the request carries the provider handle", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn((_params: unknown) => Promise.resolve([REF]));
         peer.handleRequest("languages.provideReferences", provide);
@@ -94,7 +94,7 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         expect(provide.mock.calls[0]?.[0]).toMatchObject({ handle: 3 });
     });
 
-    it("контекст includeDeclaration уходит в субпроцесс как есть", async () => {
+    it("the includeDeclaration context goes to the subprocess as is", async () => {
         const { host, peer } = makeHost();
         const seen: unknown[] = [];
         peer.handleRequest("languages.provideReferences", (params) => {
@@ -117,7 +117,7 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         ]);
     });
 
-    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+    it("document not open in the subprocess: empty without RPC", async () => {
         const { host, peer } = makeHost({ open: false });
         const provide = vi.fn(() => Promise.resolve([REF]));
         peer.handleRequest("languages.provideReferences", provide);
@@ -126,7 +126,7 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         expect(provide).not.toHaveBeenCalled();
     });
 
-    it("документ ровно в порог синхронизации проходит, больше порога — пусто без RPC и запись в лог", async () => {
+    it("a document exactly at the sync threshold passes; above it, empty without RPC and a log entry", async () => {
         const length = DOCUMENT.text.length;
         const atLimit = makeHost({ maxSyncedDocumentChars: length });
         const provide = vi.fn(() => Promise.resolve([REF]));
@@ -145,7 +145,7 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         });
     });
 
-    it("после остановки субпроцесса запрос не уходит", async () => {
+    it("no request is sent after the subprocess stops", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn(() => Promise.resolve([REF]));
         peer.handleRequest("languages.provideReferences", provide);
@@ -157,7 +157,7 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
-    it("definition по handle: после остановки субпроцесса запрос не уходит", async () => {
+    it("definition by handle: no request is sent after the subprocess stops", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn(() => Promise.resolve([REF]));
         peer.handleRequest("languages.provideDefinition", provide);
@@ -169,7 +169,7 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
-    it("дефолт таймаута — 5000 мс: поиск ссылок по проекту дороже одиночного перехода", async () => {
+    it("default timeout is 5000 ms: project-wide reference search costs more than a single jump", async () => {
         const { host, peer } = makeHost();
         const hostRpc = (host as unknown as { rpc: RpcEndpoint }).rpc;
         const request = vi.spyOn(hostRpc, "request");
@@ -180,7 +180,7 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         expect(request).toHaveBeenCalledWith("languages.provideReferences", expect.anything(), { timeoutMs: 5000 });
     });
 
-    it("по истечении таймаута ответ отбрасывается, а запрос у субпроцесса отменяется", async () => {
+    it("after the timeout the response is dropped and the subprocess request is cancelled", async () => {
         const debug = vi.fn();
         const { host, peer } = makeHost({ timeoutMs: 5, debug });
         let seen: ICancellationToken | undefined;
@@ -198,7 +198,7 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         });
     });
 
-    it("отмена ядра доезжает до токена субпроцесса (provideReferences)", async () => {
+    it("core cancellation reaches the subprocess token (provideReferences)", async () => {
         const { host, peer } = makeHost();
         let seen: ICancellationToken | null = null;
         peer.handleRequest("languages.provideReferences", (_params, token) => {
@@ -217,7 +217,7 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         void pending;
     });
 
-    it("отмена ядра доезжает до токена субпроцесса (provideDefinition)", async () => {
+    it("core cancellation reaches the subprocess token (provideDefinition)", async () => {
         const { host, peer } = makeHost();
         let seen: ICancellationToken | null = null;
         peer.handleRequest("languages.provideDefinition", (_params, token) => {

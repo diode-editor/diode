@@ -11,7 +11,7 @@ function themeWith(rules: ITokenColorRule[], colors: WorkbenchTheme["colors"] = 
 }
 
 describe("createTextMateTheme", () => {
-    it("первое правило — без скоупа, цвета текста и фона редактора: это ColorId 1 и 2", () => {
+    it("the first rule has no scope and carries the editor text and background colors: ColorId 1 and 2", () => {
         const theme = createTextMateTheme(
             themeWith([], {
                 "editor.foreground": packRgb(0xd4, 0xd4, 0xd4),
@@ -22,13 +22,13 @@ describe("createTextMateTheme", () => {
         expect(theme.colorMap).toEqual(["", "#D4D4D4", "#1E1E1E"]);
     });
 
-    it("нет цветов редактора — правило по умолчанию без них", () => {
+    it("no editor colors: the default rule goes without them", () => {
         const theme = createTextMateTheme(themeWith([]));
         expect(theme.settings).toEqual([{ settings: { foreground: undefined, background: undefined } }]);
         expect(theme.colorMap).toEqual([""]);
     });
 
-    it("правила темы без скоупа отбрасываются — умолчание у эталона одно", () => {
+    it("theme rules without scope are dropped: upstream has a single default", () => {
         const theme = createTextMateTheme(
             themeWith([
                 { settings: { foreground: "#111111" } },
@@ -43,7 +43,7 @@ describe("createTextMateTheme", () => {
         expect(theme.colorMap).toEqual(["", "#444444"]);
     });
 
-    it("скоуп-массив и fontStyle уходят как есть, цвета нормализуются", () => {
+    it("a scope array and fontStyle pass as is, colors are normalized", () => {
         const theme = createTextMateTheme(
             themeWith([
                 {
@@ -58,7 +58,7 @@ describe("createTextMateTheme", () => {
         });
     });
 
-    it("colorMap — цвета правил по порядку (текст, затем фон), без повторов", () => {
+    it("colorMap holds rule colors in order (foreground, then background), without duplicates", () => {
         const theme = createTextMateTheme(
             themeWith(
                 [
@@ -75,20 +75,20 @@ describe("createTextMateTheme", () => {
 });
 
 describe("normalizeColor", () => {
-    it("разворачивает короткую форму и поднимает регистр", () => {
+    it("expands the short form and uppercases", () => {
         expect(normalizeColor("#abc")).toBe("#AABBCC");
         expect(normalizeColor("#abcd")).toBe("#AABBCCDD");
         expect(normalizeColor("#a1b2c3")).toBe("#A1B2C3");
     });
 
-    it("снимает непрозрачную альфу FF, полупрозрачную оставляет", () => {
+    it("strips an opaque FF alpha, keeps a translucent one", () => {
         expect(normalizeColor("#123456ff")).toBe("#123456");
         expect(normalizeColor("#fffff")).toBeUndefined();
         expect(normalizeColor("#12345680")).toBe("#12345680");
         expect(normalizeColor("#abcf")).toBe("#AABBCC");
     });
 
-    it("невалидное и отсутствующее — undefined", () => {
+    it("invalid and missing give undefined", () => {
         expect(normalizeColor(undefined)).toBeUndefined();
         expect(normalizeColor("red")).toBeUndefined();
         expect(normalizeColor("123456")).toBeUndefined();
@@ -101,18 +101,18 @@ describe("normalizeColor", () => {
 });
 
 describe("equalsTextMateTheme", () => {
-    it("те же правила и цвета — равны, даже разными объектами", () => {
+    it("the same rules and colors are equal, even as different objects", () => {
         const rules: ITokenColorRule[] = [{ scope: "a", settings: { foreground: "#ff0000" } }];
         expect(equalsTextMateTheme(createTextMateTheme(themeWith(rules)), createTextMateTheme(themeWith(rules)))).toBe(
             true,
         );
     });
 
-    it("темы ещё не было — не равны", () => {
+    it("no theme yet: not equal", () => {
         expect(equalsTextMateTheme(undefined, createTextMateTheme(themeWith([])))).toBe(false);
     });
 
-    it("другой цвет — не равны", () => {
+    it("a different color: not equal", () => {
         const a = createTextMateTheme(themeWith([{ scope: "a", settings: { foreground: "#ff0000" } }]));
         const b = createTextMateTheme(themeWith([{ scope: "a", settings: { foreground: "#ff0001" } }]));
         expect(equalsTextMateTheme(a, b)).toBe(false);

@@ -38,7 +38,7 @@ function setup(extensions: readonly IExtension[]): {
 }
 
 describe("registerExtensionViewFocusCommands", () => {
-    it("у каждого вида — `<id>.focus`; исполнение говорит человеку, почему вида нет, и не бросает", () => {
+    it("every view gets `<id>.focus`; running it tells the user why the view is missing and does not throw", () => {
         const { commands, messages } = setup([
             extension("acme.chat", {
                 displayName: "Acme Chat",
@@ -60,7 +60,7 @@ describe("registerExtensionViewFocusCommands", () => {
         expect(commands.listCommands()).toEqual([]);
     });
 
-    it("без displayName и name — id расширения и id вида; пустые строки — как отсутствие", () => {
+    it("without displayName and name — extension id and view id; empty strings count as missing", () => {
         const { commands, messages } = setup([
             extension("acme.tree", {
                 displayName: "",
@@ -77,7 +77,7 @@ describe("registerExtensionViewFocusCommands", () => {
         ]);
     });
 
-    it("мусор манифеста — строка в лог и пропуск; чужая готовая команда не перебивается", () => {
+    it("manifest junk — a log line and skip; someone else's existing command is not overridden", () => {
         const commands = new CommandRegistry();
         const builtin: string[] = [];
         commands.register("taken.focus", () => builtin.push("builtin"));
@@ -110,7 +110,7 @@ describe("registerExtensionViewFocusCommands", () => {
         expect(commands.has(".focus")).toBe(false);
     });
 
-    it("без логгера мусорный вид пропускается молча, соседний вид получает команду", () => {
+    it("without a logger a junk view is skipped silently, the neighbouring view gets a command", () => {
         const commands = new CommandRegistry();
         registerExtensionViewFocusCommands(
             [extension("acme.junk", { contributes: { views: { c: [{ id: "" }, { id: "ok" }] } } })],
@@ -120,7 +120,7 @@ describe("registerExtensionViewFocusCommands", () => {
         expect(commands.has("ok.focus")).toBe(true);
     });
 
-    it("dispose снимает все заведённые команды", () => {
+    it("dispose removes all created commands", () => {
         const { commands, dispose } = setup([
             extension("acme.chat", { contributes: { views: { c: [{ id: "a" }, { id: "b" }] } } }),
         ]);

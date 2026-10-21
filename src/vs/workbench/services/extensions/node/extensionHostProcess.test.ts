@@ -104,8 +104,8 @@ afterEach(() => {
     spawnMock.mockReset();
 });
 
-describe("ExtensionHostProcess — запуск", () => {
-    it("с логгерами stdout/stderr идут в pipe, без них — закрыты, а не наследуются (терминал общий с редактором)", () => {
+describe("ExtensionHostProcess — start", () => {
+    it("with loggers stdout/stderr are piped, without them they are closed rather than inherited (the terminal is shared with the editor)", () => {
         start(new FakeChild(), { stdoutLogger: logger(), stderrLogger: logger() });
         start(new FakeChild());
 
@@ -115,7 +115,7 @@ describe("ExtensionHostProcess — запуск", () => {
         ]);
     });
 
-    it("без своего env ребёнок получает окружение родителя и метку роли", () => {
+    it("without its own env the child gets the parent's environment and the role marker", () => {
         start(new FakeChild());
         start(new FakeChild(), { spawnArgs: () => ({ command: "node", args: [], env: { ONLY: "this" } }) });
 
@@ -124,7 +124,7 @@ describe("ExtensionHostProcess — запуск", () => {
         expect(explicit).toEqual({ ONLY: "this", DIODE_EXTENSION_HOST: "1" });
     });
 
-    it("поток без логгера не слушается, ошибка без логгера не роняет", () => {
+    it("a stream without a logger is not listened to, and an error without a logger crashes nothing", () => {
         const child = new FakeChild();
         child.stdout = new PassThrough();
         child.stderr = new PassThrough();
@@ -137,7 +137,7 @@ describe("ExtensionHostProcess — запуск", () => {
         }).not.toThrow();
     });
 
-    it("неудачный спавн (error без exit) — тоже конец для владельца, ровно один", () => {
+    it("a failed spawn (error without exit) is an end for the owner too, exactly once", () => {
         const log = logger();
         const child = new FakeChild();
         const { onExit } = start(child, { logger: log });
@@ -150,7 +150,7 @@ describe("ExtensionHostProcess — запуск", () => {
         expect(log.error).toHaveBeenCalledWith("extension host subprocess error", expect.any(Error));
     });
 
-    it("сломавшийся поток ребёнка — предупреждение в лог host'а с меткой процесса", () => {
+    it("a broken child stream logs a warning to the host log with the process label", () => {
         const log = logger();
         const child = new FakeChild();
         child.stdout = new PassThrough();
@@ -161,7 +161,7 @@ describe("ExtensionHostProcess — запуск", () => {
         expect(log.warn).toHaveBeenCalledWith("[extension-host] stdout stream error: Error: EPIPE");
     });
 
-    it("ожидание host.ready отвергается сразу на неудачном спавне, а не по таймауту", async () => {
+    it("waiting for host.ready rejects right away on a failed spawn, not on timeout", async () => {
         const child = new FakeChild();
         const { subprocess } = start(child);
         const ready = subprocess.waitForReady(60_000);
@@ -171,7 +171,7 @@ describe("ExtensionHostProcess — запуск", () => {
         await expect(ready).rejects.toThrow(/exited before ready/);
     });
 
-    it("выход ребёнка доходит до владельца с кодом и сигналом", () => {
+    it("the child's exit reaches the owner with code and signal", () => {
         const child = new FakeChild();
         const { onExit } = start(child);
 
@@ -181,8 +181,8 @@ describe("ExtensionHostProcess — запуск", () => {
     });
 });
 
-describe("ExtensionHostProcess — потоки ребёнка", () => {
-    it("stdout в info, stderr в warn — построчно, пустые строки пропускаются", async () => {
+describe("ExtensionHostProcess — child streams", () => {
+    it("stdout to info, stderr to warn, line by line, empty lines skipped", async () => {
         const child = new FakeChild();
         child.stdout = new PassThrough();
         child.stderr = new PassThrough();
@@ -198,7 +198,7 @@ describe("ExtensionHostProcess — потоки ребёнка", () => {
         expect(err.warn.mock.calls).toEqual([["warn"]]);
     });
 
-    it("многобайтный символ, разрезанный между чанками, приходит целым", () => {
+    it("a multibyte character split across chunks arrives whole", () => {
         const child = new FakeChild();
         child.stdout = new PassThrough();
         const out = logger();
@@ -210,15 +210,15 @@ describe("ExtensionHostProcess — потоки ребёнка", () => {
 
         return new Promise<void>((resolve) => {
             setImmediate(() => {
-                expect(out.info).toHaveBeenCalledExactlyOnceWith("ё");
+                expect(out.info).toHaveBeenCalledExactlyOnceWith("\u0451"); // "yo"
                 resolve();
             });
         });
     });
 });
 
-describe("ExtensionHostProcess — выключение", () => {
-    it("ребёнок молчит на host.shutdown — SIGTERM, и выключение дожидается выхода", async () => {
+describe("ExtensionHostProcess — shutdown", () => {
+    it("a child silent on host.shutdown gets SIGTERM, and shutdown waits for the exit", async () => {
         const child = new FakeChild();
         child.exitOnSignal = "SIGTERM";
         const { subprocess } = start(child);
@@ -229,7 +229,7 @@ describe("ExtensionHostProcess — выключение", () => {
         expect(child.groupSignals).toEqual(["SIGTERM"]);
     });
 
-    it("ребёнок выходит не сразу после сигнала — выключение его дожидается", async () => {
+    it("a child that exits some time after the signal is waited for", async () => {
         const child = new FakeChild();
         child.exitOnSignal = "SIGTERM";
         child.exitDelayMs = 30;
@@ -240,7 +240,7 @@ describe("ExtensionHostProcess — выключение", () => {
         expect(child.exitCode).toBe(0);
     });
 
-    it("после выключения канал закрыт: запрос отклоняется, а не уходит в никуда", async () => {
+    it("after shutdown the channel is closed: a request is rejected rather than lost", async () => {
         const child = new FakeChild();
         child.exitOnSignal = "SIGTERM";
         const { subprocess } = start(child);
@@ -250,7 +250,7 @@ describe("ExtensionHostProcess — выключение", () => {
         await expect(subprocess.rpc.request("host.shutdown")).rejects.toThrow("RpcEndpoint disposed");
     });
 
-    it("kill добивает ребёнка SIGKILL синхронно", () => {
+    it("kill finishes the child off with SIGKILL synchronously", () => {
         const child = new FakeChild();
         child.pid = undefined; // no pid means no group, only a direct kill remains
         const { subprocess } = start(child);
@@ -265,14 +265,14 @@ describe("ExtensionHostProcess — выключение", () => {
  * Grandchildren are extensions' language servers (jdtls, gopls): a signal to the direct child doesn't reach them, and
  * outliving the parent they keep writing into extension directories. Hence the signal targets the GROUP.
  */
-describe("ExtensionHostProcess — потомство субпроцесса", () => {
-    it.skipIf(process.platform === "win32")("субпроцесс запускается лидером своей группы", () => {
+describe("ExtensionHostProcess — subprocess descendants", () => {
+    it.skipIf(process.platform === "win32")("the subprocess starts as its own process group leader", () => {
         start(new FakeChild());
 
         expect((spawnMock.mock.calls[0]?.[2] as { detached: unknown }).detached).toBe(true);
     });
 
-    it.skipIf(process.platform === "win32")("сигнал уходит ГРУППЕ, а не одному ребёнку", async () => {
+    it.skipIf(process.platform === "win32")("the signal goes to the GROUP, not to the single child", async () => {
         const child = new FakeChild(); // dies from nothing, so we go through the whole escalation
         const { subprocess } = start(child);
 
@@ -282,7 +282,7 @@ describe("ExtensionHostProcess — потомство субпроцесса", (
         expect(child.signals).toEqual([]);
     });
 
-    it.skipIf(process.platform === "win32")("группы уже нет (ESRCH) — не падаем и не дублируем сигнал", () => {
+    it.skipIf(process.platform === "win32")("the group is already gone (ESRCH): no crash and no duplicate signal", () => {
         // Not registered in `spawned` → the `process.kill` mock returns ESRCH, as the kernel does for a missing group.
         const child = new FakeChild();
         child.pid = undefined;
@@ -296,7 +296,7 @@ describe("ExtensionHostProcess — потомство субпроцесса", (
         expect(child.groupSignals).toEqual([]);
     });
 
-    it.skipIf(process.platform === "win32")("групповой kill отказал не по ESRCH — ребёнка добиваем напрямую", () => {
+    it.skipIf(process.platform === "win32")("the group kill fails with something other than ESRCH: the child is killed directly", () => {
         const denied = Object.assign(new Error("operation not permitted"), { code: "EPERM" });
         vi.mocked(process.kill).mockImplementation(() => {
             throw denied;
@@ -311,7 +311,7 @@ describe("ExtensionHostProcess — потомство субпроцесса", (
         expect(log.warn).toHaveBeenCalledWith(expect.stringContaining("group kill failed"), denied);
     });
 
-    it.skipIf(process.platform === "win32")("отказ группового kill без логгера не роняет выключение", () => {
+    it.skipIf(process.platform === "win32")("a failed group kill without a logger does not crash shutdown", () => {
         vi.mocked(process.kill).mockImplementation(() => {
             throw Object.assign(new Error("operation not permitted"), { code: "EPERM" });
         });

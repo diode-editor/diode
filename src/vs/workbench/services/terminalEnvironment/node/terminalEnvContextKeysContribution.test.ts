@@ -25,7 +25,7 @@ function fakeEnv() {
 }
 
 describe("TerminalEnvContextKeysContribution", () => {
-    it("выставляет ключи окружения сразу при создании", () => {
+    it("sets the environment keys immediately on creation", () => {
         const { env } = fakeEnv();
         const keys = new ContextKeyService();
         new TerminalEnvContextKeysContribution(keys, env as unknown as TerminalEnvironmentService);
@@ -39,7 +39,7 @@ describe("TerminalEnvContextKeysContribution", () => {
         expect(keys.evaluate("mode_envContribCustom")).toBe(false);
     });
 
-    it("пушит ключи заново по onDidChange окружения, после dispose — нет", () => {
+    it("pushes the keys again on the environment's onDidChange, not after dispose", () => {
         const { env, fire } = fakeEnv();
         const keys = new ContextKeyService();
         const contribution = new TerminalEnvContextKeysContribution(keys, env as unknown as TerminalEnvironmentService);

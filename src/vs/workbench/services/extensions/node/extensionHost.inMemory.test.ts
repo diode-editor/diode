@@ -28,7 +28,7 @@ function inMemoryReg(): IExtensionRegistration {
 }
 
 describe("ExtensionHost — in-memory source loading (builtin code-extensions)", () => {
-    it("компилирует расширение из строки (Module._compile) и активирует его; require('vscode') работает", async () => {
+    it("compiles an extension from a string (Module._compile) and activates it; require('vscode') works", async () => {
         const harness = await createExtensionTestHarness({ extensions: [inMemoryReg()] });
         try {
             expect(harness.commandRegistry.has("test.inmem.echo")).toBe(true);
@@ -39,7 +39,7 @@ describe("ExtensionHost — in-memory source loading (builtin code-extensions)",
         }
     });
 
-    it("отвергает регистрацию, где заданы и source, и mainPath (ровно один способ)", async () => {
+    it("rejects a registration with both source and mainPath (exactly one way)", async () => {
         const harness = await createExtensionTestHarness();
         try {
             expect(() =>

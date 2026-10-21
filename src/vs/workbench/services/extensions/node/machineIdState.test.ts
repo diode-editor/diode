@@ -19,16 +19,16 @@ function memoryState(seed: Record<string, unknown> = {}): IStateService & { read
 }
 
 describe("resolveMachineId", () => {
-    it("ключ и область — эталонные: `telemetry.machineId` в application-состоянии", () => {
+    it("key and scope match upstream: `telemetry.machineId` in application state", () => {
         expect(MACHINE_ID_STATE).toEqual({ key: "telemetry.machineId", scope: "application", default: "" });
     });
 
-    it("сохранённый id отдаётся как есть, без пересчёта", () => {
+    it("a stored id is returned as is, without recomputing", () => {
         const state = memoryState({ "telemetry.machineId": "cached" });
         expect(resolveMachineId(state, () => "fresh")).toBe("cached");
     });
 
-    it("первый запуск: id считается и сохраняется — второй вызов видит тот же", () => {
+    it("first run: the id is computed and stored, and a second call sees the same one", () => {
         const state = memoryState();
         let calls = 0;
         const compute = (): string => `id-${String(++calls)}`;
@@ -38,7 +38,7 @@ describe("resolveMachineId", () => {
         expect(calls).toBe(1);
     });
 
-    it("по умолчанию считает настоящий id машины", () => {
+    it("computes the real machine id by default", () => {
         expect(resolveMachineId(memoryState())).toMatch(/^([0-9a-f]{64}|[0-9a-f-]{36})$/);
     });
 });

@@ -47,8 +47,8 @@ async function openDocument(
 const SETTINGS_TEXT = "{\n    \n}";
 const SETTINGS_POSITION = { languageId: "json", line: 1, character: 4 };
 
-describe("diode-settings — автодополнение ключей в settings.json", () => {
-    it("активируется onLanguage:json и предлагает известные ключи настроек", async () => {
+describe("diode-settings — key completion in settings.json", () => {
+    it("activates on onLanguage:json and suggests known setting keys", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [], // checks laziness
             extensions: [settingsExtension()],
@@ -76,7 +76,7 @@ describe("diode-settings — автодополнение ключей в settin
         }
     });
 
-    it("в файле .code-workspace предлагает ключи внутри блока settings", async () => {
+    it("in a .code-workspace file suggests keys inside the settings block", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [settingsExtension()],
@@ -100,7 +100,7 @@ describe("diode-settings — автодополнение ключей в settin
         }
     });
 
-    it("для не-settings JSON селектор не срабатывает → []", async () => {
+    it("for non-settings JSON the selector does not match → []", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [settingsExtension()],
@@ -119,11 +119,11 @@ describe("diode-settings — автодополнение ключей в settin
 
 // `readRange` accepts a range only via `instanceof Range`: the end-to-end run checks that the
 // extension and the host see the same class. If the range were lost, the quotes would double.
-describe("diode-settings — кавычки и значения (e2e через subprocess)", () => {
+describe("diode-settings — quotes and values (e2e via subprocess)", () => {
     /** The cursor is the `|` marker. */
     async function complete(marked: string) {
         const offset = marked.indexOf("|");
-        if (offset === -1) throw new Error("В кейсе нет маркера каретки `|`");
+        if (offset === -1) throw new Error("The case has no cursor marker `|`");
         const text = marked.replace("|", "");
         const before = text.slice(0, offset);
         const line = before.split("\n").length - 1;
@@ -144,7 +144,7 @@ describe("diode-settings — кавычки и значения (e2e через 
         }
     }
 
-    it("ключ вставляется в кавычках, а range накрывает уже набранную кавычку", async () => {
+    it("the key is inserted quoted, and the range covers the already typed quote", async () => {
         const items = await complete('{\n    "edi|\n}');
         const item = items.find((i) => i.label === "editor.tabSize");
 
@@ -157,7 +157,7 @@ describe("diode-settings — кавычки и значения (e2e через 
         });
     });
 
-    it("range накрывает обе кавычки, когда ключ уже закрыт", async () => {
+    it("the range covers both quotes when the key is already closed", async () => {
         const items = await complete('{\n    "edi|"\n}');
         const item = items.find((i) => i.label === "editor.tabSize");
 
@@ -167,22 +167,22 @@ describe("diode-settings — кавычки и значения (e2e через 
         });
     });
 
-    it("boolean-настройка предлагает true/false", async () => {
+    it("a boolean setting suggests true/false", async () => {
         const items = await complete('{\n    "editor.insertSpaces": |\n}');
         expect(items.map((i) => i.label)).toEqual(["true", "false"]);
     });
 
-    it("enum-настройка предлагает варианты по схеме", async () => {
+    it("an enum setting suggests the schema's values", async () => {
         const items = await complete('{\n    "terminal.tier": |\n}');
         expect(items.map((i) => i.label)).toEqual(['"auto"', '"legacy"', '"csi-u"', '"kitty"']);
     });
 
-    it("workbench.colorTheme предлагает имена встроенных тем", async () => {
+    it("workbench.colorTheme suggests built-in theme names", async () => {
         const items = await complete('{\n    "workbench.colorTheme": |\n}');
         expect(items.map((i) => i.label)).toContain('"Dark Modern"');
     });
 
-    it("строковое значение заменяется вместе с кавычками", async () => {
+    it("a string value is replaced together with its quotes", async () => {
         const items = await complete('{\n    "terminal.tier": "a|"\n}');
         const auto = items.find((i) => i.label === '"auto"');
 
@@ -194,18 +194,18 @@ describe("diode-settings — кавычки и значения (e2e через 
         });
     });
 
-    it("настройка без enum предлагает свой дефолт", async () => {
+    it("a setting without enum suggests its default", async () => {
         const items = await complete('{\n    "editor.tabSize": |\n}');
         expect(items.map((i) => i.label)).toEqual(["4"]);
         expect(items[0].detail).toBe("default");
     });
 
-    it("вложенный объект — не наша зона, подсказок нет", async () => {
+    it("a nested object is out of scope: no suggestions", async () => {
         const items = await complete('{\n    "terminal.capabilities": { "osc|" }\n}');
         expect(items).toEqual([]);
     });
 
-    it("пустой документ: позиции ключа ещё нет → []", async () => {
+    it("empty document: no key position yet → []", async () => {
         expect(await complete("|")).toEqual([]);
     });
 });

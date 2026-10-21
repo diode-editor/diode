@@ -33,7 +33,7 @@ function stubConfigurationService(values: Record<string, unknown>): IConfigurati
     return createTestConfigurationService(values);
 }
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с codeActionsOnSave и стоковым eslint", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — saving with codeActionsOnSave and the stock eslint", () => {
     beforeAll(async () => {
         installed = await installEslint();
         eslintNodeModules = ensureEslintLibrary();
@@ -43,7 +43,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
         installed.dispose();
     });
 
-    it("codeActionsOnSave source.fixAll: save чинит лишнюю `;` в буфере и на диске", { timeout: 240_000 }, async () => {
+    it("codeActionsOnSave source.fixAll: save fixes the extra `;` in the buffer and on disk", { timeout: 240_000 }, async () => {
         const harness = await createExtensionTestHarness({
             languageService: JS_LANGUAGE_SERVICE,
             activateEvents: [],
@@ -61,7 +61,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
             await harness.host.activateByEvent("onStartupFinished");
 
             // Warm-up: otherwise the first save hits the cold start and its 5s timeouts.
-            await until("source.fixAll action от eslint", async () => {
+            await until("source.fixAll action from eslint", async () => {
                 const actions = await provideCodeActions(harness, {
                     uri: lintUri,
                     languageId: "javascript",

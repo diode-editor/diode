@@ -67,7 +67,7 @@ describe("LanguageConfigurationService", () => {
         const { service } = createService(
             {
                 [TS_CONFIG_PATH]: `{
-                // как в реальных файлах стоковых расширений
+                // as in the real files of stock extensions
                 "comments": { "lineComment": "//", "blockComment": ["/*", "*/"], },
                 "brackets": [["{", "}"],],
                 "autoClosingPairs": [{ "open": "'", "close": "'", "notIn": ["string"] },],

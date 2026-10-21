@@ -5,7 +5,7 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import { createSelection } from "../../../../editor/common/core/iSelection.ts";
 
 describe("ExtensionHost — editor write API (subprocess)", () => {
-    it("editor.edit(insert) применяет правку к активному редактору (undoable)", async () => {
+    it("editor.edit(insert) applies the edit to the active editor (undoable)", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "hello\nworld" },
             extensions: [extensionFixture("test.editsActiveEditor", "editsActiveEditor.cjs")],
@@ -24,7 +24,7 @@ describe("ExtensionHost — editor write API (subprocess)", () => {
         }
     });
 
-    it("editor.selection = ... выставляет выделение активного редактора", async () => {
+    it("editor.selection = ... sets the active editor's selection", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "hello\nworld" },
             extensions: [extensionFixture("test.editsActiveEditor", "editsActiveEditor.cjs")],
@@ -41,7 +41,7 @@ describe("ExtensionHost — editor write API (subprocess)", () => {
         }
     });
 
-    it("editor.edit(delete) удаляет диапазон", async () => {
+    it("editor.edit(delete) deletes the range", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "hello\nworld" },
             extensions: [extensionFixture("test.editsActiveEditor", "editsActiveEditor.cjs")],
@@ -59,7 +59,7 @@ describe("ExtensionHost — editor write API (subprocess)", () => {
 
     // Regression #194: the selection was only sent on an active editor change, and
     // `activeTextEditor.selection` stayed stuck at (0,0) forever.
-    it("расширение видит свежее выделение после движения каретки", async () => {
+    it("the extension sees the fresh selection after the cursor moves", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "hello\nworld\nagain" },
             extensions: [extensionFixture("test.editsActiveEditor", "editsActiveEditor.cjs")],
@@ -85,7 +85,7 @@ describe("ExtensionHost — editor write API (subprocess)", () => {
         }
     });
 
-    it("расширение видит несколько кареток (multi-cursor)", async () => {
+    it("the extension sees several cursors (multi-cursor)", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "hello\nworld\nagain" },
             extensions: [extensionFixture("test.editsActiveEditor", "editsActiveEditor.cjs")],
@@ -109,7 +109,7 @@ describe("ExtensionHost — editor write API (subprocess)", () => {
 
     // Regression #194: after wrapWithRegion maptz calls a missing command, the RPC
     // is rejected, and Node used to kill the subprocess with all extensions.
-    it("необработанный reject в расширении не роняет extension host", async () => {
+    it("an unhandled reject in an extension does not crash the extension host", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "hello\nworld" },
             extensions: [extensionFixture("test.editsActiveEditor", "editsActiveEditor.cjs")],
@@ -126,7 +126,7 @@ describe("ExtensionHost — editor write API (subprocess)", () => {
         }
     });
 
-    it("window.visibleTextEditors содержит активный редактор", async () => {
+    it("window.visibleTextEditors contains the active editor", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "hello\nworld" },
             extensions: [extensionFixture("test.editsActiveEditor", "editsActiveEditor.cjs")],

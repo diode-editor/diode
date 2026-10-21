@@ -48,7 +48,7 @@ function spyEditTarget(pane: TextEditorPane): { markDirtyCalls: () => number } {
 }
 
 describe("TextFileModel.applyExternalEditsDetached", () => {
-    it("правка применяется, но шаг НЕ попадает в бакет документа — его отдали вызывающему", () => {
+    it("the edit applies, but the step does NOT go into the document bucket: it is handed to the caller", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
 
@@ -61,7 +61,7 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(step?.label).toBe("Workspace Edit");
     });
 
-    it("отданный шаг откатывает и повторяет правку документа", () => {
+    it("the handed-out step undoes and redoes the document edit", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
         const step = pane.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit")!;
@@ -72,7 +72,7 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(pane.getText()).toBe("head\nbody");
     });
 
-    it("шаг отказывается от отката, если после него в документе набрали текст", () => {
+    it("the step refuses to undo if text was typed in the document after it", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
         const step = pane.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit")!;
@@ -85,7 +85,7 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(step.canUndo?.()).toBe(true);
     });
 
-    it("шаг истории называет путь документа, которого касается", () => {
+    it("the history step names the path of the document it touches", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
         const step = pane.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit")!;
@@ -93,7 +93,7 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(step.resources).toEqual([pane.absoluteFilePath]);
     });
 
-    it("у безымянного буфера шаг путей не называет — на диске его ещё нет", () => {
+    it("for an untitled buffer the step names no paths, it is not on disk yet", () => {
         const pane = createEditorPane({ undoRedoService: new UndoRedoService() });
         const step = pane.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit")!;
 
@@ -101,7 +101,7 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(step.resources).toEqual([]);
     });
 
-    it("применение и откат вещают «буфер изменился» всем прикреплённым вью", () => {
+    it("apply and undo broadcast 'buffer changed' to all attached views", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
         const spy = spyEditTarget(pane);
@@ -118,7 +118,7 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(spy.markDirtyCalls()).toBeGreaterThan(afterUndo);
     });
 
-    it("без явной цели правка идёт в ПЕРВУЮ прикреплённую вью, а не в никуда", () => {
+    it("without an explicit target the edit goes to the FIRST attached view, not nowhere", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
 
@@ -128,7 +128,7 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(pane.getText()).toBe("head\nbody");
     });
 
-    it("шаг отказывается от повтора, если после отката в документе набрали текст", () => {
+    it("the step refuses to redo if text was typed in the document after undo", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
         const step = pane.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit")!;
@@ -141,7 +141,7 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(step.canRedo?.()).toBe(false);
     });
 
-    it("шаг отказывается от повтора, пока его не откатили", () => {
+    it("the step refuses to redo until it is undone", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
         const step = pane.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit")!;
@@ -151,7 +151,7 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(step.canRedo?.()).toBe(true);
     });
 
-    it("шаги ДВУХ документов складываются в один набор и откатываются вместе", () => {
+    it("steps of TWO documents combine into one set and undo together", () => {
         const undoRedo = new UndoRedoService();
         const a = openPane(undoRedo, "a.txt", "alpha");
         const b = openPane(undoRedo, "b.txt", "beta");
@@ -183,14 +183,14 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(b.getText()).toBe("beta");
     });
 
-    it("применять нечего (пустой батч) — null, а не выдуманный шаг", () => {
+    it("nothing to apply (empty batch) returns null, not a made-up step", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
         expect(pane.applyExternalEditsDetached([], "Workspace Edit")).toBeNull();
         expect(pane.getText()).toBe("body");
     });
 
-    it("шаг модели БЕЗ прикреплённой вью не выдумывается — null (правку проводить нечем)", () => {
+    it("a model step WITHOUT an attached view is not made up: null (nothing to apply the edit with)", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
         const model = pane.model;
@@ -199,7 +199,7 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(model.getText()).toBe("body");
     });
 
-    it("обычный applyExternalEdits после detached снова кладёт шаг в бакет документа", () => {
+    it("a regular applyExternalEdits after detached puts the step into the document bucket again", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
 

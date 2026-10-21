@@ -5,8 +5,8 @@ import { MergedEnvironmentVariableCollection } from "../../../../platform/termin
 
 import { createInMemoryEnvironmentVariableCollectionStore } from "./customers/environmentVariableCollectionsCustomer.ts";
 
-describe("ExtensionHost — коллекции окружения расширений (subprocess)", () => {
-    it("replace на активации → хранилище; новый спавн видит сохранённое; правки и clear доезжают", async () => {
+describe("ExtensionHost — extension environment variable collections (subprocess)", () => {
+    it("replace on activation → store; a new spawn sees what was stored; edits and clear arrive", async () => {
         const store = createInMemoryEnvironmentVariableCollectionStore();
         const harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.env", "environmentVariableCollection.cjs")],

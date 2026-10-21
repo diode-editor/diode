@@ -34,8 +34,8 @@ function makePeer(): RpcEndpoint {
     return peer;
 }
 
-describe("ExtensionHost — обработчики полосы групп (in-process)", () => {
-    it("малформленные параметры show/close отвергаются ошибкой, а не тихим успехом", async () => {
+describe("ExtensionHost — group bar handlers (in-process)", () => {
+    it("malformed show/close params are rejected with an error, not a silent success", async () => {
         const peer = makePeer();
         await expect(peer.request("editor.showTextDocument", { uri: 42 })).rejects.toThrow(
             "editor.showTextDocument: malformed params",
@@ -48,7 +48,7 @@ describe("ExtensionHost — обработчики полосы групп (in-p
         );
     });
 
-    it("без полосы групп (NULL-порт): show отвергается, close отвечает false", async () => {
+    it("without a group bar (NULL port): show is rejected, close answers false", async () => {
         const peer = makePeer();
         await expect(peer.request("editor.showTextDocument", { uri: "file:///a.ts" })).rejects.toThrow(
             "editor layout unavailable",

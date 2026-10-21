@@ -5,33 +5,33 @@ import { anchorRgGlob, buildRgFilesArgs, rgExcludeArgs, rgIgnoreFilesArgs } from
 const DEFAULTS = { local: true, parent: false, global: false } as const;
 
 describe("anchorRgGlob", () => {
-    it("шаблон без `**` и `/` якорится к корню — как `isExcludedPath`, а не на любой глубине", () => {
+    it("a pattern without `**` and `/` is anchored to the root, like `isExcludedPath`, not at any depth", () => {
         expect(anchorRgGlob("out")).toBe("/out");
         expect(anchorRgGlob("src/*.js")).toBe("/src/*.js");
     });
 
-    it("`**`-шаблон и уже якорёный не трогает", () => {
+    it("leaves a `**` pattern and an already anchored one alone", () => {
         expect(anchorRgGlob("**/node_modules")).toBe("**/node_modules");
         expect(anchorRgGlob("/dist")).toBe("/dist");
     });
 });
 
 describe("rgExcludeArgs", () => {
-    it("каждый шаблон — `--glob !<якорёный>`", () => {
+    it("each pattern becomes `--glob !<anchored>`", () => {
         expect(rgExcludeArgs(["**/.git", "out"])).toEqual(["--glob", "!**/.git", "--glob", "!/out"]);
     });
 
-    it("хвостовой `/` срезается, пустые шаблоны пропускаются", () => {
+    it("a trailing `/` is stripped, empty patterns are skipped", () => {
         expect(rgExcludeArgs(["build/", "", "/"])).toEqual(["--glob", "!/build"]);
     });
 
-    it("хвост из нескольких `/` срезается целиком", () => {
+    it("a tail of several `/` is stripped entirely", () => {
         expect(rgExcludeArgs(["out//", "//"])).toEqual(["--glob", "!/out"]);
     });
 });
 
 describe("rgIgnoreFilesArgs", () => {
-    it("дефолты эталона: свои ignore-файлы — да, родительские и глобальный — нет", () => {
+    it("upstream defaults: own ignore files yes, parent and global no", () => {
         expect(rgIgnoreFilesArgs(DEFAULTS)).toEqual([
             "--no-require-git",
             "--no-config",
@@ -40,7 +40,7 @@ describe("rgIgnoreFilesArgs", () => {
         ]);
     });
 
-    it("parent и global включаются по отдельности", () => {
+    it("parent and global are enabled separately", () => {
         expect(rgIgnoreFilesArgs({ local: true, parent: true, global: false })).toEqual([
             "--no-require-git",
             "--no-config",
@@ -53,7 +53,7 @@ describe("rgIgnoreFilesArgs", () => {
         ]);
     });
 
-    it("local: false — `--no-ignore`, и parent/global уже ничего не значат", () => {
+    it("local: false gives `--no-ignore`, and parent/global no longer mean anything", () => {
         expect(rgIgnoreFilesArgs({ local: false, parent: true, global: true })).toEqual([
             "--no-require-git",
             "--no-config",
@@ -63,7 +63,7 @@ describe("rgIgnoreFilesArgs", () => {
 });
 
 describe("buildRgFilesArgs", () => {
-    it("`--files --hidden`, исключения и флаги ignore-файлов", () => {
+    it("`--files --hidden`, excludes and ignore-file flags", () => {
         expect(buildRgFilesArgs(["**/node_modules"], DEFAULTS)).toEqual([
             "--files",
             "--hidden",

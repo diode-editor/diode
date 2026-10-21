@@ -62,7 +62,7 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
     }
 }
 
-describe("ExtensionHost — rename от стокового typescript-language-server", () => {
+describe("ExtensionHost — rename from the stock typescript-language-server", () => {
     beforeAll(async () => {
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
@@ -70,7 +70,7 @@ describe("ExtensionHost — rename от стокового typescript-language-s
         await buildExtensions({ repoRoot: REPO_ROOT });
     }, 120_000);
 
-    it("переименование символа правит открытый И закрытый файл", { timeout: 180_000 }, async () => {
+    it("renaming a symbol edits both the open AND the closed file", { timeout: 180_000 }, async () => {
         const outputLines: { level: string; value: string }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: TS_LANGUAGE_SERVICE,
@@ -103,7 +103,7 @@ describe("ExtensionHost — rename от стокового typescript-language-s
                 character: 18,
             };
 
-            const prepared = await until("prepareRename для `greet`", async () => {
+            const prepared = await until("prepareRename for `greet`", async () => {
                 const location = await prepareRenameAt(harness, request);
                 return location.name === null ? null : location;
             });
@@ -111,7 +111,7 @@ describe("ExtensionHost — rename от стокового typescript-language-s
 
             // On a cold start tsserver answers for the single open file only,
             // so wait for references from the closed main.ts.
-            await until("сервер видит ссылки из закрытого main.ts", async () => {
+            await until("the server sees references from the closed main.ts", async () => {
                 const refs = await provideReferences(harness, { ...request, includeDeclaration: true });
                 return refs.some((ref) => ref.uri === Uri.file(mainPath).toString()) ? true : null;
             });

@@ -80,7 +80,7 @@ function useFormatter(
     });
 }
 
-describe("EditorService — сохранение по настройкам onSave", () => {
+describe("EditorService — save driven by onSave settings", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -98,7 +98,7 @@ describe("EditorService — сохранение по настройкам onSav
     }
 
     describe("editor.codeActionsOnSave", () => {
-        it("провайдеры чужого языка участника не включают: сохранение их не будит", async () => {
+        it("providers of another language do not enable the participant: save does not wake them", async () => {
             const ctrl = createEditorService({
                 "editor.codeActionsOnSave": { "source.fixAll": true },
                 "editor.formatOnSave": true,
@@ -129,7 +129,7 @@ describe("EditorService — сохранение по настройкам onSav
             expect(fs.readFileSync(fp, "utf-8")).toBe("import sys\n");
         });
 
-        it("прогоняет включённый вид: provide с only и полным диапазоном, apply всех действий по порядку", async () => {
+        it("runs the enabled kind: provide with only and the full range, apply of all actions in order", async () => {
             const ctrl = createEditorService({ "editor.codeActionsOnSave": { "source.fixAll": true } });
             const fp = writeFile("a.txt", "import sys\nimport os\n");
             ctrl.openFile(fp);
@@ -170,7 +170,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("иерархический ключ вида уходит в only как есть", async () => {
+        it("a hierarchical kind key goes to only as is", async () => {
             const ctrl = createEditorService({
                 "editor.codeActionsOnSave": { "source.organizeImports.ruff": "explicit" },
             });
@@ -191,7 +191,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("несколько включённых видов идут по порядку ключей, выключенные значения не идут", async () => {
+        it("several enabled kinds run in key order, disabled values are skipped", async () => {
             const ctrl = createEditorService({
                 "editor.codeActionsOnSave": {
                     "source.fixAll": true,
@@ -217,7 +217,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("массивная форма настройки включает перечисленные виды", async () => {
+        it("the array form of the setting enables the listed kinds", async () => {
             const ctrl = createEditorService({ "editor.codeActionsOnSave": ["source.fixAll"] });
             ctrl.openFile(writeFile("d.txt", "x"));
 
@@ -238,7 +238,7 @@ describe("EditorService — сохранение по настройкам onSav
     });
 
     describe("editor.formatOnSave", () => {
-        it("правки форматтера ложатся в буфер и на диск, каретка схлопывается на прежнее место", async () => {
+        it("formatter edits land in the buffer and on disk, the cursor collapses to its previous position", async () => {
             const ctrl = createEditorService({ "editor.formatOnSave": true });
             const fp = writeFile("f.txt", "a  =  1\nb=2\n");
             ctrl.openFile(fp);
@@ -264,7 +264,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("включён только секцией языка документа — участник в списке для этого языка", async () => {
+        it("enabled only by the document language section: the participant is listed for that language", async () => {
             const ctrl = createEditorService({ "[plaintext]": { "editor.formatOnSave": true } });
             const fp = writeFile("lang.txt", "x\n");
             ctrl.openFile(fp);
@@ -280,7 +280,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("устаревший ответ форматтера (текст изменился за время RPC) отбрасывается", async () => {
+        it("a stale formatter response (text changed during the RPC) is dropped", async () => {
             const ctrl = createEditorService({ "editor.formatOnSave": true });
             const fp = writeFile("stale.txt", "old\n");
             ctrl.openFile(fp);
@@ -298,7 +298,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("нет форматтера — сохранение молча работает", async () => {
+        it("no formatter: save silently works", async () => {
             const ctrl = createEditorService({ "editor.formatOnSave": true });
             const fp = writeFile("nofmt.txt", "x");
             ctrl.openFile(fp);
@@ -310,8 +310,8 @@ describe("EditorService — сохранение по настройкам onSav
         });
     });
 
-    describe("композиция", () => {
-        it("порядок VS Code: code actions → формат → will-save расширений, каждый по свежему тексту", async () => {
+    describe("composition", () => {
+        it("VS Code order: code actions → format → extension will-save, each on fresh text", async () => {
             const ctrl = createEditorService({
                 "editor.codeActionsOnSave": { "source.fixAll": true },
                 "editor.formatOnSave": true,
@@ -353,7 +353,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("с дефолтами источники не дёргаются и save остаётся синхронным", async () => {
+        it("with defaults the sources are not called and save stays synchronous", async () => {
             const ctrl = createEditorService();
             const fp = writeFile("off.txt", "as is\n");
             ctrl.openFile(fp);
@@ -382,7 +382,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("настройка включена, но её источник не подключён — участник не в списке", async () => {
+        it("setting enabled but its source is not connected: the participant is not listed", async () => {
             // Gates are pairwise: codeActions without a source and format with the setting off must both drop out.
             const ctrl = createEditorService({ "editor.codeActionsOnSave": { "source.fixAll": true } });
             const fp = writeFile("halfoff.txt", "x\n");
@@ -401,7 +401,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("saveAs модели без вью (сторона диффа): панель не найдена, участники no-op, запись работает", async () => {
+        it("saveAs of a model without a view (diff side): no pane found, participants no-op, write works", async () => {
             const ctrl = createEditorService({
                 "editor.codeActionsOnSave": { "source.fixAll": true },
                 "editor.formatOnSave": true,
@@ -426,7 +426,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("настройки включены, но источников нет (host не подключён) — save работает", async () => {
+        it("settings enabled but no sources (host not connected): save works", async () => {
             const ctrl = createEditorService({
                 "editor.codeActionsOnSave": { "source.fixAll": true },
                 "editor.formatOnSave": true,
@@ -441,7 +441,7 @@ describe("EditorService — сохранение по настройкам onSav
             ctrl.dispose();
         });
 
-        it("формат идёт по панели СОХРАНЯЕМОГО файла, а не первой попавшейся", async () => {
+        it("format uses the pane of the file BEING SAVED, not the first one found", async () => {
             const ctrl = createEditorService({ "editor.formatOnSave": true });
             writeFile("first.txt", "first\n");
             const fp = writeFile("second.txt", "second\n");

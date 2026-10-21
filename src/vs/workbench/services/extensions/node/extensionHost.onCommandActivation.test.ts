@@ -5,8 +5,8 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 
 // The subprocess installs the real proxy only after `activate()`; until then a stub
 // holds the command. `activateEvents: []`: the command itself is the only activation trigger.
-describe("ExtensionHost — активация по onCommand:<id>", () => {
-    it("команда есть в реестре до активации, а её исполнение поднимает расширение", async () => {
+describe("ExtensionHost — activation by onCommand:<id>", () => {
+    it("the command is in the registry before activation, and executing it activates the extension", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             initialFile: { name: "a.txt", content: "hello" },
@@ -29,7 +29,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         }
     });
 
-    it("повторное исполнение идёт прямо в прокси — второй активации нет", async () => {
+    it("repeated execution goes straight to the proxy: no second activation", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             initialFile: { name: "a.txt", content: "hello" },
@@ -50,7 +50,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         }
     });
 
-    it("НЕЯВНОЕ событие: команда из contributes.commands поднимает расширение без onCommand: в манифесте", async () => {
+    it("IMPLICIT event: a command from contributes.commands activates the extension without onCommand: in the manifest", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             initialFile: { name: "a.txt", content: "hello" },
@@ -72,7 +72,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         }
     });
 
-    it("заголовок из contributes.commands делает команду видимой в палитре ДО активации", async () => {
+    it("a title from contributes.commands makes the command visible in the command palette BEFORE activation", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [
@@ -93,7 +93,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         }
     });
 
-    it("категория из contributes.commands держится и на заглушке, и на живом прокси", async () => {
+    it("the category from contributes.commands sticks on both the stub and the live proxy", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [
@@ -123,7 +123,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         }
     });
 
-    it("команда без заголовка исполнима, но в палитре не показывается (как `_java.*`)", async () => {
+    it("a command without a title is executable but hidden from the command palette (like `_java.*`)", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [
@@ -141,7 +141,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         }
     });
 
-    it("расширение активировалось, но команду не завело — ответ undefined, без петли", async () => {
+    it("extension activated but did not register the command: the result is undefined, no loop", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [
@@ -159,7 +159,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         }
     });
 
-    it("заглушка не затирает живой прокси активного расширения", async () => {
+    it("a stub does not overwrite the live proxy of an active extension", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "hello" },
             extensions: [extensionFixture("test.active", "registersCommand.cjs")],
@@ -178,7 +178,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         }
     });
 
-    it("снятие регистрации до активации убирает команду из реестра", async () => {
+    it("removing the registration before activation removes the command from the registry", async () => {
         const harness = await createExtensionTestHarness({ activateEvents: [] });
         try {
             const disposable = harness.host.registerExtension({
@@ -195,7 +195,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         }
     });
 
-    it("снятие соседа не захлопывает дверь: команду объявляют двое", async () => {
+    it("removing a sibling does not close the door: two extensions declare the command", async () => {
         const harness = await createExtensionTestHarness({ activateEvents: [] });
         try {
             // An unrelated neighbor goes first, so the "who else declares this
@@ -221,7 +221,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         }
     });
 
-    it("непричастный сосед дверь не удерживает: заглушка снимается вместе с хозяином", async () => {
+    it("an unrelated sibling does not hold the door: the stub goes away with its owner", async () => {
         const harness = await createExtensionTestHarness({ activateEvents: [] });
         try {
             harness.host.registerExtension({
@@ -242,7 +242,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         }
     });
 
-    it("dispose хоста снимает заглушки из общего реестра команд", async () => {
+    it("host dispose removes the stubs from the shared command registry", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [
@@ -257,7 +257,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         expect(harness.commandRegistry.has("test.applyTab")).toBe(false);
     });
 
-    it("activateByEvent('onCommand:<id>') поднимает расширение и напрямую", async () => {
+    it("activateByEvent('onCommand:<id>') activates the extension directly too", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [

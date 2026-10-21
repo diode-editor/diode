@@ -112,30 +112,30 @@ function makeHost(sink?: IQuickInputSink) {
 }
 
 describe("ExtensionHost — window.showInputBox", () => {
-    it("опции доезжают до стока, а введённое — обратно расширению", async () => {
+    it("options reach the sink, and the input goes back to the extension", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         const pending = peer.request("window.showInputBox", {
             handle: 3,
             title: "Your name",
-            prompt: "Как к вам",
-            placeHolder: "имя",
-            value: "Ада",
+            prompt: "How should we address you",
+            placeHolder: "name",
+            value: "Ada",
             validates: false,
         });
         await flushMicrotasks();
         expect(sink.inputRequests[0]).toMatchObject({
             handle: 3,
             title: "Your name",
-            prompt: "Как к вам",
-            placeHolder: "имя",
-            value: "Ада",
+            prompt: "How should we address you",
+            placeHolder: "name",
+            value: "Ada",
         });
-        sink.settleInput("Ада Лавлейс");
-        await expect(pending).resolves.toEqual({ value: "Ада Лавлейс" });
+        sink.settleInput("Ada Lovelace");
+        await expect(pending).resolves.toEqual({ value: "Ada Lovelace" });
     });
 
-    it("password доезжает до стока — маску рисует хост, а не расширение", async () => {
+    it("password reaches the sink: the host draws the mask, not the extension", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         void peer.request("window.showInputBox", { handle: 3, password: true, validates: false });
@@ -143,7 +143,7 @@ describe("ExtensionHost — window.showInputBox", () => {
         expect(sink.inputRequests[0]).toMatchObject({ handle: 3, password: true });
     });
 
-    it("отмена показа отвечает расширению null", async () => {
+    it("cancelling the prompt answers the extension with null", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         const pending = peer.request("window.showInputBox", { handle: 1, validates: false });
@@ -152,7 +152,7 @@ describe("ExtensionHost — window.showInputBox", () => {
         await expect(pending).resolves.toEqual({ value: null });
     });
 
-    it("пустая строка — не отмена", async () => {
+    it("empty string is not a cancellation", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         const pending = peer.request("window.showInputBox", { handle: 1, validates: false });
@@ -161,38 +161,38 @@ describe("ExtensionHost — window.showInputBox", () => {
         await expect(pending).resolves.toEqual({ value: "" });
     });
 
-    it("без стока расширение получает «отменено» сразу, а не виснет", async () => {
+    it("without a sink the extension gets `cancelled` immediately instead of hanging", async () => {
         const { peer } = makeHost();
         await expect(peer.request("window.showInputBox", { handle: 1, validates: false })).resolves.toEqual({
             value: null,
         });
     });
 
-    it("мусорные параметры — «отменено»", async () => {
+    it("garbage params mean `cancelled`", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
-        await expect(peer.request("window.showInputBox", { handle: "нет" })).resolves.toEqual({ value: null });
+        await expect(peer.request("window.showInputBox", { handle: "no" })).resolves.toEqual({ value: null });
         expect(sink.inputRequests).toHaveLength(0);
     });
 
-    it("validates: true даёт стоку канал валидации обратно в расширение", async () => {
+    it("validates: true gives the sink a validation channel back to the extension", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         peer.handleRequest("window.inputBox.validate", (params) => {
             const p = params as { handle: number; value: string };
-            return p.value === "ab" ? { message: "Только цифры", severity: "error" } : null;
+            return p.value === "ab" ? { message: "Digits only", severity: "error" } : null;
         });
         const pending = peer.request("window.showInputBox", { handle: 5, validates: true });
         await flushMicrotasks();
         const validate = sink.inputRequests[0]?.validate;
         expect(validate).toBeTypeOf("function");
-        await expect(validate?.("ab")).resolves.toEqual({ message: "Только цифры", severity: "error" });
+        await expect(validate?.("ab")).resolves.toEqual({ message: "Digits only", severity: "error" });
         await expect(validate?.("8080")).resolves.toBeNull();
         sink.settleInput("8080");
         await pending;
     });
 
-    it("без validates канала валидации у стока нет вовсе", async () => {
+    it("without validates the sink has no validation channel at all", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         const pending = peer.request("window.showInputBox", { handle: 5, validates: false });
@@ -202,11 +202,11 @@ describe("ExtensionHost — window.showInputBox", () => {
         await pending;
     });
 
-    it("упавшая валидация расширения считает значение годным, а не вешает поле", async () => {
+    it("a throwing extension validator treats the value as valid instead of hanging the box", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         peer.handleRequest("window.inputBox.validate", () => {
-            throw new Error("расширение сломалось");
+            throw new Error("extension broke");
         });
         const pending = peer.request("window.showInputBox", { handle: 5, validates: true });
         await flushMicrotasks();
@@ -218,29 +218,29 @@ describe("ExtensionHost — window.showInputBox", () => {
 });
 
 describe("ExtensionHost — window.showQuickPick", () => {
-    it("список доезжает до стока, индексы — обратно расширению", async () => {
+    it("items reach the sink, indices go back to the extension", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         const pending = peer.request("window.showQuickPick", {
             handle: 2,
-            placeHolder: "Выберите фрукт",
+            placeHolder: "Pick a fruit",
             canPickMany: false,
-            items: [{ label: "apple" }, { label: "banana", description: "жёлтый" }],
+            items: [{ label: "apple" }, { label: "banana", description: "yellow" }],
             picked: [],
         });
         await flushMicrotasks();
         expect(sink.pickRequests[0]).toEqual({
             handle: 2,
-            placeHolder: "Выберите фрукт",
+            placeHolder: "Pick a fruit",
             canPickMany: false,
-            items: [{ label: "apple" }, { label: "banana", description: "жёлтый" }],
+            items: [{ label: "apple" }, { label: "banana", description: "yellow" }],
             picked: [],
         });
         sink.settlePick([1]);
         await expect(pending).resolves.toEqual({ indices: [1] });
     });
 
-    it("отмена отвечает null, пустой набор — пустым массивом", async () => {
+    it("cancel answers null, an empty selection answers an empty array", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         const cancelled = peer.request("window.showQuickPick", { handle: 1, items: [], picked: [] });
@@ -254,7 +254,7 @@ describe("ExtensionHost — window.showQuickPick", () => {
         await expect(empty).resolves.toEqual({ indices: [] });
     });
 
-    it("предотметки гасятся без canPickMany", async () => {
+    it("preselection is dropped without canPickMany", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         const pending = peer.request("window.showQuickPick", {
@@ -268,14 +268,14 @@ describe("ExtensionHost — window.showQuickPick", () => {
         await pending;
     });
 
-    it("без стока расширение получает «отменено» сразу", async () => {
+    it("without a sink the extension gets `cancelled` immediately", async () => {
         const { peer } = makeHost();
         await expect(peer.request("window.showQuickPick", { handle: 1, items: [], picked: [] })).resolves.toEqual({
             indices: null,
         });
     });
 
-    it("мусорные параметры — «отменено»", async () => {
+    it("garbage params mean `cancelled`", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         await expect(peer.request("window.showQuickPick", { handle: 1 })).resolves.toEqual({ indices: null });
@@ -284,7 +284,7 @@ describe("ExtensionHost — window.showQuickPick", () => {
 });
 
 describe("ExtensionHost — window.quickInput.cancel", () => {
-    it("токен расширения снимает показ через сток", async () => {
+    it("the extension's token dismisses the prompt through the sink", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         const pending = peer.request("window.showInputBox", { handle: 4, validates: false });
@@ -294,18 +294,18 @@ describe("ExtensionHost — window.quickInput.cancel", () => {
         expect(sink.cancelled).toEqual([4]);
     });
 
-    it("мусорная отмена до стока не доходит", async () => {
+    it("a garbage cancel never reaches the sink", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         peer.notify("window.quickInput.cancel", {});
-        peer.notify("window.quickInput.cancel", { handle: "нет" });
+        peer.notify("window.quickInput.cancel", { handle: "no" });
         await flushMicrotasks();
         expect(sink.cancelled).toEqual([]);
     });
 });
 
-describe("ExtensionHost — учёт живых показов", () => {
-    it("закончившийся показ снимается с учёта: следующая смерть его не гасит", async () => {
+describe("ExtensionHost — tracking of live prompts", () => {
+    it("a finished prompt is untracked: the next death does not dismiss it", async () => {
         const sink = makeSink();
         const { host, peer } = makeHost(sink);
         const first = peer.request("window.showQuickPick", { handle: 21, items: [], picked: [] });
@@ -317,7 +317,7 @@ describe("ExtensionHost — учёт живых показов", () => {
         expect(sink.cancelled).toEqual([]);
     });
 
-    it("несколько живых показов гасятся все", async () => {
+    it("several live prompts are all dismissed", async () => {
         const sink = makeSink();
         const { host, peer } = makeHost(sink);
         void peer.request("window.showInputBox", { handle: 31, validates: false });
@@ -328,7 +328,7 @@ describe("ExtensionHost — учёт живых показов", () => {
         expect([...sink.cancelled].sort((a, b) => a - b)).toEqual([31, 32]);
     });
 
-    it("после смерти набор живых показов пуст — повторный dispose молчит", async () => {
+    it("after death the live prompt set is empty, so a repeated dispose is silent", async () => {
         const sink = makeSink();
         const { host, peer } = makeHost(sink);
         void peer.request("window.showInputBox", { handle: 41, validates: false });
@@ -340,7 +340,7 @@ describe("ExtensionHost — учёт живых показов", () => {
         expect(sink.cancelled).toEqual([41]);
     });
 
-    it("без стока отмена по токену никого не роняет", async () => {
+    it("without a sink a token cancel crashes nothing", async () => {
         const { peer } = makeHost();
         peer.notify("window.quickInput.cancel", { handle: 1 });
         await flushMicrotasks();
@@ -350,8 +350,8 @@ describe("ExtensionHost — учёт живых показов", () => {
     });
 });
 
-describe("ExtensionHost — смерть субпроцесса с открытым оверлеем", () => {
-    it("живые показы гасятся: оверлей не остаётся на экране без хозяина", async () => {
+describe("ExtensionHost — subprocess death with an open overlay", () => {
+    it("live prompts are dismissed: no ownerless overlay stays on screen", async () => {
         const sink = makeSink();
         const { host, peer } = makeHost(sink);
         void peer.request("window.showInputBox", { handle: 11, validates: false });
@@ -362,12 +362,12 @@ describe("ExtensionHost — смерть субпроцесса с открыт�
         expect(sink.cancelled).toEqual([11]);
     });
 
-    it("закончившийся показ на смерти повторно не гасится", async () => {
+    it("a finished prompt is not dismissed again on death", async () => {
         const sink = makeSink();
         const { host, peer } = makeHost(sink);
         const pending = peer.request("window.showInputBox", { handle: 12, validates: false });
         await flushMicrotasks();
-        sink.settleInput("готово");
+        sink.settleInput("done");
         await pending;
 
         host.dispose();
@@ -376,7 +376,7 @@ describe("ExtensionHost — смерть субпроцесса с открыт�
 });
 
 describe("ExtensionHost — window.createQuickPick", () => {
-    it("апдейт доезжает до стока диффом: отсутствующее поле — «не трогали», null — «сброшено»", async () => {
+    it("an update reaches the sink as a diff: a missing field means `untouched`, null means `reset`", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         peer.notify("window.quickPick.update", {
@@ -414,7 +414,7 @@ describe("ExtensionHost — window.createQuickPick", () => {
         ]);
     });
 
-    it("действия человека уходят в тот же субпроцесс событием", async () => {
+    it("user actions go back to the same subprocess as events", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         const received: unknown[] = [];
@@ -436,20 +436,20 @@ describe("ExtensionHost — window.createQuickPick", () => {
         ]);
     });
 
-    it("dispose расширения снимает пикер; чужой и мусорный handle до стока не доходят", async () => {
+    it("extension dispose removes the picker; foreign and garbage handles never reach the sink", async () => {
         const sink = makeSink();
         const { peer } = makeHost(sink);
         peer.notify("window.quickPick.update", { handle: 7, visible: true });
         peer.notify("window.quickPick.dispose", { handle: 8 });
-        peer.notify("window.quickPick.dispose", { handle: "нет" });
-        peer.notify("window.quickPick.update", { handle: "нет" });
+        peer.notify("window.quickPick.dispose", { handle: "no" });
+        peer.notify("window.quickPick.update", { handle: "no" });
         peer.notify("window.quickPick.dispose", { handle: 7 });
         await flushMicrotasks();
         expect(sink.quickPickUpdates.map((u) => u.handle)).toEqual([7]);
         expect(sink.disposedQuickPicks).toEqual([7]);
     });
 
-    it("мусорный апдейт и пикеры без стока никого не роняют", async () => {
+    it("a garbage update and pickers without a sink crash nothing", async () => {
         const sink = makeSink();
         const withSink = makeHost(sink);
         withSink.peer.notify("window.quickPick.update", null);
@@ -469,7 +469,7 @@ describe("ExtensionHost — window.createQuickPick", () => {
         }).not.toThrow();
     });
 
-    it("смерть субпроцесса снимает живые пикеры, и событий в мёртвый канал они не шлют", async () => {
+    it("subprocess death removes live pickers, and they send no events into the dead channel", async () => {
         const sink = makeSink();
         const { host, peer } = makeHost(sink);
         const received: unknown[] = [];

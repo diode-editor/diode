@@ -9,7 +9,7 @@ import { createTestRegistry } from "./testRegistry.ts";
  * `vscode-textmate` applies it by `injectionSelector` itself.
  */
 describe("vscode-textmate :: injections (jsdoc)", () => {
-    it("`@param` внутри `/** ... */` получает scope `storage.type.class.jsdoc`", async () => {
+    it("`@param` inside `/** ... */` gets scope `storage.type.class.jsdoc`", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");
@@ -23,7 +23,7 @@ describe("vscode-textmate :: injections (jsdoc)", () => {
         expect(paramTok!.scopes).toContain("storage.type.class.jsdoc");
     });
 
-    it("тип внутри `{string}` получает scope `entity.name.type.instance.jsdoc`", async () => {
+    it("a type inside `{string}` gets scope `entity.name.type.instance.jsdoc`", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");
@@ -36,7 +36,7 @@ describe("vscode-textmate :: injections (jsdoc)", () => {
         expect(stringTok!.scopes).toContain("entity.name.type.instance.jsdoc");
     });
 
-    it("обычный `// line comment` НЕ активирует jsdoc-injection", async () => {
+    it("a plain `// line comment` does NOT activate the jsdoc injection", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");

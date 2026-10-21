@@ -23,7 +23,7 @@ function recordingLanguageService(): ILanguageService & { requests: string[] } {
 }
 
 /** Drives `onLanguage:` extension activation for any model, not only the active editor. */
-describe("TextFileModel — запрос фич языка", () => {
+describe("TextFileModel — language feature requests", () => {
     let ws: ITempWorkspace;
     let languages: ReturnType<typeof recordingLanguageService>;
     let model: TextFileModel;
@@ -39,7 +39,7 @@ describe("TextFileModel — запрос фич языка", () => {
         ws.dispose();
     });
 
-    it("новая модель — plaintext, открытый файл — его язык", () => {
+    it("a new model is plaintext, an opened file gets its language", () => {
         expect(languages.requests).toEqual(["plaintext"]);
 
         model.openFile(Uri.file(ws.path("a.ts")));
@@ -47,7 +47,7 @@ describe("TextFileModel — запрос фич языка", () => {
         expect(languages.requests).toEqual(["plaintext", "typescript"]);
     });
 
-    it("смена языка просит фичи нового языка", () => {
+    it("a language change requests features of the new language", () => {
         model.openFile(Uri.file(ws.path("a.ts")));
 
         model.setLanguage("markdown");
@@ -55,13 +55,13 @@ describe("TextFileModel — запрос фич языка", () => {
         expect(languages.requests.at(-1)).toBe("markdown");
     });
 
-    it("синтетический документ просит фичи своего языка", () => {
+    it("a synthetic document requests features of its language", () => {
         new SyntheticTextModel(languages, new UndoRedoService(), Uri.parse("jdt://contents/Foo.class"), "java");
 
         expect(languages.requests.at(-1)).toBe("java");
     });
 
-    it("подписка на смену языка живёт и на пересозданном документе", () => {
+    it("the language change subscription survives a recreated document", () => {
         model.openFile(Uri.file(ws.path("a.ts")));
         model.openFile(Uri.file(ws.path("b.md")));
 

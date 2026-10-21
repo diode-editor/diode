@@ -23,7 +23,7 @@ const MAIN_PY = "from defs import greet\n\ngreet(\n";
 
 let installed: IInstalledBasedpyright;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — signature help от стокового basedpyright", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — signature help from the stock basedpyright", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
     }, 120_000);
@@ -32,7 +32,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — signature help от ст
         installed.dispose();
     });
 
-    it("сигнатура greet с активным параметром доезжает до ядра", { timeout: 240_000 }, async () => {
+    it("the greet signature with the active parameter reaches the core", { timeout: 240_000 }, async () => {
         const outputLines: { level: string; value: string }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: PY_LANGUAGE_SERVICE,
@@ -51,7 +51,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — signature help от ст
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:python");
 
-            const help = await until("signature help внутри greet(", async () => {
+            const help = await until("signature help inside greet(", async () => {
                 const found = await provideSignatureHelp(harness, {
                     uri: mainUri,
                     languageId: "python",

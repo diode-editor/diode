@@ -90,8 +90,8 @@ function makeHost(
     return { host, peer };
 }
 
-describe("ExtensionHost — подсказка параметров по handle (in-process)", () => {
-    it("LSP-контекст уходит в субпроцесс как есть, пустые поля не выдумываются", async () => {
+describe("ExtensionHost — signature help by handle (in-process)", () => {
+    it("the LSP context goes to the subprocess as is, empty fields are not invented", async () => {
         const { host, peer } = makeHost();
         const seen: unknown[] = [];
         peer.handleRequest("languages.provideSignatureHelp", (params) => {
@@ -147,7 +147,7 @@ describe("ExtensionHost — подсказка параметров по handle 
         expect(Object.keys(seen[1] as Record<string, unknown>)).toContain("activeSignatureHelp");
     });
 
-    it("триггер-символы едут метаданными регистрации — хост отдаёт их адаптеру как есть", async () => {
+    it("trigger characters travel as registration metadata: the host hands them to the adapter as is", async () => {
         const { host, peer } = makeHost();
 
         peer.notify("languages.register", {
@@ -172,7 +172,7 @@ describe("ExtensionHost — подсказка параметров по handle 
         ]);
     });
 
-    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+    it("document not open in the subprocess: empty without RPC", async () => {
         const { host, peer } = makeHost({ open: false });
         const provide = vi.fn(() => Promise.resolve(HELP));
         peer.handleRequest("languages.provideSignatureHelp", provide);
@@ -181,7 +181,7 @@ describe("ExtensionHost — подсказка параметров по handle 
         expect(provide).not.toHaveBeenCalled();
     });
 
-    it("документ ровно в порог синхронизации проходит, больше порога — пусто без RPC и запись в лог", async () => {
+    it("a document exactly at the sync threshold passes, above it gives empty without RPC and a log entry", async () => {
         const length = DOCUMENT.text.length;
         const atLimit = makeHost({ maxSyncedDocumentChars: length });
         const provide = vi.fn(() => Promise.resolve(HELP));
@@ -200,7 +200,7 @@ describe("ExtensionHost — подсказка параметров по handle 
         });
     });
 
-    it("после остановки субпроцесса запрос не уходит", async () => {
+    it("after the subprocess stops the request is not sent", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn(() => Promise.resolve(HELP));
         peer.handleRequest("languages.provideSignatureHelp", provide);
@@ -212,7 +212,7 @@ describe("ExtensionHost — подсказка параметров по handle 
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
-    it("дефолт таймаута — 5000 мс: тот же холодный language server, что у hover", async () => {
+    it("the default timeout is 5000 ms: the same cold language server as for hover", async () => {
         const { host, peer } = makeHost();
         const hostRpc = (host as unknown as { rpc: RpcEndpoint }).rpc;
         const request = vi.spyOn(hostRpc, "request");
@@ -223,7 +223,7 @@ describe("ExtensionHost — подсказка параметров по handle 
         expect(request).toHaveBeenCalledWith("languages.provideSignatureHelp", expect.anything(), { timeoutMs: 5000 });
     });
 
-    it("по истечении таймаута ответ отбрасывается, а запрос у субпроцесса отменяется", async () => {
+    it("after the timeout the answer is dropped and the subprocess request is cancelled", async () => {
         const debug = vi.fn();
         const { host, peer } = makeHost({ timeoutMs: 5, debug });
         let seen: ICancellationToken | undefined;
@@ -241,7 +241,7 @@ describe("ExtensionHost — подсказка параметров по handle 
         });
     });
 
-    it("отмена ядра доезжает до токена субпроцесса (provideSignatureHelp)", async () => {
+    it("core cancellation reaches the subprocess token (provideSignatureHelp)", async () => {
         const { host, peer } = makeHost();
         let seen: ICancellationToken | null = null;
         peer.handleRequest("languages.provideSignatureHelp", (_params, token) => {

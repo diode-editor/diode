@@ -20,7 +20,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 
 let installed: IInstalledBasedpyright;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — references от стокового basedpyright", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — references from the stock basedpyright", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
     }, 120_000);
@@ -29,7 +29,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — references от сток
         installed.dispose();
     });
 
-    it("ссылки на greet приходят из обоих файлов (включая объявление)", { timeout: 240_000 }, async () => {
+    it("references to greet come from both files (including the declaration)", { timeout: 240_000 }, async () => {
         const outputLines: { level: string; value: string }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: PY_LANGUAGE_SERVICE,
@@ -50,7 +50,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — references от сток
             await harness.host.activateByEvent("onLanguage:python");
 
             // Cursor on the `greet` call → references with includeDeclaration (like VS Code).
-            const references = await until("references вызова greet", async () => {
+            const references = await until("references of the greet call", async () => {
                 const found = await provideReferences(harness, {
                     uri: mainUri,
                     languageId: "python",

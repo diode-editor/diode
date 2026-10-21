@@ -9,7 +9,7 @@ function texts(service: StatusBarService): string[] {
 }
 
 describe("StatusBarService", () => {
-    it("addEntry публикует запись и уведомляет подписчиков", () => {
+    it("addEntry publishes the entry and notifies subscribers", () => {
         const service = new StatusBarService(NULL_STATE_SERVICE);
         let fired = 0;
         service.onDidChangeEntries(() => fired++);
@@ -20,7 +20,7 @@ describe("StatusBarService", () => {
         expect(texts(service)).toEqual(["A"]);
     });
 
-    it("entries: сперва left, потом right; внутри стороны — по убыванию priority", () => {
+    it("entries: left first, then right; within a side by descending priority", () => {
         const service = new StatusBarService(NULL_STATE_SERVICE);
         service.addEntry({ id: "r-low", text: "R10", alignment: "right", priority: 10 });
         service.addEntry({ id: "l-low", text: "L10", alignment: "left", priority: 10 });
@@ -30,7 +30,7 @@ describe("StatusBarService", () => {
         expect(texts(service)).toEqual(["L90", "L10", "R90", "R10"]);
     });
 
-    it("при равном priority порядок стабильный — по порядку добавления", () => {
+    it("with equal priority the order is stable, by insertion order", () => {
         const service = new StatusBarService(NULL_STATE_SERVICE);
         service.addEntry({ id: "first", text: "first", alignment: "left", priority: 5 });
         service.addEntry({ id: "second", text: "second", alignment: "left", priority: 5 });
@@ -38,7 +38,7 @@ describe("StatusBarService", () => {
         expect(texts(service)).toEqual(["first", "second"]);
     });
 
-    it("update ручки частично обновляет запись и уведомляет", () => {
+    it("the handle's update partially updates the entry and notifies", () => {
         const service = new StatusBarService(NULL_STATE_SERVICE);
         const handle = service.addEntry({ id: "a", text: "before", alignment: "left", priority: 1 });
         let fired = 0;
@@ -51,7 +51,7 @@ describe("StatusBarService", () => {
         expect(entry).toMatchObject({ id: "a", text: "after", alignment: "left", priority: 1 });
     });
 
-    it("dispose ручки снимает запись; повторный dispose и update после — no-op", () => {
+    it("the handle's dispose removes the entry; a repeated dispose and an update afterwards are no-ops", () => {
         const service = new StatusBarService(NULL_STATE_SERVICE);
         const handle = service.addEntry({ id: "a", text: "A", alignment: "left", priority: 1 });
         service.addEntry({ id: "b", text: "B", alignment: "left", priority: 0 });
@@ -68,7 +68,7 @@ describe("StatusBarService", () => {
         expect(texts(service)).toEqual(["B"]);
     });
 
-    it("onClick сохраняется в записи и переживает update текста", () => {
+    it("onClick is kept in the entry and survives a text update", () => {
         const service = new StatusBarService(NULL_STATE_SERVICE);
         const onClick = (): void => {};
         const handle = service.addEntry({ id: "a", text: "A", alignment: "right", priority: 1, onClick });
@@ -78,7 +78,7 @@ describe("StatusBarService", () => {
         expect(service.entries()[0].onClick).toBe(onClick);
     });
 
-    it("dispose подписки onDidChangeEntries снимает листенер", () => {
+    it("disposing the onDidChangeEntries subscription removes the listener", () => {
         const service = new StatusBarService(NULL_STATE_SERVICE);
         let fired = 0;
         const subscription = service.onDidChangeEntries(() => fired++);

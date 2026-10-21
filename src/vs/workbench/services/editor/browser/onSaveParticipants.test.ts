@@ -70,7 +70,7 @@ function host(overrides: {
 }
 
 describe("enabledCodeActionKindsOnSave", () => {
-    it("объект: true/explicit/always включают, false/never/прочее — нет", () => {
+    it("object: true/explicit/always enable, false/never/other do not", () => {
         const kinds = enabledCodeActionKindsOnSave(
             config({
                 "editor.codeActionsOnSave": {
@@ -86,20 +86,20 @@ describe("enabledCodeActionKindsOnSave", () => {
         expect(kinds).toEqual(["a", "b", "c"]);
     });
 
-    it("массив: строки включены, не-строки отфильтрованы", () => {
+    it("array: strings are enabled, non-strings are filtered out", () => {
         expect(
             enabledCodeActionKindsOnSave(config({ "editor.codeActionsOnSave": ["source.fixAll", 5, null] })),
         ).toEqual(["source.fixAll"]);
     });
 
-    it("массивная форма проходит схему настроек приложения, а не подменяется дефолтом", () => {
+    it("the array form passes the app settings schema instead of being replaced by the default", () => {
         const configuration = createTestConfigurationService({
             "editor.codeActionsOnSave": ["source.organizeImports"],
         });
         expect(enabledCodeActionKindsOnSave(configuration)).toEqual(["source.organizeImports"]);
     });
 
-    it("секция языка документа: объект сливается с плоским (как у VS Code), другой язык — только плоские", () => {
+    it("document language section: the object merges with the flat one (as in VS Code), another language gets only flat ones", () => {
         const configuration = config({
             "editor.codeActionsOnSave": { "source.fixAll": true },
             "[python]": { "editor.codeActionsOnSave": { "source.organizeImports": true } },
@@ -111,7 +111,7 @@ describe("enabledCodeActionKindsOnSave", () => {
         expect(enabledCodeActionKindsOnSave(configuration, "go")).toEqual(["source.fixAll"]);
     });
 
-    it("не задано / null / не-объект → пусто", () => {
+    it("unset / null / non-object → empty", () => {
         expect(enabledCodeActionKindsOnSave(config({}))).toEqual([]);
         // A service without defaults (null stub) has no key at all.
         expect(enabledCodeActionKindsOnSave(NULL_CONFIGURATION_SERVICE)).toEqual([]);
@@ -121,7 +121,7 @@ describe("enabledCodeActionKindsOnSave", () => {
 });
 
 describe("createCodeActionsOnSaveParticipant", () => {
-    it("без источника — пустой результат, настройка даже не читается", async () => {
+    it("without a source: empty result, the setting is not even read", async () => {
         let read = false;
         const participant = createCodeActionsOnSaveParticipant(
             host({
@@ -138,7 +138,7 @@ describe("createCodeActionsOnSaveParticipant", () => {
         expect(read).toBe(false);
     });
 
-    it("provide вернул null (нет матчащего провайдера) — apply не дёргается", async () => {
+    it("provide returned null (no matching provider): apply is not called", async () => {
         let applied = 0;
         const source: IFakeCodeActions = {
             provide: () => Promise.resolve(null),
@@ -158,7 +158,7 @@ describe("createCodeActionsOnSaveParticipant", () => {
         expect(applied).toBe(0);
     });
 
-    it("неактивные (disabled) действия при сохранении не применяются, активные — да", async () => {
+    it("disabled actions are not applied on save, enabled ones are", async () => {
         const applied: [string, IApplyCodeActionOptions | undefined][] = [];
         const participant = createCodeActionsOnSaveParticipant(
             host({
@@ -182,7 +182,7 @@ describe("createCodeActionsOnSaveParticipant", () => {
         expect(applied).toEqual([["1.1", { onSave: true }]]);
     });
 
-    it("без панели диапазон и версия берутся из снапшота", async () => {
+    it("without a pane the range and version come from the snapshot", async () => {
         const provided: { versionId: number; endLine: number; endCharacter: number }[] = [];
         const source: IFakeCodeActions = {
             provide: (req) => {
@@ -207,7 +207,7 @@ describe("createCodeActionsOnSaveParticipant", () => {
         expect(provided).toEqual([{ versionId: 7, endLine: 1, endCharacter: 3 }]);
     });
 
-    it("с панелью диапазон и версия берутся из панели, а не из снапшота", async () => {
+    it("with a pane the range and version come from the pane, not the snapshot", async () => {
         const provided: { versionId: number; endLine: number; endCharacter: number }[] = [];
         const source: IFakeCodeActions = {
             provide: (req) => {
@@ -268,7 +268,7 @@ function fakePane(
 }
 
 describe("createFormatOnSaveParticipant", () => {
-    it("настройка выключена — источник не дёргается даже при живой панели", async () => {
+    it("setting disabled: the source is not called even with a live pane", async () => {
         let called = false;
         const { pane } = fakePane(() => "x");
         const participant = createFormatOnSaveParticipant(
@@ -285,7 +285,7 @@ describe("createFormatOnSaveParticipant", () => {
         expect(called).toBe(false);
     });
 
-    it("включена только в секции языка документа — участник работает для него, не для других", async () => {
+    it("enabled only in the document language section: the participant works for it, not for others", async () => {
         let calls = 0;
         const { pane } = fakePane(() => "x");
         const participant = createFormatOnSaveParticipant(
@@ -305,7 +305,7 @@ describe("createFormatOnSaveParticipant", () => {
         expect(calls).toBe(1);
     });
 
-    it("включена, панель есть, но источника нет (host отвалился) — no-op", async () => {
+    it("enabled, a pane exists, but no source (host dropped): no-op", async () => {
         const { pane, applied } = fakePane(() => "x");
         const participant = createFormatOnSaveParticipant(
             host({
@@ -317,7 +317,7 @@ describe("createFormatOnSaveParticipant", () => {
         expect(applied).toEqual([]);
     });
 
-    it("успешный формат: правки применяются с меткой Format on Save, результат пуст", async () => {
+    it("successful format: edits are applied with the Format on Save label, the result is empty", async () => {
         const { pane, applied } = fakePane(() => "x");
         const participant = createFormatOnSaveParticipant(
             host({
@@ -334,7 +334,7 @@ describe("createFormatOnSaveParticipant", () => {
         expect(applied).toEqual([{ edits: 1, label: "Format on Save" }]);
     });
 
-    it("устаревший ответ (версия сменилась за время RPC) — правки не применяются", async () => {
+    it("a stale response (version changed during the RPC): edits are not applied", async () => {
         let reads = 0;
         const { pane, applied } = fakePane(
             () => "x",
@@ -355,7 +355,7 @@ describe("createFormatOnSaveParticipant", () => {
         expect(applied).toEqual([]);
     });
 
-    it("включена, но панели нет (файл сохраняется без вью) — no-op", async () => {
+    it("enabled but no pane (file saved without a view): no-op", async () => {
         let called = false;
         const participant = createFormatOnSaveParticipant(
             host({
@@ -370,7 +370,7 @@ describe("createFormatOnSaveParticipant", () => {
         expect(called).toBe(false);
     });
 
-    it("пустой ответ форматтера (менять нечего) — no-op без правок", async () => {
+    it("an empty formatter response (nothing to change): no-op without edits", async () => {
         let editsApplied = 0;
         const pane = {
             model: { document: { versionId: 1, lineCount: 1, getLineLength: () => 1 } },
@@ -391,7 +391,7 @@ describe("createFormatOnSaveParticipant", () => {
         expect(editsApplied).toBe(0);
     });
 
-    it("настройки отступов запроса берутся из viewState панели", async () => {
+    it("the request's indentation settings come from the pane's viewState", async () => {
         const requests: { tabSize: number; insertSpaces: boolean }[] = [];
         const pane = {
             model: { document: { versionId: 1, lineCount: 1, getLineLength: () => 1 } },
@@ -413,7 +413,7 @@ describe("createFormatOnSaveParticipant", () => {
         expect(requests).toEqual([{ tabSize: 3, insertSpaces: false }]);
     });
 
-    it("запрос несёт версию панели; range-форматтеру — диапазон всего текста панели", async () => {
+    it("the request carries the pane version; a range formatter gets the range of the pane's whole text", async () => {
         const { pane, applied } = fakePane(
             () => "a\nbc\ndef!",
             () => 5,

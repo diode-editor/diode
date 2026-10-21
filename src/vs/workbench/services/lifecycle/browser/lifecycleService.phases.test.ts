@@ -8,12 +8,12 @@ function createLifecycle(): LifecycleService {
     return new LifecycleService(new DialogService());
 }
 
-describe("LifecycleService — фазы старта", () => {
-    it("стартует в starting", () => {
+describe("LifecycleService: startup phases", () => {
+    it("starts in starting", () => {
         expect(createLifecycle().phase).toBe("starting");
     });
 
-    it("переход через несколько фаз проходит промежуточные по порядку", () => {
+    it("a jump over several phases passes through the intermediate ones in order", () => {
         const lifecycle = createLifecycle();
         const seen: string[] = [];
         lifecycle.onDidChangePhase((phase) => {
@@ -27,7 +27,7 @@ describe("LifecycleService — фазы старта", () => {
         expect(lifecycle.phase).toBe("restored");
     });
 
-    it("повтор текущей фазы — no-op", () => {
+    it("repeating the current phase is a no-op", () => {
         const lifecycle = createLifecycle();
         lifecycle.setPhase("ready");
         const seen: string[] = [];
@@ -38,7 +38,7 @@ describe("LifecycleService — фазы старта", () => {
         expect(seen).toEqual([]);
     });
 
-    it("откат назад — ошибка в порядке старта", () => {
+    it("going backward is an error in the startup order", () => {
         const lifecycle = createLifecycle();
         lifecycle.setPhase("restored");
 
@@ -48,7 +48,7 @@ describe("LifecycleService — фазы старта", () => {
         expect(lifecycle.phase).toBe("restored");
     });
 
-    it("снятый слушатель переходов не слышит", () => {
+    it("a removed listener does not hear transitions", () => {
         const lifecycle = createLifecycle();
         const seen: string[] = [];
         lifecycle.onDidChangePhase((phase) => seen.push(phase)).dispose();
@@ -58,7 +58,7 @@ describe("LifecycleService — фазы старта", () => {
         expect(seen).toEqual([]);
     });
 
-    it("when ждёт фазу и резолвится в момент перехода в неё", async () => {
+    it("when waits for a phase and resolves at the moment of the transition into it", async () => {
         const lifecycle = createLifecycle();
         const resolved: string[] = [];
         void lifecycle.when("restored").then(() => resolved.push("restored"));
@@ -77,7 +77,7 @@ describe("LifecycleService — фазы старта", () => {
         expect(resolved).toEqual(["restored", "eventually"]);
     });
 
-    it("when по достигнутой (или пройденной) фазе резолвится сразу", async () => {
+    it("when on a reached (or passed) phase resolves immediately", async () => {
         const lifecycle = createLifecycle();
         lifecycle.setPhase("restored");
         const resolved: string[] = [];
@@ -90,11 +90,11 @@ describe("LifecycleService — фазы старта", () => {
         expect(resolved).toEqual(["ready", "restored"]);
     });
 
-    it("when(starting) резолвится сразу — эта фаза наступила с рождением сервиса", async () => {
+    it("when(starting) resolves immediately: this phase begins with the service's birth", async () => {
         await expect(createLifecycle().when("starting")).resolves.toBeUndefined();
     });
 
-    it("несколько ожидающих одной фазы резолвятся все", async () => {
+    it("several waiters on one phase all resolve", async () => {
         const lifecycle = createLifecycle();
         const waits = [lifecycle.when("ready"), lifecycle.when("ready")];
 

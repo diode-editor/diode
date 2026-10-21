@@ -16,7 +16,7 @@ function extension(
 }
 
 describe("deactivateExtension", () => {
-    it("deactivate, затем подписки в обратном порядке; список подписок опустошается", async () => {
+    it("deactivate, then subscriptions in reverse order; the subscription list is emptied", async () => {
         const order: string[] = [];
         const subscriptions = [
             { dispose: (): unknown => order.push("first") },
@@ -37,7 +37,7 @@ describe("deactivateExtension", () => {
         expect(lines).toEqual([]);
     });
 
-    it("без deactivate — только подписки", async () => {
+    it("without deactivate only subscriptions", async () => {
         const order: string[] = [];
         const { lines, logger } = captureLogger();
         await deactivateExtension(extension(undefined, [{ dispose: (): unknown => order.push("sub") }]), logger);
@@ -45,7 +45,7 @@ describe("deactivateExtension", () => {
         expect(lines).toEqual([]);
     });
 
-    it("сбой deactivate и подписки — warn с id расширения, уборка доходит до конца, наружу не бросает", async () => {
+    it("deactivate and subscription failures warn with the extension id, cleanup runs to the end and does not throw", async () => {
         const deactivateError = new Error("deactivate boom");
         const disposeError = new Error("dispose boom");
         const order: string[] = [];
@@ -73,7 +73,7 @@ describe("deactivateExtension", () => {
         ]);
     });
 
-    it("синхронный throw из deactivate — тот же warn", async () => {
+    it("a synchronous throw from deactivate gives the same warn", async () => {
         const error = new Error("sync boom");
         const { lines, logger } = captureLogger();
         await deactivateExtension(

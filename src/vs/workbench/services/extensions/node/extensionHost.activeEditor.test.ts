@@ -18,7 +18,7 @@ const TS_LANGUAGE_SERVICE: ILanguageService = {
 };
 
 describe("ExtensionHost — window.onDidChangeActiveTextEditor (subprocess)", () => {
-    it("событие срабатывает при открытии файла после активации расширения", async () => {
+    it("the event fires when a file opens after extension activation", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.watchActiveEditor", "watchActiveEditor.cjs")],
         });
@@ -35,7 +35,7 @@ describe("ExtensionHost — window.onDidChangeActiveTextEditor (subprocess)", ()
         }
     });
 
-    it("initial snapshot: activeTextEditor корректен при активации если файл уже открыт", async () => {
+    it("initial snapshot: activeTextEditor is correct on activation if a file is already open", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "export {};\n" },
             extensions: [extensionFixture("test.watchActiveEditor", "watchActiveEditor.cjs")],
@@ -52,7 +52,7 @@ describe("ExtensionHost — window.onDidChangeActiveTextEditor (subprocess)", ()
         }
     });
 
-    it("window.activeTextEditor возвращает undefined когда нет открытых файлов", async () => {
+    it("window.activeTextEditor returns undefined when no files are open", async () => {
         // With editor === undefined the fixture returns early; otherwise it would set 8.
         const harness = await createExtensionTestHarness({
             extensions: [
@@ -70,7 +70,7 @@ describe("ExtensionHost — window.onDidChangeActiveTextEditor (subprocess)", ()
         }
     });
 
-    it("languageId проецируется в meta и document стабилен по идентичности", async () => {
+    it("languageId is projected into meta and document identity is stable", async () => {
         const harness = await createExtensionTestHarness({
             languageService: TS_LANGUAGE_SERVICE,
             extensions: [extensionFixture("test.reportMeta", "reportActiveEditorMeta.cjs")],
@@ -87,7 +87,7 @@ describe("ExtensionHost — window.onDidChangeActiveTextEditor (subprocess)", ()
         }
     });
 
-    it("document.fileName содержит полный путь к файлу", async () => {
+    it("document.fileName holds the full file path", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.watchActiveEditor", "watchActiveEditor.cjs")],
         });

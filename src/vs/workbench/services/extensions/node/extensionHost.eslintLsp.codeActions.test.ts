@@ -36,7 +36,7 @@ let eslintNodeModules: string;
 
 const FIXED_JS = "const unused = 1;\n";
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от стокового vscode-eslint", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions from the stock vscode-eslint", () => {
     beforeAll(async () => {
         installed = await installEslint();
         eslintNodeModules = ensureEslintLibrary();
@@ -61,12 +61,12 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
     }
 
     it(
-        "editor.action.fixAll применяет source.fixAll.eslint: лишняя `;` ушла, no-unused-vars остался",
+        "editor.action.fixAll applies source.fixAll.eslint: the extra `;` is gone, no-unused-vars remains",
         { timeout: 240_000 },
         async () => {
             const { harness, lintUri } = await openLintFile();
             try {
-                await until("source.fixAll action от eslint", async () => {
+                await until("source.fixAll action from eslint", async () => {
                     const actions = await provideCodeActions(harness, {
                         uri: lintUri,
                         languageId: "javascript",
@@ -95,12 +95,12 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
     );
 
     it(
-        "quickfix по диагностике no-extra-semi: фикс с isPreferred, apply правит буфер",
+        "quickfix for diagnostic no-extra-semi: a fix with isPreferred, apply edits the buffer",
         { timeout: 240_000 },
         async () => {
             const { harness, lintUri } = await openLintFile();
             try {
-                const quickfixes = await until("quickfix-набор для no-extra-semi", async () => {
+                const quickfixes = await until("quickfix set for no-extra-semi", async () => {
                     const actions = await provideCodeActions(harness, {
                         uri: lintUri,
                         languageId: "javascript",

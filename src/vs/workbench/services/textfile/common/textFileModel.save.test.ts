@@ -30,7 +30,7 @@ describe("TextFileModel — save participant", () => {
         controller.model.saveParticipant = new TextFileSaveParticipant(() => [participant]);
     }
 
-    it("применяет текстовые правки участника перед записью", async () => {
+    it("applies participant text edits before writing", async () => {
         const controller = createEditorPane();
         const fp = writeFile("a.txt", "abc   \n");
         controller.openFile(Uri.file(fp));
@@ -47,7 +47,7 @@ describe("TextFileModel — save participant", () => {
         controller.dispose();
     });
 
-    it("смена EOL из участника (kind: eol) пишет CRLF", async () => {
+    it("an EOL change from a participant (kind: eol) writes CRLF", async () => {
         const controller = createEditorPane();
         const fp = writeFile("eol.txt", "a\nb\n");
         controller.openFile(Uri.file(fp));
@@ -59,7 +59,7 @@ describe("TextFileModel — save participant", () => {
         controller.dispose();
     });
 
-    it("saveAs тоже прогоняет участника", async () => {
+    it("saveAs runs the participant too", async () => {
         const controller = createEditorPane();
         const fp = writeFile("src.txt", "hi   \n");
         controller.openFile(Uri.file(fp));
@@ -76,7 +76,7 @@ describe("TextFileModel — save participant", () => {
         controller.dispose();
     });
 
-    it("save пишет файл атомарно через файловый сервис", async () => {
+    it("save writes the file atomically via the file service", async () => {
         const controller = createEditorPane();
         const fp = writeFile("plain.txt", "keep   \n");
         controller.openFile(Uri.file(fp));
@@ -89,7 +89,7 @@ describe("TextFileModel — save participant", () => {
         controller.dispose();
     });
 
-    it("saveAs пишет новый файл через файловый сервис", async () => {
+    it("saveAs writes a new file via the file service", async () => {
         const controller = createEditorPane();
         const fp = writeFile("plain2.txt", "as\n");
         controller.openFile(Uri.file(fp));
@@ -101,7 +101,7 @@ describe("TextFileModel — save participant", () => {
         controller.dispose();
     });
 
-    it("saveAs поверх существующего файла — атомарно; следующий save без ложного конфликта", async () => {
+    it("saveAs over an existing file is atomic; the next save has no false conflict", async () => {
         const controller = createEditorPane();
         const fp = writeFile("from.txt", "body\n");
         const dst = writeFile("to.txt", "old\n");
@@ -116,7 +116,7 @@ describe("TextFileModel — save participant", () => {
         controller.dispose();
     });
 
-    it("файл изменили снаружи, пока работал участник — конфликт, диск не тронут", async () => {
+    it("the file changed externally while a participant ran: conflict, disk untouched", async () => {
         const controller = createEditorPane();
         const fp = writeFile("race.txt", "mine\n");
         controller.openFile(Uri.file(fp));
@@ -132,7 +132,7 @@ describe("TextFileModel — save participant", () => {
         controller.dispose();
     });
 
-    it("overwrite пишет поверх изменённого участником-соседом файла", async () => {
+    it("overwrite writes over a file changed by a neighbouring participant", async () => {
         const controller = createEditorPane();
         const fp = writeFile("force.txt", "mine\n");
         controller.openFile(Uri.file(fp));
@@ -148,7 +148,7 @@ describe("TextFileModel — save participant", () => {
         controller.dispose();
     });
 
-    it("файла не было при открытии — гарда нет, save его создаёт", async () => {
+    it("the file was missing at open: no guard, save creates it", async () => {
         const controller = createEditorPane();
         const fp = ws.path("fresh.txt");
         controller.openFile(Uri.file(fp));
@@ -163,7 +163,7 @@ describe("TextFileModel — save participant", () => {
         controller.dispose();
     });
 
-    it("ошибка записи, отличная от конфликта, доходит до вызывающего", async () => {
+    it("a write error other than a conflict reaches the caller", async () => {
         const controller = createEditorPane();
         const fp = writeFile("dir-target.txt", "x\n");
         controller.openFile(Uri.file(fp));

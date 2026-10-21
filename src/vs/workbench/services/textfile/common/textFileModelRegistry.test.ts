@@ -35,7 +35,7 @@ describe("TextFileModelRegistry", () => {
         return Uri.file(ws.writeFile(name, content));
     }
 
-    it("двойной acquire одного ресурса отдаёт одну и ту же модель", () => {
+    it("acquiring the same resource twice returns the same model", () => {
         const uri = fileUri("a.txt");
         const refA = registry.acquire(uri);
         const refB = registry.acquire(uri);
@@ -45,7 +45,7 @@ describe("TextFileModelRegistry", () => {
         expect(registry.refCount(uri)).toBe(2);
     });
 
-    it("модель живёт до освобождения последней ссылки и умирает с ней", () => {
+    it("the model lives until the last reference is released and dies with it", () => {
         const uri = fileUri("a.txt");
         const refA = registry.acquire(uri);
         const refB = registry.acquire(uri);
@@ -62,7 +62,7 @@ describe("TextFileModelRegistry", () => {
         expect(registry.get(uri)).toBeNull();
     });
 
-    it("повторный dispose одной ссылки — no-op (не крадёт чужой ref)", () => {
+    it("disposing one reference twice is a no-op (does not steal another ref)", () => {
         const uri = fileUri("a.txt");
         const refA = registry.acquire(uri);
         const refB = registry.acquire(uri);
@@ -77,7 +77,7 @@ describe("TextFileModelRegistry", () => {
         expect(disposeSpy).toHaveBeenCalledTimes(1);
     });
 
-    it("освобождение последней ссылки чистит undo-бакет модели (штатный dispose)", () => {
+    it("releasing the last reference clears the model undo bucket (regular dispose)", () => {
         const uri = fileUri("a.txt", "hello");
         const ref = registry.acquire(uri);
         const context = ref.model.undoContext;
@@ -89,7 +89,7 @@ describe("TextFileModelRegistry", () => {
         expect(undoRedo.peekUndo(context)).toBeUndefined();
     });
 
-    it("после acquire нового ресурса создаётся отдельная модель", () => {
+    it("acquiring a new resource creates a separate model", () => {
         const refA = registry.acquire(fileUri("a.txt"));
         const refB = registry.acquire(fileUri("b.txt"));
 
@@ -97,7 +97,7 @@ describe("TextFileModelRegistry", () => {
         expect(registry.models().length).toBe(2);
     });
 
-    it("handleUriChanged перепривязывает ключ после saveAs", async () => {
+    it("handleUriChanged rebinds the key after saveAs", async () => {
         const uri = fileUri("a.txt", "text");
         const ref = registry.acquire(uri);
         const newPath = ws.path("renamed.txt");
@@ -111,7 +111,7 @@ describe("TextFileModelRegistry", () => {
         expect(refOld.model === ref.model).toBe(false);
     });
 
-    it("коллизия ключей при saveAs оставляет перемещённую модель без ключа, ссылки живы", async () => {
+    it("a key collision on saveAs leaves the moved model without a key, references stay alive", async () => {
         const uriA = fileUri("a.txt", "aaa");
         const uriB = fileUri("b.txt", "bbb");
         const refA = registry.acquire(uriA);
@@ -128,7 +128,7 @@ describe("TextFileModelRegistry", () => {
         refB.dispose();
     });
 
-    it("модель без ключа (после коллизии) уезжает на свободный путь и снова индексируется", async () => {
+    it("a keyless model (after a collision) moves to a free path and is indexed again", async () => {
         const uriA = fileUri("a.txt", "aaa");
         const uriB = fileUri("b.txt", "bbb");
         const refA = registry.acquire(uriA);

@@ -165,7 +165,7 @@ describe("parseRgMatchLine", () => {
         expect(parseRgMatchLine(line)).toBeNull();
     });
 
-    it("режет preview.after до 256 символов — матч в минифицированной строке остаётся ограниченным", () => {
+    it("cuts preview.after to 256 characters: a match in a minified line stays bounded", () => {
         const line = matchLine({
             path: "/a.min.js",
             text: "x needle " + "y".repeat(100_000) + "\n",
@@ -180,7 +180,7 @@ describe("parseRgMatchLine", () => {
         expect(m.endColumn).toBe(8);
     });
 
-    it("не разрывает суррогатную пару на границе капа", () => {
+    it("does not split a surrogate pair at the cap boundary", () => {
         const tail = "y".repeat(255) + "😀" + "z".repeat(300);
         const line = matchLine({
             path: "/a.ts",

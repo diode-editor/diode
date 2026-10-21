@@ -33,8 +33,8 @@ function sampleExtension(id = "test.sample-theme"): { ext: IExtension; assets: M
     return { ext, assets };
 }
 
-describe("ExtensionThemeContributor — регистрация тем расширений", () => {
-    it("темы расширения встают в реестр вслед за встроенными, с типом из uiTheme", async () => {
+describe("ExtensionThemeContributor — extension theme registration", () => {
+    it("extension themes join the registry after built-in ones, with type from uiTheme", async () => {
         const { ext, assets } = sampleExtension();
         const registry = createBuiltinThemeRegistry();
         const contributor = new ExtensionThemeContributor(assets, [ext], registry);
@@ -47,7 +47,7 @@ describe("ExtensionThemeContributor — регистрация тем расши
         ]);
     });
 
-    it("ключ темы — label из манифеста, name из файла игнорируется (US-4)", async () => {
+    it("theme key is the manifest label, name from the file is ignored (US-4)", async () => {
         const { ext, assets } = sampleExtension();
         const registry = new ThemeRegistry();
         await new ExtensionThemeContributor(assets, [ext], registry).apply();
@@ -57,7 +57,7 @@ describe("ExtensionThemeContributor — регистрация тем расши
         expect(registry.resolve("Sample Dark")?.name).toBe("Sample Dark");
     });
 
-    it("resolve() даёт цвета workbench из файла, включая альфу, и правила подсветки", async () => {
+    it("resolve() returns workbench colors from the file, including alpha, and highlighting rules", async () => {
         const { ext, assets } = sampleExtension();
         const registry = new ThemeRegistry();
         await new ExtensionThemeContributor(assets, [ext], registry).apply();
@@ -71,7 +71,7 @@ describe("ExtensionThemeContributor — регистрация тем расши
         );
     });
 
-    it("все файлы читаются в apply(), до первого кадра — resolve синхронный и без I/O", async () => {
+    it("all files are read in apply(), before the first frame — resolve is synchronous with no I/O", async () => {
         const { ext, assets } = sampleExtension();
         const registry = new ThemeRegistry();
         await new ExtensionThemeContributor(assets, [ext], registry).apply();
@@ -86,7 +86,7 @@ describe("ExtensionThemeContributor — регистрация тем расши
         expect(assets.reads).toEqual([]);
     });
 
-    it("расширение без contributes.themes ничего не регистрирует и ничего не читает", async () => {
+    it("extension without contributes.themes registers nothing and reads nothing", async () => {
         const ext: IExtension = {
             id: "test.plain",
             location: "UserExtensions/test.plain-1.0.0/",
@@ -101,7 +101,7 @@ describe("ExtensionThemeContributor — регистрация тем расши
         expect(assets.reads).toEqual([]);
     });
 
-    it("US-11: label встроенной темы — побеждает расширение, warning о затенении", async () => {
+    it("US-11: built-in theme label — extension wins, warning about shadowing", async () => {
         const ext = extensionWithThemes("test.shadow", [{ label: "Monokai", uiTheme: "vs-dark", path: "./mono.json" }]);
         const assets = new MemoryAssets({
             [`${ext.location}mono.json`]: JSON.stringify({ colors: { "editor.background": "#ABCDEF" } }),
@@ -115,7 +115,7 @@ describe("ExtensionThemeContributor — регистрация тем расши
         expect(logger.warn).toHaveBeenCalledWith('test.shadow: theme "Monokai" shadows the built-in theme');
     });
 
-    it("US-12: два расширения с одним label — побеждает последнее по порядку скана, warning с обоими id", async () => {
+    it("US-12: two extensions with the same label — the last in scan order wins, warning with both ids", async () => {
         const first = extensionWithThemes("a.first", [{ label: "Twin", uiTheme: "vs-dark", path: "./t.json" }]);
         const second = extensionWithThemes("b.second", [{ label: "Twin", uiTheme: "vs", path: "./t.json" }]);
         const assets = new MemoryAssets({
@@ -134,7 +134,7 @@ describe("ExtensionThemeContributor — регистрация тем расши
         expect(logger.warn).toHaveBeenCalledTimes(1);
     });
 
-    it("порядок регистрации — порядок расширений, даже если их файлы читаются с разной скоростью", async () => {
+    it("registration order is extension order, even if their files are read at different speeds", async () => {
         const slow = extensionWithThemes("a.slow", [{ label: "Slow", uiTheme: "vs-dark", path: "./t.json" }]);
         const fast = extensionWithThemes("b.fast", [{ label: "Fast", uiTheme: "vs-dark", path: "./t.json" }]);
         const files: Partial<Record<string, string>> = {
@@ -161,7 +161,7 @@ describe("ExtensionThemeContributor — регистрация тем расши
         expect(registry.list().map((d) => d.label)).toEqual(["Slow", "Fast"]);
     });
 
-    it("dispose() снимает ровно свои регистрации, встроенные остаются", async () => {
+    it("dispose() removes exactly its own registrations, built-in ones stay", async () => {
         const { ext, assets } = sampleExtension();
         const registry = createBuiltinThemeRegistry();
         const unregister = vi.spyOn(registry, "unregister");
@@ -181,7 +181,7 @@ describe("ExtensionThemeContributor — регистрация тем расши
         expect(registry.list()).toHaveLength(builtinThemes.length);
     });
 
-    it("без логгера все ветки предупреждений и ошибок молчат, а не падают", async () => {
+    it("without a logger all warning and error branches stay silent instead of throwing", async () => {
         const shadow = extensionWithThemes("a.shadow", [
             { label: "Monokai", path: "./mono.json" },
             { label: "Twin", uiTheme: "vs-sepia", path: "./twin.json" },

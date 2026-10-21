@@ -73,8 +73,8 @@ function makeHost(
 
 const HOVER_REGISTRATION = { handle: 7, kind: "hover", selector: [{ language: "typescript" }] };
 
-describe("ExtensionHost — регистрации языковых провайдеров (in-process)", () => {
-    it("languages.register/unregister ведут список провайдеров и будят слушателей", async () => {
+describe("ExtensionHost — language provider registrations (in-process)", () => {
+    it("languages.register/unregister maintain the provider list and notify listeners", async () => {
         const { host, peer } = makeHost();
         const changed = vi.fn();
         host.onLanguageProvidersChanged(changed);
@@ -91,7 +91,7 @@ describe("ExtensionHost — регистрации языковых провай
         expect(changed).toHaveBeenCalledTimes(2);
     });
 
-    it("чужая форма регистрации и снятие неизвестного handle игнорируются без события", async () => {
+    it("a foreign registration shape and unregistering an unknown handle are ignored without an event", async () => {
         const { host, peer } = makeHost();
         const changed = vi.fn();
         host.onLanguageProvidersChanged(changed);
@@ -105,7 +105,7 @@ describe("ExtensionHost — регистрации языковых провай
         expect(changed).not.toHaveBeenCalled();
     });
 
-    it("отписка снимает только своего слушателя", async () => {
+    it("unsubscribing removes only its own listener", async () => {
         const { host, peer } = makeHost();
         const kept = vi.fn();
         const removed = vi.fn();
@@ -122,7 +122,7 @@ describe("ExtensionHost — регистрации языковых провай
         expect(removed).not.toHaveBeenCalled();
     });
 
-    it("остановка субпроцесса снимает все регистрации одним событием", async () => {
+    it("stopping the subprocess removes all registrations in one event", async () => {
         const { host, peer } = makeHost();
         peer.notify("languages.register", HOVER_REGISTRATION);
         peer.notify("languages.register", { ...HOVER_REGISTRATION, handle: 8 });
@@ -136,7 +136,7 @@ describe("ExtensionHost — регистрации языковых провай
         expect(changed).toHaveBeenCalledTimes(1);
     });
 
-    it("остановка без регистраций событий не порождает", async () => {
+    it("stopping without registrations fires no events", async () => {
         const { host } = makeHost();
         const changed = vi.fn();
         host.onLanguageProvidersChanged(changed);
@@ -147,8 +147,8 @@ describe("ExtensionHost — регистрации языковых провай
     });
 });
 
-describe("ExtensionHost — hover-запрос по handle (in-process)", () => {
-    it("запрос несёт handle провайдера и версию документа, без текста", async () => {
+describe("ExtensionHost — hover request by handle (in-process)", () => {
+    it("the request carries the provider handle and the document version, without text", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn((_params: unknown) => Promise.resolve({ contents: ["const a: number"] }));
         peer.handleRequest("languages.provideHover", provide);
@@ -164,7 +164,7 @@ describe("ExtensionHost — hover-запрос по handle (in-process)", () => 
         });
     });
 
-    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+    it("document not open in the subprocess: empty without RPC", async () => {
         const { host, peer } = makeHost({ open: false });
         const provide = vi.fn(() => Promise.resolve({ contents: ["ok"] }));
         peer.handleRequest("languages.provideHover", provide);
@@ -173,7 +173,7 @@ describe("ExtensionHost — hover-запрос по handle (in-process)", () => 
         expect(provide).not.toHaveBeenCalled();
     });
 
-    it("документ ровно в порог синхронизации проходит, больше порога — пусто без RPC и запись в лог", async () => {
+    it("a document exactly at the sync threshold passes; above it, empty without RPC and a log entry", async () => {
         const length = DOCUMENT.text.length;
         const atLimit = makeHost({ maxSyncedDocumentChars: length });
         const provide = vi.fn(() => Promise.resolve({ contents: ["ok"] }));
@@ -192,11 +192,11 @@ describe("ExtensionHost — hover-запрос по handle (in-process)", () => 
         });
     });
 
-    it("после остановки субпроцесса запрос не уходит", async () => {
+    it("no request is sent after the subprocess stops", async () => {
         const { host, peer } = makeHost();
-        const provide = vi.fn(() => Promise.resolve({ contents: ["жив"] }));
+        const provide = vi.fn(() => Promise.resolve({ contents: ["alive"] }));
         peer.handleRequest("languages.provideHover", provide);
-        expect(await host.provideHover(1, REQUEST)).toEqual({ contents: ["жив"] });
+        expect(await host.provideHover(1, REQUEST)).toEqual({ contents: ["alive"] });
 
         await (host as unknown as { shutdownSubprocess(): Promise<void> }).shutdownSubprocess();
 
@@ -204,7 +204,7 @@ describe("ExtensionHost — hover-запрос по handle (in-process)", () => 
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
-    it("дефолт таймаута — 5000 мс, как у definition (холодный сервер индексирует секундами)", async () => {
+    it("default timeout is 5000 ms, as for definition (a cold server indexes for seconds)", async () => {
         const { host, peer } = makeHost();
         const hostRpc = (host as unknown as { rpc: RpcEndpoint }).rpc;
         const request = vi.spyOn(hostRpc, "request");
@@ -215,14 +215,14 @@ describe("ExtensionHost — hover-запрос по handle (in-process)", () => 
         expect(request).toHaveBeenCalledWith("languages.provideHover", expect.anything(), { timeoutMs: 5000 });
     });
 
-    it("по истечении таймаута ответ отбрасывается, а запрос у субпроцесса отменяется", async () => {
+    it("after the timeout the response is dropped and the subprocess request is cancelled", async () => {
         const debug = vi.fn();
         const { host, peer } = makeHost({ timeoutMs: 5, debug });
         let seen: ICancellationToken | undefined;
         peer.handleRequest("languages.provideHover", async (_params, token) => {
             seen = token;
             await settle(200);
-            return { contents: ["опоздал"] };
+            return { contents: ["late"] };
         });
 
         expect(await host.provideHover(1, REQUEST)).toBeUndefined();
@@ -233,7 +233,7 @@ describe("ExtensionHost — hover-запрос по handle (in-process)", () => 
         });
     });
 
-    it("отмена ядра доезжает до токена субпроцесса (provideHover)", async () => {
+    it("core cancellation reaches the subprocess token (provideHover)", async () => {
         const { host, peer } = makeHost();
         let seen: ICancellationToken | null = null;
         peer.handleRequest("languages.provideHover", (_params, token) => {

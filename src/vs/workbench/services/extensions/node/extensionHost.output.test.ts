@@ -39,8 +39,8 @@ function makeHost(withSink: boolean) {
     return { host, peer, events };
 }
 
-describe("ExtensionHost — сток output-каналов (output.*, in-process)", () => {
-    it("append и show доезжают до sink'а", async () => {
+describe("ExtensionHost — output channel sink (output.*, in-process)", () => {
+    it("append and show reach the sink", async () => {
         const h = makeHost(true);
         h.peer.notify("output.append", {
             channel: "extensions.ts",
@@ -57,7 +57,7 @@ describe("ExtensionHost — сток output-каналов (output.*, in-process
         ]);
     });
 
-    it("битые конверты игнорируются; без sink'а не падает", async () => {
+    it("malformed envelopes are ignored; no crash without a sink", async () => {
         const h = makeHost(true);
         h.peer.notify("output.append", null);
         h.peer.notify("output.append", { channel: "", label: "x", level: "info", value: "v" });

@@ -65,7 +65,7 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
     }
 }
 
-describe("ExtensionHost — подсказка параметров от стокового typescript-language-server", () => {
+describe("ExtensionHost — signature help from the stock typescript-language-server", () => {
     beforeAll(async () => {
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
@@ -73,7 +73,7 @@ describe("ExtensionHost — подсказка параметров от сто�
         await buildExtensions({ repoRoot: REPO_ROOT });
     }, 120_000);
 
-    it("сигнатура вызова из соседнего модуля доезжает до ядра, активный параметр следует за запятой", async () => {
+    it("the signature of a call from a neighbouring module reaches the core, the active parameter follows the comma", async () => {
         const outputLines: { level: string; value: string }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: TS_LANGUAGE_SERVICE,
@@ -98,7 +98,7 @@ describe("ExtensionHost — подсказка параметров от сто�
 
             // Trigger characters come from the server itself, not hardcoded in the core.
             const document = { uri: mainUri, languageId: "typescript" };
-            await until("объявленные сервером триггер-символы", async () => {
+            await until("trigger characters declared by the server", async () => {
                 await settle(0);
                 return signatureHelpCharacters(harness, document).triggerCharacters.length > 0 ? true : null;
             });
@@ -114,7 +114,7 @@ describe("ExtensionHost — подсказка параметров от сто�
                 "type call",
             );
             expect(editor?.getText()).toBe(MAIN_TYPING);
-            const help = await until("подсказку после `greet(`", async () => {
+            const help = await until("signature help after `greet(`", async () => {
                 const found: ICoreSignatureHelp | null = await provideSignatureHelp(harness, {
                     uri: mainUri,
                     languageId: "typescript",
@@ -138,7 +138,7 @@ describe("ExtensionHost — подсказка параметров от сто�
                 "type argument",
             );
             expect(editor?.getText()).toBe(afterComma);
-            const second = await until("активный параметр после запятой", async () => {
+            const second = await until("active parameter after the comma", async () => {
                 const found = await provideSignatureHelp(harness, {
                     uri: mainUri,
                     languageId: "typescript",

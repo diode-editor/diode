@@ -10,7 +10,7 @@ import { HistoryService } from "./historyService.ts";
 
 const UNTITLED = "untitled:Untitled-1";
 
-describe("HistoryService — чистка стека и группы", () => {
+describe("HistoryService: pruning the stack and the group", () => {
     let ws: ITempWorkspace;
     let source: FakeHistoryEditorSource;
     let service: HistoryService;
@@ -33,7 +33,7 @@ describe("HistoryService — чистка стека и группы", () => {
     const beta = (): string => uri("beta.ts");
     const gamma = (): string => uri("gamma.ts");
 
-    it("удалённый с диска файл выпадает — Back проскакивает к живой записи", () => {
+    it("a file deleted from disk drops out: Back skips to a live entry", () => {
         source.open(gamma());
         source.open(alpha());
         source.open(beta());
@@ -46,7 +46,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(service.canGoBack).toBe(false);
     });
 
-    it("выпавшая запись впереди указателя не сдвигает его", () => {
+    it("a dropped entry ahead of the pointer does not move it", () => {
         source.open(alpha());
         source.open(beta());
         source.open(gamma());
@@ -61,7 +61,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(service.canGoForward).toBe(true);
     });
 
-    it("выпавшая запись под указателем уводит указатель НАЗАД, а не вперёд", () => {
+    it("a dropped entry under the pointer moves the pointer BACK, not forward", () => {
         source.open(alpha());
         source.open(beta());
         source.open(gamma());
@@ -75,7 +75,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(service.getEntries()).toHaveLength(2);
     });
 
-    it("выпавшая запись позади указателя его позицию не меняет", () => {
+    it("a dropped entry behind the pointer does not change its position", () => {
         source.open(alpha());
         source.open(beta());
         source.open(gamma());
@@ -89,7 +89,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(service.currentIndex).toBe(0);
     });
 
-    it("возврат в усохший файл не съедает forward-хвост", () => {
+    it("returning to a shrunken file does not eat the forward tail", () => {
         source.lineCounts.set(alpha(), 200);
         source.open(alpha());
         source.moveCaret(150);
@@ -106,7 +106,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(source.caret()).toMatchObject({ uri: beta() });
     });
 
-    it("Back в другую группу не съедает forward-хвост", () => {
+    it("Back into another group does not eat the forward tail", () => {
         source.addGroup(2);
         source.focusGroup(1);
         source.open(alpha());
@@ -120,7 +120,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(source.caret()).toMatchObject({ uri: beta() });
     });
 
-    it("безымянный буфер, открытый в одной группе из двух, остаётся достижимым", () => {
+    it("an untitled buffer open in one of two groups stays reachable", () => {
         // Groups are created before the entries: reachability of an untitled is checked across ALL
         // groups of the strip, and one must suffice, the one where it is open.
         source.addGroup(2);
@@ -134,7 +134,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(service.getEntries()).toHaveLength(2);
     });
 
-    it("закрытая вкладка живого файла остаётся в истории — Back её переоткрывает", () => {
+    it("a closed tab of a live file stays in history: Back reopens it", () => {
         source.open(alpha());
         source.moveCaret(30);
         source.open(beta());
@@ -146,7 +146,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(source.caret()).toMatchObject({ uri: alpha(), line: 30 });
     });
 
-    it("закрытый безымянный буфер выпадает — открывать его нечем", () => {
+    it("a closed untitled buffer drops out: there is nothing to open it with", () => {
         source.open(UNTITLED);
         source.open(alpha());
         source.close(UNTITLED);
@@ -160,7 +160,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(service.canGoBack).toBe(false);
     });
 
-    it("стек, из которого всё выпало, становится пустым", () => {
+    it("a stack from which everything dropped out becomes empty", () => {
         source.open(UNTITLED);
         source.close(UNTITLED);
 
@@ -171,7 +171,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(service.canGoForward).toBe(false);
     });
 
-    it("закрытие активной вкладки переводит историю на соседнюю, последней — обнуляет", () => {
+    it("closing the active tab moves history to the neighbor; closing the last one resets it", () => {
         source.open(alpha());
         source.open(beta());
 
@@ -182,7 +182,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(source.caret()).toBeNull();
     });
 
-    it("открытый безымянный буфер остаётся достижимым", () => {
+    it("an open untitled buffer stays reachable", () => {
         source.open(UNTITLED);
         source.moveCaret(20);
         source.open(alpha());
@@ -192,7 +192,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(source.caret()).toMatchObject({ uri: UNTITLED, line: 20 });
     });
 
-    it("выпавшая запись под указателем не уводит указатель в минус", () => {
+    it("a dropped entry under the pointer does not move the pointer below zero", () => {
         source.open(UNTITLED);
         source.open(alpha());
         service.goBack();
@@ -205,16 +205,16 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(service.canGoForward).toBe(false);
     });
 
-    it("фейк повторяет отказ настоящего openUri открыть закрытый безымянный буфер", () => {
+    it("the fake mirrors the real openUri refusing to open a closed untitled buffer", () => {
         source.open(UNTITLED);
         source.close(UNTITLED);
 
         expect(() => {
             source.openUri(Uri.parse(UNTITLED));
-        }).toThrow(/не восстановим/);
+        }).toThrow(/^openUri: /);
     });
 
-    it("запись из другой группы восстанавливается вместе с фокусом группы", () => {
+    it("an entry from another group is restored together with the group focus", () => {
         source.open(alpha());
         source.moveCaret(25);
         source.addGroup(2);
@@ -226,7 +226,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(source.caret()).toMatchObject({ uri: alpha(), line: 25 });
     });
 
-    it("запись из той же группы восстанавливается без перефокусировки группы", () => {
+    it("an entry from the same group is restored without refocusing the group", () => {
         source.open(alpha());
         source.moveCaret(25);
         source.open(beta());
@@ -237,7 +237,7 @@ describe("HistoryService — чистка стека и группы", () => {
         expect(source.caret()).toMatchObject({ uri: alpha(), line: 25 });
     });
 
-    it("исчезнувшая группа не мешает: запись открывается в активной", () => {
+    it("a vanished group does not get in the way: the entry opens in the active one", () => {
         source.open(alpha());
         source.moveCaret(25);
         source.addGroup(2);

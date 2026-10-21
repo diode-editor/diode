@@ -40,7 +40,7 @@ function setup(workspaceFile?: string) {
 }
 
 describe("ConfigurationCustomer", () => {
-    it("семя workspace.initialize — снимок и папки, только живому спавну", async () => {
+    it("workspace.initialize seed — snapshot and folders, only to a live spawn", async () => {
         const h = setup();
         h.customer.pushInitialState();
         const attached = h.attachTo();
@@ -60,7 +60,7 @@ describe("ConfigurationCustomer", () => {
         expect(h.log).toHaveLength(1);
     });
 
-    it("окно из .code-workspace: семя несёт и файл воркспейса", async () => {
+    it("window from .code-workspace: the seed also carries the workspace file", async () => {
         const h = setup("file:///ws/web.code-workspace");
         h.attachTo();
         h.customer.pushInitialState();
@@ -77,7 +77,7 @@ describe("ConfigurationCustomer", () => {
         ]);
     });
 
-    it("смена настроек уходит свежим снимком с ключами; после ухода спавна — никому", async () => {
+    it("a settings change goes out as a fresh snapshot with keys; after the spawn exits — to no one", async () => {
         const h = setup();
         const attached = h.attachTo();
         h.bump();
@@ -137,14 +137,14 @@ function setupWrite(options: { folders?: readonly IWorkspaceFolderInfo[]; worksp
 }
 
 describe("ConfigurationCustomer — configuration.update", () => {
-    it("без цели пишет в воркспейс; configurationChanged доходит раньше ответа", async () => {
+    it("without a target writes to the workspace; configurationChanged arrives before the reply", async () => {
         const h = setupWrite();
         await h.update({ key: "t.window", value: 5 });
         expect(h.service.inspect("t.window")).toMatchObject({ workspace: 5, user: undefined, value: 5 });
         expect(h.order).toEqual([["configurationChanged", ["t.window"]], "response"]);
     });
 
-    it("цель user — в user-слой; без value — ключ снимается", async () => {
+    it("target user — into the user layer; without value — the key is removed", async () => {
         const h = setupWrite();
         await h.update({ key: "t.app", value: 7, target: "user" });
         expect(h.service.inspect("t.app")).toMatchObject({ user: 7, workspace: undefined });
@@ -152,7 +152,7 @@ describe("ConfigurationCustomer — configuration.update", () => {
         expect(h.service.inspect("t.app").user).toBeUndefined();
     });
 
-    it("неизвестный ключ — отказ ERROR_UNKNOWN_KEY с именем цели; снятие и секция языка — можно", async () => {
+    it("unknown key — ERROR_UNKNOWN_KEY rejection with the target name; removal and a language section are allowed", async () => {
         const h = setupWrite();
         await expect(h.update({ key: "t.nope", value: 1 })).rejects.toThrow(
             "Unable to write to Workspace Settings because t.nope is not a registered configuration.",
@@ -168,7 +168,7 @@ describe("ConfigurationCustomer — configuration.update", () => {
         expect(h.service.getConfigurationData().user).toMatchObject({ "[go]": { editor: { tabSize: 8 } } });
     });
 
-    it("application/machine в воркспейс — отказ сервиса доходит текстом эталона", async () => {
+    it("application/machine to the workspace — the service rejection arrives with the upstream text", async () => {
         const h = setupWrite();
         await expect(h.update({ key: "t.machine", value: 2 })).rejects.toThrow(
             "Unable to write t.machine to Workspace Settings. This setting can be written only into User settings.",
@@ -176,7 +176,7 @@ describe("ConfigurationCustomer — configuration.update", () => {
         expect(h.order).toEqual([]);
     });
 
-    it("пустое окно: без цели и в воркспейс — no workspace is opened; в папку — то же про Folder Settings", async () => {
+    it("empty window: no target and workspace — no workspace is opened; folder — the same about Folder Settings", async () => {
         const h = setupWrite({ folders: [] });
         await expect(h.update({ key: "t.window", value: 2 })).rejects.toThrow(
             "Unable to write to Workspace Settings because no workspace is opened.",
@@ -190,13 +190,13 @@ describe("ConfigurationCustomer — configuration.update", () => {
         expect(h.service.inspect("t.window").user).toBe(2);
     });
 
-    it("цель-папка: снятие незарегистрированного ключа проходит (scope нет — проверять нечего)", async () => {
+    it("folder target: removing an unregistered key succeeds (no scope — nothing to check)", async () => {
         const h = setupWrite();
         await h.update({ key: "t.nope", target: "workspaceFolder", resource: Uri.file("/ws").toString() });
         expect(h.order).toEqual(["response"]);
     });
 
-    it("цель-папка: ресурс ищется во всех папках, не только в первой", async () => {
+    it("folder target: the resource is looked up in all folders, not only the first", async () => {
         const h = setupWrite({
             folders: [
                 { uri: Uri.file("/first").toString(), name: "first", index: 0 },
@@ -212,7 +212,7 @@ describe("ConfigurationCustomer — configuration.update", () => {
         expect(h.service.getConfigurationData().workspace).toMatchObject({ t: { resource: 3 } });
     });
 
-    it("окно из .code-workspace: без цели resource/language-overridable с ресурсом — в папку", async () => {
+    it("window from .code-workspace: no target, resource/language-overridable with a resource — into the folder", async () => {
         const h = setupWrite({ workspaceFile: Uri.file("/ws/web.code-workspace").toString() });
         const resource = Uri.file("/ws/a.ts").toString();
 
@@ -224,13 +224,13 @@ describe("ConfigurationCustomer — configuration.update", () => {
         expect(h.targets).toEqual(["workspaceFolder", "workspaceFolder", "workspace", "workspace"]);
     });
 
-    it("окно из папки: без цели — всегда воркспейс, даже с ресурсом", async () => {
+    it("window from a folder: no target — always the workspace, even with a resource", async () => {
         const h = setupWrite();
         await h.update({ key: "t.resource", value: 1, resource: Uri.file("/ws/a.ts").toString() });
         expect(h.targets).toEqual(["workspace"]);
     });
 
-    it("явная цель-папка доходит до сервиса как есть", async () => {
+    it("an explicit folder target reaches the service as is", async () => {
         const h = setupWrite();
         await h.update({
             key: "t.resource",
@@ -241,7 +241,7 @@ describe("ConfigurationCustomer — configuration.update", () => {
         expect(h.targets).toEqual(["workspaceFolder"]);
     });
 
-    it("цель-папка: ресурс внутри папки пишет в тот же файл воркспейса", async () => {
+    it("folder target: a resource inside the folder writes to the same workspace file", async () => {
         const h = setupWrite();
         await h.update({
             key: "t.resource",
@@ -259,11 +259,11 @@ describe("ConfigurationCustomer — configuration.update", () => {
     });
 
     it.each([
-        ["без ресурса", undefined],
-        ["ресурс вне папки", Uri.file("/other/a.ts").toString()],
-        ["соседний каталог с тем же префиксом", Uri.file("/ws2/a.ts").toString()],
-        ["другая схема", "untitled:/ws/a.ts"],
-    ])("цель-папка %s — no resource is provided", async (_name, resource) => {
+        ["without a resource", undefined],
+        ["resource outside the folder", Uri.file("/other/a.ts").toString()],
+        ["sibling directory with the same prefix", Uri.file("/ws2/a.ts").toString()],
+        ["another scheme", "untitled:/ws/a.ts"],
+    ])("folder target %s — no resource is provided", async (_name, resource) => {
         const h = setupWrite();
         await expect(
             h.update({
@@ -276,7 +276,7 @@ describe("ConfigurationCustomer — configuration.update", () => {
         expect(h.service.getConfigurationData().workspace).toEqual({});
     });
 
-    it.each(["t.window", "t.app", "t.machine"])("цель-папка: %s вне FOLDER_SCOPES — отказ", async (key) => {
+    it.each(["t.window", "t.app", "t.machine"])("folder target: %s outside FOLDER_SCOPES — rejected", async (key) => {
         const h = setupWrite();
         await expect(
             h.update({ key, value: 3, target: "workspaceFolder", resource: Uri.file("/ws").toString() }),
@@ -285,7 +285,7 @@ describe("ConfigurationCustomer — configuration.update", () => {
         );
     });
 
-    it("битый конверт — отказ, сервис не тронут", async () => {
+    it("broken envelope — rejected, the service is untouched", async () => {
         const h = setupWrite();
         await expect(h.update({ value: 1 })).rejects.toThrow("configuration.update: expected");
         await expect(h.update({ key: "t.window", value: 1, target: "memory" })).rejects.toThrow(

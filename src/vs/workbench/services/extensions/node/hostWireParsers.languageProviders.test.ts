@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseWireLanguageProviderRegistration, parseWireLanguageProviderUnregistration } from "./hostWireParsers.ts";
 
 describe("hostWireParsers — parseWireLanguageProviderRegistration", () => {
-    it("валидная регистрация проходит как есть", () => {
+    it("a valid registration passes as is", () => {
         const raw = {
             handle: 3,
             kind: "hover",
@@ -16,7 +16,7 @@ describe("hostWireParsers — parseWireLanguageProviderRegistration", () => {
         expect(parseWireLanguageProviderRegistration(raw)).toStrictEqual(raw);
     });
 
-    it("триггер-символы: только непустые строки; не-массив — поля нет", () => {
+    it("trigger characters: non-empty strings only; a non-array leaves no field", () => {
         const parsed = parseWireLanguageProviderRegistration({
             handle: 1,
             kind: "signatureHelp",
@@ -35,7 +35,7 @@ describe("hostWireParsers — parseWireLanguageProviderRegistration", () => {
         ).toEqual({ handle: 1, kind: "signatureHelp", selector: [], retriggerCharacters: [")"] });
     });
 
-    it("виды code actions: только непустые строки", () => {
+    it("code action kinds: non-empty strings only", () => {
         expect(
             parseWireLanguageProviderRegistration({
                 handle: 2,
@@ -51,7 +51,7 @@ describe("hostWireParsers — parseWireLanguageProviderRegistration", () => {
         });
     });
 
-    it("чужая форма конверта — null", () => {
+    it("a foreign envelope shape gives null", () => {
         expect(parseWireLanguageProviderRegistration(null)).toBeNull();
         expect(parseWireLanguageProviderRegistration(undefined)).toBeNull();
         expect(parseWireLanguageProviderRegistration("hover")).toBeNull();
@@ -61,7 +61,7 @@ describe("hostWireParsers — parseWireLanguageProviderRegistration", () => {
         expect(parseWireLanguageProviderRegistration({ handle: 1, kind: "hover", selector: "ts" })).toBeNull();
     });
 
-    it("фильтры: не-объекты отбрасываются, поля чужого типа — тоже, остальное остаётся", () => {
+    it("filters: non-objects are dropped, so are fields of a foreign type, the rest stays", () => {
         const parsed = parseWireLanguageProviderRegistration({
             handle: 0,
             kind: "hover",
@@ -80,7 +80,7 @@ describe("hostWireParsers — parseWireLanguageProviderRegistration", () => {
 });
 
 describe("hostWireParsers — parseWireLanguageProviderUnregistration", () => {
-    it("берёт целый handle, остальное — null", () => {
+    it("takes an integer handle, anything else gives null", () => {
         expect(parseWireLanguageProviderUnregistration({ handle: 0 })).toStrictEqual({ handle: 0 });
         expect(parseWireLanguageProviderUnregistration({ handle: "0" })).toBeNull();
         expect(parseWireLanguageProviderUnregistration({})).toBeNull();
@@ -90,8 +90,8 @@ describe("hostWireParsers — parseWireLanguageProviderUnregistration", () => {
     });
 });
 
-describe("hostWireParsers — регистрация семантических токенов", () => {
-    it("легенда: позиционные нестроки становятся пустой строкой, не-массив — пустой список", () => {
+describe("hostWireParsers — semantic tokens registration", () => {
+    it("legend: positional non-strings become empty strings, a non-array becomes an empty list", () => {
         expect(
             parseWireLanguageProviderRegistration({
                 handle: 4,
@@ -109,7 +109,7 @@ describe("hostWireParsers — регистрация семантических 
         });
     });
 
-    it("легенда не объектом — поля нет; hasOnDidChange только при true", () => {
+    it("a non-object legend leaves no field; hasOnDidChange only on true", () => {
         for (const legend of [null, "x", 3, undefined]) {
             expect(
                 parseWireLanguageProviderRegistration({

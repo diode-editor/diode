@@ -40,8 +40,8 @@ function makeHost(withSink: boolean) {
     return { host, peer, events };
 }
 
-describe("ExtensionHost — сток прогресса (window.progress.*, in-process)", () => {
-    it("start/report/end доезжают до sink'а в порядке прихода", async () => {
+describe("ExtensionHost — progress sink (window.progress.*, in-process)", () => {
+    it("start/report/end reach the sink in arrival order", async () => {
         const h = makeHost(true);
         h.peer.notify("window.progress.start", { handle: 1, title: "TS: starting" });
         h.peer.notify("window.progress.report", { handle: 1, message: "loading", increment: 25 });
@@ -57,7 +57,7 @@ describe("ExtensionHost — сток прогресса (window.progress.*, in-p
         ]);
     });
 
-    it("битые конверты игнорируются; без sink'а не падает", async () => {
+    it("broken envelopes are ignored; no crash without a sink", async () => {
         const h = makeHost(true);
         h.peer.notify("window.progress.start", null);
         h.peer.notify("window.progress.start", { handle: "x", title: "t" });
@@ -77,7 +77,7 @@ describe("ExtensionHost — сток прогресса (window.progress.*, in-p
         expect(silent.events).toEqual([]);
     });
 
-    it("смерть subprocess'а гасит живые прогрессы (end от хоста)", async () => {
+    it("subprocess death ends live progress (end from the host)", async () => {
         const h = makeHost(true);
         h.peer.notify("window.progress.start", { handle: 1, title: "a" });
         h.peer.notify("window.progress.start", { handle: 2, title: "b" });

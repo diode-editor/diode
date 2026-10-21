@@ -68,7 +68,7 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
     }
 }
 
-describe("ExtensionHost — стоковый typescript-language-server (сквозняк)", () => {
+describe("ExtensionHost — stock typescript-language-server (end-to-end)", () => {
     beforeAll(async () => {
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
@@ -77,7 +77,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
     }, 120_000);
 
     it(
-        "смешанный воркспейс не отравляет сервер: markdown не синхронизируется, канал без ошибок",
+        "a mixed workspace does not poison the server: markdown is not synced, the channel has no errors",
         { timeout: 180_000 },
         async () => {
             // Regression: the subprocess is already alive, the active file at spawn is markdown, ts opens later.
@@ -103,7 +103,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             });
             try {
                 harness.writeFile("tsconfig.json", JSON.stringify({ compilerOptions: { strict: true } }));
-                const readmePath = harness.writeFile("README.md", "# Проект\n\nОписание.\n");
+                const readmePath = harness.writeFile("README.md", "# Project\n\nDescription.\n");
                 const mainPath = harness.writeFile("main.ts", MAIN_TS);
                 harness.writeFile("defs.ts", DEFS_TS);
                 const mainUri = Uri.file(mainPath).toString();
@@ -116,7 +116,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 harness.group.openFile(mainPath);
                 await harness.host.activateByEvent("onLanguage:typescript");
 
-                await until("диагностика на main.ts", () => {
+                await until("diagnostic on main.ts", () => {
                     const hit = published.some(
                         (p) => p.resource === mainUri && p.markers.some((m) => m.message.includes("not assignable")),
                     );
@@ -138,7 +138,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
         },
     );
 
-    it("диагностики и go-to-definition над изменяемым (несохранённым) кодом", { timeout: 180_000 }, async () => {
+    it("diagnostics and go-to-definition over changing (unsaved) code", { timeout: 180_000 }, async () => {
         const published: { resource: string; markers: readonly WireMarker[] }[] = [];
         const progressEvents: { kind: string; handle: number; title?: string }[] = [];
         const outputLines: { channel: string; label: string; level: string; value: string }[] = [];
@@ -175,12 +175,12 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             const startEvent = progressEvents.find((e) => e.kind === "start");
             expect(startEvent?.title).toContain("TypeScript (Diode)");
             expect(startEvent?.title).toContain("starting language server");
-            await until("прогресс запуска закрылся (end)", () => {
+            await until("startup progress ended (end)", () => {
                 const done = progressEvents.some((e) => e.kind === "end" && e.handle === startEvent?.handle);
                 return Promise.resolve(done ? true : null);
             });
 
-            const started = await until("строка о старте сервера в output-канале", () => {
+            const started = await until("server start line in the output channel", () => {
                 const line = outputLines.find((l) => l.value.includes("language server started"));
                 return Promise.resolve(line ?? null);
             });
@@ -189,7 +189,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             expect(started.level).toBe("info");
 
             // Diagnostics double as the readiness signal "the server indexed the project" before go-to-definition.
-            const marker = await until("диагностика 'not assignable' в main.ts", () => {
+            const marker = await until("'not assignable' diagnostic in main.ts", () => {
                 const hit = markersFor(mainUri).find((m) => m.message.includes("not assignable to type 'number'"));
                 return Promise.resolve(hit ?? null);
             });
@@ -204,7 +204,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                     line,
                     character,
                 });
-            const locations = await until("definition вызова greet", async () => {
+            const locations = await until("definition of the greet call", async () => {
                 const found = await definitionAt(2, 23);
                 return found.length > 0 ? found : null;
             });
@@ -219,7 +219,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             await settle();
             harness.group.openFile(mainPath);
 
-            const moved = await until("definition после несохранённой правки defs.ts", async () => {
+            const moved = await until("definition after an unsaved edit of defs.ts", async () => {
                 const found = await definitionAt(2, 23);
                 return found.length > 0 && found[0].range.start.line === 2 ? found : null;
             });
@@ -229,7 +229,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             harness.group
                 .getActiveEditor()
                 ?.applyExternalEdits([createTextEdit(createRange(2, 13, 2, 19), "string")], "fix type");
-            await until("диагностика main.ts ушла после фикса", () =>
+            await until("main.ts diagnostic gone after the fix", () =>
                 Promise.resolve(markersFor(mainUri).length === 0 ? true : null),
             );
 
@@ -241,7 +241,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             );
             const extraUri = Uri.file(extraPath).toString();
             harness.group.openFile(extraPath);
-            const folds = await until("фолды только что открытого extra.ts", async () => {
+            const folds = await until("folds of the just-opened extra.ts", async () => {
                 const found = await provideFoldingRegions(harness, {
                     uri: extraUri,
                     languageId: "typescript",
@@ -263,7 +263,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             });
             await racing;
             editor?.applyExternalEdits([createTextEdit(createRange(2, 13, 2, 19), "number")], "break again");
-            const reMarker = await until("диагностика после гонки didChange/фолдинга", () => {
+            const reMarker = await until("diagnostic after the didChange/folding race", () => {
                 const hit = markersFor(mainUri).find((m) => m.message.includes("not assignable to type 'number'"));
                 return Promise.resolve(hit ?? null);
             });

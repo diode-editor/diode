@@ -51,7 +51,7 @@ const SCHEME = "_claude_fs_right";
 const right = Uri.from({ scheme: SCHEME, path: "/a.ts" });
 const encode = (text: string) => new TextEncoder().encode(text);
 
-describe("TextFileModel — ресурс провайдера ФС", () => {
+describe("TextFileModel — file system provider resource", () => {
     let provider: ChangeFiringProvider;
     let files: FileService;
     let service: TextFileModelService;
@@ -73,7 +73,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         return (await service.acquireProvided(right)).model;
     }
 
-    it("открывается текстом провайдера, uri — сам ресурс, буфер чистый", async () => {
+    it("opens with the provider text, uri is the resource itself, the buffer is clean", async () => {
         const model = await open();
 
         expect(model.uri.toString()).toBe(right.toString());
@@ -81,7 +81,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         expect(model.isModified).toBe(false);
     });
 
-    it("одна модель на ресурс; первое открытие читает, повторное — нет", async () => {
+    it("one model per resource; the first open reads, a repeated one does not", async () => {
         const first = await service.acquireProvided(right);
         await provider.writeFile(right, encode("changed under us\n"));
         await settle();
@@ -95,7 +95,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         expect(service.get(right)).toBeNull();
     });
 
-    it("сохранение пишет провайдеру через участников и снимает dirty", async () => {
+    it("save writes to the provider through participants and clears dirty", async () => {
         const model = await open();
         const participated: string[] = [];
         service.addSaveParticipant(() => (m) => {
@@ -115,7 +115,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         expect(model.isModified).toBe(false);
     });
 
-    it("своя запись не перечитывает буфер — история отмены цела", async () => {
+    it("our own write does not reread the buffer, the undo history is intact", async () => {
         const model = await open();
         model.restoreUnsavedContents("edited\n");
         // A reload replaces the whole text: a new document version and a history reset.
@@ -134,7 +134,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         expect(model.hasDiskConflict).toBe(false);
     });
 
-    it("чистый буфер перечитывается, когда провайдер переписал ресурс", async () => {
+    it("a clean buffer is reread when the provider rewrites the resource", async () => {
         const model = await open();
         let diskEvents = 0;
         model.onDidChangeDiskState(() => diskEvents++);
@@ -147,7 +147,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         expect(diskEvents).toBe(1);
     });
 
-    it("грязный буфер не трогается — взводится конфликт; сохранение пишет и снимает его", async () => {
+    it("a dirty buffer is left alone and a conflict is raised; save writes and clears it", async () => {
         const model = await open();
         model.restoreUnsavedContents("mine\n");
 
@@ -161,7 +161,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         expect(model.hasDiskConflict).toBe(false);
     });
 
-    it("изменение чужого ресурса той же схемы модель не будит", async () => {
+    it("a change to another resource of the same scheme does not wake the model", async () => {
         const model = await open();
         const other = Uri.from({ scheme: SCHEME, path: "/b.ts" });
         // Our resource changed too, but the provider did not report it.
@@ -173,7 +173,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         expect(model.getText()).toBe("proposed\n");
     });
 
-    it("событие о нескольких ресурсах, среди которых наш, — перечитка", async () => {
+    it("an event about several resources including ours triggers a reread", async () => {
         const model = await open();
         await provider.writeSilently(right, encode("batched\n"));
 
@@ -183,7 +183,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         expect(model.getText()).toBe("batched\n");
     });
 
-    it("кодировка — по BOM, язык — по пути ресурса", async () => {
+    it("encoding comes from the BOM, language from the resource path", async () => {
         await provider.writeFile(right, new Uint8Array([0xef, 0xbb, 0xbf, ...encode("bom\n")]));
         const languages = {
             ...NULL_LANGUAGE_SERVICE,
@@ -198,7 +198,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         typed.dispose();
     });
 
-    it("нечитаемый на перечитке ресурс — буфер как был, без отказа наружу", async () => {
+    it("a resource unreadable on reread leaves the buffer as is, no rejection outside", async () => {
         const model = await open();
         const rejections: unknown[] = [];
         const onRejection = (reason: unknown) => rejections.push(reason);
@@ -217,7 +217,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         expect(model.hasDiskConflict).toBe(false);
     });
 
-    it("медленная перечитка не затирает более позднюю", async () => {
+    it("a slow reread does not overwrite a later one", async () => {
         const model = await open();
         let release = () => {};
         provider.hold = new Promise((resolve) => (release = resolve));
@@ -234,7 +234,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         expect(model.getText()).toBe("newer\n");
     });
 
-    it("после перечитки сохранение не упирается в снимок прошлой записи", async () => {
+    it("after a reread, save is not blocked by the snapshot of the previous write", async () => {
         const model = await open();
         model.restoreUnsavedContents("first\n");
         await model.save();
@@ -248,7 +248,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         expect(new TextDecoder().decode(await provider.readFile(right))).toBe("second\n");
     });
 
-    it("закрытая модель провайдера больше не слушает", async () => {
+    it("a closed provider model no longer listens", async () => {
         const ref = await service.acquireProvided(right);
         const model = ref.model;
         ref.dispose();
@@ -259,21 +259,21 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         expect(model.getText()).toBe("proposed\n");
     });
 
-    it("нечитаемый ресурс — отказ, модели не появляется", async () => {
+    it("an unreadable resource rejects, no model appears", async () => {
         const missing = Uri.from({ scheme: SCHEME, path: "/missing.ts" });
 
         await expect(service.acquireProvided(missing)).rejects.toThrow();
         expect(service.get(missing)).toBeNull();
     });
 
-    it("openProvided не берёт file: и untitled: — у них свои пути", () => {
+    it("openProvided rejects file: and untitled:, they have their own paths", () => {
         const model = service.createUntitledModel();
         expect(() => {
             model.openProvided(Uri.file("/a.ts"), encode(""));
         }).toThrow(/expected a provider resource, got file:/);
         expect(() => {
             model.openProvided(Uri.from({ scheme: "untitled", path: "x" }), encode(""));
-        }).toThrow(/получен untitled:/);
+        }).toThrow(/got untitled:/);
         model.dispose();
     });
 });

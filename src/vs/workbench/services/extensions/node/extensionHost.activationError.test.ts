@@ -37,8 +37,8 @@ async function activationFailureLine(activateBody: string): Promise<string> {
     }
 }
 
-describe("ExtensionHost — лог отказа активации", () => {
-    it("отказ не-Error значением печатает само значение", async () => {
+describe("ExtensionHost — activation rejection log", () => {
+    it("a rejection with a non-Error value prints the value itself", async () => {
         const line = await activationFailureLine("return Promise.reject(undefined);");
         expect(line).toContain(
             'failed to activate extension "test.failing" activate() rejected with a non-Error value: undefined',
@@ -47,12 +47,12 @@ describe("ExtensionHost — лог отказа активации", () => {
         expect(line).not.toContain('"name"');
     });
 
-    it("строковый отказ — тоже текстом", async () => {
+    it("a string rejection prints as text too", async () => {
         const line = await activationFailureLine('throw "no go binary";');
         expect(line).toContain("activate() rejected with a non-Error value: no go binary");
     });
 
-    it("отказ настоящим Error — его сообщение, а не JSON", async () => {
+    it("a rejection with a real Error prints its message, not JSON", async () => {
         const line = await activationFailureLine('throw new Error("boom");');
         expect(line).toMatch(/failed to activate extension "test\.failing" boom$/);
     });

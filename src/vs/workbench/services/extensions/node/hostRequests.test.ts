@@ -40,7 +40,7 @@ async function expectCancelledOnPeer(hang: ReturnType<typeof hangingHandler>): P
 }
 
 describe("hostRequests — wireToSaveEdits", () => {
-    it("текстовая правка → core ISaveEdit с 0-based диапазоном", () => {
+    it("text edit → core ISaveEdit with a 0-based range", () => {
         const wire: WireTextEdit[] = [
             { range: { start: { line: 2, character: 4 }, end: { line: 2, character: 9 } }, text: "abc" },
         ];
@@ -74,7 +74,7 @@ describe("hostRequests — requestWillSaveEdits (InProcessChannelPair)", () => {
         };
     }
 
-    it("десериализует правки, вернувшиеся от subprocess'а", async () => {
+    it("deserializes edits returned from the subprocess", async () => {
         const { host, sub, dispose } = connectPair();
         try {
             sub.handleRequest("workspace.willSaveTextDocument", () => [
@@ -91,7 +91,7 @@ describe("hostRequests — requestWillSaveEdits (InProcessChannelPair)", () => {
         }
     });
 
-    it("возвращает пустой результат по таймауту, если participant никогда не резолвится", async () => {
+    it("returns an empty result on timeout if the participant never resolves", async () => {
         const { host, sub, dispose } = connectPair();
         try {
             const hang = hangingHandler();
@@ -104,7 +104,7 @@ describe("hostRequests — requestWillSaveEdits (InProcessChannelPair)", () => {
         }
     });
 
-    it("возвращает пустой результат при ошибке RPC-хендлера", async () => {
+    it("returns an empty result on an RPC handler error", async () => {
         const { host, sub, dispose } = connectPair();
         try {
             sub.handleRequest("workspace.willSaveTextDocument", () => {

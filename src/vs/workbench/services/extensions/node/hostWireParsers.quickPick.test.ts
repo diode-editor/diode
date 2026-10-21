@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseWireQuickPickDispose, parseWireQuickPickUpdate } from "./hostWireParsers.ts";
 
 describe("parseWireQuickPickUpdate", () => {
-    it("дифф — только присланные поля; null — «сброшено»", () => {
+    it("the diff has only the sent fields; null means reset", () => {
         expect(parseWireQuickPickUpdate({ handle: 3, title: null, canSelectMany: true, value: "" })).toEqual({
             handle: 3,
             title: null,
@@ -12,7 +12,7 @@ describe("parseWireQuickPickUpdate", () => {
         });
     });
 
-    it("все поля целиком доезжают", () => {
+    it("all fields come through intact", () => {
         const full = {
             handle: 3,
             visible: false,
@@ -33,17 +33,17 @@ describe("parseWireQuickPickUpdate", () => {
         expect(parseWireQuickPickUpdate(full)).toEqual(full);
     });
 
-    it("поле чужого типа — «не трогали», а не отказ всему диффу", () => {
+    it("a field of the wrong type means untouched, not a rejection of the whole diff", () => {
         expect(
             parseWireQuickPickUpdate({
                 handle: 3,
                 title: 5,
-                step: "два",
-                visible: "да",
+                step: "two",
+                visible: "yes",
                 value: null,
-                activeItems: "нет",
+                activeItems: "no",
                 selectedItems: [1, -1, 1.5],
-                items: "нет",
+                items: "no",
             }),
         ).toEqual({ handle: 3, selectedItems: [1] });
         expect(parseWireQuickPickUpdate({ handle: 3, step: null, totalSteps: Number.NaN })).toEqual({
@@ -52,11 +52,11 @@ describe("parseWireQuickPickUpdate", () => {
         });
     });
 
-    it("пункт без handle выбрасывается, без лейбла — остаётся с пустым", () => {
+    it("an item without handle is dropped, one without a label stays with an empty one", () => {
         expect(
             parseWireQuickPickUpdate({
                 handle: 3,
-                items: [null, 5, { label: "без handle" }, { handle: 1.5, label: "дробный" }, { handle: 2, label: 7 }],
+                items: [null, 5, { label: "no handle" }, { handle: 1.5, label: "fractional" }, { handle: 2, label: 7 }],
             }),
         ).toEqual({
             handle: 3,
@@ -64,7 +64,7 @@ describe("parseWireQuickPickUpdate", () => {
         });
     });
 
-    it("без handle или не объект — null", () => {
+    it("no handle or not an object → null", () => {
         expect(parseWireQuickPickUpdate(null)).toBeNull();
         expect(parseWireQuickPickUpdate("x")).toBeNull();
         expect(parseWireQuickPickUpdate({ title: "T" })).toBeNull();
@@ -72,7 +72,7 @@ describe("parseWireQuickPickUpdate", () => {
 });
 
 describe("parseWireQuickPickDispose", () => {
-    it("handle или null", () => {
+    it("handle or null", () => {
         expect(parseWireQuickPickDispose({ handle: 3 })).toBe(3);
         expect(parseWireQuickPickDispose({})).toBeNull();
         expect(parseWireQuickPickDispose(null)).toBeNull();

@@ -21,7 +21,7 @@ describe("resolveExtensionStoragePaths", () => {
         logsHome: path.join(path.sep, "ud", "logs"),
     };
 
-    it("кладёт каталог расширения внутрь каждого корня по его id", () => {
+    it("puts the extension directory inside each root by its id", () => {
         const paths = resolveExtensionStoragePaths(homes, "supermaven.supermaven");
         expect(paths.globalStoragePath).toBe(path.join(homes.globalStorageHome, "supermaven.supermaven"));
         expect(paths.storagePath).toBe(
@@ -30,14 +30,14 @@ describe("resolveExtensionStoragePaths", () => {
         expect(paths.logPath).toBe(path.join(homes.logsHome, "supermaven.supermaven"));
     });
 
-    it("globalStorage — по lowercase id, workspaceStorage и logs — по id как есть", () => {
+    it("globalStorage uses the lowercase id, workspaceStorage and logs use the id as is", () => {
         const paths = resolveExtensionStoragePaths(homes, "Publisher.MixedCase");
         expect(paths.globalStoragePath).toBe(path.join(homes.globalStorageHome, "publisher.mixedcase"));
         expect(paths.storagePath).toBe(path.join(path.sep, "ud", "workspaceStorage", "abc123", "Publisher.MixedCase"));
         expect(paths.logPath).toBe(path.join(homes.logsHome, "Publisher.MixedCase"));
     });
 
-    it("без воркспейсного корня storagePath — null (папка не открыта)", () => {
+    it("without a workspace root storagePath is null (no folder open)", () => {
         const paths = resolveExtensionStoragePaths({ ...homes, workspaceStorageHome: null }, "test.ext");
         expect(paths.storagePath).toBeNull();
         expect(paths.globalStoragePath).toBe(path.join(homes.globalStorageHome, "test.ext"));
@@ -56,7 +56,7 @@ describe("ensureExtensionStorageParents", () => {
         fs.rmSync(tmp, { recursive: true, force: true });
     });
 
-    it("создаёт все три корня рекурсивно", () => {
+    it("creates all three roots recursively", () => {
         const homes: IExtensionStorageHomes = {
             globalStorageHome: path.join(tmp, "user-data", "User", "globalStorage"),
             workspaceStorageHome: path.join(tmp, "user-data", "User", "workspaceStorage", "hash"),
@@ -68,7 +68,7 @@ describe("ensureExtensionStorageParents", () => {
         expect(fs.existsSync(homes.logsHome)).toBe(true);
     });
 
-    it("каталог самого расширения НЕ создаёт — по контракту его создаёт расширение", () => {
+    it("does NOT create the extension's own directory: by contract the extension creates it", () => {
         const homes: IExtensionStorageHomes = {
             globalStorageHome: path.join(tmp, "globalStorage"),
             workspaceStorageHome: null,
@@ -80,7 +80,7 @@ describe("ensureExtensionStorageParents", () => {
         expect(fs.existsSync(globalStoragePath)).toBe(false);
     });
 
-    it("null-корень пропускает, не падая", () => {
+    it("skips a null root without failing", () => {
         const homes: IExtensionStorageHomes = {
             globalStorageHome: path.join(tmp, "g"),
             workspaceStorageHome: null,
@@ -92,9 +92,9 @@ describe("ensureExtensionStorageParents", () => {
         expect(fs.readdirSync(tmp).sort()).toEqual(["g", "l"]);
     });
 
-    it("неудачу mkdir отдаёт в onError и идёт дальше", () => {
+    it("passes a mkdir failure to onError and moves on", () => {
         const blocker = path.join(tmp, "blocker");
-        fs.writeFileSync(blocker, "не каталог");
+        fs.writeFileSync(blocker, "not a directory");
         const homes: IExtensionStorageHomes = {
             globalStorageHome: path.join(blocker, "globalStorage"),
             workspaceStorageHome: null,
@@ -109,7 +109,7 @@ describe("ensureExtensionStorageParents", () => {
         expect(fs.existsSync(homes.logsHome)).toBe(true);
     });
 
-    it("без onError неудача mkdir глотается", () => {
+    it("without onError a mkdir failure is swallowed", () => {
         const blocker = path.join(tmp, "file");
         fs.writeFileSync(blocker, "x");
         expect(() => {
@@ -123,7 +123,7 @@ describe("ensureExtensionStorageParents", () => {
 });
 
 describe("fallbackExtensionStorageHomes", () => {
-    it("корни во временных файлах ОС, воркспейсного нет", () => {
+    it("roots are in the OS temp directory, no workspace root", () => {
         const homes = fallbackExtensionStorageHomes();
         const root = path.join(os.tmpdir(), "diode-extension-storage");
         expect(homes.globalStorageHome).toBe(path.join(root, "globalStorage"));
@@ -139,21 +139,21 @@ describe("extensionStorageHomes", () => {
         logsDir: path.join(path.sep, "ud", "user-data", "logs"),
     };
 
-    it("с открытой папкой воркспейсный корень — её каталог в workspaceStorage", () => {
+    it("with an open folder the workspace root is its directory in workspaceStorage", () => {
         const homes = extensionStorageHomes(paths, "/projects/app");
         expect(homes.workspaceStorageHome).toBe(resolveWorkspaceStorageDir(paths.workspaceStorageDir, "/projects/app"));
         expect(homes.globalStorageHome).toBe(paths.globalStorageDir);
         expect(homes.logsHome).toBe(paths.logsDir);
     });
 
-    it("без открытой папки воркспейсного корня нет, остальные два на месте", () => {
+    it("without an open folder there is no workspace root, the other two are in place", () => {
         const homes = extensionStorageHomes(paths, null);
         expect(homes.workspaceStorageHome).toBeNull();
         expect(homes.globalStorageHome).toBe(paths.globalStorageDir);
         expect(homes.logsHome).toBe(paths.logsDir);
     });
 
-    it("разные папки дают разные воркспейсные корни", () => {
+    it("different folders give different workspace roots", () => {
         expect(extensionStorageHomes(paths, "/a").workspaceStorageHome).not.toBe(
             extensionStorageHomes(paths, "/b").workspaceStorageHome,
         );

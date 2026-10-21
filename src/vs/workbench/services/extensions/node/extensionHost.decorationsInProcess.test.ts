@@ -120,8 +120,8 @@ function makeHost(colors: Record<string, number>) {
 
 const range = (line: number) => ({ start: { line, character: 0 }, end: { line, character: 0 } });
 
-describe("ExtensionHost — обработчики хоста (in-process, deterministic)", () => {
-    it("window.showMessage маршрутизирует severity в логгер; конфиг-изменение шлёт в subprocess", async () => {
+describe("ExtensionHost — host handlers (in-process, deterministic)", () => {
+    it("window.showMessage routes severity to the logger; a config change is sent to the subprocess", async () => {
         const h = makeHost({});
         await h.peer.request("window.showMessage", { severity: "error", message: "boom" });
         await h.peer.request("window.showMessage", { severity: "warn", message: "careful" });
@@ -137,7 +137,7 @@ describe("ExtensionHost — обработчики хоста (in-process, deter
         });
     });
 
-    it("editor.setSelection / editor.applyEdit: guard на uri + проброс в порт", async () => {
+    it("editor.setSelection / editor.applyEdit: uri guard + forwarding to the port", async () => {
         editorWriteCalls.length = 0;
         const h = makeHost({ "editorGutter.modifiedBackground": 0xff, "editor.background": 0 });
 

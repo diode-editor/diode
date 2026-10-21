@@ -38,8 +38,8 @@ function uriIn(harness: IExtensionHarness, name: string): string {
     return Uri.file(`${harness.tmpDir}/${name}`).toString();
 }
 
-describe("ExtensionHost — document sync на Save As (subprocess)", () => {
-    it("Save As: расширение видит close старого uri и open нового с новым языком; провайдер отвечает по новому uri", async () => {
+describe("ExtensionHost — document sync on Save As (subprocess)", () => {
+    it("Save As: the extension sees close of the old uri and open of the new one with the new language; the provider answers for the new uri", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "Program.cs", content: CSHARP_TEXT },
             languageService: CSHARP_LANGUAGE_SERVICE,
@@ -79,7 +79,7 @@ describe("ExtensionHost — document sync на Save As (subprocess)", () => {
         }
     });
 
-    it("закрытие вкладки после Save As закрывает расширению новый uri, старый больше не открыт", async () => {
+    it("closing the tab after Save As closes the new uri for the extension, the old one is no longer open", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "Program.cs", content: CSHARP_TEXT },
             languageService: CSHARP_LANGUAGE_SERVICE,

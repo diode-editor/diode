@@ -33,7 +33,7 @@ function env(overrides: Partial<IExtensionRegistrationEnv> = {}): IExtensionRegi
 }
 
 describe("toExtensionRegistration", () => {
-    it("без main регистрировать нечего — null, исходник не читается", async () => {
+    it("without main there is nothing to register: null, the source is not read", async () => {
         const e = env();
 
         expect(await toExtensionRegistration(extension({ manifest: manifest() }), e)).toBeNull();
@@ -43,7 +43,7 @@ describe("toExtensionRegistration", () => {
         expect(e.reads).toEqual([]);
     });
 
-    it("пользовательское грузится с диска: каталог установки и main от него", async () => {
+    it("a user extension loads from disk: the install directory and main relative to it", async () => {
         const reg = await toExtensionRegistration(extension({ manifest: manifest({ main: "./out/ext.js" }) }), env());
 
         const extensionPath = path.join(USER_DIR, "acme.sample-1.2.3");
@@ -56,7 +56,7 @@ describe("toExtensionRegistration", () => {
         expect(reg).not.toHaveProperty("filename");
     });
 
-    it("встроенное грузится исходником из ассетов по виртуальному пути", async () => {
+    it("a built-in loads as source from assets by a virtual path", async () => {
         const e = env();
         const reg = await toExtensionRegistration(
             extension({
@@ -77,7 +77,7 @@ describe("toExtensionRegistration", () => {
         expect(reg).not.toHaveProperty("extensionPath");
     });
 
-    it("манифест едет целиком (packageJSON в vscode.extensions), события активации — как в манифесте", async () => {
+    it("the manifest travels whole (packageJSON in vscode.extensions), activation events as in the manifest", async () => {
         const m = manifest({ main: "ext.js", categories: ["AI"], activationEvents: ["onLanguage:python"] });
 
         const reg = await toExtensionRegistration(extension({ manifest: m }), env());
@@ -86,7 +86,7 @@ describe("toExtensionRegistration", () => {
         expect(reg?.activationEvents).toEqual(["onLanguage:python"]);
     });
 
-    it("события активации — полный набор: объявленные плюс неявные от contributes", async () => {
+    it("activation events are the full set: declared plus implicit ones from contributes", async () => {
         const m = manifest({
             main: "ext.js",
             activationEvents: ["onStartupFinished"],
@@ -105,7 +105,7 @@ describe("toExtensionRegistration", () => {
         expect(bare?.activationEvents).toEqual(["*"]);
     });
 
-    it("заголовки и категории команд — для палитры", async () => {
+    it("command titles and categories are for the palette", async () => {
         const m = manifest({
             main: "ext.js",
             contributes: {
@@ -124,14 +124,14 @@ describe("toExtensionRegistration", () => {
 });
 
 describe("collectCommandMeta", () => {
-    it("без команд — ни заголовков, ни категорий", () => {
+    it("without commands there are no titles and no categories", () => {
         expect(collectCommandMeta(undefined)).toStrictEqual({});
         const empty = collectCommandMeta([]);
         expect(empty.titles).toBeUndefined();
         expect(empty.categories).toBeUndefined();
     });
 
-    it("пропускает записи без строкового id или заголовка и пустые категории", () => {
+    it("skips entries without a string id or title, and empty categories", () => {
         const meta = collectCommandMeta([
             { command: "a", title: "A", category: "" },
             { command: "b" } as never,

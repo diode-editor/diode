@@ -23,7 +23,7 @@ class FakeFileWatcher implements IFileWatcher {
     }
 }
 
-describe("TextFileModel — удалённый файл (orphaned)", () => {
+describe("TextFileModel — deleted file (orphaned)", () => {
     let ws: ITempWorkspace;
     let watcher: FakeFileWatcher;
     let pane: TextEditorPane<TextFileModel>;
@@ -73,7 +73,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         watcher.fire(fp);
     }
 
-    it("пропавший файл после перепроверки — orphaned; текст буфера жив и не грязный", () => {
+    it("a missing file after recheck is orphaned; the buffer text survives and is not dirty", () => {
         const fp = open("a.txt", "keep\n");
 
         fs.rmSync(fp);
@@ -91,7 +91,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(pane.isModified).toBe(false);
     });
 
-    it("файл вернулся за паузу (атомарная запись) — не orphaned, чистый буфер перечитан", () => {
+    it("a file that returns within the delay (atomic write) is not orphaned, the clean buffer is reread", () => {
         const fp = open("a.txt", "v1\n");
 
         fs.rmSync(fp);
@@ -106,7 +106,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(pane.getText()).toBe("v2 longer\n");
     });
 
-    it("файл исчез и вернулся до перепроверки без события — перепроверка видит файл", () => {
+    it("a file that vanishes and returns before recheck without an event: the recheck sees the file", () => {
         const fp = open("a.txt", "v1\n");
 
         fs.rmSync(fp);
@@ -117,7 +117,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(pane.model.isOrphaned).toBe(false);
     });
 
-    it("вернувшийся файл снимает флаг; новое содержимое перечитывается в чистый буфер", () => {
+    it("a returned file clears the flag; new content is reread into the clean buffer", () => {
         const fp = open("a.txt", "v1\n");
         deleteExternally(fp);
 
@@ -129,7 +129,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(pane.getText()).toBe("restored differently\n");
     });
 
-    it("файл вернулся тем же (восстановление из корзины сохраняет mtime) — флаг снят, текст прежний", () => {
+    it("a file returned unchanged (restore from trash keeps mtime) clears the flag, the text stays", () => {
         const fp = open("a.txt", "v1\n");
         trashAndRestore(fp);
 
@@ -140,7 +140,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(diskStateEvents).toBe(2);
     });
 
-    it("тот же файл вернулся под «грязный» буфер — флаг снят без ложного конфликта", () => {
+    it("the same file returning under a dirty buffer clears the flag without a false conflict", () => {
         const fp = open("a.txt", "v1\n");
         pane.viewState.type("Z");
         trashAndRestore(fp);
@@ -150,7 +150,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(pane.getText()).toBe("Zv1\n");
     });
 
-    it("вернувшийся без события watcher'а файл флаг снимает перечиткой — с событием", () => {
+    it("a file returned without a watcher event clears the flag by a reread, with an event", () => {
         const fp = open("a.txt", "v1\n");
         deleteExternally(fp);
         fs.writeFileSync(fp, "back\n");
@@ -162,7 +162,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(pane.getText()).toBe("back\n");
     });
 
-    it("файл, которого не было при открытии, появился снаружи — не перечитка и не orphaned", () => {
+    it("a file missing at open that appears externally is neither reread nor orphaned", () => {
         const fp = ws.path("late.txt");
         pane.openFile(Uri.file(fp));
         pane.viewState.type("draft");
@@ -175,7 +175,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(pane.model.isOrphaned).toBe(false);
     });
 
-    it("«грязный» orphaned остаётся грязным; вернувшийся файл даёт конфликт, а не перечитку", () => {
+    it("a dirty orphaned model stays dirty; a returned file raises a conflict, not a reread", () => {
         const fp = open("a.txt", "v1\n");
         pane.viewState.type("Z");
         deleteExternally(fp);
@@ -190,7 +190,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(pane.getText()).toBe("Zv1\n");
     });
 
-    it("повторное событие у пропавшего файла не перезапускает проверку и не шлёт событий", () => {
+    it("a repeated event for a missing file does not restart the check and sends no events", () => {
         const fp = open("a.txt", "v1\n");
         deleteExternally(fp);
 
@@ -201,7 +201,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-    it("второе событие в паузе перезапускает отсчёт, не плодя таймеров", () => {
+    it("a second event within the delay restarts the countdown without extra timers", () => {
         const fp = open("a.txt", "v1\n");
         fs.rmSync(fp);
         watcher.fire(fp);
@@ -215,7 +215,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(pane.model.isOrphaned).toBe(true);
     });
 
-    it("сохранение пересоздаёт удалённый файл и снимает флаг", async () => {
+    it("save recreates the deleted file and clears the flag", async () => {
         const fp = open("a.txt", "v1\n");
         deleteExternally(fp);
 
@@ -226,7 +226,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(orphanedEvents).toBe(2);
     });
 
-    it("saveAs снимает флаг и гасит перепроверку старого пути", async () => {
+    it("saveAs clears the flag and cancels the recheck of the old path", async () => {
         const fp = open("a.txt", "v1\n");
         deleteExternally(fp);
         expect(pane.model.isOrphaned).toBe(true);
@@ -247,7 +247,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         pane2.dispose();
     });
 
-    it("файла не было уже при открытии — пропадать нечему, orphaned не бывает", () => {
+    it("a file missing already at open has nothing to lose, never orphaned", () => {
         const fp = ws.path("missing.txt");
         pane.openFile(Uri.file(fp));
 
@@ -258,7 +258,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-    it("перечитка пропавшего файла флаг не снимает", () => {
+    it("rereading a missing file does not clear the flag", () => {
         const fp = open("a.txt", "v1\n");
         deleteExternally(fp);
 
@@ -267,7 +267,7 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         expect(pane.model.isOrphaned).toBe(true);
     });
 
-    it("закрытие модели гасит отложенную перепроверку", () => {
+    it("closing the model cancels the pending recheck", () => {
         const fp = open("a.txt", "v1\n");
         fs.rmSync(fp);
         watcher.fire(fp);

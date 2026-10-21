@@ -91,7 +91,7 @@ function createEditorService(configurationService: IConfigurationService = defau
     );
 }
 
-describe("EditorService — режим предпросмотра вкладок", () => {
+describe("EditorService — tab preview mode", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -112,7 +112,7 @@ describe("EditorService — режим предпросмотра вкладок
         return service.editorGroups.activeGroup.getPanes().map((pane) => pane.label);
     }
 
-    it("превью замещает превью: обход дерева не копит таб-строку", () => {
+    it("preview replaces preview: walking the tree does not pile up the tab bar", () => {
         const service = createEditorService();
 
         service.openFile(writeFile("a.ts"), { preview: true });
@@ -127,7 +127,7 @@ describe("EditorService — режим предпросмотра вкладок
         expect(service.editorGroups.activeGroup.activeIndex).toBe(0);
     });
 
-    it("превью занимает СЛОТ прежнего, а не уезжает в конец полосы", () => {
+    it("a preview takes the previous one's SLOT instead of moving to the end of the strip", () => {
         const service = createEditorService();
         service.openFile(writeFile("pinned.ts"));
         service.openFile(writeFile("a.ts"), { preview: true });
@@ -140,7 +140,7 @@ describe("EditorService — режим предпросмотра вкладок
         expect(service.editorGroups.activeGroup.activeIndex).toBe(1);
     });
 
-    it("открытие БЕЗ превью копит вкладки, как раньше", () => {
+    it("opening WITHOUT preview accumulates tabs as before", () => {
         const service = createEditorService();
 
         service.openFile(writeFile("a.ts"));
@@ -150,7 +150,7 @@ describe("EditorService — режим предпросмотра вкладок
         expect(service.editorGroups.activeGroup.previewPane).toBe(null);
     });
 
-    it("постоянное открытие превью-вкладки её прикалывает", () => {
+    it("a permanent open of a preview tab pins it", () => {
         const service = createEditorService();
         const a = writeFile("a.ts");
         service.openFile(a, { preview: true });
@@ -166,7 +166,7 @@ describe("EditorService — режим предпросмотра вкладок
         expect(tabs(service)).toEqual(["a.ts", "b.ts"]);
     });
 
-    it("повторное превью того же файла предпросмотр не снимает", () => {
+    it("previewing the same file again does not clear the preview", () => {
         const service = createEditorService();
         const a = writeFile("a.ts");
         service.openFile(a, { preview: true });
@@ -176,7 +176,7 @@ describe("EditorService — режим предпросмотра вкладок
         expect(service.editorGroups.activeGroup.previewPane?.label).toBe("a.ts");
     });
 
-    it("правка прикалывает превью-вкладку, и следующее превью её не теряет", () => {
+    it("an edit pins the preview tab, and the next preview does not lose it", () => {
         const service = createEditorService();
         service.openFile(writeFile("a.ts", "const x = 1;"), { preview: true });
         const editor = service.getActiveEditor()!;
@@ -190,7 +190,7 @@ describe("EditorService — режим предпросмотра вкладок
         expect(service.editorGroups.activeGroup.previewPane?.label).toBe("b.ts");
     });
 
-    it("грязную вкладку замещение прикалывает, даже если защёлка её упустила", () => {
+    it("replacing pins a dirty tab even if the latch missed it", () => {
         // Second line of defense: the latch isn't armed, and only the `isModified` check
         // in the replacement itself stands between the edits and the replacement.
         const service = createEditorService();
@@ -207,18 +207,18 @@ describe("EditorService — режим предпросмотра вкладок
         expect(group.previewPane?.label).toBe("b.ts");
     });
 
-    it("общая грязная модель: приехавшую грязной вкладку превью не делает, прежнюю прикалывает", () => {
+    it("shared dirty model: a tab arriving dirty does not become preview, the previous one is pinned", () => {
         // The model is shared through the registry, so the new tab is born dirty. The previous (also dirty)
         // preview must be pinned, otherwise the next preview would take its edits away.
         const service = createEditorService();
         const shared = writeFile("shared.ts");
         service.openFile(shared);
         const opened = service.getActiveEditor();
-        if (opened === null) throw new Error("вкладка не открылась");
+        if (opened === null) throw new Error("tab did not open");
         opened.pushUndo(opened.viewState.type("dirty"));
 
         const second = service.editorGroups.newGroup("after");
-        if (second === null) throw new Error("вторая группа не создалась");
+        if (second === null) throw new Error("second group was not created");
         const silent = makeSilentPane("/silent.ts");
         second.insertPane(silent, { preview: true });
         second.activateTab(0);
@@ -231,7 +231,7 @@ describe("EditorService — режим предпросмотра вкладок
         expect(second.isPinned(silent)).toBe(true);
     });
 
-    it("сплит прикалывает вкладку-источник", () => {
+    it("split pins the source tab", () => {
         const service = createEditorService();
         service.openFile(writeFile("a.ts"), { preview: true });
         const source = service.editorGroups.activeGroup;
@@ -242,7 +242,7 @@ describe("EditorService — режим предпросмотра вкладок
         expect(service.editorGroups.activeGroup.previewPane).toBe(null);
     });
 
-    it("копия вкладки в соседнюю группу прикалывает источник", () => {
+    it("copying a tab to the neighbouring group pins the source", () => {
         const service = createEditorService();
         service.openFile(writeFile("a.ts"), { preview: true });
         const source = service.editorGroups.activeGroup;
@@ -255,7 +255,7 @@ describe("EditorService — режим предпросмотра вкладок
         expect(service.editorGroups.activeGroup.previewPane).toBe(null);
     });
 
-    it("перенос вкладки в соседнюю группу прикалывает её", () => {
+    it("moving a tab to the neighbouring group pins it", () => {
         const service = createEditorService();
         service.openFile(writeFile("a.ts"), { preview: true });
         const source = service.editorGroups.activeGroup;
@@ -266,7 +266,7 @@ describe("EditorService — режим предпросмотра вкладок
         expect(service.editorGroups.activeGroup.previewPane).toBe(null);
     });
 
-    it("`group: beside` превьюит в соседней группе, не в активной", () => {
+    it("`group: beside` previews in the neighbouring group, not the active one", () => {
         const service = createEditorService();
         service.openFile(writeFile("a.ts"));
         const source = service.editorGroups.activeGroup;
@@ -278,8 +278,8 @@ describe("EditorService — режим предпросмотра вкладок
         expect(service.editorGroups.activeGroup.previewPane?.label).toBe("b.ts");
     });
 
-    describe("настройка workbench.editor.enablePreview", () => {
-        it("выключенная — превью не создаётся, вкладки копятся", () => {
+    describe("setting workbench.editor.enablePreview", () => {
+        it("disabled: no preview is created, tabs accumulate", () => {
             const service = createEditorService(switchableConfig(false).service);
 
             service.openFile(writeFile("a.ts"), { preview: true });
@@ -289,7 +289,7 @@ describe("EditorService — режим предпросмотра вкладок
             expect(service.editorGroups.activeGroup.previewPane).toBe(null);
         });
 
-        it("выключение на ходу прикалывает уже открытое превью", () => {
+        it("disabling at runtime pins the already open preview", () => {
             const config = switchableConfig(true);
             const service = createEditorService(config.service);
             service.openFile(writeFile("a.ts"), { preview: true });
@@ -302,7 +302,7 @@ describe("EditorService — режим предпросмотра вкладок
             expect(tabs(service)).toEqual(["a.ts", "b.ts"]);
         });
 
-        it("событие по ключу превью при ВКЛЮЧЁННОЙ настройке предпросмотр не снимает", () => {
+        it("a preview key event with the setting ENABLED does not clear the preview", () => {
             // Re-saving settings.json fires an event for the key even when
             // the value is the same: only TURNING OFF may pin previews.
             const config = switchableConfig(true);
@@ -316,7 +316,7 @@ describe("EditorService — режим предпросмотра вкладок
             expect(tabs(service)).toEqual(["b.ts"]);
         });
 
-        it("включение на ходу открытые вкладки не трогает", () => {
+        it("enabling at runtime leaves open tabs alone", () => {
             const config = switchableConfig(false);
             const service = createEditorService(config.service);
             service.openFile(writeFile("a.ts"), { preview: true });
@@ -328,13 +328,13 @@ describe("EditorService — режим предпросмотра вкладок
             expect(tabs(service)).toEqual(["a.ts", "b.ts"]);
         });
 
-        it("выключение не будит группы, где превью и не было", () => {
+        it("disabling does not wake groups that had no preview", () => {
             const config = switchableConfig(true);
             const service = createEditorService(config.service);
             service.openFile(writeFile("a.ts"), { preview: true });
             const withPreview = service.editorGroups.activeGroup;
             const second = service.editorGroups.newGroup("after");
-            if (second === null) throw new Error("вторая группа не создалась");
+            if (second === null) throw new Error("second group was not created");
             service.openFile(writeFile("b.ts"), { group: second });
             let quietGroupEvents = 0;
             second.onDidChangeEditors(() => quietGroupEvents++);
@@ -346,7 +346,7 @@ describe("EditorService — режим предпросмотра вкладок
             expect(withPreview.previewPane).toBe(null);
         });
 
-        it("выключение прикалывает превью во ВСЕХ группах полосы", () => {
+        it("disabling pins the preview in ALL groups of the strip", () => {
             const config = switchableConfig(true);
             const service = createEditorService(config.service);
             service.openFile(writeFile("a.ts"), { preview: true });

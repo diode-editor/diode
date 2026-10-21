@@ -25,7 +25,7 @@ import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
 let installed: IInstalledTerraform;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый hashicorp.terraform (terraform-ls, сквозняк)", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock hashicorp.terraform (terraform-ls, end-to-end)", () => {
     beforeAll(async () => {
         installed = await installTerraform();
         expect(installed.registration.id).toBe(TERRAFORM_ID);
@@ -36,7 +36,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый hashico
     });
 
     it(
-        "активация без ошибок; диагностика, hover, F12 и автодополнение от terraform-ls",
+        "activation without errors; diagnostics, hover, F12 and completion from terraform-ls",
         { timeout: 240_000 },
         async () => {
             const published: { resource: string; markers: readonly WireMarker[] }[] = [];
@@ -60,7 +60,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый hashico
                 expect(harness.host.hasExtension(TERRAFORM_ID)).toBe(true);
 
                 // Diagnostics from the REAL terraform-ls signal that the server is ready.
-                const unexpected = await until("диагностика bogus_attr", () => {
+                const unexpected = await until("bogus_attr diagnostic", () => {
                     const markers = published.filter((p) => p.resource === mainUri).at(-1)?.markers ?? [];
                     return Promise.resolve(markers.find((m) => m.message.includes('"bogus_attr"')) ?? null);
                 });

@@ -44,9 +44,9 @@ function chatExtensionHarness(api: string): Promise<Awaited<ReturnType<typeof cr
     });
 }
 
-describe("ExtensionHost — расширение с чат-панелью (webview) активируется целиком", () => {
+describe("ExtensionHost — an extension with a chat panel (webview) activates fully", () => {
     describe.each(WEBVIEW_ENTRY_POINTS)("window.%s", (api) => {
-        it("команда расширения, зарегистрированная после webview-вызова, исполняется", async () => {
+        it("an extension command registered after a webview call runs", async () => {
             const harness = await chatExtensionHarness(api);
             try {
                 await settle();
@@ -57,7 +57,7 @@ describe("ExtensionHost — расширение с чат-панелью (webvi
             }
         });
 
-        it("призрачные подсказки расширения доезжают до ядра", async () => {
+        it("the extension's ghost text suggestions reach the core", async () => {
             const harness = await chatExtensionHarness(api);
             try {
                 await settle();

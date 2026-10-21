@@ -17,7 +17,7 @@ function requestIn(harness: IExtensionHarness): ICompletionRequest {
 }
 
 describe("ExtensionHost — completion bridge (subprocess)", () => {
-    it("provideCompletionItems возвращает элементы провайдера, item.command исполняется через bridge", async () => {
+    it("provideCompletionItems returns the provider's items, item.command runs through the bridge", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: ".editorconfig", content: "ind" },
             extensions: [extensionFixture("test.providesCompletion", "providesCompletion.cjs")],
@@ -42,7 +42,7 @@ describe("ExtensionHost — completion bridge (subprocess)", () => {
         }
     });
 
-    it("селектор другого языка → пустой результат", async () => {
+    it("a selector for another language → empty result", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: ".editorconfig", content: "ind" },
             extensions: [extensionFixture("test.providesCompletion", "providesCompletion.cjs")],
@@ -56,7 +56,7 @@ describe("ExtensionHost — completion bridge (subprocess)", () => {
         }
     });
 
-    it("без completion-провайдеров (нет расширений) → [] без RPC", async () => {
+    it("without completion providers (no extensions) → [] without RPC", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
         });

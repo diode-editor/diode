@@ -24,8 +24,8 @@ async function applyThemes(
     return { registry, logger, assets };
 }
 
-describe("ExtensionThemeContributor — формат файла темы", () => {
-    it("US-13: include внутри расширения — фон из включающей, остальное из базы", async () => {
+describe("ExtensionThemeContributor — theme file format", () => {
+    it("US-13: include within an extension — background from the including theme, the rest from the base", async () => {
         const { registry } = await applyThemes(
             [
                 { label: "Sample Dark", uiTheme: "vs-dark", path: "./themes/sample-dark.json" },
@@ -50,7 +50,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         expect(registry.resolve("Sample Dark")?.getRequiredColor("editor.background")).toBe(packRgb(0x10, 0x18, 0x20));
     });
 
-    it("include резолвится относительно файла темы, с подъёмом по `..` внутри расширения", async () => {
+    it("include resolves relative to the theme file, with `..` climbing within the extension", async () => {
         const { registry, assets } = await applyThemes(
             [{ label: "Nested", uiTheme: "vs-dark", path: "./themes/nested/child.json" }],
             {
@@ -69,7 +69,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         ]);
     });
 
-    it("include, выходящий за пределы расширения, — ошибка и пропуск темы", async () => {
+    it("include escaping the extension is an error and the theme is skipped", async () => {
         const { registry, logger } = await applyThemes(
             [
                 { label: "Escaping", uiTheme: "vs-dark", path: "./themes/a.json" },
@@ -90,14 +90,14 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         );
     });
 
-    it("US-14: JSONC — комментарии и висячие запятые читаются", async () => {
+    it("US-14: JSONC — comments and trailing commas are read", async () => {
         const { registry, logger } = await applyThemes(
             [{ label: "Commented", uiTheme: "vs-dark", path: "./theme.jsonc" }],
             {
                 "theme.jsonc": `{
-                    // цвета
+                    // colors
                     "colors": { "editor.background": "#123456", },
-                    "tokenColors": [ /* пусто */ ],
+                    "tokenColors": [ /* empty */ ],
                 }`,
             },
         );
@@ -107,7 +107,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         expect(logger.error).not.toHaveBeenCalled();
     });
 
-    it("US-15: битый JSON, path в никуда и цикл include — по ошибке в лог на каждую, остальные темы живы", async () => {
+    it("US-15: broken JSON, dangling path and include cycle — one logged error each, other themes survive", async () => {
         const { registry, logger } = await applyThemes(
             [
                 { label: "Broken JSON", uiTheme: "vs-dark", path: "./broken.json" },
@@ -139,7 +139,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         );
     });
 
-    it("цикл include на самого себя тоже ловится", async () => {
+    it("self-include cycle is caught too", async () => {
         const { registry, logger } = await applyThemes([{ label: "Self", uiTheme: "vs-dark", path: "./self.json" }], {
             "self.json": JSON.stringify({ include: "./self.json", colors: {} }),
         });
@@ -150,7 +150,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         );
     });
 
-    it("US-16: uiTheme определяет тип; отсутствующий или неизвестный → dark с warning", async () => {
+    it("US-16: uiTheme defines the type; missing or unknown → dark with a warning", async () => {
         const file = JSON.stringify({ colors: {} });
         const { registry, logger } = await applyThemes(
             [
@@ -178,7 +178,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         ]);
     });
 
-    it("US-17: tokenColors строкой (.tmTheme) — тема в реестре с цветами workbench и дефолтной подсветкой, warning", async () => {
+    it("US-17: tokenColors as a string (.tmTheme) — theme registered with workbench colors and default highlighting, warning", async () => {
         const { registry, logger } = await applyThemes([{ label: "Plist", uiTheme: "vs-dark", path: "./plist.json" }], {
             "plist.json": JSON.stringify({
                 colors: { "editor.background": "#0F0F0F" },
@@ -195,7 +195,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         expect(logger.error).not.toHaveBeenCalled();
     });
 
-    it("невалидный цвет в файле — warning с путём файла, тема регистрируется и резолвится", async () => {
+    it("invalid color in the file — warning with the file path, theme registers and resolves", async () => {
         const { registry, logger } = await applyThemes([{ label: "Sloppy", uiTheme: "vs-dark", path: "./s.json" }], {
             "s.json": JSON.stringify({ colors: { "editor.background": "#0F0F0F", "bad.key": "orange" } }),
         });
@@ -206,7 +206,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         );
     });
 
-    it("запись без label или без path пропускается с warning (решение 1)", async () => {
+    it("entry without label or path is skipped with a warning (decision 1)", async () => {
         const { registry, logger, assets } = await applyThemes(
             [
                 { uiTheme: "vs-dark", path: "./t.json" },
@@ -230,7 +230,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         );
     });
 
-    it("contributes.themes не массив — молча игнорируется", async () => {
+    it("non-array contributes.themes is silently ignored", async () => {
         const ext = extensionWithThemes(EXT, []);
         const manifest = { ...ext.manifest, contributes: { themes: { label: "x" } } } as unknown as typeof ext.manifest;
         const registry = new ThemeRegistry();
@@ -241,7 +241,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         expect(logger.warn).not.toHaveBeenCalled();
     });
 
-    it("не-Error при чтении ассета превращается в строку причины", async () => {
+    it("non-Error from an asset read becomes the reason string", async () => {
         const ext = extensionWithThemes(EXT, [{ label: "Odd Reject", uiTheme: "vs-dark", path: "./t.json" }]);
         const assets = new MemoryAssets({});
         // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- non-Error on purpose

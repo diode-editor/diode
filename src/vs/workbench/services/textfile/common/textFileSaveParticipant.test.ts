@@ -13,7 +13,7 @@ import { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 // #196: the disk write happens regardless: a hung participant is cut off by the timeout,
 // a failing one is skipped.
 
-describe("TextFileSaveParticipant — композиция save-участников", () => {
+describe("TextFileSaveParticipant — save participant composition", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -30,7 +30,7 @@ describe("TextFileSaveParticipant — композиция save-участник
         text,
     });
 
-    it("участники идут последовательно, каждый видит правки предыдущего", async () => {
+    it("participants run in sequence, each sees the edits of the previous one", async () => {
         const controller = createEditorPane();
         const fp = ws.writeFile("seq.txt", "base");
         controller.openFile(Uri.file(fp));
@@ -54,7 +54,7 @@ describe("TextFileSaveParticipant — композиция save-участник
         controller.dispose();
     });
 
-    it("свежий снапшот несёт актуальный versionId после правок предыдущего", async () => {
+    it("a fresh snapshot carries the current versionId after the previous one's edits", async () => {
         const controller = createEditorPane();
         const fp = ws.writeFile("ver.txt", "v");
         controller.openFile(Uri.file(fp));
@@ -78,7 +78,7 @@ describe("TextFileSaveParticipant — композиция save-участник
         controller.dispose();
     });
 
-    it("сбойный участник пропускается, остальные и запись работают", async () => {
+    it("a failing participant is skipped, the others and the write still work", async () => {
         const controller = createEditorPane();
         const fp = ws.writeFile("err.txt", "base");
         controller.openFile(Uri.file(fp));
@@ -97,7 +97,7 @@ describe("TextFileSaveParticipant — композиция save-участник
         controller.dispose();
     });
 
-    it("зависший участник режется таймаутом — сохраняем как есть", async () => {
+    it("a hung participant is cut by the timeout, saving as is", async () => {
         vi.useFakeTimers();
         try {
             const controller = createEditorPane();
@@ -128,7 +128,7 @@ describe("TextFileSaveParticipant — композиция save-участник
         }
     });
 
-    it("таймер таймаута снимается, когда участник ответил сам (resolve и reject)", async () => {
+    it("the timeout timer is cleared when the participant answers itself (resolve and reject)", async () => {
         // Fake only the timers under test: setImmediate stays real, since background
         // tokenization of the open buffer (DocumentTokenStore) runs on it, and its
         // queued chunk is not a leak of this scenario.
@@ -152,7 +152,7 @@ describe("TextFileSaveParticipant — композиция save-участник
         }
     });
 
-    it("провайдер участников дергается на КАЖДОЕ сохранение (живые настройки)", async () => {
+    it("the participant provider is called on EVERY save (live settings)", async () => {
         const controller = createEditorPane();
         const fp = ws.writeFile("live.txt", "x");
         controller.openFile(Uri.file(fp));
@@ -169,7 +169,7 @@ describe("TextFileSaveParticipant — композиция save-участник
         expect(calls).toBe(2);
         controller.dispose();
     });
-    it("клампит диапазоны правок к границам документа", async () => {
+    it("clamps edit ranges to the document bounds", async () => {
         const controller = createEditorPane();
         const fp = ws.writeFile("clamp.txt", "ab\ncd");
         controller.openFile(Uri.file(fp));
@@ -200,7 +200,7 @@ describe("TextFileSaveParticipant — композиция save-участник
         controller.dispose();
     });
 
-    it("правки участников — один шаг отмены с меткой пайплайна", async () => {
+    it("participant edits are one undo step labelled with the pipeline", async () => {
         const undoRedoService = new UndoRedoService();
         const controller = createEditorPane({ undoRedoService });
         const fp = ws.writeFile("undo.txt", "x");

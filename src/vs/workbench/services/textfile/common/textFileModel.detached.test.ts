@@ -9,12 +9,12 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 import { TextFileModel } from "./textFileModel.ts";
 
 /** Programmatic paths (save participants, service commands) work without open editors too. */
-describe("TextFileModel — модель без прикреплённых вью", () => {
+describe("TextFileModel — model without attached views", () => {
     function make(): TextFileModel {
         return new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService());
     }
 
-    it("setEol без вью: снимок undo-шага без выделений, undo()/redo() без вью гоняют историю", () => {
+    it("setEol without views: the undo step snapshot has no selections, undo()/redo() without views walk the history", () => {
         const model = make();
         expect(model.eol).toBe(EndOfLine.LF);
 
@@ -30,7 +30,7 @@ describe("TextFileModel — модель без прикреплённых вь�
         model.dispose();
     });
 
-    it("applyExternalEdits без вью — no-op: применять правку некому", () => {
+    it("applyExternalEdits without views is a no-op: nobody to apply the edit", () => {
         const model = make();
 
         model.applyExternalEdits([createInsertEdit(0, 0, "hello")], "test edit");
@@ -40,7 +40,7 @@ describe("TextFileModel — модель без прикреплённых вь�
         model.dispose();
     });
 
-    it("повторный dispose снятой edit-цели — no-op, чужая цель не задета", () => {
+    it("disposing a removed edit target twice is a no-op, another target is unaffected", () => {
         const model = make();
         const calls: string[] = [];
         const target = (name: string) => ({
@@ -62,7 +62,7 @@ describe("TextFileModel — модель без прикреплённых вь�
         model.dispose();
     });
 
-    it("повторный dispose подписки onDidSaveDocument — no-op", () => {
+    it("disposing an onDidSaveDocument subscription twice is a no-op", () => {
         const model = make();
         const subscription = model.onDidSaveDocument(() => {});
         model.onDidSaveDocument(() => {});

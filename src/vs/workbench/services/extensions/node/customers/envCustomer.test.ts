@@ -17,8 +17,8 @@ function setup(environment: IExtensionHostEnvironment) {
     return { customer, log, attachTo };
 }
 
-describe("EnvCustomer — семя env.initialize", () => {
-    it("шлёт id машины и шелл живому спавну; без спавна — молчит", async () => {
+describe("EnvCustomer — env.initialize seed", () => {
+    it("sends the machine id and shell to a live spawn; without a spawn — silent", async () => {
         let shell = "/bin/zsh";
         const h = setup({ machineId: () => "m-1", defaultShell: () => shell });
         h.customer.pushInitialState();
@@ -36,7 +36,7 @@ describe("EnvCustomer — семя env.initialize", () => {
 });
 
 describe("fallbackExtensionHostEnvironment", () => {
-    it("id машины считается один раз на хост; шелл — системный", () => {
+    it("the machine id is computed once per host; the shell is the system one", () => {
         const env = fallbackExtensionHostEnvironment();
         const id = env.machineId();
         expect(id).toMatch(/^([0-9a-f]{64}|[0-9a-f-]{36})$/);

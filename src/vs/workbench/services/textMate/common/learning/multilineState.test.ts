@@ -6,7 +6,7 @@ import { createTestRegistry } from "./testRegistry.ts";
 
 /** Learning tests: `ruleStack` flows through multiline constructs, `equals()` detects convergence. */
 describe("vscode-textmate :: multiline state", () => {
-    it("после открытия `/*` состояние НЕ равно INITIAL", async () => {
+    it("after opening `/*` the state is NOT equal to INITIAL", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");
@@ -16,7 +16,7 @@ describe("vscode-textmate :: multiline state", () => {
         expect(r1.ruleStack.equals(INITIAL)).toBe(false);
     });
 
-    it("вторая строка внутри `/* */` получает scope `comment.block.js`", async () => {
+    it("the second line inside `/* */` gets scope `comment.block.js`", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");
@@ -27,7 +27,7 @@ describe("vscode-textmate :: multiline state", () => {
         expect(r2.tokens[0].scopes).toContain("comment.block.js");
     });
 
-    it("две подряд идущие строки внутри блока комментария дают одинаковый ruleStack (convergence)", async () => {
+    it("two consecutive lines inside a block comment give the same ruleStack (convergence)", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");
@@ -43,7 +43,7 @@ describe("vscode-textmate :: multiline state", () => {
         expect(r2.ruleStack.equals(r3.ruleStack)).toBe(true);
     });
 
-    it("после закрытия `*/` состояние снова без активной комментарий-фрейма", async () => {
+    it("after closing `*/` the state again has no active comment frame", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");
@@ -57,7 +57,7 @@ describe("vscode-textmate :: multiline state", () => {
         expect(constTok!.scopes).toContain("storage.type.js");
     });
 
-    it("clone() возвращает совместимую копию state-стека", async () => {
+    it("clone() returns a compatible copy of the state stack", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");

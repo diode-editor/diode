@@ -43,7 +43,7 @@ async function snapshot(harness: IExtensionHarness): Promise<ITabsSnapshot> {
 }
 
 describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
-    it("AS-12/14/15: сплит и открытие вкладок доезжают событиями tabGroups", async () => {
+    it("AS-12/14/15: split and opening tabs arrive as tabGroups events", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "const a = 1;\n" },
             extensions: [extensionFixture("test.tabs", "tabGroupsWatcher.cjs")],
@@ -74,7 +74,7 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
         }
     });
 
-    it("AS-16: tabGroups.close(tab) из расширения закрывает вкладку ядра", async () => {
+    it("AS-16: tabGroups.close(tab) from an extension closes the core tab", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "const a = 1;\n" },
             extensions: [extensionFixture("test.tabs", "tabGroupsWatcher.cjs")],
@@ -98,7 +98,7 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
         }
     });
 
-    it("AS-17: tabGroups.close(group) из расширения схлопывает группу", async () => {
+    it("AS-17: tabGroups.close(group) from an extension collapses the group", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "const a = 1;\n" },
             extensions: [extensionFixture("test.tabs", "tabGroupsWatcher.cjs")],
@@ -121,7 +121,7 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
         }
     });
 
-    it("AS-1/2/4: showTextDocument из расширения — Beside создаёт группу, дедуп и preserveFocus работают", async () => {
+    it("AS-1/2/4: showTextDocument from an extension: Beside creates a group, dedup and preserveFocus work", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "const a = 1;\n" },
             extensions: [extensionFixture("test.tabs", "tabGroupsWatcher.cjs")],

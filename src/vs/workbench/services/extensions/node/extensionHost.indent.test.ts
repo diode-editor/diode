@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 
 describe("ExtensionHost — indent options API (subprocess)", () => {
-    it("расширение проставляет 2-space indent через editor.options", async () => {
+    it("the extension sets a 2-space indent via editor.options", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "hello.ts", content: "const x = 1;\n" },
             extensions: [extensionFixture("test.setIndentSpaces", "setIndentSpaces.cjs")],
@@ -18,7 +18,7 @@ describe("ExtensionHost — indent options API (subprocess)", () => {
         }
     });
 
-    it("расширение проставляет 8-tab indent через editor.options", async () => {
+    it("the extension sets an 8-tab indent via editor.options", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "hello.ts", content: "const x = 1;\n" },
             extensions: [extensionFixture("test.setIndentTabs", "setIndentTabs.cjs")],
@@ -32,7 +32,7 @@ describe("ExtensionHost — indent options API (subprocess)", () => {
         }
     });
 
-    it("без активного редактора расширение не падает", async () => {
+    it("the extension does not crash without an active editor", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.setIndentSpaces", "setIndentSpaces.cjs")],
         });

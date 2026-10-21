@@ -38,7 +38,7 @@ function createHarness(logService: ILogService = NULL_LOG_SERVICE) {
         hasCapability: (cap: string) => {
             if (cap === "super") return superKey;
             if (cap === "extended-keys") return extendedKeys;
-            throw new Error(`неизвестная capability ${cap}`);
+            throw new Error(`unknown capability ${cap}`);
         },
         noteExtendedKeysObserved: () => {
             extendedKeysCalls.push("observed");
@@ -87,8 +87,8 @@ afterEach(() => {
     vi.useRealTimers();
 });
 
-describe("KeybindingDispatcher — одиночные биндинги", () => {
-    it("резолвит и выполняет команду, событие считается consumed", () => {
+describe("KeybindingDispatcher — single bindings", () => {
+    it("resolves and runs the command, the event counts as consumed", () => {
         const h = createHarness();
         h.bind("ctrl+s", "test.save");
 
@@ -98,13 +98,13 @@ describe("KeybindingDispatcher — одиночные биндинги", () => {
         expect(h.executed).toEqual(["test.save"]);
     });
 
-    it("незнакомая клавиша не consumed (дефолтные хуки no-op отрабатывают)", () => {
+    it("an unknown key is not consumed (default no-op hooks run)", () => {
         const h = createHarness();
 
         expect(h.dispatcher.dispatchKeyDown(keyDown({ key: "x" }))).toBe(false);
     });
 
-    it("bubble-обработчик гасит (preventDefault + stopImmediatePropagation) только consumed-событие", () => {
+    it("the bubble handler stops (preventDefault + stopImmediatePropagation) only a consumed event", () => {
         const h = createHarness();
         h.bind("ctrl+s", "test.save");
 
@@ -119,7 +119,7 @@ describe("KeybindingDispatcher — одиночные биндинги", () => {
         expect(unmatched.immediatePropagationStopped).toBe(false);
     });
 
-    it("зовёт хук updateContextKeys перед резолвом when-клаузы", () => {
+    it("calls the updateContextKeys hook before resolving the when clause", () => {
         const h = createHarness();
         h.bind("ctrl+c", "test.copy", "textInputFocus");
         h.dispatcher.updateContextKeys = () => {
@@ -131,8 +131,8 @@ describe("KeybindingDispatcher — одиночные биндинги", () => {
     });
 });
 
-describe("KeybindingDispatcher — чорды", () => {
-    it("префикс показывает хинт ожидания, продолжение выполняет команду и убирает хинт", () => {
+describe("KeybindingDispatcher — chords", () => {
+    it("a prefix shows the pending hint, the continuation runs the command and removes the hint", () => {
         const h = createHarness();
         h.bind("ctrl+k s", "test.chordSave");
 
@@ -145,7 +145,7 @@ describe("KeybindingDispatcher — чорды", () => {
         expect(h.statusTexts()).toEqual([]);
     });
 
-    it("keypress после префикса и после продолжения проглатывается", () => {
+    it("keypress after the prefix and after the continuation is swallowed", () => {
         const h = createHarness();
         h.bind("ctrl+k s", "test.chordSave");
 
@@ -160,7 +160,7 @@ describe("KeybindingDispatcher — чорды", () => {
         expect(plain.defaultPrevented).toBe(false);
     });
 
-    it("capture-обработчик перехватывает продолжение чорда и не трогает клавиши вне чорда", () => {
+    it("the capture handler intercepts the chord continuation and leaves keys outside a chord alone", () => {
         const h = createHarness();
         h.bind("ctrl+k s", "test.chordSave");
 
@@ -182,7 +182,7 @@ describe("KeybindingDispatcher — чорды", () => {
         expect(h.executed).toEqual(["test.chordSave"]);
     });
 
-    it("лог keydown пишет префикс чорда в pc-форме — и на маке (лог для разработчика)", () => {
+    it("the keydown log writes the chord prefix in pc form, on mac too (developer log)", () => {
         const logService = new LogService();
         logService.setLevel("*", LogLevel.Trace);
         const entries: LogEntry[] = [];
@@ -201,7 +201,7 @@ describe("KeybindingDispatcher — чорды", () => {
         ]);
     });
 
-    it("на маке (isMac) хинты чорда подписаны глифами", () => {
+    it("on mac (isMac) chord hints are labelled with glyphs", () => {
         const h = createHarness();
         h.contextKeys.set("isMac", true);
         h.bind("meta+k s", "test.chordSave");
@@ -212,7 +212,7 @@ describe("KeybindingDispatcher — чорды", () => {
         expect(h.statusTexts().some((t) => t.includes("(⌘K X) is not a command"))).toBe(true);
     });
 
-    it("сломанный чорд показывает «is not a command» и сам гаснет по таймеру", () => {
+    it("a broken chord shows 'is not a command' and hides itself on a timer", () => {
         vi.useFakeTimers();
         const h = createHarness();
         h.bind("ctrl+k s", "test.chordSave");
@@ -225,7 +225,7 @@ describe("KeybindingDispatcher — чорды", () => {
         expect(h.statusTexts()).toEqual([]);
     });
 
-    it("следующий keydown снимает таймер «is not a command» досрочно", () => {
+    it("the next keydown clears the 'is not a command' timer early", () => {
         vi.useFakeTimers();
         const h = createHarness();
         h.bind("ctrl+k s", "test.chordSave");
@@ -240,7 +240,7 @@ describe("KeybindingDispatcher — чорды", () => {
         expect(h.statusTexts()).toEqual([]);
     });
 
-    it("хинт «is not a command» переиспользует живую запись ожидания (update, не новая)", () => {
+    it("the 'is not a command' hint reuses the live pending entry (update, not a new one)", () => {
         const h = createHarness();
         h.bind("ctrl+k s", "test.chordSave");
 
@@ -250,7 +250,7 @@ describe("KeybindingDispatcher — чорды", () => {
         expect(h.statusTexts()).toEqual(["(Ctrl+K Ctrl+K) is not a command"]);
     });
 
-    it("отменяет незавершённый чорд по таймауту", () => {
+    it("cancels an unfinished chord on timeout", () => {
         vi.useFakeTimers();
         const h = createHarness();
         h.bind("ctrl+k s", "test.chordSave");
@@ -263,7 +263,7 @@ describe("KeybindingDispatcher — чорды", () => {
         expect(h.executed).toEqual([]);
     });
 
-    it("cancelPendingChord сбрасывает pending-состояние и хинт (смена фокуса)", () => {
+    it("cancelPendingChord resets the pending state and the hint (focus change)", () => {
         const h = createHarness();
         h.bind("ctrl+k s", "test.chordSave");
 
@@ -278,7 +278,7 @@ describe("KeybindingDispatcher — чорды", () => {
         h.dispatcher.cancelPendingChord();
     });
 
-    it("dispose гасит таймеры и запись хинта", () => {
+    it("dispose clears the timers and the hint entry", () => {
         vi.useFakeTimers();
         const h = createHarness();
         h.bind("ctrl+k s", "test.chordSave");
@@ -293,8 +293,8 @@ describe("KeybindingDispatcher — чорды", () => {
     });
 });
 
-describe("KeybindingDispatcher — модальные оверлеи", () => {
-    it("не даёт стартовать чорд, пока оверлей владеет клавиатурой", () => {
+describe("KeybindingDispatcher — modal overlays", () => {
+    it("does not start a chord while an overlay owns the keyboard", () => {
         const h = createHarness();
         h.bind("ctrl+k s", "test.chordSave");
         h.dispatcher.hasKeyboardCapturingOverlay = () => true;
@@ -304,7 +304,7 @@ describe("KeybindingDispatcher — модальные оверлеи", () => {
         expect(h.keybindings.pendingLength).toBe(0);
     });
 
-    it("глотает workbench-команду без focus-scoped when за оверлеем", () => {
+    it("swallows a workbench command without a focus-scoped when behind an overlay", () => {
         const h = createHarness();
         h.bind("ctrl+b", "test.toggleSidebar");
         h.dispatcher.hasKeyboardCapturingOverlay = () => true;
@@ -313,7 +313,7 @@ describe("KeybindingDispatcher — модальные оверлеи", () => {
         expect(h.executed).toEqual([]);
     });
 
-    it("пропускает focus-scoped команду (when с inputWidgetFocus) при открытом оверлее", () => {
+    it("lets a focus-scoped command (when with inputWidgetFocus) through with an overlay open", () => {
         const h = createHarness();
         h.bind("ctrl+c", "test.inputCopy", "inputWidgetFocus");
         h.contextKeys.set("inputWidgetFocus", true);
@@ -323,7 +323,7 @@ describe("KeybindingDispatcher — модальные оверлеи", () => {
         expect(h.executed).toEqual(["test.inputCopy"]);
     });
 
-    it("фокус-ключ под отрицанием не делает команду focus-scoped — за оверлеем она глотается", () => {
+    it("a negated focus key does not make a command focus-scoped, so it is swallowed behind an overlay", () => {
         const h = createHarness();
         // Regression: the focus key was matched as a substring, so `!listFocus` got past the overlay.
         h.bind("ctrl+b", "test.notInList", "!listFocus");
@@ -336,8 +336,8 @@ describe("KeybindingDispatcher — модальные оверлеи", () => {
     });
 });
 
-describe("KeybindingDispatcher — swallow печатающих клавиш и armory", () => {
-    it("Enter, запустивший команду над текстовым инпутом, глотает парный keypress", () => {
+describe("KeybindingDispatcher — printable key swallow and armory", () => {
+    it("Enter that runs a command over a text input swallows the paired keypress", () => {
         const h = createHarness();
         h.bind("enter", "test.acceptSuggestion", "textInputFocus");
         h.contextKeys.set("textInputFocus", true);
@@ -349,7 +349,7 @@ describe("KeybindingDispatcher — swallow печатающих клавиш и 
         expect(press.defaultPrevented).toBe(true);
     });
 
-    it("любая сработавшая команда глотает парный keypress (Ctrl+комбинация)", () => {
+    it("any command that runs swallows the paired keypress (Ctrl combination)", () => {
         const h = createHarness();
         h.bind("ctrl+s", "test.save");
         h.contextKeys.set("textInputFocus", true);
@@ -361,7 +361,7 @@ describe("KeybindingDispatcher — swallow печатающих клавиш и 
         expect(press.defaultPrevented).toBe(true);
     });
 
-    it("PageDown-команда глотает парный keypress — дефолт виджета не сработает вторым", () => {
+    it("a PageDown command swallows the paired keypress, so the widget default does not run second", () => {
         const h = createHarness();
         h.bind("pagedown", "list.focusPageDown", "listFocus");
         h.contextKeys.set("listFocus", true);
@@ -373,7 +373,7 @@ describe("KeybindingDispatcher — swallow печатающих клавиш и 
         expect(press.defaultPrevented).toBe(true);
     });
 
-    it("клавиша без биндинга не взводит swallow", () => {
+    it("a key without a binding does not arm swallow", () => {
         const h = createHarness();
         h.contextKeys.set("listFocus", true);
 
@@ -384,7 +384,7 @@ describe("KeybindingDispatcher — swallow печатающих клавиш и 
         expect(press.defaultPrevented).toBe(false);
     });
 
-    it("keyup удерживающего модификатора коммитит hold-сессию команды через armory", () => {
+    it("keyup of the held modifier commits the command hold session via armory", () => {
         const h = createHarness();
         let committed = 0;
         h.keybindings.register(parseKeybinding("ctrl+tab"), "test.mruNext");
@@ -402,8 +402,8 @@ describe("KeybindingDispatcher — swallow печатающих клавиш и 
     });
 });
 
-describe("KeybindingDispatcher — args биндинга", () => {
-    it("args правила уходят команде единственным аргументом (VS Code-семантика)", () => {
+describe("KeybindingDispatcher — binding args", () => {
+    it("rule args go to the command as the only argument (VS Code semantics)", () => {
         const h = createHarness();
         const received: unknown[][] = [];
         h.commands.register("test.withArgs", (...args: unknown[]) => {
@@ -415,7 +415,7 @@ describe("KeybindingDispatcher — args биндинга", () => {
         expect(received).toEqual([[{ text: "src/" }]]);
     });
 
-    it("биндинг без args зовёт команду вовсе без аргументов (не с undefined)", () => {
+    it("a binding without args calls the command with no arguments at all (not with undefined)", () => {
         const h = createHarness();
         const received: unknown[][] = [];
         h.commands.register("test.noArgs", (...args: unknown[]) => {
@@ -428,8 +428,8 @@ describe("KeybindingDispatcher — args биндинга", () => {
     });
 });
 
-describe("KeybindingDispatcher — runtime-детект extended-keys", () => {
-    it("CSI-u raw-ключ промоутит tier (noteExtendedKeysObserved), дальше — no-op", () => {
+describe("KeybindingDispatcher — runtime extended-keys detection", () => {
+    it("a CSI-u raw key promotes the tier (noteExtendedKeysObserved), then no-op", () => {
         const h = createHarness();
 
         h.dispatcher.handleKeyDownCapture(keyDown({ key: "Tab", ctrlKey: true, raw: "\x1b[9;5u" }));
@@ -440,7 +440,7 @@ describe("KeybindingDispatcher — runtime-детект extended-keys", () => {
         expect(h.extendedKeysCalls).toEqual(["observed"]);
     });
 
-    it("обычный (не CSI-u) ключ ничего не сообщает", () => {
+    it("a regular (non CSI-u) key reports nothing", () => {
         const h = createHarness();
 
         h.dispatcher.handleKeyDownCapture(keyDown({ key: "a", raw: "a" }));
@@ -448,7 +448,7 @@ describe("KeybindingDispatcher — runtime-детект extended-keys", () => {
         expect(h.extendedKeysCalls).toEqual([]);
     });
 
-    it("super-бит (Cmd) сообщается один раз и ДО резолва — первый же Cmd+S находит Cmd-бинд", () => {
+    it("the super bit (Cmd) is reported once and BEFORE resolving, so the very first Cmd+S finds the Cmd binding", () => {
         const h = createHarness();
         let superAtResolve: boolean | undefined;
         h.dispatcher.updateContextKeys = () => {
@@ -465,8 +465,8 @@ describe("KeybindingDispatcher — runtime-детект extended-keys", () => {
 });
 
 // Without the dispatcher's tagging, extensions would see arrow commands as "unknown source".
-describe("KeybindingDispatcher — источник смены каретки", () => {
-    it("команда с кейбинда исполняется внутри области keyboard", () => {
+describe("KeybindingDispatcher — cursor change source", () => {
+    it("a command from a keybinding runs inside the keyboard scope", () => {
         const h = createHarness();
         const seen: (string | undefined)[] = [];
         h.commands.register("test.cursorDown", () => {
@@ -479,14 +479,14 @@ describe("KeybindingDispatcher — источник смены каретки", 
         expect(seen).toEqual(["keyboard"]);
     });
 
-    it("после диспатча область закрыта — источник не протекает наружу", () => {
+    it("after dispatch the scope is closed, the source does not leak out", () => {
         const h = createHarness();
         h.bind("ctrl+s", "test.save");
         h.dispatcher.dispatchKeyDown(keyDown({ key: "s", ctrlKey: true }));
         expect(currentCursorChangeSource()).toBeUndefined();
     });
 
-    it("команда, запущенная не с клавиши, области не получает", () => {
+    it("a command not run from a key gets no scope", () => {
         const h = createHarness();
         const seen: (string | undefined)[] = [];
         h.commands.register("test.fromPalette", () => {

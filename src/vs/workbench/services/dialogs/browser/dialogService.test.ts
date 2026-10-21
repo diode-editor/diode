@@ -21,7 +21,7 @@ function makeHost() {
 const saveCallbacks = () => ({ onSave: vi.fn(), onDontSave: vi.fn(), onCancel: vi.fn() });
 
 describe("DialogService — confirm save", () => {
-    it("show открывает диалог по центру, колбэки закрывают его", () => {
+    it("show opens the dialog centered, callbacks close it", () => {
         const { testApp, service } = makeHost();
 
         service.showConfirmSaveDialog("a.txt", saveCallbacks());
@@ -38,7 +38,7 @@ describe("DialogService — confirm save", () => {
         expect(service.getOpenConfirmSaveDialog()).toBeNull();
     });
 
-    it("повторный показ переиспользует компонент и обновляет имя файла", () => {
+    it("showing again reuses the component and updates the file name", () => {
         const { testApp, service } = makeHost();
 
         service.showConfirmSaveDialog("first.txt", saveCallbacks());
@@ -52,7 +52,7 @@ describe("DialogService — confirm save", () => {
         expect(testApp.backend.screenToString()).toContain("second.txt?");
     });
 
-    it("onCancel закрывает диалог и зовёт колбэк", () => {
+    it("onCancel closes the dialog and calls the callback", () => {
         const { service } = makeHost();
         const cb = saveCallbacks();
 
@@ -63,7 +63,7 @@ describe("DialogService — confirm save", () => {
         expect(service.getOpenConfirmSaveDialog()).toBeNull();
     });
 
-    it("confirmSave резолвится выбором пользователя", async () => {
+    it("confirmSave resolves with the user choice", async () => {
         const { service } = makeHost();
 
         const save = service.confirmSave("a.txt");
@@ -81,7 +81,7 @@ describe("DialogService — confirm save", () => {
 });
 
 describe("DialogService — confirm", () => {
-    it("onConfirm закрывает диалог и зовёт колбэк; элемент уходит из дерева", () => {
+    it("onConfirm closes the dialog and calls the callback; the element leaves the tree", () => {
         const { testApp, service } = makeHost();
         const onConfirm = vi.fn();
 
@@ -97,7 +97,7 @@ describe("DialogService — confirm", () => {
         expect(testApp.querySelector("#confirmDialog")).toBeNull();
     });
 
-    it("onCancel зовёт опциональный колбэк, повторный показ заменяет диалог", () => {
+    it("onCancel calls the optional callback, showing again replaces the dialog", () => {
         const { service } = makeHost();
         const onCancel = vi.fn();
 
@@ -113,7 +113,7 @@ describe("DialogService — confirm", () => {
         expect(service.getOpenConfirmDialog()).toBeNull();
     });
 
-    it("confirm резолвится true по подтверждению и false по отмене", async () => {
+    it("confirm resolves true on confirm and false on cancel", async () => {
         const { service } = makeHost();
 
         const confirmed = service.confirm({ title: "Discard", message: "Sure?", confirmLabel: "Discard" });
@@ -125,7 +125,7 @@ describe("DialogService — confirm", () => {
         await expect(cancelled).resolves.toBe(false);
     });
 
-    it("dispose сервиса не роняет диалоги, показанные ранее", () => {
+    it("disposing the service does not break dialogs shown earlier", () => {
         const { service } = makeHost();
         service.showConfirmSaveDialog("a.txt", saveCallbacks());
 
@@ -136,7 +136,7 @@ describe("DialogService — confirm", () => {
 });
 
 describe("DialogService — about", () => {
-    it("показывает, закрывает по onClose и переиспользует компонент", () => {
+    it("shows, closes on onClose and reuses the component", () => {
         const { testApp, service } = makeHost();
 
         service.showAboutDialog();
@@ -153,8 +153,8 @@ describe("DialogService — about", () => {
     });
 });
 
-describe("DialogService — до первого показа", () => {
-    it("геттеры открытых диалогов отдают null на свежем сервисе", () => {
+describe("DialogService — before the first show", () => {
+    it("open dialog getters return null on a fresh service", () => {
         const service = new DialogService();
 
         expect(service.getOpenConfirmSaveDialog()).toBeNull();
@@ -164,7 +164,7 @@ describe("DialogService — до первого показа", () => {
 });
 
 describe("DialogService — host", () => {
-    it("бросает понятную ошибку, если host не прикреплён", () => {
+    it("throws a clear error if no host is attached", () => {
         const service = new DialogService();
 
         expect(() => {

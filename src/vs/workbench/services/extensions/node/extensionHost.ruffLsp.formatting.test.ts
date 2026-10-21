@@ -27,7 +27,7 @@ const MESSY_PY = 'x  =  1\nprint( "x" )\n';
 
 let installed: IInstalledRuff;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — форматирование от стокового ruff", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — formatting from the stock ruff", () => {
     beforeAll(async () => {
         installed = await installRuff();
     }, 120_000);
@@ -36,7 +36,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — форматирован
         installed.dispose();
     });
 
-    it("formatDocument: правки настоящего ruff-форматтера ложатся в буфер", { timeout: 240_000 }, async () => {
+    it("formatDocument: edits from the real ruff formatter land in the buffer", { timeout: 240_000 }, async () => {
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: PY_LANGUAGE_SERVICE,
             activateEvents: [],
@@ -49,7 +49,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — форматирован
             await harness.host.activateByEvent("onLanguage:python");
 
             // The client registers the formatting provider dynamically (client/registerCapability).
-            const edits = await until("formatting edits от ruff", async () => {
+            const edits = await until("formatting edits from ruff", async () => {
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: mainUri,
                     languageId: "python",
@@ -79,7 +79,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — форматирован
         }
     });
 
-    it("range formatting: запрос с range идёт через rangeFormatting-провайдер ruff", { timeout: 240_000 }, async () => {
+    it("range formatting: a ranged request uses the ruff rangeFormatting provider", { timeout: 240_000 }, async () => {
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: PY_LANGUAGE_SERVICE,
             activateEvents: [],
@@ -93,7 +93,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — форматирован
 
             // The range covers only the second line: edits must arrive
             // (ruff supports range formatting) and stay within it.
-            const edits = await until("range formatting edits от ruff", async () => {
+            const edits = await until("range formatting edits from ruff", async () => {
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: mainUri,
                     languageId: "python",

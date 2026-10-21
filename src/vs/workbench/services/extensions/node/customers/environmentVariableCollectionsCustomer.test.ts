@@ -22,7 +22,7 @@ function setup() {
 }
 
 describe("EnvironmentVariableCollectionsCustomer", () => {
-    it("коллекция субпроцесса — в хранилище с persistent и описаниями", async () => {
+    it("a subprocess collection goes to the store with persistent and descriptions", async () => {
         const { store, peer } = setup();
         peer.notify("terminal.setEnvironmentVariableCollection", {
             extensionId: "a.b",
@@ -37,7 +37,7 @@ describe("EnvironmentVariableCollectionsCustomer", () => {
         expect([...(stored?.descriptionMap ?? [])]).toEqual([["", { description: "d", scope: undefined }]]);
     });
 
-    it("опустевшая коллекция снимается из хранилища", async () => {
+    it("an emptied collection is removed from the store", async () => {
         const { store, peer } = setup();
         peer.notify("terminal.setEnvironmentVariableCollection", {
             extensionId: "a.b",
@@ -54,14 +54,14 @@ describe("EnvironmentVariableCollectionsCustomer", () => {
         expect(store.collections.has("a.b")).toBe(false);
     });
 
-    it("структурно чужое — игнорируется", async () => {
+    it("structurally foreign input is ignored", async () => {
         const { store, peer } = setup();
         peer.notify("terminal.setEnvironmentVariableCollection", { persistent: true, collection: [["P", MUTATOR]] });
         await flushMicrotasks();
         expect(store.collections.size).toBe(0);
     });
 
-    it("семя: всё хранилище субпроцессу (только мутаторы); пустое — семени нет", async () => {
+    it("seed: the whole store to the subprocess (mutators only); empty — no seed", async () => {
         const { store, customer, peer } = setup();
         const seeds = vi.fn();
         peer.handleNotification("terminal.initEnvironmentVariableCollections", seeds);
@@ -78,7 +78,7 @@ describe("EnvironmentVariableCollectionsCustomer", () => {
         expect(seeds).toHaveBeenCalledExactlyOnceWith({ collections: [["a.b", [["P", MUTATOR]]]] });
     });
 
-    it("без спавна (до attach и после смерти) семени нет", async () => {
+    it("without a spawn (before attach and after death) there is no seed", async () => {
         const store = createInMemoryEnvironmentVariableCollectionStore();
         store.set("a.b", { persistent: true, map: new Map([["P", { ...MUTATOR, type: 1 as const }]]) });
         const customer = new EnvironmentVariableCollectionsCustomer(store);
@@ -95,7 +95,7 @@ describe("EnvironmentVariableCollectionsCustomer", () => {
         expect(seeds).not.toHaveBeenCalled();
     });
 
-    it("хранилище в памяти: set/delete", () => {
+    it("in-memory store: set/delete", () => {
         const store = createInMemoryEnvironmentVariableCollectionStore();
         store.set("a.b", { persistent: true, map: new Map() });
         expect(store.collections.has("a.b")).toBe(true);
@@ -105,7 +105,7 @@ describe("EnvironmentVariableCollectionsCustomer", () => {
 });
 
 describe("parseWireSetEnvironmentVariableCollection", () => {
-    it("persistent по умолчанию true, false — только явный", () => {
+    it("persistent defaults to true, false only when explicit", () => {
         expect(parseWireSetEnvironmentVariableCollection({ extensionId: "a.b" })).toEqual({
             extensionId: "a.b",
             persistent: true,
@@ -117,7 +117,7 @@ describe("parseWireSetEnvironmentVariableCollection", () => {
         );
     });
 
-    it.each([null, "x", {}, { extensionId: "" }, { extensionId: 1 }])("без id — null (%j)", (raw) => {
+    it.each([null, "x", {}, { extensionId: "" }, { extensionId: 1 }])("without id — null (%j)", (raw) => {
         expect(parseWireSetEnvironmentVariableCollection(raw)).toBeNull();
     });
 });

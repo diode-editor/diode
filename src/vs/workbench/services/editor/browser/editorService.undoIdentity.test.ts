@@ -52,8 +52,8 @@ function createGroup(): EditorService {
 }
 
 /** Via buffer text, not the bucket key: the key is opaque on purpose. */
-describe("EditorService — идентичность истории отмены", () => {
-    it("два untitled-буфера не делят историю: undo в одном не трогает другой", () => {
+describe("EditorService — undo history identity", () => {
+    it("two untitled buffers do not share history: undo in one does not affect the other", () => {
         const group = createGroup();
         group.newUntitled();
         const first = group.getActiveEditor()!;
@@ -69,7 +69,7 @@ describe("EditorService — идентичность истории отмены
         expect(second.getText()).toBe("second");
     });
 
-    it("закрытие одного untitled-буфера не чистит историю другого", () => {
+    it("closing one untitled buffer does not clear the other's history", () => {
         const group = createGroup();
         group.newUntitled();
         const first = group.getActiveEditor()!;
@@ -85,7 +85,7 @@ describe("EditorService — идентичность истории отмены
         expect(second.getText()).toBe("");
     });
 
-    it("saveAs сохраняет историю: undo откатывает правку, сделанную до сохранения", async () => {
+    it("saveAs keeps history: undo reverts an edit made before saving", async () => {
         const group = createGroup();
         group.newUntitled();
         const editor = group.getActiveEditor()!;
@@ -98,7 +98,7 @@ describe("EditorService — идентичность истории отмены
         expect(editor.getText()).toBe("");
     });
 
-    it("saveAs сохраняет историю: redo после undo возвращает правку", async () => {
+    it("saveAs keeps history: redo after undo restores the edit", async () => {
         const group = createGroup();
         group.newUntitled();
         const editor = group.getActiveEditor()!;
@@ -115,7 +115,7 @@ describe("EditorService — идентичность истории отмены
         expect(editor.getText()).toBe("before save");
     });
 
-    it("undo не смешивает истории двух открытых файлов", () => {
+    it("undo does not mix the histories of two open files", () => {
         const group = createGroup();
         const alpha = path.join(tmpDir, "alpha.txt");
         const beta = path.join(tmpDir, "beta.txt");

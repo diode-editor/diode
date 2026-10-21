@@ -13,7 +13,7 @@ import { EditorServiceDIToken } from "../common/editorService.ts";
 
 import type { EditorGroup } from "./editorGroupModel.ts";
 
-describe("EditorService.closeEditor (confirm на закрытии)", () => {
+describe("EditorService.closeEditor (confirm on close)", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -46,7 +46,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
 
     const paneAt = (index: number): IEditorPane => group().getPanes()[index];
 
-    it("чистую вкладку закрывает сразу, без диалога и без ожидания промиса", async () => {
+    it("closes a clean tab immediately, without a dialog or awaiting a promise", async () => {
         openAll("a.txt", "b.txt");
 
         const closed = service().closeEditor(group(), 0);
@@ -56,14 +56,14 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(await closed).toBe(true);
     });
 
-    it("позиция вне полосы — закрывать нечего, ответ true", async () => {
+    it("a position outside the strip: nothing to close, returns true", async () => {
         openAll("a.txt");
 
         expect(await service().closeEditor(group(), 5)).toBe(true);
         expect(labels()).toEqual(["a.txt"]);
     });
 
-    it("перед вопросом показывает вкладку, про которую спрашивает; Cancel — вето", async () => {
+    it("reveals the tab it asks about before asking; Cancel vetoes", async () => {
         openAll("a.txt", "b.txt");
         const dirty = paneAt(0);
         edit(dirty, "X");
@@ -81,7 +81,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(labels()).toEqual(["a.txt", "b.txt"]);
     });
 
-    it("Don't Save закрывает вкладку, файл не трогает", async () => {
+    it("Don't Save closes the tab and leaves the file alone", async () => {
         openAll("a.txt");
         edit(paneAt(0), "X");
 
@@ -94,7 +94,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(readFileSync(ws.path("a.txt"), "utf8")).toBe("a");
     });
 
-    it("Save пишет файл и закрывает вкладку", async () => {
+    it("Save writes the file and closes the tab", async () => {
         openAll("a.txt");
         edit(paneAt(0), "X");
 
@@ -107,7 +107,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(readFileSync(ws.path("a.txt"), "utf8")).toBe("Xa");
     });
 
-    it("Save, который не сохранил (untitled без пути), — вето: вкладка и текст остаются", async () => {
+    it("a Save that did not save (untitled without a path) vetoes: the tab and text stay", async () => {
         service().newUntitled();
         const untitled = paneAt(0);
         edit(untitled, "keepme");
@@ -121,7 +121,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(untitled.isModified).toBe(true);
     });
 
-    it("дифф из двух грязных untitled-сторон: диалог называет обе, Save без пути — вето", async () => {
+    it("a diff of two dirty untitled sides: the dialog names both, Save without a path vetoes", async () => {
         h.commands.execute("workbench.files.action.compareNewUntitledTextFiles");
         await vi.waitFor(() => {
             expect(group().activePane instanceof DiffEditorPane2).toBe(true);
@@ -142,7 +142,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(group().getPanes()).toContain(diff);
     });
 
-    it("вкладку чужого вида (Keyboard Shortcuts) закрывает без диалога", async () => {
+    it("closes a tab of another kind (Keyboard Shortcuts) without a dialog", async () => {
         openAll("a.txt");
         h.commands.execute("workbench.action.openGlobalKeybindings");
         expect(labels()).toHaveLength(2);
@@ -153,7 +153,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(labels()).toEqual(["a.txt"]);
     });
 
-    it("документ виден в другой группе — грязная вкладка закрывается без диалога", async () => {
+    it("document visible in another group: the dirty tab closes without a dialog", async () => {
         openAll("a.txt");
         edit(paneAt(0), "X");
         h.commands.execute("workbench.action.splitEditor");
@@ -166,7 +166,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(second.getPanes()[0].isModified).toBe(true);
     });
 
-    it("повторный запрос по вкладке, пока её диалог открыт, присоединяется к нему", async () => {
+    it("a repeated request for a tab while its dialog is open joins that dialog", async () => {
         openAll("a.txt", "b.txt");
         const dirty = paneAt(1);
         edit(dirty, "X");
@@ -186,7 +186,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(labels()).toEqual(["a.txt"]);
     });
 
-    it("после вето повторный запрос снова спрашивает", async () => {
+    it("after a veto a repeated request asks again", async () => {
         openAll("a.txt");
         edit(paneAt(0), "X");
 
@@ -203,7 +203,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(labels()).toEqual([]);
     });
 
-    it("вкладку закрыли, пока шёл диалог, — Don't Save не закрывает чужую", async () => {
+    it("the tab closed while the dialog was open: Don't Save does not close another one", async () => {
         openAll("a.txt", "b.txt");
         const dirty = paneAt(0);
         edit(dirty, "X");
@@ -217,7 +217,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(labels()).toEqual(["b.txt"]);
     });
 
-    it("closeAllEditors идёт с хвоста; Cancel обрывает серию на грязной", async () => {
+    it("closeAllEditors goes from the tail; Cancel stops the run at a dirty tab", async () => {
         openAll("a.txt", "b.txt", "c.txt");
         edit(paneAt(1), "X");
 
@@ -231,7 +231,7 @@ describe("EditorService.closeEditor (confirm на закрытии)", () => {
         expect(labels()).toEqual(["a.txt", "b.txt"]);
     });
 
-    it("closeEditors закрывает в порядке вызывающего и отвечает true, если закрыты все", async () => {
+    it("closeEditors closes in the caller's order and returns true if all are closed", async () => {
         openAll("a.txt", "b.txt", "c.txt");
         edit(paneAt(2), "X");
         const [a, , c] = group().getPanes();

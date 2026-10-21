@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { FocusTracker } from "./focusTracker.ts";
 
 describe("FocusTracker", () => {
-    it("раздаёт новый активный элемент всем подписчикам, пока те не отписались", () => {
+    it("hands the new active element to all subscribers until they unsubscribe", () => {
         const tracker = new FocusTracker();
         const first = vi.fn();
         const second = vi.fn();
@@ -22,7 +22,7 @@ describe("FocusTracker", () => {
         expect(second).toHaveBeenLastCalledWith(null);
     });
 
-    it("подписчик, отписавшийся во время рассылки, не ломает обход остальных", () => {
+    it("a subscriber that unsubscribes during dispatch does not break the walk over the rest", () => {
         const tracker = new FocusTracker();
         const late = vi.fn();
         const self = tracker.onDidChangeFocus(() => {
@@ -34,7 +34,7 @@ describe("FocusTracker", () => {
         expect(late).toHaveBeenCalledTimes(1);
     });
 
-    it("dispose снимает все подписки", () => {
+    it("dispose removes all subscriptions", () => {
         const tracker = new FocusTracker();
         const listener = vi.fn();
         tracker.onDidChangeFocus(listener);

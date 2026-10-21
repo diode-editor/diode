@@ -61,7 +61,7 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
     }
 }
 
-describe("ExtensionHost — hover от стокового typescript-language-server", () => {
+describe("ExtensionHost — hover from the stock typescript-language-server", () => {
     beforeAll(async () => {
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
@@ -69,7 +69,7 @@ describe("ExtensionHost — hover от стокового typescript-language-se
         await buildExtensions({ repoRoot: REPO_ROOT });
     }, 120_000);
 
-    it("тип символа под кареткой доезжает markdown-блоком до ядра", { timeout: 180_000 }, async () => {
+    it("the type of the symbol under the cursor reaches the core as a markdown block", { timeout: 180_000 }, async () => {
         const outputLines: { level: string; value: string }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: TS_LANGUAGE_SERVICE,
@@ -91,7 +91,7 @@ describe("ExtensionHost — hover от стокового typescript-language-se
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:typescript");
 
-            const hovers = await until("hover над `answer`", async () => {
+            const hovers = await until("hover over `answer`", async () => {
                 const found: readonly ICoreHover[] = await provideHovers(harness, {
                     uri: mainUri,
                     languageId: "typescript",

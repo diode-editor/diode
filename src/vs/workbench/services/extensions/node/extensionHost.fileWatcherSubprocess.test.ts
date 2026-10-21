@@ -34,8 +34,8 @@ async function waitForEvents(
     return ((await harness.commandRegistry.execute("demo.watched")) as string[] | undefined) ?? [];
 }
 
-describe("workspace.createFileSystemWatcher — сквозь субпроцесс", () => {
-    it("правка файла в рабочем дереве доезжает до расширения", async () => {
+describe("workspace.createFileSystemWatcher — through the subprocess", () => {
+    it("a file edit in the working tree reaches the extension", async () => {
         const harness = await createExtensionTestHarness({ extensions: [fixture], fileWatcher: realWatcher() });
         try {
             await harness.flushRpc(6);
@@ -43,7 +43,7 @@ describe("workspace.createFileSystemWatcher — сквозь субпроцес�
             const nested = path.join(harness.tmpDir, "src");
             fs.mkdirSync(nested, { recursive: true });
 
-            fs.writeFileSync(path.join(nested, "a.ts"), "первая версия");
+            fs.writeFileSync(path.join(nested, "a.ts"), "first version");
             const seen = await waitForEvents(harness, 1);
 
             expect(seen).toContain(`created ${path.join(nested, "a.ts")}`);
@@ -52,7 +52,7 @@ describe("workspace.createFileSystemWatcher — сквозь субпроцес�
         }
     }, 20000);
 
-    it("шаблон отсекает чужие файлы, ignoreChangeEvents — свой вид событий", async () => {
+    it("the pattern filters out other files, ignoreChangeEvents filters its own event kind", async () => {
         const harness = await createExtensionTestHarness({ extensions: [fixture], fileWatcher: realWatcher() });
         try {
             await harness.flushRpc(6);
@@ -60,9 +60,9 @@ describe("workspace.createFileSystemWatcher — сквозь субпроцес�
             const readme = path.join(harness.tmpDir, "readme.md");
 
             // The `*.md` watcher is created with ignoreChangeEvents, so it sees only creation.
-            fs.writeFileSync(readme, "первая версия");
+            fs.writeFileSync(readme, "first version");
             await waitForEvents(harness, 1);
-            fs.writeFileSync(readme, "вторая версия");
+            fs.writeFileSync(readme, "second version");
             const seen = await waitForEvents(harness, 2);
 
             expect(seen).toContain(`md-created ${readme}`);
@@ -73,7 +73,7 @@ describe("workspace.createFileSystemWatcher — сквозь субпроцес�
         }
     }, 20000);
 
-    it("нерекурсивный RelativePattern не смотрит в подкаталоги", async () => {
+    it("a non-recursive RelativePattern does not look into subdirectories", async () => {
         const harness = await createExtensionTestHarness({ extensions: [fixture], fileWatcher: realWatcher() });
         try {
             await harness.flushRpc(6);
@@ -81,7 +81,7 @@ describe("workspace.createFileSystemWatcher — сквозь субпроцес�
             const nested = path.join(harness.tmpDir, "docs");
             fs.mkdirSync(nested, { recursive: true });
 
-            fs.writeFileSync(path.join(nested, "deep.md"), "содержимое");
+            fs.writeFileSync(path.join(nested, "deep.md"), "content");
             await settle(600);
             const seen = ((await harness.commandRegistry.execute("demo.watched")) as string[] | undefined) ?? [];
 

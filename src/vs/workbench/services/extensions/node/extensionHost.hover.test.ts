@@ -26,7 +26,7 @@ function requestFor(uri: string, line: number, versionId: number): IHoverRequest
 }
 
 describe("ExtensionHost — hover providers (subprocess)", () => {
-    it("два настоящих провайдера: hover'ы доезжают конкатенацией, при равном score — новый первым", async () => {
+    it("two real providers: hovers arrive concatenated, with equal score the newer one first", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "const answer = compute();\nconst other = 1;\n" },
             extensions: [extensionFixture("test.providesHover", "providesHover.cjs")],
@@ -53,7 +53,7 @@ describe("ExtensionHost — hover providers (subprocess)", () => {
         }
     });
 
-    it("без subprocess'а и без провайдеров реестр hover пуст", async () => {
+    it("without a subprocess and providers the hover registry is empty", async () => {
         // The extension is registered but not activated, so the subprocess is not started.
         const lazy = await createExtensionTestHarness({
             extensions: [extensionFixture("test.providesHover", "providesHover.cjs")],

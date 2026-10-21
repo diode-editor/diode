@@ -46,7 +46,7 @@ function backgroundId(metadata: number): number {
 }
 
 describe("vscode-textmate :: tokenizeLine2 (binary)", () => {
-    it("без темы все токены имеют одинаковую metadata и схлопываются в один", async () => {
+    it("without a theme all tokens have the same metadata and collapse into one", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");
@@ -58,7 +58,7 @@ describe("vscode-textmate :: tokenizeLine2 (binary)", () => {
         expect(result.tokens[0]).toBe(0);
     });
 
-    it("с темой metadata кодирует foreground id и font style", async () => {
+    it("with a theme, metadata encodes the foreground id and font style", async () => {
         const reg = createTestRegistry();
         reg.setTheme({
             settings: [
@@ -89,7 +89,7 @@ describe("vscode-textmate :: tokenizeLine2 (binary)", () => {
         expect(colorMap[backgroundId(constMeta)].toLowerCase()).toBe("#ffffff");
     });
 
-    it("getColorMap() возвращает массив hex-строк, индексируемый foreground/background id", () => {
+    it("getColorMap() returns an array of hex strings indexed by foreground/background id", () => {
         const reg = createTestRegistry();
         reg.setTheme({ settings: [{ settings: { foreground: "#112233", background: "#445566" } }] });
         const colorMap = reg.getColorMap();

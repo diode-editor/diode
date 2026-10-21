@@ -16,8 +16,8 @@ afterEach(() => {
     vi.useRealTimers();
 });
 
-describe("LifecycleService.shutdown — единое прощание", () => {
-    it("сперва асинхронная фаза, затем синхронная в обратном порядке подписки, последним — then", async () => {
+describe("LifecycleService.shutdown: a single farewell", () => {
+    it("first the async phase, then the sync one in reverse subscription order, `then` last", async () => {
         const lifecycle = new LifecycleService(new DialogService());
         const log: string[] = [];
         lifecycle.onShutdownSync(() => log.push("state"));
@@ -31,7 +31,7 @@ describe("LifecycleService.shutdown — единое прощание", () => {
         expect(log).toEqual(["will:reload", "terminal", "state", "then"]);
     });
 
-    it("синхронная фаза ждёт присоединённые промисы", async () => {
+    it("the sync phase waits for joined promises", async () => {
         const lifecycle = new LifecycleService(new DialogService());
         const subprocess = deferred();
         const then = vi.fn();
@@ -52,7 +52,7 @@ describe("LifecycleService.shutdown — единое прощание", () => {
         expect(then).toHaveBeenCalledOnce();
     });
 
-    it("зависший участник не держит выход дольше общего тайм-аута", async () => {
+    it("a hung participant does not hold the exit longer than the overall timeout", async () => {
         vi.useFakeTimers();
         const lifecycle = new LifecycleService(new DialogService());
         const then = vi.fn();
@@ -67,7 +67,7 @@ describe("LifecycleService.shutdown — единое прощание", () => {
         expect(then).toHaveBeenCalledOnce();
     });
 
-    it("тайм-аут настраивается конструктором", async () => {
+    it("the timeout is configurable via the constructor", async () => {
         vi.useFakeTimers();
         const lifecycle = new LifecycleService(new DialogService(), 10);
         const then = vi.fn();
@@ -80,7 +80,7 @@ describe("LifecycleService.shutdown — единое прощание", () => {
         expect(then).toHaveBeenCalledOnce();
     });
 
-    it("уложившиеся участники не ждут тайм-аута: его таймер снимается", async () => {
+    it("participants that finish in time do not wait for the timeout: its timer is cleared", async () => {
         vi.useFakeTimers();
         const lifecycle = new LifecycleService(new DialogService());
         lifecycle.onWillShutdown((event) => {
@@ -93,19 +93,19 @@ describe("LifecycleService.shutdown — единое прощание", () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-    it("отказ присоединённого промиса и сбой участника не останавливают остальных", async () => {
+    it("a rejected joined promise and a failing participant do not stop the others", async () => {
         const lifecycle = new LifecycleService(new DialogService());
         const sync = vi.fn();
         const then = vi.fn();
         lifecycle.onWillShutdown(() => {
-            throw new Error("не смог начать");
+            throw new Error("could not start");
         });
         lifecycle.onWillShutdown((event) => {
-            event.join(Promise.reject(new Error("упал по дороге")));
+            event.join(Promise.reject(new Error("failed on the way")));
         });
         lifecycle.onShutdownSync(sync);
         lifecycle.onShutdownSync(() => {
-            throw new Error("синхронный сбой");
+            throw new Error("sync failure");
         });
 
         await lifecycle.shutdown("inspector", then);
@@ -114,7 +114,7 @@ describe("LifecycleService.shutdown — единое прощание", () => {
         expect(then).toHaveBeenCalledOnce();
     });
 
-    it("повторный вызов присоединяется к первому прощанию, не повторяя его", async () => {
+    it("a repeated call joins the first farewell without repeating it", async () => {
         const lifecycle = new LifecycleService(new DialogService());
         const will = vi.fn();
         const sync = vi.fn();
@@ -134,7 +134,7 @@ describe("LifecycleService.shutdown — единое прощание", () => {
         expect(second).not.toHaveBeenCalled();
     });
 
-    it("снятая подписка в прощании не участвует", async () => {
+    it("a removed subscription does not take part in the farewell", async () => {
         const lifecycle = new LifecycleService(new DialogService());
         const will = vi.fn();
         const sync = vi.fn();
@@ -147,7 +147,7 @@ describe("LifecycleService.shutdown — единое прощание", () => {
         expect(sync).not.toHaveBeenCalled();
     });
 
-    it("requestShutdown дожидается промиса, который вернул onProceed", async () => {
+    it("requestShutdown waits for the promise returned by onProceed", async () => {
         const lifecycle = new LifecycleService(new DialogService());
         const subprocess = deferred();
         let settled = false;

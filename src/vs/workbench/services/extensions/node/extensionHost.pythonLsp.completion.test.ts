@@ -24,7 +24,7 @@ const MAIN_PY = 'text = "hi"\ntext.\n';
 
 let installed: IInstalledBasedpyright;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — completion от стокового basedpyright", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — completion from the stock basedpyright", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
     }, 120_000);
@@ -33,7 +33,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — completion от сток
         installed.dispose();
     });
 
-    it("члены str после точки доезжают до ядра, resolve отдаёт документацию", { timeout: 240_000 }, async () => {
+    it("str members after a dot reach the core, resolve returns documentation", { timeout: 240_000 }, async () => {
         const outputLines: { level: string; value: string }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: PY_LANGUAGE_SERVICE,
@@ -65,7 +65,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — completion от сток
             };
 
             // Cursor right after `text.`: expect str members from the typeshed stubs.
-            const items = await until("completion после `text.`", async () => {
+            const items = await until("completion after `text.`", async () => {
                 const found = await completionAt(1, 5);
                 return found.length > 0 ? found : null;
             });
@@ -77,7 +77,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — completion от сток
             // Documentation arrives only on resolve (the resolveSupport contract).
             const upper = items.find((item) => item.label === "upper");
             expect(upper?.id).toBeDefined();
-            const resolved = await until("resolve пункта upper", async () => {
+            const resolved = await until("resolve of the upper item", async () => {
                 const found = await harness.host.resolveCompletionItem(upper!.id!);
                 return found?.detail !== undefined || found?.documentation !== undefined ? found : null;
             });

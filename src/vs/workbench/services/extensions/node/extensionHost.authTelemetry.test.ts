@@ -8,8 +8,8 @@ import type { IOutputSink } from "../../../../workbench/api/common/iExtensionWin
  * The `hashicorp.terraform` shape: `env.createTelemetryLogger` and the sign-in session
  * are requested before the language server starts; without them the whole extension was lost.
  */
-describe("ExtensionHost — расширение с телеметрией и провайдером входа активируется целиком", () => {
-    it("activate() доходит до команды; сессий нет, вход отклоняется с причиной, телеметрия не уходит", async () => {
+describe("ExtensionHost — an extension with telemetry and an auth provider activates fully", () => {
+    it("activate() reaches the command; no sessions, sign-in is rejected with a reason, no telemetry is sent", async () => {
         const output: { channel: string; level: string; value: string }[] = [];
         const outputSink: IOutputSink = {
             append: (channel, _label, level, value) => {

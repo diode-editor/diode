@@ -86,7 +86,7 @@ afterEach(() => {
 });
 
 describe("ExtensionService", () => {
-    it("регистрирует набор по порядку, расширения без main — декларативными (для extensionDependencies); * и workspaceContains параллельно, onStartupFinished — после них", async () => {
+    it("registers the set in order, extensions without main as declarative (for extensionDependencies); * and workspaceContains in parallel, onStartupFinished after them", async () => {
         const host = new FakeHost();
         const logger = recordingLogger();
         const service = new ExtensionService(
@@ -109,7 +109,7 @@ describe("ExtensionService", () => {
         expect(logger.errors).toEqual([]);
     });
 
-    it("событие до регистрации не теряется: проигрывается сразу за *, а ждущий резолвится на барьере", async () => {
+    it("an event before registration is not lost: it replays right after *, and the waiter resolves at the barrier", async () => {
         const host = new FakeHost();
         const service = new ExtensionService(host, [ext("a", "a.js")], ENV, recordingLogger());
         let resolved = false;
@@ -136,7 +136,7 @@ describe("ExtensionService", () => {
         ]);
     });
 
-    it("барьер открывается до onStartupFinished: события во время него идут в host сразу", async () => {
+    it("the barrier opens before onStartupFinished: events during it go to the host immediately", async () => {
         const host = new FakeHost();
         const startupFinished = deferred();
         host.held.set("onStartupFinished", startupFinished.promise);
@@ -159,7 +159,7 @@ describe("ExtensionService", () => {
         await started;
     });
 
-    it("смена воркспейса до барьера ждёт старт, а не перезапускает host сам", async () => {
+    it("a workspace change before the barrier waits for startup instead of restarting the host itself", async () => {
         const host = new FakeHost();
         const service = new ExtensionService(host, [], ENV, recordingLogger());
 
@@ -173,7 +173,7 @@ describe("ExtensionService", () => {
         expect(host.log.filter((e) => e === "workspaceContains")).toHaveLength(1);
     });
 
-    it("сбой регистрации одного — в лог с id, остальные регистрируются", async () => {
+    it("one registration failure is logged with the id, the rest still register", async () => {
         const host = new FakeHost();
         const logger = recordingLogger();
         const service = new ExtensionService(
@@ -189,7 +189,7 @@ describe("ExtensionService", () => {
         expect(logger.errors).toEqual(["broken: failed to register (builtin)"]);
     });
 
-    it("сбой регистрации пользовательского — в лог без пометки builtin", async () => {
+    it("a user extension registration failure is logged without the builtin mark", async () => {
         const host = new FakeHost();
         host.registerExtension = (): unknown => {
             throw new Error("already registered");
@@ -202,7 +202,7 @@ describe("ExtensionService", () => {
         expect(logger.errors).toEqual(["u: failed to register"]);
     });
 
-    it("сбой host'а на событии — в лог с событием, остальные стартовые события всё равно идут, барьер открывается", async () => {
+    it("a host failure on an event is logged with the event, the other startup events still go, the barrier opens", async () => {
         const host = new FakeHost();
         host.failOn = "*";
         const logger = recordingLogger();
@@ -219,7 +219,7 @@ describe("ExtensionService", () => {
     });
 
     it.each(["workspaceContains", "onStartupFinished"])(
-        "сбой host'а на %s — в лог с этим событием, старт доходит до конца",
+        "a host failure on %s is logged with that event, and startup runs to the end",
         async (event) => {
             const host = new FakeHost();
             host.failOn = event;
@@ -233,7 +233,7 @@ describe("ExtensionService", () => {
         },
     );
 
-    it("повисший * не держит onStartupFinished дольше тайм-аута", async () => {
+    it("a hung * does not hold onStartupFinished past the timeout", async () => {
         const host = new FakeHost();
         const eager = deferred();
         host.held.set("*", eager.promise);
@@ -255,7 +255,7 @@ describe("ExtensionService", () => {
         await started;
     });
 
-    it("уложившаяся eager-активация не ждёт тайм-аута: его таймер снимается", async () => {
+    it("an eager activation that finishes in time does not wait for the timeout: its timer is cleared", async () => {
         vi.useFakeTimers();
         try {
             const service = new ExtensionService(new FakeHost(), [], ENV, recordingLogger());
@@ -269,7 +269,7 @@ describe("ExtensionService", () => {
         }
     });
 
-    it("ставит вехи регистрации и активации, которые читает бенч", async () => {
+    it("sets the registration and activation marks the bench reads", async () => {
         enablePerformanceMarks();
         const service = new ExtensionService(new FakeHost(), [], ENV, recordingLogger());
 
@@ -278,7 +278,7 @@ describe("ExtensionService", () => {
         expect(getMarks().map((m) => m.name)).toEqual(["main:extensions-registered", "exthost:activated"]);
     });
 
-    it("отдаёт набор и расширение по id", () => {
+    it("returns the set and an extension by id", () => {
         const a = ext("a", "a.js");
         const service = new ExtensionService(new FakeHost(), [a], ENV, recordingLogger());
 

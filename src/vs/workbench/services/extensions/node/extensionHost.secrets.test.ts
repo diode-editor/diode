@@ -43,7 +43,7 @@ describe("ExtensionHost — ExtensionContext.secrets", () => {
         }
     };
 
-    it("store → get возвращает записанное, delete его убирает", async () => {
+    it("store → get returns what was stored, delete removes it", async () => {
         await withHarness(async (harness) => {
             expect(await harness.commandRegistry.execute("test.secrets.get", "token")).toBeNull();
             await harness.commandRegistry.execute("test.secrets.store", "token", "s3cr3t");
@@ -53,7 +53,7 @@ describe("ExtensionHost — ExtensionContext.secrets", () => {
         });
     });
 
-    it("keys() перечисляет ключи расширения", async () => {
+    it("keys() lists the extension's keys", async () => {
         await withHarness(async (harness) => {
             expect(await harness.commandRegistry.execute("test.secrets.keys")).toEqual([]);
             await harness.commandRegistry.execute("test.secrets.store", "token", "a");
@@ -64,7 +64,7 @@ describe("ExtensionHost — ExtensionContext.secrets", () => {
         });
     });
 
-    it("onDidChange стреляет и на запись, и на удаление — с ключом, но без значения", async () => {
+    it("onDidChange fires on both store and delete, with the key but without the value", async () => {
         await withHarness(async (harness) => {
             await harness.commandRegistry.execute("test.secrets.store", "token", "s3cr3t");
             await harness.commandRegistry.execute("test.secrets.delete", "token");
@@ -74,35 +74,35 @@ describe("ExtensionHost — ExtensionContext.secrets", () => {
         });
     });
 
-    it("секрет, уже лежащий в хранилище, доступен ПРЯМО в activate()", async () => {
+    it("a secret already in the store is available RIGHT in activate()", async () => {
         // This is exactly how a real consumer behaves: it decides from the token's presence
         // whether to ask the human, and decides that before any UI.
         const store = createFileExtensionSecretStore(path.join(makeRoot(), "secrets.json"));
-        store.store("test.secrets", "token", "из прошлого запуска");
+        store.store("test.secrets", "token", "from the previous run");
         await withHarness(async (harness) => {
-            expect(await harness.commandRegistry.execute("test.secrets.tokenAtActivate")).toBe("из прошлого запуска");
+            expect(await harness.commandRegistry.execute("test.secrets.tokenAtActivate")).toBe("from the previous run");
         }, store);
     });
 
-    it("секреты одного расширения не видны другому", async () => {
+    it("one extension's secrets are invisible to another", async () => {
         const store = createFileExtensionSecretStore(path.join(makeRoot(), "secrets.json"));
-        store.store("test.other", "token", "чужой");
+        store.store("test.other", "token", "foreign");
         await withHarness(async (harness) => {
             expect(await harness.commandRegistry.execute("test.secrets.get", "token")).toBeNull();
-            await harness.commandRegistry.execute("test.secrets.store", "token", "свой");
-            expect(store.get("test.other", "token")).toBe("чужой");
-            expect(store.get("test.secrets", "token")).toBe("свой");
+            await harness.commandRegistry.execute("test.secrets.store", "token", "own");
+            expect(store.get("test.other", "token")).toBe("foreign");
+            expect(store.get("test.secrets", "token")).toBe("own");
         }, store);
     });
 
-    it("записанный секрет переживает перезапуск: он лежит в файле user-data", async () => {
+    it("a stored secret survives a restart: it lives in a user-data file", async () => {
         const file = path.join(makeRoot(), "User", "secrets.json");
         await withHarness(async (harness) => {
-            await harness.commandRegistry.execute("test.secrets.store", "token", "живёт дальше");
+            await harness.commandRegistry.execute("test.secrets.store", "token", "lives on");
         }, createFileExtensionSecretStore(file));
         // New host, new subprocess, same user-data, as after a restart.
         await withHarness(async (harness) => {
-            expect(await harness.commandRegistry.execute("test.secrets.tokenAtActivate")).toBe("живёт дальше");
+            expect(await harness.commandRegistry.execute("test.secrets.tokenAtActivate")).toBe("lives on");
         }, createFileExtensionSecretStore(file));
     });
 });

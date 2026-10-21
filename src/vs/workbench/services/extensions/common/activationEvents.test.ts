@@ -11,13 +11,13 @@ import {
 } from "./activationEvents.ts";
 
 describe("computeActivationEvents", () => {
-    it("объявленные события отдаются как есть", () => {
+    it("declared events are returned as is", () => {
         expect(
             computeActivationEvents({ activationEvents: ["onStartupFinished", "onLanguage:java"] }, "pub.ext"),
         ).toEqual(["onStartupFinished", "onLanguage:java"]);
     });
 
-    it("каждая contributes.commands добавляет НЕЯВНОЕ onCommand:<id>", () => {
+    it("each contributes.commands adds an IMPLICIT onCommand:<id>", () => {
         expect(
             computeActivationEvents(
                 {
@@ -34,7 +34,7 @@ describe("computeActivationEvents", () => {
         ).toEqual(["onLanguage:python", "onCommand:ruff.restart", "onCommand:ruff.showLogs"]);
     });
 
-    it("каждый contributes.languages добавляет НЕЯВНОЕ onLanguage:<id>", () => {
+    it("each contributes.languages adds an IMPLICIT onLanguage:<id>", () => {
         expect(
             computeActivationEvents(
                 {
@@ -46,7 +46,7 @@ describe("computeActivationEvents", () => {
         ).toEqual(["onStartupFinished", "onLanguage:toml", "onLanguage:ini"]);
     });
 
-    it("каждый contributes.taskDefinitions добавляет НЕЯВНОЕ onTaskType:<type>; без типа или с пустым — нет", () => {
+    it("each contributes.taskDefinitions adds an IMPLICIT onTaskType:<type>; none without a type or with an empty one", () => {
         expect(
             computeActivationEvents(
                 {
@@ -58,7 +58,7 @@ describe("computeActivationEvents", () => {
         ).toEqual(["onStartupFinished", "onTaskType:bazel", "onTaskType:npm"]);
     });
 
-    it("неявное событие не дублирует уже объявленное руками", () => {
+    it("an implicit event does not duplicate one declared by hand", () => {
         expect(
             computeActivationEvents(
                 {
@@ -70,7 +70,7 @@ describe("computeActivationEvents", () => {
         ).toEqual(["onCommand:a.b", "onLanguage:x"]);
     });
 
-    it("записи без строкового id неявных событий не дают", () => {
+    it("entries without a string id yield no implicit events", () => {
         expect(
             computeActivationEvents(
                 {
@@ -82,7 +82,7 @@ describe("computeActivationEvents", () => {
         ).toEqual(["onStartupFinished"]);
     });
 
-    it("манифест без событий — eager * (отклонение от эталона ради опубликованных расширений), плюс неявные", () => {
+    it("manifest without events — eager * (deviation from upstream for published extensions), plus implicit ones", () => {
         expect(computeActivationEvents({}, "pub.ext")).toEqual(["*"]);
         expect(computeActivationEvents({ activationEvents: [] }, "pub.ext")).toEqual(["*"]);
         expect(
@@ -90,13 +90,13 @@ describe("computeActivationEvents", () => {
         ).toEqual(["*", "onCommand:a.b"]);
     });
 
-    it("голый onUri — onUri:<id в нижнем регистре>, с аргументом — как есть", () => {
+    it("bare onUri becomes onUri:<lowercase id>, with an argument — as is", () => {
         expect(
             computeActivationEvents({ activationEvents: ["onUri", "onUri:other.ext", "onStartupFinished"] }, "Pub.Ext"),
         ).toEqual(["onUri:pub.ext", "onUri:other.ext", "onStartupFinished"]);
     });
 
-    it("генераторы перечислены явно — по точке расширения на каждый", () => {
+    it("generators are listed explicitly — one per contribution point", () => {
         expect(IMPLICIT_ACTIVATION_EVENT_GENERATORS.map((g) => g.point)).toEqual([
             "commands",
             "languages",
@@ -106,17 +106,17 @@ describe("computeActivationEvents", () => {
 });
 
 describe("readActivationEvents", () => {
-    it("отдаёт посчитанный набор регистрации как есть", () => {
+    it("returns the registration's computed set as is", () => {
         expect(readActivationEvents({ activationEvents: ["*", "onCommand:a.b"] })).toEqual(["*", "onCommand:a.b"]);
     });
 
-    it("регистрация без событий — пусто", () => {
+    it("registration without events — empty", () => {
         expect(readActivationEvents({})).toEqual([]);
     });
 });
 
 describe("readCommandActivationIds", () => {
-    it("id из onCommand:, без дублей, в порядке набора", () => {
+    it("ids from onCommand:, without duplicates, in set order", () => {
         expect(
             readCommandActivationIds({
                 activationEvents: [
@@ -129,17 +129,17 @@ describe("readCommandActivationIds", () => {
         ).toEqual(["_java.templateVariables", "x.y"]);
     });
 
-    it("расширение без команд не даёт ни одного id", () => {
+    it("extension without commands yields no ids", () => {
         expect(readCommandActivationIds({ activationEvents: ["onLanguage:java"] })).toEqual([]);
     });
 
-    it("пустой id (`onCommand:`) отбрасывается", () => {
+    it("empty id (`onCommand:`) is dropped", () => {
         expect(readCommandActivationIds({ activationEvents: ["onCommand:"] })).toEqual([]);
     });
 });
 
 describe("readWorkspaceContainsPatterns", () => {
-    it("паттерн без glob-символов уходит в paths, с ними — в globs", () => {
+    it("a pattern without glob characters goes to paths, with them — to globs", () => {
         // Manifest of the stock redhat.java: both semantics of one prefix.
         expect(
             readWorkspaceContainsPatterns({
@@ -157,28 +157,28 @@ describe("readWorkspaceContainsPatterns", () => {
         });
     });
 
-    it("`?` тоже делает паттерн glob'ом", () => {
+    it("`?` also makes a pattern a glob", () => {
         expect(readWorkspaceContainsPatterns({ activationEvents: ["workspaceContains:pom?.xml"] })).toEqual({
             paths: [],
             globs: ["pom?.xml"],
         });
     });
 
-    it("рекурсивный `**/` остаётся glob'ом", () => {
+    it("recursive `**/` stays a glob", () => {
         expect(readWorkspaceContainsPatterns({ activationEvents: ["workspaceContains:**/pyproject.toml"] })).toEqual({
             paths: [],
             globs: ["**/pyproject.toml"],
         });
     });
 
-    it("пустой паттерн отбрасывается — иначе матчил бы любой воркспейс", () => {
+    it("an empty pattern is dropped — otherwise it would match any workspace", () => {
         expect(readWorkspaceContainsPatterns({ activationEvents: ["workspaceContains:"] })).toEqual({
             paths: [],
             globs: [],
         });
     });
 
-    it("дубли схлопываются", () => {
+    it("duplicates collapse", () => {
         expect(
             readWorkspaceContainsPatterns({
                 activationEvents: ["workspaceContains:pom.xml", "workspaceContains:pom.xml"],
@@ -186,18 +186,18 @@ describe("readWorkspaceContainsPatterns", () => {
         ).toEqual({ paths: ["pom.xml"], globs: [] });
     });
 
-    it("расширение без workspaceContains даёт пустой набор", () => {
+    it("extension without workspaceContains yields an empty set", () => {
         expect(readWorkspaceContainsPatterns({ activationEvents: ["onStartupFinished"] })).toEqual({
             paths: [],
             globs: [],
         });
     });
 
-    it("eager-дефолт [*] не читается как workspaceContains", () => {
+    it("eager default [*] is not read as workspaceContains", () => {
         expect(readWorkspaceContainsPatterns({})).toEqual({ paths: [], globs: [] });
     });
 
-    it("префикс-самозванец (`workspaceContainsX:`) не подхватывается", () => {
+    it("an impostor prefix (`workspaceContainsX:`) is not picked up", () => {
         expect(readWorkspaceContainsPatterns({ activationEvents: ["workspaceContainsNot:pom.xml"] })).toEqual({
             paths: [],
             globs: [],
@@ -206,15 +206,15 @@ describe("readWorkspaceContainsPatterns", () => {
 });
 
 describe("hasWorkspaceContainsPatterns", () => {
-    it("пустой набор — нечего считать", () => {
+    it("empty set — nothing to count", () => {
         expect(hasWorkspaceContainsPatterns(NO_WORKSPACE_CONTAINS_PATTERNS)).toBe(false);
     });
 
-    it("только paths — считать есть что", () => {
+    it("paths only — something to count", () => {
         expect(hasWorkspaceContainsPatterns({ paths: ["pom.xml"], globs: [] })).toBe(true);
     });
 
-    it("только globs — считать есть что", () => {
+    it("globs only — something to count", () => {
         expect(hasWorkspaceContainsPatterns({ paths: [], globs: ["*/pom.xml"] })).toBe(true);
     });
 });

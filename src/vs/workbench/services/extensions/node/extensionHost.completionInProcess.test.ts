@@ -45,8 +45,8 @@ const REQUEST: ICompletionRequest = {
     character: 2,
 };
 
-describe("ExtensionHost — completion по handle (in-process)", () => {
-    it("вызовы прокси с одним запросом уходят одним RPC с пачкой handle; ответы — по своим", async () => {
+describe("ExtensionHost — completion by handle (in-process)", () => {
+    it("proxy calls for one request go as a single RPC with a batch of handles; answers go to their own callers", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn((_params: unknown) =>
             Promise.resolve([
@@ -74,7 +74,7 @@ describe("ExtensionHost — completion по handle (in-process)", () => {
         expect(second).toEqual({ items: [{ label: "second", insertText: "second" }], isIncomplete: false });
     });
 
-    it("триггер запроса уходит в субпроцесс, только когда он есть", async () => {
+    it("the request trigger goes to the subprocess only when there is one", async () => {
         const { host, peer } = makeHost();
         const seen: unknown[] = [];
         peer.handleRequest("languages.provideCompletionItems", (params) => {
@@ -96,7 +96,7 @@ describe("ExtensionHost — completion по handle (in-process)", () => {
         expect(seen[1]).toMatchObject({ triggerKind: 1, triggerCharacter: "." });
     });
 
-    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+    it("document not open in the subprocess: empty without RPC", async () => {
         const { host, peer } = makeHost(false);
         const provide = vi.fn(() =>
             Promise.resolve([{ items: [{ label: "a", insertText: "a" }], isIncomplete: false }]),
@@ -107,7 +107,7 @@ describe("ExtensionHost — completion по handle (in-process)", () => {
         expect(provide).not.toHaveBeenCalled();
     });
 
-    it("после остановки субпроцесса completion и resolve не уходят", async () => {
+    it("after the subprocess stops completion and resolve are not sent", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn(() => Promise.resolve([]));
         const resolve = vi.fn(() => Promise.resolve({ detail: "d" }));
@@ -123,7 +123,7 @@ describe("ExtensionHost — completion по handle (in-process)", () => {
         expect(resolve).toHaveBeenCalledTimes(1);
     });
 
-    it("отмена ядра доезжает до токена субпроцесса (provideCompletionItems)", async () => {
+    it("core cancellation reaches the subprocess token (provideCompletionItems)", async () => {
         const { host, peer } = makeHost();
         let seen: ICancellationToken | null = null;
         peer.handleRequest("languages.provideCompletionItems", (_params, token) => {
@@ -142,7 +142,7 @@ describe("ExtensionHost — completion по handle (in-process)", () => {
         void pending;
     });
 
-    it("срока ответа у автодополнения нет: медленного провайдера дожидаемся, пустым ответом не подменяем", async () => {
+    it("completion has no deadline: a slow provider is awaited, not replaced with an empty answer", async () => {
         vi.useFakeTimers();
         try {
             const { host, peer } = makeHost();

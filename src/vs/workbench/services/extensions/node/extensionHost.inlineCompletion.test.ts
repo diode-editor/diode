@@ -28,7 +28,7 @@ function requestIn(harness: IExtensionHarness): IInlineCompletionRequest {
 }
 
 describe("ExtensionHost — inline completion bridge (subprocess)", () => {
-    it("provideInlineCompletions возвращает пункты провайдера: plain-текст и сниппет со стрипом", async () => {
+    it("provideInlineCompletions returns provider items: plain text and a stripped snippet", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "function fib" },
             extensions: [extensionFixture("test.providesInlineCompletion", "providesInlineCompletion.cjs")],
@@ -50,7 +50,7 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
         }
     });
 
-    it("селектор другого языка → пустой результат", async () => {
+    it("a selector for another language → empty result", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "function fib" },
             extensions: [extensionFixture("test.providesInlineCompletion", "providesInlineCompletion.cjs")],
@@ -65,7 +65,7 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
         }
     });
 
-    it("без inline-completion-провайдеров (нет расширений) → [] без RPC", async () => {
+    it("no inline completion providers (no extensions) → [] without RPC", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
         });
@@ -78,7 +78,7 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
 
     // The deadline travels in the REQUEST: a settings change applies without a restart. The fixture
     // answers in ~300 ms: a tight deadline won't wait for it, the host default (5000 ms) will.
-    it("req.timeoutMs перебивает хостовой таймаут: тесный срок сдаётся, отсутствие срока — ждёт", async () => {
+    it("req.timeoutMs overrides the host timeout: a tight deadline gives up, no deadline waits", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "function fib" },
             extensions: [extensionFixture("test.slowInlineCompletion", "providesSlowInlineCompletion.cjs")],

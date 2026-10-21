@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { OutputChannelRegistry } from "./outputChannelRegistry.ts";
 
 describe("OutputChannelRegistry", () => {
-    it("хранит каналы в порядке регистрации — он же порядок селектора", () => {
+    it("keeps channels in registration order, which is also the selector order", () => {
         const registry = new OutputChannelRegistry();
         registry.registerChannel({ id: "b", label: "B" });
         registry.registerChannel({ id: "a", label: "A" });
@@ -11,7 +11,7 @@ describe("OutputChannelRegistry", () => {
         expect(registry.getChannels().map((c) => c.id)).toEqual(["b", "a"]);
     });
 
-    it("повторная регистрация не перетирает label", () => {
+    it("a repeated registration does not overwrite the label", () => {
         // Otherwise the "declared with a name in bootstrap / created on first write" race
         // would replace "Extension Host" with the raw id.
         const registry = new OutputChannelRegistry();
@@ -23,7 +23,7 @@ describe("OutputChannelRegistry", () => {
         expect(registry.getChannels()).toHaveLength(1);
     });
 
-    it("повторная регистрация не файрит событие второй раз", () => {
+    it("a repeated registration does not fire the event a second time", () => {
         const registry = new OutputChannelRegistry();
         let fired = 0;
         registry.onDidRegisterChannel(() => fired++);
@@ -34,7 +34,7 @@ describe("OutputChannelRegistry", () => {
         expect(fired).toBe(1);
     });
 
-    it("событие несёт дескриптор нового канала", () => {
+    it("the event carries the new channel's descriptor", () => {
         const registry = new OutputChannelRegistry();
         const seen: string[] = [];
         registry.onDidRegisterChannel((d) => seen.push(d.label));
@@ -44,7 +44,7 @@ describe("OutputChannelRegistry", () => {
         expect(seen).toEqual(["Alpha"]);
     });
 
-    it("подписка снимается по dispose", () => {
+    it("the subscription is removed on dispose", () => {
         const registry = new OutputChannelRegistry();
         let fired = 0;
         const sub = registry.onDidRegisterChannel(() => fired++);
@@ -55,7 +55,7 @@ describe("OutputChannelRegistry", () => {
         expect(fired).toBe(0);
     });
 
-    it("getChannel по неизвестному id — undefined", () => {
+    it("getChannel by an unknown id gives undefined", () => {
         expect(new OutputChannelRegistry().getChannel("nope")).toBeUndefined();
     });
 });

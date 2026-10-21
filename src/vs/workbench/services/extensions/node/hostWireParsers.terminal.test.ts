@@ -10,11 +10,11 @@ import {
 } from "./hostWireParsers.ts";
 
 describe("parseWireTerminalCreate", () => {
-    it("только метка — ничего лишнего", () => {
+    it("only a tag: nothing extra", () => {
         expect(parseWireTerminalCreate({ extHostId: 1 })).toStrictEqual({ extHostId: 1 });
     });
 
-    it("location: TerminalLocation числом, колонка, родитель; мусор — «не задано»", () => {
+    it("location: TerminalLocation as a number, a column, a parent; garbage means `unset`", () => {
         const loc = (location: unknown) => parseWireTerminalCreate({ extHostId: 1, location })?.location;
         expect(loc(1)).toBe(1);
         expect(loc(2)).toBe(2);
@@ -33,14 +33,14 @@ describe("parseWireTerminalCreate", () => {
         });
     });
 
-    it("без числовой метки — null", () => {
+    it("no numeric tag gives null", () => {
         expect(parseWireTerminalCreate(null)).toBeNull();
         expect(parseWireTerminalCreate("x")).toBeNull();
         expect(parseWireTerminalCreate({ extHostId: "1" })).toBeNull();
         expect(parseWireTerminalCreate({ extHostId: Number.NaN })).toBeNull();
     });
 
-    it("полный набор опций проходит как есть", () => {
+    it("a full set of options passes as is", () => {
         expect(
             parseWireTerminalCreate({
                 extHostId: 3,
@@ -66,7 +66,7 @@ describe("parseWireTerminalCreate", () => {
         });
     });
 
-    it("пустые строки и не-true флаги — «не задано»; мусорные типы отбрасываются", () => {
+    it("empty strings and non-true flags mean `unset`; garbage types are dropped", () => {
         expect(
             parseWireTerminalCreate({
                 extHostId: 1,
@@ -84,7 +84,7 @@ describe("parseWireTerminalCreate", () => {
 });
 
 describe("parseWireTerminalCreate — pty", () => {
-    it("pty: только метка и имя — шелловые опции отбрасываются", () => {
+    it("pty: only tag and name, shell options are dropped", () => {
         expect(
             parseWireTerminalCreate({ extHostId: 2, pty: true, name: "log", shellPath: "/bin/sh", env: { A: "1" } }),
         ).toStrictEqual({ extHostId: 2, pty: true, name: "log" });
@@ -100,8 +100,8 @@ describe("parseWireTerminalCreate — pty", () => {
     });
 });
 
-describe("адрес терминала в show/hide/dispose/sendText", () => {
-    it("хостовый id побеждает метку; без обоих — null", () => {
+describe("terminal address in show/hide/dispose/sendText", () => {
+    it("the host id beats the tag; without both gives null", () => {
         expect(parseWireTerminalTarget({ terminal: { id: 2, extHostId: 9 } })).toStrictEqual({ terminal: { id: 2 } });
         expect(parseWireTerminalTarget({ terminal: { extHostId: 9 } })).toStrictEqual({ terminal: { extHostId: 9 } });
         expect(parseWireTerminalTarget({ terminal: { id: "2" } })).toBeNull();
@@ -110,7 +110,7 @@ describe("адрес терминала в show/hide/dispose/sendText", () => {
         expect(parseWireTerminalTarget(undefined)).toBeNull();
     });
 
-    it("show: preserveFocus — только явное true", () => {
+    it("show: preserveFocus only on an explicit true", () => {
         expect(parseWireTerminalShow({ terminal: { id: 1 }, preserveFocus: true })).toStrictEqual({
             terminal: { id: 1 },
             preserveFocus: true,
@@ -119,7 +119,7 @@ describe("адрес терминала в show/hide/dispose/sendText", () => {
         expect(parseWireTerminalShow({ terminal: {} })).toBeNull();
     });
 
-    it("sendText: текст обязателен; Enter отключает только явное false", () => {
+    it("sendText: text is required; only an explicit false disables Enter", () => {
         expect(parseWireTerminalSendText({ terminal: { id: 1 }, text: "ls" })).toStrictEqual({
             terminal: { id: 1 },
             text: "ls",
@@ -137,7 +137,7 @@ describe("адрес терминала в show/hide/dispose/sendText", () => {
 });
 
 describe("pty: data/exit", () => {
-    it("data — строка по адресу", () => {
+    it("data is a string by address", () => {
         expect(parseWireTerminalPtyData({ terminal: { extHostId: 1 }, data: "x" })).toStrictEqual({
             terminal: { extHostId: 1 },
             data: "x",
@@ -146,7 +146,7 @@ describe("pty: data/exit", () => {
         expect(parseWireTerminalPtyData({ data: "x" })).toBeNull();
     });
 
-    it("exit — код только числом", () => {
+    it("exit: the code is a number only", () => {
         expect(parseWireTerminalPtyExit({ terminal: { id: 1 }, code: 2 })).toStrictEqual({
             terminal: { id: 1 },
             code: 2,

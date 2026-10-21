@@ -68,8 +68,8 @@ function setup(colors: Record<string, number> = COLORS) {
 const range = (line: number) => ({ start: { line, character: 0 }, end: { line, character: 0 } });
 const gutter = (themeColor: string) => ({ overviewRulerColor: { $themeColor: themeColor }, isWholeLine: true });
 
-describe("DecorationsCustomer — gutter-декорации редактора", () => {
-    it("битые параметры отбрасываются без падения и без вызова поверхности", async () => {
+describe("DecorationsCustomer — editor gutter decorations", () => {
+    it("broken params are dropped without a crash and without calling the surface", async () => {
         const h = setup();
 
         h.peer.notify("window.createTextEditorDecorationType", { key: "nope" });
@@ -82,7 +82,7 @@ describe("DecorationsCustomer — gutter-декорации редактора",
         expect(h.rpcLogger.warn).not.toHaveBeenCalled();
     });
 
-    it("gutter-тип красится цветом темы, не-gutter и неизвестный тип игнорируются", async () => {
+    it("a gutter type is colored with the theme color, non-gutter and unknown types are ignored", async () => {
         const h = setup();
         h.peer.notify("window.createTextEditorDecorationType", {
             key: 1,
@@ -103,7 +103,7 @@ describe("DecorationsCustomer — gutter-декорации редактора",
         expect(h.rpcLogger.warn).not.toHaveBeenCalled();
     });
 
-    it("modified-гуттер штрихуется, added — сплошной", async () => {
+    it("modified gutter is hatched, added is solid", async () => {
         const h = setup();
         h.peer.notify("window.createTextEditorDecorationType", {
             key: 1,
@@ -125,7 +125,7 @@ describe("DecorationsCustomer — gutter-декорации редактора",
         ]);
     });
 
-    it("пустой набор снимает бары; снятие типа перерисовывает только файлы, где он был", async () => {
+    it("an empty set removes the bars; removing a type redraws only files where it was", async () => {
         const h = setup();
         h.peer.notify("window.createTextEditorDecorationType", {
             key: 1,
@@ -157,8 +157,8 @@ describe("DecorationsCustomer — gutter-декорации редактора",
     });
 });
 
-describe("DecorationsCustomer — декорации файлов", () => {
-    it("badge и цвет по отдельности; не-file отбрасывается; голый uri снимает", async () => {
+describe("DecorationsCustomer — file decorations", () => {
+    it("badge and color separately; non-file is dropped; a bare uri removes", async () => {
         const h = setup();
         h.peer.notify("window.fileDecorationsChanged", {
             decorations: [
@@ -182,7 +182,7 @@ describe("DecorationsCustomer — декорации файлов", () => {
         expect(h.fileCalls.at(-1)?.map((e) => e.path)).toEqual(["/badge.md", "/color.md", "/unknown-color.md"]);
     });
 
-    it("propagate доезжает до дерева как есть и обновляется следующим набором", async () => {
+    it("propagate reaches the tree as is and updates with the next set", async () => {
         const h = setup();
         h.peer.notify("window.fileDecorationsChanged", {
             decorations: [
@@ -202,8 +202,8 @@ describe("DecorationsCustomer — декорации файлов", () => {
     });
 });
 
-describe("DecorationsCustomer — тема", () => {
-    it("смена темы пере-резолвит держимые декорации и шлёт новую тему живому спавну", async () => {
+describe("DecorationsCustomer — theme", () => {
+    it("a theme change re-resolves held decorations and sends the new theme to a live spawn", async () => {
         const h = setup();
         h.peer.notify("window.createTextEditorDecorationType", {
             key: 1,
@@ -226,7 +226,7 @@ describe("DecorationsCustomer — тема", () => {
         expect(h.themes).toEqual([{ kind: ColorThemeKind.Light }]);
     });
 
-    it("после ухода спавна смена темы ничего не перерисовывает и никому не пишет", async () => {
+    it("after the spawn exits a theme change redraws nothing and notifies no one", async () => {
         const h = setup();
         h.attached.dispose();
 
@@ -239,7 +239,7 @@ describe("DecorationsCustomer — тема", () => {
         expect(h.themes).toEqual([]);
     });
 
-    it("pushActiveColorTheme шлёт текущий вид живому спавну", async () => {
+    it("pushActiveColorTheme sends the current theme kind to a live spawn", async () => {
         const h = setup();
 
         h.customer.pushActiveColorTheme();

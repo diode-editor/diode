@@ -19,7 +19,7 @@ function builtinTheme(label: string): WorkbenchTheme {
 }
 
 describe("ExtensionTokenizationContributor", () => {
-    it("регистрирует tokenization support для всех языков из builtin-расширений", async () => {
+    it("registers tokenization support for all languages from builtin extensions", async () => {
         const assets = createDevAssetAccess();
         const exts = await scanBuiltinExtensions(assets, ROOT_PREFIX);
         expect(exts.length).toBeGreaterThan(0);
@@ -34,7 +34,7 @@ describe("ExtensionTokenizationContributor", () => {
         contributor.dispose();
     });
 
-    it("тема до apply(): TypeScript красит `const` цветом storage.type темы", async () => {
+    it("theme before apply(): TypeScript colors `const` with the theme's storage.type color", async () => {
         const assets = createDevAssetAccess();
         const exts = await scanBuiltinExtensions(assets, ROOT_PREFIX);
         const registry = new TokenizationRegistry();
@@ -53,7 +53,7 @@ describe("ExtensionTokenizationContributor", () => {
         contributor.dispose();
     });
 
-    it("смена темы: грамматики перекрашиваются, реестр получает colorMap и перетокенизирует языки", async () => {
+    it("theme change: grammars recolor, the registry gets colorMap and retokenizes languages", async () => {
         const assets = createDevAssetAccess();
         const exts = await scanBuiltinExtensions(assets, ROOT_PREFIX);
         const registry = new TokenizationRegistry();
@@ -75,7 +75,7 @@ describe("ExtensionTokenizationContributor", () => {
         contributor.dispose();
     });
 
-    it("та же тема повторно — без перетокенизации", async () => {
+    it("the same theme again — no retokenization", async () => {
         const assets = createDevAssetAccess();
         const exts = await scanBuiltinExtensions(assets, ROOT_PREFIX);
         const registry = new TokenizationRegistry();
@@ -93,7 +93,7 @@ describe("ExtensionTokenizationContributor", () => {
         contributor.dispose();
     });
 
-    it("dispose() убирает регистрации из TokenizationRegistry", async () => {
+    it("dispose() removes registrations from TokenizationRegistry", async () => {
         const assets = createDevAssetAccess();
         const exts = await scanBuiltinExtensions(assets, ROOT_PREFIX);
         const registry = new TokenizationRegistry();
@@ -107,7 +107,7 @@ describe("ExtensionTokenizationContributor", () => {
     });
 
     // Guards against eager parsing: 77 builtin grammars are 6.6 MB of JSON.
-    it("apply() не читает ассеты — грамматика парсится только на load()", async () => {
+    it("apply() reads no assets — the grammar is parsed only on load()", async () => {
         const assets = createDevAssetAccess();
         const exts = await scanBuiltinExtensions(assets, ROOT_PREFIX);
         const registry = new TokenizationRegistry();
@@ -125,7 +125,7 @@ describe("ExtensionTokenizationContributor", () => {
         readText.mockRestore();
     });
 
-    it("preloadAll() прогревает остальные языки", async () => {
+    it("preloadAll() warms up the remaining languages", async () => {
         const assets = createDevAssetAccess();
         const exts = await scanBuiltinExtensions(assets, ROOT_PREFIX);
         const registry = new TokenizationRegistry();
@@ -142,7 +142,7 @@ describe("ExtensionTokenizationContributor", () => {
         contributor.dispose();
     });
 
-    it("dispose() до load() — фабрика ничего не регистрирует", async () => {
+    it("dispose() before load() — the factory registers nothing", async () => {
         const assets = createDevAssetAccess();
         const exts = await scanBuiltinExtensions(assets, ROOT_PREFIX);
         const registry = new TokenizationRegistry();

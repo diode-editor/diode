@@ -18,7 +18,7 @@ import type { IEditorGroupsService } from "../common/editorGroupsService.ts";
 import { EditorService } from "./editorService.ts";
 
 /** Event order is a contract (`docs/arch/workbench/EditorPart.md`): tabs → active editor → active group. */
-describe("IEditorGroupsService — события на границе с EditorService", () => {
+describe("IEditorGroupsService — events at the EditorService boundary", () => {
     let ws: ITempWorkspace;
     let editors: EditorService;
     let groups: IEditorGroupsService;
@@ -53,7 +53,7 @@ describe("IEditorGroupsService — события на границе с EditorS
         groups.onDidActiveGroupChange((group) => events.push(`group:${String(groups.viewColumnOf(group))}`));
     }
 
-    it("сплит: группа добавлена → дубль вкладки → активный редактор → активная группа", () => {
+    it("split: group added → tab duplicate → active editor → active group", () => {
         editors.openFile(ws.path("a.txt"));
         record();
 
@@ -63,7 +63,7 @@ describe("IEditorGroupsService — события на границе с EditorS
         expect(events.indexOf("editors")).toBeLessThan(events.indexOf("active:a.txt"));
     });
 
-    it("открытие в соседнюю группу: активная группа меняется после вкладки и один раз", () => {
+    it("opening into the neighbouring group: the active group changes after the tab, once", () => {
         editors.openFile(ws.path("a.txt"));
         editors.splitActiveGroup();
         groups.focusGroup({ index: 0 });
@@ -76,7 +76,7 @@ describe("IEditorGroupsService — события на границе с EditorS
         expect(events).toContain("active:b.txt");
     });
 
-    it("открытие в уже активную группу не объявляет смену группы", () => {
+    it("opening into the already active group does not announce a group change", () => {
         record();
 
         editors.openFile(ws.path("a.txt"));
@@ -85,7 +85,7 @@ describe("IEditorGroupsService — события на границе с EditorS
         expect(events).toContain("active:a.txt");
     });
 
-    it("фокус другой группы: активный редактор → активная группа, вкладки не трогаются", () => {
+    it("focusing another group: active editor → active group, tabs untouched", () => {
         editors.openFile(ws.path("a.txt"));
         editors.splitActiveGroup();
         editors.openFile(ws.path("b.txt"));
@@ -96,7 +96,7 @@ describe("IEditorGroupsService — события на границе с EditorS
         expect(events).toEqual(["active:a.txt", "group:1"]);
     });
 
-    it("сплит по умолчанию фокусирует дубль вкладки, focus: false — нет", () => {
+    it("split focuses the tab duplicate by default, not with focus: false", () => {
         editors.openFile(ws.path("a.txt"));
 
         const focusedByDefault = vi.spyOn(TextEditorPane.prototype, "focusEditor");
@@ -110,7 +110,7 @@ describe("IEditorGroupsService — события на границе с EditorS
         focusedQuietly.mockRestore();
     });
 
-    it("сторона «рядом» без места — активная группа, полоса не растёт", () => {
+    it("the `beside` side without room: the active group, the strip does not grow", () => {
         groups.canAddGroupHook = () => false;
         record();
 
@@ -119,7 +119,7 @@ describe("IEditorGroupsService — события на границе с EditorS
         expect(events).toEqual([]);
     });
 
-    it("сторона «рядом» заводится справа от активной и активной не становится", () => {
+    it("the `beside` side is created to the right of the active one and does not become active", () => {
         record();
 
         const side = groups.sideGroup();

@@ -40,7 +40,7 @@ async function setup(folders: readonly string[]) {
 }
 
 describe("FileDialogService", () => {
-    it("без defaultUri открывает диалог в папке воркспейса", async () => {
+    it("without defaultUri opens the dialog in the workspace folder", async () => {
         const { service, component, testApp } = await setup(["/ws"]);
         const result = service.showOpenDialog();
         await vi.waitFor(() => {
@@ -50,7 +50,7 @@ describe("FileDialogService", () => {
         await expect(result).resolves.toBeUndefined();
     });
 
-    it("без папки — в домашнем каталоге; сохранение идёт тем же диалогом", async () => {
+    it("without a folder opens in the home folder; save uses the same dialog", async () => {
         const { service, component, testApp } = await setup([]);
         const result = service.showSaveDialog();
         await vi.waitFor(() => {

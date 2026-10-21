@@ -60,7 +60,7 @@ describe("LayoutService", () => {
         return { service, layout: element };
     }
 
-    describe("персист layout'а", () => {
+    describe("layout persistence", () => {
         it("restores saved layout onto the element", () => {
             state.store(SIDEBAR_WIDTH_STATE, 44);
             state.store(SIDEBAR_VISIBLE_STATE, false);
@@ -133,7 +133,7 @@ describe("LayoutService", () => {
         });
     });
 
-    describe("сайдбар", () => {
+    describe("side bar", () => {
         it("toggleSidebar flips the sidebar visibility (and persists it)", () => {
             const { service, layout } = make();
             expect(service.isSidebarVisible()).toBe(true);
@@ -166,8 +166,8 @@ describe("LayoutService", () => {
         });
     });
 
-    describe("нижняя панель", () => {
-        it("panelVisible выставлен сразу — стартовой видимостью из PanelService", () => {
+    describe("bottom panel", () => {
+        it("panelVisible is set immediately, from the initial PanelService visibility", () => {
             make();
             expect(contextKeys.get("panelVisible")).toBe(false);
         });
@@ -257,7 +257,7 @@ describe("LayoutService", () => {
         }).toThrow("attachLayout");
     });
 
-    it("mainContainer — корневая view из attachRoot; до него — честная ошибка", () => {
+    it("mainContainer is the root view from attachRoot; before it, an honest error", () => {
         const service = newLayoutService();
         expect(() => service.mainContainer).toThrow("attachRoot must be called first");
 

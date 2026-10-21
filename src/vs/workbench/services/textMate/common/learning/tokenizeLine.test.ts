@@ -6,7 +6,7 @@ import { createTestRegistry } from "./testRegistry.ts";
 
 /** Learning tests: the shape of the `IGrammar.tokenizeLine` result and the basic scope stack. */
 describe("vscode-textmate :: tokenizeLine", () => {
-    it("возвращает массив токенов, ruleStack и флаг stoppedEarly", async () => {
+    it("returns a token array, ruleStack and the stoppedEarly flag", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");
@@ -18,7 +18,7 @@ describe("vscode-textmate :: tokenizeLine", () => {
         expect(result.stoppedEarly).toBe(false);
     });
 
-    it("каждый токен имеет startIndex, endIndex и стек scopes (от общего к частному)", async () => {
+    it("each token has startIndex, endIndex and a scopes stack (from general to specific)", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");
@@ -31,7 +31,7 @@ describe("vscode-textmate :: tokenizeLine", () => {
         expect(first.scopes[0]).toBe("source.js");
     });
 
-    it("для `const` опознаёт keyword `storage.type.js`", async () => {
+    it("recognizes `const` as keyword `storage.type.js`", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");
@@ -44,7 +44,7 @@ describe("vscode-textmate :: tokenizeLine", () => {
         expect(constTok!.scopes).toContain("storage.type.js");
     });
 
-    it("числовой литерал получает scope `constant.numeric.decimal.js`", async () => {
+    it("a numeric literal gets scope `constant.numeric.decimal.js`", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");
@@ -57,7 +57,7 @@ describe("vscode-textmate :: tokenizeLine", () => {
         expect(numberTok!.scopes).toContain("constant.numeric.decimal.js");
     });
 
-    it("`;` завершитель получает scope `punctuation.terminator.statement.js`", async () => {
+    it("the `;` terminator gets scope `punctuation.terminator.statement.js`", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");
@@ -70,7 +70,7 @@ describe("vscode-textmate :: tokenizeLine", () => {
         expect(semi.scopes).toContain("punctuation.terminator.statement.js");
     });
 
-    it("токены покрывают всю строку без зазоров", async () => {
+    it("tokens cover the whole line without gaps", async () => {
         const reg = createTestRegistry();
         const g = await reg.loadGrammar("source.js");
         if (!g) throw new Error("grammar not loaded");

@@ -267,7 +267,7 @@ describe("FileSearchService — indexing", () => {
     });
 
     describe("exclusions", () => {
-        it("индекс режет по ОБОИМ наборам: files.exclude и search.exclude", () => {
+        it("the index cuts by BOTH sets: files.exclude and search.exclude", () => {
             config.values[FILES_EXCLUDE_SETTING] = { "**/.git": true };
             config.values[SEARCH_EXCLUDE_SETTING] = { "**/node_modules": true };
             ws.writeFile(".git/COMMIT_EDITMSG", "");
@@ -279,7 +279,7 @@ describe("FileSearchService — indexing", () => {
             });
         });
 
-        it("dot-файлы индексируются: служебное режут настройки, а не точка в имени", async () => {
+        it("dot files are indexed: settings cut service files, not the dot in the name", async () => {
             ws.writeFile(".github/workflows/ci.yml", "");
             ws.writeFile(".editorconfig", "");
             await service.activate(ws.dir);
@@ -287,7 +287,7 @@ describe("FileSearchService — indexing", () => {
             expect(indexedPaths(service).toSorted()).toEqual([".editorconfig", ".github/workflows/ci.yml"]);
         });
 
-        it("без настроек не исключает ничего — захардкоженного списка больше нет", async () => {
+        it("without settings excludes nothing: there is no hardcoded list anymore", async () => {
             ws.writeFile("node_modules/some-pkg/index.js", "");
             ws.writeFile(".git/COMMIT_EDITMSG", "");
             await service.activate(ws.dir);
@@ -295,7 +295,7 @@ describe("FileSearchService — indexing", () => {
             expect(indexedPaths(service).toSorted()).toEqual([".git/COMMIT_EDITMSG", "node_modules/some-pkg/index.js"]);
         });
 
-        it("шаблон матчится против пути ОТНОСИТЕЛЬНО корня, в posix-форме", async () => {
+        it("a pattern matches against the path RELATIVE to the root, in posix form", async () => {
             // `**/<name>` must reach a nested directory, `<name>` only a root entry. Segments are
             // joined with `/`, not `path.sep` — otherwise on Windows no glob would match `pkg/out`.
             config.values[FILES_EXCLUDE_SETTING] = { "**/__pycache__": true, out: true };
@@ -308,7 +308,7 @@ describe("FileSearchService — indexing", () => {
             expect(indexedPaths(service).toSorted()).toEqual(["pkg/app.py", "pkg/out/keep.txt"]);
         });
 
-        it("шаблон не задевает одноимённый ФАЙЛ в другом каталоге", async () => {
+        it("a pattern does not hit a same-named FILE in another directory", async () => {
             config.values[FILES_EXCLUDE_SETTING] = { "**/.git": true };
             ws.writeFile(".gitignore", "");
             await service.activate(ws.dir);
@@ -316,7 +316,7 @@ describe("FileSearchService — indexing", () => {
             expect(indexedPaths(service)).toContain(".gitignore");
         });
 
-        it("правка настройки пересобирает индекс сразу, без перезапуска", async () => {
+        it("a setting change rebuilds the index immediately, without a restart", async () => {
             ws.writeFile("__pycache__/app.cpython-312.pyc", "");
             ws.writeFile("app.py", "");
             await service.activate(ws.dir);
@@ -331,7 +331,7 @@ describe("FileSearchService — indexing", () => {
             expect(indexedPaths(service)).toHaveLength(2);
         });
 
-        it("чужая настройка индекс не трогает", async () => {
+        it("an unrelated setting does not touch the index", async () => {
             ws.writeFile("app.py", "");
             await service.activate(ws.dir);
             const before = service.ready;
@@ -341,14 +341,14 @@ describe("FileSearchService — indexing", () => {
             expect(service.ready).toBe(before);
         });
 
-        it("правка до activate() обхода не запускает", () => {
+        it("a change before activate() does not start a walk", () => {
             expect(() => {
                 config.set(FILES_EXCLUDE_SETTING, { "**/x": true });
             }).not.toThrow();
             expect(service.isIndexed).toBe(false);
         });
 
-        it("правка после dispose() обхода не запускает", async () => {
+        it("a change after dispose() does not start a walk", async () => {
             ws.writeFile("app.py", "");
             await service.activate(ws.dir);
             service.dispose();
@@ -360,8 +360,8 @@ describe("FileSearchService — indexing", () => {
         });
     });
 
-    describe("ignore-файлы (search.useIgnoreFiles и соседи)", () => {
-        it("по умолчанию .gitignore режет индекс — и вне git-репозитория", async () => {
+    describe("ignore files (search.useIgnoreFiles and siblings)", () => {
+        it(".gitignore cuts the index by default, even outside a git repository", async () => {
             // The temp directory is not a repository: without `--no-require-git` rg
             // would not read `.gitignore` here, while upstream honors it.
             ws.writeFile(".gitignore", "dist/\n*.log\n");
@@ -373,7 +373,7 @@ describe("FileSearchService — indexing", () => {
             expect(indexedPaths(service).toSorted()).toEqual([".gitignore", "src/main.ts"]);
         });
 
-        it(".ignore во вложенном каталоге действует на его поддерево", async () => {
+        it(".ignore in a nested directory applies to its subtree", async () => {
             ws.writeFile("pkg/.ignore", "generated/\n");
             ws.writeFile("pkg/generated/api.ts", "");
             ws.writeFile("pkg/index.ts", "");
@@ -383,7 +383,7 @@ describe("FileSearchService — indexing", () => {
             expect(indexedPaths(service).toSorted()).toEqual(["generated/keep.ts", "pkg/.ignore", "pkg/index.ts"]);
         });
 
-        it("useIgnoreFiles: false — проигнорированное возвращается, exclude-настройки при этом действуют", async () => {
+        it("useIgnoreFiles: false brings back the ignored entries, exclude settings still apply", async () => {
             config.values[SEARCH_USE_IGNORE_FILES_SETTING] = false;
             config.values[SEARCH_EXCLUDE_SETTING] = { "**/node_modules": true };
             ws.writeFile(".gitignore", "dist/\n");
@@ -394,7 +394,7 @@ describe("FileSearchService — indexing", () => {
             expect(indexedPaths(service).toSorted()).toEqual([".gitignore", "dist/bundle.js"]);
         });
 
-        it("ignore-файл родителя корня — только при useParentIgnoreFiles", async () => {
+        it("the ignore file of the root's parent applies only with useParentIgnoreFiles", async () => {
             ws.writeFile(".gitignore", "*.log\n");
             ws.writeFile("project/debug.log", "");
             ws.writeFile("project/main.ts", "");
@@ -408,7 +408,7 @@ describe("FileSearchService — indexing", () => {
             expect(indexedPaths(service)).toEqual(["main.ts"]);
         });
 
-        it("глобальный gitignore — только при useGlobalIgnoreFiles", async () => {
+        it("global gitignore applies only with useGlobalIgnoreFiles", async () => {
             // rg looks for it in `$XDG_CONFIG_HOME/git/ignore` (if `~/.gitconfig`
             // has no `core.excludesFile`) — both are replaced with temp ones so the
             // machine's settings do not affect the test.
@@ -427,7 +427,7 @@ describe("FileSearchService — indexing", () => {
             expect(indexedPaths(service)).toEqual(["main.ts"]);
         });
 
-        it("правка useIgnoreFiles пересобирает индекс сразу", async () => {
+        it("a useIgnoreFiles change rebuilds the index immediately", async () => {
             ws.writeFile(".gitignore", "dist/\n");
             ws.writeFile("dist/bundle.js", "");
             await service.activate(ws.dir);

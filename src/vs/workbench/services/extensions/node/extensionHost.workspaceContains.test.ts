@@ -12,8 +12,8 @@ import type { IWorkspaceScanner } from "./workspaceContainsActivation.ts";
  * Fixtures are real files in the harness `tmpDir` (its workspace folder);
  * the walk semantics are in the scanner's unit tests.
  */
-describe("ExtensionHost — активация по workspaceContains:", () => {
-    it("паттерн-путь сошёлся с файлом в папке воркспейса → расширение активно", async () => {
+describe("ExtensionHost — activation by workspaceContains:", () => {
+    it("a path pattern matches a file in a workspace folder → the extension is active", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [
@@ -35,7 +35,7 @@ describe("ExtensionHost — активация по workspaceContains:", () => {
         }
     });
 
-    it("паттерн-glob сошёлся на первом уровне дерева", async () => {
+    it("a glob pattern matches at the first tree level", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [
@@ -57,7 +57,7 @@ describe("ExtensionHost — активация по workspaceContains:", () => {
         }
     });
 
-    it("ни один паттерн не сошёлся → расширение осталось неактивным, субпроцесс не поднят", async () => {
+    it("no pattern matches → the extension stays inactive, the subprocess is not started", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [
@@ -78,7 +78,7 @@ describe("ExtensionHost — активация по workspaceContains:", () => {
         }
     });
 
-    it("считается ПО РАСШИРЕНИЮ: подошедший паттерн поднимает только своего хозяина", async () => {
+    it("evaluated PER EXTENSION: a matched pattern activates only its owner", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [
@@ -103,7 +103,7 @@ describe("ExtensionHost — активация по workspaceContains:", () => {
         }
     });
 
-    it("идемпотентно: второй проход не активирует повторно и не читает ФС снова", async () => {
+    it("idempotent: a second pass does not reactivate or read the FS again", async () => {
         const scanner = spyScanner();
         const harness = await createExtensionTestHarness({
             activateEvents: [],
@@ -130,7 +130,7 @@ describe("ExtensionHost — активация по workspaceContains:", () => {
         }
     });
 
-    it("ЛЕНИВОСТЬ: файл появился позже — повторный проход поднимает расширение", async () => {
+    it("LAZINESS: a file appears later and a repeated pass activates the extension", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [
@@ -154,7 +154,7 @@ describe("ExtensionHost — активация по workspaceContains:", () => {
         }
     });
 
-    it("без кандидатов ФС не трогается вовсе", async () => {
+    it("without candidates the FS is not touched at all", async () => {
         const scanner = spyScanner();
         const harness = await createExtensionTestHarness({
             activateEvents: [],
@@ -176,7 +176,7 @@ describe("ExtensionHost — активация по workspaceContains:", () => {
         }
     });
 
-    it("сканер бросил — активация соседей не срывается", async () => {
+    it("scanner throws: sibling activation is not derailed", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             workspaceScanner: {
@@ -207,7 +207,7 @@ describe("ExtensionHost — активация по workspaceContains:", () => {
         }
     });
 
-    it("не-file: папка воркспейса пропускается — обходить её нашим сканером нечем", async () => {
+    it("a non-file: workspace folder is skipped: our scanner cannot walk it", async () => {
         const scanner = spyScanner();
         const harness = await createExtensionTestHarness({
             activateEvents: [],
@@ -230,7 +230,7 @@ describe("ExtensionHost — активация по workspaceContains:", () => {
         }
     });
 
-    it("`file:`-папка доезжает до сканера настоящим путём, а не строкой uri", async () => {
+    it("a `file:` folder reaches the scanner as a real path, not a uri string", async () => {
         const scanner = spyScanner();
         const harness = await createExtensionTestHarness({
             activateEvents: [],

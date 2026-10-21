@@ -20,7 +20,7 @@ import { EditorServiceDIToken } from "../common/editorService.ts";
 
 import { EditorService } from "./editorService.ts";
 
-describe("EditorService — повтор вкладки по рецепту (сплит, копия в группу)", () => {
+describe("EditorService — duplicating a tab from its recipe (split, copy to group)", () => {
     let ws: ITempWorkspace;
     let service: EditorService;
     const JDT = Uri.parse("jdt://contents/lib.jar/org.example/Lib.java");
@@ -57,7 +57,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
         return provide;
     }
 
-    it("сплит jdt:-вкладки открывает её же в новой группе с той же кареткой", async () => {
+    it("splitting a jdt: tab opens it in a new group with the same cursor", async () => {
         const provide = provideJdt();
         await service.openUri(JDT);
         textPaneOf(0).viewState.selections = [createCursorSelection(1, 3)];
@@ -74,7 +74,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
         expect(provide).toHaveBeenCalledTimes(2);
     });
 
-    it("сплит jdt:-вкладки без провайдера схемы — новая группа пустая, как у untitled", async () => {
+    it("splitting a jdt: tab without a scheme provider leaves the new group empty, as for untitled", async () => {
         provideJdt();
         await service.openUri(JDT);
         service.virtualDocumentSource = { canProvide: () => false, provide: () => Promise.resolve(null) };
@@ -86,7 +86,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
         expect(service.getActiveTabPane()).toBeNull();
     });
 
-    it("копия jdt:-вкладки в соседнюю группу", async () => {
+    it("copying a jdt: tab to the neighbouring group", async () => {
         provideJdt();
         await service.openUri(JDT);
 
@@ -99,7 +99,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
         expect(textPaneOf(1).uri.toString()).toBe(JDT.toString());
     });
 
-    it("копия безымянного буфера — no-op: ни группы, ни вкладки", () => {
+    it("copying an untitled buffer is a no-op: no group, no tab", () => {
         service.newUntitled();
 
         service.copyActiveEditorToGroup("next");
@@ -108,7 +108,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
         expect(service.editorGroups.activeGroup.editorCount).toBe(1);
     });
 
-    it("сплит вкладки, которую не повторить, — активного редактора больше нет, и это событие", () => {
+    it("splitting a tab that cannot be duplicated: no active editor anymore, and that is an event", () => {
         service.newUntitled();
         const events: unknown[] = [];
         service.onActiveEditorChanged((editor) => events.push(editor));
@@ -118,7 +118,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
         expect(events.at(-1)).toBeNull();
     });
 
-    it("запись сессии чужого вида или не-файл у текстовой фабрики — ничего не открывает", () => {
+    it("a session entry of another kind or a non-file for the text factory opens nothing", () => {
         const target = { group: service.editorGroups.activeGroup, focus: false };
 
         const notAFile = {
@@ -134,13 +134,13 @@ describe("EditorService — повтор вкладки по рецепту (с�
         expect(service.deserializeEditor(notAFile)).toBeUndefined();
     });
 
-    it("копия из пустой группы — no-op", () => {
+    it("copying from an empty group is a no-op", () => {
         service.copyActiveEditorToGroup("next");
 
         expect(service.editorGroups.groups.length).toBe(1);
     });
 
-    it("openUri в явную группу: вкладка там, каретка из viewState", async () => {
+    it("openUri into an explicit group: the tab is there, the cursor from viewState", async () => {
         service.openFile(ws.path("a.txt"));
         const right = service.editorGroups.newGroup("after", { focus: false })!;
         service.editorGroups.focusGroup({ index: 0 });
@@ -156,7 +156,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
         expect(textPaneOf(0).viewState.selections).toEqual([createCursorSelection(0, 0)]);
     });
 
-    it("openUri с viewState уже открытой вкладки её каретку не трогает", async () => {
+    it("openUri with viewState for an already open tab leaves its cursor alone", async () => {
         service.openFile(ws.path("a.txt"));
         textPaneOf(0).viewState.selections = [createCursorSelection(1, 1)];
 
@@ -169,7 +169,7 @@ describe("EditorService — повтор вкладки по рецепту (с�
     });
 });
 
-describe("EditorService — повтор вкладки без фокуса", () => {
+describe("EditorService — duplicating a tab without focus", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -185,7 +185,7 @@ describe("EditorService — повтор вкладки без фокуса", ()
         ws.dispose();
     });
 
-    it("split с focus: false — копия в новой группе, фокус остаётся в источнике", () => {
+    it("split with focus: false: the copy is in a new group, focus stays on the source", () => {
         const service = h.container.get(EditorServiceDIToken);
         const focused = h.testApp.focusedElement;
         expect(focused).not.toBeNull();
@@ -196,7 +196,7 @@ describe("EditorService — повтор вкладки без фокуса", ()
         expect(h.testApp.focusedElement).toBe(focused);
     });
 
-    it("copy с focus: false — копия в соседней группе, фокус остаётся в источнике", () => {
+    it("copy with focus: false: the copy is in the neighbouring group, focus stays on the source", () => {
         const service = h.container.get(EditorServiceDIToken);
         const focused = h.testApp.focusedElement;
 
@@ -206,7 +206,7 @@ describe("EditorService — повтор вкладки без фокуса", ()
         expect(h.testApp.focusedElement).toBe(focused);
     });
 
-    it("Keyboard Shortcuts одна на окно: сплит её не повторяет, копия — no-op", () => {
+    it("Keyboard Shortcuts is one per window: split does not duplicate it, copy is a no-op", () => {
         const service = h.container.get(EditorServiceDIToken);
         // A provider for any scheme: the text factory refuses because of the tab kind,
         // not because nobody serves its scheme.
@@ -220,7 +220,7 @@ describe("EditorService — повтор вкладки без фокуса", ()
         expect(group?.editorCount).toBe(0);
     });
 
-    it("в сессию пишутся файл и Keyboard Shortcuts, а jdt: и untitled — нет", async () => {
+    it("the session stores the file and Keyboard Shortcuts, but not jdt: and untitled", async () => {
         const service = h.container.get(EditorServiceDIToken);
         service.virtualDocumentSource = { canProvide: () => true, provide: () => Promise.resolve("x\n") };
         await service.openUri(Uri.parse("jdt://contents/lib.jar/Lib.java"));

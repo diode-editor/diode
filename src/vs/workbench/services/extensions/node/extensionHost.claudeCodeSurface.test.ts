@@ -29,8 +29,8 @@ async function makeHarness() {
     return { bar, output, harness };
 }
 
-describe("ExtensionHost — поверхность Claude Code (subprocess)", () => {
-    it("модуль с `NotebookCellOutputItem` на верхнем уровне грузится; env хоста виден уже в activate()", async () => {
+describe("ExtensionHost — Claude Code surface (subprocess)", () => {
+    it("a module with `NotebookCellOutputItem` at module top level loads; the host env is visible already in activate()", async () => {
         const { harness } = await makeHarness();
         try {
             expect(await harness.commandRegistry.execute("test.claude.atActivate")).toEqual({
@@ -43,7 +43,7 @@ describe("ExtensionHost — поверхность Claude Code (subprocess)", ()
         }
     });
 
-    it("setStatusBarMessage доезжает до полосы и снимается по таймауту", async () => {
+    it("setStatusBarMessage reaches the bar and is removed on timeout", async () => {
         const { bar, harness } = await makeHarness();
         try {
             await harness.commandRegistry.execute("test.claude.setStatusBarMessage", "Claude Code: no change", 200);
@@ -62,7 +62,7 @@ describe("ExtensionHost — поверхность Claude Code (subprocess)", ()
         }
     });
 
-    it("setStatusBarMessage без таймаута живёт до dispose расширения", async () => {
+    it("setStatusBarMessage without a timeout lives until the extension disposes it", async () => {
         const { bar, harness } = await makeHarness();
         try {
             await harness.commandRegistry.execute("test.claude.setStatusBarMessage", "sticky");
@@ -78,7 +78,7 @@ describe("ExtensionHost — поверхность Claude Code (subprocess)", ()
         }
     });
 
-    it("тред комментариев создаётся и правится; человеку — одна строка в Output", async () => {
+    it("a comment thread is created and edited; the user gets one line in Output", async () => {
         const { output, harness } = await makeHarness();
         try {
             const thread = await harness.commandRegistry.execute("test.claude.commentThread", "file:///a.ts");
@@ -105,7 +105,7 @@ describe("ExtensionHost — поверхность Claude Code (subprocess)", ()
         }
     });
 
-    it("у терминала нет shell integration — расширение уходит в фоллбэк sendText", async () => {
+    it("the terminal has no shell integration, so the extension falls back to sendText", async () => {
         const { harness } = await makeHarness();
         try {
             expect(await harness.commandRegistry.execute("test.claude.terminalShellIntegration")).toEqual({

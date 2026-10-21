@@ -48,8 +48,8 @@ const MARKER: WireMarker = {
     source: "ts",
 };
 
-describe("ExtensionHost — сток диагностик (diagnostics.publish, in-process)", () => {
-    it("валидная публикация доезжает до sink'а; невалидные маркеры отбрасываются", async () => {
+describe("ExtensionHost — diagnostics sink (diagnostics.publish, in-process)", () => {
+    it("a valid publish reaches the sink; invalid markers are dropped", async () => {
         const h = makeHost(true);
         const bare = {
             severity: 0,
@@ -74,7 +74,7 @@ describe("ExtensionHost — сток диагностик (diagnostics.publish, 
         expect(h.published).toEqual([{ owner: "ext:ts", resource: "file:///proj/main.ts", markers: [MARKER, bare] }]);
     });
 
-    it("битый конверт игнорируется целиком", async () => {
+    it("a broken envelope is ignored entirely", async () => {
         const h = makeHost(true);
         h.peer.notify("diagnostics.publish", null);
         h.peer.notify("diagnostics.publish", { owner: "", resource: "file:///a", markers: [] });
@@ -85,7 +85,7 @@ describe("ExtensionHost — сток диагностик (diagnostics.publish, 
         expect(h.published).toEqual([]);
     });
 
-    it("без sink'а публикация не роняет host", async () => {
+    it("without a sink a publish does not crash the host", async () => {
         const h = makeHost(false);
         h.peer.notify("diagnostics.publish", { owner: "ext:ts", resource: "file:///a", markers: [MARKER] });
         await flushMicrotasks();
@@ -93,8 +93,8 @@ describe("ExtensionHost — сток диагностик (diagnostics.publish, 
     });
 });
 
-describe("ExtensionHost — сток диагностик сквозняком (subprocess)", () => {
-    it("createDiagnosticCollection расширения доезжает до sink'а и чистится", async () => {
+describe("ExtensionHost — diagnostics sink end to end (subprocess)", () => {
+    it("an extension's createDiagnosticCollection reaches the sink and gets cleared", async () => {
         const published: { owner: string; resource: string; markers: readonly WireMarker[] }[] = [];
         const harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.publishesDiagnostics", "publishesDiagnostics.cjs")],
@@ -132,7 +132,7 @@ describe("ExtensionHost — сток диагностик сквозняком (
     });
 });
 
-describe("ExtensionHost — обратный путь диагностик сквозняком (subprocess)", () => {
+describe("ExtensionHost — diagnostics return path end to end (subprocess)", () => {
     const SEVERITY = [MarkerSeverity.Error, MarkerSeverity.Warning, MarkerSeverity.Info, MarkerSeverity.Hint];
     function bridge(markerService: MarkerService): DiagnosticsSink {
         return (owner, resource, markers) => {
@@ -147,7 +147,7 @@ describe("ExtensionHost — обратный путь диагностик ск�
     const MAIN = "file:///proj/main.ts";
     const RANGE = { start: { line: 3, character: 0 }, end: { line: 3, character: 7 } };
 
-    it("getDiagnostics видит чужие маркеры (семя и поток), свои — один раз; onDidChangeDiagnostics стреляет", async () => {
+    it("getDiagnostics sees foreign markers (seed and stream) and its own once; onDidChangeDiagnostics fires", async () => {
         const markerService = new MarkerService();
         markerService.changeOne("settings", SETTINGS, [
             { severity: MarkerSeverity.Warning, range: RANGE, message: "Unknown setting", source: "settings" },

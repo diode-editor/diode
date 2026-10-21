@@ -26,8 +26,8 @@ async function open(harness: IExtensionHarness, options: Record<string, unknown>
     return (await harness.commandRegistry.execute("test.untitled.open", options)) as IOpenResult;
 }
 
-describe("ExtensionHost — безымянный документ openTextDocument({ content, language }) (subprocess)", () => {
-    it("документ untitled:Untitled-N: грязный, с текстом и языком, уже в textDocuments; вкладки нет", async () => {
+describe("ExtensionHost — untitled document openTextDocument({ content, language }) (subprocess)", () => {
+    it("document untitled:Untitled-N is dirty, has text and language, is already in textDocuments; no tab", async () => {
         const harness = await createExtensionTestHarness({ extensions: [FIXTURE] });
         try {
             const result = await open(harness, { content: "# Tools\n\ngo: /usr/bin/go\n", language: "markdown" });
@@ -48,7 +48,7 @@ describe("ExtensionHost — безымянный документ openTextDocume
         }
     });
 
-    it("showTextDocument показывает его вкладкой Untitled-N поверх того же документа", async () => {
+    it("showTextDocument shows it as an Untitled-N tab over the same document", async () => {
         const harness = await createExtensionTestHarness({ extensions: [FIXTURE] });
         try {
             const result = await open(harness, { content: "report", language: "markdown", show: true });
@@ -66,7 +66,7 @@ describe("ExtensionHost — безымянный документ openTextDocume
         }
     });
 
-    it("без опций — пустой чистый plaintext-буфер, номера идут по порядку", async () => {
+    it("without options: an empty clean plaintext buffer, numbers go in order", async () => {
         const harness = await createExtensionTestHarness({ extensions: [FIXTURE] });
         try {
             const first = await open(harness, {});

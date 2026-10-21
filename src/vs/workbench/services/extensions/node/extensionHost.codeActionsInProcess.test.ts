@@ -66,8 +66,8 @@ function makeHost(
     return { host, peer };
 }
 
-describe("ExtensionHost — code actions по handle (in-process)", () => {
-    it("provide несёт handle, apply — id действия; после остановки субпроцесса оба не уходят", async () => {
+describe("ExtensionHost — code actions by handle (in-process)", () => {
+    it("provide carries the handle, apply the action id; after the subprocess stops neither is sent", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn((_params: unknown) => Promise.resolve([WIRE_ACTION]));
         const apply = vi.fn(() => Promise.resolve(true));
@@ -94,7 +94,7 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
         expect(apply).toHaveBeenCalledTimes(2);
     });
 
-    it("параметры provide едут как есть; only не выдумывается без запроса", async () => {
+    it("provide params travel as is; only is not invented unless requested", async () => {
         const { host, peer } = makeHost();
         const seen: unknown[] = [];
         peer.handleRequest("languages.provideCodeActions", (params) => {
@@ -124,7 +124,7 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
         ]);
     });
 
-    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+    it("document not open in the subprocess: empty without RPC", async () => {
         const { host, peer } = makeHost({ open: false });
         const provide = vi.fn(() => Promise.resolve([WIRE_ACTION]));
         peer.handleRequest("languages.provideCodeActions", provide);
@@ -133,7 +133,7 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
         expect(provide).not.toHaveBeenCalled();
     });
 
-    it("документ ровно в порог синхронизации проходит, больше порога — пусто без RPC и запись в лог", async () => {
+    it("a document exactly at the sync threshold passes, above it gives empty without RPC and a log entry", async () => {
         const length = DOCUMENT.text.length;
         const atLimit = makeHost({ maxSyncedDocumentChars: length });
         const provide = vi.fn(() => Promise.resolve([WIRE_ACTION]));
@@ -149,7 +149,7 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
         expect(warn).toHaveBeenCalledWith("skipping document sync: document too large", { uri: DOCUMENT.uri, length });
     });
 
-    it("отмена ядра доезжает до токена субпроцесса (provideCodeActions)", async () => {
+    it("core cancellation reaches the subprocess token (provideCodeActions)", async () => {
         const { host, peer } = makeHost();
         let seen: ICancellationToken | null = null;
         peer.handleRequest("languages.provideCodeActions", (_params, token) => {

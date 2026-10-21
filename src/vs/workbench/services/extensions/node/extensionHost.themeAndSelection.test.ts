@@ -51,7 +51,7 @@ function resolverWithKind(kind: ColorThemeKind): IThemeColorResolver {
 }
 
 describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
-    it("тема доезжает ДО activate(): расширение видит настоящий вид, а не заглушку", { timeout: 60_000 }, async () => {
+    it("theme arrives BEFORE activate(): extension sees the real kind, not a stub", { timeout: 60_000 }, async () => {
         const harness = await makeHarness();
         try {
             const report = (await harness.commandRegistry.execute("test.themeSelection.report")) as IReport;
@@ -66,7 +66,7 @@ describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
     // A kind that is NOT among the defaults: the subprocess has its own `Dark` seed, so
     // on a dark theme "the seed arrived" and "the seed was lost" look the same.
     // HighContrast tells them apart: without the handshake push the test goes red.
-    it("семя на handshake: расширение видит тему хоста, а не собственный дефолт", { timeout: 60_000 }, async () => {
+    it("handshake seed: the extension sees the host theme, not its own default", { timeout: 60_000 }, async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "const a = 1;\n" },
             extensions: [FIXTURE],
@@ -83,7 +83,7 @@ describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
         }
     });
 
-    it("смена темы стреляет onDidChangeActiveColorTheme с новым видом", { timeout: 60_000 }, async () => {
+    it("a theme change fires onDidChangeActiveColorTheme with the new kind", { timeout: 60_000 }, async () => {
         const harness = await makeHarness();
         try {
             harness.themeService.setTheme(WorkbenchTheme.fromThemeFile(lightPlusTheme));
@@ -101,7 +101,7 @@ describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
     });
 
     it(
-        "переход между двумя тёмными темами тоже событие (vscode: «changed or has changes»)",
+        "switching between two dark themes is an event too (vscode: `changed or has changes`)",
         { timeout: 60_000 },
         async () => {
             const harness = await makeHarness();
@@ -116,7 +116,7 @@ describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
         },
     );
 
-    it("каждая смена темы — своё событие, порядок сохраняется", { timeout: 60_000 }, async () => {
+    it("each theme change is its own event, order is preserved", { timeout: 60_000 }, async () => {
         const harness = await makeHarness();
         try {
             harness.themeService.setTheme(WorkbenchTheme.fromThemeFile(lightPlusTheme));
@@ -134,7 +134,7 @@ describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
 });
 
 describe("ExtensionHost — window.onDidChangeTextEditorSelection (subprocess)", () => {
-    it("движение каретки доезжает до расширения с редактором, выделениями и видом", { timeout: 60_000 }, async () => {
+    it("cursor movement reaches the extension with editor, selections and kind", { timeout: 60_000 }, async () => {
         const harness = await makeHarness();
         try {
             const editor = harness.group.getActiveTabEditor();
@@ -160,7 +160,7 @@ describe("ExtensionHost — window.onDidChangeTextEditorSelection (subprocess)",
     });
 
     it(
-        "вид едет от жеста: клавиатура → Keyboard, команда → Command, без жеста → null",
+        "kind follows the gesture: keyboard → Keyboard, command → Command, no gesture → null",
         { timeout: 60_000 },
         async () => {
             const harness = await makeHarness();
@@ -189,7 +189,7 @@ describe("ExtensionHost — window.onDidChangeTextEditorSelection (subprocess)",
         },
     );
 
-    it("мульти-курсор едет целиком, первое выделение — первичное", { timeout: 60_000 }, async () => {
+    it("multi-cursor goes as a whole, the first selection is primary", { timeout: 60_000 }, async () => {
         const harness = await makeHarness();
         try {
             const editor = harness.group.getActiveTabEditor();

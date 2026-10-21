@@ -27,7 +27,7 @@ afterEach(() => {
 });
 
 describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
-    it("правка активного документа применяется и откатывается одним undo", async () => {
+    it("an edit of the active document applies and reverts with one undo", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "hello\nworld" },
             extensions: [FIXTURE],
@@ -46,7 +46,7 @@ describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
         }
     });
 
-    it("multi-file edit применяется ко ВСЕМ открытым документам, включая неактивные", async () => {
+    it("a multi-file edit applies to ALL open documents, including inactive ones", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "alpha" },
             extensions: [FIXTURE],
@@ -71,7 +71,7 @@ describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
         }
     });
 
-    it("ЗАКРЫТЫЙ файл правится на диске, а открытый — в буфере; один undo откатывает оба", async () => {
+    it("a CLOSED file is edited on disk and an open one in its buffer; one undo reverts both", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "alpha" },
             extensions: [FIXTURE],
@@ -101,7 +101,7 @@ describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
         }
     });
 
-    it("несуществующий ресурс отменяет весь edit — false, буферы и диск не тронуты", async () => {
+    it("a missing resource cancels the whole edit: false, buffers and disk untouched", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "alpha" },
             extensions: [FIXTURE],
@@ -121,7 +121,7 @@ describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
         }
     });
 
-    it("edit с переименованием файла применяется целиком: текст в буфере, файл на новом пути", async () => {
+    it("an edit with a file rename applies as a whole: text in the buffer, file at the new path", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "alpha" },
             extensions: [FIXTURE],
@@ -144,7 +144,7 @@ describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
         }
     });
 
-    it("«Move to a new file»: создание с содержимым, правка нового файла и удаление старого", async () => {
+    it("`Move to a new file`: create with contents, edit the new file and delete the old one", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "alpha" },
             extensions: [FIXTURE],

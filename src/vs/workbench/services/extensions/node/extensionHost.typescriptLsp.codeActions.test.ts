@@ -79,7 +79,7 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
     }
 }
 
-describe("ExtensionHost — code actions от стокового typescript-language-server", () => {
+describe("ExtensionHost — code actions from the stock typescript-language-server", () => {
     beforeAll(async () => {
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
@@ -87,7 +87,7 @@ describe("ExtensionHost — code actions от стокового typescript-lang
         await buildExtensions({ repoRoot: REPO_ROOT });
     }, 120_000);
 
-    it("команда пересортировывает импорты правками tsserver'а", { timeout: 180_000 }, async () => {
+    it("the command re-sorts imports with tsserver's edits", { timeout: 180_000 }, async () => {
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: TS_LANGUAGE_SERVICE,
             activateEvents: [],
@@ -106,7 +106,7 @@ describe("ExtensionHost — code actions от стокового typescript-lang
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:typescript");
 
-            await until("organize imports action от tsserver", async () => {
+            await until("organize imports action from tsserver", async () => {
                 const actions = await provideCodeActions(harness, {
                     uri: mainUri,
                     languageId: "typescript",
@@ -140,7 +140,7 @@ describe("ExtensionHost — code actions от стокового typescript-lang
         }
     });
 
-    it("на CommonJS-файле .js команда применяется вхолостую — без сообщения", { timeout: 180_000 }, async () => {
+    it("on a CommonJS .js file the command is a no-op, without a message", { timeout: 180_000 }, async () => {
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: TS_LANGUAGE_SERVICE,
             activateEvents: [],
@@ -158,7 +158,7 @@ describe("ExtensionHost — code actions от стокового typescript-lang
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:typescript");
 
-            const actions = await until("organize imports action для .js", async () => {
+            const actions = await until("organize imports action for .js", async () => {
                 const found = await provideCodeActions(harness, {
                     uri: mainUri,
                     languageId: "javascript",
@@ -196,7 +196,7 @@ describe("ExtensionHost — code actions от стокового typescript-lang
     });
 
     it(
-        "quick fix убирает неиспользуемый импорт, Ctrl+Z возвращает строку, Ctrl+Shift+Z повторяет",
+        "quick fix removes an unused import, Ctrl+Z brings the line back, Ctrl+Shift+Z redoes",
         { timeout: 240_000 },
         async () => {
             const published: { resource: string; hasUnused: boolean }[] = [];
@@ -222,7 +222,7 @@ describe("ExtensionHost — code actions от стокового typescript-lang
                 harness.group.openFile(mainPath);
                 await harness.host.activateByEvent("onLanguage:typescript");
 
-                await until("диагностика 6133 про неиспользуемый zeta", () =>
+                await until("diagnostic 6133 about the unused zeta", () =>
                     Promise.resolve(published.some((p) => p.resource === mainUri && p.hasUnused) ? true : null),
                 );
 

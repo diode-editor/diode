@@ -24,7 +24,7 @@ import type { WireMarker } from "../../../api/common/wireTypes.ts";
 let installed: IInstalledEslint;
 let eslintNodeModules: string;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый vscode-eslint.vsix (JS-линт, сквозняк)", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock vscode-eslint.vsix (JS lint, end-to-end)", () => {
     beforeAll(async () => {
         installed = await installEslint();
         expect(installed.registration.id).toBe(ESLINT_ID);
@@ -36,7 +36,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый vscode-
     });
 
     it(
-        "активация без ошибок, no-extra-semi приезжает и уходит после несохранённой правки",
+        "activation without errors, no-extra-semi arrives and goes away after an unsaved edit",
         { timeout: 240_000 },
         async () => {
             const published: { resource: string; markers: readonly WireMarker[] }[] = [];
@@ -63,7 +63,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый vscode-
                 await harness.host.activateByEvent("onStartupFinished");
                 expect(harness.host.hasExtension(ESLINT_ID)).toBe(true);
 
-                const extraSemi = await until("диагностика no-extra-semi в lint.js", () => {
+                const extraSemi = await until("no-extra-semi diagnostic in lint.js", () => {
                     const hit = markersFor(lintUri).find((m) => (m.code ?? "") === "no-extra-semi");
                     return Promise.resolve(hit ?? null);
                 });
@@ -74,7 +74,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый vscode-
                 harness.group
                     .getActiveEditor()
                     ?.applyExternalEdits([createTextEdit(createRange(0, 17, 0, 18), "")], "drop extra semi");
-                await until("no-extra-semi ушла после правки", () =>
+                await until("no-extra-semi gone after the edit", () =>
                     Promise.resolve(markersFor(lintUri).some((m) => (m.code ?? "") === "no-extra-semi") ? null : true),
                 );
                 expect(markersFor(lintUri).some((m) => (m.code ?? "") === "no-unused-vars")).toBe(true);

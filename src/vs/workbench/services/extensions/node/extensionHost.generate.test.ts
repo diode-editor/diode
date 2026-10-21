@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 
 describe("ExtensionHost — EditorConfig.generate (workspace.fs, WP7)", () => {
-    it("executeCommand создаёт .editorconfig в workspace-папке через workspace.fs", async () => {
+    it("executeCommand creates .editorconfig in the workspace folder via workspace.fs", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.editorconfig", "generateEditorConfig.cjs")],
         });
@@ -26,7 +26,7 @@ describe("ExtensionHost — EditorConfig.generate (workspace.fs, WP7)", () => {
         }
     });
 
-    it("повторный вызов идемпотентен: stat находит файл, перезаписи нет", async () => {
+    it("a repeated call is idempotent: stat finds the file, no overwrite", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.editorconfig", "generateEditorConfig.cjs")],
         });

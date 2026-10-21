@@ -88,7 +88,7 @@ describe("TextMateGrammarLoader", () => {
         loader.dispose();
     });
 
-    it("setTheme перекрашивает уже загруженную грамматику: индексы — colorMap новой темы", async () => {
+    it("setTheme recolors an already loaded grammar: indices follow the new theme's colorMap", async () => {
         const loader = new TextMateGrammarLoader(assets, await recordsPromise);
         const dark = createTextMateTheme(builtinTheme("Dark Modern"));
         loader.setTheme(dark);
@@ -104,7 +104,7 @@ describe("TextMateGrammarLoader", () => {
         loader.dispose();
     });
 
-    it("без темы все токены — цвет по умолчанию", async () => {
+    it("without a theme all tokens get the default color", async () => {
         const loader = new TextMateGrammarLoader(assets, await recordsPromise);
         const support = await loader.loadSupport("source.js");
         const tokens = support!.tokenizeEncoded("const x = 1; // c", true, support!.getInitialState()).tokens;

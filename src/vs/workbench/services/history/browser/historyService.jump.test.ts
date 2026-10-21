@@ -6,7 +6,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 
 import { HistoryService } from "./historyService.ts";
 
-describe("HistoryService — шов прыжка", () => {
+describe("HistoryService: jump seam", () => {
     let ws: ITempWorkspace;
     let source: FakeHistoryEditorSource;
     let service: HistoryService;
@@ -28,7 +28,7 @@ describe("HistoryService — шов прыжка", () => {
     const alpha = (): string => uri("alpha.ts");
     const beta = (): string => uri("beta.ts");
 
-    it("кросс-файловый прыжок кладёт ровно две записи — origin и цель", () => {
+    it("a cross-file jump pushes exactly two entries: origin and target", () => {
         source.open(alpha());
         source.moveCaret(20);
 
@@ -46,7 +46,7 @@ describe("HistoryService — шов прыжка", () => {
         expect(source.caret()).toMatchObject({ uri: alpha(), line: 20 });
     });
 
-    it("намеренный прыжок ближе порога значимости всё равно попадает в стек", () => {
+    it("an intentional jump closer than the significance threshold still lands on the stack", () => {
         source.open(alpha());
 
         service.jump(() => {
@@ -56,32 +56,32 @@ describe("HistoryService — шов прыжка", () => {
         expect(service.getEntries()).toMatchObject([{ line: 0 }, { line: 3 }]);
     });
 
-    it("прыжок без активного редактора не падает и ничего не пишет", () => {
+    it("a jump without an active editor does not throw and writes nothing", () => {
         service.jump(() => undefined);
 
         expect(service.getEntries()).toEqual([]);
     });
 
-    it("возвращает результат перехода", () => {
+    it("returns the navigation result", () => {
         source.open(alpha());
 
         expect(service.jump(() => "done")).toBe("done");
     });
 
-    it("исключение внутри перехода не оставляет историю заглушенной", () => {
+    it("an exception inside the navigation does not leave history muted", () => {
         source.open(alpha());
 
         expect(() =>
             service.jump(() => {
-                throw new Error("переход сорвался");
+                throw new Error("navigation failed");
             }),
-        ).toThrow("переход сорвался");
+        ).toThrow("navigation failed");
 
         source.moveCaret(40);
         expect(service.getEntries()).toMatchObject([{ line: 0 }, { line: 40 }]);
     });
 
-    it("jumpAsync: точка назначения снимается ПОСЛЕ асинхронного открытия", async () => {
+    it("jumpAsync: the destination is captured AFTER the async open", async () => {
         source.open(alpha());
         source.moveCaret(20);
         source.providedSchemes.add("jdt");
@@ -101,7 +101,7 @@ describe("HistoryService — шов прыжка", () => {
         expect(source.caret()).toMatchObject({ uri: alpha(), line: 20 });
     });
 
-    it("jumpAsync: промежуточные перемещения внутри перехода в стек не попадают", async () => {
+    it("jumpAsync: intermediate moves inside the navigation do not land on the stack", async () => {
         source.open(alpha());
 
         await service.jumpAsync(async () => {
@@ -113,21 +113,21 @@ describe("HistoryService — шов прыжка", () => {
         expect(service.getEntries()).toMatchObject([{ line: 0 }, { line: 50 }]);
     });
 
-    it("jumpAsync: отказ перехода не оставляет историю заглушенной", async () => {
+    it("jumpAsync: a failed navigation does not leave history muted", async () => {
         source.open(alpha());
 
         await expect(
             service.jumpAsync(async () => {
                 await Promise.resolve();
-                throw new Error("переход сорвался");
+                throw new Error("navigation failed");
             }),
-        ).rejects.toThrow("переход сорвался");
+        ).rejects.toThrow("navigation failed");
 
         source.moveCaret(40);
         expect(service.getEntries()).toMatchObject([{ line: 0 }, { line: 40 }]);
     });
 
-    it("недисковый ресурс без провайдера схемы в стек не пишется", () => {
+    it("a non-disk resource without a scheme provider is not written to the stack", () => {
         source.open(alpha());
 
         service.jump(() => {

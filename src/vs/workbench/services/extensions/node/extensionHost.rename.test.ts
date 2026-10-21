@@ -21,7 +21,7 @@ function requestFor(uri: string, line: number, versionId: number): IRenameReques
 }
 
 describe("ExtensionHost — rename providers (subprocess)", () => {
-    it("настоящий провайдер: имя символа и правки по открытому и закрытому файлу", async () => {
+    it("a real provider: symbol name and edits across an open and a closed file", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.txt", content: CONTENT },
             extensions: [FIXTURE],
@@ -63,7 +63,7 @@ describe("ExtensionHost — rename providers (subprocess)", () => {
         }
     });
 
-    it("невалидное имя — отказ с сообщением провайдера; документ не тронут", async () => {
+    it("an invalid name is rejected with the provider's message; the document is untouched", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.txt", content: CONTENT },
             extensions: [FIXTURE],
@@ -89,7 +89,7 @@ describe("ExtensionHost — rename providers (subprocess)", () => {
         }
     });
 
-    it("без провайдеров реестр rename пуст: имени нет, переименование не применяется", async () => {
+    it("without providers the rename registry is empty: no name, no rename applied", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.txt", content: CONTENT },
             extensions: [extensionFixture("test.noop", "noopExtension.cjs")],

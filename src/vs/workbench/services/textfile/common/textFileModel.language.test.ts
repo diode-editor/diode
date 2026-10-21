@@ -57,21 +57,21 @@ describe("TextFileModel — language", () => {
         return ws.writeFile(name, content);
     }
 
-    it("до открытия файла язык plaintext", () => {
+    it("before a file is opened the language is plaintext", () => {
         expect(ctrl.languageId).toBe("plaintext");
     });
 
-    it("openFile резолвит язык через ILanguageService", () => {
+    it("openFile resolves the language via ILanguageService", () => {
         ctrl.openFile(Uri.file(writeFile("a.ts", "const x = 1;")));
         expect(ctrl.languageId).toBe("typescript");
     });
 
-    it("незнакомое расширение откатывается на plaintext", () => {
+    it("an unknown extension falls back to plaintext", () => {
         ctrl.openFile(Uri.file(writeFile("a.unknown", "?")));
         expect(ctrl.languageId).toBe("plaintext");
     });
 
-    it("setLanguage меняет язык и ретранслирует событие подписчикам контроллера", () => {
+    it("setLanguage changes the language and relays the event to controller subscribers", () => {
         const changes: IDocumentLanguageChange[] = [];
         // Subscribe BEFORE openFile: opening is a language change too (there is one document
         // for the model's whole life, and it is born plaintext).
@@ -87,7 +87,7 @@ describe("TextFileModel — language", () => {
         ]);
     });
 
-    it("dispose подписки onDidChangeLanguage останавливает доставку, повторный dispose — no-op", () => {
+    it("disposing an onDidChangeLanguage subscription stops delivery, a second dispose is a no-op", () => {
         ctrl.openFile(Uri.file(writeFile("a.ts", "const x = 1;")));
         let fired = 0;
         const subscription = ctrl.onDidChangeLanguage(() => fired++);
@@ -100,7 +100,7 @@ describe("TextFileModel — language", () => {
         expect(fired).toBe(1);
     });
 
-    it("setLanguage пересаживает токенизатор на язык назначения", () => {
+    it("setLanguage moves the tokenizer to the target language", () => {
         registry.register("markdown", markerTokenizer(MARKDOWN));
         ctrl.openFile(Uri.file(writeFile("a.ts", "# header")));
         expect(firstMarker(ctrl)).not.toBe(MARKDOWN);
@@ -110,7 +110,7 @@ describe("TextFileModel — language", () => {
         expect(firstMarker(ctrl)).toBe(MARKDOWN);
     });
 
-    it("hot-swap: грамматика, зарегистрированная после openFile, подхватывается", () => {
+    it("hot-swap: a grammar registered after openFile is picked up", () => {
         ctrl.openFile(Uri.file(writeFile("a.ts", "const x = 1;")));
         expect(firstMarker(ctrl)).not.toBe(TYPESCRIPT);
 
@@ -119,7 +119,7 @@ describe("TextFileModel — language", () => {
         expect(firstMarker(ctrl)).toBe(TYPESCRIPT);
     });
 
-    it("регистрация грамматики чужого языка не инвалидирует токены", () => {
+    it("registering a grammar for another language does not invalidate tokens", () => {
         registry.register("typescript", markerTokenizer(TYPESCRIPT));
         ctrl.openFile(Uri.file(writeFile("a.ts", "const x = 1;")));
         expect(firstMarker(ctrl)).toBe(TYPESCRIPT);

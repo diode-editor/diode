@@ -31,14 +31,14 @@ function attach(withSink: boolean) {
 }
 
 describe("WorkspaceFoldersCustomer", () => {
-    it("просьба расширения доезжает до стока", async () => {
+    it("an extension request reaches the sink", async () => {
         const { peer, requests } = attach(true);
         peer.notify("workspace.updateWorkspaceFolders", { extensionId: "golang.go", folders: ["/a", "/b"] });
         await flushMicrotasks();
         expect(requests).toEqual([{ extensionId: "golang.go", folders: ["/a", "/b"] }]);
     });
 
-    it("мусор и отсутствие стока никого не роняют", async () => {
+    it("junk and a missing sink crash nothing", async () => {
         const withSink = attach(true);
         withSink.peer.notify("workspace.updateWorkspaceFolders", null);
         await flushMicrotasks();
@@ -51,7 +51,7 @@ describe("WorkspaceFoldersCustomer", () => {
         expect(bare.warnings).toEqual([]);
     });
 
-    it("после отписки просьбы не принимаются", async () => {
+    it("requests are not accepted after unsubscribe", async () => {
         const { peer, requests, subscription } = attach(true);
         subscription.dispose();
         peer.notify("workspace.updateWorkspaceFolders", { extensionId: null, folders: ["/a"] });
@@ -61,7 +61,7 @@ describe("WorkspaceFoldersCustomer", () => {
 });
 
 describe("parseWireUpdateWorkspaceFolders", () => {
-    it("пути и id расширения; без id — null", () => {
+    it("paths and extension id; without id — null", () => {
         expect(parseWireUpdateWorkspaceFolders({ extensionId: "x", folders: ["/a"] })).toEqual({
             extensionId: "x",
             folders: ["/a"],
@@ -72,7 +72,7 @@ describe("parseWireUpdateWorkspaceFolders", () => {
         });
     });
 
-    it("не массив или не-строка среди путей — чужой запрос", () => {
+    it("a non-array or a non-string among paths — a foreign request", () => {
         expect(parseWireUpdateWorkspaceFolders(null)).toBeNull();
         expect(parseWireUpdateWorkspaceFolders({ folders: "/a" })).toBeNull();
         expect(parseWireUpdateWorkspaceFolders({ folders: ["/a", 5] })).toBeNull();

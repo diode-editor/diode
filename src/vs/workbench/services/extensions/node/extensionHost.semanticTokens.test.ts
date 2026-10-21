@@ -54,8 +54,8 @@ async function withHarness(run: (harness: IExtensionHarness) => Promise<void>): 
     }
 }
 
-describe("ExtensionHost — семантические токены (subprocess)", () => {
-    it("документ: полный ответ с легендой, повтор с resultId — пустая дельта", async () => {
+describe("ExtensionHost — semantic tokens (subprocess)", () => {
+    it("document: a full response with a legend, a repeat with resultId yields an empty delta", async () => {
         await withHarness(async (harness) => {
             const request = requestIn(harness);
             const [provider] = harness.languageFeatures.documentSemanticTokensProvider.ordered(target(request));
@@ -76,7 +76,7 @@ describe("ExtensionHost — семантические токены (subprocess)
         });
     });
 
-    it("release ответа доезжает до расширения: повтор с его resultId — снова полный", async () => {
+    it("response release reaches the extension: a repeat with its resultId is full again", async () => {
         await withHarness(async (harness) => {
             const request = requestIn(harness);
             const [provider] = harness.languageFeatures.documentSemanticTokensProvider.ordered(target(request));
@@ -91,7 +91,7 @@ describe("ExtensionHost — семантические токены (subprocess)
         });
     });
 
-    it("устаревший запрос доходит до ядра отменой, а не пустым ответом (null стёр бы подсветку)", async () => {
+    it("a stale request reaches the core as a cancellation, not an empty response (null would erase highlighting)", async () => {
         await withHarness(async (harness) => {
             const request = requestIn(harness);
             const [provider] = harness.languageFeatures.documentSemanticTokensProvider.ordered(target(request));
@@ -102,7 +102,7 @@ describe("ExtensionHost — семантические токены (subprocess)
         });
     });
 
-    it("onDidChangeSemanticTokens расширения доезжает до прокси в реестре ядра", async () => {
+    it("the extension's onDidChangeSemanticTokens reaches the proxy in the core registry", async () => {
         await withHarness(async (harness) => {
             const request = requestIn(harness);
             const [provider] = harness.languageFeatures.documentSemanticTokensProvider.ordered(target(request));
@@ -118,7 +118,7 @@ describe("ExtensionHost — семантические токены (subprocess)
         });
     });
 
-    it("диапазон: токены только строк диапазона", async () => {
+    it("range: tokens only for the lines in range", async () => {
         await withHarness(async (harness) => {
             const request = requestIn(harness);
             const [provider] = harness.languageFeatures.documentRangeSemanticTokensProvider.ordered(target(request));

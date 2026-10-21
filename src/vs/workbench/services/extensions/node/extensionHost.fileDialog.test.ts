@@ -39,7 +39,7 @@ function makeHost(sink?: IFileDialogSink) {
 }
 
 describe("ExtensionHost — window.showOpenDialog / showSaveDialog", () => {
-    it("просьба доезжает до стока, выбранное — обратно расширению", async () => {
+    it("the request reaches the sink, the selection goes back to the extension", async () => {
         const opens: IWireOpenDialogRequest[] = [];
         const saves: IWireSaveDialogRequest[] = [];
         const { peer } = makeHost({
@@ -62,7 +62,7 @@ describe("ExtensionHost — window.showOpenDialog / showSaveDialog", () => {
         expect(saves[0]).toMatchObject({ saveLabel: "Save" });
     });
 
-    it("отмена — null", async () => {
+    it("cancel → null", async () => {
         const { peer } = makeHost({
             showOpenDialog: () => Promise.resolve(undefined),
             showSaveDialog: () => Promise.resolve(undefined),
@@ -71,7 +71,7 @@ describe("ExtensionHost — window.showOpenDialog / showSaveDialog", () => {
         await expect(peer.request("window.showSaveDialog", {})).resolves.toEqual({ uri: null });
     });
 
-    it("без стока — «отменено» сразу, а не вечное ожидание", async () => {
+    it("without a sink it is cancelled right away instead of waiting forever", async () => {
         const { peer } = makeHost();
         await expect(peer.request("window.showOpenDialog", {})).resolves.toEqual({ uris: null });
         await expect(peer.request("window.showSaveDialog", {})).resolves.toEqual({ uri: null });
@@ -79,7 +79,7 @@ describe("ExtensionHost — window.showOpenDialog / showSaveDialog", () => {
 });
 
 describe("parseWireOpenDialogRequest / parseWireSaveDialogRequest", () => {
-    it("все поля доезжают; фильтры — парами, мусорные пары и расширения отсеиваются", () => {
+    it("all fields come through; filters as pairs, garbage pairs and extensions are filtered out", () => {
         expect(
             parseWireOpenDialogRequest({
                 defaultUri: "file:///ws",
@@ -104,7 +104,7 @@ describe("parseWireOpenDialogRequest / parseWireSaveDialogRequest", () => {
         ).toEqual({ defaultUri: "file:///a", saveLabel: "S", filters: [], title: "T" });
     });
 
-    it("чужие типы и пустой запрос — поля не заданы", () => {
+    it("wrong types and an empty request leave fields unset", () => {
         const empty = {
             defaultUri: undefined,
             openLabel: undefined,
@@ -115,7 +115,7 @@ describe("parseWireOpenDialogRequest / parseWireSaveDialogRequest", () => {
             title: undefined,
         };
         expect(parseWireOpenDialogRequest(null)).toEqual(empty);
-        expect(parseWireOpenDialogRequest({ title: 5, canSelectMany: "да", filters: "go" })).toEqual(empty);
+        expect(parseWireOpenDialogRequest({ title: 5, canSelectMany: "yes", filters: "go" })).toEqual(empty);
         expect(parseWireSaveDialogRequest(undefined)).toEqual({
             defaultUri: undefined,
             saveLabel: undefined,

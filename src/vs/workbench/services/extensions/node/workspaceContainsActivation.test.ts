@@ -37,8 +37,8 @@ function fakeScanner(root: string, tree: Readonly<Record<string, "dir" | "file">
 
 const ROOT = path.join(path.sep, "root");
 
-describe("matchWorkspaceContains — паттерны-пути (без glob-символов)", () => {
-    it("файл в корне папки воркспейса", async () => {
+describe("matchWorkspaceContains — path patterns (no glob characters)", () => {
+    it("file at the root of a workspace folder", async () => {
         const scanner = fakeScanner(ROOT, { "pom.xml": "file" });
         await expect(matchWorkspaceContains(scanner, [ROOT], { paths: ["pom.xml"], globs: [] })).resolves.toEqual({
             pattern: "pom.xml",
@@ -46,7 +46,7 @@ describe("matchWorkspaceContains — паттерны-пути (без glob-си
         });
     });
 
-    it("КАТАЛОГ тоже считается существующим (семантика exists, как в эталоне)", async () => {
+    it("a DIRECTORY counts as existing too (exists semantics, as upstream)", async () => {
         const scanner = fakeScanner(ROOT, { ".vscode": "dir" });
         await expect(matchWorkspaceContains(scanner, [ROOT], { paths: [".vscode"], globs: [] })).resolves.toEqual({
             pattern: ".vscode",
@@ -54,7 +54,7 @@ describe("matchWorkspaceContains — паттерны-пути (без glob-си
         });
     });
 
-    it("вложенный путь проверяется целиком, без обхода", async () => {
+    it("a nested path is checked as a whole, without a walk", async () => {
         const scanner = fakeScanner(ROOT, { "a/b/c.json": "file" });
         const readDirectory = vi.spyOn(scanner, "readDirectory");
         await expect(matchWorkspaceContains(scanner, [ROOT], { paths: ["a/b/c.json"], globs: [] })).resolves.toEqual({
@@ -64,7 +64,7 @@ describe("matchWorkspaceContains — паттерны-пути (без glob-си
         expect(readDirectory).not.toHaveBeenCalled();
     });
 
-    it("отсутствующий путь — не совпало, обход не оборван", async () => {
+    it("a missing path does not match, and the walk is not cut short", async () => {
         const scanner = fakeScanner(ROOT, { "build.gradle": "file" });
         await expect(matchWorkspaceContains(scanner, [ROOT], { paths: ["pom.xml"], globs: [] })).resolves.toEqual({
             pattern: null,
@@ -72,7 +72,7 @@ describe("matchWorkspaceContains — паттерны-пути (без glob-си
         });
     });
 
-    it("несколько папок воркспейса: хватает попадания в любой", async () => {
+    it("several workspace folders: a hit in any of them is enough", async () => {
         const second = path.join(path.sep, "other");
         const first = fakeScanner(ROOT, {});
         const scanner: IWorkspaceScanner = {
@@ -84,14 +84,14 @@ describe("matchWorkspaceContains — паттерны-пути (без glob-си
         ).resolves.toEqual({ pattern: "pom.xml", truncated: false });
     });
 
-    it("возвращается ПЕРВЫЙ подошедший паттерн — он и есть причина активации", async () => {
+    it("the FIRST matching pattern is returned: it is the activation reason", async () => {
         const scanner = fakeScanner(ROOT, { "pom.xml": "file", "build.gradle": "file" });
         await expect(
             matchWorkspaceContains(scanner, [ROOT], { paths: ["build.gradle", "pom.xml"], globs: [] }),
         ).resolves.toEqual({ pattern: "build.gradle", truncated: false });
     });
 
-    it("паттерны-пути проверяются РАНЬШЕ обхода: дешёвое попадание не читает каталоги", async () => {
+    it("path patterns are checked BEFORE the walk: a cheap hit reads no directories", async () => {
         const scanner = fakeScanner(ROOT, { "pom.xml": "file", sub: "dir", "sub/pom.xml": "file" });
         const readDirectory = vi.spyOn(scanner, "readDirectory");
         await expect(
@@ -101,8 +101,8 @@ describe("matchWorkspaceContains — паттерны-пути (без glob-си
     });
 });
 
-describe("matchWorkspaceContains — паттерны-globs (обход дерева)", () => {
-    it("`*/pom.xml` находит файл на первом уровне", async () => {
+describe("matchWorkspaceContains — glob patterns (tree walk)", () => {
+    it("`*/pom.xml` finds a file one level down", async () => {
         const scanner = fakeScanner(ROOT, { app: "dir", "app/pom.xml": "file" });
         await expect(matchWorkspaceContains(scanner, [ROOT], { paths: [], globs: ["*/pom.xml"] })).resolves.toEqual({
             pattern: "*/pom.xml",
@@ -110,7 +110,7 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
         });
     });
 
-    it("`*/pom.xml` НЕ находит файл в корне: `*` — это ровно один сегмент", async () => {
+    it("`*/pom.xml` does NOT find a file at the root: `*` is exactly one segment", async () => {
         const scanner = fakeScanner(ROOT, { "pom.xml": "file" });
         await expect(matchWorkspaceContains(scanner, [ROOT], { paths: [], globs: ["*/pom.xml"] })).resolves.toEqual({
             pattern: null,
@@ -118,7 +118,7 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
         });
     });
 
-    it("`*.py` матчит только корень — глубже обход не спускается", async () => {
+    it("`*.py` matches only the root: the walk goes no deeper", async () => {
         const scanner = fakeScanner(ROOT, { src: "dir", "src/main.py": "file" });
         const readDirectory = vi.spyOn(scanner, "readDirectory");
         await expect(matchWorkspaceContains(scanner, [ROOT], { paths: [], globs: ["*.py"] })).resolves.toEqual({
@@ -129,7 +129,7 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
         expect(readDirectory).toHaveBeenCalledTimes(1);
     });
 
-    it("`**/pyproject.toml` достаёт файл с любой глубины", async () => {
+    it("`**/pyproject.toml` reaches a file at any depth", async () => {
         const scanner = fakeScanner(ROOT, {
             a: "dir",
             "a/b": "dir",
@@ -141,7 +141,7 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
         ).resolves.toEqual({ pattern: "**/pyproject.toml", truncated: false });
     });
 
-    it("`**/x` матчит и в корне (ведущий `**/` — ноль сегментов)", async () => {
+    it("`**/x` matches at the root too (a leading `**/` is zero segments)", async () => {
         const scanner = fakeScanner(ROOT, { "ruff.toml": "file" });
         await expect(matchWorkspaceContains(scanner, [ROOT], { paths: [], globs: ["**/ruff.toml"] })).resolves.toEqual({
             pattern: "**/ruff.toml",
@@ -149,7 +149,7 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
         });
     });
 
-    it("КАТАЛОГ под glob не считается совпадением: событие про файл", async () => {
+    it("a DIRECTORY does not match a glob: the event is about files", async () => {
         const scanner = fakeScanner(ROOT, { sub: "dir", "sub/pom.xml": "dir" });
         await expect(matchWorkspaceContains(scanner, [ROOT], { paths: [], globs: ["*/pom.xml"] })).resolves.toEqual({
             pattern: null,
@@ -157,7 +157,7 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
         });
     });
 
-    it("в node_modules/.git обход не заходит", async () => {
+    it("the walk does not enter node_modules/.git", async () => {
         const scanner = fakeScanner(ROOT, {
             node_modules: "dir",
             "node_modules/dep": "dir",
@@ -171,7 +171,7 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
         expect([...DEFAULT_WORKSPACE_CONTAINS_EXCLUDES]).toEqual([".git", "node_modules"]);
     });
 
-    it("свой список исключений перебивает дефолтный", async () => {
+    it("a custom exclude list overrides the default one", async () => {
         const scanner = fakeScanner(ROOT, {
             node_modules: "dir",
             "node_modules/pyproject.toml": "file",
@@ -186,7 +186,7 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
         ).resolves.toEqual({ pattern: "**/pyproject.toml", truncated: false });
     });
 
-    it("несколько папок воркспейса: обход идёт по каждой", async () => {
+    it("several workspace folders: each one is walked", async () => {
         const second = path.join(path.sep, "other");
         const empty = fakeScanner(ROOT, {});
         const withHit = fakeScanner(second, { app: "dir", "app/pom.xml": "file" });
@@ -202,7 +202,7 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
         ).resolves.toEqual({ pattern: "*/pom.xml", truncated: false });
     });
 
-    it("обход в ШИРИНУ: мелкое совпадение находится, не спускаясь в глубокую ветку", async () => {
+    it("BREADTH-first walk: a shallow match is found without descending into a deep branch", async () => {
         const scanner = fakeScanner(ROOT, {
             deep: "dir",
             "deep/a": "dir",
@@ -222,7 +222,7 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
         ]);
     });
 
-    it("глубина считается по самому щедрому паттерну набора", async () => {
+    it("depth follows the most generous pattern of the set", async () => {
         const scanner = fakeScanner(ROOT, { a: "dir", "a/b": "dir", "a/b/pom.xml": "file" });
         await expect(
             matchWorkspaceContains(scanner, [ROOT], { paths: [], globs: ["*.py", "*/*/pom.xml"] }),
@@ -230,8 +230,8 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
     });
 });
 
-describe("matchWorkspaceContains — бюджет и отмена", () => {
-    it("бюджет — ГРАНИЦА: каталог номер maxDirectories+1 уже не читается", async () => {
+describe("matchWorkspaceContains — budget and cancellation", () => {
+    it("the budget is a BOUNDARY: directory number maxDirectories+1 is no longer read", async () => {
         // The match sits in exactly the directory the budget falls one step short of:
         // the root and `a` use up both slots, `b` stays unread.
         const scanner = fakeScanner(ROOT, { a: "dir", b: "dir", "b/pyproject.toml": "file" });
@@ -240,7 +240,7 @@ describe("matchWorkspaceContains — бюджет и отмена", () => {
         ).resolves.toEqual({ pattern: null, truncated: true });
     });
 
-    it("бюджет каталогов обрывает обход и ЧЕСТНО сообщает об усечении", async () => {
+    it("the directory budget cuts the walk short and HONESTLY reports truncation", async () => {
         const scanner = fakeScanner(ROOT, {
             a: "dir",
             b: "dir",
@@ -252,7 +252,7 @@ describe("matchWorkspaceContains — бюджет и отмена", () => {
         ).resolves.toEqual({ pattern: null, truncated: true });
     });
 
-    it("усечение в одной папке видно, даже когда вторая дочитана до конца", async () => {
+    it("truncation in one folder is visible even when the other is read to the end", async () => {
         const second = path.join(path.sep, "other");
         const wide = fakeScanner(ROOT, { a: "dir", b: "dir", c: "dir" });
         const empty = fakeScanner(second, {});
@@ -271,7 +271,7 @@ describe("matchWorkspaceContains — бюджет и отмена", () => {
         ).resolves.toEqual({ pattern: null, truncated: true });
     });
 
-    it("отменённый токен обрывает обход глобов", async () => {
+    it("a cancelled token cuts the glob walk short", async () => {
         const source = new CancellationTokenSource();
         source.cancel();
         const scanner = fakeScanner(ROOT, { "pom.xml": "file" });
@@ -280,7 +280,7 @@ describe("matchWorkspaceContains — бюджет и отмена", () => {
         ).resolves.toEqual({ pattern: null, truncated: true });
     });
 
-    it("отменённый токен обрывает и дешёвые проверки путей", async () => {
+    it("a cancelled token cuts the cheap path checks short too", async () => {
         const source = new CancellationTokenSource();
         source.cancel();
         const scanner = fakeScanner(ROOT, { "pom.xml": "file" });
@@ -291,7 +291,7 @@ describe("matchWorkspaceContains — бюджет и отмена", () => {
         expect(exists).not.toHaveBeenCalled();
     });
 
-    it("отмена ПОСРЕДИ обхода останавливает его", async () => {
+    it("cancelling IN THE MIDDLE of the walk stops it", async () => {
         const source = new CancellationTokenSource();
         const scanner = fakeScanner(ROOT, { a: "dir", "a/deep": "dir", "a/deep/pom.xml": "file" });
         const readDirectory = vi.spyOn(scanner, "readDirectory").mockImplementation((absolutePath) => {
@@ -304,7 +304,7 @@ describe("matchWorkspaceContains — бюджет и отмена", () => {
         expect(readDirectory).toHaveBeenCalledTimes(1);
     });
 
-    it("пустой набор паттернов — ни одного обращения к ФС", async () => {
+    it("an empty pattern set makes no file system calls", async () => {
         const scanner = fakeScanner(ROOT, { "pom.xml": "file" });
         const exists = vi.spyOn(scanner, "exists");
         const readDirectory = vi.spyOn(scanner, "readDirectory");
@@ -316,7 +316,7 @@ describe("matchWorkspaceContains — бюджет и отмена", () => {
         expect(readDirectory).not.toHaveBeenCalled();
     });
 
-    it("без открытых папок считать нечего", async () => {
+    it("with no open folders there is nothing to count", async () => {
         const scanner = fakeScanner(ROOT, { "pom.xml": "file" });
         await expect(matchWorkspaceContains(scanner, [], { paths: ["pom.xml"], globs: ["*.xml"] })).resolves.toEqual({
             pattern: null,
@@ -325,7 +325,7 @@ describe("matchWorkspaceContains — бюджет и отмена", () => {
     });
 });
 
-describe("createNodeWorkspaceScanner — настоящая ФС", () => {
+describe("createNodeWorkspaceScanner — real file system", () => {
     let root: string;
 
     beforeEach(() => {
@@ -336,7 +336,7 @@ describe("createNodeWorkspaceScanner — настоящая ФС", () => {
         fs.rmSync(root, { recursive: true, force: true });
     });
 
-    it("exists: файл, каталог, отсутствующий путь", async () => {
+    it("exists: file, directory, missing path", async () => {
         const scanner = createNodeWorkspaceScanner();
         fs.writeFileSync(path.join(root, "pom.xml"), "<project/>");
         fs.mkdirSync(path.join(root, "src"));
@@ -345,7 +345,7 @@ describe("createNodeWorkspaceScanner — настоящая ФС", () => {
         await expect(scanner.exists(path.join(root, "nope"))).resolves.toBe(false);
     });
 
-    it("readDirectory различает файлы и каталоги", async () => {
+    it("readDirectory tells files from directories", async () => {
         const scanner = createNodeWorkspaceScanner();
         fs.writeFileSync(path.join(root, "a.txt"), "a");
         fs.mkdirSync(path.join(root, "sub"));
@@ -356,12 +356,12 @@ describe("createNodeWorkspaceScanner — настоящая ФС", () => {
         ]);
     });
 
-    it("readDirectory несуществующего каталога — пустой список, а не исключение", async () => {
+    it("readDirectory of a missing directory gives an empty list, not an exception", async () => {
         const scanner = createNodeWorkspaceScanner();
         await expect(scanner.readDirectory(path.join(root, "nope"))).resolves.toEqual([]);
     });
 
-    it("сквозняк: maven-раскладка поднимает `*/pom.xml` на настоящих файлах", async () => {
+    it("end to end: a maven layout triggers `*/pom.xml` on real files", async () => {
         fs.mkdirSync(path.join(root, "module-a"));
         fs.writeFileSync(path.join(root, "module-a", "pom.xml"), "<project/>");
         await expect(
@@ -372,7 +372,7 @@ describe("createNodeWorkspaceScanner — настоящая ФС", () => {
         ).resolves.toEqual({ pattern: "*/pom.xml", truncated: false });
     });
 
-    it("симлинк на каталог не раскрывается — обход не зацикливается", async () => {
+    it("a symlink to a directory is not followed, so the walk does not loop", async () => {
         fs.mkdirSync(path.join(root, "real"));
         fs.writeFileSync(path.join(root, "real", "pom.xml"), "<project/>");
         fs.symlinkSync(root, path.join(root, "real", "loop"), "dir");

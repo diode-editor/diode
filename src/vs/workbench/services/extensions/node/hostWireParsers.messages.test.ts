@@ -3,19 +3,19 @@ import { describe, expect, it } from "vitest";
 import { parseWireShowMessageRequest } from "./hostWireParsers.ts";
 
 describe("parseWireShowMessageRequest", () => {
-    it("разбирает полный запрос", () => {
+    it("parses a full request", () => {
         expect(
             parseWireShowMessageRequest({
                 severity: "warn",
                 message: "careful",
-                detail: "подробности",
+                detail: "details",
                 modal: true,
                 items: [{ title: "Delete" }, { title: "Cancel", isCloseAffordance: true }],
             }),
         ).toEqual({
             severity: "warn",
             message: "careful",
-            detail: "подробности",
+            detail: "details",
             modal: true,
             items: [
                 { title: "Delete", isCloseAffordance: false },
@@ -24,7 +24,7 @@ describe("parseWireShowMessageRequest", () => {
         });
     });
 
-    it("минимальный запрос: без кнопок, немодальный, без detail", () => {
+    it("minimal request: no buttons, non-modal, no detail", () => {
         expect(parseWireShowMessageRequest({ severity: "info", message: "hi" })).toEqual({
             severity: "info",
             message: "hi",
@@ -34,30 +34,30 @@ describe("parseWireShowMessageRequest", () => {
         });
     });
 
-    it("непонятная строгость читается как info", () => {
+    it("unknown severity reads as info", () => {
         expect(parseWireShowMessageRequest({ severity: "fatal", message: "hi" })?.severity).toBe("info");
     });
 
-    it("error и warn проходят как есть", () => {
+    it("error and warn pass as is", () => {
         expect(parseWireShowMessageRequest({ severity: "error", message: "hi" })?.severity).toBe("error");
         expect(parseWireShowMessageRequest({ severity: "warn", message: "hi" })?.severity).toBe("warn");
     });
 
-    it("без текста показывать нечего — null", () => {
+    it("nothing to show without text → null", () => {
         expect(parseWireShowMessageRequest({ severity: "info" })).toBeNull();
         expect(parseWireShowMessageRequest({ severity: "info", message: 7 })).toBeNull();
     });
 
-    it("не-объект — null", () => {
+    it("non-object → null", () => {
         expect(parseWireShowMessageRequest(null)).toBeNull();
         expect(parseWireShowMessageRequest("hi")).toBeNull();
     });
 
-    it("мусор вместо items — кнопок нет", () => {
+    it("garbage instead of items: no buttons", () => {
         expect(parseWireShowMessageRequest({ severity: "info", message: "hi", items: "nope" })?.items).toEqual([]);
     });
 
-    it("кнопка-мусор ОСТАЁТСЯ в наборе пустой: ответ адресуется индексом в нём", () => {
+    it("a garbage button STAYS in the set as empty: the answer is addressed by index into it", () => {
         expect(
             parseWireShowMessageRequest({
                 severity: "info",
@@ -71,11 +71,11 @@ describe("parseWireShowMessageRequest", () => {
         ]);
     });
 
-    it("modal только по строгому true", () => {
+    it("modal only on strict true", () => {
         expect(parseWireShowMessageRequest({ severity: "info", message: "hi", modal: "yes" })?.modal).toBe(false);
     });
 
-    it("не-строковый detail отбрасывается", () => {
+    it("non-string detail is dropped", () => {
         expect(parseWireShowMessageRequest({ severity: "info", message: "hi", detail: 7 })?.detail).toBeUndefined();
     });
 });

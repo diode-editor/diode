@@ -37,7 +37,7 @@ function registerFormatActions(harness: {
 }
 
 describe("ExtensionHost — editor.action.formatDocument (subprocess)", () => {
-    it("команда форматирует документ правками провайдера, undo откатывает одним шагом", async () => {
+    it("the command formats the document with the provider's edits, undo reverts in one step", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "doc.txt", content: "alpha    beta\ngamma  delta" },
             extensions: [extensionFixture("test.providesFormatting", "providesFormatting.cjs")],
@@ -59,7 +59,7 @@ describe("ExtensionHost — editor.action.formatDocument (subprocess)", () => {
         }
     });
 
-    it("formatSelection трогает только выделение (range-провайдер)", async () => {
+    it("formatSelection touches only the selection (range provider)", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "doc.txt", content: "alpha    beta\ngamma  delta" },
             extensions: [extensionFixture("test.providesFormatting", "providesFormatting.cjs")],
@@ -78,7 +78,7 @@ describe("ExtensionHost — editor.action.formatDocument (subprocess)", () => {
         }
     });
 
-    it("executeCommand из субпроцесса (путь maptz.regionfolder) резолвится и форматирует", async () => {
+    it("executeCommand from the subprocess (the maptz.regionfolder path) resolves and formats", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "doc.txt", content: "x    y" },
             extensions: [extensionFixture("test.providesFormatting", "providesFormatting.cjs")],
@@ -96,7 +96,7 @@ describe("ExtensionHost — editor.action.formatDocument (subprocess)", () => {
         }
     });
 
-    it("без провайдера — «нет форматтера» в статус-баре, буфер не тронут", async () => {
+    it("without a provider: `no formatter` in the status bar, the buffer is untouched", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "doc.txt", content: "x    y" },
             extensions: [extensionFixture("test.noop", "noopExtension.cjs")],

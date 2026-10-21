@@ -10,15 +10,15 @@ import {
 } from "./hostWireParsers.ts";
 
 describe("hostWireParsers — window.progress.*", () => {
-    it("start: handle и title как есть", () => {
-        expect(parseWireProgressStart({ handle: 3, title: "Индексация" })).toStrictEqual({
+    it("start: handle and title as is", () => {
+        expect(parseWireProgressStart({ handle: 3, title: "Indexing" })).toStrictEqual({
             handle: 3,
-            title: "Индексация",
+            title: "Indexing",
         });
         expect(parseWireProgressStart({ handle: 0, title: "" })).toStrictEqual({ handle: 0, title: "" });
     });
 
-    it("start: чужой конверт — null", () => {
+    it("start: foreign envelope → null", () => {
         expect(parseWireProgressStart(null)).toBeNull();
         expect(parseWireProgressStart("x")).toBeNull();
         expect(parseWireProgressStart({ title: "t" })).toBeNull();
@@ -28,11 +28,11 @@ describe("hostWireParsers — window.progress.*", () => {
         expect(parseWireProgressStart({ handle: 1, title: 5 })).toBeNull();
     });
 
-    it("report: необязательные поля — только валидные, отсутствие ≠ undefined", () => {
+    it("report: optional fields only when valid, absent ≠ undefined", () => {
         expect(parseWireProgressReport({ handle: 1 })).toStrictEqual({ handle: 1 });
-        expect(parseWireProgressReport({ handle: 1, message: "шаг", increment: 10 })).toStrictEqual({
+        expect(parseWireProgressReport({ handle: 1, message: "step", increment: 10 })).toStrictEqual({
             handle: 1,
-            message: "шаг",
+            message: "step",
             increment: 10,
         });
         expect(parseWireProgressReport({ handle: 1, message: 7, increment: Number.POSITIVE_INFINITY })).toStrictEqual({
@@ -41,13 +41,13 @@ describe("hostWireParsers — window.progress.*", () => {
         expect(parseWireProgressReport({ handle: 1, increment: "5" })).toStrictEqual({ handle: 1 });
     });
 
-    it("report: чужой конверт — null", () => {
+    it("report: foreign envelope → null", () => {
         expect(parseWireProgressReport(null)).toBeNull();
         expect(parseWireProgressReport(42)).toBeNull();
         expect(parseWireProgressReport({ message: "m" })).toBeNull();
     });
 
-    it("end: handle как есть, лишнее не проносится", () => {
+    it("end: handle as is, extras are not carried over", () => {
         expect(parseWireProgressEnd({ handle: 2, extra: true })).toStrictEqual({ handle: 2 });
         expect(parseWireProgressEnd(null)).toBeNull();
         expect(parseWireProgressEnd("2")).toBeNull();
@@ -56,9 +56,9 @@ describe("hostWireParsers — window.progress.*", () => {
 });
 
 describe("hostWireParsers — output.*", () => {
-    const line = { channel: "extensions.a", label: "A", level: "info", value: "привет" };
+    const line = { channel: "extensions.a", label: "A", level: "info", value: "hello" };
 
-    it("append: валидная строка проходит как есть", () => {
+    it("append: a valid line passes as is", () => {
         expect(parseWireOutputAppend(line)).toStrictEqual(line);
         expect(parseWireOutputAppend({ ...line, value: "" })).toStrictEqual({ ...line, value: "" });
         for (const level of ["trace", "debug", "info", "warn", "error"]) {
@@ -66,7 +66,7 @@ describe("hostWireParsers — output.*", () => {
         }
     });
 
-    it("append: чужой конверт — null", () => {
+    it("append: foreign envelope → null", () => {
         expect(parseWireOutputAppend(null)).toBeNull();
         expect(parseWireOutputAppend("x")).toBeNull();
         expect(parseWireOutputAppend({ ...line, channel: "" })).toBeNull();
@@ -78,14 +78,14 @@ describe("hostWireParsers — output.*", () => {
         expect(parseWireOutputAppend({ ...line, value: 5 })).toBeNull();
     });
 
-    it("show: канал и label, лишнее не проносится", () => {
+    it("show: channel and label, extras are not carried over", () => {
         expect(parseWireOutputShow({ channel: "extensions.a", label: "A", value: "x" })).toStrictEqual({
             channel: "extensions.a",
             label: "A",
         });
     });
 
-    it("show: чужой конверт — null", () => {
+    it("show: foreign envelope → null", () => {
         expect(parseWireOutputShow(null)).toBeNull();
         expect(parseWireOutputShow(7)).toBeNull();
         expect(parseWireOutputShow({ channel: "", label: "A" })).toBeNull();
@@ -97,9 +97,9 @@ describe("hostWireParsers — output.*", () => {
 
 describe("hostWireParsers — diagnostics.publish", () => {
     const range = { start: { line: 1, character: 2 }, end: { line: 1, character: 5 } };
-    const marker = { severity: 0, range, message: "плохо" };
+    const marker = { severity: 0, range, message: "bad" };
 
-    it("маркер без code/source — полей нет вовсе; с ними — как есть", () => {
+    it("a marker without code/source has no such fields; with them, as is", () => {
         expect(parseWireDiagnosticsPublish({ owner: "ts", resource: "file:///a.ts", markers: [marker] })).toStrictEqual(
             { owner: "ts", resource: "file:///a.ts", markers: [marker] },
         );
@@ -111,7 +111,7 @@ describe("hostWireParsers — diagnostics.publish", () => {
         });
     });
 
-    it("нестроковые code/source отбрасываются, маркер остаётся", () => {
+    it("non-string code/source are dropped, the marker stays", () => {
         const parsed = parseWireDiagnosticsPublish({
             owner: "ts",
             resource: "file:///a.ts",
@@ -120,7 +120,7 @@ describe("hostWireParsers — diagnostics.publish", () => {
         expect(parsed?.markers).toStrictEqual([marker]);
     });
 
-    it("битые маркеры отбрасываются поштучно, пустой набор — валидная публикация", () => {
+    it("malformed markers are dropped one by one, an empty set is a valid publish", () => {
         const parsed = parseWireDiagnosticsPublish({
             owner: "ts",
             resource: "file:///a.ts",
@@ -142,7 +142,7 @@ describe("hostWireParsers — diagnostics.publish", () => {
         });
     });
 
-    it("чужой конверт — null", () => {
+    it("foreign envelope → null", () => {
         const ok = { owner: "ts", resource: "file:///a.ts", markers: [] };
         expect(parseWireDiagnosticsPublish(null)).toBeNull();
         expect(parseWireDiagnosticsPublish("x")).toBeNull();
@@ -159,19 +159,19 @@ function fnWith(fields: Record<string, unknown>): unknown {
     return Object.assign(() => undefined, fields);
 }
 
-describe("hostWireParsers — window.*: не-объект с нужными полями отвергается", () => {
-    it("progress.start/report/end: функция-конверт → null", () => {
+describe("hostWireParsers — window.*: non-object with the right fields is rejected", () => {
+    it("progress.start/report/end: function envelope → null", () => {
         expect(parseWireProgressStart(fnWith({ handle: 1, title: "t" }))).toBeNull();
         expect(parseWireProgressReport(fnWith({ handle: 1 }))).toBeNull();
         expect(parseWireProgressEnd(fnWith({ handle: 1 }))).toBeNull();
     });
 
-    it("output.append/show: функция-конверт → null", () => {
+    it("output.append/show: function envelope → null", () => {
         expect(parseWireOutputAppend(fnWith({ channel: "c", label: "L", level: "info", value: "v" }))).toBeNull();
         expect(parseWireOutputShow(fnWith({ channel: "c", label: "L" }))).toBeNull();
     });
 
-    it("diagnostics.publish: функция-конверт → null, функция-маркер отбрасывается", () => {
+    it("diagnostics.publish: function envelope → null, function marker is dropped", () => {
         const marker = {
             severity: 1,
             range: { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } },
