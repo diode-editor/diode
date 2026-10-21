@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Code action «в чат» в форме стокового Supermaven: действие без правок, только команда, которая фокусирует
-// webview-вид; webview в TUI нет, поэтому ожидается тост, а не «Code action failed».
+// A "to chat" code action shaped like stock Supermaven's: no edits, only a command that focuses a webview view.
+// The TUI has no webviews, so a toast is expected rather than "Code action failed".
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-chat-panel");
@@ -15,14 +15,16 @@ export default defineScenario({
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,
-    // Субпроцесс расширений на Windows флейкает.
+    // The extension host subprocess is flaky on Windows.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("greeting"));
-        // Провайдеры регистрирует activate(), а хост поднимается после первых кадров: без ожидания меню пустое.
+        // activate() registers the providers, and the host starts after the first frames: without waiting, the menu is
+        // empty.
         await editor.waitForReady();
 
-        // Ctrl+K Ctrl+Q досягаем на legacy-терминале. Ждём ОБА quickfix'а: медленный провайдер отвечает позже быстрого.
+        // Ctrl+K Ctrl+Q is reachable on a legacy terminal. Wait for BOTH quick fixes: the slow provider answers after
+        // the fast one.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+Q");
         await editor.waitForText(

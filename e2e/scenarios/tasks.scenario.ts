@@ -28,7 +28,7 @@ export default defineScenario({
     open: [folder],
     cols: 120,
     rows: 32,
-    // Задача — настоящий шелл в PTY: как extension-terminal, только Linux/macOS.
+    // The task is a real shell in a PTY: like extension-terminal, Linux/macOS only.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("tasks.json") || t.includes(".diode"));
@@ -45,7 +45,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("exit code: 3."));
         await editor.capture("fail-exit-code");
 
-        // `fail` печатает pid своего шелла: после Rerun он другой, а вкладка та же.
+        // `fail` prints its shell's pid: after Rerun the pid differs while the tab stays the same.
         let firstPid = "";
         await editor.waitForText((t) => {
             firstPid = /about to fail in (\d+)/u.exec(t)?.[1] ?? "";

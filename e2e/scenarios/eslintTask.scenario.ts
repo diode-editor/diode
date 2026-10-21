@@ -7,7 +7,7 @@ import { ensureEslintLibrary, ESLINT_FLAT_CONFIG, linkEslintLibrary } from "../.
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario } from "./framework.ts";
 
-// Problem matcher `$eslint-stylish` не исполняется (docs/TODO/Tasks.md) — задача просто бежит до выхода.
+// The `$eslint-stylish` problem matcher isn't applied (docs/TODO/Tasks.md); the task just runs until it exits.
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-eslint-task-"));
 
@@ -36,7 +36,7 @@ export default defineScenario({
     },
     async run(editor) {
         await editor.waitForText((t) => t.includes("app.js"));
-        // Провайдер регистрируется на `onStartupFinished`; Run Task поднимает его сам (`onTaskType:eslint`).
+        // The provider registers on `onStartupFinished`; Run Task activates it itself (`onTaskType:eslint`).
         await runCommand(editor, "Tasks: Run Task");
         await editor.waitForText((t) => t.includes("eslint") && t.includes("contributed"), { timeoutMs: 30_000 });
         await editor.sendText("eslint");

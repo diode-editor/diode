@@ -7,15 +7,15 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
 
-// Правки rename-провайдера едут через bulk workspace edit (#370): задевают и ЗАКРЫТЫЙ файл, одним шагом
-// отмены. Каталог наполняется в prepare: rename пишет на диск, а коммитнутую фикстуру пачкать нельзя.
+// Rename provider edits go through a bulk workspace edit (#370): they reach the CLOSED file too, as one undo
+// step. The directory is filled in prepare: rename writes to disk, and the committed fixture must stay clean.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-rename-demo-"));
 const defsFile = join(sampleDir, "defs.ts");
 const closedFile = join(sampleDir, "main.ts");
 
-/** `greet` объявлена в defs.ts, зовётся из закрытого main.ts — rename обязан задеть оба. */
+/** `greet` is declared in defs.ts and called from the closed main.ts — rename must touch both. */
 const DEFS_TS = 'export function greet(name: string): string {\n    return "hi " + name;\n}\n';
 const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply = greet("world");\n\nexport { reply };\n';
 
@@ -23,18 +23,18 @@ export default defineScenario({
     name: "rename-symbol",
     title: "Rename Symbol (F2): стоковый tsserver правит открытый И закрытый файл",
     open: [sampleDir, defsFile],
-    // Сервер живёт в devDeps репозитория (вшитый — docs/arch/Extensions.md, «Builtin LSP-клиент»),
-    // путь передаётся настройками; tsserver.js — для песочниц без своего TypeScript.
+    // The server comes from the repo's devDeps (the built-in one: docs/arch/Extensions.md, "Builtin LSP client"
+    // section), its path is passed via settings; tsserver.js is for sandboxes without their own TypeScript.
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
         "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
     },
     cols: 100,
     rows: 24,
-    // После References вернуть фокус редактору нечем, кроме команды (своего бинда нет, как в VS Code);
-    // буква — не из мнемоник меню-бара (F/E/S/V/G/H).
+    // After References, only a command can return focus to the editor (it has no default keybinding, as in
+    // VS Code); the letter avoids the menu bar mnemonics (F/E/S/V/G/H).
     userKeybindings: [{ key: "alt+q", command: "workbench.action.focusActiveEditorGroup" }],
-    // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only.
+    // Extension host scenarios run a subprocess + a spawned server — Linux only.
     skipOn: ["win32", "darwin"],
     async prepare() {
         writeFileSync(join(sampleDir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true } }, null, 2));
@@ -45,12 +45,12 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("export function greet"));
         await editor.capture("before");
 
-        // На имя в объявлении (строка 0, колонка 18).
+        // Onto the name in the declaration (line 0, column 18).
         await editor.sendKey("Ctrl+Home");
         for (let i = 0; i < 18; i++) await editor.sendKey("ArrowRight");
 
-        // Холодный tsserver отвечает по одному открытому файлу, и rename уехал бы мимо закрытого потребителя.
-        // Готовность — ссылка из main.ts в REFERENCES; жмём до результата: на пустой ответ панель не открывается.
+        // A cold tsserver answers from the single open file, and rename would miss the closed consumer.
+        // Readiness is a main.ts reference in REFERENCES; keep pressing until it shows: an empty answer opens no panel.
         await waitUntil(
             async () => {
                 await editor.sendKey("Ctrl+K");
@@ -67,7 +67,7 @@ export default defineScenario({
         );
         await editor.capture("references");
 
-        // Фокус обратно в редактор — F2 гейтится `textInputFocus`.
+        // Focus back to the editor — F2 is gated on `textInputFocus`.
         await editor.sendKey("Alt+q");
         await waitUntil(
             async () => {
@@ -84,7 +84,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("greet"));
         await editor.capture("prompt");
 
-        // Старое имя не выделено — стираем его и набираем новое.
+        // The old name is not selected — erase it and type the new one.
         for (let i = 0; i < "greet".length; i++) await editor.sendKey("Backspace");
         await editor.sendText("welcome");
         await editor.sendKey("Enter");
@@ -99,11 +99,11 @@ export default defineScenario({
                 diagnose: (last) => `main.ts сейчас:\n${String(last)}`,
             },
         );
-        // …и открытая вкладка тоже.
+        // …and the open tab too.
         await editor.waitForText((t) => t.includes("export function welcome"), { timeoutMs: 30_000 });
         await editor.capture("after");
 
-        // Весь rename — ОДИН шаг отмены (bulk edit): Ctrl+Z возвращает старое имя.
+        // The whole rename is ONE undo step (bulk edit): Ctrl+Z restores the old name.
         await editor.sendKey("Ctrl+Z");
         await editor.waitForText((t) => t.includes("export function greet"), { timeoutMs: 30_000 });
         await editor.capture("undo");

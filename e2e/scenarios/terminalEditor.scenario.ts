@@ -3,14 +3,15 @@ import { resolve } from "node:path";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Форма `claude-vscode.terminal.open` стокового Claude Code: `createTerminal({ location: { viewColumn: Beside } })` + `show()`.
+// The shape of stock Claude Code's `claude-vscode.terminal.open`:
+// `createTerminal({ location: { viewColumn: Beside } })` + `show()`.
 
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-terminal-demo");
 
 /**
- * Строки «agent ready» в команде нет — совпадает только вывод. Саму команду ждать нельзя: в узкой группе
- * справа она переносится по длине промпта.
+ * The command does not contain the string "agent ready", so only the output matches. Waiting for the command itself
+ * is unreliable: in the narrow group on the right it wraps depending on the prompt length.
  */
 const echoed = (t: string): boolean => t.includes("agent ready");
 
@@ -29,7 +30,7 @@ export default defineScenario({
     open: [sampleFile],
     cols: 120,
     rows: 30,
-    // Extension-host сценарий с настоящим шеллом — только Linux/macOS, как extension-terminal.
+    // Extension host scenario with a real shell — Linux/macOS only, like extension-terminal.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("act:-"), { timeoutMs: 20_000 });

@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
-// Расширение поднимает ТОТ ЖЕ оверлей, что палитра и Quick Open; ответ печатается в канал Output
-// «Diode Probe» — по нему видно, что введённое доехало до расширения.
+// The extension raises THE SAME overlay as the command palette and Quick Open; the answer is printed to the
+// "Diode Probe" Output channel, which shows that the input reached the extension.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-quick-input-probe");
@@ -22,7 +22,7 @@ export default defineScenario({
     open: [repoRoot, sampleFile],
     cols: 100,
     rows: 30,
-    // Только Linux: субпроцесс расширений на Windows флейкает.
+    // Linux only: the extension host subprocess is flaky on Windows.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("Diode Probe"), { timeoutMs: 30000 });
@@ -46,7 +46,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Port: 80"), { timeoutMs: 20000 });
         await editor.capture("input-accepted");
 
-        // Расширение получает настоящий текст — это проверяется по его длине.
+        // The extension receives the real text — checked by its length.
         await runProbeCommand(editor, "Ask Secret");
         await editor.waitForText((t) => t.includes("Набранное закрыто маской"), { timeoutMs: 20000 });
         await editor.sendText("hunter2");
@@ -76,7 +76,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Picked: alpha, beta"), { timeoutMs: 20000 });
         await editor.capture("multi-select-accepted");
 
-        // Пикер открывается пустым, предметы приезжают позже — как у `Go: Maintain gopls` (golang.go, pickLazyEnum).
+        // The picker opens empty and items arrive later — like `Go: Maintain gopls` (golang.go, pickLazyEnum).
         await runProbeCommand(editor, "Lazy Pick");
         await editor.waitForText((t) => t.includes("Lazy enum") && t.includes("Alpha module"), {
             timeoutMs: 20000,
@@ -90,7 +90,8 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Lazy: example.com/beta"), { timeoutMs: 20000 });
 
         await runProbeCommand(editor, "Open File Dialog");
-        // Каталоги идут раньше файлов, README в корне ниже видимой части — ждём каталог, который виден всегда.
+        // Directories come before files and the root README is below the visible part — wait for a directory that is
+        // always visible.
         await editor.waitForText((t) => t.includes("Pick a file") && t.includes(".github"), { timeoutMs: 20000 });
         await editor.capture("file-dialog");
         await editor.sendText("READ");
@@ -99,7 +100,7 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Opened: ") && t.includes("README"), { timeoutMs: 20000 });
 
-        // Свой потребитель оверлея не сломан: после множественного выбора чекбоксов в палитре нет.
+        // Our own overlay consumer is intact: after a multi-select the command palette has no checkboxes.
         await editor.sendKey("F1");
         await editor.waitForNode("#quickInput");
         await editor.waitForText((t) => t.includes("File: Save"));

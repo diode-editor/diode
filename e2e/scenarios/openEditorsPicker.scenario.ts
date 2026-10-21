@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Два тёзки main.ts из разных каталогов — на них видно, зачем строке пикера колонка пути.
+// Two main.ts namesakes from different directories show why a picker row needs the path column.
 
 const fixtures = resolve(repoRoot, "e2e", "fixtures");
 const sampleFile = resolve(fixtures, "sample.ts");
@@ -19,7 +19,7 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("folding.ts") && t.includes("sample.ts"));
 
-        // Правка активной вкладки: у неё в пикере появится маркер «●».
+        // Edit the active tab so it gets the "●" marker in the picker.
         await editor.sendText("// ");
         await editor.waitForText((t) => t.includes("●"));
         await editor.capture("tabs");
@@ -27,7 +27,8 @@ export default defineScenario({
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+P");
         await editor.waitForNode("#quickInput");
-        // Не плейсхолдер: ввод префиллен «edt », а плейсхолдер виден только у пустого ввода.
+        // Not the placeholder: the input is prefilled with "edt ",
+        // and the placeholder shows only when the input is empty.
         await editor.waitForText((t) => t.includes("e2e/fixtures/lspSample"));
         await editor.capture("picker");
 

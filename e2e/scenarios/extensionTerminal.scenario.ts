@@ -3,8 +3,8 @@ import { resolve } from "node:path";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Что расширение видит в ответ (`window.terminals`, `activeTerminal`, события, `exitStatus`), оно пишет в свои
-// пункты статус-бара.
+// The extension reports what it observes (`window.terminals`, `activeTerminal`, events, `exitStatus`) in its own
+// status bar items.
 
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-terminal-demo");
@@ -24,7 +24,7 @@ export default defineScenario({
     open: [sampleFile],
     cols: 120,
     rows: 30,
-    // Настоящий шелл.
+    // Real shell.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("act:-"), { timeoutMs: 20_000 });

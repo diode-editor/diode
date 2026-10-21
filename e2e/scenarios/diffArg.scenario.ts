@@ -26,7 +26,7 @@ export default defineScenario({
     rows: 20,
     async run(editor) {
         await editor.waitForText((t) => t.includes("greeting.ts ↔ greeting.v2.ts"));
-        // Воркспейса нет — сайдбар держит welcome Explorer'а.
+        // No workspace, so the sidebar shows the Explorer welcome view.
         await editor.waitForText((t) => t.includes("You have not yet opened a"));
         await editor.capture("diff");
     },

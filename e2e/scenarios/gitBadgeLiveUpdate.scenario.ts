@@ -5,8 +5,8 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Сквозной путь, которого не видит ни один юнит: внешняя правка → inotify в watcher-процессе
-// (`SubprocessTreeWatcher`) → IPC → git-расширение → буква M в дереве.
+// The end-to-end path no unit test sees: external edit → inotify in the watcher process
+// (`SubprocessTreeWatcher`) → IPC → git extension → the letter M in the tree.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -42,9 +42,9 @@ export default defineScenario({
         await editor.waitForText((t) => rowFor(t, "app.ts") !== undefined);
         await editor.capture("clean");
 
-        // Подписку git-расширение заводит при активации, которую старт окна не ждёт, а watcher ещё делает начальный
-        // обход: ранняя правка события не даёт. Поэтому правку повторяем, пока событие не доедет; сломано слежение —
-        // не доедет ни одна.
+        // The git extension subscribes on activation, which window startup does not wait for, and the watcher is
+        // still doing its initial crawl: an early edit yields no event. So repeat the edit until the event arrives;
+        // if watching is broken, none ever does.
         const edited = (t: string): boolean => {
             const changed = rowFor(t, "app.ts");
             const untracked = rowFor(t, "untracked.md");

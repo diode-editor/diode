@@ -26,13 +26,14 @@ export default defineScenario({
         await editor.waitForText((t) => count(t, "// fixture") === 2);
         await editor.capture("copy-line-down");
 
-        // На legacy-терминале харнесса Ctrl+Shift+K неотличим от Ctrl+K — работает аккорд-фолбэк Ctrl+K Ctrl+K.
+        // On the harness's legacy terminal Ctrl+Shift+K is indistinguishable from Ctrl+K,
+        // so the Ctrl+K Ctrl+K chord fallback applies.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+K");
         await editor.waitForText((t) => count(t, "// fixture") === 1);
         await editor.capture("delete-line");
 
-        // Ctrl+V без выделения кладёт строку выше курсорной — линейная вставка VS Code.
+        // Ctrl+V without a selection inserts the line above the cursor line, as VS Code's line paste does.
         await editor.sendKey("Ctrl+C");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Ctrl+V");

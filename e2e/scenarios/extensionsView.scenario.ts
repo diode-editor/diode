@@ -4,8 +4,8 @@ import { defineScenario, repoRoot } from "./framework.ts";
 
 
 const registry = resolve(repoRoot, "e2e", "fixtures", "registry");
-// В user-data уже стоит test.tab-setter@0.0.1, а реестр знает 0.0.2 — на кадре
-// видны сразу все состояния карточки: доступно, обновление, несовместимо.
+// user-data already has test.tab-setter@0.0.1 while the registry knows 0.0.2, so the
+// frame shows every card state at once: available, update, incompatible.
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-tab-setter");
 
 export default defineScenario({
@@ -14,7 +14,7 @@ export default defineScenario({
     open: [repoRoot],
     extraArgs: [`--registry=${registry}`],
     seedUserData: userData,
-    // Настоящий Ctrl+Shift+X headless-DSL не кодирует — вешаем команду на F6.
+    // The headless DSL cannot encode a real Ctrl+Shift+X, so the command is bound to F6.
     userKeybindings: [
         { key: "f6", command: "workbench.view.extensions" },
         { key: "f7", command: "workbench.action.increaseSidebarWidth" },
@@ -26,12 +26,12 @@ export default defineScenario({
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("MARKETPLACE"));
         await editor.waitForText((t) => t.includes("Acme Sample"));
-        // Сайдбар по умолчанию узкий — бейджи в него не влезают целиком.
+        // The default sidebar is too narrow for the whole badges.
         for (let i = 0; i < 4; i++) await editor.sendKey("F7");
         await editor.waitForText((t) => t.includes("Incompatible"));
         await editor.capture("viewlet");
 
-        // Страница расширения: фокус в список, первая запись каталога, Enter.
+        // Extension page: focus the list, first catalog entry, Enter.
         await editor.sendKey("Tab");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");

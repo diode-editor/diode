@@ -4,7 +4,7 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Платформенный vsix с нативным `ruff server` — сквозной прогон платформенного маршрута реестра.
+// A platform-specific vsix with a native `ruff server` — an end-to-end run of the registry's platform route.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "ruffSample");
 const lintFile = resolve(sampleDir, "lint.py");
@@ -20,7 +20,7 @@ export default defineScenario({
     network: true,
     cols: 100,
     rows: 24,
-    // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only.
+    // Extension host scenarios run a subprocess + a spawned server — Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("import sys"));

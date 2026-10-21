@@ -2,7 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Alt+а приходит legacy-префиксом ESC (терминал шлёт только символ): движок сводит «а» к физической KeyF.
+// Alt+\u0430 (Cyrillic "a") arrives with a legacy ESC prefix (the terminal sends only the character): the engine maps
+// it to the physical KeyF.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
@@ -19,7 +20,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("New Untitled File") && t.includes("Exit"));
         await editor.capture("file-menu");
 
-        // Alt+у — physical E — switches to Edit.
+        // Alt+\u0443 (Cyrillic "u", physical E) switches to Edit.
         await editor.sendKey("Alt+у");
         await editor.waitForText((t) => t.includes("Undo") && t.includes("Redo"));
         await editor.capture("edit-menu");

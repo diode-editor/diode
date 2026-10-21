@@ -7,15 +7,15 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
 
-// Code action стокового typescript-language-server правит второй файл, не открытый ни в одной вкладке, —
-// правка ложится на диск, поэтому каталог наполняется в prepare: коммитнутую фикстуру пачкать нельзя.
+// A code action from the stock typescript-language-server edits a second file that is not open in any tab. The
+// edit lands on disk, so the directory is populated in prepare: the committed fixture must stay clean.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-bulkedit-demo-"));
 const mainFile = join(sampleDir, "a.ts");
 const closedFile = join(sampleDir, "b.ts");
 
-/** Вызов отсутствующего метода класса из СОСЕДНЕГО модуля — фикс правит b.ts. */
+/** Calls a missing method of a class from a SIBLING module, so the fix edits b.ts. */
 const A_TS = 'import { B } from "./b";\n\nconst b = new B();\nb.greet();\n';
 const B_TS = "export class B {}\n";
 
@@ -54,7 +54,7 @@ export default defineScenario({
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+Q");
         await editor.waitForText((t) => t.includes("Select Code Action"), { timeoutMs: 60_000 });
-        // Пин на нужное действие набором в фильтр — порядок пунктов за сервером.
+        // Pin the wanted action by typing into the filter: the server decides the item order.
         await editor.sendText("Declare method");
         await editor.waitForText((t) => t.includes("Declare method"));
         await editor.capture("menu");

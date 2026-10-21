@@ -4,9 +4,9 @@ import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 
-// Markdown, а не .ts, и без папки-воркспейса: иначе полосу делят с нами
-// сегменты SCM и спиннер запуска tsserver, и её раскладка плывёт по ходу
-// сценария.
+// Markdown rather than .ts, and no workspace folder: otherwise the SCM
+// segments and the tsserver startup spinner share the bar, and its layout
+// drifts during the scenario.
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-status-bar-demo");
 
@@ -24,7 +24,7 @@ export default defineScenario({
     open: [sampleFile],
     cols: 120,
     rows: 24,
-    // Только Linux: субпроцесс расширений на Windows флейкает.
+    // Linux only: the extension host subprocess is flaky on Windows.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForNode("#statusBarItem-extensions-test-status-bar-demo-status-bar-demo", {
@@ -32,7 +32,7 @@ export default defineScenario({
         });
         await editor.capture("item");
 
-        // clickNode, а не координаты из `item`: сегменты полосы переезжают, когда соседи меняют ширину.
+        // clickNode, not coordinates from `item`: bar segments move when their neighbours change width.
         await editor.clickNode("#statusBarItem-extensions-test-status-bar-demo-status-bar-demo");
         await editor.waitForText((t) => t.includes("Demo · clicked 1"), { timeoutMs: 5000 });
         await editor.capture("clicked");

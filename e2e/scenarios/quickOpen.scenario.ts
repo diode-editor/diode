@@ -21,7 +21,8 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Go to File"));
         await editor.capture("overlay");
 
-        // Низкий терминал: контракт performLayout (Н1) — пикер ужимается в выделенную высоту, а не обрезается клипом.
+        // Short terminal: the performLayout contract (N1) — the picker shrinks to the allotted height instead of being
+        // clipped.
         await editor.resize(120, 10);
         await editor.waitForText((t) => t.includes("Go to File"));
         await editor.capture("low-terminal");

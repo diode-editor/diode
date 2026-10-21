@@ -12,7 +12,7 @@ function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
 
-/** Репозиторий: staged-правка + modified + untracked — все три группы видны. */
+/** Repository with a staged change + modified + untracked — all three groups are visible. */
 function makeRepo(): { repoDir: string } {
     const repoDir = mkdtempSync(join(tmpdir(), "diode-scm-stage-demo-"));
     git(repoDir, "init", "-q");
@@ -38,7 +38,7 @@ export default defineScenario({
     open: [repoDir],
     cols: 100,
     rows: 26,
-    // Нужен extension host — набор изменений публикует git-расширение.
+    // Needs the extension host — the git extension publishes the change set.
     skipOn: ["win32", "darwin"],
     userKeybindings: [
         { key: "alt+c", command: "workbench.view.scm" },
@@ -54,7 +54,8 @@ export default defineScenario({
         await editor.capture("groups");
 
         await editor.sendKey("Alt+M");
-        // e2e пинуется к tier=legacy, где Ctrl+Enter — это Enter: подсказка называет досягаемый Alt+Enter (см. mac-key-hints).
+        // e2e is pinned to tier=legacy, where Ctrl+Enter is just Enter: the hint names the reachable Alt+Enter (see
+        // mac-key-hints).
         await editor.waitForText((t) => t.includes("Message (Alt+Enter"));
         await editor.sendText("feat: greet louder");
         await editor.waitForText((t) => t.includes("feat: greet louder"));
@@ -68,7 +69,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Stage Changes") && t.includes("Discard Changes"));
         await editor.capture("context-menu");
 
-        // Координаты пункта «Stage Changes» — по тексту кадра.
+        // The "Stage Changes" item coordinates come from the frame text.
         const menuFrame = frameToText(await editor.captureFrame());
         const menuLines = menuFrame.split("\n");
         const menuY = menuLines.findIndex((l) => l.includes("Stage Changes"));

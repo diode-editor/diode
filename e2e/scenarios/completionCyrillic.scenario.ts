@@ -27,7 +27,7 @@ export default defineScenario({
 
         await editor.sendKey("р");
         await editor.sendKey("и");
-        // «при» keeps «привет», «пример» and «приёмке», drops «проверка».
+        // The prefix "pri" keeps "privet", "primer" and "priyomke" but drops "proverka" (all Cyrillic).
         await editor.waitForText((t) => count(t, "пример") >= 2 && count(t, "проверка") === 1, {
             timeoutMs: 2000,
         });

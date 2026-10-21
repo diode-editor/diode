@@ -2,9 +2,9 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Токен лежит в четырёх файлах, по слою на каждый: `app.py`/`README.md` — свои; `__pycache__/…pyc` — дефолт
-// `files.exclude`, нет нигде; `out/bundle.js` — дефолт `search.exclude`: в дереве виден, в поиске нет (эталон:
-// сборку открывают, но в поиске она дубль исходника).
+// The token is in four files, one per layer: `app.py`/`README.md` are regular; `__pycache__/…pyc` is a
+// `files.exclude` default and shows up nowhere; `out/bundle.js` is a `search.exclude` default: visible in the tree,
+// absent from search (upstream: build output gets opened, but in search it duplicates the source).
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "excludeSettings");
 
@@ -14,7 +14,7 @@ export default defineScenario({
     open: [sampleDir],
     cols: 110,
     rows: 26,
-    // Ctrl+Shift+F в key-DSL не выражается — команда на F6.
+    // The key DSL can't express Ctrl+Shift+F, so the command is bound to F6.
     userKeybindings: [{ key: "f6", command: "workbench.view.search" }],
     async run(editor) {
         await editor.waitForText(
@@ -27,7 +27,7 @@ export default defineScenario({
         );
         await editor.capture("tree");
 
-        // Quick Open режет по обоим наборам.
+        // Quick Open filters by both sets.
         await editor.sendKey("Ctrl+P");
         await editor.waitForText(
             (t) =>

@@ -2,8 +2,8 @@ import { basename } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Колесо в инспектор-протоколе пока не инъецируется (docs/TODO/IntegratedTerminal.md) — вьюпорт крутим
-// Shift+PageUp/PageDown: они ходят по тому же `surface.scrollLines`.
+// The inspector protocol does not inject the mouse wheel yet (docs/TODO/IntegratedTerminal.md) — scroll the viewport
+// with Shift+PageUp/PageDown: they go through the same `surface.scrollLines`.
 
 export default defineScenario({
     name: "terminal-scrollback",
@@ -16,7 +16,7 @@ export default defineScenario({
         PS1: "diode$ ",
         PROMPT_COMMAND: "",
     },
-    // node-pty спавнит настоящий PTY — как и terminal.scenario.ts, только Linux.
+    // node-pty spawns a real PTY — like terminal.scenario.ts, Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.sendKey("Alt+V");
@@ -28,27 +28,26 @@ export default defineScenario({
         await editor.sendKey("Enter");
 
         await editor.waitForText((t) => t.includes("TERMINAL"));
-        // Имя каталога, а не литерал "diode": в git-worktree cwd оканчивается иначе.
+        // The directory name, not the literal "diode": in a git worktree the cwd ends differently.
         await editor.waitForText((t) => t.includes(`${basename(repoRoot)}$`) || t.includes("❯"));
 
-        // Печатаем заведомо больше строк, чем помещается в панель: начало вывода
-        // уходит в скролбэк, на экране остаётся хвост. Первая строка вывода —
-        // маркер верха: в тексте команды он разорван пустой подстановкой, поэтому
-        // целиком существует только в выводе (эхо команды может переноситься через
-        // край панели из-за длинного cwd git-worktree — на него не полагаемся).
+        // Print far more lines than fit in the panel: the start of the output goes into scrollback and the tail stays
+        // on screen. The first output line is the top marker: in the command text it is split by an empty substitution,
+        // so it exists whole only in the output (the command echo may wrap past the panel edge due to the long
+        // git-worktree cwd — don't rely on it).
         await editor.sendText('echo scrollback""-top; seq 1 100');
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("100"));
         await editor.capture("bottom");
 
-        // Shift+PageUp листает в историю страницами. Жмём заведомо больше страниц, чем
-        // есть в скролбэке: смещение клампится в самый верх — детерминированный кадр,
-        // не зависящий от высоты панели. Там видна первая строка вывода (маркер).
+        // Shift+PageUp pages back through history. Press far more pages than the scrollback holds: the offset clamps to
+        // the very top — a deterministic frame independent of the panel height. The first output line (the marker) is
+        // visible there.
         for (let i = 0; i < 20; i++) await editor.sendKey("Shift+PageUp");
         await editor.waitForText((t) => t.includes("scrollback-top"));
         await editor.capture("scrolled");
 
-        // Обратно на дно — тем же перелистыванием вниз до упора.
+        // Back to the bottom by paging down all the way.
         for (let i = 0; i < 20; i++) await editor.sendKey("Shift+PageDown");
         await editor.waitForText((t) => t.includes("100"));
         await editor.capture("back-to-bottom");

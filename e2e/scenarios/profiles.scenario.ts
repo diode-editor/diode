@@ -7,8 +7,8 @@ import { frameToText } from "../helpers/frame.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Сид несёт `User/profiles/work/` без реестра — миграция регистрирует его профилем `work`. У `work` светлая
-// тема: так смена профиля видна в кадре (у Dark Modern белых ячеек нет вовсе).
+// The seed carries `User/profiles/work/` without a registry — migration registers it as profile `work`. `work` has
+// a light theme, so a profile switch shows in the frame (Dark Modern has no white cells at all).
 
 const fixture = resolve(repoRoot, "e2e", "fixtures", "workspaceFile");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-profiles");
@@ -27,10 +27,10 @@ async function expectTheme(editor: ScenarioDriver, light: boolean): Promise<void
 }
 
 /**
- * Ячейка пикера с подписью `label`: строки кадра режутся по рамке (`│`), так
- * что соседний текст эксплорера не мешает. Подпись — голая либо за одним
- * символом (глиф `$(check)` текущего профиля); строка статус-бара с именем
- * ветки репозитория сюда не попадёт.
+ * Picker cell labelled `label`: frame lines are split at the border (`│`), so
+ * neighbouring explorer text does not interfere. The label is either bare or
+ * after a single character (the `$(check)` glyph of the current profile); the
+ * status bar line with the repository branch name never matches.
  */
 function pickerCell(text: string, label: string): string | undefined {
     return text
@@ -40,7 +40,7 @@ function pickerCell(text: string, label: string): string | undefined {
         .find((cell) => cell === label || (cell.endsWith(` ${label}`) && cell.length <= label.length + 2));
 }
 
-/** Строка пикера с профилем `name` помечена глифом `$(check)` перед именем. */
+/** The picker row for profile `name` is marked with the `$(check)` glyph before the name. */
 function expectCurrentMark(frame: GridSnapshot, name: string): void {
     const cell = pickerCell(frameToText(frame), name);
     if (cell === undefined || cell === name) {
@@ -48,12 +48,12 @@ function expectCurrentMark(frame: GridSnapshot, name: string): void {
     }
 }
 
-/** В кадре есть строка пикера с такой подписью (голой или за глифом текущего). */
+/** Matches the label bare or after the current-profile glyph. */
 function hasRow(text: string, label: string): boolean {
     return pickerCell(text, label) !== undefined;
 }
 
-/** Открыть команду палитры по полному заголовку. */
+/** Runs a command palette command by its full title. */
 async function runCommand(editor: ScenarioDriver, title: string): Promise<void> {
     await editor.sendKey("F1");
     await editor.waitForNode("#quickInput");
@@ -62,7 +62,7 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
     await editor.sendKey("Enter");
 }
 
-/** Перезагрузка окна после команды профиля: старый сокет закрывается, новый поднимается на том же порту. */
+/** Window reload after a profile command: the old socket closes, a new one comes up on the same port. */
 async function reloaded(editor: ScenarioDriver): Promise<void> {
     await editor.reconnect();
     await editor.waitForText((t) => t.includes("EXPLORER"), { timeoutMs: 60_000 });
@@ -75,32 +75,32 @@ export default defineScenario({
     open: [resolve(fixture, "web.code-workspace")],
     cols: 120,
     rows: 30,
-    // Reload Window из сценария на Windows поднимает окно без сайдбара (docs/TODO/E2E.md).
+    // On Windows, Reload Window from a scenario brings the window up without the sidebar (docs/TODO/E2E.md).
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("EXPLORER"));
         await expectTheme(editor, false);
         await editor.capture("default");
 
-        // Пикер: Default с галочкой, `work` — из мигрированного каталога.
+        // Picker: Default is checked, `work` comes from the migrated directory.
         await runCommand(editor, "Profiles: Switch Profile...");
         await editor.waitForText((t) => t.includes("Select Profile") && t.includes("work") && t.includes("Default"));
         await editor.capture("switch-picker");
         await editor.sendText("work");
         await editor.waitForText((t) => t.includes("work") && !t.includes("Default"));
-        // Enter → привязка `web.code-workspace` к `work` → перезагрузка окна.
+        // Enter → binds `web.code-workspace` to `work` → window reload.
         await editor.sendKey("Enter").catch(() => undefined);
         await reloaded(editor);
         await expectTheme(editor, true);
         await editor.capture("work");
 
-        // В новом окне галочка стоит у `work`.
+        // In the new window the check mark is on `work`.
         await runCommand(editor, "Profiles: Switch Profile...");
         await editor.waitForText((t) => t.includes("Select Profile"));
         expectCurrentMark(await editor.captureFrame(), "work");
         await editor.sendKey("Escape");
 
-        // Другой файл воркспейса над той же папкой привязки не имеет → Default.
+        // Another workspace file over the same folder has no binding → Default.
         await runCommand(editor, "File: Open Workspace from File...");
         await editor.waitForText((t) => t.includes("Enter a .code-workspace file path"));
         await editor.sendText(resolve(fixture, "backend.code-workspace"));
@@ -109,7 +109,7 @@ export default defineScenario({
         await expectTheme(editor, false);
         await editor.capture("backend-default");
 
-        // New Profile: имя → Empty → окно перезагружается уже в `scratch`.
+        // New Profile: name → Empty → the window reloads straight into `scratch`.
         await runCommand(editor, "Profiles: New Profile...");
         await editor.waitForText((t) => t.includes("Profile name"));
         await editor.sendText("scratch");
@@ -122,12 +122,12 @@ export default defineScenario({
         await editor.capture("new-profile-picker");
         await editor.sendKey("Escape");
 
-        // Delete Profile текущего `scratch`: окно возвращается в Default.
+        // Delete Profile on the current `scratch`: the window returns to Default.
         await runCommand(editor, "Profiles: Delete Profile...");
         await editor.waitForText((t) => t.includes("Select Profiles to Delete") && t.includes("Current"));
         await editor.sendText("scratch");
-        // Статус-бар показывает ветку репозитория (фикстура лежит в нём), и в её
-        // имени может быть что угодно — ждём именно чекбокс строки.
+        // The status bar shows the repository branch (the fixture lives inside the
+        // repo), and its name may contain anything — so wait for the row checkbox.
         await editor.waitForText((t) => t.includes("[ ] scratch"));
         await editor.sendKey(" ");
         await editor.waitForText((t) => t.includes("[✓] scratch"));

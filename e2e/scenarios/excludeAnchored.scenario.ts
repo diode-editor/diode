@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Шаблоны exclude считаются от корня и в поиске: rg сам понял бы `common` как «на любой глубине».
-// Токен лежит в `common/RootOnly.java` (под шаблоном) и `nci/common/TopicStreamConsumer.java` (вне шаблона).
+// Exclude patterns are anchored at the root in search too: rg on its own would read `common` as "at any depth".
+// The token is in `common/RootOnly.java` (matched) and `nci/common/TopicStreamConsumer.java` (not matched).
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "excludeAnchored");
 
@@ -16,15 +16,16 @@ export default defineScenario({
     settings: {
         "files.exclude": { common: true },
     },
-    // Ctrl+Shift+F в key-DSL не выражается — команда на F6.
+    // The key DSL can't express Ctrl+Shift+F, so the command is bound to F6.
     userKeybindings: [{ key: "f6", command: "workbench.view.search" }],
     async run(editor) {
-        // Сжатую цепочку `nci/common` не ждём: она появляется, лишь когда подгрузились дети, а windows-раннер снимает
-        // кадр раньше. Строка дерева — имя, хвост пробелов и, возможно, `│` до соседней части.
+        // Don't wait for the compressed `nci/common` chain: it appears only once the children load, and the Windows
+        // runner captures the frame earlier. A tree row is the name, trailing spaces and possibly `│` before the
+        // adjacent part.
         await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("nci") && !/^\s*common\s*(│|$)/mu.test(t));
         await editor.capture("tree");
 
-        // Имя файла сайдбар обрезает («nci/common/TopicStreamConsum…») — сверяем по префиксу пути.
+        // The sidebar truncates the file name ("nci/common/TopicStreamConsum…"), so match by path prefix.
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("SEARCH"));
         for (const ch of "quietHarborLantern") {

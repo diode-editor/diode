@@ -4,8 +4,9 @@ import { ACTIVATION_LOG_KEYBINDINGS, openActivationLog, waitForActivationLine } 
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `onCommand:<id>` на стоковом ruff: команда видна в палитре до активации, а выбор сначала поднимает расширение.
-// В фикстуре нет поводов для других событий ruff'а (ни `.py`/`.md`, ни pyproject.toml/ruff.toml) — единственная дверь — команда.
+// `onCommand:<id>` on stock ruff: the command shows in the palette before activation, and picking it starts the
+// extension first. The fixture gives ruff no reason for its other events (no `.py`/`.md`, no pyproject.toml/ruff.toml),
+// so the command is the only way in.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "activationOnCommand");
 const notesFile = resolve(sampleDir, "notes.txt");

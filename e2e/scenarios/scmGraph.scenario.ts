@@ -5,13 +5,16 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Граф — порт pipe-модели lazygit; Reset to Commit — отступление: в VS Code его нет.
+// The graph ports lazygit's pipe model; Reset to Commit is a deviation: VS Code does not have it.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
 
-/** Ветвление и merge — иначе граф выродится в палку. Subjects короткие: сайдбар в 30 колонок клипует длинные. */
+/**
+ * A branch and a merge — otherwise the graph degenerates into a straight line. Subjects are short: the 30-column
+ * sidebar clips long ones.
+ */
 function makeRepo(): { repoDir: string } {
     const repoDir = mkdtempSync(join(tmpdir(), "diode-graph-demo-"));
     git(repoDir, "init", "-q", "-b", "main");
@@ -36,11 +39,11 @@ function makeRepo(): { repoDir: string } {
 
     git(repoDir, "merge", "-q", "--no-ff", "feature", "-m", "merge: ветка");
 
-    // Коммит поверх merge: одна дорожка против двух ниже — видно, что тема липнет к своей точке.
+    // A commit on top of the merge: one lane versus two below — shows that the theme sticks to its point.
     writeFileSync(appFile, "export const version = 3;\n");
     git(repoDir, "commit", "-aqm", "chore: полировка");
 
-    // Правка на диске — секция Source Control не пустует в кадре.
+    // An edit on disk keeps the Source Control section non-empty in the frame.
     writeFileSync(appFile, "export const version = 4;\n");
     return { repoDir };
 }
@@ -52,22 +55,23 @@ export default defineScenario({
     title: "View GRAPH: граф коммитов с ветвлением, бейджи refs и команды на коммите",
     open: [repoDir],
     cols: 100,
-    // Контролы коммита занимают 5 строк секции — высоту берём с запасом.
+    // The commit controls take 5 rows of the section — leave height to spare.
     rows: 30,
-    // Нужен extension host — коммиты публикует git-расширение.
+    // Needs the extension host — the git extension publishes the commits.
     skipOn: ["win32", "darwin"],
     userKeybindings: [{ key: "alt+c", command: "workbench.view.scm" }],
     async run(editor) {
         await editor.waitForText((t) => t.includes("app.ts"));
 
-        // GRAPH открывается свёрнутым — без раскрытия расширение не запустит `git log`; статус и лог приезжают асинхронно.
+        // GRAPH opens collapsed — the extension runs no `git log` until it is expanded; status and log arrive
+        // asynchronously.
         await editor.sendKey("Alt+C");
         await editor.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("GRAPH"));
         await editor.clickNode("#paneHeader-workbench-scm-graph", { dx: 3 });
         await editor.waitForText((t) => t.includes("merge: ветка") && t.includes("app.ts"));
         await editor.capture("sections");
 
-        // Свёрнутая Source Control уносит и контролы коммита — app.ts виден только там.
+        // Collapsing Source Control hides the commit controls too — app.ts is visible only there.
         await editor.clickNode("#paneHeader-workbench-scm-changes", { dx: 3 });
         await editor.waitForText((t) => !t.includes("app.ts") && t.includes("feat: старт") && t.includes("◎"));
         await editor.capture("graph");
@@ -81,13 +85,13 @@ export default defineScenario({
         await editor.capture("commit-menu");
         await editor.sendKey("Escape");
 
-        // «⋯» — правые 3 колонки заголовка.
+        // "⋯" is the rightmost 3 columns of the header.
         await editor.clickNode("#paneHeader-workbench-scm-graph", { dx: header.box.width - 2 });
         await editor.waitForText((t) => t.includes("Load More"));
         await editor.capture("more-actions-menu");
         await editor.sendKey("Escape");
 
-        // Свёрнутый GRAPH не держит строк: ни укладки, ни `git log`, пока его не раскроют.
+        // A collapsed GRAPH holds no rows: no layout and no `git log` until it is expanded.
         await editor.clickNode("#paneHeader-workbench-scm-graph", { dx: 3 });
         await editor.waitForText((t) => t.includes("GRAPH") && !t.includes("feat: старт") && !t.includes("◎"));
         await editor.capture("graph-collapsed");

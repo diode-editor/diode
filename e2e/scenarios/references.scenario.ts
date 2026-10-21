@@ -5,7 +5,7 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Строки кода в панели добираются из файла, которого нет в открытом буфере.
+// The code lines in the panel come from a file that is not in an open buffer.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "lspSample");
@@ -18,16 +18,17 @@ export default defineScenario({
     name: "references",
     title: "Find All References: ссылки из двух файлов в сайдбаре, F4 по ним",
     open: [sampleDir, mainFile],
-    // Сервер живёт в devDeps репозитория (вшитый — docs/arch/Extensions.md, «Builtin LSP-клиент»).
+    // The server comes from the repo's devDeps (the built-in one: docs/arch/Extensions.md, "Builtin LSP client"
+    // section).
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
         "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
     },
     cols: 100,
     rows: 24,
-    // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only.
+    // Extension host scenarios run a subprocess + a spawned server — Linux only.
     skipOn: ["win32", "darwin"],
-    // Collapse All живёт в «⋯»-меню, а оно открывается мышью — для демо он на F-клавише.
+    // Collapse All lives in the "⋯" menu, which opens by mouse — the demo puts it on an F key.
     userKeybindings: [{ key: "f7", command: "references-view.collapseAll" }],
     async run(editor) {
         await editor.waitForText((t) => t.includes("const reply"));
@@ -38,7 +39,7 @@ export default defineScenario({
             { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
         );
 
-        // На вызов `greet` (строка 2, колонка 23).
+        // Onto the `greet` call (line 2, column 23).
         await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         for (let i = 0; i < 23; i++) await editor.sendKey("ArrowRight");
@@ -54,7 +55,7 @@ export default defineScenario({
         await editor.waitForText((t) => !t.includes("export function greet"));
         await editor.capture("collapsed");
 
-        // Порядок ссылок задаёт сервер — кадр снимаем после обхода, не привязываясь к файлу.
+        // The server decides reference order — capture the frame after the walk, without tying it to a file.
         await editor.sendKey("F7");
         await editor.sendKey("F4");
         await editor.sendKey("F4");

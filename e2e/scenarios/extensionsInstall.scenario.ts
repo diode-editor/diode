@@ -6,7 +6,7 @@ import { createRegistryFixture } from "../helpers/registryFixture.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Фикстуру реестра собираем на импорте модуля: путь к нему нужен уже в `extraArgs`, до запуска редактора.
+// The registry fixture is built at module import: `extraArgs` needs its path before the editor starts.
 
 const registry = await createRegistryFixture(join(mkdtempSync(join(tmpdir(), "diode-scenario-registry-")), "registry"), [
     {
@@ -24,7 +24,7 @@ export default defineScenario({
     title: "Extensions: установка расширения со страницы магазина",
     open: [repoRoot],
     extraArgs: [`--registry=${registry}`],
-    // Настоящий Ctrl+Shift+X headless-DSL не кодирует — вешаем команду на F6.
+    // The headless DSL cannot encode a real Ctrl+Shift+X, so the command is bound to F6.
     userKeybindings: [
         { key: "f6", command: "workbench.view.extensions" },
         { key: "f7", command: "workbench.action.increaseSidebarWidth" },
@@ -37,7 +37,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("MARKETPLACE"));
         for (let i = 0; i < 3; i++) await editor.sendKey("F7");
 
-        // Страница расширения: фокус в список, первая запись каталога, Enter.
+        // Extension page: focus the list, first catalog entry, Enter.
         await editor.sendKey("Tab");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
@@ -45,7 +45,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Not installed"));
         await editor.capture("page");
 
-        // Фокус страницы стоит на первой кнопке — это Install.
+        // The page focuses its first button, which is Install.
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Reload Window"));
         await editor.capture("installed");

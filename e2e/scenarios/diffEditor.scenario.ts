@@ -5,13 +5,13 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Правку не сохраняем: modified-сторона — живой буфер файла, дифф пересчитывается по правкам сам.
+// The edit is not saved: the modified side is the file's live buffer, and the diff recomputes on edits by itself.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
 
-/** Закоммиченный файл достаточно длинный, чтобы свёртка unchanged была видна. */
+/** The committed file is long enough for the collapsed unchanged region to show. */
 function makeRepo(): { repoDir: string; trackedFile: string } {
     const repoDir = mkdtempSync(join(tmpdir(), "diode-diff-demo-"));
     git(repoDir, "init", "-q");
@@ -34,12 +34,12 @@ export default defineScenario({
     open: [repoDir, trackedFile],
     cols: 132,
     rows: 22,
-    // Нужен extension host — версию из HEAD отдаёт git-расширение.
+    // Needs the extension host: the git extension provides the HEAD version.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("greet"));
 
-        // Правим предпоследнюю строку функции, не сохраняя.
+        // Edit the function's second-to-last line without saving.
         await editor.sendKey("Ctrl+End");
         await editor.sendKey("ArrowUp");
         await editor.sendKey("ArrowUp");
@@ -48,10 +48,10 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("// changed"));
         await editor.capture("edited");
 
-        // Команду вызываем так же, как пользователь — через палитру: заодно видно,
-        // что она в ней есть и находится по имени. Открываем Quick Open (Ctrl+P) и
-        // переключаем его на команды префиксом `>`: Ctrl+Shift+P в key-DSL e2e не
-        // сериализуется (то же ограничение, что у folding-сценария).
+        // Invoke the command the way a user does, through the palette: this also shows
+        // it is listed there and found by name. Open Quick Open (Ctrl+P) and switch it
+        // to commands with the `>` prefix: the e2e key DSL cannot serialize
+        // Ctrl+Shift+P (the same limitation as in the folding scenario).
         await editor.sendKey("Ctrl+P");
         await editor.sendText(">Compare Active File with HEAD");
         await editor.waitForText((t) => t.includes("Compare Active File with HEAD"));
@@ -59,17 +59,17 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("↔ HEAD"));
         await editor.capture("diff");
 
-        // Дифф — текстовая поверхность: каретка ходит, текст выделяется. Ведём
-        // её вниз и выделяем полторы строки, чтобы на кадре была видна
-        // подсветка выделения поверх фона изменённых строк — в side-by-side
-        // выделение живёт в активной (правой) колонке и не перетекает в левую.
+        // The diff is a text surface: the cursor moves and text can be selected. Move
+        // it down and select a line and a half so the frame shows the selection
+        // highlight over the changed-line background. In side-by-side the selection
+        // lives in the active (right) column and does not spill into the left one.
         for (let i = 0; i < 4; i++) await editor.sendKey("ArrowDown");
         await editor.sendKey("Shift+ArrowDown");
         await editor.sendKey("Shift+End");
         await editor.capture("diff-selection");
 
-        // Живой дифф: печать прямо в стороне правит буфер, пересчёт (debounce
-        // 200) сам помечает строку изменённой парой.
+        // Live diff: typing directly into a side edits the buffer, and the recompute
+        // (200 ms debounce) marks the line as a changed pair on its own.
         await editor.sendKey("Ctrl+End");
         await editor.sendText("export const LIVE = true;");
         await editor.waitForText((t) => {
@@ -78,13 +78,13 @@ export default defineScenario({
         });
         await editor.capture("live-typed");
 
-        // Разворот свёрнутого куска — парный на обеих сторонах.
+        // Expanding a collapsed region happens on both sides in sync.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+J");
         await editor.waitForText((t) => !t.includes("unchanged lines"));
         await editor.capture("unfolded");
 
-        // Inline-режим (US-22): один редактор, удалённые строки — призраки.
+        // Inline mode (US-22): a single editor, deleted lines shown as ghosts.
         await editor.sendKey("Ctrl+P");
         await editor.sendText(">Diff: Toggle Inline View");
         await editor.waitForText((t) => t.includes("Toggle Inline View"));

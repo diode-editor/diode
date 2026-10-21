@@ -7,8 +7,8 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, type ScenarioDriver } from "./framework.ts";
 
-// Как в VS Code: сервер создаёт новый файл пустым заранее, клиент diode-lsp-typescript переписывает это
-// в создание — поэтому Ctrl+Z убирает файл с диска; шаг лежит в истории всех затронутых файлов.
+// As in VS Code: the server pre-creates the new file empty, and the diode-lsp-typescript client rewrites that into
+// a create, so Ctrl+Z removes the file from disk; the step is in the history of every affected file.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-move-undo-demo-"));
@@ -18,7 +18,7 @@ const newFile = join(srcDir, "Foo.ts");
 
 const A_TS = "export class Foo {\n    x = 1;\n}\n\nexport class Bar {\n    y = new Foo();\n}\n";
 
-/** Через дерево, не Quick Open: индекс файлов догоняет только что созданный файл не сразу. */
+/** Via the tree, not Quick Open: the file index picks up a just-created file with a delay. */
 async function openFoo(editor: ScenarioDriver): Promise<void> {
     const tree = await editor.waitForNode("TreeViewElement");
     await editor.waitForText((t) => t.includes("Foo.ts"));
@@ -34,7 +34,7 @@ async function openFoo(editor: ScenarioDriver): Promise<void> {
     await editor.click(tree.box.x + 5, row);
     await editor.sendKey("Enter");
     await editor.waitForText((t) => t.includes("Foo.ts") && t.includes("x = 1"));
-    // Фокус — в редактор: Ctrl+Z из дерева ушёл бы в отмену проводника.
+    // Focus the editor: Ctrl+Z in the tree would go to the explorer's undo.
     const text = await editor.waitForNode("EditorElement");
     await editor.click(text.box.x + 10, text.box.y);
 }
@@ -47,11 +47,11 @@ export default defineScenario({
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
         "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
     },
-    // F-клавиша: Ctrl+Shift+R эталона legacy-терминал не отличает от Ctrl+R.
+    // An F-key: a legacy terminal can't tell upstream's Ctrl+Shift+R from Ctrl+R.
     userKeybindings: [{ key: "f6", command: "editor.action.refactor" }],
     cols: 100,
     rows: 24,
-    // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only.
+    // Extension host scenarios run a subprocess + server spawn: Linux only.
     skipOn: ["win32", "darwin"],
     async prepare() {
         mkdirSync(srcDir, { recursive: true });
@@ -61,9 +61,9 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("export class Foo {"));
 
-        // На имя класса `Foo` (колонка 14).
+        // Onto the class name `Foo` (column 14).
         for (let i = 0; i < 14; i++) await editor.sendKey("ArrowRight");
-        // Refactor-провайдер отвечает, только когда сервер поднят: переспрашиваем.
+        // The refactor provider answers only once the server is up, so retry.
         const deadline = Date.now() + 120_000;
         for (;;) {
             await editor.sendKey("F6");
@@ -91,10 +91,10 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("a.ts ×"));
         await editor.capture("moved");
 
-        // Новый файл открыт уже ПОСЛЕ правки — шаг встаёт и в его историю.
+        // The new file is opened AFTER the edit, and the step still lands in its history.
         await openFoo(editor);
 
-        // Чистая вкладка удалённого файла закрывается, как в эталоне.
+        // A clean tab of a deleted file closes, as in upstream.
         await editor.sendKey("Ctrl+Z");
         await waitUntil(
             () => Promise.resolve(existsSync(newFile)),

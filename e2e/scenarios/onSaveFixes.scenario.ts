@@ -6,9 +6,9 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// #196: один Ctrl+S с `codeActionsOnSave` fixAll и formatOnSave — на диск уходит уже поправленный текст.
+// #196: a single Ctrl+S with `codeActionsOnSave` fixAll and formatOnSave writes the already-fixed text to disk.
 
-// Копия: сценарий сохраняет файл, а запись поверх e2e/fixtures/ruffSample испачкала бы рабочее дерево.
+// A copy: the scenario saves the file, and writing over e2e/fixtures/ruffSample would dirty the working tree.
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-onsave-demo-"));
 const lintFile = join(sampleDir, "lint.py");
 copyFileSync(resolve(repoRoot, "e2e", "fixtures", "ruffSample", "lint.py"), lintFile);
@@ -28,12 +28,12 @@ export default defineScenario({
     network: true,
     cols: 100,
     rows: 24,
-    // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only.
+    // Extension host scenarios run a subprocess + server spawn: Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("import sys"));
 
-        // Дождаться линта от ruff, чтобы save не упёрся в холодный старт сервера.
+        // Wait for ruff's lint so the save doesn't hit the server's cold start.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),

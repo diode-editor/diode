@@ -18,7 +18,8 @@ export default defineScenario({
         await editor.sendKey("Ctrl+P");
         await editor.waitForNode("#quickInput");
         await editor.sendText("indentDemoTabs");
-        // Ждём строку пикера (имя + «e2e/fixtures»): имя видно и в Explorer, а Enter до фильтрации ушёл бы впустую.
+        // Wait for the picker row (name + "e2e/fixtures"): the name is visible in Explorer too, and an Enter before
+        // filtering would be wasted.
         await editor.waitForText((t) => t.includes("e2e/fixtures"));
         await editor.sendKey("Enter");
 

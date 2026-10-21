@@ -1,10 +1,10 @@
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Команды — пользовательскими биндами: Ctrl+` есть не на всех tier'ах, а палитра ранжирует
-// «View: Move Focused View» ниже «View: Move Editor…». Маркер разорван пустой подстановкой (aux-term""-ok):
-// целиком он появляется только в выводе шелла.
-// Приглашение ждём по `$` или `❯` в конце строки, а не `"$ "`: rc-файлы раннера меняют PS1, а кадр обрезает
-// хвостовые пробелы.
+// Commands go through user keybindings: Ctrl+` is not available on every tier, and the palette ranks
+// "View: Move Focused View" below "View: Move Editor…". The marker is split by an empty substitution
+// (aux-term""-ok) so it appears whole only in the shell output.
+// The prompt is matched by `$` or `❯` at the end of the line, not `"$ "`: the runner's rc files change PS1, and
+// the frame trims trailing spaces.
 
 function hasPrompt(text: string, fromX = 0): boolean {
     return text.split("\n").some((row) => {
@@ -24,7 +24,7 @@ export default defineScenario({
         PS1: "diode$ ",
         PROMPT_COMMAND: "",
     },
-    // Настоящий PTY — только Linux на CI, как у terminal.scenario.ts.
+    // A real PTY is Linux-only on CI, as in terminal.scenario.ts.
     skipOn: ["win32", "darwin"],
     userKeybindings: [
         { key: "ctrl+alt+t", command: "workbench.action.terminal.focus" },
@@ -59,13 +59,13 @@ export default defineScenario({
         if (part.box.width !== 50) throw new Error(`ширина вторичной панели ${part.box.width}, ждали 50`);
         await editor.capture("resized");
 
-        // Перезагрузка окна: TERMINAL остаётся справа, ширина — тоже.
+        // Window reload: TERMINAL stays on the right, and so does its width.
         await editor.sendKey("Ctrl+Alt+R");
         await editor.reconnect();
         part = await editor.waitForNode("#auxiliarybar");
         await editor.waitForText((t) => t.split("\n")[1].slice(part.box.x).includes("TERMINAL"));
         if (part.box.width !== 50) throw new Error(`после перезагрузки ширина ${part.box.width}, ждали 50`);
-        // Шелл поднимается по активации, как и в нижней панели.
+        // The shell starts on activation, same as in the bottom panel.
         await editor.sendKey("Ctrl+Alt+T");
         await editor.waitForText((t) => hasPrompt(t, part.box.x));
         await editor.capture("after-reload");

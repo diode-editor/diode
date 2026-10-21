@@ -5,8 +5,9 @@ import { findTextCell } from "../helpers/frame.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Стоковый Anthropic.claude-code из магазина; вместо настоящего CLI (подписка, сеть) — подставной `claude` из
-// e2e/fixtures/fakeClaude: печатает то, по чему настоящий находит Diode, — порт ide-сервера и `ideName` из лока.
+// Stock Anthropic.claude-code from the marketplace. Instead of the real CLI (subscription, network), a fake `claude`
+// from e2e/fixtures/fakeClaude prints what the real one uses to find Diode: the IDE server port and `ideName` from
+// the lock file.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
@@ -19,7 +20,7 @@ export default defineScenario({
     env: claudeCodeSessionEnv(),
     cols: 140,
     rows: 30,
-    // sh-заглушка вместо `claude` — только Linux.
+    // The sh stub standing in for `claude` is Linux-only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("✻ Claude Code"), { timeoutMs: 60_000 });

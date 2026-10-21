@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Сжатие ленивое, как у эталона: цепочку раскрывает автоподсветка открытого файла (explorer.autoReveal).
+// Compression is lazy, as upstream: revealing the open file (explorer.autoReveal) expands the chain.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "compactFolders");
 const appFile = resolve(sampleDir, "src", "main", "java", "com", "example", "App.java");

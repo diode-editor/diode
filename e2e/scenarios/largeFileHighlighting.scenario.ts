@@ -9,7 +9,7 @@ import { waitUntil } from "../helpers/waitFor.ts";
 import { defineScenario } from "./framework.ts";
 
 
-const BLOCKS = 10_000; // 6 строк на блок — 60k строк
+const BLOCKS = 10_000; // 6 lines per block, 60k lines
 const dir = join(tmpdir(), "diode-scenario-large-file");
 const file = join(dir, "large.ts");
 
@@ -28,13 +28,13 @@ function generate(): string {
     return lines.join("\n");
 }
 
-/** Цвет `export` в строке `export function f<n>` — keyword, если строка покрашена. */
+/** Color of `export` in `export function f<n>`: the keyword color once the line is highlighted. */
 function exportFg(frame: GridSnapshot, block: number): number | undefined {
     const cell = findTextCell(frame, `export function f${String(block)}(`);
     return cell === null ? undefined : frame.cells[cell.y * frame.cols + cell.x].fg;
 }
 
-/** Цвет `value` (параметр — не keyword) в той же строке. */
+/** Color of `value` (a parameter, not a keyword) on the same line. */
 function valueFg(frame: GridSnapshot, block: number): number | undefined {
     const needle = `export function f${String(block)}(`;
     const cell = findTextCell(frame, needle);
@@ -53,7 +53,7 @@ export default defineScenario({
         return Promise.resolve();
     },
     async run(editor) {
-        // Верх файла: keyword красится не цветом идентификатора.
+        // Top of file: the keyword gets a color different from the identifier.
         const top = await waitUntil(
             () => editor.captureFrame(),
             (frame) => exportFg(frame, 0) !== undefined && exportFg(frame, 0) !== valueFg(frame, 0),
@@ -62,7 +62,7 @@ export default defineScenario({
         const keyword = exportFg(top, 0);
         await editor.capture("top");
 
-        // Конец файла — сразу keyword-цветом, хотя фон до него ещё не дошёл.
+        // End of file is keyword-colored at once, although background tokenization hasn't reached it yet.
         await editor.sendKey("Ctrl+End");
         await waitUntil(
             () => editor.captureFrame(),
@@ -71,7 +71,7 @@ export default defineScenario({
         );
         await editor.capture("end");
 
-        // Середина — Go to Line.
+        // Middle via Go to Line.
         const middleBlock = BLOCKS / 2;
         await editor.sendKey("Ctrl+G");
         await editor.waitForText((t) => t.includes("Type a line number"));
@@ -91,7 +91,7 @@ export default defineScenario({
         await editor.sendKey("ArrowUp");
         await editor.sendKey("Home");
         await editor.sendText("const answer = 42;");
-        await editor.sendKey("Escape"); // попап автодополнения, если открылся
+        await editor.sendKey("Escape"); // completion popup, if it opened
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => {

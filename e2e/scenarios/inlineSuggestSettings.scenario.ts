@@ -3,8 +3,8 @@ import { resolve } from "node:path";
 import { frameToText } from "../helpers/frame.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `editor.inlineSuggest.enabled: false` гейтит только автозапрос, как в VS Code: на той же позиции Alt+\ приводит
-// призрака того же провайдера.
+// `editor.inlineSuggest.enabled: false` gates only the automatic request, as in VS Code: at the same position Alt+\
+// brings up ghost text from the same provider.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "ghost-sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-inline-ghost");
@@ -15,13 +15,13 @@ export default defineScenario({
     seedUserData: userData,
     settings: {
         "editor.inlineSuggest.enabled": false,
-        // Быстрый ответ: сценарию важен гейт, а не медлительность провайдера.
+        // Fast response: the scenario is about the gate, not a slow provider.
         "inlineGhost.responseDelay": 50,
     },
     open: [repoRoot, sampleFile],
     cols: 100,
     rows: 24,
-    // Субпроцесс расширений на Windows флейкает.
+    // The extension host subprocess is flaky on Windows.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("Fibonacci demo"));
@@ -30,8 +30,8 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.sendText("function fib");
 
-        // Сначала контрольный Alt+\ доказывает, что провайдер жив: иначе «призрака нет» неотличимо от «расширение ещё
-        // не поднялось».
+        // A control Alt+\ first proves the provider is alive: otherwise "no ghost text" is indistinguishable from
+        // "the extension is not up yet".
         let ready = false;
         for (let attempt = 0; attempt < 15 && !ready; attempt++) {
             await editor.sendKey("Alt+\\");
@@ -39,7 +39,7 @@ export default defineScenario({
                 await editor.waitForText((t) => t.includes("return fibonacci(n - 1)"), { timeoutMs: 2000 });
                 ready = true;
             } catch {
-                // провайдер ещё не зарегистрирован — пробуем ещё раз
+                // the provider is not registered yet; retry
             }
         }
         if (!ready) throw new Error("inline-suggest-settings: Alt+\\ не показал призрака за 15 попыток");

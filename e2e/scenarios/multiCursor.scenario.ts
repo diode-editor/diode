@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Кадр — единственный свидетель: каретки рисуются ячейками (аппаратный курсор один, а `gridToSvg`
-// его в PNG не переносит). Alt+клик многие терминалы забирают себе — здесь он идёт через инспектор.
+// The frame is the only witness: cursors are drawn as cells (there is one hardware cursor, and `gridToSvg` doesn't
+// carry it into the PNG). Many terminals grab Alt+click, so here it goes through the inspector.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
@@ -23,7 +23,8 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("(2 selections)"));
         await editor.capture("select-next-match");
 
-        // Харнесс — legacy-терминал: Ctrl+Shift+L неотличим от Ctrl+L и выключен `when`, работает аккорд-фолбэк.
+        // The harness is a legacy terminal: Ctrl+Shift+L is indistinguishable from Ctrl+L and disabled by `when`,
+        // so the chord fallback applies.
         await editor.sendKey("Escape");
         await editor.waitForText((t) => !t.includes("selections)"));
         await editor.sendKey("Ctrl+K");

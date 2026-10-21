@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Webview не поддерживается, но расширение с чат-панелью обязано активироваться целиком: `activate()`
-// сначала регистрирует webview-view-провайдер. Клавиши — user-кейбинды: палитра и меню-бар уводят фокус.
+// Webview is not supported, but an extension with a chat panel must still activate fully: `activate()` registers the
+// webview view provider first. Keys are user keybindings: the command palette and the menu bar steal focus.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-chat-panel");
@@ -15,7 +15,7 @@ export default defineScenario({
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,
-    // Только Linux: субпроцесс расширений на Windows флейкает.
+    // Linux only: the extension host subprocess is flaky on Windows.
     skipOn: ["win32"],
     userKeybindings: [
         { key: "alt+u", command: "workbench.action.output.toggleOutput" },

@@ -5,8 +5,8 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Кадры заголовков подряд (EXPLORER → SEARCH → SOURCE CONTROL): название вьюлета обязано выглядеть одинаково —
-// у merged его несёт PaneHeaderElement, у SCM ViewContainerHeaderElement, оба читают `sideBarTitle.foreground`.
+// Header frames in a row (EXPLORER → SEARCH → SOURCE CONTROL): the viewlet title must look the same — in merged it is
+// drawn by PaneHeaderElement, in SCM by ViewContainerHeaderElement; both read `sideBarTitle.foreground`.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -33,14 +33,14 @@ export default defineScenario({
     open: [repoDir],
     cols: 100,
     rows: 30,
-    // Секции SOURCE CONTROL наполняет git-расширение — нужен extension host.
+    // SOURCE CONTROL sections are populated by the git extension — needs an extension host.
     skipOn: ["win32", "darwin"],
     userKeybindings: [{ key: "alt+c", command: "workbench.view.scm" }],
     async run(editor) {
         await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("app.ts"));
         await editor.capture("explorer-title");
 
-        // Свой бинд не заводим: Alt+<буква> ушёл бы в мнемонику меню, а Ctrl+K F работает на любом терминале.
+        // No custom binding: Alt+<letter> would go to the menu mnemonic, while Ctrl+K F works on any terminal.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("f");
         await editor.waitForText((t) => t.includes("SEARCH"));
@@ -55,12 +55,12 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Views"));
         await editor.capture("container-menu");
 
-        // Views — первый пункт и выделен при открытии.
+        // Views is the first item and is selected on open.
         await editor.sendKey("ArrowRight");
         await editor.waitForText((t) => t.includes("CHANGES") && t.includes("GRAPH"));
         await editor.capture("views-submenu");
 
-        // Одна видимая секция делает контейнер merged: его название несёт CHANGES.
+        // A single visible section makes the container merged: CHANGES carries its title.
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
         await editor.waitForText((t) => !t.includes("GRAPH"));

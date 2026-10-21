@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Строки ~140 символов при cols: 80. Полоска — нижний half-block `▄`, а не `▀`; фон строки — фон редактора
-// (`setCell` передаёт bg, а не полагается на patch-семантику Grid).
+// Lines of ~140 characters at cols: 80. The bar is the lower half-block `▄`, not `▀`; the row background is the
+// editor background (`setCell` passes bg rather than relying on Grid's patch semantics).
 
 const wideFile = resolve(repoRoot, "e2e", "fixtures", "wide.ts");
 

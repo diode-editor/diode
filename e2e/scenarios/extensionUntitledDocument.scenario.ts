@@ -12,7 +12,7 @@ export default defineScenario({
     cols: 110,
     rows: 22,
     async run(editor) {
-        // Команда — из activate() фикстуры: ждём extension host.
+        // The command is registered in the fixture's activate(): wait for the extension host.
         await editor.waitForReady();
         await editor.sendKey("F1");
         await editor.waitForNode("#quickInput");

@@ -3,9 +3,9 @@ import { resolve } from "node:path";
 import { defineScenario, repoRoot } from "./framework.ts";
 import { ACTIVATION_LOG_KEYBINDINGS, openActivationLog, waitForActivationLine } from "../helpers/activationLog.ts";
 
-// `workspaceContains:<glob>` на стоковом ruff: из его событий подойти может только рекурсивное
-// `**/pyproject.toml`, и файл под него лежит на уровень глубже (`nested/`). Причина подъёма в логе — и есть
-// ассерт: без неё активацию не отличить от активации по другому событию.
+// `workspaceContains:<glob>` on stock ruff: of its events only the recursive `**/pyproject.toml` can match, and
+// the matching file sits one level deeper (`nested/`). The activation reason in the log is the assertion itself:
+// without it, this activation is indistinguishable from one triggered by another event.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "activationWorkspaceContains");
 const notesFile = resolve(sampleDir, "notes.txt");

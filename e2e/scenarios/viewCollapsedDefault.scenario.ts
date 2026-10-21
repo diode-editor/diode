@@ -8,7 +8,7 @@ import { frameToText } from "../helpers/frame.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario } from "./framework.ts";
 
-// Дефолт свёрнутости остаётся дефолтом: раскрытый пользователем GRAPH раскрыт и после перезагрузки окна.
+// The collapsed default stays a default: GRAPH expanded by the user remains expanded after a window reload.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -26,7 +26,7 @@ function makeRepo(): string {
     git(repoDir, "commit", "-qm", "feat: старт");
     writeFileSync(appFile, "export const version = 2;\n");
     git(repoDir, "commit", "-aqm", "fix: версия");
-    // Правка на диске — CHANGES не пустует в кадре.
+    // An on-disk edit keeps CHANGES non-empty in the frame.
     writeFileSync(appFile, "export const version = 3;\n");
     return repoDir;
 }
@@ -39,8 +39,8 @@ async function expectExpanded(editor: ScenarioDriver, viewId: string, expanded: 
     if (state?.expanded !== expanded) {
         throw new Error(`${viewId}: expanded=${String(state?.expanded)}, ожидалось ${String(expanded)}`);
     }
-    // Сворачиваемость — не то же, что свёрнутость: merged-контейнер (одна
-    // видимая секция) держал бы `expanded: true` просто потому, что шеврона нет.
+    // Collapsible is not the same as collapsed: a merged container (one visible section) would hold `expanded: true`
+    // simply because it has no chevron.
     if (state.collapsible !== true) throw new Error(`${viewId}: секция не сворачиваемая`);
 }
 
@@ -50,19 +50,19 @@ export default defineScenario({
     open: [repoDir],
     cols: 100,
     rows: 30,
-    // Историю в GRAPH публикует git-расширение — нужен extension host; Reload
-    // Window из сценария на Windows поднимает окно без сайдбара (docs/TODO/E2E.md).
+    // GRAPH history is published by the git extension — needs an extension host; Reload Window from a scenario on
+    // Windows brings the window up without a sidebar (docs/TODO/E2E.md).
     skipOn: ["win32", "darwin"],
     userKeybindings: [
         { key: "alt+c", command: "workbench.view.scm" },
         { key: "f9", command: "workbench.action.reloadWindow" },
     ],
     async run(editor) {
-        // Готовность: Explorer показал файлы (папка открыта, расширение стартует).
+        // Readiness: Explorer shows files (folder open, extension starting).
         await editor.waitForText((t) => t.includes("app.ts"));
 
-        // Source Control: заголовки обеих секций на месте, но история не
-        // построена — GRAPH свёрнут, и `git log` в расширении даже не запускался.
+        // Source Control: both section headers are present but the history is not built — GRAPH is collapsed and the
+        // extension never even ran `git log`.
         await editor.sendKey("Alt+C");
         await editor.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("GRAPH") && t.includes("app.ts"));
         await expectExpanded(editor, "workbench.scm.graph", false);
@@ -70,30 +70,26 @@ export default defineScenario({
         const collapsed = await editor.captureFrame();
         await editor.capture("collapsed");
 
-        // Пустое место свёрнутая секция не занимает: CHANGES забрал всю высоту
-        // контейнера, а subject'ов коммитов в кадре нет вовсе.
+        // A collapsed section takes no empty space: CHANGES took the full container height, and there are no commit
+        // subjects in the frame at all.
         if (frameToText(collapsed).includes("feat: старт")) {
             throw new Error("свёрнутый GRAPH показал историю");
         }
 
-        // Клик по шеврону GRAPH — история собирается, расширение получает
-        // logSetEnabled и отдаёт лог.
+        // Click the GRAPH chevron — the history is collected, the extension gets logSetEnabled and returns the log.
         await editor.clickNode("#paneHeader-workbench-scm-graph", { dx: 3 });
         await editor.waitForText((t) => t.includes("feat: старт") && t.includes("fix: версия"));
         await expectExpanded(editor, "workbench.scm.graph", true);
         await editor.capture("expanded");
 
-        // Перезагрузка окна: процесс уходит на перезапуск вместе с сокетом
-        // инспектора — ответ на этот ввод может и не успеть прийти. Что окно
-        // действительно перезапустилось, проверяет `reconnect`: он ждёт закрытия
-        // прежнего сокета, а живое окно его не закроет — всё ниже иначе
-        // проверяло бы ту же самую сессию, а не новую.
+        // Window reload: the process restarts together with the inspector socket — the reply to this input may never
+        // arrive. `reconnect` verifies the window actually restarted: it waits for the old socket to close, which a
+        // live window never does — otherwise everything below would check the same session rather than a new one.
         await editor.sendKey("F9").catch(() => undefined);
         await editor.reconnect();
         await editor.waitForText((t) => t.includes("app.ts"), { timeoutMs: 60_000 });
 
-        // Дефолт НЕ перебил сохранённый выбор: GRAPH всё ещё развёрнут и снова
-        // полон истории.
+        // The default did NOT override the saved choice: GRAPH is still expanded and full of history again.
         await editor.sendKey("Alt+C");
         await editor.waitForText((t) => t.includes("feat: старт") && t.includes("fix: версия"));
         await expectExpanded(editor, "workbench.scm.graph", true);

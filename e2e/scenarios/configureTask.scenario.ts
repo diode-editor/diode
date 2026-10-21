@@ -7,7 +7,7 @@ import { waitUntil } from "../helpers/waitFor.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Папка — во временном каталоге: команда пишет на диск, коммитнутую фикстуру пачкать нельзя.
+// The folder lives in a temp directory: the command writes to disk, and the committed fixture must stay clean.
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-configure-task-demo-"));
 const tasksFile = join(sampleDir, ".diode", "tasks.json");
@@ -34,7 +34,7 @@ export default defineScenario({
     open: [sampleDir],
     cols: 120,
     rows: 32,
-    // Настоящий шелл задачи.
+    // The task runs in a real shell.
     skipOn: ["win32"],
     prepare() {
         writeFileSync(join(sampleDir, "README.md"), "# configure task demo\n");
@@ -55,7 +55,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes('"command": "echo Hello"'));
         await editor.capture("template-opened");
 
-        // Комментарий человека: дописывание задачи провайдера обязано его сохранить.
+        // A user's comment: appending the provider task must preserve it.
         writeFileSync(tasksFile, readFileSync(tasksFile, "utf-8").replace('"tasks": [', '"tasks": [\n        // моё'));
 
         await runCommand(editor, "Tasks: Configure Task");

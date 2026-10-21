@@ -7,10 +7,10 @@ import { defineScenario } from "./framework.ts";
 
 const MARKER = "demo-assets";
 
-/** Маленький: в кадр влезает весь список файлов. */
+/** Small, so the whole file list fits in the frame. */
 function makeFolder(): string {
     const dir = mkdtempSync(join(tmpdir(), "diode-empty-window-"));
-    // Каталог-метка: диалог «только папки» показывает лишь каталоги — по нему видно, что папка догрузилась.
+    // Marker folder: the folders-only dialog lists only directories, so it shows the folder has finished loading.
     mkdirSync(join(dir, MARKER));
     writeFileSync(join(dir, "greeting.ts"), 'export const greeting = "hello";\n');
     writeFileSync(join(dir, "README.md"), "# Demo\n");
@@ -31,17 +31,17 @@ export default defineScenario({
 
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+O");
-        // Диалог стоит в домашнем каталоге: путь заменяем целиком; разделитель на конце входит в папку, а Enter без
-        // подсвеченной строки выбирает её.
+        // The dialog starts in the home directory: replace the path entirely; a trailing separator enters the folder,
+        // and Enter with no highlighted row selects it.
         await editor.waitForText((t) => t.includes("Open Folder") && t.includes(".."));
         await editor.capture("prompt");
 
         await editor.sendKey("Ctrl+A");
         await editor.sendText(folder + sep);
-        // Длинный путь (временный каталог на Windows) прокручен — видна только его хвостовая часть.
+        // A long path (the temp directory on Windows) is scrolled, so only its tail is visible.
         await editor.waitForText((t) => t.includes(basename(folder) + sep) && t.includes(MARKER));
         await editor.sendKey("Enter");
-        // Дерево обязано наполниться, а не только потерять подсказку: новый корень грузится только refresh'ем.
+        // The tree must fill in, not just lose the hint: a new root loads only on refresh.
         await editor.waitForText((t) => t.includes("greeting.ts") && !t.includes("You have not yet opened a"));
         await editor.capture("folder-opened");
     },

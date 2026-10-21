@@ -2,8 +2,8 @@ import { basename } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Цвета — из темы (`terminal.integrated.colorSource: "theme"`, дефолт vscode). Режим `"host"` (OSC 4/10/11)
-// headless не показать: у headless-бэкенда нет терминала, который бы ответил.
+// Colors come from the theme (`terminal.integrated.colorSource: "theme"`, the vscode default). The `"host"` mode
+// (OSC 4/10/11) cannot be shown headless: the headless backend has no terminal to answer.
 
 function swatches(base: number): string {
     return Array.from({ length: 8 }, (_, i) => `\\033[${String(base + i)}m ${String(i)} `).join("") + "\\033[0m";
@@ -24,14 +24,14 @@ export default defineScenario({
         { key: "f8", command: "workbench.action.selectTheme" },
         { key: "f9", command: "workbench.action.terminal.toggleTerminal" },
     ],
-    // node-pty спавнит настоящий PTY — как и terminal.scenario.ts, только Linux.
+    // node-pty spawns a real PTY — like terminal.scenario.ts, Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.sendKey("F9");
         await editor.waitForText((t) => t.includes("TERMINAL"));
         await editor.waitForText((t) => t.includes(`${basename(repoRoot)}$`) || t.includes("❯"));
 
-        // Маркер собран из двух кусков: целиком он есть только в выводе, не в эхо команды.
+        // The marker is built from two pieces: it appears whole only in the output, not in the command echo.
         await editor.sendText(`printf 'ansi''-colors\\n${swatches(40)}\\n${swatches(100)}\\n'`);
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("ansi-colors") && t.includes(" 7 "));

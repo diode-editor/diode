@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 
-// Фикстура на 128 строк — прокрутка к строке 30 видна на кадре.
+// A 128-line fixture, so scrolling to line 30 shows in the frame.
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "gutterWidthFolding.ts");
 
 export default defineScenario({

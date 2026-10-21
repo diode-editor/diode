@@ -5,8 +5,9 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Догфуд-баг «Code action failed»: кэш действий вытеснял ответ быстрого провайдера, пока меню собиралось из
-// нескольких (здесь tsserver, Supermaven и chat-panel), и не было команды `<вид>.focus`. Герметично — code-action-to-chat.
+// Dogfood bug "Code action failed": the action cache evicted the fast provider's response while the menu was assembled
+// from several providers (here tsserver, Supermaven and chat-panel), and there was no `<view>.focus` command.
+// Hermetic — code-action-to-chat.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "quickfixSample");
@@ -29,12 +30,12 @@ export default defineScenario({
     },
     cols: 120,
     rows: 32,
-    // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only.
+    // Extension host scenarios run a subprocess + spawn a server — Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("const bad"));
 
-        // Readiness: без диагностики у каретки Supermaven своего действия не предлагает.
+        // Readiness: without a diagnostic at the cursor, Supermaven offers no action of its own.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),

@@ -30,15 +30,14 @@ export default defineScenario({
         await editor.sendKey("Enter");
 
         await editor.waitForText((t) => t.includes("TERMINAL"));
-        // Имя каталога, а не литерал "diode": в git-worktree cwd оканчивается иначе.
+        // The directory name, not the literal "diode": in a git worktree the cwd ends differently.
         await editor.waitForText((t) => t.includes(`${basename(repoRoot)}$`) || t.includes("❯"));
         await editor.capture("terminal-open");
 
-        // The shell is live: type a command and wait for its output line. В тексте
-        // команды маркер разорван пустой подстановкой (diode-term""-ok), поэтому
-        // целиком он может появиться ТОЛЬКО в выводе шелла — ожидание не зависит
-        // ни от глифа промпта, ни от переноса эхо-команды через край панели
-        // (длинный cwd git-worktree переносил её и маркер не собирался).
+        // The shell is live: type a command and wait for its output line. In the command text the marker is split by an
+        // empty substitution (diode-term""-ok), so it can appear whole ONLY in the shell output — the wait depends
+        // neither on the prompt glyph nor on the command echo wrapping past the panel edge (the long git-worktree cwd
+        // wrapped it and the marker never formed).
         await editor.sendText('echo diode-term""-ok');
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("diode-term-ok"));

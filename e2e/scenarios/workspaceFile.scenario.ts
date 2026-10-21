@@ -2,12 +2,12 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `web.code-workspace` прячет `backend`, `backend.code-workspace` — `web`; `.diode/settings.json` каталога прячет
-// `generated` и действует поверх файла воркспейса (слой папки, как у эталона).
+// `web.code-workspace` hides `backend`, `backend.code-workspace` hides `web`; the directory's `.diode/settings.json`
+// hides `generated` and applies on top of the workspace file (folder layer, as upstream).
 
 const fixture = resolve(repoRoot, "e2e", "fixtures", "workspaceFile");
 
-/** Шеврон (один символ в тексте кадра) и имя, дальше пусто; файлы корня под шаблон не попадают. */
+/** A chevron (one character in the frame text) and the name, nothing after; root files don't match the pattern. */
 function hasTopDir(screen: string, name: string): boolean {
     return new RegExp(`^\\s*\\S?\\s*${name}$`, "m").test(screen);
 }

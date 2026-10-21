@@ -5,13 +5,13 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Языковые пункты гейтятся `editorHas*Provider`, поэтому файл — с живым стоковым typescript-language-server.
+// Language items are gated by `editorHas*Provider`, so the file runs with a live stock typescript-language-server.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "lspSample");
 const mainFile = resolve(sampleDir, "main.ts");
 
-/** StyleFlags.Undercurl — признак живого сервера. */
+/** StyleFlags.Undercurl: a sign the server is live. */
 const UNDERCURL = 8;
 
 export default defineScenario({
@@ -28,7 +28,7 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("const reply"));
 
-        // До старта сервера провайдеров нет — в меню только пункты, которым они не нужны.
+        // Before the server starts there are no providers, so the menu has only items that don't need them.
         await editor.sendKey("Shift+F10");
         await editor.waitForText((t) => t.includes("Command Palette"));
         await editor.capture("without-providers");

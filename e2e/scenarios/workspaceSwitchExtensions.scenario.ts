@@ -2,8 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Как у эталона, смена воркспейса перезапускает процесс расширений: иначе redhat.java отдавал jdt.ls пустой
-// набор папок. `workspace-probe` читает `workspace.name` один раз, как настоящие расширения.
+// As upstream, switching workspaces restarts the extension process: otherwise redhat.java handed jdt.ls an empty folder
+// set. `workspace-probe` reads `workspace.name` once, as real extensions do.
 
 const fixture = resolve(repoRoot, "e2e", "fixtures", "workspaceFile");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-workspace-probe");
@@ -15,7 +15,7 @@ export default defineScenario({
     open: [resolve(fixture, "web.code-workspace")],
     cols: 140,
     rows: 24,
-    // Extension-host сценарий: субпроцесс расширений — Linux only, как остальные.
+    // Extension host scenario: the extension host subprocess is Linux only, like the rest.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("web (Workspace)"), {

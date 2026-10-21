@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Рунг mac-cmd: ОС клавиатуры — keyboard.platform, Cmd — форсированная capability super.
+// The mac-cmd rung: keyboard OS comes from keyboard.platform, Cmd from the forced super capability.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
@@ -13,8 +13,8 @@ export default defineScenario({
     settings: {
         "keyboard.platform": "mac",
         "terminal.capabilities": { "extended-keys": true, super: true },
-        // На Windows-раннере встроенный TS-сервер не поднимается и тостами накрывает палитру; окружение e2e
-        // гасит его только сценариям без своих настроек (appSession.ts).
+        // On the Windows runner the builtin TS server fails to start and its toasts cover the palette;
+        // the e2e environment disables it only for scenarios without their own settings (appSession.ts).
         "diode.lsp.typescript.enabled": false,
     },
     userKeybindings: [{ key: "f6", command: "diode.keyboardDoctor" }],
@@ -32,12 +32,12 @@ export default defineScenario({
         await editor.sendKey("Meta+ArrowRight");
         await editor.waitForText((t) => t.includes("Ln 1, Col 33"));
 
-        // Не Ctrl+←: на маке его забирает Mission Control.
+        // Not Ctrl+Left: Mission Control takes it on macOS.
         await editor.sendKey("Alt+ArrowLeft");
         await editor.waitForText((t) => t.includes("Ln 1, Col 28"));
         await editor.capture("option-word-left");
 
-        // Не Home/End: в мак-терминалах они скроллят буфер.
+        // Not Home/End: macOS terminals scroll the buffer with them.
         await editor.sendKey("Ctrl+A");
         await editor.waitForText((t) => t.includes("Ln 1, Col 1"));
         await editor.sendKey("Ctrl+E");

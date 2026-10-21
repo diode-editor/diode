@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Терминал шире порога side-by-side.
+// The terminal is wider than the side-by-side threshold.
 
 function makeWorkspace(): { dir: string; leftFile: string } {
     const dir = mkdtempSync(join(tmpdir(), "diode-compare-demo-"));

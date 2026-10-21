@@ -12,11 +12,11 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
 
-// Ничего не сохраняем — фикстура закоммичена; format on save закрывает goLsp.test.ts в изолированном воркспейсе.
+// Nothing is saved: the fixture is committed; goLsp.test.ts covers format on save in an isolated workspace.
 
 const mainFile = join(GO_SAMPLE_DIR, "main.go");
 
-/** StyleFlags.Undercurl — сигнал «gopls поднялся». */
+/** StyleFlags.Undercurl: signals that gopls is up. */
 const UNDERCURL = 8;
 
 export default defineScenario({
@@ -26,7 +26,7 @@ export default defineScenario({
     installVsix: [GO_ID],
     network: true,
     requires: goToolchainMissing,
-    // gopls — заранее в кэшируемый GOBIN: иначе расширение собирало бы его само.
+    // Pre-install gopls into the cached GOBIN; otherwise the extension would build it itself.
     async prepare() {
         ensureGopls();
     },
@@ -44,7 +44,7 @@ export default defineScenario({
         );
         await editor.capture("diagnostics");
 
-        // `Hello` в `greet.Hello("world")`: строка 10, символ 15.
+        // `Hello` in `greet.Hello("world")`: line 10, character 15.
         for (let i = 0; i < 10; i++) await editor.sendKey("ArrowDown");
         for (let i = 0; i < 15; i++) await editor.sendKey("ArrowRight");
         await editor.sendKey("Ctrl+K");

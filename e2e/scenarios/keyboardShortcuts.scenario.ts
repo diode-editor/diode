@@ -1,7 +1,7 @@
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// keybindings.json засеян конфликтом (selectAll на Ctrl+S поверх save) для кадра @conflicts. Открытие —
-// F6-биндом: Ctrl+K Ctrl+S headless-DSL надёжно не кодирует.
+// keybindings.json is seeded with a conflict (selectAll on Ctrl+S over save) for the @conflicts frame. Opened via
+// an F6 binding: the headless DSL can't reliably encode Ctrl+K Ctrl+S.
 
 export default defineScenario({
     name: "keyboard-shortcuts",
@@ -28,7 +28,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Select All") && t.includes("Save"));
         await editor.capture("conflicts");
 
-        // Рекордер — последним: он уводит фокус на список.
+        // Recorder last: it moves focus to the list.
         await editor.clickNode("#kb-0");
         await editor.clickNode("#kb-0");
         await editor.waitForText((t) => t.includes("Press desired key combination"));

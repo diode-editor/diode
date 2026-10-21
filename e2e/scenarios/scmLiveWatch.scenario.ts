@@ -5,7 +5,8 @@ import { join } from "node:path";
 
 import { defineScenario, type ScenarioDriver } from "./framework.ts";
 
-// Файлы и ветка меняются через `git`/`writeFileSync`, а не редактором: правки мимо редактора должны приехать сами.
+// Files and the branch change via `git`/`writeFileSync`, not the editor: changes made outside the editor must show up
+// on their own.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -27,10 +28,10 @@ function makeRepo(): string {
 const repoDir = makeRepo();
 
 /**
- * Повторяет правку, пока вкладка не отреагирует: watcher взводится асинхронно, а записанное до конца
- * начального скана chokidar гасит `ignoreInitial` — событие теряется насовсем (прогон 37195942480).
- * Настоящий пробел слежения (docs/TODO/FileTreePerformance.md, «Потерянные события в окне взвода»);
- * до его закрытия сценарий моделирует соседний терминал, который продолжает писать.
+ * Repeats the write until the tab reacts: the watcher arms asynchronously, and chokidar's `ignoreInitial`
+ * swallows anything written before the initial scan ends — the event is lost for good (run 37195942480).
+ * This is a real watching gap (docs/TODO/FileTreePerformance.md, the section on events lost in the arming
+ * window); until it is closed, the scenario models a neighbouring terminal that keeps writing.
  */
 async function writeUntilSeen(
     editor: ScenarioDriver,
@@ -55,7 +56,7 @@ export default defineScenario({
     open: [repoDir],
     cols: 100,
     rows: 24,
-    // Нужен extension host — статус публикует git-расширение.
+    // Needs the extension host — the git extension publishes the status.
     skipOn: ["win32", "darwin"],
     userKeybindings: [{ key: "alt+c", command: "workbench.view.scm" }],
     async run(editor) {

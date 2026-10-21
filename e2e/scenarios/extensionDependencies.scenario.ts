@@ -2,10 +2,11 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `deps-consumer` читает exports `test.deps-provider` в activate(): зависимость поднята раньше, хотя её событие
-// не наступило. `deps-broken` зависит от неустановленного и не активируется — тост с причиной.
+// `deps-consumer` reads the exports of `test.deps-provider` in activate(): the dependency is activated first even
+// though its own activation event has not fired. `deps-broken` depends on a missing extension and does not
+// activate; a toast gives the reason.
 
-// Markdown без папки: иначе полосу делят сегменты SCM и спиннер tsserver, и раскладка плывёт.
+// Markdown without a folder: otherwise SCM segments and the tsserver spinner share the status bar and layout shifts.
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-dependencies-demo");
 

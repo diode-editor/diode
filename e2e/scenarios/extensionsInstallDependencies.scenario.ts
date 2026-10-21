@@ -6,7 +6,7 @@ import { createRegistryFixture } from "../helpers/registryFixture.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// У Lang Pack своих вкладов нет — только зависимость на Sample Lang.
+// Lang Pack has no contributions of its own, only a dependency on Sample Lang.
 
 const registry = await createRegistryFixture(join(mkdtempSync(join(tmpdir(), "diode-scenario-registry-")), "registry"), [
     {
@@ -31,7 +31,7 @@ export default defineScenario({
     title: "Extensions: установка тянет extensionDependencies",
     open: [repoRoot],
     extraArgs: [`--registry=${registry}`],
-    // Настоящий Ctrl+Shift+X headless-DSL не кодирует — вешаем команду на F6.
+    // The headless DSL cannot encode a real Ctrl+Shift+X, so the command is bound to F6.
     userKeybindings: [
         { key: "f6", command: "workbench.view.extensions" },
         { key: "f7", command: "workbench.action.increaseSidebarWidth" },
@@ -43,17 +43,17 @@ export default defineScenario({
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("MARKETPLACE"));
         for (let i = 0; i < 4; i++) await editor.sendKey("F7");
-        // Страница Lang Pack — первой записи каталога: фокус в список, Enter.
-        // Без фильтра: он сузил бы и список установленных, а на кадре нужны оба.
+        // Lang Pack's page, the first catalog entry: focus the list, Enter.
+        // No filter: it would narrow the installed list too, and the frame needs both.
         await editor.sendKey("Tab");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
         await editor.waitForNode("#extensionPage-test-lang-pack");
 
-        // Фокус страницы стоит на первой кнопке — это Install.
+        // The page focuses its first button, which is Install.
         await editor.sendKey("Enter");
-        // Список установленных: и Lang Pack, и пришедший с ним Sample Lang, оба
-        // ждут перезагрузки.
+        // The installed list shows both Lang Pack and Sample Lang, which came with it;
+        // both await a reload.
         await editor.waitForText(
             (t) => t.includes("Reload Window") && t.includes("INSTALLED") && /Sample Lang\s+0\.0\.2\s+Reload/u.test(t),
         );

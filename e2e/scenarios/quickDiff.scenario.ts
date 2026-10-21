@@ -5,13 +5,13 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Дифф считает ядро против БУФЕРА, а не файла на диске: бар появляется до сохранения.
+// The core diffs against the BUFFER, not the file on disk: the bar appears before saving.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
 
-/** Свой временный репозиторий — чтобы «чистый» кадр не зависел от состояния diode. */
+/** A dedicated temp repository, so the "clean" frame does not depend on the state of the diode repo. */
 function makeRepo(): { repoDir: string; trackedFile: string } {
     const repoDir = mkdtempSync(join(tmpdir(), "diode-quickdiff-demo-"));
     git(repoDir, "init", "-q");
@@ -33,7 +33,7 @@ export default defineScenario({
     open: [repoDir, trackedFile],
     cols: 90,
     rows: 16,
-    // Нужен extension host (git-расширение отдаёт версию из HEAD) — только Linux.
+    // Needs the extension host (the git extension provides the HEAD version) — Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("charlie"));

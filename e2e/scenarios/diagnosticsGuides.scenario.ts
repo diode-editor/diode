@@ -5,8 +5,8 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Многострочная ошибка tsserver'а накрывает отступы с `│` направляющих: глиф остаётся своего цвета, цвет
-// ошибки достаётся тексту. Второй кадр — quick pick поверх: волна редактора не должна в нём просвечивать.
+// A multi-line tsserver error spans indentation with `│` guides: the glyph keeps its own color, and the error color
+// goes to the text. The second frame has a quick pick on top: the editor's squiggle must not bleed through it.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "diagnosticsGuides");
@@ -29,7 +29,7 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("describe("));
 
-        // Холодная индексация tsserver'а — секунды.
+        // A cold tsserver indexing takes seconds.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),

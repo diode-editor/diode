@@ -17,7 +17,7 @@ export default defineScenario({
     network: true,
     cols: 100,
     rows: 20,
-    // Extension-host scenarios run the subprocess — Linux only.
+    // Extension host scenarios run the subprocess — Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("const sum"));
@@ -26,8 +26,8 @@ export default defineScenario({
         // collapses the indentation range. A fold starting on the `#region` line proves the provider's
         // ranges landed — retry until it appears (slow runners activate seconds later).
         // Ctrl+K Ctrl+L: the headless key DSL can't serialize Ctrl+Shift+[.
-        // Навигация по Ln в статус-баре, а не счётом нажатий: нажатия теряются, пока стартуют расширения,
-        // а collapse уводит курсор в конец документа.
+        // Navigate by the Ln in the status bar, not by counting key presses: presses get lost while extensions
+        // start, and collapse moves the cursor to the end of the document.
         const gotoLine = async (line: number): Promise<void> => {
             for (let i = 0; i < 20; i++) await editor.sendKey("ArrowUp");
             for (let i = 0; i < 15; i++) {
@@ -40,14 +40,14 @@ export default defineScenario({
             await editor.sendKey("Ctrl+K");
             await editor.sendKey("Ctrl+L");
         };
-        // Разворачиваем всегда через unfoldAll (Ctrl+K Ctrl+J): курсорная
-        // навигация ПОВЕРХ свёрнутого региона ненадёжна (прыжки через скрытые
-        // строки + collapse уводит курсор в конец), а gotoLine по статус-бару
-        // на ней флейкает. unfoldAll не требует позиционирования вовсе.
+        // Always unfold via unfoldAll (Ctrl+K Ctrl+J): cursor navigation OVER
+        // a folded region is unreliable (jumps across hidden lines + collapse
+        // moves the cursor to the end), and status-bar gotoLine flakes on it.
+        // unfoldAll needs no positioning at all.
         const unfoldAll = async (): Promise<void> => {
-            // Аккорд, как и fold-цикл выше, может потеряться, пока ext-host/LSP
-            // заняты — один непойманный 10s-wait ронял сценарий на медленном
-            // раннере. Повторяем аккорд с коротким пойманным ожиданием.
+            // Like the fold loop above, the chord can get lost while the extension
+            // host/LSP is busy — a single uncaught 10s wait failed the scenario on
+            // a slow runner. Retry the chord with a short caught wait.
             for (let attempt = 0; attempt < 10; attempt++) {
                 await editor.sendKey("Ctrl+K");
                 await editor.sendKey("Ctrl+J");
@@ -55,7 +55,7 @@ export default defineScenario({
                     await editor.waitForText((t) => t.includes("const sum"), { timeoutMs: 1000 });
                     return;
                 } catch {
-                    // Ещё свёрнуто — жмём аккорд заново.
+                    // Still folded — press the chord again.
                 }
             }
             throw new Error("region-folding: unfoldAll не развернул документ за 10 попыток");
@@ -65,19 +65,19 @@ export default defineScenario({
             await toggleFoldAt(6);
             let folded: string;
             try {
-                // Короткий пойманный wait: аккорд может быть полным no-op
-                // (диапазонов нет вовсе — ни провайдерных, ни indentation на
-                // строке маркера) — это не провал, а «ещё рано», повторяем.
-                // Непойманный 10s-wait ронял сценарий на быстром вводе, который
-                // добегает до аккорда раньше старта ext-host.
+                // Short caught wait: the chord can be a complete no-op (no ranges
+                // at all — neither provider nor indentation ones on the marker
+                // line) — that is "too early", not a failure, so retry. An
+                // uncaught 10s wait failed the scenario on fast input that
+                // reaches the chord before the extension host starts.
                 folded = frameToText(await editor.waitForText((t) => !t.includes("const sum"), { timeoutMs: 1000 }));
             } catch {
                 continue;
             }
             regionFolded = folded.split("\n").some((l) => l.includes("#region") && l.includes("⋯"));
             if (!regionFolded) {
-                // Свернулся indentation-фолд, а не регион: провайдер ещё не
-                // доехал — развернуть всё и повторить.
+                // An indentation fold collapsed, not the region: the provider has
+                // not arrived yet — unfold everything and retry.
                 await unfoldAll();
             }
         }
