@@ -3,20 +3,16 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["src/**/*.test.ts", "extensions/**/*.test.ts", "tools/**/*.test.ts"],
-    // Непредвиденная ошибка (onUnexpectedError — в т.ч. исключение слушателя
-    // Emitter) роняет тест, а не тонет в консоли. См. docs/TESTING.md.
+    // onUnexpectedError (в т.ч. исключение слушателя Emitter) роняет тест, а не тонет в консоли.
     setupFiles: ["src/TestUtils/unexpectedErrors.setup.ts"],
-    // Все временные каталоги прогона — внутрь одного корня (TMPDIR), который
-    // teardown сносит целиком. Страховка от SIGKILL/OOM: afterEach тогда не
-    // бежит, и забытое оставалось в /tmp навсегда. См. src/TestUtils/tmpRoot.ts.
+    // Временные каталоги — в один корень (TMPDIR), который teardown сносит целиком:
+    // после SIGKILL/OOM afterEach не бежит, и забытое оставалось в /tmp навсегда.
     globalSetup: ["src/TestUtils/tmpRoot.ts"],
     coverage: {
       skipFull: true,
       reportOnFailure: true,
       provider: "v8",
-      // Храповик: CI падает при регрессе покрытия, планка сама ползёт вверх,
-      // когда покрытие растёт (autoUpdate перезаписывает числа ниже).
-      // Цель — покрываем весь новый код; исключения см. ниже + docs/TESTING.md.
+      // Храповик: autoUpdate поднимает числа вслед за покрытием; исключения — docs/TESTING.md.
       thresholds: {
         autoUpdate: true,
         statements: 54.86,
@@ -45,15 +41,10 @@ export default defineConfig({
         "src/StoryRunner/**",
         "src/vs/workbench/services/extensions/node/__fixtures__/**",
 
-        // --- Дословный перенос upstream vscode: не наш код ---
-        // Переносится машинно (scripts/import-vscode-editor.mjs), правится только
-        // сменой пина, ручные правки запрещены — покрывать нечего и незачем.
-        // Настоящий гейт этого кода — фикстурный корпус upstream на 58 кейсов
-        // (src/vs/editor/common/diff/diffFixtures.test.ts): он ловит поехавший
-        // перенос точнее, чем построчное покрытие. Прецедент — vscode.d.ts ниже.
-        // ВАЖНО: шимы в src/vs/base/common/{arrays,arraysFind,assert,errors,map,
-        // strings}.ts сюда НЕ входят — они написаны руками, значит покрываются
-        // храповиком на общих основаниях (тесты рядом с ними).
+        // --- Дословный перенос upstream (scripts/import-vscode-editor.mjs): не наш код ---
+        // Гейт — фикстурный корпус upstream (diff/diffFixtures.test.ts), он ловит поехавший
+        // перенос точнее покрытия. Шимы base/common/{arrays,arraysFind,assert,errors,map,
+        // strings}.ts сюда НЕ входят: написаны руками и покрываются храповиком.
         "src/vs/editor/common/diff/linesDiffComputer.ts",
         "src/vs/editor/common/diff/rangeMapping.ts",
         "src/vs/editor/common/diff/defaultLinesDiffComputer/**",

@@ -1,34 +1,15 @@
 /**
- * Ленивые куски бандла («распил»): зависимости, которые не нужны до первого
- * кадра, не лежат в `dist/main.cjs`, а собираются отдельными CJS-файлами
- * `lazy/<id>.cjs`. SEA вшивает их ассетами, self-extract и `node dist/main.cjs`
- * берут файлом рядом с `main.cjs`. Грузит их `loadLazyModule`
- * (`src/vs/base/node/lazyModule.ts`) при первом обращении к фиче.
+ * Ленивые куски бандла: зависимости, не нужные до первого кадра, собираются не в
+ * `dist/main.cjs`, а отдельными `lazy/<id>.cjs` (SEA — ассетами, иначе файлом
+ * рядом с `main.cjs`); грузит их `loadLazyModule` при первом обращении к фиче.
+ * В `main.cjs` от куска остаётся внешний `import("<id>")` (`tsup.config.ts`) —
+ * запасной путь dev-сборки.
  *
- * Как это держится:
- *  - `tsup.config.ts` объявляет каждый `id` из {@link LAZY_CHUNKS} внешним:
- *    в `main.cjs` остаётся голый `import("<id>")` — запасной путь dev-сборки,
- *    в упакованной сборке до него не доходит (загрузчик находит кусок раньше);
- *  - {@link buildLazyChunks} собирает куски esbuild'ом (CJS, platform node);
- *  - {@link verifyLazyChunks} — храповик на граф первого кадра: ни один модуль
- *    куска не попал в `main.cjs`, `main.cjs` не импортирует кусок статически,
- *    кусок не тянет ничего, кроме встроенных модулей node. Его зовёт сборка
- *    (`build-dist.mjs`) и CI (`scripts/check-lazy-chunks.mjs`, job `static`).
+ * Кусок — либо пакет (`id`), либо наш код (`entry`, роль процесса); роль делит с
+ * ядром общие модули и несёт их копией в пределах `sharedBudgetKb`.
  *
- *  - {@link buildLazyChunkCodeCaches} снимает кэш кода V8 для каждого куска
- *    (только для SEA: тот же node и вшивается, процесс — из снапшота, иначе кэш отвергнут).
- *
- * Два вида кусков:
- *  - пакет (`id` — имя пакета из node_modules): листовая библиотека без нашего
- *    кода, ни один её модуль не лежит в `main.cjs`;
- *  - наш код (`entry` — путь к модулю-входу): роль процесса (extension host,
- *    file watcher). Её граф делит с ядром общие модули (`base/common`, протокол
- *    RPC, `vscodeTypes`): кусок несёт их копией, ядро — своей. Гейт держит
- *    вход вне `main.cjs` и цену копии — `sharedBudgetKb`, см. {@link verifyLazyChunks}.
- *
- * Новая часть распила — запись в {@link LAZY_CHUNKS} плюс `loadLazyModule` (node) или `importLazyModule` (common) на
- * её шве; остальное (external, сборка, ассеты SEA, payload self-extract,
- * гейт) подхватывается из списка. Рецепт — docs/arch/Common.md («Ленивые куски»).
+ * Новый кусок — запись в {@link LAZY_CHUNKS} плюс `loadLazyModule`/`importLazyModule`
+ * на шве; остальное подхватывается из списка. Рецепт — docs/arch/Common.md («Ленивые куски»).
  */
 
 import { execFileSync } from "node:child_process";
@@ -39,22 +20,14 @@ import { basename, dirname, join, resolve } from "node:path";
 import { resolveDiodeVersion } from "./resolve-version.mjs";
 
 /**
- * Флаги node, с которыми собирается V8-снапшот бинаря (build-sea.mjs, оба прохода)
- * и гейта снапшота: `--predictable` делает снапшот воспроизводимым для проверки
- * кэша кода, иначе кэш кусков, снятый бинарём первого прохода, бинарь второго
- * отвергает ({@link buildLazyChunkCodeCaches}).
+ * Флаги сборки V8-снапшота: без `--predictable` кэш кусков, снятый бинарём первого
+ * прохода, бинарь второго отвергает ({@link buildLazyChunkCodeCaches}).
  */
 export const SNAPSHOT_BUILD_FLAGS = ["--predictable"];
 
-/**
- * Вход сборки V8-снапшота ядра (build-sea.mjs, гейт check-snapshot.mjs): исполняет
- * `main.cjs`, скомпилированный eagerly, — байткод всех функций бандла едет в блобе
- * (подробности — в самом файле). Путь к `main.cjs` — env {@link snapshotEntryEnv}.
- */
 export const SNAPSHOT_ENTRY = join(import.meta.dirname, "snapshot-entry.cjs");
 
 /**
- * Env процесса сборки снапшота: путь к `main.cjs` для {@link SNAPSHOT_ENTRY}.
  * @param {string} mainPath
  * @returns {Record<string, string>}
  */
@@ -63,42 +36,28 @@ export function snapshotEntryEnv(mainPath) {
 }
 
 /**
- * Список ленивых кусков. Растёт с каждой частью этапа 1 (docs/TODO/OpenPerformance.md).
+ * `warmup` — прогрев при снятии кэша кода: V8 кэширует только уже скомпилированные
+ * функции, а компилирует лениво, так что без прогрева в кэш попадает лишь исполнение
+ * модуля. Функция уезжает в дочерний node исходником (`String(fn)`) — без замыканий.
  *
- * `warmup` — что сделать с модулем при снятии кэша кода ({@link buildLazyChunkCodeCaches}):
- * V8 кладёт в кэш только уже скомпилированные функции, а компилирует их лениво,
- * при первом вызове. Без прогрева в кэш попадает исполнение модуля, с прогревом —
- * и первый путь фичи. Функция уезжает в дочерний node исходником (`String(fn)`),
- * поэтому замыканий у неё быть не должно.
- *
- * `entry` — кусок из нашего кода: путь модуля-входа от корня репозитория. Его
- * `import()` в ядре `tsup.config.ts` превращает в внешний `import("<id>")`
- * ({@link lazyEntryChunksPlugin}). `sharedBudgetKb` — сколько КБ общих с ядром
- * модулей кусок вправе нести копией (обязателен при `entry`, см. {@link verifyLazyChunks}).
+ * `entry` — путь модуля-входа от корня репозитория; `sharedBudgetKb` при нём обязателен.
  *
  * @type {ReadonlyArray<{ id: string, reason: string, warmup?: (module: any) => unknown, entry?: string, sharedBudgetKb?: number }>}
  */
 export const LAZY_CHUNKS = [
-    // Пилот распила: листовая CJS-библиотека без нашего кода, нужна только
-    // установке и чтению .vsix (extensionInstaller.ts).
     { id: "yauzl", reason: "установка .vsix" },
-    // Первый кусок, который зовёт common-код (разбор реестра, совместимость
-    // engines): через importLazyModule из base/common/lazyModule.ts.
+    // Зовётся из common-кода — через importLazyModule.
     { id: "semver", reason: "магазин расширений: версии реестра и engines" },
-    // VT-эмулятор встроенного терминала: грузится при создании первой сессии
-    // (XtermSurface), вывод до готовности копится в очереди поверхности.
     {
         id: "@xterm/headless",
         reason: "встроенный терминал: VT-эмулятор",
-        // Первый терминал: эмулятор, вывод с цветом и переводом строки — как XtermSurface.
+        // Как первый вывод XtermSurface: цвет и перевод строки.
         warmup: async (xterm) => {
             const term = new xterm.Terminal({ cols: 80, rows: 24, allowProposedApi: true, scrollback: 1000 });
             await new Promise((resolve) => term.write("diode \u001b[32mwarmup\u001b[0m\r\n$ ", resolve));
             term.dispose();
         },
     },
-    // Кодировки кроме utf-8 и UTF-16 (те — нативно, encoding.ts): грузится на
-    // первом Reopen/Save with Encoding в такой кодировке, а не при открытии файла.
     {
         id: "iconv-lite",
         reason: "кодировки кроме utf-8 и UTF-16",
@@ -108,25 +67,16 @@ export const LAZY_CHUNKS = [
             iconv.decode(bytes, "windows1251", { stripBOM: false });
         },
     },
-    // Роли процесса — наш код. Реализация vscode API (workbench/api) нужна только
-    // extension host'у: редактор её не парсит, ext host грузит кусок, войдя в
-    // свою ветку main.ts. Бюджет — замер плюс ~5 %: общее с ядром (143 КБ из
-    // 371) — vscodeTypes, протокол RPC, vscode-uri, jsonc-parser, base/common.
-    // 150 → 155: законный рост протокола — парсеры коллекций окружения
-    // (`environmentVariableCollection`) и их enum нужны обеим сторонам (151.3 КБ).
-    // 155 → 156 (решение человека): разбор `sideEditors` в снимке полосы — стороны
-    // диффа видны расширению как `visibleTextEditors` (предложенный дифф Claude
-    // Code); main шёл в 40 байтах от потолка, ветка дала 155.06 КБ.
-    // Устройство и цена копии — docs/arch/Common.md, «Ленивые куски бандла».
+    // Бюджет — замер плюс ~5 %; общее с ядром — vscodeTypes, протокол RPC, vscode-uri,
+    // jsonc-parser, base/common. Подъёмы: 155 — парсеры environmentVariableCollection,
+    // 156 (решение человека) — `sideEditors` в снимке полосы (#683, 155.06 КБ).
     {
         id: "roles/extension-host",
         reason: "роль extension host: реализация vscode API",
         entry: "src/vs/diode/roles/extensionHostRole.ts",
         sharedBudgetKb: 156,
     },
-    // Watcher-процесс: своего кода — ~12 КБ (обход дерева, сервер протокола),
-    // общее с ядром (63 КБ из 75) — chokidar: редактор держит его для подписок
-    // на файлы настроек (ChokidarFileWatcher).
+    // Общее с ядром (63 КБ из 75) — chokidar: ядро держит его для подписок на файлы настроек.
     {
         id: "roles/file-watcher",
         reason: "роль file watcher: обход дерева",
@@ -136,19 +86,14 @@ export const LAZY_CHUNKS = [
 ];
 
 /**
- * Поля `package.json` для резолва пакетов в CJS-сборках ядра и кусков из нашего
- * кода: `module` раньше `main`, как резолвила ESM-сборка ядра. Под CJS esbuild
- * по умолчанию берёт `main`, а у jsonc-parser там UMD с динамическим `require`
- * внутри фабрики: esbuild его не вклеит, и бандл падает в рантайме.
+ * `module` раньше `main`: под CJS esbuild берёт `main`, а у jsonc-parser там UMD с
+ * `require` внутри фабрики — esbuild его не вклеит, и бандл падает в рантайме.
  */
 export const MAIN_FIELDS = ["module", "main"];
 
 /**
- * Шим `import.meta.url` для CJS-сборок — ядра (`tsup.config.ts`) и кусков из
- * нашего кода, один на всех: ленивый геттер URL главного скрипта процесса
- * (`scripts/import-meta-url-shim.mjs`, там же — почему не `__filename` и не
- * `process.argv[1]`). Путь — от `repoRoot`: tsup бандлит свой конфиг вместе с
- * этим модулем, и `import.meta.dirname` здесь указывал бы на корень.
+ * Путь — от `repoRoot`: tsup бандлит свой конфиг вместе с этим модулем, и
+ * `import.meta.dirname` здесь указывал бы на корень.
  *
  * @param {string} repoRoot
  * @returns {{ define: Record<string, string>, inject: string[] }}
@@ -160,15 +105,11 @@ export function importMetaUrlShim(repoRoot) {
     };
 }
 
-/** Имена всех кусков: кусок вправе звать другой кусок `import()`'ом (ext host — iconv). */
 const LAZY_CHUNK_IDS = new Set(LAZY_CHUNKS.map(({ id }) => id));
 
 /**
- * Плагин esbuild для сборки ядра (`tsup.config.ts`): `import()` модуля-входа
- * куска из нашего кода становится внешним `import("<id>")`, как у кусков-пакетов.
- * Без него esbuild без code-splitting вклеил бы вход в `main.cjs` целиком.
- * Статический импорт входа плагин превращает так же — его ловит гейт
- * ({@link verifyLazyChunks}, правило 2), а не молчаливая вклейка.
+ * `import()` входа куска → внешний `import("<id>")`: без code-splitting esbuild вклеил
+ * бы вход в `main.cjs`. Статический импорт входа превращается так же — и его ловит гейт.
  *
  * @param {string} repoRoot
  * @returns {import("esbuild").Plugin}
@@ -189,8 +130,7 @@ export function lazyEntryChunksPlugin(repoRoot) {
 }
 
 /**
- * Имя ассета куска: ключ SEA-ассета и путь файла относительно `main.cjs`.
- * Та же формула — в `lazyChunkAssetName` (`src/vs/base/node/lazyModule.ts`).
+ * Ключ SEA-ассета и путь относительно `main.cjs`; та же формула — в `src/vs/base/node/lazyModule.ts`.
  *
  * @param {string} id
  */
@@ -199,8 +139,7 @@ export function lazyChunkAssetName(id) {
 }
 
 /**
- * Имя ассета кэша кода куска. Та же формула — в `lazyChunkCacheAssetName`
- * (`src/vs/base/node/lazyModule.ts`).
+ * Та же формула — в `src/vs/base/node/lazyModule.ts`.
  *
  * @param {string} id
  */
@@ -209,17 +148,10 @@ export function lazyChunkCacheAssetName(id) {
 }
 
 /**
- * Снимает кэш кода каждого куска в `<outDir>/<lazy/<id>.v8cache>` для SEA.
- *
- * Бинарь стартует из V8-снапшота ядра (`useSnapshot`, build-sea.mjs), а V8
- * принимает кэш кода, только если совпали версия, флаги и снапшот процесса: у
- * node 26 — снапшот того же входа, собранный с `--predictable`
- * ({@link SNAPSHOT_BUILD_FLAGS}; без флага кэш отвергает даже пересобранный
- * снапшот того же скрипта). Поэтому кэш снимает сам бинарь первого прохода
- * сборки в режиме run-as-node, а второй проход вшивает его в бинарь, собранный из
- * того же `main.cjs` с теми же флагами. Без `NODE_OPTIONS`: флаги V8 обязаны
- * совпасть с рантаймом бинаря. Кэш едет только в SEA: self-extract и
- * `node dist/main.cjs` стартуют без снапшота, и кэш им не подходит.
+ * Только для SEA. V8 принимает кэш, лишь если совпали версия, флаги и снапшот процесса
+ * (у node 26 — снапшот того же входа с `--predictable`), поэтому кэш снимает бинарь
+ * первого прохода в run-as-node, а второй проход вшивает его в бинарь из того же
+ * `main.cjs`. Без `NODE_OPTIONS`: флаги V8 обязаны совпасть с рантаймом бинаря.
  *
  * @param {{ chunks: ReadonlyArray<{ id: string, asset: string, path: string }>, outDir: string, command: readonly string[] }} params
  *   `command` — чем исполнять `lazy-chunk-code-cache.cjs`: `[бинарь]` (с
@@ -230,8 +162,7 @@ export function buildLazyChunkCodeCaches({ chunks, outDir, command }) {
     const warmups = new Map(LAZY_CHUNKS.map(({ id, warmup }) => [id, warmup]));
     const env = { ...process.env, DIODE_RUN_AS_NODE: "1" };
     delete env.NODE_OPTIONS;
-    // Путь — здесь, а не константой модуля: tsup вклеивает этот файл в свой конфиг,
-    // и `import.meta.dirname` верхнего уровня там указывал бы на корень репозитория.
+    // Не константой модуля: tsup вклеивает файл в свой конфиг, и `import.meta.dirname` там — корень.
     const script = join(import.meta.dirname, "lazy-chunk-code-cache.cjs");
     const [file, ...prefix] = command;
     return chunks.map(({ id, asset, path }) => {
@@ -246,8 +177,6 @@ export function buildLazyChunkCodeCaches({ chunks, outDir, command }) {
 }
 
 /**
- * Собирает куски в `<distDir>/lazy/<id>.cjs`.
- *
  * @param {{ repoRoot: string, distDir: string, write?: boolean }} params
  *   `write: false` — только собрать (гейт без сборки бинаря).
  * @returns {Promise<Array<{ id: string, asset: string, path: string, metafile: import("esbuild").Metafile }>>}
@@ -258,8 +187,6 @@ export async function buildLazyChunks({ repoRoot, distDir, write = true }) {
     for (const { id, entry, sharedBudgetKb } of LAZY_CHUNKS) {
         const asset = lazyChunkAssetName(id);
         const outfile = join(distDir, asset);
-        // Пакет — require по имени; наш код — по пути входа. Другие куски кусок
-        // зовёт import()'ом через загрузчик, поэтому они ему внешние.
         const target = entry === undefined ? id : `./${entry}`;
         const result = await esbuild.build({
             stdin: { contents: `module.exports = require(${JSON.stringify(target)});`, resolveDir: repoRoot, loader: "js" },
@@ -275,13 +202,11 @@ export async function buildLazyChunks({ repoRoot, distDir, write = true }) {
             ...(entry === undefined
                 ? {}
                 : {
+                      // Другие куски зовутся import()'ом через загрузчик.
                       external: [...LAZY_CHUNK_IDS].filter((other) => other !== id),
-                      // Пакеты — той же сборкой, что в main.cjs (MAIN_FIELDS). Иначе общий модуль в
-                      // куске и в ядре — разные файлы, и гейт копию не видит; а UMD-сборка
-                      // jsonc-parser в бандле ломается (require внутри фабрики).
+                      // Та же сборка пакетов, что в main.cjs, иначе общий модуль — разные файлы, и гейт копию не видит.
                       mainFields: MAIN_FIELDS,
-                      // Та же версия, что tsup зашивает в main.cjs (tsup.config.ts), и тот же шим
-                      // import.meta.url: entryDir() (packagedRuntime.ts) куска — каталог main.cjs.
+                      // Тот же шим, что у ядра: entryDir() куска обязан быть каталогом main.cjs.
                       define: {
                           __DIODE_VERSION__: JSON.stringify(resolveDiodeVersion()),
                           ...importMetaUrlShim(repoRoot).define,
@@ -308,15 +233,9 @@ function isBuiltin(path) {
 }
 
 /**
- * Храповик на граф первого кадра. Пустой массив — всё чисто.
- *
- * Кусок-пакет: ни один его модуль не лежит в `main.cjs`. Кусок из нашего кода
- * (`entry`) делит с ядром общие модули, и запретить пересечение нельзя, поэтому
- * правило другое: вход куска не лежит в `main.cjs` (иначе ядро тянет роль
- * статически и кусок бесполезен), а общие модули кусок несёт копией не больше
- * `sharedBudgetKb`. Копия — цена в процессе роли (лишний парс) и состояние
- * уровня модуля в двух экземплярах; утечка кода роли в ядро делает её больше
- * бюджета, и гейт называет модули, через которые пересечение выросло.
+ * Храповик на граф первого кадра. Кусок из нашего кода делит с ядром общие модули,
+ * поэтому для него правило мягче, чем для пакета: вход вне `main.cjs`, а копия общих
+ * модулей (лишний парс и состояние модуля в двух экземплярах) — в бюджете.
  *
  * @param {{ mainMetafile: import("esbuild").Metafile, chunks: ReadonlyArray<{ id: string, metafile: import("esbuild").Metafile, entry?: string, sharedBudgetKb?: number }> }} params
  * @returns {string[]} нарушения, по строке на каждое
@@ -327,9 +246,8 @@ export function verifyLazyChunks({ mainMetafile, chunks }) {
     const mainInputs = new Set(mainOutputs.flatMap(([, output]) => Object.keys(output.inputs)));
 
     for (const { id, metafile, entry, sharedBudgetKb } of chunks) {
-        // 1. Модули куска не продублированы в ядре. Ввод stdin-обёртки — не модуль куска.
+        // 1. Модули куска не продублированы в ядре.
         if (entry === undefined) {
-            // Пакет целиком уехал из main.cjs.
             for (const input of Object.keys(metafile.inputs)) {
                 if (input !== "<stdin>" && mainInputs.has(input)) {
                     errors.push(`${id}: модуль ${input} лежит и в куске, и в main.cjs — его тянет статический импорт ядра`);
@@ -346,8 +264,7 @@ export function verifyLazyChunks({ mainMetafile, chunks }) {
                 }
             }
         }
-        // 3. Кусок самодостаточен: в рантайме у него есть только require встроенных
-        // модулей и другие куски через import() (их находит загрузчик).
+        // 3. Кусок самодостаточен: только встроенные модули и другие куски через import().
         for (const output of Object.values(metafile.outputs)) {
             for (const imp of output.imports) {
                 if (!imp.external || isBuiltin(imp.path)) continue;
@@ -360,8 +277,6 @@ export function verifyLazyChunks({ mainMetafile, chunks }) {
 }
 
 /**
- * Выходы с кодом (`main.cjs`, без `.map`).
- *
  * @param {import("esbuild").Metafile} metafile
  */
 function codeOutputs(metafile) {
@@ -369,9 +284,6 @@ function codeOutputs(metafile) {
 }
 
 /**
- * Общие с ядром модули куска (крупные первыми) и их суммарный размер в куске —
- * столько процесс роли парсит второй раз.
- *
  * @param {import("esbuild").Metafile} metafile
  * @param {Set<string>} mainInputs
  */
@@ -385,8 +297,7 @@ function sharedWithMain(metafile, mainInputs) {
 }
 
 /**
- * Сводка по кускам из нашего кода для гейта: размер куска и копия общих модулей
- * против бюджета — по ней бюджет выставляют и поднимают осознанно.
+ * По этой сводке бюджет выставляют и поднимают осознанно.
  *
  * @param {{ mainMetafile: import("esbuild").Metafile, chunks: ReadonlyArray<{ id: string, metafile: import("esbuild").Metafile, entry?: string, sharedBudgetKb?: number }> }} params
  * @returns {string[]}
@@ -404,8 +315,6 @@ export function describeEntryChunks({ mainMetafile, chunks }) {
 }
 
 /**
- * Правило 1 для куска из нашего кода: вход вне ядра, копия общих модулей в бюджете.
- *
  * @param {{ id: string, metafile: import("esbuild").Metafile, entry: string, sharedBudgetKb: number | undefined, mainInputs: Set<string> }} params
  * @returns {string[]}
  */

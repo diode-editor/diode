@@ -1,39 +1,24 @@
-/**
- * Чистые функции прогона e2e: сколько воркеров, что упало, что флак. Без побочных
- * эффектов — их зовут `vitest.e2e.config.ts` (число воркеров) и `scripts/e2e.mjs`
- * (автоповтор), а проверяет `scripts/e2e-plan.test.mjs`.
- */
+/** Чистые функции прогона e2e: сколько воркеров, что упало, что флак. */
 
 import { availableParallelism, freemem, totalmem } from "node:os";
 import { relative } from "node:path";
 
 const GiB = 1024 ** 3;
 
-/**
- * Сколько памяти держит один воркер e2e в худшем случае: форк vitest (~0,15 ГБ) +
- * редактор (~0,33) + субпроцесс расширений + языковой сервер (tsserver 0,36,
- * basedpyright 0,39; у java-lsp — две JVM). Замер — docs/TESTING.md, «Прогон: сборка, воркеры…».
- */
+/** Худший случай: vitest + редактор + субпроцесс расширений + языковой сервер; замер — docs/TESTING.md. */
 export const WORKER_BYTES = 1.5 * GiB;
-/** Что оставить системе, главному процессу vitest и прочим жильцам машины. */
 export const RESERVE_BYTES = 2 * GiB;
-/** Запас поверх уже свободной памяти: она снимок, и прогон сам её чуть съест. */
+/** Свободная память — снимок, и прогон сам её чуть съест. */
 export const AVAILABLE_HEADROOM_BYTES = 1 * GiB;
 
 /**
- * Число воркеров e2e: меньшее из трёх ограничений, не меньше одного.
+ * Меньшее из трёх ограничений:
  *
- *  - ядра: половина — каждый файл поднимает тяжёлый бинарь (+PTY, +субпроцесс
- *    расширений), и четыре таких на четырёх ядрах насыщают CPU: тайминг-тесты
- *    (рестарт, RPC, PTY-ввод) начинают флейкать;
- *  - вся память машины (или лимит cgroup, если он меньше) минус резерв — потолок
- *    на тихой машине;
- *  - свободная СЕЙЧАС память минус запас — потому что машина общая: соседний
- *    сеанс с мутационным гейтом держит гигабайты, и прогон, посчитанный от
- *    полной памяти, уходил в OOM. Свободная память — снимок, но ошибается в
- *    безопасную сторону: занятая машина даёт меньше воркеров.
- *
- * `DIODE_E2E_WORKERS` — явное число, без расчёта.
+ *  - половина ядер: полный бинарь на каждом ядре насыщает CPU, и тайминг-тесты
+ *    (рестарт, RPC, PTY-ввод) флейкают;
+ *  - вся память (или лимит cgroup) минус резерв;
+ *  - свободная СЕЙЧАС память минус запас: машина общая, и прогон, посчитанный от
+ *    полной памяти, уходил в OOM рядом с мутационным гейтом соседа.
  *
  * @param {{ cpus?: number, totalBytes?: number, constrainedBytes?: number, availableBytes?: number, env?: Record<string, string | undefined> }} [machine]
  * @returns {{ workers: number, reason: string }}
@@ -68,8 +53,6 @@ export function planWorkers(machine = {}) {
 }
 
 /**
- * Разбор JSON-репорта vitest: какие файлы упали и какие тесты в них.
- *
  * @param {{ testResults?: { name: string, status: string, message?: string, assertionResults?: { fullName?: string, title?: string, status: string, failureMessages?: string[] }[] }[] }} report
  * @param {string} repoRoot
  * @returns {{ files: number, failed: { file: string, tests: { name: string, message: string }[] }[] }}
@@ -82,7 +65,7 @@ export function analyzeReport(report, repoRoot) {
         const tests = (result.assertionResults ?? [])
             .filter((a) => a.status === "failed")
             .map((a) => ({ name: a.fullName ?? a.title ?? "?", message: firstLine(a.failureMessages?.[0]) }));
-        // Упал сам файл (импорт, хук, таймаут beforeAll) — тестов в нём нет, причина в message.
+        // Упал сам файл (импорт, хук, таймаут beforeAll) — причина в message.
         if (tests.length === 0) tests.push({ name: "(файл целиком)", message: firstLine(result.message) });
         failed.push({ file: relative(repoRoot, result.name).replaceAll("\\", "/"), tests });
     }
@@ -94,8 +77,7 @@ function firstLine(text) {
 }
 
 /**
- * Итог двух проходов. Флак — файл, упавший в первом и зелёный во втором (оба
- * прохода гоняют один и тот же неизменяемый бинарь, так что разница — не в коде).
+ * Флак — упал в первом проходе и зелёный во втором: бинарь у них один и неизменяемый.
  *
  * @param {{ failed: { file: string, tests: { name: string, message: string }[] }[] }} first
  * @param {{ failed: { file: string }[] } | null} second `null` — второго прохода не было
@@ -111,8 +93,6 @@ export function verdict(first, second) {
 }
 
 /**
- * Markdown-итог для `$GITHUB_STEP_SUMMARY` и для конца вывода.
- *
  * @param {ReturnType<typeof verdict>} result
  * @param {{ files: number, workers: number, retried: boolean, wallSeconds: number }} info
  */

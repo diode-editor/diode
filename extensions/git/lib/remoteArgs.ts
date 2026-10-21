@@ -1,6 +1,5 @@
 import { safeRefArg } from "./syncArgs.ts";
 
-/** Сборка argv remote/tag-операций (значения — через {@link safeRefArg}). */
 export function remoteAddArgs(params: Record<string, unknown>): string[] | null {
     const name = safeRefArg(params.name);
     const url = safeRefArg(params.url);
@@ -13,10 +12,7 @@ export function remoteRemoveArgs(params: Record<string, unknown>): string[] | nu
     return name === null ? null : ["remote", "remove", name];
 }
 
-/**
- * Аннотированный тег при непустом сообщении, иначе lightweight. Необязательный
- * `ref` ставит тег на конкретный коммит (граф) — без него git берёт HEAD.
- */
+/** Аннотированный тег при непустом сообщении, иначе lightweight; без `ref` — HEAD. */
 export function tagCreateArgs(params: Record<string, unknown>): string[] | null {
     const name = safeRefArg(params.name);
     if (name === null) return null;

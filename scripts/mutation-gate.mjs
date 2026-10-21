@@ -1,14 +1,8 @@
-/**
- * Чистая логика мутационного гейта: разбор аргументов, ключ мутанта, скоуп,
- * балл. Вынесена из `mutation-diff.mjs` и `mutation-report.mjs`, чтобы оба
- * скрипта считали одинаково, а сама логика проверялась тестом
- * (`mutation-gate.test.mjs`, `node --test`), без Stryker'а и git'а.
- */
+/** Чистая логика мутационного гейта — общая для `mutation-diff.mjs` и `mutation-report.mjs`. */
 
 /**
- * Флаги Stryker'а без значения (`stryker run --help`, v10). Нужны, чтобы
- * отличить значение флага (`--concurrency 4`) от позиционного аргумента
- * (`--incremental X`): у Stryker'а позиционный — это `[configFile]`.
+ * `stryker run --help`, v10. Отличают значение флага (`--concurrency 4`) от
+ * позиционного `[configFile]` (`--incremental X`).
  */
 const STRYKER_BOOLEAN_FLAGS = new Set([
     "--ignoreStatic",
@@ -20,12 +14,7 @@ const STRYKER_BOOLEAN_FLAGS = new Set([
     "--inPlace",
 ]);
 
-/**
- * Позиционный аргумент у `mutation-diff.mjs`. Отдельный класс — для хука
- * `.claude/hooks/bash-guard.mjs`: он зовёт `parseArgs` на словах команды и
- * отказывает до запуска ровно на том, на чём упал бы гейт, а не на своей
- * догадке, где у флага значение.
- */
+/** Отдельный класс — для `.claude/hooks/bash-guard.mjs`: хук отказывает ровно там, где упал бы гейт. */
 export class PositionalArgumentError extends Error {
     constructor(arg) {
         super(`Непонятный позиционный аргумент «${arg}». База диффа задаётся флагом: --base ${arg}`);
@@ -34,13 +23,8 @@ export class PositionalArgumentError extends Error {
 }
 
 /**
- * Разбирает аргументы `mutation-diff.mjs`.
- *
- * База задаётся только флагом `--base <ref>`. Раньше ею был первый позиционный
- * аргумент, и `npm run test:mutation -- X` ломался молча: npm-скрипт сам ставит
- * `--ignoreStatic --incremental` первыми, база тихо становилась `main`, а `X`
- * уезжал Stryker'у как имя конфига. Поэтому любой позиционный аргумент теперь —
- * ошибка с подсказкой, а не догадка.
+ * Позиционный аргумент — ошибка: npm-скрипт сам ставит `--ignoreStatic --incremental`
+ * первыми, и `npm run test:mutation -- X` молча отдавал `X` Stryker'у как имя конфига.
  */
 export function parseArgs(argv) {
     let base = null;
@@ -84,18 +68,14 @@ export function parseArgs(argv) {
     return { base, scopeOnly, verify, strykerArgs: ensureJsonReporter(strykerArgs) };
 }
 
-/** Числовые флаги перепроверки вживлением → опция `verifyMutants` и множитель единицы. */
+/** Флаг → опция `verifyMutants` и множитель единицы. */
 const VERIFY_NUMBER_FLAGS = {
     "--verify-jobs": ["jobs", 1],
     "--verify-timeout": ["timeoutMs", 1000],
     "--verify-budget": ["budgetMs", 60_000],
 };
 
-/**
- * Гейт читает `mutation.json` — без json-репортёра отчёта не будет, и вердикт
- * выйдет «нет отчёта» вместо результата. Явный `--reporters` без `json`
- * дополняем, а не отвергаем: остальные репортёры остаются как просили.
- */
+/** Без json-репортёра нет `mutation.json`, а с ним и вердикта; остальные репортёры остаются. */
 export function ensureJsonReporter(args) {
     return args.map((arg, i) => {
         if (arg.startsWith("--reporters=")) return `--reporters=${withJson(arg.slice("--reporters=".length))}`;
@@ -110,22 +90,14 @@ function withJson(list) {
 }
 
 /**
- * Ключ мутанта, по которому сводятся отчёты двух прогонов. Тот же состав, что
- * у Stryker'а (`mutantToIdentifyingKey` в incremental-differ): файл, начало И
- * конец, мутатор, замена. Без конца и замены `ConditionalExpression → true` и
- * `→ false` на одной позиции склеивались, и убитый на перепроверке один
- * записывал убитым и выжившего второго.
+ * Состав — как у Stryker'а (`mutantToIdentifyingKey`). Без конца и замены `→ true`
+ * и `→ false` на одной позиции склеивались, и убитый записывал убитым второго.
  */
 export function mutantKey(file, mutant) {
     const { start, end } = mutant.location;
     return `${file}@${start.line}:${start.column}-${end.line}:${end.column}\n${mutant.mutatorName}: ${String(mutant.replacement)}`;
 }
 
-/**
- * Скоуп `--mutate` в виде диапазонов: `file` — весь файл, `file:a-b` — строки.
- * Семантика — как у инструментатора Stryker'а: мутант в скоупе, только если
- * целиком внутри диапазона (`locationIncluded`).
- */
 export function parseScope(entries) {
     return entries.map((entry) => {
         const match = /^(.*):(\d+)-(\d+)$/.exec(entry);
@@ -134,7 +106,7 @@ export function parseScope(entries) {
     });
 }
 
-/** Мутант лежит в скоупе: тот же файл, строки внутри одного из диапазонов. */
+/** Целиком внутри диапазона — как `locationIncluded` инструментатора Stryker'а. */
 export function inScope(scope, file, mutant) {
     const start = mutant.location?.start?.line;
     if (start === undefined) return false;
@@ -142,13 +114,7 @@ export function inScope(scope, file, mutant) {
     return scope.some((entry) => entry.file === file && start >= entry.start && end <= entry.end);
 }
 
-/**
- * Оставляет в отчёте только мутантов скоупа. Инкрементальный Stryker
- * дописывает в отчёт старые результаты из `stryker-incremental.json` вне
- * текущего `--mutate` — чужие выжившие из прошлых веток и до ребейза. Ни
- * перепроверять, ни показывать, ни считать в балл их нельзя: к этому диффу они
- * отношения не имеют. Возвращает, сколько выброшено.
- */
+/** Инкрементальный Stryker дописывает старые результаты вне `--mutate` — из прошлых веток и до ребейза. */
 export function filterReportToScope(report, scope) {
     let dropped = 0;
     for (const [file, data] of Object.entries(report.files ?? {})) {
@@ -161,11 +127,8 @@ export function filterReportToScope(report, scope) {
 }
 
 /**
- * Балл ровно по формуле Stryker'а (`mutation-testing-metrics`): в знаменателе
- * только проверенные — убитые, по таймауту, выжившие и непокрытые.
- * `RuntimeError`/`CompileError`, `Ignored` и `Pending` в балл не входят. Пустой
- * знаменатель — 100: проверять было нечего (у Stryker'а это NaN, и порог он тоже
- * не роняет).
+ * Ровно по формуле Stryker'а (`mutation-testing-metrics`). Пустой знаменатель — 100
+ * (у Stryker'а NaN, и порог он тоже не роняет).
  */
 export function scoreReport(report) {
     const counts = { Killed: 0, Timeout: 0, Survived: 0, NoCoverage: 0, RuntimeError: 0, CompileError: 0, Ignored: 0, Pending: 0 };

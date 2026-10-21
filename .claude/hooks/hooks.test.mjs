@@ -1,6 +1,4 @@
-// Тесты проектных хуков: `node --test .claude/hooks/hooks.test.mjs`; в CI — в составе
-// `npm run test:scripts`. Хуки живут вне src/ и в общий vitest-прогон не входят —
-// они не код редактора.
+// `node --test .claude/hooks/hooks.test.mjs`; в CI — `npm run test:scripts`, не vitest.
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, rmSync } from "node:fs";

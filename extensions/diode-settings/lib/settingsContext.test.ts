@@ -2,10 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { getSettingsCompletionContext, offsetToPosition, positionToOffset } from "./settingsContext.ts";
 
-/**
- * Ставит каретку по маркеру `|` — так кейсы читаются как то, что реально видит
- * пользователь. Возвращает контекст и текст без маркера.
- */
 function at(marked: string) {
     const offset = marked.indexOf("|");
     if (offset === -1) throw new Error("В кейсе нет маркера каретки `|`");
@@ -13,7 +9,6 @@ function at(marked: string) {
     return { context: getSettingsCompletionContext(text, offset), text };
 }
 
-/** Кусок текста, который накрыт replaceRange — то, что будет затёрто вставкой. */
 function replaced(marked: string): string | null {
     const { context, text } = at(marked);
     if (context === null) return null;
@@ -58,7 +53,6 @@ describe("getSettingsCompletionContext — позиция ключа", () => {
     });
 
     it("каретка в середине ключа, а не в конце", () => {
-        // `"ed|itor"` — токен под кареткой берётся целиком, а не до каретки.
         expect(replaced('{\n    "ed|itor"\n}')).toBe('"editor"');
     });
 });
@@ -139,7 +133,6 @@ describe("positionToOffset / offsetToPosition", () => {
     });
 });
 
-/** Файл `.code-workspace`: карта настроек — его блок `settings`, а не корень. */
 describe("getSettingsCompletionContext — блок settings файла воркспейса", () => {
     function inSection(marked: string) {
         const offset = marked.indexOf("|");

@@ -36,146 +36,95 @@ import { fetchArgs, pullArgs, pushArgs } from "./lib/syncArgs.ts";
 import { isRelevantDotGitEvent, isRelevantWorkingTreeEvent } from "./lib/watch.ts";
 
 /**
- * Built-in Git plugin (subprocess extension, plugin-API only).
- *
- * Two features:
- *  - explorer: changed files are coloured + badged via a `FileDecorationProvider`;
- *  - editor: the HEAD version of a file is served over the `git:` scheme through a
- *    read-only `FileSystemProvider`, so the core can diff it against the live
- *    buffer itself (gutter change-bars). Раньше ханки считало само расширение по
- *    файлу на диске — из-за этого бары залипали до сохранения.
- *
- * Reliability is the point: every `git` call goes through {@link runGit} (which
- * never rejects), every event handler is wrapped, refreshes are debounced, and
- * any bad environment (no workspace, no repo, missing binary, non-zero exit)
- * degrades to "no decorations" plus a single log line — nothing escapes to the host.
+ * Любая плохая среда (нет workspace/репо/бинаря, ненулевой exit) деградирует в
+ * «нет декораций» плюс одну строку лога: {@link runGit} не реджектится, обработчики
+ * обёрнуты — до хоста ничего не долетает.
  */
 
 function log(message: string): void {
-    // stdout of the subprocess is piped into the `extensions.host.stdout` log
-    // channel (→ ./diode.log in dev); it never touches the TUI pty.
+    // stdout субпроцесса уходит в лог `extensions.host.stdout`, не в pty TUI.
     console.log(`[git] ${message}`);
 }
 
-/**
- * Команда ядра, которой мы публикуем полный набор изменённых файлов (вкладка
- * Changes). Ядро её регистрирует (`ScmChangesService`); строка совпадает по
- * значению, как и у `ORIGINAL_RESOURCE_COMMAND` — модули по разные стороны
- * границы процесса общих импортов не имеют.
- */
+// Id команд ядра дублируются строками: через границу процесса общих импортов нет.
 const PUBLISH_CHANGES_COMMAND = "diode.scm.publishChanges";
 
-/**
- * Команда ядра, которой мы публикуем последние коммиты (view Graph). Ядро её
- * регистрирует (`ScmGraphService`); строка дублируется по значению — общих
- * импортов через границу процесса нет.
- */
 const PUBLISH_LOG_COMMAND = "diode.scm.publishLog";
 /**
- * Ядро отвечает, раскрыта ли секция GRAPH. Пока не раскрыта — история никому
- * не нужна, и `git log` мы не запускаем вовсе. Спрашиваем один раз при
- * активации; дальше ядро само присылает изменения операцией `logSetEnabled`.
+ * Пока секция GRAPH свёрнута, `git log` не запускаем вовсе. Спрашиваем один раз
+ * при активации, дальше ядро присылает `logSetEnabled`.
  */
 const GRAPH_ENABLED_COMMAND = "diode.scm.graphEnabled";
 
-/**
- * Команда ядра для снимка состояния репозитория (ветка/upstream/ahead-behind/
- * remotes/merge-rebase). Ядро регистрирует (`ScmRepoStateService`) и деривирует
- * when-ключи git*-команд.
- */
 const PUBLISH_REPO_STATE_COMMAND = "diode.scm.publishRepoState";
 
-/** Read-only запрос данных для пикеров ядра: refs / stashes / remotes. */
 const QUERY_COMMAND = "diode.git.query";
 
-/**
- * Страница истории для view Graph — сколько коммитов публикуем за раз. Как в
- * vscode: дефолт 50, настройка `scm.graph.pageSize`, потолок 1000; дальше
- * история догружается по «Load More» (операция `logLoadMore`).
- */
+/** Как в vscode: дефолт `scm.graph.pageSize` — 50, потолок 1000. */
 const LOG_PAGE_SIZE_DEFAULT = 50;
 const LOG_PAGE_SIZE_MAX = 1000;
 
 /**
- * Команды-транспорты мутаций staging (регистрируем мы, зовёт ядро; user-facing
- * `git.*`-команды живут в ядре — одноимённая регистрация перезаписала бы их в
- * CommandRegistry). Аргумент — массив строк-uri; результат — {@link IGitMutationResult}.
+ * Не `git.*`: user-facing команды живут в ядре, одноимённая регистрация перезаписала
+ * бы их в CommandRegistry. Аргумент — массив строк-uri.
  */
 const STAGE_COMMAND = "diode.git.stage";
 const UNSTAGE_COMMAND = "diode.git.unstage";
 const CLEAN_COMMAND = "diode.git.clean";
 
-/** Результат мутации, уходящий в ядро по возвратному каналу RPC. */
 interface IGitMutationResult {
     readonly ok: boolean;
     /** Первая строка stderr — при `ok: false`. */
     readonly message?: string;
 }
 
-/** A tracked resource: its porcelain code (for untracked detection) + tree decoration. */
 interface IStatusEntry {
     readonly xy: string;
-    /** Путь относительно корня репозитория (из porcelain, всегда через `/`). */
+    /** Относительно корня репозитория, всегда через `/`. */
     readonly relPath: string;
-    /**
-     * Путь того же файла в HEAD, относительно корня: у переименования —
-     * исходный, иначе совпадает с {@link relPath} (см. {@link pathAtHead}).
-     */
+    /** У переименования — исходный путь ({@link pathAtHead}). */
     readonly headRelPath: string;
     readonly deco: IStatusDecoration;
 }
 
 class GitDecorations {
     private readonly repoRoot: string;
-    /** Служебный каталог репозитория — не обязательно `<root>/.git` (worktree/submodule). */
     private readonly dotGit: IDotGit;
     private readonly gitEnv: NodeJS.ProcessEnv | undefined;
     private readonly disposables: vscode.Disposable[] = [];
 
-    // Tree status, keyed by absolute path. Drives both the file-decoration
-    // provider.
+    /** По абсолютному пути. */
     private status = new Map<string, IStatusEntry>();
     private readonly fileDecoEmitter = new vscode.EventEmitter<vscode.Uri[]>();
-    /** Сообщает ядру, что версии в `git:`-ресурсах изменились (сдвинулся HEAD/индекс). */
     private readonly fileChangeEmitter = new vscode.EventEmitter<vscode.FileChangeEvent[]>();
-    /** Ставится при регистрации провайдера; зовётся из watcher'а `.git`. */
     private onGitDirChanged: (() => void) | undefined;
 
-    /**
-     * Сколько коммитов сейчас показывает граф; 0 — «страница по умолчанию»
-     * (значение настройки). Растёт по операции `logLoadMore`.
-     */
+    /** 0 — страница по умолчанию (значение настройки). */
     private logLimit = 0;
     /**
-     * Нужна ли графу история. Дефолт — «нужна»: до ответа ядра ведём себя
-     * по-старому, иначе ядро без этого канала осталось бы с пустым графом
-     * навсегда. Настоящее значение приезжает в {@link pullGraphEnabled}.
+     * Дефолт «нужна»: ядро без канала `graphEnabled` иначе осталось бы с пустым
+     * графом навсегда. Настоящее значение приезжает в {@link pullGraphEnabled}.
      */
     private logEnabled = true;
-    /** Upstream текущей ветки — второй ref истории графа (режим `auto` vscode). */
+    /** Второй ref истории графа (режим `auto` vscode). */
     private upstreamRef: string | null = null;
 
     private refreshTimer: ReturnType<typeof setTimeout> | undefined;
     /**
-     * Сколько мутаций сейчас в полёте. Пока она не ноль, файловые события
-     * рефреш не запускают: `git status` дрался бы за `.git/index.lock` с
-     * операцией пользователя, а сама операция закончится своим refreshAll.
+     * Пока не ноль, файловые события рефреш не запускают: `git status` дрался бы за
+     * `.git/index.lock` с операцией, а та закончится своим refreshAll.
      */
     private pendingMutations = 0;
-    /**
-     * Watcher ref'а upstream'а — transient: пересоздаётся на каждый снимок
-     * состояния, потому что upstream меняется вместе с веткой.
-     */
+    /** Пересоздаётся на каждый снимок состояния: upstream меняется вместе с веткой. */
     private upstreamWatcher: vscode.Disposable | undefined;
     private upstreamWatchedRef: string | null = null;
     #disposed = false;
-    // Метод, а не поле/геттер: результат вызова TS не сужает, поэтому повторные проверки
-    // после await не «залипают» (флаг может стать true во время асинхронной паузы).
+    // Метод, а не поле/геттер: результат вызова TS не сужает, и проверки после
+    // await не «залипают».
     private isDisposed(): boolean {
         return this.#disposed;
     }
 
-    // Whether we already logged a degraded git invocation this session (avoid spam).
     private loggedGitFailure = false;
 
     public constructor(repoRoot: string, dotGit: IDotGit, gitEnv: NodeJS.ProcessEnv | undefined) {
@@ -185,22 +134,14 @@ class GitDecorations {
     }
 
     /**
-     * Read-only FileSystemProvider для схемы `git:` — так ядро получает версию
-     * файла из ревизии, не зная про git (как `GitFileSystemProvider` в VS Code).
-     *
-     * `onDidChangeFile` фаерится по изменению `.git` только для ресурсов, которые
-     * у нас уже спрашивали: их немного (открытые редакторы), а рассылать событие
-     * на весь репозиторий бессмысленно — потребитель кэширует ровно эти.
+     * Как `GitFileSystemProvider` в VS Code. `onDidChangeFile` — только для уже
+     * спрошенных ресурсов: потребитель кэширует ровно их.
      */
     private registerFileSystemProvider(): void {
         const served = new Map<string, vscode.Uri>();
         this.disposables.push(this.fileChangeEmitter);
-        // Команду регистрируем ДО провайдера схемы: нотификации идут по каналу
-        // в порядке отправки, а ядро пересчитывает бары именно по появлению
-        // поставщика — к этому моменту команда обязана уже существовать, иначе
-        // стартовый кадр останется без баров до первой правки.
-        // Аналог `QuickDiffProvider.provideOriginalResource`: решение «есть ли
-        // оригинал» принимает расширение — только оно знает про untracked и репо.
+        // Команда — ДО провайдера схемы: ядро пересчитывает бары по появлению
+        // поставщика, и без команды стартовый кадр остался бы без баров до первой правки.
         this.disposables.push(
             vscode.commands.registerCommand(ORIGINAL_RESOURCE_COMMAND, (rawUri: unknown, rawRef?: unknown) => {
                 if (typeof rawUri !== "string") return null;
@@ -209,16 +150,10 @@ class GitDecorations {
                 const absPath = uri.fsPath;
                 if (toRepoRelativePath(this.repoRoot, absPath) === null) return null;
                 const ref = typeof rawRef === "string" && rawRef !== "" ? rawRef : "HEAD";
-                // Untracked: в HEAD версии нет, сравнивать не с чем. Для явно
-                // запрошенного ref проверка неприменима — статус рабочего дерева
-                // ничего не говорит о наличии файла в произвольной ревизии
-                // («файла на ref нет» ядро увидит пустой стороной при чтении).
+                // Статус рабочего дерева ничего не говорит о произвольном ref —
+                // untracked и переименование учитываем только для HEAD.
                 const entry = this.status.get(absPath);
                 if (rawRef === undefined && entry?.xy.startsWith("?") === true) return null;
-                // Переименованный файл в HEAD лежит по СТАРОМУ пути — с ним и
-                // сравниваем (`getLeftResource` эталона: HEAD от `resource.original`).
-                // Только для HEAD: про произвольный ref статус рабочего дерева
-                // ничего не знает.
                 const source =
                     ref === "HEAD" && entry !== undefined && entry.headRelPath !== entry.relPath
                         ? vscode.Uri.file(path.join(this.repoRoot, entry.headRelPath))
@@ -245,7 +180,6 @@ class GitDecorations {
                             throw vscode.FileSystemError.FileNotFound(uri);
                         }
                     },
-                    // Ревизии неизменяемы; ядро и не позовёт — схема `isReadonly`.
                     writeFile: (uri) => {
                         throw vscode.FileSystemError.NoPermissions(uri);
                     },
@@ -261,7 +195,6 @@ class GitDecorations {
         };
     }
 
-    /** Wire providers, events and the initial refresh. Registers into `context.subscriptions`. */
     public start(context: vscode.ExtensionContext): void {
         this.disposables.push(this.fileDecoEmitter);
         this.registerFileSystemProvider();
@@ -273,12 +206,9 @@ class GitDecorations {
             }),
         );
 
-        // Сохранение — это запись на диск, и watcher рабочего дерева его увидит;
-        // подписка оставлена как быстрый и детерминированный путь для своих же
-        // правок (событие приходит без задержки на обход дерева).
-        // Смены активного редактора здесь СОЗНАТЕЛЬНО нет: диск от неё не
-        // меняется, а `git status` на каждое переключение вкладки — тот самый
-        // холостой RPC-шторм, ради которого выделяли `editor.selectionChanged`.
+        // Watcher увидит и сохранение, но эта подписка быстрее и детерминированнее.
+        // Смены активного редактора СОЗНАТЕЛЬНО нет: диск не меняется, а `git status`
+        // на каждую вкладку — холостой RPC-шторм.
         this.disposables.push(
             vscode.workspace.onDidSaveTextDocument(() => {
                 this.guard("onDidSaveTextDocument", () => {
@@ -294,9 +224,6 @@ class GitDecorations {
             }),
         );
 
-        // Ручной refresh из ядра (пункт «Refresh» меню view Graph). Ядро зовёт
-        // best-effort через `commands.has()` — до активации расширения команда
-        // просто отсутствует.
         this.disposables.push(
             vscode.commands.registerCommand("git.refresh", () => {
                 this.guard("git.refresh", () => {
@@ -305,7 +232,6 @@ class GitDecorations {
             }),
         );
 
-        // Мутации staging: ядро ждёт результат по возвратному каналу RPC.
         this.disposables.push(
             vscode.commands.registerCommand(STAGE_COMMAND, (payload: unknown) =>
                 this.enqueueMutation((paths) => this.stage(paths), payload),
@@ -321,27 +247,24 @@ class GitDecorations {
                 this.enqueueMutation((paths) => this.clean(paths), payload),
             ),
         );
-        // Семантический диспетчер операций (commit, дальше — sync/branch/stash):
         // argv собирает расширение, ядро оперирует именами операций.
         this.disposables.push(
             vscode.commands.registerCommand(GIT_OP_COMMAND, (payload: unknown) => this.enqueueOp(payload)),
         );
-        // Read-only запросы данных для пикеров (вне очереди мутаций).
+        // Вне очереди мутаций.
         this.disposables.push(
             vscode.commands.registerCommand(QUERY_COMMAND, (payload: unknown) => this.query(payload)),
         );
 
         this.startWatchers();
 
-        // The plugin owns its disposables; register a single umbrella disposable.
         context.subscriptions.push({
             dispose: () => {
                 this.dispose();
             },
         });
 
-        // Initial paint (async, never throws). Раскрытость GRAPH спрашиваем до
-        // неё: иначе первый `git log` уйдёт даже свёрнутой секции.
+        // Раскрытость GRAPH — до первого рефреша: иначе `git log` уйдёт и свёрнутой секции.
         void this.pullGraphEnabled().then(() => this.refreshAll());
     }
 
@@ -379,9 +302,8 @@ class GitDecorations {
         const debounce = this.config().debounce;
         this.refreshTimer = setTimeout(() => {
             this.refreshTimer = undefined;
-            // Репозиторий занят мутацией — не рефрешим, а ждём: `git status`
-            // дерётся с ней за `.git/index.lock`. Аналог `whenIdleAndFocused`
-            // в VS Code (фокуса окна у нас нет — ждать нечего, кроме операции).
+            // Аналог `whenIdleAndFocused` VS Code: `git status` дрался бы с
+            // мутацией за `.git/index.lock`.
             if (this.pendingMutations > 0) {
                 this.scheduleRefresh();
                 return;
@@ -390,23 +312,14 @@ class GitDecorations {
         }, debounce);
     }
 
-    /**
-     * Порядок важен: состояние репозитория обновляется до лога — из него
-     * приезжает upstream, который {@link refreshLog} добавляет вторым ref'ом.
-     */
+    /** Состояние репозитория — до лога: из него приезжает upstream, второй ref {@link refreshLog}. */
     private async refreshAll(): Promise<void> {
         await this.refreshStatus();
         await this.refreshRepoState();
-        // Свёрнутая или скрытая секция GRAPH не стоит подпроцесса `git log` на
-        // каждое сохранение файла — ядро скажет, когда история понадобится.
         if (this.logEnabled) await this.refreshLog();
     }
 
-    /**
-     * Спрашивает ядро, раскрыта ли секция GRAPH. Ответ `undefined` — ядро этого
-     * канала не знает (старая сборка, тестовый харнесс): тогда остаёмся при
-     * дефолте «история нужна». Best-effort, как остальные каналы через границу.
-     */
+    /** `undefined` — ядро канала не знает (старая сборка, харнесс): остаёмся при «история нужна». */
     private async pullGraphEnabled(): Promise<void> {
         try {
             const answer = await vscode.commands.executeCommand(GRAPH_ENABLED_COMMAND);
@@ -417,16 +330,10 @@ class GitDecorations {
         }
     }
 
-    /**
-     * Публикует ядру состояние репозитория: ветка/detached/upstream/ahead-behind
-     * из заголовков `status --porcelain=v2 --branch`, список remotes, и
-     * merge/rebase/cherry-pick — fs-проверками служебных файлов `.git` (git-вызов
-     * для этого не нужен). Best-effort, как остальные publish-каналы.
-     */
     private async refreshRepoState(): Promise<void> {
         if (this.isDisposed()) return;
         const status = await this.git(["status", "--porcelain=v2", "--branch"]);
-        if (status === null) return; // degraded: ядро остаётся при прежнем снимке
+        if (status === null) return; // ядро остаётся при прежнем снимке
         const remotes = await this.git(["remote"]);
 
         const payload: IRepoStatePayload = {
@@ -442,7 +349,7 @@ class GitDecorations {
         );
     }
 
-    /** merge/rebase/cherry-pick по служебным файлам `.git` (как git сам). */
+    /** По служебным файлам `.git`, как git сам. */
     private detectRepoOpState(): IRepoStatePayload["state"] {
         const exists = (rel: string): boolean => fs.existsSync(path.join(this.dotGit.path, rel));
         if (exists("MERGE_HEAD")) return "merging";
@@ -451,7 +358,6 @@ class GitDecorations {
         return "idle";
     }
 
-    /** Страница истории из настройки `scm.graph.pageSize`, зажатая в 1..1000. */
     private logPageSize(): number {
         const raw = vscode.workspace.getConfiguration("scm").get<number>("graph.pageSize", LOG_PAGE_SIZE_DEFAULT);
         const n = typeof raw === "number" ? raw : Number(raw);
@@ -459,16 +365,13 @@ class GitDecorations {
         return Math.min(Math.max(Math.floor(n), 1), LOG_PAGE_SIZE_MAX);
     }
 
-    /** Текущий предел истории: накопленный по «Load More» либо одна страница. */
     private currentLogLimit(): number {
         return this.logLimit > 0 ? this.logLimit : this.logPageSize();
     }
 
     /**
-     * Ref'ы истории графа — режим `auto` vscode: текущая ветка плюс её upstream,
-     * чтобы в графе были видны и ещё не влитые коммиты remote.
-     * `--ignore-missing` страхует от исчезнувшего upstream-ref'а: без него
-     * `git log` вышел бы ненулевым и граф опустел бы целиком.
+     * Режим `auto` vscode: ветка плюс upstream. `--ignore-missing` — без него исчезнувший
+     * upstream-ref дал бы ненулевой exit, и граф опустел бы целиком.
      */
     private logRefArgs(): string[] {
         const refs = ["HEAD"];
@@ -476,16 +379,7 @@ class GitDecorations {
         return ["--ignore-missing", ...refs];
     }
 
-    /**
-     * Публикует ядру страницу истории (view Graph). Деградация — пустой
-     * список: git недоступен или пустой репозиторий без HEAD (git log выходит
-     * ненулевым). Best-effort, как {@link publishChanges}: повторную идентичную
-     * публикацию гасит ядро, ошибку канала глотаем.
-     *
-     * Просим на коммит больше предела: лишний в граф не идёт, он лишь отвечает
-     * на вопрос «есть ли что грузить дальше» — по нему ядро рисует строку
-     * «Load More…».
-     */
+    /** Лишний коммит сверх предела в граф не идёт — он лишь говорит, рисовать ли «Load More…». */
     private async refreshLog(): Promise<void> {
         if (this.isDisposed()) return;
         const limit = this.currentLogLimit();
@@ -499,7 +393,6 @@ class GitDecorations {
         );
     }
 
-    /** Recompute `git status` → tree decorations. Clears everything when disabled/degraded. */
     private async refreshStatus(): Promise<void> {
         if (this.isDisposed()) return;
         const previous = new Set(this.status.keys());
@@ -517,12 +410,12 @@ class GitDecorations {
                     });
                 }
             } else {
-                next = new Map(); // degraded → no decorations
+                next = new Map();
             }
         }
 
         this.status = next;
-        // Fire for the union of old ∪ new so removed files get cleared too.
+        // old ∪ new — чтобы снять декорации и с ушедших файлов.
         const affected = new Set<string>([...previous, ...next.keys()]);
         if (affected.size > 0 && !this.isDisposed()) {
             this.fileDecoEmitter.fire([...affected].map((p) => vscode.Uri.file(p)));
@@ -530,13 +423,7 @@ class GitDecorations {
         this.publishChanges(next);
     }
 
-    /**
-     * Публикует ядру полный набор изменённых файлов рабочего дерева (для вкладки
-     * Changes) — тот же снимок `git status`, что красит дерево. Best-effort:
-     * пустой набор снимает список; повторную идентичную публикацию гасит уже
-     * ядро (`ScmChangesService`), поэтому здесь шлём безусловно. Ошибку канала
-     * (например, при завершении процесса) молча глотаем — это не сбой git.
-     */
+    /** Шлём безусловно: повторную идентичную публикацию гасит ядро (`ScmChangesService`). */
     private publishChanges(entries: Map<string, IStatusEntry>): void {
         const resources = [...entries].flatMap(([absPath, entry]) =>
             xyToResourceStates(entry.xy).map((state) => ({
@@ -553,21 +440,13 @@ class GitDecorations {
         );
     }
 
-    // ─── Мутации staging ──────────────────────────────────────────────────────
-
     /**
-     * Хвост очереди мутаций. Мутации выполняются строго по одной: параллельные
-     * `add`/`reset`/`checkout` дерутся за `.git/index.lock` (и с фоновым
-     * `git status`, который тоже оппортунистически пишет index).
+     * Строго по одной: параллельные `add`/`reset`/`checkout` дерутся за
+     * `.git/index.lock` (и с фоновым `git status`, который тоже пишет index).
      */
     private mutationQueue: Promise<unknown> = Promise.resolve();
 
-    /**
-     * Ставит мутацию в очередь: валидация payload → git → немедленный refresh
-     * (мимо debounce — список и декорации обязаны отразить мутацию сразу; watcher
-     * `.git` продублирует, дедуп по подписи в ядре погасит). Пустой валидный
-     * итог — no-op `{ok: true}` без git-вызова и refresh.
-     */
+    /** Refresh — мимо debounce, сразу; дубль от watcher'а `.git` погасит дедуп в ядре. */
     private enqueueMutation(
         run: (paths: string[]) => Promise<IGitMutationResult>,
         payload: unknown,
@@ -591,11 +470,7 @@ class GitDecorations {
         return next;
     }
 
-    /**
-     * Валидация payload из-за границы процесса: массив строк-uri схемы `file`,
-     * путь под корнем репозитория. Мусор молча отбрасывается. Возвращает
-     * repo-относительные пути (для `git … -- <paths>`).
-     */
+    /** Payload из-за границы процесса: мусор и пути вне репозитория молча отбрасываются. */
     private parseMutationTargets(payload: unknown): string[] {
         if (!Array.isArray(payload)) return [];
         const paths: string[] = [];
@@ -615,16 +490,11 @@ class GitDecorations {
         return paths;
     }
 
-    /** `git add -A -- <paths>`: стейджит правки, добавления и удаления. */
     private async stage(paths: string[]): Promise<IGitMutationResult> {
         return this.mutate(["add", "-A", "--", ...paths]);
     }
 
-    /**
-     * `git reset -q HEAD -- <paths>`; в пустом репозитории (unborn HEAD) reset
-     * падает с «ambiguous argument 'HEAD'» — тогда снимаем из индекса напрямую:
-     * `git rm --cached -r -q -- <paths>`.
-     */
+    /** При unborn HEAD reset падает с «ambiguous argument 'HEAD'» — тогда `rm --cached`. */
     private async unstage(paths: string[]): Promise<IGitMutationResult> {
         const result = await this.mutate(["reset", "-q", "HEAD", "--", ...paths]);
         if (!result.ok && (result.message?.includes("ambiguous argument 'HEAD'") ?? false)) {
@@ -633,11 +503,7 @@ class GitDecorations {
         return result;
     }
 
-    /**
-     * Discard: tracked-пути откатываются к индексу (`git checkout -q --`),
-     * untracked — удаляются (`git clean -q -f --`). Разделение — по нашей же
-     * status-карте (снимок последнего `git status`).
-     */
+    /** Tracked от untracked отличаем по снимку последнего `git status`. */
     private async clean(paths: string[]): Promise<IGitMutationResult> {
         const tracked: string[] = [];
         const untracked: string[] = [];
@@ -655,13 +521,7 @@ class GitDecorations {
         return { ok: true };
     }
 
-    // ─── Диспетчер операций (diode.git.op) ─────────────────────────────────────
-
-    /**
-     * Ставит операцию в общую очередь мутаций (одна за раз — тот же
-     * `.git/index.lock`). Неизвестная операция или мусорный payload —
-     * `{ok: false}`, не исключение: envelope едет через границу процесса.
-     */
+    /** Общая очередь мутаций — тот же `.git/index.lock`. Мусорный payload — `{ok: false}`, не исключение. */
     private enqueueOp(payload: unknown): Promise<GitOpResult> {
         const job = async (): Promise<GitOpResult> => {
             if (this.isDisposed()) return { ok: false, kind: "unavailable", message: "git extension is shutting down" };
@@ -686,7 +546,6 @@ class GitDecorations {
         return next;
     }
 
-    /** Диспетчер операций по имени: аргументы собирает `lib/*Args`, запускает {@link runBuilt}. */
     private async runOpByName(op: unknown, opParams: Record<string, unknown>): Promise<GitOpResult> {
         {
             let result: GitOpResult;
@@ -707,7 +566,6 @@ class GitDecorations {
                     result = await this.runOp(fetchArgs(opParams), { network: true });
                     break;
                 case "sync": {
-                    // Sync = pull → push; первый фейл прерывает.
                     result = await this.runOp(pullArgs(opParams), { network: true });
                     if (result.ok) result = await this.runOp(pushArgs({}), { network: true });
                     break;
@@ -746,14 +604,12 @@ class GitDecorations {
                     result = await this.runBuilt(revertArgs(opParams));
                     break;
                 case "logSetEnabled":
-                    // Не мутация, как и logLoadMore: свежая страница уедет ядру
-                    // тем же refreshAll в конце операции.
+                    // Не мутация, но идёт общей очередью: страница уедет ядру
+                    // refreshAll'ом в конце операции. Так же logLoadMore.
                     this.logEnabled = opParams.enabled === true;
                     result = { ok: true };
                     break;
                 case "logLoadMore":
-                    // Не мутация, но идёт общей очередью: следующая страница
-                    // уедет ядру тем же refreshAll в конце операции.
                     this.logLimit = this.currentLogLimit() + this.logPageSize();
                     result = { ok: true };
                     break;
@@ -799,7 +655,6 @@ class GitDecorations {
         }
     }
 
-    /** `git commit` с флагами из параметров; пустое сообщение допустимо только с amend (`--no-edit`). */
     private async opCommit(raw: Record<string, unknown>): Promise<GitOpResult> {
         const params: IGitCommitParams = {
             message: typeof raw.message === "string" ? raw.message : "",
@@ -823,11 +678,7 @@ class GitDecorations {
         return this.runOp(args);
     }
 
-    /**
-     * Undo Last Commit: guard — у HEAD есть ровно один родитель (merge-коммит и
-     * корневой не откатываем, как VS Code) → сообщение → `reset --soft HEAD~`.
-     * Сообщение уезжает в data — ядро вернёт его в commit input box.
-     */
+    /** Merge-коммит и корневой не откатываем, как VS Code; сообщение ядро вернёт в commit input box. */
     private async opUndoCommit(): Promise<GitOpResult> {
         const parents = await this.gitRaw(["rev-list", "--parents", "-1", "HEAD"]);
         if ("error" in parents || parents.code !== 0) {
@@ -851,7 +702,7 @@ class GitDecorations {
         return { ok: true, data: { message: message.replace(/\n+$/, "") } };
     }
 
-    /** Обёртка над {@link runOp} для builder-ов: `null` от билдера = невалидные параметры. */
+    /** `null` от билдера — невалидные параметры. */
     private runBuilt(args: string[] | null, opts?: { network?: boolean }): Promise<GitOpResult> {
         if (args === null) {
             return Promise.resolve({ ok: false, kind: "git-error", message: "invalid git op parameters" });
@@ -859,12 +710,7 @@ class GitDecorations {
         return this.runOp(args, opts);
     }
 
-    /**
-     * Одна операция → envelope; не-нулевой код классифицируется по stderr
-     * ({@link classifyGitStderr}). Сетевые вызовы — `GIT_TERMINAL_PROMPT=0`
-     * (tty у субпроцесса нет, промпт за credentials должен упасть быстро и
-     * стать `auth`-ошибкой) и увеличенный таймаут.
-     */
+    /** Сеть — `GIT_TERMINAL_PROMPT=0`: tty нет, промпт за credentials должен быстро стать `auth`-ошибкой. */
     private async runOp(args: string[], opts?: { network?: boolean }): Promise<GitOpResult> {
         const result = await this.gitRaw(args, opts);
         if ("error" in result) return { ok: false, kind: "unavailable", message: result.error.message };
@@ -881,7 +727,7 @@ class GitDecorations {
         return { ok: true };
     }
 
-    /** Сырой запуск git в репо (без деградационного логирования {@link git}). */
+    /** Без деградационного логирования {@link git}. */
     private gitRaw(args: string[], opts?: { network?: boolean }): Promise<IRunGitResult | IRunGitError> {
         const runOpts: IRunGitOptions = { cwd: this.repoRoot };
         if (opts?.network === true) {
@@ -893,9 +739,6 @@ class GitDecorations {
         return runGit(args, runOpts);
     }
 
-    // ─── Read-only запросы для пикеров (diode.git.query) ──────────────────────
-
-    /** `{kind: refs|stashes|remotes}` → данные пикеров; мусор/деградация — null. */
     private async query(payload: unknown): Promise<unknown> {
         if (typeof payload !== "object" || payload === null) return null;
         const { kind } = payload as { kind?: unknown };
@@ -921,7 +764,6 @@ class GitDecorations {
         return null;
     }
 
-    /** Одна git-мутация → envelope: не-нулевой код или несоздавшийся процесс = `{ok: false}`. */
     private async mutate(args: string[]): Promise<IGitMutationResult> {
         const opts: IRunGitOptions = { cwd: this.repoRoot };
         if (this.gitEnv !== undefined) opts.env = this.gitEnv;
@@ -935,13 +777,9 @@ class GitDecorations {
     }
 
     /**
-     * Run git in the repo; returns a successful result or `null` (degraded — logged once).
-     *
-     * Read-путь идёт с `GIT_OPTIONAL_LOCKS=0`: `git status` оппортунистически
-     * обновляет index и берёт `.git/index.lock` — фоновые refresh'ы дрались бы
-     * за него с мутациями пользователя (`git add` рядом с работающим редактором
-     * фейлился «Unable to create index.lock»). Цена — status не кэширует
-     * stat-данные в index; для наших размеров репо это незаметно.
+     * `null` — деградация, логируется один раз. `GIT_OPTIONAL_LOCKS=0`: иначе фоновый
+     * `git status` берёт `.git/index.lock`, и `git add` пользователя падал
+     * «Unable to create index.lock». Цена — status не кэширует stat в index.
      */
     private async git(args: string[]): Promise<IRunGitResult | null> {
         const opts: IRunGitOptions = { cwd: this.repoRoot };
@@ -970,22 +808,10 @@ class GitDecorations {
     }
 
     /**
-     * Заводит файловые watcher'ы — раскладка VS Code (`Repository` в
-     * `extensions/git/src/repository.ts`):
-     *
-     * - **рабочее дерево** целиком (`**`): без него редактор видит только свои
-     *   сохранения, а правка из терминала, чужого редактора или скрипта в
-     *   Changes и декорациях не появляется до следующего события;
-     * - **служебный каталог** (`.git`, первый уровень): checkout, commit, stage
-     *   и состояние merge/rebase — всё это правки его прямых детей. Каталог
-     *   берём из `rev-parse`, а не склейкой `<root>/.git`: в worktree это файл;
-     * - **общий каталог**, если он отдельный (worktree/submodule): там живут
-     *   `refs` и `packed-refs` — по ним видно чужой fetch;
-     * - **ref upstream'а** — transient, см. {@link updateUpstreamWatcher}.
-     *
-     * Событий `.git` касается и вторая обязанность: версии в схеме `git:`
-     * устарели, и ядру надо перечитать оригиналы (иначе бары в гуттере считаются
-     * против старого HEAD).
+     * Раскладка VS Code (`Repository` в `extensions/git/src/repository.ts`): рабочее
+     * дерево целиком — иначе правка из терминала не видна до следующего события;
+     * `.git` первого уровня — checkout/commit/stage/merge; общий каталог — чужой fetch.
+     * Событие `.git` ещё и устаревает версии `git:` — иначе бары считались бы против старого HEAD.
      */
     private startWatchers(): void {
         this.watch(this.repoRoot, "**", (uri) => {
@@ -1004,7 +830,6 @@ class GitDecorations {
         }
     }
 
-    /** Подписка на create/change/delete одного watcher'а; ошибки не выпускаем наружу. */
     private watch(base: string, pattern: string, onEvent: (uri: vscode.Uri) => void): vscode.Disposable {
         const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(base, pattern));
         const handler = (uri: vscode.Uri): void => {
@@ -1020,14 +845,9 @@ class GitDecorations {
     }
 
     /**
-     * Пересаживает watcher на ref upstream'а текущей ветки. Без него ahead/behind
-     * оживает только по своим операциям: чужой `git fetch` трогает
-     * `refs/remotes/<remote>/<branch>` — файл, до которого watcher'ы `.git`
-     * (первый уровень) не достают.
-     *
-     * Следим за **каталогом** ref'а с точным именем в шаблоне, а не за самим
-     * файлом: git пишет ref'ы атомарной заменой (`rename`), после которой
-     * подписка на inode исходного файла мертва.
+     * Чужой `git fetch` трогает `refs/remotes/<remote>/<branch>` — глубже первого
+     * уровня `.git`. Следим за **каталогом** с точным именем, а не за файлом: git пишет
+     * ref атомарным `rename`, и подписка на inode исходного файла мертва.
      */
     private updateUpstreamWatcher(upstream: string | null): void {
         const refPath = upstreamRefPath(this.dotGit, upstream);
@@ -1041,17 +861,12 @@ class GitDecorations {
         });
     }
 
-    /**
-     * Реакция на файловое событие — гейты VS Code (`Repository.onFileChange`):
-     * выключенный `git.autorefresh` и занятый мутацией репозиторий рефреш не
-     * запускают.
-     */
+    /** Гейты VS Code (`Repository.onFileChange`). */
     private onFileChange(): void {
         if (!this.config().autorefresh) return;
         this.scheduleRefresh();
     }
 
-    /** Run a handler, swallowing and logging any throw so nothing reaches the host. */
     private guard(where: string, fn: () => void): void {
         try {
             fn();
@@ -1081,7 +896,6 @@ function normalizeDebounce(value: unknown): number {
     return Math.min(n, 5000);
 }
 
-/** Build the child-process env that prefers `git.path`'s directory, if configured. */
 function gitEnvFor(gitPath: string): NodeJS.ProcessEnv | undefined {
     if (gitPath === "") return undefined;
     const dir = path.dirname(gitPath);
@@ -1090,14 +904,7 @@ function gitEnvFor(gitPath: string): NodeJS.ProcessEnv | undefined {
     return { ...process.env, PATH: currentPath === "" ? dir : `${dir}${sep}${currentPath}` };
 }
 
-/**
- * Резолвит репозиторий вокруг `cwd`: корень рабочего дерева и служебный
- * каталог. `null` — не репозиторий или git недоступен.
- *
- * Одним `rev-parse`: корень и `.git` обязаны быть согласованы, а два вызова —
- * это ещё и два процесса на старте. Пути `--git-dir`/`--git-common-dir` git
- * отдаёт относительно cwd вызова, поэтому нормализует их {@link parseDotGit}.
- */
+/** Одним `rev-parse`: корень и `.git` обязаны быть согласованы. */
 async function detectRepository(
     cwd: string,
     gitEnv: NodeJS.ProcessEnv | undefined,
@@ -1136,7 +943,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         const decorations = new GitDecorations(repository.root, repository.dotGit, gitEnv);
         decorations.start(context);
     } catch (err) {
-        // activate() must never throw into the host.
         log(`activate failed: ${String(err)}`);
     }
 }

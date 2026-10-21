@@ -36,7 +36,6 @@ function makeHost(files: Record<string, FileStat>, overrides: Partial<Refactorin
 /** Пустой файл, который сервер создал (`fs.ensureFile`) после старта команды. */
 const FRESH: FileStat = { size: 0, birthtimeMs: 10_100, ctimeMs: 10_100 };
 
-/** Применяет `params` внутри команды рефакторинга — как это делает сервер. */
 async function duringRefactoring(
     middleware: ReturnType<typeof makeHost>["middleware"],
     params: ApplyWorkspaceEditParams,
@@ -165,13 +164,10 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
 
     it("созданием считается только пустой, свежий, закрытый file:-файл", async () => {
         const cases: [string, Record<string, FileStat>, Partial<RefactoringEditsHost>][] = [
-            // Непустой — существовал с содержимым.
             ["непустой", { "/proj/src/Foo.ts": { ...FRESH, size: 3 } }, {}],
             // Создан раньше команды (запас на грубые часы — секунда).
             ["старый", { "/proj/src/Foo.ts": { size: 0, birthtimeMs: 8_999, ctimeMs: 8_999 } }, {}],
-            // Открыт в редакторе — значит, был до команды.
             ["открытый", { "/proj/src/Foo.ts": FRESH }, { isOpen: () => true }],
-            // Файла нет вовсе.
             ["нет файла", {}, {}],
         ];
         for (const [name, files, overrides] of cases) {

@@ -1,18 +1,12 @@
 import { defineConfig } from "vitest/config";
 
-// Отдельный конфиг для перформанс-бенчмарков (vitest `bench`).
-// Запускается через `npm run test:perf`. В обычный `npm test` не попадает
-// (тот берёт только *.test.ts), поэтому unit-тесты остаются быстрыми, а
-// числа бенчей не флапают CI и не влияют на coverage.
+// `npm run test:perf`: числа бенчей не флапают CI и не влияют на coverage.
 export default defineConfig({
     test: {
-        // `e2e/bench/*.bench.ts` — перф-гейты на собранном SEA-бинаре (бюджет
-        // кухни старта); бинарь собирается лениво через getBinaryPath.
         include: ["src/**/*.bench.ts", "e2e/bench/**/*.bench.ts"],
         testTimeout: 120_000,
         hookTimeout: 180_000,
-        // Бенчи активно работают с файловой системой и chokidar-watcher'ами —
-        // параллельный прогон искажает измерения и плодит watcher'ы.
+        // Параллельный прогон искажает измерения и плодит chokidar-watcher'ы.
         fileParallelism: false,
         pool: "forks",
         coverage: { enabled: false },

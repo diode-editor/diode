@@ -2,10 +2,8 @@
 /**
  * Pack assets into `dist/diode.bundle` for SEA-сборки.
  *
- * Формат бандла должен оставаться синхронным с
- * `src/vs/base/common/assets/assetBundleFormat.ts` — там лежит TS-decoder
- * (`BundleAssetAccess`). Намеренно дублируем 30 строк бинарного
- * формата здесь, чтобы build-pipeline не зависел от tsx/jiti.
+ * Формат синхронен с декодером `src/vs/base/common/assets/assetBundleFormat.ts`;
+ * дублируется намеренно, чтобы build-pipeline не зависел от tsx/jiti.
  *
  * Layout:
  *   [magic 8B "DIODEBND"]
@@ -65,7 +63,6 @@ function validateVirtualPath(virtualPath) {
     }
 }
 
-/** Recursively walk a directory and yield absolute paths to files. */
 function walkFiles(rootDir) {
     /** @type {string[]} */
     const out = [];
@@ -81,17 +78,11 @@ function walkFiles(rootDir) {
     return out;
 }
 
-/** Convert OS path inside `root` into a POSIX virtual path with given prefix. */
 function toVirtualPath(prefix, root, absPath) {
     const rel = relative(root, absPath).split(sep).join(posix.sep);
     return `${prefix}${rel}`;
 }
 
-/**
- * Build the bundle from the standard set of inputs:
- *   - `onig.wasm` — resolved via require.resolve("vscode-oniguruma/release/onig.wasm")
- *   - `Extensions/builtin/**` — full recursive copy of `extensions/`
- */
 export function buildDiodeBundle({ repoRoot }) {
     const builtinSrc = resolve(repoRoot, "extensions");
     const require = createRequire(import.meta.url);
@@ -101,9 +92,7 @@ export function buildDiodeBundle({ repoRoot }) {
     const inputs = [];
     inputs.push({ virtualPath: "onig.wasm", data: readFileSync(onigWasmPath) });
 
-    // «Кодовые» builtin'ы — те, что скомпилированы в `out/` (см. build-extensions.mjs).
-    // Для них в бандл кладём только `package.json` + `out/**`, а TS-исходники
-    // (main.ts, lib/*.ts) выкидываем — под SEA они всё равно нерекуайрабельны.
+    // TS-исходники скомпилированных builtin'ов выкидываем — под SEA они нерекуайрабельны.
     const codeBuiltins = new Set(
         readdirSync(builtinSrc, { withFileTypes: true })
             .filter((e) => e.isDirectory() && existsSync(join(builtinSrc, e.name, "out")))
@@ -114,9 +103,7 @@ export function buildDiodeBundle({ repoRoot }) {
     for (const filePath of builtinFiles) {
         const relParts = relative(builtinSrc, filePath).split(sep);
         const base = relParts[relParts.length - 1];
-        // Тесты не нужны в рантайме нигде.
         if (base.endsWith(".test.ts") || base.endsWith(".test.tsx")) continue;
-        // У скомпилированных code-builtin'ов оставляем только out/** и package.json.
         if (codeBuiltins.has(relParts[0]) && relParts[1] !== "out" && (base.endsWith(".ts") || base.endsWith(".tsx"))) {
             continue;
         }
@@ -128,7 +115,6 @@ export function buildDiodeBundle({ repoRoot }) {
     return { bundle, inputs, onigWasmPath };
 }
 
-// Allow direct execution: `node scripts/pack-assets.mjs`
 if (import.meta.url === `file://${process.argv[1]}`) {
     const repoRoot = resolve(import.meta.dirname, "..");
     const dist = resolve(repoRoot, "dist");

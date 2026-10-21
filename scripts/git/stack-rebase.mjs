@@ -11,9 +11,8 @@
 // <старая-база> — коммит, на котором ветка стояла (голова родителя): ref/SHA
 // или номер влитого PR (`#123` / `123`) — тогда берётся его headRefOid.
 //
-// Перед rebase: тег-страховка `backup/<ветка>/<время>` (backup-ветку rebase
-// уносит через update-ref, тег — нет) и SHA ветки на сервере для
-// --force-with-lease в git:push.
+// Перед rebase: тег-страховка `backup/<ветка>/<время>` (не ветка — её rebase унёс
+// бы через update-ref) и SHA ветки на сервере для --force-with-lease в git:push.
 import { assertDiodeCheckout, cap, die, git, gitOk, isAncestor, loud, remoteSha, saveLease, short } from "./lib.mjs";
 
 assertDiodeCheckout();
@@ -47,7 +46,6 @@ for (let i = 0; i < argv.length; i++) {
 if (branch === undefined || baseArg === undefined || onto === undefined) usage(2);
 if (!gitOk("rev-parse", "-q", "--verify", `refs/heads/${branch}`)) die(`Нет локальной ветки ${branch}.`);
 
-// --- Старая база ---
 let oldBase;
 let squash;
 const pr = /^#?(\d+)$/.exec(baseArg);
@@ -67,7 +65,7 @@ if (pr) {
 const ontoSha = git("rev-parse", `${onto}^{commit}`);
 const head = git("rev-parse", branch);
 
-// --- Распознавание ситуации: отказ, если это не «база влита squash'ем» ---
+// Отказ, если это не «база влита squash'ем».
 if (!isAncestor(oldBase, head)) {
     die(`${short(oldBase)} не предок ${branch} — ветка стоит не на этой базе. Проверь --base.`);
 }
@@ -79,10 +77,8 @@ if (squash !== undefined && !isAncestor(squash, ontoSha)) {
     die(`Squash-коммит PR (${short(squash)}) ещё не в ${onto}. Обнови: npm run git:fetch — и повтори.`);
 }
 if (squash === undefined) {
-    // База задана ref'ом, gh не спрашивали. Squash — это один коммит с
-    // суммарным диффом родителя: ищем в onto коммит с тем же patch-id.
-    // Не нашли — отказ: значит, при мерже дифф правили, и тогда честнее
-    // назвать PR (--base #N), чем угадывать.
+    // Squash — один коммит с суммарным диффом родителя: ищем тот же patch-id. Не
+    // нашли — дифф правили при мерже, и честнее назвать PR, чем угадывать.
     const fork = git("merge-base", oldBase, ontoSha);
     const patchId = (input) => cap("git", ["patch-id", "--stable"], { input }).out;
     const parentId = patchId(cap("git", ["diff", fork, oldBase]).out).split(/\s+/)[0];
@@ -99,7 +95,6 @@ if (squash === undefined) {
     console.log(`Squash родителя в ${onto}: ${git("log", "-1", "--format=%h %s", hit[1])}`);
 }
 
-// --- План ---
 const moving = git("log", "--format=  %h %s", `${oldBase}..${head}`);
 const count = moving.split("\n").filter(Boolean).length;
 console.log(`План:
@@ -109,7 +104,6 @@ ${moving}
 Коммиты родителя до ${short(oldBase)} отрезаются — они уже в ${onto} squash'ем.`);
 if (dryRun) process.exit(0);
 
-// --- Страховка и SHA для --force-with-lease ---
 const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\..*/, "");
 const tag = `backup/${branch}/${stamp}`;
 git("tag", tag, head);

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { parsePorcelainStatus, pathAtHead } from "./porcelain.ts";
 
-/** Build a NUL-terminated buffer from record fields, mirroring `-z` output. */
 function nul(...fields: string[]): Buffer {
     return Buffer.from(fields.map((f) => `${f}\0`).join(""), "utf8");
 }
@@ -29,7 +28,6 @@ describe("parsePorcelainStatus", () => {
     });
 
     it("parses a rename, consuming the original path as a separate field", () => {
-        // `R  new` followed by the original path `old`.
         const buf = nul("R  src/new.ts", "src/old.ts");
         expect(parsePorcelainStatus(buf)).toEqual([{ path: "src/new.ts", xy: "R ", originalPath: "src/old.ts" }]);
     });

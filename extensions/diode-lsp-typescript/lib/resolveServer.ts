@@ -1,30 +1,16 @@
 /**
- * Резолв команды запуска language-сервера. Чистая логика (без vscode API) —
- * покрывается юнитами; entry `main.ts` остаётся тонкой прослойкой.
- *
- * Правило рантайма — «как VS Code»: JS-энтрипоинты запускаются НАШИМ
- * node-рантаймом (`runtime.command` = `process.execPath` субпроцесса: в dev и
- * self-extract это настоящий node, в SEA — diode-бинарь + env
- * `DIODE_RUN_AS_NODE=1`, калька `ELECTRON_RUN_AS_NODE`). Системный node из PATH
- * не требуется — поэтому кандидаты-пути указывают на JS-энтрипоинты, а НЕ на
- * `.bin/…`-шимы: шим исполняется напрямую и через свой шебанг
- * `#!/usr/bin/env node` требует системный node (на машине без него — exit 127).
- * Как есть исполняются только PATH-имя (последний фолбэк) и не-JS настройка.
+ * JS-энтрипоинты запускаются НАШИМ node-рантаймом, как в VS Code (в SEA —
+ * diode-бинарь + `DIODE_RUN_AS_NODE=1`, калька `ELECTRON_RUN_AS_NODE`).
+ * Поэтому кандидаты — JS-энтрипоинты, а не `.bin/…`-шимы: шебанг
+ * `#!/usr/bin/env node` требует системный node (без него — exit 127).
  */
 
-/** Описание одного языкового сервера в декларативной таблице клиента. */
 export interface ILanguageServerSpec {
     /** id клиента (`LanguageClient(id, …)`) и владелец диагностик. */
     readonly id: string;
     readonly displayName: string;
-    /** `documentSelector` строится из этих language id (scheme: file). */
     readonly languageIds: readonly string[];
-    /**
-     * Кандидаты на исполняемый файл сервера, по приоритету: настройка
-     * (если непустая) → workspace `node_modules` (оверрайд версии; JS-энтрипоинт,
-     * не `.bin`-шим — см. шапку) → вшитый сервер из поставки (дефолт) →
-     * имя в PATH (последний фолбэк).
-     */
+    /** По приоритету: настройка → workspace `node_modules` → вшитый сервер → имя в PATH. */
     readonly resolveCandidates: (
         settingPath: string,
         workspaceRoots: readonly string[],
@@ -32,31 +18,22 @@ export interface ILanguageServerSpec {
     ) => readonly string[];
 }
 
-/** Node-рантайм для JS-энтрипоинтов сервера (см. шапку). */
 export interface IServerRuntime {
-    /** Команда рантайма (обычно `process.execPath` субпроцесса). */
     readonly command: string;
     /** SEA: бинарь должен уйти в node-режим (`DIODE_RUN_AS_NODE=1` в env сервера). */
     readonly runAsNodeFlag: boolean;
 }
 
-/** Команда запуска: `command` + args + env-добавка (всегда stdio-транспорт). */
 export interface IServerCommand {
     readonly command: string;
     readonly args: readonly string[];
     /**
-     * Env-добавка поверх окружения субпроцесса. `DIODE_EXTENSION_HOST` снимается
-     * ВСЕГДА: vscode-languageclient копирует весь env ext-host'а в сервер, и
-     * унаследованный флаг увёл бы наш бинарь в ext-host-ветку (exit 2 без IPC).
+     * `DIODE_EXTENSION_HOST` снимается ВСЕГДА: vscode-languageclient копирует env
+     * ext-host'а в сервер, и флаг увёл бы наш бинарь в ext-host-ветку (exit 2 без IPC).
      */
     readonly env: Readonly<Record<string, string | undefined>>;
 }
 
-/**
- * Переводит путь-кандидат в команду запуска. JS-энтрипоинты (`.js`/`.mjs`/`.cjs`)
- * запускаются рантаймом из {@link IServerRuntime}; всё остальное —
- * исполняемый файл/шим как есть.
- */
 export function commandFor(
     candidate: string,
     runtime: IServerRuntime,
@@ -70,7 +47,6 @@ export function commandFor(
     return { command: candidate, args: [...serverArgs], env };
 }
 
-/** Таблица серверов builtin-клиента. Новый язык = новая строка (правок ядра не требует). */
 export const LANGUAGE_SERVERS: readonly ILanguageServerSpec[] = [
     {
         id: "diodeTypescript",
@@ -85,17 +61,13 @@ export const LANGUAGE_SERVERS: readonly ILanguageServerSpec[] = [
     },
 ];
 
-/** Результат резолва: команда + признак «выбран вшитый сервер» (для ATA/tsserver.path). */
 export interface IResolvedServer {
     readonly command: IServerCommand;
+    /** Для ATA/tsserver.path. */
     readonly isBundled: boolean;
 }
 
-/**
- * Выбирает первый существующий кандидат (существование проверяет вызывающий
- * через `exists`); имя без разделителей пути (PATH-кандидат) существованием
- * не проверяется — spawn сам упадёт, если бинаря нет.
- */
+/** PATH-кандидат (имя без разделителей) существованием не проверяется — spawn упадёт сам. */
 export function resolveServerCommand(
     spec: ILanguageServerSpec,
     settingPath: string,

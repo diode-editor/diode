@@ -1,11 +1,6 @@
 // Ловушки аудита V8-снапшота (scripts/check-snapshot.mjs): дописываются ПЕРЕД
-// `dist/main.cjs` в одноразовую копию, которая собирается `--build-snapshot`.
-// Пока снапшот собирается, исполняется только верхний уровень модулей — всё, что
-// он прочтёт из окружения процесса, запечётся в кучу и уедет пользователю с
-// бинарём. Ловушки записывают каждое такое чтение со стеком, а перед
-// сериализацией снимаются и отдают находки в файл `DIODE_SNAPSHOT_AUDIT_OUT`.
-//
-// Скрипт — не часть продукта: в бандл не входит, в бинарь не вшивается.
+// `dist/main.cjs` в одноразовую копию; каждое чтение окружения верхним уровнем — со
+// стеком, перед сериализацией находки уходят в `DIODE_SNAPSHOT_AUDIT_OUT`.
 (() => {
     const v8 = require("node:v8");
     if (!v8.startupSnapshot.isBuildingSnapshot()) return;
@@ -19,7 +14,7 @@
     let armed = true;
     const record = (what) => {
         if (!armed) return;
-        armed = false; // ловушки не должны ловить друг друга (стек, запись)
+        armed = false; // стек и запись сами дёргают ловушки
         try {
             const stack = (new Error().stack ?? "").split("\n").slice(2, 14).map((line) => line.trim());
             hits.push({ what, stack });
@@ -60,7 +55,6 @@
         restore.push(() => Object.defineProperty(owner, key, descriptor));
     };
 
-    // Окружение процесса: у пользователя оно другое, чем на машине сборки.
     const env = process.env;
     process.env = new Proxy(env, {
         get(target, key, receiver) {
@@ -89,7 +83,6 @@
     for (const key of ["homedir", "tmpdir", "userInfo", "hostname", "cpus", "availableParallelism", "networkInterfaces", "totalmem", "freemem", "uptime"]) {
         wrapMethod(os, key, `os.${key}()`);
     }
-    // Время и случайность: запечённые, они одинаковы у всех пользователей.
     wrapMethod(Date, "now", "Date.now()");
     wrapMethod(Math, "random", "Math.random()");
     wrapMethod(performance, "now", "performance.now()");

@@ -4,7 +4,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GitRevisionNotFoundError, showFileAtRevision, toRepoRelativePath } from "./gitShow.ts";
 
-// `spawn` замокан — реальный git не запускается; поведение задаём FakeChild'ом.
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 
 const { spawn } = await import("node:child_process");
@@ -18,7 +17,6 @@ class FakeChild extends EventEmitter {
     }
 }
 
-/** Ставит следующий запуск git: код возврата и stdout. */
 function nextGit(code: number, stdout = ""): FakeChild {
     const child = new FakeChild();
     spawnMock.mockReturnValue(child as never);

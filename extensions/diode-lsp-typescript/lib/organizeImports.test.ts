@@ -5,7 +5,6 @@ import { needsNoopOrganizeImports, ORGANIZE_IMPORTS_TS_KIND } from "./organizeIm
 describe("diode-lsp-typescript — холостая Organize Imports", () => {
     it("сервер промолчал на запрос organize imports — нужна холостая", () => {
         expect(needsNoopOrganizeImports("source.organizeImports", [])).toBe(true);
-        // Предок вида (меню source-действий) и сам подвид — тоже запрос.
         expect(needsNoopOrganizeImports("source", ["source.fixAll.ts"])).toBe(true);
         expect(needsNoopOrganizeImports(ORGANIZE_IMPORTS_TS_KIND, [undefined])).toBe(true);
         expect(needsNoopOrganizeImports("", [])).toBe(true);

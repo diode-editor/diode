@@ -1,23 +1,16 @@
 /**
- * Сборка самораспаковывающегося однофайлового бинаря (makeself-подход).
- * Формат склейки стаба и payload'а — в `selfextract-format.mjs`.
+ * Сборка самораспаковывающегося однофайлового бинаря (makeself-подход); формат
+ * склейки — `selfextract-format.mjs`.
  *
- * Зачем: Node SEA на Intel macOS не работает — инъекция SEA-блоба портит Mach-O
- * chained fixups, и бинарь падает с segfault в статических инициализаторах ДО main()
- * (#143). Апстрим считает SEA на x64 macOS неподдерживаемым (nodejs/node#62893).
- * Здесь никакой хирургии над Mach-O нет: берём нетронутый node с nodejs.org и
- * приклеиваем к sh-стабу payload — баг не воспроизводится, а codesign не нужен
- * (официальный node уже подписан и нотаризован).
- *
- * Результат:
+ * Зачем: на Intel macOS инъекция SEA-блоба портит Mach-O chained fixups — segfault
+ * до main() (#143, nodejs/node#62893). Здесь нетронутый подписанный node с
+ * nodejs.org приклеивается к sh-стабу — без хирургии над Mach-O и без codesign.
  *
  *     [ #!/bin/sh стаб (scripts/selfextract-stub.sh) ][ payload.tar.gz ]
- *       payload = node + main.cjs + diode.bundle + lazy/*.cjs (ленивые куски бандла)
+ *       payload = node + main.cjs + diode.bundle + lazy/*.cjs
  *
- * Стаб при первом запуске распаковывает payload в
- * `${XDG_CACHE_HOME:-~/.cache}/diode/<key>/` и делает `exec node main.cjs "$@"`.
- * Не-SEA чтение `diode.bundle` рядом с `main.cjs` обеспечивает
- * `src/Common/Assets/BundleFile.ts`.
+ * Стаб распаковывает payload в `${XDG_CACHE_HOME:-~/.cache}/diode/<key>/` и делает
+ * `exec node main.cjs "$@"`.
  *
  * Использование:
  *
@@ -27,12 +20,9 @@
  *   --node    `host` — взять process.execPath (быстро, без сети: локальные сборки и e2e);
  *             путь — взять указанный бинарь; по умолчанию — скачать официальный тарбол.
  *   --out     путь результата (по умолчанию <dist-dir>/diode)
- *   --dist-dir  каталог сборки вместо `dist/` (e2e собирает в кэш по хешу
- *             исходников, см. scripts/e2e-artifacts.mjs)
- *   --reuse-dist  не пересобирать `dist/main.cjs` и бандлы, взять уже собранные
- *             (e2e: SEA только что собрала их в globalSetup). Без этого флага
- *             tsup с `clean: true` стирает весь `dist/` — включая SEA-бинарь,
- *             который в этот момент могут исполнять соседи.
+ *   --dist-dir  каталог сборки вместо `dist/` (e2e — кэш по хешу, scripts/e2e-artifacts.mjs)
+ *   --reuse-dist  взять уже собранные `main.cjs` и бандлы: tsup с `clean: true`
+ *             стёр бы весь каталог — с SEA-бинарём, который могут исполнять соседи.
  */
 
 import { execFileSync } from "node:child_process";
@@ -48,10 +38,7 @@ import { resolveDiodeVersion } from "./resolve-version.mjs";
 import { writeSelfExtract } from "./selfextract-format.mjs";
 import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
 
-/**
- * Версия Node, уезжающая в payload. Держи в лок-степе с `node-version` в
- * `.github/workflows/build.yml` — там setup-node для сборки, здесь runtime юзера.
- */
+/** В лок-степе с `node-version` в `.github/workflows/build.yml`. */
 const NODE_VERSION = "26.12.0";
 
 const SUPPORTED_TARGETS = new Set(["darwin-x64", "darwin-arm64", "linux-x64", "linux-arm64"]);
@@ -72,31 +59,26 @@ async function main() {
     const version = resolveDiodeVersion({ repoRoot: root });
     console.log(`[selfextract] target=${target} version=${version}`);
 
-    // 1. dist/main.cjs + dist/diode.bundle (общее с build-sea.mjs).
     const { mainJsPath, bundlePath, tsServerBundlePath, lazyChunks } = args.reuseDist
         ? existingDistArtifacts(distDir)
         : await buildDistArtifacts({ repoRoot: root, distDir });
 
-    // 2. node для payload'а.
     const nodeBinary = await resolveNodeBinary({ target, nodeOpt: args.node });
 
-    // 3. Стейджим payload и жмём его.
     const payload = buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBundlePath, lazyChunks, distDir });
 
-    // 4. Клеим стаб + payload.
     const key = `${version}-${sha256(payload).slice(0, 12)}`;
     writeSelfExtract({ outputPath, payload, key });
 
     const sizeMb = (payload.length / 1024 / 1024).toFixed(1);
     console.log(`[selfextract] ${outputPath} (payload ${sizeMb} MB, cache key ${key})`);
 
-    // 5. Самотест — тот же, что у SEA: бинарь обязан реально стартовать (#143).
+    // Бинарь обязан реально стартовать (#143).
     if (target === HOST_TARGET) {
         const reported = smokeTestBinary(outputPath, { cwd: root });
         smokeTestNodeMode(outputPath);
         console.log(`[selfextract] Smoke: ${outputPath} --version → ${reported}`);
-        // Версия, зашитая в main.cjs, обязана совпадать с версией в ключе кэша: иначе
-        // распаковка ведётся в каталог, не соответствующий содержимому payload'а.
+        // Иначе распаковка идёт в каталог, не соответствующий содержимому payload'а.
         if (reported !== version) {
             throw new Error(
                 `[selfextract] Version mismatch: binary reports "${reported}", cache key built from "${version}".\n` +
@@ -125,7 +107,6 @@ function parseArgs(argv) {
 }
 
 /**
- * Пути артефактов `buildDistArtifacts` без пересборки — для `--reuse-dist`.
  * @param {string} distDir
  * @returns {{ mainJsPath: string, bundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ asset: string, path: string }> }}
  */
@@ -148,7 +129,6 @@ function existingDistArtifacts(distDir) {
 }
 
 /**
- * Отдаёт путь к бинарю node, который уедет в payload.
  * @param {{ target: string, nodeOpt: string | undefined }} params
  * @returns {Promise<string>}
  */
@@ -169,8 +149,6 @@ async function resolveNodeBinary({ target, nodeOpt }) {
 }
 
 /**
- * Качает официальный тарбол с nodejs.org, сверяет sha256 с SHASUMS256.txt и
- * достаёт из него `bin/node`. Кэш — dist/.cache/node/.
  * @param {{ target: string }} params
  * @returns {Promise<string>}
  */
@@ -191,8 +169,7 @@ async function downloadNode({ target }) {
     console.log(`[selfextract] node: downloading ${baseUrl}/${tarball}`);
     const [shasums, archive] = await Promise.all([fetchText(`${baseUrl}/SHASUMS256.txt`), fetchBuffer(`${baseUrl}/${tarball}`)]);
 
-    // Целостность: качаем по https, но сверяем явно — иначе битая/подменённая
-    // загрузка уедет в релизный бинарь молча.
+    // https мало: битая или подменённая загрузка уехала бы в релизный бинарь молча.
     const expected = findShasum(shasums, tarball);
     const actual = sha256(archive);
     if (actual !== expected) {
@@ -205,7 +182,6 @@ async function downloadNode({ target }) {
     mkdirSync(tmpDir, { recursive: true });
     const archivePath = join(tmpDir, tarball);
     writeFileSync(archivePath, archive);
-    // Из всего тарбола нужен ровно bin/node.
     execFileSync("tar", ["-xzf", archivePath, "-C", tmpDir, `${name}/bin/node`], { stdio: "inherit" });
     cpSync(join(tmpDir, name, "bin", "node"), nodePath);
     chmodSync(nodePath, 0o755);
@@ -214,7 +190,6 @@ async function downloadNode({ target }) {
 }
 
 /**
- * Стейджит node + main.cjs + diode.bundle + ts-server.bundle + ленивые куски и возвращает payload.tar.gz байтами.
  * @param {{ target: string, nodeBinary: string, mainJsPath: string, bundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ asset: string, path: string }>, distDir: string }} params
  * @returns {Buffer}
  */
@@ -227,23 +202,16 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBund
     chmodSync(join(stageDir, "node"), 0o755);
     cpSync(mainJsPath, join(stageDir, "main.cjs"));
     cpSync(bundlePath, join(stageDir, "diode.bundle"));
-    // ts-server.bundle — файлом рядом с main.cjs: loadTsServer.ts читает его через
-    // entryDir() (единый код-путь с SEA-ассетом) и распаковывает в кэш.
+    // Рядом с main.cjs: так их ищут loadTsServer.ts (через entryDir()) и lazyModule.ts.
     cpSync(tsServerBundlePath, join(stageDir, "ts-server.bundle"));
     cpSync(`${tsServerBundlePath}.sha256`, join(stageDir, "ts-server.bundle.sha256"));
-    // Ленивые куски — файлами `lazy/<id>.cjs` рядом с main.cjs, как их ищет lazyModule.ts.
     for (const { asset, path } of lazyChunks) {
         mkdirSync(dirname(join(stageDir, asset)), { recursive: true });
         cpSync(path, join(stageDir, asset));
     }
 
-    // node-pty стейджим как node_modules/node-pty рядом с main.cjs: self-extract —
-    // НЕ SEA, поэтому loadNodePty.ts идёт dev-путём createRequire(import.meta.url)
-    // → require("node-pty"), а его разрешение стартует рядом с main.cjs. Кладём ту
-    // же отфильтрованную раскладку, что и в node-pty.bundle (package.json + lib/**
-    // рантайм-JS + build/Release/*), нативный .node помечаем исполняемым.
-    // Натив — всегда архитектуры хоста сборки (см. pack-node-pty.mjs), поэтому
-    // linux-таргеты собираются нативно на раннере своей архи (x64 и arm64).
+    // Self-extract — НЕ SEA: loadNodePty.ts и loadRipgrep.ts идут dev-путём
+    // require(), который резолвит от main.cjs, — отсюда node_modules в payload'е.
     const { inputs: ptyInputs } = buildNodePtyBundle({ repoRoot: root });
     for (const { virtualPath, data } of ptyInputs) {
         const dest = join(stageDir, "node_modules", virtualPath);
@@ -252,15 +220,9 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBund
         if (virtualPath.endsWith(".node") || virtualPath.endsWith("spawn-helper")) chmodSync(dest, 0o755);
     }
 
-    // ripgrep: self-extract — НЕ SEA, поэтому loadRipgrep.ts идёт dev-путём
-    // require("@vscode/ripgrep").rgPath, а тот резолвит бинарь из optional-dependency
-    // @vscode/ripgrep-<platform>-<arch>. Кладём оба пакета в node_modules payload'а;
-    // бинарь rg помечаем исполняемым. Scope host-платформы (см. pack-node-pty.mjs).
     stageRipgrep(stageDir);
 
-    // Натив (node-pty, ripgrep) выше стейджится с архитектуры ХОСТА: кросс-payload
-    // получит чужие бинари и не заработает. Легальный кросс — только node, поэтому
-    // предупреждаем, но не падаем.
+    // Натив выше — с архитектуры ХОСТА; легальный кросс — только node, поэтому не падаем.
     if (target !== HOST_TARGET) {
         console.warn(
             `[selfextract] WARNING: target ${target} != host ${HOST_TARGET} — node-pty и ripgrep ` +
@@ -279,8 +241,7 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBund
 }
 
 /**
- * Копирует пакеты @vscode/ripgrep (резолвер) и @vscode/ripgrep-<platform>-<arch>
- * (реальный бинарь) в `node_modules` payload'а, чтобы рантайм-require их нашёл.
+ * Резолвер @vscode/ripgrep и пакет с бинарём @vscode/ripgrep-<platform>-<arch>.
  * @param {string} stageDir
  */
 function stageRipgrep(stageDir) {
@@ -288,8 +249,7 @@ function stageRipgrep(stageDir) {
     const binaryName = process.platform === "win32" ? "rg.exe" : "rg";
     const platformName = `ripgrep-${process.platform}-${process.arch}`;
 
-    // Резолвим сам бинарь (его subpath ЭКСПОРТИРОВАН) и выводим корни пакетов из
-    // пути — `exports` в @vscode/ripgrep запрещает резолвить "./package.json".
+    // Корни пакетов — из пути бинаря: `exports` в @vscode/ripgrep запрещает резолвить "./package.json".
     const rgBinaryPath = requireFromRoot.resolve(`@vscode/${platformName}/bin/${binaryName}`);
     const platformDir = dirname(dirname(rgBinaryPath)); // node_modules/@vscode/ripgrep-<platform>-<arch>
     const resolverDir = join(dirname(platformDir), "ripgrep"); // node_modules/@vscode/ripgrep
@@ -331,8 +291,6 @@ function sha256(data) {
     return createHash("sha256").update(data).digest("hex");
 }
 
-// Точка входа только при прямом запуске — иначе модуль нельзя импортировать в тесты,
-// не запустив сборку. Та же конвенция, что в pack-assets.mjs.
 if (import.meta.url === `file://${process.argv[1]}`) {
     await main();
 }

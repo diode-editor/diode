@@ -1,24 +1,16 @@
 /**
- * Версия, «зашиваемая» в сборку. Единственный источник правды — им пользуются
- * и `tsup.config.ts` (define `__DIODE_VERSION__` внутри main.cjs), и
- * `build-selfextract.mjs` (ключ кэша распаковки). Разъедься они — стаб распаковывал
- * бы payload в каталог, не совпадающий с версией, которую печатает сам редактор.
+ * Один источник версии для `__DIODE_VERSION__` (tsup) и ключа кэша self-extract:
+ * разъедься они — стаб распаковывал бы payload не в каталог своей версии.
  *
- * Приоритет:
- *  1. env `DIODE_VERSION` — задаётся в CI (релиз: тег `vX.Y.Z`; ночная: `nightly-<hash>`);
- *     ведущая `v` срезается.
- *  2. git-fallback — точный тег `vX.Y.Z` → его номер; иначе `nightly-<short-hash>`.
- *  3. если git недоступен → `0.0.0-dev`.
+ * Приоритет: env `DIODE_VERSION` (CI) → точный тег `vX.Y.Z` → `nightly-<short-hash>` → `0.0.0-dev`.
  */
 
 import { execSync } from "node:child_process";
 
 /**
- * @param {{ repoRoot?: string }} [params] `repoRoot` — корень репозитория, из которого
- *   спрашиваем git. По умолчанию `process.cwd()`: и tsup, и build-скрипты запускаются
- *   из корня. Резолвить от `import.meta.dirname` нельзя — tsup бандлит конфиг во
- *   временный файл, и git ушёл бы искать HEAD вверх по дереву (в worktree это давало
- *   версию основного репозитория, разъезжавшуюся с ключом кэша).
+ * @param {{ repoRoot?: string }} [params] По умолчанию `process.cwd()`, а не
+ *   `import.meta.dirname`: tsup бандлит конфиг во временный файл, и в worktree git
+ *   отдавал бы HEAD основного репозитория.
  * @returns {string}
  */
 export function resolveDiodeVersion(params = {}) {
@@ -33,7 +25,7 @@ export function resolveDiodeVersion(params = {}) {
             .trim();
         if (/^v\d/.test(tag)) return tag.replace(/^v/, "");
     } catch {
-        // HEAD не на релизном теге — упадём в nightly-ветку ниже.
+        // HEAD не на релизном теге.
     }
 
     try {

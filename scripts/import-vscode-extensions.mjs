@@ -1,17 +1,15 @@
 #!/usr/bin/env node
 /**
  * Import declarative language-basics extensions from microsoft/vscode
- * into `src/Extensions/builtin/`.
+ * into `extensions/`.
  *
- * Repeatable: bumping `VSCODE_TAG` and re-running the script refreshes all
- * packs to the new tag (each target directory is wiped before copying, so
- * files removed upstream do not linger). The pinned tag is recorded in
- * `src/Extensions/builtin/VSCODE_VERSION`.
+ * Repeatable: bump `VSCODE_TAG` and re-run; each target directory is wiped
+ * before copying, so files removed upstream do not linger. The pinned tag is
+ * recorded in `extensions/VSCODE_VERSION`.
  *
- * Only extensions without runtime code are imported (languages + grammars +
- * snippets). `git-base` declares a `main`, but builtin extensions are never
- * activated in the extension host — its language contributions (git-commit,
- * git-rebase, ignore) load fine, the code is stripped.
+ * Only extensions without runtime code are imported. `git-base` declares a
+ * `main`, but builtin extensions are never activated in the extension host —
+ * its language contributions load fine, the code is stripped.
  *
  * Usage: node scripts/import-vscode-extensions.mjs [--keep-clone]
  */
@@ -24,7 +22,6 @@ import { join, resolve } from "node:path";
 const VSCODE_TAG = "1.127.0";
 const VSCODE_REPO = "https://github.com/microsoft/vscode.git";
 
-/** Declarative language packs (no runtime code shipped after STRIP). */
 const LANGUAGE_PACKS = [
     "bat",
     "clojure",
@@ -76,12 +73,7 @@ const LANGUAGE_PACKS = [
     "yaml",
 ];
 
-/**
- * Entries dropped from every pack: tests, build machinery, sources of the
- * stripped `main`, package management noise and docs. Everything else is
- * kept — manifests reference icons and oddly-named configuration files, so
- * an allowlist would silently break packs.
- */
+/** Denylist, not allowlist: manifests reference icons and oddly-named config files, an allowlist would silently break packs. */
 const STRIP_NAMES = new Set([
     "test",
     "build",

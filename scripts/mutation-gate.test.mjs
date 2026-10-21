@@ -1,5 +1,4 @@
-// Запуск: node --test scripts/ (npm run test:scripts). Скрипты не входят в
-// vitest-сьют продукта — там только src/ и extensions/.
+// Запуск: node --test scripts/ (npm run test:scripts) — не vitest-сьют продукта.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -67,7 +66,6 @@ test("mutantKey: две замены на одной позиции — разн
     const toTrue = { location, mutatorName: "ConditionalExpression", replacement: "true" };
     const toFalse = { location, mutatorName: "ConditionalExpression", replacement: "false" };
     assert.notEqual(mutantKey("a.ts", toTrue), mutantKey("a.ts", toFalse));
-    // Тот же старт, другой конец — тоже разные.
     const shorter = { ...toTrue, location: at(10, 5, 10, 12) };
     assert.notEqual(mutantKey("a.ts", toTrue), mutantKey("a.ts", shorter));
     assert.equal(mutantKey("a.ts", toTrue), mutantKey("a.ts", { ...toTrue }));
@@ -80,7 +78,7 @@ test("parseScope + filterReportToScope: чужие мутанты инкреме
             "src/new.ts": { mutants: [{ location: at(500, 1, 500, 2), status: "Survived" }] },
             "src/old.ts": {
                 mutants: [
-                    { location: at(10, 1, 20, 1), status: "Survived" }, // целиком внутри
+                    { location: at(10, 1, 20, 1), status: "Survived" },
                     { location: at(19, 1, 21, 1), status: "Survived" }, // вылезает за край — как у Stryker'а, вне скоупа
                     { location: at(3, 1, 3, 2), status: "Survived" },
                 ],

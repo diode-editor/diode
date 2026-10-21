@@ -1,26 +1,23 @@
 #!/usr/bin/env node
 /**
- * Управляет `src/Extensions/Api/vscode.d.ts` — стадийной копией upstream
+ * Управляет `src/vscode-dts/vscode.d.ts` — стадийной копией upstream
  * `microsoft/vscode:src/vscode-dts/vscode.d.ts`.
  *
  * Файл состоит из двух частей:
  *   1. ПРЕФИКС (человеческий): шапка + активный `declare module "vscode"` +
  *      глобальный `Thenable` + баннер + строка-сентинел. Активный модуль — это
- *      ДОСЛОВНО раскомментированные строки upstream (bounded member-level
- *      uncommenting разрешён). Меняется ТОЛЬКО снятием `// `.
+ *      ДОСЛОВНО раскомментированные строки upstream. Меняется ТОЛЬКО снятием `// `.
  *   2. ДОРМАНТ (генерируемый): вся upstream-копия, каждая строка с `// `.
  *
  * Режимы:
  *   (без флагов)      — регенерировать дормант из запинненного тега и обновить
- *                       провенанс (tag/commit/permalink) в шапке. Активный
- *                       модуль не трогается. Требует сети (git clone).
- *   --check           — сверить, что дормант в файле байт-в-байт равен upstream
- *                       запинненного тега (drift guard). Требует сети. Exit 1 при дрейфе.
- *   --verify-active   — offline: убедиться, что каждая кодовая строка активного
- *                       модуля дословно присутствует в дормантной копии
- *                       (инвариант «меняется только раскомментированием»). Exit 1 иначе.
+ *                       провенанс (tag/commit/permalink) в шапке; активный модуль
+ *                       не трогается. Требует сети.
+ *   --check           — дормант байт-в-байт равен upstream тега (drift guard). Требует сети.
+ *   --verify-active   — offline: каждая кодовая строка активного модуля дословно
+ *                       есть в дорманте.
  *
- * Пин согласован с `src/Extensions/builtin/VSCODE_VERSION` — держите теги в лок-степе.
+ * Пин — в лок-степе с `extensions/VSCODE_VERSION`.
  *
  * Usage: node scripts/import-vscode-dts.mjs [--check | --verify-active] [--keep-clone]
  */
@@ -37,16 +34,12 @@ const DTS_PATH = "src/vscode-dts/vscode.d.ts";
 const repoRoot = resolve(import.meta.dirname, "..");
 const targetFile = resolve(repoRoot, "src", "vscode-dts", "vscode.d.ts");
 
-/** Строка-сентинел: всё, что ниже неё, — генерируемый дормант. */
+/** Всё ниже неё — генерируемый дормант. */
 const SENTINEL = "//@diode:begin-upstream-verbatim (генерируется scripts/import-vscode-dts.mjs — правьте только раскомментированием)";
 
-// ---- comment / strip -------------------------------------------------------
-
 const comment = (l) => (l === "" ? "//" : "// " + l);
-/** Обратная к `comment`: снимает ровно один слой `// ` / `//`. */
+/** Ровно один слой: строка upstream сама может начинаться с `//`. */
 const strip = (l) => (l.startsWith("// ") ? l.slice(3) : l === "//" ? "" : l);
-
-// ---- upstream fetch --------------------------------------------------------
 
 function fetchUpstream() {
 	const scratch = mkdtempSync(join(tmpdir(), "vscode-dts-"));
@@ -66,14 +59,11 @@ function fetchUpstream() {
 	}
 }
 
-/** Upstream, нормализованный к массиву строк без финального пустого элемента. */
 function upstreamLines(text) {
 	const lines = text.replace(/\r\n/g, "\n").split("\n");
 	if (lines.length && lines[lines.length - 1] === "") lines.pop();
 	return lines;
 }
-
-// ---- file split ------------------------------------------------------------
 
 function readTarget() {
 	const lines = readFileSync(targetFile, "utf8").split("\n");
@@ -82,7 +72,6 @@ function readTarget() {
 	return { lines, sentinelIdx };
 }
 
-/** Строки активного модуля (между `declare module "vscode" {` и его закрывающей `}`). */
 function activeModuleLines(lines) {
 	const start = lines.findIndex((l) => l.startsWith("declare module "));
 	if (start === -1) throw new Error("`declare module` not found");
@@ -97,14 +86,11 @@ function activeModuleLines(lines) {
 	throw new Error("unbalanced `declare module`");
 }
 
-/** Кодовые строки (без комментариев/пустых), trimmed — для сравнения. */
 function codeLines(lines) {
 	return lines
 		.map((l) => l.trim())
 		.filter((t) => t !== "" && !t.startsWith("//") && !t.startsWith("*") && !t.startsWith("/*"));
 }
-
-// ---- modes -----------------------------------------------------------------
 
 function updateProvenance(prefix, sha) {
 	const permalink = `https://github.com/microsoft/vscode/blob/${sha}/${DTS_PATH}`;
@@ -173,8 +159,6 @@ function verifyActive() {
 	for (const o of offenders.slice(0, 20)) console.error(`   ${o}`);
 	process.exit(1);
 }
-
-// ---- main ------------------------------------------------------------------
 
 if (process.argv.includes("--check")) check();
 else if (process.argv.includes("--verify-active")) verifyActive();

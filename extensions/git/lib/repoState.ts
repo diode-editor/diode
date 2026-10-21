@@ -1,9 +1,9 @@
-/** Payload `diode.scm.publishRepoState` — снимок состояния репозитория для ядра. */
+/** Payload `diode.scm.publishRepoState`. */
 export interface IRepoStatePayload {
-    /** Имя текущей ветки; null — detached HEAD или unborn. */
+    /** null — detached HEAD или unborn. */
     readonly branch: string | null;
     readonly detached: boolean;
-    /** Upstream текущей ветки (`origin/main`); null — не задан. */
+    /** `origin/main`; null — не задан. */
     readonly upstream: string | null;
     readonly ahead: number;
     readonly behind: number;
@@ -11,11 +11,7 @@ export interface IRepoStatePayload {
     readonly state: "idle" | "merging" | "rebasing" | "cherry-picking";
 }
 
-/**
- * Разбирает заголовки `git status --porcelain=v2 --branch`:
- * `# branch.head main | (detached)`, `# branch.upstream origin/main`,
- * `# branch.ab +A -B`. Отсутствующие заголовки — дефолты (unborn/без upstream).
- */
+/** Заголовки `git status --porcelain=v2 --branch`; отсутствующие — дефолты (unborn/без upstream). */
 export function parseBranchHeaders(stdout: string): {
     branch: string | null;
     detached: boolean;
@@ -51,7 +47,6 @@ export function parseBranchHeaders(stdout: string): {
     return { branch, detached, upstream, ahead, behind };
 }
 
-/** Разбирает вывод `git remote` в список имён. */
 export function parseRemotes(stdout: string): string[] {
     return stdout
         .split("\n")

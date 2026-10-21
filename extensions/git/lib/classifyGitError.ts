@@ -1,4 +1,4 @@
-/** Классы ошибок git — зеркало `GitErrorKind` протокола (по мотивам GitErrorCodes VS Code). */
+/** Зеркало `GitErrorKind` протокола. */
 export type GitErrorKind =
     | "auth"
     | "conflict"
@@ -18,11 +18,7 @@ const AUTH_PATTERNS = [
     "Host key verification failed",
 ];
 
-/**
- * Классифицирует stderr неуспешного git-вызова. Порядок важен: auth-паттерны
- * специфичнее generic «[rejected]», конфликт — раньше dirty-worktree (оба
- * упоминают merge).
- */
+/** Порядок важен: auth специфичнее «[rejected]», конфликт — раньше dirty-worktree (оба упоминают merge). */
 export function classifyGitStderr(stderr: string): GitErrorKind {
     if (AUTH_PATTERNS.some((p) => stderr.includes(p))) return "auth";
     if (

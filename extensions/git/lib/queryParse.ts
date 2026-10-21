@@ -1,4 +1,3 @@
-/** Один ref из `git for-each-ref` — материал для пикеров checkout/merge/pull-from. */
 export interface IGitRef {
     /** Короткое имя: `main`, `origin/main`, `v1.0`. */
     readonly name: string;
@@ -7,10 +6,8 @@ export interface IGitRef {
     readonly subject: string;
 }
 
-/** Формат-аргумент для {@link parseForEachRefZ} (NUL-разделители внутри строки). */
 export const FOR_EACH_REF_FORMAT = "%(refname)%00%(objectname:short)%00%(subject)";
 
-/** Разбирает `git for-each-ref --format=FOR_EACH_REF_FORMAT` (строка на ref). */
 export function parseForEachRefZ(stdout: string): IGitRef[] {
     const refs: IGitRef[] = [];
     for (const line of stdout.split("\n")) {
@@ -41,17 +38,14 @@ export function parseForEachRefZ(stdout: string): IGitRef[] {
     return refs;
 }
 
-/** Один стэш из `git stash list`. */
 export interface IGitStash {
     /** `stash@{0}` — аргумент для pop/apply/drop. */
     readonly index: string;
     readonly description: string;
 }
 
-/** Формат-аргумент для {@link parseStashListZ}. */
 export const STASH_LIST_FORMAT = "%gd%x00%gs";
 
-/** Разбирает `git stash list --format=STASH_LIST_FORMAT`. */
 export function parseStashListZ(stdout: string): IGitStash[] {
     const stashes: IGitStash[] = [];
     for (const line of stdout.split("\n")) {

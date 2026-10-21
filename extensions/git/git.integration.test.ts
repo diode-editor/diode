@@ -25,13 +25,10 @@ import type { IExtensionRegistration } from "../../src/vs/workbench/services/ext
 
 const GIT_MAIN = fileURLToPath(new URL("./main.ts", import.meta.url));
 
-// Транспорты мутаций (строки дублируются по значению — общих импортов через
-// границу процесса нет, как у PUBLISH_CHANGES_COMMAND).
 const STAGE_COMMAND = "diode.git.stage";
 const UNSTAGE_COMMAND = "diode.git.unstage";
 const CLEAN_COMMAND = "diode.git.clean";
 
-// Any resolvable colour ids the plugin references (git status → tree, diff → gutter).
 const COLORS: Record<string, number> = {
     "editorGutter.addedBackground": 0x00ff00,
     "editorGutter.modifiedBackground": 0x0000ff,
@@ -76,7 +73,6 @@ function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
 
-/** Содержимое tracked.txt в HEAD — до правки второй строки. */
 const TRACKED_AT_HEAD = "a\nb\nc\n";
 
 function makeRepo(dir: string): void {
@@ -87,7 +83,6 @@ function makeRepo(dir: string): void {
     fs.writeFileSync(path.join(dir, "tracked.txt"), TRACKED_AT_HEAD);
     git(dir, "add", "-A");
     git(dir, "commit", "-qm", "init");
-    // Modify line 2 of the tracked file and add an untracked file.
     fs.writeFileSync(path.join(dir, "tracked.txt"), "a\nB\nc\n");
     fs.writeFileSync(path.join(dir, "untracked.txt"), "x\n");
 }
@@ -108,7 +103,6 @@ function gitRegistration(): IExtensionRegistration {
     };
 }
 
-/** Poll a condition across real-time settles (subprocess + real git are async). */
 async function waitFor(predicate: () => boolean, timeoutMs = 4000): Promise<boolean> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {
@@ -143,7 +137,6 @@ describe("builtin git plugin (integration)", () => {
 
         await registerAndActivate(harness.host, gitRegistration());
 
-        // Tree: both changed files decorated (M for modified, U for untracked).
         const gotFiles = await waitFor(() => {
             const entries = fileSpy.latest();
             return entries?.some((e) => e.path.endsWith("tracked.txt") && e.badge === "M") ?? false;
@@ -164,8 +157,6 @@ describe("builtin git plugin (integration)", () => {
         });
         expect(entries.find((e) => e.path.endsWith("gone.txt"))).toMatchObject({ badge: "D", propagate: false });
 
-        // Гуттер расширение больше НЕ считает: оно отдаёт версию из HEAD по схеме
-        // git:, а дифф против живого буфера делает ядро (QuickDiffService).
         const trackedPath = path.join(harness.tmpDir, "tracked.txt");
         const originalUri = (await harness.commandRegistry.execute(
             "diode.scm.originalResource",
@@ -174,7 +165,6 @@ describe("builtin git plugin (integration)", () => {
         expect(originalUri).toMatch(/^git:/);
 
         const bytes = await harness.host.readProvidedFile(Uri.parse(originalUri!));
-        // В HEAD лежит исходная версия — до правки второй строки.
         expect(new TextDecoder().decode(bytes)).toBe(TRACKED_AT_HEAD);
 
         expect(editorSpy.latestFor("tracked.txt")).toBeUndefined();
@@ -187,7 +177,6 @@ describe("builtin git plugin (integration)", () => {
             fileDecorations: makeFileSpy().service,
             themeColorResolver: makeThemeResolver(),
         });
-        // Спай хостовой команды: расширение вызовет её fall-through'ом.
         harness.commandRegistry.register(PUBLISH_CHANGES_COMMAND, (payload) => {
             published.push(payload);
         });
@@ -209,8 +198,6 @@ describe("builtin git plugin (integration)", () => {
         expect(got).toBe(true);
 
         const set = latest()!;
-        // path — путь относительно корня репо (из porcelain, через `/`), не basename;
-        // group — раскладка по группам ресурсов (продюсер протокола вкладки Changes).
         expect(set.find((r) => r.uri.endsWith("tracked.txt"))).toMatchObject({
             status: "M",
             colorId: "gitDecoration.modifiedResourceForeground",
@@ -232,7 +219,6 @@ describe("builtin git plugin (integration)", () => {
             fileDecorations: makeFileSpy().service,
             themeColorResolver: makeThemeResolver(),
         });
-        // Спай хостовой команды: расширение вызовет её fall-through'ом.
         harness.commandRegistry.register(PUBLISH_LOG_COMMAND, (payload) => {
             published.push(payload);
         });
@@ -262,20 +248,17 @@ describe("builtin git plugin (integration)", () => {
         expect(initial.hasMore).toBe(false);
         expect(initial.commits[0].sha).toMatch(/^[0-9a-f]{40}$/);
         expect(initial.commits[0].shortSha).toMatch(/^[0-9a-f]{4,}$/);
-        // Корневой коммит — без родителей; ветка приезжает бейджем с current.
         expect(initial.commits[0].parents).toEqual([]);
         expect(initial.commits[0].refs).toContainEqual(expect.objectContaining({ kind: "head", current: true }));
         expect(initial.commits[0].author).not.toBe("");
         expect(initial.commits[0].timestamp).toBeGreaterThan(0);
 
-        // Новый коммит + ручной git.refresh (команда расширения) → перепубликация.
         git(harness.tmpDir, "add", "-A");
         git(harness.tmpDir, "commit", "-qm", "second");
         await harness.commandRegistry.execute("git.refresh");
         const republished = await waitFor(() => latest()?.commits.some((c) => c.subject === "second") ?? false);
         expect(republished).toBe(true);
         expect(latest()!.commits.map((c) => c.subject)).toEqual(["second", "init"]);
-        // Потомок ссылается на родителя — материал для укладки графа.
         expect(latest()!.commits[0].parents).toEqual([latest()!.commits[1].sha]);
     });
 
@@ -285,7 +268,6 @@ describe("builtin git plugin (integration)", () => {
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
             themeColorResolver: makeThemeResolver(),
-            // Страница в два коммита: гонять 50 коммитов ради пагинации незачем.
             configuration: { scm: { graph: { pageSize: 2 } } },
         });
         harness.commandRegistry.register(PUBLISH_LOG_COMMAND, (payload) => {
@@ -308,14 +290,12 @@ describe("builtin git plugin (integration)", () => {
         const paged = await waitFor(() => latest()?.commits.length === 2);
         expect(paged).toBe(true);
         expect(latest()!.commits.map((c) => c.subject)).toEqual(["c4", "c3"]);
-        // Историю есть куда листать — ядро покажет строку «Load More…».
         expect(latest()!.hasMore).toBe(true);
 
         await harness.commandRegistry.execute("diode.git.op", { op: "logLoadMore" });
         const loaded = await waitFor(() => latest()?.commits.length === 4);
         expect(loaded).toBe(true);
         expect(latest()!.commits.map((c) => c.subject)).toEqual(["c4", "c3", "c2", "init"]);
-        // Дальше истории нет — строка догрузки исчезает.
         expect(latest()!.hasMore).toBe(false);
     });
 
@@ -333,7 +313,6 @@ describe("builtin git plugin (integration)", () => {
         const uriOf = (rel: string): string => Uri.file(path.join(dir, rel)).toString();
         const porcelain = (): string => execFileSync("git", ["status", "--porcelain=v1"], { cwd: dir }).toString();
 
-        // stage: modified + untracked уходят в индекс.
         const staged = (await harness.commandRegistry.execute(STAGE_COMMAND, [
             uriOf("tracked.txt"),
             uriOf("untracked.txt"),
@@ -341,7 +320,6 @@ describe("builtin git plugin (integration)", () => {
         expect(staged.ok).toBe(true);
         expect(porcelain()).toBe("M  tracked.txt\nA  untracked.txt\n");
 
-        // unstage: обе записи возвращаются в рабочее дерево.
         const unstaged = (await harness.commandRegistry.execute(UNSTAGE_COMMAND, [
             uriOf("tracked.txt"),
             uriOf("untracked.txt"),
@@ -349,7 +327,6 @@ describe("builtin git plugin (integration)", () => {
         expect(unstaged.ok).toBe(true);
         expect(porcelain()).toBe(" M tracked.txt\n?? untracked.txt\n");
 
-        // clean: tracked откатывается к HEAD, untracked удаляется с диска.
         // status-карта расширения к этому моменту знает оба файла (refresh после unstage).
         const cleaned = (await harness.commandRegistry.execute(CLEAN_COMMAND, [
             uriOf("tracked.txt"),
@@ -410,7 +387,6 @@ describe("builtin git plugin (integration)", () => {
         expect(await waitFor(() => changes.length > 0)).toBe(true);
         expect(published).toEqual([]);
 
-        // Секцию раскрыли — страница приезжает тем же refreshAll в конце операции.
         await harness.commandRegistry.execute("diode.git.op", {
             op: "logSetEnabled",
             params: { enabled: true },
@@ -443,7 +419,6 @@ describe("builtin git plugin (integration)", () => {
         await registerAndActivate(harness.host, gitRegistration());
         expect(await waitFor(() => changes.length > 0)).toBe(true);
 
-        // Предел растёт и у выключенного графа — публиковать просто нечего.
         await harness.commandRegistry.execute("diode.git.op", { op: "logLoadMore" });
         expect(published).toEqual([]);
 
@@ -477,7 +452,6 @@ describe("builtin git plugin (integration)", () => {
         expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: dir }).toString().trim()).toBe("feat: change");
         expect(execFileSync("git", ["status", "--porcelain=v1"], { cwd: dir }).toString()).toBe("");
 
-        // Amend с новым сообщением: число коммитов не растёт.
         const amended = (await harness.commandRegistry.execute("diode.git.op", {
             op: "commit",
             params: { message: "feat: amended", amend: true, allowEmpty: true },
@@ -525,7 +499,6 @@ describe("builtin git plugin (integration)", () => {
         harness.group.openFile(path.join(dir, "tracked.txt"));
         await registerAndActivate(harness.host, gitRegistration());
 
-        // Второй коммит поверх init — его и откатываем.
         git(dir, "add", "-A");
         git(dir, "commit", "-qm", "feat: second");
 
@@ -536,10 +509,8 @@ describe("builtin git plugin (integration)", () => {
         expect(undone.ok).toBe(true);
         expect(undone.data?.message).toBe("feat: second");
         expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: dir }).toString().trim()).toBe("1");
-        // Изменения остались staged.
         expect(execFileSync("git", ["diff", "--cached", "--name-only"], { cwd: dir }).toString().trim()).not.toBe("");
 
-        // Остался только корневой коммит — второй undo отказывает.
         const root = (await harness.commandRegistry.execute("diode.git.op", { op: "undoCommit" })) as {
             ok: boolean;
             message?: string;
@@ -563,7 +534,6 @@ describe("builtin git plugin (integration)", () => {
         fs.writeFileSync(path.join(dir, "tracked.txt"), "second\n");
         git(dir, "commit", "-aqm", "feat: second");
 
-        // Revert второго коммита — HEAD растёт, содержимое возвращается к root.
         const reverted = (await harness.commandRegistry.execute("diode.git.op", {
             op: "revert",
             params: { ref: "HEAD" },
@@ -572,7 +542,6 @@ describe("builtin git plugin (integration)", () => {
         expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: dir }).toString().trim()).toBe("3");
         expect(fs.readFileSync(path.join(dir, "tracked.txt"), "utf8")).toBe(TRACKED_AT_HEAD);
 
-        // Reset --hard на корневой коммит стирает оба коммита сверху.
         const reset = (await harness.commandRegistry.execute("diode.git.op", {
             op: "reset",
             params: { ref: root, mode: "hard" },
@@ -584,7 +553,6 @@ describe("builtin git plugin (integration)", () => {
             execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], { cwd: dir }).toString().trim(),
         ).toBe("");
 
-        // Мусорный режим до git не доезжает.
         const bogus = (await harness.commandRegistry.execute("diode.git.op", {
             op: "reset",
             params: { ref: root, mode: "--force" },
@@ -610,7 +578,6 @@ describe("builtin git plugin (integration)", () => {
         harness.group.openFile(path.join(dir, "tracked.txt"));
         await registerAndActivate(harness.host, gitRegistration());
 
-        // Новый локальный коммит → push доносит его до remote.
         git(dir, "add", "-A");
         git(dir, "commit", "-qm", "feat: second");
         const pushed = (await harness.commandRegistry.execute("diode.git.op", { op: "push" })) as { ok: boolean };
@@ -619,7 +586,6 @@ describe("builtin git plugin (integration)", () => {
             "feat: second",
         );
 
-        // Remote уходит вперёд (через второй клон) → pull подтягивает.
         const cloneDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-clone-"));
         execFileSync("git", ["clone", "-q", remoteDir, cloneDir]);
         git(cloneDir, "config", "user.email", "t@example.com");
@@ -633,7 +599,6 @@ describe("builtin git plugin (integration)", () => {
         expect(pulled.ok).toBe(true);
         expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: dir }).toString().trim()).toBe("feat: third");
 
-        // Query: refs содержат ветку и её remote-двойника, remotes — origin.
         const refs = (await harness.commandRegistry.execute("diode.git.query", { kind: "refs" })) as {
             refs: { name: string; kind: string }[];
         };
@@ -656,7 +621,6 @@ describe("builtin git plugin (integration)", () => {
         harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
         await registerAndActivate(harness.host, gitRegistration());
 
-        // Не-массив, не-строки, чужая схема, путь вне репо — всё мимо; git не зовётся.
         for (const payload of [
             "not-an-array",
             [42, null, {}],
@@ -666,7 +630,6 @@ describe("builtin git plugin (integration)", () => {
             const result = (await harness.commandRegistry.execute(STAGE_COMMAND, payload)) as { ok: boolean };
             expect(result.ok).toBe(true);
         }
-        // Рабочее дерево нетронуто: modified остался modified, untracked — untracked.
         const porcelain = execFileSync("git", ["status", "--porcelain=v1"], { cwd: harness.tmpDir }).toString();
         expect(porcelain).toBe(" M tracked.txt\n?? untracked.txt\n");
     });

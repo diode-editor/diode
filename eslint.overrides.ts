@@ -1,22 +1,3 @@
-/**
- * Переопределения правил ESLint.
- *
- * Добавляй сюда любые правила, которые хочешь отключить или ослабить.
- * Этот файл импортируется в eslint.config.ts и применяется последним,
- * поэтому всё, что здесь указано, перекрывает базовый конфиг.
- *
- * Пример:
- *
- *   export default [
- *       {
- *           rules: {
- *               "@typescript-eslint/no-unused-vars": "off",
- *               "@typescript-eslint/no-explicit-any": "warn",
- *           },
- *       },
- *   ];
- */
-
 import type { TSESLint } from "@typescript-eslint/utils";
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 
@@ -37,15 +18,8 @@ const overrides: TSESLint.FlatConfig.ConfigArray = [
         },
         rules: {
             "@typescript-eslint/no-unused-vars": "off",
-            // Форсируем явный спецификатор видимости на всех членах класса
             "@typescript-eslint/explicit-member-accessibility": ["error", { accessibility: "explicit" }],
-            // Разрешаем числа в template literals
             "@typescript-eslint/restrict-template-expressions": ["error", { allowNumber: true }],
-            // Сортировка импортов по группам:
-            // 1. Node built-in модули (node:*)
-            // 2. Внешние пакеты (npm)
-            // 3. Относительные импорты, поднимающиеся вверх (../)
-            // 4. Локальные импорты (./)
             "simple-import-sort/imports": [
                 "error",
                 {
@@ -53,7 +27,6 @@ const overrides: TSESLint.FlatConfig.ConfigArray = [
                 },
             ],
             "simple-import-sort/exports": "warn",
-            // Запрещаем inline import() в аннотациях типов — используй import type вместо этого
             "no-restricted-syntax": [
                 "error",
                 {
@@ -64,16 +37,13 @@ const overrides: TSESLint.FlatConfig.ConfigArray = [
         },
     },
     {
-        // Рукописный список слушателей (поле `listeners`/`…Listeners` с массивом
-        // или Set) — вместо Emitter из vs/base/common/event.ts: без изоляции
-        // ошибок слушателя и с разной семантикой отписки в обходе
-        // (docs/arch/Common.md#события-eventts). Правило перекрывает no-restricted-syntax выше
+        // Рукописный список слушателей — без изоляции ошибок слушателя и с разной
+        // семантикой отписки в обходе. Правило перекрывает no-restricted-syntax выше
         // целиком, поэтому селектор inline import() повторён.
         files: ["src/vs/**/*.ts"],
         ignores: [
             "**/*.test.ts",
             "**/*testUtils.ts",
-            // Сам эмиттер.
             "src/vs/base/common/event.ts",
             // Одноразовое событие с повтором для опоздавшего подписчика — свой контракт.
             "src/vs/base/common/cancellation.ts",

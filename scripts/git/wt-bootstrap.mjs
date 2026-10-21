@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 // npm run git:wt-bootstrap [-- --force] — node_modules worktree соответствует package-lock.json.
 //
-// Свежий worktree приходит без node_modules, а старый — с протухшими после
-// rebase на main (lock уехал вперёд, в node_modules старые версии; так уже
-// ломались typecheck и движок). Сверяем sha256 lock-файла с отметкой,
-// оставленной прошлым запуском, и при расхождении ставим заново `npm ci`.
+// Старый worktree после rebase на main несёт протухшие node_modules (так уже
+// ломались typecheck и движок): sha256 lock-файла сверяется с отметкой прошлого
+// запуска, при расхождении — `npm ci`.
 //
 // Если стоит подмена движка (npm run engine:link, .engine-link/STAMP), npm ci
 // её снесёт — без --force отказываемся.

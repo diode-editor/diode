@@ -4,7 +4,6 @@ import eslintPluginPrettier from "eslint-plugin-prettier/recommended";
 import overrides from "./eslint.overrides.ts";
 
 export default tseslint.config(
-    // Глобальные игноры
     {
         ignores: [
             "dist/",
@@ -13,11 +12,8 @@ export default tseslint.config(
             "src/vscode-dts/vscode.d.ts",
             "src/vs/workbench/services/extensions/node/__fixtures__/*.cjs",
             "extensions/*/out/",
-            // Дословный перенос upstream vscode (scripts/import-vscode-editor.mjs):
-            // правится только сменой пина, поэтому замечания strictTypeChecked
-            // по нему нечем закрыть — их нельзя исправлять по определению.
-            // Пути перечислены точечно: наши тесты лежат в тех же каталогах и
-            // линтуются на общих основаниях.
+            // Дословный перенос upstream: замечания исправлять нельзя по определению.
+            // Пути точечно: наши тесты в тех же каталогах линтуются на общих основаниях.
             "src/vs/editor/common/diff/linesDiffComputer.ts",
             "src/vs/editor/common/diff/rangeMapping.ts",
             "src/vs/editor/common/diff/defaultLinesDiffComputer/**",
@@ -41,14 +37,11 @@ export default tseslint.config(
         ],
     },
 
-    // Базовые рекомендации ESLint для JS
     eslint.configs.recommended,
 
-    // Самый злой typescript-eslint пресет с type-aware правилами
     ...tseslint.configs.strictTypeChecked,
     ...tseslint.configs.stylisticTypeChecked,
 
-    // Настройки парсера для type-aware линтинга
     {
         languageOptions: {
             parserOptions: {
@@ -60,9 +53,7 @@ export default tseslint.config(
         },
     },
 
-    // Prettier — отключает конфликтующие ESLint-правила и репортит нарушения форматирования
     eslintPluginPrettier,
 
-    // Пользовательские переопределения из eslint.overrides.ts
     ...overrides,
 );

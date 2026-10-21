@@ -4,14 +4,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { runGit } from "./runGit.ts";
 
-// `spawn` is mocked so no real subprocess is launched; the FakeChild below drives
-// every code path (spawn error, exit codes, timeout-kill) synchronously.
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 
 const { spawn } = await import("node:child_process");
 const spawnMock = vi.mocked(spawn);
 
-/** Minimal in-memory ChildProcess with pipe-style stdout/stderr and controllable kill. */
 class FakeChild extends EventEmitter {
     public readonly stdout = new EventEmitter();
     public readonly stderr = new EventEmitter();

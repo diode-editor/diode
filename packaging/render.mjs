@@ -1,11 +1,7 @@
 #!/usr/bin/env node
 /**
- * Рендерит манифесты пакетных каналов для одного релиза:
- *   - Homebrew cask     → <out>/brew/Casks/diode.rb
- *   - winget-манифесты  → <out>/winget/DiodeEditor.Diode/<version>/*.yaml
- *
- * Источник sha256 — либо каталог с сайдкарами `<asset>.sha256` (так делает release.yml,
- * скачав артефакты сборки), либо GitHub API (поле `digest` у ассетов релиза):
+ * Манифесты Homebrew cask и winget для одного релиза. sha256 — из сайдкаров
+ * `<asset>.sha256` (release.yml) либо из поля `digest` GitHub API:
  *
  *   node packaging/render.mjs --version 0.3.0 --sums <dir>   [--out <dir>]
  *   node packaging/render.mjs --version 0.3.0 --from-github  [--out <dir>]
@@ -43,12 +39,8 @@ writeOut(join(wingetDir, "DiodeEditor.Diode.yaml"), renderWingetVersion());
 writeOut(join(wingetDir, "DiodeEditor.Diode.installer.yaml"), renderWingetInstaller());
 writeOut(join(wingetDir, "DiodeEditor.Diode.locale.en-US.yaml"), renderWingetLocale());
 
-// ---------------------------------------------------------------------------
-
 // Cask, а не формула: формулу без бутылки Homebrew считает сборкой из исходников и на
-// macOS требует свежие Command Line Tools (formula_installer.rb: `unless pour_bottle?` →
-// perform_build_from_source_checks), хотя мы только скачиваем бинарь. Cask — штатный путь
-// для готовых бинарей; со стансами `os`/`arch` один cask покрывает macOS и Linux.
+// macOS требует свежие Command Line Tools (formula_installer.rb), хотя мы только качаем бинарь.
 function renderCask() {
     return `# Сгенерировано packaging/render.mjs из релиза v${version} — руками не править.
 cask "diode" do
@@ -139,8 +131,6 @@ ManifestType: defaultLocale
 ManifestVersion: 1.12.0
 `;
 }
-
-// ---------------------------------------------------------------------------
 
 function sumsFromDir(dir) {
     if (!dir) fail("нужен --sums <dir> или --from-github");

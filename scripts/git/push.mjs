@@ -1,17 +1,13 @@
 #!/usr/bin/env node
 // npm run git:push [-- <ветка>] [--expect <sha>] — push ветки по https.
 //
-// Правила проекта, которые он держит сам:
-//   - только https (origin — ssh, а ssh живёт лишь с проброшенным агентом);
-//   - перезапись — только `--force-with-lease=refs/heads/<b>:<sha>` с ЯВНЫМ SHA:
-//     без него lease при push по URL сравнивать не с чем, и он молча становится --force.
+// Только https (origin — ssh, а ssh живёт лишь с проброшенным агентом). Перезапись —
+// только `--force-with-lease=refs/heads/<b>:<sha>` с ЯВНЫМ SHA: при push по URL без
+// него lease сравнивать не с чем, и он молча становится --force.
 //
-// Откуда SHA для lease (по порядку):
-//   1. --expect <sha> — назван явно;
-//   2. запись git:stack-rebase — SHA на сервере, снятый ДО переписывания истории;
-//   3. сейчас с сервера — только если локальная ветка его продолжает (fast-forward)
-//      или ветки там нет. Расхождение без записи — отказ: это чужой push или
-//      rebase, сделанный руками, и вслепую его не перезаписываем.
+// SHA для lease (по порядку): --expect; запись git:stack-rebase (снят ДО переписывания);
+// сервер — только если локальная его продолжает или ветки нет. Расхождение без
+// записи — отказ: это чужой push или ручной rebase.
 import {
     assertDiodeCheckout,
     currentBranch,
@@ -85,7 +81,6 @@ const code = loud("git", [
 if (code !== 0) process.exit(code);
 
 dropLease(branch);
-// Push по URL не двигает remote-tracking ref — двигаем сами, чтобы
-// `git status` и merge-base с origin/<ветка> видели правду.
+// Push по URL не двигает remote-tracking ref.
 git("update-ref", `refs/remotes/origin/${branch}`, local);
 console.log(`${branch}: ${short(server) || "(новая)"} → ${short(local)}. Статус PR: npm run git:pr-status`);

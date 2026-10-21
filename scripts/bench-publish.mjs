@@ -1,22 +1,12 @@
 #!/usr/bin/env node
 /**
- * Раскладывает отчёт бенча открытия файла в ветку данных `bench-data`
- * (её checkout — `--out`). Зовёт `.github/workflows/bench.yml` после прогона;
- * руками — чтобы положить локальный отчёт рядом с CI-шными.
+ * Раскладывает отчёт бенча открытия файла в ветку данных `bench-data` (её checkout —
+ * `--out`); раскладку читает страница diode-editor.github.io/benchmarks/ (см. BRANCH_README).
  *
  *   node scripts/bench-publish.mjs --report out/open.json --md out/BENCH-OPEN.md --out ../bench-data
  *
- * Раскладка ветки (читает страница сайта diode-editor.github.io/benchmarks/):
- *
- *   README.md                       что это за ветка
- *   open/index.json                 список прогонов, новые в конец — точка входа для страницы
- *   open/<дата>-<коммит>.json       сырой отчёт прогона (FullReport из e2e/bench/openReport.ts)
- *   open/latest.json                копия последнего отчёта
- *   open/latest.md                  он же в Markdown (то, что раньше шло в docs/public/BENCH-OPEN.md)
- *
- * Дата и коммит — из самого отчёта (`generatedAt`, `commit`), чтобы имя файла не
- * зависело от часов машины, на которой раскладывали. Повторная раскладка того же
- * отчёта перезаписывает файл и не дублирует запись в индексе.
+ * Дата и коммит в имени файла — из отчёта, а не часов машины: повторная раскладка того
+ * же отчёта перезаписывает файл и не дублирует запись в индексе.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -56,7 +46,6 @@ function parseArgs(argv) {
     return args;
 }
 
-/** Имя файла прогона: `<YYYY-MM-DD>-<коммит>.json` из полей отчёта. */
 export function runFileName(report) {
     const date = String(report.generatedAt).slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
@@ -68,7 +57,7 @@ export function runFileName(report) {
     return `${date}-${commit}.json`;
 }
 
-/** Запись индекса: ровно то, что нужно странице, чтобы выбрать прогон, не читая его. */
+/** Ровно то, что нужно странице, чтобы выбрать прогон, не читая его. */
 export function indexEntry(report, file) {
     return {
         file,
@@ -81,7 +70,7 @@ export function indexEntry(report, file) {
     };
 }
 
-/** Добавляет запись в индекс; тот же файл — заменяет запись на месте. */
+/** Тот же файл — замена на месте. */
 export function upsertIndex(entries, entry) {
     const next = entries.filter((e) => e.file !== entry.file);
     const at = entries.findIndex((e) => e.file === entry.file);

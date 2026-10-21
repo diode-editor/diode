@@ -1,30 +1,12 @@
 #!/usr/bin/env node
 /**
- * Упаковка рантайм-раскладки нативного `node-pty` в ассет `node-pty.bundle`.
+ * Рантайм-раскладка `node-pty` → ассет `node-pty.bundle`: `process.dlopen` требует
+ * файл на диске, поэтому `loadNodePty.ts` на первом запуске распаковывает ассет в
+ * tmpdir и делает `require` из `<targetDir>/node-pty` — отсюда префикс `node-pty/`
+ * у каждой записи.
  *
- * Нативный аддон (`pty.node`) нельзя вшить в JS-blob SEA — `process.dlopen`
- * требует файл на диске. Поэтому пакуем `package.json` + рантайм-JS (`lib/**`) +
- * нативы в тот же bundle-формат, что и `diode.bundle` (см. pack-assets.mjs), а на
- * первом запуске `loadNodePty.ts` распаковывает ассет в `os.tmpdir()` и грузит
- * через `createRequire`.
- *
- * Виртуальные пути внутри бандла обязаны совпадать с ожиданиями
- * `src/Workbench/Services/Terminal/loadNodePty.ts`: он распаковывает ассет в
- * `tmpdir()/diode-embedded-pty-<size>/` и делает `require` из
- * `<targetDir>/node-pty` — значит каждая запись пакуется с префиксом
- * `node-pty/` (`node-pty/package.json`, `node-pty/lib/…`, `node-pty/build/Release/…`).
- *
- * Откуда берутся нативы — решает сам node-pty: его `lib/utils.js` ищет их в
- * `build/Release` → `build/Release` → `prebuilds/<platform>-<arch>`. На Linux
- * install компилирует аддон (`build/Release`), на macOS/Windows приезжают готовые
- * `prebuilds/<platform>-<arch>` (в npm-пакете). Поэтому пакуем оба каталога, какие
- * есть: относительная раскладка сохраняется, и тот же резолв срабатывает после
- * распаковки. SEA пер-платформенный по природе — бандл собирается на своей ОС.
- *
- * Верифицированы **linux-x64 и linux-arm64** (linux собирается нативно на CI-раннере
- * своей архитектуры, поэтому натив всегда хостовой архи); на macOS/Windows раскладка
- * пакуется, но не проверена end-to-end (spawn-helper+codesign на Mac, ConPTY и выбор
- * шелла по COMSPEC на Windows) — это доведёт отдельная задача, см. docs/TODO/IntegratedTerminal.md.
+ * Проверено end-to-end только на linux-x64/arm64; macOS/Windows пакуются, но не
+ * проверены (docs/TODO/IntegratedTerminal.md).
  */
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -33,7 +15,6 @@ import { join, posix, relative, resolve, sep } from "node:path";
 
 import { packBundle } from "./pack-assets.mjs";
 
-/** Рекурсивный обход каталога с фильтром; возвращает абсолютные пути к файлам. */
 function walkFiles(rootDir, filter) {
     /** @type {string[]} */
     const out = [];
@@ -50,14 +31,11 @@ function walkFiles(rootDir, filter) {
 }
 
 /**
- * Собирает `node-pty.bundle` из рантайм-файлов node-pty.
- *
  * @param {{ repoRoot: string }} params
  * @returns {{ bundle: Buffer, inputs: { virtualPath: string, data: Buffer }[], nodePtyRoot: string }}
  */
 export function buildNodePtyBundle({ repoRoot }) {
-    // Резолвим относительно repoRoot, чтобы бандл собирался из node_modules сборки,
-    // а не из места, где лежит этот скрипт.
+    // От repoRoot, а не от скрипта: бандл берётся из node_modules сборки.
     const requireFromRoot = createRequire(join(repoRoot, "package.json"));
     const nodePtyRoot = requireFromRoot.resolve("node-pty/package.json").replace(/package\.json$/, "");
 
@@ -68,22 +46,17 @@ export function buildNodePtyBundle({ repoRoot }) {
         inputs.push({ virtualPath: `node-pty/${rel}`, data: readFileSync(absPath) });
     };
 
-    // package.json — точка входа require (main/exports).
     addFile(join(nodePtyRoot, "package.json"));
 
-    // lib/**: только рантайм-JS (без .map и *.test.js).
     const libFiles = walkFiles(
         join(nodePtyRoot, "lib"),
         (p) => p.endsWith(".js") && !p.endsWith(".test.js") && !p.endsWith(".js.map"),
     ).sort();
     for (const filePath of libFiles) addFile(filePath);
 
-    // Нативы: те же каталоги, в которых их ищет сам node-pty (lib/utils.js), и в том
-    // же порядке. Linux — скомпилированный на install `build/Release`; macOS/Windows —
-    // готовые `prebuilds/<platform>-<arch>` из npm-пакета (там же spawn-helper для Mac
-    // и ConPTY-набор для Windows). Берём каждый каталог, который есть: раскладка
-    // относительно node-pty сохраняется, поэтому после распаковки резолв тот же.
-    // .pdb — виндовые debug-символы (десятки МБ), в рантайме не нужны.
+    // Те же каталоги, где нативы ищет сам node-pty (lib/utils.js): Linux компилирует
+    // `build/Release` на install, macOS/Windows получают `prebuilds/`. Раскладка
+    // сохраняется — после распаковки резолв тот же. .pdb — виндовые debug-символы (десятки МБ).
     const nativeDirs = [
         join(nodePtyRoot, "build", "Release"),
         join(nodePtyRoot, "prebuilds", `${process.platform}-${process.arch}`),
@@ -107,7 +80,6 @@ export function buildNodePtyBundle({ repoRoot }) {
     return { bundle, inputs, nodePtyRoot };
 }
 
-// Прямой запуск: `node scripts/pack-node-pty.mjs` → dist/node-pty.bundle.
 if (import.meta.url === `file://${process.argv[1]}`) {
     const repoRoot = resolve(import.meta.dirname, "..");
     const dist = resolve(repoRoot, "dist");

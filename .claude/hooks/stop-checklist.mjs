@@ -1,12 +1,8 @@
 #!/usr/bin/env node
-// Stop: мягкий чеклист «готово» по диффу ветки (AGENTS.md, «Что считать готово»).
-//
-// Молчит, пока ветка не отличается от origin/main. Каждый пункт напоминает
-// ОДИН раз (линт/типы — раз за сессию, остальное — раз на ветку): состояние
-// лежит в git-каталоге worktree. Напоминание приходит модели продолжением хода
-// (`decision: block` — единственный способ до неё достучаться из Stop), и текст
-// прямо разрешает закончить, если пункт неприменим. Повторный Stop в том же
-// ходу (`stop_hook_active`) пропускается — петли нет.
+// Stop: чеклист «готово» по диффу ветки (AGENTS.md). Каждый пункт — ОДИН раз
+// (линт/типы — за сессию, остальное — на ветку), состояние в git-каталоге worktree.
+// `decision: block` — единственный способ достучаться до модели из Stop;
+// `stop_hook_active` пропускается — петли нет.
 import { existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
@@ -22,7 +18,6 @@ const CONFIG_RE = /Configuration\.ts$|\/configuration\//;
 const STATIC_RUN_RE = /"command":"(?:[^"\\]|\\.)*(?:npm run (?:lint|typecheck|check:diff)\b|npx (?:tsc|eslint)\b)/;
 
 /**
- * Пункты чеклиста по фактам ветки. Чистая функция — тестируется без git.
  * @param {{ files: string[], subjects: string[], transcript: string }} facts
  */
 export function checklist({ files, subjects, transcript }) {

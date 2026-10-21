@@ -14,24 +14,13 @@ import { needsNoopOrganizeImports } from "./lib/organizeImports.ts";
 import { createRefactoringEditsMiddleware, type RefactoringEditsHost } from "./lib/refactoringEdits.ts";
 import { LANGUAGE_SERVERS, resolveServerCommand } from "./lib/resolveServer.ts";
 
-/** Poll готовности вшитого сервера: распаковка стартует при регистрации builtin'ов. */
+/** Распаковка вшитого сервера стартует при регистрации builtin'ов — активация может её обогнать. */
 const BUNDLED_WAIT_MS = 5_000;
 const BUNDLED_POLL_MS = 100;
 
 /**
- * Builtin-клиент языковых серверов: стоковый `vscode-languageclient` поверх
- * diode `vscode`-стаба. Весь LSP-протокол, document sync с сервером и
- * publishDiagnostics обслуживает сам languageclient; диагностики доезжают до
- * squiggle + панели Problems через `languages.createDiagnosticCollection`,
- * go-to-definition — через `languages.registerDefinitionProvider` (F12).
- *
- * Активация ленивая (`onLanguage:*` в манифесте) — сервер не трогает старт
- * редактора. Резолв сервера — `lib/resolveServer.ts`: настройка serverPath →
- * workspace node_modules → ВШИТЫЙ сервер из поставки (дефолт; пути и режим
- * рантайма инжектирует host переопределениями дефолтов настроек — см. main.ts
- * diode, builtinConfigInjection) → PATH. Сервер запускается нашим node-рантаймом
- * («как VS Code»): в dev/self-extract это настоящий node (`process.execPath`),
- * в SEA — diode-бинарь в node-режиме (`DIODE_RUN_AS_NODE=1`, runAsNode.ts).
+ * Пути вшитого сервера и режим рантайма инжектирует host переопределениями
+ * дефолтов настроек (builtinConfigInjection в main.ts diode).
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     const configuration = vscode.workspace.getConfiguration("diode.lsp.typescript");
@@ -46,9 +35,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     for (const spec of LANGUAGE_SERVERS) {
         const outputChannel = vscode.window.createOutputChannel(spec.displayName);
 
-        // Активация могла обогнать фоновую распаковку вшитого сервера (открыл
-        // ts-файл в первую секунду): если более ранних кандидатов нет — коротко
-        // ждём публикации кэша (rename атомарен: existsSync entry = готовность).
+        // Кэш публикуется атомарным rename: existsSync entry = готовность.
         const hasEarlierCandidate =
             (settingPath !== "" && existsSync(settingPath)) ||
             workspaceRoots.some((root) => existsSync(`${root}/node_modules/typescript-language-server/lib/cli.mjs`));
@@ -70,17 +57,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }
         const server = resolved.command;
 
-        // tsserver.path: явная настройка → (для вшитого сервера) вшитый tsserver.
-        // Воркспейсный TypeScript сервер уважает сам («Using Typescript version
-        // (workspace)»). Для вшитого пути выключаем ATA: typingsInstaller не
-        // пакуется, а третий уровень форков + npm нам не нужен.
+        // Воркспейсный TypeScript сервер уважает сам. Для вшитого — без ATA:
+        // typingsInstaller не пакуется, третий уровень форков + npm не нужен.
         const tsserverPath =
             configuration.get<string>("tsserverPath", "") || (resolved.isBundled ? bundledTsserverPath : "");
         const initializationOptions = {
             ...(tsserverPath !== "" ? { tsserver: { path: tsserverPath } } : {}),
             ...(resolved.isBundled ? { disableAutomaticTypingAcquisition: true } : {}),
         };
-        // Клиент нужен хосту лениво: middleware уходит в опции до его создания.
+        // Middleware уходит в опции до создания клиента.
         const clientRef: { current?: LanguageClient } = {};
         const refactoringEdits = createRefactoringEditsMiddleware({
             ...refactoringFiles,
@@ -97,11 +82,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         };
         const clientOptions: LanguageClientOptions = {
             documentSelector: spec.languageIds.map((language) => ({ scheme: "file", language })),
-            // Ошибки конвертации (p2c.asDiagnostics и т.п.) клиент пишет ТОЛЬКО
-            // сюда — канал обязан быть настоящим, no-op молча терял бы их.
+            // Ошибки конвертации (p2c.asDiagnostics) клиент пишет ТОЛЬКО сюда —
+            // no-op канал молча терял бы их.
             outputChannel,
-            // Серверный прогресс initialize (если сервер его репортит) — поверх
-            // нашего withProgress ниже, который виден всегда.
             progressOnInitialization: true,
             ...(Object.keys(initializationOptions).length > 0 ? { initializationOptions } : {}),
             middleware: {
@@ -117,9 +100,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         const client = new LanguageClient(spec.id, spec.displayName, serverOptions, clientOptions);
         clientRef.current = client;
         context.subscriptions.push(client);
-        // Fire-and-forget: активация не блокируется на initialize сервера.
-        // Запуск обёрнут в withProgress — спиннер в статус-баре виден независимо
-        // от того, шлёт ли сервер собственный work-done прогресс.
+        // Активация не блокируется на initialize. withProgress — спиннер виден,
+        // даже если сервер не шлёт свой work-done прогресс.
         void vscode.window.withProgress(
             { location: vscode.ProgressLocation.Window, title: `${spec.displayName}: starting language server…` },
             () =>
@@ -137,11 +119,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
 }
 
-/**
- * Organize Imports есть всегда, как у эталонного TS-расширения: сервер молчит,
- * когда менять нечего, — подставляем холостое действие с пустым edit
- * (применяется без правок и без шага отмены). Почему — `lib/organizeImports.ts`.
- */
+/** Пустой edit применяется без правок и без шага отмены; почему — `lib/organizeImports.ts`. */
 async function withNoopOrganizeImports(
     document: vscode.TextDocument,
     range: vscode.Range,
@@ -159,7 +137,6 @@ async function withNoopOrganizeImports(
     return [...(actions ?? []), noop];
 }
 
-/** Диск и открытые документы для `lib/refactoringEdits.ts`. */
 const refactoringFiles: Omit<RefactoringEditsHost, "applyRefactoringEdit"> = {
     now: () => Date.now(),
     stat: (filePath) =>
@@ -172,7 +149,7 @@ const refactoringFiles: Omit<RefactoringEditsHost, "applyRefactoringEdit"> = {
     isOpen: (uri) => vscode.workspace.textDocuments.some((document) => document.uri.toString() === uri),
 };
 
-/** Ждёт появления файла poll'ом; возвращается и по успеху, и по таймауту. */
+/** Возвращается и по таймауту. */
 async function waitForFile(filePath: string, timeoutMs: number): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {

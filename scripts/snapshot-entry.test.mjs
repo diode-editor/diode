@@ -47,7 +47,6 @@ function buildBlob(dir, { entry, env = {} }) {
     return { blob, result };
 }
 
-/** Запуск из блоба с логом функций: вывод и строки ленивой компиляции `probeNeverCalledAtBuild`. */
 function runWithFunctionLog(dir, blob) {
     const log = join(dir, `${String(Math.random()).slice(2)}.log`);
     const result = spawnSync(
@@ -83,7 +82,7 @@ test("вход снапшота: main.cjs скомпилирован при сб
             builtin: "function",
         });
         assert.equal(fromEager.stdout, fromLazy.stdout);
-        // Контроль: без входа та же функция компилируется лениво у пользователя.
+        // Контроль: иначе пустой `lazyCompiles` ничего бы не доказывал.
         assert.notEqual(fromLazy.lazyCompiles.length, 0);
         assert.deepEqual(fromEager.lazyCompiles, []);
     });

@@ -1,40 +1,23 @@
 #!/usr/bin/env node
 /**
- * Самопроверка мутационного гейта: каждого мутанта, которого Stryker не
- * записал убитым (Survived, NoCoverage, RuntimeError), вживляем РОВНО так, как
- * его вносил Stryker (`location.start`–`location.end` → `replacement`, по
- * `files[f].source` из отчёта), гоняем vitest и присваиваем класс — real,
- * phantom, runtime-error, inconclusive, timeout, stale (что значит каждый —
- * `CLASSES` в `mutation-inject.mjs` и docs/MUTATION.md).
- *
- * Зовётся из `mutation-diff.mjs` после прогона Stryker'а, а руками — так:
+ * Самопроверка мутационного гейта: каждого не убитого Stryker'ом мутанта
+ * вживляем РОВНО как Stryker (`location` → `replacement` по `files[f].source`
+ * отчёта), гоняем vitest и даём класс (`CLASSES` в `mutation-inject.mjs`).
  *
  *   node scripts/verify-mutants.mjs [<mutation.json>] [--filter <подстрока пути>]
  *       [--limit N] [--jobs N] [--full] [--timeout <сек>] [--budget <мин>] [--root <проект>]
  *
- * Отчёт по умолчанию — reports/mutation/mutation.json; вердикты пишутся в
- * reports/mutation/verdict.json, а сам отчёт дополняется классами (фантомы
- * становятся Killed). Код возврата: 0 — блокирующих классов нет, 1 — есть.
+ * Вердикты — в reports/mutation/verdict.json, фантомы в отчёте становятся Killed.
+ * Код возврата 1 — есть блокирующие классы.
  *
- * Как выносится вердикт — этапами, от дешёвого к дорогому:
+ * Этапы, от дешёвого к дорогому: `coveredBy` + соседние `<имя>*.test.ts`; все
+ * транзитивные импортёры (как `vitest related`, но без сервера vite на вызов);
+ * `--full` — весь сьют. Уликой считается только тест, зелёный БЕЗ мутанта, и
+ * падение обязано повториться С ним — флак фантомом не делаем. Прогон без
+ * мутанта кэшируется по файлу: связанный набор горячего файла — сотни файлов.
  *
- *   1. тесты, которые Stryker записал покрывающими (`coveredBy`), и соседние
- *      `<имя>*.test.ts`;
- *   2. все тесты, которые транзитивно импортируют файл (граф импортов —
- *      то же, что `vitest related`, но без сервера vite на каждый вызов);
- *   3. (`--full`) весь сьют.
- *
- * Упал тест на каком-то этапе — проверяем, что это мутант, а не тест: те же
- * файлы гоняются БЕЗ мутанта (уликой считается только тест, зелёный без него)
- * и ещё раз С мутантом (падение должно повториться — флак фантомом не делаем).
- * Зелёные все этапы — `real`. Без мутанта набор гоняется только по упавшим
- * файлам и кэшируется на прогон: связанный набор горячего файла — сотни
- * тест-файлов, и гнать его дважды на каждого мутанта нельзя.
- *
- * Вживление идёт в ПЕСОЧНИЦЕ — копии проекта в `.stryker-tmp/verify-*` с
- * симлинком на node_modules, как у Stryker'а. Рабочее дерево не трогается
- * никогда: прерванный прогон не оставляет мутанта в исходнике, а редактор и
- * соседние сессии не видят чужой правки.
+ * Вживление — в песочнице `.stryker-tmp/verify-*`: прерванный прогон не оставляет
+ * мутанта в рабочем дереве, соседние сессии чужой правки не видят.
  */
 
 import { spawn, spawnSync } from "node:child_process";
@@ -59,14 +42,10 @@ import {
 } from "./mutation-inject.mjs";
 import { mutantKey } from "./mutation-gate.mjs";
 
-/** Что не копируем в песочницу: то же, что Stryker не берёт в свою. */
+/** То же, что Stryker не берёт в свою песочницу. */
 const SANDBOX_SKIP = new Set(["node_modules", ".git", ".stryker-tmp", "reports", "dist", "coverage", ".claude"]);
 
-/**
- * Файлы проекта: из git (отслеживаемые и неигнорируемые новые — ровно то, что
- * видит задача), а вне git-репозитория — обходом каталога. Второе нужно
- * синтетическим проектам из тестов скрипта.
- */
+/** Обход каталога вне git-репозитория — для синтетических проектов из тестов скрипта. */
 export function listProjectFiles(root) {
     const git = spawnSync("git", ["ls-files", "-co", "--exclude-standard", "-z"], {
         cwd: root,
@@ -93,15 +72,13 @@ export function listProjectFiles(root) {
     return out;
 }
 
-/** Песочница: копия файлов проекта, node_modules — симлинком. */
 function createSandbox(root, files, index) {
     const dir = path.join(root, ".stryker-tmp", `verify-${String(process.pid)}-${String(index)}`);
     rmSync(dir, { recursive: true, force: true });
     mkdirSync(dir, { recursive: true });
     for (const file of files) {
         if (SANDBOX_SKIP.has(file.split("/")[0])) continue;
-        // Копия, не жёсткая ссылка: вживление пишет в файл, и с общей inode
-        // мутант оказался бы в рабочем дереве.
+        // Не жёсткая ссылка: с общей inode мутант оказался бы в рабочем дереве.
         cpSync(path.join(root, file), path.join(dir, file), { dereference: true });
     }
     if (existsSync(path.join(root, "node_modules")))
@@ -109,10 +86,7 @@ function createSandbox(root, files, index) {
     return dir;
 }
 
-/**
- * Один прогон vitest в песочнице. Процесс — в своей группе: на таймауте
- * убиваем и воркеры vitest, иначе зациклившийся мутантом форк пережил бы нас.
- */
+/** Своя группа процессов: на таймауте убиваем и воркеры — зациклившийся форк пережил бы нас. */
 function runVitest(sandbox, testFiles, { bail, timeoutMs, label }) {
     const outFile = path.join(
         sandbox,
@@ -183,7 +157,6 @@ function killGroup(child) {
     }
 }
 
-/** Пути в json vitest абсолютные (в песочнице) — приводим к путям проекта. */
 function relativize(parsed, sandbox) {
     const rel = (file) => path.relative(sandbox, file).split(path.sep).join("/");
     const mapKey = (key) => {
@@ -199,14 +172,12 @@ function relativize(parsed, sandbox) {
     };
 }
 
-/** Тест-файлы, которых коснулся результат: упавшие тесты и файлы целиком. */
 function filesOf(result) {
     const files = new Set(result.failedFiles);
     for (const key of result.failed) files.add(key.slice(0, key.indexOf(" > ")));
     return [...files].sort();
 }
 
-/** Склейка результатов нескольких прогонов в один (для кэша без мутанта). */
 function mergeResults(results) {
     const merged = { passed: new Set(), failed: new Set(), failedFiles: new Set(), ranFiles: new Set(), total: 0 };
     for (const result of results) {
@@ -217,13 +188,6 @@ function mergeResults(results) {
     return merged;
 }
 
-/**
- * Перепроверяет кандидатов отчёта. Возвращает вердикты `{ key, file, line,
- * mutatorName, replacement, class, reason, hint, tests, stage }`.
- *
- * `root` — корень проекта (в нём ищутся исходники для сверки с отчётом и
- * делается песочница), `report` — отчёт Stryker'а (`mutation.json`).
- */
 export async function verifyMutants({
     root,
     report,
@@ -265,8 +229,7 @@ export async function verifyMutants({
         for (const child of activeChildren) killGroup(child);
         for (const sandbox of sandboxes) rmSync(sandbox, { recursive: true, force: true });
     };
-    // Рабочее дерево мутант не трогает, но песочницы и воркеры vitest по Ctrl+C
-    // надо убрать: иначе зациклившийся форк остаётся жить.
+    // Иначе по Ctrl+C зациклившийся форк остаётся жить.
     const onSignal = () => {
         cleanup();
         process.exit(130);
@@ -293,7 +256,6 @@ export async function verifyMutants({
                     ? "прогон без мутанта не уложился в таймаут"
                     : "прогон без мутанта не оставил отчёта",
             };
-        // Из общего прогона — только строки своего файла.
         const parts = runs.map((run) => {
             const file = run.only;
             const pick = (set) => new Set([...set].filter((key) => key === file || key.startsWith(`${file} > `)));
@@ -305,8 +267,7 @@ export async function verifyMutants({
                 total: 0,
             };
         });
-        // Упал ли vitest без мутанта вне тестов (unhandled error) — нужно, чтобы
-        // не записать мутанту чужое падение.
+        // Падение vitest вне тестов без мутанта — чтобы не записать мутанту чужое.
         const crashed = runs.some(
             (run) => run.code !== 0 && run.result.failed.size === 0 && run.result.failedFiles.size === 0,
         );
@@ -370,8 +331,6 @@ export async function verifyMutants({
             return verdict("inconclusive", "ни одного теста: ни coveredBy, ни соседних, ни импортирующих файл");
 
         const sandboxFile = path.join(sandbox, file);
-        // Прогон без мутанта — в той же песочнице, поэтому на его время исходник
-        // возвращается на место, а потом мутант вписывается обратно.
         const withoutMutant = async (fn) => {
             writeFileSync(sandboxFile, source);
             try {
@@ -383,8 +342,7 @@ export async function verifyMutants({
         writeFileSync(sandboxFile, mutated);
         let flaky = [];
         let redWithout = [];
-        // Разбор упавшего прогона с мутантом: фантом — вердикт, иначе копим
-        // «падало и без мутанта» и «не повторилось».
+        // Фантом — вердикт; иначе копим «падало и без мутанта» и «не повторилось».
         const analyze = async (stage, run, perRun) => {
             const touched = filesOf(run.result);
             if (touched.length === 0) return null;
@@ -421,8 +379,7 @@ export async function verifyMutants({
                         `vitest с мутантом не уложился в ${String(Math.round(perRun / 1000))} с на этапе «${stage.name}» (${String(stage.tests.length)} файлов)`,
                         { stage: stage.name },
                     );
-                // Сначала с --bail: фантома обычно валит первый же тест, и
-                // гнать сотни файлов дальше незачем.
+                // Сначала с --bail: фантома обычно валит первый же тест.
                 let run = await runVitest(sandbox, stage.tests, { bail: true, timeoutMs: perRun, label: "mutant" });
                 if (run.timedOut) return timedOut();
                 if (run.result !== null && filesOf(run.result).length > 0) {
@@ -441,9 +398,7 @@ export async function verifyMutants({
                         if (again !== null) return again;
                     }
                 }
-                // vitest упал, а тестов-виновников нет: unhandled error, падение
-                // воркера, отчёт не записан. Мутант ли это — сверяем с прогоном
-                // того же этапа без мутанта.
+                // Упал без тестов-виновников (unhandled error, воркер, нет отчёта) — сверяем с прогоном без мутанта.
                 const crashed =
                     run.result === null ||
                     (run.code !== 0 && run.result.failed.size === 0 && run.result.failedFiles.size === 0);
@@ -517,7 +472,6 @@ const LABELS = {
     stale: "ПРОТУХ",
 };
 
-/** Строка консоли на мутанта. */
 export function formatVerdict(verdict) {
     const what = `${verdict.file}:${String(verdict.line)}:${String(verdict.column)} ${verdict.mutatorName} → ${JSON.stringify(verdict.replacement).slice(0, 40)}`;
     const hint = verdict.hint ? `\n      ↳ возможно, эквивалентный: ${verdict.hint}` : "";
@@ -525,7 +479,6 @@ export function formatVerdict(verdict) {
     return `[${LABELS[verdict.class].padEnd(12)}] ${what}\n      ${reason}${hint}`;
 }
 
-/** Сводка по классам в одну строку. */
 export function formatSummary(verdicts) {
     const counts = countClasses(verdicts);
     return Object.entries(counts)
@@ -534,7 +487,6 @@ export function formatSummary(verdicts) {
         .join(", ");
 }
 
-/** Вердикты на диск — `verdict.json` рядом с отчётом. */
 export function writeVerdictFile(reportDir, verdicts) {
     writeFileSync(
         path.join(reportDir, "verdict.json"),
@@ -585,8 +537,7 @@ if (import.meta.filename === process.argv[1]) {
         console.error(error.message);
         process.exit(2);
     }
-    // `--root` — проект, к которому относится отчёт (по умолчанию этот репозиторий):
-    // перепроверить отчёт CI можно на распакованном снимке его коммита.
+    // `--root`: отчёт CI перепроверяется на распакованном снимке его коммита.
     const root = options.root ?? path.resolve(import.meta.dirname, "..");
     const reportPath = path.resolve(options.reportPath ?? path.join(root, "reports", "mutation", "mutation.json"));
     if (!existsSync(reportPath)) {

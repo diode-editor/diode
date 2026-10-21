@@ -1,17 +1,9 @@
 #!/usr/bin/env node
-// Быстрый внутренний цикл по диффу ветки: типы, линт и тесты только того, что
-// поменялось относительно origin/main. Это НЕ гейт сдачи — полные `npm run lint`,
-// `npm run typecheck`, `npm run test:coverage` и мутационный гейт остаются
-// перед PR и в CI (docs/TESTING.md, «Быстрый цикл по диффу»).
+// Быстрый внутренний цикл по диффу ветки: типы, линт и тесты только изменённого.
+// НЕ гейт сдачи — полные гейты остаются перед PR и в CI (docs/TESTING.md). Флаги — usage().
 //
-//   npm run check:diff                     # tsc + eslint + vitest related
-//   npm run check:diff -- --near           # тесты только соседние (Foo.ts → Foo*.test.ts)
-//   npm run check:diff -- --coverage       # + покрытие изменённых файлов (без храповика)
-//   npm run check:diff -- --base <ref>     # база вместо merge-base с origin/main
-//   npm run check:diff -- --skip tsc,lint  # пропустить шаги (tsc | lint | test)
-//
-// Шаги идут ПОСЛЕДОВАТЕЛЬНО: машина маленькая, tsc и type-aware eslint строят
-// по программе каждый — параллельно они дерутся за память.
+// Шаги ПОСЛЕДОВАТЕЛЬНО: tsc и type-aware eslint строят по программе каждый и
+// параллельно дерутся за память.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import path from "node:path";
@@ -74,7 +66,6 @@ function lines(s) {
     return s.split("\n").filter(Boolean);
 }
 
-/** Изменённые относительно базы (+ неотслеженные) .ts из src/ и extensions/, которые ещё существуют. */
 function changedFiles(base) {
     const files = new Set([
         ...lines(git(["diff", "--name-only", "--diff-filter=ACMR", base])),
@@ -83,7 +74,6 @@ function changedFiles(base) {
     return [...files].filter((f) => SOURCE_RE.test(f) && existsSync(f)).sort();
 }
 
-/** Соседние тесты: Foo.ts → Foo.test.ts и Foo.<что-угодно>.test.ts в том же каталоге. */
 function nearTests(files) {
     const out = new Set(files.filter((f) => TEST_RE.test(f)));
     for (const f of files) {
@@ -128,8 +118,7 @@ function main() {
     const failed = [];
 
     if (!opts.skip.has("tsc")) {
-        // Типы — всегда по всей программе: правка в одном файле ломает чужие.
-        // --incremental с buildinfo в кэше делает повторный прогон дешёвым.
+        // По всей программе: правка в одном файле ломает чужие.
         const ok = run("tsc --noEmit --incremental", bin("tsc"), [
             "--noEmit",
             "--incremental",
@@ -140,9 +129,8 @@ function main() {
     }
 
     if (!opts.skip.has("lint")) {
-        // Кэш eslint с type-aware правилами не знает о зависимостях между
-        // файлами: сменился тип в соседнем файле — закэшированный вердикт
-        // не перепроверится. Поэтому полный `npm run lint` остаётся за CI.
+        // Кэш eslint не знает о зависимостях между файлами: сменился тип в соседнем —
+        // вердикт не перепроверится. Поэтому полный `npm run lint` остаётся за CI.
         const ok = run(`eslint (${files.length})`, bin("eslint"), [
             "--cache",
             "--cache-strategy",
@@ -164,14 +152,12 @@ function main() {
             args = ["run", "--passWithNoTests", ...tests];
             if (tests.length === 0) args = undefined;
         } else {
-            // related: все тесты, которые транзитивно импортируют изменённое.
             // Для модуля из base/ или platform/ это сотни файлов — тогда --near.
             args = ["related", "--run", "--passWithNoTests", ...files];
         }
         if (args && opts.coverage) {
             const sources = files.filter((f) => !TEST_RE.test(f));
-            // Глобальный храповик 100% с autoUpdate на подмножестве тестов
-            // покраснеет (и перепишет vitest.config.ts) — гасим оба.
+            // Храповик 100% с autoUpdate на подмножестве тестов покраснеет и перепишет vitest.config.ts.
             args.push(
                 "--coverage",
                 "--coverage.thresholds.autoUpdate=false",
