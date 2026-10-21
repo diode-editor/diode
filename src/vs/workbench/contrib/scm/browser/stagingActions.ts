@@ -14,27 +14,27 @@ import { GitChangesMenu } from "./gitMenus.ts";
 import { withGitProgress } from "./gitOpClient.ts";
 
 /**
- * `git.*`-команды живут в ядре (меню, выделение, пикеры), git исполняет расширение через
- * транспорты `diode.git.*`; строки дублируются по значению — общих импортов нет.
+ * `git.*` commands live in the core (menus, selection, pickers); the extension runs git via
+ * `diode.git.*` transports; strings are duplicated by value — there are no shared imports.
  */
 export const STAGE_TRANSPORT_COMMAND = "diode.git.stage";
 export const UNSTAGE_TRANSPORT_COMMAND = "diode.git.unstage";
 export const CLEAN_TRANSPORT_COMMAND = "diode.git.clean";
 
-/** Применимость по группам: stage — всё незастейдженное, unstage — индекс. */
+/** Applicability by group: stage takes everything unstaged, unstage takes the index. */
 const STAGEABLE_GROUPS: readonly ScmGroupId[] = ["worktree", "untracked", "merge"];
 const UNSTAGEABLE_GROUPS: readonly ScmGroupId[] = ["index"];
 
 const FAILURE_NOTICE_MS = 5000;
 
-/** У стейджинга свой транспорт, а не `diode.git.op`: имя операции — из id команды. */
+/** Staging has its own transport, not `diode.git.op`: the operation name comes from the command id. */
 function transportOp(commandId: string): string {
     return commandId.slice(commandId.lastIndexOf(".") + 1);
 }
 
 /**
- * Явные uri из меню либо выделение Changes; цели фильтруются по применимости групп
- * (смешанное выделение — как VS Code) и дедуплицируются (MM-файл — две записи, один uri).
+ * Explicit uris from the menu or the Changes selection; targets are filtered by group applicability
+ * (mixed selection as in VS Code) and deduplicated (an MM file is two entries, one uri).
  */
 export function resolveScmTargets(accessor: ServiceAccessor, raw: unknown, applicable: readonly ScmGroupId[]): Uri[] {
     const changes = accessor.get(ScmChangesServiceDIToken).changes;
@@ -67,8 +67,8 @@ function allTargets(accessor: ServiceAccessor, applicable: readonly ScmGroupId[]
 }
 
 /**
- * Расширение не активно или цели пусты — тихий no-op; ошибка git — транзиентный notice
- * в статус-баре (тостов нет), список сойдётся refresh-ом.
+ * Inactive extension or empty targets is a silent no-op; a git error is a transient notice
+ * in the status bar (no toasts), the list converges on refresh.
  */
 export async function runGitTransport(accessor: ServiceAccessor, commandId: string, uris: Uri[]): Promise<void> {
     if (uris.length === 0) return;
@@ -181,8 +181,8 @@ function basenameOf(uri: Uri): string {
 }
 
 /**
- * Семантика VS Code: откат tracked обратим, удаление untracked — нет, отсюда warning и капс.
- * Дефолтная кнопка Cancel задаёт ConfirmDialog.
+ * VS Code semantics: reverting tracked files is reversible, deleting untracked ones is not, hence
+ * the warning and caps. ConfirmDialog sets Cancel as the default button.
  */
 export function buildDiscardConfirm(tracked: readonly Uri[], untracked: readonly Uri[]): ConfirmDialogOptions {
     if (untracked.length === 0) {
@@ -231,7 +231,7 @@ async function discard(accessor: ServiceAccessor, rawUris: unknown): Promise<voi
     await runGitTransport(accessor, CLEAN_TRANSPORT_COMMAND, [...tracked, ...untracked]);
 }
 
-/** Деструктив — всегда с подтверждением; untracked удаляются с диска. */
+/** Destructive, so always confirmed; untracked files are deleted from disk. */
 export const gitCleanAction: CommandAction = {
     id: "git.clean",
     title: "Git: Discard Changes",

@@ -12,12 +12,12 @@ import { GitPullPushMenu } from "./gitMenus.ts";
 import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 import { ScmRepoStateServiceDIToken } from "./repoStateService.ts";
 
-/** Read-only; строка зеркалится по значению на стороне расширения. */
+/** Read-only; the string is mirrored by value on the extension side. */
 export const QUERY_COMMAND = "diode.git.query";
 
 const inChangesMenu = viewMenuVisible(SCM_CHANGES_VIEW_ID);
 
-/** `null` — расширение не активно или деградация. */
+/** `null` when the extension is inactive or degraded. */
 export async function runGitQuery(accessor: ServiceAccessor, kind: string): Promise<unknown> {
     const commands = accessor.get(CommandRegistryDIToken);
     if (!commands.has(QUERY_COMMAND)) return null;
@@ -35,7 +35,7 @@ export async function queryRefs(
     );
 }
 
-/** Ноль — notice и null: команды спрятаны за `gitHasRemotes`, но палитра не фильтрует. */
+/** No remotes yields a notice and null: commands are hidden behind `gitHasRemotes`, but the palette does not filter. */
 export async function pickRemote(accessor: ServiceAccessor, title: string): Promise<string | null> {
     const remotes = accessor.get(ScmRepoStateServiceDIToken).state.remotes;
     if (remotes.length === 0) {

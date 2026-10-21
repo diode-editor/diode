@@ -1,9 +1,9 @@
 import { type IScmChange, type ScmGroupId } from "./changesService.ts";
 
 /**
- * Untracked своего заголовка не получает — как VS Code `git.untrackedChanges: mixed`.
- * Id `untracked` в протоколе остаётся: по нему discard выбирает `git clean` вместо
- * `git checkout`, а строка красится своим цветом.
+ * Untracked gets no header of its own — like VS Code `git.untrackedChanges: mixed`.
+ * The `untracked` id stays in the protocol: discard uses it to pick `git clean` over
+ * `git checkout`, and the row gets its own color.
  */
 function displayGroupOf(group: ScmGroupId): ScmGroupId {
     return group === "untracked" ? "worktree" : group;
@@ -25,7 +25,7 @@ export interface IScmChangeGroup {
     readonly changes: readonly IScmChange[];
 }
 
-/** Порядок внутри группы — порядок прихода от расширения (сортирует потребитель). */
+/** Order within a group is arrival order from the extension (the consumer sorts). */
 export function groupChanges(changes: readonly IScmChange[]): readonly IScmChangeGroup[] {
     const byGroup = new Map<ScmGroupId, IScmChange[]>();
     for (const change of changes) {

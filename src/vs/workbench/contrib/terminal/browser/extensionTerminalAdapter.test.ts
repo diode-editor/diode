@@ -214,7 +214,7 @@ describe("ExtensionTerminalAdapter", () => {
             { id: log.id, code: 3, reason: "process" },
             { id: unnamed.id, reason: "process" },
         ]);
-        // Шелл не pty: ptyData/ptyExit мимо.
+        // A shell is not a pty: ptyData/ptyExit don't apply.
         h.adapter.create({ extHostId: 3 });
         h.adapter.ptyExit({ extHostId: 3 }, 0);
         h.adapter.ptyData({ extHostId: 3 }, "x");
@@ -264,12 +264,12 @@ describe("ExtensionTerminalAdapter — pty-терминал задачи (Custom
         const id = h.adapter.createPtyInstance({ name: "pty task", message: "Executing", waitOnExit: "bye" });
         const instance = h.service.getInstance(id);
         expect(instance?.title).toBe("pty task");
-        // Терминал задачи — в виде TERMINAL, и при defaultLocation.
+        // A task terminal goes to the TERMINAL view, even with defaultLocation.
         expect(h.service.getInstances()).toStrictEqual([instance]);
         expect(h.ptySessions[0].printed).toStrictEqual(["Executing\r\n"]);
         expect(h.events.ptyStart).toHaveBeenCalledWith(id, 80, 24);
         expect(h.events.opened.mock.calls[0][0]).not.toHaveProperty("extHostId");
-        // Выход pty — инстанс ждёт (waitOnExit), а не закрывается.
+        // On pty exit the instance waits (waitOnExit) instead of closing.
         h.adapter.ptyExit({ id }, 1);
         expect(h.service.getInstance(id)).toBe(instance);
         h.service.dispose();

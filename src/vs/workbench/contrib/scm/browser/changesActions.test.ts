@@ -22,7 +22,7 @@ import {
 import { ChangesComponentDIToken } from "./changesComponent.ts";
 import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
-// scm.action.openChanges покрыт сквозными workbench.changes.test.ts; здесь — резолв цели и view-mode.
+// scm.action.openChanges is covered end-to-end by workbench.changes.test.ts; here: target resolution and view mode.
 
 function accessorWith(services: Map<unknown, unknown>): ServiceAccessor {
     return {
@@ -56,7 +56,7 @@ describe("showScmAction", () => {
         const modern = keybindings.getKeybindingForCommand("workbench.view.scm", ctx);
         expect(modern && formatKeybinding(modern)).toBe("Ctrl+Shift+G");
 
-        // …и аккорд по-прежнему резолвится на kitty — эмулятор мог занять Ctrl+Shift+G.
+        // …and the chord still resolves on kitty: the emulator may have taken Ctrl+Shift+G.
         expect(
             keybindings.resolveKey({ key: "k", ctrlKey: true, shiftKey: false, altKey: false, metaKey: false }, ctx)
                 .kind,

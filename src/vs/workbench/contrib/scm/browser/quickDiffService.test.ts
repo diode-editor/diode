@@ -67,7 +67,7 @@ function fakeSource(editor: IQuickDiffEditor | null) {
 function fakeConfig(values: Record<string, unknown> = {}) {
     const listeners: ((e: { affectsConfiguration(s: string): boolean }) => void)[] = [];
     const service = {
-        // Сигнатура сервиса дженерик, но фейку достаточно отдать значение как есть.
+        // The service signature is generic, but the fake can just return the value as is.
         get: (key: string): never => values[key] as never,
         onDidChangeConfiguration: (cb: (e: { affectsConfiguration(s: string): boolean }) => void): IDisposable => {
             listeners.push(cb);
@@ -322,7 +322,7 @@ describe("QuickDiffService", () => {
     });
 
     it("устаревший асинхронный ответ не применяется поверх свежего", async () => {
-        // Оригинал резолвится с задержкой; за это время редактор сменился.
+        // The original resolves with a delay; the editor changes meanwhile.
         const ed = fakeEditor(FILE, "a\nX\nc");
         const src = fakeSource(ed.editor);
         const registry = new FileService();
@@ -347,8 +347,8 @@ describe("QuickDiffService", () => {
     });
 
     it("расширение активировалось ПОЗЖЕ открытия файла — бары появляются без правки", async () => {
-        // Регрессия с живого запуска: git-расширение поднимается позже первого пересчёта,
-        // и закэшированное «поставщика нет» не давало баров до первой правки.
+        // Regression from a live run: the git extension starts after the first recompute,
+        // and a cached "no provider" kept bars away until the first edit.
         const ed = fakeEditor(FILE, "a\nX\nc");
         const src = fakeSource(ed.editor);
         const registry = new FileService();
@@ -382,7 +382,7 @@ describe("QuickDiffService", () => {
         await settle();
         expect(ed.last).toEqual([]);
 
-        // Расширение ответило позже — повторный пересчёт обязан спросить заново.
+        // The extension answered later — the next recompute must ask again.
         available = true;
         ed.type("a\nY\nc");
         await settle();
@@ -429,7 +429,7 @@ describe("QuickDiffService", () => {
         const { ed } = setup({ text: "a\nX\nc", original: "a\nb\nc", config: { "git.refreshDebounce": -5 } });
         await settle();
 
-        // Дефолт 200 мс: сразу после правки пересчёта ещё нет.
+        // Default is 200 ms: right after an edit there is no recompute yet.
         const before = ed.pushed.length;
         ed.type("a\nY\nc");
         await settle();
@@ -447,7 +447,7 @@ describe("QuickDiffService", () => {
         ed.type("a\nZ\nc");
         await new Promise((resolve) => setTimeout(resolve, 50));
 
-        // Ограничение — 5 с, поэтому за 50 мс пересчёта нет, но и не «никогда».
+        // The limit is 5 s, so no recompute within 50 ms, but not "never" either.
         expect(ed.pushed.length).toBe(before);
     });
 

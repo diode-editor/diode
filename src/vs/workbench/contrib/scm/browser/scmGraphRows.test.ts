@@ -42,7 +42,7 @@ describe("applyGraphLine", () => {
         applyGraphLine(label, line("\u25cb "));
         expect(label.getText()).toBe("\u25cb ");
 
-        // Соседняя строка с двумя дорожками длиннее — и остаётся длиннее.
+        // The neighboring row with two lanes is longer — and stays longer.
         applyGraphLine(label, line("\u2502 \u25cb "));
         expect(label.getText()).toBe("\u2502 \u25cb ");
     });
@@ -61,7 +61,7 @@ describe("buildRefsLabel", () => {
     });
 
     it("порядок как в vscode: текущая ветка → remote → локальные → теги", () => {
-        // Имена короткие: длинный набор схлопнулся бы в «+N» и порядок стал бы не виден.
+        // Short names: a long set would collapse into "+N" and hide the order.
         const { text } = buildRefsLabel(
             [ref("v1", "tag"), ref("feat", "head"), ref("o/main", "remote"), ref("main", "head", true)],
             COMMIT_STYLE,
@@ -72,9 +72,9 @@ describe("buildRefsLabel", () => {
     it("текущая ветка и remote красятся семантическими цветами, прочие — цветом линии", () => {
         const { text, styles } = buildRefsLabel([ref("main", "head", true), ref("v1.0", "tag")], COMMIT_STYLE);
         expect(styles[0]).toBe(GRAPH_CURRENT_REF_STYLE);
-        // Первый символ тега — после «main» и пробела-разделителя.
+        // The tag's first char comes after "main" and the separator space.
         expect(styles[text.indexOf("v1.0")]).toBe(COMMIT_STYLE);
-        // Цвет на КАЖДЫЙ символ: разъехавшийся массив сдвинул бы подсветку.
+        // A color for EVERY char: a misaligned array would shift the highlighting.
         expect(styles).toHaveLength(text.length);
         expect(styles.slice(0, "main".length)).toEqual(Array.from("main", () => GRAPH_CURRENT_REF_STYLE));
 

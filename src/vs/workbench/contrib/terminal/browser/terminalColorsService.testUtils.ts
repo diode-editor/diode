@@ -8,7 +8,7 @@ import type { ThemeService } from "../../../services/themes/common/themeService.
 
 import { TerminalColorsService } from "./terminalColorsService.ts";
 
-/** Старт уже в фазе `restored` — хост спрашивается сразу. */
+/** Starts already in the `restored` phase — the host is queried immediately. */
 export function makeTerminalColors(
     themeService: ThemeService,
     configuration: IConfigurationService,

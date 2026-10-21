@@ -60,7 +60,7 @@ export async function configureTaskCommand(accessor: ServiceAccessor): Promise<v
     if (needsCreateOrOpen && uri !== undefined) {
         entries.push({ label: text === undefined ? CREATE_TASKS_JSON : OPEN_TASKS_JSON });
     }
-    // Одна своя задача и ничего больше — сразу к ней, без пикера (как эталон).
+    // A single configured task and nothing else goes straight to it, without a picker (as upstream).
     const entry =
         entries.length === 1 && !needsCreateOrOpen
             ? entries[0]
@@ -73,13 +73,13 @@ export async function configureTaskCommand(accessor: ServiceAccessor): Promise<v
             ? openConfig(context, uri, text, entry.task)
             : customize(context, uri, entry.task));
     } else {
-        // Строка без задачи — только «Create/Open tasks.json file».
+        // An entry without a task is only "Create/Open tasks.json file".
         await openTaskFile(context, uri);
     }
 }
 
 async function openConfig(context: IConfigureContext, uri: Uri, text: string | undefined, task: ITask): Promise<void> {
-    // Stryker disable next-line StringLiteral,UnaryOperator: эквивалентный — своя задача прочитана из этого файла, у неё есть и текст, и индекс записи; фоллбэки — для типов
+    // Stryker disable next-line StringLiteral,UnaryOperator: equivalent: configured task has text and index; fallbacks are for types
     await openAtEntry(context, uri, text ?? "", task.configIndex ?? -1);
 }
 
@@ -102,7 +102,7 @@ async function customize(context: IConfigureContext, uri: Uri, task: ITask): Pro
 
 async function openTaskFile(context: IConfigureContext, uri: Uri): Promise<void> {
     const text = await readText(context.files, uri);
-    // Битый файл не трогаем — человек увидит его как есть.
+    // A broken file is left alone: the user sees it as is.
     if (text === undefined || (!tasksJsonHasTasks(text) && isWritableTasksJson(text))) {
         const template = (await context.quickInput.quickPick({
             placeholder: TASK_TEMPLATE_PLACEHOLDER,
@@ -115,7 +115,7 @@ async function openTaskFile(context: IConfigureContext, uri: Uri): Promise<void>
     await context.editors.openUri(uri);
 }
 
-/** Открытый с несохранёнными правками не перезаписывается — ошибка эталона; чистый открытый перечитывается сразу. */
+/** An open model with unsaved edits is not overwritten (upstream errors); a clean open one is reloaded right away. */
 async function writeTasksJson(context: IConfigureContext, uri: Uri, text: string): Promise<boolean> {
     const model = context.editors.textFileModels.get(uri);
     if (model?.isModified === true) {
@@ -156,7 +156,7 @@ function indentationOf(configuration: IConfigurationService): ITasksJsonIndentat
 }
 
 async function readText(files: IFileService, uri: Uri | undefined): Promise<string | undefined> {
-    // Stryker disable next-line ConditionalExpression: эквивалентный — readFile(undefined) бросает, и catch ниже даёт тот же undefined; проверка — для типов
+    // Stryker disable next-line ConditionalExpression: equivalent: readFile(undefined) throws, catch yields undefined; check is for types
     if (uri === undefined) return undefined;
     return files.readFile(uri).then(
         (content) => new TextDecoder().decode(content.value),

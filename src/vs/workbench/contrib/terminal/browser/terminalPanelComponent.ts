@@ -33,7 +33,7 @@ import {
     TerminalTabsList,
 } from "./terminalTabsList.ts";
 
-/** Куда вернуть фокус, когда последний терминал уходит со сцены; `EditorService` подходит структурно. */
+/** Where to return focus when the last terminal leaves; `EditorService` fits structurally. */
 export interface ITerminalFocusFallback {
     focusEditor(): void;
 }
@@ -47,13 +47,13 @@ export interface TerminalTabMenuContext {
 
 export const SWITCH_TERMINAL_COMMAND_ID = "workbench.action.terminal.switchTerminal";
 
-/** Селектор e2e/инспектора. */
+/** Selector for e2e/inspector. */
 export const TERMINAL_ACTIVE_TAB_ID = "terminalActiveTab";
 
 /**
- * Не наследник `Component`: корневого контрола нет — тело и виджет заголовка
- * попадают в панель через ViewsService. У TUIElement нет unmount-хуков, поэтому
- * виджеты компонент dispose'ит сам — при закрытии инстанса и в своём dispose().
+ * Not a `Component` subclass: there is no root control — the body and title widget
+ * reach the panel via ViewsService. TUIElement has no unmount hooks, so the
+ * component disposes widgets itself — when an instance closes and in its own dispose().
  */
 export class TerminalPanelComponent extends Disposable implements IContextKeyContributor {
     public static dependencies = [
@@ -71,9 +71,9 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
 
     public readonly tabs: TerminalTabsList;
     public readonly view: TerminalTabbedViewElement;
-    // Stryker disable next-line StringLiteral: текст ставит titleWidget до того, как метка попадает в заголовок
+    // Stryker disable next-line StringLiteral: titleWidget sets the text before the label reaches the title
     private readonly activeTabLabel = new TextLabelElement("");
-    /** Цель клика по {@link activeTabLabel}. */
+    /** Click target of {@link activeTabLabel}. */
     private activeTabInstanceId = 0;
     private readonly switcher = new SelectBoxElement();
 
@@ -104,7 +104,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         this.view = new TerminalTabbedViewElement(this.tabs.list, TERMINAL_TABS_WIDTH);
         this.activeTabLabel.id = TERMINAL_ACTIVE_TAB_ID;
         this.activeTabLabel.style = { fg: "descriptionForeground" };
-        // Клик по имени — меню вкладки, как у эталона (там это кнопка с dropdown).
+        // Clicking the name opens the tab menu, as in upstream (there it's a button with a dropdown).
         this.activeTabLabel.addEventListener("click", (event) => {
             this.showTabContextMenu(this.activeTabInstanceId, event.screenX, event.screenY + 1);
         });
@@ -132,15 +132,15 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
             colors.onDidChange((next) => {
                 for (const [id, widget] of this.widgets) {
                     const instance = this.terminalService.getInstance(id);
-                    /* v8 ignore start -- defensive: виджет снимается в handleClose вместе с инстансом */
-                    // Stryker disable next-line ConditionalExpression: ветка недостижима (см. выше) — эквивалентный мутант
+                    /* v8 ignore start -- defensive: the widget is removed in handleClose together with the instance */
+                    // Stryker disable next-line ConditionalExpression: unreachable (see above) — equivalent mutant
                     if (instance === null) continue;
                     /* v8 ignore stop */
                     applyTerminalColors(instance, widget, next);
                 }
             }),
         );
-        // Терминал задачи, перезапущенный под другим именем, — новая подпись вкладки.
+        // A task terminal restarted under another name gets a new tab label.
         this.register(
             terminalService.onDidChangeInstanceTitle(() => {
                 this.syncChrome();
@@ -151,17 +151,17 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
                 this.activeWidget?.focus();
             }),
         );
-        // Настройки читаются на каждом обращении; событие лишь перерисовывает.
+        // Settings are read on every access; the event only triggers a redraw.
         this.register(
             configuration.onDidChangeConfiguration((event) => {
                 if (event.affectsConfiguration("terminal.integrated.tabs")) this.syncChrome();
             }),
         );
-        // Инстансы, созданные до компонента (сервис резолвится первым в том же модуле).
+        // Instances created before the component (the service resolves first in the same module).
         for (const instance of terminalService.getInstances()) this.handleOpen(instance);
         this.handleActiveChange(terminalService.getActiveInstance());
 
-        // Виджеты держат подписки на surface: оставшиеся — здесь, по одному — в handleClose.
+        // Widgets hold surface subscriptions: the rest are disposed here, each one in handleClose.
         this.register({
             dispose: () => {
                 for (const widget of this.widgets.values()) widget.dispose();
@@ -178,7 +178,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         return this.view.isTabsVisible;
     }
 
-    /** Списка не видно — фокус в активный терминал: эталон перед этим зовёт `showPanel(true)`. */
+    /** The list isn't visible — focus the active terminal: upstream calls `showPanel(true)` before this. */
     public focusTabs(): void {
         if (this.view.isTabsVisible) this.tabs.list.focus();
         else this.terminalService.focusActive();
@@ -192,7 +192,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
 
     private handleClose(instance: ITerminalInstance): void {
         const widget = this.widgets.get(instance.id);
-        /* v8 ignore start -- defensive: сервис файрит close только для инстанса, чей open компонент уже видел */
+        /* v8 ignore start -- defensive: the service fires close only for an instance whose open the component saw */
         if (widget === undefined) return;
         /* v8 ignore stop */
         widget.dispose();
@@ -201,16 +201,15 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
     }
 
     private handleActiveChange(instance: ITerminalInstance | null): void {
-        // Фокус подмену терминала не переживает: уходящий виджет снимают с
-        // дерева, а FocusManager на этом обнуляет фокус — после `exit` ввод
-        // проваливался в никуда. Поэтому спрашиваем ДО подмены и раздаём фокус
-        // заново ПОСЛЕ.
+        // Focus doesn't survive a terminal swap: the outgoing widget is removed from the tree,
+        // and FocusManager clears focus on that — after `exit` input went nowhere. So ask
+        // BEFORE the swap and hand out focus again AFTER.
         const hadFocus = this.activeWidget !== null && holdsFocus(this.activeWidget);
         if (instance === null) {
             this.activeWidget = null;
         } else {
             const widget = this.widgets.get(instance.id);
-            /* v8 ignore start -- defensive: onDidOpenInstance всегда предшествует смене активного */
+            /* v8 ignore start -- defensive: onDidOpenInstance always precedes an active change */
             if (widget === undefined) return;
             /* v8 ignore stop */
             this.activeWidget = widget;
@@ -219,8 +218,8 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         this.viewsService.setViewBody(TERMINAL_VIEW_ID, this.activeWidget === null ? null : this.view);
         this.syncChrome();
         if (!hadFocus) return;
-        // Следующий терминал есть — фокус идёт в него; не осталось ни одного —
-        // возвращаем его редактору, как VS Code при выходе последнего шелла.
+        // If there is a next terminal, focus goes to it; if none is left,
+        // return it to the editor, as VS Code does when the last shell exits.
         this.focusActiveOrEditor();
     }
 
@@ -229,7 +228,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         else this.focusFallback.focusEditor();
     }
 
-    /** Дёшево (строк — единицы), поэтому пересобирается целиком на любое изменение. */
+    /** Cheap (only a few rows), so it is rebuilt entirely on any change. */
     private syncChrome(): void {
         const instances = this.terminalService.getInstances();
         const active = this.terminalService.getActiveInstance();
@@ -238,13 +237,13 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         this.view.setLocation(this.configuration.get("terminal.integrated.tabs.location"));
         const showTabs = this.shouldShowTabs(instances.length);
         this.view.setTabsVisible(showTabs);
-        // Список, в котором стоял фокус, спрятали — фокус уходит в терминал, а
-        // если терминалов не осталось (Kill All из списка) — редактору.
+        // The focused list got hidden — focus goes to the terminal, or,
+        // if no terminals are left (Kill All from the list), to the editor.
         if (hadTabsFocus && !showTabs) this.focusActiveOrEditor();
         this.viewsService.setViewTitleWidget(TERMINAL_VIEW_ID, this.titleWidget(instances, active));
     }
 
-    /** `_shouldShowTabs` эталона; группа = инстанс, поэтому `singleGroup` ≡ `singleTerminal`. */
+    /** Upstream `_shouldShowTabs`; group = instance, so `singleGroup` ≡ `singleTerminal`. */
     private shouldShowTabs(count: number): boolean {
         if (!this.configuration.get("terminal.integrated.tabs.enabled")) return false;
         if (this.configuration.get("terminal.integrated.tabs.hideCondition") === "never") return true;
@@ -268,7 +267,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         return this.activeTabLabel;
     }
 
-    /** Узкого «иконочного» списка у нас нет — `singleTerminalOrNarrow` сводится к `singleTerminal`. */
+    /** We have no narrow "icon" list — `singleTerminalOrNarrow` reduces to `singleTerminal`. */
     private shouldShowActiveTerminal(count: number): boolean {
         switch (this.configuration.get("terminal.integrated.tabs.showActiveTerminal")) {
             case "always":
@@ -291,7 +290,10 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
     }
 }
 
-/** Фон/текст хоста перекрывают `terminal.background`/`terminal.foreground` в var-scope виджета; без них — токены темы. */
+/**
+ * Host background/foreground override `terminal.background`/`terminal.foreground` in the widget's
+ * var scope; without them, theme tokens apply.
+ */
 export function applyTerminalColors(
     instance: ITerminalInstance,
     widget: TerminalViewElement,

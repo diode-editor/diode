@@ -24,25 +24,25 @@ import { SWITCH_TERMINAL_COMMAND_ID, TerminalPanelComponentDIToken } from "./ter
 import { TERMINAL_VIEW_ID, TerminalServiceDIToken } from "./terminalService.ts";
 import { SWITCH_TERMINAL_SHOW_TABS, terminalIndexedLabel } from "./terminalTabsList.ts";
 
-/** Ровно те tier'ы, где Ctrl+символ кодируется однозначно (в legacy Ctrl+` — это NUL). */
+/** Tiers where Ctrl+symbol is encoded unambiguously (in legacy, Ctrl+` is NUL). */
 const MODERN_TIER = "tier == 'kitty' || tier == 'csi-u'";
 
 /** `$(plus)` / `$(trash)`. */
 const PLUS_ICON = "";
 const TRASH_ICON = "";
 
-/** Без пробуждения ленивого спавна; вид открывается там, где стоит, как `showPanel` эталона. */
+/** Doesn't wake the lazy spawn; the view opens where it is, like upstream `showPanel`. */
 function showTerminalView(accessor: ServiceAccessor): void {
     accessor.get(ViewsServiceDIToken).openView(TERMINAL_VIEW_ID, false, false);
 }
 
-/** Кому фокус нужен в другом месте (список вкладок), переставляет его следом. */
+/** Callers that need focus elsewhere (the tab list) move it afterwards. */
 function showPanel(accessor: ServiceAccessor): void {
     showTerminalView(accessor);
     accessor.get(TerminalServiceDIToken).focusActive();
 }
 
-/** Число терминалов меняется без смены фокуса — ключи и кнопки заголовка освежаем явно. */
+/** The terminal count changes without a focus change — refresh context keys and title buttons explicitly. */
 function refreshContextKeys(accessor: ServiceAccessor): void {
     accessor.get(WorkbenchContextKeysDIToken).update();
 }
@@ -51,8 +51,8 @@ function menuInstanceArg(context: unknown): readonly unknown[] {
     return [(context as TerminalTabMenuContext).instanceId];
 }
 
-// Ctrl+` однозначен только в csi-u/kitty (в legacy это NUL = Ctrl+Space), поэтому
-// канонические бинды под tier-гейтом, а досягаемые везде — аккорды Ctrl+K T и Ctrl+K Alt+T.
+// Ctrl+` is unambiguous only in csi-u/kitty (in legacy it is NUL = Ctrl+Space), so canonical
+// bindings are tier-gated; the Ctrl+K T and Ctrl+K Alt+T chords are reachable everywhere.
 export const toggleTerminalAction: CommandAction = {
     id: "workbench.action.terminal.toggleTerminal",
     title: "Terminal: Toggle Terminal",
@@ -63,8 +63,8 @@ export const toggleTerminalAction: CommandAction = {
     run(accessor) {
         const views = accessor.get(ViewsServiceDIToken);
         const terminal = accessor.get(TerminalServiceDIToken);
-        // Пустая вкладка (шелл вышел, остался placeholder) — это не «терминал показан»:
-        // прятать нечего, команда должна поднять новый шелл.
+        // An empty tab (the shell exited, a placeholder is left) is not "terminal shown":
+        // there is nothing to hide, the command must spawn a new shell.
         const showing = views.isViewShown(TERMINAL_VIEW_ID) && terminal.hasOpenTerminals;
         if (showing) {
             views.closeView(TERMINAL_VIEW_ID);
@@ -76,8 +76,8 @@ export const toggleTerminalAction: CommandAction = {
     },
 };
 
-// С зажатым Shift Kitty может слать shifted codepoint (`~`) вместо базового `` ` `` —
-// зависит от терминала, поэтому регистрируем обе формы: Ctrl+Shift+` и Ctrl+Shift+~.
+// With Shift held, Kitty may send the shifted codepoint (`~`) instead of the base `` ` `` —
+// it depends on the terminal, so register both forms: Ctrl+Shift+` and Ctrl+Shift+~.
 export const newTerminalAction: CommandAction = {
     id: "workbench.action.terminal.new",
     title: "Terminal: Create New Terminal",
@@ -87,7 +87,7 @@ export const newTerminalAction: CommandAction = {
         { keys: parseKeybinding("ctrl+shift+`"), when: MODERN_TIER },
         { keys: parseKeybinding("ctrl+shift+~"), when: MODERN_TIER },
     ],
-    // Кнопка «+» в заголовке вкладки — у эталона видна всегда.
+    // The "+" button in the tab title — upstream always shows it.
     menus: [
         {
             menuId: MenuId.ViewTitle,
@@ -112,7 +112,7 @@ export const newTerminalAction: CommandAction = {
 export const createTerminalEditorAction: CommandAction = {
     id: "workbench.action.createTerminalEditor",
     title: "Terminal: Create New Terminal in Editor Area",
-    // Ключи освежает сама смена фокуса: вкладка открывается с фокусом.
+    // The focus change itself refreshes the keys: the tab opens focused.
     run(accessor) {
         accessor.get(TerminalEditorServiceDIToken).createTerminal();
     },
@@ -126,7 +126,7 @@ export const createTerminalEditorSideAction: CommandAction = {
     },
 };
 
-/** Цель — инстанс из меню вкладки, иначе активный (`activeInstanceType: 'view'` эталона). */
+/** Target is the instance from the tab menu, otherwise the active one (upstream `activeInstanceType: 'view'`). */
 export const moveToEditorAction: CommandAction = {
     id: "workbench.action.terminal.moveToEditor",
     title: "Terminal: Move Terminal into Editor Area",
@@ -136,14 +136,14 @@ export const moveToEditorAction: CommandAction = {
     run(accessor, instanceId) {
         const id =
             typeof instanceId === "number" ? instanceId : accessor.get(TerminalServiceDIToken).getActiveInstance()?.id;
-        // Stryker disable next-line ConditionalExpression: эквивалентный — перенос неизвестного id сервис и так пропускает; проверка — сужение для типа
+        // Stryker disable next-line ConditionalExpression: equivalent — the service skips unknown ids; narrows the type
         if (id === undefined) return;
-        // Фокус уходит во вкладку — ключи освежает его смена.
+        // Focus moves to the tab — the focus change refreshes the keys.
         accessor.get(TerminalEditorServiceDIToken).moveToEditor(id);
     },
 };
 
-/** Цель — вкладка из её меню, иначе активная, если она терминал. */
+/** Target is the tab from its menu, otherwise the active tab if it is a terminal. */
 export const moveToTerminalPanelAction: CommandAction = {
     id: "workbench.action.terminal.moveToTerminalPanel",
     title: "Terminal: Move Terminal into Panel",
@@ -167,7 +167,7 @@ export const moveToTerminalPanelAction: CommandAction = {
     },
 };
 
-/** Ctrl+W закрывает вкладку и убивает процесс, как у эталона: в шелл клавиша не уходит. */
+/** Ctrl+W closes the tab and kills the process, as in upstream: the key doesn't reach the shell. */
 export const killEditorAction: CommandAction = {
     id: "workbench.action.terminal.killEditor",
     title: "Terminal: Kill the Active Terminal in Editor Area",
@@ -191,9 +191,9 @@ export const focusTerminalAction: CommandAction = {
     },
 };
 
-// Ctrl+Shift+\ однозначен только в csi-u/kitty: в legacy Ctrl+\ — это байт 0x1c
-// (SIGQUIT у шелла), а Shift теряется. Kitty при Shift может слать `|`. Досягаемый
-// везде путь — лидер-аккорд Ctrl+K \ (семья Ctrl+K T / Ctrl+K Alt+T терминала).
+// Ctrl+Shift+\ is unambiguous only in csi-u/kitty: in legacy Ctrl+\ is byte 0x1c
+// (SIGQUIT for the shell) and Shift is lost. With Shift, Kitty may send `|`. The path reachable
+// everywhere is the leader chord Ctrl+K \ (the terminal's Ctrl+K T / Ctrl+K Alt+T family).
 export const focusTabsAction: CommandAction = {
     id: "workbench.action.terminal.focusTabs",
     title: "Terminal: Focus Terminal Tabs View",
@@ -210,9 +210,9 @@ export const focusTabsAction: CommandAction = {
     },
 };
 
-// Ctrl+PgDn/PgUp у редактора листают вкладки (`textViewFocus`), здесь — терминалы
-// вида (`terminalFocus`): when-клаузы не пересекаются, как у эталона. Во
-// вкладке-терминале клавиши остаются области редакторов (`!terminalEditorFocus`).
+// Ctrl+PgDn/PgUp switch tabs in the editor (`textViewFocus`) and terminals here in
+// the view (`terminalFocus`): the when clauses don't overlap, as in upstream. In a
+// terminal editor tab the keys stay with the editor area (`!terminalEditorFocus`).
 export const focusNextTerminalAction: CommandAction = {
     id: "workbench.action.terminal.focusNext",
     title: "Terminal: Focus Next Terminal Group",
@@ -248,7 +248,7 @@ export const killTerminalAction: CommandAction = {
     id: "workbench.action.terminal.kill",
     title: "Terminal: Kill the Active Terminal Instance",
     shortTitle: "Kill Terminal",
-    // У эталона — по `tabs.showActions` (см. трекер).
+    // Upstream gates it on `tabs.showActions` (see the tracker).
     menus: [
         {
             menuId: MenuId.ViewTitle,
@@ -264,7 +264,7 @@ export const killTerminalAction: CommandAction = {
     },
 };
 
-/** Цель — инстанс из аргумента меню, иначе строка под курсором списка. */
+/** Target is the instance from the menu argument, otherwise the list row under the cursor. */
 export const killActiveTabAction: CommandAction = {
     id: "workbench.action.terminal.killActiveTab",
     title: "Terminal: Kill Terminal",
@@ -277,7 +277,7 @@ export const killActiveTabAction: CommandAction = {
         const component = accessor.get(TerminalPanelComponentDIToken);
         const id = typeof instanceId === "number" ? instanceId : component.tabs.getCursorInstanceId();
         accessor.get(TerminalServiceDIToken).closeInstance(id);
-        // Фокус — в список, пока он виден, иначе в терминал (эталон зовёт `focusTabs()`).
+        // Focus goes to the list while it is visible, otherwise to the terminal (upstream calls `focusTabs()`).
         component.focusTabs();
         refreshContextKeys(accessor);
     },
@@ -293,7 +293,7 @@ export const killAllTerminalsAction: CommandAction = {
     },
 };
 
-/** Аргумент — подпись пункта дропдауна (`tabs.enabled=false`); без него — quick pick. */
+/** The argument is a dropdown item label (`tabs.enabled=false`); without it, a quick pick. */
 export const switchTerminalAction: CommandAction = {
     id: SWITCH_TERMINAL_COMMAND_ID,
     title: "Terminal: Switch Terminal",
@@ -306,8 +306,8 @@ export const switchTerminalAction: CommandAction = {
             await accessor.get(IConfigurationServiceDIToken).updateValue("terminal.integrated.tabs.enabled", true);
             return;
         }
-        // Подпись `N: title` ищем среди текущих подписей, а не разбираем: так
-        // неизвестная строка (разделитель, протухший пункт) просто не находится.
+        // Look up the `N: title` label among the current labels instead of parsing it, so
+        // an unknown string (separator, stale item) is simply not found.
         const terminal = accessor.get(TerminalServiceDIToken);
         const index = terminal.getInstances().findIndex((instance, i) => terminalIndexedLabel(i, instance) === label);
         if (index < 0) return;
@@ -329,7 +329,7 @@ async function pickTerminal(accessor: ServiceAccessor): Promise<void> {
     const picked = await accessor.get(QuickInputServiceDIToken).quickPick({
         placeholder: "Type the name of a terminal to open.",
         items,
-        // Нет активного — -1, пикер клампит его к первой строке.
+        // No active one — -1; the picker clamps it to the first row.
         activeIndex: instances.findIndex((instance) => instance === active),
     });
     if (picked === undefined) return;

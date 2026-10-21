@@ -39,7 +39,7 @@ function build(options: Parameters<typeof buildTaskServiceHarness>[0] = {}) {
         [NotificationServiceDIToken, h.notifications],
     ]);
     const accessor = { get: (token: Token<unknown>) => services.get(token) } as unknown as ServiceAccessor;
-    /** Команда задачи — `npm run <скрипт>`. */
+    /** Task command is `npm run <script>`. */
     const withNpm = (labels: string[], extra: Parameters<typeof makeTask>[0] = {}): void => {
         h.service.registerTaskDefinitions([npmDefinition]);
         const task = (label: string) =>
@@ -150,7 +150,7 @@ describe("Configure Task — открытие на записи", () => {
 
     it("файл поменялся между чтениями и записи уже нет — файл открыт, каретка на месте", async () => {
         const h = build({ tasksJson: twoTasks });
-        // Первое чтение — список задач сервиса, второе — текст для поиска записи.
+        // The first read is the service's task list, the second is the text to locate the entry in.
         h.readFile.mockImplementationOnce(() =>
             Promise.resolve({ value: new TextEncoder().encode(twoTasks) } as IFileContent),
         );
@@ -210,7 +210,7 @@ describe("Configure Task — кастомизация задачи провай�
         h.withNpm(["lint"]);
         h.answerPicks("npm: lint");
         await configureTaskAction.run(h.accessor);
-        // Соседняя запись и её хвостовой комментарий — как были; новая — отдельными строками перед `]`.
+        // The neighbor entry and its trailing comment stay as they were; the new one goes on its own lines before `]`.
         expect(h.tasksJson()).toBe(
             [
                 "{",
@@ -357,7 +357,7 @@ describe("Configure Task — шаблоны", () => {
         await configureTaskAction.run(h.accessor);
         const written = h.tasksJson() ?? "";
         expect(written).toContain("// своё");
-        // Ключи переносит `modify`, соседнее значение он переформатирует — но не теряет.
+        // `modify` moves the keys and reformats the neighboring value, but does not lose it.
         expect((await h.service.getWorkspaceTasks())[0].command.options?.cwd).toBe("sub");
         expect((await h.service.getWorkspaceTasks()).map((t) => t._label)).toStrictEqual(["verify", "test"]);
         expect(h.openUri).toHaveBeenCalledTimes(1);

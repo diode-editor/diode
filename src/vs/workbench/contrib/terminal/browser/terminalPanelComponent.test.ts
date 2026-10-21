@@ -35,7 +35,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
     const configuration = createTestConfigurationService(settings);
     const colors = makeTerminalColors(themeService, configuration).colors;
     const service = new TerminalService(views.service, configuration, factory);
-    // Контейнер TERMINAL строит mount() workbench'а — здесь его роль.
+    // The workbench mount() builds the TERMINAL container — this stands in for it.
     views.service.attachRegisteredContainers();
     const focusFallback = { focusEditor: vi.fn() };
     const menus: IContextMenuMenuDelegate[] = [];
@@ -164,7 +164,7 @@ describe("TerminalPanelComponent", () => {
 
     it("keeps the active widget when a NON-active terminal exits", () => {
         h.service.newTerminal();
-        h.service.newTerminal(); // #2 — активный
+        h.service.newTerminal(); // #2 is active
         const activeWidget = h.widgets()[0];
 
         h.created[0].emitExit(0);
@@ -173,7 +173,7 @@ describe("TerminalPanelComponent", () => {
         h.dispose();
     });
 
-    // Регрессия BUG-3 (#177).
+    // Regression BUG-3 (#177).
     it("hands focus to the editor when the last shell exits", () => {
         h.service.openTerminal();
         h.testApp.render();
@@ -187,7 +187,7 @@ describe("TerminalPanelComponent", () => {
     it("hands focus to the remaining terminal when the focused one exits", () => {
         h.service.newTerminal();
         const firstWidget = h.widgets()[0] as TerminalViewElement;
-        h.service.newTerminal(); // #2 — активный и в фокусе
+        h.service.newTerminal(); // #2 is active and focused
         h.testApp.render();
 
         h.created[1].emitExit(0);
@@ -210,8 +210,8 @@ describe("TerminalPanelComponent", () => {
     });
 
     it("spawns, shows and focuses the terminal when its tab is clicked", () => {
-        // Клик по табу: контрол зовёт onActivateView → PanelService.activateView →
-        // TerminalService лениво спавнит шелл → компонент вкидывает и фокусирует виджет.
+        // Tab click: the control calls onActivateView → PanelService.activateView →
+        // TerminalService lazily spawns a shell → the component mounts and focuses the widget.
         h.panelComponent.view.setActiveView(TERMINAL_VIEW_ID);
         h.panelComponent.view.onActivateView?.(TERMINAL_VIEW_ID);
 
@@ -230,7 +230,7 @@ describe("TerminalPanelComponent", () => {
         const configuration = createTestConfigurationService();
         const service = new TerminalService(views.service, configuration, () => new FakeTerminalSurface());
         views.service.attachRegisteredContainers();
-        service.openTerminal(); // инстанс существует ДО компонента
+        service.openTerminal(); // the instance exists BEFORE the component
 
         const component = new TerminalPanelComponent(
             service,

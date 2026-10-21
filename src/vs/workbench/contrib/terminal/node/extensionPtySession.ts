@@ -1,5 +1,5 @@
-// Сессия pty расширения (`TerminalProcessExtHostProxy` эталона): на нашей стороне только эмулятор,
-// процесса нет — `pid` не бывает, убивать при dispose нечего (pty закроет субпроцесс).
+// Extension pty session (upstream `TerminalProcessExtHostProxy`): only the emulator is on our side, there is no
+// process — no `pid`, nothing to kill on dispose (the subprocess closes the pty).
 
 import type { IExtensionPtySession, IExtensionPtySessionOptions } from "../common/terminalSessionFactory.ts";
 
@@ -7,7 +7,7 @@ import { XtermSurface } from "./xtermSurface.ts";
 
 export class ExtensionPtySession extends XtermSurface implements IExtensionPtySession {
     public readonly shell: string;
-    /** Процесса на нашей стороне нет — `Terminal.processId` у расширения `undefined`. */
+    /** No process on our side — the extension sees `Terminal.processId` as `undefined`. */
     public readonly pid = undefined;
 
     public constructor(private readonly options: IExtensionPtySessionOptions) {
@@ -20,7 +20,7 @@ export class ExtensionPtySession extends XtermSurface implements IExtensionPtySe
         this.feedOutput(data);
     }
 
-    /** `onDidClose` без кода даёт 0; `undefined` до `exitStatus` расширения доносит адаптер. */
+    /** `onDidClose` without a code yields 0; the adapter carries `undefined` to the extension's `exitStatus`. */
     public exit(code: number | undefined): void {
         this.markExited(code ?? 0);
     }
@@ -34,11 +34,11 @@ export class ExtensionPtySession extends XtermSurface implements IExtensionPtySe
     }
 
     protected disposeProcess(): void {
-        // убивать на нашей стороне нечего
+        // nothing to kill on our side
     }
 
-    /** Новый pty подключит расширение (`CustomExecution` при повторном запуске задачи). */
+    /** The extension attaches the new pty (`CustomExecution` on a task rerun). */
     protected relaunchProcess(): void {
-        // запускать на нашей стороне нечего
+        // nothing to launch on our side
     }
 }

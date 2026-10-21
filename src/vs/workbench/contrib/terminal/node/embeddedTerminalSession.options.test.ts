@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { buildEnv, EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
-// Окружение проверяем и чистой функцией, и настоящим шеллом: что дошло до процесса, видно только в его выводе.
+// The environment is tested both as a pure function and with a real shell: what reached the process shows
+// only in its output.
 
 function screen(session: EmbeddedTerminalSession, rows: number, width: number): string {
     const out: TerminalCell = { char: "", fg: 0, bg: 0, style: 0, width: 1 };
@@ -74,7 +75,7 @@ describe("EmbeddedTerminalSession — опции терминала расшир
         await awaitExit(session);
         await vi.waitFor(
             () => {
-                // Без `message` первой строкой идёт сразу вывод шелла.
+                // Without `message` the shell output comes first.
                 expect(screen(session, 6, 60).split("\n")[0]).toBe("[|mine]");
             },
             { timeout: 5000, interval: 50 },

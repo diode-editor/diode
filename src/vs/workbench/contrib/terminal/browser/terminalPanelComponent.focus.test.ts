@@ -11,7 +11,7 @@ import { TerminalServiceDIToken } from "./terminalService.ts";
 
 const TOGGLE_TERMINAL = "workbench.action.terminal.toggleTerminal";
 
-/** Регрессия BUG-3 (#177): после `exit` FocusManager обнулял фокус — ввод пропадал целиком. */
+/** Regression BUG-3 (#177): after `exit` FocusManager cleared focus — all input was lost. */
 describe("Терминал после выхода шелла отдаёт фокус", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -30,7 +30,7 @@ describe("Терминал после выхода шелла отдаёт фо�
 
     function activeSurface(): FakeTerminalSurface {
         const instance = terminal.getActiveInstance();
-        /* v8 ignore start -- тестовый хелпер: сценарий обязан открыть терминал до обращения к сессии */
+        /* v8 ignore start -- test helper: the scenario must open a terminal before touching the session */
         if (instance === null) throw new Error("expected an open terminal");
         /* v8 ignore stop */
         return instance.session as unknown as FakeTerminalSurface;

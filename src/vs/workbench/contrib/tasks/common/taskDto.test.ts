@@ -216,7 +216,7 @@ describe("taskFromWire", () => {
             hasDefinedMatchers: true,
             runOptions: { ...DEFAULT_RUN_OPTIONS, reevaluateOnRerun: false },
         });
-        // У не-кастомной задачи присланный id не берётся — только формула.
+        // A non-customized task ignores the sent id; only the formula applies.
         expect(taskFromWire(wire({ id: "ignored" }), context())?._id).toBe("pub.ext.target,a,type,demo,");
     });
 });

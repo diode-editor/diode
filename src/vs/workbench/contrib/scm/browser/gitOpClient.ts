@@ -9,8 +9,8 @@ import { gitProgressTarget, gitProgressTitle } from "./gitProgress.ts";
 const OP_NOTICE_MS = 5000;
 
 /**
- * `null` — расширение не активно или канал упал. Специальные реакции (диалоги
- * auth/push-rejected/no-upstream) вызывающий наслаивает по `kind` через `silent`.
+ * `null` means the extension is inactive or the channel failed. The caller layers special reactions
+ * (auth/push-rejected/no-upstream dialogs) by `kind` via `silent`.
  */
 export async function runGitOp(
     accessor: ServiceAccessor,
@@ -21,7 +21,7 @@ export async function runGitOp(
     const commands = accessor.get(CommandRegistryDIToken);
     if (!commands.has(GIT_OP_COMMAND)) return null;
     const raw = await withGitProgress(accessor, op, () =>
-        // Stryker disable next-line ArrowFunction: parseGitOpResult одинаково отвечает null и на null, и на undefined
+        // Stryker disable next-line ArrowFunction: parseGitOpResult returns null for both null and undefined
         Promise.resolve(commands.execute(GIT_OP_COMMAND, { op, params })).catch(() => null),
     );
     const result = parseGitOpResult(raw);
@@ -33,9 +33,9 @@ export async function runGitOp(
 }
 
 /**
- * Внутри транспортных швов, а не у вызывающих: промис операции наверху не ждёт никто.
- * Заодно под прогресс попадает очередь мутаций расширения, и спиннер гаснет после
- * его refresh'а — когда список изменений сошёлся.
+ * Inside the transport seams, not in callers: nobody upstream awaits the operation promise.
+ * This also puts the extension's mutation queue under progress, and the spinner stops after
+ * its refresh, once the changes list has settled.
  */
 export function withGitProgress<T>(accessor: ServiceAccessor, op: string, task: () => Promise<T>): Promise<T> {
     const progress = accessor.get(ProgressServiceDIToken);
@@ -43,7 +43,7 @@ export function withGitProgress<T>(accessor: ServiceAccessor, op: string, task: 
     const title = gitProgressTitle(op);
     const inView = (): Promise<T> => progress.withProgress({ location: "view", viewId, title }, task);
     if (!window) return inView();
-    // Stryker disable next-line StringLiteral: локация выбирается сравнением с "view", поэтому любая другая строка ведёт себя как "window"
+    // Stryker disable next-line StringLiteral: only "view" is compared, any other string acts as "window"
     return progress.withProgress({ location: "window", title }, inView);
 }
 

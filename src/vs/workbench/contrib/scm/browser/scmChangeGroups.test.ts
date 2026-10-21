@@ -30,7 +30,7 @@ describe("groupChanges", () => {
 
         expect(groups).toHaveLength(1);
         expect(groups[0].label).toBe("Changes");
-        // Запись помнит настоящую группу — по ней discard выбирает clean vs checkout.
+        // The entry remembers its real group — discard uses it to pick clean vs checkout.
         expect(groups[0].changes.map((c) => c.group)).toEqual(["untracked", "worktree"]);
     });
 

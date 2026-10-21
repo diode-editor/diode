@@ -30,7 +30,7 @@ interface ISetup {
     setExpanded(expanded: boolean): void;
 }
 
-/** `expanded: false` — стартовое состояние (контейнер ещё не собран) и свёрнутое. */
+/** `expanded: false` is both the initial state (container not built yet) and the collapsed one. */
 function make(expanded = true): ISetup {
     const commands = new CommandRegistry();
     const graphService = new ScmGraphService(commands);
@@ -117,7 +117,7 @@ describe("GraphViewComponent", () => {
         expect(screen).toContain("○");
         expect(screen).toContain("feat: панель");
         expect(screen).toContain("fix: сэш");
-        // Колонки sha в графе нет — хеш достают командой Copy Commit ID.
+        // The graph has no sha column: the hash is fetched with the Copy Commit ID command.
         expect(screen).not.toContain("aaaaaaaa");
         component.list.setCursorTo(SHA_B);
         expect(component.list.getCursorElement()?.id).toBe(SHA_B);
@@ -125,8 +125,8 @@ describe("GraphViewComponent", () => {
 
     it("тема коммита идёт сразу за графикой своей строки, а не выравнивается в таблицу", () => {
         const { component, commands } = make();
-        // Сверху линейный коммит (одна дорожка), ниже merge разводит вторую —
-        // ширина графики у строк разная.
+        // A linear commit on top (one lane), below it a merge forks a second one,
+        // so rows have different graph widths.
         const SHA_D = "d".repeat(40);
         publish(commands, [
             { sha: SHA_A, subject: "tip", parents: [SHA_B] },
@@ -139,7 +139,7 @@ describe("GraphViewComponent", () => {
         const columnOf = (subject: string): number => lines.find((l) => l.includes(subject))!.indexOf(subject);
 
         expect(columnOf("tip")).toBeLessThan(columnOf("merge"));
-        // Строки одной ширины по-прежнему совпадают — это не хаос, а своя ширина.
+        // Rows of equal width still line up: it is per-row width, not chaos.
         expect(columnOf("base")).toBe(columnOf("merge"));
     });
 
@@ -241,7 +241,7 @@ describe("GraphViewComponent", () => {
         component.list.onSelect?.(component.list.getCursorElement()!);
 
         expect(component.list.rowCount).toBe(3);
-        // Строки те же объекты — перерисовался только графовый лейбл.
+        // Rows are the same objects: only the graph label was redrawn.
         component.list.setCursorTo(SHA_A);
         expect(component.list.getCursorElement()?.id).toBe(SHA_A);
         expect(rowBefore?.id).toBe(SHA_A);
@@ -256,11 +256,11 @@ describe("GraphViewComponent", () => {
         component.list.setCursorTo(SHA_A);
         component.list.onSelect?.(component.list.getCursorElement()!);
 
-        // Новая страница без прежнего выделения — например после reset или checkout.
+        // A new page without the previous selection, e.g. after reset or checkout.
         publish(commands, [{ sha: SHA_C, subject: "third" }]);
         expect(component.list.rowCount).toBe(1);
 
-        // Выделение сброшено: тот же коммит, вернувшись, подсветку не унаследует.
+        // Selection is reset: the same commit coming back does not inherit the highlight.
         publish(commands, [
             { sha: SHA_A, subject: "first", parents: [SHA_B] },
             { sha: SHA_B, subject: "second" },
@@ -273,7 +273,7 @@ describe("GraphViewComponent", () => {
         publish(commands, [{ sha: SHA_A, subject: "first" }], true);
         component.list.setCursorTo(SHA_A);
 
-        // Страница целиком сменилась (checkout другой ветки), история всё ещё длиннее.
+        // The whole page changed (checkout of another branch), history is still longer.
         publish(commands, [{ sha: SHA_C, subject: "third" }], true);
         expect(component.list.rowCount).toBe(2);
         expect(component.list.getCursorElement()?.id).not.toBe(LOAD_MORE_ROW_ID);
@@ -304,7 +304,7 @@ describe("GraphViewComponent", () => {
 
     it("focus фокусирует список через дескриптор view", () => {
         const { component, registered } = make();
-        // Standalone-компонент без корня: focus не должен бросать.
+        // Standalone component without a root: focus must not throw.
         expect(() => {
             registered[0].focus();
         }).not.toThrow();
@@ -357,8 +357,8 @@ describe("GraphViewComponent: ленивость", () => {
         publish(commands, page);
 
         setExpanded(false);
-        // Расширение принесло ровно тот же набор — ScmGraphService гасит его по
-        // подписи, и события не будет. Строки обязана вернуть сама раскрытость.
+        // The extension brought the same set: ScmGraphService suppresses it by
+        // signature, so no event fires. Expanding alone must bring the rows back.
         setExpanded(true);
         publish(commands, page);
         expect(component.list.rowCount).toBe(1);
@@ -366,7 +366,7 @@ describe("GraphViewComponent: ленивость", () => {
 
     it("свёрнутой с самого старта секции расширение истории не считает", () => {
         const { commands } = make(false);
-        // Свёрнутый по дефолту GRAPH отвечает расширению «`git log` не нужен».
+        // GRAPH, collapsed by default, tells the extension "`git log` not needed".
         expect(commands.execute(GRAPH_ENABLED_COMMAND)).toBe(false);
 
         expect(make(true).commands.execute(GRAPH_ENABLED_COMMAND)).toBe(true);

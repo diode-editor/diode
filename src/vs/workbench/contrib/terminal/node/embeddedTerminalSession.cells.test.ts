@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
-// Реальные node-pty + @xterm/headless: printf точных VT-последовательностей → сетка через readCell.
+// Real node-pty + @xterm/headless: printf of exact VT sequences → grid via readCell.
 
 function emptyCell(): TerminalCell {
     return { char: "", fg: 0, bg: 0, style: 0, width: 1 };
@@ -25,7 +25,7 @@ async function printed(script: string, marker: string): Promise<EmbeddedTerminal
         cols: 40,
         rows: 6,
         shell: "/bin/bash",
-        // sleep держит шелл живым — иначе гонка с onExit и курсор уже не прочитать.
+        // sleep keeps the shell alive — otherwise it races with onExit and the cursor can't be read.
         args: ["-c", `printf '${script}'; sleep 5`],
     });
     await vi.waitFor(
@@ -39,7 +39,7 @@ async function printed(script: string, marker: string): Promise<EmbeddedTerminal
 
 describe("EmbeddedTerminalSession — цвета ячеек", () => {
     it("разворачивает palette-индексы (SGR 38;5;n / 48;5;n) в RGB по таблице xterm", async () => {
-        // 196 = чистый красный куба (255,0,0), 21 = чистый синий куба (0,0,255).
+        // 196 = pure cube red (255,0,0), 21 = pure cube blue (0,0,255).
         const session = await printed("\\033[38;5;196m\\033[48;5;21mP\\033[0m", "P");
         const out = emptyCell();
 
@@ -62,7 +62,7 @@ describe("EmbeddedTerminalSession — цвета ячеек", () => {
     it("16 ANSI-цветов (SGR 31/42/91) — из setAnsiColors; смена перекрашивает выведенное и будит onUpdate", async () => {
         const session = await printed("\\033[31;42mA\\033[91mB\\033[38;5;196mC\\033[0m", "ABC");
         const out = emptyCell();
-        // До setAnsiColors — каноническая таблица xterm.
+        // Before setAnsiColors — the canonical xterm table.
         session.readCell(0, 0, out);
         expect(out.fg).toBe(packRgb(128, 0, 0));
 
@@ -73,11 +73,11 @@ describe("EmbeddedTerminalSession — цвета ячеек", () => {
         expect(onUpdate).toHaveBeenCalled();
 
         session.readCell(0, 0, out);
-        expect(out.fg).toBe(packRgb(1, 1, 1)); // 31 → индекс 1
-        expect(out.bg).toBe(packRgb(2, 2, 2)); // 42 → индекс 2
+        expect(out.fg).toBe(packRgb(1, 1, 1)); // 31 → index 1
+        expect(out.bg).toBe(packRgb(2, 2, 2)); // 42 → index 2
         session.readCell(1, 0, out);
-        expect(out.fg).toBe(packRgb(9, 9, 9)); // 91 → индекс 9
-        // Куб 6×6×6 остаётся каноническим.
+        expect(out.fg).toBe(packRgb(9, 9, 9)); // 91 → index 9
+        // The 6×6×6 cube stays canonical.
         session.readCell(2, 0, out);
         expect(out.fg).toBe(packRgb(255, 0, 0));
         session.dispose();
@@ -150,7 +150,7 @@ describe("EmbeddedTerminalSession — форма сетки", () => {
         expect(session.readCell(0, 0, out)).toBe(true);
         expect(out.char).toBe("世");
         expect(out.width).toBe(2);
-        // x=1 — continuation (getWidth() === 0), out не трогаем.
+        // x=1 is a continuation (getWidth() === 0), out stays untouched.
         expect(session.readCell(1, 0, out)).toBe(false);
         expect(session.readCell(2, 0, out)).toBe(true);
         expect(out.char).toBe("X");
@@ -162,7 +162,7 @@ describe("EmbeddedTerminalSession — форма сетки", () => {
         const session = await printed("ab", "ab");
         const out = emptyCell();
 
-        // x=5 — строка есть, но эмулятор туда ничего не писал.
+        // x=5 — the line exists, but the emulator wrote nothing there.
         expect(session.readCell(5, 0, out)).toBe(true);
         expect(out.char).toBe(" ");
         expect(out.width).toBe(1);
@@ -173,9 +173,9 @@ describe("EmbeddedTerminalSession — форма сетки", () => {
         const session = await printed("ab", "ab");
         const out = emptyCell();
 
-        // Строка существует, столбец за её пределами → getCell() отдаёт undefined.
+        // The line exists, the column is beyond it → getCell() returns undefined.
         expect(session.readCell(1000, 0, out)).toBe(false);
-        // Строки нет вовсе → getLine() отдаёт undefined.
+        // No such line at all → getLine() returns undefined.
         expect(session.readCell(0, 1000, out)).toBe(false);
         session.dispose();
     }, 15000);
@@ -183,8 +183,8 @@ describe("EmbeddedTerminalSession — форма сетки", () => {
 
 describe("EmbeddedTerminalSession — курсор", () => {
     it("отдаёт null, когда курсор в состоянии pending wrap (cursorX === cols)", async () => {
-        // Ровно cols символов без перевода строки: xterm оставляет курсор на cols
-        // (отложенный перенос), т.е. за пределами видимого диапазона 0..cols-1.
+        // Exactly cols characters without a newline: xterm leaves the cursor at cols
+        // (deferred wrap), i.e. outside the visible range 0..cols-1.
         const session = new EmbeddedTerminalSession({
             cols: 10,
             rows: 4,

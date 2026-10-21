@@ -167,7 +167,7 @@ describe("remote-команды", () => {
         h.setInputs(["v1.0", ""]);
         await gitCreateTagAction.run(h.accessor);
 
-        expect(h.validators).toHaveLength(3); // url, имя remote, имя тега
+        expect(h.validators).toHaveLength(3); // url, remote name, tag name
         for (const validate of h.validators) {
             expect(validate("  ")).not.toBeNull();
             expect(validate("value")).toBeNull();

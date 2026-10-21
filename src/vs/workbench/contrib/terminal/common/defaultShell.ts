@@ -1,9 +1,9 @@
-// `getDefaultProfile` эталона, урезанный до пути. Шов в common: шелл знает только node-слой, а
-// задачам его имя нужно до создания терминала — по нему выбираются экранирование и `-c`.
+// Upstream `getDefaultProfile`, trimmed down to the path. A seam in common: only the node layer knows the shell, but
+// tasks need its name before the terminal exists — it picks the quoting and `-c`.
 
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
-/** Путь шелла, которым терминал запустился бы без явного `shellPath`. */
+/** Shell path the terminal would launch with when no `shellPath` is given. */
 export type DefaultShellResolver = () => string;
 
 export const DefaultShellResolverDIToken = token<DefaultShellResolver>("DefaultShellResolver");

@@ -5,8 +5,8 @@ import { SCM_CHANGES_VIEW_ID, SCM_GRAPH_VIEW_ID } from "../common/scmViews.ts";
 const NOT_BUSY = "!gitOperationInProgress";
 
 /**
- * Аналог `"enablement": "!operationInProgress"` у git-расширения VS Code, только
- * объявлен одним списком в `WORKBENCH_ACTIONS`, а не полем у каждой команды.
+ * Counterpart of `"enablement": "!operationInProgress"` in the VS Code git extension, but
+ * declared as one list in `WORKBENCH_ACTIONS` rather than a field on each command.
  */
 export function gitMutating(action: CommandAction): CommandAction {
     return { ...action, enablement: combineWhen(action.enablement, NOT_BUSY) };
@@ -14,16 +14,16 @@ export function gitMutating(action: CommandAction): CommandAction {
 
 export interface IGitProgressTarget {
     readonly viewId: string;
-    /** Сетевые операции идут секундами — их видно, даже когда в сайдбаре не Source Control. */
+    /** Network operations take seconds, so they show even when the sidebar is not on Source Control. */
     readonly window: boolean;
 }
 
 const NETWORK_OPS = new Set(["pull", "push", "fetch", "sync"]);
 
-/** Всё остальное адресуется CHANGES. */
+/** Everything else goes to CHANGES. */
 const GRAPH_OPS = new Set(["logLoadMore", "refresh"]);
 
-/** Неизвестная операция — «Working…»: подпись — украшение, ронять из-за неё нечего. */
+/** An unknown operation gets "Working…": the title is cosmetic, nothing worth failing over. */
 export function gitProgressTitle(op: string): string {
     switch (op) {
         case "commit":

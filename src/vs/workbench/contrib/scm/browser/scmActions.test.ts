@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { SCM_ACTIONS } from "./scmActions.ts";
 
-/** Команды, которые ходят в git на мутацию — им положен enablement занятости. */
+/** Commands that mutate via git — they get the busy enablement. */
 const MUTATING = [
     "git.stage",
     "git.unstage",
@@ -26,7 +26,7 @@ const MUTATING = [
     "scm.graph.refresh",
 ];
 
-/** Чтение — гасить незачем: открыть файл можно и во время коммита. */
+/** Reads need no disabling: a file can be opened even during a commit. */
 const READ_ONLY = [
     "scm.action.openFile",
     "scm.action.openChanges",

@@ -16,9 +16,9 @@ import type { ITask } from "../common/tasks.ts";
 
 import type { TaskService } from "./taskService.ts";
 
-/** События жизни задач сервиса уходят расширениям про все задачи, и запущенные из палитры. */
+/** Lifecycle events of the service's tasks go to extensions for every task, including ones run from the palette. */
 export class ExtensionTaskAdapter implements IExtensionTaskSink {
-    /** Ему же уходит конец задачи, не дошедшей до старта. */
+    /** Also receives the end of a task that never started. */
     private events: IExtensionTaskEvents | null = null;
 
     public constructor(
@@ -54,7 +54,7 @@ export class ExtensionTaskAdapter implements IExtensionTaskSink {
                     case "end":
                         events.ended(executionOf(event.task));
                         return;
-                    // Stryker disable next-line ConditionalExpression: эквивалентный — прочие события мосту не нужны, ветка пустая
+                    // Stryker disable next-line ConditionalExpression: equivalent: the bridge needs no other events, the branch is empty
                     default:
                         return;
                 }
@@ -86,20 +86,20 @@ export class ExtensionTaskAdapter implements IExtensionTaskSink {
     }
 
     public async fetch(type: string | undefined): Promise<IWireTask[]> {
-        // Stryker disable next-line ConditionalExpression: эквивалентный — фильтр `{ type: undefined }` сервис читает как «без типа»
+        // Stryker disable next-line ConditionalExpression: equivalent: the service reads `{ type: undefined }` as "no type"
         return (await this.tasks.tasks(type === undefined ? {} : { type })).map(taskToWire);
     }
 
     /**
-     * Задача, не дошедшая до старта, всё равно кончается у расширения событием
-     * конца — иначе висела бы в `taskExecutions` вечно (как у эталона).
+     * A task that never started still ends for the extension with an end event;
+     * otherwise it would hang in `taskExecutions` forever (as upstream).
      */
     public async execute(request: WireTaskExecuteRequest): Promise<IWireTaskExecution> {
         const task =
             "id" in request ? await this.tasks.getTaskById(request.id) : taskFromWire(request.task, this.context());
         if (task === undefined) throw new Error("id" in request ? "Task not found" : "Task is not valid");
         const execution = executionOf(task);
-        // `run` отклоняется только до старта (итог начатой задачи не отклоняется).
+        // `run` rejects only before start (the outcome of a started task does not reject).
         this.tasks.run(task).catch(() => {
             this.events?.ended(execution);
         });
@@ -126,10 +126,10 @@ function executionOf(task: ITask): IWireTaskExecution {
     return { id: task._id, task: taskToWire(task) };
 }
 
-/** Событие активации, которым эталон будит провайдеров перед Run Task. */
+/** Activation event upstream uses to wake providers before Run Task. */
 export const RUN_TASK_ACTIVATION_EVENT = "onCommand:workbench.action.tasks.runTask";
 
-/** Без типа активация будит провайдеров всех известных типов. */
+/** Without a type, activation wakes providers of every known type. */
 export function bindExtensionTasks(
     tasks: TaskService,
     extensions: IExtensionService,

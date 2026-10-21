@@ -1,5 +1,5 @@
-// Разделителей групп у нашего пикера нет: подпись группы стоит подсказкой у первой
-// строки группы — там, где эталон рисует метку разделителя.
+// Our picker has no group separators: the group label is a hint on the group's first
+// row, where upstream draws the separator label.
 
 import { renderCodicons } from "../../../../base/common/codicons.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -38,7 +38,7 @@ async function configuredTasks(service: TaskService): Promise<IConfiguredTasks> 
     };
 }
 
-/** `null` — выбрали «Configure a Task». Одна задача и `task.quickOpen.skip` — без пикера. */
+/** `null` means "Configure a Task" was picked. A single task with `task.quickOpen.skip` skips the picker. */
 export async function pickTaskToRun(
     service: TaskService,
     quickInput: QuickInputService,

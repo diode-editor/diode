@@ -1,4 +1,4 @@
-// PTY-половина встроенного терминала (node-pty); эмуляторная, общая с pty расширений, — `XtermSurface`.
+// PTY half of the embedded terminal (node-pty); the emulator half, shared with extension ptys, is `XtermSurface`.
 
 import type { IPty } from "node-pty";
 
@@ -17,7 +17,7 @@ export interface EmbeddedTerminalOptions {
     shell?: string;
     args?: string[];
     cwd?: string;
-    /** Поверх унаследованного окружения; `null` снимает переменную. */
+    /** Applied over the inherited environment; `null` unsets a variable. */
     env?: Record<string, string | null>;
     strictEnv?: boolean;
     message?: string;
@@ -25,8 +25,8 @@ export interface EmbeddedTerminalOptions {
 }
 
 /**
- * Слои: база (пустая при `strictEnv`) → `env` терминала (`null` снимает) → `contribute` расширений →
- * наше: `TERM` эмулятора, без `TMUX` (внутри собственного tmux-хоста он сбивает детект).
+ * Layers: base (empty with `strictEnv`) → terminal `env` (`null` unsets) → extension `contribute` →
+ * ours: the emulator's `TERM`, no `TMUX` (inside our own tmux host it breaks detection).
  */
 export function buildEnv(
     base: Record<string, string>,
@@ -57,15 +57,15 @@ export class EmbeddedTerminalSession extends XtermSurface {
     public shell: string;
     private pty: IPty;
 
-    /** @param environment коллекции окружения расширений; при `strictEnv` не применяются. */
+    /** @param environment extension environment collections; not applied with `strictEnv`. */
     public constructor(
         options: EmbeddedTerminalOptions,
         private readonly environment?: ITerminalEnvironmentContributor,
     ) {
         super({ cols: options.cols, rows: options.rows, scrollback: options.scrollback });
 
-        // `TerminalOptions.message` — `writeln` в эмулятор (`_writeInitialText`
-        // эталона) до первого вывода шелла: записи xterm идут по очереди.
+        // `TerminalOptions.message` is `writeln` into the emulator (upstream `_writeInitialText`)
+        // before the first shell output: xterm writes are queued in order.
         if (options.message !== undefined) this.feedOutput(`${options.message}\r\n`);
 
         this.shell = options.shell ?? getSystemShell();
@@ -85,15 +85,15 @@ export class EmbeddedTerminalSession extends XtermSurface {
     }
 
     protected disposeProcess(): void {
-        // Уже вышедший процесс kill не найдёт — его отказ глотается здесь же.
+        // kill can't find an already exited process — its failure is swallowed here.
         try {
             this.pty.kill();
         } catch {
-            // процесс мог уже завершиться
+            // the process may have already exited
         }
     }
 
-    /** Прежний PTY уже вышел и его подписки отстреляли — снимать нечего. */
+    /** The previous PTY has already exited and its listeners have fired — nothing to unsubscribe. */
     protected relaunchProcess(options: ITerminalRelaunchOptions): void {
         this.shell = options.shell ?? getSystemShell();
         this.pty = this.spawn(this.shell, { ...options, cols: this.cols, rows: this.rows });
@@ -114,7 +114,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
         );
         const { spawn } = loadNodePty();
         const pty = spawn(shell, options.args ?? [], {
-            // Stryker disable next-line StringLiteral: эквивалентный — TERM уже задан в env (buildEnv), node-pty берёт его при пустом name
+            // Stryker disable next-line StringLiteral: equivalent: with an empty name node-pty uses TERM from buildEnv
             name: "xterm-256color",
             cols: options.cols,
             rows: options.rows,

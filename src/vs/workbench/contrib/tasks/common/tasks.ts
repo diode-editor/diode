@@ -1,4 +1,4 @@
-// Problem matchers хранятся, но ни на что не влияют (см. docs/TODO/Tasks.md).
+// Problem matchers are stored but affect nothing (see docs/TODO/Tasks.md).
 
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import type { IKeyedTaskIdentifier } from "../../../api/common/taskIdentity.ts";
@@ -26,7 +26,7 @@ export interface IShellConfiguration {
     readonly quoting?: IShellQuotingOptions;
 }
 
-/** `env` — поверх унаследованного. */
+/** `env` goes on top of the inherited one. */
 export interface ICommandOptions {
     readonly cwd?: string;
     readonly env?: Readonly<Record<string, string>>;
@@ -48,7 +48,7 @@ export interface IPresentationOptions {
     readonly close?: boolean;
 }
 
-/** `PresentationOptions.defaults` эталона. */
+/** Upstream's `PresentationOptions.defaults`. */
 export const DEFAULT_PRESENTATION: IPresentationOptions = {
     echo: true,
     reveal: "always",
@@ -60,17 +60,17 @@ export const DEFAULT_PRESENTATION: IPresentationOptions = {
 
 export type InstancePolicy = "terminateNewest" | "terminateOldest" | "prompt" | "warn" | "silent";
 
-/** `runOptions` задачи (`IRunOptions`); `runOn` не поддержан (docs/TODO/Tasks.md). */
+/** Task `runOptions` (`IRunOptions`); `runOn` is not supported (docs/TODO/Tasks.md). */
 export interface IRunOptions {
     readonly reevaluateOnRerun: boolean;
     readonly instanceLimit: number;
     readonly instancePolicy: InstancePolicy;
 }
 
-/** `RunOptions.defaults` эталона. */
+/** Upstream's `RunOptions.defaults`. */
 export const DEFAULT_RUN_OPTIONS: IRunOptions = { reevaluateOnRerun: true, instanceLimit: 1, instancePolicy: "prompt" };
 
-/** У `custom` команды нет. */
+/** `custom` has no command. */
 export interface ICommandConfiguration {
     readonly runtime: RuntimeType;
     readonly name?: CommandString;
@@ -89,7 +89,7 @@ export type TaskSource =
       }
     | {
           readonly kind: "extension";
-          /** Подпись задачи — «{label}: {name}». */
+          /** The task label is "{label}: {name}". */
           readonly label: string;
           readonly extensionId: string;
           readonly scope: TaskScopeKind;
@@ -102,13 +102,13 @@ export interface ITaskGroup {
 }
 
 /**
- * `CustomTask`/`ContributedTask` эталона одной формой. Перечитанный tasks.json
- * даёт новые объекты — одну и ту же задачу узнают по {@link getMapKey}.
+ * Upstream's `CustomTask`/`ContributedTask` in one shape. A reread tasks.json
+ * gives new objects; the same task is recognized by {@link getMapKey}.
  */
 export interface ITask {
-    /** Внутренний id: у задачи провайдера — `${расширение}.${_key}`, у tasks.json — `$core.${label}`. */
+    /** Internal id: `${extension}.${_key}` for a provider task, `$core.${label}` for tasks.json. */
     readonly _id: string;
-    /** Подпись в пикерах и имя терминала: у задачи провайдера — «{source}: {name}». */
+    /** Label in pickers and the terminal name: "{source}: {name}" for a provider task. */
     readonly _label: string;
     readonly name: string;
     readonly type: string;
@@ -118,16 +118,16 @@ export interface ITask {
     readonly isBackground: boolean;
     readonly detail?: string;
     readonly hide?: boolean;
-    /** Группа хранится и уезжает расширениям, но групп build/test пока нет — на запуск не влияет. */
+    /** The group is stored and sent to extensions, but there are no build/test groups yet, so runs ignore it. */
     readonly group?: ITaskGroup;
     readonly problemMatchers: readonly string[];
     readonly hasDefinedMatchers: boolean;
     readonly runOptions: IRunOptions;
-    /** Индекс записи в `tasks` tasks.json; у задачи провайдера без кастомизации — нет. */
+    /** Entry index in tasks.json `tasks`; absent for a provider task without customization. */
     readonly configIndex?: number;
 }
 
-/** Заданное здесь — поверх полей провайдера (`createCustomTask` эталона). */
+/** Values set here override the provider's fields (upstream's `createCustomTask`). */
 export interface ITaskCustomization {
     readonly label?: string;
     readonly detail?: string;
@@ -140,18 +140,18 @@ export interface ITaskCustomization {
     readonly runOptions: IRunOptions;
 }
 
-/** Ещё не задача — её находят среди задач провайдера по ключу определения. */
+/** Not a task yet: it is looked up among provider tasks by definition key. */
 export interface IConfiguringTask {
-    /** `${расширение}.${_key}` — тот же id, что у задачи провайдера, которую запись кастомизирует. */
+    /** `${extension}.${_key}`: the same id as the provider task this entry customizes. */
     readonly _id: string;
-    /** `label` записи или «{тип}: {первое обязательное свойство}». */
+    /** The entry's `label` or "{type}: {first required property}". */
     readonly _label: string;
     readonly type: string;
     readonly configures: IKeyedTaskIdentifier;
     readonly folder: IWorkspaceFolder;
     readonly configIndex: number;
     readonly customization: ITaskCustomization;
-    /** Как в файле — для сообщения «провайдер такую задачу не дал». */
+    /** As in the file, for the "provider did not contribute such a task" message. */
     readonly element: Readonly<Record<string, unknown>>;
 }
 
@@ -163,14 +163,14 @@ export function getTaskFolder(task: ITask): IWorkspaceFolder | undefined {
     return task.source.folder;
 }
 
-/** По нему ищутся бегущая копия и терминал для переиспользования. */
+/** Used to find the running copy and the terminal to reuse. */
 export function getMapKey(task: ITask): string {
     const folder = task.source.folder?.uri.toString();
     if (task.source.kind === "workspace") return `${String(folder)}|${task._id}`;
     return folder === undefined ? `${task.source.scope}|${task._id}` : `${task.source.scope}|${folder}|${task._id}`;
 }
 
-/** Строка — подпись (у задачи tasks.json она же `label`), определение — по `_key`. */
+/** A string is a label (for a tasks.json task it is the `label`); a definition matches by `_key`. */
 export function taskMatches(task: ITask, key: string | IKeyedTaskIdentifier): boolean {
     if (typeof key === "string") return key === task._label;
     return task.definition._key === key._key;

@@ -289,7 +289,7 @@ describe("хелперы", () => {
         await gitFetchPruneAction.run(h.accessor);
         await gitPushWithTagsAction.run(h.accessor);
         await gitPushWithTagsForceAction.run(h.accessor);
-        await gitPushToForceAction.run(h.accessor); // один remote, confirm=true
+        await gitPushToForceAction.run(h.accessor); // single remote, confirm=true
         expect(h.ops).toEqual([
             { op: "pull", params: { rebase: true } },
             { op: "sync", params: { rebase: true } },
@@ -337,29 +337,29 @@ describe("хелперы", () => {
 
     it("отмены пикеров и confirm-ов: pushTo/pushToForce/pullFrom/publish-поток", async () => {
         const h = makeHarness();
-        // pushTo: пикер отменён (несколько remotes).
+        // pushTo: picker cancelled (several remotes).
         h.setRepoState({ remotes: ["origin", "fork"] });
         h.setPick(undefined);
         await gitPushToAction.run(h.accessor);
         expect(h.ops).toEqual([]);
 
-        // pushToForce: remote выбран, но force-confirm отклонён.
+        // pushToForce: remote picked, but force confirm declined.
         h.setPick("fork");
         h.confirmAnswer.value = false;
         await gitPushToForceAction.run(h.accessor);
         expect(h.ops).toEqual([]);
 
-        // pushWithTagsForce: confirm отклонён.
+        // pushWithTagsForce: confirm declined.
         await gitPushWithTagsForceAction.run(h.accessor);
         expect(h.ops).toEqual([]);
 
-        // no-upstream: предложение Publish отклонено — второй операции нет.
+        // no-upstream: Publish offer declined — no second operation.
         h.confirmAnswer.value = false;
         h.setOpResults([{ ok: false, kind: "no-upstream", message: "no upstream" }]);
         await gitPushAction.run(h.accessor);
         expect(h.ops).toEqual([{ op: "push", params: {} }]);
 
-        // pullFrom при пустых remotes — notice, без пикеров.
+        // pullFrom with no remotes — a notice, no pickers.
         h.ops.length = 0;
         h.setRepoState({ remotes: [] });
         await gitPullFromAction.run(h.accessor);

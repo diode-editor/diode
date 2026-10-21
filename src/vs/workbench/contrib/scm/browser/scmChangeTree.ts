@@ -8,9 +8,9 @@ export interface IScmTreeFile {
 
 export interface IScmTreeFolder {
     readonly kind: "folder";
-    /** От корня репозитория — идентичность строки. */
+    /** Relative to the repository root — the row identity. */
     readonly path: string;
-    /** Компакт-цепочка ("src/vs/workbench") либо один сегмент. */
+    /** Compacted chain ("src/vs/workbench") or a single segment. */
     readonly label: string;
     readonly children: readonly ScmTreeNode[];
 }
@@ -33,15 +33,15 @@ interface TrieNode {
 }
 
 /**
- * Компакция VS Code: папка с единственной папкой-ребёнком и без файлов сливается с ней —
- * отступы не съедают узкий сайдбар. Папки раньше файлов, внутри — по алфавиту.
+ * VS Code compaction: a folder with a single child folder and no files merges with it —
+ * indentation does not eat the narrow sidebar. Folders before files, alphabetical within.
  */
 export function buildScmTree(changes: readonly IScmChange[]): readonly ScmTreeNode[] {
     const root: TrieNode = { folders: new Map(), files: [] };
 
     for (const change of changes) {
-        // Имя и папки режем по последнему «/», а не через split+pop: так имя
-        // получается строкой по построению, без утверждения «массив непуст».
+        // Split name and folders at the last "/", not via split+pop: this way the name
+        // is a string by construction, without asserting "array is non-empty".
         const full = displayPath(change);
         const lastSlash = full.lastIndexOf("/");
         const name = full.slice(lastSlash + 1);

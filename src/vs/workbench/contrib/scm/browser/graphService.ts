@@ -6,37 +6,37 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
 
 /**
- * Набор пушит git-расширение, команду регистрирует ядро; строка дублируется по
- * значению на стороне расширения — общих импортов через границу процесса нет.
+ * The git extension pushes the set, the core registers the command; the string is duplicated
+ * by value on the extension side, since there are no shared imports across the process boundary.
  */
 export const PUBLISH_LOG_COMMAND = "diode.scm.publishLog";
 
 /**
- * Единственный pull-канал (остальные — push): на первом {@link ScmGraphService.setActive}
- * расширения может ещё не быть, а перезапуск extension host'а обнуляет его память.
- * Ответ `undefined` (команды нет) расширение трактует как «канал не поддержан».
+ * The only pull channel (the rest are push): on the first {@link ScmGraphService.setActive}
+ * the extension may not exist yet, and an extension host restart wipes its memory.
+ * The extension treats an `undefined` answer (no command) as "channel not supported".
  */
 export const GRAPH_ENABLED_COMMAND = "diode.scm.graphEnabled";
 
-/** Операция `diode.git.op`; строка дублируется по значению на стороне расширения. */
+/** A `diode.git.op` operation; the string is duplicated by value on the extension side. */
 const LOG_SET_ENABLED_OP = "logSetEnabled";
 
 export interface IScmCommitRef {
     readonly name: string;
     readonly kind: "head" | "remote" | "tag";
-    /** Ветка, на которой стоит HEAD. */
+    /** The branch HEAD is on. */
     readonly current: boolean;
 }
 
 export interface IScmCommit {
     readonly sha: string;
-    /** При отсутствии ядро урезает sha само. */
+    /** If absent, the core shortens the sha itself. */
     readonly shortSha: string;
-    /** В порядке git; пусто — корневой коммит. */
+    /** In git order; empty means a root commit. */
     readonly parents: readonly string[];
     readonly refs: readonly IScmCommitRef[];
     readonly author: string;
-    /** Unix-секунды. */
+    /** Unix seconds. */
     readonly timestamp: number;
     readonly subject: string;
 }
@@ -46,18 +46,18 @@ export const ScmGraphServiceDIToken = token<ScmGraphService>("ScmGraphService");
 const REF_KINDS = new Set(["head", "remote", "tag"]);
 
 /**
- * Устройство — как у {@link ScmChangesService}. Обратный конец канала — {@link setActive}:
- * пока GRAPH не раскрыта, `git log` не запускается — граф не стоит подпроцесса на каждое сохранение.
+ * Built like {@link ScmChangesService}. The reverse end of the channel is {@link setActive}:
+ * while GRAPH is collapsed, `git log` does not run, so the graph costs no subprocess per save.
  */
 export class ScmGraphService extends Disposable {
     public static dependencies = [CommandRegistryDIToken] as const;
 
     private commitList: readonly IScmCommit[] = [];
     private more = false;
-    /** Гасит повторную публикацию того же набора. */
+    /** Suppresses republishing the same set. */
     private signature = "";
     private readonly onDidChangeCommitsEmitter = this.register(new Emitter<void>());
-    /** `null` — ядро ещё не объявляло своё состояние. */
+    /** `null` means the core has not announced its state yet. */
     private active: boolean | null = null;
 
     public constructor(private readonly commands: CommandRegistry) {
@@ -70,7 +70,7 @@ export class ScmGraphService extends Disposable {
         this.register(commands.register(GRAPH_ENABLED_COMMAND, () => this.active === true));
     }
 
-    /** От новых коммитов к старым. */
+    /** Newest commits first. */
     public get commits(): readonly IScmCommit[] {
         return this.commitList;
     }
@@ -80,9 +80,9 @@ export class ScmGraphService extends Disposable {
     }
 
     /**
-     * Первый вызов уходит всегда, даже если совпал с дефолтом. Best-effort: потерянный
-     * сигнал подберёт pull по {@link GRAPH_ENABLED_COMMAND}. Не `runGitOp`: тот требует
-     * `ServiceAccessor` и показывает notice, а фоновому сигналу сказать пользователю нечего.
+     * The first call is always sent, even if it matches the default. Best-effort: a lost
+     * signal is picked up by the pull via {@link GRAPH_ENABLED_COMMAND}. Not `runGitOp`: it needs
+     * a `ServiceAccessor` and shows a notice, while a background signal has nothing to tell the user.
      */
     public setActive(active: boolean): void {
         if (this.active === active) return;
@@ -91,7 +91,7 @@ export class ScmGraphService extends Disposable {
         void Promise.resolve(
             this.commands.execute(GIT_OP_COMMAND, { op: LOG_SET_ENABLED_OP, params: { enabled: active } }),
         ).catch(
-            /* v8 ignore next -- best-effort: канал отвалится только при завершении процесса */
+            /* v8 ignore next -- best-effort: the channel only drops when the process exits */
             () => undefined,
         );
     }
@@ -109,7 +109,7 @@ export class ScmGraphService extends Disposable {
     }
 }
 
-/** Всё, от чего зависит кадр: sha, тема строки, укладка графа и бейджи. */
+/** Everything the frame depends on: sha, commit subject, graph layout and badges. */
 function commitSignature(commit: IScmCommit): string {
     const refs = commit.refs.map((ref) => `${ref.kind}:${ref.current ? "*" : ""}${ref.name}`).join(",");
     return `${commit.sha}\t${commit.subject}\t${commit.parents.join(" ")}\t${refs}`;

@@ -10,7 +10,7 @@ import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspa
 
 import { ENVIRONMENT_VARIABLE_COLLECTIONS_STATE, EnvironmentVariableService } from "./environmentVariableService.ts";
 
-/** Состояние в памяти: сторы по воркспейсам, `openWorkspace` переключает workspace-область. */
+/** In-memory state: a store per workspace; `openWorkspace` switches the workspace scope. */
 function memoryState(initial: Record<string, unknown> = {}) {
     const stores = new Map<string, Map<string, unknown>>([["empty", new Map(Object.entries(initial))]]);
     let current = "empty";

@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
-// Тесты гоняют РЕАЛЬНЫЕ node-pty + @xterm/headless (linux, оба установлены).
+// These tests run REAL node-pty + @xterm/headless (linux, both installed).
 
 function readRow(session: EmbeddedTerminalSession, row: number, width: number): string {
     const out: TerminalCell = { char: "", fg: 0, bg: 0, style: 0, width: 1 };
@@ -15,8 +15,8 @@ function readRow(session: EmbeddedTerminalSession, row: number, width: number): 
 }
 
 /**
- * Весь экран одной строкой: длина промпта интерактивного шелла зависит от машины (на CI длиннее),
- * а склейка без разделителя заодно собирает маркер, разорванный переносом строки.
+ * The whole screen as one string: the interactive shell prompt length depends on the machine (longer on CI),
+ * and joining without a separator also reassembles a marker split by a line wrap.
  */
 function readScreen(session: EmbeddedTerminalSession, rows: number, width: number): string {
     let text = "";
@@ -37,8 +37,8 @@ describe("EmbeddedTerminalSession — выбор шелла и аргумент�
 
     it("берёт шелл из $SHELL, когда options.shell не задан", async () => {
         vi.stubEnv("SHELL", "/bin/bash");
-        // Без args интерактивный bash просто ждёт ввода — проверяем, что он живой,
-        // и заодно покрываем дефолт `options.args ?? []`.
+        // Without args an interactive bash just waits for input — check it's alive,
+        // which also covers the `options.args ?? []` default.
         const session = new EmbeddedTerminalSession({ cols: 120, rows: 6 });
         session.write("echo from-env-shell\r");
         await vi.waitFor(
@@ -112,7 +112,7 @@ describe("EmbeddedTerminalSession — isExited", () => {
             args: ["-c", "sleep 5"],
         });
         expect(session.isExited).toBe(false);
-        session.dispose(); // убивает PTY → onExit
+        session.dispose(); // kills the PTY → onExit
         await vi.waitFor(
             () => {
                 expect(session.isExited).toBe(true);
@@ -137,8 +137,8 @@ describe("EmbeddedTerminalSession — resize", () => {
             cols: 40,
             rows: 6,
             shell: "/bin/bash",
-            // Шелл печатает `stty size` по SIGWINCH — так виден TIOCSWINSZ на реальном tty. Короткий
-            // sleep в цикле: bash откладывает trap до конца текущей команды.
+            // The shell prints `stty size` on SIGWINCH — that exposes TIOCSWINSZ on a real tty. A short
+            // sleep in the loop: bash defers the trap until the current command ends.
             args: ["-c", "trap 'stty size' WINCH; while true; do sleep 0.1; done"],
         });
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -162,7 +162,7 @@ describe("EmbeddedTerminalSession — resize", () => {
         async (cols, rows) => {
             const session = liveSession();
             await session.xtermReady;
-            // Курсор остаётся читаемым — значит эмулятор не пересобрали под мусорный размер.
+            // The cursor stays readable — so the emulator wasn't rebuilt for a garbage size.
             session.resize(cols, rows);
             expect(session.getCursor()).not.toBeNull();
             session.dispose();
@@ -188,8 +188,8 @@ describe("EmbeddedTerminalSession — resize", () => {
             args: ["-c", "exit 0"],
         });
         await awaitExit(session);
-        // Размер ДРУГОЙ (иначе сработал бы ранний no-op) — путь доходит до term.resize,
-        // а pty.resize пропускается: обращение к мёртвому PTY бросило бы EBADF.
+        // A DIFFERENT size (otherwise the early no-op would kick in) — the path reaches term.resize,
+        // while pty.resize is skipped: touching a dead PTY would throw EBADF.
         expect(() => {
             session.resize(50, 10);
         }).not.toThrow();
@@ -237,7 +237,7 @@ describe("EmbeddedTerminalSession — подписки", () => {
         const subscription = session.onExit((code) => exits.push(code));
         subscription.dispose();
 
-        session.dispose(); // убивает PTY
+        session.dispose(); // kills the PTY
         await new Promise((resolve) => setTimeout(resolve, 500));
         expect(exits).toEqual([]);
     }, 20000);

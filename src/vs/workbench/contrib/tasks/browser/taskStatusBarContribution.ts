@@ -12,10 +12,10 @@ import { type TaskService, TaskServiceDIToken } from "./taskService.ts";
 
 export const TaskStatusBarContributionDIToken = token<TaskStatusBarContribution>("TaskStatusBarContribution");
 
-/** Под этим id сегмент прячут в меню полосы. */
+/** The id under which the status bar menu hides the entry. */
 export const RUNNING_TASKS_STATUS_ID = "status.runningTasks";
 
-/** Прогресс «Building...» эталона завязан на группу build с матчерами — их нет, и его тоже нет. */
+/** Upstream's "Building..." progress relies on a build group with matchers; we have none, so no progress either. */
 export class TaskStatusBarContribution extends Disposable {
     public static dependencies = [StatusBarServiceDIToken, TaskServiceDIToken, CommandRegistryDIToken] as const;
 
@@ -29,7 +29,7 @@ export class TaskStatusBarContribution extends Disposable {
         super();
         this.register(
             tasks.onDidStateChange((event) => {
-                // Stryker disable next-line ConditionalExpression,EqualityOperator: эквивалентный — пересчёт идемпотентен, «changed» лишь сокращает лишние
+                // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent: update is idempotent, "changed" trims extra ones
                 if (event.kind === "changed") this.update();
             }),
         );
@@ -57,7 +57,7 @@ export class TaskStatusBarContribution extends Disposable {
             name: "Running Tasks",
             text,
             alignment: "left",
-            // Рядом с Problems, как у эталона (`location: status.problems, priority 50`).
+            // Next to Problems, as upstream (`location: status.problems, priority 50`).
             priority: 50,
             onClick: () => {
                 void this.commands.execute("workbench.action.tasks.showTasks");

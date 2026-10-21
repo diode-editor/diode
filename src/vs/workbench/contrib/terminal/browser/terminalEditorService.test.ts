@@ -300,7 +300,7 @@ describe("TerminalEditorService", () => {
         expect(second.activePane).not.toBeInstanceOf(TerminalEditorPane);
         h.testApp.render();
         expect(h.testApp.focusedElement).toBe(before);
-        // Рецепт — у вкладки-терминала; рестарт она не переживает.
+        // The recipe belongs to the terminal tab; it doesn't survive a restart.
         expect(factory?.describe(first.activePane as TerminalEditorPane)).toStrictEqual({});
         expect(factory?.describe(second.activePane as never)).toBeUndefined();
         expect(factory?.serialize({})).toBeUndefined();

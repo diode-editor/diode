@@ -10,7 +10,7 @@ import {
     START_HASH,
 } from "./commitGraph.ts";
 
-/** Кейсы `TestGetNextPipes` lazygit: порядок шагов и пустое дерево у корневого коммита. */
+/** lazygit `TestGetNextPipes` cases: step order and an empty tree at the root commit. */
 const STYLE = "graphStyle";
 const getStyle = (): string => STYLE;
 
@@ -67,8 +67,8 @@ describe("getPipeSets", () => {
         const sets = getPipeSets([{ sha: "1", parents: ["2"] }], getStyle);
         expect(sets).toHaveLength(1);
         expect(sets[0]).toEqual([
-            // Терминатор затравки наследует её цвет; в кадре он не виден —
-            // вырожденный TERMINATES в колонке коммита рендер пропускает.
+            // The seed's terminator inherits its color; it is not visible in the frame —
+            // the renderer skips a degenerate TERMINATES in the commit column.
             { ...pipe(0, 0, START_HASH, "1", PipeKind.Terminates), style: GRAPH_DEFAULT_STYLE },
             pipe(0, 0, "1", "2", PipeKind.Starts),
         ]);

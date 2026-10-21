@@ -6,8 +6,8 @@ import type { IQuickDiffColors } from "./quickDiffDecorations.ts";
 import { toGutterDecorations } from "./quickDiffDecorations.ts";
 
 /**
- * Ожидания сняты с прогонов настоящего движка, а не из чтения кода: тест ловит и ошибку
- * конверсии, и смену поведения движка при перекате пина.
+ * Expectations are taken from runs of the real engine, not from reading the code: the test catches
+ * both a conversion bug and a change in engine behavior when the pin is bumped.
  */
 
 const COLORS: IQuickDiffColors = { added: 0x00ff00, modified: 0x0000ff, deleted: 0xff0000 };
@@ -49,12 +49,12 @@ describe("toGutterDecorations", () => {
     });
 
     it("удаление в середине — одна граничная строка НАД местом удаления", () => {
-        // Строки "b" в новом файле нет; бар садится на "a".
+        // The new file has no "b" line; the bar lands on "a".
         expect(gutter(["a", "b", "c"], ["a", "c"])).toEqual([{ lines: [0, 0], color: COLORS.deleted, dashed: false }]);
     });
 
     it("удаление в начале прижимается к первой строке, а не уезжает за границу", () => {
-        // Границы сверху нет — без клампа получили бы отрицательный номер строки.
+        // No boundary above — without the clamp the line number would be negative.
         expect(gutter(["a", "b", "c"], ["b", "c"])).toEqual([{ lines: [0, 0], color: COLORS.deleted, dashed: false }]);
     });
 

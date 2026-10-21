@@ -12,20 +12,20 @@ import type { ITerminalInstance } from "./terminalService.ts";
 
 export const TERMINAL_EDITOR_SCHEME = "vscode-terminal";
 
-/** Ресурс — идентичность вкладки в группе. */
+/** The resource is the tab's identity within the group. */
 export function terminalEditorUri(instanceId: number): Uri {
     return Uri.from({ scheme: TERMINAL_EDITOR_SCHEME, path: `/${String(instanceId)}` });
 }
 
 /**
- * Закрытие вкладки убивает процесс через `onDidClose`, если инстанс не отцеплен
- * ({@link detach}). Перенос между группами панель не диспозит.
+ * Closing the tab kills the process via `onDidClose` unless the instance is detached
+ * ({@link detach}). Moving between groups doesn't dispose the pane.
  */
 export class TerminalEditorPane extends Disposable implements IEditorPane {
     public readonly uri: Uri;
     public readonly view: TUIElement;
     public readonly isModified = false;
-    // Замка во вкладке у терминала эталона нет: `Readonly` его input'а — про текстовые команды.
+    // Upstream's terminal tab has no lock: its input's `Readonly` is about text commands.
     public readonly readOnly = false;
 
     private readonly widget: TerminalViewElement;
@@ -40,7 +40,7 @@ export class TerminalEditorPane extends Disposable implements IEditorPane {
         super();
         this.uri = terminalEditorUri(instance.id);
         this.widget = new TerminalViewElement(instance.session);
-        // Точки в id нет — `#terminalEditor-3` проходит селектором инспектора.
+        // No dots in the id — `#terminalEditor-3` works as an inspector selector.
         this.widget.id = `terminalEditor-${String(instance.id)}`;
         applyTerminalColors(instance, this.widget, colors);
         this.view = this.widget;
@@ -62,7 +62,7 @@ export class TerminalEditorPane extends Disposable implements IEditorPane {
         applyTerminalColors(this.instance, this.widget, colors);
     }
 
-    /** Закрытие вкладки инстанс больше не убивает. */
+    /** Closing the tab no longer kills the instance. */
     public detach(): void {
         this.detached = true;
     }
@@ -75,7 +75,7 @@ export class TerminalEditorPane extends Disposable implements IEditorPane {
         this.widget.focus();
     }
 
-    /** Повторный dispose процесс второй раз не трогает: эмиттер уже снят. */
+    /** A repeated dispose doesn't touch the process again: the emitter is already removed. */
     public override dispose(): void {
         if (!this.detached) this.onDidCloseEmitter.fire();
         this.widget.dispose();

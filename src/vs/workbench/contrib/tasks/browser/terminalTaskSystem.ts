@@ -1,6 +1,6 @@
-// Порядок событий задачи — как у эталона: Start → Active → ProcessStarted → … →
-// ProcessEnded → Inactive → End (и Terminated, если терминал закрыли).
-// Problem matchers не исполняются (docs/TODO/Tasks.md).
+// Task event order matches upstream: Start → Active → ProcessStarted → … →
+// ProcessEnded → Inactive → End (plus Terminated if the terminal was closed).
+// Problem matchers are not run (docs/TODO/Tasks.md).
 
 import * as paths from "node:path";
 
@@ -36,7 +36,7 @@ export type ITaskEvent =
           readonly kind: "start";
           readonly task: ITask;
           readonly terminalId: number;
-          /** Определение с подставленными переменными — его получает `CustomExecution`. */
+          /** The definition with variables substituted; `CustomExecution` receives it. */
           readonly resolvedDefinition: Readonly<Record<string, unknown>>;
       }
     | { readonly kind: "processStarted"; readonly task: ITask; readonly terminalId: number; readonly processId: number }
@@ -54,7 +54,7 @@ export type ITaskEvent =
           readonly exitReason: TerminalExitReason;
       };
 
-/** `exitCode: undefined` — терминал закрыли. */
+/** `exitCode: undefined` means the terminal was closed. */
 export interface ITaskSummary {
     readonly exitCode: number | undefined;
 }
@@ -63,11 +63,11 @@ export type ITaskExecuteResult =
     | { readonly kind: "started"; readonly task: ITask; readonly promise: Promise<ITaskSummary> }
     | { readonly kind: "active"; readonly task: ITask; readonly promise: Promise<ITaskSummary> };
 
-/** Вид процесса терминала: переиспользуются терминалы только своего вида. */
+/** Terminal process kind: only terminals of the same kind are reused. */
 type TerminalKind = "process" | "custom";
 
 interface ITerminalData {
-    /** `getMapKey` последней задачи этого терминала. */
+    /** `getMapKey` of this terminal's last task. */
     lastTask: string;
     readonly group: string | undefined;
     readonly kind: TerminalKind;
@@ -103,7 +103,7 @@ export interface ITaskRunContext {
     readonly platform: TaskPlatform;
 }
 
-/** `_shellQuotes` эталона. */
+/** Upstream's `_shellQuotes`. */
 const POSIX_QUOTES: IShellQuotingOptions = {
     escape: { escapeChar: "\\", charsToEscape: " \"'" },
     strong: "'",
@@ -120,14 +120,14 @@ const SHELL_QUOTES: ReadonlyMap<string, IShellQuotingOptions> = new Map([
     ["bash", POSIX_QUOTES],
     ["zsh", POSIX_QUOTES],
 ]);
-/** `_osShellQuotes` эталона: шелл не из таблицы. */
+/** Upstream's `_osShellQuotes`: for a shell not in the table. */
 const OS_SHELL_QUOTES: Readonly<Record<TaskPlatform, IShellQuotingOptions>> = {
     linux: POSIX_QUOTES,
     osx: POSIX_QUOTES,
     windows: POWERSHELL_QUOTES,
 };
 
-/** `getWaitOnExitValue` эталона. */
+/** Upstream's `getWaitOnExitValue`. */
 export function waitOnExitOf(presentation: IPresentationOptions, isBackground: boolean): TerminalWaitOnExit {
     if (presentation.close !== true) {
         if (presentation.reveal !== "never" || !isBackground || presentation.close === false) {
@@ -141,12 +141,12 @@ export function waitOnExitOf(presentation: IPresentationOptions, isBackground: b
 }
 
 export class TerminalTaskSystem extends Disposable {
-    /** По `getMapKey`. */
+    /** Keyed by `getMapKey`. */
     private readonly active = new Map<string, IActiveTask>();
     private readonly terminals = new Map<number, ITerminalData>();
-    /** `dedicated` (`_sameTaskTerminals` эталона). */
+    /** `dedicated` (upstream's `_sameTaskTerminals`). */
     private readonly sameTaskTerminals = new Map<string, IIdleTerminal>();
-    /** `shared`: последним освободившийся — первым (`Touch.AsOld` эталона). */
+    /** `shared`: last released goes first (upstream's `Touch.AsOld`). */
     private idleTaskTerminals: IIdleTerminal[] = [];
     private lastTask: { readonly task: ITask; readonly launch: ILaunch } | undefined;
     private customTerminals: IExtensionPtyTerminals | undefined;
@@ -173,7 +173,7 @@ export class TerminalTaskSystem extends Disposable {
         );
     }
 
-    /** Без моста задачу с `CustomExecution` запустить нечем. */
+    /** Without the bridge there is nothing to run a `CustomExecution` task with. */
     public setCustomExecutionTerminals(terminals: IExtensionPtyTerminals | undefined): void {
         this.customTerminals = terminals;
     }
@@ -182,14 +182,17 @@ export class TerminalTaskSystem extends Disposable {
         return [...this.active.values()].map((a) => a.task);
     }
 
-    /** Такая же уже бежит — `active` с её обещанием, решает сервис (`instancePolicy`). Неподставимая переменная — отказ. */
+    /**
+     * If the same task is already running, returns `active` with its promise; the service decides (`instancePolicy`).
+     * A variable that cannot be resolved is a refusal.
+     */
     public run(task: ITask, context: ITaskRunContext): ITaskExecuteResult {
         const running = this.active.get(getMapKey(task));
         if (running !== undefined) return { kind: "active", task: running.task, promise: running.summary.promise };
         return this.execute(task, this.launchOf(task, context));
     }
 
-    /** С `reevaluateOnRerun` переменные считаются заново, без него — запуск тем же, что в прошлый раз. */
+    /** With `reevaluateOnRerun` variables are recomputed; without it, the run reuses the previous launch. */
     public rerun(context: ITaskRunContext): ITaskExecuteResult | undefined {
         if (this.lastTask === undefined) return undefined;
         const { task, launch } = this.lastTask;
@@ -199,7 +202,7 @@ export class TerminalTaskSystem extends Disposable {
         return this.execute(task, launch);
     }
 
-    /** Терминал закрывается, задача кончается событием Terminated. */
+    /** Closes the terminal; the task ends with a Terminated event. */
     public async terminate(task: ITask): Promise<boolean> {
         const running = this.active.get(getMapKey(task));
         if (running === undefined) return false;
@@ -212,7 +215,7 @@ export class TerminalTaskSystem extends Disposable {
         await Promise.all(this.getActiveTasks().map((task) => this.terminate(task)));
     }
 
-    /** Бегущей — её терминал, иначе тот, где она бежала последней. */
+    /** A running task's terminal, otherwise the one where it ran last. */
     public revealTask(task: ITask): boolean {
         const id = this.terminalOf(task);
         if (id === undefined) return false;
@@ -225,7 +228,7 @@ export class TerminalTaskSystem extends Disposable {
         return (
             id !== undefined &&
             this.views.isViewShown(TERMINAL_VIEW_ID) &&
-            // Stryker disable next-line OptionalChaining: эквивалентный — у задачи с терминалом активный инстанс есть всегда (снятые терминалы забываются)
+            // Stryker disable next-line OptionalChaining: equivalent: a task with a terminal always has an active instance (removed ones are forgotten)
             this.terminalService.getActiveInstance()?.id === id
         );
     }
@@ -251,24 +254,28 @@ export class TerminalTaskSystem extends Disposable {
         this.lastTask = { task, launch };
         this.fire({ kind: "start", task, terminalId: instance.id, resolvedDefinition: launch.resolvedDefinition });
         this.fire({ kind: "active", task, terminalId: instance.id });
-        // Процесс шелла у нас готов сразу (pid есть при создании); у pty
-        // расширения процесса нет — эталон отдаёт pid -1 (`ExtHostPseudoterminal`).
+        // Our shell process is ready immediately (pid is known at creation); an extension
+        // pty has no process, upstream reports pid -1 (`ExtHostPseudoterminal`).
         this.fire({ kind: "processStarted", task, terminalId: instance.id, processId: instance.processId ?? -1 });
         this.reveal(task, instance.id);
         this.fire({ kind: "changed" });
         return { kind: "started", task, promise: active.summary.promise };
     }
 
-    /** Переиспользовать ждущий (`dedicated` — свой, `shared` — свой или той же `presentation.group`) или завести новый. */
+    /**
+     * Reuses an idle terminal (`dedicated`: its own; `shared`: its own or one of the same `presentation.group`)
+     * or creates a new one.
+     */
     private acquireTerminal(task: ITask, launch: ILaunch): [ITerminalInstance, ITerminalData] {
         const key = getMapKey(task);
         const { panel, group, clear } = task.command.presentation;
         const reuse = this.takeTerminalToReuse(key, panel, group, launch.kind);
         if (reuse !== undefined) {
-            // Ждущий терминал перезапускается всегда: снятый уже забыт (`forgetTerminal`).
+            // An idle terminal is always relaunched: a removed one is already forgotten (`forgetTerminal`).
             const relaunched = this.terminalService.relaunchInstance(reuse.id, {
                 name: launch.name,
-                // Stryker disable ConditionalExpression: ключ со значением undefined TerminalService читает как отсутствующий — спреды только ради типов
+                // Stryker disable ConditionalExpression: TerminalService reads an undefined-valued key as absent;
+                // the spreads are for types only
                 ...(launch.shellPath !== undefined ? { shellPath: launch.shellPath } : {}),
                 ...(launch.shellArgs !== undefined ? { shellArgs: launch.shellArgs } : {}),
                 ...(launch.cwd !== undefined ? { cwd: launch.cwd } : {}),
@@ -297,12 +304,12 @@ export class TerminalTaskSystem extends Disposable {
     ): IIdleTerminal | undefined {
         if (panel === "dedicated") {
             const own = this.sameTaskTerminals.get(key);
-            // Stryker disable next-line CallExpression: эквивалентный — своя запись перезаписывается на выходе задачи, а снятый терминал её и так убирает
+            // Stryker disable next-line CallExpression: equivalent: the entry is overwritten on task exit, and a removed terminal clears it anyway
             this.sameTaskTerminals.delete(key);
             return own?.data.kind === kind ? own : undefined;
         }
         if (panel !== "shared") return undefined;
-        // Свой ждущий терминал — всегда; иначе первый ждущий той же группы.
+        // The task's own idle terminal first; otherwise the first idle one of the same group.
         const own = this.idleTaskTerminals.findIndex((idle) => idle.key === key && idle.data.kind === kind);
         const index =
             own !== -1
@@ -330,7 +337,8 @@ export class TerminalTaskSystem extends Disposable {
         }
         return this.terminalService.createInstance({
             name: launch.name,
-            // Stryker disable ConditionalExpression: ключ со значением undefined TerminalService читает как отсутствующий — спреды только ради типов
+            // Stryker disable ConditionalExpression: TerminalService reads an undefined-valued key as absent;
+            // the spreads are for types only
             ...(launch.shellPath !== undefined ? { shellPath: launch.shellPath } : {}),
             ...(launch.shellArgs !== undefined ? { shellArgs: launch.shellArgs } : {}),
             ...(launch.cwd !== undefined ? { cwd: launch.cwd } : {}),
@@ -341,7 +349,7 @@ export class TerminalTaskSystem extends Disposable {
         });
     }
 
-    /** `reason` нет — процесс вышел сам, есть — терминал закрыт. Задача кончается один раз. */
+    /** No `reason`: the process exited by itself; with one, the terminal was closed. The task ends once. */
     private handleExit(terminalId: number, exitCode: number | undefined, reason: TerminalExitReason | undefined): void {
         const entry = [...this.active].find(([, a]) => a.terminalId === terminalId);
         if (entry === undefined) return;
@@ -349,14 +357,14 @@ export class TerminalTaskSystem extends Disposable {
         const { task } = active;
         this.active.delete(key);
         this.fire({ kind: "changed" });
-        // Вышедший сам процесс оставляет терминал ждать — его можно переиспользовать.
+        // A process that exited by itself leaves the terminal idle so it can be reused.
         if (reason === undefined) {
             const idle: IIdleTerminal = { key, id: terminalId, data: active.terminal };
             if (task.command.presentation.panel === "dedicated") this.sameTaskTerminals.set(key, idle);
             if (task.command.presentation.panel === "shared") {
                 this.idleTaskTerminals = [idle, ...this.idleTaskTerminals.filter((other) => other.key !== key)];
             }
-            // `silent` показывает терминал, только если задача упала.
+            // `silent` reveals the terminal only if the task failed.
             if (task.command.presentation.reveal === "silent" && exitCode !== 0) this.show(terminalId, false);
         }
         this.fire({ kind: "processEnded", task, terminalId, exitCode });
@@ -370,7 +378,7 @@ export class TerminalTaskSystem extends Disposable {
         const data = this.terminals.get(id);
         if (data === undefined) return;
         this.terminals.delete(id);
-        // Stryker disable next-line ConditionalExpression,CallExpression: оставленная ссылка на снятый свой терминал ненаблюдаема — перезапуск снятого id даёт undefined и новый терминал
+        // Stryker disable next-line ConditionalExpression,CallExpression: a stale entry for a removed own terminal is unobservable: relaunching a removed id gives undefined and a new terminal
         if (this.sameTaskTerminals.get(data.lastTask)?.id === id) this.sameTaskTerminals.delete(data.lastTask);
         this.idleTaskTerminals = this.idleTaskTerminals.filter((idle) => idle.id !== id);
     }
@@ -416,7 +424,7 @@ export class TerminalTaskSystem extends Disposable {
             waitOnExit,
             resolvedDefinition,
             cwd,
-            // Stryker disable next-line ConditionalExpression: эквивалентный — env: undefined отсеивается при создании и перезапуске терминала
+            // Stryker disable next-line ConditionalExpression: equivalent: env: undefined is dropped on terminal create and relaunch
             ...(env !== undefined ? { env } : {}),
         };
         if (command.runtime === "process") {
@@ -437,7 +445,7 @@ export class TerminalTaskSystem extends Disposable {
             shell.executable,
             options.shell,
             commandName,
-            // Stryker disable next-line StringLiteral: эквивалентный — без команды подставленная строка пуста, и любой исходник с пробелами оставляет её как есть
+            // Stryker disable next-line StringLiteral: equivalent: without a command the resolved string is empty, and any source with spaces leaves it as is
             command.name ?? "",
             args,
         );
@@ -449,7 +457,7 @@ export class TerminalTaskSystem extends Disposable {
         };
     }
 
-    /** Относительный `cwd` — от папки задачи; без `cwd` — папка или каталог терминала. */
+    /** A relative `cwd` is resolved against the task folder; without `cwd`, the folder or the terminal's directory. */
     private cwdOf(task: ITask, cwd: string | undefined): string | undefined {
         const folder = getTaskFolder(task)?.uri.fsPath;
         if (cwd === undefined) return folder;
@@ -462,7 +470,7 @@ export class TerminalTaskSystem extends Disposable {
     ): { executable: string; args: string[]; specified: boolean } {
         const fallback = this.defaultShell();
         const executable = shell?.executable === undefined ? fallback : resolve(shell.executable);
-        // Свой шелл — без аргументов системного (у эталона — аргументы профиля).
+        // A custom shell gets none of the system shell's args (upstream uses the profile args).
         const args = shell?.args === undefined ? [] : shell.args.map(resolve);
         return { executable, args, specified: shell?.executable !== undefined };
     }
@@ -503,12 +511,12 @@ function resolveDeep(
     return walk(definition) as Record<string, unknown>;
 }
 
-/** По ОС шелла (у эталона — ОС процесса, это она и есть). */
+/** By the shell's OS (upstream uses the process OS, which is the same thing). */
 function pathsOf(platform: TaskPlatform): typeof paths.posix {
     return platform === "windows" ? paths.win32 : paths.posix;
 }
 
-/** `_createShellLaunchConfig` эталона; командная строка — последним аргументом. */
+/** Upstream's `_createShellLaunchConfig`; the command line goes last. */
 export function shellArgsOf(
     platform: TaskPlatform,
     shell: { readonly executable: string; readonly args: readonly string[]; readonly specified: boolean },
@@ -526,12 +534,12 @@ export function shellArgsOf(
     return [...addAllArguments(toAdd, shell.args), commandLine];
 }
 
-/** `_addAllArgument` эталона: не дублировать аргумент, уже стоящий с хвостом не-флагов. */
+/** Upstream's `_addAllArgument`: don't duplicate an argument already followed by a non-flag tail. */
 function addAllArguments(toAdd: readonly string[], configured: readonly string[]): string[] {
     const combined = [...configured];
     for (const element of toAdd) {
-        // У эталона ещё проверка «не последний»: у последнего хвост пуст, и ответ
-        // тот же (`false`) — она опущена.
+        // Upstream also checks "not last": the last one has an empty tail and the answer
+        // is the same (`false`), so the check is omitted.
         const shouldAdd = configured.every((arg, index) => {
             if (arg.toLowerCase() === element) {
                 return !configured.slice(index + 1).every((rest) => rest.startsWith("-"));
@@ -543,7 +551,7 @@ function addAllArguments(toAdd: readonly string[], configured: readonly string[]
     return combined;
 }
 
-/** `_buildShellCommandLine` эталона; строка без аргументов уходит как есть. */
+/** Upstream's `_buildShellCommandLine`; a command line without args goes as is. */
 export function buildShellCommandLine(
     platform: TaskPlatform,
     shellExecutable: string,
@@ -557,13 +565,13 @@ export function buildShellCommandLine(
         shellOptions?.quoting ?? SHELL_QUOTES.get(basename) ?? OS_SHELL_QUOTES[platform];
 
     const needsQuotes = (value: string): boolean => {
-        // Уже в кавычках целиком — оставить как есть. Проверка длины эталона
-        // (`>= 2`) опущена: одна кавычка и цикл ниже даёт `false`.
-        // Stryker disable next-line ConditionalExpression: `q !== undefined` → true эквивалентен — find вернёт тот же undefined
+        // Already fully quoted: leave as is. Upstream's length check (`>= 2`) is
+        // omitted: a single quote character makes the loop below return `false`.
+        // Stryker disable next-line ConditionalExpression: `q !== undefined` → true is equivalent: find returns the same undefined
         const first = [quotes.strong, quotes.weak].find((q) => q !== undefined && value.startsWith(q));
         if (first !== undefined && value.endsWith(first)) return false;
         let quote: string | undefined;
-        // Stryker disable next-line EqualityOperator: эквивалентный — лишний шаг за концом строки (символ undefined) ничего не меняет
+        // Stryker disable next-line EqualityOperator: equivalent: an extra step past the end (undefined char) changes nothing
         for (let i = 0; i < value.length; i++) {
             const ch = value[i];
             if (ch === quote) quote = undefined;
@@ -593,12 +601,12 @@ export function buildShellCommandLine(
         return needsQuotes(value) ? quote(value, "strong") : [value, false];
     };
 
-    // Строка без аргументов — старая модель «вся командная строка в command»:
-    // как есть, если подстановка её не изменила или исходник и так с пробелами.
+    // A command without args is the old "whole command line in command" model:
+    // keep it as is if substitution did not change it or the source already has spaces.
     if (
         args.length === 0 &&
         typeof command === "string" &&
-        // Stryker disable next-line ConditionalExpression: эквивалентные — та же строка без нужды в кавычках ниже тоже уходит как есть, а needsQuotes объекта — false
+        // Stryker disable next-line ConditionalExpression: equivalent: the same string not needing quotes also goes as is below, and needsQuotes of an object is false
         (command === originalCommand || (typeof originalCommand === "string" && needsQuotes(originalCommand)))
     ) {
         return command;

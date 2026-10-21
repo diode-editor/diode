@@ -4,17 +4,17 @@ import type { IGraphCommit } from "./commitGraph.ts";
 import { renderCommitGraph } from "./commitGraph.ts";
 
 /**
- * Кейсы `TestRenderCommitGraph` lazygit (`graph_test.go`) дословно — главный гейт укладки.
- * Сверка как в оригинале: `hash` + пробел + графика, без хвостовых пробелов.
+ * lazygit `TestRenderCommitGraph` cases (`graph_test.go`) verbatim — the main layout gate.
+ * Compared as in the original: `hash` + space + graph, no trailing spaces.
  */
 function render(commits: readonly IGraphCommit[]): string {
-    // Выделенного коммита нет: "blah" не совпадает ни с одним хешем — ровно как
-    // в lazygit, где подсветка в этих кейсах выключена.
+    // No selected commit: "blah" matches no hash — same as
+    // in lazygit, where highlighting is off in these cases.
     const lines = renderCommitGraph(commits, "blah", () => "graphStyle");
     return lines.map((line, index) => `${commits[index].sha} ${line.text}`.trimEnd()).join("\n");
 }
 
-/** `{Hash: "1", Parents: []string{"2"}}` → компактная запись `"1 2"`. */
+/** `{Hash: "1", Parents: []string{"2"}}` → compact form `"1 2"`. */
 function commits(...rows: readonly string[]): IGraphCommit[] {
     return rows.map((row) => {
         const [sha, ...parents] = row.split(" ");

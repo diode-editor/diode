@@ -7,7 +7,7 @@ import { GitStashMenu } from "./gitMenus.ts";
 import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 import { runGitQuery } from "./syncActions.ts";
 
-/** Пусто — расширение не активно или деградация. */
+/** Empty when the extension is inactive or degraded. */
 export async function queryStashes(accessor: ServiceAccessor): Promise<{ index: string; description: string }[]> {
     const raw = (await runGitQuery(accessor, "stashes")) as { stashes?: unknown } | null;
     if (raw === null || !Array.isArray(raw.stashes)) return [];
@@ -39,7 +39,7 @@ async function stashPush(
         title: "Stash",
         placeholder: "Stash message (optional)",
     });
-    if (message === undefined) return; // Escape — отмена
+    if (message === undefined) return; // Escape cancels
     await runGitOp(accessor, "stashPush", {
         message,
         includeUntracked: flags.includeUntracked === true,
@@ -47,7 +47,7 @@ async function stashPush(
     });
 }
 
-/** Git при конфликте pop стэш не удаляет. */
+/** Git does not drop the stash when pop conflicts. */
 async function stashRestore(accessor: ServiceAccessor, op: "stashPop" | "stashApply", index?: string): Promise<void> {
     const result = await runGitOp(accessor, op, index === undefined ? undefined : { index }, { silent: true });
     if (result === null || result.ok) return;
@@ -88,7 +88,7 @@ export const gitStashStagedAction: CommandAction = {
     when: "gitHasRepo",
     menus: [{ menuId: GitStashMenu, group: "1_push", order: 30, when: "gitHasRepo" }],
     run(accessor) {
-        // git < 2.35 не знает --staged — ошибка придёт понятным notice-ом.
+        // git < 2.35 lacks --staged — the error arrives as a readable notice.
         return stashPush(accessor, { staged: true });
     },
 };

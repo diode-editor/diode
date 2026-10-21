@@ -13,19 +13,19 @@ export const TERMINAL_MENU_RUN_GROUP = "3_run";
 export const TERMINAL_MENU_MANAGE_GROUP = "5_manage";
 export const TERMINAL_MENU_CONFIGURE_GROUP = "7_configure";
 
-/** Пункты «управления» гаснут, пока ничего не бежит. */
+/** "Management" items are disabled while nothing is running. */
 const TASK_RUNNING = "taskRunning";
 
-/** Сбой запуска уже показан человеку сервисом — обещание команды не отклоняется. */
-// Stryker disable next-line BlockStatement: эквивалентный — пустое тело тоже возвращает undefined
+/** The service already showed the run failure to the user; the command promise does not reject. */
+// Stryker disable next-line BlockStatement: equivalent: an empty body also returns undefined
 function ignore(): undefined {
     return undefined;
 }
 
-/** Не нашлась — пикер (с аргументом-определением — сразу на уровне его типа). */
+/** Not found: show the picker (with a definition argument, directly at its type's level). */
 export async function runTaskCommand(accessor: ServiceAccessor, arg?: unknown): Promise<void> {
     const service = accessor.get(TaskServiceDIToken);
-    // Команда кончается запуском, а не задачей (долгая задача держала бы промис команды).
+    // The command ends at launch, not with the task (a long task would hold the command promise).
     const runInBackground = (task: ITask): void => {
         void service.run(task).catch(ignore);
     };
@@ -36,7 +36,7 @@ export async function runTaskCommand(accessor: ServiceAccessor, arg?: unknown): 
             accessor.get(IConfigurationServiceDIToken),
             type,
         );
-        // `null` — «Configure a Task» пустого пикера.
+        // `null` is "Configure a Task" of the empty picker.
         if (task === null) await configureTaskCommand(accessor);
         else if (task !== undefined) runInBackground(task);
     };
@@ -45,7 +45,7 @@ export async function runTaskCommand(accessor: ServiceAccessor, arg?: unknown): 
         await pickAndRun();
         return;
     }
-    // Stryker disable next-line ConditionalExpression,StringLiteral: эквивалентный — у строки-подписи `.type` и так undefined; проверка — для типов
+    // Stryker disable next-line ConditionalExpression,StringLiteral: equivalent: a label string has no `.type`; check is for types
     const type = typeof identifier === "string" ? undefined : identifier.type;
     const task = service.findTask(await service.groupedTasks(type), identifier);
     if (task === undefined) {

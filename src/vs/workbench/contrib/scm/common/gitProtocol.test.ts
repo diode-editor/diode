@@ -18,7 +18,7 @@ describe("parseGitOpResult", () => {
         expect(parseGitOpResult("ok")).toBeNull();
         expect(parseGitOpResult({})).toBeNull();
         expect(parseGitOpResult({ ok: "true" })).toBeNull();
-        expect(parseGitOpResult({ ok: false })).toBeNull(); // без kind/message
+        expect(parseGitOpResult({ ok: false })).toBeNull(); // no kind/message
         expect(parseGitOpResult({ ok: false, kind: 1, message: "x" })).toBeNull();
         expect(parseGitOpResult({ ok: true, data: "not-an-object" })).toBeNull();
     });

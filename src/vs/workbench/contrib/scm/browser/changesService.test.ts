@@ -49,8 +49,8 @@ describe("ScmChangesService", () => {
             42,
             { uri: "" },
             { uri: "file:///x", status: 1 },
-            { uri: "file:///x", status: "M" }, // без группы
-            { uri: "file:///x", status: "M", group: "outer-space" }, // группа не из enum
+            { uri: "file:///x", status: "M" }, // no group
+            { uri: "file:///x", status: "M", group: "outer-space" }, // group not in the enum
         ]);
         expect(service.changes.map((c) => c.uri.toString())).toEqual(["file:///repo/a.ts"]);
 

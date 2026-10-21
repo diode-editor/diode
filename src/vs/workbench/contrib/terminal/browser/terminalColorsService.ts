@@ -1,6 +1,6 @@
-// Хост спрашивается не раньше фазы `restored`: к ней `app.run()` уже перевёл tty в
-// raw-режим. Запрос из конструктора уходил в cooked-режиме с ECHO — ответы
-// (`^[]10;rgb:…`) оставались мусором в шелле после выхода из alt-screen.
+// The host is queried no earlier than the `restored` phase: by then `app.run()` has put the tty in
+// raw mode. A query from the constructor went out in cooked mode with ECHO — the replies
+// (`^[]10;rgb:…`) were left as garbage in the shell after leaving the alt screen.
 
 import type { HostTerminalColors, ITerminalBackend } from "@tuidom/core/backend/iTerminalBackend";
 
@@ -23,14 +23,14 @@ export const TerminalColorsServiceDIToken = token<TerminalColorsService>("Termin
 const COLOR_SOURCE_SETTING = "terminal.integrated.colorSource";
 
 export interface ITerminalColors {
-    /** Всегда 16: palette-индексы 0..15. */
+    /** Always 16: palette indices 0..15. */
     readonly ansi: readonly number[];
-    /** Поверх токенов `terminal.background`/`terminal.foreground`; `undefined` — токен темы как есть. */
+    /** Overrides the `terminal.background`/`terminal.foreground` tokens; `undefined` — the theme token as is. */
     readonly background: number | undefined;
     readonly foreground: number | undefined;
 }
 
-/** Чего хост не сообщил — из темы поштучно; `host: undefined` — всё из темы. */
+/** Whatever the host didn't report comes from the theme, per color; `host: undefined` — all from the theme. */
 export function resolveTerminalColors(theme: WorkbenchTheme, host: HostTerminalColors | undefined): ITerminalColors {
     return {
         ansi: TERMINAL_ANSI_COLOR_KEYS.map((key, index) => host?.ansi[index] ?? theme.getRequiredColor(key)),
@@ -39,7 +39,7 @@ export function resolveTerminalColors(theme: WorkbenchTheme, host: HostTerminalC
     };
 }
 
-/** В режиме темы diode в терминал запросов не шлёт; хост спрашивается один раз. */
+/** In theme mode diode sends no queries to the terminal; the host is queried once. */
 export class TerminalColorsService extends Disposable {
     public static dependencies = [
         ThemeServiceDIToken,
@@ -53,7 +53,7 @@ export class TerminalColorsService extends Disposable {
 
     private hostColors: HostTerminalColors | undefined;
     private hostProbeStarted = false;
-    /** tty уже в raw-режиме (фаза `restored`) — ответы терминала не уйдут эхом на экран. */
+    /** The tty is already in raw mode (`restored` phase) — terminal replies won't echo to the screen. */
     private terminalReady = false;
     private current: ITerminalColors;
 

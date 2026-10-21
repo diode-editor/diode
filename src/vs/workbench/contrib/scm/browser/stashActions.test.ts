@@ -238,13 +238,13 @@ describe("хелперы и номенклатура", () => {
     it("добивка отмен: пикер отменён (pop/apply/drop), один стэш в dropAll, dropAll отклонён", async () => {
         const h = makeHarness();
         h.setStashes([{ index: "stash@{0}", description: "one" }]);
-        h.setPicks([undefined]); // Escape в пикере
+        h.setPicks([undefined]); // Escape in the picker
         await gitStashApplyAction.run(h.accessor);
         h.setPicks([undefined]);
         await gitStashDropAction.run(h.accessor);
         expect(h.ops).toEqual([]);
 
-        // Единственное число в тексте dropAll + отклонённый confirm.
+        // Singular in the dropAll text + declined confirm.
         h.confirmAnswer.value = false;
         await gitStashDropAllAction.run(h.accessor);
         expect(h.ops).toEqual([]);

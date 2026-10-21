@@ -1,5 +1,5 @@
-// Нативный `.node` нельзя вшить в JS-blob — `process.dlopen` требует файл на диске: упакованная
-// сборка распаковывает ассет `node-pty.bundle` в пользовательский кэш, dev — обычный require.
+// A native `.node` can't be embedded in the JS blob — `process.dlopen` needs a file on disk: the packaged
+// build extracts the `node-pty.bundle` asset into the user cache, dev uses a plain require.
 
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -24,12 +24,12 @@ const ASSET_NAME = "node-pty.bundle";
 let cached: NodePtyModule | null = null;
 
 export function loadNodePty(): NodePtyModule {
-    // Stryker disable next-line AssignmentOperator: без кэша модуль тот же (require кэширует его сам) — теряется только экономия
+    // Stryker disable next-line AssignmentOperator: require caches the module anyway — only the saving is lost
     cached ??= resolveNodePty();
     return cached;
 }
 
-/** Без кэша на процесс; `bundle` `null` — dev, обычный require. */
+/** Bypasses the per-process cache; a `null` `bundle` means dev, plain require. */
 export function resolveNodePty(
     bundle: Uint8Array | null = readPackagedAsset(ASSET_NAME),
     cacheRoot?: string,
@@ -39,7 +39,7 @@ export function resolveNodePty(
         return require("node-pty") as NodePtyModule;
     }
     const dir = packagedAssetCacheDir("node-pty", bundle, cacheRoot);
-    // Нативный аддон и spawn-helper (macOS) должны быть исполняемыми/загружаемыми.
+    // The native addon and spawn-helper (macOS) must be executable/loadable.
     extractBundleToCacheSync(bundle, dir, {
         executable: (virtualPath) => virtualPath.endsWith(".node") || virtualPath.endsWith("spawn-helper"),
     });

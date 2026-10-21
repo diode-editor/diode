@@ -30,19 +30,19 @@ type TerminalPlace =
     | { readonly kind: "split"; readonly parentId: number };
 
 /**
- * Жизнь ВСЕХ инстансов (и шеллов человека) уходит подписчику — так
- * `window.terminals` видит каждый терминал, как у эталона. Свой терминал
- * субпроцесс адресует `extHostId`, пока не узнал хостовый id из `opened`.
+ * The lifecycle of ALL instances (including the user's shells) goes to the subscriber, so
+ * `window.terminals` sees every terminal, as in upstream. The subprocess addresses its own
+ * terminal by `extHostId` until it learns the host id from `opened`.
  */
 export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtensionPtyTerminals {
-    /** Терминалов единицы — обратный поиск перебором. */
+    /** Only a handful of terminals — reverse lookup is a linear scan. */
     private readonly byExtHostId = new Map<number, number>();
-    /** `onDidCreateInstance` стреляет изнутри `createInstance`, раньше, чем тот вернёт инстанс. */
+    /** `onDidCreateInstance` fires inside `createInstance`, before it returns the instance. */
     private creating: number | undefined;
     private events: IExtensionTerminalEvents | null = null;
-    /** Ключ допускает `undefined` (неразрешённый адрес) — поиск по нему просто пуст. */
+    /** The key allows `undefined` (unresolved address) — a lookup by it is simply empty. */
     private readonly ptySessions = new Map<number | undefined, IExtensionPtySession>();
-    /** `exitStatus.code` у расширения — `undefined`, как у эталона. */
+    /** The extension sees `exitStatus.code` as `undefined`, as in upstream. */
     private readonly ptyExitedWithoutCode = new Set<number | undefined>();
 
     public constructor(
@@ -87,7 +87,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
                     ...(instance.exitCode !== undefined && !withoutCode ? { code: instance.exitCode } : {}),
                     reason: instance.exitReason,
                 });
-                // Метка закрытого больше ничего не адресует (у чужого её и нет).
+                // A closed terminal's label no longer addresses anything (a foreign one has none).
                 for (const [extHostId, id] of this.byExtHostId) {
                     if (id === instance.id) this.byExtHostId.delete(extHostId);
                 }
@@ -102,10 +102,10 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
     }
 
     public create(request: IWireTerminalCreate): void {
-        // Повтор метки — не наш случай (субпроцесс минтит их монотонно); второй
-        // инстанс под той же меткой сделал бы первый неадресуемым.
+        // A repeated label is not our case (the subprocess mints them monotonically); a second
+        // instance under the same label would make the first one unaddressable.
         if (this.byExtHostId.has(request.extHostId)) return;
-        // Родителя адресуем до заведения: метка нового ещё ничего не значит.
+        // Resolve the parent before creating: the new label means nothing yet.
         const place = this.resolvePlace(request.location);
         this.creating = request.extHostId;
         try {
@@ -113,7 +113,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
                 this.createPty(request.extHostId, request.name ?? "", place);
                 return;
             }
-            // Разбор провода уже отфильтровал поля; лишние метка и место сервису не мешают.
+            // Wire parsing already filtered the fields; the extra label and location don't bother the service.
             const instance = this.createIn(place, request);
             this.byExtHostId.set(request.extHostId, instance.id);
         } finally {
@@ -133,14 +133,14 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         if (!preserveFocus) this.terminals.focusActive();
     }
 
-    /** Прячет, только если показан именно этот терминал. */
+    /** Hides only if this terminal is the one shown. */
     public hide(terminal: IWireTerminalRef): void {
         const active = this.terminals.getActiveInstance();
         if (active === null || active.id !== this.resolve(terminal)) return;
         this.views.closeView(TERMINAL_VIEW_ID);
     }
 
-    /** Неразрешённый адрес сервис пропускает молча. */
+    /** The service silently skips an unresolved address. */
     public sendText(terminal: IWireTerminalRef, text: string, shouldExecute: boolean): void {
         this.terminals.sendText(this.resolve(terminal), text, shouldExecute);
     }
@@ -157,19 +157,22 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         const id = this.resolve(terminal);
         const session = this.ptySessions.get(id);
         if (session === undefined) return;
-        // Терминал задачи переживает выход pty и запускается заново — признак
-        // «без кода» относится к последнему выходу.
+        // A task terminal survives pty exit and restarts — the
+        // "no code" flag refers to the last exit.
         if (code === undefined) this.ptyExitedWithoutCode.add(id);
         else this.ptyExitedWithoutCode.delete(id);
         session.exit(code);
     }
 
-    /** Pty подключит субпроцесс по id инстанса, когда узнает о старте задачи; `ptyStart` уходит сразу — он его запомнит. */
+    /**
+     * The subprocess attaches the pty by instance id once it learns the task started;
+     * `ptyStart` is sent right away — the subprocess remembers it.
+     */
     public createPtyInstance(options: IExtensionPtyTerminalOptions): number {
         return this.createPtySessionInstance(options.name, options);
     }
 
-    /** Pty-терминалы закрываются — их процесс умер вместе с субпроцессом; шеллы живут. */
+    /** Pty terminals close — their process died with the subprocess; shells stay alive. */
     public reset(): void {
         this.byExtHostId.clear();
         for (const id of [...this.ptySessions.keys()]) this.terminals.closeInstance(id, "process");
@@ -180,7 +183,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         return undefined;
     }
 
-    /** `ptyStart` — сразу, как `$startExtensionTerminal` эталона; настоящий размер придёт `ptyResize`. */
+    /** `ptyStart` goes out at once, like upstream `$startExtensionTerminal`; the real size comes via `ptyResize`. */
     private createPty(extHostId: number, name: string, place: TerminalPlace): void {
         this.byExtHostId.set(extHostId, this.createPtySessionInstance(name, {}, place));
     }
@@ -190,8 +193,8 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         extra: Pick<ITerminalCreateOptions, "message" | "waitOnExit">,
         place: TerminalPlace = { kind: "panel" },
     ): number {
-        // Id инстанса узнаём после createInstance; ввод и ресайз виджета раньше не случаются.
-        // Stryker disable next-line UnaryOperator: плейсхолдер до createInstance — колбэки сессии его не видят
+        // The instance id is known only after createInstance; widget input and resize can't happen earlier.
+        // Stryker disable next-line UnaryOperator: placeholder until createInstance — session callbacks never see it
         let instanceId = -1;
         const session = this.createPtySession({
             cols: INITIAL_COLS,
@@ -204,7 +207,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
                 this.events?.ptyResize(instanceId, cols, rows);
             },
         });
-        // Пустое имя сервис и так считает «не задано».
+        // The service already treats an empty name as "not set".
         const instance = this.createIn(place, { ...extra, name, session });
         instanceId = instance.id;
         this.ptySessions.set(instance.id, session);
@@ -212,7 +215,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         return instance.id;
     }
 
-    /** Родитель, которого уже нет, — как отсутствие `location` (у эталона так же). */
+    /** A parent that no longer exists is treated as no `location` (same in upstream). */
     private resolvePlace(location: IWireTerminalLocation | undefined): TerminalPlace {
         if (location === 1) return { kind: "panel" };
         if (location === 2) return { kind: "editor", location: {} };

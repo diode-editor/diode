@@ -13,13 +13,13 @@ interface ICommitFlags {
     readonly all?: boolean;
     readonly noVerify?: boolean;
     readonly allowEmpty?: boolean;
-    /** Пустой индекс → предложение закоммитить всё. */
+    /** Empty index → offer to commit everything. */
     readonly smart?: boolean;
 }
 
 /**
- * Пустое сообщение допустимо только с amend (`--no-edit`). Smart — упрощение VS Code
- * `git.enableSmartCommit` без Always/Never. Refresh списка придёт от расширения сам.
+ * An empty message is allowed only with amend (`--no-edit`). Smart is a simplified VS Code
+ * `git.enableSmartCommit` without Always/Never. The list refresh comes from the extension on its own.
  */
 export async function commit(accessor: ServiceAccessor, flags: ICommitFlags): Promise<void> {
     const input = accessor.get(ScmInputComponentDIToken);
@@ -34,7 +34,7 @@ export async function commit(accessor: ServiceAccessor, flags: ICommitFlags): Pr
         const changes = accessor.get(ScmChangesServiceDIToken).changes;
         const hasStaged = changes.some((c) => c.group === "index");
         if (!hasStaged) {
-            // `--all` берёт только tracked-правки — untracked не в счёт.
+            // `--all` takes only tracked changes; untracked does not count.
             const hasTracked = changes.some((c) => c.group === "worktree" || c.group === "merge");
             if (!hasTracked) {
                 showGitNotice(accessor, "no changes to commit");
@@ -78,11 +78,11 @@ function commitAction(
     };
 }
 
-/** Ctrl+Enter (Cmd+Enter на маке с Cmd) — как `CtrlCmd+Enter` в эталоне. */
+/** Ctrl+Enter (Cmd+Enter on a Mac with Cmd), like `CtrlCmd+Enter` upstream. */
 export const gitCommitAction: CommandAction = {
     ...commitAction("git.commit", "Git: Commit", "Commit", { smart: true }, { group: "1_commit", order: 10 }),
-    // Ctrl+Enter в legacy-потоке — это сам Enter, то есть перевод строки в input
-    // box: канонический бинд под tier-гейтом, досягаемый путь — Alt+Enter.
+    // In the legacy stream Ctrl+Enter is plain Enter, i.e. a newline in the input
+    // box: the canonical binding sits behind the tier gate, the reachable path is Alt+Enter.
     keybinding: { keys: parseKeybinding("alt+enter"), when: "scmInputFocus" },
     keybindings: [{ keys: parseKeybinding("mod+enter"), when: "scmInputFocus && tier != 'legacy'" }],
 };

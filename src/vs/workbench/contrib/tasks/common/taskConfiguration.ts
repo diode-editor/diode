@@ -1,5 +1,5 @@
-// Подмножество схемы 2.0.0: неподдержанное не роняет задачу, а называется
-// предупреждением в лог `tasks`.
+// A subset of the 2.0.0 schema: unsupported parts don't drop the task but are reported
+// as a warning in the `tasks` log.
 
 import { parse, type ParseError, printParseErrorCode } from "jsonc-parser";
 
@@ -34,7 +34,7 @@ export function currentTaskPlatform(platform: NodeJS.Platform = process.platform
     return "linux";
 }
 
-/** `problems` — для лога `tasks`, тексты эталона, где он их даёт. */
+/** `problems` go to the `tasks` log, with upstream texts where upstream has them. */
 export interface ITaskConfigurationParseResult {
     readonly tasks: readonly ITask[];
     readonly configuring: readonly IConfiguringTask[];
@@ -43,7 +43,7 @@ export interface ITaskConfigurationParseResult {
 
 export type TaskDefinitionLookup = (type: string) => ITaskDefinitionSchema | undefined;
 
-/** `$core` — `extensionId` таких задач у эталона в DTO. */
+/** `$core` is the `extensionId` of such tasks in upstream's DTO. */
 export const WORKSPACE_TASK_ID_PREFIX = "$core.";
 
 type Json = Readonly<Record<string, unknown>>;
@@ -56,12 +56,12 @@ function isStringArray(value: unknown): value is readonly string[] {
     return Array.isArray(value) && value.every((v) => typeof v === "string");
 }
 
-/** `ShellQuoting.from` эталона: неизвестное — `strong`. */
+/** Upstream's `ShellQuoting.from`: unknown means `strong`. */
 function quotingFrom(value: unknown): ShellQuoting {
     return value === "escape" || value === "weak" ? value : "strong";
 }
 
-/** Массив строк склеивается через пробел. */
+/** A string array is joined with spaces. */
 function commandStringFrom(value: unknown): CommandString | undefined {
     if (typeof value === "string") return value;
     if (isStringArray(value)) return value.join(" ");
@@ -102,7 +102,7 @@ function envFrom(value: unknown): Record<string, string> | undefined {
     return env;
 }
 
-/** Нестроковый `cwd` — предупреждение эталона. */
+/** A non-string `cwd` is an upstream warning. */
 function optionsFrom(value: unknown, problems: string[]): ICommandOptions | undefined {
     if (!isObject(value)) return undefined;
     if (value.cwd !== undefined && typeof value.cwd !== "string") {
@@ -110,11 +110,11 @@ function optionsFrom(value: unknown, problems: string[]): ICommandOptions | unde
     }
     const env = envFrom(value.env);
     const shell = shellFrom(value.shell);
-    // Пустые env/shell отсеет слияние с опциями по умолчанию (`mergeOptions`).
+    // Empty env/shell are dropped by merging with the default options (`mergeOptions`).
     return { ...(typeof value.cwd === "string" ? { cwd: value.cwd } : {}), env, shell };
 }
 
-/** `cwd` и шелл источника перекрывают цель, окружения складываются (источник поверх). */
+/** The source's `cwd` and shell override the target; environments combine (source on top). */
 function mergeOptions(
     target: ICommandOptions | undefined,
     source: ICommandOptions | undefined,
@@ -124,26 +124,26 @@ function mergeOptions(
     const env = target.env === undefined ? source.env : { ...target.env, ...source.env };
     const shell = source.shell === undefined ? target.shell : { ...target.shell, ...source.shell };
     return {
-        // Stryker disable next-line ConditionalExpression: эквивалентный — итоговые опции сливаются с `cwd` по умолчанию, пустой ключ не доживает
+        // Stryker disable next-line ConditionalExpression: equivalent: the final options merge with the default `cwd`, so an empty key does not survive
         ...((source.cwd ?? target.cwd) !== undefined ? { cwd: source.cwd ?? target.cwd } : {}),
         ...(env !== undefined ? { env } : {}),
         ...(shell !== undefined ? { shell } : {}),
     };
 }
 
-/** Неизвестное — `always`. */
+/** Unknown means `always`. */
 function revealFrom(value: string): RevealKind {
     const lower = value.toLowerCase();
     return lower === "silent" || lower === "never" ? lower : "always";
 }
 
-/** Неизвестное — `shared`. */
+/** Unknown means `shared`. */
 function panelFrom(value: string): PanelKind {
     const lower = value.toLowerCase();
     return lower === "dedicated" || lower === "new" ? lower : "shared";
 }
 
-/** Пустое — `undefined`. */
+/** Empty means `undefined`. */
 function presentationFrom(value: unknown): Partial<IPresentationOptions> | undefined {
     if (!isObject(value)) return undefined;
     return {
@@ -166,7 +166,7 @@ const INSTANCE_POLICIES: ReadonlySet<string> = new Set<InstancePolicy>([
     "silent",
 ]);
 
-/** `runOn: folderOpen` и `instanceLimit` > 1 не поддержаны. */
+/** `runOn: folderOpen` and `instanceLimit` > 1 are not supported. */
 function runOptionsFrom(value: unknown, label: string, problems: string[]): IRunOptions {
     if (!isObject(value)) return DEFAULT_RUN_OPTIONS;
     if (value.runOn === "folderOpen") {
@@ -187,14 +187,14 @@ function runOptionsFrom(value: unknown, label: string, problems: string[]): IRun
                 : DEFAULT_RUN_OPTIONS.reevaluateOnRerun,
         instanceLimit: DEFAULT_RUN_OPTIONS.instanceLimit,
         instancePolicy:
-            // Stryker disable next-line ConditionalExpression: эквивалентный — нестроки в наборе политик и так нет; проверка — для типов
+            // Stryker disable next-line ConditionalExpression: equivalent: the policy set has no non-strings anyway; the check is for types
             typeof policy === "string" && INSTANCE_POLICIES.has(policy)
                 ? (policy as InstancePolicy)
                 : DEFAULT_RUN_OPTIONS.instancePolicy,
     };
 }
 
-/** Нестроковый элемент — ошибка эталона, элемент пропускается. */
+/** A non-string element is an upstream error; the element is skipped. */
 function argsFrom(value: unknown, problems: string[]): CommandString[] | undefined {
     if (!Array.isArray(value)) return undefined;
     const args: CommandString[] = [];
@@ -211,7 +211,7 @@ function argsFrom(value: unknown, problems: string[]): CommandString[] | undefin
     return args;
 }
 
-/** Секция платформы — поверх базы задачи. */
+/** The platform section overrides the task base. */
 interface ICommandParts {
     command?: CommandString;
     args?: CommandString[];
@@ -239,7 +239,7 @@ function withPlatform(base: ICommandParts, value: Json, platform: TaskPlatform, 
     };
 }
 
-/** Без типа — процесс (`$customized` эталона с рантаймом Process). */
+/** No type means process (upstream's `$customized` with the Process runtime). */
 function runtimeOf(type: unknown): RuntimeType | undefined {
     if (type === undefined || type === null || type === "process") return "process";
     if (type === "shell") return "shell";
@@ -251,7 +251,7 @@ interface IGlobals {
     readonly presentation?: Partial<IPresentationOptions>;
 }
 
-/** Битый JSON и версия не 2.0.0 (схемы 0.1.0 у нас нет) — пустой список и сообщение. */
+/** Broken JSON or a version other than 2.0.0 (we have no 0.1.0 schema) gives an empty list and a message. */
 export function parseTasksJson(
     text: string,
     folder: IWorkspaceFolder,
@@ -263,7 +263,7 @@ export function parseTasksJson(
     const root: unknown = parse(text, errors, { allowTrailingComma: true, disallowComments: false });
     if (errors.length > 0) {
         const first = errors[0];
-        // Текст эталона (`TaskSystem.invalidTaskJson`) и место первой ошибки.
+        // Upstream text (`TaskSystem.invalidTaskJson`) and the location of the first error.
         problems.push(
             "Error: The content of the tasks.json file has syntax errors. Please correct them before executing a task.",
             `${printParseErrorCode(first.error)} at offset ${String(first.offset)}.`,
@@ -282,7 +282,7 @@ export function parseTasksJson(
     const globals: IGlobals = { options: globalParts.options, presentation: globalParts.presentation };
     const tasks: ITask[] = [];
     const configuring: IConfiguringTask[] = [];
-    // Stryker disable next-line ArrayDeclaration: эквивалентный — не объекты в списке задач пропускаются молча
+    // Stryker disable next-line ArrayDeclaration: equivalent: non-objects in the task list are skipped silently
     const externals: readonly unknown[] = Array.isArray(root.tasks) ? (root.tasks as readonly unknown[]) : [];
     externals.forEach((external, index) => {
         if (!isObject(external)) return;
@@ -298,7 +298,7 @@ export function parseTasksJson(
     return { tasks, configuring, problems };
 }
 
-/** Тип без схемы — ошибка эталона. */
+/** A type without a schema is an upstream error. */
 function configuringTaskFrom(
     external: Json,
     folder: IWorkspaceFolder,
@@ -341,7 +341,7 @@ function configuringTaskFrom(
     };
 }
 
-/** Подпись записи без `label`, как у эталона. */
+/** Label of an entry without `label`, as upstream. */
 function fallbackLabel(configures: Json, schema: ITaskDefinitionSchema): string {
     const required = schema.required.map((name) => configures[name]).find((value) => Boolean(value));
     if (required === undefined) return schema.taskType;
@@ -356,7 +356,7 @@ function customizationFrom(
 ): ITaskCustomization {
     const section = external[platform];
     const os: Json = isObject(section) ? section : {};
-    // Слияние с пустыми опциями отсеивает незаданные env/shell (как у задачи — с опциями по умолчанию).
+    // Merging with empty options drops unset env/shell (as a task does with the default options).
     const options =
         mergeOptions(mergeOptions({}, optionsFrom(external.options, problems)), optionsFrom(os.options, problems)) ??
         {};
@@ -378,7 +378,7 @@ function customizationFrom(
     };
 }
 
-/** Id, определение и исполнение остаются от задачи провайдера. */
+/** Id, definition and execution stay from the provider's task. */
 export function createCustomizedTask(contributed: ITask, configuring: IConfiguringTask): ITask {
     const custom = configuring.customization;
     const options = mergeOptions(contributed.command.options, custom.options);
@@ -428,7 +428,7 @@ function taskFrom(
     if (external.dependsOn !== undefined) {
         problems.push(`Warning: task '${label}': dependsOn is not supported; the task runs without its dependencies.`);
     }
-    // Опции по умолчанию — `cwd: ${workspaceFolder}` (`CommandOptions.defaults`).
+    // Default options are `cwd: ${workspaceFolder}` (`CommandOptions.defaults`).
     const options = mergeOptions({ cwd: "${workspaceFolder}" }, mergeOptions(globals.options, parts.options));
     const presentation: IPresentationOptions = {
         ...DEFAULT_PRESENTATION,
@@ -443,13 +443,13 @@ function taskFrom(
         name: label,
         type: runtime,
         source: { kind: "workspace", label: "Workspace", folder },
-        // Определение задачи tasks.json (`CustomTask.getDefinition` эталона).
+        // The tasks.json task definition (upstream's `CustomTask.getDefinition`).
         definition: { type: runtime, _key: id, id },
         command: {
             runtime,
             name: parts.command,
             args: parts.args ?? [],
-            // Stryker disable next-line ConditionalExpression: эквивалентный — слияние с опциями по умолчанию не даёт undefined; проверка — для типов
+            // Stryker disable next-line ConditionalExpression: equivalent: merging with default options never gives undefined; the check is for types
             ...(options !== undefined ? { options } : {}),
             presentation,
         },

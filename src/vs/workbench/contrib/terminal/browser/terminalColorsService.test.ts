@@ -17,7 +17,7 @@ import { resolveTerminalColors, TerminalColorsService } from "./terminalColorsSe
 const DARK = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 const LIGHT = WorkbenchTheme.fromThemeFile(lightPlusTheme);
 
-/** `ansiColorMap` эталона, тёмная тема. */
+/** Upstream `ansiColorMap`, dark theme. */
 const VSCODE_DARK_ANSI = [
     "#000000",
     "#cd3131",
@@ -45,7 +45,7 @@ const PARTIAL_HOST = {
     ),
 };
 
-/** `restored` — tty уже в raw-режиме. */
+/** `restored` — the tty is already in raw mode. */
 function lifecycleAt(phase: LifecyclePhase): LifecycleService {
     const lifecycle = new LifecycleService(new DialogService());
     lifecycle.setPhase(phase);
