@@ -1,4 +1,4 @@
-/** Свой каталог вместо `.vscode`: Diode не читает и не перетирает файлы VS Code в том же проекте. */
+/** Our own directory instead of `.vscode`: Diode neither reads nor overwrites VS Code's files in the same project. */
 export const WORKSPACE_CONFIG_FOLDER_NAME = ".diode";
 
 export function workspaceConfigFilePath(name: string): string {

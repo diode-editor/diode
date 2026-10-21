@@ -19,7 +19,7 @@ interface IEntry {
 
 const ROOT = "/";
 
-/** Схема не учитывается. Время изменения — монотонный счётчик: etag меняется на каждой записи даже в пределах миллисекунды. */
+/** Ignores the scheme. Modification time is a monotonic counter: the etag changes on every write, even within a millisecond. */
 export class InMemoryFileSystemProvider implements IFileSystemProvider {
     public readonly capabilities = FileSystemProviderCapabilities.None;
     public readonly onDidChangeFile: Event<readonly Uri[]> = Event.None;
@@ -50,7 +50,7 @@ export class InMemoryFileSystemProvider implements IFileSystemProvider {
         return Promise.resolve(result);
     }
 
-    /** Атомарность в памяти бесплатна: запись и так не прерывается посередине. */
+    /** Atomicity is free in memory: a write can't be interrupted midway anyway. */
     public writeFile(resource: Uri, content: Uint8Array, options?: IProviderWriteOptions): Promise<void> {
         const path = resource.path;
         const parent = this.entries.get(parentOf(path));

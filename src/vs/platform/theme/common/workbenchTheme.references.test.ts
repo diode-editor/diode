@@ -5,7 +5,7 @@ import { darkPlusTheme } from "../../../workbench/services/themes/common/themes/
 
 import { WorkbenchTheme } from "./workbenchTheme.ts";
 
-/** Носитель — Catppuccin: `editorWidget.background` задан (#181825), `quickInput.background` нет. */
+/** Modeled on Catppuccin: `editorWidget.background` is set (#181825), `quickInput.background` isn't. */
 describe("WorkbenchTheme — производные дефолты по ссылке", () => {
     it("производный ключ следует за базовым из темы", () => {
         const theme = WorkbenchTheme.fromThemeFile({
@@ -39,7 +39,7 @@ describe("WorkbenchTheme — производные дефолты по ссыл
         });
 
         expect(theme.getRequiredColor("menu.selectionBackground")).toBe(packRgb(0xe8, 0xe8, 0xe8));
-        // editorWidget.foreground → foreground → тема; dropdown.foreground (light) → foreground.
+        // editorWidget.foreground → foreground → theme; dropdown.foreground (light) → foreground.
         expect(theme.getRequiredColor("editorWidget.foreground")).toBe(packRgb(0x10, 0x10, 0x10));
         expect(theme.getRequiredColor("menu.foreground")).toBe(packRgb(0x10, 0x10, 0x10));
     });
@@ -59,7 +59,7 @@ describe("WorkbenchTheme — производные дефолты по ссыл
         expect(() =>
             WorkbenchTheme.fromThemeFile({ name: "bad", type: "dark", colors: { "editor.background": "red" } }),
         ).toThrow('Color "editor.background" refers to unknown color "red"');
-        // По цепочке — виноват последний ссылающийся ключ, а не первый.
+        // Along a chain the last referring key is blamed, not the first.
         expect(() =>
             WorkbenchTheme.fromThemeFile({
                 name: "bad-chain",

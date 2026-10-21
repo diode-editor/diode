@@ -41,7 +41,7 @@ function writeFile(name: string, content = "secret"): string {
     return full;
 }
 
-// Бэкенд freedesktop поддерживается только на Linux.
+// The freedesktop backend is supported only on Linux.
 describe.skipIf(process.platform !== "linux")("TrashService (freedesktop)", () => {
     it("reports availability and creates the trash dirs", async () => {
         const trash = new TrashService();
@@ -91,7 +91,7 @@ describe.skipIf(process.platform !== "linux")("TrashService (freedesktop)", () =
         const trash = new TrashService();
         const src = writeFile("x.txt", "old");
         const entry = await trash.trash(src);
-        fs.writeFileSync(src, "new"); // что-то заняло путь
+        fs.writeFileSync(src, "new"); // something took the path
 
         const restored = await trash.restore(entry);
         expect(restored).not.toBe(src);
@@ -101,9 +101,9 @@ describe.skipIf(process.platform !== "linux")("TrashService (freedesktop)", () =
 
     it("falls back to ~/.local/share when XDG_DATA_HOME is not set", async () => {
         delete process.env.XDG_DATA_HOME;
-        // Домашний каталог подменяем у `os.homedir`, а не через `process.env.HOME`:
-        // в worker-потоке (пул `threads`, так гоняет Stryker) правка env до libuv
-        // не доходит, и тест смотрел бы в настоящий ~.
+        // Stub the home directory via `os.homedir`, not `process.env.HOME`:
+        // in a worker thread (the `threads` pool, which Stryker uses) env changes don't
+        // reach libuv, and the test would look at the real ~.
         const home = path.join(tmpDir, "home");
         fs.mkdirSync(home, { recursive: true });
         vi.mocked(os.homedir).mockReturnValueOnce(home);
@@ -115,7 +115,7 @@ describe.skipIf(process.platform !== "linux")("TrashService (freedesktop)", () =
 
     it("reports unavailable when the trash directories cannot be created", async () => {
         const blocker = path.join(tmpDir, "blocker");
-        fs.writeFileSync(blocker, ""); // файл на месте каталога → mkdir упадёт
+        fs.writeFileSync(blocker, ""); // a file where the directory should be → mkdir fails
         process.env.XDG_DATA_HOME = path.join(blocker, "data");
 
         expect(new TrashService().isAvailable()).toBe(false);
@@ -128,7 +128,7 @@ describe.skipIf(process.platform !== "linux")("TrashService (freedesktop)", () =
 
         const src = writeFile("doomed.txt");
         await expect(new TrashService().trash(src)).rejects.toThrow();
-        expect(fs.existsSync(src)).toBe(true); // файл не тронут
+        expect(fs.existsSync(src)).toBe(true); // file left untouched
     });
 });
 

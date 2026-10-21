@@ -13,14 +13,14 @@ import type { ITreeFileChange, ITreeFileWatcher, ITreeFileWatchOptions } from ".
 import { ChokidarTreeWatcher } from "./chokidarTreeWatcher.ts";
 import { SharedTreeWatcher } from "./sharedTreeWatcher.ts";
 
-/** Каждый `watchTree` делегата — полный обход и набор inotify-fd в проде: тесты считают именно их. */
+/** Each delegate `watchTree` is a full traversal and a set of inotify fds in production: tests count exactly these. */
 class FakeTreeWatcher implements ITreeFileWatcher {
     public readonly traversals: {
         readonly root: string;
         readonly options: ITreeFileWatchOptions;
-        /** Отдаёт пачку **тем же** массивом: по нему видно, копировал ли её слой. */
+        /** Emits the batch as the **same** array: shows whether the layer copied it. */
         readonly emit: (batch: readonly ITreeFileChange[]) => void;
-        /** Именно счётчик, а не флаг: лишний `close()` — это баг, и его должно быть видно. */
+        /** A counter, not a flag: an extra `close()` is a bug and must be visible. */
         disposeCount: number;
     }[] = [];
 
@@ -150,8 +150,8 @@ describe("SharedTreeWatcher — сколько обходов заводится
         const shared = new SharedTreeWatcher(delegate);
 
         shared.watchTree("/repo", { recursive: true, excludes: [] }, () => undefined);
-        // `..foo` начинается на `..`, но наверх не выходит — префикс считаем по
-        // границе сегмента, а не по первым двум символам.
+        // `..foo` starts with `..` but doesn't go up: the prefix is checked at a
+        // segment boundary, not by the first two characters.
         shared.watchTree("/repo/..foo", { recursive: true, excludes: [] }, () => undefined);
 
         expect(delegate.traversals).toHaveLength(1);
@@ -161,8 +161,8 @@ describe("SharedTreeWatcher — сколько обходов заводится
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
-        // Корень — единственный путь, который сам кончается разделителем
-        // (на Windows это `C:\`, случай куда более житейский).
+        // The root is the only path that itself ends with a separator
+        // (on Windows it's `C:\`, a far more common case).
         shared.watchTree(path.sep, { recursive: true, excludes: [] }, () => undefined);
         shared.watchTree(path.join(path.sep, "repo"), { recursive: true, excludes: [] }, () => undefined);
 
@@ -176,8 +176,8 @@ describe("SharedTreeWatcher — сколько обходов заводится
         shared.watchTree("/repo/src", { recursive: true, excludes: [] }, () => undefined);
         shared.watchTree("/repo", { recursive: true, excludes: [] }, () => undefined);
 
-        // Переезд подписки задним числом не делаем: обход-потомок уже живой и
-        // рвать его ради экономии — значит терять события в зазоре.
+        // No retroactive subscription moves: the descendant traversal is already live, and
+        // tearing it down to save resources would lose events in the gap.
         expect(delegate.traversals).toHaveLength(2);
     });
 });
@@ -189,8 +189,8 @@ describe("SharedTreeWatcher — excludes и переякоривание", () =>
         const excludes = ["**/.git/objects/**"];
 
         shared.watchTree("/repo", { recursive: true, excludes }, () => undefined);
-        // На корне шаблон исключает `/repo/.git/objects`, на самой `.git` — нет:
-        // подписать `.git` на обход корня значит молча съесть её события.
+        // At the root the pattern excludes `/repo/.git/objects`, at `.git` itself it doesn't:
+        // subscribing `.git` to the root traversal would silently swallow its events.
         shared.watchTree("/repo/.git", { recursive: true, excludes }, () => undefined);
 
         expect(delegate.traversals).toHaveLength(2);
@@ -224,7 +224,7 @@ describe("SharedTreeWatcher — excludes и переякоривание", () =>
         const excludes = ["**/.git"];
 
         shared.watchTree("/repo", { recursive: true, excludes }, () => undefined);
-        // Обход корня в `.git` не заходит вовсе — там событий просто нет.
+        // The root traversal never enters `.git`, so there are simply no events from there.
         shared.watchTree("/repo/.git", { recursive: false, excludes }, () => undefined);
 
         expect(delegate.traversals).toHaveLength(2);
@@ -241,7 +241,7 @@ describe("SharedTreeWatcher — excludes и переякоривание", () =>
         expect(delegate.traversals).toHaveLength(2);
     });
 
-    /** `<tmp>/repo` с каталогом `outside` рядом; `junction` — ссылка без прав админа на Windows. */
+    /** `<tmp>/repo` with an `outside` dir next to it; `junction` is a link that needs no admin rights on Windows. */
     function withRepo(run: (repo: string, outside: string) => void): void {
         const base = fs.mkdtempSync(path.join(os.tmpdir(), "diode-shared-link-"));
         const repo = path.join(base, "repo");
@@ -378,8 +378,8 @@ describe("SharedTreeWatcher — что доезжает подписчикам",
         const batch = created("/repo/a.ts");
         delegate.traversals[0].emit(batch);
 
-        // Тот же массив, а не равный ему: типовой случай (обход ровно под один
-        // запрос) не должен платить за фильтрацию.
+        // The same array, not an equal one: the typical case (a traversal for exactly one
+        // request) must not pay for filtering.
         expect(batches[0]).toBe(batch);
     });
 
@@ -490,8 +490,8 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
         const shared = new SharedTreeWatcher(delegate);
         const batches: ITreeFileChange[][] = [];
 
-        // Первый в очереди рассылки уносит второго — до второго пачка дойти не
-        // должна, хотя снимок списка подписчиков его ещё помнит.
+        // The first in the dispatch queue removes the second: the batch must not reach the
+        // second, even though the subscriber list snapshot still holds it.
         shared.watchTree("/repo", { recursive: true, excludes: [] }, () => {
             second.dispose();
         });
@@ -532,7 +532,7 @@ describe("SharedTreeWatcher — лог", () => {
 
         shared.watchTree("/repo/src", { recursive: true, excludes: [] }, () => undefined);
         expect(entries.at(-1)?.message).toContain("reusing");
-        // Без пары «чей обход» / «кого подписали» строка ничего не диагностирует.
+        // Without the "whose traversal" / "who was subscribed" pair the line diagnoses nothing.
         expect(entries.at(-1)?.args).toEqual([{ root: "/repo", base: "/repo/src" }]);
     });
 });
@@ -551,8 +551,8 @@ describe("SharedTreeWatcher — настоящий chokidar", () => {
             ),
         ];
         try {
-            // До `ready` chokidar считает найденное начальным состоянием и с
-            // `ignoreInitial` глотает — ждём.
+            // Before `ready` chokidar treats what it finds as initial state and, with
+            // `ignoreInitial`, swallows it, so wait.
             await new Promise((resolve) => setTimeout(resolve, 400));
 
             fs.writeFileSync(path.join(root, "top.ts"), "x");

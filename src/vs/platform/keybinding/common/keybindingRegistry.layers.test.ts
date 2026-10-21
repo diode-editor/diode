@@ -19,7 +19,7 @@ function commands(registry: KeybindingRegistry): string[] {
 describe("KeybindingRegistry — слои default / extension / user", () => {
     it("user сильнее extension, extension сильнее default — независимо от момента регистрации", () => {
         const registry = new KeybindingRegistry();
-        // Пользовательский слой пришёл раньше расширений (так стартует bootstrap).
+        // The user layer arrives before extensions (that's how bootstrap starts).
         registry.setUserKeybindings([{ command: "user.cmd", chord: parseChord("ctrl+i") }]);
         registry.setExtensionKeybindings([{ command: "ext.cmd", chord: parseChord("ctrl+i") }]);
         registry.register(parseKeybinding("ctrl+i"), "default.cmd", undefined, "default", undefined, { weight: 900 });
@@ -65,7 +65,7 @@ describe("KeybindingRegistry — слои default / extension / user", () => {
         registry.setUserKeybindings([{ command: "-cmd", when: "!editorReadonly && textInputFocus" }]);
 
         expect(registry.listBindings().map((entry) => entry.when)).toEqual(["listFocus"]);
-        // Битое when снятия сопоставляется строкой — и ничего не снимает.
+        // A broken removal when is matched as a string, and removes nothing.
         registry.setUserKeybindings([{ command: "-cmd", when: "listFocus &&" }]);
         expect(registry.listBindings()).toHaveLength(2);
         registry.setUserKeybindings([{ command: "-cmd", when: " listFocus " }]);
@@ -76,10 +76,10 @@ describe("KeybindingRegistry — слои default / extension / user", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+i"), "cmd", "a && b && c");
         registry.register(parseKeybinding("ctrl+alt+i"), "cmd", "a && b");
-        // `a && x`: условия x у записей нет — не снимается ни одна.
+        // `a && x`: no entry has condition x, so none is removed.
         registry.setUserKeybindings([{ command: "-cmd", when: "a && x" }]);
         expect(registry.listBindings()).toHaveLength(2);
-        // `c && a`: содержится только в первой (вложенная конъюнкция раскрыта).
+        // `c && a`: contained only in the first (the nested conjunction is flattened).
         registry.setUserKeybindings([{ command: "-cmd", when: "c && a" }]);
         expect(registry.listBindings().map((entry) => entry.when)).toEqual(["a && b"]);
     });

@@ -126,7 +126,7 @@ describe("scanExtensions — локализация манифеста", () => {
         expect(result[0].manifest.displayName).toBe("%displayName%");
     });
 
-    // Своего резолва у контрибьютора тем нет — проверяем связку со сканированием.
+    // The theme contributor has no resolving of its own, so test it wired to scanning.
     it("label темы доезжает до ThemeRegistry локализованным", async () => {
         const dirName = "redhat.java-1.0.0";
         await writeExtension(

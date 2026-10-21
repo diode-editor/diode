@@ -1,6 +1,6 @@
 import type { ColorContribution } from "../colorRegistry.ts";
 
-/** Дословно `ansiColorMap` эталона, без hc. Порядок ключей = индекс цвета в палитре терминала (0..15). */
+/** Upstream `ansiColorMap` verbatim, without hc. Key order = color index in the terminal palette (0..15). */
 export const terminalColors = {
     "terminal.ansiBlack": {
         defaults: { dark: "#000000", light: "#000000" },

@@ -3,12 +3,12 @@ import { deserializeWhen, serializeWhen } from "../../contextkey/common/contextK
 import type { IKeybindingEntrySnapshot } from "./keybindingRegistry.ts";
 import { serializeChord } from "./keybindingRegistry.ts";
 
-// Только подсветка: резолвер конфликтов не знает — побеждает последняя зарегистрированная.
+// Highlighting only: the resolver knows nothing of conflicts, the last registered entry wins.
 
 /**
- * Упрощение SAT: отсутствующий when пересекается с любым, прочие сравниваются канонической
- * записью разбора, неразобранные — строкой. Ложноотрицательные возможны (`tier == 'kitty'`
- * против `tier != 'legacy'`) — фильтр-помощник, не гарантия.
+ * A SAT simplification: a missing when overlaps with any, others compare by their canonical
+ * parsed form, unparsed ones as strings. False negatives are possible (`tier == 'kitty'`
+ * vs `tier != 'legacy'`): a helper filter, not a guarantee.
  */
 export function whenMayOverlap(a: string | undefined, b: string | undefined): boolean {
     if (a === undefined || b === undefined) return true;
@@ -20,7 +20,7 @@ function canonicalWhen(when: string): string {
     return expr === undefined ? when.trim() : serializeWhen(expr);
 }
 
-/** Chord-префиксы (`ctrl+k` против `ctrl+k ctrl+s`) конфликтом не считаются: их резолвер решает детерминированно. */
+/** Chord prefixes (`ctrl+k` vs `ctrl+k ctrl+s`) are not conflicts: the resolver settles them deterministically. */
 export function findConflictingBindings(entries: readonly IKeybindingEntrySnapshot[]): ReadonlySet<number> {
     const groups = new Map<string, number[]>();
     entries.forEach((entry, index) => {
@@ -32,7 +32,7 @@ export function findConflictingBindings(entries: readonly IKeybindingEntrySnapsh
 
     const conflicting = new Set<number>();
     for (const group of groups.values()) {
-        // Stryker disable next-line EqualityOperator: `<=` даёт лишнюю итерацию i=length, но её внутренний цикл (j=i+1>length) пуст — результат тот же.
+        // Stryker disable next-line EqualityOperator: `<=` adds an extra iteration i=length, but its inner loop (j=i+1>length) is empty, same result.
         for (let i = 0; i < group.length; i++) {
             for (let j = i + 1; j < group.length; j++) {
                 if (whenMayOverlap(entries[group[i]].when, entries[group[j]].when)) {

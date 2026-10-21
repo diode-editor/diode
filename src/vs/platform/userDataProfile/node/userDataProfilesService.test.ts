@@ -77,7 +77,7 @@ describe("UserDataProfilesService", () => {
             expect(work).toMatchObject({ id: "Work", name: "Work", isDefault: false });
             expect(work.location).toBe(path.join(profilesHome, "Work"));
             expect(fs.statSync(work.location).isDirectory()).toBe(true);
-            // Новый профиль — без расширений; пустой состав записан явно.
+            // A new profile has no extensions; the empty set is written explicitly.
             expect(work.extensionsResource).toBe(path.join(profilesHome, "Work", "extensions.json"));
             expect(fs.readFileSync(work.extensionsResource, "utf8")).toBe("[]");
             expect(state.get(USER_DATA_PROFILES_STATE)).toEqual([{ name: "Work", location: "Work" }]);
@@ -151,7 +151,7 @@ describe("UserDataProfilesService", () => {
             await expect(svc.updateProfile({ ...work, id: "ghost" }, { name: "x" })).rejects.toThrow(/does not exist/);
             await expect(svc.updateProfile(work, { name: "home" })).rejects.toThrow(/already exists/);
             await expect(svc.updateProfile(work, { name: " " })).rejects.toThrow(/mandatory/);
-            // Своё же имя — не коллизия.
+            // Its own name isn't a collision.
             expect((await svc.updateProfile(work, { name: "work" })).name).toBe("work");
         });
     });
@@ -325,8 +325,8 @@ describe("UserDataProfilesService", () => {
 
         it("каталог, чьё имя уже занято профилем с другим каталогом, получает отличимое имя", async () => {
             const svc = service();
-            // Профиль `work` переименован в `Work` и живёт в `work/`; каталог
-            // `Work/` появился руками — имена не должны совпасть.
+            // Profile `work` is renamed to `Work` and lives in `work/`; directory
+            // `Work/` was created by hand, and the names must not clash.
             const work = await svc.createNamedProfile("work");
             await svc.updateProfile(work, { name: "Work" });
             fs.mkdirSync(path.join(profilesHome, "Work"), { recursive: true });

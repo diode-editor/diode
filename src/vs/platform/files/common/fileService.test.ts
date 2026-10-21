@@ -162,7 +162,7 @@ describe("FileService — чтение", () => {
         expect(
             isFileOperationError(await rejection(files.readFile(uri, { limit: 2 })), FileOperationResult.TooLarge),
         ).toBe(true);
-        // stat у такого провайдера нет — exists отвечает «нет», а не бросает.
+        // Such a provider has no stat: exists answers "no" instead of throwing.
         expect(await files.exists(uri)).toBe(false);
         const statError = await rejection(files.stat(uri));
         expect(isFileOperationError(statError, FileOperationResult.Unavailable)).toBe(true);
@@ -265,7 +265,7 @@ describe("FileService — запись", () => {
         const current = await files.stat(mem("/a.txt"));
         await files.writeFile(mem("/a.txt"), bytes("mine"), { etag: current.etag });
         expect(text((await files.readFile(mem("/a.txt"))).value)).toBe("mine");
-        // Нового файла гард не касается: сравнивать не с чем.
+        // The guard doesn't apply to a new file: there's nothing to compare with.
         await files.writeFile(mem("/new.txt"), bytes("x"), { etag: "stale" });
     });
 

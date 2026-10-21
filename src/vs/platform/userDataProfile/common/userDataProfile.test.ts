@@ -159,7 +159,7 @@ describe("resolveActiveProfile", () => {
             updateProfile: vi.fn(),
             removeProfile: vi.fn(),
             setProfileForWorkspace: vi.fn(async () => undefined),
-            // Контракт: ключ — строка; пустое окно до реестра не доходит.
+            // Contract: the key is a string; an empty window never reaches the registry.
             getProfileForWorkspace: (key: unknown) => {
                 if (typeof key !== "string") throw new Error("ключ привязки — строка");
                 return associations[key];

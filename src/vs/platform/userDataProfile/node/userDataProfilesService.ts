@@ -24,9 +24,9 @@ import {
 } from "../common/userDataProfile.ts";
 
 /**
- * Каталог профиля сносится сразу при удалении, а не на следующем старте, как у эталона:
- * {@link migrateProfileDirectories} регистрирует каталоги без записи, и оставленный каталог
- * вернулся бы профилем.
+ * The profile directory is removed immediately on removal, not on the next start as upstream:
+ * {@link migrateProfileDirectories} registers directories without an entry, so a leftover directory
+ * would come back as a profile.
  */
 export class UserDataProfilesService extends Disposable implements IUserDataProfilesService {
     public readonly profilesHome: string;
@@ -41,7 +41,7 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
     public constructor(input: {
         readonly profilesHome: string;
         readonly defaultProfileHome: string;
-        /** Не задан — `User/extensions.json`. */
+        /** Defaults to `User/extensions.json`. */
         readonly defaultProfileExtensionsResource?: string;
         readonly state: IStateStore;
         readonly logger?: ILogger;
@@ -55,7 +55,7 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
     }
 
     public get defaultProfile(): IUserDataProfile {
-        // Stryker disable next-line OptionalChaining,ConditionalExpression: первый элемент — всегда Default (так собирает load), `?? ` — только для типа
+        // Stryker disable next-line OptionalChaining,ConditionalExpression: the first element is always Default (load builds it so), `?? ` is only for the type
         return this.profiles[0] ?? createDefaultProfile(this.defaultProfileHome, this.defaultProfileExtensionsResource);
     }
 
@@ -66,7 +66,7 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
 
     public getProfileForWorkspace(workspace: ProfileWorkspaceKey): IUserDataProfile | undefined {
         const id = this.state.get(PROFILE_ASSOCIATIONS_STATE).workspaces?.[workspace];
-        // Без записи — `undefined`; запись на удалённый профиль — как её отсутствие.
+        // No entry gives `undefined`; an entry for a removed profile counts as none.
         return this.profiles.find((p) => p.id === id);
     }
 
@@ -82,9 +82,9 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
         );
         const profile = toUserDataProfile(id, trimmed, path.join(this.profilesHome, id));
         await fs.promises.mkdir(profile.location, { recursive: true });
-        // Новый профиль — без расширений, как у эталона. Пустой состав пишется
-        // явно: профиль без `extensions.json` — профиль из прошлой версии, и
-        // миграция (`migrateProfileExtensions`) отдала бы ему все установленные.
+        // A new profile has no extensions, as upstream. The empty set is written
+        // explicitly: a profile without `extensions.json` is one from a previous version,
+        // and the migration (`migrateProfileExtensions`) would give it all installed ones.
         await fs.promises.writeFile(profile.extensionsResource, "[]");
         this.saveProfiles([...this.namedProfiles(), profile]);
         if (workspace !== undefined) this.saveAssociation(workspace, profile);
@@ -113,14 +113,14 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
         if (profile.isDefault) throw new Error("Cannot remove default profile");
         const existing = this.find(profile);
         this.saveProfiles(this.namedProfiles().filter((p) => p.id !== existing.id));
-        // Привязки на удалённый профиль снимаются вместе с ним.
+        // Associations with the removed profile go away with it.
         const associations = this.state.get(PROFILE_ASSOCIATIONS_STATE);
         const workspaces = Object.fromEntries(
             Object.entries(associations.workspaces ?? {}).filter(([, id]) => id !== existing.id),
         );
         this.saveAssociations({ ...associations, workspaces });
-        // Сносится только свой каталог — прямой потомок `profiles/`. Запись с
-        // чужим путём (абсолютным, из рук) снимается с реестра, а каталог остаётся.
+        // Only our own directory, a direct child of `profiles/`, is removed. An entry with
+        // a foreign path (absolute, hand-written) leaves the registry but the directory stays.
         if (path.dirname(existing.location) === this.profilesHome) {
             try {
                 await fs.promises.rm(existing.location, { recursive: true, force: true });
@@ -140,10 +140,10 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
     }
 
     /**
-     * Регистрирует каталоги `User/profiles/<name>/`, которых нет в реестре, как
-     * профили с именем каталога: так старые `--profile <name>` (до реестра)
-     * становятся видны в пикере. Идемпотентно — зовётся на каждом старте.
-     * Возвращает добавленные профили.
+     * Registers `User/profiles/<name>/` directories missing from the registry as
+     * profiles named after the directory, so old `--profile <name>` profiles (pre-registry)
+     * show up in the picker. Idempotent: called on every start.
+     * Returns the added profiles.
      */
     public migrateProfileDirectories(): readonly IUserDataProfile[] {
         let entries: fs.Dirent[];
@@ -157,9 +157,9 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
         const added: IUserDataProfile[] = [];
         for (const entry of entries) {
             if (!entry.isDirectory() || known.has(entry.name)) continue;
-            // Каталог с именем вне алфавита id — не профиль (его не создавал ни
-            // `--profile`, ни реестр); он остаётся на месте и в список не идёт.
-            // `default` — тоже: этим id пути называют Default-профиль.
+            // A directory whose name is outside the id alphabet isn't a profile (neither
+            // `--profile` nor the registry created it); it stays put and isn't listed.
+            // Same for `default`: user data paths use that id for the Default profile.
             if (!isValidProfileId(entry.name)) {
                 this.logger.warn(`Skipping profile folder with an invalid name: ${entry.name}`);
                 continue;
@@ -183,15 +183,15 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
         ];
         for (const stored of this.state.get(USER_DATA_PROFILES_STATE)) {
             if (!isValidStoredProfile(stored)) {
-                // Stryker disable next-line StringLiteral: текст лога
+                // Stryker disable next-line StringLiteral: log text
                 this.logger.warn("Skipping the invalid stored profile", stored);
                 continue;
             }
-            // `location` относительная (как пишем мы и эталон); абсолютная —
-            // от старых/чужих записей — берётся как есть. Относительная обязана
-            // быть id (каталогом прямо в `profiles/`): `..` из рук увёл бы профиль в `User/`.
+            // `location` is relative (as we and upstream write it); an absolute one,
+            // from old or foreign entries, is taken as is. A relative one must
+            // be an id (a directory right in `profiles/`): a hand-written `..` would move the profile into `User/`.
             if (!path.isAbsolute(stored.location) && !isValidProfileId(stored.location)) {
-                // Stryker disable next-line StringLiteral: текст лога
+                // Stryker disable next-line StringLiteral: log text
                 this.logger.warn("Skipping the stored profile with an invalid location", stored);
                 continue;
             }
@@ -229,8 +229,8 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
     private saveAssociation(workspace: ProfileWorkspaceKey, profile: IUserDataProfile): void {
         const associations = this.state.get(PROFILE_ASSOCIATIONS_STATE);
         const workspaces = { ...associations.workspaces };
-        // Привязка к Default — отсутствие записи (эталон пишет id Default'а;
-        // резолв одинаковый, файл короче — docs/arch/Configuration.md, отступления профилей).
+        // An association with Default is the absence of an entry (upstream writes Default's id;
+        // resolution is the same and the file is shorter, see docs/arch/Configuration.md, profile deviations).
         if (profile.isDefault) Reflect.deleteProperty(workspaces, workspace);
         else workspaces[workspace] = profile.id;
         this.saveAssociations({ ...associations, workspaces });
@@ -253,6 +253,6 @@ export class UserDataProfilesService extends Disposable implements IUserDataProf
 function isValidStoredProfile(stored: unknown): stored is StoredUserDataProfile {
     if (typeof stored !== "object" || stored === null) return false;
     const { name, location } = stored as Partial<StoredUserDataProfile>;
-    // Пустой `location` отсеивает `load`: он не абсолютный и не id.
+    // `load` filters out an empty `location`: it's neither absolute nor an id.
     return typeof name === "string" && name.length > 0 && typeof location === "string";
 }

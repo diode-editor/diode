@@ -18,7 +18,7 @@ export interface ILogSink {
 }
 
 export interface ILoggerOptions {
-    /** Подпись в селекторе Output; без неё канал виден под сырым id, когда в него впервые напишут. */
+    /** Label in the Output selector; without it the channel shows under its raw id once first written to. */
     readonly label?: string;
 }
 
@@ -27,11 +27,11 @@ export interface ILogChannelDescriptor {
     readonly label: string;
 }
 
-/** Уровень канала — каскадом по точкам: `a.b.c` → `a.b` → `a` → `*`. */
+/** A channel's level cascades by dots: `a.b.c` → `a.b` → `a` → `*`. */
 export interface ILogService {
-    /** Метку канала регистрирует первый вызов, который её передал. */
+    /** The channel label is registered by the first call that passes one. */
     createLogger(channel: string, options?: ILoggerOptions): ILogger;
-    /** В порядке регистрации. */
+    /** In registration order. */
     getRegisteredChannels(): readonly ILogChannelDescriptor[];
     onDidRegisterChannel(listener: (descriptor: ILogChannelDescriptor) => void): IDisposable;
     setLevel(channelOrWildcard: string, level: LogLevel): void;

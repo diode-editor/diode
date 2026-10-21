@@ -7,12 +7,12 @@ import type { ITrashEntry, ITrashService } from "../common/iTrashService.ts";
 import { moveToPath, resolveNonConflictingDest } from "./fileClipboardFs.ts";
 
 /**
- * freedesktop.org своими руками, без shell к `gio`: полный контроль над
- * восстановлением. Нет бэкенда — корзина недоступна, вызывающий удаляет безвозвратно.
+ * freedesktop.org implemented by hand, without shelling out to `gio`: full control over
+ * restore. No backend means no trash, and the caller deletes permanently.
  */
 export class TrashService implements ITrashService {
     private trashHome(): string {
-        // Пустой XDG_DATA_HOME по спеке трактуем как незаданный (отсюда явная проверка, а не `??`).
+        // Per the spec an empty XDG_DATA_HOME counts as unset (hence the explicit check, not `??`).
         let dataHome = process.env.XDG_DATA_HOME;
         if (dataHome === undefined || dataHome === "") {
             dataHome = path.join(os.homedir(), ".local", "share");
@@ -51,7 +51,7 @@ export class TrashService implements ITrashService {
         const trashedName = path.basename(trashedPath);
         const infoPath = path.join(home, "info", `${trashedName}.trashinfo`);
 
-        // Сначала .trashinfo (по спеке — атомарно «застолбить» имя), затем перенос файла.
+        // .trashinfo first (per the spec, to claim the name atomically), then move the file.
         fs.writeFileSync(infoPath, this.formatInfo(originalPath), { flag: "wx" });
         moveToPath(originalPath, trashedPath);
 
@@ -78,7 +78,7 @@ export class TrashService implements ITrashService {
     }
 }
 
-/** Локальное время в формате `YYYY-MM-DDThh:mm:ss` (freedesktop DeletionDate). */
+/** Local time as `YYYY-MM-DDThh:mm:ss` (freedesktop DeletionDate). */
 function formatDeletionDate(date: Date): string {
     const p = (n: number): string => String(n).padStart(2, "0");
     return (

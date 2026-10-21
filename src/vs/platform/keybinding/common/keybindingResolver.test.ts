@@ -48,7 +48,7 @@ describe("sortByPriority", () => {
         const a = { id: "a", layer: 0, weight: 0, seq: 1 };
         const b = { id: "b", layer: 0, weight: 100, seq: 0 };
         const c = { id: "c", layer: 0, weight: 0, seq: 2 };
-        const twin = { id: "twin", layer: 0, weight: 0, seq: 2 }; // вариант того же правила (mod → ctrl/cmd)
+        const twin = { id: "twin", layer: 0, weight: 0, seq: 2 }; // a variant of the same rule (mod → ctrl/cmd)
         const input = [b, c, twin, a];
 
         expect(sortByPriority(input).map((entry) => entry.id)).toEqual(["a", "c", "twin", "b"]);

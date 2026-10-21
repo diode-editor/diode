@@ -3,9 +3,8 @@ import type { ILanguageContribution } from "./iLanguageContribution.ts";
 import type { IThemeContribution } from "./iThemeContribution.ts";
 
 /**
- * Манифест расширения (`package.json`). Строки уже локализованы: ключи
- * `"%key%"` подменяет `extensionNls.ts` при `scanExtensions`, потребителю
- * резолвить не надо.
+ * Extension manifest (`package.json`). Strings are already localized: `extensionNls.ts` substitutes
+ * `"%key%"` keys during `scanExtensions`, so consumers don't resolve them.
  */
 export interface IExtensionManifest {
     readonly name: string;
@@ -18,25 +17,25 @@ export interface IExtensionManifest {
 
     readonly publisher: string;
 
-    /** Не валидируется. */
+    /** Not validated. */
     readonly engines: {
         readonly vscode: string;
         readonly node?: string;
-        /** Для нативных diode-расширений в реестре. */
+        /** For native diode extensions in the registry. */
         readonly diode?: string;
     };
 
     readonly main?: string;
 
-    /** Не исполняется. */
+    /** Not executed. */
     readonly browser?: string;
 
-    /** `"module"` (при `main` не `.cjs`) — ESM-loader, иначе `require`; правило — `isEsmEntry`. */
+    /** `"module"` (unless `main` is `.cjs`) means the ESM loader, otherwise `require`; the rule is `isEsmEntry`. */
     readonly type?: "module" | "commonjs";
 
     readonly activationEvents?: readonly string[];
 
-    /** Не используется. */
+    /** Unused. */
     readonly extensionKind?: readonly ("ui" | "workspace" | "web")[];
 
     readonly extensionDependencies?: readonly string[];
@@ -66,29 +65,29 @@ export interface IExtensionContributions {
 
     readonly configuration?: IConfigurationContribution | readonly IConfigurationContribution[];
 
-    /** Плоские ключи и секции языков (`"[makefile]": { "editor.insertSpaces": false }`). */
+    /** Flat keys and language sections (`"[makefile]": { "editor.insertSpaces": false }`). */
     readonly configurationDefaults?: Readonly<Record<string, unknown>>;
 
-    /** Из полей берутся `command`/`title`/`category`, прочие (`enablement`, …) игнорируются. */
+    /** Only `command`/`title`/`category` are read; other fields (`enablement`, …) are ignored. */
     readonly commands?: readonly ICommandContribution[];
 
-    /** Платформенные `mac`/`linux`/`win` и `args` пока не применяются. */
+    /** Platform-specific `mac`/`linux`/`win` and `args` are not applied yet. */
     readonly keybindings?: readonly IKeybindingContribution[];
 
-    /** Читаются на старте все, до первого кадра. */
+    /** All are read at startup, before the first frame. */
     readonly themes?: readonly IThemeContribution[];
 
-    /** Неизвестная точка меню — строка в лог, а не падение расширения. */
+    /** An unknown menu id is a log line, not an extension failure. */
     readonly menus?: Readonly<Record<string, readonly IExtensionMenuItemContribution[]>>;
 
     readonly submenus?: readonly IExtensionSubmenuContribution[];
 
     readonly taskDefinitions?: readonly ITaskDefinitionContribution[];
 
-    /** Виды пока не рисуются (docs/TODO/Extensions.md) — берётся только команда `<id>.focus`. */
+    /** Views are not rendered yet (docs/TODO/Extensions.md); only the `<id>.focus` command is taken. */
     readonly views?: Readonly<Record<string, readonly IViewContribution[]>>;
 
-    // ── TODO(extensions phase 2+): раскомментировать по мере реализации ──
+    // ── TODO(extensions phase 2+): uncomment as implemented ──
     //
     // readonly iconThemes?: readonly IIconThemeContribution[];
     // readonly productIconThemes?: readonly IProductIconThemeContribution[];
@@ -117,7 +116,7 @@ export interface IExtensionContributions {
     // readonly authentication?: readonly IAuthenticationContribution[];
     // readonly resourceLabelFormatters?: readonly IResourceLabelFormatterContribution[];
     //
-    /** Не типизированы строго: манифест — чужие данные, валидирует регистратор. */
+    /** Not strictly typed: the manifest is foreign data, the registrar validates it. */
     readonly semanticTokenTypes?: unknown;
     readonly semanticTokenModifiers?: unknown;
     readonly semanticTokenScopes?: unknown;
@@ -128,16 +127,16 @@ export interface IExtensionContributions {
     readonly [key: string]: unknown;
 }
 
-/** Либо `command`, либо `submenu`. */
+/** Either `command` or `submenu`. */
 export interface IExtensionMenuItemContribution {
     readonly command?: string;
-    /** Без него — титул команды из реестра. */
+    /** Defaults to the command title from the registry. */
     readonly title?: string;
     readonly submenu?: string;
     readonly when?: string;
-    /** Без `@` — порядок по месту в манифесте. */
+    /** Without `@`, the order follows the position in the manifest. */
     readonly group?: string;
-    /** Пока не рисуется. */
+    /** Not rendered yet. */
     readonly alt?: string;
     readonly [key: string]: unknown;
 }
@@ -152,14 +151,14 @@ export interface IExtensionSubmenuContribution {
 export interface ICommandContribution {
     readonly command: string;
     readonly title: string;
-    /** Префикс подписи в палитре, но не часть `title`. */
+    /** Label prefix in the command palette, not part of `title`. */
     readonly category?: string;
-    /** Рисуется только codicon `"$(имя)"`; с путём к SVG пункт остаётся подписью в «⋯». */
+    /** Only a `"$(name)"` codicon is rendered; with an SVG path the item stays a label in the "⋯" menu. */
     readonly icon?: unknown;
     readonly [key: string]: unknown;
 }
 
-/** Ведущий `-` в `command` (`"-cmd"`) снимает привязку, как в VS Code. */
+/** A leading `-` in `command` (`"-cmd"`) removes the binding, as in VS Code. */
 export interface IKeybindingContribution {
     readonly command: string;
     readonly key: string;
@@ -185,7 +184,7 @@ export interface IConfigurationPropertySchema {
     readonly [key: string]: unknown;
 }
 
-/** `type` — `"tree"` (по умолчанию) или `"webview"`. */
+/** `type` is `"tree"` (default) or `"webview"`. */
 export interface IViewContribution {
     readonly id: string;
     readonly name?: string;

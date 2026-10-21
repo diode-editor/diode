@@ -1,6 +1,6 @@
 import type { ColorContribution } from "../colorRegistry.ts";
 
-/** Из vscode (`scmHistory.ts`): пять цветов линий — colorblind-safe палитра IBM, одинаковая на dark и light. */
+/** From vscode (`scmHistory.ts`): five line colors, the IBM colorblind-safe palette, same on dark and light. */
 export const scmGraphColors = {
     "scmGraph.foreground1": {
         defaults: { dark: "#FFB000", light: "#FFB000" },

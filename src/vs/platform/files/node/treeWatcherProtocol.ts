@@ -1,19 +1,19 @@
 import type { ITreeFileChange, ITreeFileWatchOptions } from "../common/iTreeFileWatcher.ts";
 
-// Транспорт — node IPC, то есть JSON. Только уведомления, без request/response:
-// round-trip на старте — та задержка главного цикла, от которой обход и уехал
-// в свой процесс.
+// The transport is node IPC, i.e. JSON. Notifications only, no request/response:
+// a round-trip at startup is exactly the main-loop delay the walk moved to its own
+// process to avoid.
 //
-// Проверяются дискриминант и поля маршрутизации, пачка событий — как есть: на
-// том конце наш `ChokidarTreeWatcher`, а поэлементная проверка тысяч путей
-// вернула бы работу на главный цикл.
+// The discriminant and routing fields are validated, the event batch is taken as is:
+// the other end is our `ChokidarTreeWatcher`, and validating thousands of paths one by
+// one would put the work back on the main loop.
 
 export type TreeWatcherLogLevel = "trace" | "debug" | "info" | "warn" | "error";
 
 export type ITreeWatcherRequest =
     | {
           readonly t: "watch";
-          /** Не переиспользуется. */
+          /** Never reused. */
           readonly id: number;
           readonly rootPath: string;
           readonly options: ITreeFileWatchOptions;
@@ -26,14 +26,14 @@ export type ITreeWatcherResponse =
           readonly t: "log";
           readonly level: TreeWatcherLogLevel;
           readonly message: string;
-          /** Уже проведённый через JSON. */
+          /** Already passed through JSON. */
           readonly args: readonly unknown[];
       };
 
-// `Set<unknown>`: не-строку отсеивает сам `has`.
+// `Set<unknown>`: `has` itself rejects non-strings.
 const LOG_LEVELS = new Set<unknown>(["trace", "debug", "info", "warn", "error"]);
 
-/** `null` — не наше сообщение. */
+/** `null` means not our message. */
 export function parseTreeWatcherRequest(raw: unknown): ITreeWatcherRequest | null {
     const message = asRecord(raw);
     if (message === null || typeof message.id !== "number") return null;
@@ -49,7 +49,7 @@ export function parseTreeWatcherRequest(raw: unknown): ITreeWatcherRequest | nul
     };
 }
 
-/** `null` — не наше сообщение. */
+/** `null` means not our message. */
 export function parseTreeWatcherResponse(raw: unknown): ITreeWatcherResponse | null {
     const message = asRecord(raw);
     if (message === null) return null;
@@ -68,7 +68,7 @@ export function parseTreeWatcherResponse(raw: unknown): ITreeWatcherResponse | n
     };
 }
 
-// Проверки на `null` нет намеренно: `typeof null === "object"`, и вернётся тот же `null`.
+// No `null` check on purpose: `typeof null === "object"`, and the same `null` is returned.
 function asRecord(raw: unknown): Record<string, unknown> | null {
     return typeof raw === "object" ? (raw as Record<string, unknown> | null) : null;
 }

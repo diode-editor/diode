@@ -1,6 +1,6 @@
 import { Emitter } from "../../../base/common/event.ts";
 
-// Перенос tokenClassificationRegistry.ts эталона без JSON-схемы.
+// Port of upstream tokenClassificationRegistry.ts without the JSON schema.
 
 const TOKEN_TYPE_WILDCARD = "*";
 const CHAR_LANGUAGE = ":".charCodeAt(0);
@@ -9,7 +9,7 @@ const CHAR_MODIFIER = ".".charCodeAt(0);
 const ID_PATTERN = "\\w+[-_\\w+]*";
 export const TYPE_AND_MODIFIER_ID_PATTERN = new RegExp(`^${ID_PATTERN}$`);
 
-/** Селектор правила: `match` — вес совпадения или `-1`. */
+/** Rule selector: `match` returns the match weight or `-1`. */
 export interface ITokenSelector {
     match(type: string, modifiers: readonly string[], language: string): number;
     readonly id: string;
@@ -22,13 +22,12 @@ export interface ITokenTypeOrModifierContribution {
     readonly deprecationMessage?: string;
 }
 
-/** Путь TextMate-скоупов для пробы темы (`ProbeScope` эталона). */
+/** TextMate scope path to probe the theme with (upstream `ProbeScope`). */
 export type ProbeScope = readonly string[];
 
 /**
- * Дефолт правила. Из `TokenStyleDefaults` эталона перенесён только
- * `scopesToProbe`: литеральные дефолты по типу темы ни встроенные правила, ни
- * точка расширения не задают.
+ * Rule default. Only `scopesToProbe` is ported from upstream `TokenStyleDefaults`: neither the
+ * built-in rules nor the extension point set literal per-theme-type defaults.
  */
 export interface ITokenStyleDefaults {
     readonly scopesToProbe: readonly ProbeScope[];
@@ -40,8 +39,8 @@ export interface ISemanticTokenDefaultRule {
 }
 
 /**
- * Разбор классификатора справа налево: после `:` — язык, после `.` —
- * модификатор, остаток — тип (`parseClassifierString` эталона).
+ * Parses a classifier right to left: after `:` is the language, after `.` a modifier, the rest is
+ * the type (upstream `parseClassifierString`).
  */
 export function parseClassifierString(
     s: string,
@@ -50,7 +49,7 @@ export function parseClassifierString(
     let k = s.length;
     let language = defaultLanguage;
     const modifiers: string[] = [];
-    // Stryker disable next-line ArithmeticOperator: старт за концом строки даёт NaN-символы — ни ":", ни "."
+    // Stryker disable next-line ArithmeticOperator: starting past the end yields NaN chars, neither ":" nor "."
     for (let i = k - 1; i >= 0; i--) {
         const ch = s.charCodeAt(i);
         if (ch === CHAR_LANGUAGE || ch === CHAR_MODIFIER) {
@@ -73,14 +72,14 @@ export class TokenClassificationRegistry {
     private typeHierarchy = new Map<string, string[]>();
 
     private readonly onDidChangeEmitter = new Emitter<void>();
-    /** Любая регистрация или снятие: кэши стилей поверх реестра устарели. */
+    /** Any registration or removal: style caches built on the registry are stale. */
     public readonly onDidChange = this.onDidChangeEmitter.event;
 
     public registerTokenType(id: string, description: string, superType?: string, deprecationMessage?: string): void {
         if (!TYPE_AND_MODIFIER_ID_PATTERN.test(id)) {
             throw new Error("Invalid token type id.");
         }
-        // Stryker disable next-line ConditionalExpression: undefined шаблон и так пропускает (строка "undefined")
+        // Stryker disable next-line ConditionalExpression: the pattern accepts undefined anyway (as the string "undefined")
         if (superType !== undefined && superType !== "" && !TYPE_AND_MODIFIER_ID_PATTERN.test(superType)) {
             throw new Error("Invalid token super type id.");
         }
@@ -98,11 +97,11 @@ export class TokenClassificationRegistry {
     }
 
     /**
-     * Селектор из строки `(*|type)(.modifier)*(:language)?`. Вес: язык
-     * совпал — `+10` (не совпал — `-1`); тип не `*` — `100 - level`, где
-     * `level` — место типа селектора в иерархии `superType` токена (нет в ней —
-     * `-1`); каждый модификатор селектора обязан быть у токена, и каждый даёт
-     * `+100`. Пустой тип — селектор `$invalid`, не совпадающий ни с чем.
+     * Selector from a `(*|type)(.modifier)*(:language)?` string. Weight: a matching language gives
+     * `+10` (a mismatch gives `-1`); a non-`*` type gives `100 - level`, where `level` is the position
+     * of the selector type in the token's `superType` hierarchy (`-1` if absent); every selector
+     * modifier must be on the token, and each gives `+100`. An empty type is the `$invalid`
+     * selector, which matches nothing.
      */
     public parseTokenSelector(selectorString: string, language?: string): ITokenSelector {
         const selector = parseClassifierString(selectorString, language);
@@ -159,22 +158,22 @@ export class TokenClassificationRegistry {
         return [...this.tokenModifierById.values()];
     }
 
-    /** Встроенные, затем расширений. */
+    /** Built-in rules first, then extension ones. */
     public getTokenStylingDefaultRules(): readonly ISemanticTokenDefaultRule[] {
         return this.tokenStylingDefaultRules;
     }
 
     private getTypeHierarchy(typeId: string): string[] {
         let hierarchy = this.typeHierarchy.get(typeId);
-        // Stryker disable next-line ConditionalExpression: кэш — пересчёт даёт ту же иерархию
+        // Stryker disable next-line ConditionalExpression: cache; recomputing yields the same hierarchy
         if (hierarchy === undefined) {
             hierarchy = [typeId];
-            // Stryker disable next-line CallExpression: кэш — без записи иерархия считается заново
+            // Stryker disable next-line CallExpression: cache; without the write the hierarchy is recomputed
             this.typeHierarchy.set(typeId, hierarchy);
             let type = this.tokenTypeById.get(typeId);
-            // Цикл в superType (расширение объявило a→b, b→a) эталон не ловит и
-            // виснет; здесь иерархия обрывается на первом повторе. Пустой
-            // superType попадает в иерархию безвредно: селектора с пустым типом нет.
+            // Upstream doesn't catch a superType cycle (an extension declared a→b, b→a) and hangs;
+            // here the hierarchy stops at the first repeat. An empty superType in the hierarchy is
+            // harmless: no selector has an empty type.
             while (type?.superType !== undefined && !hierarchy.includes(type.superType)) {
                 hierarchy.push(type.superType);
                 type = this.tokenTypeById.get(type.superType);
@@ -184,7 +183,7 @@ export class TokenClassificationRegistry {
     }
 }
 
-/** Типы, модификаторы и фоллбэки — дословно из эталона. */
+/** Types, modifiers and fallbacks are verbatim from upstream. */
 export function createDefaultTokenClassificationRegistry(): TokenClassificationRegistry {
     const registry = new TokenClassificationRegistry();
 

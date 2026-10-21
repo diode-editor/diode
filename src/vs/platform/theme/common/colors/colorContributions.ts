@@ -11,9 +11,9 @@ import { terminalColors } from "./terminalColors.ts";
 import { workbenchColors } from "./workbenchColors.ts";
 
 /**
- * Уникальность ключей между группами сторожит тест. Дефолты dark+light обязательны для всего,
- * что читается через `getRequiredColor`: темы VS Code разрежены, остальное эталон берёт из
- * TS-реестра, а не из JSON, — у дословно импортированных тем этих цветов нет.
+ * A test guards key uniqueness across groups. Dark+light defaults are required for everything read
+ * via `getRequiredColor`: VS Code themes are sparse, and upstream takes the rest from the TS
+ * registry, not from JSON, so themes imported verbatim lack these colors.
  */
 export const COLOR_CONTRIBUTIONS = {
     ...baseColors,
@@ -28,7 +28,7 @@ export const COLOR_CONTRIBUTIONS = {
 
 export type WorkbenchColorKey = keyof typeof COLOR_CONTRIBUTIONS;
 
-/** `undefined` — только у ключей с `defaults: null`, не заданных темой. */
+/** `undefined` only for keys with `defaults: null` that the theme doesn't set. */
 export type IWorkbenchColors = Partial<Record<WorkbenchColorKey, number>>;
 
 const defaultsCache = new Map<ThemeKind, Record<string, string>>();

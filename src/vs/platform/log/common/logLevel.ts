@@ -1,4 +1,4 @@
-/** Пишется запись с `lvl >= configured`. */
+/** An entry is written when `lvl >= configured`. */
 export const LogLevel = {
     Off: 0,
     Trace: 10,

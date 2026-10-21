@@ -4,11 +4,11 @@ import type { ILogSink, LogEntry } from "../common/iLogService.ts";
 import { logLevelName } from "../common/logLevel.ts";
 
 export interface FileSinkOptions {
-    /** `"w"` — каждый запуск перезаписывает файл, `"a"` — копит историю. */
+    /** `"w"`: each run overwrites the file, `"a"`: history accumulates. */
     readonly flags?: "w" | "a";
 }
 
-/** Ошибки записи поглощаются: sink не валит процесс. */
+/** Write errors are swallowed: the sink doesn't crash the process. */
 export class FileSink implements ILogSink {
     private stream: fs.WriteStream | null;
     private disposed = false;
@@ -17,7 +17,7 @@ export class FileSink implements ILogSink {
         try {
             this.stream = fs.createWriteStream(filePath, { flags: options.flags ?? "w" });
             this.stream.on("error", () => {
-                // молча — sink не должен крашить процесс
+                // silently: the sink must not crash the process
             });
         } catch {
             this.stream = null;

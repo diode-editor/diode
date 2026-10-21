@@ -1,9 +1,9 @@
 import type { IThemeFile } from "./iThemeFile.ts";
 
 /**
- * Повторяет `scripts/import-vscode-themes.mjs` (скрипт сборки импортировать её не может; тест
- * держит их в согласии). `colors` — merge, `tokenColors` и `semanticTokenRules` — конкатенация
- * base-first (поздний побеждает при равной специфичности), `semanticHighlighting` — OR.
+ * Mirrors `scripts/import-vscode-themes.mjs` (the build script can't import this; a test keeps them
+ * in sync). `colors` merge, `tokenColors` and `semanticTokenRules` concatenate base-first (the later
+ * one wins at equal specificity), `semanticHighlighting` is OR'ed.
  */
 export function mergeThemeFiles(base: IThemeFile, child: IThemeFile): IThemeFile {
     const merged: IThemeFile = {

@@ -15,7 +15,7 @@ export const baseColors = {
         defaults: { dark: "#ABABAB", light: "#717171" },
         description: "Foreground color for description text providing additional information, for example for a label.",
     },
-    // Непрозрачные аппроксимации #CCCCCC80 / #61616180 из VS Code.
+    // Opaque approximations of VS Code's #CCCCCC80 / #61616180.
     disabledForeground: {
         defaults: { dark: "#767676", light: "#ACACAC" },
         description: "Overall foreground for disabled elements. This color is only used if not overridden.",

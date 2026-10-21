@@ -10,19 +10,19 @@ import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextServic
 import { EMPTY_WINDOW_WORKSPACE_ID } from "../../workspace/common/workspaceId.ts";
 import type { IStateDescriptor, IStateService, IStateStore, StateScope } from "../common/iStateService.ts";
 
-// Объект файла хранится и пишется целиком: unknown-ключи других версий не затираются.
-// Битый файл — пустой стор и лог, bootstrap не падает.
+// The file object is kept and written whole, so unknown keys from other versions aren't lost.
+// A corrupt file yields an empty store and a log entry; bootstrap doesn't fail.
 
 const VERSIONS_KEY = "$versions";
 export const WRITE_DEBOUNCE_MS = 500;
 
 /**
- * Отдельный стор — для application-области: реестр профилей читается до того, как известен
- * каталог профиля, и потом `StateService` усыновляет тот же экземпляр ({@link loadState}) —
- * писатель у файла один. Без `filePath` живёт только в памяти.
+ * A standalone store, for the application scope: the profile registry is read before the profile
+ * directory is known, and `StateService` then adopts the same instance ({@link loadState}), so the
+ * file has a single writer. Without `filePath` it lives in memory only.
  */
 export class StateFileStore implements IStateStore {
-    /** Полное дерево из файла: известные ключи + `$versions` + unknown-ключи. */
+    /** Full tree from the file: known keys + `$versions` + unknown keys. */
     private data: Record<string, unknown>;
     private filePath: string | undefined;
     private dirty = false;
@@ -78,7 +78,7 @@ export class StateFileStore implements IStateStore {
         this.markDirty();
     }
 
-    /** Содержимое сначала синхронно сбрасывается в прежний файл, отложенная запись снимается. */
+    /** First flushes the contents synchronously to the previous file and cancels the pending write. */
     public open(filePath: string): void {
         this.flushSync();
         this.data = loadStateFile(filePath, this.logger);
@@ -87,7 +87,7 @@ export class StateFileStore implements IStateStore {
     }
 
     public flushSync(): void {
-        // Stryker disable next-line CallExpression: неснятый таймер нашёл бы стор уже чистым и ничего не записал — эквивалентный мутант
+        // Stryker disable next-line CallExpression: an uncancelled timer would find the store already clean and write nothing; equivalent mutant
         clearTimeout(this.writeTimer);
         this.writeTimer = undefined;
         this.writeSync();
@@ -107,20 +107,20 @@ export class StateFileStore implements IStateStore {
             this.writeTimer = undefined;
             void this.writeAsync(filePath);
         }, this.writeDebounceMs);
-        // Запись состояния не должна держать event loop живым.
-        // Stryker disable next-line CallExpression: держит ли таймер event loop, из теста не видно — только у процесса целиком
+        // Writing state must not keep the event loop alive.
+        // Stryker disable next-line CallExpression: whether the timer holds the event loop isn't visible from a test, only for the whole process
         this.writeTimer.unref();
     }
 
-    /** Таймер снимает всё, что пишет или глушит стор, поэтому сюда приходит грязный стор с тем же файлом. */
+    /** Anything that writes or silences the store cancels the timer, so this always sees a dirty store with the same file. */
     private async writeAsync(filePath: string): Promise<void> {
         this.dirty = false;
         try {
             await fs.promises.mkdir(path.dirname(filePath), { recursive: true });
-            // Stryker disable next-line StringLiteral: пустая кодировка у writeFile — та же utf-8 по умолчанию
+            // Stryker disable next-line StringLiteral: an empty encoding for writeFile is the same default utf-8
             await fs.promises.writeFile(filePath, serialize(this.data), "utf-8");
         } catch (err) {
-            this.dirty = true; // не удалось — повторим на следующем flush
+            this.dirty = true; // failed: retry on the next flush
             this.logger.error(`Failed to write state file ${filePath}`, err);
         }
     }
@@ -131,7 +131,7 @@ export class StateFileStore implements IStateStore {
         const filePath = this.filePath;
         try {
             fs.mkdirSync(path.dirname(filePath), { recursive: true });
-            // Stryker disable next-line StringLiteral: пустая кодировка у writeFileSync — та же utf-8 по умолчанию
+            // Stryker disable next-line StringLiteral: an empty encoding for writeFileSync is the same default utf-8
             fs.writeFileSync(filePath, serialize(this.data), "utf-8");
         } catch (err) {
             this.dirty = true;
@@ -150,16 +150,16 @@ export class StateService implements IStateService {
 
     public constructor(input: {
         /**
-         * Application-стор (`User/globalStorage/storage.json`): готовый экземпляр,
-         * если его уже читали до сборки сервиса (реестр профилей, см.
-         * {@link StateFileStore}), либо путь к файлу. Нет ни того, ни другого —
-         * стор только в памяти (тесты).
+         * Application store (`User/globalStorage/storage.json`): a ready instance
+         * if it was already read before the service was built (profile registry, see
+         * {@link StateFileStore}), or a file path. With neither, the store is
+         * in-memory only (tests).
          */
         readonly application?: StateFileStore | string;
         readonly globalStateFile: string;
         readonly workspaceStorageDir: string;
         readonly logger?: ILogger;
-        /** Задержка debounced-записи; по умолчанию {@link WRITE_DEBOUNCE_MS}. Инъекция — ради тестов. */
+        /** Debounced write delay; defaults to {@link WRITE_DEBOUNCE_MS}. Injectable for tests. */
         readonly writeDebounceMs?: number;
     }) {
         const options = { logger: input.logger, writeDebounceMs: input.writeDebounceMs };
@@ -169,8 +169,8 @@ export class StateService implements IStateService {
                 ? input.application
                 : new StateFileStore(input.application, options);
         this.global = new StateFileStore(input.globalStateFile, options);
-        // Пока проект не открыт, workspace-скоуп — стор пустого окна, а не global:
-        // ключи пустого окна не смешиваются с глобальными.
+        // Until a project is open, the workspace scope is the empty window's store, not global:
+        // empty-window keys don't mix with global ones.
         this.workspace = new StateFileStore(
             resolveWorkspaceStatePath(this.workspaceStorageDir, EMPTY_WINDOW_WORKSPACE_ID),
             options,
@@ -190,7 +190,7 @@ export class StateService implements IStateService {
     }
 
     public openWorkspace(workspaceId: WorkspaceId): void {
-        // Сбросить текущий workspace-стор на диск перед переключением на другой.
+        // `open` flushes the current workspace store to disk before switching.
         this.workspace.open(resolveWorkspaceStatePath(this.workspaceStorageDir, workspaceId));
         this.onDidOpenWorkspaceEmitter.fire(workspaceId);
     }
@@ -202,15 +202,15 @@ export class StateService implements IStateService {
     }
 
     /**
-     * Глушит писателя: снимает запланированную debounced-запись, и после
-     * `dispose` её не взводит заново ни один `store`/`remove`.
+     * Silences the writer: cancels the scheduled debounced write, and after
+     * `dispose` no `store`/`remove` schedules it again.
      *
-     * Durability — НЕ задача `dispose`: грязные сторы остаются несохранёнными,
-     * на диск их отправляет {@link flushSync} (участник прощания,
-     * см. docs/arch/State.md). Разделение намеренное: владельцу временного
-     * каталога нужно уметь остановить писателя, ничего не записав, — иначе
-     * отложенная запись пересоздаёт уже удалённый каталог (`mkdir` с
-     * `recursive` в `writeAsync`) и каталог «воскресает» после сноса.
+     * Durability is NOT `dispose`'s job: dirty stores stay unsaved, and
+     * {@link flushSync} sends them to disk (a shutdown participant,
+     * see docs/arch/State.md). The split is deliberate: the owner of a temp
+     * directory must be able to stop the writer without writing anything, otherwise
+     * the pending write recreates an already deleted directory (`mkdir` with
+     * `recursive` in `writeAsync`) and the directory "comes back" after removal.
      */
     public dispose(): void {
         this.application.dispose();
@@ -219,7 +219,7 @@ export class StateService implements IStateService {
         this.onDidOpenWorkspaceEmitter.dispose();
     }
 
-    /** `application` → стор вне профиля, `global` → стор профиля, `workspace` → стор открытого проекта (или пустого окна). */
+    /** `application` → store outside the profile, `global` → profile store, `workspace` → open project's (or empty window's) store. */
     private resolveStore(scope: StateScope): StateFileStore {
         switch (scope) {
             case "application":
@@ -233,10 +233,10 @@ export class StateService implements IStateService {
 }
 
 /**
- * Фабрика: собирает {@link StateService} из путей user data (зеркало
- * `loadConfiguration`). `application` — стор `storage.json`, если его уже
- * прочитали раньше ({@link loadApplicationState}): тот же экземпляр, а не
- * второй читатель того же файла.
+ * Factory: builds a {@link StateService} from user data paths (mirrors
+ * `loadConfiguration`). `application` is the `storage.json` store if it was
+ * already read earlier ({@link loadApplicationState}): the same instance rather
+ * than a second reader of the same file.
  */
 export function loadState(paths: IUserDataPaths, logger?: ILogger, application?: StateFileStore): StateService {
     return new StateService({
@@ -248,10 +248,9 @@ export function loadState(paths: IUserDataPaths, logger?: ILogger, application?:
 }
 
 /**
- * Application-стор отдельно от сервиса: `<userDataDir>/User/globalStorage/storage.json`
- * читается на старте раньше всего остального состояния — в нём реестр
- * профилей, от которого зависит каталог активного профиля. Дальше экземпляр
- * усыновляет {@link loadState}.
+ * The application store, separate from the service: `<userDataDir>/User/globalStorage/storage.json`
+ * is read at startup before any other state, since it holds the profile registry that
+ * determines the active profile's directory. {@link loadState} then adopts the instance.
  */
 export function loadApplicationState(applicationStateFile: string, logger?: ILogger): StateFileStore {
     return new StateFileStore(applicationStateFile, { logger });

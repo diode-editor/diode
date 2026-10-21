@@ -75,7 +75,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
             { env: NodeJS.ProcessEnv },
         ];
         expect(command).toBe(process.execPath);
-        expect(args).toContain(process.argv[1]); // dev-ветка selfSpawnArgs
+        expect(args).toContain(process.argv[1]); // dev branch of selfSpawnArgs
         expect(options.env.DIODE_FILE_WATCHER).toBe("1");
     });
 
@@ -139,8 +139,8 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(child.signals).toEqual(["SIGKILL"]);
     });
 
-    // EventEmitter без слушателя `error` бросает прямо из `emit` — тесты ниже
-    // падают ровно тогда, когда подписки нет (в бою это убило бы редактор).
+    // An EventEmitter without an `error` listener throws right from `emit`: the tests below
+    // fail exactly when there's no subscription (in production that would kill the editor).
     it("ошибка процесса не всплывает наружу, а ведёт в ту же ветку, что и смерть", () => {
         const first = new FakeChild();
         const second = new FakeChild();
@@ -162,7 +162,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
 
         child.emit("error", new Error("ERR_IPC_CHANNEL_CLOSED"));
 
-        // Закрытый канал эмитит ошибку на КАЖДЫЙ `send`, а не однажды.
+        // A closed channel emits an error on EVERY `send`, not just once.
         expect(() => child.emit("error", new Error("ERR_IPC_CHANNEL_CLOSED"))).not.toThrow();
     });
 
@@ -206,7 +206,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         const entry = entries.at(-1);
         expect(entry?.channel).toBe("files.watcher");
         expect(entry?.level).toBe(LogLevel.Warn);
-        // Дословно: перевод строки в конце — дело лог-канала, а не записи.
+        // Verbatim: the trailing newline is the log channel's job, not the entry's.
         expect(entry?.message).toBe("[file-watcher] TypeError: boom");
     });
 
@@ -230,8 +230,8 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
     });
 
     it("ребёнок без stderr-потока не ломает подъём процесса", () => {
-        // `stderr` у ChildProcess по типу может быть `null` (stdio `"ignore"`);
-        // спавн не должен зависеть от того, попросили мы пайп или нет.
+        // ChildProcess `stderr` may be `null` by type (stdio `"ignore"`);
+        // spawning must not depend on whether we asked for a pipe.
         const child = new FakeChild(false, false);
         spawnMock.mockReturnValue(child as never);
         const watcher = new SubprocessTreeWatcher();

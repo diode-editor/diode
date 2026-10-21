@@ -9,7 +9,7 @@ export interface ITreeWatcherChannel {
     onMessage(listener: (message: unknown) => void): void;
 }
 
-/** Коалесинг — на этой стороне границы: через IPC едут пачки, а не сотни отдельных событий. */
+/** Coalescing happens on this side of the boundary: batches travel over IPC, not hundreds of separate events. */
 export function serveTreeWatcher(channel: ITreeWatcherChannel, watcher: ITreeFileWatcher): IDisposable {
     const subscriptions = new Map<number, IDisposable>();
 

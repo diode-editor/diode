@@ -2,6 +2,6 @@ import type { TuiApplication } from "@tuidom/core/dom/tuiApplication";
 
 import { token } from "../../instantiation/common/diContainer.ts";
 
-// Тип живёт в `@tuidom/core`, который токенов не объявляет, — токен в нижнем разрешённом слое.
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// The type lives in `@tuidom/core`, which declares no tokens, so the token sits in the lowest allowed layer.
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it, the string inside is just a debug label
 export const TuiApplicationDIToken = token<TuiApplication>("TuiApplication");

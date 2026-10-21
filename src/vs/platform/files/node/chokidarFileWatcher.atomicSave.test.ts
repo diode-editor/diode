@@ -14,7 +14,7 @@ interface ICounter {
     readonly calls: () => number;
 }
 
-/** До `ready` chokidar с `ignoreInitial` глотает записи — пишем, пока откликнется каждая подписка. */
+/** Before `ready` chokidar with `ignoreInitial` swallows writes, so keep writing until every subscription responds. */
 async function untilWatching(file: string, counters: readonly ICounter[]): Promise<number[]> {
     await vi.waitFor(
         () => {
@@ -23,7 +23,7 @@ async function untilWatching(file: string, counters: readonly ICounter[]): Promi
         },
         { timeout: 10000, interval: 200 },
     );
-    // Последняя проба могла ещё не долететь до кого-то — даём ей осесть.
+    // The last probe may not have reached everyone yet, so let it settle.
     await vi.waitFor(async () => {
         const before = counters.map((c) => c.calls());
         await new Promise((resolve) => setTimeout(resolve, 150));
@@ -32,7 +32,7 @@ async function untilWatching(file: string, counters: readonly ICounter[]): Promi
     return counters.map((c) => c.calls());
 }
 
-/** Сохранение, как у редактора: временный сосед и `rename` поверх — inode файла новый. */
+/** Saves like an editor does: a temporary sibling and a `rename` over it, so the file gets a new inode. */
 function save(file: string, content: string): Promise<void> {
     return new DiskFileSystemProvider().writeFile(Uri.file(file), new TextEncoder().encode(content), {
         atomic: true,
@@ -40,8 +40,8 @@ function save(file: string, content: string): Promise<void> {
 }
 
 /**
- * Настоящий chokidar на настоящем диске: баг жил в его общем на процесс
- * `fs.watch` на путь, фейк `createWatcher` его не видит.
+ * Real chokidar on a real disk: the bug lived in its process-wide per-path
+ * `fs.watch`, which a fake `createWatcher` doesn't see.
  */
 describe("ChokidarFileWatcher — атомарное сохранение, настоящий chokidar", () => {
     let ws: ITempWorkspace;
@@ -67,8 +67,8 @@ describe("ChokidarFileWatcher — атомарное сохранение, на�
     }
 
     it("два наблюдателя одного файла (модель документа и слой настроек) видят каждое сохранение", async () => {
-        // Открытый в редакторе `.diode/settings.json`: за ним следят и модель
-        // документа, и сервис настроек — каждый своим экземпляром watcher'а.
+        // `.diode/settings.json` open in the editor: both the document model and the
+        // configuration service watch it, each with its own watcher instance.
         const file = ws.writeFile(".diode/settings.json", "{}");
         const settings = watch(file);
         const model = watch(file);
@@ -85,9 +85,9 @@ describe("ChokidarFileWatcher — атомарное сохранение, на�
     it("файл, созданный после подписки: и после создания видны сохранения обоим", async () => {
         const file = path.join(ws.dir, ".diode", "settings.json");
         const settings = watch(file);
-        // Каталог, созданный до готовности chokidar, событием не придёт — тогда
-        // сносим его и создаём заново, пока подписка не откликнется. Через
-        // попытку: удаление и создание подряд chokidar видит как «каталог был и есть».
+        // A directory created before chokidar is ready produces no event, so delete and
+        // recreate it until the subscription responds. On alternate attempts: chokidar sees
+        // a delete immediately followed by a create as "the directory was there all along".
         const dir = path.dirname(file);
         await vi.waitFor(
             () => {

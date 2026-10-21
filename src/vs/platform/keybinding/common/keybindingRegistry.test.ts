@@ -159,7 +159,7 @@ describe("KeybindingRegistry", () => {
             const registry = new KeybindingRegistry();
             registry.register(kb("ctrl+s"), "workbench.action.files.save");
 
-            // Ctrl+с (Russian layout) with Kitty alternate-keys flag sends baseLayoutKey=115 ('s') → code='KeyS'
+            // Ctrl + Cyrillic "es" (Russian layout) with Kitty alternate-keys flag sends baseLayoutKey=115 ('s') → code='KeyS'
             const result = resolve(registry, makeEvent({ key: "\u0441", code: "KeyS", ctrlKey: true }));
 
             expect(result).toBe("workbench.action.files.save");

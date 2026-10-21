@@ -1,7 +1,7 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
 export interface IFileWatcher {
-    /** Без разбора, что случилось: потребитель сверяется со stat сам. */
+    /** Doesn't say what happened: the consumer checks stat itself. */
     watchFile(filePath: string, onChange: () => void): IDisposable;
 }
 

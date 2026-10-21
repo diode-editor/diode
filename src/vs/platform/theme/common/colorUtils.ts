@@ -1,6 +1,6 @@
 import { parseHexColor as parseTuidomHexColor } from "@tuidom/core/common/colorUtils";
 
-/** Ведущий `#` обязателен, в отличие от парсера tuidom. Альфа сохраняется (`packRgba`). Бросает на невалидной строке. */
+/** Unlike the tuidom parser, requires a leading `#`. Keeps alpha (`packRgba`). Throws on an invalid string. */
 export function parseHexColor(hex: string): number {
     if (!hex.startsWith("#")) {
         throw new Error(`Invalid hex color: "${hex}" (must start with #)`);

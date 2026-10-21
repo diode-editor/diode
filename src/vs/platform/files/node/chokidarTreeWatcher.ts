@@ -16,7 +16,7 @@ import type {
 
 const COALESCE_MS = 50;
 
-/** Каталоги и файлы неразличимы, как в VS Code. */
+/** Directories and files are indistinguishable, as in VS Code. */
 const EVENT_TYPES: Partial<Record<string, TreeFileChangeType>> = {
     add: "created",
     addDir: "created",
@@ -26,13 +26,13 @@ const EVENT_TYPES: Partial<Record<string, TreeFileChangeType>> = {
 };
 
 /**
- * Excludes — `ignored`-предикат, а не фильтр после события: он зовётся и на
- * каталогах при обходе, в `node_modules` watcher не заходит и не тратит inotify.
+ * Excludes are an `ignored` predicate, not a post-event filter: it is also called on
+ * directories during the walk, so the watcher never enters `node_modules` or spends inotify on it.
  *
- * По симлинкам внутри дерева обход не ходит, как parcel-watcher эталона: иначе
- * `bazel-out` тащит весь кэш Bazel вне воркспейса. Каталог-ссылку смотрят явным
- * запросом: **корень** разрешается до настоящего пути, пути событий
- * переписываются обратно на исходный (как `normalizePath` эталона).
+ * The walk doesn't follow symlinks inside the tree, like upstream's parcel-watcher: otherwise
+ * `bazel-out` drags in the whole Bazel cache outside the workspace. A linked directory is watched
+ * by an explicit request: the **root** resolves to the real path, and event paths are rewritten
+ * back to the original (like upstream's `normalizePath`).
  */
 export class ChokidarTreeWatcher implements ITreeFileWatcher {
     private readonly logger: ILogger | undefined;
@@ -46,14 +46,14 @@ export class ChokidarTreeWatcher implements ITreeFileWatcher {
         options: ITreeFileWatchOptions,
         onChanges: (changes: readonly ITreeFileChange[]) => void,
     ): IDisposable {
-        // Корня нет — следим по исходному пути, chokidar сам дождётся появления.
+        // No root yet: watch the original path, chokidar waits for it to appear.
         const watchPath = realpathOrSelf(rootPath);
         const watcher = this.createWatcher(watchPath, options);
         const toOriginal = (changed: string): string => path.join(rootPath, path.relative(watchPath, changed));
         let pending: ITreeFileChange[] = [];
         let timer: ReturnType<typeof setTimeout> | null = null;
 
-        // Пустой пачки не бывает: таймер взводит первое событие, dispose гасит его вместе с накопленным.
+        // A batch is never empty: the first event arms the timer, and dispose clears it with what's pending.
         const flush = (): void => {
             timer = null;
             const batch = pending;
@@ -61,8 +61,8 @@ export class ChokidarTreeWatcher implements ITreeFileWatcher {
             onChanges(batch);
         };
 
-        // chokidar 5 с `followSymlinks: false` шлёт `add` на каждый симлинк
-        // начального обхода мимо `ignoreInitial` (`_handleSymlink`) — до `ready` глушим.
+        // chokidar 5 with `followSymlinks: false` emits `add` for every symlink of the
+        // initial walk despite `ignoreInitial` (`_handleSymlink`); mute until `ready`.
         let ready = false;
         watcher.on("ready", () => {
             ready = true;
@@ -76,8 +76,8 @@ export class ChokidarTreeWatcher implements ITreeFileWatcher {
             timer ??= setTimeout(flush, COALESCE_MS);
         });
 
-        // Без слушателя 'error' chokidar роняет процесс unhandledRejection'ом
-        // (типично ENOSPC — исчерпан лимит inotify); watcher после ошибки мёртв.
+        // Without an 'error' listener chokidar crashes the process with an unhandledRejection
+        // (typically ENOSPC, the inotify limit is exhausted); the watcher is dead after an error.
         watcher.on("error", (error) => {
             const { code, hint } = describeFileWatchError(error);
             this.logger?.warn(`tree watcher error${hint}`, { rootPath, code, error: String(error) });
@@ -116,7 +116,7 @@ function realpathOrSelf(rootPath: string): string {
     }
 }
 
-/** Путь — относительно корня, в posix-форме. Корень не исключается: иначе watcher не стартовал бы. */
+/** Matches the path relative to the root, in posix form. The root is never excluded, otherwise the watcher wouldn't start. */
 export function isExcluded(rootPath: string, candidate: string, excludes: readonly string[]): boolean {
     const relative = path.relative(rootPath, candidate);
     if (relative === "") return false;

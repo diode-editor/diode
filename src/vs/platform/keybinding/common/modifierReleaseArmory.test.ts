@@ -146,7 +146,7 @@ describe("armOnHoldRelease within a trigger context", () => {
             armory.commitStaleAfter(before);
 
             expect(commit).toHaveBeenCalledTimes(1);
-            // Взвод снят: последующее отпускание Ctrl второй раз не коммитит.
+            // The arm is cleared: a later Ctrl release doesn't commit a second time.
             armory.fireRelease("Control");
             expect(commit).toHaveBeenCalledTimes(1);
             expect(armory.pendingGeneration).toBeNull();
@@ -159,7 +159,7 @@ describe("armOnHoldRelease within a trigger context", () => {
             armory.arm("Control", first);
 
             const before = armory.pendingGeneration;
-            armory.arm("Control", second); // шаг цикла перевзвёл сессию
+            armory.arm("Control", second); // a cycle step re-armed the session
             armory.commitStaleAfter(before);
 
             expect(first).not.toHaveBeenCalled();
@@ -174,8 +174,8 @@ describe("armOnHoldRelease within a trigger context", () => {
             armory.arm("Control", commit);
             const before = armory.pendingGeneration;
 
-            // Keyup успел прийти раньше, чем нажатие дошло до commitStaleAfter
-            // (kitty шлёт и то, и другое): взвод уже снят, второй коммит не нужен.
+            // The keyup arrived before the keypress reached commitStaleAfter
+            // (kitty sends both): the arm is already cleared, no second commit.
             armory.fireRelease("Control");
             armory.commitStaleAfter(before);
 
@@ -186,8 +186,8 @@ describe("armOnHoldRelease within a trigger context", () => {
             const armory = new ModifierReleaseArmory();
             const commit = vi.fn();
 
-            const before = armory.pendingGeneration; // null — ничего не взведено
-            armory.arm("Control", commit); // сессия началась этим самым нажатием
+            const before = armory.pendingGeneration; // null: nothing is armed
+            armory.arm("Control", commit); // the session started with this very keypress
             armory.commitStaleAfter(before);
 
             expect(commit).not.toHaveBeenCalled();

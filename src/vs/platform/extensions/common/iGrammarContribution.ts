@@ -1,20 +1,20 @@
 export interface IGrammarContribution {
-    /** Нет — injection-грамматика (см. `injectTo`). */
+    /** Absent for an injection grammar (see `injectTo`). */
     readonly language?: string;
 
     readonly scopeName: string;
 
-    /** Относительно каталога расширения. */
+    /** Relative to the extension directory. */
     readonly path: string;
 
-    /** В TextMate-loader пока не пробрасывается. */
+    /** Not passed to the TextMate loader yet. */
     readonly embeddedLanguages?: Readonly<Record<string, string>>;
 
     readonly tokenTypes?: Readonly<Record<string, "string" | "comment" | "other">>;
 
     readonly injectTo?: readonly string[];
 
-    /** Не применяется. */
+    /** Not applied. */
     readonly balancedBracketScopes?: readonly string[];
     readonly unbalancedBracketScopes?: readonly string[];
 }

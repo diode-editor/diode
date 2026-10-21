@@ -28,7 +28,7 @@ const openFiles: IStateDescriptor<string[]> = { key: "workbench.editors.openFile
 
 describe("StateService", () => {
     let ws: ITempWorkspace;
-    /** `afterEach` глушит их ДО сноса каталога: поздняя debounced-запись пересоздала бы его в `os.tmpdir()`. */
+    /** `afterEach` silences them BEFORE removing the directory: a late debounced write would recreate it in `os.tmpdir()`. */
     let writers: StateService[];
 
     beforeEach(() => {
@@ -128,7 +128,7 @@ describe("StateService", () => {
             svc.flushSync();
             expect(fs.existsSync(emptyWindowFile)).toBe(false);
 
-            // Запись только global-ключа будит общий таймер — стор пустого окна он не трогает.
+            // Writing only a global key wakes the shared timer; it doesn't touch the empty window's store.
             svc.store(width, 44);
             await vi.waitFor(() => {
                 expect(fs.existsSync(p.globalStateFile)).toBe(true);
@@ -142,9 +142,9 @@ describe("StateService", () => {
             svc.store(wsWidth, 40);
             svc.openWorkspace(computeWorkspaceId("/projects/alpha"));
 
-            // Проект свой: значение пустого окна в него не протекло…
+            // The project has its own store: the empty window's value didn't leak into it…
             expect(svc.get(wsWidth)).toBe(30);
-            // …а само оно уже на диске, без flushSync.
+            // …and the value itself is already on disk, without flushSync.
             const emptyWindowFile = resolveWorkspaceStatePath(p.workspaceStorageDir, EMPTY_WINDOW_WORKSPACE_ID);
             expect(JSON.parse(fs.readFileSync(emptyWindowFile, "utf-8"))).toMatchObject({
                 "workbench.sideBar.width": 40,
@@ -162,7 +162,7 @@ describe("StateService", () => {
             const svc = loadState(p);
             const seen: { id: string; width: number }[] = [];
             svc.onDidOpenWorkspace((id) => {
-                // Подписчик уже читает стор проекта, а не пустого окна.
+                // The listener already reads the project's store, not the empty window's.
                 seen.push({ id, width: svc.get(wsWidth) });
             });
             svc.openWorkspace(folder);
@@ -172,7 +172,7 @@ describe("StateService", () => {
 
         it("persists per-project state under workspaceStorage/<workspaceId>/state.json", () => {
             const p = paths();
-            // Аргумент — идентичность воркспейса, не путь папки (см. computeWorkspaceId).
+            // The argument is the workspace identity, not the folder path (see computeWorkspaceId).
             const folder = computeWorkspaceId("/projects/alpha");
             const a = loadState(p);
             a.openWorkspace(folder);
@@ -332,7 +332,7 @@ describe("StateService", () => {
             expect.stringContaining("Failed to write state file"),
             expect.anything(),
         );
-        // Стор остался грязным: убрали помеху — следующий flush дописывает.
+        // The store stayed dirty: with the obstacle gone, the next flush writes it.
         fs.rmSync(blocker);
         svc.flushSync();
         expect(JSON.parse(fs.readFileSync(path.join(blocker, "globalState.json"), "utf-8"))).toMatchObject({
@@ -430,7 +430,7 @@ describe("StateService", () => {
             expect.stringContaining("Failed to write state file"),
             expect.anything(),
         );
-        // Стор остался грязным: убрали помеху — следующий flush дописывает.
+        // The store stayed dirty: with the obstacle gone, the next flush writes it.
         fs.rmSync(subAsFile);
         svc.flushSync();
         expect(JSON.parse(fs.readFileSync(path.join(subAsFile, "globalState.json"), "utf-8"))).toMatchObject({
@@ -447,10 +447,10 @@ describe("StateService", () => {
         });
         svc.store(width, 88);
         expect(fs.existsSync(p.globalStateFile)).toBe(false); // not yet — debounced
-        // Ждём РАЗБИРАЕМОЕ содержимое, а не просто существование файла: запись идёт
-        // `fs.promises.writeFile`, то есть путь появляется с O_CREAT сразу, а данные
-        // доезжают позже. Ожидание по `existsSync` ловило этот зазор и падало на
-        // `JSON.parse("")` — редко и только под нагрузкой полного прогона.
+        // Wait for PARSEABLE contents, not just the file's existence: the write goes through
+        // `fs.promises.writeFile`, so the path appears immediately with O_CREAT while the data
+        // arrives later. Waiting on `existsSync` hit that gap and failed on
+        // `JSON.parse("")`, rarely and only under full-run load.
         const onDisk = await waitForJson(p.globalStateFile);
         expect(onDisk).toMatchObject({ "workbench.sideBar.width": 88 });
     });
@@ -466,7 +466,7 @@ describe("StateService", () => {
             svc.store(width, 88);
             svc.dispose();
 
-            await sleep(40); // с запасом к debounce
+            await sleep(40); // with margin over the debounce
             expect(fs.existsSync(p.globalStateFile)).toBe(false);
         });
 
@@ -482,16 +482,16 @@ describe("StateService", () => {
 
             await sleep(40);
             expect(fs.existsSync(p.globalStateFile)).toBe(false);
-            // Стор остаётся живым читателем: гашение писателя не ломает `get`.
+            // The store remains a working reader: silencing the writer doesn't break `get`.
             expect(svc.get(width)).toBe(88);
         });
 
         it("снесённый каталог не воскресает отложенной записью (регресс: мусор в os.tmpdir)", async () => {
-            // Ровно та последовательность, которой owner временного каталога
-            // убирает за собой: писатель заводит отложенную запись, владелец
-            // гасит писателя и сносит каталог. `mkdir` с `recursive` внутри
-            // `writeStoreAsync` до этой правки пересоздавал путь уже ПОСЛЕ
-            // `rmSync`, и каталог оставался в `os.tmpdir()` навсегда.
+            // Exactly the sequence a temp directory owner uses to clean up:
+            // the writer schedules a pending write, the owner silences the
+            // writer and removes the directory. Before this fix, `mkdir` with
+            // `recursive` inside `writeStoreAsync` recreated the path AFTER
+            // `rmSync`, and the directory stayed in `os.tmpdir()` forever.
             const home = path.join(ws.dir, "doomed");
             const p = resolveUserDataPaths({ homedir: "/never", userDataDir: home });
             const svc = newStateService({
@@ -516,9 +516,9 @@ describe("StateService", () => {
                 workspaceStorageDir: p.workspaceStorageDir,
                 writeDebounceMs: 5,
             });
-            // Три `store` подряд — debounce обязан держать ОДИН таймер на всех.
-            // Если на каждый взводится свой, `dispose` снимет только последний,
-            // а остальные запишут файл уже после сноса каталога.
+            // Three `store` calls in a row: the debounce must keep ONE timer for all.
+            // If each one schedules its own, `dispose` cancels only the last,
+            // and the rest write the file after the directory is removed.
             svc.store(width, 1);
             svc.store(width, 2);
             svc.store(width, 3);
@@ -539,7 +539,7 @@ describe("StateService", () => {
             svc.dispose();
             svc.openWorkspace(computeWorkspaceId("/projects/beta"));
 
-            expect(seen).toHaveLength(1); // второго события нет — эмиттер снят
+            expect(seen).toHaveLength(1); // no second event: the emitter is disposed
         });
 
         it("flushSync остаётся способом записать — dispose его не подменяет", () => {
@@ -566,9 +566,9 @@ describe("StateService", () => {
             expect(JSON.parse(fs.readFileSync(p.applicationStateFile, "utf-8"))).toEqual({
                 userDataProfiles: ["work"],
             });
-            // Другой профиль читает тот же файл: стор один на установку.
+            // Another profile reads the same file: one store per installation.
             expect(loadState(paths("home")).get(profiles)).toEqual(["work"]);
-            // В global-стор профиля ключ не попал.
+            // The key didn't land in the profile's global store.
             expect(fs.existsSync(p.globalStateFile)).toBe(false);
         });
 
@@ -577,7 +577,7 @@ describe("StateService", () => {
             const application = loadApplicationState(p.applicationStateFile);
             application.store(profiles, ["early"]);
             const svc = loadState(p, undefined, application);
-            // Тот же экземпляр: записанное до сервиса видно через него без диска.
+            // Same instance: what was written before the service is visible through it without disk.
             expect(svc.get(profiles)).toEqual(["early"]);
             svc.store(profiles, ["late"]);
             expect(application.get(profiles)).toEqual(["late"]);
@@ -600,8 +600,8 @@ describe("StateService", () => {
             expect(svc.get(profiles)).toEqual(["mem"]);
             svc.remove(profiles);
             expect(svc.get(profiles)).toEqual([]);
-            // Ни отложенная запись (таймер не взводится), ни flushSync писать не пытаются:
-            // писать некуда — это не отказ записи, в лог ничего не идёт.
+            // Neither the pending write (no timer is scheduled) nor flushSync tries to write:
+            // there's nowhere to write, which isn't a write failure, so nothing is logged.
             await sleep(20);
             svc.flushSync();
             expect(fs.existsSync(p.applicationStateFile)).toBe(false);
@@ -674,10 +674,10 @@ describe("StateService", () => {
             store.open(b);
             expect(JSON.parse(fs.readFileSync(a, "utf-8"))).toEqual({ userDataProfiles: ["a"] });
             expect(store.get(profiles)).toEqual([]);
-            // Таймер, взведённый до open, снят вместе с записью прежнего файла.
+            // The timer scheduled before open is cancelled along with writing the previous file.
             await sleep(20);
             expect(fs.existsSync(b)).toBe(false);
-            // Новый файл чист — flushSync писать нечего.
+            // The new file is clean, so flushSync has nothing to write.
             store.flushSync();
             expect(fs.existsSync(b)).toBe(false);
             store.dispose();
@@ -687,12 +687,12 @@ describe("StateService", () => {
             const file = path.join(ws.dir, "store.json");
             const store = new StateFileStore(file, { writeDebounceMs: 5 });
             store.store(profiles, ["a"]);
-            store.flushSync(); // синхронный путь
+            store.flushSync(); // sync path
             fs.rmSync(file);
             store.flushSync();
             expect(fs.existsSync(file)).toBe(false);
             store.store(profiles, ["b"]);
-            await waitForJson(file); // отложенный путь
+            await waitForJson(file); // deferred path
             fs.rmSync(file);
             store.flushSync();
             expect(fs.existsSync(file)).toBe(false);
@@ -713,7 +713,7 @@ async function waitFor(cond: () => boolean, timeoutMs = 1000): Promise<void> {
     }
 }
 
-/** Содержимое файла, когда оно стало валидным JSON: единственный надёжный признак «дозаписалось». */
+/** File contents once they are valid JSON: the only reliable sign the write has finished. */
 async function waitForJson(filePath: string, timeoutMs = 1000): Promise<unknown> {
     let parsed: unknown;
     await waitFor(() => {
@@ -721,12 +721,12 @@ async function waitForJson(filePath: string, timeoutMs = 1000): Promise<unknown>
         try {
             raw = fs.readFileSync(filePath, "utf-8");
         } catch {
-            return false; // файла ещё нет
+            return false; // file doesn't exist yet
         }
         try {
             parsed = JSON.parse(raw);
         } catch {
-            return false; // создан, но ещё пуст
+            return false; // created but still empty
         }
         return true;
     }, timeoutMs);

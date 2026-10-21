@@ -12,10 +12,9 @@ export interface IScanExtensionsOptions {
 }
 
 /**
- * Только каталоги первого уровня под `rootPrefix`; `IExtension.location` — их
- * виртуальный prefix с `/` на конце. Битые манифесты пропускаются с записью в
- * лог: bootstrap не падает из-за одного криво скопированного расширения.
- * Единственная точка локализации манифестов, и builtin, и установленных.
+ * Only first-level directories under `rootPrefix`; `IExtension.location` is their virtual prefix
+ * with a trailing `/`. Broken manifests are skipped with a log entry: bootstrap doesn't fail over
+ * one badly copied extension. The single place where manifests, builtin and installed, are localized.
  */
 export async function scanExtensions(
     assets: IAssetAccess,
@@ -76,7 +75,7 @@ export async function scanExtensions(
             continue;
         }
 
-        // После валидации: битый nls-бандл не должен решать, расширение ли это вообще.
+        // After validation: a broken nls bundle must not decide whether this is an extension at all.
         const localized = await localizeExtensionManifest(manifest, assets, extensionPrefix, locale, logger);
 
         result.push({

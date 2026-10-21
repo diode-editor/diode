@@ -4,8 +4,8 @@ import { ContextKeyService } from "../../contextkey/common/contextKeyService.ts"
 
 import { formatKeybinding, type KeybindingLabelStyle, keybindingLabelStyle, parseChord } from "./keybindingRegistry.ts";
 
-// Подписи комбинаций по эталону VS Code (`keybindingLabels.ts`): на маке —
-// глифы ⌃⇧⌥⌘ без разделителя в порядке Ctrl, Shift, Alt, Meta, стрелки — стрелками.
+// Chord labels follow upstream VS Code (`keybindingLabels.ts`): on mac, glyphs ⌃⇧⌥⌘
+// without a separator in the order Ctrl, Shift, Alt, Meta, and arrow keys as arrows.
 
 describe("formatKeybinding — стили подписи", () => {
     it.each<[string, KeybindingLabelStyle, string]>([

@@ -3,17 +3,17 @@ import type { Uri } from "../../../base/common/uri.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
 export interface IOpenURLOptions {
-    /** Не задано — URL пришёл снаружи, и обработчик вправе спросить человека. */
+    /** Unset means the URL came from outside, and the handler may ask the user. */
     readonly trusted?: boolean;
     readonly originalUrl?: string;
 }
 
 export interface IURLHandler {
-    /** `true` — URL принят этим обработчиком, дальше по цепочке не идёт. */
+    /** `true` means this handler took the URL and it goes no further down the chain. */
     handleURL(uri: Uri, options?: IOpenURLOptions): Promise<boolean>;
 }
 
-/** Цепочка обработчиков: первый ответивший `true` забирает URL. */
+/** A chain of handlers: the first to answer `true` takes the URL. */
 export interface IURLService {
     open(uri: Uri, options?: IOpenURLOptions): Promise<boolean>;
     registerHandler(handler: IURLHandler): IDisposable;

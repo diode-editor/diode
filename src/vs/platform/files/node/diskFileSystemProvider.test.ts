@@ -97,11 +97,11 @@ describe("DiskFileSystemProvider", () => {
         const inodeBefore = fs.statSync(path.join(dir, "a.txt")).ino;
         await provider.writeFile(at("a.txt"), bytes("atomic"), { atomic: true });
         expect(fs.readFileSync(path.join(dir, "a.txt"), "utf-8")).toBe("atomic");
-        // Атомарная замена — это новый файл (rename соседа), а не правка на месте.
+        // An atomic replace is a new file (rename of a sibling), not an in-place edit.
         expect(fs.statSync(path.join(dir, "a.txt")).ino).not.toBe(inodeBefore);
         const rename = vi.spyOn(fs.promises, "rename");
         await provider.writeFile(at("new.txt"), bytes("fresh"), { atomic: true });
-        // Нового файла ещё нет — его тоже пишем через соседа.
+        // The new file doesn't exist yet: it's also written through a sibling.
         expect(rename).toHaveBeenCalledOnce();
         expect(fs.readFileSync(path.join(dir, "new.txt"), "utf-8")).toBe("fresh");
         expect(fs.readdirSync(dir).sort()).toEqual(["a.txt", "new.txt"]);
@@ -163,7 +163,7 @@ describe("DiskFileSystemProvider", () => {
 
     it("упавшая атомарная запись убирает временного соседа и сообщает ошибку", async () => {
         fs.mkdirSync(path.join(dir, "d"));
-        // Цель — каталог: rename файла поверх каталога падает.
+        // The target is a directory: renaming a file over a directory fails.
         const error = await failure(() => provider.writeFile(at("d"), bytes("x"), { atomic: true }));
         expect(isFileOperationError(error, FileOperationResult.IsDirectory)).toBe(true);
         expect(fs.readdirSync(dir)).toEqual(["d"]);

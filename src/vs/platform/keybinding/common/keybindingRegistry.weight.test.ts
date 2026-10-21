@@ -23,7 +23,7 @@ describe("KeybindingRegistry — вес правила", () => {
         registry.register(parseKeybinding("escape"), "editor.cancel");
 
         expect(resolve(registry)).toBe("popup.hide");
-        // Порядок в listBindings — по возрастанию приоритета: сильнейший последним.
+        // listBindings is in ascending priority: the strongest comes last.
         expect(registry.listBindings().map((entry) => entry.commandId)).toEqual(["editor.cancel", "popup.hide"]);
     });
 
@@ -52,7 +52,7 @@ describe("KeybindingRegistry — подпись незавершённого ч�
     it("единственный кандидат (первая запись) даёт каноническую подпись, а не сырое событие", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+k ctrl+y"), "only");
-        // Русская раскладка: клавиша «л», физически K — совпадение по code.
+        // Russian layout: the Cyrillic "el" key is physically K, matched by code.
         const event = { key: "л", code: "KeyK", ctrlKey: true, shiftKey: false, altKey: false, metaKey: false };
 
         expect(registry.resolveKey(event, new ContextKeyService()).kind).toBe("chord");

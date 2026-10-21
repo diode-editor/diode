@@ -1,7 +1,7 @@
 import { token } from "../../instantiation/common/diContainer.ts";
 
-/** Порт: `setWindowTitle` есть у конкретных бэкендов, а не у `ITerminalBackend`; связывает владелец бэкенда (`main.ts`). */
+/** Port: concrete backends have `setWindowTitle`, `ITerminalBackend` doesn't; the backend owner (`main.ts`) wires it. */
 export type ITerminalTitleSink = (title: string) => void;
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference; the string is only a debug label
 export const TerminalTitleSinkDIToken = token<ITerminalTitleSink>("TerminalTitleSink");

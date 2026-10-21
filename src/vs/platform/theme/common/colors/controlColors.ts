@@ -67,9 +67,8 @@ export const controlColors = {
         defaults: { dark: "#F88070", light: "#B01011" },
         description: "Foreground color of list items containing errors.",
     },
-    // Значения — из реестра VS Code (`colorRegistry.ts`); `dropdown.listBackground`
-    // там `null` (наследует editorWidget.background), поэтому берём то, что и так
-    // везут наши импортированные темы.
+    // Values come from the VS Code registry (`colorRegistry.ts`); `dropdown.listBackground` is
+    // `null` there (inherits editorWidget.background), so we take what our imported themes ship.
     "dropdown.background": {
         defaults: { dark: "#3C3C3C", light: "#FFFFFF" },
         description: "Dropdown background.",
@@ -86,8 +85,8 @@ export const controlColors = {
         defaults: { dark: "#1F1F1F", light: "#FFFFFF" },
         description: "Dropdown list background.",
     },
-    // Производные, как в реестре VS Code: меню наследует dropdown.*, выделение
-    // пункта — list.activeSelection*.
+    // Derived as in the VS Code registry: the menu inherits dropdown.*, the item selection
+    // inherits list.activeSelection*.
     "menu.foreground": {
         defaults: { dark: "dropdown.foreground", light: "dropdown.foreground" },
         description: "Foreground color of menu items.",
@@ -112,8 +111,8 @@ export const controlColors = {
         defaults: { dark: "#535353", light: "#CECECE" },
         description: "Border color of menus.",
     },
-    // Значения — из реестра VS Code (`colorRegistry.ts`), кроме отмеченных:
-    // там наши исторические дефолты сохраняют вид встроенных тем 1:1 (Н3).
+    // Values come from the VS Code registry (`colorRegistry.ts`), except the marked ones: there
+    // our historical defaults keep the built-in themes looking 1:1 (N3).
     "input.foreground": {
         defaults: { dark: "#CCCCCC", light: "#3B3B3B" },
         description: "Input box foreground.",
@@ -127,7 +126,7 @@ export const controlColors = {
         description: "Input box border.",
     },
     "input.placeholderForeground": {
-        // Исторический цвет плейсхолдера Diode (у VS Code — #989898 поверх прозрачности).
+        // Historical Diode placeholder color (VS Code uses #989898 over transparency).
         defaults: { dark: "#6E6E6E", light: "#767676" },
         description: "Input box foreground color for placeholder text.",
     },
@@ -140,12 +139,12 @@ export const controlColors = {
         description: "Foreground color of the selected menu item in the menubar.",
     },
     "menubar.selectionBackground": {
-        // Исторический цвет активного пункта меню-бара Diode.
+        // Historical Diode color of the active menu bar item.
         defaults: { dark: "#005AB4", light: "#0060C0" },
         description: "Background color of the selected menu item in the menubar.",
     },
-    // Производные от editorWidget.*, как в реестре VS Code: тема, задавшая фон
-    // виджетов (Catppuccin — #181825), красит им и пикер.
+    // Derived from editorWidget.*, as in the VS Code registry: a theme that sets the widget
+    // background (Catppuccin: #181825) paints the picker with it too.
     "quickInput.foreground": {
         defaults: { dark: "editorWidget.foreground", light: "editorWidget.foreground" },
         description: "Quick picker foreground color.",
@@ -154,8 +153,8 @@ export const controlColors = {
         defaults: { dark: "editorWidget.background", light: "editorWidget.background" },
         description: "Quick picker background color.",
     },
-    // Своих цветов пикера у VS Code нет; рамка — как у остальных виджетов (find, hover): у VS Code
-    // вместо неё тень.
+    // VS Code has no picker colors of its own; the border matches the other widgets (find, hover),
+    // where VS Code uses a shadow instead.
     "quickPick.border": {
         defaults: { dark: "editorWidget.border", light: "editorWidget.border" },
         description: "Quick picker frame color.",
@@ -181,7 +180,7 @@ export const controlColors = {
         description: "Quick picker item action hint color.",
     },
     "list.highlightForeground": {
-        // Исторический цвет подсветки совпадений Diode (у VS Code — #2AAAFF).
+        // Historical Diode match highlight color (VS Code uses #2AAAFF).
         defaults: { dark: "#64C8FF", light: "#0066BF" },
         description: "List/Tree foreground color of the match highlights when searching.",
     },

@@ -17,9 +17,8 @@ export const workbenchColors = {
         defaults: { dark: "#CCCCCC", light: "#3B3B3B" },
         description: "Side Bar foreground color.",
     },
-    // Оба заголовочных токена в vscode деривируются из SIDE_BAR_FOREGROUND;
-    // derived-цветов реестр не поддерживает, поэтому дефолт продублирован
-    // hex-ом — держи его в лок-степе с "sideBar.foreground".
+    // In vscode both title tokens derive from SIDE_BAR_FOREGROUND; the registry has no derived
+    // colors, so the default is duplicated as hex. Keep it in lockstep with "sideBar.foreground".
     "sideBarTitle.foreground": {
         defaults: { dark: "#CCCCCC", light: "#3B3B3B" },
         description: "Side Bar title foreground color.",
@@ -81,21 +80,21 @@ export const workbenchColors = {
         description: "Status Bar foreground color.",
     },
     "statusBarItem.hoverBackground": {
-        // Upstream-дефолт — белый с альфой 0.12; здесь он запечён поверх
-        // statusBar.background своего вида. Темы везут значение с альфой
-        // (Dark Modern — "#F1F1F133") — движок кладёт его на фон полосы при отрисовке.
+        // The upstream default is white at alpha 0.12; here it is baked over the matching
+        // statusBar.background. Themes ship a value with alpha (Dark Modern: "#F1F1F133"), and the
+        // engine blends it over the bar background when painting.
         defaults: { dark: "#1E92D2", light: "#E4E4E4" },
         description: "Status Bar item background color when hovering.",
     },
     "statusBarItem.hoverForeground": {
-        // Совпадает с дефолтами statusBar.foreground: тема, не задающая
-        // hoverForeground, не должна менять цвет текста под курсором.
+        // Matches the statusBar.foreground defaults: a theme without hoverForeground must not
+        // change the text color under the mouse.
         defaults: { dark: "#FFFFFF", light: "#3B3B3B" },
         description: "Status Bar item foreground color when hovering.",
     },
-    // Дефолты VS Code (кастомный заголовок). На этих цветах у нас рисуется
-    // главное меню: мост `menuBar.* ← titleBar.active*` в themeStyleVars.ts —
-    // своего ключа для строки меню в темах VS Code нет.
+    // VS Code defaults (custom title bar). Our main menu is painted with these colors via the
+    // `menuBar.* ← titleBar.active*` bridge in themeStyleVars.ts: VS Code themes have no key of
+    // their own for the menu bar.
     "titleBar.activeBackground": {
         defaults: { dark: "#3C3C3C", light: "#DDDDDD" },
         description: "Title Bar background when the window is active.",
@@ -104,9 +103,9 @@ export const workbenchColors = {
         defaults: { dark: "#CCCCCC", light: "#333333" },
         description: "Title Bar foreground when the window is active.",
     },
-    // В VS Code у terminal.background дефолта нет (null): терминал в панели
-    // рисуется фоном панели — тема без цветов терминала (Catppuccin) не
-    // получает чёрный прямоугольник посреди своей панели.
+    // VS Code has no terminal.background default (null): the terminal in the panel uses the panel
+    // background, so a theme without terminal colors (Catppuccin) doesn't get a black rectangle in
+    // the middle of its panel.
     "terminal.background": {
         defaults: { dark: "panel.background", light: "panel.background" },
         description: "The background of the Integrated Terminal's viewport.",
@@ -115,11 +114,10 @@ export const workbenchColors = {
         defaults: { dark: "#CCCCCC", light: "#333333" },
         description: "The default foreground color of the Integrated Terminal.",
     },
-    // Тосты сообщений (стек над статус-баром). В vscode эти три токена
-    // деривируются из editorWidget.{background,foreground} и
-    // notificationCenterHeader.background; derived-цветов реестр не
-    // поддерживает, поэтому дефолты продублированы hex-ом — держи их в
-    // лок-степе с источниками.
+    // Notification toasts (the stack above the status bar). In vscode these three tokens derive
+    // from editorWidget.{background,foreground} and notificationCenterHeader.background; the
+    // registry has no derived colors, so the defaults are duplicated as hex. Keep them in lockstep
+    // with the sources.
     "notifications.background": {
         defaults: { dark: "editorWidget.background", light: "editorWidget.background" },
         description: "Notification toast background color.",
@@ -132,8 +130,8 @@ export const workbenchColors = {
         defaults: { dark: "#303031", light: "#E7E7E7" },
         description: "Notification toast border color, separating it from other notifications.",
     },
-    // Акцент строгости — он же цвет заголовка тоста. Дефолты продублированы с
-    // editorInfo/editorWarning/editorError.foreground по той же причине.
+    // Severity accent, also the toast title color. The defaults duplicate
+    // editorInfo/editorWarning/editorError.foreground for the same reason.
     "notificationsInfoIcon.foreground": {
         defaults: { dark: "#3794FF", light: "#1A85FF" },
         description: "The color used for the notification info icon.",

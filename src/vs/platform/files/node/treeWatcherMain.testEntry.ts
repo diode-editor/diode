@@ -1,12 +1,12 @@
-// Тестовый вход treeWatcherMain.integration.test.ts: то же, что делает ветка
-// DIODE_FILE_WATCHER в `main.ts`, но без остального бутстрапа редактора.
+// Test entry for treeWatcherMain.integration.test.ts: does what the DIODE_FILE_WATCHER
+// branch in `main.ts` does, without the rest of the editor bootstrap.
 import { runTreeWatcherSubprocess } from "./treeWatcherMain.ts";
 
 runTreeWatcherSubprocess();
 
-// Дальше — только для теста: рапорт о собственном окружении ПОСЛЕ входа. Роль не
-// должна протекать в потомков (`DIODE_FILE_WATCHER` снят, режим — node), а
-// проверить это можно только изнутри процесса.
+// Test-only from here: report our own environment AFTER entry. The role must not leak
+// to descendants (`DIODE_FILE_WATCHER` unset, mode is node), and that can only be
+// checked from inside the process.
 process.send?.({
     t: "log",
     level: "info",

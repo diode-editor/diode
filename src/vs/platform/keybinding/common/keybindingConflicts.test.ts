@@ -17,7 +17,7 @@ describe("whenMayOverlap", () => {
 
     it("непустые when сравниваются нормализованной строкой — обе стороны тримятся", () => {
         expect(whenMayOverlap("textViewFocus", "textViewFocus ")).toBe(true);
-        // Пробел слева тоже нормализуется (иначе a.trim() не проверен).
+        // A leading space is normalized too (otherwise a.trim() goes untested).
         expect(whenMayOverlap("  textViewFocus", "textViewFocus")).toBe(true);
         expect(whenMayOverlap("textViewFocus", "listFocus")).toBe(false);
         expect(whenMayOverlap("b && a", "(a) && b")).toBe(true);

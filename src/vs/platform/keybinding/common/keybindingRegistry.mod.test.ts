@@ -84,7 +84,7 @@ describe("токен mod (Ctrl на pc, Cmd на mac-cmd)", () => {
         expect(registry.listBindings()).toHaveLength(3);
         handle.dispose();
         expect(registry.listBindings().map((b) => b.commandId)).toEqual(["open"]);
-        handle.dispose(); // повторно — no-op, чужую запись не трогает
+        handle.dispose(); // second time is a no-op, doesn't touch another entry
         expect(registry.listBindings().map((b) => b.commandId)).toEqual(["open"]);
         other.dispose();
     });

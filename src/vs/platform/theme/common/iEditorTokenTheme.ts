@@ -3,9 +3,9 @@ import type { ISemanticTokenColorRule, ITokenColorRule } from "./iThemeFile.ts";
 export interface IEditorTokenTheme {
     rules: ITokenColorRule[];
 
-    /** Дефолт семантической подсветки при `configuredByTheme`. */
+    /** Semantic highlighting default under `configuredByTheme`. */
     semanticHighlighting?: boolean;
 
-    /** В порядке объявления. */
+    /** In declaration order. */
     semanticTokenRules?: readonly ISemanticTokenColorRule[];
 }

@@ -6,7 +6,7 @@ import { isFileNotFound } from "../../../base/node/fsErrors.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import type { IUserKeybindingRule } from "../common/userKeybindings.ts";
 
-/** Битый файл не роняет bootstrap: ошибки разбора логируются, невалидные правила отбрасываются. */
+/** A broken file doesn't crash bootstrap: parse errors are logged, invalid rules are dropped. */
 export async function loadUserKeybindings(filePath: string, logger?: ILogger): Promise<IUserKeybindingRule[]> {
     let content: string;
     try {
@@ -20,7 +20,7 @@ export async function loadUserKeybindings(filePath: string, logger?: ILogger): P
     return parseUserKeybindings(content, filePath, logger);
 }
 
-/** Разбирает содержимое `keybindings.json` (JSONC) теми же правилами, что и загрузка. */
+/** Parses `keybindings.json` content (JSONC) with the same rules as loading. */
 export function parseUserKeybindings(content: string, filePath: string, logger?: ILogger): IUserKeybindingRule[] {
     const errors: ParseError[] = [];
     const parsed: unknown = parseJsonc(content, errors, { allowTrailingComma: true });

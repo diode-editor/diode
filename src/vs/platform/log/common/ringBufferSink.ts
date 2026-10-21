@@ -1,9 +1,9 @@
 import type { ILogSink, LogEntry } from "./iLogService.ts";
 
 export interface RingBufferSinkOptions {
-    /** На канал; по умолчанию 1000. */
+    /** Per channel; defaults to 1000. */
     readonly capacityPerChannel?: number;
-    /** Зовётся ПОСЛЕ записи в буфер. */
+    /** Called AFTER the entry is written to the buffer. */
     readonly onAppend?: (entry: LogEntry) => void;
 }
 

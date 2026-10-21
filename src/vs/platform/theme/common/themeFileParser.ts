@@ -10,9 +10,10 @@ import type {
 } from "./iThemeFile.ts";
 
 /**
- * Битый JSON и не-объект — ошибка; остальное спасается с `warn`: невалидные цвета,
- * `tokenColors` строкой (`.tmTheme` не поддержан — docs/arch/Theme.md, решение 8). `name` не
- * читается — ключ темы задаёт манифест. Селектор `semanticTokenColors` не проверяется, как в эталоне.
+ * Broken JSON and a non-object are errors; everything else is salvaged with a `warn`: invalid
+ * colors, `tokenColors` as a string (`.tmTheme` is unsupported, docs/arch/Theme.md, decision 8).
+ * `name` is not read: the manifest sets the theme key. The `semanticTokenColors` selector is not
+ * checked, as upstream.
  */
 export function parseThemeFile(text: string, warn: (message: string) => void = () => undefined): IThemeFile {
     const errors: ParseError[] = [];
@@ -126,8 +127,8 @@ function parseSemanticTokenColors(value: unknown, warn: (message: string) => voi
 }
 
 /**
- * Значение правила `semanticTokenColors`: строка — цвет, объект — стиль
- * (`readSemanticTokenRule` эталона). Ни одного атрибута — правило пропускается.
+ * A `semanticTokenColors` rule value: a string is a color, an object is a style (upstream
+ * `readSemanticTokenRule`). A rule with no attributes is skipped.
  */
 function parseSemanticTokenSettings(raw: unknown, warn: (reason: string) => void): ISemanticTokenColorSettings | null {
     const settings: ISemanticTokenColorSettings = {};

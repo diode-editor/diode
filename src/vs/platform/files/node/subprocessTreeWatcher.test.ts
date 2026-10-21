@@ -93,7 +93,7 @@ describe("SubprocessTreeWatcher", () => {
         expect(spawned[0]?.sent).toEqual([
             { t: "watch", id: 1, rootPath: "/repo", options: { recursive: true, excludes: ["**/node_modules"] } },
         ]);
-        // Подъём процесса виден в логе: иначе «почему их два» разбирать нечем.
+        // Process startup is visible in the log: otherwise there's nothing to debug "why are there two" with.
         expect(entries.map((e) => e.message)).toContain("spawning file watcher process");
     });
 
@@ -315,8 +315,8 @@ describe("SubprocessTreeWatcher", () => {
             const watcher = new SubprocessTreeWatcher({ spawnProcess, maxRestarts: 0 });
             watcher.watchTree("/repo", OPTIONS, () => undefined);
             spawned[0]?.die();
-            // Процесса больше нет, а запрос жив — его владелец всё равно однажды
-            // отпустит подписку (расширение деактивировалось, редактор закрылся).
+            // The process is gone but the request is alive: its owner will still release
+            // the subscription at some point (extension deactivated, editor closed).
             const orphan = watcher.watchTree("/other", OPTIONS, () => undefined);
 
             expect(() => {
@@ -373,7 +373,7 @@ describe("SubprocessTreeWatcher", () => {
             watcher.watchTree("/repo", OPTIONS, () => undefined);
 
             spawned[0]?.fail(new Error("spawn ENOENT"));
-            // Node не обещает `exit` после `error`, но и не запрещает его.
+            // Node doesn't promise `exit` after `error`, but doesn't rule it out either.
             spawned[0]?.die();
 
             expect(spawned).toHaveLength(2);
@@ -389,7 +389,7 @@ describe("SubprocessTreeWatcher", () => {
             watcher.watchTree("/repo", OPTIONS, () => undefined);
             spawned[0]?.die();
 
-            // ERR_IPC_CHANNEL_CLOSED от `send` в мёртвый канал прилетает, когда замена уже поднята.
+            // ERR_IPC_CHANNEL_CLOSED from `send` into a dead channel arrives after the replacement is already up.
             spawned[0]?.fail(new Error("ERR_IPC_CHANNEL_CLOSED"));
 
             expect(spawned).toHaveLength(2);
@@ -405,8 +405,8 @@ describe("SubprocessTreeWatcher", () => {
             });
             watcher.watchTree("/repo", OPTIONS, () => undefined);
 
-            // Контракт шва — `unknown`: разбор ошибки не имеет права упасть сам,
-            // иначе мы вернём ровно то падение редактора, от которого уходим.
+            // The seam contract is `unknown`: error parsing must never throw itself,
+            // or we'd bring back exactly the editor crash we're moving away from.
             expect(() => {
                 spawned[0]?.fail(undefined);
             }).not.toThrow();
@@ -421,9 +421,9 @@ describe("SubprocessTreeWatcher", () => {
             const watcher = new SubprocessTreeWatcher({ spawnProcess, maxRestarts: 1, now: () => clock });
             watcher.watchTree("/repo", OPTIONS, () => undefined);
 
-            spawned[0]?.die(); // первая смерть — перезапуск (бюджет исчерпан)
-            clock += 60_000; // второй процесс прожил рабочий срок
-            spawned[1]?.die(); // значит это снова «первая» смерть, а не вторая
+            spawned[0]?.die(); // first death: restart (the budget is now spent)
+            clock += 60_000; // the second process lived out its healthy lifetime
+            spawned[1]?.die(); // so this is a "first" death again, not a second one
             clock += 60_000;
             spawned[2]?.die();
 

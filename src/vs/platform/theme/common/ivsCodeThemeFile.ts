@@ -3,7 +3,7 @@ export interface IThemeFile {
 
     type?: "dark" | "light" | "hc" | "hcLight";
 
-    /** Значения — `#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`. */
+    /** Values are `#RGB`, `#RGBA`, `#RRGGBB`, `#RRGGBBAA`. */
     colors: Record<string, string>;
 
     tokenColors?: ITokenColorRule[];
@@ -22,6 +22,6 @@ export interface ITokenColorSettings {
 
     background?: string;
 
-    /** Через пробел: `"bold"`, `"italic"`, `"underline"`, `"strikethrough"`. */
+    /** Space-separated: `"bold"`, `"italic"`, `"underline"`, `"strikethrough"`. */
     fontStyle?: string;
 }

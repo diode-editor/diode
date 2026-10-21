@@ -2,24 +2,24 @@ import { Emitter } from "../../../base/common/event.ts";
 import { Disposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и разрешение зависимостей идёт по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependency resolution goes by its reference, so the string inside is only a debug label
 export const ProgressServiceDIToken = token<ProgressService>("ProgressService");
 
 /**
- * Брайль терминал берёт через fallback шрифта (Hack U+2800 не покрывает), а растеризатору
- * скриншотов fallback'а взять неоткуда — рядом с Hack завендорен DejaVu Sans, без него кадры
- * рисуются одинаковым `.notdef`. Гейт — `e2e/helpers/renderScreenshot.test.ts`.
+ * The terminal gets Braille through font fallback (Hack doesn't cover U+2800), but the screenshot
+ * rasterizer has no fallback to use, so DejaVu Sans is vendored next to Hack; without it every frame
+ * renders as the same `.notdef`. Gate: `e2e/helpers/renderScreenshot.test.ts`.
  */
 export const SPINNER_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"] as const;
 
 const SPINNER_INTERVAL_MS = 100;
 
-/** Стейджинг файла укладывается в десятки мс — спиннер на один кадр читается как помеха. */
+/** Staging a file takes tens of ms; a one-frame spinner reads as noise. */
 const SHOW_DELAY_MS = 300;
 
 const MIN_VISIBLE_MS = 500;
 
-/** `view` — спиннер в заголовке секции, `window` — запись в статус-баре. */
+/** `view` is a spinner in a section header, `window` is a status bar entry. */
 export type IProgressOptions =
     | { readonly location: "view"; readonly viewId: string; readonly title: string }
     | { readonly location: "window"; readonly title: string };
@@ -39,10 +39,10 @@ class ProgressEntry {
     public visible = false;
     public delayTimer: ReturnType<typeof setTimeout> | undefined;
     public minVisibleTimer: ReturnType<typeof setTimeout> | undefined;
-    /** Операция закончилась, но запись досиживает `minVisibleMs`. */
+    /** The operation finished, but the entry stays until `minVisibleMs` elapses. */
     public endRequested = false;
 
-    /** `scope === null` — локация `window`, иначе id секции. */
+    /** `scope === null` means the `window` location, otherwise the section id. */
     public constructor(
         public readonly scope: string | null,
         public readonly title: string,
@@ -50,11 +50,11 @@ class ProgressEntry {
 }
 
 /**
- * Модель и такт анимации прогресса, без отрисовки. Операция короче {@link SHOW_DELAY_MS} не
- * мигает, но {@link isBusy} истинен сразу; показанный спиннер живёт {@link MIN_VISIBLE_MS}.
- * Тикер один на приложение и живёт, только пока есть видимая запись: спиннеры идут в одной
- * фазе, своего `setInterval` у потребителей быть не должно. Часы сервис не читает (только
- * таймеры) — под fake timers детерминирован.
+ * Progress model and animation clock, without rendering. An operation shorter than {@link SHOW_DELAY_MS}
+ * doesn't flash, but {@link isBusy} is true immediately; a shown spinner lives {@link MIN_VISIBLE_MS}.
+ * There is one ticker per app, alive only while some entry is visible: spinners run in the same
+ * phase, so consumers must not have their own `setInterval`. The service never reads the clock (only
+ * timers), so it is deterministic under fake timers.
  */
 export class ProgressService extends Disposable {
     public static dependencies = [] as const;
@@ -76,7 +76,7 @@ export class ProgressService extends Disposable {
         this.intervalMs = options?.intervalMs ?? SPINNER_INTERVAL_MS;
     }
 
-    /** Ошибка задачи — тоже конец прогресса и пробрасывается нетронутой. */
+    /** A task error also ends the progress and is rethrown untouched. */
     public async withProgress<T>(options: IProgressOptions, task: () => Promise<T>): Promise<T> {
         const entry = this.start(options);
         try {
@@ -86,7 +86,7 @@ export class ProgressService extends Disposable {
         }
     }
 
-    /** Включая ещё не показанные: кнопки обязаны погаснуть сразу, а не через задержку показа. */
+    /** Includes entries not shown yet: buttons must disable immediately, not after the show delay. */
     public isBusy(viewId?: string): boolean {
         for (const entry of this.entries) {
             if (entry.endRequested) continue;
@@ -95,7 +95,7 @@ export class ProgressService extends Disposable {
         return false;
     }
 
-    /** Подпись отдаёт самая ранняя запись секции: «commit → refresh» не мигает сменой текста. */
+    /** The section's earliest entry provides the title, so "commit → refresh" doesn't flicker the text. */
     public viewProgress(): ReadonlyMap<string, IProgressFrame> {
         const result = new Map<string, IProgressFrame>();
         for (const entry of this.entries) {
@@ -105,7 +105,7 @@ export class ProgressService extends Disposable {
         return result;
     }
 
-    /** Самый ранний из показанных. */
+    /** The earliest visible entry. */
     public windowProgress(): IProgressFrame | null {
         for (const entry of this.entries) {
             if (entry.visible && entry.scope === null) return this.frameOf(entry);
@@ -117,7 +117,7 @@ export class ProgressService extends Disposable {
         for (const entry of [...this.entries]) this.forget(entry);
         this.stopTickerIfIdle();
         this.onDidChangeEmitter.dispose();
-        // Stryker disable next-line CallExpression: своих зарегистрированных disposable у сервиса нет, вызов держим ради контракта базового класса
+        // Stryker disable next-line CallExpression: the service registers no disposables of its own; the call is kept for the base class contract
         super.dispose();
     }
 
@@ -136,16 +136,16 @@ export class ProgressService extends Disposable {
             this.fire();
         }, this.delayMs);
         this.entries.add(entry);
-        // Событие на самом старте: занятость видна дизейблу сразу, до показа.
+        // Fire right at start: busy state is visible to disabling logic immediately, before the show.
         this.fire();
         return entry;
     }
 
     private end(entry: ProgressEntry): void {
-        // Stryker disable next-line ConditionalExpression: без записи в наборе тело end() ничего не меняет — сюда приходят только промисы, пережившие dispose(), а тот уже снял и таймеры, и слушателей
+        // Stryker disable next-line ConditionalExpression: without the entry in the set, end() changes nothing; only promises that outlived dispose() get here, and dispose() already removed both timers and listeners
         if (!this.entries.has(entry)) return;
         entry.endRequested = true;
-        // Досиживает минимум показа только тот, кого успели показать.
+        // Only an entry that was already shown stays for the minimum visible time.
         if (entry.minVisibleTimer === undefined) this.forget(entry);
         this.stopTickerIfIdle();
         this.fire();
@@ -153,7 +153,7 @@ export class ProgressService extends Disposable {
 
     private forget(entry: ProgressEntry): void {
         clearTimeout(entry.delayTimer);
-        // Stryker disable next-line CallExpression: сюда с живым minVisible-таймером приходят только из dispose(), а он следом снимает слушателей — разбудить утёкшим таймером некого
+        // Stryker disable next-line CallExpression: only dispose() gets here with a live minVisible timer, and it removes the listeners right after, so a leaked timer has no one to wake
         clearTimeout(entry.minVisibleTimer);
         entry.delayTimer = undefined;
         entry.minVisibleTimer = undefined;
@@ -173,15 +173,15 @@ export class ProgressService extends Disposable {
     }
 
     private stopTickerIfIdle(): void {
-        // Stryker disable next-line ConditionalExpression: при остановленном тикере тело — clearInterval(null) и сброс кадра, который в этом состоянии уже нулевой
+        // Stryker disable next-line ConditionalExpression: with the ticker stopped, the body is clearInterval(null) and a frame reset, and the frame is already zero in that state
         if (this.ticker === null) return;
         for (const entry of this.entries) {
             if (entry.visible) return;
         }
         clearInterval(this.ticker);
         this.ticker = null;
-        // Следующая операция начнёт с первого кадра — так спиннер всегда
-        // появляется одинаково, а не с середины прошлого цикла.
+        // The next operation starts from the first frame, so the spinner always
+        // appears the same way rather than mid-cycle.
         this.frame = 0;
     }
 

@@ -7,9 +7,9 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../TestUtils/
 
 import { moveToPath } from "./fileClipboardFs.ts";
 
-// Мокаем renameSync обёрткой над реальной реализацией, чтобы в одном тесте
-// детерминированно сымитировать cross-device (EXDEV) — настоящие две ФС в юнит-тесте
-// не поднять. Остальные функции fs — настоящие.
+// Mock renameSync with a wrapper over the real implementation to deterministically
+// simulate cross-device (EXDEV) in one test: a unit test can't set up two real file systems.
+// The other fs functions are real.
 vi.mock("node:fs", async (importOriginal) => {
     const actual = await importOriginal<typeof fs>();
     return { ...actual, renameSync: vi.fn(actual.renameSync) };
@@ -65,6 +65,6 @@ describe("moveToPath", () => {
         expect(() => {
             moveToPath(src, dest);
         }).toThrow();
-        expect(fs.existsSync(src)).toBe(true); // источник не тронут
+        expect(fs.existsSync(src)).toBe(true); // source left untouched
     });
 });

@@ -1,11 +1,11 @@
 import type { IThemeFile } from "./iThemeFile.ts";
 
 /**
- * Аналог `registerColor` эталона, но явным merge `COLOR_CONTRIBUTIONS` вместо side-effect при
- * импорте. Слота два (dark/light), hc мапится через {@link themeKindOf}. Дефолт — hex либо
- * ссылка на другой ключ, разрешаемая поверх цветов темы: тема, задавшая базовый ключ, получает
- * и производные (иначе пикер Catppuccin оставался бы серым). Выражений (`transparent(ref, 0.5)`)
- * нет — такие дефолты запекаются hex-ом.
+ * Counterpart of upstream `registerColor`, but an explicit merge of `COLOR_CONTRIBUTIONS` instead of
+ * an import side effect. Two slots (dark/light); hc maps via {@link themeKindOf}. A default is hex
+ * or a reference to another key, resolved over the theme colors: a theme that sets the base key
+ * gets the derived ones too (otherwise the Catppuccin picker would stay gray). There are no
+ * expressions (`transparent(ref, 0.5)`); such defaults are baked as hex.
  */
 
 export interface IColorDefaults {
@@ -18,7 +18,7 @@ export function isColorReference(value: string): boolean {
 }
 
 export interface IColorDefinition {
-    /** `null` — дефолта нет: потребитель обязан обработать `undefined` (`getColor`, не `getRequiredColor`). */
+    /** `null` means no default: the consumer must handle `undefined` (`getColor`, not `getRequiredColor`). */
     readonly defaults: IColorDefaults | null;
     readonly description: string;
 }

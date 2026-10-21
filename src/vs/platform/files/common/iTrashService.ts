@@ -1,21 +1,21 @@
 import { token } from "../../instantiation/common/diContainer.ts";
 
 export interface ITrashEntry {
-    /** Куда восстанавливать. */
+    /** Where to restore to. */
     readonly originalPath: string;
     readonly trashedPath: string;
-    /** У freedesktop — `.trashinfo`. */
+    /** The `.trashinfo` file on freedesktop. */
     readonly infoPath: string;
 }
 
-/** Шире эталона: Undo возвращает файл из корзины, поэтому есть и «восстановить» (#480). */
+/** Wider than upstream: Undo brings a file back from the trash, so there is also "restore" (#480). */
 export interface ITrashService {
-    /** Дёшево, без ожидания. */
+    /** Cheap, doesn't wait. */
     isAvailable(): boolean;
     trash(filePath: string): Promise<ITrashEntry>;
-    /** Место заняли — кладёт рядом. Отдаёт итоговый путь. */
+    /** If the spot is taken, restores next to it. Returns the final path. */
     restore(entry: ITrashEntry): Promise<string>;
 }
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string inside is just a debug label
 export const ITrashServiceDIToken = token<ITrashService>("TrashService");

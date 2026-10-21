@@ -44,7 +44,7 @@ describe("parseTreeWatcherRequest", () => {
         ["без id", { t: "watch", rootPath: "/repo", options: { recursive: true, excludes: [] } }],
         ["id не число", { t: "watch", id: "7", rootPath: "/repo", options: { recursive: true, excludes: [] } }],
         ["неизвестный тип", { t: "sniff", id: 1 }],
-        // Дискриминант читается по-настоящему: во всём остальном это валидный watch.
+        // The discriminant is actually read: in every other respect this is a valid watch.
         [
             "чужой тип при валидных полях watch",
             { t: "sniff", id: 1, rootPath: "/repo", options: { recursive: true, excludes: [] } },
@@ -97,7 +97,7 @@ describe("parseTreeWatcherResponse", () => {
         ["не объект", 12],
         ["null", null],
         ["неизвестный тип", { t: "hello" }],
-        // Во всём остальном это валидный log — отсеивает именно дискриминант.
+        // In every other respect this is a valid log: it's the discriminant that rejects it.
         ["чужой тип при валидных полях log", { t: "hello", level: "warn", message: "hi", args: [] }],
         ["changes без id", { t: "changes", changes: [] }],
         ["changes не массив", { t: "changes", id: 1, changes: "a.ts" }],

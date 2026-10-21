@@ -29,13 +29,13 @@ export interface Keybinding {
     shiftKey: boolean;
     altKey: boolean;
     metaKey: boolean;
-    /** Ctrl на pc и мак-рунгах ниже cmd, Cmd — на `mac-cmd`: реестр разворачивает часть в две записи ({@link expandModKey}). */
+    /** Ctrl on pc and mac rungs below cmd, Cmd on `mac-cmd`: the registry expands it into two entries ({@link expandModKey}). */
     modKey?: boolean;
 }
 
 export type KeybindingChord = Keybinding[];
 
-/** `chord` — нажатые части префикса (для статус-бара); `none` сбрасывает ожидаемый аккорд. */
+/** `chord` carries the pressed prefix parts (for the status bar); `none` resets the pending chord. */
 export type KeybindingResolution =
     | { kind: "command"; commandId: string; when?: string; args?: unknown }
     | { kind: "chord"; chord: KeybindingChord }
@@ -48,7 +48,7 @@ export interface IKeybindingEntrySnapshot {
     readonly commandId: string;
     readonly when?: string;
     readonly source: KeybindingSource;
-    /** Передаётся первым аргументом `execute`. */
+    /** Passed as the first argument of `execute`. */
     readonly args?: unknown;
 }
 
@@ -60,13 +60,13 @@ interface KeybindingEntry extends IKeybindingPriority {
     args?: unknown;
 }
 
-/** Бинд либо снятие (`-command`). */
+/** A binding or a removal (`-command`). */
 export interface IKeybindingLayerRule {
-    /** Id команды; ведущий `-` — снять её бинды из слоёв default и extension. */
+    /** Command id; a leading `-` removes its bindings from the default and extension layers. */
     readonly command: string;
-    /** У снятия необязательна: без комбинации снимаются все бинды команды. */
+    /** Optional for a removal: without a chord all bindings of the command are removed. */
     readonly chord?: KeybindingChord;
-    /** У снятия — снимаются только записи, чей `when` содержит все условия этого. */
+    /** For a removal, only entries whose `when` contains all of these conditions are removed. */
     readonly when?: string;
     readonly args?: unknown;
 }
@@ -79,7 +79,7 @@ interface IKeybindingRemoval {
 
 type LayerSource = Exclude<KeybindingSource, "default">;
 
-/** Заменяется целиком. */
+/** Replaced as a whole. */
 interface IKeybindingLayer {
     readonly entries: readonly KeybindingEntry[];
     readonly removals: readonly IKeybindingRemoval[];
@@ -87,7 +87,7 @@ interface IKeybindingLayer {
 
 const EMPTY_LAYER: IKeybindingLayer = { entries: [], removals: [] };
 
-/** Условия when как набор канонических конъюнктов: `(a) && (b && c)` → `{a, b, c}`. */
+/** `when` conditions as a set of canonical conjuncts: `(a) && (b && c)` → `{a, b, c}`. */
 function whenTerms(when: string): string[] {
     const expr = deserializeWhen(when);
     return expr === undefined ? [when] : conjuncts(expr);
@@ -98,21 +98,21 @@ function conjuncts(expr: ContextKeyExpression): string[] {
 }
 
 /**
- * Включением, как `whenIsEntirelyIncluded` эталона в упрощении до конъюнктов: запись снимается,
- * если её `when` содержит все условия снятия.
+ * By inclusion, like upstream `whenIsEntirelyIncluded` simplified to conjuncts: an entry is removed
+ * if its `when` contains all conditions of the removal.
  */
 function isTargetedForRemoval(removal: IKeybindingRemoval, entry: KeybindingEntry): boolean {
     if (removal.commandId !== entry.commandId) return false;
     if (removal.chord !== undefined && !chordsEqual(removal.chord, entry.chord)) return false;
     if (removal.when === undefined) return true;
-    // Stryker disable next-line ConditionalExpression: эквивалентный — разбор undefined даёт [undefined], и непустые условия снятия в нём не найдутся
+    // Stryker disable next-line ConditionalExpression: equivalent, parsing undefined yields [undefined], where non-empty removal conditions are never found
     if (entry.when === undefined) return false;
     const entryTerms = whenTerms(entry.when);
     return whenTerms(removal.when).every((term) => entryTerms.includes(term));
 }
 
 export interface IKeybindingRuleOptions {
-    /** По умолчанию `EditorCore`. */
+    /** Defaults to `EditorCore`. */
     readonly weight?: number;
 }
 
@@ -180,10 +180,10 @@ function resolveModPart(part: Keybinding, modifier: "ctrlKey" | "metaKey"): Keyb
 }
 
 /**
- * Разворачивает `mod` в конкретный модификатор по мак-рунгу: Ctrl везде, где
- * Cmd не доезжает (pc, mac-legacy, mac-extended), и Cmd на `mac-cmd`. Условия
- * взаимоисключающие — ни в одном окружении обе записи не активны разом.
- * Чорд без `mod` возвращается как есть.
+ * Expands `mod` into a concrete modifier by mac rung: Ctrl wherever Cmd doesn't
+ * get through (pc, mac-legacy, mac-extended), and Cmd on `mac-cmd`. The conditions
+ * are mutually exclusive: no environment has both entries active at once.
+ * A chord without `mod` is returned as is.
  */
 export function expandModKey(
     chord: KeybindingChord,
@@ -209,10 +209,10 @@ export function parseChord(spec: string): KeybindingChord {
 }
 
 /**
- * Как подписывать комбинации (аналог `UILabelProvider` / `AriaLabelProvider` VS Code):
- *  - `pc`       — «Ctrl+Shift+K»;
- *  - `mac`      — глифами, как в меню macOS и в VS Code на маке: «⇧⌘K», «⌘←»;
- *  - `macWords` — словами для мака, «Shift+Cmd+K»: поиск по «cmd» и доступные подписи.
+ * How to label key combinations (counterpart of VS Code `UILabelProvider` / `AriaLabelProvider`):
+ *  - `pc`       — "Ctrl+Shift+K";
+ *  - `mac`      — glyphs, as in macOS menus and VS Code on mac: "⇧⌘K", "⌘←";
+ *  - `macWords` — words for mac, "Shift+Cmd+K": search by "cmd" and accessible labels.
  */
 export type KeybindingLabelStyle = "pc" | "mac" | "macWords";
 
@@ -224,14 +224,14 @@ interface ModifierLabels {
     readonly separator: string;
 }
 
-// Порядок модификаторов — как у VS Code (`_simpleAsString`): Ctrl, Shift, Alt, Meta.
+// Modifier order matches VS Code (`_simpleAsString`): Ctrl, Shift, Alt, Meta.
 const MODIFIER_LABELS: Record<KeybindingLabelStyle, ModifierLabels> = {
     pc: { ctrlKey: "Ctrl", shiftKey: "Shift", altKey: "Alt", metaKey: "Meta", separator: "+" },
     mac: { ctrlKey: "\u2303", shiftKey: "\u21e7", altKey: "\u2325", metaKey: "\u2318", separator: "" },
     macWords: { ctrlKey: "Ctrl", shiftKey: "Shift", altKey: "Option", metaKey: "Cmd", separator: "+" },
 };
 
-// Стрелки на маке VS Code подписывает стрелками: «⌘←», а не «⌘Left».
+// On mac VS Code labels arrow keys with arrows: "⌘←", not "⌘Left".
 const MAC_ARROWS: Partial<Record<string, string>> = {
     ArrowLeft: "\u2190",
     ArrowUp: "\u2191",
@@ -269,9 +269,9 @@ export function formatKeybinding(chord: KeybindingChord, style: KeybindingLabelS
 }
 
 /**
- * Стиль подписи под текущую клавиатуру: глифы на маке (`isMac` — ОС клавиатуры,
- * а не процесса, см. `TerminalEnvironmentService`), иначе pc. Ключ перечитывается
- * на каждом нажатии, так что подпись следует за уточнённой после старта ОС.
+ * Label style for the current keyboard: glyphs on mac (`isMac` is the keyboard's OS,
+ * not the process's, see `TerminalEnvironmentService`), otherwise pc. The key is re-read
+ * on every keypress, so the label follows the OS refined after startup.
  */
 export function keybindingLabelStyle(contextKeys: ContextKeyService | undefined): KeybindingLabelStyle {
     return contextKeys?.get("isMac") === true ? "mac" : "pc";
@@ -336,7 +336,7 @@ function matchesBinding(event: KeyboardEventLike, binding: Keybinding): boolean 
 
     // Layout-independent fallback: for single-letter shortcuts match by physical key code.
     // This makes e.g. Ctrl+S work even when the Russian layout is active. With Alt only a
-    // non-Latin key falls back (Alt+а → Alt+F): a Latin key decides by itself, so AZERTY Alt+a
+    // non-Latin key falls back (Alt + Cyrillic "a" → Alt+F): a Latin key decides by itself, so AZERTY Alt+a
     // (physical Q) stays Alt+A — the same rule as the menu bar mnemonics.
     const physicalFallback = event.ctrlKey || event.metaKey || (event.altKey && event.key.charCodeAt(0) >= 0x80);
     // No guards for multi-char keys or a missing code: `Key${"ENTER"}` is never a real code.
@@ -345,11 +345,11 @@ function matchesBinding(event: KeyboardEventLike, binding: Keybinding): boolean 
 
 export class KeybindingRegistry implements IDisposable {
     private entries: KeybindingEntry[] = [];
-    /** Записи по возрастанию приоритета ({@link sortByPriority}); `null` — пересобрать при следующем чтении. */
+    /** Entries in ascending priority ({@link sortByPriority}); `null` means rebuild on next read. */
     private prioritized: KeybindingEntry[] | null = null;
-    /** Номер следующего правила — тайбрейк при равном весе. */
+    /** Sequence number of the next rule: the tie-breaker at equal weight. */
     private nextSeq = 0;
-    /** Слои extension и user: заменяются целиком ({@link setExtensionKeybindings}, {@link setUserKeybindings}). */
+    /** Extension and user layers, replaced as a whole ({@link setExtensionKeybindings}, {@link setUserKeybindings}). */
     private layers: Record<LayerSource, IKeybindingLayer> = { extension: EMPTY_LAYER, user: EMPTY_LAYER };
 
     // Events accumulated for an in-progress chord (empty when not in chord mode).
@@ -407,18 +407,18 @@ export class KeybindingRegistry implements IDisposable {
     }
 
     /**
-     * Заменяет слой расширений (`contributes.keybindings` всех расширений разом,
-     * как upstream `setExtensionKeybindings`). Снятия слоя (`-command`) убирают
-     * записи default и extension; user-бинды они не трогают.
+     * Replaces the extension layer (`contributes.keybindings` of all extensions at once,
+     * like upstream `setExtensionKeybindings`). The layer's removals (`-command`) drop
+     * default and extension entries; user bindings are left alone.
      */
     public setExtensionKeybindings(rules: readonly IKeybindingLayerRule[]): void {
         this.setLayer("extension", rules);
     }
 
     /**
-     * Заменяет слой пользователя (`keybindings.json` целиком). Его бинды
-     * сильнее default и extension независимо от момента регистрации, снятия
-     * убирают записи default и extension — свои user-бинды не трогают.
+     * Replaces the user layer (the whole `keybindings.json`). Its bindings beat
+     * default and extension regardless of registration time; its removals drop
+     * default and extension entries but leave the user's own bindings alone.
      */
     public setUserKeybindings(rules: readonly IKeybindingLayerRule[]): void {
         this.setLayer("user", rules);
@@ -426,7 +426,7 @@ export class KeybindingRegistry implements IDisposable {
 
     private setLayer(source: LayerSource, rules: readonly IKeybindingLayerRule[]): void {
         const entries: KeybindingEntry[] = [];
-        // Stryker disable next-line ArrayDeclaration: эквивалентный — посторонний элемент без commandId ни с одной записью не совпадёт
+        // Stryker disable next-line ArrayDeclaration: equivalent, a stray element without commandId matches no entry
         const removals: IKeybindingRemoval[] = [];
         for (const rule of rules) {
             if (rule.command.startsWith("-")) {
@@ -440,10 +440,9 @@ export class KeybindingRegistry implements IDisposable {
     }
 
     /**
-     * Действующие записи по возрастанию приоритета — порядок, в котором их
-     * читает резолвер (с конца). Снятия слоёв применяются здесь, декларативно:
-     * записи никуда не удаляются, поэтому смена слоя не сдвигает приоритет
-     * остальных.
+     * Live entries in ascending priority, the order the resolver reads them in
+     * (from the end). Layer removals apply here, declaratively: entries are never
+     * deleted, so swapping a layer doesn't shift the priority of the rest.
      */
     private byPriority(): readonly KeybindingEntry[] {
         this.prioritized ??= this.computePriority();
@@ -460,10 +459,10 @@ export class KeybindingRegistry implements IDisposable {
     }
 
     /**
-     * Действующие бинды по возрастанию приоритета: из записей одной
-     * комбинации с проходящим `when` резолвер выбирает последнюю. Слой user
-     * сильнее extension, extension — дефолтов; внутри слоя — вес, при равном
-     * весе — порядок регистрации. Снятые записи сюда не попадают.
+     * Live bindings in ascending priority: among entries of one chord with a
+     * passing `when` the resolver picks the last. The user layer beats extension,
+     * extension beats defaults; within a layer weight decides, and at equal
+     * weight registration order. Removed entries are not listed.
      */
     public listBindings(): readonly IKeybindingEntrySnapshot[] {
         return this.byPriority().map((entry) => ({
@@ -501,7 +500,7 @@ export class KeybindingRegistry implements IDisposable {
         };
 
         let hasLongerCandidate = false;
-        // С конца — от самого сильного: на полном совпадении побеждает он.
+        // From the end, strongest first: it wins on a complete match.
         const entries = this.byPriority();
         for (let i = entries.length - 1; i >= 0; i--) {
             const entry = entries[i];
@@ -568,55 +567,55 @@ export class KeybindingRegistry implements IDisposable {
     }
 
     /**
-     * Returns the chord to display for a command. Ступени приоритета, сверху вниз:
-     *  1. бинд, объявленный ПОД TIER-ГЕЙТОМ и действующий сейчас — это
-     *     канонический бинд VS Code (мы гейтим только такие), и на терминале,
-     *     который его передаёт, подписывать надо именно его, а не фолбэк;
-     *  2. остальные бинды с проходящим `when` — контекстный бинд полезнее
-     *     безусловного дефолта;
-     *  3. безусловные бинды;
-     *  4. любой свой бинд, независимо от `when` и перехвата (команда в этом
-     *     контексте недоступна — подпись её канонического бинда).
+     * Returns the chord to display for a command. Priority levels, top to bottom:
+     *  1. a binding declared UNDER THE TIER GATE and active now: that's the
+     *     canonical VS Code binding (we gate only those), and on a terminal that
+     *     delivers it, it is the one to label, not the fallback;
+     *  2. other bindings with a passing `when`: a contextual binding is more
+     *     useful than an unconditional default;
+     *  3. unconditional bindings;
+     *  4. any own binding regardless of `when` and shadowing (the command is
+     *     unavailable in this context, so label its canonical binding).
      *
-     * Внутри ступени свои записи идут от старшего слоя и веса (пользовательский
-     * бинд — раньше дефолтного), при равных — в порядке регистрации (primary
-     * раньше запасных). В ступенях 1–3 пропускаются перехваченные записи: те,
-     * чью комбинацию резолвер в этом контексте отдал бы другой команде (более
-     * сильной записи на той же комбинации или полной комбинации-префиксу), —
-     * подпись не обещает чужую клавишу.
+     * Within a level own entries go from the higher layer and weight (a user
+     * binding before a default one), and on ties in registration order (primary
+     * before fallbacks). Levels 1–3 skip shadowed entries: those whose chord the
+     * resolver would hand to another command in this context (a stronger entry
+     * on the same chord or a complete prefix chord), so the label never promises
+     * someone else's key.
      *
-     * Поперёк ступеней действует доставляемость: комбинация, которую терминал
-     * текущего tier'а не передаёт, проигрывает любой доставляемой — иначе
-     * палитра и меню подписывали бы команду нерабочим биндом (так было у Format
-     * Document: Shift+Alt+F и чорд делят один action-wide `when`, и первым шёл
-     * недостижимый; и у палитры, где условный Ctrl+Shift+P обгонял безусловный
-     * F1). Если доставляемой комбинации нет вовсе, подпись остаётся прежней —
-     * честнее показать канонический бинд, чем ничего.
+     * Deliverability cuts across levels: a chord the current tier's terminal
+     * doesn't deliver loses to any deliverable one, otherwise the command palette
+     * and menus would label the command with a dead binding (as happened with Format
+     * Document: Shift+Alt+F and the chord share one action-wide `when`, and the
+     * unreachable one came first; and in the command palette, where the conditional
+     * Ctrl+Shift+P beat the unconditional F1). With no deliverable chord at all
+     * the label stays as before: showing the canonical binding is more honest than nothing.
      *
-     * `overlay` — контекст «что если» (см. `ContextKeyService.evaluate`): подпись
-     * бинда поля, которое сейчас не в фокусе, считается с его фокус-ключом.
+     * `overlay` is a "what if" context (see `ContextKeyService.evaluate`): the label
+     * of a binding for a field that isn't focused now is computed with its focus key.
      */
     public getKeybindingForCommand(
         commandId: string,
         contextKeys?: ContextKeyService,
         overlay?: Readonly<Record<string, boolean | string | number>>,
     ): KeybindingChord | undefined {
-        // Без контекста tier неизвестен — считаем, что доезжает всё (подпись
-        // как раньше, по порядку регистрации).
+        // Without context the tier is unknown: assume everything gets through (label
+        // as before, by registration order).
         const legacyTerminal = contextKeys?.get("tier") === "legacy";
         const deliverable = (chord: KeybindingChord): boolean => !legacyTerminal || !requiresExtendedKeys(chord);
-        // Отличить канонический бинд от фолбэка по тексту `when` нельзя: оба
-        // несут ещё и область команды. Зато можно по смыслу — канонический
-        // перестаёт действовать, если «ухудшить» терминал до legacy.
+        // The `when` text can't tell the canonical binding from the fallback: both
+        // also carry the command's scope. Semantics can: the canonical one stops
+        // applying once the terminal is "downgraded" to legacy.
         const asLegacy = { ...overlay, tier: "legacy" };
 
         const prioritized = this.byPriority();
         const passes = (entry: KeybindingEntry): boolean =>
             !entry.when || contextKeys?.evaluate(entry.when, overlay) === true;
-        // Затенена ли запись в этом контексте — то есть отдал бы резолвер её
-        // комбинацию другой команде: более сильной записи на той же комбинации
-        // или более короткой комбинации-префиксу (полное совпадение на меньшей
-        // глубине побеждает всегда). Затенённую подписывать — обещать чужое.
+        // Whether the entry is shadowed in this context, i.e. the resolver would hand
+        // its chord to another command: a stronger entry on the same chord or a
+        // shorter prefix chord (a complete match at a lower depth always wins).
+        // Labeling a shadowed entry promises someone else's key.
         const shadowed = (entry: KeybindingEntry): boolean =>
             prioritized.some(
                 (other, index) =>
@@ -626,8 +625,8 @@ export class KeybindingRegistry implements IDisposable {
                         ? chordsEqual(other.chord, entry.chord.slice(0, other.chord.length))
                         : chordsEqual(other.chord, entry.chord) && index > prioritized.indexOf(entry)),
             );
-        // Свои записи — от старшего слоя и веса; внутри одного — в порядке
-        // регистрации, чтобы primary экшена шёл раньше его запасных биндов.
+        // Own entries from the higher layer and weight; within one, in registration
+        // order, so the action's primary comes before its fallback bindings.
         const own = prioritized
             .filter((entry) => entry.commandId === commandId)
             .sort((a, b) => b.layer - a.layer || b.weight - a.weight || a.seq - b.seq);
@@ -644,8 +643,8 @@ export class KeybindingRegistry implements IDisposable {
             if (!passes(entry)) continue;
             (contextKeys?.evaluate(entry.when, asLegacy) === true ? passing : gated).push(entry.chord);
         }
-        // Последняя ступень — все свои записи без учёта контекста: команда здесь
-        // недоступна, и подпись — её канонический (первый) бинд, как раньше.
+        // The last level is all own entries ignoring context: the command is unavailable
+        // here, and the label is its canonical (first) binding, as before.
         const ranked = [...gated, ...passing, ...unconditional, ...own.map((entry) => entry.chord)];
         return ranked.find(deliverable) ?? ranked.at(0);
     }

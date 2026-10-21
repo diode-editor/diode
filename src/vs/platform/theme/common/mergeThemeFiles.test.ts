@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { IThemeFile } from "./iThemeFile.ts";
 import { mergeThemeFiles } from "./mergeThemeFiles.ts";
 
-/** Цепочка — та же по форме, что Dark Modern → Dark+ → Dark VS. */
+/** The chain has the same shape as Dark Modern → Dark+ → Dark VS. */
 const DARK_VS: IThemeFile = {
     name: "Dark VS",
     type: "dark",
@@ -67,9 +67,9 @@ describe("mergeThemeFiles — семантика include как в scripts/impor
 
     it("name и type — от включающей темы; без своего type тема их не наследует у базы", () => {
         expect(mergeThemeFiles(DARK_VS, DARK_PLUS).name).toBe("Dark+");
-        // Dark+ без `type`: реестр сам подставит dark, база тут ни при чём —
-        // в VS Code тип определяет манифест (uiTheme), а не include. Ключа при
-        // этом нет вовсе (не `type: undefined`).
+        // Dark+ has no `type`: the registry fills in dark itself, the base plays no part; in VS Code
+        // the manifest (uiTheme) sets the type, not include. The key is absent altogether (not
+        // `type: undefined`).
         expect(Object.keys(mergeThemeFiles(DARK_VS, DARK_PLUS))).toEqual(["colors", "tokenColors", "name"]);
         expect(mergeThemeFiles(DARK_VS, DARK_MODERN).type).toBe("dark");
     });

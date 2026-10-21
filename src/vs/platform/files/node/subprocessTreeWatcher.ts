@@ -9,13 +9,13 @@ import type { ITreeWatcherRequest } from "./treeWatcherProtocol.ts";
 import { parseTreeWatcherResponse } from "./treeWatcherProtocol.ts";
 
 /**
- * Смертей **подряд** до отказа от слежения: падать процессу нечем (chokidar
- * ловит свои ошибки сам), серия — это сломанное окружение, и бесконечные
- * спавны хуже честного «живём без слежения».
+ * Deaths **in a row** before giving up on watching: the process has nothing to crash on (chokidar
+ * catches its own errors), so a streak means a broken environment, and endless respawns are worse
+ * than an honest "no watching".
  */
 const DEFAULT_MAX_RESTARTS = 3;
 
-/** Прожив столько, процесс обнуляет счётчик смертей — иначе «подряд» стало бы «за сессию». */
+/** After living this long, the process resets the death counter, otherwise "in a row" would become "per session". */
 const HEALTHY_UPTIME_MS = 60_000;
 
 export interface IWatcherProcess {
@@ -23,11 +23,11 @@ export interface IWatcherProcess {
     onMessage(listener: (message: unknown) => void): void;
     onExit(listener: () => void): void;
     /**
-     * Отдельно от {@link onExit}: у неудачного спавна `exit` может не прийти
-     * вовсе, а `error` без слушателя у EventEmitter'а — исключение, смерть редактора.
+     * Separate from {@link onExit}: a failed spawn may never emit `exit`, and an EventEmitter
+     * `error` without a listener throws, killing the editor.
      */
     onError(listener: (error: unknown) => void): void;
-    /** Синхронно. */
+    /** Synchronous. */
     kill(): void;
 }
 
@@ -45,18 +45,18 @@ interface IWatchRequest {
 }
 
 /**
- * Обход дерева — в **отдельном процессе** (как `--type=fileWatcher` у VS Code):
- * рекурсивный `readdir`+`stat`+inotify — секунды работы, в главном цикле они
- * роняли отклик на сотни мс при открытии файла в большом репозитории.
+ * Tree walking runs in a **separate process** (like VS Code's `--type=fileWatcher`):
+ * recursive `readdir`+`stat`+inotify is seconds of work, and on the main loop it
+ * cost hundreds of ms of responsiveness when opening a file in a large repository.
  *
- * Не `worker_threads`: его `stat` идут в тот же libuv-threadpool (4 потока),
- * что и чтение открываемых файлов, — обход заткнул бы открытие файла. У процесса
- * свои threadpool и куча.
+ * Not `worker_threads`: its `stat` calls share the libuv threadpool (4 threads)
+ * with reads of files being opened, so the walk would starve file opening. A process
+ * has its own threadpool and heap.
  *
- * Процесс поднимается лениво, по первому `watchTree`: спавн на старте лишь
- * перенёс бы задержку. Дедупликация (`SharedTreeWatcher`) — внутри процесса.
- * Смерть ребёнка и несостоявшийся спавн сходятся в одну ветку: перезапуск с
- * переподпиской, после серии — «живём без слежения»; уронить редактор не вправе.
+ * The process starts lazily, on the first `watchTree`: spawning at startup would only
+ * move the delay. Deduplication (`SharedTreeWatcher`) lives inside the process.
+ * Child death and a failed spawn take the same branch: restart and re-subscribe,
+ * and after a streak, "no watching"; it must never crash the editor.
  */
 export class SubprocessTreeWatcher implements ITreeFileWatcher {
     private readonly logger: ILogger | undefined;
@@ -85,32 +85,32 @@ export class SubprocessTreeWatcher implements ITreeFileWatcher {
     ): IDisposable {
         const id = this.nextId++;
         this.requests.set(id, { rootPath, options, onChanges });
-        // Только что заспавненному процессу слать можно: node буферизует IPC до
-        // первого читателя и отдаёт в порядке отправки.
+        // Sending to a just-spawned process is fine: node buffers IPC until the
+        // first reader and delivers in send order.
         this.ensureProcess()?.send({ t: "watch", id, rootPath, options });
         return {
             dispose: () => {
                 if (!this.requests.delete(id)) return;
                 this.child?.send({ t: "unwatch", id });
-                // Процесс не гасим на последнем отписавшемся: в простое он ничего
-                // не стоит, а следующий запрос иначе платил бы за новый спавн.
+                // Don't kill the process on the last unsubscribe: idle it costs nothing,
+                // and the next request would otherwise pay for a new spawn.
             },
         };
     }
 
     /**
-     * Синхронно — для reload окна: супервизор затем блокируется в `spawnSync`,
-     * и не убитый watcher пережил бы окно, держа inotify-подписки рядом с новыми.
+     * Synchronous, for window reload: the supervisor then blocks in `spawnSync`, and a
+     * watcher left alive would outlive the window, holding inotify watches next to the new ones.
      */
     public dispose(): void {
         this.disposed = true;
-        // Иначе пачка, уже лежащая в канале, доехала бы до подписчика после прощания.
+        // Otherwise a batch already in the channel would reach the subscriber after disposal.
         this.requests.clear();
         this.child?.kill();
         this.child = null;
     }
 
-    /** `null` — слежения больше нет. */
+    /** `null` means watching is over. */
     private ensureProcess(): IWatcherProcess | null {
         if (this.child !== null) return this.child;
         if (this.disposed || this.gaveUp) return null;
@@ -141,15 +141,15 @@ export class SubprocessTreeWatcher implements ITreeFileWatcher {
             this.logger?.[message.level](message.message, ...message.args);
             return;
         }
-        // Пачка могла обогнать уже отправленный `unwatch` — доставлять некому.
+        // The batch may have overtaken an already sent `unwatch`: nobody to deliver to.
         this.requests.get(message.id)?.onChanges(message.changes);
     }
 
     /**
-     * Два реальных пути: `send()` в канал мёртвого процесса (`ERR_IPC_CHANNEL_CLOSED`
-     * приходит событием позже, `try/catch` вокруг `send` не спасает) и неудачный
-     * спавн (`EMFILE`/`EAGAIN`, `ENOENT`), после которого `exit` может не прийти
-     * вовсе — без этой ветки прокси навсегда остался бы с мёртвой ссылкой.
+     * Two real paths: `send()` into a dead process's channel (`ERR_IPC_CHANNEL_CLOSED`
+     * arrives later as an event, `try/catch` around `send` doesn't help) and a failed
+     * spawn (`EMFILE`/`EAGAIN`, `ENOENT`), after which `exit` may never come; without
+     * this branch the proxy would hold a dead reference forever.
      */
     private handleChildError(child: IWatcherProcess, error: unknown): void {
         if (this.child !== child) return;
@@ -160,9 +160,9 @@ export class SubprocessTreeWatcher implements ITreeFileWatcher {
         this.handleExit(child);
     }
 
-    /** События за время перезапуска теряются — об этом пишем в лог. */
+    /** Events during a restart are lost; we log that. */
     private handleExit(child: IWatcherProcess): void {
-        // Опоздавший exit снятого процесса (в т. ч. следом за обработанным `error`) не трогает новый.
+        // A late exit of a retired process (including one right after a handled `error`) leaves the new one alone.
         if (this.child !== child) return;
         this.child = null;
         if (this.disposed || this.requests.size === 0) return;
@@ -187,18 +187,18 @@ export class SubprocessTreeWatcher implements ITreeFileWatcher {
     }
 }
 
-/** `main.ts` гасит его при reload окна. */
-// Stryker disable next-line StringLiteral: id токена — только имя в диагностике контейнера
-// («No binding for …», цикл зависимостей); на разрешение биндинга влияет идентичность объекта.
+/** `main.ts` kills it on window reload. */
+// Stryker disable next-line StringLiteral: the token id is only a name in container diagnostics
+// ("No binding for …", dependency cycle); binding resolution depends on object identity.
 export const SubprocessTreeWatcherDIToken = token<SubprocessTreeWatcher>("SubprocessTreeWatcher");
 
-/** stdout ребёнку закрыт: он делит терминал с редактором, случайная печать испортила бы кадр. */
+/** The child's stdout is closed: it shares the terminal with the editor, and stray output would corrupt the frame. */
 function spawnWatcherProcess(logger: ILogger | undefined): IWatcherProcess {
     const child = spawnSelfAsRole("DIODE_FILE_WATCHER", { stderr: "pipe" });
     const guard = new GuardedChildProcess(child, { label: "file-watcher", logger, logStderr: true });
     return {
         send: (message) => {
-            // Ловит только синхронный throw; асинхронный ERR_IPC_CHANNEL_CLOSED приходит в onError.
+            // Catches only a synchronous throw; the async ERR_IPC_CHANNEL_CLOSED goes to onError.
             try {
                 child.send(message);
             } catch {
@@ -210,13 +210,13 @@ function spawnWatcherProcess(logger: ILogger | undefined): IWatcherProcess {
         },
         onExit: (listener) => {
             guard.onDidEnd((end) => {
-                // Stryker disable next-line ConditionalExpression: на конце с ошибкой onError уже провёл смерть (handleChildError → handleExit), и второй handleExit — no-op по сверке процесса
+                // Stryker disable next-line ConditionalExpression: on an error end onError has already handled the death (handleChildError → handleExit), and a second handleExit is a no-op via the process check
                 if (end.error === undefined) listener();
             });
         },
         onError: (listener) => {
             guard.onDidEnd((end) => {
-                // Stryker disable next-line ConditionalExpression: на чистом выходе onExit (подписан раньше) уже снял процесс, и handleChildError выходит на сверке процесса
+                // Stryker disable next-line ConditionalExpression: on a clean exit onExit (subscribed earlier) has already retired the process, and handleChildError returns at the process check
                 if (end.error !== undefined) listener(end.error);
             });
         },

@@ -1,13 +1,12 @@
 import type { IAssetAccess } from "../../../base/common/assets/iAssetAccess.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 
-// Как `localizeManifest` эталона — одним проходом по всему дереву манифеста, а
-// не точечно у команд: ключи сидят и в `displayName`, и в заголовках view, и в
-// описаниях настроек, а локализованный манифест видит и само расширение как
-// `packageJSON`. Ненайденный ключ остаётся `%key%` и уходит в лог; битый бандл
-// загрузку не роняет.
+// Like upstream `localizeManifest`: one pass over the whole manifest tree, not just commands. Keys
+// live in `displayName`, view titles and setting descriptions, and the extension itself sees the
+// localized manifest as `packageJSON`. A missing key stays `%key%` and is logged; a broken bundle
+// doesn't fail loading.
 
-/** `Partial`: обращение по отсутствующему ключу обязано давать `undefined`. */
+/** `Partial`: a lookup of a missing key must yield `undefined`. */
 export type INlsBundle = Readonly<Partial<Record<string, string>>>;
 
 const NLS_PREFIX = "package.nls";
@@ -16,8 +15,8 @@ const NLS_SUFFIX = ".json";
 export const NLS_BASE_FILE = `${NLS_PREFIX}${NLS_SUFFIX}`;
 
 /**
- * Локаль, её базовый язык (`pt-br` → `pt`), в хвосте `package.nls.json`. Для
- * `en` кандидат один: `package.nls.en.json` расширения не кладут.
+ * The locale, its base language (`pt-br` → `pt`), then `package.nls.json` last. For `en` there is
+ * a single candidate: extensions don't ship `package.nls.en.json`.
  */
 export function nlsFileCandidates(locale: string): readonly string[] {
     const normalized = locale.trim().toLowerCase();
@@ -32,8 +31,8 @@ export function nlsFileCandidates(locale: string): readonly string[] {
 }
 
 /**
- * Нестроковое значение — ключ не найден (попадёт в лог), а не молчаливый
- * `[object Object]`. Бросает на невалидном JSON и не-объекте.
+ * A non-string value counts as a missing key (and gets logged), not a silent `[object Object]`.
+ * Throws on invalid JSON and on a non-object.
  */
 export function parseNlsBundle(raw: string): INlsBundle {
     const parsed: unknown = JSON.parse(raw);
@@ -47,7 +46,7 @@ export function parseNlsBundle(raw: string): INlsBundle {
     return bundle;
 }
 
-/** `"%java.clean%"` → `java.clean`; `"%"` и `"%%"` — не ключи. */
+/** `"%java.clean%"` → `java.clean`; `"%"` and `"%%"` are not keys. */
 export function nlsKeyOf(value: string): string | undefined {
     if (value.length <= 2 || !value.startsWith("%") || !value.endsWith("%")) return undefined;
     return value.slice(1, -1);
@@ -55,11 +54,11 @@ export function nlsKeyOf(value: string): string | undefined {
 
 export interface ILocalizeResult<T> {
     readonly value: T;
-    /** Без дублей, в порядке обхода. */
+    /** Deduplicated, in traversal order. */
     readonly unresolved: readonly string[];
 }
 
-/** Возвращает новое дерево, исходный манифест не мутируется. */
+/** Returns a new tree; the source manifest is not mutated. */
 export function localizeManifest<T>(manifest: T, bundle: INlsBundle | undefined): ILocalizeResult<T> {
     const unresolved: string[] = [];
     return { value: localizeNode(manifest, bundle, unresolved) as T, unresolved };
@@ -86,8 +85,8 @@ function localizeNode(node: unknown, bundle: INlsBundle | undefined, unresolved:
 }
 
 /**
- * Через {@link IAssetAccess}, а не `fs`: builtin-расширения живут в SEA-бандле.
- * Битый бандл локали — берётся следующий кандидат.
+ * Goes through {@link IAssetAccess}, not `fs`: builtin extensions live in the SEA bundle.
+ * On a broken locale bundle the next candidate is taken.
  */
 export async function loadNlsBundle(
     assets: IAssetAccess,
@@ -107,7 +106,7 @@ export async function loadNlsBundle(
     return undefined;
 }
 
-/** Ненайденные ключи — одной строкой в лог: по строке на ключ было бы 30 строк на `redhat.java`. */
+/** Missing keys go to the log as one line: a line per key would be 30 lines for `redhat.java`. */
 export async function localizeExtensionManifest<T>(
     manifest: T,
     assets: IAssetAccess,

@@ -2,6 +2,6 @@ import type { ITerminalBackend } from "@tuidom/core/backend/iTerminalBackend";
 
 import { token } from "../../instantiation/common/diContainer.ts";
 
-// Тип живёт в `@tuidom/core`, который токенов не объявляет, — токен в platform.
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// The type lives in `@tuidom/core`, which declares no tokens, so the token is in platform.
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference; the string is only a debug label
 export const TerminalBackendDIToken = token<ITerminalBackend>("TerminalBackend");

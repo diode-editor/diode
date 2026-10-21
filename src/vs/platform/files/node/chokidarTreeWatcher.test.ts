@@ -15,7 +15,7 @@ import { ChokidarTreeWatcher, isExcluded } from "./chokidarTreeWatcher.ts";
 
 class FakeWatcher extends EventEmitter {
     public closed = 0;
-    /** Как настоящий chokidar: событие уходит и именованным слушателям, и в 'all'. */
+    /** Like real chokidar: an event goes both to named listeners and to 'all'. */
     public fire(event: string, ...args: unknown[]): void {
         this.emit(event, ...args);
         this.emit("all", event, ...args);
@@ -65,7 +65,7 @@ describe("ChokidarTreeWatcher", () => {
             watcher.created[0].fire("add", "/repo/a.ts");
             watcher.created[0].fire("change", "/repo/b.ts");
             watcher.created[0].fire("unlink", "/repo/c.ts");
-            expect(batches).toHaveLength(0); // до истечения окна потребителя не будим
+            expect(batches).toHaveLength(0); // the consumer isn't woken before the window expires
 
             vi.advanceTimersByTime(50);
             expect(batches).toEqual([
@@ -148,11 +148,11 @@ describe("ChokidarTreeWatcher", () => {
             const link = { isSymbolicLink: () => true };
             const file = { isSymbolicLink: () => false };
 
-            watcher.created[0].fire("add", "/repo/bazel-out", link); // начальный обход — не изменение
-            watcher.created[0].fire("unlink", "/repo/gone", link); // не `add` — доезжает и до `ready`
-            watcher.created[0].fire("add", "/repo/early.ts", file); // не симлинк — доезжает
+            watcher.created[0].fire("add", "/repo/bazel-out", link); // initial scan, not a change
+            watcher.created[0].fire("unlink", "/repo/gone", link); // not `add`: delivered even before `ready`
+            watcher.created[0].fire("add", "/repo/early.ts", file); // not a symlink: delivered
             watcher.created[0].fire("ready");
-            watcher.created[0].fire("add", "/repo/bazel-bin", link); // создан после старта
+            watcher.created[0].fire("add", "/repo/bazel-bin", link); // created after startup
             vi.advanceTimersByTime(50);
 
             expect(batches).toEqual([
@@ -199,7 +199,7 @@ describe("ChokidarTreeWatcher", () => {
 });
 
 describe("ChokidarTreeWatcher — настоящий chokidar", () => {
-    /** Единственный тест без подмены `createWatcher`: excludes проверяем на живом обходе. */
+    /** The only test without a stubbed `createWatcher`: excludes are checked on a live traversal. */
     it("в исключённый каталог watcher не заходит, за остальным следит", async () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), "diode-tree-watch-"));
         fs.mkdirSync(path.join(root, "node_modules", "pkg"), { recursive: true });
@@ -210,7 +210,7 @@ describe("ChokidarTreeWatcher — настоящий chokidar", () => {
             seen.push(...changes.map((c) => c.path)),
         );
         try {
-            // До `ready` chokidar с `ignoreInitial` глотает найденное — ждём.
+            // Before `ready` chokidar with `ignoreInitial` swallows what it finds, so wait.
             await new Promise((resolve) => setTimeout(resolve, 400));
 
             fs.writeFileSync(path.join(root, "node_modules", "pkg", "index.js"), "x");
@@ -227,7 +227,7 @@ describe("ChokidarTreeWatcher — настоящий chokidar", () => {
 });
 
 describe("ChokidarTreeWatcher — симлинки (как parcel-watcher эталона)", () => {
-    /** Ждёт, пока в `seen` появится `expected` (позитивный маркер вместо слепой паузы). */
+    /** Waits until `expected` shows up in `seen` (a positive marker instead of a blind pause). */
     async function waitFor(seen: readonly string[], expected: string): Promise<void> {
         const deadline = Date.now() + 10000;
         while (!seen.includes(expected)) {
@@ -236,7 +236,7 @@ describe("ChokidarTreeWatcher — симлинки (как parcel-watcher эта
         }
     }
 
-    /** `junction` — ссылка без прав администратора на Windows; на POSIX тип игнорируется. */
+    /** `junction` is a link that needs no admin rights on Windows; on POSIX the type is ignored. */
     function makeTree(): { base: string; root: string; outside: string } {
         const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "diode-tree-link-")));
         const root = path.join(base, "ws");
@@ -254,7 +254,7 @@ describe("ChokidarTreeWatcher — симлинки (как parcel-watcher эта
             seen.push(...changes.map((c) => c.path)),
         );
         try {
-            await new Promise((resolve) => setTimeout(resolve, 400)); // `ready`, см. тест выше
+            await new Promise((resolve) => setTimeout(resolve, 400)); // `ready`, see the test above
 
             fs.writeFileSync(path.join(outside, "pkg", "BUILD.bazel"), "x");
             const marker = path.join(root, "src", "BUILD.bazel");
@@ -287,7 +287,7 @@ describe("ChokidarTreeWatcher — симлинки (как parcel-watcher эта
             const expected = path.join(linkedRoot, "src", "a.ts");
             await waitFor(seen, expected);
 
-            // Все пути — под исходным корнем, excludes якорятся от него же.
+            // All paths are under the original root, and excludes are anchored to it too.
             expect(seen.every((p) => p.startsWith(linkedRoot + path.sep))).toBe(true);
             expect(seen.filter((p) => p.includes("ignored"))).toEqual([]);
         } finally {

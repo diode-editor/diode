@@ -1,25 +1,25 @@
-/** Пути (`configuration`, `icon.*`) — относительно каталога расширения. */
+/** Paths (`configuration`, `icon.*`) are relative to the extension directory. */
 export interface ILanguageContribution {
     readonly id: string;
 
-    /** Первый — display name; пустой массив — язык не показывается в picker. */
+    /** The first one is the display name; an empty array hides the language from the picker. */
     readonly aliases?: readonly string[];
 
-    /** С точкой: `".ts"`. */
+    /** With the dot: `".ts"`. */
     readonly extensions?: readonly string[];
 
     readonly filenames?: readonly string[];
 
     readonly filenamePatterns?: readonly string[];
 
-    /** Регэксп по первой строке. */
+    /** Regexp matched against the first line. */
     readonly firstLine?: string;
 
     readonly mimetypes?: readonly string[];
 
     readonly configuration?: string;
 
-    /** Не используется. */
+    /** Unused. */
     readonly icon?: {
         readonly light: string;
         readonly dark: string;

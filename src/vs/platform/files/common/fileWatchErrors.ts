@@ -1,13 +1,13 @@
-// На ENOSPC/EMFILE пользователю нужен рецепт, а не трасса: VS Code показывает
-// уведомление, у нас пока строка в лог (docs/TODO/EnvironmentTuning.md).
+// On ENOSPC/EMFILE the user needs a fix, not a stack trace: VS Code shows a
+// notification, we log a line for now (docs/TODO/EnvironmentTuning.md).
 
 const WATCH_LIMIT_CODES = new Set(["ENOSPC", "EMFILE"]);
 
 export interface FileWatchErrorInfo {
     readonly code: string | undefined;
-    /** По такой ошибке имеет смысл советовать тюнинг. */
+    /** For this error it makes sense to suggest tuning. */
     readonly isWatchLimit: boolean;
-    /** Пустая строка, если советовать нечего. */
+    /** Empty string if there's nothing to suggest. */
     readonly hint: string;
 }
 
