@@ -14,12 +14,12 @@ function action(overrides: Partial<CommandAction>): CommandAction {
     return { id: "test.command", title: "Test: Command", run: () => undefined, ...overrides };
 }
 
-describe("menuItemsOfAction — деривация contributions из co-located размещений", () => {
-    it("экшен без menus → пусто", () => {
+describe("menuItemsOfAction — derives contributions from co-located placements", () => {
+    it("action without menus → empty", () => {
         expect(menuItemsOfAction(action({}))).toEqual([]);
     });
 
-    it("label: явный title размещения → shortTitle → title экшена", () => {
+    it("label: explicit placement title → shortTitle → action title", () => {
         const explicit = menuItemsOfAction(
             action({
                 shortTitle: "Command",
@@ -35,7 +35,7 @@ describe("menuItemsOfAction — деривация contributions из co-located
         expect(full[0].title).toBe("Test: Command");
     });
 
-    it("переносит command=id и поля размещения (group/order/args/shortcut)", () => {
+    it("carries command=id and placement fields (group/order/args/shortcut)", () => {
         const args = (): readonly unknown[] => ["/x"];
         const [item] = menuItemsOfAction(
             action({
@@ -52,7 +52,7 @@ describe("menuItemsOfAction — деривация contributions из co-located
         });
     });
 
-    it("enablement наследуется от экшена, своё у размещения — сужает (AND)", () => {
+    it("enablement is inherited from the action, the placement's own one narrows it (AND)", () => {
         const inherited = menuItemsOfAction(
             action({ enablement: "gitHasRepo", menus: [{ menuId: MenuId.ExplorerContext }] }),
         );
@@ -71,7 +71,7 @@ describe("menuItemsOfAction — деривация contributions из co-located
     });
 });
 
-describe("MENU_CONTRIBUTIONS — итоговые встроенные меню", () => {
+describe("MENU_CONTRIBUTIONS — resulting built-in menus", () => {
     function registryOfBuiltins(contextKeys?: ContextKeyService): MenuRegistry {
         return new MenuRegistry(
             new CommandRegistry(),
@@ -87,7 +87,7 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
             .map((e) => (e.type === "separator" ? "─" : e.label));
     }
 
-    it("EditorContext: состав и порядок — дословно upstream'ские", () => {
+    it("EditorContext: items and order match upstream verbatim", () => {
         // Upstream groups: `1_modification` → `1_quickfix` → `9_cutcopypaste` →
         // `z_commands` (`navigation` always comes first, but its items are gated
         // by `editorHas*Provider` keys — without providers they're absent here).
@@ -102,7 +102,7 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
         ]);
     });
 
-    it("EditorContext: пункты языковых фич приходят с ключами провайдеров", () => {
+    it("EditorContext: language feature items come with provider keys", () => {
         const contextKeys = new ContextKeyService();
         contextKeys.set("editorHasDefinitionProvider", true);
         contextKeys.set("editorHasReferenceProvider", true);
@@ -133,7 +133,7 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
         ]);
     });
 
-    it("ExplorerContext: полный состав c label'ами из shortTitle", () => {
+    it("ExplorerContext: full item set with labels from shortTitle", () => {
         expect(labels(MenuId.ExplorerContext, { path: "/ws/a.txt", canPaste: true })).toEqual([
             "New File...",
             "New Folder...",
@@ -154,7 +154,7 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
         ]);
     });
 
-    it("ExplorerContext: «Compare with Selected» появляется после Select for Compare", () => {
+    it("ExplorerContext: 'Compare with Selected' appears after Select for Compare", () => {
         const contextKeys = new ContextKeyService();
         expect(labels(MenuId.ExplorerContext, { path: "/ws/a.txt", canPaste: true }, contextKeys)).not.toContain(
             "Compare with Selected",
@@ -165,11 +165,11 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
         );
     });
 
-    it("ExplorerContext: пустой буфер обмена прячет Paste", () => {
+    it("ExplorerContext: an empty clipboard hides Paste", () => {
         expect(labels(MenuId.ExplorerContext, { path: "/ws/a.txt", canPaste: false })).not.toContain("Paste");
     });
 
-    it("ViewTitle: пункты фильтруются по id view из menuContext", () => {
+    it("ViewTitle: items are filtered by the view id from menuContext", () => {
         const contextKeys = new ContextKeyService();
         contextKeys.set("scmViewletVisible", true);
         // Without a repository the git top (Pull/Push/Checkout/Fetch) is hidden by when gates;
@@ -184,7 +184,7 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
         expect(labels(MenuId.ViewTitle, { view: "ghost" }, contextKeys)).toEqual([]);
     });
 
-    it("ViewTitle CHANGES: repo-state включает git-топ (подменю — только с резолвером)", () => {
+    it("ViewTitle CHANGES: repo-state includes the git top items (submenu only with a resolver)", () => {
         const contextKeys = new ContextKeyService();
         contextKeys.set("scmViewletVisible", true);
         contextKeys.set("gitHasRepo", true);

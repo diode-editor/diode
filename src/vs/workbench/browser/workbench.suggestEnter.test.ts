@@ -12,7 +12,7 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
  * and Enter (`acceptSelectedSuggestion` under `suggestWidgetVisible`) replaced `cons{`
  * with `console`.
  */
-describe("Workbench — Enter после несловесного символа при открытом попапе", () => {
+describe("Workbench: Enter after a non-word character with the popup open", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -54,7 +54,7 @@ describe("Workbench — Enter после несловесного символа
         ws.dispose();
     });
 
-    it("`{` закрывает попап, и Enter снова переносит строку", async () => {
+    it("`{` closes the popup, and Enter breaks the line again", async () => {
         for (const char of "cons") h.testApp.sendKey(char);
         await settle();
         h.testApp.sendKey("{");
@@ -65,7 +65,7 @@ describe("Workbench — Enter после несловесного символа
         expect(editor().viewState.document.getText()).toBe("cons{\n    \n");
     });
 
-    it("добор буквами попап не гасит — Enter всё ещё принимает пункт", async () => {
+    it("typing more letters keeps the popup open; Enter still accepts the item", async () => {
         for (const char of "cons") h.testApp.sendKey(char);
         await settle();
         h.testApp.sendKey("o");

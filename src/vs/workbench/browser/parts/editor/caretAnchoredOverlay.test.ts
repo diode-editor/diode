@@ -18,7 +18,7 @@ function setup(): { body: BodyElement; app: TestApp; element: TextLabelElement; 
 }
 
 describe("CaretAnchoredOverlay", () => {
-    it("создаёт скрытую сессию на слое хоста", () => {
+    it("creates a hidden session on the host layer", () => {
         const { body, element, overlay } = setup();
 
         expect(body.overlayLayer.querySelector("#probe")).toBe(element);
@@ -27,7 +27,7 @@ describe("CaretAnchoredOverlay", () => {
         overlay.dispose();
     });
 
-    it("openAt открывает, close закрывает и идемпотентен", () => {
+    it("openAt opens, close closes and is idempotent", () => {
         const { overlay } = setup();
 
         overlay.openAt({ screenX: 5, screenY: 5, preferBelow: true });
@@ -39,7 +39,7 @@ describe("CaretAnchoredOverlay", () => {
         overlay.dispose();
     });
 
-    it("below (по умолчанию): попап под строкой каретки", () => {
+    it("below (default): popup under the cursor line", () => {
         const { app, element, overlay } = setup();
 
         overlay.openAt({ screenX: 10, screenY: 12, preferBelow: true });
@@ -50,7 +50,7 @@ describe("CaretAnchoredOverlay", () => {
         overlay.dispose();
     });
 
-    it("aboveElseBelow: над строкой каретки, если сверху хватает места (граница включительная)", () => {
+    it("aboveElseBelow: above the cursor line if there is room above (inclusive bound)", () => {
         const { app, element, overlay } = setup();
         const height = element.getMaxIntrinsicHeight(element.getMaxIntrinsicWidth(0));
 
@@ -64,7 +64,7 @@ describe("CaretAnchoredOverlay", () => {
         overlay.dispose();
     });
 
-    it("aboveElseBelow: сверху места нет — под кареткой, а не поверх неё", () => {
+    it("aboveElseBelow: no room above — below the cursor, not over it", () => {
         const { app, element, overlay } = setup();
         const height = element.getMaxIntrinsicHeight(element.getMaxIntrinsicWidth(0));
 
@@ -75,7 +75,7 @@ describe("CaretAnchoredOverlay", () => {
         overlay.dispose();
     });
 
-    it("setAnchor двигает открытый попап и сам его не открывает", () => {
+    it("setAnchor moves an open popup and does not open it by itself", () => {
         const { app, element, overlay } = setup();
 
         overlay.setAnchor({ screenX: 3, screenY: 3, preferBelow: true });
@@ -89,7 +89,7 @@ describe("CaretAnchoredOverlay", () => {
         overlay.dispose();
     });
 
-    it("dispose снимает сессию со слоя", () => {
+    it("dispose removes the session from the layer", () => {
         const { body, overlay } = setup();
         overlay.openAt({ screenX: 5, screenY: 5, preferBelow: true });
 

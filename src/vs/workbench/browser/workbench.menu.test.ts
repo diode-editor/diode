@@ -578,7 +578,7 @@ describe("Workbench — editor context menu", () => {
 });
 
 describe("Workbench — keybinding vs menu mnemonic", () => {
-    it("кейбинд на Alt+буква сильнее мнемоники меню (как в VS Code): команда, а не меню View", () => {
+    it("a keybinding on Alt+letter beats the menu mnemonic (as in VS Code): the command, not the View menu", () => {
         const { testApp, commands } = createAppTestHarness({
             containerOverrides: (container) => {
                 container.bind(UserKeybindingsDIToken, () => [
@@ -604,19 +604,19 @@ describe("Workbench — mnemonics and Alt keybindings in a non-Latin layout", ()
         target.dispatchEvent(new TUIKeyboardEvent("keydown", { key, code, altKey: true, bubbles: true }));
     }
 
-    it("Alt+а (Russian layout, legacy ESC prefix — tmux) opens File", () => {
+    it("Alt+Cyrillic a (Russian layout, legacy ESC prefix — tmux) opens File", () => {
         const { testApp } = createAppTestHarness();
 
-        testApp.sendKey("Alt+а");
+        testApp.sendKey("Alt+\u0430"); // "Alt+a (Cyrillic)"
 
         const popup = testApp.querySelector("PopupMenuElement") as PopupMenuElement | null;
         expect(popup && itemLabels(popup)[0]).toBe("New Untitled File");
     });
 
-    it("Alt+у (Russian layout, kitty: code KeyE) opens Edit", () => {
+    it("Alt+Cyrillic u (Russian layout, kitty: code KeyE) opens Edit", () => {
         const { testApp } = createAppTestHarness();
 
-        sendKittyAltKey(testApp, "у", "KeyE");
+        sendKittyAltKey(testApp, "\u0443", "KeyE"); // "u (Cyrillic)"
 
         const popup = testApp.querySelector("PopupMenuElement") as PopupMenuElement | null;
         expect(popup && itemLabels(popup)[0]).toBe("Undo");
@@ -632,8 +632,8 @@ describe("Workbench — mnemonics and Alt keybindings in a non-Latin layout", ()
         });
         const executeSpy = vi.spyOn(commands, "execute");
 
-        testApp.sendKey("Alt+м");
-        sendKittyAltKey(testApp, "м", "KeyV");
+        testApp.sendKey("Alt+\u043c"); // "Alt+m (Cyrillic)"
+        sendKittyAltKey(testApp, "\u043c", "KeyV"); // "m (Cyrillic)"
 
         expect(executeSpy.mock.calls.filter(([id]) => id === "workbench.action.togglePanel")).toHaveLength(2);
         expect(testApp.querySelector("PopupMenuElement")).toBeNull();

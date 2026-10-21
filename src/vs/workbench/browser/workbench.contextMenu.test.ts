@@ -54,7 +54,7 @@ describe("Workbench — Shift+F10 context menu", () => {
         expect(h.testApp.backend.screenToString()).toContain("Copy");
     });
 
-    it("editorTextFocus и editorLangId описывают сфокусированный редактор (их читают `when` расширений)", () => {
+    it("editorTextFocus and editorLangId describe the focused editor (extension `when` clauses read them)", () => {
         const contextKeys = h.container.get(ContextKeyServiceDIToken);
         h.container.get(WorkbenchContextKeysDIToken).update();
         expect(contextKeys.get("editorTextFocus")).toBe(false);
@@ -69,7 +69,7 @@ describe("Workbench — Shift+F10 context menu", () => {
         expect(contextKeys.get("editorLangId")).toBe("plaintext");
     });
 
-    it("пункты языковых фич появляются только при живом провайдере", () => {
+    it("language feature items appear only with a live provider", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.workbench.focusEditor();
         h.testApp.render();

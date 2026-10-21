@@ -16,8 +16,8 @@ function rootInto(container: TUIElement): BodyElement {
     return body;
 }
 
-describe("PanelContainerElement: контракт дерева", () => {
-    it("контент активной вкладки, прикреплённый до укоренения, полностью в дереве", () => {
+describe("PanelContainerElement: tree contract", () => {
+    it("active tab content attached before rooting is fully in the tree", () => {
         const panel = new PanelContainerElement();
         const child = new TUIElement();
         panel.addView({ id: "first", title: "FIRST", content: child });
@@ -30,7 +30,7 @@ describe("PanelContainerElement: контракт дерева", () => {
         expect(validateTree(body)).toEqual([]);
     });
 
-    it("контролы активной вкладки, прикреплённые до укоренения, полностью в дереве", () => {
+    it("active tab controls attached before rooting are fully in the tree", () => {
         const panel = new PanelContainerElement();
         const child = new TUIElement();
         panel.addView({ id: "first", title: "FIRST", content: null, actions: child });
@@ -42,7 +42,7 @@ describe("PanelContainerElement: контракт дерева", () => {
         expect(validateTree(body)).toEqual([]);
     });
 
-    it("неактивная вкладка укореняется при активации", () => {
+    it("an inactive tab is rooted on activation", () => {
         const panel = new PanelContainerElement();
         const first = new TUIElement();
         const second = new TUIElement();
@@ -56,7 +56,7 @@ describe("PanelContainerElement: контракт дерева", () => {
         expect(validateTree(body)).toEqual([]);
     });
 
-    it("контролы вкладки, прикреплённые до укоренения, укореняются после активации", () => {
+    it("tab controls attached before rooting are rooted after activation", () => {
         const panel = new PanelContainerElement();
         const actions = new TUIElement();
         panel.addView({ id: "output", title: "OUTPUT", content: null });

@@ -24,8 +24,8 @@ function render(switcher: TabSwitcherElement, width = 24) {
     return renderElement(switcher, width, switcher.totalHeight, { themeVars: true });
 }
 
-describe("TabSwitcherElement — раскладка", () => {
-    it("рамка, по строке на вкладку: иконка, метка, маркер изменённости справа", () => {
+describe("TabSwitcherElement — layout", () => {
+    it("box, one row per tab: icon, label, dirty marker on the right", () => {
         const switcher = makeSwitcher(24);
         switcher.setItems([item("a.ts"), item("b.ts", { isModified: true })], 1);
 
@@ -40,7 +40,7 @@ describe("TabSwitcherElement — раскладка", () => {
         );
     });
 
-    it("позиция цикла подсвечена цветом выделения списка на всю строку", () => {
+    it("the cycle position is highlighted with the list selection color across the row", () => {
         const switcher = makeSwitcher(24);
         switcher.setItems([item("a.ts"), item("b.ts")], 1);
 
@@ -57,7 +57,7 @@ describe("TabSwitcherElement — раскладка", () => {
         expect(backend.getBgAt(new Point(21, 2))).toBe(currentBg);
     });
 
-    it("длинная метка усечена по бюджету строки", () => {
+    it("a long label is truncated to the row budget", () => {
         const switcher = makeSwitcher(16);
         switcher.setItems([item("veryLongFileName.ts")], 0);
 
@@ -67,7 +67,7 @@ describe("TabSwitcherElement — раскладка", () => {
         expect(line).not.toContain("veryLongFileName.ts");
     });
 
-    it("маркер изменённости не съедается длинной меткой: бюджет метки учитывает его колонку", () => {
+    it("a long label does not eat the dirty marker: the label budget accounts for its column", () => {
         const switcher = makeSwitcher(16);
         switcher.setItems([item("veryLongFileName.ts", { isModified: true })], 0);
 
@@ -82,7 +82,7 @@ describe("TabSwitcherElement — раскладка", () => {
         );
     });
 
-    it("окно в maxVisibleItems строк едет за позицией цикла и возвращается к началу", () => {
+    it("the maxVisibleItems-row window follows the cycle position and wraps back to the start", () => {
         const switcher = makeSwitcher(24);
         switcher.maxVisibleItems = 3;
         const items = Array.from({ length: 5 }, (_, i) => item(`f${String(i)}.ts`));
@@ -111,7 +111,7 @@ describe("TabSwitcherElement — раскладка", () => {
         expect(switcher.inspectState()).toMatchObject({ currentIndex: 0, windowStart: 0 });
     });
 
-    it("окно не уезжает за последнюю страницу и позиция клампится в границы", () => {
+    it("the window does not scroll past the last page and the position is clamped", () => {
         const switcher = makeSwitcher(24);
         switcher.maxVisibleItems = 3;
         const items = Array.from({ length: 4 }, (_, i) => item(`f${String(i)}.ts`));
@@ -120,7 +120,7 @@ describe("TabSwitcherElement — раскладка", () => {
         expect(switcher.inspectState()).toMatchObject({ currentIndex: 3, windowStart: 1 });
     });
 
-    it("список укоротился — окно возвращается в границы новой последней страницы", () => {
+    it("the list shrank — the window moves back within the new last page", () => {
         const switcher = makeSwitcher(24);
         switcher.maxVisibleItems = 3;
         const five = Array.from({ length: 5 }, (_, i) => item(`f${String(i)}.ts`));
@@ -133,13 +133,13 @@ describe("TabSwitcherElement — раскладка", () => {
         expect(switcher.inspectState()).toMatchObject({ currentIndex: 2, windowStart: 0 });
     });
 
-    it("свежий элемент пуст: до первой серии строк нет, высота — одна рамка", () => {
+    it("a fresh element is empty: no rows before the first cycle, height is just the box", () => {
         const switcher = makeSwitcher(24);
         expect(switcher.inspectState()).toEqual({ items: [], currentIndex: 0, windowStart: 0 });
         expect(switcher.totalHeight).toBe(2);
     });
 
-    it("иконка держит свой цвет файла, а не наследует цвет строки", () => {
+    it("the icon keeps its file color instead of inheriting the row color", () => {
         const switcher = makeSwitcher(24);
         switcher.setItems([item("a.ts")], 0);
 
@@ -148,7 +148,7 @@ describe("TabSwitcherElement — раскладка", () => {
         expect(backend.getFgAt(new Point(4, 1))).not.toBe(ICON_COLOR);
     });
 
-    it("inspectState отдаёт метки строк — наблюдаемое состояние для e2e", () => {
+    it("inspectState returns row labels — observable state for e2e", () => {
         const switcher = makeSwitcher(24);
         switcher.setItems([item("a.ts"), item("b.ts")], 0);
         expect(switcher.inspectState()).toEqual({

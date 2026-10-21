@@ -16,7 +16,7 @@ function fakeViews(): { views: ViewsService; refreshes: () => number } {
 }
 
 describe("ViewTitleActionsContribution", () => {
-    it("пере-резолвит кнопки заголовков на смену контекста", async () => {
+    it("re-resolves title buttons on a context change", async () => {
         const contextKeys = new ContextKeyService();
         const target = fakeViews();
         const contribution = new ViewTitleActionsContribution(contextKeys, target.views);
@@ -28,7 +28,7 @@ describe("ViewTitleActionsContribution", () => {
         contribution.dispose();
     });
 
-    it("несколько записей за тик — один пересбор", async () => {
+    it("several writes in one tick cause one rebuild", async () => {
         const contextKeys = new ContextKeyService();
         const target = fakeViews();
         const contribution = new ViewTitleActionsContribution(contextKeys, target.views);
@@ -42,7 +42,7 @@ describe("ViewTitleActionsContribution", () => {
         contribution.dispose();
     });
 
-    it("запись того же значения пересбора не вызывает", async () => {
+    it("writing the same value does not cause a rebuild", async () => {
         const contextKeys = new ContextKeyService();
         contextKeys.set("hasSearchResult", true);
         await Promise.resolve();
@@ -56,7 +56,7 @@ describe("ViewTitleActionsContribution", () => {
         contribution.dispose();
     });
 
-    it("после dispose подписка снята", async () => {
+    it("after dispose the subscription is removed", async () => {
         const contextKeys = new ContextKeyService();
         const target = fakeViews();
         const contribution = new ViewTitleActionsContribution(contextKeys, target.views);

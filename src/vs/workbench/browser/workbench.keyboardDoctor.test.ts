@@ -14,7 +14,7 @@ describe("Workbench — Keyboard Doctor", () => {
         workspace.dispose();
     });
 
-    it("команда открывает доктора, он видит реальные бинды и окружение, отчёт уходит в документ", async () => {
+    it("the command opens the doctor, it sees the real keybindings and environment, the report goes to a document", async () => {
         workspace = createTempWorkspace({ prefix: "diode-keyboard-doctor-", files: { "file.txt": "hello" } });
         harness = createAppTestHarness({
             openFile: workspace.path("file.txt"),

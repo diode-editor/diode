@@ -13,7 +13,7 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 import { EditorPartComponentDIToken } from "./parts/editor/editorPartComponent.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
-describe("Workbench — editor groups (сплиты)", () => {
+describe("Workbench — editor groups (splits)", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -36,7 +36,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         return h.container.get(EditorServiceDIToken);
     }
 
-    it("US-1: сплит дублирует активную вкладку с кареткой и скроллом, фокус — в новой группе", () => {
+    it("US-1: split duplicates the active tab with its cursor and scroll, focus goes to the new group", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         const source = service().getActiveEditor()!;
         source.viewState.goToPosition(40, 3);
@@ -61,12 +61,12 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(focused!.getAncestorPath().includes(right!.view)).toBe(true);
     });
 
-    it("US-2: сплит пустой области — no-op без ошибок", () => {
+    it("US-2: splitting an empty area is a no-op without errors", () => {
         h.commands.execute("workbench.action.splitEditor");
         expect(service().editorGroups.groups.length).toBe(1);
     });
 
-    it("US-8: не влезаем — сплит молча отклонён, полоса не изменилась", () => {
+    it("US-8: no room — the split is silently rejected, the strip is unchanged", () => {
         h.dispose();
         // 30 columns: 2 groups × 20 minimum do not fit.
         h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(30, 20) });
@@ -77,7 +77,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.groups.length).toBe(1);
     });
 
-    it("US-9: фокус группы по номеру (команды First/Second)", () => {
+    it("US-9: group focus by number (First/Second commands)", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         expect(service().editorGroups.viewColumnOf(service().editorGroups.activeGroup)).toBe(2);
@@ -89,7 +89,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.viewColumnOf(service().editorGroups.activeGroup)).toBe(2);
     });
 
-    it("US-10: фокус по направлению; за краем полосы — no-op", () => {
+    it("US-10: focus by direction; past the strip edge — no-op", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
 
@@ -106,7 +106,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.viewColumnOf(service().editorGroups.activeGroup)).toBe(2);
     });
 
-    it("US-11: navigateEditorGroups обходит полосу по кругу", () => {
+    it("US-11: navigateEditorGroups cycles through the strip", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.commands.execute("workbench.action.focusFirstEditorGroup");
@@ -117,7 +117,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.viewColumnOf(service().editorGroups.activeGroup)).toBe(1);
     });
 
-    it("US-12: группа помнит активную вкладку и каретку при переключениях", () => {
+    it("US-12: a group remembers its active tab and cursor across switches", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.workbench.openFile(ws.path("beta.txt"));
@@ -137,7 +137,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(back.viewState.selections[0].active).toEqual({ line: 25, character: 4 });
     });
 
-    it("US-13: Ctrl+Tab циклит вкладки ВНУТРИ группы, чужая группа не участвует", () => {
+    it("US-13: Ctrl+Tab cycles tabs WITHIN the group, the other group does not take part", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.workbench.openFile(ws.path("beta.txt"));
         h.commands.execute("workbench.action.splitEditor");
@@ -156,7 +156,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(groups[1].activePane!.uri.path.endsWith("gamma.txt")).toBe(true);
     });
 
-    it("US-14: фокус в поддереве группы делает её активной (клик мышью)", () => {
+    it("US-14: focus inside a group subtree makes it active (mouse click)", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         const groups = service().editorGroups.groups;
@@ -167,7 +167,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.activeGroup === groups[0]).toBe(true);
     });
 
-    it("US-16-механика: закрытие последней вкладки схлопывает группу, фокус — соседке", () => {
+    it("US-16 mechanics: closing the last tab collapses the group, focus goes to the neighbor", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         expect(service().editorGroups.groups.length).toBe(2);
@@ -181,7 +181,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(focused).not.toBeNull();
     });
 
-    it("US-30: дедуп вкладок — пер-группный (общая модель, две вкладки)", () => {
+    it("US-30: tab dedup is per group (shared model, two tabs)", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         const groups = service().editorGroups.groups;
@@ -195,7 +195,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect((left as { model?: unknown }).model === (right as { model?: unknown }).model).toBe(true);
     });
 
-    it("US-4: новая пустая группа фокусируема и принимает открытие файла", () => {
+    it("US-4: a new empty group is focusable and accepts opening a file", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.newGroupRight");
 
@@ -210,7 +210,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(groups[1].activePane!.uri.path.endsWith("beta.txt")).toBe(true);
     });
 
-    it("US-47: последняя вкладка последней группы — остаётся одна пустая группа", () => {
+    it("US-47: last tab of the last group — one empty group remains", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.closeActiveEditor");
 
@@ -218,7 +218,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.groups[0].editorCount).toBe(0);
     });
 
-    it("направленный сплит поперёк оси: одна группа меняет ось, разложенная полоса — нет", () => {
+    it("a directional split across the axis: a single group changes axis, a laid-out strip does not", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         const part = h.container.get(EditorPartComponentDIToken);
         h.commands.execute("workbench.action.splitEditorDown");
@@ -232,7 +232,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(part.orientation).toBe("rows");
     });
 
-    it("адресованный сплит активирует чужую вкладку, но фокус за собой не уводит", () => {
+    it("an addressed split activates another group's tab but does not move focus", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         const first = service().editorGroups.activeGroup;
         h.commands.execute("workbench.action.splitEditorDown");
@@ -250,7 +250,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(focused!.getAncestorPath().includes(second.activePane!.view)).toBe(true);
     });
 
-    it("Split Right на одной группе ставит ось колонками", () => {
+    it("Split Right on a single group sets the axis to columns", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         const part = h.container.get(EditorPartComponentDIToken);
 
@@ -260,7 +260,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(part.orientation).toBe("columns");
     });
 
-    it("повторный dispose подписок сервиса групп — no-op, чужие слушатели живы", () => {
+    it("a repeated dispose of the group service subscriptions is a no-op, other listeners stay alive", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         let activeFired = 0;
         let groupsFired = 0;
@@ -279,7 +279,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(activeFired).toBeGreaterThan(0);
     });
 
-    it("rows: саш занимает свою строку — таб нижней группы достижим мышью", () => {
+    it("rows: the sash takes its own row — the lower group's tab is reachable by mouse", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditorDown");
         h.testApp.render();
@@ -294,7 +294,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(hit === tabStrip).toBe(true);
     });
 
-    it("US-15: перенос вкладки в соседнюю группу — фокус едет со вкладкой", () => {
+    it("US-15: moving a tab to the neighbor group — focus travels with the tab", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.workbench.openFile(ws.path("beta.txt"));
         h.commands.execute("workbench.action.splitEditor");
@@ -310,7 +310,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().getActiveEditor()!.uri.path.endsWith("beta.txt")).toBe(true);
     });
 
-    it("US-50: перенос у единственной группы создаёт соседку", () => {
+    it("US-50: moving with a single group creates a neighbor", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.workbench.openFile(ws.path("beta.txt"));
 
@@ -323,7 +323,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(groups[1].activePane!.uri.path.endsWith("beta.txt")).toBe(true);
     });
 
-    it("US-16: перенос последней вкладки схлопывает группу-источник", () => {
+    it("US-16: moving the last tab collapses the source group", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         // beta, not alpha: moving alpha would merge it with its copy in group 2.
@@ -339,7 +339,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.groups[0].editorCount).toBe(2);
     });
 
-    it("US-17: дублирование вкладки в соседнюю группу — общая модель", () => {
+    it("US-17: copying a tab to the neighbor group — shared model", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.newGroupRight");
         h.commands.execute("workbench.action.focusFirstEditorGroup");
@@ -355,7 +355,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(copy.model === original.model).toBe(true);
     });
 
-    it("US-18: перестановка активной группы по полосе", () => {
+    it("US-18: moving the active group along the strip", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.workbench.openFile(ws.path("beta.txt"));
@@ -370,7 +370,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.viewColumnOf(movedGroup)).toBe(1);
     });
 
-    it("US-21: joinAllGroups сливает всё в одну, дубликаты схлопнуты, активная вкладка выживает", () => {
+    it("US-21: joinAllGroups merges everything into one, duplicates collapse, the active tab survives", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.workbench.openFile(ws.path("beta.txt"));
@@ -383,7 +383,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().getActiveEditor()!.uri.path.endsWith("beta.txt")).toBe(true);
     });
 
-    it("US-19: тумблер оси сохраняет группы и содержимое", () => {
+    it("US-19: the axis toggle keeps groups and their content", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
 
@@ -398,7 +398,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(top.globalPosition.x).toBe(bottom.globalPosition.x);
     });
 
-    it("US-24: максимизация активной группы прячет остальные и возвращается тумблером", () => {
+    it("US-24: maximizing the active group hides the others and is undone by the toggle", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.testApp.render();
@@ -418,7 +418,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(leftView.getAncestorPath().every((el) => !el.hidden)).toBe(true);
     });
 
-    it("US-23: resize-команды меняют долю активной группы и сбрасываются", () => {
+    it("US-23: resize commands change the active group's share and reset", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.testApp.render();
@@ -434,7 +434,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(Math.abs(groups[1].activePane!.view.layoutSize.width - before)).toBeLessThanOrEqual(1);
     });
 
-    it("US-5-механика: открытие beside создаёт/переиспользует соседнюю группу", () => {
+    it("US-5 mechanics: opening beside creates/reuses the neighbor group", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
 
         void service().openUri(service().getActiveEditor()!.uri, { group: "beside" });
@@ -447,7 +447,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.groups[1].editorCount).toBe(2);
     });
 
-    it("US-48: Close All Editors in Group — диалог по изменённой, после ответа группа схлопнулась", async () => {
+    it("US-48: Close All Editors in Group — dialog for the modified one, after the answer the group collapses", async () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.workbench.openFile(ws.path("gamma.txt"));
@@ -476,7 +476,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(fs.readFileSync(ws.path("alpha.txt"), "utf8")).toBe(MANY_LINES);
     });
 
-    it("US-33: у каждой группы свой find-виджет с независимым запросом; Escape локален", () => {
+    it("US-33: each group has its own find widget with an independent query; Escape is local", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.testApp.render();
@@ -504,7 +504,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(find.isOpen(groups[1].id)).toBe(true);
     });
 
-    it("схлопывание группы забирает её find-виджет и сессию", () => {
+    it("collapsing a group takes away its find widget and session", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.testApp.render();
@@ -519,7 +519,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(find.widgetIfExists(collapsedGroup.id)).toBeNull();
     });
 
-    it("US-35: статус-бар следует за активной группой (Ln/Col из её редактора)", () => {
+    it("US-35: the status bar follows the active group (Ln/Col from its editor)", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         service().getActiveEditor()!.viewState.goToPosition(20, 5);
@@ -536,7 +536,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(h.testApp.backend.screenToString()).toContain("Ln 21, Col 6");
     });
 
-    it("US-37: сквиглы диагностик приходят в обе вью документа", () => {
+    it("US-37: diagnostic squiggles reach both views of the document", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         const groups = service().editorGroups.groups;
@@ -546,7 +546,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.groupOf(editors[1]) === groups[1]).toBe(true);
     });
 
-    it("focusActiveEditorGroup фокусирует содержимое именно активной группы", () => {
+    it("focusActiveEditorGroup focuses the content of exactly the active group", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         const groups = service().editorGroups;
@@ -562,7 +562,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(focused).toEqual([2]);
     });
 
-    it("US-38: фокус в панели не меняет активную группу; focusActiveEditorGroup возвращает", () => {
+    it("US-38: focus in the panel does not change the active group; focusActiveEditorGroup returns to it", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         const active = service().editorGroups.activeGroup;
@@ -577,7 +577,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(focused!.getAncestorPath().includes(active.activePane!.view)).toBe(true);
     });
 
-    it("US-40: detached-редактор (Output) не попадает в группы и ViewColumn", () => {
+    it("US-40: a detached editor (Output) is not part of groups or ViewColumn", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         const detached = service().openDetached(
             service().getActiveEditor()!.uri.with({ scheme: "output", path: "test" }),
@@ -588,7 +588,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.activeGroup.getPanes().includes(detached)).toBe(false);
     });
 
-    it("контекст-ключи групп: multipleEditorGroups и activeEditorGroup*", () => {
+    it("group context keys: multipleEditorGroups and activeEditorGroup*", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         const keys = h.container.get(ContextKeyServiceDIToken);
         h.container.get(WorkbenchContextKeysDIToken).update();
@@ -609,7 +609,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(keys.evaluate("activeEditorGroupLast")).toBe(false);
     });
 
-    it("группы делят полосу поровну после сплита (лэйаут кадра)", () => {
+    it("groups share the strip equally after a split (frame layout)", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.testApp.render();
@@ -621,7 +621,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(Math.abs(leftView.layoutSize.width - rightView.layoutSize.width)).toBeLessThanOrEqual(1);
     });
 
-    it("US-3: Split Editor Left — новая группа с копией вкладки встаёт слева от источника", () => {
+    it("US-3: Split Editor Left — a new group with a copy of the tab lands left of the source", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         const source = service().editorGroups.activeGroup;
 
@@ -633,7 +633,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().getActiveEditor()!.uri.path.endsWith("alpha.txt")).toBe(true);
     });
 
-    it("US-3: Split Editor Up — единственная группа меняет ось, копия сверху", () => {
+    it("US-3: Split Editor Up — a single group changes axis, the copy goes on top", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
 
         h.commands.execute("workbench.action.splitEditorUp");
@@ -647,7 +647,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(top.globalPosition.y).toBeLessThan(bottom.globalPosition.y);
     });
 
-    it("US-4: newGroup по направлениям — вдоль оси создаётся, поперёк разложенной полосы отказ", () => {
+    it("US-4: newGroup by direction — created along the axis, refused across a laid-out strip", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditorDown");
 
@@ -662,7 +662,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.groups.length).toBe(4);
     });
 
-    it("US-4: New Group Left в колоночной полосе — пустая группа слева", () => {
+    it("US-4: New Group Left in a column strip — an empty group on the left", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
 
         h.commands.execute("workbench.action.newGroupLeft");
@@ -674,7 +674,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(groups[1].editorCount).toBe(1);
     });
 
-    it("US-10: focusAbove/BelowGroup ходят по рядной полосе", () => {
+    it("US-10: focusAbove/BelowGroup move through a row strip", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditorDown");
         expect(service().editorGroups.viewColumnOf(service().editorGroups.activeGroup)).toBe(2);
@@ -686,7 +686,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.viewColumnOf(service().editorGroups.activeGroup)).toBe(2);
     });
 
-    it("US-9: фокус по номеру за краем полосы — no-op (Ctrl+K 5 при двух группах)", () => {
+    it("US-9: focus by number past the strip edge — no-op (Ctrl+K 5 with two groups)", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
 
@@ -695,7 +695,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.viewColumnOf(service().editorGroups.activeGroup)).toBe(2);
     });
 
-    it("focusGroup по id схлопнутой группы — no-op (протухшая ссылка)", () => {
+    it("focusGroup by id of a collapsed group — no-op (stale reference)", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         const dead = service().editorGroups.activeGroup;
@@ -707,7 +707,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.activeGroup === service().editorGroups.groups[0]).toBe(true);
     });
 
-    it("сплит безымянного буфера: untitled не дублируется, новая группа пустая", () => {
+    it("splitting an untitled buffer: untitled is not duplicated, the new group is empty", () => {
         service().newUntitled();
         const untitledView = h.testApp.focusedElement;
 
@@ -727,7 +727,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(untitledView).not.toBeNull();
     });
 
-    it("US-8: узкий терминал — отказ newGroup, переносу у единственной группы и beside-фолбэк", () => {
+    it("US-8: narrow terminal — newGroup refused, move with a single group and beside fallback", () => {
         h.dispose();
         // 30 columns: 2 groups × 20 minimum do not fit.
         h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(30, 20) });
@@ -746,7 +746,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().getActiveEditor()!.uri.path.endsWith("gamma.txt")).toBe(true);
     });
 
-    it("перенос/копия за краем полосы — no-op", () => {
+    it("move/copy past the strip edge — no-op", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.workbench.openFile(ws.path("beta.txt"));
@@ -760,7 +760,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.activeGroup.editorCount).toBe(2);
     });
 
-    it("перенос из пустой группы — no-op", () => {
+    it("move from an empty group — no-op", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.newGroupRight");
 
@@ -770,7 +770,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.groups[0].editorCount).toBe(1);
     });
 
-    it("US-50-зеркало: перенос против хода у единственной группы создаёт соседку слева", () => {
+    it("US-50 mirror: moving backwards with a single group creates a neighbor on the left", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.workbench.openFile(ws.path("beta.txt"));
 
@@ -783,7 +783,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(groups[1].editorCount).toBe(1);
     });
 
-    it("US-17-зеркало: дублирование в предыдущую группу; ресурс уже там — просто активация", () => {
+    it("US-17 mirror: copy to the previous group; resource already there — just activate", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
 
@@ -795,7 +795,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().getActiveEditor()!.uri.path.endsWith("alpha.txt")).toBe(true);
     });
 
-    it("копия безымянного буфера не делается (нет общего файла)", () => {
+    it("an untitled buffer is not copied (no shared file)", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         service().newUntitled();
@@ -806,7 +806,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.activeGroup === service().editorGroups.groups[1]).toBe(true);
     });
 
-    it("US-18-зеркало: перестановка группы вправо; у края — no-op", () => {
+    it("US-18 mirror: moving the group right; at the edge — no-op", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.commands.execute("workbench.action.focusFirstEditorGroup");
@@ -819,7 +819,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.viewColumnOf(moved)).toBe(2);
     });
 
-    it("US-20: joinTwoGroups вливает следующую группу; единственная группа — no-op", () => {
+    it("US-20: joinTwoGroups merges the next group in; a single group — no-op", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.joinTwoGroups");
         expect(service().editorGroups.groups.length).toBe(1);
@@ -835,7 +835,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(groups[0].editorCount).toBe(2);
     });
 
-    it("US-20: joinTwoGroups с пустым соседом просто схлопывает его", () => {
+    it("US-20: joinTwoGroups with an empty neighbor just collapses it", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.newGroupRight");
         h.commands.execute("workbench.action.focusFirstEditorGroup");
@@ -846,7 +846,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.groups[0].editorCount).toBe(1);
     });
 
-    it("US-21: joinAllGroups при пустой активной группе — вспоминать нечего, полоса сливается", () => {
+    it("US-21: joinAllGroups with an empty active group — nothing to remember, the strip merges", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.newGroupRight");
 
@@ -856,7 +856,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.groups[0].editorCount).toBe(1);
     });
 
-    it("editorLayoutSingle сводит полосу к одной колонке; повторный вызов — no-op", () => {
+    it("editorLayoutSingle reduces the strip to one column; a repeated call is a no-op", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
 
@@ -867,7 +867,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.groups.length).toBe(1);
     });
 
-    it("US-23: resize поперёк оси полосы — no-op (высота в колоночной полосе)", () => {
+    it("US-23: resize across the strip axis — no-op (height in a column strip)", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.testApp.render();
@@ -879,7 +879,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.groups[1].activePane!.view.layoutSize.height).toBe(before);
     });
 
-    it("US-19: повторный тумблер оси возвращает колоночную полосу", () => {
+    it("US-19: a second axis toggle restores the column strip", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
 
@@ -894,7 +894,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(left.globalPosition.y).toBe(right.globalPosition.y);
     });
 
-    it("US-24: максимизация переезжает за сменой активной группы", () => {
+    it("US-24: maximization follows the active group change", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.testApp.render();
@@ -910,7 +910,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(groups[1].activePane!.view.getAncestorPath().some((el) => el.hidden)).toBe(true);
     });
 
-    it("groupOverlayHost схлопнутой группы — null", () => {
+    it("groupOverlayHost of a collapsed group is null", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         const collapsed = service().editorGroups.activeGroup;
@@ -922,7 +922,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(part.groupOverlayHost(collapsed.id)).toBeNull();
     });
 
-    it("US-16: Close Editor Group закрывает вкладки и схлопывает группу", async () => {
+    it("US-16: Close Editor Group closes the tabs and collapses the group", async () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.workbench.openFile(ws.path("beta.txt"));
@@ -936,7 +936,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().getActiveEditor()!.uri.path.endsWith("alpha.txt")).toBe(true);
     });
 
-    it("US-48: Cancel в диалоге прерывает закрытие группы, правка жива", async () => {
+    it("US-48: Cancel in the dialog aborts closing the group, the edit survives", async () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         const editor = service().getActiveEditor()!;
         editor.viewState.type("dirty!");
@@ -960,7 +960,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(editor.isModified).toBe(true);
     });
 
-    it("US-48: Ctrl+K W закрывает группу с хвоста — чистые вкладки уходят до диалога", async () => {
+    it("US-48: Ctrl+K W closes the group from the tail — clean tabs go before the dialog", async () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.workbench.openFile(ws.path("beta.txt"));
         h.workbench.openFile(ws.path("gamma.txt"));
@@ -985,7 +985,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.activeGroup.getPanes()[0].label).toBe("alpha.txt");
     });
 
-    it("US-48: Save в диалоге пишет файл и закрывает вкладку", async () => {
+    it("US-48: Save in the dialog writes the file and closes the tab", async () => {
         h.workbench.openFile(ws.path("beta.txt"));
         service().getActiveEditor()!.viewState.type("saved!");
 
@@ -1003,7 +1003,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(fs.readFileSync(ws.path("beta.txt"), "utf8")).toContain("saved!");
     });
 
-    it("US-48: Save в диалоге дожимает запись поверх внешней правки файла", async () => {
+    it("US-48: Save in the dialog forces the write over an external file edit", async () => {
         h.workbench.openFile(ws.path("beta.txt"));
         service().getActiveEditor()!.viewState.type("saved!");
         // The file was changed externally. A regular save would fail here with a
@@ -1024,7 +1024,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(fs.readFileSync(ws.path("beta.txt"), "utf8")).toContain("saved!");
     });
 
-    it("US-22: Close All Editors обходит все группы; пустая активная не мешает", async () => {
+    it("US-22: Close All Editors walks all groups; an empty active group does not get in the way", async () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         h.workbench.openFile(ws.path("beta.txt"));
@@ -1038,7 +1038,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.groups[0].editorCount).toBe(0);
     });
 
-    it("US-22: Cancel в диалоге прерывает Close All Editors", async () => {
+    it("US-22: Cancel in the dialog aborts Close All Editors", async () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         service().getActiveEditor()!.viewState.type("dirty!");
 
@@ -1055,7 +1055,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().getActiveEditor()!.isModified).toBe(true);
     });
 
-    it("US-22: Cancel в Close All Editors не заходит на второй круг", async () => {
+    it("US-22: Cancel in Close All Editors does not go for a second round", async () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         service().getActiveEditor()!.viewState.type("dirty!");
         h.commands.execute("workbench.action.newGroupRight");
@@ -1077,7 +1077,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().editorGroups.groups[1].editorCount).toBe(1);
     });
 
-    it("US-49: collectDirty дедуплицирует документ, открытый в двух группах", () => {
+    it("US-49: collectDirty dedups a document open in two groups", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
         service().getActiveEditor()!.viewState.type("dirty!");
@@ -1085,7 +1085,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         expect(service().collectDirty().length).toBe(1);
     });
 
-    it("US-5: Open to the Side из дерева; без выделенного файла — no-op", async () => {
+    it("US-5: Open to the Side from the tree; without a selected file — no-op", async () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("explorer.openToSide");
         expect(service().editorGroups.groups.length).toBe(1);

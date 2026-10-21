@@ -20,8 +20,8 @@ function threeSectionContainer(): IViewsHarness {
     return harness;
 }
 
-describe("ViewsService — видимость секций", () => {
-    it("скрытая секция уходит из контейнера, показанная возвращается на своё место", () => {
+describe("ViewsService — section visibility", () => {
+    it("a hidden section leaves the container, a shown one returns to its place", () => {
         const h = threeSectionContainer();
 
         h.service.setViewVisible("scm.graph", false);
@@ -33,7 +33,7 @@ describe("ViewsService — видимость секций", () => {
         expect(h.service.isViewVisible("scm.graph")).toBe(true);
     });
 
-    it("свёрнутость и веса соседей переживают скрытие и возврат секции", () => {
+    it("neighbors' collapsed state and weights survive hiding and restoring a section", () => {
         const h = threeSectionContainer();
         h.paneView("scm").setCollapsed("scm.changes", true);
         h.paneView("scm").setWeights({ "scm.stashes": 6 });
@@ -45,7 +45,7 @@ describe("ViewsService — видимость секций", () => {
         expect(h.paneView("scm").getWeights()["scm.stashes"]).toBe(6);
     });
 
-    it("последняя видимая секция скрытию не поддаётся — пустой контейнер показывать нечем", () => {
+    it("the last visible section cannot be hidden: an empty container has nothing to show", () => {
         const h = threeSectionContainer();
         h.service.setViewVisible("scm.graph", false);
         h.service.setViewVisible("scm.stashes", false);
@@ -56,7 +56,7 @@ describe("ViewsService — видимость секций", () => {
         expect(h.service.isViewVisible("scm.changes")).toBe(true);
     });
 
-    it("скрытие предпоследней секции сливает заголовки, возврат — разъезжает", () => {
+    it("hiding the second-to-last section merges headers, restoring splits them", () => {
         const h = threeSectionContainer();
         h.service.setViewVisible("scm.stashes", false);
         h.service.setViewVisible("scm.graph", false);
@@ -75,7 +75,7 @@ describe("ViewsService — видимость секций", () => {
         });
     });
 
-    it("canToggleVisibility: false — секция не скрывается", () => {
+    it("canToggleVisibility: false: the section does not hide", () => {
         const harness = makeViewsHarness();
         harness.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         harness.service.registerView(view("scm.changes", 10, { canToggleVisibility: false }));
@@ -86,7 +86,7 @@ describe("ViewsService — видимость секций", () => {
         expect(harness.paneView("scm").getPaneIds()).toEqual(["scm.changes", "scm.graph"]);
     });
 
-    it("getContainerViews отдаёт снимок для переключателя", () => {
+    it("getContainerViews returns a snapshot for the toggle", () => {
         const h = threeSectionContainer();
         h.service.setViewVisible("scm.graph", false);
         expect(h.service.getContainerViews("scm")).toEqual([
@@ -96,13 +96,13 @@ describe("ViewsService — видимость секций", () => {
         ]);
     });
 
-    it("скрытие — действие пользователя: пишется в стор вместе со свёрнутостью", () => {
+    it("hiding is a user action: it is stored together with collapsed state", () => {
         const h = threeSectionContainer();
         h.service.setViewVisible("scm.graph", false);
         expect(h.stored.get(SIDEBAR_VIEWS_STATE.key)).toMatchObject({ scm: { hidden: ["scm.graph"] } });
     });
 
-    it("повторное скрытие уже скрытой секции — no-op без записи в стор", () => {
+    it("hiding an already hidden section is a no-op without a storage write", () => {
         const h = threeSectionContainer();
         h.service.setViewVisible("scm.graph", false);
         h.stored.delete(SIDEBAR_VIEWS_STATE.key);
@@ -110,7 +110,7 @@ describe("ViewsService — видимость секций", () => {
         expect(h.stored.has(SIDEBAR_VIEWS_STATE.key)).toBe(false);
     });
 
-    it("до attach скрытие только запоминается — контейнер построится уже без секции", () => {
+    it("before attach hiding is only remembered: the container builds without the section", () => {
         const harness = makeViewsHarness();
         harness.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         harness.service.registerView(view("scm.changes", 10));
@@ -121,8 +121,8 @@ describe("ViewsService — видимость секций", () => {
     });
 });
 
-describe("ViewsService — restore скрытости", () => {
-    it("сохранённая скрытость применяется вместе с весами и свёрнутостью", () => {
+describe("ViewsService — restoring hidden state", () => {
+    it("saved hidden state applies together with weights and collapsed state", () => {
         const harness = makeViewsHarness();
         harness.stored.set(SIDEBAR_VIEWS_STATE.key, {
             scm: { collapsed: ["scm.stashes"], weights: { "scm.changes": 5 }, hidden: ["scm.graph"] },
@@ -140,7 +140,7 @@ describe("ViewsService — restore скрытости", () => {
         expect(harness.paneView("scm").getWeights()["scm.changes"]).toBe(5);
     });
 
-    it("открытие стора проекта (Open Folder) само применяет его к собранным контейнерам", () => {
+    it("opening the workspace storage (Open Folder) applies it to built containers by itself", () => {
         const harness = makeViewsHarness();
         harness.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         harness.service.registerView(view("scm.changes", 10));
@@ -153,7 +153,7 @@ describe("ViewsService — restore скрытости", () => {
         expect(harness.paneView("scm").getPaneIds()).toEqual(["scm.changes"]);
     });
 
-    it("стор без поля hidden читается как «ничего не скрыто»", () => {
+    it("storage without a hidden field reads as 'nothing hidden'", () => {
         const harness = makeViewsHarness();
         harness.stored.set(SIDEBAR_VIEWS_STATE.key, { scm: { collapsed: [], weights: {} } });
         harness.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
@@ -165,7 +165,7 @@ describe("ViewsService — restore скрытости", () => {
         expect(harness.paneView("scm").getPaneIds()).toEqual(["scm.changes", "scm.graph"]);
     });
 
-    it("протухший стор, скрывающий всё, оставляет первую секцию видимой", () => {
+    it("stale storage hiding everything keeps the first section visible", () => {
         const harness = makeViewsHarness();
         harness.stored.set(SIDEBAR_VIEWS_STATE.key, {
             scm: { collapsed: [], weights: {}, hidden: ["scm.changes", "scm.graph"] },
@@ -179,7 +179,7 @@ describe("ViewsService — restore скрытости", () => {
         expect(harness.paneView("scm").getPaneIds()).toEqual(["scm.changes"]);
     });
 
-    it("стор не может скрыть секцию, которой это запрещено, и не знает чужих id", () => {
+    it("storage cannot hide a section that forbids it and ignores unknown ids", () => {
         const harness = makeViewsHarness();
         harness.stored.set(SIDEBAR_VIEWS_STATE.key, {
             scm: { collapsed: [], weights: {}, hidden: ["scm.changes", "scm.ghost"] },

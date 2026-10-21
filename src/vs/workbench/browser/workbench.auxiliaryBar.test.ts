@@ -32,7 +32,7 @@ class FocusableBody extends TUIElement {
     }
 }
 
-describe("Workbench — вторичная боковая панель", () => {
+describe("Workbench — secondary side bar", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -91,14 +91,14 @@ describe("Workbench — вторичная боковая панель", () => {
         return h.workbench.view.focusManager?.activeElement ?? null;
     }
 
-    it("часть — правая колонка layout'а с id auxiliarybar, на старте скрыта", () => {
+    it("the part is the right layout column with id auxiliarybar, hidden at startup", () => {
         expect(part().id).toBe("auxiliarybar");
         expect(visible()).toBe(false);
         expect(contextKey("auxiliaryBarVisible")).toBe(false);
         expect(frame()[1].endsWith(" × ")).toBe(false);
     });
 
-    it("Ctrl+Alt+B показывает пустую часть справа с кнопкой закрытия и прячет обратно", () => {
+    it("Ctrl+Alt+B shows the empty part on the right with a close button and hides it again", () => {
         h.testApp.sendKey("Ctrl+Alt+B");
         expect(visible()).toBe(true);
         expect(contextKey("auxiliaryBarVisible")).toBe(true);
@@ -114,7 +114,7 @@ describe("Workbench — вторичная боковая панель", () => {
         expect(frame()[1].endsWith(" × ")).toBe(false);
     });
 
-    it("кнопка × закрывает часть через команду; Hide на скрытой части погашена", () => {
+    it("the × button closes the part via the command; Hide is disabled on a hidden part", () => {
         h.commands.execute(TOGGLE);
         part().onClose?.();
         expect(visible()).toBe(false);
@@ -123,7 +123,7 @@ describe("Workbench — вторичная боковая панель", () => {
         expect(visible()).toBe(false);
     });
 
-    it("показ отдаёт фокус активному контейнеру, скрытие возвращает его редактору", () => {
+    it("showing focuses the active container, hiding returns focus to the editor", () => {
         const body = addContainer("test.aux.one", "ONE", 1);
         expect(frame()[1]).not.toContain("ONE");
 
@@ -141,14 +141,14 @@ describe("Workbench — вторичная боковая панель", () => {
         expect(contextKey("activeAuxiliary")).toBe("");
     });
 
-    it("Focus into Secondary Side Bar показывает скрытую часть и фокусирует её", () => {
+    it("Focus into Secondary Side Bar shows the hidden part and focuses it", () => {
         const body = addContainer("test.aux.one", "ONE", 1);
         h.commands.execute(FOCUS);
         expect(visible()).toBe(true);
         expect(focused() === body).toBe(true);
     });
 
-    it("Next/Previous Secondary Side Bar View ходят по вкладкам по кругу", () => {
+    it("Next/Previous Secondary Side Bar View cycle through the tabs", () => {
         // Three tabs: with two, a step forward and a step back are indistinguishable.
         addContainer("test.aux.one", "ONE", 1);
         const two = addContainer("test.aux.two", "TWO", 2);
@@ -169,12 +169,12 @@ describe("Workbench — вторичная боковая панель", () => {
         expect(auxiliaryBar.getActiveViewId()).toBe("test.aux.one");
     });
 
-    it("Next/Previous на пустой части ничего не делают", () => {
+    it("Next/Previous do nothing on an empty part", () => {
         h.commands.execute(NEXT);
         expect(visible()).toBe(false);
     });
 
-    it("Increase Current View Size с фокусом в части расширяет её на кадре", () => {
+    it("Increase Current View Size with focus in the part widens it on the frame", () => {
         addContainer("test.aux.one", "ONE", 1);
         h.commands.execute(TOGGLE);
         h.commands.execute(INCREASE);
@@ -183,7 +183,7 @@ describe("Workbench — вторичная боковая панель", () => {
         expect(part().globalPosition.x).toBe(SIZE.width - 28);
     });
 
-    it("Decrease Current View Size с фокусом в редакторе отдаёт его колонки части, а строки — панели", () => {
+    it("Decrease Current View Size with focus in the editor gives its columns to the part and its rows to the panel", () => {
         addContainer("test.aux.one", "ONE", 1);
         const layout = h.container.get(LayoutServiceDIToken);
         layout.setAuxiliaryBarVisible(true);
@@ -198,7 +198,7 @@ describe("Workbench — вторичная боковая панель", () => {
         expect(bottom.layoutSize.height).toBe(height + 1);
     });
 
-    it("узкий терминал (80): редактору остаётся 20 колонок, часть ужимается первой", () => {
+    it("narrow terminal (80): the editor keeps 20 columns, the part shrinks first", () => {
         h.dispose();
         h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(80, 20) });
         const layout = h.container.get(LayoutServiceDIToken);
@@ -211,7 +211,7 @@ describe("Workbench — вторичная боковая панель", () => {
     });
 });
 
-describe("Workbench — вторичная боковая панель переживает перезапуск", () => {
+describe("Workbench — secondary side bar survives a restart", () => {
     let ws: ITempWorkspace;
     let userData: ITempWorkspace;
     let writers: StateService[];
@@ -234,7 +234,7 @@ describe("Workbench — вторичная боковая панель пере�
         return { h: createAppTestHarness({ workspaceFolder: ws.dir, stateService: state, size: SIZE }), state };
     }
 
-    it("ширина сохраняется; пустая часть, оставленная видимой, на старте не показывается", () => {
+    it("width persists; an empty part left visible is not shown at startup", () => {
         const first = launch();
         const layout = first.h.container.get(LayoutServiceDIToken);
         layout.setAuxiliaryBarVisible(true);

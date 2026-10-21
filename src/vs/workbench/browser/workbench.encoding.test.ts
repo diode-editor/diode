@@ -49,8 +49,11 @@ describe("Workbench — Change File Encoding", () => {
 
     beforeEach(() => {
         ws = createTempWorkspace({ prefix: "diode-encoding-" });
-        fs.writeFileSync(ws.path("cyr.txt"), iconv.encode("Привет, мир!\n", "windows1251"));
-        ws.writeFile("plain.txt", "Ёлка\n");
+        fs.writeFileSync(
+            ws.path("cyr.txt"),
+            iconv.encode("\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440!\n", "windows1251"),
+        ); // "Privet, mir!"
+        ws.writeFile("plain.txt", "\u0401\u043b\u043a\u0430\n"); // "Yolka"
         h = createAppTestHarness({ workspaceFolder: ws.dir });
     });
 
@@ -59,7 +62,7 @@ describe("Workbench — Change File Encoding", () => {
         ws.dispose();
     });
 
-    it("первый уровень: Reopen и Save для файла с диска", async () => {
+    it("first level: Reopen and Save for a file on disk", async () => {
         h.commands.execute("workbench.openFile", ws.path("plain.txt"));
         h.testApp.render();
 
@@ -71,7 +74,7 @@ describe("Workbench — Change File Encoding", () => {
         h.testApp.sendKey("Escape");
     });
 
-    it("в read-only остаётся только Reopen — писать нельзя", async () => {
+    it("read-only keeps only Reopen — writing is not allowed", async () => {
         h.commands.execute("workbench.openFile", ws.path("plain.txt"));
         h.testApp.render();
         h.commands.execute("workbench.action.files.toggleActiveEditorReadonlyInSession");
@@ -84,7 +87,7 @@ describe("Workbench — Change File Encoding", () => {
         h.testApp.sendKey("Escape");
     });
 
-    it("read-only безымянный буфер не открывает пикер вовсе", async () => {
+    it("a read-only untitled buffer does not open the picker at all", async () => {
         // Neither reread nor write: an empty list would be a dead end.
         h.commands.execute("workbench.action.files.newUntitledFile");
         h.testApp.render();
@@ -98,7 +101,7 @@ describe("Workbench — Change File Encoding", () => {
         expect(pickers.every((picker) => picker.items.length === 0)).toBe(true);
     });
 
-    it("для безымянного буфера Reopen скрыт", async () => {
+    it("Reopen is hidden for an untitled buffer", async () => {
         h.commands.execute("workbench.action.files.newUntitledFile");
         h.testApp.render();
 
@@ -110,11 +113,11 @@ describe("Workbench — Change File Encoding", () => {
         h.testApp.sendKey("Escape");
     });
 
-    it("Reopen with Encoding: cp1251-файл декодируется, статус-бар обновляется", async () => {
+    it("Reopen with Encoding: a cp1251 file is decoded, the status bar updates", async () => {
         h.commands.execute("workbench.openFile", ws.path("cyr.txt"));
         h.testApp.render();
         const editor = h.activeEditor();
-        expect(editor.getText()).not.toContain("Привет");
+        expect(editor.getText()).not.toContain("\u041f\u0440\u0438\u0432\u0435\u0442"); // "Privet"
 
         await changeEncoding(h);
         await pick(h, "Reopen");
@@ -124,13 +127,13 @@ describe("Workbench — Change File Encoding", () => {
         await vi.waitFor(() => {
             expect(editor.encoding).toBe("windows1251");
         });
-        expect(editor.getText()).toBe("Привет, мир!\n");
+        expect(editor.getText()).toBe("\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440!\n"); // "Privet, mir!"
         h.testApp.render();
         const items = statusTexts(h.container.get(StatusBarComponentDIToken).view);
         expect(items).toContain("Windows 1251");
     });
 
-    it("Reopen на «грязном» буфере спрашивает подтверждение", async () => {
+    it("Reopen on a dirty buffer asks for confirmation", async () => {
         h.commands.execute("workbench.openFile", ws.path("cyr.txt"));
         h.testApp.render();
         const editor = h.activeEditor();
@@ -149,11 +152,11 @@ describe("Workbench — Change File Encoding", () => {
         await vi.waitFor(() => {
             expect(editor.encoding).toBe("windows1251");
         });
-        expect(editor.getText()).toBe("Привет, мир!\n");
+        expect(editor.getText()).toBe("\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440!\n"); // "Privet, mir!"
         expect(editor.isModified).toBe(false);
     });
 
-    it("Save with Encoding: файл переписывается в выбранной кодировке", async () => {
+    it("Save with Encoding: the file is rewritten in the chosen encoding", async () => {
         const filePath = ws.path("plain.txt");
         h.commands.execute("workbench.openFile", filePath);
         h.testApp.render();
@@ -163,12 +166,14 @@ describe("Workbench — Change File Encoding", () => {
         await pick(h, "Cyrillic (Windows 1251)");
 
         await vi.waitFor(() => {
-            expect([...fs.readFileSync(filePath)]).toEqual([...iconv.encode("Ёлка\n", "windows1251")]);
+            expect([...fs.readFileSync(filePath)]).toEqual([
+                ...iconv.encode("\u0401\u043b\u043a\u0430\n", "windows1251"),
+            ]); // "Yolka"
         });
         expect(h.activeEditor().encoding).toBe("windows1251");
     });
 
-    it("без активного редактора команда — no-op (пикер не открывается)", async () => {
+    it("without an active editor the command is a no-op (the picker does not open)", async () => {
         h.commands.execute("workbench.action.editor.changeEncoding");
         await flushMicrotasks();
         h.testApp.render();
@@ -177,10 +182,10 @@ describe("Workbench — Change File Encoding", () => {
         expect(pickers.every((p) => p.items.length === 0)).toBe(true);
     });
 
-    it("Save with Encoding у безымянного буфера уводит в Save As с выставленной кодировкой", async () => {
+    it("Save with Encoding on an untitled buffer goes to Save As with the encoding set", async () => {
         h.commands.execute("workbench.action.files.newUntitledFile");
         h.testApp.render();
-        h.activeEditor().viewState.type("Ёлка");
+        h.activeEditor().viewState.type("\u0401\u043b\u043a\u0430"); // "Yolka"
 
         await changeEncoding(h);
         await pick(h, "Save with Encoding");
@@ -195,11 +200,11 @@ describe("Workbench — Change File Encoding", () => {
         await dialog.settle({ query: target });
         dialog.key("Enter");
         await vi.waitFor(() => {
-            expect([...fs.readFileSync(target)]).toEqual([...iconv.encode("Ёлка", "windows1251")]);
+            expect([...fs.readFileSync(target)]).toEqual([...iconv.encode("\u0401\u043b\u043a\u0430", "windows1251")]); // "Yolka"
         });
     });
 
-    it("Save with Encoding при внешнем изменении файла — Overwrite-диалог", async () => {
+    it("Save with Encoding after an external file change — Overwrite dialog", async () => {
         const filePath = ws.path("plain.txt");
         h.commands.execute("workbench.openFile", filePath);
         h.testApp.render();
@@ -215,11 +220,13 @@ describe("Workbench — Change File Encoding", () => {
 
         dialog!.onConfirm?.();
         await vi.waitFor(() => {
-            expect([...fs.readFileSync(filePath)]).toEqual([...iconv.encode("Ёлка\n", "windows1251")]);
+            expect([...fs.readFileSync(filePath)]).toEqual([
+                ...iconv.encode("\u0401\u043b\u043a\u0430\n", "windows1251"),
+            ]); // "Yolka"
         });
     });
 
-    it("Escape на любом уровне ничего не меняет", async () => {
+    it("Escape at any level changes nothing", async () => {
         const filePath = ws.path("plain.txt");
         const before = [...fs.readFileSync(filePath)];
         h.commands.execute("workbench.openFile", filePath);
@@ -249,7 +256,7 @@ describe("Workbench — Change End of Line Sequence", () => {
         ws.dispose();
     });
 
-    it("пикер меняет EOL и обновляет статус-бар", async () => {
+    it("the picker changes EOL and updates the status bar", async () => {
         h.commands.execute("workbench.openFile", ws.path("a.txt"));
         h.testApp.render();
 
@@ -263,7 +270,7 @@ describe("Workbench — Change End of Line Sequence", () => {
         expect(items).toContain("CRLF");
     });
 
-    it("выбор LF возвращает EOL обратно", async () => {
+    it("choosing LF switches EOL back", async () => {
         h.commands.execute("workbench.openFile", ws.path("a.txt"));
         h.testApp.render();
         h.activeEditor().setEol(EndOfLine.CRLF);
@@ -276,7 +283,7 @@ describe("Workbench — Change End of Line Sequence", () => {
         expect(h.activeEditor().eol).toBe(1); // EndOfLine.LF
     });
 
-    it("Escape не меняет EOL", async () => {
+    it("Escape does not change EOL", async () => {
         h.commands.execute("workbench.openFile", ws.path("a.txt"));
         h.testApp.render();
 
@@ -289,7 +296,7 @@ describe("Workbench — Change End of Line Sequence", () => {
         expect(h.activeEditor().eol).toBe(1);
     });
 
-    it("без активного редактора команда — no-op", async () => {
+    it("without an active editor the command is a no-op", async () => {
         h.commands.execute("workbench.action.editor.changeEOL");
         await flushMicrotasks();
         h.testApp.render();

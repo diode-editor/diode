@@ -63,23 +63,23 @@ function boxLines(backend: MockTerminalBackend): string[] {
 }
 
 describe("toastLines", () => {
-    it("переносит длинный текст по словам", () => {
+    it("wraps long text at word boundaries", () => {
         const lines = toastLines("Thank you for installing Supermaven! Click 'Activate' to set up a subscription");
         expect(lines.length).toBeGreaterThan(1);
         for (const line of lines) expect(line.length).toBeLessThanOrEqual(46);
     });
 
-    it("короткий текст остаётся одной строкой", () => {
+    it("short text stays on one line", () => {
         expect(toastLines("short")).toEqual(["short"]);
     });
 
-    it("слишком длинный текст обрезается многоточием: тост не растёт во весь экран", () => {
-        const lines = toastLines("слово ".repeat(200));
+    it("text that is too long ends in an ellipsis: the toast does not grow to fill the screen", () => {
+        const lines = toastLines("word ".repeat(200));
         expect(lines).toHaveLength(TOAST_MAX_LINES);
         expect(lines.at(-1)).toBe("…");
     });
 
-    it("ровно предельное число строк сохраняется целиком, без многоточия", () => {
+    it("exactly the line limit is kept whole, without an ellipsis", () => {
         // Exactly TOAST_MAX_LINES lines is NOT yet "too many".
         const exact = Array.from({ length: TOAST_MAX_LINES }, (_, i) => "x".repeat(40) + String(i)).join(" ");
         const lines = toastLines(exact);
@@ -89,18 +89,18 @@ describe("toastLines", () => {
 });
 
 describe("toastUnfocusedHint", () => {
-    it("называет действующую комбинацию", () => {
-        expect(toastUnfocusedHint("F6")).toBe("F6 — ответить");
-        expect(toastUnfocusedHint("Alt+M")).toBe("Alt+M — ответить");
+    it("names the active key combination", () => {
+        expect(toastUnfocusedHint("F6")).toBe("F6 — reply");
+        expect(toastUnfocusedHint("Alt+M")).toBe("Alt+M — reply");
     });
 
-    it("без бинда называет команду — её найдут в палитре", () => {
+    it("without a binding it names the command — it can be found in the command palette", () => {
         expect(toastUnfocusedHint(undefined)).toContain("Notifications: Focus Message");
     });
 });
 
-describe("NotificationToast — что видно на кадре", () => {
-    it("рамка вопроса собрана ровно так: текст, пустая строка, кнопки справа, подсказка", () => {
+describe("NotificationToast — what the frame shows", () => {
+    it("a question frame is laid out exactly: text, blank line, buttons on the right, hint", () => {
         // Assert the WHOLE frame: pins line order, padding and right-aligned buttons.
         const box = boxLines(renderToast({ severity: "warn", message: "Upload failed", items: ["Retry", "Cancel"] }));
         expect(box).toEqual([
@@ -111,12 +111,12 @@ describe("NotificationToast — что видно на кадре", () => {
             "│  Upload failed                                   │",
             "│                                                  │",
             "│                      [ Retry ] [ Cancel ] [ × ]  │",
-            "│  F6 — ответить                                   │",
+            "│  F6 — reply                                      │",
             "╰──────────────────────────────────────────────────╯",
         ]);
     });
 
-    it("заголовок покрашен акцентом строгости, а не цветом текста", () => {
+    it("the title uses the severity accent, not the text color", () => {
         const { testApp } = mount({ severity: "error" });
         testApp.render();
         const rows = testApp.backend.screenToString().split("\n");
@@ -130,7 +130,7 @@ describe("NotificationToast — что видно на кадре", () => {
         );
     });
 
-    it("подсказка приглушена — она не спорит с текстом сообщения", () => {
+    it("the hint is dimmed so it does not compete with the message text", () => {
         const { testApp } = mount({ items: ["One"] });
         testApp.render();
         const rows = testApp.backend.screenToString().split("\n");
@@ -142,18 +142,18 @@ describe("NotificationToast — что видно на кадре", () => {
         );
     });
 
-    it("тост адресуем селектором #notificationToast", () => {
+    it("the toast is addressable by the #notificationToast selector", () => {
         const { testApp } = mount();
         expect(testApp.querySelector(`#${TOAST_ELEMENT_ID}`)).not.toBeNull();
     });
 
-    it("строгость видна заголовком", () => {
+    it("severity shows as the title", () => {
         expect(screen(mount({ severity: "info" }).testApp)).toContain("Information");
         expect(screen(mount({ severity: "warn" }).testApp)).toContain("Warning");
         expect(screen(mount({ severity: "error" }).testApp)).toContain("Error");
     });
 
-    it("текст сообщения и подписи кнопок нарисованы", () => {
+    it("the message text and button labels are drawn", () => {
         const { testApp } = mount({ message: "Ruff: formatted", items: ["Activate", "Free"] });
         const text = screen(testApp);
         expect(text).toContain("Ruff: formatted");
@@ -161,26 +161,26 @@ describe("NotificationToast — что видно на кадре", () => {
         expect(text).toContain("Free");
     });
 
-    it("у тоста без кнопок подсказки нет — отвечать нечего", () => {
+    it("a toast without buttons has no hint — there is nothing to reply", () => {
         const { toast, testApp } = mount();
         expect(toast.hintText()).toBeNull();
-        expect(screen(testApp)).not.toContain("ответить");
+        expect(screen(testApp)).not.toContain("reply");
     });
 
-    it("у тоста с кнопками подсказка говорит, чем до них добраться", () => {
+    it("a toast with buttons has a hint telling how to reach them", () => {
         const { toast, testApp } = mount({ items: ["One"] });
-        expect(toast.hintText()).toBe("F6 — ответить");
-        expect(screen(testApp)).toContain("F6 — ответить");
+        expect(toast.hintText()).toBe("F6 — reply");
+        expect(screen(testApp)).toContain("F6 — reply");
     });
 });
 
-describe("NotificationToast — ответ с клавиатуры", () => {
-    it("isInteractive различает вопрос и пассивный тост", () => {
+describe("NotificationToast — keyboard reply", () => {
+    it("isInteractive tells a question from a passive toast", () => {
         expect(mount({ items: ["One"] }).toast.isInteractive).toBe(true);
         expect(mount().toast.isInteractive).toBe(false);
     });
 
-    it("focusDefault ведёт фокус на первую кнопку и меняет подсказку", () => {
+    it("focusDefault moves focus to the first button and changes the hint", () => {
         const { toast, testApp, buttons } = mount({ items: ["Activate", "Free"] });
         toast.focusDefault();
 
@@ -188,7 +188,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         expect(toast.hintText()).toBe(TOAST_HINT_FOCUSED);
     });
 
-    it("у пассивного тоста в ряду одна кнопка — закрыть, и фокус встаёт на неё", () => {
+    it("a passive toast has a single close button in its row, and focus lands on it", () => {
         const { toast, testApp, buttons } = mount();
         expect(buttons.map((b) => b.getLabel())).toEqual([TOAST_CLOSE_LABEL]);
 
@@ -196,7 +196,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         expect(testApp.focusedElement).toBe(buttons[0]);
     });
 
-    it("кнопка закрытия пассивного тоста закрывает его", () => {
+    it("the close button of a passive toast closes it", () => {
         const { toast, testApp, buttons } = mount();
         const onClose = vi.fn();
         toast.onClose = onClose;
@@ -207,7 +207,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it("кнопка закрытия вопроса не считается ответом", () => {
+    it("the close button of a question does not count as a reply", () => {
         const { toast, testApp, buttons } = mount({ items: ["Activate"] });
         const onSelect = vi.fn();
         const onClose = vi.fn();
@@ -221,7 +221,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         expect(onSelect).not.toHaveBeenCalled();
     });
 
-    it("Enter на кнопке отдаёт её индекс", () => {
+    it("Enter on a button returns its index", () => {
         const { toast, testApp, buttons } = mount({ items: ["Activate", "Free"] });
         const onSelect = vi.fn();
         toast.onSelect = onSelect;
@@ -233,7 +233,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         expect(onSelect).toHaveBeenCalledWith(1);
     });
 
-    it("←/→ ходят по ряду кнопок", () => {
+    it("←/→ move along the button row", () => {
         const { toast, testApp, buttons } = mount({ items: ["A", "B"] });
         toast.focusDefault();
 
@@ -244,7 +244,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         expect(testApp.focusedElement).toBe(buttons[0]);
     });
 
-    it("Tab ходит по кольцу, а не уводит фокус из тоста", () => {
+    it("Tab cycles around instead of moving focus out of the toast", () => {
         const { toast, testApp, buttons } = mount({ items: ["A"] });
         expect(buttons).toHaveLength(2);
         toast.focusDefault();
@@ -256,7 +256,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         expect(testApp.focusedElement).toBe(buttons[0]);
     });
 
-    it("Tab идёт вперёд, Shift+Tab назад — видно на трёх кнопках", () => {
+    it("Tab goes forward, Shift+Tab back — visible with three buttons", () => {
         // With two buttons both wrap directions lead to the same one; direction is distinguishable from three.
         const forward = mount({ items: ["A", "B"] });
         forward.toast.focusDefault();
@@ -269,7 +269,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         expect(back.testApp.focusedElement).toBe(back.buttons.at(-1));
     });
 
-    it("Tab не уводит фокус из тоста к соседям по дереву", () => {
+    it("Tab does not move focus from the toast to its tree neighbors", () => {
         // The session is passthrough: without intercepting Tab, focus would go to another focusable.
         const toast = new NotificationToast(notification({ items: ["A", "B"] }), "F6");
         const outsider = new ButtonElement("outside");
@@ -288,7 +288,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         expect(testApp.focusedElement).not.toBe(outsider);
     });
 
-    it("тост без обработчиков не падает ни на Enter, ни на Escape, ни на Tab", () => {
+    it("a toast without handlers crashes on none of Enter, Escape or Tab", () => {
         // Keys reach a passive toast too (focused via the command, then Escape).
         const { toast, testApp, buttons } = mount({ items: ["One"] });
         toast.focusDefault();
@@ -305,7 +305,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         }).not.toThrow();
     });
 
-    it("Escape закрывает без выбора", () => {
+    it("Escape closes without a choice", () => {
         const { toast, testApp } = mount({ items: ["One"] });
         const onClose = vi.fn();
         const onSelect = vi.fn();
@@ -319,13 +319,13 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         expect(onSelect).not.toHaveBeenCalled();
     });
 
-    it("подсказка возвращается к «как ответить», когда фокус ушёл из тоста", () => {
+    it('the hint goes back to "how to reply" when focus leaves the toast', () => {
         const { toast, testApp, buttons } = mount({ items: ["One"] });
         toast.focusDefault();
         expect(toast.hintText()).toBe(TOAST_HINT_FOCUSED);
 
         buttons[0].blur();
         void testApp;
-        expect(toast.hintText()).toBe("F6 — ответить");
+        expect(toast.hintText()).toBe("F6 — reply");
     });
 });

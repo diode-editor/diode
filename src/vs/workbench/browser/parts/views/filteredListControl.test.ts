@@ -19,8 +19,8 @@ function appendRow(control: FilteredListControl, id: string, text: string): void
     control.list.appendRow(row);
 }
 
-describe("FilteredListControl — проводка", () => {
-    it("прокидывает набор в input через onQueryChange", () => {
+describe("FilteredListControl — wiring", () => {
+    it("forwards typing in the input through onQueryChange", () => {
         const control = make();
         const queries: string[] = [];
         control.onQueryChange = (query) => queries.push(query);
@@ -32,7 +32,7 @@ describe("FilteredListControl — проводка", () => {
         expect(control.getQuery()).toBe("abc");
     });
 
-    it("setQuery ставит значение и прогоняет его через onQueryChange", () => {
+    it("setQuery sets the value and passes it through onQueryChange", () => {
         const control = make();
         const queries: string[] = [];
         control.onQueryChange = (query) => queries.push(query);
@@ -43,7 +43,7 @@ describe("FilteredListControl — проводка", () => {
         expect(queries).toEqual(["@conflicts"]);
     });
 
-    it("активация строки списка доходит до onActivateRow с id строки", () => {
+    it("activating a list row reaches onActivateRow with the row id", () => {
         const control = make();
         const activated: string[] = [];
         control.onActivateRow = (rowId) => activated.push(rowId);
@@ -56,18 +56,18 @@ describe("FilteredListControl — проводка", () => {
         expect(activated).toEqual(["row-1"]);
     });
 
-    it("элемент без id адресоваться не может — обработчик не зовётся", () => {
+    it("an element without an id cannot be addressed: the handler is not called", () => {
         const control = make();
         const activated: string[] = [];
         control.onActivateRow = (rowId) => activated.push(rowId);
         // Such a row can't be put into the list itself (appendRow requires an id), so
         // test the handler contract directly.
-        control.list.onActivate?.(new TextLabelElement("Без id"));
+        control.list.onActivate?.(new TextLabelElement("No id"));
 
         expect(activated).toEqual([]);
     });
 
-    it("молчит, когда колбэки не назначены — input, активация и setQuery", () => {
+    it("stays silent when callbacks are not set: input, activation and setQuery", () => {
         const control = make();
         appendRow(control, "row-1", "First");
 
@@ -80,7 +80,7 @@ describe("FilteredListControl — проводка", () => {
         expect(control.getQuery()).toBe("y");
     });
 
-    it("focusInput/focusList фокусируют свои элементы", () => {
+    it("focusInput/focusList focus their elements", () => {
         const control = make();
         const inputFocus = vi.spyOn(control.input, "focus").mockImplementation(() => {});
         const listFocus = vi.spyOn(control.list, "focus").mockImplementation(() => {});
@@ -93,8 +93,8 @@ describe("FilteredListControl — проводка", () => {
     });
 });
 
-describe("FilteredListControl — кадр", () => {
-    it("рисует плейсхолдер запроса в шапке и строки в теле", () => {
+describe("FilteredListControl — frame", () => {
+    it("renders the query placeholder in the header and rows in the body", () => {
         const control = make();
         appendRow(control, "row-1", "First row");
         appendRow(control, "row-2", "Second row");
@@ -109,7 +109,7 @@ describe("FilteredListControl — кадр", () => {
         expect(control.list.id).toBe("testList");
     });
 
-    it("showPlaceholderRow даёт строку-заглушку пустого состояния", () => {
+    it("showPlaceholderRow yields an empty-state placeholder row", () => {
         const control = make();
         control.showPlaceholderRow("emptyRow", "No things found");
 

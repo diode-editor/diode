@@ -57,8 +57,8 @@ function stubEditorService(): {
     };
 }
 
-describe("TabSwitcherComponent — без прикреплённого хоста", () => {
-    it("события серии до attachHost не открывают сессию и не падают", () => {
+describe("TabSwitcherComponent — without an attached host", () => {
+    it("cycle events before attachHost do not open a session and do not throw", () => {
         const { service, fireCycle, fireActiveGroup } = stubEditorService();
         const component = new TabSwitcherComponent(service, service as unknown as IEditorGroupsService);
 
@@ -78,7 +78,7 @@ describe("TabSwitcherComponent — без прикреплённого хост�
     });
 });
 
-describe("TabSwitcherComponent — overlay-сессия", () => {
+describe("TabSwitcherComponent — overlay session", () => {
     function withHost() {
         const { service, fireCycle, fireActiveGroup } = stubEditorService();
         const component = new TabSwitcherComponent(service, service as unknown as IEditorGroupsService);
@@ -91,7 +91,7 @@ describe("TabSwitcherComponent — overlay-сессия", () => {
 
     const cycle = (pointer: number) => ({ panes: [makePane("a.ts"), makePane("b.ts")], pointer });
 
-    it("шаг серии открывает сессию, конец серии её закрывает", () => {
+    it("a cycle step opens the session, the end of the cycle closes it", () => {
         const { component, fireCycle } = withHost();
 
         const keys = new ContextKeyService();
@@ -110,7 +110,7 @@ describe("TabSwitcherComponent — overlay-сессия", () => {
         component.dispose();
     });
 
-    it("смена активной группы гасит открытый список", () => {
+    it("changing the active group dismisses the open list", () => {
         const { component, fireCycle, fireActiveGroup } = withHost();
 
         fireCycle(cycle(1));
@@ -122,7 +122,7 @@ describe("TabSwitcherComponent — overlay-сессия", () => {
         component.dispose();
     });
 
-    it("dispose снимает сессию со слоя — оверлей не переживает компонент", () => {
+    it("dispose removes the session from the layer — the overlay does not outlive the component", () => {
         const { component, body, fireCycle } = withHost();
         fireCycle(cycle(0));
         expect(body.overlayLayer.getItems().some((item) => item.element === component.view)).toBe(true);

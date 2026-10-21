@@ -76,11 +76,11 @@ function activeBindings(
         .filter((entry) => entry.when === undefined || contextKeys.evaluate(entry.when, overlayFor(env, entry.when)));
 }
 
-describe("достижимость дефолтных биндов", () => {
+describe("default keybinding reachability", () => {
     const registry = registerBuiltins();
 
     it.each(ENVIRONMENTS.map((env) => [env.name, env] as const))(
-        "%s: у каждой команды с биндом есть доставляемая комбинация",
+        "%s: every command with a keybinding has a deliverable chord",
         (_name, env) => {
             const contextKeys = new ContextKeyService();
             const active = activeBindings(registry, env, contextKeys);
@@ -101,7 +101,7 @@ describe("достижимость дефолтных биндов", () => {
     );
 
     it.each(ENVIRONMENTS.map((env) => [env.name, env] as const))(
-        "%s: подпись бинда в палитре и меню — доставляемая",
+        "%s: the keybinding label in the command palette and menus is deliverable",
         (_name, env) => {
             const contextKeys = new ContextKeyService();
             for (const [key, value] of Object.entries(environmentValues(env))) contextKeys.setRaw(key, value);
@@ -121,7 +121,7 @@ describe("достижимость дефолтных биндов", () => {
     );
 });
 
-describe("асимметрия tier-гейта — пользовательский контракт", () => {
+describe("tier gate asymmetry — user-facing contract", () => {
     // Canonical binding under the tier gate and its label on both sides: `command | on legacy | on kitty`.
     // The table is built from the bindings themselves — a new gate must land here deliberately.
     const CONTRACT = [
@@ -161,7 +161,7 @@ describe("асимметрия tier-гейта — пользовательск�
     const PC_LEGACY: Environment = { name: "pc legacy", tier: "legacy" };
     const PC_KITTY: Environment = { name: "pc kitty", tier: "kitty" };
 
-    it("содержимое таблицы", () => {
+    it("table contents", () => {
         const registry = registerBuiltins();
         const contextKeys = new ContextKeyService();
         const bindings = registry.listBindings();
@@ -191,7 +191,7 @@ describe("асимметрия tier-гейта — пользовательск�
     });
 });
 
-describe("коллизии дефолтных биндов", () => {
+describe("default keybinding collisions", () => {
     // Needed HERE specifically, unlike the gate above: "do two bindings fire on the same
     // keystroke" depends directly on focus.
     const FOCUS_CONTEXTS: readonly Readonly<Record<string, boolean>>[] = [
@@ -252,7 +252,7 @@ describe("коллизии дефолтных биндов", () => {
         expect([...collisions].sort()).toEqual([...KNOWN_COLLISIONS].sort());
     });
 
-    it("подсветка конфликтов в редакторе шорткатов не ловит дубль одной команды", () => {
+    it("conflict highlighting in the keyboard shortcuts editor ignores duplicates of one command", () => {
         // `findConflictingBindings` compares `when` as strings: an unconditional fallback next to
         // a conditional binding of the SAME command is not a conflict but two paths to one command.
         const entries = registerBuiltins().listBindings();

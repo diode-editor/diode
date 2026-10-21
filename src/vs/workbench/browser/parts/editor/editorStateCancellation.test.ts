@@ -35,7 +35,7 @@ function fakeEditor(): IEditorStateSource & {
 }
 
 describe("EditorStateCancellationTokenSource", () => {
-    it("Value: правка отменяет, движение каретки — нет", () => {
+    it("Value: an edit cancels, cursor movement does not", () => {
         const editor = fakeEditor();
         const source = new EditorStateCancellationTokenSource(editor, EditorStateFlag.Value);
 
@@ -46,7 +46,7 @@ describe("EditorStateCancellationTokenSource", () => {
         expect(source.token.isCancellationRequested).toBe(true);
     });
 
-    it("Position: движение каретки отменяет, правка — нет", () => {
+    it("Position: cursor movement cancels, an edit does not", () => {
         const editor = fakeEditor();
         const source = new EditorStateCancellationTokenSource(editor, EditorStateFlag.Position);
 
@@ -57,7 +57,7 @@ describe("EditorStateCancellationTokenSource", () => {
         expect(source.token.isCancellationRequested).toBe(true);
     });
 
-    it("Value | Position: отменяет любое из двух", () => {
+    it("Value | Position: either one cancels", () => {
         const flags = EditorStateFlag.Value | EditorStateFlag.Position;
         const byEdit = fakeEditor();
         const editSource = new EditorStateCancellationTokenSource(byEdit, flags);
@@ -70,7 +70,7 @@ describe("EditorStateCancellationTokenSource", () => {
         expect(caretSource.token.isCancellationRequested).toBe(true);
     });
 
-    it("отмена родителя отменяет источник", () => {
+    it("cancelling the parent cancels the source", () => {
         const parent = new CancellationTokenSource();
         const source = new EditorStateCancellationTokenSource(fakeEditor(), EditorStateFlag.Value, parent.token);
 
@@ -79,7 +79,7 @@ describe("EditorStateCancellationTokenSource", () => {
         expect(source.token.isCancellationRequested).toBe(true);
     });
 
-    it("dispose снимает подписки на редактор и не отменяет", () => {
+    it("dispose removes the editor subscriptions and does not cancel", () => {
         const editor = fakeEditor();
         const source = new EditorStateCancellationTokenSource(editor, EditorStateFlag.Value | EditorStateFlag.Position);
         expect(editor.subscribers).toBe(2);
@@ -90,7 +90,7 @@ describe("EditorStateCancellationTokenSource", () => {
         expect(source.token.isCancellationRequested).toBe(false);
     });
 
-    it("dispose снимает и подписку на родителя", () => {
+    it("dispose also removes the parent subscription", () => {
         const parent = new CancellationTokenSource();
         const source = new EditorStateCancellationTokenSource(fakeEditor(), EditorStateFlag.Value, parent.token);
 

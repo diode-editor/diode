@@ -41,7 +41,7 @@ describe("Workbench — session state persistence", () => {
     function paneViewOf(h: IAppHarness): PaneViewElement {
         h.container.get(SidebarServiceDIToken).showViewlet(SCM_VIEWLET_ID, false);
         const element = h.workbench.view.querySelector(`#viewContainer-${SCM_VIEWLET_ID}`);
-        if (element === null) throw new Error("сайдбар не собрал контейнер Source Control");
+        if (element === null) throw new Error("the sidebar did not build the Source Control container");
         return element as PaneViewElement;
     }
 
@@ -98,7 +98,7 @@ describe("Workbench — session state persistence", () => {
         h2.dispose();
     });
 
-    it("US-41: восстанавливает полосу групп — состав, активные вкладки, активную группу, ось и доли", () => {
+    it("US-41: restores the group strip: members, active tabs, active group, orientation and ratios", () => {
         const state1 = newState();
         const h1: IAppHarness = createAppTestHarness({
             workspaceFolder: ws.dir,
@@ -146,7 +146,7 @@ describe("Workbench — session state persistence", () => {
         h2.dispose();
     });
 
-    it("US-42: пропавший файл пропускается; опустевшая группа схлопывается при ресторе", () => {
+    it("US-42: a missing file is skipped; an emptied group collapses on restore", () => {
         const state1 = newState();
         const h1: IAppHarness = createAppTestHarness({
             workspaceFolder: ws.dir,
@@ -175,7 +175,7 @@ describe("Workbench — session state persistence", () => {
         h2.dispose();
     });
 
-    it("US-43: рестор в маленьком терминале сливает лишние группы, файлы не теряются", () => {
+    it("US-43: restore in a small terminal merges extra groups without losing files", () => {
         const state1 = newState();
         const h1: IAppHarness = createAppTestHarness({
             workspaceFolder: ws.dir,
@@ -206,7 +206,7 @@ describe("Workbench — session state persistence", () => {
         h2.dispose();
     });
 
-    it("getOpenEditorsToRestore дедупит файл, открытый в двух группах", () => {
+    it("getOpenEditorsToRestore dedupes a file open in two groups", () => {
         const state1 = newState();
         const h1: IAppHarness = createAppTestHarness({
             workspaceFolder: ws.dir,
@@ -230,7 +230,7 @@ describe("Workbench — session state persistence", () => {
         h2.dispose();
     });
 
-    it("сессия до сплитов (плоский ключ) поднимается одной группой", () => {
+    it("a pre-split session (flat key) restores as a single group", () => {
         const state1 = newState();
         // The same per-project store key the harness opens via setWorkspaceFolder.
         state1.openWorkspace(computeWorkspaceId(ws.dir));
@@ -248,7 +248,7 @@ describe("Workbench — session state persistence", () => {
         h2.dispose();
     });
 
-    it("битый снимок групп: недостающая доля становится 1, вместо удалённой активной вкладки — первая", () => {
+    it("a malformed group snapshot: a missing ratio becomes 1, a removed active tab is replaced by the first", () => {
         // Hand-made snapshot: weights shorter than the group list (old build or edited JSON),
         // group 2's active file deleted.
         const state1 = newState();
@@ -288,7 +288,7 @@ describe("Workbench — session state persistence", () => {
         h2.dispose();
     });
 
-    it("вкладка Keyboard Shortcuts переживает рестарт — на своём месте среди файлов и активной", () => {
+    it("the Keyboard Shortcuts tab survives a restart, in its place among the files and active", () => {
         const state1 = newState();
         const h1: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state1 });
         h1.workbench.openFile(ws.path("a.ts"));
@@ -321,7 +321,7 @@ describe("Workbench — session state persistence", () => {
         h2.dispose();
     });
 
-    it("дифф двух файлов переживает рестарт, дифф с буфером обмена — нет", async () => {
+    it("a diff of two files survives a restart, a diff with the clipboard does not", async () => {
         const state1 = newState();
         const h1: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state1 });
         await openDiffPair(h1.container, {
@@ -346,7 +346,7 @@ describe("Workbench — session state persistence", () => {
         h2.dispose();
     });
 
-    it("вкладка вида, которого эта сборка не знает, молча выпадает из рестора", () => {
+    it("a tab of a kind this build does not know is silently dropped from restore", () => {
         const state1 = newState();
         state1.openWorkspace(computeWorkspaceId(ws.dir));
         state1.store(EDITOR_GROUPS_STATE, {
@@ -381,7 +381,7 @@ describe("Workbench — session state persistence", () => {
         h2.dispose();
     });
 
-    it("свёрнутость секций переживает рестарт и перебивает дефолт дескриптора", () => {
+    it("section collapse state survives a restart and overrides the descriptor default", () => {
         const state1 = newState();
         const h1: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state1 });
         const views1 = h1.container.get(ViewsServiceDIToken);

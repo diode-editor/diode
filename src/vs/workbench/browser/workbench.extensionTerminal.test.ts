@@ -17,7 +17,7 @@ import { ExtensionPtySessionFactoryDIToken } from "../contrib/terminal/common/te
 import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
 import { ViewsServiceDIToken } from "./parts/views/viewsService.ts";
 
-describe("Workbench — терминал расширения", () => {
+describe("Workbench — extension terminal", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let terminal: TerminalService;
@@ -46,7 +46,7 @@ describe("Workbench — терминал расширения", () => {
         ws.dispose();
     });
 
-    it("show открывает панель TERMINAL с выводом шелла расширения и отдаёт ему фокус", () => {
+    it("show opens the TERMINAL panel with the extension shell output and focuses it", () => {
         boot();
         adapter.create({ extHostId: 1, name: "Bazel Java: cleanup" });
         expect(screen()).not.toContain("==> done");
@@ -63,7 +63,7 @@ describe("Workbench — терминал расширения", () => {
         expect(screen()).not.toContain("==> done");
     });
 
-    it("рядом с шеллом человека — имя терминала расширения в списке вкладок", () => {
+    it("next to the user's shell — the extension terminal name in the tab list", () => {
         boot();
         h.commands.execute("workbench.action.terminal.new");
         adapter.create({ extHostId: 1, name: "Bazel Build Status" });

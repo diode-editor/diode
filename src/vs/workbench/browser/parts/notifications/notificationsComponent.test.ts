@@ -34,26 +34,26 @@ function screen(testApp: TestApp): string {
 }
 
 describe("clampRow", () => {
-    it("обычный ряд проходит как есть", () => {
+    it("a regular row passes through as is", () => {
         expect(clampRow(10, 24)).toBe(10);
     });
 
-    it("на низком экране высокий тост не уезжает выше строки меню", () => {
+    it("on a short screen a tall toast does not move above the menu row", () => {
         expect(clampRow(-5, 24)).toBe(1);
         expect(clampRow(0, 24)).toBe(1);
     });
 
-    it("и не уезжает за нижний край кадра", () => {
+    it("nor past the bottom edge of the frame", () => {
         expect(clampRow(100, 24)).toBe(23);
     });
 
-    it("на экране в один ряд остаётся первый ряд", () => {
+    it("on a one-row screen the first row remains", () => {
         expect(clampRow(0, 1)).toBe(1);
     });
 });
 
-describe("NotificationsComponent — без прикреплённого хоста", () => {
-    it("сообщение до attachHost не падает и оверлеев не открывает", () => {
+describe("NotificationsComponent — without an attached host", () => {
+    it("a message before attachHost does not crash or open overlays", () => {
         const { notifications, component } = makeComponent();
 
         expect(() => {
@@ -64,13 +64,13 @@ describe("NotificationsComponent — без прикреплённого хос�
         expect(component.focusAsk()).toBe(false);
     });
 
-    it("стек адресуем селектором #notificationToasts", () => {
+    it("the stack is addressable by the #notificationToasts selector", () => {
         const { component } = makeComponent();
         const { testApp } = mountHost(component);
         expect(testApp.querySelector("#notificationToasts")).not.toBeNull();
     });
 
-    it("focusAsk сообщает, нашёлся ли вопрос", () => {
+    it("focusAsk reports whether a question was found", () => {
         const { notifications, component } = makeComponent();
         mountHost(component);
         expect(component.focusAsk()).toBe(false);
@@ -80,16 +80,16 @@ describe("NotificationsComponent — без прикреплённого хос�
         expect(component.focusAsk()).toBe(true);
     });
 
-    it("attachHost показывает то, что уже накопилось", () => {
+    it("attachHost shows what has already accumulated", () => {
         const { notifications, component } = makeComponent();
-        notifications.show({ severity: "error", message: "раньше хоста", modal: false, items: [] });
+        notifications.show({ severity: "error", message: "before the host", modal: false, items: [] });
 
         const { testApp } = mountHost(component);
 
-        expect(screen(testApp)).toContain("раньше хоста");
+        expect(screen(testApp)).toContain("before the host");
     });
 
-    it("пустой сервис не рисует ни рамки, ни пустого окна", () => {
+    it("an empty service draws neither a border nor an empty window", () => {
         const { component } = makeComponent();
         const { testApp } = mountHost(component);
 
@@ -97,12 +97,12 @@ describe("NotificationsComponent — без прикреплённого хос�
     });
 });
 
-describe("NotificationsComponent — кнопка закрытия тоста", () => {
-    it("× на пассивном тосте убирает именно его", () => {
+describe("NotificationsComponent — toast close button", () => {
+    it("× on a passive toast removes exactly that toast", () => {
         const { notifications, component } = makeComponent();
         const { testApp } = mountHost(component);
         notifications.show({ severity: "error", message: "sticky", modal: false, items: [] });
-        notifications.show({ severity: "error", message: "второй", modal: false, items: [] });
+        notifications.show({ severity: "error", message: "second", modal: false, items: [] });
         expect(screen(testApp)).toContain("sticky");
 
         const buttons = testApp.querySelectorAll("ButtonElement");
@@ -111,20 +111,20 @@ describe("NotificationsComponent — кнопка закрытия тоста", 
 
         const text = screen(testApp);
         expect(text).not.toContain("sticky");
-        expect(text).toContain("второй");
-        expect(notifications.passive().map((n) => n.message)).toEqual(["второй"]);
+        expect(text).toContain("second");
+        expect(notifications.passive().map((n) => n.message)).toEqual(["second"]);
     });
 });
 
 describe("NotificationsComponent — dispose", () => {
-    it("до attachHost не падает", () => {
+    it("does not crash before attachHost", () => {
         const { component } = makeComponent();
         expect(() => {
             component.dispose();
         }).not.toThrow();
     });
 
-    it("снимает вопрос с экрана и перестаёт слушать сервис", () => {
+    it("removes the question from the screen and stops listening to the service", () => {
         const { notifications, component } = makeComponent();
         const { testApp } = mountHost(component);
         notifications.show({ severity: "info", message: "ask?", modal: false, items: ["One"] });
@@ -136,12 +136,12 @@ describe("NotificationsComponent — dispose", () => {
         expect(screen(testApp)).not.toContain("ask?");
 
         expect(() => {
-            notifications.show({ severity: "error", message: "после dispose", modal: false, items: [] });
+            notifications.show({ severity: "error", message: "after dispose", modal: false, items: [] });
         }).not.toThrow();
-        expect(screen(testApp)).not.toContain("после dispose");
+        expect(screen(testApp)).not.toContain("after dispose");
     });
 
-    it("снимает пассивный стек: освобождённые тосты не остаются в дереве", () => {
+    it("removes the passive stack: disposed toasts do not stay in the tree", () => {
         const { notifications, component } = makeComponent();
         const { testApp } = mountHost(component);
         notifications.show({ severity: "error", message: "sticky", modal: false, items: [] });
@@ -153,17 +153,17 @@ describe("NotificationsComponent — dispose", () => {
     });
 });
 
-describe("NotificationsComponent — подпись бинда в подсказке", () => {
-    it("берёт комбинацию действующего бинда команды фокуса", () => {
+describe("NotificationsComponent — binding label in the hint", () => {
+    it("takes the key combination of the focus command's active binding", () => {
         const { notifications, component } = makeComponent("alt+m");
         const { testApp } = mountHost(component);
 
         notifications.show({ severity: "info", message: "ask?", modal: false, items: ["One"] });
 
-        expect(screen(testApp)).toContain("Alt+M — ответить");
+        expect(screen(testApp)).toContain("Alt+M — reply");
     });
 
-    it("без бинда называет команду — её найдут в палитре", () => {
+    it("without a binding it names the command — it can be found in the command palette", () => {
         const { notifications, component } = makeComponent();
         const { testApp } = mountHost(component);
 

@@ -78,7 +78,7 @@ interface IHarness {
     readonly focusedId: () => string | undefined;
 }
 
-describe("Workbench — магазин расширений в сайдбаре end-to-end", () => {
+describe("Workbench — extension marketplace in the sidebar end-to-end", () => {
     let ws: ITempWorkspace | undefined;
 
     afterEach(() => {
@@ -115,7 +115,7 @@ describe("Workbench — магазин расширений в сайдбаре 
             },
             extensionsList: () => {
                 const list = workbench.view.querySelector("#extensionsList");
-                expect(list, "список магазина не найден в дереве").not.toBeNull();
+                expect(list, "marketplace list not found in the tree").not.toBeNull();
                 return list as ListViewElement;
             },
             contextKey: (key) => contextKeys.get(key),
@@ -124,7 +124,7 @@ describe("Workbench — магазин расширений в сайдбаре 
         };
     }
 
-    it("команда показа выводит вьюлет магазина в сайдбар", () => {
+    it("the show command puts the marketplace viewlet in the sidebar", () => {
         const h = setup();
         expect(h.screen()).toContain("EXPLORER");
 
@@ -136,7 +136,7 @@ describe("Workbench — магазин расширений в сайдбаре 
         expect(shown).not.toContain("EXPLORER");
     });
 
-    it("переключение обратно на Explorer возвращает дерево файлов", () => {
+    it("switching back to Explorer restores the file tree", () => {
         const h = setup();
         h.execute(SHOW_EXTENSIONS);
         h.execute(SHOW_EXPLORER);
@@ -146,7 +146,7 @@ describe("Workbench — магазин расширений в сайдбаре 
         expect(shown).not.toContain("Search Extensions");
     });
 
-    it("контекст-ключ видимости магазина следует за активным вьюлетом", () => {
+    it("the marketplace visibility context key follows the active viewlet", () => {
         const h = setup();
         h.execute(SHOW_EXTENSIONS);
         expect(h.contextKey("extensionsViewletVisible")).toBe(true);
@@ -155,7 +155,7 @@ describe("Workbench — магазин расширений в сайдбаре 
         expect(h.contextKey("extensionsViewletVisible")).toBe(false);
     });
 
-    it("Enter на записи открывает страницу расширения вкладкой редактора", async () => {
+    it("Enter on an entry opens the extension page as an editor tab", async () => {
         const h = setup();
         h.execute(SHOW_EXTENSIONS);
 

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createStatusBarHarness, statusSegments, statusTexts } from "./statusBarComponent.testUtils.ts";
 
-describe("StatusBarComponent — индикатор отступов", () => {
+describe("StatusBarComponent — indentation indicator", () => {
     let savedEnv: NodeJS.ProcessEnv;
 
     beforeEach(() => {
@@ -25,12 +25,12 @@ describe("StatusBarComponent — индикатор отступов", () => {
         process.env = savedEnv;
     });
 
-    it("нет сегмента без активного редактора", () => {
+    it("no segment without an active editor", () => {
         const { component } = createStatusBarHarness();
         expect(statusSegments(component.view)).toEqual([{ text: "legacy", side: "left" }]);
     });
 
-    it("табы → «Tab Size: N» по действующему размеру таба", () => {
+    it("tabs → 'Tab Size: N' from the current tab size", () => {
         const { component, source } = createStatusBarHarness();
 
         const editor = source.openEditor();
@@ -39,7 +39,7 @@ describe("StatusBarComponent — индикатор отступов", () => {
         expect(statusTexts(component.view)).toContain("Tab Size: 8");
     });
 
-    it("пробелы → «Spaces: N», между Ln/Col и Encoding — порядок VS Code", () => {
+    it("spaces → 'Spaces: N', between Ln/Col and Encoding — VS Code order", () => {
         const { component, source } = createStatusBarHarness();
 
         const editor = source.openEditor();
@@ -48,7 +48,7 @@ describe("StatusBarComponent — индикатор отступов", () => {
         expect(statusTexts(component.view)).toEqual(["legacy", "Ln 1, Col 1", "Spaces: 2", "UTF-8", "LF", "plaintext"]);
     });
 
-    it("детекция по содержимому открытого файла доезжает до полосы", () => {
+    it("detection from the open file's contents reaches the bar", () => {
         const { component, source } = createStatusBarHarness();
 
         source.openEditor("if (a) {\n  b();\n  c();\n}\n");
@@ -56,7 +56,7 @@ describe("StatusBarComponent — индикатор отступов", () => {
         expect(statusTexts(component.view)).toContain("Spaces: 2");
     });
 
-    it("обновляется по событию смены отступов без ручного апдейта", () => {
+    it("updates on the indentation change event without a manual update", () => {
         const { component, source } = createStatusBarHarness();
         const editor = source.openEditor();
         expect(statusTexts(component.view)).toContain("Tab Size: 4");
@@ -71,7 +71,7 @@ describe("StatusBarComponent — индикатор отступов", () => {
         expect(statusTexts(component.view)).not.toContain("Tab Size: 4");
     });
 
-    it("переподписывается при смене активного редактора", () => {
+    it("resubscribes when the active editor changes", () => {
         const { component, source } = createStatusBarHarness();
         const firstEditor = source.openEditor();
         source.openEditor();
@@ -83,7 +83,7 @@ describe("StatusBarComponent — индикатор отступов", () => {
         expect(statusTexts(component.view)).toContain("Spaces: 2");
     });
 
-    it("смена активного редактора снимает indent-подписку с прежнего", () => {
+    it("changing the active editor removes the indent subscription from the previous one", () => {
         const { source } = createStatusBarHarness();
         const firstEditor = source.openEditor();
         expect(firstEditor.indentListenerCount).toBe(1);
@@ -93,7 +93,7 @@ describe("StatusBarComponent — индикатор отступов", () => {
         expect(firstEditor.indentListenerCount).toBe(0);
     });
 
-    it("сегмент инертен: клик не предусмотрен (записи без onClick)", () => {
+    it("the segment is inert: no click (entries without onClick)", () => {
         const { statusBarService, source } = createStatusBarHarness();
         source.openEditor();
 

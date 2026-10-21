@@ -8,7 +8,7 @@ import { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts";
 import { makeViewsHarness, paneTitles, testView as view } from "./viewsService.testUtils.ts";
 
 describe("ViewsService", () => {
-    it("attachContainer строит заголовок над секциями и регистрирует контейнер", () => {
+    it("attachContainer builds a header above the sections and registers the container", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
         h.service.registerView(view("scm.changes", "scm", 10));
@@ -21,7 +21,7 @@ describe("ViewsService", () => {
         expect(h.paneView("scm").getPaneIds()).toEqual(["scm.changes", "scm.graph"]);
     });
 
-    it("секции идут по order, а не по порядку регистрации", () => {
+    it("sections follow order, not registration order", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         h.service.registerView(view("scm.graph", "scm", 20));
@@ -30,7 +30,7 @@ describe("ViewsService", () => {
         expect(h.paneView("scm").getPaneIds()).toEqual(["scm.changes", "scm.graph"]);
     });
 
-    it("поздняя регистрация view пересобирает уже построенный контейнер", () => {
+    it("late view registration rebuilds an already built container", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         h.service.registerView(view("scm.graph", "scm", 20));
@@ -39,7 +39,7 @@ describe("ViewsService", () => {
         expect(h.paneView("scm").getPaneIds()).toEqual(["scm.changes", "scm.graph"]);
     });
 
-    it("повторный attachContainer — no-op", () => {
+    it("repeated attachContainer is a no-op", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         h.service.registerView(view("scm.changes", "scm", 10));
@@ -49,7 +49,7 @@ describe("ViewsService", () => {
         expect(h.root("scm")).toBe(first);
     });
 
-    it("действие пользователя write-through'ом сохраняет свёрнутость и веса", () => {
+    it("a user action writes collapsed state and weights through to storage", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         h.service.registerView(view("scm.changes", "scm", 10));
@@ -67,7 +67,7 @@ describe("ViewsService", () => {
         });
     });
 
-    it("restoreViewsState применяет сохранённое без write-through", () => {
+    it("restoreViewsState applies saved state without write-through", () => {
         const h = makeViewsHarness();
         h.stored.set(SIDEBAR_VIEWS_STATE.key, {
             scm: { collapsed: ["scm.graph"], weights: { "scm.changes": 7, "scm.graph": 3 } },
@@ -90,7 +90,7 @@ describe("ViewsService", () => {
         expect(h.stored.get(SIDEBAR_VIEWS_STATE.key)).toBe(before);
     });
 
-    it("reveal контейнера фокусирует первую развёрнутую view", () => {
+    it("revealing a container focuses its first expanded view", () => {
         const h = makeViewsHarness();
         const focusChanges = vi.fn();
         const focusGraph = vi.fn();
@@ -110,7 +110,7 @@ describe("ViewsService", () => {
         }).toThrow(/is not registered/);
     });
 
-    it("view можно регистрировать раньше контейнера (компоненты создаются раньше workbench)", () => {
+    it("a view can be registered before its container (components are created before the workbench)", () => {
         const h = makeViewsHarness();
         h.service.registerView(view("scm.changes", "scm", 10));
         h.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
@@ -118,7 +118,7 @@ describe("ViewsService", () => {
         expect(h.paneView("scm").getPaneIds()).toEqual(["scm.changes"]);
     });
 
-    it("повторная регистрация view заменяет дескриптор (идемпотентность setWorkspaceFolder)", () => {
+    it("re-registering a view replaces the descriptor (setWorkspaceFolder idempotency)", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         h.service.registerView(view("scm.changes", "scm", 10));
@@ -127,7 +127,7 @@ describe("ViewsService", () => {
         expect(h.paneView("scm").getPaneIds()).toEqual(["scm.changes"]);
     });
 
-    it("при равном order секции идут по id", () => {
+    it("sections with equal order are sorted by id", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         h.service.registerView(view("scm.zeta", "scm", 10));
@@ -136,7 +136,7 @@ describe("ViewsService", () => {
         expect(h.paneView("scm").getPaneIds()).toEqual(["scm.alpha", "scm.zeta"]);
     });
 
-    it("focusContainer до attach и на контейнере без view — тихие no-op", () => {
+    it("focusContainer before attach and on a container without views is a silent no-op", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         expect(() => {
@@ -148,7 +148,7 @@ describe("ViewsService", () => {
         }).not.toThrow();
     });
 
-    it("все секции свёрнуты — фокус первой view контейнера", () => {
+    it("all sections collapsed: focus goes to the container's first view", () => {
         const h = makeViewsHarness();
         const focusChanges = vi.fn();
         const focusGraph = vi.fn();
@@ -163,7 +163,7 @@ describe("ViewsService", () => {
         expect(focusGraph).not.toHaveBeenCalled();
     });
 
-    it("attach незарегистрированного контейнера — ошибки", () => {
+    it("attaching an unregistered container throws", () => {
         const h = makeViewsHarness();
         h.service.registerView(view("x", "ghost", 1));
         expect(() => {
@@ -174,14 +174,14 @@ describe("ViewsService", () => {
         }).toThrow(/unknown container id/);
     });
 
-    it("обращение к незнакомой view — ошибка", () => {
+    it("accessing an unknown view throws", () => {
         const h = makeViewsHarness();
         expect(() => h.service.isViewVisible("nope")).toThrow(/unknown view id/);
     });
 });
 
-describe("ViewsService — merged контейнер выводится из числа видимых секций", () => {
-    it("одна view: без заголовка контейнера, секция несёт его название и не сворачивается", () => {
+describe("ViewsService — merged container derives from the number of visible sections", () => {
+    it("single view: no container header, the section carries its title and does not collapse", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "search", title: "SEARCH", location: "sidebar" });
         h.service.registerView(view("search.results", "search", 10));
@@ -199,7 +199,7 @@ describe("ViewsService — merged контейнер выводится из ч�
         expect(paneView.isCollapsed("search.results")).toBe(false);
     });
 
-    it("вторая view разъезжает заголовки: появляется заголовок контейнера, секции сворачиваемые", () => {
+    it("a second view splits the headers: the container header appears, sections become collapsible", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "search", title: "SEARCH", location: "sidebar" });
         h.service.registerView(view("search.results", "search", 10));
@@ -217,7 +217,7 @@ describe("ViewsService — merged контейнер выводится из ч�
         });
     });
 
-    it("заголовок контейнера с ведущими пробелами не тащит их в merged-секцию", () => {
+    it("leading spaces of a container title do not leak into the merged section", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "  SOURCE CONTROL", location: "sidebar" });
         h.service.registerView(view("scm.changes", "scm", 10));
@@ -225,7 +225,7 @@ describe("ViewsService — merged контейнер выводится из ч�
         expect(paneTitles(h.paneView("scm"))).toEqual(["SOURCE CONTROL"]);
     });
 
-    it("restoreViewsState с протухшей свёрнутостью не сворачивает merged-секцию", () => {
+    it("restoreViewsState with stale collapsed state does not collapse the merged section", () => {
         const h = makeViewsHarness();
         h.stored.set(SIDEBAR_VIEWS_STATE.key, {
             search: { collapsed: ["search.results"], weights: { "search.results": 5 } },
@@ -239,8 +239,8 @@ describe("ViewsService — merged контейнер выводится из ч�
     });
 });
 
-describe("ViewsService — тело и виджет заголовка view", () => {
-    it("setViewBody меняет тело на месте, сохраняя свёрнутость и вес", () => {
+describe("ViewsService — view body and title widget", () => {
+    it("setViewBody replaces the body in place, keeping collapsed state and weight", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         h.service.registerView(view("scm.changes", "scm", 10));
@@ -260,7 +260,7 @@ describe("ViewsService — тело и виджет заголовка view", ()
         expect(paneView.getWeights()["scm.changes"]).toBe(4);
     });
 
-    it("body === null рисует placeholder, а возврат тела его убирает", () => {
+    it("body === null renders the placeholder, restoring the body removes it", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "panelish", title: "PROBLEMS", location: "sidebar" });
         h.service.registerView(
@@ -279,7 +279,7 @@ describe("ViewsService — тело и виджет заголовка view", ()
         expect(paneView.querySelector("#viewPlaceholder-problems-view")).toBeNull();
     });
 
-    it("setViewBody тем же телом — no-op; на скрытой секции только запоминает", () => {
+    it("setViewBody with the same body is a no-op; on a hidden section it only remembers it", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         h.service.registerView(view("scm.changes", "scm", 10));
@@ -299,7 +299,7 @@ describe("ViewsService — тело и виджет заголовка view", ()
         }).not.toThrow();
     });
 
-    it("виджет заголовка едет в заголовок секции", () => {
+    it("the title widget goes into the section header", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SCM", location: "sidebar" });
         h.service.registerView(view("scm.changes", "scm", 10));

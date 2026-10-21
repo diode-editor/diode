@@ -5,7 +5,7 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 import { createTempWorkspace, type ITempWorkspace } from "../../../TestUtils/TempWorkspace.ts";
 import { createCursorSelection } from "../../editor/common/core/iSelection.ts";
 
-describe("Workbench — перечитка с диска на месте", () => {
+describe("Workbench: in-place reload from disk", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -19,7 +19,7 @@ describe("Workbench — перечитка с диска на месте", () =>
         ws.dispose();
     });
 
-    it("фокус, read-only и каретка переживают перечитку; на экране новый текст", () => {
+    it("focus, read-only and the cursor survive the reload; the new text is on screen", () => {
         h.workbench.openFile(ws.path("a.txt"));
         h.workbench.focusEditor();
         const editor = h.activeEditor();
@@ -38,7 +38,7 @@ describe("Workbench — перечитка с диска на месте", () =>
         expect(editor.viewState.selections).toEqual([createCursorSelection(1, 2)]);
     });
 
-    it("вьюпорт переживает перечитку, а за концом укоротившегося файла прижимается к последней строке", () => {
+    it("the viewport survives the reload, and past the end of a shortened file it clamps to the last line", () => {
         ws.writeFile("a.txt", Array.from({ length: 100 }, (_, i) => `line${String(i)}`).join("\n"));
         h.workbench.openFile(ws.path("a.txt"));
         const editor = h.activeEditor();
@@ -53,7 +53,7 @@ describe("Workbench — перечитка с диска на месте", () =>
         expect(editor.viewState.scrollTop).toBe(9);
     });
 
-    it("отступ пере-детектится по новому содержимому", () => {
+    it("indentation is re-detected from the new content", () => {
         h.workbench.openFile(ws.path("a.txt"));
         const editor = h.activeEditor();
 

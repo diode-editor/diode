@@ -24,7 +24,7 @@ function labels(items: readonly QuickPickItem[] | undefined): string[] | undefin
 }
 
 describe("QuickInputService.quickPickMany", () => {
-    it("Space отмечает строку под курсором, Enter отдаёт отмеченное", async () => {
+    it("Space checks the row under the cursor, Enter returns the checked items", async () => {
         const { service, testApp } = createService();
         const result = service.quickPickMany({ items: FRUITS });
         testApp.sendKey(" ");
@@ -35,7 +35,7 @@ describe("QuickInputService.quickPickMany", () => {
         expect(labels(await result)).toEqual(["alpha", "gamma"]);
     });
 
-    it("порядок ответа — исходного списка, а не порядка отметки", async () => {
+    it("the result follows the original list order, not the check order", async () => {
         const { service, testApp } = createService();
         const result = service.quickPickMany({ items: FRUITS });
         // Check bottom-up: gamma first, then alpha.
@@ -49,7 +49,7 @@ describe("QuickInputService.quickPickMany", () => {
         expect(labels(await result)).toEqual(["alpha", "gamma"]);
     });
 
-    it("повторный Space снимает отметку", async () => {
+    it("a second Space unchecks", async () => {
         const { service, testApp } = createService();
         const result = service.quickPickMany({ items: FRUITS });
         testApp.sendKey(" ");
@@ -58,7 +58,7 @@ describe("QuickInputService.quickPickMany", () => {
         expect(labels(await result)).toEqual([]);
     });
 
-    it("пустой набор — это пустой ответ, а не отмена", async () => {
+    it("an empty set is an empty result, not a cancel", async () => {
         const { service, testApp } = createService();
         const result = service.quickPickMany({ items: FRUITS });
         testApp.sendKey("Enter");
@@ -67,7 +67,7 @@ describe("QuickInputService.quickPickMany", () => {
         expect(labels(picked)).toEqual([]);
     });
 
-    it("Escape — именно отмена (undefined), а не пустой набор", async () => {
+    it("Escape is a cancel (undefined), not an empty set", async () => {
         const { service, testApp } = createService();
         const result = service.quickPickMany({ items: FRUITS });
         testApp.sendKey(" ");
@@ -75,14 +75,14 @@ describe("QuickInputService.quickPickMany", () => {
         await expect(result).resolves.toBeUndefined();
     });
 
-    it("предотмеченные пункты уезжают в ответ без единого нажатия", async () => {
+    it("pre-checked items end up in the result without a single keypress", async () => {
         const { service, testApp } = createService();
         const result = service.quickPickMany({ items: FRUITS, picked: [FRUITS[1]] });
         testApp.sendKey("Enter");
         expect(labels(await result)).toEqual(["beta"]);
     });
 
-    it("отметка переживает фильтрацию: отмеченное вне текущего фильтра не теряется", async () => {
+    it("checks survive filtering: items checked outside the current filter are not lost", async () => {
         const { service, testApp } = createService();
         const result = service.quickPickMany({ items: FRUITS });
         testApp.sendKey(" "); // alpha
@@ -93,14 +93,14 @@ describe("QuickInputService.quickPickMany", () => {
         expect(labels(await result)).toEqual(["alpha", "gamma"]);
     });
 
-    it("Enter на пустом списке отдаёт пустой набор, а не висит", async () => {
+    it("Enter on an empty list returns an empty set instead of hanging", async () => {
         const { service, testApp } = createService();
         const result = service.quickPickMany({ items: [] });
         testApp.sendKey("Enter");
         expect(labels(await result)).toEqual([]);
     });
 
-    it("отметки предыдущего показа не протекают в следующий", async () => {
+    it("checks from the previous show do not leak into the next one", async () => {
         const { service, testApp } = createService();
         const first = service.quickPickMany({ items: FRUITS });
         testApp.sendKey(" ");
@@ -112,7 +112,7 @@ describe("QuickInputService.quickPickMany", () => {
         expect(labels(await second)).toEqual([]);
     });
 
-    it("одиночный quickPick после множественного не показывает чекбоксов и принимает строку", async () => {
+    it("a single quickPick after a multi-select shows no checkboxes and accepts a row", async () => {
         const { service, component, testApp } = createService();
         const many = service.quickPickMany({ items: FRUITS });
         testApp.sendKey(" ");
@@ -126,7 +126,7 @@ describe("QuickInputService.quickPickMany", () => {
         expect((await single)?.label).toBe("alpha");
     });
 
-    it("InputBox после множественного выбора остаётся однострочным вводом", async () => {
+    it("an InputBox after a multi-select stays a single-line input", async () => {
         const { service, component, testApp } = createService();
         const many = service.quickPickMany({ items: FRUITS });
         testApp.sendKey(" ");
@@ -143,21 +143,21 @@ describe("QuickInputService.quickPickMany", () => {
         await expect(value).resolves.toBe("a b");
     });
 
-    it("новый показ отменяет предыдущий множественный выбор", async () => {
+    it("a new show cancels the previous multi-select", async () => {
         const { service } = createService();
         const first = service.quickPickMany({ items: FRUITS });
         void service.quickPick({ items: FRUITS });
         await expect(first).resolves.toBeUndefined();
     });
 
-    it("множественный выбор отменяет висящий ввод предыдущего хозяина", async () => {
+    it("a multi-select cancels the pending input of the previous owner", async () => {
         const { service } = createService();
         const pending = service.input({ title: "Save As" });
         void service.quickPickMany({ items: FRUITS });
         await expect(pending).resolves.toBeUndefined();
     });
 
-    it("множественный выбор закрывает чужую открытую сессию виджета", () => {
+    it("a multi-select closes another open widget session", () => {
         const { service, component } = createService();
         let closed = 0;
         component.show();
@@ -166,14 +166,14 @@ describe("QuickInputService.quickPickMany", () => {
         expect(closed).toBe(1);
     });
 
-    it("cancel() доводит висящий показ до undefined", async () => {
+    it("cancel() resolves a pending show to undefined", async () => {
         const { service } = createService();
         const pending = service.quickPickMany({ items: FRUITS });
         service.cancel();
         await expect(pending).resolves.toBeUndefined();
     });
 
-    it("cancel() без открытого показа — no-op", () => {
+    it("cancel() without an open show is a no-op", () => {
         const { service, component } = createService();
         expect(() => {
             service.cancel();

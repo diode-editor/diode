@@ -29,7 +29,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         return { count: () => fired };
     }
 
-    it("файрит на сдвиг из setIndentOptions", () => {
+    it("fires on a change from setIndentOptions", () => {
         const ctrl = openPane("a.ts", "x");
         const events = countEvents(ctrl);
 
@@ -38,7 +38,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         expect(events.count()).toBe(1);
     });
 
-    it("молчит, когда патч совпал с действующими значениями", () => {
+    it("stays silent when the patch matches the current values", () => {
         const ctrl = openPane("a.ts", "x");
         const events = countEvents(ctrl);
 
@@ -47,7 +47,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         expect(events.count()).toBe(0);
     });
 
-    it("файрит на сдвиг из applyIndentConfiguration", () => {
+    it("fires on a change from applyIndentConfiguration", () => {
         const ctrl = openPane("a.ts", "x");
         const events = countEvents(ctrl);
 
@@ -56,7 +56,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         expect(events.count()).toBe(1);
     });
 
-    it("файрит, когда конфиг сдвинул только размер таба (tabSize)", () => {
+    it("fires when the config changed only the tab size (tabSize)", () => {
         const ctrl = openPane("a.ts", "x");
         const events = countEvents(ctrl);
 
@@ -67,7 +67,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         expect(ctrl.viewState.insertSpaces).toBe(false);
     });
 
-    it("файрит, когда конфиг сдвинул только вид отступа (insertSpaces)", () => {
+    it("fires when the config changed only the indent kind (insertSpaces)", () => {
         const ctrl = openPane("a.ts", "x");
         const events = countEvents(ctrl);
 
@@ -78,7 +78,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         expect(ctrl.viewState.tabSize).toBe(4);
     });
 
-    it("молчит, когда конфиг не сдвинул действующие значения", () => {
+    it("stays silent when the config did not change the current values", () => {
         const ctrl = openPane("a.ts", "x");
         const events = countEvents(ctrl);
 
@@ -87,7 +87,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         expect(events.count()).toBe(0);
     });
 
-    it("файрит, когда открытие файла пере-детектировало отступ", () => {
+    it("fires when opening a file re-detected the indentation", () => {
         const ctrl = createEditorPane();
         const events = countEvents(ctrl);
 
@@ -99,7 +99,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         expect(ctrl.viewState.tabSize).toBe(2);
     });
 
-    it("подписка переживает перечитку документа (файрит и после неё)", () => {
+    it("the subscription survives a document reload (fires after it too)", () => {
         const ctrl = openPane("a.ts", "if (a) {\n  b();\n  c();\n}\n");
         const events = countEvents(ctrl);
 
@@ -110,7 +110,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         expect(ctrl.viewState.insertSpaces).toBe(false);
     });
 
-    it("молчит на перечитку, когда детекция дала тот же отступ", () => {
+    it("stays silent on reload when detection yields the same indentation", () => {
         const ctrl = openPane("a.ts", "if (a) {\n  b();\n  c();\n}\n");
         const events = countEvents(ctrl);
 
@@ -121,7 +121,7 @@ describe("EditorComponent — onDidChangeIndentOptions", () => {
         expect(events.count()).toBe(0);
     });
 
-    it("dispose подписки останавливает доставку и не задевает соседнюю", () => {
+    it("disposing a subscription stops delivery and does not affect its sibling", () => {
         const ctrl = openPane("a.ts", "x");
         let firstFired = 0;
         let secondFired = 0;

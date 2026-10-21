@@ -17,7 +17,7 @@ function withViews(...ids: string[]): { part: TestPart; changes: number[]; activ
 }
 
 describe("PaneCompositePartService.removeView", () => {
-    it("снятая активная вкладка передаёт активность первой оставшейся", () => {
+    it("a removed active tab passes activation to the first remaining one", () => {
         const { part, changes, active } = withViews("a", "b", "c");
         part.removeView("a");
         expect(part.getViews().map((v) => v.id)).toEqual(["b", "c"]);
@@ -26,14 +26,14 @@ describe("PaneCompositePartService.removeView", () => {
         expect(active).toEqual(["b"]);
     });
 
-    it("снятие неактивной вкладки активную не меняет и о смене не сообщает", () => {
+    it("removing an inactive tab keeps the active one and reports no change", () => {
         const { part, active } = withViews("a", "b");
         part.removeView("b");
         expect(part.getActiveViewId()).toBe("a");
         expect(active).toEqual([]);
     });
 
-    it("снятие неактивной, когда активна не первая, — активность остаётся на месте", () => {
+    it("removing an inactive tab when the active one is not first keeps activation in place", () => {
         const { part, active } = withViews("a", "b", "c");
         part.setActiveView("b");
         active.length = 0;
@@ -42,14 +42,14 @@ describe("PaneCompositePartService.removeView", () => {
         expect(active).toEqual([]);
     });
 
-    it("последняя снятая — активной нет", () => {
+    it("last one removed — no active tab", () => {
         const { part, active } = withViews("a");
         part.removeView("a");
         expect(part.getActiveViewId()).toBeNull();
         expect(active).toEqual([]);
     });
 
-    it("неизвестный id — no-op", () => {
+    it("unknown id is a no-op", () => {
         const { part, changes } = withViews("a");
         part.removeView("ghost");
         expect(changes).toEqual([]);
@@ -57,7 +57,7 @@ describe("PaneCompositePartService.removeView", () => {
 });
 
 describe("PaneCompositePartService.requestTabContextMenu", () => {
-    it("пересылает запрос подписчикам как есть", () => {
+    it("forwards the request to subscribers as is", () => {
         const part = new TestPart();
         const owner = new TUIElement();
         const seen: unknown[] = [];

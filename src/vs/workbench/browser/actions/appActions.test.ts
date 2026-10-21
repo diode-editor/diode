@@ -25,8 +25,8 @@ function setup() {
     return { commands, host, reasons };
 }
 
-describe("AppActions — выход и перезагрузка окна", () => {
-    it("quit прощается с причиной quit и завершает процесс", async () => {
+describe("AppActions — quit and window reload", () => {
+    it("quit shuts down with reason quit and exits the process", async () => {
         const { commands, host, reasons } = setup();
 
         await commands.execute(quitAction.id);
@@ -36,7 +36,7 @@ describe("AppActions — выход и перезагрузка окна", () =>
         expect(host.restart).not.toHaveBeenCalled();
     });
 
-    it("reload прощается с причиной reload и заменяет процесс новым", async () => {
+    it("reload shuts down with reason reload and replaces the process with a new one", async () => {
         const { commands, host, reasons } = setup();
 
         await commands.execute(reloadWindowAction.id);

@@ -22,15 +22,15 @@ function titleText(row: ViewTitleRowElement): string {
     return (row.querySelector("TextLabelElement") as TextLabelElement).getText();
 }
 
-describe("ViewTitleRowElement — название", () => {
-    it("шеврон отражает свёрнутость", () => {
+describe("ViewTitleRowElement — title", () => {
+    it("the chevron reflects collapsed state", () => {
         const row = layout(new ViewTitleRowElement("CHANGES"));
         expect(titleText(row)).toBe(` ${CHEVRON_EXPANDED} CHANGES`);
         row.setExpanded(false);
         expect(titleText(row)).toBe(` ${CHEVRON_COLLAPSED} CHANGES`);
     });
 
-    it("без шеврона — только отступ и название", () => {
+    it("without a chevron: only indent and title", () => {
         const row = layout(new ViewTitleRowElement("SOURCE CONTROL", { chevron: false }));
         expect(titleText(row)).toBe(" SOURCE CONTROL");
         // No chevron: collapsed state isn't drawn, but it doesn't break the row either.
@@ -38,7 +38,7 @@ describe("ViewTitleRowElement — название", () => {
         expect(titleText(row)).toBe(" SOURCE CONTROL");
     });
 
-    it("setTitle меняет надпись, повтор того же — no-op", () => {
+    it("setTitle changes the label, repeating the same one is a no-op", () => {
         const row = layout(new ViewTitleRowElement("CHANGES"));
         row.setTitle("GRAPH");
         expect(row.getTitle()).toBe("GRAPH");
@@ -47,15 +47,15 @@ describe("ViewTitleRowElement — название", () => {
         expect(titleText(row)).toBe(` ${CHEVRON_EXPANDED} GRAPH`);
     });
 
-    it("setExpanded в то же состояние — no-op", () => {
+    it("setExpanded to the same state is a no-op", () => {
         const row = layout(new ViewTitleRowElement("CHANGES"));
         row.setExpanded(true);
         expect(row.isExpanded).toBe(true);
     });
 });
 
-describe("ViewTitleRowElement — зоны кнопок", () => {
-    it("название, кнопки и ⋯ разложены по зонам в порядке справа налево", () => {
+describe("ViewTitleRowElement — button zones", () => {
+    it("title, buttons and ⋯ are laid out in zones right to left", () => {
         const row = new ViewTitleRowElement("CHANGES");
         row.setActions([
             { id: "cmd.refresh", icon: "R" },
@@ -74,14 +74,14 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
         expect(row.menuAnchorX).toBe(27);
     });
 
-    it("узкий заголовок клипует кнопки — у схлопнутых зоны нет", () => {
+    it("a narrow header clips buttons: collapsed ones have no zone", () => {
         const row = new ViewTitleRowElement("CHANGES");
         row.setActions([{ id: "cmd.refresh", icon: "R" }]);
         layout(row, 4);
         expect(row.hitZone(3)).toEqual({ kind: "title" });
     });
 
-    it("единственная кнопка пересобирается по смене любого своего поля", () => {
+    it("a single button is rebuilt when any of its fields changes", () => {
         // Specifically with a single button: with two, a weakened comparison hides behind
         // the neighbor, which yields "sets differ" anyway.
         const row = new ViewTitleRowElement("CHANGES");
@@ -98,7 +98,7 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
         expect(renderElement(row, 30, 1, { themeVars: true }).screenToString()).toContain("X");
     });
 
-    it("пересобирает кнопки, когда меняется любое поле любой из них", () => {
+    it("rebuilds buttons when any field of any of them changes", () => {
         // The early return in setActions compares the set element by element: a missed
         // difference means a button stuck in its previous state.
         const row = new ViewTitleRowElement("CHANGES");
@@ -125,7 +125,7 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
         expect(renderElement(row, 30, 1, { themeVars: true }).screenToString()).toContain("E");
     });
 
-    it("setActions тем же составом — no-op, другим — пересобирает зоны", () => {
+    it("setActions with the same set is a no-op, with another it rebuilds zones", () => {
         const row = new ViewTitleRowElement("CHANGES");
         row.setActions([{ id: "cmd.refresh", icon: "R" }]);
         layout(row);
@@ -142,8 +142,8 @@ describe("ViewTitleRowElement — зоны кнопок", () => {
     });
 });
 
-describe("ViewTitleRowElement — скрытая кнопка «⋯»", () => {
-    it("setMenuVisible(false) убирает кнопку и её зону, true — возвращает", () => {
+describe("ViewTitleRowElement — hidden ⋯ button", () => {
+    it("setMenuVisible(false) removes the button and its zone, true restores them", () => {
         const row = new ViewTitleRowElement("OUTPUT", { chevron: false });
         row.setActions([{ id: "cmd.clear", icon: "C" }]);
         layout(row);
@@ -168,7 +168,7 @@ describe("ViewTitleRowElement — скрытая кнопка «⋯»", () => {
     });
 });
 
-describe("ViewTitleRowElement — подсветка под курсором", () => {
+describe("ViewTitleRowElement — hover highlight", () => {
     const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
     // The Dark+ token is semi-transparent (`#5A5D5E50`): the cell holds its blend over
     // the row background, which the engine computes when painting.
@@ -179,7 +179,7 @@ describe("ViewTitleRowElement — подсветка под курсором", (
         return renderElement(row, 30, 1, { themeVars: true }).getBgAt(new Point(x, 0));
     }
 
-    it("подсвечивается ровно та кнопка, над которой курсор", () => {
+    it("exactly the button under the pointer is highlighted", () => {
         const row = new ViewTitleRowElement("CHANGES");
         row.setActions([
             { id: "cmd.refresh", icon: "R" },
@@ -207,7 +207,7 @@ describe("ViewTitleRowElement — подсветка под курсором", (
     });
 });
 
-describe("ViewTitleRowElement — недоступная кнопка", () => {
+describe("ViewTitleRowElement — disabled button", () => {
     const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
     const DISABLED_FG = theme.getColor("disabledForeground")!;
     const ENABLED_FG = theme.getColor("descriptionForeground")!;
@@ -217,7 +217,7 @@ describe("ViewTitleRowElement — недоступная кнопка", () => {
         return renderElement(row, 30, 1, { themeVars: true });
     }
 
-    it("рисуется приглушённой, доступная — обычной", () => {
+    it("renders dimmed, an enabled one renders normally", () => {
         const row = new ViewTitleRowElement("GRAPH");
         row.setActions([{ id: "cmd.refresh", icon: "R", enabled: false }]);
         layout(row);
@@ -228,7 +228,7 @@ describe("ViewTitleRowElement — недоступная кнопка", () => {
         expect(render(row).getFgAt(new Point(24, 0))).toBe(ENABLED_FG);
     });
 
-    it("смена только доступности пересобирает кнопки", () => {
+    it("a change of enablement alone rebuilds buttons", () => {
         // Regression for sameActions: the early return in setActions must not swallow
         // an enabled change, otherwise the button stays in its initial state forever.
         const row = new ViewTitleRowElement("GRAPH");
@@ -245,7 +245,7 @@ describe("ViewTitleRowElement — недоступная кнопка", () => {
         expect(render(row).getFgAt(new Point(24, 0))).toBe(ENABLED_FG);
     });
 
-    it("гаснет ровно та кнопка, что стала недоступной", () => {
+    it("exactly the button that became disabled dims", () => {
         // The second button in the row: the element-wise comparison must notice a difference
         // beyond the first one.
         const row = new ViewTitleRowElement("CHANGES");
@@ -265,7 +265,7 @@ describe("ViewTitleRowElement — недоступная кнопка", () => {
         expect(render(row).getFgAt(new Point(20, 0))).toBe(ENABLED_FG);
     });
 
-    it("под курсором не подсвечивается, но зону сохраняет", () => {
+    it("is not highlighted under the pointer but keeps its zone", () => {
         const row = new ViewTitleRowElement("GRAPH");
         row.setActions([{ id: "cmd.refresh", icon: "R", enabled: false }]);
         layout(row);
@@ -282,8 +282,8 @@ describe("ViewTitleRowElement — недоступная кнопка", () => {
     });
 });
 
-describe("ViewTitleRowElement — спиннер занятости", () => {
-    it("кадр встаёт сразу после названия и снимается обратно", () => {
+describe("ViewTitleRowElement — busy spinner", () => {
+    it("the frame goes right after the title and is removed again", () => {
         const row = layout(new ViewTitleRowElement("CHANGES"));
         expect(row.isBusy).toBe(false);
 
@@ -301,7 +301,7 @@ describe("ViewTitleRowElement — спиннер занятости", () => {
         expect(row.isBusy).toBe(false);
     });
 
-    it("уживается с шевроном, сменой названия и свёрнутостью", () => {
+    it("coexists with the chevron, title changes and collapsed state", () => {
         const row = layout(new ViewTitleRowElement("CHANGES"));
         row.setSpinnerFrame("⠹");
         row.setExpanded(false);
@@ -312,13 +312,13 @@ describe("ViewTitleRowElement — спиннер занятости", () => {
         expect(row.getTitle()).toBe("GRAPH");
     });
 
-    it("без шеврона — кадр всё равно после названия", () => {
+    it("without a chevron the frame still goes after the title", () => {
         const row = layout(new ViewTitleRowElement("SOURCE CONTROL", { chevron: false }));
         row.setSpinnerFrame("⠋");
         expect(titleText(row)).toBe(" SOURCE CONTROL ⠋");
     });
 
-    it("спиннер не сдвигает зоны кнопок", () => {
+    it("the spinner does not shift button zones", () => {
         const row = new ViewTitleRowElement("CHANGES");
         row.setActions([{ id: "cmd.refresh", icon: "R" }]);
         layout(row);
@@ -329,7 +329,7 @@ describe("ViewTitleRowElement — спиннер занятости", () => {
         expect(row.hitZone(28)).toEqual(zoneBefore);
     });
 
-    it("кадр доходит до экрана", () => {
+    it("the frame reaches the screen", () => {
         const row = new ViewTitleRowElement("CHANGES");
         row.setSpinnerFrame("⠋");
         const screen = renderElement(row, 30, 1, { themeVars: true });
@@ -337,8 +337,8 @@ describe("ViewTitleRowElement — спиннер занятости", () => {
     });
 });
 
-describe("ViewTitleRowElement — виджет заголовка", () => {
-    it("виджет встаёт между названием и кнопками и снимается обратно", () => {
+describe("ViewTitleRowElement — title widget", () => {
+    it("the widget goes between the title and buttons and is removed again", () => {
         const row = new ViewTitleRowElement("OUTPUT", { chevron: false });
         const widget = new FillerElement();
         widget.id = "channel-picker";

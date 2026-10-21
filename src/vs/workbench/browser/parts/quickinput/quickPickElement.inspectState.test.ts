@@ -4,7 +4,7 @@ import { QuickPickElement } from "./quickPickElement.ts";
 
 /** Public contract: sent over the inspector wire and into e2e (`NodeSnapshot.state`); change them together. */
 describe("QuickPickElement — inspectState", () => {
-    it("отдаёт запрос, активный индекс, заголовок и лейблы строк", () => {
+    it("returns the query, active index, title and row labels", () => {
         const picker = new QuickPickElement();
         picker.title = "Go to File";
         picker.items = [{ label: "main.ts" }, { label: "index.ts" }];
@@ -19,7 +19,7 @@ describe("QuickPickElement — inspectState", () => {
         });
     });
 
-    it("на свежем пикере — пустой запрос, нулевой индекс, пустой список", () => {
+    it("a fresh picker has an empty query, index zero and an empty list", () => {
         expect(new QuickPickElement().inspectState()).toEqual({
             query: "",
             activeIndex: 0,

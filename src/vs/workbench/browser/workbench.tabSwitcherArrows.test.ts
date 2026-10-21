@@ -15,7 +15,7 @@ import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent
 /** A long file, so the editor has room to scroll ("the arrow didn't leak" scenarios). */
 const LONG_TEXT = Array.from({ length: 60 }, (_, i) => `line ${i + 1}`).join("\n");
 
-describe("Workbench — стрелки Вверх/Вниз в видимом списке Ctrl+Tab", () => {
+describe("Workbench: Up/Down arrows in the visible Ctrl+Tab list", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let switcher: TabSwitcherComponent;
@@ -52,7 +52,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         return (switcher.view.inspectState() as { currentIndex: number }).currentIndex;
     }
 
-    it("Ctrl+Вниз шагает вглубь, как Tab: список жив, вкладка под ним сменилась", () => {
+    it("Ctrl+Down steps deeper like Tab: the list stays, the tab beneath it changes", () => {
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.render();
         expect(pointer()).toBe(1);
@@ -67,7 +67,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         expect(switcher.view.inspectState()).toMatchObject({ items: ["c.ts", "b.ts", "a.ts"], currentIndex: 2 });
     });
 
-    it("Ctrl+Вверх возвращает назад, как Shift+Tab", () => {
+    it("Ctrl+Up steps back like Shift+Tab", () => {
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.sendKey("Ctrl+ArrowDown");
         h.testApp.render();
@@ -81,7 +81,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         expect(activeName()).toBe("b.ts");
     });
 
-    it("стрелки и Tab вперемешку — одна серия: список ни разу не гаснет", () => {
+    it("arrows and Tab mixed form one sequence: the list never hides", () => {
         const seen: (number | boolean)[] = [];
         for (const key of ["Ctrl+Tab", "Ctrl+ArrowDown", "Ctrl+Shift+Tab", "Ctrl+ArrowDown"]) {
             h.testApp.sendKey(key);
@@ -94,7 +94,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         expect(activeName()).toBe("a.ts");
     });
 
-    it("отпускание Ctrl фиксирует выбранную стрелкой вкладку наверху MRU-стека", () => {
+    it("releasing Ctrl commits the arrow-selected tab at the top of the MRU stack", () => {
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.sendKey("Ctrl+ArrowDown");
         h.testApp.render();
@@ -117,7 +117,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         expect(activeName()).toBe("c.ts");
     });
 
-    it("стрелки не протекают в редактор: курсор и прокрутка на месте", () => {
+    it("arrows do not leak into the editor: cursor and scroll stay put", () => {
         const editor = h.activeEditor();
         editor.viewState.goToPosition(4, 0); // 0-based: Ln 5, Col 1 in the status bar
         editor.viewState.scrollTop = 0;
@@ -137,7 +137,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         expect(editor.model.getText()).toBe(LONG_TEXT);
     });
 
-    it("на концах списка стрелка заворачивает, список остаётся виден", () => {
+    it("at the list ends the arrow wraps around, the list stays visible", () => {
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.sendKey("Ctrl+ArrowDown");
         h.testApp.render();
@@ -154,7 +154,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         expect(switcher.isOpen()).toBe(true);
     });
 
-    it("серия, начатая с Ctrl+Shift+Tab: направление стрелок привязано к списку", () => {
+    it("a sequence started with Ctrl+Shift+Tab: arrow direction follows the list", () => {
         h.testApp.sendKey("Ctrl+Shift+Tab");
         h.testApp.render();
         expect(pointer()).toBe(2);
@@ -171,7 +171,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         expect(switcher.isOpen()).toBe(true);
     });
 
-    it("Escape при удержанном Ctrl гасит список и оставляет подсвеченную вкладку", () => {
+    it("Escape with Ctrl held hides the list and keeps the highlighted tab", () => {
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.sendKey("Ctrl+ArrowDown");
         h.testApp.render();
@@ -185,7 +185,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         expect(editorService.editorGroups.activeGroup.getMruOrder()[0]?.label).toBe("a.ts");
     });
 
-    it("после того как список погас, Ctrl+Вниз снова прокручивает редактор", () => {
+    it("after the list hides, Ctrl+Down scrolls the editor again", () => {
         const before = h.activeEditor();
         before.viewState.scrollTop = 0;
         h.testApp.sendKey("Ctrl+ArrowDown");
@@ -213,7 +213,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         expect(switcher.isOpen()).toBe(false);
     });
 
-    it("стрелки без модификаторов не изменились: курсор идёт по строкам, списка нет", () => {
+    it("arrows without modifiers are unchanged: the cursor moves by line, no list", () => {
         const editor = h.activeEditor();
         editor.viewState.goToPosition(4, 0);
 
@@ -228,7 +228,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         expect(switcher.isOpen()).toBe(false);
     });
 
-    it("список длиннее окна: окно едет за подсветкой и возвращается назад", () => {
+    it("a list longer than the window: the window follows the highlight and comes back", () => {
         const manyWs = createTempWorkspace({
             prefix: "diode-tabswitcher-arrows-many-",
             files: Object.fromEntries(Array.from({ length: 12 }, (_, i) => [`f${i}.ts`, `// ${i}`])),
@@ -257,7 +257,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         }
     });
 
-    it("одна открытая вкладка: списка нет, Ctrl+Вниз прокручивает редактор", () => {
+    it("a single open tab: no list, Ctrl+Down scrolls the editor", () => {
         const oneWs = createTempWorkspace({ prefix: "diode-tabswitcher-arrows-one-", files: { "only.ts": LONG_TEXT } });
         const one = createAppTestHarness({ workspaceFolder: oneWs.dir });
         try {

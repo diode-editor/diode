@@ -205,7 +205,7 @@ describe("EditorGroupComponent", () => {
             expect(paneView.getParent()).toBeNull();
         });
 
-        it("пустая группа закрашена editor.background ниже tab strip", () => {
+        it("an empty group is painted with editor.background below the tab strip", () => {
             const { component } = createEditorGroup();
             const backend = renderElement(component.view, 10, 5, { themeVars: true });
 
@@ -331,12 +331,12 @@ describe("EditorGroupComponent", () => {
         });
     });
 
-    describe("удалённый файл", () => {
+    describe("deleted file", () => {
         afterEach(() => {
             vi.useRealTimers();
         });
 
-        it("вкладка зачёркнута, красная и с хвостом (deleted); вернувшийся файл снимает всё", () => {
+        it("the tab is struck through, red and has the (deleted) suffix; a returning file clears it all", () => {
             vi.useFakeTimers();
             let onChange = (): void => undefined;
             const fileWatcher: IFileWatcher = {

@@ -15,7 +15,7 @@ function makeEditors(): {
 }
 
 describe("OpenFailureNotificationContribution", () => {
-    it("неудача открытия становится тостом с ресурсом и причиной", () => {
+    it("an open failure becomes a toast with the resource and the reason", () => {
         const editors = makeEditors();
         const notifications = new NotificationService();
         const contribution = new OpenFailureNotificationContribution(
@@ -41,7 +41,7 @@ describe("OpenFailureNotificationContribution", () => {
         notifications.dispose();
     });
 
-    it("dispose снимает подписку — мёртвая проводка сообщений больше не поднимает", () => {
+    it("dispose removes the subscription, so dead wiring no longer raises messages", () => {
         const editors = makeEditors();
         const notifications = new NotificationService();
         const contribution = new OpenFailureNotificationContribution(

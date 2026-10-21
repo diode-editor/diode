@@ -23,9 +23,9 @@ function makeItems(count: number): QuickPickItem[] {
     return Array.from({ length: count }, (_, i) => ({ label: `file-${String(i + 1)}.ts` }));
 }
 
-describe("QuickPickElement — раскладка", () => {
+describe("QuickPickElement — layout", () => {
     // The bug that prompted moving the widget: the query was drawn flush against the border, the list further right.
-    it("запрос, сообщение и строки списка начинаются в одной колонке", () => {
+    it("query, message and list rows start in the same column", () => {
         const picker = makePicker(24);
         picker.setQuery("cfg");
         picker.validationMessage = "Name is taken";
@@ -45,7 +45,7 @@ describe("QuickPickElement — раскладка", () => {
         );
     });
 
-    it("пустой пикер — рамка, строка запроса с плейсхолдером, рамка", () => {
+    it("an empty picker is border, query row with placeholder, border", () => {
         const picker = makePicker(20);
         picker.placeholder = "Go to file...";
 
@@ -59,7 +59,7 @@ describe("QuickPickElement — раскладка", () => {
         );
     });
 
-    it("заголовок врезан в верхнюю рамку", () => {
+    it("the title is inset into the top border", () => {
         const picker = makePicker(24);
         picker.title = "Save As";
         picker.setQuery("note.txt");
@@ -74,7 +74,7 @@ describe("QuickPickElement — раскладка", () => {
         );
     });
 
-    it("описание прижато к правому краю контента, отступ от рамки — один", () => {
+    it("the description is flush with the content's right edge, one column from the border", () => {
         const picker = makePicker(30);
         picker.items = [{ label: "main.ts", description: "src/vs" }];
 
@@ -90,7 +90,7 @@ describe("QuickPickElement — раскладка", () => {
         );
     });
 
-    it("длинное сообщение обрезается по тому же правому отступу, что и строки", () => {
+    it("a long message is cut at the same right padding as the rows", () => {
         const picker = makePicker(24);
         picker.validationMessage = "This message is far too long to fit";
         picker.items = [{ label: "Alpha" }];
@@ -102,7 +102,7 @@ describe("QuickPickElement — раскладка", () => {
         expect(backend.getTextAt(new Point(23, 2), 1)).toBe("│");
     });
 
-    it("колонка иконки отводится всем строкам, если иконка есть хоть у одной", () => {
+    it("every row gets an icon column if at least one row has an icon", () => {
         const picker = makePicker(24);
         picker.items = [{ icon: "A", label: "Alpha" }, { label: "Beta" }];
 
@@ -119,7 +119,7 @@ describe("QuickPickElement — раскладка", () => {
         );
     });
 
-    it("шорткат и подсказка идут после описания, справа", () => {
+    it("shortcut and hint come after the description, on the right", () => {
         const picker = makePicker(34);
         picker.items = [{ label: "Save", shortcut: "Ctrl+S" }];
         const row = render(picker, 34).getTextAt(new Point(0, 3), 34);
@@ -128,7 +128,7 @@ describe("QuickPickElement — раскладка", () => {
         expect(row).toContain("Ctrl+S");
     });
 
-    it("лейбл в приоритете: описание ужимается, а не лейбл", () => {
+    it("the label wins: the description shrinks, not the label", () => {
         const picker = makePicker(28);
         picker.items = [{ label: "main.ts", description: "src/vs/workbench/browser/parts" }];
         const row = render(picker, 28).getTextAt(new Point(0, 3), 28);
@@ -137,7 +137,7 @@ describe("QuickPickElement — раскладка", () => {
         expect(row).toContain("…");
     });
 
-    it("выделенная строка красится цветом активного выделения", () => {
+    it("the selected row uses the active selection color", () => {
         const picker = makePicker(24);
         picker.items = makeItems(2);
         const backend = render(picker, 24);
@@ -149,7 +149,7 @@ describe("QuickPickElement — раскладка", () => {
     });
 
     // Regression #94: the selection highlight must not spill onto the border.
-    it("выделение заливает интерьер целиком и не трогает колонки рамки", () => {
+    it("the selection fills the whole interior and leaves the border columns alone", () => {
         const picker = makePicker(24);
         picker.items = makeItems(2);
         const backend = render(picker, 24);
@@ -164,7 +164,7 @@ describe("QuickPickElement — раскладка", () => {
         expect(backend.getBgAt(new Point(22, 3))).toBe(selectionBg);
     });
 
-    it("слишком длинный заголовок в рамку не лезет — рисуем рамку без него", () => {
+    it("a title too long for the border is dropped — the border is drawn without it", () => {
         const picker = makePicker(14);
         picker.title = "Configure Keyboard Shortcuts";
         const backend = render(picker, 14);
@@ -172,7 +172,7 @@ describe("QuickPickElement — раскладка", () => {
         expect(backend.getTextAt(new Point(0, 0), 14)).toBe("╭────────────╮");
     });
 
-    it("подсказка идёт справа вслед за описанием", () => {
+    it("the hint follows the description on the right", () => {
         const picker = makePicker(40);
         picker.items = [{ label: "Bind", description: "keyboard", hint: "Configure Binding" }];
         const row = render(picker, 40).getTextAt(new Point(0, 3), 40);
@@ -181,7 +181,7 @@ describe("QuickPickElement — раскладка", () => {
         expect(row).toContain("Configure Binding");
     });
 
-    it("в область меньше рамки не рисуем ничего", () => {
+    it("draws nothing into an area smaller than the border", () => {
         const picker = makePicker(10);
         picker.items = makeItems(2);
         const backend = renderElement(picker, 1, 1, { themeVars: true });
@@ -189,7 +189,7 @@ describe("QuickPickElement — раскладка", () => {
         expect(backend.getTextAt(new Point(0, 0), 1)).toBe(" ");
     });
 
-    it("severity красит сообщение своим цветом", () => {
+    it("severity colors the message with its own color", () => {
         const colorAt = (severity: "error" | "warning" | "info"): number => {
             const picker = makePicker(24);
             picker.validationMessage = "Careful";
@@ -203,7 +203,7 @@ describe("QuickPickElement — раскладка", () => {
         expect(new Set([error, warning, info]).size).toBe(3);
     });
 
-    it("описанию не хватило места — остаётся усечённый лейбл", () => {
+    it("no room for the description — a truncated label remains", () => {
         const picker = makePicker(16);
         picker.items = [{ label: "averylonglabel", description: "src/vs" }];
         const row = render(picker, 16).getTextAt(new Point(0, 3), 16);
@@ -212,11 +212,11 @@ describe("QuickPickElement — раскладка", () => {
         expect(row).not.toContain("src/vs");
     });
 
-    it("минимальная ширина пикера — 20 колонок", () => {
+    it("the picker's minimum width is 20 columns", () => {
         expect(makePicker(60).getMinIntrinsicWidth(3)).toBe(20);
     });
 
-    it("высота = рамка + запрос + [сообщение] + [сепаратор + строки] + рамка", () => {
+    it("height = border + query + [message] + [separator + rows] + border", () => {
         const picker = makePicker();
         expect(picker.getMinIntrinsicHeight(30)).toBe(3);
 
@@ -228,7 +228,7 @@ describe("QuickPickElement — раскладка", () => {
         expect(picker.getMinIntrinsicHeight(30)).toBe(7); // 1 + 1 + 1 + 3 + 1
     });
 
-    it("список не длиннее maxVisibleItems", () => {
+    it("the list is no longer than maxVisibleItems", () => {
         const picker = makePicker();
         picker.maxVisibleItems = 2;
         picker.items = makeItems(10);
@@ -236,7 +236,7 @@ describe("QuickPickElement — раскладка", () => {
     });
 
     // The picker must shrink into the given height with an intact bottom border, not get clipped.
-    it("на низком терминале окно списка ужимается, нижняя рамка цела", () => {
+    it("on a short terminal the list window shrinks and the bottom border stays intact", () => {
         const picker = makePicker(24);
         picker.items = makeItems(10);
         const backend = renderElement(picker, 24, 6, { themeVars: true });

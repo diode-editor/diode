@@ -36,7 +36,7 @@ describe("Workbench — Save As", () => {
         ws.dispose();
     });
 
-    it("диалог стоит на пути текущего файла, каталог файла — под строкой", async () => {
+    it("the dialog starts at the current file's path, the file's directory below the input", async () => {
         const filePath = ws.path("alpha.txt");
         h.commands.execute("workbench.openFile", filePath);
         const dialog = fileDialogDriver(h);
@@ -75,7 +75,7 @@ describe("Workbench — Save As", () => {
         });
     });
 
-    it("Save As в собственный путь — вопрос эталона о перезаписи, Enter сохраняет", async () => {
+    it("Save As to its own path asks the upstream overwrite question, Enter saves", async () => {
         const alphaPath = ws.path("alpha.txt");
         h.commands.execute("workbench.openFile", alphaPath);
         h.testApp.render();
@@ -92,7 +92,7 @@ describe("Workbench — Save As", () => {
         });
     });
 
-    it("Save As виртуального документа пишет копию и открывает её файлом; исходная вкладка остаётся", async () => {
+    it("Save As of a virtual document writes a copy and opens it as a file; the original tab stays", async () => {
         const service = h.container.get(EditorServiceDIToken);
         service.virtualDocumentSource = {
             canProvide: (scheme) => scheme === "jdt",
@@ -120,7 +120,7 @@ describe("Workbench — Save As", () => {
         expect(service.getActiveTabPane()?.uri.toString()).toBe(Uri.file(copyPath).toString());
     });
 
-    it("перезапись другого файла — только после «да» на вопрос эталона", async () => {
+    it("overwriting another file happens only after 'yes' to the upstream question", async () => {
         h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.saveAs");
@@ -139,7 +139,7 @@ describe("Workbench — Save As", () => {
         });
     });
 
-    it("отказ от перезаписи (Escape) возвращает в диалог и ничего не пишет", async () => {
+    it("declining the overwrite (Escape) returns to the dialog and writes nothing", async () => {
         h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.saveAs");
@@ -155,7 +155,7 @@ describe("Workbench — Save As", () => {
         dialog.key("Escape");
     });
 
-    it("каталог вместо имени файла — сообщение эталона", async () => {
+    it("a directory instead of a file name shows the upstream message", async () => {
         h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.saveAs");
@@ -170,7 +170,7 @@ describe("Workbench — Save As", () => {
         dialog.key("Escape");
     });
 
-    it("несуществующий каталог — вопрос о создании, «да» создаёт его и сохраняет", async () => {
+    it("a nonexistent directory asks to create it, 'yes' creates it and saves", async () => {
         h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.saveAs");
@@ -186,11 +186,11 @@ describe("Workbench — Save As", () => {
         });
     });
 
-    it("после записи ключи контекста пересчитываются (язык и вкладка — уже про новый путь)", async () => {
+    it("after writing, context keys are recomputed (language and tab now reflect the new path)", async () => {
         h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
         h.testApp.render();
         const editor = h.container.get(EditorServiceDIToken).getActiveTabEditor();
-        if (editor === null) throw new Error("нет активного редактора");
+        if (editor === null) throw new Error("no active editor");
         const update = vi.spyOn(h.container.get(WorkbenchContextKeysDIToken), "update");
         // The closed dialog returns focus to the editor — that is a separate recompute, before the write.
         const saveAs = editor.saveAs.bind(editor);
@@ -212,11 +212,11 @@ describe("Workbench — Save As", () => {
         expect(update).toHaveBeenCalled();
     });
 
-    it("сбой записи — в лог, а не в отказ команды", async () => {
+    it("a write failure goes to the log, not to a command rejection", async () => {
         h.commands.execute("workbench.openFile", ws.path("alpha.txt"));
         h.testApp.render();
         const editor = h.container.get(EditorServiceDIToken).getActiveTabEditor();
-        if (editor === null) throw new Error("нет активного редактора");
+        if (editor === null) throw new Error("no active editor");
         vi.spyOn(editor, "saveAs").mockRejectedValueOnce(new Error("disk full"));
         const errors: unknown[][] = [];
         const logs = h.container.get(ILogServiceDIToken);
@@ -242,7 +242,7 @@ describe("Workbench — Save As", () => {
         expect(errors).toEqual([["input.keybindings", "Save As failed", { path: newPath, error: "Error: disk full" }]]);
     });
 
-    it("нет активного редактора — команда ничего не показывает", () => {
+    it("no active editor: the command shows nothing", () => {
         h.commands.execute("workbench.action.files.saveAs");
         h.testApp.render();
         expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
@@ -266,8 +266,8 @@ describe("Workbench — Save As", () => {
     });
 });
 
-describe("Workbench — Save As без папки", () => {
-    it("безымянный буфер стартует из текущего каталога процесса", async () => {
+describe("Workbench: Save As without a folder", () => {
+    it("an untitled buffer starts from the process's current directory", async () => {
         const h = createAppTestHarness();
         try {
             h.commands.execute("workbench.action.files.newUntitledFile");

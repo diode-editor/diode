@@ -175,8 +175,8 @@ describe("EditorActions — smart home", () => {
     });
 });
 
-describe("EditorActions — line start / end (мак Ctrl+A / Ctrl+E)", () => {
-    it("id и заголовки — как у VS Code, своих pc-биндов нет (мак-бинды — в таблице дельт)", () => {
+describe("EditorActions — line start / end (mac Ctrl+A / Ctrl+E)", () => {
+    it("ids and titles as in VS Code, no own pc keybindings (mac keybindings live in the delta table)", () => {
         expect([cursorLineStartAction.id, cursorLineStartAction.title]).toEqual([
             "cursorLineStart",
             "Cursor Line Start",
@@ -186,7 +186,7 @@ describe("EditorActions — line start / end (мак Ctrl+A / Ctrl+E)", () => {
         expect(cursorLineEndAction.keybinding).toBeUndefined();
     });
 
-    it("cursorLineStart идёт в колонку 0 мимо отступа, cursorLineEnd — в конец строки", () => {
+    it("cursorLineStart goes to column 0 past the indentation, cursorLineEnd to the line end", () => {
         const { editor, exec, setCursor } = openEditor("    indented");
         setCursor(0, 8);
         exec(cursorLineStartAction);
@@ -251,7 +251,7 @@ describe("EditorActions — scroll without moving the cursor", () => {
 });
 
 describe("EditorActions — View: Toggle Word Wrap", () => {
-    it("команда переключает перенос у активного редактора туда и обратно", () => {
+    it("the command toggles word wrap of the active editor back and forth", () => {
         const { editor, exec } = openEditor();
         expect(editor.viewState.wordWrap).toBe("off");
         exec(toggleWordWrapAction);
@@ -260,7 +260,7 @@ describe("EditorActions — View: Toggle Word Wrap", () => {
         expect(editor.viewState.wordWrap).toBe("off");
     });
 
-    it("метаданные команды: id, заголовок для палитры и биндинг Alt+Z", () => {
+    it("command metadata: id, command palette title and the Alt+Z keybinding", () => {
         expect(toggleWordWrapAction.id).toBe("editor.action.toggleWordWrap");
         expect(toggleWordWrapAction.title).toBe("View: Toggle Word Wrap");
         expect(toggleWordWrapAction.keybinding).toEqual(parseKeybinding("alt+z"));

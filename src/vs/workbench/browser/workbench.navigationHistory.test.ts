@@ -15,7 +15,7 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 /** A 40-line file, so there is room to step past the significance threshold (10 lines). */
 const lines = (prefix: string): string => Array.from({ length: 40 }, (_, i) => `${prefix} ${String(i)}`).join("\n");
 
-describe("Workbench — навигационная история (Go Back / Go Forward)", () => {
+describe("Workbench — navigation history (Go Back / Go Forward)", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -49,7 +49,7 @@ describe("Workbench — навигационная история (Go Back / Go 
     };
     const uri = (name: string): string => Uri.file(ws.path(name)).toString();
 
-    it("Back возвращает в файл и позицию, откуда ушли, Forward — обратно", () => {
+    it("Back returns to the file and position you left, Forward goes back again", () => {
         h.activeEditor().goToPosition(30, 0);
         editors().openFile(ws.path("beta.ts"));
         h.activeEditor().goToPosition(4, 2);
@@ -61,7 +61,7 @@ describe("Workbench — навигационная история (Go Back / Go 
         expect(caret()).toMatchObject({ uri: uri("beta.ts"), line: 4, character: 2 });
     });
 
-    it("Go to Definition + Back возвращает ровно в точку вызова", async () => {
+    it("Go to Definition + Back returns exactly to the call site", async () => {
         h.activeEditor().goToPosition(12, 3);
         useDefinitions(() => Promise.resolve([{ uri: uri("beta.ts"), range: createRange(20, 5, 20, 9) }]));
 
@@ -75,7 +75,7 @@ describe("Workbench — навигационная история (Go Back / Go 
         expect(caret()).toMatchObject({ uri: uri("alpha.ts"), line: 12, character: 3 });
     });
 
-    it("Go to Definition в двух строках ниже — Back всё равно возвращает к вызову", async () => {
+    it("Go to Definition two lines below — Back still returns to the call", async () => {
         h.activeEditor().goToPosition(12, 3);
         useDefinitions(() => Promise.resolve([{ uri: uri("alpha.ts"), range: createRange(14, 2, 14, 6) }]));
 
@@ -90,7 +90,7 @@ describe("Workbench — навигационная история (Go Back / Go 
         expect(caret()).toMatchObject({ uri: uri("alpha.ts"), line: 12, character: 3 });
     });
 
-    it("пункты Go → Back/Forward появляются только когда есть куда идти", () => {
+    it("Go → Back/Forward items appear only when there is somewhere to go", () => {
         const goMenuLabels = (): string[] => {
             h.testApp.sendKey("Alt+g");
             const popup = h.testApp.querySelector("PopupMenuElement") as PopupMenuElement | null;

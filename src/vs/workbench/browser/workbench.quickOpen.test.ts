@@ -198,7 +198,7 @@ describe("Workbench — Go to Line", () => {
  * Only a test like this sees the wiring (DI seams, the QUICK_ACCESS_PROVIDERS entry, the action
  * with its binding): the provider's unit tests work with their own fakes.
  */
-describe("Workbench — пикер открытых редакторов (Ctrl+K Ctrl+P)", () => {
+describe("Workbench: open editors picker (Ctrl+K Ctrl+P)", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -232,7 +232,7 @@ describe("Workbench — пикер открытых редакторов (Ctrl+K
         vi.restoreAllMocks();
     });
 
-    it("аккорд Ctrl+K Ctrl+P открывает пикер с открытыми вкладками в MRU-порядке", () => {
+    it("the Ctrl+K Ctrl+P chord opens the picker with open tabs in MRU order", () => {
         h.workbench.focusEditor();
         h.testApp.sendKey("Ctrl+K");
         h.testApp.sendKey("Ctrl+P");
@@ -243,7 +243,7 @@ describe("Workbench — пикер открытых редакторов (Ctrl+K
         expect(picker().items.map((item) => item.description)).toEqual(["nested", ""]);
     });
 
-    it("команда видна в палитре под своим заголовком и со своим биндом", () => {
+    it("the command is in the command palette with its title and keybinding", () => {
         h.workbench.focusEditor();
         h.commands.execute("workbench.action.showCommands");
         h.testApp.render();
@@ -253,7 +253,7 @@ describe("Workbench — пикер открытых редакторов (Ctrl+K
         expect(entry?.shortcut).toBe("Ctrl+K Ctrl+P");
     });
 
-    it("принятие строки переключает на её вкладку", async () => {
+    it("accepting a row switches to its tab", async () => {
         h.workbench.focusEditor();
         h.commands.execute("workbench.action.showAllEditors");
         h.testApp.render();
@@ -267,7 +267,7 @@ describe("Workbench — пикер открытых редакторов (Ctrl+K
         expect(h.testApp.root.overlayLayer.hasVisibleItems()).toBe(false);
     });
 
-    it("несохранённая вкладка помечена в списке точкой", () => {
+    it("an unsaved tab is marked with a dot in the list", () => {
         h.workbench.focusEditor();
         h.commands.execute("workbench.action.showAllEditors");
         h.testApp.render();

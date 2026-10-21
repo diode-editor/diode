@@ -17,7 +17,7 @@ describe("EditorComponent/TextEditorPane — setGhostText", () => {
         ws.dispose();
     });
 
-    it("проброс pane → component → element: ghost рисуется и снимается", () => {
+    it("pass-through pane → component → element: ghost is drawn and removed", () => {
         const ctrl = createEditorPane();
         ctrl.openFile(Uri.file(ws.writeFile("a.ts", "const x = 1")));
 

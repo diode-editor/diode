@@ -30,7 +30,7 @@ const SHOW_EXPLORER = "workbench.view.explorer";
 const MODIFIED = "gitDecoration.modifiedResourceForeground";
 const UNTRACKED = "gitDecoration.untrackedResourceForeground";
 
-describe("Workbench — Source Control в сайдбаре end-to-end", () => {
+describe("Workbench — Source Control in the sidebar end-to-end", () => {
     let ws: ITempWorkspace;
     let workbench: WorkbenchComponent;
     let commands: CommandRegistry;
@@ -115,13 +115,13 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         ws.dispose();
     });
 
-    it("по умолчанию сайдбар показывает Explorer", () => {
+    it("the sidebar shows Explorer by default", () => {
         testApp.render();
         expect(sidebar.getActiveViewletId()).toBe("explorer");
         expect(testApp.backend.screenToString()).toContain("EXPLORER");
     });
 
-    it("workbench.view.scm показывает список изменённых файлов в сайдбаре", async () => {
+    it("workbench.view.scm shows the list of changed files in the sidebar", async () => {
         publish([
             { path: ws.path("a.txt"), rel: "a.txt", status: "M", colorId: MODIFIED },
             { path: ws.path("nested/b.txt"), rel: "nested/b.txt", status: "U", colorId: UNTRACKED, group: "untracked" },
@@ -137,7 +137,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         expect(changes.list.resolvedStyle.bg).toBe(sideBg);
     });
 
-    it("переключение Explorer ↔ Source Control меняет содержимое сайдбара", () => {
+    it("switching Explorer ↔ Source Control changes the sidebar content", () => {
         commands.execute(SHOW_SCM);
         testApp.render();
         let screen = testApp.backend.screenToString();
@@ -152,7 +152,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         expect(screen).not.toContain("SOURCE CONTROL");
     });
 
-    it("активация открытого файла показывает дифф с несохранёнными правками — одной вкладкой", async () => {
+    it("activating an open file shows a diff with unsaved edits in a single tab", async () => {
         const editor = editors.getActiveEditor();
         editor?.goToPosition(1, 0);
         editor?.viewState.type("XX");
@@ -171,7 +171,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         expect(editors.editorGroups.activeGroup.editorCount).toBe(panesBefore + 1);
     });
 
-    it("активация НЕоткрытого файла читает диск и открывает только дифф-вкладку", async () => {
+    it("activating a file that is NOT open reads the disk and opens only the diff tab", async () => {
         publish([{ path: ws.path("nested/b.txt"), rel: "nested/b.txt", status: "M", colorId: MODIFIED }]);
         commands.execute(SHOW_SCM);
         await settle(0);
@@ -186,7 +186,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         expect(panes.some((p) => p.uri.scheme === "file" && p.uri.fsPath === ws.path("nested/b.txt"))).toBe(false);
     });
 
-    it("активация untracked-файла открывает сам файл, а не notice", async () => {
+    it("activating an untracked file opens the file itself, not a notice", async () => {
         publish([
             {
                 path: ws.path("untracked.txt"),
@@ -210,7 +210,7 @@ describe("Workbench — Source Control в сайдбаре end-to-end", () => {
         );
     });
 
-    it("scm.action.viewAsTree группирует по папкам, viewAsList возвращает пути", async () => {
+    it("scm.action.viewAsTree groups by folder, viewAsList restores the paths", async () => {
         publish([
             { path: ws.path("a.txt"), rel: "a.txt", status: "M", colorId: MODIFIED },
             { path: ws.path("nested/b.txt"), rel: "nested/b.txt", status: "M", colorId: MODIFIED },

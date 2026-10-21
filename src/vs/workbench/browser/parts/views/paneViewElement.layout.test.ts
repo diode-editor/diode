@@ -34,26 +34,26 @@ function bodyHeights(view: PaneViewElement): Record<string, number> {
 }
 
 describe("PaneViewElement layout", () => {
-    it("делит остаток поровну между развёрнутыми секциями при равных весах", () => {
+    it("splits the remainder evenly between expanded sections with equal weights", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }]);
         layout(view, 30, 20); // 2 headers → 18 rows left
         expect(bodyHeights(view)).toEqual({ a: 9, b: 9 });
     });
 
-    it("веса задают пропорции", () => {
+    it("weights set the proportions", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }]);
         view.setWeights({ a: 2, b: 1 });
         layout(view, 30, 20);
         expect(bodyHeights(view)).toEqual({ a: 12, b: 6 });
     });
 
-    it("largest remainder детерминирован: остаток уходит ранним секциям", () => {
+    it("largest remainder is deterministic: the remainder goes to earlier sections", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }, { id: "c" }]);
         layout(view, 30, 20); // 3 headers → 17 rows left = 6 + 6 + 5
         expect(bodyHeights(view)).toEqual({ a: 6, b: 6, c: 5 });
     });
 
-    it("свёрнутая секция — только заголовок, остаток достаётся развёрнутой", () => {
+    it("a collapsed section is only its header, the remainder goes to the expanded one", () => {
         const { view, bodies } = makeView([{ id: "a" }, { id: "b" }]);
         view.setCollapsed("b", true);
         layout(view, 30, 20);
@@ -62,7 +62,7 @@ describe("PaneViewElement layout", () => {
         expect(view.isCollapsed("b")).toBe(true);
     });
 
-    it("все секции свёрнуты — заголовки стопкой сверху", () => {
+    it("all sections collapsed: headers stack at the top", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }]);
         view.setCollapsed("a", true);
         view.setCollapsed("b", true);
@@ -72,13 +72,13 @@ describe("PaneViewElement layout", () => {
         expect(headerB.localPosition.dy).toBe(1);
     });
 
-    it("min-высота поднимает долю тесной секции, хвост клипуется", () => {
+    it("min height raises a cramped section's share, the tail is clipped", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }, { id: "c" }]);
         layout(view, 30, 10); // 7 rows left, min 3: shares 3/2/2 → desired 3/3/3 → 3/3/1
         expect(bodyHeights(view)).toEqual({ a: 3, b: 3, c: 1 });
     });
 
-    it("высоты не хватает даже на заголовки — хвостовые клипуются в ноль", () => {
+    it("not enough height even for headers: trailing ones are clipped to zero", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }, { id: "c" }]);
         layout(view, 30, 2);
         expect(bodyHeights(view)).toEqual({ a: 0, b: 0, c: 0 });
@@ -86,7 +86,7 @@ describe("PaneViewElement layout", () => {
         expect(headerC.layoutSize.height).toBe(0);
     });
 
-    it("повторный layout при неизменном состоянии воспроизводит те же высоты", () => {
+    it("repeated layout with unchanged state reproduces the same heights", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }, { id: "c" }]);
         view.setWeights({ a: 7, b: 5, c: 5 });
         layout(view, 30, 20);
@@ -95,7 +95,7 @@ describe("PaneViewElement layout", () => {
         expect(bodyHeights(view)).toEqual(first);
     });
 
-    it("setWeights игнорирует незнакомые id и мусорные значения", () => {
+    it("setWeights ignores unknown ids and garbage values", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }]);
         view.setWeights({ a: 2, ghost: 5, b: Number.NaN });
         layout(view, 30, 20);
@@ -103,7 +103,7 @@ describe("PaneViewElement layout", () => {
         expect(bodyHeights(view)).toEqual({ a: 12, b: 6 });
     });
 
-    it("единственная развёрнутая секция получает весь остаток независимо от весов", () => {
+    it("the only expanded section gets the whole remainder regardless of weights", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }]);
         view.setWeights({ a: 1, b: 100 });
         view.setCollapsed("b", true);
@@ -111,7 +111,7 @@ describe("PaneViewElement layout", () => {
         expect(bodyHeights(view)).toEqual({ a: 18, b: 0 });
     });
 
-    it("addPane с повторным id бросает, removePane убирает секцию", () => {
+    it("addPane with a duplicate id throws, removePane removes the section", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }]);
         expect(() => {
             view.addPane({ id: "a", title: "A", body: new FillerElement() });
@@ -123,7 +123,7 @@ describe("PaneViewElement layout", () => {
         expect(bodyHeights(view)).toEqual({ a: 19 });
     });
 
-    it("заголовок рисует шеврон, название и кнопку ⋯", () => {
+    it("the header renders the chevron, title and ⋯ button", () => {
         const { view } = makeView([{ id: "changes" }]);
         const backend = renderElement(view, 30, 6, { themeVars: true });
         const headerRow = backend.getTextAt(new Point(0, 0), 30);
@@ -131,7 +131,7 @@ describe("PaneViewElement layout", () => {
         expect(headerRow).toContain("⋯");
     });
 
-    it("программный setCollapsed не дёргает onDidChangeState, toggle — дёргает", () => {
+    it("programmatic setCollapsed does not fire onDidChangeState, toggle does", () => {
         const { view } = makeView([{ id: "a" }, { id: "b" }]);
         let notified = 0;
         view.onDidChangeState = () => notified++;
@@ -142,12 +142,12 @@ describe("PaneViewElement layout", () => {
         expect(view.isCollapsed("a")).toBe(false);
     });
 
-    it("неизвестный id — ошибка", () => {
+    it("an unknown id throws", () => {
         const { view } = makeView([{ id: "a" }]);
         expect(() => view.isCollapsed("ghost")).toThrow(/unknown pane id/);
     });
 
-    it("setPaneBody подменяет тело, сохраняя свёрнутость; то же тело — no-op", () => {
+    it("setPaneBody replaces the body, keeping collapsed state; the same body is a no-op", () => {
         const { view, bodies } = makeView([{ id: "a" }, { id: "b" }]);
         view.setCollapsed("a", true);
 
@@ -164,7 +164,7 @@ describe("PaneViewElement layout", () => {
         expect(bodies.get("b")!.hidden).toBe(false);
     });
 
-    it("секция без своей строки заголовка не занимает под неё строку", () => {
+    it("a section without its own header row takes no row for it", () => {
         const view = new PaneViewElement();
         const body = new FillerElement();
         body.id = "solo-body";

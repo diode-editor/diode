@@ -141,7 +141,7 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 
     private requireFileModel(operation: string): TextFileModel {
         const fileModel = this.fileModel;
-        if (fileModel === null) throw new Error(`${operation}: у буфера ${this.uri.toString()} нет файла`);
+        if (fileModel === null) throw new Error(`${operation}: buffer ${this.uri.toString()} has no file`);
         return fileModel;
     }
 

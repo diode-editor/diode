@@ -45,8 +45,8 @@ function mouse(
     );
 }
 
-describe("PanelContainerElement: кнопка закрытия панели", () => {
-    it("рисует ` × ` в трёх правых колонках строки вкладок", () => {
+describe("PanelContainerElement: panel close button", () => {
+    it("draws ` × ` in the three rightmost columns of the tab row", () => {
         const backend = render(panel());
 
         expect(backend.getTextAt(new Point(37, 1), 3)).toBe(" × ");
@@ -56,7 +56,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         expect(backend.getTextAt(new Point(38, 2), 1)).toBe(" ");
     });
 
-    it("клик по кнопке зовёт onClose и не переключает вкладку", () => {
+    it("a click on the button calls onClose and does not switch the tab", () => {
         const element = panel();
         render(element);
         const onClose = vi.fn();
@@ -72,7 +72,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         expect(element.getActiveViewId()).toBe("problems");
     });
 
-    it("кнопка срабатывает по любой из своих трёх колонок, но не по соседней", () => {
+    it("the button fires on any of its three columns but not on the adjacent one", () => {
         const element = panel();
         render(element);
         const onClose = vi.fn();
@@ -86,7 +86,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         expect(onClose).toHaveBeenCalledTimes(3);
     });
 
-    it("рисует кнопку на панели ровно её ширины", () => {
+    it("draws the button on a panel exactly as wide as the button", () => {
         const element = panel();
         const backend = render(element, 3, 4);
         const onClose = vi.fn();
@@ -97,7 +97,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         expect(onClose).toHaveBeenCalledTimes(1);
     });
 
-    it("на узкой панели кнопка старше таб-строки — иначе из панели было бы не выйти", () => {
+    it("on a narrow panel the button wins over the tab row — otherwise the panel could not be left", () => {
         // Width 12: PROBLEMS segment is [1, 11), the button is [9, 12); columns 9 and 10 overlap and the button must win.
         const element = panel();
         element.setActiveView("output");
@@ -115,7 +115,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         expect(element.getActiveViewId()).toBe("output");
     });
 
-    it("панели уже самой кнопки кнопку не рисует и клики по ней не считает", () => {
+    it("a panel narrower than the button draws no button and ignores clicks on it", () => {
         const element = panel();
         const backend = render(element, 2, 4);
         const onClose = vi.fn();
@@ -126,7 +126,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         expect(onClose).not.toHaveBeenCalled();
     });
 
-    it("не требует колбэка onClose", () => {
+    it("does not require an onClose callback", () => {
         const element = panel();
         render(element);
         expect(() => {
@@ -134,7 +134,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         }).not.toThrow();
     });
 
-    it("правая кнопка мыши панель не закрывает", () => {
+    it("the right mouse button does not close the panel", () => {
         const element = panel();
         render(element);
         const onClose = vi.fn();
@@ -145,7 +145,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         expect(onClose).not.toHaveBeenCalled();
     });
 
-    it("клик в той же колонке, но не на строке вкладок, панель не закрывает", () => {
+    it("a click in the same column but off the tab row does not close the panel", () => {
         const element = panel();
         render(element);
         const onClose = vi.fn();
@@ -157,7 +157,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         expect(onClose).not.toHaveBeenCalled();
     });
 
-    it("подсвечивает фон кнопки под курсором и гасит его, когда курсор ушёл", () => {
+    it("highlights the button background under the pointer and clears it when the pointer leaves", () => {
         const element = panel();
         render(element);
 
@@ -174,7 +174,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         expect(render(element).getBgAt(new Point(38, 1))).toBe(BG);
     });
 
-    it("не перерисовывает панель, пока курсор ходит внутри кнопки", () => {
+    it("does not redraw the panel while the pointer moves inside the button", () => {
         // The mouse sends a move for every column; a repaint must not be triggered on every move.
         const element = panel();
         render(element);
@@ -191,7 +191,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
     });
 
     /** At the coordinate origin a sign error in screen-to-local conversion is invisible. */
-    describe("панель смещена от начала координат", () => {
+    describe("panel offset from the origin", () => {
         const ORIGIN = new Offset(7, 4);
 
         function shifted(width = 40): PanelContainerElement {
@@ -209,7 +209,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
             );
         }
 
-        it("кнопка закрытия срабатывает по своим экранным координатам", () => {
+        it("the close button fires at its screen coordinates", () => {
             const element = shifted();
             const onClose = vi.fn();
             element.onClose = onClose;
@@ -225,7 +225,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
             expect(onClose).toHaveBeenCalledTimes(1);
         });
 
-        it("клик по вкладке срабатывает по её экранным координатам", () => {
+        it("a click on a tab fires at its screen coordinates", () => {
             const element = shifted();
             const onActivate = vi.fn();
             element.onActivateView = onActivate;
@@ -238,7 +238,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
             expect(element.getActiveViewId()).toBe("output");
         });
 
-        it("подсветка кнопки считается от смещения, а не от нуля", () => {
+        it("the button highlight is computed from the offset, not from zero", () => {
             const element = shifted();
             const close = element.inspectState().close as { centerX: number };
             const tabRow = element.inspectState().tabRow as number;
@@ -253,7 +253,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         });
     });
 
-    it("курсор на той же колонке вне строки вкладок кнопку не подсвечивает", () => {
+    it("the pointer in the same column off the tab row does not highlight the button", () => {
         const element = panel();
         render(element);
 

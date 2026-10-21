@@ -25,11 +25,11 @@ function screen(testApp: TestApp): string {
     return testApp.backend.screenToString();
 }
 
-describe("MessageDialog — что видно на кадре", () => {
-    it("окно собрано ровно так: текст, пустая строка, detail, кнопки ПО ЦЕНТРУ", () => {
+describe("MessageDialog — what the frame shows", () => {
+    it("the dialog is laid out exactly: text, blank line, detail, CENTERED buttons", () => {
         // Assert the whole frame: pins line order, detail indent and button centering.
         const dialog = new MessageDialog(
-            notification({ message: "Delete 12 files?", detail: "Нельзя отменить.", items: ["Delete", "Cancel"] }),
+            notification({ message: "Delete 12 files?", detail: "Can't be undone.", items: ["Delete", "Cancel"] }),
         );
         const backend = renderElement(dialog.view, 60, 16, {
             constraints: BoxConstraints.loose(new Size(60, 16)),
@@ -47,14 +47,14 @@ describe("MessageDialog — что видно на кадре", () => {
             "├──────────────────────────┤",
             "│  Delete 12 files?        │",
             "│                          │",
-            "│  Нельзя отменить.        │",
+            "│  Can't be undone.        │",
             "│                          │",
             "│  [ Delete ]  [ Cancel ]  │",
             "╰──────────────────────────╯",
         ]);
     });
 
-    it("кнопки центрированы по ширине окна, а не прижаты к краю", () => {
+    it("buttons are centered across the dialog width, not pushed to an edge", () => {
         // A wide message gives a non-zero offset. Three buttons: with two, `gap * 1` and
         // `gap / 1` give the same result.
         const dialog = new MessageDialog(notification({ message: "x".repeat(50), items: ["Ok", "No", "Maybe"] }));
@@ -74,24 +74,24 @@ describe("MessageDialog — что видно на кадре", () => {
         expect(Math.abs(left - right)).toBeLessThanOrEqual(1);
     });
 
-    it("окно адресуемо селектором #messageDialog", () => {
+    it("the dialog is addressable by the #messageDialog selector", () => {
         const { testApp } = mount();
         expect(testApp.querySelector(`#${MESSAGE_DIALOG_ELEMENT_ID}`)).not.toBeNull();
     });
 
-    it("detail приглушён — он не спорит с текстом сообщения", () => {
-        const { testApp } = mount({ detail: "подробности" });
+    it("detail is dimmed so it does not compete with the message text", () => {
+        const { testApp } = mount({ detail: "more details" });
         testApp.render();
         const rows = testApp.backend.screenToString().split("\n");
-        const detailRow = rows.findIndex((row) => row.includes("подробности"));
+        const detailRow = rows.findIndex((row) => row.includes("more details"));
         const messageRow = rows.findIndex((row) => row.includes("Delete 12 files?"));
 
-        expect(testApp.backend.getFgAt(new Point(rows[detailRow].indexOf("подробности"), detailRow))).not.toBe(
+        expect(testApp.backend.getFgAt(new Point(rows[detailRow].indexOf("more details"), detailRow))).not.toBe(
             testApp.backend.getFgAt(new Point(rows[messageRow].indexOf("Delete"), messageRow)),
         );
     });
 
-    it("без detail лишней пустой строки в окне не появляется", () => {
+    it("without detail no extra blank line appears in the dialog", () => {
         const withoutDetail = new MessageDialog(notification({ message: "short", items: ["Ok"] }));
         const withDetail = new MessageDialog(notification({ message: "short", detail: "d", items: ["Ok"] }));
         const rows = (dialog: MessageDialog): number =>
@@ -100,7 +100,7 @@ describe("MessageDialog — что видно на кадре", () => {
         expect(rows(withDetail) - rows(withoutDetail)).toBe(2);
     });
 
-    it("заголовок по строгости, текст и кнопки", () => {
+    it("severity title, text and buttons", () => {
         const { testApp } = mount({ items: ["Delete", "Cancel"] });
         const text = screen(testApp);
         expect(text).toContain("Warning");
@@ -108,27 +108,27 @@ describe("MessageDialog — что видно на кадре", () => {
         expect(text).toContain("Cancel");
     });
 
-    it("detail показывается отдельной строкой", () => {
-        const { testApp } = mount({ detail: "Это действие нельзя отменить." });
-        expect(screen(testApp)).toContain("Это действие нельзя отменить.");
+    it("detail is shown on its own line", () => {
+        const { testApp } = mount({ detail: "This action cannot be undone." });
+        expect(screen(testApp)).toContain("This action cannot be undone.");
     });
 
-    it("длинный текст переносится по словам", () => {
-        const { testApp } = mount({ message: "слово ".repeat(40) });
+    it("long text wraps at word boundaries", () => {
+        const { testApp } = mount({ message: "word ".repeat(40) });
         const rows = screen(testApp).split("\n");
-        const contentRows = rows.filter((row) => row.includes("слово"));
+        const contentRows = rows.filter((row) => row.includes("word"));
         expect(contentRows.length).toBeGreaterThan(1);
     });
 
-    it("без кнопок появляется единственная OK: иначе окно не закрыть", () => {
+    it("without buttons a single OK appears: otherwise the dialog cannot be closed", () => {
         const { buttons, testApp } = mount();
         expect(buttons.map((b) => b.getLabel())).toEqual([MESSAGE_DIALOG_CLOSE_LABEL]);
         expect(screen(testApp)).toContain(MESSAGE_DIALOG_CLOSE_LABEL);
     });
 });
 
-describe("MessageDialog — ответ", () => {
-    it("Enter на кнопке отдаёт её индекс", () => {
+describe("MessageDialog — response", () => {
+    it("Enter on a button returns its index", () => {
         const { dialog, testApp, buttons } = mount({ items: ["Delete", "Cancel"] });
         const onSelect = vi.fn();
         dialog.onSelect = onSelect;
@@ -139,13 +139,13 @@ describe("MessageDialog — ответ", () => {
         expect(onSelect).toHaveBeenCalledWith(1);
     });
 
-    it("focusDefault ведёт фокус на первую кнопку", () => {
+    it("focusDefault moves focus to the first button", () => {
         const { dialog, testApp, buttons } = mount({ items: ["Delete", "Cancel"] });
         dialog.focusDefault();
         expect(testApp.focusedElement).toBe(buttons[0]);
     });
 
-    it("Escape отдаёт кнопку isCloseAffordance", () => {
+    it("Escape returns the isCloseAffordance button", () => {
         const { dialog, testApp } = mount({ items: ["Delete", "Cancel"], closeAffordance: 1 });
         const onSelect = vi.fn();
         const onClose = vi.fn();
@@ -159,7 +159,7 @@ describe("MessageDialog — ответ", () => {
         expect(onClose).not.toHaveBeenCalled();
     });
 
-    it("без isCloseAffordance Escape закрывает без выбора", () => {
+    it("without isCloseAffordance Escape closes without a choice", () => {
         const { dialog, testApp } = mount({ items: ["Delete", "Cancel"] });
         const onSelect = vi.fn();
         const onClose = vi.fn();
@@ -173,7 +173,7 @@ describe("MessageDialog — ответ", () => {
         expect(onSelect).not.toHaveBeenCalled();
     });
 
-    it("кнопка OK у сообщения без кнопок значит «закрыто без выбора»", () => {
+    it('the OK button of a message without buttons means "closed without a choice"', () => {
         const { dialog, testApp, buttons } = mount();
         const onClose = vi.fn();
         const onSelect = vi.fn();
@@ -187,7 +187,7 @@ describe("MessageDialog — ответ", () => {
         expect(onSelect).not.toHaveBeenCalled();
     });
 
-    it("окно без обработчиков не падает ни на Enter, ни на Escape", () => {
+    it("a dialog without handlers crashes on neither Enter nor Escape", () => {
         const withItems = mount({ items: ["Delete", "Cancel"], closeAffordance: 1 });
         withItems.dialog.focusDefault();
         expect(() => {
@@ -203,7 +203,7 @@ describe("MessageDialog — ответ", () => {
         }).not.toThrow();
     });
 
-    it("←/→ ходят по кнопкам", () => {
+    it("←/→ move between buttons", () => {
         const { dialog, testApp, buttons } = mount({ items: ["Delete", "Cancel"] });
         dialog.focusDefault();
 
@@ -211,7 +211,7 @@ describe("MessageDialog — ответ", () => {
         expect(testApp.focusedElement).toBe(buttons[1]);
     });
 
-    it("ряд кнопок строится с ОДНИМ растягивающимся спейсером (два кидают в движке)", () => {
+    it("the button row is built with ONE stretching spacer (two throw in the engine)", () => {
         // Centering with two fill children crashed the window on build, and the failure reached the extension.
         expect(() => mount({ items: ["One", "Two", "Three"] })).not.toThrow();
     });

@@ -41,7 +41,7 @@ interface MenuHarness {
 function menuState(app: TestApp): { items: (string | null)[]; selectedIndex: number } {
     const menu = app.querySelector("PopupMenuElement");
     const state = menu?.inspectState();
-    if (state === undefined) throw new Error("контекстное меню не открыто");
+    if (state === undefined) throw new Error("context menu is not open");
     return { items: state.items as (string | null)[], selectedIndex: state.selectedIndex as number };
 }
 
@@ -52,7 +52,7 @@ function menuItems(app: TestApp): (string | null)[] {
 
 function activateMenuItem(app: TestApp, label: string): void {
     const target = menuItems(app).indexOf(label);
-    if (target < 0) throw new Error(`в меню нет пункта "${label}"`);
+    if (target < 0) throw new Error(`menu has no item "${label}"`);
     while (menuState(app).selectedIndex !== target) {
         app.sendKey("ArrowDown");
     }
@@ -86,7 +86,7 @@ function setup(): MenuHarness {
         if (text === null) {
             // The center spacer Filler between the two sides.
             const fill = children.find((child) => (child.layoutStyle as HFlexLayoutStyle).width.type === "fill");
-            if (!fill) throw new Error("на полосе нет центрального распора");
+            if (!fill) throw new Error("the bar has no center spacer");
             x = fill.globalPosition.x + Math.floor(fill.layoutSize.width / 2);
         } else {
             const label = children.find(
@@ -110,8 +110,8 @@ function setup(): MenuHarness {
     };
 }
 
-describe("StatusBarComponent — меню видимости", () => {
-    it("правый клик по полосе открывает переключатель именованных записей", () => {
+describe("StatusBarComponent — visibility menu", () => {
+    it("right click on the bar opens the toggle for named entries", () => {
         const { app, openMenuOn } = setup();
 
         openMenuOn("Alpha");
@@ -121,7 +121,7 @@ describe("StatusBarComponent — меню видимости", () => {
         expect(app.backend.screenToString()).toContain(`${CHECKED_ICON} Alpha`);
     });
 
-    it("правый клик по кликабельному сегменту не запускает его команду", () => {
+    it("right click on a clickable segment does not run its command", () => {
         const { openMenuOn, clicks } = setup();
 
         openMenuOn("Alpha");
@@ -129,7 +129,7 @@ describe("StatusBarComponent — меню видимости", () => {
         expect(clicks).toEqual([]);
     });
 
-    it("меню несёт «Hide 'X'» для сегмента под курсором", () => {
+    it("the menu has Hide 'X' for the segment under the mouse", () => {
         const { app, openMenuOn } = setup();
 
         openMenuOn("Beta");
@@ -137,7 +137,7 @@ describe("StatusBarComponent — меню видимости", () => {
         expect(app.backend.screenToString()).toContain("Hide 'Beta'");
     });
 
-    it("правый клик мимо сегментов даёт меню без «Hide»", () => {
+    it("right click off the segments gives a menu without 'Hide'", () => {
         const { app, openMenuOn } = setup();
 
         openMenuOn(null);
@@ -145,7 +145,7 @@ describe("StatusBarComponent — меню видимости", () => {
         expect(menuItems(app)).toEqual(["Terminal Environment", "Alpha", "Beta", "Omega"]);
     });
 
-    it("правый клик по транзиентному сегменту без name тоже не даёт «Hide»", () => {
+    it("right click on a transient segment without a name gives no 'Hide' either", () => {
         const { app, openMenuOn } = setup();
 
         openMenuOn("chord");
@@ -153,7 +153,7 @@ describe("StatusBarComponent — меню видимости", () => {
         expect(menuItems(app)).toEqual(["Terminal Environment", "Alpha", "Beta", "Omega"]);
     });
 
-    it("«Hide 'X'» работает и для правых сегментов", () => {
+    it("Hide 'X' works for right segments too", () => {
         const { app, openMenuOn, segments } = setup();
 
         openMenuOn("Omega");
@@ -163,7 +163,7 @@ describe("StatusBarComponent — меню видимости", () => {
         expect(segments()).not.toContain("Omega");
     });
 
-    it("меню раскрывается вверх — полоса это нижний ряд экрана", () => {
+    it("the menu opens upward — the bar is the bottom screen row", () => {
         const { app, openMenuOn } = setup();
 
         openMenuOn("Alpha");
@@ -173,7 +173,7 @@ describe("StatusBarComponent — меню видимости", () => {
         expect(menu!.globalPosition.y + menu!.layoutSize.height).toBeLessThanOrEqual(BAR_Y);
     });
 
-    it("снятие галочки убирает сегмент с полосы", () => {
+    it("unchecking removes the segment from the bar", () => {
         const { app, openMenuOn, segments, statusBarService } = setup();
         expect(segments()).toContain("Alpha");
 
@@ -185,7 +185,7 @@ describe("StatusBarComponent — меню видимости", () => {
         expect(app.querySelector("PopupMenuElement")).toBeNull();
     });
 
-    it("«Hide 'X'» скрывает сегмент под курсором", () => {
+    it("Hide 'X' hides the segment under the mouse", () => {
         const { app, openMenuOn, segments } = setup();
 
         openMenuOn("Beta");
@@ -194,7 +194,7 @@ describe("StatusBarComponent — меню видимости", () => {
         expect(segments()).not.toContain("Beta");
     });
 
-    it("скрытая запись остаётся в меню без галочки — её можно вернуть", () => {
+    it("a hidden entry stays in the menu unchecked — it can be restored", () => {
         const { app, openMenuOn, segments, statusBarService } = setup();
         statusBarService.setHidden("alpha", true);
         app.render();

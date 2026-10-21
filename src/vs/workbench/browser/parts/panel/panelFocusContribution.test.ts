@@ -14,7 +14,7 @@ import { TerminalService, TerminalServiceDIToken } from "../../../contrib/termin
 const TOGGLE_TERMINAL = "workbench.action.terminal.toggleTerminal";
 
 /** #175: `TerminalViewElement` stayed `activeElement` after `Ctrl+J`, so typing went into an invisible shell. */
-describe("PanelFocusContribution — фокус не остаётся на ушедшем со сцены содержимом панели", () => {
+describe("PanelFocusContribution — focus does not stay on panel content that left the screen", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let terminal: TerminalService;
@@ -40,7 +40,7 @@ describe("PanelFocusContribution — фокус не остаётся на уш�
         return instance.session as unknown as FakeTerminalSurface;
     }
 
-    it("после скрытия панели фокус возвращается в редактор, а не остаётся на терминале", () => {
+    it("after hiding the panel focus returns to the editor instead of staying on the terminal", () => {
         h.commands.execute(TOGGLE_TERMINAL); // show + focus
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
 
@@ -50,7 +50,7 @@ describe("PanelFocusContribution — фокус не остаётся на уш�
         expect(contextKeys.get("terminalFocus")).toBe(false);
     });
 
-    it("ввод при скрытой панели идёт в редактор, а не в невидимый шелл", () => {
+    it("input with the panel hidden goes to the editor, not to the invisible shell", () => {
         h.commands.execute(TOGGLE_TERMINAL);
         const surface = activeSurface();
         surface.writes.length = 0;
@@ -62,7 +62,7 @@ describe("PanelFocusContribution — фокус не остаётся на уш�
         expect(h.activeEditor().getText()).toContain("x");
     });
 
-    it("без открытых редакторов фокус просто снимается со скрытого терминала", () => {
+    it("without open editors focus is simply removed from the hidden terminal", () => {
         const bare = createAppTestHarness({ workspaceFolder: ws.dir });
         try {
             bare.commands.execute(TOGGLE_TERMINAL);
@@ -76,7 +76,7 @@ describe("PanelFocusContribution — фокус не остаётся на уш�
         }
     });
 
-    it("уход с вкладки терминала на PROBLEMS тоже отпускает фокус", () => {
+    it("switching from the terminal tab to PROBLEMS also releases focus", () => {
         h.commands.execute(TOGGLE_TERMINAL);
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
 
@@ -86,7 +86,7 @@ describe("PanelFocusContribution — фокус не остаётся на уш�
         expect(h.testApp.focusedElement).not.toBeInstanceOf(TerminalViewElement);
     });
 
-    it("фокус в редакторе скрытие панели не трогает", () => {
+    it("hiding the panel leaves editor focus alone", () => {
         h.commands.execute(TOGGLE_TERMINAL); // show the panel with the terminal
         h.workbench.focusEditor();
         const focused = h.testApp.focusedElement;

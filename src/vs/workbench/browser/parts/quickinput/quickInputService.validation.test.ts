@@ -25,14 +25,14 @@ function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
     return { promise, resolve };
 }
 
-describe("QuickInputService.input — форма сообщения валидации", () => {
-    it("голая строка — ошибка: показывается и блокирует Enter", async () => {
+describe("QuickInputService.input — validation message shape", () => {
+    it("a bare string is an error: shown and blocks Enter", async () => {
         const { service, component, testApp } = createService();
-        const result = service.input({ validateInput: (value) => (value === "bad" ? "Так нельзя" : null) });
+        const result = service.input({ validateInput: (value) => (value === "bad" ? "Not allowed" : null) });
         testApp.sendKey("b");
         testApp.sendKey("a");
         testApp.sendKey("d");
-        expect(component.view.validationMessage).toBe("Так нельзя");
+        expect(component.view.validationMessage).toBe("Not allowed");
         expect(component.view.validationSeverity).toBe("error");
 
         testApp.sendKey("Enter");
@@ -44,46 +44,46 @@ describe("QuickInputService.input — форма сообщения валида
         await expect(result).resolves.toBe("ba");
     });
 
-    it("предупреждение показывается, но Enter не блокирует", async () => {
+    it("a warning is shown but does not block Enter", async () => {
         const { service, component, testApp } = createService();
         const result = service.input({
-            validateInput: () => ({ message: "Осторожно", severity: "warning" }),
+            validateInput: () => ({ message: "Careful", severity: "warning" }),
         });
         testApp.sendKey("x");
-        expect(component.view.validationMessage).toBe("Осторожно");
+        expect(component.view.validationMessage).toBe("Careful");
         expect(component.view.validationSeverity).toBe("warning");
         testApp.sendKey("Enter");
         await expect(result).resolves.toBe("x");
     });
 
-    it("подсказка (info) тоже не блокирует", async () => {
+    it("an info message does not block either", async () => {
         const { service, component, testApp } = createService();
-        const result = service.input({ validateInput: () => ({ message: "К сведению", severity: "info" }) });
+        const result = service.input({ validateInput: () => ({ message: "For your information", severity: "info" }) });
         testApp.sendKey("y");
         expect(component.view.validationSeverity).toBe("info");
         testApp.sendKey("Enter");
         await expect(result).resolves.toBe("y");
     });
 
-    it("валидация начального значения сеется до первого нажатия", () => {
+    it("the initial value is validated before the first keypress", () => {
         const { service, component } = createService();
-        void service.input({ value: "bad", validateInput: (v) => (v === "bad" ? "Так нельзя" : null) });
-        expect(component.view.validationMessage).toBe("Так нельзя");
+        void service.input({ value: "bad", validateInput: (v) => (v === "bad" ? "Not allowed" : null) });
+        expect(component.view.validationMessage).toBe("Not allowed");
     });
 
-    it("показ без валидации гасит сообщение, оставшееся от прошлого", async () => {
+    it("showing without validation clears the message left from the previous one", async () => {
         const { service, component, testApp } = createService();
-        const first = service.input({ validateInput: () => "Так нельзя" });
+        const first = service.input({ validateInput: () => "Not allowed" });
         testApp.sendKey("a");
-        expect(component.view.validationMessage).toBe("Так нельзя");
+        expect(component.view.validationMessage).toBe("Not allowed");
         testApp.sendKey("Escape");
         await first;
 
-        void service.input({ prompt: "чистый показ" });
+        void service.input({ prompt: "clean show" });
         expect(component.view.validationMessage).toBeNull();
     });
 
-    it("без validateInput сообщения нет и Enter проходит", async () => {
+    it("without validateInput there is no message and Enter goes through", async () => {
         const { service, component, testApp } = createService();
         const result = service.input({});
         testApp.sendKey("z");
@@ -92,10 +92,10 @@ describe("QuickInputService.input — форма сообщения валида
         await expect(result).resolves.toBe("z");
     });
 
-    it("после предупреждения строгость возвращается к error при очистке сообщения", () => {
+    it("after a warning, severity returns to error when the message clears", () => {
         const { service, component, testApp } = createService();
         void service.input({
-            validateInput: (value) => (value === "w" ? { message: "Осторожно", severity: "warning" } : null),
+            validateInput: (value) => (value === "w" ? { message: "Careful", severity: "warning" } : null),
         });
         testApp.sendKey("w");
         expect(component.view.validationSeverity).toBe("warning");
@@ -105,20 +105,20 @@ describe("QuickInputService.input — форма сообщения валида
     });
 });
 
-describe("QuickInputService.input — асинхронная валидация", () => {
-    it("ответ применяется, когда доедет", async () => {
+describe("QuickInputService.input — async validation", () => {
+    it("the result applies when it arrives", async () => {
         const { service, component, testApp } = createService();
         const gate = deferred<InputValidation | null>();
         void service.input({ validateInput: () => gate.promise });
         testApp.sendKey("a");
         expect(component.view.validationMessage).toBeNull();
 
-        gate.resolve("Плохо");
+        gate.resolve("Bad");
         await gate.promise;
-        expect(component.view.validationMessage).toBe("Плохо");
+        expect(component.view.validationMessage).toBe("Bad");
     });
 
-    it("устаревший ответ отбрасывается: на экране сообщение о текущем тексте", async () => {
+    it("a stale result is dropped: the screen shows the message for the current text", async () => {
         const { service, component, testApp } = createService();
         const gates: { value: string; gate: ReturnType<typeof deferred<InputValidation | null>> }[] = [];
         void service.input({
@@ -133,15 +133,15 @@ describe("QuickInputService.input — асинхронная валидация"
         // Resolve in REVERSE order: "ab" first, then the stale "a".
         const forAb = gates.find((g) => g.value === "ab");
         const forA = gates.find((g) => g.value === "a");
-        forAb?.gate.resolve("про ab");
+        forAb?.gate.resolve("about ab");
         await forAb?.gate.promise;
-        forA?.gate.resolve("про a");
+        forA?.gate.resolve("about a");
         await forA?.gate.promise;
 
-        expect(component.view.validationMessage).toBe("про ab");
+        expect(component.view.validationMessage).toBe("about ab");
     });
 
-    it("ответ на закрытый показ не воскрешает сообщение в следующем", async () => {
+    it("a result for a closed show does not revive the message in the next one", async () => {
         const { service, component, testApp } = createService();
         const gate = deferred<InputValidation | null>();
         const first = service.input({ validateInput: () => gate.promise });
@@ -149,18 +149,18 @@ describe("QuickInputService.input — асинхронная валидация"
         testApp.sendKey("Escape");
         await first;
 
-        void service.input({ prompt: "второй показ" });
-        gate.resolve("ответ из прошлой жизни");
+        void service.input({ prompt: "second show" });
+        gate.resolve("result from a past life");
         await gate.promise;
         expect(component.view.validationMessage).toBeNull();
     });
 
-    it("асинхронная ошибка так же блокирует Enter", async () => {
+    it("an async error blocks Enter too", async () => {
         const { service, component, testApp } = createService();
         const gate = deferred<InputValidation | null>();
         void service.input({ validateInput: () => gate.promise });
         testApp.sendKey("a");
-        gate.resolve("Плохо");
+        gate.resolve("Bad");
         await gate.promise;
 
         testApp.sendKey("Enter");

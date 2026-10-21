@@ -152,7 +152,7 @@ describe("WorkbenchLayoutElement", () => {
 
     describe("getChildren", () => {
         // Structure ≠ visibility: hidden panels and sashes remain children with hidden=true.
-        it("панели и сашы в списке, sash идёт после панелей (hit-test поверх)", () => {
+        it("panels and sashes are in the list, sashes after panels (hit-test on top)", () => {
             const layout = new WorkbenchLayoutElement();
             const leftPanel = createPanel();
             const center = createPanel();
@@ -167,7 +167,7 @@ describe("WorkbenchLayoutElement", () => {
             expect(leftPanel.hidden).toBe(false);
         });
 
-        it("скрытая левая панель остаётся ребёнком с hidden=true (и её саш тоже)", () => {
+        it("a hidden left panel stays a child with hidden=true (and so does its sash)", () => {
             const layout = new WorkbenchLayoutElement();
             const leftPanel = createPanel();
             const center = createPanel();
@@ -183,7 +183,7 @@ describe("WorkbenchLayoutElement", () => {
             expect(sashes.every((s) => s.hidden)).toBe(true);
         });
 
-        it("без панелей — только скрытые сашы", () => {
+        it("without panels: only hidden sashes", () => {
             const layout = new WorkbenchLayoutElement();
 
             const children = layout.getChildren();
@@ -191,7 +191,7 @@ describe("WorkbenchLayoutElement", () => {
             expect(children.every((c) => c instanceof SashElement && c.hidden)).toBe(true);
         });
 
-        it("центр без левой панели: сашы скрыты", () => {
+        it("center without a left panel: sashes are hidden", () => {
             const layout = new WorkbenchLayoutElement();
             const center = createPanel();
 
@@ -483,7 +483,7 @@ describe("WorkbenchLayoutElement", () => {
             expect(center.layoutSize).toEqual(new Size(80, 24));
         });
 
-        it("скрытая панель укоренена всегда — root производный от цепочки родителей", () => {
+        it("a hidden panel is always rooted: root is derived from the parent chain", () => {
             const layout = new WorkbenchLayoutElement();
             const panel = createPanel();
             layout.setBottomPanel(panel); // before layout is rooted
@@ -548,7 +548,7 @@ describe("WorkbenchLayoutElement", () => {
             expect(panel.globalPosition).toEqual(new Point(20, 18));
         });
 
-        it("панель и горизонтальный саш в детях, саш последним (hit-test поверх)", () => {
+        it("the panel and the horizontal sash are children, the sash last (hit-test on top)", () => {
             const { layout } = laidOut({ height: 8 });
             const children = layout.getChildren();
             const sashes = children.filter((c) => c instanceof SashElement);

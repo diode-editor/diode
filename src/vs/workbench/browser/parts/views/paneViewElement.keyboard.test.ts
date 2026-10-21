@@ -28,7 +28,7 @@ function makeHarness(): {
 }
 
 describe("PaneViewElement keyboard", () => {
-    it("Enter на сфокусированном заголовке сворачивает, Space разворачивает", () => {
+    it("Enter on a focused header collapses, Space expands", () => {
         const { app, view } = makeHarness();
         view.focusPane("b");
         app.sendKey("Enter");
@@ -37,7 +37,7 @@ describe("PaneViewElement keyboard", () => {
         expect(view.isCollapsed("b")).toBe(false);
     });
 
-    it("Enter на несворачиваемой секции — no-op, toggleCollapsed не дёргает персист", () => {
+    it("Enter on a non-collapsible section is a no-op, toggleCollapsed does not persist", () => {
         const view = new PaneViewElement();
         const body = new FillerElement();
         body.id = "solo-body";
@@ -55,7 +55,7 @@ describe("PaneViewElement keyboard", () => {
         expect(stateChanges).toBe(0);
     });
 
-    it("Shift+F10 открывает меню секции с якорем у кнопки ⋯", () => {
+    it("Shift+F10 opens the section menu anchored at the ⋯ button", () => {
         const { app, view, menuRequests } = makeHarness();
         view.focusPane("a");
         app.sendKey("Shift+F10");
@@ -66,7 +66,7 @@ describe("PaneViewElement keyboard", () => {
         expect(view.isCollapsed("a")).toBe(false);
     });
 
-    it("сворачивание секции переносит фокус из её тела на заголовок", () => {
+    it("collapsing a section moves focus from its body to the header", () => {
         const { app, view, bodies } = makeHarness();
         const body = bodies.get("b")!;
         body.focusable = true;
@@ -77,7 +77,7 @@ describe("PaneViewElement keyboard", () => {
         expect((app.focusedElement as PaneHeaderElement).id).toBe("paneHeader-b");
     });
 
-    it("сворачивание чужой секции фокус не трогает", () => {
+    it("collapsing another section leaves focus alone", () => {
         const { app, view, bodies } = makeHarness();
         const body = bodies.get("a")!;
         body.focusable = true;
@@ -87,7 +87,7 @@ describe("PaneViewElement keyboard", () => {
         expect(app.focusedElement).toBe(body);
     });
 
-    it("заголовки участвуют в Tab-обходе", () => {
+    it("headers take part in Tab traversal", () => {
         const { app } = makeHarness();
         const headerA = app.querySelector("#paneHeader-a")!;
         headerA.focus();

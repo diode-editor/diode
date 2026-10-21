@@ -65,7 +65,7 @@ function bodyHeights(view: PaneViewElement): Record<string, number> {
 }
 
 describe("PaneViewElement mouse", () => {
-    it("клик по заголовку сворачивает и разворачивает секцию", () => {
+    it("a header click collapses and expands the section", () => {
         const { app, view, stateChanges, headerPos } = makeHarness();
         const pos = headerPos("b");
         click(app, pos.x + 2, pos.y);
@@ -76,7 +76,7 @@ describe("PaneViewElement mouse", () => {
         expect(stateChanges()).toBe(2);
     });
 
-    it("клик по кнопке ⋯ открывает меню и не сворачивает секцию", () => {
+    it("a click on the ⋯ button opens the menu and does not collapse the section", () => {
         const { app, view, menuRequests, headerPos } = makeHarness();
         const pos = headerPos("a");
         const menuX = pos.x + 28; // "⋯" is the rightmost 3 columns of the 30-wide header
@@ -85,14 +85,14 @@ describe("PaneViewElement mouse", () => {
         expect(view.isCollapsed("a")).toBe(false);
     });
 
-    it("правый клик по заголовку открывает меню с якорем в точке клика", () => {
+    it("a right click on the header opens the menu anchored at the click point", () => {
         const { app, menuRequests, headerPos } = makeHarness();
         const pos = headerPos("b");
         click(app, pos.x + 4, pos.y, "right");
         expect(menuRequests).toEqual([["b", { screenX: pos.x + 4, screenY: pos.y }]]);
     });
 
-    it("drag заголовка перекидывает строки между секциями и не сворачивает", () => {
+    it("dragging a header moves rows between sections and does not collapse", () => {
         const { app, view, stateChanges, headerPos } = makeHarness();
         const before = bodyHeights(view); // 10/10 at height 22
         const pos = headerPos("b");
@@ -103,7 +103,7 @@ describe("PaneViewElement mouse", () => {
         expect(stateChanges()).toBe(1);
     });
 
-    it("drag клампится минимальной высотой соседней секции", () => {
+    it("drag is clamped by the neighbor section's min height", () => {
         const { app, view, headerPos } = makeHarness();
         const pos = headerPos("b");
         drag(app, pos.x + 2, pos.y, pos.y - 15); // past section a's minimum
@@ -111,7 +111,7 @@ describe("PaneViewElement mouse", () => {
         expect(bodyHeights(view)).toEqual({ a: 3, b: 17 });
     });
 
-    it("drag верхнего заголовка (нет развёрнутых выше) ничего не меняет и не сворачивает", () => {
+    it("dragging the top header (nothing expanded above) changes nothing and does not collapse", () => {
         const { app, view, stateChanges, headerPos } = makeHarness();
         const before = bodyHeights(view);
         const pos = headerPos("a");
@@ -122,7 +122,7 @@ describe("PaneViewElement mouse", () => {
         expect(stateChanges()).toBe(0);
     });
 
-    it("после drag веса замораживаются — повторный layout воспроизводит высоты", () => {
+    it("after a drag weights freeze: a repeated layout reproduces the heights", () => {
         const { app, view, headerPos } = makeHarness();
         const pos = headerPos("b");
         drag(app, pos.x + 2, pos.y, pos.y - 2);
@@ -133,7 +133,7 @@ describe("PaneViewElement mouse", () => {
         expect(view.getWeights()).toEqual({ a: after.a, b: after.b });
     });
 
-    it("mousemove без зажатой кнопки не считается drag'ом", () => {
+    it("mousemove without a held button is not a drag", () => {
         const { app, view, headerPos } = makeHarness();
         const before = bodyHeights(view);
         const pos = headerPos("b");
@@ -142,7 +142,7 @@ describe("PaneViewElement mouse", () => {
         expect(bodyHeights(view)).toEqual(before);
     });
 
-    it("делегация: preventDefault на mouseup (capture-фаза предка) гасит toggle", () => {
+    it("delegation: preventDefault on mouseup (ancestor capture phase) cancels the toggle", () => {
         const { app, view, headerPos } = makeHarness();
         view.addEventListener(
             "mouseup",
@@ -156,7 +156,7 @@ describe("PaneViewElement mouse", () => {
         expect(view.isCollapsed("a")).toBe(false);
     });
 
-    it("drag, зажатый до сворачивания соседа, дальше игнорируется (защита от гонки capture)", () => {
+    it("a drag held across a neighbor collapse is ignored afterwards (guards a capture race)", () => {
         const { app, view, stateChanges } = makeHarness();
         // Simulate: capture still holds header b, but nothing below it is expanded anymore.
         view.setCollapsed("b", true);
@@ -169,7 +169,7 @@ describe("PaneViewElement mouse", () => {
         expect(stateChanges()).toBe(0);
     });
 
-    it("drag в собственную строку границы — no-op", () => {
+    it("dragging onto its own border row is a no-op", () => {
         const { app, view, stateChanges } = makeHarness();
         const headerB = app.querySelector("#paneHeader-b")!;
         (headerB as { onDrag?: (y: number) => void }).onDrag?.(headerB.globalPosition.y);
@@ -178,7 +178,7 @@ describe("PaneViewElement mouse", () => {
         expect(view.getWeights()).toEqual({ a: 1, b: 1 });
     });
 
-    it("drag за пределы минимума после клампа — no-op без события", () => {
+    it("dragging past the min after clamping is a no-op without an event", () => {
         const { app, view, stateChanges, headerPos } = makeHarness();
         const pos = headerPos("b");
         drag(app, pos.x + 2, pos.y, pos.y - 15); // clamped: a=3
@@ -191,7 +191,7 @@ describe("PaneViewElement mouse", () => {
         expect(stateChanges()).toBe(1);
     });
 
-    it("двум секциям тесно (сумма меньше минимумов) — граница не двигается", () => {
+    it("two cramped sections (sum below the mins): the border does not move", () => {
         const view = new PaneViewElement();
         for (const id of ["a", "b"]) {
             const body = new FillerElement();
@@ -208,7 +208,7 @@ describe("PaneViewElement mouse", () => {
         expect(changes).toBe(0);
     });
 
-    it("свёрнутая секция не участвует в заморозке весов при drag", () => {
+    it("a collapsed section does not take part in weight freezing on drag", () => {
         const view = new PaneViewElement();
         for (const id of ["a", "b", "c"]) {
             const body = new FillerElement();
@@ -225,7 +225,7 @@ describe("PaneViewElement mouse", () => {
         expect(weights.a + weights.b).toBe(19); // actual heights of the expanded sections (22 − 3 headers)
     });
 
-    it("клик по inline-кнопке заголовка репортится наверх с id секции", () => {
+    it("a click on an inline header button is reported up with the section id", () => {
         const { app, view, headerPos } = makeHarness();
         const actions: [string, string][] = [];
         view.onDidRequestPaneAction = (paneId, actionId) => actions.push([paneId, actionId]);
@@ -240,7 +240,7 @@ describe("PaneViewElement mouse", () => {
         expect(actions).toEqual([["a", "cmd.refresh"]]);
     });
 
-    it("наведение подсвечивает кнопку под курсором, уход — гасит", () => {
+    it("hover highlights the button under the pointer, leaving clears it", () => {
         const { app, view, headerPos } = makeHarness();
         view.setPaneActions("a", [{ id: "cmd.refresh", icon: "R" }]);
         app.render();
@@ -268,7 +268,7 @@ describe("PaneViewElement mouse", () => {
         expect(app.backend.getBgAt(new Point(buttonX, pos.y))).toBe(restBg);
     });
 
-    it("дети заголовка презентационные — хит-тест отдаёт заголовок", () => {
+    it("header children are presentational: hit testing returns the header", () => {
         const { app, headerPos } = makeHarness();
         const pos = headerPos("a");
         const spy = vi.fn();

@@ -28,8 +28,8 @@ function key(picker: QuickPickElement, name: string): void {
 
 const ITEMS: QuickPickItem[] = [{ label: "alpha" }, { label: "beta" }, { label: "gamma" }];
 
-describe("QuickPickElement — чекбоксы множественного выбора", () => {
-    it("без canPickMany колонки чекбоксов нет вовсе", () => {
+describe("QuickPickElement — multi-select checkboxes", () => {
+    it("without canPickMany there is no checkbox column at all", () => {
         const picker = makePicker();
         picker.items = ITEMS;
         expectScreen(
@@ -46,7 +46,7 @@ describe("QuickPickElement — чекбоксы множественного в�
         );
     });
 
-    it("с canPickMany у каждой строки пустой чекбокс", () => {
+    it("with canPickMany every row has an empty checkbox", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
@@ -64,7 +64,7 @@ describe("QuickPickElement — чекбоксы множественного в�
         );
     });
 
-    it("отмеченная строка рисуется галочкой", () => {
+    it("a checked row is drawn with a check mark", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
@@ -83,7 +83,7 @@ describe("QuickPickElement — чекбоксы множественного в�
         );
     });
 
-    it("setCheckedItems заменяет набор целиком, а не дополняет его", () => {
+    it("setCheckedItems replaces the whole set rather than adding to it", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
@@ -104,23 +104,23 @@ describe("QuickPickElement — чекбоксы множественного в�
         );
     });
 
-    it("колонка иконок и колонка чекбоксов вместе ужимают лейбл, а не накладываются", () => {
+    it("the icon and checkbox columns together shrink the label instead of overlapping", () => {
         const picker = makePicker();
         picker.canPickMany = true;
-        picker.items = [{ icon: "T", label: "очень-длинное-имя-строки" }];
+        picker.items = [{ icon: "T", label: "very-long-row-label-name" }];
         expectScreen(
             render(picker),
             screen`
                 ╭──────────────────────╮
                 │                      │
                 ├──────────────────────┤
-                │ [ ] T очень-длинное… │
+                │ [ ] T very-long-row… │
                 ╰──────────────────────╯
             `,
         );
     });
 
-    it("Space переключает отметку строки под курсором прямо на кадре", () => {
+    it("Space toggles the check of the row under the cursor right in the frame", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
@@ -139,25 +139,25 @@ describe("QuickPickElement — чекбоксы множественного в�
         );
     });
 
-    it("чекбокс ужимает место под лейбл, а не наезжает на него", () => {
+    it("the checkbox shrinks the label space instead of overlapping it", () => {
         const picker = makePicker();
         picker.canPickMany = true;
-        picker.items = [{ label: "очень-длинное-имя-строки" }];
+        picker.items = [{ label: "very-long-row-label-name" }];
         expectScreen(
             render(picker),
             screen`
                 ╭──────────────────────╮
                 │                      │
                 ├──────────────────────┤
-                │ [ ] очень-длинное-и… │
+                │ [ ] very-long-row-l… │
                 ╰──────────────────────╯
             `,
         );
     });
 });
 
-describe("QuickPickElement — Space в множественном выборе", () => {
-    it("Space отмечает строку, подсветка и показ остаются на месте", () => {
+describe("QuickPickElement — Space in multi-select", () => {
+    it("Space checks the row, the active item and the show stay put", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
@@ -167,7 +167,7 @@ describe("QuickPickElement — Space в множественном выборе"
         expect([...picker.checkedItems]).toEqual([ITEMS[1]]);
     });
 
-    it("повторный Space снимает отметку", () => {
+    it("a second Space unchecks", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
@@ -176,7 +176,7 @@ describe("QuickPickElement — Space в множественном выборе"
         expect([...picker.checkedItems]).toEqual([]);
     });
 
-    it("вне множественного выбора Space виджет не трогает — это символ запроса", () => {
+    it("outside multi-select Space leaves the widget alone — it is a query character", () => {
         const picker = makePicker();
         picker.items = ITEMS;
         const event = new TUIKeyboardEvent("keydown", { key: " " });
@@ -185,7 +185,7 @@ describe("QuickPickElement — Space в множественном выборе"
         expect([...picker.checkedItems]).toEqual([]);
     });
 
-    it("в множественном выборе Space съедается и в строку запроса не попадает", () => {
+    it("in multi-select Space is consumed and does not reach the query row", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
@@ -194,7 +194,7 @@ describe("QuickPickElement — Space в множественном выборе"
         expect(event.defaultPrevented).toBe(true);
     });
 
-    it("Space на пустом списке ничего не ломает", () => {
+    it("Space on an empty list breaks nothing", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = [];
@@ -205,8 +205,8 @@ describe("QuickPickElement — Space в множественном выборе"
     });
 });
 
-describe("QuickPickElement — Enter в множественном выборе", () => {
-    it("Enter зовёт onAcceptMany, а не onAccept", () => {
+describe("QuickPickElement — Enter in multi-select", () => {
+    it("Enter calls onAcceptMany, not onAccept", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
@@ -218,7 +218,7 @@ describe("QuickPickElement — Enter в множественном выборе"
         expect([many, single]).toEqual([1, 0]);
     });
 
-    it("Enter файрится и на пустом списке", () => {
+    it("Enter fires on an empty list too", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = [];
@@ -228,7 +228,7 @@ describe("QuickPickElement — Enter в множественном выборе"
         expect(many).toBe(1);
     });
 
-    it("вне множественного выбора Enter по-прежнему зовёт onAccept", () => {
+    it("outside multi-select Enter still calls onAccept", () => {
         const picker = makePicker();
         picker.items = ITEMS;
         let accepted: QuickPickItem | null = null;
@@ -236,7 +236,7 @@ describe("QuickPickElement — Enter в множественном выборе"
             accepted = item;
         };
         picker.onAcceptMany = () => {
-            throw new Error("onAcceptMany не должен звучать в одиночном выборе");
+            throw new Error("onAcceptMany must not fire in single select");
         };
         key(picker, "Enter");
         expect(accepted).toBe(ITEMS[0]);
@@ -244,7 +244,7 @@ describe("QuickPickElement — Enter в множественном выборе"
 });
 
 describe("QuickPickElement.resetFlavorState", () => {
-    it("гасит режим, отметки и колбэк — чекбоксы не протекают в следующий показ", () => {
+    it("clears the mode, checks and callback — checkboxes do not leak into the next show", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
@@ -258,7 +258,7 @@ describe("QuickPickElement.resetFlavorState", () => {
         expect(picker.onAcceptMany).toBeNull();
     });
 
-    it("после сброса строки рисуются без колонки чекбоксов", () => {
+    it("after a reset rows are drawn without the checkbox column", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
@@ -279,7 +279,7 @@ describe("QuickPickElement.resetFlavorState", () => {
         );
     });
 
-    it("после сброса Enter снова уходит в onAccept", () => {
+    it("after a reset Enter goes to onAccept again", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
@@ -293,12 +293,12 @@ describe("QuickPickElement.resetFlavorState", () => {
     });
 });
 
-describe("QuickPickElement — перестройка строк держит экран на месте", () => {
+describe("QuickPickElement — rebuilding rows keeps the screen in place", () => {
     function longList(): QuickPickItem[] {
         return Array.from({ length: 40 }, (_, i) => ({ label: `item-${String(i + 1).padStart(2, "0")}` }));
     }
 
-    it("отметка в прокрученном списке не отматывает его наверх", () => {
+    it("checking in a scrolled list does not scroll it back to the top", () => {
         const picker = makePicker(30);
         picker.canPickMany = true;
         picker.items = longList();
@@ -314,7 +314,7 @@ describe("QuickPickElement — перестройка строк держит э
         expect(picker.inspectState().checked).toEqual(["item-21"]);
     });
 
-    it("отметка не будит живое превью — это не навигация", () => {
+    it("checking does not wake the live preview — it is not navigation", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
@@ -325,8 +325,8 @@ describe("QuickPickElement — перестройка строк держит э
     });
 });
 
-describe("QuickPickElement.inspectState — отметки", () => {
-    it("в множественном выборе отдаёт лейблы отмеченных в порядке списка", () => {
+describe("QuickPickElement.inspectState — checks", () => {
+    it("in multi-select returns the checked labels in list order", () => {
         const picker = makePicker();
         picker.canPickMany = true;
         picker.items = ITEMS;
@@ -334,14 +334,14 @@ describe("QuickPickElement.inspectState — отметки", () => {
         expect(picker.inspectState().checked).toEqual(["alpha", "gamma"]);
     });
 
-    it("в одиночном выборе поля отметок нет вовсе", () => {
+    it("in single select there is no checks field at all", () => {
         const picker = makePicker();
         picker.items = ITEMS;
         expect(picker.inspectState()).not.toHaveProperty("checked");
     });
 });
 
-describe("QuickPickElement — клик в множественном выборе", () => {
+describe("QuickPickElement — click in multi-select", () => {
     /** Engine mouse token (1-based coordinates, as in the terminal). */
     function token(overrides: Partial<MouseToken>): MouseToken {
         return {
@@ -375,7 +375,7 @@ describe("QuickPickElement — клик в множественном выбор
         app.backend.simulateMouse(token({ action: "release", x: 5, y }));
     }
 
-    it("клик по строке переключает её отметку, а не принимает показ", () => {
+    it("clicking a row toggles its check instead of accepting the show", () => {
         const { picker, app } = mount();
         const onAcceptMany = vi.fn();
         picker.onAcceptMany = onAcceptMany;
@@ -386,7 +386,7 @@ describe("QuickPickElement — клик в множественном выбор
         expect(onAcceptMany).not.toHaveBeenCalled();
     });
 
-    it("повторный клик по той же строке снимает отметку", () => {
+    it("a second click on the same row unchecks it", () => {
         const { picker, app } = mount();
         click(app, FIRST_ROW_Y);
         click(app, FIRST_ROW_Y);

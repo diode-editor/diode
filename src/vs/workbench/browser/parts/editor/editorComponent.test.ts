@@ -31,7 +31,7 @@ function firstForeground(ctrl: TextEditorPane): number | undefined {
 /** Marks tokens from the lazy tokenizer: a color plain text never has. */
 const LAZY_FOREGROUND = 7;
 
-describe("EditorComponent + TextFileModel (пара)", () => {
+describe("EditorComponent + TextFileModel (pair)", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -73,7 +73,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.absoluteFilePath).toBeNull();
         });
 
-        it("getCaretAnchor: anchor у видимой каретки, null когда каретка вне вьюпорта", () => {
+        it("getCaretAnchor: anchor for a visible cursor, null when the cursor is outside the viewport", () => {
             const ctrl = createEditorPane();
             expect(ctrl.getCaretAnchor()).toMatchObject({ preferBelow: true });
 
@@ -231,7 +231,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.viewState.indentExplicitlySet).toBe(false);
         });
 
-        it("одного tabSize хватает, чтобы отметить отступ выставленным", () => {
+        it("tabSize alone is enough to mark indentation as set", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
 
@@ -240,7 +240,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.viewState.indentExplicitlySet).toBe(true);
         });
 
-        it("одного insertSpaces тоже хватает", () => {
+        it("insertSpaces alone is enough too", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
 
@@ -250,7 +250,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.viewState.indentExplicitlySet).toBe(true);
         });
 
-        it("пустой патч ничего не решает", () => {
+        it("an empty patch decides nothing", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
 
@@ -259,7 +259,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.viewState.indentExplicitlySet).toBe(false);
         });
 
-        it("сдвиг tabSize просит перерисовку, совпадение — нет", () => {
+        it("a tabSize change requests a redraw, a match does not", () => {
             expect(
                 repaintsEditor((ctrl) => {
                     ctrl.setIndentOptions({ tabSize: 2 });
@@ -272,7 +272,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             ).toBe(false);
         });
 
-        it("сдвиг insertSpaces просит перерисовку, совпадение — нет", () => {
+        it("an insertSpaces change requests a redraw, a match does not", () => {
             expect(
                 repaintsEditor((ctrl) => {
                     ctrl.setIndentOptions({ insertSpaces: true });
@@ -286,8 +286,8 @@ describe("EditorComponent + TextFileModel (пара)", () => {
         });
     });
 
-    describe("токены вне кадра", () => {
-        it("строка на экране получила токены из стора (фон, доводка) — редактор перерисован", () => {
+    describe("tokens outside the frame", () => {
+        it("an on-screen line got tokens from the store (background, catch-up) — the editor is redrawn", () => {
             // Resetting the tokenizer behind the component's back does not request a frame — the store event does.
             expect(
                 repaintsEditor((ctrl) => {
@@ -304,7 +304,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
     });
 
     describe("applyIndentConfiguration", () => {
-        it("оставляет за содержимым файла последнее слово", () => {
+        it("leaves the final say to the file contents", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "function f() {\n  a;\n}\n")));
 
@@ -313,7 +313,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.viewState.tabSize).toBe(2);
         });
 
-        it("действует, когда детекция выключена", () => {
+        it("applies when detection is off", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "function f() {\n  a;\n}\n")));
 
@@ -323,7 +323,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.viewState.insertSpaces).toBe(true);
         });
 
-        it("закрывает собой файл без отступов", () => {
+        it("covers a file without indentation", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
 
@@ -333,7 +333,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.viewState.insertSpaces).toBe(true);
         });
 
-        it("ключа нет в конфиге — встроенный дефолт остаётся на месте", () => {
+        it("key missing from the config — the built-in default stays", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
 
@@ -343,7 +343,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.viewState.insertSpaces).toBe(false);
         });
 
-        it("неположительный tabSize из конфига игнорируется", () => {
+        it("a non-positive tabSize from the config is ignored", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "x")));
 
@@ -352,7 +352,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.viewState.tabSize).toBe(4);
         });
 
-        it("без ключа detectIndentation детекция остаётся включённой", () => {
+        it("without the detectIndentation key detection stays on", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "function f() {\n  a;\n}\n")));
 
@@ -361,7 +361,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.viewState.tabSize).toBe(2);
         });
 
-        it("просит перерисовку", () => {
+        it("requests a redraw", () => {
             expect(
                 repaintsEditor((ctrl) => {
                     ctrl.applyIndentConfiguration({ tabSize: 2 });
@@ -369,7 +369,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             ).toBe(true);
         });
 
-        it("не перетирает отступ, выставленный расширением", () => {
+        it("does not overwrite indentation set by an extension", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.ts", "function f() {\n  a;\n}\n")));
             ctrl.setIndentOptions({ tabSize: 3, insertSpaces: true });
@@ -380,7 +380,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(ctrl.viewState.insertSpaces).toBe(true);
         });
 
-        it("переживает перечитку файла с диска", () => {
+        it("survives a file reload from disk", () => {
             const ctrl = createEditorPane();
             const fp = writeFile("a.ts", "x");
             ctrl.openFile(Uri.file(fp));
@@ -449,7 +449,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             return app.backend.getBgAt(new Point(col, 0));
         }
 
-        it("красит редактор вместе с гуттером заданным токеном темы", () => {
+        it("paints the editor together with the gutter with the given theme token", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.txt", "hi")));
 
@@ -459,7 +459,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(renderBgAt(ctrl, 0)).toBe(panelBg);
         });
 
-        it("переживает перечитку файла с диска", () => {
+        it("survives a file reload from disk", () => {
             const ctrl = createEditorPane();
             const fp = writeFile("a.txt", "hi");
             ctrl.openFile(Uri.file(fp));
@@ -471,7 +471,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
             expect(renderBgAt(ctrl, 12)).toBe(panelBg);
         });
 
-        it("по умолчанию остаётся фоном редакторской группы", () => {
+        it("defaults to the editor group background", () => {
             const ctrl = createEditorPane();
             ctrl.openFile(Uri.file(writeFile("a.txt", "hi")));
 
@@ -573,7 +573,7 @@ describe("EditorComponent + TextFileModel (пара)", () => {
     });
 
     describe("onDidChangeSelection (#194)", () => {
-        it("фаерит на движение каретки и переживает перечитку файла с диска", () => {
+        it("fires on cursor movement and survives a file reload from disk", () => {
             const ctrl = createEditorPane();
             const fp = writeFile("a.txt", "one\ntwo\nthree");
             ctrl.openFile(Uri.file(fp));

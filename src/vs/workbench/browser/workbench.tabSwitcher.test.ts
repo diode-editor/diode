@@ -14,7 +14,7 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 import type { TabSwitcherComponent } from "./parts/editor/tabSwitcherComponent.ts";
 import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
 
-describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () => {
+describe("Workbench: Ctrl+Tab overlay and Ctrl+PgUp/PgDn cycling", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let switcher: TabSwitcherComponent;
@@ -46,7 +46,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         return h.activeEditor().fileName;
     }
 
-    it("Ctrl+Tab показывает MRU-список с позицией цикла; отпускание Ctrl гасит и фиксирует", () => {
+    it("Ctrl+Tab shows the MRU list at the cycle position; releasing Ctrl hides it and commits", () => {
         expect(switcher.isOpen()).toBe(false);
 
         // An edit in the active tab (c.ts): the overlay must show the ● marker for it.
@@ -92,7 +92,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
     // A legacy terminal never sends the modifier keyup, so the series must end
     // without it too: otherwise the list would hang over the editor until the
     // next switch.
-    it("любая другая клавиша завершает серию: список гаснет, выбор зафиксирован", () => {
+    it("any other key ends the sequence: the list hides, the choice is committed", () => {
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.render();
         expect(switcher.isOpen()).toBe(true);
@@ -106,7 +106,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(editorService.editorGroups.activeGroup.getMruOrder()[0]?.label).toBe("b.ts");
     });
 
-    it("повторный Ctrl+Tab серию не рвёт — цикл идёт вглубь с живым списком", () => {
+    it("a repeated Ctrl+Tab keeps the sequence: the cycle goes deeper with the list still shown", () => {
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.render();
@@ -116,7 +116,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(switcher.view.inspectState()).toMatchObject({ currentIndex: 2 });
     });
 
-    it("Ctrl+Shift+Tab идёт по MRU в обратную сторону с тем же оверлеем", () => {
+    it("Ctrl+Shift+Tab walks the MRU backwards with the same overlay", () => {
         h.testApp.sendKey("Ctrl+Shift+Tab");
         h.testApp.render();
 
@@ -125,7 +125,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(switcher.view.inspectState()).toMatchObject({ currentIndex: 2 });
     });
 
-    it("Ctrl+PgDn/PgUp циклируют по визуальному порядку вкладок без оверлея", () => {
+    it("Ctrl+PgDn/PgUp cycle through tabs in visual order without an overlay", () => {
         // c is active (opened last); visual order: a, b, c.
         h.testApp.sendKey("Ctrl+PageDown");
         h.testApp.render();
@@ -142,7 +142,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(editorService.editorGroups.activeGroup.getMruOrder()[0]?.label).toBe("c.ts");
     });
 
-    it("Alt+PgDn/PgUp — дубли визуального цикла для терминалов, где Ctrl+PgDn занят", () => {
+    it("Alt+PgDn/PgUp duplicate the visual cycle for terminals where Ctrl+PgDn is taken", () => {
         h.testApp.sendKey("Alt+PageDown");
         h.testApp.render();
         expect(activeName()).toBe("a.ts");
@@ -152,7 +152,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(activeName()).toBe("c.ts");
     });
 
-    it("вне текстового фокуса (дерево файлов) Ctrl+PgDn вкладку не переключает", () => {
+    it("outside text focus (file tree) Ctrl+PgDn does not switch tabs", () => {
         const tree = h.testApp.querySelector("TreeViewElement");
         expect(tree).not.toBeNull();
         tree!.focus();
@@ -164,7 +164,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(activeName()).toBe("c.ts");
     });
 
-    it("оверлей пассивный: глобальные бинды не гасятся, пока он на экране", () => {
+    it("the overlay is passive: global keybindings stay active while it is on screen", () => {
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.render();
         expect(switcher.isOpen()).toBe(true);
@@ -179,7 +179,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(layout.getLeftPanelVisible()).toBe(!before);
     });
 
-    it("сплит во время серии Ctrl+Tab гасит оверлей (страховка по смене активной группы)", () => {
+    it("a split during a Ctrl+Tab sequence hides the overlay (safeguard on active group change)", () => {
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.render();
         expect(switcher.isOpen()).toBe(true);
@@ -190,7 +190,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         expect(switcher.isOpen()).toBe(false);
     });
 
-    it("узкий терминал: оверлей ужимается до ширины экрана минус поля", () => {
+    it("narrow terminal: the overlay shrinks to the screen width minus margins", () => {
         const narrowWs = createTempWorkspace({
             prefix: "diode-tabswitcher-narrow-",
             files: { "a.ts": "// a", "b.ts": "// b" },
@@ -215,7 +215,7 @@ describe("Workbench — оверлей Ctrl+Tab и цикл Ctrl+PgUp/PgDn", () 
         }
     });
 
-    it("визуальный шаг во время серии Ctrl+Tab гасит оверлей", () => {
+    it("a visual step during a Ctrl+Tab sequence hides the overlay", () => {
         h.testApp.sendKey("Ctrl+Tab");
         h.testApp.render();
         expect(switcher.isOpen()).toBe(true);

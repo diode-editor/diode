@@ -14,7 +14,7 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 import type { IEditorPane } from "./parts/editor/iEditorPane.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 
-const PANE_TEXT = "СОДЕРЖИМОЕ-ПАНЕЛИ";
+const PANE_TEXT = "PANE-CONTENT";
 
 class TextOnlyPane implements IEditorPane {
     public readonly view = new TextLabelElement(PANE_TEXT);
@@ -43,7 +43,7 @@ class TextOnlyPane implements IEditorPane {
     }
 }
 
-describe("Workbench — панель не-текстового вида во вкладке", () => {
+describe("Workbench: a non-text pane in a tab", () => {
     let ws: ITempWorkspace;
     let workbench: WorkbenchComponent;
     let commands: CommandRegistry;
@@ -51,7 +51,7 @@ describe("Workbench — панель не-текстового вида во в�
     let testApp: TestApp;
 
     beforeEach(async () => {
-        ws = createTempWorkspace({ prefix: "diode-panes-", files: { "a.txt": "первая строка\n" } });
+        ws = createTempWorkspace({ prefix: "diode-panes-", files: { "a.txt": "first line\n" } });
 
         const { container, bindApp } = createTestContainer();
         workbench = container.get(WorkbenchComponentDIToken);
@@ -72,19 +72,19 @@ describe("Workbench — панель не-текстового вида во в�
         ws.dispose();
     });
 
-    it("контент панели виден на экране, а текстового редактора — нет", () => {
+    it("the pane content is on screen, the text editor's is not", () => {
         testApp.render();
-        expect(testApp.backend.screenToString()).toContain("первая строка");
+        expect(testApp.backend.screenToString()).toContain("first line");
 
         editors.openPane(new TextOnlyPane(Uri.from({ scheme: "fake", path: "/changes" })));
         testApp.render();
 
         const screen = testApp.backend.screenToString();
         expect(screen).toContain(PANE_TEXT);
-        expect(screen).not.toContain("первая строка");
+        expect(screen).not.toContain("first line");
     });
 
-    it("таб-стрип показывает обе вкладки", () => {
+    it("the tab strip shows both tabs", () => {
         editors.openPane(new TextOnlyPane(Uri.from({ scheme: "fake", path: "/changes" })));
         testApp.render();
 
@@ -93,7 +93,7 @@ describe("Workbench — панель не-текстового вида во в�
         expect(screen).toContain("diff-stub");
     });
 
-    it("возврат на текстовую вкладку возвращает и её контент", () => {
+    it("returning to the text tab brings back its content", () => {
         editors.openPane(new TextOnlyPane(Uri.from({ scheme: "fake", path: "/changes" })));
         testApp.render();
         expect(testApp.backend.screenToString()).toContain(PANE_TEXT);
@@ -102,11 +102,11 @@ describe("Workbench — панель не-текстового вида во в�
         testApp.render();
 
         const screen = testApp.backend.screenToString();
-        expect(screen).toContain("первая строка");
+        expect(screen).toContain("first line");
         expect(screen).not.toContain(PANE_TEXT);
     });
 
-    it("закрытие вкладки панели убирает её с экрана", () => {
+    it("closing the pane tab removes it from the screen", () => {
         editors.openPane(new TextOnlyPane(Uri.from({ scheme: "fake", path: "/changes" })));
         testApp.render();
 
@@ -114,6 +114,6 @@ describe("Workbench — панель не-текстового вида во в�
         testApp.render();
 
         expect(testApp.backend.screenToString()).not.toContain(PANE_TEXT);
-        expect(testApp.backend.screenToString()).toContain("первая строка");
+        expect(testApp.backend.screenToString()).toContain("first line");
     });
 });

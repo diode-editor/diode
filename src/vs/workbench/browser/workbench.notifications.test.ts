@@ -12,7 +12,7 @@ import {
 
 import { NotificationsComponentDIToken, TOAST_WIDTH } from "./parts/notifications/notificationsComponent.ts";
 
-describe("Workbench — сообщения на кадре", () => {
+describe("Workbench — messages on the frame", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let notifications: NotificationService;
@@ -38,7 +38,7 @@ describe("Workbench — сообщения на кадре", () => {
         return h.testApp.backend.screenToString();
     }
 
-    it("сообщение без кнопок видно на кадре", () => {
+    it("a message without buttons is visible on the frame", () => {
         notifications.show({ severity: "info", message: "Ruff: formatted 3 files", modal: false, items: [] });
         const text = screen();
 
@@ -46,7 +46,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(text).toContain("Information");
     });
 
-    it("тост стоит в правом нижнем углу НАД статус-баром", () => {
+    it("the toast sits in the bottom-right corner ABOVE the status bar", () => {
         notifications.show({ severity: "error", message: "boom", modal: false, items: [] });
         const rows = screen().split("\n");
         const { width, height } = h.testApp.root.layoutSize;
@@ -58,7 +58,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(bottomRow).toBe(height - 2);
     });
 
-    it("несколько сообщений становятся стеком; ждущие места — счётчиком", () => {
+    it("several messages form a stack; those waiting for room become a counter", () => {
         for (const message of ["one", "two", "three", "four", "five"]) {
             notifications.show({ severity: "error", message, modal: false, items: [] });
         }
@@ -71,7 +71,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(text).toContain(`+${String(5 - MAX_VISIBLE_NOTIFICATIONS)} more`);
     });
 
-    it("ждущий тост сам встаёт в стек, когда впереди стоящий закрыли", () => {
+    it("a waiting toast joins the stack on its own once the one ahead is closed", () => {
         const first = notifications.show({ severity: "error", message: "one", modal: false, items: [] });
         for (const message of ["two", "three", "four"]) {
             notifications.show({ severity: "error", message, modal: false, items: [] });
@@ -83,7 +83,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(screen()).toContain("four");
     });
 
-    it("info гаснет сам и уходит с кадра", () => {
+    it("info fades by itself and leaves the frame", () => {
         vi.useFakeTimers();
         notifications.show({ severity: "info", message: "transient", modal: false, items: [] });
         expect(screen()).toContain("transient");
@@ -92,7 +92,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(screen()).not.toContain("transient");
     });
 
-    it("вопрос с кнопками фокуса НЕ забирает: набор в редакторе продолжается", () => {
+    it("a question with buttons does NOT take focus: typing in the editor continues", () => {
         const before = h.testApp.focusedElement;
         notifications.show({
             severity: "warn",
@@ -103,11 +103,11 @@ describe("Workbench — сообщения на кадре", () => {
         const text = screen();
 
         expect(text).toContain("Activate");
-        expect(text).toContain("F6 — ответить");
+        expect(text).toContain("F6 — reply");
         expect(h.testApp.focusedElement).toBe(before);
     });
 
-    it("команда фокуса ведёт на кнопки, Enter отдаёт ответ", async () => {
+    it("the focus command moves to the buttons, Enter gives the answer", async () => {
         const answered = notifications.show({
             severity: "warn",
             message: "Activate?",
@@ -118,7 +118,7 @@ describe("Workbench — сообщения на кадре", () => {
 
         await h.commands.execute("notifications.focusMessage");
         h.testApp.render();
-        expect(screen()).toContain("Enter — выбрать");
+        expect(screen()).toContain("Enter — choose");
 
         h.testApp.sendKey("ArrowRight");
         h.testApp.sendKey("Enter");
@@ -127,7 +127,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(screen()).not.toContain("Activate?");
     });
 
-    it("Tab внутри тоста не набирает отступ в редакторе", async () => {
+    it("Tab inside a toast does not type an indent in the editor", async () => {
         // Focus is in the toast, but global bindings stay live: unless the toast intercepts Tab itself,
         // the keystroke would reach the editor and insert an indent into the file.
         notifications.show({ severity: "info", message: "Activate?", modal: false, items: ["Activate", "Free"] });
@@ -140,7 +140,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(h.activeEditor().getText()).toBe(textBefore);
     });
 
-    it("Escape в тосте закрывает вопрос без выбора", async () => {
+    it("Escape in a toast closes the question without a choice", async () => {
         const answered = notifications.show({
             severity: "warn",
             message: "Activate?",
@@ -155,7 +155,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(screen()).not.toContain("Activate?");
     });
 
-    it("команда Clear All убирает всё с кадра", async () => {
+    it("the Clear All command removes everything from the frame", async () => {
         notifications.show({ severity: "error", message: "boom", modal: false, items: [] });
         const answered = notifications.show({ severity: "info", message: "Activate?", modal: false, items: ["One"] });
         expect(screen()).toContain("boom");
@@ -168,11 +168,11 @@ describe("Workbench — сообщения на кадре", () => {
         await expect(answered.answered).resolves.toBeUndefined();
     });
 
-    it("модальное сообщение поднимает окно по центру и держит клавиатуру", async () => {
+    it("a modal message raises a centered window and holds the keyboard", async () => {
         const answered = notifications.show({
             severity: "warn",
             message: "Delete 12 files?",
-            detail: "Нельзя отменить.",
+            detail: "Cannot be undone.",
             modal: true,
             items: ["Delete", "Cancel"],
             closeAffordance: 1,
@@ -180,7 +180,7 @@ describe("Workbench — сообщения на кадре", () => {
         const rows = screen().split("\n");
 
         expect(rows.join("\n")).toContain("Delete 12 files?");
-        expect(rows.join("\n")).toContain("Нельзя отменить.");
+        expect(rows.join("\n")).toContain("Cannot be undone.");
         const left = rows.find((row) => row.includes("╭"))?.indexOf("╭") ?? -1;
         expect(left).toBeGreaterThan(0);
         expect(left).toBeLessThan(h.testApp.root.layoutSize.width - 1 - TOAST_WIDTH);
@@ -190,7 +190,7 @@ describe("Workbench — сообщения на кадре", () => {
         await expect(answered.answered).resolves.toBe(1);
     });
 
-    it("следующий вопрос показывается сам, когда на предыдущий ответили", async () => {
+    it("the next question shows by itself once the previous one is answered", async () => {
         const first = notifications.show({ severity: "info", message: "first?", modal: false, items: ["One"] });
         notifications.show({ severity: "info", message: "second?", modal: false, items: ["Two"] });
 
@@ -202,7 +202,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(screen()).toContain("second?");
     });
 
-    it("после закрытия вопроса пассивный стек опускается к статус-бару", () => {
+    it("after a question closes, the passive stack drops to the status bar", () => {
         notifications.show({ severity: "error", message: "sticky", modal: false, items: [] });
         const ask = notifications.show({ severity: "info", message: "question?", modal: false, items: ["One"] });
         const withAsk = screen()
@@ -218,7 +218,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(withoutAsk).toBeGreaterThan(withAsk);
     });
 
-    it("сквозь ПАССИВНЫЙ тост глобальные бинды живут — стек клавиатуру не занимает", () => {
+    it("global keybindings work through a PASSIVE toast — the stack does not take the keyboard", () => {
         notifications.show({ severity: "error", message: "boom", modal: false, items: [] });
         const sidebarBefore = screen().includes("EXPLORER");
 
@@ -228,7 +228,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(screen()).toContain("boom");
     });
 
-    it("клик мимо МОДАЛЬНОГО окна до редактора не доходит, а мимо тоста — доходит", () => {
+    it("a click outside a MODAL window does not reach the editor, outside a toast it does", () => {
         // A modal swallows the click, a toast lets it through (pointerPolicy); this shows in
         // focus: a click that reaches the tree takes focus away from the editor.
         const click = (x: number, y: number): void => {
@@ -262,7 +262,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(h.testApp.focusedElement).not.toBe(beforeToast);
     });
 
-    it("пока висит вопрос-тост, глобальные бинды живут — клавиатура не заперта", async () => {
+    it("while a question toast is up, global keybindings work — the keyboard is not locked", async () => {
         notifications.show({ severity: "info", message: "Activate?", modal: false, items: ["One"] });
         screen();
 
@@ -274,7 +274,7 @@ describe("Workbench — сообщения на кадре", () => {
         await Promise.resolve();
     });
 
-    it("пока висит МОДАЛЬНОЕ сообщение, глобальные бинды погашены", () => {
+    it("while a MODAL message is up, global keybindings are disabled", () => {
         notifications.show({ severity: "warn", message: "Delete?", modal: true, items: ["Delete"] });
         screen();
 
@@ -285,7 +285,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(screen()).toContain("Delete?");
     });
 
-    it("модальное окно забирает фокус, а тост-вопрос — нет", () => {
+    it("a modal window takes focus, a question toast does not", () => {
         const before = h.testApp.focusedElement;
         notifications.show({ severity: "info", message: "toast?", modal: false, items: ["One"] });
         screen();
@@ -297,7 +297,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(h.testApp.focusedElement).not.toBe(before);
     });
 
-    it("фокус возвращается туда, где был, когда вопрос закрыт", async () => {
+    it("focus returns where it was once the question closes", async () => {
         const before = h.testApp.focusedElement;
         const answered = notifications.show({ severity: "info", message: "Activate?", modal: false, items: ["One"] });
         screen();
@@ -310,7 +310,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(h.testApp.focusedElement).toBe(before);
     });
 
-    it("пришедший тост не сбивает место в модальном окне", () => {
+    it("an incoming toast does not reset the position in a modal window", () => {
         // Positions are recomputed on EVERY change to the set of messages; if that
         // resets focus to the default, the user loses the selected button.
         notifications.show({ severity: "warn", message: "Delete?", modal: true, items: ["Delete", "Cancel"] });
@@ -318,17 +318,17 @@ describe("Workbench — сообщения на кадре", () => {
         h.testApp.sendKey("ArrowRight");
         const chosen = h.testApp.focusedElement;
 
-        notifications.show({ severity: "info", message: "мимоходом", modal: false, items: [] });
+        notifications.show({ severity: "info", message: "in passing", modal: false, items: [] });
         screen();
 
         expect(h.testApp.focusedElement).toBe(chosen);
     });
 
-    it("модальное окно стоит по центру по вертикали, а не прижато к верху", () => {
+    it("a modal window is centered vertically, not pinned to the top", () => {
         notifications.show({
             severity: "warn",
             message: "Delete?",
-            detail: "Нельзя отменить.",
+            detail: "Cannot be undone.",
             modal: true,
             items: ["Delete"],
         });
@@ -342,12 +342,12 @@ describe("Workbench — сообщения на кадре", () => {
         expect(Math.abs(top - (height - 1 - bottom))).toBeLessThanOrEqual(1);
     });
 
-    it("«+N more» появляется только когда кто-то действительно ждёт места", () => {
+    it("«+N more» appears only when something actually waits for room", () => {
         notifications.show({ severity: "error", message: "only one", modal: false, items: [] });
         expect(screen()).not.toContain("more");
     });
 
-    it("счётчик ждущих приглушён — он не спорит с текстом сообщений", () => {
+    it("the waiting counter is dimmed — it does not compete with the message text", () => {
         for (const message of ["one", "two", "three", "four"]) {
             notifications.show({ severity: "error", message, modal: false, items: [] });
         }
@@ -361,7 +361,7 @@ describe("Workbench — сообщения на кадре", () => {
         );
     });
 
-    it("команда фокуса без живого вопроса ничего не делает", async () => {
+    it("the focus command without a live question does nothing", async () => {
         const before = h.testApp.focusedElement;
         await h.commands.execute("notifications.focusMessage");
         expect(h.testApp.focusedElement).toBe(before);

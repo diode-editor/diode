@@ -18,13 +18,13 @@ function makeHarness() {
 }
 
 describe("PanelComponent", () => {
-    it("view части — #panel", () => {
+    it("the part's view is #panel", () => {
         const { component } = makeHarness();
         expect(component.view.id).toBe("panel");
         component.dispose();
     });
 
-    it("подхватывает активную вкладку сервиса, выбранную до сборки компонента", () => {
+    it("picks up the service's active tab chosen before the component is built", () => {
         const service = new PanelService();
         service.addView({ id: "problems", title: "PROBLEMS" });
         service.addView({ id: "terminal", title: "TERMINAL" });
@@ -34,7 +34,7 @@ describe("PanelComponent", () => {
         component.dispose();
     });
 
-    it("пересинхронизация реестра не трогает вкладки без изменений, новые контролы — доносит", () => {
+    it("registry resync leaves unchanged tabs alone and delivers new controls", () => {
         const { service, component } = makeHarness();
         service.addView({ id: "problems", title: "PROBLEMS" });
         service.setViewContent("problems", new TUIElement());

@@ -14,14 +14,14 @@ import { filesConfiguration } from "./filesConfiguration.ts";
 
 const DEFAULT_EXCLUDES = parseExcludeSetting(filesConfiguration.properties["files.watcherExclude"].default);
 
-describe("filesConfiguration — files.watcherExclude, схема", () => {
-    it("object с описанием про матчинг относительно корня watch'а", () => {
+describe("filesConfiguration: files.watcherExclude, schema", () => {
+    it("object with a description of matching relative to the watch root", () => {
         const schema = filesConfiguration.properties["files.watcherExclude"];
         expect(schema.type).toBe("object");
         expect(schema.description).toContain("relative to the watched folder");
     });
 
-    it("все дефолтные шаблоны включены: карта `{ glob: true }`, как в VS Code", () => {
+    it("all default patterns are enabled: a `{ glob: true }` map, as in VS Code", () => {
         const value = filesConfiguration.properties["files.watcherExclude"].default as Record<string, unknown>;
         expect(Object.values(value).every((enabled) => enabled === true)).toBe(true);
         expect(DEFAULT_EXCLUDES.length).toBe(Object.keys(value).length);
@@ -30,7 +30,7 @@ describe("filesConfiguration — files.watcherExclude, схема", () => {
 
 // Paths are listed explicitly rather than derived from the patterns; otherwise the test would be rewritten
 // along with a typo in the default.
-describe("filesConfiguration — files.watcherExclude, дефолты на живых путях", () => {
+describe("filesConfiguration: files.watcherExclude, defaults on real paths", () => {
     const excluded = [
         ".git",
         "sub/.git",
@@ -72,20 +72,20 @@ describe("filesConfiguration — files.watcherExclude, дефолты на жи�
         ".claude/skills/run/SKILL.md",
     ];
 
-    it.each(excluded)("исключён: %s", (relative) => {
+    it.each(excluded)("excluded: %s", (relative) => {
         expect(isExcluded("/repo", path.join("/repo", relative), DEFAULT_EXCLUDES)).toBe(true);
     });
 
-    it.each(kept)("под слежением остаётся: %s", (relative) => {
+    it.each(kept)("stays watched: %s", (relative) => {
         expect(isExcluded("/repo", path.join("/repo", relative), DEFAULT_EXCLUDES)).toBe(false);
     });
 
-    it("исключается сам каталог, а не только его содержимое", () => {
+    it("the directory itself is excluded, not just its contents", () => {
         expect(isExcluded("/repo", "/repo/node_modules", ["**/node_modules/**"])).toBe(false);
         expect(isExcluded("/repo", "/repo/node_modules", DEFAULT_EXCLUDES)).toBe(true);
     });
 
-    it("`**/.git` не задевает собственный watcher расширения git", () => {
+    it("`**/.git` does not affect the git extension's own watcher", () => {
         // Its watcher's root is `.git` itself (`startWatchers` in extensions/git/main.ts).
         expect(isExcluded("/repo/.git", "/repo/.git/HEAD", DEFAULT_EXCLUDES)).toBe(false);
         expect(isExcluded("/repo/.git", "/repo/.git/index", DEFAULT_EXCLUDES)).toBe(false);
@@ -93,7 +93,7 @@ describe("filesConfiguration — files.watcherExclude, дефолты на жи�
     });
 });
 
-describe("filesConfiguration — files.watcherExclude, правка пользователем", () => {
+describe("filesConfiguration: files.watcherExclude, user edits", () => {
     function merged(userValue: Record<string, boolean>): string[] {
         const defaults = ConfigurationModel.fromRaw({
             "files.watcherExclude": filesConfiguration.properties["files.watcherExclude"].default,
@@ -102,13 +102,13 @@ describe("filesConfiguration — files.watcherExclude, правка пользо
         return parseExcludeSetting(ConfigurationModel.merge(defaults, user).get("files.watcherExclude"));
     }
 
-    it("свой шаблон добавляется к дефолтным, а не заменяет их", () => {
+    it("a custom pattern is added to the defaults, not replacing them", () => {
         const patterns = merged({ "**/vendor": true });
         expect(patterns).toContain("**/vendor");
         expect(patterns).toContain("**/node_modules");
     });
 
-    it("ненужный дефолт гасится значением false", () => {
+    it("an unwanted default is turned off with false", () => {
         const patterns = merged({ "**/dist": false });
         expect(patterns).not.toContain("**/dist");
         expect(patterns).toContain("**/node_modules");
@@ -124,7 +124,7 @@ class CapturingTreeWatcher extends ChokidarTreeWatcher {
     }
 }
 
-describe("filesConfiguration — files.watcherExclude на живом обходе", () => {
+describe("filesConfiguration: files.watcherExclude on a real walk", () => {
     let root: string;
 
     beforeAll(() => {
@@ -161,7 +161,7 @@ describe("filesConfiguration — files.watcherExclude на живом обход
         }
     }
 
-    it("в исключённые каталоги обход не заходит вовсе", async () => {
+    it("the walk does not enter excluded directories at all", async () => {
         const watched = await watchedDirs(DEFAULT_EXCLUDES);
         expect(watched).toContain("src");
         expect(watched).toContain("src/app");
@@ -174,7 +174,7 @@ describe("filesConfiguration — files.watcherExclude на живом обход
         expect(watched.filter((dir) => dir.startsWith("coverage"))).toEqual([]);
     }, 20000);
 
-    it("шаблон на содержимое оставлял бы watch на самом каталоге", async () => {
+    it("a contents-only pattern would leave a watch on the directory itself", async () => {
         const watched = await watchedDirs(["**/node_modules/**"]);
         expect(watched).toContain("node_modules");
         expect(watched).not.toContain("node_modules/pkg");

@@ -11,7 +11,7 @@ import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 // The diagnostics squiggle bled through overlays: opaque painters did not
 // reset the partial-patch style flags. Fixed in the engine (tuidom#4,
 // @tuidom/core 0.2.1); the test guards the frame, not how the fix works.
-describe("Workbench — оверлей поверх подчёркнутого текста", () => {
+describe("Workbench: overlay above squiggled text", () => {
     const SIZE = new Size(100, 30);
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -69,7 +69,7 @@ describe("Workbench — оверлей поверх подчёркнутого �
         ws.dispose();
     });
 
-    it("волна видна в редакторе, пока пикер закрыт", () => {
+    it("the squiggle is visible in the editor while the picker is closed", () => {
         const editor = h.testApp.querySelector("EditorElement") as EditorElement;
         const rect = {
             x: editor.globalPosition.x,
@@ -80,14 +80,14 @@ describe("Workbench — оверлей поверх подчёркнутого �
         expect(undercurledCells(rect)).toBeGreaterThan(0);
     });
 
-    it("quick pick не пропускает волну редактора сквозь себя", () => {
+    it("quick pick does not let the editor squiggle show through", () => {
         h.testApp.sendKey("Ctrl+P");
         h.testApp.render();
 
         expect(undercurledCells(pickerRect())).toBe(0);
     });
 
-    it("волна возвращается на место, когда пикер закрыт", () => {
+    it("the squiggle comes back when the picker is closed", () => {
         h.testApp.sendKey("Ctrl+P");
         h.testApp.render();
         const rect = pickerRect();

@@ -20,7 +20,7 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 import type { EditorTitleMenuContext } from "./actions/menuContexts.ts";
 import { PanelServiceDIToken } from "./parts/panel/panelService.ts";
 
-describe("Workbench — терминал в области редакторов", () => {
+describe("Workbench: terminal in the editor area", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let terminal: TerminalService;
@@ -47,7 +47,7 @@ describe("Workbench — терминал в области редакторов"
         ws.dispose();
     });
 
-    it("Create New Terminal in Editor Area to the Side — группа справа, шелл в кадре рядом с файлом", () => {
+    it("Create New Terminal in Editor Area to the Side: a group on the right, the shell in the frame next to the file", () => {
         boot();
         h.commands.execute("workbench.action.createTerminalEditorSide");
         const [instance] = terminal.getEditorInstances();
@@ -60,14 +60,14 @@ describe("Workbench — терминал в области редакторов"
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
     });
 
-    it("Create New Terminal in Editor Area — в активную группу", () => {
+    it("Create New Terminal in Editor Area: into the active group", () => {
         boot();
         h.commands.execute("workbench.action.createTerminalEditor");
         expect(groups().groups).toHaveLength(1);
         expect(groups().activeGroup.activePane).toBeInstanceOf(TerminalEditorPane);
     });
 
-    it("Ctrl+W во вкладке-терминале закрывает её и убивает процесс; в шелл клавиша не уходит", () => {
+    it("Ctrl+W in a terminal tab closes it and kills the process; the key does not reach the shell", () => {
         boot();
         h.commands.execute("workbench.action.createTerminalEditorSide");
         const session = terminal.getEditorInstances()[0].session as FakeTerminalSurface;
@@ -79,7 +79,7 @@ describe("Workbench — терминал в области редакторов"
         expect(screen()).toContain("alpha");
     });
 
-    it("Ctrl+W в терминале вида TERMINAL остаётся шеллу", () => {
+    it("Ctrl+W in the TERMINAL view's terminal goes to the shell", () => {
         boot();
         h.commands.execute("workbench.action.terminal.new");
         const session = terminal.getInstances()[0].session as FakeTerminalSurface;
@@ -89,7 +89,7 @@ describe("Workbench — терминал в области редакторов"
         expect(session.writes).toStrictEqual(["\x17"]);
     });
 
-    it("Ctrl+PgDn во вкладке-терминале листает вкладки, а не терминалы вида", () => {
+    it("Ctrl+PgDn in a terminal tab cycles tabs, not the view's terminals", () => {
         boot();
         h.commands.execute("workbench.action.terminal.new");
         h.commands.execute("workbench.action.terminal.new");
@@ -101,7 +101,7 @@ describe("Workbench — терминал в области редакторов"
         expect(groups().activeGroup.activePane).not.toBeInstanceOf(TerminalEditorPane);
     });
 
-    it("defaultLocation: editor — Create New Terminal открывает вкладку, вид не трогает", () => {
+    it("defaultLocation: editor makes Create New Terminal open a tab and leave the view alone", () => {
         boot({ "terminal.integrated.defaultLocation": "editor" });
         h.commands.execute("workbench.action.terminal.new");
         expect(terminal.getInstances()).toStrictEqual([]);
@@ -109,7 +109,7 @@ describe("Workbench — терминал в области редакторов"
         expect(h.container.get(PanelServiceDIToken).visible).toBe(false);
     });
 
-    it("Move Terminal into Editor Area — из меню вкладки терминала и из палитры", () => {
+    it("Move Terminal into Editor Area from the terminal tab menu and from the command palette", () => {
         boot();
         h.commands.execute("workbench.action.terminal.new");
         h.commands.execute("workbench.action.terminal.new");
@@ -129,7 +129,7 @@ describe("Workbench — терминал в области редакторов"
         expect(terminal.getEditorInstances()).toStrictEqual([first, second]);
     });
 
-    it("Move Terminal into Panel — только в меню вкладки-терминала; возвращает в вид TERMINAL", () => {
+    it("Move Terminal into Panel is only in the terminal tab menu; it returns to the TERMINAL view", () => {
         boot();
         h.commands.execute("workbench.action.createTerminalEditor");
         const [instance] = terminal.getEditorInstances();
@@ -163,7 +163,7 @@ describe("Workbench — терминал в области редакторов"
         ).toBe(false);
     });
 
-    it("Move Terminal into Panel без вкладки-терминала — ничего, и в пустой группе тоже", async () => {
+    it("Move Terminal into Panel without a terminal tab does nothing, in an empty group too", async () => {
         boot();
         h.commands.execute("workbench.action.terminal.moveToTerminalPanel");
         h.commands.execute("workbench.action.terminal.moveToEditor");
@@ -172,7 +172,7 @@ describe("Workbench — терминал в области редакторов"
         expect(() => h.commands.execute("workbench.action.terminal.moveToTerminalPanel")).not.toThrow();
     });
 
-    it("Kill the Active Terminal in Editor Area не трогает вкладку другого вида", () => {
+    it("Kill the Active Terminal in Editor Area does not touch a tab of another kind", () => {
         boot();
         h.commands.execute("workbench.action.terminal.killEditor");
         expect(groups().activeGroup.editorCount).toBe(1);

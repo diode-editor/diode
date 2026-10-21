@@ -24,7 +24,7 @@ describe("Workbench integration", () => {
         expect(h.testApp.querySelector("ScrollBarDecorator")).not.toBeNull();
     });
 
-    it("корневая view #workbench — хост оверлеев фич (LayoutService.mainContainer)", () => {
+    it("the root view #workbench hosts feature overlays (LayoutService.mainContainer)", () => {
         const h = createAppTestHarness();
 
         expect(h.workbench.view.id).toBe("workbench");
@@ -474,7 +474,7 @@ describe("Workbench — runtime extended-keys detection", () => {
 });
 
 describe("Workbench — completion wiring", () => {
-    it("editor.action.triggerSuggest исполняется без ошибок", () => {
+    it("editor.action.triggerSuggest runs without errors", () => {
         const h = createAppTestHarness();
         h.workbench.openFile("/tmp/completion-trigger.txt");
         h.workbench.focusEditor();

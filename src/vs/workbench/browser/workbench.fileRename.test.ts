@@ -59,7 +59,7 @@ describe("Workbench — Rename", () => {
         expect(fs.readFileSync(ws.path("new.txt"), "utf-8")).toBe("hi");
     });
 
-    it("открытый файл: вкладка в кадре едет за переименованием, сохранение не воскрешает старый", async () => {
+    it("open file: the tab in the frame follows the rename, saving does not resurrect the old one", async () => {
         h.container.get(EditorServiceDIToken).openFile(ws.path("old.txt"));
         h.testApp.render();
         expect(h.testApp.backend.screenToString()).toContain("old.txt");
@@ -88,7 +88,7 @@ describe("Workbench — Rename", () => {
         expect(fs.existsSync(ws.path("old.txt"))).toBe(false);
     });
 
-    it("переименование открытого файла из дерева фокус в редактор не уводит", async () => {
+    it("renaming an open file from the tree does not move focus to the editor", async () => {
         h.container.get(EditorServiceDIToken).openFile(ws.path("old.txt"));
         h.commands.execute("workbench.view.explorer");
         h.testApp.render();

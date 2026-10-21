@@ -22,8 +22,8 @@ function scmHarness(views: string[]): IViewsHarness {
     return h;
 }
 
-describe("ViewsService — спиннер занятости", () => {
-    it("кадр доезжает до заголовка своей секции и снимается", () => {
+describe("ViewsService — busy spinner", () => {
+    it("the frame reaches its section header and is removed", () => {
         const h = scmHarness(["scm.changes", "scm.graph"]);
 
         h.service.setViewSpinner("scm.changes", "⠋");
@@ -37,7 +37,7 @@ describe("ViewsService — спиннер занятости", () => {
         expect(paneBusy(h.paneView("scm"), "scm.changes")).toBe(false);
     });
 
-    it("кадр переживает пересборку секций", () => {
+    it("the frame survives a section rebuild", () => {
         const h = scmHarness(["scm.changes", "scm.graph"]);
         h.service.setViewSpinner("scm.changes", "⠋");
 
@@ -49,7 +49,7 @@ describe("ViewsService — спиннер занятости", () => {
         expect(paneBusy(h.paneView("scm"), "scm.changes")).toBe(true);
     });
 
-    it("скрытая секция запоминает кадр и показывает его, когда вернётся", () => {
+    it("a hidden section remembers the frame and shows it when it returns", () => {
         const h = scmHarness(["scm.changes", "scm.graph"]);
         h.service.setViewVisible("scm.graph", false);
 
@@ -58,7 +58,7 @@ describe("ViewsService — спиннер занятости", () => {
         expect(paneBusy(h.paneView("scm"), "scm.graph")).toBe(true);
     });
 
-    it("у merged-секции панели кадр уходит в полосу контролов таб-строки", () => {
+    it("for a merged panel section the frame goes into the tab row controls strip", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: PANEL, title: "OUTPUT", location: "panel" });
         h.service.registerView(testView("panel.output", PANEL, 10));
@@ -76,7 +76,7 @@ describe("ViewsService — спиннер занятости", () => {
         expect(h.header(PANEL)).toBeNull();
     });
 
-    it("в панели с несколькими секциями кадр уходит в заголовок своей секции", () => {
+    it("in a panel with several sections the frame goes into its section header", () => {
         // Non-merged panel: the container has no header target, and the "hand the frame
         // to the tab bar strip" path must not even try to read it here.
         const h = makeViewsHarness();
@@ -92,14 +92,14 @@ describe("ViewsService — спиннер занятости", () => {
         expect(header?.inspectState()?.busy).toBe(true);
     });
 
-    it("прогресс незарегистрированной view — молчаливый no-op", () => {
+    it("progress for an unregistered view is a silent no-op", () => {
         const h = scmHarness(["scm.changes"]);
         expect(() => {
             h.service.setViewSpinner("search", "⠋");
         }).not.toThrow();
     });
 
-    it("кадр до attachContainer запоминается и доезжает при показе контейнера", () => {
+    it("a frame before attachContainer is remembered and arrives when the container shows", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
         h.service.registerView(testView("scm.changes", "scm", 10));

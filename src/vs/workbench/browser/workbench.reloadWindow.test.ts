@@ -20,8 +20,8 @@ function createHarness(): { harness: ReturnType<typeof createAppTestHarness>; re
 /** Continuation after the dialog answer and the participants' shutdown run as microtasks (LifecycleService is async). */
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
-describe("Workbench — перезагрузка окна", () => {
-    it("без несохранённых вкладок команда перезагружает без диалогов", async () => {
+describe("Workbench: window reload", () => {
+    it("without unsaved tabs the command reloads with no dialogs", async () => {
         const { harness, reloadWindow } = createHarness();
 
         harness.commands.execute("workbench.action.reloadWindow");
@@ -30,7 +30,7 @@ describe("Workbench — перезагрузка окна", () => {
         expect(reloadWindow).toHaveBeenCalledOnce();
     });
 
-    it("несохранённая вкладка сперва спрашивается — окно не перезагружается молча", () => {
+    it("an unsaved tab is asked about first; the window does not reload silently", () => {
         const { harness, reloadWindow } = createHarness();
         harness.workbench.openFile("/tmp/reload-dirty.txt");
         harness.workbench.focusEditor();
@@ -42,7 +42,7 @@ describe("Workbench — перезагрузка окна", () => {
         expect(reloadWindow).not.toHaveBeenCalled();
     });
 
-    it("Don't Save в диалоге доводит перезагрузку до шва", async () => {
+    it("Don't Save in the dialog carries the reload through to the seam", async () => {
         const { harness, reloadWindow } = createHarness();
         harness.workbench.openFile("/tmp/reload-dontsave.txt");
         harness.workbench.focusEditor();
@@ -56,7 +56,7 @@ describe("Workbench — перезагрузка окна", () => {
         expect(reloadWindow).toHaveBeenCalledOnce();
     });
 
-    it("Cancel оставляет окно на месте", async () => {
+    it("Cancel leaves the window in place", async () => {
         const { harness, reloadWindow } = createHarness();
         harness.workbench.openFile("/tmp/reload-cancel.txt");
         harness.workbench.focusEditor();

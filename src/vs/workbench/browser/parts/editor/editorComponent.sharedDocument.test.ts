@@ -16,7 +16,7 @@ import { EditorComponent } from "./editorComponent.ts";
 import { TextEditorPane } from "./textEditorPane.ts";
 
 /** A second pair over the same model, built the same way a split does it (registry + reference). */
-describe("EditorComponent: один документ в двух вью", () => {
+describe("EditorComponent: one document in two views", () => {
     let ws: ITempWorkspace;
     let undoRedo: UndoRedoService;
     let registry: TextFileModelRegistry;
@@ -52,7 +52,7 @@ describe("EditorComponent: один документ в двух вью", () => 
         pane.pushUndo(pane.viewState.type(text));
     }
 
-    it("US-26: правка в A видна в B немедленно, каретка B не прыгает", () => {
+    it("US-26: an edit in A is visible in B immediately, B's cursor does not jump", () => {
         const { a, b } = openTwice("shared.txt", "alpha\nbeta\ngamma");
         b.viewState.selections = [createCursorSelection(2, 3)];
 
@@ -66,7 +66,7 @@ describe("EditorComponent: один документ в двух вью", () => 
         expect(a.viewState.selections[0].active).toEqual({ line: 1, character: 8 });
     });
 
-    it("US-27: undo из другой вью откатывает правку, обе вью видят откат", () => {
+    it("US-27: undo from the other view reverts the edit, both views see the revert", () => {
         const { a, b } = openTwice("shared.txt", "hello");
         a.viewState.selections = [createCursorSelection(0, 5)];
         typeIn(a, " world");
@@ -80,7 +80,7 @@ describe("EditorComponent: один документ в двух вью", () => 
         expect(b.viewState.selections[0].active).toEqual({ line: 0, character: 5 });
     });
 
-    it("история одна на документ: правка в A, правка в B, undo, undo (LIFO)", () => {
+    it("one history per document: edit in A, edit in B, undo, undo (LIFO)", () => {
         const { a, b } = openTwice("shared.txt", "x");
         a.viewState.selections = [createCursorSelection(0, 1)];
         typeIn(a, "A");
@@ -98,7 +98,7 @@ describe("EditorComponent: один документ в двух вью", () => 
         expect(b.getText()).toBe("xAB");
     });
 
-    it("US-28: маркер изменённости и сохранение общие", async () => {
+    it("US-28: dirty marker and save are shared", async () => {
         const { a, b } = openTwice("shared.txt", "clean");
         expect(a.isModified).toBe(false);
         expect(b.isModified).toBe(false);
@@ -112,7 +112,7 @@ describe("EditorComponent: один документ в двух вью", () => 
         expect(b.isModified).toBe(false);
     });
 
-    it("US-31: перечитка с диска пересобирает обе вью и сохраняет их скролл", () => {
+    it("US-31: reload from disk rebuilds both views and keeps their scroll", () => {
         const lines = Array.from({ length: 100 }, (_, i) => `line-${i}`).join("\n");
         const { a, b } = openTwice("long.txt", lines);
         a.viewState.scrollTop = 40;
@@ -127,7 +127,7 @@ describe("EditorComponent: один документ в двух вью", () => 
         expect(b.viewState.scrollTop).toBe(70);
     });
 
-    it("закрытие одной вью не убивает документ; последняя — убивает", () => {
+    it("closing one view does not dispose the document; closing the last one does", () => {
         const { a, b } = openTwice("shared.txt", "text");
         const model = a.model;
         typeIn(a, "!");
@@ -142,7 +142,7 @@ describe("EditorComponent: один документ в двух вью", () => 
         expect(undoRedo.peekUndo(context)).toBeUndefined();
     });
 
-    it("фолды второй вью сдвигаются под правку первой", () => {
+    it("folds of the second view shift with an edit in the first", () => {
         const { a, b } = openTwice("folds.txt", ["top", "if {", "  in1", "  in2", "}", "tail"].join("\n"));
         b.viewState.setFoldingRegions([{ startLine: 1, endLine: 4, isCollapsed: true }]);
 
@@ -155,7 +155,7 @@ describe("EditorComponent: один документ в двух вью", () => 
         expect(region.isCollapsed).toBe(true);
     });
 
-    it("закрытая вью отписывает свой кеш TM-токенов от документа, живущего дальше", () => {
+    it("a closed view unsubscribes its TM token cache from the document that lives on", () => {
         const { a, b } = openTwice("leak.txt", "one\ntwo\nthree");
         const store = a.viewState.tokenStore;
         store?.forceTokenization(2);

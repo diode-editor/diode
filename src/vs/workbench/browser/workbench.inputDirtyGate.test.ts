@@ -7,7 +7,7 @@ import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTe
 // state bypassing the markDirty setters. Under damage tracking this is a fallback
 // (see workbench.damageScope.test.ts).
 
-describe("Workbench — съеденный кейбинд помечает кадр грязным", () => {
+describe("Workbench — a consumed keybinding marks the frame dirty", () => {
     let h: IAppHarness;
 
     beforeEach(() => {
@@ -18,7 +18,7 @@ describe("Workbench — съеденный кейбинд помечает ка�
         h.dispose();
     });
 
-    it("keydown, съеденный командой, оставляет root layout-dirty", () => {
+    it("a keydown consumed by a command leaves the root layout-dirty", () => {
         h.workbench.openFile("/tmp/dirty-gate.txt");
         h.workbench.focusEditor();
         h.testApp.render();
@@ -34,7 +34,7 @@ describe("Workbench — съеденный кейбинд помечает ка�
         expect(h.testApp.root.isLayoutDirty).toBe(true);
     });
 
-    it("keydown без кейбинда кадр не пачкает", () => {
+    it("a keydown without a keybinding does not dirty the frame", () => {
         h.workbench.openFile("/tmp/dirty-gate-2.txt");
         h.workbench.focusEditor();
         h.testApp.render();

@@ -38,8 +38,8 @@ const FRUITS: QuickPickSessionItem[] = [
     { label: "cherry" },
 ];
 
-describe("QuickPickSession — показ и живое состояние", () => {
-    it("скрытый пикер копит состояние и показывает его на show()", () => {
+describe("QuickPickSession — show and live state", () => {
+    it("a hidden picker accumulates state and shows it on show()", () => {
         const { pick, component, view } = setup();
         pick.update({ title: "Fruit", placeholder: "pick one", items: FRUITS });
         expect(component.isOpen()).toBe(false);
@@ -53,7 +53,7 @@ describe("QuickPickSession — показ и живое состояние", () 
         expect(component.view.placeholder).toBe("pick one");
     });
 
-    it("предметы, присланные ПОСЛЕ показа, появляются в открытом пикере", () => {
+    it("items sent AFTER show appear in the open picker", () => {
         // Exactly the golang.go pickLazyEnum scenario: show() with an empty list,
         // items arrive later in the language server's response.
         const { pick, view, log } = setup();
@@ -66,7 +66,7 @@ describe("QuickPickSession — показ и живое состояние", () 
         expect(log).toContainEqual(["active", ["apple"]]);
     });
 
-    it("заголовок с шагами — как getTitle эталона", () => {
+    it("title with steps matches upstream getTitle", () => {
         const { pick, view } = setup();
         pick.update({ title: "Wizard", step: 2, totalSteps: 3 });
         pick.show();
@@ -80,8 +80,8 @@ describe("QuickPickSession — показ и живое состояние", () 
     });
 });
 
-describe("QuickPickSession — ввод", () => {
-    it("набор фильтрует по label и сообщает значение и подсветку", () => {
+describe("QuickPickSession — input", () => {
+    it("typing filters by label and reports the value and the active item", () => {
         const { pick, view, log, type } = setup();
         pick.update({ items: FRUITS });
         pick.show();
@@ -98,7 +98,7 @@ describe("QuickPickSession — ввод", () => {
         ]);
     });
 
-    it("matchOnDescription / matchOnDetail расширяют поиск, alwaysShow не прячется", () => {
+    it("matchOnDescription / matchOnDetail widen the search, alwaysShow is never hidden", () => {
         const { pick, view, type } = setup();
         pick.update({ items: [...FRUITS, { label: "other", alwaysShow: true }] });
         pick.show();
@@ -112,7 +112,7 @@ describe("QuickPickSession — ввод", () => {
         expect(view()).toMatchObject({ items: ["apple", "other"] });
     });
 
-    it("программный value меняет запрос и тоже даёт onDidChangeValue", () => {
+    it("a programmatic value changes the query and also fires onDidChangeValue", () => {
         const { pick, view, log } = setup();
         pick.update({ items: FRUITS });
         pick.show();
@@ -127,7 +127,7 @@ describe("QuickPickSession — ввод", () => {
         ]);
     });
 
-    it("Enter выбирает подсвеченное и сообщает о принятии, но НЕ закрывает", () => {
+    it("Enter selects the active item and reports accept, but does NOT close", () => {
         const { pick, component, testApp, log } = setup();
         pick.update({ items: FRUITS });
         pick.show();
@@ -141,7 +141,7 @@ describe("QuickPickSession — ввод", () => {
         expect(pick.getState().selectedItems.map((item) => item.label)).toEqual(["banana"]);
     });
 
-    it("Enter на пустом списке — принятие без выбора (набранный текст)", () => {
+    it("Enter on an empty list accepts without a selection (the typed text)", () => {
         const { pick, testApp, log, type } = setup();
         pick.show();
         type("x");
@@ -152,7 +152,7 @@ describe("QuickPickSession — ввод", () => {
         expect(log).toEqual([["accept"]]);
     });
 
-    it("стрелка — onDidChangeActive, программный activeItems — молча", () => {
+    it("an arrow key fires onDidChangeActive, programmatic activeItems stays silent", () => {
         const { pick, view, testApp, log } = setup();
         pick.update({ items: FRUITS });
         pick.show();
@@ -167,7 +167,7 @@ describe("QuickPickSession — ввод", () => {
         expect(log).toEqual([]);
     });
 
-    it("keepScrollPosition: новые предметы не уводят подсветку наверх", () => {
+    it("keepScrollPosition: new items do not move the active item to the top", () => {
         const { pick, view, testApp } = setup();
         pick.update({ items: FRUITS, keepScrollPosition: true });
         pick.show();
@@ -182,8 +182,8 @@ describe("QuickPickSession — ввод", () => {
     });
 });
 
-describe("QuickPickSession — множественный выбор", () => {
-    it("Space переключает отметку и сообщает набор в порядке списка; Enter — принятие", () => {
+describe("QuickPickSession — multi-select", () => {
+    it("Space toggles a check and reports the set in list order; Enter accepts", () => {
         const { pick, view, testApp, log } = setup();
         pick.update({ items: FRUITS, canSelectMany: true });
         pick.show();
@@ -205,7 +205,7 @@ describe("QuickPickSession — множественный выбор", () => {
         ]);
     });
 
-    it("selectedItems владельца — отметки на экране, и они переживают новые предметы", () => {
+    it("the owner's selectedItems are checks on screen and survive new items", () => {
         const { pick, view } = setup();
         pick.update({ items: FRUITS, canSelectMany: true, selectedItems: [FRUITS[1]] });
         pick.show();
@@ -219,8 +219,8 @@ describe("QuickPickSession — множественный выбор", () => {
     });
 });
 
-describe("QuickPickSession — скрытие", () => {
-    it("Escape закрывает и даёт onDidHide; показать можно снова, состояние на месте", () => {
+describe("QuickPickSession — hiding", () => {
+    it("Escape closes and fires onDidHide; it can be shown again with the state intact", () => {
         const { pick, component, testApp, log, view, type } = setup();
         pick.update({ items: FRUITS });
         pick.show();
@@ -235,7 +235,7 @@ describe("QuickPickSession — скрытие", () => {
         expect(view()).toMatchObject({ query: "ap", items: ["apple"] });
     });
 
-    it("hide() владельца закрывает и даёт onDidHide ровно один раз", () => {
+    it("the owner's hide() closes and fires onDidHide exactly once", () => {
         const { pick, component, log } = setup();
         pick.show();
         pick.hide();
@@ -244,7 +244,7 @@ describe("QuickPickSession — скрытие", () => {
         expect(log.filter((entry) => entry[0] === "hide")).toHaveLength(1);
     });
 
-    it("чужой показ на общем виджете перехватывает его — пикер узнаёт onDidHide", () => {
+    it("another show on the shared widget takes it over — the picker gets onDidHide", () => {
         const { pick, service, log } = setup();
         pick.show();
         void service.input({ prompt: "other" });
@@ -252,7 +252,7 @@ describe("QuickPickSession — скрытие", () => {
         expect(pick.visible).toBe(false);
     });
 
-    it("hide() после перехвата не трогает чужой показ", () => {
+    it("hide() after a takeover leaves the other show alone", () => {
         const { pick, service, component } = setup();
         pick.show();
         void service.input({ prompt: "other" });
@@ -261,7 +261,7 @@ describe("QuickPickSession — скрытие", () => {
         expect(component.view.prompt).toBe("other");
     });
 
-    it("dispose скрывает, а после него пикер мёртв", () => {
+    it("dispose hides, and the picker is dead afterwards", () => {
         const { pick, component, log } = setup();
         pick.update({ items: FRUITS });
         pick.show();
@@ -275,7 +275,7 @@ describe("QuickPickSession — скрытие", () => {
         expect(pick.getState().title).toBeUndefined();
     });
 
-    it("показ без изменений состояния — без лишних событий о скрытии", () => {
+    it("showing without state changes fires no extra hide events", () => {
         const { pick, log } = setup();
         pick.show();
         pick.show();
@@ -283,14 +283,14 @@ describe("QuickPickSession — скрытие", () => {
     });
 });
 
-describe("QuickPickSession — точечные правки открытого пикера", () => {
+describe("QuickPickSession — targeted updates of an open picker", () => {
     function titleRow(testApp: ReturnType<typeof setup>["testApp"]): string {
         testApp.render();
         // The overlay sits at 10% of the height (24 rows → row 2).
         return testApp.backend.getTextAt(new Point(0, 2), 80);
     }
 
-    it("смена одного заголовка доходит до кадра", () => {
+    it("changing just the title reaches the frame", () => {
         const { pick, testApp } = setup();
         pick.update({ title: "Old", items: FRUITS });
         pick.show();
@@ -300,7 +300,7 @@ describe("QuickPickSession — точечные правки открытого 
         expect(titleRow(testApp)).toContain("New");
     });
 
-    it("смена одной подсказки доходит до кадра", () => {
+    it("changing just the prompt reaches the frame", () => {
         const { pick, testApp } = setup();
         pick.update({ prompt: "first", items: FRUITS });
         pick.show();
@@ -312,7 +312,7 @@ describe("QuickPickSession — точечные правки открытого 
         expect(testApp.backend.getTextAt(new Point(0, 4), 80)).toContain("second");
     });
 
-    it("правка одного поля не трогает остальные, подсветку и запрос", () => {
+    it("updating one field leaves the others, the active item and the query alone", () => {
         const { pick, view, testApp, log } = setup();
         pick.update({
             title: "T",
@@ -334,7 +334,7 @@ describe("QuickPickSession — точечные правки открытого 
         expect(log).toEqual([]);
     });
 
-    it("тот же value повторно — без onDidChangeValue", () => {
+    it("the same value again does not fire onDidChangeValue", () => {
         const { pick, log, type } = setup();
         pick.update({ items: FRUITS });
         pick.show();
@@ -344,7 +344,7 @@ describe("QuickPickSession — точечные правки открытого 
         expect(log).toEqual([]);
     });
 
-    it("matchOnDescription сам по себе перефильтровывает открытый список", () => {
+    it("matchOnDescription alone refilters the open list", () => {
         const { pick, view, type } = setup();
         pick.update({ items: FRUITS });
         pick.show();
@@ -354,7 +354,7 @@ describe("QuickPickSession — точечные правки открытого 
         expect(view()).toMatchObject({ items: ["apple"] });
     });
 
-    it("canSelectMany сам по себе включает чекбоксы у открытого списка — на кадре", () => {
+    it("canSelectMany alone turns on checkboxes in the open list — in the frame", () => {
         const { pick, view, testApp } = setup();
         pick.update({ items: FRUITS, selectedItems: [FRUITS[2]] });
         pick.show();
@@ -368,7 +368,7 @@ describe("QuickPickSession — точечные правки открытого 
         expect(testApp.backend.getTextAt(new Point(0, 5), 80)).toContain("[ ] apple");
     });
 
-    it("набор возвращает подсветку на первую совпавшую строку", () => {
+    it("typing moves the active item back to the first matching row", () => {
         const { pick, view, testApp, type } = setup();
         pick.update({ items: FRUITS });
         pick.show();
@@ -378,7 +378,7 @@ describe("QuickPickSession — точечные правки открытого 
         expect(view()).toMatchObject({ items: ["apple", "banana"], activeIndex: 0 });
     });
 
-    it("список, отфильтрованный в пустоту, — onDidChangeActive([])", () => {
+    it("a list filtered down to nothing fires onDidChangeActive([])", () => {
         const { pick, log, type } = setup();
         pick.update({ items: FRUITS });
         pick.show();
@@ -387,14 +387,14 @@ describe("QuickPickSession — точечные правки открытого 
         expect(log).toContainEqual(["active", []]);
     });
 
-    it("запрос с пробелами по краям ищет по сути", () => {
+    it("a query with surrounding spaces searches by its trimmed content", () => {
         const { pick, view } = setup();
         pick.update({ items: FRUITS, value: "  ch " });
         pick.show();
         expect(view()).toMatchObject({ items: ["cherry"] });
     });
 
-    it("activeItems: первая строка и незнакомый предмет — по правилам", () => {
+    it("activeItems: the first row and an unknown item follow the rules", () => {
         const { pick, view, testApp } = setup();
         pick.update({ items: FRUITS });
         pick.show();
@@ -405,11 +405,11 @@ describe("QuickPickSession — точечные правки открытого 
         expect(view()).toMatchObject({ activeIndex: 0 });
 
         testApp.sendKey("ArrowDown");
-        pick.update({ activeItems: [{ label: "чужой" }] });
+        pick.update({ activeItems: [{ label: "foreign" }] });
         expect(view()).toMatchObject({ activeIndex: 1 });
     });
 
-    it("activeItems, заданные до показа, подсвечены сразу — без эха владельцу", () => {
+    it("activeItems set before show are active right away — without an echo to the owner", () => {
         const { pick, view, log } = setup();
         pick.update({ items: FRUITS, activeItems: [FRUITS[1]] });
         pick.show();
@@ -417,14 +417,14 @@ describe("QuickPickSession — точечные правки открытого 
         expect(log).toEqual([]);
     });
 
-    it("показ сам сообщает начальную подсветку", () => {
+    it("show itself reports the initial active item", () => {
         const { pick, log } = setup();
         pick.update({ items: FRUITS });
         pick.show();
         expect(log).toEqual([["active", ["apple"]]]);
     });
 
-    it("keepScrollPosition меняет предметы на месте", () => {
+    it("keepScrollPosition replaces items in place", () => {
         const { pick, view } = setup();
         pick.update({ items: FRUITS, keepScrollPosition: true });
         pick.show();
@@ -432,13 +432,13 @@ describe("QuickPickSession — точечные правки открытого 
         expect(view()).toMatchObject({ items: ["apple", "banana", "cherry", "date"] });
     });
 
-    it("без placeholder строка запроса пуста, а не дефолтный «Type to search…»", () => {
+    it('without a placeholder the query row is empty, not the default "Type to search…"', () => {
         const { pick, component } = setup();
         pick.show();
         expect(component.view.placeholder).toBe("");
     });
 
-    it("пустой заголовок с шагами — только шаги", () => {
+    it("an empty title with steps shows only the steps", () => {
         const { pick, view } = setup();
         pick.update({ title: "", step: 1, totalSteps: 2 });
         pick.show();
@@ -448,8 +448,8 @@ describe("QuickPickSession — точечные правки открытого 
     });
 });
 
-describe("QuickPickSession — режим диалога файлов", () => {
-    it("matchOnLabel: false без других полей — запрос список не фильтрует и подсветку не трогает", () => {
+describe("QuickPickSession — file dialog mode", () => {
+    it("matchOnLabel: false with no other fields — the query neither filters the list nor moves the active item", () => {
         const { pick, view, type, testApp } = setup();
         pick.update({ items: FRUITS, matchOnLabel: false });
         pick.show();
@@ -458,7 +458,7 @@ describe("QuickPickSession — режим диалога файлов", () => {
         expect(view()).toMatchObject({ query: "zz", items: ["apple", "banana", "cherry"], activeIndex: 1 });
     });
 
-    it("itemActivation: none — новые предметы без подсветки; Enter принимает набранное", () => {
+    it("itemActivation: none — new items have no active item; Enter accepts the typed value", () => {
         const { pick, view, testApp, log } = setup();
         pick.update({ items: FRUITS, itemActivation: "none" });
         pick.show();
@@ -473,7 +473,7 @@ describe("QuickPickSession — режим диалога файлов", () => {
         expect(view()).toMatchObject({ activeIndex: -1 });
     });
 
-    it("activeItems = [] снимает подсветку; ↑ из снятой — на последнюю строку", () => {
+    it("activeItems = [] clears the active item; ↑ from there goes to the last row", () => {
         const { pick, view, testApp, log } = setup();
         pick.update({ items: FRUITS });
         pick.show();
@@ -486,7 +486,7 @@ describe("QuickPickSession — режим диалога файлов", () => {
         expect(log).toEqual([["active", ["cherry"]]]);
     });
 
-    it("validationMessage — сообщение под строкой запроса; undefined — убирает", () => {
+    it("validationMessage shows a message under the query row; undefined removes it", () => {
         const { pick, component } = setup();
         pick.update({ validationMessage: "Please enter a path that exists." });
         pick.show();
@@ -496,7 +496,7 @@ describe("QuickPickSession — режим диалога файлов", () => {
         expect(component.view.validationMessage).toBeNull();
     });
 
-    it("valueSelection — выделение в строке запроса вместе со значением и само по себе", () => {
+    it("valueSelection selects text in the query row, together with the value and on its own", () => {
         const { pick, component } = setup();
         pick.show();
         pick.update({ value: "/ws/docs", valueSelection: [4, 8] });
@@ -509,8 +509,8 @@ describe("QuickPickSession — режим диалога файлов", () => {
     });
 });
 
-describe("QuickPickSession — общий виджет после чужого флейвора", () => {
-    it("перехват закрывает показ чужого хозяина (Quick Open) — тот узнаёт о закрытии", () => {
+describe("QuickPickSession — shared widget after another flavor", () => {
+    it("a takeover closes another owner's show (Quick Open) — that owner learns about the close", () => {
         const { pick, component } = setup();
         let foreignClosed = false;
         component.onDidClose = () => {
@@ -522,17 +522,17 @@ describe("QuickPickSession — общий виджет после чужого �
         expect(component.isOpen()).toBe(true);
     });
 
-    it("промисный показ, открытый до нас, доводится до undefined", async () => {
+    it("a promise-based show opened earlier resolves to undefined", async () => {
         const { pick, service } = setup();
         const pending = service.quickPick({ items: [{ label: "x" }] });
         pick.show();
         await expect(pending).resolves.toBeUndefined();
     });
 
-    it("маска пароля, ошибка валидации и подсветка прошлого показа не переезжают к нам", async () => {
+    it("the password mask, validation error and active item of the previous show do not carry over", async () => {
         const { pick, service, component, testApp, view, log } = setup();
-        const input = service.input({ password: true, validateInput: () => "плохо" });
-        expect(component.view.validationMessage).toBe("плохо");
+        const input = service.input({ password: true, validateInput: () => "bad" });
+        expect(component.view.validationMessage).toBe("bad");
         pick.update({ items: FRUITS });
         pick.show();
         await expect(input).resolves.toBeUndefined();
@@ -553,7 +553,7 @@ describe("QuickPickSession — общий виджет после чужого �
         expect(view()).not.toHaveProperty("checked");
     });
 
-    it("свежий пикер после чужого списка с подсветкой внизу открывается с первой строки", async () => {
+    it("a fresh picker after another list with the active item at the bottom opens on the first row", async () => {
         const { pick, service, testApp, view } = setup();
         const many = service.quickPickMany({ items: FRUITS });
         testApp.sendKey("ArrowDown");
@@ -564,16 +564,16 @@ describe("QuickPickSession — общий виджет после чужого �
         expect(view()).toMatchObject({ activeIndex: 0 });
     });
 
-    it("hide() скрытого пикера не закрывает чужой показ", () => {
+    it("hide() of a hidden picker does not close another show", () => {
         const { pick, service, component } = setup();
-        void service.input({ prompt: "чужой" });
+        void service.input({ prompt: "foreign" });
         pick.hide();
         expect(component.isOpen()).toBe(true);
     });
 });
 
-describe("QuickPickSession — правила поиска и выделение запроса", () => {
-    it("matchOnLabel: false на открытом пикере — список снова целиком", () => {
+describe("QuickPickSession — search rules and query selection", () => {
+    it("matchOnLabel: false on an open picker shows the whole list again", () => {
         const { pick, view, type } = setup();
         pick.update({ items: FRUITS });
         pick.show();
@@ -585,7 +585,7 @@ describe("QuickPickSession — правила поиска и выделение
         expect(view()).toMatchObject({ items: ["apple", "banana", "cherry"] });
     });
 
-    it("выделение запроса, заданное до показа, видно при показе", () => {
+    it("a query selection set before show is visible on show", () => {
         const { pick, component } = setup();
         pick.update({ value: "/ws/report.txt", valueSelection: [4, 10] });
 
@@ -595,8 +595,8 @@ describe("QuickPickSession — правила поиска и выделение
     });
 });
 
-describe("QuickPickSession — виджет отдан из обработчика набора", () => {
-    it("после hide() в onDidChangeValue строки нового владельца не перетираются", () => {
+describe("QuickPickSession — widget handed over from the typing handler", () => {
+    it("after hide() inside onDidChangeValue the new owner's rows are not overwritten", () => {
         const { service, component, testApp, view } = setup();
         const main = service.createQuickPick<QuickPickSessionItem>({
             onDidChangeValue: () => undefined,

@@ -50,8 +50,8 @@ function panelWithActions(actions: TUIElement | null, width = 60) {
     return { panel, backend, text: backend.screenToString() };
 }
 
-describe("PanelContainerElement: контролы вкладки в шапке", () => {
-    it("рисует контролы активной вкладки, прижав их вплотную к кнопке закрытия", () => {
+describe("PanelContainerElement: tab controls in the header", () => {
+    it("draws the active tab's controls right next to the close button", () => {
         const { backend } = panelWithActions(new LabelStub("Bootstrap"));
 
         // The label must end at the `×` button, not right after the tabs.
@@ -60,7 +60,7 @@ describe("PanelContainerElement: контролы вкладки в шапке",
         expect(row.trimEnd().endsWith("Bootstrap ×")).toBe(true);
     });
 
-    it("контролы неактивной вкладки не показываются", () => {
+    it("an inactive tab's controls are not shown", () => {
         const panel = new PanelContainerElement();
         panel.addView({ id: "output", title: "OUTPUT", content: null, actions: new LabelStub("Bootstrap") });
         panel.addView({ id: "problems", title: "PROBLEMS", content: null });
@@ -71,7 +71,7 @@ describe("PanelContainerElement: контролы вкладки в шапке",
         expect(backend.screenToString()).not.toContain("Bootstrap");
     });
 
-    it("setViewActions подменяет и снимает контролы", () => {
+    it("setViewActions replaces and removes controls", () => {
         const { panel } = panelWithActions(new LabelStub("Bootstrap"));
 
         panel.setViewActions("output", new LabelStub("Extensions"));
@@ -81,14 +81,14 @@ describe("PanelContainerElement: контролы вкладки в шапке",
         expect(render(panel, 60).screenToString()).not.toContain("Extensions");
     });
 
-    it("setViewActions по неизвестной вкладке — no-op", () => {
+    it("setViewActions for an unknown tab — no-op", () => {
         const { panel } = panelWithActions(null);
         expect(() => {
             panel.setViewActions("nope", new LabelStub("X"));
         }).not.toThrow();
     });
 
-    it("контролы не заезжают на табы, когда места мало", () => {
+    it("controls do not overlap the tabs when space is tight", () => {
         const { backend } = panelWithActions(new LabelStub("VeryLongChannelName"), 30);
 
         const row = backend.getTextAt(new Point(0, 1), 30);
@@ -96,14 +96,14 @@ describe("PanelContainerElement: контролы вкладки в шапке",
         expect(row).toContain("OUTPUT");
     });
 
-    it("контролы рисуются и когда вкладок ещё нет", () => {
+    it("controls are drawn even when there are no tabs yet", () => {
         const panel = new PanelContainerElement();
         panel.addView({ id: "output", title: "", content: null, actions: new LabelStub("Bootstrap") });
 
         expect(render(panel, 40, 6).screenToString()).toContain("Bootstrap");
     });
 
-    it("клик по контролам не переключает вкладку", () => {
+    it("a click on the controls does not switch the tab", () => {
         // A coordinate INSIDE a tab segment: right of the tabs there is no tab, so a
         // missing source check is indistinguishable there. All that matters is that target is not the panel.
         const actions = new LabelStub("Bootstrap");
@@ -119,7 +119,7 @@ describe("PanelContainerElement: контролы вкладки в шапке",
         expect(panel.getActiveViewId()).toBe("output");
     });
 
-    it("клик по самому табу вкладку переключает", () => {
+    it("a click on the tab itself switches the tab", () => {
         const { panel } = panelWithActions(new LabelStub("Bootstrap"));
         const onActivate = vi.fn();
         panel.onActivateView = onActivate;

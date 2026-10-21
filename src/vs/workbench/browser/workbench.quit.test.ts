@@ -233,7 +233,7 @@ describe("Workbench quit with save dialog", () => {
         expect(exitSpy).toHaveBeenCalledOnce();
     });
 
-    it("Save безымянного буфера на выходе не сохраняет — выход отменён, текст жив", async () => {
+    it("Save of an untitled buffer on quit does not save: quit is canceled, the text survives", async () => {
         const { testApp, workbench, accessor, commands } = createTestContext(exitSpy);
         commands.execute("workbench.action.files.newUntitledFile");
         workbench.focusEditor();
@@ -356,7 +356,7 @@ describe("Workbench close-tab confirm flow", () => {
  * Label of an untitled buffer in the confirmation dialog: Ctrl+N reaches these branches,
  * and the dialog must match the tab label `Untitled-1`, not say "untitled".
  */
-describe("Workbench — диалог сохранения для безымянного буфера", () => {
+describe("Workbench: save dialog for an untitled buffer", () => {
     function dialogText(testApp: TestApp): string {
         const dialog = testApp.querySelector("#confirmSaveDialog");
         return (dialog?.querySelectorAll("TextLabelElement") ?? [])
@@ -364,7 +364,7 @@ describe("Workbench — диалог сохранения для безымян�
             .join("\n");
     }
 
-    it("называет буфер Untitled-1, а не «untitled» (quit)", () => {
+    it("names the buffer Untitled-1, not 'untitled' (quit)", () => {
         const { testApp, workbench, accessor, commands } = createTestContext();
         commands.execute("workbench.action.files.newUntitledFile");
         workbench.focusEditor();
@@ -376,7 +376,7 @@ describe("Workbench — диалог сохранения для безымян�
         expect(dialogText(testApp)).not.toContain("untitled?");
     });
 
-    it("называет буфер Untitled-2, когда закрывают вторую вкладку (close)", () => {
+    it("names the buffer Untitled-2 when the second tab is closed (close)", () => {
         const { testApp, workbench, commands } = createTestContext();
         commands.execute("workbench.action.files.newUntitledFile");
         commands.execute("workbench.action.files.newUntitledFile");

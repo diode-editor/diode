@@ -11,7 +11,7 @@ import { createStatusBarHarness } from "./statusBarComponent.testUtils.ts";
 const LEFT_TEXT = " legacy ";
 const RIGHT_TEXT = " Ln 1, Col 1  Tab Size: 4  UTF-8  LF  plaintext ";
 
-describe("StatusBarComponent — кадр", () => {
+describe("StatusBarComponent — frame", () => {
     let savedEnv: NodeJS.ProcessEnv;
 
     beforeEach(() => {
@@ -41,19 +41,19 @@ describe("StatusBarComponent — кадр", () => {
         return backend.screenToString().split("\n")[0];
     }
 
-    it("паддинги по краям, левые сегменты слева, правые прижаты к правому краю", () => {
+    it("padding at the edges, left segments on the left, right ones pushed to the right edge", () => {
         const line = renderLine(62);
         // 1 (padL) + left segment + centerFill + right group + 1 (padR) = 62.
         const fill = " ".repeat(62 - 1 - LEFT_TEXT.length - RIGHT_TEXT.length - 1);
         expect(line).toBe(` ${LEFT_TEXT}${fill}${RIGHT_TEXT} `);
     });
 
-    it("без открытого файла — только левый сегмент на фоне полосы", () => {
+    it("without an open file — only the left segment on the bar background", () => {
         const line = renderLine(20, false);
         expect(line).toBe(` ${LEFT_TEXT}` + " ".repeat(20 - 1 - LEFT_TEXT.length));
     });
 
-    it("фон всей полосы — statusBar.background темы, включая паддинги и середину", () => {
+    it("the whole bar background is the theme's statusBar.background, including padding and the middle", () => {
         const harness = createStatusBarHarness();
         harness.source.openEditor();
         const backend = renderElement(harness.component.view, 45, 1, { themeVars: true });
@@ -64,7 +64,7 @@ describe("StatusBarComponent — кадр", () => {
         }
     });
 
-    it("при нехватке ширины правая группа теряет выравнивание и обрезается краем экрана", () => {
+    it("when width runs out the right group loses its alignment and is clipped by the screen edge", () => {
         const line = renderLine(30);
         // centerFill collapses to 0; the tail runs past the edge and is clipped.
         expect(line).toBe(` ${LEFT_TEXT}${RIGHT_TEXT} `.slice(0, 30));

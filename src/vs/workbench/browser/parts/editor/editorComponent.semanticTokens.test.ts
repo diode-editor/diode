@@ -29,7 +29,7 @@ const LEGEND = { tokenTypes: ["class", "parameter"], tokenModifiers: [] };
 /** Dark Modern: class — `entity.name.type.class` → #4EC9B0. */
 const CLASS_FG = parseHexColor("#4EC9B0");
 
-describe("EditorComponent — семантическая подсветка от провайдера", () => {
+describe("EditorComponent — semantic highlighting from a provider", () => {
     let ws: ITempWorkspace;
     let languageFeatures: LanguageFeaturesService;
     let feature: DocumentSemanticTokensFeature;
@@ -58,7 +58,7 @@ describe("EditorComponent — семантическая подсветка от
         return { pane, app, gutter: 6 };
     }
 
-    it("токены провайдера документа доходят до кадра: класс красится цветом темы", async () => {
+    it("document provider tokens reach the frame: a class is painted with the theme color", async () => {
         const provider: DocumentSemanticTokensProvider = {
             getLegend: () => LEGEND,
             provideDocumentSemanticTokens: () =>
@@ -79,7 +79,7 @@ describe("EditorComponent — семантическая подсветка от
         expect(app.backend.getFgAt(new Point(gutter + 4, 0))).toBe(parseHexColor("#267f99"));
     });
 
-    it("видимая область для range-провайдера — строки документа под скроллом", () => {
+    it("the visible range for a range provider is the document lines under the scroll", () => {
         let viewport: ISemanticTokensViewport | undefined;
         const attach = feature.attach.bind(feature);
         vi.spyOn(feature, "attach").mockImplementation((model) => {
@@ -101,7 +101,7 @@ describe("EditorComponent — семантическая подсветка от
         expect(viewport?.getVisibleLineRange()).toEqual({ startLine: 99, endLine: 99 });
     });
 
-    it("вью одного документа делят токены; закрытие последней снимает документ", async () => {
+    it("views of one document share tokens; closing the last one drops the document", async () => {
         let requests = 0;
         let released = 0;
         languageFeatures.documentSemanticTokensProvider.register("*", {
@@ -122,7 +122,7 @@ describe("EditorComponent — семантическая подсветка от
         expect(released).toBe(1);
     });
 
-    it("пока полного набора нет, видимую область докрашивает range-провайдер", async () => {
+    it("until the full set arrives, the range provider paints the visible range", async () => {
         const ranges: number[][] = [];
         const rangeProvider: DocumentRangeSemanticTokensProvider = {
             getLegend: () => LEGEND,

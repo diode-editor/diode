@@ -34,7 +34,7 @@ describe("Tab close actions", () => {
 
     const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
-    it("Close Others закрывает всё, кроме адресованной вкладки", async () => {
+    it("Close Others closes everything except the addressed tab", async () => {
         openAll("a.txt", "b.txt", "c.txt");
         // c.txt is active (opened last), while we address b.txt.
         expect(group().activeIndex).toBe(2);
@@ -45,7 +45,7 @@ describe("Tab close actions", () => {
         expect(labels()).toEqual(["b.txt"]);
     });
 
-    it("Close to the Right закрывает только правый хвост", async () => {
+    it("Close to the Right closes only the tail on the right", async () => {
         openAll("a.txt", "b.txt", "c.txt", "d.txt");
 
         h.commands.execute("workbench.action.closeEditorsToTheRight", group().id, 1);
@@ -54,7 +54,7 @@ describe("Tab close actions", () => {
         expect(labels()).toEqual(["a.txt", "b.txt"]);
     });
 
-    it("Close to the Right закрывает с дальнего края — Cancel оставляет хвост до грязной", async () => {
+    it("Close to the Right closes from the far end — Cancel keeps the tail up to the dirty tab", async () => {
         openAll("a.txt", "b.txt", "c.txt", "d.txt");
         const dirty = group().getPanes()[1] as { viewState: { type(text: string): unknown } };
         dirty.viewState.type("edited");
@@ -72,7 +72,7 @@ describe("Tab close actions", () => {
         expect(labels()).toEqual(["a.txt", "b.txt"]);
     });
 
-    it("Close Saved оставляет изменённые вкладки", async () => {
+    it("Close Saved keeps modified tabs", async () => {
         openAll("a.txt", "b.txt", "c.txt");
         const dirty = group().getPanes()[1] as { viewState: { type(text: string): unknown } };
         dirty.viewState.type("edited");
@@ -84,7 +84,7 @@ describe("Tab close actions", () => {
         expect(h.container.get(DialogServiceDIToken).getOpenConfirmSaveDialog()).toBeNull();
     });
 
-    it("Close Others спрашивает про несохранённую вкладку, Cancel прерывает серию", async () => {
+    it("Close Others asks about an unsaved tab, Cancel aborts the run", async () => {
         openAll("a.txt", "b.txt", "c.txt");
         const dirty = group().getPanes()[2] as { viewState: { type(text: string): unknown } };
         dirty.viewState.type("edited");
@@ -104,7 +104,7 @@ describe("Tab close actions", () => {
         expect(labels()).toEqual(["a.txt", "b.txt", "c.txt"]);
     });
 
-    it("Close Others: Save по untitled без пути не закрывает вкладку — текст не теряется", async () => {
+    it("Close Others: Save on an untitled tab without a path does not close it — the text is not lost", async () => {
         openAll("a.txt");
         service().newUntitled();
         const untitled = group().getPanes()[1] as unknown as { viewState: { type(text: string): unknown } };
@@ -120,7 +120,7 @@ describe("Tab close actions", () => {
         expect(group().getPanes()[1].isModified).toBe(true);
     });
 
-    it("адресованная команда работает по чужой группе, не трогая активную", async () => {
+    it("an addressed command works on another group without touching the active one", async () => {
         openAll("a.txt");
         h.commands.execute("workbench.action.splitEditor");
         openAll("b.txt", "c.txt");
@@ -135,7 +135,7 @@ describe("Tab close actions", () => {
         expect(labels(first)).toEqual(["a.txt"]);
     });
 
-    it("без аргументов команды работают по активной вкладке (палитра)", async () => {
+    it("without arguments the commands work on the active tab (command palette)", async () => {
         openAll("a.txt", "b.txt", "c.txt");
 
         h.commands.execute("workbench.action.closeOtherEditors");
@@ -144,7 +144,7 @@ describe("Tab close actions", () => {
         expect(labels()).toEqual(["c.txt"]);
     });
 
-    it("одно число адресом не считается — команда идёт по активной вкладке", async () => {
+    it("a single number is not an address — the command targets the active tab", async () => {
         openAll("a.txt", "b.txt", "c.txt"); // c.txt is active
 
         // A single number cannot be an address: otherwise the command would find no tab and silently do nothing.
@@ -154,7 +154,7 @@ describe("Tab close actions", () => {
         expect(labels()).toEqual(["c.txt"]);
     });
 
-    it("пункты не выполняются по протухшему адресу", async () => {
+    it("items do not run on a stale address", async () => {
         openAll("a.txt", "b.txt");
 
         h.commands.execute("workbench.action.closeOtherEditors", 9999, 0);
@@ -165,7 +165,7 @@ describe("Tab close actions", () => {
         expect(labels()).toEqual(["a.txt", "b.txt"]);
     });
 
-    it("Split Right по адресу сплитит вкладку под курсором, а не активную", async () => {
+    it("Split Right with an address splits the tab under the pointer, not the active one", async () => {
         openAll("a.txt", "b.txt", "c.txt");
 
         h.commands.execute("workbench.action.splitEditorRight", group().id, 0);

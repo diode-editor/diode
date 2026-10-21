@@ -29,26 +29,26 @@ function panelHarness(views: string[], contributions: MenuContribution[] = []): 
     return h;
 }
 
-describe("ViewsService — контейнер в нижней панели", () => {
-    it("стенд знает только приаттаченные контейнеры", () => {
+describe("ViewsService — container in the bottom panel", () => {
+    it("the harness knows only attached containers", () => {
         const h = makeViewsHarness();
         expect(() => h.root("ghost")).toThrow(/is not attached anywhere/);
     });
 
-    it("контейнер регистрируется вкладкой панели, контент — стопка секций", () => {
+    it("the container registers as a panel tab, its content is a stack of sections", () => {
         const h = panelHarness(["output.view"]);
         const tab = h.panelService.getViews().find((v) => v.id === OUTPUT);
         expect(tab?.title).toBe("OUTPUT");
         expect(tab?.content).toBe(h.paneView(OUTPUT));
     });
 
-    it("одна секция — без своей строки заголовка: заголовок это таб", () => {
+    it("single section has no header row of its own: the tab is the header", () => {
         const h = panelHarness(["output.view"]);
         const header = h.paneView(OUTPUT).querySelector("#paneHeader-output-view")!;
         expect(header.hidden).toBe(true);
     });
 
-    it("две секции — внутри вкладки обычные сворачиваемые заголовки", () => {
+    it("two sections: regular collapsible headers inside the tab", () => {
         const h = panelHarness(["output.view", "output.extra"]);
         const paneView = h.paneView(OUTPUT);
         expect(paneView.getPaneIds()).toEqual(["output.view", "output.extra"]);
@@ -56,7 +56,7 @@ describe("ViewsService — контейнер в нижней панели", () 
         expect(paneView.querySelector("#paneHeader-output-view")!.inspectState()).toMatchObject({ collapsible: true });
     });
 
-    it("reveal контейнера ведёт фокус в его единственную секцию", () => {
+    it("revealing the container moves focus into its only section", () => {
         const h = panelHarness(["output.view"]);
         // The fixture descriptor carries a default focus — what matters is that the location calls it.
         expect(() => {
@@ -64,7 +64,7 @@ describe("ViewsService — контейнер в нижней панели", () 
         }).not.toThrow();
     });
 
-    it("секция без текста подсказки рисует пустую строку, а не падает", () => {
+    it("a section without hint text renders an empty row instead of crashing", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
         h.service.registerView(testView("output.view", OUTPUT, 10, { body: null }));
@@ -74,7 +74,7 @@ describe("ViewsService — контейнер в нижней панели", () 
         expect(placeholder.getText()).toBe("");
     });
 
-    it("виджет заголовка, выставленный до attach, доезжает до таб-строки", () => {
+    it("a title widget set before attach reaches the tab row", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
         h.service.registerView(testView("output.view", OUTPUT, 10));
@@ -87,7 +87,7 @@ describe("ViewsService — контейнер в нижней панели", () 
         expect(h.tabActions(OUTPUT)!.querySelector("#channel-picker")).toBe(widget);
     });
 
-    it("пустая секция рисует подсказку вместо тела", () => {
+    it("an empty section renders the hint instead of the body", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: OUTPUT, title: "OUTPUT", location: "panel" });
         h.service.registerView(testView("output.view", OUTPUT, 10, { body: null, placeholder: "No output yet." }));
@@ -98,13 +98,13 @@ describe("ViewsService — контейнер в нижней панели", () 
     });
 });
 
-describe("ViewsService — полоса контролов в таб-строке", () => {
-    it("без кнопок, виджета и меню полосы нет вовсе", () => {
+describe("ViewsService — controls strip in the tab row", () => {
+    it("without buttons, widget and menu there is no strip at all", () => {
         const h = panelHarness(["output.view"]);
         expect(h.tabActions(OUTPUT)).toBeNull();
     });
 
-    it("одной кнопки хватает, чтобы полоса появилась", () => {
+    it("one button is enough for the strip to appear", () => {
         // A button is strip content just like a widget, "⋯" or a spinner:
         // without it there is no strip, with it there must be one.
         const h = panelHarness(
@@ -123,7 +123,7 @@ describe("ViewsService — полоса контролов в таб-строк�
         expect(h.tabActions(OUTPUT)).not.toBeNull();
     });
 
-    it("виджет заголовка единственной секции уезжает в таб-строку, а не в её заголовок", () => {
+    it("the only section's title widget moves into the tab row, not its header", () => {
         const h = panelHarness(["output.view"]);
         const widget = new FillerElement();
         widget.id = "channel-picker";
@@ -134,7 +134,7 @@ describe("ViewsService — полоса контролов в таб-строк�
         expect(h.paneView(OUTPUT).querySelector("#channel-picker")).toBeNull();
     });
 
-    it("при двух секциях виджет остаётся в заголовке своей секции", () => {
+    it("with two sections the widget stays in its section header", () => {
         const h = panelHarness(["output.view", "output.extra"]);
         const widget = new FillerElement();
         widget.id = "channel-picker";
@@ -145,7 +145,7 @@ describe("ViewsService — полоса контролов в таб-строк�
         expect(h.tabActions(OUTPUT)!.querySelector("#channel-picker")).toBeNull();
     });
 
-    it("полоса несёт кнопки единственной секции, а «⋯» — её overflow", () => {
+    it("the strip carries the only section's buttons, and ⋯ its overflow", () => {
         const h = panelHarness(
             ["output.view"],
             [
@@ -179,7 +179,7 @@ describe("ViewsService — полоса контролов в таб-строк�
         ]);
     });
 
-    it("submenu-выбор навигации — это виджет, а не пункт «⋯»: кнопки ради него нет", () => {
+    it("a navigation submenu picker is a widget, not a ⋯ item: no button for it", () => {
         // Dogfooding: OUTPUT's "⋯" opened a single "Switch Output ›" item —
         // a copy of the channel selector right next to it.
         const h = panelHarness(
@@ -206,7 +206,7 @@ describe("ViewsService — полоса контролов в таб-строк�
         expect(labels).toEqual([""]);
     });
 
-    it("submenu-выбор вне навигации и обычное submenu навигации остаются в «⋯»", () => {
+    it("a submenu picker outside navigation and a plain navigation submenu stay in ⋯", () => {
         // In VS Code only the `navigation` group goes to the toolbar (and hence
         // to the SelectBox); the rest become "Views and More Actions..." items.
         const h = panelHarness(
@@ -240,7 +240,7 @@ describe("ViewsService — полоса контролов в таб-строк�
         ]);
     });
 
-    it("рядом с настоящим overflow submenu-выбор в попап «⋯» всё равно не попадает", () => {
+    it("next to real overflow, the submenu picker still stays out of the ⋯ popup", () => {
         const h = panelHarness(
             ["output.view"],
             [
@@ -290,13 +290,13 @@ describe("ViewsService — полоса контролов в таб-строк�
         return labels.includes("⋯");
     }
 
-    it("«⋯» зажигает пункт вне навигации и пункт навигации без иконки, но не кнопка", () => {
+    it("an item outside navigation and a navigation item without an icon light up ⋯, a button does not", () => {
         expect(menuButtonShown({ group: "navigation", icon: "D" })).toBe(false);
         expect(menuButtonShown({ group: "navigation" })).toBe(true);
         expect(menuButtonShown({ group: "2_more", icon: "D" })).toBe(true);
     });
 
-    it("обычное submenu навигации «⋯» зажигает — рисовать его, кроме как пунктом попапа, негде", () => {
+    it("a plain navigation submenu lights up ⋯: it can only be rendered as a popup item", () => {
         const h = panelHarness(
             ["output.view"],
             [
@@ -317,7 +317,7 @@ describe("ViewsService — полоса контролов в таб-строк�
         expect(labels).toContain("⋯");
     });
 
-    it("одна лишь навигация из submenu-выбора «⋯» не зажигает", () => {
+    it("navigation consisting only of a submenu picker does not light up ⋯", () => {
         // The static check (`hasOverflow`) must agree with the popup:
         // a button with no items looks broken.
         const h = panelHarness(
@@ -337,7 +337,7 @@ describe("ViewsService — полоса контролов в таб-строк�
         expect(h.tabActions(OUTPUT)).toBeNull();
     });
 
-    it("при двух секциях полоса несёт команды контейнера и переключатель секций", () => {
+    it("with two sections the strip carries container commands and the section toggle", () => {
         const h = panelHarness(
             ["output.view", "output.extra"],
             [

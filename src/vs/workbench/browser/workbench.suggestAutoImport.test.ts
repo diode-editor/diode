@@ -17,7 +17,7 @@ const SECONDARY_CARET_BG = packRgb(0xae, 0xaf, 0xad);
  * landed on the import line. As upstream (`suggestController`), only the main insertion
  * places the cursor.
  */
-describe("Workbench — accept автодополнения с авто-импортом", () => {
+describe("Workbench: accepting a completion with auto-import", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -54,7 +54,7 @@ describe("Workbench — accept автодополнения с авто-импо
         ws.dispose();
     });
 
-    it("каретка одна — за вставленным словом на сдвинутой строке, и набор идёт только туда", async () => {
+    it("there is one cursor, after the inserted word on the shifted line, and typing goes only there", async () => {
         for (const char of "gre") h.testApp.sendKey(char);
         await settle();
         h.testApp.sendKey("Enter");
@@ -80,7 +80,7 @@ describe("Workbench — accept автодополнения с авто-импо
  * The main insertion places the cursor, not the shift past the edit: with a range extending
  * right of the cursor, the shift would leave it where the typed prefix was.
  */
-describe("Workbench — accept пункта с диапазоном замены правее каретки", () => {
+describe("Workbench: accepting an item whose replace range extends right of the cursor", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -122,7 +122,7 @@ describe("Workbench — accept пункта с диапазоном замены
         ws.dispose();
     });
 
-    it("каретка встаёт в конец вставки, а не на место префикса", async () => {
+    it("the cursor lands at the end of the insertion, not at the prefix", async () => {
         for (const char of "gre") h.testApp.sendKey(char);
         // The cursor is mid-word in "greXyz" — quick suggest stays silent (as upstream), so trigger it explicitly.
         h.commands.execute("editor.action.triggerSuggest");
@@ -139,7 +139,7 @@ describe("Workbench — accept пункта с диапазоном замены
  * Additional edits arrive right in the list (gopls has no `resolveProvider`); as upstream
  * ("sync additional edits"), accept applies them without a resolve.
  */
-describe("Workbench — accept пункта с правками-спутниками из самого списка", () => {
+describe("Workbench: accepting an item with additional edits from the list itself", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let resolveCalls: number;
@@ -191,9 +191,9 @@ describe("Workbench — accept пункта с правками-спутника
     });
 
     it.each([
-        ["без resolve у провайдера", false],
-        ["resolve есть, но молчит", true],
-    ])("импорт попадает в буфер вместе со вставкой — %s", async (_name, withResolve) => {
+        ["provider without resolve", false],
+        ["resolve present but returns nothing", true],
+    ])("the import lands in the buffer along with the insertion: %s", async (_name, withResolve) => {
         open(withResolve);
         for (const char of "ToLo") h.testApp.sendKey(char);
         await settle();

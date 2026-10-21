@@ -80,12 +80,12 @@ describe("withMacKeybindings", () => {
     const deltas = (delta: MacKeybindingDelta): ReadonlyMap<string, MacKeybindingDelta> =>
         new Map([[delta.command, delta]]);
 
-    it("команда без дельты возвращается как есть", () => {
+    it("a command without a delta is returned as is", () => {
         const plain = action({ id: "x", keybinding: parseKeybinding("ctrl+x") });
         expect(withMacKeybindings(plain, new Map())).toBe(plain);
     });
 
-    it("pcOnly получает «не мак», мак-бинды — «рунг ≥ from»; порядок и прочие поля сохраняются", () => {
+    it("pcOnly gets 'not mac', mac keybindings get 'rung ≥ from'; order and other fields are kept", () => {
         const result = withMacKeybindings(
             action({
                 id: "cursorWordLeft",
@@ -113,7 +113,7 @@ describe("withMacKeybindings", () => {
         ]);
     });
 
-    it("условный бинд-АККОРД переносится целиком: чорд не разворачивается в одну часть", () => {
+    it("a conditional CHORD keybinding is carried over whole: the chord does not collapse into one part", () => {
         // No such defaults exist yet, but `ConditionalKeybinding` allows the shape, and a bug
         // would silently turn Ctrl+K Ctrl+E into Ctrl+K.
         const result = withMacKeybindings(
@@ -135,7 +135,7 @@ describe("withMacKeybindings", () => {
         ]);
     });
 
-    it("pcOnly сверяется с объявлением, включая mod и условие", () => {
+    it("pcOnly is checked against the declaration, including mod and the condition", () => {
         const result = withMacKeybindings(
             action({ id: "a", keybinding: { keys: parseKeybinding("mod+a"), when: "listFocus" } }),
             deltas({ command: "a", pcOnly: ["mod+a"] }),
@@ -145,15 +145,15 @@ describe("withMacKeybindings", () => {
         ]);
     });
 
-    it("pcOnly, которого нет среди биндов, — ошибка таблицы", () => {
+    it("a pcOnly missing from the keybindings is a table error", () => {
         expect(() =>
             withMacKeybindings(action({ id: "a" }), deltas({ command: "a", pcOnly: ["ctrl+q", "ctrl+w"] })),
-        ).toThrow("a: pcOnly ctrl+q, ctrl+w не найден среди биндов команды");
+        ).toThrow("a: pcOnly ctrl+q, ctrl+w not found among the command's bindings");
     });
 });
 
-describe("таблица мак-дельт", () => {
-    it("содержимое таблицы — пользовательский контракт (эталон vscode)", () => {
+describe("mac delta table", () => {
+    it("table contents are a user-facing contract (upstream vscode)", () => {
         const flat = MAC_KEYBINDING_DELTAS.map((delta) =>
             [
                 delta.command,
@@ -235,14 +235,14 @@ describe("таблица мак-дельт", () => {
         ]);
     });
 
-    it("каждая дельта ссылается на встроенную команду, и каждая накладывается без ошибок", () => {
+    it("every delta references a built-in command and applies without errors", () => {
         const ids = new Set(WORKBENCH_ACTIONS.map((builtin) => builtin.id));
         expect(MAC_KEYBINDING_DELTAS.map((delta) => delta.command).filter((id) => !ids.has(id))).toEqual([]);
         expect(() => WORKBENCH_ACTIONS.map((builtin) => withMacKeybindings(builtin))).not.toThrow();
         expect(new Set(MAC_KEYBINDING_DELTAS.map((delta) => delta.command)).size).toBe(MAC_KEYBINDING_DELTAS.length);
     });
 
-    it("ни одна мак-дельта не ставит alt+<буква>, ctrl+←/→ или Cmd+C/V/X", () => {
+    it("no mac delta binds alt+<letter>, ctrl+←/→ or Cmd+C/V/X", () => {
         const offending = MAC_KEYBINDING_DELTAS.flatMap((delta) =>
             (delta.mac ?? [])
                 .filter(({ keys }) => {
@@ -257,7 +257,7 @@ describe("таблица мак-дельт", () => {
         expect(offending).toEqual([]);
     });
 
-    it("мак-бинд объявлен на самом низком рунге, где доезжает: legacy-комбинации не заперты выше", () => {
+    it("a mac keybinding is declared on the lowest rung where it is delivered: legacy chords are not locked higher", () => {
         // The single exception: a Ctrl chord that below cmd is taken by another command's mod
         // fallback (⌃N — New File) lives from cmd on, where mod is already Cmd.
         const taken = modFallbackChords();
@@ -272,7 +272,7 @@ describe("таблица мак-дельт", () => {
         expect(tooHigh).toEqual([]);
     });
 
-    it("Ctrl-аккорд с рунга cmd — только если ниже он занят фоллбэком mod (не запирать зря)", () => {
+    it("a Ctrl chord from the cmd rung only if lower down it is taken by the mod fallback (no needless locking)", () => {
         const taken = modFallbackChords();
         const lockedWithoutReason = MAC_KEYBINDING_DELTAS.flatMap((delta) =>
             (delta.mac ?? [])
@@ -290,7 +290,7 @@ const PRE_EXISTING_PC_CONFLICTS = new Set([
     "ctrl+k ctrl+f: editor.action.formatSelection / workbench.action.navigateForward",
 ]);
 
-describe("инвариант: внутри семейства условия взаимоисключающие", () => {
+describe("invariant: conditions within a family are mutually exclusive", () => {
     // The resolver walks from the end: if pc and mac bindings both match, registration order silently wins.
     const registry = registerBuiltins();
 
@@ -315,7 +315,7 @@ describe("инвариант: внутри семейства условия в�
     });
 });
 
-describe("mod разворачивается по рунгу", () => {
+describe("mod expands by rung", () => {
     const registry = registerBuiltins();
     const saveChords = (env: Environment): string[] =>
         activeEntries(registry, contextFor(env, {}))
@@ -327,16 +327,16 @@ describe("mod разворачивается по рунгу", () => {
         ["mac-legacy", { name: "mac", tier: "legacy", rung: "legacy" }, ["ctrl+s", "ctrl+k s"]],
         ["mac-cmd", { name: "mac", tier: "kitty", rung: "cmd" }, ["meta+s", "meta+k s"]],
         [
-            "kitty + tmux ⇒ Cmd выключен",
+            "kitty + tmux ⇒ Cmd disabled",
             { name: "mac", tier: "kitty", rung: "extended", tmux: true },
             ["ctrl+s", "ctrl+k s"],
         ],
-    ])("%s: save на %j", (_name, env, expected) => {
+    ])("%s: save on %j", (_name, env, expected) => {
         expect(saveChords(env)).toEqual(expected);
     });
 });
 
-describe("паритет с мак-раскладкой VS Code (эталон 1.138)", () => {
+describe("parity with the VS Code mac keymap (upstream 1.138)", () => {
     // An upstream mac binding must work on mac-cmd whenever its pc pair works in diode on pc
     // (if it is missing on pc too, that is a pc-parity gap). Mac bindings without a pc pair always must.
     const registry = registerBuiltins();
@@ -404,7 +404,7 @@ describe("паритет с мак-раскладкой VS Code (эталон 1.
     });
 });
 
-describe("каждый мак-бинд таблицы действует на своём рунге и выше", () => {
+describe("every mac keybinding of the table works on its rung and above", () => {
     // Every rung from `from` to cmd must have a focus where the binding works; otherwise the
     // binding is lost (like Option+← on mac-cmd under the tier condition of the legacy fallback).
     const registry = registerBuiltins();
@@ -445,7 +445,7 @@ describe("каждый мак-бинд таблицы действует на с
     });
 });
 
-describe("mac-legacy: каждая топ-команда достижима доставляемой комбинацией", () => {
+describe("mac-legacy: every top command is reachable with a deliverable chord", () => {
     // diode has no Save All and Replace yet; they are in the docs/TODO/MacKeybindings.md tracker.
     const TOP_COMMANDS = [
         "workbench.action.files.save",

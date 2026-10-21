@@ -37,7 +37,7 @@ function makeKeys(editor: unknown): {
 }
 
 describe("LanguageFeatureContextKeys", () => {
-    it("без провайдеров все ключи ложны — меню не обещает нерабочее", () => {
+    it("without providers all keys are false, so menus do not offer what does not work", () => {
         const { keys, update } = makeKeys(editorStub());
 
         update();
@@ -50,7 +50,7 @@ describe("LanguageFeatureContextKeys", () => {
         expect(keys.evaluate("editorHasDocumentSelectionFormattingProvider")).toBe(false);
     });
 
-    it("каждый ключ поднимает свой реестр и только его", () => {
+    it("each key is raised by its own registry and only by it", () => {
         const { keys, features, update } = makeKeys(editorStub());
         const noop = {} as never;
 
@@ -72,7 +72,7 @@ describe("LanguageFeatureContextKeys", () => {
         expect(keys.evaluate("editorHasDocumentSelectionFormattingProvider")).toBe(true);
     });
 
-    it("провайдер чужого языка ключ не поднимает", () => {
+    it("a provider for another language does not raise the key", () => {
         const { keys, features, update } = makeKeys(editorStub({ languageId: "markdown" }));
         features.renameProvider.register({ language: "typescript" }, {} as never);
 
@@ -81,7 +81,7 @@ describe("LanguageFeatureContextKeys", () => {
         expect(keys.evaluate("editorHasRenameProvider")).toBe(false);
     });
 
-    it("без активного редактора ключи сбрасываются, а не залипают от прошлого документа", () => {
+    it("without an active editor the keys reset instead of sticking from the previous document", () => {
         const { keys, features, update } = makeKeys(editorStub());
         features.renameProvider.register({ language: "typescript" }, {} as never);
         update();
@@ -95,7 +95,7 @@ describe("LanguageFeatureContextKeys", () => {
         expect(closed.keys.evaluate("editorHasSelection")).toBe(false);
     });
 
-    it("editorHasSelection — только при непустом выделении", () => {
+    it("editorHasSelection only with a non-empty selection", () => {
         const empty = makeKeys(editorStub());
         empty.update();
         expect(empty.keys.evaluate("editorHasSelection")).toBe(false);

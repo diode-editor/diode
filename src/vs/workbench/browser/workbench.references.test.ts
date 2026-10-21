@@ -99,7 +99,7 @@ describe("Workbench — Find All References end-to-end", () => {
             },
             referenceList: () => {
                 const list = workbench.view.querySelector("#referenceResults");
-                expect(list, "список ссылок не найден в дереве").not.toBeNull();
+                expect(list, "references list not found in the tree").not.toBeNull();
                 return list as ListViewElement;
             },
             contextKey: (key) => contextKeys.get(key),
@@ -120,7 +120,7 @@ describe("Workbench — Find All References end-to-end", () => {
         };
     }
 
-    it("команда спрашивает провайдеров по каретке и показывает ссылки в сайдбаре", async () => {
+    it("the command queries providers at the cursor and shows the references in the sidebar", async () => {
         const h = setup();
         expect(h.screen()).toContain("EXPLORER");
 
@@ -144,7 +144,7 @@ describe("Workbench — Find All References end-to-end", () => {
         expect(h.viewRoot()).not.toBeNull();
     });
 
-    it("вьюлет доступен из меню View и до первого поиска — пустой панелью", () => {
+    it("the viewlet is available from the View menu before the first search, as an empty panel", () => {
         const h = setup();
 
         h.execute(SHOW_REFERENCES);
@@ -156,7 +156,7 @@ describe("Workbench — Find All References end-to-end", () => {
         expect(h.contextKey("hasReferenceResult")).toBe(false);
     });
 
-    it("Enter на ссылке открывает её файл на позиции", async () => {
+    it("Enter on a reference opens its file at the position", async () => {
         const h = setup();
         h.execute(FIND_REFERENCES);
         await h.awaitResults();
@@ -170,7 +170,7 @@ describe("Workbench — Find All References end-to-end", () => {
         expect(h.caret()).toEqual({ line: 0, character: 16 });
     });
 
-    it("F4 ведёт к следующей ссылке, не уводя фокус в панель", async () => {
+    it("F4 goes to the next reference without moving focus to the panel", async () => {
         const h = setup();
         h.execute(FIND_REFERENCES);
         await h.awaitResults();
@@ -183,7 +183,7 @@ describe("Workbench — Find All References end-to-end", () => {
         expect(h.caret()).toEqual({ line: 0, character: 9 });
     });
 
-    it("переключение на Explorer и обратно не теряет результат", async () => {
+    it("switching to Explorer and back keeps the result", async () => {
         const h = setup();
         h.execute(FIND_REFERENCES);
         await h.awaitResults();

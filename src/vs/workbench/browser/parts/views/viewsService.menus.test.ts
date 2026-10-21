@@ -110,15 +110,15 @@ function entriesOf(submenuEntry: MenuSubmenuEntry): MenuEntry[] {
     return typeof submenuEntry.entries === "function" ? submenuEntry.entries() : submenuEntry.entries;
 }
 
-describe("ViewsService — inline-кнопки заголовка", () => {
-    it("группа navigation с иконкой едет в кнопки заголовка секции", () => {
+describe("ViewsService — inline title buttons", () => {
+    it("the navigation group with an icon goes into the section title buttons", () => {
         const h = scmHarness([CHANGES, GRAPH, "scm.stashes"]);
         expect(buttonIcons(h, CHANGES)).toEqual(["R"]);
         expect(buttonIcons(h, GRAPH)).toEqual(["L"]);
         expect(buttonIcons(h, "scm.stashes")).toEqual([]);
     });
 
-    it("клик по inline-кнопке исполняет её команду", () => {
+    it("clicking an inline button runs its command", () => {
         const h = scmHarness();
         const run = vi.fn();
         h.commands.register("scm.refreshChanges", run, "Refresh");
@@ -127,12 +127,12 @@ describe("ViewsService — inline-кнопки заголовка", () => {
         expect(run).toHaveBeenCalledOnce();
     });
 
-    it("неизвестная кнопка — тихий no-op", () => {
+    it("an unknown button is a silent no-op", () => {
         const h = scmHarness();
         expect(() => h.paneView("scm").onDidRequestPaneAction?.(CHANGES, "scm.ghost")).not.toThrow();
     });
 
-    it("недоступная команда: кнопка гаснет по refreshTitleActions и не исполняется", () => {
+    it("disabled command: the button dims on refreshTitleActions and does not run", () => {
         const h = makeViewsHarness([
             {
                 menuId: MenuId.ViewTitle,
@@ -171,7 +171,7 @@ describe("ViewsService — inline-кнопки заголовка", () => {
 
     // `registerView` legitimately creates containers without a built control — the
     // context key pass must skip them rather than crash in attached().
-    it("refreshTitleActions пропускает зарегистрированный, но не собранный контейнер", () => {
+    it("refreshTitleActions skips a registered but not built container", () => {
         const h = makeViewsHarness(CONTRIBUTIONS);
         h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
         h.service.registerView(testView(CHANGES, "scm", 10));
@@ -187,7 +187,7 @@ describe("ViewsService — inline-кнопки заголовка", () => {
         expect(buttonForegrounds(h, CHANGES)).toEqual(["descriptionForeground"]);
     });
 
-    it("команда контейнера исполняется из его заголовка", () => {
+    it("a container command runs from its header", () => {
         const h = makeViewsHarness([
             {
                 menuId: MenuId.ViewContainerTitle,
@@ -210,8 +210,8 @@ describe("ViewsService — inline-кнопки заголовка", () => {
     });
 });
 
-describe("ViewsService — попап «⋯» секции", () => {
-    it("показывает только overflow — inline-пункты в попапе не дублируются", () => {
+describe("ViewsService — section ⋯ popup", () => {
+    it("shows only overflow: inline items are not duplicated in the popup", () => {
         const h = scmHarness();
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
         // Stage All is in the navigation group but has no icon, so it can't be a button
@@ -219,13 +219,13 @@ describe("ViewsService — попап «⋯» секции", () => {
         expect(labels(lastEntries(h))).toEqual(["Stage All", "---", "Commit All"]);
     });
 
-    it("секция без overflow-пунктов даёт пустое меню — попап не откроется", () => {
+    it("a section without overflow items yields an empty menu: the popup does not open", () => {
         const h = scmHarness();
         h.paneView("scm").onDidRequestPaneMenu?.(GRAPH, { screenX: 0, screenY: 0 });
         expect(lastEntries(h)).toEqual([]);
     });
 
-    it("якорь и владелец приходят от заголовка секции", () => {
+    it("anchor and owner come from the section header", () => {
         const h = scmHarness();
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 5, screenY: 7 });
         expect(h.shown.at(-1)!.getAnchor()).toEqual({ screenX: 5, screenY: 7 });
@@ -233,8 +233,8 @@ describe("ViewsService — попап «⋯» секции", () => {
     });
 });
 
-describe("ViewsService — попап «⋯» контейнера", () => {
-    it("команды контейнера и подменю-переключатель секций", () => {
+describe("ViewsService — container ⋯ popup", () => {
+    it("container commands and the section toggle submenu", () => {
         const h = scmHarness();
         h.header("scm")!.onMenu?.({ screenX: 1, screenY: 0 });
         expect(h.shown.at(-1)!.getAnchor()).toEqual({ screenX: 1, screenY: 0 });
@@ -244,7 +244,7 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         expect(labels(entriesOf(submenu(entries, "Views")))).toEqual(["SCM.CHANGES", "SCM.GRAPH"]);
     });
 
-    it("контейнер без своих команд показывает один переключатель секций", () => {
+    it("a container without its own commands shows only the section toggle", () => {
         const h = makeViewsHarness([]);
         h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
         h.service.registerView(testView(CHANGES, "scm", 10));
@@ -255,7 +255,7 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         expect(labels(lastEntries(h))).toEqual(["Views", "---", "Move To"]);
     });
 
-    it("видимые секции помечены галочкой, скрытые — нет", () => {
+    it("visible sections are checked, hidden ones are not", () => {
         const h = scmHarness();
         h.service.setViewVisible(GRAPH, false);
         h.header("scm")?.onMenu?.({ screenX: 1, screenY: 0 });
@@ -268,7 +268,7 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         ]);
     });
 
-    it("пункт подменю переключает видимость секции", () => {
+    it("a submenu item toggles section visibility", () => {
         const h = scmHarness();
         h.header("scm")!.onMenu?.({ screenX: 1, screenY: 0 });
         const views = entriesOf(submenu(lastEntries(h), "Views"));
@@ -280,7 +280,7 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         expect(h.paneView("scm").getPaneIds()).toEqual([CHANGES]);
     });
 
-    it("контейнер с одной секцией: в «⋯» только его команды, без подменю Views", () => {
+    it("container with one section: ⋯ has only its commands, no Views submenu", () => {
         const h = makeViewsHarness(CONTRIBUTIONS);
         h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
         h.service.registerView(testView(CHANGES, "scm", 10));
@@ -298,7 +298,7 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         ]);
     });
 
-    it("merged без команд контейнера: в подменю только переключатель секций", () => {
+    it("merged without container commands: the submenu has only the section toggle", () => {
         const h = makeViewsHarness([]);
         h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
         h.service.registerView(testView(CHANGES, "scm", 10));
@@ -310,7 +310,7 @@ describe("ViewsService — попап «⋯» контейнера", () => {
         expect(labels(entriesOf(submenu(lastEntries(h), "SOURCE CONTROL")))).toEqual(["Views", "---", "Move To"]);
     });
 
-    it("контейнер с одной зарегистрированной секцией переключателя не показывает", () => {
+    it("a container with one registered section shows no toggle", () => {
         const h = scmHarness([CHANGES]);
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
         const container = submenu(lastEntries(h), "SOURCE CONTROL");
@@ -318,14 +318,14 @@ describe("ViewsService — попап «⋯» контейнера", () => {
     });
 });
 
-describe("ViewsService — merged: меню контейнера уезжает в подменю секции", () => {
-    it("пункты секции, затем подменю с названием контейнера", () => {
+describe("ViewsService — merged: the container menu moves into a section submenu", () => {
+    it("section items, then a submenu titled with the container name", () => {
         const h = scmHarness([CHANGES]);
         h.paneView("scm").onDidRequestPaneMenu?.(CHANGES, { screenX: 0, screenY: 0 });
         expect(labels(lastEntries(h))).toEqual(["Stage All", "---", "Commit All", "---", "SOURCE CONTROL"]);
     });
 
-    it("inline-группа контейнера тоже уезжает в подменю — рисовать её негде", () => {
+    it("the container inline group also moves into the submenu: there is nowhere to render it", () => {
         const h = makeViewsHarness([
             {
                 menuId: MenuId.ViewContainerTitle,
@@ -348,7 +348,7 @@ describe("ViewsService — merged: меню контейнера уезжает 
         ]);
     });
 
-    it("контейнер без своих команд и без второй секции: в подменю только «Move To»", () => {
+    it("container without its own commands and without a second section: the submenu has only 'Move To'", () => {
         const h = makeViewsHarness(CONTRIBUTIONS);
         h.service.registerContainer({ id: "search", title: "SEARCH", location: "sidebar" });
         h.service.registerView(testView("search.results", "search", 10));
@@ -362,7 +362,7 @@ describe("ViewsService — merged: меню контейнера уезжает 
 
 // As upstream, a hidden container doesn't resolve its title buttons but catches up when shown:
 // at startup all containers are built while two are visible, and menu resolution is expensive.
-describe("ViewsService — кнопки заголовка скрытого контейнера", () => {
+describe("ViewsService — title buttons of a hidden container", () => {
     function hiddenScm(contributions: MenuContribution[] = CONTRIBUTIONS): IViewsHarness {
         const h = makeViewsHarness(contributions);
         h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
@@ -371,7 +371,7 @@ describe("ViewsService — кнопки заголовка скрытого ко
         return h;
     }
 
-    it("непоказанный вьюлет меню не резолвит, показанный получает кнопки", () => {
+    it("a viewlet not shown does not resolve menus, a shown one gets buttons", () => {
         const h = hiddenScm();
         const resolve = vi.spyOn(h.menuService, "getEntryGroups");
         h.service.attachContainer("scm");
@@ -385,7 +385,7 @@ describe("ViewsService — кнопки заголовка скрытого ко
         expect(buttonIcons(h, GRAPH)).toEqual(["L"]);
     });
 
-    it("смена ключей, пока вьюлет скрыт, видна сразу при показе", () => {
+    it("context key changes while the viewlet is hidden are visible right on show", () => {
         const h = hiddenScm([
             {
                 menuId: MenuId.ViewTitle,
@@ -414,7 +414,7 @@ describe("ViewsService — кнопки заголовка скрытого ко
         expect(buttonForegrounds(h, CHANGES)).toEqual(["disabledForeground"]);
     });
 
-    it("повторный показ без изменений меню заново не резолвит", () => {
+    it("showing again without menu changes does not resolve again", () => {
         const h = hiddenScm();
         h.service.attachContainer("scm");
         h.showViewlet("scm");
@@ -429,7 +429,7 @@ describe("ViewsService — кнопки заголовка скрытого ко
         expect(buttonIcons(h, CHANGES)).toEqual(["R"]);
     });
 
-    it("неактивная вкладка панели получает полосу контролов, когда её делают активной", () => {
+    it("an inactive panel tab gets its controls strip when it becomes active", () => {
         const h = makeViewsHarness([
             {
                 menuId: MenuId.ViewTitle,

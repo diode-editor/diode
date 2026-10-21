@@ -28,12 +28,12 @@ describe("StatusBarComponent — language badge", () => {
         process.env = savedEnv;
     });
 
-    it("нет беджика без активного редактора", () => {
+    it("no badge without an active editor", () => {
         const { component } = createStatusBarHarness();
         expect(statusSegments(component.view)).toEqual([{ text: "legacy", side: "left" }]);
     });
 
-    it("показывает display name из ILanguageService, беджик правее Ln/Col", () => {
+    it("shows the display name from ILanguageService, badge to the right of Ln/Col", () => {
         const languageService: ILanguageService = {
             ...NULL_LANGUAGE_SERVICE,
             getLanguageIdForResource: () => undefined,
@@ -54,7 +54,7 @@ describe("StatusBarComponent — language badge", () => {
         ]);
     });
 
-    it("откатывается на сырой language id без display name", () => {
+    it("falls back to the raw language id without a display name", () => {
         const { component, source } = createStatusBarHarness();
 
         source.openEditor();
@@ -62,7 +62,7 @@ describe("StatusBarComponent — language badge", () => {
         expect(statusSegments(component.view)).toContainEqual({ text: "plaintext", side: "right" });
     });
 
-    it("обновляется на setLanguage без ручного обновления", () => {
+    it("updates on setLanguage without a manual update", () => {
         const { component, source } = createStatusBarHarness();
         const editor = source.openEditor();
 
@@ -71,7 +71,7 @@ describe("StatusBarComponent — language badge", () => {
         expect(statusSegments(component.view)).toContainEqual({ text: "markdown", side: "right" });
     });
 
-    it("переподписывается при смене активного редактора", () => {
+    it("resubscribes when the active editor changes", () => {
         const { component, source } = createStatusBarHarness();
         const firstEditor = source.openEditor();
         source.openEditor();

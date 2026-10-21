@@ -20,7 +20,7 @@ import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 const SIZE = new Size(120, 24);
 const TOGGLE_TERMINAL = "workbench.action.terminal.toggleTerminal";
 
-describe("Workbench — терминал во вторичной боковой панели", () => {
+describe("Workbench — terminal in the secondary side bar", () => {
     let ws: ITempWorkspace;
     let userData: ITempWorkspace;
     let writers: StateService[];
@@ -77,7 +77,7 @@ describe("Workbench — терминал во вторичной боковой 
         return h.testApp.backend.screenToString().split("\n");
     }
 
-    it("Toggle Terminal поднимает шелл во вторичной панели, нижнюю не трогает, фокус в терминале", () => {
+    it("Toggle Terminal spawns the shell in the secondary side bar, leaves the bottom panel alone, focuses the terminal", () => {
         const { h } = launch();
         moveTerminalRight(h);
         h.commands.execute(TOGGLE_TERMINAL);
@@ -92,7 +92,7 @@ describe("Workbench — терминал во вторичной боковой 
         h.dispose();
     });
 
-    it("ввод уходит в шелл, ширина эмулятора — ширина части", () => {
+    it("input goes to the shell, emulator width equals the part width", () => {
         const { h } = launch();
         moveTerminalRight(h);
         h.commands.execute(TOGGLE_TERMINAL);
@@ -111,7 +111,7 @@ describe("Workbench — терминал во вторичной боковой 
         h.dispose();
     });
 
-    it("повторный Toggle Terminal прячет вторичную панель", () => {
+    it("a second Toggle Terminal hides the secondary side bar", () => {
         const { h } = launch();
         moveTerminalRight(h);
         h.commands.execute(TOGGLE_TERMINAL);
@@ -122,7 +122,7 @@ describe("Workbench — терминал во вторичной боковой 
         h.dispose();
     });
 
-    it("клик по вкладке TERMINAL во вторичной панели будит ленивый спавн", () => {
+    it("clicking the TERMINAL tab in the secondary side bar triggers the lazy spawn", () => {
         const { h } = launch();
         moveTerminalRight(h);
         h.container.get(AuxiliaryBarServiceDIToken).setVisible(true);
@@ -133,7 +133,7 @@ describe("Workbench — терминал во вторичной боковой 
         h.dispose();
     });
 
-    it("закрыт последний терминал при hideOnLastClosed — прячется вторичная панель, не нижняя", () => {
+    it("closing the last terminal with hideOnLastClosed hides the secondary side bar, not the bottom panel", () => {
         const { h } = launch({ "terminal.integrated.hideOnLastClosed": true });
         h.container.get(PanelServiceDIToken).setVisible(true);
         moveTerminalRight(h);
@@ -145,7 +145,7 @@ describe("Workbench — терминал во вторичной боковой 
         h.dispose();
     });
 
-    it("переживает перезапуск: вкладка во вторичной панели, панель видна, шелл — по активации", () => {
+    it("survives a restart: tab in the secondary side bar, bar visible, shell spawns on activation", () => {
         const first = launch();
         moveTerminalRight(first.h);
         first.h.commands.execute(TOGGLE_TERMINAL);

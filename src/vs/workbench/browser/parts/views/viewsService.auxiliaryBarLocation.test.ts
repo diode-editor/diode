@@ -27,8 +27,8 @@ function auxiliaryHarness(views: string[], contributions: MenuContribution[] = [
     return h;
 }
 
-describe("ViewsService — контейнер во вторичной боковой панели", () => {
-    it("регистрируется вкладкой вторичной панели, а не нижней и не вьюлетом", () => {
+describe("ViewsService — container in the secondary side bar", () => {
+    it("registers as a secondary side bar tab, not a bottom panel tab or a viewlet", () => {
         const h = auxiliaryHarness(["aux.view"]);
         const tab = h.auxiliaryBarService.getViews().find((v) => v.id === AUX);
         expect(tab?.title).toBe("AUX");
@@ -37,12 +37,12 @@ describe("ViewsService — контейнер во вторичной боков
         expect(h.viewlets).toEqual([]);
     });
 
-    it("одна секция — без своей строки заголовка: заголовок это таб", () => {
+    it("single section has no header row of its own: the tab is the header", () => {
         const h = auxiliaryHarness(["aux.view"]);
         expect(h.paneView(AUX).querySelector("#paneHeader-aux-view")!.hidden).toBe(true);
     });
 
-    it("порядок вкладок — по order и только среди контейнеров этой части", () => {
+    it("tab order follows order and only among containers of this part", () => {
         const h = makeViewsHarness();
         h.service.registerContainer({ id: PANEL, title: "P", location: "panel", order: 0 });
         h.service.registerContainer({ id: "aux.b", title: "B", location: "auxiliarybar", order: 2 });
@@ -55,17 +55,17 @@ describe("ViewsService — контейнер во вторичной боков
         expect(h.panelService.getViews().map((v) => v.id)).toEqual([PANEL]);
     });
 
-    it("кнопки единственной секции уезжают в таб-строку вторичной панели", () => {
+    it("the only section's buttons move into the secondary side bar tab row", () => {
         const h = auxiliaryHarness(["aux.view"], [REFRESH]);
         expect(h.tabActions(AUX)).not.toBeNull();
     });
 
-    it("без кнопок полосы в таб-строке нет", () => {
+    it("without buttons there is no strip in the tab row", () => {
         const h = auxiliaryHarness(["aux.view"]);
         expect(h.tabActions(AUX)).toBeNull();
     });
 
-    it("контейнер, ставший активной вкладкой вторичной панели, досчитывает кнопки", () => {
+    it("a container that becomes the active secondary side bar tab computes its buttons", () => {
         const h = makeViewsHarness([REFRESH]);
         h.service.registerContainer({ id: "aux.a", title: "A", location: "auxiliarybar", order: 1 });
         h.service.registerContainer({ id: "aux.b", title: "B", location: "auxiliarybar", order: 2 });

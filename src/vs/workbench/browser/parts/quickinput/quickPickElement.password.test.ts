@@ -25,8 +25,8 @@ function type(picker: QuickPickElement, text: string): void {
     }
 }
 
-describe("QuickPickElement — поле пароля", () => {
-    it("без password набранное видно как есть", () => {
+describe("QuickPickElement — password input", () => {
+    it("without password the typed text is shown as is", () => {
         const picker = makePicker();
         picker.setQuery("hunter2");
         expectScreen(
@@ -39,7 +39,7 @@ describe("QuickPickElement — поле пароля", () => {
         );
     });
 
-    it("с password на кадре маска по символу на символ, самого секрета нет", () => {
+    it("with password the frame shows one mask per character and no secret", () => {
         const picker = makePicker();
         picker.password = true;
         picker.setQuery("hunter2");
@@ -53,7 +53,7 @@ describe("QuickPickElement — поле пароля", () => {
         );
     });
 
-    it("маска — только представление: запрос и onQueryChange несут настоящий текст", () => {
+    it("the mask is presentation only: the query and onQueryChange carry the real text", () => {
         const picker = makePicker();
         picker.password = true;
         const onQueryChange = vi.fn();
@@ -65,7 +65,7 @@ describe("QuickPickElement — поле пароля", () => {
         expect(onQueryChange).toHaveBeenLastCalledWith("abc");
     });
 
-    it("Enter отдаёт настоящее значение, а не маску", () => {
+    it("Enter returns the real value, not the mask", () => {
         const picker = makePicker();
         picker.password = true;
         picker.acceptMode = "value";
@@ -78,7 +78,7 @@ describe("QuickPickElement — поле пароля", () => {
         expect(onAcceptValue).toHaveBeenCalledWith("hunter2");
     });
 
-    it("инспектор под маской отдаёт то же, что на экране — секрет наружу не уходит", () => {
+    it("under the mask the inspector returns what the screen shows — the secret does not leak", () => {
         const picker = makePicker();
         picker.password = true;
         picker.setQuery("hunter2");
@@ -86,14 +86,14 @@ describe("QuickPickElement — поле пароля", () => {
         expect(picker.inspectState().query).toBe(MASK_CHAR.repeat(7));
     });
 
-    it("без маски инспектор отдаёт сам запрос", () => {
+    it("without the mask the inspector returns the query itself", () => {
         const picker = makePicker();
         picker.setQuery("hunter2");
 
         expect(picker.inspectState().query).toBe("hunter2");
     });
 
-    it("графемный кластер закрывается ОДНОЙ маской — и на кадре, и в инспекторе", () => {
+    it("a grapheme cluster is covered by ONE mask — both in the frame and in the inspector", () => {
         const picker = makePicker();
         picker.password = true;
         // "e" with a combining acute, "x" and an emoji: three graphemes from five UTF-16 code units.
@@ -110,21 +110,21 @@ describe("QuickPickElement — поле пароля", () => {
         );
     });
 
-    it("пустое поле под маской показывает плейсхолдер, а не нули масок", () => {
+    it("an empty masked input shows the placeholder, not zero masks", () => {
         const picker = makePicker();
         picker.password = true;
-        picker.placeholder = "пароль";
+        picker.placeholder = "Password";
         expectScreen(
             render(picker),
             screen`
                 ╭──────────────────────╮
-                │ пароль               │
+                │ Password             │
                 ╰──────────────────────╯
             `,
         );
     });
 
-    it("resetFlavorState снимает маску — следующий показ на общем виджете не слепой", () => {
+    it("resetFlavorState clears the mask — the next show on the shared widget is not blind", () => {
         const picker = makePicker();
         picker.password = true;
         picker.setQuery("hunter2");
