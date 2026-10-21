@@ -142,3 +142,45 @@ export function scoreReport(report) {
     const valid = detected + counts.Survived + counts.NoCoverage;
     return { counts, detected, valid, score: valid === 0 ? 100 : (detected / valid) * 100 };
 }
+
+/**
+ * Hunks of `git diff -U0 --no-prefix` by file: `{ oldStart, oldCount, newStart, newCount }`.
+ * `--no-prefix` rather than parsing `+++ b/…`: with `diff.mnemonicPrefix` git prints
+ * `+++ w/…`, the scope comes out empty and the gate silently turns green.
+ */
+export function parseDiff(diff) {
+    const scope = new Map();
+    // Counts files without mutable lines too: it tells "parser broken" from "diff of deletions only".
+    let headers = 0;
+    let current = null;
+    let prevWasOldFileHeader = false;
+
+    for (const line of diff.split("\n")) {
+        // Only right after `---`: an added line `++ x` looks like `+++ x` in the diff.
+        if (prevWasOldFileHeader && line.startsWith("+++ ")) {
+            const file = line.slice(4);
+            headers++;
+            current = file === "/dev/null" ? null : file;
+            prevWasOldFileHeader = false;
+            continue;
+        }
+        prevWasOldFileHeader = line.startsWith("--- ");
+        if (prevWasOldFileHeader) continue;
+        if (!current) continue;
+
+        const hunkMatch = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@/.exec(line);
+        if (!hunkMatch) continue;
+
+        const newCount = hunkMatch[4] === undefined ? 1 : Number(hunkMatch[4]);
+        if (newCount === 0) continue;
+
+        if (!scope.has(current)) scope.set(current, []);
+        scope.get(current).push({
+            oldStart: Number(hunkMatch[1]),
+            oldCount: hunkMatch[2] === undefined ? 1 : Number(hunkMatch[2]),
+            newStart: Number(hunkMatch[3]),
+            newCount,
+        });
+    }
+    return { scope, headers };
+}

@@ -5,7 +5,8 @@
  *
  * StrykerJS has NO `--since` (that is a Stryker.NET option), so we compute the
  * diff scope ourselves and pass it via `--mutate`: a new file in full, an edited
- * one by hunk lines (`src/a.ts:120-160`). An empty scope exits with zero.
+ * one by hunk lines (`src/a.ts:120-160`) where the code changed, not only comments or
+ * layout (`changedCodeRanges`). An empty scope exits with zero.
  *
  * Usage: npm run test:mutation [-- --base <ref>] [-- <extra Stryker flags>]
  * The default base is the merge-base with a fresh `origin/main` (fetches it
@@ -36,7 +37,8 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import * as path from "node:path";
 
-import { filterReportToScope, parseArgs, parseScope, scoreReport } from "./mutation-gate.mjs";
+import { changedCodeRanges } from "./code-tokens.mjs";
+import { filterReportToScope, parseArgs, parseDiff, parseScope, scoreReport } from "./mutation-gate.mjs";
 import { blockingVerdicts, countClasses, isCandidate, mergeVerdicts } from "./mutation-inject.mjs";
 import { formatSummary, verifyMutants, writeVerdictFile } from "./verify-mutants.mjs";
 
@@ -116,57 +118,6 @@ function isMutable(file) {
     return !EXCLUDED.some((pattern) => pattern.test(file));
 }
 
-/**
- * `--no-prefix` rather than parsing `+++ b/…`: with `diff.mnemonicPrefix` git prints
- * `+++ w/…`, the scope comes out empty and the gate silently turns green.
- */
-function parseDiff(diff) {
-    const scope = new Map();
-    // Counts files without mutable lines too: it tells "parser broken" from "diff of deletions only".
-    let headers = 0;
-    let current = null;
-    let prevWasOldFileHeader = false;
-
-    for (const line of diff.split("\n")) {
-        // Only right after `---`: an added line `++ x` looks like `+++ x` in the diff.
-        if (prevWasOldFileHeader && line.startsWith("+++ ")) {
-            const file = line.slice(4);
-            headers++;
-            current = file === "/dev/null" ? null : file;
-            prevWasOldFileHeader = false;
-            continue;
-        }
-        prevWasOldFileHeader = line.startsWith("--- ");
-        if (prevWasOldFileHeader) continue;
-        if (!current) continue;
-
-        const hunkMatch = /^@@ -\S+ \+(\d+)(?:,(\d+))? @@/.exec(line);
-        if (!hunkMatch) continue;
-
-        const start = Number(hunkMatch[1]);
-        const count = hunkMatch[2] === undefined ? 1 : Number(hunkMatch[2]);
-        if (count === 0) continue;
-
-        if (!scope.has(current)) scope.set(current, []);
-        scope.get(current).push([start, start + count - 1]);
-    }
-    return { scope, headers };
-}
-
-function mergeRanges(ranges) {
-    const sorted = [...ranges].sort((a, b) => a[0] - b[0]);
-    const merged = [];
-    for (const [start, end] of sorted) {
-        const last = merged[merged.length - 1];
-        if (last && start <= last[1] + 1) {
-            last[1] = Math.max(last[1], end);
-        } else {
-            merged.push([start, end]);
-        }
-    }
-    return merged;
-}
-
 const REPORT_DIR = path.join(repoRoot, "reports", "mutation");
 const REPORT_PATH = path.join(REPORT_DIR, "mutation.json");
 const GATE_PATH = path.join(REPORT_DIR, "gate.json");
@@ -243,13 +194,19 @@ if (diff.trim() !== "" && headers === 0) {
 for (const file of untracked) if (!scope.has(file)) scope.set(file, []);
 
 const mutate = [];
-for (const [file, ranges] of scope) {
+for (const [file, hunks] of scope) {
     if (!isMutable(file)) continue;
     if (added.has(file)) {
         mutate.push(file);
         continue;
     }
-    for (const [start, end] of mergeRanges(ranges)) {
+    // A renamed file has no text at the base under its new path: its hunks stay whole.
+    const before = spawnSync("git", ["show", `${mergeBase}:${file}`], { cwd: repoRoot, encoding: "utf8", maxBuffer: 1 << 28 });
+    const ranges =
+        before.status === 0
+            ? changedCodeRanges(file, before.stdout, readFileSync(path.join(repoRoot, file), "utf8"), hunks)
+            : hunks.map((h) => [h.newStart, h.newStart + h.newCount - 1]);
+    for (const [start, end] of ranges) {
         mutate.push(`${file}:${start}-${end}`);
     }
 }
@@ -257,7 +214,7 @@ for (const [file, ranges] of scope) {
 if (mutate.length === 0) {
     console.log(
         `Nothing to mutate: the diff against ${base} (${mergeBase.slice(0, 8)}) has no ` +
-            `changes in product code under src//extensions/.`,
+            `code changes in product code under src//extensions/ (comments and layout do not count).`,
     );
     if (!scopeOnly) finish("empty-scope", 0);
     process.exit(0);
