@@ -24,7 +24,7 @@ describe("EnvCustomer — семя env.initialize", () => {
         h.customer.pushInitialState();
         h.attachTo();
         h.customer.pushInitialState();
-        // Каждый спавн получает актуальный шелл — значение читается в момент семени.
+        // Each spawn gets the current shell: the value is read at seed time.
         shell = "/usr/bin/fish";
         h.customer.pushInitialState();
         await flushMicrotasks();

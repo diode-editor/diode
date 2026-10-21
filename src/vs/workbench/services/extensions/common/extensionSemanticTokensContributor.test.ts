@@ -19,7 +19,7 @@ function ext(contributes: IExtensionContributions | undefined, id = "test.sem"):
     };
 }
 
-/** `contributes` redhat.java 1.57 (семантическая часть), дословно. */
+/** `contributes` of redhat.java 1.57 (semantic part), verbatim. */
 const REDHAT_JAVA: IExtensionContributions = {
     semanticTokenTypes: [
         { id: "annotation", superType: "type", description: "Style for annotations." },
@@ -70,7 +70,7 @@ describe("registerExtensionSemanticTokens", () => {
             ["modifier:java", [["storage.modifier.java"]]],
             ["*.constructor:java", [["entity.name.function.java"]]],
         ]);
-        // Язык селектора и иерархия: аннотация — подтип type, вес 100 + 10 за java.
+        // Selector language and hierarchy: annotation is a subtype of type, score 100 + 10 for java.
         const annotation = registry.getTokenStylingDefaultRules()[before].selector;
         expect(annotation.match("annotation", [], "java")).toBe(110);
         expect(annotation.match("annotation", [], "kotlin")).toBe(-1);

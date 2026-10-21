@@ -140,7 +140,7 @@ describe("readCommandActivationIds", () => {
 
 describe("readWorkspaceContainsPatterns", () => {
     it("паттерн без glob-символов уходит в paths, с ними — в globs", () => {
-        // Манифест стокового redhat.java: обе семантики одного префикса.
+        // Manifest of the stock redhat.java: both semantics of one prefix.
         expect(
             readWorkspaceContainsPatterns({
                 activationEvents: [

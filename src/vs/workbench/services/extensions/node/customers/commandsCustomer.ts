@@ -11,12 +11,12 @@ export interface ICommandPaletteMetadata {
 }
 
 /**
- * Прокси команд субпроцесса живут один спавн. Заглушки `onCommand:<id>` и подписи палитры — с хостом:
- * команда видна и исполнима по id до активации расширения и после смерти субпроцесса.
+ * Subprocess command proxies live for one spawn. `onCommand:<id>` stubs and palette labels live with the host:
+ * the command is visible and executable by id before the extension activates and after the subprocess dies.
  */
 export class CommandsCustomer implements IExtensionHostCustomer {
     private proxies: DisposableMap<string> | null = null;
-    /** Стоят ВМЕСТО прокси до активации: исполнение сперва поднимает расширение. */
+    /** Stand IN PLACE of proxies before activation: executing first brings up the extension. */
     private readonly activationStubs = new DisposableMap<string>();
     private readonly titles = new Map<string, string>();
     private readonly categories = new Map<string, string>();
@@ -28,8 +28,8 @@ export class CommandsCustomer implements IExtensionHostCustomer {
     ) {}
 
     /**
-     * Значки разворачиваем здесь: у эталона подпись команды — метка quick pick'а, где значки
-     * живые, а у нас текст манифеста становится подписью пункта палитры.
+     * Icons are expanded here: upstream the command label is a quick pick label where icons
+     * render, while for us the manifest text becomes the command palette item label.
      */
     public addPaletteMetadata(metadata: ICommandPaletteMetadata): void {
         for (const [id, title] of Object.entries(metadata.commandTitles ?? {})) {
@@ -41,8 +41,8 @@ export class CommandsCustomer implements IExtensionHostCustomer {
     }
 
     /**
-     * Без ожидания активации команда не нашлась бы: настоящий прокси заводит сам субпроцесс.
-     * Живой прокси заглушкой не затирается.
+     * Without waiting for activation the command wouldn't be found: the subprocess itself registers the real proxy.
+     * A live proxy is never overwritten by a stub.
      */
     public arm(id: string): void {
         if (this.proxies?.has(id) === true || this.activationStubs.has(id)) return;
@@ -55,13 +55,13 @@ export class CommandsCustomer implements IExtensionHostCustomer {
                     try {
                         await this.activate(event);
                     } catch (err) {
-                        // Вызывающие (палитра, бинд) результат не ждут — reject ушёл бы
-                        // в unhandledRejection главного процесса.
+                        // Callers (palette, keybinding) don't await the result — a reject would end up
+                        // in the main process unhandledRejection.
                         this.logger?.error(`failed to activate extension for command "${id}"`, err);
                         return undefined;
                     }
-                    // Расширение поднялось, но команду не завело — повторный вызов через
-                    // заглушку дал бы петлю.
+                    // The extension came up but didn't register the command — calling again through
+                    // the stub would loop.
                     if (this.proxies?.has(id) !== true) {
                         this.logger?.warn(`command "${id}" is still unregistered after activation`);
                         return undefined;
@@ -78,7 +78,7 @@ export class CommandsCustomer implements IExtensionHostCustomer {
         this.activationStubs.deleteAndDispose(id);
     }
 
-    /** Заглушки живут в ОБЩЕМ реестре ядра — после выключения там висели бы записи, которые некого поднимать. */
+    /** Stubs live in the SHARED core registry — after shutdown it would hold entries with nothing to bring up. */
     public disarmAll(): void {
         this.activationStubs.clearAndDisposeAll();
     }
@@ -87,12 +87,12 @@ export class CommandsCustomer implements IExtensionHostCustomer {
         const store = new DisposableStore();
         const proxies = store.add(new DisposableMap<string>());
         this.proxies = proxies;
-        // Handler ядра может вернуть значение или thenable.
+        // A core handler may return a value or a thenable.
         store.add(
             rpc.handleRequest("commands.executeCommand", (params): unknown => {
                 const { id, args } = parseCommandInvocation(params);
-                // Курсор, сдвинутый командой, приедет как `TextEditorSelectionChangeKind.Command`; область
-                // синхронная — после await `kind === undefined` (см. cursorChangeSource.ts).
+                // A cursor moved by the command arrives as `TextEditorSelectionChangeKind.Command`; the scope
+                // is synchronous — after await `kind === undefined` (see cursorChangeSource.ts).
                 return Promise.resolve(withCursorChangeSource("command", () => this.commandService.execute(id, args)));
             }),
         );
@@ -101,8 +101,8 @@ export class CommandsCustomer implements IExtensionHostCustomer {
                 const id = parseCommandId(params);
                 if (id === null) return;
                 this.disarm(id);
-                // Повторная регистрация id: `set` снимает прежний прокси уже после заведения нового —
-                // реестр снимает запись, только если она всё ещё указывает на снимаемый обработчик.
+                // Re-registering an id: `set` disposes the previous proxy only after the new one is registered —
+                // the registry removes the entry only if it still points to the handler being disposed.
                 proxies.set(
                     id,
                     this.commandService.registerProxy(
@@ -117,13 +117,13 @@ export class CommandsCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("commands.unregisterCommand", (params): void => {
                 const id = parseCommandId(params);
-                // Stryker disable next-line ConditionalExpression: эквивалентный — снятие отсутствующего ключа (`null`) из карты прокси ничего не делает; ранний выход только для типа
+                // Stryker disable next-line ConditionalExpression: equivalent — removing a missing key (`null`) from the proxy map does nothing; the early return is only for the type
                 if (id === null) return;
                 proxies.deleteAndDispose(id);
             }),
         );
         store.add({
-            // Stryker disable next-line BlockStatement: гигиена — карту ушедшего спавна уже опустошил его store (DisposableMap отдаёт всё на dispose), `has` на ней и так false; забываем ссылку, чтобы не держать мёртвую карту
+            // Stryker disable next-line BlockStatement: hygiene — the gone spawn's map was already emptied by its store (DisposableMap disposes everything), `has` on it is false anyway; we drop the reference so as not to hold a dead map
             dispose: () => {
                 this.proxies = null;
             },
@@ -145,7 +145,7 @@ function parseCommandInvocation(raw: unknown): { id: string; args: unknown[] } {
 }
 
 function parseCommandId(raw: unknown): string | null {
-    // Stryker disable next-line ConditionalExpression,LogicalOperator: без проверки примитив отсеивает чтение `.id` ниже, а `null`/`undefined` падает на нём — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: without the check, reading `.id` below filters out primitives, while `null`/`undefined` throws on it — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
     if (typeof raw !== "object" || raw === null) return null;
     const obj = raw as { id?: unknown };
     return typeof obj.id === "string" && obj.id !== "" ? obj.id : null;

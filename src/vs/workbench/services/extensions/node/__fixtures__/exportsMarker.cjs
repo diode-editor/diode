@@ -1,6 +1,6 @@
 "use strict";
 
-/** Зависимость для extensionHost.dependencies.test.ts: отдаёт узнаваемый `exports`. */
+/** Dependency for extensionHost.dependencies.test.ts: exposes a recognizable `exports`. */
 exports.activate = function activate() {
     return { marker: "dep-ready" };
 };

@@ -1,13 +1,13 @@
 "use strict";
 
 /**
- * Тестовая фикстура для ExtensionHost.ActiveEditor.test.ts.
+ * Test fixture for ExtensionHost.ActiveEditor.test.ts.
  *
- * На смене активного редактора проверяет:
- *   - document.languageId === "typescript" (пришёл в meta через wire);
- *   - стабильную идентичность: workspace.textDocuments содержит РОВНО тот же
- *     объект, что и activeTextEditor.document (сравнение по ссылке).
- * Сигналит успех через tabSize=71, иначе tabSize=13.
+ * On active editor change checks:
+ *   - document.languageId === "typescript" (arrived in meta over the wire);
+ *   - stable identity: workspace.textDocuments contains EXACTLY the same
+ *     object as activeTextEditor.document (compared by reference).
+ * Signals success with tabSize=71, otherwise tabSize=13.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Фикстура: первая активация роняет субпроцесс расширений (`process.exit`),
- * следующие — проходят и отдают тот же `exports`, что `exportsMarker.cjs`.
- * Память «уже падал» — файл-маркер по пути из `DIODE_TEST_EXIT_MARKER`: она
- * обязана пережить смерть процесса.
+ * Fixture: the first activation kills the extension subprocess (`process.exit`),
+ * later ones succeed and return the same `exports` as `exportsMarker.cjs`.
+ * The "already crashed" memory is a marker file at the path from
+ * `DIODE_TEST_EXIT_MARKER`: it must survive the process's death.
  */
 const fs = require("node:fs");
 

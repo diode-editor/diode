@@ -5,9 +5,9 @@ import { TimeoutError } from "../../../api/common/rpcEndpoint.ts";
 import type { RequestFn } from "./hostRequests.ts";
 
 /**
- * Мс. Истёкший срок — отмена запроса и пустой результат; inline completions берут срок из запроса.
- * `provideCompletionItems` здесь нет намеренно, как в upstream: по пустому ответу ядро открывает
- * попап словами из буфера, и медленный language server оставался без своих пунктов.
+ * Ms. An expired deadline cancels the request with an empty result; inline completions take the deadline
+ * from the request. `provideCompletionItems` is intentionally absent, as upstream: on an empty response
+ * the core opens the popup with buffer words, and a slow language server would be left without its items.
  */
 export const DEFAULT_REQUEST_TIMEOUTS = {
     "workspace.willSaveTextDocument": 1500,
@@ -30,7 +30,7 @@ export type TimedRequestMethod = keyof typeof DEFAULT_REQUEST_TIMEOUTS;
 
 export type RequestTimeouts = Readonly<Record<TimedRequestMethod, number>>;
 
-/** Истёкший срок — debug (штатно для медленного провайдера), отказ — warn. */
+/** An expired deadline logs debug (normal for a slow provider), a failure logs warn. */
 export function loggingRequest(rpc: HostRpc, logger: ILogger | undefined): RequestFn {
     return (method, params, options) =>
         rpc.request(method, params, options).catch((error: unknown) => {

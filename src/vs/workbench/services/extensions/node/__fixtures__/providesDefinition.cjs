@@ -3,11 +3,11 @@
 const path = require("node:path");
 
 /**
- * Фикстура definition-провайдера: для документов typescript возвращает цель в
- * файле `defs.ts` рядом с запрошенным документом. Форма результата зависит от
- * строки каретки — покрывает обе ветки нормализации:
- *   - строка 0 → одиночный `vscode.Location` (defs.ts:2:4–2:9);
- *   - иначе   → массив `LocationLink` (targetSelectionRange уже, чем targetRange).
+ * Definition provider fixture: for typescript documents returns a target in
+ * the `defs.ts` file next to the requested document. The result shape depends on
+ * the cursor line, covering both normalization branches:
+ *   - line 0 → a single `vscode.Location` (defs.ts:2:4–2:9);
+ *   - otherwise → a `LocationLink` array (targetSelectionRange narrower than targetRange).
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

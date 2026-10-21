@@ -56,8 +56,8 @@ describe("parseWireInputBoxRequest", () => {
 
     it("password честно булев: маску включает только настоящее true", () => {
         expect(parseWireInputBoxRequest({ handle: 1, password: true })?.password).toBe(true);
-        // Строка «да» истинна по-джаваскриптовому — но поле пароля по ней не
-        // включается: иначе мусор на проводе делал бы обычное поле слепым.
+        // A non-empty string is truthy in JavaScript, but it doesn't turn the password
+        // field on: otherwise garbage on the wire would blind a regular field.
         expect(parseWireInputBoxRequest({ handle: 1, password: "да" })?.password).toBe(false);
         expect(parseWireInputBoxRequest({ handle: 1, password: 0 })?.password).toBe(false);
     });

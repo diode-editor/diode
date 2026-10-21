@@ -3,14 +3,17 @@ import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateS
 
 export type ExtensionMementoValue = Readonly<Record<string, unknown>>;
 
-/** `shared` — `globalState` (scope `global`), иначе `workspaceState`. */
+/** `shared` means `globalState` (scope `global`), otherwise `workspaceState`. */
 export interface IExtensionStateStore {
     get(extensionId: string, shared: boolean): ExtensionMementoValue;
-    /** Пустой словарь удаляет запись: файл не копит `{}` от каждого расширения. */
+    /** An empty dictionary removes the entry, so the file doesn't accumulate `{}` from every extension. */
     set(extensionId: string, shared: boolean, value: ExtensionMementoValue): void;
 }
 
-/** Префикс страхует от пересечения с `workbench.*`; совместимость с vscode не нужна — файл машинный. */
+/**
+ * The prefix guards against clashing with `workbench.*`; vscode compatibility isn't needed, the file is
+ * machine-only.
+ */
 export function extensionStateDescriptor(
     extensionId: string,
     shared: boolean,

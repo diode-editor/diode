@@ -6,11 +6,11 @@ import type { IExtensionUriHandlers } from "../../common/extensionUrlHandler.ts"
 import { parseWireUriHandlerRegistration } from "../hostWireParsers.ts";
 
 /**
- * `MainThreadUrls` эталона; решение «кому и когда» — у `ExtensionUrlHandler`.
- * Реестр живёт один спавн: оживлённое расширение заведёт обработчик заново на активации.
+ * Upstream `MainThreadUrls`; deciding “to whom and when” is up to `ExtensionUrlHandler`.
+ * The registry lives for one spawn: a revived extension registers its handler again on activation.
  */
 export class UriHandlersCustomer extends Disposable implements IExtensionHostCustomer, IExtensionUriHandlers {
-    /** id — в нижнем регистре. */
+    /** Lowercased ids. */
     private live: { readonly rpc: HostRpc; readonly ids: Set<string> } | null = null;
     private readonly onDidRegisterEmitter = this.register(new Emitter<string>());
 
@@ -35,7 +35,7 @@ export class UriHandlersCustomer extends Disposable implements IExtensionHostCus
         store.add(
             rpc.handleNotification("window.registerUriHandler", (params): void => {
                 const extensionId = parseWireUriHandlerRegistration(params);
-                // Stryker disable next-line ConditionalExpression: эквивалентный — без проверки `null` падает на `toLowerCase` до записи и события, RpcEndpoint глотает исключение нотификации; наблюдаемо то же «проигнорировано»
+                // Stryker disable next-line ConditionalExpression: equivalent — without the `null` check it throws on `toLowerCase` before the write and the event, RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (extensionId === null) return;
                 live.ids.add(extensionId.toLowerCase());
                 this.onDidRegisterEmitter.fire(extensionId);
@@ -44,7 +44,7 @@ export class UriHandlersCustomer extends Disposable implements IExtensionHostCus
         store.add(
             rpc.handleNotification("window.unregisterUriHandler", (params): void => {
                 const extensionId = parseWireUriHandlerRegistration(params);
-                // Stryker disable next-line ConditionalExpression: эквивалентный — `null` в нижний регистр не переводится, ранний выход только для типа
+                // Stryker disable next-line ConditionalExpression: equivalent — `null` is never lowercased, the early return is only for the type
                 if (extensionId === null) return;
                 live.ids.delete(extensionId.toLowerCase());
             }),

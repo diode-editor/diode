@@ -5,10 +5,10 @@ import type { IViewContribution } from "../../../../platform/extensions/common/i
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 
 /**
- * В эталоне `<вид>.focus` есть у каждого вида, и чат-расширения зовут её перед сообщением панели
- * (Supermaven). Виды мы не рисуем, а без команды расширение ловило бы «command not found» —
- * поэтому команда сообщает человеку, что вид не показать, и разрешается без ошибки.
- * Отступление: в палитру не попадает — пункт, всегда отвечающий «не показать», был бы обманом.
+ * Upstream, every view has `<view>.focus`, and chat extensions call it before messaging the panel
+ * (Supermaven). We don't render views, and without the command the extension would get
+ * "command not found", so the command tells the user the view can't be shown and resolves without an error.
+ * Deviation: not in the command palette; an item that always answers "can't show" would be a lie.
  */
 export function registerExtensionViewFocusCommands(
     extensions: readonly IExtension[],
@@ -23,7 +23,7 @@ export function registerExtensionViewFocusCommands(
         const displayName = ext.manifest.displayName;
         const owner = typeof displayName === "string" && displayName !== "" ? displayName : ext.id;
         for (const [container, list] of Object.entries(views)) {
-            // Манифест пишет чужой человек: значение контейнера — не обязательно список.
+            // The manifest is written by a stranger: a container value isn't necessarily a list.
             const entries: readonly IViewContribution[] = Array.isArray(list)
                 ? (list as readonly IViewContribution[])
                 : [];

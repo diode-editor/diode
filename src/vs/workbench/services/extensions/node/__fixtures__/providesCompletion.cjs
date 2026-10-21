@@ -1,12 +1,12 @@
 "use strict";
 
 /**
- * Фикстура для ExtensionHost.Completion.test.ts.
- * Регистрирует completion-провайдер для языка editorconfig (селектор с pattern)
- * и команду `editorconfig._triggerSuggestAfterDelay` (аналог реальной команды
- * расширения). Провайдер отдаёт два свойства; у первого — `command`, чей
- * хендлер выставляет tabSize=6 активного редактора как наблюдаемый сигнал того,
- * что item.command доехал через commands bridge.
+ * Fixture for ExtensionHost.Completion.test.ts.
+ * Registers a completion provider for the editorconfig language (a selector with a pattern)
+ * and the `editorconfig._triggerSuggestAfterDelay` command (mirroring the real extension's
+ * command). The provider returns two properties; the first has a `command` whose
+ * handler sets the active editor's tabSize=6 as an observable signal
+ * that item.command made it through the commands bridge.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

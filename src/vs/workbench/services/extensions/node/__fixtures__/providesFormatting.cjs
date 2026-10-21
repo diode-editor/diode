@@ -1,11 +1,11 @@
 "use strict";
 
 /**
- * Фикстура провайдеров форматирования (#196): документный провайдер схлопывает
- * повторные пробелы во всём документе одним full-range TextEdit'ом (так ведут
- * себя настоящие LSP-форматтеры), range-провайдер — только внутри диапазона.
- * Команда test.invokeFormatDocument повторяет путь maptz.regionfolder:
- * executeCommand("editor.action.formatDocument") из субпроцесса.
+ * Formatting provider fixture (#196): the document provider collapses
+ * repeated spaces across the whole document with one full-range TextEdit (the way
+ * real LSP formatters behave), the range provider only inside the range.
+ * The test.invokeFormatDocument command follows the maptz.regionfolder path:
+ * executeCommand("editor.action.formatDocument") from the subprocess.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

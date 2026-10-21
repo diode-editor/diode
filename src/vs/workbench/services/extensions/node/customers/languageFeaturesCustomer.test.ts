@@ -9,7 +9,7 @@ import { DEFAULT_REQUEST_TIMEOUTS, type RequestTimeouts } from "../requestPolicy
 
 import { LanguageFeaturesCustomer } from "./languageFeaturesCustomer.ts";
 
-/** Разные сроки у каждого метода: перепутанный ключ таблицы виден в опциях запроса. */
+/** Each method has its own timeout: a mixed-up table key shows in the request options. */
 const TIMEOUTS: RequestTimeouts = {
     ...DEFAULT_REQUEST_TIMEOUTS,
     "languages.resolveCompletionItem": 102,
@@ -222,7 +222,7 @@ function setupWithSync() {
     return { customer, requested, asked, sent };
 }
 
-// Без it.each: имена-параметры мутационный раннер может не найти по фильтру имени.
+// No it.each: the mutation runner may not find parameterized names by the name filter.
 describe("LanguageFeaturesCustomer — запросы только по синхронизированным документам", () => {
     it("документ не синхронизирован: пустой ответ каждого вида без RPC", async () => {
         const h = setupWithSync();
@@ -321,7 +321,7 @@ describe("LanguageFeaturesCustomer — ответ субпроцесса в фо
             ],
         });
         const c = h.customer;
-        // Пачку собирает только один и тот же объект запроса.
+        // Only the same request object forms a batch.
         const req = anyRequest(SYNCED);
         expect(await Promise.all([c.provideCompletionItems(1, req), c.provideCompletionItems(2, req)])).toEqual([
             { items: [{ label: "a", insertText: "a", range: CORE_RANGE }], isIncomplete: true },
@@ -331,7 +331,7 @@ describe("LanguageFeaturesCustomer — ответ субпроцесса в фо
             [{ insertText: "x", range: CORE_RANGE }],
             [],
         ]);
-        // Вырожденная область отсеивается переводом в регионы ядра.
+        // A degenerate range is filtered out by the conversion to core regions.
         expect(await Promise.all([c.provideFoldingRanges(1, req), c.provideFoldingRanges(2, req)])).toEqual([
             [{ startLine: 1, endLine: 4, isCollapsed: false }],
             [],

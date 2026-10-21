@@ -1,7 +1,7 @@
 "use strict";
 
 /**
- * Тестовая фикстура: ставит 8-tab indent активному редактору.
+ * Test fixture: sets an 8-tab indent on the active editor.
  */
 exports.activate = function activate(_context) {
     const vscode = require("vscode");

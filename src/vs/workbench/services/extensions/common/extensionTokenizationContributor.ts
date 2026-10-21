@@ -10,8 +10,8 @@ import type { ITextMateTheme } from "../../themes/common/textMateTheme.ts";
 import { equalsTextMateTheme } from "../../themes/common/textMateTheme.ts";
 
 /**
- * Грамматика парсится лениво, при первом `TokenizationRegistry.load(languageId)`, остальные —
- * фоновым {@link preloadAll}: 77 builtin-грамматик — 6.6 MB JSON.
+ * A grammar is parsed lazily on the first `TokenizationRegistry.load(languageId)`, the rest by the
+ * background {@link preloadAll}: 77 builtin grammars are 6.6 MB of JSON.
  */
 export class ExtensionTokenizationContributor implements IDisposable {
     private readonly assets: IAssetAccess;
@@ -57,7 +57,7 @@ export class ExtensionTokenizationContributor implements IDisposable {
                         }
                         return support;
                     } catch (err) {
-                        // dispose() роняет Registry под in-flight loadGrammar — это ожидаемо, не в лог.
+                        // dispose() kills the Registry under an in-flight loadGrammar; expected, not logged.
                         if (!this.disposed) {
                             this.logger?.error(`Error loading grammar "${scopeName}" (${languageId})`, err);
                         }
@@ -69,8 +69,8 @@ export class ExtensionTokenizationContributor implements IDisposable {
     }
 
     /**
-     * Как `TextMateTokenizationFeature._updateTheme` upstream. Та же тема — ничего не делаем:
-     * перетокенизация большого файла не бесплатна.
+     * Like upstream `TextMateTokenizationFeature._updateTheme`. Same theme: do nothing,
+     * retokenizing a large file isn't free.
      */
     public setTheme(theme: ITextMateTheme): void {
         if (equalsTextMateTheme(this.theme, theme)) return;
@@ -80,8 +80,8 @@ export class ExtensionTokenizationContributor implements IDisposable {
     }
 
     /**
-     * Только после первого кадра. Последовательно, а не `Promise.all`: `JSON.parse` синхронен,
-     * а `await` между языками отдаёт event loop вводу.
+     * Only after the first frame. Sequential rather than `Promise.all`: `JSON.parse` is synchronous,
+     * and the `await` between languages yields the event loop to input.
      */
     public async preloadAll(): Promise<void> {
         for (const languageId of this.tokenizationRegistry.lazyLanguageIds()) {

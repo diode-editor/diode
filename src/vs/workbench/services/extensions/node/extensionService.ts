@@ -7,19 +7,22 @@ import type { IExtensionRegistrationEnv } from "./extensionRegistration.ts";
 import { toExtensionRegistration } from "./extensionRegistration.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-/** `timeout(10000)` эталона: столько `onStartupFinished` ждёт eager-активацию. */
+/** Upstream's `timeout(10000)`: how long `onStartupFinished` waits for eager activation. */
 export const STARTUP_FINISHED_TIMEOUT_MS = 10_000;
 
 export interface IExtensionActivationHost {
     registerExtension(reg: IExtensionRegistration): unknown;
-    /** Установленное расширение без кода: регистрации нет, но зависимость на него удовлетворена. */
+    /** An installed extension without code: no registration, but dependencies on it are satisfied. */
     registerDeclarativeExtension(id: string): void;
     activateByEvent(event: string): Promise<void>;
     activateByWorkspaceContains(): Promise<void>;
     restartForWorkspaceChange(): Promise<void>;
 }
 
-/** Событие, пришедшее до {@link start}, не теряется, а проигрывается сразу за `*` (как `_allRequestedActivateEvents` эталона). */
+/**
+ * An event that arrives before {@link start} isn't lost but is replayed right after `*` (like upstream
+ * `_allRequestedActivateEvents`).
+ */
 export class ExtensionService implements IExtensionService {
     private readonly requested: string[] = [];
     private barrierOpen = false;
@@ -51,16 +54,16 @@ export class ExtensionService implements IExtensionService {
     }
 
     public restartForWorkspaceChange(): Promise<void> {
-        // До барьера ни регистраций, ни процесса: проход по папкам сделает сам
-        // старт — последним из событий, уже по новому воркспейсу.
+        // Before the barrier there are neither registrations nor a process: start itself does the
+        // folder pass last among the events, already against the new workspace.
         if (this.barrierOpen) return this.host.restartForWorkspaceChange();
         return this.barrier;
     }
 
     /**
-     * Как `_handleEagerExtensions` эталона: `*` и `workspaceContains:` параллельно, `onStartupFinished` —
-     * после них, но не позже {@link STARTUP_FINISHED_TIMEOUT_MS}: повисший `activate()` не откладывает
-     * его навсегда. Барьер открывается при любом сбое — ждущие не повиснут.
+     * Like upstream `_handleEagerExtensions`: `*` and `workspaceContains:` in parallel, `onStartupFinished`
+     * after them, but no later than {@link STARTUP_FINISHED_TIMEOUT_MS}: a hung `activate()` doesn't defer
+     * it forever. The barrier opens on any failure, so waiters don't hang.
      */
     public async start(): Promise<void> {
         for (const ext of this.extensions) {
@@ -90,7 +93,7 @@ export class ExtensionService implements IExtensionService {
 
     private async activateEager(): Promise<void> {
         await this.guard("*", this.host.activateByEvent("*"));
-        // Живой обход: событие, пришедшее во время проигрыша, тоже проиграется.
+        // Live iteration: an event arriving during the replay is replayed too.
         for (const event of this.requested) await this.guard(event, this.host.activateByEvent(event));
         this.barrierOpen = true;
         this.openBarrier();

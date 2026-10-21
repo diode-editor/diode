@@ -1,11 +1,11 @@
 "use strict";
 
 /**
- * Тестовая фикстура: подписывается на onDidChangeActiveTextEditor и
- * сигнализирует через tabSize о том, что событие пришло и document.fileName
- * содержит ожидаемый суффикс:
- *   - fileName оканчивается на ".ts"  → tabSize = 77
- *   - иначе                           → tabSize = 1
+ * Test fixture: subscribes to onDidChangeActiveTextEditor and
+ * signals through tabSize that the event arrived and document.fileName
+ * has the expected suffix:
+ *   - fileName ends with ".ts"      → tabSize = 77
+ *   - otherwise                     → tabSize = 1
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

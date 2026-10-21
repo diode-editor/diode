@@ -1,11 +1,11 @@
 "use strict";
 
 /**
- * Фикстура code actions (#196): провайдер с метаданными видов отдаёт
- * - organize imports с готовым WorkspaceEdit (сортирует строки-импорты);
- * - fix all с ЛЕНИВЫМ edit'ом — приезжает только из resolveCodeAction
- *   (путь codeAction/resolve настоящих LSP-серверов);
- * - quickfix-действие с командой вместо правок (командный путь).
+ * Code actions fixture (#196): a provider with kind metadata returns
+ * - organize imports with a ready WorkspaceEdit (sorts import lines);
+ * - fix all with a LAZY edit that arrives only from resolveCodeAction
+ *   (the codeAction/resolve path of real LSP servers);
+ * - a quickfix action with a command instead of edits (the command path).
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -41,7 +41,7 @@ exports.activate = function activate(context) {
                     organize.edit.replace(document.uri, fullRange(document), sorted);
 
                     const fixAll = new vscode.CodeAction("Lazy upper", vscode.CodeActionKind.SourceFixAll);
-                    // Правок нет намеренно: их дорезолвит resolveCodeAction.
+                    // No edits on purpose: resolveCodeAction fills them in.
 
                     const viaCommand = new vscode.CodeAction("Append marker", vscode.CodeActionKind.QuickFix);
                     viaCommand.command = {
@@ -53,8 +53,8 @@ exports.activate = function activate(context) {
                     return [organize, fixAll, viaCommand];
                 },
                 resolveCodeAction(action) {
-                    // Дорезолвливаем только ленивый fix all: командное действие
-                    // обязано пройти apply без правок (как command-only у серверов).
+                    // Resolve only the lazy fix all: the command action
+                    // must go through apply without edits (like command-only actions from servers).
                     if (action.kind === undefined || !action.kind.contains(vscode.CodeActionKind.SourceFixAll)) {
                         return action;
                     }

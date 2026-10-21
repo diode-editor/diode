@@ -14,20 +14,23 @@ export function wireToSaveEdits(wire: readonly WireTextEdit[]): ISaveEdit[] {
 
 type HostToSubprocess = IHostToSubprocess;
 
-/** Срок и отмену несёт транспорт; форму ответа гарантирует сериализатор субпроцесса, хост её не перепроверяет. */
+/**
+ * The transport carries deadline and cancellation; the subprocess serializer guarantees the response shape, the
+ * host doesn't recheck it.
+ */
 export type RequestFn = <K extends RequestMethod<HostToSubprocess>>(
     method: K,
     params: RequestParams<HostToSubprocess, K>,
     options: IRequestOptions,
 ) => Promise<RequestResult<HostToSubprocess, K>>;
 
-/** Таймаут или ошибка RPC — пустой массив: сохранение не блокируется навсегда. */
+/** A timeout or RPC error yields an empty array, so saving never blocks forever. */
 export async function requestWillSaveEdits(
     request: RequestFn,
     params: IWireWillSaveParams,
     timeoutMs: number,
 ): Promise<ISaveEdit[]> {
-    // Сбой запроса (истёк срок, отказ RPC) — «правок нет»; в лог его пишет тот, кто дал `request`.
+    // A failed request (deadline expired, RPC failure) means "no edits"; whoever supplied `request` logs it.
     const edits = await request("workspace.willSaveTextDocument", params, { timeoutMs }).catch(() => []);
     return wireToSaveEdits(edits);
 }

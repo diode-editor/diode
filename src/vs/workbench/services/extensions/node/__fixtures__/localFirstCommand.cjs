@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * Фикстура для ExtensionHost.Commands.test.ts — local-first executeCommand.
- * Регистрирует команду и тут же сама её вызывает: команда есть в локальной Map,
- * значит исполняется прямо в сабпроцессе без RPC на хост. Ставит tabSize=9.
+ * Fixture for ExtensionHost.Commands.test.ts: local-first executeCommand.
+ * Registers a command and immediately calls it itself: the command is in the local
+ * Map, so it runs right in the subprocess without an RPC to the host. Sets tabSize=9.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

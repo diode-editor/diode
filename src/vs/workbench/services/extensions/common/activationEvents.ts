@@ -1,5 +1,5 @@
-// `workspaceContains:<glob>` точным сравнением не закрывается: аргумент сопоставляется
-// с содержимым папок воркспейса (обход — `../node/workspaceContainsActivation.ts`).
+// `workspaceContains:<glob>` can't be settled by exact comparison: the argument is matched
+// against the workspace folder contents (the walk is in `../node/workspaceContainsActivation.ts`).
 
 import type {
     IExtensionContributions,
@@ -12,12 +12,15 @@ const ON_COMMAND_PREFIX = "onCommand:";
 
 const ON_LANGUAGE_PREFIX = "onLanguage:";
 
-/** Полный набор ({@link computeActivationEvents}): хост только сравнивает строки и про `contributes` не знает. */
+/**
+ * The full set ({@link computeActivationEvents}): the host only compares strings and knows nothing about
+ * `contributes`.
+ */
 export interface IActivationEventSource {
     readonly activationEvents?: readonly string[];
 }
 
-/** Как `activationEventsGenerator` у дескрипторов точек эталона. */
+/** Like upstream `activationEventsGenerator` on extension point descriptors. */
 export interface IImplicitActivationEventGenerator {
     readonly point: keyof IExtensionContributions;
     generate(contributes: IExtensionContributions): Iterable<string>;
@@ -25,7 +28,10 @@ export interface IImplicitActivationEventGenerator {
 
 const NO_CONTRIBUTIONS: readonly never[] = [];
 
-/** `commands` ⇒ `onCommand:<id>`: иначе видимая в палитре команда не-eager расширения была бы вечным no-op. */
+/**
+ * `commands` ⇒ `onCommand:<id>`: otherwise a palette-visible command of a non-eager extension would be a permanent
+ * no-op.
+ */
 export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationEventGenerator[] = [
     {
         point: "commands",
@@ -55,9 +61,9 @@ export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationE
 ];
 
 /**
- * Голый `onUri` → `onUri:<id в нижнем регистре>` (`_readActivationEvents` эталона).
- * Отклонение: манифест без событий считается eager (`*`) — опубликованные расширения
- * (`test.tab-setter`) на это полагаются; снимается с обновлением их записей реестра
+ * Bare `onUri` → `onUri:<lowercase id>` (upstream `_readActivationEvents`).
+ * Deviation: a manifest without events is treated as eager (`*`); published extensions
+ * (`test.tab-setter`) rely on it; dropped once their registry entries are updated
  * (docs/TODO/VscodeStructureFollowUps.md).
  */
 export function computeActivationEvents(
@@ -81,7 +87,7 @@ export function readActivationEvents(source: IActivationEventSource): readonly s
     return source.activationEvents ?? [];
 }
 
-/** Без дублей, в порядке манифеста. */
+/** No duplicates, in manifest order. */
 export function readCommandActivationIds(source: IActivationEventSource): readonly string[] {
     const ids: string[] = [];
     for (const event of readActivationEvents(source)) {
@@ -93,11 +99,11 @@ export function readCommandActivationIds(source: IActivationEventSource): readon
 }
 
 /**
- * Две семантики одного префикса, как `checkActivateWorkspaceContainsExtension` эталона: сводить
- * к поиску нельзя — `.vscode` срабатывает и на каталоге, а `pom.xml` не обязан читать дерево.
+ * Two semantics of one prefix, like upstream `checkActivateWorkspaceContainsExtension`: they can't
+ * be reduced to a search — `.vscode` also matches a directory, and `pom.xml` needn't walk the tree.
  */
 export interface IWorkspaceContainsPatterns {
-    /** Без `*`/`?` — проверка существования пути (файл ИЛИ каталог). */
+    /** No `*`/`?`: a path existence check (file OR directory). */
     readonly paths: readonly string[];
     readonly globs: readonly string[];
 }
@@ -108,7 +114,7 @@ export function hasWorkspaceContainsPatterns(patterns: IWorkspaceContainsPattern
     return patterns.paths.length > 0 || patterns.globs.length > 0;
 }
 
-/** Пустой паттерн отброшен: как путь он указывал бы на папку воркспейса и матчил любой воркспейс. */
+/** An empty pattern is dropped: as a path it would point at the workspace folder and match any workspace. */
 export function readWorkspaceContainsPatterns(source: IActivationEventSource): IWorkspaceContainsPatterns {
     const paths: string[] = [];
     const globs: string[] = [];

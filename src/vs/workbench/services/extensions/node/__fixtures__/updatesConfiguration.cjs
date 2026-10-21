@@ -1,11 +1,11 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.configurationUpdate.test.ts. Пишет настройку так
- * же, как стоковый Bazel-плагин (`getConfiguration("bazel.projectview")
- * .update("open", false)`), и сразу после `await update()` читает её обратно —
- * эталон обещает, что к этому моменту `get()` уже видит новое значение.
- * `onDidChangeConfiguration` копит события, затронувшие `test.update`.
+ * Fixture for extensionHost.configurationUpdate.test.ts. Writes a setting the same
+ * way the stock Bazel plugin does (`getConfiguration("bazel.projectview")
+ * .update("open", false)`), and right after `await update()` reads it back:
+ * upstream promises that by then `get()` already sees the new value.
+ * `onDidChangeConfiguration` collects events that affect `test.update`.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -15,7 +15,7 @@ exports.activate = function activate(context) {
             if (event.affectsConfiguration("test.update")) changes.push(event.affectsConfiguration("test.update.open"));
         }),
     );
-    // (section, key, value, target): value `null` — снять ключ (`undefined` по команде не передать).
+    // (section, key, value, target): `null` removes the key (a command cannot pass `undefined`).
     context.subscriptions.push(
         vscode.commands.registerCommand("test.config.update", async (section, key, value, target) => {
             const config = vscode.workspace.getConfiguration(section);

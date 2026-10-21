@@ -23,8 +23,8 @@ export interface IExtensionHostProcessOptions {
 }
 
 /**
- * Обработчики на {@link rpc} владелец ставит до первого сообщения ребёнка (IPC доставляет
- * их асинхронно). Аналог upstream `LocalProcessExtensionHost`: только процесс, handshake и выход.
+ * The owner installs handlers on {@link rpc} before the child's first message (IPC delivers
+ * them asynchronously). Counterpart of upstream `LocalProcessExtensionHost`: only process, handshake and exit.
  */
 export class ExtensionHostProcess {
     public readonly rpc: HostRpc;
@@ -33,7 +33,7 @@ export class ExtensionHostProcess {
     private readonly channel: IpcMessageChannel;
     private readonly logger: ILogger | undefined;
 
-    /** @param onExit зовётся один раз; `error` без `exit` — код и сигнал `null` */
+    /** @param onExit called once; `error` without `exit` gives `null` code and signal */
     public constructor(
         options: IExtensionHostProcessOptions,
         onExit: (code: number | null, signal: NodeJS.Signals | null) => void,
@@ -41,19 +41,19 @@ export class ExtensionHostProcess {
         this.logger = options.logger;
         const spec = options.spawnArgs();
         const { stdoutLogger, stderrLogger } = options;
-        // Без логгера поток закрыт, а не наследуется: ребёнок делит терминал с
-        // редактором, и печать расширения или language-сервера попала бы в кадр.
+        // Without a logger the stream is closed, not inherited: the child shares the terminal with
+        // the editor, and output from an extension or language server would land in the frame.
         const stdout = stdoutLogger !== undefined ? "pipe" : "ignore";
         const stderr = stderrLogger !== undefined ? "pipe" : "ignore";
-        // Stryker disable next-line StringLiteral,ObjectLiteral: текст и поля debug-лога поведения не задают
+        // Stryker disable next-line StringLiteral,ObjectLiteral: debug log text and fields don't define behavior
         this.logger?.debug("spawning extension host subprocess", {
             command: spec.command,
             args: spec.args,
             stdout,
             stderr,
         });
-        // Своя группа — чтобы сигнал доставал внуков: языковые серверы поднимают сами
-        // расширения (jdtls, gopls), сигнал прямому ребёнку их не касается.
+        // Own group so the signal reaches grandchildren: extensions start language servers
+        // themselves (jdtls, gopls), and a signal to the direct child doesn't reach them.
         const child = spawnSelfAsRole("DIODE_EXTENSION_HOST", {
             stdout,
             stderr,
@@ -73,8 +73,8 @@ export class ExtensionHostProcess {
             });
         }
         this.guard.onDidEnd((end) => {
-            // Неудачный спавн (EMFILE, ENOENT) — тоже конец: `exit` может не прийти, а владелец обязан сбросить состояние.
-            // Stryker disable next-line StringLiteral,ObjectLiteral: текст и поля лога поведения не задают
+            // A failed spawn (EMFILE, ENOENT) is also an end: `exit` may never come, and the owner must reset state.
+            // Stryker disable next-line StringLiteral,ObjectLiteral: log text and fields don't define behavior
             if (end.error === undefined) this.logger?.info("extension host subprocess exited", end);
             else this.logger?.error("extension host subprocess error", end.error);
             onExit(end.code, end.signal);
@@ -88,10 +88,10 @@ export class ExtensionHostProcess {
         return waitForReady(this.rpc, this.guard, timeoutMs);
     }
 
-    /** Для ребёнка, который уже вышел сам; живого выключает {@link shutdown}. */
+    /** For a child that has already exited on its own; {@link shutdown} stops a live one. */
     public dispose(): void {
         this.rpc.dispose();
-        // Stryker disable next-line CallExpression: закрытый RPC канал уже не слушает — отписка канала от ребёнка ненаблюдаема
+        // Stryker disable next-line CallExpression: a closed RPC channel no longer listens, so unsubscribing the channel from the child is unobservable
         this.channel.dispose();
     }
 
@@ -114,24 +114,24 @@ export class ExtensionHostProcess {
         this.dispose();
     }
 
-    /** Синхронно — там, где event loop дальше не крутится (перезагрузка окна). */
+    /** Synchronous, for where the event loop no longer spins (window reload). */
     public kill(): void {
         this.killTree("SIGKILL");
     }
 
     /**
-     * Ребёнок запущен `detached` — лидер своей группы: отрицательный pid снимает и внуков
-     * (языковые серверы). На Windows групп нет, там только прямой `kill`.
+     * The child is spawned `detached`, leading its own group: a negative pid also kills grandchildren
+     * (language servers). Windows has no groups, only a direct `kill` there.
      */
     private killTree(signal: NodeJS.Signals): void {
         const pid = this.child.pid;
-        // Stryker disable next-line ConditionalExpression,StringLiteral: см. выше — на posix правый операнд всегда истинен, мутант эквивалентен
+        // Stryker disable next-line ConditionalExpression,StringLiteral: see above; on posix the right operand is always true, the mutant is equivalent
         if (pid !== undefined && process.platform !== "win32") {
             try {
                 process.kill(-pid, signal);
                 return;
             } catch (err) {
-                // ESRCH — группа уже вышла; иное — пробуем прямой kill, чтобы не оставить ребёнка живым.
+                // ESRCH: the group has already exited; otherwise try a direct kill so the child isn't left alive.
                 if (isNoSuchProcess(err)) return;
                 this.logger?.warn("group kill failed, falling back to direct kill", err);
             }
@@ -154,10 +154,10 @@ export function defaultSpawnArgs(): IExtensionHostSpawnSpec {
 
 function waitForReady(rpc: HostRpc, guard: GuardedChildProcess, timeoutMs: number): Promise<void> {
     return new Promise((resolve, reject) => {
-        // Уборка ненаблюдаема ни в одной ветке: промис уже разрешён или
-        // отклонён, и поздние `host.ready`/таймер/выход ребёнка в нём ничего не
-        // меняют.
-        // Stryker disable CallExpression: см. выше
+        // Cleanup is unobservable in every branch: the promise is already resolved or
+        // rejected, and a late `host.ready`, timer or child exit no longer
+        // affects it.
+        // Stryker disable CallExpression: see above
         const handle = rpc.handleNotification("host.ready", () => {
             handle.dispose();
             cleanup();
@@ -174,7 +174,7 @@ function waitForReady(rpc: HostRpc, guard: GuardedChildProcess, timeoutMs: numbe
             // Stryker restore CallExpression
             reject(new Error(`extension host subprocess did not become ready in ${String(timeoutMs)}ms`));
         }, timeoutMs);
-        // Stryker disable BlockStatement,StringLiteral,CallExpression: см. выше
+        // Stryker disable BlockStatement,StringLiteral,CallExpression: see above
         const cleanup = (): void => {
             ended.dispose();
             clearTimeout(timer);
@@ -183,13 +183,13 @@ function waitForReady(rpc: HostRpc, guard: GuardedChildProcess, timeoutMs: numbe
     });
 }
 
-// Ожидание выхода ненаблюдаемо целиком: без него выключение всё равно доходит
-// до конца по страховочному `sleep(500)` — меняется только время, не исход; а
-// ветка «ребёнок уже вышел» недостижима (см. v8 ignore ниже).
-// Stryker disable all: см. выше
+// Waiting for exit is entirely unobservable: without it shutdown still completes
+// via the safety `sleep(500)`, only the timing changes, not the outcome; and
+// the "child already exited" branch is unreachable (see the v8 ignore below).
+// Stryker disable all: see above
 function waitForExit(child: ChildProcess): Promise<void> {
     return new Promise((resolve) => {
-        /* v8 ignore start -- defensive: смерть субпроцесса разбирает handleSubprocessDeath, и он обнуляет процесс хоста; поэтому до shutdown доезжает только живой ребёнок */
+        /* v8 ignore start -- defensive: handleSubprocessDeath handles subprocess death and clears the host's process, so only a live child reaches shutdown */
         if (child.exitCode !== null || child.killed) {
             resolve();
             return;

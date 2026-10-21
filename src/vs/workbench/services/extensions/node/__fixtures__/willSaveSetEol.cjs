@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * Фикстура will-save: возвращает единственную правку смены EOL на CRLF через
- * TextEdit.setEndOfLine. Проверяет, что wire-эдит setEndOfLine доезжает до ядра
- * (doc.setEol из WP5) и байты на диске содержат \r\n.
+ * will-save fixture: returns a single edit that switches EOL to CRLF via
+ * TextEdit.setEndOfLine. Checks that the setEndOfLine wire edit reaches the core
+ * (doc.setEol from WP5) and the bytes on disk contain \r\n.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

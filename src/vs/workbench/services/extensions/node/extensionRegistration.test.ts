@@ -101,7 +101,7 @@ describe("toExtensionRegistration", () => {
             "onCommand:sample.run",
             "onLanguage:sample",
         ]);
-        // Без событий — eager `*`: отклонение от эталона (computeActivationEvents).
+        // No events means eager `*`: a deviation from upstream (computeActivationEvents).
         expect(bare?.activationEvents).toEqual(["*"]);
     });
 
@@ -139,7 +139,7 @@ describe("collectCommandMeta", () => {
             { command: "d", title: "D", category: 7 } as never,
         ]);
 
-        // Строго: пропущенная запись не должна оставить ключ с undefined.
+        // Strict: a skipped entry must not leave a key with undefined.
         expect(meta.titles).toStrictEqual({ a: "A", d: "D" });
         expect(meta.categories).toBeUndefined();
     });

@@ -1,12 +1,12 @@
 "use strict";
 
 /**
- * Фикстура window.tabGroups/showTextDocument: записывает снимок tabGroups на
- * активации и события onDidChangeTabs/TabGroups/VisibleTextEditors; команды —
- * `test.tabs.dump` (лог), `test.tabs.snapshot` (текущий tabGroups),
- * `test.tabs.show {uri, viewColumn, preserveFocus}` (показ документа, отдаёт
- * {uri, viewColumn} открытого редактора), `test.tabs.close {label}` (закрыть
- * вкладку по метке), `test.tabs.closeGroup {viewColumn}` (закрыть группу).
+ * window.tabGroups/showTextDocument fixture: records a tabGroups snapshot at
+ * activation and the onDidChangeTabs/TabGroups/VisibleTextEditors events; commands:
+ * `test.tabs.dump` (the log), `test.tabs.snapshot` (current tabGroups),
+ * `test.tabs.show {uri, viewColumn, preserveFocus}` (shows a document, returns
+ * {uri, viewColumn} of the opened editor), `test.tabs.close {label}` (closes
+ * a tab by label), `test.tabs.closeGroup {viewColumn}` (closes a group).
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

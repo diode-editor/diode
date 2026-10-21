@@ -1,14 +1,14 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.authTelemetry.test.ts — форма активации
- * `hashicorp.terraform` до старта языкового сервера.
+ * Fixture for extensionHost.authTelemetry.test.ts: the activation shape of
+ * `hashicorp.terraform` before the language server starts.
  *
- * Первым идёт репортер телеметрии (`@vscode/extension-telemetry` строит
- * логгер через `env.createTelemetryLogger` в конструкторе), затем — свой
- * провайдер входа и проверка «вошёл ли» тихим `getSession`. Без любого из этих
- * членов `activate()` падал целиком. Только после них регистрируется команда
- * `test.authTelemetry`: её исполнение и есть наблюдаемое «расширение живо».
+ * First comes the telemetry reporter (`@vscode/extension-telemetry` builds a
+ * logger via `env.createTelemetryLogger` in its constructor), then its own
+ * sign-in provider and a "signed in?" check via a silent `getSession`. Without any of
+ * these members `activate()` failed entirely. Only after them is the command
+ * `test.authTelemetry` registered: running it is the observable "extension is alive".
  */
 const vscode = require("vscode");
 

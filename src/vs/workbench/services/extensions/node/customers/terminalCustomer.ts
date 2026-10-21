@@ -12,13 +12,16 @@ import {
 } from "../hostWireParsers.ts";
 
 /**
- * `MainThreadTerminalService` эталона. Субпроцессу пересказываются все терминалы,
- * не только заведённые расширением, — начиная с {@link pushInitialState} (после
- * `host.ready`, до первой активации): до него у субпроцесса нет обработчиков,
- * а всё случившееся раньше войдёт в снимок.
+ * Upstream `MainThreadTerminalService`. The subprocess is told about all terminals,
+ * not only those created by an extension, starting with {@link pushInitialState} (after
+ * `host.ready`, before the first activation): before that the subprocess has no handlers,
+ * and everything that happened earlier goes into the snapshot.
  */
 export class TerminalCustomer implements IExtensionHostCustomer {
-    /** Признак жизни: уборка при смерти субпроцесса закрывает его pty-терминалы, и их `closed` слать уже некому. */
+    /**
+     * Liveness flag: cleanup on subprocess death closes its pty terminals, and there is no one left to send their
+     * `closed` to.
+     */
     private spawn: {
         readonly rpc: HostRpc;
         readonly sink: IExtensionTerminalSink;
@@ -47,8 +50,8 @@ export class TerminalCustomer implements IExtensionHostCustomer {
                 activeChanged: (id) => {
                     if (seeded()) rpc.notify("terminal.activeChanged", { id });
                 },
-                // Гейт не нужен: pty-терминал заводит только живой субпроцесс, а уборка
-                // его pty при смерти не вызывает ни старта, ни ввода, ни ресайза.
+                // No gate needed: only a live subprocess creates a pty terminal, and cleaning up
+                // its pty on death triggers neither start, nor input, nor resize.
                 ptyStart: (id, cols, rows) => {
                     rpc.notify("terminal.pty.start", { id, cols, rows });
                 },
@@ -112,7 +115,10 @@ export class TerminalCustomer implements IExtensionHostCustomer {
         return store;
     }
 
-    /** Как конструктор `MainThreadTerminalService` эталона: `$acceptTerminalOpened` по всем инстансам и активный. */
+    /**
+     * Like the upstream `MainThreadTerminalService` constructor: `$acceptTerminalOpened` for all instances, plus
+     * the active one.
+     */
     public pushInitialState(): void {
         const spawn = this.spawn;
         if (spawn === null) return;

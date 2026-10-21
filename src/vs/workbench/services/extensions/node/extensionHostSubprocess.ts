@@ -51,42 +51,45 @@ interface ExtensionContext {
     asAbsolutePath(relativePath: string): string;
     readonly globalStorageUri: Uri;
     readonly globalStoragePath: string;
-    /** `undefined` — папка/воркспейс не открыт (семантика vscode). */
+    /** `undefined` when no folder/workspace is open (vscode semantics). */
     readonly storageUri: Uri | undefined;
     readonly storagePath: string | undefined;
     readonly logUri: Uri;
     readonly logPath: string;
-    /** Эталон строит отдельный `Extension`; мы берём запись каталога, который хост шлёт до первой активации. */
+    /**
+     * Upstream builds a separate `Extension`; we take the entry from the catalog the host sends before the first
+     * activation.
+     */
     readonly extension: vscode.Extension<unknown>;
-    /** Коллекция окружения терминалов расширения — переживает его повторную активацию. */
+    /** The extension's terminal environment collection, surviving its reactivation. */
     readonly environmentVariableCollection: vscode.GlobalEnvironmentVariableCollection;
 }
 
-/** В нормальном режиме не возвращается: процесс живёт до `host.shutdown` или `disconnect`. */
+/** Doesn't return in normal operation: the process lives until `host.shutdown` or `disconnect`. */
 export function runExtensionHostSubprocess(): void {
     if (typeof process.send !== "function") {
         console.error("[ext-host] subprocess started without IPC channel; exiting");
         process.exit(2);
     }
 
-    // `localhost` → 127.0.0.1 первым, как у ext host'а VS Code (issue #189805): с `verbatim`
-    // TCP-сервер расширения встаёт на `::1`, а его Java-сервер стучится в 127.0.0.1 —
-    // «Connection refused» (bazel-java). Функцией, а не флагом: под SEA execArgv не наш.
-    // Отступление: дети субпроцесса порядок не наследуют, в VS Code он уезжает с execArgv.
+    // `localhost` → 127.0.0.1 first, like the VS Code extension host (issue #189805): with `verbatim`
+    // an extension's TCP server binds `::1` while its Java server connects to 127.0.0.1:
+    // "Connection refused" (bazel-java). A call, not a flag: under SEA execArgv isn't ours.
+    // Deviation: the subprocess's children don't inherit the order, in VS Code it travels with execArgv.
     dns.setDefaultResultOrder("ipv4first");
 
-    // Расширения форкают `process.execPath` (vscode-languageclient, basedpyright), а под SEA
-    // это сам diode-бинарь: унаследованный флаг увёл бы ребёнка в ext-host-ветку.
-    // `main.ts` проверяет `DIODE_RUN_AS_NODE` первым.
+    // Extensions fork `process.execPath` (vscode-languageclient, basedpyright), and under SEA
+    // that is the diode binary itself: an inherited flag would send the child down the extension host branch.
+    // `main.ts` checks `DIODE_RUN_AS_NODE` first.
     delete process.env.DIODE_EXTENSION_HOST;
     process.env.DIODE_RUN_AS_NODE = "1";
 
-    // Забытый промис расширения не должен ронять субпроцесс со всеми расширениями
-    // (#194: fire-and-forget `executeCommand` у maptz.regionfolder).
+    // A forgotten extension promise must not crash the subprocess with all extensions
+    // (#194: fire-and-forget `executeCommand` in maptz.regionfolder).
     process.on("unhandledRejection", (reason: unknown) => {
         console.error(`[ext-host] unhandled rejection in extension code: ${describeRejection(reason)}`);
     });
-    // Префикс `[ext-host]` — по нему host узнаёт свои строки в stderr.
+    // The `[ext-host]` prefix lets the host recognize its lines in stderr.
     setUnexpectedErrorHandler((e: unknown) => {
         console.error(`[ext-host] unexpected error: ${describeRejection(e)}`);
     });
@@ -120,15 +123,15 @@ export function runExtensionHostSubprocess(): void {
         if (extensions.has(id)) {
             throw new Error(`Extension "${id}" already activated`);
         }
-        // В индекс — до загрузки: `require("vscode")` верхнего уровня модуля должен уже знать, чьё оно.
+        // Index before loading: a `require("vscode")` at module top level must already know whose it is.
         const rootPath = extensionRootPath({ extensionPath, mainPath, filename });
         paths.add(rootPath, id);
         const loaded = await loadExtensionModule({ mainPath, source, filename, moduleType });
         if (typeof loaded.activate !== "function") {
             throw new Error(`Extension "${id}" has no activate() in ${filename ?? mainPath}`);
         }
-        // Хост шлёт `extensions.catalog` до активации по тому же каналу; нет записи — нарушен
-        // контракт хоста: падаем с именем, а не TypeError'ом внутри `activate()`.
+        // The host sends `extensions.catalog` before activation over the same channel; a missing entry breaks
+        // the host contract: fail with the name, not with a TypeError inside `activate()`.
         const extension = catalog.getExtension(id);
         if (extension === undefined) {
             throw new Error(
@@ -152,7 +155,8 @@ export function runExtensionHostSubprocess(): void {
             }),
             secrets: secrets.create(id),
             asAbsolutePath: (relativePath: string): string => path.join(rootPath, relativePath),
-            // Каталоги не создаём: по контракту vscode.d.ts это делает расширение, хост гарантирует только родителя.
+            // Directories aren't created: per the vscode.d.ts contract the extension does it, the host guarantees
+            // only the parent.
             globalStorageUri: Uri.file(storage.globalStoragePath),
             globalStoragePath: storage.globalStoragePath,
             storageUri: storage.storagePath === null ? undefined : Uri.file(storage.storagePath),
@@ -169,8 +173,8 @@ export function runExtensionHostSubprocess(): void {
         } catch (err) {
             extensions.delete(id);
             extensionExports.delete(id);
-            // Отказ не-`Error` (golang.go без `go` отклоняет голым `undefined`) оборачиваем, как
-            // `ActivatedExtension._activate` эталона, — иначе в логе хоста пустая ошибка.
+            // A non-`Error` rejection (golang.go without `go` rejects with bare `undefined`) is wrapped, like upstream
+            // `ActivatedExtension._activate`, otherwise the host log shows an empty error.
             if (err instanceof Error) throw err;
             throw new Error(`activate() rejected with a non-Error value: ${String(err)}`, { cause: err });
         }
@@ -187,8 +191,8 @@ export function runExtensionHostSubprocess(): void {
         return null;
     });
 
-    // Канал не закрываем: ответ уходит после обработчика, закрытый RPC его проглотил бы.
-    // Выход доводит родитель (SIGTERM по ответу) или `disconnect`.
+    // Don't close the channel: the response goes out after the handler, a closed RPC would swallow it.
+    // The parent (SIGTERM on response) or `disconnect` completes the exit.
     rpc.handleRequest("host.shutdown", async (): Promise<null> => {
         await deactivateAll();
         return null;
@@ -215,14 +219,14 @@ export function runExtensionHostSubprocess(): void {
     rpc.notify("host.ready", null);
 }
 
-/** Правило эталона `_isESM` (`abstractExtHostExtensionService`). */
+/** Upstream's `_isESM` rule (`abstractExtHostExtensionService`). */
 export function isEsmEntry(mainPath: string, moduleType: string | undefined): boolean {
     if (mainPath.endsWith(".mjs")) return true;
     if (mainPath.endsWith(".cjs")) return false;
     return moduleType === "module";
 }
 
-/** `source` компилируется в памяти: относительных require в бандле нет, поэтому `filename` синтетический. */
+/** `source` is compiled in memory: the bundle has no relative requires, so `filename` is synthetic. */
 async function loadExtensionModule(spec: {
     mainPath: string | undefined;
     source: string | undefined;
@@ -293,7 +297,8 @@ function parseActivateParams(raw: unknown): {
     if (hasSource && (typeof obj.filename !== "string" || obj.filename === "")) {
         throw new Error("activateExtension: source requires a non-empty filename");
     }
-    // Не опциональные: без `globalStorageUri`/`logUri` расширение падает на `.fsPath` в первой строке activate().
+    // Not optional: without `globalStorageUri`/`logUri` an extension crashes on `.fsPath` in the first line of
+    // activate().
     const globalStoragePath = requireNonEmptyString(obj.globalStoragePath, "globalStoragePath");
     const logPath = requireNonEmptyString(obj.logPath, "logPath");
     return {
@@ -337,9 +342,9 @@ function parseExtensionId(raw: unknown): string {
 const VSCODE_GLOBAL_KEY = Symbol.for(VSCODE_GLOBAL_KEY_NAME);
 
 /**
- * Виртуальный модуль `"vscode"` по импортёру: модуль в корне расширения получает его оверлей.
- * CJS — патч `Module._resolveFilename`, ESM — `registerHooks`: CJS-кэш ESM-loader'у не
- * виден, эталон держит оба механизма по той же причине.
+ * Virtual `"vscode"` module per importer: a module under an extension root gets that extension's overlay.
+ * CJS via patching `Module._resolveFilename`, ESM via `registerHooks`: the CJS cache isn't visible
+ * to the ESM loader, upstream keeps both mechanisms for the same reason.
  */
 function installVscodeStub(
     rpc: SubprocessRpc,
@@ -354,10 +359,10 @@ function installVscodeStub(
 } {
     const host = buildVscodeNamespace(rpc, createNodeExtHostDisk());
     const { configStore, extensionExports, secrets, environmentVariableCollections } = host;
-    // Общий namespace: `extensions` оверлей не перекрывает.
+    // Shared namespace: the overlay doesn't override `extensions`.
     const extensions = host.namespace.extensions;
     const paths = new ExtensionPaths({ realpath: fs.realpathSync.native });
-    // Корни — из каталога хоста, чтобы опознать `require("vscode")` раньше `activate()` своего расширения.
+    // Roots come from the host's catalog, to recognize `require("vscode")` before its extension's `activate()`.
     const catalogSubscription = host.onDidReceiveCatalog((catalog) => {
         for (const description of catalog) paths.add(description.extensionPath, description.id);
     });
@@ -386,7 +391,7 @@ function installVscodeStub(
         return key;
     };
 
-    // Сгенерированный ESM-модуль берёт API из globalThis: замыканием в исходник его не передать.
+    // The generated ESM module takes the API from globalThis: it can't be passed into source via a closure.
     (globalThis as unknown as Record<symbol, unknown>)[VSCODE_GLOBAL_KEY] = api.lookup;
     const hooks = registerHooks({
         resolve: (specifier, context, nextResolve) =>

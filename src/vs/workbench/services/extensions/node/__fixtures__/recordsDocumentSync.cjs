@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Фикстура document sync: записывает снимок `workspace.textDocuments` на момент
- * активации (так стоковый vscode-languageclient читает документы на `start()`)
- * и события onDidOpen/onDidChange/onDidCloseTextDocument. Лог отдаётся командой
- * `test.docSync.dump` — host читает его через commandRegistry.execute.
+ * Document sync fixture: records a snapshot of `workspace.textDocuments` at
+ * activation (this is how the stock vscode-languageclient reads documents on `start()`)
+ * and the onDidOpen/onDidChange/onDidCloseTextDocument events. The log is returned by the
+ * `test.docSync.dump` command; the host reads it via commandRegistry.execute.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

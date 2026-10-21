@@ -1,14 +1,14 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.editorWrite.test.ts.
- * Регистрирует команды, которые пишут в активный редактор — тот же путь, что
- * команды maptz.regionfolder (selection setter + editor.edit).
+ * Fixture for extensionHost.editorWrite.test.ts.
+ * Registers commands that write to the active editor, the same path as the
+ * maptz.regionfolder commands (selection setter + editor.edit).
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
-    // Вставляет "X" в начало документа через editor.edit (undoable-батч).
+    // Inserts "X" at the start of the document via editor.edit (an undoable batch).
     context.subscriptions.push(
         vscode.commands.registerCommand("test.insertX", async function () {
             const editor = vscode.window.activeTextEditor;
@@ -19,7 +19,7 @@ exports.activate = function activate(context) {
         }),
     );
 
-    // Выставляет выделение первой строки целиком.
+    // Selects the whole first line.
     context.subscriptions.push(
         vscode.commands.registerCommand("test.selectFirstLine", function () {
             const editor = vscode.window.activeTextEditor;
@@ -28,9 +28,9 @@ exports.activate = function activate(context) {
         }),
     );
 
-    // Отдаёт выделение, каким его видит расширение ПРЯМО СЕЙЧАС. Тот же путь, что
-    // у настоящих команд (maptz читает `ate.selection` и выходит на пустом), —
-    // проверяет, что хост доносит движение каретки, а не только смену вкладки.
+    // Returns the selection as the extension sees it RIGHT NOW. The same path as
+    // real commands (maptz reads `ate.selection` and bails out on an empty one):
+    // checks that the host relays cursor movement, not only tab changes.
     context.subscriptions.push(
         vscode.commands.registerCommand("test.readSelection", function () {
             const editor = vscode.window.activeTextEditor;
@@ -47,8 +47,8 @@ exports.activate = function activate(context) {
         }),
     );
 
-    // Fire-and-forget вызов несуществующей команды ядра: промис никто не ловит.
-    // Ровно так делает maptz после wrapWithRegion (editor.action.formatDocument).
+    // A fire-and-forget call of a nonexistent core command: nobody catches the promise.
+    // This is exactly what maptz does after wrapWithRegion (editor.action.formatDocument).
     context.subscriptions.push(
         vscode.commands.registerCommand("test.fireAndForgetMissingCommand", function () {
             void vscode.commands.executeCommand("no.such.core.command");
@@ -56,14 +56,14 @@ exports.activate = function activate(context) {
         }),
     );
 
-    // Число видимых редакторов (проверка window.visibleTextEditors).
+    // Number of visible editors (checks window.visibleTextEditors).
     context.subscriptions.push(
         vscode.commands.registerCommand("test.visibleCount", function () {
             return vscode.window.visibleTextEditors.length;
         }),
     );
 
-    // Удаляет первую строку через editor.edit(delete).
+    // Deletes the first line via editor.edit(delete).
     context.subscriptions.push(
         vscode.commands.registerCommand("test.deleteFirstLine", function () {
             const editor = vscode.window.activeTextEditor;

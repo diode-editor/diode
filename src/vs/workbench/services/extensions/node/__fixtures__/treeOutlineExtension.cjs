@@ -1,13 +1,13 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.treeViewNoop.test.ts — типовое расширение с деревом
- * целей сборки (форма bazel-java: `class BazelRunTarget extends vscode.TreeItem`).
+ * Fixture for extensionHost.treeViewNoop.test.ts: a typical extension with a tree
+ * of build targets (bazel-java shape: `class BazelRunTarget extends vscode.TreeItem`).
  *
- * Класс узла объявлен на УРОВНЕ МОДУЛЯ: без значения `vscode.TreeItem` модуль
- * падает ещё при загрузке («Class extends value undefined»), до `activate()`.
- * В `activate()` дерево регистрируется ПЕРВЫМ, и только потом — команда
- * `test.treeTargets`: её исполнение и есть наблюдаемое «расширение живо».
+ * The node class is declared at MODULE TOP LEVEL: without a `vscode.TreeItem` value the module
+ * fails already at load time ("Class extends value undefined"), before `activate()`.
+ * `activate()` registers the tree FIRST, and only then the
+ * `test.treeTargets` command: executing it is the observable "extension is alive".
  */
 const vscode = require("vscode");
 

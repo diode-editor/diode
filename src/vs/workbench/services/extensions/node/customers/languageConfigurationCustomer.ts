@@ -4,9 +4,9 @@ import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common
 import { parseWireLanguageConfiguration, parseWireLanguageProviderUnregistration } from "../hostWireParsers.ts";
 
 /**
- * upstream `MainThreadLanguageFeatures.$setLanguageConfiguration`: слой поверх
- * `language-configuration.json`. Слои живут один спавн — ожившее расширение
- * заведёт их заново в `activate()`.
+ * upstream `MainThreadLanguageFeatures.$setLanguageConfiguration`: a layer on top of
+ * `language-configuration.json`. Layers live for one spawn — a revived extension
+ * registers them again in `activate()`.
  */
 export class LanguageConfigurationCustomer implements IExtensionHostCustomer {
     public constructor(private readonly languageConfigurations: Pick<ILanguageConfigurationService, "register">) {}
@@ -17,9 +17,9 @@ export class LanguageConfigurationCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("languages.setLanguageConfiguration", (params) => {
                 const parsed = parseWireLanguageConfiguration(params);
-                // Stryker disable next-line ConditionalExpression: без проверки null падает на `.handle` — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
+                // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (parsed === null) return;
-                // Повтор handle — новый слой вместо прежнего, не второй поверх.
+                // A repeated handle replaces the previous layer instead of stacking a second one.
                 layers.get(parsed.handle)?.dispose();
                 layers.set(
                     parsed.handle,
@@ -30,9 +30,9 @@ export class LanguageConfigurationCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("languages.unsetLanguageConfiguration", (params) => {
                 const parsed = parseWireLanguageProviderUnregistration(params);
-                // Stryker disable next-line ConditionalExpression: без проверки null падает на `.handle` — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
+                // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (parsed === null) return;
-                // Stryker disable next-line OptionalChaining: неизвестный handle без `?.` бросает — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
+                // Stryker disable next-line OptionalChaining: an unknown handle without `?.` throws — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 layers.get(parsed.handle)?.dispose();
                 layers.delete(parsed.handle);
             }),

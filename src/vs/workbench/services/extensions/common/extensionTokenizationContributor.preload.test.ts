@@ -85,7 +85,7 @@ describe("ExtensionTokenizationContributor — background preload", () => {
         await registry.load("typescript");
         await contributor.preloadAll();
 
-        // ts + css, а не ts дважды: load() идемпотентен.
+        // ts + css, not ts twice: load() is idempotent.
         expect(loadSupport).toHaveBeenCalledTimes(2);
     });
 
@@ -102,7 +102,7 @@ describe("ExtensionTokenizationContributor — background preload", () => {
         contributor.apply();
 
         const preloading = contributor.preloadAll();
-        // Первый язык ещё летит — закрываем контрибьютор под ним.
+        // The first language is still in flight; dispose the contributor under it.
         contributor.dispose();
         resolveFirst(makeStubSupport());
         await preloading;

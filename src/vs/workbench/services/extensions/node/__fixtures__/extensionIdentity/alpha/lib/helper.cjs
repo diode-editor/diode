@@ -1,4 +1,4 @@
 "use strict";
 
-// Модуль внутри корня «alpha» — обязан получить тот же `vscode`, что и точка входа.
+// A module inside the "alpha" root must receive the same `vscode` as the entry point.
 exports.vscode = require("vscode");

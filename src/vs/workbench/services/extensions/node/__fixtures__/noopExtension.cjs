@@ -1,8 +1,8 @@
 "use strict";
 
 /**
- * Тестовая фикстура: ничего не делает, нужна для проверки что extension
- * успешно активируется и регистрируется в `extensionCount`.
+ * Test fixture: does nothing, used to check that an extension activates
+ * successfully and is counted in `extensionCount`.
  */
 exports.activate = function activate(_context) {};
 exports.deactivate = function deactivate() {};

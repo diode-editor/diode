@@ -1,14 +1,14 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.themeAndSelection.test.ts. Читает
- * `window.activeColorTheme` в момент активации, копит события
- * `onDidChangeActiveColorTheme` и `onDidChangeTextEditorSelection` и отдаёт всё
- * командой `test.themeSelection.report`.
+ * Fixture for extensionHost.themeAndSelection.test.ts. Reads
+ * `window.activeColorTheme` at activation, collects
+ * `onDidChangeActiveColorTheme` and `onDidChangeTextEditorSelection` events and returns it all
+ * via the `test.themeSelection.report` command.
  *
- * Сравнения делаются ЗДЕСЬ, через runtime-enum'ы `vscode.ColorThemeKind` /
- * `vscode.TextEditorSelectionChangeKind`: так тест проверяет ещё и то, что
- * enum'ы отданы расширению настоящими значениями, а не типами.
+ * Comparisons are made HERE, through the runtime enums `vscode.ColorThemeKind` /
+ * `vscode.TextEditorSelectionChangeKind`: this way the test also checks that
+ * the enums reach the extension as real values, not just types.
  */
 
 exports.activate = function activate(context) {
@@ -24,7 +24,7 @@ exports.activate = function activate(context) {
             themeEvents.push({
                 kind: theme.kind,
                 isLight: theme.kind === vscode.ColorThemeKind.Light,
-                // Свойство namespace'а обязано быть обновлено ДО рассылки.
+                // The namespace property must be updated BEFORE dispatch.
                 matchesNamespace: theme.kind === vscode.window.activeColorTheme.kind,
             });
         }),
@@ -36,8 +36,8 @@ exports.activate = function activate(context) {
                 selections: event.selections.map(function (s) {
                     return [s.anchor.line, s.anchor.character, s.active.line, s.active.character];
                 }),
-                // Событие обязано нести тот же объект редактора, что и namespace,
-                // и уже обновлённое выделение.
+                // The event must carry the same editor object as the namespace,
+                // with the selection already updated.
                 isActiveEditor: event.textEditor === vscode.window.activeTextEditor,
                 editorSelection: [event.textEditor.selection.active.line, event.textEditor.selection.active.character],
             });

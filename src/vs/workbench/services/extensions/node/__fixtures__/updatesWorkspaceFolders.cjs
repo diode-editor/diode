@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.updateWorkspaceFolders.test.ts —
- * `workspace.updateWorkspaceFolders` через НАСТОЯЩИЙ субпроцесс. Форма вызова —
- * как у golang.go («Go: Add Package to Workspace»): добавить папку в конец,
- * `deleteCount` = null. Команда возвращает то, что вернул API.
+ * Fixture for extensionHost.updateWorkspaceFolders.test.ts:
+ * `workspace.updateWorkspaceFolders` through a REAL subprocess. The call shape
+ * matches golang.go ("Go: Add Package to Workspace"): append a folder at the end,
+ * `deleteCount` = null. The command returns whatever the API returned.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

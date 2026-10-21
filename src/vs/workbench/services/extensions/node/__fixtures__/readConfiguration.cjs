@@ -1,11 +1,11 @@
 "use strict";
 
 /**
- * Тестовая фикстура для ExtensionHost.Configuration.test.ts.
+ * Test fixture for ExtensionHost.Configuration.test.ts.
  *
- * Читает конфигурацию двух слоёв через vscode.workspace.getConfiguration и
- * сигналит результат через editor.options активного редактора:
- *   - tabSize      ← getConfiguration("editor").get("tabSize")  (user-снапшот)
+ * Reads configuration from two layers via vscode.workspace.getConfiguration and
+ * signals the result through the active editor's editor.options:
+ *   - tabSize      ← getConfiguration("editor").get("tabSize")  (user snapshot)
  *   - insertSpaces ← getConfiguration("editorconfig").get("spaces")  (contributed default)
  */
 exports.activate = function activate(_context) {

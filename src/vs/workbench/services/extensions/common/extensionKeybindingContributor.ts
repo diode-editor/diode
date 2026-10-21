@@ -13,9 +13,9 @@ type KeyboardOs = "mac" | "linux" | "windows";
 const KEYBOARD_OSES: readonly KeyboardOs[] = ["mac", "linux", "windows"];
 
 /**
- * Платформу выбирает не `process.platform`, а контекст-ключ `os`: по ssh с мака нужна
- * `mac`-ветка, а ответ уточняется после старта (XTVERSION, tmux). Поэтому регистрируются
- * все различающиеся варианты с условием `os == …`; приоритет задают слои реестра.
+ * The platform comes from the `os` context key, not `process.platform`: over ssh from a Mac the
+ * `mac` branch is needed, and the answer is refined after startup (XTVERSION, tmux). So all
+ * distinct variants are registered with an `os == …` condition; registry layers set the priority.
  */
 export function registerExtensionKeybindings(
     extensions: readonly IExtension[],
@@ -61,7 +61,7 @@ function variantsOf(kb: IKeybindingContribution): { key: string; when: string | 
 function rulesOf(kb: IKeybindingContribution): IKeybindingLayerRule[] {
     return variantsOf(kb).map((variant) => {
         const chord = parseChord(variant.key);
-        // `-command` снимает ровно эту комбинацию — условие ОС не нужно.
+        // `-command` removes exactly this combination; no OS condition needed.
         if (kb.command.startsWith("-")) return { command: kb.command, chord };
         return { command: kb.command, chord, when: combineWhen(variant.when, kb.when) };
     });

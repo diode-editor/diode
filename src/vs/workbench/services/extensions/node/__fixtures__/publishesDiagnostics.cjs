@@ -1,12 +1,12 @@
 "use strict";
 
 /**
- * Фикстура стока диагностик: команда `test.diag.publish` публикует одну
- * диагностику в ресурс через createDiagnosticCollection (сквозной путь до
- * diagnosticsSink хоста), `test.diag.clear` — чистит коллекцию.
- * Обратный путь: `test.diag.get` — `languages.getDiagnostics` (с ресурсом или
- * без) в сериализуемом виде, `test.diag.changes` — ресурсы всех событий
- * `onDidChangeDiagnostics` с активации.
+ * Diagnostics sink fixture: the `test.diag.publish` command publishes one
+ * diagnostic for a resource via createDiagnosticCollection (end to end up to
+ * the host's diagnosticsSink), `test.diag.clear` clears the collection.
+ * Reverse path: `test.diag.get` returns `languages.getDiagnostics` (with or without
+ * a resource) in serializable form, `test.diag.changes` the resources of all
+ * `onDidChangeDiagnostics` events since activation.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

@@ -1,6 +1,6 @@
-// Helper subprocess для IpcMessageChannel.RoundTrip.test.ts.
-// Запускается через `child_process.spawn(process.execPath, [thisFile], { stdio: [...,'ipc'] })`.
-// Эхо-сервер: на любое сообщение `{ id, payload }` отвечает `{ id, echo: payload }`.
+// Helper subprocess for IpcMessageChannel.RoundTrip.test.ts.
+// Started via `child_process.spawn(process.execPath, [thisFile], { stdio: [...,'ipc'] })`.
+// Echo server: answers any `{ id, payload }` message with `{ id, echo: payload }`.
 
 "use strict";
 
@@ -13,7 +13,7 @@ process.on("message", function (msg) {
     process.send({ id: msg.id, echo: msg.payload });
 });
 
-// Сигнал готовности.
+// Readiness signal.
 if (typeof process.send === "function") {
     process.send({ ready: true });
 }

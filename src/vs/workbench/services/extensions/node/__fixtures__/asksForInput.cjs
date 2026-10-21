@@ -1,11 +1,11 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.quickInputSubprocess.test.ts — полный круг
- * `window.showInputBox` / `window.showQuickPick` через НАСТОЯЩИЙ субпроцесс.
+ * Fixture for extensionHost.quickInputSubprocess.test.ts: the full round trip of
+ * `window.showInputBox` / `window.showQuickPick` through a REAL subprocess.
  *
- * Команды возвращают то, что расширение получило от человека, — значение
- * команды и есть сигнал наружу (принятая конвенция фикстур).
+ * Commands return what the extension got from the user: the command's value is
+ * the signal to the outside (the established fixture convention).
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

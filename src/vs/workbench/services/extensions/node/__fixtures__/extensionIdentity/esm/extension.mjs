@@ -1,7 +1,7 @@
 /**
- * Фикстура extensionHost.extensionIdentity.test.ts — ESM-расширение. Кладёт в
- * реестр проб члены своего `vscode` (именованные import'ы из виртуального
- * модуля этого расширения).
+ * Fixture for extensionHost.extensionIdentity.test.ts: an ESM extension. Puts the
+ * members of its `vscode` (named imports from this extension's virtual module)
+ * into the probe registry.
  */
 import { env, Position, window } from "vscode";
 

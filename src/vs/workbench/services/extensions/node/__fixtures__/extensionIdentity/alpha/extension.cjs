@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * Фикстура extensionHost.extensionIdentity.test.ts — расширение «alpha» в
- * своём каталоге. Кладёт свой `vscode` (и тот, что получил модуль из его же
- * `lib/`) в общий реестр проб; сравнивает их фикстура «beta».
+ * Fixture for extensionHost.extensionIdentity.test.ts: extension "alpha" in its
+ * own directory. Puts its `vscode` (and the one a module from its own `lib/`
+ * received) into the shared probe registry; fixture "beta" compares them.
  */
 const vscode = require("vscode");
 const helper = require("./lib/helper.cjs");

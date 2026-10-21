@@ -86,7 +86,7 @@ describe("ExtensionTokenizationContributor", () => {
         const changed: string[] = [];
         registry.onDidChange((languageId) => changed.push(languageId));
 
-        // Новый объект с теми же правилами и цветами — как повторный onThemeChange.
+        // A new object with the same rules and colors, like a repeated onThemeChange.
         contributor.setTheme(createTextMateTheme(builtinTheme("Dark Modern")));
 
         expect(changed).toEqual([]);
@@ -106,7 +106,7 @@ describe("ExtensionTokenizationContributor", () => {
         expect(registry.get("typescript")).toBeUndefined();
     });
 
-    // Замок на eager-парсинг: 77 builtin-грамматик — 6.6 MB JSON.
+    // Guards against eager parsing: 77 builtin grammars are 6.6 MB of JSON.
     it("apply() не читает ассеты — грамматика парсится только на load()", async () => {
         const assets = createDevAssetAccess();
         const exts = await scanBuiltinExtensions(assets, ROOT_PREFIX);

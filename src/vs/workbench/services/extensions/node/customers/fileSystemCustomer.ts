@@ -20,7 +20,7 @@ import {
     parseWireWatcherDispose,
 } from "../hostWireParsers.ts";
 
-/** События ядру живут столько же, сколько хост; watcher'ы и канал к провайдерам — один спавн. */
+/** Events to the core live as long as the host; watchers and the channel to providers live for one spawn. */
 export class FileSystemCustomer extends Disposable implements IExtensionHostCustomer {
     private live: { readonly rpc: HostRpc; textContentSchemes: readonly string[] } | null = null;
     private fileSystemSchemesValue: readonly string[] = [];
@@ -41,25 +41,25 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
         return this.fileSystemSchemesValue;
     }
 
-    /** Схема провайдера только для чтения (`isReadonly` или провайдер без `writeFile`). */
+    /** The provider scheme is readonly (`isReadonly` or a provider without `writeFile`). */
     public isReadonlyFileSystem(scheme: string): boolean {
         return this.readonlySchemes.has(scheme);
     }
 
     /**
-     * Отклоняется, если host не поднят или провайдер схемы не зарегистрирован —
-     * потребитель обязан это пережить (для гуттера «git-расширения нет» — штатно).
+     * Rejects if the host isn't up or no provider is registered for the scheme —
+     * the consumer must survive this (for the gutter, “no git extension” is normal).
      */
     public async readProvidedFile(uri: Uri): Promise<Uint8Array> {
         return parseWireReadFileResult(await this.rpc().request("workspace.fs.readFile", { uri: uri.toString() }));
     }
 
-    /** `null` — ресурса нет. Отклоняется, как {@link readProvidedFile}. */
+    /** `null` means the resource doesn't exist. Rejects like {@link readProvidedFile}. */
     public async statProvidedFile(uri: Uri): Promise<IStat | null> {
         return parseWireFileStat(await this.rpc().request("workspace.fs.stat", { uri: uri.toString() }));
     }
 
-    /** Отклоняется, как {@link readProvidedFile}. */
+    /** Rejects like {@link readProvidedFile}. */
     public async writeProvidedFile(uri: Uri, content: Uint8Array): Promise<void> {
         await this.rpc().request("workspace.fs.writeFile", {
             uri: uri.toString(),
@@ -74,16 +74,16 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
     }
 
     /**
-     * Спрашивать в момент открытия ресурса, а не один раз: расширение активируется
-     * асинхронно и регистрирует провайдера уже после открытия первого файла.
+     * Ask when the resource is opened, not once: the extension activates
+     * asynchronously and registers its provider after the first file is already open.
      */
     public hasTextContentProvider(scheme: string): boolean {
         return this.live?.textContentSchemes.includes(scheme) === true;
     }
 
     /**
-     * `null` — провайдер отказался отдать ресурс. Сбой — отклонением, а не `null`:
-     * ядру нужна причина, чтобы показать её человеку.
+     * `null` means the provider refused to return the resource. A failure is a rejection, not `null`:
+     * the core needs the reason to show it to the user.
      */
     public async provideTextDocumentContent(uri: Uri): Promise<string | null> {
         const rpc = this.live?.rpc;
@@ -94,7 +94,7 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
     }
 
     public attach({ rpc }: IExtensionHostContext): IDisposable {
-        // Stryker disable next-line ArrayDeclaration: до первого объявления субпроцесса схем нет; мутант подставляет схему-заглушку, которую ни одно расширение не регистрирует
+        // Stryker disable next-line ArrayDeclaration: there are no schemes before the subprocess first declares them; the mutant injects a placeholder scheme no extension registers
         const live = { rpc, textContentSchemes: [] as readonly string[] };
         this.live = live;
         const store = new DisposableStore();
@@ -107,8 +107,8 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
                 this.onFileSystemProvidersChangedEmitter.fire();
             }),
         );
-        // TextDocumentContentProvider'ы (`jdt:` у redhat.java) — отдельный реестр:
-        // провайдер отдаёт текст, а не байты, и только на чтение.
+        // TextDocumentContentProviders (`jdt:` in redhat.java) are a separate registry:
+        // the provider returns text rather than bytes, and is read-only.
         store.add(
             rpc.handleNotification("workspace.textDocumentContentProvidersChanged", (params) => {
                 live.textContentSchemes = parseWireSchemes(params);
@@ -129,14 +129,14 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
                 this.onDidChangeProvidedFileEmitter.fire(raw.map((u) => Uri.parse(u)));
             }),
         );
-        // Слежение за деревом ведёт ядро (оно владеет excludes и бюджетом inotify),
-        // а матчинг шаблона — здесь: субпроцессу уезжают только подошедшие события.
+        // The core watches the tree (it owns excludes and the inotify budget),
+        // while pattern matching happens here: only matching events go to the subprocess.
         store.add(
             rpc.handleNotification("workspace.watcher.create", (params) => {
                 const request = parseWireWatcherCreate(params);
-                // Stryker disable next-line ConditionalExpression: без проверки null падает на поле до вызова watcher'а — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
+                // Stryker disable next-line ConditionalExpression: without the null check it throws on a field before calling the watcher — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (request === null) return;
-                // Повторный id — пересоздание: `set` роняет старую подписку.
+                // A repeated id means re-creation: `set` drops the old subscription.
                 watchers.set(
                     request.id,
                     this.fileWatcher.watch(request.base, isRecursiveWatchPattern(request.pattern), (changes) => {
@@ -149,13 +149,13 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
         store.add(
             rpc.handleNotification("workspace.watcher.dispose", (params) => {
                 const id = parseWireWatcherDispose(params);
-                // Stryker disable next-line ConditionalExpression: снятие по null-ключу — no-op, такого watcher'а нет
+                // Stryker disable next-line ConditionalExpression: removal by a null key is a no-op, no such watcher exists
                 if (id === null) return;
                 watchers.deleteAndDispose(id);
             }),
         );
-        // Схемы ФС снимаются с событием: иначе `git:` в реестре ядра указывал бы
-        // на мёртвый субпроцесс до его оживления.
+        // FS schemes are removed with an event: otherwise `git:` in the core registry would point
+        // to a dead subprocess until it is revived.
         store.add({
             dispose: () => {
                 this.live = null;
@@ -170,15 +170,15 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
 }
 
 /**
- * Правило VS Code: односегментный шаблон следит только за прямыми детьми базы,
- * `**` или разделитель — за поддеревом. На этом держится дешёвый watcher `.git`:
- * `new RelativePattern(dotGit, "*")` не тащит за собой `.git/objects`.
+ * VS Code rule: a single-segment pattern watches only direct children of the base,
+ * `**` or a separator watches the subtree. The cheap `.git` watcher relies on this:
+ * `new RelativePattern(dotGit, "*")` doesn't drag `.git/objects` along.
  */
 export function isRecursiveWatchPattern(pattern: string): boolean {
     return pattern.includes("**") || pattern.includes("/");
 }
 
-/** Путь матчится относительно базы в posix-форме — шаблон работает одинаково на всех платформах. */
+/** The path is matched relative to the base in posix form — the pattern works the same on all platforms. */
 export function toWatcherEvents(request: IWireWatcherCreate, changes: readonly ITreeFileChange[]): IWireWatcherEvent[] {
     const events: IWireWatcherEvent[] = [];
     for (const change of changes) {

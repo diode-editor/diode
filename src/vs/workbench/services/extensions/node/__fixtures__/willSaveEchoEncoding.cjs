@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * Фикстура will-save: вставляет `document.encoding` первой строкой. Проверяет,
- * что кодировка ядрового документа доезжает по wire до ExtHostTextDocument
- * (issue #106: .encoding из снапшота, а не хардкод "utf8").
+ * will-save fixture: inserts `document.encoding` as the first line. Checks
+ * that the core document's encoding reaches ExtHostTextDocument over the wire
+ * (issue #106: .encoding comes from the snapshot, not a hardcoded "utf8").
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

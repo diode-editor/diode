@@ -74,19 +74,19 @@ type LanguageRequestMethod =
 type LanguageResult<K extends LanguageRequestMethod> = RequestResult<IHostToSubprocess, K>;
 
 interface ILanguageRequestOptions<K extends LanguageRequestMethod> {
-    /** Ответ без спавна, если он не `empty` (rename объясняет отказ). */
+    /** Reply when there is no spawn, if it isn't `empty` (rename explains the refusal). */
     readonly noHost?: LanguageResult<K>;
     readonly notSynced?: LanguageResult<K>;
     readonly timeoutMs?: number | undefined;
     readonly token?: ICancellationToken | undefined;
     /**
-     * Отказ RPC — исключением, а не `empty`: семантические токены по сбою
-     * оставляют прежнюю раскраску, а по пустому ответу стирают.
+     * An RPC failure is an exception, not `empty`: on failure semantic tokens
+     * keep the previous coloring, while an empty reply erases it.
      */
     readonly rethrow?: boolean;
 }
 
-/** Реестр провайдеров живёт один спавн: провайдеры умирают вместе с субпроцессом. */
+/** The provider registry lives for one spawn: providers die with the subprocess. */
 export class LanguageFeaturesCustomer extends Disposable implements IExtensionHostCustomer {
     private readonly providers = new Map<number, IWireLanguageProviderRegistration>();
     private readonly onProvidersChangedEmitter = this.register(new Emitter<void>());
@@ -108,7 +108,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         EMPTY_COMPLETION_RESULT,
     );
 
-    /** @param isSynced запросы текста не везут: по несинхронизированному документу отвечать не по чему */
+    /** @param isSynced requests don't carry text: there is nothing to answer from for an unsynced document */
     public constructor(
         private readonly timeouts: RequestTimeouts,
         private readonly isSynced: (uri: string) => boolean,
@@ -121,7 +121,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         return [...this.providers.values()];
     }
 
-    /** Срока ответа нет — ждём, пока вызывающий не отменит `token` (см. `DEFAULT_REQUEST_TIMEOUTS`). */
+    /** No reply timeout — we wait until the caller cancels `token` (see `DEFAULT_REQUEST_TIMEOUTS`). */
     public provideCompletionItems(
         handle: number,
         req: ICompletionRequest,
@@ -140,31 +140,31 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             {
                 handles,
                 ...positionParams(req),
-                // Stryker disable next-line ConditionalExpression: спред — про чистоту payload'а, `undefined`-ключи всё равно выбрасывает JSON-транспорт RPC
+                // Stryker disable next-line ConditionalExpression: the spread is about payload cleanliness, the RPC JSON transport drops `undefined` keys anyway
                 ...(req.triggerKind !== undefined ? { triggerKind: req.triggerKind } : {}),
-                // Stryker disable next-line ConditionalExpression: то же
+                // Stryker disable next-line ConditionalExpression: same
                 ...(req.triggerCharacter !== undefined ? { triggerCharacter: req.triggerCharacter } : {}),
             },
             [],
             { token },
         );
-        // Недостающий элемент ответа (обход пачки прерван отменой) — пусто у своего провайдера.
+        // A missing reply element (the batch walk was interrupted by cancellation) is empty for its provider.
         return handles.map((_handle, index) => results.at(index) ?? EMPTY_COMPLETION_RESULT);
     }
 
     /**
-     * У стокового LSP-стека это ЕДИНСТВЕННЫЙ путь к описанию и авто-импорту:
-     * `typescript-language-server` присылает их только по запросу выбранного пункта.
-     * `id` уникален сквозь провайдеров.
+     * With the stock LSP stack this is the ONLY way to get documentation and auto-import:
+     * `typescript-language-server` sends them only on request for the selected item.
+     * `id` is unique across providers.
      */
     public async resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null> {
         return this.request("languages.resolveCompletionItem", { id }, null);
     }
 
     /**
-     * Срок — из САМОГО запроса (`editor.inlineSuggest.requestTimeout`), а не из
-     * таймаутов хоста: их фиксируют при создании хоста, а этот человек правит в
-     * settings.json и ждёт эффекта без перезапуска.
+     * The timeout comes from the request ITSELF (`editor.inlineSuggest.requestTimeout`), not from
+     * the host timeouts: those are fixed when the host is created, while this one the user edits in
+     * settings.json and expects to take effect without a restart.
      */
     public provideInlineCompletions(
         handle: number,
@@ -179,8 +179,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         req: IInlineCompletionRequest,
         token: ICancellationToken | undefined,
     ): Promise<readonly (readonly ICoreInlineCompletionItem[])[]> {
-        // Истёкший срок транспорт тоже доносит до провайдера отменой: иначе
-        // зависший LLM-вызов считал бы в пустоту до конца жизни субпроцесса.
+        // The transport also delivers an expired timeout to the provider as cancellation: otherwise
+        // a hung LLM call would keep computing into the void until the subprocess dies.
         const results = await this.request(
             "languages.provideInlineCompletions",
             {
@@ -282,11 +282,11 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 handle,
                 ...positionParams(req),
                 triggerKind: req.triggerKind,
-                // Спреды — про чистоту payload'а: `undefined`-ключи всё равно выбрасывает JSON-транспорт RPC, потому и Stryker disable.
-                // Stryker disable next-line ConditionalExpression: см. выше
+                // The spreads are about payload cleanliness: the RPC JSON transport drops `undefined` keys anyway, hence Stryker disable.
+                // Stryker disable next-line ConditionalExpression: see above
                 ...(req.triggerCharacter === undefined ? {} : { triggerCharacter: req.triggerCharacter }),
                 isRetrigger: req.isRetrigger,
-                // Stryker disable next-line ConditionalExpression: см. выше
+                // Stryker disable next-line ConditionalExpression: see above
                 ...(req.activeSignatureHelp === undefined ? {} : { activeSignatureHelp: req.activeSignatureHelp }),
             },
             null,
@@ -294,7 +294,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
-    /** Без `req.range` — документный провайдер, с ним — range-провайдер. */
+    /** Without `req.range` it's the document provider, with it the range provider. */
     public async provideFormattingEdits(
         handle: number,
         req: IFormattingRequest,
@@ -309,7 +309,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 version: req.versionId,
                 tabSize: req.tabSize,
                 insertSpaces: req.insertSpaces,
-                // Stryker disable next-line ConditionalExpression: спред — про чистоту payload'а, `undefined`-ключи всё равно выбрасывает JSON-транспорт RPC
+                // Stryker disable next-line ConditionalExpression: the spread is about payload cleanliness, the RPC JSON transport drops `undefined` keys anyway
                 ...(req.range === undefined ? {} : { range: req.range }),
             },
             [],
@@ -330,7 +330,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 languageId: req.languageId,
                 version: req.versionId,
                 range: req.range,
-                // Stryker disable next-line ConditionalExpression: спред — про чистоту payload'а, `undefined`-ключи всё равно выбрасывает JSON-транспорт RPC
+                // Stryker disable next-line ConditionalExpression: the spread is about payload cleanliness, the RPC JSON transport drops `undefined` keys anyway
                 ...(req.only === undefined ? {} : { only: req.only }),
             },
             [],
@@ -339,8 +339,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     }
 
     /**
-     * Resolve, правки и команда действия — всё на стороне субпроцесса. `onSave` —
-     * действие применяет конвейер сохранения: его правки не сохраняются по
+     * Resolve, edits and the action command all happen in the subprocess. `onSave` means
+     * the action is applied by the save pipeline: its edits aren't saved per
      * `files.refactoring.autoSave`.
      */
     public async applyCodeAction(id: string, options?: IApplyCodeActionOptions): Promise<boolean> {
@@ -351,15 +351,15 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
-    /** `null` — ядро спрашивает следующего провайдера, а в конце добирает слово под кареткой само. */
+    /** `null` means the core asks the next provider, and at the end falls back to the word under the cursor itself. */
     public async prepareRename(handle: number, req: IRenameRequest): Promise<ICoreRenameLocation | null> {
         const prepared = await this.request("languages.prepareRename", { handle, ...positionParams(req) }, null);
         return prepared === null ? null : wireToCoreRenameLocation(prepared);
     }
 
     /**
-     * В отличие от форматирования, любой отказ — С СООБЩЕНИЕМ: человек ввёл имя
-     * и обязан узнать, что ничего не произошло.
+     * Unlike formatting, every refusal comes WITH A MESSAGE: the user typed a name
+     * and must learn that nothing happened.
      */
     public async provideRenameEdits(handle: number, req: IRenameRequest, newName: string): Promise<ICoreRenameResult> {
         return this.request(
@@ -387,9 +387,9 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     }
 
     /**
-     * `resultId` ответа — его id в субпроцессе строкой (upstream
-     * `MainThreadDocumentSemanticTokensProvider`). Срока нет, как в upstream:
-     * ненужный запрос отменяет токен.
+     * The reply `resultId` is its id in the subprocess as a string (upstream
+     * `MainThreadDocumentSemanticTokensProvider`). No timeout, like upstream:
+     * an unneeded request is cancelled by the token.
      */
     public async provideDocumentSemanticTokens(
         handle: number,
@@ -428,8 +428,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     }
 
     /**
-     * Ответ — форма из карты протокола: её гарантирует сериализатор субпроцесса,
-     * хост его не перепроверяет. `empty` — спрашивать некого, истёк срок или отказ RPC.
+     * The reply has the shape from the protocol map: the subprocess serializer guarantees it,
+     * the host doesn't re-check. `empty` means no one to ask, the timeout expired, or RPC failed.
      */
     private async request<K extends LanguageRequestMethod>(
         method: K,
@@ -439,10 +439,10 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     ): Promise<LanguageResult<K>> {
         const rpc = this.rpc;
         if (rpc === null) return options.noHost ?? empty;
-        // Без `uri` — resolve/apply по id из кэша субпроцесса.
+        // Without `uri` it's resolve/apply by id from the subprocess cache.
         const { uri } = params as Partial<IWireDocumentParams>;
         if (uri !== undefined && !this.isSynced(uri)) return options.notSynced ?? empty;
-        // Метод без строки в таблице сроков (автодополнение) ждёт без срока.
+        // A method without a row in the timeout table (completion) waits without a timeout.
         const timeouts: Partial<Record<LanguageRequestMethod, number>> = this.timeouts;
         const { timeoutMs = timeouts[method], token } = options;
         try {
@@ -462,7 +462,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         store.add(
             rpc.handleNotification("languages.register", (params) => {
                 const registration = parseWireLanguageProviderRegistration(params);
-                // Stryker disable next-line ConditionalExpression: без проверки null падает на `.handle` до события — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
+                // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` before the event — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (registration === null) return;
                 this.providers.set(registration.handle, registration);
                 this.onProvidersChangedEmitter.fire();
@@ -471,7 +471,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         store.add(
             rpc.handleNotification("languages.didChangeSemanticTokens", (params) => {
                 const parsed = parseWireProviderHandle(params);
-                // Stryker disable next-line ConditionalExpression: без проверки null падает на `.handle` до события — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
+                // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` before the event — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (parsed !== null && this.providers.has(parsed.handle)) {
                     this.onDidChangeSemanticTokensEmitter.fire(parsed.handle);
                 }
@@ -480,7 +480,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         store.add(
             rpc.handleNotification("languages.unregister", (params) => {
                 const unregistration = parseWireLanguageProviderUnregistration(params);
-                // Stryker disable next-line ConditionalExpression: без проверки null падает на `.handle` до события — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
+                // Stryker disable next-line ConditionalExpression: without the null check it throws on `.handle` before the event — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (unregistration === null || !this.providers.delete(unregistration.handle)) return;
                 this.onProvidersChangedEmitter.fire();
             }),

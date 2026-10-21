@@ -1,17 +1,17 @@
 "use strict";
 
 /**
- * Фикстура провайдеров подсказки параметров: регистрирует ДВА провайдера для
- * typescript — правило «первый непустой ответ выигрывает» проверяется через
- * настоящий субпроцесс, а не только на стабе RPC.
- *   - первый  → на строке 0 молчит (возвращает null), на строке 1 отдаёт свою
- *     сигнатуру (значит, порядок соблюдается);
- *   - второй  → на строке 0 отдаёт сигнатуру с двумя параметрами, эхом
- *     контекста в документации (проверка, что triggerCharacter/isRetrigger
- *     доезжают до расширения настоящим `SignatureHelpContext`).
+ * Signature help provider fixture: registers TWO providers for
+ * typescript, so the "first non-empty answer wins" rule is checked through a
+ * real subprocess, not only against an RPC stub.
+ *   - first  → silent on line 0 (returns null), on line 1 returns its own
+ *     signature (proving the order is respected);
+ *   - second → on line 0 returns a signature with two parameters, echoing
+ *     the context in the documentation (checks that triggerCharacter/isRetrigger
+ *     reach the extension as a real `SignatureHelpContext`).
  *
- * Метаданные объявлены объектом — той перегрузкой, которую выбирает стоковый
- * vscode-languageclient, когда сервер прислал `retriggerCharacters`.
+ * The metadata is declared as an object: the overload the stock
+ * vscode-languageclient picks when the server sent `retriggerCharacters`.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

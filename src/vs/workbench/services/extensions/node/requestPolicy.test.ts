@@ -67,7 +67,7 @@ describe("loggingRequest", () => {
 });
 
 describe("DEFAULT_REQUEST_TIMEOUTS", () => {
-    // `languages.provideCompletionItems` здесь нет намеренно: автодополнение ждёт без срока.
+    // `languages.provideCompletionItems` is intentionally absent: completion waits without a deadline.
     it("сроки по методам провода — прежние дефолты опций хоста", () => {
         expect(DEFAULT_REQUEST_TIMEOUTS).toEqual({
             "workspace.willSaveTextDocument": 1500,

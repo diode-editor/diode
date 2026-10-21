@@ -1,18 +1,18 @@
 "use strict";
 
 /**
- * Фикстура `workspace.registerTextDocumentContentProvider` — срез того, что
- * делает стоковый `redhat.java` для схемы `jdt:`: отдаёт исходник, которого нет
- * на диске (класс из jar, исходник JDK, декомпиляция).
+ * `workspace.registerTextDocumentContentProvider` fixture: a slice of what
+ * the stock extension `redhat.java` does for the `jdt:` scheme: serves source that is not
+ * on disk (a class from a jar, JDK source, decompilation).
  *
- * Поведение зависит от «пути» ресурса, чтобы одной фикстурой закрыть все три
- * исхода провайдера:
- *   - `/Missing.java`  → `undefined` (провайдер отказался отдать ресурс);
- *   - `/Broken.java`   → исключение (провайдер сломался);
- *   - остальное        → текст, в который вшит сам ресурс.
+ * Behavior depends on the resource "path", so a single fixture covers all three
+ * provider outcomes:
+ *   - `/Missing.java`  → `undefined` (the provider declined to serve the resource);
+ *   - `/Broken.java`   → an exception (the provider broke);
+ *   - anything else    → text with the resource itself embedded in it.
  *
- * Команда `fixture.bumpContent` меняет отдаваемый текст и стреляет
- * `onDidChange` — так провайдер сообщает редактору, что ресурс обновился.
+ * The `fixture.bumpContent` command changes the served text and fires
+ * `onDidChange`: this is how the provider tells the editor the resource was updated.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -37,8 +37,8 @@ exports.activate = function activate(context) {
         }),
     );
 
-    // Проверка обратной стороны контракта: `openTextDocument` по схеме с
-    // провайдером обязан спросить именно его, а не полезть на диск.
+    // Checks the other side of the contract: `openTextDocument` for a scheme with
+    // a provider must ask that provider rather than go to disk.
     context.subscriptions.push(
         vscode.commands.registerCommand("fixture.readThroughOpenTextDocument", async function (rawUri) {
             const doc = await vscode.workspace.openTextDocument(vscode.Uri.parse(rawUri));

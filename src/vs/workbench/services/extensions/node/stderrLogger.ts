@@ -2,7 +2,7 @@ import { describeRejection } from "../../../../base/common/describeRejection.ts"
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import { LogLevel } from "../../../../platform/log/common/logLevel.ts";
 
-/** trace/debug/info молчат: трассу RPC пишет хост, дубль каждого сообщения в stderr — шум. */
+/** trace/debug/info are silent: the host writes the RPC trace, duplicating every message to stderr is noise. */
 export function createStderrLogger(
     write: (line: string) => void = (line) => {
         console.error(line);

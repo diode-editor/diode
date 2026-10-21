@@ -1,16 +1,16 @@
 "use strict";
 
 /**
- * Фикстура для ExtensionHost.Decorations.test.ts (Chunk 4 — host-bridge).
+ * Fixture for ExtensionHost.Decorations.test.ts (Chunk 4, host-bridge).
  *
- * В activate():
- *  - создаёт gutter change-bar тип (`overviewRulerColor` = ThemeColor) и
- *    «плоский» тип без overviewRulerColor (host его игнорирует — не gutter);
- *  - вешает оба на активный редактор (у gutter-типа два диапазона);
- *  - регистрирует FileDecorationProvider (цвет+бейдж для `notes.md`, иначе — снятие).
+ * In activate():
+ *  - creates a gutter change-bar type (`overviewRulerColor` = ThemeColor) and
+ *    a "plain" type without overviewRulerColor (the host ignores it: not gutter);
+ *  - applies both to the active editor (the gutter type has two ranges);
+ *  - registers a FileDecorationProvider (color + badge for `notes.md`, otherwise cleared).
  *
- * Команды `test.fireFileDecoration(fsPath)` / `test.disposeGutterType()` дают
- * тесту сдвинуть состояние после activate.
+ * Commands `test.fireFileDecoration(fsPath)` / `test.disposeGutterType()` let
+ * the test move the state after activate.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -22,7 +22,7 @@ exports.activate = function activate(context) {
     });
     context.subscriptions.push(gutterType);
 
-    // Тип без overviewRulerColor — не gutter, host его декорации не проецирует.
+    // A type without overviewRulerColor is not gutter; the host does not project its decorations.
     const plainType = vscode.window.createTextEditorDecorationType({
         backgroundColor: new vscode.ThemeColor("editor.background"),
     });
@@ -57,7 +57,7 @@ exports.activate = function activate(context) {
             emitter.fire(vscode.Uri.file(fsPath));
         }),
     );
-    // Переводит провайдер в режим «снято»: следующий provideFileDecoration вернёт undefined.
+    // Switches the provider to "cleared" mode: the next provideFileDecoration returns undefined.
     context.subscriptions.push(
         vscode.commands.registerCommand("test.setCleared", function () {
             cleared = true;

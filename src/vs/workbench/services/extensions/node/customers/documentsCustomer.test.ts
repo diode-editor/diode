@@ -232,7 +232,7 @@ describe("DocumentsCustomer — isSynced", () => {
         h.customer.didOpenTextDocument(snap());
         h.attached?.dispose();
         expect(h.customer.isSynced("file:///a.ts")).toBe(false);
-        // Новый спавн документа не знает, пока его не откроют заново.
+        // A new spawn doesn't know the document until it is reopened.
         h.customer.attach({ rpc: new RpcEndpoint(createInProcessChannelPair()[0]), logger: undefined });
         expect(h.customer.isSynced("file:///a.ts")).toBe(false);
     });
@@ -297,7 +297,7 @@ describe("DocumentsCustomer — семя и сохранение", () => {
             return [];
         });
         await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
-        // Подписки на другое will-save не включают.
+        // Other subscriptions don't enable will-save.
         await subscribe(h, { didSave: true, documentSync: true });
         await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
         expect(requests).toEqual([]);

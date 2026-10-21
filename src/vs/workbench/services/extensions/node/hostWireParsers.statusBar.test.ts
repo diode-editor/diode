@@ -37,7 +37,7 @@ describe("parseWireStatusBarItem", () => {
 
     it.each([
         ["не объект", "nope"],
-        // Функция — единственное не-объектное значение с полями: без `typeof raw === "object"` прошла бы насквозь.
+        // A function is the only non-object value with fields: without `typeof raw === "object"` it would slip through.
         ["функция с нужными полями", Object.assign(() => undefined, valid)],
         ["null", null],
         ["без handle", { ...valid, handle: undefined }],

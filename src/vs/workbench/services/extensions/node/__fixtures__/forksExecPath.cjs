@@ -1,12 +1,12 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.fork.test.ts. Регистрирует команду
- * `test.fork.roundtrip`: форкает `process.execPath` (как это делает
- * vscode-languageclient при `TransportKind.ipc`), ребёнок отчитывается по IPC
- * своим окружением. Тест проверяет, что форк из extension host'а живой и что
- * ребёнок унаследовал `DIODE_RUN_AS_NODE=1` без `DIODE_EXTENSION_HOST` — под
- * SEA именно эта пара уводит diode-бинарь в node-режим вместо ext-host-ветки.
+ * Fixture for extensionHost.fork.test.ts. Registers command
+ * `test.fork.roundtrip`: forks `process.execPath` (as
+ * vscode-languageclient does with `TransportKind.ipc`), the child reports its
+ * environment over IPC. The test checks that a fork from the extension host is alive
+ * and that the child inherited `DIODE_RUN_AS_NODE=1` without `DIODE_EXTENSION_HOST`:
+ * under SEA exactly this pair sends the diode binary into node mode instead of the ext-host branch.
  */
 const cp = require("node:child_process");
 const fs = require("node:fs");

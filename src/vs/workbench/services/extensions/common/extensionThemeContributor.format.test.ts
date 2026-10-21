@@ -55,7 +55,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
             [{ label: "Nested", uiTheme: "vs-dark", path: "./themes/nested/child.json" }],
             {
                 "themes/nested/child.json": JSON.stringify({ include: "../base.json", colors: {} }),
-                // Лишний `/` и `./` в середине нормализуются, как у path.posix.
+                // An extra `/` and `./` in the middle are normalized, as in path.posix.
                 "themes/base.json": JSON.stringify({ include: ".//../shared/./root.json", colors: { a: "#111111" } }),
                 "shared/root.json": JSON.stringify({ colors: { "editor.background": "#ABCDEF" } }),
             },
@@ -244,7 +244,7 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
     it("не-Error при чтении ассета превращается в строку причины", async () => {
         const ext = extensionWithThemes(EXT, [{ label: "Odd Reject", uiTheme: "vs-dark", path: "./t.json" }]);
         const assets = new MemoryAssets({});
-        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- не-Error по замыслу теста
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- non-Error on purpose
         assets.readText = () => Promise.reject("socket hung up");
         const registry = new ThemeRegistry();
         const logger = createLoggerSpy();

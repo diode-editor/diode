@@ -1,12 +1,12 @@
 "use strict";
 
 /**
- * Фикстура hover-провайдеров: регистрирует ДВА провайдера для typescript —
- * merge результатов нескольких провайдеров проверяется через настоящий
- * субпроцесс, а не только на стабе RPC. Формы контента разные:
- *   - первый  → `vscode.Hover` с MarkdownString (fenced-сигнатура) и range;
- *   - второй  → `vscode.Hover` с legacy MarkedString-codeblock, без range;
- *   - на строке 1 оба молчат (пустой ответ).
+ * Hover provider fixture: registers TWO providers for typescript, so
+ * merging results of several providers is checked through a real
+ * subprocess, not only against an RPC stub. The content shapes differ:
+ *   - first  → `vscode.Hover` with a MarkdownString (fenced signature) and a range;
+ *   - second → `vscode.Hover` with a legacy MarkedString codeblock, no range;
+ *   - on line 1 both stay silent (empty answer).
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

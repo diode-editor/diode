@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Фикстура will-save: подписывается на onWillSaveTextDocument и через waitUntil
- * возвращает правки — обрезает хвостовые пробелы каждой строки и добавляет
- * финальный перевод строки, если его нет. Проверяет реальное применение
- * TextEdit[] из участника к буферу и запись преобразованных байт на диск.
+ * will-save fixture: subscribes to onWillSaveTextDocument and returns edits via waitUntil:
+ * trims trailing whitespace on every line and adds a final newline
+ * if it is missing. Checks that TextEdit[] from a participant is really applied
+ * to the buffer and the transformed bytes are written to disk.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

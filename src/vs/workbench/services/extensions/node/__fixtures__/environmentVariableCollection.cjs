@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.environmentVariableCollection.test.ts: как стоковое
- * `Anthropic.claude-code` — на активации кладёт порт своего сервера в коллекцию
- * окружения терминалов (`get` → `replace`, если значение другое).
+ * Fixture for extensionHost.environmentVariableCollection.test.ts: like the stock
+ * `Anthropic.claude-code`, on activation it puts its server port into the terminal
+ * environment collection (`get` → `replace` if the value differs).
  */
 const vscode = require("vscode");
 

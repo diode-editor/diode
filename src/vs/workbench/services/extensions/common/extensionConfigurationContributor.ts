@@ -9,8 +9,8 @@ export interface IConfigurationContributingExtension {
 }
 
 /**
- * Аналог `configurationExtPoint` vscode; ключи регистрируются и у неактивированных расширений.
- * Регистрация разовая, до сборки сервиса настроек: установка расширения требует перезапуска.
+ * Counterpart of vscode `configurationExtPoint`; keys are registered for non-activated extensions too.
+ * Registration is one-shot, before the configuration service is built: installing an extension needs a restart.
  */
 export class ExtensionConfigurationContributor<E extends IConfigurationContributingExtension> {
     public constructor(
@@ -30,8 +30,8 @@ export class ExtensionConfigurationContributor<E extends IConfigurationContribut
                 (message) => this.logger?.warn(message),
             );
         }
-        // Переопределения — после всех ключей: могут касаться ключа соседнего расширения.
-        // Инъекции хоста — поверх манифестных `configurationDefaults`.
+        // Overrides go after all keys: they may touch a key of a neighboring extension.
+        // Host injections go on top of manifest `configurationDefaults`.
         for (const ext of this.extensions) {
             const contributes = (ext.manifest as { readonly contributes?: IExtensionContributions }).contributes;
             this.registry.registerDefaultConfigurations(contributes?.configurationDefaults ?? {});
