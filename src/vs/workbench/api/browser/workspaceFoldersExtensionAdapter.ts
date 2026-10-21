@@ -3,8 +3,8 @@ import type { IWorkspaceFoldersSink } from "../common/iWorkspaceFoldersSink.ts";
 import type { IWireUpdateWorkspaceFolders } from "../common/wireTypes.ts";
 
 /**
- * Multi-root нет: выполним только итог ровно в одну папку (как `File: Open Folder`). Иначе —
- * тост с формулировкой эталона, расширению уже вернулся `false` (решение человека).
+ * No multi-root: only a result of exactly one folder can be carried out (like `File: Open Folder`).
+ * Otherwise a toast with upstream's wording; the extension has already got `false` (the user decides).
  */
 export class WorkspaceFoldersExtensionAdapter implements IWorkspaceFoldersSink {
     public constructor(

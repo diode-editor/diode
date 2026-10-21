@@ -84,13 +84,13 @@ describe("LanguagesNamespace — registerSignatureHelpProvider", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
 
-        // Форма клиента при `retriggerCharacters` в capability сервера.
+        // The client's shape when the server capability has `retriggerCharacters`.
         languages.registerSignatureHelpProvider({ language: "typescript" }, provider, {
             triggerCharacters: ["(", ",", "<"],
             retriggerCharacters: [")"],
         });
-        // Вторая перегрузка — rest-строками; символы НЕ объединяются по
-        // регистрациям: у каждого провайдера свои.
+        // The second overload passes rest strings; characters are NOT merged across
+        // registrations: each provider has its own.
         languages.registerSignatureHelpProvider({ language: "python" }, provider, "(", "[");
 
         expect(registrations(stub)).toMatchObject([
@@ -151,7 +151,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
             isRetrigger: false,
             activeSignatureHelp: undefined,
         });
-        // MarkdownString провайдера уезжает сырым markdown — стрипает его UI.
+        // The provider's MarkdownString goes out as raw markdown — the UI strips it.
         expect(result).toEqual({
             signatures: [
                 {
@@ -191,7 +191,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
 
         expect(seen[0]).toMatchObject({ isRetrigger: true, triggerCharacter: "," });
         expect(seen[0].activeSignatureHelp).toEqual(active);
-        // Провайдер видит экземпляры API-классов, как в VS Code, а не plain-объект провода.
+        // The provider sees API class instances, as in VS Code, not a plain wire object.
         expect(seen[0].activeSignatureHelp).toBeInstanceOf(SignatureHelp);
     });
 
@@ -412,8 +412,8 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
             activeSignature: 0,
             activeParameter: 0,
         });
-        // Ключей `documentation`/`activeParameter` в проводе быть не должно вовсе:
-        // `{ documentation: undefined }` — это лишний байт на каждом ответе.
+        // The `documentation`/`activeParameter` keys must not be on the wire at all:
+        // `{ documentation: undefined }` is an extra byte on every answer.
         expect(Object.keys(result.signatures[0]).sort()).toEqual(["label", "parameters"]);
     });
 
@@ -436,7 +436,7 @@ describe("LanguagesNamespace — languages.provideSignatureHelp", () => {
 
         expect(result).toEqual({
             signatures: [{ label: "greet(name)", parameters: [{ label: "name" }] }],
-            // Нечисловые индексы приводятся к нулю ещё в сериализаторе.
+            // Non-numeric indices are coerced to zero already in the serializer.
             activeSignature: 0,
             activeParameter: 0,
         });

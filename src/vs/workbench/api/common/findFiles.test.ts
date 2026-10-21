@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { findFiles, type IFindFilesEntry, type IFindFilesScanner } from "./findFiles.ts";
 
-/** Каталога нет в карте — пустой список, как у настоящего сканера на каталоге без прав. */
+/** The directory isn't in the map: an empty list, like the real scanner on a directory without permissions. */
 function scannerFromTree(tree: Record<string, readonly string[]>): IFindFilesScanner & { reads: string[] } {
     const reads: string[] = [];
     return {
@@ -12,7 +12,7 @@ function scannerFromTree(tree: Record<string, readonly string[]>): IFindFilesSca
         readDirectory: (absolutePath: string): Promise<readonly IFindFilesEntry[]> => {
             reads.push(absolutePath);
             const names = tree[absolutePath] ?? [];
-            // Соглашение карты: имя с `/` на конце — каталог.
+            // Map convention: a name ending in `/` is a directory.
             return Promise.resolve(
                 names.map((name) => ({ name: name.replace(/\/$/u, ""), isDirectory: name.endsWith("/") })),
             );
@@ -23,7 +23,7 @@ function scannerFromTree(tree: Record<string, readonly string[]>): IFindFilesSca
 const ROOT = path.join(path.sep, "ws");
 const at = (...segments: string[]): string => path.join(ROOT, ...segments);
 
-/** Дерево maven-мультимодуля: то, что реально ищет `redhat.java`. */
+/** A maven multi-module tree: what `redhat.java` actually searches for. */
 const MAVEN_TREE: Record<string, readonly string[]> = {
     [ROOT]: ["pom.xml", "README.md", "core/", "web/", ".git/", "node_modules/"],
     [at("core")]: ["pom.xml", "src/"],
@@ -51,7 +51,7 @@ describe("findFiles — матчинг шаблона", () => {
             include: "*/pom.xml",
             excludes: [],
         });
-        // Корневой `pom.xml` не подходит: у него нет ведущего сегмента.
+        // The root `pom.xml` doesn't match: it has no leading segment.
         expect(found.toSorted()).toEqual(["core/pom.xml", "node_modules/pom.xml", "web/pom.xml"]);
     });
 
@@ -84,7 +84,7 @@ describe("findFiles — глубина обхода", () => {
     it("шаблон без `**` не читает каталоги глубже своего числа сегментов", async () => {
         const scanner = scannerFromTree(MAVEN_TREE);
         await findFiles(scanner, { base: ROOT, include: "*.java", excludes: [] });
-        // `*.java` живёт только в корне — спускаться незачем.
+        // `*.java` lives only at the root, so there's no need to descend.
         expect(scanner.reads).toEqual([ROOT]);
     });
 
@@ -105,7 +105,7 @@ describe("findFiles — исключения", () => {
             excludes: ["**/.git", "**/node_modules"],
         });
         expect(found.toSorted()).toEqual(["core/pom.xml", "pom.xml", "web/pom.xml"]);
-        // Не просто отфильтровали результат — внутрь исключённого каталога не зашли.
+        // Not just filtered out of the result: the walk never entered the excluded directory.
         expect(scanner.reads).not.toContain(at("node_modules"));
         expect(scanner.reads).not.toContain(at(".git"));
     });
@@ -128,7 +128,7 @@ describe("findFiles — исключения", () => {
             excludes: ["**/node_modules/**"],
         });
         expect(found).not.toContain("node_modules/pom.xml");
-        // Эта форма с самим каталогом не совпадает — внутрь обход заходит.
+        // This form doesn't match the directory itself, so the walk enters it.
         expect(scanner.reads).toContain(at("node_modules"));
     });
 
@@ -159,7 +159,7 @@ describe("findFiles — границы результата", () => {
             excludes: [],
             maxResults: 1,
         });
-        // Обход в ширину: первым находится ближайший к корню.
+        // Breadth-first walk: the match closest to the root is found first.
         expect(found).toEqual(["pom.xml"]);
     });
 
@@ -176,7 +176,7 @@ describe("findFiles — границы результата", () => {
     });
 
     it("бюджет каталогов обрывает обход гигантского дерева", async () => {
-        // Цепочка каталогов глубиной 50; совпадение — на самом дне.
+        // A chain of directories 50 deep; the match is at the very bottom.
         const deep: Record<string, string[]> = {};
         let dir = ROOT;
         for (let i = 0; i < 50; i++) {
@@ -204,7 +204,7 @@ describe("findFiles — границы результата", () => {
             { base: ROOT, include: "**/pom.xml", excludes: [] },
             {
                 isCancelled: () => {
-                    // Корень читаем, дальше — отмена.
+                    // Read the root, then cancel.
                     const now = cancelled;
                     cancelled = true;
                     return now;

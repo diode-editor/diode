@@ -2,7 +2,7 @@ import type * as vscode from "vscode";
 
 import type { IFindFilesScanner } from "./findFiles.ts";
 
-/** Ошибки ОС — в форме `FileSystemError` (`err.code === "FileNotFound"`). */
+/** OS errors come as `FileSystemError` (`err.code === "FileNotFound"`). */
 export type IDiskFileSystem = Pick<
     vscode.FileSystem,
     "stat" | "readFile" | "writeFile" | "createDirectory" | "readDirectory" | "delete" | "rename" | "copy"
@@ -11,6 +11,6 @@ export type IDiskFileSystem = Pick<
 export interface IExtHostDisk {
     readonly fs: IDiskFileSystem;
     readonly findFilesScanner: IFindFilesScanner;
-    /** Ошибки ОС — как есть. */
+    /** OS errors are passed through as is. */
     readFile(fsPath: string): Promise<Buffer>;
 }

@@ -122,9 +122,9 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
 
         expect(seen.pos?.line).toBe(0);
         expect(seen.pos?.character).toBe(0);
-        // languageId в запросе не пришёл — язык документа остаётся от didOpen.
+        // The request carried no languageId: the document keeps the language from didOpen.
         expect(ctx.registry.get(Uri.parse(URI))?.languageId).toBe("markdown");
-        // Position в конструкторе Location свёрнут в пустой Range.
+        // A Position in the Location constructor collapses into an empty Range.
         expect(result).toEqual([
             { uri: DEFS.toString(), range: { start: { line: 1, character: 2 }, end: { line: 1, character: 2 } } },
             { uri: DEFS.toString(), range: { start: { line: 3, character: 0 }, end: { line: 3, character: 5 } } },
@@ -171,8 +171,8 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
                     [
                         null,
                         "junk",
-                        {}, // ни uri, ни targetUri
-                        { uri: DEFS }, // нет range
+                        {}, // neither uri nor targetUri
+                        { uri: DEFS }, // no range
                         { uri: DEFS, range: { start: null, end: null } },
                         { uri: DEFS, range: { start: { line: "x", character: 0 }, end: { line: 0, character: 0 } } },
                         { targetUri: DEFS, targetRange: "junk" },
@@ -235,7 +235,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
         expect(await stub.callRequest("languages.provideDefinition", requestParams({ handle: 1 }))).toEqual([]);
         expect(calls).toEqual(["ok", "throwing", "empty"]);
 
-        // Неизвестный и отсутствующий handle — никого не зовём и документ не синхронизируем.
+        // Unknown and missing handle: nobody is called and the document isn't synced.
         const stale = "file:///proj/stale.ts";
         expect(
             await stub.callRequest("languages.provideDefinition", requestParams({ handle: 42, uri: stale })),
@@ -262,7 +262,7 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
             },
         );
 
-        // Не открыт: хост ещё не прислал didOpen (или уже прислал didClose).
+        // Not open: the host hasn't sent didOpen yet (or has already sent didClose).
         expect(await stub.callRequest("languages.provideDefinition", requestParams())).toEqual([]);
 
         openDoc(ctx);
@@ -271,9 +271,9 @@ describe("LanguagesNamespace — languages.provideDefinition", () => {
             version: 2,
             changes: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" }],
         });
-        // Устарел: ядро уже ушло на v2.
+        // Stale: the core has already moved on to v2.
         expect(await stub.callRequest("languages.provideDefinition", requestParams({ version: 1 }))).toEqual([]);
-        // Впереди зеркала: правки v3 ещё не доехали — нарушение порядка, в stderr.
+        // Ahead of the mirror: the v3 edits haven't arrived — an ordering violation, logged to stderr.
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         try {
             expect(await stub.callRequest("languages.provideDefinition", requestParams({ version: 3 }))).toEqual([]);

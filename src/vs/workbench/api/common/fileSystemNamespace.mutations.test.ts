@@ -9,14 +9,14 @@ import { createNodeExtHostDisk } from "../node/extHostDisk.ts";
 import { createFileSystemNamespace } from "./fileSystemNamespace.ts";
 import { FileType, Uri } from "./vscodeTypes.ts";
 
-// Поднята под стоковый `redhat.java`: падал на `fs.createDirectory is not a function`.
+// Added for the stock extension `redhat.java`: it crashed on `fs.createDirectory is not a function`.
 
 const uri = (p: string) => Uri.file(p) as never;
 
 let tmpDir: string;
 /**
- * Собираем на КАЖДЫЙ тест: сборку на уровне модуля per-test-покрытие Stryker'а
- * не приписывает ни одному тесту, и мутант в фабрике выживает при живом ассерте.
+ * Built for EACH test: Stryker's per-test coverage attributes a module-level build
+ * to no test, and a mutant in the factory survives despite a live assertion.
  */
 let wfs: ReturnType<typeof createFileSystemNamespace>;
 

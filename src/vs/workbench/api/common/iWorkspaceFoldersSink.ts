@@ -1,6 +1,6 @@
 import type { IWireUpdateWorkspaceFolders } from "./wireTypes.ts";
 
-/** Проверки эталона уже пройдены в субпроцессе; невыполнимый набор потребитель объясняет человеку. */
+/** Upstream checks already passed in the subprocess; the consumer explains an unsatisfiable set to the user. */
 export interface IWorkspaceFoldersSink {
     update(request: IWireUpdateWorkspaceFolders): void;
 }

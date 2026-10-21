@@ -21,12 +21,12 @@ interface ICall {
     readonly args: unknown[];
 }
 
-/** Важна только идентичность класса. */
+/** Only the class identity matters. */
 class FakePosition {
     public readonly fake = true;
 }
 
-/** Каждый «создающий» член пишет, с каким владельцем его позвали, — так видно, что выставил оверлей. */
+/** Each "creating" member records the owner it was called with, showing what the overlay exposed. */
 function makeShared(owner: ExtensionOwner): {
     shared: typeof vscode;
     calls: ICall[];
@@ -254,7 +254,7 @@ describe("ExtensionApiFactory — раздача по импортёру", () =>
 
     it("esmUrl: не-файловый импортёр не трактуется как путь", () => {
         const { factory, paths, warnings } = makeFactory();
-        // `data:x` как путь резолвится от cwd — корень в cwd поймал бы его.
+        // `data:x` as a path resolves against cwd; a root at cwd would catch it.
         paths.add(process.cwd(), "pub.cwd");
         expect(factory.esmUrl("data:text/javascript,x")).toBe(VSCODE_ESM_URL);
         expect(warnings).toEqual([expect.stringContaining("(data:text/javascript,x)")]);

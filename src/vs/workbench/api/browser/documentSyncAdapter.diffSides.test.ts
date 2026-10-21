@@ -9,7 +9,7 @@ import type { IDocumentSyncTarget } from "../common/iDocumentSyncTarget.ts";
 
 import { bindDocumentSync } from "./documentSyncAdapter.ts";
 
-/** Сторона диффа — документ расширений: по ней зовут провайдеров, и она бывает моделью без своей вкладки. */
+/** A diff side is an extension document: providers are called on it, and it may be a model without its own tab. */
 describe("documentSyncAdapter — стороны дифф-вкладок", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;

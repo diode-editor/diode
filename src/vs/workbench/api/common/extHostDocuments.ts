@@ -10,13 +10,13 @@ import { EndOfLine, EventEmitter, Position, Range, Uri } from "./vscodeTypes.ts"
 import type { IWireDocumentChangedEvent, IWireDocumentContentChange } from "./wireTypes.ts";
 
 /**
- * editorconfig сравнивает документы по ссылке (`activeTextEditor.document ===
- * doc`), поэтому на ресурс — ровно один {@link ExtHostTextDocument} на всю
- * сессию: обновления мутируют существующий объект, а не создают новый.
+ * editorconfig compares documents by reference (`activeTextEditor.document ===
+ * doc`), so there is exactly one {@link ExtHostTextDocument} per resource for the whole
+ * session: updates mutate the existing object instead of creating a new one.
  */
 
 export interface ExtHostDocumentMeta {
-    /** `uri.toString()` — идентичность; `fileName` выводится из неё. */
+    /** `uri.toString()` is the identity; `fileName` is derived from it. */
     readonly uri: string;
     readonly languageId?: string;
     readonly isDirty?: boolean;
@@ -27,7 +27,7 @@ export interface ExtHostDocumentMeta {
 
 export interface ExtHostDocumentSnapshot extends ExtHostDocumentMeta {
     readonly text: string;
-    /** LSP требует монотонной версии per-document; без неё версия инкрементируется локально (will-save). */
+    /** LSP requires a monotonic per-document version; without one the version is bumped locally (will-save). */
     readonly version?: number;
 }
 
@@ -41,10 +41,10 @@ export interface TextLine {
 }
 
 /**
- * `implements` — страж против «объявили в d.ts, не реализовали»: расширениям
- * объект уходит как `vscode.TextDocument` без каста.
+ * `implements` guards against "declared in d.ts, never implemented": the object goes to
+ * extensions as `vscode.TextDocument` without a cast.
  */
-/** Как `getWordDefinitionFor` upstream, только таблица живёт в {@link DocumentRegistry}, а не в модуле. */
+/** Like upstream `getWordDefinitionFor`, except the table lives in {@link DocumentRegistry}, not in the module. */
 export type WordDefinitionLookup = (languageId: string) => RegExp | undefined;
 
 const NO_WORD_DEFINITIONS: WordDefinitionLookup = () => undefined;
@@ -55,12 +55,12 @@ const NO_SAVER: DocumentSaver = () => Promise.resolve(false);
 
 export class ExtHostTextDocument implements vscode.TextDocument {
     public readonly uri: Uri;
-    /** Повторное открытие ресурса «воскрешает» тот же объект: идентичность стабильна. */
+    /** Reopening a resource "revives" the same object: identity is stable. */
     public isClosed = false;
 
     public encoding = "utf8";
 
-    /** По `vscode.d.ts` — shorthand для `uri.fsPath`: производное от uri, а не наоборот. */
+    /** Per `vscode.d.ts`, shorthand for `uri.fsPath`: derived from the uri, not the other way round. */
     public get fileName(): string {
         return this.uri.fsPath;
     }
@@ -75,9 +75,9 @@ export class ExtHostTextDocument implements vscode.TextDocument {
     public isDirty = false;
     public version = 0;
 
-    /** Источник правды — строки (разделитель `\n`): их правят правки. */
+    /** Source of truth is the lines (separator `\n`): edits modify them. */
     private lineStore: string[] = [""];
-    /** Кэш, собирается из строк лениво до следующей мутации. */
+    /** Cache, built lazily from the lines until the next mutation. */
     private textCache: string | null = "";
 
     public constructor(
@@ -95,7 +95,7 @@ export class ExtHostTextDocument implements vscode.TextDocument {
         if (meta.eol !== undefined) this.eol = meta.eol;
     }
 
-    /** `versionId` модели из снапшота побеждает локальный счётчик. */
+    /** The model's `versionId` from the snapshot wins over the local counter. */
     public applyFull(snapshot: ExtHostDocumentSnapshot): void {
         this.applyMeta(snapshot);
         this.textCache = snapshot.text;
@@ -104,9 +104,9 @@ export class ExtHostTextDocument implements vscode.TextDocument {
     }
 
     /**
-     * Правки идут в порядке провода (по убыванию, в координатах до каждой
-     * правки); `rangeOffset`/`rangeLength` считаются по строкам ДО правки, как у
-     * `mirrorTextModel` эталона.
+     * Edits come in wire order (descending, in coordinates before each
+     * edit); `rangeOffset`/`rangeLength` are computed on the lines BEFORE the edit, as in
+     * upstream `mirrorTextModel`.
      */
     public acceptChanges(version: number, changes: readonly IWireDocumentContentChange[]): IDocumentContentChange[] {
         const lines = this.lines();
@@ -130,8 +130,8 @@ export class ExtHostTextDocument implements vscode.TextDocument {
 
     public getText(range?: Range): string {
         if (range === undefined) return (this.textCache ??= this.lines().join("\n"));
-        // По контракту `vscode.d.ts` диапазон «will be adjusted»: лишний символ
-        // от провайдера с устаревшей копией текста — не повод бросать.
+        // Per the `vscode.d.ts` contract the range "will be adjusted": an extra character
+        // from a provider with a stale copy of the text is no reason to throw.
         const valid = this.validateRange(range);
         const lines = this.lines();
         if (valid.start.line === valid.end.line) {
@@ -146,8 +146,8 @@ export class ExtHostTextDocument implements vscode.TextDocument {
     }
 
     /**
-     * Считается по тексту {@link getText}: `\r` у CRLF остаётся частью строки,
-     * поэтому «длина строки + 1» точна для обоих EOL.
+     * Computed on the {@link getText} text: the CRLF `\r` stays part of the line,
+     * so "line length + 1" is exact for both EOLs.
      */
     public offsetAt(position: Position): number {
         const valid = this.validatePosition(position);
@@ -158,14 +158,14 @@ export class ExtHostTextDocument implements vscode.TextDocument {
     }
 
     /**
-     * Смещение за границами прижимается к ним (контракт `vscode.d.ts`) — так
-     * `prettier` строит минимальную правку, сравнивая строки посимвольно.
+     * An offset beyond the bounds is clamped to them (`vscode.d.ts` contract): this is how
+     * `prettier` builds a minimal edit by comparing strings character by character.
      */
     public positionAt(offset: number): Position {
         const lines = this.lines();
         let remaining = Math.max(0, offset);
-        // Длину текста заранее не берём: после правки это склейка всего
-        // зеркала (на 200k строк — 13 МБ на каждый вызов провайдера).
+        // The text length is not taken up front: after an edit that means joining the whole
+        // mirror (13 MB per provider call on 200k lines).
         let line = 0;
         while (remaining > lines[line].length) {
             if (line === lines.length - 1) return new Position(line, lines[line].length);
@@ -176,8 +176,8 @@ export class ExtHostTextDocument implements vscode.TextDocument {
     }
 
     /**
-     * Новый объект — ВСЕГДА: на входе бывает любой `{line, character}` из
-     * расширения, и отдать его обратно — отдать чужой тип.
+     * ALWAYS a new object: the input may be any `{line, character}` from an
+     * extension, and returning it would return a foreign type.
      */
     public validatePosition(position: Position): Position {
         const lines = this.lines();
@@ -189,7 +189,7 @@ export class ExtHostTextDocument implements vscode.TextDocument {
         return new Range(this.validatePosition(range.start), this.validatePosition(range.end));
     }
 
-    /** Как `ExtHostDocumentData._getWordRangeAtPosition` upstream, вместе с текстом исключения. */
+    /** Like upstream `ExtHostDocumentData._getWordRangeAtPosition`, including the exception text. */
     public getWordRangeAtPosition(position: Position, regex?: RegExp): Range | undefined {
         const valid = this.validatePosition(position);
         if (regex !== undefined && regExpMatchesEmptyString(regex)) {
@@ -202,7 +202,7 @@ export class ExtHostTextDocument implements vscode.TextDocument {
         return word === null ? undefined : new Range(valid.line, word.start, valid.line, word.end);
     }
 
-    /** Закрытый документ — отказ, как upstream. */
+    /** Rejects on a closed document, as upstream. */
     public save(): Promise<boolean> {
         if (this.isClosed) return Promise.reject(new Error("Document has been closed"));
         return this.saver(this.uri);
@@ -245,7 +245,7 @@ function firstNonWhitespace(text: string): number {
     return text.length;
 }
 
-/** Ключ — ресурс, а не путь: путь у не-file схем неоднозначен. */
+/** Keyed by resource, not path: a path is ambiguous for non-file schemes. */
 export class DocumentRegistry {
     private readonly documents = new Map<string, ExtHostTextDocument>();
     private readonly wordDefinitions = new Map<string, RegExp | undefined>();
@@ -254,7 +254,7 @@ export class DocumentRegistry {
 
     public saver: DocumentSaver = NO_SAVER;
 
-    /** Стабильная обёртка: документ переживает замену {@link saver}. */
+    /** Stable wrapper: the document outlives replacing {@link saver}. */
     public readonly saveDocument: DocumentSaver = (uri) => this.saver(uri);
 
     public setWordDefinitionFor(languageId: string, wordDefinition: RegExp | undefined): void {
@@ -265,7 +265,7 @@ export class DocumentRegistry {
         return this.documents.get(uri.toString());
     }
 
-    /** Документ нужен ДО прихода снапшота. */
+    /** The document is needed BEFORE the snapshot arrives. */
     public getOrCreate(uri: Uri): ExtHostTextDocument {
         const key = uri.toString();
         let doc = this.documents.get(key);
@@ -313,12 +313,12 @@ function endOfText(text: string): Position {
 }
 
 /**
- * ЕДИНСТВЕННАЯ точка входа текста в реестр. Инвариант: потребитель
- * onDidOpen/onDidChange (vscode-languageclient → LSP) видит КАЖДЫЙ переход
- * текста реестра, а full-range у didChange посчитан от предыдущего текста.
- * Запись мимо трекера ломала оба: провайдер звался до didOpen («Unexpected
- * resource» у typescript-language-server), а затёртый oldText давал правку за
- * пределами копии tsserver и ронял его.
+ * The ONLY entry point of text into the registry. Invariant: an onDidOpen/onDidChange
+ * consumer (vscode-languageclient → LSP) sees EVERY transition of the registry text,
+ * and the full range of didChange is computed from the previous text.
+ * Writing around the tracker broke both: the provider was called before didOpen ("Unexpected
+ * resource" from typescript-language-server), and an overwritten oldText produced an edit
+ * outside tsserver's copy and crashed it.
  */
 export class DocumentSyncTracker {
     private readonly opened = new Set<string>();
@@ -333,12 +333,12 @@ export class DocumentSyncTracker {
         },
     ) {}
 
-    /** Изменившийся текст → одна full-range правка: валидно и для Full, и для Incremental sync. */
+    /** Changed text → one full-range edit: valid for both Full and Incremental sync. */
     public open(snapshot: ExtHostDocumentSnapshot): ExtHostTextDocument {
         const prev = this.registry.get(Uri.parse(snapshot.uri));
         if (prev === undefined || !this.opened.has(snapshot.uri)) {
             const doc = this.registry.upsertFull(snapshot);
-            // Воскрешение после didClose: тот же объект, isClosed снят.
+            // Revival after didClose: the same object, isClosed cleared.
             doc.isClosed = false;
             this.opened.add(snapshot.uri);
             this.onDidOpenEmitter.fire(doc);
@@ -349,7 +349,7 @@ export class DocumentSyncTracker {
             prev.applyMeta(snapshot);
             return prev;
         }
-        // Диапазон — ДО upsert'а: реестр мутирует стабильный объект документа.
+        // Range BEFORE the upsert: the registry mutates the stable document object.
         const fullRange = new Range(new Position(0, 0), endOfText(oldText));
         const doc = this.registry.upsertFull(snapshot);
         this.onDidChangeEmitter.fire({
@@ -361,15 +361,15 @@ export class DocumentSyncTracker {
     }
 
     /**
-     * По неоткрытому документу правки отбрасываются с предупреждением: хост
-     * шлёт их только открытым, а к чужому тексту они испортили бы зеркало.
+     * Edits for a document that is not open are dropped with a warning: the host
+     * sends them only for open ones, and applied to someone else's text they would corrupt the mirror.
      */
     public change(event: IWireDocumentChangedEvent): ExtHostTextDocument | null {
         if (!this.opened.has(event.uri)) {
             this.warn(`document sync: changes for a document that is not open: ${event.uri}`);
             return null;
         }
-        // Открытый документ всегда есть в реестре — `getOrCreate` его только находит.
+        // An open document is always in the registry; `getOrCreate` only finds it.
         const doc = this.registry.getOrCreate(Uri.parse(event.uri));
         const contentChanges = doc.acceptChanges(event.version, event.changes);
         doc.applyMeta({ uri: event.uri, isDirty: event.isDirty });
@@ -378,15 +378,15 @@ export class DocumentSyncTracker {
     }
 
     /**
-     * `null` — документ не открыт или запрос устарел (ядро его ответ всё равно
-     * отбросит). Версия запроса впереди зеркала — нарушенный инвариант порядка
-     * (правки и запросы едут одним каналом): предупреждение и тоже `null`.
+     * `null`: the document is not open or the request is stale (the core drops its response
+     * anyway). A request version ahead of the mirror is a broken ordering invariant
+     * (edits and requests travel on one channel): a warning and `null` too.
      */
     public resolve(uri: string, version: number | undefined, languageId?: unknown): ExtHostTextDocument | null {
         if (!this.opened.has(uri)) return null;
         const doc = this.registry.getOrCreate(Uri.parse(uri));
         if (doc.version !== version) {
-            // Stryker disable next-line ConditionalExpression,EqualityOperator: эквивалентны — сравнение с `undefined` всегда ложно, а равные версии отсеяны условием выше
+            // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent — comparing with `undefined` is always false, and equal versions are filtered out by the condition above
             if (version !== undefined && version > doc.version) {
                 this.warn(
                     `document sync: request for ${uri} v${String(version)} is ahead of the mirror v${String(doc.version)}`,
@@ -399,8 +399,8 @@ export class DocumentSyncTracker {
     }
 
     /**
-     * Сброс didOpen-дедупа: после didClose LSP требует свежего didOpen. Документ
-     * остаётся в реестре — расширения вправе держать ссылку на закрытый.
+     * Resets the didOpen dedup: after didClose LSP requires a fresh didOpen. The document
+     * stays in the registry: extensions may keep a reference to a closed one.
      */
     public close(uri: Uri): ExtHostTextDocument | null {
         const doc = this.registry.get(uri);

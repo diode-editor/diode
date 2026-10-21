@@ -4,8 +4,8 @@ import { SemanticTokens, SemanticTokensEdit, SemanticTokensEdits } from "./vscod
 import type { WireSemanticTokensResult } from "./wireTypes.ts";
 
 /**
- * Перенос `DocumentSemanticTokensAdapter`/`DocumentRangeSemanticTokensAdapter`
- * эталона; ответ — JSON-форма вместо бинарного `SemanticTokensDto`.
+ * Port of upstream `DocumentSemanticTokensAdapter`/`DocumentRangeSemanticTokensAdapter`;
+ * the response is a JSON shape instead of the binary `SemanticTokensDto`.
  */
 
 class SemanticTokensPreviousResult {
@@ -57,7 +57,7 @@ function fixProvidedSemanticTokens(v: unknown): SemanticTokens | SemanticTokensE
     return null;
 }
 
-/** Ядро получает дельту, даже если провайдер дельт не умеет. */
+/** The core gets a delta even if the provider cannot produce deltas. */
 function convertToEdits(
     previousResult: SemanticTokensPreviousResult | undefined,
     newResult: SemanticTokens | SemanticTokensEdits,
@@ -103,9 +103,9 @@ function convertToEdits(
 }
 
 /**
- * Каждый ответ получает одноразовый id: по нему следующий запрос находит
- * `resultId` расширения и прошлые данные; запись забывается при следующем
- * запросе с этим id и по `release`.
+ * Every response gets a one-shot id: with it the next request finds the extension's
+ * `resultId` and the previous data; the entry is forgotten on the next request
+ * with that id and on `release`.
  */
 export class DocumentSemanticTokensAdapter {
     private readonly previousResults = new Map<number, SemanticTokensPreviousResult>();
@@ -118,7 +118,7 @@ export class DocumentSemanticTokensAdapter {
         previousResultId: number,
         token: vscode.CancellationToken,
     ): Promise<WireSemanticTokensResult | null> {
-        // id ответов — с 1: «прошлого нет» (0) в таблице не найдётся.
+        // Response ids start at 1: "no previous" (0) is never found in the table.
         const previousResult = this.previousResults.get(previousResultId);
         const raw: unknown =
             typeof previousResult?.resultId === "string" &&
@@ -147,8 +147,8 @@ export class DocumentSemanticTokensAdapter {
             this.previousResults.set(id, new SemanticTokensPreviousResult(value.resultId, value.data));
             return { id, type: "full", data: Array.from(value.data) };
         }
-        // Хранится исходный полный ответ (от него посчитают следующую дельту),
-        // а если провайдер сам прислал правки — только его resultId.
+        // The original full response is stored (the next delta is computed from it),
+        // or, if the provider sent edits itself, only its resultId.
         this.previousResults.set(
             id,
             original instanceof SemanticTokens
@@ -167,7 +167,7 @@ export class DocumentSemanticTokensAdapter {
     }
 }
 
-/** Ответ всегда полный, id 0 — дельт к нему нет. */
+/** The response is always full, id 0: there are no deltas against it. */
 export class DocumentRangeSemanticTokensAdapter {
     public constructor(private readonly provider: vscode.DocumentRangeSemanticTokensProvider) {}
 

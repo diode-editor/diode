@@ -155,7 +155,7 @@ describe("CommandsNamespace (subprocess)", () => {
             return "ok";
         });
 
-        // Намеренно без `args`: проверяем защиту получателя от неполного провода.
+        // Deliberately without `args`: checks the receiver guards against an incomplete wire message.
         const result = await host.request("commands.executeCommand", { id: "ext.noargs" } as never);
 
         expect(result).toBe("ok");
@@ -250,7 +250,7 @@ describe("CommandsNamespace (subprocess)", () => {
             owner.runAs("pub.editor-ext", () => commands.registerTextEditorCommand("ext.te.owned", () => undefined));
             commands.registerTextEditorCommand("ext.te.shared", () => undefined);
 
-            // Исполнение — уже вне runAs: владелец запомнен при регистрации.
+            // Execution happens outside runAs: the owner was remembered at registration.
             await commands.executeCommand("ext.te.owned");
             await commands.executeCommand("ext.te.shared");
 

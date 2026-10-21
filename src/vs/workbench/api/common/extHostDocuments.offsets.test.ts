@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { DocumentRegistry, type ExtHostTextDocument } from "./extHostDocuments.ts";
 import { Position, Range, Uri } from "./vscodeTypes.ts";
 
-// Стоковый prettier строит правку через `positionAt` — без него формат молча
-// возвращал пустой список правок (#381).
+// The stock prettier builds its edit through `positionAt`; without it formatting silently
+// returned an empty edit list (#381).
 
 function docWith(text: string): ExtHostTextDocument {
     const registry = new DocumentRegistry();

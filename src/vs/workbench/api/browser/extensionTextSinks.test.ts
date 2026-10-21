@@ -42,25 +42,25 @@ import { NotificationExtensionAdapter } from "./notificationExtensionAdapter.ts"
 import { ProgressStatusBarAdapter } from "./progressStatusBarAdapter.ts";
 import { QuickInputExtensionAdapter } from "./quickInputExtensionAdapter.ts";
 
-// Перечень раковин «текст расширения → интерфейс», у него два гейта:
-//  1. Типов: таблицы — `Record<TextFields<IWire…>, …>`; новое строковое поле wire-типа без
-//     строки в таблице — красный typecheck.
-//  2. Поведения: на каждое поле `icons`/`verbatim` обязан быть кейс в {@link CASES}, гоняющий
-//     текст через настоящую раковину; сверяет тест «перечень покрыт целиком».
-// Подмена значков живёт в раковине, а не на входе RPC: содержимое Output и тела диагностик —
-// текст, где `$(…)` бывает шелл-подстановкой, `InputBox.value` уезжает обратно расширению,
-// а `renderCodicons` выбрасывает неизвестные имена.
-// Раковин пока нет: `window.setStatusBarMessage`, `languages.createLanguageStatusItem`,
-// заголовки view и `contributes.menus`, SCM (нет API), `QuickPickItem.detail` (нет на проводе),
+// Inventory of "extension text → UI" sinks, guarded by two gates:
+//  1. Types: the tables are `Record<TextFields<IWire…>, …>`; a new string field of a wire type
+//     without a table row is a red typecheck.
+//  2. Behavior: every `icons`/`verbatim` field must have a case in {@link CASES} that runs the
+//     text through the real sink; the "inventory fully covered" test checks this.
+// Icon substitution lives in the sink, not at the RPC entry: Output content and diagnostic bodies
+// are text where `$(…)` may be shell substitution, `InputBox.value` goes back to the extension,
+// and `renderCodicons` drops unknown names.
+// No sinks yet: `window.setStatusBarMessage`, `languages.createLanguageStatusItem`,
+// view titles and `contributes.menus`, SCM (no API), `QuickPickItem.detail` (not on the wire),
 // `MarkdownString.supportThemeIcons`.
 
 /**
- * `icons` — ярлык, значки подменяем; `verbatim` — дословно (свободный текст или значение,
- * едущее обратно расширению); `internal` — человеку не показывается.
+ * `icons`: a label, icons are substituted; `verbatim`: as is (free text or a value going back
+ * to the extension); `internal`: never shown to the user.
  */
 type Policy = "icons" | "verbatim" | "internal";
 
-/** Литеральные объединения (`severity`, `level`) — перечисления, а не текст. */
+/** Literal unions (`severity`, `level`) are enums, not text. */
 type TextFields<T> = {
     [K in keyof T]-?: string extends T[K] ? K : never;
 }[keyof T];
@@ -181,7 +181,7 @@ const MESSAGE_ITEM: Readonly<Record<TextFields<IWireMessageItem>, IFieldPolicy>>
     title: { policy: "verbatim", why: "подпись кнопки сообщения; у эталона кнопки тоста значков не разворачивают" },
 };
 
-/** Вклады манифеста — вторая воронка, у неё нет wire-типа. */
+/** Manifest contributions are the second funnel; they have no wire type. */
 const MANIFEST_FIELDS: Readonly<Record<string, IFieldPolicy>> = {
     title: {
         policy: "icons",
@@ -291,7 +291,7 @@ const NOOP_EDITOR_OPTIONS = {
     applyActiveEditorEdits: () => true,
 } as unknown as IEditorOptionsService;
 
-/** Как собирает провайдер палитры; заголовок приезжает с заглушки-активатора `onCommand:`. */
+/** As the palette provider builds it; the title comes from the `onCommand:` activator stub. */
 function paletteLabel(title: string, category: string): string {
     const registry = new CommandRegistry();
     const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, new CommandServiceAdapter(registry), {});
@@ -340,7 +340,7 @@ const CASES: readonly ISinkCase[] = [
             const adapter = new ProgressStatusBarAdapter(bar);
             try {
                 adapter.start(1, FEED);
-                // Спиннер — наш, не расширения: сравниваем хвост записи.
+                // The spinner is ours, not the extension's: compare the tail of the entry.
                 return bar.entries()[0].text.split(" ").slice(1).join(" ");
             } finally {
                 adapter.dispose();

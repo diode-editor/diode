@@ -30,16 +30,16 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     private readonly groups: IEditorGroupsService;
     private readonly workspaceEdits: IBulkEditService;
 
-    /** Вкладка уже закрыта — активная группа. */
+    /** Falls back to the active group when the tab is already closed. */
     private groupIdOf(editor: TextEditorPane): number {
         return this.groups.groupOf(editor)?.id ?? this.groups.activeGroup.id;
     }
-    /** Выделение ставит сам субпроцесс: без флага присланное уехало бы ему обратно эхом. */
+    /** The subprocess sets this selection itself: without the flag it would be echoed back to it. */
     private applyingRemoteSelection = false;
     private selectionFlushScheduled = false;
     /**
-     * Снимается СИНХРОННО в обработчике (в отложенном флаше область жеста уже закрыта);
-     * побеждает последний — отправляем итоговые выделения тика.
+     * Captured SYNCHRONOUSLY in the handler (by the deferred flush the gesture scope is already closed);
+     * the last one wins: we send the tick's final selections.
      */
     private pendingSelectionSource: CursorChangeSource | undefined;
 
@@ -66,7 +66,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
 
     public getActiveEditorFilePath(): string | null {
         const uri = this.group.getActiveTabEditor()?.uri;
-        // Потребитель (editorconfig) ждёт путь на диске; у безымянного буфера его нет.
+        // The consumer (editorconfig) expects a path on disk; an untitled buffer has none.
         return uri?.scheme === "file" ? uri.fsPath : null;
     }
 
@@ -98,8 +98,8 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
                 this.selectionFlushScheduled = false;
                 const kind = selectionChangeKindOf(this.pendingSelectionSource);
                 this.pendingSelectionSource = undefined;
-                // Активный редактор мог смениться, пока мы ждали тик: шлём выделения
-                // того, кто активен сейчас (его uri и едет в payload).
+                // The active editor may have changed while we waited for the tick: send the selections
+                // of the one active now (its uri is what goes into the payload).
                 const current = this.group.getActiveTabEditor() ?? editor;
                 cb({
                     uri: current.uri.toString(),
@@ -130,14 +130,14 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
     }
 
     public applyActiveEditorEdits(uri: string, edits: readonly IWireEditorEdit[]): boolean {
-        // Правка адресует документ (модель общая) — годится любая вкладка ресурса в любой группе.
+        // The edit targets the document (the model is shared): any tab of the resource in any group will do.
         const editor = this.anyEditorFor(uri);
-        // Read-only правку отобьёт `EditorViewState`: `TextEditor.edit()` расширения резолвится
-        // этим ответом, врать об успехе нельзя (так же VS Code).
+        // `EditorViewState` rejects a read-only edit: the extension's `TextEditor.edit()` resolves
+        // with this reply, so it must not report false success (same as VS Code).
         if (editor === null || editor.readOnly || edits.length === 0) return false;
         const textEdits = this.toTextEdits(editor, edits);
-        // Перекрытые правки применились бы по съеденному тексту: батч отбиваем целиком,
-        // как `Overlapping ranges are not allowed` в vscode.
+        // Overlapping edits would apply to already consumed text: reject the whole batch,
+        // like `Overlapping ranges are not allowed` in vscode.
         if (textEdits === null) return false;
         editor.applyExternalEdits(textEdits, "extension edit");
         return true;
@@ -147,10 +147,10 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         ops: readonly IWireWorkspaceEditOp[],
         options?: { isRefactoring?: boolean },
     ): Promise<boolean> {
-        // Пустой edit субпроцесс резолвит успехом сам, без RPC; здесь ничего не применено.
+        // The subprocess resolves an empty edit as success itself, without RPC; nothing was applied here.
         if (ops.length === 0) return false;
         const edits = toWorkspaceEdit(ops);
-        // Файловая операция по недисковому ресурсу (`output:`, `jdt:`): отбиваем edit целиком.
+        // A file operation on a non-disk resource (`output:`, `jdt:`): reject the whole edit.
         if (edits === null) return false;
         return this.workspaceEdits.applyWorkspaceEdit(edits, "Workspace Edit", {
             respectAutoSaveConfig: options?.isRefactoring === true,
@@ -165,7 +165,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         return (await this.group.save(Uri.parse(uri)))?.toString() ?? null;
     }
 
-    /** Позиции клампятся к содержимому; `null` — батч с пересечениями. */
+    /** Positions are clamped to the content; `null` means the batch has overlaps. */
     private toTextEdits(editor: TextEditorPane, edits: readonly IWireEditorEdit[]): ITextEdit[] | null {
         const doc = editor.model.document;
         const textEdits: ITextEdit[] = edits.map((edit) => {
@@ -176,7 +176,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         return hasOverlappingEdits(textEdits) ? null : textEdits;
     }
 
-    /** С `groupId` — вкладка ресурса в той группе (AS-10), без — активная вкладка с этим uri. */
+    /** With `groupId`, the resource's tab in that group (AS-10); without it, the active tab with this uri. */
     private editorFor(uri: string, groupId?: number): TextEditorPane | null {
         if (groupId !== undefined) {
             const target = this.groups.groups.find((candidate) => candidate.id === groupId);
@@ -190,7 +190,7 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
         return editor;
     }
 
-    /** Модель у всех вкладок ресурса одна. */
+    /** All tabs of a resource share one model. */
     private anyEditorFor(uri: string): TextEditorPane | null {
         const active = this.group.getActiveTabEditor();
         if (active !== null && active.uri.toString() === uri) return active;
@@ -199,8 +199,8 @@ export class EditorOptionsServiceAdapter implements IEditorOptionsService {
 }
 
 /**
- * Координаты едут как есть — клампит исполнитель. `null` — файловая операция не по диску:
- * весь edit отбивается.
+ * Coordinates are passed as is; the executor clamps them. `null` means a file operation on a non-disk
+ * resource: the whole edit is rejected.
  */
 function toWorkspaceEdit(ops: readonly IWireWorkspaceEditOp[]): BulkEdit | null {
     const result: BulkEditOperation[] = [];
@@ -248,7 +248,7 @@ function filePathOf(resource: string): string | null {
     return uri.scheme === "file" ? uri.fsPath : null;
 }
 
-/** Первое — первичное. */
+/** The first one is the primary. */
 function wireSelectionsOf(editor: TextEditorPane): IWireSelection[] {
     return editor.viewState.selections.map((sel) => ({
         anchorLine: sel.anchor.line,

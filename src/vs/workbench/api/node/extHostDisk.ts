@@ -7,7 +7,7 @@ import type { IDiskFileSystem, IExtHostDisk } from "../common/extHostDisk.ts";
 import type { IFindFilesEntry, IFindFilesScanner } from "../common/findFiles.ts";
 import { FileSystemError, FileType } from "../common/vscodeTypes.ts";
 
-/** Как у эталона (`extHostDiskFileSystemProvider.ts`), диск обслуживается прямо в субпроцессе, без RPC. */
+/** As upstream (`extHostDiskFileSystemProvider.ts`), the disk is served directly in the subprocess, without RPC. */
 export function createNodeExtHostDisk(): IExtHostDisk {
     return {
         fs: createNodeDiskFileSystem(),
@@ -69,7 +69,7 @@ function createNodeDiskFileSystem(): IDiskFileSystem {
 
     async function writeFile(uri: vscode.Uri, content: Uint8Array): Promise<void> {
         try {
-            // VS Code создаёт недостающие родительские папки при записи.
+            // VS Code creates missing parent folders on write.
             await fs.mkdir(path.dirname(uri.fsPath), { recursive: true });
             await fs.writeFile(uri.fsPath, content);
         } catch (err) {
@@ -95,8 +95,8 @@ function createNodeDiskFileSystem(): IDiskFileSystem {
     }
 
     /**
-     * `useTrash` молча игнорируется — корзины нет. `force` у `fs.rm` НЕ включаем:
-     * по контракту отсутствующий ресурс — `FileNotFound`, а не вакуумный успех.
+     * `useTrash` is silently ignored: there is no trash. `force` of `fs.rm` is NOT enabled:
+     * by contract a missing resource is `FileNotFound`, not a vacuous success.
      */
     async function deleteEntry(uri: vscode.Uri, options?: { recursive?: boolean }): Promise<void> {
         try {
@@ -107,13 +107,13 @@ function createNodeDiskFileSystem(): IDiskFileSystem {
     }
 
     /**
-     * `fs.rename` в posix затирает цель молча — `overwrite` проверяем сами, ДО `try`,
-     * чтобы `FileExists` про цель не переписался маппингом ошибки источника.
+     * On posix `fs.rename` silently overwrites the target, so `overwrite` is checked here, BEFORE `try`,
+     * so that the target's `FileExists` is not rewritten by the source error mapping.
      */
     async function rename(source: vscode.Uri, target: vscode.Uri, options?: { overwrite?: boolean }): Promise<void> {
         if (options?.overwrite !== true) await assertVacant(target);
         try {
-            // Перенос в ещё не существующий каталог по контракту законен.
+            // Moving into a not-yet-existing directory is legal by contract.
             await fs.mkdir(path.dirname(target.fsPath), { recursive: true });
             await fs.rename(source.fsPath, target.fsPath);
         } catch (err) {
@@ -125,7 +125,7 @@ function createNodeDiskFileSystem(): IDiskFileSystem {
         if (options?.overwrite !== true) await assertVacant(target);
         try {
             await fs.mkdir(path.dirname(target.fsPath), { recursive: true });
-            // `force` здесь безопасен: занятость цели уже разобрана выше.
+            // `force` is safe here: an occupied target was already handled above.
             await fs.cp(source.fsPath, target.fsPath, { recursive: true, force: true });
         } catch (err) {
             throw toFileSystemError(err, source);
@@ -153,7 +153,7 @@ async function assertVacant(target: vscode.Uri): Promise<void> {
     throw FileSystemError.FileExists(target);
 }
 
-/** Симлинки на каталоги не раскрываются (`Dirent.isDirectory()` у них ложный) — обход не зацикливается. */
+/** Symlinks to directories are not followed (`Dirent.isDirectory()` is false for them), so the walk cannot loop. */
 export function createNodeFindFilesScanner(): IFindFilesScanner {
     return {
         readDirectory: async (absolutePath: string): Promise<readonly IFindFilesEntry[]> => {

@@ -62,14 +62,14 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection("eslint");
         const rich = new Diagnostic(new Range(0, 17, 0, 18), "Unnecessary semicolon.");
-        // Так шлёт eslint: код правила + ссылка на его доку.
+        // This is how eslint sends it: the rule code plus a link to its docs.
         rich.code = {
             value: "no-extra-semi",
             target: Uri.parse("https://eslint.org/docs/rules/no-extra-semi"),
         } as never;
         const garbage = new Diagnostic(new Range(1, 0, 1, 1), "x");
         garbage.code = { targetOnly: true } as never;
-        // null — тоже typeof "object": ветка rich-формы обязана его пережить.
+        // null is also typeof "object": the rich-form branch must survive it.
         const nullCode = new Diagnostic(new Range(2, 0, 2, 1), "y");
         nullCode.code = null as never;
 
@@ -84,7 +84,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
     it("диагностика с related information публикуется; само поле в wire не едет", () => {
         const { stub, languages } = makeLanguages();
         const collection = languages.createDiagnosticCollection("ts");
-        // Так приходит TS2741: сообщение + место объявления.
+        // This is how TS2741 arrives: the message plus the declaration location.
         const diag = new Diagnostic(new Range(5, 4, 5, 10), "Property 'retries' is missing");
         diag.relatedInformation = [
             new DiagnosticRelatedInformation(
@@ -101,10 +101,10 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
             range: { start: { line: 5, character: 4 }, end: { line: 5, character: 10 } },
             message: "Property 'retries' is missing",
         });
-        // Наивность wire-формы (docs/public/API-COVERAGE.md): related information до маркеров
-        // не доезжает — но и публикацию не ломает.
+        // The wire form is naive (docs/public/API-COVERAGE.md): related information doesn't reach
+        // the markers — but doesn't break publishing either.
         expect(markers[0]).not.toHaveProperty("relatedInformation");
-        // Оригинальный объект расширения в коллекции цел — его читают code actions.
+        // The extension's original object in the collection is intact — code actions read it.
         expect(collection.get(FILE as unknown as vscode.Uri)?.[0].relatedInformation).toHaveLength(1);
     });
 
@@ -153,7 +153,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         const collection = languages.createDiagnosticCollection("rich");
         collection.set(FILE as unknown as vscode.Uri, [
             { message: { value: "**bold** rule" } } as unknown as vscode.Diagnostic,
-            // Объект без `value` текстом не является — пустая строка, а не «[object Object]».
+            // An object without `value` is not text: an empty string, not "[object Object]".
             { message: { nope: 1 } } as unknown as vscode.Diagnostic,
             { message: 42 } as unknown as vscode.Diagnostic,
         ]);
@@ -200,7 +200,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         expect(published(stub).at(-1)).toMatchObject({ resource: FILE.toString(), markers: [] });
 
         collection.set(FILE as unknown as vscode.Uri, [diag]);
-        collection.dispose(); // dispose → clear → пустая публикация по каждому ресурсу
+        collection.dispose(); // dispose → clear → an empty publish for every resource
         expect(published(stub).at(-1)).toMatchObject({ resource: FILE.toString(), markers: [] });
         expect(collection.get(FILE as unknown as vscode.Uri)).toBeUndefined();
     });
@@ -224,7 +224,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
         ];
         for (const collection of collections) collection.set(FILE as unknown as vscode.Uri, []);
 
-        // Одноимённые и безымянные коллекции разных расширений не делят ключ MarkerService.
+        // Same-named and unnamed collections of different extensions don't share a MarkerService key.
         expect(published(stub).map((p) => p.owner)).toEqual([
             "ext:pub.a:ts",
             "ext:pub.a:ts#1",
@@ -291,8 +291,8 @@ describe("LanguagesNamespace — no-op поверхность для vscode-lang
             }, name).not.toThrow();
         }
         const match = (languages as unknown as { match(selector: unknown, doc: unknown): number }).match;
-        // Настоящий скоринг: markdown-документ НЕ матчится ts-селектору —
-        // vscode-languageclient фильтрует этим документы для синхронизации.
+        // Real scoring: a markdown document does NOT match a ts selector —
+        // vscode-languageclient uses this to filter documents for sync.
         const tsDoc = { languageId: "typescript", uri: Uri.file("/a.ts") };
         const mdDoc = { languageId: "markdown", uri: Uri.file("/a.md") };
         expect(match({ language: "typescript" }, tsDoc)).toBeGreaterThan(0);

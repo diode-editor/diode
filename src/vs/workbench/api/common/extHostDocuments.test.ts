@@ -135,7 +135,7 @@ describe("ExtHostDocuments — ExtHostTextDocument", () => {
         const doc = new DocumentRegistry().upsertFull({ uri: Uri.file("/a.ts").toString(), text: "  x\n   \nq" });
         expect(doc.lineAt(0).firstNonWhitespaceCharacterIndex).toBe(2);
         expect(doc.lineAt(0).isEmptyOrWhitespace).toBe(false);
-        expect(doc.lineAt(1).firstNonWhitespaceCharacterIndex).toBe(3); // вся whitespace → длина
+        expect(doc.lineAt(1).firstNonWhitespaceCharacterIndex).toBe(3); // all whitespace → length
         expect(doc.lineAt(1).isEmptyOrWhitespace).toBe(true);
         expect(doc.lineAt(2).firstNonWhitespaceCharacterIndex).toBe(0);
     });
@@ -184,7 +184,7 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
 
     it("ресурс в реестре (getOrCreate/meta), но didOpen ещё не фаерился — didOpen, не didChange", () => {
         const { registry, tracker, log } = makeTracker();
-        registry.getOrCreate(Uri.parse(URI)); // мета-путь active-editor-change
+        registry.getOrCreate(Uri.parse(URI)); // meta path of active-editor-change
         tracker.open({ uri: URI, text: "a" });
         expect(log).toEqual(["open:a"]);
     });
@@ -205,7 +205,7 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
         expect(same).toBe(doc);
         expect(log).toEqual(["open:ab\ncd", "change:x"]);
         const change = changes[0].contentChanges[0];
-        // Диапазон посчитан ДО мутации реестра — по тексту "ab\ncd".
+        // The range is computed BEFORE the registry mutates, against the text "ab\ncd".
         expect(change.range.start).toMatchObject({ line: 0, character: 0 });
         expect(change.range.end).toMatchObject({ line: 1, character: 2 });
         expect(change.rangeOffset).toBe(0);
@@ -238,7 +238,7 @@ describe("ExtHostDocuments — DocumentSyncTracker", () => {
 
     it("close ресурса из реестра без didOpen (мета-путь) — null", () => {
         const { registry, tracker } = makeTracker();
-        registry.getOrCreate(Uri.parse(URI)); // мета-путь active-editor-change, didOpen не фаерился
+        registry.getOrCreate(Uri.parse(URI)); // meta path of active-editor-change, didOpen never fired
 
         expect(tracker.close(Uri.parse(URI))).toBeNull();
     });

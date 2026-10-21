@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { ExtensionPaths } from "./extensionPaths.ts";
 
-// Пути строим через path.resolve — тест не зависит от разделителя платформы.
+// Paths are built via path.resolve so the test doesn't depend on the platform separator.
 const p = (...segments: string[]): string => path.resolve("/", ...segments);
 
 describe("ExtensionPaths", () => {

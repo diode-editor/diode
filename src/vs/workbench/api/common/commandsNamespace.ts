@@ -8,8 +8,8 @@ import { DisposableImpl } from "./vscodeTypes.ts";
 type CommandHandler = (...args: unknown[]) => unknown;
 
 /**
- * `apiCommands` (`vscode.open`…) исполняются здесь же и хосту не объявляются;
- * id расширения из `owner` попадает в предупреждения в stderr.
+ * `apiCommands` (`vscode.open`…) run right here and are not declared to the host;
+ * the extension id from `owner` ends up in stderr warnings.
  */
 export function buildCommandsNamespace(
     rpc: SubprocessRpc,
@@ -37,7 +37,7 @@ export function buildCommandsNamespace(
         localCommands.set(id, bound);
         rpc.notify("commands.registerCommand", { id });
         return new DisposableImpl(() => {
-            // Повторный register тем же id мог перезаписать колбэк — чужой dispose не должен его убрать.
+            // A repeated register with the same id may have replaced the callback; a stale dispose must not remove it.
             if (localCommands.get(id) === bound) {
                 localCommands.delete(id);
                 rpc.notify("commands.unregisterCommand", { id });
@@ -45,14 +45,14 @@ export function buildCommandsNamespace(
         });
     };
 
-    // Builder — пустышка: известные потребители (`basedpyright.organizeimports`)
-    // читают только `editor.document` и шлют запрос серверу сами.
+    // The builder is a dummy: known consumers (`basedpyright.organizeimports`)
+    // read only `editor.document` and send the request to the server themselves.
     const registerTextEditorCommand = (
         id: string,
         callback: (editor: vscode.TextEditor, edit: vscode.TextEditorEdit, ...args: unknown[]) => void,
         thisArg?: unknown,
     ): vscode.Disposable => {
-        // Владелец — в момент регистрации: при исполнении окружающего владельца уже нет.
+        // Owner is captured at registration: by execution time the surrounding owner is gone.
         const extensionId = owner?.current;
         const tag = extensionId === undefined ? "" : `[${extensionId}] `;
         return registerCommand(id, (...args: unknown[]): unknown => {
@@ -68,7 +68,7 @@ export function buildCommandsNamespace(
     const executeCommand = <T = unknown>(id: string, ...args: unknown[]): Promise<T> => {
         const handler = localCommands.get(id) ?? apiCommands.get(id);
         if (handler !== undefined) {
-            // Внутри executor'а: синхронный отказ API-команды уходит отказом промиса, как у эталона.
+            // Inside the executor: a synchronous API-command refusal becomes a promise rejection, as upstream.
             return new Promise<T>((resolve) => {
                 resolve(handler(...args) as T);
             });

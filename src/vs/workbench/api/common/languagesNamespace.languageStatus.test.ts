@@ -8,8 +8,8 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { ExtensionOwner, type IVscodeHostContext } from "./vscodeHostContext.ts";
 import { WorkspaceConfigStore } from "./workspaceConfigStore.ts";
 
-// В UI не проецируется, но ruff пишет в text/severity/busy состояние сервера при каждом
-// переходе и зовёт dispose при рестарте.
+// Not projected into the UI, but ruff writes server state into text/severity/busy on every
+// transition and calls dispose on restart.
 
 function makeLanguages(): ReturnType<typeof createLanguagesNamespace>["languages"] {
     const registry = new DocumentRegistry();

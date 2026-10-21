@@ -8,7 +8,7 @@ describe("InProcessChannelPair", () => {
         const received: unknown[] = [];
         b.onMessage((m) => received.push(m));
         a.postMessage({ hello: "world" });
-        expect(received).toHaveLength(0); // не синхронно
+        expect(received).toHaveLength(0); // not synchronous
         await Promise.resolve();
         expect(received).toEqual([{ hello: "world" }]);
         a.dispose();

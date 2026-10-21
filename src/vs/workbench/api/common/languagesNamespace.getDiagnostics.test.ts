@@ -84,7 +84,7 @@ describe("languages.getDiagnostics", () => {
                         { severity: 1, range: WIRE_RANGE, message: "Unknown setting", code: "S1", source: "json" },
                     ],
                 },
-                // code/source не строкой — выпадают, маркер остаётся.
+                // Non-string code/source are dropped, the marker stays.
                 {
                     resource: B.toString(),
                     markers: [{ severity: 3, range: WIRE_RANGE, message: "hint", code: 5, source: 7 }],
@@ -165,7 +165,7 @@ describe("languages.onDidChangeDiagnostics", () => {
         expect(events.map((uris) => uris.map(String))).toEqual([[B.toString(), A.toString()]]);
         expect(Object.isFrozen(events[0])).toBe(true);
 
-        // Следующее изменение открывает новое окно.
+        // The next change opens a new window.
         ts.clear();
         vi.advanceTimersByTime(50);
         expect(events.map((uris) => uris.map(String))).toEqual([[B.toString(), A.toString()], [A.toString()]]);

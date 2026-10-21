@@ -4,15 +4,15 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { CommentThreadCollapsibleState } from "./vscodeTypes.ts";
 
 /**
- * Заглушка до честных комментариев: формы эталонные, ничего не рисуется.
- * Claude Code вешает тред на каждый ханк предложенного диффа — отсутствие
- * члена роняло бы показ диффа целиком, а без тредов дифф принимается командами.
+ * Stub until real comments exist: shapes follow upstream, nothing is rendered.
+ * Claude Code attaches a thread to every hunk of a proposed diff — a missing
+ * member would break showing the whole diff, while without threads the diff is accepted via commands.
  */
 
 const OUTPUT_CHANNEL = "extensions";
 const OUTPUT_LABEL = "Extensions";
 
-/** Дефолты — эталонные (`ExtHostCommentThread`); поля записываемые — расширения правят их после создания. */
+/** Defaults follow upstream (`ExtHostCommentThread`); fields are writable — extensions edit them after creation. */
 function createInertCommentThread(
     uri: vscode.Uri,
     range: vscode.Range | undefined,
@@ -34,7 +34,7 @@ function createInertCommentThread(
 export function createCommentsNoop(rpc: SubprocessRpc): typeof vscode.comments {
     const reported = new Set<string>();
 
-    // Главное — первым: строка Output обрезается шириной панели.
+    // The essential part first: an Output line is clipped to the panel width.
     function reportUnsupported(id: string): void {
         if (reported.has(id)) return;
         reported.add(id);

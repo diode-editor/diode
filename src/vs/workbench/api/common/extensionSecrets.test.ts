@@ -72,7 +72,7 @@ describe("extensionSecrets", () => {
     });
 
     it("повторный create для того же расширения делит один эмиттер", () => {
-        // Иначе `context.secrets` пересозданного контекста слушал бы в пустоту.
+        // Otherwise `context.secrets` of a recreated context would listen to nothing.
         const stub = makeStubRpc();
         const factory = createExtensionSecretsFactory(stub.rpc);
         const seen: string[] = [];

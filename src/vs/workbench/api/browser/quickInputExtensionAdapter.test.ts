@@ -243,7 +243,7 @@ describe("QuickInputExtensionAdapter.cancel", () => {
         testApp.sendKey("Escape");
         await pending;
 
-        // Оверлей взял кто-то другой (наша собственная команда).
+        // Another owner took the overlay (one of our own commands).
         const ours = service.input({ title: "Save As" });
         adapter.cancel(7);
         expect(component.isOpen()).toBe(true);
@@ -268,7 +268,7 @@ describe("QuickInputExtensionAdapter.cancel", () => {
         const { adapter, component, testApp } = createAdapter();
         const first = adapter.showInputBox({ handle: 1, password: false, validates: false });
         const second = adapter.showQuickPick(pickRequest({ handle: 2 }));
-        // Первый показ уже перехвачен вторым — его завершение слот НЕ трогает.
+        // The first show is already preempted by the second; its completion does NOT touch the slot.
         await expect(first).resolves.toBeUndefined();
 
         adapter.cancel(2);
@@ -425,7 +425,7 @@ describe("QuickInputExtensionAdapter — объектный пикер", () => {
         adapter.disposeQuickPick(6);
         expect(events).toEqual([]);
 
-        // Тот же handle после снятия — новый пикер, а не воскрешённый старый.
+        // The same handle after removal is a new picker, not the old one revived.
         adapter.updateQuickPick({ handle: 5, visible: true }, emit);
         expect(component.view.title).toBeUndefined();
     });

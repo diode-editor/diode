@@ -52,7 +52,7 @@ describe("EditorLayoutServiceAdapter — безымянный документ �
         expect(log).toEqual([`open ${uri}`]);
         expect(opened[0]).toMatchObject({ uri, languageId: "markdown", text: "# Tools\n", isDirty: true });
         expect(service.editorGroups.activeGroup.editorCount).toBe(0);
-        // Семя handshake (перезапуск субпроцесса) тоже несёт этот документ.
+        // The handshake seed (subprocess restart) carries this document too.
         expect(openDocumentSnapshots(service).map((snapshot) => snapshot.uri)).toEqual([uri]);
     });
 

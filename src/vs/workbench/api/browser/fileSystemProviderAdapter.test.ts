@@ -97,7 +97,7 @@ describe("FileSystemProviderAdapter", () => {
     });
 
     it("повторное объявление того же набора не пересоздаёт регистрации", () => {
-        // Пересоздание уронило бы регистрацию в реестре с «схема уже занята».
+        // Recreating would fail the registry registration with "scheme already taken".
         const registry = new FileService();
         const harness = fakeBridge(["git"]);
         new FileSystemProviderAdapter(harness.bridge, registry);
@@ -119,7 +119,7 @@ describe("FileSystemProviderAdapter", () => {
 
         harness.fireChange([gitUri, outputUri]);
 
-        // Два поставщика, но каждый отдал только свои ресурсы — не по разу на всё.
+        // Two providers, yet each reported only its own resources, not every change once per provider.
         expect(seen.mock.calls).toEqual([[[gitUri]], [[outputUri]]]);
     });
 
@@ -155,7 +155,7 @@ describe("FileSystemProviderAdapter", () => {
         registry.onDidRunOperation(operations);
 
         expect(registry.hasCapability(right, FileSystemProviderCapabilities.Readonly)).toBe(false);
-        // Ресурса ещё нет: stat провайдера — null, сервис создаёт.
+        // The resource does not exist yet: the provider's stat is null, the service creates it.
         await registry.writeFile(right, new TextEncoder().encode("первое"));
         const stat = await registry.writeFile(right, new TextEncoder().encode("второе"));
 

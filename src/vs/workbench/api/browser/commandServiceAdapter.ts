@@ -22,7 +22,7 @@ export class CommandServiceAdapter implements ICommandService {
         title?: string,
         category?: string,
     ): IDisposable {
-        // `enablement` у команд расширений нет: доступность пункта палитры решает `when` вклада меню.
+        // Extension commands have no `enablement`: the menu contribution's `when` decides palette item availability.
         return this.registry.register(id, (...args) => invoke(args), title, undefined, category);
     }
 }

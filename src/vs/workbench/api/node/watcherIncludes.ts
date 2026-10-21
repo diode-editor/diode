@@ -5,16 +5,16 @@ import { passesThroughSymlink } from "../../../platform/files/node/passesThrough
 export const WATCHER_INCLUDE_SETTING = "files.watcherInclude";
 
 /**
- * Обход по симлинкам не ходит, поэтому каталог-ссылку надо следить явно. У эталона
- * события таких watch'ей идут в общий поток; у нас поток у каждого watcher'а свой —
- * путь подмешивается к тем, чья база его покрывает. Разрешение путей — как у
- * `workspaceWatcher.watchWorkspace`. Обычный каталог не берём: обход `base` дойдёт
- * до него сам, второй watch задвоил бы события (`removeDuplicateRequests` эталона).
+ * The walk does not follow symlinks, so a linked directory must be watched explicitly. Upstream,
+ * events of such watches go into a shared stream; here every watcher has its own stream, so
+ * the path is mixed into those whose base covers it. Paths are resolved as in
+ * `workspaceWatcher.watchWorkspace`. A plain directory is skipped: the `base` walk reaches
+ * it on its own, and a second watch would duplicate events (upstream's `removeDuplicateRequests`).
  */
 export function watcherIncludesUnder(base: string, setting: unknown, folders: readonly string[]): string[] {
     if (!Array.isArray(setting)) return [];
     const resolved = new Set<string>();
-    // Пустая строка разрешается в саму папку и отсеивается ниже как база.
+    // An empty string resolves to the folder itself and is filtered out below as the base.
     for (const entry of setting) {
         if (typeof entry !== "string") continue;
         if (path.isAbsolute(entry)) {
@@ -33,7 +33,7 @@ export function watcherIncludesUnder(base: string, setting: unknown, folders: re
     return result;
 }
 
-/** Каталог `..foo` — внутри, `..` — нет. */
+/** The `..foo` directory is inside, `..` is not. */
 function isEqualOrInside(parent: string, candidate: string): boolean {
     const relative = path.relative(parent, candidate);
     return relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);

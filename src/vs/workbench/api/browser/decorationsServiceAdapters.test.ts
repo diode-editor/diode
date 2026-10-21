@@ -44,7 +44,7 @@ describe("EditorDecorationsServiceAdapter", () => {
     });
 
     it("сверяет ресурсы, а не сырые строки: канонизацию даёт Uri", () => {
-        // Нормализует путь только `IEditorService.openFile`: сюда ресурс приходит уже каноничным.
+        // Only `IEditorService.openFile` normalizes the path: the resource arrives here already canonical.
         const match = fakeEditor(Uri.file(path.resolve("/proj/./sub/../a.ts")));
         const adapter = new EditorDecorationsServiceAdapter(fakeGroup([match]));
         adapter.setGutterChangeDecorations(Uri.file("/proj/a.ts").toString(), []);

@@ -131,7 +131,7 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
         const { languages } = createLanguagesNamespace(ctx);
         const ask = (handle: unknown) => stub.callRequest("languages.provideReferences", requestParams({ handle }));
 
-        // 0. Рабочий — асинхронный, с двумя ссылками.
+        // 0. Working: async, with two references.
         languages.registerReferenceProvider(
             { language: "typescript" },
             {
@@ -139,7 +139,7 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
                     Promise.resolve([location("file:///proj/b.ts", 2), location("file:///proj/c.ts", 3)]),
             },
         );
-        // 1. Сбойный — бросает синхронно.
+        // 1. Failing: throws synchronously.
         languages.registerReferenceProvider(
             { language: "typescript" },
             {
@@ -148,14 +148,14 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
                 },
             },
         );
-        // 2. Отклонённый промис.
+        // 2. Rejected promise.
         languages.registerReferenceProvider(
             { language: "typescript" },
             { provideReferences: () => Promise.reject(new Error("nope")) },
         );
         // 3. null.
         languages.registerReferenceProvider({ language: "typescript" }, { provideReferences: () => null });
-        // 4. Второй рабочий.
+        // 4. Second working one.
         languages.registerReferenceProvider(
             { language: "typescript" },
             { provideReferences: () => [location("file:///proj/a.ts", 1)] },
@@ -174,7 +174,7 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
     it("не-массив от провайдера и мусор внутри массива отбрасываются", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
-        // Одиночный Location — форма definition; для references (`ProviderResult<Location[]>`) не принимаем.
+        // A single Location is the definition shape; for references (`ProviderResult<Location[]>`) it's not accepted.
         languages.registerReferenceProvider(
             { language: "typescript" },
             { provideReferences: () => location("file:///proj/single.ts", 0) as unknown as vscode.Location[] },
@@ -251,7 +251,7 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
             },
         );
 
-        // Не открыт: хост ещё не прислал didOpen (или уже прислал didClose).
+        // Not open: the host hasn't sent didOpen yet (or has already sent didClose).
         expect(await stub.callRequest("languages.provideReferences", requestParams())).toEqual([]);
 
         openDoc(ctx);
@@ -260,9 +260,9 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
             version: 2,
             changes: [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x" }],
         });
-        // Устарел: ядро уже ушло на v2.
+        // Stale: the core has already moved on to v2.
         expect(await stub.callRequest("languages.provideReferences", requestParams({ version: 1 }))).toEqual([]);
-        // Впереди зеркала: правки v3 ещё не доехали — нарушение порядка, в stderr.
+        // Ahead of the mirror: the v3 edits haven't arrived — an ordering violation, logged to stderr.
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         try {
             expect(await stub.callRequest("languages.provideReferences", requestParams({ version: 3 }))).toEqual([]);
@@ -281,8 +281,8 @@ describe("LanguagesNamespace — languages.provideReferences", () => {
 
 describe("LanguagesNamespace — Position/Location стаба", () => {
     it("Position из vscodeTypes конструируется так же, как ждёт провайдер", () => {
-        // Конвертер стокового languageclient зовёт `new code.Location(uri, range)`: без
-        // конструируемых стаб-классов конвертация ответа падает целиком.
+        // The stock languageclient converter calls `new code.Location(uri, range)`: without
+        // constructible stub classes the whole response conversion fails.
         const loc = new Location(Uri.parse(URI), new Position(1, 2));
         expect(loc.range.start.line).toBe(1);
         expect(loc.range.end.character).toBe(2);

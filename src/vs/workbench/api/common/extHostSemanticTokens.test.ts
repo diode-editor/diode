@@ -95,7 +95,7 @@ describe("DocumentSemanticTokensAdapter", () => {
             type: "delta",
             deltas: [{ start: 4, deleteCount: 0, data: [7, 7] }],
         });
-        // Новый — начало старого: не совпадение, а удаление хвоста.
+        // New is a prefix of old: not a match but a tail deletion.
         expect(await adapter.provideDocumentSemanticTokens(DOC, 5, TOKEN)).toEqual({
             id: 6,
             type: "delta",
@@ -115,7 +115,7 @@ describe("DocumentSemanticTokensAdapter", () => {
             type: "delta",
             deltas: [{ start: 0, deleteCount: 0 }],
         });
-        // Edits-метод вернул пусто — null; запись id 2 при этом использована.
+        // The edits method returned nothing → null; result id 2 is still consumed.
         expect(await adapter.provideDocumentSemanticTokens(DOC, 2, TOKEN)).toBeNull();
     });
 

@@ -16,8 +16,8 @@ interface ILiveRegistration {
 }
 
 /**
- * Как upstream `MainThreadLanguageFeatures`. Набор пересобирается по событию моста, а не по
- * дельтам: адаптер может появиться позже первых регистраций, смерть субпроцесса — одно событие.
+ * Like upstream `MainThreadLanguageFeatures`. The set is rebuilt on the bridge event, not from
+ * deltas: the adapter may appear after the first registrations, and subprocess death is one event.
  */
 export class LanguageFeaturesAdapter extends Disposable {
     private readonly registrations = new Map<number, ILiveRegistration>();
@@ -37,7 +37,7 @@ export class LanguageFeaturesAdapter extends Disposable {
                 for (const live of this.registrations.values()) live.disposable.dispose();
             },
         });
-        // Субпроцесс мог объявить провайдеров до создания адаптера.
+        // The subprocess may have declared providers before the adapter was created.
         this.sync();
     }
 
@@ -45,8 +45,8 @@ export class LanguageFeaturesAdapter extends Disposable {
         const wanted = new Map(this.bridge.getLanguageProviders().map((reg) => [reg.handle, reg]));
 
         for (const [handle, live] of this.registrations) {
-            // Тот же handle с другой регистрацией (субпроцесс перезапущен и
-            // раздаёт handle заново) — снимаем старый прокси и ставим новый.
+            // The same handle with a different registration (the subprocess restarted and
+            // hands out handles anew): drop the old proxy and install a new one.
             if (wanted.get(handle) === live.source) continue;
             live.disposable.dispose();
             this.registrations.delete(handle);
@@ -119,8 +119,8 @@ export class LanguageFeaturesAdapter extends Disposable {
             this.languageFeatures.selectionRangeProvider.register(selector, {
                 provideSelectionRanges: (request, token) => this.bridge.provideSelectionRanges(handle, request, token),
             }),
-        // Upstream `MainThreadDocumentSemanticTokensProvider`: id ответа ходит
-        // строкой в ядре и числом по проводу, «нет прошлого» — 0.
+        // Upstream `MainThreadDocumentSemanticTokensProvider`: the result id is a
+        // string in the core and a number on the wire; "no previous" is 0.
         semanticTokens: ({ handle, selector, legend = EMPTY_LEGEND, hasOnDidChange }) =>
             this.languageFeatures.documentSemanticTokensProvider.register(selector, {
                 ...(hasOnDidChange === true ? { onDidChange: this.semanticTokensChangeEvent(handle) } : {}),

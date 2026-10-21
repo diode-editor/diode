@@ -105,7 +105,7 @@ describe("ExtHostTextDocument — зеркало правками", () => {
         };
         const pick = (n: number): number => Math.floor(random() * n);
         const pieces = ["", "x", "yz", "\n", "a\nb", "\r\n", "é"];
-        // Свежий маленький документ на раунд: проверяется цепочка версий, а документ не разрастается.
+        // A fresh small document per round: exercises the version chain without letting the document grow.
         for (let round = 0; round < 100; round++) {
             const model = new TextDocument(["ab", "", "cde", "f"].slice(0, 1 + pick(4)).join("\n"));
             const { tracker, doc } = setup(model.getText());

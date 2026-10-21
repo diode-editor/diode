@@ -18,10 +18,10 @@ import type {
     WireOutputLevel,
 } from "./wireTypes.ts";
 
-/** Полный набор маркеров ресурса: замена, не мерж. */
+/** Full set of the resource's markers: replaces, does not merge. */
 export type DiagnosticsSink = (owner: string, resource: string, markers: readonly WireMarker[]) => void;
 
-/** `handle` уникален в рамках субпроцесса. */
+/** `handle` is unique within the subprocess. */
 export interface IProgressSink {
     start(handle: number, title: string): void;
     report(handle: number, message?: string, increment?: number): void;
@@ -33,7 +33,7 @@ export interface IOutputSink {
     show(channel: string, label: string): void;
 }
 
-/** `clear` — субпроцесс умер, и его `remove` уже не придёт. */
+/** `clear`: the subprocess died and its `remove` will never arrive. */
 export interface IStatusBarItemSink {
     update(item: IWireStatusBarItem): void;
     remove(handle: number): void;
@@ -41,14 +41,14 @@ export interface IStatusBarItemSink {
 }
 
 /**
- * `cancel(handle)` ОБЯЗАН довести обещание расширения до `undefined`: иначе
- * команда расширения зависает навсегда, и этого ниоткуда не видно.
+ * `cancel(handle)` MUST settle the extension's promise with `undefined`: otherwise
+ * the extension's command hangs forever, invisibly.
  */
 export interface IQuickInputSink {
     showInputBox(request: IQuickInputBoxRequest): Promise<string | undefined>;
     showQuickPick(request: IWireQuickPickRequest): Promise<readonly number[] | undefined>;
     cancel(handle: number): void;
-    /** Первый апдейт handle'а заводит пикер, следующие — диффом; действия идут в `emit` ПЕРВОГО апдейта. */
+    /** The first update of a handle creates the picker, later ones are diffs; actions go to the FIRST update's `emit`. */
     updateQuickPick(update: IWireQuickPickUpdate, emit: (event: IWireQuickPickEvent) => void): void;
     disposeQuickPick(handle: number): void;
 }
@@ -59,47 +59,47 @@ export interface IFileDialogSink {
 }
 
 /**
- * Резолвится ИНДЕКСОМ кнопки в `request.items`. Без кнопок — СРАЗУ: иначе
- * `await showErrorMessage(...)` висел бы на жизни тоста, а error-тост сам не
- * гаснет. `cancel(handle)` — смерть субпроцесса: ответить уже некому.
+ * Resolves with the button's INDEX in `request.items`. Without buttons, IMMEDIATELY: otherwise
+ * `await showErrorMessage(...)` would hang for the toast's lifetime, and an error toast
+ * never auto-hides. `cancel(handle)`: the subprocess died, nobody is left to answer.
  */
 export interface INotificationSink {
     showMessage(request: INotificationRequest): Promise<number | undefined>;
     cancel(handle: number): void;
 }
 
-/** Адрес минтит хост: у `show*Message` нет токена, а гасить показ при смерти субпроцесса нужно хосту. */
+/** The host mints the address: `show*Message` has no token, and the host must dismiss it when the subprocess dies. */
 export interface INotificationRequest extends IWireShowMessageRequest {
     readonly handle: number;
 }
 
-/** Валидация живёт в расширении: сток зовёт её через границу процессов; `undefined` — `validateInput` нет. */
+/** Validation lives in the extension: the sink calls it across the process boundary; `undefined`: no `validateInput`. */
 export interface IQuickInputBoxRequest extends IWireInputBoxRequest {
     readonly validate?: (value: string) => Promise<IWireValidationMessage | null>;
 }
 
-/** `$acceptTerminal*` эталона. */
+/** Upstream `$acceptTerminal*`. */
 export interface IExtensionTerminalEvents {
     opened(terminal: IWireTerminalOpened): void;
     closed(terminal: IWireTerminalClosed): void;
     activeChanged(id: number | null): void;
-    /** Эмулятор pty-терминала подключён — расширению пора звать `pty.open(dims)`. */
+    /** The pty terminal emulator is attached: time for the extension to call `pty.open(dims)`. */
     ptyStart(id: number, cols: number, rows: number): void;
-    /** Набор человека и `sendText` → `pty.handleInput`. */
+    /** User typing and `sendText` → `pty.handleInput`. */
     ptyInput(id: number, data: string): void;
     ptyResize(id: number, cols: number, rows: number): void;
 }
 
 /**
- * Пересказывает жизнь ВСЕХ терминалов, включая шеллы человека, как
- * `MainThreadTerminalService`. Свой терминал субпроцесс адресует `extHostId`,
- * пока не узнал хостовый `id`, — сток помнит обе метки. `reset()` — субпроцесс
- * умер: его шеллы живут дальше (как у эталона), pty-терминалы закрываются.
+ * Reports the lifecycle of ALL terminals, including the user's shells, like
+ * `MainThreadTerminalService`. The subprocess addresses its own terminal by `extHostId`
+ * until it learns the host `id`; the sink remembers both. `reset()`: the subprocess
+ * died: its shells live on (as upstream), pty terminals are closed.
  */
 export interface IExtensionTerminalSink {
-    /** В порядке создания — семя нового субпроцесса. */
+    /** In creation order; seeds a new subprocess. */
     snapshot(): { readonly terminals: readonly IWireTerminalOpened[]; readonly activeId: number | null };
-    /** События до подписки — в {@link snapshot}. */
+    /** Events before subscribing are in {@link snapshot}. */
     subscribe(events: IExtensionTerminalEvents): IDisposable;
     create(request: IWireTerminalCreate): void;
     show(terminal: IWireTerminalRef, preserveFocus: boolean): void;

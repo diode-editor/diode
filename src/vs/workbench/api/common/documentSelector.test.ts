@@ -10,7 +10,7 @@ function doc(fileName: string, languageId: string) {
     return registry.upsertMeta({ uri: Uri.file(fileName).toString(), languageId });
 }
 
-/** score > 0 — граница, которую читает languageclient. */
+/** score > 0 is the threshold languageclient reads. */
 function matchDocumentSelector(selector: vscode.DocumentSelector, document: ReturnType<typeof doc>): boolean {
     return scoreDocumentSelector(selector, document) > 0;
 }

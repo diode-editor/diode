@@ -5,12 +5,12 @@ import type { IProgressSink } from "../common/iExtensionWindowSinks.ts";
 
 const SPINNER_INTERVAL_MS = 100;
 
-/** Приоритет записей прогресса: левее chord-хинта (50), правее terminal-env (100). */
+/** Priority of progress entries: left of the chord hint (50), right of terminal-env (100). */
 const PROGRESS_PRIORITY = 60;
 
 class ProgressEntry {
     public message: string | undefined;
-    /** Накопленный дискретный прогресс 0–100; undefined — бесконечный. */
+    /** Accumulated discrete progress 0–100; undefined means infinite. */
     public percent: number | undefined;
     public frame = 0;
     public bar!: IStatusBarEntryHandle;
@@ -26,7 +26,7 @@ class ProgressEntry {
     }
 }
 
-/** Подписи проходят {@link renderCodicons}: у эталона это `ProgressLocation.Window`, он значки разворачивает. */
+/** Captions go through {@link renderCodicons}: upstream this is `ProgressLocation.Window`, which expands icons. */
 export class ProgressStatusBarAdapter implements IProgressSink {
     private readonly entries = new Map<number, ProgressEntry>();
 
@@ -36,7 +36,7 @@ export class ProgressStatusBarAdapter implements IProgressSink {
     ) {}
 
     public start(handle: number, title: string): void {
-        // Повторный start того же handle — защитно гасим прежнюю запись.
+        // A repeated start of the same handle: defensively dismiss the previous entry.
         if (this.entries.has(handle)) this.end(handle);
         const entry = new ProgressEntry(renderCodicons(title));
         entry.bar = this.statusBar.addEntry({

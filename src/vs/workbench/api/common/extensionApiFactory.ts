@@ -6,16 +6,16 @@ import type { ExtensionPaths } from "./extensionPaths.ts";
 import type { ExtensionOwner } from "./vscodeHostContext.ts";
 
 /**
- * Оверлей поверх ОБЩЕГО namespace, а не полная фабрика на расширение, как
- * `createApiFactoryAndRegisterActors` эталона: у нас обработчики RPC живут внутри
- * фабрик неймспейсов. Всё, кроме {@link OWNED_MEMBERS}, — те же объекты
- * (`api1.Position === api2.Position`, геттеры живые).
+ * An overlay over the SHARED namespace rather than a full per-extension factory like
+ * upstream's `createApiFactoryAndRegisterActors`: our RPC handlers live inside the
+ * namespace factories. Everything except {@link OWNED_MEMBERS} is the same objects
+ * (`api1.Position === api2.Position`, getters stay live).
  */
 
 /**
- * Список явный: новый «создающий» член добавляется руками (тест сверяет
- * `register*Provider` с общим namespace). Заглушки вне активной поверхности
- * `vscode.d.ts` не оборачиваются: владеть там нечем.
+ * The list is explicit: a new "creating" member is added by hand (a test checks
+ * `register*Provider` against the shared namespace). Stubs outside the active
+ * `vscode.d.ts` surface are not wrapped: there is nothing to own there.
  */
 export const OWNED_MEMBERS = {
     window: [
@@ -43,7 +43,7 @@ export const OWNED_MEMBERS = {
         "registerSignatureHelpProvider",
     ],
     commands: ["registerCommand", "registerTextEditorCommand"],
-    // `executeTask` тоже: источник задачи и id задачи провайдера — по вызывающему.
+    // `executeTask` too: the task source and the provider's task id come from the caller.
     tasks: ["registerTaskProvider", "executeTask"],
     workspace: ["registerTaskProvider", "updateWorkspaceFolders"],
 } as const satisfies {
@@ -61,8 +61,8 @@ export const VSCODE_CJS_CACHE_KEY = "vscode";
 export const VSCODE_GLOBAL_KEY_NAME = "diode.vscodeApi";
 
 /**
- * Дескрипторы, а не spread: геттер остаётся геттером, а собственные ключи
- * совпадают с исходником — `Object.keys(vscode)` и `__importStar` видят весь namespace.
+ * Descriptors, not spread: a getter stays a getter, and own keys match
+ * the source, so `Object.keys(vscode)` and `__importStar` see the whole namespace.
  */
 function mirror<T extends object>(source: T): T {
     return Object.create(source, Object.getOwnPropertyDescriptors(source)) as T;
@@ -99,7 +99,7 @@ export function createExtensionApi(shared: typeof vscode, owner: ExtensionOwner,
     return api;
 }
 
-/** Как `NodeModuleRequireInterceptor` эталона: значения берутся из `globalThis` в момент import'а. */
+/** Like upstream's `NodeModuleRequireInterceptor`: values are read from `globalThis` at import time. */
 export function buildVscodeEsmShim(exportNames: readonly string[], id?: string): string {
     const names = exportNames.filter((name) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(name) && name !== "default");
     const arg = id === undefined ? "" : JSON.stringify(id);
@@ -116,7 +116,7 @@ export interface IExtensionApiFactoryOptions {
     readonly warn: (message: string) => void;
 }
 
-/** Модуль вне известных корней получает общий namespace и одно предупреждение на жизнь фабрики, как в эталоне. */
+/** A module outside known roots gets the shared namespace and one warning per factory lifetime, as upstream. */
 export class ExtensionApiFactory {
     private readonly apis = new Map<string, typeof vscode>();
     private warned = false;
@@ -147,13 +147,13 @@ export class ExtensionApiFactory {
     }
 
     public esmUrl(parentURL: string | undefined): string {
-        // Не-файловый импортёр (`data:`, наш же `diode-vscode:`) — не расширение.
+        // A non-file importer (`data:`, our own `diode-vscode:`) is not an extension.
         const file = parentURL?.startsWith("file:") === true ? Uri.parse(parentURL).fsPath : undefined;
         const id = this.identify(file, parentURL);
         return id === undefined ? VSCODE_ESM_URL : `${VSCODE_ESM_URL}/${encodeURIComponent(id)}`;
     }
 
-    /** Имена export'ов — из ОБЩЕГО namespace: у него полный состав. */
+    /** Export names come from the SHARED namespace: it has the full set. */
     public esmSource(url: string): string | undefined {
         const names = Object.keys(this.options.shared);
         if (url === VSCODE_ESM_URL) return buildVscodeEsmShim(names);
@@ -162,7 +162,7 @@ export class ExtensionApiFactory {
         return buildVscodeEsmShim(names, decodeURIComponent(url.slice(prefix.length)));
     }
 
-    /** `shown` — как назвать импортёра в предупреждении, если это не путь. */
+    /** `shown`: how to name the importer in the warning when it isn't a path. */
     private identify(file: string | undefined, shown = file): string | undefined {
         const id = file === undefined ? undefined : this.options.paths.findByPath(file);
         if (id === undefined && !this.warned) {

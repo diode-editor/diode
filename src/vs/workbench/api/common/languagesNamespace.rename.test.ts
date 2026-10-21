@@ -53,7 +53,7 @@ function renameParams(overrides: Record<string, unknown> = {}): Record<string, u
     return { ...prepareParams(), newName: "renamed", ...overrides };
 }
 
-/** Что именно переименовано, решает провайдер — нам важен сам edit. */
+/** What exactly gets renamed is the provider's call — we care about the edit itself. */
 function renameEdit(newName: string): WorkspaceEdit {
     const edit = new WorkspaceEdit();
     edit.set(Uri.parse(URI) as unknown as vscode.Uri, [
@@ -91,8 +91,8 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
             { language: "typescript" },
             {
                 provideRenameEdits: () => null,
-                // Placeholder НЕ совпадает с текстом диапазона (там `value`):
-                // иначе подстановку из текста не отличить от имени провайдера.
+                // The placeholder does NOT match the range text (which is `value`):
+                // otherwise a substitution from the text couldn't be told apart from the provider's name.
                 prepareRename: () => ({
                     range: new Range(0, 6, 0, 11) as unknown as vscode.Range,
                     placeholder: "symbol",
@@ -206,7 +206,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
             { language: "typescript" },
             {
                 provideRenameEdits: () => null,
-                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- расширение вправе отклонить промис чем угодно, в т.ч. строкой
+                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- an extension may reject the promise with anything, including a string
                 prepareRename: () => Promise.reject("not an identifier"),
             },
         );
@@ -214,7 +214,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
             { language: "typescript" },
             {
                 provideRenameEdits: () => null,
-                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- расширение вправе отклонить промис чем угодно
+                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- an extension may reject the promise with anything
                 prepareRename: () => Promise.reject(undefined),
             },
         );
@@ -233,7 +233,7 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
             { language: "typescript" },
             {
                 provideRenameEdits: () => null,
-                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- расширение вправе отклонить промис чем угодно, в т.ч. пустой строкой
+                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- an extension may reject the promise with anything, including an empty string
                 prepareRename: () => Promise.reject(""),
             },
         );
@@ -287,8 +287,8 @@ describe("LanguagesNamespace — languages.prepareRename", () => {
                 },
             );
         };
-        // Два провайдера: «нет handle» не должно попасть ни в нулевой, ни в
-        // соседний — иначе промах читался бы как попадание по умолчанию.
+        // Two providers: "no handle" must hit neither the zeroth nor the
+        // neighbor — otherwise a miss would read as a default hit.
         register();
         register();
 
@@ -382,13 +382,13 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
         languages.registerRenameProvider(
             { language: "typescript" },
             {
-                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- расширение вправе отклонить промис чем угодно, в т.ч. строкой
+                // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- an extension may reject the promise with anything, including a string
                 provideRenameEdits: () => Promise.reject("newName is a keyword"),
             },
         );
         languages.registerRenameProvider(
             { language: "typescript" },
-            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- расширение вправе отклонить промис чем угодно
+            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- an extension may reject the promise with anything
             { provideRenameEdits: () => Promise.reject(undefined) },
         );
 
@@ -455,7 +455,7 @@ describe("LanguagesNamespace — languages.provideRenameEdits", () => {
     it("запрос без handle провайдера не будит", async () => {
         const { stub, languages } = makeCtx();
         const provideRenameEdits = vi.fn(() => renameEdit("renamed") as unknown as vscode.WorkspaceEdit);
-        // Два провайдера — см. prepareRename: промах не должен попадать в соседа.
+        // Two providers — see prepareRename: a miss must not hit the neighbor.
         languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits });
         languages.registerRenameProvider({ language: "typescript" }, { provideRenameEdits });
 

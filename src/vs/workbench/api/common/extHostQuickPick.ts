@@ -4,18 +4,18 @@ import type { SubprocessRpc } from "./extHostProtocol.ts";
 import { EventEmitter, QuickPickItemKind } from "./vscodeTypes.ts";
 import type { IWireQuickPickEvent, IWireQuickPickSessionItem } from "./wireTypes.ts";
 
-/** `null` — «сброшено в undefined». */
+/** `null` means "reset to undefined". */
 type PendingUpdate = Record<string, unknown>;
 
 /**
- * `ExtHostQuickPick` эталона: своя копия состояния, сеттеры копят дифф, пока
- * пикер виден, он уходит хосту таймером на следующий тик; `show()`/`hide()` шлют
- * накопленное сразу. Handle пункта — индекс в `items` расширения.
- * `busy`, `enabled`, `ignoreFocusOut` хранятся, но хосту не едут: у оверлея их нет.
+ * Upstream `ExtHostQuickPick`: an own copy of the state; setters accumulate a diff while
+ * the picker is visible, and it goes to the host on a next-tick timer; `show()`/`hide()` send
+ * what has accumulated immediately. An item handle is its index in the extension's `items`.
+ * `busy`, `enabled`, `ignoreFocusOut` are stored but not sent to the host: the overlay has none of them.
  */
 export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.QuickPick<T> {
-    // Дефолты — эталонные, даже где d.ts говорит иное: до присваивания
-    // действуют дефолты хоста.
+    // Defaults follow upstream even where d.ts says otherwise: until assigned,
+    // the host defaults apply.
     public enabled = true;
     public busy = false;
     public ignoreFocusOut = true;
@@ -35,7 +35,7 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
     private selectedItemsValue: readonly T[] = [];
 
     private visible = false;
-    /** Скрытие отдаём расширению один раз на показ (эталон, #135747). */
+    /** Hiding is reported to the extension once per show (upstream, #135747). */
     private expectingHide = false;
     private disposed = false;
     private pending: PendingUpdate = {};
@@ -111,12 +111,12 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
         return this.itemsValue;
     }
     public set items(items: readonly T[]) {
-        // Копия: handle'ы уже уехали хосту по этому составу.
+        // A copy: handles have already gone to the host for this item set.
         this.itemsValue = items.slice();
         const wire: IWireQuickPickSessionItem[] = [];
         for (const [handle, item] of items.entries()) {
-            // Разделитель наш список не рисует. Сравнение — числом: enum у
-            // расширения из его копии d.ts.
+            // Our list does not draw separators. Compared as a number: the extension's enum
+            // comes from its own copy of d.ts.
             if ((item.kind as number | undefined) === QuickPickItemKind.Separator) continue;
             wire.push({
                 handle,
@@ -220,8 +220,8 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
                 this.onDidChangeSelectionEmitter.fire(this.selectedItemsValue);
                 break;
             case "hide":
-                // Видимость НЕ снимаем — как эталон: ответ на прошлый hide() может
-                // прийти во время следующего показа. Цена: после Escape `dispose()` даёт второй onDidHide.
+                // Visibility is NOT cleared, as upstream: the response to a previous hide() may
+                // arrive during the next show. The cost: after Escape `dispose()` fires a second onDidHide.
                 this.fireDidHide();
                 break;
         }
@@ -229,7 +229,7 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
 
     private fireDidHide(): void {
         if (!this.expectingHide) return;
-        // Эталон: show→hide→show→hide = два события.
+        // Upstream: show→hide→show→hide = two events.
         this.expectingHide = this.visible;
         this.onDidHideEmitter.fire();
     }
@@ -242,7 +242,7 @@ export class ExtHostQuickPick<T extends vscode.QuickPickItem> implements vscode.
         return items.map((item) => this.itemsValue.indexOf(item));
     }
 
-    /** Опоздавшие handle'ы (не из текущего `items`) выпадают. */
+    /** Late handles (not from the current `items`) are dropped. */
     private toItems(handles: readonly number[]): T[] {
         return handles.flatMap((handle) => {
             const item = this.itemsValue[handle] as T | undefined;

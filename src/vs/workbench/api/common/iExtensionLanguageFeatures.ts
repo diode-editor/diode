@@ -45,12 +45,12 @@ import type { IFoldingRegion } from "../../../editor/contrib/folding/iFoldingReg
 import type { IWireLanguageProviderRegistration } from "./wireTypes.ts";
 
 /**
- * Реализует сам `ExtensionHost`, структурно; прокси в `ILanguageFeaturesService`
- * регистрирует `LanguageFeaturesAdapter` (upstream `MainThreadLanguageFeatures`).
+ * `ExtensionHost` implements it structurally; `LanguageFeaturesAdapter` registers the proxies
+ * in `ILanguageFeaturesService` (upstream `MainThreadLanguageFeatures`).
  */
 export interface IExtensionLanguageFeaturesBridge {
     getLanguageProviders(): readonly IWireLanguageProviderRegistration[];
-    /** В том числе на смерти субпроцесса. */
+    /** Including when the subprocess dies. */
     onLanguageProvidersChanged(cb: () => void): IDisposable;
     provideHover(handle: number, request: IHoverRequest, token: ICancellationToken): Promise<ICoreHover | undefined>;
     provideDefinition(
@@ -74,7 +74,7 @@ export interface IExtensionLanguageFeaturesBridge {
         token: ICancellationToken,
     ): Promise<ICoreCompletionResult>;
     resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null>;
-    /** С `request.range` — range-провайдер `handle`, без — документный. */
+    /** With `request.range`, the range provider `handle`; without it, the document one. */
     provideFormattingEdits(
         handle: number,
         request: IFormattingRequest,
@@ -97,7 +97,7 @@ export interface IExtensionLanguageFeaturesBridge {
         token: ICancellationToken,
     ): Promise<readonly ICoreInlineCompletionItem[]>;
     prepareRename(handle: number, request: IRenameRequest): Promise<ICoreRenameLocation | null>;
-    /** Правки накладывает сам субпроцесс (`workspace.applyEdit`) — сюда едет только исход. */
+    /** The subprocess applies the edits itself (`workspace.applyEdit`); only the outcome comes here. */
     provideRenameEdits(handle: number, request: IRenameRequest, newName: string): Promise<ICoreRenameResult>;
     provideSelectionRanges(
         handle: number,
@@ -105,8 +105,8 @@ export interface IExtensionLanguageFeaturesBridge {
         token: ICancellationToken,
     ): Promise<readonly (readonly IRange[])[]>;
     /**
-     * Токены документа; `previousResultId` — числовой id прошлого ответа этого
-     * провайдера (0 — нет). У ответа `resultId` — тот же id строкой.
+     * Document tokens; `previousResultId` is the numeric id of this provider's previous
+     * response (0 if none). The response's `resultId` is the same id as a string.
      */
     provideDocumentSemanticTokens(
         handle: number,
@@ -119,7 +119,7 @@ export interface IExtensionLanguageFeaturesBridge {
         request: IRangeSemanticTokensRequest,
         token: ICancellationToken,
     ): Promise<ISemanticTokens | null>;
-    /** Ответ `resultId` ядру больше не нужен (`$releaseDocumentSemanticTokens`). */
+    /** The core no longer needs response `resultId` (`$releaseDocumentSemanticTokens`). */
     releaseDocumentSemanticTokens(handle: number, resultId: number): void;
     onDidChangeSemanticTokens(cb: (handle: number) => void): IDisposable;
 }

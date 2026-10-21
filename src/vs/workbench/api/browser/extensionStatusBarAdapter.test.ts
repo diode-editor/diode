@@ -97,7 +97,7 @@ describe("ExtensionStatusBarAdapter", () => {
         adapter.update(wireItem({ handle: 2, id: "b", alignment: "left", text: "B", priority: 10 }));
         adapter.update(wireItem({ handle: 1, id: "a", alignment: "left", text: "A2", priority: 10 }));
 
-        // Пересозданная запись уехала бы в хвост своей стороны.
+        // A recreated entry would move to the end of its side.
         expect(bar.entries().map((e) => e.text)).toEqual(["A2", "B"]);
     });
 

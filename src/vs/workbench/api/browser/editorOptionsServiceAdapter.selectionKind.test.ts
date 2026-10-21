@@ -10,8 +10,8 @@ import type { IActiveEditorSelections } from "../common/iEditorOptionsService.ts
 import { EditorOptionsServiceAdapter } from "./editorOptionsServiceAdapter.ts";
 const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 
-// `kind` снимается синхронно в обработчике, а нотификация уезжает в тик: без синхронного
-// снятия он был бы всегда undefined.
+// `kind` is captured synchronously in the handler, while the notification goes out on the tick:
+// without synchronous capture it would always be undefined.
 
 function liveGroup(): { group: IEditorService; move: (character: number) => void } {
     const listeners: (() => void)[] = [];
@@ -104,7 +104,7 @@ describe("EditorOptionsServiceAdapter — kind в editor.selectionChanged", () =
         withCursorChangeSource("mouse", () => {
             move(2);
         });
-        // Область закрыта прямо здесь — нотификация ещё не ушла.
+        // The scope closes right here; the notification has not gone out yet.
         expect(seen).toHaveLength(0);
         await Promise.resolve();
         expect(seen[0]?.kind).toBe(2);

@@ -25,9 +25,9 @@ interface IExtensionQuickPick {
 }
 
 /**
- * Ярлыки просьбы проходят {@link renderCodicons}, кроме `value`: его правят, и он уезжает
- * обратно расширению. Оверлей один на всё приложение: гасить по токену можно только свой живой
- * показ — перехваченный сервис уже довёл до `undefined` сам.
+ * Request labels go through {@link renderCodicons}, except `value`: it is edited and goes back to
+ * the extension. There is one overlay for the whole app: a token may only dismiss our own live
+ * show; a preempted service has already resolved to `undefined` itself.
  */
 export class QuickInputExtensionAdapter implements IQuickInputSink {
     private currentHandle: number | null = null;
@@ -37,20 +37,20 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
 
     public async showInputBox(request: IQuickInputBoxRequest): Promise<string | undefined> {
         const ask = request.validate;
-        // Валидатор отдаём всегда: без канала он отвечает «в порядке» на любой текст — для
-        // виджета то же, что отсутствие валидации.
+        // Always pass the validator: without a channel it answers "ok" to any text, which for
+        // the widget is the same as no validation.
         const validateInput = async (value: string): Promise<InputValidation | null> =>
-            // Stryker disable next-line OptionalChaining: без `?.` validateInput отклоняется, когда расширение валидатора не прислало, — а зовут его из fire-and-forget ветки runValidation, мимо стека теста. Тесты «без валидации» при этом ПРОХОДЯТ: unhandled rejection роняет раннер (RuntimeError) вместо падения теста. Дыра в локализации ошибок слушателей (docs/MUTATION.md → #275), а не пробел в тестах этой строки.
+            // Stryker disable next-line OptionalChaining: without `?.` validateInput rejects when the extension sent no validator, but it is called from the fire-and-forget runValidation branch, outside the test's stack. The "no validation" tests still PASS: the unhandled rejection crashes the runner (RuntimeError) instead of failing the test. A gap in localizing listener errors (docs/MUTATION.md → #275), not a gap in this line's tests.
             toValidation(await ask?.(value));
         this.currentHandle = request.handle;
         try {
-            // Условных спредов нет: у опций пикера отсутствие поля и
-            // `undefined` — одно и то же, так что ветка была бы лишним швом.
+            // No conditional spreads: for picker options a missing field and
+            // `undefined` are the same, so a branch would be a needless seam.
             return await this.quickInput.input({
                 title: renderLabel(request.title),
                 prompt: renderLabel(request.prompt),
                 placeholder: renderLabel(request.placeHolder),
-                // `value` — не ярлык: человек его правит, и он уезжает обратно расширению.
+                // `value` is not a label: the user edits it and it goes back to the extension.
                 value: request.value,
                 password: request.password,
                 validateInput,
@@ -61,8 +61,8 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
     }
 
     public async showQuickPick(request: IWireQuickPickRequest): Promise<readonly number[] | undefined> {
-        // Предметы строим один раз и отвечаем ИНДЕКСАМИ в этом массиве: расширение
-        // должно получить обратно свои объекты, а не пересобранные по проводу.
+        // Build the items once and reply with INDICES into this array: the extension
+        // must get back its own objects, not ones rebuilt over the wire.
         const items: QuickPickItem[] = request.items.map((item) => ({
             label: renderCodicons(item.label),
             description: renderLabel(item.description),
@@ -98,8 +98,8 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
             this.quickPicks.set(update.handle, pick);
         }
         const changes = toSessionChanges(update, pick);
-        // Скрытие — до применения диффа, показ — после: открываться пикер
-        // должен уже в новом состоянии, а закрываться — не мигнув им.
+        // Hide before applying the diff, show after: the picker must open already
+        // in the new state and close without flashing it.
         if (update.visible === false) pick.session.hide();
         pick.session.update(changes);
         if (update.visible === true) pick.session.show();
@@ -140,24 +140,24 @@ export class QuickInputExtensionAdapter implements IQuickInputSink {
         this.quickInput.cancel();
     }
 
-    /** Слот чистим, только если он ещё наш: перехват уже поставил туда чужой handle. */
+    /** Clear the slot only if it is still ours: a preemption has already put another handle there. */
     private release(handle: number): void {
         if (this.currentHandle === handle) this.currentHandle = null;
     }
 }
 
-/** Молчание (валидатора нет) и `null` значат одно: значение годное. */
+/** Silence (no validator) and `null` mean the same: the value is valid. */
 function toValidation(message: IWireValidationMessage | null | undefined): InputValidation | null {
     if (message == null) return null;
     return { message: renderCodicons(message.message), severity: message.severity };
 }
 
-/** У опций пикера отсутствие поля и пустая строка значат разное. */
+/** For picker options a missing field and an empty string mean different things. */
 function renderLabel(text: string | undefined): string | undefined {
     return text === undefined ? undefined : renderCodicons(text);
 }
 
-/** Предметы пересобираются целиком, и `activeItems`/`selectedItems` разрешаются по НОВОМУ набору. */
+/** Items are rebuilt entirely, and `activeItems`/`selectedItems` resolve against the NEW set. */
 function toSessionChanges(
     update: IWireQuickPickUpdate,
     pick: IExtensionQuickPick,
@@ -186,7 +186,7 @@ function toSessionChanges(
 
 const LABEL_FIELDS = ["title", "placeholder", "prompt"] as const;
 
-/** `null` — «сброшено»; `value` — не ярлык, его правят. */
+/** `null` means "reset"; `value` is not a label, it gets edited. */
 const PLAIN_FIELDS = [
     "step",
     "totalSteps",
@@ -198,8 +198,8 @@ const PLAIN_FIELDS = [
 ] as const;
 
 /**
- * `detail` наш однострочный ряд не умеет — он встаёт на место описания, когда описания нет
- * (как у `showQuickPick`), а для поиска остаётся собой.
+ * Our single-line row cannot show `detail`: it takes the description's place when there is no
+ * description (as in `showQuickPick`), and is still passed as `detail` for search.
  */
 function toSessionItem(item: IWireQuickPickSessionItem): IExtensionQuickPickItem {
     const shown = nonEmpty(item.description) ?? nonEmpty(item.detail);
