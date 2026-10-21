@@ -12,16 +12,8 @@ import { parseChord, parseKeybinding } from "../../../../platform/keybinding/com
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
 /**
- * Мультикурсор: команды, создающие и снимающие каретки.
- *
- * Все они только двигают выделения, поэтому гейт — `textViewFocus` без `!editorReadonly`:
- * в VS Code мультикурсор работает и в режиме «только чтение» (искать и копировать по
- * нескольким местам полезно и там).
- *
- * Про бинды. `ctrl+alt+↑/↓` — канон VS Code на Windows/Linux; парой к нему идёт
- * `shift+alt+↑/↓` (дефолт VS Code на Linux, где `ctrl+alt+стрелка` часто забирает себе
- * оконный менеджер) — заодно это запасной путь на терминалах, которые не различают
- * `ctrl+alt` со стрелкой.
+ * Гейт `textViewFocus` без `!editorReadonly`: команды только двигают выделения, как в VS Code.
+ * `shift+alt+↑/↓` рядом с `ctrl+alt+↑/↓` — дефолт VS Code на Linux, где ctrl+alt забирает оконный менеджер.
  */
 
 export const insertCursorAboveAction: CommandAction = {
@@ -140,15 +132,8 @@ export const selectHighlightsAction: CommandAction = {
 };
 
 /**
- * Change All Occurrences — тот же мультикурсор по всем вхождениям слова, что и
- * Select All Occurrences, но под именем эталона (`editor.action.changeAll`,
- * Ctrl+F2): под этим id его знают кейбинды и `contributes.menus` расширений, и
- * именно он стоит в контекст-меню редактора VS Code.
- *
- * Дефолтного бинда у него нет намеренно: эталонный Ctrl+F2 на legacy-терминале
- * не доезжает, а обещать подписью нерабочее нельзя (гейт достижимости). Та же
- * операция висит на Ctrl+Shift+L / Ctrl+K Ctrl+A у Select All Occurrences —
- * этой команде остаются пункт контекст-меню и палитра.
+ * Под id эталона (`editor.action.changeAll`): его знают кейбинды и `contributes.menus`. Бинда нет
+ * намеренно — Ctrl+F2 на legacy-терминале не доезжает, та же операция висит на Select All Occurrences.
  */
 export const changeAllOccurrencesAction: CommandAction = {
     id: "editor.action.changeAll",

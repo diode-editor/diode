@@ -5,16 +5,6 @@ import type { IEditorService } from "../../../services/editor/common/editorServi
 import type { TextFileModelService } from "../../../services/textfile/common/textFileModelService.ts";
 import type { BulkEditTarget, IBulkEditBuffers } from "../common/iBulkEditBuffers.ts";
 
-/**
- * {@link IBulkEditBuffers} поверх полосы групп редакторов: по какому ресурсу
- * bulk edit обязан идти через буфер, а не через диск, и в какие бакеты истории
- * положить свой единственный шаг.
- *
- * «Открыт» — это не только вкладка: модель файла живёт в реестре
- * (`TextFileModelRegistry`), и её может держать сторона диффа, у которой
- * вкладки в таб-строке нет. Писать мимо такой модели на диск нельзя — буфер и
- * файл разъехались бы, — поэтому она честно отвечает `"read-only"`.
- */
 export class BulkEditBuffers implements IBulkEditBuffers {
     private readonly editors: IEditorService;
     private readonly models: TextFileModelService;
@@ -27,9 +17,8 @@ export class BulkEditBuffers implements IBulkEditBuffers {
     public get(resource: string): BulkEditTarget {
         const pane = this.paneFor(resource);
         if (pane === null) {
-            // Вкладки нет — но модель ресурса может жить в реестре (сторона
-            // диффа). Правку туда провести нечем, и на диск мимо неё тоже
-            // нельзя: отбиваем edit целиком.
+            // Вкладки нет, но модель может жить в реестре (сторона диффа): провести правку туда
+            // нечем, а писать на диск мимо неё нельзя — буфер и файл разъехались бы.
             return this.models.get(Uri.parse(resource)) === null ? null : "read-only";
         }
         if (pane.readOnly) return "read-only";
@@ -52,9 +41,8 @@ export class BulkEditBuffers implements IBulkEditBuffers {
             }
         }
         if (participants.size > 0) return [...participants.values()];
-        // Ни один тронутый ресурс не открыт (правки только по закрытым файлам,
-        // файловые операции): якорим шаг на активной вкладке — действие вызвали
-        // из неё. Вкладок нет вовсе — шаг уйдёт в бакет workspace-операций.
+        // Ни один тронутый ресурс не открыт — якорим шаг на активной вкладке: действие вызвали
+        // из неё. Вкладок нет — шаг уйдёт в бакет workspace-операций.
         const active = this.editors.getActiveTabEditor();
         return active === null ? [] : [{ context: active.undoContext, label: active.label, owner: false }];
     }
@@ -63,7 +51,7 @@ export class BulkEditBuffers implements IBulkEditBuffers {
         this.editors.handleDeletedFile(Uri.parse(resource));
     }
 
-    /** Вкладка ресурса: активная, если это она (её view-state и есть действующая). */
+    /** Активная вкладка ресурса, если это она: её view-state и есть действующая. */
     private paneFor(resource: string): TextEditorPane | null {
         const active = this.editors.getActiveTabEditor();
         if (active !== null && active.uri.toString() === resource) return active;

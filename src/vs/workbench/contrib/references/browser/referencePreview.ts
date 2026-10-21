@@ -3,48 +3,34 @@ import type { IRange } from "../../../../editor/common/core/iRange.ts";
 import type { ICoreReference } from "../../../../editor/common/languages/iReferenceSource.ts";
 import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 
-/**
- * Ссылки одного файла с текстом строк — то, что показывает панель REFERENCES.
- * Форма совпадает с файл-группой поиска: строки списка рисуют те же
- * `buildFileRow`/`buildMatchRow`, которым нужен `ITextMatch` с предразрезанным
- * превью.
- */
+/** Форма файл-группы поиска: строки рисуют те же `buildFileRow`/`buildMatchRow`. */
 export interface IReferenceGroup {
     readonly absolutePath: string;
-    /** Путь относительно корня воркспейса с разделителями `/` — метка строки файла. */
+    /** Разделители `/`. */
     readonly relPath: string;
     readonly matches: ITextMatch[];
 }
 
 /**
- * Откуда брать текст файла со ссылкой. LSP отдаёт только `uri` + `range`, а
- * показать надо саму строку кода, поэтому источник двухступенчатый: сначала
- * открытая модель (в ней видны несохранённые правки — сервер их тоже видит
- * через didChange, иначе колонки разъедутся), потом диск.
+ * Сначала открытая модель: несохранённые правки сервер видит через didChange, и колонки иначе
+ * разъедутся. Потом диск.
  */
 export interface IReferenceTextSource {
-    /** Текст ресурса из открытой модели; `null` — файл не открыт ни в одной вкладке. */
+    /** `null` — файл не открыт. */
     openText(uri: Uri): string | null;
-    /** Текст ресурса с диска; бросает, если ресурс недоступен. */
+    /** Бросает, если ресурс недоступен. */
     readText(uri: Uri): Promise<string>;
 }
 
 /**
- * Хвост строки за матчем каппится у истока: одна ссылка в минифицированном или
- * lock-файле иначе тащит в строку списка сотни килобайт
- * (docs/TODO/SearchPerformance.md, случай 1). `before` не каппим — его режет
- * `trimBefore` уже при отрисовке.
+ * Ссылка в минифицированном или lock-файле иначе тащит в строку списка сотни килобайт
+ * (docs/TODO/SearchPerformance.md, случай 1). `before` режет `trimBefore` при отрисовке.
  */
 const MAX_AFTER_CHARS = 256;
 
 /**
- * Собирает ссылки в файл-группы с текстом строк. Порядок групп — порядок
- * первого появления файла в ответе провайдеров (у tsserver он уже осмысленный:
- * объявление, затем употребления); внутри группы порядок ссылок сохраняется.
- *
- * Каждый файл читается один раз за запрос. Ссылка, чей файл исчез или чья
- * строка вышла за пределы текста (файл поменялся, пока сервер думал),
- * отбрасывается — пустая группа в панель не попадает.
+ * Порядок групп — первое появление файла в ответе (у tsserver: объявление, затем употребления).
+ * Файл читается один раз за запрос; ссылка, чья строка вышла за текст, отбрасывается.
  */
 export async function buildReferenceGroups(
     references: readonly ICoreReference[],
@@ -72,7 +58,6 @@ export async function buildReferenceGroups(
     return [...groups.values()];
 }
 
-/** Строки файла из кэша запроса; `null` — файл прочитать не удалось. */
 async function linesOf(
     uri: string,
     source: IReferenceTextSource,
@@ -92,7 +77,6 @@ async function readLines(uri: string, source: IReferenceTextSource): Promise<rea
     try {
         return splitLines(await source.readText(parsed));
     } catch {
-        // Файл исчез или недоступен — его ссылки просто не показываем.
         return null;
     }
 }
@@ -102,15 +86,12 @@ function splitLines(text: string): string[] {
 }
 
 /**
- * Превращает диапазон ссылки в матч со строкой кода. Колонки LSP — это
- * code-unit-оффсеты UTF-16, то есть ровно те, в которых режется JS-строка.
- * Многострочный диапазон (редкость, но провайдер вправе) подсвечивается до
- * конца первой строки.
+ * Колонки LSP — code unit'ы UTF-16, ровно те, в которых режется JS-строка. Многострочный диапазон
+ * подсвечивается до конца первой строки.
  */
 function toTextMatch(lines: readonly string[], range: IRange): ITextMatch | null {
-    // Не `.at()`: номер строки приходит от провайдера расширения и на отрицательном
-    // он отсчитал бы с конца файла вместо «такой строки нет». Чтение по индексу
-    // отдаёт undefined и за краем, и на отрицательном — тип об этом молчит.
+    // Не `.at()`: номер строки приходит от провайдера, и на отрицательном `.at()` отсчитал бы с конца
+    // файла. Чтение по индексу даёт undefined и за краем — тип об этом молчит.
     const line = lines[range.start.line] as string | undefined;
     if (line === undefined) return null;
 
@@ -139,10 +120,7 @@ function capAfter(after: string): string {
     return after.slice(0, cut);
 }
 
-/**
- * Путь относительно корня воркспейса с разделителями `/` — близнец `labelFor`
- * панели поиска: абсолютный путь съел бы всю ширину узкого сайдбара.
- */
+/** Близнец `labelFor` панели поиска: абсолютный путь съел бы всю ширину узкого сайдбара. */
 function labelFor(absolutePath: string, root: string): string {
     // Пустой корень — папка не открыта (файл из CLI): путь показываем как есть,
     // иначе `startsWith("")` съел бы ведущий слэш.

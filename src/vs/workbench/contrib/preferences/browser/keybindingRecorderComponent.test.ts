@@ -110,7 +110,6 @@ describe("KeybindingRecorderComponent — запись", () => {
         const second = recorder.record("Show Hover");
 
         expect(await first).toBeNull();
-        // Вторая запись живёт.
         expect(recorder.isOpen()).toBe(true);
         void second;
     });
@@ -163,16 +162,13 @@ describe("KeybindingRecorderComponent — терминальные предуп�
         testApp.render();
 
         const screen = testApp.backend.screenToString();
-        // Ни ветка переносимости (parts>0 && requiresExtendedKeys), ни legacy-ветка
-        // (tier === "legacy") не должны сработать на kitty с переносимой комбинацией.
+        // Kitty и переносимая комбинация: не должна сработать ни ветка переносимости, ни legacy-ветка.
         expect(screen).not.toContain("May not be available");
         expect(screen).not.toContain("Legacy terminal");
-        // Строка предупреждения пуста: под подсказкой (Enter — accept …) идёт
-        // пустая строка, а не какой-либо текст (fallback warning === "").
+        // Строка предупреждения под подсказкой пуста.
         const lines = screen.split("\n");
         const hintRow = lines.findIndex((l) => l.includes("accept"));
         expect(hintRow).toBeGreaterThanOrEqual(0);
-        // Внутри рамки следом за подсказкой — строка без букв (только рамка/пробелы).
         expect(lines[hintRow + 1]).not.toMatch(/[A-Za-z]/);
     });
 

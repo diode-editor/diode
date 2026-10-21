@@ -94,7 +94,6 @@ describe("UserDataProfileWorkspaceOpener", () => {
         return new UserDataProfileWorkspaceOpener(inner, profiles, { currentProfile: current }, accessor, logger);
     }
 
-    /** Перезагрузка идёт асинхронно — даём промисам осесть. */
     const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
     it("папка с другим профилем — перезагрузка в него с новым воркспейсом в аргументах; папка окна не меняется", async () => {

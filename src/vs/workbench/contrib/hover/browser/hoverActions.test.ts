@@ -47,7 +47,6 @@ describe("hoverActions — команды и кейбинды", () => {
         h.testApp.sendKey("Ctrl+U");
         await flushMicrotasks();
         expect(service().isOpen()).toBe(true);
-        // Ни прелюдия чорда, ни Ctrl+U не тронули буфер.
         expect(h.container.get(EditorServiceDIToken).getActiveEditor()?.getText()).toBe("const answer = 1;\n");
     });
 });

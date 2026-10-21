@@ -6,10 +6,8 @@ import type { IMarkerData } from "../../../../platform/markers/common/iMarker.ts
 import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
 
 /**
- * Почему ключ не действует в settings.json воркспейса — тексты эталона
- * (`generateUnsupportedApplicationSettingMarker` /
- * `generateUnsupportedMachineSettingMarker`, `preferencesRenderers.ts`);
- * `null` — ключ в воркспейсе действует (или он вне реестра).
+ * Тексты эталона (`generateUnsupported{Application,Machine}SettingMarker`, `preferencesRenderers.ts`);
+ * `null` — ключ в воркспейсе действует.
  */
 export function workspaceUnsupportedSettingMessage(scope: ConfigurationScope | undefined): string | null {
     if (scope === "application") {
@@ -22,10 +20,8 @@ export function workspaceUnsupportedSettingMessage(scope: ConfigurationScope | u
 }
 
 /**
- * Почему ключ не действует в `.diode/settings.json` папки, когда окно открыто
- * файлом `.code-workspace` (`handleWorkspaceFolderConfiguration` эталона): к
- * причинам воркспейса добавляется `window` — такие ключи окно берёт из файла
- * воркспейса.
+ * Как `handleWorkspaceFolderConfiguration` эталона: к причинам воркспейса добавляется `window` — такие
+ * ключи окно берёт из файла воркспейса.
  */
 export function folderUnsupportedSettingMessage(scope: ConfigurationScope | undefined): string | null {
     if (scope === "window") {
@@ -35,24 +31,9 @@ export function folderUnsupportedSettingMessage(scope: ConfigurationScope | unde
 }
 
 /**
- * Validates a `settings.json` document against the set of known configuration
- * keys and returns a diagnostic marker for every unknown top-level property —
- * the terminal analogue of VS Code's JSON-schema validation of settings.json,
- * minus the JSON language server. Unknown settings surface as *warnings*
- * ("Unknown Configuration Setting"), matching VS Code.
- *
- * Pure and provider-agnostic: the caller supplies the `isKnownKey` predicate
- * (built from the app + extension configuration defaults), so this stays
- * decoupled from the Configuration layer and is trivially testable.
- *
- * `unsupportedMessage` — второй вопрос к известному ключу: может ли он
- * действовать В ЭТОМ файле. Для settings.json воркспейса это ключи со `scope`
- * `application`/`machine`: файл их не применяет, и эталон
- * (`handleWorkspaceConfiguration` в `preferencesRenderers.ts`) ставит на них
- * подсказку (`Hint`) с объяснением. `null` — ключ здесь действует.
- *
- * `section` — где в документе лежат настройки: у файла `.code-workspace` это
- * блок `settings`, а не корень (нет блока — нечего проверять).
+ * Аналог JSON-schema-валидации settings.json в VS Code без языкового сервера: неизвестный ключ — warning.
+ * `unsupportedMessage` — действует ли известный ключ В ЭТОМ файле (эталон `handleWorkspaceConfiguration`
+ * ставит на него `Hint`). `section` — блок настроек (`settings` у `.code-workspace`).
  */
 export function validateSettingsJson(
     text: string,
@@ -67,9 +48,6 @@ export function validateSettingsJson(
 
     const lineStarts = computeLineStarts(text);
     const markers: IMarkerData[] = [];
-    // parseTree guarantees an object node carries a `children` array and each of
-    // its property children carries a string key node at index 0 (malformed keys
-    // never produce a property), so no runtime guards are needed here.
     /* v8 ignore start -- defensive: parseTree guarantees an object node carries a `children` array */
     for (const property of root.children ?? []) {
         /* v8 ignore stop */
@@ -105,11 +83,7 @@ export function validateSettingsJson(
     return markers;
 }
 
-/**
- * Flattens a nested configuration-defaults tree into the set of every valid
- * dotted key AND every dotted prefix, so both flat keys (`"editor.tabSize"`)
- * and object-valued parents (`"editor": { … }`) count as known.
- */
+/** Known are flat keys and every dotted prefix, so `"editor": { … }` counts too. */
 export function collectKnownSettingKeys(tree: Readonly<Record<string, unknown>>): Set<string> {
     const keys = new Set<string>();
     const walk = (node: Readonly<Record<string, unknown>>, prefix: string): void => {
@@ -127,7 +101,6 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** Offsets at which each line begins (`lineStarts[0]` is always 0). */
 function computeLineStarts(text: string): number[] {
     const starts = [0];
     for (let i = 0; i < text.length; i++) {

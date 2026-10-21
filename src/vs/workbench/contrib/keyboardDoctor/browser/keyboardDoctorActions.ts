@@ -4,11 +4,6 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 
 import { KeyboardDoctorComponentDIToken } from "./keyboardDoctorComponent.ts";
 
-/**
- * Keyboard Doctor: проводит по проверкам клавиатуры (протокол фидбека в
- * docs/TODO/MacKeybindings.md) и отдаёт отчёт одним куском — безымянным
- * документом (его можно сохранить или выделить) и сразу в буфер обмена.
- */
 export const keyboardDoctorAction: CommandAction = {
     id: "diode.keyboardDoctor",
     title: "Diode: Keyboard Doctor",
@@ -27,5 +22,4 @@ export const keyboardDoctorAction: CommandAction = {
     },
 };
 
-/** Экшены Keyboard Doctor. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const KEYBOARD_DOCTOR_ACTIONS: readonly CommandAction[] = [keyboardDoctorAction];

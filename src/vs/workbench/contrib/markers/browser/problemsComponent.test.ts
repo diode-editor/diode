@@ -28,14 +28,12 @@ import type { ProblemNode } from "./problemsTreeDataProvider.ts";
 
 const RESOURCE = "/ws/settings.json";
 
-/** Дождаться, пока сведённые изменения маркеров дойдут до вкладки. */
 const settleMarkers = (): Promise<void> => settle(PROBLEMS_UPDATE_DELAY_MS + 10);
 
 function warning(message: string, line = 0): IMarkerData {
     return { severity: MarkerSeverity.Warning, range: createRange(line, 0, line, 3), message };
 }
 
-/** Reveal-цель-фейк: записывает открытия/переходы (структурная замена EditorService). */
 function makeRevealTarget() {
     const editor = {
         uri: Uri.parse(RESOURCE),
@@ -124,7 +122,7 @@ describe("ProblemsComponent", () => {
         await settle(0);
 
         expect(revealTarget.openUri).toHaveBeenCalledTimes(1);
-        // Ресурс поднимается парсингом (не Uri.file) — см. комментарий в revealMarker.
+        // Ресурс поднимается парсингом, не Uri.file.
         expect(revealTarget.openUri.mock.calls[0][0].toString()).toBe(Uri.parse(RESOURCE).toString());
         expect(revealTarget.editor.goToPosition).toHaveBeenCalledWith(2, 2);
         expect(revealTarget.editor.revealRange).toHaveBeenCalledWith(createRange(2, 2, 2, 7));
@@ -204,7 +202,6 @@ describe("ProblemsComponent", () => {
     });
 
     it("focus is a no-op when there are no problems (tree detached)", () => {
-        // With no markers the tree is not attached to the panel; focus must not throw.
         expect(() => {
             component.focus();
         }).not.toThrow();
@@ -260,7 +257,6 @@ describe("ProblemsComponent", () => {
 
             markerService.changeOne("java", "/ws/B.java", [warning("second")]);
             await settleMarkers();
-            // Первый ещё висит — второй не стартовал.
             expect(refresh).toHaveBeenCalledTimes(1);
 
             release();

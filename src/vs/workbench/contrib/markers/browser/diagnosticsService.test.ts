@@ -11,7 +11,6 @@ import { CONFIGURATION_CONTRIBUTIONS } from "../../../common/configuration/confi
 
 import { DiagnosticsService, type IDiagnosticsEditor, type IDiagnosticsEditorSource } from "./diagnosticsService.ts";
 
-/** Реестр с реальными узлами приложения — известные ключи как в production. */
 function appConfigurationRegistry(): ConfigurationRegistry {
     return new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS);
 }
@@ -21,7 +20,6 @@ const KNOWN_SETTINGS = ["{", '    "editor.tabSize": 2', "}"].join("\n");
 
 const SETTINGS_PATH = "/ws/settings.json";
 
-/** Редактор-фейк: реализует срез {@link IDiagnosticsEditor} и записывает декорации. */
 class FakeEditor implements IDiagnosticsEditor {
     public readonly uri: Uri;
     public decorations: readonly IMarkerDecoration[] = [];
@@ -37,7 +35,6 @@ class FakeEditor implements IDiagnosticsEditor {
         return this.text;
     }
 
-    /** Правка контента: меняет текст и файрит onDidChangeContent (как документ). */
     public setText(text: string): void {
         this.text = text;
         for (const listener of [...this.listeners]) listener();
@@ -53,7 +50,6 @@ class FakeEditor implements IDiagnosticsEditor {
     }
 }
 
-/** Источник редакторов-фейк: структурная замена EditorService в шве. */
 class FakeEditorSource implements IDiagnosticsEditorSource {
     private editors: FakeEditor[] = [];
     private active: FakeEditor | null = null;
@@ -72,7 +68,6 @@ class FakeEditorSource implements IDiagnosticsEditorSource {
         return { dispose: () => this.listeners.delete(listener) };
     }
 
-    /** «Открывает» редактор: добавляет в группу и делает активным. */
     public open(editor: FakeEditor): void {
         this.editors.push(editor);
         this.active = editor;
@@ -195,8 +190,6 @@ describe("DiagnosticsService — settings.json validation", () => {
         const editor = new FakeEditor(SETTINGS_PATH, UNKNOWN_SETTINGS);
         h.source.open(editor);
 
-        // A marker for a file that is not open must not throw and must not touch
-        // the active editor's decorations.
         expect(() => {
             h.markerService.changeOne("other", "/ws/closed.json", [
                 { severity: MarkerSeverity.Error, range: createRange(0, 0, 0, 1), message: "x" },
@@ -208,8 +201,7 @@ describe("DiagnosticsService — settings.json validation", () => {
     });
 
     it("picks up an editor that became active before the service existed", () => {
-        // Подхват в конструкторе (бывший mount): редактор уже активен к моменту
-        // создания сервиса — валидация всё равно должна отработать.
+        // Редактор активен до создания сервиса — валидация всё равно должна отработать.
         const source = new FakeEditorSource();
         const markerService = new MarkerService();
         const editor = new FakeEditor(SETTINGS_PATH, UNKNOWN_SETTINGS);
@@ -236,7 +228,6 @@ describe("DiagnosticsService — settings.json validation", () => {
 
         h.service.dispose();
 
-        // Правка после dispose: подписка на контент снята — маркеры не пересчитываются.
         editor.setText(KNOWN_SETTINGS);
         expect(h.markerService.read({ resource: resourceOf(SETTINGS_PATH) })).toHaveLength(1);
     });

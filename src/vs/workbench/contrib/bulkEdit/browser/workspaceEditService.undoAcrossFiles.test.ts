@@ -19,11 +19,6 @@ import type { BulkEdit } from "../common/workspaceEdit.ts";
 import { BulkEditBuffers } from "./bulkEditBuffers.ts";
 import { WorkspaceEditService } from "./workspaceEditService.ts";
 
-// «Move to a new file» и его отмена на настоящих буферах: шаг workspace edit'а
-// лежит в истории ВСЕХ открытых затронутых файлов (и файла, открытого позже),
-// Ctrl+Z из любой вкладки откатывает его целиком; правка-рефакторинг
-// сохраняет свои буферы по `files.refactoring.autoSave`.
-
 let ws: ITempWorkspace;
 
 beforeEach(() => {
@@ -88,7 +83,6 @@ function harness(settings: Record<string, unknown> = {}): IHarness {
 const resource = (filePath: string): string => Uri.file(filePath).toString();
 const insertHead = (text: string) => createTextEdit(createRange(0, 0, 0, 0), text);
 
-/** «Move to a new file» класса Foo: новый файл, вставка в него, правки двух открытых. */
 function moveFoo(h: IHarness): BulkEdit {
     return [
         { kind: "create", to: h.file("Foo.ts") },

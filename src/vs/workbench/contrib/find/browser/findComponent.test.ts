@@ -21,11 +21,7 @@ function make(): FindWidget {
     return new FindWidget();
 }
 
-/**
- * Lays out + renders the widget so button positions/colors are populated.
- * `resolveStyles` is needed so the counter `TextLabel` resolves its themed fg
- * (per-element style inheritance; the real app runs this in its render pipeline).
- */
+/** `resolveStyles` — чтобы счётчик получил цвет темы (в приложении это делает рендер-конвейер). */
 function render(component: FindWidget, width = WIDTH): MockTerminalBackend {
     return renderElement(component.view, width, 3, { resolveStyles: true });
 }
@@ -43,7 +39,6 @@ function mouse(type: "click" | "mouseenter" | "mouseleave"): TUIMouseEvent {
     return new TUIMouseEvent(type, { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 });
 }
 
-/** Resolves the element at a screen point and dispatches a left click on it. */
 function clickAt(component: FindWidget, x: number, y: number): void {
     const target = component.view.elementFromPoint(new Point(x, y));
     target?.dispatchEvent(mouse("click"));
@@ -124,7 +119,6 @@ describe("FindWidget — theme colors", () => {
     it("paints the border and background from editorWidget.* keys", () => {
         const component = make();
         const backend = render(component);
-        // Top-left corner is the box border.
         expect(backend.getFgAt(new Point(0, 0))).toBe(theme.getRequiredColor("editorWidget.border"));
         // The frame fill (top border row, between the corners) carries the widget background.
         expect(backend.getBgAt(new Point(2, 0))).toBe(theme.getRequiredColor("editorWidget.background"));

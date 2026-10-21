@@ -10,20 +10,14 @@ import {
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IFilteredKeybindingItem } from "../common/keybindingsEditorModel.ts";
 
-/**
- * Строки вкладки Keyboard Shortcuts: колонки `Command | Keybinding | When |
- * Source`, посчитанные руками под ширину вкладки (табличного контрола в tuidom
- * нет). Разметка — чистая функция {@link describeKeybindingRow}, её же читают
- * тесты (приём `extensionRows.ts`).
- */
+// Колонки считаются руками под ширину вкладки: табличного контрола в tuidom нет.
 
-/** Пробел между колонками. */
 const GAP = 2;
 
 /** Минимальная ширина, ниже которой доли колонок дают бессмысленные огрызки. */
 const MIN_TABLE_WIDTH = 40;
 
-/** Доли колонок от ширины таблицы (Command получает остаток). */
+/** Command получает остаток. */
 const KEY_RATIO = 0.22;
 const WHEN_RATIO = 0.24;
 const SOURCE_WIDTH = 9; // "Extension" — самый длинный источник
@@ -53,25 +47,21 @@ export interface IKeybindingRowLayout {
     readonly keySpan: ISpan;
     readonly whenSpan: ISpan;
     readonly sourceSpan: ISpan;
-    /** Индексы подсвеченных символов title (fuzzy-совпадение), уже в границах видимого. */
+    /** Уже в границах видимого. */
     readonly matchIndices: readonly number[];
-    /** Конфликтующая запись — колонка Keybinding красится предупреждением. */
     readonly conflict: boolean;
 }
 
-/** Цвета кусков строки (выделение и hover рисует сам `ListViewElement`). */
+/** Выделение и hover рисует сам `ListViewElement`. */
 export interface IKeybindingRowStyles {
-    /** When и Source — служебные колонки. */
     readonly dimFg: StyleColor;
-    /** Подсветка fuzzy-совпадения в title. */
     readonly highlightFg: StyleColor;
-    /** Колонка Keybinding конфликтующей записи. */
     readonly conflictFg: StyleColor;
 }
 
 const SOURCE_LABELS = { default: "Default", extension: "Extension", user: "User" } as const;
 
-/** Обрезает под колонку и добивает пробелами до её ширины (по display-колонкам). */
+/** По display-колонкам. */
 function cell(text: string, width: number): string {
     const truncated = truncateEnd(text, width);
     return truncated + " ".repeat(Math.max(0, width - measureTextWidth(truncated)));
@@ -113,7 +103,6 @@ export function describeKeybindingRow(
     };
 }
 
-/** Заголовок таблицы — та же раскладка колонок, что у строк, приглушённым цветом. */
 export function describeKeybindingHeaderRow(width: number): string {
     const widths = columnWidths(width);
     const gap = " ".repeat(GAP);

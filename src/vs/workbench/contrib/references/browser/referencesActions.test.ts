@@ -22,7 +22,6 @@ import { REFERENCES_VIEW_ID, REFERENCES_VIEWLET_ID, ReferencesComponentDIToken }
 import type { ReferencesService } from "./referencesService.ts";
 import { ReferencesServiceDIToken } from "./referencesService.ts";
 
-/** Контейнер с фейками ровно тех сервисов, которые дёргают эти экшены. */
 function makeAccessor(): { accessor: Container; calls: string[] } {
     const calls: string[] = [];
     const accessor = new Container();
@@ -112,7 +111,6 @@ describe("referencesActions — объявления", () => {
         expect(expandReferencesAction.menus?.[0].when).toBe(
             "hasReferenceResult && !referencesViewHasSomeCollapsibleResult",
         );
-        // Clear показывается, только когда есть что чистить.
         expect(clearReferencesAction.menus?.[0].when).toBe("hasReferenceResult");
     });
 });

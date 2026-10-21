@@ -266,7 +266,6 @@ describe("WorkspaceEditService — create", () => {
         expect(fs.existsSync(dest)).toBe(true);
         expect(fs.existsSync(path.join(tmpDir, "foo"))).toBe(true);
 
-        // undo вычищает самый верхний созданный предок (`foo/`), не трогая tmpDir.
         await element!.undo();
         expect(fs.existsSync(path.join(tmpDir, "foo"))).toBe(false);
         expect(fs.existsSync(tmpDir)).toBe(true);

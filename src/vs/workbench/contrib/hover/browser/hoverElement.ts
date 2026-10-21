@@ -4,7 +4,6 @@ import { BORDER_THICKNESS } from "@tuidom/core/dom/borderStyle";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 import { wrapText } from "@tuidom/elements/completionlist/completionDetailsElement";
 
-// ─── Layout ───────────────────────────────────────────────────────────────────
 // [│(0)][pad(1)][текст…][pad(w-2)][│(w-1)] — раскладка CompletionDetailsElement.
 const TEXT_X = 2;
 const RIGHT_PAD = 1;
@@ -13,29 +12,20 @@ const DEFAULT_MAX_WIDTH = 70;
 /** Кламп высоты v1: длинный hover обрезается, скролл — отдельной задачей. */
 const DEFAULT_MAX_HEIGHT = 12;
 
-/** Результат переноса: строки + номера строк-разделителей между блоками. */
 interface IWrappedLines {
     readonly lines: readonly string[];
     readonly separators: ReadonlySet<number>;
 }
 
 /**
- * Попап hover'а: рамка + плоский текст с переносом по словам. Блоки (по одному
- * на провайдера) разделяются горизонтальной линией. Markdown сюда уже не
- * доезжает — его стрипает HoverService; рендерера markdown нет (docs/arch/Extensions.md, «LSP и стоковые клиенты»).
- *
- * Diode-специфичный элемент, поэтому живёт рядом со своим компонентом, а не в
- * tuidom (правило docs/arch/Workbench.md): посимвольный render поверх drawBox
- * композицией примитивов не выражается — эталон `quickPickFrameElement.ts`.
- * Фокус не забирает — как suggest, живёт при активном редакторе.
+ * Markdown сюда не доезжает — его стрипает HoverService. Живёт не в tuidom: посимвольный render
+ * поверх drawBox композицией примитивов не выражается (как `quickPickFrameElement.ts`).
  */
 export class HoverElement extends TUIElement {
-    /** Предельная ширина попапа; фактическая — по самой длинной строке. */
     public maxWidth = DEFAULT_MAX_WIDTH;
     public maxHeight = DEFAULT_MAX_HEIGHT;
 
     private blocksValue: readonly string[] = [];
-    /** Кэш переноса: (ширина текста) → строки. Layout зовут на каждый кадр. */
     private wrapCache: { width: number; wrapped: IWrappedLines } | null = null;
 
     public constructor() {
@@ -43,12 +33,10 @@ export class HoverElement extends TUIElement {
         this.focusable = false;
     }
 
-    /** Есть ли что показывать (пустой попап не занимает места). */
     public get isEmpty(): boolean {
         return this.blocksValue.length === 0;
     }
 
-    /** Блоки контента — по одному на провайдера, плоский текст без разметки. */
     public setBlocks(blocks: readonly string[]): void {
         this.blocksValue = blocks.filter((block) => block.trim() !== "");
         this.wrapCache = null;
@@ -56,15 +44,12 @@ export class HoverElement extends TUIElement {
         this.markDirty();
     }
 
-    /** Строки контента после переноса — для тестов и измерения. */
     public linesFor(textWidth: number): readonly string[] {
         return this.wrappedFor(textWidth).lines;
     }
 
     private wrappedFor(textWidth: number): IWrappedLines {
-        // Кэш переноса: layout зовут на каждый кадр. Промах кэша даёт лишний
-        // пересчёт, но не другой результат — поэтому наблюдаем он только по
-        // стоимости (Stryker disable ниже).
+        // Layout зовут на каждый кадр — отсюда кэш (и Stryker disable ниже).
         // Stryker disable next-line ConditionalExpression,EqualityOperator,LogicalOperator,ObjectLiteral: промах кэша = лишний пересчёт с тем же результатом, ненаблюдаемо
         if (this.wrapCache !== null && this.wrapCache.width === textWidth) return this.wrapCache.wrapped;
         const lines: string[] = [];
@@ -81,8 +66,6 @@ export class HoverElement extends TUIElement {
         this.wrapCache = { width: textWidth, wrapped };
         return wrapped;
     }
-
-    // ─── Sizing ──────────────────────────────────────────────────────────────
 
     private get textWidth(): number {
         const natural = Math.max(
@@ -125,8 +108,6 @@ export class HoverElement extends TUIElement {
         return size;
     }
 
-    // ─── Render ──────────────────────────────────────────────────────────────
-
     public override render(context: RenderContext): void {
         // Stryker disable next-line ConditionalExpression: пустой попап раскладывается в 0×0, поэтому его отсекает и гейт размера ниже — этот выход лишь называет причину
         if (this.isEmpty) return;
@@ -145,7 +126,6 @@ export class HoverElement extends TUIElement {
         const { lines, separators } = this.wrappedFor(textWidth);
         const visible = Math.min(lines.length, Math.max(0, h - BORDER_THICKNESS * 2));
         for (let i = 0; i < visible; i++) {
-            // Линия-разделитель блоков — цветом рамки, текст — своим.
             context.drawText(
                 TEXT_X,
                 BORDER_THICKNESS + i,
@@ -161,7 +141,6 @@ export class HoverElement extends TUIElement {
     }
 }
 
-/** Ширина самой длинной строки текста как есть (до переноса). */
 function naturalWidth(text: string): number {
     let max = 0;
     for (const line of text.split("\n")) max = Math.max(max, new DisplayLine(line).displayWidth);

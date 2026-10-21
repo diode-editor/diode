@@ -126,7 +126,6 @@ describe("FoldingActions", () => {
         editor.pushUndo(editor.viewState.type("x"));
         await settle(0);
 
-        // Region survives the recompute and stays collapsed.
         expect(editor.viewState.foldingRegionContaining(0)?.isCollapsed).toBe(true);
     });
 

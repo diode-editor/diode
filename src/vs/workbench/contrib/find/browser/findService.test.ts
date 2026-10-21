@@ -56,14 +56,12 @@ function makeGroup(): {
     return { group, groupComponent, themeService };
 }
 
-/** Simulates typing into the find input (drives the onChange → recompute chain). */
 function typeQuery(widget: FindWidget, query: string): void {
     const input = widget.view.querySelector("InputElement") as InputElement;
     input.inputState.value = query;
     input.onChange?.(query);
 }
 
-/** Полоса групп без view-слоя: хоста нет ни у одной группы. */
 const NO_GROUP_HOSTS: IGroupOverlayHosts = { groupOverlayHost: () => null };
 
 describe("FindService", () => {
@@ -103,7 +101,6 @@ describe("FindService", () => {
         // Виджет единственной группы (создаётся лениво — здесь явно, для ассертов).
         const widget = component.widgetFor(group.editorGroups.activeGroup.id)!;
 
-        // getActiveEditor() is non-null right after openFile.
         const editor = group.getActiveEditor()!;
         return { find, component, widget, group, groupComponent, editor, testApp };
     }
@@ -178,8 +175,6 @@ describe("FindService", () => {
         expect(editor.viewState.currentSearchMatchIndex).toBe(1);
     });
 
-    // F3 в VS Code живёт от фокуса в редакторе (`EditorContextKeys.focus`), а не от
-    // видимости виджета: закрыли поиск — навигация по последнему запросу продолжается.
     it("close() без открытого поиска — no-op", () => {
         // Escape/крестик, когда find в группе ни разу не открывали: сессии нет.
         const { find, editor } = setup("foo bar foo");

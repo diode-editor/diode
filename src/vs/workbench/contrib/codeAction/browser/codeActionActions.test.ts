@@ -24,9 +24,6 @@ import {
     sourceActionAction,
 } from "./codeActionActions.ts";
 
-// Source-команды code actions: полный диапазон + only в запросе, выбор
-// предпочтительного действия, честные notices на «нечего применять» и отказ.
-
 interface ISetup {
     accessor: Container;
     requests: ICodeActionRequest[];
@@ -35,7 +32,6 @@ interface ISetup {
     pickCalls: { title?: string; placeholder?: string; items: readonly QuickPickItem[] }[];
 }
 
-/** Провайдер code actions теста: что вернуть на запрос и чем ответить на apply. */
 interface FakeCodeActions {
     provide(request: ICodeActionRequest): Promise<readonly ICoreCodeAction[]>;
     apply(id: string): Promise<boolean>;

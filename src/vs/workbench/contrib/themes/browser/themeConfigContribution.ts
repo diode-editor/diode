@@ -9,11 +9,6 @@ import { ThemeRegistryDIToken, ThemeServiceDIToken } from "../../../services/the
 
 export const ThemeConfigContributionDIToken = token<ThemeConfigContribution>("ThemeConfigContribution");
 
-/**
- * Live-reload цветовой темы: смена `workbench.colorTheme` в settings.json
- * перекрашивает UI без рестарта. Подписка на конфиг → резолв темы по имени →
- * `ThemeService.setTheme` (дёрнет `onThemeChange` у всех подписчиков).
- */
 export class ThemeConfigContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [IConfigurationServiceDIToken, ThemeServiceDIToken, ThemeRegistryDIToken] as const;
 
@@ -31,11 +26,7 @@ export class ThemeConfigContribution extends Disposable implements IWorkbenchCon
         );
     }
 
-    /**
-     * Резолвит тему по имени из `workbench.colorTheme` и применяет её. Guard по
-     * имени: если тема уже активна (напр. правку внёс сам theme-picker через
-     * `updateValue`), лишнего перекраса не делаем. Неизвестное имя игнорируем.
-     */
+    /** Уже активную тему (правку внёс сам theme-picker) не перекрашиваем; неизвестное имя игнорируем. */
     private applyColorThemeFromConfiguration(): void {
         const name = this.configurationService.get("workbench.colorTheme");
         if (name === this.themeService.theme.name) return;

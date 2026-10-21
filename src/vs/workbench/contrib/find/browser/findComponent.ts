@@ -16,32 +16,18 @@ import type { GroupId } from "../../../services/editor/browser/editorGroupModel.
 
 export const FindComponentDIToken = token<FindComponent>("FindComponent");
 
-// Навигационные / close-глифы, выровнены по правому краю строки запроса.
 const PREV_GLYPH = "↑";
 const NEXT_GLYPH = "↓";
 const CLOSE_GLYPH = "✕";
 
 const WIDGET_HEIGHT = 3;
 const DEFAULT_WIDTH = 44;
-const BUTTON_GAP = 1; // зазор между соседними кнопками
-const COUNTER_GAP = 2; // зазор между счётчиком и рядом кнопок
+const BUTTON_GAP = 1;
+const COUNTER_GAP = 2;
 
 /**
- * Find-виджет ОДНОЙ группы редакторов: композиционный корень из примитивов
- * ({@link SizedBoxElement} → {@link BoxContainerElement} → {@link HFlexElement}
- * со строкой запроса, счётчиком совпадений и кнопками ↑ ↓ ✕). Ручного рендера
- * нет — рамку, фон и раскладку дают примитивы, цвета приходят из активной темы
- * токенами (`editorWidget.*`), которые резолвит каскад (Н3).
- *
- * Дерево строится ОДИН раз в конструкторе и дальше мутируется на месте
- * (`setQuery`/`setCounter` меняют только текст/цвет счётчика и его зазор) — так
- * строка запроса ({@link InputElement}) никогда не переподключается к дереву и
- * не теряет фокус между нажатиями. Виджет НЕ владеет навигационными клавишами:
- * open/next/prev/close ведут зарегистрированные команды; клик по кнопке зовёт
- * колбэк. Кнопки non-focusable — клик не уводит фокус из строки запроса.
- *
- * Overlay-сессия живёт на локальном слое СВОЕЙ группы ({@link attachHost}) —
- * виджет докается в её правый верхний угол и живёт/умирает вместе с группой.
+ * Дерево строится один раз и мутируется на месте — строка запроса не переподключается и не
+ * теряет фокус между нажатиями. Кнопки non-focusable: клик не уводит фокус из строки запроса.
  */
 export class FindWidget extends Disposable {
     public readonly view: SizedBoxElement;
@@ -85,7 +71,6 @@ export class FindWidget extends Disposable {
         this.nextButton = this.createButton(NEXT_GLYPH, () => this.onNext?.());
         this.closeButton = this.createButton(CLOSE_GLYPH, () => this.onClose?.());
 
-        // Строка запроса (растягивается) | счётчик | зазор | ↑ · ↓ · ✕.
         const row = new HFlexElement();
         row.addChild(this.input, { width: hflexFill(), height: 1 });
         row.addChild(this.counterLabel, { width: hflexFit(), height: 1 });
@@ -112,12 +97,10 @@ export class FindWidget extends Disposable {
 
     private createButton(label: string, onActivate: () => void): ButtonElement {
         const button = new ButtonElement(label);
-        button.focusable = false; // keep focus in the query input on click
+        button.focusable = false;
         button.onActivate = onActivate;
         return button;
     }
-
-    // ─── Public API (виджетная поверхность для FindService) ───────────────────
 
     public getQuery(): string {
         return this.input.inputState.value;
@@ -129,12 +112,7 @@ export class FindWidget extends Disposable {
         this.refreshCounter();
     }
 
-    /**
-     * Выделяет весь текст запроса (как в VS Code при Ctrl+F): первое же нажатие
-     * клавиши или Backspace/Delete сотрёт старый запрос и начнёт ввод заново.
-     * Зовётся ПОСЛЕ {@link setQuery} — сеттер `InputState.value` сбрасывает
-     * выделение и ставит курсор в конец, так что выделять надо отдельным вызовом.
-     */
+    /** Зовётся ПОСЛЕ {@link setQuery}: сеттер `InputState.value` сбрасывает выделение. */
     public selectQuery(): void {
         // Пустой запрос выделять нечего — а selectAll на пустой строке оставил бы
         // якорь выделения в 0, что сломало бы первый же ввод символа.
@@ -150,17 +128,12 @@ export class FindWidget extends Disposable {
         this.refreshCounter();
     }
 
-    /** Делегирует фокус строке запроса. */
     public focus(): void {
         this.input.focus();
     }
 
-    // ─── Overlay-сессия ───────────────────────────────────────────────────────
-
     /** Прикрепляет виджет к overlay-слою СВОЕЙ группы (один раз, до первого показа). */
     public attachHost(host: OverlayHostElement): void {
-        // Повторное прикрепление того же хоста — no-op: живая overlay-сессия
-        // не пересоздаётся (и не закрывается под пользователем).
         if (this.host === host) return;
         this.session?.dispose();
         this.host = host;
@@ -176,25 +149,16 @@ export class FindWidget extends Disposable {
         return this.session?.isOpen() ?? false;
     }
 
-    /**
-     * Позиционирует виджет (правый край группы, под tab strip), открывает
-     * сессию и фокусирует строку запроса. Без прикреплённого хоста — no-op по
-     * позиции/сессии.
-     */
     public show(): void {
         this.updatePosition();
         this.session?.open();
         this.focus();
     }
 
-    /** Закрывает сессию; no-op, если уже закрыта. */
     public hide(): void {
         if (this.session?.isOpen()) this.session.close();
     }
 
-    // ─── Стили / состояние ────────────────────────────────────────────────────
-
-    /** Обновляет текст/цвет счётчика: выбирается ИМЯ токена — тему резолвит каскад. */
     private refreshCounter(): void {
         const counter = this.counterText();
         this.counterLabel.setText(counter);
@@ -214,7 +178,6 @@ export class FindWidget extends Disposable {
 
     private updatePosition(): void {
         const group = this.host;
-        // Без прикреплённого хоста позиционировать не в чем — show() тогда no-op.
         if (group === null) return;
         const groupWidth = group.layoutSize.width;
         const widgetW = Math.min(60, Math.max(28, groupWidth - 2));
@@ -226,21 +189,12 @@ export class FindWidget extends Disposable {
     }
 }
 
-/** Срез полосы групп, который нужен find: overlay-слой группы по её id. */
 export interface IGroupOverlayHosts {
     /** `null` — группа неизвестна view-слою. */
     groupOverlayHost(groupId: GroupId): OverlayHostElement | null;
 }
 
-/**
- * Менеджер find-виджетов полосы групп: по {@link FindWidget} на группу, ленивое
- * создание при первом Ctrl+F в группе. Хосты виджетов — локальные
- * overlay-слои групп, их выдаёт полоса групп (`EditorPartComponent`,
- * {@link IGroupOverlayHosts}); колбэки каждого виджета поднимаются
- * в {@link import("./findService.ts").FindService} с координатой группы.
- * Схлопнутая группа забирает свой виджет с собой ({@link disposeWidget} зовёт
- * FindService по `onDidGroupsChange`).
- */
+/** Виджет на группу, создаётся лениво; виджет схлопнутой группы освобождает FindService (`disposeWidget`). */
 export class FindComponent extends Disposable {
     public static dependencies = [EditorPartComponentDIToken] as const;
 
@@ -255,7 +209,7 @@ export class FindComponent extends Disposable {
         super();
     }
 
-    /** Виджет группы, создавая при первом обращении; `null` — хост недоступен. */
+    /** `null` — хост недоступен. */
     public widgetFor(groupId: GroupId): FindWidget | null {
         const existing = this.widgets.get(groupId);
         if (existing !== undefined) return existing;
@@ -271,17 +225,14 @@ export class FindComponent extends Disposable {
         return widget;
     }
 
-    /** Виджет группы БЕЗ создания (закрытие/опрос состояния). */
     public widgetIfExists(groupId: GroupId): FindWidget | null {
         return this.widgets.get(groupId) ?? null;
     }
 
-    /** Открыт ли виджет группы. */
     public isOpen(groupId: GroupId): boolean {
         return this.widgets.get(groupId)?.isOpen() ?? false;
     }
 
-    /** Забирает виджет схлопнутой группы (его overlay-слой умер вместе с ней). */
     public disposeWidget(groupId: GroupId): void {
         const widget = this.widgets.get(groupId);
         if (widget === undefined) return;

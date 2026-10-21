@@ -13,25 +13,20 @@ import {
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
 /**
- * Модель вкладки Keyboard Shortcuts: чистые функции без DI — состав строк из
- * снапшотов реестров и фильтрация по запросу. Строка на КАЖДУЮ запись
- * {@link IKeybindingEntrySnapshot} (у команды с двумя биндингами — две строки)
- * плюс строки команд без биндинга (как в VS Code).
+ * Строка на КАЖДУЮ запись {@link IKeybindingEntrySnapshot} (у команды с двумя биндингами — две строки)
+ * плюс строки команд без биндинга, как в VS Code.
  */
 export interface IKeybindingItem {
     readonly commandId: string;
-    /** Человекочитаемый title команды; у биндинга неизвестной команды — её id. */
+    /** У биндинга неизвестной команды — её id. */
     readonly title: string;
     /** `null` — команда без биндинга (показывается «—»). */
     readonly chord: KeybindingChord | null;
     readonly when: string | undefined;
-    /** `null` — у строки без биндинга источника нет. */
     readonly source: KeybindingSource | null;
-    /** Есть запись с той же комбинацией и пересекающимся when ({@link findConflictingBindings}). */
     readonly hasConflict: boolean;
 }
 
-/** Строка после фильтра; `titleMatch` — для посимвольной подсветки title. */
 export interface IFilteredKeybindingItem {
     readonly item: IKeybindingItem;
     readonly titleMatch: FuzzyMatch | null;
@@ -74,7 +69,6 @@ export function buildKeybindingItems(
     return items.sort((a, b) => a.title.localeCompare(b.title) || a.commandId.localeCompare(b.commandId));
 }
 
-/** Префикс-фильтры запроса (`@source:user`, `@conflicts`) — срезаются до fuzzy-части. */
 interface IParsedQuery {
     readonly source: KeybindingSource | null;
     readonly conflictsOnly: boolean;
@@ -104,10 +98,7 @@ function parseQuery(query: string): IParsedQuery {
     return { source, conflictsOnly, text: rest.join(" ") };
 }
 
-/**
- * Поиск по комбинации — по той подписи, что видна в таблице, а на маке ещё и по
- * словам («cmd+s», «option»): глиф «⌘» с клавиатуры не набрать.
- */
+/** На маке — ещё и по словам («cmd+s», «option»): глиф «⌘» с клавиатуры не набрать. */
 function matchesKeyLabel(query: PreparedQuery, chord: KeybindingChord, style: KeybindingLabelStyle): boolean {
     const labels =
         style === "mac"
@@ -117,20 +108,16 @@ function matchesKeyLabel(query: PreparedQuery, chord: KeybindingChord, style: Ke
 }
 
 /**
- * Надбавка за совпадение в подписи — тот же приём, что `BASENAME_BONUS` у
- * файлового пикера: совпасть в том, что пользователь читает, важнее, чем в id
- * команды. Совпадение только по подписи комбинации очков не приносит вовсе и
- * оседает в хвосте.
+ * Как `BASENAME_BONUS` файлового пикера: совпасть в том, что пользователь читает, важнее, чем в id.
+ * Совпадение только по подписи комбинации очков не приносит и оседает в хвосте.
  */
 const TITLE_MATCH_BONUS = 200;
 
-/** Строка с ключом сортировки; наружу уезжает только {@link IFilteredKeybindingItem}. */
 interface IRankedKeybindingItem {
     readonly entry: IFilteredKeybindingItem;
     readonly score: number;
 }
 
-/** Префикс-фильтры запроса (`@source:`, `@conflicts`) — отбор до fuzzy. */
 function passesPrefixFilters(item: IKeybindingItem, parsed: IParsedQuery): boolean {
     if (parsed.source !== null && item.source !== parsed.source) return false;
     if (parsed.conflictsOnly && !item.hasConflict) return false;
@@ -138,19 +125,10 @@ function passesPrefixFilters(item: IKeybindingItem, parsed: IParsedQuery): boole
 }
 
 /**
- * Фильтр списка: `@source:` — точный отбор по источнику, `@conflicts` — только
- * конфликтующие записи, остальное — fuzzy по title, id команды и display-форме
- * биндинга (поэтому `@conflicts ctrl+k ctrl+u` сужает до группы одной
- * комбинации). Подсветка возвращается только для совпадения по title:
- * подсвечивать колонку клавиш по fuzzy-огрызку — шум.
- *
- * Выдача **ранжируется**, а не остаётся в алфавитном порядке списка: запрос из
- * нескольких термов ищет их по отдельности, и точное совпадение по подписи
- * иначе тонет среди команд, у которых термы нашлись где-то в id («Show Hover»
- * уезжала в конец, потому что `show` и `hover` есть в
- * `editor.action.showPrevParameterHint`). Сортировка стабильная, поэтому при
- * равных очках порядок остаётся исходным (по title) — строки одной команды
- * держатся рядом.
+ * `@source:`/`@conflicts` — точный отбор, остальное — fuzzy по title, id и подписи биндинга; подсветка —
+ * только для совпадения по title. Выдача ранжируется: иначе точное совпадение по подписи тонет среди
+ * команд, чьи термы нашлись в id («Show Hover» vs `editor.action.showPrevParameterHint`). Сортировка
+ * стабильная — строки одной команды держатся рядом.
  */
 export function filterKeybindingItems(
     items: readonly IKeybindingItem[],
@@ -159,11 +137,7 @@ export function filterKeybindingItems(
 ): IFilteredKeybindingItem[] {
     const parsed = parseQuery(query);
     const candidates = items.filter((item) => passesPrefixFilters(item, parsed));
-    // Разбор запроса — один раз на фильтр, а не на строку таблицы. Пробел режет
-    // его на термы, совпасть обязаны все: `go line` находит «Go to Line/Column…».
     const prepared = prepareQuery(parsed.text);
-    // Пустой остаток запроса: отработали только префикс-фильтры, подсвечивать
-    // нечего и ранжировать не по чему — порядок исходный.
     if (prepared.terms.length === 0) return candidates.map((item) => ({ item, titleMatch: null }));
 
     const ranked: IRankedKeybindingItem[] = [];

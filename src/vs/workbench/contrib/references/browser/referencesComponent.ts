@@ -24,21 +24,15 @@ import type { IReferenceGroup } from "./referencePreview.ts";
 
 export const ReferencesComponentDIToken = token<ReferencesComponent>("ReferencesComponent");
 
-/** Контейнер сайдбара (вьюлет) и его единственная view — id как у VS Code. */
+/** Id — как у VS Code. */
 export const REFERENCES_VIEWLET_ID = "references-view";
 export const REFERENCES_VIEW_ID = "references-view.tree";
 
-/** Редактор, в котором раскрывается позиция ссылки. */
 export interface IReferencesRevealEditor {
     goToPosition(line: number, column?: number): void;
     revealRange(range: IRange): void;
 }
 
-/**
- * Минимальный срез группы редакторов для открытия ссылки: открыть файл и
- * довести до позиции. `EditorService` соответствует ему структурно —
- * связывание делает DI-модуль (как {@link import("../../search/browser/searchComponent.ts").SearchRevealTargetDIToken}).
- */
 export interface IReferencesRevealTarget {
     openUri(uri: Uri): void;
     getActiveEditor(): IReferencesRevealEditor | null;
@@ -46,7 +40,6 @@ export interface IReferencesRevealTarget {
 
 export const ReferencesRevealTargetDIToken = token<IReferencesRevealTarget>("ReferencesRevealTarget");
 
-/** Метаданные строки-ссылки: куда прыгать по Enter/F4. */
 interface IReferenceRow {
     readonly group: IReferenceGroup;
     readonly match: ITextMatch;
@@ -60,21 +53,7 @@ function referenceRowId(group: IReferenceGroup, index: number): string {
     return `ref:${group.relPath}:${String(index)}`;
 }
 
-/**
- * Вьюлет REFERENCES (левый сайдбар) — результат Find All References: файлы со
- * счётчиком ссылок, под каждым — строки кода с подсвеченным вхождением. Enter
- * или двойной клик открывает файл на позиции ссылки (шов
- * {@link IReferencesRevealTarget}), F4/Shift+F4 обходят ссылки не уводя фокус
- * из редактора.
- *
- * Живёт как merged одно-view контейнер ({@link ViewsService}): заголовок
- * `REFERENCES` с меню «⋯» рисует PaneHeaderElement, тело — шапка со счётчиком
- * плюс список ({@link HeaderBodyViewElement}). Строки — общие с панелью поиска
- * ({@link buildFileRow}/{@link buildMatchRow}): «файл + строки с подсветкой» у
- * нас ровно одна визуальная идиома, и расходиться ей незачем.
- *
- * Наполняет вьюлет `ReferencesService`; сам компонент про LSP не знает.
- */
+/** Строки — общие с панелью поиска: идиома «файл + строки с подсветкой» у нас одна. */
 export class ReferencesComponent extends Component {
     public static dependencies = [
         ReferencesRevealTargetDIToken,
@@ -87,23 +66,18 @@ export class ReferencesComponent extends Component {
     private readonly countLabel = new TextLabelElement("");
     private readonly scrollBars: ScrollBarDecorator;
     /**
-     * Список результатов; публичный — тесты и команды ходят в него напрямую,
-     * как в Search. Typeahead включён (в отличие от поиска, где буквы уходят в
-     * строку запроса): в панели ссылок ввода нет, и прыжок по имени файла —
-     * бесплатная навигация.
+     * Typeahead включён, в отличие от поиска (там буквы уходят в запрос): ввода в панели нет, и прыжок
+     * по имени файла — бесплатная навигация.
      */
     public readonly results = new ListViewElement();
 
-    /** Строки-ссылки: id → куда прыгать. Строкам файлов метаданные не нужны. */
     private referenceRows = new Map<string, IReferenceRow>();
-    /** Строки файлов — их сворачивает Collapse All, они же сворачиваются по Enter. */
     // Stryker disable next-line ArrayDeclaration: начальное значение до первой пересборки ненаблюдаемо — свернуть нечего, а `rebuildRows` его заменяет
     private fileRowIds: string[] = [];
-    /** Порядок строк-ссылок — обход по F4 идёт по нему, а не по проекции списка. */
+    /** Обход по F4 идёт по нему, а не по проекции списка. */
     private referenceRowIds: string[] = [];
     private referenceCount = 0;
     private fileCount = 0;
-    /** Был ли уже поиск: до него шапка пуста, после — счётчик или «No results». */
     // Stryker disable next-line BooleanLiteral: до первого setResults/clear шапку никто не пересчитывает — значение поля на кадр не влияет
     private searched = false;
 
@@ -125,8 +99,6 @@ export class ReferencesComponent extends Component {
         this.refreshResultKeys();
         this.scrollBars = new ScrollBarDecorator(this.results);
 
-        // Счётчик не прижат к краю панели — отступ по колонке слева и справа,
-        // как у шапки поиска.
         const paddedHeader = new PaddingContainerElement(this.countLabel, { left: 1, right: 1 });
         this.root = new HeaderBodyViewElement(paddedHeader, this.scrollBars);
         this.root.id = "referencesView";
@@ -160,16 +132,11 @@ export class ReferencesComponent extends Component {
         return this.root;
     }
 
-    /** Фокус в список (вьюлет показан командой). */
     public focus(): void {
         this.results.focus();
     }
 
-    /**
-     * Показывает результат нового поиска: строки пересобираются, курсор встаёт
-     * на первую ссылку. Пустой список — валидный результат («No results» в
-     * шапке), а не повод оставить старые ссылки на экране.
-     */
+    /** Пустой список — валидный результат («No results»), а не повод оставить старые ссылки. */
     public setResults(groups: readonly IReferenceGroup[]): void {
         this.searched = true;
         this.fileCount = groups.length;
@@ -179,7 +146,6 @@ export class ReferencesComponent extends Component {
         this.refreshResultKeys();
     }
 
-    /** Очищает панель (команда Clear и смена воркспейса). */
     public clear(): void {
         this.searched = false;
         this.fileCount = 0;
@@ -189,37 +155,26 @@ export class ReferencesComponent extends Component {
         this.refreshResultKeys();
     }
 
-    /** Сколько ссылок сейчас в панели (читают команды и тесты). */
     public get resultCount(): number {
         return this.referenceCount;
     }
 
-    /**
-     * Collapse All: сворачивает все файл-строки. Уровень тут один (файлы →
-     * ссылки), поэтому поэтапности VS Code, как в поиске с деревом каталогов,
-     * не требуется.
-     */
+    /** Уровень один (файлы → ссылки) — поэтапности VS Code не нужно. */
     public collapseDeepestLevel(): void {
         for (const id of this.fileRowIds) this.results.setCollapsed(id, true);
     }
 
-    /** Expand All — развернуть все свёрнутые строки. */
     public expandAll(): void {
         for (const id of this.results.getCollapsedIds()) {
             this.results.setCollapsed(id, false);
         }
     }
 
-    /**
-     * F4 — следующая ссылка: курсор списка переезжает на неё и редактор
-     * открывается на позиции. Обход идёт по всем файлам подряд и заворачивается
-     * с последней на первую (VS Code: references-view.next).
-     */
+    /** С последней заворачивается на первую (VS Code: references-view.next). */
     public goToNextReference(): void {
         this.stepReference(1);
     }
 
-    /** Shift+F4 — предыдущая ссылка; с первой заворачивается на последнюю. */
     public goToPreviousReference(): void {
         this.stepReference(-1);
     }
@@ -227,10 +182,7 @@ export class ReferencesComponent extends Component {
     private stepReference(delta: 1 | -1): void {
         const count = this.referenceRowIds.length;
         if (count === 0) return;
-        // Курсора на ссылке нет (стоит на строке файла) — indexOf вернёт -1, и
-        // шаг «вперёд» начинает с первой ссылки, «назад» — с последней. Сам
-        // курсор в непустом списке есть всегда (ранний выход выше), как и id у
-        // строки — список не принимает строки без него.
+        // Курсор на строке файла — indexOf даст -1: «вперёд» начнёт с первой ссылки, «назад» — с последней.
         const cursor = this.results.getCursorElement();
         /* v8 ignore start -- курсор в непустом списке есть всегда (ранний выход выше) */
         // Stryker disable next-line ConditionalExpression: ветка недостижима по той же причине, что и для покрытия
@@ -271,12 +223,10 @@ export class ReferencesComponent extends Component {
         if (first !== undefined) this.results.setCursorTo(first);
     }
 
-    /** Enter/двойной клик: файл сворачивается, ссылка открывается на позиции. */
     private activateRow(rowId: string): void {
         const row = this.referenceRows.get(rowId);
         if (row === undefined) {
-            // Строка файла — сворачиваем; неизвестная (например, из прошлого,
-            // уже очищенного результата) — не делаем ничего.
+            // Неизвестная строка (из прошлого, уже очищенного результата) — ничего не делаем.
             if (this.fileRowIds.includes(rowId)) this.results.toggleCollapsed(rowId);
             return;
         }
@@ -296,7 +246,6 @@ export class ReferencesComponent extends Component {
         this.countLabel.setText(this.countText());
     }
 
-    /** Счётчик в шапке — та же формулировка, что у панели поиска. */
     private countText(): string {
         if (!this.searched) return "";
         if (this.referenceCount === 0) return "No results";
@@ -310,7 +259,6 @@ export class ReferencesComponent extends Component {
     }
 }
 
-/** Цвета строк — те же токены, что у результатов поиска. */
 const ROW_STYLES: ISearchRowStyles = {
     dimFg: "descriptionForeground",
     matchFg: "sideBar.foreground",

@@ -4,16 +4,9 @@ import { tokenize } from "@tuidom/core/input/tokenize";
 import type { Keybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 
-/**
- * Keyboard Doctor — модель без UI и DI: шаги проверки, вердикт по нажатию,
- * рецепты эмуляторов и текст отчёта. Отчёт — тело фидбека маковода: по нему
- * должно быть видно, ГДЕ потерялась клавиша — не дошла вовсе, дошла без
- * модификатора или дошла, но не сматчилась.
- *
- * Протокол проверок — docs/TODO/MacKeybindings.md («Протокол фидбека»).
- */
+// Отчёт должен показать, ГДЕ потерялась клавиша: не дошла, дошла без модификатора или не сматчилась.
+// Протокол проверок — docs/TODO/MacKeybindings.md («Протокол фидбека»).
 
-/** Снимок окружения, который доктор показывает и кладёт в отчёт. */
 export interface KeyboardDoctorEnv {
     readonly os: string;
     readonly osSource: string;
@@ -27,7 +20,6 @@ export interface KeyboardDoctorEnv {
     readonly term: string | undefined;
 }
 
-/** Одно нажатие, как его увидел редактор: байты → токены → событие. */
 export interface ObservedKey {
     readonly raw: string;
     readonly key: string;
@@ -38,7 +30,6 @@ export interface ObservedKey {
     readonly metaKey: boolean;
 }
 
-/** Бинд, найденный для пришедшей комбинации: команда и действует ли он в этом окружении. */
 export interface MatchedBinding {
     readonly commandId: string;
     readonly when: string | undefined;
@@ -47,15 +38,12 @@ export interface MatchedBinding {
 
 export interface DoctorStep {
     readonly id: string;
-    /** Что нажать — словами человека. */
     readonly prompt: string;
     /** Что должно приехать; `undefined` — ждём печатный символ без модификаторов. */
     readonly expected: Keybinding | undefined;
-    /** Должна ли пришедшая комбинация исполнять команду. */
     readonly expectsBinding: boolean;
     /** Ждём keyup этой клавиши-модификатора (hold-сессии: Ctrl+Tab). */
     readonly keyUp?: string;
-    /** Пояснение в отчёт: что именно ловим. */
     readonly catches: string;
 }
 
@@ -74,8 +62,6 @@ export interface StepResult {
     readonly bindings: readonly MatchedBinding[];
     readonly keyUpSeen: boolean;
 }
-
-// ─── Шаги ───
 
 function isMac(env: KeyboardDoctorEnv): boolean {
     return env.os === "mac";
@@ -108,11 +94,7 @@ function step(
     };
 }
 
-/**
- * Проверки по порядку, отфильтрованные под окружение. Опасные комбинации
- * (Cmd+Q/W/H, Ctrl+C/D/Z вне редактора, префикс tmux) не просим нажимать —
- * о них спрашивают словами.
- */
+/** Опасные комбинации (Cmd+Q/W/H, Ctrl+C/D/Z вне редактора, префикс tmux) нажимать не просим — спрашиваем словами. */
 export function doctorSteps(env: KeyboardDoctorEnv): DoctorStep[] {
     const mac = isMac(env);
     const tmux = inTmux(env);
@@ -166,8 +148,6 @@ export function doctorSteps(env: KeyboardDoctorEnv): DoctorStep[] {
     }
     return steps;
 }
-
-// ─── Вердикт ───
 
 const MODIFIERS = ["ctrlKey", "shiftKey", "altKey", "metaKey"] as const;
 
@@ -226,9 +206,6 @@ export function describeVerdict(verdict: Verdict): string {
     }
 }
 
-// ─── Форматирование ───
-
-/** Комбинация так, как её называет владелец клавиатуры: на маке Option/Cmd. */
 export function formatForHuman(part: Keybinding, env: KeyboardDoctorEnv): string {
     const mac = isMac(env);
     const segments = MODIFIERS.filter((m) => part[m]).map((m) => modifierName(m, mac));
@@ -251,7 +228,6 @@ function tokenFlags(token: RawTerminalToken): string[] {
     return flags;
 }
 
-/** Токены входного парсера для сырых байт — средняя ступень «байты → токены → событие». */
 export function describeTokens(raw: string): string[] {
     return tokenize(raw).map((token) => [token.kind, ...tokenFlags(token)].join(" "));
 }
@@ -281,7 +257,7 @@ export function describeEnv(env: KeyboardDoctorEnv): string[] {
     ];
 }
 
-// ─── Рецепты эмуляторов (не проверено на живом маке) ───
+// Рецепты эмуляторов не проверены на живом маке.
 
 type TerminalFamily = "iterm2" | "apple_terminal" | "kitty" | "ghostty" | "wezterm";
 
@@ -340,8 +316,6 @@ export function emulatorRecipes(env: KeyboardDoctorEnv): string[] {
     if (env.modes.includes("ssh") && !isMac(env)) recipes.push(SSH_RECIPE);
     return recipes;
 }
-
-// ─── Отчёт ───
 
 export function formatReport(env: KeyboardDoctorEnv, results: readonly StepResult[]): string {
     const lines = ["Diode Keyboard Doctor", ...describeEnv(env), ""];

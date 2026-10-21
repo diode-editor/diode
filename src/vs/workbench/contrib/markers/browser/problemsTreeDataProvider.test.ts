@@ -8,10 +8,6 @@ import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
 import type { ProblemNode } from "./problemsTreeDataProvider.ts";
 import { ProblemsTreeDataProvider } from "./problemsTreeDataProvider.ts";
 
-/**
- * Ресурс маркера — `uri.toString()`, а не путь: хелпер принимает путь и поднимает его,
- * как это делает единственный писатель (`DiagnosticsService`).
- */
 function marker(filePath: string, severity: MarkerSeverity, line: number, message: string, character = 0): IMarker {
     return {
         owner: "settings",
@@ -72,7 +68,6 @@ describe("ProblemsTreeDataProvider", () => {
         expect(p.getChildren(file)).toHaveLength(2);
         expect(p.getTreeItem(file)).toMatchObject({ label: "a.json  (2)" });
 
-        // A file node for a resource with no markers (e.g. cleared) yields nothing.
         const gone: ProblemNode = { kind: "file", resource: Uri.file("/removed.json").toString() };
         expect(p.getChildren(gone)).toEqual([]);
         expect(p.getTreeItem(gone)).toMatchObject({ label: "removed.json  (0)" });

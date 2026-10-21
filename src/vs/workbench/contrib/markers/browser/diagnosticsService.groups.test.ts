@@ -23,10 +23,6 @@ import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import { DiagnosticsService } from "./diagnosticsService.ts";
 
-/**
- * Маркеры поверх настоящего EditorService со сплитом: squiggles получает
- * каждая вкладка ресурса, а не только вкладки активной группы.
- */
 describe("DiagnosticsService — все группы", () => {
     let ws: ITempWorkspace;
     let editors: EditorService;

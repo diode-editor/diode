@@ -5,19 +5,14 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 
 import { FindServiceDIToken } from "./findService.ts";
 
-/** Вес find-виджета (upstream: EditorContrib + 5): Escape и Enter виджета сильнее базовых команд редактора, но слабее попапов над текстом — inline, suggest, hover и подсказки параметров. */
+/** Слабее попапов над текстом — inline, suggest, hover, подсказки параметров (upstream: EditorContrib + 5). */
 const FIND_WEIGHT = KeybindingWeight.EditorContrib;
-
-// Тонкие экшены find-виджета поверх FindService (этап 10: run-обработчики живут
-// в самих экшенах, как у quick-open). Биндинги `findWidgetVisible` перебивают
-// editor-команды на тех же клавишах весом FIND_WEIGHT.
 
 export const findAction: CommandAction = {
     id: "actions.find",
     title: "Find",
     menus: [{ menuId: MenuId.MenubarEditMenu, group: "3_find", order: 10 }],
     keybinding: parseKeybinding("mod+f"),
-    // Reachable from the editor, and while the widget is open (to refocus the input).
     when: "textInputFocus || findWidgetVisible",
     run(accessor) {
         accessor.get(FindServiceDIToken).open();
@@ -67,7 +62,6 @@ export const closeFindWidgetAction: CommandAction = {
     },
 };
 
-/** Экшены find-виджета. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const FIND_ACTIONS: readonly CommandAction[] = [
     findAction,
     nextMatchAction,

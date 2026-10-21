@@ -24,7 +24,6 @@ import type {
 
 import { KEYBINDINGS_EDITOR_SCHEME, KeybindingsEditorPane, keybindingsEditorUri } from "./keybindingsEditorPane.ts";
 
-/** Сервис-фейк: вызовы записываются, исход задаётся тестом. */
 class FakeService implements IKeybindingsEditorService {
     public defines: { commandId: string; chord: KeybindingChord; previous?: IKeybindingEntrySnapshot }[] = [];
     public removed: IKeybindingEntrySnapshot[] = [];
@@ -71,7 +70,7 @@ class FakeService implements IKeybindingsEditorService {
 }
 
 class FakeRecorder {
-    /** Что вернёт следующий record(); null — отмена. */
+    /** null — отмена. */
     public nextChord: KeybindingChord | null = null;
     public recordedTitles: string[] = [];
 
@@ -89,9 +88,7 @@ interface IHarness {
     shownMenus: IContextMenuDelegate[];
     copied: string[];
     render(): string;
-    /** Активация строки по тексту её команды (Enter/двойной клик). */
     activateRowOf(title: string): void;
-    /** Контекст-меню строки по тексту её команды; возвращает пункты. */
     menuOf(title: string): MenuEntry[];
 }
 
@@ -172,7 +169,6 @@ function entryByLabel(entries: MenuEntry[], label: string): MenuItemEntry {
     return entry as MenuItemEntry;
 }
 
-/** Дать промисам действий строки дорезолвиться. */
 function settle(): Promise<void> {
     return new Promise((resolve) => setImmediate(resolve));
 }
@@ -183,7 +179,6 @@ describe("KeybindingsEditorPane — контракт вкладки", () => {
 
         expect(h.pane.uri.toString()).toBe(keybindingsEditorUri().toString());
         expect(h.pane.uri.scheme).toBe(KEYBINDINGS_EDITOR_SCHEME);
-        // Путь ресурса фиксированный ("global") — идентичность единственной вкладки.
         expect(keybindingsEditorUri().path).toBe("global");
         expect(h.pane.label).toBe("Keyboard Shortcuts");
         expect(h.pane.readOnly).toBe(true);
@@ -239,11 +234,8 @@ describe("KeybindingsEditorPane — кадр", () => {
         expect(screen).toContain("Ctrl+S");
         expect(screen).toContain("Show Hover");
         expect(screen).toContain("Extension");
-        // Команда без биндинга — тоже строка, с тире вместо клавиши.
         expect(screen).toContain("Never Bound");
-        // Плейсхолдер строки поиска виден на пустом запросе.
         expect(screen).toContain("Type to search keybindings");
-        // Без ошибки и при непустом списке — ни строки ошибки, ни заглушки.
         expect(screen).not.toContain("Failed to update keybindings.json");
         expect(screen).not.toContain("No keybindings found");
     });
@@ -282,7 +274,6 @@ describe("KeybindingsEditorPane — кадр", () => {
         h.pane.setFilter("hover");
         const list = h.pane.view.querySelector("#keybindingsList") as unknown as { rowCount: number };
         expect(list.rowCount).toBe(0);
-        // После рендера (раскладка задаёт width) строки появляются.
         expect(h.render()).toContain("Show Hover");
     });
 
@@ -471,10 +462,8 @@ describe("KeybindingsEditorPane — действия строки", () => {
 
         const menu = h.menuOf("Save File");
 
-        // Разделитель присутствует…
         const sepIndex = menu.findIndex((entry) => "type" in entry && entry.type === "separator");
         expect(sepIndex).toBeGreaterThanOrEqual(0);
-        // …и стоит перед Copy Command ID.
         const copyIndex = menu.findIndex((entry) => "label" in entry && entry.label === "Copy Command ID");
         expect(copyIndex).toBeGreaterThan(sepIndex);
     });

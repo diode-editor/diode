@@ -66,19 +66,18 @@ function mkdir(rel: string): string {
 
 describe("WorkspaceEditService scenarios — copy", () => {
     it("undo deletes the copy even after it was modified on disk", async () => {
-        // Ключевой сценарий: «скопировал, поменял копию, отменил — копия должна удалиться».
         const { service } = makeService();
         const src = write("a.txt", "orig");
         const dst = mkdir("dst");
 
         const el = await service.applyFileEdits([{ kind: "copy", from: src, to: dst }], "Paste");
         const copy = path.join(dst, "a.txt");
-        fs.writeFileSync(copy, "MODIFIED"); // правим копию на диске
+        fs.writeFileSync(copy, "MODIFIED");
 
         await el!.undo();
 
         expect(fs.existsSync(copy)).toBe(false);
-        expect(fs.readFileSync(src, "utf8")).toBe("orig"); // оригинал не тронут
+        expect(fs.readFileSync(src, "utf8")).toBe("orig");
     });
 
     it("copy into the same dir auto-renames; undo removes only the copy", async () => {
@@ -115,12 +114,12 @@ describe("WorkspaceEditService scenarios — move", () => {
         fs.writeFileSync(path.join(dst, "a.txt"), "existing");
 
         const el = await service.applyFileEdits([{ kind: "move", from: src, to: dst }], "Move");
-        expect(fs.existsSync(path.join(dst, "a copy.txt"))).toBe(true); // renamed on move
+        expect(fs.existsSync(path.join(dst, "a copy.txt"))).toBe(true);
         expect(fs.existsSync(src)).toBe(false);
 
         await el!.undo();
         expect(fs.readFileSync(src, "utf8")).toBe("v");
-        expect(fs.readFileSync(path.join(dst, "a.txt"), "utf8")).toBe("existing"); // collision target untouched
+        expect(fs.readFileSync(path.join(dst, "a.txt"), "utf8")).toBe("existing");
     });
 
     it("undo restores next to the original when its location was re-occupied", async () => {
@@ -129,12 +128,12 @@ describe("WorkspaceEditService scenarios — move", () => {
         const dst = mkdir("dst");
 
         const el = await service.applyFileEdits([{ kind: "move", from: src, to: dst }], "Move");
-        fs.writeFileSync(src, "new"); // что-то заняло исходный путь
+        fs.writeFileSync(src, "new");
 
         await el!.undo();
-        expect(fs.readFileSync(src, "utf8")).toBe("new"); // занявший файл не тронут
+        expect(fs.readFileSync(src, "utf8")).toBe("new");
         const restored = path.join(tmpDir, "a copy.txt");
-        expect(fs.readFileSync(restored, "utf8")).toBe("v"); // вернулось рядом
+        expect(fs.readFileSync(restored, "utf8")).toBe("v");
     });
 });
 
@@ -168,19 +167,19 @@ describe("WorkspaceEditService scenarios — multi-edit & ordering", () => {
         const { service, undoRedo } = makeService();
         const a = write("a.txt", "A");
         const dstCopy = mkdir("copydst");
-        await service.applyFileEdits([{ kind: "copy", from: a, to: dstCopy }], "Paste"); // op #1
+        await service.applyFileEdits([{ kind: "copy", from: a, to: dstCopy }], "Paste");
 
         const b = write("b.txt", "B");
         const dstMove = mkdir("movedst");
-        await service.applyFileEdits([{ kind: "move", from: b, to: dstMove }], "Move"); // op #2
+        await service.applyFileEdits([{ kind: "move", from: b, to: dstMove }], "Move");
 
         // LIFO: сначала откатывается последняя операция (move), потом первая (copy).
         await undoRedo.undo(WORKSPACE_UNDO_CONTEXT);
-        expect(fs.existsSync(path.join(tmpDir, "b.txt"))).toBe(true); // move откатан
-        expect(fs.existsSync(path.join(dstCopy, "a.txt"))).toBe(true); // copy ещё на месте
+        expect(fs.existsSync(path.join(tmpDir, "b.txt"))).toBe(true);
+        expect(fs.existsSync(path.join(dstCopy, "a.txt"))).toBe(true);
 
         await undoRedo.undo(WORKSPACE_UNDO_CONTEXT);
-        expect(fs.existsSync(path.join(dstCopy, "a.txt"))).toBe(false); // copy откатан
+        expect(fs.existsSync(path.join(dstCopy, "a.txt"))).toBe(false);
     });
 });
 

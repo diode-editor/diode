@@ -19,10 +19,7 @@ import type { StatusBarService } from "../../../services/statusbar/common/status
 
 import { RenameService } from "./renameService.ts";
 
-// Редактор и его состояние настоящие (AppTestHarness), подменены только поле
-// ввода нового имени и статус-бар — иначе нечем ни «набрать» имя, ни прочитать
-// показанную ошибку. Провайдеры — в настоящем реестре ядра, как их туда кладёт
-// LanguageFeaturesAdapter.
+// Подменены только поле ввода имени и статус-бар — иначе нечем ни «набрать» имя, ни прочитать ошибку.
 
 describe("RenameService — Rename Symbol", () => {
     let ws: ITempWorkspace;
@@ -54,12 +51,7 @@ describe("RenameService — Rename Symbol", () => {
 
     const group = (): IEditorService => h.container.get(EditorServiceDIToken);
 
-    /**
-     * Кладёт провайдера в реестр — как это делает адаптер. Селектор `"*"`, а
-     * не `typescript`: язык документу назначает LanguageService, которого в
-     * харнессе нет (любой файл — `plaintext`), и привязка к имени языка
-     * проверяла бы не провайдера, а харнесс.
-     */
+    /** Селектор `"*"`: LanguageService в харнессе нет, любой файл — `plaintext`. */
     function provider(impl: Partial<RenameProvider>): RenameProvider {
         const full: RenameProvider = {
             prepareRename: impl.prepareRename ?? ((): Promise<null> => Promise.resolve(null)),

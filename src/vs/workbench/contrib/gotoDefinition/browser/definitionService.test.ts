@@ -42,7 +42,6 @@ describe("DefinitionService — Go to Definition", () => {
 
     const group = () => h.container.get(EditorServiceDIToken);
     let definitions: IDisposable | undefined;
-    /** Единственный definition-провайдер для любого документа (снимает прежнего). */
     const useDefinitions = (provideDefinition: DefinitionProvider["provideDefinition"]): void => {
         definitions?.dispose();
         definitions = h.container
@@ -63,7 +62,6 @@ describe("DefinitionService — Go to Definition", () => {
         await service().revealDefinition();
 
         expect(caret()).toMatchObject({ line: 1, character: 6 });
-        // Запрос нёс версию документа и позицию каретки на момент вызова.
         expect(seen.request).toMatchObject({ uri: mainUri, line: 0, character: 0 });
         expect(seen.request?.versionId).toBe(group().getActiveEditor()?.model.document.versionId);
     });
@@ -99,7 +97,6 @@ describe("DefinitionService — Go to Definition", () => {
         // Команда не ждётся: прокачиваем цепочку «реестр → провайдеры → открытие файла».
         await flushMicrotasks(10);
 
-        // Цель — в группе справа; исходная группа не тронута.
         const groups = group().editorGroups.groups;
         expect(groups.length).toBe(2);
         expect(groups[0].activePane?.uri.toString()).toBe(mainUri);
@@ -121,7 +118,6 @@ describe("DefinitionService — Go to Definition", () => {
         expect(tokens.map((token) => token.isCancellationRequested)).toEqual([true]);
     });
 
-    /** Провайдер с ручным ответом: каждый вызов кладёт свой resolver в очередь. */
     function deferredSource(): ((locations: readonly ICoreDefinitionLocation[]) => void)[] {
         const pending: ((locations: readonly ICoreDefinitionLocation[]) => void)[] = [];
         useDefinitions(

@@ -7,21 +7,16 @@ import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarSer
 import { REFERENCES_VIEW_ID, REFERENCES_VIEWLET_ID, ReferencesComponentDIToken } from "./referencesComponent.ts";
 import { ReferencesServiceDIToken } from "./referencesService.ts";
 
-/** nf-cod-collapse_all — inline-кнопка заголовка References. */
+/** nf-cod-collapse_all */
 const COLLAPSE_ALL_ICON = "\ueac5";
-/** nf-cod-expand_all — она же в обратном состоянии. */
+/** nf-cod-expand_all */
 const EXPAND_ALL_ICON = "\ueb95";
-/** nf-cod-clear_all — «очистить панель». */
+/** nf-cod-clear_all */
 const CLEAR_ALL_ICON = "\ueabf";
 
 /**
- * Find All References — ссылки на символ под кареткой в панели REFERENCES
- * (VS Code: Shift+Alt+F12, команда встроенного расширения references-view; у
- * нас панель своя, а id команды сохранён).
- *
- * Рядом с каноничным биндом — leader-аккорд: F-клавиши с модификаторами на
- * legacy-терминале доезжают не везде, и без запасного пути фича осталась бы
- * доступной только из палитры (та же причина, что у Search и Extensions).
+ * Id команды — от VS Code references-view (Shift+Alt+F12). Leader-аккорд рядом: F-клавиши с
+ * модификаторами на legacy-терминале доезжают не везде, и фича осталась бы только в палитре.
  */
 export const findAllReferencesAction: CommandAction = {
     id: "references-view.findReferences",
@@ -38,12 +33,7 @@ export const findAllReferencesAction: CommandAction = {
     },
 };
 
-/**
- * Показать вьюлет References — сделать активным, раскрыть сайдбар и
- * сфокусировать список. Отступление от VS Code, вынужденное отсутствием
- * activity bar: без команды к панели не вернуться, переключившись на Explorer.
- * В меню View — после Extensions.
- */
+/** Отступление от VS Code, вынужденное отсутствием activity bar: без команды к панели не вернуться. */
 export const showReferencesAction: CommandAction = {
     id: "workbench.view.references",
     title: "View: Show References",
@@ -55,11 +45,7 @@ export const showReferencesAction: CommandAction = {
     },
 };
 
-/**
- * F4 / Shift+F4 — обход найденных ссылок, не уводя фокус в панель (VS Code:
- * references-view.next / .prev). Работают, пока в панели есть результат, —
- * панель при этом может быть и скрыта.
- */
+/** VS Code: references-view.next / .prev. Работают и при скрытой панели. */
 export const nextReferenceAction: CommandAction = {
     id: "references-view.next",
     title: "References: Go to Next Reference",
@@ -82,7 +68,7 @@ export const previousReferenceAction: CommandAction = {
     },
 };
 
-/** Очистить панель — пункт «⋯»-меню заголовка (VS Code: references-view.clear). */
+/** VS Code: references-view.clear. */
 export const clearReferencesAction: CommandAction = {
     id: "references-view.clear",
     title: "References: Clear",
@@ -103,11 +89,7 @@ export const clearReferencesAction: CommandAction = {
     },
 };
 
-/**
- * Collapse All / Expand All — пара в одном слоте заголовка (group/order),
- * сменяются по `referencesViewHasSomeCollapsibleResult`, как в поиске: в
- * заголовке всегда ровно одна кнопка.
- */
+/** Пара в одном слоте заголовка, сменяются по `referencesViewHasSomeCollapsibleResult`, как в поиске. */
 export const collapseReferencesAction: CommandAction = {
     id: "references-view.collapseAll",
     title: "References: Collapse All",
@@ -148,7 +130,6 @@ export const expandReferencesAction: CommandAction = {
     },
 };
 
-/** Экшены Find All References и панели ссылок. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const REFERENCES_ACTIONS: readonly CommandAction[] = [
     findAllReferencesAction,
     showReferencesAction,

@@ -13,11 +13,7 @@ function asRung(value: string | undefined): MacKeysRung | undefined {
     return MAC_KEYS_RUNGS.find((rung) => rung === value);
 }
 
-/**
- * Контекст «как если бы фокус был в редакторе» поверх окружения доктора. Живой
- * контекст в момент проверки смотрит на сам оверлей доктора, а человеку важно,
- * сработает ли комбинация там, где он её нажмёт в работе.
- */
+/** Живой контекст в момент проверки смотрит на оверлей доктора, а важно — сработает ли комбинация в редакторе. */
 export function editorContextFor(env: KeyboardDoctorEnv): ContextKeyService {
     const contextKeys = new ContextKeyService();
     // Снимок доктора несёт только включённое — выключенное в свежем контексте и так ложно.
@@ -34,7 +30,6 @@ export function editorContextFor(env: KeyboardDoctorEnv): ContextKeyService {
     return contextKeys;
 }
 
-/** Все бинды комбинации из реестра и действует ли каждый в окружении доктора. */
 export function lookupBindings(
     registry: KeybindingRegistry,
     part: Keybinding,

@@ -175,7 +175,6 @@ describe("filterKeybindingItems", () => {
 
     it("подсветка title собирается из кусков по терму", () => {
         const [entry] = filterKeybindingItems(items, "rev panel");
-        // «Reveal Panel»: `rev` → 0..2, `panel` → 7..11.
         expect(entry.titleMatch!.matchedIndices).toEqual([0, 1, 2, 7, 8, 9, 10, 11]);
     });
 

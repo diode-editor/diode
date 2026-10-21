@@ -14,12 +14,7 @@ import type { ServiceAccessor } from "../../../../platform/instantiation/common/
 import { parseChord, parseKeybinding } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import { EditorServiceDIToken } from "../../../services/editor/common/editorService.ts";
 
-/**
- * Команды комментирования (VS Code `editor/contrib/comment`): id, бинды и
- * заголовки дословно из VS Code, тела — `editor/contrib/comment/commentCommands`.
- * Токены комментариев берутся из language configuration активного языка —
- * загрузка ленивая, поэтому первый вызов на языке дожидается чтения файла.
- */
+// Токены комментариев — из language configuration; загрузка ленивая, первый вызов на языке ждёт чтения файла.
 
 async function withCommentRule(
     accessor: ServiceAccessor,

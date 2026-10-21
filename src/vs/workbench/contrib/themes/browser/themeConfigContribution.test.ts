@@ -25,7 +25,6 @@ class FakeConfig {
         return (key === "workbench.colorTheme" ? this.colorTheme : undefined) as never;
     }
 
-    /** Эмитит событие смены конфига с указанными затронутыми ключами. */
     public emit(affectedKeys: string[]): void {
         const event: IConfigurationChangeEvent = {
             affectedKeys,

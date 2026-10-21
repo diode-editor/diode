@@ -10,11 +10,8 @@ import type {
 } from "../../../../editor/common/languages/iRenameSource.ts";
 
 /**
- * Что сказали о позиции rename-провайдеры документа. `name` — текущее имя
- * символа (placeholder поля ввода); `null` — никто имени не назвал, и
- * вызывающий добирает слово под кареткой сам. `rejectReason` — «здесь
- * переименовать нельзя»: поле ввода не открывается вовсе, человек видит
- * причину.
+ * `name: null` — никто имени не назвал, вызывающий добирает слово под кареткой сам;
+ * `rejectReason` — поле ввода не открывается, человек видит причину.
  */
 export interface IPreparedRename {
     readonly name: string | null;
@@ -22,15 +19,9 @@ export interface IPreparedRename {
 }
 
 /**
- * Опрашивает rename-провайдеров документа по порядку `ordered` (upstream
- * `editor/contrib/rename/browser/rename.ts:RenameSkeleton.resolveRenameLocation`)
- * — в отличие от definition и references, ответы НЕ склеиваются: результат
- * всей операции определяет ПЕРВЫЙ провайдер, которому есть что сказать.
- *
- * Отказ провайдера перебор останавливает (upstream копит причины и идёт
- * дальше): правки накладывает сам провайдер, и спрашивать следующего после
- * «здесь нельзя» значит дать второму переименовать то, что первый запретил.
- * Сбойный провайдер (отказ самого RPC) — «сказать нечего», как у definition.
+ * Ответы не склеиваются: всё решает ПЕРВЫЙ провайдер, которому есть что сказать. Отказ перебор
+ * останавливает (upstream копит причины и идёт дальше): правки накладывает сам провайдер, и
+ * следующий переименовал бы то, что первый запретил. Сбой RPC — «сказать нечего».
  */
 export async function prepareRename(
     registry: LanguageFeatureRegistry<RenameProvider>,
@@ -46,13 +37,7 @@ export async function prepareRename(
     return { name: null };
 }
 
-/**
- * Переименовывает символ первым провайдером документа, давшим правки
- * (upstream `RenameSkeleton.provideRenameEdits`). Провайдер без правок
- * пропускается, провайдер с отказом перебор останавливает — его сообщение
- * едет человеку. Ни одного провайдера или ни одного результата — `applied:
- * false` без сообщения: переименовывать было нечего.
- */
+/** Провайдер без правок пропускается, отказ перебор останавливает; нет результата — `applied: false` без сообщения. */
 export async function renameSymbol(
     registry: LanguageFeatureRegistry<RenameProvider>,
     target: ILanguageFeatureTarget,

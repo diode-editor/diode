@@ -10,10 +10,8 @@ import type {
 } from "../../../../editor/common/languages/iReferenceSource.ts";
 
 /**
- * Ссылки от всех подошедших документу провайдеров (upstream
- * `editor/contrib/gotoSymbol/browser/goToSymbol.ts:getReferencesAtPosition`):
- * спрашиваем параллельно, склеиваем в порядке `ordered`. Сбойный провайдер не
- * роняет остальных: его ответ — «ссылок нет».
+ * Как upstream `goToSymbol.ts:getReferencesAtPosition`: провайдеры спрашиваются параллельно, склейка —
+ * в порядке `ordered`, сбойный провайдер отвечает «ссылок нет».
  */
 export async function getReferences(
     registry: LanguageFeatureRegistry<ReferenceProvider>,

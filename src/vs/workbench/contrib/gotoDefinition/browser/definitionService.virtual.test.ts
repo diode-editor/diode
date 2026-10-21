@@ -14,20 +14,10 @@ import { HistoryServiceDIToken } from "../../../services/history/browser/history
 
 import { DefinitionServiceDIToken } from "./definitionService.ts";
 
-/**
- * Go to Definition в **недисковый** ресурс — путь стокового `redhat.java`:
- * F12 на классе из jar возвращает `jdt:`-цель, содержимое которой отдаёт
- * `registerTextDocumentContentProvider` расширения.
- *
- * До этого такой прыжок убивал редактор целиком: `TextFileModel.openFile`
- * бросал на не-file схеме, промис команды никто не ждал, Node клал процесс.
- */
+// Недисковая `jdt:`-цель стокового `redhat.java`: такой прыжок раньше ронял процесс —
+// `TextFileModel.openFile` бросал на не-file схеме, промис команды никто не ждал.
 
-/**
- * Цель в том виде, в каком её присылает jdt.ls: query с процентным
- * кодированием. Нормализация `Uri` переписывает эту строку, поэтому сравнивать
- * ответ провайдера со строкой ресурса вкладки НЕЛЬЗЯ — на этом ломался прыжок.
- */
+/** Query с процентным кодированием, как у jdt.ls: сравнение со строкой ресурса вкладки на этом ломалось. */
 const JDT_TARGET =
     "jdt://contents/commons-lang3-3.14.0.jar/org.apache.commons.lang3/StringUtils.java" +
     "?=mvn-proj/%5C/home%5C/vscode%5C/.m2%5C/repository%3D/maven.pomderived=/true";
@@ -55,7 +45,6 @@ describe("DefinitionService — цель на недисковом ресурс�
 
     const group = () => h.container.get(EditorServiceDIToken);
     let definitions: IDisposable | undefined;
-    /** Единственный definition-провайдер для любого документа (снимает прежнего). */
     const useDefinitions = (provideDefinition: DefinitionProvider["provideDefinition"]): void => {
         definitions?.dispose();
         definitions = h.container

@@ -24,7 +24,6 @@ const ROOT = "/work/project";
 const MAIN = `${ROOT}/src/main.ts`;
 const MAIN_TEXT = 'import { greet } from "./defs";\n\nconst hello = greet("world");\n';
 
-/** Панель-заглушка: запоминает, какие группы ей показали. */
 function fakeComponent(): { component: ReferencesComponent; shown: IReferenceGroup[][]; cleared: number } {
     const shown: IReferenceGroup[][] = [];
     const state = { cleared: 0 };
@@ -44,13 +43,11 @@ function fakeComponent(): { component: ReferencesComponent; shown: IReferenceGro
 }
 
 interface IFakeEditorOptions {
-    /** Позиция каретки: строка и колонка (0-based). */
+    /** 0-based. */
     readonly caret?: [number, number];
     readonly text?: string;
     readonly source?: ReferenceProvider["provideReferences"];
-    /** Активного редактора нет вовсе. */
     readonly noEditor?: boolean;
-    /** Открытые модели: путь → текст (несохранённые правки). */
     readonly openModels?: Record<string, string>;
 }
 
@@ -76,13 +73,9 @@ function fakeGroup(opts: IFakeEditorOptions = {}): IEditorService {
     return group;
 }
 
-/** Провайдер ссылок фейковой группы — в реестр сервиса его кладёт {@link createService}. */
 const sources = new WeakMap<IEditorService, IFakeEditorOptions["source"]>();
 
-/**
- * Сервис над фейками; провайдер из `fakeGroup({ source })` регистрируется в
- * реестре под `*` — как прокси провайдера расширения в проде.
- */
+/** Провайдер из `fakeGroup({ source })` регистрируется под `*` — как прокси провайдера расширения в проде. */
 function createService(
     component: ReferencesComponent,
     group: IEditorService,
@@ -97,7 +90,6 @@ function createService(
     return new ReferencesService(component, group, models, workspace, providers, sidebar, languageFeatures);
 }
 
-/** Папки воркспейса глазами сервиса: ему нужен только путь первой папки. */
 function fakeWorkspace(root: string | null = ROOT): IWorkspaceContextService {
     const folders = root === null ? [] : [{ uri: { fsPath: root }, name: "", index: 0 }];
     return { getWorkspace: () => ({ id: root, folders }) } as unknown as IWorkspaceContextService;
@@ -235,7 +227,6 @@ describe("ReferencesService — findReferences", () => {
         release!([reference(MAIN, 2, 14, 19)]);
         await stale;
 
-        // Показан ровно один результат — второго (свежего) запроса.
         expect(panel.shown).toHaveLength(1);
         expect(panel.shown[0][0].matches[0].lineNumber).toBe(1);
         // И устаревший ответ отброшен ДО добора строк: лишнего чтения файла нет.
@@ -273,7 +264,6 @@ describe("ReferencesService — findReferences", () => {
         releaseRead!();
         await stale;
 
-        // Панель наполнил только второй запрос.
         expect(panel.shown).toHaveLength(1);
     });
 
