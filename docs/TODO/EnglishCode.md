@@ -43,8 +43,8 @@
 - [~] `workbench/services` (2752)
 - [~] `workbench/browser`, `workbench/common` (1861)
 - [~] `workbench/api` (1982)
-- [ ] `workbench/contrib` и прочее `workbench/` (3897) — после волны 1 files…quickaccess
-- [ ] `e2e` (2879) — после волны 1 e2e
+- [~] `workbench/contrib` и прочее `workbench/` (3897)
+- [~] `e2e` (2879)
 - [~] scripts, extensions, packaging, `.github`, конфиги (2344) — волны 1+2+3 одним PR
 
 ## Финал
