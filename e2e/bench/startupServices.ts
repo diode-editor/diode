@@ -1,11 +1,7 @@
 /**
- * Таблица созданий DI на старте — что, сколько (self и inclusive), в каком окне
- * лестницы, кто запросил и в какой фазе контрибуций (аналог «Developer: Startup
- * Performance» эталона). Вход — трассы `DIODE_STARTUP_TRACE` (поле
- * `instantiations`, см. `src/vs/platform/instantiation/common/instantiationTrace.ts`);
- * по нескольким трассам цифры — медианы по прогонам.
+ * Таблица созданий DI на старте (аналог «Developer: Startup Performance» эталона) по трассам
+ * `DIODE_STARTUP_TRACE`; по нескольким трассам — медианы.
  *
- * Запуск:
  *   npm run bench:open -- --sizes=small --runs=15 --keep-traces=/tmp/traces
  *   npm run bench:services -- /tmp/traces/*.json [--sort=self|inclusive|start] [--top=40] [--min=0.3]
  */
@@ -46,7 +42,6 @@ interface Row {
     readonly requester: string;
     readonly phase: string | null;
     readonly contribution: boolean;
-    /** В скольких трассах встретилось. */
     readonly runs: number;
 }
 

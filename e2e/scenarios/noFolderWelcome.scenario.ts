@@ -4,14 +4,8 @@ import { basename, join, resolve, sep } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Паритет состояния «папка не открыта»: редактор поднят на ОДНОМ файле. В этом
-// состоянии сайдбар не молчит — Explorer показывает welcome с кнопкой Open
-// Folder (аналог `viewsWelcome` эталона), Search и Source Control честно
-// говорят, что им нужна папка, а магазин расширений работает как обычно: папка
-// ему не нужна. Выход из состояния — Enter по кнопке welcome: фокус стоит на
-// ней сразу, как только вьюлет показан.
+// Редактор поднят на одном файле без папки; выход — Enter по кнопке welcome: фокус на ней сразу.
 
-/** Одинокий файл вне воркспейса: его и открывает редактор, папку не получая. */
 function makeLonelyFile(): string {
     const dir = mkdtempSync(join(tmpdir(), "diode-lonely-"));
     const file = join(dir, "lonely.txt");
@@ -24,8 +18,7 @@ const MARKER = "demo-assets";
 /** Папка, которой заканчивается демо: её список файлов целиком влезает в кадр. */
 function makeFolder(): string {
     const dir = mkdtempSync(join(tmpdir(), "diode-no-folder-"));
-    // Каталог-метка: диалог «только папки» показывает лишь каталоги, и по нему
-    // видно, что подгрузка папки дошла до конца.
+    // Метка: диалог «только папки» показывает лишь каталоги — по ней видно, что папка догрузилась.
     mkdirSync(join(dir, MARKER));
     writeFileSync(join(dir, "greeting.ts"), 'export const greeting = "hello";\n');
     writeFileSync(join(dir, "README.md"), "# Demo\n");
@@ -40,7 +33,6 @@ const registry = resolve(repoRoot, "e2e", "fixtures", "registry");
 export default defineScenario({
     name: "no-folder-welcome",
     title: "Папка не открыта: welcome в сайдбаре и выход из состояния",
-    // Только файл — ни одного каталога в аргументах.
     open: [lonelyFile],
     extraArgs: [`--registry=${registry}`],
     cols: 120,

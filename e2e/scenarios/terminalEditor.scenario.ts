@@ -3,27 +3,17 @@ import { resolve } from "node:path";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Терминал вкладкой в области редакторов (`TerminalLocation.Editor`): фикстурное
-// расширение `terminal-demo` заводит шелл «Demo Agent» формой
-// `claude-vscode.terminal.open` стокового Claude Code —
-// `createTerminal({ location: { viewColumn: ViewColumn.Beside } })` + `show()`.
-// Кадры: агент вкладкой в группе справа от файла, вывод его команды, в
-// `window.terminals` он есть → «Move Terminal into Panel» уводит его в вид
-// TERMINAL с тем же выводом → «Move Terminal into Editor Area» возвращает
-// вкладкой → Ctrl+W во вкладке-терминале закрывает её вместе с процессом
-// (причина User, 3), а вид TERMINAL пуст.
+// Форма `claude-vscode.terminal.open` стокового Claude Code: `createTerminal({ location: { viewColumn: Beside } })` + `show()`.
 
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-terminal-demo");
 
 /**
- * Вывод команды агента в кадре. Команда — `printf 'agent %s\n' ready`: строки «agent ready»
- * в ней нет, поэтому совпадение — только вывод, то есть шелл команду исполнил. Ждать саму
- * команду нельзя: в узкой группе справа она переносится по длине промпта (имя хоста).
+ * Строки «agent ready» в команде нет — совпадает только вывод. Саму команду ждать нельзя: в узкой группе
+ * справа она переносится по длине промпта.
  */
 const echoed = (t: string): boolean => t.includes("agent ready");
 
-/** Исполняет команду через палитру (F1 → заголовок → Enter). */
 async function runCommand(editor: ScenarioDriver, title: string): Promise<void> {
     await editor.sendKey("F1");
     await editor.waitForNode("#quickInput");
@@ -44,19 +34,16 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("act:-"), { timeoutMs: 20_000 });
 
-        // Агент — вкладкой в новой группе справа, файл остаётся слева.
         await runCommand(editor, "Terminal Demo: Open Agent Beside");
         await editor.waitForText((t) => t.includes("Demo Agent ×") && echoed(t), { timeoutMs: 15_000 });
         await editor.waitForText((t) => t.includes("ls:Demo Agent"));
         await editor.capture("agent-beside");
 
-        // Во вкладку TERMINAL — тот же процесс и вывод.
         await runCommand(editor, "Terminal: Move Terminal into Panel");
         await editor.waitForText((t) => t.includes("TERMINAL") && !t.includes("Demo Agent ×"));
         await editor.waitForText(echoed);
         await editor.capture("moved-to-panel");
 
-        // И обратно вкладкой; Ctrl+W во вкладке-терминале закрывает её с процессом.
         await runCommand(editor, "Terminal: Move Terminal into Editor Area");
         await editor.waitForText((t) => t.includes("Demo Agent ×") && echoed(t));
         await editor.capture("moved-back");

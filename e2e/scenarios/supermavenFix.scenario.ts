@@ -5,24 +5,15 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// «Fix with Supermaven» у СТОКОВОГО Supermaven (из магазина по id): действие —
-// команда `supermaven.sendFixRequestToChat` с `vscode.Position` в аргументах,
-// её обработчик без await зовёт `supermaven-view.focus` (webview-вид чата) и
-// шлёт сообщение в панель. Из догфуда: пользователь видел «Code action failed».
-// Причин было две: кэш действий в субпроцессе вытеснял ответ быстрого
-// провайдера, пока меню собиралось из нескольких (здесь — tsserver, Supermaven
-// и три провайдера фикстуры chat-panel), а команды `<вид>.focus` не было вовсе.
-// Теперь действие исполняется, а вместо панели чата — тост с причиной.
-//
-// Тот же контракт герметично — сценарий code-action-to-chat и юниты
-// `languagesNamespace.codeActions` / `extensionViewFocusCommands`.
+// Догфуд-баг «Code action failed»: кэш действий вытеснял ответ быстрого провайдера, пока меню собиралось из
+// нескольких (здесь tsserver, Supermaven и chat-panel), и не было команды `<вид>.focus`. Герметично — code-action-to-chat.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "quickfixSample");
 const mainFile = resolve(sampleDir, "main.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-chat-panel");
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
+/** StyleFlags.Undercurl. */
 const UNDERCURL = 8;
 
 export default defineScenario({
@@ -43,15 +34,13 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("const bad"));
 
-        // Readiness: undercurl от НАСТОЯЩЕГО tsserver'а — без диагностики у
-        // каретки Supermaven своего действия не предлагает.
+        // Readiness: без диагностики у каретки Supermaven своего действия не предлагает.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
             { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
         );
 
-        // Каретка — на строку с ошибкой типов (`const bad: number = "oops"`).
         await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Ctrl+K");

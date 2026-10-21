@@ -4,7 +4,6 @@ import type { NodeSnapshot } from "@tuidom/inspector/protocol";
 
 import { $, $$, boxOf, centerOf, focusedLeaf, focusPath } from "./query.ts";
 
-// Пуристый unit по матчеру локаторов — без бинаря; строим снимок вручную.
 function node(type: string, over: Partial<NodeSnapshot> = {}, children: NodeSnapshot[] = []): NodeSnapshot {
     return {
         nodeId: 0,
@@ -33,7 +32,6 @@ describe("query locators", () => {
 
     it("$$ returns every match; descendant combinator scopes it", () => {
         expect($$(tree, "SelectBoxElement")).toHaveLength(2);
-        // Только тот SelectBox, что под панелью.
         const scoped = $$(tree, "PanelContainerElement SelectBoxElement");
         expect(scoped).toHaveLength(1);
         expect(scoped[0].role).toBe("combobox");

@@ -1,7 +1,3 @@
-/**
- * Фикстуры бенча открытия файла: матрица размеров и генератор файлов.
- * Общие для отчёта (`benchOpen.ts`) и перф-гейта (`startupBudget.bench.ts`).
- */
 
 import { createWriteStream } from "node:fs";
 import { join } from "node:path";
@@ -23,21 +19,18 @@ export const SIZES: readonly SizeSpec[] = [
     { key: "medium", kind: "ts", amount: 2_000, runs: 11, timeoutMs: 30_000 },
     { key: "large", kind: "ts", amount: 20_000, runs: 7, timeoutMs: 60_000 },
     { key: "xlarge", kind: "ts", amount: 200_000, runs: 5, timeoutMs: 120_000 },
-    // `log500m` (500 МБ plaintext, 5.3 М строк) из матрицы убран: открывается за
-    // 88 с, а на первой правке умирает по OOM кучи V8 (CI, 2026-09-27). Вернётся с
-    // этапом «Стриминг» (docs/TODO/OpenPerformance.md), генератор kind=log остаётся.
+    // `log500m` (500 МБ) убран: открывается 88 с и падает по OOM кучи V8 на первой правке
+    // (CI, 2026-09-27). Вернётся с этапом «Стриминг», генератор kind=log остаётся.
 ];
 
-// Первая строка ts-фикстуры: `const benchMarker = 42; // diode-bench`.
-// Контент — маркер виден; подсветка — ячейка `c` слова `const` покрашена
-// цветом keyword из darkPlus (дефолтная тема; тот же ассерт в sea-startup).
+// Подсветку проверяют по цвету keyword darkPlus на ячейке `c` слова `const` (как в sea-startup),
+// поэтому строка начинается с него.
 export const TS_MARKER = "benchMarker";
 export const TS_FIRST_LINE = `const ${TS_MARKER} = 42; // diode-bench`;
 // Первая строка лога; `.log` — plaintext, подсветки не существует.
 export const LOG_MARKER = "diode-bench-log-start";
 export const LOG_FIRST_LINE = `2026-01-01T00:00:00.000Z INFO ${LOG_MARKER}`;
 
-/** Сгенерированный файл: путь, число строк и текст любой строки (для предикатов нагрузки). */
 export interface OpenFixture {
     readonly key: string;
     readonly kind: "ts" | "log";

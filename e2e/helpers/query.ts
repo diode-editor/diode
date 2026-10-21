@@ -1,9 +1,7 @@
 import type { NodeSnapshot } from "@tuidom/inspector/protocol";
 
-// Локаторы для e2e — селектор как адрес узла. `nodeId` эфемерен (виджеты
-// пересоздают поддеревья при обновлении данных — id протухают между кадрами),
-// поэтому целимся селектором, вычисляемым каждый раз заново. Синтаксис
-// повторяет `tuidom/dom/tuiSelector.ts`, но матчит по снимку `NodeSnapshot`:
+// Целимся селектором, а не `nodeId`: виджеты пересоздают поддеревья, и id протухают между кадрами.
+// Синтаксис — как у `tuidom/dom/tuiSelector.ts`, но по снимку `NodeSnapshot`:
 //
 //     "EditorElement"          — по типу (имя класса)
 //     "#greeting"              — по id
@@ -70,7 +68,6 @@ export function $$(root: NodeSnapshot | null, selector: string): NodeSnapshot[] 
     if (root === null) return [];
     const parts = parseSelector(selector);
     const out: NodeSnapshot[] = [];
-    // Корень тоже участвует в матче первого сегмента.
     if (matchesPart(root, parts[0])) {
         if (parts.length === 1) out.push(root);
         else collect(root, parts, 1, out);
@@ -80,12 +77,10 @@ export function $$(root: NodeSnapshot | null, selector: string): NodeSnapshot[] 
     return [...new Set(out)];
 }
 
-/** Первый узел (pre-order), подходящий под селектор, или `null`. */
 export function $(root: NodeSnapshot | null, selector: string): NodeSnapshot | null {
     return $$(root, selector)[0] ?? null;
 }
 
-/** Box первого узла по селектору; бросает, если не найден (локатор — обещание). */
 export function boxOf(root: NodeSnapshot | null, selector: string): Box {
     const node = $(root, selector);
     if (node === null) throw new Error(`locator not found: ${selector}`);
@@ -109,7 +104,6 @@ export function focusedLeaf(root: NodeSnapshot | null): NodeSnapshot | null {
     return leaf;
 }
 
-/** Путь типов от корня до сфокусированного листа (для «где живёт фокус»). */
 export function focusPath(root: NodeSnapshot | null): string[] {
     const path: string[] = [];
     let node = root;

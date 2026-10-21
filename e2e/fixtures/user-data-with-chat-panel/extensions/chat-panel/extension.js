@@ -1,22 +1,13 @@
 "use strict";
 
 /**
- * Демо-расширение чат-панели: устроено как любое расширение с чатом — СНАЧАЛА
- * поднимает свою webview-часть, и только потом регистрирует всё остальное
- * (команду палитры, свой output-канал, code actions «в чат»).
+ * Устроено как любое расширение с чатом: СНАЧАЛА поднимает webview, потом регистрирует остальное.
+ * Webview в TUI нет by design, но расширение от этого умереть не должно: команда
+ * `Chat Panel: Ping` обязана доехать до палитры и исполниться.
  *
- * Webview в TUI не поддерживается by design, но убивать этим расширение целиком
- * нельзя: заглушка отвечает инертной панелью и пишет одну строку в Output, а
- * команда `Chat Panel: Ping` обязана доехать до палитры и исполниться.
- *
- * Code actions повторяют стоковый Supermaven («Fix with Supermaven»): действие
- * без правок, только команда с `vscode.Position` в аргументах, а её обработчик
- * БЕЗ await зовёт `<вид>.focus` и шлёт сообщение в webview. Провайдеров три
- * (быстрый quickfix, медленный quickfix, неактивный рефакторинг) — так меню
- * собирается из нескольких ответов, как у живого пользователя рядом с tsserver.
- *
- * Используется e2e-сценариями webviewNoop и codeActionToChat и ручным
- * просмотром (--user-data-dir с этой фикстурой).
+ * Code actions — как у стокового Supermaven («Fix with Supermaven»): без правок, только команда с
+ * `vscode.Position` в аргументах. Провайдеров три (быстрый и медленный quickfix, неактивный
+ * рефакторинг) — меню собирается из нескольких ответов, как рядом с tsserver.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -42,8 +33,7 @@ exports.activate = function activate(context) {
         }),
     );
 
-    // Как `supermaven.sendFixRequestToChat`: синхронный обработчик, `.focus`
-    // без await, сообщение — в webview, если он когда-нибудь поднимется.
+    // Как `supermaven.sendFixRequestToChat`: обработчик синхронный, `.focus` без await.
     context.subscriptions.push(
         vscode.commands.registerCommand("chatPanel.sendFix", function (request) {
             vscode.commands.executeCommand("chatPanel.chatView.focus");

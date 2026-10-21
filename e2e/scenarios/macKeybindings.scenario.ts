@@ -2,12 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Мак-раскладка на рунге mac-cmd (kitty/ghostty/iTerm2 без tmux): ОС клавиатуры
-// задана keyboard.platform, Cmd — форсированной capability super. Кадры
-// показывают, что мак-дельты реально доезжают до команд: Cmd+↓/↑ — конец/начало
-// документа, Cmd+→ — конец строки, Option+← — слово, Ctrl+A/E — начало/конец
-// строки (подслой WinCtrl), Cmd+P — Quick Open, индикатор Ln/Col — свидетель. Сегмент окружения
-// в статус-баре показывает рунг, F6 открывает Keyboard Doctor.
+// Рунг mac-cmd: ОС клавиатуры — keyboard.platform, Cmd — форсированная capability super.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
@@ -18,10 +13,8 @@ export default defineScenario({
     settings: {
         "keyboard.platform": "mac",
         "terminal.capabilities": { "extended-keys": true, super: true },
-        // Сценарий открывает .ts, а на Windows-раннере встроенный TS-сервер не
-        // поднимается — его error-тосты накрывали палитру в этом кадре. Сценарии
-        // без своих настроек гасит окружение e2e само (см. appSession.ts), а у
-        // этого настройки свои, поэтому гасим здесь.
+        // На Windows-раннере встроенный TS-сервер не поднимается и тостами накрывает палитру; окружение e2e
+        // гасит его только сценариям без своих настроек (appSession.ts).
         "diode.lsp.typescript.enabled": false,
     },
     userKeybindings: [{ key: "f6", command: "diode.keyboardDoctor" }],
@@ -30,36 +23,32 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("greeting") && t.includes("mac-cmd"));
 
-        // Cmd+↓ — в конец документа (вместо pc-шного Ctrl+End).
         await editor.sendKey("Meta+ArrowDown");
         await editor.waitForText((t) => t.includes("Ln 7, Col 1"));
         await editor.capture("cmd-down");
 
-        // Cmd+↑ — в начало, Cmd+→ — в конец первой строки.
         await editor.sendKey("Meta+ArrowUp");
         await editor.waitForText((t) => t.includes("Ln 1, Col 1"));
         await editor.sendKey("Meta+ArrowRight");
         await editor.waitForText((t) => t.includes("Ln 1, Col 33"));
 
-        // Option+← — на слово влево (Ctrl+← на маке забирает Mission Control).
+        // Не Ctrl+←: на маке его забирает Mission Control.
         await editor.sendKey("Alt+ArrowLeft");
         await editor.waitForText((t) => t.includes("Ln 1, Col 28"));
         await editor.capture("option-word-left");
 
-        // Ctrl+A / Ctrl+E — начало/конец строки (Home/End в мак-терминалах скроллят буфер).
+        // Не Home/End: в мак-терминалах они скроллят буфер.
         await editor.sendKey("Ctrl+A");
         await editor.waitForText((t) => t.includes("Ln 1, Col 1"));
         await editor.sendKey("Ctrl+E");
         await editor.waitForText((t) => t.includes("Ln 1, Col 33"));
 
-        // Cmd+P — Quick Open через Cmd (mod+p на mac-cmd), настоящий super-бит в байтах.
         await editor.sendKey("Meta+p");
         await editor.waitForText((t) => t.includes("Go to File"));
         await editor.capture("cmd-quick-open");
         await editor.sendKey("Escape");
         await editor.waitForText((t) => !t.includes("Go to File"));
 
-        // Палитра по Cmd+Shift+P: шорткаты подписаны по-маковски — глифами ⌘⇧⌥⌃.
         await editor.sendKey("Meta+Shift+p");
         await editor.sendText("File: Save");
         await editor.waitForText((t) => t.includes("File: Save") && t.includes("⌘S"));
@@ -67,7 +56,6 @@ export default defineScenario({
         await editor.sendKey("Escape");
         await editor.waitForText((t) => !t.includes("File: Save"));
 
-        // Keyboard Doctor: окружение, рунг и первый шаг проверки.
         await editor.sendKey("F6");
         await editor.waitForText((t) => t.includes("Keyboard Doctor") && t.includes("рунг: mac-cmd"));
         await editor.capture("keyboard-doctor");

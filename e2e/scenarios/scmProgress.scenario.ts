@@ -5,16 +5,12 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Прогресс git-операции: спиннер после названия секции CHANGES и в подписи
-// кнопки, пока идёт коммит. Медленным делает сам `git commit` настоящий
-// pre-commit-хук со `sleep` — как husky/lint-staged в жизни; наш код в
-// сценарии не подменяется ничем.
+// Медленным `git commit` делает настоящий pre-commit-хук со `sleep` — наш код не подменяется ничем.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
 
-/** Репозиторий со staged-правкой и медленным pre-commit-хуком. */
 function makeRepo(): { repoDir: string } {
     const repoDir = mkdtempSync(join(tmpdir(), "diode-scm-progress-demo-"));
     git(repoDir, "init", "-q");
@@ -48,7 +44,6 @@ export default defineScenario({
         { key: "alt+m", command: "workbench.scm.focus" },
     ],
     async run(editor) {
-        // Готовность: расширение посчитало git status и опубликовало staged-файл.
         await editor.waitForText((t) => t.includes("app.ts"));
         await editor.sendKey("Alt+M");
         await editor.waitForText((t) => t.includes("Staged Changes"));
@@ -56,15 +51,11 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("feat: greet louder"));
         await editor.capture("ready");
 
-        // Коммит уходит в расширение, хук спит: заголовок CHANGES крутит
-        // спиннер, кнопка гаснет и говорит, чем занята.
         await editor.sendKey("Alt+Enter");
-        // Во время анимации settling-ввод не шлём — кадр не «затихает», пока
-        // спиннер тикает; только ожидания и снимки.
+        // Settling-ввод не шлём: пока тикает спиннер, кадр не «затихает».
         await editor.waitForText((t) => t.includes("Committing"));
         await editor.capture("committing");
 
-        // Хук отработал — список сошёлся, кнопка вернулась.
         await editor.waitForText((t) => !t.includes("Committing") && !t.includes("Staged Changes"), {
             timeoutMs: 30_000,
         });

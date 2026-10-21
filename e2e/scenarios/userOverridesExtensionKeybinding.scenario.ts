@@ -5,13 +5,8 @@ import { frameToText } from "../helpers/frame.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Слои кейбиндов: пользовательский бинд сильнее бинда расширения на той же
-// комбинации — как в VS Code, и независимо от того, что слой расширений
-// регистрируется при старте ПОЗЖЕ keybindings.json. Фикстурное расширение
-// `ext-storage-demo` вешает `alt+q` на свою команду под `extStorageDemo.armed`;
-// пользователь в keybindings.json вешает ту же `alt+q` на Quick Open с
-// префиллом. После `Arm` оба бинда активны, и клавиша обязана уйти
-// пользовательскому: открывается Quick Open, счётчик расширения стоит на нуле.
+// Пользовательский бинд сильнее бинда расширения на той же комбинации, как в VS Code, хотя слой расширений
+// регистрируется ПОЗЖЕ keybindings.json.
 
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-ext-storage-demo");
@@ -36,18 +31,15 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("idle · fired 0"), { timeoutMs: 20_000 });
 
-        // Бинд расширения оживает — теперь на alt+q активны оба.
         await runCommand(editor, "Ext Storage Demo: Arm");
         await editor.waitForText((t) => t.includes("armed · fired 0"), { timeoutMs: 5000 });
         await editor.capture("both-active");
 
-        // Клавиша уходит пользовательскому бинду: Quick Open с префиллом.
         await editor.sendKey("Alt+q");
         await editor.waitForNode("#quickInput");
         const frame = frameToText(await editor.waitForText((t) => t.includes("AGENTS.md"), { timeoutMs: 5000 }));
         await editor.capture("user-wins");
 
-        // Счётчик расширения не сдвинулся — его команда не исполнялась.
         if (!frame.includes("armed · fired 0")) {
             throw new Error("alt+q ушёл бинду расширения: пользовательский слой не сильнее слоя extension");
         }

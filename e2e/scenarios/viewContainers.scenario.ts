@@ -5,15 +5,8 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Общая модель view-контейнеров: заголовок активити со своим «⋯»-меню,
-// подменю-переключатель видимости секций и кнопки в заголовках view.
-// Демонстрируем на Source Control — единственном контейнере с двумя секциями
-// (CHANGES + GRAPH), где видно и заголовок контейнера, и заголовки секций.
-//
-// Кадры заголовков идут подряд (EXPLORER → SEARCH → SOURCE CONTROL) ещё и
-// затем, что название вьюлета обязано выглядеть одинаково независимо от того,
-// merged контейнер или нет: у merged его несёт PaneHeaderElement, у SCM —
-// ViewContainerHeaderElement, и оба читают `sideBarTitle.foreground`.
+// Кадры заголовков подряд (EXPLORER → SEARCH → SOURCE CONTROL): название вьюлета обязано выглядеть одинаково —
+// у merged его несёт PaneHeaderElement, у SCM ViewContainerHeaderElement, оба читают `sideBarTitle.foreground`.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -44,40 +37,30 @@ export default defineScenario({
     skipOn: ["win32", "darwin"],
     userKeybindings: [{ key: "alt+c", command: "workbench.view.scm" }],
     async run(editor) {
-        // Explorer — контейнер с единственной секцией: заголовки слиты, в строке
-        // заголовка живут кнопки New File / New Folder / Refresh и «⋯».
         await editor.waitForText((t) => t.includes("EXPLORER") && t.includes("app.ts"));
         await editor.capture("explorer-title");
 
-        // Search — тоже merged-контейнер: заголовок ведёт та же секция.
-        // Свой бинд не заводим: Alt+<буква> ушёл бы в мнемонику меню, а
-        // штатный аккорд Ctrl+K F работает на любом терминале.
+        // Свой бинд не заводим: Alt+<буква> ушёл бы в мнемонику меню, а Ctrl+K F работает на любом терминале.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("f");
         await editor.waitForText((t) => t.includes("SEARCH"));
         await editor.capture("search-title");
 
-        // Source Control — две секции: у контейнера свой заголовок, у CHANGES и
-        // GRAPH — свои, сворачиваемые.
         await editor.sendKey("Alt+C");
         await editor.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("CHANGES") && t.includes("GRAPH"));
         await editor.capture("container-and-sections");
 
-        // «⋯» заголовка контейнера: команды контейнера + подменю Views.
         const header = await editor.waitForNode("#viewContainerHeader-scm");
         await editor.click(header.box.x + header.box.width - 2, header.box.y);
         await editor.waitForText((t) => t.includes("Views"));
         await editor.capture("container-menu");
 
-        // Подменю Views — чекбоксы видимости секций. Views — первый пункт и
-        // выделен при открытии; ниже — «Move To» (перенос контейнера).
+        // Views — первый пункт и выделен при открытии.
         await editor.sendKey("ArrowRight");
         await editor.waitForText((t) => t.includes("CHANGES") && t.includes("GRAPH"));
         await editor.capture("views-submenu");
 
-        // Скрываем GRAPH: контейнер остаётся с одной видимой секцией и сам
-        // становится merged — заголовок контейнера исчезает, а CHANGES несёт
-        // его название.
+        // Одна видимая секция делает контейнер merged: его название несёт CHANGES.
         await editor.sendKey("ArrowDown");
         await editor.sendKey("Enter");
         await editor.waitForText((t) => !t.includes("GRAPH"));

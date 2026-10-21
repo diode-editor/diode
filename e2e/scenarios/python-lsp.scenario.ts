@@ -4,16 +4,12 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Python из коробки: НАСТОЯЩИЙ сторонний basedpyright ставится ИЗ МАГАЗИНА
-// (последняя опубликованная версия, установка по id), его вшитый сервер даёт
-// диагностику (squiggle на намеренной ошибке типов), hover с сигнатурой из
-// другого файла и вьюлет REFERENCES. Демо закрывает видимую часть: сигнатура
-// и строки объявления добраны из defs.py, которого нет в открытом буфере.
+// Сигнатура и строки объявления добираются из defs.py, которого нет в открытом буфере.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "pySample");
 const mainFile = resolve(sampleDir, "main.py");
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) — сигнал «сервер поднялся». */
+/** StyleFlags.Undercurl. */
 const UNDERCURL = 8;
 
 export default defineScenario({
@@ -29,7 +25,6 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("reply: int"));
 
-        // Дождаться, пока настоящий basedpyright проверит открытый файл.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
@@ -37,8 +32,7 @@ export default defineScenario({
         );
         await editor.capture("diagnostics");
 
-        // Каретка на вызов `greet` (строка 2, колонка 15) → hover (Ctrl+K Ctrl+U):
-        // сигнатура из defs.py, в буфере main.py её нет.
+        // На вызов `greet` (строка 2, колонка 15) → hover.
         await editor.sendKey("ArrowDown");
         await editor.sendKey("ArrowDown");
         for (let i = 0; i < 15; i++) await editor.sendKey("ArrowRight");
@@ -47,8 +41,6 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("greet(name: str) -> str"), { timeoutMs: 60_000 });
         await editor.capture("hover");
 
-        // Escape закрывает попап → Find All References (Ctrl+K Ctrl+R): ссылки
-        // из двух файлов во вьюлете REFERENCES, объявление приехало из defs.py.
         await editor.sendKey("Escape");
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+R");

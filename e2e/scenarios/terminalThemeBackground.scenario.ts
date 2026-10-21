@@ -4,11 +4,8 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Фон встроенного терминала в теме без `terminal.background` — фон панели, как
-// у vscode (там у `terminal.background` дефолта нет, терминал в панели рисуется
-// `panel.background`). Стоковая Catppuccin Mocha задаёт `panel.background`
-// (`#1e1e2e`), но не цвета терминала; раньше терминал получал дефолт реестра
-// `#181818` и чернел посреди панели. Тема приезжает из магазина по id.
+// Тема без `terminal.background` — фон панели, как у vscode (`panel.background`); Catppuccin Mocha задаёт
+// только `panel.background`, и терминал с дефолтом реестра `#181818` чернел посреди панели.
 
 const MOCHA_BASE = 0x1e1e2e;
 

@@ -7,21 +7,8 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, type ScenarioDriver } from "./framework.ts";
 
-// «Move to a new file» стокового typescript-language-server и его отмена — как
-// в VS Code:
-// - новый файл рождается самим edit'ом (сервер создаёт его заранее пустым —
-//   клиент diode-lsp-typescript переписывает это в создание), поэтому Ctrl+Z
-//   убирает его с диска, а не оставляет пустым;
-// - правка — рефакторинг: исходник сохраняется (`files.refactoring.autoSave`),
-//   закрыть его без сохранения и получить класс в двух местах нельзя;
-// - шаг лежит в истории ВСЕХ затронутых файлов: Ctrl+Z работает и из вкладки
-//   нового файла, открытого уже после правки, — и закрывает её вместе с
-//   удалённым файлом;
-// - правили файл после шага — честный отказ с тостом (строки эталона), а не
-//   молчащая клавиша.
-//
-// Каталог наполняется в prepare: сценарий пишет на диск (паттерн
-// bulkWorkspaceEdit.scenario.ts).
+// Как в VS Code: сервер создаёт новый файл пустым заранее, клиент diode-lsp-typescript переписывает это
+// в создание — поэтому Ctrl+Z убирает файл с диска; шаг лежит в истории всех затронутых файлов.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-move-undo-demo-"));
@@ -31,11 +18,7 @@ const newFile = join(srcDir, "Foo.ts");
 
 const A_TS = "export class Foo {\n    x = 1;\n}\n\nexport class Bar {\n    y = new Foo();\n}\n";
 
-/**
- * Открыть Foo.ts из дерева проводника: клик по строке и Enter. Quick Open
- * здесь не годится — индекс файлов догоняет только что созданный файл не
- * сразу, а дерево показывает его по событию файлового сервиса.
- */
+/** Через дерево, не Quick Open: индекс файлов догоняет только что созданный файл не сразу. */
 async function openFoo(editor: ScenarioDriver): Promise<void> {
     const tree = await editor.waitForNode("TreeViewElement");
     await editor.waitForText((t) => t.includes("Foo.ts"));
@@ -64,8 +47,7 @@ export default defineScenario({
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
         "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),
     },
-    // Меню рефакторингов — по F-клавише: Ctrl+Shift+R эталона legacy-терминал
-    // не отличает от Ctrl+R.
+    // F-клавиша: Ctrl+Shift+R эталона legacy-терминал не отличает от Ctrl+R.
     userKeybindings: [{ key: "f6", command: "editor.action.refactor" }],
     cols: 100,
     rows: 24,
@@ -79,7 +61,7 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("export class Foo {"));
 
-        // Каретка на имя класса `Foo` (строка 1, колонка 14) → меню рефакторингов.
+        // На имя класса `Foo` (колонка 14).
         for (let i = 0; i < 14; i++) await editor.sendKey("ArrowRight");
         // Refactor-провайдер отвечает, только когда сервер поднят: переспрашиваем.
         const deadline = Date.now() + 120_000;
@@ -96,7 +78,6 @@ export default defineScenario({
         await editor.sendText("Move to a new");
         await editor.sendKey("Enter");
 
-        // Новый файл на диске, исходник СОХРАНЁН (files.refactoring.autoSave).
         await waitUntil(
             () => Promise.resolve(existsSync(newFile) ? readFileSync(newFile, "utf8") : ""),
             (text) => text.includes("export class Foo"),
@@ -113,8 +94,7 @@ export default defineScenario({
         // Новый файл открыт уже ПОСЛЕ правки — шаг встаёт и в его историю.
         await openFoo(editor);
 
-        // Ctrl+Z из НОВОЙ вкладки откатывает всё: файл уходит с диска (и его
-        // чистая вкладка закрывается, как в эталоне), класс возвращается в исходник.
+        // Чистая вкладка удалённого файла закрывается, как в эталоне.
         await editor.sendKey("Ctrl+Z");
         await waitUntil(
             () => Promise.resolve(existsSync(newFile)),
@@ -126,8 +106,6 @@ export default defineScenario({
         );
         await editor.capture("undone");
 
-        // Повтор возвращает файл; правка в нём после шага — и Ctrl+Z в исходнике
-        // честно отказывает с тостом, ничего не трогая.
         await editor.sendKey("Ctrl+Y");
         await waitUntil(
             () => Promise.resolve(existsSync(newFile)),
@@ -140,8 +118,6 @@ export default defineScenario({
         await editor.sendKey("Ctrl+PageUp");
         await editor.waitForText((t) => t.includes('import { Foo } from "./Foo";'));
         await editor.sendKey("Ctrl+Z");
-        // Тост: «Could not undo 'Workspace Edit' across all files because changes
-        // were made to Foo.ts» (метка эталона для applyEdit расширения).
         await editor.waitForText((t) => t.includes("Could not undo"), { timeoutMs: 10_000 });
         await editor.capture("refused");
         if (!existsSync(newFile)) throw new Error("отказ отмены не должен трогать новый файл");

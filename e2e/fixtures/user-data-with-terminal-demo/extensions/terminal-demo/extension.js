@@ -1,15 +1,6 @@
 "use strict";
 
-/**
- * Демо-расширение терминалов (`window.createTerminal`): заводит шелл с именем,
- * шлёт в него команды `sendText` и показывает (`show`) — ровно так работают
- * cleanup-команды bazel-java и Code Runner. Что расширение видит в ответ
- * (`window.terminals`, `activeTerminal`, события, `exitStatus`), пишется в
- * пункты статус-бара `ev:`/`ls:`/`act:` — их видно в кадре.
- *
- * Используется e2e-сценариями extensionTerminal и terminalEditor и ручной проверкой:
- *   diode --user-data-dir=<каталог с этой фикстурой> <какой-нибудь файл>
- */
+/** Как cleanup-команды bazel-java и Code Runner: шелл с именем, `sendText`, `show`. */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 

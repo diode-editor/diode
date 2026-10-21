@@ -1,21 +1,9 @@
 "use strict";
 
 /**
- * Демо двух вещей сразу, потому что в живом расширении они и ходят парой.
- *
- * 1. Каталоги хранения (`ExtensionContext.globalStorageUri` / `storageUri` /
- *    `logUri`). Расширение делает в `activate()` ровно то, что делают
- *    AI-автодополнения: читает `globalStorageUri.fsPath`, создаёт каталог сам
- *    (родителя гарантирует хост) и пишет туда файл — сюда же такие расширения
- *    кладут скачанный движок. Счётчик запусков в статус-баре доказывает, что
- *    запись доехала: он прочитан из файла в globalStorage.
- *
- * 2. Команда `setContext`. Расширение объявило свой кейбинд `alt+q` под
- *    `when: "extStorageDemo.armed"`. Пока ключ не выставлен, клавиша мертва;
- *    после `Arm` она исполняет команду расширения, после `Disarm` снова мертва.
- *
- * Используется e2e-сценарием extensionStorage и ручной проверкой:
- *   diode --user-data-dir=<каталог с этой фикстурой> <какой-нибудь файл>
+ * Каталоги хранения и `setContext` — в живом расширении они ходят парой. Как AI-автодополнения,
+ * `activate()` пишет файл в `globalStorageUri` (туда такие расширения кладут скачанный движок);
+ * счётчик запусков в статус-баре прочитан из него. Кейбинд `alt+q` — под `when: "extStorageDemo.armed"`.
  */
 const fs = require("node:fs");
 const path = require("node:path");
@@ -25,8 +13,7 @@ exports.activate = function activate(context) {
 
     const out = vscode.window.createOutputChannel("Ext Storage Demo");
 
-    // Каталог расширения создаём САМИ — по контракту API хост гарантирует только
-    // родителя. Та самая строка, на которой расширения падали без поля.
+    // Каталог создаём САМИ: хост гарантирует только родителя. На этой строке расширения падали без поля.
     const globalDir = context.globalStorageUri.fsPath;
     fs.mkdirSync(globalDir, { recursive: true });
     const runsFile = path.join(globalDir, "runs.json");
@@ -70,7 +57,6 @@ exports.activate = function activate(context) {
         context.subscriptions.push(vscode.commands.registerCommand(id, handler));
     };
 
-    // Команда под кейбиндом: её `when` гейтит наш же контекст-ключ.
     register("extStorageDemo.fire", () => {
         fired += 1;
         render();

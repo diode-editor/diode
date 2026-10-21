@@ -5,28 +5,9 @@ import type { NodeSnapshot } from "@tuidom/inspector/protocol";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Режим предпросмотра вкладок (VS Code `workbench.editor.enablePreview`,
-// дефолт `true`): активация файла в дереве открывает его
-// ВКЛАДКОЙ-ПРЕДПРОСМОТРА. Такая вкладка в группе одна, и следующее превью
-// занимает её слот — обход дерева больше не набивает таб-строку.
-//
-// Прикалывание (вкладка перестаёт быть предпросмотром) — по первой правке
-// документа и по `workbench.action.keepEditor` (Ctrl+K Enter). Демо идёт ровно
-// этим маршрутом: активация → активация (одна вкладка) → правка (приколола) →
-// активация (новое превью рядом).
-//
-// Маршрут активации — клик по строке (он её ВЫБИРАЕТ и переводит фокус в
-// дерево) плюс Enter. Одиночный клик сам по себе файл пока не открывает:
-// `TreeViewElement` движка зовёт `onActivate` на Enter и на двойном клике, а
-// одиночный клик у него только выбирает строку. Превью к входной точке не
-// привязано — открывает его `onActivate` дерева, какой бы ввод до него ни
-// довёл, — поэтому «одиночный клик открывает превью» приедет вместе с
-// различением числа кликов в движке (фаза 3 в docs/TODO/PreviewEditors.md).
-//
-// Метки вкладок читаем из `inspectState` полосы, а не из текста кадра: в кадре
-// рядом с меткой стоит PUA-глиф иконки файла, и текстовый матч на нём врёт.
-// Курсив у метки предпросмотра — фаза 2, она ждёт признака `isPreview` в
-// `TabInfo` движка; замещение видно и без него.
+// Активация — клик + Enter: одиночный клик `TreeViewElement` только выбирает строку; «клик открывает превью»
+// приедет с различением числа кликов в движке (фаза 3, docs/TODO/PreviewEditors.md).
+// Метки — из `inspectState` полосы: в кадре рядом с меткой PUA-глиф иконки, и текстовый матч на нём врёт.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "previewTabs");
 
@@ -36,12 +17,10 @@ interface TabState {
     modified: boolean;
 }
 
-/** Вкладки полосы глазами инспектора (`EditorTabStripElement.inspectState`). */
 function tabsOf(strip: NodeSnapshot): TabState[] {
     return (strip.state?.tabs ?? []) as TabState[];
 }
 
-/** Ждёт полосу, в которой метки вкладок — ровно `expected` (по порядку). */
 async function waitForTabs(editor: ScenarioDriver, expected: readonly string[]): Promise<TabState[]> {
     let seen: string[] = [];
     for (let attempt = 0; attempt < 60; attempt++) {

@@ -1,24 +1,10 @@
 "use strict";
 
 /**
- * Демо `workspace.registerTextDocumentContentProvider` — среза того, чем живёт
- * стоковый `redhat.java`: Go to Definition на классе из библиотеки уводит не в
- * файл на диске, а на `jdt:`-ресурс, содержимое которого отдаёт сам провайдер
- * расширения (класс из jar, исходник JDK, результат декомпиляции).
- *
- * Настоящим `redhat.java` это демо не сделать: его нет в нашем реестре
- * магазина, ему нужен JDK и добрых полминуты на подъём jdt.ls. Поэтому здесь
- * тот же контракт на фикстуре — провайдер для схемы `jdt:` плюс
- * definition-провайдер, который на эту схему указывает.
- *
- * Вторая половина демо — команда `virtualDocsDemo.openMissingScheme`: она
- * просит открыть ресурс схемы, которой не обслуживает НИКТО. Раньше такой
- * запрос уносил редактор целиком (`TextFileModel.openFile` бросал, отказ
- * команды никто не ловил), теперь человек видит сообщение и продолжает
- * работать.
- *
- * Ручная проверка:
- *   diode --user-data-dir=<каталог с этой фикстурой> e2e/fixtures/virtualDocsSample
+ * Срез `redhat.java`: F12 на классе из библиотеки уводит на `jdt:`-ресурс, содержимое которого
+ * отдаёт провайдер расширения. Не настоящий `redhat.java`: его нет в нашем реестре магазина, а
+ * jdt.ls нужен JDK и полминуты. `openMissingScheme` — схема, которую не обслуживает никто: раньше
+ * роняла редактор (`TextFileModel.openFile` бросал), теперь человек видит сообщение.
  */
 
 const LIBRARY_URI = "jdt://contents/text-utils-1.4.0.jar/com.example.text/TextUtils.java";
@@ -40,8 +26,7 @@ const LIBRARY_SOURCE = [
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
-    // Маркер готовности: провайдеры регистрируются в `activate()`, а он
-    // случается через секунды после первого кадра. Без видимого «готов»
+    // Маркер готовности: `activate()` случается через секунды после первого кадра — без него
     // сценарий жал бы F12 в ещё пустой реестр провайдеров.
     const ready = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     ready.name = "Virtual Docs Demo";
@@ -71,8 +56,6 @@ exports.activate = function activate(context) {
         ),
     );
 
-    // Схема, которой не обслуживает никто: открыть нечем — и это должно быть
-    // видно человеку, а не уронить редактор.
     context.subscriptions.push(
         vscode.commands.registerCommand("virtualDocsDemo.openMissingScheme", async function () {
             await vscode.window.showTextDocument(vscode.Uri.parse("nosuchscheme:///Nowhere.java"));

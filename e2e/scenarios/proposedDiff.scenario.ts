@@ -7,13 +7,7 @@ import { dumpFrame, findTextCell } from "../helpers/frame.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Предложенный дифф в форме стокового Claude Code (`openDiff` терминального
-// режима): фикстурное расширение `proposed-diff-demo` кладёт правую сторону в
-// свой FileSystemProvider и открывает `vscode.diff`. Кадры: дифф-вкладка с
-// кнопками ✓/↺ (ключ — по видимости стороны в `visibleTextEditors`) → правка
-// правой стороны и Ctrl+S = принятие с правленым текстом → «закрыть вкладку»
-// как у CLI (сохранить сторону + `tabGroups.close`, без диалога) → ↺ =
-// отклонение → закрытие вкладки = отклонение.
+// Форма стокового Claude Code (`openDiff` терминального режима); кнопки ✓/↺ — по видимости стороны в `visibleTextEditors`.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "proposed-diff", "sample.txt");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-proposed-diff");
@@ -22,7 +16,6 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-proposed-d
 const CHECK = "\u{eab2}";
 /** codicon `discard` — кнопка «отклонить». */
 const DISCARD = "\u{eae2}";
-/** Ряд вкладок — под меню-баром. */
 const TAB_ROW = 1;
 const TAB_TITLE = "[Proposed] sample.txt";
 
@@ -36,7 +29,7 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 
 const tabRow = (text: string): string => text.split("\n")[TAB_ROW] ?? "";
 
-/** Ячейка первого вхождения `needle` в кадре; нет — падение с дампом кадра. */
+/** Нет вхождения — падение с дампом кадра. */
 function locate(frame: GridSnapshot, needle: string): { x: number; y: number } {
     const cell = findTextCell(frame, needle);
     if (cell === null) throw new Error(`нет «${needle}» в кадре:\n${dumpFrame(frame)}`);

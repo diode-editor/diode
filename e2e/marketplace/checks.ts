@@ -22,15 +22,9 @@ import { findNode } from "../helpers/inspectorClient.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 /**
- * Смоук-чеки расширений из магазина: «поставилось» — половина ответа, вторая
- * половина — «работает в Diode на текущем коде». Таблица необязательная и
- * неполная по устройству: `marketplace.test.ts` идёт по живому каталогу, а чек
- * здесь углубляет прогон для тех расширений, для которых мы его написали.
- * Состав магазина решает магазин — отсутствие чека ничего не блокирует.
- *
- * Чек дёргает настоящую функциональность расширения и смотрит на состояние
- * редактора, а не на факт загрузки: фикстура, выведенная из своей же реализации,
- * проверяет только то, что и так работает (см. AGENTS.md, урок #194/#195).
+ * Чек дёргает настоящую функциональность расширения и смотрит на состояние редактора, а не на факт
+ * загрузки (урок #194/#195). Таблица неполна по устройству: отсутствие чека ничего не блокирует,
+ * состав решает магазин.
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -42,28 +36,20 @@ export interface ICheckContext {
 }
 
 export interface IMarketplaceCheck {
-    /** id записи в реестре. */
     readonly id: string;
     /** Пути внутри каталога установленного расширения, обязанные существовать. */
     readonly expectFiles: readonly string[];
     /** Таймаут кейса, если стандартного мало (холодный старт language-сервера). */
     readonly timeoutMs?: number;
     /**
-     * Внешний инструмент, без которого поведенческую половину не прогнать (Go
-     * toolchain у `golang.go`): причина пропуска либо `undefined`. Та же
-     * договорённость, что `requires` у сценариев: в CI инструмент ставится в
-     * джобу, и чек там идёт; локально без него кейс честно пропускается.
+     * Причина пропуска без внешнего инструмента (Go toolchain у `golang.go`), как `requires` у
+     * сценариев: в CI инструмент ставится в джобу, локально без него кейс честно пропускается.
      */
     requires?(): string | undefined;
-    /** Поднимает редактор на этом user-data-dir и проверяет работу расширения. */
     run(ctx: ICheckContext): Promise<void>;
 }
 
-/**
- * Открывает файл и ждёт, пока расширение проставит `tabSize` активному редактору.
- * Наблюдаемый эффект настоящего кода расширения, снимаемый инспектором, — без
- * ввода в PTY, поэтому чек работает на всех платформах.
- */
+/** Эффект снимается инспектором, без ввода в PTY, — поэтому чек работает на всех платформах. */
 async function expectTabSize(ctx: ICheckContext, file: string, tabSize: number): Promise<void> {
     const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
     try {
@@ -78,9 +64,8 @@ async function expectTabSize(ctx: ICheckContext, file: string, tabSize: number):
 
 export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
     {
-        // kind: "native", декларативное расширение: ни строчки кода, только вклад
-        // языка и грамматики — extension host для него не поднимается вовсе.
-        // Исходник и упаковщик — `sample-extension/` рядом.
+        // kind: "native", декларативное: только вклад языка и грамматики — extension host для него
+        // не поднимается вовсе. Исходник и упаковщик — `sample-extension/` рядом.
         id: "test.sample-lang",
         expectFiles: ["package.json", "syntaxes/diodesample.tmGrammar.json"],
         run: async (ctx) => {
@@ -112,22 +97,17 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         id: "EditorConfig.EditorConfig",
         expectFiles: ["package.json", "out/editorConfigMain.js", "node_modules/editorconfig/lib/index.js"],
         run: async (ctx) => {
-            // `[*.tabbed] indent_size = 3` из .editorconfig проекта: расширение
-            // читает конфиг и применяет его к открытому файлу. Проект копируем в
-            // корень сессии, чтобы прогон не зависел от .editorconfig репозитория.
+            // `[*.tabbed] indent_size = 3` из .editorconfig проекта; проект копируем в корень сессии,
+            // чтобы прогон не зависел от .editorconfig репозитория.
             const project = join(ctx.root, "editorconfig-project");
             cpSync(join(FIXTURES, "editorconfig", "project"), project, { recursive: true });
             await expectTabSize(ctx, join(project, "indent.tabbed"), 3);
         },
     },
     {
-        // kind: "proxy-openvsx" — настоящий basedpyright с open-vsx (Python LSP).
-        // Активация целиком держится на курируемом дефолте
-        // `basedpyright.importStrategy: "useBundled"` (`curatedConfigInjection` в
-        // src/vs/diode/main.ts): манифестный `fromEnvironment` зовёт API
-        // ms-python.python и роняет activate(). Установка из магазина обязана
-        // пройти тем же путём регистрации, что применяет дефолт, — чек это
-        // доказывает наблюдаемым результатом, а не фактом распаковки.
+        // kind: "proxy-openvsx" — настоящий basedpyright. Активация держится на курируемом дефолте
+        // `basedpyright.importStrategy: "useBundled"` (`curatedConfigInjection`): манифестный
+        // `fromEnvironment` зовёт API ms-python.python и роняет activate().
         id: "detachhead.basedpyright",
         expectFiles: [
             "package.json",
@@ -139,10 +119,7 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         // 6.4 МБ артефакта: стандартных 240 с кейсу впритык.
         timeoutMs: 420_000,
         run: async (ctx) => {
-            // Намеренная ошибка типов: str не присваивается int → сервер шлёт
-            // диагностику «is not assignable», редактор рисует undercurl
-            // (StyleFlags.Undercurl === 8) — стандартный readiness-сигнал наших
-            // LSP e2e (см. e2e/pythonLsp.test.ts).
+            // Ошибка типов → undercurl (StyleFlags.Undercurl === 8) — readiness-сигнал наших LSP e2e.
             const file = join(ctx.root, "typed.py");
             writeFileSync(file, 'reply: int = "hi"\nprint(reply)\n');
             const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
@@ -158,20 +135,14 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx", ПЛАТФОРМЕННЫЕ vsix — настоящий ruff с open-vsx
-        // (Python-линт/формат). Чек доказывает весь платформенный маршрут
-        // магазина наблюдаемым результатом: запись `targetPlatform` текущей
-        // машины → её артефакт → распаковка с восстановлением exec-бита →
-        // spawn нативного `ruff server` из бандла → диагностика в кадре.
-        // Плюс курируемый дефолт `ruff.importStrategy: "useBundled"`
-        // (`curatedConfigInjection` в src/vs/diode/main.ts).
+        // kind: "proxy-openvsx", ПЛАТФОРМЕННЫЕ vsix — настоящий ruff. Доказывает весь платформенный
+        // маршрут: `targetPlatform` машины → её артефакт → распаковка с exec-битом → spawn нативного
+        // `ruff server` → диагностика в кадре. Плюс курируемый `ruff.importStrategy: "useBundled"`.
         id: "charliermarsh.ruff",
         expectFiles: ["package.json", "dist/extension.js", "bundled/libs/bin/ruff"],
         timeoutMs: 420_000,
         run: async (ctx) => {
-            // Неиспользуемый импорт → F401 из дефолтного набора правил → сервер
-            // шлёт диагностику, редактор рисует undercurl (StyleFlags.Undercurl
-            // === 8) — стандартный readiness-сигнал наших LSP e2e.
+            // Неиспользуемый импорт → F401 из дефолтного набора → undercurl.
             const file = join(ctx.root, "lint.py");
             writeFileSync(file, "import sys\n\nprint(1)\n");
             const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
@@ -187,11 +158,9 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx", платформенный vsix со вшитым нативным
-        // `terraform-ls`. Чек проходит активацию целиком (TreeItem,
-        // context.extension, createTelemetryLogger, authentication — без любого
-        // из них сервер не стартовал) и доходит до диагностики в кадре. Схемы
-        // провайдеров вшиты: terraform CLI и `terraform init` не нужны.
+        // kind: "proxy-openvsx", платформенный vsix со вшитым `terraform-ls`. Активация целиком
+        // (TreeItem, context.extension, createTelemetryLogger, authentication — без любого сервер не
+        // стартовал) до диагностики в кадре. Схемы провайдеров вшиты: terraform CLI не нужен.
         id: "hashicorp.terraform",
         expectFiles: ["package.json", "dist/extension.js", "bin/terraform-ls"],
         timeoutMs: 420_000,
@@ -213,14 +182,9 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx" — стоковая цветовая тема (Catppuccin, четыре темы
-        // через `contributes.themes`, tokenColors inline, 141 цвет с альфой).
-        // Чек доказывает путь темы из магазина наблюдаемым кадром: настройка
-        // `workbench.colorTheme` → первый же кадр в теме, фон редактора равен
-        // `editor.background` из themes/mocha.json (#1e1e2e) — и тема есть в
-        // пикере Color Theme. Runtime-часть расширения (dist/main.cjs
-        // перегенерирует темы из настроек) не используется — читаются файлы
-        // тем из vsix как есть.
+        // kind: "proxy-openvsx" — стоковая тема Catppuccin (`contributes.themes`, tokenColors inline,
+        // цвета с альфой): `workbench.colorTheme` → первый же кадр в теме (фон = `editor.background`
+        // из themes/mocha.json) и тема в пикере. Runtime-часть расширения не используется.
         id: "Catppuccin.catppuccin-vsc",
         expectFiles: ["package.json", "themes/mocha.json", "themes/latte.json"],
         run: async (ctx) => {
@@ -257,12 +221,9 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx" — стоковый ESLint. Библиотеку eslint расширение
-        // НЕ бандлит (сервер резолвит её из node_modules проекта) — чек доносит
-        // её в воркспейс симлинком из npm-кэша фикстуры и ждёт диагностику
-        // настоящего eslintServer. Не по undercurl'у: builtin TS-клиент линтит
-        // .js тоже, и его подчёркивание делало бы чек ложно-зелёным при мёртвом
-        // eslint (см. e2e/helpers/eslintReady.ts).
+        // kind: "proxy-openvsx" — стоковый ESLint. Библиотеку eslint он НЕ бандлит — доносим её
+        // симлинком из npm-кэша фикстуры. Ждём диагностику eslintServer, а не undercurl: builtin
+        // TS-клиент линтит и .js, и чек был бы ложно-зелёным (e2e/helpers/eslintReady.ts).
         id: "dbaeumer.vscode-eslint",
         expectFiles: ["package.json", "client/out/extension.js", "server/out/eslintServer.js"],
         timeoutMs: 420_000,
@@ -284,26 +245,17 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx" — стоковый redhat.java поверх Eclipse JDT LS.
-        // Чек доказывает путь из магазина наблюдаемым кадром: undercurl над
-        // `int broken = message;` рисуется только если сервер поднялся, импортировал
-        // проект и собрал его. Заодно это проверка курируемого дефолта
-        // lombokSupport: с манифестным `true` вместо диагностики пришла бы
-        // «Internal compiler error».
-        //
-        // `expectFiles` — только пути, общие для платформенного и universal
-        // артефактов: какой из них отдаст резолв, зависит от версии клиента
-        // (платформенные записи гейтятся `engines.diode >=0.5.0`), и чек не должен
-        // от этого зависеть.
+        // kind: "proxy-openvsx" — стоковый redhat.java. Undercurl над `int broken = message;` рисуется,
+        // только если jdt.ls поднялся, импортировал и собрал проект; заодно проверка курируемого
+        // lombokSupport (с манифестным `true` пришла бы «Internal compiler error»).
+        // `expectFiles` — только пути, общие для платформенного и universal артефактов: какой отдаст
+        // резолв, зависит от версии клиента.
         id: "redhat.java",
         expectFiles: ["package.json", "dist/extension.js", "server/config_linux/config.ini"],
         timeoutMs: 600_000,
         run: async (ctx) => {
-            // Проект — в ПОДКАТАЛОГЕ сессии, а не в `ctx.root`: в корне лежит
-            // `user-data-dir/` с приватными каталогами расширения, а jdt.ls
-            // отказывается импортировать проект, внутри которого развёрнуто его
-            // же eclipse-хозяйство («Invalid project description»), и молча
-            // сваливается в режим «non-project file, only syntax errors».
+            // Проект — в ПОДКАТАЛОГЕ: в корне лежит `user-data-dir/` с eclipse-хозяйством расширения, и
+            // jdt.ls молча сваливается в «non-project file, only syntax errors».
             const projectRoot = join(ctx.root, "javaproj");
             const file = join(projectRoot, APP_JAVA_PATH);
             mkdirSync(dirname(file), { recursive: true });
@@ -330,15 +282,10 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx" — стоковый golang.go поверх gopls. Undercurl над
-        // ошибкой типов в main.go рисуется только если расширение активировалось
-        // и его languageclient поднял gopls: своего Go-клиента у diode нет.
-        //
-        // gopls в vsix нет — без него расширение ставит его само `go install`
-        // (минуты и сеть на каждый прогон). Чек кладёт в GOBIN заранее собранный
-        // gopls фикстуры (в CI его собирает и кэширует .github/actions/go-tools),
-        // путь авто-установки закрывает e2e goLsp.test.ts. Без Go toolchain
-        // расширение отказывает в активации и в VS Code — кейс пропускается.
+        // kind: "proxy-openvsx" — стоковый golang.go: undercurl рисуется, только если его languageclient
+        // поднял gopls (своего Go-клиента у diode нет). gopls в vsix нет — кладём в GOBIN собранный
+        // фикстурой (в CI — .github/actions/go-tools); авто-установку закрывает goLsp.test.ts. Без Go
+        // toolchain расширение не активируется и в VS Code — кейс пропускается.
         id: "golang.go",
         expectFiles: ["package.json", "dist/goMain.js"],
         requires: goToolchainMissing,
@@ -367,13 +314,9 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx" — стоковый prettier, ЕДИНСТВЕННОЕ ESM-расширение
-        // в магазине (`"type": "module"` + `import … from "vscode"`). Чек поэтому
-        // доказывает сразу два маршрута: формат markdown (языка, которого не
-        // покрывает ни один наш LSP) и загрузку ESM-точки входа в собранном
-        // бинаре — под SEA прямой `import()` из вшитого main не работает.
-        //
-        // Чорд Ctrl+K Ctrl+E шлём инспектором (не через PTY) — как соседние чеки.
+        // kind: "proxy-openvsx" — prettier, ЕДИНСТВЕННОЕ ESM-расширение в магазине: формат markdown
+        // (его не покрывает ни один наш LSP) и загрузка ESM-точки входа под SEA, где прямой `import()`
+        // из вшитого main не работает. Чорд Ctrl+K Ctrl+E шлём инспектором, как соседние чеки.
         id: "esbenp.prettier-vscode",
         expectFiles: ["package.json", "dist/extension.js", "node_modules/prettier/package.json"],
         timeoutMs: 300_000,
@@ -398,13 +341,9 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx", платформенный vsix (~130 МБ, внутри бинарь CLI)
-        // — стоковый Claude Code в терминальном режиме. Работа расширения здесь —
-        // ide-сервер, к которому подключается `claude`: пункт «✻ Claude Code» и
-        // лок `~/.claude/ide/<port>.lock` пишутся в конце activate(), а MCP
-        // `initialize` отвечает сервер с `ideName` из `env.appName`. Настоящий
-        // CLI не запускаем — вместо него пробный клиент; контекст, диагностики и
-        // терминал проверяет e2e claudeCode.test.ts.
+        // kind: "proxy-openvsx", платформенный vsix (~130 МБ) — стоковый Claude Code. Его работа здесь —
+        // ide-сервер: пункт «✻ Claude Code» и лок пишутся в конце activate(), MCP `initialize` отвечает
+        // `ideName` из `env.appName`. Контекст, диагностики и терминал — в e2e claudeCode.test.ts.
         id: CLAUDE_CODE_ID,
         expectFiles: ["package.json", "extension.js"],
         run: async (ctx) => {

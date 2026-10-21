@@ -3,15 +3,10 @@ import { resolve } from "node:path";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `window.setStatusBarMessage` и константы `env` хоста. Фикстура
-// `status-message-demo` при активации ставит сообщение без таймаута, командой —
-// второе поверх него на 3 с (так Claude Code подсказывает при ревизии диффа).
-// Кадры: первое сообщение слева в полосе → второе поверх него → через 3 с
-// снова первое (стек) → тост с `env.shell` и видом `env.machineId`.
+// Второе сообщение на 3 с поверх первого — так Claude Code подсказывает при ревизии диффа.
 
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-status-message");
 
-/** Исполняет команду через палитру (F1 → заголовок → Enter). */
 async function runCommand(editor: ScenarioDriver, title: string): Promise<void> {
     await editor.sendKey("F1");
     await editor.waitForNode("#quickInput");
@@ -37,7 +32,6 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Demo: no change") && !t.includes("Demo: watching"));
         await editor.capture("stacked");
 
-        // Таймаут снимает верхнее сообщение — снова видно нижнее.
         await editor.waitForText((t) => t.includes("Demo: watching") && !t.includes("Demo: no change"), {
             timeoutMs: 10_000,
         });

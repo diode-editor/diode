@@ -1,15 +1,6 @@
 "use strict";
 
-/**
- * Демо-расширение панели действий группы (`contributes.menus["editor/title"]`)
- * в форме вклада стокового Claude Code: кнопки accept/reject предложенного
- * диффа (`$(check)`/`$(discard)`) видны, пока стоит setContext-ключ
- * `editorTitleDemo.viewingProposedDiff`; пункт с SVG-иконкой — под
- * `config.editorTitleDemo.useTerminal`. Что нажали — пункт статус-бара `title:`.
- *
- * Используется e2e-сценарием editorTitle и ручной проверкой:
- *   diode --user-data-dir=<каталог с этой фикстурой> <какой-нибудь файл>
- */
+/** Форма вклада `editor/title` стокового Claude Code: accept/reject предложенного диффа под setContext-ключом. */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 

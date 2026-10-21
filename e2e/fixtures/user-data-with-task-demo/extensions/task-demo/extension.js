@@ -1,15 +1,8 @@
 "use strict";
 
 /**
- * Демо-расширение задач (`vscode.tasks`): провайдер типа `demo` строит задачи
- * формой bazel-java — `new Task(def, TaskScope.Workspace, name, source,
- * new ShellExecution(cmd))`, плюс задача на pty расширения (`CustomExecution`).
- * Что расширение видит в ответ (события исполнений, `taskExecutions`, свой ли
- * объект пришёл в `execution.task`), пишется в пункты статус-бара `ev:`/`ls:`.
- *
- * Используется e2e-сценарием extension-tasks и ручной проверкой:
- *   diode --user-data-dir=<каталог с этой фикстурой> <папка>
- * → F1 «Tasks: Run Task» → «demo» → задача.
+ * Задачи формой bazel-java — `new Task(def, TaskScope.Workspace, name, source, new ShellExecution(cmd))`,
+ * плюс `CustomExecution` на pty расширения.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -34,7 +27,6 @@ exports.activate = function activate(context) {
     const shellTask = (target, command) =>
         new vscode.Task({ type: "demo", target }, vscode.TaskScope.Workspace, target, "demo", new vscode.ShellExecution(command));
 
-    // Pty задачи: пишет строку и закрывается с кодом 0 по любой клавише.
     const ptyTask = () =>
         new vscode.Task(
             { type: "demo", target: "pty" },

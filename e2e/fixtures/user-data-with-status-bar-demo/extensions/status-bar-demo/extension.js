@@ -1,20 +1,9 @@
 "use strict";
 
-/**
- * Демо-расширение статус-бара: показывает всё, что даёт
- * `window.createStatusBarItem` — пункт с командой по клику, живой текст,
- * show/hide/dispose, значки `$(name)`, стороны и приоритеты.
- *
- * Используется e2e-сценарием statusBarExtension и ручной проверкой:
- *   diode --user-data-dir=<каталог с этой фикстурой> <какой-нибудь файл>
- *
- * Команды вызываются из палитры по F1 — их заголовки объявлены в package.json
- * (`contributes.commands`), иначе рантайм-регистрация в палитре не видна.
- */
+/** Заголовки команд — в package.json: без `contributes.commands` рантайм-регистрация в палитре не видна. */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
-    // Главный пункт: справа, кликабелен, счётчик кликов ведёт само расширение.
     const demo = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     demo.name = "Status Bar Demo";
     demo.text = "Demo";

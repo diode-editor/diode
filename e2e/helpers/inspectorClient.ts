@@ -10,7 +10,6 @@ import {
     type NodeSnapshot,
 } from "@tuidom/inspector/protocol";
 
-/** Pick an ephemeral free TCP port on the loopback interface. */
 export function freePort(): Promise<number> {
     return new Promise((resolve, reject) => {
         const srv = net.createServer();
@@ -23,7 +22,6 @@ export function freePort(): Promise<number> {
     });
 }
 
-/** Connect to a WebSocket URL, retrying until it opens or `timeoutMs` elapses. */
 export function connectWithRetry(url: string, timeoutMs: number, signal?: AbortSignal): Promise<WebSocket> {
     const deadline = Date.now() + timeoutMs;
     return new Promise((resolve, reject) => {
@@ -79,7 +77,6 @@ export function findNodes(root: NodeSnapshot | null, predicate: (node: NodeSnaps
     return out;
 }
 
-/** First node (pre-order) matching `predicate`, or `null`. */
 export function findNode(root: NodeSnapshot | null, predicate: (node: NodeSnapshot) => boolean): NodeSnapshot | null {
     return findNodes(root, predicate)[0] ?? null;
 }

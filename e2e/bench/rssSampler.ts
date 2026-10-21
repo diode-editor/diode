@@ -1,20 +1,15 @@
 /**
- * Пиковый RSS процесса редактора за прогон.
- *
- * Linux: `/proc/<pid>/status` → `VmHWM` (high-water mark резидентной памяти —
- * ядро само держит максимум за жизнь процесса). Опрашиваем раз в ~50 мс, чтобы
- * последнее прочитанное значение пережило внезапную смерть процесса (OOM-kill:
- * после него `/proc/<pid>` уже пуст). На не-Linux — null («—» в отчёте).
+ * Пик RSS — `VmHWM` из `/proc/<pid>/status`. Опрос раз в ~50 мс — чтобы значение пережило
+ * OOM-kill, после которого `/proc/<pid>` уже пуст. На не-Linux — null.
  */
 
 import { readFileSync } from "node:fs";
 
 export interface RssSampler {
-    /** Останавливает опрос и отдаёт пик в байтах (null — измерить было нечем). */
+    /** Пик в байтах; null — измерить было нечем. */
     stop(): number | null;
 }
 
-/** Читает VmHWM (байты) из `/proc/<pid>/status`; null, если процесса/поля нет. */
 export function readPeakRss(pid: number): number | null {
     let status: string;
     try {

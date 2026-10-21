@@ -1,10 +1,6 @@
 "use strict";
 
-/**
- * Демо `workspace.saveAll` (сценарий workspace-save-all): команда сохраняет
- * все несохранённые файлы — так golang.go делает перед `gopls.tidy` и
- * vulncheck — и выводит ответ хоста пунктом статус-бара.
- */
+/** `workspace.saveAll` — как golang.go перед `gopls.tidy` и vulncheck. */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
     const result = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);

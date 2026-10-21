@@ -5,13 +5,8 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 /**
- * Файловый реестр-фикстура с НАСТОЯЩИМИ `.vsix`: то же, что раздаёт публичный
- * магазин, только на диске и под контролем теста. Нужен там, где проверяется
- * установка целиком — от кнопки до распакованного каталога.
- *
- * Артефакты пакует продовый `scripts/pack-vsix.mjs` — тот же упаковщик, которым
- * публикуются настоящие расширения; своего zip-кода здесь нет, иначе фикстура
- * проверяла бы сама себя.
+ * Реестр-фикстура с НАСТОЯЩИМИ `.vsix`: пакует продовый `scripts/pack-vsix.mjs` — своего zip-кода
+ * здесь нет, иначе фикстура проверяла бы сама себя.
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -33,11 +28,7 @@ export interface IFixtureExtension {
     readonly corruptSha?: boolean;
 }
 
-/**
- * Раскладывает каталог реестра (`index.json`, `meta/`, `artifacts/`) в `dir` и
- * возвращает путь к нему — его и передают редактору через `--registry`.
- * Несколько версий одного id объявляются несколькими записями с одним id.
- */
+/** Возвращает путь для `--registry`. Несколько версий одного id — несколькими записями. */
 export async function createRegistryFixture(
     dir: string,
     extensions: readonly IFixtureExtension[],

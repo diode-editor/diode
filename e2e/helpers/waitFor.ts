@@ -1,7 +1,4 @@
-// Единый примитив ожидания для e2e. Все предикатные ожидания (дерево, кадр,
-// фокус, состояние) строятся поверх `waitUntil` — один цикл опроса, один формат
-// ошибки по таймауту. Идея — заменить россыпь `sleep()` в пробах на предикаты,
-// которые говорят, чего именно ждали и что видели в последний раз.
+// Единственная точка, где e2e ждёт по времени: вместо `sleep()` — предикаты с диагностикой таймаута.
 
 export interface WaitUntilOptions {
     timeoutMs?: number;
@@ -15,11 +12,6 @@ export interface WaitUntilOptions {
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_INTERVAL_MS = 100;
 
-/**
- * Опрашивает `probe()` каждые `intervalMs`, пока `predicate` не станет истинным;
- * возвращает удовлетворившее значение. По таймауту бросает с `describe` и
- * `diagnose(last)`. Единственная точка, где e2e ждёт по времени.
- */
 export async function waitUntil<T>(
     probe: () => Promise<T> | T,
     predicate: (value: T) => boolean,

@@ -2,19 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Настройки воркспейса: `.diode/settings.json` открытой папки.
-//
-// В фикстуре проект прячет свой каталог `generated/` настройкой
-// `files.exclude` — в settings.json ПРОЕКТА, пользовательские настройки
-// сценария его не трогают. Первый кадр — Explorer: `main.py` и `.diode` на
-// месте, `generated` нет (кадр `tree`). Значит, слой воркспейса прочитан до
-// первого кадра и лёг поверх user-слоя. В том же кадре статус-бар держит
-// определённый уровень терминала `legacy`, хотя файл проекта просит `kitty`.
-//
-// Дальше палитра → «Preferences: Open Workspace Settings (JSON)» открывает
-// этот файл, а Problems (Ctrl+J) показывает подсказку эталона на
-// `terminal.tier`: это ключ машины (`scope: machine`), проект его задать не
-// может — значение из файла не применяется (кадр `problems`).
+// `terminal.tier` — ключ машины (`scope: machine`): файл проекта просит `kitty`, но значение не применяется,
+// а `files.exclude` проекта ложится поверх user-слоя уже к первому кадру.
 
 const folder = resolve(repoRoot, "e2e", "fixtures", "workspaceSettings");
 
@@ -25,9 +14,6 @@ export default defineScenario({
     cols: 110,
     rows: 26,
     async run(editor) {
-        // Статус-бар показывает уровень терминала: headless-бинарь определяет
-        // `legacy`. Файл проекта просит `kitty`, но это ключ машины — значение
-        // не применяется, и `kitty` на первом кадре нет.
         await editor.waitForText(
             (t) =>
                 t.includes("EXPLORER") &&

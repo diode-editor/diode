@@ -2,10 +2,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { hermeticSpawnEnv } from "./hermeticEnv.ts";
 
-// Регрессия к падению сценария encoding: e2e-спаун наследовал терминальные
-// маркеры хоста (kitty ssh-kitten внутри tmux → `KITTY_WINDOW_ID` → tier
-// csi-u), и chord-фоллбэк палитры `when: "tier == 'legacy'"` молча умирал —
-// на CI (без маркеров) тот же сценарий был зелёным.
+// Регрессия: спаун наследовал маркеры хоста (kitty ssh-kitten в tmux → tier csi-u), и
+// chord-фоллбэк палитры `when: "tier == 'legacy'"` молча умирал; на CI сценарий был зелёным.
 
 const HOST_MARKERS: Record<string, string> = {
     KITTY_WINDOW_ID: "1",

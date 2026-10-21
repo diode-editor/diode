@@ -5,10 +5,7 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Подсказки с комбинациями в тексте UI строятся из действующего бинда, а не
-// зашиты: на маке с Cmd плейсхолдер поля коммита — «Message (⌘Enter to commit)»
-// (commit — `mod+enter`, как `CtrlCmd+Enter` в эталоне). На pc — прежний
-// «Ctrl+Enter», его держит сценарий scm-staging.
+// Подсказка в плейсхолдере строится из действующего бинда: на маке — «⌘Enter», pc-вариант держит scm-staging.
 
 function makeRepo(): string {
     const repoDir = mkdtempSync(join(tmpdir(), "diode-mac-hints-"));
@@ -34,11 +31,10 @@ export default defineScenario({
         "keyboard.platform": "mac",
         "terminal.capabilities": { "extended-keys": true, super: true },
     },
-    // Переключение на Source Control — user-кейбиндом, без палитры.
     userKeybindings: [{ key: "f6", command: "workbench.view.scm" }],
     cols: 100,
     rows: 24,
-    // Изменения публикует git-расширение в extension host — как у scm-staging.
+    // Нужен extension host: изменения публикует git-расширение.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("mac-cmd"));

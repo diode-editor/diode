@@ -5,16 +5,13 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Quick Fix (#196): меню code actions у каретки поверх стокового
-// typescript-language-server — неиспользуемый импорт чинится действием
-// «Remove import from …». Чорд Ctrl+K Ctrl+Q — досягаемый на legacy
-// второй бинд (Ctrl+. терминал без kitty-протокола не кодирует).
+// #196. Чорд Ctrl+K Ctrl+Q — второй бинд, досягаемый на legacy: Ctrl+. терминал без kitty-протокола не кодирует.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "quickfixSample");
 const mainFile = resolve(sampleDir, "main.ts");
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
+/** StyleFlags.Undercurl. */
 const UNDERCURL = 8;
 
 const ZETA_IMPORT = 'import { zeta } from "./zeta";';
@@ -34,7 +31,7 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes(ZETA_IMPORT));
 
-        // Readiness: undercurl от НАСТОЯЩЕГО tsserver'а (ошибка типов в main.ts).
+        // Readiness: undercurl от настоящего tsserver'а.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
@@ -42,7 +39,7 @@ export default defineScenario({
         );
         await editor.capture("before");
 
-        // Каретка на строке импорта (открытие ставит её в (0,0)) → меню действий.
+        // Открытие ставит каретку в (0,0) — на строку импорта.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+Q");
         await editor.waitForText((t) => t.includes("Select Code Action"), { timeoutMs: 60_000 });
@@ -52,8 +49,7 @@ export default defineScenario({
         await editor.capture("menu");
 
         await editor.sendKey("Enter");
-        // Меню обязано закрыться, а импорт — исчезнуть из буфера (а не просто
-        // спрятаться за оверлеем меню).
+        // Импорт обязан исчезнуть из буфера, а не спрятаться за оверлеем меню.
         await editor.waitForText(
             (t) => !t.includes("Code Actions") && !t.includes(ZETA_IMPORT) && t.includes("export const kept"),
             { timeoutMs: 60_000 },

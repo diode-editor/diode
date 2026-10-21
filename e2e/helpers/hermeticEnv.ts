@@ -1,16 +1,8 @@
-// Герметичная терминальная идентичность спаунов e2e. Keyboard-tier, truecolor и
-// режимы ssh/tmux приложение выводит из env (`terminalEnvironmentModel`), а
-// headless-бэкенд пробу протокола никогда не резолвит — env-baseline финален.
-// Унаследованные от хоста маркеры машинозависимы (kitty ssh-kitten внутри tmux
-// даёт `KITTY_WINDOW_ID` → tier csi-u, на CI — legacy), а от tier'а зависит,
-// какие аккорды вообще активны (`when: "tier == 'legacy'"` у chord-фоллбэков
-// палитры) и что рисует статус-бар на скриншотах. Поэтому каждый спаун бинаря
-// пинуется к одному baseline: tier=legacy, mode=local, TERM=xterm-256color.
+// Каждый спаун пинуется к одному baseline (tier=legacy, mode=local, TERM=xterm-256color):
+// headless-бэкенд пробу протокола не резолвит, и унаследованные маркеры хоста (kitty в tmux →
+// tier csi-u, на CI — legacy) меняли бы активные аккорды и статус-бар на скриншотах.
 
-/**
- * Переменные, по которым `terminalEnvironmentModel` детектит extended-keys
- * (маркеры kitty/ghostty/wezterm/alacritty), truecolor и режимы ssh/tmux.
- */
+/** По ним `terminalEnvironmentModel` детектит extended-keys, truecolor и ssh/tmux. */
 const TERMINAL_IDENTITY_VARS = [
     "KITTY_WINDOW_ID",
     "GHOSTTY_RESOURCES_DIR",
@@ -30,11 +22,8 @@ const TERMINAL_IDENTITY_VARS = [
 ] as const;
 
 /**
- * Собирает env спауна: наследует `process.env`, накладывает `extra` (сессии
- * передают сюда как полный env из `prepareAppEnv`, так и частичные патчи вроде
- * `homeIsolationEnv`), и ПОСЛЕДНИМ шагом пинует терминальную идентичность.
- * Последним — намеренно: часть вызывающих спредит в `extra` целый `process.env`,
- * и санитизация раньше мержа воскресила бы маркеры хоста.
+ * Идентичность пинуется ПОСЛЕДНЕЙ: часть вызывающих спредит в `extra` целый `process.env`, и
+ * санитизация раньше мержа воскресила бы маркеры хоста.
  */
 export function hermeticSpawnEnv(extra?: Readonly<Record<string, string>>): Record<string, string> {
     const env: Record<string, string> = {};

@@ -6,16 +6,11 @@ import WebSocket from "ws";
 
 import { waitUntil } from "./waitFor.ts";
 
-// Общее у тестов стокового Anthropic.claude-code (смоук магазина, e2e
-// claudeCode, сценарий claude-code): окружение сессии и пробный клиент
-// ide-сервера расширения вместо настоящего `claude` — тот требует подписку и
-// сеть и в тестах не запускается (docs/TESTING.md, «Claude Code без
-// настоящего CLI»).
+// Пробный клиент ide-сервера вместо настоящего `claude`: тот требует подписку и сеть
+// (docs/TESTING.md, «Claude Code без настоящего CLI»).
 
-/** id записи в магазине. */
 export const CLAUDE_CODE_ID = "Anthropic.claude-code";
 
-/** Каталог с подставным `claude` (sh-скрипт): кладётся первым в PATH сессии. */
 export const FAKE_CLAUDE_BIN = resolve(
     fileURLToPath(new URL(".", import.meta.url)),
     "..",
@@ -25,10 +20,8 @@ export const FAKE_CLAUDE_BIN = resolve(
 );
 
 /**
- * Env сессии: подставной `claude` первым в PATH (терминальный режим набирает
- * голое `claude`, а на машине разработчика настоящий CLI в PATH есть) и пустой
- * `CLAUDE_CONFIG_DIR` — расширение и CLI проверяют его на истинность, и лок
- * ложится в изолированный `$HOME/.claude`, а не в унаследованный каталог хоста.
+ * Подставной `claude` первым в PATH: на машине разработчика настоящий CLI в PATH есть. Пустой
+ * `CLAUDE_CONFIG_DIR` (его проверяют на истинность) уводит лок в изолированный `$HOME/.claude`.
  */
 export function claudeCodeSessionEnv(): Record<string, string> {
     return { PATH: `${FAKE_CLAUDE_BIN}${delimiter}${process.env.PATH ?? ""}`, CLAUDE_CONFIG_DIR: "" };
@@ -44,7 +37,6 @@ export interface IIdeLock {
     readonly authToken: string;
 }
 
-/** Ждёт лок ide-сервера в изолированном HOME сессии. */
 export async function waitForIdeLock(home: string, timeoutMs = 60_000): Promise<IIdeLock> {
     const dir = join(home, ".claude", "ide");
     const file = await waitUntil(
@@ -65,17 +57,14 @@ interface IRpcMessage {
     readonly error?: unknown;
 }
 
-/** Результат `tools/call` по MCP: текстовые части ответа и флаг ошибки. */
 export interface IToolResult {
     readonly isError: boolean;
     readonly text: string;
 }
 
 /**
- * Клиент ide-сервера так, как к нему ходит CLI: WebSocket на порт из лока,
- * `authToken` в заголовке `x-claude-code-ide-authorization`, MCP `initialize`.
- * Копит уведомления сервера (`selection_changed`, `at_mentioned`, …). Сервер
- * держит одного клиента: новое подключение выбивает прежнее.
+ * Ходит, как CLI: порт из лока, `authToken` в `x-claude-code-ide-authorization`, MCP `initialize`.
+ * Сервер держит одного клиента — новое подключение выбивает прежнее.
  */
 export class IdeProbe {
     public readonly notifications: { method: string; params: Record<string, unknown> }[] = [];
@@ -94,7 +83,6 @@ export class IdeProbe {
         });
     }
 
-    /** Подключается и проходит MCP-рукопожатие; отдаёт `serverInfo` ответа `initialize`. */
     public static async connect(
         lock: IIdeLock,
     ): Promise<{ probe: IdeProbe; serverInfo: { name: string; version: string } }> {
@@ -126,7 +114,6 @@ export class IdeProbe {
         return message.result;
     }
 
-    /** Вызывает MCP-инструмент расширения (`getDiagnostics`, `openDiff`, …). */
     public async callTool(name: string, args: Record<string, unknown>): Promise<IToolResult> {
         const result = (await this.request("tools/call", { name, arguments: args })) as {
             content: { type: string; text?: string }[];
@@ -135,7 +122,7 @@ export class IdeProbe {
         return { isError: result.isError === true, text: result.content.map((c) => c.text ?? "").join("") };
     }
 
-    /** Ждёт уведомление `method`, удовлетворяющее `predicate`, среди пришедших с подключения. */
+    /** Ищет и среди уже пришедших с подключения. */
     public async waitForNotification(
         method: string,
         predicate: (params: Record<string, unknown>) => boolean,

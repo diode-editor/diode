@@ -1,10 +1,7 @@
 "use strict";
 
 /**
- * E2E user extension: will-save участник — обрезает хвостовые пробелы и
- * добавляет финальный перевод строки (та же логика, что у юнит-фикстуры
- * `willSaveTrimEdits.cjs`). Герметичный гейт ПРОВОДКИ приложения:
- * `extensionHostModule` обязан привязать `group.saveParticipant` к
+ * Герметичный гейт проводки: `extensionHostModule` обязан привязать `group.saveParticipant` к
  * `host.willSaveTextDocument`, иначе Ctrl+S пишет байты как есть.
  */
 exports.activate = function activate(context) {

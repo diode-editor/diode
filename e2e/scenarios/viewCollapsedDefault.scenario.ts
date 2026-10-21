@@ -8,14 +8,7 @@ import { frameToText } from "../helpers/frame.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario } from "./framework.ts";
 
-// Дефолт свёрнутости у дескриптора view-секции (`IViewDescriptor.collapsed`,
-// как в VS Code) на единственном его потребителе — GRAPH контейнера Source
-// Control: история репозитория дороже списка изменений и нужна реже, поэтому
-// секция открывается свёрнутой.
-//
-// Главное, что показывает сценарий, — дефолт остаётся ДЕФОЛТОМ: раскрыл
-// пользователь — секция раскрыта и после перезагрузки окна. Иначе граф
-// сворачивался бы на каждом старте, что хуже прежнего поведения.
+// Дефолт свёрнутости остаётся дефолтом: раскрытый пользователем GRAPH раскрыт и после перезагрузки окна.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -40,7 +33,6 @@ function makeRepo(): string {
 
 const repoDir = makeRepo();
 
-/** Свёрнутость секции по её заголовку — то же, что видит `isViewExpanded`. */
 async function expectExpanded(editor: ScenarioDriver, viewId: string, expanded: boolean): Promise<void> {
     const header = await editor.waitForNode(`#paneHeader-${viewId.replaceAll(".", "-")}`);
     const state = header.state as { expanded?: boolean; collapsible?: boolean } | undefined;

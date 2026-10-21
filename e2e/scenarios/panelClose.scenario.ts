@@ -2,10 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Демо #401: кнопка `×` в правом конце таб-строки нижней
-// панели закрывает её — ровно как `✕` в шапке панели у VS Code. Координаты
-// кнопки берём из inspectState виджета, а не считаем руками: строка панели
-// разделена с контролами вкладки, и пересчёт уже один раз был граблей.
+// #401. Координаты кнопки — из inspectState: строка панели делится с контролами вкладки,
+// пересчёт руками уже был граблей.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
@@ -18,7 +16,6 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("greeting"));
 
-        // Ctrl+J — панель открыта, в её таб-строке видна кнопка закрытия.
         await editor.sendKey("Ctrl+J");
         const panel = await editor.waitForNode("#panel");
         await editor.capture("panel-open");

@@ -1,7 +1,4 @@
-/**
- * Отчёт бенча открытия файла: агрегация прогонов в статистику и рендер в
- * Markdown (страница docs/public/BENCH-OPEN.md, перезаписывается `bench.yml`).
- */
+/** Страницу docs/public/BENCH-OPEN.md перезаписывает `bench.yml`. */
 
 import type { OpenFixture } from "./openFixtures.ts";
 import { MiB } from "./openFixtures.ts";
@@ -30,7 +27,6 @@ export interface SizeReport {
     /** Расхождение чёрного и белого ящика: до текста (PTY) − кадр с текстом (трасса). */
     readonly boxGap: Stats | null;
     readonly workload: Readonly<Record<WorkloadStepKey, Stats | null>>;
-    /** Прогоны, где нагрузка не дошла до конца: «crash (signal 9)», «failed: …». */
     readonly workloadFailures: readonly string[];
 }
 
@@ -39,7 +35,6 @@ export interface ReportEnv {
     readonly cores: number;
     readonly memGb: number;
     readonly platform: string;
-    /** Условия прогона: CI shared runner или локальная машина разработчика (+ подпись). */
     readonly conditions: string;
     readonly ci: boolean;
 }
@@ -107,7 +102,6 @@ export function summarizeSize(
     };
 }
 
-// ── Форматирование ───────────────────────────────────────────────────────────
 
 export function formatMs(value: number | null | undefined): string {
     return value === null || value === undefined ? "—" : `${String(Math.round(value))} мс`;

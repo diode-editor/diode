@@ -2,15 +2,9 @@ import { basename } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// 16 ANSI-цветов встроенного терминала — из темы (`terminal.ansi*`, дефолты vscode),
-// как у vscode (`terminal.integrated.colorSource: "theme"`, дефолт). Шелл печатает
-// строку обычных (30–37) и строку ярких (90–97) цветов фоном; смена темы
-// перекрашивает уже выведенное — кадр «light» после выбора Light Modern.
-//
-// Режим `"host"` (цвета хост-терминала по OSC 4/10/11) headless не показать: у
-// headless-бэкенда нет терминала, который бы ответил, — палитра там та же, что у темы.
+// Цвета — из темы (`terminal.integrated.colorSource: "theme"`, дефолт vscode). Режим `"host"` (OSC 4/10/11)
+// headless не показать: у headless-бэкенда нет терминала, который бы ответил.
 
-/** Восемь «плашек» фоном `<base>+i` с подписью-номером. */
 function swatches(base: number): string {
     return Array.from({ length: 8 }, (_, i) => `\\033[${String(base + i)}m ${String(i)} `).join("") + "\\033[0m";
 }

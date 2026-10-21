@@ -7,25 +7,8 @@ import { createRegistryFixture } from "../helpers/registryFixture.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Расширения по профилю (итерация 2, docs/TODO/Profiles.md): каталог
-// `extensions/` общий, а какие из расширений включены, решает `extensions.json`
-// профиля. Extension host поднимает только состав активного профиля, а смена
-// профиля — перезагрузка окна, так что новый host стартует с новым составом.
-//
-// Сид user-data несёт `hello-lang` в `extensions/` без `extensions.json` — как
-// у человека, обновившегося с версии, где расширения были общими: миграция
-// делает его составом Default. Видимый признак расширения — язык `.hello` в
-// статус-баре («Hello Language» против «Plain Text»).
-//
-// Кадры: `default` (Default с hello-lang), `copied` (New Profile → Copy from
-// current — hello-lang приехал), `empty` (New Profile → Empty — язык Plain
-// Text), `empty-view` (магазин пустого профиля: секции INSTALLED нет),
-// `installed` (Sample Lang поставлен в пустой профиль — после reload язык
-// `.diodesample` работает), `default-again` (Default: hello-lang есть, а
-// Sample Lang в нём не установлен).
-//
-// Кейбинды сценария живут в keybindings.json Default-профиля, а у Empty-профиля
-// их нет, поэтому все команды — через палитру.
+// Сид кладёт `hello-lang` в `extensions/` без `extensions.json` — миграция делает его составом Default;
+// признак расширения — язык `.hello` в статус-баре. Команды — через палитру: у Empty-профиля нет кейбиндов сценария.
 
 const fixture = resolve(repoRoot, "e2e", "fixtures", "profileExtensions");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-hello");
@@ -41,7 +24,6 @@ const registry = await createRegistryFixture(join(mkdtempSync(join(tmpdir(), "di
     },
 ]);
 
-/** Открыть команду палитры по полному заголовку. */
 async function runCommand(editor: ScenarioDriver, title: string): Promise<void> {
     await editor.sendKey("F1");
     await editor.waitForNode("#quickInput");
@@ -50,13 +32,13 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
     await editor.sendKey("Enter");
 }
 
-/** Перезагрузка окна после команды профиля: старый сокет закрывается, новый поднимается на том же порту. */
+/** Старый сокет закрывается, новый поднимается на том же порту. */
 async function reloaded(editor: ScenarioDriver): Promise<void> {
     await editor.reconnect();
     await editor.waitForText((t) => t.includes("EXPLORER"), { timeoutMs: 60_000 });
 }
 
-/** New Profile: имя, затем пункт содержимого (`down` — сколько раз вниз от «Empty»), вход с перезагрузкой. */
+/** `down` — сколько раз вниз от «Empty» в выборе содержимого. */
 async function newProfile(editor: ScenarioDriver, name: string, down: number): Promise<void> {
     await runCommand(editor, "Profiles: New Profile...");
     await editor.waitForText((t) => t.includes("Profile name"));
@@ -68,7 +50,6 @@ async function newProfile(editor: ScenarioDriver, name: string, down: number): P
     await reloaded(editor);
 }
 
-/** Язык активного редактора в статус-баре. */
 async function expectLanguage(editor: ScenarioDriver, language: string): Promise<void> {
     await editor.waitForText((t) => t.split("\n").some((line) => line.trimEnd().endsWith(language)));
 }

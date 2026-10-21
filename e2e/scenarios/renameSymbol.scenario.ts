@@ -7,13 +7,8 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
 
-// Rename Symbol (F2) поверх НАСТОЯЩЕГО rename-провайдера стокового
-// typescript-language-server: имя функции меняется и в открытой вкладке, и в
-// ЗАКРЫТОМ файле-потребителе — правки провайдера едут через bulk workspace
-// edit (#370), одним шагом отмены.
-//
-// Каталог сценарий наполняет в prepare: rename пишет на диск, а коммитнутую
-// фикстуру пачкать нельзя (паттерн bulkWorkspaceEdit.scenario.ts).
+// Правки rename-провайдера едут через bulk workspace edit (#370): задевают и ЗАКРЫТЫЙ файл, одним шагом
+// отмены. Каталог наполняется в prepare: rename пишет на диск, а коммитнутую фикстуру пачкать нельзя.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-rename-demo-"));
@@ -27,7 +22,6 @@ const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply = greet("world")
 export default defineScenario({
     name: "rename-symbol",
     title: "Rename Symbol (F2): стоковый tsserver правит открытый И закрытый файл",
-    // Открыт только объявляющий файл; потребитель остаётся закрытым.
     open: [sampleDir, defsFile],
     // Сервер живёт в devDeps репозитория (вшитый — docs/arch/Extensions.md, «Builtin LSP-клиент»),
     // путь передаётся настройками; tsserver.js — для песочниц без своего TypeScript.
@@ -37,9 +31,8 @@ export default defineScenario({
     },
     cols: 100,
     rows: 24,
-    // Find All References уводит фокус в сайдбар — вернуть его редактору нечем,
-    // кроме команды (своего бинда у неё нет, как и в VS Code). Буква не из
-    // мнемоник меню-бара (F/E/S/V/G/H): Alt+<мнемоника> открыл бы меню.
+    // После References вернуть фокус редактору нечем, кроме команды (своего бинда нет, как в VS Code);
+    // буква — не из мнемоник меню-бара (F/E/S/V/G/H).
     userKeybindings: [{ key: "alt+q", command: "workbench.action.focusActiveEditorGroup" }],
     // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only.
     skipOn: ["win32", "darwin"],
@@ -52,16 +45,12 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("export function greet"));
         await editor.capture("before");
 
-        // Каретка на имени в объявлении (строка 0, колонка 18).
+        // На имя в объявлении (строка 0, колонка 18).
         await editor.sendKey("Ctrl+Home");
         for (let i = 0; i < 18; i++) await editor.sendKey("ArrowRight");
 
-        // Готовность сервера: на холодном старте tsserver отвечает по одному
-        // открытому файлу, и переименование уехало бы мимо закрытого
-        // потребителя. Признак готовности — ссылка из main.ts в панели
-        // REFERENCES (Ctrl+K Ctrl+R); её же ждут references-сценарии.
-        // Жмём до результата: пока проект не загружен, сервер отвечает пустым
-        // списком, а на пустой ответ панель не открывается вовсе.
+        // Холодный tsserver отвечает по одному открытому файлу, и rename уехал бы мимо закрытого потребителя.
+        // Готовность — ссылка из main.ts в REFERENCES; жмём до результата: на пустой ответ панель не открывается.
         await waitUntil(
             async () => {
                 await editor.sendKey("Ctrl+K");
@@ -92,18 +81,14 @@ export default defineScenario({
                     .includes("Rename Symbol"),
             { describe: "оверлей Rename Symbol", timeoutMs: 60_000, intervalMs: 2000 },
         );
-        // Поле предзаполнено текущим именем символа (prepareRename сервера).
         await editor.waitForText((t) => t.includes("greet"));
         await editor.capture("prompt");
 
-        // Старое имя не выделено — поле несёт его текстом, поэтому стираем и
-        // набираем новое (как в поле ввода VS Code с выделением).
+        // Старое имя не выделено — стираем его и набираем новое.
         for (let i = 0; i < "greet".length; i++) await editor.sendKey("Backspace");
         await editor.sendText("welcome");
         await editor.sendKey("Enter");
 
-        // Главная проверка: ЗАКРЫТЫЙ main.ts переименован на диске — и импорт,
-        // и вызов.
         await waitUntil(
             () => Promise.resolve(readFileSync(closedFile, "utf8")),
             (text) => text.includes("import { welcome }") && text.includes('welcome("world")'),

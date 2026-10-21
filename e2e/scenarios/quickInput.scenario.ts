@@ -2,21 +2,12 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot, type ScenarioDriver } from "./framework.ts";
 
-// Ввод по просьбе расширения (`window.showInputBox` / `window.showQuickPick` /
-// `window.createQuickPick`):
-// фикстурное расширение `quick-input-probe` из палитры просит строку и выбор, а
-// поднимается при этом ТОТ ЖЕ оверлей, которым пользуются палитра и Quick Open.
-//
-// Сценарий проходит четыре состояния, ради которых заявка и делалась: поле ввода
-// с подсказкой и валидацией (ошибка блокирует Enter, предупреждение — нет), поле
-// пароля под маской, список с фильтрацией и множественный выбор с чекбоксами. Ответ расширения печатается
-// строкой в канал Output «Diode Probe» — по ней видно, что введённое реально
-// доехало до расширения, а не осталось в UI.
+// Расширение поднимает ТОТ ЖЕ оверлей, что палитра и Quick Open; ответ печатается в канал Output
+// «Diode Probe» — по нему видно, что введённое доехало до расширения.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-quick-input-probe");
 
-/** Открывает палитру и исполняет команду пробника по её заголовку. */
 async function runProbeCommand(editor: ScenarioDriver, title: string): Promise<void> {
     await editor.sendKey("F1");
     await editor.waitForNode("#quickInput");
@@ -31,27 +22,21 @@ export default defineScenario({
     open: [repoRoot, sampleFile],
     cols: 100,
     rows: 30,
-    // Extension-host сценарий: CI-safety-net гоняем только на Linux (как
-    // inline-completion — субпроцесс расширений на Windows флейкает).
+    // Только Linux: субпроцесс расширений на Windows флейкает.
     skipOn: ["win32"],
     async run(editor) {
-        // Пробник поднимает канал Output при активации: по нему и читаются ответы.
         await editor.waitForText((t) => t.includes("Diode Probe"), { timeoutMs: 30000 });
 
-        // ─── Поле ввода с валидацией ────────────────────────────────────────
         await runProbeCommand(editor, "Ask Port");
         await editor.waitForText((t) => t.includes("Порт сервера"), { timeoutMs: 20000 });
         await editor.capture("input-box");
 
-        // Ошибка валидации: сообщение под полем и заблокированный Enter.
         await editor.sendText("ab");
         await editor.waitForText((t) => t.includes("Только цифры"));
         await editor.capture("error-message");
         await editor.sendKey("Enter");
-        // Оверлей на месте — Enter съеден жёсткой ошибкой.
         await editor.waitForText((t) => t.includes("Только цифры"));
 
-        // Предупреждение Enter не блокирует.
         await editor.sendKey("Backspace");
         await editor.sendKey("Backspace");
         await editor.sendText("80");
@@ -61,10 +46,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Port: 80"), { timeoutMs: 20000 });
         await editor.capture("input-accepted");
 
-        // ─── Поле пароля ────────────────────────────────────────────────────
-        // Набранное закрыто маской: на кадре только звёздочки, самого секрета
-        // не видно, а расширение получает НАСТОЯЩИЙ текст — по его длине это и
-        // проверяется.
+        // Расширение получает настоящий текст — это проверяется по его длине.
         await runProbeCommand(editor, "Ask Secret");
         await editor.waitForText((t) => t.includes("Набранное закрыто маской"), { timeoutMs: 20000 });
         await editor.sendText("hunter2");
@@ -73,7 +55,6 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Secret length: 7"), { timeoutMs: 20000 });
 
-        // ─── Список с фильтрацией ───────────────────────────────────────────
         await runProbeCommand(editor, "Pick Fruit");
         await editor.waitForText((t) => t.includes("Выберите фрукт") && t.includes("cherry"), { timeoutMs: 20000 });
         await editor.capture("quick-pick");
@@ -83,12 +64,10 @@ export default defineScenario({
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Fruit: cherry"), { timeoutMs: 20000 });
 
-        // ─── Множественный выбор с чекбоксами ───────────────────────────────
         await runProbeCommand(editor, "Pick Many (preselected)");
         await editor.waitForText((t) => t.includes("[✓] beta"), { timeoutMs: 20000 });
         await editor.capture("multi-select");
 
-        // Space отмечает строку под курсором: оверлей остаётся открытым.
         await editor.sendKey(" ");
         await editor.waitForText((t) => t.includes("[✓] alpha"));
         await editor.capture("multi-select-checked");
@@ -97,38 +76,30 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Picked: alpha, beta"), { timeoutMs: 20000 });
         await editor.capture("multi-select-accepted");
 
-        // ─── Объектный пикер (window.createQuickPick) ────────────────────────
-        // Пикер открывается пустым, предметы приезжают позже — как ответ
-        // языкового сервера у `Go: Maintain gopls` (golang.go, pickLazyEnum).
+        // Пикер открывается пустым, предметы приезжают позже — как у `Go: Maintain gopls` (golang.go, pickLazyEnum).
         await runProbeCommand(editor, "Lazy Pick");
         await editor.waitForText((t) => t.includes("Lazy enum") && t.includes("Alpha module"), {
             timeoutMs: 20000,
         });
         await editor.capture("create-quick-pick");
 
-        // Запрос уходит расширению, оно присылает новый список.
         await editor.sendText("beta");
         await editor.waitForText((t) => t.includes("Найдено по «beta»") && !t.includes("Alpha module"));
         await editor.capture("create-quick-pick-filtered");
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Lazy: example.com/beta"), { timeoutMs: 20000 });
 
-        // ─── Диалог файлов (window.showOpenDialog) ──────────────────────────
-        // Порт SimpleFileDialog эталона: путь — в строке, каталог — под ней.
         await runProbeCommand(editor, "Open File Dialog");
-        // Каталоги идут раньше файлов, и в корне репо README ниже видимой части
-        // списка — ждём каталог, который виден всегда.
+        // Каталоги идут раньше файлов, README в корне ниже видимой части — ждём каталог, который виден всегда.
         await editor.waitForText((t) => t.includes("Pick a file") && t.includes(".github"), { timeoutMs: 20000 });
         await editor.capture("file-dialog");
-        // Начало имени подсвечивает строку, Enter принимает файл.
         await editor.sendText("READ");
         await editor.waitForText((t) => t.includes("README.md") && t.includes("Pick a file"));
         await editor.capture("file-dialog-typed");
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("Opened: ") && t.includes("README"), { timeoutMs: 20000 });
 
-        // ─── Свой потребитель оверлея не сломался ───────────────────────────
-        // Палитра после множественного выбора: чекбоксов в ней нет.
+        // Свой потребитель оверлея не сломан: после множественного выбора чекбоксов в палитре нет.
         await editor.sendKey("F1");
         await editor.waitForNode("#quickInput");
         await editor.waitForText((t) => t.includes("File: Save"));

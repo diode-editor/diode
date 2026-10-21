@@ -4,15 +4,8 @@ import { frameToText } from "../helpers/frame.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Folding ranges contributed by a STOCK extension (#194): the real
-// maptz.regionfolder is installed FROM THE MARKETPLACE (latest compatible
-// version, no pin — docs/TESTING.md convention), and its `#region`/`#endregion`
-// markers become foldable ranges on top of the indentation folds.
-//
-// The demo exists because the visible half of this feature is what unit tests
-// can't see: a `#region` header sits at the same indent as its body, so the
-// folding indent guide would land on the first character of every wrapped line
-// ("const" rendering as "│onst"). The resting screenshot is the assertion.
+// #194. A `#region` header sits at its body's indent, so the folding guide would land on the first
+// character of every wrapped line ("const" → "│onst"); the resting screenshot is the assertion.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "regionFolding.ts");
 
@@ -24,26 +17,17 @@ export default defineScenario({
     network: true,
     cols: 100,
     rows: 20,
-    // Extension-host scenarios run the subprocess — Linux only, like
-    // editorconfig-stock / sea-git (see docs/TODO/E2E.md).
+    // Extension-host scenarios run the subprocess — Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("const sum"));
 
-        // Fold FIRST, and only then shoot the resting frame. The provider
-        // activates on onStartupFinished — after the file is already open — so a
-        // fold pressed too early collapses the indentation range (the function
-        // body) instead of the region. A fold that starts on the `#region`
-        // marker line is something indentation folding can never produce, so it
-        // doubles as proof that the provider's ranges have landed — retry the
-        // toggle until exactly that fold appears (on slow runners activation
-        // lands seconds later; git-расширение added its own startup git calls,
-        // pushing the window wider).
-        // Ctrl+K Ctrl+L: both keys are Ctrl+letter, which the headless key DSL can
-        // serialize (Ctrl+Shift+[ cannot).
-        // Навигация по статус-бару (Ln N), а не слепым счётом нажатий: нажатия
-        // теряются, пока стартуют расширения/LSP, а collapse уводит курсор в
-        // конец документа.
+        // Fold FIRST: the provider activates on onStartupFinished, after the file opens, so an early fold
+        // collapses the indentation range. A fold starting on the `#region` line proves the provider's
+        // ranges landed — retry until it appears (slow runners activate seconds later).
+        // Ctrl+K Ctrl+L: the headless key DSL can't serialize Ctrl+Shift+[.
+        // Навигация по Ln в статус-баре, а не счётом нажатий: нажатия теряются, пока стартуют расширения,
+        // а collapse уводит курсор в конец документа.
         const gotoLine = async (line: number): Promise<void> => {
             for (let i = 0; i < 20; i++) await editor.sendKey("ArrowUp");
             for (let i = 0; i < 15; i++) {

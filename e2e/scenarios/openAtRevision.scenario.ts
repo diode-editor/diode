@@ -5,10 +5,7 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// «Git: Open File at Revision...» (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): пикер
-// ref'ов открывает файл на выбранной ревизии обычной read-only текстовой
-// вкладкой `имя (ref)` с замком — контент даёт git:-провайдер, диска у
-// вкладки нет.
+// Ревизия открывается read-only вкладкой `имя (ref)`: контент даёт git:-провайдер, диска у вкладки нет.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });

@@ -1,14 +1,6 @@
 "use strict";
 
-/**
- * Расширение-пробник ввода: по команде спрашивает у человека строку
- * (`window.showInputBox`) или выбор из списка (`window.showQuickPick`) и
- * печатает полученное обычным сообщением внизу экрана. Само сообщение и есть
- * наблюдаемый результат — по нему видно, ДОЕХАЛО ли введённое до расширения.
- *
- * Используется e2e-сценарием `quick-input` и ручными прогонами
- * (`--user-data-dir` с этой фикстурой).
- */
+/** Полученное печатается сообщением — по нему видно, ДОЕХАЛО ли введённое до расширения. */
 
 /** Как печатаем ответ: отмена — отдельный исход, пустая строка — свой. */
 function describe(value) {
@@ -17,9 +9,7 @@ function describe(value) {
     return value;
 }
 
-/** Сколько «думает» медленный валидатор и асинхронный список. */
 const SLOW_MS = 1000;
-/** Пауза у команд, которые нарочно показывают оверлей не сразу. */
 const DELAY_MS = 3000;
 
 function delay(ms) {
@@ -31,12 +21,8 @@ function delay(ms) {
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
-    // Ответ печатаем ДВАЖДЫ. `showInformationMessage` — как просит постановка,
-    // но в Diode у него пока нет экранной поверхности: сообщение уходит только
-    // в лог расширений (нотификаций/тостов в приложении нет вовсе). Чтобы
-    // результат был виден глазами, тот же текст идёт строкой в канал Output —
-    // панель открывается один раз при активации и дальше просто наполняется,
-    // не перехватывая фокус посреди сценария.
+    // Ответ печатаем ещё и в Output: у `showInformationMessage` в Diode пока нет экранной
+    // поверхности. Панель открывается один раз при активации — фокус посреди сценария не перехватывает.
     const channel = vscode.window.createOutputChannel("Diode Probe");
     context.subscriptions.push(channel);
     channel.show(true);
@@ -50,7 +36,6 @@ exports.activate = function activate(context) {
         context.subscriptions.push(vscode.commands.registerCommand(id, run));
     };
 
-    // ─── Ввод строки ────────────────────────────────────────────────────────
 
     register("diodeProbe.askName", async function () {
         const value = await vscode.window.showInputBox({
@@ -84,9 +69,7 @@ exports.activate = function activate(context) {
         show("Ask Name: " + describe(value));
     });
 
-    // Поле пароля: на экране маска, а расширению доезжает настоящий текст —
-    // поэтому печатаем ДЛИНУ полученного, а не его самого (секрет незачем
-    // выводить в канал, да и по длине видно, что доехали все символы).
+    // Печатаем ДЛИНУ: секрет незачем выводить, а по длине видно, что доехали все символы.
     register("diodeProbe.askSecret", async function () {
         const value = await vscode.window.showInputBox({
             title: "Secret",
@@ -154,7 +137,6 @@ exports.activate = function activate(context) {
         }
     });
 
-    // ─── Выбор из списка ────────────────────────────────────────────────────
 
     register("diodeProbe.pickFruit", async function () {
         const value = await vscode.window.showQuickPick(["apple", "banana", "cherry"], {
@@ -231,7 +213,6 @@ exports.activate = function activate(context) {
         show("Empty: " + describe(value));
     });
 
-    // ─── Связка ─────────────────────────────────────────────────────────────
 
     register("diodeProbe.askThenPick", async function () {
         const name = await vscode.window.showInputBox({ title: "Step 1", prompt: "Имя" });
@@ -241,10 +222,8 @@ exports.activate = function activate(context) {
         show("Both: " + describe(name) + " / " + describe(fruit));
     });
 
-    // ─── Объектный пикер (window.createQuickPick) ───────────────────────────
-    // Форма `pickLazyEnum` golang.go (`Go: Maintain gopls`): пикер открывается
-    // пустым, предметы приезжают с задержкой на каждый набранный запрос — как
-    // ответ языкового сервера, — Enter принимает, расширение прячет пикер само.
+    // Форма `pickLazyEnum` golang.go (`Go: Maintain gopls`): пикер открывается пустым, предметы
+    // приезжают с задержкой на каждый запрос, как ответ сервера; Enter принимает, прячет пикер расширение.
 
     const MODULES = [
         { name: "Alpha module", path: "example.com/alpha" },
@@ -290,7 +269,6 @@ exports.activate = function activate(context) {
         });
     });
 
-    // ─── Диалог файлов (window.showOpenDialog) ──────────────────────────────
     // Форма «Go: Choose Go Environment → Choose from file browser» golang.go.
     register("diodeProbe.openDialog", async function () {
         const folders = vscode.workspace.workspaceFolders;

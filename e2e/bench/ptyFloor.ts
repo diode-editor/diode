@@ -1,17 +1,7 @@
 /**
- * Пол процесса тем же путём, что и замер: `<cmd> <args>` спаунится через
- * node-pty с теми же cols/rows и env, время — от спауна до первого чанка stdout
- * (та же точка, что «до текста» у редактора: байты пришли на PTY), а если
- * вывода нет — до выхода. Раньше пол снимался `spawnSync` с пайпами — другой
- * путь (без pty/termios/alt-screen), другая цена, и вычитать его из PTY-замера
- * было нечестно.
- *
- * Полы, которые снимает бенч:
- * - `node -e ""` — пол node: минимальный процесс, который вообще исполняет JS
- *   (полный бутстрап V8 и node). Главная цифра отчёта считается от него.
- * - `node --version` — для справки: node отвечает на него ДО подъёма V8
- *   (единицы мс), поэтому полом рантайма он служить не может.
- * - `diode --version` — пол бинаря: + парс и выполнение SEA-бандла до CLI.
+ * Пол процесса тем же путём, что и замер: спаун через node-pty с теми же cols/rows и env, до
+ * первого чанка stdout (или до выхода). `spawnSync` с пайпами — другой путь и другая цена,
+ * вычитать его из PTY-замера нечестно.
  */
 
 import * as pty from "node-pty";
@@ -29,7 +19,6 @@ export interface FloorOptions {
     readonly env?: Readonly<Record<string, string>>;
 }
 
-/** Один спаун `<cmd> <args>` в PTY: мс до первого чанка вывода (или до выхода, если вывода не было). */
 export function measureFloorOnce(cmd: string, args: readonly string[], options: FloorOptions): Promise<number> {
     return new Promise((resolve, reject) => {
         const env = hermeticSpawnEnv(options.env);
@@ -61,7 +50,6 @@ export interface FloorResult {
     readonly samplesMs: readonly number[];
 }
 
-/** Медиана `<cmd> <args>` через PTY — пол, ниже которого старт не опустится. */
 export async function measureFloorPty(
     cmd: string,
     args: readonly string[],
@@ -75,7 +63,6 @@ export async function measureFloorPty(
     return { command: [cmd, ...args].join(" "), medianMs: median(samplesMs), samplesMs };
 }
 
-/** Аргументы полов (см. шапку модуля). */
 export const NODE_FLOOR_ARGS: readonly string[] = ["-e", ""];
 export const NODE_VERSION_ARGS: readonly string[] = ["--version"];
 export const BINARY_FLOOR_ARGS: readonly string[] = ["--version"];
