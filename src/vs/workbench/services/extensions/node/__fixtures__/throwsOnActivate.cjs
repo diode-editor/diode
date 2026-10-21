@@ -1,6 +1,6 @@
 "use strict";
 
-/** Фикстура: `activate()` бросает — расширение не поднимается. */
+/** Fixture: `activate()` throws, so the extension never comes up. */
 exports.activate = function activate() {
     throw new Error("activate failed on purpose");
 };

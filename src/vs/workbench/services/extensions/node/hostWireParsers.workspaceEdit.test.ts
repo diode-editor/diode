@@ -71,12 +71,12 @@ describe("parseWireApplyWorkspaceEditParams", () => {
 
     it("мусор вместо параметров даёт null, а не исключение", () => {
         expect(parseWireApplyWorkspaceEditParams(null)).toBeNull();
-        // `undefined` — отдельно от null: у него падает даже доступ к свойству.
+        // `undefined` separately from null: even property access throws on it.
         expect(parseWireApplyWorkspaceEditParams(undefined)).toBeNull();
         expect(parseWireApplyWorkspaceEditParams("junk")).toBeNull();
         expect(parseWireApplyWorkspaceEditParams({})).toBeNull();
         expect(parseWireApplyWorkspaceEditParams({ ops: "junk" })).toBeNull();
-        // Старая форма (`edits`) — именно null, а не пустой набор, который примут за вакуумный успех.
+        // The old shape (`edits`) yields null, not an empty set that would pass for a vacuous success.
         expect(parseWireApplyWorkspaceEditParams({ edits: [{ resource: "file:///a.ts", edits: [EDIT] }] })).toBeNull();
     });
 
@@ -86,11 +86,11 @@ describe("parseWireApplyWorkspaceEditParams", () => {
 
     it.each([
         ["не объект", [null]],
-        // `undefined` — отдельно от null: у него падает даже доступ к свойству.
+        // `undefined` separately from null: even property access throws on it.
         ["операция undefined", [undefined]],
         ["строка вместо операции", ["junk"]],
         ["неизвестный kind", [{ kind: "notebook", resource: "file:///a.ts" }]],
-        // Неизвестный вид с полями переименования не должен проехать как rename.
+        // An unknown kind with rename fields must not slip through as a rename.
         ["неизвестный kind с from/to", [{ kind: "notebook", from: "file:///a.ts", to: "file:///b.ts" }]],
         ["kind отсутствует", [{ resource: "file:///a.ts", edits: [EDIT] }]],
         ["нестроковый resource", [{ kind: "text", resource: 5, edits: [EDIT] }]],

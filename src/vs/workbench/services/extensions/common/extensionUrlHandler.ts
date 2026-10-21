@@ -8,18 +8,18 @@ import type { IOpenURLOptions, IURLHandler } from "../../../../platform/url/comm
 
 export const CONFIRMED_URI_HANDLER_EXTENSION_IDS_SETTING = "extensions.confirmedUriHandlerExtensionIds";
 
-/** `isExtensionId` эталона. */
+/** Upstream `isExtensionId`. */
 const EXTENSION_ID = /^[a-z0-9][a-z0-9-]*\.[a-z0-9][a-z0-9-]*$/i;
 
 const THIRTY_SECONDS = 30 * 1000;
 const FIVE_MINUTES = 5 * 60 * 1000;
 
-/** `MainThreadUrls` эталона. */
+/** Upstream `MainThreadUrls`. */
 export interface IExtensionUriHandlers {
-    /** id без учёта регистра. */
+    /** Case-insensitive id. */
     has(extensionId: string): boolean;
     handle(extensionId: string, uri: string): Promise<void>;
-    /** id — как его прислал субпроцесс. */
+    /** The id as sent by the subprocess. */
     readonly onDidRegister: Event<string>;
 }
 
@@ -28,7 +28,7 @@ export interface IExtensionUrlHandlerOptions {
     activateByEvent(event: string): Promise<void>;
     extensionDisplayName(extensionId: string): string | undefined;
     confirm(message: readonly string[]): Promise<boolean>;
-    /** Как есть: settings.json правят руками. */
+    /** As is: settings.json is edited by hand. */
     confirmedExtensionIds(): unknown;
     notifyNotInstalled(extensionId: string, uri: Uri): void;
     readonly logger: ILogger;
@@ -36,12 +36,12 @@ export interface IExtensionUrlHandlerOptions {
 }
 
 /**
- * `ExtensionUrlHandler` эталона. Отступления: неустановленное расширение не ставится — человеку
- * говорится, что его нет; галочки «больше не спрашивать» нет — доверие задаёт настройка
+ * Upstream `ExtensionUrlHandler`. Deviations: a missing extension isn't installed, the user is
+ * told it's not there; there's no "don't ask again" checkbox, trust comes from the setting
  * {@link CONFIRMED_URI_HANDLER_EXTENSION_IDS_SETTING}.
  */
 export class ExtensionUrlHandler extends Disposable implements IURLHandler {
-    /** Ключ — id в нижнем регистре. */
+    /** Keyed by lowercase id. */
     private uriBuffer = new Map<string, { readonly timestamp: number; readonly uri: Uri }[]>();
     private readonly now: () => number;
 
@@ -111,7 +111,7 @@ export class ExtensionUrlHandler extends Disposable implements IURLHandler {
         const next = new Map<string, { readonly timestamp: number; readonly uri: Uri }[]>();
         for (const [key, uris] of this.uriBuffer) {
             const fresh = uris.filter(({ timestamp }) => now - timestamp < FIVE_MINUTES);
-            // Stryker disable next-line ConditionalExpression,EqualityOperator: эквивалентный — пустой список в буфере `drain` снимает так же, как отсутствующий: доставлять нечего
+            // Stryker disable next-line ConditionalExpression,EqualityOperator: equivalent — `drain` handles an empty list in the buffer the same as a missing one: nothing to deliver
             if (fresh.length > 0) next.set(key, fresh);
         }
         this.uriBuffer = next;

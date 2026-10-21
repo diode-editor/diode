@@ -1,20 +1,20 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.context.test.ts. Регистрирует команду
- * `test.context.report`, которая возвращает поля ExtensionContext (пути,
- * режим, asAbsolutePath, запись `extension` из каталога) и env-флаги
- * субпроцесса — тест проверяет, что host
- * передал корень установки расширения и что окружение детей очищено от
- * `DIODE_EXTENSION_HOST` (см. env-фикс в runExtensionHostSubprocess).
+ * Fixture for extensionHost.context.test.ts. Registers the
+ * `test.context.report` command, which returns ExtensionContext fields (paths,
+ * mode, asAbsolutePath, the `extension` entry from the catalog) and the subprocess
+ * env flags; the test checks that the host
+ * passed the extension's install root and that the children's environment is cleared of
+ * `DIODE_EXTENSION_HOST` (see the env fix in runExtensionHostSubprocess).
  */
 const path = require("node:path");
 
 exports.activate = function activate(context) {
     const vscode = require("vscode");
-    // `context.extension` — то, что телеметрии читают первой строкой activate()
-    // (`context.extension.packageJSON.version`). Снимок берём ЗДЕСЬ: `isActive`
-    // во время собственной активации обязан быть false, как в эталоне.
+    // `context.extension` is what telemetry reads on the first line of activate()
+    // (`context.extension.packageJSON.version`). The snapshot is taken HERE: `isActive`
+    // must be false during its own activation, as in upstream.
     const selfAtActivate = {
         id: context.extension.id,
         packageJSON: context.extension.packageJSON,

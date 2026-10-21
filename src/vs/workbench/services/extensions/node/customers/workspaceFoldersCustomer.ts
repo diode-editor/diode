@@ -12,7 +12,7 @@ export class WorkspaceFoldersCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("workspace.updateWorkspaceFolders", (params) => {
                 const request = parseWireUpdateWorkspaceFolders(params);
-                // Stryker disable next-line ConditionalExpression: без проверки null падает на полях запроса — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
+                // Stryker disable next-line ConditionalExpression: without the null check it throws on request fields — RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (request === null) return;
                 this.sink?.update(request);
             }),

@@ -262,7 +262,7 @@ describe("ExtensionService", () => {
 
             await service.start();
 
-            // Висящий 10-секундный таймер держал бы event loop процесса.
+            // A dangling 10-second timer would keep the process event loop alive.
             expect(vi.getTimerCount()).toBe(0);
         } finally {
             vi.useRealTimers();

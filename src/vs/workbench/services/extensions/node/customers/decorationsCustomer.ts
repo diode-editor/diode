@@ -10,7 +10,10 @@ import type { IWireColorTheme, SerializedDecorationRenderOptions } from "../../.
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { parseDecorationRanges, parseWireFileDecorations, themeColorIdOf } from "../hostWireParsers.ts";
 
-/** Типы и наборы декораций живут один спавн (респавн перерисует расширение); подписка на тему — с хостом. */
+/**
+ * Decoration types and sets live for one spawn (on respawn the extension redraws them); the theme subscription
+ * lives with the host.
+ */
 export class DecorationsCustomer extends Disposable implements IExtensionHostCustomer {
     private live: { readonly rpc: HostRpc; readonly decorations: SpawnDecorations } | null = null;
 
@@ -28,7 +31,7 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
         );
     }
 
-    /** Без субпроцесса — no-op: тема приедет семенем на его подъёме. */
+    /** No-op without a subprocess: the theme arrives as a seed when it comes up. */
     public pushActiveColorTheme(): void {
         const theme: IWireColorTheme = { kind: this.themeColorResolver.kind() };
         this.live?.rpc.notify("window.themeChanged", theme);
@@ -38,13 +41,13 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
         const decorations = new SpawnDecorations(this.editorDecorations, this.fileDecorations, this.themeColorResolver);
         this.live = { rpc, decorations };
         const store = new DisposableStore();
-        // overviewRulerColor делает тип gutter change-bar'ом.
+        // overviewRulerColor makes the type a gutter change bar.
         store.add(
             rpc.handleNotification("window.createTextEditorDecorationType", (params) => {
                 const p: { key?: unknown; options?: unknown } = params;
-                // Stryker disable next-line ConditionalExpression: тип с нечисловым ключом ненаблюдаем — до него не доберётся setDecorations, у которого свой гард ключа
+                // Stryker disable next-line ConditionalExpression: a type with a non-numeric key is unobservable — setDecorations, which has its own key guard, never reaches it
                 if (typeof p.key !== "number") return;
-                // Не-объект в options полей не несёт — тип без gutter-цвета.
+                // A non-object in options carries no fields — a type without a gutter color.
                 const options = (p.options ?? {}) as SerializedDecorationRenderOptions;
                 decorations.createType(p.key, options);
             }),
@@ -52,7 +55,7 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
         store.add(
             rpc.handleNotification("window.disposeTextEditorDecorationType", (params) => {
                 const p: { key?: unknown } = params;
-                // Stryker disable next-line ConditionalExpression: снятие нечислового ключа — no-op: такого ключа нет ни в реестре, ни в наборах файлов
+                // Stryker disable next-line ConditionalExpression: removing a non-numeric key is a no-op: no such key exists in the registry or in file sets
                 if (typeof p.key !== "number") return;
                 decorations.disposeType(p.key);
             }),
@@ -64,15 +67,15 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
                 decorations.setRanges(p.key, p.uri, parseDecorationRanges(p.ranges));
             }),
         );
-        // Голый uri без цвета/бейджа — снятие.
+        // A bare uri without color/badge means removal.
         store.add(
             rpc.handleNotification("window.fileDecorationsChanged", (params) => {
                 const p: { decorations?: unknown } = params;
                 decorations.mergeFileDecorations(parseWireFileDecorations(p.decorations));
             }),
         );
-        // Следующий спавн подключается только после ухода этого, так что
-        // снимать можно без сверки «а наш ли живой».
+        // The next spawn attaches only after this one has gone, so
+        // it's safe to remove without checking “is the live one ours”.
         store.add({
             dispose: () => {
                 this.live = null;
@@ -83,7 +86,7 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
 }
 
 class SpawnDecorations {
-    /** `undefined` — тип не красит гуттер. */
+    /** `undefined` means the type doesn't paint the gutter. */
     private readonly types = new Map<number, string | undefined>();
     private readonly editorDecorationsByFile = new Map<string, Map<number, readonly IRange[]>>();
     private readonly fileDecorationState = new Map<
@@ -116,7 +119,7 @@ class SpawnDecorations {
             byKey = new Map();
             this.editorDecorationsByFile.set(uri, byKey);
         }
-        // Пустой набор ничего не рисует — он и снимает бары типа.
+        // An empty set draws nothing — that is how it removes the type's bars.
         byKey.set(key, ranges);
         this.pushEditorDecorations(uri);
     }
@@ -139,12 +142,12 @@ class SpawnDecorations {
         this.pushFileDecorations();
     }
 
-    /** Только gutter-типы (есть overviewRulerColor); пустой набор снимает бары. */
+    /** Gutter types only (those with overviewRulerColor); an empty set removes the bars. */
     private pushEditorDecorations(uri: string): void {
         const byKey = this.editorDecorationsByFile.get(uri);
         const decorations: IGutterChangeDecoration[] = [];
-        /* v8 ignore start -- defensive: pushEditorDecorations зовётся только для ресурсов с записью (setRanges/disposeType/repushAll) */
-        // Stryker disable all: см. v8 ignore выше — ветку юнит не достаёт
+        /* v8 ignore start -- defensive: pushEditorDecorations is only called for resources with an entry (setRanges/disposeType/repushAll) */
+        // Stryker disable all: see v8 ignore above — unit tests can't reach the branch
         if (byKey === undefined) {
             this.editorDecorations.setGutterChangeDecorations(uri, decorations);
             return;
@@ -153,7 +156,7 @@ class SpawnDecorations {
         /* v8 ignore stop */
         for (const [key, ranges] of byKey) {
             const colorId = this.types.get(key);
-            // Stryker disable next-line ConditionalExpression: резолвер на неизвестный id отдаёт undefined — проверка цвета ниже пропустит тип так же
+            // Stryker disable next-line ConditionalExpression: the resolver returns undefined for an unknown id — the color check below skips the type the same way
             if (colorId === undefined) continue;
             const color = this.themeColorResolver.resolve(colorId);
             if (color === undefined) continue;
@@ -164,11 +167,11 @@ class SpawnDecorations {
         this.editorDecorations.setGutterChangeDecorations(uri, decorations);
     }
 
-    /** `propagate` едет как есть: всплытие к папкам считает дерево — оно знает свой корень. */
+    /** `propagate` goes as is: propagation to folders is computed by the tree, which knows its root. */
     private pushFileDecorations(): void {
         const entries: { path: string; color?: number; badge?: string; propagate?: boolean }[] = [];
         for (const [path, { badge, colorId, propagate }] of this.fileDecorationState) {
-            // Stryker disable next-line ConditionalExpression: резолвер на неизвестный (в т.ч. пустой) id отдаёт undefined — цвета нет в обоих случаях
+            // Stryker disable next-line ConditionalExpression: the resolver returns undefined for an unknown (including empty) id — no color in both cases
             const color = colorId === undefined ? undefined : this.themeColorResolver.resolve(colorId);
             entries.push({
                 path,
@@ -182,8 +185,8 @@ class SpawnDecorations {
 }
 
 /**
- * `null` — ресурс не на диске: дерево адресуется путями, а `git:`-ресурс в ключе
- * `fileDecorationState` молча не совпал бы ни с одним путём.
+ * `null` means the resource isn't on disk: the tree is addressed by paths, and a `git:` resource as a
+ * `fileDecorationState` key would silently match no path.
  */
 function fileUriToPath(uri: string): string | null {
     const parsed = Uri.parse(uri);

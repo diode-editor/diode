@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.inlineCompletion.test.ts: inline-completion-провайдер,
- * который отвечает не сразу (медленный бэкенд — тот случай, ради которого и
- * заведён `editor.inlineSuggest.requestTimeout`). Задержка заметно больше
- * «тесного» таймаута из теста и заметно меньше дефолтного хостового.
+ * Fixture for extensionHost.inlineCompletion.test.ts: an inline completion provider
+ * that answers with a delay (a slow backend, the very case
+ * `editor.inlineSuggest.requestTimeout` exists for). The delay is well above
+ * the test's "tight" timeout and well below the host's default one.
  */
 const RESPONSE_DELAY_MS = 300;
 

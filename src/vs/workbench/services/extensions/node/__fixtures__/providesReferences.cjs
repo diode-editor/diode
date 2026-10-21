@@ -1,13 +1,13 @@
 "use strict";
 
 /**
- * Фикстура references-провайдеров: регистрирует ДВА провайдера для typescript —
- * merge результатов нескольких провайдеров проверяется через настоящий
- * субпроцесс, а не только на стабе RPC.
- *   - первый  → ссылка в этом же файле, объявление отдаёт только при
- *     `context.includeDeclaration` (проверка, что контекст доезжает);
- *   - второй  → ссылка в соседнем файле (кросс-файловый случай);
- *   - на строке 1 оба молчат (пустой ответ).
+ * References provider fixture: registers TWO providers for typescript, so
+ * merging results of several providers is checked through a real
+ * subprocess, not only against an RPC stub.
+ *   - first  → a reference in the same file; returns the declaration only when
+ *     `context.includeDeclaration` is set (checks that the context arrives);
+ *   - second → a reference in a sibling file (the cross-file case);
+ *   - on line 1 both stay silent (empty answer).
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

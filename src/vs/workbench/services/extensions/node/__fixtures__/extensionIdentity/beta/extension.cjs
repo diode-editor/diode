@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Фикстура extensionHost.extensionIdentity.test.ts — расширение «beta».
- * Команда `test.identity.report` сравнивает `vscode` всех расширений из реестра
- * проб В МОМЕНТ ВЫЗОВА (геттеры читаются тогда же — проверка, что они живые) и
- * отдаёт хосту сериализуемый отчёт.
+ * Fixture for extensionHost.extensionIdentity.test.ts: extension "beta".
+ * Command `test.identity.report` compares the `vscode` of every extension in the
+ * probe registry AT CALL TIME (getters are read then too, checking that they are
+ * live) and returns a serializable report to the host.
  */
 const vscode = require("vscode");
 

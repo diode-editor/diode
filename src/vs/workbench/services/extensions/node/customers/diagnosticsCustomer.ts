@@ -38,15 +38,15 @@ function toWireMarker(marker: IMarker): WireMarker {
 }
 
 /**
- * `MainThreadDiagnostics` эталона в обе стороны; обратно уходят маркеры чужих владельцев.
- * «Свой» — владелец, которого хоть раз публиковал субпроцесс (у эталона — `origin` маркера).
- * Множество живёт с хостом: маркеры умершего спавна остаются в MarkerService и не чужие новому.
+ * Upstream `MainThreadDiagnostics` in both directions; markers of foreign owners go back.
+ * “Own” is an owner the subprocess has published at least once (upstream uses the marker `origin`).
+ * The set lives with the host: markers of a dead spawn stay in MarkerService and aren't foreign to the new one.
  */
 export class DiagnosticsCustomer implements IExtensionHostCustomer {
     private readonly ownOwners = new Set<string>();
     /**
-     * Ресурсы с ушедшими непустыми чужими маркерами — их исчезновение сообщается пустым набором.
-     * Отклонение: эталон шлёт пустой набор, лишь когда маркеров не осталось вовсе, и держит снятые чужие.
+     * Resources whose non-empty foreign markers went away — their disappearance is reported as an empty set.
+     * Deviation: upstream sends an empty set only when no markers are left at all, and keeps removed foreign ones.
      */
     private readonly forwarded = new Set<string>();
     private rpc: HostRpc | null = null;
@@ -56,7 +56,7 @@ export class DiagnosticsCustomer implements IExtensionHostCustomer {
         private readonly markers: IMarkerReader | undefined,
     ) {}
 
-    /** До первой активации: чужие маркеры, что легли до спавна. */
+    /** Before the first activation: foreign markers that were set before the spawn. */
     public pushInitialState(): void {
         if (this.markers === undefined) return;
         this.forward(
@@ -72,8 +72,8 @@ export class DiagnosticsCustomer implements IExtensionHostCustomer {
             rpc.handleNotification("diagnostics.publish", (params) => {
                 const publish = parseWireDiagnosticsPublish(params);
                 if (publish === null) return;
-                // Владелец — свой ДО записи в MarkerService: её событие
-                // вернётся сюда же, и свои маркеры в зеркало не попадут.
+                // The owner becomes own BEFORE the write to MarkerService: its event
+                // comes back here, and own markers don't get into the mirror.
                 this.ownOwners.add(publish.owner);
                 this.sink?.(publish.owner, publish.resource, publish.markers);
             }),
@@ -89,7 +89,7 @@ export class DiagnosticsCustomer implements IExtensionHostCustomer {
         store.add({
             dispose: () => {
                 this.rpc = null;
-                // Зеркало умерло с субпроцессом — новый начинает с пустого.
+                // The mirror died with the subprocess — the new one starts empty.
                 this.forwarded.clear();
             },
         });

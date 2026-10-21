@@ -1,11 +1,11 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.dependencies.test.ts: расширение с
- * `extensionDependencies: ["test.dep"]`, которое в `activate()` сразу тянется к
- * `exports` зависимости (как bazel-java к `redhat.java` за `exports.status`).
- * Бросает, если зависимость к этому моменту не активна или её `exports` не тот,
- * — то есть зелёная активация доказывает порядок, а не совпадение.
+ * Fixture for extensionHost.dependencies.test.ts: an extension with
+ * `extensionDependencies: ["test.dep"]` that reaches for the dependency's `exports`
+ * right in `activate()` (as bazel-java reaches for `redhat.java`'s `exports.status`).
+ * Throws if by then the dependency is not active or its `exports` is wrong,
+ * so a green activation proves the ordering rather than a coincidence.
  */
 exports.activate = function activate() {
     const vscode = require("vscode");

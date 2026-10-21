@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.completionResolve.test.ts: провайдер БЕЗ
- * `resolveCompletionItem`, правка авто-импорта приходит сразу в списке — как
- * у gopls (сервер не объявляет `resolveProvider`, languageclient resolve не
- * определяет).
+ * Fixture for extensionHost.completionResolve.test.ts: a provider WITHOUT
+ * `resolveCompletionItem`, the auto-import edit arrives right in the list, as
+ * with gopls (the server does not declare `resolveProvider`, languageclient does
+ * not define resolve).
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

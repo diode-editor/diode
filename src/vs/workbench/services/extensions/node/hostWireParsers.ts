@@ -105,9 +105,9 @@ export function parseWireShowTextDocumentParams(raw: unknown): IWireShowTextDocu
     };
 }
 
-/** Поле не той формы отбрасывается. */
+/** A field of the wrong shape is dropped. */
 export function parseWireCreateUntitledParams(raw: unknown): IWireCreateUntitledParams {
-    // Примитив отдельно не отсекаем: его поля читаются как undefined.
+    // Primitives aren't rejected separately: their fields read as undefined.
     const obj = (raw ?? {}) as Record<string, unknown>;
     return {
         ...(typeof obj.content === "string" ? { content: obj.content } : {}),
@@ -137,7 +137,7 @@ export function parseWireCloseGroupsParams(raw: unknown): IWireCloseGroupsParams
     return { groupIds: obj.groupIds as number[] };
 }
 
-/** Регионы приходят несвёрнутыми: `isCollapsed` восстанавливает мерж по `startLine` в редакторе. */
+/** Regions arrive expanded: the merge by `startLine` in the editor restores `isCollapsed`. */
 export function wireToCoreFoldingRegions(wire: readonly WireFoldingRange[]): IFoldingRegion[] {
     const regions: IFoldingRegion[] = [];
     for (const range of wire) {
@@ -153,7 +153,7 @@ function isWireLanguageFeatureKind(value: unknown): value is WireLanguageFeature
     return (WIRE_LANGUAGE_FEATURE_KINDS as readonly unknown[]).includes(value);
 }
 
-/** Валидирует один фильтр: поля чужого типа отбрасываются, а не роняют весь селектор. */
+/** Validates one filter: fields of a foreign type are dropped rather than failing the whole selector. */
 function parseWireLanguageFilter(raw: unknown): IWireLanguageFilter | null {
     if (typeof raw !== "object" || raw === null) return null;
     const obj = raw as Record<string, unknown>;
@@ -180,7 +180,7 @@ function isWireHandle(value: unknown): value is number {
     return Number.isInteger(value);
 }
 
-/** Секции не валидируются: их разворачивает терпимый к мусору `resolveLanguageConfiguration`. */
+/** Sections aren't validated: the garbage-tolerant `resolveLanguageConfiguration` unpacks them. */
 export function parseWireLanguageConfiguration(raw: unknown): IWireLanguageConfiguration | null {
     const p = raw as Partial<Record<keyof IWireLanguageConfiguration, unknown>> | null | undefined;
     const configuration = p?.configuration;
@@ -190,7 +190,7 @@ export function parseWireLanguageConfiguration(raw: unknown): IWireLanguageConfi
 }
 
 export function parseWireLanguageProviderRegistration(raw: unknown): IWireLanguageProviderRegistration | null {
-    // Примитив отсеет проверка handle ниже: его поля читаются как undefined.
+    // The handle check below filters primitives: their fields read as undefined.
     if (raw === null || raw === undefined) return null;
     const obj = raw as Record<string, unknown>;
     if (!isWireHandle(obj.handle) || !isWireLanguageFeatureKind(obj.kind) || !Array.isArray(obj.selector)) {
@@ -219,7 +219,10 @@ export function parseWireLanguageProviderRegistration(raw: unknown): IWireLangua
     };
 }
 
-/** Индекс в `tokenTypes` и бит в `tokenModifiers` позиционны: нестроковый элемент становится пустой строкой, а не выбрасывается. */
+/**
+ * The index in `tokenTypes` and the bit in `tokenModifiers` are positional: a non-string element becomes an empty
+ * string instead of being dropped.
+ */
 function readWireLegend(raw: unknown): { legend?: IWireSemanticTokensLegend } {
     if (raw === null || typeof raw !== "object") return {};
     const { tokenTypes, tokenModifiers } = raw as Record<string, unknown>;
@@ -233,7 +236,10 @@ export function parseWireProviderHandle(raw: unknown): IWireProviderHandle | nul
     return isWireHandle(handle) ? { handle } : null;
 }
 
-/** id ответа — строкой в `resultId`: ядро вернёт его как `previousResultId` (как upstream `MainThreadDocumentSemanticTokensProvider`). */
+/**
+ * The response id goes as a string in `resultId`: the core returns it as `previousResultId` (like upstream
+ * `MainThreadDocumentSemanticTokensProvider`).
+ */
 export function wireToCoreSemanticTokens(
     result: WireSemanticTokensResult | null,
 ): ISemanticTokens | ISemanticTokensEdits | null {
@@ -260,8 +266,8 @@ export function parseWireLanguageProviderUnregistration(raw: unknown): IWireLang
 }
 
 /**
- * Отказ бьёт имя: провайдер, сказавший «здесь нельзя», не должен открыть поле
- * ввода из-за присланного заодно placeholder. `null` — ядро спросит следующего провайдера.
+ * A rejection beats the name: a provider that said "not here" must not open the input
+ * box because of a placeholder sent along. `null` means the core asks the next provider.
  */
 export function wireToCoreRenameLocation(wire: WireRenamePrepare): ICoreRenameLocation | null {
     if (wire.rejectReason !== undefined) return { kind: "reject", reason: wire.rejectReason };
@@ -330,11 +336,11 @@ function parseWireTerminalRef(raw: unknown): IWireTerminalRef | null {
 
 type TerminalEnvelope = Readonly<Record<string, unknown>> | null | undefined;
 
-/** Пустые строки — «не задано». */
+/** Empty strings mean "not set". */
 export function parseWireTerminalCreate(raw: unknown): IWireTerminalCreate | null {
     const p = raw as TerminalEnvelope;
     if (!isFiniteNumber(p?.extHostId)) return null;
-    // Pty расширения: процесса на нашей стороне нет — шелловые опции не к чему.
+    // Extension pty: there is no process on our side, so shell options don't apply.
     const location = parseWireTerminalLocation(p.location);
     if (p.pty === true) {
         return {
@@ -360,7 +366,7 @@ export function parseWireTerminalCreate(raw: unknown): IWireTerminalCreate | nul
     };
 }
 
-/** Непонятное — «не задано»: терминал встанет по настройке. */
+/** Anything unrecognized means "not set": the terminal is placed per the setting. */
 function parseWireTerminalLocation(raw: unknown): IWireTerminalLocation | undefined {
     if (raw === 1 || raw === 2) return raw;
     const p = raw as TerminalEnvelope;
@@ -411,7 +417,7 @@ export function parseWireOutputAppend(raw: unknown): IWireOutputAppend | null {
     const p = raw as Record<string, unknown>;
     if (typeof p.channel !== "string" || p.channel === "") return null;
     if (typeof p.label !== "string" || p.label === "") return null;
-    // Stryker disable next-line ConditionalExpression: `typeof p.level !== "string"` → `false` эквивалентен — `includes` по списку строк и так ложен для любого не-строкового значения; второй операнд (`!includes` → `false`) убивает тест с уровнем "fatal"
+    // Stryker disable next-line ConditionalExpression: `typeof p.level !== "string"` → `false` is equivalent, `includes` over a list of strings is false for any non-string anyway; the second operand (`!includes` → `false`) is killed by the test with level "fatal"
     if (typeof p.level !== "string" || !WIRE_OUTPUT_LEVELS.includes(p.level as WireOutputLevel)) return null;
     if (typeof p.value !== "string") return null;
     return { channel: p.channel, label: p.label, level: p.level as WireOutputLevel, value: p.value };
@@ -441,7 +447,7 @@ function parseWireMarker(raw: unknown): WireMarker | null {
     };
 }
 
-/** Невалидные маркеры отбрасываются, а не роняют публикацию. */
+/** Invalid markers are dropped rather than failing the publish. */
 export function parseWireDiagnosticsPublish(raw: unknown): IWireDiagnosticsPublish | null {
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as Record<string, unknown>;
@@ -475,9 +481,12 @@ export function parseWireEditorEdits(raw: unknown): IWireEditorEdit[] {
     return result;
 }
 
-/** Мусорная операция отбрасывает весь набор: edit применяется all-or-nothing, молча потерять одну операцию хуже честного отказа. */
+/**
+ * A garbage operation drops the whole set: the edit applies all-or-nothing, silently losing one operation is worse
+ * than an honest refusal.
+ */
 export function parseWireApplyWorkspaceEditParams(raw: unknown): IWireWorkspaceEditOp[] | null {
-    // Примитив и `null` отсеет та же проверка: свойства `ops` у них нет.
+    // The same check filters primitives and `null`: they have no `ops` property.
     const list = (raw as { ops?: unknown } | null | undefined)?.ops;
     if (!Array.isArray(list)) return null;
     const result: IWireWorkspaceEditOp[] = [];
@@ -490,7 +499,7 @@ export function parseWireApplyWorkspaceEditParams(raw: unknown): IWireWorkspaceE
 }
 
 function parseWireWorkspaceEditOp(raw: unknown): IWireWorkspaceEditOp | null {
-    // У примитива `kind` не совпадёт ни с одним видом — отдельной проверки не нужно.
+    // A primitive's `kind` matches no kind, so no separate check is needed.
     if (raw === null || raw === undefined) return null;
     const obj = raw as Record<string, unknown>;
     if (obj.kind === "text") {
@@ -564,7 +573,7 @@ export function parseWireFileDecorations(raw: unknown): IWireFileDecoration[] {
     return result;
 }
 
-/** `null` — ресурса нет; на чужой форме бросает. */
+/** `null` when the resource doesn't exist; throws on a foreign shape. */
 export function parseWireFileStat(raw: unknown): IStat | null {
     if (raw === null) return null;
     if (typeof raw !== "object") throw new Error("workspace.fs.stat: result must be an object");
@@ -582,7 +591,7 @@ export function parseWireReadFileResult(raw: unknown): Uint8Array {
     return new Uint8Array(Buffer.from(content, "base64"));
 }
 
-/** Бросает на чужом ответе: ядру нужна разница между «провайдер сказал нет» (`null`) и «канал сломался». */
+/** Throws on a foreign response: the core needs to tell "the provider said no" (`null`) from "the channel broke". */
 export function parseWireTextContentResult(raw: unknown): string | null {
     if (typeof raw !== "object" || raw === null) {
         throw new Error("workspace.provideTextDocumentContent: result must be an object");
@@ -601,7 +610,10 @@ export function parseWireSchemes(raw: unknown): string[] {
     return schemes.filter((s): s is string => typeof s === "string");
 }
 
-/** Без поля `readonly` (старый субпроцесс) — все только для чтения: запись в провайдера, который о ней не просил, хуже отказа. */
+/**
+ * Without the `readonly` field (old subprocess) all are read-only: writing to a provider that didn't ask for it is
+ * worse than refusing.
+ */
 export function parseWireFileSystemSchemes(raw: unknown): { schemes: string[]; readonly: string[] } {
     const schemes = parseWireSchemes(raw);
     const field = (raw as { readonly?: unknown } | null)?.readonly;
@@ -615,7 +627,7 @@ export function parseWireSetEnvironmentVariableCollection(raw: unknown): {
     collection: [string, IEnvironmentVariableMutator][];
     description: [string, IEnvironmentVariableCollectionDescription][];
 } | null {
-    // Примитив отсеет проверка id: его поля читаются как undefined.
+    // The id check filters primitives: their fields read as undefined.
     const { extensionId, persistent, collection, description } = (raw ?? {}) as Record<string, unknown>;
     if (typeof extensionId !== "string" || extensionId === "") return null;
     return {
@@ -641,7 +653,7 @@ export function parseWireWatcherCreate(raw: unknown): IWireWatcherCreate | null 
         ignoreChangeEvents?: unknown;
         ignoreDeleteEvents?: unknown;
     };
-    // Stryker disable next-line ConditionalExpression: `typeof p.id !== "number"` → `false` эквивалентен — `Number.isInteger` ложен для любого не-числа; второй операнд (`!isInteger` → `false`) убивает тест с id 1.5
+    // Stryker disable next-line ConditionalExpression: `typeof p.id !== "number"` → `false` is equivalent, `Number.isInteger` is false for any non-number; the second operand (`!isInteger` → `false`) is killed by the test with id 1.5
     if (typeof p.id !== "number" || !Number.isInteger(p.id)) return null;
     if (typeof p.base !== "string" || p.base === "") return null;
     if (typeof p.pattern !== "string") return null;
@@ -658,7 +670,7 @@ export function parseWireWatcherCreate(raw: unknown): IWireWatcherCreate | null 
 export function parseWireWatcherDispose(raw: unknown): number | null {
     if (typeof raw !== "object" || raw === null) return null;
     const { id } = raw as { id?: unknown };
-    // Stryker disable next-line ConditionalExpression: `typeof id === "number"` → `true` эквивалентен — `Number.isInteger` ложен для любого не-числа; второй операнд (`isInteger` → `true`) убивает тест с id 1.5
+    // Stryker disable next-line ConditionalExpression: `typeof id === "number"` → `true` is equivalent, `Number.isInteger` is false for any non-number; the second operand (`isInteger` → `true`) is killed by the test with id 1.5
     return typeof id === "number" && Number.isInteger(id) ? id : null;
 }
 
@@ -667,7 +679,7 @@ function optionalWireString(value: unknown): string | undefined {
 }
 
 export function parseWireInputBoxRequest(raw: unknown): IWireInputBoxRequest | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast exit; the check below filters a non-object anyway (it lacks the required field), so replacing the operand with `false` has no observable effect
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as Record<string, unknown>;
     if (!isFiniteNumber(p.handle)) return null;
@@ -683,7 +695,7 @@ export function parseWireInputBoxRequest(raw: unknown): IWireInputBoxRequest | n
 }
 
 export function parseWireQuickPickRequest(raw: unknown): IWireQuickPickRequest | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast exit; the check below filters a non-object anyway (it lacks the required field), so replacing the operand with `false` has no observable effect
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as Record<string, unknown>;
     if (!isFiniteNumber(p.handle)) return null;
@@ -692,8 +704,8 @@ export function parseWireQuickPickRequest(raw: unknown): IWireQuickPickRequest |
     for (const entry of p.items) {
         if (typeof entry !== "object" || entry === null) continue;
         const it = entry as { label?: unknown; description?: unknown };
-        // Пункт без лейбла показывать нечем — но выбросить его молча нельзя:
-        // ответ адресуется индексом в ЭТОМ массиве, и дыра сдвинула бы остальные.
+        // An item without a label has nothing to show, but it can't be dropped silently:
+        // the response is addressed by index in THIS array, and a gap would shift the rest.
         items.push({
             label: typeof it.label === "string" ? it.label : "",
             description: optionalWireString(it.description),
@@ -709,26 +721,26 @@ export function parseWireQuickPickRequest(raw: unknown): IWireQuickPickRequest |
         placeHolder: optionalWireString(p.placeHolder),
         canPickMany,
         items,
-        // Предотметки без множественного выбора смысла не имеют — гасим здесь,
-        // чтобы ниже по течению не приходилось помнить про эту пару.
+        // Preselection makes no sense without multi-select, so clear it here
+        // so that downstream code doesn't have to remember this pair.
         picked: canPickMany ? picked : [],
     };
 }
 
 export function parseWireQuickInputCancel(raw: unknown): number | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast exit; the check below filters a non-object anyway (it lacks the required field), so replacing the operand with `false` has no observable effect
     if (typeof raw !== "object" || raw === null) return null;
     const { handle } = raw as { handle?: unknown };
     return isFiniteNumber(handle) ? handle : null;
 }
 
-/** Строка, `null` («сброшено») либо отсутствие поля («не трогали»). */
+/** A string, `null` ("cleared") or a missing field ("untouched"). */
 function nullableWireString(value: unknown): string | null | undefined {
     if (value === null) return null;
     return typeof value === "string" ? value : undefined;
 }
 
-/** Число, `null` («сброшено») либо отсутствие поля («не трогали»). */
+/** A number, `null` ("cleared") or a missing field ("untouched"). */
 function nullableWireNumber(value: unknown): number | null | undefined {
     if (value === null) return null;
     return isFiniteNumber(value) ? value : undefined;
@@ -743,9 +755,9 @@ function optionalWireHandles(value: unknown): number[] | undefined {
     return value.filter((i): i is number => Number.isInteger(i) && i >= 0);
 }
 
-/** Поле чужого типа читается как «не трогали»: дифф одного свойства не должен ронять весь апдейт. */
+/** A field of a foreign type reads as "untouched": a diff of one property must not fail the whole update. */
 export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast exit; the check below filters a non-object anyway (it lacks the required field), so replacing the operand with `false` has no observable effect
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as Record<string, unknown>;
     if (!isFiniteNumber(p.handle)) return null;
@@ -766,7 +778,7 @@ export function parseWireQuickPickUpdate(raw: unknown): IWireQuickPickUpdate | n
         activeItems: optionalWireHandles(p.activeItems),
         selectedItems: optionalWireHandles(p.selectedItems),
     };
-    // «Не трогали» — это ОТСУТСТВИЕ ключа: потребитель применяет дифф по `in`.
+    // "Untouched" is the ABSENCE of the key: the consumer applies the diff via `in`.
     const present = Object.entries(fields).filter(([, value]) => value !== undefined);
     return Object.fromEntries(present) as unknown as IWireQuickPickUpdate;
 }
@@ -775,7 +787,7 @@ function parseWireQuickPickSessionItems(raw: readonly unknown[]): IWireQuickPick
     const items: IWireQuickPickSessionItem[] = [];
     for (const entry of raw) {
         const it = entry as Record<string, unknown> | null | undefined;
-        // Пункт адресуется handle'ом, а не позицией: без него выбросить безопасно.
+        // An item is addressed by handle, not position: without one it's safe to drop.
         if (!Number.isInteger(it?.handle)) continue;
         const item = entry as Record<string, unknown>;
         items.push({
@@ -793,9 +805,9 @@ export function parseWireQuickPickDispose(raw: unknown): number | null {
     return parseWireQuickInputCancel(raw);
 }
 
-/** `null` — значение в порядке, в том числе когда расширение ответило мусором или молчанием. */
+/** `null` means the value is fine, including when the extension answered with garbage or silence. */
 export function parseWireValidationMessage(raw: unknown): IWireValidationMessage | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast exit; the check below filters a non-object anyway (it lacks the required field), so replacing the operand with `false` has no observable effect
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as { message?: unknown; severity?: unknown };
     if (typeof p.message !== "string") return null;
@@ -804,7 +816,7 @@ export function parseWireValidationMessage(raw: unknown): IWireValidationMessage
 }
 
 export function parseWireShowMessageRequest(raw: unknown): IWireShowMessageRequest | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ниже (нужного поля у него нет), так что подмена операнда на `false` наблюдаемого эффекта не даёт
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast exit; the check below filters a non-object anyway (it lacks the required field), so replacing the operand with `false` has no observable effect
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as Record<string, unknown>;
     if (typeof p.message !== "string") return null;
@@ -817,7 +829,10 @@ export function parseWireShowMessageRequest(raw: unknown): IWireShowMessageReque
     };
 }
 
-/** Кнопка без заголовка остаётся пустой: ответ адресуется индексом в этом массиве, дыра сдвинула бы остальные. */
+/**
+ * A button without a title stays empty: the response is addressed by index in this array, a gap would shift the
+ * rest.
+ */
 function parseWireMessageItems(raw: unknown): IWireMessageItem[] {
     if (!Array.isArray(raw)) return [];
     const items: IWireMessageItem[] = [];
@@ -835,7 +850,7 @@ function parseWireMessageSeverity(raw: unknown): WireMessageSeverity {
     return raw === "error" || raw === "warn" ? raw : "info";
 }
 
-/** Пустая строка — законный секрет: у значения проверяется только тип. */
+/** An empty string is a legitimate secret: only the value's type is checked. */
 export function parseWireSecretWrite(raw: unknown): IWireSecretWrite | null {
     const ref = parseWireSecretRef(raw);
     if (ref === null) return null;
@@ -845,14 +860,14 @@ export function parseWireSecretWrite(raw: unknown): IWireSecretWrite | null {
 }
 
 export function parseWireSecretKeysRequest(raw: unknown): string | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка поля ниже
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast exit; the field check below filters a non-object anyway
     if (typeof raw !== "object" || raw === null) return null;
     const { extensionId } = raw as { extensionId?: unknown };
     return typeof extensionId === "string" && extensionId !== "" ? extensionId : null;
 }
 
 export function parseWireMementoUpdate(raw: unknown): IWireMementoUpdate | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеют проверки полей ниже
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast exit; the field checks below filter a non-object anyway
     if (typeof raw !== "object" || raw === null) return null;
     const { extensionId, shared, value } = raw as { extensionId?: unknown; shared?: unknown; value?: unknown };
     if (typeof extensionId !== "string" || extensionId === "") return null;
@@ -867,9 +882,9 @@ const WIRE_CONFIGURATION_TARGETS: readonly unknown[] = [
     "workspaceFolder",
 ] satisfies readonly WireConfigurationTarget[];
 
-/** Поля `value` нет — снятие ключа. */
+/** A missing `value` field removes the key. */
 export function parseWireConfigurationUpdate(raw: unknown): IWireConfigurationUpdate | null {
-    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` — быстрый выход; не-объект всё равно отсеет проверка ключа ниже
+    // Stryker disable next-line ConditionalExpression: `typeof raw !== "object"` is a fast exit; the key check below filters a non-object anyway
     if (typeof raw !== "object" || raw === null) return null;
     const p = raw as Partial<Record<keyof IWireConfigurationUpdate, unknown>>;
     if (typeof p.key !== "string" || p.key === "") return null;
@@ -940,7 +955,7 @@ function parseTaskExecution(raw: unknown): WireTaskExecutionKind | undefined {
         ...(shellArgs !== undefined ? { shellArgs } : {}),
         ...(shellQuoting !== undefined ? { shellQuoting } : {}),
     };
-    // Stryker disable next-line OptionalChaining: эквивалентный — без `p` сюда не дойти (нет ни commandLine, ни command — выход выше); `?.` — для типа
+    // Stryker disable next-line OptionalChaining: equivalent; without `p` we can't get here (neither commandLine nor command means an exit above); `?.` is for the type
     const args = Array.isArray(p?.args)
         ? (p.args as readonly unknown[]).map(parseQuotedString).filter((a) => a !== undefined)
         : undefined;
@@ -964,7 +979,7 @@ function parseTaskPresentation(raw: unknown): IWireTaskPresentation | undefined 
     return out as IWireTaskPresentation;
 }
 
-/** Без имени, определения с типом или источника — `null`; битое в необязательных полях отбрасывается. */
+/** `null` without a name, a typed definition or a source; broken optional fields are dropped. */
 export function parseWireTaskFromSubprocess(raw: unknown): IWireTask | null {
     const p = raw as TaskEnvelope;
     const definition = p?.definition as TaskEnvelope;
@@ -1044,7 +1059,7 @@ export function parseWireTaskExecutionId(raw: unknown): IWireTaskExecutionId | n
 export function parseWireUpdateWorkspaceFolders(raw: unknown): IWireUpdateWorkspaceFolders | null {
     const p = raw as { extensionId?: unknown; folders?: unknown } | null | undefined;
     if (!Array.isArray(p?.folders)) return null;
-    // Хоть один не-путь — запрос целиком чужой: открыть «часть набора» нельзя.
+    // Even one non-path makes the whole request foreign: opening "part of the set" isn't allowed.
     if (!p.folders.every((folder) => typeof folder === "string")) return null;
     return {
         extensionId: typeof p.extensionId === "string" ? p.extensionId : null,

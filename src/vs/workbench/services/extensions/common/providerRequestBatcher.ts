@@ -1,17 +1,17 @@
 import type { ICancellationToken } from "../../../../base/common/cancellation.ts";
 
 /**
- * Склеивает вызовы нескольких провайдеров с ОДНИМ объектом запроса в один RPC: запрос пока
- * несёт полный текст документа (дельты — задача G3), и N провайдеров дали бы N копий за нажатие.
- * «Тот же запрос» — идентичность объекта: два нажатия — два объекта.
+ * Merges calls of several providers with the SAME request object into one RPC: the request still
+ * carries the full document text (deltas are task G3), and N providers would mean N copies per keystroke.
+ * "Same request" means object identity: two keystrokes are two objects.
  */
 export class ProviderRequestBatcher<TRequest extends object, TResult> {
     private pending: IBatch<TRequest, TResult> | null = null;
 
     /**
-     * @param send результаты выровнены по `handles`; `token` — отмена первого вызова пачки
-     *   (потребитель раздаёт один токен всем провайдерам)
-     * @param empty ответ провайдера, для которого результата не пришло
+     * @param send results are aligned with `handles`; `token` cancels the batch's first call
+     *   (the consumer hands one token to all providers)
+     * @param empty the answer for a provider that got no result
      */
     public constructor(
         private readonly send: (
@@ -30,8 +30,8 @@ export class ProviderRequestBatcher<TRequest extends object, TResult> {
 
     private open(request: TRequest, token: ICancellationToken | undefined): IBatch<TRequest, TResult> {
         const handles: number[] = [];
-        // Отправка — микротаской: синхронный проход потребителя уже добавил в пачку все
-        // handle. Открыта только последняя пачка — более ранняя её не закрывает.
+        // Sent in a microtask: the consumer's synchronous pass has already added every handle to
+        // the batch. Only the last batch is open; an earlier one doesn't close it.
         const batch: IBatch<TRequest, TResult> = {
             request,
             handles,

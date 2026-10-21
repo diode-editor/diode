@@ -47,7 +47,7 @@ describe("FileSystemCustomer — уход спавна", () => {
         expect(customer.isReadonlyFileSystem("git")).toBe(true);
         expect(customer.isReadonlyFileSystem("rw")).toBe(false);
         attached.dispose();
-        // Схем больше нет; незнакомая схема — не «только чтение», а просто нет провайдера.
+        // No schemes left; an unknown scheme is not “readonly”, it just has no provider.
         expect(customer.getFileSystemSchemes()).toEqual([]);
         expect(customer.isReadonlyFileSystem("git")).toBe(false);
     });

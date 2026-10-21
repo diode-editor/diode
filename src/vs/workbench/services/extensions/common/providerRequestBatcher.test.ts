@@ -45,7 +45,7 @@ describe("ProviderRequestBatcher", () => {
         let late: Promise<string> | undefined;
 
         const calls = [batcher.call(1, first)];
-        // Микротаска встаёт между отправками пачек `first` и `second`.
+        // The microtask lands between sending the `first` and `second` batches.
         queueMicrotask(() => {
             late = batcher.call(3, second);
         });

@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.uriHandler.test.ts: ленивое (`onUri`) расширение
- * заводит обработчик URI на активации, как стоковое `Anthropic.claude-code`
- * (`/install-plugin`), и копит полученные URI для команды-проверки.
+ * Fixture for extensionHost.uriHandler.test.ts: a lazy (`onUri`) extension
+ * registers a URI handler on activation, like the stock extension `Anthropic.claude-code`
+ * (`/install-plugin`), and collects the received URIs for a probe command.
  */
 const vscode = require("vscode");
 

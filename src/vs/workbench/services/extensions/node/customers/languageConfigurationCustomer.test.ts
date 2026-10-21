@@ -10,7 +10,7 @@ import { LanguageConfigurationCustomer } from "./languageConfigurationCustomer.t
 
 function recordingService() {
     const live: { languageId: string; configuration: ILanguageConfiguration }[] = [];
-    /** Повторное снятие одного слоя тоже считается. */
+    /** Disposing the same layer twice counts too. */
     const disposals = { count: 0 };
     return {
         live,

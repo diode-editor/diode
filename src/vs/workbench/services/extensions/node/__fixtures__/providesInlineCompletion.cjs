@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.inlineCompletion.test.ts. Регистрирует
- * inline-completion-провайдер для typescript, который отдаёт два пункта:
- * многострочный plain-текст (тело функции) и SnippetString с range/filterText
- * (проверка стрипа плейсхолдеров и проезда полей через wire).
+ * Fixture for extensionHost.inlineCompletion.test.ts. Registers an
+ * inline completion provider for typescript that returns two items:
+ * multi-line plain text (a function body) and a SnippetString with range/filterText
+ * (checks placeholder stripping and that the fields travel over the wire).
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

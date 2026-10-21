@@ -24,9 +24,9 @@ describe("hostWireParsers — wireToCoreFoldingRegions", () => {
     it("отбрасывает вырожденные (end <= start) и клампит start к нулю", () => {
         expect(
             wireToCoreFoldingRegions([
-                { start: 2, end: 2 }, // прятать нечего
+                { start: 2, end: 2 }, // nothing to hide
                 { start: 4, end: 1 }, // end < start
-                { start: -3, end: 2 }, // start клампится к 0
+                { start: -3, end: 2 }, // start is clamped to 0
             ]),
         ).toEqual([{ startLine: 0, endLine: 2, isCollapsed: false }]);
     });
@@ -39,8 +39,8 @@ describe("hostWireParsers — parseWireEditorEdits", () => {
             42,
             { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" },
             { text: "no range" },
-            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } } }, // нет text
-            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: 5 }, // text не строка
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } } }, // no text
+            { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: 5 }, // text is not a string
         ];
         expect(parseWireEditorEdits(raw)).toEqual([
             { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" },
@@ -117,7 +117,7 @@ describe("hostWireParsers — parseWireShowTextDocumentParams", () => {
     });
 
     it("selection-массив и битый selection-объект опускаются", () => {
-        // Массив — чужая форма (selection в этом запросе ровно один).
+        // An array is a foreign shape (this request has exactly one selection).
         const asArray = parseWireShowTextDocumentParams({
             uri: "file:///a.ts",
             selection: [{ anchorLine: 1, anchorCharacter: 2, activeLine: 3, activeCharacter: 4 }],
@@ -229,7 +229,7 @@ describe("parseWireReadFileResult", () => {
     });
 });
 
-/** Только такой вход отличает проверку `typeof raw !== "object"` от проверок полей следом. */
+/** Only such an input distinguishes the `typeof raw !== "object"` check from the field checks after it. */
 function fnWith(fields: Record<string, unknown>): unknown {
     return Object.assign(() => undefined, fields);
 }

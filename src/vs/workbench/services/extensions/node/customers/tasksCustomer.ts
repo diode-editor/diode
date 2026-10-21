@@ -11,8 +11,8 @@ import {
 } from "../hostWireParsers.ts";
 
 /**
- * `MainThreadTask` эталона. Субпроцессу пересказываются все исполнения задач ядра,
- * в том числе запущенные из палитры. Регистрации провайдеров принадлежат спавну.
+ * Upstream `MainThreadTask`. The subprocess is told about all core task executions,
+ * including ones started from the command palette. Provider registrations belong to the spawn.
  */
 export class TasksCustomer implements IExtensionHostCustomer {
     public constructor(private readonly sink: IExtensionTaskSink | undefined) {}
@@ -45,7 +45,7 @@ export class TasksCustomer implements IExtensionHostCustomer {
                     rpc.notify("tasks.didStartProcess", { id, processId });
                 },
                 processEnded: (id, exitCode) => {
-                    // Stryker disable next-line ConditionalExpression: эквивалентный — JSON-провод сам роняет ключ со значением undefined; ветка — для типа сообщения
+                    // Stryker disable next-line ConditionalExpression: equivalent — the JSON wire drops a key with an undefined value by itself; the branch is for the message type
                     rpc.notify("tasks.didEndProcess", { id, ...(exitCode !== undefined ? { exitCode } : {}) });
                 },
                 ended: (execution) => {

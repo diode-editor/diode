@@ -38,7 +38,7 @@ import {
     parseWireValidationMessage,
 } from "../hostWireParsers.ts";
 
-/** Стоки поверхностей окна; без стока поверхность молча отбрасывает своё. */
+/** Window surface sinks; without a sink the surface silently drops its output. */
 export interface IWindowSinks {
     readonly progressSink: IProgressSink | undefined;
     readonly outputSink: IOutputSink | undefined;
@@ -49,11 +49,11 @@ export interface IWindowSinks {
 }
 
 /**
- * Всё, что субпроцесс показал, принадлежит ему: на его смерти спиннеры гаснут,
- * пункты полосы снимаются, оверлеи ввода и сообщения закрываются.
+ * Everything the subprocess showed belongs to it: on its death spinners stop,
+ * status bar items are removed, input overlays and messages are closed.
  */
 export class WindowCustomer implements IExtensionHostCustomer {
-    /** Монотонен на всё время жизни хоста, а не спавна. */
+    /** Monotonic for the whole host lifetime, not per spawn. */
     private nextMessageHandle = 1;
 
     public constructor(private readonly sinks: IWindowSinks) {}
@@ -66,7 +66,10 @@ export class WindowCustomer implements IExtensionHostCustomer {
         const quickInputHandles = new Set<number>();
         const messageHandles = new Set<number>();
         const quickPickHandles = new Set<number>();
-        /** Пикер, снятый на смерти субпроцесса, сообщает о скрытии — слать это в закрытый канал некому. */
+        /**
+         * A picker removed on subprocess death reports hiding — there is no one to send that to over the closed
+         * channel.
+         */
         let attached = true;
         const emitQuickPickEvent = (event: IWireQuickPickEvent): void => {
             if (attached) rpc.notify("window.quickPick.event", event);
@@ -95,7 +98,7 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 progressSink?.end(end.handle);
             }),
         );
-        // `update` — полное состояние, а не дельта: у хоста нет своей копии пункта.
+        // `update` is the full state, not a delta: the host keeps no copy of the item.
         store.add(
             rpc.handleNotification("window.statusBarItem.update", (params) => {
                 const item = parseWireStatusBarItem(params);
@@ -124,15 +127,15 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 outputSink?.show(show.channel, show.label);
             }),
         );
-        // Валидацию хост спрашивает обратным запросом в тот же субпроцесс — она живёт в расширении.
+        // The host asks for validation with a reverse request to the same subprocess — it lives in the extension.
         store.add(
             rpc.handleRequest("window.showInputBox", async (params): Promise<IWireInputBoxResult> => {
                 const request = parseWireInputBoxRequest(params);
-                // «Человек отменил» сразу, а не вечное ожидание расширения.
+                // “The user cancelled” right away, instead of the extension waiting forever.
                 if (request === null || quickInputSink === undefined) return { value: null };
-                // Именованной константой, а не стрелкой внутри спреда: Stryker
-                // разбирает исходник своим babel'ом и на типизированной стрелке в
-                // спред-тернарнике падает (`Did not expect a type annotation here`).
+                // A named constant rather than an arrow inside the spread: Stryker
+                // parses the source with its own babel and fails on a typed arrow in
+                // a spread ternary (`Did not expect a type annotation here`).
                 const askExtension = async (text: string): Promise<IWireValidationMessage | null> => {
                     try {
                         const answer = await rpc.request("window.inputBox.validate", {
@@ -141,7 +144,7 @@ export class WindowCustomer implements IExtensionHostCustomer {
                         });
                         return parseWireValidationMessage(answer);
                     } catch {
-                        // Упавшая валидация — значение годно, а не поле, висящее навсегда.
+                        // A failed validation means the value is valid, not a field stuck forever.
                         return null;
                     }
                 };
@@ -174,7 +177,7 @@ export class WindowCustomer implements IExtensionHostCustomer {
             rpc.handleNotification("window.quickInput.cancel", (params) => {
                 const handle = parseWireQuickInputCancel(params);
                 if (handle === null) return;
-                // Stryker disable next-line OptionalChaining: ветка «стока нет» ниже по коду недостижима из тестов иначе как этим же путём, а без стока обращение кинуло бы
+                // Stryker disable next-line OptionalChaining: the “no sink” branch further down is unreachable from tests except via this same path, and without a sink the access would throw
                 quickInputSink?.cancel(handle);
             }),
         );
@@ -189,13 +192,13 @@ export class WindowCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleNotification("window.quickPick.dispose", (params) => {
                 const handle = parseWireQuickPickDispose(params);
-                // Stryker disable next-line ConditionalExpression: проверка null — для типов; `Set.delete(null)` и так false, и мусор отсеивается второй половиной
+                // Stryker disable next-line ConditionalExpression: the null check is for the types; `Set.delete(null)` is false anyway, and the second half filters out garbage
                 if (handle === null || !quickPickHandles.delete(handle)) return;
-                // Stryker disable next-line OptionalChaining: handle попадает в набор только после проверки стока (см. update) — пары «набор непуст, а стока нет» не бывает
+                // Stryker disable next-line OptionalChaining: a handle gets into the set only after the sink check (see update) — “set non-empty but no sink” never happens
                 quickInputSink?.disposeQuickPick(handle);
             }),
         );
-        // Диалоги файлов: без стока — «человек отменил» сразу, а не вечное ожидание.
+        // File dialogs: without a sink, “the user cancelled” right away instead of waiting forever.
         store.add(
             rpc.handleRequest("window.showOpenDialog", async (params): Promise<IWireOpenDialogResult> => {
                 const uris = await fileDialogSink?.showOpenDialog(parseWireOpenDialogRequest(params));
@@ -214,11 +217,11 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 if (request === null) return { index: null };
                 logExtensionMessage(logger, request.severity, request.message);
                 if (notificationSink === undefined) return { index: null };
-                // Stryker disable next-line UpdateOperator: от счётчика нужна только уникальность адреса, направление шага ненаблюдаемо
+                // Stryker disable next-line UpdateOperator: the counter only needs to make handles unique, the step direction is unobservable
                 const handle = this.nextMessageHandle++;
                 messageHandles.add(handle);
-                // Сбой показа — наша поломка: отказ запроса отклонил бы `await show*Message`
-                // расширения, а необработанный reject валит весь субпроцесс (поймано живым прогоном).
+                // A show failure is our bug: rejecting the request would reject the extension's `await show*Message`,
+                // and an unhandled reject kills the whole subprocess (caught by a live run).
                 const index = await notificationSink
                     .showMessage({ ...request, handle })
                     .catch((error: unknown): undefined => {
@@ -235,11 +238,11 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 attached = false;
                 for (const handle of progressHandles) progressSink?.end(handle);
                 statusBarItemSink?.clear();
-                // Stryker disable next-line OptionalChaining: handle попадает в набор только после проверки стока, поэтому пары «набор непуст, а стока нет» не бывает; `?.` стоит защитой
+                // Stryker disable next-line OptionalChaining: a handle gets into the set only after the sink check, so “set non-empty but no sink” never happens; `?.` is a safeguard
                 for (const handle of quickInputHandles) quickInputSink?.cancel(handle);
-                // Stryker disable next-line OptionalChaining: см. выше
+                // Stryker disable next-line OptionalChaining: see above
                 for (const handle of messageHandles) notificationSink?.cancel(handle);
-                // Stryker disable next-line OptionalChaining: см. выше
+                // Stryker disable next-line OptionalChaining: see above
                 for (const handle of quickPickHandles) quickInputSink?.disposeQuickPick(handle);
             },
         });
@@ -247,7 +250,7 @@ export class WindowCustomer implements IExtensionHostCustomer {
     }
 }
 
-/** Тост гаснет, а прочитать, что расширение сказало, надо и потом. */
+/** The toast fades, but what the extension said must still be readable later. */
 function logExtensionMessage(logger: ILogger | undefined, severity: WireMessageSeverity, text: string): void {
     if (severity === "error") logger?.error(`[extension] ${text}`);
     else if (severity === "warn") logger?.warn(`[extension] ${text}`);

@@ -88,7 +88,7 @@ describe("createFileExtensionSecretStore", () => {
     });
 
     it("нет файла — пустое хранилище, и это НЕ ошибка: onError молчит", () => {
-        // Жалоба в лог на чистой установке была бы ложной тревогой на каждом первом запуске.
+        // Logging a complaint on a clean install would be a false alarm on every first launch.
         const seen: string[] = [];
         const store = createFileExtensionSecretStore(path.join(makeRoot(), "нет", "secrets.json"), (message) =>
             seen.push(message),
@@ -99,7 +99,7 @@ describe("createFileExtensionSecretStore", () => {
     });
 
     it("битый файл без onError — тоже пустое хранилище, а не падение", () => {
-        // `onError` необязателен (харнессы его не передают): без слушателя беда не становится исключением.
+        // `onError` is optional (harnesses don't pass it): without a listener a failure doesn't become an exception.
         const file = path.join(makeRoot(), "secrets.json");
         fs.writeFileSync(file, "{не json", "utf-8");
         const store = createFileExtensionSecretStore(file);
@@ -142,7 +142,7 @@ describe("createFileExtensionSecretStore", () => {
                 "pub.one": { token: "s3cr3t", broken: 42, alsoBroken: null },
                 "pub.array": ["не лоток"],
                 "pub.null": null,
-                // Без проверки символы строки разъехались бы по «ключам» "0", "1", ….
+                // Without the check the string's characters would spread into "keys" "0", "1", ….
                 "pub.scalar": "строка",
                 "pub.empty": { onlyBroken: 1 },
             }),
@@ -164,7 +164,7 @@ describe("createFileExtensionSecretStore", () => {
     });
 
     it("НЕпустой массив на верхнем уровне не становится лотками с индексами", () => {
-        // Массив — тоже `typeof === "object"`: без проверки элементы стали бы «расширениями» "0", "1", ….
+        // An array is also `typeof === "object"`: without the check its elements would become "extensions" "0", "1", ….
         const file = path.join(makeRoot(), "secrets.json");
         fs.writeFileSync(file, JSON.stringify([{ token: "s3cr3t" }, { other: "x" }]), "utf-8");
         const store = createFileExtensionSecretStore(file);
@@ -181,7 +181,7 @@ describe("createFileExtensionSecretStore", () => {
     });
 
     it("незаписываемый путь не роняет хост — беда уходит в onError", () => {
-        // Каталог на месте файла: writeFileSync по нему всегда падает.
+        // A directory in place of the file: writeFileSync on it always fails.
         const file = path.join(makeRoot(), "secrets.json");
         fs.mkdirSync(file);
         const seen: string[] = [];

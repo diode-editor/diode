@@ -1,7 +1,10 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-/** Лоток адресуется id расширения, который подставляет субпроцесс, а не сам вызов: чужой лоток расширению не достать. */
+/**
+ * A bucket is addressed by the extension id the subprocess supplies, not by the call itself: an extension can't
+ * reach another's bucket.
+ */
 export interface IExtensionSecretStore {
     keys(extensionId: string): readonly string[];
     get(extensionId: string, key: string): string | undefined;
@@ -11,10 +14,10 @@ export interface IExtensionSecretStore {
 
 type SecretBucket = Partial<Record<string, string>>;
 
-/** `Partial`: ключи произвольные — защитные проверки ниже настоящие, а не декоративные. */
+/** `Partial`: keys are arbitrary, so the defensive checks below are real, not decorative. */
 type SecretsFile = Partial<Record<string, SecretBucket>>;
 
-/** Одна копия правил на оба хранилища — две разъедутся. */
+/** One copy of the rules for both stores: two copies would drift apart. */
 function secretStoreOps(read: () => SecretsFile, afterWrite: (data: SecretsFile) => void): IExtensionSecretStore {
     return {
         keys: (extensionId) => Object.keys(read()[extensionId] ?? {}),
@@ -29,7 +32,7 @@ function secretStoreOps(read: () => SecretsFile, afterWrite: (data: SecretsFile)
             const own = data[extensionId];
             if (own === undefined) return;
             Reflect.deleteProperty(own, key);
-            // Опустевший лоток убираем, иначе файл копил бы пустышки.
+            // Remove an emptied bucket, otherwise the file would accumulate empty ones.
             if (Object.keys(own).length === 0) Reflect.deleteProperty(data, extensionId);
             afterWrite(data);
         },
@@ -45,11 +48,11 @@ export function createInMemoryExtensionSecretStore(): IExtensionSecretStore {
 }
 
 /**
- * **Шифрования нет**: связки ключей ОС у нас нет, значения лежат открытым текстом под `0600`
- * (то же в матрице готовности API) — поэтому значения секретов не попадают ни в один лог.
- * Пишем синхронно на каждую правку: потерять токен на неожиданном выходе нельзя.
+ * **No encryption**: we have no OS keychain, values are stored in plain text under `0600`
+ * (same in the API readiness matrix), so secret values never reach any log.
+ * Writes are synchronous on every change: a token must not be lost on an unexpected exit.
  *
- * @param onError значений не получает никогда — только путь и причину
+ * @param onError never receives values, only the path and the reason
  */
 export function createFileExtensionSecretStore(
     filePath: string,
@@ -66,10 +69,10 @@ export function createFileExtensionSecretStore(
     const flush = (next: SecretsFile): void => {
         try {
             fs.mkdirSync(path.dirname(filePath), { recursive: true });
-            // Stryker disable next-line ObjectLiteral,StringLiteral: `mode` дублирует chmodSync строкой ниже, а `encoding` совпадает с дефолтом writeFileSync для строки — разница мутанта с оригиналом только в окне между созданием файла и chmod, наблюдаемом лишь планировщиком ОС. Создавать секреты сразу с 0600 при этом обязательно: это как раз та гонка
+            // Stryker disable next-line ObjectLiteral,StringLiteral: `mode` duplicates chmodSync on the line below, and `encoding` matches the writeFileSync default for strings; the mutant differs from the original only in the window between file creation and chmod, observable only by the OS scheduler. Creating secrets with 0600 right away is still mandatory: that is exactly the race
             fs.writeFileSync(filePath, JSON.stringify(next, null, 2), { encoding: "utf-8", mode: 0o600 });
-            // `mode` действует только при создании файла: у существующего (из чужой копии
-            // user-data) права остались бы мировыми.
+            // `mode` applies only when the file is created: an existing one (from another copy
+            // of user-data) would keep world-readable permissions.
             fs.chmodSync(filePath, 0o600);
         } catch (err) {
             onError?.(`failed to write extension secrets to "${filePath}"`, err);
@@ -79,11 +82,11 @@ export function createFileExtensionSecretStore(
     return secretStoreOps(load, flush);
 }
 
-/** Любая беда — пустое хранилище: нечитаемый секрет стоит повторного вопроса человеку, а не смерти редактора. */
+/** Any failure yields an empty store: an unreadable secret is worth asking the user again, not killing the editor. */
 function readSecretsFile(filePath: string, onError?: (message: string, err: unknown) => void): SecretsFile {
     let raw: string;
     try {
-        // Stryker disable next-line StringLiteral: пустую кодировку Node трактует как «кодировки нет» и отдаёт Buffer, который JSON.parse ниже коерсит в ту же строку (проверено) — мутант эквивалентен
+        // Stryker disable next-line StringLiteral: Node treats an empty encoding as "no encoding" and returns a Buffer, which JSON.parse below coerces to the same string (verified), so the mutant is equivalent
         raw = fs.readFileSync(filePath, "utf-8");
     } catch {
         return {};
@@ -95,7 +98,7 @@ function readSecretsFile(filePath: string, onError?: (message: string, err: unkn
         onError?.(`failed to parse extension secrets at "${filePath}"`, err);
         return {};
     }
-    // Stryker disable next-line ConditionalExpression: снятие левого операнда эквивалентно — JSON.parse отдаёт только object/array/string/number/boolean/null, а любой скаляр и без `typeof` даёт тот же пустой результат (`Object.entries(42)` пуст, символы строки отсеет проверка лотка ниже). Оставлен как формулировка намерения «сверху — обычный объект»; `=== null` и `Array.isArray` рядом мутантов не прощают — их закрывают тесты на `null` и непустой массив
+    // Stryker disable next-line ConditionalExpression: dropping the left operand is equivalent: JSON.parse returns only object/array/string/number/boolean/null, and any scalar yields the same empty result even without `typeof` (`Object.entries(42)` is empty, the bucket check below filters a string's characters). Kept to state the intent "a plain object at the top"; the neighboring `=== null` and `Array.isArray` don't tolerate mutants, tests for `null` and a non-empty array cover them
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
     const result: SecretsFile = {};
     for (const [extensionId, own] of Object.entries(parsed as Record<string, unknown>)) {

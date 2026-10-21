@@ -1,13 +1,13 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.fileWatcherSubprocess.test.ts.
- * Заводит `workspace.createFileSystemWatcher` — тем же способом, что и
- * встроенный git: рекурсивный watcher рабочего дерева плюс нерекурсивный
- * watcher одного каталога через `RelativePattern`.
+ * Fixture for extensionHost.fileWatcherSubprocess.test.ts.
+ * Sets up `workspace.createFileSystemWatcher` the same way the
+ * built-in git does: a recursive watcher over the working tree plus a non-recursive
+ * watcher on a single directory via `RelativePattern`.
  *
- * Увиденные события копятся в массив; тест забирает их хостовой командой,
- * чтобы проверить весь путь: ядро → host → subprocess → расширение.
+ * Observed events are collected into an array; the test fetches them with a host command
+ * to check the whole path: core → host → subprocess → extension.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -25,7 +25,7 @@ exports.activate = function activate(context) {
     const shallow = vscode.workspace.createFileSystemWatcher(
         new vscode.RelativePattern(folder, "*.md"),
         false,
-        true, // ignoreChangeEvents — проверяем, что флаг доезжает до ядра
+        true, // ignoreChangeEvents: checks that the flag reaches the core
         false,
     );
     shallow.onDidCreate(record("md-created"));

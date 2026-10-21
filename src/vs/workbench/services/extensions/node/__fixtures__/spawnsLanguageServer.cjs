@@ -1,19 +1,19 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.orphans.test.ts. Имитирует расширение с языковым
- * сервером: в `activate` поднимает долгоживущий ВНУК-процесс (как redhat.java
- * поднимает jdtls) и отдаёт его pid командой `test.orphans.serverPid`.
+ * Fixture for extensionHost.orphans.test.ts. Mimics an extension with a language
+ * server: `activate` starts a long-lived GRANDCHILD process (as redhat.java
+ * starts jdtls) and returns its pid via the `test.orphans.serverPid` command.
  *
- * Внука расширение намеренно НЕ закрывает в `deactivate` — именно так ведёт
- * себя расширение, упавшее или не успевшее попрощаться. Сигнал прямому
- * субпроцессу такого внука не касается, поэтому его должен снять групповой
- * сигнал (`process.kill(-pid)`), иначе он остаётся сиротой и продолжает
- * писать в каталоги расширения.
+ * The extension deliberately does NOT close the grandchild in `deactivate`: that is how
+ * an extension behaves when it crashed or had no time to say goodbye. A signal to the direct
+ * subprocess does not reach such a grandchild, so a group signal
+ * (`process.kill(-pid)`) must take it down, otherwise it stays an orphan and keeps
+ * writing into the extension's directories.
  */
 const cp = require("node:child_process");
 
-/** Внук просто живёт: держит таймер и ничего не делает. */
+/** The grandchild just lives: holds a timer and does nothing. */
 const SERVER_SOURCE = "setInterval(function () {}, 1000);";
 
 exports.activate = function activate(context) {

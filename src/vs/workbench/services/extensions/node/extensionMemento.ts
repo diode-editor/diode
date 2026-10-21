@@ -1,4 +1,4 @@
-/** Локальный словарь (поэтому `get`/`keys` синхронны), хранилище — на хосте: `update` отдаёт ему словарь целиком. */
+/** A local dictionary (hence synchronous `get`/`keys`), stored on the host: `update` sends it the whole dictionary. */
 export interface IExtensionMemento {
     keys(): readonly string[];
     get(key: string, defaultValue?: unknown): unknown;
@@ -8,9 +8,9 @@ export interface IExtensionMemento {
 
 export interface IExtensionMementoOptions {
     readonly initial: Readonly<Record<string, unknown>>;
-    /** No-op `setKeysForSync` — только у globalState: расширения зовут его без проверки, Settings Sync у нас нет. */
+    /** No-op `setKeysForSync`, globalState only: extensions call it unchecked, and we have no Settings Sync. */
     readonly withSync: boolean;
-    /** Промис `update` резолвится по ответу хоста. */
+    /** The `update` promise resolves on the host's response. */
     persist(value: Record<string, unknown>): Promise<void>;
 }
 
@@ -20,7 +20,7 @@ export function createExtensionMemento(options: IExtensionMementoOptions): IExte
         keys: () => [...store.keys()],
         get: (key, defaultValue) => (store.has(key) ? store.get(key) : defaultValue),
         update: (key, value) => {
-            // Семантика vscode: update(key, undefined) удаляет ключ.
+            // vscode semantics: update(key, undefined) deletes the key.
             if (value === undefined) store.delete(key);
             else store.set(key, value);
             return options.persist(Object.fromEntries(store));

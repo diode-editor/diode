@@ -20,7 +20,7 @@ describe("ExtensionConfigurationContributor", () => {
         const registry = new ConfigurationRegistry();
         const extensions = [
             ext("acme.ruff", { "ruff.importStrategy": { default: "fromEnvironment" } }),
-            // Без `main`: в host'е не регистрируется, но настройки у него есть.
+            // No `main`: not registered in the host, but it still has settings.
             {
                 id: "acme.theme",
                 manifest: { contributes: { configuration: [{ properties: { "theme.x": { default: 1 } } }] } },
@@ -40,8 +40,8 @@ describe("ExtensionConfigurationContributor", () => {
     it("инъекции хоста — переопределения поверх манифестных дефолтов, в том числе чужих ключей", () => {
         const registry = new ConfigurationRegistry();
         const seen: string[] = [];
-        // Инъекция первого расширения трогает ключ второго — переопределения
-        // применяются после регистрации всех ключей.
+        // The first extension's injection touches the second one's key, so overrides
+        // apply after all keys are registered.
         const extensions = [
             ext("acme.first", { "first.a": { default: 1 } }),
             ext("acme.second", { "second.b": { default: 2 } }),

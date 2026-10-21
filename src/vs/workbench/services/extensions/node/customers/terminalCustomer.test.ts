@@ -17,7 +17,7 @@ import { TERMINAL_VIEW_ID, TerminalService } from "../../../../contrib/terminal/
 
 import { TerminalCustomer } from "./terminalCustomer.ts";
 
-/** In-process пара шлёт через microtask. */
+/** The in-process pair sends via a microtask. */
 async function flush(): Promise<void> {
     for (let i = 0; i < 5; i++) await new Promise<void>((r) => setTimeout(r, 0));
 }
@@ -74,7 +74,7 @@ describe("терминалы расширений — сквозь провод"
     });
 
     it("sendText сразу после createTerminal (до opened) доходит до шелла с Enter", async () => {
-        // Так пишет cleanup форка: createTerminal + серия sendText в одном тике.
+        // This is how the fork's cleanup writes: createTerminal + a series of sendText in one tick.
         const h = setup();
         const terminal = h.ns.createTerminal("cleanup");
         terminal.sendText('echo "==> step"');
@@ -99,7 +99,7 @@ describe("терминалы расширений — сквозь провод"
         expect(h.ns.activeTerminal).toBe(first);
         expect(focus).toHaveBeenCalledTimes(1);
 
-        second.hide(); // показан не он — панель остаётся
+        second.hide(); // not the one shown — the panel stays
         await flush();
         expect(h.views.panelService.visible).toBe(true);
         first.hide();
@@ -192,7 +192,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.createInstance({ name: "bg", hideFromUser: true });
         h.service.newTerminal();
         h.service.setActiveInstance(1);
-        // До семени события не уходят: у субпроцесса ещё нет обработчиков.
+        // No events go out before the seed: the subprocess has no handlers yet.
         await flush();
         expect(h.ns.terminals).toStrictEqual([]);
 
@@ -236,7 +236,7 @@ describe("терминалы расширений — сквозь провод"
         const ns2 = createTerminalNamespace(new RpcEndpoint(b) as unknown as SubprocessRpc);
         h.customer.attach({ rpc: new RpcEndpoint(a) as unknown as HostRpc, logger: undefined });
         h.attached.dispose();
-        // Семя уходит новому спавну — его не обнулила уборка старого.
+        // The seed goes to the new spawn — cleanup of the old one didn't reset it.
         h.customer.pushInitialState();
         h.service.newTerminal();
         await flush();
@@ -290,7 +290,7 @@ describe("терминалы расширений — сквозь провод"
         });
         h.ns.createTerminal({ name: "panel", location: TerminalLocation.Panel });
         h.ns.createTerminal({ name: "editor", location: TerminalLocation.Editor });
-        // Родитель — объект расширения, ещё до `opened`: адресуется меткой.
+        // The parent is an extension object, still before `opened`: addressed by a label.
         h.ns.createTerminal({ name: "child", location: { parentTerminal: beside } });
         await flush();
 
@@ -347,8 +347,8 @@ describe("терминалы расширений — сквозь провод"
         };
         const customer = new TerminalCustomer(sink);
         const [a, b] = createInProcessChannelPair();
-        // Обработчик, упавший на битом конверте, RPC глотает с предупреждением —
-        // ноль предупреждений значит, что разбор отсёк конверт до стока.
+        // A handler that throws on a broken envelope is swallowed by RPC with a warning —
+        // zero warnings means parsing cut the envelope off before the sink.
         const warnings: string[] = [];
         const logger = {
             trace: () => undefined,
@@ -385,7 +385,7 @@ describe("терминалы расширений — сквозь провод"
     });
 });
 
-/** В духе `BazelTerminal` форка. */
+/** In the spirit of the fork's `BazelTerminal`. */
 function makePty() {
     const write = new EventEmitter<string>();
     const close = new EventEmitter<number | undefined>();
@@ -423,7 +423,7 @@ describe("pty расширения — сквозь провод", () => {
     });
 
     it("sendText сразу после создания доходит до handleInput ПОСЛЕ open, эхо — в эмулятор одной склейкой", async () => {
-        // Ровно так пишет лог BJLS: getBazelTerminal() и тут же sendText.
+        // Exactly what the BJLS log does: getBazelTerminal() and sendText right away.
         const h = setup();
         const p = makePty();
         const terminal = h.ns.createTerminal({ name: "Bazel Build Status", pty: p.pty });
@@ -469,7 +469,7 @@ describe("pty расширения — сквозь провод", () => {
         expect(withCode.exitStatus).toStrictEqual({ code: 2, reason: TerminalExitReason.Process });
         expect(noCode.exitStatus).toStrictEqual({ code: undefined, reason: TerminalExitReason.Process });
         expect(h.service.getInstances()).toStrictEqual([]);
-        // Закрытие инстанса закрывает и pty — как `shutdown` эталона.
+        // Closing the instance closes the pty too — like upstream `shutdown`.
         expect(a.log.at(-1)).toBe("close");
         h.service.dispose();
     });
@@ -543,7 +543,7 @@ describe("pty расширения — сквозь провод", () => {
             sent.push(method);
         });
         h.attached.dispose();
-        // Закрытие pty умершего субпроцесса ему же не пересказывается.
+        // Closing the pty of a dead subprocess isn't reported back to it.
         expect(sent).toStrictEqual([]);
         expect(h.service.getInstances().map((i) => i.title)).toStrictEqual(["shell"]);
         expect(h.ptySessions[0].disposed).toBe(true);

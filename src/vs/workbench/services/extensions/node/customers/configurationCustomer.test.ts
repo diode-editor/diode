@@ -46,7 +46,7 @@ describe("ConfigurationCustomer", () => {
         const attached = h.attachTo();
         h.customer.pushInitialState();
         await flushMicrotasks();
-        // Строго: у окна из папки поля workspaceFile в семени нет вовсе.
+        // Strict: a folder window has no workspaceFile field in the seed at all.
         expect(h.log).toStrictEqual([
             [
                 "workspace.initialize",

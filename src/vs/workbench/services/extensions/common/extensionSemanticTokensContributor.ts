@@ -9,7 +9,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** `validateTypeOrModifier` эталона, тексты ошибок дословно. */
+/** Upstream `validateTypeOrModifier`, error texts verbatim. */
 function validateTypeOrModifier(
     contribution: unknown,
     extensionPoint: string,
@@ -36,8 +36,8 @@ function validateTypeOrModifier(
 }
 
 /**
- * Аналог `TokenClassificationExtensionPoints` эталона. `semanticTokenScopes`: каждая строка —
- * отдельная проба, пробелы — путь скоупов; `language` даёт селектору вес `+10`.
+ * Counterpart of upstream `TokenClassificationExtensionPoints`. `semanticTokenScopes`: each string is
+ * a separate probe, spaces separate the scope path; `language` adds `+10` to the selector score.
  */
 export function registerExtensionSemanticTokens(
     extensions: readonly IExtension[],

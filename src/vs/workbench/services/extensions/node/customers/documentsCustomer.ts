@@ -9,13 +9,13 @@ import { requestWillSaveEdits } from "../hostRequests.ts";
 import { loggingRequest } from "../requestPolicy.ts";
 
 /**
- * В символах, как `_MODEL_SYNC_LIMIT` эталона. Решается на открытии (и замене содержимого
- * целиком): документ сверх порога для расширений не существует.
+ * In characters, like upstream `_MODEL_SYNC_LIMIT`. Decided on open (and on full content
+ * replacement): a document above the limit doesn't exist for extensions.
  */
 export const MAX_SYNCED_DOCUMENT_CHARS = 50 * 1024 * 1024;
 
 export interface IDocumentsCustomerOptions {
-    /** Мс. */
+    /** In ms. */
     readonly willSaveTimeoutMs: number;
     readonly openDocumentsProvider: (() => IWireDocumentSyncSnapshot[]) | undefined;
     readonly maxSyncedDocumentChars: number;
@@ -26,20 +26,23 @@ interface ISpawnDocuments {
     readonly rpc: HostRpc;
     willSaveSubscribed: boolean;
     didSaveSubscribed: boolean;
-    /** Правка по документу вне набора не шлётся: применённая к чужому тексту, она испортила бы зеркало. */
+    /**
+     * Edits to a document outside the set aren't sent: applied to someone else's text they would corrupt the
+     * mirror.
+     */
     readonly synced: Set<string>;
 }
 
 /**
- * Правки уходят синхронно и без коалесинга: порядок сообщений в канале заменяет версию в запросе
- * (как `$acceptModelChanged` эталона).
+ * Edits go out synchronously and without coalescing: message order in the channel replaces the version in the request
+ * (like upstream `$acceptModelChanged`).
  */
 export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncTarget {
     private live: ISpawnDocuments | null = null;
 
     public constructor(private readonly options: IDocumentsCustomerOptions) {}
 
-    /** ДО первой активации: стоковый vscode-languageclient читает `workspace.textDocuments` на start(). */
+    /** BEFORE the first activation: the stock vscode-languageclient reads `workspace.textDocuments` on start(). */
     public pushInitialState(): void {
         const live = this.live;
         if (live === null) return;
@@ -47,12 +50,12 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
         for (const snapshot of openDocuments) this.didOpenTextDocument(snapshot);
     }
 
-    /** Запросы по несинхронизированному — пустой ответ без RPC: текста запросы не везут. */
+    /** Requests for an unsynced document get an empty reply without RPC: requests don't carry the text. */
     public isSynced(uri: string): boolean {
         return this.live?.synced.has(uri) === true;
     }
 
-    /** Текст документа запрос не везёт — участник читает зеркало. */
+    /** The request doesn't carry the document text — the participant reads the mirror. */
     public async willSaveTextDocument(snapshot: ISaveSnapshot): Promise<readonly ISaveEdit[]> {
         const live = this.live;
         if (!live?.willSaveSubscribed || !live.synced.has(snapshot.uri)) return [];
@@ -85,7 +88,10 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
         live.synced.add(snapshot.uri);
     }
 
-    /** Синхронизированный, переросший лимит, закрывается — зеркало разошлось бы навсегда; ставший подъёмным — открывается. */
+    /**
+     * A synced document that outgrew the limit is closed (the mirror would diverge forever); one that became small
+     * enough is opened.
+     */
     public didChangeTextDocument(snapshot: IWireDocumentSyncSnapshot): void {
         const live = this.live;
         if (live === null) return;
@@ -99,7 +105,7 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
         }
     }
 
-    /** Без коалесинга: запрос провайдера, ушедший следом, едет по тому же каналу после правок. */
+    /** No coalescing: a provider request sent right after travels on the same channel after the edits. */
     public didChangeTextDocumentContent(event: IWireDocumentChangedEvent): void {
         const live = this.live;
         if (!live?.synced.has(event.uri)) return;
@@ -121,11 +127,11 @@ export class DocumentsCustomer implements IExtensionHostCustomer, IDocumentSyncT
         };
         this.live = live;
         const store = new DisposableStore();
-        // Без подписчиков хост не гоняет RPC на сохранении (save остаётся синхронным).
+        // Without subscribers the host doesn't run RPC on save (save stays synchronous).
         store.add(
             rpc.handleNotification("workspace.updateSubscriptions", (params) => {
-                // Флаг `documentSync` не нужен: правки идут всем синхронизированным документам —
-                // пропуск любой испортил бы зеркало.
+                // No `documentSync` flag needed: edits go to all synced documents —
+                // skipping any would corrupt the mirror.
                 const p: { willSave?: unknown; didSave?: unknown } = params;
                 live.willSaveSubscribed = p.willSave === true;
                 live.didSaveSubscribed = p.didSave === true;

@@ -1,11 +1,11 @@
 "use strict";
 
 /**
- * Фикстура встроенной API-команды `vscode.open` — вызовы как у golang.go
- * (`Go: Toggle Test File`): `test.open.file {path, viewColumn?}` зовёт
- * `executeCommand("vscode.open", Uri.file(path), viewColumn)` и отдаёт
- * `{ ok: true, result }` либо `{ ok: false, message }` при отказе промиса;
- * `test.open.raw {arg}` — то же с сырым первым аргументом (невалидный ввод).
+ * Fixture for the built-in API command `vscode.open`, with calls as in golang.go
+ * (`Go: Toggle Test File`): `test.open.file {path, viewColumn?}` calls
+ * `executeCommand("vscode.open", Uri.file(path), viewColumn)` and returns
+ * `{ ok: true, result }` or `{ ok: false, message }` if the promise rejects;
+ * `test.open.raw {arg}` does the same with a raw first argument (invalid input).
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

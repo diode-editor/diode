@@ -1,18 +1,18 @@
 "use strict";
 
 /**
- * Фикстура rename-провайдера: переименовывает слово `value` в активном
- * документе и в соседнем файле `other.txt` (кросс-файловая правка — ровно то,
- * ради чего rename идёт через bulk workspace edit).
+ * Rename provider fixture: renames the word `value` in the active
+ * document and in the sibling file `other.txt` (a cross-file edit, exactly what
+ * rename goes through a bulk workspace edit for).
  *
- * Ветки `prepareRename` выбираются строкой каретки — покрывают обе формы
- * ответа эталона и отказ:
- *   - строка 0 → `{ range, placeholder }`;
- *   - строка 1 → голый `Range` (placeholder добирается текстом диапазона);
- *   - строка 2 → отказ («здесь переименовать нельзя»).
+ * `prepareRename` branches are picked by the cursor line, covering both upstream
+ * answer shapes and a refusal:
+ *   - line 0 → `{ range, placeholder }`;
+ *   - line 1 → a bare `Range` (the placeholder is filled from the range text);
+ *   - line 2 → refusal ("cannot rename here").
  *
- * `provideRenameEdits` отклоняет невалидное имя `class` — штатный канал
- * «имя не годится» эталона.
+ * `provideRenameEdits` rejects the invalid name `class`: upstream's regular
+ * "name is not valid" channel.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

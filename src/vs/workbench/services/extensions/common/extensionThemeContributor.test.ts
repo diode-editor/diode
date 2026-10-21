@@ -175,7 +175,7 @@ describe("ExtensionThemeContributor — регистрация тем расши
         expect(registry.has("Sample Light")).toBe(false);
         expect(registry.list()).toHaveLength(builtinThemes.length);
         expect(unregister.mock.calls).toEqual([["Sample Dark"], ["Sample Light"]]);
-        // Повторный dispose — no-op: снимать больше нечего.
+        // A repeated dispose is a no-op: nothing left to remove.
         contributor.dispose();
         expect(unregister).toHaveBeenCalledTimes(2);
         expect(registry.list()).toHaveLength(builtinThemes.length);

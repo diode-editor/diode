@@ -7,15 +7,15 @@ import type { IWireClipboardText } from "../../../../api/common/wireTypes.ts";
 import type { IExternalOpener } from "../../../externalOpener/common/iExternalOpener.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 
-/** `initData` эталона. */
+/** Upstream `initData`. */
 export interface IExtensionHostEnvironment {
-    /** Стабилен между запусками (кэш в application-состоянии). */
+    /** Stable across runs (cached in application state). */
     readonly machineId: () => string;
-    /** Шелл, которым запустился бы терминал без `shellPath`. */
+    /** The shell a terminal without `shellPath` would start with. */
     readonly defaultShell: () => string;
 }
 
-/** id машины между запусками не переживает, шелл — системный. */
+/** The machine id doesn't survive across runs, the shell is the system one. */
 export function fallbackExtensionHostEnvironment(): IExtensionHostEnvironment {
     let machineId: string | undefined;
     return {
@@ -34,8 +34,8 @@ export class EnvCustomer implements IExtensionHostCustomer {
     ) {}
 
     /**
-     * `env.machineId`/`env.shell` синхронные — семя до первой активации. Смены шелла нет
-     * (профилей терминала у нас нет), повторных семян не бывает.
+     * `env.machineId`/`env.shell` are synchronous — seeded before the first activation. The shell never changes
+     * (we have no terminal profiles), so there are no repeated seeds.
      */
     public pushInitialState(): void {
         this.rpc?.notify("env.initialize", {
@@ -55,7 +55,7 @@ export class EnvCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleRequest("env.clipboard.writeText", async (params): Promise<null> => {
                 const { text }: { text?: unknown } = params;
-                // Не-строкой нельзя затирать настоящее содержимое буфера.
+                // A non-string must not overwrite the real clipboard contents.
                 if (typeof text === "string") await this.clipboard?.writeText(text);
                 return null;
             }),

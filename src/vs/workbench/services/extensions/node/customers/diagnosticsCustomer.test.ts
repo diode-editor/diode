@@ -97,7 +97,7 @@ describe("DiagnosticsCustomer — чужие маркеры субпроцесс
             { severity: MarkerSeverity.Hint, range: RANGE, message: "h" },
         ]);
 
-        // Строго: поле без значения в провод не попадает вовсе.
+        // Strict: a field without a value doesn't go on the wire at all.
         expect(mirrored()).toStrictEqual([
             [
                 {
@@ -182,9 +182,9 @@ describe("DiagnosticsCustomer — чужие маркеры субпроцесс
 
         const second = makeRpc();
         customer.attach({ rpc: second.rpc, logger: undefined });
-        // Чужие сняты: новому субпроцессу о них не говорили — сообщать нечего.
+        // Foreign markers are removed: the new subprocess was never told about them, nothing to report.
         markers.changeOne("tasks", MAIN, []);
-        // Маркеры прошлого спавна под его владельцем — свои, а не чужие.
+        // Markers of the previous spawn under its owner are own, not foreign.
         markers.changeOne("ext:ts", MAIN, [{ severity: MarkerSeverity.Error, range: RANGE, message: "stale" }]);
         expect(second.mirrored()).toEqual([]);
     });

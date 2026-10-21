@@ -24,7 +24,7 @@ describe("extensionStateStore", () => {
     });
 
     afterEach(() => {
-        // Писателей глушим до сноса каталога: debounced-запись после `rmSync` пересоздаёт его.
+        // Dispose writers before removing the directory: a debounced write after `rmSync` recreates it.
         for (const writer of writers) writer.dispose();
         userData.dispose();
     });

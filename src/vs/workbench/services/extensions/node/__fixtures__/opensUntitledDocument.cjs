@@ -1,14 +1,14 @@
 "use strict";
 
 /**
- * Фикстура `workspace.openTextDocument({ content, language })` — ровно то, что
- * делает `Go: Locate Configured Go Tools` у стокового golang.go: отчёт в
- * безымянный документ, затем `window.showTextDocument(doc)`.
+ * Fixture for `workspace.openTextDocument({ content, language })`, exactly what
+ * `Go: Locate Configured Go Tools` in the stock golang.go does: a report in an
+ * untitled document, then `window.showTextDocument(doc)`.
  *
- * `test.untitled.open {content?, language?, show?}` — открывает документ (и
- * показывает при `show`), отдаёт, что видит расширение: сам документ, был ли
- * он в `workspace.textDocuments` и `onDidOpenTextDocument` к моменту резолва,
- * и редактор после показа.
+ * `test.untitled.open {content?, language?, show?}` opens the document (and
+ * shows it when `show` is set) and returns what the extension sees: the document,
+ * whether it was in `workspace.textDocuments` and `onDidOpenTextDocument` by the time
+ * the promise resolved, and the editor after showing.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

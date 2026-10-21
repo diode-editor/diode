@@ -1,20 +1,23 @@
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
-/** Аналог `IExtensionService` vscode. Набор статичен на время жизни окна — событий изменения состава нет. */
+/** Counterpart of vscode `IExtensionService`. The set is static for the window's lifetime, no change events. */
 export interface IExtensionService {
-    /** Пользовательские, затем встроенные. */
+    /** User extensions first, then builtin ones. */
     readonly extensions: readonly IExtension[];
     getExtension(id: string): IExtension | undefined;
     whenInstalledExtensionsRegistered(): Promise<void>;
-    /** До барьера событие запоминается и проигрывается после регистрации; промис резолвится на барьере. */
+    /**
+     * Before the barrier the event is remembered and replayed after registration; the promise resolves at the
+     * barrier.
+     */
     activateByEvent(event: string): Promise<void>;
     /**
-     * Перезапуск процесса (как reload окна у эталона), затем `workspaceContains:` по новым папкам.
-     * До барьера процесса ещё нет, а проход по папкам сделает сам старт.
+     * Restarts the process (like upstream window reload), then runs `workspaceContains:` on the new folders.
+     * Before the barrier there is no process yet, and startup itself scans the folders.
      */
     restartForWorkspaceChange(): Promise<void>;
-    /** Один раз, в фазе `restored`. */
+    /** Once, in the `restored` phase. */
     start(): Promise<void>;
 }
 

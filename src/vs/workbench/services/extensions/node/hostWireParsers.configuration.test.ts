@@ -21,7 +21,7 @@ describe("hostWireParsers — configuration.update", () => {
             value: false,
             target: "workspace",
         });
-        // Ложные значения — значения, а не снятие ключа.
+        // Falsy values are values, not key removal.
         expect(parseWireConfigurationUpdate({ key: "a.b", value: null })).toStrictEqual({ key: "a.b", value: null });
         expect(parseWireConfigurationUpdate({ key: "a.b", value: 0 })).toStrictEqual({ key: "a.b", value: 0 });
     });

@@ -30,7 +30,7 @@ import type { IExtensionService } from "../../common/extensions.ts";
 import { TasksCustomer } from "./tasksCustomer.ts";
 import { TerminalCustomer } from "./terminalCustomer.ts";
 
-// Синтетическое расширение формой провайдера bazel-java.
+// A synthetic extension shaped like the bazel-java provider.
 
 const EXT = "pub.demo";
 const FOLDER: vscode.WorkspaceFolder = { uri: Uri.file("/ws") as unknown as vscode.Uri, name: "ws", index: 0 };
@@ -168,7 +168,7 @@ describe("vscode.tasks — сквозь провод", () => {
         void s.h.service.run(task);
         await flush();
         expect(s.events).toStrictEqual(["start:demo/build", "pstart:demo/build:100"]);
-        // Так bazel-java ищет свою бегущую задачу: по name + source в taskExecutions.
+        // This is how bazel-java finds its running task: by name + source in taskExecutions.
         const running = s.tasks.taskExecutions.find((e) => e.task.name === "build" && e.task.source === "demo");
         expect(running?.task.definition).toStrictEqual({ type: "demo", target: "build" });
         expect(running?.task.scope).toBe(FOLDER);
@@ -191,7 +191,7 @@ describe("vscode.tasks — сквозь провод", () => {
         expect(starts[0].execution).toBe(execution);
         expect(s.tasks.taskExecutions).toStrictEqual([execution]);
         expect(s.h.terminals.getInstances()[0].launch.shellArgs).toStrictEqual(["-c", "echo own"]);
-        // Ключ по схеме типа из каталога — и у ядра, и у субпроцесса.
+        // Keyed by the type schema from the catalog, both in the core and in the subprocess.
         expect(s.h.service.getActiveTasks()[0]._id).toBe(`${EXT}.target,own,type,demo,`);
         s.dispose();
     });

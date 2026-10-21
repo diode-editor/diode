@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.statusBar.test.ts: расширение ставит пункт в
- * статус-бар при активации и правит его командами, которые регистрирует само.
- * Так проверяется весь круг — `createStatusBarItem` → полоса → клик → команда
- * расширения → правка текста → обратно в полосу.
+ * Fixture for extensionHost.statusBar.test.ts: the extension puts an item in the
+ * status bar on activation and edits it via commands it registers itself.
+ * This checks the whole round trip: `createStatusBarItem` → bar → click → extension
+ * command → text edit → back to the bar.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -34,8 +34,8 @@ exports.activate = function activate(context) {
         vscode.commands.registerCommand("test.statusBar.dispose", function () {
             item.dispose();
         }),
-        // Роняет собственный процесс — модель краша расширения. Выход отложен
-        // на тик, чтобы ответ на RPC успел уйти вызывающему.
+        // Kills its own process to model an extension crash. The exit is deferred
+        // by a tick so the RPC reply reaches the caller.
         vscode.commands.registerCommand("test.statusBar.kill", function () {
             setTimeout(function () {
                 process.exit(1);

@@ -1,21 +1,21 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.claudeCodeSurface.test.ts: повторяет, как стоковое
- * `Anthropic.claude-code` трогает API, которого раньше не было.
+ * Fixture for extensionHost.claudeCodeSurface.test.ts: mirrors how the stock
+ * `Anthropic.claude-code` touches API that did not exist before.
  *
- * Верхний уровень модуля — как в бандле расширения: `NotebookCellOutputItem.error(...).mime`
- * считается при загрузке; без класса точка входа не грузилась вовсе.
+ * Module top level, as in the extension bundle: `NotebookCellOutputItem.error(...).mime`
+ * is evaluated at load time; without the class the entry point did not load at all.
  */
 const vscode = require("vscode");
 
 const ERROR_MIME = vscode.NotebookCellOutputItem.error(new Error("probe")).mime;
 
 exports.activate = function activate(context) {
-    // `env.shell`/`env.machineId` расширение читает уже в activate().
+    // The extension reads `env.shell`/`env.machineId` already in activate().
     const atActivate = { machineId: vscode.env.machineId, shell: vscode.env.shell, errorMime: ERROR_MIME };
 
-    // Ждёт shell integration и уходит в фоллбэк — подписка обязана проходить.
+    // Waits for shell integration and falls back; the subscription must succeed.
     const shellIntegrationSub = vscode.window.onDidChangeTerminalShellIntegration(function () {});
     context.subscriptions.push(shellIntegrationSub);
 
@@ -32,7 +32,7 @@ exports.activate = function activate(context) {
         vscode.commands.registerCommand("test.claude.clearStatusBarMessage", function () {
             message.dispose();
         }),
-        // Ровно как поханковая ревизия диффа у расширения: тред на строке ханка.
+        // Exactly like the extension's per-hunk diff review: a thread on the hunk's line.
         vscode.commands.registerCommand("test.claude.commentThread", function (uri) {
             controller = controller || vscode.comments.createCommentController("claude-code-hunks", "Claude Code proposed changes");
             thread = controller.createCommentThread(vscode.Uri.parse(uri), new vscode.Range(3, 0, 3, 0), []);

@@ -21,8 +21,8 @@ export function createInMemoryEnvironmentVariableCollectionStore(): IEnvironment
 }
 
 /**
- * Часть `MainThreadTerminalService` эталона: на подъёме субпроцесса всё хранилище уходит ему
- * семенем — расширение видит коллекцию такой, какой она была до смерти субпроцесса.
+ * Part of upstream `MainThreadTerminalService`: when the subprocess comes up, the whole store goes to it
+ * as a seed — the extension sees the collection as it was before the subprocess died.
  */
 export class EnvironmentVariableCollectionsCustomer implements IExtensionHostCustomer {
     private rpc: HostRpc | null = null;
@@ -35,7 +35,7 @@ export class EnvironmentVariableCollectionsCustomer implements IExtensionHostCus
         store.add(
             rpc.handleNotification("terminal.setEnvironmentVariableCollection", (params): void => {
                 const update = parseWireSetEnvironmentVariableCollection(params);
-                // Stryker disable next-line ConditionalExpression: эквивалентный — без проверки `null` падает на `.collection` до записи в хранилище, RpcEndpoint глотает исключение нотификации; наблюдаемо то же «проигнорировано»
+                // Stryker disable next-line ConditionalExpression: equivalent — without the `null` check it throws on `.collection` before writing to the store, RpcEndpoint swallows the notification exception, the observable result is the same “ignored”
                 if (update === null) return;
                 if (update.collection.length === 0) {
                     this.store.delete(update.extensionId);
@@ -56,7 +56,7 @@ export class EnvironmentVariableCollectionsCustomer implements IExtensionHostCus
         return store;
     }
 
-    /** Пустое хранилище — семени нет (как у эталона). */
+    /** Empty store — no seed (like upstream). */
     public pushInitialState(): void {
         if (this.rpc === null || this.store.collections.size === 0) return;
         this.rpc.notify("terminal.initEnvironmentVariableCollections", {

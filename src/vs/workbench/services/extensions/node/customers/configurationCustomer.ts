@@ -11,21 +11,21 @@ import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common
 import type { IExtensionHostConfigProvider, IWorkspaceFolderInfo } from "../extensionHost.ts";
 import { parseWireConfigurationUpdate } from "../hostWireParsers.ts";
 
-/** Push-модель: `getConfiguration` в субпроцессе синхронный. */
+/** Push model: `getConfiguration` in the subprocess is synchronous. */
 export class ConfigurationCustomer implements IExtensionHostCustomer {
     private rpc: HostRpc | null = null;
 
     public constructor(private readonly configuration: IExtensionHostConfigProvider) {}
 
     /**
-     * Семя handshake — ДО стартового active-editor и первого activateExtension:
-     * расширение читает getConfiguration уже в activate().
+     * The handshake seed goes BEFORE the initial active-editor and the first activateExtension:
+     * the extension already reads getConfiguration in activate().
      */
     public pushInitialState(): void {
         this.rpc?.notify("workspace.initialize", {
             configuration: this.configuration.getSnapshot(),
             workspaceFolders: this.configuration.getWorkspaceFolders(),
-            // У окна из папки — `undefined`: провод (JSON) такое поле не везёт.
+            // `undefined` for a folder window: the (JSON) wire doesn't carry such a field.
             workspaceFile: this.configuration.getWorkspaceFile(),
         });
     }
@@ -41,8 +41,8 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
                 });
             }),
         );
-        // Сервис эмитит событие на свою запись ДО резолва промиса записи: после `await update()`
-        // расширение уже видит значение в `get()`, как в эталоне.
+        // The service fires the event for its own write BEFORE the write promise resolves: after `await update()`
+        // the extension already sees the value in `get()`, as upstream.
         store.add(
             rpc.handleRequest("configuration.update", async (params): Promise<null> => {
                 const request = parseWireConfigurationUpdate(params);
@@ -62,8 +62,8 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
     }
 
     /**
-     * `writeConfiguration` `mainThreadConfiguration` эталона плюс проверки `ConfigurationEditing.validate`,
-     * которых нет у сервиса настроек. Отказ — rejected promise без тоста (`donotNotifyError` эталона).
+     * Upstream `mainThreadConfiguration` `writeConfiguration` plus the `ConfigurationEditing.validate` checks
+     * the settings service lacks. A refusal is a rejected promise without a toast (upstream `donotNotifyError`).
      */
     private async writeConfiguration(request: IWireConfigurationUpdate): Promise<void> {
         const { key, value } = request;
@@ -71,7 +71,7 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
         const scope = scopes.get(key);
         const target: WireConfigurationTarget =
             request.target ?? this.deriveConfigurationTarget(scope, request.resource);
-        // Писать можно только зарегистрированный ключ; снятие и секции языков — любые.
+        // Only a registered key can be written; removal and language sections are allowed for any key.
         if (value !== undefined && !scopes.has(key) && !isOverrideKey(key)) {
             throw new Error(
                 `Unable to write to ${targetLabel(target)} because ${key} is not a registered configuration.`,
@@ -84,17 +84,17 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
                     `Unable to write to ${targetLabel(target)} because no workspace is opened. Please open a workspace first and try again.`,
                 );
             }
-            // Stryker disable next-line ConditionalExpression: без проверки `undefined` разбор пустого ресурса тоже не попадает ни в одну папку — ветка нужна типу
+            // Stryker disable next-line ConditionalExpression: without the `undefined` check parsing an empty resource doesn't land in any folder either — the branch is for the type
             if (request.resource === undefined || !isInFolders(request.resource, folders)) {
                 throw new Error("Unable to write to Folder Settings because no resource is provided.");
             }
         }
-        // Папка единственная, ресурс выбирать не из чего: сервис сам знает, где
-        // настройки папки (у окна из папки — тот же файл, что у воркспейса).
+        // A single folder, no resource to choose: the service itself knows where
+        // the folder settings are (for a folder window it's the same file as the workspace's).
         await this.configuration.updateValue(key, value, target);
     }
 
-    /** `deriveConfigurationTarget` `mainThreadConfiguration` эталона. */
+    /** Upstream `mainThreadConfiguration` `deriveConfigurationTarget`. */
     private deriveConfigurationTarget(
         scope: ConfigurationScope | undefined,
         resource: string | undefined,
@@ -110,7 +110,7 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
     }
 }
 
-/** `stringifyTarget` `ConfigurationEditing` эталона. */
+/** Upstream `ConfigurationEditing` `stringifyTarget`. */
 function targetLabel(target: WireConfigurationTarget): string {
     switch (target) {
         case "user":
@@ -122,13 +122,13 @@ function targetLabel(target: WireConfigurationTarget): string {
     }
 }
 
-/** `getWorkspaceFolder(resource)` эталона. */
+/** Upstream `getWorkspaceFolder(resource)`. */
 function isInFolders(resource: string, folders: readonly IWorkspaceFolderInfo[]): boolean {
     const uri = Uri.parse(resource);
     return folders.some((folder) => {
         const root = Uri.parse(folder.uri);
         if (root.scheme !== uri.scheme) return false;
-        // Сама папка даёт `""` — тоже «внутри».
+        // The folder itself yields `""` — also “inside”.
         const relative = path.relative(root.fsPath, uri.fsPath);
         return !relative.startsWith("..") && !path.isAbsolute(relative);
     });

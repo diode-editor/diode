@@ -1,14 +1,14 @@
 "use strict";
 
 /**
- * Фикстура workspace.applyEdit (#196): команды строят WorkspaceEdit и применяют
- * его через vscode.workspace.applyEdit — тот же путь, которым пойдут правки
- * code actions и server-side workspace/applyEdit стокового vscode-languageclient.
+ * workspace.applyEdit fixture (#196): commands build a WorkspaceEdit and apply it
+ * via vscode.workspace.applyEdit, the same path that code action edits and
+ * server-side workspace/applyEdit of the stock vscode-languageclient will take.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
-    // Заменяет [0:0..0:5] активного документа на "HELLO".
+    // Replaces [0:0..0:5] of the active document with "HELLO".
     context.subscriptions.push(
         vscode.commands.registerCommand("test.applyReplaceActive", function () {
             const editor = vscode.window.activeTextEditor;
@@ -19,7 +19,7 @@ exports.activate = function activate(context) {
         }),
     );
 
-    // Вставляет "X" в начало каждого из переданных файлов (массив fsPath).
+    // Inserts "X" at the start of each given file (an array of fsPath).
     context.subscriptions.push(
         vscode.commands.registerCommand("test.applyToFiles", function (paths) {
             const edit = new vscode.WorkspaceEdit();
@@ -30,8 +30,8 @@ exports.activate = function activate(context) {
         }),
     );
 
-    // Текстовая правка активного документа + переименование файла рядом:
-    // смешанный edit, как у rename-рефакторинга.
+    // A text edit of the active document plus a rename of a sibling file:
+    // a mixed edit, like a rename refactoring.
     context.subscriptions.push(
         vscode.commands.registerCommand("test.applyRenameWithText", function (paths) {
             const editor = vscode.window.activeTextEditor;
@@ -43,8 +43,8 @@ exports.activate = function activate(context) {
         }),
     );
 
-    // «Move to a new file»: создать файл с содержимым, дописать в него, убрать
-    // исходный. Порядок операций значим.
+    // "Move to a new file": create a file with content, append to it, delete
+    // the original. The order of operations matters.
     context.subscriptions.push(
         vscode.commands.registerCommand("test.applyMoveToNewFile", function (paths) {
             const created = vscode.Uri.file(paths[0]);

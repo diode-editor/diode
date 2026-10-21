@@ -9,8 +9,8 @@ import type {
 } from "../../../../platform/extensions/common/iExtensionManifest.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 
-// Явный список: точка, которой у нас нет, не должна притвориться соседней — пропуск со строкой
-// в лог. `Partial`: промах по таблице обязан читаться как `undefined`.
+// An explicit list: a point we don't have must not pose as a neighboring one; it's skipped with a log
+// line. `Partial`: a table miss must read as `undefined`.
 const MENU_IDS: Readonly<Partial<Record<string, MenuId>>> = {
     "editor/context": MenuId.EditorContext,
     "editor/title": MenuId.EditorTitle,
@@ -25,7 +25,7 @@ const MENU_IDS: Readonly<Partial<Record<string, MenuId>>> = {
 
 const COMMAND_PALETTE_MENU = "commandPalette";
 
-// Мост зовут повторно, а `MenuId` уникален в процессе — точка одного подменю обязана быть той же.
+// The bridge is called repeatedly, and `MenuId` is unique per process: one submenu's point must stay the same.
 const extensionSubmenuIds = new Map<string, MenuId>();
 
 function submenuMenuId(id: string): MenuId {
@@ -44,14 +44,14 @@ export function parseMenuGroup(raw: string | undefined): { group?: string; order
     const order = Number(raw.slice(at + 1));
     return {
         ...(group === "" ? {} : { group }),
-        // Нечисловой порядок — как его отсутствие, а не `NaN` в начало.
+        // A non-numeric order is treated as missing, not as `NaN` at the front.
         ...(Number.isFinite(order) ? { order } : {}),
     };
 }
 
 /**
- * Аналог `menusExtensionPoint.ts` VS Code. Битый пункт манифеста — строка в лог и пропуск,
- * а не исключение: манифест пишет чужой человек.
+ * Counterpart of VS Code `menusExtensionPoint.ts`. A broken manifest item is a log line and a skip,
+ * not an exception: the manifest is written by a stranger.
  */
 export function registerExtensionMenus(
     extensions: readonly IExtension[],
@@ -59,7 +59,7 @@ export function registerExtensionMenus(
     logger?: ILogger,
 ): { dispose(): void } {
     const disposables: { dispose(): void }[] = [];
-    // Иконка — у команды, а не у пункта (как `MenuItemAction` эталона).
+    // The icon belongs to the command, not the item (like upstream `MenuItemAction`).
     const icons = commandIcons(extensions);
     for (const ext of extensions) {
         const contributes = ext.manifest.contributes;
@@ -68,7 +68,7 @@ export function registerExtensionMenus(
         for (const [menu, items] of Object.entries(contributes.menus ?? {})) {
             const menuId = MENU_IDS[menu] ?? submenus.get(menu)?.menuId;
             if (menuId === undefined) {
-                // Палитра про `when` расширений пока не знает — пункт не теряется молча.
+                // The palette doesn't know extension `when` yet, so the item isn't lost silently.
                 logger?.info(
                     menu === COMMAND_PALETTE_MENU
                         ? `${ext.id}: пункты "commandPalette" пока не применяются`
@@ -89,7 +89,7 @@ export function registerExtensionMenus(
     };
 }
 
-/** Префикс расширения: `"myext.submenu"` могут объявить два расширения. */
+/** Extension prefix: two extensions may declare `"myext.submenu"`. */
 function declaredSubmenus(
     extensionId: string,
     declarations: readonly IExtensionSubmenuContribution[] | undefined,
@@ -113,7 +113,7 @@ function declaredSubmenus(
     return result;
 }
 
-/** `null` — пункт пропущен, причина уже в логе. */
+/** `null` means the item is skipped, the reason is already logged. */
 function toContribution(
     extensionId: string,
     menuId: MenuId,
@@ -140,7 +140,7 @@ function toContribution(
         logger?.info(`${extensionId}: пункт меню без command и submenu — пропущен`);
         return null;
     }
-    // `alt` принимаем, но не рисуем: альтернативного действия у наших попапов нет.
+    // `alt` is accepted but not rendered: our popups have no alternative action.
     const icon = icons.get(item.command);
     return {
         menuId,
@@ -151,16 +151,16 @@ function toContribution(
     };
 }
 
-/** Как `ThemeIcon.fromString` эталона; модификатор (`~spin`) не рисуем. */
+/** Like upstream `ThemeIcon.fromString`; the modifier (`~spin`) isn't rendered. */
 const THEME_ICON = /^\$\(([a-z0-9-]+)(?:~[a-z0-9-]+)?\)$/u;
 
-/** SVG-иконку в терминале не нарисовать — у такой команды иконки нет. */
+/** An SVG icon can't be drawn in a terminal, so such a command has no icon. */
 function commandIcons(extensions: readonly IExtension[]): Map<string, string | undefined> {
     const icons = new Map<string, string | undefined>();
     for (const ext of extensions) {
-        // Stryker disable next-line ArrayDeclaration: без команд перебирать нечего — у элементов подставной строки нет `icon`, их отсекает проверка ниже
+        // Stryker disable next-line ArrayDeclaration: without commands there is nothing to iterate — the placeholder string's elements have no `icon`, the check below filters them out
         for (const command of ext.manifest.contributes?.commands ?? []) {
-            // Stryker disable next-line ConditionalExpression: сужение для TS — SVG-объект под регуляркой стал бы строкой «[object Object]» и не совпал
+            // Stryker disable next-line ConditionalExpression: narrowing for TS — an SVG object under the regex would become the string "[object Object]" and not match
             const match = typeof command.icon === "string" ? THEME_ICON.exec(command.icon) : null;
             if (match !== null) icons.set(command.command, CODICON_GLYPHS[match[1]]);
         }

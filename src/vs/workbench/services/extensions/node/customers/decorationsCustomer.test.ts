@@ -18,7 +18,7 @@ const COLORS: Record<string, number> = {
     "gitDecoration.modifiedResourceForeground": FILE,
 };
 
-/** `rpcLogger.warn` ловит исключения обработчиков нотификаций — RpcEndpoint их глотает. */
+/** `rpcLogger.warn` catches notification handler exceptions — RpcEndpoint swallows them. */
 function setup(colors: Record<string, number> = COLORS) {
     const editorCalls: { uri: string; decorations: readonly IGutterChangeDecoration[] }[] = [];
     const fileCalls: { path: string; color?: number; badge?: string }[][] = [];
@@ -150,7 +150,7 @@ describe("DecorationsCustomer — gutter-декорации редактора",
 
         expect(h.editorCalls.slice(before)).toStrictEqual([{ uri: Uri.file("/a.ts").toString(), decorations: [] }]);
 
-        // Снятый тип больше не рисуется, даже если субпроцесс пришлёт его набор.
+        // A disposed type is no longer drawn, even if the subprocess sends a set for it.
         h.peer.notify("editor.setDecorations", { key: 1, uri: Uri.file("/a.ts").toString(), ranges: [range(3)] });
         await flushMicrotasks(10);
         expect(h.editorCallsFor("/a.ts").at(-1)?.decorations).toStrictEqual([]);

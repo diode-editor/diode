@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.memento.test.ts. Как настоящий потребитель
- * `globalState`/`workspaceState` (ruff помечает разово показанную рекомендацию):
- * в `activate()` СРАЗУ читает memento синхронно, а дальше пишет через `update`.
+ * Fixture for extensionHost.memento.test.ts. Like a real consumer of
+ * `globalState`/`workspaceState` (ruff marks a one-time recommendation as shown):
+ * `activate()` reads the memento synchronously RIGHT AWAY, then writes through `update`.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

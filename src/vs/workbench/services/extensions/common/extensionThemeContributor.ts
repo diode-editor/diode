@@ -9,7 +9,7 @@ import { mergeThemeFiles } from "../../../../platform/theme/common/mergeThemeFil
 import { parseThemeFile } from "../../../../platform/theme/common/themeFileParser.ts";
 import type { ThemeRegistry } from "../../themes/common/themeRegistry.ts";
 
-/** `uiTheme` манифеста → `IThemeFile.type` (решение 7 в docs/arch/Theme.md, «Темы расширений: решения»). */
+/** Manifest `uiTheme` → `IThemeFile.type` (decision 7 in docs/arch/Theme.md). */
 const UI_THEME_TYPES: Partial<Record<string, IThemeFile["type"]>> = {
     vs: "light",
     "vs-dark": "dark",
@@ -23,9 +23,9 @@ interface IThemeEntry {
 }
 
 /**
- * Темы читаются все и до первого кадра: пикеру нужен синхронный `resolve` для live preview
- * (решение 2 в docs/arch/Theme.md). Последняя регистрация одного `label` побеждает;
- * `dispose()` затенённую встроенную тему не восстанавливает.
+ * All themes are read before the first frame: the picker needs a synchronous `resolve` for live preview
+ * (decision 2 in docs/arch/Theme.md). The last registration of a `label` wins;
+ * `dispose()` doesn't restore a shadowed builtin theme.
  */
 export class ExtensionThemeContributor implements IDisposable {
     private readonly assets: IAssetAccess;
@@ -97,7 +97,7 @@ export class ExtensionThemeContributor implements IDisposable {
         const describe = `${extension.id}: theme "${label}"`;
         try {
             const flat = await this.readThemeChain(extension, joinVirtualPath(extension.location, path), [], describe);
-            // Stryker disable next-line ConditionalExpression: индекс undefined в таблице даёт то же undefined
+            // Stryker disable next-line ConditionalExpression: indexing the table with undefined gives the same undefined
             let type = uiTheme === undefined ? undefined : UI_THEME_TYPES[uiTheme];
             if (type === undefined) {
                 this.logger?.warn(`${describe}: unknown uiTheme ${JSON.stringify(uiTheme)} — treated as dark`);
@@ -110,7 +110,7 @@ export class ExtensionThemeContributor implements IDisposable {
         }
     }
 
-    /** База сливается под включающую тему; `chain` — пройденные пути, для обнаружения цикла. */
+    /** The base is merged under the including theme; `chain` is the visited paths, for cycle detection. */
     private async readThemeChain(
         extension: IExtension,
         virtualPath: string,
@@ -124,7 +124,7 @@ export class ExtensionThemeContributor implements IDisposable {
         try {
             text = await this.assets.readText(virtualPath);
         } catch (err) {
-            // Stryker disable next-line ObjectLiteral: cause нужен цепочке ошибок (preserve-caught-error), наружу уходит только текст
+            // Stryker disable next-line ObjectLiteral: cause is needed for the error chain (preserve-caught-error), only the text goes out
             throw new Error(`cannot read ${virtualPath}: ${errorMessage(err)}`, { cause: err });
         }
         let file: IThemeFile;
@@ -133,7 +133,7 @@ export class ExtensionThemeContributor implements IDisposable {
                 this.logger?.warn(`${describe} (${virtualPath}): ${message}`);
             });
         } catch (err) {
-            // Stryker disable next-line ObjectLiteral: см. выше
+            // Stryker disable next-line ObjectLiteral: see above
             throw new Error(`${virtualPath}: ${errorMessage(err)}`, { cause: err });
         }
         if (file.include === undefined) return file;
@@ -144,14 +144,14 @@ export class ExtensionThemeContributor implements IDisposable {
 }
 
 function isThemeContribution(value: unknown): value is IThemeContribution {
-    // Опциональная цепочка покрывает и null, и примитивы — проверка на объект избыточна.
+    // Optional chaining covers both null and primitives; an object check would be redundant.
     const record = value as Partial<Record<"label" | "path", unknown>> | null | undefined;
     const label = record?.label;
     const path = record?.path;
     return typeof label === "string" && label.length > 0 && typeof path === "string" && path.length > 0;
 }
 
-/** `IAssetAccess` не пропускает `..`, а выход за каталог расширения — ошибка. */
+/** `IAssetAccess` rejects `..`, and escaping the extension directory is an error. */
 function resolveIncludePath(extensionLocation: string, themePath: string, include: string): string {
     const dir = themePath.slice(0, themePath.lastIndexOf("/") + 1);
     const segments: string[] = [];

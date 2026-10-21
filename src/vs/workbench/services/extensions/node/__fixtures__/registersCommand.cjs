@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Фикстура для ExtensionHost.Commands.test.ts — направление host → subprocess.
- * Регистрирует команду `test.applyTab`; когда ядро исполняет её (через прокси в
- * host CommandRegistry), хендлер ставит tabSize активного редактора из аргумента.
- * Сигнал наружу — через editor.options (принятая конвенция фикстур).
+ * Fixture for ExtensionHost.Commands.test.ts, the host → subprocess direction.
+ * Registers the `test.applyTab` command; when the core executes it (through the proxy in
+ * the host CommandRegistry), the handler sets the active editor's tabSize from the argument.
+ * The signal goes out through editor.options (the established fixture convention).
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

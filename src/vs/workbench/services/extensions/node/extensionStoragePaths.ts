@@ -6,12 +6,12 @@ import { resolveWorkspaceStorageDir } from "../../../../platform/environment/nod
 import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 
 /**
- * Даёт хост — владелец раскладки user-data, а не субпроцесс. Эталон — `IEnvironment`
- * (`extensionHostProtocol.ts`); `workspaceStorageHome` здесь уже с `/<workspace.id>`.
+ * Supplied by the host, which owns the user-data layout, not by the subprocess. Upstream: `IEnvironment`
+ * (`extensionHostProtocol.ts`); `workspaceStorageHome` here already includes `/<workspace.id>`.
  */
 export interface IExtensionStorageHomes {
     readonly globalStorageHome: string;
-    /** `null` — папка не открыта: `storageUri` у расширения `undefined`, как в vscode. */
+    /** `null` when no folder is open: the extension's `storageUri` is `undefined`, as in vscode. */
     readonly workspaceStorageHome: string | null;
     readonly logsHome: string;
 }
@@ -23,8 +23,8 @@ export interface IExtensionStoragePaths {
 }
 
 /**
- * Регистр id — как в эталоне, с асимметрией: `globalStorage` по lowercase id, остальное как
- * есть. Расширение ищет уже скачанное (движок AI-автодополнения) по тому же правилу.
+ * Id casing follows upstream, asymmetrically: `globalStorage` uses the lowercase id, the rest uses it
+ * as is. Extensions look up already downloaded data (an AI completion engine) by the same rule.
  */
 export function resolveExtensionStoragePaths(
     homes: IExtensionStorageHomes,
@@ -37,7 +37,10 @@ export function resolveExtensionStoragePaths(
     };
 }
 
-/** Родителя гарантирует vscode.d.ts, сам каталог создаёт расширение. Best effort: недоступный user-data не рубит активацию. */
+/**
+ * vscode.d.ts guarantees the parent, the extension creates the directory itself. Best effort: inaccessible
+ * user-data doesn't kill activation.
+ */
 export function ensureExtensionStorageParents(
     homes: IExtensionStorageHomes,
     onError?: (dir: string, err: unknown) => void,
@@ -71,7 +74,7 @@ export function extensionStorageHomes(
     };
 }
 
-/** `globalStorageUri` по API обязателен — без user-data отдаём каталог во временных файлах ОС. */
+/** The API requires `globalStorageUri`, so without user-data we hand out a directory under the OS temp dir. */
 export function fallbackExtensionStorageHomes(): IExtensionStorageHomes {
     const root = path.join(os.tmpdir(), "diode-extension-storage");
     return {

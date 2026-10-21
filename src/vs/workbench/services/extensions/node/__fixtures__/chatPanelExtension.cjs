@@ -1,15 +1,15 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.webviewNoop.test.ts — типовое расширение с чат-панелью.
+ * Fixture for extensionHost.webviewNoop.test.ts: a typical extension with a chat panel.
  *
- * Сначала поднимает свою webview-часть (какой именно член зовём — из конфигурации
- * `testChat.webviewApi`, чтобы тест прошёлся по всем трём точкам входа), и только
- * ПОТОМ регистрирует не-webview часть: команду `test.chatPing` и
- * inline-completion-провайдер (призрачные подсказки).
+ * First it brings up its webview part (which member we call comes from the
+ * `testChat.webviewApi` setting, so the test goes through all three entry points), and
+ * only THEN registers the non-webview part: command `test.chatPing` and an
+ * inline completion provider (ghost suggestions).
  *
- * Наблюдаемое в тесте — именно вторая половина: webview в TUI не будет, а вот
- * команды и провайдеры расширения обязаны пережить webview-вызов.
+ * What the test observes is the second half: there will be no webview in the TUI, but
+ * the extension's commands and providers must survive the webview call.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -17,7 +17,7 @@ exports.activate = function activate(context) {
 
     if (api === "createWebviewPanel") {
         const panel = vscode.window.createWebviewPanel("test.chat", "Chat", vscode.ViewColumn.One, {});
-        // Так делает любое расширение с панелью сразу после создания.
+        // Any extension with a panel does this right after creating it.
         panel.webview.html = "<h1>chat</h1>";
         context.subscriptions.push(panel);
     } else if (api === "registerWebviewViewProvider") {

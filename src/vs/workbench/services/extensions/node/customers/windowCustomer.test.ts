@@ -25,7 +25,7 @@ function makeSinks() {
     };
 }
 
-/** `rpcLogger.warn` ловит исключения обработчиков нотификаций: RpcEndpoint их глотает и пишет сюда. */
+/** `rpcLogger.warn` catches notification handler exceptions: RpcEndpoint swallows them and logs here. */
 function attach(sinks: IWindowSinks) {
     const [a, b] = createInProcessChannelPair();
     const rpcLogger = {

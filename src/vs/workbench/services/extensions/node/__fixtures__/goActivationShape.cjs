@@ -1,15 +1,15 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.goActivationShape.test.ts — форма `activate()`
- * у `golang.go` после старта языкового сервера.
+ * Fixture for extensionHost.goActivationShape.test.ts: the `activate()` shape
+ * of `golang.go` after the language server starts.
  *
- * По порядку, как у стокового расширения: дебаггер (провайдер конфигураций,
- * фабрики адаптера и трекера, подписки на сессии), Test API (контроллер, три
- * профиля по `TestRunProfileKind`, элемент тест-файла в коллекции), и
- * последним шагом — `languages.setLanguageConfiguration`. Без любого из этих
- * членов `activate()` обрывался, и команда, зарегистрированная после них,
- * не появлялась: её исполнение и есть наблюдаемое «расширение активно целиком».
+ * In order, as in the stock extension: the debugger (configuration provider,
+ * adapter and tracker factories, session subscriptions), Test API (controller, three
+ * profiles by `TestRunProfileKind`, a test-file item in the collection), and
+ * as the last step `languages.setLanguageConfiguration`. Without any of these
+ * members `activate()` aborted, and the command registered after them
+ * did not appear: running it is the observable "extension fully activated".
  */
 const vscode = require("vscode");
 

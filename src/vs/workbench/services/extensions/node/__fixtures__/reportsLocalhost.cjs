@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.localhost.test.ts: расширение поднимает TCP-сервер
- * на `localhost` — как bazel-java для лога своего языкового сервера — и
- * сообщает, на какой адрес он встал, и порядок резолва DNS в субпроцессе.
+ * Fixture for extensionHost.localhost.test.ts: the extension starts a TCP server
+ * on `localhost` (as bazel-java does for its language server log) and
+ * reports which address it bound to and the DNS resolution order in the subprocess.
  */
 const dns = require("node:dns");
 const net = require("node:net");

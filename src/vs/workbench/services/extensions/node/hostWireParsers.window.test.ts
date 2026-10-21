@@ -154,7 +154,7 @@ describe("hostWireParsers — diagnostics.publish", () => {
     });
 });
 
-/** Функция с нужными полями: `typeof` — `"function"`, поля читаются как у объекта. */
+/** A function with the required fields: `typeof` is `"function"`, fields read like an object's. */
 function fnWith(fields: Record<string, unknown>): unknown {
     return Object.assign(() => undefined, fields);
 }

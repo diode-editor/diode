@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.setContext.test.ts. Публикует свой when-ключ ровно
- * так, как это делают сторонние расширения: `executeCommand("setContext", key,
- * value)` из activate() и из своей команды. Ключ точечный (`publisher.thing`) —
- * другого вида имён у расширений практически не бывает.
+ * Fixture for extensionHost.setContext.test.ts. Publishes its own when key exactly
+ * the way third-party extensions do: `executeCommand("setContext", key,
+ * value)` from activate() and from its own command. The key is dotted (`publisher.thing`):
+ * extensions practically never use any other kind of name.
  */
 exports.activate = async function activate(context) {
     const vscode = require("vscode");
@@ -21,6 +21,6 @@ exports.activate = async function activate(context) {
         }),
     );
 
-    // Активационный вызов: у Supermaven `setContext` летит именно отсюда.
+    // The activation-time call: this is exactly where Supermaven sends `setContext` from.
     await vscode.commands.executeCommand("setContext", "testExt.activated", true);
 };

@@ -10,11 +10,14 @@ import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 export interface IExtensionRegistrationEnv {
     readonly userPrefix: string;
     readonly userExtensionsDir: string;
-    /** Под SEA файла на диске нет. */
+    /** Under SEA there is no file on disk. */
     readBuiltinSource(virtualPath: string): Promise<string>;
 }
 
-/** Одна на приложение и тестовые фикстуры: тест регистрирует ровно как прод. `null` — декларативное расширение без `main`. */
+/**
+ * Shared by the app and test fixtures: tests register exactly like prod. `null` for a declarative extension without
+ * `main`.
+ */
 export async function toExtensionRegistration(
     ext: IExtension,
     env: IExtensionRegistrationEnv,
@@ -24,13 +27,13 @@ export async function toExtensionRegistration(
     const commandMeta = collectCommandMeta(ext.manifest.contributes?.commands);
     const common = {
         id: ext.id,
-        // Манифест целиком: он же едет расширениям как `Extension.packageJSON`, и соседа детектят
-        // не только по id (AI-автодополнения смотрят `contributes`, `categories`, `engines`).
+        // The whole manifest: it also goes to extensions as `Extension.packageJSON`, and they detect
+        // neighbors not only by id (AI completions look at `contributes`, `categories`, `engines`).
         manifest: ext.manifest,
         commandTitles: commandMeta.titles,
         commandCategories: commandMeta.categories,
-        // Полный набор — объявленные плюс неявные (`contributes.commands` /
-        // `languages`): хост дальше только сравнивает строки.
+        // The full set, declared plus implicit (`contributes.commands` /
+        // `languages`): the host only compares strings from here on.
         activationEvents: computeActivationEvents(ext.manifest, ext.id),
     };
     if (ext.isBuiltin) {
@@ -41,12 +44,12 @@ export async function toExtensionRegistration(
             filename: `/${virtualPath}`,
         };
     }
-    // Хвостовой `/` локации `path.resolve` снимает сам.
+    // `path.resolve` strips the location's trailing `/` itself.
     const extensionPath = path.resolve(env.userExtensionsDir, ext.location.slice(env.userPrefix.length));
     return { ...common, mainPath: path.resolve(extensionPath, main), extensionPath };
 }
 
-/** `%ключи%` уже резолвнуты: манифест локализован при сканировании. */
+/** `%keys%` are already resolved: the manifest is localized during scanning. */
 export function collectCommandMeta(commands: readonly ICommandContribution[] | undefined): {
     titles?: Record<string, string>;
     categories?: Record<string, string>;

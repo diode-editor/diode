@@ -1,16 +1,16 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.quickPickSubprocess.test.ts — объектный пикер
- * (`window.createQuickPick`) через НАСТОЯЩИЙ субпроцесс.
+ * Fixture for extensionHost.quickPickSubprocess.test.ts: the object picker
+ * (`window.createQuickPick`) through a REAL subprocess.
  *
- * Команды возвращают то, что расширение получило от человека, вместе с журналом
- * событий пикера — значение команды и есть сигнал наружу (конвенция фикстур).
+ * Commands return what the extension got from the user, together with a log of
+ * picker events: the command's value is the signal to the outside (fixture convention).
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
-    /** Пикер, показанный командой test.showForHide. */
+    /** The picker shown by command test.showForHide. */
     let shown;
 
     const SOURCE = [
@@ -20,9 +20,9 @@ exports.activate = function activate(context) {
     ];
 
     context.subscriptions.push(
-        // Форма `pickLazyEnum` golang.go: пикер открывается пустым, предметы
-        // приезжают асинхронно на каждое изменение запроса, Enter принимает,
-        // расширение само прячет и освобождает пикер.
+        // The shape of golang.go's `pickLazyEnum`: the picker opens empty, items
+        // arrive asynchronously on every query change, Enter accepts, and the
+        // extension hides and disposes the picker itself.
         vscode.commands.registerCommand("test.lazyPick", function () {
             return new Promise(function (resolve) {
                 const log = [];
@@ -44,7 +44,7 @@ exports.activate = function activate(context) {
                             };
                         });
                         quickPick.busy = false;
-                        // Видимый признак «ответ на этот запрос пришёл» — тесту.
+                        // A visible "the answer to this query has arrived" sign for the test.
                         quickPick.prompt = query === "" ? undefined : "results for " + query;
                     }, 0);
                 };
@@ -78,7 +78,7 @@ exports.activate = function activate(context) {
                 search("");
             });
         }),
-        // Множественный выбор с предотметкой, разделителем и шагами мастера.
+        // Multi-select with pre-checked items, a separator and wizard steps.
         vscode.commands.registerCommand("test.pickManyObject", function () {
             return new Promise(function (resolve) {
                 const quickPick = vscode.window.createQuickPick();
@@ -98,7 +98,7 @@ exports.activate = function activate(context) {
                     const picked = quickPick.selectedItems.map(function (item) {
                         return item.label;
                     });
-                    // Объекты — те самые, что расширение отдало: сравнение по ссылке.
+                    // The objects are the very ones the extension handed out: compared by reference.
                     const same = quickPick.selectedItems.every(function (item) {
                         return items.includes(item);
                     });
@@ -108,9 +108,8 @@ exports.activate = function activate(context) {
                 quickPick.show();
             });
         }),
-        // Показ и скрытие самим расширением: onDidHide ровно один раз.
-        // Показ и скрытие самим расширением: onDidHide ровно один раз. Две
-        // команды, а не таймер: тест сам решает, когда пикер уже на экране.
+        // Show and hide by the extension itself: onDidHide exactly once. Two
+        // commands, not a timer: the test decides when the picker is already on screen.
         vscode.commands.registerCommand("test.showForHide", function () {
             const quickPick = vscode.window.createQuickPick();
             shown = { quickPick: quickPick, hides: 0 };
@@ -126,7 +125,7 @@ exports.activate = function activate(context) {
             return new Promise(function (resolve) {
                 const subscription = current.quickPick.onDidHide(function () {
                     subscription.dispose();
-                    // dispose после скрытия второго onDidHide давать не должен.
+                    // dispose after hiding must not produce a second onDidHide.
                     current.quickPick.dispose();
                     resolve({ hides: current.hides });
                 });

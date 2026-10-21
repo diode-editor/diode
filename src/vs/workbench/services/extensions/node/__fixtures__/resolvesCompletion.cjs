@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.completionResolve.test.ts: провайдер с
- * `resolveCompletionItem` и триггер-символом. Описание и правка авто-импорта
- * отдаются ТОЛЬКО на resolve — как это делает настоящий language server.
+ * Fixture for extensionHost.completionResolve.test.ts: a provider with
+ * `resolveCompletionItem` and a trigger character. The documentation and the auto-import edit
+ * are returned ONLY on resolve, the way a real language server does it.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

@@ -289,7 +289,7 @@ describe("registerExtensionMenus", () => {
         });
 
         registerExtensionMenus([manifest], first.menus);
-        // Второй контейнер (новый профиль, пересборка состава) — тот же манифест.
+        // A second container (new profile, rebuilt extension set) with the same manifest.
         expect(() => registerExtensionMenus([manifest], second.menus)).not.toThrow();
 
         const submenus = second.menus.getSubmenus(MenuId.EditorContext);
@@ -362,7 +362,7 @@ describe("registerExtensionMenus", () => {
             menus,
         );
 
-        // Label — титул команды (свой не взяли), пункт виден (when не взяли).
+        // The label is the command title (own one ignored), the item is visible (when ignored).
         expect(labels(menus, MenuId.EditorContext)).toEqual(["Do Thing"]);
     });
 

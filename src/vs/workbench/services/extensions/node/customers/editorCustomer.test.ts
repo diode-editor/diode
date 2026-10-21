@@ -100,7 +100,7 @@ describe("EditorCustomer — семена и события редактора",
         const selections = { uri: "file:///a.ts", selections: [SELECTION] } as unknown as IActiveEditorSelections;
         h.selection.fire(selections);
         await flushMicrotasks();
-        // Флаш синхронный, нотификации доезжают позже — но в порядке отправки.
+        // The flush is synchronous, notifications arrive later — but in send order.
         expect(h.log).toEqual([
             "flush",
             ["editor.layoutChanged", LAYOUT],
@@ -118,7 +118,7 @@ describe("EditorCustomer — семена и события редактора",
 });
 
 describe("EditorCustomer — запросы субпроцесса", () => {
-    // Без it.each: имена с `{}`/`"` мутационный раннер не находит по фильтру имени.
+    // No it.each: the mutation runner can't find names with `{}`/`"` by the name filter.
     it("editor.setOptions чистит патч: целые положительные размеры, indentSize — алиас, мусор отброшен", async () => {
         const cases: readonly (readonly [unknown, object])[] = [
             [
@@ -139,7 +139,7 @@ describe("EditorCustomer — запросы субпроцесса", () => {
         ];
         const h = setup();
         h.attachTo();
-        // Infinity по JSON-каналу не доехал бы; канал in-process отдаёт значения как есть.
+        // Infinity wouldn't survive a JSON channel; the in-process channel passes values as is.
         for (const [params] of cases) {
             await expect(h.peer.request("editor.setOptions", params)).resolves.toBeNull();
         }

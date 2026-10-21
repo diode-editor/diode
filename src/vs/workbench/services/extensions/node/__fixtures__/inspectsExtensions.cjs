@@ -1,18 +1,18 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.extensionsCatalog.test.ts. Повторяет путь
- * AI-автодополнения: в `activate()` СРАЗУ детектит соседей через
- * `extensions.getExtension(id)` (в бандле Supermaven таких вызовов четыре) и
- * подписывается на смену состава.
+ * Fixture for extensionHost.extensionsCatalog.test.ts. Mirrors the path of
+ * AI autocompletion: in `activate()` it IMMEDIATELY detects neighbors via
+ * `extensions.getExtension(id)` (the Supermaven bundle has four such calls) and
+ * subscribes to changes in the extension set.
  *
- * Возвращает публичный API (`exports`) — по нему проверяется, что сосед может
- * до него дотянуться через `getExtension(id).exports`.
+ * Returns a public API (`exports`), used to check that a neighbor can reach it
+ * via `getExtension(id).exports`.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
-    /** Снимок соседа на момент activate(): состав обязан быть верен уже здесь. */
+    /** Neighbor snapshot at activate() time: the extension set must be correct already here. */
     const selfAtActivate = describe(vscode.extensions.getExtension("test.inspector"));
     let changeCount = 0;
     context.subscriptions.push(

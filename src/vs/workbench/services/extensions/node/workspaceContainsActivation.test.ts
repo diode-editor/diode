@@ -14,7 +14,7 @@ import {
     matchWorkspaceContains,
 } from "./workspaceContainsActivation.ts";
 
-/** Пути от {@link matchWorkspaceContains} приходят через `path.join`, в нативной форме — приводим к posix. */
+/** Paths from {@link matchWorkspaceContains} come via `path.join` in native form, so normalize to posix. */
 function fakeScanner(root: string, tree: Readonly<Record<string, "dir" | "file">>): IWorkspaceScanner {
     const relative = (absolutePath: string): string => path.relative(root, absolutePath).split(path.sep).join("/");
     return {
@@ -125,7 +125,7 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
             pattern: null,
             truncated: false,
         });
-        // Ровно один вызов — корень; `src/` не читался, глубина исчерпана.
+        // Exactly one call, the root; `src/` wasn't read, depth is exhausted.
         expect(readDirectory).toHaveBeenCalledTimes(1);
     });
 
@@ -214,7 +214,7 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
         await expect(
             matchWorkspaceContains(scanner, [ROOT], { paths: [], globs: ["**/pyproject.toml"] }),
         ).resolves.toEqual({ pattern: "**/pyproject.toml", truncated: false });
-        // Корень + два каталога первого уровня; `deep/a` и `deep/a/b` не тронуты.
+        // Root plus two top-level directories; `deep/a` and `deep/a/b` are untouched.
         expect(readDirectory.mock.calls.map((call) => call[0])).toEqual([
             ROOT,
             path.join(ROOT, "deep"),
@@ -232,8 +232,8 @@ describe("matchWorkspaceContains — паттерны-globs (обход дере
 
 describe("matchWorkspaceContains — бюджет и отмена", () => {
     it("бюджет — ГРАНИЦА: каталог номер maxDirectories+1 уже не читается", async () => {
-        // Совпадение лежит ровно в том каталоге, до которого бюджет не дотягивает
-        // на один шаг: корень и `a` съедают оба слота, `b` остаётся непрочитанным.
+        // The match sits in exactly the directory the budget falls one step short of:
+        // the root and `a` use up both slots, `b` stays unread.
         const scanner = fakeScanner(ROOT, { a: "dir", b: "dir", "b/pyproject.toml": "file" });
         await expect(
             matchWorkspaceContains(scanner, [ROOT], { paths: [], globs: ["**/pyproject.toml"] }, { maxDirectories: 2 }),

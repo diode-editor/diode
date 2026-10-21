@@ -10,8 +10,8 @@ import type { IExtensionSecretStore } from "../extensionSecretsStore.ts";
 import { parseWireSecretKeysRequest, parseWireSecretWrite } from "../hostWireParsers.ts";
 
 /**
- * Ни одна из этих веток НЕ логируется: в параметрах едет значение секрета, и
- * даже пара «расширение + ключ» рядом с ним в логе — уже утечка.
+ * None of these branches log: the params carry the secret value, and
+ * even the “extension + key” pair next to it in the log is already a leak.
  */
 export class SecretsCustomer implements IExtensionHostCustomer {
     public constructor(private readonly secrets: IExtensionSecretStore) {}
@@ -28,7 +28,7 @@ export class SecretsCustomer implements IExtensionHostCustomer {
         store.add(
             rpc.handleRequest("secrets.get", (params): IWireSecretValue => {
                 const ref = requireSecretRef(params, "secrets.get");
-                // `null`, а не отсутствие поля: `undefined` через JSON не ездит.
+                // `null` rather than a missing field: `undefined` doesn't travel through JSON.
                 return { value: this.secrets.get(ref.extensionId, ref.key) ?? null };
             }),
         );
@@ -45,7 +45,7 @@ export class SecretsCustomer implements IExtensionHostCustomer {
             rpc.handleRequest("secrets.delete", (params): null => {
                 const ref = requireSecretRef(params, "secrets.delete");
                 this.secrets.delete(ref.extensionId, ref.key);
-                // И на удаление: в эталоне `onDidChange` — факт изменения, а не только появления.
+                // On delete too: upstream `onDidChange` means a change, not only an addition.
                 rpc.notify("secrets.changed", { extensionId: ref.extensionId, key: ref.key });
                 return null;
             }),
@@ -54,7 +54,7 @@ export class SecretsCustomer implements IExtensionHostCustomer {
     }
 }
 
-/** Сообщение НЕ содержит параметров: в соседнем поле того же объекта ездит значение секрета. */
+/** The message has NO params: the secret value travels in a sibling field of the same object. */
 function requireSecretRef(raw: unknown, method: string): IWireSecretRef {
     const ref = parseWireSecretRef(raw);
     if (ref === null) throw new Error(`${method}: expected { extensionId, key } of non-empty strings`);

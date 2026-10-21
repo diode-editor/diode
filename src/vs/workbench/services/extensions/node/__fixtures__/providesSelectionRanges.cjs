@@ -1,10 +1,10 @@
 "use strict";
 
 /**
- * Фикстура selection-range-провайдера: на каждую позицию — цепочка
- * «строка позиции» → «строка позиции и следующая». Вторая ступень не совпадает
- * ни с одной встроенной (слово, скобки, строка, документ), поэтому её видно
- * в итоговой иерархии — значит, ответ провайдера доехал.
+ * Selection range provider fixture: for every position, a chain
+ * "line of the position" -> "that line and the next one". The second step matches
+ * none of the built-in ones (word, brackets, line, document), so it shows up
+ * in the final hierarchy, which proves the provider's answer arrived.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

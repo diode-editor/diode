@@ -136,7 +136,7 @@ describe("CommandsCustomer — заглушки-активаторы onCommand",
 
         await expect(stub.invoke(["a"])).resolves.toBe('ran ext.run ["a"]');
         expect(events).toEqual(["onCommand:ext.run"]);
-        // Настоящий прокси сменил заглушку.
+        // The real proxy replaced the stub.
         expect(stub.disposed).toBe(true);
     });
 

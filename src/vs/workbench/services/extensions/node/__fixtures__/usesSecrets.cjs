@@ -1,20 +1,20 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.secrets.test.ts. Повторяет путь настоящего
- * потребителя `ExtensionContext.secrets` (Codeium/Tabnine хранят там токен
- * сервиса): в `activate()` СРАЗУ читает секрет — расширение решает по нему,
- * спрашивать ли человека, — и подписывается на `onDidChange`.
+ * Fixture for extensionHost.secrets.test.ts. Follows the path of a real
+ * `ExtensionContext.secrets` consumer (Codeium/Tabnine keep their service token
+ * there): `activate()` reads the secret RIGHT AWAY (the extension uses it to decide
+ * whether to ask the user) and subscribes to `onDidChange`.
  *
- * `activate()` намеренно без try/catch: отсутствующее поле должно ронять
- * активацию, чтобы тест это видел.
+ * `activate()` has no try/catch on purpose: a missing field must fail
+ * the activation so the test sees it.
  */
 exports.activate = async function activate(context) {
     const vscode = require("vscode");
 
-    // Та самая строка, на которой расширение падало бы без поля.
+    // The very line where the extension would crash without the field.
     const tokenAtActivate = await context.secrets.get("token");
-    /** События `onDidChange` в порядке прихода — только КЛЮЧИ, значений тут нет. */
+    /** `onDidChange` events in arrival order: KEYS only, no values here. */
     const changes = [];
     context.subscriptions.push(
         context.secrets.onDidChange(function (event) {

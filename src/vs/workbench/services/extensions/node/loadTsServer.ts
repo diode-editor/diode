@@ -4,15 +4,15 @@ import * as path from "node:path";
 import { extractBundleToCache } from "../../../../base/node/assets/extractBundleToCache.ts";
 import { packagedAssetCacheDirByName, readPackagedAssetView } from "../../../../base/node/assets/packagedAsset.ts";
 
-/** Лок-степ с scripts/pack-ts-server.mjs и build-*. */
+/** In lockstep with scripts/pack-ts-server.mjs and build-*. */
 const ASSET_NAME = "ts-server.bundle";
 
-/** Лок-степ с scripts/pack-ts-server.mjs. */
+/** In lockstep with scripts/pack-ts-server.mjs. */
 const SERVER_ENTRY = "typescript-language-server/lib/run-cli.cjs";
 const TSSERVER_ENTRY = "node_modules/typescript/lib/tsserver.js";
 
 export interface ITsServerPaths {
-    /** CJS-шим: работает и под node, и под diode-as-node. */
+    /** A CJS shim: works both under node and under diode-as-node. */
     readonly serverPath: string;
     readonly tsserverPath: string;
 }
@@ -26,8 +26,8 @@ let cachedSource: IBundleSource | null | undefined;
 let ensurePromise: Promise<void> | null = null;
 
 /**
- * Без ожидания распаковки: каталог кэша детерминирован, а entry появляется только целиком
- * (rename каталога атомарен) — готовность проверяет `existsSync`. `null` — dev без devDeps.
+ * Doesn't wait for extraction: the cache directory is deterministic, and the entry appears only whole
+ * (directory rename is atomic), so `existsSync` checks readiness. `null` in dev without devDeps.
  */
 export function bundledTsServerTarget(): ITsServerPaths | null {
     if (cachedTarget !== undefined) return cachedTarget;
@@ -35,14 +35,14 @@ export function bundledTsServerTarget(): ITsServerPaths | null {
     return cachedTarget;
 }
 
-/** Ошибок не бросает: распаковка идёт fire-and-forget, сбой виден тем, что bundled-кандидат не станет existsSync. */
+/** Never throws: extraction is fire-and-forget, a failure shows as the bundled candidate never passing existsSync. */
 export function ensureTsServer(onError?: (err: unknown) => void): Promise<void> {
     if (ensurePromise !== null) return ensurePromise;
     ensurePromise = (async () => {
         const source = bundleSource();
-        if (source === null) return; // dev: node_modules, распаковывать нечего
+        if (source === null) return; // dev: node_modules, nothing to extract
         const bundle = readPackagedAssetView(ASSET_NAME);
-        // Stryker disable next-line all: файл вне покрытия (источник бандла завязан на SEA/self-extract); логика источника — packagedAsset (юниты), путь целиком — e2e lspBundled
+        // Stryker disable next-line all: file is outside coverage (the bundle source depends on SEA/self-extract); the source logic is covered by packagedAsset (units), the whole path by e2e lspBundled
         if (bundle === null) return;
         await extractBundleToCache(bundle, source.cacheDir);
     })().catch((err: unknown) => {
@@ -59,7 +59,7 @@ function computeTarget(): ITsServerPaths | null {
             tsserverPath: path.join(source.cacheDir, ...TSSERVER_ENTRY.split("/")),
         };
     }
-    // Dev: настоящему node шим не нужен — отдаём cli.mjs как есть.
+    // Dev: real node needs no shim, hand out cli.mjs as is.
     try {
         const require_ = createRequire(import.meta.url);
         return {
@@ -71,12 +71,15 @@ function computeTarget(): ITsServerPaths | null {
     }
 }
 
-/** Байтов бандла не читает — ключ дайджест со сборки: пути раздаются на пути к первому кадру. */
+/**
+ * Doesn't read the bundle bytes, the key is the build-time digest: paths are handed out on the way to the first
+ * frame.
+ */
 function bundleSource(): IBundleSource | null {
     if (cachedSource !== undefined) return cachedSource;
-    // Stryker disable next-line all: файл вне покрытия (источник бандла завязан на SEA/self-extract); логика источника — packagedAsset (юниты), путь целиком — e2e lspBundled
+    // Stryker disable next-line all: file is outside coverage (the bundle source depends on SEA/self-extract); the source logic is covered by packagedAsset (units), the whole path by e2e lspBundled
     const cacheDir = packagedAssetCacheDirByName("ts-server", ASSET_NAME);
-    // Stryker disable next-line all: файл вне покрытия (источник бандла завязан на SEA/self-extract); логика источника — packagedAsset (юниты), путь целиком — e2e lspBundled
+    // Stryker disable next-line all: file is outside coverage (the bundle source depends on SEA/self-extract); the source logic is covered by packagedAsset (units), the whole path by e2e lspBundled
     cachedSource = cacheDir === null ? null : { cacheDir };
     return cachedSource;
 }

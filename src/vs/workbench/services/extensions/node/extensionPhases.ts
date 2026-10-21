@@ -1,11 +1,11 @@
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-/** Поднимающееся прямо сейчас расширение — ни в одной из фаз: его держит карта активаций хоста. */
+/** An extension activating right now is in neither phase: the host's activation map holds it. */
 export class ExtensionPhases {
     private readonly known = new Map<string, IExtensionRegistration>();
-    /** Пока reg здесь, субпроцесс под него не поднимается. */
+    /** While reg is here, no subprocess is started for it. */
     private readonly pending = new Map<string, IExtensionRegistration>();
-    /** Регистрация нужна для оживления после смерти субпроцесса. */
+    /** The registration is needed to revive it after the subprocess dies. */
     private readonly active = new Map<string, IExtensionRegistration>();
 
     public isRegistered(id: string): boolean {
@@ -21,7 +21,7 @@ export class ExtensionPhases {
         return this.known.values();
     }
 
-    /** Снимком: вызывающий может менять фазы по ходу обхода. */
+    /** A snapshot: the caller may change phases while iterating. */
     public pendingRegistrations(): readonly IExtensionRegistration[] {
         return [...this.pending.values()];
     }
@@ -34,7 +34,7 @@ export class ExtensionPhases {
         return this.active.size;
     }
 
-    /** `false` — уже поднимается другим вызовом, активно или снято. */
+    /** `false` if already being activated by another call, active, or removed. */
     public takePending(id: string): boolean {
         return this.pending.delete(id);
     }
@@ -43,7 +43,7 @@ export class ExtensionPhases {
         this.active.set(reg.id, reg);
     }
 
-    /** `false` — за время активации расширение сняли или перерегистрировали другой записью. */
+    /** `false` if during activation the extension was removed or re-registered with another entry. */
     public returnInterrupted(reg: IExtensionRegistration): boolean {
         if (this.known.get(reg.id) !== reg) return false;
         this.pending.set(reg.id, reg);
@@ -62,7 +62,7 @@ export class ExtensionPhases {
         return this.active.delete(id);
     }
 
-    /** Активные возвращаются в ожидание — оживут на следующем событии активации. */
+    /** Active ones go back to pending and revive on the next activation event. */
     public reviveAll(): readonly IExtensionRegistration[] {
         const revived = [...this.active.values()];
         for (const reg of revived) this.pending.set(reg.id, reg);

@@ -1,12 +1,12 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.semanticTokens.test.ts.
- * Регистрирует для csharp провайдер семантических токенов документа (с
- * `onDidChangeSemanticTokens`) и провайдер диапазона. Правило разметки:
- * каждое слово — токен; с заглавной буквы — `class`, иначе — `variable`;
- * первое слово строки несёт модификатор `declaration`. Событие провайдера
- * документа срабатывает один раз — вскоре после его первого ответа.
+ * Fixture for extensionHost.semanticTokens.test.ts.
+ * Registers for csharp a document semantic tokens provider (with
+ * `onDidChangeSemanticTokens`) and a range provider. Tokenization rule:
+ * every word is a token; capitalized ones are `class`, others `variable`;
+ * the first word of a line carries the `declaration` modifier. The document provider's
+ * event fires once, shortly after its first answer.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

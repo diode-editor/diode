@@ -7,9 +7,9 @@ export interface IDeactivatableExtension {
 }
 
 /**
- * `deactivate()`, затем `context.subscriptions` в обратном порядке (как
- * `ExtHostExtensionService` эталона). Сбой шага не прерывает остальные, но пишется
- * warn с id расширения — иначе в логе не понять, ЧЬЯ уборка упала.
+ * `deactivate()`, then `context.subscriptions` in reverse order (like upstream
+ * `ExtHostExtensionService`). A failed step doesn't stop the rest, but is logged as a
+ * warn with the extension id, otherwise the log can't tell WHOSE cleanup failed.
  */
 export async function deactivateExtension(active: IDeactivatableExtension, logger: ILogger): Promise<void> {
     try {

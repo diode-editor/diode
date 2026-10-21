@@ -30,8 +30,8 @@ export class EditorCustomer implements IExtensionHostCustomer {
     ) {}
 
     /**
-     * Полоса групп — ДО меты активного редактора: стоковый languageclient читает
-     * `visibleTextEditors`/`tabGroups` на start().
+     * The group strip goes BEFORE the active editor meta: the stock languageclient reads
+     * `visibleTextEditors`/`tabGroups` on start().
      */
     public pushInitialState(): void {
         this.rpc?.notify("editor.layoutChanged", this.editorLayout.getLayoutSnapshot());
@@ -53,7 +53,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 return this.editorOptions.getActiveEditorOptions();
             }),
         );
-        // Fire-and-forget у расширения, но в порядке прихода — до последующего executeCommand.
+        // Fire-and-forget for the extension, but in arrival order — before a subsequent executeCommand.
         store.add(
             rpc.handleNotification("editor.setSelection", (params): void => {
                 const p: { uri?: unknown; selections?: unknown; groupId?: unknown } = params;
@@ -72,7 +72,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 return this.editorOptions.applyActiveEditorEdits(p.uri, parseWireEditorEdits(p.edits));
             }),
         );
-        // Мусор в параметрах — честный `false`, а не частичный edit.
+        // Garbage in params is an honest `false`, not a partial edit.
         store.add(
             rpc.handleRequest("workspace.applyEdit", async (params): Promise<boolean> => {
                 const ops = parseWireApplyWorkspaceEditParams(params);
@@ -80,7 +80,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 return this.editorOptions.applyWorkspaceEdit(ops, { isRefactoring: params.isRefactoring === true });
             }),
         );
-        // `$saveAll`/`$save` эталона: golang.go сохраняет всё перед `gopls.tidy` и vulncheck.
+        // Upstream `$saveAll`/`$save`: golang.go saves everything before `gopls.tidy` and vulncheck.
         store.add(
             rpc.handleRequest("workspace.saveAll", (params): Promise<boolean> => {
                 return this.editorOptions.saveAll(params.includeUntitled === true);
@@ -94,14 +94,14 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 return saved === null ? null : { uri: saved };
             }),
         );
-        // Инвариант: layoutChanged раньше связанного activeEditorChanged — подписка на layout первая,
-        // а мета флашит отложенный снимок, чтобы `visibleTextEditors` не отставал от `activeTextEditor`.
+        // Invariant: layoutChanged comes before the related activeEditorChanged — the layout subscription goes first,
+        // and the meta flushes the deferred snapshot so `visibleTextEditors` doesn't lag behind `activeTextEditor`.
         store.add(
             this.editorLayout.onDidChangeLayout((layout) => {
                 rpc.notify("editor.layoutChanged", layout);
             }),
         );
-        // Ответ уезжает ПОСЛЕ layoutChanged: после `await` расширение видит свежий `tabGroups`.
+        // The reply goes out AFTER layoutChanged: after `await` the extension sees fresh `tabGroups`.
         store.add(
             rpc.handleRequest("editor.showTextDocument", async (params): Promise<IWireShowTextDocumentResult> => {
                 const parsed = parseWireShowTextDocumentParams(params);
@@ -111,7 +111,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 return result;
             }),
         );
-        // `editor.didOpen` уходит синхронно внутри создания — ответ его не обгоняет.
+        // `editor.didOpen` goes out synchronously during creation — the reply doesn't overtake it.
         store.add(
             rpc.handleRequest("workspace.createUntitledDocument", (params) =>
                 this.editorLayout.createUntitledDocument(parseWireCreateUntitledParams(params)),
@@ -141,8 +141,8 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 rpc.notify("editor.activeEditorChanged", meta);
             }),
         );
-        // Отдельное сообщение, а не `activeEditorChanged`: тот дёргает `onDidChangeActiveTextEditor`,
-        // и встроенный git пересчитывал бы статус на каждое нажатие стрелки.
+        // A separate message rather than `activeEditorChanged`: that one fires `onDidChangeActiveTextEditor`,
+        // and the built-in git would recompute status on every arrow key press.
         store.add(
             this.editorOptions.onActiveEditorSelectionChanged((selections) => {
                 rpc.notify("editor.selectionChanged", selections);
@@ -164,8 +164,8 @@ function sanitizeOptionsPatch(raw: unknown): IEditorOptionsPatch {
     if (isFiniteNumber(obj.tabSize) && obj.tabSize > 0) {
         patch.tabSize = Math.floor(obj.tabSize);
     }
-    // `indentSize` — алиас tabSize (Diode пока не различает их): применяем только
-    // если явного tabSize нет. editorconfig шлёт indent_size именно так.
+    // `indentSize` is an alias of tabSize (Diode doesn't distinguish them yet): applied only
+    // when there is no explicit tabSize. editorconfig sends indent_size exactly this way.
     if (patch.tabSize === undefined && isFiniteNumber(obj.indentSize) && obj.indentSize > 0) {
         patch.tabSize = Math.floor(obj.indentSize);
     }

@@ -1,17 +1,17 @@
 "use strict";
 
 /**
- * Фикстура для extensionHost.fileSystem.test.ts.
- * Регистрирует read-only FileSystemProvider для схемы `demo:` — тот же путь,
- * которым встроенный git отдаёт версию файла из HEAD по схеме `git:`.
+ * Fixture for extensionHost.fileSystem.test.ts.
+ * Registers a read-only FileSystemProvider for the `demo:` scheme, the same path
+ * the built-in git uses to serve a file's HEAD version under the `git:` scheme.
  *
- * Содержимое выводится из пути ресурса, чтобы тест мог проверить, что до
- * провайдера доехал именно запрошенный URI. `fire()` через команду позволяет
- * тесту дёрнуть onDidChangeFile из субпроцесса и увидеть его на хосте.
+ * Content is derived from the resource path so the test can check that
+ * the provider received exactly the requested URI. `fire()` via a command lets
+ * the test trigger onDidChangeFile from the subprocess and observe it on the host.
  *
- * Вторая схема, `memo:`, — ПИШУЩИЙ провайдер в памяти (форма провайдера правой
- * стороны предложенного диффа Claude Code): хост пишет в него сохранением,
- * `memo.read` отдаёт тесту записанное.
+ * The second scheme, `memo:`, is a WRITABLE in-memory provider (the shape of the provider
+ * for the right side of a Claude Code proposed diff): the host writes to it on save,
+ * `memo.read` returns what was written to the test.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
