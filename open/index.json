@@ -1398,5 +1398,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-21-cf7424b992a5.json",
+    "generatedAt": "2026-10-21T13:55:19.210Z",
+    "commit": "cf7424b992a5",
+    "binaryVersion": "nightly-cf7424b",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
