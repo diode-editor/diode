@@ -18,7 +18,8 @@
 - [ ] `editorElement.performance.test.ts` › «combined render frame: contentWidth +
   buildVisibleLines × 100 cursor moves — must be fast»: порог 100 мс по стенке, на нагруженном
   раннере выходит за него. Самый частый флак (≈17 сессий за 12–20.10). Кандидат на перевод с
-  порога стенки на счётчик работы.
+  порога стенки на счётчик работы. Соседний кейс того же файла «buildVisibleLines: cached by
+  versionId — 100 render frames must be fast» флакует так же: 131 мс на #734 (ран 39615191048).
 - [ ] `fileSearchService.integration.test.ts` › «indexes files in nested directories»: ловили
   несколько сессий 18–20.10.
 - [ ] `treeWatcherMain.integration.test.ts` › «правка файла на диске доезжает до колбэка в процессе
