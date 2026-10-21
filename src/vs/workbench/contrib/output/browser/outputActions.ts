@@ -6,7 +6,7 @@ import { OUTPUT_VIEW_ID } from "../../../services/output/common/output.ts";
 
 import { OutputComponentDIToken } from "./outputComponent.ts";
 
-/** `ctrl+k ctrl+h` — как у VS Code на Linux (`output.contribution.ts`): `Ctrl+Shift+<буква>` терминал не кодирует. */
+/** `ctrl+k ctrl+h` — like VS Code on Linux (`output.contribution.ts`): the terminal does not encode `Ctrl+Shift+<letter>`. */
 export const toggleOutputAction: CommandAction = {
     id: "workbench.action.output.toggleOutput",
     title: "View: Toggle Output",
@@ -14,8 +14,8 @@ export const toggleOutputAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 30 }],
     keybinding: parseChord("ctrl+k ctrl+h"),
     run(accessor) {
-        // Вид Output может стоять не в панели (перенос во вторичную панель):
-        // показ и скрытие — там, где он стоит.
+        // The Output view may live outside the panel (moved to the secondary panel):
+        // show and hide it where it is.
         const views = accessor.get(ViewsServiceDIToken);
         if (views.isViewShown(OUTPUT_VIEW_ID)) {
             views.closeView(OUTPUT_VIEW_ID);

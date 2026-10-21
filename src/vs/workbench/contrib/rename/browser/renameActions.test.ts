@@ -43,8 +43,8 @@ describe("renameActions — команда Rename Symbol", () => {
         h.commands.execute("editor.action.rename");
         await flushMicrotasks();
 
-        // Провайдера спросили о позиции каретки — значит, команда дошла до
-        // сервиса, а не осталась пустой регистрацией.
+        // The provider was asked about the cursor position, so the command reached
+        // the service rather than staying an empty registration.
         expect(prepareRename).toHaveBeenCalledTimes(1);
         expect(prepareRename.mock.calls[0][0]).toMatchObject({ line: 0, character: 0 });
     });

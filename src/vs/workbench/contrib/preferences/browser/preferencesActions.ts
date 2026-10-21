@@ -22,7 +22,7 @@ import { KeybindingsEditorServiceDIToken } from "../../../services/keybinding/co
 import { KeybindingRecorderComponentDIToken } from "./keybindingRecorderComponent.ts";
 import { KeybindingsEditorPane, KeybindingsEditorTargetDIToken } from "./keybindingsEditorPane.ts";
 
-/** Файла может ещё не быть: создаём его заготовкой, чтобы Ctrl+S не упал с ENOENT, — как VS Code. */
+/** The file may not exist yet: create it from a skeleton so Ctrl+S doesn't fail with ENOENT — as VS Code does. */
 async function openUserConfigFile(accessor: ServiceAccessor, resource: string, skeleton: string): Promise<void> {
     const files = accessor.get(IFileServiceDIToken);
     const commands = accessor.get(CommandRegistryDIToken);
@@ -38,7 +38,7 @@ function openUserSettingsFile(accessor: ServiceAccessor): Promise<void> {
     return openUserConfigFile(accessor, accessor.get(IEnvironmentServiceDIToken).settingsResource, "{}\n");
 }
 
-/** Settings UI нет — команда открывает JSON. */
+/** There is no Settings UI — the command opens the JSON. */
 export const openSettingsAction: CommandAction = {
     id: "workbench.action.openSettings",
     title: "Preferences: Open User Settings",
@@ -59,8 +59,8 @@ export const openSettingsJsonAction: CommandAction = {
 };
 
 /**
- * У окна из `.code-workspace` — сам файл воркспейса (блок `settings`, как у эталона), иначе
- * `.diode/settings.json` папки (у эталона `.vscode/`). Без папки вызов по id ничего не делает.
+ * For a window from `.code-workspace` — the workspace file itself (the `settings` block, as upstream), otherwise
+ * the folder's `.diode/settings.json` (upstream: `.vscode/`). Without a folder, calling by id does nothing.
  */
 function openWorkspaceSettingsFile(accessor: ServiceAccessor): Promise<void> {
     const workspace = accessor.get(IWorkspaceContextServiceDIToken).getWorkspace();
@@ -71,7 +71,7 @@ function openWorkspaceSettingsFile(accessor: ServiceAccessor): Promise<void> {
     return openFolderSettingsFile(accessor);
 }
 
-/** Папку выбирать не из чего — мульти-рута нет. */
+/** There is nothing to pick a folder from — no multi-root. */
 function openFolderSettingsFile(accessor: ServiceAccessor): Promise<void> {
     const folder = accessor.get(IWorkspaceContextServiceDIToken).getWorkspace().folders.at(0);
     if (folder === undefined) return Promise.resolve();
@@ -81,7 +81,7 @@ function openFolderSettingsFile(accessor: ServiceAccessor): Promise<void> {
 export const openWorkspaceSettingsAction: CommandAction = {
     id: "workbench.action.openWorkspaceSettings",
     title: "Preferences: Open Workspace Settings",
-    // У эталона — `when: WorkbenchStateContext.notEqualsTo('empty')` пункта палитры.
+    // Upstream: `when: WorkbenchStateContext.notEqualsTo('empty')` on the palette item.
     enablement: "workbenchState != 'empty'",
     run: openWorkspaceSettingsFile,
 };
@@ -93,11 +93,11 @@ export const openWorkspaceSettingsFileAction: CommandAction = {
     run: openWorkspaceSettingsFile,
 };
 
-/** Осмысленна только в окне из `.code-workspace`: в окне папки её настройки и есть настройки воркспейса. */
+/** Meaningful only in a window from `.code-workspace`: in a folder window its settings ARE the workspace settings. */
 export const openFolderSettingsAction: CommandAction = {
     id: "workbench.action.openFolderSettings",
     title: "Preferences: Open Folder Settings",
-    // У эталона — `when: WorkbenchStateContext.isEqualTo('workspace')` пункта палитры.
+    // Upstream: `when: WorkbenchStateContext.isEqualTo('workspace')` on the palette item.
     enablement: "workbenchState == 'workspace'",
     run: openFolderSettingsFile,
 };
@@ -109,7 +109,7 @@ export const openFolderSettingsFileAction: CommandAction = {
     run: openFolderSettingsFile,
 };
 
-/** Сырой keybindings.json — отдельная команда, как у upstream. */
+/** Raw keybindings.json is a separate command, as upstream. */
 export const openKeybindingsAction: CommandAction = {
     id: "workbench.action.openGlobalKeybindings",
     title: "Preferences: Open Keyboard Shortcuts",
@@ -121,7 +121,7 @@ export const openKeybindingsAction: CommandAction = {
     },
 };
 
-/** Группа указывается при ресторе сессии через фабрику вкладки. */
+/** The group is passed on session restore via the tab factory. */
 export function openKeybindingsEditor(
     accessor: ServiceAccessor,
     options: { focus?: boolean; group?: EditorGroup } = {},

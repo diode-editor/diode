@@ -16,14 +16,14 @@ import { getHovers } from "./getHover.ts";
 import type { HoverComponent } from "./hoverComponent.ts";
 import { HoverComponentDIToken } from "./hoverComponent.ts";
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string inside is only a debug label
 export const HoverServiceDIToken = token<HoverService>("HoverService");
 
-/** Рендерера markdown нет (docs/arch/Extensions.md, «LSP и стоковые клиенты») — попап получает плоский текст. */
+/** There's no markdown renderer (docs/arch/Extensions.md#lsp-и-стоковые-клиенты), so the popup gets plain text. */
 export function stripMarkdown(value: string): string {
-    // Экранированные символы прячем ПЕРВЫМИ (приём stripSnippetPlaceholders):
-    // иначе `\*текст\*` разобрался бы по пути как «курсив».
-    // Stryker disable next-line ArrayDeclaration: аккумулятор пряток — затравка перетирается первой же записью, а без экранированных символов он не читается вовсе
+    // Escaped characters are hidden FIRST (the stripSnippetPlaceholders trick):
+    // otherwise `\*text\*` would be parsed along the way as "italic".
+    // Stryker disable next-line ArrayDeclaration: the hidden-chars accumulator; the seed is overwritten by the first entry, and without escaped characters it's never read
     const escaped: string[] = [];
     const hidden = value.replace(/\\([\\`*_{}[\]()#+\-.!])/g, (_all, char: string) => {
         escaped.push(char);
@@ -36,23 +36,23 @@ export function stripMarkdown(value: string): string {
             .replace(/\*\*([^*]+)\*\*/g, "$1")
             .replace(/__([^_]+)__/g, "$1")
             .replace(/\*([^*]+)\*/g, "$1")
-            // `_курсив_` — только на границе слова, как в CommonMark: внутри
-            // `aws_instance` или `snake_case` подчёркивания остаются.
+            // `_italic_` only at a word boundary, as in CommonMark: inside
+            // `aws_instance` or `snake_case` underscores stay.
             .replace(/(^|[^\p{L}\p{N}_])_([^_\s](?:[^_]*[^_\s])?)_(?![\p{L}\p{N}_])/gu, "$1$2")
             .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
-            // eslint-disable-next-line no-control-regex -- \u0000 здесь и есть служебный маркер, которым выше спрятаны экранированные символы
+            // eslint-disable-next-line no-control-regex -- \u0000 is the very marker used above to hide escaped characters
             .replace(/\u0000(\d+)\u0000/g, (_all, index: string) => escaped[Number(index)])
             .trim()
     );
 }
 
 const THEMATIC_BREAK = /^ {0,3}([-*_])(?:[ \t]*\1){2,}[ \t]*$/;
-/** Ограждение fenced-блока: внутри него `---` — содержимое (YAML), а не разделитель. */
+/** A fenced-block fence: inside it `---` is content (YAML), not a separator. */
 const FENCE = /^ {0,3}(`{3,}|~{3,})/;
 
 /**
- * Пустые секции остаются: по ним видно, что разделитель стоял с краю. `---` сразу под строкой
- * абзаца — подчёркивание setext-заголовка (CommonMark), а не разделитель.
+ * Empty sections are kept: they show the separator was at the edge. `---` right below a paragraph
+ * line is a setext heading underline (CommonMark), not a separator.
  */
 export function splitMarkdownSections(value: string): string[] {
     const sections: string[][] = [[]];
@@ -63,12 +63,12 @@ export function splitMarkdownSections(value: string): string[] {
         const opener = FENCE.exec(line)?.[1];
         const ruler = THEMATIC_BREAK.exec(line)?.[1];
         if (fence !== null) {
-            // Stryker disable next-line MethodExpression: ограждение — повтор одного символа, startsWith ≡ endsWith
+            // Stryker disable next-line MethodExpression: a fence is one character repeated, so startsWith ≡ endsWith
             if (opener?.startsWith(fence[0]) === true && opener.length >= fence.length) fence = null;
             current.push(line);
             paragraph = false;
         } else if (opener !== undefined) {
-            // `paragraph` сбросит первая же строка внутри блока (ветка выше).
+            // `paragraph` is reset by the very first line inside the block (the branch above).
             fence = opener;
             current.push(line);
         } else if (ruler !== undefined) {
@@ -82,7 +82,7 @@ export function splitMarkdownSections(value: string): string[] {
     return sections.map((lines) => stripMarkdown(lines.join("\n")));
 }
 
-/** Пустые секции отбрасывает вызывающий. */
+/** The caller drops empty sections. */
 function hoverBlocks(contents: readonly string[]): string[] {
     const blocks: string[] = [];
     for (const content of contents) {
@@ -117,16 +117,16 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         );
         this.register(
             bindActiveEditor(this.group, (editor, store) => {
-                // В приложении смену редактора сопровождает смена фокуса; это закрытие —
-                // для программной смены без фокуса (восстановление сессии, split).
-                // Stryker disable next-line CallExpression: см. выше
+                // In the app an editor change comes with a focus change; this close is
+                // for a programmatic change without focus (session restore, split).
+                // Stryker disable next-line CallExpression: see above
                 this.close();
                 if (editor === null) return;
-                // Подписки на каретку хватает и для правок: правка двигает или пересчитывает
-                // каретку в том же тике.
+                // The cursor subscription is enough for edits too: an edit moves or recomputes
+                // the cursor in the same tick.
                 store.add(
                     editor.onDidChangeCursorPosition(() => {
-                        // Stryker disable next-line ConditionalExpression: close() на закрытом попапе — no-op, поэтому проверка экономит вызов, а не меняет поведение
+                        // Stryker disable next-line ConditionalExpression: close() on a closed popup is a no-op, so the check saves a call rather than changing behavior
                         if (this.isOpen()) this.close();
                     }),
                 );
@@ -157,7 +157,7 @@ export class HoverService extends Disposable implements IContextKeyContributor {
         const blocks = hovers.flatMap((hover) => hoverBlocks(hover.contents)).filter((block) => block !== "");
         if (blocks.length === 0) return;
 
-        // Каретка могла уйти за время await — берём актуальный якорь.
+        // The cursor may have moved during the await, so take the current anchor.
         const anchor = editor.getCaretAnchor();
         if (anchor === null) return;
 

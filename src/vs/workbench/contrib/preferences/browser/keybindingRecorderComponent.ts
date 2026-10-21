@@ -19,13 +19,13 @@ import type { LayoutService } from "../../../services/layout/browser/layoutServi
 
 export const KeybindingRecorderComponentDIToken = token<KeybindingRecorderComponent>("KeybindingRecorderComponent");
 
-/** Сам сервис живёт в node-окружении: browser-компонент его не импортирует, биндинг делает DI-модуль. */
+/** The service itself lives in the node environment: the browser component doesn't import it, the DI module does the binding. */
 export interface IRecorderTerminalEnv {
     readonly tier: string;
     readonly os: string;
 }
 
-// Модификаторы приходят отдельными keydown (Kitty protocol) — частями чорда не являются.
+// Modifiers arrive as separate keydowns (Kitty protocol) and are not chord parts.
 const MODIFIER_KEY_NAMES = new Set(["Control", "Shift", "Alt", "Meta", "Hyper", "Super", "AltGraph", "CapsLock"]);
 
 const PLACEHOLDER = "Press desired key combination…";
@@ -34,25 +34,25 @@ const LEGACY_NOTE = "Legacy terminal: some combinations are indistinguishable he
 const PORTABILITY_WARNING = "May not be available on legacy terminals";
 
 /**
- * Голый Enter принимает, голый Escape отменяет, остальное (и Ctrl+Enter, Shift+Escape) — в чорд.
- * Сфокусированный корень со `stopPropagation` на target-фазе отсекает KeybindingDispatcher.
- * Закрытие — по ПАРНОМУ keypress: он пиннится к цели keydown (Workbench.md, «Вторая часть аккорда…»),
- * и закрытие на keydown отпустило бы его в редактор позади.
+ * Bare Enter accepts, bare Escape cancels, everything else (including Ctrl+Enter, Shift+Escape) goes into the chord.
+ * The focused root with `stopPropagation` in the target phase cuts off KeybindingDispatcher.
+ * Closing happens on the PAIRED keypress: it is pinned to the keydown target (docs/arch/workbench/Commands.md, rule on the second chord part),
+ * and closing on keydown would let it through to the editor behind.
  */
 export class KeybindingRecorderComponent extends Disposable {
     private session: OverlaySessionHandle | null = null;
 
     private readonly root: FitContentElement;
-    // Stryker disable next-line StringLiteral: начальный текст перетирается record() до первого показа.
+    // Stryker disable next-line StringLiteral: the initial text is overwritten by record() before first show.
     private readonly titleLabel = new TextLabelElement("");
     private readonly chordLabel = new TextLabelElement(PLACEHOLDER);
     private readonly hintLabel = new TextLabelElement(HINT);
-    // Stryker disable next-line StringLiteral: начальный текст перетирается updateLabels() до первого показа.
+    // Stryker disable next-line StringLiteral: the initial text is overwritten by updateLabels() before first show.
     private readonly warningLabel = new TextLabelElement("");
 
-    // Stryker disable next-line ArrayDeclaration: начальное значение перетирается record() до любого keydown.
+    // Stryker disable next-line ArrayDeclaration: the initial value is overwritten by record() before any keydown.
     private parts: Keybinding[] = [];
-    /** Решение, взведённое keydown'ом; исполняется парным keypress. */
+    /** Outcome armed by keydown; executed by the paired keypress. */
     private pendingOutcome: KeybindingChord | null | undefined;
     private resolveRecording: ((chord: KeybindingChord | null) => void) | null = null;
 
@@ -63,31 +63,31 @@ export class KeybindingRecorderComponent extends Disposable {
         super();
         this.root = new FitContentElement();
         this.root.id = "keybindingRecorder";
-        // Stryker disable next-line BooleanLiteral: программный focus() фокус ставит и без флага, а Tab-навигации в модальном оверлее с одним focusable нет — значение ненаблюдаемо.
+        // Stryker disable next-line BooleanLiteral: programmatic focus() sets focus without the flag, and a modal overlay with a single focusable has no Tab navigation — the value is unobservable.
         this.root.focusable = true;
 
         const stack = new VStackElement();
         for (const label of [this.titleLabel, this.chordLabel, this.hintLabel, this.warningLabel]) {
             stack.addChild(label, { width: "stretch", height: 1 });
         }
-        // Stryker disable next-line CallExpression: чисто цветовая настройка — палитра не проверяется покадрово.
+        // Stryker disable next-line CallExpression: pure color setup — the palette is not checked per frame.
         this.titleLabel.setColors(DIALOG_STYLES.fg, DIALOG_STYLES.bg);
-        // Stryker disable next-line CallExpression: чисто цветовая настройка — палитра не проверяется покадрово.
+        // Stryker disable next-line CallExpression: pure color setup — the palette is not checked per frame.
         this.hintLabel.setColors(DIALOG_STYLES.descriptionFg, DIALOG_STYLES.bg);
 
         const box = new BoxContainerElement();
-        // Stryker disable next-line CallExpression: фон рамки — цвет, не поведение.
+        // Stryker disable next-line CallExpression: box background is color, not behavior.
         box.setBg(DIALOG_STYLES.bg);
-        // Stryker disable next-line CallExpression: цвет рамки — не поведение.
+        // Stryker disable next-line CallExpression: border color is not behavior.
         box.setBorderFg(DIALOG_STYLES.borderFg);
         box.setTitle("Define Keybinding");
-        // Stryker disable next-line CallExpression: цвет заголовка — не поведение.
+        // Stryker disable next-line CallExpression: title color is not behavior.
         box.setTitleFg(DIALOG_STYLES.fg);
-        // Stryker disable next-line BooleanLiteral,CallExpression: разделитель — косметика рамки, покадрово не проверяется.
+        // Stryker disable next-line BooleanLiteral,CallExpression: the separator is box cosmetics, not checked per frame.
         box.setHasSeparator(true);
-        // Stryker disable next-line ObjectLiteral: отступы окна — косметика раскладки.
+        // Stryker disable next-line ObjectLiteral: window padding is layout cosmetics.
         const padding = new PaddingContainerElement(stack, { left: 2, right: 2 });
-        // Stryker disable next-line ObjectLiteral: цвета контейнера — не поведение.
+        // Stryker disable next-line ObjectLiteral: container colors are not behavior.
         padding.style = { fg: DIALOG_STYLES.fg, bg: DIALOG_STYLES.bg };
         box.setChild(padding);
         this.root.setChild(box);
@@ -96,10 +96,10 @@ export class KeybindingRecorderComponent extends Disposable {
             this.handleKeyDown(event);
         });
         this.root.addEventListener("keypress", (event) => {
-            // Ни один keypress не должен протечь за оверлей (в список, в редактор).
-            // Stryker disable next-line CallExpression: анти-утечка keypress; в изолированном харнесе без фонового потребителя ненаблюдаема (страховка поверх modal-оверлея).
+            // No keypress may leak past the overlay (into the list, the editor).
+            // Stryker disable next-line CallExpression: keypress anti-leak; unobservable in an isolated harness without a background consumer (a safeguard on top of the modal overlay).
             event.preventDefault();
-            // Stryker disable next-line CallExpression: анти-утечка keypress; ненаблюдаема без фонового потребителя за оверлеем.
+            // Stryker disable next-line CallExpression: keypress anti-leak; unobservable without a background consumer behind the overlay.
             event.stopPropagation();
             if (this.pendingOutcome !== undefined) this.finish(this.pendingOutcome);
         });
@@ -111,9 +111,9 @@ export class KeybindingRecorderComponent extends Disposable {
         });
     }
 
-    /** Повторный вызов при открытом рекордере отменяет предыдущую запись. */
+    /** Calling again while the recorder is open cancels the previous recording. */
     public record(commandTitle: string): Promise<KeybindingChord | null> {
-        // Хост — корневая view окна; до attachRoot сервис бросает сам.
+        // The host is the window's root view; before attachRoot the service throws on its own.
         const host = this.layoutService.mainContainer;
         this.resolveRecording?.(null);
 
@@ -123,14 +123,14 @@ export class KeybindingRecorderComponent extends Disposable {
         this.updateLabels();
 
         const session = (this.session ??= host.overlayLayer.createSession(this.root, new Point(0, 0), {
-            // Stryker disable next-line BooleanLiteral: стартовая невидимость сразу перекрывается open() в openCentered().
+            // Stryker disable next-line BooleanLiteral: the initial invisibility is immediately overridden by open() in openCentered().
             visible: false,
             restoreFocus: true,
-            // Escape — часть протокола записи (голый — отмена, с модификатором —
-            // в чорд); слой закрывать сессию не должен.
-            // Stryker disable next-line BooleanLiteral: handleKeyDown глушит Escape stopPropagation'ом раньше слоя — значение флага ненаблюдаемо.
+            // Escape is part of the recording protocol (bare cancels, with a modifier goes
+            // into the chord); the layer must not close the session.
+            // Stryker disable next-line BooleanLiteral: handleKeyDown swallows Escape with stopPropagation before the layer — the flag value is unobservable.
             closeOnEscape: false,
-            // Stryker disable next-line StringLiteral: pointer-политика не проверяется в клавиатурных тестах рекордера.
+            // Stryker disable next-line StringLiteral: pointer policy is not checked in the recorder's keyboard tests.
             pointerPolicy: "modal",
         }));
         this.openCentered(host, session);
@@ -146,9 +146,9 @@ export class KeybindingRecorderComponent extends Disposable {
     }
 
     private handleKeyDown(event: TUIKeyboardEvent): void {
-        // Stryker disable next-line CallExpression: подавление дефолта; в изоляции ненаблюдаемо (страховка поверх modal-оверлея).
+        // Stryker disable next-line CallExpression: default suppression; unobservable in isolation (a safeguard on top of the modal overlay).
         event.preventDefault();
-        // Stryker disable next-line CallExpression: отсекает KeybindingDispatcher; в юните без диспатчера ненаблюдаемо, а поверх — capturesKeyboard оверлея уже глушит команды.
+        // Stryker disable next-line CallExpression: cuts off KeybindingDispatcher; unobservable in a unit test without a dispatcher, and on top of that the overlay's capturesKeyboard already swallows commands.
         event.stopPropagation();
         if (MODIFIER_KEY_NAMES.has(event.key)) return;
 
@@ -176,28 +176,28 @@ export class KeybindingRecorderComponent extends Disposable {
         const resolve = this.resolveRecording;
         this.pendingOutcome = undefined;
         this.resolveRecording = null;
-        // Stryker disable next-line OptionalChaining: finish зовётся только из keypress при активной записи — session гарантированно не null, ?. защитный.
+        // Stryker disable next-line OptionalChaining: finish is called only from keypress during an active recording — session is guaranteed non-null, ?. is defensive.
         this.session?.close();
-        // Stryker disable next-line OptionalChaining: resolveRecording всегда задан при активной записи (pendingOutcome ставится только после record), ?. защитный.
+        // Stryker disable next-line OptionalChaining: resolveRecording is always set during an active recording (pendingOutcome is set only after record), ?. is defensive.
         resolve?.(outcome);
     }
 
     private updateLabels(): void {
         const style = this.terminalEnv.os === "mac" ? "mac" : "pc";
         this.chordLabel.setText(this.parts.length > 0 ? formatKeybinding(this.parts, style) : PLACEHOLDER);
-        // Stryker disable next-line ConditionalExpression,EqualityOperator: тернар выбирает лишь ЦВЕТ текста чорда — покадрово не проверяется.
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: the ternary only picks the chord text COLOR — not checked per frame.
         const chordFg = this.parts.length > 0 ? DIALOG_STYLES.fg : DIALOG_STYLES.descriptionFg;
-        // Stryker disable next-line CallExpression: применение цвета текста чорда — косметика, покадрово не проверяется.
+        // Stryker disable next-line CallExpression: applying the chord text color is cosmetics, not checked per frame.
         this.chordLabel.setColors(chordFg, DIALOG_STYLES.bg);
 
         const warning = this.warning();
         this.warningLabel.setText(warning.text);
-        // Stryker disable next-line CallExpression: применение цвета заметки — косметика, покадрово не проверяется.
+        // Stryker disable next-line CallExpression: applying the note color is cosmetics, not checked per frame.
         this.warningLabel.setColors(warning.fg, DIALOG_STYLES.bg);
     }
 
     private warning(): { text: string; fg: StyleColor } {
-        // Stryker disable next-line EqualityOperator,ConditionalExpression: `parts.length > 0` избыточно рядом с requiresExtendedKeys([])===false — при пустом чорде обе ветки дают false.
+        // Stryker disable next-line EqualityOperator,ConditionalExpression: `parts.length > 0` is redundant next to requiresExtendedKeys([])===false — with an empty chord both branches give false.
         if (this.parts.length > 0 && requiresExtendedKeys(this.parts)) {
             return { text: PORTABILITY_WARNING, fg: DIALOG_STYLES.warningFg };
         }
@@ -210,11 +210,11 @@ export class KeybindingRecorderComponent extends Disposable {
     private openCentered(host: BodyElement, session: OverlaySessionHandle): void {
         const width = this.root.getMaxIntrinsicWidth(0);
         const height = this.root.getMaxIntrinsicHeight(width);
-        // Stryker disable next-line MethodExpression: центрирование по X — косметика позиции, покадрово не проверяется.
+        // Stryker disable next-line MethodExpression: X centering is position cosmetics, not checked per frame.
         const px = Math.max(0, Math.floor((host.layoutSize.width - width) / 2));
-        // Stryker disable next-line MethodExpression,ArithmeticOperator: центрирование по Y — косметика позиции, покадрово не проверяется.
+        // Stryker disable next-line MethodExpression,ArithmeticOperator: Y centering is position cosmetics, not checked per frame.
         const py = Math.max(0, Math.floor((host.layoutSize.height - height) / 2));
-        // Stryker disable next-line CallExpression: setPosition — только позиция оверлея; open() ниже определяет наблюдаемое (isOpen).
+        // Stryker disable next-line CallExpression: setPosition only positions the overlay; open() below determines what is observable (isOpen).
         session.setPosition(new Point(px, py));
         session.open();
     }

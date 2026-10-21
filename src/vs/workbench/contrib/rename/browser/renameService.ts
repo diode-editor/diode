@@ -16,8 +16,8 @@ import { prepareRename, renameSymbol } from "./renameSymbol.ts";
 export const RenameServiceDIToken = token<RenameService>("RenameService");
 
 /**
- * Новое имя — через `QuickInputService.input`, а не inline-виджет эталона: своего rename-виджета
- * нет, а quick input даёт то же (поле со старым именем, Escape — отмена, Enter — применить).
+ * The new name comes via `QuickInputService.input`, not upstream's inline widget: we have no rename widget
+ * of our own, and quick input gives the same (box with the old name, Escape cancels, Enter applies).
  */
 export class RenameService {
     public static dependencies = [
@@ -50,7 +50,7 @@ export class RenameService {
             character: caret.character,
         };
 
-        // Провайдера без `prepareRename` добираем словом под кареткой — как эталон.
+        // For a provider without `prepareRename` fall back to the word at the cursor, like upstream.
         const prepared = await prepareRename(registry, editor, request);
         if (prepared.rejectReason !== undefined) {
             this.notice(`Rename failed: ${prepared.rejectReason}`);
@@ -70,9 +70,9 @@ export class RenameService {
             return;
         }
 
-        // Запрос пересобираем на АКТУАЛЬНУЮ версию: пока человек набирал имя,
-        // документ мог уехать (авто-импорт, форматирование по сохранению), а
-        // запрос по протухшей версии субпроцесс отклонит как устаревший.
+        // Rebuild the request against the CURRENT version: while the user was typing the name,
+        // the document may have moved on (auto-import, format on save), and the subprocess
+        // would reject a request against a stale version as outdated.
         const live = this.group.getActiveEditor();
         const result = await renameSymbol(
             registry,
@@ -80,8 +80,8 @@ export class RenameService {
             live?.uri.toString() === request.uri ? { ...request, versionId: live.model.document.versionId } : request,
             newName,
         );
-        // Отказ без причины — «переименовывать было нечего», эталон тоже молчит; причина и
-        // успех взаимоисключающи, отдельной проверки `applied` не нужно.
+        // A refusal without a reason means "nothing to rename", upstream stays silent too; a reason and
+        // success are mutually exclusive, so no separate `applied` check is needed.
         if (result.error !== undefined) this.notice(`Rename failed: ${result.error}`);
     }
 
@@ -90,7 +90,7 @@ export class RenameService {
     }
 }
 
-/** `null` — каретка не на слове. */
+/** `null` means the cursor is not on a word. */
 function wordUnderCaret(text: string, line: number, character: number): string | null {
     const lineText = text.split("\n").at(line);
     if (lineText === undefined) return null;

@@ -23,8 +23,8 @@ import { SwitchOutputMenu } from "./outputChannelActions.ts";
 export const OutputComponentDIToken = token<OutputComponent>("OutputComponent");
 
 /**
- * Не `Component`: своего корневого контрола нет — detached-редактор попадает в панель через
- * `ViewsService.setViewBody`, как виджет терминала.
+ * Not a `Component`: it has no root control of its own — the detached editor gets into the panel via
+ * `ViewsService.setViewBody`, like the terminal widget.
  */
 export class OutputComponent extends Disposable {
     public static dependencies = [
@@ -46,7 +46,7 @@ export class OutputComponent extends Disposable {
         menuService: MenuService,
     ) {
         super();
-        // Живой IMenu, а не снимок: каналы регистрируются по мере появления.
+        // A live IMenu, not a snapshot: channels are registered as they appear.
         this.switchMenu = this.register(menuService.createMenu(SwitchOutputMenu));
         this.register(
             this.switchMenu.onDidChange(() => {
@@ -54,8 +54,8 @@ export class OutputComponent extends Disposable {
             }),
         );
         this.selector.onDidSelect = ({ index }) => {
-            // Исполняем команду пункта, а не дёргаем сервис напрямую: пункт — это
-            // `workbench.action.output.show.<id>`, и путь должен быть один.
+            // Run the item's command instead of calling the service directly: the item is
+            // `workbench.action.output.show.<id>`, and there must be a single path.
             this.channelEntries()[index]?.onSelect?.();
         };
         this.viewsService.registerContainer({ id: OUTPUT_VIEW_ID, title: "OUTPUT", location: "panel", order: 1 });
@@ -78,19 +78,19 @@ export class OutputComponent extends Disposable {
                 this.syncSelector();
             }),
         );
-        // Живой хвост: дописываем строку от имени владельца документа — read-only
-        // запрещает правки пользователя, но не владельца (см. SyntheticTextModel.appendContent).
+        // Live tail: append the line on behalf of the document owner — read-only
+        // forbids user edits, but not the owner's (see SyntheticTextModel.appendContent).
         this.register(
             this.outputService.onDidAppendToActiveChannel((entry) => {
                 if (this.pane === null) return;
-                // Решаем ДО дописывания: после него «конец документа» уже другой.
+                // Decide BEFORE appending: afterwards "end of document" is different.
                 const follow = this.shouldFollowTail(this.pane);
                 this.pane.model.appendContent(`${formatOutputLine(entry)}\n`);
                 if (follow) this.revealLastLine(this.pane);
             }),
         );
-        // Слушаем показ, а не пользовательскую активацию: при восстановлении сессии вкладку
-        // активирует `restoreLayout()` без клика, и панель висела бы с плейсхолдером.
+        // Listen to show, not user activation: on session restore the tab is
+        // activated by `restoreLayout()` without a click, and the panel would hang with a placeholder.
         this.register(
             this.viewsService.onDidShowView((id) => {
                 if (id === OUTPUT_VIEW_ID) this.syncActiveChannel();
@@ -115,7 +115,7 @@ export class OutputComponent extends Disposable {
         this.revealLastLine(pane);
     }
 
-    /** Разделители отсеиваются здесь — индекс в селекторе совпадает с индексом пункта. */
+    /** Separators are filtered out here — the index in the selector matches the item index. */
     private channelEntries(): MenuItemEntry[] {
         return this.switchMenu.getEntries().filter((entry): entry is MenuItemEntry => entry.type !== "separator");
     }
@@ -123,7 +123,7 @@ export class OutputComponent extends Disposable {
     private syncSelector(): void {
         const items = this.channelEntries();
         const options = items.map((item) => ({ text: item.label }));
-        // Активный пункт (`toggled`) реестр отдаёт с галочкой в иконке.
+        // The registry returns the active item (`toggled`) with a check mark in the icon.
         const activeIndex = items.findIndex((item) => item.icon === CHECKED_ICON);
         this.selector.setOptions(options, activeIndex);
         this.viewsService.setViewTitleWidget(OUTPUT_VIEW_ID, options.length > 0 ? this.selector : null);
@@ -136,8 +136,8 @@ export class OutputComponent extends Disposable {
             OUTPUT_LANGUAGE_ID,
         );
         pane.readOnly = true;
-        // Фон панельный, как у Problems и терминала: с `editor.background` лог был
-        // прямоугольником чужого цвета внутри панели.
+        // Panel background, like Problems and the terminal: with `editor.background` the log was
+        // a rectangle of a foreign color inside the panel.
         pane.backgroundToken = "panel.background";
         this.pane = pane;
         this.viewsService.setViewBody(OUTPUT_VIEW_ID, pane.view);
@@ -145,9 +145,9 @@ export class OutputComponent extends Disposable {
     }
 
     /**
-     * Автоскролл переставляет курсор: в активно пишущем канале (`input.keybindings`) нельзя было ни
-     * выделить текст, ни дочитать старое. Следуем, только пока человек у конца и ничего не выделяет
-     * (`scrollLock` эталона, выведенный из состояния).
+     * Autoscroll moves the cursor: in an actively writing channel (`input.keybindings`) you could neither
+     * select text nor finish reading older lines. Follow only while the user is at the end and has no selection
+     * (upstream's `scrollLock`, derived from state).
      */
     private shouldFollowTail(pane: TextEditorPane): boolean {
         const viewState = pane.viewState;
@@ -157,7 +157,7 @@ export class OutputComponent extends Disposable {
         return viewState.selections.every((selection) => selection.active.line >= lastLine - 1);
     }
 
-    /** Read-only движению курсора не мешает: он запрещает правки, а не навигацию. */
+    /** Read-only does not block cursor movement: it forbids edits, not navigation. */
     private revealLastLine(pane: TextEditorPane): void {
         const lastLine = Math.max(0, pane.viewState.document.lineCount - 1);
         pane.goToPosition(lastLine, 0);

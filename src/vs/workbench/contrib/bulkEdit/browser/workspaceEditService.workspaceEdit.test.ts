@@ -65,8 +65,8 @@ function makeBuffers(open: Map<string, IFakeBuffer>, readOnly = new Set<string>(
                 save: () => Promise.resolve(),
             };
         },
-        // Участник — только первый тронутый буфер: здесь проверяется сам edit;
-        // шаг в истории нескольких буферов — workspaceEditService.undoAcrossFiles.test.ts.
+        // Only the first touched buffer is a participant: this tests the edit itself;
+        // a history step across several buffers — workspaceEditService.undoAcrossFiles.test.ts.
         undoParticipants: (touched) =>
             touched.length > 0 ? [{ context: `buffer:${touched[0]}`, label: touched[0], owner: true }] : [],
         didDelete: NULL_BULK_EDIT_BUFFERS.didDelete,
@@ -98,7 +98,7 @@ function makeService(buffers: IBulkEditBuffers = NULL_BULK_EDIT_BUFFERS): {
     };
 }
 
-/** С рабочей корзиной (уведена в tmp через `XDG_DATA_HOME`): удаление несуществующего — ошибка. */
+/** With a working trash (moved to tmp via `XDG_DATA_HOME`): deleting a nonexistent file is an error. */
 function makeServiceWithTrash(): { service: WorkspaceEditService; undoRedo: UndoRedoService } {
     const undoRedo = new UndoRedoService();
     const config: IConfigurationService = {
@@ -155,8 +155,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — закрытые файл�
         const { service } = makeService();
         const closed = write("b.ts", "one\ntwo\n");
 
-        // Расширение про наш текст ничего не знает: позиция за концом документа
-        // обязана приехать к его границе, а не уронить применение.
+        // The extension knows nothing about our text: a position past the end of the document
+        // must be clamped to its boundary, not crash the apply.
         await service.applyWorkspaceEdit([textEdit(closed, createTextEdit(createRange(99, 99, 99, 99), "!"))], "Edit");
 
         expect(read(closed)).toBe("one\ntwo\n!");
@@ -166,8 +166,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — закрытые файл�
         const { service } = makeService();
         const closed = write("b.ts", "one\r\ntwo\r\n");
 
-        // Текст правки приходит в документных строках (`\n`); обратно на диск
-        // документ пишется своим EOL.
+        // Edit text comes in document lines (`\n`); back to disk
+        // the document is written with its own EOL.
         await service.applyWorkspaceEdit([textEdit(closed, replaceFirstLine("zero\n"))], "Edit");
 
         expect(read(closed)).toBe("zero\r\none\r\ntwo\r\n");
@@ -211,7 +211,7 @@ describe("WorkspaceEditService.applyWorkspaceEdit — закрытые файл�
 
         expect(await undoRedo.undo(WORKSPACE_UNDO_CONTEXT)).toBe(false);
         expect(read(closed)).toBe("written by someone else\n");
-        // Шаг остался в стеке: он снова станет отменяемым, если содержимое вернут.
+        // The step stays on the stack: it becomes undoable again if the contents are restored.
         expect(undoRedo.canUndo(WORKSPACE_UNDO_CONTEXT)).toBe(true);
     });
 
@@ -289,8 +289,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — закрытые файл�
         const { service } = makeService();
         const victim = write("victim.ts", "mine\n");
 
-        // У `probe:/tmp/.../victim.ts` путь указывает на НАСТОЯЩИЙ файл. Решает
-        // схема, а не выведенный путь, — иначе правка ушла бы в посторонний файл.
+        // `probe:/tmp/.../victim.ts` has a path pointing to a REAL file. The scheme
+        // decides, not the derived path — otherwise the edit would go to an unrelated file.
         const applied = await service.applyWorkspaceEdit(
             [{ resource: `probe:${victim}`, edits: [replaceFirstLine("theirs\n")] }],
             "Edit",
@@ -364,7 +364,7 @@ describe("WorkspaceEditService.applyWorkspaceEdit — открытые буфе�
         const applied = await service.applyWorkspaceEdit([textEdit(file, replaceFirstLine("head\n"))], "Edit");
 
         expect(applied).toBe(true);
-        // Диск не тронут: правка живёт в «грязном» буфере, как в VS Code.
+        // Disk untouched: the edit lives in a "dirty" buffer, as in VS Code.
         expect(read(file)).toBe("disk\n");
         expect(open.get(resourceOf(file))?.applied).toEqual([
             [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "head\n" }],
@@ -445,8 +445,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — открытые буфе�
         const a = write("a.ts", "disk-a\n");
         const closed = write("b.ts", "before\n");
         const undo = vi.fn();
-        // Буфер говорит «мой шаг сейчас откатить нельзя» (после edit'а в нём
-        // набрали текст) — файл на диске тоже обязан остаться как есть.
+        // The buffer says "my step can't be undone now" (text was typed in it
+        // after the edit) — the file on disk must stay as is too.
         open.set(resourceOf(a), {
             text: "buf-a\n",
             applied: [],
@@ -479,7 +479,7 @@ describe("WorkspaceEditService.applyWorkspaceEdit — открытые буфе�
             [textEdit(a, replaceFirstLine("head\n")), textEdit(closed, replaceFirstLine("after\n"))],
             "Refactor",
         );
-        // Файл на диске поменяли мимо редактора — откатывать его нельзя.
+        // The file on disk was changed outside the editor — it must not be undone.
         fs.writeFileSync(closed, "someone else\n");
 
         expect(await undoRedo.undo(`buffer:${resourceOf(a)}`)).toBe(false);
@@ -533,7 +533,7 @@ describe("WorkspaceEditService.applyWorkspaceEdit — открытые буфе�
 
         expect(applied).toBe(true);
         expect(open.get("untitled:Untitled-1")?.text).toBe("head\ndraft\n");
-        // В шаге истории путей нет — на диске у ресурса его ещё не было.
+        // The history step has no paths — the resource didn't exist on disk yet.
         expect(undoRedo.peekUndo("buffer:untitled:Untitled-1")?.resources).toEqual([]);
     });
 
@@ -570,8 +570,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — открытые буфе�
             "Edit",
         );
 
-        // Двойник отдаёт бакет ПЕРВОГО тронутого ресурса: им обязан быть буфер,
-        // а не путь созданного файла.
+        // The double returns the bucket of the FIRST touched resource: it must be the buffer,
+        // not the path of the created file.
         expect(undoRedo.canUndo(`buffer:${resourceOf(file)}`)).toBe(true);
     });
 
@@ -628,8 +628,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         expect(fs.existsSync(created)).toBe(false);
         expect(fs.existsSync(path.join(tmpDir, "new"))).toBe(false);
 
-        // Повтор: правка файла, которого перед повтором ещё нет, — не отказ:
-        // его вернёт создание, идущее в шаге раньше.
+        // Redo: an edit of a file that doesn't exist yet before redo is not a refusal:
+        // the create that precedes it in the step brings it back.
         expect(await undoRedo.redo(WORKSPACE_UNDO_CONTEXT)).toBe(true);
         expect(read(created)).toBe("// moved\nexport const a = 1;\n");
     });
@@ -667,8 +667,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         expect(fs.existsSync(from)).toBe(false);
         expect(read(to)).toBe("// renamed\ncontent\n");
 
-        // Отмена и повтор: перед повтором нового пути ещё нет — его вернёт
-        // перенос, идущий в шаге раньше правки.
+        // Undo and redo: before redo the new path doesn't exist yet — the move
+        // that precedes the edit in the step brings it back.
         expect(await undoRedo.undo(WORKSPACE_UNDO_CONTEXT)).toBe(true);
         expect(read(from)).toBe("content\n");
         expect(await undoRedo.redo(WORKSPACE_UNDO_CONTEXT)).toBe(true);
@@ -694,7 +694,7 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         const source = write("a.ts", "content\n");
         const target = path.join(tmpDir, "b.ts");
 
-        // Правки, потом перенос: база правок снята со старого пути — честный отказ вместо порчи.
+        // Edits, then move: the edits' base is taken from the old path — an honest refusal instead of corruption.
         expect(
             await service.applyWorkspaceEdit(
                 [textEdit(source, replaceFirstLine("// head\n")), { kind: "rename", from: source, to: target }],
@@ -704,8 +704,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         expect(read(source)).toBe("content\n");
         expect(fs.existsSync(target)).toBe(false);
 
-        // Обратный порядок (файловая операция, затем правки по новому пути) —
-        // работает: именно его и присылают расширения.
+        // Reverse order (file operation, then edits on the new path) —
+        // works: this is exactly what extensions send.
         expect(
             await service.applyWorkspaceEdit(
                 [{ kind: "rename", from: source, to: target }, textEdit(target, replaceFirstLine("// head\n"))],
@@ -808,7 +808,7 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         ).toBe(true);
         expect(read(fresh)).toBe("new");
 
-        // Возвращать на место нечего — undo просто убирает созданный файл.
+        // Nothing to put back — undo just removes the created file.
         expect(await undoRedo.undo(WORKSPACE_UNDO_CONTEXT)).toBe(true);
         expect(fs.existsSync(fresh)).toBe(false);
     });
@@ -897,8 +897,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         const missing = path.join(tmpDir, "ghost.ts");
         const fresh = path.join(tmpDir, "fresh.ts");
 
-        // С рабочей корзиной удаление несуществующего — ошибка, и если бы
-        // операция НЕ пропускалась, edit откатился бы целиком.
+        // With a working trash, deleting a nonexistent file is an error, and if
+        // the operation were NOT skipped, the whole edit would be rolled back.
         expect(
             await service.applyWorkspaceEdit(
                 [
@@ -934,8 +934,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         const ghost = path.join(tmpDir, "ghost.ts");
         const taken = write("taken.ts", "mine\n");
 
-        // `ignoreIfExists` говорит про ЦЕЛЬ; отсутствующий источник — всё равно
-        // отказ, а не «молча ничего не делаем».
+        // `ignoreIfExists` is about the TARGET; a missing source is still
+        // a refusal, not "silently do nothing".
         expect(
             await service.applyWorkspaceEdit(
                 [{ kind: "rename", from: ghost, to: taken, ignoreIfExists: true }],
@@ -988,7 +988,7 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
         const { service } = makeService();
         const fresh = path.join(tmpDir, "generated.ts");
 
-        // Удаление видит файл, которого на диске ещё нет: его создал сам edit.
+        // Delete sees a file that isn't on disk yet: the edit itself created it.
         expect(
             await service.applyWorkspaceEdit(
                 [
@@ -1022,8 +1022,8 @@ describe("WorkspaceEditService.applyWorkspaceEdit — файловые опер�
     it("сбой записи после валидации откатывает уже применённое и отвечает отказом", async () => {
         const { service, undoRedo } = makeService();
         const closed = write("b.ts", "before\n");
-        // Каталог на месте целевого файла: валидация видит «ресурса нет»
-        // (`existsSync` на несуществующем вложенном пути), а запись падает.
+        // A directory in place of the target file: validation sees "no resource"
+        // (`existsSync` on a nonexistent nested path), and the write fails.
         const blocked = path.join(tmpDir, "blocked.ts");
         fs.mkdirSync(blocked);
 

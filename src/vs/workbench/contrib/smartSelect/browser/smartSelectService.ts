@@ -22,8 +22,8 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 export const SmartSelectServiceDIToken = token<SmartSelectService>("SmartSelectService");
 
 /**
- * Скобки языка — только когда языковых провайдеров нет. Стек ступеней живёт по контроллеру на
- * редактор и забывается любой посторонней сменой выделения.
+ * Language brackets are used only when there are no language providers. The step stack lives in one controller per
+ * editor and is forgotten on any unrelated selection change.
  */
 export class SmartSelectService {
     public static dependencies = [

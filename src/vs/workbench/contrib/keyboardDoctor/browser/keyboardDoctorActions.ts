@@ -16,7 +16,7 @@ export const keyboardDoctorAction: CommandAction = {
             [{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: report }],
             "Keyboard Doctor",
         );
-        // Отчёт читают сверху: окружение — в первых строках.
+        // The report is read top-down: environment goes in the first lines.
         editor?.goToPosition(0);
         await accessor.get(ClipboardDIToken).writeText(report);
     },

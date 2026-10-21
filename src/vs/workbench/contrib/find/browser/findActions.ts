@@ -5,7 +5,7 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 
 import { FindServiceDIToken } from "./findService.ts";
 
-/** Слабее попапов над текстом — inline, suggest, hover, подсказки параметров (upstream: EditorContrib + 5). */
+/** Weaker than popups over the text: inline, suggest, hover, parameter hints (upstream: EditorContrib + 5). */
 const FIND_WEIGHT = KeybindingWeight.EditorContrib;
 
 export const findAction: CommandAction = {
@@ -25,9 +25,9 @@ export const nextMatchAction: CommandAction = {
     title: "Find: Next Match",
     shortTitle: "Find Next",
     menus: [{ menuId: MenuId.MenubarEditMenu, group: "3_find", order: 20 }],
-    // F3 — от фокуса в тексте, как `EditorContextKeys.focus` у upstream: поиск
-    // продолжается по последнему запросу и с закрытым виджетом. Enter остаётся
-    // привязанным к открытому виджету — в тексте он печатает перевод строки.
+    // F3 keys off text focus, like upstream's `EditorContextKeys.focus`: search
+    // continues with the last query even with the widget closed. Enter stays
+    // bound to the open widget; in the text it inserts a newline.
     keybindings: [
         { keys: parseKeybinding("enter"), when: "findWidgetVisible" },
         { keys: parseKeybinding("f3"), when: "textInputFocus || findWidgetVisible" },

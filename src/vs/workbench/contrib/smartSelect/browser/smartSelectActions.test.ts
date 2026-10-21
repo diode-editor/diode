@@ -15,7 +15,7 @@ import {
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 
-// Подменены только language configuration (у харнесса нет расширений-языков) и настройки.
+// Only the language configuration (the harness has no language extensions) and settings are faked.
 
 const CONFIGURATION: IResolvedLanguageConfiguration = {
     ...EMPTY_LANGUAGE_CONFIGURATION,

@@ -11,7 +11,7 @@ describe("HoverComponent — overlay-сессия попапа", () => {
     it("создаёт скрытую сессию на слое корневой view уже в конструкторе", () => {
         const body = new BodyElement();
         const component = new HoverComponent(testLayoutService(body));
-        // id — контракт для инспектора и e2e-запросов по дереву.
+        // The id is a contract for the inspector and e2e tree queries.
         expect(component.view.id).toBe("hoverWidget");
         expect(body.overlayLayer.querySelector("#hoverWidget")).toBe(component.view);
         expect(component.isOpen()).toBe(false);
@@ -28,7 +28,7 @@ describe("HoverComponent — overlay-сессия попапа", () => {
         component.openAt({ screenX: 5, screenY: 5, preferBelow: true });
         expect(component.isOpen()).toBe(true);
 
-        // Повторный close идемпотентен.
+        // A repeated close is idempotent.
         component.close();
         expect(component.isOpen()).toBe(false);
         component.close();
@@ -48,7 +48,7 @@ describe("HoverComponent — overlay-сессия попапа", () => {
         expect(component.view.globalPosition.x).toBe(10);
         expect(component.view.globalPosition.y).toBe(6);
 
-        // Повторный показ при открытом попапе — снова к новому якорю.
+        // Showing again while the popup is open re-anchors to the new anchor.
         component.openAt({ screenX: 20, screenY: 8, preferBelow: true });
         app.render();
         expect(component.view.globalPosition.x).toBe(20);

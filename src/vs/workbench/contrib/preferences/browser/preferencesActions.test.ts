@@ -45,7 +45,7 @@ describe("PreferencesActions", () => {
         expect(openKeybindingsAction.title).toBe("Preferences: Open Keyboard Shortcuts");
         expect(openKeybindingsFileAction.id).toBe("workbench.action.openGlobalKeybindingsFile");
         expect(openKeybindingsFileAction.title).toBe("Preferences: Open Keyboard Shortcuts (JSON)");
-        // JSON — запасной ход без дефолтной клавиши, как в VS Code.
+        // The JSON is a fallback without a default key, as in VS Code.
         expect(openKeybindingsFileAction.keybinding).toBeUndefined();
         expect(openKeybindingsFileAction.keybindings).toBeUndefined();
     });
@@ -67,7 +67,7 @@ describe("PreferencesActions", () => {
             getWorkspaceFolder: () => null,
             onDidChangeWorkspaceFolders: () => ({ dispose: () => undefined }),
         }));
-        // Ни файлового сервиса, ни команд в контейнере нет: дошёл бы до них — бросил бы.
+        // The container has neither a file service nor commands: reaching them would throw.
         await expect(openWorkspaceSettingsFileAction.run(container)).resolves.toBeUndefined();
     });
 

@@ -15,8 +15,8 @@ const EXPAND_ALL_ICON = "\ueb95";
 const CLEAR_ALL_ICON = "\ueabf";
 
 /**
- * Id команды — от VS Code references-view (Shift+Alt+F12). Leader-аккорд рядом: F-клавиши с
- * модификаторами на legacy-терминале доезжают не везде, и фича осталась бы только в палитре.
+ * Command id is from VS Code references-view (Shift+Alt+F12). A leader chord sits next to it: F-keys with
+ * modifiers don't arrive everywhere on a legacy terminal, and the feature would be left only in the palette.
  */
 export const findAllReferencesAction: CommandAction = {
     id: "references-view.findReferences",
@@ -25,15 +25,15 @@ export const findAllReferencesAction: CommandAction = {
     when: "textInputFocus",
     keybinding: parseChord("ctrl+k ctrl+r"),
     keybindings: [parseKeybinding("shift+alt+f12")],
-    // Группа и порядок — дословно upstream (`goToCommands.ts`, пункт «Go to
-    // References»): без reference-провайдера пункта нет.
+    // Group and order are verbatim upstream (`goToCommands.ts`, the "Go to
+    // References" item): no reference provider, no item.
     menus: [{ menuId: MenuId.EditorContext, group: "navigation", order: 1.45, when: "editorHasReferenceProvider" }],
     run(accessor) {
         return accessor.get(ReferencesServiceDIToken).findReferences();
     },
 };
 
-/** Отступление от VS Code, вынужденное отсутствием activity bar: без команды к панели не вернуться. */
+/** Deviation from VS Code forced by the missing activity bar: without a command there's no way back to the panel. */
 export const showReferencesAction: CommandAction = {
     id: "workbench.view.references",
     title: "View: Show References",
@@ -45,7 +45,7 @@ export const showReferencesAction: CommandAction = {
     },
 };
 
-/** VS Code: references-view.next / .prev. Работают и при скрытой панели. */
+/** VS Code: references-view.next / .prev. Work with the panel hidden too. */
 export const nextReferenceAction: CommandAction = {
     id: "references-view.next",
     title: "References: Go to Next Reference",
@@ -89,7 +89,7 @@ export const clearReferencesAction: CommandAction = {
     },
 };
 
-/** Пара в одном слоте заголовка, сменяются по `referencesViewHasSomeCollapsibleResult`, как в поиске. */
+/** A pair in one title slot, swapped by `referencesViewHasSomeCollapsibleResult`, as in search. */
 export const collapseReferencesAction: CommandAction = {
     id: "references-view.collapseAll",
     title: "References: Collapse All",

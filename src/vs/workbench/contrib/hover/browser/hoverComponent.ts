@@ -8,7 +8,7 @@ import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutSer
 
 import { HoverElement } from "./hoverElement.ts";
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string inside is only a debug label
 export const HoverComponentDIToken = token<HoverComponent>("HoverComponent");
 
 export class HoverComponent extends Component {
@@ -34,8 +34,8 @@ export class HoverComponent extends Component {
     }
 
     /**
-     * Анкорить на каждом показе, даже при открытом попапе: слой запоминает геометрию на момент
-     * анкоринга, и более широкий контент без пере-анкора не попал бы в кадр (грабля suggest-панели).
+     * Re-anchor on every show, even with the popup open: the layer remembers the geometry at anchoring
+     * time, and wider content without a re-anchor wouldn't fit the frame (a pitfall hit by the suggest panel).
      */
     public openAt(anchor: OverlayAnchorPosition): void {
         this.overlay.openAt(anchor);

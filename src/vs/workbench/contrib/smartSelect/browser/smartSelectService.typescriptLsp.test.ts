@@ -20,8 +20,8 @@ import type { IExtensionRegistration } from "../../../services/extensions/node/i
 
 import { SmartSelectService } from "./smartSelectService.ts";
 
-// Стоковый стек (`diode-lsp-typescript` + `typescript-language-server`): конвертер клиента строит
-// `new code.SelectionRange(range, parent)` — без класса в рантайме ответ падал на «is not a constructor».
+// Stock stack (`diode-lsp-typescript` + `typescript-language-server`): the client converter builds
+// `new code.SelectionRange(range, parent)` — without the class at runtime the response failed with "is not a constructor".
 
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
@@ -54,7 +54,7 @@ function lspClientRegistration(): IExtensionRegistration {
     };
 }
 
-/** Опрос с дедлайном: сервер поднимается секундами, sleep'ы не годятся. */
+/** Polling with a deadline: the server takes seconds to start, sleeps won't do. */
 async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs = 60_000): Promise<T> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -67,7 +67,7 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
 
 describe("Expand Selection от стокового typescript-language-server", () => {
     beforeAll(async () => {
-        // Свежий бандл клиента: тест закрывает именно то, что уедет в приложение.
+        // Fresh client bundle: the test covers exactly what ships in the app.
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
         )) as { buildExtensions: (options: { repoRoot: string }) => Promise<unknown> };
@@ -96,7 +96,7 @@ describe("Expand Selection от стокового typescript-language-server", 
             const editor = harness.group.getActiveEditor();
             if (editor === null) throw new Error("no active editor");
 
-            // Каретка внутри `world` в `greet("world")` — строка 4.
+            // Cursor inside `world` in `greet("world")`, line 4.
             const caret = { line: 4, character: 23 };
             await until("сервер отвечает иерархией выделений", async () => {
                 const provider = harness.languageFeatures.selectionRangeProvider.ordered(editor).at(0);
@@ -125,8 +125,8 @@ describe("Expand Selection от стокового typescript-language-server", 
                 steps.push(viewState.document.getTextInRange(selectionToRange(viewState.selections[0])));
             }
 
-            // Слово — встроенная ступень, литерал и вызов — ступени сервера:
-            // встроенные скобки при живом провайдере молчат, как в эталоне.
+            // The word is a built-in step, the literal and the call are server steps:
+            // built-in brackets stay silent while a provider is live, as upstream.
             expect(steps.slice(0, 3)).toEqual(["world", '"world"', 'greet("world")']);
             expect(steps).toContain('const hello = greet("world");');
 

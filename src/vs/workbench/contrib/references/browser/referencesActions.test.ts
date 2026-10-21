@@ -71,8 +71,8 @@ describe("referencesActions — объявления", () => {
 
     it("Find All References: аккорд как основной путь, Shift+Alt+F12 — вторым биндом", () => {
         expect(keybindingOf(findAllReferencesAction)).toBe("Ctrl+K Ctrl+R");
-        // Канонический бинд VS Code остаётся, но F-клавиши с модификаторами
-        // доезжают не на всяком терминале — потому аккорд и стоит основным.
+        // The canonical VS Code binding stays, but F-keys with modifiers don't
+        // reach us on every terminal — hence the chord is the primary one.
         expect(findAllReferencesAction.keybindings).toHaveLength(1);
         expect(findAllReferencesAction.when).toBe("textInputFocus");
     });
@@ -89,7 +89,7 @@ describe("referencesActions — объявления", () => {
         const placement = showReferencesAction.menus?.[0];
         expect(placement?.menuId).toBe(MenuId.MenubarViewMenu);
         expect(placement?.group).toBe("3_views");
-        // Extensions стоит на 16 — References идёт следом.
+        // Extensions is at 16 — References comes next.
         expect(placement?.order).toBe(18);
     });
 
@@ -103,7 +103,7 @@ describe("referencesActions — объявления", () => {
             expect(action.when).toBe("referencesViewletVisible");
         }
 
-        // Collapse и Expand — один слот, взаимоисключающие условия.
+        // Collapse and Expand share one slot with mutually exclusive conditions.
         expect(collapseReferencesAction.menus?.[0].order).toBe(expandReferencesAction.menus?.[0].order);
         expect(collapseReferencesAction.menus?.[0].when).toBe(
             "!hasReferenceResult || referencesViewHasSomeCollapsibleResult",

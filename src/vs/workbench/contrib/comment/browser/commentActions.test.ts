@@ -158,9 +158,9 @@ describe("commentActions — исполнение над активным ред
     });
 
     it("документ, ПОДМЕНЁННЫЙ пока конфигурация грузилась, не правится задним числом", async () => {
-        // Перечитка файла с диска пересоздаёт документ и view-state редактора.
-        // Версия у свежего документа своя и может совпасть с захваченной, поэтому
-        // команда сверяет не только её, но и сам документ.
+        // Reloading the file from disk recreates the document and the editor view state.
+        // A fresh document has its own version that may match the captured one, so
+        // the command checks not only the version but the document itself.
         const reloaded = new EditorViewState(new TextDocument("reloaded"));
         const original = new EditorViewState(new TextDocument("original"));
         const stub = { viewState: original, pushUndo: () => undefined };
@@ -207,10 +207,10 @@ describe("commentActions — исполнение над активным ред
         slowEditor.viewState.type("x");
         release(TS_CONFIGURATION);
         await pending;
-        // Правки нет: версия документа ушла вперёд, пока конфигурация была в полёте.
+        // No edit: the document version moved ahead while the configuration was in flight.
         expect(slowEditor.getText()).toBe("xbbb");
 
-        // Обычный (быстрый) путь при этом работает — контрольная проверка.
+        // The regular (fast) path still works — a control check.
         await exec(commentLineAction);
         expect(editor.getText()).toBe("// aaa");
     });

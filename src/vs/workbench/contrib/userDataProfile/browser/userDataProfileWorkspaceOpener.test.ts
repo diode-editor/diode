@@ -21,10 +21,10 @@ describe("UserDataProfileWorkspaceOpener", () => {
     let ws: ITempWorkspace;
     let profiles: UserDataProfilesService;
     let restarts: (IRelaunchRequest | undefined)[];
-    /** Вызовы опенера под обёрткой: `["folder", путь]` либо `["file", путь, содержимое]`. */
+    /** Opener calls under the wrapper: `["folder", path]` or `["file", path, contents]`. */
     let opened: unknown[][];
     let logger: ILogger;
-    /** Прощание: `true` — Cancel в «Save changes?», `"throw"` — путь перезагрузки падает. */
+    /** Farewell: `true` means Cancel in "Save changes?", `"throw"` means the reload path fails. */
     let shutdown: boolean | "throw";
     const contents: IWorkspaceFileContents = { folder: "/p", folderName: undefined };
 

@@ -10,8 +10,8 @@ import type {
 } from "../../../../editor/common/languages/iReferenceSource.ts";
 
 /**
- * Как upstream `goToSymbol.ts:getReferencesAtPosition`: провайдеры спрашиваются параллельно, склейка —
- * в порядке `ordered`, сбойный провайдер отвечает «ссылок нет».
+ * Like upstream `goToSymbol.ts:getReferencesAtPosition`: providers are queried in parallel, results are merged
+ * in `ordered` order, and a failing provider answers "no references".
  */
 export async function getReferences(
     registry: LanguageFeatureRegistry<ReferenceProvider>,

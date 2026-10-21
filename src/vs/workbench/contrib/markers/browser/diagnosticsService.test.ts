@@ -88,7 +88,7 @@ function createHarness(settingsResource: string = SETTINGS_PATH): Harness {
     return { source, markerService, service };
 }
 
-/** Ключ маркера — ресурс (`uri.toString()`), а не путь на диске. */
+/** The marker key is the resource (`uri.toString()`), not the disk path. */
 function resourceOf(filePath: string): string {
     return Uri.file(filePath).toString();
 }
@@ -201,7 +201,7 @@ describe("DiagnosticsService — settings.json validation", () => {
     });
 
     it("picks up an editor that became active before the service existed", () => {
-        // Редактор активен до создания сервиса — валидация всё равно должна отработать.
+        // The editor is active before the service is created — validation must still run.
         const source = new FakeEditorSource();
         const markerService = new MarkerService();
         const editor = new FakeEditor(SETTINGS_PATH, UNKNOWN_SETTINGS);
@@ -305,8 +305,8 @@ describe("DiagnosticsService — settings.json воркспейса", () => {
     describe("окно из .code-workspace", () => {
         const WORKSPACE_FILE = "/ws/project/web.code-workspace";
 
-        // Ключи файла воркспейса живут в блоке `settings`, а не в корне: `folders`
-        // — не настройка, а неизвестный ключ внутри `settings` — да.
+        // Workspace file keys live in the `settings` block, not at the root: `folders`
+        // is not a setting, but an unknown key inside `settings` is.
         it("файл воркспейса: проверяется блок settings — неизвестный и machine-ключ", () => {
             const h = createWorkspaceHarness([FOLDER], WORKSPACE_FILE);
             const text = JSON.stringify(
@@ -344,8 +344,8 @@ describe("DiagnosticsService — settings.json воркспейса", () => {
             h.service.dispose();
         });
 
-        // `window`-ключ окно берёт из файла воркспейса: в папке он не действует —
-        // подсказка с текстом эталона (`unsupportedWindowSetting`).
+        // A `window` key is taken from the workspace file: in a folder it has no effect —
+        // hint with upstream's text (`unsupportedWindowSetting`).
         it(".diode/settings.json папки: window-ключ — подсказка эталона, resource-ключ — нет", () => {
             const h = createWorkspaceHarness([FOLDER], WORKSPACE_FILE);
             const text = ["{", '    "workbench.colorTheme": "Light",', '    "editor.tabSize": 2', "}"].join("\n");

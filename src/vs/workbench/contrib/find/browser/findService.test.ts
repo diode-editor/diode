@@ -98,7 +98,7 @@ describe("FindService", () => {
 
         const component = new FindComponent({ groupOverlayHost: () => groupComponent.view });
         const find = new FindService(component, group, group.editorGroups);
-        // Виджет единственной группы (создаётся лениво — здесь явно, для ассертов).
+        // The only group's widget (created lazily; here explicitly, for the asserts).
         const widget = component.widgetFor(group.editorGroups.activeGroup.id)!;
 
         const editor = group.getActiveEditor()!;
@@ -127,8 +127,8 @@ describe("FindService", () => {
         find.open();
         expect(find.isVisible()).toBe(true);
 
-        // activateTab файрит onDidChangeActivePane безусловно; цель сессии не
-        // изменилась — find обязан пережить событие.
+        // activateTab fires onDidChangeActivePane unconditionally; the session target
+        // hasn't changed, so find must survive the event.
         group.editorGroups.activeGroup.activateTab(0);
 
         expect(find.isVisible()).toBe(true);
@@ -176,7 +176,7 @@ describe("FindService", () => {
     });
 
     it("close() без открытого поиска — no-op", () => {
-        // Escape/крестик, когда find в группе ни разу не открывали: сессии нет.
+        // Escape/close button when find was never opened in the group: there is no session.
         const { find, editor } = setup("foo bar foo");
         expect(() => {
             find.close();
@@ -196,11 +196,11 @@ describe("FindService", () => {
             find.next();
 
             expect(find.isVisible()).toBe(false);
-            // Первое нажатие приводит на ближайшее совпадение от курсора…
+            // The first press goes to the nearest match from the cursor…
             expect(editor.viewState.currentSearchMatchIndex).toBe(0);
             expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 3 });
 
-            // …дальнейшие шагают дальше и тянут курсор за собой.
+            // …subsequent ones step further and drag the cursor along.
             find.next();
             expect(editor.viewState.currentSearchMatchIndex).toBe(1);
             expect(editor.viewState.selections[0].anchor).toEqual({ line: 0, character: 8 });
@@ -393,7 +393,7 @@ describe("FindService", () => {
     });
 
     it("next()/prev() до присоединения view-слоя — no-op: виджета нет и не создать", () => {
-        // Хоста нет — widgetFor вернёт null, навигация тихо выходит.
+        // No host: widgetFor returns null, navigation silently exits.
         const { group } = makeGroup();
         const component = new FindComponent(NO_GROUP_HOSTS);
         const find = new FindService(component, group, group.editorGroups);
@@ -406,8 +406,8 @@ describe("FindService", () => {
     });
 
     it("ввод запроса до первого open() — no-op: сессии ещё нет", () => {
-        // Виджет создан лениво (setup), но сессию заводит только open()/навигация —
-        // recompute по onQueryChange обязан тихо выйти, не трогая редактор.
+        // The widget is created lazily (setup), but only open()/navigation starts a session;
+        // recompute on onQueryChange must silently exit without touching the editor.
         const { widget, editor } = setup("foo bar foo");
 
         typeQuery(widget, "foo");

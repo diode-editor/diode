@@ -206,98 +206,98 @@ import { TerminalEnvContextKeysContributionDIToken } from "./services/terminalEn
 import { TerminalEnvStatusContributionDIToken } from "./services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
 
 /**
- * Единственное место ядра, которому разрешено знать все фичи (`scripts/check-layers.mjs`).
- * Порядок внутри фазы = порядок инстанцирования.
+ * The only place in the core allowed to know all features (`scripts/check-layers.mjs`).
+ * Order within a phase = instantiation order.
  */
 export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistration[] = [
-    // Порядок вкладок и вьюлетов задаёт `order` контейнеров, а порядок overlay-сессий
-    // suggest/hover/parameterHints — порядок записей: слой рисует их в порядке создания.
+    // Tab and viewlet order is set by the containers' `order`, while the order of suggest/hover/parameterHints
+    // overlay sessions is the entry order: the layer draws them in creation order.
     { token: ExplorerServiceDIToken, phase: "blockStartup" },
     { token: ExplorerComponentDIToken, phase: "blockStartup" },
     { token: SearchComponentDIToken, phase: "blockStartup" },
     { token: ExtensionsComponentDIToken, phase: "blockStartup" },
     { token: ReferencesComponentDIToken, phase: "blockStartup" },
     { token: QuickOpenServiceDIToken, phase: "blockStartup" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: компонент всё равно резолвится (его держит CompletionService следующей записью) — запись только передаёт реестру владение жизнью, что юнитом не наблюдается
+    // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (CompletionService in the next entry holds it) — the entry only hands lifetime ownership to the registry, which a unit test can't observe
     { token: SuggestComponentDIToken, phase: "blockStartup" },
     { token: CompletionServiceDIToken, phase: "blockStartup" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: компонент всё равно резолвится (его держит HoverService следующей записью) — запись только передаёт владение жизнью
+    // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (HoverService in the next entry holds it) — the entry only hands over lifetime ownership
     { token: HoverComponentDIToken, phase: "blockStartup" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: сервис всё равно резолвится (его держит WorkbenchContextKeys) — запись только передаёт владение жизнью
+    // Stryker disable next-line ObjectLiteral,StringLiteral: the service is resolved anyway (WorkbenchContextKeys holds it) — the entry only hands over lifetime ownership
     { token: HoverServiceDIToken, phase: "blockStartup" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: компонент всё равно резолвится (его держит ParameterHintsService следующей записью) — запись только передаёт владение жизнью
+    // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (ParameterHintsService in the next entry holds it) — the entry only hands over lifetime ownership
     { token: ParameterHintsComponentDIToken, phase: "blockStartup" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: как и hover-сервис, резолвится через WorkbenchContextKeys — запись лишь передаёт владение жизнью
+    // Stryker disable next-line ObjectLiteral,StringLiteral: like the hover service, resolved via WorkbenchContextKeys — the entry only hands over lifetime ownership
     { token: ParameterHintsServiceDIToken, phase: "blockStartup" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: резолвится и через WorkbenchContextKeys — запись лишь передаёт владение жизнью
+    // Stryker disable next-line ObjectLiteral,StringLiteral: also resolved via WorkbenchContextKeys — the entry only hands over lifetime ownership
     { token: InlineCompletionsServiceDIToken, phase: "blockStartup" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: компонент всё равно резолвится (его держит FindService следующей записью) — запись только передаёт владение жизнью
+    // Stryker disable next-line ObjectLiteral,StringLiteral: the component is resolved anyway (FindService in the next entry holds it) — the entry only hands over lifetime ownership
     { token: FindComponentDIToken, phase: "blockStartup" },
     { token: FindServiceDIToken, phase: "blockStartup" },
     { token: DiagnosticsServiceDIToken, phase: "blockStartup" },
     { token: ProblemsComponentDIToken, phase: "blockStartup" },
     { token: OutputComponentDIToken, phase: "blockStartup" },
-    // Их команды `diode.scm.publish*` обязаны существовать до активации git-расширения.
+    // Their `diode.scm.publish*` commands must exist before the git extension activates.
     { token: ChangesComponentDIToken, phase: "blockStartup" },
     { token: GraphViewComponentDIToken, phase: "blockStartup" },
     { token: ScmInputComponentDIToken, phase: "blockStartup" },
     { token: ScmRepoStateServiceDIToken, phase: "blockStartup" },
     { token: TerminalServiceDIToken, phase: "blockStartup" },
     { token: TerminalPanelComponentDIToken, phase: "blockStartup" },
-    // Провайдеры задач регистрируются с первой активацией расширений.
+    // Task providers register on the first extension activation.
     { token: TaskServiceDIToken, phase: "blockStartup" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: без записи рекордер резолвится лениво первой же командой записи — запись лишь передаёт владение жизнью
+    // Stryker disable next-line ObjectLiteral,StringLiteral: without the entry the recorder resolves lazily on the first recording command — the entry only hands over lifetime ownership
     { token: KeybindingRecorderComponentDIToken, phase: "blockStartup" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: то же — доктор резолвится лениво командой запуска
+    // Stryker disable next-line ObjectLiteral,StringLiteral: same — the doctor resolves lazily on the launch command
     { token: KeyboardDoctorComponentDIToken, phase: "blockStartup" },
-    // `vscode.diff`: ext-host зовёт её по id — команда нужна до старта расширений.
+    // `vscode.diff`: the extension host calls it by id — the command is needed before extensions start.
     { token: VscodeDiffCommandContributionDIToken, phase: "blockStartup" },
 
-    // `afterRestored` — то, что эталон держит на `LifecyclePhase.Restored`
+    // `afterRestored` is what upstream keeps on `LifecyclePhase.Restored`
     // (`OutputContribution`, `QuickDiffWorkbenchController`, `SCMActiveRepositoryController`,
     // `TaskStatusBarContributions`).
     { token: EditorStatusContributionDIToken, phase: "ready" },
     { token: TerminalEnvStatusContributionDIToken, phase: "ready" },
-    // Ключи окружения нужны до первого нажатия.
+    // Environment keys are needed before the first key press.
     { token: TerminalEnvContextKeysContributionDIToken, phase: "ready" },
     { token: AutoRevealContributionDIToken, phase: "ready" },
     { token: ThemeConfigContributionDIToken, phase: "ready" },
     { token: WindowTitleContributionDIToken, phase: "ready" },
     { token: OpenFileCommandContributionDIToken, phase: "ready" },
-    // `setContext` расширение может дёрнуть в activate(), раньше любого действия пользователя.
-    // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё команды нет, и это ловит e2e-сценарий extension-storage (клавиша расширения не оживает после Arm)
+    // An extension may call `setContext` in activate(), before any user action.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: removing the entry is unobservable in a unit test; without it there is no command, which the extension-storage e2e scenario catches (the extension's key doesn't come alive after Arm)
     { token: SetContextCommandContributionDIToken, phase: "ready" },
     { token: PanelFocusContributionDIToken, phase: "ready" },
     { token: AuxiliaryBarFocusContributionDIToken, phase: "ready" },
-    // Подписка — до первого открытия, иначе первая же неудача пройдёт молча.
-    // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё тост не появляется, и это ловит e2e-сценарий virtualDocument
+    // Subscribe before the first open, otherwise the very first failure goes unnoticed.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: removing the entry is unobservable in a unit test; without it the toast doesn't appear, which the virtualDocument e2e scenario catches
     { token: OpenFailureNotificationContributionDIToken, phase: "ready" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё тоста нет, и это ловит e2e-сценарий move-to-new-file-undo
+    // Stryker disable next-line ObjectLiteral,StringLiteral: removing the entry is unobservable in a unit test; without it there is no toast, which the move-to-new-file-undo e2e scenario catches
     { token: UndoRefusalNotificationContributionDIToken, phase: "ready" },
-    // Подписка — до первой операции, иначе её начало пройдёт мимо.
-    // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
+    // Subscribe before the first operation, otherwise its start is missed.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: see HistoryService below — removing the entry is unobservable in a unit test, the wiring is checked by app startup
     { token: ViewProgressContributionDIToken, phase: "ready" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
+    // Stryker disable next-line ObjectLiteral,StringLiteral: see HistoryService below — removing the entry is unobservable in a unit test, the wiring is checked by app startup
     { token: ProgressStatusBarContributionDIToken, phase: "ready" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
+    // Stryker disable next-line ObjectLiteral,StringLiteral: see HistoryService below — removing the entry is unobservable in a unit test, the wiring is checked by app startup
     { token: ViewTitleActionsContributionDIToken, phase: "ready" },
-    // Подписки — до открытия первого файла. Сейчас сервис поднимается и раньше (его читает
-    // workbenchContextKeys), но на чужую деталь не полагаемся — запись явная.
-    // Stryker disable next-line ObjectLiteral,StringLiteral: см. выше — снятие записи ненаблюдаемо
+    // Subscribe before the first file opens. Currently the service comes up earlier anyway (workbenchContextKeys
+    // reads it), but we don't rely on someone else's detail — the entry is explicit.
+    // Stryker disable next-line ObjectLiteral,StringLiteral: see above — removing the entry is unobservable
     { token: HistoryServiceDIToken, phase: "ready" },
     { token: OutputChannelActionsDIToken, phase: "afterRestored" },
-    // Считать дифф можно только после того, как есть редакторы.
+    // Diffs can be computed only once editors exist.
     { token: QuickDiffServiceDIToken, phase: "afterRestored" },
     { token: DiffSnapshotRefreshContributionDIToken, phase: "ready" },
     { token: ScmStatusBarContributionDIToken, phase: "afterRestored" },
-    // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
+    // Stryker disable next-line ObjectLiteral,StringLiteral: see HistoryService above — removing the entry is unobservable in a unit test, the wiring is checked by app startup
     { token: ScmBusyContextContributionDIToken, phase: "ready" },
     { token: TaskStatusBarContributionDIToken, phase: "afterRestored" },
 ];
 
 /**
- * Порядок здесь поведения не держит: клавишу на одной комбинации получает команда
- * с большим весом правила (`KeybindingWeight`) — это проверяет `builtinKeybindings.slice.test.ts`.
+ * Order here doesn't affect behavior: a key on the same combination goes to the command
+ * with the higher rule weight (`KeybindingWeight`) — `builtinKeybindings.slice.test.ts` checks this.
  */
 export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...FILES_ACTIONS,
@@ -435,14 +435,14 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...RENAME_ACTIONS,
 ];
 
-/** Порядок пунктов меню задают group/order, а не порядок массива. */
+/** Menu item order is set by group/order, not by array order. */
 export const MENU_CONTRIBUTIONS: readonly MenuContribution[] = [
     ...MENUBAR_SUBMENUS,
     ...GIT_MENU_SUBMENUS,
     ...WORKBENCH_ACTIONS.flatMap(menuItemsOfAction),
 ];
 
-/** `WorkbenchContextKeys` опрашивает их в этом порядке перед резолвом каждого биндинга и на смене фокуса. */
+/** `WorkbenchContextKeys` polls them in this order before resolving each binding and on focus change. */
 export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContributor>[] = [
     SearchComponentDIToken,
     FindServiceDIToken,
@@ -460,6 +460,6 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     TerminalEditorServiceDIToken,
     TabSwitcherComponentDIToken,
     LanguageFeatureContextKeysDIToken,
-    // Не ключи, а активное поле ввода для редактирующих команд — в том же опросе.
+    // Not keys, but the active input field for editing commands — in the same poll.
     InputWidgetServiceDIToken,
 ];

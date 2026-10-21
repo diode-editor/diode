@@ -40,7 +40,7 @@ interface FakeCodeActions {
 function makeSetup(
     source: FakeCodeActions | undefined,
     options: {
-        /** Выбор в quick pick по label; отсутствие поля — отмена (undefined). */
+        /** Picks in the quick pick by label; a missing field means cancel (undefined). */
         pickLabel?: string;
         selection?: { anchor: { line: number; character: number }; active: { line: number; character: number } };
     } = {},
@@ -52,7 +52,7 @@ function makeSetup(
         uri: Uri.file("/proj/a.py"),
         languageId: "python",
         getText: () => "import b\nimport a",
-        // Запрос несёт версию модели, а не текст (его субпроцесс берёт из зеркала).
+        // The request carries the model version, not the text (the subprocess takes it from the mirror).
         model: { document: { versionId: 7 } },
         viewState: {
             selections: [options.selection ?? { anchor: { line: 0, character: 0 }, active: { line: 0, character: 0 } }],
@@ -171,8 +171,8 @@ describe("editor.action.organizeImports / fixAll", () => {
                     Promise.resolve([
                         { id: "1.0", title: "Remove unused", kind: "quickfix", isPreferred: true },
                         { id: "1.1", title: "Extract method", kind: "refactor.extract" },
-                        // Голая команда — без kind и badge: лишние ключи в
-                        // пункте меню не выдумываются (strict ниже).
+                        // A bare command — no kind or badge: no extra keys are
+                        // invented in the menu item (strict below).
                         { id: "1.2", title: "Bare command" },
                     ]),
                 apply: () => Promise.resolve(true),
@@ -184,7 +184,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         );
         await quickFixAction.run(setup.accessor);
 
-        // Пустое выделение → строка каретки (строка 1 — "import a", 8 символов), only отсутствует.
+        // Empty selection → the cursor line (line 1 is "import a", 8 chars), only is absent.
         expect(setup.requests).toStrictEqual([
             {
                 uri: Uri.file("/proj/a.py").toString(),
@@ -209,20 +209,20 @@ describe("editor.action.organizeImports / fixAll", () => {
     });
 
     it("quickFix: сортировка меню — quickfix выше refactor/source, preferred первым в группе, apply по своему id", async () => {
-        // Порядок провайдеров (многословный tsserver первым) не должен
-        // выталкивать фиксы линтера за край попапа — поймано на живом дуэте
-        // tsserver+eslint: 16 рефакторингов хоронили 9 quickfix'ов.
-        // Виды нарочно перемешаны и покрывают обе формы каждого ранга (точный
-        // kind и подвид), незнакомый вид и голую команду — хвост списка.
+        // Provider order (verbose tsserver first) must not
+        // push linter fixes past the popup edge — caught on a live run of the
+        // tsserver+eslint pair: 16 refactorings buried 9 quickfixes.
+        // Kinds are deliberately shuffled and cover both forms of each rank (exact
+        // kind and subkind), an unknown kind and a bare command — the list tail.
         const setup = makeSetup(
             {
                 provide: () =>
                     Promise.resolve([
-                        // preferred первым, обычный сразу за ним: insertion-sort
-                        // V8 зовёт compare(новый, существующий), и вставка
-                        // второго элемента гарантированно идёт веткой «a обычный,
-                        // b preferred» (`: 1` — на CI она осталась непокрытой,
-                        // main покраснел по храповику ветвей).
+                        // preferred first, a regular one right after it: V8's insertion sort
+                        // calls compare(new, existing), and inserting the
+                        // second element is guaranteed to take the "a regular,
+                        // b preferred" branch (`: 1` — it stayed uncovered on CI,
+                        // main went red on the branch ratchet).
                         { id: "1.0", title: "Fix preferred", kind: "quickfix", isPreferred: true },
                         { id: "1.1", title: "Fix plain", kind: "quickfix" },
                         { id: "1.2", title: "Src organize", kind: "source.organizeImports" },
@@ -250,7 +250,7 @@ describe("editor.action.organizeImports / fixAll", () => {
             "Weird kind",
             "Bare command",
         ]);
-        // Выбор мапится в id ИСХОДНОГО действия, а не в позицию до сортировки.
+        // The pick maps to the id of the ORIGINAL action, not to the position before sorting.
         expect(setup.appliedIds).toEqual(["1.0"]);
     });
 
@@ -410,7 +410,7 @@ describe("editor.action.organizeImports / fixAll", () => {
             { pickLabel: "Inline" },
         );
         await refactorAction.run(onlyDisabled.accessor);
-        // Заголовок и рядом — причина неактивности (в эталоне — подсказка пункта).
+        // The title and next to it the disabled reason (upstream shows it in the item's hover).
         expect(onlyDisabled.pickCalls[0]?.items).toStrictEqual([
             { label: "Inline", description: "refactor.inline", hint: "Not a variable" },
         ]);
@@ -421,8 +421,8 @@ describe("editor.action.organizeImports / fixAll", () => {
     it("метаданные запиннены: id/title/бинды/when — пользовательский контракт", () => {
         expect(organizeImportsAction.id).toBe("editor.action.organizeImports");
         expect(organizeImportsAction.title).toBe("Organize Imports");
-        // Первичный — досягаемый на любом терминале аккорд; канонический Shift+Alt+O
-        // под tier-гейтом (shift под Alt в legacy-поток не попадает).
+        // Primary is a chord reachable on any terminal; the canonical Shift+Alt+O
+        // is behind the tier gate (shift under Alt doesn't reach the legacy stream).
         expect(organizeImportsAction.keybinding).toEqual(parseChord("ctrl+k alt+o"));
         expect(organizeImportsAction.keybindings).toEqual([
             { keys: parseKeybinding("shift+alt+o"), when: "tier != 'legacy'" },
@@ -450,7 +450,7 @@ describe("editor.action.organizeImports / fixAll", () => {
         expect(quickFixAction.id).toBe("editor.action.quickFix");
         expect(quickFixAction.title).toBe("Quick Fix");
         expect(quickFixAction.keybinding).toEqual(parseKeybinding("mod+."));
-        // Второй бинд — единственный досягаемый на legacy-tier'е.
+        // The second binding is the only one reachable on the legacy tier.
         expect(quickFixAction.keybindings).toEqual([parseChord("ctrl+k ctrl+q")]);
         expect(quickFixAction.when).toBe("textInputFocus && !editorReadonly");
     });

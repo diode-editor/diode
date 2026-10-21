@@ -20,19 +20,19 @@ import { FindComponentDIToken } from "./findComponent.ts";
 
 export const FindServiceDIToken = token<FindService>("FindService");
 
-/** Состояние поисковой сессии одной группы (виджет может быть и закрыт — F3). */
+/** Search session state of one group (the widget may be closed: F3). */
 interface IFindSession {
     matches: IRange[];
     currentIndex: number;
     /**
-     * Пиним на открытии и не перерешаем: фокус уходит в виджет, а `getActiveEditor()` следует
-     * за фокусом — так `Ctrl+F` из панели Output искал по файлу за ней.
+     * Pinned on open and never re-resolved: focus moves into the widget, and `getActiveEditor()` follows
+     * focus, which made `Ctrl+F` from the Output panel search the file behind it.
      */
     target: TextEditorPane | null;
     paneSubscription: IDisposable | null;
 }
 
-/** Сессия на группу (US-33): find в группе A живёт со своим запросом, пока ищут в группе B. */
+/** One session per group (US-33): find in group A keeps its query while group B is searched. */
 export class FindService extends Disposable implements IContextKeyContributor {
     public static dependencies = [FindComponentDIToken, EditorServiceDIToken, EditorGroupsServiceDIToken] as const;
 
@@ -92,7 +92,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
         }
 
         const session = this.sessionFor(group);
-        // Цель сессии фиксируем ДО показа виджета: показ уводит фокус в его инпут.
+        // Pin the session target BEFORE showing the widget: showing moves focus into its input.
         session.target = this.editorService.getActiveEditor();
 
         // Seed the query from a single-line, non-empty selection (VS Code behaviour).
@@ -125,7 +125,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
         const existing = this.sessions.get(group.id);
         if (existing !== undefined) return existing;
         const session: IFindSession = { matches: [], currentIndex: -1, target: null, paneSubscription: null };
-        // Смена вкладки ЭТОЙ группы закрывает её сессию; чужие группы не влияют (US-33).
+        // Switching tabs in THIS group closes its session; other groups are unaffected (US-33).
         session.paneSubscription = group.onDidChangeActivePane((pane) => {
             if (pane !== session.target) this.closeGroup(group.id);
         });
@@ -145,8 +145,8 @@ export class FindService extends Disposable implements IContextKeyContributor {
         const session = this.sessions.get(groupId);
         if (widget === null || session === undefined || !widget.isOpen()) return;
 
-        // Закрываем сессию по её же цели: активный редактор к этому моменту —
-        // уже другой (фокус в инпуте виджета), и подсветку сняли бы не с того.
+        // Close the session by its own target: by now the active editor is a different one
+        // (focus is in the widget input), and highlights would be cleared from the wrong one.
         const editor = session.target;
         session.target = null;
         if (editor) {
@@ -166,14 +166,14 @@ export class FindService extends Disposable implements IContextKeyContributor {
     }
 
     /**
-     * F3 живёт от фокуса в тексте, а не от видимости виджета (`NextMatchFindAction` эталона). При
-     * закрытом виджете совпадение сразу становится выделением; при открытом курсор поставит `close()`.
+     * F3 keys off text focus, not widget visibility (upstream `NextMatchFindAction`). With the
+     * widget closed the match becomes the selection right away; with it open `close()` places the cursor.
      */
     private navigate(groupId: GroupId, direction: 1 | -1): void {
         const widget = this.component.widgetFor(groupId);
         if (widget === null) return;
         const group = this.groups.groups.find((candidate) => candidate.id === groupId);
-        /* v8 ignore start -- виджет существует только у живой группы */
+        /* v8 ignore start -- a widget exists only for a live group */
         if (group === undefined) return;
         /* v8 ignore stop */
         const session = this.sessionFor(group);
@@ -189,9 +189,9 @@ export class FindService extends Disposable implements IContextKeyContributor {
         if (startedNewSession && !this.startDetachedSession(group, widget)) return;
         if (session.matches.length === 0) return;
 
-        // Первое нажатие приводит на ближайшее совпадение от курсора (его выбрал
-        // recompute), дальнейшие — шагают. Назад шагаем сразу: ближайшее «вперёд»
-        // для Shift+F3 было бы движением не в ту сторону.
+        // The first press goes to the nearest match from the cursor (picked by
+        // recompute), subsequent ones step. Backward steps right away: the nearest "forward"
+        // match would move the wrong way for Shift+F3.
         const index = startedNewSession && direction === 1 ? session.currentIndex : this.step(session, direction);
         this.setCurrent(groupId, index);
         this.selectMatch(session, index);
@@ -201,7 +201,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
         return (session.currentIndex + direction + session.matches.length) % session.matches.length;
     }
 
-    /** Пустой запрос сеем из однострочного выделения (`seedSearchStringFromSelection`); false — навигацию не продолжать. */
+    /** An empty query is seeded from a single-line selection (`seedSearchStringFromSelection`); false means stop navigating. */
     private startDetachedSession(group: EditorGroup, widget: FindWidget): boolean {
         const editor = this.editorService.getActiveEditor();
         if (!editor) return false;
@@ -223,7 +223,7 @@ export class FindService extends Disposable implements IContextKeyContributor {
 
     private selectMatch(session: IFindSession, index: number): void {
         const editor = session.target;
-        /* v8 ignore start -- navigate() доходит сюда только с поднятой сессией, цель есть */
+        /* v8 ignore start -- navigate() gets here only with a live session, so the target exists */
         if (!editor) return;
         /* v8 ignore stop */
         const match = session.matches[index];
@@ -262,13 +262,13 @@ export class FindService extends Disposable implements IContextKeyContributor {
     private setCurrent(groupId: GroupId, index: number): void {
         const widget = this.component.widgetIfExists(groupId);
         const session = this.sessions.get(groupId);
-        /* v8 ignore start -- вызывается только по живой сессии */
+        /* v8 ignore start -- called only for a live session */
         if (widget === null || session === undefined) return;
         /* v8 ignore stop */
         session.currentIndex = index;
         const editor = session.target;
-        /* v8 ignore start -- `matches` и `target` живут и умирают вместе (см. recompute/close), а сюда попадают только при непустом списке совпадений */
-        // Stryker disable next-line ConditionalExpression: ветка недостижима по той же причине, что и для покрытия
+        /* v8 ignore start -- `matches` and `target` live and die together (see recompute/close), and we only get here with a non-empty match list */
+        // Stryker disable next-line ConditionalExpression: the branch is unreachable for the same reason as for coverage
         if (editor === null) return;
         /* v8 ignore stop */
         editor.setSearchDecorations(session.matches, index);

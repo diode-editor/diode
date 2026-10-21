@@ -9,7 +9,7 @@ export type IKeybindingsEditorPaneDescriptor = Readonly<Record<string, never>>;
 /** upstream `KeybindingsEditorInput.ID`. */
 export const KEYBINDINGS_EDITOR_PANE_TYPE_ID = "workbench.input.keybindings";
 
-/** Переживает рестарт (upstream `KeybindingsEditorInputSerializer` пишет пустую строку), но одна на окно. */
+/** Survives restart (upstream `KeybindingsEditorInputSerializer` writes an empty string), but one per window. */
 export function createKeybindingsEditorPaneFactory(
     accessor: ServiceAccessor,
 ): IEditorPaneFactory<IKeybindingsEditorPaneDescriptor> {

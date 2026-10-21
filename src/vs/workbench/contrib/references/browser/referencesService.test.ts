@@ -57,13 +57,13 @@ function fakeGroup(opts: IFakeEditorOptions = {}): IEditorService {
         uri: Uri.file(MAIN),
         languageId: "typescript",
         getText: () => opts.text ?? MAIN_TEXT,
-        // Запрос несёт версию модели вместо текста документа.
+        // The request carries the model version instead of the document text.
         model: { document: { versionId: 3 } },
         viewState: { selections: [{ active: { line, character } }] },
     };
     const group = {
         getActiveEditor: () => (opts.noEditor === true ? null : editor),
-        // Роль TextFileModelService: открытая модель ресурса.
+        // Plays the TextFileModelService role: the resource's open model.
         get: (uri: Uri) => {
             const text = opts.openModels?.[uri.fsPath];
             return text === undefined ? null : { getText: () => text };
@@ -75,7 +75,7 @@ function fakeGroup(opts: IFakeEditorOptions = {}): IEditorService {
 
 const sources = new WeakMap<IEditorService, IFakeEditorOptions["source"]>();
 
-/** Провайдер из `fakeGroup({ source })` регистрируется под `*` — как прокси провайдера расширения в проде. */
+/** A provider from `fakeGroup({ source })` is registered under `*`, like an extension provider proxy in production. */
 function createService(
     component: ReferencesComponent,
     group: IEditorService,
@@ -147,7 +147,7 @@ describe("ReferencesService — findReferences", () => {
                 versionId: 3,
                 line: 2,
                 character: 15,
-                // VS Code показывает объявление первой строкой списка.
+                // VS Code shows the declaration as the first list row.
                 includeDeclaration: true,
             },
         ]);
@@ -229,13 +229,13 @@ describe("ReferencesService — findReferences", () => {
 
         expect(panel.shown).toHaveLength(1);
         expect(panel.shown[0][0].matches[0].lineNumber).toBe(1);
-        // И устаревший ответ отброшен ДО добора строк: лишнего чтения файла нет.
+        // And the stale response is dropped BEFORE fetching lines: no extra file read.
         expect(reads).toBe(1);
     });
 
     it("запрос, устаревший уже во время добора строк, панель не наполняет", async () => {
         const panel = fakeComponent();
-        // Чтение файла для A зависает: пока A добирает превью, приезжает B.
+        // Reading the file for A hangs: while A fetches previews, B arrives.
         let releaseRead: (() => void) | null = null;
         let hang = true;
         const providers = {
@@ -257,7 +257,7 @@ describe("ReferencesService — findReferences", () => {
         );
 
         const stale = service.findReferences();
-        // Дать A дойти до чтения файла, и только потом пускать B.
+        // Let A reach the file read, and only then let B through.
         await settle(0);
         hang = false;
         await service.findReferences();
@@ -286,8 +286,8 @@ describe("ReferencesService — findReferences", () => {
             fakeSidebar().service,
         );
 
-        // A подвис → Clear → B прошёл целиком → A наконец ответил. Счётчик
-        // запросов обязан развести A и B, иначе ответ A закрасит результат B.
+        // A hangs → Clear → B completes → A finally answers. The request
+        // counter must tell A and B apart, otherwise A's response would paint over B's result.
         const first = service.findReferences();
         service.clear();
         await service.findReferences();
@@ -337,7 +337,7 @@ describe("ReferencesService — findReferences", () => {
         const noSource = createService(panel.component, fakeGroup({}), fakeWorkspace(), providers, sidebar.service);
         await noSource.findReferences();
 
-        // Каретка на пробеле — искать нечего.
+        // Cursor on whitespace — nothing to look up.
         const notOnWord = createService(
             panel.component,
             fakeGroup({ caret: [1, 0], source: () => Promise.resolve([reference(MAIN, 0, 0, 1)]) }),
@@ -347,7 +347,7 @@ describe("ReferencesService — findReferences", () => {
         );
         await notOnWord.findReferences();
 
-        // Каретка за пределами текста — тоже.
+        // Cursor past the end of the text — same.
         const pastEnd = createService(
             panel.component,
             fakeGroup({ caret: [99, 0], source: () => Promise.resolve([reference(MAIN, 0, 0, 1)]) }),

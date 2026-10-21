@@ -66,7 +66,7 @@ describe("ProblemsComponent", () => {
         panelComponent = new PanelComponent(panelService, new CommandRegistry());
         revealTarget = makeRevealTarget();
         component = new ProblemsComponent(markerService, views.service, revealTarget, NULL_JUMP_RECORDER);
-        // Контейнер PROBLEMS строит mount() workbench'а — здесь его роль.
+        // The PROBLEMS container is built by the workbench's mount() — here it plays that role.
         views.service.attachRegisteredContainers();
         testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     });
@@ -77,7 +77,7 @@ describe("ProblemsComponent", () => {
     });
 
     it("shows the placeholder (no view body) until markers appear, then the tree", async () => {
-        // Маркеров нет → у view нет тела → секция рисует своё пустое состояние.
+        // No markers → the view has no body → the section renders its own empty state.
         expect(views.paneView(PROBLEMS_VIEW_ID).querySelector("#problemsView")).toBeNull();
         testApp.render();
         expect(testApp.backend.screenToString()).toContain("No problems have been detected in the workspace.");
@@ -117,21 +117,21 @@ describe("ProblemsComponent", () => {
             index: 0,
         };
         component.tree.onActivate?.(markerNode);
-        // Открытие ресурса — обещание (недисковый идёт к провайдеру схемы),
-        // поэтому переход каретки доезжает следующим тиком.
+        // Opening a resource is a promise (a non-disk one goes to the scheme provider),
+        // so the cursor jump lands on the next tick.
         await settle(0);
 
         expect(revealTarget.openUri).toHaveBeenCalledTimes(1);
-        // Ресурс поднимается парсингом, не Uri.file.
+        // The resource is obtained by parsing, not Uri.file.
         expect(revealTarget.openUri.mock.calls[0][0].toString()).toBe(Uri.parse(RESOURCE).toString());
         expect(revealTarget.editor.goToPosition).toHaveBeenCalledWith(2, 2);
         expect(revealTarget.editor.revealRange).toHaveBeenCalledWith(createRange(2, 2, 2, 7));
     });
 
     it("ресурс не открылся — каретку в ЧУЖОМ редакторе не двигаем", async () => {
-        // Недисковый маркер (`jdt:`) без провайдера схемы: `openUri` вкладку не
-        // заводит, активным остаётся прежний редактор. Двигать его каретку по
-        // координатам чужого маркера нельзя.
+        // A non-disk marker (`jdt:`) without a scheme provider: `openUri` does not create
+        // a tab, the previous editor stays active. Moving its cursor to the
+        // coordinates of someone else's marker is wrong.
         revealTarget.editor.uri = Uri.file("/ws/other.ts");
         const markerNode: ProblemNode = {
             kind: "marker",
@@ -155,8 +155,8 @@ describe("ProblemsComponent", () => {
     });
 
     it("редакторов нет вовсе — переход по маркеру не падает", async () => {
-        // Недисковый маркер (`jdt:`) без провайдера схемы при пустой полосе
-        // вкладок: `openUri` ничего не открыл, активного редактора нет.
+        // A non-disk marker (`jdt:`) without a scheme provider with an empty tab
+        // strip: `openUri` opened nothing, there is no active editor.
         revealTarget.state.active = null;
         const markerNode: ProblemNode = {
             kind: "marker",
@@ -245,7 +245,7 @@ describe("ProblemsComponent", () => {
             const refresh = vi.spyOn(component.tree, "refresh").mockImplementation(async (element) => {
                 running++;
                 maxRunning = Math.max(maxRunning, running);
-                // Первый пересчёт держим, пока не придут новые маркеры.
+                // Hold the first recompute until new markers arrive.
                 if (refresh.mock.calls.length === 1) await gate;
                 await original(element);
                 running--;
@@ -282,12 +282,12 @@ describe("ProblemsComponent", () => {
 
             markerService.changeOne("java", "/ws/A.java", [warning("first")]);
             await settleMarkers();
-            // Новые маркеры посреди пересчёта; отпускаем его раньше, чем сработает их таймер.
+            // New markers in the middle of a recompute; release it before their timer fires.
             markerService.changeOne("java", "/ws/B.java", [warning("second")]);
             release();
             await settleMarkers();
 
-            // Первый + догоняющий цикл; таймер второго события уже ничего не пересчитывает.
+            // The first plus a catch-up cycle; the second event's timer no longer recomputes anything.
             expect(refresh).toHaveBeenCalledTimes(2);
         });
 

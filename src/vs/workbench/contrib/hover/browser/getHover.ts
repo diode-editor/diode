@@ -5,7 +5,7 @@ import type {
 } from "../../../../editor/common/languageFeatureRegistry.ts";
 import type { HoverProvider, ICoreHover, IHoverRequest } from "../../../../editor/common/languages/iHoverSource.ts";
 
-/** Сбойный провайдер не роняет остальных: его ответ — «hover'а нет». */
+/** A failing provider doesn't take down the others: its answer is "no hover". */
 export async function getHovers(
     registry: LanguageFeatureRegistry<HoverProvider>,
     target: ILanguageFeatureTarget,

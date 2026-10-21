@@ -10,17 +10,17 @@ import {
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IFilteredKeybindingItem } from "../common/keybindingsEditorModel.ts";
 
-// Колонки считаются руками под ширину вкладки: табличного контрола в tuidom нет.
+// Columns are computed by hand for the tab width: tuidom has no table control.
 
 const GAP = 2;
 
-/** Минимальная ширина, ниже которой доли колонок дают бессмысленные огрызки. */
+/** Minimum width below which the column ratios produce meaningless stubs. */
 const MIN_TABLE_WIDTH = 40;
 
-/** Command получает остаток. */
+/** Command gets the remainder. */
 const KEY_RATIO = 0.22;
 const WHEN_RATIO = 0.24;
-const SOURCE_WIDTH = 9; // "Extension" — самый длинный источник
+const SOURCE_WIDTH = 9; // "Extension" is the longest source
 
 interface IColumnWidths {
     readonly command: number;
@@ -47,12 +47,12 @@ export interface IKeybindingRowLayout {
     readonly keySpan: ISpan;
     readonly whenSpan: ISpan;
     readonly sourceSpan: ISpan;
-    /** Уже в границах видимого. */
+    /** Already clipped to the visible part. */
     readonly matchIndices: readonly number[];
     readonly conflict: boolean;
 }
 
-/** Выделение и hover рисует сам `ListViewElement`. */
+/** Selection and hover are drawn by `ListViewElement` itself. */
 export interface IKeybindingRowStyles {
     readonly dimFg: StyleColor;
     readonly highlightFg: StyleColor;
@@ -61,7 +61,7 @@ export interface IKeybindingRowStyles {
 
 const SOURCE_LABELS = { default: "Default", extension: "Extension", user: "User" } as const;
 
-/** По display-колонкам. */
+/** In display columns. */
 function cell(text: string, width: number): string {
     const truncated = truncateEnd(text, width);
     return truncated + " ".repeat(Math.max(0, width - measureTextWidth(truncated)));
@@ -86,11 +86,11 @@ export function describeKeybindingRow(
     const whenStart = keyStart + keyCell.length + GAP;
     const sourceStart = whenStart + whenCell.length + GAP;
 
-    // Подсветка не должна уехать на многоточие: оставляем только индексы,
-    // попавшие в сохранённый префикс title (truncateEnd держит префикс как есть).
+    // The highlight must not slide onto the ellipsis: keep only indices
+    // that fall into the kept title prefix (truncateEnd keeps the prefix as is).
     const visibleTitle = truncateEnd(item.title, widths.command);
     const keptLength = visibleTitle === item.title ? item.title.length : visibleTitle.length - 1;
-    // Stryker disable next-line ArrayDeclaration: fallback достижим лишь при titleMatch === null (индексов нет вовсе); непустая подмена всё равно отсеивается числовым фильтром index < keptLength.
+    // Stryker disable next-line ArrayDeclaration: the fallback is reachable only when titleMatch === null (no indices at all); a non-empty substitute is filtered out anyway by index < keptLength.
     const matchIndices = (titleMatch?.matchedIndices ?? []).filter((index) => index < keptLength);
 
     return {

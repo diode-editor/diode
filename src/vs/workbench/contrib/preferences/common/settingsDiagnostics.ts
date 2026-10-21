@@ -6,8 +6,8 @@ import type { IMarkerData } from "../../../../platform/markers/common/iMarker.ts
 import { MarkerSeverity } from "../../../../platform/markers/common/iMarker.ts";
 
 /**
- * Тексты эталона (`generateUnsupported{Application,Machine}SettingMarker`, `preferencesRenderers.ts`);
- * `null` — ключ в воркспейсе действует.
+ * Upstream texts (`generateUnsupported{Application,Machine}SettingMarker`, `preferencesRenderers.ts`);
+ * `null` — the key takes effect in the workspace.
  */
 export function workspaceUnsupportedSettingMessage(scope: ConfigurationScope | undefined): string | null {
     if (scope === "application") {
@@ -20,8 +20,8 @@ export function workspaceUnsupportedSettingMessage(scope: ConfigurationScope | u
 }
 
 /**
- * Как `handleWorkspaceFolderConfiguration` эталона: к причинам воркспейса добавляется `window` — такие
- * ключи окно берёт из файла воркспейса.
+ * Like upstream `handleWorkspaceFolderConfiguration`: `window` is added to the workspace reasons — the window
+ * takes such keys from the workspace file.
  */
 export function folderUnsupportedSettingMessage(scope: ConfigurationScope | undefined): string | null {
     if (scope === "window") {
@@ -31,9 +31,9 @@ export function folderUnsupportedSettingMessage(scope: ConfigurationScope | unde
 }
 
 /**
- * Аналог JSON-schema-валидации settings.json в VS Code без языкового сервера: неизвестный ключ — warning.
- * `unsupportedMessage` — действует ли известный ключ В ЭТОМ файле (эталон `handleWorkspaceConfiguration`
- * ставит на него `Hint`). `section` — блок настроек (`settings` у `.code-workspace`).
+ * Counterpart of VS Code's JSON schema validation of settings.json without a language server: an unknown key is a warning.
+ * `unsupportedMessage` — whether a known key takes effect IN THIS file (upstream `handleWorkspaceConfiguration`
+ * puts a `Hint` on it). `section` — the settings block (`settings` in `.code-workspace`).
  */
 export function validateSettingsJson(
     text: string,
@@ -42,7 +42,7 @@ export function validateSettingsJson(
     section?: string,
 ): IMarkerData[] {
     const tree = parseTree(text);
-    // Stryker disable next-line ConditionalExpression: findNodeAtLocation сам отвечает undefined на пустое дерево — `tree === undefined` нужен только его типу
+    // Stryker disable next-line ConditionalExpression: findNodeAtLocation itself returns undefined for an empty tree — `tree === undefined` is needed only for its type
     const root = section === undefined || tree === undefined ? tree : findNodeAtLocation(tree, [section]);
     if (root?.type !== "object") return [];
 

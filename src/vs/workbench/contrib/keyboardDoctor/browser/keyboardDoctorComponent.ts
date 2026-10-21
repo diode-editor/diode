@@ -30,7 +30,7 @@ import {
 
 export const KeyboardDoctorComponentDIToken = token<KeyboardDoctorComponent>("KeyboardDoctorComponent");
 
-/** TerminalEnvironmentService живёт в node — browser-компонент получает срез через DI. */
+/** TerminalEnvironmentService lives in node — the browser component gets a slice via DI. */
 export interface IKeyboardDoctorEnvProvider {
     snapshot(): KeyboardDoctorEnv;
     onDidChange(listener: () => void): IDisposable;
@@ -38,7 +38,7 @@ export interface IKeyboardDoctorEnvProvider {
 
 export type BindingLookup = (part: Keybinding, env: KeyboardDoctorEnv) => readonly MatchedBinding[];
 
-// Модификаторы приходят отдельными keydown (Kitty protocol) — это не шаг проверки.
+// Modifiers arrive as separate keydowns (Kitty protocol) — they are not a check step.
 const MODIFIER_KEY_NAMES = new Set(["Control", "Shift", "Alt", "Meta", "Hyper", "Super", "AltGraph", "CapsLock"]);
 
 const HINT = "Escape — ничего не произошло (тоже ответ)";
@@ -57,31 +57,31 @@ function observed(event: TUIKeyboardEvent): ObservedKey {
 }
 
 /**
- * Захват — как у рекордера комбинаций: `stopPropagation` на target-фазе отсекает KeybindingDispatcher,
- * и комбинация ничего не исполняет; capture-хендлер диспатчера всё равно видит нажатие первым, так что
- * Cmd поднимает рунг, как в работе. Шаг закрывается ПАРНЫМ keypress, шаг с keyup — отпусканием
- * модификатора или голым Enter.
+ * Capture works like the keybinding recorder: `stopPropagation` in the target phase cuts off KeybindingDispatcher,
+ * so the combination executes nothing; the dispatcher's capture handler still sees the press first, so
+ * Cmd raises the rung just like in normal work. A step is closed by the PAIRED keypress, a keyup step — by releasing
+ * the modifier or a bare Enter.
  */
 export class KeyboardDoctorComponent extends Disposable {
     private session: OverlaySessionHandle | null = null;
 
     private readonly root: FitContentElement;
-    // Stryker disable next-line StringLiteral: начальный текст перетирается render() до первого показа.
+    // Stryker disable next-line StringLiteral: the initial text is overwritten by render() before first show.
     private readonly envLabels = [new TextLabelElement(""), new TextLabelElement(""), new TextLabelElement("")];
-    // Stryker disable next-line StringLiteral: начальный текст перетирается render() до первого показа.
+    // Stryker disable next-line StringLiteral: the initial text is overwritten by render() before first show.
     private readonly stepLabel = new TextLabelElement("");
-    // Stryker disable next-line StringLiteral: начальный текст перетирается render() до первого показа.
+    // Stryker disable next-line StringLiteral: the initial text is overwritten by render() before first show.
     private readonly catchesLabel = new TextLabelElement("");
-    // Stryker disable next-line StringLiteral: начальный текст перетирается render() до первого показа.
+    // Stryker disable next-line StringLiteral: the initial text is overwritten by render() before first show.
     private readonly lastLabel = new TextLabelElement("");
     private readonly hintLabel = new TextLabelElement(HINT);
 
-    // Stryker disable next-line ArrayDeclaration: run() задаёт шаги до любого keydown.
+    // Stryker disable next-line ArrayDeclaration: run() sets the steps before any keydown.
     private steps: DoctorStep[] = [];
-    // Stryker disable next-line ArrayDeclaration: run() обнуляет результаты до любого keydown.
+    // Stryker disable next-line ArrayDeclaration: run() resets the results before any keydown.
     private results: StepResult[] = [];
     private awaitingKeyUp: { received: ObservedKey; bindings: readonly MatchedBinding[] } | null = null;
-    // Stryker disable next-line BooleanLiteral: run() сбрасывает флаг до любого keypress.
+    // Stryker disable next-line BooleanLiteral: run() resets the flag before any keypress.
     private advanceOnKeyPress = false;
     private resolveRun: ((report: string) => void) | null = null;
     private envSubscription: IDisposable | null = null;
@@ -94,29 +94,29 @@ export class KeyboardDoctorComponent extends Disposable {
         super();
         this.root = new FitContentElement();
         this.root.id = "keyboardDoctor";
-        // Stryker disable next-line BooleanLiteral: программный focus() фокус ставит и без флага, а Tab-навигации в модальном оверлее с одним focusable нет — значение ненаблюдаемо (как у рекордера).
+        // Stryker disable next-line BooleanLiteral: programmatic focus() sets focus even without the flag, and there is no Tab navigation in a modal overlay with a single focusable — the value is unobservable (same as the recorder).
         this.root.focusable = true;
 
         const stack = new VStackElement();
         for (const label of [...this.envLabels, this.stepLabel, this.catchesLabel, this.lastLabel, this.hintLabel]) {
             stack.addChild(label, { width: "stretch", height: 1 });
         }
-        // Stryker disable next-line CallExpression: чисто цветовая настройка — палитра не проверяется покадрово.
+        // Stryker disable next-line CallExpression: pure color setup — the palette is not checked per frame.
         this.hintLabel.setColors(DIALOG_STYLES.descriptionFg, DIALOG_STYLES.bg);
-        // Stryker disable next-line CallExpression: чисто цветовая настройка — палитра не проверяется покадрово.
+        // Stryker disable next-line CallExpression: pure color setup — the palette is not checked per frame.
         this.catchesLabel.setColors(DIALOG_STYLES.descriptionFg, DIALOG_STYLES.bg);
 
         const box = new BoxContainerElement();
-        // Stryker disable next-line CallExpression: фон рамки — цвет, не поведение.
+        // Stryker disable next-line CallExpression: frame background — color, not behavior.
         box.setBg(DIALOG_STYLES.bg);
-        // Stryker disable next-line CallExpression: цвет рамки — не поведение.
+        // Stryker disable next-line CallExpression: border color — not behavior.
         box.setBorderFg(DIALOG_STYLES.borderFg);
         box.setTitle("Keyboard Doctor");
-        // Stryker disable next-line CallExpression: цвет заголовка — не поведение.
+        // Stryker disable next-line CallExpression: title color — not behavior.
         box.setTitleFg(DIALOG_STYLES.fg);
-        // Stryker disable next-line ObjectLiteral: отступы окна — косметика раскладки.
+        // Stryker disable next-line ObjectLiteral: window padding — layout cosmetics.
         const padding = new PaddingContainerElement(stack, { left: 2, right: 2 });
-        // Stryker disable next-line ObjectLiteral: цвета контейнера — не поведение.
+        // Stryker disable next-line ObjectLiteral: container colors — not behavior.
         padding.style = { fg: DIALOG_STYLES.fg, bg: DIALOG_STYLES.bg };
         box.setChild(padding);
         this.root.setChild(box);
@@ -125,15 +125,15 @@ export class KeyboardDoctorComponent extends Disposable {
             this.handleKeyDown(event);
         });
         this.root.addEventListener("keypress", (event) => {
-            // Stryker disable next-line CallExpression: анти-утечка keypress; ненаблюдаема без фонового потребителя за оверлеем.
+            // Stryker disable next-line CallExpression: keypress anti-leak; unobservable without a background consumer behind the overlay.
             event.preventDefault();
-            // Stryker disable next-line CallExpression: анти-утечка keypress; ненаблюдаема без фонового потребителя за оверлеем.
+            // Stryker disable next-line CallExpression: keypress anti-leak; unobservable without a background consumer behind the overlay.
             event.stopPropagation();
-            // Stryker disable next-line ConditionalExpression: лишний advance() без записанного шага только перерисовывает текущий шаг — ненаблюдаемо.
+            // Stryker disable next-line ConditionalExpression: an extra advance() without a recorded step only re-renders the current step — unobservable.
             if (this.advanceOnKeyPress) this.advance();
         });
         this.root.addEventListener("keyup", (event) => {
-            // Stryker disable next-line CallExpression: keyup-хендлер диспатчера (hold-сессии) на корне — отсекаем, как и keydown.
+            // Stryker disable next-line CallExpression: the dispatcher's keyup handler (hold sessions) on the root — cut it off, same as keydown.
             event.stopPropagation();
             const pending = this.awaitingKeyUp;
             if (pending === null || this.steps[this.results.length].keyUp !== event.key) return;
@@ -154,9 +154,9 @@ export class KeyboardDoctorComponent extends Disposable {
         return this.session?.isOpen() ?? false;
     }
 
-    /** Повторный вызов при открытом докторе начинает заново. */
+    /** Calling again while the doctor is open starts over. */
     public run(): Promise<string> {
-        // Хост — корневая view окна; до attachRoot сервис бросает сам.
+        // Host is the window's root view; before attachRoot the service throws by itself.
         const host = this.layoutService.mainContainer;
         this.steps = doctorSteps(this.env.snapshot());
         this.results = [];
@@ -168,15 +168,15 @@ export class KeyboardDoctorComponent extends Disposable {
         });
         this.render();
 
-        // Stryker disable next-line ObjectLiteral: опции сессии — политика оверлея; по-отдельности они размечены ниже.
+        // Stryker disable next-line ObjectLiteral: session options are overlay policy; each is annotated separately below.
         const session = (this.session ??= host.overlayLayer.createSession(this.root, new Point(0, 0), {
-            // Stryker disable next-line BooleanLiteral: стартовая невидимость сразу перекрывается open() в openCentered().
+            // Stryker disable next-line BooleanLiteral: initial invisibility is immediately overridden by open() in openCentered().
             visible: false,
             restoreFocus: true,
-            // Escape — ответ «ничего не произошло», слой закрывать сессию не должен.
-            // Stryker disable next-line BooleanLiteral: handleKeyDown глушит Escape stopPropagation'ом раньше слоя — значение флага ненаблюдаемо.
+            // Escape is the "nothing happened" answer; the layer must not close the session.
+            // Stryker disable next-line BooleanLiteral: handleKeyDown swallows Escape with stopPropagation before the layer — the flag value is unobservable.
             closeOnEscape: false,
-            // Stryker disable next-line StringLiteral: pointer-политика не проверяется в клавиатурных тестах.
+            // Stryker disable next-line StringLiteral: pointer policy is not checked in keyboard tests.
             pointerPolicy: "modal",
         }));
         this.openCentered(host, session);
@@ -188,16 +188,16 @@ export class KeyboardDoctorComponent extends Disposable {
     }
 
     private handleKeyDown(event: TUIKeyboardEvent): void {
-        // Stryker disable next-line CallExpression: подавление дефолта; в изоляции ненаблюдаемо.
+        // Stryker disable next-line CallExpression: default suppression; unobservable in isolation.
         event.preventDefault();
-        // Stryker disable next-line CallExpression: отсекает KeybindingDispatcher (bubble); в юните без диспатчера ненаблюдаемо.
+        // Stryker disable next-line CallExpression: cuts off KeybindingDispatcher (bubble); unobservable in a unit test without the dispatcher.
         event.stopPropagation();
         if (MODIFIER_KEY_NAMES.has(event.key) || this.advanceOnKeyPress) return;
         const bare = !event.ctrlKey && !event.shiftKey && !event.altKey && !event.metaKey;
 
         const pending = this.awaitingKeyUp;
         if (pending !== null) {
-            // Ждём отпускания модификатора; голый Enter — «keyup не пришёл».
+            // Wait for the modifier release; a bare Enter means "keyup never came".
             if (bare && event.key === "Enter") {
                 this.awaitingKeyUp = null;
                 this.record(pending.received, pending.bindings, false);
@@ -207,7 +207,7 @@ export class KeyboardDoctorComponent extends Disposable {
         }
 
         if (bare && event.key === "Escape") {
-            // Stryker disable next-line BooleanLiteral: keyUpSeen читается только у шагов с keyUp и принятым нажатием — у «ничего не пришло» ненаблюдаем.
+            // Stryker disable next-line BooleanLiteral: keyUpSeen is read only for steps with keyUp and an accepted press — unobservable for "nothing arrived".
             this.record(null, [], false);
             this.advanceOnKeyPress = true;
             return;
@@ -219,7 +219,7 @@ export class KeyboardDoctorComponent extends Disposable {
             this.render();
             return;
         }
-        // Stryker disable next-line BooleanLiteral: сюда доходят только шаги без keyUp — keyUpSeen у них не читается.
+        // Stryker disable next-line BooleanLiteral: only steps without keyUp get here — their keyUpSeen is never read.
         this.record(received, bindings, false);
         this.advanceOnKeyPress = true;
     }
@@ -236,12 +236,12 @@ export class KeyboardDoctorComponent extends Disposable {
         }
         const resolve = this.resolveRun;
         this.resolveRun = null;
-        // Stryker disable next-line OptionalChaining: advance после последнего шага бывает только внутри run() — подписка, сессия и resolve заданы, ?. защитный.
+        // Stryker disable next-line OptionalChaining: advance after the last step happens only inside run() — subscription, session and resolve are set, ?. is defensive.
         this.envSubscription?.dispose();
         this.envSubscription = null;
-        // Stryker disable next-line OptionalChaining: см. выше — сессия создана в run().
+        // Stryker disable next-line OptionalChaining: see above — the session is created in run().
         this.session?.close();
-        // Stryker disable next-line OptionalChaining: см. выше — resolveRun задан в run().
+        // Stryker disable next-line OptionalChaining: see above — resolveRun is set in run().
         resolve?.(formatReport(this.env.snapshot(), this.results));
     }
 
@@ -250,7 +250,7 @@ export class KeyboardDoctorComponent extends Disposable {
         describeEnv(env).forEach((line, i) => {
             this.envLabels[i].setText(line);
         });
-        // render зовётся только пока шаги не кончились: advance после последнего закрывает доктор.
+        // render is called only while steps remain: advance after the last one closes the doctor.
         const current = this.steps[this.results.length];
         this.stepLabel.setText(
             `Шаг ${String(this.results.length + 1)}/${String(this.steps.length)}: нажми ${current.prompt}`,
@@ -258,7 +258,7 @@ export class KeyboardDoctorComponent extends Disposable {
         this.catchesLabel.setText(`Ловим: ${current.catches}`);
         this.lastLabel.setText(this.lastText(env));
         this.hintLabel.setText(this.awaitingKeyUp === null ? HINT : KEYUP_HINT);
-        // Stryker disable next-line all: перецентровка под новую ширину текста — косметика позиции, покадрово не проверяется.
+        // Stryker disable next-line all: re-centering for the new text width — position cosmetics, not checked per frame.
         if (this.session?.isOpen() === true) this.openCentered(this.layoutService.mainContainer, this.session);
     }
 
@@ -273,14 +273,14 @@ export class KeyboardDoctorComponent extends Disposable {
     }
 
     private openCentered(host: BodyElement, session: OverlaySessionHandle): void {
-        // Stryker disable next-line MethodExpression: ограничение ширины экраном — косметика позиции, покадрово не проверяется.
+        // Stryker disable next-line MethodExpression: clamping width to the screen — position cosmetics, not checked per frame.
         const width = Math.min(this.root.getMaxIntrinsicWidth(0), host.layoutSize.width);
         const height = this.root.getMaxIntrinsicHeight(width);
-        // Stryker disable next-line MethodExpression: центрирование по X — косметика позиции, покадрово не проверяется.
+        // Stryker disable next-line MethodExpression: centering on X — position cosmetics, not checked per frame.
         const px = Math.max(0, Math.floor((host.layoutSize.width - width) / 2));
-        // Stryker disable next-line MethodExpression,ArithmeticOperator: центрирование по Y — косметика позиции, покадрово не проверяется.
+        // Stryker disable next-line MethodExpression,ArithmeticOperator: centering on Y — position cosmetics, not checked per frame.
         const py = Math.max(0, Math.floor((host.layoutSize.height - height) / 2));
-        // Stryker disable next-line CallExpression: setPosition — только позиция оверлея; open() определяет наблюдаемое (isOpen).
+        // Stryker disable next-line CallExpression: setPosition only positions the overlay; open() defines what is observable (isOpen).
         session.setPosition(new Point(px, py));
         session.open();
     }

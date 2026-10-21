@@ -10,8 +10,8 @@ import type {
 } from "../../../../editor/common/languages/iRenameSource.ts";
 
 /**
- * `name: null` — никто имени не назвал, вызывающий добирает слово под кареткой сам;
- * `rejectReason` — поле ввода не открывается, человек видит причину.
+ * `name: null` means nobody named a name, the caller falls back to the word at the cursor itself;
+ * `rejectReason` means the input box doesn't open and the user sees the reason.
  */
 export interface IPreparedRename {
     readonly name: string | null;
@@ -19,9 +19,9 @@ export interface IPreparedRename {
 }
 
 /**
- * Ответы не склеиваются: всё решает ПЕРВЫЙ провайдер, которому есть что сказать. Отказ перебор
- * останавливает (upstream копит причины и идёт дальше): правки накладывает сам провайдер, и
- * следующий переименовал бы то, что первый запретил. Сбой RPC — «сказать нечего».
+ * Responses are not merged: the FIRST provider with something to say decides. A refusal stops
+ * the iteration (upstream collects reasons and moves on): the provider applies the edits itself, and
+ * the next one would rename what the first one forbade. An RPC failure means "nothing to say".
  */
 export async function prepareRename(
     registry: LanguageFeatureRegistry<RenameProvider>,
@@ -37,7 +37,7 @@ export async function prepareRename(
     return { name: null };
 }
 
-/** Провайдер без правок пропускается, отказ перебор останавливает; нет результата — `applied: false` без сообщения. */
+/** A provider without edits is skipped, a refusal stops the iteration; no result gives `applied: false` with no message. */
 export async function renameSymbol(
     registry: LanguageFeatureRegistry<RenameProvider>,
     target: ILanguageFeatureTarget,

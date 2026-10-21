@@ -44,8 +44,8 @@ function fakes({
 } = {}): [IEditorService, TextFileModelService] {
     const editors = {
         getActiveTabEditor: () => active,
-        // Активная вкладка идёт ПОСЛЕДНЕЙ: так видно, что адресат выбирается по
-        // активности, а не «первым попавшимся».
+        // The active tab comes LAST: this shows the target is picked by
+        // activity, not "whichever comes first".
         getEditors: () => (active === null ? rest : [...rest, active]),
     } as unknown as IEditorService;
     const registry = {

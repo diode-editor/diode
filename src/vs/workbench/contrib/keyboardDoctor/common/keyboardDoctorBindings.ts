@@ -13,10 +13,10 @@ function asRung(value: string | undefined): MacKeysRung | undefined {
     return MAC_KEYS_RUNGS.find((rung) => rung === value);
 }
 
-/** Живой контекст в момент проверки смотрит на оверлей доктора, а важно — сработает ли комбинация в редакторе. */
+/** The live context at check time looks at the doctor overlay, but what matters is whether the combination fires in the editor. */
 export function editorContextFor(env: KeyboardDoctorEnv): ContextKeyService {
     const contextKeys = new ContextKeyService();
-    // Снимок доктора несёт только включённое — выключенное в свежем контексте и так ложно.
+    // The doctor snapshot carries only enabled keys — disabled ones are false in a fresh context anyway.
     applyTerminalEnvContextKeys(contextKeys, {
         tier: env.tier,
         os: env.os,

@@ -21,7 +21,7 @@ const PC: KeyboardDoctorEnv = {
     term: undefined,
 };
 
-// Шаги pc: save, palette, quickOpen, find, home, ctrlShift.e, ctrlShift.m, hold.
+// pc steps: save, palette, quickOpen, find, home, ctrlShift.e, ctrlShift.m, hold.
 const PC_STEPS = 8;
 
 function makeDoctor(initial: KeyboardDoctorEnv = PC, lookup?: BindingLookup) {
@@ -73,14 +73,14 @@ describe("KeyboardDoctorComponent", () => {
         expect(screen()).toContain('Было: key="s"');
         expect(screen()).toContain("бинд: save · OK");
 
-        // Ctrl+Shift+P на этом шаге «не дошла» — Escape.
+        // Ctrl+Shift+P "did not arrive" on this step — Escape.
         testApp.sendKey("Escape");
         expect(screen()).toContain("Было: ничего · бинд: нет · не дошла вовсе");
 
         for (let i = 2; i < PC_STEPS - 1; i++) testApp.sendKey("Escape");
         expect(screen()).toContain("Шаг 8/8: нажми Ctrl+Tab — подержи Ctrl и отпусти");
 
-        // Hold: keydown Ctrl+Tab (CSI-u), затем keyup Control (Kitty event type 3).
+        // Hold: keydown Ctrl+Tab (CSI-u), then keyup Control (Kitty event type 3).
         testApp.backend.sendRaw("\x1b[9;5u");
         expect(screen()).toContain("теперь отпусти модификатор");
         expect(screen()).toContain("Enter — keyup так и не пришёл");
@@ -100,9 +100,9 @@ describe("KeyboardDoctorComponent", () => {
         const run = doctor.run();
         for (let i = 0; i < PC_STEPS - 1; i++) testApp.sendKey("Escape");
         testApp.sendKey("Ctrl+Tab");
-        testApp.sendKey("Ctrl+Enter"); // не голый Enter — продолжаем ждать keyup
+        testApp.sendKey("Ctrl+Enter"); // not a bare Enter — keep waiting for keyup
         expect(doctor.isOpen()).toBe(true);
-        testApp.backend.sendRaw("\x1b[57441;2:3u"); // keyup чужого модификатора — не тот
+        testApp.backend.sendRaw("\x1b[57441;2:3u"); // keyup of a different modifier — not ours
         expect(doctor.isOpen()).toBe(true);
         testApp.sendKey("Enter");
         const report = await run;
@@ -114,7 +114,7 @@ describe("KeyboardDoctorComponent", () => {
         const { testApp, doctor } = makeDoctor();
         const run = doctor.run();
         testApp.sendKey("Home");
-        testApp.backend.sendRaw("\x1b[27;2u"); // Shift+Escape (CSI-u) — DSL харнесса такой формы не знает
+        testApp.backend.sendRaw("\x1b[27;2u"); // Shift+Escape (CSI-u) — the harness DSL has no such form
         for (let i = 2; i < PC_STEPS - 1; i++) testApp.sendKey("Escape");
         testApp.sendKey("Ctrl+Tab");
         testApp.sendKey("Enter");
@@ -143,7 +143,7 @@ describe("KeyboardDoctorComponent", () => {
         const { testApp, doctor, screen } = makeDoctor();
         const run = doctor.run();
         testApp.backend.sendRaw("\x1b[57442;5:3u");
-        // Control, Shift, CapsLock отдельными keydown (Kitty) — у них нет парного keypress.
+        // Control, Shift, CapsLock as separate keydowns (Kitty) — they have no paired keypress.
         for (const raw of ["\x1b[57442u", "\x1b[57441u", "\x1b[57358u"]) testApp.backend.sendRaw(raw);
         expect(screen()).toContain("Шаг 1/8");
         testApp.sendKey("Ctrl+S");
@@ -159,10 +159,10 @@ describe("KeyboardDoctorComponent", () => {
         const { testApp, doctor, screen } = makeDoctor();
         const run = doctor.run();
         for (let i = 0; i < PC_STEPS - 1; i++) testApp.sendKey("Escape");
-        testApp.backend.sendRaw("\x1b[57442;5:3u"); // отпускание Ctrl раньше самого Ctrl+Tab
+        testApp.backend.sendRaw("\x1b[57442;5:3u"); // Ctrl released before Ctrl+Tab itself
         expect(screen()).toContain("Шаг 8/8");
         testApp.sendKey("Ctrl+Tab");
-        testApp.sendKey("a"); // не Enter — продолжаем ждать keyup
+        testApp.sendKey("a"); // not Enter — keep waiting for keyup
         expect(doctor.isOpen()).toBe(true);
         testApp.backend.sendRaw("\x1b[57442;5:3u");
         expect(await run).toContain("    keyup Control: да");

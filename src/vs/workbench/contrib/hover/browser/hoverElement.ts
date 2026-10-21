@@ -4,12 +4,12 @@ import { BORDER_THICKNESS } from "@tuidom/core/dom/borderStyle";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 import { wrapText } from "@tuidom/elements/completionlist/completionDetailsElement";
 
-// [│(0)][pad(1)][текст…][pad(w-2)][│(w-1)] — раскладка CompletionDetailsElement.
+// [│(0)][pad(1)][text…][pad(w-2)][│(w-1)]: the CompletionDetailsElement layout.
 const TEXT_X = 2;
 const RIGHT_PAD = 1;
 const MIN_WIDTH = 20;
 const DEFAULT_MAX_WIDTH = 70;
-/** Кламп высоты v1: длинный hover обрезается, скролл — отдельной задачей. */
+/** v1 height clamp: a long hover is truncated; scrolling is a separate task. */
 const DEFAULT_MAX_HEIGHT = 12;
 
 interface IWrappedLines {
@@ -18,8 +18,8 @@ interface IWrappedLines {
 }
 
 /**
- * Markdown сюда не доезжает — его стрипает HoverService. Живёт не в tuidom: посимвольный render
- * поверх drawBox композицией примитивов не выражается (как `quickPickFrameElement.ts`).
+ * Markdown never gets here: HoverService strips it. Lives outside tuidom: a per-char render
+ * on top of drawBox can't be expressed by composing primitives (like `quickPickFrameElement.ts`).
  */
 export class HoverElement extends TUIElement {
     public maxWidth = DEFAULT_MAX_WIDTH;
@@ -40,7 +40,7 @@ export class HoverElement extends TUIElement {
     public setBlocks(blocks: readonly string[]): void {
         this.blocksValue = blocks.filter((block) => block.trim() !== "");
         this.wrapCache = null;
-        // Stryker disable next-line CallExpression: пометка на перерисовку ненаблюдаема юнитом (снапшот рендерит дерево заново); её путь проверяет кадр приложения
+        // Stryker disable next-line CallExpression: marking for repaint is unobservable in a unit test (the snapshot renders the tree afresh); the app frame checks that path
         this.markDirty();
     }
 
@@ -49,8 +49,8 @@ export class HoverElement extends TUIElement {
     }
 
     private wrappedFor(textWidth: number): IWrappedLines {
-        // Layout зовут на каждый кадр — отсюда кэш (и Stryker disable ниже).
-        // Stryker disable next-line ConditionalExpression,EqualityOperator,LogicalOperator,ObjectLiteral: промах кэша = лишний пересчёт с тем же результатом, ненаблюдаемо
+        // Layout is called on every frame, hence the cache (and the Stryker disable below).
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,LogicalOperator,ObjectLiteral: a cache miss is just a redundant recompute with the same result, unobservable
         if (this.wrapCache !== null && this.wrapCache.width === textWidth) return this.wrapCache.wrapped;
         const lines: string[] = [];
         const separators = new Set<number>();
@@ -62,7 +62,7 @@ export class HoverElement extends TUIElement {
             lines.push(...wrapText(block, textWidth));
         }
         const wrapped: IWrappedLines = { lines, separators };
-        // Stryker disable next-line ObjectLiteral: пустой кэш = вечный промах, см. выше
+        // Stryker disable next-line ObjectLiteral: an empty cache is a perpetual miss, see above
         this.wrapCache = { width: textWidth, wrapped };
         return wrapped;
     }
@@ -109,12 +109,12 @@ export class HoverElement extends TUIElement {
     }
 
     public override render(context: RenderContext): void {
-        // Stryker disable next-line ConditionalExpression: пустой попап раскладывается в 0×0, поэтому его отсекает и гейт размера ниже — этот выход лишь называет причину
+        // Stryker disable next-line ConditionalExpression: an empty popup lays out to 0×0, so the size gate below cuts it off too; this exit only names the reason
         if (this.isEmpty) return;
         const w = this.layoutSize.width;
         const h = this.layoutSize.height;
-        /* v8 ignore start -- defensive: непустой элемент не раскладывается в ноль */
-        // Stryker disable next-line ConditionalExpression,EqualityOperator,LogicalOperator: ветка недостижима — см. v8 ignore выше
+        /* v8 ignore start -- defensive: a non-empty element never lays out to zero */
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,LogicalOperator: the branch is unreachable, see the v8 ignore above
         if (w <= 0 || h <= 0) return;
         /* v8 ignore stop */
 
@@ -134,7 +134,7 @@ export class HoverElement extends TUIElement {
                     fg: separators.has(i) ? border : this.styleVar("editorHoverWidget.foreground"),
                     bg: background,
                 },
-                // Stryker disable next-line ObjectLiteral: строки уже перенесены в textWidth — обрезка недостижима, ограничение стоит как страховка контракта drawText
+                // Stryker disable next-line ObjectLiteral: lines are already wrapped to textWidth, so truncation is unreachable; the limit is a safeguard for the drawText contract
                 { maxWidth: textWidth },
             );
         }

@@ -34,8 +34,8 @@ describe("prepareRename", () => {
     it("имя даёт ПЕРВЫЙ провайдер, которому есть что сказать", async () => {
         const registry = new LanguageFeatureRegistry<RenameProvider>();
         const second = vi.fn(() => named("second"));
-        // Порядок `ordered` — новые первыми при равном score, поэтому
-        // «первым» спросят зарегистрированного последним.
+        // `ordered` puts newer ones first at equal score, so the provider
+        // registered last is asked "first".
         registry.register({ language: "typescript" }, provider({ prepareRename: second }));
         registry.register({ language: "typescript" }, provider({ prepareRename: () => named("first") }));
 

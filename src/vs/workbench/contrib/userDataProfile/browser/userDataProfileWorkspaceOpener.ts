@@ -10,16 +10,16 @@ import type { IWorkspaceFileContents } from "../../../../platform/workspace/comm
 import { reloadWindow } from "../../../browser/actions/appActions.ts";
 import type { IUserDataProfileService } from "../../../services/userDataProfile/common/userDataProfile.ts";
 
-/** Структурно `IWorkspaceFolderOpener` фичи files; тип повторён, чтобы не тянуть соседнюю фичу. */
+/** Structurally the files feature's `IWorkspaceFolderOpener`; the type is repeated to avoid pulling in the sibling feature. */
 export interface IWrappedWorkspaceOpener {
     setWorkspaceFolder(dirPath: string): void;
     openWorkspaceFile(filePath: string, contents: IWorkspaceFileContents): void;
 }
 
 /**
- * Профиль решается ДО смены папки: другой — папка не трогается, окно перезагружается с новым
- * воркспейсом в аргументах, и Cancel в «Save changes?» не оставит «чужую папку в старом профиле».
- * Бутстрапная папка идёт мимо — её профиль выбран в `main.ts` (`resolveActiveProfile`).
+ * The profile is resolved BEFORE changing the folder: if it differs, the folder is untouched, the window reloads with the new
+ * workspace in its arguments, and Cancel in "Save changes?" won't leave "a foreign folder in the old profile".
+ * The bootstrap folder bypasses this — its profile is chosen in `main.ts` (`resolveActiveProfile`).
  */
 export class UserDataProfileWorkspaceOpener implements IWrappedWorkspaceOpener {
     public constructor(

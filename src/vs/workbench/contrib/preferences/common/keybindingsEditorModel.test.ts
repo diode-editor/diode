@@ -75,7 +75,7 @@ describe("buildKeybindingItems", () => {
         expect(items.find((item) => item.commandId === "save")!.hasConflict).toBe(true);
         expect(items.find((item) => item.commandId === "other")!.hasConflict).toBe(true);
         expect(items.find((item) => item.commandId === "hover")!.hasConflict).toBe(false);
-        // Строка без биндинга конфликтовать не может.
+        // A row without a binding can't conflict.
         expect(items.find((item) => item.commandId === "free")!.hasConflict).toBe(false);
     });
 
@@ -95,8 +95,8 @@ describe("filterKeybindingItems", () => {
             binding({ commandId: "save", chord: parseChord("ctrl+s"), source: "default" }),
             binding({ commandId: "hover", chord: parseChord("ctrl+k ctrl+u"), source: "extension" }),
             binding({ commandId: "custom", chord: parseChord("f6"), source: "user" }),
-            // id, никак не пересекающийся с title — чтобы матч по id можно было
-            // отличить от матча по title.
+            // An id that doesn't overlap with the title at all — so a match by id can be
+            // told apart from a match by title.
             binding({ commandId: "zeta.workbenchThing", chord: parseChord("f8"), source: "user" }),
         ],
         [
@@ -125,7 +125,7 @@ describe("filterKeybindingItems", () => {
     });
 
     it("матч ТОЛЬКО по id команды (title не совпадает) проходит без подсветки", () => {
-        // "workbench" есть в id zeta.workbenchThing, но не в title "Reveal Panel".
+        // "workbench" is in the id zeta.workbenchThing, but not in the title "Reveal Panel".
         const filtered = filterKeybindingItems(items, "workbench");
 
         expect(filtered.map((entry) => entry.item.commandId)).toEqual(["zeta.workbenchThing"]);
@@ -133,7 +133,7 @@ describe("filterKeybindingItems", () => {
     });
 
     it("матч ТОЛЬКО по display-форме биндинга (ни title, ни id) находит строку", () => {
-        // "f6" не встречается ни в title "My Custom", ни в id "custom".
+        // "f6" occurs neither in the title "My Custom" nor in the id "custom".
         const filtered = filterKeybindingItems(items, "f6");
 
         expect(filtered.map((entry) => entry.item.commandId)).toEqual(["custom"]);
@@ -153,7 +153,7 @@ describe("filterKeybindingItems", () => {
         expect(ids("cmd+s", "mac")).toEqual(["save"]);
         expect(ids("⌘s", "mac")).toEqual(["save"]);
         expect(ids("option", "mac")).toEqual(["word"]);
-        expect(ids("cmd+s", "pc")).toEqual([]); // на pc «Meta+S» — слова «cmd» в подписи нет
+        expect(ids("cmd+s", "pc")).toEqual([]); // on pc it's "Meta+S" — the label has no "cmd" word
         expect(ids("meta+s", "pc")).toEqual(["save"]);
     });
 
@@ -163,8 +163,8 @@ describe("filterKeybindingItems", () => {
     });
 
     it("слова запроса — отдельные термы: порядок относительно title не важен", () => {
-        // Склейка остатка запроса через пробел тут наблюдаема: «panelreveal»
-        // подпоследовательностью в «Reveal Panel» не складывается.
+        // Gluing the query remainder with a space is observable here: "panelreveal"
+        // is not a subsequence of "Reveal Panel".
         const filtered = filterKeybindingItems(items, "panel reveal");
         expect(filtered.map((entry) => entry.item.commandId)).toEqual(["zeta.workbenchThing"]);
     });
@@ -195,10 +195,10 @@ describe("filterKeybindingItems", () => {
     });
 
     it("точное совпадение по подписи идёт первым, а не по алфавиту", () => {
-        // Регрессия: `Show Hover` термами находит и команды, у которых `show` и
-        // `hover` нашлись где-то в id («Parameter Hints: Previous Signature» —
-        // `editor.action.showPrevParameterHint`). В алфавитном порядке сама
-        // «Show Hover» оказывалась последней, и рекордер правил чужую строку.
+        // Regression: the `Show Hover` terms also find commands whose `show` and
+        // `hover` were found somewhere in the id ("Parameter Hints: Previous Signature" —
+        // `editor.action.showPrevParameterHint`). In alphabetical order
+        // "Show Hover" itself ended up last, and the recorder edited someone else's row.
         const haystack = buildKeybindingItems(
             [],
             [
@@ -218,10 +218,10 @@ describe("filterKeybindingItems", () => {
         const haystack = buildKeybindingItems(
             [],
             [
-                // Совпадение по id и очками выше (`save` с начала слова), и в
-                // алфавите раньше: обогнать его может только надбавка за подпись.
+                // The id match both scores higher (`save` at a word start) and comes
+                // earlier alphabetically: only the label bonus can overtake it.
                 command("save", "Aaa Nothing"),
-                // В подписи `save` набирается вразбивку — очки низкие.
+                // In the label `save` is matched scattered — low score.
                 command("zzz.other", "Zzz Disavowed"),
             ],
         );
@@ -234,8 +234,8 @@ describe("filterKeybindingItems", () => {
 
     it("совпадение по id выше совпадения только по комбинации", () => {
         const haystack = buildKeybindingItems(
-            // Строка с биндингом F6 стоит в алфавите первой — отсортировать её
-            // вниз может только разница очков.
+            // The row with the F6 binding is first alphabetically — only a score
+            // difference can sort it down.
             [binding({ commandId: "mmm.plain", chord: parseChord("f6") })],
             [command("mmm.plain", "Aaa Other"), command("zzz.f6thing", "Bbb Nothing")],
         );
@@ -247,9 +247,9 @@ describe("filterKeybindingItems", () => {
     });
 
     it("при равных очках порядок остаётся исходным (сортировка стабильная)", () => {
-        // Одинаковый title — одинаковые очки: порядок обязан остаться тем, что
-        // задал buildKeybindingItems (title, затем id), иначе строки одной
-        // команды разъехались бы по списку.
+        // Same title — same score: the order must stay as
+        // buildKeybindingItems set it (title, then id), otherwise rows of the same
+        // command would scatter across the list.
         const haystack = buildKeybindingItems([], [command("zzz.save", "Save File"), command("aaa.save", "Save File")]);
 
         expect(filterKeybindingItems(haystack, "save").map((entry) => entry.item.commandId)).toEqual([
@@ -293,7 +293,7 @@ describe("filterKeybindingItems", () => {
         const extension = filterKeybindingItems(items, "@source:extension hover");
         expect(extension.map((entry) => entry.item.commandId)).toEqual(["hover"]);
 
-        // Источник-фильтр отсекает строки без биндинга (source null).
+        // The source filter drops rows without a binding (source null).
         expect(filterKeybindingItems(items, "@source:default open")).toEqual([]);
     });
 });
