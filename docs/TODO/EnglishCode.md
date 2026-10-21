@@ -32,20 +32,20 @@
 - [x] `src/vs/diode`, TestUtils, demos, StoryRunner, tools (904) — #741
 - [~] `e2e/scenarios` (1052)
 - [~] `e2e`: остальное (1827)
-- [ ] scripts, extensions, packaging, `.github`, конфиги (2330)
+- [ ] scripts, extensions, packaging, `.github`, конфиги (2330) — уехал в общий PR волн 1+2+3, см. ниже
 
-## Волна 2 — тесты
+## Волны 2+3 — остальная кириллица, оптом по областям
 
-Названия тестов (`it`/`describe`/`bench`), описания в `until(…)`, строки-данные тестов и e2e-фикстуры без нарочной кириллицы. Гейт PR: CI зелёный и список тестов не изменился числом и вложенностью (`npx vitest list` до и после). Срезы — те же, что в волне 1.
+Решение человека 2026-10-21 («можем это оптом делать. Максимальная скорость»): названия тестов, строки тестов и строки продукта — одним PR на область, после волны 1 в этой области. Гейт PR: CI зелёный, у файлов области в базе — только нарочная кириллица (список — в PR), число и вложенность тестов не изменились (`npx vitest list`). Строка UI, которая есть в vscode, — дословно из эталона.
 
-- [ ] срезы волны 1, по одному PR
-
-## Волна 3 — строки продукта
-
-Не-тестовый код: ошибки, логи, справка CLI (`cliArgs.ts`), тексты диалогов и уведомлений. Строка есть в vscode — берём её дословно. Ассерты на эти строки правятся в том же PR.
-
-- [ ] `src/vs/base`, `src/vs/platform`, `src/vs/editor`, `src/vs/diode`
-- [ ] `src/vs/workbench`, `extensions/`
+- [~] `src/vs/base`, `src/vs/platform`, `src/vs/diode`, TestUtils, demos, StoryRunner, tools (2158)
+- [~] `src/vs/editor` (1412)
+- [~] `workbench/services` (2752)
+- [ ] `workbench/browser`, `workbench/common` (1861)
+- [ ] `workbench/api` (1982) — после волны 1 m–z
+- [ ] `workbench/contrib` и прочее `workbench/` (3897) — после волны 1 files…quickaccess
+- [ ] `e2e` (2879) — после волны 1 e2e
+- [ ] scripts, extensions, packaging, `.github`, конфиги (2344) — волны 1+2+3 одним PR
 
 ## Финал
 
