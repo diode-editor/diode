@@ -73,7 +73,10 @@ describe("parsePorcelainStatus", () => {
     });
 
     it("preserves multibyte UTF-8 paths", () => {
-        expect(parsePorcelainStatus(nul(" M пример.txt"))).toEqual([{ path: "пример.txt", xy: " M" }]);
+        // Cyrillic "primer"
+        expect(parsePorcelainStatus(nul(" M \u043f\u0440\u0438\u043c\u0435\u0440.txt"))).toEqual([
+            { path: "\u043f\u0440\u0438\u043c\u0435\u0440.txt", xy: " M" },
+        ]);
     });
 });
 

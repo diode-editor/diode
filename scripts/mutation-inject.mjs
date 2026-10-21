@@ -1,58 +1,58 @@
 /**
- * Чистая логика самопроверки мутационного гейта, без процессов и ФС (их делает
- * `verify-mutants.mjs`).
+ * Pure logic of the mutation gate self-check, with no processes or file system
+ * (`verify-mutants.mjs` does those).
  *
- * Зачем: Stryker с `perTest` и `vitest.related` пишет в Survived мутантов, которых
- * тесты убивают, а руками их разоблачали неправильно — вживляли «смысл» мутанта
- * (`if (false)` на всё условие вместо левого операнда `||`), и настоящие дыры
- * уезжали в фантомы (#343).
+ * Why: Stryker with `perTest` and `vitest.related` reports as Survived mutants that
+ * the tests do kill, and debunking them by hand went wrong: people injected the
+ * "meaning" of a mutant (`if (false)` on the whole condition instead of the left
+ * operand of `||`), and real holes ended up as phantoms (#343).
  */
 
 import { mutantKey } from "./mutation-gate.mjs";
 
 /**
- * Порядок — порядок показа.
+ * The order is the display order.
  *
- *   real          — все подобранные тесты зелёные с мутантом: настоящая дыра;
- *   runtime-error — тесты не упали, но упал сам vitest (unhandled error, воркер):
- *                   CI красный, а балл Stryker'а этого не видит;
- *   inconclusive  — вердикта нет: красные без мутанта, некого гонять, не
- *                   повторилось, кончился бюджет;
- *   timeout       — vitest с мутантом не уложился во время;
- *   stale         — исходник не тот, к которому Stryker применил мутанта;
- *   phantom       — тест, зелёный без мутанта, с ним краснеет (повторно).
+ *   real          — all selected tests are green with the mutant: a real hole;
+ *   runtime-error — no test failed, but vitest itself did (unhandled error, worker):
+ *                   CI is red, while the Stryker score does not see it;
+ *   inconclusive  — no verdict: red without the mutant, nothing to run, did not
+ *                   reproduce, budget ran out;
+ *   timeout       — vitest with the mutant did not finish in time;
+ *   stale         — the source is not the one Stryker applied the mutant to;
+ *   phantom       — a test green without the mutant turns red with it (reproducibly).
  */
 export const CLASSES = ["real", "runtime-error", "inconclusive", "timeout", "stale", "phantom"];
 
-/** Красят гейт сами по себе; `real` красит через балл (остаётся Survived/NoCoverage). */
+/** Fail the gate on their own; `real` fails it through the score (stays Survived/NoCoverage). */
 export const BLOCKING_CLASSES = new Set(["runtime-error", "inconclusive", "timeout", "stale"]);
 
 export function isCandidate(mutant) {
     return mutant.status === "Survived" || mutant.status === "NoCoverage" || mutant.status === "RuntimeError";
 }
 
-/** line и column отчёта Stryker'а — обе 1-based. */
+/** Both line and column in the Stryker report are 1-based. */
 export function offsetOf(text, position) {
     let offset = 0;
     for (let line = 1; line < position.line; line++) {
         const next = text.indexOf("\n", offset);
-        if (next < 0) throw new Error(`строки ${String(position.line)} нет в тексте`);
+        if (next < 0) throw new Error(`line ${String(position.line)} is out of range`);
         offset = next + 1;
     }
     const lineEnd = text.indexOf("\n", offset);
     const lineLength = (lineEnd < 0 ? text.length : lineEnd) - offset;
-    // Конец мутанта может стоять сразу за последним символом строки (column = длина + 1).
+    // A mutant may end right after the last character of a line (column = length + 1).
     if (position.column < 1 || position.column - 1 > lineLength) {
-        throw new Error(`колонки ${String(position.column)} нет в строке ${String(position.line)}`);
+        throw new Error(`column ${String(position.column)} is out of range in line ${String(position.line)}`);
     }
     return offset + position.column - 1;
 }
 
-/** Дословно, ничего «по смыслу»: Stryker часто мутирует ПОЛОВИНУ выражения (левый операнд `||`). */
+/** Verbatim, nothing "by meaning": Stryker often mutates HALF of an expression (the left operand of `||`). */
 export function applyMutant(source, mutant) {
     const from = offsetOf(source, mutant.location.start);
     const to = offsetOf(source, mutant.location.end);
-    if (to < from) throw new Error("конец мутанта раньше начала");
+    if (to < from) throw new Error("mutant ends before it starts");
     return source.slice(0, from) + String(mutant.replacement ?? "") + source.slice(to);
 }
 
@@ -113,9 +113,9 @@ export function resolveSpecifier(fromFile, specifier, known) {
 }
 
 /**
- * Свой, а не `vitest related`: тот поднимает сервер vite на каждый вызов. Граф шире
- * настоящего (импорт в комментарии — тоже ребро), и это безопасная сторона:
- * лишний тест стоит секунд, пропущенный — фантома.
+ * Our own rather than `vitest related`, which starts a vite server per call. The graph
+ * is wider than the real one (an import in a comment is an edge too), which is the safe
+ * side: an extra test costs seconds, a missed one costs a phantom.
  */
 export function buildReverseImportGraph(sources) {
     const known = new Set(sources.keys());
@@ -145,7 +145,7 @@ export function relatedTestFiles(file, importers) {
     return [...seen].filter((candidate) => candidate.endsWith(".test.ts")).sort();
 }
 
-/** `failedFiles` — упавшие целиком (не загрузились, упал хук) без единого упавшего теста. */
+/** `failedFiles` are files that failed as a whole (did not load, a hook failed) without a single failed test. */
 export function parseVitestJson(json) {
     const passed = new Set();
     const failed = new Set();
@@ -168,7 +168,7 @@ export function parseVitestJson(json) {
     return { passed, failed, failedFiles, ranFiles, total: json.numTotalTests ?? passed.size + failed.size };
 }
 
-/** Упавшее и без мутанта уликой не считается — иначе красный от сети тест записывал бы фантомов. */
+/** A failure without the mutant is not evidence; otherwise a test red from the network would record phantoms. */
 export function killers(baseline, mutated) {
     const tests = [...mutated.failed].filter((key) => baseline.passed.has(key));
     const files = [...mutated.failedFiles].filter(
@@ -200,7 +200,7 @@ export function runtimeErrorExcerpt(output) {
             .replace(/\u001b\[[0-9;]*m/g, "")
             .replace(/⎯+/g, "")
             .trim();
-    // Шапка vitest ничего не объясняет — нужна сама ошибка.
+    // The vitest header explains nothing; we need the error itself.
     const meaningful = lines
         .slice(at + 1, at + 30)
         .map(clean)
@@ -226,8 +226,8 @@ const BOUNDARY_PAIRS = new Map([
 ]);
 
 /**
- * Только подсказка поверх `real`: гейт красит так же, решает человек. Эвристики —
- * по трём случаям, что чаще всего оказывались эквивалентными.
+ * Only a hint on top of `real`: the gate fails just the same, a human decides. The
+ * heuristics cover the three cases that most often turned out equivalent.
  */
 export function equivalentHint(source, mutant, siblings) {
     let original;
@@ -241,10 +241,10 @@ export function equivalentHint(source, mutant, siblings) {
         const op = /\s(<=|>=|<|>)\s/.exec(` ${original} `)?.[1];
         const swapped = op === undefined ? null : original.replace(op, BOUNDARY_PAIRS.get(op));
         if (swapped !== null && swapped === replacement)
-            return "граничный оператор: на границе обе ветки могут давать одно и то же";
+            return "boundary operator: both branches may give the same result at the boundary";
     }
-    if (mutant.mutatorName === "StringLiteral" && /\s|[а-яё]/i.test(original.slice(1, -1))) {
-        return "человекочитаемая строка (сообщение, подпись, лог) — проверь, нужен ли ассерт на текст";
+    if (mutant.mutatorName === "StringLiteral" && /\s|[\u0430-\u044f\u0451]/i.test(original.slice(1, -1))) {
+        return "human-readable string (message, label, log): check whether the text needs an assert";
     }
     if (mutant.mutatorName === "ConditionalExpression" && (replacement === "true" || replacement === "false")) {
         const sameSpot = siblings.filter(
@@ -257,13 +257,13 @@ export function equivalentHint(source, mutant, siblings) {
                 other.location.end.column === mutant.location.end.column,
         );
         if (sameSpot.some((other) => other.status === "Killed" || other.status === "Timeout")) {
-            return `охраняющее условие: «→ ${replacement === "true" ? "false" : "true"}» убит, а «→ ${replacement}» нет — ветка может повторять то, что дальше и так случится`;
+            return `guard condition: "→ ${replacement === "true" ? "false" : "true"}" is killed but "→ ${replacement}" is not; the branch may repeat what happens later anyway`;
         }
     }
     return null;
 }
 
-/** `verification` — чтобы отчёт PR показывал класс, а не голый статус. */
+/** `verification` lets the PR report show the class, not a bare status. */
 export function mergeVerdicts(report, verdicts) {
     const byKey = new Map(verdicts.map((verdict) => [verdict.key, verdict]));
     for (const [file, data] of Object.entries(report.files ?? {})) {
@@ -283,7 +283,7 @@ export function mergeVerdicts(report, verdicts) {
                 mutant.status = "RuntimeError";
                 mutant.statusReason = `verified by injection: ${verdict.reason}`;
             } else if (verdict.class === "real" && mutant.status === "RuntimeError") {
-                // На перепроверке раннер не падал, а тесты зелёные — дыра настоящая.
+                // On re-verification the runner did not crash and the tests are green: the hole is real.
                 mutant.status = "Survived";
                 mutant.statusReason = `verified by injection: ${verdict.reason}`;
             } else {
@@ -294,7 +294,7 @@ export function mergeVerdicts(report, verdicts) {
     return report;
 }
 
-/** Все классы, нули тоже. */
+/** All classes, zeros included. */
 export function countClasses(verdicts) {
     const counts = Object.fromEntries(CLASSES.map((name) => [name, 0]));
     for (const verdict of verdicts) counts[verdict.class]++;

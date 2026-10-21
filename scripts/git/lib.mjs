@@ -1,18 +1,18 @@
-// Общее для git-помощников `npm run git:*` (docs/GIT.md, «Стек PR, rebase и push»).
+// Shared helpers for `npm run git:*` (docs/GIT.md#стек-pr-rebase-и-push).
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-/** origin в checkout'ах — ssh, а ssh живёт только с проброшенным агентом: сеть — по https. */
-// DIODE_GIT_URL — подмена для проверки помощников на локальном bare-репозитории.
+/** origin in checkouts is ssh, which only works with a forwarded agent, so network calls go over https. */
+// DIODE_GIT_URL overrides it to test the helpers against a local bare repository.
 export const REPO_URL = process.env.DIODE_GIT_URL ?? "https://github.com/diode-editor/diode.git";
 
-/** Сеть — по REPO_URL, а не origin: запуск из чужого клона пушнул бы его ветки в diode. */
+/** Network calls use REPO_URL, not origin: run from a foreign clone, they would push its branches to diode. */
 export function assertDiodeCheckout() {
     if (process.env.DIODE_GIT_URL !== undefined) return;
     const r = cap("git", ["remote", "get-url", "origin"], { allowFail: true });
     if (!r.ok || !/github\.com[:/]diode-editor\/diode(\.git)?$/.test(r.out)) {
-        die(`origin этого checkout'а — «${r.out || "нет"}», а не diode-editor/diode: git:* работают только в diode.`);
+        die(`origin of this checkout is "${r.out || "none"}", not diode-editor/diode: git:* only work in diode.`);
     }
 }
 
@@ -48,14 +48,14 @@ export function short(sha) {
     return sha.slice(0, 10);
 }
 
-/** `undefined` — ветки на сервере нет. */
+/** `undefined` if the branch does not exist on the server. */
 export function remoteSha(branch) {
     const out = git("ls-remote", REPO_URL, `refs/heads/${branch}`);
     return out === "" ? undefined : out.split(/\s+/)[0];
 }
 
-// SHA на сервере, снятый git:stack-rebase ДО переписывания истории: снятый в момент
-// push, он ничего бы не защищал в --force-with-lease.
+// Server SHA recorded by git:stack-rebase BEFORE history is rewritten: taken at push
+// time, it would protect nothing in --force-with-lease.
 function leaseFile(branch) {
     return path.join(git("rev-parse", "--git-common-dir"), "diode-push-lease", branch.replaceAll("/", "__"));
 }
@@ -66,7 +66,7 @@ export function saveLease(branch, sha) {
     writeFileSync(file, `${sha ?? ""}\n`);
 }
 
-/** `undefined` — записи нет; `""` — на момент записи ветки на сервере не было. */
+/** `undefined` if nothing is recorded; `""` if the branch did not exist on the server when recorded. */
 export function loadLease(branch) {
     try {
         return readFileSync(leaseFile(branch), "utf8").trim();
@@ -81,7 +81,7 @@ export function dropLease(branch) {
 
 export function currentBranch() {
     const b = git("branch", "--show-current");
-    if (b === "") die("HEAD отвязан от ветки — укажи ветку явно.");
+    if (b === "") die("HEAD is detached: pass the branch explicitly.");
     return b;
 }
 

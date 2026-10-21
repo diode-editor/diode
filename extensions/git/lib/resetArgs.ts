@@ -1,11 +1,11 @@
 import { safeRefArg } from "./syncArgs.ts";
 
-/** Порядок — как в пикере ядра. */
+/** Same order as in the core picker. */
 export const RESET_MODES = ["soft", "mixed", "hard"] as const;
 
 export type ResetMode = (typeof RESET_MODES)[number];
 
-/** Режим — только из белого списка: приходит из-за границы процесса, склеивать с `--` нельзя. */
+/** The mode comes only from an allowlist: it crosses the process boundary and must not be glued to `--`. */
 export function resetArgs(params: Record<string, unknown>): string[] | null {
     const ref = safeRefArg(params.ref);
     const mode = params.mode;
@@ -14,7 +14,7 @@ export function resetArgs(params: Record<string, unknown>): string[] | null {
     return ["reset", `--${mode}`, ref];
 }
 
-/** `--no-edit` обязателен: редактора у субпроцесса нет, git повис бы на сообщении. */
+/** `--no-edit` is required: the subprocess has no editor, so git would hang on the message. */
 export function revertArgs(params: Record<string, unknown>): string[] | null {
     const ref = safeRefArg(params.ref);
     return ref === null ? null : ["revert", "--no-edit", ref];

@@ -128,7 +128,7 @@ describe("builtin git plugin (integration)", () => {
             themeColorResolver: makeThemeResolver(),
         });
         makeRepo(harness.tmpDir);
-        // Удалённый файл: декорация есть, но к папкам не всплывает (как в эталоне).
+        // A deleted file is decorated but doesn't propagate to folders (as upstream).
         fs.writeFileSync(path.join(harness.tmpDir, "gone.txt"), "g\n");
         git(harness.tmpDir, "add", "gone.txt");
         git(harness.tmpDir, "commit", "-qm", "gone");
@@ -170,7 +170,7 @@ describe("builtin git plugin (integration)", () => {
         expect(editorSpy.latestFor("tracked.txt")).toBeUndefined();
     });
 
-    it("публикует ядру полный набор изменённых файлов (вкладка Changes)", async () => {
+    it("publishes the full set of changed files to the core (Changes tab)", async () => {
         const published: unknown[] = [];
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
@@ -212,7 +212,7 @@ describe("builtin git plugin (integration)", () => {
         });
     });
 
-    it("публикует ядру последние коммиты (view Graph), git.refresh перепубликует", async () => {
+    it("publishes recent commits to the core (Graph view); git.refresh republishes", async () => {
         const published: unknown[] = [];
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
@@ -262,7 +262,7 @@ describe("builtin git plugin (integration)", () => {
         expect(latest()!.commits[0].parents).toEqual([latest()!.commits[1].sha]);
     });
 
-    it("страница истории ограничена, logLoadMore догружает следующую", async () => {
+    it("the history page is limited; logLoadMore loads the next one", async () => {
         const published: unknown[] = [];
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
@@ -299,7 +299,7 @@ describe("builtin git plugin (integration)", () => {
         expect(latest()!.hasMore).toBe(false);
     });
 
-    it("diode.git.stage/unstage двигают файлы между индексом и деревом, clean откатывает и удаляет", async () => {
+    it("diode.git.stage/unstage move files between index and tree; clean reverts and deletes", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -327,7 +327,7 @@ describe("builtin git plugin (integration)", () => {
         expect(unstaged.ok).toBe(true);
         expect(porcelain()).toBe(" M tracked.txt\n?? untracked.txt\n");
 
-        // status-карта расширения к этому моменту знает оба файла (refresh после unstage).
+        // By now the extension's status map knows both files (refresh after unstage).
         const cleaned = (await harness.commandRegistry.execute(CLEAN_COMMAND, [
             uriOf("tracked.txt"),
             uriOf("untracked.txt"),
@@ -338,14 +338,14 @@ describe("builtin git plugin (integration)", () => {
         expect(fs.existsSync(path.join(dir, "untracked.txt"))).toBe(false);
     });
 
-    it("unstage в пустом репозитории (unborn HEAD) снимает файл через rm --cached", async () => {
+    it("unstage in an empty repository (unborn HEAD) unstages via rm --cached", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
             themeColorResolver: makeThemeResolver(),
         });
         const dir = harness.tmpDir;
-        // Репо без единого коммита: файл сразу в индексе.
+        // A repo without a single commit: the file goes straight into the index.
         git(dir, "init", "-q");
         git(dir, "config", "user.email", "t@example.com");
         git(dir, "config", "user.name", "Test");
@@ -362,7 +362,7 @@ describe("builtin git plugin (integration)", () => {
         expect(porcelain).toBe("?? first.txt\n");
     });
 
-    it("нераскрытый GRAPH не стоит расширению вызова `git log`", async () => {
+    it("an unexpanded GRAPH costs the extension no `git log` call", async () => {
         const changes: unknown[] = [];
         const published: unknown[] = [];
         harness = await createExtensionTestHarness({
@@ -370,7 +370,7 @@ describe("builtin git plugin (integration)", () => {
             fileDecorations: makeFileSpy().service,
             themeColorResolver: makeThemeResolver(),
         });
-        // Ядро отвечает так же, как при свёрнутой или скрытой секции GRAPH.
+        // The core answers as it does for a collapsed or hidden GRAPH section.
         harness.commandRegistry.register(GRAPH_ENABLED_COMMAND, () => false);
         harness.commandRegistry.register(PUBLISH_CHANGES_COMMAND, (payload) => {
             changes.push(payload);
@@ -382,8 +382,8 @@ describe("builtin git plugin (integration)", () => {
         harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
         await registerAndActivate(harness.host, gitRegistration());
 
-        // Список изменений приехал — значит refreshAll отработал целиком, и
-        // истории в нём не было не потому, что мы не дождались.
+        // The change list arrived, so refreshAll ran to completion, and the
+        // missing history is not because we didn't wait long enough.
         expect(await waitFor(() => changes.length > 0)).toBe(true);
         expect(published).toEqual([]);
 
@@ -394,7 +394,7 @@ describe("builtin git plugin (integration)", () => {
         expect(await waitFor(() => published.length > 0)).toBe(true);
     });
 
-    it("Load More при нераскрытом GRAPH копится и приезжает увеличенной страницей", async () => {
+    it("Load More with an unexpanded GRAPH accumulates and arrives as a bigger page", async () => {
         const changes: unknown[] = [];
         const published: unknown[] = [];
         harness = await createExtensionTestHarness({
@@ -432,7 +432,7 @@ describe("builtin git plugin (integration)", () => {
         expect(loaded).toBe(true);
     });
 
-    it("diode.git.op commit: staged-файл коммитится с сообщением; amend меняет последний коммит", async () => {
+    it("diode.git.op commit: a staged file is committed with a message; amend changes the last commit", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -461,7 +461,7 @@ describe("builtin git plugin (integration)", () => {
         expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: dir }).toString().trim()).toBe("2");
     });
 
-    it("diode.git.op: пустое сообщение без amend, мусорный запрос и неизвестная операция — {ok: false}", async () => {
+    it("diode.git.op: empty message without amend, garbage request and unknown op give {ok: false}", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -488,7 +488,7 @@ describe("builtin git plugin (integration)", () => {
         expect(unknown.message).toContain("unknown git op");
     });
 
-    it("diode.git.op undoCommit: reset --soft + сообщение; корневой коммит не откатывается", async () => {
+    it("diode.git.op undoCommit: reset --soft + message; the root commit is not undone", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -519,7 +519,7 @@ describe("builtin git plugin (integration)", () => {
         expect(root.message).toContain("initial commit");
     });
 
-    it("diode.git.op reset/revert: hard-сброс двигает HEAD, revert кладёт обратный коммит", async () => {
+    it("diode.git.op reset/revert: hard reset moves HEAD, revert adds an inverse commit", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -548,7 +548,7 @@ describe("builtin git plugin (integration)", () => {
         })) as { ok: boolean };
         expect(reset.ok).toBe(true);
         expect(execFileSync("git", ["rev-parse", "HEAD"], { cwd: dir }).toString().trim()).toBe(root);
-        // Untracked-файл репозитория `--hard` не трогает — смотрим только на отслеживаемое.
+        // `--hard` leaves the repository's untracked file alone, so check tracked content only.
         expect(
             execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], { cwd: dir }).toString().trim(),
         ).toBe("");
@@ -561,7 +561,7 @@ describe("builtin git plugin (integration)", () => {
         expect(bogus.message).toContain("invalid git op parameters");
     });
 
-    it("diode.git.op push/pull против локального bare-remote; diode.git.query отдаёт refs/remotes", async () => {
+    it("diode.git.op push/pull against a local bare remote; diode.git.query returns refs/remotes", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -569,7 +569,7 @@ describe("builtin git plugin (integration)", () => {
         });
         const dir = harness.tmpDir;
         makeRepo(dir);
-        // Локальный bare-remote (file-протокол, без auth) + upstream.
+        // A local bare remote (file protocol, no auth) + upstream.
         const remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-bare-"));
         git(remoteDir, "init", "-q", "--bare");
         git(dir, "remote", "add", "origin", remoteDir);
@@ -611,7 +611,7 @@ describe("builtin git plugin (integration)", () => {
         expect(await harness.commandRegistry.execute("diode.git.query", { kind: "flying" })).toBeNull();
     });
 
-    it("мутации отбрасывают мусорные цели, пустой итог — no-op {ok: true}", async () => {
+    it("mutations drop garbage targets; an empty result is a no-op {ok: true}", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -634,7 +634,7 @@ describe("builtin git plugin (integration)", () => {
         expect(porcelain).toBe(" M tracked.txt\n?? untracked.txt\n");
     });
 
-    it("не отдаёт оригинал для untracked-файла и для файла вне репозитория", async () => {
+    it("returns no original for an untracked file or a file outside the repository", async () => {
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
             fileDecorations: makeFileSpy().service,
@@ -644,7 +644,7 @@ describe("builtin git plugin (integration)", () => {
         harness.group.openFile(path.join(harness.tmpDir, "tracked.txt"));
         await registerAndActivate(harness.host, gitRegistration());
 
-        // Ждём первого refreshStatus: untracked распознаётся по porcelain-статусу.
+        // Wait for the first refreshStatus: untracked is detected from the porcelain status.
         const untrackedUri = Uri.file(path.join(harness.tmpDir, "untracked.txt")).toString();
         let untrackedOriginal: string | null | undefined;
         await waitFor(() => {
@@ -667,7 +667,7 @@ describe("builtin git plugin (integration)", () => {
         expect(await harness.commandRegistry.execute("diode.scm.originalResource", 42)).toBeNull();
     });
 
-    it("переименованный в индексе файл сравнивается с HEAD по старому пути (git mv + правка)", async () => {
+    it("a file renamed in the index is compared to HEAD by its old path (git mv + edit)", async () => {
         const published: unknown[] = [];
         harness = await createExtensionTestHarness({
             editorDecorations: makeEditorSpy().service,
@@ -692,15 +692,15 @@ describe("builtin git plugin (integration)", () => {
         }
         const latest = (): Change[] | undefined => published.at(-1) as Change[] | undefined;
         expect(await waitFor(() => latest()?.some((r) => r.status === "R") ?? false)).toBe(true);
-        // Как в VS Code: одна запись R в индексе и M в рабочем дереве — обе по
-        // НОВОМУ пути; старый путь отдельной записью (и тем более M) не всплывает.
+        // As in VS Code: one R entry in the index and one M in the working tree, both under
+        // the NEW path; the old path never shows up as a separate entry (let alone M).
         expect(latest()!.filter((r) => r.path !== "untracked.txt")).toEqual([
             expect.objectContaining({ path: "moved.txt", status: "R", group: "index" }),
             expect.objectContaining({ path: "moved.txt", status: "M", group: "worktree" }),
         ]);
 
-        // Левая сторона диффа и гуттера — HEAD:tracked.txt, а не пустота от
-        // несуществующего HEAD:moved.txt (иначе весь файл выглядел бы новым).
+        // The left side of the diff and gutter is HEAD:tracked.txt, not the emptiness of
+        // the nonexistent HEAD:moved.txt (otherwise the whole file would look new).
         const movedUri = Uri.file(path.join(harness.tmpDir, "moved.txt")).toString();
         const originalUri = (await harness.commandRegistry.execute("diode.scm.originalResource", movedUri)) as
             | string
@@ -709,8 +709,8 @@ describe("builtin git plugin (integration)", () => {
         const bytes = await harness.host.readProvidedFile(Uri.parse(originalUri!));
         expect(new TextDecoder().decode(bytes)).toBe(TRACKED_AT_HEAD);
 
-        // Явно выбранный ref — не HEAD: про него статус рабочего дерева ничего
-        // не знает, путь остаётся новым.
+        // An explicitly chosen ref is not HEAD: the working tree status knows nothing
+        // about it, so the path stays new.
         const atRef = (await harness.commandRegistry.execute("diode.scm.originalResource", movedUri, "main")) as string;
         expect(Uri.parse(atRef).query).toContain("moved.txt");
     });

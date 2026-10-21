@@ -3,16 +3,16 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["src/**/*.test.ts", "extensions/**/*.test.ts", "tools/**/*.test.ts"],
-    // onUnexpectedError (в т.ч. исключение слушателя Emitter) роняет тест, а не тонет в консоли.
+    // onUnexpectedError (incl. an Emitter listener exception) fails the test instead of drowning in the console.
     setupFiles: ["src/TestUtils/unexpectedErrors.setup.ts"],
-    // Временные каталоги — в один корень (TMPDIR), который teardown сносит целиком:
-    // после SIGKILL/OOM afterEach не бежит, и забытое оставалось в /tmp навсегда.
+    // Temp directories go under one root (TMPDIR) that teardown removes entirely:
+    // after SIGKILL/OOM afterEach does not run, and leftovers stayed in /tmp forever.
     globalSetup: ["src/TestUtils/tmpRoot.ts"],
     coverage: {
       skipFull: true,
       reportOnFailure: true,
       provider: "v8",
-      // Храповик: autoUpdate поднимает числа вслед за покрытием; исключения — docs/TESTING.md.
+      // Ratchet: autoUpdate raises the numbers after coverage; exclusions are in docs/TESTING.md.
       thresholds: {
         autoUpdate: true,
         statements: 54.86,
@@ -25,53 +25,53 @@ export default defineConfig({
       exclude: [
         "src/**/*.test.ts",
 
-        "src/**/*.bench.ts", // перф-бенчмарки, гоняются отдельным test:perf
-        "src/TestUtils/perfFixtures.ts", // фикстуры только для бенчей (шим)
-        "src/vs/workbench/api/common/testStubRpc.ts", // тестовый стаб RpcEndpoint для unit-тестов namespace'ов
-        "src/TestUtils/basedpyrightFixture.ts", // обвязка сьютов pythonLsp*: ветка таймаута until() достижима только в красном прогоне
-        "src/TestUtils/stockVsix.ts", // скачивание vsix из магазина (ошибочные ветки — сеть/битый реестр — достижимы только в красном прогоне)
-        "src/TestUtils/eslintFixture.ts", // обвязка сьютов eslintLsp*: npm-установка библиотеки достижима только на холодном кэше (сеть), гонка rename — только в параллельном забеге
+        "src/**/*.bench.ts", // perf benchmarks, run separately by test:perf
+        "src/TestUtils/perfFixtures.ts", // fixtures for benches only (shim)
+        "src/vs/workbench/api/common/testStubRpc.ts", // test RpcEndpoint stub for namespace unit tests
+        "src/TestUtils/basedpyrightFixture.ts", // pythonLsp* suite harness: the until() timeout branch is reachable only in a red run
+        "src/TestUtils/stockVsix.ts", // downloads a vsix from the marketplace (error branches, network/broken registry, are reachable only in a red run)
+        "src/TestUtils/eslintFixture.ts", // eslintLsp* suite harness: npm install of the library is reachable only on a cold cache (network), the rename race only in a parallel run
         "src/**/*.stories.ts",
         "src/demos/**",
         "src/vs/diode/main.ts",
-        "src/vs/diode/roles/**", // входы ленивых кусков ролей (ext host, watcher): исполняются только в форке; гейт — e2e на SEA-бинаре и интеграционные сьюты ролей
-        "src/vs/diode/runAsNode.ts", // node-режим SEA-бинаря (DIODE_RUN_AS_NODE); гейт — смоук в build-sea + e2e lspBundled; eval-режим — runAsNode.eval.test.ts (child-process, v8-покрытие форк не видит)
-        "src/vs/diode/runAsNode.testEntry.ts", // child-process вход runAsNode.eval.test.ts — исполняется только в форке
-        "src/vs/workbench/services/extensions/node/loadTsServer.ts", // выбор источника бандла завязан на SEA/self-extract окружение; чистая распаковка — extractBundleToCache (юниты), сквозняк — e2e lspBundled
+        "src/vs/diode/roles/**", // lazy chunk entries for process roles (ext host, watcher): run only in a fork; gate: e2e on the SEA binary and the role integration suites
+        "src/vs/diode/runAsNode.ts", // node mode of the SEA binary (DIODE_RUN_AS_NODE); gate: smoke in build-sea + e2e lspBundled; eval mode: runAsNode.eval.test.ts (child process, v8 coverage does not see the fork)
+        "src/vs/diode/runAsNode.testEntry.ts", // child-process entry of runAsNode.eval.test.ts, runs only in a fork
+        "src/vs/workbench/services/extensions/node/loadTsServer.ts", // the bundle source choice depends on the SEA/self-extract environment; pure extraction: extractBundleToCache (units), end to end: e2e lspBundled
         "src/StoryRunner/**",
         "src/vs/workbench/services/extensions/node/__fixtures__/**",
 
-        // --- Дословный перенос upstream (scripts/import-vscode-editor.mjs): не наш код ---
-        // Гейт — фикстурный корпус upstream (diff/diffFixtures.test.ts), он ловит поехавший
-        // перенос точнее покрытия. Шимы base/common/{arrays,arraysFind,assert,errors,map,
-        // strings}.ts сюда НЕ входят: написаны руками и покрываются храповиком.
+        // --- Vendored copy of upstream (scripts/import-vscode-editor.mjs): not our code ---
+        // Gate: the upstream fixture corpus (diff/diffFixtures.test.ts), it catches a broken
+        // copy more precisely than coverage. Shims base/common/{arrays,arraysFind,assert,errors,map,
+        // strings}.ts are NOT here: they are hand-written and covered by the ratchet.
         "src/vs/editor/common/diff/linesDiffComputer.ts",
         "src/vs/editor/common/diff/rangeMapping.ts",
         "src/vs/editor/common/diff/defaultLinesDiffComputer/**",
         "src/vs/editor/common/core/{position,range,editOperation}.ts",
         "src/vs/editor/common/core/{ranges,text,edits}/**",
         "src/vs/base/common/charCode.ts",
-        // Токенизация модели: её гейт — наши тесты адаптера
-        // (editor/common/tokens/documentTokenStore.*.test.ts) через публичный шов.
+        // Model tokenization: its gate is our adapter tests
+        // (editor/common/tokens/documentTokenStore.*.test.ts) through the public seam.
         "src/vs/base/common/stopwatch.ts",
         "src/vs/editor/common/model/{textModelTokens,fixedArray}.ts",
         "src/vs/editor/common/core/misc/eolCounter.ts",
-        // Бинарный формат токенов (B2): гейт — те же тесты адаптера и рендера.
+        // Binary token format (B2): gate is the same adapter and render tests.
         "src/vs/editor/common/encodedTokenAttributes.ts",
         "src/vs/editor/common/tokens/{lineTokens,contiguousMultilineTokens,contiguousMultilineTokensBuilder,contiguousTokensEditing}.ts",
         "src/vs/editor/common/languages/nullTokenize.ts",
-        // PieceTree и поиск по буферу: гейт — upstream-тесты PieceTree со
-        // случайными правками (editor/test/common/model/pieceTreeTextBuffer/).
+        // PieceTree and buffer search: gate is the upstream PieceTree tests with
+        // random edits (editor/test/common/model/pieceTreeTextBuffer/).
         "src/vs/editor/common/model/pieceTreeTextBuffer/**",
         "src/vs/editor/common/model/textModelSearch.ts",
         "src/vs/editor/common/core/{textChange,wordCharacterClassifier,characterClassifier}.ts",
         "src/vs/base/common/uint.ts",
-        "**/__fixtures__/**", // тестовые ДАННЫЕ (чужие исходники), не исполняемый код
+        "**/__fixtures__/**", // test DATA (foreign sources), not executable code
 
-        // --- Чистые типы: нечего исполнять ---
+        // --- Pure types: nothing to execute ---
         "src/**/*.d.ts", // vscode.d.ts
-        // Чистые типы, выпавшие из рантайм-графа после перевода импортов в
-        // import type (eslint --fix при переезде на vs-раскладку):
+        // Pure types that fell out of the runtime graph after imports became
+        // import type (eslint --fix during the move to the vs layout):
         "src/vs/editor/common/languages/iCompletionSource.ts",
         "src/vs/editor/common/languages/iInlineCompletionSource.ts",
         "src/vs/editor/common/languages/iFoldingSource.ts",
@@ -110,24 +110,24 @@ export default defineConfig({
         "src/vs/platform/theme/common/iThemeFile.ts",
         "src/vs/platform/theme/common/ivsCodeThemeFile.ts",
         "src/Theme/IWorkbenchColors.ts",
-        "src/vs/base/common/equals.ts", // шим из одного интерфейса IEquatable
+        "src/vs/base/common/equals.ts", // shim of a single IEquatable interface
 
-        // --- Непокрываемо юнит-тестами (есть e2e) ---
-        "src/vs/platform/files/node/chokidarFileWatcher.ts", // реальный fs-watcher (chokidar), e2e
-        "src/vs/base/node/isSea.ts", // node:sea, только в SEA-бинаре
-        "src/vs/base/node/assets/createDefaultAssetAccess.ts", // SEA vs dev + fs-резолв
-        "src/vs/base/node/assets/packagedRuntime.ts", // node:sea + резолв import.meta.url; I/O-часть — в BundleFile.ts (юниты)
-        "src/vs/workbench/services/extensions/node/extensionHostSubprocess.ts", // точка входа subprocess + IPC
-        "src/vs/platform/files/node/treeWatcherMain.ts", // точка входа watcher-процесса (process.send/on/exit); гейт — treeWatcherMain.integration.test (настоящий child-process, v8-покрытие форк не видит)
-        "src/vs/platform/files/node/treeWatcherMain.testEntry.ts", // child-process вход того же сьюта — исполняется только в форке
-        "extensions/git/main.ts", // extension entry (subprocess IO/glue); логика — в git/lib/* (юниты), e2e — интеграция
-        "extensions/diode-lsp-typescript/main.ts", // extension entry (spawn languageclient); логика резолва — в lib/* (юниты), интеграция — стоковый сервер в extensionHost.typescriptLsp.test
-        "extensions/diode-settings/main.ts", // extension entry (грузится в subprocess); поведение — в ExtensionHost.SettingsCompletion.test.ts + e2e
-        "src/**/*.generated.ts", // сгенерированные data-файлы (напр. settings-schema.generated.ts), исполняются в subprocess
-        "src/vs/workbench/api/common/vscodeNamespace.ts", // RPC-проводка в subprocess
-        "src/vs/diode/modules/**", // DI-проводка (integration/e2e)
-        "src/vs/platform/configuration/common/nullConfigurationService.ts", // null-object заглушка
-        "src/vs/platform/state/common/nullStateService.ts", // null-object заглушка
+        // --- Not unit-testable (covered by e2e) ---
+        "src/vs/platform/files/node/chokidarFileWatcher.ts", // real fs watcher (chokidar), e2e
+        "src/vs/base/node/isSea.ts", // node:sea, only in the SEA binary
+        "src/vs/base/node/assets/createDefaultAssetAccess.ts", // SEA vs dev + fs resolution
+        "src/vs/base/node/assets/packagedRuntime.ts", // node:sea + import.meta.url resolution; the I/O part is in BundleFile.ts (units)
+        "src/vs/workbench/services/extensions/node/extensionHostSubprocess.ts", // subprocess entry point + IPC
+        "src/vs/platform/files/node/treeWatcherMain.ts", // watcher process entry point (process.send/on/exit); gate: treeWatcherMain.integration.test (real child process, v8 coverage does not see the fork)
+        "src/vs/platform/files/node/treeWatcherMain.testEntry.ts", // child-process entry of the same suite, runs only in a fork
+        "extensions/git/main.ts", // extension entry (subprocess IO/glue); logic is in git/lib/* (units), e2e covers integration
+        "extensions/diode-lsp-typescript/main.ts", // extension entry (spawns languageclient); resolution logic is in lib/* (units), integration: the stock server in extensionHost.typescriptLsp.test
+        "extensions/diode-settings/main.ts", // extension entry (loaded in a subprocess); behavior: ExtensionHost.SettingsCompletion.test.ts + e2e
+        "src/**/*.generated.ts", // generated data files (e.g. settings-schema.generated.ts), run in a subprocess
+        "src/vs/workbench/api/common/vscodeNamespace.ts", // RPC wiring in a subprocess
+        "src/vs/diode/modules/**", // DI wiring (integration/e2e)
+        "src/vs/platform/configuration/common/nullConfigurationService.ts", // null object stub
+        "src/vs/platform/state/common/nullStateService.ts", // null object stub
       ],
     },
   },

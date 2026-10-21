@@ -1,7 +1,7 @@
 name: Bump Version
 
-# Поднимает версию в package.json, коммитит и пушит тег vX.Y.Z.
-# Пуш тега, в свою очередь, триггерит release.yml.
+# Bumps the version in package.json, commits and pushes the vX.Y.Z tag.
+# The tag push in turn triggers release.yml.
 on:
   workflow_dispatch:
     inputs:
@@ -24,8 +24,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Нужен PAT (не дефолтный GITHUB_TOKEN), иначе пуш тега
-          # не запустит release.yml (защита от рекурсии воркфлоу).
+          # Needs a PAT (not the default GITHUB_TOKEN), otherwise the tag push
+          # won't start release.yml (GitHub's workflow recursion guard).
           token: ${{ secrets.REPOSITORY_PAT }}
 
       - uses: actions/setup-node@v4

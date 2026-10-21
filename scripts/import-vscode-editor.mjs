@@ -1,51 +1,53 @@
 #!/usr/bin/env node
 /**
- * Управляет дословными копиями кода редактора из upstream `microsoft/vscode`:
- *   - алгоритм построчного диффа — `src/vs/editor/common/diff/` вместе с
- *     примитивами ядра (`src/vs/editor/common/core/`), enum'ом `CharCode` и
- *     фикстурным корпусом;
- *   - токенизация модели — `src/vs/editor/common/model/textModelTokens.ts`
- *     (хранилище end-state'ов, очередь невалидных строк, фоновый токенизатор,
- *     эвристика вьюпорта) и её мелкие зависимости, бинарный формат токенов
+ * Manages vendored copies of editor code from upstream `microsoft/vscode`:
+ *   - the line diff algorithm — `src/vs/editor/common/diff/` together with the
+ *     core primitives (`src/vs/editor/common/core/`), the `CharCode` enum and
+ *     the fixture corpus;
+ *   - model tokenization — `src/vs/editor/common/model/textModelTokens.ts`
+ *     (end-state store, invalid line queue, background tokenizer, viewport
+ *     heuristic) and its small dependencies, the binary token format
  *     (`encodedTokenAttributes.ts`, `tokens/lineTokens.ts`,
  *     `tokens/contiguousMultilineTokens*.ts`) — docs/TODO/VscodeModel.md, B1/B2.
  *
- * Один скрипт на все переносы, а не по скрипту на подсистему: трансформация,
- * сторож `--check` и пин у них общие, и расходиться им незачем.
+ * One script for all imports rather than one per subsystem: the transform, the
+ * `--check` guard and the pin are shared, and there is no reason for them to diverge.
  *
- * Философия та же, что у `import-vscode-dts.mjs`: перенесённый код — стадийная
- * копия upstream, а не наш исходник. Он **не правится руками**; единственный
- * способ его изменить — поменять пин или объявленную трансформацию здесь и
- * перегенерировать. Сторож — режим `--check`.
+ * Same philosophy as `import-vscode-dts.mjs`: the vendored code is a staged
+ * copy of upstream, not our source. It is **never edited by hand**; the only
+ * way to change it is to change the pin or the declared transform here and
+ * regenerate. The guard is `--check` mode.
  *
- * ТРАНСФОРМАЦИЯ (детерминированная, применяется в этом порядке):
- *   1. ИССЕЧЕНИЯ (EXCISIONS) — объявленные вырезки кода, тянущего лишние
- *      зависимости. Анкеры — точные строки; не нашёлся анкер → падаем.
- *   2. РАСШИРЕНИЯ ИМПОРТОВ `'./x.js'` → `'./x.ts'` (конвенция diode, AGENTS.md).
- *   3. `import` → `import type` для символов из TYPE_ONLY: у нас
- *      `verbatimModuleSyntax: true`, при котором значение-импорт типа — ошибка
- *      TS1484. Список объявлен ниже, а не выведен эвристикой.
- *   4. БАННЕР провенанса сразу после MIT-шапки upstream, за ним — объявленная
- *      прелюдия (PRELUDES: импорт mocha-глобалов в upstream-тесты).
+ * TRANSFORM (deterministic, applied in this order):
+ *   1. EXCISIONS — declared cuts of code that pulls in extra dependencies.
+ *      Anchors are exact lines; a missing anchor is fatal.
+ *   2. IMPORT EXTENSIONS `'./x.js'` → `'./x.ts'` (diode convention, AGENTS.md).
+ *   3. `import` → `import type` for symbols in TYPE_ONLY: we use
+ *      `verbatimModuleSyntax: true`, under which a value import of a type is
+ *      error TS1484. The list is declared below, not inferred heuristically.
+ *   4. Provenance BANNER right after the upstream MIT header, followed by the
+ *      declared prelude (PRELUDES: mocha globals import in upstream tests).
  *
- * Шаги 1–4 обратимы в том смысле, что `--check` заново выводит ожидаемое
- * содержимое из upstream и сравнивает побайтно. Если upstream уедет так, что
- * анкер иссечения не найдётся, — скрипт упадёт громко, а не испортит перенос.
+ * Steps 1–4 are reversible in the sense that `--check` re-derives the expected
+ * content from upstream and compares byte for byte. If upstream drifts so that
+ * an excision anchor is not found, the script fails loudly instead of
+ * corrupting the vendored copy.
  *
- * Зависимости, которые upstream тянет из `base/common` (arrays, assert, errors,
- * map, strings, …), НЕ переносятся: их полные версии тащат
- * `cancellation → event → lifecycle → observableInternal` (~30 файлов, диффу не
- * нужных). Вместо них — узкие рукописные шимы по тем же путям; парность
- * раскладки делает подмену прозрачной, ни один import править не надо. Так же
- * закрыты и зависимости токенизации из `editor/common` (`languages.ts`,
- * `model.ts`): их upstream-версии — тысячи строк провайдеров языковых фич и
- * `TextModel` эталона, из которых перенесённому коду нужны десятки.
+ * Dependencies that upstream pulls from `base/common` (arrays, assert, errors,
+ * map, strings, …) are NOT vendored: their full versions drag in
+ * `cancellation → event → lifecycle → observableInternal` (~30 files the diff
+ * does not need). Narrow hand-written shims live at the same paths instead;
+ * the mirrored layout makes the substitution transparent, no import needs
+ * editing. Tokenization dependencies from `editor/common` (`languages.ts`,
+ * `model.ts`) are covered the same way: their upstream versions are thousands
+ * of lines of language feature providers and upstream `TextModel`, of which
+ * the vendored code needs dozens.
  *
- * Режимы:
- *   (без флагов)  — перенести файлы из upstream запинненного тега.
- *   --check       — сверить дерево с re-derived upstream. Exit 1 при дрейфе.
+ * Modes:
+ *   (no flags)    — import files from upstream at the pinned tag.
+ *   --check       — compare the tree with re-derived upstream. Exit 1 on drift.
  *
- * Пин согласован с `extensions/VSCODE_VERSION` — держите теги в лок-степе.
+ * The pin matches `extensions/VSCODE_VERSION` — keep the tags in lockstep.
  *
  * Usage: node scripts/import-vscode-editor.mjs [--check] [--keep-clone]
  */
@@ -60,12 +62,12 @@ const VSCODE_REPO = "https://github.com/microsoft/vscode.git";
 
 const repoRoot = resolve(import.meta.dirname, "..");
 
-// ---- что переносим ---------------------------------------------------------
+// ---- what we vendor --------------------------------------------------------
 
-/** Файлы, переносимые дословно. Путь в upstream == путь у нас (парность раскладки). */
+/** Files vendored verbatim. Upstream path == our path (mirrored layout). */
 const FILES = [
-    // Алгоритм диффа. Не берём legacyLinesDiffComputer / externalLinesDiffComputer /
-    // documentDiffProvider / linesDiffComputers (реестр legacy+advanced).
+    // Diff algorithm. Skips legacyLinesDiffComputer / externalLinesDiffComputer /
+    // documentDiffProvider / linesDiffComputers (the legacy+advanced registry).
     "src/vs/editor/common/diff/linesDiffComputer.ts",
     "src/vs/editor/common/diff/rangeMapping.ts",
     "src/vs/editor/common/diff/defaultLinesDiffComputer/defaultLinesDiffComputer.ts",
@@ -78,7 +80,7 @@ const FILES = [
     "src/vs/editor/common/diff/defaultLinesDiffComputer/algorithms/dynamicProgrammingDiffing.ts",
     "src/vs/editor/common/diff/defaultLinesDiffComputer/algorithms/myersDiffAlgorithm.ts",
 
-    // Примитивы ядра, на которых стоит алгоритм.
+    // Core primitives the algorithm is built on.
     "src/vs/editor/common/core/position.ts",
     "src/vs/editor/common/core/range.ts",
     "src/vs/editor/common/core/editOperation.ts",
@@ -91,17 +93,17 @@ const FILES = [
     "src/vs/editor/common/core/edits/stringEdit.ts",
     "src/vs/editor/common/core/edits/textEdit.ts",
 
-    // Чистый enum без зависимостей — дешевле перенести целиком, чем шимить.
+    // A plain enum with no dependencies — cheaper to vendor whole than to shim.
     "src/vs/base/common/charCode.ts",
 
-    // Токенизация модели: состояние строк, очередь, фон, эвристика вьюпорта.
+    // Model tokenization: line state, queue, background, viewport heuristic.
     "src/vs/editor/common/model/textModelTokens.ts",
     "src/vs/editor/common/model/fixedArray.ts",
     "src/vs/editor/common/core/misc/eolCounter.ts",
     "src/vs/base/common/stopwatch.ts",
-    // Бинарный формат токенов (B2): раскладка метаданных, токены строки,
-    // токены подряд идущих строк (их и отдаёт фон) с правкой и (де)сериализацией
-    // (последняя — для воркера, B3), результат «токенизатор упал».
+    // Binary token format (B2): metadata layout, line tokens, tokens of
+    // contiguous lines (what the background emits) with editing and
+    // (de)serialization (the latter for the worker, B3), the "tokenizer failed" result.
     "src/vs/editor/common/encodedTokenAttributes.ts",
     "src/vs/editor/common/tokens/lineTokens.ts",
     "src/vs/editor/common/tokens/contiguousMultilineTokens.ts",
@@ -109,38 +111,38 @@ const FILES = [
     "src/vs/editor/common/tokens/contiguousTokensEditing.ts",
     "src/vs/editor/common/languages/nullTokenize.ts",
 
-    // Хранение текста: PieceTree (красно-чёрное дерево кусков с кэшем стартов
-    // строк) и его зависимости. Пока никем не используется — подключение к
-    // TextDocument это шаг A3 (docs/TODO/VscodeModel.md).
+    // Text storage: PieceTree (a red-black tree of pieces with a line start
+    // cache) and its dependencies. Unused so far — wiring it into TextDocument
+    // is step A3 (docs/TODO/VscodeModel.md).
     "src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeBase.ts",
     "src/vs/editor/common/model/pieceTreeTextBuffer/rbTreeBase.ts",
     "src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.ts",
     "src/vs/editor/common/model/pieceTreeTextBuffer/pieceTreeTextBufferBuilder.ts",
     "src/vs/editor/common/core/textChange.ts",
-    // Поиск по буферу (`findMatchesLineByLine`): `Searcher` и разбор границ слов.
+    // Buffer search (`findMatchesLineByLine`): `Searcher` and word boundary parsing.
     "src/vs/editor/common/model/textModelSearch.ts",
     "src/vs/editor/common/core/wordCharacterClassifier.ts",
     "src/vs/editor/common/core/characterClassifier.ts",
     "src/vs/base/common/uint.ts",
 
-    // Upstream-тесты PieceTree (фаззинг со случайными правками) — главный гейт
-    // переноса дерева. Путь — upstream'овский (`editor/test/...`), а не
-    // колокация: парность раскладки оставляет относительные импорты дословными.
+    // Upstream PieceTree tests (fuzzing with random edits) — the main gate for
+    // the vendored tree. The path is upstream's (`editor/test/...`), not
+    // colocated: the mirrored layout keeps relative imports verbatim.
     "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
 ];
 
-/** Фикстурный корпус: upstream-путь → наш путь. Файлы копируются как есть. */
+/** Fixture corpus: upstream path → our path. Files are copied as is. */
 const FIXTURES_FROM = "src/vs/editor/test/node/diffing/fixtures";
 const FIXTURES_TO = "src/vs/editor/common/diff/__fixtures__";
-/** Ожидания legacy-компьютера не нужны — legacy мы не переносим. */
+/** Legacy computer expectations are not needed — we do not vendor legacy. */
 const FIXTURE_SKIP = new Set(["legacy.expected.diff.json"]);
 
-/** Каталоги для sparse-checkout (перекрывают FILES + фикстуры). */
+/** Sparse-checkout paths (cover FILES + fixtures). */
 const SPARSE_PATHS = [
     "src/vs/editor/common/diff",
     "src/vs/editor/common/core",
-    // Ведущий слэш обязателен для одиночного файла в non-cone режиме, иначе git
-    // трактует путь как glob по имени и предупреждает (NON-CONE PROBLEMS).
+    // A single file needs a leading slash in non-cone mode, otherwise git
+    // treats the path as a name glob and warns (NON-CONE PROBLEMS).
     "/src/vs/base/common/charCode.ts",
     "/src/vs/base/common/stopwatch.ts",
     "/src/vs/editor/common/model/textModelTokens.ts",
@@ -158,20 +160,20 @@ const SPARSE_PATHS = [
     FIXTURES_FROM,
 ];
 
-// ---- объявленная трансформация ---------------------------------------------
+// ---- declared transform ----------------------------------------------------
 
 /**
- * Иссечения: вырезаем строки от `from` до `to` включительно (`to: "EOF"` — до
- * конца файла, `"SELF"` — одна строка `from`; `nth` — до `nth`-й строки `to`).
- * Каждое — с обоснованием; цель списка — оставаться коротким.
+ * Excisions: cut lines from `from` through `to` inclusive (`to: "EOF"` — to the
+ * end of file, `"SELF"` — the `from` line alone; `nth` — up to the `nth` `to` line).
+ * Each one carries a justification; the list aims to stay short.
  */
 const EXCISIONS = {
     "src/vs/editor/common/diff/rangeMapping.ts": [
         {
-            // Единственный потребитель типа IChange из legacyLinesDiffComputer.
-            // Сама функция не имеет НИ ОДНОГО вызова во всём upstream (проверено
-            // grep -rn по src/vs), а тянет legacyLinesDiffComputer.ts (691 LOC)
-            // и base/common/diff/{diff,diffChange}.ts (1375 LOC) c LcsDiff.
+            // The only consumer of the IChange type from legacyLinesDiffComputer.
+            // The function has NO callers anywhere in upstream (checked with
+            // grep -rn over src/vs), yet it pulls in legacyLinesDiffComputer.ts
+            // (691 LOC) and base/common/diff/{diff,diffChange}.ts (1375 LOC) with LcsDiff.
             from: "export function lineRangeMappingFromChange(change: IChange): LineRangeMapping {",
             to: "EOF",
         },
@@ -179,10 +181,10 @@ const EXCISIONS = {
     ],
     "src/vs/editor/common/tokens/lineTokens.ts": [
         {
-            // Вид токена в позиции модели — читает `model.tokenization`
-            // (`TokenizationTextModelPart` эталона), а модель у нас своя
-            // (`ITextDocument` + `DocumentTokenStore`); то же у нас делает
-            // `languages/standardTokenType.ts` поверх `LineTokens`.
+            // Token type at a model position — reads `model.tokenization`
+            // (upstream `TokenizationTextModelPart`), but our model is our own
+            // (`ITextDocument` + `DocumentTokenStore`); we do the same in
+            // `languages/standardTokenType.ts` on top of `LineTokens`.
             from: "export function getStandardTokenTypeAtPosition(model: ITextModel, position: IPosition): StandardTokenType | undefined {",
             to: "}",
         },
@@ -191,11 +193,11 @@ const EXCISIONS = {
     ],
     "src/vs/editor/common/core/textChange.ts": [
         {
-            // Бинарная сериализация TextChange (`writeSize`/`write`/`read` и
-            // их помощники — шесть методов подряд) — для сохранения undo-стека
-            // эталона в Uint8Array. Тянет base/common/buffer.ts (lazy, stream)
-            // и core/stringBuilder.ts (platform, TextDecoder). Нам нужен только
-            // сам TextChange как запись обратной правки PieceTree.
+            // Binary serialization of TextChange (`writeSize`/`write`/`read` and
+            // their helpers — six methods in a row) — for saving the upstream
+            // undo stack to a Uint8Array. Pulls in base/common/buffer.ts (lazy,
+            // stream) and core/stringBuilder.ts (platform, TextDecoder). We only
+            // need TextChange itself as the PieceTree reverse edit record.
             from: "\tprivate static _writeStringSize(str: string): number {",
             to: "\t}",
             nth: 6,
@@ -205,17 +207,17 @@ const EXCISIONS = {
     ],
     "src/vs/editor/common/model/textModelSearch.ts": [
         {
-            // Разбор запроса виджета поиска (строка/регэксп/регистр) — тянет
-            // strings.createRegExp и экранирование. PieceTree получает уже
-            // готовый SearchData; виджет поиска у нас пока свой.
+            // Find widget query parsing (string/regex/case) — pulls in
+            // strings.createRegExp and escaping. PieceTree receives a ready
+            // SearchData; our find widget is still our own.
             from: "export class SearchParams {",
             to: "}",
         },
         {
-            // Поиск по TextModel (многострочный, next/previous) — тянет
-            // textModel.ts целиком (весь TextModel эталона мы не переносим,
-            // docs/TODO/VscodeModel.md, ветка C). PieceTree зовёт только
-            // Searcher / createFindMatch / isValidMatch, они остаются.
+            // TextModel search (multiline, next/previous) — pulls in all of
+            // textModel.ts (we do not vendor upstream TextModel,
+            // docs/TODO/VscodeModel.md, branch C). PieceTree only calls
+            // Searcher / createFindMatch / isValidMatch, which stay.
             from: "export class TextModelSearch {",
             to: "}",
         },
@@ -224,10 +226,10 @@ const EXCISIONS = {
 };
 
 /**
- * Строки, вставляемые сразу после баннера. Сейчас — только импорт
- * mocha-глобалов (`suite`/`test`) в upstream-тесты: у эталона они глобальны
- * (mocha), у нас vitest без глобалов. Адаптер — src/TestUtils/mochaCompat.ts
- * (он же отдаёт тесту `this.timeout()`, который зовут фаззинг-кейсы).
+ * Lines inserted right after the banner. Currently only the mocha globals
+ * import (`suite`/`test`) in upstream tests: upstream has them as globals
+ * (mocha), we run vitest without globals. The adapter is src/TestUtils/mochaCompat.ts
+ * (it also gives the test `this.timeout()`, which the fuzzing cases call).
  */
 const PRELUDES = {
     "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts": [
@@ -236,15 +238,15 @@ const PRELUDES = {
 };
 
 /**
- * Символы, которые в перенесённом наборе экспортируются как `interface`/`type`.
- * При `verbatimModuleSyntax` их обязан импортировать `import type`, иначе TS1484.
+ * Symbols the vendored set exports as `interface`/`type`. Under
+ * `verbatimModuleSyntax` they must be imported with `import type`, otherwise TS1484.
  *
- * Список выведен из `grep '^export (interface|type)'` по переносимому набору
- * плюс два имени из наших шимов (`Comparator`, `IEquatable`). Если upstream
- * добавит новый тип и мы его пропустим — упадёт `npm run typecheck`, не тихо.
+ * The list comes from `grep '^export (interface|type)'` over the vendored set
+ * plus two names from our shims (`Comparator`, `IEquatable`). If upstream adds
+ * a new type and we miss it, `npm run typecheck` fails loudly.
  */
 const TYPE_ONLY = new Set([
-    // из переносимого набора
+    // from the vendored set
     "AnyEdit",
     "AnyReplacement",
     "IDiffAlgorithm",
@@ -264,11 +266,11 @@ const TYPE_ONLY = new Set([
     "SerializedLineReplacement",
     "ITokenPresentation",
     "IViewLineTokens",
-    // из наших шимов в base/common
+    // from our shims in base/common
     "Comparator",
     "IEquatable",
     "IdleDeadline",
-    // из наших шимов токенизации в editor/common
+    // from our tokenization shims in editor/common
     "IBackgroundTokenizationStore",
     "IBackgroundTokenizer",
     "ILanguageIdCodec",
@@ -276,7 +278,7 @@ const TYPE_ONLY = new Set([
     "IState",
     "ITextModel",
     "ITokenizationSupport",
-    // PieceTree: из шима model.ts и lifecycle.ts
+    // PieceTree: from the model.ts and lifecycle.ts shims
     "IDisposable",
     "IInternalModelContentChange",
     "ISingleEditOperationIdentifier",
@@ -287,17 +289,19 @@ const TYPE_ONLY = new Set([
     "IValidEditOperation",
 ]);
 
-/** Последняя строка MIT-шапки upstream — баннер вставляем сразу после неё. */
+/** Last line of the upstream MIT header — the banner goes right after it. */
 const MIT_HEADER_LAST = " *--------------------------------------------------------------------------------------------*/";
 
 function banner(upstreamPath) {
     return [
         `//@diode:vendored microsoft/vscode@${VSCODE_TAG} ${upstreamPath}`,
-        "// НЕ ПРАВИТЬ РУКАМИ — перегенерируется scripts/import-vscode-editor.mjs (см. AGENTS.md).",
+        // Russian on purpose: --check compares the banner byte for byte with the vendored files under src/,
+        // which are not edited by hand ("NE PRAVIT' RUKAMI — peregeneriruetsya … (sm. AGENTS.md)").
+        "// \u041d\u0415 \u041f\u0420\u0410\u0412\u0418\u0422\u042c \u0420\u0423\u041a\u0410\u041c\u0418 — \u043f\u0435\u0440\u0435\u0433\u0435\u043d\u0435\u0440\u0438\u0440\u0443\u0435\u0442\u0441\u044f scripts/import-vscode-editor.mjs (\u0441\u043c. AGENTS.md).",
     ];
 }
 
-// ---- шаги трансформации ----------------------------------------------------
+// ---- transform steps -------------------------------------------------------
 
 function applyExcisions(lines, upstreamPath) {
     const specs = EXCISIONS[upstreamPath];
@@ -306,18 +310,18 @@ function applyExcisions(lines, upstreamPath) {
     for (const spec of specs) {
         const start = out.findIndex((l) => l === spec.from);
         if (start === -1) {
-            throw new Error(`[vendor] иссечение не приложилось в ${upstreamPath}: анкер не найден\n  ${spec.from}`);
+            throw new Error(`[vendor] excision did not apply in ${upstreamPath}: anchor not found\n  ${spec.from}`);
         }
         const end = spec.to === "EOF" ? out.length - 1 : spec.to === "SELF" ? start : nthIndex(out, start, spec.to, spec.nth ?? 1);
         if (end === -1) {
-            throw new Error(`[vendor] иссечение не приложилось в ${upstreamPath}: конечный анкер не найден\n  ${spec.to}`);
+            throw new Error(`[vendor] excision did not apply in ${upstreamPath}: end anchor not found\n  ${spec.to}`);
         }
         out = [...out.slice(0, start), ...out.slice(end + 1)];
     }
     return out;
 }
 
-/** Индекс `nth`-й (с 1) строки, равной `line`, начиная с `from`; -1 — нет. */
+/** Index of the `nth` (1-based) line equal to `line`, starting at `from`; -1 if none. */
 function nthIndex(lines, from, line, nth) {
     let seen = 0;
     for (let i = from; i < lines.length; i++) {
@@ -326,14 +330,14 @@ function nthIndex(lines, from, line, nth) {
     return -1;
 }
 
-/** `from './x.js'` → `from './x.ts'` — только в спецификаторах импорта/экспорта. */
+/** `from './x.js'` → `from './x.ts'` — only in import/export specifiers. */
 function rewriteImportExtensions(lines) {
     return lines.map((l) => l.replace(/(\bfrom\s+')([^']+)\.js(')/g, "$1$2.ts$3"));
 }
 
 /**
- * Разбивает смешанный импорт на значение-часть и type-часть. Порядок имён
- * внутри каждой группы сохраняется, значение-импорт идёт первым.
+ * Splits a mixed import into a value part and a type part. Name order within
+ * each group is kept; the value import comes first.
  */
 function splitTypeImports(lines) {
     const out = [];
@@ -361,11 +365,11 @@ function splitTypeImports(lines) {
 
 function insertBanner(lines, upstreamPath) {
     const idx = lines.indexOf(MIT_HEADER_LAST);
-    if (idx === -1) throw new Error(`[vendor] MIT-шапка не найдена в ${upstreamPath}`);
+    if (idx === -1) throw new Error(`[vendor] MIT header not found in ${upstreamPath}`);
     return [...lines.slice(0, idx + 1), ...banner(upstreamPath), ...(PRELUDES[upstreamPath] ?? []), ...lines.slice(idx + 1)];
 }
 
-/** Полная объявленная трансформация upstream-текста в наш файл. */
+/** The full declared transform of upstream text into our file. */
 function transform(text, upstreamPath) {
     let lines = text.replace(/\r\n/g, "\n").split("\n");
     while (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
@@ -398,7 +402,7 @@ function withUpstream(fn) {
     }
 }
 
-/** Все файлы фикстурного корпуса upstream — относительные пути, отсортированные. */
+/** All files of the upstream fixture corpus — relative paths, sorted. */
 function fixtureFiles(cloneDir) {
     const root = join(cloneDir, FIXTURES_FROM);
     const out = [];
@@ -413,7 +417,7 @@ function fixtureFiles(cloneDir) {
     return out;
 }
 
-// ---- режимы ----------------------------------------------------------------
+// ---- modes -----------------------------------------------------------------
 
 function regen() {
     withUpstream((cloneDir, sha) => {
@@ -423,7 +427,7 @@ function regen() {
             mkdirSync(dirname(target), { recursive: true });
             writeFileSync(target, transform(source, upstreamPath));
         }
-        console.error(`[vendor] перенесено файлов: ${FILES.length}`);
+        console.error(`[vendor] imported files: ${FILES.length}`);
 
         const fixtureTarget = join(repoRoot, FIXTURES_TO);
         rmSync(fixtureTarget, { recursive: true, force: true });
@@ -433,7 +437,7 @@ function regen() {
             mkdirSync(dirname(to), { recursive: true });
             cpSync(join(cloneDir, FIXTURES_FROM, rel), to);
         }
-        console.error(`[vendor] перенесено фикстур: ${fixtures.length} файл(ов) → ${FIXTURES_TO}`);
+        console.error(`[vendor] imported fixtures: ${fixtures.length} file(s) → ${FIXTURES_TO}`);
         console.error(`[vendor] upstream ${VSCODE_TAG} ${sha}`);
     });
 }
@@ -446,7 +450,7 @@ function check() {
             const want = transform(readFileSync(join(cloneDir, upstreamPath), "utf8"), upstreamPath);
             const target = join(repoRoot, upstreamPath);
             if (!existsSync(target)) {
-                problems.push(`отсутствует: ${upstreamPath}`);
+                problems.push(`missing: ${upstreamPath}`);
                 continue;
             }
             const got = readFileSync(target, "utf8");
@@ -455,7 +459,7 @@ function check() {
             const wantLines = want.split("\n");
             const at = gotLines.findIndex((l, i) => l !== wantLines[i]);
             problems.push(
-                `дрейф: ${upstreamPath}:${at + 1}\n    файл:     ${JSON.stringify(gotLines[at])}\n    upstream: ${JSON.stringify(wantLines[at])}`,
+                `drift: ${upstreamPath}:${at + 1}\n    file:     ${JSON.stringify(gotLines[at])}\n    upstream: ${JSON.stringify(wantLines[at])}`,
             );
         }
 
@@ -463,16 +467,16 @@ function check() {
         for (const rel of fixtures) {
             const target = join(repoRoot, FIXTURES_TO, rel);
             if (!existsSync(target)) {
-                problems.push(`отсутствует фикстура: ${FIXTURES_TO}/${rel}`);
+                problems.push(`missing fixture: ${FIXTURES_TO}/${rel}`);
                 continue;
             }
             if (!readFileSync(target).equals(readFileSync(join(cloneDir, FIXTURES_FROM, rel)))) {
-                problems.push(`дрейф фикстуры: ${FIXTURES_TO}/${rel}`);
+                problems.push(`fixture drift: ${FIXTURES_TO}/${rel}`);
             }
         }
 
         if (problems.length === 0) {
-            console.error(`[vendor] --check OK: ${FILES.length} файл(ов) + ${fixtures.length} фикстур совпадают с upstream @ ${VSCODE_TAG} ${sha}`);
+            console.error(`[vendor] --check OK: ${FILES.length} file(s) + ${fixtures.length} fixture(s) match upstream @ ${VSCODE_TAG} ${sha}`);
             return;
         }
         console.error(`[vendor] --check FAIL (${problems.length}):`);

@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Стек главного потока ЗАВИСШЕГО diode — без пересборки и перезапуска.
+ * Main-thread stack of a HUNG diode, without a rebuild or restart.
  *
  *   node scripts/hang-stack.mjs <pid> [--samples N]
  *
- * SIGUSR1 поднимает инспектор (и в SEA), `Debugger.pause` останавливает V8 даже посреди
- * тугого цикла; одинаковые сэмплы — место зависания. Простаивающий процесс на паузу не
- * встанет, пока не проснётся (нажми клавишу).
+ * SIGUSR1 opens the inspector (in SEA too), and `Debugger.pause` stops V8 even inside a tight
+ * loop; identical samples point at the hang. An idle process won't pause until it wakes up
+ * (press a key).
  *
- * Номера строк — в бандле (`~/.cache/diode/<версия>/main.cjs`); исходник — по
- * комментарию-пути `// src/...` выше функции.
+ * Line numbers refer to the bundle (`~/.cache/diode/<version>/main.cjs`); find the source by the
+ * `// src/...` path comment above the function.
  */
 
 import { readdirSync, readFileSync, readlinkSync } from "node:fs";
@@ -30,15 +30,15 @@ async function inspectorUrl() {
                 const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
                 if (list[0]?.webSocketDebuggerUrl) return list[0].webSocketDebuggerUrl;
             } catch {
-                // не инспектор (порт drive/inspect-tui) — следующий
+                // not the inspector (a drive/inspect-tui port), try the next one
             }
         }
         await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    throw new Error(`процесс ${pid} не поднял инспектор`);
+    throw new Error(`process ${pid} did not open the inspector`);
 }
 
-/** Сокеты процесса из /proc/<pid>/fd против LISTEN-записей /proc/net/tcp*. */
+/** Process sockets from /proc/<pid>/fd matched against LISTEN entries of /proc/net/tcp*. */
 function listeningPorts() {
     const own = new Set();
     for (const fd of readdirSync(`/proc/${pid}/fd`)) {
@@ -46,14 +46,14 @@ function listeningPorts() {
             const match = /^socket:\[(\d+)\]$/.exec(readlinkSync(`/proc/${pid}/fd/${fd}`));
             if (match) own.add(match[1]);
         } catch {
-            // fd закрылся между readdir и readlink
+            // fd closed between readdir and readlink
         }
     }
     const ports = [];
     for (const table of ["/proc/net/tcp", "/proc/net/tcp6"]) {
         for (const line of readFileSync(table, "utf8").split("\n").slice(1)) {
             const cols = line.trim().split(/\s+/);
-            // st 0A — LISTEN; local_address — hex «addr:port», inode — десятая колонка
+            // st 0A is LISTEN; local_address is hex "addr:port", inode is the tenth column
             if (cols[3] === "0A" && own.has(cols[9])) ports.push(parseInt(cols[1].split(":")[1], 16));
         }
     }
@@ -90,10 +90,10 @@ for (let sample = 0; sample < samples; sample++) {
     void send("Debugger.pause");
     const params = await Promise.race([paused, new Promise((resolve) => setTimeout(() => resolve(null), 10_000))]);
     if (!params) {
-        console.log("пауза не наступила за 10 с: главный поток простаивает (не завис) — нажми клавишу в редакторе");
+        console.log("no pause within 10 s: the main thread is idle (not hung), press a key in the editor");
         break;
     }
-    console.log(`--- сэмпл ${sample + 1}`);
+    console.log(`--- sample ${sample + 1}`);
     for (const frame of params.callFrames.slice(0, 30)) {
         const url = (scripts.get(frame.location.scriptId) ?? frame.url ?? "").split("/").pop();
         console.log(`  ${frame.functionName || "<anonymous>"}  ${url}:${frame.location.lineNumber + 1}:${frame.location.columnNumber + 1}`);

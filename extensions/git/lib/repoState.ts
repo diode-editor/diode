@@ -1,9 +1,9 @@
 /** Payload `diode.scm.publishRepoState`. */
 export interface IRepoStatePayload {
-    /** null — detached HEAD или unborn. */
+    /** null for a detached or unborn HEAD. */
     readonly branch: string | null;
     readonly detached: boolean;
-    /** `origin/main`; null — не задан. */
+    /** `origin/main`; null when not set. */
     readonly upstream: string | null;
     readonly ahead: number;
     readonly behind: number;
@@ -11,7 +11,7 @@ export interface IRepoStatePayload {
     readonly state: "idle" | "merging" | "rebasing" | "cherry-picking";
 }
 
-/** Заголовки `git status --porcelain=v2 --branch`; отсутствующие — дефолты (unborn/без upstream). */
+/** `git status --porcelain=v2 --branch` headers; missing ones get defaults (unborn/no upstream). */
 export function parseBranchHeaders(stdout: string): {
     branch: string | null;
     detached: boolean;

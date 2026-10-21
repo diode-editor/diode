@@ -1,23 +1,23 @@
 #!/usr/bin/env node
 /**
- * Управляет `src/vscode-dts/vscode.d.ts` — стадийной копией upstream
+ * Manages `src/vscode-dts/vscode.d.ts`, a staged copy of upstream
  * `microsoft/vscode:src/vscode-dts/vscode.d.ts`.
  *
- * Файл состоит из двух частей:
- *   1. ПРЕФИКС (человеческий): шапка + активный `declare module "vscode"` +
- *      глобальный `Thenable` + баннер + строка-сентинел. Активный модуль — это
- *      ДОСЛОВНО раскомментированные строки upstream. Меняется ТОЛЬКО снятием `// `.
- *   2. ДОРМАНТ (генерируемый): вся upstream-копия, каждая строка с `// `.
+ * The file has two parts:
+ *   1. PREFIX (hand-written): header + active `declare module "vscode"` +
+ *      global `Thenable` + banner + sentinel line. The active module is
+ *      upstream lines uncommented VERBATIM. It changes ONLY by removing `// `.
+ *   2. DORMANT (generated): the whole upstream copy, every line prefixed with `// `.
  *
- * Режимы:
- *   (без флагов)      — регенерировать дормант из запинненного тега и обновить
- *                       провенанс (tag/commit/permalink) в шапке; активный модуль
- *                       не трогается. Требует сети.
- *   --check           — дормант байт-в-байт равен upstream тега (drift guard). Требует сети.
- *   --verify-active   — offline: каждая кодовая строка активного модуля дословно
- *                       есть в дорманте.
+ * Modes:
+ *   (no flags)        — regenerate the dormant part from the pinned tag and update
+ *                       the provenance (tag/commit/permalink) in the header; the active
+ *                       module is left alone. Needs network.
+ *   --check           — the dormant part equals the upstream tag byte for byte (drift guard). Needs network.
+ *   --verify-active   — offline: every code line of the active module is present
+ *                       verbatim in the dormant part.
  *
- * Пин — в лок-степе с `extensions/VSCODE_VERSION`.
+ * The pin moves in lockstep with `extensions/VSCODE_VERSION`.
  *
  * Usage: node scripts/import-vscode-dts.mjs [--check | --verify-active] [--keep-clone]
  */
@@ -34,11 +34,14 @@ const DTS_PATH = "src/vscode-dts/vscode.d.ts";
 const repoRoot = resolve(import.meta.dirname, "..");
 const targetFile = resolve(repoRoot, "src", "vscode-dts", "vscode.d.ts");
 
-/** Всё ниже неё — генерируемый дормант. */
-const SENTINEL = "//@diode:begin-upstream-verbatim (генерируется scripts/import-vscode-dts.mjs — правьте только раскомментированием)";
+/**
+ * Everything below it is the generated dormant part. Matched verbatim against vscode.d.ts, hence Russian:
+ * "(generiruetsya … — prav'te tol'ko raskommentirovaniem)".
+ */
+const SENTINEL = "//@diode:begin-upstream-verbatim (\u0433\u0435\u043d\u0435\u0440\u0438\u0440\u0443\u0435\u0442\u0441\u044f scripts/import-vscode-dts.mjs — \u043f\u0440\u0430\u0432\u044c\u0442\u0435 \u0442\u043e\u043b\u044c\u043a\u043e \u0440\u0430\u0441\u043a\u043e\u043c\u043c\u0435\u043d\u0442\u0438\u0440\u043e\u0432\u0430\u043d\u0438\u0435\u043c)";
 
 const comment = (l) => (l === "" ? "//" : "// " + l);
-/** Ровно один слой: строка upstream сама может начинаться с `//`. */
+/** Exactly one layer: an upstream line may itself start with `//`. */
 const strip = (l) => (l.startsWith("// ") ? l.slice(3) : l === "//" ? "" : l);
 
 function fetchUpstream() {

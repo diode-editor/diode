@@ -1,18 +1,18 @@
 #!/usr/bin/env node
 /**
- * `reports/mutation/mutation.json` → markdown для комментария в PR и тикета ночного
- * прогона; перечисляются только выжившие.
+ * `reports/mutation/mutation.json` → markdown for the PR comment and the nightly
+ * run issue; only surviving mutants are listed.
  *
- * Показываем diff строки, а не «мутатор → замена»: `ConditionalExpression → true`
- * без файла ничего не говорит. Исходник — из самого отчёта (`files[].source`), так
- * что рендер не зависит от текущего дерева.
+ * We show a line diff rather than "mutator → replacement": `ConditionalExpression → true`
+ * says nothing without the file. The source comes from the report itself
+ * (`files[].source`), so rendering does not depend on the current tree.
  *
- * `Ignored` двух видов различаются только причиной: `// Stryker disable` (решение
- * автора) и `--ignoreStatic` (решение прогона). ✅/❌ — вердикт гейта из
- * `gate.json`; нет файла — по порогу конфига.
+ * The two kinds of `Ignored` differ only by reason: `// Stryker disable` (the
+ * author's decision) and `--ignoreStatic` (the run's decision). ✅/❌ is the gate
+ * verdict from `gate.json`; without that file, the config threshold decides.
  *
- * Использование: node scripts/mutation-report.mjs [<путь к mutation.json>]
- * Ссылки на строки появляются, если заданы GITHUB_REPOSITORY и MUTATION_SHA.
+ * Usage: node scripts/mutation-report.mjs [<path to mutation.json>]
+ * Line links appear when GITHUB_REPOSITORY and MUTATION_SHA are set.
  */
 
 import { existsSync, readFileSync } from "node:fs";
@@ -22,19 +22,19 @@ import { scoreReport } from "./mutation-gate.mjs";
 import { BLOCKING_CLASSES, CLASSES } from "./mutation-inject.mjs";
 
 const CLASS_LABELS = {
-    real: "настоящий",
-    phantom: "фантом",
+    real: "real",
+    phantom: "phantom",
     "runtime-error": "runtime-error",
-    inconclusive: "без вердикта",
-    timeout: "таймаут",
-    stale: "отчёт протух",
+    inconclusive: "inconclusive",
+    timeout: "timeout",
+    stale: "stale report",
 };
 
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const reportPath = process.argv[2] ?? path.join(repoRoot, "reports", "mutation", "mutation.json");
 
 if (!existsSync(reportPath)) {
-    console.error(`Отчёта нет: ${reportPath}`);
+    console.error(`No report: ${reportPath}`);
     process.exit(1);
 }
 
@@ -55,14 +55,14 @@ const sha = process.env.MUTATION_SHA ?? "";
 const canLink = repo !== "" && sha !== "";
 
 const DETAIL_LIMIT = 40;
-// GitHub режет комментарий на 65536 символах; запас — под хвост «показано N из M».
+// GitHub truncates a comment at 65536 characters; the margin is for the "showing N of M" tail.
 const CHAR_BUDGET = 55_000;
-/** Многострочный мутант (вырезанное тело функции) целиком бесполезен. */
+/** A multiline mutant (a removed function body) is useless in full. */
 const SNIPPET_LINES = 3;
 
 function lineLink(file, line) {
-    if (!canLink) return `строка ${line}`;
-    return `[строка ${line}](https://github.com/${repo}/blob/${sha}/${file}#L${line})`;
+    if (!canLink) return `line ${line}`;
+    return `[line ${line}](https://github.com/${repo}/blob/${sha}/${file}#L${line})`;
 }
 
 function renderDiff(source, mutant) {
@@ -90,13 +90,13 @@ function gateOutcome() {
 }
 
 const survivors = [];
-let silenced = 0; // погашены `// Stryker disable`
-let skippedStatic = 0; // пропущены `--ignoreStatic`
+let silenced = 0; // silenced by `// Stryker disable`
+let skippedStatic = 0; // skipped by `--ignoreStatic`
 let noCoverage = 0;
 let total = 0;
 const classes = Object.fromEntries(CLASSES.map((name) => [name, 0]));
 let verified = 0;
-const undecided = []; // красят гейт сами, мимо балла
+const undecided = []; // fail the gate on their own, bypassing the score
 
 for (const [file, data] of Object.entries(report.files)) {
     for (const mutant of data.mutants) {
@@ -135,36 +135,36 @@ const passing = outcome !== null ? outcome === "passed" : (threshold === null ||
 
 const out = [];
 
-out.push(`### ${passing ? "✅" : "❌"} Мутационный балл — ${score.toFixed(2)}%`);
+out.push(`### ${passing ? "✅" : "❌"} Mutation score — ${score.toFixed(2)}%`);
 out.push("");
 out.push("| | |");
 out.push("|---|--:|");
-out.push(`| Убито | ${detected} |`);
-out.push(`| **Выжило** | **${survivors.length - noCoverage}** |`);
-if (noCoverage > 0) out.push(`| Не покрыто ни одним тестом | ${noCoverage} |`);
-if (silenced > 0) out.push(`| Погашено \`// Stryker disable\` | ${silenced} |`);
-if (skippedStatic > 0) out.push(`| Пропущено как статические | ${skippedStatic} |`);
-if (unchecked > 0) out.push(`| Не проверено (упал раннер или компиляция) | ${unchecked} |`);
-out.push(`| Всего мутантов | ${total} |`);
+out.push(`| Killed | ${detected} |`);
+out.push(`| **Survived** | **${survivors.length - noCoverage}** |`);
+if (noCoverage > 0) out.push(`| Not covered by any test | ${noCoverage} |`);
+if (silenced > 0) out.push(`| Silenced by \`// Stryker disable\` | ${silenced} |`);
+if (skippedStatic > 0) out.push(`| Skipped as static | ${skippedStatic} |`);
+if (unchecked > 0) out.push(`| Not checked (runner or compilation failed) | ${unchecked} |`);
+out.push(`| Total mutants | ${total} |`);
 if (verified > 0) {
     const parts = CLASSES.filter((name) => classes[name] > 0).map((name) => `${CLASS_LABELS[name]} ${classes[name]}`);
-    out.push(`| Перепроверено вживлением | ${verified}: ${parts.join(", ")} |`);
+    out.push(`| Re-verified by injection | ${verified}: ${parts.join(", ")} |`);
 }
 out.push("");
 
 if (classes.phantom > 0) {
     out.push(
-        `> ${classes.phantom} мутантов Stryker не засчитал убитыми, а существующие тесты их убивают — ` +
-            "проверено вживлением точного мутанта (фантомы гейта, docs/MUTATION.md). " +
-            "В балл они вошли убитыми; чинить там нечего.",
+        `> Stryker did not count ${classes.phantom} mutants as killed, yet existing tests kill them, ` +
+            "as verified by injecting the exact mutant (gate phantoms, docs/MUTATION.md). " +
+            "They count as killed in the score; there is nothing to fix.",
     );
     out.push("");
 }
 
 if (undecided.length > 0) {
-    out.push(`#### Без вердикта — ${undecided.length}`);
+    out.push(`#### Without a verdict — ${undecided.length}`);
     out.push("");
-    out.push("Гейт красный, пока их не разберут: балл их не видит, а «не смогли проверить» — не «проверено». Что делать с каждым классом — docs/MUTATION.md.");
+    out.push("The gate stays red until they are triaged: the score does not see them, and \"could not check\" is not \"checked\". What to do with each class: docs/MUTATION.md.");
     out.push("");
     undecided.sort((a, b) => a.file.localeCompare(b.file) || a.mutant.location.start.line - b.mutant.location.start.line);
     for (const { file, mutant } of undecided.slice(0, DETAIL_LIMIT)) {
@@ -174,31 +174,31 @@ if (undecided.length > 0) {
                 `\`${mutant.mutatorName}\` → \`${String(mutant.replacement ?? "").slice(0, 60)}\` — ${reason}`,
         );
     }
-    if (undecided.length > DETAIL_LIMIT) out.push(`- … и ещё ${undecided.length - DETAIL_LIMIT}`);
+    if (undecided.length > DETAIL_LIMIT) out.push(`- … and ${undecided.length - DETAIL_LIMIT} more`);
     out.push("");
 }
 
 if (outcome === "error") {
-    out.push("Гейт не дошёл до вердикта — причина в логе прогона. Балл выше посчитан по тому, что успели проверить.");
+    out.push("The gate did not reach a verdict; the reason is in the run log. The score above covers what was checked.");
     out.push("");
 } else if (threshold !== null && !passing) {
-    out.push(`Порог — ${threshold}%. Каждого выжившего либо убиваем тестом, либо гасим`);
-    out.push("`// Stryker disable next-line <мутатор>: причина` — и причина едет в ревью.");
+    out.push(`The threshold is ${threshold}%. Each surviving mutant is either killed by a test or silenced with`);
+    out.push("`// Stryker disable next-line <mutator>: reason`, and the reason goes to review.");
     out.push("");
 }
 
 if (skippedStatic > 0) {
     out.push(
-        `> Статические мутанты (${skippedStatic}) пропущены: это верхнеуровневый код — таблицы, ` +
-            `регистрации команд, — который не сужается per-test покрытием и потому слишком дорог ` +
-            `для PR-гейта. Их проверяет ночной прогон, так что балл выше не потому, что дыр нет, ` +
-            `а потому что эту часть смотрели не здесь.`,
+        `> Static mutants (${skippedStatic}) are skipped: this is module top level code (tables, ` +
+            `command registrations) that per-test coverage cannot narrow, so it is too expensive ` +
+            `for the PR gate. The nightly run checks them, so the score above is higher not because ` +
+            `there are no holes, but because this part is checked elsewhere.`,
     );
     out.push("");
 }
 
 if (survivors.length === 0) {
-    out.push("Выживших нет — каждую внесённую поломку кто-то из тестов заметил.");
+    out.push("No surviving mutants: some test caught every injected fault.");
 } else {
     const byFile = new Map();
     for (const entry of survivors) {
@@ -224,14 +224,14 @@ if (survivors.length === 0) {
         const uncoveredHere = entries.filter((e) => e.uncovered).length;
         const detail =
             uncoveredHere > 0 && uncoveredHere < entries.length
-                ? ` (${entries.length - uncoveredHere} выжило, ${uncoveredHere} не покрыто)`
+                ? ` (${entries.length - uncoveredHere} survived, ${uncoveredHere} not covered)`
                 : "";
         block.push(
             `<details${sorted.length === 1 ? " open" : ""}><summary><code>${file}</code> — ${entries.length}${detail}</summary>`,
         );
         block.push("");
 
-        // Отдельно от `shown`: не влезший в бюджет блок отбрасывается целиком и не должен завысить «расписано N».
+        // Separate from `shown`: a block over budget is dropped whole and must not inflate "showing N".
         let shownInBlock = 0;
         for (const { mutant, source, uncovered } of entries) {
             if (shown + shownInBlock >= DETAIL_LIMIT) {
@@ -241,9 +241,9 @@ if (survivors.length === 0) {
             const diff = renderDiff(source, mutant);
             const hint = mutant.verification?.hint;
             const mark =
-                (uncovered ? " · не покрыт ни одним тестом" : "") +
-                (mutant.verification?.class === "real" ? " · подтверждён вживлением" : "") +
-                (hint ? ` · возможно, эквивалентный: ${hint}` : "");
+                (uncovered ? " · not covered by any test" : "") +
+                (mutant.verification?.class === "real" ? " · confirmed by injection" : "") +
+                (hint ? ` · possibly equivalent: ${hint}` : "");
             block.push(
                 `**${lineLink(file, mutant.location.start.line)}** · \`${mutant.mutatorName}\`${mark}`,
             );
@@ -275,10 +275,10 @@ if (survivors.length === 0) {
 
     if (truncated || shown < survivors.length) {
         out.push(
-            `_Расписано ${shown} из ${survivors.length}. Остальные — в HTML-отчёте из артефактов прогона._`,
+            `_Showing ${shown} of ${survivors.length}. The rest are in the HTML report in the run artifacts._`,
         );
         out.push("");
-        out.push("<details><summary>Все файлы с выжившими</summary>");
+        out.push("<details><summary>All files with surviving mutants</summary>");
         out.push("");
         for (const [file, entries] of sorted) out.push(`- \`${file}\` — ${entries.length}`);
         out.push("");

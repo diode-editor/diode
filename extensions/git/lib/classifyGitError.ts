@@ -1,4 +1,4 @@
-/** Зеркало `GitErrorKind` протокола. */
+/** Mirror of the protocol's `GitErrorKind`. */
 export type GitErrorKind =
     | "auth"
     | "conflict"
@@ -18,7 +18,7 @@ const AUTH_PATTERNS = [
     "Host key verification failed",
 ];
 
-/** Порядок важен: auth специфичнее «[rejected]», конфликт — раньше dirty-worktree (оба упоминают merge). */
+/** Order matters: auth is more specific than "[rejected]", conflict precedes dirty-worktree (both mention merge). */
 export function classifyGitStderr(stderr: string): GitErrorKind {
     if (AUTH_PATTERNS.some((p) => stderr.includes(p))) return "auth";
     if (

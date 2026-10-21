@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 /**
- * Проверка двух осей раскладки `src/vs/*` (аналог upstream `code-layering`,
- * `code-import-patterns` и `layersChecker`):
+ * Checks the layout axes of `src/vs/*` (like upstream `code-layering`,
+ * `code-import-patterns` and `layersChecker`):
  *
- *  1. Слои (импорт — только своего и нижних):
+ *  1. Layers (import only from your own and lower ones):
  *     base/common → base/node → platform → editor → workbench → diode.
- *  2. Окружения: common → [common], browser → [common, browser],
- *     node → [common, node]; окружение — первый сегмент common/browser/node в пути.
- *  3. `@tuidom/*` размечен той же осью по подпути (TUIDOM_ENVS); `base/common`
- *     значений из движка не берёт; `@tuidom/core/common/disposable` запрещён во
- *     всём `src/`, `import type` тоже — примитив наш, `vs/base/common/lifecycle.ts`.
- *  4. common/browser не импортируют модули ОС (кроме `node:path`) и
- *     NODE_ONLY_PACKAGES; `import type` считается — тип `fs.Dirent` в сигнатуре
- *     тоже привязывает к Node. Долг — храповик NODE_IMPORT_DEBT.
+ *  2. Environments: common → [common], browser → [common, browser],
+ *     node → [common, node]; the environment is the first common/browser/node path segment.
+ *  3. `@tuidom/*` is mapped onto the same axis by subpath (TUIDOM_ENVS); `base/common`
+ *     takes no values from the engine; `@tuidom/core/common/disposable` is banned in all
+ *     of `src/`, `import type` too: the primitive is ours, `vs/base/common/lifecycle.ts`.
+ *  4. common/browser don't import OS modules (except `node:path`) or
+ *     NODE_ONLY_PACKAGES; `import type` counts, since an `fs.Dirent` type in a signature
+ *     ties code to Node too. The debt is the NODE_IMPORT_DEBT ratchet.
  *
- * Для осей 1–3 jsdoc-ссылки и `import type` — не зависимости (как в upstream
- * layersChecker). Файлы вне `src/vs` не проверяются.
+ * For axes 1–3 jsdoc links and `import type` are not dependencies (as in upstream
+ * layersChecker). Files outside `src/vs` are not checked.
  */
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
@@ -25,7 +25,7 @@ import * as path from "node:path";
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const vsRoot = path.join(repoRoot, "src", "vs");
 
-// Порядок = высота слоя.
+// Order = layer height.
 const ZONES = [
     "src/vs/base/common",
     "src/vs/base/node",
@@ -36,22 +36,22 @@ const ZONES = [
 ];
 
 /**
- * [префикс файла, префикс импорта]; новые — только с записью в
+ * [file prefix, import prefix]; add new ones only with an entry in
  * docs/TODO/VscodeStructureFollowUps.md.
  */
 const EXCEPTIONS = [
-    // Single-process TUI: «browser»-сторона зовёт node-сервисы напрямую, без RPC-моста vscode.
+    // Single-process TUI: the "browser" side calls node services directly, without the vscode RPC bridge.
     ["src/vs/workbench/browser/", "src/vs/workbench/services/terminalEnvironment/node/"],
     ["src/vs/workbench/services/keybinding/browser/", "src/vs/workbench/services/terminalEnvironment/node/"],
-    // Мост тема→стили держит unthemed-дефолты у виджета редактора; разнос —
-    // follow-up (unthemed-дефолты в platform или getEditorStyles в editor).
+    // The theme→styles bridge keeps unthemed defaults next to the editor widget; splitting them
+    // is a follow-up (unthemed defaults in platform or getEditorStyles in editor).
     ["src/vs/platform/theme/browser/defaultStyles.ts", "src/vs/editor/browser/editorElement.ts"],
-    // Цвета иконок файлов упакованы движковым packRgb — значение из @tuidom в
-    // base/common. Перенос цветовой части иконок выше — follow-up.
+    // File icon colors are packed with the engine's packRgb, a value from @tuidom in
+    // base/common. Moving the color part of icons higher is a follow-up.
     ["src/vs/base/common/fileIcons.ts", "@tuidom/core/common/colorUtils"],
 ];
 
-/** Ядро workbench'а не знает фич (как `code-layering` у upstream): импорт отсюда в contrib запрещён. */
+/** The workbench core doesn't know features (like upstream `code-layering`): importing contrib from here is banned. */
 const WORKBENCH_CORE_DIRS = [
     "src/vs/workbench/browser/",
     "src/vs/workbench/common/",
@@ -60,22 +60,22 @@ const WORKBENCH_CORE_DIRS = [
 ];
 const WORKBENCH_CONTRIB_DIR = "src/vs/workbench/contrib/";
 
-/** Храповик: новые сюда не добавляются, ненужная запись — тоже нарушение. План — E4. */
+/** Ratchet: no new entries; a stale entry is a violation too. The plan is E4. */
 const DIRECTION_EXCEPTIONS = [
-    // Корень: ссылки на фичи в setWorkspaceFolder/activate/restore (E4 PR5).
+    // Root: feature references in setWorkspaceFolder/activate/restore (E4 PR5).
     "src/vs/workbench/browser/workbenchComponent.ts",
-    // Мелкие action-файлы ядра зовут сервисы фич (explorer, markers) — зона E4.
+    // Small core action files call feature services (explorer, markers), E4 territory.
     "src/vs/workbench/browser/actions/editorGroupActions.ts",
     "src/vs/workbench/browser/actions/inputActions.ts",
     "src/vs/workbench/browser/actions/layoutActions.ts",
 ];
 
-/** Первое совпадение побеждает; неразмеченный подпуть — нарушение. */
+/** The first match wins; an unmapped subpath is a violation. */
 const TUIDOM_ENVS = [
     [/^@tuidom\/core\/(common|input)\//, "common"],
     [/^@tuidom\/(core\/(dom|rendering|backend)|elements|inspector)\//, "browser"],
     [/^@tuidom\/(terminal|headless)-backend\//, "node"],
-    // Ни в одно окружение не входит: доступен только тестам и тестовому профилю `vs/diode`.
+    // Belongs to no environment: only tests and the `vs/diode` test profile may use it.
     [/^@tuidom\/testing\//, "test"],
 ];
 
@@ -83,16 +83,16 @@ const NODE_ONLY_PACKAGES = new Set(["chokidar", "node-pty", "yauzl"]);
 
 const ALLOWED_NODE_BUILTINS = new Set(["node:path"]);
 
-/** Храповик: гейт падает и на устаревшую запись. Остаток — PR 5 в docs/TODO/FileService.md. */
+/** Ratchet: the gate also fails on a stale entry. The rest is PR 5 in docs/TODO/FileService.md. */
 const NODE_IMPORT_DEBT = [
     ["src/vs/platform/workspace/common/workspaceId.ts", "node:crypto"],
     ["src/vs/workbench/api/common/vscodeNamespace.ts", "node:crypto"],
-    // Синхронная проверка существования: рестор синхронен по устройству (пути
-    // нужны до первого кадра) и асинхронным станет с загрузкой модели (PR 5);
-    // история — открытый вопрос в docs/TODO/FileService.md.
+    // A synchronous existence check: restore is synchronous by design (paths are needed
+    // before the first frame) and becomes async with model loading (PR 5);
+    // history is an open question in docs/TODO/FileService.md.
     ["src/vs/workbench/services/editor/browser/editorPaneFactory.ts", "node:fs"],
     ["src/vs/workbench/services/history/browser/historyService.ts", "node:fs"],
-    // Синхронная загрузка с диска переезжает вместе с асинхронным открытием (PR 5).
+    // Synchronous loading from disk moves along with async opening (PR 5).
     ["src/vs/workbench/services/textfile/common/textFileModel.ts", "node:fs"],
 ];
 
@@ -118,7 +118,7 @@ function checkNodeImports(rel, env, content, seenDebt, violations) {
             continue;
         }
         violations.push(
-            `${rel} → ${m[2]}  (окружение ${env} не берёт модулей ОС — заведи шов в common или перенеси в node)`,
+            `${rel} → ${m[2]}  (environment ${env} takes no OS modules: add a seam in common or move it to node)`,
         );
     }
 }
@@ -138,7 +138,7 @@ function zoneOf(rel) {
     return best;
 }
 
-/** Тесты, stories и бенчи пересекают оси легально: поднимают полное приложение (у vscode они в test/-деревьях). */
+/** Tests, stories and benches legally cross the axes: they boot the full app (vscode keeps them in test/ trees). */
 function isCheckedSource(rel) {
     if (/\.(test|stories|bench)\.(ts|tsx)$/.test(rel)) return false;
     if (/(^|\.)testUtils\.ts$/i.test(rel)) return false;
@@ -146,13 +146,13 @@ function isCheckedSource(rel) {
     return true;
 }
 
-/** Чистые контракты в node/browser-каталогах. */
+/** Pure contracts in node/browser directories. */
 const ENV_OVERRIDES = new Map([]);
 
 function envOf(rel) {
     const override = ENV_OVERRIDES.get(rel);
     if (override !== undefined) return override;
-    // Сборка приложения по определению склеивает browser и node.
+    // The app assembly glues browser and node together by definition.
     if (rel.startsWith("src/vs/diode/")) return null;
     for (const seg of rel.split("/")) {
         if (seg === "common" || seg === "browser" || seg === "node") return seg;
@@ -175,7 +175,7 @@ function listFiles(dirAbs, out = []) {
     return out;
 }
 
-/** «Токен рядом со своим типом» (docs/DI.md): `T` из `token<T>()` — не из слоя выше. */
+/** "A token next to its type" (docs/DI.md): `T` of `token<T>()` is not from a higher layer. */
 function checkTokenDeclarations(rel, raw, zoneIdx, violations) {
     for (const m of raw.matchAll(/\btoken\s*<\s*([A-Za-z0-9_]+)\b/g)) {
         const typeName = m[1];
@@ -183,14 +183,14 @@ function checkTokenDeclarations(rel, raw, zoneIdx, violations) {
         const importMatch = raw.match(
             new RegExp(`import[^;]*\\{[^}]*\\b${typeName}\\b[^}]*\\}\\s*from\\s*["']([^"']+)["']`),
         );
-        if (!importMatch) continue; // re-export и т.п. — не наша ось
+        if (!importMatch) continue; // re-exports etc. are not our axis
         const target = path
             .normalize(path.join(path.dirname(rel), importMatch[1]))
             .split(path.sep)
             .join("/");
         const targetZone = zoneOf(target);
         if (targetZone !== null && ZONES.indexOf(targetZone) > zoneIdx) {
-            violations.push(`${rel} → token<${typeName}> (тип из слоя ${targetZone} выше слоя токена)`);
+            violations.push(`${rel} → token<${typeName}> (the type is from layer ${targetZone}, above the token's layer)`);
         }
     }
 }
@@ -205,33 +205,33 @@ function checkTuidomImports(rel, zone, env, content, violations) {
         if (EXCEPTIONS.some(([f, t]) => rel.startsWith(f) && specifier.startsWith(t))) continue;
         const targetEnv = tuidomEnvOf(specifier);
         if (targetEnv === null) {
-            violations.push(`${rel} → ${specifier}  (подпуть движка не размечен окружением — TUIDOM_ENVS)`);
+            violations.push(`${rel} → ${specifier}  (the engine subpath has no environment, see TUIDOM_ENVS)`);
             continue;
         }
         if (zone === "src/vs/base/common") {
-            violations.push(`${rel} → ${specifier}  (base/common не берёт значений из движка)`);
+            violations.push(`${rel} → ${specifier}  (base/common takes no values from the engine)`);
             continue;
         }
         if (env !== null && !ENV_ALLOWED[env].has(targetEnv)) {
-            violations.push(`${rel} → ${specifier}  (окружение: ${env} не может импортировать ${targetEnv})`);
+            violations.push(`${rel} → ${specifier}  (environment: ${env} cannot import ${targetEnv})`);
         }
     }
 }
 
-/** Во всём `src/`, тесты и `import type` включительно. */
+/** All of `src/`, including tests and `import type`. */
 function checkDisposableImports(violations) {
     for (const abs of listFiles(path.join(repoRoot, "src"))) {
         const rel = path.relative(repoRoot, abs).split(path.sep).join("/");
         const content = stripComments(readFileSync(abs, "utf8"));
         if (content.includes(`"${TUIDOM_DISPOSABLE}"`) || content.includes(`'${TUIDOM_DISPOSABLE}'`)) {
-            violations.push(`${rel} → ${TUIDOM_DISPOSABLE}  (примитив жизненного цикла — vs/base/common/lifecycle.ts)`);
+            violations.push(`${rel} → ${TUIDOM_DISPOSABLE}  (the lifecycle primitive is vs/base/common/lifecycle.ts)`);
         }
     }
 }
 
 function main() {
     if (!existsSync(vsRoot)) {
-        console.log("[check-layers] src/vs не существует (до миграции) — нечего проверять");
+        console.log("[check-layers] src/vs does not exist (before the migration), nothing to check");
         return;
     }
 
@@ -249,8 +249,8 @@ function main() {
         const raw = readFileSync(abs, "utf8");
         checkTokenDeclarations(rel, raw, zoneIdx, violations);
         checkNodeImports(rel, env, stripComments(raw), seenDebt, violations);
-        // Форма спецификатора перечислена явно: ленивое `type\s[\s\S]*?from`
-        // цеплялось за `export type X = …` и глотало код до ближайшего `from`.
+        // The specifier forms are listed explicitly: a lazy `type\s[\s\S]*?from`
+        // caught `export type X = …` and swallowed code up to the nearest `from`.
         const content = stripComments(raw).replace(
             /(?:import|export)\s+type\s+(?:\{[^}]*\}|\*\s+as\s+\w+|\w+)\s+from\s*["'][^"']+["'];/g,
             "",
@@ -265,36 +265,36 @@ function main() {
             if (!target.startsWith("src/vs/")) continue;
             if (target.startsWith(WORKBENCH_CONTRIB_DIR) && WORKBENCH_CORE_DIRS.some((d) => rel.startsWith(d))) {
                 if (DIRECTION_EXCEPTIONS.includes(rel)) usedDirectionExceptions.add(rel);
-                else violations.push(`${rel} → ${target}  (направление: ядро workbench не импортирует contrib)`);
+                else violations.push(`${rel} → ${target}  (direction: the workbench core does not import contrib)`);
                 continue;
             }
             if (EXCEPTIONS.some(([f, t]) => rel.startsWith(f) && target.startsWith(t))) continue;
 
             const targetZone = zoneOf(target);
             if (targetZone !== null && ZONES.indexOf(targetZone) > zoneIdx) {
-                violations.push(`${rel} → ${target}  (слой: ${zone} не может импортировать ${targetZone})`);
+                violations.push(`${rel} → ${target}  (layer: ${zone} cannot import ${targetZone})`);
                 continue;
             }
             const targetEnv = envOf(target);
             if (env !== null && targetEnv !== null && !ENV_ALLOWED[env].has(targetEnv)) {
-                violations.push(`${rel} → ${target}  (окружение: ${env} не может импортировать ${targetEnv})`);
+                violations.push(`${rel} → ${target}  (environment: ${env} cannot import ${targetEnv})`);
             }
         }
     }
 
     for (const rel of DIRECTION_EXCEPTIONS) {
         if (!usedDirectionExceptions.has(rel)) {
-            violations.push(`${rel}  (DIRECTION_EXCEPTIONS: contrib он больше не импортирует — удали запись)`);
+            violations.push(`${rel}  (DIRECTION_EXCEPTIONS: it no longer imports contrib, remove the entry)`);
         }
     }
     for (const [file, module] of NODE_IMPORT_DEBT) {
         if (!seenDebt.has(`${file}|${module}`)) {
-            violations.push(`${file} → ${module}  (импорта больше нет — убери запись из NODE_IMPORT_DEBT)`);
+            violations.push(`${file} → ${module}  (the import is gone, remove the entry from NODE_IMPORT_DEBT)`);
         }
     }
 
     if (violations.length > 0) {
-        console.error(`[check-layers] нарушений: ${violations.length}`);
+        console.error(`[check-layers] violations: ${violations.length}`);
         for (const v of violations) console.error(`  ${v}`);
         process.exit(1);
     }

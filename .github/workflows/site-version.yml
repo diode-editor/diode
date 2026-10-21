@@ -1,21 +1,21 @@
 name: Site version
 
-# Версия diode в футере лендинга diode-editor.github.io. Зовётся из release.yml
-# отдельной job `site` после публикации релиза: упадёт — job красная, но релиз и
-# остальные каналы уже не зависят от неё. Руками (workflow_dispatch) — перевыложить
-# версию без нового релиза, например после починки токена.
+# The diode version in the footer of the diode-editor.github.io landing page. Called from
+# release.yml as a separate `site` job after the release is published: if it fails the job
+# is red, but the release and the other channels no longer depend on it. By hand
+# (workflow_dispatch): republish the version without a new release, e.g. after fixing the token.
 #
-# Версия в index.html сайта статическая; её переписывает scripts/set-diode-version.mjs
-# репозитория сайта, коммит в main, GitHub Pages выкладывает сам.
+# The version in the site's index.html is static; the site repo's scripts/set-diode-version.mjs
+# rewrites it, we commit to main, and GitHub Pages deploys on its own.
 #
-# Секрет SITE_PAT — fine-grained PAT на один репозиторий diode-editor.github.io,
-# Contents: Read and write. В отличие от каналов в release.yml, без секрета job
-# не пропускается молча, а падает: иначе отставший сайт никто не заметит.
+# The SITE_PAT secret is a fine-grained PAT for the single diode-editor.github.io repository,
+# Contents: Read and write. Unlike the channels in release.yml, the job doesn't silently skip
+# without the secret but fails: otherwise nobody would notice a stale site.
 on:
   workflow_call:
     inputs:
       version:
-        description: "Тег релиза, vX.Y.Z"
+        description: "Release tag, vX.Y.Z"
         required: true
         type: string
     secrets:
@@ -24,7 +24,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Тег релиза, vX.Y.Z"
+        description: "Release tag, vX.Y.Z"
         required: true
         type: string
 
@@ -38,7 +38,7 @@ jobs:
       - name: Check token
         run: |
           if [ -z "$SITE_PAT" ]; then
-            echo "::error::secret SITE_PAT is not set — site version not updated (packaging/README.md, «Сайт»)"
+            echo "::error::secret SITE_PAT is not set — site version not updated (packaging/README.md#сайт-версия-на-лендинге)"
             exit 1
           fi
         env:
@@ -61,7 +61,7 @@ jobs:
           git add index.html
           git diff --cached --quiet && { echo "site already shows $VERSION"; exit 0; }
           git commit -m "chore(site): diode ${VERSION}"
-          # Воркфлоу реестра сайта коммитит в тот же main — при гонке подтягиваемся и пробуем ещё.
+          # The site's registry workflow commits to the same main: on a race, pull and retry.
           for attempt in 1 2 3; do
             git push && exit 0
             sleep $((attempt * 5))

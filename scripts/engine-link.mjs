@@ -1,20 +1,20 @@
 #!/usr/bin/env node
-// Локальная проверка НЕОПУБЛИКОВАННОГО tuidom в diode: собрать пакеты движка
-// из рабочего дерева tuidom и поставить их в node_modules diode вместо версий
-// из реестра — не трогая package.json и package-lock.json.
+// Local check of an UNPUBLISHED tuidom in diode: build the engine packages
+// from the tuidom working tree and install them into diode's node_modules in place
+// of the registry versions, without touching package.json and package-lock.json.
 //
-//   npm run engine:link                  # TUIDOM_DIR или /workspaces/tuidom/tuidom
-//   npm run engine:link -- --tuidom <dir>  # другой checkout/worktree tuidom
-//   npm run engine:link -- --no-smoke    # без смоука движка на голом node (быстрее)
-//   npm run engine:status                # что сейчас стоит в node_modules
-//   npm run engine:unlink                # вернуть движок из реестра (npm ci)
+//   npm run engine:link                  # TUIDOM_DIR or /workspaces/tuidom/tuidom
+//   npm run engine:link -- --tuidom <dir>  # another tuidom checkout/worktree
+//   npm run engine:link -- --no-smoke    # skip the engine smoke test on bare node (faster)
+//   npm run engine:status                # what is installed in node_modules now
+//   npm run engine:unlink                # restore the engine from the registry (npm ci)
 //
-// Только tgz, не `npm link` / `file:` / симлинк: `exports` пакетов tuidom указывают
-// на `./src/*.ts`, на dist их подменяет build-package.mjs лишь на время `npm pack`.
-// Симлинк отдал бы .ts — tsx проглотит, а голый node, tsup и SEA — нет.
+// Tgz only, not `npm link` / `file:` / a symlink: tuidom package `exports` point
+// at `./src/*.ts`, and build-package.mjs swaps them to dist only for the duration of `npm pack`.
+// A symlink would serve .ts: tsx swallows it, but bare node, tsup and SEA do not.
 //
-// Все пакеты ОДНОЙ командой: межпакетные зависимости — точные пины, и отдельный
-// elements притащил бы вторую core из реестра (ломаются instanceof и синглтоны).
+// All packages in ONE command: inter-package dependencies are exact pins, and a lone
+// elements would pull a second core from the registry (breaking instanceof and singletons).
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -39,7 +39,7 @@ function sh(cmd, args, opts = {}) {
 function must(cmd, args, opts = {}) {
     console.log(`> ${cmd} ${args.join(" ")}`);
     const r = sh(cmd, args, { stdio: "inherit", ...opts });
-    if (r.status !== 0) die(`«${cmd} ${args.join(" ")}» завершился с кодом ${r.status}`);
+    if (r.status !== 0) die(`"${cmd} ${args.join(" ")}" exited with code ${r.status}`);
 }
 
 function readJson(p) {
@@ -62,7 +62,7 @@ function parseArgs(argv) {
         if (a === "--tuidom") opts.tuidom = argv[++i] ?? "";
         else if (a.startsWith("--tuidom=")) opts.tuidom = a.slice("--tuidom=".length);
         else if (a === "--no-smoke") opts.smoke = false;
-        else die(`неизвестный аргумент «${a}»`);
+        else die(`unknown argument "${a}"`);
     }
     return opts;
 }
@@ -70,17 +70,17 @@ function parseArgs(argv) {
 function link(opts) {
     const tuidom = path.resolve(opts.tuidom);
     if (!existsSync(path.join(tuidom, "scripts", "build-package.mjs"))) {
-        die(`${tuidom} — не checkout tuidom (нет scripts/build-package.mjs). Укажи --tuidom <dir> или TUIDOM_DIR.`);
+        die(`${tuidom} is not a tuidom checkout (no scripts/build-package.mjs). Pass --tuidom <dir> or TUIDOM_DIR.`);
     }
     if (!manifestsClean()) {
-        die(`${MANIFESTS.join(" и ")} изменены. Подмена движка их не трогает и проверяет это по git diff —
-закоммить или отложи свои правки манифестов, потом повтори.`);
+        die(`${MANIFESTS.join(" and ")} are modified. The engine swap leaves them alone and checks that via git diff:
+commit or set aside your manifest edits, then retry.`);
     }
     const pkgJsonOf = (name) => path.join(tuidom, "packages", name, "package.json");
     for (const name of PACKAGES) {
         if (exportsPointToDist(readJson(pkgJsonOf(name)))) {
-            die(`${pkgJsonOf(name)}: exports уже указывают на dist — похоже, прошлая сборка упала
-до восстановления. Верни файл (git -C ${tuidom} checkout -- packages/${name}/package.json) и повтори.`);
+            die(`${pkgJsonOf(name)}: exports already point at dist, so the previous build probably failed
+before restoring it. Restore the file (git -C ${tuidom} checkout -- packages/${name}/package.json) and retry.`);
         }
     }
 
@@ -91,7 +91,7 @@ function link(opts) {
 
     for (const name of PACKAGES) {
         if (exportsPointToDist(readJson(pkgJsonOf(name)))) {
-            die(`после сборки ${pkgJsonOf(name)} остался с dist-exports — восстанови его в tuidom.`);
+            die(`after the build ${pkgJsonOf(name)} still has dist exports: restore it in tuidom.`);
         }
     }
 
@@ -104,7 +104,7 @@ function link(opts) {
         version = pkg.version;
         const file = `tuidom-${name}-${pkg.version}.tgz`;
         const src = path.join(tuidom, file);
-        if (!existsSync(src)) die(`нет ${src} после npm run pack`);
+        if (!existsSync(src)) die(`no ${src} after npm run pack`);
         cpSync(src, path.join(LINK_DIR, file));
         tgz.push(path.join(LINK_DIR, file));
     }
@@ -113,28 +113,30 @@ function link(opts) {
 
     if (!manifestsClean()) {
         sh("git", ["checkout", "--", ...MANIFESTS]);
-        die(`npm install изменил ${MANIFESTS.join("/")} — вернул из git. Подмена в node_modules осталась,
-но лучше откатить её: npm run engine:unlink.`);
+        die(`npm install changed ${MANIFESTS.join("/")}; restored them from git. The swap in node_modules is still there,
+but better roll it back: npm run engine:unlink.`);
     }
     const copies = sh("npm", ["ls", "@tuidom/core", "--all", "--parseable"])
         .stdout.split("\n")
         .filter((l) => l.endsWith(`${path.sep}@tuidom${path.sep}core`));
     if (new Set(copies).size !== 1) {
-        die(`в node_modules ${new Set(copies).size} копий @tuidom/core:\n  ${[...new Set(copies)].join("\n  ")}
-Две копии ломают instanceof и синглтоны движка. Откати: npm run engine:unlink.`);
+        die(`node_modules has ${new Set(copies).size} copies of @tuidom/core:\n  ${[...new Set(copies)].join("\n  ")}
+Two copies break instanceof and the engine singletons. Roll back: npm run engine:unlink.`);
     }
-    // Integrity, а не версия: до бампа версия совпадает с реестровой.
+    // Integrity, not version: before a bump the version equals the registry one.
     const hidden = readJson(path.join("node_modules", ".package-lock.json")).packages;
     for (const [i, name] of PACKAGES.entries()) {
         const entry = hidden[`node_modules/@tuidom/${name}`];
         const expected = `sha512-${createHash("sha512").update(readFileSync(tgz[i])).digest("base64")}`;
         const installed = readJson(path.join("node_modules", "@tuidom", name, "package.json"));
         if (entry?.integrity !== expected || !exportsPointToDist(installed)) {
-            die(`node_modules/@tuidom/${name} — не из ${tgz[i]} (resolved ${entry?.resolved}). Подмена не встала.`);
+            die(
+                `node_modules/@tuidom/${name} is not from ${tgz[i]} (resolved ${entry?.resolved}). The swap did not take.`,
+            );
         }
     }
 
-    // Кэш трансформов vitest/vite держит старый движок.
+    // The vitest/vite transform cache holds the old engine.
     rmSync(path.join("node_modules", ".vite"), { recursive: true, force: true });
     rmSync(path.join("node_modules", ".vitest"), { recursive: true, force: true });
 
@@ -143,45 +145,47 @@ function link(opts) {
 
     const declared = readJson("package.json").dependencies["@tuidom/core"];
     console.log(`
-engine-link: в node_modules стоит tuidom ${version} из ${tuidom}
-  коммит ${sha.slice(0, 12)}${dirty ? " + незакоммиченные правки в packages/" : ""}; в package.json по-прежнему ${declared}.
+engine-link: node_modules has tuidom ${version} from ${tuidom}
+  commit ${sha.slice(0, 12)}${dirty ? " + uncommitted edits in packages/" : ""}; package.json still says ${declared}.
 
-Проверяй НЕ через tsx (\`npm start\` скрыл бы .ts-утечку), а так:
-  npm run typecheck && npm test        # типы и юниты на собранном движке
-  npm run build && npm run build:sea   # сборка (build:sea — под лизой)
-Вернуть движок из реестра: npm run engine:unlink.
-Публикацию новой версии движка запрашивает человек; diode на неё не завязываем, пока её нет в npm.`);
+Check NOT through tsx (\`npm start\` would hide a .ts leak), but like this:
+  npm run typecheck && npm test        # types and unit tests on the built engine
+  npm run build && npm run build:sea   # build (build:sea under a lease)
+Restore the engine from the registry: npm run engine:unlink.
+Publishing a new engine version is requested by a human; diode does not depend on it until it is on npm.`);
 }
 
 function unlink() {
     if (!manifestsClean()) {
-        die(`${MANIFESTS.join(" и ")} изменены — npm ci поставит по ним, а не по git.
-Подмена их не трогала, значит это твои правки: закоммить или отложи их и повтори.`);
+        die(`${MANIFESTS.join(" and ")} are modified: npm ci would install from them, not from git.
+The swap did not touch them, so these are your edits: commit or set them aside and retry.`);
     }
     must("npm", ["ci", "--no-audit", "--no-fund"]);
     rmSync(LINK_DIR, { recursive: true, force: true });
     rmSync(path.join("node_modules", ".vite"), { recursive: true, force: true });
-    console.log("engine-link: движок снова из реестра, .engine-link/ удалён.");
+    console.log("engine-link: the engine is from the registry again, .engine-link/ removed.");
 }
 
 function status() {
     const core = readJson(path.join("node_modules", "@tuidom", "core", "package.json"));
     const declared = readJson("package.json").dependencies["@tuidom/core"];
     if (!existsSync(STAMP)) {
-        console.log(`engine-link: подмены нет — @tuidom/core ${core.version} из реестра (package.json: ${declared}).`);
+        console.log(
+            `engine-link: no swap, @tuidom/core ${core.version} from the registry (package.json: ${declared}).`,
+        );
         return;
     }
     const stamp = readJson(STAMP);
     const resolved = readJson(path.join("node_modules", ".package-lock.json")).packages["node_modules/@tuidom/core"]
         ?.resolved;
-    console.log(`engine-link: ПОДМЕНА — tuidom ${stamp.version} из ${stamp.tuidom}
-  коммит ${String(stamp.sha).slice(0, 12)}${stamp.dirty ? " + незакоммиченные правки" : ""}, собран ${stamp.linkedAt}
-  сейчас в node_modules: @tuidom/core ${core.version} (${resolved}); package.json: ${declared}
-Вернуть: npm run engine:unlink.`);
+    console.log(`engine-link: SWAPPED, tuidom ${stamp.version} from ${stamp.tuidom}
+  commit ${String(stamp.sha).slice(0, 12)}${stamp.dirty ? " + uncommitted edits" : ""}, built ${stamp.linkedAt}
+  now in node_modules: @tuidom/core ${core.version} (${resolved}); package.json: ${declared}
+Restore: npm run engine:unlink.`);
 }
 
 const opts = parseArgs(process.argv.slice(2));
 if (opts.cmd === "link") link(opts);
 else if (opts.cmd === "unlink") unlink();
 else if (opts.cmd === "status") status();
-else die("использование: node scripts/engine-link.mjs link|unlink|status [--tuidom <dir>] [--no-smoke]");
+else die("usage: node scripts/engine-link.mjs link|unlink|status [--tuidom <dir>] [--no-smoke]");

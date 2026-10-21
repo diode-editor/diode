@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * Эталон для сверки: исходники microsoft/vscode тега из `extensions/VSCODE_VERSION`.
+ * Upstream to compare against: microsoft/vscode sources at the tag from `extensions/VSCODE_VERSION`.
  *
- *   node scripts/vscode-ref.mjs            путь к эталону (скачает один раз, если его нет)
- *   node scripts/vscode-ref.mjs --update   перевести имеющийся клон на текущий тег
+ *   node scripts/vscode-ref.mjs            print the upstream path (downloads it once if missing)
+ *   node scripts/vscode-ref.mjs --update   move an existing clone to the current tag
  *
- * Сначала ищется готовый клон (DIODE_VSCODE_REF, соседние каталоги), иначе качается
- * blobless + sparse в `.reference/` (в `.gitignore`).
+ * An existing clone is looked up first (DIODE_VSCODE_REF, sibling directories), otherwise
+ * a blobless + sparse clone goes to `.reference/` (in `.gitignore`).
  */
 
 import { execFileSync } from "node:child_process";
@@ -19,7 +19,7 @@ const TAG = readFileSync(path.join(repoRoot, "extensions", "VSCODE_VERSION"), "u
 const REMOTE = "https://github.com/microsoft/vscode.git";
 const fallbackDir = path.join(repoRoot, ".reference", `vscode-${TAG}`);
 
-// Названное человеком — первым.
+// The one named by a human goes first.
 const candidates = [
     process.env.DIODE_VSCODE_REF,
     "/workspaces/vscode",
@@ -33,21 +33,21 @@ const isCheckout = (dir) => existsSync(path.join(dir, "src", "vs"));
 
 const git = (args, cwd) => execFileSync("git", args, { encoding: "utf8", cwd, stdio: ["ignore", "pipe", "pipe"] }).trim();
 
-/** У shallow-клона точного тега может не быть — тогда версия из package.json. */
+/** A shallow clone may lack the exact tag: then the version comes from package.json. */
 function versionOf(dir) {
     try {
         return git(["describe", "--tags", "--exact-match"], dir);
     } catch {
         try {
-            return JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")).version ?? "неизвестно";
+            return JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8")).version ?? "unknown";
         } catch {
-            return "неизвестно";
+            return "unknown";
         }
     }
 }
 
 function clone(dir) {
-    console.error(`Эталона vscode ${TAG} нет — качаю в ${dir} (blobless, sparse, только src/; один раз).`);
+    console.error(`No vscode ${TAG} upstream: downloading to ${dir} (blobless, sparse, src/ only; once).`);
     mkdirSync(path.dirname(dir), { recursive: true });
     git(["clone", "--filter=blob:none", "--no-checkout", "--depth", "1", "--branch", TAG, REMOTE, dir], repoRoot);
     git(["sparse-checkout", "set", "src"], dir);
@@ -58,7 +58,7 @@ const update = process.argv.includes("--update");
 let found = candidates.find(isCheckout);
 
 if (found && update) {
-    console.error(`Перевожу ${found} на тег ${TAG}…`);
+    console.error(`Moving ${found} to tag ${TAG}…`);
     git(["fetch", "--depth", "1", "origin", `refs/tags/${TAG}:refs/tags/${TAG}`], found);
     git(["checkout", TAG], found);
 }
@@ -70,6 +70,6 @@ if (!found) {
 
 const version = versionOf(found);
 if (!version.includes(TAG)) {
-    console.error(`Внимание: эталон в ${found} — версии ${version}, а мы запиннены к ${TAG}. Сверяй с поправкой на это (--update переведёт клон на нужный тег).`);
+    console.error(`Warning: the upstream in ${found} is version ${version}, but we are pinned to ${TAG}. Allow for that when comparing (--update moves the clone to the right tag).`);
 }
 console.log(found);

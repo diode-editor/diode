@@ -1,4 +1,4 @@
-// Запуск: node --test scripts/ (npm run test:scripts) — не vitest-сьют продукта.
+// Run: node --test scripts/ (npm run test:scripts); not part of the product vitest suite.
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -14,7 +14,7 @@ import {
 
 const at = (line, column, endLine, endColumn) => ({ start: { line, column }, end: { line: endLine, column: endColumn } });
 
-test("parseArgs: база только флагом, флаги npm-скрипта впереди не мешают", () => {
+test("parseArgs: base only via flag, npm script flags in front do not interfere", () => {
     const parsed = parseArgs(["--ignoreStatic", "--incremental", "--base", "origin/main", "--concurrency", "4"]);
     assert.equal(parsed.base, "origin/main");
     assert.deepEqual(parsed.strykerArgs, ["--ignoreStatic", "--incremental", "--concurrency", "4"]);
@@ -22,22 +22,22 @@ test("parseArgs: база только флагом, флаги npm-скрипт
     assert.equal(parseArgs([]).base, null);
 });
 
-test("parseArgs: позиционный аргумент — ошибка с подсказкой, а не тихая база main", () => {
-    // Ровно то, что давал `npm run test:mutation -- X`.
+test("parseArgs: a positional argument is an error with a hint, not a silent main base", () => {
+    // Exactly what `npm run test:mutation -- X` produced.
     assert.throws(() => parseArgs(["--ignoreStatic", "--incremental", "feature"]), /--base feature/);
-    assert.throws(() => parseArgs(["feature"]), /позиционный/);
-    assert.throws(() => parseArgs(["--scope-only", "feature"]), /позиционный/);
-    assert.throws(() => parseArgs(["--concurrency=4", "feature"]), /позиционный/);
-    assert.throws(() => parseArgs(["--base"]), /требует ревизию/);
-    assert.throws(() => parseArgs(["--base", "--force"]), /требует ревизию/);
+    assert.throws(() => parseArgs(["feature"]), /positional/);
+    assert.throws(() => parseArgs(["--scope-only", "feature"]), /positional/);
+    assert.throws(() => parseArgs(["--concurrency=4", "feature"]), /positional/);
+    assert.throws(() => parseArgs(["--base"]), /requires a revision/);
+    assert.throws(() => parseArgs(["--base", "--force"]), /requires a revision/);
 });
 
-test("parseArgs: позиционный — свой класс ошибки, по нему хук bash-guard отказывает до запуска", () => {
+test("parseArgs: a positional argument has its own error class, which the bash-guard hook refuses on before the run", () => {
     assert.throws(
         () => parseArgs(["--incremental", "feature"]),
         (error) => error instanceof PositionalArgumentError && error.arg === "feature",
     );
-    // Прочие ошибки аргументов — не он: на них хук молчит, их сообщает сам гейт.
+    // Other argument errors are not it: the hook stays silent on them, the gate itself reports them.
     assert.throws(
         () => parseArgs(["--base"]),
         (error) => !(error instanceof PositionalArgumentError),
@@ -48,20 +48,20 @@ test("parseArgs: позиционный — свой класс ошибки, п
     );
 });
 
-test("parseArgs: --scope-only снимается и не уходит Stryker'у", () => {
+test("parseArgs: --scope-only is consumed and not passed to Stryker", () => {
     const parsed = parseArgs(["--scope-only", "--force"]);
     assert.equal(parsed.scopeOnly, true);
     assert.deepEqual(parsed.strykerArgs, ["--force"]);
 });
 
-test("ensureJsonReporter: дописывает json, если его нет", () => {
+test("ensureJsonReporter: appends json if missing", () => {
     assert.deepEqual(ensureJsonReporter(["--reporters", "html,clear-text"]), ["--reporters", "html,clear-text,json"]);
     assert.deepEqual(ensureJsonReporter(["--reporters=html"]), ["--reporters=html,json"]);
     assert.deepEqual(ensureJsonReporter(["--reporters", "json,html"]), ["--reporters", "json,html"]);
     assert.deepEqual(ensureJsonReporter(["--force"]), ["--force"]);
 });
 
-test("mutantKey: две замены на одной позиции — разные мутанты", () => {
+test("mutantKey: two replacements at one position are different mutants", () => {
     const location = at(10, 5, 10, 20);
     const toTrue = { location, mutatorName: "ConditionalExpression", replacement: "true" };
     const toFalse = { location, mutatorName: "ConditionalExpression", replacement: "false" };
@@ -71,7 +71,7 @@ test("mutantKey: две замены на одной позиции — разн
     assert.equal(mutantKey("a.ts", toTrue), mutantKey("a.ts", { ...toTrue }));
 });
 
-test("parseScope + filterReportToScope: чужие мутанты инкрементального режима выбрасываются", () => {
+test("parseScope + filterReportToScope: foreign mutants from incremental mode are dropped", () => {
     const scope = parseScope(["src/new.ts", "src/old.ts:10-20"]);
     const report = {
         files: {
@@ -79,7 +79,7 @@ test("parseScope + filterReportToScope: чужие мутанты инкреме
             "src/old.ts": {
                 mutants: [
                     { location: at(10, 1, 20, 1), status: "Survived" },
-                    { location: at(19, 1, 21, 1), status: "Survived" }, // вылезает за край — как у Stryker'а, вне скоупа
+                    { location: at(19, 1, 21, 1), status: "Survived" }, // crosses the edge: out of scope, as in Stryker
                     { location: at(3, 1, 3, 2), status: "Survived" },
                 ],
             },
@@ -91,7 +91,7 @@ test("parseScope + filterReportToScope: чужие мутанты инкреме
     assert.equal(report.files["src/old.ts"].mutants.length, 1);
 });
 
-test("scoreReport: формула Stryker'а — RuntimeError/CompileError/Ignored вне знаменателя", () => {
+test("scoreReport: Stryker's formula, RuntimeError/CompileError/Ignored are outside the denominator", () => {
     const mutants = ["Killed", "Timeout", "Survived", "NoCoverage", "RuntimeError", "CompileError", "Ignored"].map(
         (status) => ({ status }),
     );
@@ -102,11 +102,11 @@ test("scoreReport: формула Stryker'а — RuntimeError/CompileError/Ignor
     assert.equal(scoreReport({ files: { "a.ts": { mutants: [{ status: "RuntimeError" }] } } }).score, 100);
 });
 
-test("parseArgs: флаги перепроверки вживлением снимаются и не уходят Stryker'у", () => {
+test("parseArgs: injection re-verification flags are consumed and not passed to Stryker", () => {
     const parsed = parseArgs(["--incremental", "--verify-jobs", "2", "--verify-full", "--verify-timeout", "30", "--verify-budget", "15"]);
     assert.deepEqual(parsed.verify, { jobs: 2, full: true, timeoutMs: 30_000, budgetMs: 900_000 });
     assert.deepEqual(parsed.strykerArgs, ["--incremental"]);
     assert.deepEqual(parseArgs([]).verify, {});
-    assert.throws(() => parseArgs(["--verify-jobs"]), /положительное число/);
-    assert.throws(() => parseArgs(["--verify-budget", "x"]), /положительное число/);
+    assert.throws(() => parseArgs(["--verify-jobs"]), /positive number/);
+    assert.throws(() => parseArgs(["--verify-budget", "x"]), /positive number/);
 });

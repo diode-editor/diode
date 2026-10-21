@@ -1,24 +1,24 @@
-/** Чистые функции прогона e2e: сколько воркеров, что упало, что флак. */
+/** Pure functions of the e2e run: how many workers, what failed, what is a flake. */
 
 import { availableParallelism, freemem, totalmem } from "node:os";
 import { relative } from "node:path";
 
 const GiB = 1024 ** 3;
 
-/** Худший случай: vitest + редактор + субпроцесс расширений + языковой сервер; замер — docs/TESTING.md. */
+/** Worst case: vitest + editor + extension host + language server; measured in docs/TESTING.md. */
 export const WORKER_BYTES = 1.5 * GiB;
 export const RESERVE_BYTES = 2 * GiB;
-/** Свободная память — снимок, и прогон сам её чуть съест. */
+/** Free memory is a snapshot, and the run itself eats some of it. */
 export const AVAILABLE_HEADROOM_BYTES = 1 * GiB;
 
 /**
- * Меньшее из трёх ограничений:
+ * The smallest of three limits:
  *
- *  - половина ядер: полный бинарь на каждом ядре насыщает CPU, и тайминг-тесты
- *    (рестарт, RPC, PTY-ввод) флейкают;
- *  - вся память (или лимит cgroup) минус резерв;
- *  - свободная СЕЙЧАС память минус запас: машина общая, и прогон, посчитанный от
- *    полной памяти, уходил в OOM рядом с мутационным гейтом соседа.
+ *  - half the cores: a full binary on every core saturates the CPU, and timing tests
+ *    (restart, RPC, PTY input) flake;
+ *  - total memory (or the cgroup limit) minus a reserve;
+ *  - memory free RIGHT NOW minus headroom: the machine is shared, and a run sized by
+ *    total memory went OOM next to a neighbor's mutation gate.
  *
  * @param {{ cpus?: number, totalBytes?: number, constrainedBytes?: number, availableBytes?: number, env?: Record<string, string | undefined> }} [machine]
  * @returns {{ workers: number, reason: string }}
@@ -36,7 +36,7 @@ export function planWorkers(machine = {}) {
         const n = Math.max(1, Math.floor(Number(explicit)) || 1);
         return { workers: n, reason: `DIODE_E2E_WORKERS=${explicit}` };
     }
-    // constrainedMemory без лимита отдаёт огромное число (2^64) или 0.
+    // Without a limit constrainedMemory returns a huge number (2^64) or 0.
     const limit = constrainedBytes > 0 && constrainedBytes < totalBytes ? constrainedBytes : totalBytes;
     const byCpu = Math.floor(cpus / 2);
     const byTotal = Math.floor((limit - RESERVE_BYTES) / WORKER_BYTES);
@@ -46,9 +46,9 @@ export function planWorkers(machine = {}) {
     return {
         workers,
         reason:
-            `ядра ${String(cpus)}/2 → ${String(byCpu)}; память ${gb(limit)} ГБ − ${gb(RESERVE_BYTES)} → ${String(byTotal)}; ` +
-            `свободно ${gb(availableBytes)} ГБ − ${gb(AVAILABLE_HEADROOM_BYTES)} → ${String(byAvailable)} ` +
-            `(по ${gb(WORKER_BYTES)} ГБ на воркер)`,
+            `cores ${String(cpus)}/2 → ${String(byCpu)}; memory ${gb(limit)} GB − ${gb(RESERVE_BYTES)} → ${String(byTotal)}; ` +
+            `free ${gb(availableBytes)} GB − ${gb(AVAILABLE_HEADROOM_BYTES)} → ${String(byAvailable)} ` +
+            `(${gb(WORKER_BYTES)} GB per worker)`,
     };
 }
 
@@ -65,8 +65,8 @@ export function analyzeReport(report, repoRoot) {
         const tests = (result.assertionResults ?? [])
             .filter((a) => a.status === "failed")
             .map((a) => ({ name: a.fullName ?? a.title ?? "?", message: firstLine(a.failureMessages?.[0]) }));
-        // Упал сам файл (импорт, хук, таймаут beforeAll) — причина в message.
-        if (tests.length === 0) tests.push({ name: "(файл целиком)", message: firstLine(result.message) });
+        // The file itself failed (import, hook, beforeAll timeout): the cause is in message.
+        if (tests.length === 0) tests.push({ name: "(whole file)", message: firstLine(result.message) });
         failed.push({ file: relative(repoRoot, result.name).replaceAll("\\", "/"), tests });
     }
     return { files: results.length, failed };
@@ -77,10 +77,10 @@ function firstLine(text) {
 }
 
 /**
- * Флак — упал в первом проходе и зелёный во втором: бинарь у них один и неизменяемый.
+ * A flake fails in the first pass and is green in the second: both use the same immutable binary.
  *
  * @param {{ failed: { file: string, tests: { name: string, message: string }[] }[] }} first
- * @param {{ failed: { file: string }[] } | null} second `null` — второго прохода не было
+ * @param {{ failed: { file: string }[] } | null} second `null` when there was no second pass
  * @returns {{ ok: boolean, flaky: { file: string, tests: { name: string, message: string }[] }[], broken: { file: string, tests: { name: string, message: string }[] }[] }}
  */
 export function verdict(first, second) {
@@ -98,12 +98,12 @@ export function verdict(first, second) {
  */
 export function renderSummary(result, info) {
     const lines = [];
-    const status = result.ok ? (result.flaky.length > 0 ? "зелёный, с флаками" : "зелёный") : "КРАСНЫЙ";
+    const status = result.ok ? (result.flaky.length > 0 ? "green, with flakes" : "green") : "RED";
     lines.push(`### e2e: ${status}`);
     lines.push("");
     lines.push(
-        `${String(info.files)} файлов, воркеров ${String(info.workers)}, ${String(Math.round(info.wallSeconds))} с` +
-            (info.retried ? "; упавшие файлы перепрогнаны поодиночке" : ""),
+        `${String(info.files)} files, workers ${String(info.workers)}, ${String(Math.round(info.wallSeconds))} s` +
+            (info.retried ? "; failed files rerun one by one" : ""),
     );
     const section = (title, entries) => {
         if (entries.length === 0) return;
@@ -113,7 +113,7 @@ export function renderSummary(result, info) {
             for (const t of entry.tests) lines.push(`  - ${t.name}${t.message ? ` — ${t.message}` : ""}`);
         }
     };
-    section("FLAKY — упал в первом проходе, зелёный во втором", result.flaky);
+    section("FLAKY: failed in the first pass, green in the second", result.flaky);
     section("FAILED", result.broken);
     return `${lines.join("\n")}\n`;
 }

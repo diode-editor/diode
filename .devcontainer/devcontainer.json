@@ -1,8 +1,8 @@
 {
 	"name": "Diode Development",
-	// Тег без дефиса — у 26.04 в mcr именно такое написание, в отличие от ubuntu-24.04.
-	// Digest здесь от индекса, а не от конкретной архитектуры: так пиннинг сохраняет
-	// multi-arch, и один конфиг работает на aarch64-ноутбуке, x86-удалёнке и в Codespaces.
+	// Tag without a hyphen: that is how mcr spells 26.04, unlike ubuntu-24.04.
+	// The digest is of the index, not of a specific architecture: the pin stays
+	// multi-arch, and one config works on an aarch64 laptop, an x86 remote box and in Codespaces.
 	"image": "mcr.microsoft.com/devcontainers/base:ubuntu26.04@sha256:1f8bb87ca6d342a587a9163a5a1ea8c487bcd4f149e8483a5ff711f795f0776d",
 	"features": {
 		"ghcr.io/devcontainers/features/github-cli:1": {},
@@ -24,7 +24,7 @@
 		"LANG": "en_US.UTF-8"
 	},
 	"remoteUser": "vscode",
-	// onCreate, а не postCreate: на этапе Codespaces prebuild выполняется именно
-	// onCreateCommand, так что тяжёлая часть попадает в заранее собранный образ.
+	// onCreate, not postCreate: Codespaces prebuild runs exactly
+	// onCreateCommand, so the heavy part lands in the prebuilt image.
 	"onCreateCommand": "bash .devcontainer/setup.sh"
 }

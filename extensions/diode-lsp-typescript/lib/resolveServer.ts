@@ -1,16 +1,16 @@
 /**
- * JS-энтрипоинты запускаются НАШИМ node-рантаймом, как в VS Code (в SEA —
- * diode-бинарь + `DIODE_RUN_AS_NODE=1`, калька `ELECTRON_RUN_AS_NODE`).
- * Поэтому кандидаты — JS-энтрипоинты, а не `.bin/…`-шимы: шебанг
- * `#!/usr/bin/env node` требует системный node (без него — exit 127).
+ * JS entry points run on OUR node runtime, as in VS Code (in SEA it is the
+ * diode binary + `DIODE_RUN_AS_NODE=1`, modeled on `ELECTRON_RUN_AS_NODE`).
+ * Hence the candidates are JS entry points, not `.bin/…` shims: the shebang
+ * `#!/usr/bin/env node` requires a system node (without it, exit 127).
  */
 
 export interface ILanguageServerSpec {
-    /** id клиента (`LanguageClient(id, …)`) и владелец диагностик. */
+    /** Client id (`LanguageClient(id, …)`) and the diagnostics owner. */
     readonly id: string;
     readonly displayName: string;
     readonly languageIds: readonly string[];
-    /** По приоритету: настройка → workspace `node_modules` → вшитый сервер → имя в PATH. */
+    /** By priority: setting → workspace `node_modules` → bundled server → name in PATH. */
     readonly resolveCandidates: (
         settingPath: string,
         workspaceRoots: readonly string[],
@@ -20,7 +20,7 @@ export interface ILanguageServerSpec {
 
 export interface IServerRuntime {
     readonly command: string;
-    /** SEA: бинарь должен уйти в node-режим (`DIODE_RUN_AS_NODE=1` в env сервера). */
+    /** SEA: the binary must switch to node mode (`DIODE_RUN_AS_NODE=1` in the server env). */
     readonly runAsNodeFlag: boolean;
 }
 
@@ -28,8 +28,8 @@ export interface IServerCommand {
     readonly command: string;
     readonly args: readonly string[];
     /**
-     * `DIODE_EXTENSION_HOST` снимается ВСЕГДА: vscode-languageclient копирует env
-     * ext-host'а в сервер, и флаг увёл бы наш бинарь в ext-host-ветку (exit 2 без IPC).
+     * `DIODE_EXTENSION_HOST` is ALWAYS removed: vscode-languageclient copies the extension host
+     * env into the server, and the flag would send our binary down the extension host branch (exit 2 without IPC).
      */
     readonly env: Readonly<Record<string, string | undefined>>;
 }
@@ -63,11 +63,11 @@ export const LANGUAGE_SERVERS: readonly ILanguageServerSpec[] = [
 
 export interface IResolvedServer {
     readonly command: IServerCommand;
-    /** Для ATA/tsserver.path. */
+    /** For ATA/tsserver.path. */
     readonly isBundled: boolean;
 }
 
-/** PATH-кандидат (имя без разделителей) существованием не проверяется — spawn упадёт сам. */
+/** A PATH candidate (a name without separators) is not checked for existence: spawn fails by itself. */
 export function resolveServerCommand(
     spec: ILanguageServerSpec,
     settingPath: string,

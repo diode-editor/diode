@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * Кодмод big-bang миграции src/ на vscode-раскладку `src/vs/*`.
+ * Codemod of the big-bang migration of src/ to the vscode `src/vs/*` layout.
  *
- *  --dry-run (дефолт) — печатает план, непокрытые файлы и коллизии (`--print` — таблицу);
- *  --apply            — `git mv`, переписывает относительные импорты во всех .ts/.tsx
- *                       (резолв надёжен, потому что импорты всегда с расширением) и
- *                       пути в конфигах.
+ *  --dry-run (default) prints the plan, uncovered files and collisions (`--print` prints the table);
+ *  --apply             runs `git mv`, rewrites relative imports in all .ts/.tsx
+ *                      (resolution is reliable because imports always carry an extension) and
+ *                      paths in configs.
  */
 
 import { execFileSync } from "node:child_process";
@@ -22,7 +22,7 @@ export function camelSegment(seg) {
     const rest = m[2];
     if (caps.length === 1) return caps.toLowerCase() + rest;
     if (rest === "") return caps.toLowerCase();
-    // Ведущий акроним: последняя заглавная принадлежит следующему слову.
+    // Leading acronym: the last capital belongs to the next word.
     return caps.slice(0, -1).toLowerCase() + caps.slice(-1) + rest;
 }
 
@@ -32,23 +32,23 @@ export function camelBasename(basename) {
     return [...parts.map(camelSegment), ext].join(".");
 }
 
-// Имена уже итоговые: camelCase к ним не применяется.
+// Names are already final: camelCase is not applied to them.
 const FILE_MAP = new Map(
     Object.entries({
         "src/main.ts": "src/vs/vexx/main.ts",
         "src/Extensions/Api/vscode.d.ts": "src/vscode-dts/vscode.d.ts",
-        // Барел темы: реэкспортирует и platform-половину, и ThemeService —
-        // едет на workbench-сторону (ей можно импортировать platform).
+        // The theme barrel re-exports both the platform half and ThemeService,
+        // so it moves to the workbench side (which may import platform).
         "src/Theme/index.ts": "src/vs/workbench/services/themes/common/index.ts",
         "src/Workbench/Services/TerminalEnvironment/TerminalEnvironmentModule.ts":
             "src/vs/workbench/services/terminalEnvironment/node/terminalEnvironmentModule.ts",
-        // Контракт между терминальным виджетом (browser) и PTY-сессией (node) —
-        // env-нейтральный, живёт в base/common.
+        // The contract between the terminal widget (browser) and the PTY session (node)
+        // is environment-neutral and lives in base/common.
         "src/TUIDom/Widgets/Terminal/ITerminalSurface.ts": "src/vs/base/common/iTerminalSurface.ts",
     }),
 );
 
-/** Первый подошедший regex по basename. */
+/** The first regex matching the basename. */
 function byBasename(rules, fallback) {
     return (basename) => {
         for (const [re, dir] of rules) {
@@ -62,7 +62,7 @@ const commonRules = byBasename(
     [
         [/^DiContainer\./, "src/vs/platform/instantiation/common"],
         [/^(CliArgs|UserDataPaths)\./, "src/vs/platform/environment/node"],
-        // Пробинг возможностей терминала — часть движка (его читает backend).
+        // Terminal capability probing is part of the engine (the backend reads it).
         [/^TerminalEnv\./, "src/vs/tui/backend"],
         [/^(IClipboard|IFileClipboard|InMemoryClipboard|InMemoryFileClipboard|OscClipboard)\./, "src/vs/platform/clipboard/common"],
         [/^IFileWatcher\./, "src/vs/platform/files/common"],
@@ -160,10 +160,10 @@ const workbenchServicesRules = byBasename(
         [/^CommandRegistry\./, "src/vs/platform/commands/common"],
         [/^(ContextKeyService|ContextKeys)\./, "src/vs/platform/contextkey/common"],
         [/^(KeybindingRegistry|ModifierReleaseArmory)\./, "src/vs/platform/keybinding/common"],
-        // Диспатчер знает статус-бар (chord-хинт) и терминальные моды — workbench.
+        // The dispatcher knows the status bar (chord hint) and terminal modes, so workbench.
         [/^KeybindingDispatcher\./, "src/vs/workbench/services/keybinding/browser"],
-        // Сервис ведёт общий виджет-компонент (ThemedComponent) — workbench-сторона;
-        // в platform/quickinput едет только QuickAccess-реестр (данные).
+        // The service drives a shared widget component (ThemedComponent), so the workbench side;
+        // only the QuickAccess registry (data) moves to platform/quickinput.
         [/^QuickInputService\./, "src/vs/workbench/browser/parts/quickinput"],
         [/^(QuickOpenService|QuickOpenParsing)\./, "src/vs/workbench/contrib/quickaccess/browser"],
         [/^ChokidarFileWatcher\./, "src/vs/platform/files/node"],
@@ -201,7 +201,7 @@ const workbenchActionsRules = byBasename(
 
 const workbenchMenusRules = byBasename(
     [
-        // Агрегат и контексты знают про builtinActions/фичи — workbench-сторона.
+        // The aggregate and contexts know about builtinActions/features, so the workbench side.
         [/^(menuContributions|menuContexts)\./, "src/vs/workbench/browser/actions"],
     ],
     "src/vs/platform/actions/common",
@@ -277,7 +277,7 @@ const extensionsHostRules = byBasename(
     "src/vs/workbench/api/common",
 );
 
-// Порядок не важен: выбирается самый длинный подошедший префикс.
+// Order doesn't matter: the longest matching prefix wins.
 const DIR_RULES = {
     "src/Common": commonRules,
     "src/Common/Assets": commonAssetsRules,
@@ -297,8 +297,8 @@ const DIR_RULES = {
     "src/Editor/Tokenization/textmate": () => "src/vs/workbench/services/textMate/common",
     "src/Editor/Tokenization/textmate/learning": () => "src/vs/workbench/services/textMate/common/learning",
     "src/Input": () => "src/vs/tui/input",
-    // packRgb/StyleFlags — чистые хелперы packed-цветов, их читает весь стек
-    // вплоть до base/common (FileIcons) — это base, а не движок.
+    // packRgb/StyleFlags are pure packed-color helpers read by the whole stack
+    // down to base/common (FileIcons), so they are base, not the engine.
     "src/Rendering": byBasename(
         [[/^(ColorUtils|StyleFlags)\./, "src/vs/base/common"]],
         "src/vs/tui/rendering",
@@ -325,9 +325,9 @@ const DIR_RULES = {
     "src/Workbench/Modules": () => "src/vs/vexx/modules",
     "src/Workbench/Services": workbenchServicesRules,
     "src/Workbench/Services/Diagnostics": workbenchDiagnosticsRules,
-    // Реестр использует DI-аксессор (workbench-инфраструктура), провайдеры
-    // тянут поиск/парсинг — весь кластер workbench-сторона, как у vscode
-    // (провайдеры квик-опена живут в workbench/contrib/quickaccess).
+    // The registry uses a DI accessor (workbench infrastructure) and the providers
+    // pull in search/parsing, so the whole cluster is the workbench side, as in vscode
+    // (quick open providers live in workbench/contrib/quickaccess).
     "src/Workbench/Services/QuickAccess": byBasename(
         [[/^(IQuickAccessProvider|QuickAccessRegistry)\./, "src/vs/workbench/contrib/quickaccess/common"]],
         "src/vs/workbench/contrib/quickaccess/browser",
@@ -348,7 +348,7 @@ const UNMOVED_PREFIXES = ["src/Inspector", "src/TestUtils", "src/StoryRunner", "
 const BUILTIN_EXTENSIONS_FROM = "src/Extensions/builtin";
 const BUILTIN_EXTENSIONS_TO = "extensions";
 
-// Только для глобов и каталогов; точные пути файлов берутся из таблицы переездов.
+// Only for globs and directories; exact file paths come from the move table.
 const TEXT_REPLACEMENTS = [
     ["src/main.ts", "src/vs/vexx/main.ts"],
     ["src/Extensions/builtin", "extensions"],
@@ -359,9 +359,9 @@ const TEXT_REPLACEMENTS = [
 ];
 
 /**
- * Пути, которые импорт-переписчик не видит (от import.meta.url, resolve(root, "src", …)).
- * Ключ — НОВЫЙ путь файла. Ненайденный паттерн — warning, а не падение: часть
- * паттернов существует только до или после мерджа PR фазы 1.
+ * Paths the import rewriter doesn't see (from import.meta.url, resolve(root, "src", …)).
+ * The key is the NEW file path. A pattern not found is a warning, not a failure: some
+ * patterns exist only before or after the phase 1 PR merge.
  */
 const FILE_FIXUPS = {
     "src/vs/base/node/assets/createDefaultAssetAccess.ts": [
@@ -369,12 +369,13 @@ const FILE_FIXUPS = {
             `    // src/Common/Assets → src
     const srcRoot = path.resolve(here, "..", "..");
     const builtinDir = path.resolve(srcRoot, "Extensions", "builtin");`,
-            `    // src/vs/base/node/assets → корень репозитория
+            `    // src/vs/base/node/assets → repo root
     const repoRootDir = path.resolve(here, "..", "..", "..", "..", "..");
     const builtinDir = path.resolve(repoRootDir, "extensions");`,
         ],
-        ["в \`src/Extensions/builtin/\`", "в \`extensions/\`"],
-        ["к \`src/Extensions/builtin/\`", "к \`extensions/\`"],
+        // The old comment in the file is Russian: "\u0432" is "v" (in), "\u043a" is "k" (to).
+        ["\u0432 \`src/Extensions/builtin/\`", "\u0432 \`extensions/\`"],
+        ["\u043a \`src/Extensions/builtin/\`", "\u043a \`extensions/\`"],
     ],
     "src/vs/workbench/services/textMate/common/learning/testRegistry.ts": [
         [
@@ -394,7 +395,7 @@ const FILE_FIXUPS = {
             `resolve(repoRoot, "extensions", "vexx-settings", "settings-schema.generated.ts")`,
         ],
         [`resolve(repoRoot, "src", "Extensions", "builtin")`, `resolve(repoRoot, "extensions")`],
-        // Вариант до мерджа PR #170 (defaults.ts) и после (configuration-узлы).
+        // The variant before the PR #170 merge (defaults.ts) and after it (configuration nodes).
         [
             `resolve(repoRoot, "src", "Configuration", "defaults.ts")`,
             `resolve(repoRoot, "src", "vs", "platform", "configuration", "common", "defaults.ts")`,
@@ -408,7 +409,7 @@ const FILE_FIXUPS = {
             `resolve(repoRoot, "src", "vs", "workbench", "services", "themes", "common", "themes", "builtinThemes.ts")`,
         ],
     ],
-    // Интеграционный тест поиска ассертит реальные имена файлов репозитория.
+    // The search integration test asserts real repo file names.
     "src/vs/workbench/services/search/node/fileSearchService.integration.test.ts": [
         ["\"WorkbenchComponent.ts\"", "\"workbenchComponent.ts\""],
         ["\"WorkbenchComponent\"", "\"workbenchComponent\""],
@@ -505,7 +506,7 @@ export function computeMoves() {
 
 export function rewriteImports(fileRel, content, moves) {
     const fileNewDir = path.dirname(moves.get(fileRel) ?? fileRel);
-    // Только в импорт-контекстах: голые литералы с ./-путями — данные тестов (виртуальные пути ассетов).
+    // Only in import contexts: bare literals with ./ paths are test data (virtual asset paths).
     return content.replace(
         /(from\s*|import\s*\(\s*|require\s*\(\s*|new URL\(\s*|vi\.(?:mock|doMock|importActual|importMock)[^(]*\(\s*|^import\s+)(["'])(\.\.?\/[^"']+?\.(?:ts|tsx|cjs|mjs|json))\2/gm,
         (whole, prefix, quote, spec) => {
@@ -559,7 +560,7 @@ function main() {
     for (const extra of ["tsup.config.ts", "vitest.config.ts", "vitest.e2e.config.ts", "vitest.perf.config.ts"]) {
         if (existsSync(path.join(repoRoot, extra))) tsFiles.push(extra);
     }
-    // Таблица адресуется СТАРЫМИ путями, а файлы уже лежат по новым.
+    // The table is keyed by OLD paths, while the files already sit at the new ones.
     const newToOld = new Map([...moves].map(([from, to]) => [to, from]));
     for (const rel of tsFiles) {
         if (!/\.(ts|tsx)$/.test(rel)) continue;
@@ -570,7 +571,7 @@ function main() {
         if (next !== content) writeFileSync(abs, next, "utf8");
     }
 
-    // Сначала точные пути по таблице (ловит и camelCase-переименования), затем префиксы.
+    // Exact paths from the table first (this also catches camelCase renames), then prefixes.
     for (const rel of TEXT_REPLACEMENT_FILES) {
         const abs = path.join(repoRoot, rel);
         if (!existsSync(abs)) continue;
@@ -585,13 +586,13 @@ function main() {
     for (const [rel, fixups] of Object.entries(FILE_FIXUPS)) {
         const abs = path.join(repoRoot, rel);
         if (!existsSync(abs)) {
-            console.warn(`[fixups] файл не найден: ${rel}`);
+            console.warn(`[fixups] file not found: ${rel}`);
             continue;
         }
         let content = readFileSync(abs, "utf8");
         for (const [from, to] of fixups) {
             if (!content.includes(from)) {
-                console.warn(`[fixups] паттерн не найден в ${rel}: ${from.slice(0, 60)}…`);
+                console.warn(`[fixups] pattern not found in ${rel}: ${from.slice(0, 60)}…`);
                 continue;
             }
             content = content.replaceAll(from, to);

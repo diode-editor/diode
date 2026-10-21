@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { fetchArgs, pullArgs, pushArgs, safeRefArg } from "./syncArgs.ts";
 
 describe("safeRefArg", () => {
-    it("отклоняет не-строки, пустое и похожее на флаг (argument injection)", () => {
+    it("rejects non-strings, empty and flag-like values (argument injection)", () => {
         expect(safeRefArg(42)).toBeNull();
         expect(safeRefArg("")).toBeNull();
         expect(safeRefArg("  ")).toBeNull();
@@ -14,7 +14,7 @@ describe("safeRefArg", () => {
 });
 
 describe("pullArgs / pushArgs / fetchArgs", () => {
-    it("pull: rebase и remote/ref; ref без remote игнорируется", () => {
+    it("pull: rebase and remote/ref; ref without remote is ignored", () => {
         expect(pullArgs({})).toEqual(["pull"]);
         expect(pullArgs({ rebase: true })).toEqual(["pull", "--rebase"]);
         expect(pullArgs({ remote: "origin", ref: "main" })).toEqual(["pull", "origin", "main"]);
@@ -39,7 +39,7 @@ describe("pullArgs / pushArgs / fetchArgs", () => {
         expect(pushArgs({ remote: "origin" })).toEqual(["push", "origin"]);
     });
 
-    it("fetch: prune/all; remote игнорируется при all", () => {
+    it("fetch: prune/all; remote is ignored with all", () => {
         expect(fetchArgs({})).toEqual(["fetch"]);
         expect(fetchArgs({ prune: true })).toEqual(["fetch", "--prune"]);
         expect(fetchArgs({ all: true, remote: "origin" })).toEqual(["fetch", "--all"]);

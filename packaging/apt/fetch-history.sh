@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
-# Записи Packages всех прошлых стабильных релизов — чтобы apt видел не только последнюю версию.
+# Packages entries of all past stable releases, so apt sees more than the latest version.
 #
 #   packaging/apt/fetch-history.sh <out-file> [exclude-tag] [owner/repo]
 #
-# Каждый релиз с v0.4.0 несёт ассет Packages. Из него берётся только станза своей версии
-# (Version = тег без `v`), и её голый Filename переписывается в путь до ассета того релиза:
+# Every release since v0.4.0 carries a Packages asset. Only the stanza of its own version
+# (Version = tag without `v`) is taken from it, and its bare Filename is rewritten into the path to that release's asset:
 #
 #   Filename: ../../download/v0.8.3/diode_0.8.3_amd64.deb
 #
-# sources.list у пользователя смотрит на releases/latest/download/, а
-# releases/latest/download/../../download/vX/… — это releases/download/vX/…. apt склеивает
-# base + Filename без нормализации и шлёт `..` как есть, GitHub такой путь принимает.
-# Спецификация формата просит Filename без `.`/`..` («should»), строгие зеркалировщики
-# могут такие записи отвергнуть — поэтому `..` получают только старые версии, а новая
-# (build-repo.sh, dpkg-scanpackages) остаётся с голым именем: в худшем случае строгий
-# клиент не увидит истории, но последняя версия ставится как раньше.
+# The user's sources.list points at releases/latest/download/, and
+# releases/latest/download/../../download/vX/… is releases/download/vX/…. apt concatenates
+# base + Filename without normalizing and sends `..` as is; GitHub accepts such a path.
+# The format spec asks for Filename without `.`/`..` ("should"), and strict mirroring tools
+# may reject such entries, so only old versions get `..`, while the new one
+# (build-repo.sh, dpkg-scanpackages) keeps the bare name: at worst a strict
+# client doesn't see the history, but the latest version installs as before.
 #
-# Размеры и хэши берутся из старых Packages, сами .deb не качаются. Релизы без Packages
-# (до появления apt-ключа) пропускаются. Пересобирается целиком при каждом релизе —
-# пропуск в одном релизе чинится следующим.
+# Sizes and hashes come from the old Packages; the .deb files themselves aren't downloaded.
+# Releases without Packages (before the apt key existed) are skipped. Rebuilt from scratch on
+# every release, so a gap in one release is fixed by the next.
 
 set -euo pipefail
 
@@ -30,7 +30,7 @@ tmp="$(mktemp)"
 trap 'rm -f "$tmp"' EXIT
 : > "$out"
 
-# Nightly — pre-release и сюда не попадает, как и в releases/latest.
+# Nightly is a pre-release and never lands here, just as with releases/latest.
 gh release list -R "$repo" --exclude-pre-releases --exclude-drafts --limit 1000 \
     --json tagName --jq '.[].tagName' |
 while read -r tag; do

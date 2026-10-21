@@ -17,7 +17,7 @@ const INSERT = {
 };
 const REMOVE = { range: { start: { line: 0, character: 0 }, end: { line: 2, character: 0 } }, newText: "" };
 
-/** Правка «Move to a new file» в форме typescript-language-server: голые `changes`. */
+/** A "Move to a new file" edit in the typescript-language-server shape: bare `changes`. */
 const MOVE: ApplyWorkspaceEditParams = { edit: { changes: { [NEW]: [INSERT], [SOURCE]: [REMOVE] } } };
 
 function makeHost(files: Record<string, FileStat>, overrides: Partial<RefactoringEditsHost> = {}) {
@@ -33,7 +33,7 @@ function makeHost(files: Record<string, FileStat>, overrides: Partial<Refactorin
     return { host, middleware: createRefactoringEditsMiddleware(host) };
 }
 
-/** Пустой файл, который сервер создал (`fs.ensureFile`) после старта команды. */
+/** An empty file the server created (`fs.ensureFile`) after the command started. */
 const FRESH: FileStat = { size: 0, birthtimeMs: 10_100, ctimeMs: 10_100 };
 
 async function duringRefactoring(
@@ -48,8 +48,8 @@ async function duringRefactoring(
     return result;
 }
 
-describe("diode-lsp-typescript — правка рефакторинга в форме эталона", () => {
-    it("новый файл, созданный сервером, приезжает созданием: Ctrl+Z его уберёт", async () => {
+describe("diode-lsp-typescript — refactoring edit in the upstream shape", () => {
+    it("a new file created by the server comes as a creation: Ctrl+Z removes it", async () => {
         const { host, middleware } = makeHost({ "/proj/src/Foo.ts": FRESH });
 
         expect(await duringRefactoring(middleware, MOVE)).toEqual({ applied: true });
@@ -67,7 +67,7 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
         expect(host.writeEmpty).not.toHaveBeenCalled();
     });
 
-    it("правка рефакторинга без новых файлов — всё равно рефакторинг (files.refactoring.autoSave)", async () => {
+    it("a refactoring edit without new files is still a refactoring (files.refactoring.autoSave)", async () => {
         const { host, middleware } = makeHost({});
         const next = vi.fn(() => ({ applied: true }));
 
@@ -78,7 +78,7 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
         expect(host.unlink).not.toHaveBeenCalled();
     });
 
-    it("не применилось — пустой файл сервера возвращается на место", async () => {
+    it("not applied — the server's empty file is restored", async () => {
         const { host, middleware } = makeHost(
             { "/proj/src/Foo.ts": FRESH },
             { applyRefactoringEdit: vi.fn(() => Promise.resolve(false)) },
@@ -88,7 +88,7 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
         expect(host.writeEmpty).toHaveBeenCalledExactlyOnceWith("/proj/src/Foo.ts");
     });
 
-    it("вне команды рефакторинга правка идёт штатным путём клиента", async () => {
+    it("outside a refactoring command the edit takes the regular client path", async () => {
         const { host, middleware } = makeHost({ "/proj/src/Foo.ts": FRESH });
         const next = vi.fn(() => ({ applied: true }));
 
@@ -98,7 +98,7 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
         expect(host.applyRefactoringEdit).not.toHaveBeenCalled();
     });
 
-    it("окно закрывается вместе с командой, даже упавшей", async () => {
+    it("the window closes together with the command, even a failed one", async () => {
         const { host, middleware } = makeHost({});
         await expect(
             middleware.executeCommand(APPLY_REFACTORING_COMMAND, [], () => Promise.reject(new Error("boom"))),
@@ -110,7 +110,7 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
         expect(host.applyRefactoringEdit).not.toHaveBeenCalled();
     });
 
-    it("правка внутри чужой команды идёт штатным путём клиента", async () => {
+    it("an edit inside a foreign command takes the regular client path", async () => {
         const { host, middleware } = makeHost({ "/proj/src/Foo.ts": FRESH });
         const next = vi.fn(() => ({ applied: true }));
         await middleware.executeCommand("_typescript.organizeImports", [], async () => {
@@ -120,11 +120,11 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
         expect(host.applyRefactoringEdit).not.toHaveBeenCalled();
     });
 
-    it("окно считается от САМОЙ РАННЕЙ из идущих команд", async () => {
+    it("the window starts at the EARLIEST of the running commands", async () => {
         const times = [10_000, 20_000];
         const { host, middleware } = makeHost({ "/proj/src/Foo.ts": FRESH }, { now: () => times.shift() ?? 0 });
         await middleware.executeCommand(APPLY_REFACTORING_COMMAND, [], async () => {
-            // Вторая команда стартовала позже, чем сервер создал файл первой.
+            // The second command started after the server created the first one's file.
             await middleware.executeCommand(APPLY_REFACTORING_COMMAND, [], async () => {
                 await middleware.handleApplyEdit(MOVE, vi.fn());
             });
@@ -132,13 +132,13 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
         expect(host.unlink).toHaveBeenCalledOnce();
     });
 
-    it("время создания берётся из birthtime, если файловая система его хранит", async () => {
+    it("creation time comes from birthtime if the file system stores it", async () => {
         const { host, middleware } = makeHost({ "/proj/src/Foo.ts": { size: 0, birthtimeMs: 10_100, ctimeMs: 1 } });
         await duringRefactoring(middleware, MOVE);
         expect(host.unlink).toHaveBeenCalledOnce();
     });
 
-    it("чужая команда окна не открывает и уходит дальше как есть", async () => {
+    it("a foreign command opens no window and passes through as is", async () => {
         const { middleware } = makeHost({});
         const next = vi.fn(() => "result");
 
@@ -146,7 +146,7 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
         expect(next).toHaveBeenCalledExactlyOnceWith("_typescript.organizeImports", ["a"]);
     });
 
-    it("окно держится, пока идёт хоть одна из параллельных команд", async () => {
+    it("the window holds while any of the parallel commands is running", async () => {
         const { host, middleware } = makeHost({});
         let finishFirst = (): void => {};
         const first = middleware.executeCommand(
@@ -162,13 +162,13 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
         await first;
     });
 
-    it("созданием считается только пустой, свежий, закрытый file:-файл", async () => {
+    it("only an empty, fresh, closed file: file counts as a creation", async () => {
         const cases: [string, Record<string, FileStat>, Partial<RefactoringEditsHost>][] = [
-            ["непустой", { "/proj/src/Foo.ts": { ...FRESH, size: 3 } }, {}],
-            // Создан раньше команды (запас на грубые часы — секунда).
-            ["старый", { "/proj/src/Foo.ts": { size: 0, birthtimeMs: 8_999, ctimeMs: 8_999 } }, {}],
-            ["открытый", { "/proj/src/Foo.ts": FRESH }, { isOpen: () => true }],
-            ["нет файла", {}, {}],
+            ["non-empty", { "/proj/src/Foo.ts": { ...FRESH, size: 3 } }, {}],
+            // Created before the command (a one-second margin for a coarse clock).
+            ["old", { "/proj/src/Foo.ts": { size: 0, birthtimeMs: 8_999, ctimeMs: 8_999 } }, {}],
+            ["open", { "/proj/src/Foo.ts": FRESH }, { isOpen: () => true }],
+            ["no file", {}, {}],
         ];
         for (const [name, files, overrides] of cases) {
             const { host, middleware } = makeHost(files, overrides);
@@ -178,19 +178,19 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
         }
     });
 
-    it("файловая система без времени создания — судим по ctime; запас в секунду на грубые часы", async () => {
+    it("a file system without creation time — judge by ctime; a one-second margin for a coarse clock", async () => {
         const { host, middleware } = makeHost({ "/proj/src/Foo.ts": { size: 0, birthtimeMs: 0, ctimeMs: 9_000 } });
         await duringRefactoring(middleware, MOVE);
         expect(host.unlink).toHaveBeenCalledOnce();
     });
 
-    it("не-file ресурс не проверяется на диске", async () => {
+    it("a non-file resource is not checked on disk", async () => {
         const { host, middleware } = makeHost({});
         await duringRefactoring(middleware, { edit: { changes: { "untitled:Untitled-1": [INSERT] } } });
         expect(host.stat).not.toHaveBeenCalled();
     });
 
-    it("documentChanges от сервера не переписываются (даже рядом с changes)", async () => {
+    it("documentChanges from the server are not rewritten (even next to changes)", async () => {
         const { host, middleware } = makeHost({ "/proj/src/Foo.ts": FRESH });
         const params: ApplyWorkspaceEditParams = {
             edit: {
@@ -203,7 +203,7 @@ describe("diode-lsp-typescript — правка рефакторинга в фо
         expect(host.applyRefactoringEdit).toHaveBeenCalledExactlyOnceWith(params);
     });
 
-    it("withCreatedFiles сохраняет метку и аннотации правки", () => {
+    it("withCreatedFiles keeps the edit label and annotations", () => {
         const annotations = { a: { label: "Move" } };
         expect(
             withCreatedFiles(

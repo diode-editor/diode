@@ -40,64 +40,64 @@ function expected(fields: Partial<ILogEntry> & { sha: string }): ILogEntry {
 }
 
 describe("parseLogZ", () => {
-    it("разбирает NUL-разделённые записи по семь полей", () => {
+    it("parses NUL-separated records of seven fields", () => {
         const stdout = [
-            entry({ sha: SHA_A, parents: SHA_B, subject: "feat: панель" }),
-            entry({ sha: SHA_B, subject: "fix: сэш" }),
+            entry({ sha: SHA_A, parents: SHA_B, subject: "feat: panel" }),
+            entry({ sha: SHA_B, subject: "fix: sash" }),
         ].join("\0");
         expect(parseLogZ(stdout)).toEqual([
-            expected({ sha: SHA_A, parents: [SHA_B], subject: "feat: панель" }),
-            expected({ sha: SHA_B, subject: "fix: сэш" }),
+            expected({ sha: SHA_A, parents: [SHA_B], subject: "feat: panel" }),
+            expected({ sha: SHA_B, subject: "fix: sash" }),
         ]);
     });
 
-    it("родители merge-коммита разделены пробелом", () => {
+    it("merge commit parents are space-separated", () => {
         const stdout = entry({ sha: SHA_A, parents: `${SHA_B} ${SHA_C}` });
         expect(parseLogZ(stdout)[0].parents).toEqual([SHA_B, SHA_C]);
     });
 
-    it("корневой коммит — пустой список родителей", () => {
+    it("root commit has an empty parent list", () => {
         expect(parseLogZ(entry({ sha: SHA_A }))[0].parents).toEqual([]);
     });
 
-    it("автор и время коммита попадают в запись", () => {
+    it("commit author and time land in the record", () => {
         const stdout = entry({ sha: SHA_A, author: "Ada Lovelace", timestamp: "1234567890" });
         expect(parseLogZ(stdout)[0]).toMatchObject({ author: "Ada Lovelace", timestamp: 1234567890 });
     });
 
-    it("нечисловое время деградирует в 0, а не в NaN", () => {
-        expect(parseLogZ(entry({ sha: SHA_A, timestamp: "хмм" }))[0].timestamp).toBe(0);
+    it("non-numeric time degrades to 0, not NaN", () => {
+        expect(parseLogZ(entry({ sha: SHA_A, timestamp: "hmm" }))[0].timestamp).toBe(0);
     });
 
-    it("отбрасывает пустой хвост от завершающего NUL", () => {
+    it("drops the empty tail from the trailing NUL", () => {
         expect(parseLogZ(`${entry({ sha: SHA_A })}\0`)).toEqual([expected({ sha: SHA_A })]);
     });
 
-    it("пустой subject — легальная запись, а не хвост", () => {
+    it("an empty subject is a valid record, not a tail", () => {
         expect(parseLogZ(entry({ sha: SHA_A, subject: "" }))).toEqual([expected({ sha: SHA_A, subject: "" })]);
     });
 
-    it("неполный чанк (обрезанный вывод) отбрасывается", () => {
+    it("drops an incomplete chunk (truncated output)", () => {
         const stdout = `${entry({ sha: SHA_A })}\0${SHA_B}\0bbbbbbbb`;
         expect(parseLogZ(stdout)).toEqual([expected({ sha: SHA_A })]);
     });
 
-    it("пустой вывод — пустой список", () => {
+    it("empty output gives an empty list", () => {
         expect(parseLogZ("")).toEqual([]);
     });
 
-    it("запись с пустым sha пропускается", () => {
+    it("skips a record with an empty sha", () => {
         const stdout = `${entry({ sha: "", shortSha: "short" })}\0${entry({ sha: SHA_A, subject: "ok" })}`;
         expect(parseLogZ(stdout)).toEqual([expected({ sha: SHA_A, subject: "ok" })]);
     });
 });
 
 describe("parseDecorations", () => {
-    it("текущая ветка помечается current", () => {
+    it("marks the current branch as current", () => {
         expect(parseDecorations("HEAD -> main")).toEqual([{ name: "main", kind: "head", current: true }]);
     });
 
-    it("разбирает полный набор: ветка, remote, тег", () => {
+    it("parses the full set: branch, remote, tag", () => {
         expect(parseDecorations("HEAD -> main, origin/main, tag: v1.0")).toEqual([
             { name: "main", kind: "head", current: true },
             { name: "origin/main", kind: "remote", current: false },
@@ -105,26 +105,26 @@ describe("parseDecorations", () => {
         ]);
     });
 
-    it("локальная ветка без HEAD — обычный head", () => {
+    it("a local branch without HEAD is a plain head", () => {
         expect(parseDecorations("feature")).toEqual([{ name: "feature", kind: "head", current: false }]);
     });
 
-    it("голый HEAD (detached) ref'ом не считается", () => {
+    it("a bare HEAD (detached) is not a ref", () => {
         expect(parseDecorations("HEAD")).toEqual([]);
         expect(parseDecorations("HEAD, tag: v2")).toEqual([{ name: "v2", kind: "tag", current: false }]);
     });
 
-    it("origin/HEAD отбрасывается — это симлинк-указатель", () => {
+    it("drops origin/HEAD: it is a symbolic pointer", () => {
         expect(parseDecorations("origin/HEAD, origin/main")).toEqual([
             { name: "origin/main", kind: "remote", current: false },
         ]);
     });
 
-    it("пустая строка декораций — пустой список", () => {
+    it("an empty decoration string gives an empty list", () => {
         expect(parseDecorations("")).toEqual([]);
     });
 
-    it("мусорные пустые токены пропускаются", () => {
+    it("skips garbage empty tokens", () => {
         expect(parseDecorations("tag: , , main")).toEqual([{ name: "main", kind: "head", current: false }]);
     });
 });

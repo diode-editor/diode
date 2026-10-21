@@ -16,9 +16,9 @@
     }
   },
   "include": ["src", "extensions", "tools"],
-  // Фикстуры — тестовые ДАННЫЕ, а не исходники: у diff-корпуса это .ts/.tsx/.tst
-  // файлы из upstream, которые заведомо не компилируются в нашем проекте
-  // (чужие импорты, свои расширения). Компилировать их незачем и нельзя.
-  // Перечисляем и дефолты TS: наличие `exclude` их перекрывает.
+  // Fixtures are test DATA, not sources: the diff corpus holds .ts/.tsx/.tst
+  // files from upstream that are known not to compile in our project
+  // (foreign imports, own extensions). There is no reason or way to compile them.
+  // TS defaults are listed too: an explicit `exclude` overrides them.
   "exclude": ["node_modules", "dist", "**/__fixtures__/**"]
 }

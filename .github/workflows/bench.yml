@@ -1,23 +1,23 @@
-# Бенчмарк открытия файла (e2e/bench/benchOpen.ts) на CI.
+# Open-file benchmark (e2e/bench/benchOpen.ts) on CI.
 #
-# Цифры со shared-раннера шумные, поэтому джоба ничего не гейтит — она снимает
-# отчёт и кладёт его в ветку данных `bench-data` (scripts/bench-publish.mjs):
-# сырой JSON прогона, latest.json/latest.md и индекс прогонов. Страница
-# https://diode-editor.github.io/benchmarks/ читает эту ветку через
-# raw.githubusercontent.com и рисует последний прогон и историю прогонов.
+# Numbers from a shared runner are noisy, so the job gates nothing: it takes a
+# report and puts it into the `bench-data` data branch (scripts/bench-publish.mjs):
+# the run's raw JSON, latest.json/latest.md and the run index. The page
+# https://diode-editor.github.io/benchmarks/ reads this branch via
+# raw.githubusercontent.com and draws the latest run and the run history.
 #
-# Раньше отчёт открывался PR-ом в docs/public — Actions в этом репозитории не
-# может создавать PR (настройка организации), и оба прогона падали на последнем
-# шаге. Пуш в ветку данных требует только `contents: write` самого воркфлоу.
-# Шумные прогоны не отсеиваются руками: отчёт сам помечает строку «шумно» по
-# IQR, а страница показывает медиану по последним прогонам рядом с последним.
+# The report used to be opened as a PR into docs/public, but Actions in this repo
+# can't create PRs (an org setting), and both runs failed at the last step.
+# Pushing to the data branch needs only the workflow's own `contents: write`.
+# Noisy runs aren't filtered by hand: the report marks a row as noisy by IQR
+# itself, and the page shows the median of recent runs next to the latest one.
 name: Bench
 
 on:
   workflow_dispatch:
-  # На каждый пуш в main: фичи вливаются по нескольку в день, и недельный прогон
-  # не показывал, какой коммит сдвинул старт. Прогон ~6 мин, репозиторий публичный.
-  # Правки только документации цифр не меняют.
+  # On every push to main: several features land per day, and a weekly run
+  # didn't show which commit moved startup. A run takes ~6 min; the repo is public.
+  # Docs-only changes don't move the numbers.
   push:
     branches: [main]
     paths-ignore:
@@ -27,9 +27,9 @@ on:
 permissions:
   contents: write
 
-# Прогоны не отменяются (cancel-in-progress: false), но в очереди группы GitHub
-# держит только один ожидающий: серия пушей во время прогона сводится к одному
-# прогону на самой свежей голове main.
+# Runs aren't cancelled (cancel-in-progress: false), but GitHub keeps only one pending
+# run in the group's queue: a series of pushes during a run collapses into one
+# run on the freshest head of main.
 concurrency:
   group: bench-data
   cancel-in-progress: false
@@ -45,8 +45,8 @@ jobs:
         with:
           node-version: '26.12.0'
 
-      # node-pty собирается из исходников, если для текущей версии Node нет
-      # prebuild (та же оговорка, что в ci.yml / e2e).
+      # node-pty builds from source when there is no prebuild for the current
+      # Node version (same caveat as in ci.yml / e2e).
       - name: Install build deps for node-pty
         run: |
           sudo apt-get update
@@ -65,14 +65,14 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # Ветка данных — сирота без общей истории с main; первый прогон создаёт
-          # её от пустого дерева, дальше — дописывает.
+          # The data branch is an orphan with no history shared with main; the first run
+          # creates it from an empty tree, later runs append to it.
           if git fetch origin bench-data:bench-data 2>/dev/null; then
-            echo "bench-data: продолжаем историю"
+            echo "bench-data: continuing the history"
           else
             empty=$(git hash-object -t tree /dev/null)
-            git branch bench-data "$(git commit-tree "$empty" -m "bench-data: ветка данных бенчмарков")"
-            echo "bench-data: создана"
+            git branch bench-data "$(git commit-tree "$empty" -m "bench-data: benchmark data branch")"
+            echo "bench-data: created"
           fi
           git worktree add "$RUNNER_TEMP/bench-data" bench-data
           node scripts/bench-publish.mjs --report "$RUNNER_TEMP/open.json" --md "$RUNNER_TEMP/BENCH-OPEN.md" --out "$RUNNER_TEMP/bench-data"

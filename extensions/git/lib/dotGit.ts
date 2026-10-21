@@ -1,24 +1,24 @@
 import * as path from "node:path";
 
 /**
- * Не `<root>/.git`: в linked worktree и подмодуле `.git` — файл-указатель, каталог
- * лежит в `<main>/.git/worktrees/<name>`, а `refs`/`packed-refs`/`config` — в `commonPath`.
+ * Not `<root>/.git`: in a linked worktree or submodule `.git` is a pointer file, the directory
+ * lives in `<main>/.git/worktrees/<name>`, and `refs`/`packed-refs`/`config` live in `commonPath`.
  */
 export interface IDotGit {
-    /** `.git` **этого** рабочего дерева: `HEAD`, `index`, `MERGE_HEAD`, … */
+    /** `.git` of **this** working tree: `HEAD`, `index`, `MERGE_HEAD`, … */
     readonly path: string;
-    /** `undefined` — совпадает с {@link path}. */
+    /** `undefined` when equal to {@link path}. */
     readonly commonPath: string | undefined;
 }
 
-/** `git rev-parse --git-dir --git-common-dir`; пути относительно `cwd` вызова. */
+/** `git rev-parse --git-dir --git-common-dir`; paths are relative to the call's `cwd`. */
 export function parseDotGit(stdout: string, cwd: string): IDotGit | null {
     const lines = stdout.split("\n").map((line) => line.trim());
     const rawDir = lines.at(0);
     const rawCommon = lines.at(1);
     if (rawDir === undefined || rawDir === "") return null;
     const dir = absolute(rawDir, cwd);
-    // `--git-common-dir` — с git 2.5; на старом второй строки нет.
+    // `--git-common-dir` exists since git 2.5; older git prints no second line.
     const common = rawCommon === undefined || rawCommon === "" ? dir : absolute(rawCommon, cwd);
     return { path: dir, commonPath: common === dir ? undefined : common };
 }
@@ -31,7 +31,7 @@ export function refsRoot(dotGit: IDotGit): string {
     return dotGit.commonPath ?? dotGit.path;
 }
 
-/** Упакованного ref'а (`packed-refs`) по этому пути нет — его заметно по изменению `packed-refs`. */
+/** A packed ref (`packed-refs`) has no file at this path; it shows up as a change of `packed-refs`. */
 export function upstreamRefPath(dotGit: IDotGit, upstream: string | null): string | null {
     if (upstream === null || upstream === "") return null;
     const segments = upstream.split("/").filter((segment) => segment !== "");

@@ -1,21 +1,21 @@
 "use strict";
-// Вход сборки V8-снапшота ядра: исполняет `main.cjs`, как node исполнил бы его сам,
-// но компилирует **eagerly** — байткод всех функций уходит в блоб, и старт не платит
-// ленивую компиляцию (треть окна до кадра с текстом, docs/arch/Common.md).
+// Entry of the core V8 snapshot build: runs `main.cjs` the way node itself would,
+// but compiles **eagerly**, so the bytecode of every function goes into the blob and startup
+// does not pay for lazy compilation (a third of the window before the first text frame, docs/arch/Common.md).
 //
-// `--no-lazy` только на компиляцию `main.cjs`: флагом сборки он скомпилировал бы и
-// builtins node, блоб вырос бы вдвое (17.9 → 29.1 МБ). Путь — env-переменной, а не
-// строкой: исходник входа лежит в блобе, и путь машины сборки туда не попадает.
+// `--no-lazy` applies only to compiling `main.cjs`: as a build flag it would also compile node
+// builtins, doubling the blob (17.9 -> 29.1 MB). The path comes from an env variable, not a
+// string literal: the entry source lives in the blob, and the build machine path stays out of it.
 //
-// `createRequire` нельзя: после десериализации node падает на ассерте
-// `initializeModuleLoaders`; `require` сборщика отдаёт только builtins, и `main.cjs` больше не нужно.
+// No `createRequire`: after deserialization node fails the `initializeModuleLoaders` assert;
+// the builder's `require` serves only builtins, and that is all `main.cjs` needs.
 const fs = require("node:fs");
 const v8 = require("node:v8");
 const vm = require("node:vm");
 
 const mainPath = process.env.DIODE_SNAPSHOT_MAIN;
 if (mainPath === undefined || mainPath === "") {
-    throw new Error("snapshot-entry: путь к main.cjs не задан (env DIODE_SNAPSHOT_MAIN)");
+    throw new Error("snapshot-entry: main.cjs path is not set (env DIODE_SNAPSHOT_MAIN)");
 }
 const source = fs.readFileSync(mainPath, "utf8");
 

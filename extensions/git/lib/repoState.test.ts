@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseBranchHeaders, parseRemotes } from "./repoState.ts";
 
 describe("parseBranchHeaders", () => {
-    it("ветка с upstream и ahead/behind", () => {
+    it("branch with upstream and ahead/behind", () => {
         const out = [
             "# branch.oid 0123abcd",
             "# branch.head main",
@@ -20,7 +20,7 @@ describe("parseBranchHeaders", () => {
         });
     });
 
-    it("detached HEAD и отсутствие upstream", () => {
+    it("detached HEAD and no upstream", () => {
         const out = ["# branch.oid 0123abcd", "# branch.head (detached)"].join("\n");
         expect(parseBranchHeaders(out)).toEqual({
             branch: null,
@@ -31,7 +31,7 @@ describe("parseBranchHeaders", () => {
         });
     });
 
-    it("битые заголовки (пустые значения, не тот формат ab) — игнорируются", () => {
+    it("ignores broken headers (empty values, wrong ab format)", () => {
         const out = ["# branch.head ", "# branch.upstream ", "# branch.ab plus-minus"].join("\n");
         expect(parseBranchHeaders(out)).toEqual({
             branch: null,
@@ -42,7 +42,7 @@ describe("parseBranchHeaders", () => {
         });
     });
 
-    it("пустой вывод — дефолты (unborn)", () => {
+    it("empty output gives defaults (unborn)", () => {
         expect(parseBranchHeaders("")).toEqual({
             branch: null,
             detached: false,
@@ -54,7 +54,7 @@ describe("parseBranchHeaders", () => {
 });
 
 describe("parseRemotes", () => {
-    it("список имён, пустые строки отбрасываются", () => {
+    it("list of names, empty lines dropped", () => {
         expect(parseRemotes("origin\nupstream\n\n")).toEqual(["origin", "upstream"]);
         expect(parseRemotes("")).toEqual([]);
     });

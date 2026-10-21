@@ -35,9 +35,9 @@ export function parsePorcelainStatus(buf: Buffer): IPorcelainEntry[] {
 }
 
 /**
- * У переименования (`R` или intent-to-rename ` R`) — исходный путь: по новому в
- * HEAD пусто, и дифф показал бы весь файл добавленным. Копию (`C`) левой
- * стороной эталон не берёт (`getLeftResource` в `extensions/git/src/repository.ts`).
+ * For a rename (`R` or intent-to-rename ` R`), the original path: the new one is empty
+ * in HEAD, and the diff would show the whole file as added. Upstream doesn't use a copy (`C`)
+ * as the left side (`getLeftResource` in `extensions/git/src/repository.ts`).
  */
 export function pathAtHead(entry: IPorcelainEntry): string {
     if (entry.originalPath === undefined || !entry.xy.includes("R")) return entry.path;

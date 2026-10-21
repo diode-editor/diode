@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Запускает бинарь редактора с теми же аргументами и терминалом (stdio: inherit).
-// Если бинаря нет (postinstall пропущен или упал) — докачивает и запускает.
+// Runs the editor binary with the same arguments and terminal (stdio: inherit).
+// If the binary is missing (postinstall skipped or failed), downloads it first.
 import { spawn } from "node:child_process";
 
 import { binaryPath, download, isInstalled } from "../lib/binary.js";
@@ -11,7 +11,7 @@ if (!isInstalled()) {
 
 const child = spawn(binaryPath(), process.argv.slice(2), { stdio: "inherit", windowsHide: true });
 
-// Сигналы терминала (Ctrl+C вне raw-режима, SIGTERM от tmux/ssh) — ребёнку, а не обёртке.
+// Terminal signals (Ctrl+C outside raw mode, SIGTERM from tmux/ssh) go to the child, not the wrapper.
 for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) {
     process.on(signal, () => child.kill(signal));
 }

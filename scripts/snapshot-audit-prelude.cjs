@@ -1,6 +1,6 @@
-// Ловушки аудита V8-снапшота (scripts/check-snapshot.mjs): дописываются ПЕРЕД
-// `dist/main.cjs` в одноразовую копию; каждое чтение окружения верхним уровнем — со
-// стеком, перед сериализацией находки уходят в `DIODE_SNAPSHOT_AUDIT_OUT`.
+// V8 snapshot audit traps (scripts/check-snapshot.mjs): prepended to a throwaway copy of
+// `dist/main.cjs`; every environment read at the module top level is recorded with a stack,
+// and before serialization the findings go to `DIODE_SNAPSHOT_AUDIT_OUT`.
 (() => {
     const v8 = require("node:v8");
     if (!v8.startupSnapshot.isBuildingSnapshot()) return;
@@ -14,7 +14,7 @@
     let armed = true;
     const record = (what) => {
         if (!armed) return;
-        armed = false; // стек и запись сами дёргают ловушки
+        armed = false; // the stack and the record trip the traps themselves
         try {
             const stack = (new Error().stack ?? "").split("\n").slice(2, 14).map((line) => line.trim());
             hits.push({ what, stack });
@@ -66,7 +66,7 @@
             return Reflect.has(target, key);
         },
         ownKeys(target) {
-            record("process.env (перечисление)");
+            record("process.env (enumeration)");
             return Reflect.ownKeys(target);
         },
     });
@@ -91,7 +91,7 @@
     if (globalThis.crypto !== undefined) {
         for (const key of ["randomUUID", "getRandomValues"]) wrapMethod(globalThis.crypto, key, `crypto.${key}()`);
     }
-    // Таймеры при сборке срабатывают у сборщика, а не у пользователя.
+    // Timers set at build time fire in the builder, not for the user.
     for (const key of ["setTimeout", "setInterval", "setImmediate", "queueMicrotask"]) wrapMethod(globalThis, key, `${key}()`);
     const OriginalDate = Date;
     globalThis.Date = new Proxy(OriginalDate, {

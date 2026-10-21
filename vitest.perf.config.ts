@@ -1,12 +1,12 @@
 import { defineConfig } from "vitest/config";
 
-// `npm run test:perf`: числа бенчей не флапают CI и не влияют на coverage.
+// `npm run test:perf`: bench numbers do not flake CI and do not affect coverage.
 export default defineConfig({
     test: {
         include: ["src/**/*.bench.ts", "e2e/bench/**/*.bench.ts"],
         testTimeout: 120_000,
         hookTimeout: 180_000,
-        // Параллельный прогон искажает измерения и плодит chokidar-watcher'ы.
+        // A parallel run skews measurements and spawns extra chokidar watchers.
         fileParallelism: false,
         pool: "forks",
         coverage: { enabled: false },

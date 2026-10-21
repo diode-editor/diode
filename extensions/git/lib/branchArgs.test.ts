@@ -12,14 +12,14 @@ import {
 } from "./branchArgs.ts";
 
 describe("branchArgs", () => {
-    it("checkout: обычный и detached; невалидный ref — null", () => {
+    it("checkout: regular and detached; invalid ref gives null", () => {
         expect(checkoutArgs({ ref: "main" })).toEqual(["checkout", "main"]);
         expect(checkoutArgs({ ref: "v1.0", detach: true })).toEqual(["checkout", "--detach", "v1.0"]);
         expect(checkoutArgs({ ref: "--evil" })).toBeNull();
         expect(checkoutArgs({})).toBeNull();
     });
 
-    it("branchCreate: с базой и без; branchDelete: -d/-D; branchRename", () => {
+    it("branchCreate: with and without a base; branchDelete: -d/-D; branchRename", () => {
         expect(branchCreateArgs({ name: "feat" })).toEqual(["checkout", "-b", "feat"]);
         expect(branchCreateArgs({ name: "feat", base: "origin/main" })).toEqual([
             "checkout",

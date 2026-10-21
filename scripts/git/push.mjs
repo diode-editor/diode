@@ -1,13 +1,13 @@
 #!/usr/bin/env node
-// npm run git:push [-- <ветка>] [--expect <sha>] — push ветки по https.
+// npm run git:push [-- <branch>] [--expect <sha>]: push a branch over https.
 //
-// Только https (origin — ssh, а ssh живёт лишь с проброшенным агентом). Перезапись —
-// только `--force-with-lease=refs/heads/<b>:<sha>` с ЯВНЫМ SHA: при push по URL без
-// него lease сравнивать не с чем, и он молча становится --force.
+// Https only (origin is ssh, which only works with a forwarded agent). Overwrites go
+// only through `--force-with-lease=refs/heads/<b>:<sha>` with an EXPLICIT SHA: pushing to a URL
+// without one leaves the lease nothing to compare with, and it silently becomes --force.
 //
-// SHA для lease (по порядку): --expect; запись git:stack-rebase (снят ДО переписывания);
-// сервер — только если локальная его продолжает или ветки нет. Расхождение без
-// записи — отказ: это чужой push или ручной rebase.
+// The lease SHA (in order): --expect; the git:stack-rebase record (taken BEFORE the rewrite);
+// the server, only if the local branch continues it or the branch is absent. A mismatch
+// without a record is refused: it is someone else's push or a manual rebase.
 import {
     assertDiodeCheckout,
     currentBranch,
@@ -33,14 +33,14 @@ for (let i = 0; i < argv.length; i++) {
     if (a === "--expect") expect = argv[++i];
     else if (a.startsWith("--expect=")) expect = a.slice(9);
     else if (a === "--help" || a === "-h") {
-        console.log("Использование: npm run git:push -- [<ветка>] [--expect <sha-на-сервере>]");
+        console.log("Usage: npm run git:push -- [<branch>] [--expect <server-sha>]");
         process.exit(0);
     } else if (!a.startsWith("-") && branch === undefined) branch = a;
-    else die(`git:push: неизвестный аргумент «${a}»`, 2);
+    else die(`git:push: unknown argument "${a}"`, 2);
 }
 branch ??= currentBranch();
-if (branch === "main") die("В main напрямую не пушим — только через PR.");
-if (!gitOk("rev-parse", "-q", "--verify", `refs/heads/${branch}`)) die(`Нет локальной ветки ${branch}.`);
+if (branch === "main") die("No direct pushes to main: only through a PR.");
+if (!gitOk("rev-parse", "-q", "--verify", `refs/heads/${branch}`)) die(`No local branch ${branch}.`);
 
 const local = git("rev-parse", `refs/heads/${branch}`);
 const server = remoteSha(branch) ?? "";
@@ -51,25 +51,25 @@ if (expect !== undefined) {
     lease = expect === "" ? "" : git("rev-parse", expect);
     if (lease !== server) {
         die(
-            `На сервере ${branch} = ${short(server) || "(нет)"}, а ты ждёшь ${short(lease) || "(нет)"} — не перезаписываю.`,
+            `${branch} on the server is ${short(server) || "(none)"}, but you expect ${short(lease) || "(none)"}: not overwriting.`,
         );
     }
 } else if (recorded !== undefined) {
     lease = recorded;
     if (recorded !== server) {
-        die(`До rebase на сервере было ${short(recorded) || "(нет ветки)"}, сейчас ${short(server) || "(нет ветки)"}:
-кто-то пушил в ${branch} после. Посмотри (npm run git:fetch -- ${branch} && git log ${branch}..origin/${branch}) и, если перезаписать осознанно,
-передай --expect ${server}.`);
+        die(`Before the rebase the server had ${short(recorded) || "(no branch)"}, now ${short(server) || "(no branch)"}:
+someone pushed to ${branch} since. Take a look (npm run git:fetch -- ${branch} && git log ${branch}..origin/${branch}) and, to overwrite deliberately,
+pass --expect ${server}.`);
     }
 } else if (server === "" || server === local || isAncestor(server, local)) {
     lease = server;
 } else {
-    die(`${branch}: локальная ветка не продолжает серверную (${short(server)}), а записи git:stack-rebase нет.
-Если историю переписал ты и перезаписать сервер надо — повтори с --expect ${server}.`);
+    die(`${branch}: the local branch does not continue the server one (${short(server)}), and there is no git:stack-rebase record.
+If you rewrote the history and need to overwrite the server, retry with --expect ${server}.`);
 }
 
 if (server === local) {
-    console.log(`${branch} на сервере уже ${short(local)} — пушить нечего.`);
+    console.log(`${branch} on the server is already ${short(local)}: nothing to push.`);
     process.exit(0);
 }
 const code = loud("git", [
@@ -81,6 +81,6 @@ const code = loud("git", [
 if (code !== 0) process.exit(code);
 
 dropLease(branch);
-// Push по URL не двигает remote-tracking ref.
+// A push to a URL does not move the remote-tracking ref.
 git("update-ref", `refs/remotes/origin/${branch}`, local);
-console.log(`${branch}: ${short(server) || "(новая)"} → ${short(local)}. Статус PR: npm run git:pr-status`);
+console.log(`${branch}: ${short(server) || "(new)"} → ${short(local)}. PR status: npm run git:pr-status`);

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { remoteAddArgs, remoteRemoveArgs, tagCreateArgs, tagDeleteArgs } from "./remoteArgs.ts";
 
 describe("remoteArgs", () => {
-    it("remote add/remove с защитой от флагов", () => {
+    it("remote add/remove with flag protection", () => {
         expect(remoteAddArgs({ name: "origin", url: "https://x/y.git" })).toEqual([
             "remote",
             "add",
@@ -16,7 +16,7 @@ describe("remoteArgs", () => {
         expect(remoteRemoveArgs({})).toBeNull();
     });
 
-    it("tag: lightweight без сообщения, аннотированный с; delete", () => {
+    it("tag: lightweight without a message, annotated with one; delete", () => {
         expect(tagCreateArgs({ name: "v1.0" })).toEqual(["tag", "v1.0"]);
         expect(tagCreateArgs({ name: "v1.0", message: "  " })).toEqual(["tag", "v1.0"]);
         expect(tagCreateArgs({ name: "v1.0", message: "release" })).toEqual(["tag", "-a", "v1.0", "-m", "release"]);
@@ -25,7 +25,7 @@ describe("remoteArgs", () => {
         expect(tagDeleteArgs({ name: "-d" })).toBeNull();
     });
 
-    it("тег на конкретном коммите — ref последним аргументом", () => {
+    it("a tag on a specific commit puts the ref last", () => {
         const sha = "a".repeat(40);
         expect(tagCreateArgs({ name: "v1.0", ref: sha })).toEqual(["tag", "v1.0", sha]);
         expect(tagCreateArgs({ name: "v1.0", message: "release", ref: sha })).toEqual([

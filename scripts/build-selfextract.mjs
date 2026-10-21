@@ -1,28 +1,28 @@
 /**
- * Сборка самораспаковывающегося однофайлового бинаря (makeself-подход); формат
- * склейки — `selfextract-format.mjs`.
+ * Builds a self-extracting single-file binary (the makeself approach); the concatenation
+ * format lives in `selfextract-format.mjs`.
  *
- * Зачем: на Intel macOS инъекция SEA-блоба портит Mach-O chained fixups — segfault
- * до main() (#143, nodejs/node#62893). Здесь нетронутый подписанный node с
- * nodejs.org приклеивается к sh-стабу — без хирургии над Mach-O и без codesign.
+ * Why: on Intel macOS, injecting the SEA blob breaks Mach-O chained fixups, a segfault
+ * before main() (#143, nodejs/node#62893). Here an untouched signed node from nodejs.org
+ * is appended to a sh stub, with no Mach-O surgery and no codesign.
  *
- *     [ #!/bin/sh стаб (scripts/selfextract-stub.sh) ][ payload.tar.gz ]
+ *     [ #!/bin/sh stub (scripts/selfextract-stub.sh) ][ payload.tar.gz ]
  *       payload = node + main.cjs + diode.bundle + lazy/*.cjs
  *
- * Стаб распаковывает payload в `${XDG_CACHE_HOME:-~/.cache}/diode/<key>/` и делает
+ * The stub unpacks the payload into `${XDG_CACHE_HOME:-~/.cache}/diode/<key>/` and runs
  * `exec node main.cjs "$@"`.
  *
- * Использование:
+ * Usage:
  *
  *     node scripts/build-selfextract.mjs [--target=<platform>-<arch>] [--node=host|<path>] [--out=<path>]
  *
- *   --target  платформа payload'а (по умолчанию — хост). darwin-x64 | darwin-arm64 | linux-x64 | linux-arm64
- *   --node    `host` — взять process.execPath (быстро, без сети: локальные сборки и e2e);
- *             путь — взять указанный бинарь; по умолчанию — скачать официальный тарбол.
- *   --out     путь результата (по умолчанию <dist-dir>/diode)
- *   --dist-dir  каталог сборки вместо `dist/` (e2e — кэш по хешу, scripts/e2e-artifacts.mjs)
- *   --reuse-dist  взять уже собранные `main.cjs` и бандлы: tsup с `clean: true`
- *             стёр бы весь каталог — с SEA-бинарём, который могут исполнять соседи.
+ *   --target  payload platform (default: the host). darwin-x64 | darwin-arm64 | linux-x64 | linux-arm64
+ *   --node    `host` takes process.execPath (fast, offline: local builds and e2e);
+ *             a path takes that binary; by default the official tarball is downloaded.
+ *   --out     output path (default <dist-dir>/diode)
+ *   --dist-dir  build directory instead of `dist/` (e2e: a cache by hash, scripts/e2e-artifacts.mjs)
+ *   --reuse-dist  reuse the already built `main.cjs` and bundles: tsup with `clean: true`
+ *             would wipe the whole directory, including the SEA binary other runs may be executing.
  */
 
 import { execFileSync } from "node:child_process";
@@ -38,7 +38,7 @@ import { resolveDiodeVersion } from "./resolve-version.mjs";
 import { writeSelfExtract } from "./selfextract-format.mjs";
 import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
 
-/** В лок-степе с `node-version` в `.github/workflows/build.yml`. */
+/** In lockstep with `node-version` in `.github/workflows/build.yml`. */
 const NODE_VERSION = "26.12.0";
 
 const SUPPORTED_TARGETS = new Set(["darwin-x64", "darwin-arm64", "linux-x64", "linux-arm64"]);
@@ -50,7 +50,7 @@ async function main() {
     const args = parseArgs(process.argv.slice(2));
     const target = args.target ?? HOST_TARGET;
     if (!SUPPORTED_TARGETS.has(target)) {
-        // Windows сюда не заводится сознательно: стаб — POSIX sh.
+        // Windows is left out on purpose: the stub is POSIX sh.
         throw new Error(`[selfextract] Unsupported target: ${target}. Supported: ${[...SUPPORTED_TARGETS].join(", ")}`);
     }
 
@@ -73,16 +73,16 @@ async function main() {
     const sizeMb = (payload.length / 1024 / 1024).toFixed(1);
     console.log(`[selfextract] ${outputPath} (payload ${sizeMb} MB, cache key ${key})`);
 
-    // Бинарь обязан реально стартовать (#143).
+    // The binary must actually start (#143).
     if (target === HOST_TARGET) {
         const reported = smokeTestBinary(outputPath, { cwd: root });
         smokeTestNodeMode(outputPath);
         console.log(`[selfextract] Smoke: ${outputPath} --version → ${reported}`);
-        // Иначе распаковка идёт в каталог, не соответствующий содержимому payload'а.
+        // Otherwise the payload unpacks into a directory that does not match its contents.
         if (reported !== version) {
             throw new Error(
                 `[selfextract] Version mismatch: binary reports "${reported}", cache key built from "${version}".\n` +
-                    `  Обе стороны обязаны идти из scripts/resolve-version.mjs.`,
+                    `  Both sides must come from scripts/resolve-version.mjs.`,
             );
         }
     } else {
@@ -122,7 +122,7 @@ function existingDistArtifacts(distDir) {
         tsServerDigestPath: join(distDir, "ts-server.bundle.sha256"),
     };
     for (const path of [...Object.values(paths), ...lazyChunks.map((c) => c.path)]) {
-        if (!existsSync(path)) throw new Error(`[selfextract] --reuse-dist: нет ${path} — сначала npm run build:sea`);
+        if (!existsSync(path)) throw new Error(`[selfextract] --reuse-dist: missing ${path}; run npm run build:sea first`);
     }
     console.log(`[selfextract] reuse ${distDir} artifacts (no tsup)`);
     return { ...paths, lazyChunks };
@@ -169,7 +169,7 @@ async function downloadNode({ target }) {
     console.log(`[selfextract] node: downloading ${baseUrl}/${tarball}`);
     const [shasums, archive] = await Promise.all([fetchText(`${baseUrl}/SHASUMS256.txt`), fetchBuffer(`${baseUrl}/${tarball}`)]);
 
-    // https мало: битая или подменённая загрузка уехала бы в релизный бинарь молча.
+    // https is not enough: a corrupt or tampered download would silently ship in the release binary.
     const expected = findShasum(shasums, tarball);
     const actual = sha256(archive);
     if (actual !== expected) {
@@ -202,7 +202,7 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBund
     chmodSync(join(stageDir, "node"), 0o755);
     cpSync(mainJsPath, join(stageDir, "main.cjs"));
     cpSync(bundlePath, join(stageDir, "diode.bundle"));
-    // Рядом с main.cjs: так их ищут loadTsServer.ts (через entryDir()) и lazyModule.ts.
+    // Next to main.cjs, where loadTsServer.ts (via entryDir()) and lazyModule.ts look for them.
     cpSync(tsServerBundlePath, join(stageDir, "ts-server.bundle"));
     cpSync(`${tsServerBundlePath}.sha256`, join(stageDir, "ts-server.bundle.sha256"));
     for (const { asset, path } of lazyChunks) {
@@ -210,8 +210,8 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBund
         cpSync(path, join(stageDir, asset));
     }
 
-    // Self-extract — НЕ SEA: loadNodePty.ts и loadRipgrep.ts идут dev-путём
-    // require(), который резолвит от main.cjs, — отсюда node_modules в payload'е.
+    // Self-extract is NOT SEA: loadNodePty.ts and loadRipgrep.ts take the dev require() path,
+    // which resolves from main.cjs, hence node_modules in the payload.
     const { inputs: ptyInputs } = buildNodePtyBundle({ repoRoot: root });
     for (const { virtualPath, data } of ptyInputs) {
         const dest = join(stageDir, "node_modules", virtualPath);
@@ -222,26 +222,26 @@ function buildPayload({ target, nodeBinary, mainJsPath, bundlePath, tsServerBund
 
     stageRipgrep(stageDir);
 
-    // Натив выше — с архитектуры ХОСТА; легальный кросс — только node, поэтому не падаем.
+    // The native code above comes from the HOST architecture; only node cross-builds legitimately, so warn instead of failing.
     if (target !== HOST_TARGET) {
         console.warn(
-            `[selfextract] WARNING: target ${target} != host ${HOST_TARGET} — node-pty и ripgrep ` +
-                `стейджатся с архитектуры хоста, такой бинарь на таргете работать не будет. ` +
-                `Собирайте на нативном раннере таргета.`,
+            `[selfextract] WARNING: target ${target} != host ${HOST_TARGET}: node-pty and ripgrep ` +
+                `are staged from the host architecture, so this binary will not work on the target. ` +
+                `Build on a native runner for the target.`,
         );
     }
 
     const payloadPath = join(stageDir, "..", `payload-${target}.tar.gz`);
     execFileSync("tar", ["-czf", payloadPath, "-C", stageDir, "."], {
         stdio: "inherit",
-        // Без этого bsdtar на macOS насыпает в архив AppleDouble-файлы `._*`.
+        // Otherwise bsdtar on macOS adds AppleDouble `._*` files to the archive.
         env: { ...process.env, COPYFILE_DISABLE: "1" },
     });
     return readFileSync(payloadPath);
 }
 
 /**
- * Резолвер @vscode/ripgrep и пакет с бинарём @vscode/ripgrep-<platform>-<arch>.
+ * The @vscode/ripgrep resolver and the @vscode/ripgrep-<platform>-<arch> binary package.
  * @param {string} stageDir
  */
 function stageRipgrep(stageDir) {
@@ -249,7 +249,7 @@ function stageRipgrep(stageDir) {
     const binaryName = process.platform === "win32" ? "rg.exe" : "rg";
     const platformName = `ripgrep-${process.platform}-${process.arch}`;
 
-    // Корни пакетов — из пути бинаря: `exports` в @vscode/ripgrep запрещает резолвить "./package.json".
+    // Package roots come from the binary path: `exports` in @vscode/ripgrep forbids resolving "./package.json".
     const rgBinaryPath = requireFromRoot.resolve(`@vscode/${platformName}/bin/${binaryName}`);
     const platformDir = dirname(dirname(rgBinaryPath)); // node_modules/@vscode/ripgrep-<platform>-<arch>
     const resolverDir = join(dirname(platformDir), "ripgrep"); // node_modules/@vscode/ripgrep
@@ -275,7 +275,7 @@ async function fetchBuffer(url) {
 }
 
 /**
- * @param {string} shasums Содержимое SHASUMS256.txt (строки «<sha>  <файл>»).
+ * @param {string} shasums SHASUMS256.txt contents (lines "<sha>  <file>").
  * @param {string} fileName
  */
 function findShasum(shasums, fileName) {

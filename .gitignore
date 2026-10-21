@@ -4,7 +4,7 @@ diode.log
 .claude/worktrees/
 screenshots/
 coverage/.tmp
-# Мутационное тестирование (Stryker): отчёты и sandbox
+# Mutation testing (Stryker): reports and sandbox
 reports/
 .stryker-tmp/
 stryker.log
@@ -16,23 +16,23 @@ coverage/coverage-final.json
 # Compiled builtin code-extensions (built by scripts/build-extensions.mjs)
 extensions/*/out/
 
-# Реестр сессий живого прогона `npm run drive` (tools/drive/)
+# Session registry of the `npm run drive` live run (tools/drive/)
 .drive/
 
-# Эталонный клон microsoft/vscode для сверки (scripts/vscode-ref.mjs)
+# Upstream microsoft/vscode clone for comparison (scripts/vscode-ref.mjs)
 .reference/
 
-# Локальная подмена движка неопубликованным tuidom (scripts/engine-link.mjs)
+# Local engine override with an unpublished tuidom (scripts/engine-link.mjs)
 .engine-link/
 
-# Каналы дистрибуции (packaging/): срендеренные манифесты и скачанный npm-обёрткой бинарь
+# Distribution channels (packaging/): rendered manifests and the binary downloaded by the npm wrapper
 packaging/out/
 packaging/npm/vendor/
 packaging/npm/node_modules/
 
-# Следы импорта jdt.ls в java-фикстуре сценария: eclipse-метаданные и вывод
-# сборки, которые сервер создаёт В КАТАЛОГЕ проекта (сценарий открывает фикстуру
-# на месте, как ruffSample)
+# jdt.ls import leftovers in the scenario's java fixture: eclipse metadata and build
+# output that the server creates IN THE PROJECT directory (the scenario opens the fixture
+# in place, like ruffSample)
 e2e/fixtures/javaSample/target/
 e2e/fixtures/javaSample/.classpath
 e2e/fixtures/javaSample/.project

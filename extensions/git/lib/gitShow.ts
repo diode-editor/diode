@@ -3,7 +3,7 @@ import * as path from "node:path";
 import type { IRunGitOptions } from "./runGit.ts";
 import { runGit } from "./runGit.ts";
 
-/** Файла нет в этой ревизии (untracked, новый, удалён) — штатный исход, а не «git сломался». */
+/** The file is absent at this revision (untracked, new, deleted): a normal outcome, not "git is broken". */
 export class GitRevisionNotFoundError extends Error {
     public constructor(revisionPath: string, ref: string) {
         super(`file "${revisionPath}" is not in revision "${ref}"`);
@@ -11,14 +11,14 @@ export class GitRevisionNotFoundError extends Error {
     }
 }
 
-/** `git show` не понимает ни абсолютных путей, ни обратных слэшей; `null` — файл вне репо. */
+/** `git show` understands neither absolute paths nor backslashes; `null` for a file outside the repo. */
 export function toRepoRelativePath(repoRoot: string, absolutePath: string): string | null {
     const relative = path.relative(repoRoot, absolutePath);
     if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) return null;
     return relative.split(path.sep).join("/");
 }
 
-/** Нет версии и нет git — одна ошибка: гуттеру в обоих случаях нечего показывать. */
+/** No revision and no git are one error: either way the gutter has nothing to show. */
 export async function showFileAtRevision(
     repoRoot: string,
     absolutePath: string,

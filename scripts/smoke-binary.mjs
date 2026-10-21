@@ -1,13 +1,13 @@
 /**
- * Самотест собранного бинаря: он должен **реально стартовать**.
+ * Self-test of the built binary: it must **actually start**.
  *
- * Без шебанга сознательно: vitest на Windows инлайнит файл через esbuild transform,
- * который шебанг НЕ срезает, — `#!` падает в ESM как SyntaxError.
+ * No shebang on purpose: vitest on Windows inlines the file via an esbuild transform
+ * that does NOT strip the shebang, and `#!` fails in ESM as a SyntaxError.
  *
- * Урок #143: segfault даёт `error === undefined`, `status === null`, и проверка одного
- * `result.error` пропустила битый ассет в релиз. Поэтому смотрим `signal` и `status`.
- * `--version` — единственная ветка, что завершается сама без TTY; она отрабатывает до
- * `createDefaultAssetAccess()`, так что битый `diode.bundle` ловят e2e, а не самотест.
+ * Lesson #143: a segfault gives `error === undefined`, `status === null`, and checking only
+ * `result.error` let a broken asset into a release. Hence both `signal` and `status` are checked.
+ * `--version` is the only path that exits on its own without a TTY; it runs before
+ * `createDefaultAssetAccess()`, so a broken `diode.bundle` is caught by e2e, not the self-test.
  */
 
 import { spawnSync } from "node:child_process";
@@ -55,9 +55,9 @@ function describeOutput(result) {
 }
 
 /**
- * На node-режиме стоит вшитый language-сервер. Обе механики загрузки: CJS и `import()`
- * ESM с top-level await из внешнего CJS-шима (embedder-хук SEA ловит только import из
- * вшитого main — runAsNode.ts).
+ * The embedded language server relies on node mode. Both loading paths: CJS, and `import()`
+ * of ESM with top-level await from an external CJS shim (the SEA embedder hook catches only
+ * imports from the embedded main, runAsNode.ts).
  *
  * @param {string} binaryPath
  * @param {{ timeoutMs?: number }} [options]
@@ -94,7 +94,7 @@ export function smokeTestNodeMode(binaryPath, options = {}) {
             throw new Error(`[smoke:node] unexpected output.\n${describeOutput(result)}`);
         }
 
-        // Пользовательский serverPath = cli.mjs: без внешнего CJS-шима.
+        // A user serverPath = cli.mjs: no external CJS shim.
         const direct = spawnSync(binaryPath, [join(dir, "inner.mjs")], {
             timeout: timeoutMs,
             stdio: "pipe",
@@ -107,8 +107,8 @@ export function smokeTestNodeMode(binaryPath, options = {}) {
             );
         }
 
-        // Как фоновый анализ pyright: node до 26.11 из V8-снапшота падал SIGABRT на первом
-        // `stream_wrap` в воркере. e2e pythonLsp идёт только на linux, самотест — везде.
+        // Like pyright background analysis: node before 26.11 from a V8 snapshot aborted with SIGABRT
+        // on the first `stream_wrap` in a worker. The pythonLsp e2e runs only on linux, the self-test everywhere.
         writeFileSync(
             join(dir, "worker.cjs"),
             'const { Worker } = require("node:worker_threads");\n' +

@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * `npm run test:e2e`: весь набор, затем упавшие файлы ещё раз — ОДНИМ воркером на
- * том же бинаре из кэша. Прошедшие со второго раза печатаются как FLAKY (и в
- * `$GITHUB_STEP_SUMMARY`), а не прячутся.
+ * `npm run test:e2e`: the whole suite, then the failed files once more with ONE worker on the
+ * same cached binary. Files that pass the second time are printed as FLAKY (also to
+ * `$GITHUB_STEP_SUMMARY`) instead of being hidden.
  *
- * Не `retry` vitest: тот повторяет в том же воркере, под той же нагрузкой и молча.
+ * Not vitest `retry`: it repeats in the same worker, under the same load, and silently.
  *
- * Повтора нет, если упало больше {@link RETRY_MAX} файлов (это поломка, не флак), если
- * упавших файлов в репорте нет (упал globalSetup) и при `DIODE_E2E_RETRY=0`.
+ * No retry when more than {@link RETRY_MAX} files failed (a breakage, not a flake), when the
+ * report has no failed files (globalSetup failed) and with `DIODE_E2E_RETRY=0`.
  *
- * Аргументы передаются vitest как есть: `npm run test:e2e -- e2e/mouse.test.ts`.
+ * Arguments go to vitest as is: `npm run test:e2e -- e2e/mouse.test.ts`.
  */
 
 import { spawn } from "node:child_process";
@@ -28,7 +28,7 @@ let interrupted = false;
 let current = null;
 for (const signal of ["SIGINT", "SIGTERM"]) {
     process.on(signal, () => {
-        // Ctrl+C терминал шлёт всей группе, а SIGTERM (лиза, CI) надо передать.
+        // The terminal sends Ctrl+C to the whole group, but SIGTERM (lease, CI) has to be forwarded.
         interrupted = true;
         current?.kill(signal);
     });
@@ -47,7 +47,7 @@ function runPass(name, args, workers) {
         `--outputFile.json=${reportPath}`,
         ...args,
     ];
-    console.error(`\n[e2e] ${name}: воркеров ${String(workers)}${args.length > 0 ? `, ${args.join(" ")}` : ""}\n`);
+    console.error(`\n[e2e] ${name}: workers ${String(workers)}${args.length > 0 ? `, ${args.join(" ")}` : ""}\n`);
     return new Promise((resolvePass) => {
         current = spawn(process.execPath, fullArgs, {
             cwd: repoRoot,
@@ -61,7 +61,7 @@ function runPass(name, args, workers) {
                 try {
                     report = analyzeReport(JSON.parse(readFileSync(reportPath, "utf-8")), repoRoot);
                 } catch {
-                    // недописанный репорт (прогон убит) — как отсутствующий
+                    // a half-written report (the run was killed) counts as missing
                 }
             }
             resolvePass({ code: code ?? (signal === null ? 1 : 128), report });
@@ -74,18 +74,18 @@ async function main() {
     mkdirSync(reportDir, { recursive: true });
     const started = Date.now();
     const plan = planWorkers();
-    console.error(`[e2e] воркеров: ${String(plan.workers)} (${plan.reason})`);
+    console.error(`[e2e] workers: ${String(plan.workers)} (${plan.reason})`);
 
     const first = await runPass("pass1", args, plan.workers);
     if (interrupted) return 130;
     if (first.report === null) {
-        console.error(`[e2e] нет репорта первого прохода (код ${String(first.code)}) — прогон не состоялся, повторять нечего`);
+        console.error(`[e2e] no first-pass report (code ${String(first.code)}): the run did not happen, nothing to retry`);
         return first.code || 1;
     }
     if (first.code !== 0 && first.report.failed.length === 0) {
         console.error(
-            `[e2e] vitest вышел кодом ${String(first.code)}, но упавших файлов нет — ` +
-                "необработанная ошибка или упавший globalSetup (см. вывод выше); повтор не поможет",
+            `[e2e] vitest exited with code ${String(first.code)}, but no files failed: ` +
+                "an unhandled error or a failed globalSetup (see the output above); a retry won't help",
         );
         return first.code;
     }
@@ -93,13 +93,13 @@ async function main() {
     let second = null;
     const failedFiles = first.report.failed.map((f) => f.file);
     if (failedFiles.length > 0 && retryEnabled && failedFiles.length <= RETRY_MAX) {
-        console.error(`\n[e2e] упало файлов: ${String(failedFiles.length)} — перепрогон поодиночке:\n  ${failedFiles.join("\n  ")}`);
+        console.error(`\n[e2e] failed files: ${String(failedFiles.length)}, rerunning one by one:\n  ${failedFiles.join("\n  ")}`);
         const rerun = await runPass("pass2", failedFiles, 1);
         if (interrupted) return 130;
-        // Нет репорта или ошибка без упавших файлов — все остались красными.
+        // No report, or an error without failed files: they all stay red.
         second = rerun.report !== null && !(rerun.code !== 0 && rerun.report.failed.length === 0) ? rerun.report : first.report;
     } else if (failedFiles.length > RETRY_MAX) {
-        console.error(`\n[e2e] упало файлов: ${String(failedFiles.length)} > ${String(RETRY_MAX)} — это не флак, повтора не будет`);
+        console.error(`\n[e2e] failed files: ${String(failedFiles.length)} > ${String(RETRY_MAX)}, not a flake, no retry`);
     }
 
     const result = verdict(first.report, second);

@@ -1,30 +1,30 @@
-// Без шебанга намеренно: модуль грузит vite-раннер, а на Windows-чекауте (CRLF)
-// строка `#!…\r` не срезается — SyntaxError до старта прогона.
+// No shebang on purpose: the vite runner loads this module, and on a Windows (CRLF) checkout
+// the `#!…\r` line is not stripped, a SyntaxError before the run starts.
 /**
- * Неизменяемая сборка бинарей для e2e: один каталог на хеш исходников в общем кэше.
+ * Immutable e2e binary builds: one directory per source hash in a shared cache.
  *
  *     ~/.cache/diode-e2e/
- *       <key>/              ← готовая сборка, только чтение (a-w): diode, diode-selfextract, manifest.json, …
- *       <key>.tmp-<pid>/    ← сборка в процессе; в <key>/ попадает атомарным rename
- *       <key>.lock/owner    ← межпроцессный замок на ключ (pid владельца)
- *       .in-use/<key>@<pid> ← кто сейчас гоняет тесты на этой сборке (вытеснение её не трогает)
+ *       <key>/              ← finished build, read-only (a-w): diode, diode-selfextract, manifest.json, …
+ *       <key>.tmp-<pid>/    ← build in progress; moves to <key>/ by an atomic rename
+ *       <key>.lock/owner    ← cross-process lock per key (owner pid)
+ *       .in-use/<key>@<pid> ← who is running tests on this build now (eviction leaves it alone)
  *
- * Не рабочий `dist/`: его сносит `tsup clean` любого ручного `build:sea` и пишут
- * соседние сеансы — отсюда были ENOENT/ETXTBSY посреди прогона и OOM от лишних сборок.
+ * Not the working `dist/`: `tsup clean` of any manual `build:sea` wipes it and neighbor sessions
+ * write to it, which caused ENOENT/ETXTBSY mid-run and OOM from extra builds.
  *
- * Ключ — sha256 от blob-хешей файлов рабочей копии по {@link BUILD_INPUTS} (не от
- * состояния git: amend/squash с тем же деревом ключ не меняют), node/платформы,
- * версии и `node_modules/.package-lock.json` (его переписывает и `engine:link`).
- * Версия пиннится в {@link E2E_VERSION}: обычная `nightly-<sha HEAD>` давала бы
- * новый бинарь на любой docs-only коммит.
+ * The key is sha256 of the working-copy blob hashes of {@link BUILD_INPUTS} (not of the git
+ * state: amend/squash with the same tree keeps the key), node/platform, version and
+ * `node_modules/.package-lock.json` (`engine:link` rewrites it too).
+ * The version is pinned to {@link E2E_VERSION}: the usual `nightly-<sha HEAD>` would give
+ * a new binary for any docs-only commit.
  *
- * CLI (то же зовёт `e2e/globalSetup.ts`):
- *     node scripts/e2e-artifacts.mjs          # собрать/найти и напечатать каталог
- *     node scripts/e2e-artifacts.mjs --key    # только ключ
- *     node scripts/e2e-artifacts.mjs --list   # что лежит в кэше
+ * CLI (`e2e/globalSetup.ts` calls the same):
+ *     node scripts/e2e-artifacts.mjs          # build/find and print the directory
+ *     node scripts/e2e-artifacts.mjs --key    # key only
+ *     node scripts/e2e-artifacts.mjs --list   # what the cache holds
  *
- * Переменные: `DIODE_E2E_CACHE_DIR` (корень кэша), `DIODE_E2E_CACHE_KEEP` (сколько
- * сборок хранить, по умолчанию 3).
+ * Variables: `DIODE_E2E_CACHE_DIR` (cache root), `DIODE_E2E_CACHE_KEEP` (how many builds to
+ * keep, 3 by default).
  */
 
 import { execFileSync } from "node:child_process";
@@ -46,15 +46,15 @@ import { homedir } from "node:os";
 import { join, resolve } from "node:path";
 
 /**
- * НЕ semver: без релизной версии проверка `engines.diode` магазина считается
- * пройденной (resolveCompatibleVersion.ts), а заглушка `0.0.0-e2e` её проваливала.
+ * NOT semver: without a release version the marketplace `engines.diode` check counts as passed
+ * (resolveCompatibleVersion.ts), while a `0.0.0-e2e` stub failed it.
  */
 export const E2E_VERSION = "nightly-e2e";
 
-/** Поднять при смене раскладки каталога сборки или порядка её шагов в этом файле. */
+/** Bump when the build directory layout or the order of its steps in this file changes. */
 const LAYOUT_VERSION = "1";
 
-/** Git pathspec. Скрипты — только участвующие в сборке. */
+/** Git pathspec. Only the scripts that take part in the build. */
 export const BUILD_INPUTS = [
     "src",
     "extensions",
@@ -70,7 +70,7 @@ export const BUILD_INPUTS = [
     "scripts/import-meta-url-shim.mjs",
     "scripts/lazy-chunk-code-cache.cjs",
     "scripts/snapshot-entry.cjs",
-    // Pathspec без glob-магии: `*` совпадает и со `/`.
+    // Pathspec without glob magic: `*` matches `/` too.
     ":(exclude)*.test.ts",
     ":(exclude)*.test.mjs",
     ":(exclude)*.test.cjs",
@@ -80,7 +80,7 @@ export const BUILD_INPUTS = [
 const DEFAULT_KEEP = 3;
 const KEY_RE = /^[0-9a-f]{16}$/;
 const MANIFEST = "manifest.json";
-/** Ожидание соседа, собирающего тот же ключ (сборка на 2 vCPU ~3 мин). */
+/** Wait for a neighbor building the same key (a build on 2 vCPU takes ~3 min). */
 const LOCK_WAIT_MS = 20 * 60_000;
 
 const isWindows = process.platform === "win32";
@@ -96,7 +96,7 @@ export function buildVersion(env = process.env) {
 }
 
 /**
- * `null`, если дерево не git (архив исходников): сборка идёт в одноразовый каталог.
+ * `null` when the tree is not a git checkout (a source archive): the build goes to a throwaway directory.
  *
  * @param {string} repoRoot
  * @returns {string | null}
@@ -110,7 +110,7 @@ export function computeBuildKey(repoRoot, env = process.env) {
     } catch {
         return null;
     }
-    // Удалённый, но ещё отслеживаемый файл во вход не попадает.
+    // A deleted but still tracked file is not an input.
     const files = [...new Set(listed.split("\0").filter((p) => p.length > 0))]
         .filter((p) => existsSync(join(repoRoot, p)))
         .sort();
@@ -125,7 +125,7 @@ export function computeBuildKey(repoRoot, env = process.env) {
     return hash.digest("hex").slice(0, 16);
 }
 
-/** EPERM — чужой, но живой. */
+/** EPERM means someone else's but alive. */
 export function isAlive(pid) {
     try {
         process.kill(pid, 0);
@@ -140,8 +140,8 @@ function sleepSync(ms) {
 }
 
 /**
- * Windows ещё держит только что запускавшийся `diode.exe` (самотест build-sea.mjs) —
- * образ или антивирус, — и rename каталога с ним даёт EPERM/EBUSY.
+ * Windows still holds a `diode.exe` that just ran (the build-sea.mjs self-test), via the image or
+ * an antivirus, and renaming its directory fails with EPERM/EBUSY.
  */
 function renameWithRetry(from, to) {
     for (let attempt = 0; ; attempt++) {
@@ -157,7 +157,7 @@ function renameWithRetry(from, to) {
 }
 
 /**
- * `mkdir` атомарен на всех ОС и ФС; замок мёртвого владельца снимается.
+ * `mkdir` is atomic on every OS and FS; a dead owner's lock is removed.
  *
  * @param {string} lockDir
  * @param {{ waitMs?: number, log?: (msg: string) => void, isProcessAlive?: (pid: number) => boolean }} [options]
@@ -176,18 +176,18 @@ export function acquireLock(lockDir, options = {}) {
         }
         const owner = readOwner(lockDir);
         if (owner === null) {
-            // Pid ещё не дописан — или владельца убили между mkdir и записью: отличаем по возрасту.
+            // The pid is not written yet, or the owner was killed between mkdir and the write: tell them apart by age.
             if (ageMs(lockDir) > 30_000) rmSync(lockDir, { recursive: true, force: true });
         } else if (!isProcessAlive(owner)) {
-            log(`замок ${lockDir} от мёртвого процесса ${String(owner)} — снимаю`);
+            log(`lock ${lockDir} held by dead process ${String(owner)}, removing`);
             rmSync(lockDir, { recursive: true, force: true });
             continue;
         } else if (!announced) {
-            log(`эту же сборку собирает процесс ${String(owner)} — жду его, а не собираю второй раз`);
+            log(`process ${String(owner)} is building the same key, waiting for it instead of building twice`);
             announced = true;
         }
         if (Date.now() >= deadline) {
-            throw new Error(`[e2e-artifacts] не дождался замка ${lockDir} за ${String(waitMs / 1000)} с`);
+            throw new Error(`[e2e-artifacts] timed out waiting for lock ${lockDir} after ${String(waitMs / 1000)} s`);
         }
         sleepSync(1000);
     }
@@ -210,7 +210,7 @@ function ageMs(path) {
     }
 }
 
-/** `null`, если нет манифеста или любого перечисленного в нём файла. */
+/** `null` when the manifest or any file it lists is missing. */
 export function readManifest(dir) {
     try {
         const manifest = JSON.parse(readFileSync(join(dir, MANIFEST), "utf-8"));
@@ -223,7 +223,7 @@ export function readManifest(dir) {
     }
 }
 
-/** Сначала снимает запрет на запись с каталогов: файлы в read-only каталоге не удалить. */
+/** Makes directories writable first: files in a read-only directory can't be deleted. */
 export function removeTree(path) {
     const unlock = (p) => {
         let st;
@@ -236,7 +236,7 @@ export function removeTree(path) {
         try {
             chmodSync(p, 0o755);
         } catch {
-            // чужое — rmSync ниже скажет сам
+            // someone else's, rmSync below reports it
         }
         for (const name of readdirSync(p)) unlock(join(p, name));
     };
@@ -245,7 +245,7 @@ export function removeTree(path) {
 }
 
 function freezeTree(path) {
-    if (isWindows) return; // read-only-атрибут Windows мешает только уборке; раннеры одноразовые
+    if (isWindows) return; // the Windows read-only attribute only gets in the way of cleanup; runners are throwaway
     const st = lstatSync(path);
     if (st.isDirectory()) {
         for (const name of readdirSync(path)) freezeTree(join(path, name));
@@ -256,9 +256,9 @@ function freezeTree(path) {
 }
 
 /**
- * Оставляет `keep` самых свежих по использованию и всё с живой меткой `.in-use`.
+ * Keeps the `keep` most recently used builds and everything with a live `.in-use` mark.
  *
- * @returns {string[]} снесённые пути
+ * @returns {string[]} removed paths
  */
 export function evict(root, { keep = DEFAULT_KEEP, isProcessAlive = isAlive } = {}) {
     let entries;
@@ -302,7 +302,7 @@ function buildInto(outDir, { repoRoot, version, log }) {
     const env = { ...process.env, DIODE_VERSION: version, CI: "1" };
     const node = (args) => {
         log(`> node ${args.join(" ")}`);
-        // Вывод сборки — в stderr: stdout прогона остаётся за репортёрами.
+        // Build output goes to stderr: the run's stdout belongs to the reporters.
         execFileSync(process.execPath, args, { cwd: repoRoot, env, stdio: ["ignore", 2, 2] });
     };
     node([join(repoRoot, "scripts", "build-sea.mjs"), `--dist-dir=${outDir}`]);
@@ -316,7 +316,7 @@ function buildInto(outDir, { repoRoot, version, log }) {
             `--out=${join(outDir, "diode-selfextract")}`,
         ]);
         files.selfExtract = "diode-selfextract";
-        // Стейдж payload'а (копия node + node_modules) больше не нужен — сотня МБ.
+        // The payload stage (a copy of node + node_modules) is no longer needed, a hundred MB.
         rmSync(join(outDir, ".selfextract"), { recursive: true, force: true });
     }
     const manifest = {
@@ -332,7 +332,7 @@ function buildInto(outDir, { repoRoot, version, log }) {
 }
 
 /**
- * `release()` снимает метку «используется» — зовётся из teardown прогона.
+ * `release()` removes the "in use" mark; the run's teardown calls it.
  *
  * @param {{ repoRoot: string, root?: string, keep?: number, log?: (msg: string) => void }} params
  * @returns {{ key: string | null, dir: string, binary: string, selfExtract: string | undefined, hit: boolean, release: () => void }}
@@ -352,17 +352,17 @@ export function ensureE2eArtifacts({ repoRoot, root = cacheRoot(), keep, log = (
     });
 
     if (key === null) {
-        // Уберёт evict по мёртвому pid.
+        // evict removes it by the dead pid.
         const dir = join(root, `${"0".repeat(16)}.tmp-${String(process.pid)}`);
         removeTree(dir);
-        log("дерево не git — собираю без кэша");
+        log("not a git tree, building without cache");
         const manifest = buildInto(dir, { repoRoot, version, log });
         return result(dir, manifest, false, () => removeTree(dir));
     }
 
     const dir = join(root, key);
-    // Метка «используется» — до всякой уборки, чтобы соседняя уборка не снесла сборку
-    // между нашей проверкой и стартом воркеров.
+    // The "in use" mark goes first, so a neighbor's cleanup can't remove the build
+    // between our check and the start of the workers.
     const inUseDir = join(root, ".in-use");
     mkdirSync(inUseDir, { recursive: true });
     const mark = join(inUseDir, `${key}@${String(process.pid)}`);
@@ -374,33 +374,33 @@ export function ensureE2eArtifacts({ repoRoot, root = cacheRoot(), keep, log = (
     if (manifest === null) {
         const unlock = acquireLock(join(root, `${key}.lock`), { log });
         try {
-            manifest = readManifest(dir); // пока ждали замок, сосед мог собрать
+            manifest = readManifest(dir); // a neighbor may have built it while we waited for the lock
             hit = manifest !== null;
             if (manifest === null) {
                 if (existsSync(dir)) removeTree(dir);
                 const tmp = join(root, `${key}.tmp-${String(process.pid)}`);
                 removeTree(tmp);
-                log(`сборки ${key} нет в кэше (${root}) — собираю`);
+                log(`build ${key} is not in the cache (${root}), building`);
                 const started = Date.now();
                 manifest = buildInto(tmp, { repoRoot, version, log });
                 freezeTree(tmp);
                 renameWithRetry(tmp, dir);
-                log(`собрано за ${String(Math.round((Date.now() - started) / 1000))} с → ${dir}`);
+                log(`built in ${String(Math.round((Date.now() - started) / 1000))} s → ${dir}`);
             }
         } finally {
             unlock();
         }
     }
-    if (hit) log(`сборка ${key} из кэша: ${dir}`);
-    // «Последнее использование» — mtime каталога (utimes владельцу можно и на read-only).
+    if (hit) log(`build ${key} from cache: ${dir}`);
+    // "Last used" is the directory mtime (the owner may utimes a read-only one too).
     const now = new Date();
     try {
         utimesSync(dir, now, now);
     } catch {
-        // чужой кэш — вытеснение просто сочтёт сборку старой
+        // someone else's cache: eviction just treats the build as old
     }
     const removed = evict(root, { keep: keep ?? Number(process.env.DIODE_E2E_CACHE_KEEP ?? DEFAULT_KEEP) });
-    if (removed.length > 0) log(`вытеснено из кэша: ${removed.length}`);
+    if (removed.length > 0) log(`evicted from cache: ${removed.length}`);
     return result(dir, manifest, hit, release);
 }
 
@@ -409,7 +409,7 @@ function listCache(root) {
     try {
         names = readdirSync(root).filter((n) => KEY_RE.test(n));
     } catch {
-        // пусто
+        // empty
     }
     for (const name of names) {
         const manifest = readManifest(join(root, name));

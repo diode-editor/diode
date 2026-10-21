@@ -22,19 +22,19 @@
     ],
     "github.copilot.chat.commitMessageGeneration.instructions": [
         {
-            "text": "Используй Conventional Commits: type(scope): subject. Тип определяет попадание в релизный changelog."
+            "text": "Use Conventional Commits: type(scope): subject. The type decides whether the commit lands in the release changelog."
         },
         {
-            "text": "feat/fix/perf — ТОЛЬКО для изменений, видимых пользователю редактора. Инфраструктуру (CI, workflow-ы, конфиги, .vscode, .github, билд-скрипты) помечай ci/build/chore, тесты — test, документацию — docs."
+            "text": "feat/fix/perf are ONLY for changes visible to the editor user. Mark infrastructure (CI, workflows, configs, .vscode, .github, build scripts) as ci/build/chore, tests as test, documentation as docs."
         },
         {
-            "text": "fix — это починка бага в поведении редактора, который замечает пользователь. Правки линта, форматирования, порядка импортов, опечаток в коде — это style, НЕ fix. Починка тестов/конфигов — test/chore, не fix."
+            "text": "fix is a fix of an editor behavior bug that the user notices. Lint, formatting, import order and code typo fixes are style, NOT fix. Test/config fixes are test/chore, not fix."
         },
         {
-            "text": "Рефакторинг — refactor (в changelog не идёт, кроме ломающего refactor!:). Ломающие изменения помечай суффиксом ! или футером BREAKING CHANGE:."
+            "text": "Refactoring is refactor (it does not go to the changelog, except a breaking refactor!:). Mark breaking changes with a ! suffix or a BREAKING CHANGE: footer."
         },
         {
-            "text": "Subject: императив, нижний регистр, без точки в конце. Для feat/fix описывай пользовательский эффект, а не внутреннюю реализацию. Подробности — в AGENTS.md, секция «Коммиты»."
+            "text": "Subject: imperative, lowercase, no trailing period. For feat/fix describe the user-facing effect, not the internal implementation. Details are in docs/COMMITS.md."
         }
     ]
 }

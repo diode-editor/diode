@@ -14,13 +14,13 @@ import { needsNoopOrganizeImports } from "./lib/organizeImports.ts";
 import { createRefactoringEditsMiddleware, type RefactoringEditsHost } from "./lib/refactoringEdits.ts";
 import { LANGUAGE_SERVERS, resolveServerCommand } from "./lib/resolveServer.ts";
 
-/** Распаковка вшитого сервера стартует при регистрации builtin'ов — активация может её обогнать. */
+/** Bundled server extraction starts when builtins are registered; activation can overtake it. */
 const BUNDLED_WAIT_MS = 5_000;
 const BUNDLED_POLL_MS = 100;
 
 /**
- * Пути вшитого сервера и режим рантайма инжектирует host переопределениями
- * дефолтов настроек (builtinConfigInjection в main.ts diode).
+ * The host injects the bundled server paths and the runtime mode by overriding
+ * setting defaults (builtinConfigInjection in diode's main.ts).
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
     const configuration = vscode.workspace.getConfiguration("diode.lsp.typescript");
@@ -35,7 +35,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     for (const spec of LANGUAGE_SERVERS) {
         const outputChannel = vscode.window.createOutputChannel(spec.displayName);
 
-        // Кэш публикуется атомарным rename: existsSync entry = готовность.
+        // The cache is published by an atomic rename: existsSync of the entry means ready.
         const hasEarlierCandidate =
             (settingPath !== "" && existsSync(settingPath)) ||
             workspaceRoots.some((root) => existsSync(`${root}/node_modules/typescript-language-server/lib/cli.mjs`));
@@ -57,15 +57,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         }
         const server = resolved.command;
 
-        // Воркспейсный TypeScript сервер уважает сам. Для вшитого — без ATA:
-        // typingsInstaller не пакуется, третий уровень форков + npm не нужен.
+        // The server honors a workspace TypeScript by itself. For the bundled one, no ATA:
+        // typingsInstaller is not packaged, and a third level of forks + npm is not needed.
         const tsserverPath =
             configuration.get<string>("tsserverPath", "") || (resolved.isBundled ? bundledTsserverPath : "");
         const initializationOptions = {
             ...(tsserverPath !== "" ? { tsserver: { path: tsserverPath } } : {}),
             ...(resolved.isBundled ? { disableAutomaticTypingAcquisition: true } : {}),
         };
-        // Middleware уходит в опции до создания клиента.
+        // Middleware goes into the options before the client is created.
         const clientRef: { current?: LanguageClient } = {};
         const refactoringEdits = createRefactoringEditsMiddleware({
             ...refactoringFiles,
@@ -82,8 +82,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         };
         const clientOptions: LanguageClientOptions = {
             documentSelector: spec.languageIds.map((language) => ({ scheme: "file", language })),
-            // Ошибки конвертации (p2c.asDiagnostics) клиент пишет ТОЛЬКО сюда —
-            // no-op канал молча терял бы их.
+            // The client writes conversion errors (p2c.asDiagnostics) ONLY here;
+            // a no-op channel would silently lose them.
             outputChannel,
             progressOnInitialization: true,
             ...(Object.keys(initializationOptions).length > 0 ? { initializationOptions } : {}),
@@ -100,8 +100,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         const client = new LanguageClient(spec.id, spec.displayName, serverOptions, clientOptions);
         clientRef.current = client;
         context.subscriptions.push(client);
-        // Активация не блокируется на initialize. withProgress — спиннер виден,
-        // даже если сервер не шлёт свой work-done прогресс.
+        // Activation does not block on initialize. withProgress shows a spinner
+        // even if the server sends no work-done progress of its own.
         void vscode.window.withProgress(
             { location: vscode.ProgressLocation.Window, title: `${spec.displayName}: starting language server…` },
             () =>
@@ -119,7 +119,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }
 }
 
-/** Пустой edit применяется без правок и без шага отмены; почему — `lib/organizeImports.ts`. */
+/** An empty edit applies with no changes and no undo step; see `lib/organizeImports.ts` for why. */
 async function withNoopOrganizeImports(
     document: vscode.TextDocument,
     range: vscode.Range,
@@ -149,7 +149,7 @@ const refactoringFiles: Omit<RefactoringEditsHost, "applyRefactoringEdit"> = {
     isOpen: (uri) => vscode.workspace.textDocuments.some((document) => document.uri.toString() === uri),
 };
 
-/** Возвращается и по таймауту. */
+/** Also resolves on timeout. */
 async function waitForFile(filePath: string, timeoutMs: number): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     while (Date.now() < deadline) {

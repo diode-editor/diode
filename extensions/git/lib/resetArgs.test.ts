@@ -5,20 +5,20 @@ import { resetArgs, revertArgs } from "./resetArgs.ts";
 const SHA = "a".repeat(40);
 
 describe("resetArgs", () => {
-    it("собирает argv для каждого режима", () => {
+    it("builds argv for each mode", () => {
         expect(resetArgs({ ref: SHA, mode: "soft" })).toEqual(["reset", "--soft", SHA]);
         expect(resetArgs({ ref: SHA, mode: "mixed" })).toEqual(["reset", "--mixed", SHA]);
         expect(resetArgs({ ref: SHA, mode: "hard" })).toEqual(["reset", "--hard", SHA]);
     });
 
-    it("неизвестный режим отбрасывается (значение из-за границы процесса)", () => {
+    it("drops an unknown mode (value from across the process boundary)", () => {
         expect(resetArgs({ ref: SHA, mode: "keep" })).toBeNull();
         expect(resetArgs({ ref: SHA, mode: "--force" })).toBeNull();
         expect(resetArgs({ ref: SHA, mode: 1 })).toBeNull();
         expect(resetArgs({ ref: SHA })).toBeNull();
     });
 
-    it("ref, похожий на флаг, отбрасывается", () => {
+    it("drops a flag-like ref", () => {
         expect(resetArgs({ ref: "--hard", mode: "soft" })).toBeNull();
         expect(resetArgs({ ref: "", mode: "soft" })).toBeNull();
         expect(resetArgs({ mode: "soft" })).toBeNull();
@@ -26,11 +26,11 @@ describe("resetArgs", () => {
 });
 
 describe("revertArgs", () => {
-    it("собирает argv с --no-edit", () => {
+    it("builds argv with --no-edit", () => {
         expect(revertArgs({ ref: SHA })).toEqual(["revert", "--no-edit", SHA]);
     });
 
-    it("невалидный ref отбрасывается", () => {
+    it("drops an invalid ref", () => {
         expect(revertArgs({ ref: "-x" })).toBeNull();
         expect(revertArgs({})).toBeNull();
     });

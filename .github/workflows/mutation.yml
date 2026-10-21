@@ -1,42 +1,42 @@
 name: Mutation
 
-# Мутационный прогон по всему, что влилось в main с прошлого прогона.
+# Mutation run over everything merged into main since the previous run.
 #
-# Почему по расписанию, а не гейтом на PR: прогон стоит десятки минут (замер —
-# 41 минута на фичу уровня #261 на четырёх ядрах), и гейт, который дороже самой
-# задачи, начинают обходить. Здесь цена уходит с критического пути.
+# Why on a schedule rather than as a PR gate: a run takes tens of minutes (measured:
+# 41 minutes for a feature the size of #261 on four cores), and a gate that costs more
+# than the task itself gets bypassed. Here the cost leaves the critical path.
 #
-# Почему окно, а не весь репозиторий: репозиторий целиком — это ~110 000 мутантов,
-# то есть дни непрерывного счёта на один прогон. Мутируем только то, что изменилось.
+# Why a window rather than the whole repo: the whole repo is ~110,000 mutants,
+# i.e. days of nonstop computation per run. We mutate only what changed.
 #
-# Почему база — ветка, а не тег: двигать тег нельзя, force-push тега ломает
-# `git fetch` у всех чекаутов (см. комментарий в nightly.yml). Ветка двигается штатно,
-# и окна идут встык — ни один коммит не проскакивает мимо проверки.
+# Why the base is a branch, not a tag: a tag can't be moved, a force-pushed tag breaks
+# `git fetch` in every checkout (see the comment in nightly.yml). A branch moves normally,
+# and the windows are back to back, so no commit slips past the check.
 
 on:
   schedule:
-    # Раз в трое суток, в 01:00 UTC — до ночной сборки (03:00), чтобы не делить
-    # раннеры. `*/3` — шаг по дню месяца, поэтому на стыке месяцев интервал
-    # сбивается (31-е и 1-е подряд). Это безвредно: окно считается от ветки
-    # mutation-baseline, а не от календаря, так что коммиты не теряются —
-    # соседние окна просто выходят разной ширины.
+    # Every three days at 01:00 UTC, before the nightly build (03:00), so they don't share
+    # runners. `*/3` steps over the day of the month, so at month boundaries the interval
+    # is off (the 31st and the 1st in a row). That's harmless: the window is counted from the
+    # mutation-baseline branch, not the calendar, so no commits are lost;
+    # adjacent windows just come out with different widths.
     - cron: "0 1 */3 * *"
   workflow_dispatch:
     inputs:
       base:
-        description: "База для диффа (ref или SHA). Пусто — ветка mutation-baseline."
+        description: "Diff base (ref or SHA). Empty means the mutation-baseline branch."
         required: false
         type: string
 
-# Прогон длинный: если предыдущий ещё идёт, второй не запускаем — иначе они
-# поделят раннер и оба станут вдвое медленнее.
+# A run is long: if the previous one is still going, don't start a second one, otherwise they
+# share the runner and both get twice as slow.
 concurrency:
   group: mutation
   cancel-in-progress: false
 
 permissions:
-  contents: write # двигаем ветку mutation-baseline
-  issues: write # заводим тикет с выжившими
+  contents: write # moves the mutation-baseline branch
+  issues: write # files an issue with the surviving mutants
 
 jobs:
   mutation:
@@ -45,8 +45,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Без полной истории `git merge-base` не работает, а на нём стоит весь
-          # расчёт diff-скоупа в scripts/mutation-diff.mjs.
+          # Without the full history `git merge-base` doesn't work, and the whole
+          # diff scope computation in scripts/mutation-diff.mjs rests on it.
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -55,10 +55,10 @@ jobs:
 
       - run: npm install
 
-      # Go для стоковых сьютов golang.go (иначе они пропускаются) + кэш gopls.
+      # Go for the golang.go stock extension suites (otherwise they are skipped) + gopls cache.
       - uses: ./.github/actions/go-tools
 
-      - name: Определить базу прогона
+      - name: Determine the run base
         id: base
         run: |
           set -euo pipefail
@@ -67,65 +67,65 @@ jobs:
           elif git rev-parse --verify --quiet origin/mutation-baseline >/dev/null; then
             base="origin/mutation-baseline"
           else
-            # Первый прогон: берём одно окно назад, чтобы не мутировать всю историю.
+            # First run: go one window back so as not to mutate the whole history.
             base="$(git rev-list -1 --before='3 days ago' origin/main)"
           fi
-          echo "База: $base ($(git rev-parse --short "$base"))"
+          echo "Base: $base ($(git rev-parse --short "$base"))"
           echo "sha=$(git rev-parse "$base")" >> "$GITHUB_OUTPUT"
 
-      # continue-on-error: скрипт выходит единицей при балле ниже порога, а это
-      # для расписанного прогона штатный исход — находки уезжают в тикет, а не
-      # красят ночной job. Красным job станет только от настоящего сбоя.
-      - name: Прогон
+      # continue-on-error: the script exits with 1 when the score is below the threshold, which
+      # is a normal outcome for a scheduled run: findings go into an issue instead of
+      # turning the job red. The job goes red only on a real failure.
+      - name: Run
         continue-on-error: true
         run: |
           set -o pipefail
-          # Бюджет перепроверки вживлением: окно бывает широким, а выживших —
-          # сотни; не успевшие уходят в тикет как inconclusive.
+          # Budget for re-verification by planting: a window can be wide and the surviving mutants
+          # number in the hundreds; the ones that don't make it go into the issue as inconclusive.
           node scripts/mutation-diff.mjs --base "${{ steps.base.outputs.sha }}" \
             --reporters json,html,clear-text --verify-budget 90 2>&1 | tee mutation-run.log
 
-      - name: Собрать отчёт
+      - name: Build the report
         id: report
         env:
           MUTATION_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          # Исход прогона пишет mutation-diff.mjs. Нет файла — скрипт упал, не
-          # дойдя до вердикта. Раньше «нет отчёта» читалось как «нечего
-          # мутировать», и с 2026-09-13 прогон три недели зеленел за 0.4 минуты,
-          # падая на первом же `git diff` (ENOBUFS на 11.7 МБ вывода).
+          # mutation-diff.mjs writes the run outcome. No file means the script crashed
+          # before reaching a verdict. "No report" used to read as "nothing to
+          # mutate", and from 2026-09-13 the run stayed green for three weeks in 0.4 minutes,
+          # failing on the very first `git diff` (ENOBUFS on 11.7 MB of output).
           outcome="$(jq -r .outcome reports/mutation/gate.json 2>/dev/null || echo missing)"
           echo "outcome=$outcome" >> "$GITHUB_OUTPUT"
-          echo "Исход прогона: $outcome"
+          echo "Run outcome: $outcome"
           if [ ! -f reports/mutation/mutation.json ]; then
             echo "has_report=false" >> "$GITHUB_OUTPUT"
             if [ "$outcome" = "empty-scope" ]; then
-              # Пустой скоуп — в окне не было изменений в продуктовом коде.
-              # Штатный исход, базу двигаем: окно проверено.
-              echo "В окне нечего было мутировать."
+              # Empty scope: the window had no changes in product code.
+              # A normal outcome, so move the base: the window is checked.
+              echo "Nothing to mutate in the window."
               exit 0
             fi
-            echo "::error::Прогон не дошёл до отчёта (исход: $outcome) — смотри шаг «Прогон». База не сдвинута."
+            echo "::error::The run didn't get to a report (outcome: $outcome); see the \"Run\" step. The base was not moved."
             exit 1
           fi
           echo "has_report=true" >> "$GITHUB_OUTPUT"
           {
-            echo "Прогон по диффу \`$(git rev-parse --short ${{ steps.base.outputs.sha }})..$(git rev-parse --short HEAD)\`."
+            echo "Run over the diff \`$(git rev-parse --short ${{ steps.base.outputs.sha }})..$(git rev-parse --short HEAD)\`."
             echo
             node scripts/mutation-report.mjs
             echo
-            echo "<details><summary>Коммиты в окне</summary>"
+            echo "<details><summary>Commits in the window</summary>"
             echo
             git log --oneline "${{ steps.base.outputs.sha }}..HEAD"
             echo
             echo "</details>"
             echo
-            echo "HTML-отчёт со всеми мутантами — в артефактах прогона: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "The HTML report with all mutants is in the run artifacts: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           } > issue-body.md
           cat issue-body.md >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Артефакты
+      - name: Artifacts
         if: steps.report.outputs.has_report == 'true'
         uses: actions/upload-artifact@v4
         with:
@@ -137,36 +137,36 @@ jobs:
             mutation-run.log
           retention-days: 30
 
-      - name: Завести тикет с выжившими
+      - name: File an issue with the surviving mutants
         if: steps.report.outputs.has_report == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          # Балл 100 означает, что выживших нет — тикет заводить не о чем.
-          if grep -q "Выживших нет" issue-body.md; then
-            echo "Выживших нет, тикет не нужен."
+          # A score of 100 means no surviving mutants: nothing to file an issue about.
+          if grep -q "No surviving mutants" issue-body.md; then
+            echo "No surviving mutants, no issue needed."
             exit 0
           fi
-          title="Мутационный прогон $(date -u +%Y-%m-%d): выжившие мутанты"
+          title="Mutation run $(date -u +%Y-%m-%d): surviving mutants"
           gh label create mutation --color BFD4F2 \
-            --description "Находки мутационного тестирования" 2>/dev/null || true
-          # Метка — украшение; если её не удалось завести (нет прав), тикет всё
-          # равно должен появиться, иначе находки прогона потеряются молча.
+            --description "Mutation testing findings" 2>/dev/null || true
+          # The label is cosmetic; if it can't be created (no permission), the issue must
+          # still appear, otherwise the run's findings would be silently lost.
           gh issue create --title "$title" --body-file issue-body.md --label mutation \
             || gh issue create --title "$title" --body-file issue-body.md
 
-      # Двигаем базу только после успешно собранного отчёта: иначе упавший прогон
-      # съел бы окно, и его коммиты никогда бы не проверились.
+      # Move the base only after a successfully built report: otherwise a crashed run
+      # would eat the window, and its commits would never be checked.
       #
-      # Обратная сторона: если прогон упёрся в timeout-minutes, база осталась на
-      # месте, и следующее окно будет ШИРЕ — то есть упрётся тем более. Само оно
-      # из этого не выберется. Выход — запустить вручную (workflow_dispatch),
-      # передав в `base` промежуточный коммит: прогон пройдёт по узкому окну и
-      # сдвинет базу, после чего расписание догонит остаток по частям.
+      # The flip side: if the run hit timeout-minutes, the base stays put
+      # and the next window is WIDER, so it hits the limit all the more. It won't
+      # get out of this by itself. The way out is a manual run (workflow_dispatch)
+      # with an intermediate commit as `base`: the run covers a narrow window and
+      # moves the base, after which the schedule catches up on the rest piece by piece.
       #
-      # Двигаем только по вердикту (passed/failed) или пустому скоупу: при
-      # исходе `error` (перепроверка не доехала) окно проверено не до конца.
-      - name: Сдвинуть базу
+      # Move only on a verdict (passed/failed) or an empty scope: on the
+      # `error` outcome (re-verification didn't finish) the window isn't fully checked.
+      - name: Move the base
         if: contains(fromJSON('["passed","failed","empty-scope"]'), steps.report.outputs.outcome)
         run: git push --force origin HEAD:refs/heads/mutation-baseline

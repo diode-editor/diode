@@ -1,7 +1,7 @@
-# Конфиг git-cliff для diode.
-# Цель: changelog показывает только пользовательские изменения редактора.
-# Инфраструктура (CI, сборка, тесты, рефакторинг, доки, стиль) из changelog скрыта.
-# Конвенция коммитов, на которую это опирается, описана в AGENTS.md (секция «Коммиты»).
+# git-cliff config for diode.
+# Goal: the changelog shows only user-facing editor changes.
+# Infrastructure (CI, build, tests, refactoring, docs, style) is hidden from the changelog.
+# The commit convention this relies on is described in docs/COMMITS.md.
 
 [changelog]
 header = ""

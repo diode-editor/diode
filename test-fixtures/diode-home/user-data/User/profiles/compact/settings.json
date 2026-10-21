@@ -1,5 +1,5 @@
 {
-    // Профиль "compact": крупный tabSize, чтобы наглядно отличить от default.
+    // The "compact" profile: a large tabSize to tell it apart from default at a glance.
     "editor.tabSize": 8,
     "editor.insertSpaces": false
 }

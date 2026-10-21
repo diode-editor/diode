@@ -1,24 +1,24 @@
 #!/usr/bin/env bash
-# Плоский apt-репозиторий поверх GitHub Releases.
+# A flat apt repository on top of GitHub Releases.
 #
 #   packaging/apt/build-repo.sh <dir with *.deb> [gpg-key-id]
-#   APT_HISTORY=<file> packaging/apt/build-repo.sh …   # + записи прошлых релизов (fetch-history.sh)
+#   APT_HISTORY=<file> packaging/apt/build-repo.sh …   # + entries of past releases (fetch-history.sh)
 #
-# Кладёт рядом с .deb файлы Packages, Packages.gz, Release, InRelease, Release.gpg и
-# diode-archive-keyring.gpg. Всё это заливается ассетами в тот же релиз, а у пользователя
-# в sources.list:
+# Writes Packages, Packages.gz, Release, InRelease, Release.gpg and
+# diode-archive-keyring.gpg next to the .deb files. All of them are uploaded as assets to the
+# same release, and the user's sources.list has:
 #
 #   deb [signed-by=/etc/apt/keyrings/diode.gpg] https://github.com/diode-editor/diode/releases/latest/download ./
 #
-# apt запрашивает <base>/InRelease и <base>/Packages, а Filename в Packages — имя .deb
-# относительно того же base: GitHub отвечает редиректом на CDN, apt по нему идёт.
-# «latest» у GitHub — последний НЕ pre-release, поэтому nightly сюда не попадает.
+# apt requests <base>/InRelease and <base>/Packages, and Filename in Packages is the .deb name
+# relative to the same base: GitHub answers with a redirect to its CDN, and apt follows it.
+# GitHub's "latest" is the latest NON-pre-release, so nightly never lands here.
 #
-# Прошлые версии: APT_HISTORY — файл станз от fetch-history.sh, их Filename ведут через
-# `../../download/vX/` в свои релизы. Дописываются после станз из локальных .deb.
+# Past versions: APT_HISTORY is a file of stanzas from fetch-history.sh whose Filename points
+# through `../../download/vX/` into their own releases. Appended after the stanzas of the local .deb files.
 #
-# Ключ: приватный ключ приезжает в CI из секрета APT_GPG_PRIVATE_KEY (armored, без пароля);
-# id ключа можно не передавать — возьмётся первый секретный ключ в keyring.
+# Key: in CI the private key comes from the APT_GPG_PRIVATE_KEY secret (armored);
+# the key id is optional, the first secret signing key in the keyring is used.
 
 set -euo pipefail
 
@@ -28,10 +28,10 @@ key="${2:-}"
 cd "$dir"
 ls ./*.deb >/dev/null 2>&1 || { echo "no .deb files in $dir" >&2; exit 1; }
 
-# Filename должен быть голым именем файла (без ./): apt склеивает base URL + Filename.
+# Filename must be a bare file name (no ./): apt concatenates base URL + Filename.
 dpkg-scanpackages --multiversion . /dev/null | sed 's|^Filename: \./|Filename: |' > Packages
 if [[ -n "${APT_HISTORY:-}" ]]; then
-    # dpkg-scanpackages заканчивает последнюю станзу пустой строкой — разделитель уже есть.
+    # dpkg-scanpackages ends the last stanza with a blank line, so the separator is already there.
     cat "$APT_HISTORY" >> Packages
 fi
 gzip -9 -k -f Packages
@@ -44,18 +44,18 @@ apt-ftparchive \
     -o APT::FTPArchive::Release::Description="Diode terminal editor, flat repository on GitHub Releases" \
     release . > Release
 
-# Ключ подписи: первый, у которого секретная часть реально есть (поле 15 ≠ "#") и
-# среди возможностей есть подпись (поле 12 содержит "s"). Так работает и отдельный
-# ключ (gen-key.sh), и экспортированный сам по себе подписывающий субключ личного
-# ключа (`gpg --export-secret-subkeys <subkey>!`): у последнего primary в keyring
-# помечен как отсутствующий, и `--local-user <primary>` упал бы.
+# Signing key: the first one whose secret part is actually present (field 15 != "#") and
+# whose capabilities include signing (field 12 contains "s"). This works both for a dedicated
+# key (gen-key.sh) and for a signing subkey of a personal key exported on its own
+# (`gpg --export-secret-subkeys <subkey>!`): for the latter the primary is marked as missing
+# in the keyring, and `--local-user <primary>` would fail.
 if [[ -z "$key" ]]; then
     key="$(gpg --batch --list-secret-keys --with-colons \
         | awk -F: '($1=="sec" || $1=="ssb") && $15!="#" && $12 ~ /s/ {print $5; exit}')"
 fi
 [[ -n "$key" ]] || { echo "no secret gpg key with signing capability available" >&2; exit 1; }
 
-# Пароль ключа (если есть) — из APT_GPG_PASSPHRASE; иначе ключ должен быть без пароля.
+# The key passphrase (if any) comes from APT_GPG_PASSPHRASE; otherwise the key must have none.
 sign=(gpg --batch --yes --local-user "${key}!" --digest-algo SHA256)
 if [[ -n "${APT_GPG_PASSPHRASE:-}" ]]; then
     sign+=(--pinentry-mode loopback --passphrase-fd 3)
