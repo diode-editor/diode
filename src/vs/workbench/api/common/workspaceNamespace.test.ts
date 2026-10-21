@@ -38,7 +38,7 @@ function makeCtx() {
 }
 
 describe("WorkspaceNamespace — workspace trust (naive)", () => {
-    it("открытый воркспейс всегда доверен, событие подписываемо и не стреляет", () => {
+    it("an open workspace is always trusted, the event is subscribable and never fires", () => {
         const { workspace } = makeCtx();
         expect(workspace.isTrusted).toBe(true);
 
@@ -52,7 +52,7 @@ describe("WorkspaceNamespace — workspace trust (naive)", () => {
 });
 
 describe("WorkspaceNamespace — configuration", () => {
-    it("getConfiguration читает из pushed workspace.initialize", () => {
+    it("getConfiguration reads from the pushed workspace.initialize", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: { defaults: {}, user: { editor: { tabSize: 2 }, editorconfig: { generateAuto: true } } },
@@ -63,7 +63,7 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(workspace.getConfiguration().get("editor.tabSize")).toBe(2);
     });
 
-    it("scope с languageId (TextDocument или { languageId }) выбирает секцию языка", () => {
+    it("scope with languageId (TextDocument or { languageId }) picks the language section", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: {
@@ -90,13 +90,13 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(workspace.getConfiguration("editor", null as never).get("formatOnSave")).toBe(false);
     });
 
-    it("get с defaultValue для отсутствующего ключа", () => {
+    it("get with defaultValue for a missing key", () => {
         const { workspace } = makeCtx();
         expect(workspace.getConfiguration("editor").get("tabSize", 4)).toBe(4);
         expect(workspace.getConfiguration("editor").has("tabSize")).toBe(false);
     });
 
-    it("значения секции доступны как поля объекта конфигурации", () => {
+    it("section values are available as fields of the configuration object", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: { defaults: {}, user: { editor: { tabSize: 2, insertSpaces: false } } },
@@ -110,7 +110,7 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(config.insertSpaces).toBe(false);
     });
 
-    it("inspect разделяет default/global слои", () => {
+    it("inspect separates default/global layers", () => {
         const { ctx, stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: { defaults: { editor: { tabSize: 4 } }, user: { editor: { tabSize: 8 } } },
@@ -122,7 +122,7 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(inspected?.workspaceValue).toBeUndefined();
     });
 
-    it("inspect отдаёт workspaceValue слоя воркспейса, get — значение поверх user", () => {
+    it("inspect returns workspaceValue of the workspace layer, get returns the value over user", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: {
@@ -143,7 +143,7 @@ describe("WorkspaceNamespace — configuration", () => {
         });
     });
 
-    it("update шлёт хосту configuration.update с полным ключом и без цели, если её не дали", async () => {
+    it("update sends configuration.update to the host with the full key and no target if none was given", async () => {
         const { stub, workspace } = makeCtx();
         await workspace.getConfiguration("editor").update("tabSize", 2);
         await workspace.getConfiguration().update("files.autoSave", "off");
@@ -155,7 +155,7 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(stub.notifies).toEqual([]);
     });
 
-    it("цель: boolean и ConfigurationTarget — как parseConfigurationTarget эталона; прочее — не задана", async () => {
+    it("target: boolean and ConfigurationTarget as in upstream parseConfigurationTarget; anything else is unset", async () => {
         const { stub, workspace } = makeCtx();
         const config = workspace.getConfiguration("bazel.projectview");
         await config.update("open", false, true);
@@ -178,18 +178,18 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(stub.requests[5]?.params).toStrictEqual({ key: "bazel.projectview.open", value: false });
     });
 
-    it("value undefined снимает ключ — поля value на проводе нет", async () => {
+    it("value undefined removes the key — no value field on the wire", async () => {
         const { stub, workspace } = makeCtx();
         await workspace.getConfiguration("bazel").update("projectview.open", undefined, true);
         expect(stub.requests[0]?.params).toStrictEqual({ key: "bazel.projectview.open", target: "user" });
     });
 
-    it("ресурс из scope (Uri, TextDocument, WorkspaceFolder) едет хосту строкой", async () => {
+    it("resource from scope (Uri, TextDocument, WorkspaceFolder) is sent to the host as a string", async () => {
         const { stub, workspace } = makeCtx();
         const uri = Uri.file("/ws/a.ts");
         await workspace.getConfiguration("x", uri).update("y", 1);
         await workspace.getConfiguration("x", { uri: Uri.file("/ws"), name: "ws", index: 0 }).update("y", 1);
-        await workspace.getConfiguration("x", { uri: "не-Uri" } as unknown as Uri).update("y", 1);
+        await workspace.getConfiguration("x", { uri: "not-a-Uri" } as unknown as Uri).update("y", 1);
         // Upstream scope `null` means "no resource"; writing must not throw on it.
         await workspace.getConfiguration("x", null).update("y", 1);
         expect(stub.requests.map((r) => (r.params as { resource?: string }).resource)).toEqual([
@@ -200,7 +200,7 @@ describe("WorkspaceNamespace — configuration", () => {
         ]);
     });
 
-    it("отказ хоста доходит до расширения rejected promise с его текстом", async () => {
+    it("host rejection reaches the extension as a rejected promise with its message", async () => {
         const { stub, workspace } = makeCtx();
         stub.responder = () =>
             Promise.reject(
@@ -209,7 +209,7 @@ describe("WorkspaceNamespace — configuration", () => {
         await expect(workspace.getConfiguration().update("x", 1)).rejects.toThrow("is not a registered configuration");
     });
 
-    it("запись в секцию языка отклоняется, не дойдя до хоста", async () => {
+    it("writing to a language section is rejected before reaching the host", async () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: { defaults: {}, user: { "[go]": { "editor.tabSize": 8 } }, workspace: {} },
@@ -230,7 +230,7 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(stub.requests.map((r) => (r.params as { target: string }).target)).toEqual(["workspace", "user"]);
     });
 
-    it("окно из .code-workspace: workspaceFolderValue — слой папки; запись в папку смотрит на его секцию языка", async () => {
+    it("window from .code-workspace: workspaceFolderValue is the folder layer; a folder write checks its language section", async () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: {
@@ -254,7 +254,7 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(stub.requests.map((r) => (r.params as { target: string }).target)).toEqual(["workspace"]);
     });
 
-    it("запись без цели смотрит на секцию языка слоя воркспейса", async () => {
+    it("a write without target checks the language section of the workspace layer", async () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: { defaults: {}, user: {}, workspace: { "[go]": { "editor.tabSize": 3 } } },
@@ -267,13 +267,13 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(stub.requests).toEqual([]);
     });
 
-    it("overrideInLanguage без языка в scope пишет обычный ключ", async () => {
+    it("overrideInLanguage without a language in scope writes a plain key", async () => {
         const { stub, workspace } = makeCtx();
         await workspace.getConfiguration("editor", Uri.file("/ws/a.go")).update("tabSize", 2, true, true);
         expect(stub.requests[0]?.params).toMatchObject({ key: "editor.tabSize", value: 2, target: "user" });
     });
 
-    it("значение секции с именем как у метода (get/has) не затирает метод", () => {
+    it("a section value named like a method (get/has) does not overwrite the method", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: { defaults: {}, user: { section: { get: 1, value: 2 } } },
@@ -285,7 +285,7 @@ describe("WorkspaceNamespace — configuration", () => {
         expect((config as unknown as { value: number }).value).toBe(2);
     });
 
-    it("configurationChanged без affectedKeys не падает", () => {
+    it("configurationChanged without affectedKeys does not fail", () => {
         const { stub, workspace } = makeCtx();
         let seen: boolean | undefined;
         workspace.onDidChangeConfiguration((e: { affectsConfiguration(s: string): boolean }) => {
@@ -295,7 +295,7 @@ describe("WorkspaceNamespace — configuration", () => {
         expect(seen).toBe(false);
     });
 
-    it("configurationChanged переустанавливает снапшот и стреляет событие", () => {
+    it("configurationChanged resets the snapshot and fires the event", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: { defaults: {}, user: { editor: { tabSize: 2 } } },
@@ -315,7 +315,7 @@ describe("WorkspaceNamespace — configuration", () => {
 });
 
 describe("WorkspaceNamespace — folders & documents", () => {
-    it("workspaceFolders приходит из initialize", () => {
+    it("workspaceFolders comes from initialize", () => {
         const { stub, workspace } = makeCtx();
         expect(workspace.workspaceFolders).toBeUndefined();
         stub.fire("workspace.initialize", {
@@ -326,7 +326,7 @@ describe("WorkspaceNamespace — folders & documents", () => {
         expect(workspace.workspaceFolders![0].name).toBe("repo");
     });
 
-    it("окно из .code-workspace: workspaceFile — его Uri, name — «<файл> (Workspace)», как в эталоне", () => {
+    it("window from .code-workspace: workspaceFile is its Uri, name is '<file> (Workspace)', as upstream", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: { defaults: {}, user: {} },
@@ -337,7 +337,7 @@ describe("WorkspaceNamespace — folders & documents", () => {
         expect(workspace.name).toBe("web (Workspace)");
     });
 
-    it("окно из папки: workspaceFile нет, name — имя папки", () => {
+    it("window from a folder: no workspaceFile, name is the folder name", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: { defaults: {}, user: {} },
@@ -348,14 +348,14 @@ describe("WorkspaceNamespace — folders & documents", () => {
         expect(workspace.name).toBe("repo");
     });
 
-    it("initialize без workspaceFolders → folders пусты", () => {
+    it("initialize without workspaceFolders → folders are empty", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", { configuration: { defaults: {}, user: {} } });
         expect(workspace.workspaceFolders).toBeUndefined();
         expect(workspace.name).toBeUndefined();
     });
 
-    it("asRelativePath относительно папки воркспейса", () => {
+    it("asRelativePath relative to the workspace folder", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: { defaults: {}, user: {} },
@@ -367,7 +367,7 @@ describe("WorkspaceNamespace — folders & documents", () => {
         expect(workspace.asRelativePath("/other/b.ts")).toBe("/other/b.ts");
     });
 
-    it("asRelativePath с includeWorkspaceFolder в multi-root добавляет имя папки", () => {
+    it("asRelativePath with includeWorkspaceFolder in multi-root adds the folder name", () => {
         const { stub, workspace } = makeCtx();
         stub.fire("workspace.initialize", {
             configuration: { defaults: {}, user: {} },
@@ -379,14 +379,14 @@ describe("WorkspaceNamespace — folders & documents", () => {
         expect(workspace.asRelativePath("/b/x.ts", true)).toBe("b/x.ts");
     });
 
-    it("textDocuments отражает реестр", () => {
+    it("textDocuments mirrors the registry", () => {
         const { ctx, workspace } = makeCtx();
         ctx.registry.getOrCreate(Uri.file("/a.ts"));
         ctx.registry.getOrCreate(Uri.file("/b.ts"));
         expect(workspace.textDocuments).toHaveLength(2);
     });
 
-    it("openTextDocument резолвит открытый документ (строка и Uri)", async () => {
+    it("openTextDocument resolves an open document (string and Uri)", async () => {
         const { ctx, workspace } = makeCtx();
         ctx.registry.getOrCreate(Uri.file("/a.ts"));
         const byString = await workspace.openTextDocument("/a.ts");
@@ -395,7 +395,7 @@ describe("WorkspaceNamespace — folders & documents", () => {
         expect((byUri as unknown as { fileName: string }).fileName).toBe("/a.ts");
     });
 
-    it("openTextDocument с не-file URI отказывает и НЕ читает диск", async () => {
+    it("openTextDocument with a non-file URI rejects and does NOT read the disk", async () => {
         // Bug class #107: the scheme fell through .fsPath, and `untitled:` went to nodeFs.readFile as a relative path.
         const { workspace } = makeCtx();
         await expect(workspace.openTextDocument(Uri.parse("untitled:Untitled-1") as never)).rejects.toMatchObject({
@@ -404,7 +404,7 @@ describe("WorkspaceNamespace — folders & documents", () => {
     });
 });
 
-describe("WorkspaceNamespace — openTextDocument от диска (WP7)", () => {
+describe("WorkspaceNamespace — openTextDocument from disk (WP7)", () => {
     let tmpDir: string;
     beforeEach(() => {
         tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-otd-"));
@@ -413,7 +413,7 @@ describe("WorkspaceNamespace — openTextDocument от диска (WP7)", () => 
         fs.rmSync(tmpDir, { recursive: true, force: true });
     });
 
-    it("на промах реестра читает файл с диска в эфемерный документ (не в реестр)", async () => {
+    it("on a registry miss reads the file from disk into an ephemeral document (not into the registry)", async () => {
         const { ctx, workspace } = makeCtx();
         const file = path.join(tmpDir, ".editorconfig");
         fs.writeFileSync(file, "root = true\n", "utf8");
@@ -429,15 +429,18 @@ describe("WorkspaceNamespace — openTextDocument от диска (WP7)", () => 
         expect(ctx.registry.get(Uri.file(file))).toBeUndefined();
     });
 
-    it("несуществующий файл → reject", async () => {
+    it("missing file → reject", async () => {
         const { workspace } = makeCtx();
         await expect(workspace.openTextDocument(path.join(tmpDir, "nope.txt"))).rejects.toThrow();
     });
 
-    it("не-utf8 encoding реально декодирует файл (windows1251) без предупреждений", async () => {
+    it("non-utf8 encoding really decodes the file (windows1251) without warnings", async () => {
         const { stub, workspace } = makeCtx();
         const file = path.join(tmpDir, "a.txt");
-        fs.writeFileSync(file, iconv.encode("Привет, мир!\n", "windows1251"));
+        fs.writeFileSync(
+            file,
+            iconv.encode("\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440!\n", "windows1251"),
+        ); // "Privet, mir!": Cyrillic is needed to exercise windows1251
 
         const doc = (await workspace.openTextDocument(
             Uri.file(file) as never,
@@ -445,12 +448,12 @@ describe("WorkspaceNamespace — openTextDocument от диска (WP7)", () => 
                 encoding: "windows1251",
             } as never,
         )) as unknown as { getText(): string; encoding: string };
-        expect(doc.getText()).toBe("Привет, мир!\n");
+        expect(doc.getText()).toBe("\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440!\n"); // "Privet, mir!"
         expect(doc.encoding).toBe("windows1251");
         expect(stub.requests.some((r) => r.method === "window.showMessage")).toBe(false);
     });
 
-    it("неизвестный encoding молча откатывается к дефолту (контракт vscode.d.ts)", async () => {
+    it("unknown encoding silently falls back to the default (vscode.d.ts contract)", async () => {
         const { stub, workspace } = makeCtx();
         const file = path.join(tmpDir, "b.txt");
         fs.writeFileSync(file, "x\n", "utf8");
@@ -465,7 +468,7 @@ describe("WorkspaceNamespace — openTextDocument от диска (WP7)", () => 
         expect(stub.requests.some((r) => r.method === "window.showMessage")).toBe(false);
     });
 
-    it("эфемерный документ детектит encoding по BOM и EOL по содержимому", async () => {
+    it("ephemeral document detects encoding from BOM and EOL from content", async () => {
         const { workspace } = makeCtx();
         const file = path.join(tmpDir, "bom.txt");
         fs.writeFileSync(file, Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("a\r\nb\r\n", "utf8")]));
@@ -482,7 +485,7 @@ describe("WorkspaceNamespace — openTextDocument от диска (WP7)", () => 
 });
 
 describe("WorkspaceNamespace — save subscriptions", () => {
-    it("первый onWillSaveTextDocument шлёт updateSubscriptions {willSave:true}", () => {
+    it("first onWillSaveTextDocument sends updateSubscriptions {willSave:true}", () => {
         const { stub, workspace } = makeCtx();
         const d1 = workspace.onWillSaveTextDocument(() => undefined);
         expect(stub.notifies).toContainEqual({
@@ -500,14 +503,14 @@ describe("WorkspaceNamespace — save subscriptions", () => {
         });
     });
 
-    it("onWillSaveTextDocument кладёт disposable в переданный массив", () => {
+    it("onWillSaveTextDocument puts the disposable into the passed array", () => {
         const { workspace } = makeCtx();
         const bag: { dispose(): unknown }[] = [];
         const d = workspace.onWillSaveTextDocument(() => undefined, undefined, bag as never);
         expect(bag).toContain(d);
     });
 
-    it("onDidSaveTextDocument: флаг, второй слушатель, dispose до нуля, disposables", () => {
+    it("onDidSaveTextDocument: flag, second listener, dispose down to zero, disposables", () => {
         const { stub, workspace } = makeCtx();
         const bag: { dispose(): unknown }[] = [];
         const d1 = workspace.onDidSaveTextDocument(() => undefined, undefined, bag as never);
@@ -537,7 +540,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
     /** The will-save request carries no text — only the document version. */
     const PARAMS = { uri: F_URI, languageId: "plaintext", version: 1, isDirty: true, reason: 1 };
 
-    it("сериализует TextEdit[] участника (документ из зеркала + fire + waitUntil)", async () => {
+    it("serializes the participant's TextEdit[] (document from the mirror + fire + waitUntil)", async () => {
         const { stub, ctx, workspace } = makeCtx();
         workspace.onWillSaveTextDocument((e) => {
             expect(e.document).toBe(ctx.registry.get(Uri.file("/f.txt")));
@@ -553,7 +556,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         expect(ctx.registry.get(Uri.file("/f.txt"))?.getText()).toBe("abc   \n");
     });
 
-    it("сериализует setEndOfLine (CRLF→2, LF→1)", async () => {
+    it("serializes setEndOfLine (CRLF→2, LF→1)", async () => {
         const crlf = makeCtx();
         crlf.workspace.onWillSaveTextDocument((e) => {
             e.waitUntil(Promise.resolve([TextEdit.setEndOfLine(EndOfLine.CRLF)]));
@@ -569,7 +572,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         expect(await lf.stub.callRequest(REQUEST, PARAMS)).toEqual([{ setEndOfLine: 1 }]);
     });
 
-    it("испорченная правка (нечисловой диапазон, нестроковый текст) отбрасывается поштучно — хост ответ не перепроверяет", async () => {
+    it("a corrupt edit (non-numeric range, non-string text) is dropped one by one — the host does not re-validate the answer", async () => {
         const { stub, workspace } = makeCtx();
         workspace.onWillSaveTextDocument((e) => {
             const broken = TextEdit.delete(new Range(0, 0, 0, 1));
@@ -587,7 +590,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         ]);
     });
 
-    it("прокидывает eol документа в реестр (для SetEndOfLine расширения)", async () => {
+    it("passes the document eol into the registry (for the extension's SetEndOfLine)", async () => {
         const { stub, ctx, workspace } = makeCtx();
         workspace.onWillSaveTextDocument((e) => {
             e.waitUntil(Promise.resolve([]));
@@ -597,7 +600,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         expect(ctx.registry.get(Uri.file("/f.txt"))?.eol).toBe(EndOfLine.CRLF);
     });
 
-    it("прокидывает encoding документа в реестр (#106)", async () => {
+    it("passes the document encoding into the registry (#106)", async () => {
         const { stub, ctx, workspace } = makeCtx();
         workspace.onWillSaveTextDocument((e) => {
             e.waitUntil(Promise.resolve([]));
@@ -607,7 +610,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         expect(ctx.registry.get(Uri.file("/f.txt"))?.encoding).toBe("windows1251");
     });
 
-    it("минимальные params (без reason/languageId/isDirty) не падают", async () => {
+    it("minimal params (no reason/languageId/isDirty) do not fail", async () => {
         const { stub, ctx, workspace } = makeCtx();
         let reason: number | undefined;
         workspace.onWillSaveTextDocument((e) => {
@@ -625,7 +628,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         expect(doc?.isDirty).toBe(false);
     });
 
-    it("не открытый, устаревший и обогнавший зеркало документ — [] без события", async () => {
+    it("a document that is not open, stale, or ahead of the mirror gives [] without an event", async () => {
         const { stub, ctx, workspace } = makeCtx();
         let fired = 0;
         workspace.onWillSaveTextDocument((e) => {
@@ -660,13 +663,13 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         expect(fired).toBe(0);
     });
 
-    it("без слушателей возвращает []", async () => {
+    it("returns [] without listeners", async () => {
         const { stub } = makeCtx();
         openDoc(stub, "a\n");
         expect(await stub.callRequest(REQUEST, PARAMS)).toEqual([]);
     });
 
-    it("не-TextEdit и не-массив результаты отбрасываются", async () => {
+    it("non-TextEdit and non-array results are dropped", async () => {
         const { stub, workspace } = makeCtx();
         workspace.onWillSaveTextDocument((e) => {
             e.waitUntil(Promise.resolve("nope"));
@@ -683,7 +686,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         ]);
     });
 
-    it("отклонённый waitUntil-thenable трактуется как []", async () => {
+    it("a rejected waitUntil thenable is treated as []", async () => {
         const { stub, workspace } = makeCtx();
         workspace.onWillSaveTextDocument((e) => {
             e.waitUntil(Promise.reject(new Error("boom")));
@@ -692,7 +695,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         expect(await stub.callRequest(REQUEST, PARAMS)).toEqual([]);
     });
 
-    it("waitUntil после завершения диспетча игнорируется", async () => {
+    it("waitUntil after dispatch completes is ignored", async () => {
         const { stub, workspace } = makeCtx();
         let captured: { waitUntil: (t: Thenable<unknown>) => void } | undefined;
         workspace.onWillSaveTextDocument((e) => {
@@ -705,7 +708,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
         captured?.waitUntil(Promise.resolve([TextEdit.insert(new Position(0, 0), "x")]));
     });
 
-    it("per-listener таймаут → [] если waitUntil никогда не резолвится", async () => {
+    it("per-listener timeout → [] if waitUntil never resolves", async () => {
         vi.useFakeTimers();
         try {
             const { stub, workspace } = makeCtx();
@@ -723,7 +726,7 @@ describe("WorkspaceNamespace — will-save request handler", () => {
 });
 
 describe("WorkspaceNamespace — did-save notification", () => {
-    it("фаерит onDidSaveTextDocument с документом из реестра", () => {
+    it("fires onDidSaveTextDocument with the document from the registry", () => {
         const { stub, workspace } = makeCtx();
         let saved: { fileName: string; languageId: string } | undefined;
         workspace.onDidSaveTextDocument((doc) => {
@@ -734,7 +737,7 @@ describe("WorkspaceNamespace — did-save notification", () => {
         expect(saved?.languageId).toBe("typescript");
     });
 
-    it("без languageId апдейтит только по fileName", () => {
+    it("without languageId updates by fileName only", () => {
         const { stub, workspace } = makeCtx();
         let saved: { languageId: string } | undefined;
         workspace.onDidSaveTextDocument((doc) => {
@@ -744,7 +747,7 @@ describe("WorkspaceNamespace — did-save notification", () => {
         expect(saved?.languageId).toBe("plaintext");
     });
 
-    it("невалидный fileName игнорируется", () => {
+    it("invalid fileName is ignored", () => {
         const { stub, workspace } = makeCtx();
         let fired = false;
         workspace.onDidSaveTextDocument(() => {
@@ -763,7 +766,7 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
         readFile: () => new TextEncoder().encode(content),
     });
 
-    it("регистрация объявляет схему хосту", () => {
+    it("registration announces the scheme to the host", () => {
         const { stub, workspace } = makeCtx();
 
         workspace.registerFileSystemProvider("git", provider("x") as never);
@@ -774,14 +777,14 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
         });
     });
 
-    it("read-only — по isReadonly (и с причиной-MarkdownString) и у провайдера без writeFile", () => {
+    it("read-only via isReadonly (also with a MarkdownString reason) and for a provider without writeFile", () => {
         const { stub, workspace } = makeCtx();
         const writable = { ...provider("x"), writeFile: () => undefined };
 
         workspace.registerFileSystemProvider("rw", writable as never);
         workspace.registerFileSystemProvider("flag", writable as never, { isReadonly: true });
         workspace.registerFileSystemProvider("reason", writable as never, {
-            isReadonly: new MarkdownString("ревизия"),
+            isReadonly: new MarkdownString("revision"),
         });
         workspace.registerFileSystemProvider("nowrite", provider("x") as never);
 
@@ -794,7 +797,7 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
         expect(workspace.fs.isWritableFileSystem("unknown")).toBeUndefined();
     });
 
-    it("dispose регистрации снимает схему у хоста", () => {
+    it("disposing the registration removes the scheme from the host", () => {
         const { stub, workspace } = makeCtx();
 
         workspace.registerFileSystemProvider("git", provider("x") as never).dispose();
@@ -805,16 +808,16 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
         });
     });
 
-    it("запрос хоста readFile уходит провайдеру и возвращает base64", async () => {
+    it("host readFile request goes to the provider and returns base64", async () => {
         const { stub, workspace } = makeCtx();
-        workspace.registerFileSystemProvider("git", provider("оригинал") as never);
+        workspace.registerFileSystemProvider("git", provider("original") as never);
 
         const result = await stub.callRequest("workspace.fs.readFile", { uri: "git:/repo/a.ts" });
 
-        expect(Buffer.from((result as { content: string }).content, "base64").toString("utf8")).toBe("оригинал");
+        expect(Buffer.from((result as { content: string }).content, "base64").toString("utf8")).toBe("original");
     });
 
-    it("запрос хоста writeFile пишет провайдеру целиком: создать или перезаписать", async () => {
+    it("host writeFile request writes the whole content to the provider: create or overwrite", async () => {
         const { stub, workspace } = makeCtx();
         const writeFile = vi.fn();
         workspace.registerFileSystemProvider("rw", { ...provider("x"), writeFile } as never);
@@ -822,18 +825,18 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
         await expect(
             stub.callRequest("workspace.fs.writeFile", {
                 uri: "rw:/repo/a.ts",
-                content: Buffer.from("правка").toString("base64"),
+                content: Buffer.from("edit").toString("base64"),
             }),
         ).resolves.toBeNull();
 
         expect(writeFile).toHaveBeenCalledTimes(1);
         const [uri, content, options] = writeFile.mock.calls[0] as [Uri, Uint8Array, unknown];
         expect(uri.toString()).toBe("rw:/repo/a.ts");
-        expect(Buffer.from(content).toString("utf8")).toBe("правка");
+        expect(Buffer.from(content).toString("utf8")).toBe("edit");
         expect(options).toEqual({ create: true, overwrite: true });
     });
 
-    it("writeFile в read-only схему — NoPermissions, провайдер не зовётся", async () => {
+    it("writeFile to a read-only scheme gives NoPermissions, the provider is not called", async () => {
         const { stub, workspace } = makeCtx();
         const writeFile = vi.fn();
         workspace.registerFileSystemProvider("ro", { ...provider("x"), writeFile } as never, { isReadonly: true });
@@ -847,7 +850,7 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
         expect(writeFile).not.toHaveBeenCalled();
     });
 
-    it("запрос хоста stat: метаданные провайдера; FileNotFound — null, прочие ошибки — отказ", async () => {
+    it("host stat request: provider metadata; FileNotFound gives null, other errors reject", async () => {
         const { stub, workspace } = makeCtx();
         let failure: Error | null = null;
         workspace.registerFileSystemProvider("rw", {
@@ -872,17 +875,17 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
         });
     });
 
-    it("openTextDocument на схеме провайдера читает провайдером", async () => {
+    it("openTextDocument on a provider scheme reads through the provider", async () => {
         const { workspace } = makeCtx();
-        workspace.registerFileSystemProvider("rw", provider("предложено\n") as never);
+        workspace.registerFileSystemProvider("rw", provider("proposed\n") as never);
 
         const doc = await workspace.openTextDocument(Uri.parse("rw:/repo/a.ts"));
 
         expect(doc.uri.toString()).toBe("rw:/repo/a.ts");
-        expect(doc.getText()).toBe("предложено\n");
+        expect(doc.getText()).toBe("proposed\n");
     });
 
-    it("workspace.fs маршрутизирует stat и writeFile схемы провайдеру", async () => {
+    it("workspace.fs routes stat and writeFile of the scheme to the provider", async () => {
         const { workspace } = makeCtx();
         const writeFile = vi.fn();
         workspace.registerFileSystemProvider("rw", { ...provider("x"), writeFile } as never);
@@ -900,7 +903,7 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
         await expect(workspace.fs.stat(Uri.parse("none:/a"))).rejects.toMatchObject({ code: "Unavailable" });
     });
 
-    it("запрос к провайдеру без строкового uri — ошибка с именем запроса, а не чтение мусора", async () => {
+    it("a provider request without a string uri errors with the request name instead of reading garbage", async () => {
         const { stub } = makeCtx();
 
         for (const method of ["workspace.fs.readFile", "workspace.fs.stat", "workspace.fs.writeFile"]) {
@@ -908,7 +911,7 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
         }
     });
 
-    it("readFile по незарегистрированной схеме — ошибка", async () => {
+    it("readFile on an unregistered scheme errors", async () => {
         const { stub } = makeCtx();
 
         await expect(stub.callRequest("workspace.fs.readFile", { uri: "git:/a.ts" })).rejects.toThrow(
@@ -916,7 +919,7 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
         );
     });
 
-    it("изменения провайдера уходят хосту нотификацией", () => {
+    it("provider changes are sent to the host as a notification", () => {
         const { stub, workspace } = makeCtx();
         const listeners: ((events: { uri: Uri }[]) => void)[] = [];
         workspace.registerFileSystemProvider("git", {
@@ -936,8 +939,8 @@ describe("WorkspaceNamespace — registerFileSystemProvider", () => {
     });
 });
 
-describe("WorkspaceNamespace — registerTaskProvider без задач", () => {
-    it("без моста задач регистрация — пустой Disposable, хосту ничего не уходит", () => {
+describe("WorkspaceNamespace — registerTaskProvider without tasks", () => {
+    it("without a tasks bridge, registration is an empty Disposable and nothing is sent to the host", () => {
         const { stub, workspace } = makeCtx();
         // eslint-disable-next-line @typescript-eslint/no-deprecated -- the deprecated `workspace.registerTaskProvider` is exactly what is under test
         const registration = workspace.registerTaskProvider("demo", {

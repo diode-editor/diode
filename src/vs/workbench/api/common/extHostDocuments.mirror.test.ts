@@ -29,8 +29,8 @@ function setup(text: string) {
     return { registry, tracker, doc, changes, warnings };
 }
 
-describe("ExtHostTextDocument — зеркало правками", () => {
-    it("правка: текст, версия модели и contentChange с offset/length по строкам ДО неё", () => {
+describe("ExtHostTextDocument — mirror via edits", () => {
+    it("edit: text, model version and contentChange with offset/length against the lines BEFORE it", () => {
         const { tracker, doc, changes } = setup("ab\ncd");
         tracker.change({ uri: URI, version: 7, changes: [wireChange(1, 1, 1, 2, "XY\nZ")] });
 
@@ -44,7 +44,7 @@ describe("ExtHostTextDocument — зеркало правками", () => {
         ]);
     });
 
-    it("батч из нескольких правок применяется по порядку провода (снизу вверх)", () => {
+    it("batch of several edits applies in wire order (bottom-up)", () => {
         const { tracker, doc, changes } = setup("one\ntwo\nthree");
         tracker.change({
             uri: URI,
@@ -58,7 +58,7 @@ describe("ExtHostTextDocument — зеркало правками", () => {
         ]);
     });
 
-    it("dirty из события обновляет мету; без него — прежняя", () => {
+    it("dirty from the event updates the meta; without it the previous one stays", () => {
         const { tracker, doc } = setup("a");
         tracker.change({ uri: URI, version: 2, changes: [], isDirty: true });
         expect(doc.isDirty).toBe(true);
@@ -67,13 +67,13 @@ describe("ExtHostTextDocument — зеркало правками", () => {
         expect(doc.version).toBe(3);
     });
 
-    it("диапазон за границами прижимается к документу (контракт validateRange)", () => {
+    it("out-of-bounds range is clamped to the document (validateRange contract)", () => {
         const { tracker, doc } = setup("ab");
         tracker.change({ uri: URI, version: 2, changes: [wireChange(0, 5, 9, 9, "!")] });
         expect(doc.getText()).toBe("ab!");
     });
 
-    it("после правки getText, offsetAt и positionAt считают по новому тексту", () => {
+    it("after an edit getText, offsetAt and positionAt use the new text", () => {
         const { tracker, doc } = setup("ab\ncd");
         tracker.change({ uri: URI, version: 2, changes: [wireChange(0, 2, 1, 0, "")] });
         expect(doc.getText()).toBe("abcd");
@@ -81,7 +81,7 @@ describe("ExtHostTextDocument — зеркало правками", () => {
         expect(doc.positionAt(10)).toEqual(new Position(0, 4));
     });
 
-    it("правки неоткрытого (или закрытого) документа отбрасываются с предупреждением", () => {
+    it("edits to an unopened (or closed) document are dropped with a warning", () => {
         const { tracker, doc, changes, warnings } = setup("a");
         const other = Uri.file("/b.ts").toString();
         expect(tracker.change({ uri: other, version: 2, changes: [wireChange(0, 0, 0, 0, "x")] })).toBeNull();
@@ -95,7 +95,7 @@ describe("ExtHostTextDocument — зеркало правками", () => {
         ]);
     });
 
-    it("свойство: зеркало сходится с моделью ядра на случайных батчах", () => {
+    it("property: mirror converges with the core model on random batches", () => {
         let seed = 0x51a7;
         const random = (): number => {
             seed = (seed + 0x6d2b79f5) | 0;
@@ -125,14 +125,14 @@ describe("ExtHostTextDocument — зеркало правками", () => {
             for (const event of events) {
                 tracker.change({ uri: URI, version: event.versionId, changes: toWire(event) });
             }
-            expect(doc.getText(), `раунд ${String(round)}`).toBe(model.getText());
+            expect(doc.getText(), `round ${String(round)}`).toBe(model.getText());
             expect(doc.version).toBe(model.versionId === 0 ? 1 : model.versionId);
         }
     });
 });
 
-describe("DocumentSyncTracker.resolve — документ запроса из зеркала по версии", () => {
-    it("версия совпала — тот же документ, без события и без смены версии; строковый languageId применяется", () => {
+describe("DocumentSyncTracker.resolve — request document from the mirror by version", () => {
+    it("matching version yields the same document, no event and no version change; a string languageId applies", () => {
         const { tracker, doc, changes, warnings } = setup("a");
         expect(tracker.resolve(URI, 1, "javascript")).toBe(doc);
         expect(changes).toEqual([]);
@@ -142,14 +142,14 @@ describe("DocumentSyncTracker.resolve — документ запроса из �
         expect(doc.languageId).toBe("javascript");
     });
 
-    it("версия после правки didChange — документ с новым текстом", () => {
+    it("version after a didChange edit yields the document with new text", () => {
         const { tracker, doc } = setup("ab");
         tracker.change({ uri: URI, version: 4, changes: [wireChange(0, 2, 0, 2, "c")] });
         expect(tracker.resolve(URI, 4)).toBe(doc);
         expect(doc.getText()).toBe("abc");
     });
 
-    it("не строковый languageId (и его отсутствие) не трогает язык документа", () => {
+    it("non-string languageId (or none) leaves the document language alone", () => {
         const { tracker, doc } = setup("a");
         for (const languageId of [undefined, null, 42, { id: "javascript" }]) {
             expect(tracker.resolve(URI, 1, languageId)).toBe(doc);
@@ -157,7 +157,7 @@ describe("DocumentSyncTracker.resolve — документ запроса из �
         }
     });
 
-    it("не открытый документ — null без предупреждения и без открытия", () => {
+    it("unopened document yields null without a warning and without opening", () => {
         const registry = new DocumentRegistry();
         const warnings: string[] = [];
         const tracker = new DocumentSyncTracker(registry, (message) => warnings.push(message));
@@ -169,7 +169,7 @@ describe("DocumentSyncTracker.resolve — документ запроса из �
         expect(warnings).toEqual([]);
     });
 
-    it("устаревший запрос (версия запроса ниже зеркала) — null молча, язык не меняется", () => {
+    it("stale request (version below the mirror) yields null silently, language unchanged", () => {
         const { tracker, doc, warnings } = setup("a");
         tracker.change({ uri: URI, version: 3, changes: [wireChange(0, 1, 0, 1, "b")] });
         expect(tracker.resolve(URI, 2, "javascript")).toBeNull();
@@ -177,20 +177,20 @@ describe("DocumentSyncTracker.resolve — документ запроса из �
         expect(doc.languageId).toBe("typescript");
     });
 
-    it("запрос без версии — null молча", () => {
+    it("request without a version yields null silently", () => {
         const { tracker, warnings } = setup("a");
         expect(tracker.resolve(URI, undefined)).toBeNull();
         expect(warnings).toEqual([]);
     });
 
-    it("запрос впереди зеркала — null с предупреждением о нарушенном порядке", () => {
+    it("request ahead of the mirror yields null with an out-of-order warning", () => {
         const { tracker, doc, warnings } = setup("a");
         expect(tracker.resolve(URI, 5, "javascript")).toBeNull();
         expect(warnings).toEqual([`document sync: request for ${URI} v5 is ahead of the mirror v1`]);
         expect(doc.languageId).toBe("typescript");
     });
 
-    it("закрытый документ — null, хотя версия совпадает", () => {
+    it("closed document yields null even though the version matches", () => {
         const { tracker, warnings } = setup("a");
         tracker.close(Uri.parse(URI));
         expect(tracker.resolve(URI, 1)).toBeNull();
@@ -198,8 +198,8 @@ describe("DocumentSyncTracker.resolve — документ запроса из �
     });
 });
 
-describe("DocumentSyncTracker — предупреждения по умолчанию", () => {
-    it("без своего приёмника пишет в stderr субпроцесса с префиксом ext-host", () => {
+describe("DocumentSyncTracker — default warnings", () => {
+    it("without its own sink writes to the subprocess stderr with the ext-host prefix", () => {
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
         try {
             const tracker = new DocumentSyncTracker(new DocumentRegistry());

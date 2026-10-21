@@ -19,7 +19,7 @@ import { ThemeService } from "../../services/themes/common/themeService.ts";
 
 import { EditorDecorationsServiceAdapter } from "./editorDecorationsServiceAdapter.ts";
 
-describe("EditorDecorationsServiceAdapter — все группы", () => {
+describe("EditorDecorationsServiceAdapter — all groups", () => {
     let ws: ITempWorkspace;
     let service: EditorService;
 
@@ -43,7 +43,7 @@ describe("EditorDecorationsServiceAdapter — все группы", () => {
         ws.dispose();
     });
 
-    it("декорации ресурса доходят до его вкладки в неактивной группе", () => {
+    it("resource decorations reach its tab in an inactive group", () => {
         service.openFile(ws.path("a.ts"));
         service.splitActiveGroup();
         service.editorGroups.focusGroup({ index: 0 });

@@ -22,7 +22,7 @@ function makeWatcher(): IFakeWatcher {
 }
 
 describe("FileWatcherAdapter", () => {
-    it("подмешивает excludes и прокидывает рекурсивность", () => {
+    it("mixes in excludes and passes recursiveness through", () => {
         const watcher = makeWatcher();
         const adapter = new FileWatcherAdapter(watcher, () => ["**/node_modules/**"]);
 
@@ -33,7 +33,7 @@ describe("FileWatcherAdapter", () => {
         ]);
     });
 
-    it("excludes читаются на каждый watch — настройка живая", () => {
+    it("excludes are read on every watch: the setting is live", () => {
         const watcher = makeWatcher();
         let excludes: string[] = ["a/**"];
         const adapter = new FileWatcherAdapter(watcher, () => excludes);
@@ -45,7 +45,7 @@ describe("FileWatcherAdapter", () => {
         expect(watcher.calls.map((c) => c.options.excludes)).toEqual([["a/**"], ["b/**"]]);
     });
 
-    it("рекурсивный watcher следит и за include-путями под базой, с теми же excludes и колбэком", () => {
+    it("recursive watcher also watches include paths under the base, with the same excludes and callback", () => {
         const watcher = makeWatcher();
         const bases: string[] = [];
         const adapter = new FileWatcherAdapter(
@@ -70,7 +70,7 @@ describe("FileWatcherAdapter", () => {
         expect(watcher.disposed).toBe(3);
     });
 
-    it("нерекурсивному watcher'у include не нужен", () => {
+    it("non-recursive watcher does not need include", () => {
         const watcher = makeWatcher();
         const adapter = new FileWatcherAdapter(
             watcher,
@@ -83,7 +83,7 @@ describe("FileWatcherAdapter", () => {
         expect(watcher.calls.map((c) => c.root)).toEqual(["/repo"]);
     });
 
-    it("disposable отдаётся наружу как есть", () => {
+    it("disposable is returned as is", () => {
         const watcher = makeWatcher();
         const adapter = new FileWatcherAdapter(watcher, () => []);
 

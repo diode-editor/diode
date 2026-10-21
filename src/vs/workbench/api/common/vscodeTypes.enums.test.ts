@@ -49,7 +49,7 @@ describe("VscodeTypes — enums", () => {
         expect(FoldingRangeKind.Region).toBe(3);
     });
 
-    it("FoldingRange хранит start/end/kind", () => {
+    it("FoldingRange stores start/end/kind", () => {
         const withKind = new FoldingRange(0, 3, FoldingRangeKind.Region);
         expect(withKind.start).toBe(0);
         expect(withKind.end).toBe(3);
@@ -59,7 +59,7 @@ describe("VscodeTypes — enums", () => {
 });
 
 describe("VscodeTypes — CompletionItem", () => {
-    it("конструктор задаёт label и kind", () => {
+    it("constructor sets label and kind", () => {
         const item = new CompletionItem("indent_size", CompletionItemKind.Property);
         expect(item.label).toBe("indent_size");
         expect(item.kind).toBe(CompletionItemKind.Property);
@@ -82,11 +82,11 @@ describe("VscodeTypes — decoration value-types (Chunk 4)", () => {
         expect(DecorationRangeBehavior.ClosedOpen).toBe(3);
     });
 
-    it("ThemeColor хранит id", () => {
+    it("ThemeColor stores id", () => {
         expect(new ThemeColor("editorGutter.modifiedBackground").id).toBe("editorGutter.modifiedBackground");
     });
 
-    it("FileDecoration: конструктор задаёт badge/tooltip/color, propagate по умолчанию undefined", () => {
+    it("FileDecoration: constructor sets badge/tooltip/color, propagate is undefined by default", () => {
         const color = new ThemeColor("gitDecoration.modifiedResourceForeground");
         const decoration = new FileDecoration("M", "Modified", color);
         expect(decoration.badge).toBe("M");
@@ -99,7 +99,7 @@ describe("VscodeTypes — decoration value-types (Chunk 4)", () => {
         expect(bare.color).toBeUndefined();
     });
 
-    it("IndentAction, SyntaxTokenType, QuickPickItemKind, NotebookCellKind — значения эталона", () => {
+    it("IndentAction, SyntaxTokenType, QuickPickItemKind, NotebookCellKind — upstream values", () => {
         expect([IndentAction.None, IndentAction.Indent, IndentAction.IndentOutdent, IndentAction.Outdent]).toEqual([
             0, 1, 2, 3,
         ]);

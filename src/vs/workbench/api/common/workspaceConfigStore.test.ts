@@ -9,13 +9,13 @@ function storeWith(defaults: Record<string, unknown>, user: Record<string, unkno
 }
 
 describe("WorkspaceConfigStore", () => {
-    it("резолвит dotted-ключ из nested-дерева пользователя", () => {
+    it("resolves a dotted key from the user's nested tree", () => {
         const store = storeWith({}, { editor: { tabSize: 2, insertSpaces: false } });
         expect(store.get("editor.tabSize")).toBe(2);
         expect(store.get("editor.insertSpaces")).toBe(false);
     });
 
-    it("пользовательский слой перекрывает дефолты, дефолт без пользовательского значения виден", () => {
+    it("the user layer overrides defaults, a default without a user value is visible", () => {
         const store = storeWith(
             { editor: { tabSize: 4 }, editorconfig: { generateAuto: true } },
             { editor: { tabSize: 8 } },
@@ -24,19 +24,19 @@ describe("WorkspaceConfigStore", () => {
         expect(store.get("editorconfig.generateAuto")).toBe(true);
     });
 
-    it("get возвращает defaultValue для отсутствующего ключа", () => {
+    it("get returns defaultValue for a missing key", () => {
         const store = new WorkspaceConfigStore();
         expect(store.get("nope.missing", 42)).toBe(42);
         expect(store.get("nope.missing")).toBeUndefined();
     });
 
-    it("has отражает наличие ключа в любом слое", () => {
+    it("has reflects a key present in any layer", () => {
         const store = storeWith({ editorconfig: { generateAuto: true } }, {});
         expect(store.has("editorconfig.generateAuto")).toBe(true);
         expect(store.has("editorconfig.unknown")).toBe(false);
     });
 
-    it("inspect разделяет default и user слои", () => {
+    it("inspect separates the default and user layers", () => {
         const result = storeWith({ editor: { tabSize: 4 } }, { editor: { tabSize: 8 } }).inspect("editor.tabSize");
         expect(result).toEqual({
             key: "editor.tabSize",
@@ -47,14 +47,14 @@ describe("WorkspaceConfigStore", () => {
         });
     });
 
-    it("inspect для чисто дефолтного ключа не имеет globalValue", () => {
+    it("inspect of a default-only key has no globalValue", () => {
         const result = storeWith({ editorconfig: { generateAuto: true } }, {}).inspect("editorconfig.generateAuto");
         expect(result.defaultValue).toBe(true);
         expect(result.globalValue).toBeUndefined();
         expect(result.value).toBe(true);
     });
 
-    it("sectionKeys перечисляет собственные ключи секции по обоим слоям", () => {
+    it("sectionKeys lists the section's own keys across both layers", () => {
         const store = storeWith(
             { editorconfig: { generateAuto: true } },
             { editor: { tabSize: 2, insertSpaces: true } },
@@ -65,7 +65,7 @@ describe("WorkspaceConfigStore", () => {
         expect(store.sectionKeys("editor.tabSize")).toEqual([]);
     });
 
-    it("setData заменяет оба слоя целиком", () => {
+    it("setData replaces both layers entirely", () => {
         const store = storeWith({ a: { x: 1 } }, { editor: { tabSize: 2 } });
         store.setData({ defaults: {}, user: { editor: { insertSpaces: false } } });
         expect(store.get("a.x")).toBeUndefined();
@@ -73,7 +73,7 @@ describe("WorkspaceConfigStore", () => {
         expect(store.get("editor.insertSpaces")).toBe(false);
     });
 
-    it("непонятные данные трактуются как пустые слои", () => {
+    it("unrecognized data is treated as empty layers", () => {
         const store = storeWith({ a: { x: 1 } }, {});
         store.setData("garbage");
         expect(store.get("a.x")).toBeUndefined();
@@ -81,7 +81,7 @@ describe("WorkspaceConfigStore", () => {
         expect(store.get("a.x")).toBeUndefined();
     });
 
-    it("languageId выбирает секцию языка во всех чтениях", () => {
+    it("languageId selects the language section in all reads", () => {
         const store = storeWith(
             { editor: { tabSize: 4 }, "[makefile]": { editor: { insertSpaces: false } } },
             { "[makefile]": { editor: { tabSize: 8 } } },
@@ -95,13 +95,13 @@ describe("WorkspaceConfigStore", () => {
         expect(store.sectionKeys("editor", "makefile").sort()).toEqual(["insertSpaces", "tabSize"]);
     });
 
-    it("get по пути, уходящему за скаляр, возвращает undefined", () => {
+    it("get with a path going past a scalar returns undefined", () => {
         expect(storeWith({}, { editor: { tabSize: 2 } }).get("editor.tabSize.deeper")).toBeUndefined();
     });
 });
 
-describe("WorkspaceConfigStore — слой воркспейса", () => {
-    it("перекрывает user; inspect отдаёт workspaceValue; секция языка из воркспейса действует", () => {
+describe("WorkspaceConfigStore — workspace layer", () => {
+    it("overrides user; inspect returns workspaceValue; the workspace language section applies", () => {
         const store = new WorkspaceConfigStore();
         store.setData({
             defaults: { editor: { tabSize: 4 } },
@@ -121,7 +121,7 @@ describe("WorkspaceConfigStore — слой воркспейса", () => {
         });
     });
 
-    it("слой папки перекрывает воркспейс; inspect отдаёт workspaceFolderValue; секция языка действует", () => {
+    it("the folder layer overrides the workspace; inspect returns workspaceFolderValue; the language section applies", () => {
         const store = new WorkspaceConfigStore();
         store.setData({
             defaults: { editor: { tabSize: 4 } },
@@ -144,7 +144,7 @@ describe("WorkspaceConfigStore — слой воркспейса", () => {
         expect(store.hasLanguageOverride("editor.tabSize", "go", "workspace")).toBe(false);
     });
 
-    it("без workspace в данных (старый хост, пустое окно) слой пуст", () => {
+    it("without workspace in the data (old host, empty window) the layer is empty", () => {
         const store = storeWith({}, { editor: { tabSize: 8 } });
         expect(store.inspect("editor.tabSize").workspaceValue).toBeUndefined();
         expect(store.get("editor.tabSize")).toBe(8);

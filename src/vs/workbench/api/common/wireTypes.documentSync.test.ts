@@ -5,7 +5,7 @@ import { parseWireDocumentChangedEvent, parseWireDocumentSyncSnapshot } from "./
 const RANGE = { start: { line: 0, character: 1 }, end: { line: 2, character: 3 } };
 
 describe("wireTypes — document sync", () => {
-    it("правки: валидный батч разбирается, dirty — только булев", () => {
+    it("edits: a valid batch parses, dirty is boolean only", () => {
         expect(
             parseWireDocumentChangedEvent({
                 uri: "file:///a.ts",
@@ -19,7 +19,7 @@ describe("wireTypes — document sync", () => {
         );
     });
 
-    it("правки: битая форма или одна битая правка отбрасывают весь батч", () => {
+    it("edits: a broken shape or one broken edit drops the whole batch", () => {
         const valid = { uri: "file:///a.ts", version: 1, changes: [{ range: RANGE, text: "x" }] };
         for (const raw of [
             null,
@@ -41,7 +41,7 @@ describe("wireTypes — document sync", () => {
         }
     });
 
-    it("снапшот без правок не путается с батчем: у него нет `changes`", () => {
+    it("a snapshot without edits is not mistaken for a batch: it has no `changes`", () => {
         const snapshot = { uri: "file:///a.ts", languageId: "ts", version: 1, text: "x" };
         expect(parseWireDocumentChangedEvent(snapshot)).toBeNull();
         expect(parseWireDocumentSyncSnapshot(snapshot)).toEqual(snapshot);

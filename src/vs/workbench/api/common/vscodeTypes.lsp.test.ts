@@ -44,8 +44,8 @@ import {
 const RANGE = new Range(1, 2, 3, 4);
 const URI = Uri.file("/proj/a.ts");
 
-describe("vscodeTypes — LSP value-классы", () => {
-    it("SignatureHelp: конструктор без аргументов даёт пустые поля", () => {
+describe("vscodeTypes — LSP value classes", () => {
+    it("SignatureHelp: a constructor without arguments gives empty fields", () => {
         // The client converter calls `new code.SignatureHelp()`, assigns fields and immediately iterates `signatures`.
         const help = new SignatureHelp();
         expect(help.signatures).toEqual([]);
@@ -53,28 +53,28 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(help.activeParameter).toBe(0);
     });
 
-    it("SignatureInformation / ParameterInformation: метки и документация", () => {
+    it("SignatureInformation / ParameterInformation: labels and documentation", () => {
         const signature = new SignatureInformation("greet(name: string): void");
         expect(signature.label).toBe("greet(name: string): void");
         expect(signature.parameters).toEqual([]);
         expect(signature.documentation).toBeUndefined();
         expect(signature.activeParameter).toBeUndefined();
 
-        const withDocs = new SignatureInformation("f()", new MarkdownString("**док**"));
-        expect((withDocs.documentation as MarkdownString).value).toBe("**док**");
+        const withDocs = new SignatureInformation("f()", new MarkdownString("**doc**"));
+        expect((withDocs.documentation as MarkdownString).value).toBe("**doc**");
 
         expect(new ParameterInformation("name: string").label).toBe("name: string");
         expect(new ParameterInformation([6, 18]).label).toEqual([6, 18]);
-        expect(new ParameterInformation("name", "кого").documentation).toBe("кого");
+        expect(new ParameterInformation("name", "whom").documentation).toBe("whom");
     });
 
-    it("SignatureHelpTriggerKind: значения протокола", () => {
+    it("SignatureHelpTriggerKind: protocol values", () => {
         expect(SignatureHelpTriggerKind.Invoke).toBe(1);
         expect(SignatureHelpTriggerKind.TriggerCharacter).toBe(2);
         expect(SignatureHelpTriggerKind.ContentChange).toBe(3);
     });
 
-    it("Location: Range как есть, Position сворачивается в пустой Range", () => {
+    it("Location: Range as is, Position collapses to an empty Range", () => {
         expect(new Location(URI, RANGE).range).toBe(RANGE);
         const fromPosition = new Location(URI, new Position(5, 7));
         expect(fromPosition.uri).toBe(URI);
@@ -82,7 +82,7 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(fromPosition.range.isEmpty).toBe(true);
     });
 
-    it("Diagnostic: severity по умолчанию Error, поля хранятся", () => {
+    it("Diagnostic: severity defaults to Error, fields are stored", () => {
         const diag = new Diagnostic(RANGE, "boom");
         expect(diag.severity).toBe(DiagnosticSeverity.Error);
         expect(diag.range).toBe(RANGE);
@@ -90,7 +90,7 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(new Diagnostic(RANGE, "warn", DiagnosticSeverity.Warning).severity).toBe(DiagnosticSeverity.Warning);
     });
 
-    it("DiagnosticRelatedInformation: хранит место и сообщение, ложится в Diagnostic", () => {
+    it("DiagnosticRelatedInformation: stores location and message, fits into Diagnostic", () => {
         const location = new Location(URI, RANGE);
         const related = new DiagnosticRelatedInformation(location, "'retries' is declared here");
 
@@ -112,12 +112,12 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(CodeActionKind.Empty.append("custom").value).toBe("custom");
     });
 
-    it("CodeLens: isResolved по наличию command", () => {
+    it("CodeLens: isResolved by presence of command", () => {
         expect(new CodeLens(RANGE).isResolved).toBe(false);
         expect(new CodeLens(RANGE, { command: "x" }).isResolved).toBe(true);
     });
 
-    it("CodeAction/DocumentLink/InlayHint/SymbolInformation/иерархии — конструкторы хранят поля", () => {
+    it("CodeAction/DocumentLink/InlayHint/SymbolInformation/hierarchies — constructors store fields", () => {
         const action = new CodeAction("Fix it", CodeActionKind.QuickFix);
         expect(action.title).toBe("Fix it");
         expect(action.kind).toBe(CodeActionKind.QuickFix);
@@ -139,14 +139,14 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(type.kind).toBe(SymbolKind.Class);
     });
 
-    it("CancellationError — Error с именем Canceled", () => {
+    it("CancellationError is an Error named Canceled", () => {
         const err = new CancellationError();
         expect(err).toBeInstanceOf(Error);
         expect(err.name).toBe("Canceled");
         expect(err.message).toBe("Canceled");
     });
 
-    it("CancellationTokenSource: cancel фаерит событие и взводит isCancellationRequested", () => {
+    it("CancellationTokenSource: cancel fires the event and sets isCancellationRequested", () => {
         const source = new CancellationTokenSource();
         expect(source.token.isCancellationRequested).toBe(false);
         let fired = 0;
@@ -160,7 +160,7 @@ describe("vscodeTypes — LSP value-классы", () => {
         source.dispose();
     });
 
-    it("MarkdownString: append* конкатенируют и возвращают this", () => {
+    it("MarkdownString: append* concatenate and return this", () => {
         const md = new MarkdownString("a");
         expect(md.appendText("b").appendMarkdown("c").appendCodeblock("d", "ts")).toBe(md);
         expect(md.value).toBe("abc\n```ts\nd\n```\n");
@@ -168,13 +168,13 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(new MarkdownString().value).toBe("");
     });
 
-    it("Hover: contents нормализуется в массив", () => {
+    it("Hover: contents are normalized to an array", () => {
         expect(new Hover("text").contents).toEqual(["text"]);
         expect(new Hover(["a", "b"], RANGE).contents).toEqual(["a", "b"]);
         expect(new Hover("x", RANGE).range).toBe(RANGE);
     });
 
-    it("WorkspaceEdit: replace/insert/delete аккумулируются per-uri", () => {
+    it("WorkspaceEdit: replace/insert/delete accumulate per uri", () => {
         const edit = new WorkspaceEdit();
         expect(edit.size).toBe(0);
         expect(edit.has(URI)).toBe(false);
@@ -194,7 +194,7 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(edit.get(Uri.file("/proj/b.ts"))[0].newText).toBe("");
     });
 
-    it("WorkspaceEdit.set: обе формы конвертера (плоская и пары с metadata), null/[] очищает", () => {
+    it("WorkspaceEdit.set: both converter forms (flat and pairs with metadata), null/[] clears", () => {
         const edit = new WorkspaceEdit();
         edit.set(URI, [new TextEdit(RANGE, "a")]);
         expect(edit.get(URI).map((e) => e.newText)).toEqual(["a"]);
@@ -220,7 +220,7 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(edit.has(URI)).toBe(false);
     });
 
-    it("WorkspaceEdit: entries/get отдают только TextEdit, resourceEdits — вместе со сниппетными", () => {
+    it("WorkspaceEdit: entries/get return only TextEdit, resourceEdits include snippet edits too", () => {
         const edit = new WorkspaceEdit();
         const snippet = new SnippetTextEdit(RANGE, new SnippetString("x$1"));
         edit.set(URI, [new TextEdit(RANGE, "t"), snippet]);
@@ -237,7 +237,7 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(resources[0].edits).toEqual([expect.any(TextEdit), snippet]);
     });
 
-    it("WorkspaceEdit: файловые операции хранятся отдельно от текстовых правок", () => {
+    it("WorkspaceEdit: file operations are stored separately from text edits", () => {
         const other = Uri.file("/proj/other.ts");
         const edit = new WorkspaceEdit();
         expect(edit.hasFileOperations).toBe(false);
@@ -254,7 +254,7 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(edit.has(other)).toBe(false);
     });
 
-    it("WorkspaceEdit: set(uri, []) по ресурсу без правок — ничего не ломает", () => {
+    it("WorkspaceEdit: set(uri, []) on a resource without edits breaks nothing", () => {
         const edit = new WorkspaceEdit();
         edit.set(URI, []);
         expect(edit.size).toBe(0);
@@ -267,7 +267,7 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(edit.operations().map((op) => op.kind)).toEqual(["create"]);
     });
 
-    it("WorkspaceEdit: ignoreIfExists сохраняется отдельно от overwrite", () => {
+    it("WorkspaceEdit: ignoreIfExists is kept separately from overwrite", () => {
         const other = Uri.file("/proj/other.ts");
         const edit = new WorkspaceEdit();
         edit.createFile(other, { ignoreIfExists: true });
@@ -279,7 +279,7 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(rename.kind === "rename" && rename.options).toEqual({ ignoreIfExists: true });
     });
 
-    it("WorkspaceEdit: порядок операций сохраняется дословно (создать → написать)", () => {
+    it("WorkspaceEdit: operation order is kept verbatim (create → write)", () => {
         const created = Uri.file("/proj/created.ts");
         const edit = new WorkspaceEdit();
         edit.createFile(created, { contents: new TextEncoder().encode("seed") });
@@ -294,7 +294,7 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(rename.kind === "rename" && rename.options.overwrite).toBe(true);
     });
 
-    it("SnippetTextEdit: конструктор и статики replace/insert (класс-ловушка конвертера)", () => {
+    it("SnippetTextEdit: constructor and static replace/insert (converter trap class)", () => {
         const snippet = new SnippetString("s");
         const direct = new SnippetTextEdit(RANGE, snippet);
         expect(direct.range).toBe(RANGE);
@@ -307,7 +307,7 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(inserted.snippet).toBe(snippet);
     });
 
-    it("CompletionList: items/isIncomplete как есть, дефолты — пустой полный список", () => {
+    it("CompletionList: items/isIncomplete as is, defaults are an empty complete list", () => {
         const item = new CompletionItem("greet");
         const list = new CompletionList([item], true);
         expect(list.items).toEqual([item]);
@@ -318,14 +318,14 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(empty.isIncomplete).toBe(false);
     });
 
-    it("SnippetString: хранит значение, appendText конкатенирует и возвращает this", () => {
+    it("SnippetString: stores the value, appendText concatenates and returns this", () => {
         const snippet = new SnippetString("foo(");
         expect(snippet.appendText("$1)")).toBe(snippet);
         expect(snippet.value).toBe("foo($1)");
         expect(new SnippetString().value).toBe("");
     });
 
-    it("enum'ы совпадают с числовыми значениями VS Code", () => {
+    it("enums match VS Code numeric values", () => {
         expect(CompletionTriggerKind.Invoke).toBe(0);
         expect(CompletionTriggerKind.TriggerCharacter).toBe(1);
         expect(CompletionTriggerKind.TriggerForIncompleteCompletions).toBe(2);
@@ -339,11 +339,11 @@ describe("vscodeTypes — LSP value-классы", () => {
         expect(ProgressLocation.Notification).toBe(15);
     });
 
-    describe("DocumentSymbol — по эталону", () => {
+    describe("DocumentSymbol — per upstream", () => {
         const full = new Range(0, 0, 4, 1);
         const name = new Range(0, 5, 0, 10);
 
-        it("несёт переданное, детей нет", () => {
+        it("carries what is passed, no children", () => {
             const symbol = new DocumentSymbol("TestA", "func()", SymbolKind.Function, full, name);
             expect(symbol).toMatchObject({
                 name: "TestA",
@@ -356,14 +356,14 @@ describe("vscodeTypes — LSP value-классы", () => {
             expect(symbol.tags).toBeUndefined();
         });
 
-        it("пустое имя и selectionRange вне range — эталонные ошибки", () => {
+        it("empty name and selectionRange outside range — upstream errors", () => {
             expect(() => new DocumentSymbol("", "", SymbolKind.Function, full, name)).toThrow("name must not be falsy");
             expect(() => new DocumentSymbol("f", "", SymbolKind.Function, name, full)).toThrow(
                 "selectionRange must be contained in fullRange",
             );
         });
 
-        it("validate проходит по детям; затёртые children не мешают", () => {
+        it("validate walks the children; overwritten children do not interfere", () => {
             const parent = new DocumentSymbol("p", "", SymbolKind.Module, full, name);
             const child = new DocumentSymbol("c", "", SymbolKind.Function, full, name);
             parent.children.push(child);

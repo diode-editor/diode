@@ -9,13 +9,13 @@ import {
 } from "./wireTypes.ts";
 
 describe("parseWireTerminalOpened", () => {
-    it("без числового id или строкового имени — null", () => {
+    it("without a numeric id or string name: null", () => {
         expect(parseWireTerminalOpened(null)).toBeNull();
         expect(parseWireTerminalOpened({ id: "1", name: "a" })).toBeNull();
         expect(parseWireTerminalOpened({ id: 1, name: 2 })).toBeNull();
     });
 
-    it("метка, pid и launch проходят; мусор в них отбрасывается", () => {
+    it("label, pid and launch pass; garbage in them is dropped", () => {
         expect(
             parseWireTerminalOpened({
                 id: 1,
@@ -69,7 +69,7 @@ describe("parseWireTerminalOpened", () => {
 });
 
 describe("parseWireTerminalClosed / parseWireTerminalActive", () => {
-    it("closed: код — только число, незнакомая причина — unknown", () => {
+    it("closed: code is number-only, an unknown reason becomes unknown", () => {
         expect(parseWireTerminalClosed({ id: 1, code: 2, reason: "user" })).toStrictEqual({
             id: 1,
             code: 2,
@@ -84,7 +84,7 @@ describe("parseWireTerminalClosed / parseWireTerminalActive", () => {
         expect(parseWireTerminalClosed(null)).toBeNull();
     });
 
-    it("active: не число — активного нет", () => {
+    it("active: a non-number means no active terminal", () => {
         expect(parseWireTerminalActive({ id: 4 })).toStrictEqual({ id: 4 });
         expect(parseWireTerminalActive({ id: "4" })).toStrictEqual({ id: null });
         expect(parseWireTerminalActive(null)).toStrictEqual({ id: null });
@@ -93,7 +93,7 @@ describe("parseWireTerminalClosed / parseWireTerminalActive", () => {
 });
 
 describe("pty: start/resize/input", () => {
-    it("размер — положительные целые, id — число", () => {
+    it("size is positive integers, id is a number", () => {
         expect(parseWireTerminalPtyDimensions({ id: 1, cols: 80, rows: 24 })).toStrictEqual({
             id: 1,
             cols: 80,
@@ -106,7 +106,7 @@ describe("pty: start/resize/input", () => {
         expect(parseWireTerminalPtyDimensions(null)).toBeNull();
     });
 
-    it("ввод — строка", () => {
+    it("input is a string", () => {
         expect(parseWireTerminalPtyInput({ id: 1, data: "x" })).toStrictEqual({ id: 1, data: "x" });
         expect(parseWireTerminalPtyInput({ id: 1, data: 1 })).toBeNull();
         expect(parseWireTerminalPtyInput({ data: "x" })).toBeNull();

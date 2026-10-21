@@ -31,7 +31,9 @@ describe("ExtensionHost — an extension with a tree activates fully", () => {
                 {
                     channel: "extensions",
                     level: "warn",
-                    value: expect.stringMatching(/^дерево "test\.targets" в TUI пока не рисуется/) as unknown as string,
+                    value: expect.stringMatching(
+                        /^tree view "test\.targets" is not rendered in TUI yet/,
+                    ) as unknown as string,
                 },
             ]);
         } finally {

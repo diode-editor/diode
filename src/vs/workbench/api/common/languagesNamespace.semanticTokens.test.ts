@@ -43,8 +43,8 @@ function fullProvider(data: number[] = [0, 0, 5, 0, 1]): vscode.DocumentSemantic
     return { provideDocumentSemanticTokens: () => new SemanticTokens(new Uint32Array(data)) };
 }
 
-describe("LanguagesNamespace — регистрация семантических токенов", () => {
-    it("документный провайдер: languages.register с kind, легендой и hasOnDidChange", () => {
+describe("LanguagesNamespace — semantic token registration", () => {
+    it("document provider: languages.register with kind, legend and hasOnDidChange", () => {
         const { stub, languages } = setup();
         const emitter = new Emitter<void>();
         languages.registerDocumentSemanticTokensProvider(
@@ -66,7 +66,7 @@ describe("LanguagesNamespace — регистрация семантически
         ]);
     });
 
-    it("range-провайдер без события: kind rangeSemanticTokens, без hasOnDidChange", () => {
+    it("range provider without an event: kind rangeSemanticTokens, no hasOnDidChange", () => {
         const { stub, languages } = setup();
         languages.registerDocumentRangeSemanticTokensProvider(
             "csharp",
@@ -86,7 +86,7 @@ describe("LanguagesNamespace — регистрация семантически
         ]);
     });
 
-    it("легенда копируется: правка массива расширением после регистрации не уезжает", () => {
+    it("legend is copied: the extension editing the array after registration is not sent", () => {
         const { stub, languages } = setup();
         const legend = new SemanticTokensLegend(["a"], ["m"]);
         languages.registerDocumentSemanticTokensProvider("csharp", fullProvider(), legend);
@@ -98,7 +98,7 @@ describe("LanguagesNamespace — регистрация семантически
         });
     });
 
-    it("onDidChangeSemanticTokens → languages.didChangeSemanticTokens с handle; после dispose — тишина и unregister", () => {
+    it("onDidChangeSemanticTokens → languages.didChangeSemanticTokens with handle; after dispose, silence and unregister", () => {
         const { stub, languages } = setup();
         const first = new Emitter<void>();
         const second = new Emitter<void>();
@@ -128,7 +128,7 @@ describe("LanguagesNamespace — регистрация семантически
     });
 });
 
-describe("LanguagesNamespace — запросы семантических токенов", () => {
+describe("LanguagesNamespace — semantic token requests", () => {
     let errors: unknown[][];
     beforeEach(() => {
         errors = [];
@@ -140,7 +140,7 @@ describe("LanguagesNamespace — запросы семантических то�
         vi.restoreAllMocks();
     });
 
-    it("документ: ответ адаптера; previousResultId ведёт к дельте", async () => {
+    it("document: adapter answer; previousResultId leads to a delta", async () => {
         const { stub, languages } = setup();
         const answers = [
             [0, 0, 5, 0, 1],
@@ -167,7 +167,7 @@ describe("LanguagesNamespace — запросы семантических то�
         ).toEqual({ id: 2, type: "delta", deltas: [{ start: 3, deleteCount: 1, data: [1] }] });
     });
 
-    it("без previousResultId в параметрах — как 0", async () => {
+    it("missing previousResultId in params acts as 0", async () => {
         const { stub, languages } = setup();
         languages.registerDocumentSemanticTokensProvider("csharp", fullProvider([1, 2, 3, 4, 5]), LEGEND);
         expect(await stub.callRequest("languages.provideDocumentSemanticTokens", { ...DOC, handle: 0 })).toEqual({
@@ -177,7 +177,7 @@ describe("LanguagesNamespace — запросы семантических то�
         });
     });
 
-    it("неизвестный handle и handle другого вида — null; несинхронизированный или устаревший документ — отмена; провайдер не зовётся", async () => {
+    it("unknown handle and handle of another kind give null; unsynced or stale document gives cancellation; provider is not called", async () => {
         const { stub, languages } = setup();
         const provide = vi.fn(() => new SemanticTokens(new Uint32Array([0])));
         const range = vi.fn(() => new SemanticTokens(new Uint32Array([0])));
@@ -206,7 +206,7 @@ describe("LanguagesNamespace — запросы семантических то�
         expect(errors).toEqual([]);
     });
 
-    it("handle берётся из параметров: второй провайдер отвечает по своему handle, без handle — никто", async () => {
+    it("handle comes from params: the second provider answers by its handle, without a handle nobody does", async () => {
         const { stub, languages } = setup();
         languages.registerDocumentSemanticTokensProvider("csharp", fullProvider([0, 0, 0, 0, 0]), LEGEND);
         languages.registerDocumentSemanticTokensProvider("csharp", fullProvider([1, 1, 1, 1, 1]), LEGEND);
@@ -220,7 +220,7 @@ describe("LanguagesNamespace — запросы семантических то�
         expect(await doc({ handle: 1, previousResultId: 2 })).toEqual({ id: 3, type: "full", data: [1, 1, 1, 1, 1] });
     });
 
-    it("диапазон: провайдер получает vscode.Range из провода, ответ — полный с id 0", async () => {
+    it("range: provider gets a vscode.Range from the wire, answer is full with id 0", async () => {
         const { stub, languages } = setup();
         let seen: vscode.Range | undefined;
         languages.registerDocumentRangeSemanticTokensProvider(
@@ -239,7 +239,7 @@ describe("LanguagesNamespace — запросы семантических то�
         expect([seen?.start.line, seen?.start.character, seen?.end.line, seen?.end.character]).toEqual([0, 0, 1, 2]);
     });
 
-    it("сбой провайдера уходит ядру исключением и строкой в stderr; отмена доезжает до токена провайдера", async () => {
+    it("provider failure reaches the core as an exception and a stderr line; cancellation reaches the provider token", async () => {
         const { stub, languages } = setup();
         let token: vscode.CancellationToken | undefined;
         languages.registerDocumentSemanticTokensProvider(
@@ -280,7 +280,7 @@ describe("LanguagesNamespace — запросы семантических то�
         ]);
     });
 
-    it("CancellationError провайдера (ContentModified у vscode-languageclient) — отмена ядру без stderr", async () => {
+    it("provider CancellationError (ContentModified in vscode-languageclient) is a cancellation to the core without stderr", async () => {
         const { stub, languages } = setup();
         languages.registerDocumentSemanticTokensProvider(
             "csharp",
@@ -297,7 +297,7 @@ describe("LanguagesNamespace — запросы семантических то�
         expect(errors).toEqual([]);
     });
 
-    it("releaseDocumentSemanticTokens забывает ответ: следующий запрос с его id — полный", async () => {
+    it("releaseDocumentSemanticTokens forgets the answer: the next request with its id is full", async () => {
         const { stub, languages } = setup();
         languages.registerDocumentSemanticTokensProvider("csharp", fullProvider([1, 1, 1, 1, 1]), LEGEND);
         await stub.callRequest("languages.provideDocumentSemanticTokens", { ...DOC, handle: 0, previousResultId: 0 });

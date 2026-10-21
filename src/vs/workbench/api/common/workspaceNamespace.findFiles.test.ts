@@ -74,8 +74,8 @@ function relative(root: string, uris: readonly vscode.Uri[]): string[] {
     return uris.map((uri) => path.relative(root, (uri as unknown as Uri).fsPath)).toSorted();
 }
 
-describe("workspace.findFiles — разбор GlobPattern", () => {
-    it("строковый шаблон ищет во ВСЕХ папках воркспейса", async () => {
+describe("workspace.findFiles — GlobPattern parsing", () => {
+    it("a string pattern searches ALL workspace folders", async () => {
         const a = layout(path.join(tmpRoot, "a"), { "pom.xml": "", "src/App.java": "" });
         const b = layout(path.join(tmpRoot, "b"), { "pom.xml": "" });
         const workspace = makeWorkspace([a, b]);
@@ -85,7 +85,7 @@ describe("workspace.findFiles — разбор GlobPattern", () => {
         expect(relative(tmpRoot, found)).toEqual([path.join("a", "pom.xml"), path.join("b", "pom.xml")]);
     });
 
-    it("RelativePattern сужает поиск до своей базы", async () => {
+    it("RelativePattern narrows the search to its base", async () => {
         const a = layout(path.join(tmpRoot, "a"), { "pom.xml": "" });
         const b = layout(path.join(tmpRoot, "b"), { "pom.xml": "" });
         const workspace = makeWorkspace([a, b]);
@@ -95,7 +95,7 @@ describe("workspace.findFiles — разбор GlobPattern", () => {
         expect(relative(tmpRoot, found)).toEqual([path.join("b", "pom.xml")]);
     });
 
-    it("результат — абсолютные file:-Uri", async () => {
+    it("the result is absolute file: Uris", async () => {
         const root = layout(tmpRoot, { "pom.xml": "" });
         const workspace = makeWorkspace([root]);
 
@@ -106,12 +106,12 @@ describe("workspace.findFiles — разбор GlobPattern", () => {
         expect((found[0] as unknown as Uri).fsPath).toBe(path.join(root, "pom.xml"));
     });
 
-    it("без открытых папок — пустой результат, как в контракте", async () => {
+    it("without open folders — an empty result, as in the contract", async () => {
         const workspace = makeWorkspace([]);
         await expect(workspace.findFiles("**/pom.xml")).resolves.toEqual([]);
     });
 
-    it("мусорный шаблон не роняет вызов", async () => {
+    it("a garbage pattern does not break the call", async () => {
         const workspace = makeWorkspace([layout(tmpRoot, { "pom.xml": "" })]);
         await expect(workspace.findFiles({ nonsense: true } as never)).resolves.toEqual([]);
     });
@@ -120,7 +120,7 @@ describe("workspace.findFiles — разбор GlobPattern", () => {
 describe("workspace.findFiles — exclude", () => {
     const tree = { "pom.xml": "", "node_modules/dep/pom.xml": "", ".git/pom.xml": "", "web/pom.xml": "" };
 
-    it("undefined — шаблоны настройки files.exclude", async () => {
+    it("undefined — the files.exclude setting patterns", async () => {
         const root = layout(tmpRoot, tree);
         const workspace = makeWorkspace([root], FILES_EXCLUDE_SNAPSHOT);
 
@@ -129,7 +129,7 @@ describe("workspace.findFiles — exclude", () => {
         expect(relative(root, found)).toEqual(["pom.xml", path.join("web", "pom.xml")]);
     });
 
-    it("undefined при пустой настройке — исключений нет", async () => {
+    it("undefined with an empty setting — no exclusions", async () => {
         // Defaults live in the setting, not in the traversal code: a snapshot without
         // `files.exclude` means "exclude nothing", not "use some defaults of our own".
         const root = layout(tmpRoot, tree);
@@ -140,7 +140,7 @@ describe("workspace.findFiles — exclude", () => {
         expect(relative(root, found)).toContain(path.join("node_modules", "dep", "pom.xml"));
     });
 
-    it("search.exclude в дефолты НЕ входит — так в контракте", async () => {
+    it("search.exclude is NOT in the defaults — per the contract", async () => {
         // "default file-excludes (e.g. the `files.exclude`-setting but not
         // `search.exclude`)": the extension looks for a file in order to work with it.
         const root = layout(tmpRoot, tree);
@@ -151,7 +151,7 @@ describe("workspace.findFiles — exclude", () => {
         expect(relative(root, found)).toContain(path.join("web", "pom.xml"));
     });
 
-    it("правка настройки применяется к следующему же вызову", async () => {
+    it("a setting change applies to the very next call", async () => {
         const root = layout(tmpRoot, tree);
         const workspace = makeWorkspace([root], FILES_EXCLUDE_SNAPSHOT);
         expect(relative(root, await workspace.findFiles("**/pom.xml"))).not.toContain(
@@ -165,7 +165,7 @@ describe("workspace.findFiles — exclude", () => {
         );
     });
 
-    it("null — не исключает ничего", async () => {
+    it("null excludes nothing", async () => {
         const root = layout(tmpRoot, tree);
         const workspace = makeWorkspace([root], FILES_EXCLUDE_SNAPSHOT);
 
@@ -174,7 +174,7 @@ describe("workspace.findFiles — exclude", () => {
         expect(relative(root, found)).toContain(path.join("node_modules", "dep", "pom.xml"));
     });
 
-    it("явный шаблон ЗАМЕНЯЕТ дефолты, а не добавляется к ним", async () => {
+    it("an explicit pattern REPLACES the defaults rather than adding to them", async () => {
         const root = layout(tmpRoot, tree);
         const workspace = makeWorkspace([root], FILES_EXCLUDE_SNAPSHOT);
 
@@ -188,7 +188,7 @@ describe("workspace.findFiles — exclude", () => {
         ]);
     });
 
-    it("мусорный exclude — ничего не исключаем, а не падаем", async () => {
+    it("a garbage exclude excludes nothing instead of failing", async () => {
         const root = layout(tmpRoot, tree);
         const workspace = makeWorkspace([root], FILES_EXCLUDE_SNAPSHOT);
 
@@ -199,7 +199,7 @@ describe("workspace.findFiles — exclude", () => {
         expect(relative(root, found)).toContain(path.join("node_modules", "dep", "pom.xml"));
     });
 
-    it("RelativePattern в exclude берётся своим шаблоном", async () => {
+    it("RelativePattern in exclude is taken by its pattern", async () => {
         const root = layout(tmpRoot, tree);
         const workspace = makeWorkspace([root]);
 
@@ -212,8 +212,8 @@ describe("workspace.findFiles — exclude", () => {
     });
 });
 
-describe("workspace.findFiles — maxResults и отмена", () => {
-    it("maxResults считается по всем папкам вместе", async () => {
+describe("workspace.findFiles — maxResults and cancellation", () => {
+    it("maxResults counts across all folders together", async () => {
         const a = layout(path.join(tmpRoot, "a"), { "pom.xml": "" });
         const b = layout(path.join(tmpRoot, "b"), { "pom.xml": "" });
         const workspace = makeWorkspace([a, b]);
@@ -223,14 +223,14 @@ describe("workspace.findFiles — maxResults и отмена", () => {
         expect(relative(tmpRoot, found)).toEqual([path.join("a", "pom.xml")]);
     });
 
-    it("maxResults: 1 — типовой запрос redhat.java «есть ли хоть один билд-файл»", async () => {
+    it("maxResults: 1 — the typical redhat.java query 'is there at least one build file'", async () => {
         const root = layout(tmpRoot, { "web/pom.xml": "", "core/pom.xml": "" });
         const workspace = makeWorkspace([root]);
 
         await expect(workspace.findFiles("**/pom.xml", null, 1)).resolves.toHaveLength(1);
     });
 
-    it("уже отменённый токен — пустой результат", async () => {
+    it("an already cancelled token gives an empty result", async () => {
         const root = layout(tmpRoot, { "pom.xml": "" });
         const workspace = makeWorkspace([root]);
         const source = new CancellationTokenSource();
@@ -241,7 +241,7 @@ describe("workspace.findFiles — maxResults и отмена", () => {
         expect(found).toEqual([]);
     });
 
-    it("живой токен поиску не мешает", async () => {
+    it("a live token does not interfere with the search", async () => {
         const root = layout(tmpRoot, { "pom.xml": "" });
         const workspace = makeWorkspace([root]);
         const source = new CancellationTokenSource();

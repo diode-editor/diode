@@ -42,7 +42,7 @@ export function createCommentsNoop(rpc: SubprocessRpc): typeof vscode.comments {
             channel: OUTPUT_CHANNEL,
             label: OUTPUT_LABEL,
             level: "warn",
-            value: `комментарии "${id}" в TUI пока не рисуются — тредов не будет, остальное расширение работает`,
+            value: `comments "${id}" are not rendered in TUI yet — no threads, the rest of the extension works`,
         });
     }
 

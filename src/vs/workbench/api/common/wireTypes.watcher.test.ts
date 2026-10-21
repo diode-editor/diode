@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseWireWatcherEvents } from "./wireTypes.ts";
 
 describe("parseWireWatcherEvents", () => {
-    it("разбирает пачку событий", () => {
+    it("parses an event batch", () => {
         expect(
             parseWireWatcherEvents({
                 id: 2,
@@ -21,13 +21,13 @@ describe("parseWireWatcherEvents", () => {
         });
     });
 
-    it("мусорные записи отбрасываются, пачка остаётся валидной", () => {
+    it("garbage entries are dropped, the batch stays valid", () => {
         expect(
             parseWireWatcherEvents({
                 id: 2,
                 events: [
                     null,
-                    "нет",
+                    "no",
                     { type: "moved", uri: "file:///a" },
                     { type: "changed", uri: "" },
                     { type: "changed" },
@@ -36,9 +36,9 @@ describe("parseWireWatcherEvents", () => {
         ).toEqual({ id: 2, events: [] });
     });
 
-    it("структурно чужая пачка — null", () => {
+    it("a structurally foreign batch gives null", () => {
         expect(parseWireWatcherEvents(null)).toBeNull();
         expect(parseWireWatcherEvents({ id: "2", events: [] })).toBeNull();
-        expect(parseWireWatcherEvents({ id: 2, events: "нет" })).toBeNull();
+        expect(parseWireWatcherEvents({ id: 2, events: "no" })).toBeNull();
     });
 });

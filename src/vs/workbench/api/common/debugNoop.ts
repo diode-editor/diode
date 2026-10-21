@@ -31,7 +31,7 @@ export function createDebugNoop(rpc: SubprocessRpc): typeof vscode.debug {
     function reportDebugType(debugType: string): void {
         report(
             debugType,
-            `отладка "${debugType}" в TUI пока не поддержана — сессий не будет, остальное расширение работает`,
+            `debugging "${debugType}" is not supported in TUI yet — no sessions, the rest of the extension works`,
         );
     }
 
@@ -59,7 +59,7 @@ export function createDebugNoop(rpc: SubprocessRpc): typeof vscode.debug {
         // Trackers are also registered for other types (`*`); they say nothing about the extension's debugger.
         registerDebugAdapterTrackerFactory: noopDisposable,
         startDebugging: (): Promise<boolean> => {
-            report(START_KEY, "запуск отладки в TUI пока не поддержан — сессия не начата");
+            report(START_KEY, "starting a debug session is not supported in TUI yet — no session started");
             return Promise.resolve(false);
         },
         stopDebugging: (): Promise<void> => Promise.resolve(),

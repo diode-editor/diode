@@ -65,8 +65,8 @@ function deferredHandler(): {
     };
 }
 
-describe("RpcEndpoint — отмена запроса", () => {
-    it("отменённый токен вызывающего гасит токен обработчика на той стороне", async () => {
+describe("RpcEndpoint — request cancellation", () => {
+    it("a cancelled caller token cancels the handler token on the other side", async () => {
         const { a, b, chB, dispose } = createEndpointPair();
         const cancels = cancelsOn(chB);
         const deferred = deferredHandler();
@@ -93,7 +93,7 @@ describe("RpcEndpoint — отмена запроса", () => {
         dispose();
     });
 
-    it("без токена вызывающего обработчик получает неотменяемый токен", async () => {
+    it("without a caller token the handler gets a non-cancellable token", async () => {
         const { a, b, dispose } = createEndpointPair();
         let seen: ICancellationToken | null = null;
         b.handleRequest("plain", (_params, token) => {
@@ -106,7 +106,7 @@ describe("RpcEndpoint — отмена запроса", () => {
         dispose();
     });
 
-    it("отмена ПОСЛЕ ответа не шлёт нотификацию — отменять уже нечего", async () => {
+    it("cancellation AFTER the response sends no notification, nothing left to cancel", async () => {
         const [chA, chB] = createInProcessChannelPair();
         const a = new RpcEndpoint(chA);
         const b = new RpcEndpoint(chB);
@@ -127,7 +127,7 @@ describe("RpcEndpoint — отмена запроса", () => {
         chB.dispose();
     });
 
-    it("отмена, обогнавшая свой запрос, доезжает до обработчика отменённым токеном", async () => {
+    it("a cancellation that overtakes its request reaches the handler as a cancelled token", async () => {
         const { a, b, dispose } = createEndpointPair();
         const deferred = deferredHandler();
         b.handleRequest("slow", deferred.handler);
@@ -147,11 +147,11 @@ describe("RpcEndpoint — отмена запроса", () => {
         dispose();
     });
 
-    it("отмена с чужой формой параметров и отмена без пары — тихие", async () => {
+    it("cancellation with a foreign params shape and an unmatched cancellation are silent", async () => {
         const { a, b, dispose } = createEndpointPair();
         b.handleRequest("echo", (params) => params);
 
-        a.notify(CANCEL_REQUEST_METHOD, { id: "не число" });
+        a.notify(CANCEL_REQUEST_METHOD, { id: "not a number" });
         a.notify(CANCEL_REQUEST_METHOD, undefined);
         a.notify(CANCEL_REQUEST_METHOD, { id: 999 });
         await microtasks();
@@ -160,7 +160,7 @@ describe("RpcEndpoint — отмена запроса", () => {
         dispose();
     });
 
-    it("память об отменах-сиротах ограничена — вытесняется ровно самая старая", async () => {
+    it("memory of orphan cancellations is bounded, exactly the oldest is evicted", async () => {
         const { a, b, dispose } = createEndpointPair();
         const seen: ICancellationToken[] = [];
         const release: ((value: string) => void)[] = [];
@@ -186,7 +186,7 @@ describe("RpcEndpoint — отмена запроса", () => {
         dispose();
     });
 
-    it("dispose отменяет входящие запросы, которые ещё считаются", async () => {
+    it("dispose cancels incoming requests still in progress", async () => {
         const [chA, chB] = createInProcessChannelPair();
         const a = new RpcEndpoint(chA);
         const b = new RpcEndpoint(chB);
@@ -205,7 +205,7 @@ describe("RpcEndpoint — отмена запроса", () => {
         chB.dispose();
     });
 
-    it("dispose вызывающего снимает подписку на его токен — отмена никуда не уходит", async () => {
+    it("disposing the caller removes the subscription to its token, no cancellation is sent", async () => {
         const [chA, chB] = createInProcessChannelPair();
         const a = new RpcEndpoint(chA);
         const b = new RpcEndpoint(chB);
@@ -228,7 +228,7 @@ describe("RpcEndpoint — отмена запроса", () => {
         chB.dispose();
     });
 
-    it("каждый запрос отменяется своим токеном — соседа не задевает", async () => {
+    it("each request is cancelled by its own token without affecting its neighbor", async () => {
         const { a, b, dispose } = createEndpointPair();
         const seen: ICancellationToken[] = [];
         const release: ((value: string) => void)[] = [];
@@ -256,7 +256,7 @@ describe("RpcEndpoint — отмена запроса", () => {
         dispose();
     });
 
-    it("токен, отменённый ДО запроса, уезжает отменой сразу за самим запросом", async () => {
+    it("a token cancelled BEFORE the request sends a cancellation right after the request", async () => {
         const { a, b, dispose } = createEndpointPair();
         const deferred = deferredHandler();
         b.handleRequest("slow", deferred.handler);
@@ -275,12 +275,12 @@ describe("RpcEndpoint — отмена запроса", () => {
     });
 });
 
-describe("RpcEndpoint — срок ответа (timeoutMs)", () => {
+describe("RpcEndpoint — response timeout (timeoutMs)", () => {
     afterEach(() => {
         vi.useRealTimers();
     });
 
-    it("истёкший срок отклоняет TimeoutError и отменяет запрос на той стороне", async () => {
+    it("an expired timeout rejects with TimeoutError and cancels the request on the other side", async () => {
         vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         const { a, b, chB, dispose } = createEndpointPair();
         const cancels = cancelsOn(chB);
@@ -316,7 +316,7 @@ describe("RpcEndpoint — срок ответа (timeoutMs)", () => {
         dispose();
     });
 
-    it("ответ в срок гасит таймер: отмены нет, таймеров не остаётся", async () => {
+    it("a timely response clears the timer: no cancellation, no timers left", async () => {
         vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         const { a, b, chB, dispose } = createEndpointPair();
         const cancels = cancelsOn(chB);
@@ -330,7 +330,7 @@ describe("RpcEndpoint — срок ответа (timeoutMs)", () => {
         dispose();
     });
 
-    it("dispose до срока гасит таймер вместе с ожиданием", async () => {
+    it("dispose before the timeout clears the timer along with the wait", async () => {
         vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         const { a, b, dispose } = createEndpointPair();
         b.handleRequest("slow", deferredHandler().handler);
@@ -342,7 +342,7 @@ describe("RpcEndpoint — срок ответа (timeoutMs)", () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-    it("после срока токен вызывающего больше не шлёт отмену — запрос уже снят", async () => {
+    it("after the timeout the caller token no longer sends a cancellation, the request is already gone", async () => {
         vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         const { a, b, chB, dispose } = createEndpointPair();
         const cancels = cancelsOn(chB);
@@ -361,7 +361,7 @@ describe("RpcEndpoint — срок ответа (timeoutMs)", () => {
         dispose();
     });
 
-    it("без срока запрос ждёт сколько угодно", async () => {
+    it("without a timeout the request waits indefinitely", async () => {
         vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         const { a, b, dispose } = createEndpointPair();
         const deferred = deferredHandler();

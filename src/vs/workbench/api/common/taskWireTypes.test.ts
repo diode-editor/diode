@@ -12,8 +12,8 @@ import {
 
 const task = { name: "b", definition: { type: "t" }, source: { label: "s", extensionId: "e", scope: 2 } };
 
-describe("разбор задач ядра в субпроцессе", () => {
-    it("задача: имя, определение с типом и источник — иначе null", () => {
+describe("parsing core tasks in the subprocess", () => {
+    it("task: name, definition with type and source, otherwise null", () => {
         expect(parseWireTask(task)).toBe(task);
         expect(parseWireTask({ ...task, name: 1 })).toBeNull();
         expect(parseWireTask({ ...task, definition: { type: 1 } })).toBeNull();
@@ -24,14 +24,14 @@ describe("разбор задач ядра в субпроцессе", () => {
         expect(parseWireTasks({})).toStrictEqual([]);
     });
 
-    it("исполнение: строковый id и задача", () => {
+    it("execution: string id and task", () => {
         expect(parseWireTaskExecution({ id: "x", task })).toStrictEqual({ id: "x", task });
         expect(parseWireTaskExecution({ id: 1, task })).toBeNull();
         expect(parseWireTaskExecution({ id: "x", task: {} })).toBeNull();
         expect(parseWireTaskExecution(undefined)).toBeNull();
     });
 
-    it("старт: терминал числом; без определения с подстановкой — определение задачи", () => {
+    it("start: terminal as a number; without a resolved definition, the task definition", () => {
         expect(
             parseWireTaskStarted({ execution: { id: "x", task }, terminalId: 3, resolvedDefinition: { type: "r" } }),
         ).toStrictEqual({
@@ -47,7 +47,7 @@ describe("разбор задач ядра в субпроцессе", () => {
         expect(parseWireTaskStarted(null)).toBeNull();
     });
 
-    it("процесс: старт с pid, конец с кодом или без", () => {
+    it("process: start with pid, end with or without code", () => {
         expect(parseWireTaskProcessStarted({ id: "x", processId: 1 })).toStrictEqual({ id: "x", processId: 1 });
         expect(parseWireTaskProcessStarted({ id: "x", processId: "1" })).toBeNull();
         expect(parseWireTaskProcessStarted({ id: 1, processId: 1 })).toBeNull();
@@ -56,7 +56,7 @@ describe("разбор задач ядра в субпроцессе", () => {
         expect(parseWireTaskProcessEnded({ id: 2 })).toBeNull();
     });
 
-    it("конец: исполнение", () => {
+    it("end: execution", () => {
         expect(parseWireTaskEnded({ execution: { id: "x", task } })).toStrictEqual({ execution: { id: "x", task } });
         expect(parseWireTaskEnded({ execution: null })).toBeNull();
         expect(parseWireTaskEnded(7)).toBeNull();

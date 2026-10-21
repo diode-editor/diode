@@ -18,8 +18,8 @@ function warnings(stub: ReturnType<typeof makeStubRpc>): string[] {
         .map((p) => `${p.channel}/${p.label}/${p.level}: ${p.value}`);
 }
 
-describe("vscode.tests — инертный контроллер с рабочими коллекциями", () => {
-    it("контроллер несёт id и label; обработчики не заданы, dispose и invalidate безвредны", () => {
+describe("vscode.tests — an inert controller with working collections", () => {
+    it("the controller carries id and label; handlers are unset, dispose and invalidate are harmless", () => {
         const { vscode } = makeVscode();
         const controller = vscode.tests.createTestController("go", "Go");
         expect(controller.id).toBe("go");
@@ -33,7 +33,7 @@ describe("vscode.tests — инертный контроллер с рабочи
         }).not.toThrow();
     });
 
-    it("профиль — с переданными полями и эталонными дефолтами; runHandler никто не зовёт", () => {
+    it("a profile has the given fields and upstream defaults; nobody calls runHandler", () => {
         const { vscode } = makeVscode();
         const controller = vscode.tests.createTestController("go", "Go");
         const run = vi.fn();
@@ -58,7 +58,7 @@ describe("vscode.tests — инертный контроллер с рабочи
         expect(run).not.toHaveBeenCalled();
     });
 
-    it("элемент — с эталонными дефолтами; поля записываемые", () => {
+    it("an item has upstream defaults; its fields are writable", () => {
         const { vscode } = makeVscode();
         const controller = vscode.tests.createTestController("go", "Go");
         const uri = vscode.Uri.file("/w/a_test.go");
@@ -83,7 +83,7 @@ describe("vscode.tests — инертный контроллер с рабочи
         expect(item).toMatchObject({ label: "renamed", busy: true });
     });
 
-    it("коллекции: add/get/delete/replace/forEach/итерация; parent у корня — undefined, у ребёнка — элемент", () => {
+    it("collections: add/get/delete/replace/forEach/iteration; a root has parent undefined, a child has the item", () => {
         const { vscode } = makeVscode();
         const controller = vscode.tests.createTestController("go", "Go");
         const file = controller.createTestItem("file", "a_test.go");
@@ -122,7 +122,7 @@ describe("vscode.tests — инертный контроллер с рабочи
         expect(testB.parent).toBe(file);
     });
 
-    it("прогон принимает отчёты и завершается один раз", () => {
+    it("a run accepts reports and ends once", () => {
         const { vscode } = makeVscode();
         const controller = vscode.tests.createTestController("go", "Go");
         const item = controller.createTestItem("A", "TestA");
@@ -149,14 +149,14 @@ describe("vscode.tests — инертный контроллер с рабочи
         expect(ended).toHaveBeenCalledTimes(1);
     });
 
-    it("человеку — одна warn-строка на id контроллера за жизнь субпроцесса", () => {
+    it("the user gets one warn line per controller id over the subprocess lifetime", () => {
         const { stub, vscode } = makeVscode();
         vscode.tests.createTestController("go", "Go");
         vscode.tests.createTestController("go", "Go again");
         vscode.tests.createTestController("py", "Python");
         expect(warnings(stub)).toEqual([
-            'extensions/Extensions/warn: тесты "go" в TUI пока не показываются — view Testing не будет, остальное расширение работает',
-            'extensions/Extensions/warn: тесты "py" в TUI пока не показываются — view Testing не будет, остальное расширение работает',
+            'extensions/Extensions/warn: tests "go" are not shown in TUI yet — no Testing view, the rest of the extension works',
+            'extensions/Extensions/warn: tests "py" are not shown in TUI yet — no Testing view, the rest of the extension works',
         ]);
     });
 });

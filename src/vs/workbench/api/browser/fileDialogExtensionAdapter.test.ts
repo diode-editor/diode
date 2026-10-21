@@ -23,7 +23,7 @@ function setup(answers: { open?: Uri[]; save?: Uri }) {
 }
 
 describe("FileDialogExtensionAdapter", () => {
-    it("открытие: опции расширения — диалогу, выбранное — строками Uri", async () => {
+    it("open: extension options go to the dialog, the selection comes back as Uri strings", async () => {
         const { adapter, opens } = setup({ open: [Uri.file("/ws/a.go")] });
         const picked = await adapter.showOpenDialog({
             title: "T",
@@ -48,13 +48,13 @@ describe("FileDialogExtensionAdapter", () => {
         ]);
     });
 
-    it("отмена — undefined; defaultUri не с file: отбрасывается", async () => {
+    it("cancel gives undefined; a non-file: defaultUri is dropped", async () => {
         const { adapter, opens } = setup({});
         await expect(adapter.showOpenDialog({ defaultUri: "untitled:Untitled-1" })).resolves.toBeUndefined();
         expect(opens[0]?.defaultUri).toBeUndefined();
     });
 
-    it("сохранение: ресурс строкой или undefined", async () => {
+    it("save: the resource as a string or undefined", async () => {
         const { adapter, saves } = setup({ save: Uri.file("/ws/new.txt") });
         await expect(
             adapter.showSaveDialog({ defaultUri: "file:///ws/new.txt", saveLabel: "Save", title: "T", filters: [] }),

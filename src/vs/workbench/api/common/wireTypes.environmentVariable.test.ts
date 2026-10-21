@@ -10,7 +10,7 @@ import {
 const SCOPE = { workspaceFolder: { uri: "file:///a", name: "a", index: 0 } };
 
 describe("parseWireEnvironmentVariableMutator", () => {
-    it("полный мутатор — как есть", () => {
+    it("full mutator passes as is", () => {
         expect(
             parseWireEnvironmentVariableMutator({
                 variable: "P",
@@ -28,7 +28,7 @@ describe("parseWireEnvironmentVariableMutator", () => {
         });
     });
 
-    it("без опций и области — пустые опции, области нет; не-булевы опции отброшены", () => {
+    it("without options and scope: empty options, no scope; non-boolean options dropped", () => {
         expect(parseWireEnvironmentVariableMutator({ variable: "P", value: "v", type: 1 })).toStrictEqual({
             variable: "P",
             value: "v",
@@ -53,7 +53,7 @@ describe("parseWireEnvironmentVariableMutator", () => {
         });
     });
 
-    it("область без папки — `{}`", () => {
+    it("scope without a folder is `{}`", () => {
         expect(
             parseWireEnvironmentVariableMutator({ variable: "P", value: "v", type: 1, scope: {} })?.scope,
         ).toStrictEqual({});
@@ -74,13 +74,13 @@ describe("parseWireEnvironmentVariableMutator", () => {
         { variable: "P", value: "v", type: 1, scope: { workspaceFolder: { uri: 1, name: "a", index: 0 } } },
         { variable: "P", value: "v", type: 1, scope: { workspaceFolder: { uri: "u", name: 1, index: 0 } } },
         { variable: "P", value: "v", type: 1, scope: { workspaceFolder: { uri: "u", name: "a", index: "0" } } },
-    ])("структурно чужой — null (%j)", (raw) => {
+    ])("structurally foreign gives null (%j)", (raw) => {
         expect(parseWireEnvironmentVariableMutator(raw)).toBeNull();
     });
 });
 
 describe("parseWireEnvironmentVariableEntries", () => {
-    it("чужие записи отброшены, остальные — по порядку", () => {
+    it("foreign entries are dropped, the rest keep their order", () => {
         const good = { variable: "A", value: "1", type: 1 };
         expect(
             parseWireEnvironmentVariableEntries([
@@ -96,14 +96,14 @@ describe("parseWireEnvironmentVariableEntries", () => {
         ]);
     });
 
-    it("не массив — пусто", () => {
+    it("non-array gives empty", () => {
         expect(parseWireEnvironmentVariableEntries(undefined)).toStrictEqual([]);
         expect(parseWireEnvironmentVariableEntries({})).toStrictEqual([]);
     });
 });
 
 describe("parseWireEnvironmentVariableCollections", () => {
-    it("коллекции по расширениям; чужие записи и не-список — пропуск", () => {
+    it("collections per extension; foreign entries and non-lists are skipped", () => {
         expect(
             parseWireEnvironmentVariableCollections({
                 collections: [
@@ -119,14 +119,14 @@ describe("parseWireEnvironmentVariableCollections", () => {
         ]);
     });
 
-    it("без списка — пусто", () => {
+    it("without a list gives empty", () => {
         expect(parseWireEnvironmentVariableCollections(null)).toStrictEqual([]);
         expect(parseWireEnvironmentVariableCollections({ collections: {} })).toStrictEqual([]);
     });
 });
 
 describe("parseWireEnvironmentDescriptions", () => {
-    it("описание строкой или undefined, область — разобрана; чужие записи отброшены", () => {
+    it("description as a string or undefined, scope parsed; foreign entries dropped", () => {
         expect(
             parseWireEnvironmentDescriptions([
                 ["", { description: "d" }],
@@ -143,7 +143,7 @@ describe("parseWireEnvironmentDescriptions", () => {
         ]);
     });
 
-    it("не массив — пусто", () => {
+    it("non-array gives empty", () => {
         expect(parseWireEnvironmentDescriptions(undefined)).toStrictEqual([]);
     });
 });

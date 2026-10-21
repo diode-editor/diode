@@ -6,19 +6,19 @@ import { Uri } from "../../../base/common/uri.ts";
 import { RelativePattern } from "./vscodeTypes.ts";
 
 describe("RelativePattern", () => {
-    it("строковая база превращается в file-uri", () => {
+    it("a string base becomes a file uri", () => {
         const pattern = new RelativePattern("/repo", "*.ts");
         expect(pattern.baseUri.fsPath).toBe("/repo");
         expect(pattern.base).toBe("/repo");
         expect(pattern.pattern).toBe("*.ts");
     });
 
-    it("папка воркспейса отдаёт свой uri", () => {
+    it("a workspace folder gives its uri", () => {
         const folder = { uri: Uri.file("/repo"), name: "repo", index: 0 };
         expect(new RelativePattern(folder as never, "**").baseUri.fsPath).toBe("/repo");
     });
 
-    it("base и baseUri держатся синхронно в обе стороны", () => {
+    it("base and baseUri stay in sync both ways", () => {
         const pattern = new RelativePattern(Uri.file("/repo"), "*");
         pattern.base = "/other";
         expect(pattern.baseUri.fsPath).toBe("/other");
@@ -26,12 +26,12 @@ describe("RelativePattern", () => {
         expect(pattern.base).toBe("/third");
     });
 
-    it("чужой uri-подобный объект принимается по строковому виду", () => {
+    it("a foreign uri-like object is accepted by its string form", () => {
         const foreign = { uri: { toString: () => "file:///foreign" } };
         expect(new RelativePattern(foreign as never, "*").baseUri.fsPath).toBe("/foreign");
     });
 
-    it("база не-база — понятная ошибка, а не молчаливый мусор", () => {
+    it("a non-base base gives a clear error, not silent garbage", () => {
         expect(() => new RelativePattern({ uri: 42 } as never, "*")).toThrow(TypeError);
     });
 });

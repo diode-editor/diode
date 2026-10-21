@@ -17,8 +17,8 @@ function setup() {
     return { stub, host, vscode: host.namespace };
 }
 
-describe("vscode.tasks в namespace", () => {
-    it("workspace.registerTaskProvider регистрирует провайдера задач, dispose — снимает", () => {
+describe("vscode.tasks in the namespace", () => {
+    it("workspace.registerTaskProvider registers a task provider, dispose removes it", () => {
         const { stub, host, vscode } = setup();
         const registration = host.owner.runAs("pub.ext", () =>
             // eslint-disable-next-line @typescript-eslint/no-deprecated -- the deprecated `workspace.registerTaskProvider` is exactly what is under test
@@ -31,7 +31,7 @@ describe("vscode.tasks в namespace", () => {
         expect(stub.notifies.some((n) => n.method === "tasks.unregisterProvider")).toBe(true);
     });
 
-    it("задача из ядра в папке воркспейса — область задачи и есть папка `workspace`", async () => {
+    it("core task in a workspace folder has that `workspace` folder as its scope", async () => {
         const { stub, vscode } = setup();
         const started: vscode.Task[] = [];
         vscode.tasks.onDidStartTask((e) => started.push(e.execution.task));
@@ -55,7 +55,7 @@ describe("vscode.tasks в namespace", () => {
         expect(started[0].scope).toBe(vscode.workspace.workspaceFolders?.[0]);
     });
 
-    it("CustomExecution: pty задачи открывается в терминале, который завело ядро", async () => {
+    it("CustomExecution: the task pty opens in the terminal created by the core", async () => {
         const { stub, host, vscode } = setup();
         stub.fire("terminal.opened", { id: 7, name: "Task - own", launch: {} });
         const open = vi.fn();

@@ -123,7 +123,7 @@ export function createTestsNoop(rpc: SubprocessRpc): typeof vscode.tests {
             channel: OUTPUT_CHANNEL,
             label: OUTPUT_LABEL,
             level: "warn",
-            value: `тесты "${id}" в TUI пока не показываются — view Testing не будет, остальное расширение работает`,
+            value: `tests "${id}" are not shown in TUI yet — no Testing view, the rest of the extension works`,
         });
     }
 

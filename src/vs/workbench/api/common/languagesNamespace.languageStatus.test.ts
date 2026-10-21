@@ -28,7 +28,7 @@ function makeLanguages(): ReturnType<typeof createLanguagesNamespace>["languages
 }
 
 describe("languages.createLanguageStatusItem", () => {
-    it("создаёт держатель с id/selector и дефолтами, поля мутируемы", () => {
+    it("creates a holder with id/selector and defaults, fields are mutable", () => {
         const languages = makeLanguages();
         const item = languages.createLanguageStatusItem("ruff.status", { language: "python" });
 
@@ -46,7 +46,7 @@ describe("languages.createLanguageStatusItem", () => {
         expect(item.severity).toBe(2);
     });
 
-    it("dispose не бросает и повторяем", () => {
+    it("dispose does not throw and is repeatable", () => {
         const item = makeLanguages().createLanguageStatusItem("x", "python");
         expect(() => {
             item.dispose();

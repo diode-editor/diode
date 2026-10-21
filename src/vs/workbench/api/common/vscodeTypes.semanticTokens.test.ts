@@ -13,15 +13,15 @@ import {
 const LEGEND = new SemanticTokensLegend(["class", "variable", "function"], ["declaration", "readonly", "static"]);
 
 describe("SemanticTokensLegend", () => {
-    it("хранит типы и модификаторы; без модификаторов — пустой список", () => {
+    it("stores types and modifiers; no modifiers gives an empty list", () => {
         expect(LEGEND.tokenTypes).toEqual(["class", "variable", "function"]);
         expect(LEGEND.tokenModifiers).toEqual(["declaration", "readonly", "static"]);
         expect(new SemanticTokensLegend(["a"]).tokenModifiers).toEqual([]);
     });
 });
 
-describe("SemanticTokensBuilder — числовая перегрузка", () => {
-    it("упорядоченные push дельта-кодируются по строке и символу", () => {
+describe("SemanticTokensBuilder — numeric overload", () => {
+    it("ordered pushes are delta-encoded by line and character", () => {
         const builder = new SemanticTokensBuilder();
         builder.push(1, 2, 3, 0, 1);
         builder.push(1, 10, 4, 1);
@@ -29,7 +29,7 @@ describe("SemanticTokensBuilder — числовая перегрузка", () =
         expect([...builder.build().data]).toEqual([1, 2, 3, 0, 1, 0, 8, 4, 1, 0, 2, 5, 2, 2, 4]);
     });
 
-    it("push не по порядку снимает кодирование, build сортирует и кодирует заново", () => {
+    it("an out-of-order push drops the encoding; build sorts and re-encodes", () => {
         const builder = new SemanticTokensBuilder();
         builder.push(2, 4, 1, 0, 0);
         builder.push(2, 8, 1, 1, 0);
@@ -38,7 +38,7 @@ describe("SemanticTokensBuilder — числовая перегрузка", () =
         expect([...builder.build().data]).toEqual([0, 3, 2, 2, 0, 2, 1, 1, 0, 2, 0, 3, 1, 0, 0, 0, 4, 1, 1, 0]);
     });
 
-    it("переход в неупорядоченный режим на той же строке тоже снимает кодирование", () => {
+    it("switching to unordered mode on the same line also drops the encoding", () => {
         const builder = new SemanticTokensBuilder();
         builder.push(0, 5, 1, 0);
         builder.push(1, 5, 1, 0);
@@ -46,7 +46,7 @@ describe("SemanticTokensBuilder — числовая перегрузка", () =
         expect([...builder.build().data]).toEqual([0, 5, 1, 0, 0, 1, 2, 1, 1, 0, 0, 3, 1, 0, 0]);
     });
 
-    it("build(resultId) кладёт resultId и Uint32Array", () => {
+    it("build(resultId) sets resultId and a Uint32Array", () => {
         const builder = new SemanticTokensBuilder();
         builder.push(0, 0, 1, 0);
         const tokens = builder.build("r1");
@@ -56,7 +56,7 @@ describe("SemanticTokensBuilder — числовая перегрузка", () =
         expect(new SemanticTokensBuilder().build().resultId).toBeUndefined();
     });
 
-    it("неподходящие аргументы — Illegal argument", () => {
+    it("unsuitable arguments throw Illegal argument", () => {
         const builder = new SemanticTokensBuilder(LEGEND);
         expect(() => {
             builder.push("0" as never, 0, 1, 0);
@@ -91,15 +91,15 @@ describe("SemanticTokensBuilder — числовая перегрузка", () =
     });
 });
 
-describe("SemanticTokensBuilder — перегрузка с Range и именами", () => {
-    it("имена переводятся в индексы легенды, модификаторы — в биты", () => {
+describe("SemanticTokensBuilder — Range and names overload", () => {
+    it("names map to legend indices, modifiers to bits", () => {
         const builder = new SemanticTokensBuilder(LEGEND);
         builder.push(new Range(0, 2, 0, 7), "variable", ["readonly", "static"]);
         builder.push(new Range(2, 0, 2, 4), "function");
         expect([...builder.build().data]).toEqual([0, 2, 5, 1, 6, 2, 0, 4, 2, 0]);
     });
 
-    it("утиный range (объект с позициями) принимается", () => {
+    it("a duck-typed range (an object with positions) is accepted", () => {
         const builder = new SemanticTokensBuilder(LEGEND);
         builder.push({ start: { line: 1, character: 1 }, end: { line: 1, character: 3 } } as never, "class", [
             "declaration",
@@ -108,7 +108,7 @@ describe("SemanticTokensBuilder — перегрузка с Range и имена�
         expect([...builder.build().data]).toEqual([1, 1, 2, 0, 1, 0, 4, 1, 0, 0]);
     });
 
-    it("ошибки: нет легенды, многострочный range, тип и модификатор вне легенды", () => {
+    it("errors: no legend, a multiline range, a type and a modifier outside the legend", () => {
         expect(() => {
             new SemanticTokensBuilder().push(new Range(0, 0, 0, 1), "class");
         }).toThrow("Legend must be provided in constructor");
@@ -127,7 +127,7 @@ describe("SemanticTokensBuilder — перегрузка с Range и имена�
 });
 
 describe("SemanticTokens / SemanticTokensEdit / SemanticTokensEdits", () => {
-    it("хранят поля как переданы", () => {
+    it("store fields as passed", () => {
         const data = new Uint32Array([1, 2]);
         expect(new SemanticTokens(data)).toEqual({ resultId: undefined, data });
         const edit = new SemanticTokensEdit(5, 2, data);

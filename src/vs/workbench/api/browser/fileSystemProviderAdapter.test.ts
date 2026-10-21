@@ -27,7 +27,7 @@ function fakeBridge(initial: string[] = [], initialWritable: string[] = []) {
         },
         isReadonlyFileSystem: (scheme) => !writable.has(scheme),
         readProvidedFile: (uri) =>
-            Promise.resolve(written.get(uri.toString()) ?? new TextEncoder().encode(`содержимое ${uri.toString()}`)),
+            Promise.resolve(written.get(uri.toString()) ?? new TextEncoder().encode(`content of ${uri.toString()}`)),
         statProvidedFile: (uri) => {
             const content = written.get(uri.toString());
             return Promise.resolve(
@@ -64,17 +64,17 @@ const gitUri = Uri.from({ scheme: "git", path: "/repo/a.ts" });
 const outputUri = Uri.from({ scheme: "output", path: "/channel" });
 
 describe("FileSystemProviderAdapter", () => {
-    it("регистрирует схемы, объявленные до создания адаптера", async () => {
+    it("registers schemes declared before the adapter is created", async () => {
         const registry = new FileService();
         const { bridge } = fakeBridge(["git"]);
 
         new FileSystemProviderAdapter(bridge, registry);
 
         expect(registry.hasProvider(Uri.from({ scheme: "git", path: "/" }))).toBe(true);
-        expect(new TextDecoder().decode((await registry.readFile(gitUri)).value)).toBe("содержимое git:/repo/a.ts");
+        expect(new TextDecoder().decode((await registry.readFile(gitUri)).value)).toBe("content of git:/repo/a.ts");
     });
 
-    it("подхватывает схему, появившуюся позже (расширение активировалось после старта)", () => {
+    it("picks up a scheme that appears later (extension activated after startup)", () => {
         const registry = new FileService();
         const harness = fakeBridge([]);
         new FileSystemProviderAdapter(harness.bridge, registry);
@@ -85,7 +85,7 @@ describe("FileSystemProviderAdapter", () => {
         expect(registry.hasProvider(Uri.from({ scheme: "git", path: "/" }))).toBe(true);
     });
 
-    it("снимает регистрацию исчезнувшей схемы", () => {
+    it("unregisters a scheme that disappeared", () => {
         const registry = new FileService();
         const harness = fakeBridge(["git", "output"]);
         new FileSystemProviderAdapter(harness.bridge, registry);
@@ -96,7 +96,7 @@ describe("FileSystemProviderAdapter", () => {
         expect(registry.hasProvider(Uri.from({ scheme: "output", path: "/" }))).toBe(false);
     });
 
-    it("повторное объявление того же набора не пересоздаёт регистрации", () => {
+    it("re-declaring the same set does not recreate registrations", () => {
         // Recreating would fail the registry registration with "scheme already taken".
         const registry = new FileService();
         const harness = fakeBridge(["git"]);
@@ -110,7 +110,7 @@ describe("FileSystemProviderAdapter", () => {
         expect(register).not.toHaveBeenCalled();
     });
 
-    it("событие изменения фильтруется по схеме поставщика", () => {
+    it("change event is filtered by the provider scheme", () => {
         const registry = new FileService();
         const harness = fakeBridge(["git", "output"]);
         new FileSystemProviderAdapter(harness.bridge, registry);
@@ -123,7 +123,7 @@ describe("FileSystemProviderAdapter", () => {
         expect(seen.mock.calls).toEqual([[[gitUri]], [[outputUri]]]);
     });
 
-    it("изменение только чужой схемы не будит поставщика", () => {
+    it("a change only in another scheme does not wake the provider", () => {
         const registry = new FileService();
         const harness = fakeBridge(["git"]);
         new FileSystemProviderAdapter(harness.bridge, registry);
@@ -135,7 +135,7 @@ describe("FileSystemProviderAdapter", () => {
         expect(seen).not.toHaveBeenCalled();
     });
 
-    it("dispose снимает все регистрации и отписки", () => {
+    it("dispose removes all registrations and subscriptions", () => {
         const registry = new FileService();
         const harness = fakeBridge(["git"]);
         const adapter = new FileSystemProviderAdapter(harness.bridge, registry);
@@ -146,7 +146,7 @@ describe("FileSystemProviderAdapter", () => {
         expect(harness.fileListenerCount).toBe(0);
     });
 
-    it("пишущая схема: запись уходит провайдеру, сервис видит Create, затем Write", async () => {
+    it("writable scheme: write goes to the provider, the service sees Create, then Write", async () => {
         const registry = new FileService();
         const harness = fakeBridge(["_claude_fs_right"], ["_claude_fs_right"]);
         new FileSystemProviderAdapter(harness.bridge, registry);
@@ -156,21 +156,21 @@ describe("FileSystemProviderAdapter", () => {
 
         expect(registry.hasCapability(right, FileSystemProviderCapabilities.Readonly)).toBe(false);
         // The resource does not exist yet: the provider's stat is null, the service creates it.
-        await registry.writeFile(right, new TextEncoder().encode("первое"));
-        const stat = await registry.writeFile(right, new TextEncoder().encode("второе"));
+        await registry.writeFile(right, new TextEncoder().encode("first"));
+        const stat = await registry.writeFile(right, new TextEncoder().encode("second"));
 
         await expect(registry.stat(right.with({ path: "/repo/missing.ts" }))).rejects.toThrow(
             "'_claude_fs_right:/repo/missing.ts' does not exist",
         );
-        expect(new TextDecoder().decode(harness.written.get(right.toString()))).toBe("второе");
-        expect(stat.size).toBe(new TextEncoder().encode("второе").length);
+        expect(new TextDecoder().decode(harness.written.get(right.toString()))).toBe("second");
+        expect(stat.size).toBe(new TextEncoder().encode("second").length);
         expect(operations.mock.calls.map(([e]) => (e as { operation: FileOperation }).operation)).toEqual([
             FileOperation.Create,
             FileOperation.Write,
         ]);
     });
 
-    it("read-only схема: запись — PermissionDenied, мост не зовётся", async () => {
+    it("read-only scheme: write is PermissionDenied, the bridge is not called", async () => {
         const registry = new FileService();
         const harness = fakeBridge(["git"]);
         new FileSystemProviderAdapter(harness.bridge, registry);
@@ -182,7 +182,7 @@ describe("FileSystemProviderAdapter", () => {
         expect(harness.written.size).toBe(0);
     });
 
-    it("схема, сменившая записываемость, перерегистрируется", () => {
+    it("a scheme that changed writability is re-registered", () => {
         const registry = new FileService();
         const harness = fakeBridge(["demo"]);
         new FileSystemProviderAdapter(harness.bridge, registry);
@@ -195,7 +195,7 @@ describe("FileSystemProviderAdapter", () => {
         expect(registry.hasCapability(uri, FileSystemProviderCapabilities.Readonly)).toBe(true);
     });
 
-    it("с NULL-мостом ничего не регистрирует", () => {
+    it("registers nothing with the NULL bridge", () => {
         const registry = new FileService();
         new FileSystemProviderAdapter(NULL_EXTENSION_FILE_SYSTEM_BRIDGE, registry);
 
@@ -204,7 +204,7 @@ describe("FileSystemProviderAdapter", () => {
 });
 
 describe("NULL_EXTENSION_FILE_SYSTEM_BRIDGE", () => {
-    it("схем нет, чтение отклоняется, подписки — no-op", async () => {
+    it("no schemes, reads are rejected, subscriptions are no-ops", async () => {
         const bridge = NULL_EXTENSION_FILE_SYSTEM_BRIDGE;
 
         expect(bridge.getFileSystemSchemes()).toEqual([]);

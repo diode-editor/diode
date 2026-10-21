@@ -24,16 +24,16 @@ function outputLines(
 function silentProvider(): vscode.TreeDataProvider<string> {
     return {
         getTreeItem: (): never => {
-            throw new Error("getTreeItem не должен вызываться");
+            throw new Error("getTreeItem must not be called");
         },
         getChildren: (): never => {
-            throw new Error("getChildren не должен вызываться");
+            throw new Error("getChildren must not be called");
         },
     };
 }
 
-describe("treeViewNoop — деревья расширений как заглушка", () => {
-    it("registerTreeDataProvider пишет в Output одну warn-строку: главное — в начале", () => {
+describe("treeViewNoop — extension tree views as a stub", () => {
+    it("registerTreeDataProvider writes one warn line to Output, the key point first", () => {
         const { members, stub } = makeMembers();
 
         members.registerTreeDataProvider("bazelTaskOutline", silentProvider());
@@ -44,11 +44,11 @@ describe("treeViewNoop — деревья расширений как заглу
             channel: "extensions",
             label: "Extensions",
             level: "warn",
-            value: 'дерево "bazelTaskOutline" в TUI пока не рисуется — панели не будет, остальное расширение работает',
+            value: 'tree view "bazelTaskOutline" is not rendered in TUI yet — no panel, the rest of the extension works',
         });
     });
 
-    it("повтор того же viewId — без второй строки; другой view — своя строка", () => {
+    it("the same viewId again adds no second line; another view gets its own line", () => {
         const { members, stub } = makeMembers();
 
         members.registerTreeDataProvider("a.view", silentProvider());
@@ -62,7 +62,7 @@ describe("treeViewNoop — деревья расширений как заглу
         ]);
     });
 
-    it("registerTreeDataProvider возвращает Disposable, который можно звать повторно", () => {
+    it("registerTreeDataProvider returns a Disposable that can be disposed twice", () => {
         const { members } = makeMembers();
 
         const disposable = members.registerTreeDataProvider("a.view", silentProvider());
@@ -73,7 +73,7 @@ describe("treeViewNoop — деревья расширений как заглу
         }).not.toThrow();
     });
 
-    it("createTreeView возвращает инертный TreeView", async () => {
+    it("createTreeView returns an inert TreeView", async () => {
         const { members, stub } = makeMembers();
         const view = members.createTreeView("a.view", { treeDataProvider: silentProvider(), showCollapseAll: true });
         let fired = 0;
@@ -94,13 +94,13 @@ describe("treeViewNoop — деревья расширений как заглу
         expect(view.badge).toBeUndefined();
 
         view.title = "Bazel Run Targets";
-        view.message = "загрузка…";
-        view.description = "3 цели";
-        view.badge = { tooltip: "цели", value: 3 };
+        view.message = "loading…";
+        view.description = "3 targets";
+        view.badge = { tooltip: "targets", value: 3 };
         expect(view.title).toBe("Bazel Run Targets");
-        expect(view.message).toBe("загрузка…");
-        expect(view.description).toBe("3 цели");
-        expect(view.badge).toEqual({ tooltip: "цели", value: 3 });
+        expect(view.message).toBe("loading…");
+        expect(view.description).toBe("3 targets");
+        expect(view.badge).toEqual({ tooltip: "targets", value: 3 });
 
         await expect(view.reveal("x", { select: true })).resolves.toBeUndefined();
         view.dispose();
@@ -111,7 +111,7 @@ describe("treeViewNoop — деревья расширений как заглу
         expect(stub.requests).toHaveLength(0);
     });
 
-    it("createTreeView без treeDataProvider бросает, как эталон, и в Output не пишет", () => {
+    it("createTreeView without treeDataProvider throws like upstream and writes nothing to Output", () => {
         const { members, stub } = makeMembers();
 
         expect(() => members.createTreeView("a.view", {} as vscode.TreeViewOptions<string>)).toThrow(
@@ -126,7 +126,7 @@ describe("treeViewNoop — деревья расширений как заглу
         expect(outputLines(stub)).toHaveLength(0);
     });
 
-    it("члены доступны из vscode.window", () => {
+    it("the members are available on vscode.window", () => {
         const stub = makeStubRpc();
         const { namespace } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk());
 

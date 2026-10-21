@@ -81,7 +81,7 @@ function editAction(title: string, kind: string, preferred = false): CodeAction 
 }
 
 describe("LanguagesNamespace — registerCodeActionsProvider", () => {
-    it("регистрация объявляется ядру с видами из метаданных; dispose снимает один раз", () => {
+    it("registration is announced to the core with kinds from metadata; dispose removes it once", () => {
         const { stub, languages } = makeCtx();
 
         const first = languages.registerCodeActionsProvider("python", {
@@ -117,7 +117,7 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         expect(stub.notifies.filter((n) => n.method === "languages.updateSubscriptions")).toEqual([]);
     });
 
-    it("provide: действия сериализуются с id/kind/isPreferred, контекст несёт диагностики диапазона", async () => {
+    it("provide: actions serialize with id/kind/isPreferred, the context carries the range diagnostics", async () => {
         const { stub, languages } = makeCtx();
         const collection = languages.createDiagnosticCollection("lint");
         const inRange = new Diagnostic(new Range(2, 0, 2, 6), "unused call");
@@ -164,7 +164,7 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         expect(contexts[0].triggerKind).toBe(1); // Invoke
     });
 
-    it("disabled: причина едет строкой; без строковой причины поле не едет", async () => {
+    it("disabled: the reason is sent as a string; without a string reason the field is omitted", async () => {
         const { stub, languages } = makeCtx();
         const disabled = editAction("Extract", "refactor.extract");
         disabled.disabled = { reason: "Selection is not an expression" };
@@ -186,7 +186,7 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         ]);
     });
 
-    it("границы пересечения: касание конца диапазона включается, старт за концом — нет", async () => {
+    it("intersection bounds: touching the range end is included, starting past the end is not", async () => {
         const { stub, languages } = makeCtx();
         const collection = languages.createDiagnosticCollection("bounds");
         // The request range ends at (2,8): touching exactly at (2,8) is inside,
@@ -207,7 +207,7 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         expect(contexts[0].diagnostics).toEqual([touching]);
     });
 
-    it("снятая коллекция (dispose) больше не источник контекста code actions", async () => {
+    it("a disposed collection is no longer a code actions context source", async () => {
         const { stub, languages } = makeCtx();
         const kept = languages.createDiagnosticCollection("kept");
         const disposed = languages.createDiagnosticCollection("disposed");
@@ -232,7 +232,7 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         expect(contexts[0].diagnostics).toEqual([keptDiag]);
     });
 
-    it("only: фильтрует по виду иерархически, голые команды отбрасывает, в контекст едет CodeActionKind", async () => {
+    it("only: filters by kind hierarchically, drops bare commands, passes CodeActionKind in the context", async () => {
         const { stub, languages } = makeCtx();
         const contexts: vscode.CodeActionContext[] = [];
         languages.registerCodeActionsProvider("python", {
@@ -262,7 +262,7 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         expect(all[2].kind).toBeUndefined();
     });
 
-    it("зовётся провайдер запрошенного handle (отсев по видам — у ядра); неизвестный handle — []", async () => {
+    it("the provider of the requested handle is called (kind filtering is the core's job); an unknown handle gives []", async () => {
         const { stub, languages, ctx } = makeCtx();
         const organize = vi.fn(() => [editAction("Sort", "source.organizeImports")]);
         const provider = { provideCodeActions: organize } as unknown as vscode.CodeActionProvider;
@@ -288,7 +288,7 @@ describe("LanguagesNamespace — registerCodeActionsProvider", () => {
         expect(organize).toHaveBeenCalledTimes(1);
     });
 
-    it("сбойный или мусорный провайдер — пустой ответ; мусор в списке отбрасывается поштучно", async () => {
+    it("a failing or garbage provider gives an empty response; garbage list items are dropped one by one", async () => {
         const { stub, languages } = makeCtx();
         languages.registerCodeActionsProvider("python", {
             provideCodeActions: () => {
@@ -335,7 +335,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         vi.restoreAllMocks();
     });
 
-    it("edit-действие: правки уходят в deps.applyEdit тем же объектом, ответ честный", async () => {
+    it("edit action: edits go to deps.applyEdit as the same object, the result is reported faithfully", async () => {
         const { stub, languages, appliedEdits, executed } = makeCtx();
         const action = editAction("Fix", "quickfix");
         languages.registerCodeActionsProvider("python", {
@@ -349,7 +349,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(executed).toEqual([]);
     });
 
-    it("правки действия — рефакторинг (files.refactoring.autoSave), кроме применённых при сохранении", async () => {
+    it("action edits are a refactoring (files.refactoring.autoSave), except those applied on save", async () => {
         const { stub, languages, appliedMetadata } = makeCtx();
         languages.registerCodeActionsProvider("python", {
             provideCodeActions: () => [editAction("Fix", "quickfix")],
@@ -363,7 +363,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(appliedMetadata).toEqual([{ isRefactoring: true }, { isRefactoring: false }]);
     });
 
-    it("отказ applyEdit — false, команда действия НЕ исполняется («наполовину» нельзя)", async () => {
+    it("a rejected applyEdit gives false and the action command is NOT run (no half-applied actions)", async () => {
         const { stub, languages, executed } = makeCtx({ applyEdit: () => Promise.resolve(false) });
         const action = editAction("Fix", "quickfix");
         action.command = { title: "after", command: "test.after" } as never;
@@ -376,7 +376,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(executed).toEqual([]);
     });
 
-    it("готовый edit НЕ дорезолвливается: resolve зовётся только когда правок нет", async () => {
+    it("a ready edit is NOT resolved: resolve is called only when there are no edits", async () => {
         const { stub, languages } = makeCtx();
         const resolveSpy = vi.fn((action: vscode.CodeAction) => action);
         languages.registerCodeActionsProvider("python", {
@@ -389,7 +389,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(resolveSpy).not.toHaveBeenCalled();
     });
 
-    it("правки легли, но команда действия упала — false (действие не завершилось)", async () => {
+    it("edits applied but the action command failed gives false (the action did not complete)", async () => {
         const errors = spyErrors();
         const { stub, languages, appliedEdits } = makeCtx({
             executeCommand: () => Promise.reject(new Error("late boom")),
@@ -406,7 +406,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(errors).toHaveLength(1);
     });
 
-    it("resolve, вернувший НОВЫЙ объект, подменяет действие (исходное не мутируется)", async () => {
+    it("resolve returning a NEW object replaces the action (the original is not mutated)", async () => {
         const { stub, languages, appliedEdits } = makeCtx();
         const lazy = new CodeAction("Fresh resolve", new CodeActionKind("source.fixAll"));
         languages.registerCodeActionsProvider("python", {
@@ -428,7 +428,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(lazy.edit).toBeUndefined(); // the original object stays untouched
     });
 
-    it("ленивый resolve: edit дорезолвливается ТЕМ ЖЕ объектом действия", async () => {
+    it("lazy resolve: the edit is resolved on THE SAME action object", async () => {
         const { stub, languages, appliedEdits } = makeCtx();
         const lazy = new CodeAction("Lazy fix", new CodeActionKind("source.fixAll"));
         const resolvedWith: unknown[] = [];
@@ -449,7 +449,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(appliedEdits).toHaveLength(1);
     });
 
-    it("команды: у CodeAction — после правок, у голой vscode.Command — сразу; сбой команды — false", async () => {
+    it("commands: for a CodeAction after the edits, for a bare vscode.Command right away; a command failure gives false", async () => {
         const { stub, languages, executed } = makeCtx();
         const withCommand = new CodeAction("Run tool", new CodeActionKind("quickfix"));
         withCommand.command = { title: "run", command: "test.run", arguments: [1, "a"] } as never;
@@ -526,7 +526,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(malformed.executed).toEqual([]);
     });
 
-    it("сбойный resolve не роняет apply: остаётся command-путь; совсем пустое действие — false", async () => {
+    it("a failing resolve does not break apply: the command path remains; a fully empty action gives false", async () => {
         const { stub, languages, executed } = makeCtx();
         const broken = new CodeAction("Broken resolve", new CodeActionKind("quickfix"));
         broken.command = { title: "fallback", command: "test.fallback" } as never;
@@ -547,7 +547,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(await stub.callRequest("languages.applyCodeAction", { id: second })).toBe(false);
     });
 
-    it("дефолтные deps (namespace без проводки) честно отказывают: правки false, команда reject", async () => {
+    it("default deps (namespace without wiring) refuse: edits give false, the command rejects", async () => {
         const errors = spyErrors();
         const stub = makeStubRpc();
         const registry = new DocumentRegistry();
@@ -579,7 +579,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         ]);
     });
 
-    it("голые параметры (без languageId) — документ из зеркала, язык не затирается", async () => {
+    it("bare params (no languageId) use the mirror document; the language is not overwritten", async () => {
         const { stub, languages } = makeCtx();
         const seen: { text: string; languageId: string }[] = [];
         languages.registerCodeActionsProvider("python", {
@@ -599,7 +599,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(seen).toEqual([{ text: TEXT, languageId: "python" }]);
     });
 
-    it("не открытый, устаревший, обогнавший зеркало и без версии документ — [] без вызова провайдера", async () => {
+    it("an unopened, stale, ahead-of-mirror or unversioned document gives [] without calling the provider", async () => {
         const { stub, languages, ctx } = makeCtx();
         const provide = vi.fn(() => [editAction("Fix", "quickfix")]);
         languages.registerCodeActionsProvider("python", {
@@ -626,7 +626,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(provide).toHaveBeenCalledTimes(1);
     });
 
-    it("resolve, вернувший пустоту, не подменяет действие — остаётся command-путь", async () => {
+    it("resolve returning nothing does not replace the action; the command path remains", async () => {
         const { stub, languages, executed } = makeCtx();
         const action = new CodeAction("Void resolve", new CodeActionKind("quickfix"));
         action.command = { title: "run", command: "test.void" } as never;
@@ -639,7 +639,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(executed).toEqual([{ command: "test.void", args: [] }]);
     });
 
-    it("протухший id и мусорные параметры — честный false", async () => {
+    it("a stale id and garbage params give false", async () => {
         const { stub, languages } = makeCtx();
         languages.registerCodeActionsProvider("python", {
             provideCodeActions: () => [editAction("Fix", "quickfix")],
@@ -656,7 +656,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(await stub.callRequest("languages.applyCodeAction", { id: stale })).toBe(false);
     });
 
-    it("кэш — на провайдера: меню из трёх провайдеров применяет действие самого быстрого", async () => {
+    it("the cache is per provider: a menu from three providers applies the fastest one's action", async () => {
         // Regression "Fix with Supermaven → Code action failed": the core asks
         // each provider in a separate request, and a shared cache depth of 2
         // evicted the first responder's bucket while the others were answering.
@@ -680,7 +680,7 @@ describe("LanguagesNamespace — languages.applyCodeAction", () => {
         expect(executed.map((e) => e.command)).toEqual(["test.Fast", "test.Second"]);
     });
 
-    it("снятый провайдер уносит свой кэш: его действие больше не применяется, соседнее — да", async () => {
+    it("a disposed provider takes its cache with it: its action no longer applies, its neighbor's does", async () => {
         const { stub, languages, executed } = makeCtx();
         const removed = languages.registerCodeActionsProvider("python", {
             provideCodeActions: () => [{ title: "Gone", command: "test.gone" }],

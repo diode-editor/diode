@@ -37,7 +37,7 @@ function makeWindow() {
     return { stub, window, owner, naive: window as unknown as INaiveWindowSurface };
 }
 
-describe("WindowNamespace — наивная поверхность LSP", () => {
+describe("WindowNamespace — naive LSP surface", () => {
     beforeEach(() => {
         vi.spyOn(console, "log").mockImplementation(() => undefined);
     });
@@ -46,7 +46,7 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         vi.restoreAllMocks();
     });
 
-    it("createOutputChannel шлёт строки хосту (output.append) с уровнем и label", () => {
+    it("createOutputChannel sends lines to the host (output.append) with level and label", () => {
         const { stub, window } = makeWindow();
         const channel = window.createOutputChannel("TS (Diode)") as unknown as {
             name: string;
@@ -88,7 +88,7 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         ]);
     });
 
-    it("append буферизуется до перевода строки; dispose доливает остаток; show шлёт output.show", () => {
+    it("append buffers until a newline; dispose flushes the rest; show sends output.show", () => {
         const { stub, window } = makeWindow();
         const channel = window.createOutputChannel("Buffered");
 
@@ -124,7 +124,7 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         }).not.toThrow();
     });
 
-    it("канал расширения — `extensions.<owner>.<slug>`; владелец читается в момент создания", () => {
+    it("an extension channel is `extensions.<owner>.<slug>`; the owner is read at creation time", () => {
         const { stub, window, owner } = makeWindow();
         const channel = owner.runAs("diode.diode-lsp-typescript", () =>
             window.createOutputChannel("TypeScript (Diode)"),
@@ -144,7 +144,7 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         ]);
     });
 
-    it("канал расширения с именем «Host» не сталкивается с логгером хоста extensions.host", () => {
+    it("an extension channel named 'Host' does not collide with the host logger extensions.host", () => {
         const { stub, window, owner } = makeWindow();
         owner.runAs("pub.ext", () => window.createOutputChannel("Host")).show();
 
@@ -155,13 +155,13 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         expect(ids).not.toContain("extensions.host");
     });
 
-    it("slugifyChannelName: lower-case, не-алфанумерика в дефис, пустое имя — fallback", () => {
+    it("slugifyChannelName: lower-case, non-alphanumerics to a hyphen, empty name — fallback", () => {
         expect(slugifyChannelName("TypeScript (Diode)")).toBe("typescript-diode");
-        expect(slugifyChannelName("Git: log/История")).toBe("git-log");
+        expect(slugifyChannelName("Git: log/\u0418\u0441\u0442\u043e\u0440\u0438\u044f")).toBe("git-log"); // "Istoriya": non-ASCII letters are dropped
         expect(slugifyChannelName("!!!")).toBe("channel");
     });
 
-    it("showTextDocument шлёт editor.showTextDocument; без ответа хоста — фолбэк в активный редактор", async () => {
+    it("showTextDocument sends editor.showTextDocument; without a host response — fallback to the active editor", async () => {
         const { stub, window, naive } = makeWindow();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/f.ts").toString() });
 
@@ -173,7 +173,7 @@ describe("WindowNamespace — наивная поверхность LSP", () => 
         expect(request?.params).toMatchObject({ uri: Uri.file("/f.ts").toString() });
     });
 
-    it("tabGroups и onDidChangeVisibleTextEditors — валидные наивные объекты", () => {
+    it("tabGroups and onDidChangeVisibleTextEditors are valid naive objects", () => {
         const { naive } = makeWindow();
         expect(naive.tabGroups.all).toEqual([]);
         expect(naive.tabGroups.activeTabGroup.tabs).toEqual([]);

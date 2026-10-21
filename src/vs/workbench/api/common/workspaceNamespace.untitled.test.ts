@@ -31,8 +31,8 @@ function createRequests(stub: ReturnType<typeof makeStubRpc>): unknown[] {
     return stub.requests.filter((r) => r.method === "workspace.createUntitledDocument").map((r) => r.params);
 }
 
-describe("WorkspaceNamespace — openTextDocument безымянного документа", () => {
-    it("опции уезжают хосту, документ — открытый из реестра", async () => {
+describe("WorkspaceNamespace — openTextDocument for an untitled document", () => {
+    it("options are sent to the host, the document is the opened one from the registry", async () => {
         const { stub, registry, workspace } = makeCtx();
         const open = registry.upsertFull({ uri: UNTITLED, languageId: "markdown", text: "# r", encoding: "utf8" });
 
@@ -42,7 +42,7 @@ describe("WorkspaceNamespace — openTextDocument безымянного док�
         expect(createRequests(stub)).toStrictEqual([{ content: "# r", language: "markdown", encoding: "utf8" }]);
     });
 
-    it("без аргумента — запрос без опций; поле не той формы не уезжает", async () => {
+    it("no argument sends a request without options; a field of the wrong shape is not sent", async () => {
         const { stub, workspace } = makeCtx();
 
         await workspace.openTextDocument();
@@ -54,7 +54,7 @@ describe("WorkspaceNamespace — openTextDocument безымянного док�
         expect(createRequests(stub)).toStrictEqual([{}, { language: "go" }, {}]);
     });
 
-    it("документа нет в реестре (сверх порога синхронизации) — эфемерный с тем же текстом", async () => {
+    it("document missing from the registry (over the sync threshold) yields an ephemeral one with the same text", async () => {
         const { registry, workspace } = makeCtx();
 
         const doc = await workspace.openTextDocument({ content: "a\r\nb" });
@@ -67,7 +67,7 @@ describe("WorkspaceNamespace — openTextDocument безымянного док�
         expect(registry.all()).toEqual([]);
     });
 
-    it("uri и путь по-прежнему не создают безымянного документа", async () => {
+    it("uri and path still do not create an untitled document", async () => {
         const { stub, workspace } = makeCtx();
 
         await expect(

@@ -36,12 +36,12 @@ function statusBarTraffic(stub: IStubRpc): { method: string; params: IWireStatus
 function lastUpdate(stub: IStubRpc): IWireStatusBarItem {
     const updates = statusBarTraffic(stub).filter((n) => n.method === "window.statusBarItem.update");
     const last = updates.at(-1);
-    if (last === undefined) throw new Error("ни одного window.statusBarItem.update");
+    if (last === undefined) throw new Error("no window.statusBarItem.update at all");
     return last.params;
 }
 
-describe("window.createStatusBarItem — состояние пункта в субпроцессе", () => {
-    it("созданный, но не показанный пункт в проводе не появляется", () => {
+describe("window.createStatusBarItem: item state in the subprocess", () => {
+    it("an item created but not shown does not appear on the wire", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.text = "Demo";
@@ -51,7 +51,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(statusBarTraffic(stub)).toEqual([]);
     });
 
-    it("show() шлёт полное состояние пункта", () => {
+    it("show() sends the full item state", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem(StatusBarAlignment.Right as vscode.StatusBarAlignment, 100);
         item.text = "$(check) Demo";
@@ -72,7 +72,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         });
     });
 
-    it("у пункта без имени, команды и приоритета этих ключей в сообщении нет", () => {
+    it("an item without name, command and priority has no such keys in the message", () => {
         const { stub, window } = makeWindow();
         window.createStatusBarItem().show();
 
@@ -84,7 +84,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         });
     });
 
-    it("правка показанного пункта доезжает до полосы", () => {
+    it("editing a shown item reaches the bar", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.text = "Demo";
@@ -94,7 +94,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(lastUpdate(stub).text).toBe("Demo 42");
     });
 
-    it("alignment по умолчанию — левый, приоритет отсутствует", () => {
+    it("alignment defaults to left, priority is absent", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.text = "Demo";
@@ -107,10 +107,10 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(item.alignment).toBe(StatusBarAlignment.Left);
     });
 
-    it("перегрузка с явным id: id уезжает как есть, alignment и priority сдвинуты", () => {
+    it("overload with an explicit id: id is sent as is, alignment and priority are shifted", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem("my.item", StatusBarAlignment.Right as vscode.StatusBarAlignment, 7);
-        item.name = "Игнорируем имя, id задан явно";
+        item.name = "Name ignored, id set explicitly";
         item.show();
 
         expect(item.id).toBe("my.item");
@@ -119,7 +119,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(lastUpdate(stub)).toMatchObject({ id: "my.item", alignment: "right", priority: 7 });
     });
 
-    it("без имени id синтезируется по счётчику и не пересекается у двух пунктов", () => {
+    it("without a name the id is synthesized from a counter and differs between two items", () => {
         const { window } = makeWindow();
         const first = window.createStatusBarItem();
         const second = window.createStatusBarItem();
@@ -128,7 +128,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(second.id).toBe("item-2");
     });
 
-    it("id по имени устойчив: то же имя — тот же id (переживает перезапуск)", () => {
+    it("name-based id is stable: same name, same id (survives restart)", () => {
         const { window } = makeWindow();
         const item = window.createStatusBarItem();
         item.name = "Status Bar Demo";
@@ -136,15 +136,15 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(item.id).toBe("status-bar-demo");
     });
 
-    it("имя без латиницы и цифр не даёт пустой id", () => {
+    it("a name without Latin letters or digits does not yield an empty id", () => {
         const { window } = makeWindow();
         const item = window.createStatusBarItem();
-        item.name = "Привет";
+        item.name = "\u041f\u0440\u0438\u0432\u0435\u0442"; // "Privet": no Latin letters or digits
 
         expect(item.id).toBe("item-1");
     });
 
-    it("выставленные поля читаются обратно (расширения так и делают)", () => {
+    it("set fields read back (extensions do exactly that)", () => {
         const { window } = makeWindow();
         const item = window.createStatusBarItem();
         item.text = "Demo";
@@ -156,7 +156,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(item.command).toBe("demo.click");
     });
 
-    it("hide() снимает пункт с полосы, повторный hide молчит", () => {
+    it("hide() removes the item from the bar, repeated hide is silent", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.show();
@@ -169,7 +169,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         ]);
     });
 
-    it("правка скрытого пункта в провод не уходит, а show() возвращает его с новым текстом", () => {
+    it("editing a hidden item is not sent, and show() brings it back with the new text", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.text = "Demo";
@@ -182,7 +182,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(lastUpdate(stub).text).toBe("Demo 42");
     });
 
-    it("повторный show() показанного пункта не шлёт лишнего", () => {
+    it("repeated show() of a shown item sends nothing extra", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.show();
@@ -191,7 +191,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(statusBarTraffic(stub)).toHaveLength(1);
     });
 
-    it("dispose() показанного пункта снимает его с полосы", () => {
+    it("dispose() of a shown item removes it from the bar", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.show();
@@ -203,7 +203,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         ]);
     });
 
-    it("dispose() снимает пункт, а ручка становится инертной", () => {
+    it("dispose() removes the item and the handle becomes inert", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.text = "Demo";
@@ -220,14 +220,14 @@ describe("window.createStatusBarItem — состояние пункта в су
         ]);
     });
 
-    it("dispose() непоказанного пункта ничего не шлёт", () => {
+    it("dispose() of an unshown item sends nothing", () => {
         const { stub, window } = makeWindow();
         window.createStatusBarItem().dispose();
 
         expect(statusBarTraffic(stub)).toEqual([]);
     });
 
-    it("команда объектом: уезжают id и аргументы", () => {
+    it("command as an object: id and arguments are sent", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.command = { title: "Click", command: "demo.click", arguments: [1, "two"] };
@@ -236,7 +236,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(lastUpdate(stub)).toMatchObject({ command: "demo.click", arguments: [1, "two"] });
     });
 
-    it("команда объектом без аргументов: ключа arguments нет", () => {
+    it("command as an object without arguments: no arguments key", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.command = { title: "Click", command: "demo.click" };
@@ -245,7 +245,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(lastUpdate(stub).arguments).toBeUndefined();
     });
 
-    it("снятая команда перестаёт уезжать", () => {
+    it("a cleared command is no longer sent", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.command = "demo.click";
@@ -255,24 +255,24 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(lastUpdate(stub).command).toBeUndefined();
     });
 
-    it("tooltip/цвета принимаются, читаются обратно и провод не тревожат", () => {
+    it("tooltip/colors are accepted, read back and do not touch the wire", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.show();
         const before = statusBarTraffic(stub).length;
-        item.tooltip = "Подсказка";
+        item.tooltip = "Tooltip";
         item.color = "#ff0000";
         item.backgroundColor = { id: "statusBarItem.errorBackground" } as vscode.ThemeColor;
         item.accessibilityInformation = { label: "Demo" };
 
         expect(statusBarTraffic(stub)).toHaveLength(before);
-        expect(item.tooltip).toBe("Подсказка");
+        expect(item.tooltip).toBe("Tooltip");
         expect(item.color).toBe("#ff0000");
         expect(item.backgroundColor).toEqual({ id: "statusBarItem.errorBackground" });
         expect(item.accessibilityInformation).toEqual({ label: "Demo" });
     });
 
-    it("смена имени показанного пункта меняет и его id в проводе", () => {
+    it("renaming a shown item also changes its id on the wire", () => {
         const { stub, window } = makeWindow();
         const item = window.createStatusBarItem();
         item.show();
@@ -282,7 +282,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(lastUpdate(stub)).toMatchObject({ id: "status-bar-demo", name: "Status Bar Demo" });
     });
 
-    it("два пункта ведут независимые handle'ы", () => {
+    it("two items keep independent handles", () => {
         const { stub, window } = makeWindow();
         const first = window.createStatusBarItem();
         const second = window.createStatusBarItem();
@@ -297,7 +297,7 @@ describe("window.createStatusBarItem — состояние пункта в су
         ]);
     });
 
-    it("нечисловой priority в провод не попадает", () => {
+    it("non-numeric priority does not reach the wire", () => {
         const { stub, window } = makeWindow();
         // An extension may pass anything: types are optional for it.
         const item = window.createStatusBarItem(undefined, Number.NaN);
@@ -306,8 +306,8 @@ describe("window.createStatusBarItem — состояние пункта в су
         expect(lastUpdate(stub).priority).toBeUndefined();
     });
 
-    describe("id с владельцем — `<id расширения>.<id пункта>`, как asStatusBarItemIdentifier", () => {
-        it("явный id префиксуется владельцем — и в item.id, и в проводе", () => {
+    describe("owner-qualified id `<extension id>.<item id>`, like asStatusBarItemIdentifier", () => {
+        it("explicit id is prefixed with the owner, both in item.id and on the wire", () => {
             const { stub, window, owner } = makeWindow();
             const item = owner.runAs("pub.ext", () => window.createStatusBarItem("my.item"));
             item.show();
@@ -316,14 +316,14 @@ describe("window.createStatusBarItem — состояние пункта в су
             expect(lastUpdate(stub).id).toBe("pub.ext.my.item");
         });
 
-        it("без имени — владелец и счётчик", () => {
+        it("without a name: owner and counter", () => {
             const { window, owner } = makeWindow();
             const item = owner.runAs("pub.ext", () => window.createStatusBarItem());
 
             expect(item.id).toBe("pub.ext.item-1");
         });
 
-        it("владелец фиксируется при создании: имя, заданное позже и вне вызова, id не теряет", () => {
+        it("owner is fixed at creation: a name set later outside the call keeps the id", () => {
             const { window, owner } = makeWindow();
             const item = owner.runAs("pub.ext", () => window.createStatusBarItem());
             item.name = "Status Bar Demo";
@@ -335,7 +335,7 @@ describe("window.createStatusBarItem — состояние пункта в су
             expect(item.id).toBe("pub.ext.renamed");
         });
 
-        it("одинаковые имена у разных расширений дают разные id", () => {
+        it("same names in different extensions yield different ids", () => {
             const { window, owner } = makeWindow();
             const a = owner.runAs("a.one", () => window.createStatusBarItem());
             const b = owner.runAs("b.two", () => window.createStatusBarItem());

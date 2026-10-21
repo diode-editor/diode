@@ -70,8 +70,8 @@ function setup() {
     return { stub, window, log, events, showInGroup, activate };
 }
 
-describe("WindowNamespace — выделение вкладки, ставшей видимой", () => {
-    it("возврат на вкладку с выделением: событие после смены активного, kind undefined", () => {
+describe("WindowNamespace — selection of a tab that became visible", () => {
+    it("returning to a tab with a selection: event after the active change, kind undefined", () => {
         const { log, events, showInGroup, activate } = setup();
         showInGroup(1, B, INITIAL);
         activate(B);
@@ -85,7 +85,7 @@ describe("WindowNamespace — выделение вкладки, ставшей 
         expect(events.at(-1)?.selections.map((s) => [s.anchor.line, s.active.line])).toEqual([[1, 3]]);
     });
 
-    it("вкладка с кареткой в начале документа события не даёт", () => {
+    it("a tab with the cursor at the document start fires no event", () => {
         const { log, showInGroup, activate } = setup();
         showInGroup(1, A, LINES_2_3);
         activate(A);
@@ -97,7 +97,7 @@ describe("WindowNamespace — выделение вкладки, ставшей 
         expect(log).toEqual([`active ${B}`]);
     });
 
-    it("уже видимый редактор (фокус между группами) — не событие", () => {
+    it("an already visible editor (focus between groups) is not an event", () => {
         const { stub, log, activate } = setup();
         const twoGroups = (activeGroup: number) => {
             stub.fire("editor.layoutChanged", {
@@ -117,7 +117,7 @@ describe("WindowNamespace — выделение вкладки, ставшей 
         expect(log).toEqual([`active ${B}`]);
     });
 
-    it("вкладка неактивной группы стала видимой — событие сразу, без смены активного", () => {
+    it("a tab of an inactive group became visible: event right away, without an active change", () => {
         const { stub, log, activate } = setup();
         const layout = (inactiveActive: string, selections: IWireSelection[]) => {
             stub.fire("editor.layoutChanged", {
@@ -141,7 +141,7 @@ describe("WindowNamespace — выделение вкладки, ставшей 
         expect(log).toEqual([`selection ${B} other`]);
     });
 
-    it("ожидание не переживает следующий снимок: мета другого редактора событие не тянет", () => {
+    it("the pending state does not survive the next snapshot: another editor's meta does not trigger the event", () => {
         const { log, showInGroup, activate } = setup();
         showInGroup(1, B, INITIAL);
         activate(B);
@@ -155,7 +155,7 @@ describe("WindowNamespace — выделение вкладки, ставшей 
         expect(log).toEqual([`active ${A}`, `active ${B}`]);
     });
 
-    it("ожидание снимает и мета другого редактора: позже пришедшая мета вкладки события не тянет", () => {
+    it("another editor's meta also clears the pending state: the tab's later meta does not trigger the event", () => {
         const { log, showInGroup, activate } = setup();
         showInGroup(1, B, INITIAL);
         activate(B);
@@ -181,8 +181,8 @@ describe("WindowNamespace — выделение вкладки, ставшей 
         ["anchorCharacter", [sel(0, 3, 0, 0)]],
         ["activeLine", [sel(0, 0, 2, 0)]],
         ["activeCharacter", [sel(0, 0, 0, 3)]],
-        ["вторая каретка", [sel(0, 0, 0, 0), sel(1, 0, 1, 0)]],
-    ])("не 1:1 (%s) — событие есть", (_name, selections) => {
+        ["second cursor", [sel(0, 0, 0, 0), sel(1, 0, 1, 0)]],
+    ])("not 1:1 (%s) fires the event", (_name, selections) => {
         const { log, showInGroup, activate } = setup();
         showInGroup(1, B, INITIAL);
         activate(B);

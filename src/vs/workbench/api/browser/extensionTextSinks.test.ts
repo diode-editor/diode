@@ -73,121 +73,121 @@ interface IFieldPolicy {
 const QUICK_PICK_REQUEST: Readonly<Record<TextFields<IWireQuickPickRequest>, IFieldPolicy>> = {
     title: {
         policy: "icons",
-        why: "заголовок, врезанный в рамку оверлея. Эталон кладёт его в textContent (значки не разворачивает) — осознанное отклонение: в терминале это обычные клетки текста, и литерал `$(folder)` в них не значит ничего",
+        why: "title inset into the overlay border. Upstream puts it in textContent (no icon expansion); a deliberate deviation: in a terminal these are plain text cells, and a literal `$(folder)` there means nothing",
     },
     placeHolder: {
         policy: "icons",
-        why: "призрачный текст строки запроса. У эталона это HTML-атрибут `placeholder`, который разметку носить физически не может; у нас — текст, см. title",
+        why: "ghost text of the query line. Upstream uses the HTML `placeholder` attribute, which physically cannot carry markup; ours is text, see title",
     },
 };
 
 const QUICK_PICK_ITEM: Readonly<Record<TextFields<IWireQuickPickItem>, IFieldPolicy>> = {
     label: {
         policy: "icons",
-        why: "`QuickPickItem.label` — поддержка значков обещана в `vscode.d.ts` дословно; так пишут метки почти все расширения",
+        why: "`QuickPickItem.label`: icon support is promised verbatim in `vscode.d.ts`; almost every extension writes labels this way",
     },
-    description: { policy: "icons", why: "`QuickPickItem.description` — та же строка d.ts" },
+    description: { policy: "icons", why: "`QuickPickItem.description`: the same d.ts line" },
 };
 
 const QUICK_PICK_UPDATE: Readonly<Record<TextFields<IWireQuickPickUpdate>, IFieldPolicy>> = {
-    title: { policy: "icons", why: "см. `window.showQuickPick.title` — объектный пикер на том же виджете" },
-    placeholder: { policy: "icons", why: "см. `window.showQuickPick.placeHolder`" },
-    prompt: { policy: "icons", why: "см. `window.showInputBox.prompt` — та же строка под полем" },
+    title: { policy: "icons", why: "see `window.showQuickPick.title`: the object picker uses the same widget" },
+    placeholder: { policy: "icons", why: "see `window.showQuickPick.placeHolder`" },
+    prompt: { policy: "icons", why: "see `window.showInputBox.prompt`: the same line under the input" },
     value: {
         policy: "verbatim",
-        why: "НЕ ярлык: текст запроса, который человек правит и который уезжает обратно расширению (`onDidChangeValue`)",
+        why: "NOT a label: query text the user edits and that goes back to the extension (`onDidChangeValue`)",
     },
 };
 
 const QUICK_PICK_SESSION_ITEM: Readonly<Record<TextFields<IWireQuickPickSessionItem>, IFieldPolicy>> = {
-    label: { policy: "icons", why: "см. `window.showQuickPick.item.label`" },
-    description: { policy: "icons", why: "см. `window.showQuickPick.item.description`" },
+    label: { policy: "icons", why: "see `window.showQuickPick.item.label`" },
+    description: { policy: "icons", why: "see `window.showQuickPick.item.description`" },
     detail: {
         policy: "icons",
-        why: "`QuickPickItem.detail` — значки обещаны в d.ts; наш однострочный ряд показывает его на месте описания, когда описания нет",
+        why: "`QuickPickItem.detail`: icons are promised in d.ts; our single-line row shows it in place of the description when there is none",
     },
 };
 
 const INPUT_BOX_REQUEST: Readonly<Record<TextFields<IWireInputBoxRequest>, IFieldPolicy>> = {
-    title: { policy: "icons", why: "см. `window.showQuickPick.title` — тот же виджет" },
+    title: { policy: "icons", why: "see `window.showQuickPick.title`: the same widget" },
     prompt: {
         policy: "icons",
-        why: "подсказка под полем. У эталона она идёт через `renderQuickInputDescription` → `renderLabelWithIcons`, то есть значки там живые",
+        why: "hint under the input. Upstream renders it via `renderQuickInputDescription` → `renderLabelWithIcons`, so icons are live there",
     },
-    placeHolder: { policy: "icons", why: "см. `window.showQuickPick.placeHolder`" },
+    placeHolder: { policy: "icons", why: "see `window.showQuickPick.placeHolder`" },
     value: {
         policy: "verbatim",
-        why: "НЕ ярлык: начальное значение поля, которое человек правит и которое уезжает обратно расширению. Подмена испортила бы данные",
+        why: "NOT a label: the initial input value the user edits and that goes back to the extension. Substitution would corrupt data",
     },
 };
 
 const VALIDATION_MESSAGE: Readonly<Record<TextFields<IWireValidationMessage>, IFieldPolicy>> = {
     message: {
         policy: "icons",
-        why: "у эталона сообщение валидации рисует тот же `renderQuickInputDescription`, что и prompt",
+        why: "upstream renders the validation message with the same `renderQuickInputDescription` as prompt",
     },
 };
 
 const STATUS_BAR_ITEM: Readonly<Record<TextFields<IWireStatusBarItem>, IFieldPolicy>> = {
-    id: { policy: "internal", why: "ключ записи полосы (к нему хост добавляет свой префикс)" },
+    id: { policy: "internal", why: "status bar entry key (the host adds its own prefix to it)" },
     text: {
         policy: "icons",
-        why: "`StatusBarItem.text` — d.ts прямо показывает `My text $(icon-name)`. Подмена идёт ДО обрезки по 24 символам, иначе разметка съела бы смысл",
+        why: "`StatusBarItem.text`: d.ts literally shows `My text $(icon-name)`. Substitution happens BEFORE the 24-char truncation, otherwise markup would eat the meaning",
     },
     name: {
         policy: "icons",
-        why: "подпись пункта в меню видимости полосы — ярлык. d.ts про значки здесь молчит, но меню у нас обычный список подписей",
+        why: "item caption in the status bar visibility menu is a label. d.ts says nothing about icons here, but our menu is a plain list of captions",
     },
-    command: { policy: "internal", why: "идентификатор команды по клику" },
+    command: { policy: "internal", why: "command id run on click" },
 };
 
 const PROGRESS_START: Readonly<Record<TextFields<IWireProgressStart>, IFieldPolicy>> = {
     title: {
         policy: "icons",
-        why: "`withProgress` у нас всегда едет в полосу = `ProgressLocation.Window`, а d.ts обещает значки именно в его подписи",
+        why: "our `withProgress` always goes to the status bar = `ProgressLocation.Window`, and d.ts promises icons exactly in its caption",
     },
 };
 
 const PROGRESS_REPORT: Readonly<Record<TextFields<IWireProgressReport>, IFieldPolicy>> = {
-    message: { policy: "icons", why: "вторая половина той же подписи полосы" },
+    message: { policy: "icons", why: "second half of the same status bar caption" },
 };
 
 const OUTPUT_APPEND: Readonly<Record<TextFields<IWireOutputAppend>, IFieldPolicy>> = {
-    channel: { policy: "internal", why: "ключ канала в реестре и логгере" },
+    channel: { policy: "internal", why: "channel key in the registry and logger" },
     label: {
         policy: "icons",
-        why: "имя канала уезжает заголовком команды `Output: Show <имя>` и подписью пункта селектора — то есть в метку quick pick'а (так же устроен и эталон)",
+        why: "the channel name becomes the `Output: Show <name>` command title and the selector item caption, i.e. a quick pick label (upstream works the same way)",
     },
     value: {
         policy: "verbatim",
-        why: "СОДЕРЖИМОЕ лога. `$(…)` здесь бывает настоящей шелл-подстановкой, а подмена неизвестного имени её бы стёрла",
+        why: "log CONTENT. `$(…)` here can be a real shell substitution, and replacing an unknown name would erase it",
     },
 };
 
 const OUTPUT_SHOW: Readonly<Record<TextFields<IWireOutputShow>, IFieldPolicy>> = {
-    channel: { policy: "internal", why: "см. `output.append.channel`" },
-    label: { policy: "icons", why: "см. `output.append.label`: `show` регистрирует канал, если строк ещё не было" },
+    channel: { policy: "internal", why: "see `output.append.channel`" },
+    label: { policy: "icons", why: "see `output.append.label`: `show` registers the channel if no lines came yet" },
 };
 
 const SHOW_MESSAGE_REQUEST: Readonly<Record<TextFields<IWireShowMessageRequest>, IFieldPolicy>> = {
     message: {
         policy: "verbatim",
-        why: "эталон значки в сообщениях не разворачивает (`notificationsViewer` рисует текст и ссылки; d.ts у `ProgressLocation.Notification` прямо пишет «does not support rendering of icons»). Это свободная проза, в которой `$(…)` бывает цитатой шелла",
+        why: "upstream does not expand icons in messages (`notificationsViewer` renders text and links; d.ts for `ProgressLocation.Notification` says 'does not support rendering of icons'). This is free prose where `$(…)` can be a shell quote",
     },
-    detail: { policy: "verbatim", why: "приглушённая вторая строка того же сообщения" },
+    detail: { policy: "verbatim", why: "dimmed second line of the same message" },
 };
 
 const MESSAGE_ITEM: Readonly<Record<TextFields<IWireMessageItem>, IFieldPolicy>> = {
-    title: { policy: "verbatim", why: "подпись кнопки сообщения; у эталона кнопки тоста значков не разворачивают" },
+    title: { policy: "verbatim", why: "message button caption; upstream toast buttons do not expand icons" },
 };
 
 /** Manifest contributions are the second funnel; they have no wire type. */
 const MANIFEST_FIELDS: Readonly<Record<string, IFieldPolicy>> = {
     title: {
         policy: "icons",
-        why: "`contributes.commands.title` становится подписью пункта палитры, а подпись палитры у эталона — метка quick pick'а со живыми значками (ровно так их пишет redhat.java)",
+        why: "`contributes.commands.title` becomes the command palette item caption, and upstream renders it as a quick pick label with live icons (exactly how redhat.java writes them)",
     },
-    category: { policy: "icons", why: "та же подпись: категория идёт её префиксом («Java: Clean Workspace»)" },
+    category: { policy: "icons", why: "the same caption: the category is its prefix ('Java: Clean Workspace')" },
 };
 
 const SINKS: Readonly<Record<string, IFieldPolicy>> = Object.fromEntries(
@@ -216,11 +216,11 @@ const SINKS: Readonly<Record<string, IFieldPolicy>> = Object.fromEntries(
 const CHECK = CODICON_GLYPHS.check ?? "";
 const ZAP = CODICON_GLYPHS.zap ?? "";
 
-const FEED = "$(check) Готово";
-const RENDERED = `${CHECK} Готово`;
+const FEED = "$(check) Done";
+const RENDERED = `${CHECK} Done`;
 
-const FEED_2 = "$(zap) Живо";
-const RENDERED_2 = `${ZAP} Живо`;
+const FEED_2 = "$(zap) Live";
+const RENDERED_2 = `${ZAP} Live`;
 
 interface ISinkCase {
     readonly sink: string;
@@ -276,7 +276,7 @@ function pickRequest(patch: Partial<IWireQuickPickRequest> = {}): IWireQuickPick
 
 function channelLabel(registry: OutputChannelRegistry, id: string): string {
     const found = registry.getChannels().find((c) => c.id === id);
-    if (found === undefined) throw new Error(`канал "${id}" не зарегистрирован`);
+    if (found === undefined) throw new Error(`channel "${id}" is not registered`);
     return found.label;
 }
 
@@ -306,7 +306,7 @@ function paletteLabel(title: string, category: string): string {
             commandCategories: { "demo.run": category },
         });
         const command = registry.listCommands().find((c) => c.id === "demo.run");
-        if (command === undefined) throw new Error("команда расширения не попала в реестр");
+        if (command === undefined) throw new Error("extension command did not reach the registry");
         return commandPaletteLabel(command);
     } finally {
         host.dispose();
@@ -368,7 +368,7 @@ const CASES: readonly ISinkCase[] = [
         feed: FEED,
         shown: () => {
             const { adapter, registry } = outputSetup();
-            adapter.append("extensions.demo", FEED, "info", "строка");
+            adapter.append("extensions.demo", FEED, "info", "line");
             return channelLabel(registry, "extensions.demo");
         },
     },
@@ -572,7 +572,7 @@ const CASES: readonly ISinkCase[] = [
             const pending = adapter.showMessage({
                 handle: 1,
                 severity: "info",
-                message: "Готово",
+                message: "Done",
                 detail: FEED,
                 modal: true,
                 items: [{ title: "Ok", isCloseAffordance: false }],
@@ -592,7 +592,7 @@ const CASES: readonly ISinkCase[] = [
             const pending = adapter.showMessage({
                 handle: 1,
                 severity: "info",
-                message: "Готово",
+                message: "Done",
                 modal: false,
                 items: [{ title: FEED, isCloseAffordance: false }],
             });
@@ -610,23 +610,23 @@ const CASES: readonly ISinkCase[] = [
     {
         sink: "contributes.commands.category",
         feed: FEED_2,
-        shown: () => paletteLabel("Готово", FEED_2).split(": ")[0],
+        shown: () => paletteLabel("Done", FEED_2).split(": ")[0],
     },
 ];
 
-describe("перечень раковин значков $(name)", () => {
-    it("покрыт кейсами целиком — ни одного классифицированного поля без проверки", () => {
+describe("$(name) icon sink inventory", () => {
+    it("is fully covered by cases: no classified field goes unchecked", () => {
         const needCase = Object.entries(SINKS)
             .filter(([, { policy }]) => policy !== "internal")
             .map(([sink]) => sink);
         expect([...CASES.map((c) => c.sink)].sort()).toEqual([...needCase].sort());
     });
 
-    it("у каждого кейса есть запись в перечне", () => {
+    it("every case has an inventory entry", () => {
         for (const { sink } of CASES) expect(SINKS[sink], sink).toBeDefined();
     });
 
-    it("обоснование есть у каждого поля", () => {
+    it("every field has a rationale", () => {
         for (const [sink, { why }] of Object.entries(SINKS)) expect(why.length, sink).toBeGreaterThan(20);
     });
 });

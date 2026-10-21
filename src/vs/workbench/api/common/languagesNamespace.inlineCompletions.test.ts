@@ -42,7 +42,7 @@ function requestParams(overrides: Record<string, unknown> = {}): Record<string, 
 }
 
 describe("LanguagesNamespace — registerInlineCompletionItemProvider", () => {
-    it("регистрация объявляется ядру с handle; dispose снимает один раз; updateSubscriptions нет", () => {
+    it("registration is announced to the core with a handle; dispose removes it once; no updateSubscriptions", () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
 
@@ -62,7 +62,7 @@ describe("LanguagesNamespace — registerInlineCompletionItemProvider", () => {
 });
 
 describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
-    it("зовёт провайдер с документом из зеркала, позицией и triggerKind", async () => {
+    it("calls the provider with the mirror document, position and triggerKind", async () => {
         const { ctx, stub } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { doc?: vscode.TextDocument; pos?: vscode.Position; context?: vscode.InlineCompletionContext } = {};
@@ -101,7 +101,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         ]);
     });
 
-    it("InlineCompletionList нормализуется, SnippetString — текстом со стрипом плейсхолдеров", async () => {
+    it("InlineCompletionList is normalized, SnippetString becomes text with placeholders stripped", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerInlineCompletionItemProvider(
@@ -119,7 +119,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         expect(result).toStrictEqual([[{ insertText: "log(msg)" }]]);
     });
 
-    it("filterText уезжает в wire-пункт", async () => {
+    it("filterText goes into the wire item", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerInlineCompletionItemProvider(
@@ -138,7 +138,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         ]);
     });
 
-    it("обходит провайдеров присланных handle; ответ выровнен по ним, сбойный и чужой — пустые", async () => {
+    it("walks the providers of the sent handles; the response is aligned to them, failing and unknown ones are empty", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerInlineCompletionItemProvider(
@@ -172,7 +172,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         ]);
     });
 
-    it("дефолты params: без languageId/line/character/triggerKind — позиция (0,0), Automatic, язык не затирается", async () => {
+    it("params defaults: without languageId/line/character/triggerKind the position is (0,0), Automatic, language is not overwritten", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const seen: { doc?: vscode.TextDocument; pos?: vscode.Position; context?: vscode.InlineCompletionContext } = {};
@@ -194,7 +194,7 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
         expect(seen.doc?.languageId).toBe("typescript");
     });
 
-    it("null/undefined/мусор от провайдера — пустой ответ; пустой insertText отбрасывается", async () => {
+    it("null/undefined/garbage from the provider gives an empty response; an empty insertText is dropped", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         languages.registerInlineCompletionItemProvider(
@@ -242,8 +242,8 @@ describe("LanguagesNamespace — languages.provideInlineCompletions", () => {
     });
 });
 
-describe("LanguagesNamespace — provideInlineCompletions по версии зеркала", () => {
-    it("не открытый документ, устаревшая и забежавшая вперёд версия — [], провайдер не зовётся", async () => {
+describe("LanguagesNamespace — provideInlineCompletions by mirror version", () => {
+    it("an unopened document, a stale or ahead-of-mirror version give [] and the provider is not called", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         let asked = 0;
@@ -271,8 +271,8 @@ describe("LanguagesNamespace — provideInlineCompletions по версии зе
     });
 });
 
-describe("LanguagesNamespace — отмена provideInlineCompletions", () => {
-    it("провайдер получает настоящий токен: отмена запроса стреляет у него", async () => {
+describe("LanguagesNamespace — provideInlineCompletions cancellation", () => {
+    it("the provider gets a real token: request cancellation fires on it", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const fired: string[] = [];
@@ -310,7 +310,7 @@ describe("LanguagesNamespace — отмена provideInlineCompletions", () => {
         expect(await pending).toStrictEqual([[{ insertText: "late" }]]);
     });
 
-    it("после отмены остальные провайдеры не опрашиваются", async () => {
+    it("the remaining providers are not queried after cancellation", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const polled: string[] = [];
@@ -354,7 +354,7 @@ describe("LanguagesNamespace — отмена provideInlineCompletions", () => {
         expect(polled).toEqual(["A"]);
     });
 
-    it("отмена, обогнавшая запрос: провайдера не зовут вовсе", async () => {
+    it("cancellation ahead of the request: the provider is never called", async () => {
         const { stub, ctx } = makeCtx();
         const { languages } = createLanguagesNamespace(ctx);
         const polled: string[] = [];

@@ -22,7 +22,7 @@ describe("ProgressStatusBarAdapter", () => {
         vi.useRealTimers();
     });
 
-    it("start добавляет запись со спиннером, тик таймера крутит кадр", () => {
+    it("start adds an entry with a spinner, a timer tick advances the frame", () => {
         adapter.start(1, "TS: starting");
         expect(texts()).toEqual(["⠋ TS: starting"]);
 
@@ -32,7 +32,7 @@ describe("ProgressStatusBarAdapter", () => {
         expect(texts()).toEqual(["⠹ TS: starting"]);
     });
 
-    it("report обновляет сообщение и накапливает процент с клампом 0–100", () => {
+    it("report updates the message and accumulates percent clamped to 0–100", () => {
         adapter.start(1, "TS");
         adapter.report(1, "loading project");
         expect(texts()).toEqual(["⠋ TS · loading project"]);
@@ -47,7 +47,7 @@ describe("ProgressStatusBarAdapter", () => {
         expect(texts()).toEqual(["⠋ TS · indexing (100%)"]);
     });
 
-    it("end снимает запись и глушит таймер; report/end по неизвестному handle — no-op", () => {
+    it("end removes the entry and stops the timer; report/end for an unknown handle is a no-op", () => {
         adapter.start(1, "TS");
         adapter.end(1);
         expect(texts()).toEqual([]);
@@ -61,7 +61,7 @@ describe("ProgressStatusBarAdapter", () => {
         expect(texts()).toEqual([]);
     });
 
-    it("параллельные прогрессы — независимые записи; повторный start замещает", () => {
+    it("parallel progresses are independent entries; a repeated start replaces", () => {
         adapter.start(1, "TS");
         adapter.start(2, "Go");
         expect(texts()).toEqual(["⠋ TS", "⠋ Go"]);
@@ -73,7 +73,7 @@ describe("ProgressStatusBarAdapter", () => {
         expect(texts()).toEqual(["⠋ Go (restart)"]);
     });
 
-    it("dispose гасит все записи и таймеры; пустой title рендерится без хвоста", () => {
+    it("dispose clears all entries and timers; an empty title renders without a tail", () => {
         adapter.start(1, "");
         adapter.report(1, "message only");
         expect(texts()).toEqual(["⠋ message only"]);

@@ -31,8 +31,8 @@ function makeWorkspace(root: string | null = "/repo") {
     return { stub, workspace };
 }
 
-describe("workspace.createFileSystemWatcher — проводка RPC", () => {
-    it("строковый шаблон уезжает на хост с базой из папки воркспейса", () => {
+describe("workspace.createFileSystemWatcher — RPC wiring", () => {
+    it("a string pattern goes to the host with the workspace folder as base", () => {
         const { stub, workspace } = makeWorkspace();
 
         workspace.createFileSystemWatcher("**/*.ts");
@@ -52,7 +52,7 @@ describe("workspace.createFileSystemWatcher — проводка RPC", () => {
         ]);
     });
 
-    it("события хоста доходят до слушателей расширения", () => {
+    it("host events reach the extension listeners", () => {
         const { stub, workspace } = makeWorkspace();
         const watcher = workspace.createFileSystemWatcher(
             new RelativePattern("/repo/.git", "*") as unknown as vscode.GlobPattern,
@@ -68,19 +68,19 @@ describe("workspace.createFileSystemWatcher — проводка RPC", () => {
         expect(seen).toEqual(["/repo/.git/HEAD"]);
     });
 
-    it("мусорная пачка от хоста игнорируется", () => {
+    it("a garbage batch from the host is ignored", () => {
         const { stub, workspace } = makeWorkspace();
         const watcher = workspace.createFileSystemWatcher("**");
         const seen: string[] = [];
         watcher.onDidChange((uri) => seen.push(uri.fsPath));
 
         expect(() => {
-            stub.fire("workspace.watcher.events", "не объект");
+            stub.fire("workspace.watcher.events", "not an object");
         }).not.toThrow();
         expect(seen).toEqual([]);
     });
 
-    it("dispose снимает watcher на хосте", () => {
+    it("dispose removes the watcher on the host", () => {
         const { stub, workspace } = makeWorkspace();
 
         workspace.createFileSystemWatcher("**").dispose();
@@ -88,7 +88,7 @@ describe("workspace.createFileSystemWatcher — проводка RPC", () => {
         expect(stub.notifies.at(-1)).toEqual({ method: "workspace.watcher.dispose", params: { id: 1 } });
     });
 
-    it("в пустом окне строковый шаблон резолвить не к чему — хост не тревожим", () => {
+    it("in an empty window a string pattern has nothing to resolve against, the host is not bothered", () => {
         const { stub, workspace } = makeWorkspace(null);
 
         const watcher = workspace.createFileSystemWatcher("**");

@@ -18,7 +18,7 @@ function reportUnsupported(rpc: SubprocessRpc, member: string, id: string): void
         channel: OUTPUT_CHANNEL,
         label: OUTPUT_LABEL,
         level: "warn",
-        value: `webview в TUI не поддерживается: window.${member}("${id}") — панели не будет, остальное расширение работает`,
+        value: `webview is not supported in TUI: window.${member}("${id}") — no panel, the rest of the extension works`,
     });
 }
 

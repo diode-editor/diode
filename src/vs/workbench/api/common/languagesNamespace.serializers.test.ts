@@ -39,8 +39,8 @@ function rangeWith(line: number): Range {
     return new Range(line, 1, 0, 2);
 }
 
-describe("languagesNamespace — диапазоны: координаты только конечные числа", () => {
-    it("definition и references: цель с NaN/Infinity в диапазоне или пустым uri отбрасывается", async () => {
+describe("languagesNamespace — ranges: coordinates are finite numbers only", () => {
+    it("definition and references: a target with NaN/Infinity in the range or an empty uri is dropped", async () => {
         const { languages, stub } = setup();
         const items = [
             { uri: TARGET, range: rangeWith(NaN) },
@@ -63,7 +63,7 @@ describe("languagesNamespace — диапазоны: координаты тол
         ).toEqual(expected);
     });
 
-    it("hover: кривой диапазон теряется, hover остаётся", async () => {
+    it("hover: a malformed range is lost, the hover stays", async () => {
         const { languages, stub } = setup();
         languages.registerHoverProvider("typescript", {
             provideHover: () => ({ contents: ["doc"], range: rangeWith(NaN) }) as unknown as vscode.Hover,
@@ -73,7 +73,7 @@ describe("languagesNamespace — диапазоны: координаты тол
         });
     });
 
-    it("completion: диапазон с NaN теряется, пункт остаётся; kind — только конечное число", async () => {
+    it("completion: a range with NaN is lost, the item stays; kind is a finite number only", async () => {
         const { languages, stub } = setup();
         const broken = new CompletionItem("broken");
         broken.range = rangeWith(NaN);
@@ -98,7 +98,7 @@ describe("languagesNamespace — диапазоны: координаты тол
         expect(Object.keys(result.items[0])).not.toContain("kind");
     });
 
-    it("completion: команда null не роняет ответ — пункт едет без команды", async () => {
+    it("completion: a null command does not break the response — the item goes without a command", async () => {
         const { languages, stub } = setup();
         languages.registerCompletionItemProvider("typescript", {
             provideCompletionItems: () => [{ label: "a", command: null }] as unknown as vscode.CompletionItem[],
@@ -108,7 +108,7 @@ describe("languagesNamespace — диапазоны: координаты тол
         ]);
     });
 
-    it("resolve и форматирование: правка с нечисловым диапазоном отбрасывается поштучно", async () => {
+    it("resolve and formatting: an edit with a non-numeric range is dropped individually", async () => {
         const { languages, stub } = setup();
         const edits = [TextEdit.replace(rangeWith(NaN), "bad"), TextEdit.replace(new Range(0, 1, 0, 2), "ok")];
         languages.registerCompletionItemProvider("typescript", {
@@ -130,7 +130,7 @@ describe("languagesNamespace — диапазоны: координаты тол
         ]);
     });
 
-    it("inline completions: кривой диапазон теряется, пункт остаётся", async () => {
+    it("inline completions: a malformed range is lost, the item stays", async () => {
         const { languages, stub } = setup();
         languages.registerInlineCompletionItemProvider("typescript", {
             provideInlineCompletionItems: () => [{ insertText: "x", range: rangeWith(NaN) }],
@@ -140,7 +140,7 @@ describe("languagesNamespace — диапазоны: координаты тол
         ).toEqual([[{ insertText: "x" }]]);
     });
 
-    it("folding: kind — только конечное число", async () => {
+    it("folding: kind is a finite number only", async () => {
         const { languages, stub } = setup();
         languages.registerFoldingRangeProvider("typescript", {
             provideFoldingRanges: () =>
@@ -158,7 +158,7 @@ describe("languagesNamespace — диапазоны: координаты тол
     });
 });
 
-describe("languagesNamespace — подсказка параметров: индексы и числа приводятся здесь", () => {
+describe("languagesNamespace — signature help: indices and numbers are coerced here", () => {
     function signatureHelpWith(fields: Record<string, unknown>, signature: Record<string, unknown> = {}): unknown {
         return {
             signatures: [{ label: "greet(a, b)", parameters: [{ label: "a" }, { label: "b" }], ...signature }],
@@ -174,7 +174,7 @@ describe("languagesNamespace — подсказка параметров: инд
         return stub.callRequest("languages.provideSignatureHelp", { ...POSITION, handle: 0 });
     }
 
-    it("activeSignature вне списка, отрицательный и дробный приводится к нулю", async () => {
+    it("activeSignature out of range, negative or fractional is coerced to zero", async () => {
         for (const activeSignature of [1, -1, 0.5, NaN]) {
             expect(await serialize(signatureHelpWith({ activeSignature })), String(activeSignature)).toMatchObject({
                 activeSignature: 0,
@@ -187,7 +187,7 @@ describe("languagesNamespace — подсказка параметров: инд
         expect(await serialize(two)).toMatchObject({ activeSignature: 1 });
     });
 
-    it("activeParameter: -1 едет как есть, NaN и Infinity — нулём; у сигнатуры — отбрасывается", async () => {
+    it("activeParameter: -1 passes as is, NaN and Infinity become zero; on a signature it is dropped", async () => {
         expect(await serialize(signatureHelpWith({ activeParameter: -1 }))).toMatchObject({ activeParameter: -1 });
         for (const activeParameter of [NaN, Infinity]) {
             const result = (await serialize(signatureHelpWith({ activeParameter }, { activeParameter }))) as {
@@ -199,12 +199,12 @@ describe("languagesNamespace — подсказка параметров: инд
         }
     });
 
-    it("метка параметра парой не конечных офсетов роняет весь ответ", async () => {
+    it("a parameter label as a pair of non-finite offsets drops the whole response", async () => {
         expect(await serialize({ signatures: [{ label: "f(a)", parameters: [{ label: [NaN, 1] }] }] })).toBeNull();
         expect(await serialize({ signatures: [{ label: "f(a)", parameters: [{ label: [0, Infinity] }] }] })).toBeNull();
     });
 
-    it("пустая документация сигнатуры и параметра не доезжает до попапа", async () => {
+    it("empty signature and parameter documentation does not reach the popup", async () => {
         const result = await serialize({
             signatures: [
                 { label: "f(a)", documentation: "", parameters: [{ label: "a", documentation: { value: "" } }] },
@@ -218,8 +218,8 @@ describe("languagesNamespace — подсказка параметров: инд
     });
 });
 
-describe("languagesNamespace — code actions: вид — только строка", () => {
-    it("kind с нестроковым value теряется, действие остаётся", async () => {
+describe("languagesNamespace — code actions: kind is a string only", () => {
+    it("a kind with a non-string value is lost, the action stays", async () => {
         const { languages, stub } = setup();
         const broken = new CodeAction("broken", new CodeActionKind(42 as unknown as string));
         const ok = new CodeAction("ok", CodeActionKind.QuickFix);

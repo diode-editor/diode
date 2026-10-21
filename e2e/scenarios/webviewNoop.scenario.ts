@@ -27,7 +27,7 @@ export default defineScenario({
 
         await editor.sendKey("Alt+U");
         await editor.sendKey("Alt+J");
-        await editor.waitForText((t) => t.includes("webview в TUI не поддерживается"), { timeoutMs: 15000 });
+        await editor.waitForText((t) => t.includes("webview is not supported in TUI"), { timeoutMs: 15000 });
         await editor.capture("output-line");
 
         await editor.sendKey("F7");

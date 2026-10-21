@@ -65,14 +65,14 @@ describe("EditorOptionsServiceAdapter", () => {
         expect(adapter.getActiveEditorFilePath()).toBeNull();
     });
 
-    it("getActiveEditorFilePath() отдаёт путь для file:-ресурса", () => {
+    it("getActiveEditorFilePath() returns the path for a file: resource", () => {
         const group = {
             getActiveTabEditor: () => ({ uri: Uri.file("/a/b.ts"), languageId: "typescript", isModified: false }),
         } as unknown as IEditorService;
         expect(createAdapter(group, NO_BULK_EDITS).getActiveEditorFilePath()).toBe("/a/b.ts");
     });
 
-    it("getActiveEditorFilePath() отдаёт null для безымянного буфера, а не мусорный путь", () => {
+    it("getActiveEditorFilePath() returns null for an untitled buffer, not a garbage path", () => {
         const group = {
             getActiveTabEditor: () => ({
                 uri: Uri.parse("untitled:Untitled-1"),
@@ -160,7 +160,7 @@ describe("EditorOptionsServiceAdapter", () => {
         ]);
     });
 
-    it("setActiveEditorSelections() — no-op при несовпадении uri", () => {
+    it("setActiveEditorSelections() is a no-op on uri mismatch", () => {
         const setSelections = vi.fn();
         const group = {
             getActiveTabEditor: () => ({
@@ -185,7 +185,7 @@ describe("EditorOptionsServiceAdapter", () => {
         expect(setSelections).not.toHaveBeenCalled();
     });
 
-    it("applyActiveEditorEdits() — false при несовпадении uri, true при применении", () => {
+    it("applyActiveEditorEdits() returns false on uri mismatch, true when applied", () => {
         const applyExternalEdits = vi.fn();
         const editor = {
             uri: Uri.file("/a/b.ts"),
@@ -206,7 +206,7 @@ describe("EditorOptionsServiceAdapter", () => {
         );
     });
 
-    it("applyActiveEditorEdits() — false на пересекающихся правках, документ не тронут", () => {
+    it("applyActiveEditorEdits() returns false on overlapping edits, document untouched", () => {
         const applyExternalEdits = vi.fn();
         const editor = {
             uri: Uri.file("/a/b.ts"),
@@ -224,7 +224,7 @@ describe("EditorOptionsServiceAdapter", () => {
         expect(applyExternalEdits).not.toHaveBeenCalled();
     });
 
-    it("applyActiveEditorEdits() — false, если нет активного редактора или пустой список", () => {
+    it("applyActiveEditorEdits() returns false with no active editor or an empty list", () => {
         const editor = {
             uri: Uri.file("/a/b.ts"),
             model: { document: { lineCount: 3, getLineLength: () => 10 } },
@@ -238,7 +238,7 @@ describe("EditorOptionsServiceAdapter", () => {
         }).not.toThrow();
     });
 
-    it("клампит выделения и правки к границам документа", () => {
+    it("clamps selections and edits to document bounds", () => {
         let setSel: unknown;
         const applyExternalEdits = vi.fn();
         const editor = {
@@ -317,7 +317,7 @@ describe("EditorOptionsServiceAdapter", () => {
         return { group, selections: () => current };
     }
 
-    it("onActiveEditorSelectionChanged() шлёт выделения активного редактора", async () => {
+    it("onActiveEditorSelectionChanged() sends the active editor's selections", async () => {
         const { group } = groupWithLiveSelections();
         const adapter = createAdapter(group, NO_BULK_EDITS);
         const seen: unknown[] = [];
@@ -337,7 +337,7 @@ describe("EditorOptionsServiceAdapter", () => {
         ]);
     });
 
-    it("onActiveEditorSelectionChanged() коалесит несколько смен в одну нотификацию", async () => {
+    it("onActiveEditorSelectionChanged() coalesces several changes into one notification", async () => {
         const { group } = groupWithLiveSelections();
         const adapter = createAdapter(group, NO_BULK_EDITS);
         const seen: unknown[] = [];
@@ -353,7 +353,7 @@ describe("EditorOptionsServiceAdapter", () => {
         expect((seen[0] as { selections: { activeLine: number }[] }).selections[0].activeLine).toBe(4);
     });
 
-    it("не гоняет обратно выделение, которое поставил сам субпроцесс (эхо-гард)", async () => {
+    it("does not echo back a selection set by the subprocess itself (echo guard)", async () => {
         const { group, selections } = groupWithLiveSelections();
         const adapter = createAdapter(group, NO_BULK_EDITS);
         const seen: unknown[] = [];
@@ -369,7 +369,7 @@ describe("EditorOptionsServiceAdapter", () => {
         expect(seen).toHaveLength(0);
     });
 
-    it("если активный редактор исчез за тик — шлёт выделения того, кто событие поднял", async () => {
+    it("if the active editor vanished within the tick, sends the selections of the event's source", async () => {
         const { group } = groupWithLiveSelections();
         const editor = group.getActiveTabEditor()!;
         const adapter = createAdapter(group, NO_BULK_EDITS);
@@ -387,7 +387,7 @@ describe("EditorOptionsServiceAdapter", () => {
         expect(seen[0].uri).toBe(Uri.file("/a/b.ts").toString());
     });
 
-    it("onActiveEditorSelectionChanged() снимается по dispose", async () => {
+    it("onActiveEditorSelectionChanged() is removed on dispose", async () => {
         const { group } = groupWithLiveSelections();
         const adapter = createAdapter(group, NO_BULK_EDITS);
         const seen: unknown[] = [];
@@ -401,7 +401,7 @@ describe("EditorOptionsServiceAdapter", () => {
         expect(seen).toHaveLength(0);
     });
 
-    it("вкладка вне полосы (groupOf → null) — groupId падает на активную группу", async () => {
+    it("tab outside the strip (groupOf -> null): groupId falls back to the active group", async () => {
         // The tab got closed while the notification waited for the microtask flush: its
         // group is gone, and the meta/notification carry the active group's coordinate.
         const listeners: (() => void)[] = [];
@@ -443,7 +443,7 @@ describe("EditorOptionsServiceAdapter", () => {
         ]);
     });
 
-    it("getActiveEditorMeta() — selection null, когда выделений нет", () => {
+    it("getActiveEditorMeta(): selection is null when there are no selections", () => {
         const group = {
             ...GROUP_SURFACE,
             getActiveTabEditor: () => ({

@@ -30,7 +30,7 @@ const CH = "extensions.diode.diode-lsp-typescript.typescript-diode";
 const LABEL = "TypeScript (Diode)";
 
 describe("ExtensionOutputAdapter", () => {
-    it("первая строка лениво регистрирует канал (label = имя), строки доезжают в историю с уровнем", () => {
+    it("first line lazily registers the channel (label = name), lines reach the history with their level", () => {
         const { adapter, registry, history } = makeAdapter();
 
         adapter.append(CH, LABEL, "info", "language server started");
@@ -44,19 +44,19 @@ describe("ExtensionOutputAdapter", () => {
         ]);
     });
 
-    it("повторные строки не дублируют регистрацию; label первой записи не перетирается", () => {
+    it("repeated lines do not duplicate registration; the first label is not overwritten", () => {
         const { adapter, registry } = makeAdapter();
         let registrations = 0;
         registry.onDidRegisterChannel(() => registrations++);
 
         adapter.append(CH, LABEL, "info", "a");
-        adapter.append(CH, "Другой label", "warn", "b");
+        adapter.append(CH, "Other label", "warn", "b");
 
         expect(registrations).toBe(1);
         expect(registry.getChannel(CH)?.label).toBe(LABEL);
     });
 
-    it("два канала независимы", () => {
+    it("two channels are independent", () => {
         const { adapter, registry, history } = makeAdapter();
         adapter.append(CH, LABEL, "info", "ts line");
         adapter.append("extensions.go", "Go", "warn", "go line");
@@ -67,7 +67,7 @@ describe("ExtensionOutputAdapter", () => {
         expect(history.getEntries("extensions.go")).toHaveLength(1);
     });
 
-    it("show открывает панель и переключает активный канал; работает и до первой строки", () => {
+    it("show opens the panel and switches the active channel; works before the first line too", () => {
         const { adapter, registry, outputService, reveals } = makeAdapter();
 
         // show before the first line: the channel is registered lazily right here.

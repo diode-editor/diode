@@ -18,9 +18,9 @@ function outputLines(
         .map((n) => n.params as { channel: string; label: string; level: string; value: string });
 }
 
-describe("webviewNoop — webview-члены window как честный no-op", () => {
+describe("webviewNoop — webview members of window as an honest no-op", () => {
     describe("createWebviewPanel", () => {
-        it("возвращает инертную панель с записываемым webview.html", () => {
+        it("returns an inert panel with a writable webview.html", () => {
             const { members } = makeMembers();
 
             const panel = members.createWebviewPanel("test.chat", "Chat", 1, {});
@@ -35,7 +35,7 @@ describe("webviewNoop — webview-члены window как честный no-op"
             expect(panel.webview.cspSource).not.toBe("");
         });
 
-        it("панели нет: visible/active — false, колонка не занята, reveal ничего не делает", () => {
+        it("there is no panel: visible/active are false, no column is taken, reveal does nothing", () => {
             const { members } = makeMembers();
 
             const panel = members.createWebviewPanel("test.chat", "Chat");
@@ -49,7 +49,7 @@ describe("webviewNoop — webview-члены window как честный no-op"
             }).not.toThrow();
         });
 
-        it("сообщения никуда не уходят, а смена состояния не стреляет", async () => {
+        it("messages go nowhere and the view state change does not fire", async () => {
             const { members, stub } = makeMembers();
             const panel = members.createWebviewPanel("test.chat", "Chat");
             let stateChanges = 0;
@@ -70,7 +70,7 @@ describe("webviewNoop — webview-члены window как честный no-op"
             expect(outputLines(stub)).toHaveLength(1);
         });
 
-        it("asWebviewUri отдаёт тот же uri — проксировать ресурсы некуда", () => {
+        it("asWebviewUri returns the same uri — there is nowhere to proxy resources", () => {
             const { members } = makeMembers();
             const panel = members.createWebviewPanel("test.chat", "Chat");
             const local = Uri.file("/proj/media/main.css") as unknown as vscode.Uri;
@@ -78,7 +78,7 @@ describe("webviewNoop — webview-члены window как честный no-op"
             expect(panel.webview.asWebviewUri(local)).toBe(local);
         });
 
-        it("dispose стреляет onDidDispose ровно один раз", () => {
+        it("dispose fires onDidDispose exactly once", () => {
             const { members } = makeMembers();
             const panel = members.createWebviewPanel("test.chat", "Chat");
             let disposed = 0;
@@ -92,7 +92,7 @@ describe("webviewNoop — webview-члены window как честный no-op"
             expect(disposed).toBe(1);
         });
 
-        it("пишет в Output одну строку про неподдерживаемый webview", () => {
+        it("writes one line about the unsupported webview to Output", () => {
             const { members, stub } = makeMembers();
 
             members.createWebviewPanel("test.chat", "Chat");
@@ -103,7 +103,7 @@ describe("webviewNoop — webview-члены window как честный no-op"
                     label: "Extensions",
                     level: "warn",
                     value: expect.stringContaining(
-                        'webview в TUI не поддерживается: window.createWebviewPanel("test.chat")',
+                        'webview is not supported in TUI: window.createWebviewPanel("test.chat")',
                     ) as unknown as string,
                 },
             ]);
@@ -111,7 +111,7 @@ describe("webviewNoop — webview-члены window как честный no-op"
     });
 
     describe("registerWebviewViewProvider", () => {
-        it("возвращает честный disposable и пишет в Output одну строку", () => {
+        it("returns an honest disposable and writes one line to Output", () => {
             const { members, stub } = makeMembers();
 
             const disposable = members.registerWebviewViewProvider("test.chatView", {
@@ -124,14 +124,14 @@ describe("webviewNoop — webview-члены window как честный no-op"
             const lines = outputLines(stub);
             expect(lines).toHaveLength(1);
             expect(lines[0]?.value).toContain(
-                'webview в TUI не поддерживается: window.registerWebviewViewProvider("test.chatView")',
+                'webview is not supported in TUI: window.registerWebviewViewProvider("test.chatView")',
             );
             expect(lines[0]?.level).toBe("warn");
         });
     });
 
     describe("registerWebviewPanelSerializer", () => {
-        it("возвращает честный disposable и пишет в Output одну строку", () => {
+        it("returns an honest disposable and writes one line to Output", () => {
             const { members, stub } = makeMembers();
 
             const disposable = members.registerWebviewPanelSerializer("test.chat", {
@@ -144,14 +144,14 @@ describe("webviewNoop — webview-члены window как честный no-op"
             const lines = outputLines(stub);
             expect(lines).toHaveLength(1);
             expect(lines[0]?.value).toContain(
-                'webview в TUI не поддерживается: window.registerWebviewPanelSerializer("test.chat")',
+                'webview is not supported in TUI: window.registerWebviewPanelSerializer("test.chat")',
             );
             expect(lines[0]?.channel).toBe("extensions");
         });
     });
 
     describe("registerCustomEditorProvider", () => {
-        it("возвращает честный disposable и пишет в Output одну строку", () => {
+        it("returns an honest disposable and writes one line to Output", () => {
             const { members, stub } = makeMembers();
 
             const disposable = members.registerCustomEditorProvider(
@@ -166,7 +166,7 @@ describe("webviewNoop — webview-члены window как честный no-op"
             const lines = outputLines(stub);
             expect(lines).toHaveLength(1);
             expect(lines[0]?.value).toContain(
-                'webview в TUI не поддерживается: window.registerCustomEditorProvider("java.formatterSettings")',
+                'webview is not supported in TUI: window.registerCustomEditorProvider("java.formatterSettings")',
             );
             expect(lines[0]?.channel).toBe("extensions");
         });

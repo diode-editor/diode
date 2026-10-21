@@ -16,14 +16,14 @@ function setup(): {
     return { stub, register: (id, handler) => owner.runAs(id, () => registerUriHandler(handler)) };
 }
 
-describe("window.registerUriHandler (субпроцесс)", () => {
-    it("регистрация сообщает хосту id расширения-владельца", () => {
+describe("window.registerUriHandler (subprocess)", () => {
+    it("registration tells the host the owning extension id", () => {
         const { stub, register } = setup();
         register("Pub.Ext", { handleUri: () => undefined });
         expect(stub.notifies).toEqual([{ method: "window.registerUriHandler", params: { extensionId: "Pub.Ext" } }]);
     });
 
-    it("второй обработчик того же расширения — эталонная ошибка, хосту ничего", () => {
+    it("a second handler from the same extension throws the upstream error; nothing goes to the host", () => {
         const { stub, register } = setup();
         register("pub.ext", { handleUri: () => undefined });
         expect(() => register("PUB.EXT", { handleUri: () => undefined })).toThrow(
@@ -32,7 +32,7 @@ describe("window.registerUriHandler (субпроцесс)", () => {
         expect(stub.notifies).toHaveLength(1);
     });
 
-    it("вне расширения (нет владельца) — ошибка", () => {
+    it("outside an extension (no owner) throws", () => {
         const stub = makeStubRpc();
         const registerUriHandler = createUriHandlers(stub.rpc, new ExtensionOwner());
         expect(() => registerUriHandler({ handleUri: () => undefined })).toThrow(
@@ -41,7 +41,7 @@ describe("window.registerUriHandler (субпроцесс)", () => {
         expect(stub.notifies).toEqual([]);
     });
 
-    it("dispose снимает обработчик у хоста один раз, после него можно зарегистрировать новый", () => {
+    it("dispose removes the handler from the host once; a new one can be registered after it", () => {
         const { stub, register } = setup();
         const disposable = register("pub.ext", { handleUri: () => undefined });
         disposable.dispose();
@@ -55,7 +55,7 @@ describe("window.registerUriHandler (субпроцесс)", () => {
         expect(stub.notifies).toHaveLength(3);
     });
 
-    it("dispose старой регистрации не снимает новую", async () => {
+    it("disposing the old registration does not remove the new one", async () => {
         const { stub, register } = setup();
         const first = register("pub.ext", { handleUri: () => undefined });
         first.dispose();
@@ -67,7 +67,7 @@ describe("window.registerUriHandler (субпроцесс)", () => {
         expect(handleUri).toHaveBeenCalledOnce();
     });
 
-    it("window.handleUri отдаёт обработчику разобранный Uri и ждёт его", async () => {
+    it("window.handleUri passes the parsed Uri to the handler and awaits it", async () => {
         const { stub, register } = setup();
         let finished = false;
         const handleUri = vi.fn(async (_uri: vscode.Uri) => {
@@ -89,7 +89,7 @@ describe("window.registerUriHandler (субпроцесс)", () => {
         expect(uri.fragment).toBe("frag");
     });
 
-    it("сбой обработчика уходит в stderr с id расширения, хосту — обычный ответ", async () => {
+    it("a handler failure goes to stderr with the extension id; the host gets a normal response", async () => {
         const { stub, register } = setup();
         const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
         const boom = new Error("boom");
@@ -105,7 +105,7 @@ describe("window.registerUriHandler (субпроцесс)", () => {
         error.mockRestore();
     });
 
-    it("URI расширению без обработчика — молча null, без строки сбоя", async () => {
+    it("a URI for an extension without a handler returns null silently, no failure line", async () => {
         const { stub } = setup();
         const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
         await expect(
@@ -117,7 +117,7 @@ describe("window.registerUriHandler (субпроцесс)", () => {
 });
 
 describe("parseWireHandleUri", () => {
-    it("строковые поля — как есть", () => {
+    it("string fields pass as is", () => {
         expect(parseWireHandleUri({ extensionId: "a.b", uri: "diode://a.b/" })).toEqual({
             extensionId: "a.b",
             uri: "diode://a.b/",
@@ -125,7 +125,7 @@ describe("parseWireHandleUri", () => {
     });
 
     it.each([null, 1, {}, { extensionId: "a.b" }, { uri: "diode://a.b/" }, { extensionId: 1, uri: "u" }])(
-        "без строковых полей — ошибка (%j)",
+        "throws without string fields (%j)",
         (raw) => {
             expect(() => parseWireHandleUri(raw)).toThrow("window.handleUri: extensionId and uri must be strings");
         },

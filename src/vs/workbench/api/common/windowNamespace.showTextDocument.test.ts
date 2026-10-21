@@ -37,8 +37,8 @@ function makeCtx(requestResult?: unknown) {
 const A = Uri.file("/p/a.ts");
 const B = Uri.file("/p/b.ts");
 
-describe("WindowNamespace — showTextDocument (нормализация перегрузок)", () => {
-    it("document + номер колонки + preserveFocus → запрос с viewColumn/preserveFocus", async () => {
+describe("WindowNamespace — showTextDocument (overload normalization)", () => {
+    it("document + column number + preserveFocus → request with viewColumn/preserveFocus", async () => {
         const { stub, registry, window } = makeCtx();
         const doc = registry.getOrCreate(A) as unknown as vscode.TextDocument;
 
@@ -50,7 +50,7 @@ describe("WindowNamespace — showTextDocument (нормализация пер�
         });
     });
 
-    it("uri + options со selection → запрос с wire-выделением", async () => {
+    it("uri + options with selection → request with a wire selection", async () => {
         const { stub, window } = makeCtx();
 
         await window.showTextDocument(A, {
@@ -70,7 +70,7 @@ describe("WindowNamespace — showTextDocument (нормализация пер�
         });
     });
 
-    it("uri без опций → запрос с одним uri", async () => {
+    it("uri without options → request with just the uri", async () => {
         const { stub, window } = makeCtx();
 
         await window.showTextDocument(A);
@@ -81,7 +81,7 @@ describe("WindowNamespace — showTextDocument (нормализация пер�
         });
     });
 
-    it("ответ хоста (uri, groupId) адресует редактор конкретной группы", async () => {
+    it("host answer (uri, groupId) addresses the editor of a specific group", async () => {
         const { stub, window } = makeCtx({ uri: B.toString(), groupId: 2 });
         // The host opened the file in group 2 (column 2); the snapshot is already applied by the time of the reply.
         stub.fire("editor.layoutChanged", {

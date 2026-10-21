@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { parseWireInputBoxResult, parseWireQuickPickEvent, parseWireQuickPickResult } from "./wireTypes.ts";
 
 describe("parseWireInputBoxResult", () => {
-    it("строка — введённое значение, всё прочее — отмена", () => {
-        expect(parseWireInputBoxResult({ value: "Ада" })).toEqual({ value: "Ада" });
+    it("a string is the entered value, anything else is cancel", () => {
+        expect(parseWireInputBoxResult({ value: "Ada" })).toEqual({ value: "Ada" });
         expect(parseWireInputBoxResult({ value: "" })).toEqual({ value: "" });
         expect(parseWireInputBoxResult({ value: null })).toEqual({ value: null });
         expect(parseWireInputBoxResult({})).toEqual({ value: null });
@@ -13,16 +13,16 @@ describe("parseWireInputBoxResult", () => {
 });
 
 describe("parseWireQuickPickResult", () => {
-    it("массив целых — выбранные индексы", () => {
+    it("an array of integers is the selected indices", () => {
         expect(parseWireQuickPickResult({ indices: [0, 2] })).toEqual({ indices: [0, 2] });
         expect(parseWireQuickPickResult({ indices: [] })).toEqual({ indices: [] });
     });
 
-    it("мусорные индексы выбрасываются", () => {
+    it("garbage indices are dropped", () => {
         expect(parseWireQuickPickResult({ indices: [0, -1, 1.5, "x", 3] })).toEqual({ indices: [0, 3] });
     });
 
-    it("отсутствие массива — отмена", () => {
+    it("a missing array is cancel", () => {
         expect(parseWireQuickPickResult({ indices: null })).toEqual({ indices: null });
         expect(parseWireQuickPickResult({})).toEqual({ indices: null });
         expect(parseWireQuickPickResult(null)).toEqual({ indices: null });
@@ -30,13 +30,13 @@ describe("parseWireQuickPickResult", () => {
 });
 
 describe("parseWireQuickPickEvent", () => {
-    it("каждый вид события — своей формой", () => {
+    it("each event kind has its own shape", () => {
         expect(parseWireQuickPickEvent({ handle: 1, kind: "changeValue", value: "go" })).toEqual({
             handle: 1,
             kind: "changeValue",
             value: "go",
         });
-        expect(parseWireQuickPickEvent({ handle: 1, kind: "accept", value: "лишнее" })).toEqual({
+        expect(parseWireQuickPickEvent({ handle: 1, kind: "accept", value: "extra" })).toEqual({
             handle: 1,
             kind: "accept",
         });
@@ -53,7 +53,7 @@ describe("parseWireQuickPickEvent", () => {
         });
     });
 
-    it("чужая форма — null", () => {
+    it("a foreign shape is null", () => {
         expect(parseWireQuickPickEvent(null)).toBeNull();
         expect(parseWireQuickPickEvent({ kind: "accept" })).toBeNull();
         expect(parseWireQuickPickEvent({ handle: 1, kind: "explode" })).toBeNull();

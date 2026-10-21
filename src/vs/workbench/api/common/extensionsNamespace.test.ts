@@ -15,13 +15,13 @@ function description(id: string, overrides: Partial<IWireExtensionDescription> =
 }
 
 describe("extensionsNamespace", () => {
-    it("до первого каталога состав пуст, а getExtension честно молчит", () => {
+    it("before the first catalog the set is empty and getExtension returns undefined", () => {
         const { extensions } = createExtensionsNamespace(makeStubRpc().rpc);
         expect(extensions.all).toEqual([]);
         expect(extensions.getExtension("a.b")).toBeUndefined();
     });
 
-    it("каталог от хоста наполняет all и getExtension", () => {
+    it("the host catalog populates all and getExtension", () => {
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         stub.fire("extensions.catalog", {
@@ -36,26 +36,26 @@ describe("extensionsNamespace", () => {
         expect(extensions.getExtension("pub.two")?.isActive).toBe(false);
     });
 
-    it("onDidReceiveCatalog — каждый принятый каталог целиком, даже без смены состава", () => {
+    it("onDidReceiveCatalog fires with each accepted catalog in full, even without a set change", () => {
         const stub = makeStubRpc();
         const { onDidReceiveCatalog } = createExtensionsNamespace(stub.rpc);
         const received: string[][] = [];
         onDidReceiveCatalog((catalog) => received.push(catalog.map((d) => d.extensionPath)));
         stub.fire("extensions.catalog", { extensions: [description("pub.one")] });
         stub.fire("extensions.catalog", { extensions: [description("pub.one")] });
-        stub.fire("extensions.catalog", { что: "не то" });
+        stub.fire("extensions.catalog", { what: "wrong" });
         expect(received).toEqual([["/ext/pub.one"], ["/ext/pub.one"]]);
     });
 
-    it("чужая форма каталога не трогает уже известный состав", () => {
+    it("a foreign catalog shape does not touch the known set", () => {
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         stub.fire("extensions.catalog", { extensions: [description("pub.one")] });
-        stub.fire("extensions.catalog", { что: "не то" });
+        stub.fire("extensions.catalog", { what: "wrong" });
         expect(extensions.all.map((e) => e.id)).toEqual(["pub.one"]);
     });
 
-    it("`extensions.activated` поднимает isActive у уже выданного объекта", () => {
+    it("`extensions.activated` raises isActive on an already returned object", () => {
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         stub.fire("extensions.catalog", { extensions: [description("pub.one")] });
@@ -67,7 +67,7 @@ describe("extensionsNamespace", () => {
         expect(held?.isActive).toBe(true);
     });
 
-    it("мусорный `extensions.activated` игнорируется", () => {
+    it("a garbage `extensions.activated` is ignored", () => {
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         stub.fire("extensions.catalog", { extensions: [description("pub.one")] });
@@ -75,7 +75,7 @@ describe("extensionsNamespace", () => {
         expect(extensions.getExtension("pub.one")?.isActive).toBe(false);
     });
 
-    it("каталог, приехавший ПОСЛЕ activated, не гасит поднятый флаг", () => {
+    it("a catalog arriving AFTER activated does not clear the raised flag", () => {
         // Message order from the host isn't guaranteed; an older catalog snapshot
         // must not lose the active state.
         const stub = makeStubRpc();
@@ -86,7 +86,7 @@ describe("extensionsNamespace", () => {
         expect(extensions.getExtension("pub.one")?.isActive).toBe(true);
     });
 
-    it("исчезнувшее из каталога расширение перестаёт числиться активным", () => {
+    it("an extension gone from the catalog is no longer active", () => {
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         stub.fire("extensions.catalog", { extensions: [description("pub.one", { isActive: true })] });
@@ -97,7 +97,7 @@ describe("extensionsNamespace", () => {
         expect(extensions.getExtension("pub.one")?.isActive).toBe(false);
     });
 
-    it("onDidChange — про состав: стреляет на появление и исчезновение, молчит на активацию", () => {
+    it("onDidChange is about the set: fires on add and remove, silent on activation", () => {
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         let fired = 0;
@@ -116,7 +116,7 @@ describe("extensionsNamespace", () => {
         expect(fired).toBe(3);
     });
 
-    it("перестановка тех же расширений — тоже смена состава", () => {
+    it("reordering the same extensions is also a set change", () => {
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         let fired = 0;
@@ -129,7 +129,7 @@ describe("extensionsNamespace", () => {
         expect(fired).toBe(2);
     });
 
-    it("замена ОДНОГО расширения из двух — тоже смена состава", () => {
+    it("replacing ONE extension of two is also a set change", () => {
         // Only the second id differs: the comparison is "any one differs", not "all".
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
@@ -143,7 +143,7 @@ describe("extensionsNamespace", () => {
         expect(fired).toBe(2);
     });
 
-    it("exports читаются из общей карты субпроцесса, а не из провода", () => {
+    it("exports are read from the subprocess shared map, not from the wire", () => {
         const stub = makeStubRpc();
         const { extensions, exportsById } = createExtensionsNamespace(stub.rpc);
         stub.fire("extensions.catalog", { extensions: [description("pub.one")] });
@@ -152,7 +152,7 @@ describe("extensionsNamespace", () => {
         expect(extensions.getExtension("pub.one")?.exports).toEqual({ api: 1 });
     });
 
-    it("activate() активного отдаёт exports, неактивного — отказывает с объяснением", async () => {
+    it("activate() returns exports for an active one and rejects with an explanation for an inactive one", async () => {
         const stub = makeStubRpc();
         const { extensions, exportsById } = createExtensionsNamespace(stub.rpc);
         stub.fire("extensions.catalog", { extensions: [description("pub.one"), description("pub.two")] });
@@ -170,7 +170,7 @@ describe("extensionsNamespace", () => {
         );
     });
 
-    it("идентичность записи стабильна в пределах состава и обновляется с новым каталогом", () => {
+    it("entry identity is stable within a set and refreshed with a new catalog", () => {
         // Comparison by reference does occur in extensions (we got burned on `activeTextEditor`).
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
@@ -184,7 +184,7 @@ describe("extensionsNamespace", () => {
         expect(extensions.getExtension("pub.one")).not.toBe(first);
     });
 
-    it("extensionKind у всех — UI: удалённого extension host'а в Diode нет", () => {
+    it("extensionKind is UI for all: Diode has no remote extension host", () => {
         const stub = makeStubRpc();
         const { extensions } = createExtensionsNamespace(stub.rpc);
         stub.fire("extensions.catalog", { extensions: [description("pub.one")] });

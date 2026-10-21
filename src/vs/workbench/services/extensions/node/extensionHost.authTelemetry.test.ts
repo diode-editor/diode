@@ -28,14 +28,14 @@ describe("ExtensionHost — an extension with telemetry and an auth provider act
                 session: "none",
                 usageEnabled: false,
                 sent: [],
-                login: 'вход через "test.cloud" в TUI пока не поддержан',
+                login: 'sign-in with "test.cloud" is not supported in TUI yet',
             });
             expect(output).toEqual([
                 {
                     channel: "extensions",
                     level: "warn",
                     value: expect.stringMatching(
-                        /^вход через "Test Cloud" \(test\.cloud\) в TUI пока не поддержан/,
+                        /^sign-in with "Test Cloud" \(test\.cloud\) is not supported in TUI yet/,
                     ) as unknown as string,
                 },
             ]);

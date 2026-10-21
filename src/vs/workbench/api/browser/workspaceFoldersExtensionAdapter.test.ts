@@ -21,14 +21,14 @@ function setup(names: Record<string, string> = {}) {
 }
 
 describe("WorkspaceFoldersExtensionAdapter", () => {
-    it("ровно одна папка — открывается, тоста нет", () => {
+    it("exactly one folder opens with no toast", () => {
         const { adapter, opened, shown } = setup();
         adapter.update({ extensionId: "golang.go", folders: ["/ws/b"] });
         expect(opened).toEqual(["/ws/b"]);
         expect(shown).toEqual([]);
     });
 
-    it("вторая папка — тост ошибки с формулировкой эталона и именем расширения", () => {
+    it("a second folder shows an error toast with the upstream wording and the extension name", () => {
         const { adapter, opened, shown } = setup({ "golang.go": "Go" });
         adapter.update({ extensionId: "golang.go", folders: ["/ws/a", "/ws/b"] });
         expect(opened).toEqual([]);
@@ -42,7 +42,7 @@ describe("WorkspaceFoldersExtensionAdapter", () => {
         ]);
     });
 
-    it("пустой итог — тоже отказ; без имени — id, без id — «unknown»", () => {
+    it("an empty result is also refused; no name falls back to id, no id to 'unknown'", () => {
         const { adapter, opened, shown } = setup();
         adapter.update({ extensionId: "pub.ext", folders: [] });
         adapter.update({ extensionId: null, folders: ["/a", "/b"] });

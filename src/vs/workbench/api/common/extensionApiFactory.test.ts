@@ -87,8 +87,8 @@ function makeFactory(): {
     return { factory, shared, warnings, paths };
 }
 
-describe("createExtensionApi — оверлей поверх общего namespace", () => {
-    it("свой объект, но те же value-типы и неперекрытые неймспейсы", () => {
+describe("createExtensionApi — overlay over the shared namespace", () => {
+    it("its own object, but the same value types and non-overridden namespaces", () => {
         const owner = new ExtensionOwner();
         const { shared } = makeShared(owner);
         const api = createExtensionApi(shared, owner, "pub.a");
@@ -104,7 +104,7 @@ describe("createExtensionApi — оверлей поверх общего namesp
         expect(api.commands).not.toBe(shared.commands);
     });
 
-    it("собственные ключи совпадают с общим namespace (`__importStar`, Object.keys)", () => {
+    it("own keys match the shared namespace (`__importStar`, Object.keys)", () => {
         const owner = new ExtensionOwner();
         const { shared } = makeShared(owner);
         const api = createExtensionApi(shared, owner, "pub.a");
@@ -116,7 +116,7 @@ describe("createExtensionApi — оверлей поверх общего namesp
         expect(Object.getPrototypeOf(api.window)).toBe(shared.window);
     });
 
-    it("геттер window.activeTextEditor остаётся живым (не снимок)", () => {
+    it("the window.activeTextEditor getter stays live (not a snapshot)", () => {
         const owner = new ExtensionOwner();
         const { shared, setActive } = makeShared(owner);
         const api = createExtensionApi(shared, owner, "pub.a");
@@ -125,7 +125,7 @@ describe("createExtensionApi — оверлей поверх общего namesp
         expect(api.window.activeTextEditor).toBe("editor-1");
     });
 
-    it("неперекрытый член — та же функция общего namespace, без владельца", () => {
+    it("a non-overridden member is the same shared namespace function, without an owner", () => {
         const owner = new ExtensionOwner();
         const { shared, calls } = makeShared(owner);
         const api = createExtensionApi(shared, owner, "pub.a");
@@ -134,7 +134,7 @@ describe("createExtensionApi — оверлей поверх общего namesp
         expect(calls).toEqual([expect.objectContaining({ member: "executeCommand", owner: undefined })]);
     });
 
-    it("обёртка создающего члена — такое же свойство, как у общего namespace (перечислимое, перезаписываемое)", () => {
+    it("a creating member's wrapper is the same kind of property as in the shared namespace (enumerable, writable)", () => {
         const owner = new ExtensionOwner();
         const { shared } = makeShared(owner);
         const api = createExtensionApi(shared, owner, "pub.a");
@@ -145,7 +145,7 @@ describe("createExtensionApi — оверлей поверх общего namesp
         });
     });
 
-    it("каждый создающий член зовётся с владельцем, аргументами и this общего неймспейса", () => {
+    it("each creating member is called with the owner, the arguments and the shared namespace as this", () => {
         const owner = new ExtensionOwner();
         const { shared, calls } = makeShared(owner);
         const api = createExtensionApi(shared, owner, "pub.a");
@@ -165,7 +165,7 @@ describe("createExtensionApi — оверлей поверх общего namesp
         }
     });
 
-    it("владелец восстанавливается, даже если общий член бросил", () => {
+    it("the owner is restored even when the shared member throws", () => {
         const owner = new ExtensionOwner();
         const shared = {
             window: {
@@ -185,7 +185,7 @@ describe("createExtensionApi — оверлей поверх общего namesp
         });
     });
 
-    it("оверлеи двух расширений выставляют каждый своего владельца", () => {
+    it("overlays of two extensions each set their own owner", () => {
         const owner = new ExtensionOwner();
         const { shared, calls } = makeShared(owner);
         createExtensionApi(shared, owner, "pub.a").commands.registerCommand("a", () => undefined);
@@ -194,8 +194,8 @@ describe("createExtensionApi — оверлей поверх общего namesp
     });
 });
 
-describe("ExtensionApiFactory — раздача по импортёру", () => {
-    it("forPath: модуль внутри корня получает API своего расширения, кэш по id", () => {
+describe("ExtensionApiFactory — dispatch by importer", () => {
+    it("forPath: a module under the root gets its extension's API, cached by id", () => {
         const { factory, shared } = makeFactory();
         const a1 = factory.forPath(path.join(ROOT_A, "dist", "main.js"));
         const a2 = factory.forPath(path.join(ROOT_A, "node_modules", "lib", "index.js"));
@@ -207,7 +207,7 @@ describe("ExtensionApiFactory — раздача по импортёру", () =>
         expect(a1.Position).toBe(b.Position);
     });
 
-    it("неопознанный импортёр — общий namespace и ровно одно предупреждение", () => {
+    it("an unrecognized importer gets the shared namespace and exactly one warning", () => {
         const { factory, shared, warnings } = makeFactory();
         expect(factory.forPath(path.resolve("/elsewhere/a.js"))).toBe(shared);
         expect(factory.forPath(undefined)).toBe(shared);
@@ -217,25 +217,25 @@ describe("ExtensionApiFactory — раздача по импортёру", () =>
         expect(warnings[0]).toContain("shared API without extension identity");
     });
 
-    it("импортёр неизвестен вовсе — в предупреждении так и сказано", () => {
+    it("a completely unknown importer is stated as such in the warning", () => {
         const { factory, warnings } = makeFactory();
         factory.forPath(undefined);
         expect(warnings).toEqual([expect.stringContaining("(unknown importer)")]);
     });
 
-    it("опознанный импортёр не предупреждает", () => {
+    it("a recognized importer does not warn", () => {
         const { factory, warnings } = makeFactory();
         factory.forPath(path.join(ROOT_A, "main.js"));
         expect(warnings).toEqual([]);
     });
 
-    it("lookup: без id — общий namespace, с id — API расширения", () => {
+    it("lookup: without an id gives the shared namespace, with an id the extension API", () => {
         const { factory, shared } = makeFactory();
         expect(factory.lookup()).toBe(shared);
         expect(factory.lookup("pub.a")).toBe(factory.forId("pub.a"));
     });
 
-    it("cjsModule: ключ кэша на расширение, общий — под прежним ключом", () => {
+    it("cjsModule: a cache key per extension, the shared one under the old key", () => {
         const { factory, shared } = makeFactory();
         const own = factory.cjsModule(path.join(ROOT_A, "main.js"));
         expect(own.key).toBe(`${VSCODE_CJS_CACHE_KEY}:pub.a`);
@@ -245,14 +245,14 @@ describe("ExtensionApiFactory — раздача по импортёру", () =>
         expect(foreign.exports).toBe(shared);
     });
 
-    it("esmUrl: file-URL импортёра → URL модуля его расширения", () => {
+    it("esmUrl: the importer's file URL maps to its extension's module URL", () => {
         const { factory } = makeFactory();
         expect(factory.esmUrl(pathToFileURL(path.join(ROOT_A, "extension.js")).href)).toBe(`${VSCODE_ESM_URL}/pub.a`);
         expect(factory.esmUrl(pathToFileURL(path.resolve("/elsewhere/x.mjs")).href)).toBe(VSCODE_ESM_URL);
         expect(factory.esmUrl(undefined)).toBe(VSCODE_ESM_URL);
     });
 
-    it("esmUrl: не-файловый импортёр не трактуется как путь", () => {
+    it("esmUrl: a non-file importer is not treated as a path", () => {
         const { factory, paths, warnings } = makeFactory();
         // `data:x` as a path resolves against cwd; a root at cwd would catch it.
         paths.add(process.cwd(), "pub.cwd");
@@ -260,7 +260,7 @@ describe("ExtensionApiFactory — раздача по импортёру", () =>
         expect(warnings).toEqual([expect.stringContaining("(data:text/javascript,x)")]);
     });
 
-    it("esmUrl: id экранируется в URL и обратно разбирается esmSource", () => {
+    it("esmUrl: the id is escaped in the URL and parsed back by esmSource", () => {
         const { factory, paths } = makeFactory();
         paths.add(path.resolve("/ext/odd"), "pub.a b/c");
         const url = factory.esmUrl(pathToFileURL(path.resolve("/ext/odd/x.js")).href);
@@ -268,7 +268,7 @@ describe("ExtensionApiFactory — раздача по импортёру", () =>
         expect(factory.esmSource(url)).toContain('globalThis[Symbol.for("diode.vscodeApi")]("pub.a b/c");');
     });
 
-    it("esmSource: имена export'ов — полный состав общего namespace", () => {
+    it("esmSource: export names are the full shared namespace", () => {
         const { factory } = makeFactory();
         const own = factory.esmSource(`${VSCODE_ESM_URL}/pub.a`);
         expect(own).toContain('globalThis[Symbol.for("diode.vscodeApi")]("pub.a");');
@@ -278,7 +278,7 @@ describe("ExtensionApiFactory — раздача по импортёру", () =>
         expect(factory.esmSource(VSCODE_ESM_URL)).toContain('globalThis[Symbol.for("diode.vscodeApi")]();');
     });
 
-    it("esmSource: чужой URL — не наш (undefined), в том числе похожий префикс", () => {
+    it("esmSource: a foreign URL is not ours (undefined), including a similar prefix", () => {
         const { factory } = makeFactory();
         expect(factory.esmSource("file:///x.js")).toBeUndefined();
         expect(factory.esmSource(`${VSCODE_ESM_URL}x`)).toBeUndefined();

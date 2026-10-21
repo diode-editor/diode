@@ -16,7 +16,7 @@ function createAdapter(fake: Partial<IEditorService>): EditorOptionsServiceAdapt
 }
 
 describe("EditorOptionsServiceAdapter.saveAll / save", () => {
-    it("saveAll: includeUntitled — опцией сервиса, ответ — его вердикт", async () => {
+    it("saveAll: includeUntitled becomes a service option, the answer is its verdict", async () => {
         const saveAll = vi.fn(() => Promise.resolve(false));
         const adapter = createAdapter({ saveAll });
 
@@ -26,7 +26,7 @@ describe("EditorOptionsServiceAdapter.saveAll / save", () => {
         expect(saveAll.mock.calls).toStrictEqual([[{ includeUntitled: true }], [{ includeUntitled: false }]]);
     });
 
-    it("save: строка ресурса — в Uri и обратно; не сохранён — null", async () => {
+    it("save: resource string goes to Uri and back; not saved yields null", async () => {
         const save = vi.fn((resource: Uri) => Promise.resolve(resource.path === MAIN.path ? resource : undefined));
         const adapter = createAdapter({ save });
 

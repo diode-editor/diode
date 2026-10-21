@@ -35,7 +35,7 @@ function makeCtx() {
 }
 
 describe("WindowNamespace", () => {
-    it("терминалы: createTerminal, terminals, activeTerminal и события — одни на window", () => {
+    it("terminals: createTerminal, terminals, activeTerminal and events are shared on window", () => {
         const { stub, window } = makeCtx();
         const opened: vscode.Terminal[] = [];
         const active: (vscode.Terminal | undefined)[] = [];
@@ -53,7 +53,7 @@ describe("WindowNamespace", () => {
         expect(window.terminals).toEqual([]);
     });
 
-    it("activeEditorChanged с meta прокидывает languageId/isDirty в документ", () => {
+    it("activeEditorChanged with meta passes languageId/isDirty to the document", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", {
             uri: Uri.file("/a.ts").toString(),
@@ -70,7 +70,7 @@ describe("WindowNamespace", () => {
         expect(doc.isDirty).toBe(true);
     });
 
-    it("activeEditorChanged прокидывает encoding/eol в документ (#106)", () => {
+    it("activeEditorChanged passes encoding/eol to the document (#106)", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", {
             uri: Uri.file("/a.txt").toString(),
@@ -88,7 +88,7 @@ describe("WindowNamespace", () => {
         expect(doc.encoding).toBe("windows1251");
     });
 
-    it("editor.document стабилен по ссылке между обращениями", () => {
+    it("editor.document is referentially stable across accesses", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString(), languageId: "typescript" });
         expect(window.activeTextEditor?.document).toBe(window.activeTextEditor?.document);
@@ -102,7 +102,7 @@ describe("WindowNamespace", () => {
         expect(window.activeTextEditor).toBeUndefined();
     });
 
-    it("установка options проксируется в editor.setOptions", () => {
+    it("setting options proxies to editor.setOptions", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
         window.activeTextEditor!.options = { tabSize: 2, insertSpaces: true };
@@ -112,7 +112,7 @@ describe("WindowNamespace", () => {
         });
     });
 
-    it("indentSize форвардится в editor.setOptions", () => {
+    it("indentSize is forwarded to editor.setOptions", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
         window.activeTextEditor!.options = { indentSize: 3 } as never;
@@ -122,14 +122,14 @@ describe("WindowNamespace", () => {
         });
     });
 
-    it('indentSize="tabSize" не форвардится (совпадает с tabSize)', () => {
+    it('indentSize="tabSize" is not forwarded (same as tabSize)', () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
         window.activeTextEditor!.options = { indentSize: "tabSize" } as never;
         expect(stub.requests).toHaveLength(0);
     });
 
-    it("show*Message уходит хосту запросом с правильным severity", async () => {
+    it("show*Message is sent to the host as a request with the right severity", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => ({ index: null });
         await window.showErrorMessage("boom");
@@ -152,13 +152,13 @@ describe("WindowNamespace", () => {
         ]);
     });
 
-    it("нажатая кнопка доезжает до расширения через window", async () => {
+    it("clicked button reaches the extension through window", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => ({ index: 0 });
         await expect(window.showWarningMessage("careful", "Activate")).resolves.toBe("Activate");
     });
 
-    it("showOpenDialog: опции — запросом хосту (фильтры парами), ответ — Uri расширения", async () => {
+    it("showOpenDialog: options go to the host as a request (filters as pairs), answer is an extension Uri", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => ({ uris: ["file:///ws/a.go", 5] });
         const picked = await window.showOpenDialog({
@@ -187,7 +187,7 @@ describe("WindowNamespace", () => {
         });
     });
 
-    it("showOpenDialog: отмена и мусорный ответ — undefined", async () => {
+    it("showOpenDialog: cancel and junk answer yield undefined", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => ({ uris: null });
         await expect(window.showOpenDialog()).resolves.toBeUndefined();
@@ -204,7 +204,7 @@ describe("WindowNamespace", () => {
         });
     });
 
-    it("showSaveDialog: Uri ресурса или undefined", async () => {
+    it("showSaveDialog: resource Uri or undefined", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => ({ uri: "file:///ws/new.txt" });
         const uri = await window.showSaveDialog({ defaultUri: Uri.file("/ws/new.txt"), saveLabel: "Save", title: "T" });
@@ -219,7 +219,7 @@ describe("WindowNamespace", () => {
         await expect(window.showSaveDialog()).resolves.toBeUndefined();
     });
 
-    it("опции без defaultUri — папку диалога выбирает хост", async () => {
+    it("options without defaultUri let the host pick the dialog folder", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => null;
         await window.showOpenDialog({ title: "Pick" });
@@ -230,14 +230,14 @@ describe("WindowNamespace", () => {
         ]);
     });
 
-    it("showQuickPick уходит хосту запросом и резолвится выбранным", async () => {
+    it("showQuickPick is sent to the host as a request and resolves with the selection", async () => {
         const { stub, window } = makeCtx();
         stub.responder = () => ({ indices: [1] });
         await expect(window.showQuickPick(["a", "b"])).resolves.toBe("b");
         expect(stub.requests.map((r) => r.method)).toEqual(["window.showQuickPick"]);
     });
 
-    it("createQuickPick отдаёт живой пикер: show() шлёт его состояние хосту", () => {
+    it("createQuickPick returns a live picker: show() sends its state to the host", () => {
         const { stub, window } = makeCtx();
         const pick = window.createQuickPick();
         pick.title = "Pick";
@@ -246,17 +246,17 @@ describe("WindowNamespace", () => {
         expect(stub.notifies[0]?.params).toMatchObject({ title: "Pick", visible: true });
     });
 
-    it("showInputBox уходит хосту запросом и резолвится введённым", async () => {
+    it("showInputBox is sent to the host as a request and resolves with the input", async () => {
         const { stub, window } = makeCtx();
-        stub.responder = () => ({ value: "Ада" });
-        await expect(window.showInputBox({ title: "Your name" })).resolves.toBe("Ада");
+        stub.responder = () => ({ value: "Ada" });
+        await expect(window.showInputBox({ title: "Your name" })).resolves.toBe("Ada");
         expect(stub.requests[0]).toMatchObject({
             method: "window.showInputBox",
             params: { title: "Your name" },
         });
     });
 
-    it("window.state сфокусировано; onDidChangeWindowState регистрируется и не стреляет", () => {
+    it("window.state is focused; onDidChangeWindowState registers and does not fire", () => {
         const { window } = makeCtx();
         expect(window.state).toEqual({ focused: true, active: true });
         let fired = false;
@@ -270,7 +270,7 @@ describe("WindowNamespace", () => {
         expect(fired).toBe(false);
     });
 
-    it("onDidChangeActiveTextEditor: thisArgs привязывается, disposables и dispose работают", () => {
+    it("onDidChangeActiveTextEditor: thisArgs binds, disposables and dispose work", () => {
         const { stub, window } = makeCtx();
         const received: [unknown, unknown][] = [];
         const self = { tag: "self" };
@@ -294,7 +294,7 @@ describe("WindowNamespace", () => {
         }).not.toThrow();
     });
 
-    it("options принимает строковые tabSize/insertSpaces/indentSize", () => {
+    it("options accepts string tabSize/insertSpaces/indentSize", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
         window.activeTextEditor!.options = { tabSize: "6", insertSpaces: "false" } as never;
@@ -314,7 +314,7 @@ describe("WindowNamespace", () => {
         });
     });
 
-    it("options с мусорными строками деградирует безопасно", () => {
+    it("options with junk strings degrades safely", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
         // invalid tabSize → 4; invalid indentSize → not forwarded
@@ -325,7 +325,7 @@ describe("WindowNamespace", () => {
         });
     });
 
-    it("присвоение options не-объекта и других свойств отклоняется", () => {
+    it("assigning a non-object to options and other properties is rejected", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/a.ts").toString() });
         const editor = window.activeTextEditor!;
@@ -340,7 +340,7 @@ describe("WindowNamespace", () => {
         expect(stub.requests).toHaveLength(0);
     });
 
-    it("createOutputChannel возвращает канал; методы не бросают", () => {
+    it("createOutputChannel returns a channel; methods do not throw", () => {
         const { window } = makeCtx();
         const ch = window.createOutputChannel("editorconfig");
         expect(ch.name).toBe("editorconfig");
@@ -355,7 +355,7 @@ describe("WindowNamespace", () => {
         }).not.toThrow();
     });
 
-    it("createTextEditorDecorationType шлёт notify с сериализованным ThemeColor и монотонным key", () => {
+    it("createTextEditorDecorationType sends notify with a serialized ThemeColor and a monotonic key", () => {
         const { stub, window } = makeCtx();
         const type = window.createTextEditorDecorationType({
             isWholeLine: true,
@@ -385,7 +385,7 @@ describe("WindowNamespace", () => {
         });
     });
 
-    it("editor.setDecorations шлёт notify с fileName активного редактора и nested-ranges", () => {
+    it("editor.setDecorations sends notify with the active editor fileName and nested ranges", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/proj/a.ts").toString() });
         const type = window.createTextEditorDecorationType({
@@ -406,7 +406,7 @@ describe("WindowNamespace", () => {
         });
     });
 
-    it("setDecorations с DecorationOptions[] берёт .range каждого элемента", () => {
+    it("setDecorations with DecorationOptions[] takes .range of each item", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/proj/a.ts").toString() });
         const type = window.createTextEditorDecorationType({});
@@ -416,7 +416,7 @@ describe("WindowNamespace", () => {
         ]);
     });
 
-    it("setDecorations: битый диапазон выпадает, перевёрнутый утиный разворачивается", () => {
+    it("setDecorations: a broken range is dropped, a reversed duck-typed one is flipped", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/proj/a.ts").toString() });
         const type = window.createTextEditorDecorationType({});
@@ -430,7 +430,7 @@ describe("WindowNamespace", () => {
         ]);
     });
 
-    it("setDecorations с неизвестным типом — no-op (нет notify)", () => {
+    it("setDecorations with an unknown type is a no-op (no notify)", () => {
         const { stub, window } = makeCtx();
         stub.fire("editor.activeEditorChanged", { uri: Uri.file("/proj/a.ts").toString() });
         const before = stub.notifies.length;
@@ -438,7 +438,7 @@ describe("WindowNamespace", () => {
         expect(stub.notifies.length).toBe(before);
     });
 
-    it("registerFileDecorationProvider опрашивает провайдер по изменённым uri и шлёт fileDecorationsChanged", async () => {
+    it("registerFileDecorationProvider queries the provider for changed uris and sends fileDecorationsChanged", async () => {
         const { stub, window } = makeCtx();
         const emitter = new EventEmitter<undefined | Uri | Uri[]>();
         const disposable = window.registerFileDecorationProvider({
@@ -467,7 +467,7 @@ describe("WindowNamespace", () => {
         expect(typeof disposable.dispose).toBe("function");
     });
 
-    it("registerFileDecorationProvider: одиночный uri (не массив) + propagate", async () => {
+    it("registerFileDecorationProvider: single uri (not an array) + propagate", async () => {
         const { stub, window } = makeCtx();
         const emitter = new EventEmitter<undefined | Uri | Uri[]>();
         window.registerFileDecorationProvider({
@@ -486,7 +486,7 @@ describe("WindowNamespace", () => {
         });
     });
 
-    it("registerFileDecorationProvider: undefined-change (все файлы) не разворачивается", async () => {
+    it("registerFileDecorationProvider: undefined change (all files) is not expanded", async () => {
         const { stub, window } = makeCtx();
         const emitter = new EventEmitter<undefined | Uri | Uri[]>();
         window.registerFileDecorationProvider({
@@ -499,7 +499,7 @@ describe("WindowNamespace", () => {
         expect(stub.notifies.length).toBe(before);
     });
 
-    it("registerFileDecorationProvider без onDidChangeFileDecorations — валидный no-op Disposable", () => {
+    it("registerFileDecorationProvider without onDidChangeFileDecorations returns a valid no-op Disposable", () => {
         const { window } = makeCtx();
         const disposable = window.registerFileDecorationProvider({
             provideFileDecoration: () => undefined,
@@ -525,14 +525,14 @@ describe("WindowNamespace — editor write (#194)", () => {
         return { stub, window, editor: window.activeTextEditor! };
     }
 
-    it("editor.selection геттер отдаёт выделение из meta", () => {
+    it("editor.selection getter returns the selection from meta", () => {
         const { editor } = activeEditor();
         expect(editor.selection.anchor).toEqual({ line: 0, character: 1 });
         expect(editor.selection.active).toEqual({ line: 2, character: 3 });
         expect(editor.selections).toHaveLength(1);
     });
 
-    it("без selection в meta геттер отдаёт (0,0)", () => {
+    it("without selection in meta the getter returns (0,0)", () => {
         const { editor } = activeEditor({ selection: null });
         expect(editor.selection.anchor).toEqual({ line: 0, character: 0 });
         expect(editor.selection.active).toEqual({ line: 0, character: 0 });
@@ -541,7 +541,7 @@ describe("WindowNamespace — editor write (#194)", () => {
         expect(editor.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
-    it("editor.selection сеттер шлёт editor.setSelection и обновляет кэш", () => {
+    it("editor.selection setter sends editor.setSelection and updates the cache", () => {
         const { stub, editor } = activeEditor();
         editor.selection = new Selection(new Position(1, 0), new Position(1, 4));
         const notif = stub.notifies.find((n) => n.method === "editor.setSelection");
@@ -553,7 +553,7 @@ describe("WindowNamespace — editor write (#194)", () => {
         expect(editor.selection.active).toEqual({ line: 1, character: 4 });
     });
 
-    it("editor.selectionChanged освежает выделение без смены активного редактора", () => {
+    it("editor.selectionChanged refreshes the selection without changing the active editor", () => {
         const { stub, window, editor } = activeEditor();
         let activeEditorEvents = 0;
         window.onDidChangeActiveTextEditor(() => {
@@ -570,7 +570,7 @@ describe("WindowNamespace — editor write (#194)", () => {
         expect(activeEditorEvents).toBe(0);
     });
 
-    it("editor.selectionChanged переносит все выделения (multi-cursor)", () => {
+    it("editor.selectionChanged carries all selections (multi-cursor)", () => {
         const { stub, editor } = activeEditor();
         stub.fire("editor.selectionChanged", {
             uri: URI,
@@ -583,7 +583,7 @@ describe("WindowNamespace — editor write (#194)", () => {
         expect(editor.selections[1].active).toEqual({ line: 3, character: 4 });
     });
 
-    it("editor.selectionChanged для другого ресурса игнорируется", () => {
+    it("editor.selectionChanged for another resource is ignored", () => {
         const { stub, editor } = activeEditor();
         stub.fire("editor.selectionChanged", {
             uri: Uri.file("/other.ts").toString(),
@@ -592,26 +592,26 @@ describe("WindowNamespace — editor write (#194)", () => {
         expect(editor.selection.active).toEqual({ line: 2, character: 3 });
     });
 
-    it("editor.selectionChanged без uri игнорируется", () => {
+    it("editor.selectionChanged without uri is ignored", () => {
         const { stub, editor } = activeEditor();
         stub.fire("editor.selectionChanged", { selections: [] });
         expect(editor.selection.active).toEqual({ line: 2, character: 3 });
     });
 
-    it("editor.selections сеттер шлёт все выделения", () => {
+    it("editor.selections setter sends all selections", () => {
         const { stub, editor } = activeEditor();
         editor.selections = [new Selection(0, 0, 0, 1), new Selection(1, 0, 1, 2)];
         const notif = stub.notifies.find((n) => n.method === "editor.setSelection");
         expect((notif?.params as { selections: unknown[] }).selections).toHaveLength(2);
     });
 
-    it("editor.selections сеттер с пустым массивом — no-op", () => {
+    it("editor.selections setter with an empty array is a no-op", () => {
         const { stub, editor } = activeEditor();
         editor.selections = [];
         expect(stub.notifies.find((n) => n.method === "editor.setSelection")).toBeUndefined();
     });
 
-    it("editor.edit собирает insert/replace/delete и шлёт editor.applyEdit", () => {
+    it("editor.edit collects insert/replace/delete and sends editor.applyEdit", () => {
         const { stub, editor } = activeEditor();
         void editor.edit((builder) => {
             builder.insert(new Position(0, 0), "X");
@@ -630,7 +630,7 @@ describe("WindowNamespace — editor write (#194)", () => {
         });
     });
 
-    it("editor.edit без правок резолвится true без RPC", async () => {
+    it("editor.edit without edits resolves true without RPC", async () => {
         const { stub, editor } = activeEditor();
         const ok = await editor.edit(() => {
             /* write nothing */
@@ -639,7 +639,7 @@ describe("WindowNamespace — editor write (#194)", () => {
         expect(stub.requests.find((r) => r.method === "editor.applyEdit")).toBeUndefined();
     });
 
-    it("editor.edit: правка с битым диапазоном выпадает, перевёрнутый утиный разворачивается", () => {
+    it("editor.edit: an edit with a broken range is dropped, a reversed duck-typed one is flipped", () => {
         const { stub, editor } = activeEditor();
         void editor.edit((builder) => {
             builder.replace(new Range(NaN, 0, 0, 1), "bad");
@@ -652,7 +652,7 @@ describe("WindowNamespace — editor write (#194)", () => {
         });
     });
 
-    it("editor.edit: выпали ВСЕ правки — false без RPC (как хост ответил бы на пустой батч)", async () => {
+    it("editor.edit: ALL edits dropped yields false without RPC (as the host would answer an empty batch)", async () => {
         const { stub, editor } = activeEditor();
         const ok = await editor.edit((builder) => {
             builder.replace(new Range(NaN, 0, 0, 1), "bad");
@@ -662,7 +662,7 @@ describe("WindowNamespace — editor write (#194)", () => {
         expect(stub.requests.find((r) => r.method === "editor.applyEdit")).toBeUndefined();
     });
 
-    it("visibleTextEditors — активный редактор, либо пусто", () => {
+    it("visibleTextEditors is the active editor or empty", () => {
         const { stub, window } = activeEditor();
         expect(window.visibleTextEditors).toHaveLength(1);
         stub.fire("editor.activeEditorChanged", { uri: null });

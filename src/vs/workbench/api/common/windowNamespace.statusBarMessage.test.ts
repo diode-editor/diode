@@ -50,7 +50,7 @@ describe("window.setStatusBarMessage", () => {
         vi.useRealTimers();
     });
 
-    it("показывает сообщение пунктом эталона: ничей id, слева, имя «Extension Status»", () => {
+    it("shows the message as the upstream item: ownerless id, left side, name 'Extension Status'", () => {
         const { stub, window, owner } = makeWindow();
         // Called by an extension, but the item is shared: its id has no owner prefix.
         owner.runAs("anthropic.claude-code", () => window.setStatusBarMessage("Claude Code: hi"));
@@ -64,7 +64,7 @@ describe("window.setStatusBarMessage", () => {
         });
     });
 
-    it("пока сообщений не было, пункта нет и по проводу ничего не едет", () => {
+    it("before any message there is no item and nothing goes over the wire", () => {
         const { stub, window } = makeWindow();
         // Extension items are not shifted: the first one gets its handle 1.
         window.createStatusBarItem().show();
@@ -72,7 +72,7 @@ describe("window.setStatusBarMessage", () => {
         expect(stub.notifies.filter((n) => n.method.startsWith("window.statusBarItem.")).length).toBe(1);
     });
 
-    it("сообщения стеком: видно свежее, снятие верхнего возвращает прежнее, пустой стек прячет пункт", () => {
+    it("messages stack: newest is visible, removing the top restores the previous, empty stack hides the item", () => {
         const { stub, window } = makeWindow();
         const first = window.setStatusBarMessage("first");
         const second = window.setStatusBarMessage("second");
@@ -83,7 +83,7 @@ describe("window.setStatusBarMessage", () => {
         expect(shownMessage(stub)).toBeNull();
     });
 
-    it("снятие нижнего сообщения верхнее не трогает; повторный dispose безвреден", () => {
+    it("removing the bottom message leaves the top alone; repeated dispose is harmless", () => {
         const { stub, window } = makeWindow();
         const first = window.setStatusBarMessage("first");
         window.setStatusBarMessage("second");
@@ -92,7 +92,7 @@ describe("window.setStatusBarMessage", () => {
         expect(shownMessage(stub)).toBe("second");
     });
 
-    it("одинаковые тексты — разные сообщения", () => {
+    it("identical texts are distinct messages", () => {
         const { stub, window } = makeWindow();
         const a = window.setStatusBarMessage("same");
         window.setStatusBarMessage("same");
@@ -100,7 +100,7 @@ describe("window.setStatusBarMessage", () => {
         expect(shownMessage(stub)).toBe("same");
     });
 
-    it("таймаут снимает сообщение через заданные миллисекунды", () => {
+    it("timeout removes the message after the given milliseconds", () => {
         const { stub, window } = makeWindow();
         window.setStatusBarMessage("tick", 3000);
         vi.advanceTimersByTime(2999);
@@ -109,7 +109,7 @@ describe("window.setStatusBarMessage", () => {
         expect(shownMessage(stub)).toBeNull();
     });
 
-    it("dispose до таймаута снимает сразу и гасит таймер", () => {
+    it("dispose before the timeout removes it immediately and clears the timer", () => {
         const { stub, window } = makeWindow();
         const message = window.setStatusBarMessage("tick", 3000);
         message.dispose();
@@ -117,7 +117,7 @@ describe("window.setStatusBarMessage", () => {
         expect(vi.getTimerCount()).toBe(0);
     });
 
-    it("thenable: сообщение живёт до его завершения — и успехом, и отказом", async () => {
+    it("thenable: message lives until it settles, on both resolve and reject", async () => {
         const { stub, window } = makeWindow();
         let resolve!: () => void;
         let reject!: (e: unknown) => void;
@@ -137,7 +137,7 @@ describe("window.setStatusBarMessage", () => {
         expect(shownMessage(stub)).toBeNull();
     });
 
-    it("без таймаута сообщение висит, пока его не снимут", () => {
+    it("without a timeout the message stays until removed", () => {
         const { stub, window } = makeWindow();
         window.setStatusBarMessage("sticky");
         vi.advanceTimersByTime(60_000);

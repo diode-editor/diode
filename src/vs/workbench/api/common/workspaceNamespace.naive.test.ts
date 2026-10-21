@@ -41,8 +41,8 @@ function makeWorkspace() {
     return { stub, workspace, naive: workspace as unknown as INaiveWorkspaceSurface };
 }
 
-describe("WorkspaceNamespace — наивная поверхность LSP", () => {
-    it("никогда-не-стреляющие события подписываются и отписываются без ошибок", () => {
+describe("WorkspaceNamespace — naive LSP surface", () => {
+    it("never-firing events subscribe and unsubscribe without errors", () => {
         const { workspace } = makeWorkspace();
         const ws = workspace as unknown as Record<string, (l: () => void) => { dispose(): void }>;
         for (const name of [
@@ -67,7 +67,7 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
         expect(makeWorkspace().naive.notebookDocuments).toEqual([]);
     });
 
-    it("registerTextDocumentContentProvider — валидный Disposable", () => {
+    it("registerTextDocumentContentProvider returns a valid Disposable", () => {
         const { naive } = makeWorkspace();
         const disposable = naive.registerTextDocumentContentProvider("scheme", {});
         expect(() => {
@@ -89,31 +89,31 @@ describe("WorkspaceNamespace — наивная поверхность LSP", () 
             return (p: string) => naive.getWorkspaceFolder(Uri.file(p))?.name;
         }
 
-        it("файл внутри папки — эта папка, а не первая по списку", () => {
+        it("file inside a folder gives that folder, not the first one listed", () => {
             expect(folderLookup()("/proj/b/src/x.ts")).toBe("b");
         });
 
-        it("сама папка считается лежащей внутри себя", () => {
+        it("a folder counts as lying inside itself", () => {
             expect(folderLookup()("/proj/a")).toBe("a");
         });
 
         // Upstream: "Returns `undefined` when the given uri doesn't match any workspace
         // folder". Falling back to the first folder in a multi-root would address a foreign project.
-        it("файл вне всех папок — undefined, а НЕ первая папка", () => {
+        it("file outside all folders gives undefined, NOT the first folder", () => {
             expect(folderLookup()("/elsewhere/x.ts")).toBeUndefined();
         });
 
-        it("сосед с общим префиксом имени папкой не считается", () => {
+        it("a sibling sharing a name prefix does not count as the folder", () => {
             expect(folderLookup()("/proj/abc/x.ts")).toBeUndefined();
         });
 
-        it("пустое окно — undefined на любой файл", () => {
+        it("empty window gives undefined for any file", () => {
             const { naive } = makeWorkspace();
             expect(naive.getWorkspaceFolder(Uri.file("/proj/a/x.ts"))).toBeUndefined();
         });
     });
 
-    it("createFileSystemWatcher без воркспейса — валидный немой watcher", () => {
+    it("createFileSystemWatcher without a workspace returns a valid silent watcher", () => {
         const { naive } = makeWorkspace();
         const watcher = naive.createFileSystemWatcher("**/*.ts");
         const sub = watcher.onDidChange(() => undefined);

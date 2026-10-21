@@ -32,7 +32,7 @@ function diag(message: string): vscode.Diagnostic {
 }
 
 describe("languages.getDiagnostics", () => {
-    it("ресурс — диагностики всех коллекций подряд, те же объекты; снятая коллекция уходит", () => {
+    it("resource: diagnostics of all collections in order, same objects; a disposed collection drops out", () => {
         const { languages } = makeLanguages();
         const ts = languages.createDiagnosticCollection("ts");
         const lint = languages.createDiagnosticCollection("lint");
@@ -52,7 +52,7 @@ describe("languages.getDiagnostics", () => {
         expect(languages.getDiagnostics(Uri.file("/none") as unknown as vscode.Uri)).toEqual([]);
     });
 
-    it("без ресурса (и с null от JS) — строка на ресурс, диагностики коллекций склеены", () => {
+    it("without a resource (and with null from JS): one row per resource, collection diagnostics merged", () => {
         const { languages } = makeLanguages();
         const ts = languages.createDiagnosticCollection("ts");
         const lint = languages.createDiagnosticCollection("lint");
@@ -71,7 +71,7 @@ describe("languages.getDiagnostics", () => {
         expect(summary(viaNull)).toEqual(expected);
     });
 
-    it("чужие маркеры хоста (diagnostics.markersChanged) — Diagnostic с полями маркера; пустой набор снимает", () => {
+    it("foreign host markers (diagnostics.markersChanged) become Diagnostic with marker fields; an empty set clears them", () => {
         const { stub, languages } = makeLanguages();
         const own = languages.createDiagnosticCollection("ts");
         own.set(A, [diag("own")]);
@@ -109,7 +109,7 @@ describe("languages.getDiagnostics", () => {
         expect(languages.getDiagnostics(A).map((d) => d.message)).toEqual(["own"]);
     });
 
-    it("мусор в diagnostics.markersChanged выпадает, не роняя обработчик", () => {
+    it("garbage in diagnostics.markersChanged is dropped without crashing the handler", () => {
         const { stub, languages } = makeLanguages();
         const good = { severity: 0, range: WIRE_RANGE, message: "ok" };
 
@@ -147,7 +147,7 @@ describe("languages.onDidChangeDiagnostics", () => {
         vi.useRealTimers();
     });
 
-    it("окно 50 мс от первого изменения: одно событие с уникальными ресурсами в порядке появления", () => {
+    it("50 ms window from the first change: one event with unique resources in order of appearance", () => {
         const { stub, languages } = makeLanguages();
         const events: (readonly vscode.Uri[])[] = [];
         languages.onDidChangeDiagnostics((e) => events.push(e.uris));
@@ -171,7 +171,7 @@ describe("languages.onDidChangeDiagnostics", () => {
         expect(events.map((uris) => uris.map(String))).toEqual([[B.toString(), A.toString()], [A.toString()]]);
     });
 
-    it("delete — изменение своего ресурса, даже если его не было", () => {
+    it("delete is a change of its resource, even if it was absent", () => {
         const { languages } = makeLanguages();
         const events: string[][] = [];
         languages.onDidChangeDiagnostics((e) => events.push(e.uris.map(String)));
@@ -183,7 +183,7 @@ describe("languages.onDidChangeDiagnostics", () => {
         expect(events).toEqual([[A.toString()]]);
     });
 
-    it("dispose коллекции — тоже изменение её ресурсов", () => {
+    it("disposing a collection is also a change of its resources", () => {
         const { languages } = makeLanguages();
         const events: string[][] = [];
         languages.onDidChangeDiagnostics((e) => events.push(e.uris.map(String)));

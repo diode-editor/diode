@@ -102,8 +102,8 @@ describe.skipIf(MARKETPLACE_OFFLINE || skipReason !== undefined)(
                     // setLanguageConfiguration is the last step of activate().
                     expect(layers.map((layer) => layer.languageId)).toContain("go");
                     const warnings = outputLines.filter((line) => line.level === "warn").map((line) => line.value);
-                    expect(warnings).toContainEqual(expect.stringContaining('отладка "go"'));
-                    expect(warnings).toContainEqual(expect.stringContaining('тесты "go"'));
+                    expect(warnings).toContainEqual(expect.stringContaining('debugging "go"'));
+                    expect(warnings).toContainEqual(expect.stringContaining('tests "go"'));
 
                     // Diagnostics from the REAL gopls signal that the server is ready.
                     const unusedImport = await until("diagnostic for the unused os import", () => {

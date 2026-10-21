@@ -18,8 +18,8 @@ function warnings(stub: ReturnType<typeof makeStubRpc>): string[] {
         .map((p) => `${p.channel}/${p.level}: ${p.value}`);
 }
 
-describe("vscode.comments — инертные контроллер и треды", () => {
-    it("контроллер несёт id и label; провайдеры не заданы", () => {
+describe("vscode.comments — inert controller and threads", () => {
+    it("the controller carries id and label; providers are unset", () => {
         const { vscode } = makeVscode();
         const controller = vscode.comments.createCommentController("hunks", "Proposed changes");
         expect(controller.id).toBe("hunks");
@@ -32,7 +32,7 @@ describe("vscode.comments — инертные контроллер и тред�
         }).not.toThrow();
     });
 
-    it("тред — с переданными uri/range/comments и эталонными дефолтами", () => {
+    it("a thread has the given uri/range/comments and upstream defaults", () => {
         const { vscode } = makeVscode();
         const uri = vscode.Uri.parse("file:///a.ts");
         const range = new vscode.Range(3, 0, 3, 0);
@@ -52,7 +52,7 @@ describe("vscode.comments — инертные контроллер и тред�
         expect(thread.state).toBeUndefined();
     });
 
-    it("поля треда записываемые — расширение правит их после создания", () => {
+    it("thread fields are writable — the extension edits them after creation", () => {
         const { vscode } = makeVscode();
         const thread = vscode.comments
             .createCommentController("c", "l")
@@ -74,19 +74,19 @@ describe("vscode.comments — инертные контроллер и тред�
         }).not.toThrow();
     });
 
-    it("человеку — одна warn-строка на id контроллера за жизнь субпроцесса", () => {
+    it("the user gets one warn line per controller id over the subprocess lifetime", () => {
         const { stub, vscode } = makeVscode();
         vscode.comments.createCommentController("hunks", "a");
         vscode.comments.createCommentController("hunks", "b");
         vscode.comments.createCommentController("other", "c");
         expect(warnings(stub)).toEqual([
-            'extensions/warn: комментарии "hunks" в TUI пока не рисуются — тредов не будет, остальное расширение работает',
-            'extensions/warn: комментарии "other" в TUI пока не рисуются — тредов не будет, остальное расширение работает',
+            'extensions/warn: comments "hunks" are not rendered in TUI yet — no threads, the rest of the extension works',
+            'extensions/warn: comments "other" are not rendered in TUI yet — no threads, the rest of the extension works',
         ]);
         expect(stub.notifies.find((n) => n.method === "output.append")?.params).toMatchObject({ label: "Extensions" });
     });
 
-    it("enum'ы — значения эталона", () => {
+    it("enums have the upstream values", () => {
         const { vscode } = makeVscode();
         expect([vscode.CommentThreadCollapsibleState.Collapsed, vscode.CommentThreadCollapsibleState.Expanded]).toEqual(
             [0, 1],

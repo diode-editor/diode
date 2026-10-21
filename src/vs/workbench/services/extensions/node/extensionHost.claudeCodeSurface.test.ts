@@ -96,7 +96,7 @@ describe("ExtensionHost — Claude Code surface (subprocess)", () => {
                     channel: "extensions",
                     level: "warn",
                     value: expect.stringMatching(
-                        /^комментарии "claude-code-hunks" в TUI пока не рисуются/,
+                        /^comments "claude-code-hunks" are not rendered in TUI yet/,
                     ) as unknown as string,
                 },
             ]);

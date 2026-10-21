@@ -30,25 +30,25 @@ afterEach(() => {
 });
 
 describe("workspace.fs — createDirectory", () => {
-    it("создаёт каталог вместе с недостающими родителями (mkdirp по контракту)", async () => {
+    it("creates the directory with missing parents (mkdirp per contract)", async () => {
         const target = path.join(tmpDir, "a", "b", "config_linux");
         await wfs.createDirectory(uri(target));
         expect(fs.statSync(target).isDirectory()).toBe(true);
     });
 
-    it("на существующем каталоге не падает (повторная раскладка jdt.ls)", async () => {
+    it("does not fail on an existing directory (jdt.ls re-layout)", async () => {
         const target = path.join(tmpDir, "again");
         await wfs.createDirectory(uri(target));
         await expect(wfs.createDirectory(uri(target))).resolves.toBeUndefined();
     });
 
-    it("по пути существующего ФАЙЛА — ошибка, а не тихий успех", async () => {
+    it("at the path of an existing FILE it errors instead of silently succeeding", async () => {
         const target = path.join(tmpDir, "occupied");
         fs.writeFileSync(target, "x");
         await expect(wfs.createDirectory(uri(target))).rejects.toMatchObject({ code: "FileExists" });
     });
 
-    it("не-file схема отказывает и ничего не создаёт", async () => {
+    it("non-file scheme rejects and creates nothing", async () => {
         await expect(wfs.createDirectory(Uri.parse("untitled:nope") as never)).rejects.toMatchObject({
             code: "Unavailable",
         });
@@ -56,7 +56,7 @@ describe("workspace.fs — createDirectory", () => {
 });
 
 describe("workspace.fs — readDirectory", () => {
-    it("отдаёт пары имя/тип, различая файл и каталог", async () => {
+    it("returns name/type pairs, telling files from directories", async () => {
         fs.writeFileSync(path.join(tmpDir, "pom.xml"), "<project/>");
         fs.mkdirSync(path.join(tmpDir, "src"));
         const entries = await wfs.readDirectory(uri(tmpDir));
@@ -66,24 +66,24 @@ describe("workspace.fs — readDirectory", () => {
         ]);
     });
 
-    it("симлинк помечен как SymbolicLink, а не как его цель", async () => {
+    it("symlink is marked SymbolicLink, not as its target", async () => {
         fs.writeFileSync(path.join(tmpDir, "real.txt"), "x");
         fs.symlinkSync(path.join(tmpDir, "real.txt"), path.join(tmpDir, "link.txt"));
         const entries = await wfs.readDirectory(uri(tmpDir));
         expect(entries.find((e) => e[0] === "link.txt")?.[1]).toBe(FileType.SymbolicLink);
     });
 
-    it("пустой каталог — пустой список", async () => {
+    it("empty directory gives an empty list", async () => {
         await expect(wfs.readDirectory(uri(tmpDir))).resolves.toEqual([]);
     });
 
-    it("несуществующий каталог → FileNotFound", async () => {
-        await expect(wfs.readDirectory(uri(path.join(tmpDir, "нет")))).rejects.toMatchObject({
+    it("missing directory → FileNotFound", async () => {
+        await expect(wfs.readDirectory(uri(path.join(tmpDir, "missing")))).rejects.toMatchObject({
             code: "FileNotFound",
         });
     });
 
-    it("не-file схема → Unavailable", async () => {
+    it("non-file scheme → Unavailable", async () => {
         await expect(wfs.readDirectory(Uri.parse("untitled:nope") as never)).rejects.toMatchObject({
             code: "Unavailable",
         });
@@ -91,14 +91,14 @@ describe("workspace.fs — readDirectory", () => {
 });
 
 describe("workspace.fs — delete", () => {
-    it("удаляет файл", async () => {
+    it("deletes a file", async () => {
         const target = path.join(tmpDir, "f.txt");
         fs.writeFileSync(target, "x");
         await wfs.delete(uri(target));
         expect(fs.existsSync(target)).toBe(false);
     });
 
-    it("непустой каталог БЕЗ recursive — отказ, каталог на месте", async () => {
+    it("non-empty directory WITHOUT recursive rejects, directory stays", async () => {
         const dir = path.join(tmpDir, "jdt_ws");
         fs.mkdirSync(dir);
         fs.writeFileSync(path.join(dir, "inside"), "x");
@@ -106,7 +106,7 @@ describe("workspace.fs — delete", () => {
         expect(fs.existsSync(dir)).toBe(true);
     });
 
-    it("непустой каталог С recursive — сносится целиком", async () => {
+    it("non-empty directory WITH recursive is removed entirely", async () => {
         const dir = path.join(tmpDir, "jdt_ws");
         fs.mkdirSync(path.join(dir, "nested"), { recursive: true });
         fs.writeFileSync(path.join(dir, "nested", "inside"), "x");
@@ -114,17 +114,17 @@ describe("workspace.fs — delete", () => {
         expect(fs.existsSync(dir)).toBe(false);
     });
 
-    it("несуществующий ресурс → FileNotFound, а не вакуумный успех", async () => {
-        await expect(wfs.delete(uri(path.join(tmpDir, "нет")))).rejects.toMatchObject({ code: "FileNotFound" });
+    it("missing resource → FileNotFound, not a vacuous success", async () => {
+        await expect(wfs.delete(uri(path.join(tmpDir, "missing")))).rejects.toMatchObject({ code: "FileNotFound" });
     });
 
-    it("не-file схема → Unavailable", async () => {
+    it("non-file scheme → Unavailable", async () => {
         await expect(wfs.delete(Uri.parse("untitled:nope") as never)).rejects.toMatchObject({ code: "Unavailable" });
     });
 });
 
 describe("workspace.fs — rename", () => {
-    it("переносит файл на свободное место", async () => {
+    it("moves a file to a free location", async () => {
         const from = path.join(tmpDir, "a.txt");
         const to = path.join(tmpDir, "b.txt");
         fs.writeFileSync(from, "payload");
@@ -133,7 +133,7 @@ describe("workspace.fs — rename", () => {
         expect(fs.readFileSync(to, "utf8")).toBe("payload");
     });
 
-    it("занятая цель без overwrite → FileExists, ОБА файла целы", async () => {
+    it("taken target without overwrite → FileExists, BOTH files intact", async () => {
         const from = path.join(tmpDir, "a.txt");
         const to = path.join(tmpDir, "b.txt");
         fs.writeFileSync(from, "src");
@@ -143,7 +143,7 @@ describe("workspace.fs — rename", () => {
         expect(fs.readFileSync(to, "utf8")).toBe("dst");
     });
 
-    it("занятая цель с overwrite — цель заменяется", async () => {
+    it("taken target with overwrite replaces the target", async () => {
         const from = path.join(tmpDir, "a.txt");
         const to = path.join(tmpDir, "b.txt");
         fs.writeFileSync(from, "src");
@@ -153,7 +153,7 @@ describe("workspace.fs — rename", () => {
         expect(fs.existsSync(from)).toBe(false);
     });
 
-    it("несуществующий источник → FileNotFound, и назван ИСТОЧНИК, а не цель", async () => {
+    it("missing source → FileNotFound naming the SOURCE, not the target", async () => {
         const from = path.join(tmpDir, "missing-source.txt");
         const to = path.join(tmpDir, "free-target.txt");
         const err = await wfs.rename(uri(from), uri(to)).then(
@@ -165,7 +165,7 @@ describe("workspace.fs — rename", () => {
         expect(err?.message).not.toContain("free-target.txt");
     });
 
-    it("не-file схема с любой стороны → Unavailable", async () => {
+    it("non-file scheme on either side → Unavailable", async () => {
         const real = path.join(tmpDir, "a.txt");
         fs.writeFileSync(real, "x");
         await expect(wfs.rename(Uri.parse("untitled:a") as never, uri(real))).rejects.toMatchObject({
@@ -178,7 +178,7 @@ describe("workspace.fs — rename", () => {
 });
 
 describe("workspace.fs — copy", () => {
-    it("копирует файл, оставляя источник на месте", async () => {
+    it("copies a file, leaving the source in place", async () => {
         const from = path.join(tmpDir, "a.txt");
         const to = path.join(tmpDir, "b.txt");
         fs.writeFileSync(from, "payload");
@@ -187,7 +187,7 @@ describe("workspace.fs — copy", () => {
         expect(fs.readFileSync(to, "utf8")).toBe("payload");
     });
 
-    it("копирует дерево целиком (так jdt.ls раскладывает -configuration)", async () => {
+    it("copies a whole tree (how jdt.ls lays out -configuration)", async () => {
         const from = path.join(tmpDir, "config_linux");
         fs.mkdirSync(path.join(from, "nested"), { recursive: true });
         fs.writeFileSync(path.join(from, "nested", "config.ini"), "osgi");
@@ -196,7 +196,7 @@ describe("workspace.fs — copy", () => {
         expect(fs.readFileSync(path.join(to, "nested", "config.ini"), "utf8")).toBe("osgi");
     });
 
-    it("занятая цель без overwrite → FileExists, цель не тронута", async () => {
+    it("taken target without overwrite → FileExists, target untouched", async () => {
         const from = path.join(tmpDir, "a.txt");
         const to = path.join(tmpDir, "b.txt");
         fs.writeFileSync(from, "src");
@@ -205,7 +205,7 @@ describe("workspace.fs — copy", () => {
         expect(fs.readFileSync(to, "utf8")).toBe("dst");
     });
 
-    it("занятая цель с overwrite — цель перезаписывается", async () => {
+    it("taken target with overwrite overwrites the target", async () => {
         const from = path.join(tmpDir, "a.txt");
         const to = path.join(tmpDir, "b.txt");
         fs.writeFileSync(from, "src");
@@ -214,13 +214,13 @@ describe("workspace.fs — copy", () => {
         expect(fs.readFileSync(to, "utf8")).toBe("src");
     });
 
-    it("несуществующий источник → FileNotFound", async () => {
-        await expect(wfs.copy(uri(path.join(tmpDir, "нет")), uri(path.join(tmpDir, "b")))).rejects.toMatchObject({
+    it("missing source → FileNotFound", async () => {
+        await expect(wfs.copy(uri(path.join(tmpDir, "missing")), uri(path.join(tmpDir, "b")))).rejects.toMatchObject({
             code: "FileNotFound",
         });
     });
 
-    it("не-file схема с любой стороны → Unavailable", async () => {
+    it("non-file scheme on either side → Unavailable", async () => {
         const real = path.join(tmpDir, "a.txt");
         fs.writeFileSync(real, "x");
         await expect(wfs.copy(Uri.parse("untitled:a") as never, uri(real))).rejects.toMatchObject({
@@ -233,11 +233,11 @@ describe("workspace.fs — copy", () => {
 });
 
 describe("workspace.fs — isWritableFileSystem", () => {
-    it("file — записываема", () => {
+    it("file is writable", () => {
         expect(wfs.isWritableFileSystem("file")).toBe(true);
     });
 
-    it("чужая схема — undefined («редактор не знает такой ФС»), а не false", () => {
+    it("foreign scheme gives undefined ('editor does not know this file system'), not false", () => {
         expect(wfs.isWritableFileSystem("git")).toBeUndefined();
         expect(wfs.isWritableFileSystem("jdt")).toBeUndefined();
     });

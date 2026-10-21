@@ -6,8 +6,8 @@ import { makeStubRpc } from "./testStubRpc.ts";
 import { buildVscodeNamespace } from "./vscodeNamespace.ts";
 import { Uri } from "./vscodeTypes.ts";
 
-describe("vscode.commands — встроенная vscode.open", () => {
-    it("Uri файла с колонкой — запрос editor.showTextDocument, а не commands.executeCommand", async () => {
+describe("vscode.commands: built-in vscode.open", () => {
+    it("file Uri with a column requests editor.showTextDocument, not commands.executeCommand", async () => {
         const stub = makeStubRpc();
         const { namespace } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk());
 
@@ -18,7 +18,7 @@ describe("vscode.commands — встроенная vscode.open", () => {
         ]);
     });
 
-    it("https-ссылка — запрос env.openExternal", async () => {
+    it("https link requests env.openExternal", async () => {
         const stub = makeStubRpc();
         stub.responder = () => ({ opened: true });
         const { namespace } = buildVscodeNamespace(stub.rpc, createNodeExtHostDisk());

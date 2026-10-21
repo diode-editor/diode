@@ -35,7 +35,7 @@ function provider(content: string | undefined, changed?: EventEmitter<Uri>): vsc
 const JDT = "jdt://contents/lib.jar/pkg/Foo.java";
 
 describe("WorkspaceNamespace — registerTextDocumentContentProvider", () => {
-    it("объявляет схемы хосту при регистрации и при снятии", () => {
+    it("announces schemes to the host on register and on dispose", () => {
         const { stub, workspace } = makeCtx();
 
         const registration = workspace.registerTextDocumentContentProvider("jdt", provider("class Foo {}"));
@@ -47,7 +47,7 @@ describe("WorkspaceNamespace — registerTextDocumentContentProvider", () => {
         ]);
     });
 
-    it("отдаёт содержимое по обратному запросу хоста", async () => {
+    it("returns content on the host's reverse request", async () => {
         const { stub, workspace } = makeCtx();
         workspace.registerTextDocumentContentProvider("jdt", provider("class Foo {}"));
 
@@ -56,7 +56,7 @@ describe("WorkspaceNamespace — registerTextDocumentContentProvider", () => {
         expect(result).toEqual({ content: "class Foo {}" });
     });
 
-    it("отмена запроса хоста доходит до токена провайдера", async () => {
+    it("host request cancellation reaches the provider's token", async () => {
         const { stub, workspace } = makeCtx();
         let seen: vscode.CancellationToken | undefined;
         workspace.registerTextDocumentContentProvider("jdt", {
@@ -73,14 +73,14 @@ describe("WorkspaceNamespace — registerTextDocumentContentProvider", () => {
         expect(seen?.isCancellationRequested).toBe(true);
     });
 
-    it("провайдер отказался отдать ресурс — в ответе null, а не исключение", async () => {
+    it("provider declines the resource: the reply is null, not an exception", async () => {
         const { stub, workspace } = makeCtx();
         workspace.registerTextDocumentContentProvider("jdt", provider(undefined));
 
         expect(await stub.callRequest("workspace.provideTextDocumentContent", { uri: JDT })).toEqual({ content: null });
     });
 
-    it("схема без провайдера и мусорный uri — отказ с объяснением", async () => {
+    it("scheme without a provider and a garbage uri: rejection with an explanation", async () => {
         const { stub, workspace } = makeCtx();
         workspace.registerTextDocumentContentProvider("jdt", provider("class Foo {}"));
 
@@ -92,7 +92,7 @@ describe("WorkspaceNamespace — registerTextDocumentContentProvider", () => {
         );
     });
 
-    it("onDidChange провайдера уезжает хосту нотификацией", () => {
+    it("provider's onDidChange is sent to the host as a notification", () => {
         const { stub, workspace } = makeCtx();
         const changed = new EventEmitter<Uri>();
         workspace.registerTextDocumentContentProvider("jdt", provider("a", changed));
@@ -104,7 +104,7 @@ describe("WorkspaceNamespace — registerTextDocumentContentProvider", () => {
         ]);
     });
 
-    it("openTextDocument по такой схеме спрашивает провайдера, а не диск", async () => {
+    it("openTextDocument for such a scheme asks the provider, not the disk", async () => {
         const { workspace } = makeCtx();
         workspace.registerTextDocumentContentProvider("jdt", provider("class Foo {}\nsecond\n"));
 
@@ -117,7 +117,7 @@ describe("WorkspaceNamespace — registerTextDocumentContentProvider", () => {
         expect(doc.encoding).toBe("utf8");
     });
 
-    it("openTextDocument: провайдер отказался — FileNotFound, а не чтение с диска", async () => {
+    it("openTextDocument: provider declined yields FileNotFound, not a disk read", async () => {
         const { workspace } = makeCtx();
         workspace.registerTextDocumentContentProvider("jdt", provider(undefined));
 
@@ -126,7 +126,7 @@ describe("WorkspaceNamespace — registerTextDocumentContentProvider", () => {
         });
     });
 
-    it("openTextDocument схемы БЕЗ провайдера остаётся честным отказом", async () => {
+    it("openTextDocument of a scheme WITHOUT a provider stays an honest rejection", async () => {
         const { workspace } = makeCtx();
 
         await expect(
