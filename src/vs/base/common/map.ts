@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/map.ts
-// Узкое извлечение — см. шапку src/vs/base/common/arrays.ts.
 
 export class SetMap<K, V> {
     private map = new Map<K, Set<V>>();
@@ -52,13 +51,7 @@ export class SetMap<K, V> {
     }
 }
 
-/**
- * Кэш с вытеснением давно не тронутых: `get` и `set` делают ключ самым
- * свежим, при переполнении сверх `limit` выбрасываются самые старые.
- * Upstream строит его на `LinkedMap` (Touch, ratio); у нас — на порядке
- * вставки `Map`, без ratio (перенесённый код зовёт только `new LRUCache(n)`,
- * `get`, `set`).
- */
+/** Не на `LinkedMap`, как upstream, а на порядке вставки `Map`, без ratio. */
 export class LRUCache<K, V> {
     private readonly map = new Map<K, V>();
 

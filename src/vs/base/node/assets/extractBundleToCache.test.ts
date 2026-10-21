@@ -9,9 +9,6 @@ import { packBundle } from "../../common/assets/assetBundleFormat.ts";
 
 import { extractBundleToCache, extractBundleToCacheSync, READY_MARKER } from "./extractBundleToCache.ts";
 
-// Распаковка бандла в кэш: идемпотентность, атомарная публикация (rename),
-// мьютекс mkdir-lock — схема self-extract-стаба, перенесённая в TS.
-
 describe("extractBundleToCache", () => {
     let root: string;
 
@@ -65,7 +62,6 @@ describe("extractBundleToCache", () => {
         mkdirSync(`${target}.lock`); // «чужой» владелец распаковывает
         const done = extractBundleToCache(bundle(), target, { waitTimeoutMs: 3_000, pollIntervalMs: 10 });
 
-        // «Владелец» публикует каталог через 50 мс.
         setTimeout(() => {
             mkdirSync(target, { recursive: true });
             writeFileSync(path.join(target, READY_MARKER), "");
@@ -173,7 +169,6 @@ describe("extractBundleToCacheSync", () => {
         try {
             extractBundleToCacheSync(bundle(), target); // дефолты: таймаут 30 с, опрос 100 мс
             expect(existsSync(path.join(target, READY_MARKER))).toBe(true);
-            // Распаковывал «владелец»-сосед, а не мы.
             expect(existsSync(path.join(target, "bin/rg"))).toBe(false);
         } finally {
             peer.kill();

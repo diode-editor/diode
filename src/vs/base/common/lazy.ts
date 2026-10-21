@@ -3,9 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/lazy.ts
-// Узкое извлечение — см. шапку src/vs/base/common/arrays.ts. Логика upstream;
-// дословно перенести нельзя: upstream пишет `unknown` из `catch` в поле
-// `Error | undefined`, что наш `strict` (useUnknownInCatchVariables) не пускает.
+// Не дословно: upstream кладёт `unknown` из `catch` в `Error | undefined`, наш strict это не пускает.
 
 const enum LazyValueState {
     Uninitialized,

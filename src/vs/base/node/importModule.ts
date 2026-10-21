@@ -2,21 +2,10 @@ import { Module } from "node:module";
 import * as path from "node:path";
 
 /**
- * Динамический `import()` файла с ФС, работающий и под SEA.
- *
- * Прямой `import()` из вшитого SEA-main перехватывается embedder-хуком и умеет
- * только builtin'ы (`ERR_UNKNOWN_BUILTIN_MODULE`), а `require(esm)` не берёт
- * модули с top-level await. Обход один и тот же на всех потребителей: `import()`
- * вызывается из СИНТЕТИЧЕСКОГО CJS-модуля, скомпилированного в памяти
- * (`Module._compile`) — оттуда загрузка идёт настоящим ESM-loader'ом и одинаково
- * берёт ESM (включая top-level await) и CJS.
- *
- * `filename` синтетического модуля — путь самого целевого файла: так
- * относительный `require` внутри (и стек-трейсы) смотрят туда же, куда смотрел
- * бы настоящий модуль.
- *
- * Потребители: `runAsNode` (diode как node для language-серверов) и загрузка
- * ESM-расширений в extension host.
+ * Обход SEA: прямой `import()` из вшитого main умеет только builtin'ы, а
+ * `require(esm)` не берёт top-level await. `import()` из синтетического
+ * CJS-модуля (`Module._compile`) идёт настоящим ESM-loader'ом. `filename` —
+ * путь целевого файла, чтобы относительный `require` смотрел туда же.
  */
 export async function importModule(filePath: string): Promise<unknown> {
     const source =

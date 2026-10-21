@@ -1,34 +1,17 @@
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/event.ts
-// Узкий свой `Emitter`/`Event` с именами и формой API эталона, а не дословный
-// перенос: upstream-файл тянет ~30 файлов графа base/common, монитор утечек с
-// `console.warn` в терминал TUI и очередь доставки. Устройство,
-// гарантии и отклонения — docs/arch/Common.md#события-eventts.
-//
-// Гарантии (нумерация — по docs/arch/Common.md):
-// - G1: слушатель, добавленный во время `fire`, в этом `fire` не зовётся —
-//   массив слушателей неизменяем (copy-on-write), `fire` идёт по захваченной
-//   ссылке без копирования;
-// - G2: слушатель, снятый во время `fire` и ещё не достигнутый, не зовётся;
-// - G3: исключение слушателя уходит в `onListenerError ?? onUnexpectedError`,
-//   остальные слушатели событие получают;
-// - G5: `dispose()` снимает всех; подписка на мёртвый эмиттер — пустышка;
-// - G6: хуки первого/последнего слушателя.
-//
-// ОСОЗНАННЫЕ ОТКЛОНЕНИЯ ОТ ЭТАЛОНА: нет очереди доставки (вложенный `fire`
-// доставляется вглубь), монитора утечек, оптимизации «один слушатель без
-// массива», `thisArgs`/`disposables` в сигнатуре `Event`.
+// Свой узкий `Emitter` с API эталона, гарантии G1–G6 — docs/arch/Common.md#события-eventts.
+// Массив слушателей copy-on-write: `fire` идёт по захваченной ссылке, поэтому
+// добавленный во время `fire` слушатель в нём не зовётся. Очереди доставки, как
+// в эталоне, нет: вложенный `fire` доставляется вглубь.
 
 import { onUnexpectedError } from "./errors.ts";
 import { Disposable, type IDisposable, toDisposable } from "./lifecycle.ts";
 
-/** Событие — функция подписки: `onDidX(listener)` возвращает ручку отписки. */
 export type Event<T> = (listener: (e: T) => unknown) => IDisposable;
 
 export const Event = {
-    /** Событие, которое не наступает никогда. */
     None: ((): IDisposable => Disposable.None) as Event<never>,
 
-    /** Событие, которое доставляется слушателю один раз, после чего подписка снимается сама. */
     once<T>(event: Event<T>): Event<T> {
         return (listener) => {
             // Событие может прийти синхронно, ещё до того, как подписка вернулась:
@@ -48,11 +31,9 @@ export const Event = {
 };
 
 export interface IEmitterOptions {
-    /** Перед тем как появится первый слушатель — ленивая проводка источника. */
     onWillAddFirstListener?(): void;
-    /** После того как ушёл последний слушатель (в т.ч. при `dispose`). */
+    /** Зовётся и при `dispose`. */
     onDidRemoveLastListener?(): void;
-    /** Куда уходит исключение слушателя; по умолчанию — `onUnexpectedError`. */
     onListenerError?(e: unknown): void;
 }
 
@@ -61,13 +42,6 @@ interface IListener<T> {
     removed: boolean;
 }
 
-/**
- * Источник события. Владелец держит эмиттер приватным и отдаёт наружу только
- * `event`:
- *
- *     private readonly onDidChangeEmitter = new Emitter<string>();
- *     public readonly onDidChange = this.onDidChangeEmitter.event;
- */
 export class Emitter<T> implements IDisposable {
     private listeners: readonly IListener<T>[] = [];
     private disposed = false;

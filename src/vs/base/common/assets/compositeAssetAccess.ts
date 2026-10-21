@@ -1,19 +1,6 @@
 import type { IAssetAccess, IAssetEntry } from "./iAssetAccess.ts";
 
-/**
- * Композитный {@link IAssetAccess}, маршрутизирующий запросы по виртуальному
- * префиксу пути. Используется, когда часть ассетов лежит в SEA-bundle
- * (builtin расширения), а часть — на диске (внешние расширения из
- * `~/.diode/extensions/`).
- *
- * Правила:
- *   - Для каждого backend задан виртуальный префикс, заканчивающийся на `/`
- *     (или пустая строка `""` как fallback на весь диапазон путей).
- *   - Запросы (`read/readText/exists/listEntries`) направляются в backend
- *     с самым длинным совпадающим префиксом.
- *   - Если ни один префикс не подошёл, метод бросает исключение
- *     (`exists` — возвращает `false`).
- */
+/** Побеждает самый длинный префикс, `""` — fallback. */
 export class CompositeAssetAccess implements IAssetAccess {
     private readonly routes: readonly (readonly [string, IAssetAccess])[];
 
@@ -23,7 +10,6 @@ export class CompositeAssetAccess implements IAssetAccess {
                 throw new Error(`CompositeAssetAccess prefix must end with "/" or be empty: ${prefix}`);
             }
         }
-        // Сортируем по убыванию длины префикса — более специфичный побеждает.
         this.routes = Object.entries(routes).sort((a, b) => b[0].length - a[0].length);
     }
 

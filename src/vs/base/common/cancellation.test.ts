@@ -43,7 +43,6 @@ describe("CancellationTokenSource", () => {
         expect(first).toHaveBeenCalledOnce();
         expect(second).toHaveBeenCalledOnce();
 
-        // Повторная отмена идемпотентна: слушателей второй раз не дёргает.
         source.cancel();
         expect(first).toHaveBeenCalledOnce();
         expect(second).toHaveBeenCalledOnce();
@@ -57,7 +56,6 @@ describe("CancellationTokenSource", () => {
         const subscription = source.token.onCancellationRequested(late);
         expect(late).toHaveBeenCalledOnce();
 
-        // Отписываться нечего и не от чего — dispose безвреден.
         subscription.dispose();
         source.cancel();
         expect(late).toHaveBeenCalledOnce();
@@ -83,7 +81,6 @@ describe("CancellationTokenSource", () => {
         other.token.onCancellationRequested(listener);
         other.dispose();
         other.cancel();
-        // dispose НЕ отменяет — он только снимает слушателей.
         expect(listener).not.toHaveBeenCalled();
         expect(other.token.isCancellationRequested).toBe(true);
     });
@@ -165,7 +162,6 @@ describe("LatestRequest", () => {
 
         latest.cancel();
         expect(ticket.isStale()).toBe(true);
-        // Повторная отмена без текущего запроса безвредна.
         latest.cancel();
 
         expect(latest.start().isStale()).toBe(false);

@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { LRUCache } from "./map.ts";
 
-/**
- * Шим `base/common/map`: `LRUCache` — кэш классификаторов слов
- * (`getMapForWordSeparators` в перенесённом `core/wordCharacterClassifier.ts`).
- */
+/** Потребитель — `getMapForWordSeparators` перенесённого `core/wordCharacterClassifier.ts`. */
 
 describe("LRUCache", () => {
     it("отдаёт положенное значение, на неизвестный ключ — undefined", () => {

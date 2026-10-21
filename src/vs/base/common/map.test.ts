@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { SetMap } from "./map.ts";
 
-/**
- * Шим `base/common/map`: `SetMap` — мультимап ключ → множество значений,
- * которым `computeMovedLines` индексирует кандидатов на перемещение.
- */
+/** Потребитель — перенесённый `computeMovedLines`. */
 
 describe("SetMap", () => {
     it("копит несколько значений под одним ключом", () => {

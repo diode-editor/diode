@@ -1,21 +1,13 @@
 /**
- * Вехи старта поверх стандартного `performance.mark` (аналог
- * `vs/base/common/performance.ts` upstream). Метки ставятся по всему пути
- * открытия файла (`main.ts` → workbench → textfile), но **без включения — это
- * no-op**: в обычном запуске ни одна метка не записывается, а стоимость вызова —
- * одна проверка флага. Включает трассу `src/vs/diode/startupTrace.ts` по env
- * `DIODE_STARTUP_TRACE`; он же выгружает метки в файл, который читает бенч
- * `e2e/bench/benchOpen.ts` (лестница вех рядом с чёрным ящиком).
- *
- * Имена — `<область>:<веха>` (`main:config-loaded`, `textfile:read`,
- * `frame`); префикс `diode/` в `performance` отделяет наши метки от чужих.
+ * Вехи старта; без `enablePerformanceMarks()` — no-op ценой одной проверки флага.
+ * Включает `DIODE_STARTUP_TRACE` (`src/vs/diode/startupTrace.ts`). Имена —
+ * `<область>:<веха>`.
  */
 
 const MARK_PREFIX = "diode/";
 
 let enabled = false;
 
-/** Включает запись меток; до вызова {@link mark} ничего не пишет. */
 export function enablePerformanceMarks(): void {
     enabled = true;
 }
@@ -24,11 +16,6 @@ export function isPerformanceMarksEnabled(): boolean {
     return enabled;
 }
 
-/**
- * Ставит веху `name` с текущим временем (`performance.now()`, мс от
- * `performance.timeOrigin` — старта процесса). `detail` — произвольные
- * данные вехи (номер кадра, размер файла), попадают в выгрузку как есть.
- */
 export function mark(name: string, detail?: Readonly<Record<string, unknown>>): void {
     if (!enabled) return;
     // Без detail node кладёт в запись null — getMarks его не отдаёт.
@@ -42,7 +29,6 @@ export interface IPerformanceMark {
     readonly detail?: unknown;
 }
 
-/** Все наши метки в порядке постановки (чужие `performance.mark` отфильтрованы). */
 export function getMarks(): IPerformanceMark[] {
     const result: IPerformanceMark[] = [];
     for (const entry of performance.getEntriesByType("mark")) {
@@ -57,7 +43,6 @@ export function getMarks(): IPerformanceMark[] {
     return result;
 }
 
-/** Сбрасывает наши метки и выключает запись — для тестов. */
 export function resetPerformanceMarks(): void {
     for (const entry of performance.getEntriesByType("mark")) {
         if (entry.name.startsWith(MARK_PREFIX)) performance.clearMarks(entry.name);

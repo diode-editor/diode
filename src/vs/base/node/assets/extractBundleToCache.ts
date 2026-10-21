@@ -3,37 +3,20 @@ import * as path from "node:path";
 
 import { readBundleHeader, validateVirtualPath } from "../../common/assets/assetBundleFormat.ts";
 
-/** Маркер завершённой распаковки. */
 export const READY_MARKER = ".diode-ready";
 
 export interface IExtractBundleOptions {
-    /** Сколько ждать чужую распаковку, мс (по умолчанию 30 с). */
     readonly waitTimeoutMs?: number;
-    /** Шаг опроса чужого `.diode-ready`, мс (по умолчанию 100). */
     readonly pollIntervalMs?: number;
-    /**
-     * Какие файлы бандла сделать исполняемыми (`0o755`) до публикации: бинарь
-     * rg, нативный аддон и `spawn-helper` node-pty. На Windows chmod безвреден.
-     */
     readonly executable?: (virtualPath: string) => boolean;
 }
 
 /**
- * Распаковывает DIODEBND-бандл в каталог кэша идемпотентно и безопасно для
- * конкурентных процессов — схема self-extract-стаба
- * (`scripts/selfextract-stub.sh`), перенесённая в TS:
- *
- *  - готовый каталог (`<target>/.diode-ready`) — мгновенный no-op;
- *  - `mkdir <target>.lock` — атомарный мьютекс: владелец распаковывает во
- *    временный каталог рядом, кладёт `.diode-ready` ВНУТРЬ до публикации и
- *    публикует атомарным `rename` — полураспакованное состояние снаружи
- *    ненаблюдаемо;
- *  - проигравший гонку ждёт чужой `.diode-ready` (poll) и падает по таймауту с
- *    подсказкой про stale lock.
- *
- * Инвалидация — ответственность вызывающего: `targetDir` должен включать
- * версионированный ключ (`<version>-<sha256(bundle)>`, см. `packagedAssetCacheDir`) —
- * новая сборка получает новый каталог, а не перезапись живого.
+ * Безопасно для конкурентных процессов — схема `scripts/selfextract-stub.sh`:
+ * `mkdir <target>.lock` — атомарный мьютекс, `.diode-ready` кладётся внутрь до
+ * публикации атомарным `rename`, так что полураспакованное снаружи не видно.
+ * Инвалидации нет: `targetDir` обязан нести версионированный ключ
+ * (`packagedAssetCacheDir`) — новая сборка получает новый каталог.
  */
 export async function extractBundleToCache(
     bundle: Uint8Array,
@@ -48,12 +31,6 @@ export async function extractBundleToCache(
     for (const delayMs of waitForPeer(targetDir, options)) await sleep(delayMs);
 }
 
-/**
- * Синхронный вариант {@link extractBundleToCache} — для загрузчиков, которых
- * зовут из синхронного кода (спавн rg в `search()`, PTY в конструкторе сессии).
- * Ожидание чужой распаковки блокирует поток (`Atomics.wait`), как и сам
- * синхронный вызов.
- */
 export function extractBundleToCacheSync(
     bundle: Uint8Array,
     targetDir: string,
@@ -71,7 +48,6 @@ function isReady(targetDir: string): boolean {
     return existsSync(path.join(targetDir, READY_MARKER));
 }
 
-/** `true` — лок наш, распаковываем; `false` — распаковывает другой процесс. */
 function tryLock(targetDir: string): boolean {
     mkdirSync(path.dirname(targetDir), { recursive: true });
     try {
@@ -83,11 +59,7 @@ function tryLock(targetDir: string): boolean {
     }
 }
 
-/**
- * Шаги ожидания чужого `.diode-ready`: отдаёт задержку до следующей проверки,
- * пока маркера нет; по таймауту бросает с подсказкой про stale lock. Общий для
- * async- и sync-вариантов — различается только способ подождать шаг.
- */
+/** Общий для async- и sync-вариантов: отдаёт задержку, а ждёт её вызывающий. */
 function* waitForPeer(targetDir: string, options: IExtractBundleOptions): Generator<number, void> {
     const readyPath = path.join(targetDir, READY_MARKER);
     const deadline = Date.now() + (options.waitTimeoutMs ?? 30_000);
@@ -115,8 +87,7 @@ function unpackOwned(bundle: Uint8Array, targetDir: string, options: IExtractBun
             if (options.executable?.(virtualPath) === true) chmodSync(dest, 0o755);
         }
         writeFileSync(path.join(tmpDir, READY_MARKER), "");
-        // Под локом: цель rename не должна существовать (незавершённый мусор
-        // прошлых падений), rename на несуществующий путь атомарен.
+        // Мусор прошлых падений: rename атомарен только на несуществующий путь.
         rmSync(targetDir, { recursive: true, force: true });
         renameSync(tmpDir, targetDir);
     } finally {

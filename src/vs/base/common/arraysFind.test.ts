@@ -8,11 +8,7 @@ import {
     MonotonousArray,
 } from "./arraysFind.ts";
 
-/**
- * Шим `base/common/arraysFind` — бинарные поиски по монотонному предикату,
- * на которых стоит `LinesSliceCharSequence` и `computeMovedLines`.
- * Предикат монотонен: `[true, ..., true, false, ..., false]`.
- */
+/** Предикат монотонен: `[true, ..., true, false, ..., false]`. */
 
 const arr = [1, 2, 3, 4, 5];
 const upTo = (n: number) => (x: number) => x <= n;

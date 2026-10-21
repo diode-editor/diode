@@ -3,7 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/arraysFind.ts
-// Узкое извлечение — см. шапку src/vs/base/common/arrays.ts.
 
 export function findLastMonotonous<T>(array: readonly T[], predicate: (item: T) => boolean): T | undefined {
     const idx = findLastIdxMonotonous(array, predicate);
@@ -62,8 +61,6 @@ export function findFirstIdxMonotonousOrArrLen<T>(
 export class MonotonousArray<T> {
     public static assertInvariants = false;
 
-    // Приватные поля без подчёркиваний — конвенция diode (AGENTS.md); в upstream
-    // они `_findLastMonotonousLastIdx`/`_prevFindLastPredicate`/`_array`.
     private findLastMonotonousLastIdx = 0;
     private prevFindLastPredicate: ((item: T) => boolean) | undefined;
 

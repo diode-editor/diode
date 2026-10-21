@@ -1,19 +1,7 @@
 /**
- * Бинарный формат бандла ассетов для SEA-сборки.
- *
- * Layout:
- * ```
- *   [magic 8B "DIODEBND"]
- *   [headerLength uint32 LE]
- *   [header JSON UTF-8]
- *   [data ...]
- * ```
- *
- * Header — `IBundleHeader`. `offset` отсчитывается от начала data-секции
- * (т.е. data-секция = байты после заголовка).
- *
- * Формат намеренно тривиальный: zero deps, легко продублировать в
- * build-скрипте на mjs (см. `scripts/pack-assets.mjs`).
+ * `[magic 8B "DIODEBND"][headerLength uint32 LE][header JSON][data…]`,
+ * `offset` — от начала data. Формат продублирован в `scripts/pack-assets.mjs` —
+ * менять оба.
  */
 
 const MAGIC = new Uint8Array([0x44, 0x49, 0x4f, 0x44, 0x45, 0x42, 0x4e, 0x44]); // "DIODEBND"
@@ -70,7 +58,6 @@ export function packBundle(inputs: readonly IPackInput[]): Uint8Array {
 
 export interface IUnpackedBundle {
     readonly header: IBundleHeader;
-    /** Срез исходного буфера, представляющий data-секцию. */
     readonly dataView: Uint8Array;
 }
 
@@ -111,10 +98,7 @@ export function validateVirtualPath(virtualPath: string): void {
     }
 }
 
-/**
- * POSIX-join для виртуальных путей. Не поддерживает `..`, не нормализует
- * `.`, просто склеивает с одним `/` между частями.
- */
+/** Без нормализации: `..` не поддержан, снимается только ведущий `./`. */
 export function joinVirtualPath(prefix: string, relative: string): string {
     if (prefix.length === 0) return relative.replace(/^\.\//, "");
     const cleanPrefix = prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;

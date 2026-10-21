@@ -2,11 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { onUnexpectedError, setUnexpectedErrorHandler } from "./errors.ts";
 
-/**
- * Шим `base/common/errors`: обработчик непредвиденных ошибок. Дефолт у нас —
- * запись в консоль (upstream перебрасывает через setTimeout и роняет процесс);
- * обоснование отклонения — в шапке errors.ts.
- */
+/** Отклонение от upstream: дефолт пишет в консоль, а не роняет процесс (шапка errors.ts). */
 
 afterEach(() => {
     setUnexpectedErrorHandler((e) => {

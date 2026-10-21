@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 
 import { GuardedChildProcess, type IChildProcessEnd, splitLines } from "./childProcessGuard.ts";
 
-/** Логгер, который помнит строки предупреждений. */
 function recordingLogger(): { warn(message: string): void; lines: string[] } {
     const lines: string[] = [];
     return {

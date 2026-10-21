@@ -14,10 +14,7 @@ import {
     UTF8_BOM_CHARACTER,
 } from "./strings.ts";
 
-/**
- * Шим `base/common/strings`: символы, которые зовёт перенесённый PieceTree
- * (`model/pieceTreeTextBuffer/*`) и `Searcher` из `model/textModelSearch.ts`.
- */
+/** Потребители — перенесённые `model/pieceTreeTextBuffer/*` и `model/textModelSearch.ts`. */
 
 describe("firstNonWhitespaceIndex", () => {
     it("пропускает пробелы и табы", () => {
