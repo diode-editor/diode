@@ -32,7 +32,7 @@ describe("ConfigurationModel", () => {
             expect(m.get<boolean>("editor.insertSpaces")).toBe(false);
         });
 
-        it("не разворачивает точки внутри значения — ключ map'а это данные", () => {
+        it("does not expand dots inside a value — a map key is data", () => {
             // Regression: recursive normalization broke map settings whose
             // key is data itself (a `files.watcherExclude` glob, `*.ext`
             // `files.associations`).

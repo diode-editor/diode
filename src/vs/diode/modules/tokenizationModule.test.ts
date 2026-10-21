@@ -23,7 +23,7 @@ import { tokenizationModule } from "./tokenizationModule.ts";
 
 /** A swapped argument yields a working container and an editor without highlighting or brackets. */
 describe("tokenizationModule", () => {
-    it("отдаёт по токенам инстансы владельца приложения, а не дефолты профиля", () => {
+    it("tokens resolve to the app owner's instances, not profile defaults", () => {
         const { container } = createTestContainer();
         const tokenizationRegistry = new TokenizationRegistry();
         // Language configuration is the only instance distinguishable by reference from the test
@@ -43,7 +43,7 @@ describe("tokenizationModule", () => {
         expect(container.get(LanguageConfigurationServiceDIToken)).toBe(languageConfigurationService);
     });
 
-    it("резолвер семантических стилей: от владельца, без него — NULL", () => {
+    it("semantic style resolver: from the owner, NULL without one", () => {
         expect(createTestContainer().container.get(SemanticTokenStyleResolverDIToken)).toBe(
             NULL_SEMANTIC_TOKEN_STYLE_RESOLVER,
         );
@@ -60,7 +60,7 @@ describe("tokenizationModule", () => {
         expect(container.get(SemanticTokenStyleResolverDIToken)).toBe(semanticTokenStyleResolver);
     });
 
-    it("реестры языковых провайдеров — один инстанс на контейнер, стартуют пустыми", () => {
+    it("language provider registries — one instance per container, start empty", () => {
         const { container } = createTestContainer();
         const service = container.get(LanguageFeaturesServiceDIToken);
 

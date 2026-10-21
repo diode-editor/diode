@@ -43,7 +43,7 @@ function save(file: string, content: string): Promise<void> {
  * Real chokidar on a real disk: the bug lived in its process-wide per-path
  * `fs.watch`, which a fake `createWatcher` doesn't see.
  */
-describe("ChokidarFileWatcher — атомарное сохранение, настоящий chokidar", () => {
+describe("ChokidarFileWatcher — atomic save, real chokidar", () => {
     let ws: ITempWorkspace;
     const handles: IDisposable[] = [];
 
@@ -66,7 +66,7 @@ describe("ChokidarFileWatcher — атомарное сохранение, на�
         return { calls: () => calls };
     }
 
-    it("два наблюдателя одного файла (модель документа и слой настроек) видят каждое сохранение", async () => {
+    it("two watchers of one file (document model and settings layer) see every save", async () => {
         // `.diode/settings.json` open in the editor: both the document model and the
         // configuration service watch it, each with its own watcher instance.
         const file = ws.writeFile(".diode/settings.json", "{}");
@@ -82,7 +82,7 @@ describe("ChokidarFileWatcher — атомарное сохранение, на�
         }
     }, 30000);
 
-    it("файл, созданный после подписки: и после создания видны сохранения обоим", async () => {
+    it("a file created after subscribing: both see saves after creation too", async () => {
         const file = path.join(ws.dir, ".diode", "settings.json");
         const settings = watch(file);
         // A directory created before chokidar is ready produces no event, so delete and

@@ -12,13 +12,13 @@ afterEach(() => {
 });
 
 describe("assert", () => {
-    it("на истинном условии молчит", () => {
+    it("stays silent on a true condition", () => {
         expect(() => {
             assert(true);
         }).not.toThrow();
     });
 
-    it("на ложном бросает BugIndicatingError с сообщением по умолчанию", () => {
+    it("throws BugIndicatingError with the default message on a false condition", () => {
         expect(() => {
             assert(false);
         }).toThrow(/Assertion Failed: unexpected state/);
@@ -27,14 +27,14 @@ describe("assert", () => {
         }).toThrow(BugIndicatingError);
     });
 
-    it("подставляет переданное сообщение", () => {
+    it("uses the passed message", () => {
         expect(() => {
-            assert(false, "всё плохо");
-        }).toThrow(/Assertion Failed: всё плохо/);
+            assert(false, "all bad");
+        }).toThrow(/Assertion Failed: all bad/);
     });
 
-    it("пробрасывает переданный экземпляр ошибки как есть", () => {
-        const error = new Error("свой");
+    it("rethrows the passed error instance as is", () => {
+        const error = new Error("custom");
         expect(() => {
             assert(false, error);
         }).toThrow(error);
@@ -42,14 +42,14 @@ describe("assert", () => {
 });
 
 describe("assertFn", () => {
-    it("на истинном условии не зовёт обработчик", () => {
+    it("does not call the handler on a true condition", () => {
         const handler = vi.fn();
         setUnexpectedErrorHandler(handler);
         assertFn(() => true);
         expect(handler).not.toHaveBeenCalled();
     });
 
-    it("на ложном уходит в обработчик, а не бросает", () => {
+    it("goes to the handler instead of throwing on a false condition", () => {
         const handler = vi.fn();
         setUnexpectedErrorHandler(handler);
         expect(() => {
@@ -59,7 +59,7 @@ describe("assertFn", () => {
         expect(handler.mock.calls[0][0]).toBeInstanceOf(BugIndicatingError);
     });
 
-    it("тест может сделать поведение строгим — так работает фикстурный корпус", () => {
+    it("a test can make the behavior strict — that is how the fixture corpus works", () => {
         setUnexpectedErrorHandler((e) => {
             throw e instanceof Error ? e : new Error(String(e));
         });
@@ -70,28 +70,28 @@ describe("assertFn", () => {
 });
 
 describe("checkAdjacentItems", () => {
-    it("пустой массив и массив из одного элемента проходят", () => {
+    it("an empty array and a single-element array pass", () => {
         expect(checkAdjacentItems([], () => false)).toBe(true);
         expect(checkAdjacentItems([1], () => false)).toBe(true);
     });
 
-    it("истинно, когда предикат держится на всех парах", () => {
+    it("is true when the predicate holds for all pairs", () => {
         expect(checkAdjacentItems([1, 2, 3], (a, b) => a < b)).toBe(true);
     });
 
-    it("ложно, когда предикат ломается хоть на одной паре", () => {
+    it("is false when the predicate fails for any pair", () => {
         expect(checkAdjacentItems([1, 3, 2], (a, b) => a < b)).toBe(false);
     });
 });
 
 describe("BugIndicatingError", () => {
-    it("instanceof работает после setPrototypeOf", () => {
+    it("instanceof works after setPrototypeOf", () => {
         expect(new BugIndicatingError("x")).toBeInstanceOf(BugIndicatingError);
         expect(new BugIndicatingError("x")).toBeInstanceOf(Error);
     });
 
-    it("без сообщения подставляет дефолтное", () => {
+    it("uses the default message when none is given", () => {
         expect(new BugIndicatingError().message).toBe("An unexpected bug occurred.");
-        expect(new BugIndicatingError("своё").message).toBe("своё");
+        expect(new BugIndicatingError("custom").message).toBe("custom");
     });
 });

@@ -12,7 +12,7 @@ describe("RunOnceScheduler", () => {
         vi.useRealTimers();
     });
 
-    it("запускает функцию один раз через задержку после последнего schedule", () => {
+    it("runs the function once, the delay after the last schedule", () => {
         const runner = vi.fn();
         const scheduler = new RunOnceScheduler(runner, 100);
 
@@ -29,7 +29,7 @@ describe("RunOnceScheduler", () => {
         expect(runner).toHaveBeenCalledOnce();
     });
 
-    it("schedule(delay) берёт свою задержку вместо заданной в конструкторе", () => {
+    it("schedule(delay) uses its own delay instead of the constructor one", () => {
         const runner = vi.fn();
         const scheduler = new RunOnceScheduler(runner, 100);
 
@@ -39,7 +39,7 @@ describe("RunOnceScheduler", () => {
         expect(runner).toHaveBeenCalledOnce();
     });
 
-    it("isScheduled горит от schedule до запуска или отмены", () => {
+    it("isScheduled is set from schedule until the run or cancellation", () => {
         const scheduler = new RunOnceScheduler(() => {
             expect(scheduler.isScheduled()).toBe(false); // already cleared when it runs
         }, 10);
@@ -55,7 +55,7 @@ describe("RunOnceScheduler", () => {
         expect(scheduler.isScheduled()).toBe(false);
     });
 
-    it("cancel снимает запуск; повторный и холостой cancel безвредны", () => {
+    it("cancel drops the run; a repeated or idle cancel is harmless", () => {
         const runner = vi.fn();
         const scheduler = new RunOnceScheduler(runner, 10);
         scheduler.cancel();
@@ -68,7 +68,7 @@ describe("RunOnceScheduler", () => {
         expect(runner).not.toHaveBeenCalled();
     });
 
-    it("после dispose функция не выполняется — ни запланированная, ни новая", () => {
+    it("after dispose the function never runs — neither scheduled nor new", () => {
         const runner = vi.fn();
         const scheduler = new RunOnceScheduler(runner, 10);
 
@@ -92,7 +92,7 @@ describe("runWhenGlobalIdle", () => {
         vi.useRealTimers();
     });
 
-    it("зовёт колбэк макрозадачей с бюджетом в один кадр (15 мс), который тает со временем", () => {
+    it("calls the callback in a macrotask with a one-frame budget (15 ms) that shrinks over time", () => {
         const remaining: number[] = [];
         runWhenGlobalIdle((idle) => {
             expect(idle.didTimeout).toBe(true);
@@ -108,7 +108,7 @@ describe("runWhenGlobalIdle", () => {
         expect(remaining).toEqual([15, 5, 0]);
     });
 
-    it("dispose до запуска — колбэк не зовётся", () => {
+    it("dispose before the run — the callback is not called", () => {
         const callback = vi.fn();
         runWhenGlobalIdle(callback).dispose();
         vi.runAllTimers();
@@ -117,7 +117,7 @@ describe("runWhenGlobalIdle", () => {
 });
 
 describe("setTimeout0", () => {
-    it("исключение колбэка уходит в onUnexpectedError, а не роняет процесс", async () => {
+    it("a callback exception goes to onUnexpectedError instead of crashing the process", async () => {
         const errors: unknown[] = [];
         setUnexpectedErrorHandler((e) => errors.push(e));
         try {
@@ -134,7 +134,7 @@ describe("setTimeout0", () => {
         }
     });
 
-    it("ставит колбэк в очередь setImmediate — после текущей задачи и её микрозадач", async () => {
+    it("queues the callback with setImmediate — after the current task and its microtasks", async () => {
         const order: string[] = [];
         setTimeout0(() => order.push("macrotask"));
         queueMicrotask(() => order.push("microtask"));

@@ -28,7 +28,7 @@ describe("scanBuiltinExtensions", () => {
         await fs.promises.writeFile(path.join(dir, "package.json"), JSON.stringify(manifest));
     }
 
-    it("читает валидный манифест и формирует id из publisher.name", async () => {
+    it("reads a valid manifest and builds the id from publisher.name", async () => {
         await writeManifest("ts-basics", {
             name: "typescript",
             publisher: "vscode",
@@ -43,13 +43,13 @@ describe("scanBuiltinExtensions", () => {
         expect(result[0].isBuiltin).toBe(true);
     });
 
-    it("пропускает каталоги без package.json", async () => {
+    it("skips directories without package.json", async () => {
         await fs.promises.mkdir(path.join(tempDir, "empty"));
         const result = await scanBuiltinExtensions(assets, ROOT_PREFIX);
         expect(result).toEqual([]);
     });
 
-    it("пропускает манифест с невалидным JSON", async () => {
+    it("skips a manifest with invalid JSON", async () => {
         const dir = path.join(tempDir, "broken");
         await fs.promises.mkdir(dir);
         await fs.promises.writeFile(path.join(dir, "package.json"), "{not json");
@@ -62,19 +62,19 @@ describe("scanBuiltinExtensions", () => {
         ["name", { publisher: "p", version: "1.0.0" }],
         ["publisher", { name: "n", version: "1.0.0" }],
         ["version", { name: "n", publisher: "p" }],
-    ])("пропускает манифест без поля %s", async (_field, manifest) => {
+    ])("skips a manifest without the %s field", async (_field, manifest) => {
         await writeManifest("ext", manifest);
         const result = await scanBuiltinExtensions(assets, ROOT_PREFIX);
         expect(result).toEqual([]);
     });
 
-    it("возвращает пустой массив, если корневого каталога нет", async () => {
+    it("returns an empty array when the root directory is missing", async () => {
         const missingAssets = new FsAssetAccess({ [ROOT_PREFIX]: path.join(tempDir, "missing") });
         const result = await scanBuiltinExtensions(missingAssets, ROOT_PREFIX);
         expect(result).toEqual([]);
     });
 
-    it("сохраняет полный манифест без изменений", async () => {
+    it("keeps the full manifest unchanged", async () => {
         const manifest = {
             name: "css",
             publisher: "vscode",
@@ -88,11 +88,11 @@ describe("scanBuiltinExtensions", () => {
         expect(ext.manifest).toEqual(manifest);
     });
 
-    it("rootPrefix без trailing / — ошибка", async () => {
+    it("rootPrefix without a trailing / throws", async () => {
         await expect(scanBuiltinExtensions(assets, "Extensions/builtin")).rejects.toThrow();
     });
 
-    it("пропускает записи верхнего уровня, не являющиеся каталогами", async () => {
+    it("skips top-level entries that are not directories", async () => {
         // A loose file right under rootPrefix is not an extension directory (entry.isDirectory === false).
         await fs.promises.writeFile(path.join(tempDir, "stray.txt"), "noise");
         await writeManifest("real-ext", { name: "n", publisher: "p", version: "1.0.0" });

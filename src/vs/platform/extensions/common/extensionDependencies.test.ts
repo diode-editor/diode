@@ -9,13 +9,13 @@ import {
 } from "./extensionDependencies.ts";
 
 describe("readExtensionDependencies", () => {
-    it("отдаёт id как объявлены, без дублей по ключу без учёта регистра", () => {
+    it("returns ids as declared, deduplicated case-insensitively", () => {
         expect(
             readExtensionDependencies({ extensionDependencies: ["Redhat.Java", "a.b", "redhat.java", "A.B"] }),
         ).toEqual(["Redhat.Java", "a.b"]);
     });
 
-    it("мусор манифеста — не зависимость", () => {
+    it("manifest garbage is not a dependency", () => {
         expect(readExtensionDependencies({})).toEqual([]);
         expect(readExtensionDependencies({ extensionDependencies: "redhat.java" })).toEqual([]);
         expect(readExtensionDependencies({ extensionDependencies: [42, "", null, "a.b"] })).toEqual(["a.b"]);
@@ -23,7 +23,7 @@ describe("readExtensionDependencies", () => {
 });
 
 describe("extensionFriendlyName", () => {
-    it("displayName манифеста, а пустой или не строка — id", () => {
+    it("manifest displayName; empty or non-string falls back to the id", () => {
         expect(extensionFriendlyName("a.b", { displayName: "Bazel Java" })).toBe("Bazel Java");
         expect(extensionFriendlyName("a.b", { displayName: "" })).toBe("a.b");
         expect(extensionFriendlyName("a.b", { displayName: 42 })).toBe("a.b");
@@ -32,7 +32,7 @@ describe("extensionFriendlyName", () => {
 });
 
 describe("isBuiltinVSCodeExtension", () => {
-    it("издатель vscode, регистр не важен; остальные — нет", () => {
+    it("publisher vscode, case-insensitive; others are not", () => {
         expect(isBuiltinVSCodeExtension("vscode.git")).toBe(true);
         expect(isBuiltinVSCodeExtension("VSCode.Git")).toBe(true);
         expect(isBuiltinVSCodeExtension("diode.git")).toBe(false);
@@ -41,7 +41,7 @@ describe("isBuiltinVSCodeExtension", () => {
 });
 
 describe("extensionKey", () => {
-    it("регистр id не важен", () => {
+    it("the id is case-insensitive", () => {
         expect(extensionKey("Redhat.Java")).toBe("redhat.java");
     });
 });
@@ -49,32 +49,32 @@ describe("extensionKey", () => {
 describe("findDependencyLoop", () => {
     const graph = (edges: Record<string, readonly string[]>) => (key: string) => edges[key];
 
-    it("нет зависимостей — нет цикла", () => {
+    it("no dependencies, no loop", () => {
         expect(findDependencyLoop("a", graph({ a: [] }))).toBeNull();
         expect(findDependencyLoop("a", graph({}))).toBeNull();
     });
 
-    it("цепочка без возврата — не цикл (ромб тоже)", () => {
+    it("a chain without a way back is not a loop (a diamond neither)", () => {
         expect(findDependencyLoop("a", graph({ a: ["b", "c"], b: ["d"], c: ["d"], d: [] }))).toBeNull();
     });
 
-    it("цикл через стартовое — цепочкой от него к нему, с регистром как объявлено", () => {
+    it("a loop through the start extension is reported as a chain from it back to it, case as declared", () => {
         expect(findDependencyLoop("A", graph({ a: ["B"], b: ["c"], c: ["a"] }))).toEqual(["A", "B", "c", "a"]);
     });
 
-    it("цикл через вторую зависимость находится, хоть первая и чиста", () => {
+    it("a loop through the second dependency is found even if the first is clean", () => {
         expect(findDependencyLoop("a", graph({ a: ["b", "c"], b: [], c: ["a"] }))).toEqual(["a", "c", "a"]);
     });
 
-    it("самозависимость — цикл", () => {
+    it("a self-dependency is a loop", () => {
         expect(findDependencyLoop("a", graph({ a: ["a"] }))).toEqual(["a", "a"]);
     });
 
-    it("чужой цикл, в который стартовое не входит, не мешает и не зацикливает обход", () => {
+    it("a foreign loop without the start extension neither interferes nor makes the walk loop forever", () => {
         expect(findDependencyLoop("a", graph({ a: ["b"], b: ["c"], c: ["b"] }))).toBeNull();
     });
 
-    it("неизвестное по пути цикл не продолжает", () => {
+    it("an unknown extension on the path does not continue the loop", () => {
         expect(findDependencyLoop("a", graph({ a: ["x"] }))).toBeNull();
     });
 });

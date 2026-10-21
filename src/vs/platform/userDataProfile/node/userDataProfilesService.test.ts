@@ -48,7 +48,7 @@ describe("UserDataProfilesService", () => {
         return svc;
     }
 
-    it("без записей — один Default с файлами прямо в User/", () => {
+    it("with no entries there is one Default with files directly in User/", () => {
         const svc = service();
         expect(svc.profiles.map((p) => p.name)).toEqual(["Default"]);
         expect(svc.defaultProfile.isDefault).toBe(true);
@@ -57,7 +57,7 @@ describe("UserDataProfilesService", () => {
         expect(svc.defaultProfile.extensionsResource).toBe(path.join(userDir, "extensions.json"));
     });
 
-    it("состав расширений Default — по переданному пути (каталог расширений), и в списке профилей тоже", () => {
+    it("Default's extensions come from the given path (the extensions directory), in the profile list too", () => {
         const extensionsResource = path.join(ws.dir, "extensions", "extensions.json");
         const svc = new UserDataProfilesService({
             profilesHome,
@@ -71,7 +71,7 @@ describe("UserDataProfilesService", () => {
     });
 
     describe("createNamedProfile", () => {
-        it("создаёт каталог, пишет запись с location относительно profilesHome и шлёт событие", async () => {
+        it("creates the directory, writes an entry with location relative to profilesHome and fires an event", async () => {
             const svc = service();
             const work = await svc.createNamedProfile(" Work ");
             expect(work).toMatchObject({ id: "Work", name: "Work", isDefault: false });
@@ -85,7 +85,7 @@ describe("UserDataProfilesService", () => {
             expect(events).toEqual([{ added: [work], removed: [], updated: [], all: svc.profiles }]);
         });
 
-        it("имя с пробелами — slug в каталоге, имя как есть; коллизия slug'а — суффикс", async () => {
+        it("a name with spaces: slug for the directory, name as is; a slug collision gets a suffix", async () => {
             const svc = service();
             const a = await svc.createNamedProfile("my work");
             const b = await svc.createNamedProfile("my-work");
@@ -95,7 +95,7 @@ describe("UserDataProfilesService", () => {
             expect(svc.profiles.map((p) => p.name)).toEqual(["Default", "my work", "my-work"]);
         });
 
-        it("отказы: пустое имя, занятое имя (включая Default)", async () => {
+        it("rejects: empty name, taken name (including Default)", async () => {
             const svc = service();
             await svc.createNamedProfile("work");
             await expect(svc.createNamedProfile("  ")).rejects.toThrow(/mandatory/);
@@ -104,14 +104,14 @@ describe("UserDataProfilesService", () => {
             expect(svc.profiles).toHaveLength(2);
         });
 
-        it("с воркспейсом — сразу привязывает его", async () => {
+        it("with a workspace, binds it right away", async () => {
             const svc = service();
             const work = await svc.createNamedProfile("work", "/p/app");
             expect(svc.getProfileForWorkspace("/p/app")).toEqual(work);
             expect(state.get(PROFILE_ASSOCIATIONS_STATE)).toEqual({ workspaces: { "/p/app": "work" } });
         });
 
-        it("реестр переживает перезапуск: новый сервис над тем же стором видит профиль", async () => {
+        it("the registry survives a restart: a new service over the same store sees the profile", async () => {
             await service().createNamedProfile("work");
             const reopened = new UserDataProfilesService({ profilesHome, defaultProfileHome: userDir, state });
             expect(reopened.profiles.map((p) => p.name)).toEqual(["Default", "work"]);
@@ -120,7 +120,7 @@ describe("UserDataProfilesService", () => {
     });
 
     describe("updateProfile", () => {
-        it("переименовывает, не трогая id и каталог", async () => {
+        it("renames without touching the id and directory", async () => {
             const svc = service();
             const work = await svc.createNamedProfile("work");
             const renamed = await svc.updateProfile(work, { name: "Work 2" });
@@ -130,7 +130,7 @@ describe("UserDataProfilesService", () => {
             expect((await svc.updateProfile(renamed, {})).name).toBe("Work 2");
         });
 
-        it("переименование в то же имя — не коллизия; соседи не меняются", async () => {
+        it("renaming to the same name is not a collision; siblings do not change", async () => {
             const svc = service();
             const work = await svc.createNamedProfile("work");
             await svc.createNamedProfile("home");
@@ -143,7 +143,7 @@ describe("UserDataProfilesService", () => {
             ]);
         });
 
-        it("отказы: Default, неизвестный профиль, занятое или пустое имя", async () => {
+        it("rejects: Default, unknown profile, taken or empty name", async () => {
             const svc = service();
             const work = await svc.createNamedProfile("work");
             await svc.createNamedProfile("home");
@@ -157,7 +157,7 @@ describe("UserDataProfilesService", () => {
     });
 
     describe("removeProfile", () => {
-        it("снимает запись, привязки на него и каталог; остальные привязки целы", async () => {
+        it("removes the entry, its bindings and its directory; other bindings stay intact", async () => {
             const svc = service();
             const work = await svc.createNamedProfile("work", "/p/app");
             const home = await svc.createNamedProfile("home", "/p/other");
@@ -170,7 +170,7 @@ describe("UserDataProfilesService", () => {
             expect(events.at(-1)).toEqual({ added: [], removed: [work], updated: [], all: svc.profiles });
         });
 
-        it("последний профиль снят — ключи реестра и привязок уходят из файла", async () => {
+        it("once the last profile is removed, the registry and binding keys leave the file", async () => {
             const svc = service();
             const work = await svc.createNamedProfile("work", "/p/app");
             await svc.removeProfile(work);
@@ -182,7 +182,7 @@ describe("UserDataProfilesService", () => {
             );
         });
 
-        it("каталог уже снесён руками — удаление проходит без ошибки в логе", async () => {
+        it("a directory already deleted by hand: removal succeeds without logging an error", async () => {
             const svc = service();
             const work = await svc.createNamedProfile("work");
             fs.rmSync(work.location, { recursive: true });
@@ -191,14 +191,14 @@ describe("UserDataProfilesService", () => {
             expect(logger.error).not.toHaveBeenCalled();
         });
 
-        it("отказы: Default и неизвестный профиль", async () => {
+        it("rejects: Default and unknown profile", async () => {
             const svc = service();
             const work = await svc.createNamedProfile("work");
             await expect(svc.removeProfile(svc.defaultProfile)).rejects.toThrow(/default/);
             await expect(svc.removeProfile({ ...work, id: "ghost" })).rejects.toThrow(/does not exist/);
         });
 
-        it("имя `..` не уводит каталог из profiles/, и удаление не трогает User/", async () => {
+        it("the name `..` does not move the directory out of profiles/, and removal leaves User/ alone", async () => {
             const svc = service();
             fs.mkdirSync(userDir, { recursive: true });
             fs.writeFileSync(path.join(userDir, "settings.json"), "{}");
@@ -208,7 +208,7 @@ describe("UserDataProfilesService", () => {
             expect(fs.existsSync(path.join(userDir, "settings.json"))).toBe(true);
         });
 
-        it("каталог вне profiles/ (абсолютный location из рук) — запись снимается, каталог остаётся", async () => {
+        it("a directory outside profiles/ (a hand-written absolute location): the entry is removed, the directory stays", async () => {
             const abs = path.join(ws.dir, "elsewhere", "old");
             fs.mkdirSync(abs, { recursive: true });
             state.store(USER_DATA_PROFILES_STATE, [{ name: "old", location: abs }]);
@@ -220,7 +220,7 @@ describe("UserDataProfilesService", () => {
             expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining(abs));
         });
 
-        it("каталог не удалился — ошибка в лог, профиль всё равно снят", async () => {
+        it("the directory fails to delete: the error is logged, the profile is removed anyway", async () => {
             const svc = service();
             const work = await svc.createNamedProfile("work");
             const rm = vi.spyOn(fs.promises, "rm").mockRejectedValueOnce(new Error("EBUSY"));
@@ -232,7 +232,7 @@ describe("UserDataProfilesService", () => {
     });
 
     describe("setProfileForWorkspace / getProfileForWorkspace", () => {
-        it("пишет путь → id; переназначение перезаписывает; Default снимает запись", async () => {
+        it("writes path to id; reassigning overwrites; Default removes the entry", async () => {
             const svc = service();
             const work = await svc.createNamedProfile("work");
             const home = await svc.createNamedProfile("home");
@@ -248,7 +248,7 @@ describe("UserDataProfilesService", () => {
             expect(state.get(PROFILE_ASSOCIATIONS_STATE)).toEqual({ workspaces: { "/p/web.code-workspace": "home" } });
         });
 
-        it("неизвестный профиль — отказ; привязка на несуществующий id читается как отсутствие", async () => {
+        it("an unknown profile is rejected; a binding to a missing id reads as absent", async () => {
             const svc = service();
             const work = await svc.createNamedProfile("work");
             await expect(svc.setProfileForWorkspace("/p/app", { ...work, id: "ghost" })).rejects.toThrow(
@@ -259,8 +259,8 @@ describe("UserDataProfilesService", () => {
         });
     });
 
-    describe("загрузка реестра", () => {
-        it("битые записи пропускаются с warn, абсолютный location берётся как есть", () => {
+    describe("registry loading", () => {
+        it("broken entries are skipped with a warn, an absolute location is taken as is", () => {
             const abs = path.join(ws.dir, "elsewhere", "old");
             const stored: unknown[] = [
                 { name: "work", location: "work" },
@@ -292,7 +292,7 @@ describe("UserDataProfilesService", () => {
     });
 
     describe("migrateProfileDirectories", () => {
-        it("регистрирует каталоги без записи именем каталога, уже известные не трогает", async () => {
+        it("registers directories without an entry under the directory name, leaves known ones alone", async () => {
             const svc = service();
             await svc.createNamedProfile("known");
             fs.mkdirSync(path.join(profilesHome, "legacy"), { recursive: true });
@@ -312,7 +312,7 @@ describe("UserDataProfilesService", () => {
             expect(logger.info).toHaveBeenCalledTimes(1);
         });
 
-        it("нет profilesHome — пусто без ошибок; каталог с недопустимым именем пропускается с warn", () => {
+        it("no profilesHome: empty without errors; a directory with an invalid name is skipped with a warn", () => {
             const svc = service();
             expect(svc.migrateProfileDirectories()).toEqual([]);
             expect(logger.error).not.toHaveBeenCalled();
@@ -323,7 +323,7 @@ describe("UserDataProfilesService", () => {
             expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining("default"));
         });
 
-        it("каталог, чьё имя уже занято профилем с другим каталогом, получает отличимое имя", async () => {
+        it("a directory whose name is taken by a profile with another directory gets a distinct name", async () => {
             const svc = service();
             // Profile `work` is renamed to `Work` and lives in `work/`; directory
             // `Work/` was created by hand, and the names must not clash.
@@ -334,7 +334,7 @@ describe("UserDataProfilesService", () => {
             expect(added.map((p) => [p.id, p.name])).toEqual([["Work", "Work (Work)"]]);
         });
 
-        it("readdir упал не по ENOENT — ошибка в лог, пусто", () => {
+        it("readdir failing with something other than ENOENT logs an error and returns empty", () => {
             const svc = service();
             fs.mkdirSync(userDir, { recursive: true });
             fs.writeFileSync(profilesHome, "not a dir");

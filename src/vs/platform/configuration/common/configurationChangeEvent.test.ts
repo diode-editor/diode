@@ -42,11 +42,11 @@ describe("createConfigurationChangeEvent", () => {
         expect(event.affectsConfiguration("editorX")).toBe(false); // prefix but not a segment boundary
     });
 
-    it("без языков — пустой список overrideIdentifiers", () => {
+    it("no languages — empty overrideIdentifiers", () => {
         expect(createConfigurationChangeEvent(["editor.tabSize"]).overrideIdentifiers).toEqual([]);
     });
 
-    it("affectsConfiguration — достаточно одного совпавшего ключа из нескольких", () => {
+    it("affectsConfiguration — one matching key out of several is enough", () => {
         const event = createConfigurationChangeEvent(["editor.tabSize", "files.exclude"]);
         expect(event.affectsConfiguration("files.exclude")).toBe(true);
         expect(event.affectsConfiguration("search.exclude")).toBe(false);
@@ -54,7 +54,7 @@ describe("createConfigurationChangeEvent", () => {
 });
 
 describe("diffOverrideIdentifiers", () => {
-    it("только языки, чья секция поменялась; появившаяся и исчезнувшая — тоже", () => {
+    it("only languages whose section changed, including added and removed ones", () => {
         const prev = ConfigurationModel.fromRaw({
             "[go]": { "editor.tabSize": 4 },
             "[python]": { "editor.tabSize": 2 },

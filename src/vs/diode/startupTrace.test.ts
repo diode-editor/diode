@@ -37,7 +37,7 @@ describe("startupTracePath / setupStartupTrace", () => {
         resetInstantiationTrace();
     });
 
-    it("без env трасса выключена, метки и трасса созданий не включаются", () => {
+    it("without env the trace is off, marks and the creation trace stay off", () => {
         expect(startupTracePath({})).toBeNull();
         expect(startupTracePath({ [STARTUP_TRACE_ENV]: "" })).toBeNull();
         expect(setupStartupTrace({})).toBeNull();
@@ -45,14 +45,14 @@ describe("startupTracePath / setupStartupTrace", () => {
         expect(getInstantiationTracer()).toBeUndefined();
     });
 
-    it("env с путём включает метки и отдаёт путь; трасса созданий — только по своему флагу", () => {
+    it("env with a path enables marks and returns the path; the creation trace needs its own flag", () => {
         expect(startupTracePath({ [STARTUP_TRACE_ENV]: "/tmp/trace.json" })).toBe("/tmp/trace.json");
         expect(setupStartupTrace({ [STARTUP_TRACE_ENV]: "/tmp/trace.json" })).toBe("/tmp/trace.json");
         expect(isPerformanceMarksEnabled()).toBe(true);
         expect(getInstantiationTracer()).toBeUndefined();
     });
 
-    it("флаг трассы созданий без пути трассы ничего не включает, с путём — включает", () => {
+    it("the creation trace flag enables nothing without a trace path, and enables it with one", () => {
         expect(setupStartupTrace({ [STARTUP_TRACE_INSTANTIATIONS_ENV]: "1" })).toBeNull();
         expect(getInstantiationTracer()).toBeUndefined();
         setupStartupTrace({ [STARTUP_TRACE_ENV]: "/tmp/trace.json", [STARTUP_TRACE_INSTANTIATIONS_ENV]: "0" });
@@ -61,7 +61,7 @@ describe("startupTracePath / setupStartupTrace", () => {
         expect(getInstantiationTracer()).toBeDefined();
     });
 
-    it("имена переменных — контракт с бенчем", () => {
+    it("variable names are a contract with the bench", () => {
         expect(STARTUP_TRACE_ENV).toBe("DIODE_STARTUP_TRACE");
         expect(STARTUP_TRACE_INSTANTIATIONS_ENV).toBe("DIODE_STARTUP_TRACE_INSTANTIATIONS");
     });
@@ -84,7 +84,7 @@ describe("TracingNodeTerminalBackend", () => {
         return { backend, written: () => out };
     }
 
-    it("ставит веху frame с порядковым номером после каждого кадра, ушедшего в терминал", async () => {
+    it("sets a numbered frame mark after each frame written to the terminal", async () => {
         enablePerformanceMarks();
         const { backend, written } = makeBackend();
         const grid = new Grid(new Size(4, 2));
@@ -102,7 +102,7 @@ describe("TracingNodeTerminalBackend", () => {
         expect(marks[0].startTime).toBeLessThanOrEqual(marks[1].startTime);
     });
 
-    it("веха стоит ПОСЛЕ записи кадра: время метки не раньше момента, когда байты ушли", async () => {
+    it("the mark comes AFTER the frame write: its time is no earlier than when the bytes went out", async () => {
         enablePerformanceMarks();
         const stdin = new PassThrough();
         const stdout = new PassThrough();
@@ -124,7 +124,7 @@ describe("TracingNodeTerminalBackend", () => {
         expect(getMarks()[0].startTime).toBeGreaterThanOrEqual(writtenAt);
     });
 
-    it("без включённых меток кадры рисуются, вех нет", () => {
+    it("with marks off frames render, no marks", () => {
         const { backend, written } = makeBackend();
         const grid = new Grid(new Size(2, 1));
         grid.setCell(new Point(0, 0), "x");
@@ -142,7 +142,7 @@ describe("buildStartupTrace / writeStartupTrace", () => {
         rmSync(dir, { recursive: true, force: true });
     });
 
-    it("снимок содержит pid, timeOrigin, nodeTiming и наши метки", () => {
+    it("snapshot holds pid, timeOrigin, nodeTiming and our marks", () => {
         dir = mkdtempSync(join(tmpdir(), "diode-trace-"));
         enablePerformanceMarks();
         mark("main:start");
@@ -159,7 +159,7 @@ describe("buildStartupTrace / writeStartupTrace", () => {
         expect(trace.instantiations).toEqual([]);
     });
 
-    it("под трассой в снимок попадают созданные контейнером сервисы", () => {
+    it("under the trace the snapshot includes services the container created", () => {
         dir = mkdtempSync(join(tmpdir(), "diode-trace-"));
         setupStartupTrace({ [STARTUP_TRACE_ENV]: join(dir, "trace.json"), [STARTUP_TRACE_INSTANTIATIONS_ENV]: "1" });
         const ValueDIToken = token<number>("Value");
@@ -167,7 +167,7 @@ describe("buildStartupTrace / writeStartupTrace", () => {
         expect(buildStartupTrace(true).instantiations.map((e) => e.id)).toEqual(["Value"]);
     });
 
-    it("пишет JSON в файл, complete как передан", () => {
+    it("writes JSON to the file, complete as passed", () => {
         dir = mkdtempSync(join(tmpdir(), "diode-trace-"));
         enablePerformanceMarks();
         mark("workbench:mounted");
@@ -182,7 +182,7 @@ describe("buildStartupTrace / writeStartupTrace", () => {
         expect(parsed.pid).toBe(process.pid);
     });
 
-    it("сбой записи (каталога нет) глотается — редактор не падает", () => {
+    it("write failure (missing directory) is swallowed — the editor does not crash", () => {
         dir = mkdtempSync(join(tmpdir(), "diode-trace-"));
         expect(() => {
             writeStartupTrace(join(dir, "missing", "trace.json"), true);

@@ -16,7 +16,7 @@ describe("createAppTestHarness", () => {
         ws = undefined;
     });
 
-    it("бутит контроллер с воркспейсом, открывает файл и фокусирует редактор", () => {
+    it("boots the controller with a workspace, opens a file and focuses the editor", () => {
         ws = createTempWorkspace({ files: { "alpha.txt": "Alpha content" } });
         h = createAppTestHarness({
             workspaceFolder: ws.dir,
@@ -29,14 +29,14 @@ describe("createAppTestHarness", () => {
         expect(h.commands.has("workbench.action.files.openFile")).toBe(true);
     });
 
-    it("бутит без воркспейса с кастомным размером терминала", () => {
+    it("boots without a workspace with a custom terminal size", () => {
         h = createAppTestHarness({ size: new Size(100, 30) });
 
         expect(h.testApp.backend.getSize()).toEqual(new Size(100, 30));
         expect(tabLabels(h.testApp)).toEqual([]);
     });
 
-    it("даёт доступ к контейнеру для suite-specific сервисов", () => {
+    it("exposes the container for suite-specific services", () => {
         h = createAppTestHarness();
 
         expect(h.container.get).toBeDefined();

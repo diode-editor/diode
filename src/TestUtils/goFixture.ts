@@ -68,7 +68,7 @@ export function findGoBinary(): string | undefined {
 
 export function goToolchainMissing(): string | undefined {
     return findGoBinary() === undefined
-        ? "Go toolchain не найден в PATH — сьюты golang.go пропущены (в CI его ставит actions/setup-go)"
+        ? "Go toolchain not found in PATH — golang.go suites skipped (CI installs it via actions/setup-go)"
         : undefined;
 }
 

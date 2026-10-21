@@ -3,63 +3,63 @@ import { describe, expect, it } from "vitest";
 import { commonPrefixLength, commonSuffixLength, splitLines } from "./strings.ts";
 
 describe("commonPrefixLength", () => {
-    it("считает длину общего начала", () => {
+    it("counts the length of the common prefix", () => {
         expect(commonPrefixLength("hello", "help")).toBe(3);
     });
 
-    it("нет общего начала — 0", () => {
+    it("no common prefix gives 0", () => {
         expect(commonPrefixLength("abc", "xyz")).toBe(0);
     });
 
-    it("одна строка — префикс другой", () => {
+    it("one string is a prefix of the other", () => {
         expect(commonPrefixLength("ab", "abcd")).toBe(2);
     });
 
-    it("пустая строка даёт 0", () => {
+    it("an empty string gives 0", () => {
         expect(commonPrefixLength("", "abc")).toBe(0);
     });
 
-    it("одинаковые строки — вся длина", () => {
+    it("equal strings give the whole length", () => {
         expect(commonPrefixLength("abc", "abc")).toBe(3);
     });
 });
 
 describe("commonSuffixLength", () => {
-    it("считает длину общего хвоста", () => {
+    it("counts the length of the common suffix", () => {
         expect(commonSuffixLength("running", "walking")).toBe(3);
     });
 
-    it("нет общего хвоста — 0", () => {
+    it("no common suffix gives 0", () => {
         expect(commonSuffixLength("abc", "xyz")).toBe(0);
     });
 
-    it("одна строка — суффикс другой", () => {
+    it("one string is a suffix of the other", () => {
         expect(commonSuffixLength("cd", "abcd")).toBe(2);
     });
 
-    it("пустая строка даёт 0", () => {
+    it("an empty string gives 0", () => {
         expect(commonSuffixLength("", "abc")).toBe(0);
     });
 
-    it("одинаковые строки — вся длина", () => {
+    it("equal strings give the whole length", () => {
         expect(commonSuffixLength("abc", "abc")).toBe(3);
     });
 });
 
 describe("splitLines", () => {
-    it("режет по всем трём видам перевода строки", () => {
+    it("splits on all three kinds of line break", () => {
         expect(splitLines("a\nb\r\nc\rd")).toEqual(["a", "b", "c", "d"]);
     });
 
-    it("строка без переводов — один элемент", () => {
+    it("a string without line breaks gives one element", () => {
         expect(splitLines("abc")).toEqual(["abc"]);
     });
 
-    it("хвостовой перевод строки даёт пустой последний элемент", () => {
+    it("a trailing line break gives an empty last element", () => {
         expect(splitLines("a\n")).toEqual(["a", ""]);
     });
 
-    it("пустая строка даёт один пустой элемент", () => {
+    it("an empty string gives one empty element", () => {
         expect(splitLines("")).toEqual([""]);
     });
 });

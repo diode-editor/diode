@@ -15,7 +15,7 @@ describe("createRegistrySource", () => {
         ws = undefined;
     });
 
-    it("без --registry берёт публичный реестр по HTTP", () => {
+    it("without --registry uses the public registry over HTTP", () => {
         expect(createRegistrySource(undefined)).toBeInstanceOf(HttpExtensionRegistrySource);
         expect(DEFAULT_REGISTRY_URL).toMatch(/^https:\/\//);
     });
@@ -24,7 +24,7 @@ describe("createRegistrySource", () => {
         "https://diode-editor.github.io/registry/v1/",
         "http://127.0.0.1:8080/registry/",
         "HTTPS://EXAMPLE.TEST/r/",
-    ])("адрес %j — HTTP-источник", (spec) => {
+    ])("address %j is an HTTP source", (spec) => {
         expect(createRegistrySource(spec)).toBeInstanceOf(HttpExtensionRegistrySource);
     });
 
@@ -35,11 +35,11 @@ describe("createRegistrySource", () => {
         // `new URL` parses this as protocol `c:`; we match strictly on the scheme prefix, or it would take the HTTP branch.
         "C:\\registry",
         "ftp://example.test/registry/",
-    ])("значение %j — файловый источник", (spec) => {
+    ])("value %j is a file source", (spec) => {
         expect(createRegistrySource(spec)).toBeInstanceOf(FileExtensionRegistrySource);
     });
 
-    it("onProblem доходит до созданного источника", async () => {
+    it("onProblem reaches the created source", async () => {
         ws = createTempWorkspace({
             files: {
                 "index.json": JSON.stringify({

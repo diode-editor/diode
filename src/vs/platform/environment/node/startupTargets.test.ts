@@ -50,39 +50,39 @@ describe("resolveStartupTargets", () => {
     });
 });
 
-describe("resolveStartupTargets — файл воркспейса", () => {
-    it("первый позиционный *.code-workspace — файл воркспейса, а не вкладка", () => {
+describe("resolveStartupTargets — workspace file", () => {
+    it("a first positional *.code-workspace is a workspace file, not a tab", () => {
         const targets = resolveStartupTargets(parseCliArgs(["web.code-workspace", "a.ts"]), noDirs);
         expect(targets.workspaceFile).toBe(abs("web.code-workspace"));
         expect(targets.folder).toBeUndefined();
         expect(targets.files).toEqual([{ path: abs("a.ts") }]);
     });
 
-    it("не первым — обычный файл", () => {
+    it("when not first, it is a regular file", () => {
         const targets = resolveStartupTargets(parseCliArgs(["a.ts", "web.code-workspace"]), noDirs);
         expect(targets.workspaceFile).toBeUndefined();
         expect(targets.files).toEqual([{ path: abs("a.ts") }, { path: abs("web.code-workspace") }]);
     });
 
-    it("каталог с расширением .code-workspace — папка", () => {
+    it("a directory with the .code-workspace extension is a folder", () => {
         const targets = resolveStartupTargets(parseCliArgs(["odd.code-workspace"]), dirsAre("odd.code-workspace"));
         expect(targets.folder).toBe(abs("odd.code-workspace"));
         expect(targets.workspaceFile).toBeUndefined();
     });
 
-    it("путь файла воркспейса — от логического cwd", () => {
+    it("the workspace file path is relative to the logical cwd", () => {
         const targets = resolveStartupTargets(parseCliArgs(["web.code-workspace", "a.ts"]), noDirs, "/home/me/link");
         expect(targets.workspaceFile).toBe("/home/me/link/web.code-workspace");
         expect(targets.files).toEqual([{ path: abs("a.ts") }]);
     });
 
-    it("с --goto путь файла воркспейса — тоже от логического cwd", () => {
+    it("with --goto the workspace file path is relative to the logical cwd too", () => {
         const targets = resolveStartupTargets(parseCliArgs(["-g", "web.code-workspace"]), noDirs, "/home/me/link");
         expect(targets.workspaceFile).toBe("/home/me/link/web.code-workspace");
         expect(targets.files).toEqual([]);
     });
 
-    it("при --diff файла воркспейса нет", () => {
+    it("with --diff there is no workspace file", () => {
         const targets = resolveStartupTargets(parseCliArgs(["-d", "a.code-workspace", "b.code-workspace"]), noDirs);
         expect(targets.workspaceFile).toBeUndefined();
         expect(targets.diff).toEqual({ original: abs("a.code-workspace"), modified: abs("b.code-workspace") });
@@ -139,21 +139,21 @@ describe("logicalWorkingDirectory", () => {
     const same = (): boolean => true;
     const differ = (): boolean => false;
 
-    it("берёт $PWD, когда он ведёт в cwd", () => {
+    it("uses $PWD when it points to cwd", () => {
         expect(logicalWorkingDirectory("/home/me/link/", "/real/dir", same)).toBe("/home/me/link");
     });
 
-    it("устаревший $PWD — физический cwd", () => {
+    it("a stale $PWD falls back to the physical cwd", () => {
         expect(logicalWorkingDirectory("/elsewhere", "/real/dir", differ)).toBe("/real/dir");
     });
 
-    it("нет $PWD или он относительный — физический cwd", () => {
+    it("missing or relative $PWD falls back to the physical cwd", () => {
         expect(logicalWorkingDirectory(undefined, "/real/dir", same)).toBe("/real/dir");
         expect(logicalWorkingDirectory("link", "/real/dir", same)).toBe("/real/dir");
     });
 });
 
-describe("файл воркспейса через симлинки — на настоящем диске", () => {
+describe("workspace file through symlinks, on a real disk", () => {
     let root: string | undefined;
     afterEach(() => {
         if (root !== undefined) fs.rmSync(root, { recursive: true, force: true });
@@ -171,7 +171,7 @@ describe("файл воркспейса через симлинки — на н�
         return sa.dev === sb.dev && sa.ino === sb.ino;
     };
 
-    it("cwd через симлинк каталога: папки — от названного пути, симлинк не разворачивается", async () => {
+    it("cwd through a directory symlink: folders are relative to the named path, the symlink is not resolved", async () => {
         root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "diode-ws-")));
         fs.mkdirSync(path.join(root, "real", "proj"), { recursive: true });
         fs.writeFileSync(path.join(root, "real", "w.code-workspace"), JSON.stringify({ folders: [{ path: "proj" }] }));
@@ -185,7 +185,7 @@ describe("файл воркспейса через симлинки — на н�
         expect(contents.folder).toBe(path.join(link, "proj"));
     });
 
-    it("сам файл — симлинк: папки — от каталога ссылки, а не цели", async () => {
+    it("the file itself is a symlink: folders are relative to the link's directory, not the target's", async () => {
         root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "diode-ws-")));
         fs.mkdirSync(path.join(root, "configs"));
         fs.mkdirSync(path.join(root, "repo", "proj"), { recursive: true });

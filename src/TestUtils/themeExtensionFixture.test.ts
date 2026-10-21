@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { extensionWithThemes, MemoryAssets } from "./themeExtensionFixture.ts";
 
 describe("themeExtensionFixture", () => {
-    it("MemoryAssets отдаёт текст и байты, знает о существовании, каталогов не перечисляет", async () => {
+    it("MemoryAssets returns text and bytes, knows existence, does not list directories", async () => {
         const assets = new MemoryAssets({ "a/b.json": "{}" });
         expect(await assets.readText("a/b.json")).toBe("{}");
         expect(await assets.read("a/b.json")).toEqual(new TextEncoder().encode("{}"));
@@ -14,7 +14,7 @@ describe("themeExtensionFixture", () => {
         expect(assets.reads).toEqual(["a/b.json", "a/b.json", "a/c.json"]);
     });
 
-    it("extensionWithThemes раскладывает id на publisher/name и выбирает префикс по isBuiltin", () => {
+    it("extensionWithThemes splits id into publisher/name and picks the prefix by isBuiltin", () => {
         const user = extensionWithThemes("acme.theme", []);
         expect(user.manifest.publisher).toBe("acme");
         expect(user.manifest.name).toBe("theme");

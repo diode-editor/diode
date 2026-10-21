@@ -91,7 +91,7 @@ const install = (id: string, version?: string) =>
 const installed = (): string[] => listInstalledExtensions(extensionsDir).map((e) => `${e.id}@${e.version}`);
 
 describe("installFromRegistry — extensionDependencies", () => {
-    it("ставит зависимости следом, транзитивно и без дублей", async () => {
+    it("installs dependencies afterwards, transitively and without duplicates", async () => {
         await seed("acme.plugin", { manifest: { extensionDependencies: ["acme.base", "acme.base", "acme.tools"] } });
         await seed("acme.base", { manifest: { extensionDependencies: ["acme.core"] } });
         await seed("acme.tools", { manifest: { extensionDependencies: ["acme.core"] } });
@@ -113,7 +113,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual(["acme.base@1.0.0", "acme.core@1.0.0", "acme.plugin@1.0.0", "acme.tools@1.0.0"]);
     });
 
-    it("уже установленная зависимость не трогается — ни версия, ни id в другом регистре", async () => {
+    it("an already installed dependency is left alone, regardless of version or id case", async () => {
         await seed("acme.base", { version: "1.0.0" }, { version: "2.0.0" });
         await install("acme.base", "1.0.0");
         await seed("acme.plugin", { manifest: { extensionDependencies: ["ACME.Base"] } });
@@ -126,7 +126,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual(["acme.base@1.0.0", "acme.plugin@1.0.0"]);
     });
 
-    it("цикл зависимостей не зацикливает установку", async () => {
+    it("a dependency cycle does not loop the install", async () => {
         await seed("acme.a", { manifest: { extensionDependencies: ["acme.b"] } });
         await seed("acme.b", { manifest: { extensionDependencies: ["acme.a"] } });
 
@@ -136,7 +136,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual(["acme.a@1.0.0", "acme.b@1.0.0"]);
     });
 
-    it("зависимости нет в реестре — расширение и остальные зависимости всё равно ставятся, пропавшая названа", async () => {
+    it("a dependency missing from the registry: the extension and other dependencies still install, the missing one is named", async () => {
         await seed("acme.plugin", { manifest: { extensionDependencies: ["acme.missing", "acme.base"] } });
         await seed("acme.base");
 
@@ -146,7 +146,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual(["acme.base@1.0.0", "acme.plugin@1.0.0"]);
     });
 
-    it("зависимость на встроенное расширение VS Code не ищется в магазине и не считается пропавшей", async () => {
+    it("a dependency on a built-in VS Code extension is not looked up in the marketplace and is not reported missing", async () => {
         await seed("acme.plugin", { manifest: { extensionDependencies: ["vscode.git", "acme.base"] } });
         await seed("acme.base");
         const files = source();
@@ -167,7 +167,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual(["acme.base@1.0.0", "acme.plugin@1.0.0"]);
     });
 
-    it("артефакты качаются во временный каталог в os.tmpdir() — узнаваемый по имени, свой у каждого расширения", async () => {
+    it("artifacts download into a recognizably named temp directory under os.tmpdir(), one per extension", async () => {
         await seed("acme.plugin", { manifest: { extensionDependencies: ["acme.base"] } });
         await seed("acme.base");
         const files = source();
@@ -193,7 +193,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         }
     });
 
-    it("точная версия — только для самого расширения, зависимость берётся наивысшей совместимой", async () => {
+    it("an exact version applies only to the extension itself; a dependency gets the highest compatible version", async () => {
         await seed(
             "acme.plugin",
             { version: "1.0.0", manifest: { extensionDependencies: ["acme.base"] } },
@@ -206,7 +206,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual(["acme.base@3.0.0", "acme.plugin@1.0.0"]);
     });
 
-    it("зависимость найдена, но совместимой версии нет — отказ с причиной, диск не тронут (прежняя версия на месте)", async () => {
+    it("a dependency found without a compatible version fails with the reason, leaving the disk untouched (previous version stays)", async () => {
         await seed("acme.plugin", { version: "0.9.0" });
         await install("acme.plugin");
         await seed(
@@ -229,7 +229,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual(["acme.plugin@0.9.0"]);
     });
 
-    it("транзитивная зависимость с битым sha256 — отказ, ни одна из цепочки не поставлена", async () => {
+    it("a transitive dependency with a bad sha256 fails and nothing in the chain is installed", async () => {
         await seed("acme.plugin", { manifest: { extensionDependencies: ["acme.base"] } });
         await seed("acme.base", { manifest: { extensionDependencies: ["acme.core"] } });
         await seed("acme.core", { sha256: "0".repeat(64) });
@@ -240,7 +240,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual([]);
     });
 
-    it("сбой установки самого расширения снимает уже поставленные зависимости", async () => {
+    it("a failed install of the extension itself removes already installed dependencies", async () => {
         // Without version, preparation passes (the id matches) but install rejects it,
         // so the failure happens AFTER the dependency is installed.
         await seed("acme.plugin", { manifest: { version: undefined, extensionDependencies: ["acme.base"] } });
@@ -250,7 +250,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual([]);
     });
 
-    it("отказ зависимости, которую мета реестра выдаёт не за себя, — та же причина, что у корня", async () => {
+    it("a dependency whose registry meta claims a different id fails with the same reason as the root", async () => {
         await seed("acme.plugin", { manifest: { extensionDependencies: ["acme.base"] } });
         await seed("acme.base", { manifest: { publisher: "evil", name: "impostor" } });
 
@@ -260,7 +260,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual([]);
     });
 
-    it("источник отказал зависимости не-Error значением — причина всё равно в тексте", async () => {
+    it("a source rejecting a dependency with a non-Error value still puts the reason in the message", async () => {
         await seed("acme.plugin", { manifest: { extensionDependencies: ["acme.base"] } });
         await seed("acme.base");
         const files = source();
@@ -280,7 +280,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect(installed()).toEqual([]);
     });
 
-    it("мусор вместо extensionDependencies — обычная установка", async () => {
+    it("garbage in extensionDependencies means a regular install", async () => {
         await seed("acme.solo", { manifest: { extensionDependencies: "acme.base" } });
 
         const result = await install("acme.solo");
@@ -291,7 +291,7 @@ describe("installFromRegistry — extensionDependencies", () => {
 });
 
 describe("describeDependencyInstall", () => {
-    it("поставленные — строками в stdout, пропавшие — предупреждением", () => {
+    it("installed ones go to stdout as lines, missing ones as a warning", () => {
         expect(
             describeDependencyInstall("acme.plugin", {
                 dependencies: [{ id: "acme.base", version: "1.2.3", previous: [] }],
@@ -306,8 +306,8 @@ describe("describeDependencyInstall", () => {
     });
 });
 
-describe("installDependenciesFromRegistry (расширение поставлено из .vsix)", () => {
-    it("ставит зависимости манифеста и называет пропавшие; само расширение не ставит", async () => {
+describe("installDependenciesFromRegistry (extension installed from a .vsix)", () => {
+    it("installs manifest dependencies and names missing ones; does not install the extension itself", async () => {
         await seed("acme.base");
         const manifest = {
             publisher: "acme",
@@ -328,7 +328,7 @@ describe("installDependenciesFromRegistry (расширение поставле
         expect(installed()).toEqual(["acme.base@1.0.0"]);
     });
 
-    it("зависимость поставить нельзя — отказ с причиной, ничего не поставлено", async () => {
+    it("an uninstallable dependency fails with the reason and nothing is installed", async () => {
         await seed("acme.base", { engines: { vscode: "^99.0.0" } });
         const manifest = { extensionDependencies: ["acme.base"] };
 

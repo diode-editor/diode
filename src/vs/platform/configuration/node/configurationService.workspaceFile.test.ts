@@ -15,7 +15,7 @@ import { type ConfigurationService, loadConfiguration } from "./configurationSer
 
 const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
-describe("ConfigurationService — окно из файла .code-workspace", () => {
+describe("ConfigurationService — window from a .code-workspace file", () => {
     let userData: ITempWorkspace;
     let repo: ITempWorkspace;
     let webFile: string;
@@ -60,8 +60,8 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
         return seen;
     }
 
-    describe("чтение", () => {
-        it("settings файла — слой воркспейса; inspect и данные для хоста видят его", async () => {
+    describe("read", () => {
+        it("file's settings are the workspace layer; inspect and host data see it", async () => {
             writeWorkspaceFile({ "editor.tabSize": 2, "workbench.colorTheme": "Solar" });
 
             const cfg = await load();
@@ -86,7 +86,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
         // Maintainer's decision (option "a", upstream): what is shared by all monorepo modes
         // lives in `.diode/settings.json` and overrides the workspace file for the folder's
         // keys; mode differences live only in workspace files.
-        it(".diode/settings.json папки — слой поверх файла воркспейса по resource/language-overridable", async () => {
+        it("folder's .diode/settings.json is a layer on top of the workspace file for resource/language-overridable", async () => {
             writeWorkspaceFile({ "editor.tabSize": 2, "files.exclude": { dist: true, out: true } });
             writeFolderSettings({ "editor.tabSize": 8, "files.exclude": { out: false } });
 
@@ -102,7 +102,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             });
         });
 
-        it("window-ключ папки не действует — его окно берёт из файла воркспейса; лог называет", async () => {
+        it("folder's window key does not apply — the window takes it from the workspace file; the log names it", async () => {
             writeWorkspaceFile({ "workbench.colorTheme": "Solar" });
             writeFolderSettings({ "workbench.colorTheme": "Folder", "java.home": "/jdk" });
             const logger = makeLogger();
@@ -118,7 +118,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             );
         });
 
-        it("application/machine-ключи файла воркспейса не действуют; лог называет", async () => {
+        it("workspace file's application/machine keys do not apply; the log names them", async () => {
             writeWorkspaceFile({ "terminal.tier": "kitty", "update.mode": "none", "editor.tabSize": 2 });
             const logger = makeLogger();
 
@@ -132,7 +132,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             );
         });
 
-        it("файл без settings или с settings-не-объектом — слой пуст", async () => {
+        it("file without settings or with non-object settings — empty layer", async () => {
             fs.writeFileSync(webFile, `{ "folders": [{ "path": "." }] }`);
             expect((await load()).getConfigurationData().workspace).toEqual({});
 
@@ -146,7 +146,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             expect((await load()).getConfigurationData().workspace).toEqual({});
         });
 
-        it("секция языка в settings файла действует для языка", async () => {
+        it("language section in the file's settings applies to the language", async () => {
             writeWorkspaceFile({ "[go]": { "editor.tabSize": 8 } });
 
             const cfg = await load();
@@ -156,10 +156,10 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
         });
     });
 
-    describe("смена воркспейса", () => {
+    describe("workspace change", () => {
         // Monorepo scenario: same folder and `.diode/settings.json`, a different file
         // gives different settings.
-        it("другой файл над той же папкой — его настройки и событие", async () => {
+        it("another file over the same folder — its settings and an event", async () => {
             const backendFile = repo.path("backend.code-workspace");
             writeWorkspaceFile({ "editor.tabSize": 2 });
             writeWorkspaceFile({ "editor.tabSize": 3 }, backendFile);
@@ -172,7 +172,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             expect(seen.map((e) => e.affectedKeys)).toEqual([["editor.tabSize"]]);
         });
 
-        it("та же пара файла и папки — no-op: ни события, ни перестановки watch'ей", async () => {
+        it("the same file and folder pair is a no-op: no event, no watch rewiring", async () => {
             writeWorkspaceFile({ "editor.tabSize": 2 });
             const watcher = new FakeFileWatcher();
             const cfg = await load({ watcher });
@@ -185,7 +185,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             expect(watchFile).not.toHaveBeenCalled();
         });
 
-        it("та же папка, но другой файл воркспейса — не no-op", async () => {
+        it("same folder but a different workspace file — not a no-op", async () => {
             const watcher = new FakeFileWatcher();
             writeWorkspaceFile({});
             const cfg = await load({ watcher });
@@ -196,7 +196,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             expect(watchFile).toHaveBeenCalledWith(repo.path("backend.code-workspace"), expect.any(Function));
         });
 
-        it("из файла в ту же папку напрямую: .diode/settings.json снова слой воркспейса", async () => {
+        it("from the file to the same folder directly: .diode/settings.json is the workspace layer again", async () => {
             writeWorkspaceFile({ "workbench.colorTheme": "Solar", "editor.tabSize": 2 });
             writeFolderSettings({ "workbench.colorTheme": "Folder" });
             const cfg = await load();
@@ -211,7 +211,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
     });
 
     describe("live-reload", () => {
-        it("следит и за файлом воркспейса, и за файлом папки", async () => {
+        it("watches both the workspace file and the folder file", async () => {
             writeWorkspaceFile({ "editor.tabSize": 2 });
             const watcher = new FakeFileWatcher();
             const cfg = await load({ watcher });
@@ -228,7 +228,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             expect(seen.map((e) => e.affectedKeys)).toEqual([["editor.tabSize"], ["editor.tabSize"]]);
         });
 
-        it("из файла в папку напрямую — watch файла воркспейса снят", async () => {
+        it("from the file to a folder directly — the workspace file watch is removed", async () => {
             writeWorkspaceFile({});
             const watcher = new FakeFileWatcher();
             const cfg = await load({ watcher });
@@ -240,12 +240,12 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
         });
     });
 
-    describe("запись", () => {
-        it("цель workspace — в блок settings файла: остальное содержимое и комментарии целы", async () => {
+    describe("write", () => {
+        it("workspace target goes into the file's settings block: other contents and comments stay intact", async () => {
             fs.writeFileSync(
                 webFile,
                 `{
-    // режим фронтенда
+    // frontend mode
     "folders": [{ "path": "." }],
     "settings": {
         "editor.tabSize": 2
@@ -260,7 +260,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             expect(cfg.get("files.exclude")).toEqual({ dist: true });
             expect(seen.map((e) => e.affectedKeys)).toEqual([["files.exclude.dist"]]);
             const text = fs.readFileSync(webFile, "utf8");
-            expect(text).toContain("// режим фронтенда");
+            expect(text).toContain("// frontend mode");
             expect(JSON.parse(text.replace(/\/\/.*\n/, ""))).toEqual({
                 folders: [{ path: "." }],
                 settings: { "editor.tabSize": 2, "files.exclude": { dist: true } },
@@ -268,7 +268,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             expect(fs.existsSync(folderFile)).toBe(false);
         });
 
-        it("файл без блока settings — блок заводится", async () => {
+        it("file without a settings block — the block is created", async () => {
             fs.writeFileSync(webFile, `{ "folders": [{ "path": "." }] }`);
             const cfg = await load();
 
@@ -281,7 +281,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             expect(cfg.get("editor.tabSize")).toBe(3);
         });
 
-        it("цель workspaceFolder — в .diode/settings.json папки, поверх файла воркспейса", async () => {
+        it("workspaceFolder target goes to the folder's .diode/settings.json, on top of the workspace file", async () => {
             writeWorkspaceFile({ "editor.tabSize": 2 });
             const cfg = await load();
 
@@ -292,7 +292,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             expect(JSON.parse(fs.readFileSync(folderFile, "utf8"))).toEqual({ "editor.tabSize": 6 });
         });
 
-        it("window-ключ в настройки папки отклоняется текстом эталона, файл не создаётся", async () => {
+        it("a window key to folder settings is rejected with the upstream message, no file is created", async () => {
             writeWorkspaceFile({});
             const cfg = await load();
 
@@ -302,7 +302,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             expect(fs.existsSync(folderFile)).toBe(false);
         });
 
-        it("application-ключ в файл воркспейса отклоняется", async () => {
+        it("an application key to the workspace file is rejected", async () => {
             writeWorkspaceFile({});
             const cfg = await load();
 
@@ -313,7 +313,7 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
     });
 });
 
-describe("ConfigurationService — цель workspaceFolder у окна из папки", () => {
+describe("ConfigurationService — workspaceFolder target in a folder window", () => {
     let userData: ITempWorkspace;
     let folder: ITempWorkspace;
 
@@ -338,7 +338,7 @@ describe("ConfigurationService — цель workspaceFolder у окна из п�
         return disposables.add(cfg);
     }
 
-    it("пишет в .diode/settings.json папки — слой воркспейса", async () => {
+    it("writes to the folder's .diode/settings.json — the workspace layer", async () => {
         const cfg = await load(true);
 
         await cfg.updateValue("editor.tabSize", 6, "workspaceFolder");
@@ -349,7 +349,7 @@ describe("ConfigurationService — цель workspaceFolder у окна из п�
         });
     });
 
-    it("проверка скоупа — папочная, даже когда файл тот же", async () => {
+    it("scope check is the folder one, even when the file is the same", async () => {
         const cfg = await load(true);
 
         await expect(cfg.updateValue("workbench.colorTheme", "X", "workspaceFolder")).rejects.toThrow(
@@ -357,7 +357,7 @@ describe("ConfigurationService — цель workspaceFolder у окна из п�
         );
     });
 
-    it("без папки — отказ эталона", async () => {
+    it("no folder — upstream rejection", async () => {
         const cfg = await load(false);
 
         await expect(cfg.updateValue("editor.tabSize", 6, "workspaceFolder")).rejects.toThrow(

@@ -9,8 +9,8 @@ import { WorkbenchTheme } from "../common/workbenchTheme.ts";
 
 import { applyThemeVars, computeThemeVars } from "./themeStyleVars.ts";
 
-describe("applyThemeVars — тема → корневой var-scope", () => {
-    it("вся палитра доступна виджетам через styleVar", () => {
+describe("applyThemeVars: theme → root var-scope", () => {
+    it("the whole palette is available to widgets via styleVar", () => {
         const root = new BodyElement();
         root.setAsRoot();
         const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
@@ -21,7 +21,7 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
         expect(root.styleVar("terminal.background")).toBe(theme.getRequiredColor("terminal.background"));
     });
 
-    it("терминал без своих цветов темы рисуется фоном панели — как в VS Code, а не дефолтным тёмным", () => {
+    it("a terminal without its own theme colors uses the panel background, as in VS Code, not the default dark one", () => {
         const root = new BodyElement();
         root.setAsRoot();
         const theme = WorkbenchTheme.fromThemeFile({
@@ -35,7 +35,7 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
         expect(root.styleVar("terminal.background")).toBe(0x1e1e2e);
     });
 
-    it("собственный terminal.background темы побеждает фон панели", () => {
+    it("the theme's own terminal.background wins over the panel background", () => {
         const root = new BodyElement();
         root.setAsRoot();
         const theme = WorkbenchTheme.fromThemeFile({
@@ -49,7 +49,7 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
         expect(root.styleVar("terminal.background")).toBe(0xffffff);
     });
 
-    it("строка меню красится цветами titleBar темы (menuBar.* — токены tuidom без ключа в темах VS Code)", () => {
+    it("the menu bar uses the theme's titleBar colors (menuBar.* are tuidom tokens with no key in VS Code themes)", () => {
         const root = new BodyElement();
         root.setAsRoot();
         const theme = WorkbenchTheme.fromThemeFile({
@@ -64,7 +64,7 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
         expect(root.styleVar("menuBar.foreground")).toBe(0xcdd6f4);
     });
 
-    it("тема без titleBar.* — строка меню на дефолтах VS Code для заголовка, а не tuidom", () => {
+    it("a theme without titleBar.*: the menu bar uses VS Code's title bar defaults, not tuidom's", () => {
         const root = new BodyElement();
         root.setAsRoot();
         applyThemeVars(root, WorkbenchTheme.fromThemeFile({ name: "bare", type: "light", colors: {} }));
@@ -74,7 +74,7 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
         expect(root.styleVar("menuBar.foreground")).toBe(0x333333);
     });
 
-    it("рамка меню цвета его фона (Catppuccin: menu.border = фон с альфой) берёт цвет разделителя", () => {
+    it("a menu border the color of its background (Catppuccin: menu.border = background with alpha) takes the separator color", () => {
         const root = new BodyElement();
         root.setAsRoot();
         const theme = WorkbenchTheme.fromThemeFile({
@@ -92,7 +92,7 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
         expect(root.styleVar("menu.border")).toBe(0x585b70);
     });
 
-    it("прозрачная и почти неотличимая рамка меню — тот же откат; заметная остаётся своей", () => {
+    it("a transparent or nearly indistinguishable menu border gets the same fallback; a visible one stays", () => {
         const border = (menuBorder: string): number => {
             const root = new BodyElement();
             root.setAsRoot();
@@ -118,7 +118,7 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
         expect(border("#FFFFFF20")).toBe(packRgba(255, 255, 255, 0x20));
     });
 
-    it("палитра без menu.* (собрана руками) — мост рамки меню молчит", () => {
+    it("a palette without menu.* (built by hand): the menu border bridge stays silent", () => {
         const base = WorkbenchTheme.fromThemeFile({
             name: "no-menu",
             type: "dark",
@@ -132,7 +132,7 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
         }
     });
 
-    it("палитра без titleBar.* вовсе (собрана руками) — мост молчит, строка меню на дефолте tuidom", () => {
+    it("a palette with no titleBar.* at all (built by hand): the bridge stays silent, the menu bar keeps the tuidom default", () => {
         const base = WorkbenchTheme.fromThemeFile({ name: "no-titlebar", type: "dark", colors: {} });
         const colors = { ...base.colors };
         delete colors["titleBar.activeBackground"];
@@ -147,8 +147,8 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
     });
 });
 
-describe("applyThemeVars — не-числовые значения пропускаются", () => {
-    it("undefined-цвет темы не попадает в таблицу (остаётся дефолт tuidom)", () => {
+describe("applyThemeVars: non-numeric values are skipped", () => {
+    it("an undefined theme color does not reach the table (the tuidom default stays)", () => {
         const base = WorkbenchTheme.fromThemeFile({ name: "t", type: "dark", colors: {} });
         const colors = { ...base.colors, "list.hoverForeground": undefined } as typeof base.colors;
         const theme = new WorkbenchTheme("t", "dark", colors, base.tokenTheme);

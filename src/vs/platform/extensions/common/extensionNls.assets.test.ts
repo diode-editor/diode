@@ -31,13 +31,13 @@ function createLoggerSpy(): ILogger {
 }
 
 describe("loadNlsBundle", () => {
-    it("читает базовый бандл для локали интерфейса `en`", async () => {
+    it("reads the base bundle for the `en` UI locale", async () => {
         const assets = createAssets({ [`${PREFIX}package.nls.json`]: '{"java.clean":"Clean Workspace"}' });
 
         await expect(loadNlsBundle(assets, PREFIX, "en")).resolves.toEqual({ "java.clean": "Clean Workspace" });
     });
 
-    it("файл локали перебивает базовый", async () => {
+    it("the locale file overrides the base one", async () => {
         const assets = createAssets({
             [`${PREFIX}package.nls.json`]: '{"java.clean":"Clean Workspace"}',
             [`${PREFIX}package.nls.ko.json`]: '{"java.clean":"작업 영역 정리"}',
@@ -46,20 +46,20 @@ describe("loadNlsBundle", () => {
         await expect(loadNlsBundle(assets, PREFIX, "ko")).resolves.toEqual({ "java.clean": "작업 영역 정리" });
     });
 
-    it("нет файла локали — фолбэк на базовый", async () => {
+    it("no locale file: falls back to the base one", async () => {
         const assets = createAssets({ [`${PREFIX}package.nls.json`]: '{"java.clean":"Clean Workspace"}' });
 
         await expect(loadNlsBundle(assets, PREFIX, "ko")).resolves.toEqual({ "java.clean": "Clean Workspace" });
     });
 
-    it("нет ни одного бандла — undefined, без ошибок в лог", async () => {
+    it("no bundle at all: undefined, no errors logged", async () => {
         const logger = createLoggerSpy();
 
         await expect(loadNlsBundle(createAssets({}), PREFIX, "en", logger)).resolves.toBeUndefined();
         expect(logger.error).not.toHaveBeenCalled();
     });
 
-    it("битый бандл локали не отменяет локализацию — берётся базовый, ошибка в лог", async () => {
+    it("a broken locale bundle does not cancel localization: the base one is used, the error is logged", async () => {
         const logger = createLoggerSpy();
         const assets = createAssets({
             [`${PREFIX}package.nls.ko.json`]: "{not json",
@@ -75,7 +75,7 @@ describe("loadNlsBundle", () => {
         );
     });
 
-    it("битый базовый бандл — undefined, ошибка в лог", async () => {
+    it("broken base bundle: undefined, the error is logged", async () => {
         const logger = createLoggerSpy();
         const assets = createAssets({ [`${PREFIX}package.nls.json`]: '["not","an","object"]' });
 
@@ -85,7 +85,7 @@ describe("loadNlsBundle", () => {
 });
 
 describe("localizeExtensionManifest", () => {
-    it("резолвит манифест по бандлу расширения", async () => {
+    it("resolves the manifest from the extension bundle", async () => {
         const assets = createAssets({
             [`${PREFIX}package.nls.json`]: '{"displayName":"Java","java.clean":"Clean Workspace"}',
         });
@@ -101,7 +101,7 @@ describe("localizeExtensionManifest", () => {
         expect(result.contributes.commands[0].title).toBe("Clean Workspace");
     });
 
-    it("ненайденные ключи — одной строкой в лог, строки остаются ключами", async () => {
+    it("missing keys are logged in one line, the strings stay keys", async () => {
         const logger = createLoggerSpy();
         const assets = createAssets({ [`${PREFIX}package.nls.json`]: '{"a":"A"}' });
 
@@ -118,7 +118,7 @@ describe("localizeExtensionManifest", () => {
         expect(logger.warn).toHaveBeenCalledWith(`${PREFIX}: unresolved nls keys (2): missing.one, missing.two`);
     });
 
-    it("всё резолвнуто — в лог ничего не пишется", async () => {
+    it("everything resolved: nothing is logged", async () => {
         const logger = createLoggerSpy();
         const assets = createAssets({ [`${PREFIX}package.nls.json`]: '{"a":"A"}' });
 

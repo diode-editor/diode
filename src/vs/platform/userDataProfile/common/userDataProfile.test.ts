@@ -24,7 +24,7 @@ import {
 } from "./userDataProfile.ts";
 
 describe("toUserDataProfile / createDefaultProfile", () => {
-    it("раскладывает ресурсы по каталогу профиля", () => {
+    it("lays out resources under the profile directory", () => {
         const p = toUserDataProfile("work", "Work", "/u/User/profiles/work");
         expect(p).toEqual({
             id: "work",
@@ -38,7 +38,7 @@ describe("toUserDataProfile / createDefaultProfile", () => {
         });
     });
 
-    it("Default живёт прямо в User/ с id и именем эталона", () => {
+    it("Default lives directly in User/ with the upstream id and name", () => {
         const d = createDefaultProfile("/u/User");
         expect(d.isDefault).toBe(true);
         expect(d.id).toBe(DEFAULT_PROFILE_ID);
@@ -48,35 +48,35 @@ describe("toUserDataProfile / createDefaultProfile", () => {
 });
 
 describe("profileIdFromName", () => {
-    it("оставляет допустимое имя как есть, с регистром", () => {
+    it("keeps a valid name as is, case included", () => {
         expect(profileIdFromName("My.Work_1-x", [])).toBe("My.Work_1-x");
     });
 
-    it("схлопывает пробелы и чужие символы в один дефис, обрезает края", () => {
-        expect(profileIdFromName("  Моя работа / 2 ", [])).toBe("2");
+    it("collapses spaces and foreign characters into one hyphen and trims the edges", () => {
+        expect(profileIdFromName("  \u041c\u043e\u044f \u0440\u0430\u0431\u043e\u0442\u0430 / 2 ", [])).toBe("2"); // "Moya rabota"
         expect(profileIdFromName("a  b\tc", [])).toBe("a-b-c");
         expect(profileIdFromName("--x--", [])).toBe("x");
     });
 
-    it("пустой остаток — `profile`", () => {
+    it("an empty remainder becomes `profile`", () => {
         expect(profileIdFromName("   ", [])).toBe("profile");
         expect(profileIdFromName("///", [])).toBe("profile");
     });
 
-    it("коллизия с занятым id — числовой суффикс по первому свободному", () => {
+    it("a collision with a taken id gets the first free numeric suffix", () => {
         expect(profileIdFromName("a b", ["a-b"])).toBe("a-b-2");
         expect(profileIdFromName("a b", ["a-b", "a-b-2"])).toBe("a-b-3");
         expect(profileIdFromName("a b", ["a-b-2"])).toBe("a-b");
     });
 
-    it("одни точки — `profile`: `.` и `..` увели бы каталог в `profiles/` и `User/`", () => {
+    it("dots only become `profile`: `.` and `..` would point the directory at `profiles/` and `User/`", () => {
         expect(profileIdFromName(".", [])).toBe("profile");
         expect(profileIdFromName("..", [])).toBe("profile");
         expect(profileIdFromName(" .. ", [])).toBe("profile");
         expect(profileIdFromName("a/../..", [])).toBe("a-..-..");
     });
 
-    it("имя устройства Windows (и с расширением) — префикс `profile-`; похожие имена — как есть", () => {
+    it("a Windows device name (with an extension too) gets a `profile-` prefix; similar names stay as is", () => {
         expect(profileIdFromName("con", [])).toBe("profile-con");
         expect(profileIdFromName("NUL.txt", [])).toBe("profile-NUL.txt");
         expect(profileIdFromName("COM1", [])).toBe("profile-COM1");
@@ -86,18 +86,18 @@ describe("profileIdFromName", () => {
         expect(profileIdFromName("con", ["profile-con"])).toBe("profile-con-2");
     });
 
-    it("`default` занят Default-профилем путей — суффикс", () => {
+    it("`default` is taken by the Default profile paths, so it gets a suffix", () => {
         expect(profileIdFromName("default", [])).toBe("default-2");
         expect(profileIdFromName("default", ["default-2"])).toBe("default-3");
     });
 
-    it("занятость — без учёта регистра (на macOS и Windows `Work` и `work` — один каталог), регистр id сохраняется", () => {
+    it("taken ids are compared case-insensitively (on macOS and Windows `Work` and `work` are one directory), the id keeps its case", () => {
         expect(profileIdFromName("work", ["Work"])).toBe("work-2");
         expect(profileIdFromName("Work", ["work", "WORK-2"])).toBe("Work-3");
         expect(profileIdFromName("DEFAULT", [])).toBe("DEFAULT-2");
     });
 
-    it("длинное имя обрезается до предела имени каталога, без висячего дефиса", () => {
+    it("a long name is cut to the directory name limit, without a trailing hyphen", () => {
         expect(profileIdFromName("x".repeat(300), [])).toBe("x".repeat(MAX_PROFILE_ID_LENGTH));
         expect(profileIdFromName(`${"x".repeat(MAX_PROFILE_ID_LENGTH - 1)} y`, [])).toBe(
             "x".repeat(MAX_PROFILE_ID_LENGTH - 1),
@@ -106,7 +106,7 @@ describe("profileIdFromName", () => {
 });
 
 describe("isValidProfileId / PROFILE_ID_PATTERN", () => {
-    it("id — имя каталога прямо в profiles/: не `.`/`..`, не `default`, только алфавит slug'а", () => {
+    it("the id is a directory name directly in profiles/: not `.`/`..`, not `default`, slug alphabet only", () => {
         expect(isValidProfileId("work.v2_x-1")).toBe(true);
         expect(isValidProfileId("...")).toBe(true);
         expect(isValidProfileId("Default")).toBe(true);
@@ -121,11 +121,11 @@ describe("isValidProfileId / PROFILE_ID_PATTERN", () => {
 });
 
 describe("profileWorkspaceKey", () => {
-    it("пустое окно — ключа нет", () => {
+    it("empty window has no key", () => {
         expect(profileWorkspaceKey({ id: null, folders: [] })).toBeUndefined();
     });
 
-    it("папка — её путь; файл воркспейса приоритетнее папки", () => {
+    it("a folder maps to its path; a workspace file takes priority over the folder", () => {
         const folder: IWorkspace = {
             id: "x",
             folders: [{ uri: Uri.file("/p/app"), name: "app", index: 0 }],
@@ -136,7 +136,7 @@ describe("profileWorkspaceKey", () => {
         expect(profileWorkspaceKey(fromFile)).not.toBe(profileWorkspaceKey(folder));
     });
 
-    it("ключ по строке — абсолютный путь в форме fsPath, одинаковый у бутстрапа и окна", () => {
+    it("the string key is an absolute fsPath, the same for bootstrap and the window", () => {
         const key = profileWorkspaceKeyOf("/p/./app/../app");
         expect(key).toBe(Uri.file(path.resolve("/p/app")).fsPath);
         expect(profileWorkspaceKeyOf(key)).toBe(key);
@@ -161,39 +161,39 @@ describe("resolveActiveProfile", () => {
             setProfileForWorkspace: vi.fn(async () => undefined),
             // Contract: the key is a string; an empty window never reaches the registry.
             getProfileForWorkspace: (key: unknown) => {
-                if (typeof key !== "string") throw new Error("ключ привязки — строка");
+                if (typeof key !== "string") throw new Error("binding key must be a string");
                 return associations[key];
             },
         };
         return svc;
     }
 
-    it("без флага и привязки — Default", async () => {
+    it("no flag and no binding gives Default", async () => {
         const svc = service([defaultProfile, work]);
         expect(await resolveActiveProfile(svc, { workspace: "/p/app" })).toBe(defaultProfile);
         expect(await resolveActiveProfile(svc, {})).toBe(defaultProfile);
         expect(svc.setProfileForWorkspace).not.toHaveBeenCalled();
     });
 
-    it("привязка воркспейса побеждает Default", async () => {
+    it("the workspace binding beats Default", async () => {
         const svc = service([defaultProfile, work], { "/p/app": work });
         expect(await resolveActiveProfile(svc, { workspace: "/p/app" })).toBe(work);
     });
 
-    it("--profile находит по имени, побеждает привязку и сам привязывает воркспейс", async () => {
+    it("--profile finds by name, beats the binding and binds the workspace itself", async () => {
         const svc = service([defaultProfile, work], { "/p/app": defaultProfile });
         expect(await resolveActiveProfile(svc, { forceProfile: "work", workspace: "/p/app" })).toBe(work);
         expect(svc.setProfileForWorkspace).toHaveBeenCalledWith("/p/app", work);
         expect(svc.createNamedProfile).not.toHaveBeenCalled();
     });
 
-    it("--profile Default — именованный Default, привязка снимается через него же", async () => {
+    it("--profile Default is the named Default, and it also removes the binding", async () => {
         const svc = service([defaultProfile, work], { "/p/app": work });
         expect(await resolveActiveProfile(svc, { forceProfile: "Default", workspace: "/p/app" })).toBe(defaultProfile);
         expect(svc.setProfileForWorkspace).toHaveBeenCalledWith("/p/app", defaultProfile);
     });
 
-    it("--profile с неизвестным именем создаёт пустой профиль; без воркспейса ничего не привязывает", async () => {
+    it("--profile with an unknown name creates an empty profile; without a workspace it binds nothing", async () => {
         const svc = service([defaultProfile]);
         const created = await resolveActiveProfile(svc, { forceProfile: " new " });
         expect(created.name).toBe("new");
@@ -201,13 +201,13 @@ describe("resolveActiveProfile", () => {
         expect(svc.setProfileForWorkspace).not.toHaveBeenCalled();
     });
 
-    it("пустой --profile — как без флага", async () => {
+    it("an empty --profile is the same as no flag", async () => {
         const svc = service([defaultProfile, work], { "/p/app": work });
         expect(await resolveActiveProfile(svc, { forceProfile: "  ", workspace: "/p/app" })).toBe(work);
         expect(svc.createNamedProfile).not.toHaveBeenCalled();
     });
 
-    it("profileForWorkspace: привязка → её профиль, без привязки и у пустого окна → Default", () => {
+    it("profileForWorkspace: a binding gives its profile, no binding or an empty window gives Default", () => {
         const svc = service([defaultProfile, work], { "/p/app": work });
         expect(profileForWorkspace(svc, "/p/app")).toBe(work);
         expect(profileForWorkspace(svc, "/p/other")).toBe(defaultProfile);

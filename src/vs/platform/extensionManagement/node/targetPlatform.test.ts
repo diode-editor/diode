@@ -24,7 +24,7 @@ describe("currentTargetPlatform", () => {
         expect(currentTargetPlatform(platform, arch)).toBeUndefined();
     });
 
-    it("без аргументов отвечает за текущий процесс", () => {
+    it("without arguments answers for the current process", () => {
         expect(currentTargetPlatform()).toBe(currentTargetPlatform(process.platform, process.arch));
     });
 });

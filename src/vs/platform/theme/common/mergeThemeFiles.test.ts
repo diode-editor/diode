@@ -29,8 +29,8 @@ const DARK_MODERN: IThemeFile = {
     tokenColors: [{ scope: "keyword", settings: { fontStyle: "bold" } }],
 };
 
-describe("mergeThemeFiles — семантика include как в scripts/import-vscode-themes.mjs", () => {
-    it("colors: object-merge, ключ включающей темы перекрывает ключ базы", () => {
+describe("mergeThemeFiles: include semantics as in scripts/import-vscode-themes.mjs", () => {
+    it("colors: object merge; the including theme's key overrides the base key", () => {
         const merged = mergeThemeFiles(DARK_VS, DARK_PLUS);
         expect(merged.colors).toEqual({
             "editor.background": "#1E1E1E",
@@ -39,12 +39,12 @@ describe("mergeThemeFiles — семантика include как в scripts/impor
         });
     });
 
-    it("tokenColors: конкатенация base-first — правило включающей темы идёт последним и побеждает на равной специфичности", () => {
+    it("tokenColors: base-first concatenation; the including theme's rule comes last and wins at equal specificity", () => {
         const merged = mergeThemeFiles(DARK_VS, DARK_PLUS);
         expect(merged.tokenColors?.map((rule) => rule.scope)).toEqual(["comment", "keyword", "keyword.control"]);
     });
 
-    it("цепочка из трёх файлов сворачивается в плоскую тему без include", () => {
+    it("a chain of three files collapses into a flat theme without include", () => {
         const flat = mergeThemeFiles(mergeThemeFiles(DARK_VS, DARK_PLUS), DARK_MODERN);
         expect(flat).toEqual({
             name: "Dark Modern",
@@ -65,7 +65,7 @@ describe("mergeThemeFiles — семантика include как в scripts/impor
         expect("include" in flat).toBe(false);
     });
 
-    it("name и type — от включающей темы; без своего type тема их не наследует у базы", () => {
+    it("name and type come from the including theme; without its own type the theme does not inherit it from the base", () => {
         expect(mergeThemeFiles(DARK_VS, DARK_PLUS).name).toBe("Dark+");
         // Dark+ has no `type`: the registry fills in dark itself, the base plays no part; in VS Code
         // the manifest (uiTheme) sets the type, not include. The key is absent altogether (not
@@ -74,12 +74,12 @@ describe("mergeThemeFiles — семантика include как в scripts/impor
         expect(mergeThemeFiles(DARK_VS, DARK_MODERN).type).toBe("dark");
     });
 
-    it("отсутствующие tokenColors с обеих сторон дают пустой массив", () => {
+    it("tokenColors missing on both sides give an empty array", () => {
         const merged = mergeThemeFiles({ colors: { a: "#000" } }, { colors: { b: "#FFF" } });
         expect(merged).toStrictEqual({ colors: { a: "#000", b: "#FFF" }, tokenColors: [] });
     });
 
-    it("не мутирует аргументы", () => {
+    it("does not mutate its arguments", () => {
         const base: IThemeFile = { colors: { a: "#000" }, tokenColors: [{ settings: {} }] };
         const child: IThemeFile = { colors: { a: "#111" }, tokenColors: [] };
         mergeThemeFiles(base, child);
@@ -87,7 +87,7 @@ describe("mergeThemeFiles — семантика include как в scripts/impor
         expect(child).toEqual({ colors: { a: "#111" }, tokenColors: [] });
     });
 
-    it("semanticTokenRules: конкатенация base-first, повторный селектор остаётся двумя правилами", () => {
+    it("semanticTokenRules: base-first concatenation; a repeated selector stays two rules", () => {
         const base: IThemeFile = {
             colors: {},
             semanticTokenRules: [{ selector: "variable", settings: { foreground: "#111111", bold: true } }],
@@ -104,7 +104,7 @@ describe("mergeThemeFiles — семантика include как в scripts/impor
         expect(mergeThemeFiles(base, { colors: {} }).semanticTokenRules).toEqual(base.semanticTokenRules);
     });
 
-    it("semanticHighlighting: OR по цепочке; ни у кого не задано — ключа нет", () => {
+    it("semanticHighlighting: OR along the chain; unset everywhere means no key", () => {
         const on: IThemeFile = { colors: {}, semanticHighlighting: true };
         const off: IThemeFile = { colors: {}, semanticHighlighting: false };
         expect(mergeThemeFiles(on, off).semanticHighlighting).toBe(true);

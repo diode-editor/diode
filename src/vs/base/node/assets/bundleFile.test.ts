@@ -33,17 +33,17 @@ describe("BundleFile", () => {
         writeFileSync(join(target, "diode.bundle"), bundle);
     }
 
-    it("резолвит путь рядом с main.cjs", () => {
+    it("resolves the path next to main.cjs", () => {
         expect(bundleFilePath("/opt/diode")).toBe(join("/opt/diode", "diode.bundle"));
     });
 
-    it("bundleFileExists отражает наличие файла", () => {
+    it("bundleFileExists reflects whether the file exists", () => {
         expect(bundleFileExists(dir)).toBe(false);
         writeBundle();
         expect(bundleFileExists(dir)).toBe(true);
     });
 
-    it("прочитанный с диска бандл скармливается BundleAssetAccess", async () => {
+    it("the bundle read from disk is fed to BundleAssetAccess", async () => {
         writeBundle();
 
         const assets = new BundleAssetAccess(readBundleFile(dir));
@@ -53,22 +53,22 @@ describe("BundleFile", () => {
         expect(await assets.listEntries("Extensions/builtin/")).toEqual([{ name: "ts", isDirectory: true }]);
     });
 
-    it("tryReadBundleFile отдаёт null, когда бандла рядом нет (dev-режим)", () => {
+    it("tryReadBundleFile returns null when there is no bundle nearby (dev mode)", () => {
         expect(tryReadBundleFile(dir)).toBeNull();
     });
 
-    it("readBundleFile бросает, когда бандла рядом нет", () => {
+    it("readBundleFile throws when there is no bundle nearby", () => {
         expect(() => readBundleFile(dir)).toThrow(/diode\.bundle/);
     });
 
-    it("tryReadBundleFile не глотает ошибки ФС кроме ENOENT", () => {
+    it("tryReadBundleFile does not swallow fs errors other than ENOENT", () => {
         // A directory instead of a file: reading gives EISDIR, not ENOENT. Silently falling
         // back to dev mode here is not allowed, it would hide a broken build.
         mkdirSync(bundleFilePath(dir));
         expect(() => tryReadBundleFile(dir)).toThrow();
     });
 
-    it("битый бандл — ошибка разбора, а не тихий фолбэк", () => {
+    it("a broken bundle is a parse error, not a silent fallback", () => {
         writeFileSync(bundleFilePath(dir), Buffer.from("definitely not a bundle"));
         expect(() => new BundleAssetAccess(readBundleFile(dir))).toThrow(/magic/i);
     });

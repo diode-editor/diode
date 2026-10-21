@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { createTempWorkspace } from "./TempWorkspace.ts";
 
 describe("createTempWorkspace", () => {
-    it("создаёт каталог в os.tmpdir() с дефолтным префиксом", () => {
+    it("creates a directory in os.tmpdir() with the default prefix", () => {
         const ws = createTempWorkspace();
         try {
             expect(fs.existsSync(ws.dir)).toBe(true);
@@ -18,7 +18,7 @@ describe("createTempWorkspace", () => {
         }
     });
 
-    it("уважает кастомный префикс", () => {
+    it("honors a custom prefix", () => {
         const ws = createTempWorkspace({ prefix: "diode-custom-" });
         try {
             expect(path.basename(ws.dir).startsWith("diode-custom-")).toBe(true);
@@ -27,7 +27,7 @@ describe("createTempWorkspace", () => {
         }
     });
 
-    it("сеет файлы из options.files, включая вложенные пути", () => {
+    it("seeds files from options.files, including nested paths", () => {
         const ws = createTempWorkspace({
             files: {
                 "alpha.txt": "Alpha content",
@@ -42,7 +42,7 @@ describe("createTempWorkspace", () => {
         }
     });
 
-    it("writeFile создаёт родительские каталоги и возвращает абсолютный путь", () => {
+    it("writeFile creates parent directories and returns the absolute path", () => {
         const ws = createTempWorkspace();
         try {
             const filePath = ws.writeFile("sub/gamma.txt", "Gamma");
@@ -53,7 +53,7 @@ describe("createTempWorkspace", () => {
         }
     });
 
-    it("path() резолвит запись внутри воркспейса без обращения к fs", () => {
+    it("path() resolves an entry inside the workspace without touching fs", () => {
         const ws = createTempWorkspace();
         try {
             expect(ws.path("missing.txt")).toBe(path.join(ws.dir, "missing.txt"));
@@ -63,7 +63,7 @@ describe("createTempWorkspace", () => {
         }
     });
 
-    it("dispose удаляет каталог рекурсивно и безопасен при повторном вызове", () => {
+    it("dispose removes the directory recursively and is safe to call twice", () => {
         const ws = createTempWorkspace({ files: { "a/b/c.txt": "x" } });
         ws.dispose();
         expect(fs.existsSync(ws.dir)).toBe(false);

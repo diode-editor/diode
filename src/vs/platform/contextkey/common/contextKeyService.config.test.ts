@@ -9,8 +9,8 @@ const flush = (): Promise<void> =>
         queueMicrotask(resolve);
     });
 
-describe("ContextKeyService — ключи config.*", () => {
-    it("читает настройку: дефолт схемы, пользовательское значение, чужой ключ расширения", () => {
+describe("ContextKeyService — config.* keys", () => {
+    it("reads a setting: schema default, user value, another extension's key", () => {
         const configuration = createTestConfigurationService({ "claudeCode.useTerminal": true });
         const keys = new ContextKeyService(configuration);
         expect(keys.evaluate("config.claudeCode.useTerminal")).toBe(true);
@@ -21,7 +21,7 @@ describe("ContextKeyService — ключи config.*", () => {
         keys.dispose();
     });
 
-    it("массив — JSON-строкой, объект — как есть (под in), null — нет значения", () => {
+    it("array as a JSON string, object as is (for in), null — no value", () => {
         const configuration = createTestConfigurationService({
             "demo.list": ["a", "b"],
             "demo.map": { java: true },
@@ -38,7 +38,7 @@ describe("ContextKeyService — ключи config.*", () => {
         keys.dispose();
     });
 
-    it("смена настройки сбрасывает прочитанное и сообщает onDidChange; непрочитанные — молча", async () => {
+    it("a setting change drops the cached value and fires onDidChange; unread ones change silently", async () => {
         const configuration = createTestConfigurationService({ "claudeCode.useTerminal": false });
         const keys = new ContextKeyService(configuration);
         const changes: string[][] = [];
@@ -56,7 +56,7 @@ describe("ContextKeyService — ключи config.*", () => {
         keys.dispose();
     });
 
-    it("прочитанное кэшируется: when на каждое нажатие не ходит в настройки повторно", () => {
+    it("read values are cached: when on every keypress does not go back to settings", () => {
         const configuration = createTestConfigurationService({ "demo.flag": true });
         const read = vi.spyOn(configuration, "getValue");
         const keys = new ContextKeyService(configuration);
@@ -66,7 +66,7 @@ describe("ContextKeyService — ключи config.*", () => {
         keys.dispose();
     });
 
-    it("смена родительской секции сбрасывает вложенный ключ", async () => {
+    it("a parent section change drops the nested key", async () => {
         const configuration = createTestConfigurationService({ "demo.section": { flag: false } });
         const keys = new ContextKeyService(configuration);
         expect(keys.evaluate("config.demo.section.flag")).toBe(false);
@@ -75,7 +75,7 @@ describe("ContextKeyService — ключи config.*", () => {
         keys.dispose();
     });
 
-    it("запись в config.* не перебивает настройку; без настроек config.* — обычный ключ", () => {
+    it("writing config.* does not override the setting; without settings config.* is a plain key", () => {
         const keys = new ContextKeyService(createTestConfigurationService({ "demo.flag": false }));
         keys.setRaw("config.demo.flag", true);
         expect(keys.evaluate("config.demo.flag")).toBe(false);

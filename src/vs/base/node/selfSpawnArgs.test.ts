@@ -17,32 +17,32 @@ function snapshot(overrides: Partial<IProcessSnapshot> = {}): IProcessSnapshot {
 }
 
 describe("selfSpawnArgs", () => {
-    it("dev: node + execArgv + главный скрипт (loader'ы обязаны доехать до ребёнка)", () => {
+    it("dev: node + execArgv + main script (loaders must reach the child)", () => {
         expect(selfSpawnArgs(snapshot())).toEqual({
             command: "/usr/bin/node",
             args: ["--import", "tsx", "/repo/src/vs/diode/main.ts"],
         });
     });
 
-    it("dev: пользовательские аргументы ребёнку не передаются — у него своя роль", () => {
+    it("dev: user arguments are not passed to the child; it has its own role", () => {
         expect(selfSpawnArgs(snapshot()).args).not.toContain("file.ts");
     });
 
-    it("SEA: сам бинарь без аргументов — главного скрипта у него нет", () => {
+    it("SEA: the binary itself without arguments; it has no main script", () => {
         expect(
             selfSpawnArgs(snapshot({ execPath: "/opt/diode", isSea: true, argv: ["/opt/diode", "file.ts"] })),
         ).toEqual({ command: "/opt/diode", args: [] });
     });
 
-    it("dev без главного скрипта — явная ошибка, а не молчаливый запуск не того", () => {
+    it("dev without a main script: an explicit error, not a silent launch of the wrong thing", () => {
         expect(() => selfSpawnArgs(snapshot({ argv: ["/usr/bin/node"] }))).toThrow(/cannot determine main script/);
     });
 
-    it("пустая строка вместо главного скрипта — та же ошибка", () => {
+    it("an empty string instead of the main script: the same error", () => {
         expect(() => selfSpawnArgs(snapshot({ argv: ["/usr/bin/node", ""] }))).toThrow(/cannot determine main script/);
     });
 
-    it("без аргумента снимок берётся с текущего процесса", () => {
+    it("without an argument the snapshot is taken from the current process", () => {
         expect(selfSpawnArgs().command).toBe(process.execPath);
     });
 });
@@ -52,7 +52,7 @@ describe("spawnSelfAsRole", () => {
     const probe = `process.send({ role: process.env.DIODE_FILE_WATCHER, inherited: process.env.DIODE_PROBE, stdout: process.stdout.isTTY === undefined && process.stdout.writable }, () => process.exit(0));`;
     const spec = { command: process.execPath, args: ["-e", probe] };
 
-    it("флаг роли в env поверх переданного окружения, IPC-канал, stdout по умолчанию закрыт", async () => {
+    it("role flag in env on top of the given environment, IPC channel, stdout closed by default", async () => {
         const child = spawnSelfAsRole("DIODE_FILE_WATCHER", {
             stderr: "ignore",
             spec,
@@ -66,7 +66,7 @@ describe("spawnSelfAsRole", () => {
         await new Promise((resolve) => child.once("exit", resolve));
     });
 
-    it("stdout и stderr — потоки, когда их просят читать; env по умолчанию — process.env", async () => {
+    it("stdout and stderr are streams when asked to be read; env defaults to process.env", async () => {
         const child = spawnSelfAsRole("DIODE_FILE_WATCHER", { stdout: "pipe", stderr: "pipe", spec });
         const message = await new Promise((resolve) => child.once("message", resolve));
 
@@ -99,14 +99,14 @@ describe("spawnSelfAsRole", () => {
         return message;
     }
 
-    it.skipIf(process.platform === "win32")("ownProcessGroup: ребёнок — лидер своей группы процессов", async () => {
+    it.skipIf(process.platform === "win32")("ownProcessGroup: the child leads its own process group", async () => {
         const { pid, pgrp } = await spawnAndReportGroup(true);
 
         expect(pgrp).toBe(pid);
     });
 
     it.skipIf(process.platform === "win32")(
-        "без ownProcessGroup ребёнок остаётся в группе родителя — роль не получает её молча",
+        "without ownProcessGroup the child stays in the parent's group; the role does not get one silently",
         async () => {
             const { pid, pgrp } = await spawnAndReportGroup();
 

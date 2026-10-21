@@ -18,7 +18,7 @@ function context(values: Record<string, ContextKeyValue>): IContext {
 
 function evaluate(when: string, values: Record<string, ContextKeyValue> = {}): boolean {
     const expr = parseWhen(when);
-    if (expr === undefined) throw new Error(`не разобралось: ${when}`);
+    if (expr === undefined) throw new Error(`failed to parse: ${when}`);
     return evaluateWhen(expr, context(values));
 }
 
@@ -28,8 +28,8 @@ function canon(when: string): string | undefined {
     return expr === undefined ? undefined : serializeWhen(expr);
 }
 
-describe("parseWhen — дерево", () => {
-    it("ключ, литералы, отрицание", () => {
+describe("parseWhen — tree", () => {
+    it("key, literals, negation", () => {
         expect(parseWhen(" foo")).toEqual({ type: "defined", key: "foo" });
         expect(parseWhen("true")).toEqual({ type: "true" });
         expect(parseWhen("false")).toEqual({ type: "false" });
@@ -48,7 +48,7 @@ describe("parseWhen — дерево", () => {
         });
     });
 
-    it("приоритет: && связывает сильнее ||, скобки его меняют", () => {
+    it("precedence: && binds tighter than ||, parentheses change it", () => {
         const a = { type: "defined", key: "a" } as const;
         const b = { type: "defined", key: "b" } as const;
         const c = { type: "defined", key: "c" } as const;
@@ -58,7 +58,7 @@ describe("parseWhen — дерево", () => {
         expect(parseWhen("((a))")).toEqual(a);
     });
 
-    it("равенство: значение без кавычек — строка; `== true` сворачивается в ключ, `== 'true'` — нет", () => {
+    it("equality: an unquoted value is a string; `== true` folds into the key, `== 'true'` does not", () => {
         expect(parseWhen("editorLangId == java")).toEqual({ type: "equals", key: "editorLangId", value: "java" });
         expect(parseWhen("resourceExtname == .ts")).toEqual({ type: "equals", key: "resourceExtname", value: ".ts" });
         expect(parseWhen("a != 'x y'")).toEqual({ type: "notEquals", key: "a", value: "x y" });
@@ -80,7 +80,7 @@ describe("parseWhen — дерево", () => {
         });
     });
 
-    it("сравнения: число из parseFloat, иначе строка", () => {
+    it("comparisons: number from parseFloat, otherwise string", () => {
         expect(parseWhen("macKeys >= 2")).toEqual({ type: "greaterEquals", key: "macKeys", value: 2 });
         expect(parseWhen("a > -1.5")).toEqual({ type: "greater", key: "a", value: -1.5 });
         expect(parseWhen("a < 3")).toEqual({ type: "smaller", key: "a", value: 3 });
@@ -95,7 +95,7 @@ describe("parseWhen — дерево", () => {
         expect(parseWhen("a not in false")).toEqual({ type: "notIn", key: "a", valueKey: "false" });
     });
 
-    it("регекс: флаги g и y снимаются", () => {
+    it("regex: g and y flags are stripped", () => {
         const expr = parseWhen("resourcePath =~ /\\.md$/giy");
         expect(expr).toMatchObject({ type: "regex", key: "resourcePath" });
         const regexp = (expr as Extract<ContextKeyExpression, { type: "regex" }>).regexp;
@@ -104,38 +104,38 @@ describe("parseWhen — дерево", () => {
     });
 });
 
-describe("parseWhen — ошибки дают undefined", () => {
+describe("parseWhen — errors give undefined", () => {
     it.each([
-        ["", "пустая строка"],
-        ["a = b", "ошибка лексики"],
-        ["foo && 'bar", "незакрытая кавычка"],
-        ["/foo", "незакрытый регекс без ключа"],
-        ["!b == 'true'", "отрицание только у ключа, литерала или скобок"],
-        ["!!foo", "двойное отрицание"],
-        ["!", "отрицание без операнда"],
-        ["!foo &&  in bar", "in на месте терма"],
-        ["a &&  && b", "пустой операнд"],
-        ["(a", "незакрытая скобка"],
-        ["!(a", "незакрытая скобка под отрицанием"],
-        ["a)", "лишняя скобка"],
-        ["viewItem == VSCode WorkSpace", "значение из двух слов без кавычек"],
-        ["a not b", "not без in"],
-        ["a =~ 'x'", "регекс должен быть /…/"],
-        ["a =~ /(/", "битый регекс"],
-        ["a &&", "оборванное выражение"],
-        ["!&& && b", "оператор после отрицания"],
-        ["! && b", "отрицание без операнда перед &&"],
-        ["&& && b", "оператор на месте терма"],
-        ["a =~ '/x/'", "регекс в кавычках (старая форма upstream) не принимается"],
-        ["a =~ b", "после =~ — не регекс"],
-        ["a == 'x' 'y'", "две правые части"],
+        ["", "empty string"],
+        ["a = b", "lexical error"],
+        ["foo && 'bar", "unclosed quote"],
+        ["/foo", "unclosed regex without a key"],
+        ["!b == 'true'", "negation only applies to a key, literal or parentheses"],
+        ["!!foo", "double negation"],
+        ["!", "negation without an operand"],
+        ["!foo &&  in bar", "in in place of a term"],
+        ["a &&  && b", "empty operand"],
+        ["(a", "unclosed parenthesis"],
+        ["!(a", "unclosed parenthesis under negation"],
+        ["a)", "extra parenthesis"],
+        ["viewItem == VSCode WorkSpace", "unquoted two-word value"],
+        ["a not b", "not without in"],
+        ["a =~ 'x'", "regex must be /…/"],
+        ["a =~ /(/", "broken regex"],
+        ["a &&", "truncated expression"],
+        ["!&& && b", "operator after negation"],
+        ["! && b", "negation without an operand before &&"],
+        ["&& && b", "operator in place of a term"],
+        ["a =~ '/x/'", "quoted regex (old upstream form) is rejected"],
+        ["a =~ b", "not a regex after =~"],
+        ["a == 'x' 'y'", "two right-hand sides"],
     ])("%s — %s", (when) => {
         expect(parseWhen(when)).toBeUndefined();
     });
 });
 
-describe("evaluateWhen — семантика узлов как у upstream", () => {
-    it("ключ — истинность значения; незнакомый ключ — undefined, без исключений", () => {
+describe("evaluateWhen — node semantics as upstream", () => {
+    it("key is the truthiness of its value; an unknown key is undefined, no exceptions", () => {
         expect(evaluate("a", { a: true })).toBe(true);
         expect(evaluate("a", { a: "x" })).toBe(true);
         expect(evaluate("a", { a: 0 })).toBe(false);
@@ -147,7 +147,7 @@ describe("evaluateWhen — семантика узлов как у upstream", ()
         expect(evaluate("toString")).toBe(false);
     });
 
-    it("литералы", () => {
+    it("literals", () => {
         expect(evaluate("true")).toBe(true);
         expect(evaluate("false")).toBe(false);
         // A literal ignores the context, even one that answers true to anything.
@@ -158,7 +158,7 @@ describe("evaluateWhen — семантика узлов как у upstream", ()
         expect(evaluate("!(a && b)", { a: true, b: true })).toBe(false);
     });
 
-    it("== и != — нестрогие: число равно своей строке", () => {
+    it("== and != are loose: a number equals its string", () => {
         expect(evaluate("macKeys == 2", { macKeys: 2 })).toBe(true);
         expect(evaluate("tier == 'kitty'", { tier: "kitty" })).toBe(true);
         expect(evaluate("tier == kitty", { tier: "legacy" })).toBe(false);
@@ -167,7 +167,7 @@ describe("evaluateWhen — семантика узлов как у upstream", ()
         expect(evaluate("editorLangId == java", { editorLangId: "java" })).toBe(true);
     });
 
-    it("сравнения: parseFloat от значения; строковая правая часть — всегда ложь", () => {
+    it("comparisons: parseFloat of the value; a string right-hand side is always false", () => {
         expect(evaluate("macKeys >= 2", { macKeys: 2 })).toBe(true);
         expect(evaluate("macKeys >= 2", { macKeys: 1 })).toBe(false);
         expect(evaluate("macKeys > 2", { macKeys: 2 })).toBe(false);
@@ -183,7 +183,7 @@ describe("evaluateWhen — семантика узлов как у upstream", ()
         expect(evaluate("a <= x", { a: 1 })).toBe(false);
     });
 
-    it("регекс проверяет строковое значение", () => {
+    it("regex tests the string value", () => {
         expect(evaluate("r =~ /\\.ts$/", { r: "a.ts" })).toBe(true);
         expect(evaluate("r =~ /\\.ts$/", { r: "a.js" })).toBe(false);
         expect(evaluate("r =~ /^A/i", { r: "abc" })).toBe(true);
@@ -194,7 +194,7 @@ describe("evaluateWhen — семантика узлов как у upstream", ()
         expect(evaluate("n >= 0", { n: [1] })).toBe(false);
     });
 
-    it("in / not in: массив — includes, объект — собственное свойство", () => {
+    it("in / not in: array — includes, object — own property", () => {
         expect(evaluate("x in list", { x: "b", list: ["a", "b"] })).toBe(true);
         expect(evaluate("x in list", { x: "c", list: ["a", "b"] })).toBe(false);
         expect(evaluate("x in map", { x: "b", map: { b: 1 } })).toBe(true);
@@ -206,21 +206,21 @@ describe("evaluateWhen — семантика узлов как у upstream", ()
         expect(evaluate("x not in list", { x: "a", list: ["a"] })).toBe(false);
     });
 
-    it("&& и ||", () => {
+    it("&& and ||", () => {
         expect(evaluate("a && b", { a: true, b: true })).toBe(true);
         expect(evaluate("a && b", { a: true })).toBe(false);
         expect(evaluate("a || b", { b: true })).toBe(true);
         expect(evaluate("a || b")).toBe(false);
     });
 
-    it("точечные и дефисные ключи читаются целиком", () => {
+    it("dotted and hyphenated keys are read as a whole", () => {
         expect(evaluate("supermaven.isProUser", { "supermaven.isProUser": true })).toBe(true);
         expect(evaluate("foo-bar && 2fa", { "foo-bar": true, "2fa": true })).toBe(true);
     });
 });
 
-describe("serializeWhen — каноническая запись", () => {
-    it("снимает скобки и пробелы, упорядочивает операнды", () => {
+describe("serializeWhen — canonical form", () => {
+    it("strips parentheses and spaces, sorts operands", () => {
         expect(canon("b && a")).toBe("a && b");
         expect(canon("(a)&&b")).toBe("a && b");
         expect(canon("a && (b && c)")).toBe("a && b && c");
@@ -232,7 +232,7 @@ describe("serializeWhen — каноническая запись", () => {
         expect(canon("(b || a) && c")).toBe("(a || b) && c");
     });
 
-    it("каждый узел", () => {
+    it("every node", () => {
         expect(canon("true")).toBe("true");
         expect(canon("false")).toBe("false");
         expect(canon("!a")).toBe("!a");
@@ -250,7 +250,7 @@ describe("serializeWhen — каноническая запись", () => {
 });
 
 describe("whenKeys", () => {
-    it("все ключи выражения без повторов, включая правую часть in", () => {
+    it("all keys of the expression without duplicates, including the right side of in", () => {
         expect(whenKeys(parseWhen("a && !b || c == x && a")!)).toEqual(["a", "b", "c"]);
         expect(whenKeys(parseWhen("x in list && y not in other")!)).toEqual(["x", "list", "y", "other"]);
         expect(whenKeys(parseWhen("true || false || !false")!)).toEqual([]);
@@ -259,7 +259,7 @@ describe("whenKeys", () => {
 });
 
 describe("whenPositiveKeys", () => {
-    it("ключи не под отрицанием", () => {
+    it("keys not under negation", () => {
         expect(whenPositiveKeys(parseWhen("a && !b || c == x")!)).toEqual(["a", "c"]);
         expect(whenPositiveKeys(parseWhen("!(a && !b)")!)).toEqual(["b"]);
         expect(whenPositiveKeys(parseWhen("n > 1 && r =~ /x/ && i in list")!)).toEqual(["n", "r", "i"]);
@@ -268,8 +268,8 @@ describe("whenPositiveKeys", () => {
     });
 });
 
-describe("deserializeWhen — кэш по строке", () => {
-    it("одна строка — один и тот же объект дерева; ошибка тоже кэшируется", () => {
+describe("deserializeWhen — cache by string", () => {
+    it("one string gives the same tree object; an error is cached too", () => {
         const first = deserializeWhen("cacheProbeA && cacheProbeB");
         expect(first).toEqual(parseWhen("cacheProbeA && cacheProbeB"));
         expect(deserializeWhen("cacheProbeA && cacheProbeB")).toBe(first);

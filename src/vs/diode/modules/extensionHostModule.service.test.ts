@@ -25,7 +25,7 @@ const BROKEN_BUILTIN: IExtension = {
 };
 
 /** No subprocess is spawned: the set has no extensions with activation events. */
-describe("extensionHostModule — сервис расширений", () => {
+describe("extensionHostModule — extension service", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let entries: LogEntry[];
@@ -59,11 +59,11 @@ describe("extensionHostModule — сервис расширений", () => {
         ws.dispose();
     });
 
-    it("сервис получает набор из контекста модуля", () => {
+    it("service gets the set from the module context", () => {
         expect(h.container.get(ExtensionServiceDIToken).extensions).toEqual([BROKEN_BUILTIN]);
     });
 
-    it("язык, впервые понадобившийся модели, просит onLanguage:<id> и голое onLanguage — один раз на язык", () => {
+    it("a language first needed by a model requests onLanguage:<id> and bare onLanguage — once per language", () => {
         const service = h.container.get(ExtensionServiceDIToken);
         const activate = vi.spyOn(service, "activateByEvent");
 
@@ -79,7 +79,7 @@ describe("extensionHostModule — сервис расширений", () => {
         expect(activate.mock.calls).toEqual([["onLanguage:markdown"], ["onLanguage"]]);
     });
 
-    it("сбой регистрации пишется в канал extensions", async () => {
+    it("registration failure is logged to the extensions channel", async () => {
         await h.container.get(ExtensionServiceDIToken).start();
 
         const entry = entries.find((e) => e.message.includes("failed to register"));

@@ -54,19 +54,19 @@ afterEach(() => {
 });
 
 describe("registerDiodeInspectorMethods", () => {
-    it("регистрирует все методы Diode.* и только их", () => {
+    it("registers all Diode.* methods and nothing else", () => {
         const { methods } = setup();
         expect([...methods.keys()].sort()).toEqual(Object.values(DiodeInspectorMethod).sort());
         for (const name of methods.keys()) expect(name.startsWith("Diode.")).toBe(true);
     });
 
     describe("whenReady", () => {
-        it("готов — ready:true", async () => {
+        it("ready — ready:true", async () => {
             const { call } = setup();
             await expect(call(DiodeInspectorMethod.whenReady, {})).resolves.toEqual({ ready: true, pid: 4242 });
         });
 
-        it("не готов за timeoutMs — ready:false, а не вечное ожидание", async () => {
+        it("not ready within timeoutMs — ready:false, not an endless wait", async () => {
             const { call } = setup({ ready: new Promise<void>(() => undefined) });
             await expect(call(DiodeInspectorMethod.whenReady, { timeoutMs: 5 })).resolves.toEqual({
                 ready: false,
@@ -74,13 +74,13 @@ describe("registerDiodeInspectorMethods", () => {
             });
         });
 
-        it("без параметров — дефолтный таймаут, готовность всё равно видна", async () => {
+        it("no params — default timeout, readiness is still visible", async () => {
             const { call } = setup();
             await expect(call(DiodeInspectorMethod.whenReady)).resolves.toEqual({ ready: true, pid: 4242 });
             expect(DEFAULT_READY_TIMEOUT_MS).toBe(60_000);
         });
 
-        it("битый timeoutMs — ошибка протокола", async () => {
+        it("invalid timeoutMs — protocol error", async () => {
             const { call } = setup();
             await expect(call(DiodeInspectorMethod.whenReady, { timeoutMs: "1" })).rejects.toThrow(
                 "'timeoutMs' must be a non-negative number",
@@ -92,14 +92,14 @@ describe("registerDiodeInspectorMethods", () => {
             await expect(call(DiodeInspectorMethod.whenReady, { timeoutMs: Infinity })).rejects.toThrow("non-negative");
         });
 
-        it("таймер ожидания снимается, как только готовность пришла (не держит процесс)", async () => {
+        it("wait timer is cleared as soon as readiness arrives (does not hold the process)", async () => {
             vi.useFakeTimers();
             const { call } = setup();
             await call(DiodeInspectorMethod.whenReady, { timeoutMs: 60_000 });
             expect(vi.getTimerCount()).toBe(0);
         });
 
-        it("timeoutMs: 0 — допустим (мгновенная проба готовности)", async () => {
+        it("timeoutMs: 0 is allowed (instant readiness probe)", async () => {
             const { call } = setup({ ready: new Promise<void>(() => undefined) });
             await expect(call(DiodeInspectorMethod.whenReady, { timeoutMs: 0 })).resolves.toEqual({
                 ready: false,
@@ -109,7 +109,7 @@ describe("registerDiodeInspectorMethods", () => {
     });
 
     describe("executeCommand", () => {
-        it("выполняет команду с аргументами и отдаёт её результат", async () => {
+        it("executes the command with arguments and returns its result", async () => {
             const { call, commands } = setup();
             const seen: unknown[][] = [];
             commands.register("test.sum", (...args) => {
@@ -123,7 +123,7 @@ describe("registerDiodeInspectorMethods", () => {
             expect(seen).toEqual([[2, 3]]);
         });
 
-        it("без args — команда зовётся без аргументов; undefined-результат → null", async () => {
+        it("no args — command is called without arguments; undefined result → null", async () => {
             const { call, commands } = setup();
             const seen: unknown[][] = [];
             commands.register("test.noop", (...args) => {
@@ -136,7 +136,7 @@ describe("registerDiodeInspectorMethods", () => {
             expect(seen).toEqual([[]]);
         });
 
-        it("ждёт промис команды", async () => {
+        it("awaits the command's promise", async () => {
             const { call, commands } = setup();
             commands.register("test.async", () => Promise.resolve({ ok: 1 }));
             await expect(call(DiodeInspectorMethod.executeCommand, { id: "test.async" })).resolves.toEqual({
@@ -145,7 +145,7 @@ describe("registerDiodeInspectorMethods", () => {
             });
         });
 
-        it("не дождался промиса за timeoutMs — settled:false (диалог ждёт следующего ввода)", async () => {
+        it("promise not settled within timeoutMs — settled:false (a dialog awaits the next input)", async () => {
             const { call, commands } = setup();
             commands.register("test.dialog", () => new Promise(() => undefined));
             await expect(
@@ -156,20 +156,20 @@ describe("registerDiodeInspectorMethods", () => {
             expect(DEFAULT_COMMAND_TIMEOUT_MS).toBe(10_000);
         });
 
-        it("отказ команды — ошибка протокола", async () => {
+        it("command rejection — protocol error", async () => {
             const { call, commands } = setup();
             commands.register("test.fail", () => Promise.reject(new Error("boom")));
             await expect(call(DiodeInspectorMethod.executeCommand, { id: "test.fail" })).rejects.toThrow("boom");
         });
 
-        it("неизвестная команда — ошибка, а не тихий undefined", async () => {
+        it("unknown command — error, not a silent undefined", async () => {
             const { call } = setup();
             await expect(call(DiodeInspectorMethod.executeCommand, { id: "no.such" })).rejects.toThrow(
                 "unknown command: no.such",
             );
         });
 
-        it("битые параметры — ошибка протокола", async () => {
+        it("invalid params — protocol error", async () => {
             const { call } = setup();
             await expect(call(DiodeInspectorMethod.executeCommand, {})).rejects.toThrow(
                 "'id' must be a non-empty string",
@@ -185,7 +185,7 @@ describe("registerDiodeInspectorMethods", () => {
         });
     });
 
-    it("listCommands — команды с заголовком", async () => {
+    it("listCommands — commands with a title", async () => {
         const { call, commands } = setup();
         commands.register("test.titled", () => undefined, "Titled");
         commands.register("test.hidden", () => undefined);
@@ -195,7 +195,7 @@ describe("registerDiodeInspectorMethods", () => {
         expect(list.map((c) => [c.id, c.title])).toEqual([["test.titled", "Titled"]]);
     });
 
-    it("listOutputChannels — id и подпись", async () => {
+    it("listOutputChannels — id and label", async () => {
         const { call } = setup();
         await expect(call(DiodeInspectorMethod.listOutputChannels)).resolves.toEqual({
             channels: [
@@ -206,7 +206,7 @@ describe("registerDiodeInspectorMethods", () => {
     });
 
     describe("getOutput", () => {
-        it("по id", async () => {
+        it("by id", async () => {
             const { call } = setup();
             await expect(call(DiodeInspectorMethod.getOutput, { channel: "bootstrap" })).resolves.toEqual({
                 id: "bootstrap",
@@ -215,7 +215,7 @@ describe("registerDiodeInspectorMethods", () => {
             });
         });
 
-        it("по подписи без учёта регистра", async () => {
+        it("by label, case-insensitive", async () => {
             const { call } = setup();
             await expect(call(DiodeInspectorMethod.getOutput, { channel: "my extension" })).resolves.toEqual({
                 id: "ext.channel",
@@ -224,7 +224,7 @@ describe("registerDiodeInspectorMethods", () => {
             });
         });
 
-        it("id важнее подписи", async () => {
+        it("id takes precedence over label", async () => {
             const { call } = setup({
                 output: {
                     getChannels: () => [
@@ -237,7 +237,7 @@ describe("registerDiodeInspectorMethods", () => {
             await expect(call(DiodeInspectorMethod.getOutput, { channel: "b" })).resolves.toMatchObject({ id: "b" });
         });
 
-        it("неизвестный канал — ошибка со списком известных", async () => {
+        it("unknown channel — error listing the known ones", async () => {
             const { call } = setup();
             await expect(call(DiodeInspectorMethod.getOutput, { channel: "nope" })).rejects.toThrow(
                 "unknown output channel: nope; known: bootstrap (Bootstrap), ext.channel (My Extension)",
@@ -245,14 +245,14 @@ describe("registerDiodeInspectorMethods", () => {
         });
     });
 
-    it("getContextKey — сырое значение; незаданный → null", async () => {
+    it("getContextKey — raw value; unset → null", async () => {
         const { call, contextKeys } = setup();
         contextKeys.setRaw("ext.flag", ["x"]);
         await expect(call(DiodeInspectorMethod.getContextKey, { key: "ext.flag" })).resolves.toEqual({ value: ["x"] });
         await expect(call(DiodeInspectorMethod.getContextKey, { key: "unset" })).resolves.toEqual({ value: null });
     });
 
-    it("evaluateWhen — when-выражение над текущими ключами", async () => {
+    it("evaluateWhen — when expression over current keys", async () => {
         const { call, contextKeys } = setup();
         contextKeys.set("textInputFocus", true);
         await expect(
@@ -265,21 +265,21 @@ describe("registerDiodeInspectorMethods", () => {
 });
 
 describe("toWire", () => {
-    it("JSON-значения — как есть (копией)", () => {
+    it("JSON values — as is (copied)", () => {
         const value = { a: [1, "x", true, null] };
         const wired = toWire(value);
         expect(wired).toEqual(value);
         expect(wired).not.toBe(value);
     });
 
-    it("undefined → null (иначе поле пропало бы из ответа)", () => {
+    it("undefined → null (otherwise the field would vanish from the response)", () => {
         expect(toWire(undefined)).toBeNull();
     });
 
-    it("несериализуемое (цикл) → строка, а не исключение при отправке", () => {
+    it("unserializable (cycle) → string, not an exception on send", () => {
         const cyclic: Record<string, unknown> = {};
         cyclic.self = cyclic;
-        expect(toWire(cyclic)).toBe("<несериализуемо: object>");
+        expect(toWire(cyclic)).toBe("<unserializable: object>");
         expect(toWire(10n)).toBe("10");
     });
 });

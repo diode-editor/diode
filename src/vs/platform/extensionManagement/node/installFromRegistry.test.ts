@@ -94,7 +94,7 @@ describe("installFromRegistry", () => {
         return new FileExtensionRegistrySource(registryDir);
     }
 
-    it("устанавливает наивысшую совместимую версию, listInstalledExtensions её видит", async () => {
+    it("installs the highest compatible version and listInstalledExtensions sees it", async () => {
         await seedExtension("acme", "hello", [
             { version: "1.0.0", engines: { vscode: "^1.90.0" } },
             { version: "1.2.0", engines: { vscode: "^1.90.0" } },
@@ -113,7 +113,7 @@ describe("installFromRegistry", () => {
         expect(listInstalledExtensions(extensionsDir).map((e) => `${e.id}@${e.version}`)).toEqual(["acme.hello@1.2.0"]);
     });
 
-    it("апгрейд: прежняя версия сносится после успешной установки новой", async () => {
+    it("upgrade: the previous version is removed after the new one installs successfully", async () => {
         await seedExtension("acme", "hello", [
             { version: "1.0.0", engines: { vscode: "*" } },
             { version: "1.1.0", engines: { vscode: "*" } },
@@ -137,7 +137,7 @@ describe("installFromRegistry", () => {
         expect(listInstalledExtensions(extensionsDir).map((e) => e.version)).toEqual(["1.1.0"]);
     });
 
-    it("точная запрошенная версия ставится, даже если есть выше", async () => {
+    it("the exact requested version installs even when a higher one exists", async () => {
         await seedExtension("acme", "hello", [
             { version: "1.0.0", engines: { vscode: "*" } },
             { version: "1.1.0", engines: { vscode: "*" } },
@@ -150,7 +150,7 @@ describe("installFromRegistry", () => {
         expect(result.version).toBe("1.0.0");
     });
 
-    it("запрошенной версии нет — ошибка с хостом и перечислением имеющихся", async () => {
+    it("a missing requested version fails with the host and the available versions", async () => {
         await seedExtension("acme", "hello", [
             { version: "1.0.0", engines: { vscode: "*" } },
             { version: "1.1.0", engines: { vscode: "*" } },
@@ -162,7 +162,7 @@ describe("installFromRegistry", () => {
         );
     });
 
-    it("нет совместимой версии — ошибка перечисляет версии и их engines", async () => {
+    it("no compatible version: the error lists versions and their engines", async () => {
         await seedExtension("acme", "hello", [
             { version: "1.0.0", engines: { diode: "^9.0.0", vscode: "^1.90.0" } },
             { version: "1.1.0", engines: { vscode: "^99.0.0" } },
@@ -182,7 +182,7 @@ describe("installFromRegistry", () => {
             return (JSON.parse(fs.readFileSync(manifestPath, "utf8")) as { description: string }).description;
         }
 
-        it("из платформенных записей одной версии ставится артефакт таргета хоста", async () => {
+        it("among platform entries of one version, the host target artifact is installed", async () => {
             await seedExtension("acme", "hello", [
                 { version: "1.0.0", engines: { vscode: "*" }, targetPlatform: "darwin-arm64" },
                 { version: "1.0.0", engines: { vscode: "*" }, targetPlatform: "linux-x64" },
@@ -195,7 +195,7 @@ describe("installFromRegistry", () => {
             expect(installedDescription("acme.hello", "1.0.0")).toBe("linux-x64");
         });
 
-        it("точная запрошенная версия тоже фильтруется по платформе — чужой бинарь не ставится", async () => {
+        it("the exact requested version is also filtered by platform, so a foreign binary is not installed", async () => {
             await seedExtension("acme", "hello", [
                 { version: "1.0.0", engines: { vscode: "*" }, targetPlatform: "darwin-arm64" },
                 { version: "1.0.0", engines: { vscode: "*" }, targetPlatform: "linux-x64" },
@@ -210,7 +210,7 @@ describe("installFromRegistry", () => {
             expect(installedDescription("acme.hello", "1.0.0")).toBe("linux-x64");
         });
 
-        it("точная версия есть только под чужой таргет — ошибка с платформой хоста", async () => {
+        it("an exact version only for a foreign target fails with the host platform", async () => {
             await seedExtension("acme", "hello", [
                 { version: "1.0.0", engines: { vscode: "*" }, targetPlatform: "darwin-arm64" },
             ]);
@@ -222,7 +222,7 @@ describe("installFromRegistry", () => {
             expect(listInstalledExtensions(extensionsDir)).toEqual([]);
         });
 
-        it("хост без таргета среди платформенных записей ставит universal", async () => {
+        it("a host without a target installs universal among platform entries", async () => {
             await seedExtension("acme", "hello", [
                 { version: "1.1.0", engines: { vscode: "*" }, targetPlatform: "linux-x64" },
                 { version: "1.0.0", engines: { vscode: "*" } },
@@ -235,13 +235,13 @@ describe("installFromRegistry", () => {
         });
     });
 
-    it("неизвестный id — ошибка «not found in registry»", async () => {
+    it('an unknown id fails with "not found in registry"', async () => {
         await expect(installFromRegistry(source(), "acme.unknown", { extensionsDir, host: HOST })).rejects.toThrow(
             /"acme\.unknown" not found in registry/,
         );
     });
 
-    it("sha256 mismatch — отказ, ничего не установлено", async () => {
+    it("sha256 mismatch fails and nothing is installed", async () => {
         await seedExtension("acme", "hello", [{ version: "1.0.0", engines: { vscode: "*" }, sha256: "b".repeat(64) }]);
         await expect(installFromRegistry(source(), "acme.hello", { extensionsDir, host: HOST })).rejects.toThrow(
             /sha256 mismatch .*refusing to install/,
@@ -250,9 +250,9 @@ describe("installFromRegistry", () => {
     });
 
     it.each([
-        ["успешной установки", "1.0.0", false],
-        ["провалившейся установки", "b".repeat(64), true],
-    ] satisfies [string, string, boolean][])("temp-каталог не остаётся после %s", async (_label, seedSha, fails) => {
+        ["a successful install", "1.0.0", false],
+        ["a failed install", "b".repeat(64), true],
+    ] satisfies [string, string, boolean][])("no temp directory remains after %s", async (_label, seedSha, fails) => {
         // The shared os.tmpdir() is used by parallel test files, so the directory count there would drift.
         const privateTmp = path.join(tempRoot, "tmp");
         await fs.promises.mkdir(privateTmp);
@@ -279,7 +279,7 @@ describe("installFromRegistry", () => {
         expect(await countTempDirs()).toBe(before);
     });
 
-    it("реестр указывает на чужой .vsix — он не ставится вовсе", async () => {
+    it("a registry pointing at a foreign .vsix does not install it at all", async () => {
         await seedExtension("acme", "hello", [
             {
                 version: "1.0.0",
@@ -295,7 +295,7 @@ describe("installFromRegistry", () => {
 });
 
 describe("sha256File", () => {
-    it("считает sha256 содержимого файла", async () => {
+    it("computes the sha256 of the file contents", async () => {
         const dir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "diode-sha-"));
         try {
             const file = path.join(dir, "data.bin");
@@ -308,7 +308,7 @@ describe("sha256File", () => {
         }
     });
 
-    it("несуществующий файл — reject", async () => {
+    it("a nonexistent file rejects", async () => {
         await expect(sha256File("/nonexistent/definitely-missing")).rejects.toThrow();
     });
 });

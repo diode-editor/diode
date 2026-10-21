@@ -77,7 +77,7 @@ export class FakeHistoryEditorSource implements IHistoryEditorSource {
         const existing = this.findPane(this.activeGroupValue, uri.toString());
         // History never gets here (`isReachable`); throw so a miss fails the test instead of passing silently.
         if (existing === null && uri.scheme !== "file") {
-            throw new Error(`openUri: ресурс ${uri.toString()} закрыт и не восстановим`);
+            throw new Error(`openUri: resource ${uri.toString()} is closed and cannot be restored`);
         }
         this.activate(existing ?? this.insertPane(uri));
     }

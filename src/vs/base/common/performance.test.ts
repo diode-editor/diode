@@ -14,14 +14,14 @@ describe("performance marks", () => {
         performance.clearMarks();
     });
 
-    it("без включения ничего не пишет (no-op по умолчанию)", () => {
+    it("records nothing until enabled (no-op by default)", () => {
         expect(isPerformanceMarksEnabled()).toBe(false);
         mark("main:start");
         expect(getMarks()).toEqual([]);
         expect(performance.getEntriesByType("mark")).toEqual([]);
     });
 
-    it("после включения метки записываются в порядке постановки с временем от старта процесса", () => {
+    it("once enabled, marks are recorded in order with time since process start", () => {
         enablePerformanceMarks();
         expect(isPerformanceMarksEnabled()).toBe(true);
         const before = performance.now();
@@ -37,7 +37,7 @@ describe("performance marks", () => {
         expect("detail" in marks[0]).toBe(false);
     });
 
-    it("detail вехи уезжает в выгрузку как есть", () => {
+    it("the mark detail goes into the dump as is", () => {
         enablePerformanceMarks();
         mark("frame", { frame: 3 });
         const marks = getMarks();
@@ -47,7 +47,7 @@ describe("performance marks", () => {
         expect(typeof marks[0].startTime).toBe("number");
     });
 
-    it("чужие performance.mark не попадают в выгрузку, а имена отдаются без префикса", () => {
+    it("foreign performance.mark calls stay out of the dump, and names come without the prefix", () => {
         enablePerformanceMarks();
         performance.mark("someone-else");
         mark("workbench:mounted");
@@ -56,7 +56,7 @@ describe("performance marks", () => {
         expect(performance.getEntriesByName("diode/workbench:mounted")).toHaveLength(1);
     });
 
-    it("reset снимает наши метки, чужие не трогает, и выключает запись", () => {
+    it("reset clears our marks, leaves foreign ones alone, and disables recording", () => {
         enablePerformanceMarks();
         performance.mark("someone-else");
         mark("main:start");

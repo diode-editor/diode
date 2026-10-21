@@ -58,7 +58,7 @@ describe("ExtensionInstaller", () => {
         return vsixPath;
     }
 
-    it("устанавливает расширение в <id>-<version> и распаковывает вложенные файлы", async () => {
+    it("installs the extension into <id>-<version> and extracts nested files", async () => {
         const vsix = await makeVsix(
             "acme.hello.vsix",
             vsixEntries(
@@ -77,38 +77,41 @@ describe("ExtensionInstaller", () => {
         expect(fs.existsSync(path.join(dir, "[Content_Types].xml"))).toBe(false);
     });
 
-    it.skipIf(process.platform === "win32")("восстанавливает exec-бит нативного бинаря из zip-атрибутов", async () => {
-        const vsixPath = path.join(vsixDir, "acme.native.vsix");
-        await new Promise<void>((resolve, reject) => {
-            const zip = new yazl.ZipFile();
-            zip.addBuffer(
-                Buffer.from(JSON.stringify({ name: "native", publisher: "acme", version: "1.0.0", engines: {} })),
-                "extension/package.json",
-            );
-            zip.addBuffer(Buffer.from("#!/bin/sh\necho ok\n"), "extension/bundled/bin/server", { mode: 0o100755 });
-            zip.addBuffer(Buffer.from("just data"), "extension/bundled/data.txt", { mode: 0o100644 });
-            const out = fs.createWriteStream(vsixPath);
-            out.on("close", () => {
-                resolve();
+    it.skipIf(process.platform === "win32")(
+        "restores the exec bit of a native binary from zip attributes",
+        async () => {
+            const vsixPath = path.join(vsixDir, "acme.native.vsix");
+            await new Promise<void>((resolve, reject) => {
+                const zip = new yazl.ZipFile();
+                zip.addBuffer(
+                    Buffer.from(JSON.stringify({ name: "native", publisher: "acme", version: "1.0.0", engines: {} })),
+                    "extension/package.json",
+                );
+                zip.addBuffer(Buffer.from("#!/bin/sh\necho ok\n"), "extension/bundled/bin/server", { mode: 0o100755 });
+                zip.addBuffer(Buffer.from("just data"), "extension/bundled/data.txt", { mode: 0o100644 });
+                const out = fs.createWriteStream(vsixPath);
+                out.on("close", () => {
+                    resolve();
+                });
+                out.on("error", reject);
+                zip.outputStream.on("error", reject);
+                zip.outputStream.pipe(out);
+                zip.end();
             });
-            out.on("error", reject);
-            zip.outputStream.on("error", reject);
-            zip.outputStream.pipe(out);
-            zip.end();
-        });
 
-        await installVsix(vsixPath, extensionsDir);
+            await installVsix(vsixPath, extensionsDir);
 
-        const dir = path.join(extensionsDir, "acme.native-1.0.0");
-        const serverMode = fs.statSync(path.join(dir, "bundled/bin/server")).mode;
-        const dataMode = fs.statSync(path.join(dir, "bundled/data.txt")).mode;
-        expect(serverMode & 0o111).not.toBe(0);
-        expect(dataMode & 0o111).toBe(0);
-    });
+            const dir = path.join(extensionsDir, "acme.native-1.0.0");
+            const serverMode = fs.statSync(path.join(dir, "bundled/bin/server")).mode;
+            const dataMode = fs.statSync(path.join(dir, "bundled/data.txt")).mode;
+            expect(serverMode & 0o111).not.toBe(0);
+            expect(dataMode & 0o111).toBe(0);
+        },
+    );
 
     // yazl always writes unix (3) into the version-made-by host byte, so we patch it
     // to 0 (MS-DOS) directly in the central directory of the built zip.
-    it.skipIf(process.platform === "win32")("не доверяет exec-битам архива от не-unix упаковщика", async () => {
+    it.skipIf(process.platform === "win32")("does not trust exec bits from a non-unix archiver", async () => {
         const vsixPath = path.join(vsixDir, "acme.dos.vsix");
         await new Promise<void>((resolve, reject) => {
             const zip = new yazl.ZipFile();
@@ -142,7 +145,7 @@ describe("ExtensionInstaller", () => {
         expect(toolMode & 0o111).toBe(0);
     });
 
-    it("установленное расширение видит scanExtensions", async () => {
+    it("scanExtensions sees the installed extension", async () => {
         const vsix = await makeVsix(
             "acme.hello.vsix",
             vsixEntries({ name: "hello", publisher: "acme", version: "2.3.4" }),
@@ -157,7 +160,7 @@ describe("ExtensionInstaller", () => {
         expect(scanned[0].manifest.version).toBe("2.3.4");
     });
 
-    it("переустановка новой версии удаляет старый каталог", async () => {
+    it("reinstalling a new version removes the old directory", async () => {
         await installVsix(
             await makeVsix("v1.vsix", vsixEntries({ name: "hello", publisher: "acme", version: "1.0.0" })),
             extensionsDir,
@@ -173,7 +176,7 @@ describe("ExtensionInstaller", () => {
         expect(listInstalledExtensions(extensionsDir)).toHaveLength(1);
     });
 
-    it("переустановка той же версии перезаписывает каталог без дубликатов", async () => {
+    it("reinstalling the same version overwrites the directory without duplicates", async () => {
         const manifest = { name: "hello", publisher: "acme", version: "1.0.0" };
         await installVsix(
             await makeVsix("a.vsix", vsixEntries(manifest, { "extension/a.txt": "first" })),
@@ -190,7 +193,7 @@ describe("ExtensionInstaller", () => {
         expect(listInstalledExtensions(extensionsDir)).toHaveLength(1);
     });
 
-    it("uninstall сносит все версии, повторный вызов — no-op", async () => {
+    it("uninstall removes all versions; a repeated call is a no-op", async () => {
         await installVsix(
             await makeVsix("v1.vsix", vsixEntries({ name: "hello", publisher: "acme", version: "1.0.0" })),
             extensionsDir,
@@ -213,7 +216,7 @@ describe("ExtensionInstaller", () => {
         expect(second.removed).toEqual([]);
     });
 
-    it("list отдаёт displayName и description манифеста — их показывает магазин", async () => {
+    it("list returns the manifest displayName and description shown by the marketplace", async () => {
         await installVsix(
             await makeVsix(
                 "named.vsix",
@@ -235,7 +238,7 @@ describe("ExtensionInstaller", () => {
         });
     });
 
-    it("list резолвит %ключи% displayName/description по package.nls.json", async () => {
+    it("list resolves %keys% in displayName/description via package.nls.json", async () => {
         await installVsix(
             await makeVsix(
                 "nls.vsix",
@@ -265,7 +268,7 @@ describe("ExtensionInstaller", () => {
         });
     });
 
-    it("нет nls-файла или ключа — строка остаётся ключом, расширение из списка не выпадает", async () => {
+    it("a missing nls file or key keeps the key as the string and the extension stays listed", async () => {
         await installVsix(
             await makeVsix(
                 "nonls.vsix",
@@ -303,7 +306,7 @@ describe("ExtensionInstaller", () => {
         expect(byId.get("acme.kotlin")?.description).toBe("%description%");
     });
 
-    it("битый package.nls.json не ломает list", async () => {
+    it("a malformed package.nls.json does not break list", async () => {
         await installVsix(
             await makeVsix(
                 "broken-nls.vsix",
@@ -321,7 +324,7 @@ describe("ExtensionInstaller", () => {
         });
     });
 
-    it("манифест без описательных полей (или с мусором в них) отдаёт undefined, а не мусор", async () => {
+    it("a manifest without descriptive fields (or with garbage in them) yields undefined, not garbage", async () => {
         await installVsix(
             await makeVsix("bare.vsix", vsixEntries({ name: "bare", publisher: "acme", version: "1.0.0" })),
             extensionsDir,
@@ -339,7 +342,7 @@ describe("ExtensionInstaller", () => {
         expect(byId.get("acme.junk")?.description).toBeUndefined();
     });
 
-    it("list возвращает id/version отсортированно, битые каталоги игнорирует", async () => {
+    it("list returns sorted id/version and ignores broken directories", async () => {
         await installVsix(
             await makeVsix("z.vsix", vsixEntries({ name: "zeta", publisher: "acme", version: "1.0.0" })),
             extensionsDir,
@@ -360,13 +363,13 @@ describe("ExtensionInstaller", () => {
         expect(list.map((e) => `${e.id}@${e.version}`)).toEqual(["acme.alpha@5.0.0", "acme.zeta@1.0.0"]);
     });
 
-    it("list/uninstall на отсутствующем каталоге extensions → пусто", () => {
+    it("list/uninstall on a missing extensions directory yield nothing", () => {
         const missing = path.join(tempRoot, "does-not-exist");
         expect(listInstalledExtensions(missing)).toEqual([]);
         expect(uninstallExtension("acme.hello", missing)).toEqual({ removed: [] });
     });
 
-    it("битый zip → понятная ошибка, temp подчищен", async () => {
+    it("a malformed zip gives a clear error and temp is cleaned up", async () => {
         const bad = path.join(vsixDir, "broken.vsix");
         fs.writeFileSync(bad, "this is not a zip file");
 
@@ -376,7 +379,7 @@ describe("ExtensionInstaller", () => {
         expect(leftovers).toEqual([]);
     });
 
-    it("манифест без publisher → ошибка, ничего не установлено, temp подчищен", async () => {
+    it("a manifest without publisher fails, nothing is installed, temp is cleaned up", async () => {
         const vsix = await makeVsix("nopub.vsix", vsixEntries({ name: "hello", version: "1.0.0" }));
 
         await expect(installVsix(vsix, extensionsDir)).rejects.toThrow(/"publisher"/);
@@ -384,7 +387,7 @@ describe("ExtensionInstaller", () => {
         expect(fs.readdirSync(extensionsDir)).toEqual([]);
     });
 
-    it("vsix без extension/package.json → понятная ошибка, temp подчищен", async () => {
+    it("a vsix without extension/package.json gives a clear error and temp is cleaned up", async () => {
         const vsix = await makeVsix("empty.vsix", { "extension.vsixmanifest": "<PackageManifest/>" });
 
         await expect(installVsix(vsix, extensionsDir)).rejects.toThrow(/package\.json/);
@@ -392,7 +395,7 @@ describe("ExtensionInstaller", () => {
         expect(fs.readdirSync(extensionsDir)).toEqual([]);
     });
 
-    it("отклоняет zip-slip запись за пределами целевого каталога", async () => {
+    it("rejects a zip-slip entry outside the target directory", async () => {
         // yazl (like yauzl) forbids `..` in names, so we build the archive with a
         // same-length placeholder name and patch the bytes to a `..` path.
         const placeholder = "extension/aa/evil.txt";
@@ -414,18 +417,18 @@ describe("ExtensionInstaller", () => {
     });
 
     describe("readVsixManifest", () => {
-        it("отдаёт манифест из extension/package.json и ничего не ставит", async () => {
+        it("returns the manifest from extension/package.json and installs nothing", async () => {
             const manifest = { name: "hello", publisher: "acme", version: "1.0.0", extensionDependencies: ["a.b"] };
             const vsix = await makeVsix("acme.hello.vsix", {
-                "extension/readme.md": "# до манифеста",
-                ...vsixEntries(manifest, { "extension/zzz.txt": "после манифеста" }),
+                "extension/readme.md": "# before manifest",
+                ...vsixEntries(manifest, { "extension/zzz.txt": "after manifest" }),
             });
 
             expect(await readVsixManifest(vsix)).toEqual(manifest);
             expect(fs.existsSync(extensionsDir)).toBe(false);
         });
 
-        it("нет manifest'а, не JSON или не объект — та же ошибка, что у установки", async () => {
+        it("a missing, non-JSON or non-object manifest gives the same error as install", async () => {
             const cases: Record<string, Record<string, string>> = {
                 "missing.vsix": { "extension/readme.md": "# no manifest" },
                 "broken.vsix": { "extension/package.json": "{ not json" },
@@ -440,7 +443,7 @@ describe("ExtensionInstaller", () => {
             }
         });
 
-        it("битая запись архива (имя с `..`) — отказ ошибкой yauzl, а не зависание", async () => {
+        it("a broken archive entry (name with `..`) fails with a yauzl error instead of hanging", async () => {
             const placeholder = "extension/aa/evil.txt";
             const vsix = await makeVsix("evil.vsix", {
                 [placeholder]: "pwned",
@@ -457,7 +460,7 @@ describe("ExtensionInstaller", () => {
             expect((error as Error).message).toMatch(/invalid relative path/iu);
         });
 
-        it("не zip — понятная ошибка", async () => {
+        it("a non-zip file gives a clear error", async () => {
             const vsix = path.join(vsixDir, "not-a-zip.vsix");
             await fs.promises.writeFile(vsix, "plain text");
 

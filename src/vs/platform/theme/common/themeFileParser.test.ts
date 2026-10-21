@@ -4,11 +4,11 @@ import { parseThemeFile } from "./themeFileParser.ts";
 import { WorkbenchTheme } from "./workbenchTheme.ts";
 
 describe("parseThemeFile — JSONC", () => {
-    it("читает комментарии и висячие запятые (так публикуют многие темы)", () => {
+    it("reads comments and trailing commas (many themes are published this way)", () => {
         const theme = parseThemeFile(`{
-            // фон редактора
+            // editor background
             "colors": {
-                "editor.background": "#101010", /* блочный */
+                "editor.background": "#101010", /* block */
                 "editor.foreground": "#F0F0F0",
             },
             "tokenColors": [
@@ -21,33 +21,33 @@ describe("parseThemeFile — JSONC", () => {
         });
     });
 
-    it("сохраняет include для резолва вызывающим; не-строка — как отсутствие", () => {
+    it("keeps include for the caller to resolve; a non-string counts as absent", () => {
         expect(parseThemeFile(`{ "include": "./base.json", "colors": {} }`).include).toBe("./base.json");
         expect(parseThemeFile(`{ "colors": {} }`)).toStrictEqual({ colors: {}, tokenColors: [] });
         expect(parseThemeFile(`{ "include": 5, "colors": {} }`)).toStrictEqual({ colors: {}, tokenColors: [] });
     });
 
-    it("name из файла не читает — ключ темы задаёт манифест", () => {
+    it("does not read name from the file; the manifest sets the theme key", () => {
         expect(parseThemeFile(`{ "name": "Inner Name", "colors": {} }`).name).toBeUndefined();
     });
 
-    it("битый JSON — ошибка с позицией", () => {
+    it("broken JSON is an error with a position", () => {
         expect(() => parseThemeFile(`{ "colors": { "a": #fff } }`)).toThrow(/invalid JSON: .* at offset \d+/);
     });
 
-    it("не-объект — ошибка", () => {
+    it("a non-object is an error", () => {
         expect(() => parseThemeFile(`[1, 2]`)).toThrow("not a JSON object");
         expect(() => parseThemeFile(`"str"`)).toThrow("not a JSON object");
         expect(() => parseThemeFile(`null`)).toThrow("not a JSON object");
     });
 
-    it("файл без colors и tokenColors — пустая, но валидная тема", () => {
+    it("a file without colors and tokenColors is an empty but valid theme", () => {
         expect(parseThemeFile(`{}`)).toStrictEqual({ colors: {}, tokenColors: [] });
     });
 });
 
-describe("parseThemeFile — спасаемое с warning", () => {
-    it("невалидный цвет отбрасывается с warning, остальные остаются; результат резолвится без исключений", () => {
+describe("parseThemeFile: recoverable with a warning", () => {
+    it("an invalid color is dropped with a warning, the rest stay; the result resolves without exceptions", () => {
         const warn = vi.fn();
         const theme = parseThemeFile(
             `{ "colors": { "editor.background": "#101010", "bad.one": "red", "bad.two": 12, "bad.three": "#12345" } }`,
@@ -62,14 +62,14 @@ describe("parseThemeFile — спасаемое с warning", () => {
         expect(() => WorkbenchTheme.fromThemeFile({ ...theme, name: "x", type: "dark" })).not.toThrow();
     });
 
-    it("без warn-колбэка предупреждения молча глотаются, результат тот же", () => {
+    it("without a warn callback warnings are silently swallowed; the result is the same", () => {
         const theme = parseThemeFile(
             `{ "colors": { "editor.background": "#101010", "bad": "red" }, "tokenColors": "x.tmTheme" }`,
         );
         expect(theme).toStrictEqual({ colors: { "editor.background": "#101010" }, tokenColors: [] });
     });
 
-    it("colors не объект (массив, null) — игнорируется с warning", () => {
+    it("colors that are not an object (array, null) are ignored with a warning", () => {
         for (const colors of [`["#fff"]`, `null`, `"#fff"`]) {
             const warn = vi.fn();
             expect(parseThemeFile(`{ "colors": ${colors} }`, warn).colors).toEqual({});
@@ -77,7 +77,7 @@ describe("parseThemeFile — спасаемое с warning", () => {
         }
     });
 
-    it("tokenColors строкой (.tmTheme) — не поддержано: пустые правила и warning", () => {
+    it("tokenColors as a string (.tmTheme) is unsupported: empty rules and a warning", () => {
         const warn = vi.fn();
         const theme = parseThemeFile(`{ "colors": {}, "tokenColors": "./themes/Mono.tmTheme" }`, warn);
         expect(theme.tokenColors).toEqual([]);
@@ -86,13 +86,13 @@ describe("parseThemeFile — спасаемое с warning", () => {
         );
     });
 
-    it("tokenColors не массив и не строка — игнорируется с warning", () => {
+    it("tokenColors that are neither an array nor a string are ignored with a warning", () => {
         const warn = vi.fn();
         expect(parseThemeFile(`{ "tokenColors": { "a": 1 } }`, warn).tokenColors).toEqual([]);
         expect(warn).toHaveBeenCalledWith("tokenColors is neither an array nor a path — ignored");
     });
 
-    it("правило без settings и правило с кривым scope отбрасываются, валидные остаются", () => {
+    it("a rule without settings and a rule with a malformed scope are dropped, valid ones stay", () => {
         const warn = vi.fn();
         const theme = parseThemeFile(
             `{ "tokenColors": [
@@ -121,7 +121,7 @@ describe("parseThemeFile — спасаемое с warning", () => {
         ]);
     });
 
-    it("невалидный foreground/background правила отбрасывается, само правило остаётся", () => {
+    it("an invalid rule foreground/background is dropped, the rule itself stays", () => {
         const warn = vi.fn();
         const theme = parseThemeFile(
             `{ "tokenColors": [{ "scope": "keyword", "settings": { "foreground": "red", "background": "#00FF00", "fontStyle": 1 } }] }`,
@@ -131,7 +131,7 @@ describe("parseThemeFile — спасаемое с warning", () => {
         expect(warn).toHaveBeenCalledWith('tokenColors[0]: invalid foreground "red" — ignored');
     });
 
-    it("неизвестные поля игнорируются молча", () => {
+    it("unknown fields are silently ignored", () => {
         const warn = vi.fn();
         const theme = parseThemeFile(`{ "author": "x", "colors": {} }`, warn);
         expect(theme).toEqual({ colors: {}, tokenColors: [] });
@@ -139,14 +139,14 @@ describe("parseThemeFile — спасаемое с warning", () => {
     });
 });
 
-describe("parseThemeFile — семантическая подсветка", () => {
-    it("semanticHighlighting берётся только булевым", () => {
+describe("parseThemeFile: semantic highlighting", () => {
+    it("semanticHighlighting is taken only as a boolean", () => {
         expect(parseThemeFile(`{ "semanticHighlighting": true }`).semanticHighlighting).toBe(true);
         expect(parseThemeFile(`{ "semanticHighlighting": false }`).semanticHighlighting).toBe(false);
         expect("semanticHighlighting" in parseThemeFile(`{ "semanticHighlighting": "yes" }`)).toBe(false);
     });
 
-    it("semanticTokenColors: строка — foreground, объект — стиль; порядок объявления сохраняется", () => {
+    it("semanticTokenColors: a string is a foreground, an object is a style; declaration order is kept", () => {
         const warn = vi.fn();
         const theme = parseThemeFile(
             `{ "semanticTokenColors": {
@@ -167,7 +167,7 @@ describe("parseThemeFile — семантическая подсветка", () 
         expect(warn).not.toHaveBeenCalled();
     });
 
-    it("невалидный цвет отбрасывается; правило без единого атрибута — пропуск с warning", () => {
+    it("an invalid color is dropped; a rule with no attributes is skipped with a warning", () => {
         const warn = vi.fn();
         const theme = parseThemeFile(
             `{ "semanticTokenColors": {
@@ -188,14 +188,14 @@ describe("parseThemeFile — семантическая подсветка", () 
         ]);
     });
 
-    it("semanticTokenColors не объектом — warning, правил нет", () => {
+    it("semanticTokenColors that is not an object: a warning, no rules", () => {
         const warn = vi.fn();
         const theme = parseThemeFile(`{ "semanticTokenColors": ["#fff"] }`, warn);
         expect(theme.semanticTokenRules).toStrictEqual([]);
         expect(warn).toHaveBeenCalledWith("semanticTokenColors is not an object — ignored");
     });
 
-    it("без полей семантики в файле их нет и в результате", () => {
+    it("without semantic fields in the file the result has none either", () => {
         expect(Object.keys(parseThemeFile(`{ "colors": {} }`))).toEqual(["colors", "tokenColors"]);
     });
 });

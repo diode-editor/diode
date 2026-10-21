@@ -12,7 +12,7 @@ import { scanExtensions } from "./extensionScanner.ts";
 
 const ROOT_PREFIX = "UserExtensions/";
 
-describe("scanExtensions — локализация манифеста", () => {
+describe("scanExtensions — manifest localization", () => {
     let tempDir: string;
     let assets: FsAssetAccess;
 
@@ -40,7 +40,7 @@ describe("scanExtensions — локализация манифеста", () => {
 
     const BASE = { name: "java", publisher: "redhat", version: "1.0.0" };
 
-    it("заголовки команд, displayName и label темы приезжают человеческими", async () => {
+    it("command titles, displayName and theme label arrive human-readable", async () => {
         await writeExtension(
             "redhat.java-1.0.0",
             {
@@ -68,7 +68,7 @@ describe("scanExtensions — локализация манифеста", () => {
         expect(ext.manifest.contributes?.themes?.[0].label).toBe("Java Dark");
     });
 
-    it("id расширения берётся из технических полей, а не из локализованных", async () => {
+    it("the extension id comes from technical fields, not localized ones", async () => {
         await writeExtension(
             "redhat.java-1.0.0",
             { ...BASE, displayName: "%displayName%" },
@@ -82,7 +82,7 @@ describe("scanExtensions — локализация манифеста", () => {
         expect(ext.id).toBe("redhat.java");
     });
 
-    it("бандл выбранной локали перебивает базовый", async () => {
+    it("the selected locale bundle overrides the base one", async () => {
         await writeExtension(
             "redhat.java-1.0.0",
             { ...BASE, contributes: { commands: [{ command: "java.clean", title: "%java.clean%" }] } },
@@ -97,7 +97,7 @@ describe("scanExtensions — локализация манифеста", () => {
         expect(ext.manifest.contributes?.commands?.[0].title).toBe("작업 영역 정리");
     });
 
-    it("нет nls-файла — расширение всё равно грузится, строка остаётся ключом", async () => {
+    it("no nls file: the extension still loads, the string stays a key", async () => {
         await writeExtension("redhat.java-1.0.0", {
             ...BASE,
             displayName: "%displayName%",
@@ -111,7 +111,7 @@ describe("scanExtensions — локализация манифеста", () => {
         expect(result[0].manifest.contributes?.commands?.[0].title).toBe("%java.clean%");
     });
 
-    it("битый nls-файл — расширение грузится с нерезолвленными строками", async () => {
+    it("broken nls file: the extension loads with unresolved strings", async () => {
         const dir = path.join(tempDir, "redhat.java-1.0.0");
         await fs.promises.mkdir(dir, { recursive: true });
         await fs.promises.writeFile(
@@ -127,7 +127,7 @@ describe("scanExtensions — локализация манифеста", () => {
     });
 
     // The theme contributor has no resolving of its own, so test it wired to scanning.
-    it("label темы доезжает до ThemeRegistry локализованным", async () => {
+    it("the theme label reaches ThemeRegistry localized", async () => {
         const dirName = "redhat.java-1.0.0";
         await writeExtension(
             dirName,
@@ -150,7 +150,7 @@ describe("scanExtensions — локализация манифеста", () => {
         expect(registry.has("%theme.label%")).toBe(false);
     });
 
-    it("по умолчанию берётся локаль интерфейса — базовый бандл", async () => {
+    it("defaults to the UI locale, i.e. the base bundle", async () => {
         await writeExtension(
             "redhat.java-1.0.0",
             { ...BASE, displayName: "%displayName%" },

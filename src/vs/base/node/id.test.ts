@@ -11,15 +11,15 @@ const ifaces =
 const sha256 = (value: string): string => createHash("sha256").update(value, "utf8").digest("hex");
 
 describe("getMac", () => {
-    it("первый адрес, который не заглушка", () => {
+    it("the first address that is not a placeholder", () => {
         expect(getMac(ifaces("00:00:00:00:00:00", "3c:22:fb:01:02:03", "aa:bb:cc:dd:ee:ff"))).toBe("3c:22:fb:01:02:03");
     });
 
-    it("заглушки эталона пропускаются в любом регистре и с дефисами", () => {
+    it("upstream placeholders are skipped in any case and with dashes", () => {
         expect(getMac(ifaces("FF-FF-FF-FF-FF-FF", "AC:DE:48:00:11:22", "00-00-00-00-00-00"))).toBeUndefined();
     });
 
-    it("обходит все интерфейсы; интерфейс без записей не мешает", () => {
+    it("walks all interfaces; an interface without entries does not get in the way", () => {
         expect(
             getMac(() => ({
                 lo: undefined,
@@ -29,28 +29,28 @@ describe("getMac", () => {
         ).toBe("02:42:ac:11:00:02");
     });
 
-    it("без интерфейсов — undefined", () => {
+    it("no interfaces: undefined", () => {
         expect(getMac(() => ({}))).toBeUndefined();
     });
 });
 
 describe("getMachineId", () => {
-    it("sha256 MAC-адреса в hex — как у эталона", () => {
+    it("sha256 of the MAC address in hex, as upstream", () => {
         expect(getMachineId(ifaces("3c:22:fb:01:02:03"))).toBe(sha256("3c:22:fb:01:02:03"));
     });
 
-    it("адрес берётся как есть, без нормализации регистра (иначе id разошёлся бы с VS Code)", () => {
+    it("the address is taken as is, without case normalization (otherwise the id would diverge from VS Code)", () => {
         expect(getMachineId(ifaces("3C:22:FB:01:02:03"))).toBe(sha256("3C:22:FB:01:02:03"));
     });
 
-    it("без MAC-адреса — uuid, каждый раз новый (стабильность даёт кэш вызывающего)", () => {
+    it("without a MAC address: a fresh uuid each time (the caller's cache provides stability)", () => {
         const a = getMachineId(ifaces("00:00:00:00:00:00"));
         const b = getMachineId(ifaces());
         expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
         expect(b).not.toBe(a);
     });
 
-    it("по умолчанию читает настоящие интерфейсы машины", () => {
+    it("reads the machine's real interfaces by default", () => {
         expect(getMachineId()).toMatch(/^([0-9a-f]{64}|[0-9a-f-]{36})$/);
     });
 });

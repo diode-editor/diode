@@ -61,8 +61,8 @@ afterEach(() => {
     spawnMock.mockReset();
 });
 
-describe("SubprocessTreeWatcher — боевой спавн", () => {
-    it("поднимает САМ СЕБЯ с флагом роли DIODE_FILE_WATCHER", () => {
+describe("SubprocessTreeWatcher — real spawn", () => {
+    it("spawns ITSELF with the DIODE_FILE_WATCHER role flag", () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never);
         const watcher = new SubprocessTreeWatcher();
@@ -79,7 +79,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(options.env.DIODE_FILE_WATCHER).toBe("1");
     });
 
-    it("stdout ребёнку закрыт (он делит терминал с редактором), IPC — открыт", () => {
+    it("the child's stdout is closed (it shares the terminal with the editor), IPC is open", () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never);
         const watcher = new SubprocessTreeWatcher();
@@ -94,7 +94,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(options.stdio).toEqual(["ignore", "ignore", "pipe", "ipc"]);
     });
 
-    it("запрос уезжает в IPC-канал ребёнка", () => {
+    it("a request goes to the child's IPC channel", () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never);
         const watcher = new SubprocessTreeWatcher();
@@ -104,7 +104,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(child.sent).toEqual([{ t: "watch", id: 1, rootPath: "/repo", options: OPTIONS }]);
     });
 
-    it("пачка из ребёнка доезжает до подписчика", () => {
+    it("a batch from the child reaches the subscriber", () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never);
         const watcher = new SubprocessTreeWatcher();
@@ -116,7 +116,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(seen).toEqual([[{ type: "created", path: "/repo/a.ts" }]]);
     });
 
-    it("смерть ребёнка видна хосту: живой запрос переподписывается на новый процесс", () => {
+    it("the host sees the child die: a live request resubscribes to the new process", () => {
         const first = new FakeChild();
         const second = new FakeChild();
         spawnMock.mockReturnValueOnce(first as never).mockReturnValueOnce(second as never);
@@ -128,7 +128,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(second.sent).toEqual([{ t: "watch", id: 1, rootPath: "/repo", options: OPTIONS }]);
     });
 
-    it("dispose снимает ребёнка сигналом — сироты у заблокированного супервизора не остаётся", () => {
+    it("dispose kills the child with a signal, leaving no orphan behind a blocked supervisor", () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never);
         const watcher = new SubprocessTreeWatcher();
@@ -141,7 +141,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
 
     // An EventEmitter without an `error` listener throws right from `emit`: the tests below
     // fail exactly when there's no subscription (in production that would kill the editor).
-    it("ошибка процесса не всплывает наружу, а ведёт в ту же ветку, что и смерть", () => {
+    it("a process error does not escape but takes the same path as death", () => {
         const first = new FakeChild();
         const second = new FakeChild();
         spawnMock.mockReturnValueOnce(first as never).mockReturnValueOnce(second as never);
@@ -154,7 +154,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(second.sent).toEqual([{ t: "watch", id: 1, rootPath: "/repo", options: OPTIONS }]);
     });
 
-    it("вторая ошибка того же канала тоже не всплывает (подписка не one-shot)", () => {
+    it("a second error on the same channel does not escape either (the subscription is not one-shot)", () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never);
         const watcher = new SubprocessTreeWatcher();
@@ -166,7 +166,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(() => child.emit("error", new Error("ERR_IPC_CHANNEL_CLOSED"))).not.toThrow();
     });
 
-    it("сломавшийся stderr-поток не всплывает наружу", () => {
+    it("a broken stderr stream does not escape", () => {
         const { logService, entries } = createLogService();
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never);
@@ -177,7 +177,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(entries.at(-1)?.message).toContain("stderr stream error");
     });
 
-    it("сломавшийся stderr-поток без логгера тоже не всплывает", () => {
+    it("a broken stderr stream without a logger does not escape either", () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never);
         const watcher = new SubprocessTreeWatcher();
@@ -186,7 +186,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(() => child.stderr?.emit("error", new Error("EPIPE"))).not.toThrow();
     });
 
-    it("отправка в закрытый канал не выпускает исключение наружу", () => {
+    it("sending to a closed channel does not let an exception escape", () => {
         const child = new FakeChild(true);
         spawnMock.mockReturnValue(child as never);
         const watcher = new SubprocessTreeWatcher();
@@ -194,7 +194,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(() => watcher.watchTree("/repo", OPTIONS, () => undefined)).not.toThrow();
     });
 
-    it("stderr ребёнка (падение с трассой) уходит в канал files.watcher", () => {
+    it("the child's stderr (a crash with a stack trace) goes to the files.watcher channel", () => {
         const { logService, entries } = createLogService();
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never);
@@ -210,7 +210,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(entry?.message).toBe("[file-watcher] TypeError: boom");
     });
 
-    it("stderr читается текстом, а не буфером", () => {
+    it("stderr is read as text, not as a buffer", () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never);
         const watcher = new SubprocessTreeWatcher();
@@ -220,7 +220,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(child.encoding).toBe("utf8");
     });
 
-    it("stderr без логгера никуда не пишется и не падает", () => {
+    it("stderr without a logger is written nowhere and does not fail", () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never);
         const watcher = new SubprocessTreeWatcher();
@@ -229,7 +229,7 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(() => child.stderr?.emit("data", "TypeError: boom\n")).not.toThrow();
     });
 
-    it("ребёнок без stderr-потока не ломает подъём процесса", () => {
+    it("a child without a stderr stream does not break spawning", () => {
         // ChildProcess `stderr` may be `null` by type (stdio `"ignore"`);
         // spawning must not depend on whether we asked for a pipe.
         const child = new FakeChild(false, false);

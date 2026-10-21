@@ -18,7 +18,7 @@ describe("domQueries", () => {
         ws = undefined;
     });
 
-    it("quickPickByTitle находит открытый промпт по заголовку", () => {
+    it("quickPickByTitle finds the open prompt by title", () => {
         ws = createTempWorkspace();
         h = createAppTestHarness({ workspaceFolder: ws.dir });
 
@@ -29,7 +29,7 @@ describe("domQueries", () => {
         expect(input.title).toBe("Open File");
     });
 
-    it("tabLabels возвращает ярлыки вкладок в порядке отображения", () => {
+    it("tabLabels returns tab labels in display order", () => {
         ws = createTempWorkspace({
             files: { "alpha.txt": "Alpha", "beta.txt": "Beta" },
         });
@@ -40,7 +40,7 @@ describe("domQueries", () => {
         expect(tabLabels(h.testApp)).toEqual(["alpha.txt", "beta.txt"]);
     });
 
-    it("typeText шлёт каждый символ отдельным sendKey", () => {
+    it("typeText sends each character as a separate sendKey", () => {
         const target = new TUIElement();
         target.focusable = true;
         const testApp = TestApp.createWithContent(target);

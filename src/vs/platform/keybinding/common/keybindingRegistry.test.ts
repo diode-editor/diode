@@ -155,7 +155,7 @@ describe("KeybindingRegistry", () => {
     });
 
     describe("layout-independent matching via code", () => {
-        it("matches ctrl+s when key is Cyrillic с but code is KeyS", () => {
+        it("matches ctrl+s when key is Cyrillic es but code is KeyS", () => {
             const registry = new KeybindingRegistry();
             registry.register(kb("ctrl+s"), "workbench.action.files.save");
 
@@ -165,7 +165,7 @@ describe("KeybindingRegistry", () => {
             expect(result).toBe("workbench.action.files.save");
         });
 
-        it("matches meta+s when key is Cyrillic с but code is KeyS", () => {
+        it("matches meta+s when key is Cyrillic es but code is KeyS", () => {
             const registry = new KeybindingRegistry();
             registry.register(kb("meta+s"), "save");
 

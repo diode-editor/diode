@@ -40,21 +40,21 @@ describe("DiskFileSystemProvider", () => {
         fs.rmSync(dir, { recursive: true, force: true });
     });
 
-    it("умеет атомарную запись; изменения снаружи не отслеживает", () => {
+    it("supports atomic writes; does not track external changes", () => {
         expect(provider.capabilities).toBe(FileSystemProviderCapabilities.FileAtomicWrite);
         const listener = vi.fn();
         provider.onDidChangeFile(listener).dispose();
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("readFile читает байты; нет файла — NotFound", async () => {
-        fs.writeFileSync(path.join(dir, "a.txt"), "привет, диск");
-        expect(new TextDecoder().decode(await provider.readFile(at("a.txt")))).toBe("привет, диск");
+    it("readFile reads bytes; a missing file is NotFound", async () => {
+        fs.writeFileSync(path.join(dir, "a.txt"), "hello, disk");
+        expect(new TextDecoder().decode(await provider.readFile(at("a.txt")))).toBe("hello, disk");
         const error = await failure(() => provider.readFile(at("missing.txt")));
         expect(isFileOperationError(error, FileOperationResult.NotFound)).toBe(true);
     });
 
-    it("stat: файл, каталог, симлинк на файл и висячий симлинк", async () => {
+    it("stat: a file, a directory, a symlink to a file and a dangling symlink", async () => {
         fs.writeFileSync(path.join(dir, "a.txt"), "12345");
         fs.mkdirSync(path.join(dir, "d"));
         fs.symlinkSync(path.join(dir, "a.txt"), path.join(dir, "link"));
@@ -74,7 +74,7 @@ describe("DiskFileSystemProvider", () => {
         ).toBe(true);
     });
 
-    it("readdir отдаёт имена с типами, симлинки — с типом цели", async () => {
+    it("readdir returns names with types, symlinks with the target type", async () => {
         fs.writeFileSync(path.join(dir, "a.txt"), "");
         fs.mkdirSync(path.join(dir, "d"));
         fs.symlinkSync(path.join(dir, "d"), path.join(dir, "link"));
@@ -90,7 +90,7 @@ describe("DiskFileSystemProvider", () => {
         ).toBe(true);
     });
 
-    it("запись на месте и атомарная; временный сосед не остаётся", async () => {
+    it("in-place and atomic writes; no temporary sibling is left behind", async () => {
         await provider.writeFile(at("a.txt"), bytes("plain"), { atomic: false });
         expect(fs.readFileSync(path.join(dir, "a.txt"), "utf-8")).toBe("plain");
 
@@ -107,7 +107,7 @@ describe("DiskFileSystemProvider", () => {
         expect(fs.readdirSync(dir).sort()).toEqual(["a.txt", "new.txt"]);
     });
 
-    it("атомарная запись в симлинк и в файл с жёсткими ссылками идёт на месте", async () => {
+    it("an atomic write to a symlink or a hard-linked file happens in place", async () => {
         fs.writeFileSync(path.join(dir, "target.txt"), "old");
         fs.symlinkSync(path.join(dir, "target.txt"), path.join(dir, "link.txt"));
         await provider.writeFile(at("link.txt"), bytes("via link"), { atomic: true });
@@ -121,20 +121,17 @@ describe("DiskFileSystemProvider", () => {
         expect(fs.readFileSync(path.join(dir, "target.txt"), "utf-8")).toBe("shared");
     });
 
-    it.skipIf(process.platform === "win32")(
-        "атомарная замена сохраняет права файла (скрипт не теряет +x)",
-        async () => {
-            const file = path.join(dir, "run.sh");
-            fs.writeFileSync(file, "old");
-            fs.chmodSync(file, 0o751);
-            await provider.writeFile(at("run.sh"), bytes("new"), { atomic: true });
-            expect(fs.statSync(file).mode & 0o7777).toBe(0o751);
-            expect(fs.readFileSync(file, "utf-8")).toBe("new");
-        },
-    );
+    it.skipIf(process.platform === "win32")("atomic replace keeps the file mode (a script keeps +x)", async () => {
+        const file = path.join(dir, "run.sh");
+        fs.writeFileSync(file, "old");
+        fs.chmodSync(file, 0o751);
+        await provider.writeFile(at("run.sh"), bytes("new"), { atomic: true });
+        expect(fs.statSync(file).mode & 0o7777).toBe(0o751);
+        expect(fs.readFileSync(file, "utf-8")).toBe("new");
+    });
 
     it.skipIf(process.platform === "win32")(
-        "файл чужого владельца пишется на месте — владелец не меняется",
+        "a file owned by someone else is written in place; the owner does not change",
         async () => {
             const file = path.join(dir, "theirs.txt");
             fs.writeFileSync(file, "old");
@@ -146,7 +143,7 @@ describe("DiskFileSystemProvider", () => {
         },
     );
 
-    it("без понятия владельца (Windows: нет process.getuid) атомарная замена идёт", async () => {
+    it("without a notion of owner (Windows: no process.getuid) atomic replace proceeds", async () => {
         const file = path.join(dir, "win.txt");
         fs.writeFileSync(file, "old");
         const { ino } = fs.statSync(file);
@@ -161,7 +158,7 @@ describe("DiskFileSystemProvider", () => {
         expect(fs.readFileSync(file, "utf-8")).toBe("new");
     });
 
-    it("упавшая атомарная запись убирает временного соседа и сообщает ошибку", async () => {
+    it("a failed atomic write removes the temporary sibling and reports the error", async () => {
         fs.mkdirSync(path.join(dir, "d"));
         // The target is a directory: renaming a file over a directory fails.
         const error = await failure(() => provider.writeFile(at("d"), bytes("x"), { atomic: true }));
@@ -169,7 +166,7 @@ describe("DiskFileSystemProvider", () => {
         expect(fs.readdirSync(dir)).toEqual(["d"]);
     });
 
-    it("запись в несуществующий каталог — NotFound (и на месте, и атомарно)", async () => {
+    it("writing to a missing directory is NotFound (both in place and atomic)", async () => {
         for (const atomic of [false, true]) {
             const error = await failure(() => provider.writeFile(at("no", "a.txt"), bytes(""), { atomic }));
             expect(isFileOperationError(error, FileOperationResult.NotFound)).toBe(true);
@@ -177,11 +174,11 @@ describe("DiskFileSystemProvider", () => {
         expect(fs.readdirSync(dir)).toEqual([]);
     });
 
-    it.skipIf(process.platform === "win32")("устройство — тип Unknown", async () => {
+    it.skipIf(process.platform === "win32")("a device has type Unknown", async () => {
         expect((await provider.stat(Uri.file("/dev/null"))).type).toBe(FileType.Unknown);
     });
 
-    it("mkdir с родителями; delete файла и каталога рекурсивно", async () => {
+    it("mkdir with parents; delete of a file and a directory recursively", async () => {
         await provider.mkdir(at("a", "b", "c"));
         expect(fs.statSync(path.join(dir, "a", "b", "c")).isDirectory()).toBe(true);
         fs.writeFileSync(path.join(dir, "a", "f"), "");
@@ -194,7 +191,7 @@ describe("DiskFileSystemProvider", () => {
         expect(isFileOperationError(error, FileOperationResult.NotFound)).toBe(true);
     });
 
-    it("rename и copy: занятая цель без overwrite — Exists, с overwrite — замена", async () => {
+    it("rename and copy: an occupied target without overwrite is Exists, with overwrite it is replaced", async () => {
         fs.writeFileSync(path.join(dir, "a"), "a");
         fs.writeFileSync(path.join(dir, "b"), "b");
         for (const run of [
@@ -222,7 +219,7 @@ describe("DiskFileSystemProvider", () => {
         expect(isFileOperationError(missing, FileOperationResult.NotFound)).toBe(true);
     });
 
-    it("rename между файловыми системами (EXDEV) — копирование и удаление", async () => {
+    it("rename across file systems (EXDEV) copies and deletes", async () => {
         fs.mkdirSync(path.join(dir, "src", "sub"), { recursive: true });
         fs.writeFileSync(path.join(dir, "src", "sub", "x"), "x");
         const exdev = Object.assign(new Error("EXDEV: cross-device link not permitted"), { code: "EXDEV" });
@@ -236,7 +233,7 @@ describe("DiskFileSystemProvider", () => {
         expect(fs.existsSync(path.join(dir, "dst"))).toBe(true);
     });
 
-    it("коды ОС переводятся в общий словарь, прочие ошибки — как есть", () => {
+    it("OS codes map to the common vocabulary, other errors pass as is", () => {
         const uri = at("x");
         const cases: [string, FileOperationResult][] = [
             ["ENOENT", FileOperationResult.NotFound],

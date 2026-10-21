@@ -20,7 +20,7 @@ import { ConfigurationService, loadConfiguration } from "./configurationService.
 
 const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
-describe("ConfigurationService — слой воркспейса", () => {
+describe("ConfigurationService — workspace layer", () => {
     let userData: ITempWorkspace;
     let folder: ITempWorkspace;
 
@@ -63,8 +63,8 @@ describe("ConfigurationService — слой воркспейса", () => {
         return seen;
     }
 
-    describe("чтение", () => {
-        it(".diode/settings.json папки — поверх user и профиля; inspect и данные для хоста видят слой", async () => {
+    describe("read", () => {
+        it("folder's .diode/settings.json is on top of user and profile; inspect and host data see the layer", async () => {
             writeUser(`{ "editor.tabSize": 2 }`);
             writeUser(`{ "workbench.colorTheme": "Light", "editor.tabSize": 3 }`, "compact");
             folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8, "workbench.colorTheme": "Solar" }`);
@@ -87,7 +87,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             });
         });
 
-        it(".vscode/settings.json НЕ читается — у Diode свой каталог", async () => {
+        it(".vscode/settings.json is NOT read — Diode has its own directory", async () => {
             folder.writeFile(".vscode/settings.json", `{ "editor.tabSize": 8 }`);
 
             const cfg = await load({ folder: folder.dir });
@@ -96,7 +96,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(cfg.getConfigurationData().workspace).toEqual({});
         });
 
-        it("без папки и без файла слой пуст", async () => {
+        it("no folder and no file — empty layer", async () => {
             const noFolder = await load();
             expect(noFolder.inspect("editor.tabSize").workspace).toBeUndefined();
             expect(noFolder.getConfigurationData().workspace).toEqual({});
@@ -105,7 +105,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(noFile.getConfigurationData().workspace).toEqual({});
         });
 
-        it("секция языка из воркспейса действует для языка", async () => {
+        it("language section from the workspace applies to the language", async () => {
             folder.writeFile(".diode/settings.json", `{ "[go]": { "editor.tabSize": 8 } }`);
 
             const cfg = await load({ folder: folder.dir });
@@ -114,7 +114,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(cfg.get("editor.tabSize", { overrideIdentifier: "go" })).toBe(8);
         });
 
-        it("ключи application/machine из воркспейса не действуют — и в секции языка; лог называет их", async () => {
+        it("application/machine keys from the workspace do not apply, in a language section too; the log names them", async () => {
             writeUser(`{ "terminal.tier": "legacy" }`);
             folder.writeFile(
                 ".diode/settings.json",
@@ -156,7 +156,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(message.endsWith(": terminal.tier, [go].terminal.tier, update.mode, java.secret")).toBe(true);
         });
 
-        it("отброшенные ключи без логгера — не падение", async () => {
+        it("dropped keys without a logger — no crash", async () => {
             folder.writeFile(".diode/settings.json", `{ "terminal.tier": "kitty" }`);
 
             const cfg = await load({ folder: folder.dir });
@@ -164,7 +164,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(cfg.get("terminal.tier")).toBe("auto");
         });
 
-        it("чистый файл воркспейса в лог не пишет", async () => {
+        it("a clean workspace file logs nothing", async () => {
             folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8 }`);
             const logger = makeLogger();
 
@@ -173,7 +173,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(logger.warn).not.toHaveBeenCalled();
         });
 
-        it("битый JSONC воркспейса — ошибка в лог и частичный разбор, как у user-файла", async () => {
+        it("broken workspace JSONC — error in the log and partial parse, as for the user file", async () => {
             folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8, oops }`);
             const logger = makeLogger();
 
@@ -184,8 +184,8 @@ describe("ConfigurationService — слой воркспейса", () => {
         });
     });
 
-    describe("смена папки", () => {
-        it("Open Folder: слой перечитывается, событие несёт изменившиеся ключи; та же папка — no-op", async () => {
+    describe("folder change", () => {
+        it("Open Folder: the layer is reread, the event carries changed keys; the same folder is a no-op", async () => {
             const other = createTempWorkspace({ prefix: "diode-cfg-ws2-" });
             try {
                 folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8 }`);
@@ -216,7 +216,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             }
         });
 
-        it("закрытие папки посреди загрузки её слоя: побеждает закрытие", async () => {
+        it("closing the folder while its layer loads: close wins", async () => {
             folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8 }`);
             const cfg = await load();
 
@@ -229,7 +229,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(cfg.getConfigurationData().workspace).toEqual({});
         });
 
-        it("без папки слой не читается вовсе: ни при закрытии, ни при reload — ошибок в логе нет", async () => {
+        it("without a folder the layer is never read: neither on close nor on reload — no errors in the log", async () => {
             const logger = makeLogger();
             const cfg = await load({ folder: folder.dir, logger });
 
@@ -239,7 +239,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(logger.error).not.toHaveBeenCalled();
         });
 
-        it("из пустого окна: папка без .diode/settings.json событий не даёт", async () => {
+        it("from an empty window: a folder without .diode/settings.json fires no events", async () => {
             const cfg = await load();
             const seen = events(cfg);
 
@@ -249,7 +249,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(cfg.getConfigurationData().workspace).toEqual({});
         });
 
-        it("смена папки посреди загрузки: побеждает последняя", async () => {
+        it("folder change during load: the last one wins", async () => {
             const other = createTempWorkspace({ prefix: "diode-cfg-ws2-" });
             try {
                 folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8 }`);
@@ -270,7 +270,7 @@ describe("ConfigurationService — слой воркспейса", () => {
     });
 
     describe("live-reload", () => {
-        it("следит за файлом воркспейса; правка на диске — новое значение и событие", async () => {
+        it("watches the workspace file; an edit on disk gives a new value and an event", async () => {
             const watcher = new FakeFileWatcher();
             const file = folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8 }`);
             const cfg = await load({ folder: folder.dir, watcher });
@@ -286,7 +286,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(seen[0].affectedKeys).toEqual(["editor.tabSize"]);
         });
 
-        it("файл появился позже (watch ждёт его с открытия папки)", async () => {
+        it("file appears later (the watch waits for it since the folder opened)", async () => {
             const watcher = new FakeFileWatcher();
             const cfg = await load({ folder: folder.dir, watcher });
             const file = path.join(folder.dir, ".diode", "settings.json");
@@ -299,7 +299,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             });
         });
 
-        it("смена папки переносит watch; без папки watch'а нет", async () => {
+        it("folder change moves the watch; no folder — no watch", async () => {
             const watcher = new FakeFileWatcher();
             const cfg = await load({ watcher });
             const userFile = paths().settingsFile;
@@ -312,7 +312,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(watcher.watched()).toEqual([userFile]);
         });
 
-        it("reload() перечитывает и слой воркспейса", async () => {
+        it("reload() rereads the workspace layer too", async () => {
             const file = folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8 }`);
             const cfg = await load({ folder: folder.dir });
 
@@ -322,7 +322,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(cfg.get("editor.tabSize")).toBe(5);
         });
 
-        it("перечитывание, закончившееся после смены папки, свой слой не применяет", async () => {
+        it("a reread finishing after a folder change does not apply its layer", async () => {
             const watcher = new FakeFileWatcher();
             const file = folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8 }`);
             const cfg = await load({ folder: folder.dir, watcher });
@@ -337,7 +337,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(cfg.getConfigurationData().workspace).toEqual({});
         });
 
-        it("событие watch'а старой папки после смены не возвращает её слой", async () => {
+        it("a watch event of the old folder after a change does not bring its layer back", async () => {
             const watcher = new FakeFileWatcher();
             const file = folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8 }`);
             const cfg = await load({ folder: folder.dir, watcher });
@@ -352,7 +352,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(cfg.get("editor.tabSize")).toBe(4);
         });
 
-        it("файл открыт в редакторе: каждое сохранение из него применяется (настоящий watcher)", async () => {
+        it("file open in the editor: every save from it applies (real watcher)", async () => {
             // Regression: the document model and the configuration service watched one
             // file with two chokidar instances, and after the first atomic
             // save (temporary sibling + rename) both went blind.
@@ -388,8 +388,8 @@ describe("ConfigurationService — слой воркспейса", () => {
         }, 20000);
     });
 
-    describe("запись", () => {
-        it("цель workspace: создаёт .diode/settings.json, значение и событие сразу; user-файл не тронут", async () => {
+    describe("write", () => {
+        it("workspace target: creates .diode/settings.json, value and event right away; the user file is untouched", async () => {
             const cfg = await load({ folder: folder.dir });
             const seen = events(cfg);
 
@@ -404,7 +404,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(seen[0].affectedKeys).toEqual(["editor.tabSize"]);
         });
 
-        it("новый файл пишется отступом в 4 пробела, как user settings.json", async () => {
+        it("a new file is written with 4-space indent, like user settings.json", async () => {
             const cfg = await load({ folder: folder.dir });
 
             await cfg.updateValue("editor.tabSize", 8, "workspace");
@@ -414,7 +414,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             );
         });
 
-        it("нечитаемый файл (не ENOENT) — отказ записи, содержимое не перетёрто", async () => {
+        it("unreadable file (not ENOENT) — write rejected, contents not overwritten", async () => {
             const file = folder.writeFile(".diode/settings.json", `{ "workbench.colorTheme": "Solar" }`);
             const cfg = await load({ folder: folder.dir });
             // Write only: reading fails with EACCES, while writing would succeed.
@@ -427,23 +427,23 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(fs.readFileSync(file, "utf-8")).toBe(`{ "workbench.colorTheme": "Solar" }`);
         });
 
-        it("цель workspace сохраняет комментарии; undefined снимает ключ", async () => {
+        it("workspace target keeps comments; undefined removes the key", async () => {
             const file = folder.writeFile(
                 ".diode/settings.json",
-                `{\n    // тема проекта\n    "workbench.colorTheme": "Solar",\n    "editor.tabSize": 8\n}\n`,
+                `{\n    // project theme\n    "workbench.colorTheme": "Solar",\n    "editor.tabSize": 8\n}\n`,
             );
             const cfg = await load({ folder: folder.dir });
 
             await cfg.updateValue("editor.tabSize", undefined, "workspace");
 
             const written = fs.readFileSync(file, "utf-8");
-            expect(written).toContain("// тема проекта");
+            expect(written).toContain("// project theme");
             expect(written).not.toContain("editor.tabSize");
             expect(cfg.get("editor.tabSize")).toBe(4);
             expect(cfg.get("workbench.colorTheme")).toBe("Solar");
         });
 
-        it("цель по умолчанию — user; undefined снимает ключ и там", async () => {
+        it("default target is user; undefined removes the key there too", async () => {
             writeUser(`{ "editor.tabSize": 2, "workbench.colorTheme": "Light" }`);
             const cfg = await load({ folder: folder.dir });
 
@@ -456,7 +456,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(fs.existsSync(path.join(folder.dir, ".diode"))).toBe(false);
         });
 
-        it("без папки запись в воркспейс отклоняется текстом эталона", async () => {
+        it("without a folder a workspace write is rejected with the upstream message", async () => {
             const cfg = await load();
 
             await expect(cfg.updateValue("editor.tabSize", 8, "workspace")).rejects.toThrow(
@@ -464,7 +464,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             );
         });
 
-        it("ключ application/machine в воркспейс отклоняется, файл не создаётся", async () => {
+        it("an application/machine key to the workspace is rejected, no file is created", async () => {
             const cfg = await load({ folder: folder.dir });
 
             await expect(cfg.updateValue("update.mode", "none", "workspace")).rejects.toThrow(
@@ -479,7 +479,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(cfg.get("java.home")).toBe("/jdk");
         });
 
-        it("параллельные записи одного файла не теряют друг друга", async () => {
+        it("concurrent writes to one file do not lose each other", async () => {
             const cfg = await load({ folder: folder.dir });
 
             await Promise.all([
@@ -500,7 +500,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             });
         });
 
-        it("отказ одной записи не рвёт очередь", async () => {
+        it("one failed write does not break the queue", async () => {
             const cfg = await load({ folder: folder.dir });
 
             const rejected = cfg.updateValue("update.mode", "none", "workspace");
@@ -511,7 +511,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(cfg.get("editor.tabSize")).toBe(8);
         });
 
-        it("сервис без реестра и путей: запись в воркспейс открытой папки работает", async () => {
+        it("service without registry and paths: writing to the open folder's workspace works", async () => {
             const cfg = disposables.add(
                 new ConfigurationService({
                     defaultsLayer: ConfigurationModel.EMPTY,

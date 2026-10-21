@@ -249,8 +249,8 @@ describe("LogService — entry shape", () => {
     });
 });
 
-describe("LogService — метки каналов", () => {
-    it("канал без метки не регистрируется", () => {
+describe("LogService — channel labels", () => {
+    it("a channel without a label is not registered", () => {
         const service = new LogService();
 
         service.createLogger("anonymous");
@@ -258,20 +258,20 @@ describe("LogService — метки каналов", () => {
         expect(service.getRegisteredChannels()).toEqual([]);
     });
 
-    it("метку регистрирует первый создатель, повторный вызов её не меняет", () => {
+    it("the first creator registers the label, a repeated call does not change it", () => {
         const service = new LogService();
         const seen: unknown[] = [];
         service.onDidRegisterChannel((descriptor) => seen.push(descriptor));
 
         service.createLogger("files.watcher", { label: "File Watcher" });
-        service.createLogger("files.watcher", { label: "Другое имя" });
+        service.createLogger("files.watcher", { label: "Another name" });
         service.createLogger("files.watcher");
 
         expect(service.getRegisteredChannels()).toEqual([{ id: "files.watcher", label: "File Watcher" }]);
         expect(seen).toEqual([{ id: "files.watcher", label: "File Watcher" }]);
     });
 
-    it("порядок — порядок регистрации; отписка работает", () => {
+    it("order is registration order; unsubscribing works", () => {
         const service = new LogService();
         const seen: string[] = [];
         const subscription = service.onDidRegisterChannel((descriptor) => seen.push(descriptor.id));

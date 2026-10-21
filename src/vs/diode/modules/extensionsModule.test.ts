@@ -51,12 +51,12 @@ describe("extensionsModule", () => {
             environment: { registry: ws!.path("registry"), extensionsDir: ws!.path("extensions") },
         });
         const poison = (what: string) => (): never => {
-            throw new Error(`${what} не перебит продовым модулем магазина`);
+            throw new Error(`${what} is not overridden by the production marketplace module`);
         };
-        container.bind(ExtensionsWorkbenchServiceDIToken, poison("сервис магазина"));
-        container.bind(ExtensionsComponentDIToken, poison("вьюлет магазина"));
-        container.bind(ExtensionsEditorTargetDIToken, poison("шов открытия страницы"));
-        container.bind(ExtensionPageActionsDIToken, poison("действия страницы"));
+        container.bind(ExtensionsWorkbenchServiceDIToken, poison("marketplace service"));
+        container.bind(ExtensionsComponentDIToken, poison("marketplace viewlet"));
+        container.bind(ExtensionsEditorTargetDIToken, poison("page-open seam"));
+        container.bind(ExtensionPageActionsDIToken, poison("page actions"));
         container.use(extensionsModule, {
             host: HOST,
             onProblem: (message) => options.problems?.push(message),
@@ -64,7 +64,7 @@ describe("extensionsModule", () => {
         return container;
     }
 
-    it("сервис читает реестр по переданному адресу и состав активного профиля", async () => {
+    it("service reads the registry at the given address and the active profile's contents", async () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-module-" });
         ws.writeFile(
             "registry/index.json",
@@ -95,7 +95,7 @@ describe("extensionsModule", () => {
         ]);
     });
 
-    it("нечитаемый состав профиля — пустой список и ошибка в канал Extensions", () => {
+    it("unreadable profile contents — empty list and an error in the Extensions channel", () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-module-" });
         ws.writeFile(
             "extensions/local.helper-0.1.0/package.json",
@@ -115,7 +115,7 @@ describe("extensionsModule", () => {
         expect(logService.getRegisteredChannels()).toContainEqual({ id: "extensions", label: "Extensions" });
     });
 
-    it("диагностики парсера уходят в переданный onProblem", async () => {
+    it("parser diagnostics go to the given onProblem", async () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-module-" });
         ws.writeFile("registry/index.json", indexJson([entry("acme.tools", { vscode: "^1.0.0" }), { id: "broken" }]));
         const problems: string[] = [];
@@ -126,20 +126,20 @@ describe("extensionsModule", () => {
         expect(problems[0]).toContain("skipping invalid entry");
     });
 
-    it("страницу расширения открывает полоса редакторов", () => {
+    it("the editor strip opens the extension page", () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-module-" });
         const container = setup();
 
         expect(container.get(ExtensionsEditorTargetDIToken)).toBe(container.get(EditorServiceDIToken));
     });
 
-    it("вьюлет собирается из контейнера", () => {
+    it("the viewlet is built from the container", () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-module-" });
 
         expect(setup().get(ExtensionsComponentDIToken).view.id).toBe("extensionsView");
     });
 
-    it("действия страницы ходят в тот же магазин, что и вьюлет", async () => {
+    it("page actions use the same marketplace as the viewlet", async () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-module-" });
         ws.writeFile("registry/index.json", indexJson([]));
         const container = setup();

@@ -39,13 +39,13 @@ function record(name: string): SessionRecord {
 }
 
 describe("SessionRegistry", () => {
-    it("пустой (каталога ещё нет) — пустой список, чтение — undefined", () => {
+    it("empty (no directory yet): empty list, read gives undefined", () => {
         const { reg } = registry();
         expect(reg.list()).toEqual([]);
         expect(reg.read("default")).toBeUndefined();
     });
 
-    it("запись, чтение, список по имени, удаление", () => {
+    it("write, read, list by name, delete", () => {
         const { reg } = registry();
         reg.write(record("b"));
         reg.write(record("a"));
@@ -56,7 +56,7 @@ describe("SessionRegistry", () => {
         expect(reg.list().map((r) => r.name)).toEqual(["b"]);
     });
 
-    it("битые и посторонние файлы список пропускает", () => {
+    it("list skips broken and foreign files", () => {
         const { reg, dir } = registry();
         reg.write(record("ok"));
         writeFileSync(join(dir, "sessions", "broken.json"), "{");
@@ -64,12 +64,12 @@ describe("SessionRegistry", () => {
         expect(reg.list().map((r) => r.name)).toEqual(["ok"]);
     });
 
-    it("имя сессии — без путей и пробелов", () => {
+    it("session name has no paths or spaces", () => {
         expect(validateSessionName("my-run_2.x")).toBe("my-run_2.x");
-        expect(() => validateSessionName("../evil")).toThrow("недопустимое имя сессии");
-        expect(() => validateSessionName("")).toThrow("недопустимое имя");
-        expect(() => validateSessionName("a b")).toThrow("недопустимое имя");
+        expect(() => validateSessionName("../evil")).toThrow("invalid session name");
+        expect(() => validateSessionName("")).toThrow("invalid session name");
+        expect(() => validateSessionName("a b")).toThrow("invalid session name");
         const { reg } = registry();
-        expect(() => reg.read("../x")).toThrow("недопустимое имя");
+        expect(() => reg.read("../x")).toThrow("invalid session name");
     });
 });

@@ -50,7 +50,7 @@ function metaText(versions: unknown[], envelope: Record<string, unknown> = {}): 
 }
 
 describe("parseRegistryIndex", () => {
-    it("разбирает валидный индекс", () => {
+    it("parses a valid index", () => {
         const { index, problems } = parseRegistryIndex(
             indexText([indexEntry({ categories: ["Programming Languages"] })], { generatedAt: "2026-08-27T00:00:00Z" }),
             semver,
@@ -67,7 +67,7 @@ describe("parseRegistryIndex", () => {
         });
     });
 
-    it.each(["proxy-openvsx", "proxy-hosted", "native"] as const)("kind %s принимается", (kind) => {
+    it.each(["proxy-openvsx", "proxy-hosted", "native"] as const)("kind %s is accepted", (kind) => {
         const { index, problems } = parseRegistryIndex(indexText([indexEntry({ kind })]), semver);
         expect(problems).toEqual([]);
         expect(index.extensions).toHaveLength(1);
@@ -75,77 +75,77 @@ describe("parseRegistryIndex", () => {
     });
 
     it.each([
-        ["не-строка", 42],
-        ["пустая строка", ""],
-    ])("generatedAt %s отбрасывается, contract не ломается", (_label, generatedAt) => {
+        ["non-string", 42],
+        ["empty string", ""],
+    ])("generatedAt %s is dropped without breaking the contract", (_label, generatedAt) => {
         const { index } = parseRegistryIndex(indexText([], { generatedAt }), semver);
         expect(index.generatedAt).toBeUndefined();
     });
 
     it.each([
-        ["не JSON", "{oops", /Invalid registry index: malformed JSON/],
-        ["не объект", "[1,2]", /Invalid registry index: expected a JSON object/],
+        ["not JSON", "{oops", /Invalid registry index: malformed JSON/],
+        ["not an object", "[1,2]", /Invalid registry index: expected a JSON object/],
         ["JSON null", "null", /Invalid registry index: expected a JSON object/],
-        ["JSON число", "42", /Invalid registry index: expected a JSON object/],
-        ["JSON строка", '"registry"', /Invalid registry index: expected a JSON object/],
-        ["нет schemaVersion", "{}", /Invalid registry index: missing "schemaVersion"/],
-        ["schemaVersion строкой", '{"schemaVersion":"1"}', /Invalid registry index: missing "schemaVersion"/],
+        ["JSON number", "42", /Invalid registry index: expected a JSON object/],
+        ["JSON string", '"registry"', /Invalid registry index: expected a JSON object/],
+        ["no schemaVersion", "{}", /Invalid registry index: missing "schemaVersion"/],
+        ["schemaVersion as a string", '{"schemaVersion":"1"}', /Invalid registry index: missing "schemaVersion"/],
         [
-            "schemaVersion новее клиента",
+            "schemaVersion newer than the client",
             JSON.stringify({ schemaVersion: REGISTRY_SCHEMA_VERSION + 1, extensions: [] }),
             /Registry index has schemaVersion 2, but this client supports up to 1 — update Diode/,
         ],
-        ["нет extensions", JSON.stringify({ schemaVersion: 1 }), /Invalid registry index: missing "extensions" array/],
+        ["no extensions", JSON.stringify({ schemaVersion: 1 }), /Invalid registry index: missing "extensions" array/],
         [
-            "extensions не массив",
+            "extensions not an array",
             JSON.stringify({ schemaVersion: 1, extensions: {} }),
             /Invalid registry index: missing "extensions" array/,
         ],
-    ])("битый файл (%s) — ошибка", (_label, text, error) => {
+    ])("broken file (%s) fails", (_label, text, error) => {
         expect(() => parseRegistryIndex(text, semver)).toThrow(error);
     });
 
     it.each([
-        ["не объект", "just a string"],
-        ["нет id", indexEntry({ id: undefined })],
-        ["id пустая строка", indexEntry({ id: "" })],
-        ["нет publisher", indexEntry({ publisher: undefined })],
-        ["publisher пустая строка", indexEntry({ publisher: "", id: ".markdown-tools" })],
-        ["нет name", indexEntry({ name: undefined })],
-        ["name пустая строка", indexEntry({ name: "", id: "acme." })],
-        ["нет displayName", indexEntry({ displayName: undefined })],
-        ["displayName пустая строка", indexEntry({ displayName: "" })],
-        ["description не строка", indexEntry({ description: 42 })],
-        ["kind вне словаря", indexEntry({ kind: "curated" })],
+        ["not an object", "just a string"],
+        ["no id", indexEntry({ id: undefined })],
+        ["id empty string", indexEntry({ id: "" })],
+        ["no publisher", indexEntry({ publisher: undefined })],
+        ["publisher empty string", indexEntry({ publisher: "", id: ".markdown-tools" })],
+        ["no name", indexEntry({ name: undefined })],
+        ["name empty string", indexEntry({ name: "", id: "acme." })],
+        ["no displayName", indexEntry({ displayName: undefined })],
+        ["displayName empty string", indexEntry({ displayName: "" })],
+        ["description not a string", indexEntry({ description: 42 })],
+        ["kind outside the vocabulary", indexEntry({ kind: "curated" })],
         ["id ≠ publisher.name", indexEntry({ id: "other.markdown-tools" })],
-        ["categories не массив", indexEntry({ categories: "Linters" })],
-        ["categories с не-строкой", indexEntry({ categories: ["ok", 5] })],
-        ["categories с пустой строкой", indexEntry({ categories: [""] })],
-        ["нет latest", indexEntry({ latest: undefined })],
-        ["latest.version не строка", indexEntry({ latest: { version: 42, engines: { vscode: "*" } } })],
-        ["latest.version не semver", indexEntry({ latest: { version: "latest", engines: { vscode: "*" } } })],
-        ["latest без engines", indexEntry({ latest: { version: "1.0.0" } })],
-        ["latest.engines пустой", indexEntry({ latest: { version: "1.0.0", engines: {} } })],
-    ])("битая запись (%s) пропускается с диагностикой", (_label, entry) => {
+        ["categories not an array", indexEntry({ categories: "Linters" })],
+        ["categories with a non-string", indexEntry({ categories: ["ok", 5] })],
+        ["categories with an empty string", indexEntry({ categories: [""] })],
+        ["no latest", indexEntry({ latest: undefined })],
+        ["latest.version not a string", indexEntry({ latest: { version: 42, engines: { vscode: "*" } } })],
+        ["latest.version not semver", indexEntry({ latest: { version: "latest", engines: { vscode: "*" } } })],
+        ["latest without engines", indexEntry({ latest: { version: "1.0.0" } })],
+        ["latest.engines empty", indexEntry({ latest: { version: "1.0.0", engines: {} } })],
+    ])("broken entry (%s) is skipped with a diagnostic", (_label, entry) => {
         const { index, problems } = parseRegistryIndex(indexText([entry, indexEntry()]), semver);
         expect(index.extensions).toHaveLength(1);
         expect(problems).toHaveLength(1);
         expect(problems[0]).toMatch(/skipping invalid entry #0/);
     });
 
-    it("диагностика включает id битой записи, когда он есть", () => {
+    it("the diagnostic includes the broken entry id when present", () => {
         const { problems } = parseRegistryIndex(indexText([indexEntry({ kind: "bad" })]), semver);
         expect(problems[0]).toContain("(acme.markdown-tools)");
     });
 
-    it("диагностика записи без id — ровно текст пропуска, без суффикса", () => {
+    it("the diagnostic for an entry without id is exactly the skip text, without a suffix", () => {
         const { problems } = parseRegistryIndex(indexText(["just a string"]), semver);
         expect(problems).toEqual(["registry index: skipping invalid entry #0"]);
     });
 });
 
 describe("parseRegistryMeta", () => {
-    it("разбирает валидную мету со всеми опциональными полями", () => {
+    it("parses valid meta with all optional fields", () => {
         const { meta, problems } = parseRegistryMeta(
             metaText(
                 [
@@ -181,7 +181,7 @@ describe("parseRegistryMeta", () => {
         });
     });
 
-    it("опциональные поля отсутствуют — undefined", () => {
+    it("missing optional fields are undefined", () => {
         const { meta } = parseRegistryMeta(metaText([versionRecord()]), semver);
         expect(meta.schemaVersion).toBe(REGISTRY_SCHEMA_VERSION);
         expect(meta.repository).toBeUndefined();
@@ -194,7 +194,7 @@ describe("parseRegistryMeta", () => {
         expect(meta.versions[0]?.publishedAt).toBeUndefined();
     });
 
-    it("targetPlatform сохраняется; одна версия несколькими платформенными записями валидна", () => {
+    it("targetPlatform is kept; one version as several platform entries is valid", () => {
         const { meta, problems } = parseRegistryMeta(
             metaText([
                 versionRecord({ targetPlatform: "linux-x64" }),
@@ -206,7 +206,7 @@ describe("parseRegistryMeta", () => {
         expect(meta.versions.map((v) => v.targetPlatform)).toEqual(["linux-x64", "somearch-someos"]);
     });
 
-    it("опциональные поля с пустой строкой — undefined", () => {
+    it("optional fields with an empty string are undefined", () => {
         const { meta } = parseRegistryMeta(
             metaText([versionRecord()], { repository: "", license: "", homepage: "", readme: "" }),
             semver,
@@ -218,61 +218,68 @@ describe("parseRegistryMeta", () => {
     });
 
     it.each([
-        ["не JSON", "{oops", /Invalid registry meta: malformed JSON/],
-        ["не объект", "null", /Invalid registry meta: expected a JSON object/],
-        ["нет schemaVersion", "{}", /Invalid registry meta: missing "schemaVersion"/],
+        ["not JSON", "{oops", /Invalid registry meta: malformed JSON/],
+        ["not an object", "null", /Invalid registry meta: expected a JSON object/],
+        ["no schemaVersion", "{}", /Invalid registry meta: missing "schemaVersion"/],
         [
-            "schemaVersion новее клиента",
+            "schemaVersion newer than the client",
             JSON.stringify({ schemaVersion: REGISTRY_SCHEMA_VERSION + 1 }),
             /Registry meta has schemaVersion 2, but this client supports up to 1 — update Diode/,
         ],
-        ["битая идентичность", metaText([], { kind: "bad" }), /Invalid registry meta: bad identity fields/],
-        ["versions не массив", metaText([], { versions: "none" }), /Invalid registry meta: missing "versions" array/],
-    ])("битый файл (%s) — ошибка", (_label, text, error) => {
+        ["broken identity", metaText([], { kind: "bad" }), /Invalid registry meta: bad identity fields/],
+        [
+            "versions not an array",
+            metaText([], { versions: "none" }),
+            /Invalid registry meta: missing "versions" array/,
+        ],
+    ])("broken file (%s) fails", (_label, text, error) => {
         expect(() => parseRegistryMeta(text, semver)).toThrow(error);
     });
 
-    it("id не совпадает с ожидаемым — ошибка", () => {
+    it("an id different from the expected one fails", () => {
         expect(() => parseRegistryMeta(metaText([]), semver, "other.ext")).toThrow(
             /does not match expected "other.ext"/,
         );
     });
 
     it.each([
-        ["не объект", 42],
-        ["нет version", versionRecord({ version: undefined })],
-        ["version не semver", versionRecord({ version: "latest" })],
-        ["нет engines", versionRecord({ engines: undefined })],
-        ["engines без diode/vscode", versionRecord({ engines: { node: ">=20" } })],
-        ["engines.diode не строка", versionRecord({ engines: { diode: 1 } })],
-        ["engines.diode пустая строка", versionRecord({ engines: { diode: "" } })],
-        ["engines.vscode не строка", versionRecord({ engines: { vscode: 1 } })],
-        ["engines.vscode пустая строка", versionRecord({ engines: { vscode: "" } })],
-        ["нет artifact", versionRecord({ artifact: undefined })],
-        ["artifact без типа", versionRecord({ artifact: {} })],
-        ["artifact неизвестного типа", versionRecord({ artifact: { type: "ftp", url: "x" } })],
-        ["artifact чужого типа с валидным path", versionRecord({ artifact: { type: "ftp", path: "a.vsix" } })],
-        ["url-артефакт без url", versionRecord({ artifact: { type: "url" } })],
-        ["url-артефакт с пустым url", versionRecord({ artifact: { type: "url", url: "" } })],
-        ["url-артефакт с чужим origin", versionRecord({ artifact: { type: "url", url: "https://x", origin: "npm" } })],
-        ["path-артефакт без path", versionRecord({ artifact: { type: "path" } })],
-        ["path пустая строка", versionRecord({ artifact: { type: "path", path: "" } })],
-        ["path с backslash", versionRecord({ artifact: { type: "path", path: "a\\b.vsix" } })],
-        ["path абсолютный", versionRecord({ artifact: { type: "path", path: "/etc/x.vsix" } })],
-        ["path с ..", versionRecord({ artifact: { type: "path", path: "../outside.vsix" } })],
-        ["path с пустым сегментом", versionRecord({ artifact: { type: "path", path: "a//b.vsix" } })],
-        ["нет sha256", versionRecord({ sha256: undefined })],
+        ["not an object", 42],
+        ["no version", versionRecord({ version: undefined })],
+        ["version not semver", versionRecord({ version: "latest" })],
+        ["no engines", versionRecord({ engines: undefined })],
+        ["engines without diode/vscode", versionRecord({ engines: { node: ">=20" } })],
+        ["engines.diode not a string", versionRecord({ engines: { diode: 1 } })],
+        ["engines.diode empty string", versionRecord({ engines: { diode: "" } })],
+        ["engines.vscode not a string", versionRecord({ engines: { vscode: 1 } })],
+        ["engines.vscode empty string", versionRecord({ engines: { vscode: "" } })],
+        ["no artifact", versionRecord({ artifact: undefined })],
+        ["artifact without type", versionRecord({ artifact: {} })],
+        ["artifact of unknown type", versionRecord({ artifact: { type: "ftp", url: "x" } })],
+        ["artifact of a foreign type with a valid path", versionRecord({ artifact: { type: "ftp", path: "a.vsix" } })],
+        ["url artifact without url", versionRecord({ artifact: { type: "url" } })],
+        ["url artifact with empty url", versionRecord({ artifact: { type: "url", url: "" } })],
+        [
+            "url artifact with a foreign origin",
+            versionRecord({ artifact: { type: "url", url: "https://x", origin: "npm" } }),
+        ],
+        ["path artifact without path", versionRecord({ artifact: { type: "path" } })],
+        ["path empty string", versionRecord({ artifact: { type: "path", path: "" } })],
+        ["path with backslash", versionRecord({ artifact: { type: "path", path: "a\\b.vsix" } })],
+        ["path absolute", versionRecord({ artifact: { type: "path", path: "/etc/x.vsix" } })],
+        ["path with ..", versionRecord({ artifact: { type: "path", path: "../outside.vsix" } })],
+        ["path with an empty segment", versionRecord({ artifact: { type: "path", path: "a//b.vsix" } })],
+        ["no sha256", versionRecord({ sha256: undefined })],
         // RegExp.test coerces an array holding a hex string into valid hex, so the type needs its own check.
-        ["sha256 не строка", versionRecord({ sha256: ["a".repeat(64)] })],
-        ["sha256 не hex-64", versionRecord({ sha256: "abc" })],
-        ["sha256 длиннее 64", versionRecord({ sha256: "a".repeat(65) })],
+        ["sha256 not a string", versionRecord({ sha256: ["a".repeat(64)] })],
+        ["sha256 not hex-64", versionRecord({ sha256: "abc" })],
+        ["sha256 longer than 64", versionRecord({ sha256: "a".repeat(65) })],
         ["sha256 uppercase", versionRecord({ sha256: "A".repeat(64) })],
-        ["targetPlatform не строка", versionRecord({ targetPlatform: 7 })],
-        ["targetPlatform пустая строка", versionRecord({ targetPlatform: "" })],
-        ["size не число", versionRecord({ size: "big" })],
-        ["publishedAt не строка", versionRecord({ publishedAt: 5 })],
-        ["publishedAt пустая строка", versionRecord({ publishedAt: "" })],
-    ])("битая версия (%s) пропускается с диагностикой", (_label, version) => {
+        ["targetPlatform not a string", versionRecord({ targetPlatform: 7 })],
+        ["targetPlatform empty string", versionRecord({ targetPlatform: "" })],
+        ["size not a number", versionRecord({ size: "big" })],
+        ["publishedAt not a string", versionRecord({ publishedAt: 5 })],
+        ["publishedAt empty string", versionRecord({ publishedAt: "" })],
+    ])("broken version (%s) is skipped with a diagnostic", (_label, version) => {
         const { meta, problems } = parseRegistryMeta(metaText([version, versionRecord({ version: "1.1.0" })]), semver);
         expect(meta.versions).toHaveLength(1);
         expect(meta.versions[0]?.version).toBe("1.1.0");
@@ -280,17 +287,17 @@ describe("parseRegistryMeta", () => {
         expect(problems[0]).toMatch(/acme\.markdown-tools: skipping invalid version #0/);
     });
 
-    it("диагностика включает номер версии битой записи, когда он есть", () => {
+    it("the diagnostic includes the broken entry version when present", () => {
         const { problems } = parseRegistryMeta(metaText([versionRecord({ sha256: "zzz" })]), semver);
         expect(problems[0]).toContain("(1.2.0)");
     });
 
-    it("диагностика записи без version — ровно текст пропуска, без суффикса", () => {
+    it("the diagnostic for an entry without version is exactly the skip text, without a suffix", () => {
         const { problems } = parseRegistryMeta(metaText([42]), semver);
         expect(problems).toEqual(["registry meta acme.markdown-tools: skipping invalid version #0"]);
     });
 
-    it("engines только с diode валиден", () => {
+    it("engines with only diode is valid", () => {
         const { meta, problems } = parseRegistryMeta(
             metaText([versionRecord({ engines: { diode: "^0.3.0" } })]),
             semver,
@@ -299,7 +306,7 @@ describe("parseRegistryMeta", () => {
         expect(meta.versions[0]?.engines).toEqual({ diode: "^0.3.0", vscode: undefined });
     });
 
-    it("url-артефакт без origin валиден", () => {
+    it("url artifact without origin is valid", () => {
         const { meta } = parseRegistryMeta(
             metaText([versionRecord({ artifact: { type: "url", url: "https://x/y.vsix" } })]),
             semver,
@@ -307,7 +314,7 @@ describe("parseRegistryMeta", () => {
         expect(meta.versions[0]?.artifact).toEqual({ type: "url", url: "https://x/y.vsix", origin: undefined });
     });
 
-    it("url-артефакт с origin github-release валиден", () => {
+    it("url artifact with origin github-release is valid", () => {
         const { meta, problems } = parseRegistryMeta(
             metaText([versionRecord({ artifact: { type: "url", url: "https://x/y.vsix", origin: "github-release" } })]),
             semver,
@@ -335,54 +342,54 @@ describe("searchRegistryIndex", () => {
             semver,
         ).index;
 
-    it("пустой и пробельный запрос — весь список", () => {
+    it("an empty or whitespace query returns the whole list", () => {
         const index = searchableIndex();
         expect(searchRegistryIndex(index, "")).toHaveLength(2);
         expect(searchRegistryIndex(index, "   ")).toHaveLength(2);
     });
 
     it.each([
-        ["по id", "maptz", ["maptz.regionfolder"]],
-        ["по displayName без учёта регистра", "MARKDOWN tools", ["acme.markdown-tools"]],
-        ["по description", "fold custom", ["maptz.regionfolder"]],
-        ["нет совпадений", "python", []],
-    ])("ищет %s", (_label, query, expected) => {
+        ["by id", "maptz", ["maptz.regionfolder"]],
+        ["by displayName, case-insensitive", "MARKDOWN tools", ["acme.markdown-tools"]],
+        ["by description", "fold custom", ["maptz.regionfolder"]],
+        ["no matches", "python", []],
+    ])("searches %s", (_label, query, expected) => {
         expect(searchRegistryIndex(searchableIndex(), query).map((e) => e.id)).toEqual(expected);
     });
 });
 
-describe("пометка о поддержке", () => {
+describe("support note", () => {
     const partial = { level: "partial", works: ["Inline completions"], limits: ["Chat panel needs a webview"] };
 
-    it("едет в записи индекса", () => {
+    it("travels in the index entry", () => {
         const { index, problems } = parseRegistryIndex(indexText([indexEntry({ support: partial })]), semver);
         expect(problems).toEqual([]);
         expect(index.extensions[0]?.support).toEqual(partial);
     });
 
-    it("едет в мете", () => {
+    it("travels in the meta", () => {
         const { meta } = parseRegistryMeta(metaText([versionRecord()], { support: partial }), semver);
         expect(meta.support).toEqual(partial);
     });
 
-    it("уровень full не требует списков", () => {
+    it("level full requires no lists", () => {
         const { meta } = parseRegistryMeta(metaText([versionRecord()], { support: { level: "full" } }), semver);
         expect(meta.support).toEqual({ level: "full", works: undefined, limits: undefined });
     });
 
     it.each([
-        ["неизвестный уровень", { level: "sort-of", limits: ["x"] }],
-        ["уровня нет вовсе", { limits: ["x"] }],
-        ["partial без ограничений", { level: "partial", works: ["y"] }],
-        ["partial с пустым списком ограничений", { level: "partial", limits: [] }],
-        ["ограничения не массив", { level: "partial", limits: "webview" }],
-        ["пункт списка пустой", { level: "partial", limits: [""] }],
-        ["пункт списка не строка", { level: "partial", limits: [42] }],
+        ["unknown level", { level: "sort-of", limits: ["x"] }],
+        ["no level at all", { limits: ["x"] }],
+        ["partial without limits", { level: "partial", works: ["y"] }],
+        ["partial with an empty limits list", { level: "partial", limits: [] }],
+        ["limits not an array", { level: "partial", limits: "webview" }],
+        ["empty list item", { level: "partial", limits: [""] }],
+        ["list item not a string", { level: "partial", limits: [42] }],
         // `every` rejects it, `some` would let it through (mutant).
-        ["часть пунктов битая", { level: "partial", limits: ["Chat panel", 42] }],
-        ["works не массив", { level: "full", works: "everything" }],
-        ["не объект", "partial"],
-    ])("битая пометка (%s) отбрасывается, но запись остаётся", (_label, support) => {
+        ["some items broken", { level: "partial", limits: ["Chat panel", 42] }],
+        ["works not an array", { level: "full", works: "everything" }],
+        ["not an object", "partial"],
+    ])("broken support note (%s) is dropped but the entry stays", (_label, support) => {
         const { meta, problems } = parseRegistryMeta(metaText([versionRecord()], { support }), semver);
         expect(meta.support).toBeUndefined();
         expect(meta.id).toBe("acme.markdown-tools");

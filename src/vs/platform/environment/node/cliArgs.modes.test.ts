@@ -4,7 +4,7 @@ import { LogLevel } from "../../log/common/logLevel.ts";
 
 import { parseCliArgs } from "./cliArgs.ts";
 
-describe("parseCliArgs — режимы позиционных", () => {
+describe("parseCliArgs — positional argument modes", () => {
     it("parses -g / --goto as a mode flag, not a value flag", () => {
         expect(parseCliArgs(["-g", "a.ts:10:5"]).goto).toBe(true);
         expect(parseCliArgs(["--goto", "a.ts:10:5"]).goto).toBe(true);
@@ -30,7 +30,7 @@ describe("parseCliArgs — режимы позиционных", () => {
     });
 });
 
-describe("parseCliArgs — расширения", () => {
+describe("parseCliArgs — extensions", () => {
     it("parses --extensions-dir with separate value and =form", () => {
         expect(parseCliArgs(["--extensions-dir", "/tmp/ext"]).extensionsDir).toBe("/tmp/ext");
         expect(parseCliArgs(["--extensions-dir=/tmp/ext"]).extensionsDir).toBe("/tmp/ext");
@@ -43,7 +43,7 @@ describe("parseCliArgs — расширения", () => {
     });
 });
 
-describe("parseCliArgs — уровни логирования", () => {
+describe("parseCliArgs — log levels", () => {
     it("parses a bare --log level as a wildcard rule", () => {
         expect(parseCliArgs(["--log", "debug"]).logLevels).toEqual([{ channel: "*", level: LogLevel.Debug }]);
         expect(parseCliArgs(["--log=warn"]).logLevels).toEqual([{ channel: "*", level: LogLevel.Warn }]);

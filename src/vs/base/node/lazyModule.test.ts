@@ -24,17 +24,17 @@ beforeEach(() => {
 });
 
 describe("lazyChunkAssetName", () => {
-    it("lazy/<id>.cjs — как в scripts/build-lazy-chunks.mjs", () => {
+    it("lazy/<id>.cjs, as in scripts/build-lazy-chunks.mjs", () => {
         expect(lazyChunkAssetName("yauzl")).toBe("lazy/yauzl.cjs");
         expect(lazyChunkAssetName("@xterm/headless")).toBe("lazy/@xterm/headless.cjs");
     });
 
-    it("кэш кода — lazy/<id>.v8cache", () => {
+    it("code cache: lazy/<id>.v8cache", () => {
         expect(lazyChunkCacheAssetName("@xterm/headless")).toBe("lazy/@xterm/headless.v8cache");
     });
 });
 
-describe("loadLazyModule — кэш кода V8", () => {
+describe("loadLazyModule: V8 code cache", () => {
     const CODE = "exports.answer = (function () { return [1, 2, 3].reduce((a, b) => a + b, 36); })();\n";
     let dir: string;
     let errors: unknown[];
@@ -68,7 +68,7 @@ describe("loadLazyModule — кэш кода V8", () => {
         return { read: vi.fn((name: string) => assets[name] ?? null) };
     }
 
-    it("кэш из сборки читается рядом с куском и принят V8: обёртка сборки байт в байт как у загрузчика", async () => {
+    it("the build cache is read next to the lazy chunk and accepted by V8: the build wrapper matches the loader byte for byte", async () => {
         const source = sourceWith({
             "lazy/cached.cjs": new TextEncoder().encode(CODE),
             "lazy/cached.v8cache": cacheFromBuild("lazy/cached.cjs"),
@@ -81,7 +81,7 @@ describe("loadLazyModule — кэш кода V8", () => {
         expect(errors).toStrictEqual([]);
     });
 
-    it("чужой кэш V8 отвергает: кусок всё равно загружен, отказ — в onUnexpectedError", async () => {
+    it("V8 rejects a foreign cache: the lazy chunk still loads, the rejection goes to onUnexpectedError", async () => {
         const source = sourceWith({
             "lazy/stale.cjs": new TextEncoder().encode(`${CODE}exports.more = 1;\n`),
             "lazy/stale.v8cache": cacheFromBuild("lazy/stale.cjs"),
@@ -95,7 +95,7 @@ describe("loadLazyModule — кэш кода V8", () => {
         expect(String(errors[0])).toContain("lazy/stale.cjs");
     });
 
-    it("кэша нет — компилируем без него, молча", async () => {
+    it("no cache: compiles without it, silently", async () => {
         const source = sourceWith({ "lazy/plain.cjs": new TextEncoder().encode(CODE) });
 
         const mod = await loadLazyModule<Record<string, unknown>>("plain", () => Promise.resolve({}), source);
@@ -106,7 +106,7 @@ describe("loadLazyModule — кэш кода V8", () => {
 });
 
 describe("loadLazyModule", () => {
-    it("куска нет (dev) — модуль приходит через importer", async () => {
+    it("no lazy chunk (dev): the module comes through the importer", async () => {
         const mod = { open: () => "real" };
         const importer = vi.fn(() => Promise.resolve(mod));
 
@@ -115,12 +115,12 @@ describe("loadLazyModule", () => {
         expect(importer).toHaveBeenCalledTimes(1);
     });
 
-    it("по умолчанию читает упакованные ассеты: в dev-дереве куска нет — настоящий import()", async () => {
+    it("reads packaged assets by default: the dev tree has no lazy chunk, so a real import()", async () => {
         const yauzl = await loadLazyModule("yauzl", () => import("yauzl"));
         expect(typeof yauzl.open).toBe("function");
     });
 
-    it("кусок есть — исполняет CJS: настоящий require builtin'ов, именованные поля и default", async () => {
+    it("lazy chunk present: runs CJS with a real require for builtins, named fields and default", async () => {
         const source = chunkSource(
             "lazy/pkg.cjs",
             'const path = require("node:path");\n' +
@@ -128,7 +128,7 @@ describe("loadLazyModule", () => {
                 "exports.self = this === module.exports;\n" +
                 "exports.where = [__filename, __dirname];\n",
         );
-        const importer = vi.fn(() => Promise.reject(new Error("importer не должен вызываться")));
+        const importer = vi.fn(() => Promise.reject(new Error("importer must not be called")));
 
         const mod = await loadLazyModule<Record<string, unknown>>("pkg", importer, source);
 
@@ -140,7 +140,7 @@ describe("loadLazyModule", () => {
         expect((mod.default as Record<string, unknown>).join).toBe(mod.join);
     });
 
-    it("module.exports — функция: default — она, её свойства — именованные; exports.default не перебивает default", async () => {
+    it("module.exports is a function: it is default, its properties are named; exports.default does not override default", async () => {
         const source = chunkSource(
             "lazy/fn.cjs",
             "module.exports = function main() { return 42; };\n" +
@@ -154,7 +154,7 @@ describe("loadLazyModule", () => {
         expect(mod.helper).toBe(7);
     });
 
-    it("module.exports — строка: только default, индексы символов в поля не попадают", async () => {
+    it("module.exports is a string: default only, character indices do not become fields", async () => {
         const source = chunkSource("lazy/prim.cjs", 'module.exports = "ab";\n');
 
         const mod = await loadLazyModule<Record<string, unknown>>("prim", () => Promise.resolve({}), source);
@@ -162,7 +162,7 @@ describe("loadLazyModule", () => {
         expect(mod).toEqual({ default: "ab" });
     });
 
-    it("module.exports — null: только default", async () => {
+    it("module.exports is null: default only", async () => {
         const source = chunkSource("lazy/nul.cjs", "module.exports = null;\n");
 
         const mod = await loadLazyModule<Record<string, unknown>>("nul", () => Promise.resolve({}), source);
@@ -170,7 +170,7 @@ describe("loadLazyModule", () => {
         expect(mod).toEqual({ default: null });
     });
 
-    it("загрузка одна на процесс: кусок читается и исполняется один раз", async () => {
+    it("one load per process: the lazy chunk is read and run once", async () => {
         const source = chunkSource("lazy/once.cjs", "globalThis.__lazyRuns = (globalThis.__lazyRuns ?? 0) + 1;\n");
         const g = globalThis as { __lazyRuns?: number };
         delete g.__lazyRuns;
@@ -189,7 +189,7 @@ describe("loadLazyModule", () => {
         delete g.__lazyRuns;
     });
 
-    it("разные id — разные модули", async () => {
+    it("different ids, different modules", async () => {
         const first = await loadLazyModule("a", () => Promise.resolve({ id: "a" }), noChunk);
         const second = await loadLazyModule("b", () => Promise.resolve({ id: "b" }), noChunk);
 
@@ -197,7 +197,7 @@ describe("loadLazyModule", () => {
         expect(second).toEqual({ id: "b" });
     });
 
-    it("сбой не залипает: ошибка куска со стеком на diode:lazy/<id>.cjs, следующий вызов пробует снова", async () => {
+    it("a failure does not stick: the lazy chunk error has a stack at diode:lazy/<id>.cjs, the next call retries", async () => {
         const broken = chunkSource("lazy/flaky.cjs", 'throw new Error("boom");\n');
 
         const error = await loadLazyModule("flaky", () => Promise.resolve({}), broken).catch((e: unknown) => e);

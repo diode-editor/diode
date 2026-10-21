@@ -26,7 +26,7 @@ afterEach(() => {
 
 /** A swapped seam yields a working container and a silent editor — checks that the real seams arrive. */
 describe("workbenchModule — env.openExternal", () => {
-    it("без графического сеанса кладёт ссылку в буфер приложения и показывает сообщение", async () => {
+    it("without a graphical session puts the link in the app clipboard and shows a message", async () => {
         const { container } = createTestContainer();
         const noDisplay = { ...process.env };
         delete noDisplay.DISPLAY;
@@ -53,7 +53,7 @@ describe("workbenchModule — env.openExternal", () => {
         }
     });
 
-    it("чужую схему не берётся открывать вовсе", async () => {
+    it("does not try to open a foreign scheme at all", async () => {
         const { container } = createTestContainer();
         const opener = container.get(ExternalOpenerDIToken);
 
@@ -62,8 +62,8 @@ describe("workbenchModule — env.openExternal", () => {
     });
 });
 
-describe("workbenchModule — доступ bulk edit'а к буферам", () => {
-    it("открытая вкладка видна как буфер, а чужой ресурс — нет", () => {
+describe("workbenchModule — bulk edit access to buffers", () => {
+    it("an open tab is visible as a buffer, a foreign resource is not", () => {
         const { container } = createTestContainer();
         const editors = container.get(EditorServiceDIToken);
         const buffers = container.get(IBulkEditBuffersDIToken);

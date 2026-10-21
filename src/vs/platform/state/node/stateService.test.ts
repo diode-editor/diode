@@ -102,7 +102,7 @@ describe("StateService", () => {
     });
 
     describe("workspace scope", () => {
-        it("пустое окно пишет workspace-скоуп в свой стор empty-window, global не трогает", () => {
+        it("an empty window writes the workspace scope to its empty-window store and leaves global alone", () => {
             const p = paths();
             const svc = loadState(p);
             svc.store(wsWidth, 50);
@@ -116,7 +116,7 @@ describe("StateService", () => {
             expect(loadState(p).get(wsWidth)).toBe(50);
         });
 
-        it("нетронутый стор пустого окна на диск не пишется — ни при flushSync, ни по таймеру", async () => {
+        it("an untouched empty-window store is not written to disk, neither on flushSync nor by timer", async () => {
             const p = paths();
             const svc = newStateService({
                 globalStateFile: p.globalStateFile,
@@ -136,7 +136,7 @@ describe("StateService", () => {
             expect(fs.existsSync(emptyWindowFile)).toBe(false);
         });
 
-        it("openWorkspace переключает с пустого окна на проект, сбросив стор пустого окна", () => {
+        it("openWorkspace switches from the empty window to the project, flushing the empty-window store", () => {
             const p = paths();
             const svc = loadState(p);
             svc.store(wsWidth, 40);
@@ -151,7 +151,7 @@ describe("StateService", () => {
             });
         });
 
-        it("onDidOpenWorkspace срабатывает после загрузки стора проекта", () => {
+        it("onDidOpenWorkspace fires after the project store is loaded", () => {
             const p = paths();
             const folder = computeWorkspaceId("/projects/alpha");
             const seed = loadState(p);
@@ -220,7 +220,7 @@ describe("StateService", () => {
     });
 
     describe("remove", () => {
-        it("удаляет ключ и его версию: get отдаёт дефолт, в файле пустышек нет", () => {
+        it("removes the key and its version: get returns the default, the file has no empty leftovers", () => {
             const p = paths();
             const versioned: IStateDescriptor<string> = { key: "ext.v", scope: "global", default: "def", version: 2 };
             const svc = loadState(p);
@@ -234,7 +234,7 @@ describe("StateService", () => {
             expect(JSON.parse(fs.readFileSync(p.globalStateFile, "utf-8"))).toEqual({ "workbench.sideBar.width": 41 });
         });
 
-        it("версии соседей остаются; удаление ключа без версии их не трогает", () => {
+        it("sibling versions stay; removing a key without a version leaves them alone", () => {
             const p = paths();
             const a: IStateDescriptor<string> = { key: "a", scope: "global", default: "", version: 1 };
             const b: IStateDescriptor<string> = { key: "b", scope: "global", default: "", version: 3 };
@@ -250,7 +250,7 @@ describe("StateService", () => {
             expect(JSON.parse(fs.readFileSync(p.globalStateFile, "utf-8"))).toEqual({ b: "y", $versions: { b: 3 } });
         });
 
-        it("удаление по workspace-скоупу правит стор открытого проекта, а запись — по таймеру", async () => {
+        it("removal in the workspace scope edits the open project's store, and the write happens by timer", async () => {
             const p = paths();
             const svc = newStateService({
                 globalStateFile: p.globalStateFile,
@@ -270,7 +270,7 @@ describe("StateService", () => {
             });
         });
 
-        it("у заглушки remove — no-op", () => {
+        it("remove on the stub is a no-op", () => {
             expect(() => {
                 NULL_STATE_SERVICE.remove(width);
             }).not.toThrow();
@@ -340,7 +340,7 @@ describe("StateService", () => {
         });
     });
 
-    it("без логгера отказ записи не роняет flushSync, данные ждут следующего flush", () => {
+    it("without a logger a write failure does not crash flushSync, the data waits for the next flush", () => {
         const blocker = path.join(ws.dir, "blocker");
         fs.writeFileSync(blocker, "x");
         const store = new StateFileStore(path.join(blocker, "s.json"));
@@ -456,7 +456,7 @@ describe("StateService", () => {
     });
 
     describe("dispose", () => {
-        it("снимает запланированную запись: ничего не пишет и после паузы", async () => {
+        it("cancels the scheduled write: nothing is written even after a pause", async () => {
             const p = paths();
             const svc = newStateService({
                 globalStateFile: p.globalStateFile,
@@ -470,7 +470,7 @@ describe("StateService", () => {
             expect(fs.existsSync(p.globalStateFile)).toBe(false);
         });
 
-        it("после dispose новый store не взводит запись заново", async () => {
+        it("after dispose a new store does not schedule a write again", async () => {
             const p = paths();
             const svc = newStateService({
                 globalStateFile: p.globalStateFile,
@@ -486,7 +486,7 @@ describe("StateService", () => {
             expect(svc.get(width)).toBe(88);
         });
 
-        it("снесённый каталог не воскресает отложенной записью (регресс: мусор в os.tmpdir)", async () => {
+        it("a removed directory is not resurrected by a deferred write (regression: garbage in os.tmpdir)", async () => {
             // Exactly the sequence a temp directory owner uses to clean up:
             // the writer schedules a pending write, the owner silences the
             // writer and removes the directory. Before this fix, `mkdir` with
@@ -509,7 +509,7 @@ describe("StateService", () => {
             expect(fs.existsSync(home)).toBe(false);
         });
 
-        it("снимает ВСЕ запланированные записи, а не последнюю", async () => {
+        it("cancels ALL scheduled writes, not just the last one", async () => {
             const p = paths();
             const svc = newStateService({
                 globalStateFile: p.globalStateFile,
@@ -528,7 +528,7 @@ describe("StateService", () => {
             expect(fs.existsSync(p.globalStateFile)).toBe(false);
         });
 
-        it("после dispose событие openWorkspace до подписчиков не доходит", () => {
+        it("after dispose the openWorkspace event does not reach subscribers", () => {
             const svc = loadState(paths());
             const seen: string[] = [];
             svc.onDidOpenWorkspace((id) => seen.push(id));
@@ -542,7 +542,7 @@ describe("StateService", () => {
             expect(seen).toHaveLength(1); // no second event: the emitter is disposed
         });
 
-        it("flushSync остаётся способом записать — dispose его не подменяет", () => {
+        it("flushSync remains the way to write; dispose does not replace it", () => {
             const p = paths();
             const svc = loadState(p);
             svc.store(width, 7);
@@ -557,7 +557,7 @@ describe("StateService", () => {
     describe("application scope", () => {
         const profiles: IStateDescriptor<string[]> = { key: "userDataProfiles", scope: "application", default: [] };
 
-        it("живёт в User/globalStorage/storage.json, вне профиля, и переживает перезапуск", () => {
+        it("lives in User/globalStorage/storage.json, outside the profile, and survives a restart", () => {
             const p = paths("work");
             const svc = loadState(p);
             svc.store(profiles, ["work"]);
@@ -572,7 +572,7 @@ describe("StateService", () => {
             expect(fs.existsSync(p.globalStateFile)).toBe(false);
         });
 
-        it("усыновляет стор, прочитанный до сборки сервиса: писатель у файла один", () => {
+        it("adopts the store read before the service is built: the file has a single writer", () => {
             const p = paths();
             const application = loadApplicationState(p.applicationStateFile);
             application.store(profiles, ["early"]);
@@ -587,7 +587,7 @@ describe("StateService", () => {
             });
         });
 
-        it("без файла стор только в памяти: ничего не пишет и не падает", async () => {
+        it("without a file the store is in-memory only: writes nothing and does not fail", async () => {
             const p = paths();
             const logger = fakeLogger();
             const svc = newStateService({
@@ -608,7 +608,7 @@ describe("StateService", () => {
             expect(logger.error).not.toHaveBeenCalled();
         });
 
-        it("dispose снимает отложенную запись и у application-стора", async () => {
+        it("dispose cancels the deferred write of the application store too", async () => {
             const p = paths();
             const svc = newStateService({
                 application: p.applicationStateFile,
@@ -622,7 +622,7 @@ describe("StateService", () => {
             expect(fs.existsSync(p.applicationStateFile)).toBe(false);
         });
 
-        it("loadApplicationState: битый файл — пустой стор и ошибка в лог", () => {
+        it("loadApplicationState: a corrupt file gives an empty store and an error in the log", () => {
             const p = paths();
             fs.mkdirSync(path.dirname(p.applicationStateFile), { recursive: true });
             fs.writeFileSync(p.applicationStateFile, "{ nope");
@@ -633,7 +633,7 @@ describe("StateService", () => {
             store.dispose();
         });
 
-        it("StateFileStore пишет сам: debounce без сервиса и flushSync", async () => {
+        it("StateFileStore writes on its own: debounce without the service, and flushSync", async () => {
             const file = path.join(ws.dir, "store.json");
             const store = new StateFileStore(file, { writeDebounceMs: 5 });
             store.store(profiles, ["a"]);
@@ -644,7 +644,7 @@ describe("StateService", () => {
             expect(JSON.parse(fs.readFileSync(file, "utf-8"))).toEqual({ userDataProfiles: ["a"] });
         });
 
-        it("задержка записи по умолчанию — WRITE_DEBOUNCE_MS", () => {
+        it("the default write delay is WRITE_DEBOUNCE_MS", () => {
             const timers = vi.spyOn(globalThis, "setTimeout");
             try {
                 const store = new StateFileStore(path.join(ws.dir, "store.json"));
@@ -656,7 +656,7 @@ describe("StateService", () => {
             }
         });
 
-        it("второй store до записи не взводит свой таймер поверх первого: dispose снимает единственный", async () => {
+        it("a second store before the write does not schedule its own timer over the first: dispose cancels the only one", async () => {
             const file = path.join(ws.dir, "store.json");
             const store = new StateFileStore(file, { writeDebounceMs: 5 });
             store.store(profiles, ["a"]);
@@ -666,7 +666,7 @@ describe("StateService", () => {
             expect(fs.existsSync(file)).toBe(false);
         });
 
-        it("open: прежний файл сбрасывается синхронно, новый не создаётся, пока в него не пишут", async () => {
+        it("open: the previous file is flushed synchronously, the new one is not created until written to", async () => {
             const a = path.join(ws.dir, "a.json");
             const b = path.join(ws.dir, "b.json");
             const store = new StateFileStore(a, { writeDebounceMs: 5 });
@@ -683,7 +683,7 @@ describe("StateService", () => {
             store.dispose();
         });
 
-        it("после записи стор чист: удалённый файл повторным flushSync не воскресает", async () => {
+        it("after a write the store is clean: a deleted file is not resurrected by a repeated flushSync", async () => {
             const file = path.join(ws.dir, "store.json");
             const store = new StateFileStore(file, { writeDebounceMs: 5 });
             store.store(profiles, ["a"]);

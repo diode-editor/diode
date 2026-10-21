@@ -58,7 +58,7 @@ export function pruneStaleRoots(
         const killed = killMarked(root);
         if (killed.length > 0) {
             console.info(
-                `[tmpRoot] добито процессов прерванного прогона ${root}: ${String(killed.length)}\n${describeKilled(killed)}`,
+                `[tmpRoot] killed processes of interrupted run ${root}: ${String(killed.length)}\n${describeKilled(killed)}`,
             );
         }
         try {
@@ -92,7 +92,7 @@ export function setupRunTmpRoot(killMarked: KillMarked): () => void {
     const parent = process.env.DIODE_TEST_TMP_PARENT ?? os.tmpdir();
     const stale = pruneStaleRoots(parent, isAlive, killMarked);
     if (stale.length > 0) {
-        console.info(`[tmpRoot] подчищено корней от прерванных прогонов: ${stale.length}`);
+        console.info(`[tmpRoot] pruned roots of interrupted runs: ${stale.length}`);
     }
 
     const root = createRunTmpRoot(parent);
@@ -103,7 +103,7 @@ export function setupRunTmpRoot(killMarked: KillMarked): () => void {
         const killed = killMarked(root);
         if (killed.length > 0) {
             console.warn(
-                `[tmpRoot] добито процессов, переживших прогон: ${String(killed.length)}\n${describeKilled(killed)}`,
+                `[tmpRoot] killed processes that outlived the run: ${String(killed.length)}\n${describeKilled(killed)}`,
             );
         }
         fs.rmSync(root, { recursive: true, force: true });

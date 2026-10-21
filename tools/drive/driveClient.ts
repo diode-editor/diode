@@ -43,10 +43,10 @@ export class DriveClient {
         };
         ws.on("close", () => {
             this.isClosed = true;
-            failAll("сокет инспектора закрылся посреди запроса (процесс вышел или перезагружается)");
+            failAll("inspector socket closed mid-request (the process exited or is reloading)");
         });
         ws.on("error", (err: Error) => {
-            failAll(`сокет инспектора: ${err.message}`);
+            failAll(`inspector socket: ${err.message}`);
         });
     }
 

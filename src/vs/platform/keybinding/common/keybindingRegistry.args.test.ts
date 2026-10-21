@@ -13,8 +13,8 @@ function makeEvent(overrides: Partial<KeyboardEventLike> & { key: string }): Key
     };
 }
 
-describe("KeybindingRegistry — args у записи", () => {
-    it("резолюция команды несёт args, зарегистрированные с биндингом", () => {
+describe("KeybindingRegistry: entry args", () => {
+    it("command resolution carries the args registered with the binding", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("f6"), "test.open", undefined, "user", "prefill");
 
@@ -23,7 +23,7 @@ describe("KeybindingRegistry — args у записи", () => {
         expect(res).toEqual({ kind: "command", commandId: "test.open", when: undefined, args: "prefill" });
     });
 
-    it("биндинг без args резолвится с args === undefined", () => {
+    it("a binding without args resolves with args === undefined", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("f6"), "test.open");
 
@@ -33,7 +33,7 @@ describe("KeybindingRegistry — args у записи", () => {
         expect(res.kind === "command" && res.args).toBeUndefined();
     });
 
-    it("args может быть произвольным значением (объект доезжает как есть)", () => {
+    it("args can be any value (an object arrives as is)", () => {
         const registry = new KeybindingRegistry();
         const args = { text: "src/", revealIfOpen: true };
         registry.register(parseKeybinding("f6"), "test.open", undefined, "user", args);
@@ -43,7 +43,7 @@ describe("KeybindingRegistry — args у записи", () => {
         expect(res.kind === "command" && res.args).toBe(args);
     });
 
-    it("аккорд доносит args до завершающей комбинации", () => {
+    it("a chord carries args to the final keybinding", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+k ctrl+o"), "test.chord", undefined, "user", 42);
 
@@ -53,7 +53,7 @@ describe("KeybindingRegistry — args у записи", () => {
         expect(res).toEqual({ kind: "command", commandId: "test.chord", when: undefined, args: 42 });
     });
 
-    it("снапшот listBindings и правило слоя user сохраняют args", () => {
+    it("the listBindings snapshot and a user layer rule keep args", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("f6"), "test.open", "textViewFocus", "default", "prefill");
         registry.setUserKeybindings([{ command: "test.user", chord: parseChord("f7"), args: { query: "x" } }]);

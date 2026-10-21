@@ -14,29 +14,29 @@ const arr = [1, 2, 3, 4, 5];
 const upTo = (n: number) => (x: number) => x <= n;
 
 describe("findLastIdxMonotonous", () => {
-    it("находит индекс последнего true", () => {
+    it("finds the index of the last true", () => {
         expect(findLastIdxMonotonous(arr, upTo(3))).toBe(2);
     });
 
-    it("возвращает -1, когда true нет ни одного", () => {
+    it("returns -1 when there is no true", () => {
         expect(findLastIdxMonotonous(arr, upTo(0))).toBe(-1);
     });
 
-    it("возвращает последний индекс, когда true все", () => {
+    it("returns the last index when all are true", () => {
         expect(findLastIdxMonotonous(arr, upTo(99))).toBe(4);
     });
 
-    it("уважает границы startIdx/endIdxEx", () => {
+    it("respects the startIdx/endIdxEx bounds", () => {
         expect(findLastIdxMonotonous(arr, upTo(99), 1, 3)).toBe(2);
     });
 });
 
 describe("findLastMonotonous", () => {
-    it("отдаёт сам элемент", () => {
+    it("returns the element itself", () => {
         expect(findLastMonotonous(arr, upTo(3))).toBe(3);
     });
 
-    it("отдаёт undefined, когда подходящего нет", () => {
+    it("returns undefined when nothing matches", () => {
         expect(findLastMonotonous(arr, upTo(0))).toBeUndefined();
     });
 });
@@ -45,36 +45,36 @@ describe("findFirstIdxMonotonousOrArrLen", () => {
     // Monotonic the other way here: [false, ..., false, true, ..., true].
     const atLeast = (n: number) => (x: number) => x >= n;
 
-    it("находит индекс первого true", () => {
+    it("finds the index of the first true", () => {
         expect(findFirstIdxMonotonousOrArrLen(arr, atLeast(3))).toBe(2);
     });
 
-    it("возвращает длину массива, когда true нет", () => {
+    it("returns the array length when there is no true", () => {
         expect(findFirstIdxMonotonousOrArrLen(arr, atLeast(99))).toBe(arr.length);
     });
 
-    it("уважает границы startIdx/endIdxEx", () => {
+    it("respects the startIdx/endIdxEx bounds", () => {
         expect(findFirstIdxMonotonousOrArrLen(arr, atLeast(1), 2, 4)).toBe(2);
     });
 
-    it("findFirstMonotonous отдаёт элемент либо undefined", () => {
+    it("findFirstMonotonous returns the element or undefined", () => {
         expect(findFirstMonotonous(arr, atLeast(3))).toBe(3);
         expect(findFirstMonotonous(arr, atLeast(99))).toBeUndefined();
     });
 });
 
 describe("MonotonousArray", () => {
-    it("последовательные запросы с ослабевающим предикатом идут вперёд по массиву", () => {
+    it("successive queries with a weakening predicate move forward through the array", () => {
         const m = new MonotonousArray(arr);
         expect(m.findLastMonotonous(upTo(2))).toBe(2);
         expect(m.findLastMonotonous(upTo(4))).toBe(4);
     });
 
-    it("отдаёт undefined, когда ни один элемент не подходит", () => {
+    it("returns undefined when no element matches", () => {
         expect(new MonotonousArray(arr).findLastMonotonous(upTo(0))).toBeUndefined();
     });
 
-    it("под assertInvariants ловит усиление предиката", () => {
+    it("with assertInvariants catches a strengthening predicate", () => {
         MonotonousArray.assertInvariants = true;
         try {
             const m = new MonotonousArray(arr);
@@ -86,7 +86,7 @@ describe("MonotonousArray", () => {
         }
     });
 
-    it("под assertInvariants пропускает корректную последовательность", () => {
+    it("with assertInvariants accepts a valid sequence", () => {
         MonotonousArray.assertInvariants = true;
         try {
             const m = new MonotonousArray(arr);

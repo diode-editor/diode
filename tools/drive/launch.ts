@@ -69,7 +69,7 @@ function buildExtensions(): void {
         stdio: ["ignore", "ignore", "pipe"],
         encoding: "utf8",
     });
-    if (result.status !== 0) throw new Error(`build:extensions упал:\n${result.stderr}`);
+    if (result.status !== 0) throw new Error(`build:extensions failed:\n${result.stderr}`);
 }
 
 function installExtension(
@@ -91,7 +91,9 @@ function installExtension(
         },
     );
     if (result.status !== 0) {
-        throw new Error(`--install-extension ${id}: код ${String(result.status)}\n${result.stdout}${result.stderr}`);
+        throw new Error(
+            `--install-extension ${id}: exit code ${String(result.status)}\n${result.stdout}${result.stderr}`,
+        );
     }
 }
 
@@ -100,7 +102,7 @@ export async function startSession(registry: SessionRegistry, options: StartOpti
     if (existing !== undefined) {
         if (isAlive(existing.pid)) {
             throw new Error(
-                `сессия ${options.name} уже запущена (pid ${String(existing.pid)}): drive stop -s ${options.name}`,
+                `session ${options.name} is already running (pid ${String(existing.pid)}): drive stop -s ${options.name}`,
             );
         }
         await disposeSession(registry, existing, { keep: false });
@@ -108,7 +110,7 @@ export async function startSession(registry: SessionRegistry, options: StartOpti
     const t0 = Date.now();
     const run = launcher(options.binary);
     if (options.binary !== undefined && !existsSync(options.binary)) {
-        throw new Error(`бинаря нет: ${options.binary} (сборка — под лизой: claude-lease run -- npm run build:sea)`);
+        throw new Error(`no binary: ${options.binary} (build it under a lease: claude-lease run -- npm run build:sea)`);
     }
     if (options.binary === undefined && !options.noBuild) buildExtensions();
 
@@ -159,7 +161,7 @@ export async function startSession(registry: SessionRegistry, options: StartOpti
         closeSync(out);
         closeSync(err);
         const pid = child.pid;
-        if (pid === undefined) throw new Error(`не запустился: ${run.command}`);
+        if (pid === undefined) throw new Error(`failed to start: ${run.command}`);
         child.unref();
 
         const record: SessionRecord = {
@@ -216,11 +218,11 @@ async function connectRacingExit(child: ChildProcess, port: number, stderrFile: 
     const abort = new AbortController();
     const died = new Promise<never>((_, reject) => {
         child.once("error", (e) => {
-            reject(new Error(`редактор не запустился: ${e.message}`));
+            reject(new Error(`editor failed to start: ${e.message}`));
         });
         child.once("exit", (code, sig) => {
-            const how = sig === null ? `кодом ${String(code)}` : `сигналом ${sig}`;
-            reject(new Error(`редактор вышел ${how} до подключения инспектора; stderr: ${stderrFile}`));
+            const how = sig === null ? `with code ${String(code)}` : `by signal ${sig}`;
+            reject(new Error(`editor exited ${how} before the inspector connected; stderr: ${stderrFile}`));
         });
     });
     try {

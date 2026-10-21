@@ -55,7 +55,7 @@ function createLogService(): { logService: LogService; entries: LogEntry[] } {
 }
 
 describe("ChokidarTreeWatcher", () => {
-    it("коалесцирует всплеск событий в один батч", () => {
+    it("coalesces a burst of events into one batch", () => {
         vi.useFakeTimers();
         try {
             const watcher = new TestTreeWatcher();
@@ -80,7 +80,7 @@ describe("ChokidarTreeWatcher", () => {
         }
     });
 
-    it("каталоги приходят теми же типами, служебные события игнорируются", () => {
+    it("directories come with the same types, service events are ignored", () => {
         vi.useFakeTimers();
         try {
             const watcher = new TestTreeWatcher();
@@ -104,7 +104,7 @@ describe("ChokidarTreeWatcher", () => {
         }
     });
 
-    it("после dispose батч не доезжает и watcher закрыт", () => {
+    it("after dispose the batch is not delivered and the watcher is closed", () => {
         vi.useFakeTimers();
         try {
             const watcher = new TestTreeWatcher();
@@ -124,7 +124,7 @@ describe("ChokidarTreeWatcher", () => {
         }
     });
 
-    it("переживает 'error' (ENOSPC): закрывает watcher и пишет подсказку в лог", () => {
+    it("survives 'error' (ENOSPC): closes the watcher and logs a hint", () => {
         const { logService, entries } = createLogService();
         const watcher = new TestTreeWatcher(logService.createLogger("files.watcher"));
         watcher.watchTree("/repo", { recursive: true, excludes: [] }, () => {
@@ -139,7 +139,7 @@ describe("ChokidarTreeWatcher", () => {
         expect(entries.at(-1)?.message).toContain("max_user_watches");
     });
 
-    it("начальный `add` симлинка до `ready` глушится, после — доезжает", () => {
+    it("an initial symlink `add` before `ready` is suppressed, after it is delivered", () => {
         vi.useFakeTimers();
         try {
             const watcher = new TestTreeWatcher();
@@ -167,7 +167,7 @@ describe("ChokidarTreeWatcher", () => {
         }
     });
 
-    it("корень-симлинк: chokidar получает настоящий путь, события — под исходным", () => {
+    it("symlink root: chokidar gets the real path, events come under the original one", () => {
         const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "diode-tree-root-")));
         const real = path.join(base, "real");
         const link = path.join(base, "link");
@@ -189,7 +189,7 @@ describe("ChokidarTreeWatcher", () => {
         }
     });
 
-    it("рекурсивность прокидывается в опции chokidar", () => {
+    it("recursiveness is passed into the chokidar options", () => {
         const watcher = new TestTreeWatcher();
         watcher.watchTree("/repo", { recursive: false, excludes: [] }, () => {
             /* no-op */
@@ -198,9 +198,9 @@ describe("ChokidarTreeWatcher", () => {
     });
 });
 
-describe("ChokidarTreeWatcher — настоящий chokidar", () => {
+describe("ChokidarTreeWatcher — real chokidar", () => {
     /** The only test without a stubbed `createWatcher`: excludes are checked on a live traversal. */
-    it("в исключённый каталог watcher не заходит, за остальным следит", async () => {
+    it("the watcher does not enter an excluded directory and watches the rest", async () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), "diode-tree-watch-"));
         fs.mkdirSync(path.join(root, "node_modules", "pkg"), { recursive: true });
         fs.mkdirSync(path.join(root, "src"));
@@ -226,12 +226,13 @@ describe("ChokidarTreeWatcher — настоящий chokidar", () => {
     }, 20000);
 });
 
-describe("ChokidarTreeWatcher — симлинки (как parcel-watcher эталона)", () => {
+describe("ChokidarTreeWatcher — symlinks (like upstream parcel-watcher)", () => {
     /** Waits until `expected` shows up in `seen` (a positive marker instead of a blind pause). */
     async function waitFor(seen: readonly string[], expected: string): Promise<void> {
         const deadline = Date.now() + 10000;
         while (!seen.includes(expected)) {
-            if (Date.now() > deadline) throw new Error(`не дождались события ${expected}; пришло: ${seen.join(", ")}`);
+            if (Date.now() > deadline)
+                throw new Error(`timed out waiting for event ${expected}; got: ${seen.join(", ")}`);
             await new Promise((resolve) => setTimeout(resolve, 50));
         }
     }
@@ -246,7 +247,7 @@ describe("ChokidarTreeWatcher — симлинки (как parcel-watcher эта
         return { base, root, outside };
     }
 
-    it("в каталог-симлинк внутри дерева не заходит (bazel-out → кэш вне воркспейса)", async () => {
+    it("does not enter a directory symlink inside the tree (bazel-out → cache outside the workspace)", async () => {
         const { base, root, outside } = makeTree();
         fs.symlinkSync(outside, path.join(root, "bazel-out"), "junction");
         const seen: string[] = [];
@@ -268,7 +269,7 @@ describe("ChokidarTreeWatcher — симлинки (как parcel-watcher эта
         }
     }, 20000);
 
-    it("корень-симлинк разрешается, события приходят под исходным путём", async () => {
+    it("a symlink root is resolved, events come under the original path", async () => {
         const { base, root } = makeTree();
         const linkedRoot = path.join(base, "ws-link");
         fs.symlinkSync(root, linkedRoot, "junction");
@@ -298,16 +299,16 @@ describe("ChokidarTreeWatcher — симлинки (как parcel-watcher эта
 });
 
 describe("isExcluded", () => {
-    it("матчит по пути относительно корня", () => {
+    it("matches by the path relative to the root", () => {
         expect(isExcluded("/repo", "/repo/node_modules/pkg/index.js", ["**/node_modules/**"])).toBe(true);
         expect(isExcluded("/repo", "/repo/src/index.js", ["**/node_modules/**"])).toBe(false);
     });
 
-    it("сам корень не исключается никогда", () => {
+    it("the root itself is never excluded", () => {
         expect(isExcluded("/repo", "/repo", ["**"])).toBe(false);
     });
 
-    it("пустой набор шаблонов не исключает ничего", () => {
+    it("an empty pattern set excludes nothing", () => {
         expect(isExcluded("/repo", "/repo/a.ts", [])).toBe(false);
     });
 });

@@ -13,8 +13,8 @@ import { extensionHostConfigProvider, extensionHostModule, workspaceFoldersProvi
 import { createTestContainer } from "./testProfile.ts";
 
 /** No subprocess is spawned (no extensions): checks that shutdown reaches the host at all. */
-describe("extensionHostModule — прощание", () => {
-    it("shutdown снимает extension host", async () => {
+describe("extensionHostModule — shutdown", () => {
+    it("shutdown stops the extension host", async () => {
         const { container } = createTestContainer();
         const dir = path.join(tmpdir(), "diode-exthost-module-test");
         container.use(extensionHostModule, {
@@ -59,30 +59,30 @@ function workspaceWithFolder(root: string | null): WorkspaceContextService {
 }
 
 describe("workspaceFoldersProvider", () => {
-    it("папка открыта — одна запись с uri, именем и индексом 0", () => {
+    it("folder open — one entry with uri, name and index 0", () => {
         expect(workspaceFoldersProvider(workspaceWithFolder("/work/project"))()).toEqual([
             { uri: "file:///work/project", name: "project", index: 0 },
         ]);
     });
 
-    it("имя — basename, а не весь путь", () => {
+    it("name is the basename, not the whole path", () => {
         expect(workspaceFoldersProvider(workspaceWithFolder("/a/b/c/deep"))()[0]?.name).toBe("deep");
     });
 
-    it("uri — настоящий file-uri, а не голый путь", () => {
+    it("uri is a real file uri, not a bare path", () => {
         // A raw path would give the extension an unparsable uri.
         expect(workspaceFoldersProvider(workspaceWithFolder("/work/my project"))()[0]?.uri).toBe(
             "file:///work/my%20project",
         );
     });
 
-    it("папки нет — ПУСТОЙ список, а не подставленный cwd", () => {
+    it("no folder — EMPTY list, not a substituted cwd", () => {
         const folders = workspaceFoldersProvider(workspaceWithFolder(null))();
         expect(folders).toEqual([]);
         expect(JSON.stringify(folders)).not.toContain(process.cwd());
     });
 
-    it("читает папки на каждый вызов, а не запоминает их при создании", () => {
+    it("reads folders on every call instead of caching them at creation", () => {
         const workspace = workspaceWithFolder(null);
         const getFolders = workspaceFoldersProvider(workspace);
         expect(getFolders()).toEqual([]);
@@ -104,14 +104,14 @@ describe("extensionHostConfigProvider", () => {
         return { service, provider };
     }
 
-    it("слои, папки и scope реестра — из сервисов ядра", () => {
+    it("layers, folders and registry scope come from core services", () => {
         const { provider } = setup();
         expect(provider.getSnapshot()).toMatchObject({ defaults: { t: { flag: true } }, user: { t: { flag: false } } });
         expect(provider.getWorkspaceFolders()).toEqual([{ uri: "file:///work/project", name: "project", index: 0 }]);
         expect(provider.getConfigurationScopes().get("t.flag")).toBe("application");
     });
 
-    it("файл воркспейса — uri файла окна из .code-workspace, у окна из папки — нет", () => {
+    it("workspace file — the window's .code-workspace file uri, none for a folder window", () => {
         const workspace = workspaceWithFolder("/work/project");
         const provider = extensionHostConfigProvider(
             new InMemoryConfigurationService(),
@@ -127,7 +127,7 @@ describe("extensionHostConfigProvider", () => {
         expect(provider.getWorkspaceFile()).toBe("file:///work/project/web.code-workspace");
     });
 
-    it("запись идёт в сервис ядра с целью, его отказ доходит, событие — ключами", async () => {
+    it("write goes to the core service with a target, its rejection propagates, the event carries keys", async () => {
         const { service, provider } = setup();
         const changes: (readonly string[])[] = [];
         provider.onDidChange((keys) => changes.push(keys));

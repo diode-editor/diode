@@ -17,7 +17,7 @@ describe("InstantiationTracer", () => {
         resetInstantiationTrace();
     });
 
-    it("self — без вложенных созданий, inclusive — с ними; запись по завершении", () => {
+    it("self excludes nested creations, inclusive includes them; recorded on completion", () => {
         const tracer = new InstantiationTracer();
         const value = tracer.trace("Outer", () => {
             vi.advanceTimersByTime(2);
@@ -35,7 +35,7 @@ describe("InstantiationTracer", () => {
         expect(inner.start - outer.start).toBe(2);
     });
 
-    it("исключение пробрасывается, записи не остаётся, но время родителю засчитано", () => {
+    it("an exception propagates, no record is left, but the time counts for the parent", () => {
         const tracer = new InstantiationTracer();
         tracer.trace("Outer", () => {
             expect(() =>
@@ -52,7 +52,7 @@ describe("InstantiationTracer", () => {
         ]);
     });
 
-    it("создания подряд на верхнем уровне не вкладываются друг в друга", () => {
+    it("consecutive top-level creations do not nest into each other", () => {
         const tracer = new InstantiationTracer();
         tracer.trace("First", () => {
             vi.advanceTimersByTime(2);
@@ -67,7 +67,7 @@ describe("InstantiationTracer", () => {
         expect(first).toMatchObject({ id: "First", inclusive: 2, self: 2 });
     });
 
-    it("фаза контрибуций метит всё внутри, а флаг — только первое создание верхнего уровня", () => {
+    it("the contributions phase marks everything inside, the flag only the first top-level creation", () => {
         const tracer = new InstantiationTracer();
         const result = tracer.contribution("ready", () =>
             tracer.trace("Contrib", () => {
@@ -83,7 +83,7 @@ describe("InstantiationTracer", () => {
         ]);
     });
 
-    it("исключение внутри фазы контрибуций снимает фазу и флаг", () => {
+    it("an exception inside the contributions phase clears the phase and the flag", () => {
         const tracer = new InstantiationTracer();
         expect(() =>
             tracer.contribution("ready", () => {
@@ -95,7 +95,7 @@ describe("InstantiationTracer", () => {
         expect(tracer.getEntries()[0]).toMatchObject({ id: "After", phase: null, contribution: false });
     });
 
-    it("кто запросил на верхнем уровне — функция стека за контейнером", () => {
+    it("the top-level requester is the stack function after the container", () => {
         enableInstantiationTrace();
         const ValueDIToken = token<number>("Value");
         const container = new Container().bind(ValueDIToken, () => 1);
@@ -107,7 +107,7 @@ describe("InstantiationTracer", () => {
         expect(getInstantiationTracer()?.getEntries()[0].requester).toBe("startWorkbenchForTest");
     });
 
-    it("безымянные функции пропускаются, async-кадр узнаётся по имени", async () => {
+    it("anonymous functions are skipped, an async stack frame is recognized by name", async () => {
         enableInstantiationTrace();
         const ValueDIToken = token<number>("Value");
         const container = new Container().bind(ValueDIToken, () => 1);
@@ -122,7 +122,7 @@ describe("InstantiationTracer", () => {
         expect(getInstantiationTracer()?.getEntries()[0].requester).toBe("openFilesForTest");
     });
 
-    it("стек без именованного вызывателя в пределах лимита кадров — «?»; лимит стека восстановлен", () => {
+    it('a stack without a named caller within the frame limit gives "?"; the stack limit is restored', () => {
         const before = Error.stackTraceLimit;
         enableInstantiationTrace();
         const ValueDIToken = token<number>("Value");
@@ -139,7 +139,7 @@ describe("enableInstantiationTrace / resetInstantiationTrace", () => {
         resetInstantiationTrace();
     });
 
-    it("по умолчанию выключена; включение идемпотентно; сброс выключает", () => {
+    it("off by default; enabling is idempotent; reset turns it off", () => {
         expect(getInstantiationTracer()).toBeUndefined();
         const tracer = enableInstantiationTrace();
         expect(enableInstantiationTrace()).toBe(tracer);
@@ -148,7 +148,7 @@ describe("enableInstantiationTrace / resetInstantiationTrace", () => {
         expect(getInstantiationTracer()).toBeUndefined();
     });
 
-    it("без трассы контейнер ничего не пишет, с трассой — каждое создание один раз", () => {
+    it("without a trace the container records nothing, with a trace each creation once", () => {
         const ValueDIToken = token<number>("Value");
         const OtherDIToken = token<number>("Other");
         const container = new Container().bind(ValueDIToken, () => 1).bind(OtherDIToken, () => 2);

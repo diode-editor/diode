@@ -7,7 +7,7 @@ import {
 } from "./tokenClassificationRegistry.ts";
 
 describe("parseClassifierString", () => {
-    it("справа налево: язык после `:`, модификаторы после `.`, остаток — тип", () => {
+    it("right to left: language after `:`, modifiers after `.`, the rest is the type", () => {
         expect(parseClassifierString("variable.readonly.static:java")).toEqual({
             type: "variable",
             modifiers: ["static", "readonly"],
@@ -15,7 +15,7 @@ describe("parseClassifierString", () => {
         });
     });
 
-    it("без языка — язык по умолчанию; без модификаторов — пустой список", () => {
+    it("no language: the default language; no modifiers: an empty list", () => {
         expect(parseClassifierString("class", "ts")).toEqual({ type: "class", modifiers: [], language: "ts" });
         expect(parseClassifierString("*.declaration")).toEqual({
             type: "*",
@@ -25,7 +25,7 @@ describe("parseClassifierString", () => {
     });
 });
 
-describe("TokenClassificationRegistry — селекторы и вес", () => {
+describe("TokenClassificationRegistry: selectors and weight", () => {
     function registry(): TokenClassificationRegistry {
         const r = new TokenClassificationRegistry();
         r.registerTokenType("type", "");
@@ -35,7 +35,7 @@ describe("TokenClassificationRegistry — селекторы и вес", () => {
         return r;
     }
 
-    it("тип: 100 минус уровень в иерархии superType; чужой тип — -1", () => {
+    it("type: 100 minus the level in the superType hierarchy; an unrelated type is -1", () => {
         const r = registry();
         expect(r.parseTokenSelector("record").match("record", [], "java")).toBe(100);
         expect(r.parseTokenSelector("class").match("record", [], "java")).toBe(99);
@@ -43,13 +43,13 @@ describe("TokenClassificationRegistry — селекторы и вес", () => {
         expect(r.parseTokenSelector("record").match("class", [], "java")).toBe(-1);
     });
 
-    it("тип, неизвестный реестру, совпадает только сам с собой", () => {
+    it("a type unknown to the registry matches only itself", () => {
         const r = registry();
         expect(r.parseTokenSelector("macro").match("macro", [], "c")).toBe(100);
         expect(r.parseTokenSelector("type").match("macro", [], "c")).toBe(-1);
     });
 
-    it("`*` совпадает с любым типом с весом 0; каждый модификатор +100 и обязателен", () => {
+    it("`*` matches any type with weight 0; each modifier is +100 and required", () => {
         const r = registry();
         expect(r.parseTokenSelector("*").match("anything", [], "x")).toBe(0);
         expect(r.parseTokenSelector("*.readonly").match("class", ["readonly"], "x")).toBe(100);
@@ -57,7 +57,7 @@ describe("TokenClassificationRegistry — селекторы и вес", () => {
         expect(r.parseTokenSelector("class.readonly.static").match("class", ["readonly"], "x")).toBe(-1);
     });
 
-    it("язык: совпал — +10, не совпал — -1; язык из аргумента действует как в строке", () => {
+    it("language: a match is +10, a mismatch is -1; the argument language acts like the one in the string", () => {
         const r = registry();
         expect(r.parseTokenSelector("class:java").match("class", [], "java")).toBe(110);
         expect(r.parseTokenSelector("class:java").match("class", [], "ts")).toBe(-1);
@@ -65,19 +65,19 @@ describe("TokenClassificationRegistry — селекторы и вес", () => {
         expect(r.parseTokenSelector("class", "java").match("class", [], "ts")).toBe(-1);
     });
 
-    it("пустой тип — селектор $invalid, не совпадающий ни с чем", () => {
+    it("an empty type is the $invalid selector that matches nothing", () => {
         const selector = registry().parseTokenSelector(".readonly");
         expect(selector.id).toBe("$invalid");
         expect(selector.match("class", ["readonly"], "x")).toBe(-1);
     });
 
-    it("id селектора: тип, модификаторы по алфавиту, язык", () => {
+    it("selector id: type, modifiers in alphabetical order, language", () => {
         const r = registry();
         expect(r.parseTokenSelector("class.static.readonly:java").id).toBe("class.readonly.static:java");
         expect(r.parseTokenSelector("class").id).toBe("class");
     });
 
-    it("иерархия пересчитывается после регистрации и снятия типа", () => {
+    it("the hierarchy is recomputed after registering and removing a type", () => {
         const r = new TokenClassificationRegistry();
         const selector = r.parseTokenSelector("type");
         expect(selector.match("annotation", [], "java")).toBe(-1);
@@ -87,7 +87,7 @@ describe("TokenClassificationRegistry — селекторы и вес", () => {
         expect(selector.match("annotation", [], "java")).toBe(-1);
     });
 
-    it("цикл в superType не вешает матч", () => {
+    it("a superType cycle does not hang matching", () => {
         const r = new TokenClassificationRegistry();
         r.registerTokenType("a", "", "b");
         r.registerTokenType("b", "", "a");
@@ -96,8 +96,8 @@ describe("TokenClassificationRegistry — селекторы и вес", () => {
     });
 });
 
-describe("TokenClassificationRegistry — регистрация", () => {
-    it("невалидные id типа, superType и модификатора — исключение", () => {
+describe("TokenClassificationRegistry: registration", () => {
+    it("invalid type, superType and modifier ids throw", () => {
         const r = new TokenClassificationRegistry();
         expect(() => {
             r.registerTokenType("bad id", "");
@@ -116,7 +116,7 @@ describe("TokenClassificationRegistry — регистрация", () => {
         ]);
     });
 
-    it("типы и модификаторы: регистрация, перечисление, снятие", () => {
+    it("types and modifiers: registration, listing, removal", () => {
         const r = new TokenClassificationRegistry();
         r.registerTokenType("t", "desc", "u", "old");
         r.registerTokenModifier("m", "mod", "gone");
@@ -130,7 +130,7 @@ describe("TokenClassificationRegistry — регистрация", () => {
         expect(r.getTokenModifiers()).toEqual([]);
     });
 
-    it("дефолтные правила: в порядке регистрации, снятие — по id селектора", () => {
+    it("default rules: in registration order, removal by selector id", () => {
         const r = new TokenClassificationRegistry();
         r.registerTokenStyleDefault(r.parseTokenSelector("a"), { scopesToProbe: [["x"]] });
         r.registerTokenStyleDefault(r.parseTokenSelector("b"), { scopesToProbe: [["y"]] });
@@ -140,7 +140,7 @@ describe("TokenClassificationRegistry — регистрация", () => {
         expect(r.getTokenStylingDefaultRules().map((rule) => rule.defaults.scopesToProbe)).toEqual([[["y"]]]);
     });
 
-    it("каждое изменение реестра фаерит onDidChange", () => {
+    it("every registry change fires onDidChange", () => {
         const r = new TokenClassificationRegistry();
         const listener = vi.fn();
         r.onDidChange(listener);
@@ -155,10 +155,10 @@ describe("TokenClassificationRegistry — регистрация", () => {
     });
 });
 
-describe("createDefaultTokenClassificationRegistry — дословно из эталона", () => {
+describe("createDefaultTokenClassificationRegistry: verbatim from upstream", () => {
     const registry = createDefaultTokenClassificationRegistry();
 
-    it("стандартные типы с описаниями и superType", () => {
+    it("standard types with descriptions and superType", () => {
         const types = registry.getTokenTypes();
         expect(types.map((t) => t.id)).toEqual([
             "comment",
@@ -220,7 +220,7 @@ describe("createDefaultTokenClassificationRegistry — дословно из э�
         ]);
     });
 
-    it("стандартные модификаторы", () => {
+    it("standard modifiers", () => {
         expect(registry.getTokenModifiers().map((m) => [m.id, m.description])).toEqual([
             ["declaration", "Style for all symbol declarations."],
             ["documentation", "Style to use for references in documentation."],
@@ -233,7 +233,7 @@ describe("createDefaultTokenClassificationRegistry — дословно из э�
         ]);
     });
 
-    it("фоллбэки «селектор → TextMate-скоупы»", () => {
+    it("fallbacks 'selector → TextMate scopes'", () => {
         expect(
             registry.getTokenStylingDefaultRules().map((rule) => [rule.selector.id, rule.defaults.scopesToProbe]),
         ).toEqual([
@@ -275,7 +275,7 @@ describe("createDefaultTokenClassificationRegistry — дословно из э�
         ]);
     });
 
-    it("member — подтип method: селектор method совпадает с весом 99", () => {
+    it("member is a subtype of method: the method selector matches with weight 99", () => {
         expect(registry.parseTokenSelector("method").match("member", [], "ts")).toBe(99);
     });
 });

@@ -157,14 +157,14 @@ describe("CommandRegistry", () => {
         expect(registry.listCommands()).toHaveLength(0);
     });
 
-    it("returns the promise of an async command as is — ждущий видит настоящий отказ", async () => {
+    it("returns the promise of an async command as is — the awaiter sees the real rejection", async () => {
         const registry = new CommandRegistry();
         registry.register("cmd.async", () => Promise.reject(new Error("boom")));
 
         await expect(registry.execute("cmd.async")).rejects.toThrow("boom");
     });
 
-    it("забытый отказ асинхронной команды не остаётся необработанным и уезжает в лог", async () => {
+    it("a forgotten rejection of an async command is not left unhandled and goes to the log", async () => {
         const errors: string[] = [];
         const registry = new CommandRegistry(makeLogger(errors));
         registry.register("cmd.async", () => Promise.reject(new Error("boom")));
@@ -179,7 +179,7 @@ describe("CommandRegistry", () => {
         expect(errors[0]).toContain('command "cmd.async" failed: Error: boom');
     });
 
-    it("успешная асинхронная команда в лог не пишет", async () => {
+    it("a successful async command does not write to the log", async () => {
         const errors: string[] = [];
         const registry = new CommandRegistry(makeLogger(errors));
         registry.register("cmd.async", () => Promise.resolve("ok"));
@@ -190,7 +190,7 @@ describe("CommandRegistry", () => {
         expect(errors).toEqual([]);
     });
 
-    it("без логгера забытый отказ всё равно обработан (минимальные контейнеры тестов)", async () => {
+    it("without a logger a forgotten rejection is still handled (minimal test containers)", async () => {
         const registry = new CommandRegistry();
         registry.register("cmd.async", () => Promise.reject(new Error("boom")));
 
@@ -199,7 +199,7 @@ describe("CommandRegistry", () => {
         await expect(settleMicrotasks()).resolves.toBeUndefined();
     });
 
-    it("listCommands отдаёт категорию команды", () => {
+    it("listCommands returns the command category", () => {
         const registry = new CommandRegistry();
         registry.register("java.clean", () => undefined, "Clean Workspace", undefined, "Java");
         registry.register("files.save", () => undefined, "Save");
@@ -210,7 +210,7 @@ describe("CommandRegistry", () => {
         ]);
     });
 
-    it("getTitle категорию НЕ приклеивает: подпись пункта меню остаётся заголовком", () => {
+    it("getTitle does NOT prepend the category: the menu item label stays the title", () => {
         const registry = new CommandRegistry();
         registry.register("java.clean", () => undefined, "Clean Workspace", undefined, "Java");
 
@@ -219,18 +219,18 @@ describe("CommandRegistry", () => {
 });
 
 describe("commandPaletteLabel", () => {
-    it("склеивает категорию и заголовок через `: ` (эталон VS Code)", () => {
+    it("joins category and title with `: ` (as upstream)", () => {
         expect(commandPaletteLabel({ title: "Switch to Standard Mode", category: "Java" })).toBe(
             "Java: Switch to Standard Mode",
         );
     });
 
-    it("без категории — сам заголовок", () => {
+    it("without a category returns the title itself", () => {
         expect(commandPaletteLabel({ title: "Save" })).toBe("Save");
         expect(commandPaletteLabel({ title: "Save", category: undefined })).toBe("Save");
     });
 
-    it("пустая категория префикса не даёт", () => {
+    it("an empty category adds no prefix", () => {
         expect(commandPaletteLabel({ title: "Save", category: "" })).toBe("Save");
     });
 });

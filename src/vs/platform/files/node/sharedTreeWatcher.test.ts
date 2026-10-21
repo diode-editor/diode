@@ -52,8 +52,8 @@ function created(...paths: string[]): ITreeFileChange[] {
     return paths.map((path) => ({ type: "created", path }));
 }
 
-describe("SharedTreeWatcher — сколько обходов заводится", () => {
-    it("два запроса на один корень с одинаковыми excludes дают один обход", () => {
+describe("SharedTreeWatcher — how many walkers are started", () => {
+    it("two requests on one root with the same excludes share one walker", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -63,7 +63,7 @@ describe("SharedTreeWatcher — сколько обходов заводится
         expect(delegate.traversals).toHaveLength(1);
     });
 
-    it("вложенный запрос едет на рекурсивном обходе предка", () => {
+    it("a nested request rides on the ancestor's recursive walker", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -74,7 +74,7 @@ describe("SharedTreeWatcher — сколько обходов заводится
         expect(delegate.traversals).toHaveLength(1);
     });
 
-    it("корень нормализуется: `/repo/` и `/repo/src/..` — тот же обход", () => {
+    it("the root is normalized: `/repo/` and `/repo/src/..` share the walker", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -85,7 +85,7 @@ describe("SharedTreeWatcher — сколько обходов заводится
         expect(delegate.traversals).toHaveLength(1);
     });
 
-    it("порядок шаблонов в excludes не мешает делить обход", () => {
+    it("the order of patterns in excludes does not prevent sharing a walker", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -95,7 +95,7 @@ describe("SharedTreeWatcher — сколько обходов заводится
         expect(delegate.traversals).toHaveLength(1);
     });
 
-    it("разные excludes — разные обходы: подписать на чужие значит потерять события", () => {
+    it("different excludes mean different walkers: subscribing to someone else's loses events", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -105,7 +105,7 @@ describe("SharedTreeWatcher — сколько обходов заводится
         expect(delegate.traversals).toHaveLength(2);
     });
 
-    it("рекурсивный запрос не едет на нерекурсивном обходе того же корня", () => {
+    it("a recursive request does not ride on a non-recursive walker of the same root", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -115,7 +115,7 @@ describe("SharedTreeWatcher — сколько обходов заводится
         expect(delegate.traversals).toHaveLength(2);
     });
 
-    it("два нерекурсивных запроса на один корень — один обход", () => {
+    it("two non-recursive requests on one root share one walker", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -125,7 +125,7 @@ describe("SharedTreeWatcher — сколько обходов заводится
         expect(delegate.traversals).toHaveLength(1);
     });
 
-    it("вложенный запрос не едет на нерекурсивном обходе предка", () => {
+    it("a nested request does not ride on the ancestor's non-recursive walker", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -135,7 +135,7 @@ describe("SharedTreeWatcher — сколько обходов заводится
         expect(delegate.traversals).toHaveLength(2);
     });
 
-    it("соседнее поддерево — свой обход, предком оно не является", () => {
+    it("a sibling subtree gets its own walker, it is not an ancestor", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -145,7 +145,7 @@ describe("SharedTreeWatcher — сколько обходов заводится
         expect(delegate.traversals).toHaveLength(2);
     });
 
-    it("каталог с ведущими точками лежит внутри, а не снаружи", () => {
+    it("a directory with leading dots is inside, not outside", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -157,7 +157,7 @@ describe("SharedTreeWatcher — сколько обходов заводится
         expect(delegate.traversals).toHaveLength(1);
     });
 
-    it("обход на корне файловой системы тоже делится", () => {
+    it("a walker on the file system root is shared too", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -169,7 +169,7 @@ describe("SharedTreeWatcher — сколько обходов заводится
         expect(delegate.traversals).toHaveLength(1);
     });
 
-    it("обход предка, заведённый позже, старых подписчиков к себе не забирает", () => {
+    it("an ancestor walker started later does not take over existing subscribers", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -182,8 +182,8 @@ describe("SharedTreeWatcher — сколько обходов заводится
     });
 });
 
-describe("SharedTreeWatcher — excludes и переякоривание", () => {
-    it("многосегментный шаблон запрещает делить обход с вложенной базой", () => {
+describe("SharedTreeWatcher — excludes and re-anchoring", () => {
+    it("a multi-segment pattern forbids sharing a walker with a nested base", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const excludes = ["**/.git/objects/**"];
@@ -196,7 +196,7 @@ describe("SharedTreeWatcher — excludes и переякоривание", () =>
         expect(delegate.traversals).toHaveLength(2);
     });
 
-    it("тот же многосегментный шаблон не мешает делить обход при совпадении корня", () => {
+    it("the same multi-segment pattern does not prevent sharing when the root matches", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const excludes = ["**/.git/objects/**"];
@@ -207,7 +207,7 @@ describe("SharedTreeWatcher — excludes и переякоривание", () =>
         expect(delegate.traversals).toHaveLength(1);
     });
 
-    it("шаблон без `**/` привязан к корню и тоже запрещает деление", () => {
+    it("a pattern without `**/` is anchored to the root and forbids sharing too", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const excludes = ["node_modules"];
@@ -218,7 +218,7 @@ describe("SharedTreeWatcher — excludes и переякоривание", () =>
         expect(delegate.traversals).toHaveLength(2);
     });
 
-    it("исключённая у предка база получает свой обход", () => {
+    it("a base excluded by the ancestor gets its own walker", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const excludes = ["**/.git"];
@@ -230,7 +230,7 @@ describe("SharedTreeWatcher — excludes и переякоривание", () =>
         expect(delegate.traversals).toHaveLength(2);
     });
 
-    it("исключённый каталог по пути к базе тоже отменяет деление", () => {
+    it("an excluded directory on the path to the base cancels sharing too", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const excludes = ["**/vendor"];
@@ -255,7 +255,7 @@ describe("SharedTreeWatcher — excludes и переякоривание", () =>
         }
     }
 
-    it("база-симлинк получает свой обход: обход предка по ссылкам не ходит", () => {
+    it("a symlink base gets its own walker: the ancestor walker does not follow links", () => {
         withRepo((repo, outside) => {
             fs.symlinkSync(outside, path.join(repo, "bazel-out"), "junction");
             const delegate = new FakeTreeWatcher();
@@ -269,7 +269,7 @@ describe("SharedTreeWatcher — excludes и переякоривание", () =>
         });
     });
 
-    it("симлинк по пути к базе тоже отменяет деление", () => {
+    it("a symlink on the path to the base cancels sharing too", () => {
         withRepo((repo, outside) => {
             fs.symlinkSync(outside, path.join(repo, "bazel-out"), "junction");
             const delegate = new FakeTreeWatcher();
@@ -282,7 +282,7 @@ describe("SharedTreeWatcher — excludes и переякоривание", () =>
         });
     });
 
-    it("не задетый excludes'ами вложенный путь обход делит", () => {
+    it("a nested path untouched by excludes shares the walker", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const excludes = ["**/node_modules", "**/dist"];
@@ -294,8 +294,8 @@ describe("SharedTreeWatcher — excludes и переякоривание", () =>
     });
 });
 
-describe("SharedTreeWatcher — что доезжает подписчикам", () => {
-    it("каждый подписчик общего обхода получает свою пачку", () => {
+describe("SharedTreeWatcher — what reaches subscribers", () => {
+    it("each subscriber of a shared walker gets its own batch", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const root: ITreeFileChange[][] = [];
@@ -309,7 +309,7 @@ describe("SharedTreeWatcher — что доезжает подписчикам",
         expect(nested).toEqual([created("/repo/src/b.ts", "/repo/src/deep/c.ts")]);
     });
 
-    it("нерекурсивному подписчику доезжают только прямые дети базы", () => {
+    it("a non-recursive subscriber gets only direct children of the base", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const batches: ITreeFileChange[][] = [];
@@ -321,7 +321,7 @@ describe("SharedTreeWatcher — что доезжает подписчикам",
         expect(batches).toEqual([created("/repo/.git/HEAD")]);
     });
 
-    it("сама база событием подписчику не приходит", () => {
+    it("the base itself does not reach the subscriber as an event", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const batches: ITreeFileChange[][] = [];
@@ -333,7 +333,7 @@ describe("SharedTreeWatcher — что доезжает подписчикам",
         expect(batches).toEqual([created("/repo/src/a.ts")]);
     });
 
-    it("путь выше базы подписчику не приходит", () => {
+    it("a path above the base does not reach the subscriber", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const batches: ITreeFileChange[][] = [];
@@ -345,7 +345,7 @@ describe("SharedTreeWatcher — что доезжает подписчикам",
         expect(batches).toEqual([created("/repo/src/a.ts")]);
     });
 
-    it("нерекурсивный запрос на корне обхода тоже видит только прямых детей", () => {
+    it("a non-recursive request on the walker root also sees only direct children", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const batches: ITreeFileChange[][] = [];
@@ -357,7 +357,7 @@ describe("SharedTreeWatcher — что доезжает подписчикам",
         expect(batches).toEqual([created("/repo/a.ts")]);
     });
 
-    it("пачка, в которой подписчику ничего не досталось, его не будит", () => {
+    it("a batch with nothing for the subscriber does not wake it", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const batches: ITreeFileChange[][] = [];
@@ -369,7 +369,7 @@ describe("SharedTreeWatcher — что доезжает подписчикам",
         expect(batches).toEqual([]);
     });
 
-    it("единственному подписчику своего обхода пачка достаётся без копии", () => {
+    it("the only subscriber of its walker gets the batch without a copy", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const batches: (readonly ITreeFileChange[])[] = [];
@@ -383,7 +383,7 @@ describe("SharedTreeWatcher — что доезжает подписчикам",
         expect(batches[0]).toBe(batch);
     });
 
-    it("рекурсивность и excludes уезжают делегату как попросили", () => {
+    it("recursiveness and excludes go to the delegate as requested", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -394,8 +394,8 @@ describe("SharedTreeWatcher — что доезжает подписчикам",
     });
 });
 
-describe("SharedTreeWatcher — жизненный цикл общего обхода", () => {
-    it("уход одного подписчика не закрывает обход остальным", () => {
+describe("SharedTreeWatcher — shared walker lifecycle", () => {
+    it("one subscriber leaving does not close the walker for the rest", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const batches: ITreeFileChange[][] = [];
@@ -409,7 +409,7 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
         expect(batches).toEqual([created("/repo/src/a.ts")]);
     });
 
-    it("уход последнего подписчика закрывает обход", () => {
+    it("the last subscriber leaving closes the walker", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -421,7 +421,7 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
         expect(delegate.liveCount).toBe(0);
     });
 
-    it("отписавшемуся события больше не приходят", () => {
+    it("an unsubscribed listener gets no more events", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const batches: ITreeFileChange[][] = [];
@@ -434,7 +434,7 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
         expect(batches).toEqual([]);
     });
 
-    it("повторный dispose не закрывает обход второй раз", () => {
+    it("a repeated dispose does not close the walker a second time", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -445,7 +445,7 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
         expect(delegate.traversals[0].disposeCount).toBe(1);
     });
 
-    it("повторный dispose не уносит чужую подписку", () => {
+    it("a repeated dispose does not remove another subscription", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -459,7 +459,7 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
         expect(delegate.liveCount).toBe(0);
     });
 
-    it("закрытый обход не переиспользуется — следующий запрос заводит новый", () => {
+    it("a closed walker is not reused; the next request starts a new one", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
 
@@ -470,7 +470,7 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
         expect(delegate.traversals[1].root).toBe("/repo/src");
     });
 
-    it("dispose из колбэка не ломает рассылку остальным", () => {
+    it("dispose from a callback does not break delivery to the rest", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const batches: ITreeFileChange[][] = [];
@@ -485,7 +485,7 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
         expect(delegate.liveCount).toBe(1);
     });
 
-    it("отписанному соседом подписчику пачка уже не доезжает", () => {
+    it("a subscriber disposed by a sibling no longer gets the batch", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const batches: ITreeFileChange[][] = [];
@@ -501,7 +501,7 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
         expect(batches).toEqual([]);
     });
 
-    it("подписка из колбэка не получает пачку, которая уже разъезжается", () => {
+    it("a subscription from a callback does not get the batch already being delivered", () => {
         const delegate = new FakeTreeWatcher();
         const shared = new SharedTreeWatcher(delegate);
         const late: ITreeFileChange[][] = [];
@@ -516,8 +516,8 @@ describe("SharedTreeWatcher — жизненный цикл общего обх�
     });
 });
 
-describe("SharedTreeWatcher — лог", () => {
-    it("переиспользование обхода видно в канале files.watcher", () => {
+describe("SharedTreeWatcher — log", () => {
+    it("walker reuse shows in the files.watcher channel", () => {
         const logService = new LogService();
         logService.setLevel("*", LogLevel.Trace);
         const entries: LogEntry[] = [];
@@ -537,8 +537,8 @@ describe("SharedTreeWatcher — лог", () => {
     });
 });
 
-describe("SharedTreeWatcher — настоящий chokidar", () => {
-    it("общий обход доставляет события и вложенному, и нерекурсивному запросу", async () => {
+describe("SharedTreeWatcher — real chokidar", () => {
+    it("a shared walker delivers events to both a nested and a non-recursive request", async () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), "diode-shared-watch-"));
         fs.mkdirSync(path.join(root, "src", "deep"), { recursive: true });
         const shared = new SharedTreeWatcher(new ChokidarTreeWatcher());
@@ -576,7 +576,7 @@ describe("SharedTreeWatcher — настоящий chokidar", () => {
         }
     }, 20000);
 
-    it("явный запрос на каталог-симлинк видит его события, обход корня — нет", async () => {
+    it("an explicit request on a directory symlink sees its events, the root walker does not", async () => {
         const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "diode-shared-link-")));
         const root = path.join(base, "repo");
         const outside = path.join(base, "outside");

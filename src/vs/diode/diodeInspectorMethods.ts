@@ -115,7 +115,7 @@ export function toWire(value: unknown): unknown {
     try {
         return JSON.parse(JSON.stringify(value)) as unknown;
     } catch {
-        return typeof value === "bigint" ? value.toString() : `<несериализуемо: ${typeof value}>`;
+        return typeof value === "bigint" ? value.toString() : `<unserializable: ${typeof value}>`;
     }
 }
 

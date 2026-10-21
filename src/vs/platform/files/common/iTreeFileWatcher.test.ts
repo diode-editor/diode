@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { NULL_TREE_FILE_WATCHER } from "./iTreeFileWatcher.ts";
 
 describe("NULL_TREE_FILE_WATCHER", () => {
-    it("подписка валидна и никогда не стреляет", () => {
+    it("the subscription is valid and never fires", () => {
         let fired = 0;
         const subscription = NULL_TREE_FILE_WATCHER.watchTree(
             "/repo",

@@ -3,41 +3,41 @@ import { describe, expect, it } from "vitest";
 import { curatedConfigInjection } from "./curatedConfigInjection.ts";
 
 describe("curatedConfigInjection", () => {
-    it("basedpyright: вшитый сервер вместо поиска pip-установки", () => {
+    it("basedpyright: bundled server instead of searching for a pip install", () => {
         expect(curatedConfigInjection("detachhead.basedpyright")).toEqual({
             "basedpyright.importStrategy": "useBundled",
         });
     });
 
-    it("ruff: вшитый нативный сервер вместо сканирования окружения", () => {
+    it("ruff: bundled native server instead of scanning the environment", () => {
         expect(curatedConfigInjection("charliermarsh.ruff")).toEqual({ "ruff.importStrategy": "useBundled" });
     });
 
-    it("redhat.java: lombok-агент выключен — с ним jdt.ls 1.57 на JDK 21 не компилирует", () => {
+    it("redhat.java: lombok agent is off — with it jdt.ls 1.57 on JDK 21 does not compile", () => {
         expect(curatedConfigInjection("redhat.java")).toEqual({ "java.jdt.ls.lombokSupport.enabled": false });
     });
 
-    it("redhat.java: updateBuildConfiguration НЕ трогаем — вопрос человеку у нас отвечаем", () => {
+    it("redhat.java: updateBuildConfiguration is NOT touched — we answer the user prompt", () => {
         expect(curatedConfigInjection("redhat.java")).not.toHaveProperty("java.configuration.updateBuildConfiguration");
     });
 
-    it("Anthropic.claude-code: терминальный режим вместо webview-чата, которого в TUI нет", () => {
+    it("Anthropic.claude-code: terminal mode instead of the webview chat the TUI lacks", () => {
         expect(curatedConfigInjection("anthropic.claude-code")).toEqual({ "claudeCode.useTerminal": true });
     });
 
-    it("id сравнивается без учёта регистра — как в манифесте издателя", () => {
+    it("id is compared case-insensitively — as in the publisher manifest", () => {
         expect(curatedConfigInjection("Anthropic.claude-code")).toEqual({ "claudeCode.useTerminal": true });
         expect(curatedConfigInjection("DetachHead.basedpyright")).toEqual({
             "basedpyright.importStrategy": "useBundled",
         });
     });
 
-    it("незнакомое расширение — пустой слой, манифестные дефолты не трогаются", () => {
+    it("unknown extension — empty layer, manifest defaults untouched", () => {
         expect(curatedConfigInjection("vscjava.vscode-java-dependency")).toEqual({});
         expect(curatedConfigInjection("")).toEqual({});
     });
 
-    it("id сравнивается целиком, а не префиксом", () => {
+    it("id is compared whole, not by prefix", () => {
         expect(curatedConfigInjection("redhat.java-debug")).toEqual({});
         expect(curatedConfigInjection("charliermarsh.ruff-lsp")).toEqual({});
     });

@@ -6,7 +6,7 @@ import { computeWorkspaceId } from "./workspaceId.ts";
 
 describe("computeWorkspaceId", () => {
     // The format is a layout already on users' disks: changing the formula means migrating directories.
-    it("даёт sha256-hex от абсолютного пути папки — формат vscode", () => {
+    it("returns sha256 hex of the absolute folder path, as vscode does", () => {
         const expected = crypto.createHash("sha256").update("/projects/app").digest("hex");
         expect(computeWorkspaceId("/projects/app")).toBe(expected);
         expect(computeWorkspaceId("/projects/app")).toMatch(/^[0-9a-f]{64}$/);
@@ -14,18 +14,18 @@ describe("computeWorkspaceId", () => {
 
     // The same folder named differently must yield ONE project:
     // otherwise `diode .` and `diode /abs/path` would open different session stores.
-    it("нормализует путь перед хешированием", () => {
+    it("normalizes the path before hashing", () => {
         const canonical = computeWorkspaceId("/projects/app");
         expect(computeWorkspaceId("/projects/app/")).toBe(canonical);
         expect(computeWorkspaceId("/projects/./app")).toBe(canonical);
         expect(computeWorkspaceId("/projects/sub/../app")).toBe(canonical);
     });
 
-    it("разные папки — разные id", () => {
+    it("different folders get different ids", () => {
         expect(computeWorkspaceId("/projects/a")).not.toBe(computeWorkspaceId("/projects/b"));
     });
 
-    it("относительный путь резолвится от cwd", () => {
+    it("a relative path resolves against cwd", () => {
         expect(computeWorkspaceId("sub/dir")).toBe(computeWorkspaceId(`${process.cwd()}/sub/dir`));
     });
 });

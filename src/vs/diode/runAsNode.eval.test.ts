@@ -17,18 +17,18 @@ function runEval(args: readonly string[]): string {
     });
 }
 
-describe("runAsNode — eval-режим (-e)", () => {
-    it("код исполняется CJS-семантикой node: require доступен, argv без слота скрипта", () => {
+describe("runAsNode — eval mode (-e)", () => {
+    it("code runs with node CJS semantics: require is available, argv has no script slot", () => {
         const out = runEval(["-e", "console.log(typeof require, JSON.stringify(process.argv.slice(1)))", "tail"]);
         expect(out.trim()).toBe('function ["tail"]');
     });
 
-    it("require из -e резолвит модули от cwd — контракт resolve-скрипта линтера", () => {
+    it("require from -e resolves modules from cwd — the linter resolve script's contract", () => {
         const out = runEval(["-e", 'console.log(require.resolve("tsx"))']);
         expect(out).toContain("node_modules");
     });
 
-    it("-e без аргумента — exit 9, как invalid argument у node", () => {
+    it("-e without an argument — exit 9, like node's invalid argument", () => {
         const result = spawnSync(process.execPath, ["--import", "tsx", ENTRY, "-e"], {
             cwd: REPO_ROOT,
             encoding: "utf8",

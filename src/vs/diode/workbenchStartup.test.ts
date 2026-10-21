@@ -145,7 +145,7 @@ describe("startWorkbench", () => {
         resetPerformanceMarks();
     });
 
-    it("проходит шаги и фазы в порядке старта; расширения и eventually — только после кадра с подсветкой", async () => {
+    it("runs steps and phases in startup order; extensions and eventually only after the highlighted frame", async () => {
         const startup = setup();
         const tmuxProbe = vi.spyOn(startup.container.get(TerminalEnvironmentServiceDIToken), "detectTmuxClient");
 
@@ -172,7 +172,7 @@ describe("startWorkbench", () => {
         expect(startup.container.get(LifecycleServiceDIToken).phase).toBe("eventually");
     });
 
-    it("ставит вехи лестницы старта, которые читает бенч", async () => {
+    it("sets the startup ladder marks the bench reads", async () => {
         enablePerformanceMarks();
         const startup = setup();
 
@@ -192,7 +192,7 @@ describe("startWorkbench", () => {
         expect(marks.find((m) => m.name === "main:files-opened")?.detail).toEqual({ files: 1 });
     });
 
-    it("keybindings расширений заводятся раньше mount — и перебивают builtin-аккорд", async () => {
+    it("extension keybindings register before mount and override the builtin chord", async () => {
         const startup = setup();
 
         await startup.run(NO_TARGETS, [KEYBINDING_EXTENSION]);
@@ -207,7 +207,7 @@ describe("startWorkbench", () => {
         expect(resolution).toMatchObject({ kind: "command", commandId: "test.keys.open" });
     });
 
-    it("пункты меню расширений заводятся на старте — попап их уже видит", async () => {
+    it("extension menu items register at startup — the popup already sees them", async () => {
         const startup = setup();
 
         await startup.run(NO_TARGETS, [MENU_EXTENSION]);
@@ -222,7 +222,7 @@ describe("startWorkbench", () => {
         expect(labels).toContain("test.menus.doThing");
     });
 
-    it("виды расширений получают `<вид>.focus` на старте: исполнение поднимает предупреждение-тост", async () => {
+    it("extension views get `<view>.focus` at startup: running it raises a warning toast", async () => {
         const startup = setup();
         const chat: IExtension = {
             ...MENU_EXTENSION,
@@ -247,7 +247,7 @@ describe("startWorkbench", () => {
         ]);
     });
 
-    it("папка воркспейса назначается до mount (к фазе ready она уже есть)", async () => {
+    it("workspace folder is set before mount (present by the ready phase)", async () => {
         const startup = setup();
         const lifecycle = startup.container.get(LifecycleServiceDIToken);
         let foldersAtReady: string[] = [];
@@ -260,7 +260,7 @@ describe("startWorkbench", () => {
         expect(foldersAtReady).toEqual([ws.dir]);
     });
 
-    it("файл воркспейса открывается до mount: папка из файла, состояние workspace", async () => {
+    it("workspace file opens before mount: folder from the file, workspace state", async () => {
         const startup = setup();
         const lifecycle = startup.container.get(LifecycleServiceDIToken);
         let stateAtReady = "";
@@ -281,7 +281,7 @@ describe("startWorkbench", () => {
         expect(startup.container.get(IWorkspaceContextServiceDIToken).getWorkspace().configuration?.fsPath).toBe(file);
     });
 
-    it("без папки окно пустое: сессию не восстанавливает и ничего не греет", async () => {
+    it("without a folder the window is empty: restores no session and warms nothing", async () => {
         const startup = setup();
 
         await startup.run(NO_TARGETS);
@@ -291,7 +291,7 @@ describe("startWorkbench", () => {
         expect(startup.container.get(EditorServiceDIToken).editorGroups.activeGroup.getPanes()).toEqual([]);
     });
 
-    it("папка без файлов: греет то, что восстановит сессия (у тестового стора — ничего)", async () => {
+    it("folder without files: warms what the session restores (nothing in the test store)", async () => {
         const startup = setup();
 
         await startup.run({ ...NO_TARGETS, folder: ws.dir });
@@ -299,7 +299,7 @@ describe("startWorkbench", () => {
         expect(startup.preloaded).toEqual([[]]);
     });
 
-    it("явные файлы греются до открытия, открываются по порядку, --goto ставит каретку в последнем", async () => {
+    it("explicit files warm before opening, open in order, --goto puts the cursor in the last one", async () => {
         const startup = setup();
         const a = ws.path("a.ts");
         const b = ws.path("b.ts");
@@ -321,7 +321,7 @@ describe("startWorkbench", () => {
         expect([active?.primaryCursorLine, active?.primaryCursorColumn]).toEqual([1, 2]);
     });
 
-    it("кадр с текстом не ждёт токенизации: грамматика греется до открытия, токенизирует уже следующий кадр", async () => {
+    it("the text frame does not wait for tokenization: the grammar warms before opening, the next frame tokenizes", async () => {
         const startup = setup();
         startup.container.bind(LanguageServiceDIToken, () => ({
             ...NULL_LANGUAGE_SERVICE,
@@ -358,7 +358,7 @@ describe("startWorkbench", () => {
         expect(startup.container.get(LifecycleServiceDIToken).phase).toBe("eventually");
     });
 
-    it("--goto без колонки ставит каретку в начало строки", async () => {
+    it("--goto without a column puts the cursor at line start", async () => {
         const startup = setup();
         const a = ws.path("a.ts");
 
@@ -368,7 +368,7 @@ describe("startWorkbench", () => {
         expect([active?.primaryCursorLine, active?.primaryCursorColumn]).toEqual([2, 0]);
     });
 
-    describe("сохранённая сессия", () => {
+    describe("saved session", () => {
         let userData: ITempWorkspace;
         let writers: IStateService[];
 
@@ -405,7 +405,7 @@ describe("startWorkbench", () => {
                 .map((p) => (p as TextEditorPane).uri.fsPath);
         }
 
-        it("папка без файлов: файлы сессии греются до открытия и восстанавливаются", async () => {
+        it("folder without files: session files warm before opening and are restored", async () => {
             const a = ws.path("a.ts");
             const b = ws.path("b.ts");
             seedSession(ws.dir, [a, b]);
@@ -418,7 +418,7 @@ describe("startWorkbench", () => {
             expect(startup.testApp()?.focusedElement?.constructor.name).toBe("EditorElement");
         });
 
-        it("явные файлы перебивают сессию", async () => {
+        it("explicit files override the session", async () => {
             const a = ws.path("a.ts");
             const b = ws.path("b.ts");
             seedSession(ws.dir, [a]);
@@ -430,7 +430,7 @@ describe("startWorkbench", () => {
             expect(openPaths(startup)).toEqual([b]);
         });
 
-        it("дифф перебивает сессию", async () => {
+        it("diff overrides the session", async () => {
             const a = ws.path("a.ts");
             const b = ws.path("b.ts");
             seedSession(ws.dir, [a]);
@@ -442,7 +442,7 @@ describe("startWorkbench", () => {
             expect(startup.container.get(EditorServiceDIToken).editorGroups.activeGroup.getPanes()).toHaveLength(1);
         });
 
-        it("у пустого окна сессии нет, даже если прошлое пустое окно что-то открывало", async () => {
+        it("an empty window has no session, even if the previous empty window opened something", async () => {
             seedSession(undefined, [ws.path("a.ts")]);
             const startup = setup(newState());
 
@@ -453,7 +453,7 @@ describe("startWorkbench", () => {
         });
     });
 
-    it("дифф открывается командой vscode.diff, греются обе стороны", async () => {
+    it("diff opens via the vscode.diff command, both sides warm", async () => {
         const startup = setup();
         const a = ws.path("a.ts");
         const b = ws.path("b.ts");

@@ -33,24 +33,24 @@ describe("isValidConfigurationValue", () => {
         ["object", null, false],
         ["null", null, true],
         ["null", 0, false],
-    ] as const)("type %s, значение %j → %s", (type, value, expected) => {
+    ] as const)("type %s, value %j → %s", (type, value, expected) => {
         expect(isValidConfigurationValue(schema({ type }), value)).toBe(expected);
     });
 
-    it("список типов — годится любой из них", () => {
+    it("list of types — any of them fits", () => {
         const kinds = schema({ type: ["object", "array"] });
         expect(isValidConfigurationValue(kinds, { "source.fixAll": true })).toBe(true);
         expect(isValidConfigurationValue(kinds, ["source.fixAll"])).toBe(true);
         expect(isValidConfigurationValue(kinds, "source.fixAll")).toBe(false);
     });
 
-    it("enum пропускает только перечисленное", () => {
+    it("enum accepts only the listed values", () => {
         const wordWrap = schema({ enum: ["off", "on"] });
         expect(isValidConfigurationValue(wordWrap, "on")).toBe(true);
         expect(isValidConfigurationValue(wordWrap, "sometimes")).toBe(false);
     });
 
-    it("minimum и maximum — границы включительно", () => {
+    it("minimum and maximum are inclusive", () => {
         const timeout = schema({ type: "number", minimum: 1, maximum: 10 });
         expect(isValidConfigurationValue(timeout, 1)).toBe(true);
         expect(isValidConfigurationValue(timeout, 10)).toBe(true);
@@ -67,7 +67,7 @@ describe("sanitizeConfiguration", () => {
         ["files.exclude", schema({ type: "object", default: { "**/.git": true } })],
     ]);
 
-    it("значение вне схемы заменяется дефолтом, валидное и чужое — как есть", () => {
+    it("value outside the schema is replaced by the default; valid and foreign ones stay as is", () => {
         const model = ConfigurationModel.fromRaw({
             "editor.tabSize": "four",
             "editor.wordWrap": "on",
@@ -83,15 +83,15 @@ describe("sanitizeConfiguration", () => {
         expect(sanitized.get("git.enabled")).toBe("whatever");
     });
 
-    it("всё валидно — та же модель, без пересборки", () => {
+    it("everything valid — the same model, no rebuild", () => {
         const model = ConfigurationModel.fromRaw({ "editor.tabSize": 2 });
 
         expect(sanitizeConfiguration(model, schemas)).toBe(model);
     });
 });
 
-describe("сервис в памяти отдаёт значения, прошедшие схему", () => {
-    it("мусор из user-слоя — дефолт, inspect().user — как записано", () => {
+describe("in-memory service returns schema-validated values", () => {
+    it("garbage in the user layer becomes the default, inspect().user is as written", () => {
         const registry = new ConfigurationRegistry([
             {
                 id: "editor",
@@ -117,14 +117,14 @@ describe("filterWorkspaceSettings", () => {
         ["java.home", "machine-overridable"],
     ]);
 
-    it("ничего не отброшено — та же модель", () => {
+    it("nothing dropped — the same model", () => {
         const model = ConfigurationModel.fromRaw({ "editor.tabSize": 2, "x.y": 1 });
         const result = filterWorkspaceSettings(model, scopes);
         expect(result.model).toBe(model);
         expect(result.excludedKeys).toEqual([]);
     });
 
-    it("отбрасывает application/machine — без пустых предков; соседи по секции остаются", () => {
+    it("drops application/machine without leaving empty ancestors; section siblings stay", () => {
         const model = ConfigurationModel.fromRaw({
             "terminal.tier": "kitty",
             "terminal.customModes": { a: 1 },
@@ -144,14 +144,14 @@ describe("filterWorkspaceSettings", () => {
         expect(model.get("terminal.tier")).toBe("kitty");
     });
 
-    it("секция языка, где были только отброшенные ключи, остаётся пустой секцией", () => {
+    it("language section with only dropped keys stays as an empty section", () => {
         const result = filterWorkspaceSettings(ConfigurationModel.fromRaw({ "[go]": { "update.mode": "x" } }), scopes);
         expect(result.model.getOverride("go").get("update.mode")).toBeUndefined();
         expect(result.excludedKeys).toEqual(["[go].update.mode"]);
     });
 
     describe("pickRegisteredSettings", () => {
-        it("оставляет только ключи реестра нужного скоупа — незарегистрированные и чужие уходят", () => {
+        it("keeps only registry keys of the requested scope — unregistered and foreign ones go", () => {
             const model = ConfigurationModel.fromRaw({
                 "update.mode": "none",
                 "terminal.tier": "kitty",
@@ -166,7 +166,7 @@ describe("filterWorkspaceSettings", () => {
             expect(model.get("x.y")).toBe(1);
         });
 
-        it("нечего взять — пустая модель", () => {
+        it("nothing to take — empty model", () => {
             const model = ConfigurationModel.fromRaw({ "editor.tabSize": 2, "x.y": 1 });
             expect(pickRegisteredSettings(model, scopes, ["application"])).toBe(ConfigurationModel.EMPTY);
         });

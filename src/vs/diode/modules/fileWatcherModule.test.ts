@@ -62,7 +62,7 @@ describe("fileWatcherModule", () => {
         return { container, entries, child, logService };
     }
 
-    it("запрос на слежение уходит в отдельный процесс, а не поднимает обход здесь", () => {
+    it("a watch request goes to a separate process instead of starting a crawl here", () => {
         const { container, child } = setup();
 
         container
@@ -76,14 +76,14 @@ describe("fileWatcherModule", () => {
         ]);
     });
 
-    it("пофайловый watcher — chokidar в этом процессе, его канал подписан для Output", () => {
+    it("the per-file watcher is chokidar in this process, its channel is labeled for Output", () => {
         const { container, logService } = setup();
 
         expect(container.get(IFileWatcherDIToken)).toBeInstanceOf(ChokidarFileWatcher);
         expect(logService.getRegisteredChannels()).toEqual([{ id: "files.watcher", label: "File Watcher" }]);
     });
 
-    it("канал watcher-процесса подписан для Output и без пофайлового watcher'а", () => {
+    it("the watcher process channel is labeled for Output even without the per-file watcher", () => {
         const { container, logService } = setup();
 
         container.get(SubprocessTreeWatcherDIToken);
@@ -91,13 +91,13 @@ describe("fileWatcherModule", () => {
         expect(logService.getRegisteredChannels()).toEqual([{ id: "files.watcher", label: "File Watcher" }]);
     });
 
-    it("оба токена дают один объект", () => {
+    it("both tokens yield the same object", () => {
         const { container } = setup();
 
         expect(container.get(ITreeFileWatcherDIToken)).toBe(container.get(SubprocessTreeWatcherDIToken));
     });
 
-    it("прощание гасит тот самый процесс, которым пользуются расширения", async () => {
+    it("shutdown stops the very process extensions use", async () => {
         const { container, child } = setup();
         container.get(ITreeFileWatcherDIToken).watchTree("/repo", { recursive: true, excludes: [] }, () => undefined);
         expect(child.killed).toBe(false);
@@ -110,7 +110,7 @@ describe("fileWatcherModule", () => {
         expect(child.killed).toBe(true);
     });
 
-    it("диагностика watcher-процесса идёт в канал files.watcher", () => {
+    it("watcher process diagnostics go to the files.watcher channel", () => {
         const { container, entries, child } = setup();
         container.get(ITreeFileWatcherDIToken).watchTree("/repo", { recursive: true, excludes: [] }, () => undefined);
 

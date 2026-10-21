@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { InMemoryClipboardMetadataManager } from "./clipboardMetadata.ts";
 
 describe("InMemoryClipboardMetadataManager", () => {
-    it("отдаёт метаданные только при точном совпадении с последней записью", () => {
+    it("returns metadata only on an exact match with the last write", () => {
         const manager = new InMemoryClipboardMetadataManager();
         manager.set("line\n", { isFromEmptySelection: true });
 
@@ -13,11 +13,11 @@ describe("InMemoryClipboardMetadataManager", () => {
         expect(manager.get("other")).toBeNull();
     });
 
-    it("до первой записи метаданных нет", () => {
+    it("there is no metadata before the first write", () => {
         expect(new InMemoryClipboardMetadataManager().get("anything")).toBeNull();
     });
 
-    it("новая запись замещает прежнюю", () => {
+    it("a new write replaces the previous one", () => {
         const manager = new InMemoryClipboardMetadataManager();
         manager.set("a", { isFromEmptySelection: true });
         manager.set("b", { isFromEmptySelection: false });

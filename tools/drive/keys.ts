@@ -52,7 +52,7 @@ export function validateKey(name: string): string {
         const canonical = MODIFIERS.find((x) => x.toLowerCase() === m.toLowerCase()) ?? ALIASES[m.toLowerCase()];
         if (canonical === undefined || !(MODIFIERS as readonly string[]).includes(canonical)) {
             throw new Error(
-                `неизвестный модификатор ${JSON.stringify(m)} в ${JSON.stringify(name)} (Ctrl, Shift, Alt, Meta)`,
+                `unknown modifier ${JSON.stringify(m)} in ${JSON.stringify(name)} (Ctrl, Shift, Alt, Meta)`,
             );
         }
         return canonical;
@@ -61,9 +61,9 @@ export function validateKey(name: string): string {
     const named = [...NAMED_KEYS].find((k) => k.toLowerCase() === base.toLowerCase());
     if (named !== undefined) return [...mods, named].join("+");
     const alias = ALIASES[base.toLowerCase()];
-    const hint = alias !== undefined ? ` — может, ${[...mods, alias].join("+")}?` : "";
+    const hint = alias !== undefined ? ` — did you mean ${[...mods, alias].join("+")}?` : "";
     throw new Error(
-        `неизвестная клавиша ${JSON.stringify(name)}${hint} Имена: ${[...NAMED_KEYS].slice(0, 16).join(", ")}, F1–F12 или один символ; текст — командой type/paste`,
+        `unknown key ${JSON.stringify(name)}${hint} Names: ${[...NAMED_KEYS].slice(0, 16).join(", ")}, F1–F12 or a single char; for text use type/paste`,
     );
 }
 

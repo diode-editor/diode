@@ -43,40 +43,40 @@ export const DEFAULT_HEADLESS_SIZE = { cols: 120, rows: 32 } as const;
 
 export const USAGE = `Usage: diode [options] [<file-or-dir> ...]
 
-Без аргументов поднимается пустое окно: папка не открывается, текущий каталог
-не сканируется, вкладки прошлой сессии не восстанавливаются. Папку можно
-открыть из редактора командой Open Folder.
+With no arguments an empty window opens: no folder is opened, the current
+directory is not scanned, and tabs from the previous session are not restored.
+Open a folder from the editor with the Open Folder command.
 
 Options:
-  -g, --goto               Читать позиционные как file:line[:column] и ставить
-                           каретку в указанную позицию
-  -d, --diff <a> <b>       Открыть дифф-вкладку для двух файлов
-  --user-data-dir <path>   Альтернативный каталог user data (default: ~/.diode)
-  --extensions-dir <path>  Каталог внешних расширений
+  -g, --goto               Treat positional arguments as file:line[:column] and
+                           place the cursor at that position
+  -d, --diff <a> <b>       Compare two files with each other.
+  --user-data-dir <path>   Alternative user data directory (default: ~/.diode)
+  --extensions-dir <path>  Set the root path for extensions.
                            (default: <user-data-dir>/extensions)
-  --profile <name>         Имя профиля (default: "default")
-  --disable-extensions     Не грузить пользовательские расширения (встроенные
-                           остаются — с ними грамматики и настройки языков)
-  --log <level>            Уровень логирования: off|trace|debug|info|warn|error.
-  --log <channel>:<level>  Тот же флаг для одного канала (например
-                           extensions.host:debug). Повторяемый
-  --verbose                То же, что --log trace
-  --inspect-tui[=host:port] Поднять TUIDom-инспектор (default: ${DEFAULT_INSPECT_TUI})
-  --headless[=<cols>x<rows>] Запуск без терминала: рендер в память, управление
-                           через инспектор (требует --inspect-tui; default: ${DEFAULT_HEADLESS_SIZE.cols}x${DEFAULT_HEADLESS_SIZE.rows})
-  --install-extension <path.vsix | id>  Установить расширение и выйти. Аргумент с
-                           суффиксом .vsix — путь к файлу, иначе id publisher.name
-                           из реестра
-  --registry <path|url>    Реестр расширений для установки по id и для вьюлета
-                           Extensions: каталог или http(s)-адрес
+  --profile <name>         Profile name (default: "default")
+  --disable-extensions     Do not load user extensions (built-in ones stay:
+                           they provide grammars and language settings)
+  --log <level>            Log level: off|trace|debug|info|warn|error.
+  --log <channel>:<level>  Same flag for a single channel (for example
+                           extensions.host:debug). Repeatable
+  --verbose                Same as --log trace
+  --inspect-tui[=host:port] Start the TUIDom inspector (default: ${DEFAULT_INSPECT_TUI})
+  --headless[=<cols>x<rows>] Run without a terminal: render to memory, drive it
+                           through the inspector (requires --inspect-tui; default: ${DEFAULT_HEADLESS_SIZE.cols}x${DEFAULT_HEADLESS_SIZE.rows})
+  --install-extension <path.vsix | id>  Install an extension and exit. An argument
+                           ending in .vsix is a file path, otherwise a
+                           publisher.name id from the registry
+  --registry <path|url>    Extension registry for installing by id and for the
+                           Extensions viewlet: a directory or an http(s) URL
                            (default: ${DEFAULT_REGISTRY_URL})
-  --uninstall-extension <publisher.name>  Удалить расширение (все версии) и выйти
-  --list-extensions        Показать установленные расширения и выйти
-  -h, --help               Показать эту справку
-  -v, --version            Показать версию
+  --uninstall-extension <publisher.name>  Uninstall an extension (all versions) and exit
+  --list-extensions        List the installed extensions and exit.
+  -h, --help               Print usage.
+  -v, --version            Print version.
 
-Флаги управления расширениями выполняются до запуска TUI; при нескольких
-одновременно применяется первый по приоритету install → uninstall → list.
+Extension management flags run before the TUI starts; if several are given,
+only the first by priority applies: install, then uninstall, then list.
 `;
 
 export class CliArgsError extends Error {

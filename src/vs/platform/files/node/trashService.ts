@@ -41,7 +41,7 @@ export class TrashService implements ITrashService {
 
     private trashSync(filePath: string): ITrashEntry {
         if (!this.ensureDirs()) {
-            throw new Error("Системная корзина недоступна");
+            throw new Error("System trash is unavailable");
         }
         const home = this.trashHome();
         const filesDir = path.join(home, "files");

@@ -17,8 +17,8 @@ function setup(items: MenuContribution[] = []): { registry: MenuRegistry; servic
     return { registry, service: new MenuService(registry) };
 }
 
-describe("MenuService — живые меню (IMenu)", () => {
-    it("getEntries резолвит пункты своей точки через реестр (с контекстом)", () => {
+describe("MenuService — live menus (IMenu)", () => {
+    it("getEntries resolves its own point's items through the registry (with context)", () => {
         const seen: unknown[] = [];
         const { service } = setup([
             {
@@ -37,7 +37,7 @@ describe("MenuService — живые меню (IMenu)", () => {
         expect(seen).toEqual([{ path: "/x" }]);
     });
 
-    it("getSubmenus отдаёт submenu-записи своей точки", () => {
+    it("getSubmenus returns its own point's submenu entries", () => {
         const { service } = setup([
             { menuId: MenuId.MenubarMainMenu, submenu: MenuId.MenubarFileMenu, title: "File", mnemonic: "f" },
         ]);
@@ -45,7 +45,7 @@ describe("MenuService — живые меню (IMenu)", () => {
         expect(menu.getSubmenus()).toEqual([{ title: "File", mnemonic: "f", submenu: MenuId.MenubarFileMenu }]);
     });
 
-    it("onDidChange: уведомляет о смене своей точки и молчит о чужой", () => {
+    it("onDidChange: fires for its own point and stays silent for others", () => {
         const { registry, service } = setup();
         const menu = disposables.add(service.createMenu(MenuId.EditorContext));
         let fired = 0;
@@ -60,7 +60,7 @@ describe("MenuService — живые меню (IMenu)", () => {
         expect(fired).toBe(2);
     });
 
-    it("dispose подписки листенера прекращает уведомления", () => {
+    it("disposing a listener subscription stops notifications", () => {
         const { registry, service } = setup();
         const menu = disposables.add(service.createMenu(MenuId.EditorContext));
         let fired = 0;
@@ -71,7 +71,7 @@ describe("MenuService — живые меню (IMenu)", () => {
         expect(fired).toBe(0);
     });
 
-    it("dispose меню отписывает его от реестра", () => {
+    it("disposing the menu unsubscribes it from the registry", () => {
         const { registry, service } = setup();
         const menu = disposables.add(service.createMenu(MenuId.EditorContext));
         let fired = 0;

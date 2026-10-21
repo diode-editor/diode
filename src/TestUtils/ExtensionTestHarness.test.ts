@@ -15,7 +15,7 @@ describe("createExtensionTestHarness", () => {
         }
     });
 
-    it("запрос по неоткрытому документу: версии нет (бросает), форматирование — по пустому тексту", async () => {
+    it("request on an unopened document: no version (throws), formatting runs on empty text", async () => {
         const harness = await createExtensionTestHarness();
         try {
             expect(() => documentVersion(harness, "file:///nowhere.ts")).toThrow(/no open editor/);

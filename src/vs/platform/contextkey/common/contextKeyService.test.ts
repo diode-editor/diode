@@ -15,7 +15,7 @@ describe("ContextKeyService", () => {
         expect(ctx.get("textInputFocus")).toBe(true);
     });
 
-    it("getRaw читает ключ по строке — и типизированный, и setRaw", () => {
+    it("getRaw reads a key by string — both typed and setRaw", () => {
         const svc = new ContextKeyService();
         svc.set("textInputFocus", true);
         svc.setRaw("ext.thing", ["a", "b"]);
@@ -93,12 +93,12 @@ describe("ContextKeyService", () => {
             expect(ctx.evaluate("???invalid!!!")).toBe(false);
         });
 
-        it("бросок внутри выражения — тоже false", () => {
+        it("a throw inside the expression is false too", () => {
             const ctx = new ContextKeyService();
             expect(ctx.evaluate("editorLangId.missing.deep")).toBe(false);
         });
 
-        it("новый ключ виден выражению, разобранному раньше, — без регистрации имени", () => {
+        it("a new key is visible to an expression parsed earlier, without registering the name", () => {
             const ctx = new ContextKeyService();
             const expression = "mode_zen";
             expect(ctx.evaluate(expression)).toBe(false);
@@ -109,7 +109,7 @@ describe("ContextKeyService", () => {
     });
 
     describe("onDidChange", () => {
-        it("шлёт одно событие на тик с набором изменившихся ключей", async () => {
+        it("fires one event per tick with the set of changed keys", async () => {
             const ctx = new ContextKeyService();
             const listener = vi.fn();
             ctx.onDidChange(listener);
@@ -124,7 +124,7 @@ describe("ContextKeyService", () => {
             expect(listener.mock.calls[0][0]).toEqual(new Set(["textInputFocus", "listFocus", "activeOutputChannel"]));
         });
 
-        it("запись того же значения событием не считается", async () => {
+        it("writing the same value is not an event", async () => {
             const ctx = new ContextKeyService();
             ctx.set("textInputFocus", true);
             await Promise.resolve();
@@ -137,7 +137,7 @@ describe("ContextKeyService", () => {
             expect(listener).not.toHaveBeenCalled();
         });
 
-        it("reset существующего ключа — событие, несуществующего — нет", async () => {
+        it("reset of an existing key fires an event, of a missing one does not", async () => {
             const ctx = new ContextKeyService();
             ctx.set("listFocus", true);
             await Promise.resolve();
@@ -154,7 +154,7 @@ describe("ContextKeyService", () => {
             expect(listener).not.toHaveBeenCalled();
         });
 
-        it("запись из слушателя уезжает в следующий тик", async () => {
+        it("a write from a listener moves to the next tick", async () => {
             const ctx = new ContextKeyService();
             const seen: string[][] = [];
             ctx.onDidChange((changed) => {
@@ -168,7 +168,7 @@ describe("ContextKeyService", () => {
             expect(seen).toEqual([["listFocus"], ["textInputFocus"]]);
         });
 
-        it("снятый слушатель и dispose гасят рассылку", async () => {
+        it("a removed listener and dispose stop delivery", async () => {
             const ctx = new ContextKeyService();
             const listener = vi.fn();
             const subscription = ctx.onDidChange(listener);
@@ -186,8 +186,8 @@ describe("ContextKeyService", () => {
     });
 });
 
-describe("ContextKeyService — overlay («что если»)", () => {
-    it("перекрывает значения на время вычисления и не меняет сами ключи", () => {
+describe("ContextKeyService — overlay ('what if')", () => {
+    it("overrides values during evaluation without changing the keys themselves", () => {
         const contextKeys = new ContextKeyService();
         contextKeys.set("listFocus", false);
         contextKeys.set("tier", "legacy");
@@ -198,7 +198,7 @@ describe("ContextKeyService — overlay («что если»)", () => {
         expect(contextKeys.evaluate("tier == 'legacy'", {})).toBe(true); // an empty overlay behaves like none
     });
 
-    it("работает и для точечных ключей расширений", () => {
+    it("works for dotted extension keys too", () => {
         const contextKeys = new ContextKeyService();
         expect(contextKeys.evaluate("overlayExt.flag")).toBe(false);
         expect(contextKeys.evaluate("overlayExt.flag", { "overlayExt.flag": true })).toBe(true);

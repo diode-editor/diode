@@ -66,7 +66,7 @@ function setup(): {
 const CHANGES: readonly ITreeFileChange[] = [{ type: "changed", path: "/repo/a.ts" }];
 
 describe("serveTreeWatcher", () => {
-    it("watch поднимает обход с теми опциями, что пришли по проводу", () => {
+    it("watch starts a walker with the options received over the wire", () => {
         const { watcher, post } = setup();
 
         post({ t: "watch", id: 1, rootPath: "/repo", options: { recursive: true, excludes: ["**/out"] } });
@@ -74,7 +74,7 @@ describe("serveTreeWatcher", () => {
         expect(watcher.calls).toEqual([{ rootPath: "/repo", options: { recursive: true, excludes: ["**/out"] } }]);
     });
 
-    it("пачка обхода уезжает обратно под id своего запроса", () => {
+    it("a walker batch goes back under its request id", () => {
         const { watcher, sent, post } = setup();
         post({ t: "watch", id: 1, rootPath: "/repo", options: { recursive: true, excludes: [] } });
         post({ t: "watch", id: 2, rootPath: "/other", options: { recursive: true, excludes: [] } });
@@ -84,7 +84,7 @@ describe("serveTreeWatcher", () => {
         expect(sent).toEqual([{ t: "changes", id: 2, changes: CHANGES }]);
     });
 
-    it("unwatch снимает свой обход и только его", () => {
+    it("unwatch stops its own walker and only it", () => {
         const { watcher, post } = setup();
         post({ t: "watch", id: 1, rootPath: "/repo", options: { recursive: true, excludes: [] } });
         post({ t: "watch", id: 2, rootPath: "/other", options: { recursive: true, excludes: [] } });
@@ -94,7 +94,7 @@ describe("serveTreeWatcher", () => {
         expect(watcher.disposed).toEqual([0]);
     });
 
-    it("после unwatch пачка уже не уезжает", () => {
+    it("after unwatch the batch is no longer sent", () => {
         const { watcher, sent, post } = setup();
         post({ t: "watch", id: 1, rootPath: "/repo", options: { recursive: true, excludes: [] } });
         post({ t: "unwatch", id: 1 });
@@ -104,7 +104,7 @@ describe("serveTreeWatcher", () => {
         expect(sent).toEqual([]);
     });
 
-    it("повторный unwatch неизвестного id — не падение", () => {
+    it("a repeated unwatch of an unknown id does not fail", () => {
         const { watcher, post } = setup();
         post({ t: "watch", id: 1, rootPath: "/repo", options: { recursive: true, excludes: [] } });
         post({ t: "unwatch", id: 1 });
@@ -115,7 +115,7 @@ describe("serveTreeWatcher", () => {
         expect(watcher.disposed).toEqual([0]);
     });
 
-    it("мусор в канале игнорируется, а не поднимает обход", () => {
+    it("garbage in the channel is ignored instead of starting a walker", () => {
         const { watcher, post } = setup();
 
         post({ hello: "there" });
@@ -123,7 +123,7 @@ describe("serveTreeWatcher", () => {
         expect(watcher.calls).toEqual([]);
     });
 
-    it("dispose снимает все живые обходы", () => {
+    it("dispose stops all live walkers", () => {
         const { watcher, post, server } = setup();
         post({ t: "watch", id: 1, rootPath: "/repo", options: { recursive: true, excludes: [] } });
         post({ t: "watch", id: 2, rootPath: "/other", options: { recursive: false, excludes: [] } });
@@ -133,7 +133,7 @@ describe("serveTreeWatcher", () => {
         expect(watcher.disposed).toEqual([0, 1]);
     });
 
-    it("повторный dispose ничего не снимает второй раз", () => {
+    it("a repeated dispose stops nothing a second time", () => {
         const { watcher, post, server } = setup();
         post({ t: "watch", id: 1, rootPath: "/repo", options: { recursive: true, excludes: [] } });
 

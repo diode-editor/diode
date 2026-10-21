@@ -7,11 +7,11 @@ import { URLService } from "./url.ts";
 const uri = Uri.parse("diode://pub.ext/path");
 
 describe("URLService", () => {
-    it("без обработчиков URL не открыт", async () => {
+    it("without handlers the URL is not opened", async () => {
         await expect(new URLService().open(uri)).resolves.toBe(false);
     });
 
-    it("обработчики по порядку регистрации до первого true; опции доезжают как есть", async () => {
+    it("handlers run in registration order until the first true; options are passed as is", async () => {
         const service = new URLService();
         const first = { handleURL: vi.fn(() => Promise.resolve(false)) };
         const second = { handleURL: vi.fn(() => Promise.resolve(true)) };
@@ -25,13 +25,13 @@ describe("URLService", () => {
         expect(third.handleURL).not.toHaveBeenCalled();
     });
 
-    it("все отказались — false", async () => {
+    it("all declined gives false", async () => {
         const service = new URLService();
         service.registerHandler({ handleURL: () => Promise.resolve(false) });
         await expect(service.open(uri)).resolves.toBe(false);
     });
 
-    it("снятый обработчик больше не спрашивается", async () => {
+    it("a removed handler is no longer asked", async () => {
         const service = new URLService();
         const handler = { handleURL: vi.fn(() => Promise.resolve(true)) };
         service.registerHandler(handler).dispose();

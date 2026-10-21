@@ -29,7 +29,7 @@ export async function registrationFromInstalled(
         },
     );
     /* v8 ignore start -- a stock vsix always has main; the branch is reachable only with a broken manifest */
-    if (registration === null) throw new Error(`${dirName}: в манифесте нет main`);
+    if (registration === null) throw new Error(`${dirName}: manifest has no main`);
     /* v8 ignore stop */
     return registration;
 }

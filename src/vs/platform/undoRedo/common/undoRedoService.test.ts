@@ -105,8 +105,8 @@ describe("UndoRedoService", () => {
     });
 });
 
-describe("UndoRedoService — отказ шага", () => {
-    it("canUndo() === false: шаг не исполняется и ОСТАЁТСЯ в стеке отмены", async () => {
+describe("UndoRedoService — element refusal", () => {
+    it("canUndo() === false: the element is not run and STAYS on the undo stack", async () => {
         const service = new UndoRedoService();
         const { el, undo } = makeElement("Refactor");
         let allowed = false;
@@ -122,7 +122,7 @@ describe("UndoRedoService — отказ шага", () => {
         expect(undo).toHaveBeenCalledOnce();
     });
 
-    it("canRedo() === false: шаг не исполняется и ОСТАЁТСЯ в стеке повтора", async () => {
+    it("canRedo() === false: the element is not run and STAYS on the redo stack", async () => {
         const service = new UndoRedoService();
         const { el, redo } = makeElement("Refactor");
         service.pushElement({ ...el, canRedo: () => false }, CTX);
@@ -134,7 +134,7 @@ describe("UndoRedoService — отказ шага", () => {
         expect(service.canUndo(CTX)).toBe(false);
     });
 
-    it("шаг без canUndo/canRedo отменяется и повторяется всегда (обычный шаг документа)", async () => {
+    it("an element without canUndo/canRedo is always undone and redone (a plain document element)", async () => {
         const service = new UndoRedoService();
         const { el, undo, redo } = makeElement("Typing");
         service.pushElement(el, CTX);
@@ -145,7 +145,7 @@ describe("UndoRedoService — отказ шага", () => {
         expect(redo).toHaveBeenCalledOnce();
     });
 
-    it("отказавший шаг не пускает к шагам ПОД ним — иначе они легли бы не в том порядке", async () => {
+    it("a refusing element blocks the elements BELOW it — otherwise they would apply out of order", async () => {
         const service = new UndoRedoService();
         const older = makeElement("older");
         const blocking = makeElement("blocking");
@@ -156,7 +156,7 @@ describe("UndoRedoService — отказ шага", () => {
         expect(older.undo).not.toHaveBeenCalled();
     });
 
-    it("асинхронный ответ canUndo: пока шаг спрашивал диск, сверху лёг новый — не трогаем ни тот, ни другой", async () => {
+    it("async canUndo answer: a new element landed on top while this one checked the disk — neither is touched", async () => {
         const service = new UndoRedoService();
         const asking = makeElement("Edit");
         let answer!: (can: boolean) => void;
@@ -174,7 +174,7 @@ describe("UndoRedoService — отказ шага", () => {
         expect(service.peekUndo(CTX)).toBe(newer.el);
     });
 
-    it("асинхронный ответ canRedo: сдвинутый стек повтора — шаг не повторяется", async () => {
+    it("async canRedo answer: the redo stack moved — the element is not redone", async () => {
         const service = new UndoRedoService();
         const asking = makeElement("Edit");
         let answer!: (can: boolean) => void;
@@ -192,7 +192,7 @@ describe("UndoRedoService — отказ шага", () => {
         expect(asking.redo).not.toHaveBeenCalled();
     });
 
-    it("асинхронный ответ canUndo: разрешено — шаг откатывается", async () => {
+    it("async canUndo answer: allowed — the element is undone", async () => {
         const service = new UndoRedoService();
         const asking = makeElement("Edit");
         asking.el.canUndo = () => Promise.resolve(true);

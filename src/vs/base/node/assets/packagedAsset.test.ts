@@ -37,7 +37,7 @@ describe("readPackagedAsset", () => {
         rmSync(dir, { recursive: true, force: true });
     });
 
-    it("SEA: байты вшитого ассета", () => {
+    it("SEA: bytes of the embedded asset", () => {
         const seen: string[] = [];
         const bytes = readPackagedAsset(
             "rg.bundle",
@@ -54,18 +54,18 @@ describe("readPackagedAsset", () => {
         expect([...(bytes ?? [])]).toEqual([1, 2, 3]);
     });
 
-    it("self-extract: файл рядом с entry-скриптом", () => {
+    it("self-extract: file next to the entry script", () => {
         writeFileSync(path.join(dir, "ts-server.bundle"), Buffer.from([7, 8]));
 
         expect([...(readPackagedAsset("ts-server.bundle", environment({})) ?? [])]).toEqual([7, 8]);
     });
 
-    it("dev: файла нет или entry не файловый — null", () => {
+    it("dev: no file or a non-file entry: null", () => {
         expect(readPackagedAsset("rg.bundle", environment({}))).toBeNull();
         expect(readPackagedAsset("rg.bundle", environment({ entryDir: () => null }))).toBeNull();
     });
 
-    it("по умолчанию смотрит в настоящий процесс: под тестами ассетов нет", () => {
+    it("looks at the real process by default: there are no assets under tests", () => {
         expect(readPackagedAsset("rg.bundle")).toBeNull();
     });
 });
@@ -78,7 +78,7 @@ describe("readPackagedAssetView", () => {
         rmSync(dir, { recursive: true, force: true });
     });
 
-    it("SEA: вид на ассет без копии (getRawAsset, а не getAsset); ассета нет — null", () => {
+    it("SEA: a view of the asset without a copy (getRawAsset, not getAsset); no asset: null", () => {
         const raw = new Uint8Array([4, 5, 6]).buffer;
         const seen: string[] = [];
         const env = environment({
@@ -96,7 +96,7 @@ describe("readPackagedAssetView", () => {
         expect(seen).toEqual(["lazy/x.cjs", "lazy/x.v8cache"]);
     });
 
-    it("self-extract: файл рядом с entry-скриптом; dev — null", () => {
+    it("self-extract: file next to the entry script; dev: null", () => {
         writeFileSync(path.join(dir, "x.cjs"), Buffer.from([9]));
 
         expect([...(readPackagedAssetView("x.cjs", environment({})) ?? [])]).toEqual([9]);
@@ -107,7 +107,7 @@ describe("readPackagedAssetView", () => {
 });
 
 describe("packagedAssetCacheDir", () => {
-    it("ключ — версия и хэш содержимого, а не размер", () => {
+    it("the key is the version and content hash, not the size", () => {
         const a = packagedAssetCacheDir("rg", new Uint8Array([1, 2, 3]), "/cache");
         const sameSize = packagedAssetCacheDir("rg", new Uint8Array([3, 2, 1]), "/cache");
 
@@ -116,7 +116,7 @@ describe("packagedAssetCacheDir", () => {
         expect(packagedAssetCacheDir("rg", new Uint8Array([1, 2, 3]), "/cache")).toBe(a);
     });
 
-    it("по умолчанию — под пользовательским кэшем diode", () => {
+    it("defaults to the user's diode cache", () => {
         expect(packagedAssetCacheDir("node-pty", new Uint8Array([1]))).toMatch(
             new RegExp(`^${userCacheDir().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`),
         );
@@ -135,7 +135,7 @@ describe("packagedAssetCacheDirByName", () => {
         rmSync(dir, { recursive: true, force: true });
     });
 
-    it("SEA: ключ из сайдкара `<имя>.sha256`, байты самого ассета не читаются", () => {
+    it("SEA: the key comes from the `<name>.sha256` sidecar; the asset bytes are not read", () => {
         const seen: string[] = [];
         const env = environment({
             isSea: () => true,
@@ -151,7 +151,7 @@ describe("packagedAssetCacheDirByName", () => {
         expect(seen).toEqual(["ts-server.bundle.sha256"]);
     });
 
-    it("сайдкара нет или он битый — хэш по байтам, ключ тот же", () => {
+    it("no sidecar or a broken one: hash over the bytes, same key", () => {
         writeFileSync(path.join(dir, "ts-server.bundle"), bytes);
         const expected = packagedAssetCacheDir("ts-server", bytes, "/cache");
 
@@ -169,7 +169,7 @@ describe("packagedAssetCacheDirByName", () => {
         }
     });
 
-    it("self-extract: сайдкар файлом рядом с main.cjs", () => {
+    it("self-extract: sidecar file next to main.cjs", () => {
         writeFileSync(path.join(dir, "ts-server.bundle.sha256"), digest);
 
         expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBe(
@@ -177,7 +177,7 @@ describe("packagedAssetCacheDirByName", () => {
         );
     });
 
-    it("ни ассета, ни сайдкара (dev) — null; по умолчанию — под пользовательским кэшем", () => {
+    it("neither asset nor sidecar (dev): null; defaults to the user cache", () => {
         expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBeNull();
         expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle")).toBeNull();
         writeFileSync(path.join(dir, "ts-server.bundle.sha256"), digest);

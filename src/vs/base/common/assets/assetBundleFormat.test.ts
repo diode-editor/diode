@@ -100,7 +100,7 @@ describe("AssetBundleFormat", () => {
         }).not.toThrow();
     });
 
-    it("joinVirtualPath склеивает по POSIX", () => {
+    it("joinVirtualPath joins POSIX-style", () => {
         expect(joinVirtualPath("Extensions/builtin/ts", "syntaxes/ts.json")).toBe(
             "Extensions/builtin/ts/syntaxes/ts.json",
         );

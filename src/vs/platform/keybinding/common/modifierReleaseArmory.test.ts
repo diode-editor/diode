@@ -136,8 +136,8 @@ describe("armOnHoldRelease within a trigger context", () => {
         expect(outer).toHaveBeenCalledTimes(1);
     });
 
-    describe("commitStaleAfter — коммит по нажатию, не продлившему сессию", () => {
-        it("коммитит взвод, номер которого не изменился за время нажатия", () => {
+    describe("commitStaleAfter: commit on a keypress that did not extend the session", () => {
+        it("commits an arm whose number did not change during the keypress", () => {
             const armory = new ModifierReleaseArmory();
             const commit = vi.fn();
             armory.arm("Control", commit);
@@ -152,7 +152,7 @@ describe("armOnHoldRelease within a trigger context", () => {
             expect(armory.pendingGeneration).toBeNull();
         });
 
-        it("НЕ коммитит, если нажатие перевзвело сессию (следующий шаг того же цикла)", () => {
+        it("does NOT commit if the keypress re-armed the session (the next step of the same cycle)", () => {
             const armory = new ModifierReleaseArmory();
             const first = vi.fn();
             const second = vi.fn();
@@ -168,7 +168,7 @@ describe("armOnHoldRelease within a trigger context", () => {
             expect(second).toHaveBeenCalledTimes(1);
         });
 
-        it("взвод, снятый отпусканием модификатора, повторно не коммитится", () => {
+        it("an arm cleared by a modifier release is not committed again", () => {
             const armory = new ModifierReleaseArmory();
             const commit = vi.fn();
             armory.arm("Control", commit);
@@ -182,7 +182,7 @@ describe("armOnHoldRelease within a trigger context", () => {
             expect(commit).toHaveBeenCalledTimes(1);
         });
 
-        it("без взвода на момент нажатия — no-op (в том числе когда взвод появился ВО время него)", () => {
+        it("no arm at keypress time is a no-op (including when the arm appears DURING it)", () => {
             const armory = new ModifierReleaseArmory();
             const commit = vi.fn();
 

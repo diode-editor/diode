@@ -64,8 +64,8 @@ describe("ConfigurationRegistry", () => {
     });
 });
 
-describe("ConfigurationRegistry — настройки расширений", () => {
-    it("ключи расширения: дефолт в дереве, владелец и область — в свойствах", () => {
+describe("ConfigurationRegistry — extension settings", () => {
+    it("extension keys: default in the tree, owner and scope in properties", () => {
         const registry = new ConfigurationRegistry([editorNode]);
 
         registry.registerExtensionConfiguration("acme.ruff", {
@@ -105,7 +105,7 @@ describe("ConfigurationRegistry — настройки расширений", ()
         expect(registry.getExtensionConfigurationProperties().get("a.key")?.scope).toBe(expected);
     });
 
-    it("дубль ключа ядра или другого расширения — предупреждение и пропуск, не исключение", () => {
+    it("duplicate of a core key or another extension's key — warning and skip, not an exception", () => {
         const registry = new ConfigurationRegistry([editorNode]);
         const problems: string[] = [];
         registry.registerExtensionConfiguration("first.ext", { "shared.key": { default: 1 } });
@@ -127,7 +127,7 @@ describe("ConfigurationRegistry — настройки расширений", ()
         });
     });
 
-    it("дубль без колбэка проблем — тихий пропуск, не исключение", () => {
+    it("duplicate without an issue callback — silent skip, not an exception", () => {
         const registry = new ConfigurationRegistry([editorNode]);
 
         expect(() => {
@@ -136,7 +136,7 @@ describe("ConfigurationRegistry — настройки расширений", ()
         expect(registry.getDefaultConfiguration()).toMatchObject({ editor: { tabSize: 4 } });
     });
 
-    it("переопределения дефолтов — поверх ядра и расширений, позднее главнее", () => {
+    it("default overrides — on top of core and extensions, later wins", () => {
         const registry = new ConfigurationRegistry([editorNode]);
         registry.registerExtensionConfiguration("acme.ruff", { "ruff.importStrategy": { default: "fromEnvironment" } });
 
@@ -150,8 +150,8 @@ describe("ConfigurationRegistry — настройки расширений", ()
     });
 });
 
-describe("ConfigurationRegistry — секции языков в переопределениях дефолтов", () => {
-    it("секции одного языка от разных источников сливаются, плоские ключи — заменяются", () => {
+describe("ConfigurationRegistry — language sections in default overrides", () => {
+    it("sections of one language from different sources merge, flat keys are replaced", () => {
         const registry = new ConfigurationRegistry([editorNode]);
 
         registry.registerDefaultConfigurations({ "[go]": { "editor.insertSpaces": false }, "editor.tabSize": 2 });
@@ -163,7 +163,7 @@ describe("ConfigurationRegistry — секции языков в переопр�
         });
     });
 
-    it("обычный ключ с объектом — заменяется целиком, не сливается", () => {
+    it("plain key with an object value is replaced as a whole, not merged", () => {
         const registry = new ConfigurationRegistry();
         registry.registerDefaultConfigurations({ "files.exclude": { "**/a": true } });
 
@@ -172,7 +172,7 @@ describe("ConfigurationRegistry — секции языков в переопр�
         expect(registry.getDefaultConfiguration()).toEqual({ files: { exclude: { "**/b": true } } });
     });
 
-    it("null в секции языка — заменяет", () => {
+    it("null in a language section replaces", () => {
         const registry = new ConfigurationRegistry();
         registry.registerDefaultConfigurations({ "[go]": { "editor.tabSize": 8 } });
 
@@ -181,7 +181,7 @@ describe("ConfigurationRegistry — секции языков в переопр�
         expect(registry.getDefaultConfiguration()).toEqual({ "[go]": null });
     });
 
-    it("не-объект в секции языка — заменяет, а не сливается", () => {
+    it("non-object in a language section replaces rather than merges", () => {
         const registry = new ConfigurationRegistry();
         registry.registerDefaultConfigurations({ "[go]": { "editor.tabSize": 8 } });
 
@@ -191,8 +191,8 @@ describe("ConfigurationRegistry — секции языков в переопр�
     });
 });
 
-describe("ConfigurationRegistry — scope всех ключей", () => {
-    it("getConfigurationScopes: ядро и расширения одной картой", () => {
+describe("ConfigurationRegistry — scope of all keys", () => {
+    it("getConfigurationScopes: core and extensions in one map", () => {
         const registry = new ConfigurationRegistry([
             {
                 id: "t",

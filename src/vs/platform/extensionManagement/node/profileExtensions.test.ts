@@ -65,11 +65,11 @@ describe("profileExtensions", () => {
     }
 
     describe("readProfileExtensions / writeProfileExtensions", () => {
-        it("нет файла — undefined", () => {
+        it("no file returns undefined", () => {
             expect(readProfileExtensions(defaultFile)).toBeUndefined();
         });
 
-        it("запись создаёт каталог и пишет JSON без временного файла рядом", () => {
+        it("write creates the directory and writes JSON without a temp file next to it", () => {
             writeProfileExtensions(workFile, [{ identifier: { id: "a.b" }, version: "1.0.0" }]);
 
             expect(JSON.parse(fs.readFileSync(workFile, "utf8"))).toEqual([
@@ -79,7 +79,7 @@ describe("profileExtensions", () => {
             expect(readProfileExtensions(workFile)).toEqual([{ identifier: { id: "a.b" }, version: "1.0.0" }]);
         });
 
-        it("записи без identifier.id пропускаются, чужие поля записи сохраняются", () => {
+        it("entries without identifier.id are skipped, unknown entry fields are kept", () => {
             ws.writeFile(
                 "profiles/work/extensions.json",
                 JSON.stringify([
@@ -100,15 +100,15 @@ describe("profileExtensions", () => {
         });
 
         it.each([
-            ["битый JSON", "[{"],
-            ["не массив", `{"identifier":{"id":"a.b"}}`],
-        ])("%s — ошибка с путём файла", (_what, text) => {
+            ["malformed JSON", "[{"],
+            ["not an array", `{"identifier":{"id":"a.b"}}`],
+        ])("%s fails with the file path", (_what, text) => {
             ws.writeFile("profiles/work/extensions.json", text);
 
             expect(() => readProfileExtensions(workFile)).toThrow(`Invalid extensions profile content in ${workFile}`);
         });
 
-        it("ошибка чтения не ENOENT (каталог вместо файла) — бросается как есть", () => {
+        it("a non-ENOENT read error (directory instead of file) is thrown as is", () => {
             fs.mkdirSync(workFile, { recursive: true });
 
             expect(() => readProfileExtensions(workFile)).toThrow(/EISDIR/);
@@ -116,7 +116,7 @@ describe("profileExtensions", () => {
     });
 
     describe("migrateProfileExtensions", () => {
-        it("профилю без файла — все установленные, с каталогом установки; файл с составом не трогается", () => {
+        it("a profile without a file gets all installed extensions with their install directory; the contents file is not touched", () => {
             onDisk("acme.tools", "1.2.0");
             onDisk("acme.base");
             writeProfileExtensions(workFile, []);
@@ -131,21 +131,21 @@ describe("profileExtensions", () => {
             expect(ids(workFile)).toEqual([]);
         });
 
-        it("все файлы на месте — ничего не пишет и каталог расширений не создаёт", () => {
+        it("with all files present, writes nothing and does not create the extensions directory", () => {
             writeProfileExtensions(workFile, []);
 
             expect(migrateProfileExtensions(extensionsDir, [workFile])).toEqual([]);
             expect(fs.existsSync(extensionsDir)).toBe(false);
         });
 
-        it("без установленных расширений состав пустой, но файл пишется", () => {
+        it("without installed extensions the contents are empty but the file is written", () => {
             expect(migrateProfileExtensions(extensionsDir, [defaultFile])).toEqual([defaultFile]);
             expect(ids(defaultFile)).toEqual([]);
         });
     });
 
     describe("profileExtensionsFiles", () => {
-        it("известные реестру плюс каталоги профилей на диске, без дублей; файлы в profilesHome — не профили", () => {
+        it("known to the registry plus profile directories on disk, without duplicates; files in profilesHome are not profiles", () => {
             const profilesHome = ws.path("profiles");
             fs.mkdirSync(path.join(profilesHome, "work"), { recursive: true });
             fs.mkdirSync(path.join(profilesHome, "other"), { recursive: true });
@@ -158,13 +158,13 @@ describe("profileExtensions", () => {
             );
         });
 
-        it("нет каталога профилей — только известные", () => {
+        it("without a profiles directory, only known ones", () => {
             expect(profileExtensionsFiles([defaultFile], ws.path("missing"))).toEqual([defaultFile]);
         });
     });
 
     describe("deleteUnusedExtensions", () => {
-        it("сносит то, чего нет ни в одном профиле (id без учёта регистра)", () => {
+        it("removes what no profile contains (id is case-insensitive)", () => {
             onDisk("acme.tools");
             onDisk("acme.base");
             onDisk("acme.orphan");
@@ -177,7 +177,7 @@ describe("profileExtensions", () => {
             expect(fs.existsSync(ws.path("extensions/acme.base-1.0.0"))).toBe(true);
         });
 
-        it("с кандидатами — только среди них", () => {
+        it("with candidates, only among them", () => {
             onDisk("acme.one");
             onDisk("acme.two");
             writeProfileExtensions(defaultFile, []);
@@ -186,13 +186,13 @@ describe("profileExtensions", () => {
             expect(fs.existsSync(ws.path("extensions/acme.one-1.0.0"))).toBe(true);
         });
 
-        it("профиль без файла держит ничего", () => {
+        it("a profile without a file holds nothing", () => {
             onDisk("acme.one");
 
             expect(deleteUnusedExtensions(extensionsDir, [workFile])).toEqual(["acme.one"]);
         });
 
-        it("нечитаемый файл профиля — не удаляется ничего", () => {
+        it("an unreadable profile file means nothing is removed", () => {
             onDisk("acme.one");
             writeProfileExtensions(defaultFile, []);
             ws.writeFile("profiles/work/extensions.json", "{");
@@ -203,7 +203,7 @@ describe("profileExtensions", () => {
     });
 
     describe("ProfileExtensions", () => {
-        it("list — установленные расширения профиля; запись без каталога на диске не видна", () => {
+        it("list returns the installed extensions of the profile; an entry without a directory on disk is hidden", () => {
             onDisk("acme.tools");
             onDisk("acme.other");
             writeProfileExtensions(workFile, [
@@ -219,7 +219,7 @@ describe("profileExtensions", () => {
             expect(profile(workFile).extensionsDir).toBe(extensionsDir);
         });
 
-        it("list: нет файла — пусто; нечитаемый — пусто и ошибка в лог", () => {
+        it("list: no file gives nothing; an unreadable one gives nothing and logs an error", () => {
             onDisk("acme.tools");
             expect(profile(workFile).list()).toEqual([]);
 
@@ -232,7 +232,7 @@ describe("profileExtensions", () => {
             );
         });
 
-        it("add — вместе с зависимостями с диска, транзитивно, без дублей; пропавшая зависимость не мешает", () => {
+        it("add includes dependencies from disk, transitively, without duplicates; a missing dependency does not interfere", () => {
             onDisk("acme.tools", "1.0.0", ["ACME.base", "acme.missing"]);
             onDisk("acme.base", "2.0.0", ["acme.core", "acme.tools"]);
             onDisk("acme.core");
@@ -247,7 +247,7 @@ describe("profileExtensions", () => {
             ]);
         });
 
-        it("add обновляет запись уже включённого (без дубля), прочие записи и их поля не трогает", () => {
+        it("add updates the entry of an already included extension (no duplicate) and leaves other entries and fields alone", () => {
             onDisk("acme.tools", "2.0.0");
             ws.writeFile(
                 "profiles/work/extensions.json",
@@ -265,7 +265,7 @@ describe("profileExtensions", () => {
             ]);
         });
 
-        it("add в нечитаемый файл — ошибка, файл не перезаписан", () => {
+        it("add to an unreadable file fails and the file is not overwritten", () => {
             onDisk("acme.tools");
             ws.writeFile("profiles/work/extensions.json", "{");
 
@@ -275,7 +275,7 @@ describe("profileExtensions", () => {
             expect(fs.readFileSync(workFile, "utf8")).toBe("{");
         });
 
-        it("remove: не было в профиле — ничего не меняет", () => {
+        it("remove: absent from the profile changes nothing", () => {
             onDisk("acme.tools");
             writeProfileExtensions(workFile, [{ identifier: { id: "x.y" }, version: "1.0.0" }]);
             const before = fs.statSync(workFile).mtimeMs;
@@ -287,7 +287,7 @@ describe("profileExtensions", () => {
             expect(fs.existsSync(defaultFile)).toBe(false);
         });
 
-        it("remove: больше никому не нужно — уходит и с диска", () => {
+        it("remove: no longer needed by anyone, so it is removed from disk too", () => {
             onDisk("acme.tools");
             onDisk("acme.orphan");
             writeProfileExtensions(workFile, [
@@ -307,7 +307,7 @@ describe("profileExtensions", () => {
             expect(fs.existsSync(ws.path("extensions/acme.orphan-1.0.0"))).toBe(true);
         });
 
-        it("remove: нужно другому профилю — остаётся на диске, причина в лог", () => {
+        it("remove: needed by another profile, so it stays on disk and the reason is logged", () => {
             onDisk("acme.tools");
             writeProfileExtensions(workFile, [{ identifier: { id: "acme.tools" }, version: "1.0.0" }]);
             writeProfileExtensions(defaultFile, [{ identifier: { id: "acme.tools" }, version: "1.0.0" }]);
@@ -324,7 +324,7 @@ describe("profileExtensions", () => {
     });
 
     describe("createProfileExtensions", () => {
-        it("файлы всех профилей — из реестра и с диска: расширение профиля, неизвестного реестру, не сносится", () => {
+        it("profile files come from the registry and disk: an extension of a profile unknown to the registry is not removed", () => {
             onDisk("acme.tools");
             writeProfileExtensions(defaultFile, [{ identifier: { id: "acme.tools" }, version: "1.0.0" }]);
             // Created by another window: this process's registry doesn't know it.

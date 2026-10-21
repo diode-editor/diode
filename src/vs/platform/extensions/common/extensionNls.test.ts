@@ -10,46 +10,46 @@ import {
 } from "./extensionNls.ts";
 
 describe("nlsKeyOf", () => {
-    it("распознаёт ключ в обрамлении процентов", () => {
+    it("recognizes a key wrapped in percent signs", () => {
         expect(nlsKeyOf("%java.server.mode.switch%")).toBe("java.server.mode.switch");
     });
 
-    it("обычный текст ключом не считает", () => {
+    it("plain text is not a key", () => {
         expect(nlsKeyOf("Switch to Standard Mode")).toBeUndefined();
         expect(nlsKeyOf("")).toBeUndefined();
     });
 
-    it("процент только с одной стороны — не ключ", () => {
+    it("a percent sign on one side only is not a key", () => {
         expect(nlsKeyOf("%java.clean")).toBeUndefined();
         expect(nlsKeyOf("java.clean%")).toBeUndefined();
         expect(nlsKeyOf("100% coverage")).toBeUndefined();
     });
 
-    it("пустой ключ не ключ: `%` и `%%` остаются текстом", () => {
+    it("an empty key is not a key: `%` and `%%` stay text", () => {
         expect(nlsKeyOf("%")).toBeUndefined();
         expect(nlsKeyOf("%%")).toBeUndefined();
     });
 
-    it("ключ в один символ распознаётся", () => {
+    it("a one-character key is recognized", () => {
         expect(nlsKeyOf("%a%")).toBe("a");
     });
 });
 
 describe("nlsFileCandidates", () => {
-    it("для `en` единственный кандидат — базовый бандл", () => {
+    it("for `en` the only candidate is the base bundle", () => {
         expect(nlsFileCandidates("en")).toEqual(["package.nls.json"]);
     });
 
-    it("пустая локаль ведёт себя как `en`", () => {
+    it("an empty locale behaves like `en`", () => {
         expect(nlsFileCandidates("")).toEqual(["package.nls.json"]);
         expect(nlsFileCandidates("  ")).toEqual(["package.nls.json"]);
     });
 
-    it("локаль без региона: файл локали, затем база", () => {
+    it("locale without a region: the locale file, then the base", () => {
         expect(nlsFileCandidates("ko")).toEqual(["package.nls.ko.json", "package.nls.json"]);
     });
 
-    it("локаль с регионом спускается к базовому языку, потом к базе", () => {
+    it("a locale with a region falls back to the base language, then to the base", () => {
         expect(nlsFileCandidates("pt-BR")).toEqual([
             "package.nls.pt-br.json",
             "package.nls.pt.json",
@@ -57,11 +57,11 @@ describe("nlsFileCandidates", () => {
         ]);
     });
 
-    it("региональный английский не ищет `package.nls.en.json`", () => {
+    it("regional English does not look for `package.nls.en.json`", () => {
         expect(nlsFileCandidates("en-GB")).toEqual(["package.nls.en-gb.json", "package.nls.json"]);
     });
 
-    it("базовый файл всегда последний кандидат", () => {
+    it("the base file is always the last candidate", () => {
         for (const locale of ["en", "ko", "zh-cn", "en-gb"]) {
             expect(nlsFileCandidates(locale).at(-1)).toBe(NLS_BASE_FILE);
         }
@@ -69,19 +69,19 @@ describe("nlsFileCandidates", () => {
 });
 
 describe("parseNlsBundle", () => {
-    it("читает плоский словарь строк", () => {
+    it("reads a flat string dictionary", () => {
         expect(parseNlsBundle('{"a":"A","b":"B"}')).toEqual({ a: "A", b: "B" });
     });
 
-    it("нестроковые значения отбрасывает — ключ останется ненайденным", () => {
+    it("drops non-string values, so the key stays unresolved", () => {
         expect(parseNlsBundle('{"a":"A","n":1,"o":{"message":"M"},"arr":["x"],"nil":null}')).toEqual({ a: "A" });
     });
 
-    it("бросает на невалидном JSON", () => {
+    it("throws on invalid JSON", () => {
         expect(() => parseNlsBundle("{not json")).toThrow();
     });
 
-    it("бросает, когда верхний уровень не объект", () => {
+    it("throws when the top level is not an object", () => {
         expect(() => parseNlsBundle('["a"]')).toThrow(/must be a JSON object/);
         expect(() => parseNlsBundle("null")).toThrow(/must be a JSON object/);
         expect(() => parseNlsBundle("42")).toThrow(/must be a JSON object/);
@@ -89,7 +89,7 @@ describe("parseNlsBundle", () => {
 });
 
 describe("localizeManifest", () => {
-    it("резолвит ключи во всём дереве: displayName, команды, темы, настройки", () => {
+    it("resolves keys across the whole tree: displayName, commands, themes, settings", () => {
         const manifest = {
             name: "java",
             displayName: "%displayName%",
@@ -120,7 +120,7 @@ describe("localizeManifest", () => {
         expect(value.contributes.configuration.properties["java.home"].description).toBe("Path to the JDK");
     });
 
-    it("не трогает значения, которые не строки", () => {
+    it("leaves non-string values alone", () => {
         const manifest = {
             version: 2,
             enabled: true,
@@ -134,27 +134,27 @@ describe("localizeManifest", () => {
         expect(value).toEqual(manifest);
     });
 
-    it("сохраняет массивы массивами, а не объектами", () => {
+    it("keeps arrays as arrays, not objects", () => {
         const { value } = localizeManifest({ aliases: ["%alias%", "java"] }, { alias: "Java" });
         expect(Array.isArray(value.aliases)).toBe(true);
         expect(value.aliases).toEqual(["Java", "java"]);
     });
 
-    it("ненайденный ключ оставляет строку как есть и попадает в unresolved", () => {
+    it("an unresolved key leaves the string as is and goes into unresolved", () => {
         const { value, unresolved } = localizeManifest({ title: "%known%", other: "%unknown%" }, { known: "Known" });
 
         expect(value).toEqual({ title: "Known", other: "%unknown%" });
         expect(unresolved).toEqual(["unknown"]);
     });
 
-    it("без бандла все ключи попадают в unresolved без дублей", () => {
+    it("without a bundle all keys go into unresolved without duplicates", () => {
         const { value, unresolved } = localizeManifest({ a: "%k%", b: "%k%", c: "%other%", d: "plain" }, undefined);
 
         expect(value).toEqual({ a: "%k%", b: "%k%", c: "%other%", d: "plain" });
         expect(unresolved).toEqual(["k", "other"]);
     });
 
-    it("исходный манифест не мутируется", () => {
+    it("the source manifest is not mutated", () => {
         const manifest = { displayName: "%displayName%", contributes: { commands: [{ title: "%t%" }] } };
         const snapshot = structuredClone(manifest);
 

@@ -4,14 +4,14 @@ import { scanWhen } from "./scanner.ts";
 
 /** Expectations ported from upstream `contextkey/test/common/scanner.test.ts` (there `===` is a separate type, here it is `==`). */
 describe("scanWhen", () => {
-    it("ключ с символами, которые VS Code допускает в имени", () => {
+    it("key with characters VS Code allows in a name", () => {
         expect(scanWhen("foo.bar<C-shift+2>")).toEqual([
             { type: "str", lexeme: "foo.bar<C-shift+2>", offset: 0 },
             { type: "eof", offset: 18 },
         ]);
     });
 
-    it("отрицание, скобки, && и ||", () => {
+    it("negation, parentheses, && and ||", () => {
         expect(scanWhen("!(foo && bar) || baz")).toEqual([
             { type: "!", offset: 0 },
             { type: "(", offset: 1 },
@@ -25,7 +25,7 @@ describe("scanWhen", () => {
         ]);
     });
 
-    it("== и === — одна лексема, != и !== — тоже", () => {
+    it("== and === are one token, != and !== too", () => {
         expect(scanWhen("a == b")[1]).toEqual({ type: "==", offset: 2 });
         expect(scanWhen("a === b")).toEqual([
             { type: "str", lexeme: "a", offset: 0 },
@@ -42,7 +42,7 @@ describe("scanWhen", () => {
         ]);
     });
 
-    it("сравнения < <= > >= — и без пробелов", () => {
+    it("comparisons < <= > >=, also without spaces", () => {
         expect(scanWhen("a<1").map((t) => t.type)).toEqual(["str", "eof"]); // `<` is a word character
         expect(scanWhen("a < 1 && b <= 2 && c > 3 && d >= -1").map((t) => t.type)).toEqual([
             "str",
@@ -70,7 +70,7 @@ describe("scanWhen", () => {
         ]);
     });
 
-    it("равенство без пробелов отделяет ключ от значения", () => {
+    it("equality without spaces separates key from value", () => {
         expect(scanWhen("foo.bar:zed==completed")).toEqual([
             { type: "str", lexeme: "foo.bar:zed", offset: 0 },
             { type: "==", offset: 11 },
@@ -79,7 +79,7 @@ describe("scanWhen", () => {
         ]);
     });
 
-    it("ключевые слова true/false/in/not", () => {
+    it("keywords true/false/in/not", () => {
         expect(scanWhen("true false in not x").map((t) => t.type)).toEqual([
             "true",
             "false",
@@ -90,7 +90,7 @@ describe("scanWhen", () => {
         ]);
     });
 
-    it("строка в одинарных кавычках — без кавычек, смещение — после открывающей", () => {
+    it("single-quoted string — without quotes, offset after the opening one", () => {
         expect(scanWhen("a == 'b c'")).toEqual([
             { type: "str", lexeme: "a", offset: 0 },
             { type: "==", offset: 2 },
@@ -99,7 +99,7 @@ describe("scanWhen", () => {
         ]);
     });
 
-    it("регекс с флагами; экранированный слэш и слэш в классе символов не закрывают", () => {
+    it("regex with flags; an escaped slash and a slash in a character class do not close it", () => {
         expect(scanWhen("foo =~ /zee/gim")).toEqual([
             { type: "str", lexeme: "foo", offset: 0 },
             { type: "=~", offset: 4 },
@@ -117,19 +117,19 @@ describe("scanWhen", () => {
         expect(scanWhen("r =~ /[a]/x")[2]).toEqual({ type: "regexStr", lexeme: "/[a]/", offset: 5 });
     });
 
-    it("пробельные символы (включая nbsp) пропускаются", () => {
+    it("whitespace (including nbsp) is skipped", () => {
         expect(scanWhen(" \t\r\n a").map((t) => t.type)).toEqual(["str", "eof"]);
     });
 
-    it("символ вне класса слова пропускается молча, как у upstream", () => {
+    it("a character outside the word class is skipped silently, as upstream", () => {
         expect(scanWhen("a {")).toEqual([
             { type: "str", lexeme: "a", offset: 0 },
             { type: "eof", offset: 3 },
         ]);
     });
 
-    describe("ошибки лексики", () => {
-        it("одиночные = & | — лексема error", () => {
+    describe("lexical errors", () => {
+        it("single = & | — error token", () => {
             expect(scanWhen("a = b")[1]).toEqual({ type: "error", offset: 2, lexeme: "=" });
             expect(scanWhen("a & b")[1]).toEqual({ type: "error", offset: 2, lexeme: "&" });
             expect(scanWhen("foo|bar")).toEqual([
@@ -141,7 +141,7 @@ describe("scanWhen", () => {
             expect(scanWhen("vim<c-r>==1 && vim<2<=3")[5]).toEqual({ type: "error", offset: 21, lexeme: "=" });
         });
 
-        it("незакрытая кавычка — error до конца строки", () => {
+        it("unclosed quote — error to the end of the string", () => {
             expect(scanWhen("foo && 'bar")).toEqual([
                 { type: "str", lexeme: "foo", offset: 0 },
                 { type: "&&", offset: 4 },
@@ -150,7 +150,7 @@ describe("scanWhen", () => {
             ]);
         });
 
-        it("незакрытый регекс — error до конца строки", () => {
+        it("unclosed regex — error to the end of the string", () => {
             expect(scanWhen("foo =~ /file:\\/ || bar")).toEqual([
                 { type: "str", lexeme: "foo", offset: 0 },
                 { type: "=~", offset: 4 },

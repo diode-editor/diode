@@ -64,26 +64,26 @@ describe("FileExtensionRegistrySource", () => {
         ws = undefined;
     });
 
-    it("getIndex читает и парсит index.json", async () => {
+    it("getIndex reads and parses index.json", async () => {
         ws = createTempWorkspace({ files: { "index.json": indexJson() } });
         const source = new FileExtensionRegistrySource(ws.dir);
         const index = await source.getIndex();
         expect(index.extensions.map((e) => e.id)).toEqual([ID]);
     });
 
-    it("getIndex без index.json — ошибка с путём", async () => {
+    it("getIndex without index.json fails with the path", async () => {
         ws = createTempWorkspace();
         const source = new FileExtensionRegistrySource(ws.dir);
         await expect(source.getIndex()).rejects.toThrow(/index\.json/);
     });
 
-    it("getIndex на битом JSON — ошибка с путём файла", async () => {
+    it("getIndex on malformed JSON fails with the file path", async () => {
         ws = createTempWorkspace({ files: { "index.json": "{oops" } });
         const source = new FileExtensionRegistrySource(ws.dir);
         await expect(source.getIndex()).rejects.toThrow(/index\.json.*malformed JSON/);
     });
 
-    it("диагностики битых записей уходят в onProblem", async () => {
+    it("diagnostics for broken entries go to onProblem", async () => {
         const badEntry = JSON.stringify({
             schemaVersion: REGISTRY_SCHEMA_VERSION,
             extensions: [{ id: "broken" }],
@@ -96,7 +96,7 @@ describe("FileExtensionRegistrySource", () => {
         expect(problems).toHaveLength(1);
     });
 
-    it("getMeta читает meta/<id>.json и сверяет id", async () => {
+    it("getMeta reads meta/<id>.json and checks the id", async () => {
         ws = createTempWorkspace({ files: { [`meta/${ID}.json`]: metaJson() } });
         const source = new FileExtensionRegistrySource(ws.dir);
         const meta = await source.getMeta(ID);
@@ -104,13 +104,13 @@ describe("FileExtensionRegistrySource", () => {
         expect(meta?.versions).toHaveLength(1);
     });
 
-    it("getMeta для неизвестного id — undefined", async () => {
+    it("getMeta for an unknown id returns undefined", async () => {
         ws = createTempWorkspace();
         const source = new FileExtensionRegistrySource(ws.dir);
         await expect(source.getMeta("acme.unknown")).resolves.toBeUndefined();
     });
 
-    it("getMeta на мете с чужим id внутри — ошибка", async () => {
+    it("getMeta on meta with a different id inside fails", async () => {
         ws = createTempWorkspace({
             files: {
                 [`meta/${ID}.json`]: metaJson({ id: "other.markdown-tools", publisher: "other" }),
@@ -131,13 +131,13 @@ describe("FileExtensionRegistrySource", () => {
         "evil/../acme.hello",
         // A valid id as the string's head: same requirement from the other end.
         "acme.hello/../../etc/passwd",
-    ])("getMeta отвергает небезопасный id %j", async (id) => {
+    ])("getMeta rejects unsafe id %j", async (id) => {
         ws = createTempWorkspace();
         const source = new FileExtensionRegistrySource(ws.dir);
         await expect(source.getMeta(id)).rejects.toThrow(/Invalid extension id/);
     });
 
-    it("битые записи не роняют источник без onProblem", async () => {
+    it("broken entries do not crash a source without onProblem", async () => {
         const badEntry = JSON.stringify({ schemaVersion: REGISTRY_SCHEMA_VERSION, extensions: [{ id: "broken" }] });
         ws = createTempWorkspace({ files: { "index.json": badEntry } });
         const source = new FileExtensionRegistrySource(ws.dir);
@@ -145,14 +145,14 @@ describe("FileExtensionRegistrySource", () => {
         expect(index.extensions).toEqual([]);
     });
 
-    it("fetchArtifact возвращает абсолютный путь существующего файла без копирования", async () => {
+    it("fetchArtifact returns the absolute path of an existing file without copying", async () => {
         ws = createTempWorkspace({ files: { "artifacts/mt-1.2.0.vsix": "fake-vsix-bytes" } });
         const source = new FileExtensionRegistrySource(ws.dir);
         const result = await source.fetchArtifact(pathVersion("artifacts/mt-1.2.0.vsix"), ws.path("tmp"));
         expect(result).toBe(path.join(ws.dir, "artifacts", "mt-1.2.0.vsix"));
     });
 
-    it("fetchArtifact на url-артефакте — понятная ошибка", async () => {
+    it("fetchArtifact on a url artifact fails with a clear error", async () => {
         ws = createTempWorkspace();
         const source = new FileExtensionRegistrySource(ws.dir);
         const version: IRegistryVersion = {
@@ -166,7 +166,7 @@ describe("FileExtensionRegistrySource", () => {
         );
     });
 
-    it("fetchArtifact с путём, выходящим за корень (собран программно, мимо парсера) — отказ", async () => {
+    it("fetchArtifact rejects a path escaping the root (built programmatically, bypassing the parser)", async () => {
         ws = createTempWorkspace();
         const source = new FileExtensionRegistrySource(ws.dir);
         await expect(source.fetchArtifact(pathVersion("../outside.vsix"), ws.path("tmp"))).rejects.toThrow(
@@ -174,7 +174,7 @@ describe("FileExtensionRegistrySource", () => {
         );
     });
 
-    it("fetchArtifact на отсутствующем файле — ошибка с путём", async () => {
+    it("fetchArtifact on a missing file fails with the path", async () => {
         ws = createTempWorkspace();
         const source = new FileExtensionRegistrySource(ws.dir);
         await expect(source.fetchArtifact(pathVersion("artifacts/missing.vsix"), ws.path("tmp"))).rejects.toThrow(
@@ -182,7 +182,7 @@ describe("FileExtensionRegistrySource", () => {
         );
     });
 
-    it("fetchArtifact с path === «.» указывает на сам корень и не считается выходом", async () => {
+    it('fetchArtifact with path === "." points at the root itself and is not an escape', async () => {
         ws = createTempWorkspace();
         const source = new FileExtensionRegistrySource(ws.dir);
         await expect(source.fetchArtifact(pathVersion("."), ws.path("tmp"))).resolves.toBe(ws.dir);
