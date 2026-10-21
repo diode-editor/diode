@@ -13,9 +13,9 @@ import type {
 } from "../common/extensionsWorkbench.ts";
 import { ExtensionsWorkbenchServiceDIToken } from "../common/extensionsWorkbench.ts";
 
-// Отдельно от сервиса: сервис живёт в `node/` и о статус-баре с прогрессом ничего не знает.
+// Separate from the service: the service lives in `node/` and knows nothing about the status bar or progress.
 
-/** Один id: новая запись перетирает предыдущую. */
+/** A single id: a new notice replaces the previous one. */
 const NOTICE_ID = "extensions.operation.notice";
 
 export interface IExtensionPageActions {
@@ -39,9 +39,9 @@ export class ExtensionPageActions implements IExtensionPageActions {
         private readonly commands: CommandRegistry,
     ) {}
 
-    /** Прогресс неопределённый: канала процентов у загрузки артефакта нет. */
+    /** Indeterminate progress: artifact download has no percentage channel. */
     public async install(id: string): Promise<IExtensionInstallResult> {
-        // Stryker disable next-line StringLiteral: ProgressService различает только "view" — любая другая локация это окно, поэтому подмена строки ничего не меняет
+        // Stryker disable next-line StringLiteral: ProgressService only distinguishes "view"; any other location is the window, so replacing the string changes nothing
         const result = await this.progress.withProgress({ location: "window", title: `Installing ${id}` }, () =>
             this.service.install(id),
         );
@@ -52,7 +52,7 @@ export class ExtensionPageActions implements IExtensionPageActions {
     }
 
     public async uninstall(id: string): Promise<IExtensionOperationResult> {
-        // Stryker disable next-line StringLiteral: та же локация «окно», см. install выше
+        // Stryker disable next-line StringLiteral: same "window" location, see install above
         const result = await this.progress.withProgress({ location: "window", title: `Uninstalling ${id}` }, () =>
             this.service.uninstall(id),
         );
@@ -62,7 +62,10 @@ export class ExtensionPageActions implements IExtensionPageActions {
         return result;
     }
 
-    /** Через команду, а не шов: кнопка и палитра идут одним путём, включая вопрос о несохранённых вкладках. */
+    /**
+     * Via the command, not a seam: the button and the command palette take one path, including the
+     * unsaved-tabs prompt.
+     */
     public reloadWindow(): void {
         this.commands.execute("workbench.action.reloadWindow");
     }

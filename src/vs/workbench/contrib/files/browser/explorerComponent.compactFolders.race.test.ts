@@ -21,16 +21,16 @@ import { ExplorerService } from "./explorerService.ts";
 import type { FileTreeDataProvider } from "./fileTreeDataProvider.ts";
 
 /**
- * Гонка, на которой редактор висел (большое монорепо, `explorer.autoReveal`): раскрытие головы
- * цепочки ждёт ФС, а родителя перечитывают — строку держит новый объект без цепочки, и
- * `revealChain` крутился на голове микротасками, не отдавая event loop.
+ * The race that hung the editor (large monorepo, `explorer.autoReveal`): expanding the chain head
+ * waits on the FS while the parent is reread — the row is now held by a new object without a chain,
+ * and `revealChain` spun on the head in microtasks, never yielding the event loop.
  */
 describe("ExplorerComponent — compactFolders: reveal после перечитывания родителя посреди раскрытия", () => {
     let ws: ITempWorkspace;
     let service: ExplorerService;
     let component: ExplorerComponent;
     let app: TestApp;
-    /** Отпускает чтение `pkg/a/b`, которое держит спуск по цепочке. */
+    /** Releases the read of `pkg/a/b` that holds the descent along the chain. */
     let releaseGate: () => void;
     let gateReached: Promise<void>;
 
@@ -43,7 +43,7 @@ describe("ExplorerComponent — compactFolders: reveal после перечит
             .filter((row) => row.trim() !== "");
     }
 
-    /** Цикл на микротасках таймаут vitest не прервёт — ограничиваем обращения к `findNode`, чтобы регрессия падала, а не вешала прогон. */
+    /** The vitest timeout can't break a microtask loop — cap `findNode` calls so a regression fails instead of hanging the run. */
     function failInsteadOfHanging(provider: FileTreeDataProvider): void {
         const findNode = provider.findNode.bind(provider);
         let calls = 0;
@@ -108,11 +108,11 @@ describe("ExplorerComponent — compactFolders: reveal после перечит
 
     async function expandHeadWhileParentIsReread(): Promise<void> {
         expect(rows()[0]).toMatch(/pkg$/);
-        // Раскрываем «pkg»: спуск pkg → pkg/a → pkg/a/b застревает на шлюзе.
+        // Expand "pkg": the descent pkg → pkg/a → pkg/a/b gets stuck at the gate.
         app.sendKey("ArrowRight");
         await gateReached;
-        // Тем временем корень перечитывают (событие наблюдателя, refresh):
-        // строку «pkg» теперь держит новый объект листинга.
+        // Meanwhile the root is reread (watcher event, refresh):
+        // the "pkg" row is now held by a new listing object.
         await service.refresh();
         releaseGate();
         await vi.waitFor(() => {

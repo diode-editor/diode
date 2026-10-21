@@ -4,7 +4,7 @@ import type { IJumpRecorder } from "../../../services/history/browser/historySer
 import { JumpRecorderDIToken } from "../../../services/history/browser/historyService.ts";
 import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAccessProvider.ts";
 
-/** Координаты 0-based. */
+/** Coordinates are 0-based. */
 export interface IGotoLineEditor {
     readonly lineCount: number;
     readonly primaryCursorLine: number;
@@ -12,7 +12,7 @@ export interface IGotoLineEditor {
     goToPosition(line: number, column?: number): void;
 }
 
-/** Читается лениво: accept `file:line` берёт редактор уже после открытия файла. */
+/** Read lazily: a `file:line` accept takes the editor only after the file has opened. */
 export interface IGotoLineEditorSource {
     getActiveEditor(): IGotoLineEditor | null;
 }
@@ -65,8 +65,8 @@ export class GotoLineQuickAccessProvider implements IQuickAccessProvider {
 }
 
 /**
- * `line`/`column` 1-based. Редактор перечитывается при accept: он мог исчезнуть или только что
- * открыться (`file:line`). `jumps` оборачивает и открытие файла — в истории ровно две записи.
+ * `line`/`column` are 1-based. The editor is re-read on accept: it may have gone away or just
+ * opened (`file:line`). `jumps` also wraps the file open — exactly two history entries.
  */
 export function navigateActiveEditor(source: IGotoLineEditorSource, line: number, column: number | undefined): void {
     const editor = source.getActiveEditor();

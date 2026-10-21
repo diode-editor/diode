@@ -83,7 +83,7 @@ function buildVsix(file: string, manifest: object): Promise<void> {
     });
 }
 
-/** Состав профиля сервиса (Default: файл в каталоге расширений) и другого профиля. */
+/** The service profile's contents (Default: a file in the extensions directory) and another profile's. */
 const PROFILE_FILE = "extensions/extensions.json";
 const OTHER_PROFILE_FILE = "profiles/other/extensions.json";
 
@@ -92,7 +92,7 @@ function addToProfile(ws: ITempWorkspace, file: string, id: string, version: str
     writeProfileExtensions(ws.path(file), [...entries, { identifier: { id }, version }]);
 }
 
-/** `inProfile: false` — только на диск. */
+/** `inProfile: false` means on disk only. */
 function installOnDisk(
     ws: ITempWorkspace,
     id: string,
@@ -273,8 +273,8 @@ describe("ExtensionsWorkbenchService", () => {
             expect(service.getEntries()[0]?.availability).toBe("incompatible");
         });
 
-        // semver — ленивый кусок бандла: сервис создаётся на старте воркбенча,
-        // и кусок не должен грузиться, пока каталог никто не открыл.
+        // semver is a lazy chunk: the service is created at workbench startup,
+        // and the chunk must not load until someone opens the catalog.
         it("semver грузится с каталогом, а не при создании сервиса", async () => {
             const requested: string[] = [];
             setLazyModuleLoader(<T>(id: string, importer: () => Promise<T>) => {
@@ -305,8 +305,8 @@ describe("ExtensionsWorkbenchService", () => {
         const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
 
         await service.ensureLoaded();
-        // Запись есть и в индексе, и на диске — но карточка одна: иначе то же
-        // расширение показалось бы ещё раз как «установленное мимо магазина».
+        // The entry is both in the index and on disk, but there is one entry: otherwise the same
+        // extension would show again as "installed outside the marketplace".
         expect(service.getEntries().map((e) => e.id)).toEqual(["acme.tools"]);
     });
 
@@ -351,15 +351,15 @@ describe("ExtensionsWorkbenchService", () => {
 
         await service.ensureLoaded();
         expect(service.getCatalogError()).toBe("getaddrinfo ENOTFOUND example.invalid");
-        // Установленные видны и без сети — иначе оффлайн лишал бы пользователя
-        // единственного списка, который вообще не требует реестра.
+        // Installed extensions are visible without network: otherwise offline would deprive the user
+        // of the only list that doesn't need the registry at all.
         expect(service.getEntries().map((e) => e.id)).toEqual(["local.sideloaded"]);
     });
 
     it("не-Error причина сбоя тоже доезжает текстом", async () => {
         const source = new FakeSource(index());
         const service = createService(source);
-        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- сьют проверяет ИМЕННО не-Error отказ
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the suite checks a non-Error rejection SPECIFICALLY
         source.getIndex = () => Promise.reject("boom");
 
         await service.ensureLoaded();
@@ -505,8 +505,8 @@ describe("ExtensionsWorkbenchService", () => {
             expect(result).toEqual({ ok: true, version: "1.0.0" });
             expect(fs.existsSync(ws!.path("extensions/acme.base-2.0.0/package.json"))).toBe(true);
             expect(profileIds(ws!, PROFILE_FILE)).toEqual(["acme.tools", "acme.base"]);
-            // Зависимость не в каталоге реестра — её карточка «мимо магазина»,
-            // но с тем же бейджем перезагрузки, что у самого расширения.
+            // The dependency is not in the registry catalog, so its entry is sideloaded,
+            // but with the same reload badge as the extension itself.
             const cards = new Map(service.getEntries().map((card) => [card.id, card]));
             expect(cards.get("acme.tools")?.needsReload).toBe(true);
             expect(cards.get("acme.base")?.installedVersion).toBe("2.0.0");
@@ -524,7 +524,7 @@ describe("ExtensionsWorkbenchService", () => {
             const card = service.getEntries()[0];
             expect(card.installedVersion).toBe("1.0.0");
             expect(card.availability).toBe("installed");
-            // Вклады сканируются на старте — до перезагрузки окна расширение не работает.
+            // Contributions are scanned at startup: the extension doesn't work until a window reload.
             expect(card.needsReload).toBe(true);
         });
 
@@ -538,7 +538,7 @@ describe("ExtensionsWorkbenchService", () => {
 
             expect(profileIds(ws, PROFILE_FILE)).toEqual(["acme.tools", "acme.base"]);
             expect(profileIds(ws, OTHER_PROFILE_FILE)).toEqual(["acme.base"]);
-            // Каталог реестра не читался — карточки установленного, по id.
+            // The registry catalog was not read, so these are entries of installed extensions, by id.
             expect(service.getEntries().map((e) => e.id)).toEqual(["acme.base", "acme.tools"]);
         });
 
@@ -576,7 +576,7 @@ describe("ExtensionsWorkbenchService", () => {
 
             expect(result.ok).toBe(false);
             expect(!result.ok && result.error).toContain("sha256 mismatch");
-            // Ни следа на диске и никакого «ждём перезагрузки»: ничего не произошло.
+            // No trace on disk and no "waiting for reload": nothing happened.
             expect(fs.existsSync(ws!.path("extensions/acme.tools-1.0.0"))).toBe(false);
             expect(service.getEntries()[0]?.needsReload).toBe(false);
         });
@@ -624,7 +624,7 @@ describe("ExtensionsWorkbenchService", () => {
                 const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
                 await service.ensureLoaded();
 
-                // Каталог расширений только на чтение — снести из него нечего.
+                // The extensions directory is read-only: nothing can be removed from it.
                 fs.chmodSync(ws.path("extensions"), 0o500);
                 try {
                     const result = await service.uninstall("acme.tools");
@@ -656,7 +656,7 @@ describe("ExtensionsWorkbenchService", () => {
 
             await service.uninstall("solo.thing");
 
-            // Удалённого в списке уже нет; соседняя запись не помечена.
+            // The removed one is gone from the list; the neighbor entry is not flagged.
             expect(service.getEntries().map((e) => e.id)).toEqual(["other.thing"]);
             expect(service.getEntries()[0]?.needsReload).toBe(false);
         });

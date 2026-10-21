@@ -23,7 +23,7 @@ import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 import { ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
 
-/** Настоящее дерево над настоящим диском, настройки с дефолтами приложения (сжатие включено). */
+/** A real tree over a real disk, settings with the app defaults (compaction on). */
 describe("ExplorerComponent — explorer.compactFolders", () => {
     let ws: ITempWorkspace;
     let config: InMemoryConfigurationService;
@@ -51,7 +51,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         config = createTestConfigurationService();
         clipboard = new InMemoryFileClipboard();
         watched = new Set();
-        // Наблюдатель, который только помнит живые подписки (событий не шлёт).
+        // A watcher that only tracks live subscriptions (sends no events).
         const watcher: ITreeFileWatcher = {
             watchTree: (dirPath) => {
                 watched.add(dirPath);
@@ -94,7 +94,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
     });
 
     it("раскрытая папка с единственным ребёнком-каталогом — одна строка «pkg/a/b» с детьми последней папки", async () => {
-        // До раскрытия цепочка не известна — как у эталона, сжатие ленивое.
+        // The chain is unknown until expanded — compaction is lazy, like upstream.
         const initial = rows();
         expect(initial).toHaveLength(2);
         expect(initial[0]).toMatch(/pkg$/);
@@ -109,7 +109,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(frame[1]).toContain("C.java");
         expect(frame[2]).toContain("D.java");
         expect(frame[3]).toContain("README.md");
-        // Промежуточные папки отдельными строками не показываются.
+        // Intermediate folders get no rows of their own.
         expect(frame).toHaveLength(4);
     });
 
@@ -131,7 +131,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         });
         expect([...watched].sort()).toEqual([ws.path("pkg"), ws.path("pkg/a"), ws.path("pkg/a/b")]);
 
-        // Left сначала проходит сегменты b → a → pkg, на первом — сворачивает.
+        // Left first walks segments b → a → pkg, and collapses on the first one.
         for (let i = 0; i < 3; i++) app.sendKey("ArrowLeft");
         await vi.waitFor(() => {
             expect(watched.size).toBe(0);
@@ -156,7 +156,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("pkg/a/b");
         });
-        // Строка « pkg/a/b»: отступ 1, шеврон, пробел — «a» в колонке 7.
+        // Row " pkg/a/b": indent 1, chevron, space — "a" is at column 7.
         app.focusedElement?.dispatchEvent(
             new TUIContextMenuEvent({
                 trigger: "mouse",
@@ -181,7 +181,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
                 keys.get("explorerViewletCompressedLastFocus"),
             ];
         };
-        // Цепочка ещё не найдена (строка «pkg» не раскрыта) — строка обычная.
+        // The chain isn't found yet ("pkg" is collapsed) — a plain row.
         expect(update()).toEqual([false, false, false]);
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
@@ -201,7 +201,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(service.getSelectedPaths()).toEqual([ws.path("pkg/a")]);
         expect(service.getPasteTargetDir()).toBe(ws.path("pkg/a"));
         expect(service.getCompressedFocus()).toEqual({ first: false, last: false });
-        // Строка не свернулась: Left ушёл в сегмент.
+        // The row didn't collapse: Left moved to a segment.
         expect(rows().join("\n")).toContain("C.java");
 
         app.sendKey("ArrowLeft");
@@ -226,8 +226,8 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(await service.revealPath(ws.path("pkg/a"))).toBe(true);
 
         expect(rows()[0]).toContain("pkg/a/b");
-        // Выделена сама строка; её путь — последняя папка (сегменты по
-        // отдельности не выбираются).
+        // The row itself is selected; its path is the last folder (segments
+        // are not selected individually).
         expect(service.getSelectedPaths()).toEqual([ws.path("pkg/a/b")]);
     });
 
@@ -238,7 +238,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         });
         app.sendKey("ArrowDown");
 
-        // Файл лёг в промежуточную папку, а перечитывания ещё не было.
+        // A file landed in an intermediate folder, and there was no reread yet.
         ws.writeFile("pkg/a/x.ts", "");
         expect(await service.revealPath(ws.path("pkg/a/x.ts"))).toBe(true);
 
@@ -257,7 +257,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         const frame = rows();
         expect(frame[0]).toContain("pkg/a");
         expect(frame[0]).not.toContain("pkg/a/b");
-        // Раскрытие пережило перестройку: ключ строки — голова цепочки.
+        // Expansion survived the rebuild: the row key is the chain head.
         expect(frame[1]).toContain("b");
         expect(frame[2]).toContain("x.ts");
     });
@@ -280,8 +280,8 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
     });
 
     it("files.exclude решает, единственный ли ребёнок", async () => {
-        // Шаблон без точки: ключи-шаблоны с точкой («**/*.log») дифф настроек
-        // пока не видит — см. docs/TODO/README.md, раздел «Настройки».
+        // A pattern without a dot: the settings diff doesn't see dotted pattern keys
+        // ("**/*.log") yet — see docs/TODO/README.md#настройки.
         ws.writeFile("pkg/a/NOTES", "");
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
@@ -308,7 +308,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         });
         const frame = rows();
         expect(frame[0]).toContain("pkg");
-        // Раскрытая голова теперь показывает своего прямого ребёнка.
+        // The expanded head now shows its direct child.
         expect(frame[1]).toContain("a");
         expect(frame[2]).toContain("README.md");
     });
@@ -318,12 +318,12 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("pkg/a/b");
         });
-        // Курсор — на файл, чтобы цвет строки не перекрывало выделение.
+        // Move the cursor to a file so the selection doesn't override the row color.
         app.sendKey("ArrowDown");
         const labelAt = (): Point => new Point(rows()[0].indexOf("pkg/a/b"), 0);
         const before = app.backend.getFgAt(labelAt());
 
-        // Буфер получает путь узла — последнюю папку; ключ строки — голова.
+        // The clipboard gets the node path — the last folder; the row key is the head.
         clipboard.write([ws.path("pkg/a/b")], "cut");
         expect(app.backend.getFgAt(labelAt())).not.toBe(before);
 

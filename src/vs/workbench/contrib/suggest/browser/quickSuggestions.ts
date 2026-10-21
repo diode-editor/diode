@@ -1,7 +1,7 @@
 import { DEFAULT_WORD_REGEXP, getWordAtText } from "../../../../editor/common/core/wordHelper.ts";
 import type { StandardTokenType } from "../../../../editor/common/languages/standardTokenType.ts";
 
-// Калька upstream `EditorQuickSuggestions`, `QuickSuggestionsOptions` и `LineContext.shouldAutoTrigger`.
+// Mirrors upstream `EditorQuickSuggestions`, `QuickSuggestionsOptions` and `LineContext.shouldAutoTrigger`.
 
 export type QuickSuggestionsValue = "on" | "inline" | "off" | "offWhenInlineCompletions";
 
@@ -19,7 +19,7 @@ export const QUICK_SUGGESTIONS_DEFAULT: IQuickSuggestionsOptions = {
     strings: "off",
 };
 
-/** upstream `EditorQuickSuggestions.validate`: недостающее и мусор — дефолт. */
+/** upstream `EditorQuickSuggestions.validate`: missing and garbage values give the default. */
 export function readQuickSuggestions(input: unknown): IQuickSuggestionsOptions {
     if (typeof input === "boolean") {
         const value = input ? "on" : "off";
@@ -55,8 +55,8 @@ export function valueFor(config: IQuickSuggestionsOptions, tokenType: StandardTo
 }
 
 /**
- * upstream `LineContext.shouldAutoTrigger`: каретка в конце слова (или за первым символом — буква
- * перед словом), слово — не число. `.` и `-` слово рвут: `foo.` и `a -` попап не открывают.
+ * upstream `LineContext.shouldAutoTrigger`: the cursor is at the end of a word (or past its first character —
+ * a letter before a word), and the word is not a number. `.` and `-` break a word: `foo.` and `a -` don't open the popup.
  */
 export function shouldAutoTrigger(line: string, character: number): boolean {
     const word = getWordAtText(character, DEFAULT_WORD_REGEXP, line);

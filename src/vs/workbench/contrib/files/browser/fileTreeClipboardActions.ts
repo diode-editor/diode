@@ -15,7 +15,7 @@ import {
 import { ExplorerServiceDIToken } from "./explorerService.ts";
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 
-/** Все под `listFocus`, так что ctrl+c/x/v не конфликтуют с редакторскими (те под `textInputFocus`). */
+/** All under `listFocus`, so ctrl+c/x/v don't clash with the editor's (those are under `textInputFocus`). */
 export const fileCopyAction: CommandAction = {
     id: "fileOperations.copy",
     title: "File: Copy",
@@ -53,8 +53,8 @@ export const filePasteAction: CommandAction = {
 };
 
 /**
- * Байнд VS Code — Shift+Alt+C; shift под Alt терминал без extended keys не передаёт, поэтому
- * рядом безусловный Ctrl+K Alt+C (парный к Ctrl+K Ctrl+C у copyRelativePath).
+ * VS Code binds Shift+Alt+C; without extended keys the terminal doesn't pass Shift under Alt, so an
+ * unconditional Ctrl+K Alt+C sits next to it (paired with copyRelativePath's Ctrl+K Ctrl+C).
  */
 export const fileCopyPathAction: CommandAction = {
     id: "fileOperations.copyPath",
@@ -79,7 +79,7 @@ export const fileCopyPathAction: CommandAction = {
     },
 };
 
-/** Вторая часть аккорда Ctrl+K Ctrl+Shift+C без extended keys Shift не различает — рядом fallback Ctrl+K Ctrl+C. */
+/** Without extended keys the second part of the Ctrl+K Ctrl+Shift+C chord can't tell Shift apart — hence the Ctrl+K Ctrl+C fallback. */
 export const fileCopyRelativePathAction: CommandAction = {
     id: "fileOperations.copyRelativePath",
     title: "File: Copy Relative Path",
@@ -101,7 +101,7 @@ export const fileCopyRelativePathAction: CommandAction = {
         const explorer = accessor.get(ExplorerServiceDIToken);
         const filePath = (args[0] as string | undefined) ?? explorer.getSelectedPaths()[0];
         if (!filePath) return;
-        // `folders.at(0)` — сужение до одной папки (в мульти-руте база — папка файла, этап F в docs/TODO/MultiRoot.md).
+        // `folders.at(0)` narrows to a single folder (in multi-root the base is the file's folder, stage F in docs/TODO/MultiRoot.md).
         const root = accessor.get(IWorkspaceContextServiceDIToken).getWorkspace().folders.at(0)?.uri.fsPath;
         const relative = root === undefined ? filePath : path.relative(root, filePath);
         return accessor.get(ClipboardDIToken).writeText(relative);

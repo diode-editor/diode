@@ -6,30 +6,30 @@ import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
 const GAP = "  ";
 
-/** `available` бейджа не несёт. */
+/** `available` carries no badge. */
 export type ExtensionRowBadge = "installed" | "update" | "incompatible" | "reload";
 
 export const PARTIAL_SUPPORT_BADGE = "Partial";
 
 export interface IExtensionRowLayout {
     readonly text: string;
-    /** Пустой — версии нет. */
+    /** Empty means there is no version. */
     readonly version: { readonly start: number; readonly length: number };
-    /** Отдельно от {@link badge}: бейдж — про установку, пометка — про функциональность, видны обе. */
+    /** Separate from {@link badge}: the badge is about installation, the mark about functionality; both are visible. */
     readonly partialSupport: { readonly start: number; readonly length: number } | null;
     readonly badge: { readonly start: number; readonly length: number; readonly kind: ExtensionRowBadge } | null;
 }
 
-/** Выделение и hover рисует сам `ListViewElement`. */
+/** `ListViewElement` draws selection and hover itself. */
 export interface IExtensionRowStyles {
-    /** Версия и бейдж «Installed». */
+    /** Version and the "Installed" badge. */
     readonly dimFg: StyleColor;
-    /** Обновление — доступное действие, а не проблема. */
+    /** An update is an available action, not a problem. */
     readonly updateFg: StyleColor;
     readonly warningFg: StyleColor;
 }
 
-/** Версия — установленная, иначе последняя из реестра: куда обновляться, говорит бейдж. */
+/** Version is the installed one, otherwise the latest from the registry: the badge says what to update to. */
 export function describeExtensionRow(entry: IExtensionListEntry): IExtensionRowLayout {
     const version = entry.installedVersion ?? entry.latestVersion;
     const badgeText = badgeTextOf(entry);
@@ -49,9 +49,9 @@ export function describeExtensionRow(entry: IExtensionListEntry): IExtensionRowL
     };
 }
 
-/** Бейдж — по версиям (как и статус страницы), кроме несовместимости: её знает только `availability`. */
+/** The badge is by versions (like the page status), except incompatibility: only `availability` knows it. */
 function badgeTextOf(entry: IExtensionListEntry): { text: string; kind: ExtensionRowBadge } | null {
-    // «Ждём перезагрузки» перебивает всё: состояние на диске и в работающем редакторе расходятся.
+    // "Waiting for reload" overrides everything: the state on disk and in the running editor differ.
     if (entry.needsReload) return { text: "Reload", kind: "reload" };
     if (entry.availability === "incompatible") return { text: "Incompatible", kind: "incompatible" };
     if (entry.installedVersion === null) return null;
@@ -77,7 +77,7 @@ const BADGE_COLOR: Record<ExtensionRowBadge, keyof IExtensionRowStyles> = {
     installed: "dimFg",
     update: "updateFg",
     incompatible: "warningFg",
-    // Перезагрузка — такое же доступное действие, как обновление.
+    // Reload is an available action, just like an update.
     reload: "updateFg",
 };
 

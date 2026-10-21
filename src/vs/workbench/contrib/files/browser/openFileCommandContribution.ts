@@ -10,7 +10,7 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 
 export const OpenFileCommandContributionDIToken = token<OpenFileCommandContribution>("OpenFileCommandContribution");
 
-/** Без title — в палитру команд не попадает. */
+/** No title — stays out of the command palette. */
 export class OpenFileCommandContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [CommandRegistryDIToken, EditorServiceDIToken, WorkbenchContextKeysDIToken] as const;
 
@@ -22,7 +22,7 @@ export class OpenFileCommandContribution extends Disposable implements IWorkbenc
         super();
         this.register(
             commands.register("workbench.openFile", (absolutePath: unknown, options?: unknown) => {
-                // Без опций (CLI, Quick Open, палитра) — постоянная вкладка; `preview` шлёт только дерево.
+                // Without options (CLI, Quick Open, palette) — a permanent tab; only the tree sends `preview`.
                 this.editorService.openFile(absolutePath as string, (options as IOpenUriOptions | undefined) ?? {});
                 this.contextKeys.update();
             }),

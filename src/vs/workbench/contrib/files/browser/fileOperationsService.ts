@@ -37,7 +37,7 @@ import { ExplorerServiceDIToken } from "./explorerService.ts";
 
 export const FileOperationsServiceDIToken = token<FileOperationsService>("FileOperationsService");
 
-/** Узкий срез `QuickInputService.input` (соответствует структурно). */
+/** A narrow slice of `QuickInputService.input` (matches structurally). */
 export interface IExplorerInputPrompt {
     input(options: {
         title?: string;
@@ -48,8 +48,8 @@ export interface IExplorerInputPrompt {
 }
 
 export function buildPasteEdits(entry: FileClipboardEntry, targetDir: string): ResourceFileEdit[] {
-    // Как `resources.distinctParents` эталона: путь, чей предок тоже в буфере, приедет вместе
-    // с предком — так компактная строка в мультивыборе вставляется одной головой.
+    // Like upstream's `resources.distinctParents`: a path whose ancestor is also in the clipboard comes
+    // along with the ancestor — so a compact row in a multi-selection is pasted as its head alone.
     const paths = entry.paths.filter(
         (candidate) => !entry.paths.some((other) => candidate.startsWith(other + path.sep)),
     );
@@ -93,8 +93,8 @@ export class FileOperationsService {
     ) {}
 
     /**
-     * Подпись бинда workspace-undo дерева (под `listFocus`: пока открыт диалог, фокуса нет)
-     * либо, без бинда, путь через корзину.
+     * The label of the tree's workspace-undo binding (under `listFocus`: while the dialog is open there
+     * is no focus) or, without a binding, the way back through the trash.
      */
     private undoHint(): string {
         const chord = this.keybindings.getKeybindingForCommand("fileOperations.undo", this.contextKeys, {
@@ -119,8 +119,8 @@ export class FileOperationsService {
         if (!targetDir) return;
         const entry = this.fileClipboard.read();
         if (!entry) return;
-        // Буфер «вырезать» чистим сразу, до записи на диск: повторный Ctrl+V,
-        // пока первая вставка идёт, не должен переносить те же пути второй раз.
+        // Clear the "cut" clipboard right away, before writing to disk: a second Ctrl+V
+        // while the first paste is running must not move the same paths again.
         if (entry.mode === "cut") this.fileClipboard.clear();
         await this.workspaceEditService.applyFileEdits(
             buildPasteEdits(entry, targetDir),
@@ -139,7 +139,7 @@ export class FileOperationsService {
             await this.explorer.refresh();
         };
 
-        // Безвозвратное удаление подтверждаем всегда (необратимо); удаление в корзину — по настройке.
+        // Permanent deletion is always confirmed (irreversible); moving to trash depends on the setting.
         if (willTrash && !confirmDelete) {
             void doDelete();
             return;
@@ -166,7 +166,7 @@ export class FileOperationsService {
         );
     }
 
-    /** Деструктивную операцию переспрашивает (confirmUndo). */
+    /** Asks again before undoing a destructive operation (confirmUndo). */
     public undoWorkspace(): void {
         const element = this.undoRedoService.peekUndo(WORKSPACE_UNDO_CONTEXT);
         if (!element) return;
@@ -202,7 +202,7 @@ export class FileOperationsService {
         });
     }
 
-    /** Вложенные пути (`foo/bar.txt`) разрешены и создают промежуточные каталоги. */
+    /** Nested paths (`foo/bar.txt`) are allowed and create intermediate directories. */
     public async runCreate(kind: "file" | "folder", explorerPath?: string): Promise<void> {
         const targetDir = explorerPath
             ? (await this.files.stat(Uri.file(explorerPath))).isDirectory
@@ -221,8 +221,8 @@ export class FileOperationsService {
                 if (path.isAbsolute(trimmed)) return "Please enter a relative name";
                 const segments = trimmed.split(/[\\/]/);
                 if (segments.some((s) => s === "" || s === "." || s === "..")) return "Invalid name";
-                // Сегменты без `.`/`..`/пустых и не абсолютный путь → результат всегда
-                // строго внутри targetDir, отдельная проверка на выход не нужна.
+                // No `.`/`..`/empty segments and not an absolute path → the result is always
+                // strictly inside targetDir, so no separate escape check is needed.
                 const resolved = path.resolve(targetDir, trimmed);
                 if (await this.files.exists(Uri.file(resolved)))
                     return "A file or folder with that name already exists";
@@ -257,7 +257,7 @@ export class FileOperationsService {
                 if (path.isAbsolute(trimmed)) return "Please enter a relative name";
                 const segments = trimmed.split(/[\\/]/);
                 if (segments.some((s) => s === "" || s === "." || s === "..")) return "Invalid name";
-                if (trimmed === oldName) return null; // без изменений — валидно, но ниже это no-op
+                if (trimmed === oldName) return null; // unchanged — valid, but a no-op below
                 const resolved = path.resolve(parentDir, trimmed);
                 if (await this.files.exists(Uri.file(resolved)))
                     return "A file or folder with that name already exists";
@@ -274,7 +274,7 @@ export class FileOperationsService {
         await this.explorer.revealPath(resolved);
     }
 
-    /** Ведущий `~` — домашний каталог, база — корень воркспейса (без него — cwd); `null` для пустого ввода. */
+    /** A leading `~` is the home directory; the base is the workspace root (or cwd without one); `null` for empty input. */
     public resolveInputPath(value: string): string | null {
         const trimmed = value.trim();
         if (trimmed === "") return null;
@@ -286,8 +286,8 @@ export class FileOperationsService {
     }
 
     /**
-     * `folders.at(0)` — сужение до одной папки; эталон с несколькими разрешает ввод от папки
-     * активного редактора (этап F в docs/TODO/MultiRoot.md).
+     * `folders.at(0)` narrows to a single folder; with several, upstream resolves input against the
+     * active editor's folder (stage F in docs/TODO/MultiRoot.md).
      */
     private workspaceRoot(): string {
         return this.workspaceContext.getWorkspace().folders.at(0)?.uri.fsPath ?? process.cwd();

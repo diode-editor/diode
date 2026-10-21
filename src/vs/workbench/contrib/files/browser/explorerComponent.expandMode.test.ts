@@ -21,7 +21,7 @@ import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 import { ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
 
-/** Строки: «docs» (папка с цепочкой a/b), «src», «README.md»; имя папки — с колонки 3 (отступ 1, шеврон, пробел). */
+/** Rows: "docs" (folder with an a/b chain), "src", "README.md"; a folder name starts at column 3 (indent 1, chevron, space). */
 describe("ExplorerComponent — workbench.tree.expandMode", () => {
     let ws: ITempWorkspace;
     let config: InMemoryConfigurationService;
@@ -120,12 +120,12 @@ describe("ExplorerComponent — workbench.tree.expandMode", () => {
         });
 
         it("клик по сегменту компактной строки делает его текущим и сворачивает строку", async () => {
-            click(4, 0); // docs → раскрывается и сжимается в «docs/a/b»
+            click(4, 0); // docs → expands and compacts into "docs/a/b"
             await expectFrame((text) => {
                 expect(text).toContain("docs/a/b");
                 expect(text).toContain("x.md");
             });
-            // « ▾ docs/a/b»: «docs» — колонки 3–6, «a» — колонка 8.
+            // " ▾ docs/a/b": "docs" is columns 3–6, "a" is column 8.
             click(8, 0);
             await expectFrame((text) => {
                 expect(text).not.toContain("x.md");
@@ -140,11 +140,11 @@ describe("ExplorerComponent — workbench.tree.expandMode", () => {
 
             click(4, 1); // src
             app.sendKey("Enter");
-            // Раскрытие асинхронное: дадим ему шанс случиться, прежде чем утверждать «нет».
+            // Expansion is async: give it a chance to happen before asserting it didn't.
             await new Promise((resolve) => setTimeout(resolve, 50));
             expect(frame()).not.toContain("main.ts");
 
-            // Дерево не пересоздаётся: предикат читает настройку на каждом жесте.
+            // The tree isn't recreated: the predicate reads the setting on every gesture.
             await config.updateValue("workbench.tree.expandMode", "singleClick");
             click(4, 1);
             await expectFrame((text) => {

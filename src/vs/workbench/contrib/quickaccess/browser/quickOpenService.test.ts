@@ -302,7 +302,7 @@ describe("QuickOpenService — open/close", () => {
         service.show();
         expect(body.overlayLayer.hasVisibleItems()).toBe(true);
 
-        // Нажатие не поглощается и проходит дальше — как quick pick в VS Code.
+        // The press isn't swallowed and passes through — like quick pick in VS Code.
         body.dispatchEvent(
             new TUIMouseEvent("mousedown", {
                 screenX: 0,
@@ -403,7 +403,7 @@ describe("QuickOpenService — files mode", () => {
     });
 
     it("a background index refresh preserves the cursor mid-navigation", () => {
-        // Огромный монорепо: пока индекс стримится, список перепубликуется каждые ~50ms.
+        // A huge monorepo: while the index streams in, the list is republished every ~50ms.
         const results = [
             makeSearchResult("src/a.ts"),
             makeSearchResult("src/b.ts"),
@@ -626,7 +626,7 @@ describe("QuickOpenService — commands mode", () => {
 
         const busy = labelsWhenBusy(true);
         expect(busy).not.toContain("Git: Commit");
-        // Команда без enablement остаётся: гасим только недоступное.
+        // A command without enablement stays: only disabled ones are hidden.
         expect(busy).toContain("Git: Show Output");
         expect(labelsWhenBusy(false)).toContain("Git: Commit");
     });
@@ -797,7 +797,7 @@ describe("QuickOpenService — open editors mode", () => {
         service.show(OpenEditorsQuickAccessProvider.PREFIX);
         view.onQueryChange?.("edt readme");
 
-        // Принятие уезжает в микротаску (пикер сперва закрывается) — как у файлов.
+        // Accept is deferred to a microtask (the picker closes first) — same as for files.
         view.onAccept?.(view.items[0], 0);
         await new Promise<void>((r) => {
             queueMicrotask(r);

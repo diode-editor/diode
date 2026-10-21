@@ -34,7 +34,7 @@ describe("describeExtensionRow", () => {
         const row = describeExtensionRow(entry());
         expect(row.text).toBe("Acme Tools  1.0.0");
         expect(row.badge).toBeNull();
-        // Спан версии указывает ровно на неё — по нему строка красит приглушённым.
+        // The version span points exactly at it; the row paints it dimmed by this span.
         expect(row.version).toEqual({ start: 12, length: 5 });
         expect(row.text.slice(row.version.start, row.version.start + row.version.length)).toBe("1.0.0");
     });
@@ -53,8 +53,8 @@ describe("describeExtensionRow", () => {
     });
 
     it("ждём перезагрузки — бейдж говорит об этом раньше всего остального", () => {
-        // Установленную версию видно, но работать она начнёт только после
-        // перезагрузки окна — это и есть главное про такую запись.
+        // The installed version is visible, but it starts working only after
+        // a window reload, which is the key fact about such an entry.
         const row = describeExtensionRow(
             entry({ installedVersion: "1.0.0", availability: "installed", needsReload: true }),
         );
@@ -109,7 +109,7 @@ describe("строки списка", () => {
         const screen = renderElement(row, 40, 1, { themeVars: true });
         const layout = describeExtensionRow(entryWithBadge);
 
-        // Пробел сразу за версией — цвета строки, а не приглушённый.
+        // The space right after the version has the row color, not the dimmed one.
         const afterVersion = layout.version.start + layout.version.length;
         expect(screen.getFgAt(new Point(afterVersion, 0))).toBe(screen.getFgAt(new Point(0, 0)));
     });
@@ -133,7 +133,7 @@ describe("строки списка", () => {
         expect(row.id).toBe("group-1");
         expect(row.getText()).toBe("MARKETPLACE");
 
-        // Приглушённый цвет — не унаследованный: заголовок группы тусклее записей.
+        // Dimmed, not inherited: the group title is fainter than entries.
         const groupFg = renderElement(row, 20, 1, { themeVars: true }).getFgAt(new Point(0, 0));
         const entryFg = renderElement(buildExtensionRow("row-1", entry(), STYLES), 20, 1, {
             themeVars: true,
@@ -175,7 +175,7 @@ describe("пометка о частичной поддержке", () => {
         const partialFg = screen.getFgAt(new Point(layout.partialSupport!.start, 0));
         const nameFg = screen.getFgAt(new Point(0, 0));
         const badgeFg = screen.getFgAt(new Point(layout.badge!.start, 0));
-        // Предупреждение отличается и от имени, и от приглушённого «Installed».
+        // The warning differs from both the name and the dimmed "Installed".
         expect(partialFg).not.toBe(nameFg);
         expect(partialFg).not.toBe(badgeFg);
     });

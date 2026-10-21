@@ -25,7 +25,7 @@ const MODIFIED = packRgb(226, 192, 141);
 const UNTRACKED = packRgb(115, 201, 145);
 const DELETED = packRgb(199, 78, 57);
 
-/** Как в VS Code: папка с изменёнными внутри — цвет потомка и бейдж «●». Настоящее дерево над настоящим диском. */
+/** Like VS Code: a folder with changes inside takes the descendant's color and the "●" badge. A real tree over a real disk. */
 describe("ExplorerComponent — декорации всплывают к папкам", () => {
     let ws: ITempWorkspace;
     let config: InMemoryConfigurationService;
@@ -42,7 +42,7 @@ describe("ExplorerComponent — декорации всплывают к пап�
             .filter((row) => row.trim() !== "");
     }
 
-    /** Строка кадра, содержащая `text` как отдельное слово метки. */
+    /** The frame row containing `text` as a separate label word. */
     function rowOf(text: string): { y: number; row: string } {
         const all = rows();
         const y = all.findIndex((row) => new RegExp(`(^|\\s|/)${text}(\\s|$)`).test(row));
@@ -55,7 +55,7 @@ describe("ExplorerComponent — декорации всплывают к пап�
         return app.backend.getFgAt(new Point(row.indexOf(text), y));
     }
 
-    /** Бейдж строки — последний непробельный символ (дерево прижимает его к правому краю). */
+    /** The row badge is the last non-space character (the tree pins it to the right edge). */
     function badgeOf(text: string): string {
         const { row } = rowOf(text);
         const tail = row.slice(row.indexOf(text) + text.length).trim();
@@ -119,14 +119,14 @@ describe("ExplorerComponent — декорации всплывают к пап�
         expect(badgeOf("pkg")).toBe("");
         expect(badgeOf("README.md")).toBe("");
 
-        // Раскрываем через reveal, а не стрелками: курсора до первого нажатия может не быть, и стрелки
-        // раскрывали pkg вместо src (флак CI).
+        // Expand via reveal, not arrows: there may be no cursor before the first keypress, and the arrows
+        // expanded pkg instead of src (CI flake).
         service.focus();
         await service.revealPath(ws.path("src/lib/util.ts"));
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("util.ts");
         });
-        // Строку под курсором (util.ts) красит выделение — цвет смотрим у соседних.
+        // The selection colors the row under the cursor (util.ts) — check the color on its neighbors.
         expect(badgeOf("lib")).toBe("●");
         expect(labelFg("lib")).toBe(MODIFIED);
         app.sendKey("ArrowDown"); // main.ts
@@ -148,7 +148,7 @@ describe("ExplorerComponent — декорации всплывают к пап�
             { path: ws.path("src/main.ts"), color: UNTRACKED, badge: "U", propagate: true },
             { path: ws.path("src/lib/util.ts"), color: MODIFIED, badge: "M", propagate: true },
         ]);
-        // «lib» раньше «main.ts» в порядке дерева — цвет от util.ts.
+        // "lib" precedes "main.ts" in tree order — the color comes from util.ts.
         expect(labelFg("src")).toBe(MODIFIED);
 
         await decorate([{ path: ws.path("src/main.ts"), color: UNTRACKED, badge: "U", propagate: true }]);
@@ -171,7 +171,7 @@ describe("ExplorerComponent — декорации всплывают к пап�
         });
 
         await decorate([{ path: ws.path("pkg/a/b/C.java"), color: UNTRACKED, badge: "U", propagate: true }]);
-        app.sendKey("ArrowDown"); // C.java — курсор с цепочки, чтобы не красило выделение
+        app.sendKey("ArrowDown"); // C.java — move the cursor off the chain so the selection doesn't color it
         expect(badgeOf("pkg/a/b")).toBe("●");
         expect(labelFg("pkg/a/b")).toBe(UNTRACKED);
     });

@@ -40,7 +40,7 @@ describe("bubbleFileDecorations", () => {
             ],
             ROOT,
         );
-        // Сегменты по алфавиту: «b.ts» < «lib» < «z.ts».
+        // Segments sort alphabetically: "b.ts" < "lib" < "z.ts".
         expect(result.get(p("src"))).toStrictEqual({ color: 1, badge: BUBBLE_BADGE });
         expect(result.get(p("src", "lib"))).toStrictEqual({ color: 2, badge: BUBBLE_BADGE });
     });
@@ -53,7 +53,7 @@ describe("bubbleFileDecorations", () => {
     });
 
     it("первый различающийся сегмент решает раньше длины: «a/x.ts» раньше «z.ts»", () => {
-        // Короткий путь с бо́льшим сегментом: по длине он был бы первым.
+        // The shorter path has the greater segment: by length it would come first.
         const result = bubbleFileDecorations(
             [
                 { path: p("d", "a", "x.ts"), color: 2, badge: "M", propagate: true },
@@ -73,12 +73,12 @@ describe("bubbleFileDecorations", () => {
             ROOT,
         );
         expect(result.get(p("a"))).toStrictEqual({ color: 1, badge: BUBBLE_BADGE });
-        // Своя декорация папки — первой: цвет свой, а бейдж — «содержит изменения».
+        // The folder's own decoration comes first: its own color, but the "contains changes" badge.
         expect(result.get(p("a", "dir"))).toStrictEqual({ color: 1, badge: BUBBLE_BADGE });
     });
 
     it("порядок — по сегментам, а не по строке пути: «a/…» раньше «a-b»", () => {
-        // Строкой «x/a-b» < «x/a/z.ts» («-» < «/»), а по сегментам «a» < «a-b».
+        // As strings "x/a-b" < "x/a/z.ts" ("-" < "/"), but by segments "a" < "a-b".
         const result = bubbleFileDecorations(
             [
                 { path: p("x", "a-b"), color: 2, badge: "M", propagate: true },

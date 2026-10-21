@@ -4,7 +4,7 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 
 import { CompletionServiceDIToken } from "./completionService.ts";
 
-/** upstream: EditorContrib + 90 — сильнее редактора, find и призрака inline. */
+/** upstream: EditorContrib + 90 — stronger than the editor, find and inline ghost text. */
 const SUGGEST_WEIGHT = KeybindingWeight.EditorContrib + 90;
 
 export const triggerSuggestAction: CommandAction = {
@@ -75,8 +75,8 @@ export const acceptSelectedSuggestionAction: CommandAction = {
 };
 
 /**
- * Тот же Ctrl+Space, что у triggerSuggest, — намеренно, как в VS Code: `when: suggestWidgetVisible`
- * и вес выше дают ему победу, пока попап открыт.
+ * The same Ctrl+Space as triggerSuggest — on purpose, like VS Code: `when: suggestWidgetVisible`
+ * and a higher weight make it win while the popup is open.
  */
 export const toggleSuggestionDetailsAction: CommandAction = {
     id: "toggleSuggestionDetails",

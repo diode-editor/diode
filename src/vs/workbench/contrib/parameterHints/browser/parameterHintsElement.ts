@@ -7,43 +7,43 @@ import { wrapText } from "@tuidom/elements/completionlist/completionDetailsEleme
 
 import { type ISignatureChunk, wrapSignature } from "./signatureLayout.ts";
 
-// [│(0)][pad(1)][текст…][pad(w-2)][│(w-1)] — раскладка HoverElement.
+// [│(0)][pad(1)][text…][pad(w-2)][│(w-1)] — the HoverElement layout.
 const TEXT_X = 2;
 const RIGHT_PAD = 1;
 const MIN_WIDTH = 20;
 const DEFAULT_MAX_WIDTH = 70;
-/** Кламп высоты v1: длинная документация обрезается, скролл — отдельной задачей. */
+/** v1 height clamp: long documentation is cut off; scrolling is a separate task. */
 const DEFAULT_MAX_HEIGHT = 10;
 
 export interface IParameterHint {
     readonly label: string;
     readonly activeSpan: readonly [number, number];
-    /** `null`, когда сигнатура одна. */
+    /** `null` when there is a single signature. */
     readonly counter: string | null;
-    /** Плоский текст без markdown. */
+    /** Plain text without markdown. */
     readonly documentation: readonly string[];
 }
 
 interface IHintLine {
     readonly text: string;
-    /** Офсет в метке сигнатуры, которому соответствует `text[prefixLength]`; `null` — это не метка. */
+    /** Offset in the signature label that `text[prefixLength]` maps to; `null` means not a label line. */
     readonly labelStart: number | null;
-    /** Сколько первых символов строки — счётчик/отступ, а не метка. */
+    /** How many leading characters of the line are the counter/indent rather than the label. */
     readonly prefixLength: number;
     readonly separator: boolean;
 }
 
 /**
- * Не в tuidom: посимвольная подсветка поверх drawBox композицией примитивов не выражается
- * (эталон — `HoverElement`).
+ * Not in tuidom: per-character highlighting over drawBox cannot be expressed by composing primitives
+ * (modeled on `HoverElement`).
  */
 export class ParameterHintsElement extends TUIElement {
-    /** Фактическая — по самой длинной строке. */
+    /** The actual width follows the longest line. */
     public maxWidth = DEFAULT_MAX_WIDTH;
     public maxHeight = DEFAULT_MAX_HEIGHT;
 
     private hintValue: IParameterHint | null = null;
-    /** Layout зовут на каждый кадр. */
+    /** Layout is called on every frame. */
     private linesCache: { width: number; lines: readonly IHintLine[] } | null = null;
 
     public constructor() {
@@ -62,7 +62,7 @@ export class ParameterHintsElement extends TUIElement {
     public setHint(hint: IParameterHint | null): void {
         this.hintValue = hint;
         this.linesCache = null;
-        // Stryker disable next-line CallExpression: пометка на перерисовку ненаблюдаема юнитом (снапшот рендерит дерево заново); её путь проверяет кадр приложения
+        // Stryker disable next-line CallExpression: the repaint mark is not observable in a unit test (the snapshot re-renders the tree); the app frame covers its path
         this.markDirty();
     }
 
@@ -75,13 +75,12 @@ export class ParameterHintsElement extends TUIElement {
     }
 
     private layoutFor(textWidth: number): readonly IHintLine[] {
-        // Кэш раскладки: layout зовут на каждый кадр. Промах кэша даёт лишний
-        // пересчёт, но не другой результат — поэтому наблюдаем он только по
-        // стоимости (Stryker disable ниже).
-        // Stryker disable next-line ConditionalExpression,EqualityOperator,LogicalOperator,ObjectLiteral: промах кэша = лишний пересчёт с тем же результатом, ненаблюдаемо
+        // A cache miss costs a recomputation but gives the same result — observable only
+        // by cost (hence the Stryker disable below).
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,LogicalOperator,ObjectLiteral: a cache miss is an extra recomputation with the same result, not observable
         if (this.linesCache !== null && this.linesCache.width === textWidth) return this.linesCache.lines;
         const lines = this.buildLines(textWidth);
-        // Stryker disable next-line ObjectLiteral: пустой кэш = вечный промах, см. выше
+        // Stryker disable next-line ObjectLiteral: an empty cache is a permanent miss, see above
         this.linesCache = { width: textWidth, lines };
         return lines;
     }
@@ -93,8 +92,8 @@ export class ParameterHintsElement extends TUIElement {
         const indent = this.labelIndentFor(hint);
         const chunks: readonly ISignatureChunk[] = wrapSignature(hint.label, Math.max(1, textWidth - indent));
         for (const [index, chunk] of chunks.entries()) {
-            // Счётчик рисуется отдельно, поэтому в строку метки не входит —
-            // зато её отступ одинаков на всех строках переноса.
+            // The counter is drawn separately, so it is not part of the label line —
+            // but its indent is the same on all wrapped lines.
             const prefix = index === 0 && hint.counter !== null ? hint.counter + " " : " ".repeat(indent);
             lines.push({
                 text: prefix + chunk.text,
@@ -158,12 +157,12 @@ export class ParameterHintsElement extends TUIElement {
 
     public override render(context: RenderContext): void {
         const hint = this.hintValue;
-        // Stryker disable next-line ConditionalExpression: пустой попап раскладывается в 0×0, поэтому его отсекает и гейт размера ниже — этот выход лишь называет причину
+        // Stryker disable next-line ConditionalExpression: an empty popup lays out to 0×0, so the size gate below cuts it off too — this exit only names the reason
         if (hint === null) return;
         const w = this.layoutSize.width;
         const h = this.layoutSize.height;
-        /* v8 ignore start -- defensive: непустой элемент не раскладывается в ноль */
-        // Stryker disable next-line ConditionalExpression,EqualityOperator,LogicalOperator: ветка недостижима — см. v8 ignore выше
+        /* v8 ignore start -- defensive: a non-empty element never lays out to zero */
+        // Stryker disable next-line ConditionalExpression,EqualityOperator,LogicalOperator: the branch is unreachable — see v8 ignore above
         if (w <= 0 || h <= 0) return;
         /* v8 ignore stop */
 
@@ -181,7 +180,7 @@ export class ParameterHintsElement extends TUIElement {
             const line = lines[i];
             const y = BORDER_THICKNESS + i;
             if (line.separator) {
-                // Stryker disable next-line ObjectLiteral: drawBox уже залил внутренность цветом рамки, поэтому явный стиль совпадает с унаследованным — он стоит ради независимости от заливки
+                // Stryker disable next-line ObjectLiteral: drawBox already filled the interior with the box colors, so the explicit style matches the inherited one — it is there to not depend on the fill
                 context.drawText(TEXT_X, y, "─".repeat(textWidth), { fg: border, bg: background });
                 continue;
             }
@@ -192,14 +191,14 @@ export class ParameterHintsElement extends TUIElement {
                 line.text,
                 { fg: foreground, bg: background },
                 {
-                    // Stryker disable next-line ObjectLiteral: строки уже перенесены в textWidth — обрезка недостижима, ограничение стоит как страховка контракта drawText
+                    // Stryker disable next-line ObjectLiteral: lines are already wrapped to textWidth — clipping is unreachable, the limit is a safeguard for the drawText contract
                     maxWidth: textWidth,
                     ...(labelStart === null
                         ? {}
                         : {
                               getStyle: (offset: number) => {
-                                  // Счётчик и отступ переноса — не метка: их офсеты
-                                  // попали бы в диапазон параметра и подсветили пустоту.
+                                  // The counter and wrap indent are not the label: their offsets
+                                  // would fall into the parameter range and highlight nothing.
                                   if (offset < line.prefixLength) return undefined;
                                   const inLabel = labelStart + offset - line.prefixLength;
                                   if (inLabel < spanStart || inLabel >= spanEnd) return undefined;

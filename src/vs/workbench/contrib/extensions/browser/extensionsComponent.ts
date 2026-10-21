@@ -44,8 +44,8 @@ const ROW_STYLES: IExtensionRowStyles = {
 type RowAction = { readonly kind: "open"; readonly id: string } | { readonly kind: "retry" };
 
 /**
- * Установленное — отдельной секцией и одновременно в каталоге с бейджем `Installed`: каталог не
- * должен терять записи. Фильтрация локальная по кэшу сервиса — debounce не нужен.
+ * Installed extensions get their own section and also stay in the catalog with an `Installed` badge: the
+ * catalog must not lose entries. Filtering is local over the service cache, so no debounce is needed.
  */
 export class ExtensionsComponent extends Component {
     public static dependencies = [
@@ -62,7 +62,7 @@ export class ExtensionsComponent extends Component {
     });
     public readonly list: ListViewElement;
     private readonly actions = new Map<string, RowAction>();
-    /** Идёт чтение каталога: пустой список в этот момент — «ещё не знаем», а не «пусто». */
+    /** The catalog is being read: an empty list now means "don't know yet", not "empty". */
     private loading = false;
 
     public constructor(
@@ -89,15 +89,15 @@ export class ExtensionsComponent extends Component {
         );
         this.rebuildRows();
 
-        // Порядок — как в activity bar VS Code: магазин после Source Control.
+        // Order as in the VS Code activity bar: the marketplace comes after Source Control.
         viewsService.registerContainer({
             id: EXTENSIONS_VIEWLET_ID,
             title: "EXTENSIONS",
-            // Stryker disable next-line StringLiteral: вкладками ViewsService ставит только "panel" и "auxiliarybar"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
+            // Stryker disable next-line StringLiteral: ViewsService makes tabs only for "panel" and "auxiliarybar"; any other value (including a mutated one) goes to the sidebar, so replacing the string has no observable effect
             location: "sidebar",
             order: 3,
             visibleContextKey: "extensionsViewletVisible",
-            // Как у эталона: чужие виды в магазин не переносятся.
+            // Like upstream: other views are not moved into the marketplace.
             rejectAddedViews: true,
         });
         viewsService.registerView({
@@ -116,7 +116,7 @@ export class ExtensionsComponent extends Component {
         return this.control.view;
     }
 
-    /** Он же момент первого чтения каталога: до показа вьюлета в сеть не ходим. */
+    /** Also the moment of the first catalog read: no network access until the viewlet is shown. */
     public focus(): void {
         this.control.focusInput();
         void this.withLoadingRow(() => this.service.ensureLoaded());
@@ -126,7 +126,7 @@ export class ExtensionsComponent extends Component {
         return this.withLoadingRow(() => this.service.refresh());
     }
 
-    /** Без «Loading…» первый показ на медленной сети выглядит пустым магазином. */
+    /** Without "Loading…" the first show on a slow network looks like an empty marketplace. */
     private async withLoadingRow(read: () => Promise<void>): Promise<void> {
         this.loading = true;
         this.rebuildRows();
@@ -181,8 +181,8 @@ export class ExtensionsComponent extends Component {
     }
 
     private appendEntry(groupId: string, entry: IExtensionListEntry): void {
-        // Одна запись может стоять в обеих секциях — id несёт секцию. Точки — в дефисы: селектор
-        // инспектора (`#id`) точку не понимает.
+        // One entry can be in both sections, so the id carries the section. Dots become dashes: the
+        // inspector selector (`#id`) does not understand dots.
         const rowId = `${groupId}-${entry.id.replaceAll(".", "-")}`;
         this.list.appendRow(buildExtensionRow(rowId, entry, ROW_STYLES), {
             parentId: groupId,
@@ -192,7 +192,7 @@ export class ExtensionsComponent extends Component {
     }
 
     private activateRow(rowId: string): void {
-        // Обе ветки явные: fallback молча делал бы одно из двух при испорченном действии.
+        // Both branches are explicit: a fallback would silently do one of the two on a mutated action.
         const action = this.actions.get(rowId);
         if (action?.kind === "open") {
             void this.openExtensionPage(action.id);
@@ -201,7 +201,7 @@ export class ExtensionsComponent extends Component {
         if (action?.kind === "retry") void this.refresh();
     }
 
-    /** Мету тянем здесь, а не в панели: сетевой сбой обязан доехать до страницы текстом. */
+    /** Metadata is fetched here, not in the pane: a network failure must reach the page as text. */
     public async openExtensionPage(id: string): Promise<void> {
         const entry = this.service.getEntries().find((e) => e.id === id);
         if (entry === undefined) return;

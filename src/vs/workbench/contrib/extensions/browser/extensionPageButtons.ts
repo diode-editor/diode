@@ -1,12 +1,12 @@
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
-/** `update` — та же установка: она сносит прежние версии. */
+/** `update` is the same install: it removes previous versions. */
 export type ExtensionButtonKind = "install" | "update" | "uninstall" | "reload";
 
 export interface IExtensionButton {
     readonly kind: ExtensionButtonKind;
     readonly label: string;
-    /** Выключенная кнопка видна, но не нажимается (несовместимость, идущая операция). */
+    /** A disabled button is visible but cannot be pressed (incompatibility, operation in progress). */
     readonly enabled: boolean;
 }
 
@@ -17,19 +17,19 @@ export interface IExtensionButtonState {
 
 export function describeExtensionButtons(entry: IExtensionListEntry, state: IExtensionButtonState): IExtensionButton[] {
     const buttons: IExtensionButton[] = [];
-    // Перезагрузка идёт первой: после установки это следующий шаг пользователя,
-    // и фокус страницы встаёт именно на неё.
+    // Reload goes first: after an install it is the user's next step,
+    // and the page focus lands on it.
     if (state.needsReload) buttons.push({ kind: "reload", label: "Reload Window", enabled: true });
     const compatible = entry.availability !== "incompatible";
     if (entry.installedVersion === null) {
-        // Записи в реестре нет — кнопка вела бы в «not found in registry». Несовместимое — выключенной
-        // кнопкой: «поставить нельзя» — ответ, а отсутствие кнопки читается как недоделка.
+        // No registry entry: the button would lead to "not found in registry". Incompatible gets a disabled
+        // button: "can't install" is an answer, while a missing button reads as unfinished work.
         if (entry.latestVersion !== null) {
             buttons.push({ kind: "install", label: "Install", enabled: compatible });
         }
     } else {
         const latest = entry.latestVersion;
-        // Обновление до несовместимой версии — не действие, а тупик: кнопки нет.
+        // Updating to an incompatible version is a dead end, not an action: no button.
         if (latest !== null && latest !== entry.installedVersion && compatible) {
             buttons.push({ kind: "update", label: `Update to ${latest}`, enabled: true });
         }

@@ -74,7 +74,7 @@ describe("shouldAutoTrigger — LineContext.shouldAutoTrigger эталона", (
     });
 
     it("каретка внутри слова — нет, но сразу за его первым символом — да", () => {
-        // Набрали `x` перед словом `foo`: слово `xfoo`, каретка за первым символом.
+        // Typed `x` before the word `foo`: the word is `xfoo`, the cursor past its first character.
         expect(shouldAutoTrigger("xfoo", 1)).toBe(true);
         expect(shouldAutoTrigger("xfoo", 2)).toBe(false);
         expect(shouldAutoTrigger("a xfoo", 3)).toBe(true);

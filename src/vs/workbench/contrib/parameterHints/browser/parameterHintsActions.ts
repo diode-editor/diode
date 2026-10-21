@@ -4,23 +4,23 @@ import { KeybindingWeight } from "../../../../platform/keybinding/common/keybind
 
 import { ParameterHintsServiceDIToken } from "./parameterHintsService.ts";
 
-/** Сильнее редактора и остальных попапов; с suggest их when взаимоисключающие через `!suggestWidgetVisible`. */
+/** Stronger than the editor and other popups; mutually exclusive with suggest via `!suggestWidgetVisible` in `when`. */
 const PARAMETER_HINTS_WEIGHT = KeybindingWeight.EditorContrib + 93;
 
 /**
- * Рядом с открытым suggest стрелки принадлежат списку пунктов. В VS Code это решает вес, у нас вес
- * подсказки выше suggest — поэтому `!suggestWidgetVisible`.
+ * With suggest open, the arrows belong to its list. VS Code settles this by weight; here the hint weight
+ * is above suggest, hence `!suggestWidgetVisible`.
  */
 const MULTIPLE_SIGNATURES = "parameterHintsVisible && parameterHintsMultipleSignatures && !suggestWidgetVisible";
 
 /**
- * Чорд Ctrl+K Ctrl+Space основной: канонический Ctrl+Shift+Space на legacy-tier'е неотличим от
- * Ctrl+Space (байт 0x00), а тот занят `triggerSuggest`. Ctrl+K Ctrl+P занят палитрой, Ctrl+K Ctrl+I
- * на legacy приезжает Tab'ом.
+ * The Ctrl+K Ctrl+Space chord is primary: the canonical Ctrl+Shift+Space is indistinguishable from
+ * Ctrl+Space (byte 0x00) on the legacy tier, and that one is taken by `triggerSuggest`. Ctrl+K Ctrl+P is
+ * taken by the command palette, Ctrl+K Ctrl+I arrives as Tab on legacy.
  */
 export const triggerParameterHintsAction: CommandAction = {
     id: "editor.action.triggerParameterHints",
-    // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
+    // Stryker disable next-line StringLiteral: the command title is visible only in the command palette — a substitution is not observable in behavior
     title: "Trigger Parameter Hints",
     keybinding: parseChord("ctrl+k ctrl+space"),
     keybindings: [parseKeybinding("mod+shift+space")],
@@ -31,13 +31,13 @@ export const triggerParameterHintsAction: CommandAction = {
 };
 
 /**
- * Down — канон VS Code; Alt+Down — для терминалов, где стрелкой привыкли двигать каретку при
- * открытых попапах.
+ * Down is the VS Code canon; Alt+Down is for terminals where the arrow is expected to move the cursor
+ * while popups are open.
  */
 export const showNextParameterHintAction: CommandAction = {
     id: "showNextParameterHint",
     weight: PARAMETER_HINTS_WEIGHT,
-    // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
+    // Stryker disable next-line StringLiteral: the command title is visible only in the command palette — a substitution is not observable in behavior
     title: "Parameter Hints: Next Signature",
     keybinding: parseKeybinding("down"),
     keybindings: [parseKeybinding("alt+down")],
@@ -50,7 +50,7 @@ export const showNextParameterHintAction: CommandAction = {
 export const showPrevParameterHintAction: CommandAction = {
     id: "showPrevParameterHint",
     weight: PARAMETER_HINTS_WEIGHT,
-    // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
+    // Stryker disable next-line StringLiteral: the command title is visible only in the command palette — a substitution is not observable in behavior
     title: "Parameter Hints: Previous Signature",
     keybinding: parseKeybinding("up"),
     keybindings: [parseKeybinding("alt+up")],
@@ -63,10 +63,10 @@ export const showPrevParameterHintAction: CommandAction = {
 export const closeParameterHintsAction: CommandAction = {
     id: "closeParameterHints",
     weight: PARAMETER_HINTS_WEIGHT,
-    // Stryker disable next-line StringLiteral: заголовок команды виден только в палитре — подмена ненаблюдаема поведением
+    // Stryker disable next-line StringLiteral: the command title is visible only in the command palette — a substitution is not observable in behavior
     title: "Parameter Hints: Close",
     keybinding: parseKeybinding("escape"),
-    // Пока открыт и попап автодополнения, Escape принадлежит ему (см. MULTIPLE_SIGNATURES).
+    // While the suggest popup is also open, Escape belongs to it (see MULTIPLE_SIGNATURES).
     when: "parameterHintsVisible && !suggestWidgetVisible",
     run(accessor) {
         accessor.get(ParameterHintsServiceDIToken).close();

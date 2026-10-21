@@ -1,9 +1,9 @@
-/** Буквы любого алфавита, как эталонный `DEFAULT_WORD_REGEXP`. */
+/** Letters of any script, like upstream `DEFAULT_WORD_REGEXP`. */
 const WORD_RE = /[\p{L}_][\p{L}\p{M}\p{N}_]*/gu;
 
 const MIN_WORD_LENGTH = 2;
 
-/** Байт; источник крупнее пропускается целиком (как VS Code). */
+/** Bytes; a larger source is skipped entirely (like VS Code). */
 const DEFAULT_MAX_BYTES_PER_TEXT = 1_000_000;
 
 const DEFAULT_MAX_WORDS = 1000;
@@ -13,7 +13,7 @@ export interface IWordCompletionOptions {
     readonly maxWords?: number;
 }
 
-/** Слово `exclude` (набираемый префикс под курсором) не включается. */
+/** The `exclude` word (the prefix being typed under the cursor) is left out. */
 export function collectWordCompletions(
     texts: readonly string[],
     exclude: string,

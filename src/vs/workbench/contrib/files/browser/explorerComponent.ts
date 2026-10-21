@@ -30,7 +30,7 @@ export const EXPLORER_VIEWLET_ID = "explorer";
 
 export const EXPLORER_VIEW_ID = "workbench.explorer.fileView";
 
-/** Папка не открыта (редактор поднят на файле или без аргументов). Текст — эталонный. */
+/** No folder is open (the editor was started on a file or without arguments). Upstream's text. */
 const EXPLORER_WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "text", text: "You have not yet opened a folder." },
     { kind: "text", text: "" },
@@ -43,8 +43,8 @@ interface ExplorerViewParts {
 }
 
 /**
- * Отдаёт ViewsService только тело секции ({@link ViewsService.setViewBody}), поэтому смена
- * корня не пересоздаёт вьюлет и не рвёт ссылку, которую держит сайдбар.
+ * Hands ViewsService only the section body ({@link ViewsService.setViewBody}), so a root change
+ * doesn't recreate the viewlet or break the reference the sidebar holds.
  */
 export class ExplorerComponent extends Component implements IContextKeyContributor {
     public static dependencies = [
@@ -67,12 +67,12 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         private readonly configurationService: IConfigurationService,
     ) {
         super();
-        // Пока папка не открыта, секция рисует welcome, как `viewsWelcome` VS Code; кнопки Clone
-        // Repository нет — нет и команды клона.
+        // Until a folder is open, the section draws a welcome, like VS Code's `viewsWelcome`; there is
+        // no Clone Repository button since there is no clone command.
         viewsService.registerContainer({
             id: EXPLORER_VIEWLET_ID,
             title: "EXPLORER",
-            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
+            // Stryker disable next-line StringLiteral: ViewsService only distinguishes "panel"; any other value (a mutated one included) goes to the sidebar, so replacing the string has no observable effect
             location: "sidebar",
             order: 0,
             isDefault: true,
@@ -99,15 +99,15 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         }
     }
 
-    /** До первого setRootPath дерева ещё нет. */
+    /** There is no tree until the first setRootPath. */
     public get view(): TUIElement {
         return this.parts?.scrollBars as TUIElement;
     }
 
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
         contextKeys.set("filesExplorerFocus", this.containsFocus(active));
-        // Эталонные ключи компактной строки под курсором (`explorerView.onFocusChanged`
-        // + `updateCompressedNavigationContextKeys`): гейтят Left/Right/Home/End.
+        // Upstream's keys for the compact row under the cursor (`explorerView.onFocusChanged`
+        // + `updateCompressedNavigationContextKeys`): they gate Left/Right/Home/End.
         const compressed = this.explorerService.getCompressedFocus();
         contextKeys.set("explorerViewletCompressedFocus", compressed !== null);
         contextKeys.set("explorerViewletCompressedFirstFocus", compressed?.first ?? false);
@@ -127,9 +127,9 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         /* v8 ignore start -- defensive: onDidChangeRoot only fires from setRootPath, where the provider is (re)created */
         if (!provider) return;
         /* v8 ignore stop */
-        // Отступ в 1 колонку — внутри дерева, а не во внешнем паддинге: подсветка курсора заливает
-        // строку от края панели. `workbench.tree.expandMode` (`expandOnlyOnTwistieClick` эталона)
-        // читается на каждом жесте — правка settings.json действует сразу.
+        // The 1-column indent is inside the tree, not outer padding: the cursor highlight fills the
+        // row from the panel edge. `workbench.tree.expandMode` (upstream's `expandOnlyOnTwistieClick`)
+        // is read on every gesture — a settings.json edit takes effect at once.
         const tree = new TreeViewElement<FileTreeNode>(provider, {
             leftPadding: 1,
             expandOnlyOnTwistieClick: () =>
@@ -149,13 +149,13 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         };
         tree.onActivate = (node) => {
             if (!node.isDirectory) {
-                // Превью просит только дерево: у эталона Quick Open и навигация по коду его не делают.
+                // Only the tree asks for preview: upstream's Quick Open and code navigation don't.
                 this.commands.execute("workbench.openFile", node.path, { preview: true });
             }
         };
         tree.onContextMenu = (node, screenX, screenY) => {
-            // Компактная строка: меню про папку текущего сегмента (дерево уже
-            // сделало текущим сегмент под правым кликом).
+            // Compact row: the menu is for the current segment's folder (the tree has already
+            // made the right-clicked segment current).
             this.showContextMenu(tree, this.explorerService.nodePath(node), screenX, screenY);
         };
 

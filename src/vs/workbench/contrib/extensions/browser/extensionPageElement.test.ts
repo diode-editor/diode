@@ -66,13 +66,13 @@ function createPage(
     );
 }
 
-/** Фокус живёт в `FocusManager` корня — без настоящего дерева `focus()` некуда поставить. */
+/** Focus lives in the root `FocusManager`; without a real tree `focus()` has nowhere to go. */
 function mount(element: ExtensionPageElement): void {
     const app = TestApp.createWithContent(element);
     app.render();
 }
 
-/** Шлёт клавишу элементу; `true` — страница её обработала (`preventDefault`). */
+/** Sends a key to the element; `true` means the page handled it (`preventDefault`). */
 function press(target: TUIElement, key: string): boolean {
     const event = new TUIKeyboardEvent("keydown", { key });
     target.dispatchEvent(event);
@@ -98,8 +98,8 @@ describe("ExtensionPageElement", () => {
         expect(lines(element)).toEqual([]);
         expect(headerLines(element)).toEqual([]);
 
-        // И свежие данные до раскладки строк не рождают: ширины всё ещё нет, а
-        // без неё перенос посчитался бы по «пустой» ширине и всё бы порвал.
+        // Fresh data before layout produces no lines either: there is still no width, and
+        // wrapping against an "empty" width would break everything.
         element.setContent(content({ metaError: "boom" }), [INSTALL]);
         expect(lines(element)).toEqual([]);
         expect(headerLines(element)).toEqual([]);
@@ -112,8 +112,8 @@ describe("ExtensionPageElement", () => {
         list.setCursorTo("extensionPageLine-2");
 
         renderElement(element, 40, 16, { themeVars: true });
-        // Пересборка строк сбросила бы курсор на начало — а вместе с ним и
-        // прокрутку длинного readme на каждом кадре.
+        // Rebuilding lines would reset the cursor to the start, and with it the
+        // scroll of a long readme on every frame.
         expect(list.getCursorElement()?.id).toBe("extensionPageLine-2");
     });
 
@@ -126,7 +126,7 @@ describe("ExtensionPageElement", () => {
         const buttonRow = frame.findIndex((row) => row.includes("[ Install ]"));
         const readmeRow = frame.findIndex((row) => row.includes("alpha"));
         expect(frame[buttonRow]).toContain("[ Uninstall ]");
-        // Кнопки закреплены над текстом: readme начинается ниже ряда.
+        // Buttons are pinned above the text: the readme starts below the row.
         expect(readmeRow).toBeGreaterThan(buttonRow);
     });
 
@@ -142,8 +142,8 @@ describe("ExtensionPageElement", () => {
         const element = createPage();
         renderElement(element, 20, 16, { themeVars: true });
 
-        // Ширина текста — ширина элемента минус отступ слева и бегунок справа,
-        // то есть 18 колонок на строку readme.
+        // Text width is the element width minus the left indent and the scrollbar on the right,
+        // i.e. 18 columns per readme line.
         const readme = lines(element);
         expect(readme.length).toBeGreaterThan(1);
         expect(Math.max(...readme.map((l) => l.length))).toBeLessThanOrEqual(18);
@@ -220,7 +220,7 @@ describe("ExtensionPageElement", () => {
         const list = element.querySelector("#extensionPageLines") as ListViewElement;
         expect(list.isFocused).toBe(true);
         expect(buttonElement(element, "install").isFocused).toBe(false);
-        // И нажать её нечем: обработчика у выключенной кнопки нет.
+        // And it cannot be pressed: a disabled button has no handler.
         buttonElement(element, "install").dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
         expect(onActivate).not.toHaveBeenCalled();
     });
@@ -235,8 +235,8 @@ describe("ExtensionPageElement", () => {
         expect(press(install, "ArrowRight")).toBe(true);
         expect(uninstall.isFocused).toBe(true);
 
-        // За последней кнопкой ряд кончается: фокус остаётся, и клавишу страница
-        // не съедает — иначе её не увидел бы никто следующий.
+        // The row ends after the last button: focus stays, and the page does not
+        // swallow the key; otherwise nobody after it would see it.
         expect(press(uninstall, "ArrowRight")).toBe(false);
         expect(uninstall.isFocused).toBe(true);
 
@@ -253,7 +253,7 @@ describe("ExtensionPageElement", () => {
         const list = element.querySelector("#extensionPageLines") as ListViewElement;
         list.focus();
 
-        // Фокус в тексте: горизонтальные стрелки не должны утаскивать его в кнопки.
+        // Focus is in the text: horizontal arrows must not pull it into the buttons.
         expect(press(list, "ArrowRight")).toBe(false);
         expect(press(list, "ArrowLeft")).toBe(false);
         expect(list.isFocused).toBe(true);
@@ -266,7 +266,7 @@ describe("ExtensionPageElement", () => {
         const install = buttonElement(element, "install");
         const list = element.querySelector("#extensionPageLines") as ListViewElement;
 
-        // Tab страница забирает себе: глобальный отступ в неё лезть не должен.
+        // The page takes Tab itself: the global indent must not get into it.
         expect(press(install, "Tab")).toBe(true);
         expect(list.isFocused).toBe(true);
 
@@ -280,8 +280,8 @@ describe("ExtensionPageElement", () => {
         const list = element.querySelector("#extensionPageLines") as ListViewElement;
         list.setCursorTo("extensionPageLine-0");
 
-        // Быстрый поиск списка работает только по label'ам строк; у страницы
-        // их нет, поэтому буква курсор не двигает.
+        // List quick search works only on row labels; the page has
+        // none, so a letter does not move the cursor.
         list.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "a" }));
         expect(list.getCursorElement()?.id).toBe("extensionPageLine-0");
     });

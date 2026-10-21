@@ -21,7 +21,7 @@ import { TextFileModelServiceDIToken } from "../../../services/textfile/common/t
 
 import { openDiffPair } from "./openDiffPair.ts";
 
-/** Тот же провайдер в памяти, но объявленный только для чтения (как `git:` с `isReadonly`). */
+/** The same in-memory provider, but declared read-only (like `git:` with `isReadonly`). */
 function readonlyView(provider: InMemoryFileSystemProvider): IFileSystemProvider {
     return {
         capabilities: FileSystemProviderCapabilities.Readonly,

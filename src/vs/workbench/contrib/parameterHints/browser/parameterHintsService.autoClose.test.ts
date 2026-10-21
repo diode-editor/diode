@@ -19,7 +19,7 @@ import { LanguageFeaturesServiceDIToken } from "../../../../editor/common/servic
 
 import { ParameterHintsServiceDIToken } from "./parameterHintsService.ts";
 
-/** Язык с парой `()`: набранная `(` вставляет `()`, `)` перед `)` перешагивается. */
+/** A language with the `()` pair: typed `(` inserts `()`, `)` before `)` is typed over. */
 const PARENS: IResolvedLanguageConfiguration = {
     ...EMPTY_LANGUAGE_CONFIGURATION,
     autoClosingPairs: [{ open: "(", close: ")", notIn: [] }],
@@ -36,8 +36,8 @@ function flushTimers(): Promise<void> {
 }
 
 /**
- * С авто-закрытием `(` вставляет `()` (строка +2), а typeover `)` строку не меняет вовсе — набор
- * узнаётся только по `onDidType`.
+ * With auto-closing, `(` inserts `()` (line +2), while typeover of `)` does not change the line at all —
+ * the typing is visible only through `onDidType`.
  */
 describe("ParameterHintsService — набор с авто-закрытием пары", () => {
     let ws: ITempWorkspace;
@@ -106,8 +106,8 @@ describe("ParameterHintsService — набор с авто-закрытием п
         await flushTimers();
         await flushMicrotasks();
 
-        // Текст не изменился (каретка перешагнула `)`), а сервер всё равно
-        // увидел набранный символ — и ответил пустой подсказкой.
+        // The text did not change (the cursor stepped over `)`), yet the server still
+        // saw the typed character — and answered with an empty hint.
         expect(h.activeEditor().getText()).toBe("greet()\n");
         expect(requests.at(-1)).toMatchObject({
             triggerKind: SignatureHelpTriggerKind.TriggerCharacter,

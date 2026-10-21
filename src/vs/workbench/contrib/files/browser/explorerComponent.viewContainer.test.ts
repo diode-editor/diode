@@ -17,7 +17,7 @@ import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 import { EXPLORER_VIEW_ID, EXPLORER_VIEWLET_ID, ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
 
-/** Компонент ничего не рисует сам: заголовок, «⋯»-меню и кнопки даёт общая модель контейнеров. */
+/** The component draws nothing itself: the header, "⋯" menu and buttons come from the shared container model. */
 describe("ExplorerComponent — контейнер сайдбара", () => {
     let ws: ITempWorkspace;
     let h: IViewsHarness;
@@ -101,7 +101,7 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
         const buttons = rest
             .map((label) => (label as TextLabelElement).getText().trim())
             .filter((text) => text !== "\u2502");
-        // New File / New Folder / Refresh Explorer и «⋯» — в нём «Move To» вьюлета.
+        // New File / New Folder / Refresh Explorer and "⋯", which holds the viewlet's "Move To".
         expect(buttons).toEqual(["\uEA7F", "\uEA80", "\uEB37", "⋯"]);
     });
 
@@ -109,7 +109,7 @@ describe("ExplorerComponent — контейнер сайдбара", () => {
         service.setRootPath(ws.dir);
         attach();
         h.paneView(EXPLORER_VIEWLET_ID).onDidRequestPaneMenu?.(EXPLORER_VIEW_ID, { screenX: 0, screenY: 0 });
-        // Своих overflow-пунктов у Explorer'а нет — в «⋯» только подменю контейнера с «Move To».
+        // Explorer has no overflow items of its own — "⋯" holds only the container submenu with "Move To".
         const entries = h.shown.at(-1)!.getEntries!();
         expect(entries.map((entry) => (entry.type === "separator" ? "---" : entry.label))).toEqual(["EXPLORER"]);
     });

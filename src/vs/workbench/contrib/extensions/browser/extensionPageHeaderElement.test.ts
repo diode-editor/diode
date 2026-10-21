@@ -66,8 +66,8 @@ describe("ExtensionPageHeaderElement", () => {
     it("высота = строки под этой шириной плюс ряд кнопок с зазором", () => {
         const header = createHeader();
 
-        // Ответ обязан быть честным ещё до раскладки: по нему родитель («шапка
-        // сверху, тело снизу») отводит место в этом же проходе.
+        // The answer must be honest before layout: the parent ("header on
+        // top, body below") allots space by it in the same pass.
         const height = header.getMaxIntrinsicHeight(40);
         expect(height).toBe(lines(header).length + 2);
         expect(lines(header)).toEqual([
@@ -86,7 +86,7 @@ describe("ExtensionPageHeaderElement", () => {
         const screen = renderElement(header, 40, 12, { themeVars: true });
 
         expect(lines(header).length).toBeGreaterThan(0);
-        // Отступ слева на колонку — как у тела страницы.
+        // One-column left indent, like the page body.
         expect(frame(screen)[0]).toBe(" Acme Tools");
         expect(header.querySelector("#extensionPageHeaderLine-0")).not.toBeNull();
     });
@@ -97,7 +97,7 @@ describe("ExtensionPageHeaderElement", () => {
         const buttonRow = rows.findIndex((row) => row.includes("[ Install ]"));
 
         expect(rows[buttonRow]).toBe(" [ Install ]  [ Uninstall ]");
-        // Зазор под кнопками отделяет шапку от readme.
+        // The spacer under the buttons separates the header from the readme.
         expect(rows[buttonRow + 1]).toBe("");
     });
 
@@ -106,8 +106,8 @@ describe("ExtensionPageHeaderElement", () => {
         const header = createHeader({ content: long });
         renderElement(header, 20, 12, { themeVars: true });
 
-        // Справочные строки («Latest version: …») не переносятся — они короткие
-        // по построению; смотрим на описание, которое как раз длиннее ширины.
+        // Reference lines ("Latest version: …") don't wrap, they are short
+        // by construction; look at the description, which is longer than the width.
         const wrapped = lines(header).filter((l) => /^(alpha|delta|eta|zeta|beta|gamma|epsilon|theta)/.test(l));
         expect(wrapped.length).toBeGreaterThan(1);
         expect(Math.max(...wrapped.map((l) => l.length))).toBeLessThanOrEqual(18);
@@ -145,10 +145,10 @@ describe("ExtensionPageHeaderElement", () => {
 
         const row = frame(disabledScreen).findIndex((r) => r.includes("[ Install ]"));
         const at = new Point(3, row);
-        // Текст приглушён…
+        // The text is dimmed…
         expect(disabledScreen.getFgAt(at)).not.toBe(enabledScreen.getFgAt(at));
-        // …но фон прежний: выключенная кнопка остаётся кнопкой, а не превращается
-        // в строку текста.
+        // …but the background is the same: a disabled button stays a button and doesn't turn
+        // into a line of text.
         expect(disabledScreen.getBgAt(at)).toBe(enabledScreen.getBgAt(at));
     });
 
@@ -175,7 +175,7 @@ describe("ExtensionPageHeaderElement", () => {
         ]);
         app.render();
 
-        // Кадр обновился без ресайза — значит пересборка пометила дерево грязным.
+        // The frame updated without a resize, so the rebuild marked the tree dirty.
         const screen = app.backend.screenToString();
         expect(screen).toContain("Installed 1.0.0");
         expect(screen).toContain("[ Uninstall ]");

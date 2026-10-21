@@ -10,7 +10,7 @@ import { EXTENSIONS_VIEW_ID, EXTENSIONS_VIEWLET_ID, ExtensionsComponentDIToken }
 /** nf-cod-refresh */
 const REFRESH_ICON = "\ueb37";
 
-/** Leader-аккорд рядом с каноничным биндом: на legacy-терминале Ctrl+Shift+X неотличим от Ctrl+X (как у Search). */
+/** Leader chord next to the canonical binding: on a legacy terminal Ctrl+Shift+X is indistinguishable from Ctrl+X (like Search). */
 export const showExtensionsAction: CommandAction = {
     id: "workbench.view.extensions",
     title: "View: Show Extensions",

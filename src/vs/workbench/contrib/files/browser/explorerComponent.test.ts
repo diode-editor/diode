@@ -54,7 +54,7 @@ function createExplorer(themeService?: ThemeService): ExplorerHarness {
         opened.push(filePath as string);
         openOptions.push(options);
     });
-    // Дефолты реестра нужны декорациям: `explorer.decorations.*` по умолчанию включены.
+    // Decorations need the registry defaults: `explorer.decorations.*` are on by default.
     const service = new ExplorerService(
         clipboard,
         createTestConfigurationService(),
@@ -119,7 +119,7 @@ describe("ExplorerComponent", () => {
 
         expect(focusKey(tree)).toBe(true);
         expect(focusKey(h.component.view)).toBe(true);
-        // Фокус вне проводника и вовсе без фокуса — ключ опущен, а не undefined.
+        // Focus outside the explorer, or no focus at all — the key is false, not undefined.
         expect(focusKey(new FillerElement())).toBe(false);
         expect(focusKey(null)).toBe(false);
     });
@@ -160,7 +160,7 @@ describe("ExplorerComponent", () => {
     });
 
     it("Enter на папке переключает её и редактор не открывает", async () => {
-        // Эталон: `list.select` → `toggleCollapsed`.
+        // Upstream: `list.select` → `toggleCollapsed`.
         app.sendKey("Enter");
         await vi.waitFor(() => {
             app.render();
@@ -188,8 +188,8 @@ describe("ExplorerComponent", () => {
         app.sendKey("Enter");
         app.render();
 
-        // Эталон превьюит из дерева, но не из Quick Open и навигации по коду
-        // (`enablePreviewFrom*` там выключены), поэтому флаг ставит дерево.
+        // Upstream previews from the tree but not from Quick Open or code navigation
+        // (`enablePreviewFrom*` is off there), so the tree sets the flag.
         expect(h.openOptions).toEqual([{ preview: true }]);
     });
 
@@ -226,7 +226,7 @@ describe("ExplorerComponent", () => {
 
         app.sendKey("Shift+F10");
         app.render();
-        // Не два меню разом: предыдущая сессия закрыта.
+        // Never two menus at once: the previous session is closed.
         expect(app.querySelectorAll("PopupMenuElement")).toHaveLength(1);
     });
 
@@ -331,7 +331,7 @@ describe("ExplorerComponent — root assigned after construction", () => {
     });
 
     it("builds and wires the tree when the root arrives after the component", async () => {
-        // Component first, while there is no provider yet (пустой конструкторный путь).
+        // Component first, while there is no provider yet (the empty constructor path).
         const h = createExplorer();
         h.service.setRootPath(wsB.dir);
 
@@ -395,7 +395,7 @@ describe("ExplorerComponent — root assigned after construction", () => {
     });
 });
 
-/** Строка ниже единственного файла: у строки 0 курсор дерева, поэтому фон сайдбара проверяем на пустой. */
+/** A row below the only file: row 0 has the tree cursor, so the sidebar background is checked on an empty one. */
 const EMPTY_ROW_SCREEN_Y = 5;
 
 describe("ExplorerComponent with ThemeService", () => {
@@ -453,7 +453,7 @@ describe("ExplorerComponent with ThemeService", () => {
     });
 
     it("uses default registry sidebar fg/bg when the theme defines neither", async () => {
-        // Тема без цветов: sideBar.* приходят из дефолтного реестра.
+        // A theme without colors: sideBar.* come from the default registry.
         const bareThemeFile = { ...darkPlusTheme, colors: {} };
         const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(bareThemeFile));
         const h = createExplorer(themeService);

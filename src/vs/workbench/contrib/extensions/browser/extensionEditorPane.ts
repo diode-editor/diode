@@ -18,7 +18,7 @@ import { describeExtensionButtons } from "./extensionPageButtons.ts";
 import type { IExtensionPageContent } from "./extensionPageContent.ts";
 import { ExtensionPageElement } from "./extensionPageElement.ts";
 
-/** Идентичность вкладки, а не файл: по ней `EditorService.openPane` переключается на уже открытую страницу. */
+/** Tab identity, not a file: `EditorService.openPane` uses it to switch to an already open page. */
 export const EXTENSION_SCHEME = "extension";
 
 export function extensionUri(id: string): Uri {
@@ -26,8 +26,8 @@ export function extensionUri(id: string): Uri {
 }
 
 /**
- * Без текстовой проекции — `viewState` нет, команды курсора её не видят. Подписана на сервис:
- * карточка может смениться, пока вкладка открыта.
+ * No text projection: there is no `viewState`, so cursor commands do not see it. Subscribes to the service
+ * because the entry can change while the tab is open.
  */
 export class ExtensionEditorPane extends Disposable implements IEditorPane {
     public readonly uri: Uri;
@@ -39,7 +39,10 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
     private readonly onDidChangeStateEmitter = this.register(new Emitter<void>());
     private labelValue: string;
     private busy = false;
-    /** Монотонный и живёт в панели: удалённое расширение вне реестра из карточек исчезает, а про перезагрузку сказать надо. */
+    /**
+     * Monotonic and owned by the pane: a removed extension outside the registry drops out of the entries,
+     * but the reload prompt must stay.
+     */
     private needsReload: boolean;
     private operationError: string | null = null;
 
@@ -57,7 +60,7 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
         this.element = new ExtensionPageElement(this.content(), this.buttons(), (kind) => {
             this.activateButton(kind);
         });
-        // Точки в id — вне алфавита селектора инспектора (`#id`), как у контейнеров view.
+        // Dots in the id are outside the inspector selector alphabet (`#id`), same as for view containers.
         this.element.id = `extensionPage-${entry.id.replaceAll(".", "-")}`;
         this.element.style = { fg: "editor.foreground", bg: "editor.background" };
         this.view = this.element;
@@ -109,7 +112,7 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
             void this.runOperation(() => this.actions.uninstall(this.entry.id));
             return;
         }
-        // install и update — одна и та же операция: установка сносит прежние версии.
+        // install and update are the same operation: installing removes previous versions.
         void this.runOperation(() => this.actions.install(this.entry.id));
     }
 
@@ -126,20 +129,20 @@ export class ExtensionEditorPane extends Disposable implements IEditorPane {
         }
         this.needsReload = true;
         this.render();
-        // Фокус встаёт на первую кнопку — а первой теперь стоит Reload Window.
+        // Focus lands on the first button, which is now Reload Window.
         this.element.focus();
     }
 
     private syncEntry(): void {
         const fresh = this.service.getEntries().find((e) => e.id === this.entry.id);
         if (fresh === undefined) {
-            // Карточка исчезла — удалено и вне реестра. Чужую вкладку под пользователем не закрываем.
+            // The entry is gone: removed and not in the registry. Don't close the tab under the user.
             this.entry = { ...this.entry, installedVersion: null };
             this.render();
             return;
         }
         this.entry = fresh;
-        // Флаг монотонный: снять его может только перезагрузка окна.
+        // Monotonic: only a window reload clears it.
         this.needsReload = this.needsReload || fresh.needsReload;
         this.render();
         if (fresh.displayName !== this.labelValue) {

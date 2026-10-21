@@ -59,8 +59,8 @@ export const SEARCH_VIEWLET_ID = "search";
 
 export const SEARCH_VIEW_ID = "workbench.search.results";
 
-// Текст не эталонный («Only open editors are currently searched»): поиска по
-// открытым редакторам у нас нет, запрос уходит в ripgrep по корню.
+// Not the upstream text ("Only open editors are currently searched"): we have no search over
+// open editors, the query goes to ripgrep over the root.
 const SEARCH_WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "text", text: "Search needs an open folder." },
     { kind: "text", text: "" },
@@ -80,8 +80,8 @@ export interface ISearchRevealTarget {
 export const SearchRevealTargetDIToken = token<ISearchRevealTarget>("SearchRevealTarget");
 
 const SEARCH_DEBOUNCE_MS = 150;
-// ListViewElement умеет только append, а новый файл может расколоть компакт-цепочку
-// папок — tree-режим пересобирается целиком, но не чаще раза в интервал.
+// ListViewElement can only append, and a new file may split a compact folder chain —
+// tree mode is rebuilt entirely, but at most once per interval.
 const TREE_REBUILD_THROTTLE_MS = 100;
 
 const CASE_GLYPH = "Aa";
@@ -131,7 +131,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
     private readonly queryRow: HFlexElement;
     private readonly detailsRow: HFlexElement;
     private readonly detailsGapRow = new FillerElement();
-    // Typeahead выключен: набор букв в панели поиска уточняет запрос, а не прыгает по результатам.
+    // Typeahead is off: typing letters in the search panel refines the query instead of jumping through results.
     public readonly results = new ListViewElement({ typeahead: false });
     private readonly scrollBars: ScrollBarDecorator;
 
@@ -171,7 +171,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
                 this.restoreViewState();
             }),
         );
-        // ContextMenuService не дёргает updateContextKeys — ключ для toggled в «⋯» сетим при изменении.
+        // ContextMenuService doesn't call updateContextKeys — the key for `toggled` in "⋯" is set on change.
         this.contextKeys.set("searchViewMode", this.viewMode);
 
         this.queryInput.placeholder = "Search";
@@ -228,7 +228,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
         viewsService.registerContainer({
             id: SEARCH_VIEWLET_ID,
             title: "SEARCH",
-            // Stryker disable next-line StringLiteral: ViewsService различает только "panel"; любое другое значение (в том числе испорченное) уходит в сайдбар, так что подмена строки наблюдаемого эффекта не имеет
+            // Stryker disable next-line StringLiteral: ViewsService only distinguishes "panel"; any other value (including a mutated one) goes to the sidebar, so replacing the string has no observable effect
             location: "sidebar",
             order: 1,
             visibleContextKey: "searchViewletVisible",
@@ -240,7 +240,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
             title: "SEARCH",
             order: 10,
             body: this.root,
-            // Корень запроса — папка воркспейса (runSearch): без неё поле молча отвечало бы «No results».
+            // The query root is the workspace folder (runSearch): without it the field would silently answer "No results".
             requiresWorkspaceFolder: true,
             placeholder: SEARCH_WELCOME,
             focus: () => {
@@ -267,12 +267,12 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.queryInput.focus();
     }
 
-    /** Как CollapseDeepestExpandedLevel эталона: видны матчи → свернуть только файлы, иначе — всё. */
+    /** Like upstream CollapseDeepestExpandedLevel: matches visible → collapse only files, otherwise everything. */
     public collapseDeepestLevel(): void {
         const anyMatchVisible = [...this.rowMeta].some(([id, meta]) => meta.kind === "match" && this.isRowVisible(id));
         for (const [id, meta] of this.rowMeta) {
             if (meta.kind === "match") continue;
-            if (anyMatchVisible && meta.kind !== "file") continue; // этап 1: только файлы
+            if (anyMatchVisible && meta.kind !== "file") continue; // stage 1: files only
             this.results.setCollapsed(id, true);
         }
         this.refreshResultKeys();
@@ -355,7 +355,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.rebuildRows();
     }
 
-    /** Детали раскрываются и при непустых полях: непустые паттерны не прячем (паритет VS Code). */
+    /** Details expand with non-empty fields too: non-empty patterns are not hidden (VS Code parity). */
     public restoreViewState(): void {
         const mode = this.stateService.get(SEARCH_VIEW_MODE_STATE);
         if (mode !== this.viewMode) {
@@ -394,7 +394,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
         }
     }
 
-    // Строка «···» — заодно вертикальный зазор между строкой запроса и остальным блоком.
+    // The "···" row doubles as the vertical gap between the query row and the rest of the block.
     private rebuildHeader(): void {
         const rows: TUIElement[] = [this.queryRow, this.detailsRow];
         if (this.detailsExpanded) {
@@ -463,7 +463,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.results.clear();
         this.scheduleResultKeysUpdate();
 
-        // `folders.at(0)` — осознанное сужение до одной папки (мульти-корень — этап C в docs/TODO/MultiRoot.md).
+        // `folders.at(0)` is a deliberate narrowing to one folder (multi-root is stage C in docs/TODO/MultiRoot.md).
         const root = this.workspaceContext.getWorkspace().folders.at(0)?.uri.fsPath ?? null;
         const query = this.buildQuery();
         if (root === null || query.pattern === "") {
@@ -516,8 +516,8 @@ export class SearchComponent extends Component implements IContextKeyContributor
     }
 
     private appendMatchRow(group: IFileGroup, match: ITextMatch, index: number, parentId: string): void {
-        // Индекс в группе вместо сквозного счётчика: id стабилен между полными
-        // пересборками — иначе курсор и свёрнутость не восстановить.
+        // The index within the group instead of a running counter: the id is stable across full
+        // rebuilds — otherwise the cursor and collapsed state can't be restored.
         const id = `match:${group.relPath}:${String(index)}`;
         const element = buildMatchRow(id, match, this.rowStyles());
         this.registerRow(id, { kind: "match", element, group, match }, parentId);
@@ -559,7 +559,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
         }
     }
 
-    // Дебаунс: стрим зовёт на каждую строку, а скан проекции на каждую — O(n²).
+    // Debounced: the stream calls it per row, and a projection scan on each is O(n²).
     private scheduleResultKeysUpdate(): void {
         if (this.resultKeysTimer !== null) return;
         this.resultKeysTimer = setTimeout(() => {
@@ -588,8 +588,8 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.rebuildRows();
     }
 
-    // Свёрнутость и курсор переживают пересборку по стабильным id; свёрнутая компакт-цепочка
-    // при расколе свёрнутость теряет — её id умирает вместе с цепочкой.
+    // Collapsed state and cursor survive a rebuild via stable ids; a collapsed compact chain
+    // loses its collapsed state when split — its id dies with the chain.
     private rebuildRows(): void {
         const cursorId = this.results.getCursorElement()?.id ?? null;
         const collapsedIds = this.results.getCollapsedIds();
@@ -632,10 +632,10 @@ export class SearchComponent extends Component implements IContextKeyContributor
             this.revealTarget.openUri(Uri.file(meta.group.absolutePath));
             const editor = this.revealTarget.getActiveEditor();
             /* v8 ignore start -- defensive: openUri always opens/activates an editor for the file */
-            // Stryker disable next-line ConditionalExpression: ветка недостижима по той же причине, что и для покрытия
+            // Stryker disable next-line ConditionalExpression: the branch is unreachable for the same reason as for coverage
             if (editor === null) return;
             /* v8 ignore stop */
-            // lineNumber у ripgrep 1-based, редактор ждёт 0-based; колонки уже 0-based.
+            // ripgrep's lineNumber is 1-based, the editor expects 0-based; columns are already 0-based.
             const line = meta.match.lineNumber - 1;
             editor.goToPosition(line, meta.match.startColumn);
             editor.revealRange(createRange(line, meta.match.startColumn, line, meta.match.endColumn));
@@ -649,8 +649,8 @@ export class SearchComponent extends Component implements IContextKeyContributor
             isCaseSensitive: this.caseSensitive,
             isWholeWord: this.wholeWord,
             includes: parseSearchFieldGlobs(this.includeInput.inputState.value),
-            // Настройки — перед набранным, а не вместо: поле уточняет запрос поверх них, как в эталоне.
-            // Шаблоны настроек — от корня (`common` — только `<корень>/common`), набранное — на любой глубине (`**/…`).
+            // Settings come before the typed patterns, not instead of them: the field refines the query on top, like upstream.
+            // Setting patterns are root-relative (`common` is only `<root>/common`), typed ones match at any depth (`**/…`).
             excludes: [
                 ...searchExcludeGlobs(this.configurationService),
                 ...parseSearchFieldGlobs(this.excludeInput.inputState.value),
@@ -684,7 +684,7 @@ export class SearchComponent extends Component implements IContextKeyContributor
         this.handle = null;
     }
 
-    // Токены темы — резолвит каскад, рестайл строк на смену темы не нужен.
+    // Theme tokens are resolved by the cascade, so rows need no restyle on theme change.
     private rowStyles(): ISearchRowStyles {
         return {
             dimFg: "descriptionForeground",
@@ -702,8 +702,8 @@ function folderRowId(path: string): string {
     return `dir:${path}`;
 }
 
-// ripgrep отдаёт родные разделители (`/` и `\`); не срезанный абсолютный путь обрезал бы
-// basename у правого края списка.
+// ripgrep returns native separators (`/` and `\`); an unstripped absolute path would cut off
+// the basename at the right edge of the list.
 function labelFor(absolutePath: string, root: string): string {
     const rel = absolutePath.startsWith(root) ? absolutePath.slice(root.length).replace(/^[/\\]+/u, "") : absolutePath;
     return rel.replace(/\\/gu, "/");

@@ -6,7 +6,7 @@ export interface ISearchTreeFile<T> {
 
 export interface ISearchTreeFolder<T> {
     readonly kind: "folder";
-    /** Идентичность строки. */
+    /** Row identity. */
     readonly path: string;
     readonly label: string;
     readonly children: readonly SearchTreeNode<T>[];
@@ -20,8 +20,8 @@ interface TrieNode<T> {
 }
 
 /**
- * Близнец {@link import("../../scm/browser/scmChangeTree.ts").buildScmTree} (тот ходит по IScmChange);
- * при третьем потребителе стоит вынести общий хелпер.
+ * Twin of {@link import("../../scm/browser/scmChangeTree.ts").buildScmTree} (that one walks IScmChange);
+ * with a third consumer, a shared helper is worth extracting.
  */
 export function buildSearchTree<T extends { readonly relPath: string }>(
     items: Iterable<T>,
@@ -29,8 +29,8 @@ export function buildSearchTree<T extends { readonly relPath: string }>(
     const root: TrieNode<T> = { folders: new Map(), files: [] };
 
     for (const item of items) {
-        // Имя и папки режем по последнему «/», а не через split+pop: так имя
-        // получается строкой по построению, без утверждения «массив непуст».
+        // Split the name and folders at the last "/", not via split+pop: this way the name
+        // is a string by construction, with no "array is non-empty" assertion.
         const lastSlash = item.relPath.lastIndexOf("/");
         const name = item.relPath.slice(lastSlash + 1);
         const segments = lastSlash < 0 ? [] : item.relPath.slice(0, lastSlash).split("/");

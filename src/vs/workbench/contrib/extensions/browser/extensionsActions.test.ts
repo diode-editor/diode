@@ -60,8 +60,8 @@ describe("extensionsActions", () => {
 
         expect(commands.has("workbench.view.extensions")).toBe(true);
         const chord = keybindings.getKeybindingForCommand("workbench.view.extensions");
-        // Основной путь — leader-аккорд: Ctrl+Shift+X на legacy-терминале
-        // неотличим от Ctrl+X, поэтому канонический бинд объявлен условно.
+        // The leader chord is the primary path: on a legacy terminal Ctrl+Shift+X
+        // is indistinguishable from Ctrl+X, so the canonical binding is conditional.
         expect(chord && formatKeybinding(chord)).toBe("Ctrl+K X");
         const [conditional] = showExtensionsAction.keybindings ?? [];
         expect(conditional).toMatchObject({ when: "tier != 'legacy'" });
@@ -90,7 +90,7 @@ describe("extensionsActions", () => {
         const placement = refreshExtensionsAction.menus?.[0];
         expect(placement?.menuId).toBe(MenuId.ViewTitle);
         expect(placement?.group).toBe("navigation");
-        // Кнопка принадлежит только своей секции — фильтр по контексту меню.
+        // The button belongs only to its own section: filtered by the menu context.
         expect(placement?.visible?.({ view: EXTENSIONS_VIEW_ID })).toBe(true);
         expect(placement?.visible?.({ view: "workbench.search.results" })).toBe(false);
         expect(refreshExtensionsAction.when).toBe("extensionsViewletVisible");

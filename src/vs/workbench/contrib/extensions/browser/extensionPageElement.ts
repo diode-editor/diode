@@ -14,10 +14,10 @@ import type { IExtensionPageContent } from "./extensionPageContent.ts";
 import { buildExtensionBodyLines, TONE_COLORS } from "./extensionPageContent.ts";
 import { ExtensionPageHeaderElement } from "./extensionPageHeaderElement.ts";
 
-/** Readme в списке — ради прокрутки и виртуализации: он бывает на сотни строк. */
+/** The readme is in a list for scrolling and virtualization: it can run to hundreds of lines. */
 export class ExtensionPageElement extends TUIElement {
-    // Typeahead не выключаем: строки страницы заводятся без `label`, а быстрый
-    // поиск по ним и так не работает — опция была бы декорацией.
+    // Typeahead stays on: page rows are created without `label`, so quick search
+    // over them doesn't work anyway; the option would be decoration.
     private readonly list = new ListViewElement();
     private readonly header: ExtensionPageHeaderElement;
     private readonly root: HeaderBodyViewElement;
@@ -57,8 +57,8 @@ export class ExtensionPageElement extends TUIElement {
         return { lines: this.rows.map((row) => row.getText()) };
     }
 
-    // Ширина известна только в раскладке — строки пересобираются здесь, ДО раскладки тела, иначе первый
-    // кадр вкладки пуст. Пересборка только на СМЕНУ ширины, поэтому кадры не зацикливаются.
+    // Width is known only during layout, so lines are rebuilt here, BEFORE the body layout; otherwise the
+    // tab's first frame is empty. Rebuild only on a width CHANGE, so frames don't loop.
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
         if (size.width !== this.wrappedWidth) {
@@ -69,7 +69,7 @@ export class ExtensionPageElement extends TUIElement {
         return size;
     }
 
-    /** `tab` занят отступом только при текстовом фокусе, которого у страницы нет. */
+    /** `tab` is taken by indent only with text focus, which the page doesn't have. */
     private handleKeyDown(event: TUIKeyboardEvent): void {
         const buttons = this.header.getButtons();
         const focused = buttons.findIndex((button) => button.isFocused);
@@ -96,7 +96,7 @@ export class ExtensionPageElement extends TUIElement {
 
     private rebuildRows(): void {
         if (this.wrappedWidth === null) return;
-        // Минус колонка отступа слева и полосы прокрутки справа — иначе строка упиралась бы в бегунок.
+        // Minus the indent column on the left and the scrollbar on the right; otherwise a line would hit the thumb.
         const textWidth = this.wrappedWidth - 2;
         this.list.clear();
         this.rows = buildExtensionBodyLines(this.content, textWidth).map((line, i) => {

@@ -15,14 +15,14 @@ import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutSer
 
 export const SuggestComponentDIToken = token<SuggestComponent>("SuggestComponent");
 
-/** Не ThemedComponent: токены `editorSuggestWidget.*` резолвятся из палитры темы на корне. */
+/** Not a ThemedComponent: the `editorSuggestWidget.*` tokens resolve from the theme palette on the root. */
 export class SuggestComponent extends Component {
     public static dependencies = [LayoutServiceDIToken] as const;
 
     public readonly widget: CompletionWidgetElement;
 
     private readonly overlay: CaretAnchoredOverlay;
-    /** По её ширине выбирается сторона панели описания. */
+    /** Its width decides the details panel side. */
     private readonly hostView: BodyElement;
     private lastAnchor: OverlayAnchorPosition | null = null;
 
@@ -61,7 +61,7 @@ export class SuggestComponent extends Component {
         return this.overlay.isOpen();
     }
 
-    /** Фокус НЕ забирает — редактор остаётся активным, как в VS Code. */
+    /** Does NOT take focus — the editor stays active, like VS Code. */
     public openAt(anchor: OverlayAnchorPosition): void {
         this.lastAnchor = anchor;
         this.chooseDetailsSide(anchor);
@@ -69,8 +69,8 @@ export class SuggestComponent extends Component {
     }
 
     /**
-     * Отдельный шаг: описание приезжает асинхронно (resolve) после показа списка, и без пере-анкора
-     * слой оставлял позицию и damage прежней геометрии — панели на экране не было.
+     * A separate step: the description arrives asynchronously (resolve) after the list is shown, and without
+     * a re-anchor the layer kept the position and damage of the old geometry — the panel never showed up.
      */
     public refreshDetailsLayout(): void {
         const anchor = this.lastAnchor;
@@ -80,8 +80,8 @@ export class SuggestComponent extends Component {
     }
 
     /**
-     * Справа, а если не помещается — слева (как в VS Code): иначе оверлей сдвинул бы виджет целиком,
-     * и список уехал бы от каретки.
+     * On the right, or on the left if it doesn't fit (like VS Code): otherwise the overlay would shift the whole
+     * widget, and the list would drift away from the cursor.
      */
     private chooseDetailsSide(anchor: OverlayAnchorPosition): void {
         const screenWidth = this.hostView.layoutSize.width;

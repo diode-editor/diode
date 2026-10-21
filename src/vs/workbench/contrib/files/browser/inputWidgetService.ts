@@ -8,8 +8,8 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 export const InputWidgetServiceDIToken = token<InputWidgetService>("InputWidgetService");
 
 /**
- * Своих ключей нет (`inputWidgetFocus` центральный), но активное поле сервис забирает в том же
- * опросе IContextKeyContributor — перед резолвом каждого биндинга и на смене фокуса.
+ * Has no keys of its own (`inputWidgetFocus` is central), but picks up the active input in the same
+ * IContextKeyContributor poll — before each binding is resolved and on focus change.
  */
 export class InputWidgetService implements IContextKeyContributor {
     public static dependencies = [] as const;

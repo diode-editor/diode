@@ -74,9 +74,9 @@ describe("quick open actions — кейбинды палитры и пикера
 
     it("палитре достался F1 (аккорд Ctrl+K Ctrl+P занят пикером), и он БЕЗУСЛОВЕН", () => {
         expect(showCommandsAction.keybinding).toEqual(parseKeybinding("mod+shift+p"));
-        // Без tier-условия намеренно: под `tier == 'legacy'` F1 исчезал ровно там,
-        // где нужен (tmux поднимает tier, но расширенных клавиш не доставляет) —
-        // редактор оставался вообще без палитры.
+        // No tier condition on purpose: under `tier == 'legacy'` F1 vanished exactly where
+        // it's needed (tmux raises the tier but doesn't deliver extended keys) —
+        // the editor was left with no palette at all.
         expect(showCommandsAction.keybindings).toEqual([parseKeybinding("f1")]);
     });
 });

@@ -145,8 +145,8 @@ describe("CommandsQuickAccessProvider — fuzzy-фильтр", () => {
 describe("CommandsQuickAccessProvider — порядок и подсветка", () => {
     it("лучшее совпадение идёт первым, а не в порядке регистрации", () => {
         const { provider, commands } = createProvider();
-        // Совпадение по серёдке слов регистрируем ПЕРВЫМ, чтобы порядок реестра
-        // не мог случайно совпасть с порядком по очкам.
+        // Register the mid-word match FIRST so registry order can't
+        // coincide with score order by accident.
         commands.register("a.b", () => undefined, "Toggle Goal Baseline");
         commands.register("c.d", () => undefined, "Go to Line/Column...");
 

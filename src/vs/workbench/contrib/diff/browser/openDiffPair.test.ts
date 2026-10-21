@@ -158,7 +158,7 @@ describe("openDiffPair", () => {
         await settle(10);
         app.render();
 
-        // Правая сторона без текста и uri — легитимно пустая; вкладка `L ↔ R`.
+        // The right side has no text and no uri, so it is legitimately empty; the tab is `L ↔ R`.
         expect(result).toBe("opened");
         expect(app.backend.screenToString()).toContain("L ↔ R");
         expect(app.backend.screenToString()).toMatch(/1-\s+one/u);
@@ -177,7 +177,7 @@ describe("openDiffPair", () => {
     });
 
     it("повторный вызов с исчезнувшей снимочной стороной — unreadable, вкладка остаётся", async () => {
-        // Снимочная сторона — preferDisk (как «Compare with Saved»).
+        // The snapshot side is preferDisk (like "Compare with Saved").
         const spec = {
             original: {
                 uri: Uri.file(ws.path("a.txt")),
@@ -190,7 +190,7 @@ describe("openDiffPair", () => {
         expect(await openDiffPair(container, spec)).toBe("opened");
         await settle(10);
 
-        // Файл исчез с диска — освежить снимок нечем.
+        // The file is gone from disk: nothing to refresh the snapshot with.
         const { rmSync } = await import("node:fs");
         rmSync(ws.path("a.txt"));
         expect(await openDiffPair(container, spec)).toBe("unreadable");
@@ -208,8 +208,8 @@ describe("openDiffPair", () => {
     });
 
     it("обе стороны — несуществующие файлы с политикой empty: язык по расширению пути", async () => {
-        // Свой контейнер: языковой сервис подменяется ДО первого get (кеш DI);
-        // файлов нет ни в буферах, ни на диске — язык обязан выйти из расширения.
+        // Own container: the language service is replaced BEFORE the first get (DI cache);
+        // the files are neither in buffers nor on disk, so the language must come from the extension.
         const local = createTestContainer();
         const asked: string[] = [];
         local.container.bind(LanguageServiceDIToken, () => ({
@@ -235,8 +235,8 @@ describe("openDiffPair", () => {
         await settle(10);
         localApp.render();
 
-        // Пустой ↔ пустой: вкладка открыта с нотисом идентичности, язык спрошен
-        // по расширению (модели-то нет).
+        // Empty ↔ empty: the tab opens with the identical-files notice, the language is asked
+        // by extension (there is no model).
         expect(result).toBe("opened");
         expect(asked.some((p) => p.endsWith("no2.ts"))).toBe(true);
         expect(localApp.backend.screenToString()).toContain("The files are identical");
@@ -251,8 +251,8 @@ describe("openDiffPair", () => {
         expect(await openDiffPair(container, spec("one\n"))).toBe("opened");
         await settle(10);
 
-        // Повтор с новым текстом: та же вкладка, слева свежий текст; правая
-        // сторона (ни текста, ни uri) освежается в пусто без ошибок.
+        // Repeat with new text: same tab, fresh text on the left; the right
+        // side (no text, no uri) refreshes to empty without errors.
         expect(await openDiffPair(container, spec("two\n"))).toBe("opened");
         await settle(10);
         app.render();
@@ -271,7 +271,7 @@ describe("openDiffPair", () => {
     });
 
     it("язык подсветки берётся по расширению файла, когда буфер не открыт", async () => {
-        // Свой контейнер: языковой сервис подменяется ДО первого get (кеш DI).
+        // Own container: the language service is replaced BEFORE the first get (DI cache).
         const { writeFileSync } = await import("node:fs");
         writeFileSync(ws.path("c.ts"), "const x = 1;\n");
         writeFileSync(ws.path("d.ts"), "const x = 2;\n");

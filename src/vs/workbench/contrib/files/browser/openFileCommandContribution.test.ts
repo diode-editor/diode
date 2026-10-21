@@ -64,7 +64,7 @@ describe("OpenFileCommandContribution", () => {
 
         commands.execute("workbench.openFile", "/ws/alpha.txt");
 
-        // Пустой объект, а не `undefined`: `preview` остаётся выключенным.
+        // An empty object, not `undefined`: `preview` stays off.
         expect(editorService.options).toEqual([{}]);
     });
 

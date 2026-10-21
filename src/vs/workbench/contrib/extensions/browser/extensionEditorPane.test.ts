@@ -89,14 +89,14 @@ function fakeActions(
     };
 }
 
-/** Поднимает страницу в приложении: фокус и события живут в дереве приложения. */
+/** Mounts the page in an app: focus and events live in the app tree. */
 function mount(pane: ExtensionEditorPane): void {
     TestApp.createWithContent(pane.view).render();
 }
 
 function press(pane: ExtensionEditorPane, kind: string): Promise<void> {
     pressSync(pane, kind);
-    // Операция асинхронная: даём промису установки/удаления дойти до конца.
+    // The operation is async: let the install/uninstall promise settle.
     return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
@@ -139,7 +139,7 @@ describe("ExtensionEditorPane", () => {
         expect(pane.label).toBe("Acme Tools");
         expect(pane.readOnly).toBe(true);
         expect(pane.isModified).toBe(false);
-        // Текстовой проекции у страницы нет — команды курсора её не видят.
+        // The page has no text projection, so cursor commands do not see it.
         expect(pane.viewState).toBeUndefined();
         expect(pane.getSelectedTexts()).toEqual([]);
     });
@@ -149,7 +149,7 @@ describe("ExtensionEditorPane", () => {
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
         renderElement(pane.view, 50, 20, { themeVars: true });
 
-        // Точки в id селектор инспектора не понимает — они заменены дефисами.
+        // The inspector selector does not understand dots in the id, so they are replaced with dashes.
         expect(pane.view.id).toBe("extensionPage-acme-tools");
         expect(pane.view.style).toMatchObject({ fg: "editor.foreground", bg: "editor.background" });
     });
@@ -171,7 +171,7 @@ describe("ExtensionEditorPane", () => {
         update([entry({ installedVersion: "1.0.0", availability: "installed" })]);
         const screen = screenOf(pane, 70);
         expect(screen).toContain("Installed 1.0.0");
-        // Причина сбоя не теряется при перерисовке — иначе страница молча пустеет.
+        // The failure reason survives a re-render; otherwise the page silently goes blank.
         expect(screen).toContain("boom");
     });
 
@@ -192,7 +192,7 @@ describe("ExtensionEditorPane", () => {
             entry({ id: "other.thing", displayName: "Other", installedVersion: "9.9.9", availability: "installed" }),
             entry(),
         ]);
-        // Обновилась чужая карточка — статус нашей остаётся прежним.
+        // Another entry changed; our status stays the same.
         expect(screenOf(pane)).toContain("Not installed");
     });
 
@@ -255,7 +255,7 @@ describe("ExtensionEditorPane", () => {
         const pane = new ExtensionEditorPane(service, fakeActions(), entry(), META, null);
         renderElement(pane.view, 50, 20, { themeVars: true });
 
-        // Шапка и тело — разные элементы: у каждого свой снимок строк.
+        // Header and body are separate elements, each with its own line snapshot.
         const header = pane.view.querySelector("#extensionPageHeader")!;
         expect((header.inspectState()!.lines as string[]).slice(0, 2)).toEqual(["Acme Tools", "acme.tools"]);
         expect(pane.view.inspectState()?.lines as string[]).toContain("Readme body");
@@ -280,8 +280,8 @@ describe("ExtensionEditorPane", () => {
         await press(pane, "install");
 
         expect(actions.calls).toEqual(["install:acme.tools"]);
-        // Кнопка установки сменилась приглашением перезагрузиться, и фокус — на нём:
-        // это следующий шаг, а не поиск команды в палитре.
+        // The install button is replaced by the reload prompt and focus is on it:
+        // that is the next step, no need to search the command palette.
         expect(buttonLabels(pane)).toEqual(["Reload Window", "Install"]);
         expect(pane.view.querySelector("#extensionPageButton-reload")?.isFocused).toBe(true);
     });
@@ -320,7 +320,7 @@ describe("ExtensionEditorPane", () => {
         await press(pane, "install");
 
         expect(headerLines(pane)).toContain("sha256 mismatch");
-        // Перезагружаться незачем — ничего не изменилось; повторить можно тут же.
+        // Nothing changed, so no reload is needed; retry is available right away.
         expect(buttonLabels(pane)).toEqual(["Install"]);
         expect(enabledFlags(pane)).toEqual([true]);
     });
@@ -365,7 +365,7 @@ describe("ExtensionEditorPane", () => {
 
         update([entry({ installedVersion: "1.0.0", availability: "installed" })]);
 
-        // Ставили не мы и не в этой сессии — перезагружаться незачем.
+        // Installed elsewhere and not in this session, so no reload is needed.
         expect(buttonLabels(pane)).toEqual(["Uninstall"]);
     });
 

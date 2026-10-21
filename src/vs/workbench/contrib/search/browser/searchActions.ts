@@ -16,8 +16,8 @@ export const showSearchAction: CommandAction = {
     title: "View: Show Search",
     shortTitle: "Search",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 12 }],
-    // Аккорд безусловен: на legacy-терминале Ctrl+Shift+F неотличим от Ctrl+F, а kitty перехватывает
-    // Ctrl+Shift+*. Канонический бинд — только там, где терминал способен его передать.
+    // The chord is unconditional: on a legacy terminal Ctrl+Shift+F is indistinguishable from Ctrl+F, and kitty
+    // intercepts Ctrl+Shift+*. The canonical binding is only where the terminal can deliver it.
     keybinding: parseChord("ctrl+k f"),
     keybindings: [{ keys: parseKeybinding("mod+shift+f"), when: "tier != 'legacy'" }],
     run(accessor) {
@@ -25,7 +25,7 @@ export const showSearchAction: CommandAction = {
     },
 };
 
-/** Пара команд вместо тоггла — как у VS Code; галочка активного режима в «⋯» — через `toggled`. */
+/** A pair of commands instead of a toggle — like VS Code; the active mode's check mark in "⋯" comes via `toggled`. */
 export const searchViewAsTreeAction: CommandAction = {
     id: "search.action.viewAsTree",
     title: "Search: View as Tree",
@@ -45,7 +45,7 @@ export const searchViewAsTreeAction: CommandAction = {
     },
 };
 
-/** Collapse/Expand делят слот (group/order) и сменяются по viewHasSomeCollapsibleResult — в заголовке одна кнопка, как в VS Code. */
+/** Collapse/Expand share a slot (group/order) and swap on viewHasSomeCollapsibleResult — one button in the title, like VS Code. */
 export const collapseSearchResultsAction: CommandAction = {
     id: "search.action.collapseSearchResults",
     title: "Search: Collapse All",
@@ -86,7 +86,7 @@ export const expandSearchResultsAction: CommandAction = {
     },
 };
 
-/** Плоские стрелки свободны: инпуты однострочные, а searchInputBoxFocus не задевает ни редактор, ни Find-виджет. */
+/** Plain arrows are free: the inputs are single-line, and searchInputBoxFocus touches neither the editor nor the Find widget. */
 export const focusNextInputBoxAction: CommandAction = {
     id: "search.focus.nextInputBox",
     title: "Search: Focus Next Input Box",
@@ -124,7 +124,7 @@ export const toggleSearchDetailsAction: CommandAction = {
     id: "workbench.action.search.toggleQueryDetails",
     title: "Search: Toggle Search Details",
     when: "searchViewletFocus",
-    // Как у Search/SCM выше: безусловный аккорд + канонический под tier-гейтом.
+    // Like Search/SCM above: an unconditional chord + the canonical one behind the tier gate.
     keybinding: parseChord("ctrl+k alt+j"),
     keybindings: [{ keys: parseKeybinding("mod+shift+j"), when: "tier != 'legacy'" }],
     run(accessor) {

@@ -27,20 +27,20 @@ import { provideInlineCompletions } from "./provideInlineCompletions.ts";
 export const InlineCompletionsServiceDIToken = token<InlineCompletionsService>("InlineCompletionsService");
 
 /**
- * Ghost text — хвост `insertText` за набранным: совпадающий набор сжимает подсказку локально,
- * Backspace растит обратно, расхождение гасит.
+ * Ghost text is the tail of `insertText` past what is typed: matching typing shrinks the suggestion
+ * locally, Backspace grows it back, a mismatch dismisses it.
  */
 interface IInlineSession {
     readonly editor: TextEditorPane;
     readonly line: number;
-    /** Начало заменяемого диапазона: `range.start` провайдера либо каретка запроса. */
+    /** Start of the replaced range: the provider's `range.start` or the request cursor. */
     readonly startCharacter: number;
     readonly insertText: string;
 }
 
 /**
- * Настройки читаются НА КАЖДОМ обращении, а не кэшируются: правка `settings.json` применяется без
- * перезапуска.
+ * Settings are read on EVERY access, not cached: an edit to `settings.json` applies without a
+ * restart.
  */
 export class InlineCompletionsService extends Disposable implements IContextKeyContributor {
     public static dependencies = [
@@ -56,9 +56,9 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
     private readonly languageFeatures: ILanguageFeaturesService;
 
     private session: IInlineSession | null = null;
-    // Смена «показан / ждём ответа» — её ждёт quick suggest (offWhenInlineCompletions).
+    // A "shown / awaiting answer" change — quick suggest waits for it (offWhenInlineCompletions).
     private readonly onDidChangeStateEmitter = this.register(new Emitter<void>());
-    // Stryker disable next-line BooleanLiteral: значение инициализатора никогда не читается — show() переписывает поле до появления сессии, hide() возвращает true
+    // Stryker disable next-line BooleanLiteral: the initializer value is never read — show() overwrites the field before a session exists, hide() resets it to true
     private indentationLessThanTabSize = true;
 
     private readonly autoTrigger = this.register(
@@ -66,10 +66,10 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
             void this.trigger(InlineCompletionTriggerKind.Automatic);
         }, 0),
     );
-    // Отмена билета останавливает и работу провайдера через токен: за подсказкой может стоять
-    // платный LLM-вызов.
+    // Cancelling the ticket also stops the provider's work via the token: a suggestion may be backed
+    // by a paid LLM call.
     private readonly latest = new LatestRequest();
-    // Правка accept не должна сама перезапросить подсказку.
+    // The accept edit must not re-request a suggestion by itself.
     private suppressAutoTriggerOnce = false;
 
     public constructor(
@@ -88,8 +88,8 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
             bindActiveEditor(this.group, (editor, store) => {
                 this.hide();
                 if (editor === null) return;
-                // Маркер «была правка контента»: выставляет content-листенер,
-                // потребляет обработчик каретки (view-state там уже консистентен).
+                // "Content was edited" marker: set by the content listener, consumed by the
+                // cursor handler (the view state is consistent there).
                 let contentDidChange = false;
                 store.add(
                     editor.onDidChangeContent(() => {
@@ -105,16 +105,16 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
                 );
             }),
         );
-        // Под suggest-попапом призрак не рисуется, но сессия живёт: у upstream при открытом виджете
-        // ghost text — только продолжение выбранного пункта.
+        // Under the suggest popup the ghost text is not drawn, but the session lives on: in upstream,
+        // with the widget open, ghost text only continues the selected item.
         this.register(
             this.completionService.onDidShow(() => {
                 this.session?.editor.setGhostText(null);
                 this.onDidChangeStateEmitter.fire();
             }),
         );
-        // Попап закрылся — годная сессия возвращается без перезапроса (как upstream), иначе перезапрос
-        // планировщиком, а не прямым trigger: тот перепроверит гейты.
+        // The popup closed — a still-valid session comes back without a re-request (as upstream);
+        // otherwise re-request via the scheduler, not a direct trigger, so the gates are re-checked.
         this.register(
             this.completionService.onDidClose(() => {
                 const session = this.session;
@@ -143,7 +143,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         });
     }
 
-    /** Открытый suggest-попап сессию прячет. */
+    /** An open suggest popup hides the session. */
     public isOpen(): boolean {
         return this.session !== null && !this.completionService.isOpen();
     }
@@ -155,29 +155,29 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
     }
 
     /**
-     * Нужен Escape: пока призрака нет, `inlineSuggestionVisible` ложный, а незавершённый запрос `.hide`
-     * отменить обязана.
+     * Needed by Escape: while there is no ghost text `inlineSuggestionVisible` is false, yet `.hide`
+     * must cancel an unfinished request.
      */
     private isRequestPending(): boolean {
         return this.latest.pending;
     }
 
     private hasIndentationLessThanTabSize(): boolean {
-        // Поле сбрасывается в true вместе с сессией (hide): «session === null, поле false» недостижимо.
-        // Stryker disable next-line ConditionalExpression,LogicalOperator: см. выше
+        // The field resets to true together with the session (hide): "session === null, field false" is unreachable.
+        // Stryker disable next-line ConditionalExpression,LogicalOperator: see above
         return this.session === null || this.indentationLessThanTabSize;
     }
 
     /**
-     * Показывается и в СЕРЕДИНЕ строки: рендер вклеивает фантомные колонки, хвост строки уезжает вправо.
-     * Под открытым suggest-попапом ответ ждёт его закрытия невидимым (как upstream). `enabled: false`
-     * гасит только авто-запрос — явный `Invoke` проходит.
+     * Shown in the MIDDLE of a line too: the render splices in phantom columns, the rest of the line
+     * shifts right. Under an open suggest popup the answer waits invisibly for it to close (as upstream).
+     * `enabled: false` only stops the auto request — an explicit `Invoke` goes through.
      */
     public async trigger(triggerKind: InlineCompletionTriggerKind = InlineCompletionTriggerKind.Invoke): Promise<void> {
         try {
             await this.request(triggerKind);
         } finally {
-            // Любой исход — конец ожидания для quick suggest.
+            // Any outcome ends the wait for quick suggest.
             this.onDidChangeStateEmitter.fire();
         }
     }
@@ -218,8 +218,8 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         const current = editor.viewState.selections;
         if (current.length !== 1 || !isSelectionCollapsed(current[0])) return;
         if (current[0].active.line !== caret.line || current[0].active.character !== caret.character) return;
-        // Escape и тихая смена редактора гасят запрос, не меняя текста и каретки; отсекается и провайдер,
-        // проигнорировавший отмену.
+        // Escape and a silent editor change kill the request without changing text or cursor; this also
+        // cuts off a provider that ignored the cancellation.
         if (ticket.isStale()) return;
 
         for (const item of items) {
@@ -229,8 +229,8 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
                 return;
             }
         }
-        // Отложенный авто-запрос (его мог завести закрывшийся попап) не трогаем: полный hide() съел бы
-        // чужой запланированный запрос.
+        // Leave the pending auto request alone (a closing popup may have scheduled it): a full hide() would
+        // eat someone else's scheduled request.
         this.clearSession();
     }
 
@@ -238,25 +238,25 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         return this.configuration.get("editor.inlineSuggest.enabled", { overrideIdentifier: languageId });
     }
 
-    /** Мс. */
+    /** Ms. */
     private autoTriggerDelayMs(languageId: string | undefined): number {
         return this.configuration.get("editor.inlineSuggest.delay", { overrideIdentifier: languageId });
     }
 
-    /** Мс. */
+    /** Ms. */
     private requestTimeoutMs(languageId: string): number {
         return this.configuration.get("editor.inlineSuggest.requestTimeout", { overrideIdentifier: languageId });
     }
 
     public acceptCurrent(): void {
         const session = this.session;
-        // Спрятанную под попапом подсказку не принимаем: человек её не видит.
+        // A suggestion hidden under the popup is not accepted: the user cannot see it.
         if (session === null || this.completionService.isOpen()) return;
         const editor = this.group.getActiveEditor();
         const caret = this.validCaretForSession(session, editor);
-        /* v8 ignore start -- defensive: onCaretChanged гасит сессию раньше, чем
-           расхождение доживёт до команды (диспетчер обновляет ключи перед резолвом) */
-        // Stryker disable ConditionalExpression,LogicalOperator,BlockStatement,CallExpression: недостижимый защитный гард, см. v8 ignore
+        /* v8 ignore start -- defensive: onCaretChanged kills the session before a
+           mismatch can survive until the command (the dispatcher updates keys before resolving) */
+        // Stryker disable ConditionalExpression,LogicalOperator,BlockStatement,CallExpression: unreachable defensive guard, see v8 ignore
         if (editor === null || caret === null) {
             this.hide();
             return;
@@ -264,7 +264,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         // Stryker restore ConditionalExpression,LogicalOperator,BlockStatement,CallExpression
         /* v8 ignore stop */
         this.hide();
-        // Правка ниже синхронно дёрнет onCaretChanged — не даём ей перезапросить.
+        // The edit below synchronously fires onCaretChanged — keep it from re-requesting.
         this.suppressAutoTriggerOnce = true;
         editor.applyExternalEdits(
             [
@@ -279,8 +279,8 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
     }
 
     /**
-     * Escape — «не надо», а не «спрячь»: иначе запрос в полёте или отложенный всплыл бы призраком через
-     * секунду.
+     * Escape means "don't", not "hide": otherwise a request in flight or a pending one would pop up as
+     * ghost text a second later.
      */
     public hide(): void {
         this.latest.cancel();
@@ -289,18 +289,18 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         this.onDidChangeStateEmitter.fire();
     }
 
-    /** Запросы не трогает, в отличие от {@link hide}. */
+    /** Leaves requests alone, unlike {@link hide}. */
     private clearSession(): void {
         if (this.session === null) return;
         this.session.editor.setGhostText(null);
         this.session = null;
-        // Stryker disable next-line BooleanLiteral: пара к гарду session === null в hasIndentationLessThanTabSize — расхождение недостижимо
+        // Stryker disable next-line BooleanLiteral: paired with the session === null guard in hasIndentationLessThanTabSize — a mismatch is unreachable
         this.indentationLessThanTabSize = true;
     }
 
     /**
-     * `null` — пункт не проходит гейт показа: набранное — префикс `filterText ?? insertText`, хвост
-     * непуст (контракт vscode.d.ts), range однострочный на строке каретки.
+     * `null` means the item fails the show gate: the typed text is a prefix of `filterText ?? insertText`,
+     * the tail is non-empty (vscode.d.ts contract), the range is single-line on the cursor line.
      */
     private sessionFromItem(
         editor: TextEditorPane,
@@ -322,7 +322,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         return { editor, line: caret.line, startCharacter, insertText: item.insertText };
     }
 
-    /** `null` — сессия испорчена. Хвост строки ПРАВЕЕ каретки не в счёт: он уезжает вправо под фантомом. */
+    /** `null` means the session is broken. The rest of the line RIGHT of the cursor does not count: it shifts right past the ghost. */
     private validCaretForSession(session: IInlineSession, editor: TextEditorPane | null): IPosition | null {
         if (editor !== session.editor) return null;
         const selections = editor.viewState.selections;
@@ -336,7 +336,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         return caret;
     }
 
-    /** Под открытым suggest-попапом сессия запоминается, но не рисуется. */
+    /** Under an open suggest popup the session is remembered but not drawn. */
     private show(session: IInlineSession): void {
         const caretCharacter = session.editor.viewState.selections[0].active.character;
         const remainder = session.insertText.slice(caretCharacter - session.startCharacter);
@@ -353,11 +353,11 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         );
     }
 
-    /** Правка при погашенной сессии планирует авто-запрос — как upstream, на любое изменение текста. */
+    /** An edit without a session schedules an auto request — as upstream, on any text change. */
     private onCaretChanged(wasEdit: boolean): void {
         const suppressed = this.suppressAutoTriggerOnce;
         this.suppressAutoTriggerOnce = false;
-        // Снапшот запроса протух: ответ всё равно отсеют гарды, провайдер вправе бросить работу сейчас.
+        // The request snapshot is stale: the guards drop the answer anyway, so the provider may stop work now.
         this.latest.cancel();
 
         const editor = this.group.getActiveEditor();
@@ -369,7 +369,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         const session = this.session;
         if (session !== null) {
             const caret = this.validCaretForSession(session, editor);
-            // Пере-показ — только на ПРАВКЕ: движение каретки гасит подсказку (стрелки снимают призрака, как upstream).
+            // Re-show only on an EDIT: a cursor move dismisses the suggestion (arrows remove the ghost text, as upstream).
             if (caret !== null && wasEdit) {
                 this.show(session);
                 return;
@@ -378,9 +378,9 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
         }
 
         const selections = editor.viewState.selections;
-        // Гейт повторяется в trigger() до RPC — «расширяющий» мутант лишь
-        // планирует запрос, который сам себя отсечёт; ненаблюдаемо.
-        // Stryker disable next-line LogicalOperator,ConditionalExpression,EqualityOperator: см. выше
+        // The gate is repeated in trigger() before the RPC — a "widening" mutant only
+        // schedules a request that cuts itself off; not observable.
+        // Stryker disable next-line LogicalOperator,ConditionalExpression,EqualityOperator: see above
         const single = selections.length === 1 && isSelectionCollapsed(selections[0]);
 
         if (!suppressed && wasEdit && single) {
@@ -399,7 +399,7 @@ export class InlineCompletionsService extends Disposable implements IContextKeyC
     }
 }
 
-/** Подсказка «с отступа» при каретке в отступе не должна красть Tab у индентации (upstream `getIndentationInfo`). */
+/** An "indented" suggestion with the cursor in the indentation must not steal Tab from indenting (upstream `getIndentationInfo`). */
 export function computeIndentationLessThanTabSize(
     lineContent: string,
     caretCharacter: number,
@@ -412,8 +412,8 @@ export function computeIndentationLessThanTabSize(
 
     let width = 0;
     for (const char of ghostFirstLine) {
-        // Таб всегда добивает ширину до кратной tabSize границы, то есть до
-        // >= tabSize (width здесь всегда < tabSize — иначе вышли бы раньше).
+        // A tab always pads the width up to a tabSize multiple, i.e. to
+        // >= tabSize (width here is always < tabSize — otherwise we would have exited earlier).
         if (char === "\t") return false;
         if (char !== " ") break;
         width += 1;

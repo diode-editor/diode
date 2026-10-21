@@ -4,7 +4,7 @@ import { INHERITED_FG } from "@tuidom/core/dom/styles/tuiStyle";
 import type { IRegistryExtensionMeta } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
-// Перенос по словам считаем сами: в tuidom нет wrap-элемента (`TextBlockElement` — блок фиксированных строк).
+// We wrap words ourselves: tuidom has no wrapping element (`TextBlockElement` is a block of fixed lines).
 
 export type ExtensionPageTone = "normal" | "dim" | "warning";
 
@@ -21,16 +21,16 @@ export const TONE_COLORS: Record<ExtensionPageTone, StyleColor> = {
 
 export interface IExtensionPageContent {
     readonly entry: IExtensionListEntry;
-    /** Мета реестра; `undefined` — записи нет (расширение поставлено мимо магазина). */
+    /** Registry metadata; `undefined` means no entry (the extension was installed outside the marketplace). */
     readonly meta: IRegistryExtensionMeta | undefined;
-    /** Почему меты нет (сетевой сбой); `null` — реестр ответил. */
+    /** Why metadata is missing (network failure); `null` means the registry answered. */
     readonly metaError: string | null;
     readonly operationError: string | null;
 }
 
 const MIN_WRAP_WIDTH = 8;
 
-/** Пустые строки сохраняются (разделитель абзацев), слово длиннее ширины режется жёстко. */
+/** Empty lines are kept (paragraph separator); a word longer than the width is hard-split. */
 export function wrapText(text: string, width: number): string[] {
     const limit = Math.max(MIN_WRAP_WIDTH, width);
     const out: string[] = [];
@@ -48,19 +48,22 @@ export function wrapText(text: string, width: number): string[] {
                 }
             }
         }
-        // Хвост выталкиваем всегда: у абзаца из одних пробелов он пустой — это и есть пустая строка абзаца.
+        // Always flush the tail: for a whitespace-only paragraph it is empty, which is the paragraph's blank line.
         out.push(line);
     }
     return out;
 }
 
-/** Число кусков считаем заранее, а не циклом «пока длинно»: такой цикл мутанты зацикливали, вешая раннер. */
+/**
+ * Chunk count is computed upfront, not with a "while too long" loop: mutants made that loop spin forever,
+ * hanging the runner.
+ */
 function splitLongWord(word: string, limit: number): string[] {
     const chunks = Math.ceil(word.length / limit);
     return Array.from({ length: chunks }, (_, i) => word.slice(i * limit, (i + 1) * limit));
 }
 
-/** По версиям, а не по `availability`: так у каждой ветки есть достижимое состояние. */
+/** By versions, not by `availability`: this way every branch has a reachable state. */
 export function statusLine(entry: IExtensionListEntry): string {
     if (entry.availability === "incompatible") return "Incompatible with this build of Diode";
     if (entry.installedVersion === null) return "Not installed";
@@ -70,27 +73,27 @@ export function statusLine(entry: IExtensionListEntry): string {
     return `Installed ${entry.installedVersion}`;
 }
 
-/** Текст ищет демо-сценарий — он часть контракта страницы. */
+/** The demo scenario looks for this text; it is part of the page contract. */
 export const PARTIAL_SUPPORT_HEADLINE = "Partial support: some features do not work in Diode";
 
 const WORKS_TITLE = "Works in Diode:";
 const LIMITS_TITLE = "Does not work:";
 
-/** Из карточки, а не из меты: пометка приезжает уже в индексе, и блок виден, даже когда меты нет. */
+/** From the entry, not the metadata: the flag comes with the index, so the block shows even without metadata. */
 export function buildSupportLines(content: IExtensionPageContent, width: number): IExtensionPageLine[] {
     const support = content.entry.support;
     const { lines, push, wrapped } = lineWriter(width);
     if (support?.level !== "partial") return lines;
 
-    // Заголовок не повторяем: он уже стоит в закреплённой шапке, а тело под ней
-    // прокручивается — дубль читался бы как вторая, другая новость.
+    // Don't repeat the headline: it is already in the pinned header, and the body below it
+    // scrolls, so a duplicate would read as a second, different message.
     for (const [title, items, tone] of [
         [WORKS_TITLE, support.works, "dim"],
         [LIMITS_TITLE, support.limits, "warning"],
     ] as const) {
         if (items === undefined || items.length === 0) continue;
         push(title, "dim");
-        // Маркер без ведущих пробелов: `wrapText` режет по пробелам, и отступ всё равно бы потерялся.
+        // Marker without leading spaces: `wrapText` splits on spaces, so the indent would be lost anyway.
         for (const item of items) wrapped(`- ${item}`, tone);
     }
     push("");
@@ -120,7 +123,7 @@ function lineWriter(width: number): {
     return { lines, push, wrapped };
 }
 
-/** Закреплена над readme, поэтому кончается пустой строкой-зазором перед рядом кнопок. */
+/** Pinned above the readme, so it ends with a blank spacer line before the button row. */
 export function buildExtensionHeaderLines(content: IExtensionPageContent, width: number): IExtensionPageLine[] {
     const { entry, meta, operationError } = content;
     const { lines, push, wrapped } = lineWriter(width);
@@ -145,11 +148,11 @@ export function buildExtensionHeaderLines(content: IExtensionPageContent, width:
     return lines;
 }
 
-/** Readme как есть: рендерера markdown в проекте нет. */
+/** Readme as is: the project has no markdown renderer. */
 export function buildExtensionBodyLines(content: IExtensionPageContent, width: number): IExtensionPageLine[] {
     const { meta, metaError } = content;
     const { lines, wrapped } = lineWriter(width);
-    // Что урезано — раньше readme и раньше веток «меты нет»: пометка приходит уже с индексом.
+    // Limitations come before the readme and before the "no metadata" branches: the flag arrives with the index.
     lines.push(...buildSupportLines(content, width));
 
     if (metaError !== null) {

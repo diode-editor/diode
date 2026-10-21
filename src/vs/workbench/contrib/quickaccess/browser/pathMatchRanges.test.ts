@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { splitPathMatchRanges, toMatchRanges } from "./pathMatchRanges.ts";
 
-// "src/app.ts": basename "app.ts" начинается с индекса 4.
+// "src/app.ts": basename "app.ts" starts at index 4.
 const BASENAME_OFFSET = 4;
 
 describe("splitPathMatchRanges", () => {
@@ -75,8 +75,8 @@ describe("splitPathMatchRanges — запрос из нескольких тер
     });
 
     it("диапазон лейбла не продлевается хвостом описания на стыке", () => {
-        // Индекс 3 — последний символ каталога, 4 — первый символ имени: после
-        // пересчёта оба дают позицию 3 и 0, склеиваться им нельзя.
+        // Index 3 is the directory's last char, 4 the name's first: after
+        // remapping they become positions 3 and 0 and must not merge.
         expect(splitPathMatchRanges([3, 4], 4)).toEqual({
             labelRanges: [[0, 1]],
             descriptionRanges: [[3, 4]],

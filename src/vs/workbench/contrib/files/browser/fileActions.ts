@@ -27,7 +27,7 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 
 import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 
-/** Реализует `WorkbenchComponent` (структурно); биндинг — в `Workbench/Modules/WorkbenchModule.ts`. */
+/** Implemented by `WorkbenchComponent` (structurally); bound in `Workbench/Modules/WorkbenchModule.ts`. */
 export interface IWorkspaceFolderOpener {
     setWorkspaceFolder(dirPath: string): void;
     openWorkspaceFile(filePath: string, contents: IWorkspaceFileContents): void;
@@ -38,7 +38,7 @@ export const WorkspaceFolderOpenerDIToken = token<IWorkspaceFolderOpener>("Works
 async function runOpenFile(accessor: ServiceAccessor): Promise<void> {
     const picked = await accessor
         .get(FileDialogServiceDIToken)
-        // Без canSelect* диалог выбирает файлы (`_convertOpenOptions` эталона).
+        // Without canSelect* the dialog picks files (upstream's `_convertOpenOptions`).
         .showOpenDialog({ title: "Open File" });
     const file = picked?.at(0);
     if (file !== undefined) accessor.get(CommandRegistryDIToken).execute("workbench.openFile", file.fsPath);
@@ -60,14 +60,14 @@ async function runOpenWorkspace(accessor: ServiceAccessor): Promise<void> {
         readText: async (filePath) => new TextDecoder().decode((await files.readFile(Uri.file(filePath))).value),
         isDirectory: async (filePath) => (await statOrNull(files, filePath))?.isDirectory === true,
     };
-    // `null` — файл открывается.
+    // `null` means the file can be opened.
     const check = async (filePath: string): Promise<string | null> => {
         if (!hasWorkspaceFileExtension(filePath)) return `Not a workspace file (*.${WORKSPACE_EXTENSION}): ${filePath}`;
         try {
             await loadWorkspaceFile(filePath, reader);
             return null;
         } catch (err) {
-            // Stryker disable next-line ConditionalExpression: loadWorkspaceFile иных отказов не бросает (чтение и stat уже ловятся внутри) — проверка страхует от будущего чужого отказа, а не ветвит поведение
+            // Stryker disable next-line ConditionalExpression: loadWorkspaceFile throws no other failures (read and stat are caught inside) — the check guards against a future foreign failure rather than branching behavior
             if (err instanceof WorkspaceFileError) return err.message;
             throw err;
         }
@@ -92,11 +92,11 @@ async function runOpenWorkspace(accessor: ServiceAccessor): Promise<void> {
     accessor.get(WorkspaceFolderOpenerDIToken).openWorkspaceFile(resolved, contents);
 }
 
-/** Файл изменён на диске другим процессом — запись блокируется диалогом Overwrite/Cancel, как dirty-write protection VS Code. */
+/** If another process changed the file on disk, the write is blocked by an Overwrite/Cancel dialog, like VS Code's dirty-write protection. */
 async function runSave(accessor: ServiceAccessor): Promise<void> {
     const editorService = accessor.get(EditorServiceDIToken);
-    // Сохраняем вкладку: у detached-панели (Output) файла нет, и `save()` увёл бы
-    // в диалог Save As при обычном Ctrl+S из панели.
+    // Save the tab: a detached panel (Output) has no file, and `save()` would lead
+    // to the Save As dialog on a plain Ctrl+S from the panel.
     const editor = editorService.getActiveTabEditor();
     if (editor === null) return;
     const outcome = await editor.save();
@@ -127,14 +127,14 @@ async function runSave(accessor: ServiceAccessor): Promise<void> {
     }
 }
 
-/** Перезапись существующего файла диалог спрашивает сам (вопрос эталона) — здесь подтверждения нет. */
+/** The dialog itself asks about overwriting an existing file (upstream's question) — no confirmation here. */
 async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
     const editorService = accessor.get(EditorServiceDIToken);
     const editor = editorService.getActiveTabEditor();
     if (!editor) return;
     const files = accessor.get(IFileServiceDIToken);
 
-    // Безымянный буфер стартует от папки воркспейса (без неё — cwd) и предложенного имени `Untitled-3.txt`.
+    // An untitled buffer starts from the workspace folder (or cwd without one) and a suggested name like `Untitled-3.txt`.
     const folder = accessor.get(IWorkspaceContextServiceDIToken).getWorkspace().folders.at(0)?.uri.fsPath;
     const seed =
         editor.uri.scheme === "file"
@@ -150,8 +150,8 @@ async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
         if (editor.fileModel !== null) {
             await editor.saveAs(resolved);
         } else {
-            // Синтетике (виртуальный документ, снимок) перепривязать буфер не к чему: копия пишется
-            // на диск и открывается обычным файлом, как upstream Save As не-файлового ресурса.
+            // A synthetic editor (virtual document, snapshot) has nothing to rebind the buffer to: a copy is
+            // written to disk and opened as a regular file, like upstream's Save As of a non-file resource.
             await files.writeFile(
                 Uri.file(resolved),
                 await encodeChunks(editor.model.document.createSnapshot(), editor.encoding),
@@ -160,7 +160,7 @@ async function runSaveAs(accessor: ServiceAccessor): Promise<void> {
         }
         accessor.get(WorkbenchContextKeysDIToken).update();
     } catch (error) {
-        // Сбой записи (права, место) — в лог; команда при этом не падает.
+        // A write failure (permissions, space) goes to the log; the command doesn't fail.
         accessor
             .get(ILogServiceDIToken)
             .createLogger("input.keybindings")
@@ -197,8 +197,8 @@ export const fileSaveAsAction: CommandAction = {
     title: "File: Save As...",
     shortTitle: "Save As...",
     menus: [{ menuId: MenuId.MenubarFileMenu, group: "3_save", order: 20 }],
-    // Alt во второй части обязателен: голая вторая часть аккорда утекает парным keypress'ом
-    // в документ (docs/TODO/README.md, «Клавиатура»). Ctrl+Shift+S — там, где терминал различает Shift.
+    // Alt in the second part is required: a bare second chord part leaks into the document as a paired
+    // keypress (docs/TODO/README.md#клавиатура). Ctrl+Shift+S where the terminal tells Shift apart.
     keybinding: parseChord("ctrl+k alt+s"),
     keybindings: [{ keys: parseKeybinding("mod+shift+s"), when: "tier != 'legacy'" }],
     run(accessor) {
@@ -236,21 +236,21 @@ export const openWorkspaceAction: CommandAction = {
     run: runOpenWorkspace,
 };
 
-/** Session-скоуп: флаг живёт на редакторе, на диск и в настройки не попадает. Без шортката, как в VS Code. */
+/** Session scope: the flag lives on the editor and never reaches disk or settings. No shortcut, as in VS Code. */
 export const toggleActiveEditorReadonlyInSessionAction: CommandAction = {
     id: "workbench.action.files.toggleActiveEditorReadonlyInSession",
     title: "File: Toggle Active Editor Read-only in Session",
     run(accessor) {
         const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
-        // Detached-панель (Output) — не вкладка: её read-only принадлежит фиче (`ActiveEditorCanToggleReadonlyContext` эталона).
+        // A detached panel (Output) is not a tab: its read-only belongs to the feature (upstream's `ActiveEditorCanToggleReadonlyContext`).
         if (editor === null || editor.detached) return;
         editor.readOnly = !editor.readOnly;
-        // `editorReadonly` — производная от состояния редактора, а не от фокуса: сам не пересчитается.
+        // `editorReadonly` derives from editor state, not focus: it won't recompute by itself.
         accessor.get(WorkbenchContextKeysDIToken).update();
     },
 };
 
-/** `null` — пути нет или он недоступен. */
+/** `null` if the path doesn't exist or is inaccessible. */
 async function statOrNull(files: IFileService, fsPath: string): Promise<IFileStat | null> {
     try {
         return await files.stat(Uri.file(fsPath));

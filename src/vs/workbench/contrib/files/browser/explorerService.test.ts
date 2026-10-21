@@ -139,7 +139,7 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
         clipboard.write(["/root/a.ts"], "cut");
         expect(view.cutKeys).toEqual(new Set(["/root/a.ts"]));
 
-        // Режим copy подсветку снимает (пустой список путей → clearCutKeys).
+        // Copy mode clears the highlight (empty path list → clearCutKeys).
         clipboard.write(["/root/a.ts"], "copy");
         expect(view.cutKeys).toBeNull();
 
@@ -218,16 +218,16 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
                 { name: "x.ts", path: target, isDirectory: false },
             ],
         ]);
-        // Предков раскрывают по ходу, до reveal: от раскрытия зависит,
-        // какая строка следующая (компактные цепочки).
+        // Ancestors are expanded along the way, before reveal: expansion decides
+        // which row comes next (compact chains).
         expect(view.expanded).toEqual([path.join(ws.dir, "src"), path.join(ws.dir, "src", "deep")]);
         service.dispose();
         ws.dispose();
     });
 
     it("строка цепочки, которая отстала от провайдера, не останавливает спуск: reveal доходит до файла", async () => {
-        // Провайдер знает цепочку pkg → pkg/a → pkg/a/b, а строка от findNode — нет (`path` — голова),
-        // и `expand` раскрытого ключа её не обновит: reveal зацикливался на микротасках.
+        // The provider knows the chain pkg → pkg/a → pkg/a/b, but the row from findNode doesn't (`path` is
+        // the head), and `expand` of an expanded key won't update it: reveal looped on microtasks.
         const ws = createTempWorkspace({ prefix: "diode-explorer-svc-reveal-stale-" });
         const service = createService();
         service.setRootPath(ws.dir);
@@ -239,14 +239,14 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
         if (!service.provider) throw new Error("провайдер не создан");
         let calls = 0;
         vi.spyOn(service.provider, "findNode").mockImplementation((dirPath) => {
-            // Регрессия — вечный цикл, а не ошибка: обрываем его, чтобы тест падал, а не висел.
+            // The regression is an endless loop, not an error: break it so the test fails instead of hanging.
             if (++calls > 100) throw new Error("revealChain не продвигается по дереву");
             return chainDirs.includes(dirPath) ? staleRow : undefined;
         });
 
         const target = path.join(head, "a", "b", "C.java");
         expect(await service.revealPath(target)).toBe(true);
-        // Строка цепочки — один раз: раскрывать и выделять её повторно незачем.
+        // The chain row appears once: no need to expand and select it again.
         expect(view.revealed).toEqual([[staleRow, { name: "C.java", path: target, isDirectory: false }]]);
         expect(view.expanded).toEqual([head]);
         service.dispose();
@@ -254,10 +254,10 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
     });
 
     it("раскрытая компактная строка уводит спуск сразу в свою последнюю папку, мимо промежуточных", async () => {
-        // Строка «pkg/a/b» после раскрытия смотрит на последнюю папку, а
-        // промежуточные провайдер уже не узнаёт (цепочку он мог забыть,
-        // строка — ещё нет). Спуск по одному сегменту подсунул бы дереву
-        // строки «pkg/a» и «pkg/a/b», которых в нём нет.
+        // After expansion the "pkg/a/b" row points at the last folder, while the
+        // provider no longer recognizes the intermediate ones (it may have forgotten
+        // the chain, the row hasn't yet). Descending one segment at a time would hand
+        // the tree rows "pkg/a" and "pkg/a/b" that it doesn't have.
         const ws = createTempWorkspace({ prefix: "diode-explorer-svc-reveal-jump-" });
         const service = createService();
         service.setRootPath(ws.dir);
@@ -300,7 +300,7 @@ describe("ExplorerService — autoRevealActiveFile", () => {
         service.attachView(view);
 
         service.autoRevealActiveFile(path.join(ws.dir, "a.ts"));
-        // reveal асинхронный: предков раскрывают по ходу (компактные цепочки).
+        // reveal is async: ancestors are expanded along the way (compact chains).
         await vi.waitFor(() => {
             expect(view.revealed).toHaveLength(1);
         });
@@ -347,7 +347,7 @@ describe("ExplorerService — files.exclude", () => {
                 listeners.push(listener);
                 return {
                     dispose: () => {
-                        /* подписка живёт до конца теста */
+                        /* the subscription lives until the end of the test */
                     },
                 };
             },

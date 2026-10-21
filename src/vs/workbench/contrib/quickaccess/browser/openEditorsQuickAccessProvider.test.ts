@@ -45,8 +45,8 @@ function createProvider(panes: IEditorPane[], root: string | null = ROOT): Harne
         displayName: (editor) => editor.label,
         revealPane: (editor) => revealed.push(editor),
     };
-    // Настоящий WorkspaceContextService: пикер спрашивает у него папку по uri
-    // вкладки, и заглушка проверяла бы свой префикс-матч, а не его.
+    // A real WorkspaceContextService: the picker asks it for the tab uri's folder,
+    // and a stub would test its own prefix match instead of the real one.
     const workspace = new WorkspaceContextService();
     if (root !== null) workspace.setWorkspaceFolder(root);
     return { provider: new OpenEditorsQuickAccessProvider(editors, workspace), revealed };
@@ -147,7 +147,7 @@ describe("OpenEditorsQuickAccessProvider — фильтрация", () => {
 
     it("совпадение в имени бьёт совпадение только в пути", () => {
         const { provider } = createProvider([
-            // `src` есть в пути обоих, но именем совпадает только второй.
+            // `src` is in both paths, but only the second matches by name.
             makePane(`${ROOT}/src/index.ts`),
             makePane(`${ROOT}/src/srv.ts`),
         ]);
@@ -181,8 +181,8 @@ describe("OpenEditorsQuickAccessProvider — фильтрация", () => {
     it("у файла в корне пути нет — запрос со слэшем его не находит", () => {
         const { provider } = threeFiles();
 
-        // readme.md лежит в корне: в его строке поиска нет ни каталога, ни слэша,
-        // иначе «/» находил бы вообще всё открытое.
+        // readme.md is at the root: its search text has neither a directory nor a slash,
+        // otherwise "/" would match everything open.
         expect(provider.getItems(query("/")).map((item) => item.label)).toEqual(["index.ts", "core.ts"]);
     });
 
@@ -197,8 +197,8 @@ describe("OpenEditorsQuickAccessProvider — фильтрация", () => {
 
 describe("OpenEditorsQuickAccessProvider — запрос из нескольких термов", () => {
     it("`edt ` остаётся рабочим префиксом: он срезается ДО разбора по пробелам", () => {
-        // Разбор целого запроса оставил бы `edt` отдельным термом, и ни одна
-        // вкладка его бы не прошла.
+        // Parsing the whole query would leave `edt` as a separate term that
+        // no tab matches.
         const { provider } = createProvider([makePane(`${ROOT}/src/index.ts`)]);
 
         expect(provider.getItems(query("")).map((item) => item.label)).toEqual(["index.ts"]);

@@ -1,14 +1,14 @@
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 
-/** Пункт без `accept` — информационный: принятие игнорируется, пикер остаётся открытым. */
+/** An item without `accept` is informational: accepting it is ignored and the picker stays open. */
 export interface QuickAccessItem extends QuickPickItem {
-    /** Вызывается после закрытия пикера. */
+    /** Called after the picker closes. */
     accept?: () => void;
 }
 
-/** Аналог `IQuickAccessProvider` vscode. Запрос приходит целиком, с префиксом — провайдер срезает его сам. */
+/** Counterpart of vscode's `IQuickAccessProvider`. The query arrives whole, with the prefix — the provider strips it itself. */
 export interface IQuickAccessProvider {
-    /** Дорогой запрос (файловый поиск): показ применяет к вводу leading+trailing debounce. */
+    /** An expensive query (file search): the picker applies a leading+trailing debounce to input. */
     readonly debounceQuery?: boolean;
 
     getPlaceholder(): string;
@@ -16,8 +16,8 @@ export interface IQuickAccessProvider {
     getItems(query: string): QuickAccessItem[];
 
     /**
-     * `refresh` перечитывает пункты текущего запроса — для живых источников (индекс растёт в фоне);
-     * `preserveSelection` не сбрасывает курсор списка.
+     * `refresh` re-reads the items of the current query — for live sources (the index grows in the
+     * background); `preserveSelection` keeps the list cursor.
      */
     onShow?(refresh: (preserveSelection: boolean) => void): void;
 
