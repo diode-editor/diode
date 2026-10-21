@@ -1,11 +1,5 @@
-// Разбор `.diode/tasks.json` (`taskConfiguration.ts` эталона) — подмножество
-// схемы 2.0.0 первой итерации: задачи `shell`/`process` с `command`/`args`/
-// `options`/`presentation`/`runOptions`, секции платформы
-// (`linux`/`osx`/`windows`), глобальные `options` и `presentation`.
-// Неподдержанное не роняет задачу, а называется предупреждением в лог `tasks`.
-// Запись с типом провайдера — кастомизация задачи расширения
-// (`ConfiguringTask`): её сливают с задачей провайдера по ключу определения
-// ({@link createCustomizedTask}).
+// Подмножество схемы 2.0.0: неподдержанное не роняет задачу, а называется
+// предупреждением в лог `tasks`.
 
 import { parse, type ParseError, printParseErrorCode } from "jsonc-parser";
 
@@ -32,30 +26,24 @@ import {
     type ShellQuoting,
 } from "./tasks.ts";
 
-/** Платформа для секций `windows`/`osx`/`linux`. */
 export type TaskPlatform = "windows" | "osx" | "linux";
 
-/** Платформа процесса в терминах tasks.json. */
 export function currentTaskPlatform(platform: NodeJS.Platform = process.platform): TaskPlatform {
     if (platform === "win32") return "windows";
     if (platform === "darwin") return "osx";
     return "linux";
 }
 
-/**
- * Итог разбора: свои задачи, кастомизации задач провайдеров и предупреждения
- * для лога `tasks` (тексты эталона, где он их даёт).
- */
+/** `problems` — для лога `tasks`, тексты эталона, где он их даёт. */
 export interface ITaskConfigurationParseResult {
     readonly tasks: readonly ITask[];
     readonly configuring: readonly IConfiguringTask[];
     readonly problems: readonly string[];
 }
 
-/** Схема типа задач провайдера по имени типа (`TaskDefinitionRegistry.get`). */
 export type TaskDefinitionLookup = (type: string) => ITaskDefinitionSchema | undefined;
 
-/** Префикс id задачи tasks.json (`$core` — `extensionId` таких задач у эталона в DTO). */
+/** `$core` — `extensionId` таких задач у эталона в DTO. */
 export const WORKSPACE_TASK_ID_PREFIX = "$core.";
 
 type Json = Readonly<Record<string, unknown>>;
@@ -73,7 +61,7 @@ function quotingFrom(value: unknown): ShellQuoting {
     return value === "escape" || value === "weak" ? value : "strong";
 }
 
-/** `ShellString.from`: строка, массив строк (через пробел) или `{ value, quoting }`. */
+/** Массив строк склеивается через пробел. */
 function commandStringFrom(value: unknown): CommandString | undefined {
     if (typeof value === "string") return value;
     if (isStringArray(value)) return value.join(" ");
@@ -114,7 +102,7 @@ function envFrom(value: unknown): Record<string, string> | undefined {
     return env;
 }
 
-/** `CommandOptions.from`: нестроковый `cwd` — предупреждение эталона. */
+/** Нестроковый `cwd` — предупреждение эталона. */
 function optionsFrom(value: unknown, problems: string[]): ICommandOptions | undefined {
     if (!isObject(value)) return undefined;
     if (value.cwd !== undefined && typeof value.cwd !== "string") {
@@ -126,10 +114,7 @@ function optionsFrom(value: unknown, problems: string[]): ICommandOptions | unde
     return { ...(typeof value.cwd === "string" ? { cwd: value.cwd } : {}), env, shell };
 }
 
-/**
- * Слить опции (`CommandOptions.assignProperties`): `cwd` и шелл источника
- * перекрывают цель, окружения складываются (источник поверх).
- */
+/** `cwd` и шелл источника перекрывают цель, окружения складываются (источник поверх). */
 function mergeOptions(
     target: ICommandOptions | undefined,
     source: ICommandOptions | undefined,
@@ -146,19 +131,19 @@ function mergeOptions(
     };
 }
 
-/** `RevealKind.fromString`: неизвестное — `always`. */
+/** Неизвестное — `always`. */
 function revealFrom(value: string): RevealKind {
     const lower = value.toLowerCase();
     return lower === "silent" || lower === "never" ? lower : "always";
 }
 
-/** `PanelKind.fromString`: неизвестное — `shared`. */
+/** Неизвестное — `shared`. */
 function panelFrom(value: string): PanelKind {
     const lower = value.toLowerCase();
     return lower === "dedicated" || lower === "new" ? lower : "shared";
 }
 
-/** Заданные поля `presentation` (`PresentationOptions.from`); пустое — `undefined`. */
+/** Пустое — `undefined`. */
 function presentationFrom(value: unknown): Partial<IPresentationOptions> | undefined {
     if (!isObject(value)) return undefined;
     return {
@@ -181,7 +166,7 @@ const INSTANCE_POLICIES: ReadonlySet<string> = new Set<InstancePolicy>([
     "silent",
 ]);
 
-/** `RunOptions.fromConfiguration`; `runOn: folderOpen` и `instanceLimit` > 1 — не поддержаны. */
+/** `runOn: folderOpen` и `instanceLimit` > 1 не поддержаны. */
 function runOptionsFrom(value: unknown, label: string, problems: string[]): IRunOptions {
     if (!isObject(value)) return DEFAULT_RUN_OPTIONS;
     if (value.runOn === "folderOpen") {
@@ -209,7 +194,7 @@ function runOptionsFrom(value: unknown, label: string, problems: string[]): IRun
     };
 }
 
-/** Аргументы: нестроковый элемент — ошибка эталона, элемент пропускается. */
+/** Нестроковый элемент — ошибка эталона, элемент пропускается. */
 function argsFrom(value: unknown, problems: string[]): CommandString[] | undefined {
     if (!Array.isArray(value)) return undefined;
     const args: CommandString[] = [];
@@ -226,7 +211,7 @@ function argsFrom(value: unknown, problems: string[]): CommandString[] | undefin
     return args;
 }
 
-/** Команда и её окружение: база задачи и секция платформы поверх (`CommandConfiguration.from`). */
+/** Секция платформы — поверх базы задачи. */
 interface ICommandParts {
     command?: CommandString;
     args?: CommandString[];
@@ -254,7 +239,7 @@ function withPlatform(base: ICommandParts, value: Json, platform: TaskPlatform, 
     };
 }
 
-/** Тип записи tasks.json: без типа — процесс (`$customized` эталона с рантаймом Process). */
+/** Без типа — процесс (`$customized` эталона с рантаймом Process). */
 function runtimeOf(type: unknown): RuntimeType | undefined {
     if (type === undefined || type === null || type === "process") return "process";
     if (type === "shell") return "shell";
@@ -266,11 +251,7 @@ interface IGlobals {
     readonly presentation?: Partial<IPresentationOptions>;
 }
 
-/**
- * Разобрать текст tasks.json папки. Битый JSON — пустой список и сообщение;
- * версия не 2.0.0 — тоже (схемы 0.1.0 у нас нет). Записи с типом провайдера
- * разбираются по схеме типа из `definitionOf`.
- */
+/** Битый JSON и версия не 2.0.0 (схемы 0.1.0 у нас нет) — пустой список и сообщение. */
 export function parseTasksJson(
     text: string,
     folder: IWorkspaceFolder,
@@ -317,10 +298,7 @@ export function parseTasksJson(
     return { tasks, configuring, problems };
 }
 
-/**
- * Запись с типом провайдера (`ConfiguringTask.from` эталона): определение по
- * схеме типа и перекрываемые поля. Тип без схемы — ошибка эталона.
- */
+/** Тип без схемы — ошибка эталона. */
 function configuringTaskFrom(
     external: Json,
     folder: IWorkspaceFolder,
@@ -363,14 +341,13 @@ function configuringTaskFrom(
     };
 }
 
-/** Подпись записи без `label` (эталон): «{тип}: {первое непустое обязательное свойство}». */
+/** Подпись записи без `label`, как у эталона. */
 function fallbackLabel(configures: Json, schema: ITaskDefinitionSchema): string {
     const required = schema.required.map((name) => configures[name]).find((value) => Boolean(value));
     if (required === undefined) return schema.taskType;
     return `${schema.taskType}: ${typeof required === "string" ? required : JSON.stringify(required)}`;
 }
 
-/** Поля записи, которые перекрывают задачу провайдера (`ConfigurationProperties.from`). */
 function customizationFrom(
     external: Json,
     label: string | undefined,
@@ -401,11 +378,7 @@ function customizationFrom(
     };
 }
 
-/**
- * Задача провайдера, перекрытая записью tasks.json (`createCustomTask`
- * эталона): заданное в записи — поверх полей провайдера; id, определение и
- * исполнение остаются от задачи провайдера.
- */
+/** Id, определение и исполнение остаются от задачи провайдера. */
 export function createCustomizedTask(contributed: ITask, configuring: IConfiguringTask): ITask {
     const custom = configuring.customization;
     const options = mergeOptions(contributed.command.options, custom.options);
@@ -491,7 +464,6 @@ function taskFrom(
     };
 }
 
-/** `group`: строка (`"build"`) или `{ kind, isDefault }`; прочее — без группы. */
 function groupFrom(value: unknown): { group?: ITaskGroup } {
     if (typeof value === "string") return { group: { id: value } };
     if (isObject(value) && typeof value.kind === "string") {
@@ -502,7 +474,6 @@ function groupFrom(value: unknown): { group?: ITaskGroup } {
     return {};
 }
 
-/** Имена матчеров хранятся как есть (строки); исполнять их некому. */
 function matchersOf(value: unknown): string[] {
     if (typeof value === "string") return [value];
     if (Array.isArray(value)) return (value as readonly unknown[]).filter((m): m is string => typeof m === "string");

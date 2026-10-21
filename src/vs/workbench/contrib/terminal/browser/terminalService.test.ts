@@ -14,7 +14,6 @@ function buildHarness(shell?: string, settings: Readonly<Record<string, unknown>
     const panelService = views.panelService;
     const sessions: FakeTerminalSurface[] = [];
     const factoryOptions: ITerminalSessionOptions[] = [];
-    // Локальная фабрика, записывающая созданные сессии — так тест видит инстансы.
     const factory: TerminalSessionFactory = (options) => {
         factoryOptions.push(options);
         const surface = new FakeTerminalSurface(shell);
@@ -33,9 +32,7 @@ describe("TerminalService — instances", () => {
         const h = buildHarness();
         const tab = h.panelService.getViews().find((v) => v.id === TERMINAL_VIEW_ID);
         expect(tab?.title).toBe("TERMINAL");
-        // Вид переносится — например, во вторичную боковую панель.
         expect(h.views.service.canMoveView(TERMINAL_VIEW_ID)).toBe(true);
-        // Тела у секции ещё нет — вкладка рисует пустое состояние.
         expect(h.views.paneView(TERMINAL_VIEW_ID).querySelector("#viewPlaceholder-terminal")).not.toBeNull();
         expect(h.created).toHaveLength(0);
         expect(h.service.hasOpenTerminals).toBe(false);
@@ -147,10 +144,8 @@ describe("TerminalService — exit handling", () => {
         expect(h.service.getActiveInstance()).toBeNull();
         expect(h.created[0].disposed).toBe(true);
         expect(onClose).toHaveBeenCalledWith(instance);
-        // Терминалов не осталось — активный инстанс обнулён (placeholder вкладки).
         expect(onActive).toHaveBeenCalledWith(null);
 
-        // Следующее открытие спавнит новый шелл.
         h.service.openTerminal();
         expect(h.created).toHaveLength(2);
         expect(h.service.hasOpenTerminals).toBe(true);
@@ -159,11 +154,11 @@ describe("TerminalService — exit handling", () => {
 
     it("falls back to the previous terminal when the active one exits", () => {
         const h = buildHarness();
-        h.service.newTerminal(); // #1
+        h.service.newTerminal();
         h.service.newTerminal(); // #2 active
         expect(h.created).toHaveLength(2);
 
-        h.created[1].emitExit(0); // active exits → fall back to #1
+        h.created[1].emitExit(0);
         expect(h.service.hasOpenTerminals).toBe(true);
         expect(h.service.getActiveInstance()?.session).toBe(h.created[0]);
         expect(h.created[1].disposed).toBe(true);
@@ -174,11 +169,11 @@ describe("TerminalService — exit handling", () => {
     it("keeps the active terminal when a NON-active one exits", () => {
         const h = buildHarness();
         const onActive = vi.fn();
-        h.service.newTerminal(); // #1
+        h.service.newTerminal();
         h.service.newTerminal(); // #2 — активный
         h.service.onDidChangeActiveInstance(onActive);
 
-        h.created[0].emitExit(0); // выходит НЕактивный #1
+        h.created[0].emitExit(0);
 
         expect(h.service.getActiveInstance()?.session).toBe(h.created[1]);
         expect(onActive).not.toHaveBeenCalled();

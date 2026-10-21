@@ -22,9 +22,6 @@ import {
 import { GO_BACK, SHOW_ALL_TASKS } from "./taskQuickPick.ts";
 import { TaskServiceDIToken } from "./taskService.ts";
 
-// Команды задач поверх сервиса: аргументы, пикеры (двухуровневый Run Task),
-// Terminate со строкой «All Running Tasks», Restart, Show Running Tasks.
-
 const definition = (taskType: string): ITaskDefinitionSchema => ({
     extensionId: "pub.ext",
     taskType,
@@ -55,7 +52,6 @@ function build(options: Parameters<typeof buildTaskServiceHarness>[0] = {}) {
         h.service.registerTaskDefinitions([definition("npm")]);
         h.service.registerTaskProvider({ provideTasks: () => Promise.resolve(labels.map((l) => npm(l))) }, "npm");
     };
-    /** Строка, под которой задача уходит в терминал — по ней видно, что запустилось. */
     const launched = (): string[] => h.terminals.getInstances().map((i) => i.title);
     return { ...h, accessor, withNpm, launched };
 }
@@ -150,7 +146,6 @@ describe("Run Task — двухуровневый пикер", () => {
         await runTaskAction.run(h.accessor);
         await flush();
         expect(h.launched()).toStrictEqual([]);
-        // Отмена — не отказ запуска: сообщений нет.
         expect(h.notifications.passive()).toStrictEqual([]);
         h.dispose();
     });

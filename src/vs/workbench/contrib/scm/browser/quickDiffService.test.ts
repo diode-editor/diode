@@ -19,7 +19,6 @@ const DELETED = 0xff0000;
 const FILE = Uri.file("/repo/a.ts");
 const ORIGINAL = Uri.from({ scheme: "git", path: "/repo/a.ts", query: '{"path":"/repo/a.ts","ref":"HEAD"}' });
 
-/** Редактор-фейк: текст задаётся тестом, декорации копятся. */
 function fakeEditor(uri: Uri, text: string) {
     const listeners: (() => void)[] = [];
     const pushed: (readonly IGutterChangeDecoration[])[] = [];
@@ -104,7 +103,6 @@ function fakeTheme(colors: Record<string, number>) {
     };
 }
 
-/** Провайдер `git:`-содержимого с ручным управлением. */
 function fakeProvider(content: string) {
     const listeners: ((uris: readonly Uri[]) => void)[] = [];
     let current = content;
@@ -150,7 +148,6 @@ function setup(options: ISetupOptions = {}) {
     return { ed, src, registry, prov, cfg, theme, service, originals };
 }
 
-/** Ждёт, пока отработают debounce (0 мс) и асинхронное чтение оригинала. */
 async function settle(): Promise<void> {
     await new Promise((resolve) => setTimeout(resolve, 5));
 }
@@ -248,7 +245,6 @@ describe("QuickDiffService", () => {
         await settle();
         expect(ed.last).toEqual([]);
 
-        // Закоммитили другую версию — буфер теперь отличается от HEAD.
         prov.commit("a\nZZZ\nc");
         await settle();
 
@@ -347,14 +343,12 @@ describe("QuickDiffService", () => {
         src.activate(other.editor);
         await new Promise((resolve) => setTimeout(resolve, 60));
 
-        // Первый (устаревший) расчёт не должен был положить бары в старый редактор.
         expect(ed.pushed).toEqual([]);
     });
 
     it("расширение активировалось ПОЗЖЕ открытия файла — бары появляются без правки", async () => {
-        // Регрессия, пойманная на живом запуске: git-расширение поднимается
-        // асинхронно, поэтому первый пересчёт видит «поставщика нет». Раньше этот
-        // отрицательный ответ кэшировался, и бары не появлялись до первой правки.
+        // Регрессия с живого запуска: git-расширение поднимается позже первого пересчёта,
+        // и закэшированное «поставщика нет» не давало баров до первой правки.
         const ed = fakeEditor(FILE, "a\nX\nc");
         const src = fakeSource(ed.editor);
         const registry = new FileService();
@@ -366,7 +360,6 @@ describe("QuickDiffService", () => {
         await settle();
         expect(ed.last).toEqual([]);
 
-        // Расширение поднялось и зарегистрировало схему.
         registry.registerProvider("git", fakeProvider("a\nb\nc").provider);
         await settle();
 

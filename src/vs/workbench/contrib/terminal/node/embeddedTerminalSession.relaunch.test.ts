@@ -4,9 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 import { ExtensionPtySession } from "./extensionPtySession.ts";
 
-// Перезапуск процесса в том же эмуляторе (`reuseTerminal` эталона) — терминал
-// задачи после выхода, печать сообщений редактора и «клавиша после выхода».
-
 function screen(session: EmbeddedTerminalSession | ExtensionPtySession, rows: number, width: number): string {
     const out: TerminalCell = { char: "", fg: 0, bg: 0, style: 0, width: 1 };
     const lines: string[] = [];

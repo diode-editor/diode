@@ -3,8 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildXtermPalette, xtermPaletteToRgb } from "./xtermPalette.ts";
 
-// Эталон — каноническая таблица xterm-256color (та же, что печатает `infocmp`/xterm):
-//   0..15 — системные ANSI, 16..231 — куб 6×6×6, 232..255 — 24 оттенка серого.
+// Ожидания — каноническая таблица xterm-256color (та же, что печатает `infocmp`/xterm).
 
 describe("xtermPaletteToRgb — 16 системных цветов", () => {
     it.each([

@@ -15,7 +15,6 @@ const inChangesMenu = viewMenuVisible(SCM_CHANGES_VIEW_ID);
 /** Канал, куда субпроцесс git-расширения пишет свои логи (`[git] …`). */
 const GIT_OUTPUT_SHOW_COMMAND = "workbench.action.output.show.extensions.host.stdout";
 
-/** Пикер локального тега; пустой список — notice. */
 async function pickTag(accessor: ServiceAccessor, title: string): Promise<string | null> {
     const tags = (await queryRefs(accessor)).filter((r) => r.kind === "tag");
     if (tags.length === 0) {
@@ -30,7 +29,7 @@ async function pickTag(accessor: ServiceAccessor, title: string): Promise<string
     return picked?.label ?? null;
 }
 
-/** Add Remote: URL → имя (порядок VS Code) → `remote add` + fetch. */
+/** URL, потом имя — порядок VS Code. */
 export const gitAddRemoteAction: CommandAction = {
     id: "git.addRemote",
     title: "Git: Add Remote...",
@@ -68,7 +67,7 @@ export const gitRemoveRemoteAction: CommandAction = {
     },
 };
 
-/** Create Tag: имя → сообщение (пустое — lightweight, иначе аннотированный). */
+/** Пустое сообщение — lightweight-тег, иначе аннотированный. */
 export const gitCreateTagAction: CommandAction = {
     id: "git.createTag",
     title: "Git: Create Tag",
@@ -104,10 +103,7 @@ export const gitDeleteTagAction: CommandAction = {
     },
 };
 
-/**
- * Delete Remote Tag: remote → локальный тег → `push --delete`. Отклонение от
- * VS Code (там список тегов remote через `ls-remote`) — берём локальные теги.
- */
+/** Отклонение от VS Code (там теги remote через `ls-remote`): берём локальные теги. */
 export const gitDeleteRemoteTagAction: CommandAction = {
     id: "git.deleteRemoteTag",
     title: "Git: Delete Remote Tag",
@@ -122,7 +118,6 @@ export const gitDeleteRemoteTagAction: CommandAction = {
     },
 };
 
-/** Показать канал, куда пишет git-расширение (`[git] …` в stdout ext-host'а). */
 export const gitShowOutputAction: CommandAction = {
     id: "git.showOutput",
     title: "Git: Show Git Output",
@@ -135,9 +130,8 @@ export const gitShowOutputAction: CommandAction = {
 };
 
 /**
- * Мутирующая часть: `WORKBENCH_ACTIONS` вешает на неё `enablement` занятости.
- * `git.showOutput` сюда не входит — он ничего не запускает, и гасить его на
- * время операции значило бы прятать её же лог.
+ * Мутирующая часть. `git.showOutput` сюда не входит: гасить его на время операции
+ * значило бы прятать её же лог.
  */
 export const REMOTE_TAG_ACTIONS: readonly CommandAction[] = [
     gitAddRemoteAction,

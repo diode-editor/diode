@@ -1,11 +1,3 @@
-// Сервис задач (`abstractTaskService.ts` эталона в объёме первой итерации):
-// задачи из `.diode/tasks.json` и от провайдеров расширений, запуск через
-// {@link TerminalTaskSystem}, Rerun / Restart / Terminate / Show Running,
-// политика повторного запуска (`instancePolicy`), `task.saveBeforeRun`,
-// активация провайдеров (`onTaskType:`), кастомизации задач провайдеров из
-// tasks.json и ключ `taskRunning`. Пикеры — `taskQuickPick.ts`, команды —
-// `taskActions.ts`, Configure Task — `configureTask.ts`.
-
 import { Emitter, type Event } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
 import { Uri } from "../../../../base/common/uri.ts";
@@ -67,37 +59,29 @@ import {
 
 export type { ITaskEvent, ITaskSummary } from "./terminalTaskSystem.ts";
 
-/**
- * Провайдер задач расширения (`ITaskProvider` эталона): задачи одного типа.
- * Сбой и пустой ответ ядро переживает — задач провайдера просто нет.
- */
+/** Сбой и пустой ответ провайдера ядро переживает — его задач просто нет. */
 export interface ITaskProvider {
     provideTasks(): Promise<readonly ITask[]>;
 }
 
-/** Фильтр задач (`ITaskFilter`): только задачи провайдеров этого типа. */
 export interface ITaskFilter {
     readonly type?: string;
 }
 
-/** Строка пикера задач: пункт с задачей (или без — «нет задач», «все бегущие»). */
 export interface ITaskQuickPickEntry extends QuickPickItem {
     readonly task?: ITask;
     readonly id?: string;
 }
 
-/** Сколько ждать провайдера и активации расширений (`raceTimeout(…, 5000)` эталона). */
+/** `raceTimeout(…, 5000)` эталона. */
 export const TASK_PROVIDER_TIMEOUT_MS = 5000;
 
-/** tasks.json проекта относительно папки (у эталона — `.vscode/tasks.json`). */
 export const TASKS_JSON_PATH = workspaceConfigFilePath("tasks.json");
 
 export const TaskServiceDIToken = token<TaskService>("TaskService");
 
-/** Канал лога задач (панель Output, «Tasks»). */
 const TASKS_LOG_CHANNEL = "tasks";
 
-/** Задачи tasks.json папки: свои и кастомизации задач провайдеров. */
 export interface IWorkspaceTaskConfiguration {
     readonly tasks: readonly ITask[];
     readonly configuring: readonly IConfiguringTask[];
@@ -105,13 +89,9 @@ export interface IWorkspaceTaskConfiguration {
 
 const NO_WORKSPACE_TASKS: IWorkspaceTaskConfiguration = { tasks: [], configuring: [] };
 
-/**
- * Активатор провайдеров: поднять расширения, которые дают задачи типа (или
- * всех типов, если тип не задан). Ставит мост extension host'а.
- */
+/** Ставит мост extension host'а; `undefined` — провайдеры всех типов. */
 export type TaskProviderActivator = (type: string | undefined) => Promise<void>;
 
-/** Разрешение ждать обещание не дольше `ms`: по истечении — `undefined`. */
 async function raceTimeout<T>(promise: Promise<T>, ms: number, onTimeout: () => void): Promise<T | undefined> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<undefined>((resolve) => {
@@ -146,15 +126,13 @@ export class TaskService extends Disposable {
 
     private readonly system: TerminalTaskSystem;
     private readonly logger: ILogger;
-    /** Провайдеры по типу; на тип их может быть несколько (разные расширения). */
+    /** Ключ — провайдер: на тип их может быть несколько. */
     private readonly providers = new Map<ITaskProvider, string>();
-    /** Типы из `contributes.taskDefinitions` по имени типа. */
     private readonly definitions = new Map<string, ITaskDefinitionSchema>();
     // Stryker disable next-line ArrowFunction: эквивалентный — гонка с таймаутом одинаково ждёт и undefined, и пустой промис
     private activator: TaskProviderActivator = () => Promise.resolve();
-    /** Текст tasks.json (и известные типы), о проблемах которого уже сказано в лог. */
+    /** Текст tasks.json и известные типы, о проблемах которых уже сказано в лог. */
     private reportedTasksJson: string | undefined;
-    /** Кастомизации, о которых уже сказано «провайдер такую задачу не дал». */
     private readonly reportedUnmatched = new Set<string>();
     private readonly platform: TaskPlatform = currentTaskPlatform();
 
@@ -181,15 +159,12 @@ export class TaskService extends Disposable {
         this.logger = logService.createLogger(TASKS_LOG_CHANNEL, { label: "Tasks" });
         this.system = this.register(new TerminalTaskSystem(terminalService, views, defaultShell));
         this.onDidStateChange = this.system.onDidStateChange;
-        // `task.verboseLogging` — каждое событие задачи в лог `Tasks` (`_log(…, true)` эталона).
         this.register(
             this.onDidStateChange((event) => {
                 if (this.configuration.get("task.verboseLogging")) this.logger.info(`Task Event kind: ${event.kind}`);
             }),
         );
-        // `taskRunning` (`TASK_RUNNING_STATE` эталона) выставляется на самом
-        // переходе, а не опросом на следующем нажатии: when-условия видят его сразу
-        // (до первой задачи ключа нет — он ложен).
+        // На самом переходе, а не опросом на следующем нажатии: when-условия видят ключ сразу.
         this.register(
             this.onDidStateChange(() => {
                 this.contextKeys.set("taskRunning", this.system.getActiveTasks().length > 0);
@@ -197,9 +172,6 @@ export class TaskService extends Disposable {
         );
     }
 
-    // ── Провайдеры и типы (их приносит мост extension host'а) ─────────────────
-
-    /** Зарегистрировать провайдера задач типа `type` (`registerTaskProvider`). */
     public registerTaskProvider(provider: ITaskProvider, type: string): IDisposable {
         this.providers.set(provider, type);
         return {
@@ -209,7 +181,7 @@ export class TaskService extends Disposable {
         };
     }
 
-    /** Типы задач расширений (`contributes.taskDefinitions`); повтор типа — последний побеждает. */
+    /** Повтор типа — последний побеждает. */
     public registerTaskDefinitions(definitions: readonly ITaskDefinitionSchema[]): void {
         for (const definition of definitions) this.definitions.set(definition.taskType, definition);
         this.onDidChangeDefinitionsEmitter.fire();
@@ -217,7 +189,7 @@ export class TaskService extends Disposable {
 
     public readonly onDidChangeDefinitions = this.onDidChangeDefinitionsEmitter.event;
 
-    /** Все известные типы задач (`TaskDefinitionRegistry.all()`), без учёта `when`. */
+    /** Без учёта `when`. */
     public taskDefinitionTypes(): string[] {
         return [...this.definitions.keys()];
     }
@@ -226,7 +198,6 @@ export class TaskService extends Disposable {
         return this.definitions.get(type);
     }
 
-    /** Как поднимать провайдеров (`_activateTaskProviders`) — ставит мост extension host'а. */
     public setProviderActivator(activator: TaskProviderActivator): IDisposable {
         this.activator = activator;
         return {
@@ -237,7 +208,6 @@ export class TaskService extends Disposable {
         };
     }
 
-    /** Мост pty расширений для задач с `CustomExecution`. */
     public setCustomExecutionTerminals(terminals: IExtensionPtyTerminals): IDisposable {
         this.system.setCustomExecutionTerminals(terminals);
         return {
@@ -247,11 +217,7 @@ export class TaskService extends Disposable {
         };
     }
 
-    /**
-     * Типы, по которым пикер Run Task показывает второй уровень (`taskTypes`):
-     * все из `taskDefinitions`, чьё `when` выполнено; при `task.autoDetect: off`
-     * — ни одного.
-     */
+    /** Второй уровень пикера Run Task: типы с выполненным `when`; при `task.autoDetect: off` — ни одного. */
     public taskTypes(): string[] {
         if (!this.isProvideTasksEnabled()) return [];
         return [...this.definitions.values()]
@@ -259,17 +225,11 @@ export class TaskService extends Disposable {
             .map((definition) => definition.taskType);
     }
 
-    // ── Списки задач ─────────────────────────────────────────────────────────
-
-    /** Задачи tasks.json первой папки (мультирута нет); перечитываются на каждом запросе. */
+    /** Первой папки (мультирута нет); перечитываются на каждом запросе. */
     public async getWorkspaceTasks(): Promise<readonly ITask[]> {
         return (await this.getWorkspaceConfiguration()).tasks;
     }
 
-    /**
-     * Свои задачи tasks.json и записи-кастомизации задач провайдеров
-     * (`getWorkspaceTasks` эталона: `set` и `configurations`).
-     */
     public async getWorkspaceConfiguration(): Promise<IWorkspaceTaskConfiguration> {
         const folder = this.folder();
         // Stryker disable next-line ConditionalExpression: эквивалентный — без папки чтение ниже падает в catch и даёт тот же пустой список
@@ -289,24 +249,18 @@ export class TaskService extends Disposable {
         if (reportKey !== this.reportedTasksJson) {
             this.reportedTasksJson = reportKey;
             for (const problem of problems) this.logger.warn(problem);
-            // Ошибки (не предупреждения) человеку — тостом с переходом в лог (`_showOutput` эталона).
+            // Ошибки (не предупреждения) — ещё и тостом (`_showOutput` эталона).
             if (problems.some((problem) => problem.startsWith("Error:"))) this.promptToShowOutput();
         }
         return { tasks, configuring };
     }
 
-    /** tasks.json папки, из которой берутся задачи (первой); без папки — `undefined`. */
     public tasksJsonUri(): Uri | undefined {
         const folder = this.folder();
         return folder === undefined ? undefined : Uri.joinPath(folder.uri, TASKS_JSON_PATH);
     }
 
-    /**
-     * Все задачи (`tasks(filter)` эталона): tasks.json и ответы провайдеров.
-     * С фильтром по типу — только задачи провайдеров этого типа. Провайдеров
-     * сперва поднимают (`onTaskType:`), каждого ждут не дольше
-     * {@link TASK_PROVIDER_TIMEOUT_MS}.
-     */
+    /** С фильтром — только задачи провайдеров типа; каждого ждут не дольше {@link TASK_PROVIDER_TIMEOUT_MS}. */
     public async tasks(filter: ITaskFilter = {}): Promise<ITask[]> {
         const all = await this.groupedTasks(filter.type);
         return filter.type === undefined
@@ -315,11 +269,9 @@ export class TaskService extends Disposable {
     }
 
     /**
-     * tasks.json и задачи провайдеров (только типа `type`, если он задан) без
-     * фильтра (`_getGroupedTasks` эталона): среди них команда Run Task ищет
-     * задачу по аргументу. Задача провайдера, которую кастомизирует запись
-     * tasks.json, приходит слитой с ней; запись, которой провайдер задачи не
-     * дал, — ошибкой эталона в лог (`resolveTask` провайдера не спрашиваем).
+     * Среди них Run Task ищет задачу по аргументу. Кастомизированная задача
+     * провайдера приходит слитой с записью; запись без задачи — ошибкой в лог
+     * (`resolveTask` провайдера не спрашиваем).
      */
     public async groupedTasks(type?: string): Promise<ITask[]> {
         const [workspace, contributed] = await Promise.all([
@@ -340,11 +292,6 @@ export class TaskService extends Disposable {
         return [...workspace.tasks, ...merged];
     }
 
-    /**
-     * Задача, которую кастомизирует запись tasks.json (`_toTask` эталона для
-     * `ConfiguringTask`): задача провайдера, слитая с записью; провайдер её не
-     * дал — `undefined` (и ошибка в лог).
-     */
     public async resolveConfiguringTask(configuring: IConfiguringTask): Promise<ITask | undefined> {
         return (await this.groupedTasks(configuring.type)).find(
             // Индекс записи у задачи — только у задачи из этой записи (свои задачи стоят на других индексах).
@@ -357,7 +304,7 @@ export class TaskService extends Disposable {
         const key = JSON.stringify([configuring._id, element]);
         if (this.reportedUnmatched.has(key)) return;
         this.reportedUnmatched.add(key);
-        // Провайдеры выключены (`task.autoDetect: off`) — задач типа нет вовсе (текст эталона).
+        // `task.autoDetect: off` — задач типа нет вовсе (текст эталона).
         this.logger.warn(
             this.isProvideTasksEnabled()
                 ? `Error: The ${configuring.type} task detection didn't contribute a task for the following configuration:\n${element}\nThe task will be ignored.`
@@ -365,12 +312,10 @@ export class TaskService extends Disposable {
         );
     }
 
-    /** Бегущие задачи в порядке запуска. */
     public getActiveTasks(): readonly ITask[] {
         return this.system.getActiveTasks();
     }
 
-    /** Задача по внутреннему id среди всех (`getTask` эталона для исполнения по handle). */
     public async getTaskById(id: string): Promise<ITask | undefined> {
         return (await this.tasks()).find((task) => task._id === id);
     }
@@ -424,14 +369,7 @@ export class TaskService extends Disposable {
         return definition.when === undefined || this.contextKeys.evaluate(definition.when);
     }
 
-    // ── Запуск ───────────────────────────────────────────────────────────────
-
-    /**
-     * Запустить задачу (`run` эталона): сохранить редакторы по
-     * `task.saveBeforeRun`, исполнить; уже бегущая — по её `instancePolicy`.
-     * Отказ (переменная не подставилась, нечем исполнить) — сообщение
-     * человеку и в лог, обещание отклоняется.
-     */
+    /** Уже бегущая — по её `instancePolicy`. Отказ — сообщение человеку и в лог, обещание отклоняется. */
     public async run(task: ITask): Promise<ITaskSummary | undefined> {
         try {
             await this.saveBeforeRun();
@@ -442,10 +380,7 @@ export class TaskService extends Disposable {
         }
     }
 
-    /**
-     * Повторить последнюю задачу (`reRunTask`): редакторы сохраняются всегда,
-     * как у эталона; повторять нечего и ничего не бежит — открыть Run Task.
-     */
+    /** Редакторы сохраняются всегда, как у эталона; повторять нечего — открыть Run Task. */
     public async rerun(openRunTask: () => Promise<void>): Promise<void> {
         await this.editors.saveAll();
         let result: ITaskExecuteResult | undefined;
@@ -463,13 +398,9 @@ export class TaskService extends Disposable {
         await openRunTask();
     }
 
-    /**
-     * Перезапуск (`_restart`): бегущую остановить и запустить заново — задачу
-     * tasks.json в её нынешнем виде (файл могли поправить), иначе ту же.
-     */
+    /** Задачу tasks.json — в нынешнем виде: файл могли поправить. */
     public async restart(task: ITask): Promise<void> {
-        // Терминал бегущей задачи закрывается всегда — отказа остановки, как у
-        // эталона с процессом, который не нашёлся, у нас нет.
+        // Терминал закрывается всегда: отказа остановки, как у эталона с ненайденным процессом, у нас нет.
         await this.system.terminate(task);
         // Id задач tasks.json (`$core.…`) с задачами провайдеров не пересекаются.
         const updated = (await this.getWorkspaceTasks()).find((candidate) => candidate._id === task._id);
@@ -477,7 +408,6 @@ export class TaskService extends Disposable {
         void this.run(updated ?? task).catch(() => undefined);
     }
 
-    /** Остановить задачу; `false` — она не бежала. */
     public terminate(task: ITask): Promise<boolean> {
         return this.system.terminate(task);
     }
@@ -486,12 +416,11 @@ export class TaskService extends Disposable {
         return this.system.terminateAll();
     }
 
-    /** Показать терминал задачи. */
     public revealTask(task: ITask): boolean {
         return this.system.revealTask(task);
     }
 
-    /** Аргумент команды (строка-подпись или определение) → то, с чем сравнивать задачи. */
+    /** Аргумент команды — строка-подпись или определение задачи. */
     public taskIdentifierOf(arg: unknown): string | IKeyedTaskIdentifier | undefined {
         if (typeof arg === "string") return arg;
         if (typeof arg !== "object" || arg === null || typeof (arg as { type?: unknown }).type !== "string") {
@@ -503,16 +432,13 @@ export class TaskService extends Disposable {
         });
     }
 
-    /** Среди задач — первая, подходящая под идентификатор. */
     public findTask(tasks: readonly ITask[], identifier: string | IKeyedTaskIdentifier): ITask | undefined {
         return tasks.find((task) => taskMatches(task, identifier));
     }
 
     /**
-     * Пикер задач (`_showQuickPick` эталона): строки с подписью задачи (повтор
-     * id — с номером), `task.quickOpen.skip` при одной строке — без показа;
-     * пусто — строка `defaultEntry`; `additional` — в конце, если строк больше
-     * одной. `undefined` — отмена.
+     * При одной строке и `task.quickOpen.skip` — без показа; пусто — `defaultEntry`;
+     * `additional` — в конце, если строк больше одной. `undefined` — отмена.
      */
     public async pickTask(
         tasks: readonly ITask[],
@@ -527,7 +453,7 @@ export class TaskService extends Disposable {
         return (await this.quickInput.quickPick({ placeholder, items: entries })) as ITaskQuickPickEntry | undefined;
     }
 
-    /** Строки пикера по задачам: задачи с одним id получают номера « (1)», « (2)» (как эталон). */
+    /** Задачи с одним id получают номера « (1)», « (2)», как у эталона. */
     public taskEntries(tasks: readonly ITask[]): ITaskQuickPickEntry[] {
         const counts = new Map<string, number>();
         for (const task of tasks) counts.set(task._id, (counts.get(task._id) ?? 0) + 1);
@@ -541,17 +467,13 @@ export class TaskService extends Disposable {
         });
     }
 
-    /**
-     * Подпись и подробность задачи в пикере. Второй строки у пикера нет, поэтому
-     * `detail` (`task.quickOpen.detail`) идёт в описание строки — описания
-     * (папки) у задачи без мультирута не бывает.
-     */
+    /** Второй строки у пикера нет — `detail` идёт в описание: папки без мультирута там не бывает. */
     public taskEntryBase(task: ITask): QuickPickItem {
         const detail = this.configuration.get("task.quickOpen.detail") ? task.detail : undefined;
         return { label: task._label, ...(detail !== undefined ? { description: detail } : {}) };
     }
 
-    /** Показать бегущие (`runShowTasks`): одна или одна группа — сразу её терминал, иначе пикер. */
+    /** Одна задача или одна группа — сразу её терминал, иначе пикер. */
     public async showRunningTasks(): Promise<void> {
         const active = this.getActiveTasks();
         const group = active.at(0)?.command.presentation.group;
@@ -576,7 +498,6 @@ export class TaskService extends Disposable {
         return result.promise;
     }
 
-    /** Повторный запуск бегущей задачи (`_handleInstancePolicy`). */
     private handleInstancePolicy(task: ITask): void {
         // Stryker disable next-line ConditionalExpression: эквивалентный — показ видимой задачи ничего не меняет; проверка — как у эталона
         if (!this.system.isTaskVisible(task)) this.system.revealTask(task);
@@ -614,7 +535,6 @@ export class TaskService extends Disposable {
         if (entry?.task !== undefined) await this.restart(entry.task);
     }
 
-    /** `task.saveBeforeRun`: `never` — нет, `prompt` — спросить, если есть что сохранять. */
     private async saveBeforeRun(): Promise<void> {
         const mode = this.configuration.get("task.saveBeforeRun");
         if (mode === "never") return;
@@ -659,7 +579,6 @@ export class TaskService extends Disposable {
         this.notifications.show({ severity: "error", message, modal: false, items: [] });
     }
 
-    /** Тост эталона об ошибках задач; «Show Output» — панель Output на канале `Tasks`. */
     private promptToShowOutput(): void {
         void this.notifications
             .show({

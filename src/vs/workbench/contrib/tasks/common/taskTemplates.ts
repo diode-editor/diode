@@ -1,10 +1,8 @@
-// Шаблоны tasks.json для «Create tasks.json file from template»
-// (`taskTemplates.ts` эталона, схема 2.0.0): тексты дословно. npm, gulp и
-// прочие инструменты дают задачи провайдеры своих расширений, а не шаблон.
+// Тексты дословно из `taskTemplates.ts` эталона.
 
 import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 
-/** Шаблон: строка пикера и текст файла (отступы — табами, как у эталона). */
+/** Отступы текста — табами, как у эталона. */
 export interface ITaskTemplate extends QuickPickItem {
     readonly id: string;
     readonly sort?: string;
@@ -126,7 +124,7 @@ const maven: ITaskTemplate = {
     ].join("\n"),
 };
 
-/** Шаблоны в порядке пикера (`getTemplates`): по `sort ?? label`, «Others» — последним. */
+/** «Others» — последним. */
 export function getTaskTemplates(): ITaskTemplate[] {
     const sorted = [dotnetBuild, msbuild, maven].sort((a, b) => (a.sort ?? a.label).localeCompare(b.sort ?? b.label));
     return [...sorted, command];

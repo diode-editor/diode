@@ -13,7 +13,6 @@ function makeAccessor(opts: { has?: boolean; execute?: () => unknown }): {
 } {
     const notices: string[] = [];
     const services = new Map<unknown, unknown>([
-        // Прогресс операций: транспортные швы просят его у контейнера.
         [ProgressServiceDIToken, new ProgressService()],
         [CommandRegistryDIToken, { has: () => opts.has !== false, execute: opts.execute ?? (() => ({ ok: true })) }],
         [

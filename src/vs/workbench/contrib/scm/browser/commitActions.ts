@@ -8,21 +8,18 @@ import { GitCommitMenu } from "./gitMenus.ts";
 import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
-/** Флаги commit-семейства (номенклатура VS Code: git.commit / Staged / All × Amend × NoVerify). */
 interface ICommitFlags {
     readonly amend?: boolean;
     readonly all?: boolean;
     readonly noVerify?: boolean;
     readonly allowEmpty?: boolean;
-    /** Smart commit `git.commit`: пустой индекс → предложение закоммитить всё. */
+    /** Пустой индекс → предложение закоммитить всё. */
     readonly smart?: boolean;
 }
 
 /**
- * Общий поток коммита: сообщение из commit input box (пустое допустимо только
- * с amend — `--no-edit`); smart-режим при пустом индексе спрашивает «Commit all
- * changes?» (упрощение VS Code `git.enableSmartCommit`, без Always/Never);
- * успех очищает input (refresh списка придёт от расширения сам).
+ * Пустое сообщение допустимо только с amend (`--no-edit`). Smart — упрощение VS Code
+ * `git.enableSmartCommit` без Always/Never. Refresh списка придёт от расширения сам.
  */
 export async function commit(accessor: ServiceAccessor, flags: ICommitFlags): Promise<void> {
     const input = accessor.get(ScmInputComponentDIToken);
@@ -81,10 +78,7 @@ function commitAction(
     };
 }
 
-/**
- * Smart commit: индекс, а при пустом индексе — предложение закоммитить всё.
- * Ctrl+Enter в input box (Cmd+Enter на маке с Cmd) — как `CtrlCmd+Enter` в эталоне.
- */
+/** Ctrl+Enter (Cmd+Enter на маке с Cmd) — как `CtrlCmd+Enter` в эталоне. */
 export const gitCommitAction: CommandAction = {
     ...commitAction("git.commit", "Git: Commit", "Commit", { smart: true }, { group: "1_commit", order: 10 }),
     // Ctrl+Enter в legacy-потоке — это сам Enter, то есть перевод строки в input
@@ -150,7 +144,6 @@ export const gitCommitEmptyAction = commitAction("git.commitEmpty", "Git: Commit
     allowEmpty: true,
 });
 
-/** Undo Last Commit: `reset --soft HEAD~`, сообщение возвращается в input box. */
 export const gitUndoCommitAction: CommandAction = {
     id: "git.undoCommit",
     title: "Git: Undo Last Commit",

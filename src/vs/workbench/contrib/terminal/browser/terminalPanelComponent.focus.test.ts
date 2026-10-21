@@ -11,11 +11,7 @@ import { TerminalServiceDIToken } from "./terminalService.ts";
 
 const TOGGLE_TERMINAL = "workbench.action.terminal.toggleTerminal";
 
-/**
- * Регрессия на BUG-3 (#177): после `exit` виджет терминала снимают с дерева, и
- * FocusManager обнуляет фокус — ввод пропадал целиком (в редакторе не появлялся,
- * в панели тоже). Теперь фокус возвращается редактору (или следующему терминалу).
- */
+/** Регрессия BUG-3 (#177): после `exit` FocusManager обнулял фокус — ввод пропадал целиком. */
 describe("Терминал после выхода шелла отдаёт фокус", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;

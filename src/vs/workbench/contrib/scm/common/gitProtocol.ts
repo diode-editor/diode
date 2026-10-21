@@ -1,11 +1,6 @@
-/**
- * Зеркало протокола диспетчера git-операций (`extensions/git/lib/protocol.ts`) —
- * по значению, без общих импортов через границу процесса (конвенция
- * PUBLISH_CHANGES_COMMAND).
- */
+// Зеркало `extensions/git/lib/protocol.ts` по значению: через границу процесса не импортируем.
 export const GIT_OP_COMMAND = "diode.git.op";
 
-/** Классы ошибок git-операций (по мотивам GitErrorCodes VS Code). */
 export type GitErrorKind =
     | "auth"
     | "conflict"
@@ -20,7 +15,6 @@ export type GitOpResult =
     | { readonly ok: true; readonly data?: Readonly<Record<string, unknown>> }
     | { readonly ok: false; readonly kind: GitErrorKind; readonly message: string; readonly stderr?: string };
 
-/** Валидация envelope из-за границы процесса: всё непохожее — null. */
 export function parseGitOpResult(raw: unknown): GitOpResult | null {
     if (typeof raw !== "object" || raw === null) return null;
     const { ok } = raw as { ok?: unknown };

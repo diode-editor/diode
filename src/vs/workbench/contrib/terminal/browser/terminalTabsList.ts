@@ -15,10 +15,9 @@ export const TERMINAL_TABS_LIST_ID = "terminalTabsList";
  */
 export const TERMINAL_TABS_WIDTH = 20;
 
-/** Пункт дропдауна при `tabs.enabled=false`, включающий список обратно (эталон `SwitchTerminalActionViewItem`). */
 export const SWITCH_TERMINAL_SHOW_TABS = "Show Tabs";
 
-/** `$(terminal)` — иконка вкладки по умолчанию (`terminal.integrated.tabs.defaultIcon` эталона). */
+/** `$(terminal)` (`tabs.defaultIcon` эталона). */
 const TERMINAL_ICON = "\uea85";
 
 const ROW_ID_PREFIX = "terminalTab-";
@@ -27,36 +26,24 @@ export function terminalTabRowId(instanceId: number): string {
     return `${ROW_ID_PREFIX}${instanceId}`;
 }
 
-/** Текст строки списка и имени активного терминала в заголовке: `$(icon) title`, как `getSingleTabLabel` эталона. */
+/** Как `getSingleTabLabel` эталона. */
 export function terminalTabLabel(instance: ITerminalInstance): string {
     return `${TERMINAL_ICON} ${instance.title}`;
 }
 
-/** Подпись дропдауна/quick pick'а: `N: title` (эталон `getGroupLabels` / `TerminalQuickAccessProvider`). */
 export function terminalIndexedLabel(index: number, instance: ITerminalInstance): string {
     return `${index + 1}: ${instance.title}`;
 }
 
-/** Что владелец делает с действиями пользователя в списке. */
 export interface ITerminalTabsListHandlers {
-    /** Курсор встал на строку — стрелки или клик: терминал становится активным без фокуса. */
+    /** Терминал становится активным без фокуса. */
     onDidSelectInstance(instanceId: number): void;
-    /**
-     * Enter или двойной клик: фокус в терминал. Строка к этому моменту уже
-     * активна — её выбрали стрелками или первым кликом.
-     */
+    /** Строка к этому моменту уже активна — её выбрали стрелками или первым кликом. */
     onDidActivateInstance(): void;
-    /** Правый клик по строке. */
     onDidRequestContextMenu(instanceId: number, screenX: number, screenY: number): void;
 }
 
-/**
- * Список вкладок терминалов (эталон `TerminalTabList`): строка на инстанс,
- * курсор списка = активный терминал. Виджет презентационный — семантика
- * (сделать активным, сфокусировать, убить, меню) живёт у владельца через
- * колбэки; сам список лишь переводит строки в id инстансов и глушит эхо
- * собственных программных перестановок курсора.
- */
+/** Курсор списка = активный терминал. Семантика (активировать, фокус, kill, меню) — у владельца через колбэки. */
 export class TerminalTabsList {
     public readonly list = new ListViewElement({ typeahead: false });
 
@@ -78,7 +65,6 @@ export class TerminalTabsList {
         };
     }
 
-    /** Пересобрать строки по списку инстансов; курсор — на активном. */
     public setInstances(instances: readonly ITerminalInstance[], activeId: number | null): void {
         this.syncing = true;
         this.list.clear();
@@ -88,12 +74,11 @@ export class TerminalTabsList {
             // Без `label`: он нужен только typeahead'у, а тот выключен.
             this.list.appendRow(row);
         }
-        // Курсор — на активном; терминалов нет — и строки нет (setCursorTo бросает на неизвестной).
+        // Терминалов нет — и строки нет (setCursorTo бросает на неизвестной).
         if (activeId !== null) this.list.setCursorTo(terminalTabRowId(activeId));
         this.syncing = false;
     }
 
-    /** Инстанс под курсором списка (цель Delete в списке); `undefined` — список пуст. */
     public getCursorInstanceId(): number | undefined {
         const element = this.list.getCursorElement();
         return element === null ? undefined : instanceIdOf(element);

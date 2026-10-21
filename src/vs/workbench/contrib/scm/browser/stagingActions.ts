@@ -14,10 +14,8 @@ import { GitChangesMenu } from "./gitMenus.ts";
 import { withGitProgress } from "./gitOpClient.ts";
 
 /**
- * User-facing staging-команды (`git.*` — номенклатура VS Code). Живут в ядре:
- * меню, выделение и пикеры — здесь; git исполняет расширение через
- * команды-транспорты `diode.git.*` (строки дублируются по значению — общих
- * импортов через границу процесса нет).
+ * `git.*`-команды живут в ядре (меню, выделение, пикеры), git исполняет расширение через
+ * транспорты `diode.git.*`; строки дублируются по значению — общих импортов нет.
  */
 export const STAGE_TRANSPORT_COMMAND = "diode.git.stage";
 export const UNSTAGE_TRANSPORT_COMMAND = "diode.git.unstage";
@@ -27,22 +25,16 @@ export const CLEAN_TRANSPORT_COMMAND = "diode.git.clean";
 const STAGEABLE_GROUPS: readonly ScmGroupId[] = ["worktree", "untracked", "merge"];
 const UNSTAGEABLE_GROUPS: readonly ScmGroupId[] = ["index"];
 
-/** Сколько висит notice об ошибке git-операции в статус-баре. */
 const FAILURE_NOTICE_MS = 5000;
 
-/**
- * Имя операции для прогресса: у стейджинга свой транспорт, а не диспетчер
- * `diode.git.op`, поэтому имя достаём из id команды (`diode.git.stage` → `stage`).
- */
+/** У стейджинга свой транспорт, а не `diode.git.op`: имя операции — из id команды. */
 function transportOp(commandId: string): string {
     return commandId.slice(commandId.lastIndexOf(".") + 1);
 }
 
 /**
- * Резолв целей staging-команды: явные uri из меню (аргументом) либо выделение
- * списка Changes (клавиатура/палитра). В обоих случаях цели фильтруются по
- * применимости групп (смешанное выделение: stage берёт своё, unstage — своё,
- * ровно как VS Code) и дедуплицируются (MM-файл — две записи, один uri).
+ * Явные uri из меню либо выделение Changes; цели фильтруются по применимости групп
+ * (смешанное выделение — как VS Code) и дедуплицируются (MM-файл — две записи, один uri).
  */
 export function resolveScmTargets(accessor: ServiceAccessor, raw: unknown, applicable: readonly ScmGroupId[]): Uri[] {
     const changes = accessor.get(ScmChangesServiceDIToken).changes;
@@ -66,7 +58,6 @@ export function resolveScmTargets(accessor: ServiceAccessor, raw: unknown, appli
     return targets;
 }
 
-/** Все применимые файлы из снимка сервиса — цели `git.stageAll`/`git.unstageAll`. */
 function allTargets(accessor: ServiceAccessor, applicable: readonly ScmGroupId[]): Uri[] {
     return resolveScmTargets(
         accessor,
@@ -76,9 +67,8 @@ function allTargets(accessor: ServiceAccessor, applicable: readonly ScmGroupId[]
 }
 
 /**
- * Исполняет команду-транспорт расширения и разбирает envelope `{ok|message}`.
- * Расширение не активно (команды нет) или цели пусты — тихий no-op; ошибка git —
- * транзиентный notice в статус-баре (тостов нет), список сойдётся refresh-ом.
+ * Расширение не активно или цели пусты — тихий no-op; ошибка git — транзиентный notice
+ * в статус-баре (тостов нет), список сойдётся refresh-ом.
  */
 export async function runGitTransport(accessor: ServiceAccessor, commandId: string, uris: Uri[]): Promise<void> {
     if (uris.length === 0) return;
@@ -106,10 +96,6 @@ export async function runGitTransport(accessor: ServiceAccessor, commandId: stri
     }, FAILURE_NOTICE_MS);
 }
 
-/**
- * Stage: контекст-меню строки/папки (по выделению), заголовка группы (вся
- * группа — per-placement title «Stage All Changes») и палитра (по выделению).
- */
 export const gitStageAction: CommandAction = {
     id: "git.stage",
     title: "Git: Stage Changes",
@@ -140,7 +126,6 @@ export const gitStageAction: CommandAction = {
     },
 };
 
-/** Unstage: применим только к записям группы index (Staged Changes). */
 export const gitUnstageAction: CommandAction = {
     id: "git.unstage",
     title: "Git: Unstage Changes",
@@ -171,7 +156,6 @@ export const gitUnstageAction: CommandAction = {
     },
 };
 
-/** Stage всего незастейдженного — палитра и подменю Changes меню «⋯». */
 export const gitStageAllAction: CommandAction = {
     id: "git.stageAll",
     title: "Git: Stage All Changes",
@@ -182,7 +166,6 @@ export const gitStageAllAction: CommandAction = {
     },
 };
 
-/** Unstage всего индекса — палитра и подменю Changes меню «⋯». */
 export const gitUnstageAllAction: CommandAction = {
     id: "git.unstageAll",
     title: "Git: Unstage All Changes",
@@ -193,17 +176,13 @@ export const gitUnstageAllAction: CommandAction = {
     },
 };
 
-// ─── Discard ──────────────────────────────────────────────────────────────────
-
-/** Имя файла для текста диалога — последний сегмент пути uri. */
 function basenameOf(uri: Uri): string {
     return uri.path.slice(uri.path.lastIndexOf("/") + 1);
 }
 
 /**
- * Текст подтверждения discard — семантика VS Code: откат tracked обратим
- * (индекс/HEAD никуда не делись), удаление untracked — нет, поэтому у него
- * warning-стиль и капс. Дефолтная кнопка везде Cancel (задаёт ConfirmDialog).
+ * Семантика VS Code: откат tracked обратим, удаление untracked — нет, отсюда warning и капс.
+ * Дефолтная кнопка Cancel задаёт ConfirmDialog.
  */
 export function buildDiscardConfirm(tracked: readonly Uri[], untracked: readonly Uri[]): ConfirmDialogOptions {
     if (untracked.length === 0) {
@@ -242,7 +221,6 @@ export function buildDiscardConfirm(tracked: readonly Uri[], untracked: readonly
     };
 }
 
-/** Общий поток discard: резолв целей → подтверждение → транспорт. */
 async function discard(accessor: ServiceAccessor, rawUris: unknown): Promise<void> {
     const tracked = resolveScmTargets(accessor, rawUris, ["worktree"]);
     const untracked = resolveScmTargets(accessor, rawUris, ["untracked"]);
@@ -253,11 +231,7 @@ async function discard(accessor: ServiceAccessor, rawUris: unknown): Promise<voi
     await runGitTransport(accessor, CLEAN_TRANSPORT_COMMAND, [...tracked, ...untracked]);
 }
 
-/**
- * Discard: контекст-меню строки/папки (по выделению) и заголовка группы
- * («Discard All Changes» — вся группа). Деструктив — всегда с подтверждением;
- * untracked удаляются с диска (warning-текст).
- */
+/** Деструктив — всегда с подтверждением; untracked удаляются с диска. */
 export const gitCleanAction: CommandAction = {
     id: "git.clean",
     title: "Git: Discard Changes",
@@ -284,7 +258,6 @@ export const gitCleanAction: CommandAction = {
     },
 };
 
-/** Discard всего рабочего дерева (tracked + untracked) — палитра и подменю Changes. */
 export const gitCleanAllAction: CommandAction = {
     id: "git.cleanAll",
     title: "Git: Discard All Changes",

@@ -23,11 +23,7 @@ interface ISerializableExtensionEnvironmentVariableCollection {
     readonly description?: SerializableEnvironmentDescriptionMap;
 }
 
-/**
- * Сохранённые коллекции — ключ и область эталона
- * (`TerminalStorageKeys.EnvironmentVariableCollections`, workspace). У эталона
- * значение — JSON-строка; у нас состояние и так JSON, храним массив.
- */
+/** Ключ и область эталона (`TerminalStorageKeys.EnvironmentVariableCollections`); у эталона значение — JSON-строка, у нас массив. */
 export const ENVIRONMENT_VARIABLE_COLLECTIONS_STATE: IStateDescriptor<unknown> = {
     key: "terminal.integrated.environmentVariableCollectionsV2",
     scope: "workspace",
@@ -37,13 +33,8 @@ export const ENVIRONMENT_VARIABLE_COLLECTIONS_STATE: IStateDescriptor<unknown> =
 export const EnvironmentVariableServiceDIToken = token<EnvironmentVariableService>("EnvironmentVariableService");
 
 /**
- * Коллекции переменных окружения расширений (`EnvironmentVariableService`
- * эталона, `contrib/terminal/common/environmentVariableService.ts`): что
- * прислал субпроцесс, плюс слияние, которое терминал применяет к окружению
- * процесса. Коллекции с `persistent` переживают перезапуск — в состоянии
- * воркспейса; при смене воркспейса перечитываются из его стора. Коллекции
- * удалённых расширений забываются, как только известен состав установленных
- * ({@link setInstalledExtensions}, `_invalidateExtensionCollections` эталона).
+ * `EnvironmentVariableService` эталона. Коллекции с `persistent` живут в состоянии воркспейса;
+ * коллекции удалённых расширений забываются, как только известен состав установленных.
  */
 export class EnvironmentVariableService extends Disposable implements IEnvironmentVariableCollectionStore {
     private collectionsValue = new Map<string, IEnvironmentVariableCollectionWithPersistence>();
@@ -67,7 +58,6 @@ export class EnvironmentVariableService extends Disposable implements IEnvironme
         return this.collectionsValue;
     }
 
-    /** Слияние всех коллекций — его применяет терминал (`mergedCollection` эталона). */
     public get mergedCollection(): MergedEnvironmentVariableCollection {
         return this.merged;
     }
@@ -77,7 +67,7 @@ export class EnvironmentVariableService extends Disposable implements IEnvironme
         this.update();
     }
 
-    /** Состав установленных расширений: коллекции удалённых — забыть (и в состоянии). */
+    /** Коллекции удалённых — забыть, в том числе в состоянии. */
     public setInstalledExtensions(isInstalled: (extensionIdentifier: string) => boolean): void {
         this.isInstalled = isInstalled;
         const stale = [...this.collectionsValue.keys()].filter((id) => !isInstalled(id));

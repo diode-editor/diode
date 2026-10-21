@@ -1,9 +1,5 @@
-// Исполнение задач во встроенном терминале (`terminalTaskSystem.ts` эталона):
-// командная строка шелла или процесс, терминал задачи по `presentation.panel`
-// (dedicated / shared / new — с честным переиспользованием ждущего
-// терминала), ожидание после выхода, показ терминала по `reveal`/`focus` и
-// события жизни задачи в порядке эталона: Start → Active → ProcessStarted →
-// … → ProcessEnded → Inactive → End (и Terminated, если терминал закрыли).
+// Порядок событий задачи — как у эталона: Start → Active → ProcessStarted → … →
+// ProcessEnded → Inactive → End (и Terminated, если терминал закрыли).
 // Problem matchers не исполняются (docs/TODO/Tasks.md).
 
 import * as paths from "node:path";
@@ -34,7 +30,6 @@ import {
 } from "../common/tasks.ts";
 import { type ITaskVariableContext, resolveVariables } from "../common/taskVariables.ts";
 
-/** Событие жизни задачи (`ITaskEvent` эталона в объёме, нужном потребителям). */
 export type ITaskEvent =
     | { readonly kind: "changed" }
     | {
@@ -59,12 +54,11 @@ export type ITaskEvent =
           readonly exitReason: TerminalExitReason;
       };
 
-/** Итог исполнения (`ITaskSummary`): код выхода, `undefined` — терминал закрыли. */
+/** `exitCode: undefined` — терминал закрыли. */
 export interface ITaskSummary {
     readonly exitCode: number | undefined;
 }
 
-/** Исход запуска (`ITaskExecuteResult`): запущена или такая задача уже бежит. */
 export type ITaskExecuteResult =
     | { readonly kind: "started"; readonly task: ITask; readonly promise: Promise<ITaskSummary> }
     | { readonly kind: "active"; readonly task: ITask; readonly promise: Promise<ITaskSummary> };
@@ -73,13 +67,12 @@ export type ITaskExecuteResult =
 type TerminalKind = "process" | "custom";
 
 interface ITerminalData {
-    /** `getMapKey` задачи, которая бежала в терминале последней. */
+    /** `getMapKey` последней задачи этого терминала. */
     lastTask: string;
     readonly group: string | undefined;
     readonly kind: TerminalKind;
 }
 
-/** Ждущий терминал `shared`-задачи. */
 interface IIdleTerminal {
     readonly key: string;
     readonly id: number;
@@ -93,7 +86,6 @@ interface IActiveTask {
     readonly summary: PromiseWithResolvers<ITaskSummary>;
 }
 
-/** Готовый запуск: как создать или перезапустить терминал задачи. */
 interface ILaunch {
     readonly kind: TerminalKind;
     readonly name: string;
@@ -106,13 +98,12 @@ interface ILaunch {
     readonly resolvedDefinition: Readonly<Record<string, unknown>>;
 }
 
-/** Окружение запуска: значения переменных и платформа. */
 export interface ITaskRunContext {
     readonly variables: ITaskVariableContext;
     readonly platform: TaskPlatform;
 }
 
-/** Экранирование по шеллу (`_shellQuotes` эталона). */
+/** `_shellQuotes` эталона. */
 const POSIX_QUOTES: IShellQuotingOptions = {
     escape: { escapeChar: "\\", charsToEscape: " \"'" },
     strong: "'",
@@ -129,17 +120,14 @@ const SHELL_QUOTES: ReadonlyMap<string, IShellQuotingOptions> = new Map([
     ["bash", POSIX_QUOTES],
     ["zsh", POSIX_QUOTES],
 ]);
-/** Экранирование по ОС, когда шелл не из таблицы (`_osShellQuotes`). */
+/** `_osShellQuotes` эталона: шелл не из таблицы. */
 const OS_SHELL_QUOTES: Readonly<Record<TaskPlatform, IShellQuotingOptions>> = {
     linux: POSIX_QUOTES,
     osx: POSIX_QUOTES,
     windows: POWERSHELL_QUOTES,
 };
 
-/**
- * Значение `waitOnExit` терминала задачи (`getWaitOnExitValue` эталона):
- * ждать ли после выхода и что тогда напечатать.
- */
+/** `getWaitOnExitValue` эталона. */
 export function waitOnExitOf(presentation: IPresentationOptions, isBackground: boolean): TerminalWaitOnExit {
     if (presentation.close !== true) {
         if (presentation.reveal !== "never" || !isBackground || presentation.close === false) {
@@ -153,16 +141,12 @@ export function waitOnExitOf(presentation: IPresentationOptions, isBackground: b
 }
 
 export class TerminalTaskSystem extends Disposable {
-    /** Бегущие задачи по `getMapKey`. */
+    /** По `getMapKey`. */
     private readonly active = new Map<string, IActiveTask>();
-    /** Терминалы задач по id инстанса. */
     private readonly terminals = new Map<number, ITerminalData>();
-    /** `dedicated`: терминал, закреплённый за задачей (`_sameTaskTerminals`). */
+    /** `dedicated` (`_sameTaskTerminals` эталона). */
     private readonly sameTaskTerminals = new Map<string, IIdleTerminal>();
-    /**
-     * `shared`: ждущие терминалы, последним освободившийся — первым
-     * (`_idleTaskTerminals` с `Touch.AsOld` эталона): ключ задачи → id.
-     */
+    /** `shared`: последним освободившийся — первым (`Touch.AsOld` эталона). */
     private idleTaskTerminals: IIdleTerminal[] = [];
     private lastTask: { readonly task: ITask; readonly launch: ILaunch } | undefined;
     private customTerminals: IExtensionPtyTerminals | undefined;
@@ -189,32 +173,23 @@ export class TerminalTaskSystem extends Disposable {
         );
     }
 
-    /** Мост pty расширений — без него задачу с `CustomExecution` запустить нечем. */
+    /** Без моста задачу с `CustomExecution` запустить нечем. */
     public setCustomExecutionTerminals(terminals: IExtensionPtyTerminals | undefined): void {
         this.customTerminals = terminals;
     }
 
-    /** Бегущие задачи в порядке запуска. */
     public getActiveTasks(): readonly ITask[] {
         return [...this.active.values()].map((a) => a.task);
     }
 
-    /**
-     * Запустить задачу. Такая же уже бежит — `active` с её обещанием (решение,
-     * что делать, — у сервиса: `instancePolicy`). Переменные и командная
-     * строка считаются здесь; неподставимая переменная — отказ.
-     */
+    /** Такая же уже бежит — `active` с её обещанием, решает сервис (`instancePolicy`). Неподставимая переменная — отказ. */
     public run(task: ITask, context: ITaskRunContext): ITaskExecuteResult {
         const running = this.active.get(getMapKey(task));
         if (running !== undefined) return { kind: "active", task: running.task, promise: running.summary.promise };
         return this.execute(task, this.launchOf(task, context));
     }
 
-    /**
-     * Повторить последнюю задачу (`rerun` эталона): с `reevaluateOnRerun`
-     * переменные считаются заново, без него — запуск тем же, чем в прошлый раз.
-     * Нечего повторять — `undefined`.
-     */
+    /** С `reevaluateOnRerun` переменные считаются заново, без него — запуск тем же, что в прошлый раз. */
     public rerun(context: ITaskRunContext): ITaskExecuteResult | undefined {
         if (this.lastTask === undefined) return undefined;
         const { task, launch } = this.lastTask;
@@ -224,10 +199,7 @@ export class TerminalTaskSystem extends Disposable {
         return this.execute(task, launch);
     }
 
-    /**
-     * Остановить задачу: её терминал закрывается (`terminal.dispose()` эталона),
-     * задача кончается событием Terminated. `false` — она не бежит.
-     */
+    /** Терминал закрывается, задача кончается событием Terminated. */
     public async terminate(task: ITask): Promise<boolean> {
         const running = this.active.get(getMapKey(task));
         if (running === undefined) return false;
@@ -236,15 +208,11 @@ export class TerminalTaskSystem extends Disposable {
         return true;
     }
 
-    /** Остановить все бегущие задачи. */
     public async terminateAll(): Promise<void> {
         await Promise.all(this.getActiveTasks().map((task) => this.terminate(task)));
     }
 
-    /**
-     * Показать терминал задачи (`revealTask`): бегущей — её, иначе того, где
-     * она бежала последней. `false` — терминала у задачи нет.
-     */
+    /** Бегущей — её терминал, иначе тот, где она бежала последней. */
     public revealTask(task: ITask): boolean {
         const id = this.terminalOf(task);
         if (id === undefined) return false;
@@ -252,7 +220,6 @@ export class TerminalTaskSystem extends Disposable {
         return true;
     }
 
-    /** Виден ли терминал задачи прямо сейчас (`isTaskVisible`). */
     public isTaskVisible(task: ITask): boolean {
         const id = this.terminalOf(task);
         return (
@@ -292,10 +259,7 @@ export class TerminalTaskSystem extends Disposable {
         return { kind: "started", task, promise: active.summary.promise };
     }
 
-    /**
-     * Терминал под задачу: переиспользовать ждущий (`dedicated` — свой, `shared`
-     * — свой или любой той же `presentation.group`) или завести новый.
-     */
+    /** Переиспользовать ждущий (`dedicated` — свой, `shared` — свой или той же `presentation.group`) или завести новый. */
     private acquireTerminal(task: ITask, launch: ILaunch): [ITerminalInstance, ITerminalData] {
         const key = getMapKey(task);
         const { panel, group, clear } = task.command.presentation;
@@ -377,11 +341,7 @@ export class TerminalTaskSystem extends Disposable {
         });
     }
 
-    /**
-     * Процесс терминала задачи вышел (`reason` нет) или терминал закрыт
-     * (`reason` есть). Задача кончается один раз: ждущий терминал, закрытый
-     * клавишей после выхода, задачу уже не трогает.
-     */
+    /** `reason` нет — процесс вышел сам, есть — терминал закрыт. Задача кончается один раз. */
     private handleExit(terminalId: number, exitCode: number | undefined, reason: TerminalExitReason | undefined): void {
         const entry = [...this.active].find(([, a]) => a.terminalId === terminalId);
         if (entry === undefined) return;
@@ -406,7 +366,6 @@ export class TerminalTaskSystem extends Disposable {
         active.summary.resolve({ exitCode });
     }
 
-    /** Терминал снят — переиспользовать его больше нельзя. */
     private forgetTerminal(id: number): void {
         const data = this.terminals.get(id);
         if (data === undefined) return;
@@ -416,7 +375,6 @@ export class TerminalTaskSystem extends Disposable {
         this.idleTaskTerminals = this.idleTaskTerminals.filter((idle) => idle.id !== id);
     }
 
-    /** `reveal: always` или `focus` — показать терминал задачи при старте. */
     private reveal(task: ITask, terminalId: number): void {
         const { reveal, focus } = task.command.presentation;
         if (focus || reveal === "always") this.show(terminalId, focus);
@@ -431,8 +389,6 @@ export class TerminalTaskSystem extends Disposable {
     private fire(event: ITaskEvent): void {
         this.onDidStateChangeEmitter.fire(event);
     }
-
-    // ── Запуск: переменные, командная строка, сообщение ───────────────────────
 
     private launchOf(task: ITask, context: ITaskRunContext): ILaunch {
         const { command } = task;
@@ -500,7 +456,6 @@ export class TerminalTaskSystem extends Disposable {
         return paths.isAbsolute(cwd) || folder === undefined ? cwd : paths.join(folder, cwd);
     }
 
-    /** Шелл задачи: свой из `options.shell` или системный, и признак «задан явно». */
     private shellOf(
         shell: IShellConfiguration | undefined,
         resolve: (value: string) => string,
@@ -513,7 +468,6 @@ export class TerminalTaskSystem extends Disposable {
     }
 }
 
-/** «Executing task: …» — печатается в терминал перед выводом задачи при `echo`. */
 function executingMessage(text: string): string {
     return formatMessageForTerminal(`Executing task: ${text}`, { excludeLeadingNewLine: true });
 }
@@ -533,7 +487,6 @@ function resolveRecord(
     return Object.fromEntries(Object.entries(record).map(([k, v]) => [k, resolve(v)]));
 }
 
-/** Строки определения с подставленными переменными (как резолв определения `CustomExecution` эталона). */
 function resolveDeep(
     value: Readonly<Record<string, unknown>>,
     resolve: (v: string) => string,
@@ -550,16 +503,12 @@ function resolveDeep(
     return walk(definition) as Record<string, unknown>;
 }
 
-/** Пути шелла разбираются по правилам его ОС (у эталона — ОС процесса, это она и есть). */
+/** По ОС шелла (у эталона — ОС процесса, это она и есть). */
 function pathsOf(platform: TaskPlatform): typeof paths.posix {
     return platform === "windows" ? paths.win32 : paths.posix;
 }
 
-/**
- * Аргументы шелла (`_createShellLaunchConfig`): на posix — `-c` (если шелл не
- * задан явно), на Windows — по шеллу (`-Command`, `/d /c`, `-c`, `-e`);
- * последним — командная строка.
- */
+/** `_createShellLaunchConfig` эталона; командная строка — последним аргументом. */
 export function shellArgsOf(
     platform: TaskPlatform,
     shell: { readonly executable: string; readonly args: readonly string[]; readonly specified: boolean },
@@ -577,7 +526,7 @@ export function shellArgsOf(
     return [...addAllArguments(toAdd, shell.args), commandLine];
 }
 
-/** `_addAllArgument`: аргумент шелла не дублируется, если он уже стоит с хвостом не-флагов. */
+/** `_addAllArgument` эталона: не дублировать аргумент, уже стоящий с хвостом не-флагов. */
 function addAllArguments(toAdd: readonly string[], configured: readonly string[]): string[] {
     const combined = [...configured];
     for (const element of toAdd) {
@@ -594,11 +543,7 @@ function addAllArguments(toAdd: readonly string[], configured: readonly string[]
     return combined;
 }
 
-/**
- * Командная строка шелла (`_buildShellCommandLine` эталона): команда и
- * аргументы, экранированные по правилам шелла; строка без аргументов уходит
- * как есть.
- */
+/** `_buildShellCommandLine` эталона; строка без аргументов уходит как есть. */
 export function buildShellCommandLine(
     platform: TaskPlatform,
     shellExecutable: string,

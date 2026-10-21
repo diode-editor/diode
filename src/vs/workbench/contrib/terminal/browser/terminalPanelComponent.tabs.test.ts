@@ -31,7 +31,6 @@ import { SWITCH_TERMINAL_SHOW_TABS, TERMINAL_TABS_WIDTH, terminalTabRowId } from
 const WIDTH = 80;
 const HEIGHT = 12;
 
-/** Компонент поверх настоящей панели и TestApp — тесты смотрят в кадр. */
 function buildHarness(settings: Readonly<Record<string, unknown>> = {}, shells: readonly string[] = []) {
     const views = makeViewsHarness();
     const panelComponent = new PanelComponent(views.panelService, new CommandRegistry());
@@ -65,7 +64,6 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}, shells: 
         testApp.render();
         return testApp.backend.screenToString();
     };
-    /** Строки кадра, где виден заголовок вкладки (имя терминала/табы). */
     const lines = (): string[] => screen().split("\n");
     const rowOf = (instanceIndex: number) => {
         const id = service.getInstances()[instanceIndex].id;
@@ -86,7 +84,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}, shells: 
             raw: "",
         });
     };
-    /** Клик по строке списка (координаты кадра 0-based). */
+    /** Координаты кадра 0-based. */
     const clickRow = (instanceIndex: number, button: MouseToken["button"] = "left"): void => {
         screen();
         const pos = rowOf(instanceIndex).globalPosition;
@@ -117,12 +115,10 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}, shells: 
     };
 }
 
-/** Строка списка в кадре: разделитель, отступ, глиф `$(terminal)` и имя. */
 function tab(title: string): string {
     return `│ ${CODICON_GLYPHS.terminal ?? ""} ${title}`;
 }
 
-/** Сколько строк кадра содержат подстроку. */
 function count(text: string, needle: string): number {
     return text.split("\n").filter((line) => line.includes(needle)).length;
 }
@@ -132,7 +128,6 @@ describe("TerminalPanelComponent — tabs list in the frame", () => {
         const h = buildHarness({}, ["/bin/bash"]);
         h.service.openTerminal();
         const screen = h.screen();
-        // Имя активного — в строке табов панели, рядом с TERMINAL.
         const tabRow = h.lines().find((line) => line.includes("TERMINAL")) ?? "";
         expect(tabRow).toContain("bash");
         expect(h.component.tabsVisible).toBe(false);
@@ -163,7 +158,6 @@ describe("TerminalPanelComponent — tabs list in the frame", () => {
         expect(h.component.tabsVisible).toBe(true);
         expect(count(screen, tab("bash"))).toBe(1);
         expect(count(screen, tab("zsh"))).toBe(1);
-        // Справа: строка списка начинается за разделителем в правой части кадра.
         const bashRow = h.lines().find((line) => line.includes(tab("bash"))) ?? "";
         expect(bashRow.indexOf(tab("bash"))).toBe(WIDTH - TERMINAL_TABS_WIDTH - 1);
         // Имени активного в заголовке больше нет — его роль играет список.
@@ -213,7 +207,6 @@ describe("TerminalPanelComponent — tabs list in the frame", () => {
         h.service.newTerminal();
         h.screen();
         expect(h.component.tabs.list.globalPosition.x).toBe(h.component.view.globalPosition.x);
-        // Разделитель сразу за списком.
         const row = h.lines()[h.rowOf(0).globalPosition.y];
         expect(row[h.component.view.globalPosition.x + TERMINAL_TABS_WIDTH]).toBe("│");
         h.dispose();
@@ -393,7 +386,7 @@ describe("TerminalPanelComponent — dropdown keyboard", () => {
         if (switcher === null) throw new Error("switcher not rendered");
         switcher.focus();
         h.testApp.render();
-        h.testApp.sendKey("Enter"); // раскрыть
+        h.testApp.sendKey("Enter");
         expect((switcher as SelectBoxElement).isOpen()).toBe(true);
         // Попап открывается на первом пункте: «1: bash» → «2: bash» → (черта пропущена) «Show Tabs».
         h.testApp.sendKey("ArrowDown");

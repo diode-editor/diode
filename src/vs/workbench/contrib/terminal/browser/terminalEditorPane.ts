@@ -10,21 +10,16 @@ import type { ITerminalColors } from "./terminalColorsService.ts";
 import { applyTerminalColors } from "./terminalPanelComponent.ts";
 import type { ITerminalInstance } from "./terminalService.ts";
 
-/** Схема ресурса вкладки-терминала (`Schemas.vscodeTerminal` эталона). */
 export const TERMINAL_EDITOR_SCHEME = "vscode-terminal";
 
-/** Ресурс вкладки терминала по id инстанса — идентичность вкладки в группе. */
+/** Ресурс — идентичность вкладки в группе. */
 export function terminalEditorUri(instanceId: number): Uri {
     return Uri.from({ scheme: TERMINAL_EDITOR_SCHEME, path: `/${String(instanceId)}` });
 }
 
 /**
- * Вкладка-терминал в области редакторов (`TerminalEditor` + `TerminalEditorInput`
- * эталона): тело — `TerminalViewElement` над сессией инстанса, метка — имя
- * терминала. Закрытие вкладки (dispose панели группой) убивает процесс через
- * `onDidClose` — кроме случая, когда инстанс от вкладки отцеплен
- * ({@link detach}: переезд в панель, инстанс уже снят). Перенос вкладки между
- * группами панель не диспозит — процесс живёт.
+ * Закрытие вкладки убивает процесс через `onDidClose`, если инстанс не отцеплен
+ * ({@link detach}). Перенос между группами панель не диспозит.
  */
 export class TerminalEditorPane extends Disposable implements IEditorPane {
     public readonly uri: Uri;
@@ -55,22 +50,19 @@ export class TerminalEditorPane extends Disposable implements IEditorPane {
         return this.instance.title;
     }
 
-    /** Вкладку закрыли, а инстанс к ней ещё привязан — процесс пора убить. */
     public readonly onDidClose = this.onDidCloseEmitter.event;
 
     public readonly onDidChangeState = this.onDidChangeStateEmitter.event;
 
-    /** Заголовок терминала сменился — перерисовать метку вкладки. */
     public refreshLabel(): void {
         this.onDidChangeStateEmitter.fire();
     }
 
-    /** Новые цвета терминала (`terminal.integrated.colorSource`, смена темы). */
     public setColors(colors: ITerminalColors): void {
         applyTerminalColors(this.instance, this.widget, colors);
     }
 
-    /** Отцепить инстанс (`detachInstance` эталона): закрытие вкладки его больше не убивает. */
+    /** Закрытие вкладки инстанс больше не убивает. */
     public detach(): void {
         this.detached = true;
     }

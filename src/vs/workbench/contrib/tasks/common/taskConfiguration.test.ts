@@ -6,8 +6,6 @@ import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWo
 import { currentTaskPlatform, parseTasksJson } from "./taskConfiguration.ts";
 import { DEFAULT_PRESENTATION, DEFAULT_RUN_OPTIONS } from "./tasks.ts";
 
-// Разбор `.diode/tasks.json` — подмножество схемы 2.0.0 первой итерации.
-
 const folder: IWorkspaceFolder = { uri: Uri.file("/ws"), name: "ws", index: 0 };
 
 function parse(json: unknown, platform: "linux" | "osx" | "windows" = "linux") {
@@ -105,7 +103,6 @@ describe("parseTasksJson — задача shell/process", () => {
 
     it("команда массивом и {value: массив} — через пробел; quoting неизвестный — strong", () => {
         expect(one({ label: "t", command: ["a", "b"] }).task?.command.name).toBe("a b");
-        // Массив не только из строк — не команда.
         expect(one({ label: "t", command: ["a", 1] }).task).toBeUndefined();
         expect(one({ label: "t", command: { value: ["a", "b"], quoting: "weak" } }).task?.command.name).toStrictEqual({
             value: "a b",
@@ -162,7 +159,6 @@ describe("parseTasksJson — задача shell/process", () => {
             cwd: "${workspaceFolder}",
             shell: { quoting: { escape: { escapeChar: "\\", charsToEscape: " " } } },
         });
-        // Объект escape — только с обоими полями строками.
         for (const escape of [{ escapeChar: "\\" }, { charsToEscape: " " }, { escapeChar: 1, charsToEscape: " " }]) {
             expect(options({ quoting: { escape } })).toStrictEqual({
                 cwd: "${workspaceFolder}",
@@ -222,7 +218,6 @@ describe("parseTasksJson — неподдержанное и ошибки", () =
         const emptyLabel = one({ label: "", command: "x" });
         expect(emptyLabel.task).toBeUndefined();
         expect(one({ label: 5, command: "x" }).task).toBeUndefined();
-        // Команда-объект без строкового значения — команды нет.
         expect(one({ label: "t", command: { value: 1 } }).task).toBeUndefined();
         const noCommand = one({ label: "t" });
         expect(noCommand.task).toBeUndefined();
@@ -255,7 +250,6 @@ describe("parseTasksJson — неподдержанное и ошибки", () =
         expect(
             one({ label: "t", command: "x", runOptions: { runOn: "default", instanceLimit: 1 } }).problems,
         ).toStrictEqual([]);
-        // Лимит не числом — не лимит; опции без cwd — без предупреждения о cwd.
         expect(one({ label: "t", command: "x", runOptions: { instanceLimit: "5" } }).problems).toStrictEqual([]);
         expect(one({ label: "t", command: "x", options: { env: { A: "1" } } }).problems).toStrictEqual([]);
     });
@@ -306,7 +300,6 @@ describe("parseTasksJson — платформа и глобальные опци
         expect(linux?.command.options).toStrictEqual({ cwd: "/base", env: { A: "1", B: "2" } });
         expect(linux?.command.presentation).toMatchObject({ echo: false, focus: true });
         expect(parse({ version: "2.0.0", tasks: [task] }, "windows").tasks[0].command.name).toBe("win");
-        // Секции osx нет — база как есть.
         const osx = parse({ version: "2.0.0", tasks: [task] }, "osx").tasks[0];
         expect(osx.command.name).toBe("base");
         expect(osx.command.args).toStrictEqual(["b"]);

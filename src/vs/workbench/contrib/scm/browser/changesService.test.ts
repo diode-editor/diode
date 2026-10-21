@@ -4,7 +4,6 @@ import { CommandRegistry } from "../../../../platform/commands/common/commandReg
 
 import { PUBLISH_CHANGES_COMMAND, ScmChangesService } from "./changesService.ts";
 
-/** Собирает сервис поверх реестра команд; возвращает и то, и другое. */
 function setup(): { service: ScmChangesService; commands: CommandRegistry } {
     const commands = new CommandRegistry();
     const service = new ScmChangesService(commands);

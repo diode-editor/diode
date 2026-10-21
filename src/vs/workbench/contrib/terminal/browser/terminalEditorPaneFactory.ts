@@ -4,18 +4,13 @@ import type { IEditorPaneFactory } from "../../../services/editor/browser/editor
 import { TerminalEditorPane } from "./terminalEditorPane.ts";
 import { TerminalEditorServiceDIToken } from "./terminalEditorService.ts";
 
-/** Рецепт вкладки-терминала: повтор — всегда новый шелл, параметров нет. */
+/** Повтор — всегда новый шелл, параметров нет. */
 export type ITerminalEditorPaneDescriptor = Readonly<Record<string, never>>;
 
 /** upstream `TerminalEditorInput.ID`. */
 export const TERMINAL_EDITOR_PANE_TYPE_ID = "workbench.editors.terminal";
 
-/**
- * Фабрика вкладок-терминалов: сплит и копия в группу заводят в целевой группе
- * НОВЫЙ терминал (upstream `TerminalEditorInput.copy()` создаёт новый
- * инстанс, процесс не делится). Рестарт вкладка не переживает: процессы
- * терминалов не сохраняются (у эталона без persistent sessions — так же).
- */
+/** Сплит и копия заводят НОВЫЙ терминал, как `TerminalEditorInput.copy()` эталона. Рестарт вкладка не переживает. */
 export function createTerminalEditorPaneFactory(
     accessor: ServiceAccessor,
 ): IEditorPaneFactory<ITerminalEditorPaneDescriptor> {

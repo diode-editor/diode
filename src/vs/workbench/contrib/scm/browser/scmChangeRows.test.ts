@@ -24,7 +24,6 @@ const STYLES: IScmRowStyles = {
     statusColors: { "gitDecoration.modifiedResourceForeground": MODIFIED },
 };
 
-/** Строка «под курсором/мышью» — состояние ставит список на обёртку строки. */
 function activate(parts: IScmFileRowParts): void {
     parts.root.setStyleState(LIST_ROW_ACTIVE_STATE, true);
 }
@@ -53,7 +52,6 @@ describe("scmChangeRows — file row", () => {
         const backend = renderElement(parts.root, WIDTH, 1);
 
         expect(backend.getTextAt(new Point(0, 0), 8)).toBe("src/a.ts");
-        // Буква статуса — в последней колонке, цветом gitDecoration.
         expect(backend.getTextAt(new Point(WIDTH - 1, 0), 1)).toBe("M");
         expect(backend.getFgAt(new Point(WIDTH - 1, 0))).toBe(MODIFIED);
         expect(backend.getFgAt(new Point(0, 0))).toBe(MODIFIED);
@@ -67,11 +65,9 @@ describe("scmChangeRows — file row", () => {
         activate(parts);
         const backend = renderElement(parts.root, WIDTH, 1);
 
-        // Кнопка занимает колонки слева от буквы статуса.
         const buttonX = WIDTH - 1 - OPEN_FILE_BUTTON_WIDTH;
         expect(backend.getTextAt(new Point(buttonX, 0), OPEN_FILE_BUTTON_WIDTH)).toBe(` ${OPEN_FILE_GLYPH} `);
         expect(parts.openButton.layoutSize.width).toBe(OPEN_FILE_BUTTON_WIDTH);
-        // Статус остаётся на своём месте, имя ужимается.
         expect(backend.getTextAt(new Point(WIDTH - 1, 0), 1)).toBe("M");
     });
 

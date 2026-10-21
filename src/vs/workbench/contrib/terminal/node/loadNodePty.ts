@@ -1,10 +1,5 @@
-// Загрузчик нативного node-pty с двумя путями:
-//   - dev (tsx/npm): обычный require из node_modules;
-//   - упакованная сборка: нативные файлы node-pty вшиты ассетом
-//     `node-pty.bundle`; на первом запуске распаковываем их в пользовательский
-//     кэш и грузим оттуда через createRequire (нативный `.node` нельзя вшить в
-//     JS-blob — `process.dlopen` требует файл на диске). См. docs/arch/workbench/Terminal.md.
-// Чтение ассета и безопасная распаковка — общие (base/node/assets).
+// Нативный `.node` нельзя вшить в JS-blob — `process.dlopen` требует файл на диске: упакованная
+// сборка распаковывает ассет `node-pty.bundle` в пользовательский кэш, dev — обычный require.
 
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -28,17 +23,13 @@ const ASSET_NAME = "node-pty.bundle";
 
 let cached: NodePtyModule | null = null;
 
-/** Загрузить node-pty (dev — из node_modules; упакованная сборка — из распакованного ассета). */
 export function loadNodePty(): NodePtyModule {
     // Stryker disable next-line AssignmentOperator: без кэша модуль тот же (require кэширует его сам) — теряется только экономия
     cached ??= resolveNodePty();
     return cached;
 }
 
-/**
- * node-pty без кэша на процесс: `bundle` — байты `node-pty.bundle` (`null` — dev,
- * обычный require), `cacheRoot` — корень кэша распаковки.
- */
+/** Без кэша на процесс; `bundle` `null` — dev, обычный require. */
 export function resolveNodePty(
     bundle: Uint8Array | null = readPackagedAsset(ASSET_NAME),
     cacheRoot?: string,

@@ -59,7 +59,6 @@ describe("scmChangeTree — buildScmTree", () => {
         const tree = buildScmTree([change("src/vs/a.ts"), change("src/vs/workbench/b.ts")]);
         const srcVs = tree[0] as IScmTreeFolder;
         expect(srcVs.label).toBe("src/vs");
-        // Внутри: папка workbench раньше файла a.ts.
         expect(labels(srcVs.children)).toEqual(["workbench/", "a.ts"]);
     });
 

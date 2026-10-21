@@ -12,19 +12,18 @@ import { GitPullPushMenu } from "./gitMenus.ts";
 import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 import { ScmRepoStateServiceDIToken } from "./repoStateService.ts";
 
-/** Read-only запрос данных пикеров у расширения (зеркалится по значению). */
+/** Read-only; строка зеркалится по значению на стороне расширения. */
 export const QUERY_COMMAND = "diode.git.query";
 
 const inChangesMenu = viewMenuVisible(SCM_CHANGES_VIEW_ID);
 
-/** Данные запроса у расширения; расширение не активно/деградация — null. */
+/** `null` — расширение не активно или деградация. */
 export async function runGitQuery(accessor: ServiceAccessor, kind: string): Promise<unknown> {
     const commands = accessor.get(CommandRegistryDIToken);
     if (!commands.has(QUERY_COMMAND)) return null;
     return Promise.resolve(commands.execute(QUERY_COMMAND, { kind })).catch(() => null);
 }
 
-/** Refs из query (для pull-from и branch-пикеров фазы 9). */
 export async function queryRefs(
     accessor: ServiceAccessor,
 ): Promise<{ name: string; kind: "head" | "remote" | "tag"; sha: string; subject: string }[]> {
@@ -36,10 +35,7 @@ export async function queryRefs(
     );
 }
 
-/**
- * Выбор remote: единственный — сразу, несколько — QuickPick, ноль — notice и
- * null (команды и так спрятаны за `gitHasRemotes`, но палитра не фильтрует).
- */
+/** Ноль — notice и null: команды спрятаны за `gitHasRemotes`, но палитра не фильтрует. */
 export async function pickRemote(accessor: ServiceAccessor, title: string): Promise<string | null> {
     const remotes = accessor.get(ScmRepoStateServiceDIToken).state.remotes;
     if (remotes.length === 0) {
@@ -55,7 +51,6 @@ export async function pickRemote(accessor: ServiceAccessor, title: string): Prom
     return picked?.label ?? null;
 }
 
-/** Реакции на классифицированные ошибки сетевых операций (auth/conflict — общие). */
 async function reactToFailure(accessor: ServiceAccessor, result: Extract<GitOpResult, { ok: false }>): Promise<void> {
     if (result.kind === "auth") {
         await accessor.get(DialogServiceDIToken).confirm({
@@ -76,16 +71,11 @@ async function reactToFailure(accessor: ServiceAccessor, result: Extract<GitOpRe
     showGitNotice(accessor, result.message);
 }
 
-/** Pull/fetch/sync: одна операция + общие реакции. */
 async function runNetworkOp(accessor: ServiceAccessor, op: string, params?: Record<string, unknown>): Promise<void> {
     const result = await runGitOp(accessor, op, params, { silent: true });
     if (result !== null && !result.ok) await reactToFailure(accessor, result);
 }
 
-/**
- * Push с VS Code-реакциями: `no-upstream` → предложение опубликовать ветку
- * (`push -u <remote> <branch>`), `push-rejected` → предложение сделать pull.
- */
 async function push(accessor: ServiceAccessor, params: Record<string, unknown>): Promise<void> {
     const result = await runGitOp(accessor, "push", params, { silent: true });
     if (result === null || result.ok) return;
@@ -112,7 +102,6 @@ async function push(accessor: ServiceAccessor, params: Record<string, unknown>):
     await reactToFailure(accessor, result);
 }
 
-/** `git push -u <remote> <branch>` текущей ветки (git.publish и no-upstream-поток). */
 async function publishBranch(accessor: ServiceAccessor): Promise<void> {
     const branch = accessor.get(ScmRepoStateServiceDIToken).state.branch;
     if (branch === null) {
@@ -124,7 +113,6 @@ async function publishBranch(accessor: ServiceAccessor): Promise<void> {
     await runNetworkOp(accessor, "push", { remote, ref: branch, setUpstream: true });
 }
 
-/** Push в явно выбранный remote (`git.pushTo` / `git.pushToForce`). */
 async function pushTo(accessor: ServiceAccessor, force: boolean): Promise<void> {
     const branch = accessor.get(ScmRepoStateServiceDIToken).state.branch;
     if (branch === null) {

@@ -10,11 +10,7 @@ import {
     START_HASH,
 } from "./commitGraph.ts";
 
-/**
- * Кейсы `TestGetNextPipes` из lazygit: укладка пайпов строки — до всякой
- * отрисовки. Здесь ловятся ошибки порядка шагов (кто занимает колонку раньше) и
- * подстановка пустого дерева вместо родителя у корневого коммита.
- */
+/** Кейсы `TestGetNextPipes` lazygit: порядок шагов и пустое дерево у корневого коммита. */
 const STYLE = "graphStyle";
 const getStyle = (): string => STYLE;
 

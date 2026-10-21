@@ -6,10 +6,8 @@ import type { IQuickDiffColors } from "./quickDiffDecorations.ts";
 import { toGutterDecorations } from "./quickDiffDecorations.ts";
 
 /**
- * Ожидания сняты с прогонов настоящего движка, а не выведены из чтения кода:
- * вход задаётся парой текстов, `DefaultLinesDiffComputer` считает изменения, и
- * проверяется, какие строки (0-based) окажутся под баром. Так тест ловит и
- * ошибку конверсии, и смену поведения движка при перекате пина.
+ * Ожидания сняты с прогонов настоящего движка, а не из чтения кода: тест ловит и ошибку
+ * конверсии, и смену поведения движка при перекате пина.
  */
 
 const COLORS: IQuickDiffColors = { added: 0x00ff00, modified: 0x0000ff, deleted: 0xff0000 };

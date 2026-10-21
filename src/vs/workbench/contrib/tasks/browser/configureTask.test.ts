@@ -20,10 +20,6 @@ import {
 import { configureTaskAction, runTaskAction } from "./taskActions.ts";
 import { TaskServiceDIToken } from "./taskService.ts";
 
-// Configure Task: пикер задач + «Create/Open tasks.json file», дописывание
-// кастомизации задачи провайдера в tasks.json с сохранением текста, шаблоны,
-// открытие файла на записи — и что дописанная запись работает в Run Task.
-
 const npmDefinition: ITaskDefinitionSchema = {
     extensionId: "pub.ext",
     taskType: "npm",
@@ -43,7 +39,7 @@ function build(options: Parameters<typeof buildTaskServiceHarness>[0] = {}) {
         [NotificationServiceDIToken, h.notifications],
     ]);
     const accessor = { get: (token: Token<unknown>) => services.get(token) } as unknown as ServiceAccessor;
-    /** Провайдер npm со скриптами `labels` (команда — `npm run <скрипт>`). */
+    /** Команда задачи — `npm run <скрипт>`. */
     const withNpm = (labels: string[], extra: Parameters<typeof makeTask>[0] = {}): void => {
         h.service.registerTaskDefinitions([npmDefinition]);
         const task = (label: string) =>
@@ -241,7 +237,6 @@ describe("Configure Task — кастомизация задачи провай�
         h.withNpm(["lint"]);
         h.answerPicks("npm: lint");
         await configureTaskAction.run(h.accessor);
-        // Человек правит подпись и presentation записи.
         h.setTasksJson(
             (h.tasksJson() ?? "").replace(
                 '"label": "npm: lint"',

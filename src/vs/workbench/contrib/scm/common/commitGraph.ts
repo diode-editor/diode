@@ -1,91 +1,62 @@
 /**
- * Укладка и отрисовка графа коммитов — **дословный порт** pipe-модели lazygit
- * (`pkg/gui/presentation/graph/{graph,cell}.go`). Порядок шагов в
- * {@link getNextPipes} и порядок трёх проходов в {@link renderPipeSet}
- * существенны: от них зависит, какая линия куда сдвинется и чей цвет победит —
- * менять их «для красоты» нельзя, фикстуры из `graph_test.go` перестанут
- * сходиться (см. `commitGraph.fixtures.test.ts`).
- *
- * Единственное отличие от оригинала: вместо строки с ANSI-escape мы возвращаем
- * {@link IGraphLine} — текст плюс имя токена темы на каждый символ. Раскраску
- * делает `TextLabelElement.setCharStyle`, RGB-литералов в коде нет (AGENTS.md).
- *
- * Модуль чистый: ни tuidom, ни DI, ни темы — только строки и числа.
+ * Дословный порт pipe-модели lazygit (`pkg/gui/presentation/graph/{graph,cell}.go`):
+ * порядок шагов {@link getNextPipes} и проходов {@link renderPipeSet} решает, какая
+ * линия куда сдвинется и чей цвет победит, — фикстуры `graph_test.go` держат его.
+ * Отличие: вместо ANSI-строки — {@link IGraphLine} с токеном темы на символ.
  */
 
-/** Что линия делает на этой строке. Порядок значений — ключ сортировки пайпов. */
+/** Порядок значений — ключ сортировки пайпов. */
 export enum PipeKind {
-    /** Линия обрывается на этом коммите (коммит — её родитель). */
+    /** Коммит — родитель линии. */
     Terminates,
-    /** Линия начинается от этого коммита. */
     Starts,
-    /** Линия проходит мимо. */
     Continues,
 }
 
-/**
- * Отрезок линии внутри одной строки: из колонки `fromPos` (позиция в строке
- * предыдущего коммита) в колонку `toPos` (позиция в текущей).
- */
+/** `fromPos` — колонка в строке предыдущего коммита, `toPos` — в текущей. */
 export interface IPipe {
     readonly fromHash: string;
     readonly toHash: string;
     readonly fromPos: number;
     readonly toPos: number;
     readonly kind: PipeKind;
-    /** Имя токена темы — цвет линии. */
     readonly style: string;
 }
 
-/** Всё, что алгоритму нужно знать о коммите. */
 export interface IGraphCommit {
     readonly sha: string;
-    /** Родители в порядке git; пусто — корневой коммит. */
+    /** В порядке git; пусто — корневой коммит. */
     readonly parents: readonly string[];
 }
 
-/** Одна отрисованная строка графа: символы и токен темы на каждый из них. */
 export interface IGraphLine {
     readonly text: string;
-    /** Длина совпадает с числом символов `text`; `undefined` — символ без окраски. */
+    /** `undefined` — символ без окраски. */
     readonly styles: readonly (string | undefined)[];
 }
 
 /**
- * Цвет линии (инжектится вызывающим). `sha` — коммит, в который линия идёт;
- * `inherited` — цвет линии, которую она продолжает, либо `null` для новой
- * дорожки (первый коммит списка, второй родитель merge, несвязанный корень).
- *
- * Наследование — отклонение от lazygit: там цвет линии берётся у автора
- * коммита, который её начал, а у нас он живёт на дорожке (модель vscode) — иначе
- * каждый коммит линейной истории красился бы в свой цвет вместо цвета ветки.
+ * `inherited` — цвет продолжаемой линии, `null` — новая дорожка. Отклонение от lazygit
+ * (цвет по автору коммита): цвет живёт на дорожке, как в vscode, — иначе каждый коммит
+ * линейной истории красился бы в свой цвет.
  */
 export type GraphStyleProvider = (sha: string, inherited: string | null) => string;
 
 /** Пустое дерево git — родитель корневого коммита (`git hash-object -t tree /dev/null`). */
 export const EMPTY_TREE_HASH = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 
-/** Псевдо-хеш затравочного пайпа, ведущего в самый первый коммит списка. */
 export const START_HASH = "START";
 
-/** Токен цвета линий выделенного коммита (аналог `FgLightWhite.SetBold()` lazygit). */
+/** Аналог `FgLightWhite.SetBold()` lazygit. */
 export const GRAPH_HIGHLIGHT_STYLE = "list.highlightForeground";
 
-/**
- * Цвет затравочного пайпа и клеток, которых не коснулась ни одна линия. До
- * кадра практически не доживает: терминатор затравки вырожденный (в колонке
- * коммита) и в рендере гасится, а нетронутые клетки — пробелы без окраски.
- */
+/** Затравочного пайпа и нетронутых клеток — до кадра почти не доживает. */
 export const GRAPH_DEFAULT_STYLE = "foreground";
 
 const MERGE_SYMBOL = "◎";
 const COMMIT_SYMBOL = "○";
 
-/**
- * Хеши сравниваем как строки (в Go это сравнение указателей — там все хеши
- * интернированы через StringPool). `null` не равен ничему: так «нет выделенного
- * коммита» не совпадает случайно с пайпом без источника.
- */
+/** `null` не равен ничему: «нет выделенного коммита» не совпадёт с пайпом без источника. */
 function equalHashes(a: string | null, b: string | null): boolean {
     if (a === null || b === null) return false;
     return a === b;
@@ -94,10 +65,6 @@ function equalHashes(a: string | null, b: string | null): boolean {
 const pipeLeft = (pipe: IPipe): number => Math.min(pipe.fromPos, pipe.toPos);
 const pipeRight = (pipe: IPipe): number => Math.max(pipe.fromPos, pipe.toPos);
 
-/**
- * Граф целиком: на каждый коммит — своя строка. `selectedHash` подсвечивает
- * линии, исходящие из выбранного коммита (`null` — подсветки нет).
- */
 export function renderCommitGraph(
     commits: readonly IGraphCommit[],
     selectedHash: string | null,
@@ -110,9 +77,8 @@ export function renderCommitGraph(
 }
 
 /**
- * Набор пайпов на каждую строку. Затравка — фиктивный STARTS-пайп из
- * {@link START_HASH} в первый коммит: без него первый коммит не нашёл бы
- * потомка и уехал бы в колонку 1.
+ * Затравка — фиктивный STARTS-пайп из {@link START_HASH}: без него первый коммит
+ * не нашёл бы потомка и уехал бы в колонку 1.
  */
 export function getPipeSets(commits: readonly IGraphCommit[], getStyle: GraphStyleProvider): IPipe[][] {
     if (commits.length === 0) return [];
@@ -135,9 +101,8 @@ export function getPipeSets(commits: readonly IGraphCommit[], getStyle: GraphSty
 }
 
 /**
- * Пайпы строки коммита из пайпов предыдущей строки. Шаги идут строго в порядке
- * оригинала: `maxPos` считается по **всем** предыдущим пайпам (включая
- * терминировавшие), и только потом терминировавшие отбрасываются.
+ * Порядок шагов — как в оригинале: `maxPos` считается по всем предыдущим пайпам,
+ * включая терминировавшие, и только потом они отбрасываются.
  */
 export function getNextPipes(prevPipes: readonly IPipe[], commit: IGraphCommit, getStyle: GraphStyleProvider): IPipe[] {
     let maxPos = 0;
@@ -145,29 +110,24 @@ export function getNextPipes(prevPipes: readonly IPipe[], commit: IGraphCommit, 
         if (pipe.toPos > maxPos) maxPos = pipe.toPos;
     }
 
-    // Пайп, оборвавшийся на предыдущей строке, к текущей отношения не имеет.
     const currentPipes = prevPipes.filter((pipe) => pipe.kind !== PipeKind.Terminates);
 
     const newPipes: IPipe[] = [];
-    // Исходное предположение — коммит ни с чем не связан (бывает только при
-    // `git log --all`): такие приклеиваются в дальний конец.
+    // Не связан ни с чем (бывает только при `git log --all`) — в дальний конец.
     let pos = maxPos + 1;
-    // Цвет дорожки, которую коммит продолжает: линия, оканчивающаяся на его
-    // колонке, отдаёт свой цвет линии, уходящей к первому родителю.
+    // Линия, оканчивающаяся в колонке коммита, отдаёт свой цвет линии к первому родителю.
     let inherited: string | null = null;
     for (const pipe of currentPipes) {
         if (equalHashes(pipe.toHash, commit.sha)) {
-            // Потомок нашёлся — встаём ровно под первым его вхождением.
             pos = pipe.toPos;
-            // Затравочный пайп цвета не несёт: первый коммит списка начинает
-            // дорожку с нуля, а не наследует служебный дефолт.
+            // Затравка цвета не несёт: первый коммит начинает дорожку с нуля.
             inherited = pipe.fromHash === START_HASH ? null : pipe.style;
             break;
         }
     }
 
-    // Занятая колонка — та, на которой оканчивается пайп; пройденная — та,
-    // которую пайп начинает, оканчивает или пересекает.
+    // Занятая колонка — где пайп оканчивается; пройденная — которую он начинает,
+    // оканчивает или пересекает.
     const takenSpots = new Set<number>();
     const traversedSpots = new Set<number>();
 
@@ -194,8 +154,6 @@ export function getNextPipes(prevPipes: readonly IPipe[], commit: IGraphCommit, 
 
     const getNextAvailablePosForNewPipe = (): number => {
         let i = 0;
-        // Новая линия не может закончиться ни на занятой колонке, ни на той,
-        // которую пересекает продолжающаяся.
         while (takenSpots.has(i) || traversedSpotsForContinuingPipes.has(i)) i++;
         return i;
     };
@@ -242,8 +200,7 @@ export function getNextPipes(prevPipes: readonly IPipe[], commit: IGraphCommit, 
                 fromHash: commit.sha,
                 toHash: parent,
                 kind: PipeKind.Starts,
-                // Влитая ветка — новая дорожка со своим цветом: наследовать ей
-                // не у кого, цвет мержа здесь означал бы «это та же ветка».
+                // Влитая ветка — новая дорожка: цвет мержа значил бы «та же ветка».
                 style: getStyle(parent, null),
             });
             takenSpots.add(availablePos);
@@ -327,10 +284,7 @@ class Cell {
         return this;
     }
 
-    /**
-     * Два символа клетки со своими стилями. Пробел не красим — цвета у него не
-     * видно, а тесты сверяют стиль каждого символа (то же соглашение в lazygit).
-     */
+    /** Пробел не красим: тесты сверяют стиль каждого символа (как в lazygit). */
     public render(): { chars: [string, string]; styles: [string | undefined, string | undefined] } {
         const [box, connector] = getBoxDrawingChars(this.up, this.down, this.left, this.right);
         const first = this.type === "commit" ? COMMIT_SYMBOL : this.type === "merge" ? MERGE_SYMBOL : box;
@@ -343,10 +297,7 @@ class Cell {
 }
 
 /**
- * Символы клетки по её четырём направлениям: узел/угол и соединитель справа.
- * Экспортируется ради теста: таблица исчерпывающая (16 комбинаций), а фикстуры
- * lazygit задевают не все — проверять её целиком проще и честнее, чем городить
- * pipe-набор под каждую редкую комбинацию.
+ * Экспорт ради теста: таблица на 16 комбинаций, а фикстуры lazygit задевают не все.
  */
 export function getBoxDrawingChars(up: boolean, down: boolean, left: boolean, right: boolean): [string, string] {
     if (up && down && left && right) return ["│", "─"];
@@ -368,10 +319,8 @@ export function getBoxDrawingChars(up: boolean, down: boolean, left: boolean, ri
 }
 
 /**
- * Одна строка графа из набора пайпов. Три прохода задают приоритет цвета:
- * сначала невыделенные STARTS (перекрывают соединитель справа), затем прочие
- * невыделенные, и последними — линии выделенного коммита, которые сбрасывают
- * задетые клетки и рисуются highlight-цветом поверх.
+ * Три прохода задают приоритет цвета: невыделенные STARTS (перекрывают соединитель
+ * справа), прочие невыделенные, последними — линии выделенного коммита поверх.
  */
 export function renderPipeSet(
     pipes: readonly IPipe[],
@@ -409,8 +358,7 @@ export function renderPipeSet(
         if (pipe.kind === PipeKind.Terminates || pipe.kind === PipeKind.Continues) cells[pipe.fromPos].setUp(style);
     };
 
-    // Два подряд идущих коммита не подсвечиваем: подсветка нужна, только если в
-    // строке есть настоящая видимая линия выделенного коммита.
+    // Подсветка — только если в строке есть видимая линия выделенного коммита.
     let highlight = true;
     if (prevCommitHash !== null && equalHashes(prevCommitHash, selectedHash)) {
         highlight = false;

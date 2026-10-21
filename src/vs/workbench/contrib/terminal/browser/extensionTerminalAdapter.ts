@@ -22,51 +22,27 @@ import {
     type TerminalService,
 } from "./terminalService.ts";
 
-/** Что мосту нужно от {@link TerminalEditorService}: вкладки-терминалы. */
 export type IExtensionEditorTerminals = Pick<TerminalEditorService, "createTerminal" | "splitInstance" | "reveal">;
 
-/**
- * Куда встаёт терминал расширения (`resolveLocation` эталона): вид TERMINAL,
- * вкладка в области редакторов или рядом с редакторным родителем.
- */
 type TerminalPlace =
     | { readonly kind: "panel" }
     | { readonly kind: "editor"; readonly location: ITerminalEditorLocation }
     | { readonly kind: "split"; readonly parentId: number };
 
 /**
- * Мост `window.createTerminal` расширений к {@link TerminalService}
- * (`MainThreadTerminalService` эталона): шелл расширения — обычный инстанс
- * встроенного терминала с его опциями; `location` ставит его в вид TERMINAL
- * или вкладкой в область редакторов ({@link TerminalEditorService});
- * `show`/`hide` водят вид TERMINAL либо вкладку, а жизнь ВСЕХ инстансов (и
- * шеллов человека) уходит подписчику — так `window.terminals` видит каждый
- * терминал, как у эталона.
- *
- * Свой терминал субпроцесс адресует `extHostId`, пока не узнал хостовый id
- * из `opened`; адаптер помнит соответствие до `reset()` (смерть субпроцесса).
- *
- * Pty расширения (`ExtensionTerminalOptions`) — инстанс с готовой сессией-
- * эмулятором (`session`, как `customPtyImplementation` эталона): вывод
- * pty приезжает `ptyData`, набор человека и размер виджета уходят подписчику
- * `ptyInput`/`ptyResize`, а `ptyStart` зовёт `pty.open` сразу после создания.
+ * Жизнь ВСЕХ инстансов (и шеллов человека) уходит подписчику — так
+ * `window.terminals` видит каждый терминал, как у эталона. Свой терминал
+ * субпроцесс адресует `extHostId`, пока не узнал хостовый id из `opened`.
  */
 export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtensionPtyTerminals {
-    /** `extHostId` субпроцесса → id инстанса (терминалов единицы — обратный поиск перебором). */
+    /** Терминалов единицы — обратный поиск перебором. */
     private readonly byExtHostId = new Map<number, number>();
-    /**
-     * `extHostId` терминала, который заводится прямо сейчас: `onDidCreateInstance`
-     * стреляет изнутри `createInstance`, раньше, чем тот вернёт инстанс.
-     */
+    /** `onDidCreateInstance` стреляет изнутри `createInstance`, раньше, чем тот вернёт инстанс. */
     private creating: number | undefined;
-    /** Подписчик жизни инстансов — туда же уходят события pty. */
     private events: IExtensionTerminalEvents | null = null;
-    /**
-     * Живые pty-терминалы: id инстанса → сессия-эмулятор. Ключ допускает
-     * `undefined` (неразрешённый адрес) — поиск по нему просто пуст.
-     */
+    /** Ключ допускает `undefined` (неразрешённый адрес) — поиск по нему просто пуст. */
     private readonly ptySessions = new Map<number | undefined, IExtensionPtySession>();
-    /** Pty, закрывшиеся без кода: `exitStatus.code` у расширения — `undefined`, как у эталона. */
+    /** `exitStatus.code` у расширения — `undefined`, как у эталона. */
     private readonly ptyExitedWithoutCode = new Set<number | undefined>();
 
     public constructor(
@@ -137,8 +113,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
                 this.createPty(request.extHostId, request.name ?? "", place);
                 return;
             }
-            // Опции провода — те же поля, что у `createInstance` (разбор их уже
-            // отфильтровал); лишние метка и место сервису не мешают.
+            // Разбор провода уже отфильтровал поля; лишние метка и место сервису не мешают.
             const instance = this.createIn(place, request);
             this.byExtHostId.set(request.extHostId, instance.id);
         } finally {
@@ -146,12 +121,6 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         }
     }
 
-    /**
-     * `Terminal.show` (`$show` эталона): фоновый переезжает в список вкладок
-     * своего места; редакторный — его вкладка показана (`revealActiveEditor`),
-     * панельный — активный, вид TERMINAL показан там, где стоит; фокус — в
-     * терминал, если не `preserveFocus`.
-     */
     public show(terminal: IWireTerminalRef, preserveFocus: boolean): void {
         const id = this.resolve(terminal);
         if (id === undefined) return;
@@ -164,10 +133,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         if (!preserveFocus) this.terminals.focusActive();
     }
 
-    /**
-     * `Terminal.hide` (`$hide` эталона): прячет часть с видом TERMINAL, только если показан
-     * именно этот терминал (неразрешённый адрес не совпадёт ни с одним id).
-     */
+    /** Прячет, только если показан именно этот терминал. */
     public hide(terminal: IWireTerminalRef): void {
         const active = this.terminals.getActiveInstance();
         if (active === null || active.id !== this.resolve(terminal)) return;
@@ -179,7 +145,6 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         this.terminals.sendText(this.resolve(terminal), text, shouldExecute);
     }
 
-    /** `Terminal.dispose` (`$dispose` эталона): инстанс закрывается с причиной `extension`. */
     public dispose(terminal: IWireTerminalRef): void {
         this.terminals.closeInstance(this.resolve(terminal), "extension");
     }
@@ -199,19 +164,12 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         session.exit(code);
     }
 
-    /**
-     * Pty-терминал, который заводит ядро (терминал задачи с `CustomExecution`):
-     * сам pty субпроцесс подключит по id инстанса, когда узнает о старте
-     * задачи, — `ptyStart` с размером уходит сразу, субпроцесс его запомнит.
-     */
+    /** Pty подключит субпроцесс по id инстанса, когда узнает о старте задачи; `ptyStart` уходит сразу — он его запомнит. */
     public createPtyInstance(options: IExtensionPtyTerminalOptions): number {
         return this.createPtySessionInstance(options.name, options);
     }
 
-    /**
-     * Субпроцесс умер: метки забыты, шеллы живут, а pty-терминалы закрываются —
-     * их процесс (объект расширения) умер вместе с субпроцессом.
-     */
+    /** Pty-терминалы закрываются — их процесс умер вместе с субпроцессом; шеллы живут. */
     public reset(): void {
         this.byExtHostId.clear();
         for (const id of [...this.ptySessions.keys()]) this.terminals.closeInstance(id, "process");
@@ -222,11 +180,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         return undefined;
     }
 
-    /**
-     * Pty-терминал: инстанс с сессией-эмулятором; `ptyStart` с начальным
-     * размером — сразу, как `$startExtensionTerminal` эталона при создании
-     * инстанса. Настоящий размер виджета придёт `ptyResize` после раскладки.
-     */
+    /** `ptyStart` — сразу, как `$startExtensionTerminal` эталона; настоящий размер придёт `ptyResize`. */
     private createPty(extHostId: number, name: string, place: TerminalPlace): void {
         this.byExtHostId.set(extHostId, this.createPtySessionInstance(name, {}, place));
     }
@@ -258,12 +212,7 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
         return instance.id;
     }
 
-    /**
-     * Место по `location` провода: без него — `terminal.integrated.defaultLocation`;
-     * родитель — туда же, где он: редакторный — вкладкой справа от его группы,
-     * панельный — в вид (сплитов в виде нет). Родитель, которого уже нет, —
-     * как отсутствие `location` (у эталона опция пропадает так же).
-     */
+    /** Родитель, которого уже нет, — как отсутствие `location` (у эталона так же). */
     private resolvePlace(location: IWireTerminalLocation | undefined): TerminalPlace {
         if (location === 1) return { kind: "panel" };
         if (location === 2) return { kind: "editor", location: {} };
@@ -309,7 +258,6 @@ export class ExtensionTerminalAdapter implements IExtensionTerminalSink, IExtens
     }
 }
 
-/** `creationOptions` чужого терминала — из того, чем он запущен (`IShellLaunchConfigDto` эталона). */
 function toWireLaunch(instance: ITerminalInstance): IWireTerminalLaunch {
     const { launch } = instance;
     return {

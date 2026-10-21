@@ -4,14 +4,8 @@ import type { IGraphCommit } from "./commitGraph.ts";
 import { renderCommitGraph } from "./commitGraph.ts";
 
 /**
- * Приёмочные фикстуры порта — кейсы `TestRenderCommitGraph` из lazygit
- * (`pkg/gui/presentation/graph/graph_test.go`), перенесённые дословно. Это
- * главный гейт корректности укладки: любая перестановка шагов в `getNextPipes`
- * ломает хотя бы один из них.
- *
- * Сверка как в оригинале: строка = `hash` + пробел + графика, с обрезкой
- * хвостовых пробелов (клетка всегда занимает два знака, последний — пустой
- * соединитель).
+ * Кейсы `TestRenderCommitGraph` lazygit (`graph_test.go`) дословно — главный гейт укладки.
+ * Сверка как в оригинале: `hash` + пробел + графика, без хвостовых пробелов.
  */
 function render(commits: readonly IGraphCommit[]): string {
     // Выделенного коммита нет: "blah" не совпадает ни с одним хешем — ровно как
@@ -28,7 +22,6 @@ function commits(...rows: readonly string[]): IGraphCommit[] {
     });
 }
 
-/** Ожидаемый блок из теста Go: снимаем отступы, которыми он выровнен в исходнике. */
 function expected(block: string): string {
     return block
         .split("\n")

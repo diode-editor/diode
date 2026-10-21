@@ -12,15 +12,10 @@ import { type TaskService, TaskServiceDIToken } from "./taskService.ts";
 
 export const TaskStatusBarContributionDIToken = token<TaskStatusBarContribution>("TaskStatusBarContribution");
 
-/** Id сегмента — как у эталона (`status.runningTasks`), под ним его прячут в меню полосы. */
+/** Под этим id сегмент прячут в меню полосы. */
 export const RUNNING_TASKS_STATUS_ID = "status.runningTasks";
 
-/**
- * Сегмент бегущих задач (`TaskStatusBarContributions` эталона): `$(tools) N`,
- * пока бежит хоть одна задача; клик — Show Running Tasks. Подсказки
- * («Show Running Tasks») у записей статус-бара Diode нет. Прогресс «Building...»
- * эталона завязан на группу build с матчерами — их нет, и его тоже нет.
- */
+/** Прогресс «Building...» эталона завязан на группу build с матчерами — их нет, и его тоже нет. */
 export class TaskStatusBarContribution extends Disposable {
     public static dependencies = [StatusBarServiceDIToken, TaskServiceDIToken, CommandRegistryDIToken] as const;
 

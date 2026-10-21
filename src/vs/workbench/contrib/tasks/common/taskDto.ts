@@ -1,8 +1,3 @@
-// Задача ядра ↔ провод расширений (`TaskDTO` в `mainThreadTask.ts` эталона).
-// Ядро получает описание от провайдера или `executeTask` и строит свою задачу
-// (`taskFromWire`), а расширениям отдаёт свои задачи описанием (`taskToWire`)
-// — в `fetchTasks` и событиях исполнений.
-
 import type { IWorkspaceFolder } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 import {
     contributedTaskId,
@@ -34,7 +29,7 @@ import {
     type TaskSource,
 } from "./tasks.ts";
 
-/** `TaskScope` API → область ядра и обратно. */
+/** Значения `TaskScope` API. */
 const SCOPE_GLOBAL = 1;
 const SCOPE_WORKSPACE = 2;
 
@@ -42,7 +37,6 @@ const REVEAL_KINDS: readonly RevealKind[] = ["always", "silent", "never"];
 const PANEL_KINDS: readonly PanelKind[] = ["shared", "dedicated", "new"];
 const QUOTINGS: readonly ShellQuoting[] = ["escape", "strong", "weak"];
 
-/** Id `extensionId` у задач tasks.json в описании (`$core` эталона). */
 export const CORE_TASK_EXTENSION_ID = "$core";
 
 export interface ITaskFromWireContext {
@@ -91,11 +85,7 @@ function presentationToWire(presentation: IPresentationOptions): IWireTaskPresen
     };
 }
 
-/**
- * Исполнение описания → команда ядра (`*ExecutionDTO.to`). У процесса без
- * `cwd` — `${workspaceFolder}` (`CommandOptions.defaults`), у шелла — без него;
- * шелл (`options.shell`) — только с исполняемым файлом, как у эталона.
- */
+/** У процесса без `cwd` — `${workspaceFolder}`, у шелла — без него; `options.shell` — только с исполняемым файлом, как у эталона. */
 function commandFromWire(execution: WireTaskExecutionKind, presentation: IPresentationOptions): ICommandConfiguration {
     if ("customExecution" in execution) return { runtime: "custom", presentation };
     const env = execution.options?.env;
@@ -134,10 +124,7 @@ function commandFromWire(execution: WireTaskExecutionKind, presentation: IPresen
     };
 }
 
-/**
- * Источник задачи провайдера (`TaskSourceDTO.to`): воркспейс или без области —
- * первая папка (без папок — глобальная), папка — найденная по пути.
- */
+/** Воркспейс или без области — первая папка (без папок — глобальная). */
 function sourceFromWire(wire: IWireTask, folders: readonly IWorkspaceFolder[]): TaskSource {
     const { label, extensionId } = wire.source;
     const scope = wire.source.scope;
@@ -149,12 +136,7 @@ function sourceFromWire(wire: IWireTask, folders: readonly IWorkspaceFolder[]): 
     return { kind: "extension", label, extensionId, scope: "folder", folder };
 }
 
-/**
- * Описание → задача ядра (`TaskDTO.to`): без исполнения задачи нет. Id —
- * `${расширение}.${_key}` (у задачи с `CustomExecution` из ядра — её прежний
- * id); определение, не прошедшее схему типа, — «только исполнить»
- * (`$executeOnly` эталона), со случайным ключом.
- */
+/** Id задачи с `CustomExecution` из ядра — прежний; определение, не прошедшее схему, — `$executeOnly` эталона со случайным ключом. */
 export function taskFromWire(wire: IWireTask, context: ITaskFromWireContext): ITask | undefined {
     if (wire.execution === undefined) return undefined;
     const presentation = presentationFromWire(wire.presentationOptions);
@@ -224,7 +206,6 @@ function executionToWire(command: ICommandConfiguration): WireTaskExecutionKind 
     return { ...wire, ...(options !== undefined ? { options: shellOptions } : {}) };
 }
 
-/** Задача ядра → описание (`TaskDTO.from`): определение без `_key`. */
 export function taskToWire(task: ITask): IWireTask {
     const { _key: _ignored, ...definition } = task.definition;
     return {

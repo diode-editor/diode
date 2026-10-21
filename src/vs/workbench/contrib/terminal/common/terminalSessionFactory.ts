@@ -1,7 +1,3 @@
-// Фабрика сессий встроенного терминала — это шов для тестов: юнит-тесты подменяют
-// фабрику на FakeTerminalSurface и не спавнят реальные PTY. Прод-биндинг (реальный
-// EmbeddedTerminalSession) навешивается на уровне DI-модулей отдельно.
-
 import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
 
 import type { Event } from "../../../../base/common/event.ts";
@@ -18,22 +14,10 @@ export interface ITerminalSessionOptions {
     env?: Record<string, string | null>;
     /** `true` — окружение шелла ровно `env`, без наследования от процесса (`TerminalOptions.strictEnv`). */
     strictEnv?: boolean;
-    /**
-     * Строка, напечатанная в эмулятор до вывода шелла, с переводом строки
-     * (`TerminalOptions.message`, `initialText` эталона); в шелл не уходит.
-     */
+    /** Печатается в эмулятор до вывода шелла (`initialText` эталона); в шелл не уходит. */
     message?: string;
 }
 
-/**
- * Сессия встроенного терминала: поверхность для отрисовки плюс запущенный шелл
- * (`shell` — по нему вкладка получает заголовок; какой шелл запускать, решает
- * node-слой, `getSystemShell`; `pid` — его процесс).
- */
-/**
- * С чем перезапускается процесс сессии на месте ({@link ITerminalSession.relaunch}):
- * те же поля, что при создании, кроме размера — он остаётся у эмулятора.
- */
 export type ITerminalRelaunchOptions = Omit<ITerminalSessionOptions, "cols" | "rows"> & {
     /** Очистить буфер эмулятора перед новым процессом (`presentation.clear` задачи). */
     clear?: boolean;
@@ -42,27 +26,18 @@ export type ITerminalRelaunchOptions = Omit<ITerminalSessionOptions, "cols" | "r
 export type ITerminalSession = ITerminalSurface &
     IDisposable & {
         readonly shell: string;
-        /** Pid процесса шелла; `undefined`, если процесса на нашей стороне нет. */
+        /** `undefined` — процесса на нашей стороне нет (pty расширения). */
         readonly pid: number | undefined;
         /**
-         * Процесс уже вышел — запустить новый в том же эмуляторе
-         * (`reuseTerminal` эталона): вывод прежнего остаётся выше (или
-         * стирается при `clear`), `message` печатается перед выводом нового.
-         * Сессия pty расширения шелловые поля пропускает — её новый процесс
-         * подключит расширение.
+         * Процесс уже вышел — новый в том же эмуляторе (`reuseTerminal` эталона). Pty расширения
+         * шелловые поля пропускает: новый процесс подключит расширение.
          */
         relaunch(options: ITerminalRelaunchOptions): void;
-        /** Напечатать текст в эмулятор как вывод (в процесс он не уходит). */
+        /** В процесс текст не уходит. */
         printMessage(text: string): void;
-        /**
-         * 16 ANSI-цветов (индексы 0..15), которыми рисуются palette-ячейки;
-         * перекрашивает и уже выведенное.
-         */
+        /** Индексы 0..15; перекрашивает и уже выведенное. */
         setAnsiColors(ansi: readonly number[]): void;
-        /**
-         * Ввод человека после выхода процесса — клавиша «press any key to
-         * close» терминала, который ждёт после выхода (`waitOnExit` эталона).
-         */
+        /** Клавиша «press any key to close» (`waitOnExit` эталона). */
         readonly onDidInputAfterExit: Event<void>;
     };
 
@@ -70,12 +45,7 @@ export type TerminalSessionFactory = (options: ITerminalSessionOptions) => ITerm
 
 export const TerminalSessionFactoryDIToken = token<TerminalSessionFactory>("TerminalSessionFactory");
 
-/**
- * Сессия терминала, процессом которого владеет расширение
- * (`window.createTerminal({ pty })`): на нашей стороне только эмулятор. Вывод
- * pty подаётся `feed`, набор человека уходит в `onInput`, смена размера
- * виджета — в `onResize`, а `exit` закрывает сессию, когда pty закрылся сам.
- */
+/** Процессом владеет расширение (`window.createTerminal({ pty })`): на нашей стороне только эмулятор. */
 export interface IExtensionPtySession extends ITerminalSession {
     feed(data: string): void;
     exit(code: number | undefined): void;

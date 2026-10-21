@@ -58,7 +58,6 @@ function makeHarness(): IHarness {
     const lastInputValidate: { value: ((v: string) => string | null) | undefined } = { value: undefined };
 
     const services = new Map<unknown, unknown>([
-        // Прогресс операций: транспортные швы просят его у контейнера.
         [ProgressServiceDIToken, new ProgressService()],
         [
             CommandRegistryDIToken,
@@ -341,7 +340,6 @@ describe("branch-операции", () => {
         expect(descriptions.some((d) => d.startsWith("tag · "))).toBe(true);
         expect(descriptions.some((d) => d.startsWith("remote · "))).toBe(true);
 
-        // Валидатор ввода имени: пустое — ошибка, непустое — ок.
         h.setPicks([CREATE_BRANCH_LABEL]);
         h.setInputs(["x"]);
         await gitCheckoutAction.run(h.accessor);

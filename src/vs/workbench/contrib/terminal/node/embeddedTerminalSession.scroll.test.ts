@@ -3,9 +3,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
-// Вьюпорт и скролбэк проверяем на РЕАЛЬНОМ шелле: печатаем заведомо больше строк, чем
-// помещается на экране, и смотрим, что после scrollLines в сетке видна история, а не дно.
-
 const COLS = 40;
 const ROWS = 6;
 
@@ -18,7 +15,7 @@ function readRow(session: EmbeddedTerminalSession, row: number): string {
     return text.trimEnd();
 }
 
-/** Шелл печатает 1..count по строке и остаётся жив (иначе гонка с onExit). */
+/** Шелл остаётся жив — иначе гонка с onExit. */
 async function withOutput(count: number): Promise<EmbeddedTerminalSession> {
     const session = new EmbeddedTerminalSession({
         cols: COLS,

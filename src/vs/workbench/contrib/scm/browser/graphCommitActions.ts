@@ -10,28 +10,20 @@ import { createBranch, inputRefName } from "./branchActions.ts";
 import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 
 /**
- * Команды на коммите графа (`MenuId.ScmGraphContext`). Номенклатура и группы —
- * как в VS Code (`scm/historyItem/context`: 1_checkout / 2_branch / 3_tag /
- * 4_modify / 9_copy); сверх него — **Reset to Commit**, которого в VS Code нет
- * вовсе, и Revert Commit: там граф их не предлагает, а в TUI без них история
- * остаётся смотровой площадкой.
- *
- * Аргумент всем приходит из контекста меню ({@link scmGraphShaArg}) — команды
- * доступны и из палитры, но там sha не подставится: без аргумента они выходят
- * тихо, как и прочие resource-команды SCM.
+ * Группы — как VS Code `scm/historyItem/context`; сверх него Reset и Revert: без них
+ * история в TUI — смотровая площадка. Из палитры sha не подставится — без аргумента
+ * команды выходят тихо, как прочие resource-команды SCM.
  */
 
-/** Общее условие: репозиторий есть и не идёт разрешение конфликтов. */
 const WHEN_IDLE_REPO = "gitHasRepo && !gitMerging && !gitRebasing";
 
-/** Режимы reset в порядке пикера; описания — по `git reset --help`. */
+/** Описания — по `git reset --help`. */
 const RESET_MODES = [
     { label: "Mixed", mode: "mixed", description: "Keep working tree, reset index (default)" },
     { label: "Soft", mode: "soft", description: "Keep working tree and index" },
     { label: "Hard", mode: "hard", description: "Discard all changes in the working tree" },
 ] as const;
 
-/** sha из аргумента команды; всё непохожее — «звали не из графа». */
 function shaArg(arg: unknown): string | null {
     return typeof arg === "string" && arg !== "" ? arg : null;
 }
@@ -125,12 +117,7 @@ export const graphRevertAction: CommandAction = {
     },
 };
 
-/**
- * Reset к коммиту — единственная команда графа без прообраза в VS Code (там
- * есть только `git.undoCommit` = `reset --soft HEAD~`). Режим выбирается
- * пикером; `--hard` теряет правки рабочего дерева, поэтому требует
- * подтверждения — тот же паттерн, что у Delete Branch и Discard Changes.
- */
+/** `--hard` теряет правки рабочего дерева — с подтверждением, как Delete Branch и Discard. */
 export const graphResetAction: CommandAction = {
     id: "git.graph.reset",
     title: "Git: Reset to Commit...",

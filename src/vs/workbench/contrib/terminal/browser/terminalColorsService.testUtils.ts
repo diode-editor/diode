@@ -8,11 +8,7 @@ import type { ThemeService } from "../../../services/themes/common/themeService.
 
 import { TerminalColorsService } from "./terminalColorsService.ts";
 
-/**
- * Сервис цветов терминала для юнитов компонента: хост-терминал — мок, отвечающий
- * `hostColors` (по умолчанию — ничего не сообщил). Старт уже в фазе `restored` —
- * хост спрашивается сразу.
- */
+/** Старт уже в фазе `restored` — хост спрашивается сразу. */
 export function makeTerminalColors(
     themeService: ThemeService,
     configuration: IConfigurationService,

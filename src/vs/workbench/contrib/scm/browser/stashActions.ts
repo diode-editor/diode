@@ -7,7 +7,7 @@ import { GitStashMenu } from "./gitMenus.ts";
 import { runGitOp, showGitNotice } from "./gitOpClient.ts";
 import { runGitQuery } from "./syncActions.ts";
 
-/** Стэши из query для пикеров; расширение не активно/деградация — пусто. */
+/** Пусто — расширение не активно или деградация. */
 export async function queryStashes(accessor: ServiceAccessor): Promise<{ index: string; description: string }[]> {
     const raw = (await runGitQuery(accessor, "stashes")) as { stashes?: unknown } | null;
     if (raw === null || !Array.isArray(raw.stashes)) return [];
@@ -17,7 +17,6 @@ export async function queryStashes(accessor: ServiceAccessor): Promise<{ index: 
     );
 }
 
-/** Пикер стэша; пустой список — notice. */
 async function pickStash(accessor: ServiceAccessor, title: string): Promise<string | null> {
     const stashes = await queryStashes(accessor);
     if (stashes.length === 0) {
@@ -32,7 +31,6 @@ async function pickStash(accessor: ServiceAccessor, title: string): Promise<stri
     return picked?.label ?? null;
 }
 
-/** Общий поток `git stash push`: опциональное сообщение → op. */
 async function stashPush(
     accessor: ServiceAccessor,
     flags: { includeUntracked?: boolean; staged?: boolean },
@@ -49,7 +47,7 @@ async function stashPush(
     });
 }
 
-/** Pop/apply с общим уведомлением о конфликте (git при конфликте pop стэш не удаляет). */
+/** Git при конфликте pop стэш не удаляет. */
 async function stashRestore(accessor: ServiceAccessor, op: "stashPop" | "stashApply", index?: string): Promise<void> {
     const result = await runGitOp(accessor, op, index === undefined ? undefined : { index }, { silent: true });
     if (result === null || result.ok) return;

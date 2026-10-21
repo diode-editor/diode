@@ -4,11 +4,8 @@ import { viewMenuVisible } from "../../../browser/actions/menuContexts.ts";
 import { SCM_CHANGES_VIEW_ID } from "../common/scmViews.ts";
 
 /**
- * Подменю меню «⋯» секции CHANGES — зеркала submenu-точек git-расширения
- * VS Code (`scm/title`: git.commit / git.changes / git.pullpush / git.branch /
- * git.remotes / git.stash / git.tags). Пункты приходят co-located размещениями
- * commit/staging/sync/branch/stash/remote-экшенов; пустое подменю резолвер
- * меню выбрасывает автоматически — точки «зажигаются» по мере наполнения.
+ * Зеркала submenu-точек git-расширения VS Code (`scm/title`). Пустое подменю резолвер
+ * выбрасывает сам — точки «зажигаются» по мере наполнения.
  */
 export const GitCommitMenu = new MenuId("GitCommitMenu");
 export const GitChangesMenu = new MenuId("GitChangesMenu");
@@ -20,7 +17,6 @@ export const GitTagsMenu = new MenuId("GitTagsMenu");
 
 const inChangesMenu = viewMenuVisible(SCM_CHANGES_VIEW_ID);
 
-/** Submenu-каркас «⋯» CHANGES: группа 3_git_menus между 2_git_top и 9_footer. */
 export const GIT_MENU_SUBMENUS: readonly ISubmenuContribution[] = [
     {
         menuId: MenuId.ViewTitle,

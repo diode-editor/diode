@@ -55,7 +55,6 @@ describe("TerminalTabbedViewElement", () => {
         app.render();
         expect(tabs.globalPosition.x).toBe(0);
         expect(app.backend.screenToString().split("\n")[0][10]).toBe("│");
-        // Терминал — сразу за чертой, на всю оставшуюся ширину.
         expect(terminal.globalPosition.x).toBe(11);
         expect(terminal.layoutSize.width).toBe(29);
 

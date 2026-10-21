@@ -13,13 +13,7 @@ export const BRANCH_GLYPH = "";
 
 export const ScmStatusBarContributionDIToken = token<ScmStatusBarContribution>("ScmStatusBarContribution");
 
-/**
- * Левый сегмент статус-бара с состоянием репозитория — как в VS Code:
- * ` main` (+ `*` при merge/rebase) и счётчики `↓N ↑M` при расхождении с
- * upstream. Клик по ветке — `git.checkout`, по счётчикам — `git.sync` (или
- * Publish-поток `git.publish`, когда upstream ещё нет). Появляется с первой
- * публикацией repo-state (то есть только в git-репозитории).
- */
+/** Появляется с первой публикацией repo-state — только в git-репозитории. */
 export class ScmStatusBarContribution extends Disposable {
     public static dependencies = [StatusBarServiceDIToken, ScmRepoStateServiceDIToken, CommandRegistryDIToken] as const;
 
@@ -68,7 +62,6 @@ export class ScmStatusBarContribution extends Disposable {
             this.branchHandle.update({ text: branchText });
         }
 
-        // Sync-сегмент: расхождение с upstream (или publish-подсказка без него).
         if (state.remotes.length === 0) {
             this.syncHandle?.dispose();
             this.syncHandle = null;

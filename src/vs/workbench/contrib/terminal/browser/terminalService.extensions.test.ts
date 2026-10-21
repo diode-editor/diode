@@ -7,9 +7,6 @@ import type { ITerminalSessionOptions } from "../common/terminalSessionFactory.t
 
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 
-// Инстансы для терминалов расширений (`window.createTerminal`): опции шелла,
-// фоновые терминалы `hideFromUser`, `sendText` и причины закрытия.
-
 function buildHarness() {
     const views = makeViewsHarness();
     const sessions: FakeTerminalSurface[] = [];
@@ -108,7 +105,6 @@ describe("TerminalService — фоновые инстансы (hideFromUser)", (
         expect(h.service.getActiveInstance()).toBe(visible);
         expect(h.service.getInstance(hidden.id)).toBe(hidden);
         expect(hidden.launch.hideFromUser).toBe(true);
-        // Ввод в фоновый шелл доходит: процесс живой.
         h.service.sendText(hidden.id, "x", false);
         expect(h.sessions[1].writes).toStrictEqual(["x"]);
         h.service.dispose();

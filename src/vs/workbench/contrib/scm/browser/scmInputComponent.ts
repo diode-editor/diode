@@ -35,30 +35,17 @@ import { ScmRepoStateServiceDIToken } from "./repoStateService.ts";
 export const ScmInputComponentDIToken = token<ScmInputComponent>("ScmInputComponent");
 
 /**
- * Высота блока контролов коммита в строках: поле, зазор, кнопка, padding снизу.
- * Знает потребитель — `ChangesComponent` считает от неё минимальную высоту секции.
- *
- * Сверху padding'а нет: заголовок секции CHANGES уже отбивает блок от того, что
- * над ним, и вторая пустая строка выглядела отступом в никуда.
+ * Поле, зазор, кнопка, padding снизу. Сверху padding'а нет: заголовок секции CHANGES
+ * уже отбивает блок, вторая пустая строка выглядела отступом в никуда.
  */
 export const SCM_INPUT_HEIGHT = 4;
 
-/**
- * Маркер-подкласс поля сообщения коммита: по нему {@link ScmInputComponent}
- * выставляет ключ `scmInputFocus` (Ctrl+Enter = commit живёт на when этого
- * ключа), а `inputWidgetFocus` наследуется от {@link InputElement} — вся
- * редактирующая механика (клипборд, undo, навигация) приходит даром.
- * Безрамочный, как в VS Code: поле выделяется фоном `input.background`,
- * фокус показывает аппаратный курсор.
- */
+/** Маркер: по нему выставляется `scmInputFocus`, на котором живёт Ctrl+Enter = commit. */
 export class ScmCommitInputElement extends InputElement {}
 
 /**
- * Широкая primary-кнопка действия под commit input — VS Code SCM action button:
- * label и команда меняются по состоянию репозитория ({@link computeActionButton}).
- * Отдельный элемент, а не `ButtonElement`: тому нужен неизменяемый label и
- * естественная ширина, здесь — сменный текст по центру на всю ширину плюс
- * disabled-состояние.
+ * VS Code SCM action button. Не `ButtonElement`: тому нужен неизменяемый label и
+ * естественная ширина, здесь — сменный текст по центру на всю ширину.
  */
 export class ScmActionButtonElement extends TUIElement {
     public onActivate?: () => void;
@@ -97,7 +84,6 @@ export class ScmActionButtonElement extends TUIElement {
         return this.disabledState;
     }
 
-    /** Disabled: secondary-вид, не фокусируется и не активируется. */
     public setDisabled(disabled: boolean): void {
         if (disabled === this.disabledState) return;
         this.disabledState = disabled;
@@ -105,7 +91,6 @@ export class ScmActionButtonElement extends TUIElement {
         this.markDirty();
     }
 
-    /** Наблюдаемость для инспектора/e2e. */
     public override inspectState(): Record<string, unknown> {
         return { label: this.label, disabled: this.disabledState, hidden: this.hidden };
     }
@@ -144,19 +129,13 @@ export class ScmActionButtonElement extends TUIElement {
     }
 }
 
-/** Состояние кнопки действия: подпись + команда (или скрыта/задизейблена). */
 export interface IScmActionButtonState {
     readonly visible: boolean;
     readonly label: string;
     readonly command: string | null;
 }
 
-/**
- * Правила VS Code SCM action button: есть что коммитить → Commit; чисто и нет
- * upstream у ветки → Publish Branch; чисто и есть расхождение с upstream →
- * Sync Changes; чисто и синхронно → Commit задизейблен; вне git-репозитория
- * кнопка скрыта.
- */
+/** Правила VS Code SCM action button. */
 export function computeActionButton(
     hasChanges: boolean,
     repo: {
@@ -183,12 +162,8 @@ export function computeActionButton(
 }
 
 /**
- * Commit input box + action button вьюлета Source Control. Живёт в теле view
- * Source Control над списком изменений (собирает {@link ChangesComponent}) — как
- * в VS Code. Элементы живут полями компонента и не пересоздаются — текст
- * переживает переключения Explorer ↔ SCM сам по себе; черновик дополнительно
- * персистится по-проектно (write-through на каждый ввод, восстановление —
- * строго после `openWorkspace`).
+ * Черновик персистится по-проектно: write-through на каждый ввод, восстановление —
+ * строго после `openWorkspace`.
  */
 export class ScmInputComponent extends Component implements IContextKeyContributor {
     public static dependencies = [
@@ -201,9 +176,7 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
         ContextKeyServiceDIToken,
     ] as const;
 
-    /** Безрамочное поле ввода (высота 1, фон `input.background`). */
     public readonly input = new ScmCommitInputElement();
-    /** Кнопка Commit / Publish Branch / Sync Changes под полем. */
     public readonly actionButton = new ScmActionButtonElement();
     public readonly view: PaddingContainerElement;
 
@@ -219,8 +192,6 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
         private readonly contextKeys: ContextKeyService,
     ) {
         super();
-        // Workspace-стор проекта открыт (Open Folder или бутстрап) — черновик
-        // коммита теперь читается из него, а не из стора пустого окна.
         this.register(
             this.stateService.onDidOpenWorkspace(() => {
                 this.restoreDraft();
@@ -239,8 +210,7 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
 
         const stack = new VFlexElement();
         stack.addChild(this.input, { height: vflexFit(), width: "fill" });
-        // Пустая строка между полем и кнопкой: понятия gap в layout-модели нет,
-        // зазор — это филлер, красящий фон унаследованными цветами.
+        // Понятия gap в layout-модели нет: зазор — филлер с унаследованным фоном.
         stack.addChild(new FillerElement(), { height: vflexFixed(1), width: "fill" });
         stack.addChild(this.actionButton, { height: vflexFit(), width: "fill" });
         this.view = new PaddingContainerElement(stack, { left: 1, right: 1, top: 0, bottom: 1 });
@@ -262,10 +232,8 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
                 this.updateActionButton();
             }),
         );
-        // Подпись бинда зависит от клавиатуры и от терминала: ОС уточняется после
-        // старта, Cmd — по первому нажатию (рунг), и commit переезжает с Ctrl+Enter
-        // на ⌘Enter; а tier поднимается по первой пришедшей CSI-u клавише, и
-        // подпись переезжает с досягаемого Alt+Enter на канонический Ctrl+Enter.
+        // Подпись бинда переезжает: ОС и Cmd выясняются после старта (Ctrl+Enter → ⌘Enter),
+        // tier — по первой CSI-u клавише (Alt+Enter → Ctrl+Enter).
         this.register(
             this.contextKeys.onDidChange((changed) => {
                 // Stryker disable next-line ConditionalExpression: лишний пересчёт на постороннем ключе даёт тот же текст — ненаблюдаем.
@@ -275,16 +243,11 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
         this.updateActionButton();
     }
 
-    /** IContextKeyContributor: `scmInputFocus` — гейт Ctrl+Enter = commit. */
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
         contextKeys.set("scmInputFocus", active instanceof ScmCommitInputElement);
     }
 
-    /**
-     * Плейсхолдер с подписью действующего бинда commit — как «Message ({0} to
-     * commit…)» в VS Code. Бинд живёт под `scmInputFocus`, а поле в момент
-     * подписи может быть не в фокусе, поэтому ищем его «как если бы в фокусе».
-     */
+    /** Бинд живёт под `scmInputFocus`, а поле может быть не в фокусе — ищем «как если бы в фокусе». */
     private updatePlaceholder(): void {
         const chord = this.keybindings.getKeybindingForCommand("git.commit", this.contextKeys, {
             scmInputFocus: true,
@@ -295,24 +258,21 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
                 : `Message (${formatKeybinding(chord, keybindingLabelStyle(this.contextKeys))} to commit)`;
     }
 
-    /** Текущее сообщение коммита — источник для commit-команд. */
     public get message(): string {
         return this.input.inputState.value;
     }
 
-    /** Замена сообщения (очистка после коммита, возврат из undoCommit) — с персистом. */
     public setMessage(value: string): void {
         this.input.inputState.value = value;
         this.stateService.store(SCM_INPUT_MESSAGE_STATE, value);
         this.input.markDirty();
     }
 
-    /** Фокус в поле ввода (команда `workbench.scm.focus`). */
     public focus(): void {
         this.input.focus();
     }
 
-    /** Черновик из workspace-стора; строго после `openWorkspace`, без write-through. */
+    /** Строго после `openWorkspace`, без write-through. */
     public restoreDraft(): void {
         const stored = this.stateService.get(SCM_INPUT_MESSAGE_STATE);
         if (stored === this.input.inputState.value) return;
@@ -331,10 +291,8 @@ export class ScmInputComponent extends Component implements IContextKeyContribut
         this.buttonCommand = state.command;
         this.actionButton.hidden = !state.visible;
 
-        // Идёт операция — подписью владеет прогресс: «⠹ Committing…». Дизейбл
-        // при этом наступает раньше подписи (isBusy истинен сразу, а показ ждёт
-        // задержку): клик обязан перестать работать мгновенно, а быстрая
-        // операция не должна мигать текстом.
+        // Идёт операция — подписью владеет прогресс. Дизейбл — сразу (isBusy), а показ
+        // ждёт задержку: клик гаснет мгновенно, быстрая операция не мигает текстом.
         const running = this.progress.viewProgress().get(SCM_CHANGES_VIEW_ID);
         if (running !== undefined) {
             this.actionButton.setLabel(`${running.spinner} ${running.title}`);

@@ -10,9 +10,6 @@ import type { IExtensionService } from "../../../services/extensions/common/exte
 
 import { bindExtensionTasks, ExtensionTaskAdapter, RUN_TASK_ACTIVATION_EVENT } from "./extensionTaskAdapter.ts";
 
-// Мост задач в одиночку: края, которые сквозной тест провода не видит
-// (`services/extensions/node/customers/tasksCustomer.test.ts`).
-
 const workspace = { getWorkspace: () => ({ id: "ws", folders: [] }) } as unknown as IWorkspaceContextService;
 
 function setup() {
@@ -259,7 +256,6 @@ describe("bindExtensionTasks", () => {
         activated.length = 0;
         await h.service.tasks({ type: "gulp" });
         expect(activated).toStrictEqual([RUN_TASK_ACTIVATION_EVENT, "onTaskType:gulp"]);
-        // Снятие — активатор и мост pty уходят.
         binding.dispose();
         activated.length = 0;
         await h.service.tasks();

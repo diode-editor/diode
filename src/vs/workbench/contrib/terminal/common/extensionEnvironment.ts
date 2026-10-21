@@ -6,21 +6,14 @@ import type {
 import type { IWorkspaceContextService } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 
 /**
- * Довесок к окружению процесса терминала — коллекции переменных окружения
- * расширений (`_resolveEnvironment` у `TerminalProcessManager` эталона).
- * Зовётся на каждый запуск процесса, в том числе перезапуск терминала задачи,
- * поверх унаследованного окружения и `env` терминала; терминал со
- * `strictEnv` его не получает (`shouldUseEnvironmentVariableCollection`).
+ * `_resolveEnvironment` у `TerminalProcessManager` эталона: зовётся на каждый запуск процесса, в том
+ * числе перезапуск терминала задачи; терминал со `strictEnv` его не получает.
  */
 export interface ITerminalEnvironmentContributor {
     apply(env: Record<string, string | undefined>, cwd: string): void;
 }
 
-/**
- * Папка воркспейса терминала (`getWorkspaceForTerminal` эталона): та, в
- * которой лежит его cwd, иначе — корень воркспейса (у эталона «последний
- * активный корень»; у нас корень один, первый), без папок — без области.
- */
+/** `getWorkspaceForTerminal` эталона: папка с cwd терминала, иначе первый корень (у эталона — последний активный). */
 export function terminalEnvironmentScope(
     cwd: string,
     workspace: Pick<IWorkspaceContextService, "getWorkspace" | "getWorkspaceFolder">,

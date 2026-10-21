@@ -3,19 +3,14 @@ import { BoxConstraints as Constraints, Size } from "@tuidom/core/common/geometr
 import type { RenderContext } from "@tuidom/core/dom/tuiElement";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
 
-/** Разделитель между терминалом и списком вкладок — та же черта, что у колонок диффа. */
+/** Та же черта, что у колонок диффа. */
 const DIVIDER = "│";
 
 export type TerminalTabsLocation = "left" | "right";
 
 /**
- * Тело вкладки TERMINAL (эталон `TerminalTabbedView`): виджет активного
- * терминала занимает остаток ширины, список вкладок — фиксированную колонку
- * сбоку (`terminal.integrated.tabs.location`), между ними черта `panel.border`.
- *
- * Контейнер стабилен на всё время жизни компонента: меняется только ребёнок-
- * терминал и видимость списка — так переключение активного терминала не
- * пересобирает тело секции панели.
+ * Контейнер стабилен: меняются только ребёнок-терминал и видимость списка —
+ * переключение терминала не пересобирает тело секции панели.
  */
 export class TerminalTabbedViewElement extends TUIElement {
     private terminal: TUIElement | null = null;
@@ -31,13 +26,12 @@ export class TerminalTabbedViewElement extends TUIElement {
         this.appendChild(tabs);
     }
 
-    /** Подменить виджет терминала (null — терминалов нет). */
     public setTerminal(terminal: TUIElement | null): void {
         this.terminal = terminal;
         this.setChildren(terminal === null ? [this.tabs] : [this.tabs, terminal]);
     }
 
-    /** Показать/спрятать список; перерисовку метит сам сеттер `hidden`. */
+    /** Перерисовку метит сам сеттер `hidden`. */
     public setTabsVisible(visible: boolean): void {
         this.tabs.hidden = !visible;
     }
@@ -51,7 +45,6 @@ export class TerminalTabbedViewElement extends TUIElement {
         this.markDirty();
     }
 
-    /** Список не отнимает у терминала больше половины ширины. */
     private tabsColumns(width: number): number {
         return Math.min(this.tabsWidth, Math.floor(width / 2));
     }
@@ -59,7 +52,6 @@ export class TerminalTabbedViewElement extends TUIElement {
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
         const tabsWidth = this.isTabsVisible ? this.tabsColumns(size.width) : 0;
-        // Черта-разделитель есть только вместе со списком.
         const dividerWidth = this.isTabsVisible ? 1 : 0;
         const terminalWidth = size.width - tabsWidth - dividerWidth;
         const tabsX = this.tabsOnLeft ? 0 : terminalWidth + dividerWidth;

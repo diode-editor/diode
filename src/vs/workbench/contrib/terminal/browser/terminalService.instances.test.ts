@@ -7,7 +7,7 @@ import { makeViewsHarness } from "../../../browser/parts/views/viewsService.test
 
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 
-/** Стенд: сервис с N терминалами (последний активный) и видимой вкладкой TERMINAL. */
+/** Последний из N — активный. */
 function buildHarness(count: number, settings: Readonly<Record<string, unknown>> = {}) {
     const views = makeViewsHarness();
     const sessions: FakeTerminalSurface[] = [];
@@ -63,13 +63,13 @@ describe("TerminalService — switching the active instance", () => {
     it("next/previous cycle through the instances in both directions", () => {
         const h = buildHarness(3); // активен #3 (индекс 2)
         h.service.setActiveToNext();
-        expect(h.activeIndex()).toBe(0); // через край — к первому
+        expect(h.activeIndex()).toBe(0);
         h.service.setActiveToNext();
         expect(h.activeIndex()).toBe(1);
         h.service.setActiveToPrevious();
         expect(h.activeIndex()).toBe(0);
         h.service.setActiveToPrevious();
-        expect(h.activeIndex()).toBe(2); // через край назад — к последнему
+        expect(h.activeIndex()).toBe(2);
         h.service.dispose();
     });
 
@@ -127,7 +127,6 @@ describe("TerminalService — closeInstance (kill)", () => {
         expect(h.sessions[1].disposed).toBe(false);
         expect(onClose).toHaveBeenCalledWith(victim);
         expect(h.ids()).toHaveLength(1);
-        // Убили неактивный — активный не меняется.
         expect(h.service.getActiveInstance()?.session).toBe(h.sessions[1]);
         h.service.dispose();
     });
@@ -147,7 +146,7 @@ describe("TerminalService — closeInstance (kill)", () => {
     });
 
     it("activates the new last one when the active last one is killed", () => {
-        const h = buildHarness(3); // активен последний
+        const h = buildHarness(3);
         h.service.closeInstance(h.ids()[2]);
         expect(h.service.getActiveInstance()?.session).toBe(h.sessions[1]);
         h.service.dispose();

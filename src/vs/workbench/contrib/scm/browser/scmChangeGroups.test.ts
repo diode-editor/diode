@@ -21,7 +21,6 @@ describe("groupChanges", () => {
 
         expect(groups.map((g) => [g.id, g.label, g.changes.length])).toEqual([
             ["index", "Staged Changes", 1],
-            // Untracked своего заголовка не получает — едет под «Changes».
             ["worktree", "Changes", 2],
         ]);
     });

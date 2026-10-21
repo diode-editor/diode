@@ -1,7 +1,3 @@
-// Команды задач (`task.contribution.ts` + `_registerCommands` эталона): Run
-// Task, Rerun Last Task, Restart Running Task, Terminate Task, Show Running
-// Tasks, Configure Task — с заголовками палитры эталона и пунктами меню Terminal.
-
 import type { CommandAction } from "../../../../platform/actions/common/commandAction.ts";
 import { MenuId } from "../../../../platform/actions/common/menuId.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -13,12 +9,11 @@ import { configureTaskCommand } from "./configureTask.ts";
 import { pickTaskToRun } from "./taskQuickPick.ts";
 import { TaskServiceDIToken } from "./taskService.ts";
 
-/** Группы меню Terminal эталона (`TerminalMenuBarGroup`). */
 export const TERMINAL_MENU_RUN_GROUP = "3_run";
 export const TERMINAL_MENU_MANAGE_GROUP = "5_manage";
 export const TERMINAL_MENU_CONFIGURE_GROUP = "7_configure";
 
-/** `TASK_RUNNING_STATE` эталона: пункты «управления» гаснут, пока ничего не бежит. */
+/** Пункты «управления» гаснут, пока ничего не бежит. */
 const TASK_RUNNING = "taskRunning";
 
 /** Сбой запуска уже показан человеку сервисом — обещание команды не отклоняется. */
@@ -27,11 +22,7 @@ function ignore(): undefined {
     return undefined;
 }
 
-/**
- * Run Task (`_runTaskCommand`): без аргумента — пикер; строка — задача с этой
- * подписью, определение (`{ type, … }`) — задача провайдера по ключу; не нашлась
- * — пикер (с аргументом-определением — сразу на уровне его типа).
- */
+/** Не нашлась — пикер (с аргументом-определением — сразу на уровне его типа). */
 export async function runTaskCommand(accessor: ServiceAccessor, arg?: unknown): Promise<void> {
     const service = accessor.get(TaskServiceDIToken);
     // Команда кончается запуском, а не задачей (долгая задача держала бы промис команды).
@@ -81,10 +72,6 @@ export const reRunTaskAction: CommandAction = {
     },
 };
 
-/**
- * Restart Running Task (`_runRestartTaskCommand`): одна бегущая — она;
- * аргумент — подходящая бегущая; иначе пикер бегущих.
- */
 async function restartTaskCommand(accessor: ServiceAccessor, arg: unknown): Promise<void> {
     const service = accessor.get(TaskServiceDIToken);
     const active = service.getActiveTasks();
@@ -119,13 +106,8 @@ export const restartTaskAction: CommandAction = {
     },
 };
 
-/** Аргумент `'terminateAll'` и строка пикера «All Running Tasks» — остановить всё. */
 export const TERMINATE_ALL = "terminateAll";
 
-/**
- * Terminate Task (`_runTerminateCommand`): `'terminateAll'` — все; аргумент —
- * подходящая бегущая; иначе пикер бегущих со строкой «All Running Tasks».
- */
 async function terminateTaskCommand(accessor: ServiceAccessor, arg: unknown): Promise<void> {
     const service = accessor.get(TaskServiceDIToken);
     if (arg === TERMINATE_ALL) {
@@ -199,7 +181,6 @@ export const configureTaskAction: CommandAction = {
     },
 };
 
-/** Экшены задач. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const TASKS_ACTIONS: readonly CommandAction[] = [
     runTaskAction,
     reRunTaskAction,

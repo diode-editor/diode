@@ -15,7 +15,6 @@ function setup(): { service: ScmGraphService; commands: CommandRegistry } {
 const SHA_A = "a".repeat(40);
 const SHA_B = "b".repeat(40);
 
-/** Запись расширения с дефолтами полей, которые тест не проверяет. */
 function commit(fields: Partial<IScmCommit> & { sha: string; subject: string }): IScmCommit {
     return {
         shortSha: fields.sha.slice(0, 8),
@@ -30,7 +29,6 @@ function commit(fields: Partial<IScmCommit> & { sha: string; subject: string }):
 const A = commit({ sha: SHA_A, subject: "feat: панель", parents: [SHA_B] });
 const B = commit({ sha: SHA_B, subject: "fix: сэш" });
 
-/** Payload расширения: страница плюс признак «есть что грузить дальше». */
 function publish(commands: CommandRegistry, commits: unknown, hasMore = false): void {
     commands.execute(PUBLISH_LOG_COMMAND, { commits, hasMore });
 }
@@ -56,7 +54,6 @@ describe("ScmGraphService", () => {
         publish(commands, [A], true);
         expect(service.hasMore).toBe(true);
 
-        // Тот же набор, но история закончилась — строка «Load More…» должна уйти.
         publish(commands, [A], false);
         expect(changed).toHaveBeenCalledTimes(2);
         expect(service.hasMore).toBe(false);

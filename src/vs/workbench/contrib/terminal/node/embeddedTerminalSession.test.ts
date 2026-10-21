@@ -3,8 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
-// Тесты гоняют РЕАЛЬНЫЕ node-pty + @xterm/headless (linux, оба установлены). Чтобы
-// вывод был детерминированным, спавним `/bin/bash -c "<script>"`, а не интерактивный шелл.
+// Реальные node-pty + @xterm/headless; для детерминизма — `/bin/bash -c "<script>"`, а не интерактивный шелл.
 
 function readRow(session: EmbeddedTerminalSession, row: number, width: number): string {
     const out: TerminalCell = { char: "", fg: 0, bg: 0, style: 0, width: 1 };
