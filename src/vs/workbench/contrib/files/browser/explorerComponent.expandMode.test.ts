@@ -111,12 +111,12 @@ describe("ExplorerComponent — workbench.tree.expandMode", () => {
             expect(opened).toEqual([]);
         });
 
-        it("clicking a file does not open it — Enter and double click do", async () => {
+        it("clicking a file opens it whatever the expand mode (that is `workbench.list.openMode`)", async () => {
             click(4, 2); // README.md
-            frame();
-            expect(opened).toEqual([]);
-            app.sendKey("Enter");
             expect(opened).toEqual([ws.path("README.md")]);
+            await config.updateValue("workbench.tree.expandMode", "doubleClick");
+            click(4, 2);
+            expect(opened).toEqual([ws.path("README.md"), ws.path("README.md")]);
         });
 
         it("clicking a compact row segment makes it current and collapses the row", async () => {

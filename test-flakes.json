@@ -44,6 +44,12 @@
             "note": "expected false to be true on #738"
         },
         {
+            "file": "src/vs/workbench/browser/workbench.fileCreate.test.ts",
+            "test": "Workbench — New File / New Folder > creates a file next to a clicked file (target is the file's parent dir)",
+            "action": "retry",
+            "note": "expected false to be true; broke a local mutation dry run"
+        },
+        {
             "file": "src/vs/workbench/browser/workbench.preferences.test.ts",
             "test": "Workbench — Preferences commands > recording a keybinding from the tab, end to end > the recorder writes the combination: file on disk, row updated, the command works at once",
             "action": "retry",

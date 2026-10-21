@@ -5,8 +5,8 @@ import type { NodeSnapshot } from "@tuidom/inspector/protocol";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Activation is click + Enter: a single `TreeViewElement` click only selects the row; "click opens preview"
-// comes once the engine tells click counts apart (phase 3, docs/TODO/PreviewEditors.md).
+// As upstream (`workbench.list.openMode: singleClick`): a click opens a preview and keeps focus in the
+// tree, a double click opens the file pinned (docs/TODO/PreviewEditors.md).
 // Labels come from the strip's `inspectState`: in the frame an icon PUA glyph sits next to the label
 // and breaks text matching.
 
@@ -37,7 +37,7 @@ async function waitForTabs(editor: ScenarioDriver, expected: readonly string[]):
 
 export default defineScenario({
     name: "preview-tabs",
-    title: "Preview mode: walking the tree reuses a single tab",
+    title: "Preview mode: a click previews, a double click pins",
     open: [sampleDir],
     cols: 110,
     rows: 24,
@@ -54,45 +54,44 @@ export default defineScenario({
         // sits exactly on the widget's top edge.
         const rowX = tree.box.x + 5;
         const rowY = (index: number): number => tree.box.y + index;
-        /** Click selects the row, Enter opens it. */
-        const activate = async (index: number): Promise<void> => {
-            await editor.click(rowX, rowY(index));
-            await editor.sendKey("Enter");
+        const click = (index: number): Promise<void> => editor.click(rowX, rowY(index));
+        /** Four events in a row without settling — within the double-click window. */
+        const doubleClick = async (index: number): Promise<void> => {
+            for (let i = 0; i < 2; i++) {
+                await editor.sendMouse({ action: "press", button: "left", x: rowX, y: rowY(index) });
+                await editor.sendMouse({ action: "release", button: "left", x: rowX, y: rowY(index) });
+            }
         };
 
-        // Activation 1: alpha.ts opens as a preview.
-        await activate(0);
+        // A click opens alpha.ts as a preview.
+        await click(0);
         await waitForTabs(editor, ["alpha.ts"]);
-        await editor.capture("first-preview");
+        await editor.capture("click-previews");
 
-        // Activation 2: beta.ts TAKES alpha.ts's SLOT, still a single tab.
-        await activate(1);
+        // The next click: beta.ts TAKES alpha.ts's SLOT, still a single tab.
+        await click(1);
         const afterSecond = await waitForTabs(editor, ["beta.ts"]);
         if (!afterSecond[0].active) throw new Error("the new preview did not become the active tab");
         await editor.capture("preview-replaced");
 
-        // An edit pins the tab: after activation focus is already in the editor.
-        await editor.sendText("// pinned by an edit\n");
-        const pinnedByEdit = await waitForTabs(editor, ["beta.ts"]);
-        if (!pinnedByEdit[0].modified) throw new Error("the edit did not reach the tab");
+        // Focus stayed in the tree: the arrow moves the cursor to gamma.ts and opens nothing.
+        await editor.sendKey("ArrowDown");
+        await waitForTabs(editor, ["beta.ts"]);
 
-        // Activation 3: gamma.ts opens ALONGSIDE; replacement doesn't touch
-        // the tab pinned by the edit.
-        await activate(2);
-        await waitForTabs(editor, ["beta.ts", "gamma.ts"]);
-        await editor.capture("edit-pins-tab");
+        // A double click opens gamma.ts pinned: its first click takes the preview slot,
+        // the double click pins it there, so the next click opens alpha.ts beside it.
+        await doubleClick(2);
+        await waitForTabs(editor, ["gamma.ts"]);
+        await click(0);
+        await waitForTabs(editor, ["gamma.ts", "alpha.ts"]);
+        await editor.capture("double-click-pins");
 
-        // Activation 4: alpha.ts replaces gamma.ts (a single preview again), and
-        // beta.ts stays: a group has exactly one preview tab.
-        await activate(0);
-        await waitForTabs(editor, ["beta.ts", "alpha.ts"]);
-
-        // Ctrl+K Enter (`workbench.action.keepEditor`) pins the preview without
-        // an edit, so the next activation opens a new preview as a third tab.
+        // Ctrl+K Enter (`workbench.action.keepEditor`) pins the preview, so the
+        // next click opens a new preview as a third tab.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Enter");
-        await activate(2);
-        await waitForTabs(editor, ["beta.ts", "alpha.ts", "gamma.ts"]);
+        await click(1);
+        await waitForTabs(editor, ["gamma.ts", "alpha.ts", "beta.ts"]);
         await editor.capture("keep-editor-pins-tab");
     },
 });

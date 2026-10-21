@@ -56,6 +56,8 @@
   creates a file»: `expected false to be true`. Уронил dry run мутаций на #662 (ран 39231486646).
   Соседний кейс «New Untitled File › routes Save on an untitled buffer into Save As and writes the
   chosen path» падает так же: job `test` на #738 (ран 39623475810, PR меняет только комментарии).
+  Третий кейс «New File / New Folder › creates a file next to a clicked file» уронил dry run
+  мутаций локально (ветка фазы 3 PreviewEditors, файл не тронут; отдельно зелёный).
 - [ ] `workbench.saveConflict.test.ts` › «saves without a prompt when the file was not changed
   externally» изредка роняет vitest необработанным `FileOperationError: ENOENT … lstat …/doc.txt`
   уже после теста: проверка конфликта сохранения дёргает `stat` по каталогу, который тест успел

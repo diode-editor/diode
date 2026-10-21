@@ -64,7 +64,15 @@
   `singleClick` (дефолт) — папку переключают клик по имени и Enter (`list.select`
   эталона), `doubleClick` — только шеврон, → и двойной клик. На компактной
   строке клик по сегменту и делает его текущим, и переключает строку. Дерево
-  Problems настройку пока не читает.
+  Problems настройку пока не читает. Открытие файла мышью — настройка
+  `workbench.list.openMode` (предикат `TreeViewElement.openOnSingleClick`, тоже
+  на каждом жесте): `singleClick` (дефолт) — клик открывает превью и оставляет
+  фокус в дереве, двойной клик — постоянную вкладку с фокусом, средний клик —
+  постоянную без фокуса; `doubleClick` — открывает только двойной клик. Enter
+  открывает постоянно (`list.select` эталона). Режим приходит вторым аргументом
+  `onActivate` (`TreeActivateOptions { pinned, preserveFocus }`) и уходит в
+  `workbench.openFile` как `{ preview: !pinned, focus: !preserveFocus }` —
+  ровно `explorerView.onDidOpen` эталона.
 - `contrib/files/browser/fileOperationsService.ts` — файловые операции поверх
   `WorkspaceEditService`/`DialogService`/`UndoRedoService`/`IFileClipboard`:
   `runCreate`/`runRename` (промпт имени через узкий шов

@@ -27,6 +27,8 @@ import {
 import type { ProblemNode } from "./problemsTreeDataProvider.ts";
 
 const RESOURCE = "/ws/settings.json";
+/** What Enter hands the tree's `onActivate`. */
+const ENTER = { pinned: true, preserveFocus: false };
 
 const settleMarkers = (): Promise<void> => settle(PROBLEMS_UPDATE_DELAY_MS + 10);
 
@@ -116,7 +118,7 @@ describe("ProblemsComponent", () => {
             },
             index: 0,
         };
-        component.tree.onActivate?.(markerNode);
+        component.tree.onActivate?.(markerNode, ENTER);
         // Opening a resource is a promise (a non-disk one goes to the scheme provider),
         // so the cursor jump lands on the next tick.
         await settle(0);
@@ -146,7 +148,7 @@ describe("ProblemsComponent", () => {
             index: 0,
         };
 
-        component.tree.onActivate?.(markerNode);
+        component.tree.onActivate?.(markerNode, ENTER);
         await settle(0);
 
         expect(revealTarget.openUri).toHaveBeenCalledTimes(1);
@@ -171,7 +173,7 @@ describe("ProblemsComponent", () => {
             index: 0,
         };
 
-        component.tree.onActivate?.(markerNode);
+        component.tree.onActivate?.(markerNode, ENTER);
         await settle(0);
 
         expect(revealTarget.openUri).toHaveBeenCalledTimes(1);
@@ -180,7 +182,7 @@ describe("ProblemsComponent", () => {
 
     it("does nothing when a file node is activated", () => {
         const fileNode: ProblemNode = { kind: "file", resource: RESOURCE };
-        component.tree.onActivate?.(fileNode);
+        component.tree.onActivate?.(fileNode, ENTER);
 
         expect(revealTarget.openUri).not.toHaveBeenCalled();
     });
