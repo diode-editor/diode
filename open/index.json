@@ -1188,5 +1188,19 @@
       "large",
       "xlarge"
     ]
+  },
+  {
+    "file": "2026-10-21-df87aa36cf4e.json",
+    "generatedAt": "2026-10-21T09:30:52.495Z",
+    "commit": "df87aa36cf4e",
+    "binaryVersion": "nightly-df87aa3",
+    "ci": true,
+    "conditions": "CI, shared runner (GitHub Actions)",
+    "sizes": [
+      "small",
+      "medium",
+      "large",
+      "xlarge"
+    ]
   }
 ]
