@@ -24,10 +24,10 @@
 - [x] `workbench/services/extensions/node/extensionHost.*` (1308) — #734
 - [x] `workbench/services/extensions`: остальное (1828) — #735
 - [~] `workbench/services`: остальное (2563)
-- [~] `workbench/api`: browser, node, common a–l (1926)
+- [x] `workbench/api`: browser, node, common a–l (1926) — #737
 - [~] `workbench/api/common` m–z (1595)
 - [~] `workbench/contrib`: scm, terminal, tasks (1917)
-- [ ] `workbench/contrib`: files, extensions, diff, search, suggest, parameterHints, inlineCompletions, quickaccess (2236)
+- [~] `workbench/contrib`: files, extensions, diff, search, suggest, parameterHints, inlineCompletions, quickaccess (2236)
 - [ ] `workbench/contrib`: остальные фичи и прочее `workbench/` (1734)
 - [ ] `src/vs/diode`, TestUtils, demos, StoryRunner, tools (904)
 - [ ] `e2e/scenarios` (1052)
