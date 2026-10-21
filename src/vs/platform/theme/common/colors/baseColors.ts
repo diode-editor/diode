@@ -1,6 +1,5 @@
 import type { ColorContribution } from "../colorRegistry.ts";
 
-/** Базовые цвета (base colors + text). */
 export const baseColors = {
     focusBorder: {
         defaults: { dark: "#007FD4", light: "#0090F1" },
@@ -16,8 +15,7 @@ export const baseColors = {
         defaults: { dark: "#ABABAB", light: "#717171" },
         description: "Foreground color for description text providing additional information, for example for a label.",
     },
-    // Dark/light — непрозрачные аппроксимации #CCCCCC80 / #61616180 из VS Code
-    // (альфу парсер тем отбрасывает — та же история, что у descriptionForeground).
+    // Непрозрачные аппроксимации #CCCCCC80 / #61616180 из VS Code.
     disabledForeground: {
         defaults: { dark: "#767676", light: "#ACACAC" },
         description: "Overall foreground for disabled elements. This color is only used if not overridden.",

@@ -31,7 +31,6 @@ describe("macKeys", () => {
         expect(notMacKeys()).toBe("!(macKeys >= 1)");
     });
 
-    // Наследование вверх: объявленное на рунге действует и выше, но не ниже.
     it.each<[MacKeysRung | undefined, Record<string, boolean>]>([
         [undefined, { atLeastLegacy: false, atLeastCmd: false, isExtended: false, belowCmd: true, notMac: true }],
         ["legacy", { atLeastLegacy: true, atLeastCmd: false, isExtended: false, belowCmd: true, notMac: false }],

@@ -1,12 +1,7 @@
-/**
- * Коллекции переменных окружения расширений
- * (`ExtensionContext.environmentVariableCollection`) — общие типы и слияние,
- * как `platform/terminal/common/environmentVariable*.ts` эталона. Типы — они же
- * форма провода и состояния: коллекция живёт в субпроцессе, хост её хранит и
- * применяет к окружению каждого терминала.
- */
+// Типы — они же форма провода и состояния: коллекция живёт в субпроцессе, хост её хранит и
+// применяет к окружению каждого терминала.
 
-/** `vscode.EnvironmentVariableMutatorType`: значения — эталонные. */
+/** Значения — эталонные. */
 export enum EnvironmentVariableMutatorType {
     Replace = 1,
     Append = 2,
@@ -48,7 +43,6 @@ export interface IEnvironmentVariableCollection {
     readonly descriptionMap?: ReadonlyMap<string, IEnvironmentVariableCollectionDescription>;
 }
 
-/** Мутатор с владельцем — для порядка применения и фильтра Python-активации. */
 export interface IExtensionOwnedEnvironmentVariableMutator extends IEnvironmentVariableMutator {
     readonly extensionIdentifier: string;
 }
@@ -61,11 +55,7 @@ function blockPythonActivationVar(variable: string, extensionIdentifier: string)
     return PYTHON_ACTIVATION_VARS_PATTERN.test(variable) && extensionIdentifier !== PYTHON_ENV_EXTENSION_ID;
 }
 
-/**
- * Слияние коллекций всех расширений (`MergedEnvironmentVariableCollection`
- * эталона): на переменную — цепочка мутаторов; `Replace` первым отсекает
- * остальные, мутаторы применяются в обратном порядке заведения.
- */
+/** `Replace` первым отсекает остальные мутаторы; применяются в обратном порядке заведения. */
 export class MergedEnvironmentVariableCollection {
     private readonly map = new Map<string, IExtensionOwnedEnvironmentVariableMutator[]>();
 
@@ -96,10 +86,8 @@ export class MergedEnvironmentVariableCollection {
     }
 
     /**
-     * Применяет мутаторы к окружению процесса (`applyToProcessEnvironment`
-     * эталона). Под Windows имя переменной сверяется без учёта регистра.
-     * Только «при создании процесса»: shell integration у нас нет, и
-     * `applyAtShellIntegration` (`VSCODE_ENV_*` для скриптов внедрения) некому читать.
+     * Под Windows имя сверяется без регистра. Только при создании процесса: `applyAtShellIntegration`
+     * читать некому — shell integration нет.
      */
     public applyToProcessEnvironment(
         env: Record<string, string | undefined>,
@@ -128,27 +116,17 @@ export class MergedEnvironmentVariableCollection {
     }
 }
 
-/**
- * Мутатор без области — везде; с областью папки — только в терминале той же
- * папки (по `index`). Как у эталона, мутатор с областью без папки (`getScoped({})`)
- * не применяется нигде.
- */
+/** Как у эталона, мутатор с областью без папки (`getScoped({})`) не применяется нигде. */
 function filterScope(mutator: IEnvironmentVariableMutator, scope: IEnvironmentVariableScope | undefined): boolean {
     if (mutator.scope === undefined) return true;
     const folder = mutator.scope.workspaceFolder;
     return folder !== undefined && folder.index === scope?.workspaceFolder?.index;
 }
 
-/** Коллекция расширения у хоста: с признаком «хранить между запусками» и описаниями. */
 export interface IEnvironmentVariableCollectionWithPersistence extends IEnvironmentVariableCollection {
     readonly persistent: boolean;
 }
 
-/**
- * Хранилище коллекций расширений на хосте (`IEnvironmentVariableService`
- * эталона в объёме, который нужен extension host'у): что прислал субпроцесс —
- * в него, при подъёме субпроцесса — из него.
- */
 export interface IEnvironmentVariableCollectionStore {
     readonly collections: ReadonlyMap<string, IEnvironmentVariableCollectionWithPersistence>;
     set(extensionIdentifier: string, collection: IEnvironmentVariableCollectionWithPersistence): void;

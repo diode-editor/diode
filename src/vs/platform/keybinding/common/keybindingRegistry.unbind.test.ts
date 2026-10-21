@@ -46,19 +46,16 @@ describe("KeybindingRegistry — снятие бинда правилом `-comm
 
         registry.setUserKeybindings([{ command: "-save" }]);
 
-        // The remaining ctrl+s belongs to "other".
         expect(resolve(registry, KEY("s", { ctrlKey: true }))).toBe("other");
     });
 
     it("keeps a binding whose chord length differs from the unbind chord", () => {
         const registry = new KeybindingRegistry();
-        // A two-part chord for the same command we try to unbind with a one-part chord.
         registry.register(parseChord("ctrl+k s"), "save");
 
         // Unbind targets a single combination → lengths differ → chord is NOT removed.
         registry.setUserKeybindings([{ command: "-save", chord: parseChord("ctrl+s") }]);
 
-        // The two-part chord still resolves.
         expect(registry.resolveKey(KEY("k", { ctrlKey: true })).kind).toBe("chord");
         expect(resolve(registry, KEY("s"))).toBe("save");
     });

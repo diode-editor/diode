@@ -8,11 +8,6 @@ import {
     WORKSPACE_UNDO_CONTEXT,
 } from "./undoRedoService.ts";
 
-// Шаг нескольких документов (`pushWorkspaceElement`): лежит в бакетах всех
-// участников, как workspace-элемент эталона в стеках всех своих ресурсов.
-// Ctrl+Z из любого откатывает его целиком; не верхний где-то — отказ с
-// сообщением; потерян бакет с его правкой — шаг ломается.
-
 function step(label: string, resources: readonly string[] = []) {
     const undo = vi.fn();
     const redo = vi.fn();
@@ -178,7 +173,6 @@ describe("UndoRedoService — шаг нескольких документов",
         expect(await service.undo("a")).toBe(true);
         expect(undo).toHaveBeenCalledOnce();
         expect(refusals).toEqual([]);
-        // В redo закрытого бакета шаг не возвращается.
         expect(service.canRedo("b")).toBe(false);
         expect(service.peekRedo("a")).toBe(element);
     });
@@ -323,7 +317,6 @@ describe("UndoRedoService — шаг нескольких документов",
         const stack = (service as unknown as { undoStacks: Map<string, IUndoRedoElement[]> }).undoStacks.get("foo");
         expect(stack).toEqual([first.element, second.element]);
 
-        // Ctrl+Z из новой вкладки откатывает шаг, который в ней верхний.
         expect(await service.undo("foo")).toBe(true);
         expect(second.undo).toHaveBeenCalledOnce();
         // Принятый бакет — участник без своей правки: его закрытие шаг не ломает.

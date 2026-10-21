@@ -1,20 +1,9 @@
 import type { IThemeFile } from "./iThemeFile.ts";
 
 /**
- * Слияние темы с её базой по `include` — семантика VS Code, та же, что в
- * `scripts/import-vscode-themes.mjs` (скрипт — `.mjs` на этапе сборки и эту
- * функцию импортировать не может, поэтому повторяет её; тест держит их в
- * согласии): база ложится первой, поверх неё — включающая тема.
- *
- * - `colors` — object-merge, ключ `child` перекрывает ключ базы;
- * - `tokenColors` — конкатенация base-first: правило, объявленное позже,
- *   побеждает при равной специфичности (так матчит тему vscode-textmate);
- * - `semanticTokenRules` — тоже конкатенация base-first (поздний побеждает на
- *   равном весе селектора — `getTokenStyle` эталона);
- * - `semanticHighlighting` — OR по цепочке (`_loadColorTheme` эталона).
- *
- * `name` и `type` — от `child`; `include` в результате снят: зарегистрированная
- * тема всегда плоская.
+ * Повторяет `scripts/import-vscode-themes.mjs` (скрипт сборки импортировать её не может; тест
+ * держит их в согласии). `colors` — merge, `tokenColors` и `semanticTokenRules` — конкатенация
+ * base-first (поздний побеждает при равной специфичности), `semanticHighlighting` — OR.
  */
 export function mergeThemeFiles(base: IThemeFile, child: IThemeFile): IThemeFile {
     const merged: IThemeFile = {

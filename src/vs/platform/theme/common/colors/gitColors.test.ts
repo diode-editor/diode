@@ -6,13 +6,7 @@ import { WorkbenchTheme } from "../workbenchTheme.ts";
 
 import type { IWorkbenchColors } from "./colorContributions.ts";
 
-/**
- * The git-diff decoration colors (SCM gutter + `gitDecoration.*ResourceForeground`)
- * must resolve on both theme kinds from the default color registry, so features
- * reading them through `getColor` never fall back to `undefined`. Expected hex
- * values mirror VS Code's built-in defaults (editorGutter: SCM quickDiff registry;
- * gitDecoration: the git extension's `contributes.colors`).
- */
+/** Ожидания — дефолты VS Code: editorGutter — реестр SCM quickDiff, gitDecoration — `contributes.colors` расширения git. */
 const EXPECTED: Record<"dark" | "light", Partial<Record<keyof IWorkbenchColors, string>>> = {
     dark: {
         "editorGutter.modifiedBackground": "#1B81A8",

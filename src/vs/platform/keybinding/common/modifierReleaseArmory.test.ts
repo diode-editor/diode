@@ -126,19 +126,16 @@ describe("armOnHoldRelease within a trigger context", () => {
             armory.withTrigger(trigger({ altKey: true }), () => {
                 armory.armOnHoldRelease(inner);
             });
-            // Back in the outer (Ctrl) context after the nested run.
             armory.armOnHoldRelease(outer); // overwrites the inner arm
         });
 
         armory.fireRelease("Alt"); // inner was overwritten → nothing fires
         expect(inner).not.toHaveBeenCalled();
 
-        armory.fireRelease("Control"); // outer context → fires
+        armory.fireRelease("Control");
         expect(outer).toHaveBeenCalledTimes(1);
     });
 
-    // Запасной путь к концу hold-сессии там, где keyup модификатора не приходит
-    // (legacy-терминал): нажатие, которое сессию не продлило, её коммитит.
     describe("commitStaleAfter — коммит по нажатию, не продлившему сессию", () => {
         it("коммитит взвод, номер которого не изменился за время нажатия", () => {
             const armory = new ModifierReleaseArmory();
@@ -167,7 +164,6 @@ describe("armOnHoldRelease within a trigger context", () => {
 
             expect(first).not.toHaveBeenCalled();
             expect(second).not.toHaveBeenCalled();
-            // Живая сессия: коммитится по отпусканию модификатора, как обычно.
             armory.fireRelease("Control");
             expect(second).toHaveBeenCalledTimes(1);
         });

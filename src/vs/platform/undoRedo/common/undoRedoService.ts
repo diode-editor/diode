@@ -3,64 +3,38 @@ import { token } from "../../instantiation/common/diContainer.ts";
 
 import type { IUndoRedoElement } from "./iUndoRedoElement.ts";
 
-/** Контекст файловых/workspace-операций (отмена в проводнике). */
 export const WORKSPACE_UNDO_CONTEXT = "workspace";
 
-/**
- * Участник шага, охватывающего несколько документов (bulk edit): бакет
- * истории, в который шаг кладётся, и имя файла для сообщений.
- */
 export interface IUndoParticipant {
     readonly context: string;
-    /** Имя ресурса в сообщении об отказе (`a.ts`). */
     readonly label: string;
-    /**
-     * Шаг несёт правку буфера ЭТОГО бакета. Потерянный бакет (вкладку
-     * закрыли, буфер перечитан с диска) ломает такой шаг: откатить правку
-     * некуда. Бакет без своей правки (вкладка, в которой вызвали действие;
-     * файл, открытый уже после правки) уходит из участников без последствий.
-     */
+    /** Шаг несёт правку буфера этого бакета: потеря такого бакета ломает шаг, бакета без правки — нет. */
     readonly owner: boolean;
 }
 
-/** Почему бакет потерял свою историю (см. {@link UndoRedoService.clear}). */
 export type UndoClearReason = "closed" | "replaced";
 
-/** Отказ отмены/повтора шага нескольких документов — текст для человека. */
 export interface IUndoRefusal {
     readonly element: IUndoRedoElement;
     readonly message: string;
 }
 
-/** Состояние шага нескольких документов (`pushWorkspaceElement`). */
 interface WorkspaceElementState {
     /** Порядок кладки — по нему шаги встают в бакет открытого позже файла. */
     readonly order: number;
-    /** Бакет → участник. Бакет, потерявший историю, отсюда уходит. */
     readonly participants: Map<string, IUndoParticipant>;
-    /** Потерянные бакеты с правкой шага: имя → причина. Непуст — шаг сломан. */
+    /** Потерянные бакеты с правкой шага; непуст — шаг сломан. */
     readonly removed: Map<string, UndoClearReason>;
 }
 
 /**
- * Единый сервис отмены/повтора уровня workspace. История разнесена по контекстным
- * бакетам: непрозрачный ключ редактора (`TextFileModel.undoContext`) либо
- * {@link WORKSPACE_UNDO_CONTEXT} (файловые операции в проводнике). Так Ctrl+Z в
- * редакторе и в дереве не мешают друг другу, но проходят через один сервис и одну
- * модель элементов.
+ * История разнесена по бакетам: непрозрачный ключ редактора (`TextFileModel.undoContext`)
+ * либо {@link WORKSPACE_UNDO_CONTEXT}. Ключ — не путь: путь ломался на безымянных буферах
+ * (сходились в один бакет) и на `saveAs` (история сиротела).
  *
- * Ключ намеренно непрозрачен и не является путём: путь как бакет ломался на
- * безымянных буферах (все сходились в один бакет) и на `saveAs` (смена пути
- * осиротляла историю).
- *
- * Шаг, охватывающий несколько документов (`workspace.applyEdit`: «Move to a
- * new file», правки по нескольким файлам), лежит в бакетах ВСЕХ участников —
- * как workspace-элемент эталона в стеках всех своих ресурсов: Ctrl+Z из любой
- * затронутой вкладки откатывает весь шаг. Откат возможен, только когда шаг —
- * верхний во всех бакетах; иначе отказ с сообщением ({@link onDidRefuse}).
- * Отступление от эталона (решение человека): шаг не разбивается на части по
- * файлам — нет диалога «Undo in N Files / Undo this File» и отката «только
- * этого файла» при правках в соседнем.
+ * Шаг нескольких документов лежит в бакетах всех участников, как workspace-элемент эталона,
+ * и откатывается, только когда он верхний во всех. Отступление от эталона (решение
+ * человека): шаг не разбивается по файлам — нет «Undo in N Files / Undo this File».
  */
 export class UndoRedoService {
     private undoStacks = new Map<string, IUndoRedoElement[]>();
@@ -69,7 +43,6 @@ export class UndoRedoService {
     private nextOrder = 0;
 
     private readonly onDidRefuseEmitter = new Emitter<IUndoRefusal>();
-    /** Шаг нескольких документов не откатился/не повторился — сказать человеку почему. */
     public readonly onDidRefuse: Event<IUndoRefusal> = this.onDidRefuseEmitter.event;
 
     private stack(map: Map<string, IUndoRedoElement[]>, context: string): IUndoRedoElement[] {
@@ -81,16 +54,12 @@ export class UndoRedoService {
         return stack;
     }
 
-    /** Кладёт новый шаг в стек контекста и очищает его redo. */
     public pushElement(element: IUndoRedoElement, context: string): void {
         this.stack(this.undoStacks, context).push(element);
         this.truncateRedo(context);
     }
 
-    /**
-     * Кладёт ОДИН шаг в бакеты всех участников (см. описание класса). Без
-     * участников шаг уходит в бакет workspace-операций.
-     */
+    /** Без участников шаг уходит в бакет {@link WORKSPACE_UNDO_CONTEXT}. */
     public pushWorkspaceElement(element: IUndoRedoElement, participants: readonly IUndoParticipant[]): void {
         if (participants.length === 0) {
             this.pushElement(element, WORKSPACE_UNDO_CONTEXT);
@@ -105,11 +74,9 @@ export class UndoRedoService {
     }
 
     /**
-     * Файл открыли в новом бакете уже после шага нескольких документов, который
-     * его тронул (создал, переписал на диске): шаг встаёт и в этот бакет, и
-     * Ctrl+Z из новой вкладки откатывает его, как у эталона, где история
-     * привязана к ресурсу, а не к вкладке. Зовётся на свежем (пустом) бакете,
-     * поэтому порядок шагов в нём — порядок их кладки.
+     * Файл открыли уже после шага нескольких документов, который его тронул: шаг встаёт и
+     * в новый бакет, как у эталона, где история привязана к ресурсу, а не к вкладке.
+     * Зовётся на свежем бакете, поэтому порядок шагов в нём — порядок кладки.
      */
     public adopt(context: string, resource: string, label: string): void {
         const adopted = new Map<IUndoRedoElement, WorkspaceElementState>();
@@ -136,7 +103,6 @@ export class UndoRedoService {
         return this.stack(this.redoStacks, context).length > 0;
     }
 
-    /** Верхний элемент undo без снятия — для гейта подтверждения в UI. */
     public peekUndo(context: string): IUndoRedoElement | undefined {
         const stack = this.stack(this.undoStacks, context);
         return stack[stack.length - 1];
@@ -147,12 +113,7 @@ export class UndoRedoService {
         return stack[stack.length - 1];
     }
 
-    /**
-     * Откатывает верхний шаг контекста. `false` — откатывать нечего ЛИБО шаг
-     * отказался (`canUndo() === false`, см. {@link IUndoRedoElement.canUndo};
-     * шаг нескольких документов — не верхний в одном из своих бакетов): в
-     * отказе шаг остаётся в стеке, половинчато не применяется ничего.
-     */
+    /** `false` — откатывать нечего либо шаг отказался ({@link IUndoRedoElement.canUndo}); отказавший шаг остаётся в стеке. */
     public async undo(context: string): Promise<boolean> {
         const stack = this.stack(this.undoStacks, context);
         const element = stack.at(-1);
@@ -176,7 +137,6 @@ export class UndoRedoService {
         return true;
     }
 
-    /** Повторяет откаченный шаг; отказ — как в {@link undo}. */
     public async redo(context: string): Promise<boolean> {
         const stack = this.stack(this.redoStacks, context);
         const element = stack.at(-1);
@@ -195,12 +155,7 @@ export class UndoRedoService {
         return true;
     }
 
-    /**
-     * Сбрасывает историю контекста: вкладку закрыли (`closed`) либо содержимое
-     * буфера заменено целиком (`replaced` — перечитка с диска). Шаг нескольких
-     * документов, несущий правку этого буфера, ломается: откатывать её больше
-     * некуда, и следующая попытка отмены сбросит его (см. {@link undo}).
-     */
+    /** Шаг нескольких документов с правкой этого буфера ломается: следующая отмена его сбросит. */
     public clear(context: string, reason: UndoClearReason = "closed"): void {
         for (const element of this.stack(this.undoStacks, context))
             this.leave(element, context, reason, this.undoStacks);
@@ -210,11 +165,7 @@ export class UndoRedoService {
         this.stack(this.redoStacks, context).length = 0;
     }
 
-    /**
-     * Бакет уходит из участников шага. Без своей правки — без последствий;
-     * со своей — шаг ломается: в undo он помечается сломанным, из redo уходит
-     * отовсюду (повторять правку некуда).
-     */
+    /** Уход бакета со своей правкой ломает шаг: в undo он помечается сломанным, из redo уходит отовсюду. */
     private leave(
         element: IUndoRedoElement,
         context: string,
@@ -235,10 +186,7 @@ export class UndoRedoService {
         this.dropFromRedo(element, state);
     }
 
-    /**
-     * Обрезает redo контекста. Шаг нескольких документов, ушедший из redo
-     * одного бакета, повторить целиком уже нельзя — он уходит из redo всех.
-     */
+    /** Шаг нескольких документов, ушедший из redo одного бакета, уходит из redo всех. */
     private truncateRedo(context: string): void {
         const redo = this.stack(this.redoStacks, context);
         // Копия: свой бакет шаг тоже покидает — правка массива на ходу.
@@ -249,7 +197,6 @@ export class UndoRedoService {
         redo.length = 0;
     }
 
-    /** Убирает шаг нескольких документов из redo всех его бакетов. */
     private dropFromRedo(element: IUndoRedoElement, state: WorkspaceElementState): void {
         for (const context of state.participants.keys()) {
             const redo = this.stack(this.redoStacks, context);
@@ -260,13 +207,9 @@ export class UndoRedoService {
     }
 
     /**
-     * Можно ли трогать шаг нескольких документов прямо сейчас. Отказ — с
-     * сообщением (строки эталона, `cannotWorkspaceUndo*`):
-     * - сломан (бакет с его правкой потерян) — эталон сбрасывает историю всех
-     *   его ресурсов: неразбиваемый шаг откатить по частям нельзя;
-     * - не верхний в каком-то бакете — там правили после него. Эталон
-     *   откатил бы «только этот файл», у нас шаг не разбивается: отказ,
-     *   история цела — откатите сначала правки в названных файлах.
+     * Отказ — строками эталона `cannotWorkspaceUndo*`. Сломанный шаг эталон тоже сбрасывает
+     * целиком; не верхний в каком-то бакете эталон откатил бы «только этот файл», у нас шаг
+     * не разбивается — отказ, история цела.
      */
     private checkWorkspaceElement(
         element: IUndoRedoElement,

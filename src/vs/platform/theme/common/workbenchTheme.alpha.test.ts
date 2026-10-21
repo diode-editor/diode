@@ -21,12 +21,7 @@ function themeWith(colors: Record<string, string>): WorkbenchTheme {
     return WorkbenchTheme.fromThemeFile(json);
 }
 
-/**
- * С tuidom 0.4.0 альфа — штатная часть цвета: палитра несёт `#RRGGBBAA` как
- * есть, а композитинг выполняет движок в порядке отрисовки. Здесь — что тема
- * ничего не теряет по дороге в var-scope; сам композитинг закрывают тесты
- * tuidom (`grid.alpha.test.ts`) и кадровые тесты редактора.
- */
+/** Композитинг закрывают тесты tuidom (`grid.alpha.test.ts`) и кадровые тесты редактора; здесь — что тема ничего не теряет по дороге. */
 describe("WorkbenchTheme — цвета с альфой уходят в палитру как есть", () => {
     it("полупрозрачное значение темы остаётся полупрозрачным числом", () => {
         const theme = themeWith({ "statusBarItem.hoverBackground": "#F1F1F133" });

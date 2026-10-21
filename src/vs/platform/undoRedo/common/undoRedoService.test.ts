@@ -105,9 +105,6 @@ describe("UndoRedoService", () => {
     });
 });
 
-// Отказ шага (`canUndo`/`canRedo`) — для шагов, охватывающих несколько
-// документов: у bulk edit'а участник может стать неоткатываемым (в нём набрали
-// текст), и откатывать половину шага нельзя.
 describe("UndoRedoService — отказ шага", () => {
     it("canUndo() === false: шаг не исполняется и ОСТАЁТСЯ в стеке отмены", async () => {
         const service = new UndoRedoService();
@@ -120,7 +117,6 @@ describe("UndoRedoService — отказ шага", () => {
         expect(service.canUndo(CTX)).toBe(true);
         expect(service.canRedo(CTX)).toBe(false);
 
-        // Условие выполнилось — тот же шаг отменяется обычным порядком.
         allowed = true;
         expect(await service.undo(CTX)).toBe(true);
         expect(undo).toHaveBeenCalledOnce();

@@ -24,7 +24,6 @@ const mem = (path: string): Uri => Uri.from({ scheme: "mem", path });
 const bytes = (text: string): Uint8Array => new TextEncoder().encode(text);
 const text = (value: Uint8Array): string => new TextDecoder().decode(value);
 
-/** Сервис с in-memory провайдером на схеме `mem` и журналом операций. */
 function setup(capabilities?: FileSystemProviderCapabilities): {
     files: FileService;
     provider: InMemoryFileSystemProvider;
@@ -39,7 +38,6 @@ function setup(capabilities?: FileSystemProviderCapabilities): {
     return { files, provider, operations };
 }
 
-/** Провайдер расширения: только чтение, без stat. */
 function readonlyProvider(
     content: Partial<Record<string, string>>,
     changes = new Emitter<readonly Uri[]>(),

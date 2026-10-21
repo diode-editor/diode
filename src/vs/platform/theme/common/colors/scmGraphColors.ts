@@ -1,11 +1,6 @@
 import type { ColorContribution } from "../colorRegistry.ts";
 
-/**
- * Цвета графа коммитов (view GRAPH контейнера Source Control). Номенклатура и
- * дефолты — из vscode (`scmHistory.ts`): пять цветов линий — colorblind-safe
- * палитра IBM, одинаковая на dark и light; три семантических цвета ref'ов —
- * текущая ветка, remote и base.
- */
+/** Из vscode (`scmHistory.ts`): пять цветов линий — colorblind-safe палитра IBM, одинаковая на dark и light. */
 export const scmGraphColors = {
     "scmGraph.foreground1": {
         defaults: { dark: "#FFB000", light: "#FFB000" },

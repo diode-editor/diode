@@ -1,6 +1,5 @@
 import type { ColorContribution } from "../colorRegistry.ts";
 
-/** Редактор: фон/текст, номера строк, курсор, подсветки, squiggles, gutter, виджеты. */
 export const editorColors = {
     "editor.background": {
         defaults: { dark: "#1E1E1E", light: "#FFFFFF" },
@@ -22,11 +21,8 @@ export const editorColors = {
         defaults: { dark: "#AEAFAD", light: "#000000" },
         description: "Color of the editor cursor.",
     },
-    // В VS Code ключ зарегистрирован без дефолта, а фоллбэк вычисляется как
-    // `Color.opposite()` от `editorCursor.foreground`. Производных цветов у нас нет, поэтому
-    // результат запечён в hex на месте определения (та же политика, что у
-    // `editor.wordHighlightBackground`); `defaults: null` тут нельзя — `styleVar` без
-    // фоллбэка бросает, а инлайн-фоллбэки запрещены.
+    // В VS Code дефолта нет — фоллбэк `Color.opposite()` от `editorCursor.foreground`, у нас запечён
+    // hex-ом; `defaults: null` нельзя: `styleVar` без фоллбэка бросает.
     "editorCursor.background": {
         defaults: { dark: "#515052", light: "#FFFFFF" },
         description:
@@ -71,8 +67,7 @@ export const editorColors = {
         description: "Foreground color of hints in the editor.",
     },
     // Opaque approximations of VS Code's #ffffff56 (dark) / #0007 (light)
-    // composited over the editor bg — терминальный рендер без альфы (та же
-    // политика, что у `editor.wordHighlightBackground`).
+    // composited over the editor bg — как у `editor.wordHighlightBackground`.
     "editorGhostText.foreground": {
         defaults: { dark: "#6A6A6A", light: "#888888" },
         description: "Foreground color of the ghost text in the editor.",

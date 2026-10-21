@@ -29,45 +29,26 @@ export interface Keybinding {
     shiftKey: boolean;
     altKey: boolean;
     metaKey: boolean;
-    /**
-     * Токен `mod` (аналог `KeyMod.CtrlCmd` VS Code): Ctrl на pc и на мак-рунгах
-     * ниже cmd, Cmd — на `mac-cmd`. Реестр разворачивает такую часть в две
-     * конкретные записи с условием по рунгу (см. {@link expandModKey}); в
-     * самих записях реестра `modKey` не встречается.
-     */
+    /** Ctrl на pc и мак-рунгах ниже cmd, Cmd — на `mac-cmd`: реестр разворачивает часть в две записи ({@link expandModKey}). */
     modKey?: boolean;
 }
 
-/**
- * A full keybinding is a sequence of one or more chord parts.
- * Length 1 = an ordinary single combination (e.g. Ctrl+S).
- * Length 2+ = a chord (e.g. Ctrl+K Ctrl+S).
- */
 export type KeybindingChord = Keybinding[];
 
-/**
- * Result of feeding a key event into the registry.
- *  - "command": a full binding matched — execute commandId.
- *  - "chord":   the event matched the prefix of one or more chords; the
- *               registry is now waiting for the next part. `chord` holds the
- *               parts pressed so far (for status-bar feedback).
- *  - "none":    nothing matched (and any pending chord was reset).
- */
+/** `chord` — нажатые части префикса (для статус-бара); `none` сбрасывает ожидаемый аккорд. */
 export type KeybindingResolution =
     | { kind: "command"; commandId: string; when?: string; args?: unknown }
     | { kind: "chord"; chord: KeybindingChord }
     | { kind: "none" };
 
-/** Where a registry entry came from — drives the Source column and reset semantics in the shortcuts editor. */
 export type KeybindingSource = "default" | "extension" | "user";
 
-/** Read-only view of a registry entry (shortcuts editor, user-rule bookkeeping). */
 export interface IKeybindingEntrySnapshot {
     readonly chord: KeybindingChord;
     readonly commandId: string;
     readonly when?: string;
     readonly source: KeybindingSource;
-    /** Аргумент команды (VS Code `args` у правила): передаётся первым аргументом `execute`. */
+    /** Передаётся первым аргументом `execute`. */
     readonly args?: unknown;
 }
 
@@ -79,7 +60,7 @@ interface KeybindingEntry extends IKeybindingPriority {
     args?: unknown;
 }
 
-/** Правило слоя extension или user: бинд либо снятие (`-command`, как в VS Code). */
+/** Бинд либо снятие (`-command`). */
 export interface IKeybindingLayerRule {
     /** Id команды; ведущий `-` — снять её бинды из слоёв default и extension. */
     readonly command: string;
@@ -90,7 +71,6 @@ export interface IKeybindingLayerRule {
     readonly args?: unknown;
 }
 
-/** Снятие бинда: какие записи default/extension исключить из резолва. */
 interface IKeybindingRemoval {
     readonly commandId: string;
     readonly chord: KeybindingChord | undefined;
@@ -99,7 +79,7 @@ interface IKeybindingRemoval {
 
 type LayerSource = Exclude<KeybindingSource, "default">;
 
-/** Слой extension или user: его бинды и снятия, заменяются целиком. */
+/** Заменяется целиком. */
 interface IKeybindingLayer {
     readonly entries: readonly KeybindingEntry[];
     readonly removals: readonly IKeybindingRemoval[];
@@ -118,9 +98,8 @@ function conjuncts(expr: ContextKeyExpression): string[] {
 }
 
 /**
- * Снимает ли снятие запись. When у снятия сопоставляется включением (как
- * `whenIsEntirelyIncluded` upstream, в упрощении до конъюнктов): запись
- * снимается, если её `when` содержит все условия снятия.
+ * Включением, как `whenIsEntirelyIncluded` эталона в упрощении до конъюнктов: запись снимается,
+ * если её `when` содержит все условия снятия.
  */
 function isTargetedForRemoval(removal: IKeybindingRemoval, entry: KeybindingEntry): boolean {
     if (removal.commandId !== entry.commandId) return false;
@@ -132,9 +111,8 @@ function isTargetedForRemoval(removal: IKeybindingRemoval, entry: KeybindingEntr
     return whenTerms(removal.when).every((term) => entryTerms.includes(term));
 }
 
-/** Необязательные параметры правила. */
 export interface IKeybindingRuleOptions {
-    /** Вес правила ({@link KeybindingWeight}); по умолчанию `EditorCore`. */
+    /** По умолчанию `EditorCore`. */
     readonly weight?: number;
 }
 
@@ -191,7 +169,6 @@ export function parseKeybinding(spec: string): Keybinding {
     return modKey ? { key, ctrlKey, shiftKey, altKey, metaKey, modKey } : { key, ctrlKey, shiftKey, altKey, metaKey };
 }
 
-/** AND двух необязательных when-выражений. */
 function andWhen(a: string | undefined, b: string): string {
     return a === undefined ? b : `(${a}) && (${b})`;
 }

@@ -3,12 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { IThemeFile } from "./iThemeFile.ts";
 import { mergeThemeFiles } from "./mergeThemeFiles.ts";
 
-/**
- * Эталон семантики — `resolveTheme` в `scripts/import-vscode-themes.mjs`
- * (`.mjs` на этапе сборки, импортировать эту функцию не может и повторяет её):
- * `colors` — `Object.assign(base, child)`, `tokenColors` — `[...base, ...child]`.
- * Цепочка здесь — та же по форме, что Dark Modern → Dark+ → Dark VS.
- */
+/** Цепочка — та же по форме, что Dark Modern → Dark+ → Dark VS. */
 const DARK_VS: IThemeFile = {
     name: "Dark VS",
     type: "dark",

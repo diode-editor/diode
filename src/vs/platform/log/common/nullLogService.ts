@@ -12,7 +12,6 @@ const NOOP_DISPOSABLE: IDisposable = {
     /* v8 ignore stop */
 };
 
-/** Логгер, который ничего не пишет — для потребителей без своего канала. */
 export const NULL_LOGGER: ILogger = {
     trace: () => {
         /* no-op */
@@ -32,10 +31,6 @@ export const NULL_LOGGER: ILogger = {
     isEnabled: () => false,
 };
 
-/**
- * No-op реализация `ILogService` для тестов и demo. Никаких sinks, никаких
- * аллокаций при логировании, `isEnabled` всегда возвращает false.
- */
 export const NULL_LOG_SERVICE: ILogService = {
     createLogger(_channel: string, _options?: ILoggerOptions): ILogger {
         return NULL_LOGGER;

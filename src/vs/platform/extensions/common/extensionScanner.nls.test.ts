@@ -12,12 +12,6 @@ import { scanExtensions } from "./extensionScanner.ts";
 
 const ROOT_PREFIX = "UserExtensions/";
 
-/**
- * Резолв `%ключей%` манифеста — на сквозном пути сканирования. Проверяется
- * именно `scanExtensions`, потому что это единственная точка, через которую
- * манифест попадает к потребителям: и builtin из бандла, и установленные
- * расширения.
- */
 describe("scanExtensions — локализация манифеста", () => {
     let tempDir: string;
     let assets: FsAssetAccess;
@@ -70,7 +64,6 @@ describe("scanExtensions — локализация манифеста", () => {
 
         expect(ext.manifest.displayName).toBe("Language Support for Java(TM)");
         expect(ext.manifest.contributes?.commands?.[0].title).toBe("Clean Java Language Server Workspace");
-        // Категория — отдельное поле, в заголовок её не вклеивают.
         expect(ext.manifest.contributes?.commands?.[0].category).toBe("Java");
         expect(ext.manifest.contributes?.themes?.[0].label).toBe("Java Dark");
     });
@@ -133,10 +126,7 @@ describe("scanExtensions — локализация манифеста", () => {
         expect(result[0].manifest.displayName).toBe("%displayName%");
     });
 
-    // Реестр тем — второй потребитель, у которого дыра была видна глазами:
-    // темы регистрируются по `label`, а он тоже бывает `%ключом%`, и в пикере
-    // вместо имени темы стоял бы ключ. Резолв приезжает со сканирования, своего
-    // у контрибьютора нет — проверяем именно эту связку.
+    // Своего резолва у контрибьютора тем нет — проверяем связку со сканированием.
     it("label темы доезжает до ThemeRegistry локализованным", async () => {
         const dirName = "redhat.java-1.0.0";
         await writeExtension(

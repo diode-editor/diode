@@ -10,34 +10,16 @@ import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextServic
 import { EMPTY_WINDOW_WORKSPACE_ID } from "../../workspace/common/workspaceId.ts";
 import type { IStateDescriptor, IStateService, IStateStore, StateScope } from "../common/iStateService.ts";
 
-/**
- * Реализация {@link IStateService}. Движок key/value со scope, поверх plain-JSON
- * файлов (не jsonc — файл машинный, комментарии не нужны; см. docs/arch/State.md).
- *
- * Инварианты:
- *  - `store` обновляет in-memory стор **синхронно**, запись на диск — debounced
- *    (async), плюс `flushSync` на выходе процесса. Так `get` всегда видит
- *    последнее значение, а `process.on("exit")` гарантирует durability.
- *  - весь распарсенный объект хранится целиком: правим только известные ключи,
- *    сериализуем объект целиком → unknown-ключи (от других/будущих версий) не
- *    затираются.
- *  - битый/нечитаемый файл трактуется как пустой стор + лог — bootstrap не падает.
- */
+// Объект файла хранится и пишется целиком: unknown-ключи других версий не затираются.
+// Битый файл — пустой стор и лог, bootstrap не падает.
 
 const VERSIONS_KEY = "$versions";
 export const WRITE_DEBOUNCE_MS = 500;
 
 /**
- * Один plain-JSON файл состояния — стор одной области видимости. Сам читает
- * файл, сам пишет (debounce + `flushSync`), версии ключей ведёт как
- * {@link StateService}. Наружу отдаётся как {@link IStateStore}: сервису,
- * которому нужна ровно одна область и раньше, чем собран весь
- * {@link StateService}. Так устроен application-стор: реестр профилей читается
- * до того, как известен каталог активного профиля (а с ним — `global` и
- * `workspace` сторы), и тот же экземпляр потом усыновляет `StateService`
- * ({@link loadState}) — писатель у файла один.
- *
- * Без `filePath` стор живёт только в памяти (тесты, null-окружение).
+ * Отдельный стор — для application-области: реестр профилей читается до того, как известен
+ * каталог профиля, и потом `StateService` усыновляет тот же экземпляр ({@link loadState}) —
+ * писатель у файла один. Без `filePath` живёт только в памяти.
  */
 export class StateFileStore implements IStateStore {
     /** Полное дерево из файла: известные ключи + `$versions` + unknown-ключи. */
@@ -53,7 +35,6 @@ export class StateFileStore implements IStateStore {
         filePath: string | undefined,
         options: {
             readonly logger?: ILogger;
-            /** Задержка debounced-записи; по умолчанию {@link WRITE_DEBOUNCE_MS}. Инъекция — ради тестов. */
             readonly writeDebounceMs?: number;
         } = {},
     ) {
@@ -97,11 +78,7 @@ export class StateFileStore implements IStateStore {
         this.markDirty();
     }
 
-    /**
-     * Переключает стор на другой файл (стор воркспейса следует за открытым
-     * проектом): текущее содержимое сначала синхронно сбрасывается на диск, а
-     * отложенная запись снимается — она была про прежний файл.
-     */
+    /** Содержимое сначала синхронно сбрасывается в прежний файл, отложенная запись снимается. */
     public open(filePath: string): void {
         this.flushSync();
         this.data = loadStateFile(filePath, this.logger);
@@ -109,7 +86,6 @@ export class StateFileStore implements IStateStore {
         this.dirty = false;
     }
 
-    /** Синхронно пишет файл, если стор грязный. Безопасно из `process.on("exit")`. */
     public flushSync(): void {
         // Stryker disable next-line CallExpression: неснятый таймер нашёл бы стор уже чистым и ничего не записал — эквивалентный мутант
         clearTimeout(this.writeTimer);
@@ -117,7 +93,6 @@ export class StateFileStore implements IStateStore {
         this.writeSync();
     }
 
-    /** Глушит писателя: снимает отложенную запись и больше её не взводит (см. {@link StateService.dispose}). */
     public dispose(): void {
         this.disposed = true;
         clearTimeout(this.writeTimer);
@@ -137,11 +112,7 @@ export class StateFileStore implements IStateStore {
         this.writeTimer.unref();
     }
 
-    /**
-     * Отложенная запись по таймеру. Таймер взводится только у грязного стора с
-     * файлом и снимается всем, что пишет или глушит стор (`flushSync`, `open`,
-     * `dispose`), так что сюда приходит грязный стор с тем же файлом.
-     */
+    /** Таймер снимает всё, что пишет или глушит стор, поэтому сюда приходит грязный стор с тем же файлом. */
     private async writeAsync(filePath: string): Promise<void> {
         this.dirty = false;
         try {

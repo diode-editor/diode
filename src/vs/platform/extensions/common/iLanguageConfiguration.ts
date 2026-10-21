@@ -1,11 +1,3 @@
-/**
- * Формат `language-configuration.json` из расширения VS Code.
- *
- * Phase 1 редактор НЕ применяет ни одно из этих полей: brackets, comments,
- * autoClosingPairs, indentationRules — будущие задачи. Тип нужен, чтобы
- * скопированные файлы расширений валидировались, и чтобы загрузка была
- * подготовлена ровно тогда, когда соответствующая фича появится.
- */
 export interface ILanguageConfiguration {
     readonly comments?: ICommentRule;
     readonly brackets?: readonly CharacterPair[];

@@ -7,10 +7,6 @@ import { loadNlsBundle, localizeExtensionManifest } from "./extensionNls.ts";
 
 const PREFIX = "UserExtensions/redhat.java-1.57.0/";
 
-/**
- * `IAssetAccess` над словарём «виртуальный путь → содержимое». Отсутствующий
- * путь — `exists() === false` и reject у `readText()`, как у настоящего.
- */
 function createAssets(files: Readonly<Partial<Record<string, string>>>): IAssetAccess {
     return {
         read: vi.fn(),

@@ -6,11 +6,7 @@ import { isFileNotFound } from "../../../base/node/fsErrors.ts";
 import type { ILogger } from "../../log/common/iLogger.ts";
 import type { IUserKeybindingRule } from "../common/userKeybindings.ts";
 
-/**
- * Loads and validates `keybindings.json` (JSONC). Tolerant like the settings
- * loader: a missing file → `[]`, parse errors are logged and best-effort parsed,
- * and individual invalid rules are dropped (a broken file must not crash bootstrap).
- */
+/** Битый файл не роняет bootstrap: ошибки разбора логируются, невалидные правила отбрасываются. */
 export async function loadUserKeybindings(filePath: string, logger?: ILogger): Promise<IUserKeybindingRule[]> {
     let content: string;
     try {

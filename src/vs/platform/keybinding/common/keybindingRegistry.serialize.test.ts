@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { chordsEqual, parseChord, serializeChord } from "./keybindingRegistry.ts";
 
-// Every spec name from the registry's special-key table (spec → event key value).
 const SPECIAL_KEY_SPECS = [
     "enter",
     "escape",

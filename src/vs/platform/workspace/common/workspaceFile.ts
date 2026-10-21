@@ -5,29 +5,14 @@ import { parse as parseJsonc, type ParseError, printParseErrorCode } from "jsonc
 import { Uri } from "../../../base/common/uri.ts";
 
 /**
- * Файл воркспейса `*.code-workspace` (аналог `IStoredWorkspace` эталона,
- * `vs/platform/workspaces/common/workspaces.ts`): JSONC с папками и
- * настройками проекта.
- *
- * ```jsonc
- * { "folders": [{ "path": "." }], "settings": { "files.exclude": { "dist": true } } }
- * ```
- *
- * Зачем он при однопапочном мире: у одного каталога может быть несколько
- * закоммиченных наборов настроек (`web.code-workspace` и
- * `backend.code-workspace` в корне монорепы), и у каждого — своя идентичность
- * проекта (`workspaceStorage/<id>/`: вкладки, раскладка, хранилище
- * расширений).
- *
- * Мульти-рута у нас нет, поэтому папка в файле ровно одна: больше — отказ с
- * понятной причиной, а не молча первая (`docs/TODO/MultiRoot.md`). Секции
- * `extensions`, `launch`, `tasks` эталона не читаются.
+ * `*.code-workspace` (`IStoredWorkspace` эталона). Нужен и без мульти-рута: у одного каталога
+ * бывает несколько закоммиченных наборов настроек, и у каждого — своя идентичность проекта.
+ * Папка ровно одна: больше — отказ с причиной, а не молча первая. Секции `extensions`,
+ * `launch`, `tasks` не читаются.
  */
 
-/** Расширение файла воркспейса (`WORKSPACE_EXTENSION` эталона). */
 export const WORKSPACE_EXTENSION = "code-workspace";
 
-/** Путь похож на файл воркспейса — по расширению, как `hasWorkspaceFileExtension` эталона. */
 export function hasWorkspaceFileExtension(filePath: string): boolean {
     return path.extname(filePath) === `.${WORKSPACE_EXTENSION}`;
 }

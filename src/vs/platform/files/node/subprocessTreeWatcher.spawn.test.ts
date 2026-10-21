@@ -8,15 +8,11 @@ import { LogService } from "../../log/common/logService.ts";
 
 import { SubprocessTreeWatcher } from "./subprocessTreeWatcher.ts";
 
-// Спавн замокан: проверяем **как** хост поднимает watcher-процесс (роль, stdio,
-// проводка канала), не заводя настоящий. Сквозняк через реальный процесс — в
-// treeWatcherMain.integration.test.ts.
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 
 const { spawn } = await import("node:child_process");
 const spawnMock = vi.mocked(spawn);
 
-/** Минимальный ChildProcess: IPC-сообщения, сигналы и stderr. */
 class FakeChild extends EventEmitter {
     public readonly sent: unknown[] = [];
     public readonly signals: string[] = [];
@@ -143,12 +139,8 @@ describe("SubprocessTreeWatcher — боевой спавн", () => {
         expect(child.signals).toEqual(["SIGKILL"]);
     });
 
-    // EventEmitter без слушателя `error` бросает прямо из `emit` — поэтому оба
-    // теста ниже падают ровно тогда, когда подписки нет. Это и есть гейт: без
-    // неё `error` всплывает как uncaught exception и убивает РЕДАКТОР, а не
-    // watcher (проверено на node v25: `send` в закрытый канал возвращает `false`
-    // синхронно и эмитит ERR_IPC_CHANNEL_CLOSED позже; неудачный spawn эмитит
-    // ENOENT/EMFILE и `exit` при этом может не прийти вовсе).
+    // EventEmitter без слушателя `error` бросает прямо из `emit` — тесты ниже
+    // падают ровно тогда, когда подписки нет (в бою это убило бы редактор).
     it("ошибка процесса не всплывает наружу, а ведёт в ту же ветку, что и смерть", () => {
         const first = new FakeChild();
         const second = new FakeChild();

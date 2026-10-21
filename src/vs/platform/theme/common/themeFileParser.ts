@@ -10,20 +10,9 @@ import type {
 } from "./iThemeFile.ts";
 
 /**
- * Разбор файла цветовой темы VS Code (JSON/JSONC: комментарии и висячие
- * запятые — так публикуют многие темы) в {@link IThemeFile}, пригодный для
- * `WorkbenchTheme.fromThemeFile` без исключений в рантайме.
- *
- * Битый JSON и не-объект — ошибка (тему пропускает вызывающий). Всё, что
- * можно спасти, спасается с предупреждением через `warn`: невалидные цвета
- * (`WorkbenchTheme` бросил бы на них при `resolve`), правила `tokenColors` без
- * `settings`, `tokenColors` строкой (путь к `.tmTheme`, plist XML — не
- * поддержан: подсветка остаётся дефолтной, решение 8 в docs/arch/Theme.md, «Темы расширений: решения»).
- * `name` из файла не читается — ключ темы задаёт манифест (`label`).
- * `semanticHighlighting` берётся, только если это `true`/`false`;
- * `semanticTokenColors` разбирается в {@link IThemeFile.semanticTokenRules}
- * (стиль без единого валидного атрибута — пропуск с предупреждением; селектор
- * не проверяется — кривой просто ни с чем не совпадёт, как в эталоне).
+ * Битый JSON и не-объект — ошибка; остальное спасается с `warn`: невалидные цвета,
+ * `tokenColors` строкой (`.tmTheme` не поддержан — docs/arch/Theme.md, решение 8). `name` не
+ * читается — ключ темы задаёт манифест. Селектор `semanticTokenColors` не проверяется, как в эталоне.
  */
 export function parseThemeFile(text: string, warn: (message: string) => void = () => undefined): IThemeFile {
     const errors: ParseError[] = [];

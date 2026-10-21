@@ -1,33 +1,20 @@
-/**
- * Трасса инстанцирования: кто кого создал на старте и за сколько (аналог `Trace`
- * в `instantiationService.ts` эталона и таблицы контрибуций его «Developer:
- * Startup Performance»). Включается поверх трассы старта флагом
- * `DIODE_STARTUP_TRACE_INSTANTIATIONS=1` (`src/vs/diode/startupTrace.ts`);
- * **без включения `Container.get` её не видит**: одна проверка на промахе кэша,
- * попадание в кэш не трогается вовсе.
- *
- * Запись — одно создание: токен, когда начато (мс от `performance.timeOrigin`),
- * сколько заняло целиком (inclusive) и за вычетом вложенных созданий (self),
- * кто запросил (токен-родитель, фаза контрибуций или функция-вызыватель) и
- * фаза контрибуций, внутри которой это случилось. Таблицу по выгрузке печатает
- * `npm run bench:services`.
- */
+// Трасса инстанцирования (как `Trace` эталона), флаг `DIODE_STARTUP_TRACE_INSTANTIATIONS=1`. Без
+// него `Container.get` платит одну проверку на промахе кэша, попадание в кэш не трогается.
+// Таблицу печатает `npm run bench:services`.
 
 export interface IInstantiationTraceEntry {
-    /** id токена. */
     readonly id: string;
     /** мс от `performance.timeOrigin`. */
     readonly start: number;
-    /** Время создания вместе с вложенными созданиями, мс. */
+    /** С вложенными созданиями, мс. */
     readonly inclusive: number;
-    /** Время создания без вложенных созданий, мс. */
+    /** Без вложенных созданий, мс. */
     readonly self: number;
     /** Глубина в дереве созданий: 0 — запрошен не из конструктора другого сервиса. */
     readonly depth: number;
     /**
-     * Кто запросил: id токена-родителя; на верхнем уровне — `contributions:<фаза>`,
-     * если создание идёт из реестра контрибуций, иначе первая функция стека за
-     * контейнером (`new WorkbenchComponent`, `runEditor`…).
+     * Id токена-родителя; на верхнем уровне — `contributions:<фаза>` либо первая функция стека
+     * за контейнером (`new WorkbenchComponent`, `runEditor`…).
      */
     readonly requester: string;
     /** Фаза контрибуций, внутри которой шло создание; null — вне реестра. */
@@ -61,7 +48,7 @@ export class InstantiationTracer {
     /** Фаза контрибуции, чьё создание идёт следующим на верхнем уровне; null — не контрибуция. */
     private pendingContribution: string | null = null;
 
-    /** Создаёт значение `factory` под записью `id`; исключение пробрасывает, запись не оставляет. */
+    /** Исключение пробрасывает, запись не оставляет. */
     public trace<T>(id: string, factory: () => T): T {
         const parent = this.stack.at(-1);
         const phase = this.phases.at(-1) ?? null;

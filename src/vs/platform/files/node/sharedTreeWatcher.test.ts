@@ -13,11 +13,7 @@ import type { ITreeFileChange, ITreeFileWatcher, ITreeFileWatchOptions } from ".
 import { ChokidarTreeWatcher } from "./chokidarTreeWatcher.ts";
 import { SharedTreeWatcher } from "./sharedTreeWatcher.ts";
 
-/**
- * Делегат-счётчик: каждый его `watchTree` — это ровно один полный обход дерева
- * и один набор inotify-fd в проде. Их число — и есть то, что экономит
- * {@link SharedTreeWatcher}, поэтому тесты считают именно его.
- */
+/** Каждый `watchTree` делегата — полный обход и набор inotify-fd в проде: тесты считают именно их. */
 class FakeTreeWatcher implements ITreeFileWatcher {
     public readonly traversals: {
         readonly root: string;
@@ -269,7 +265,6 @@ describe("SharedTreeWatcher — excludes и переякоривание", () =>
             shared.watchTree(path.join(repo, "bazel-out"), { recursive: true, excludes: [] }, () => undefined);
             shared.watchTree(path.join(repo, "src"), { recursive: true, excludes: [] }, () => undefined);
 
-            // Обычный каталог рядом по-прежнему едет на обходе корня.
             expect(delegate.traversals.map((t) => t.root)).toEqual([repo, path.join(repo, "bazel-out")]);
         });
     });
@@ -543,11 +538,6 @@ describe("SharedTreeWatcher — лог", () => {
 });
 
 describe("SharedTreeWatcher — настоящий chokidar", () => {
-    /**
-     * Один обход на диске, два запроса поверх него. Проверяем то, ради чего
-     * деление вообще допустимо: подписчики видят ровно свои события, как если
-     * бы каждый поднял собственный watcher.
-     */
     it("общий обход доставляет события и вложенному, и нерекурсивному запросу", async () => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), "diode-shared-watch-"));
         fs.mkdirSync(path.join(root, "src", "deep"), { recursive: true });
@@ -578,7 +568,6 @@ describe("SharedTreeWatcher — настоящий chokidar", () => {
                 ]),
             );
             expect(nested).toContain(path.join(root, "src", "a.ts"));
-            // Нерекурсивный запрос: ни чужого поддерева, ни глубины.
             expect(nested).not.toContain(path.join(root, "top.ts"));
             expect(nested).not.toContain(path.join(root, "src", "deep", "b.ts"));
         } finally {

@@ -3,8 +3,6 @@ import { describe, expect, it } from "vitest";
 import type { ContainerModule } from "./diContainer.ts";
 import { Container, token } from "./diContainer.ts";
 
-// ── Test helpers ────────────────────────────────────────────
-
 class Logger {
     public static dependencies = [] as const;
     public readonly tag = "logger";
@@ -31,8 +29,6 @@ class UserService {
 }
 
 const UserServiceDIToken = token<UserService>("UserService");
-
-// ── Tests ───────────────────────────────────────────────────
 
 describe("DiContainer", () => {
     describe("factory binding", () => {

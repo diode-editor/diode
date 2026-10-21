@@ -2,119 +2,57 @@ import type { Event } from "../../../base/common/event.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextService.ts";
 
-/**
- * Сервис машинного состояния UI/сессии — аналог `IStorageService` / `Memento`
- * из VS Code. **Отдельная система от {@link IConfigurationService}:** настройки
- * (`settings.json`) человекочитаемы (JSONC, комментарии), а состояние машинное
- * (plain JSON, никто не редактирует руками). Подробности — docs/arch/State.md.
- *
- * Хранит открытые файлы, ширину/видимость панелей и т.п. по областям видимости
- * ({@link StateScope}). Значения объявляются {@link IStateDescriptor} — это и есть
- * «инструкция», какие свойства у каждого состояния.
- */
+/** Отдельно от {@link IConfigurationService}: состояние машинное, plain JSON, руками не правится (docs/arch/State.md). */
 export interface IStateService {
-    /**
-     * Возвращает сохранённое значение или `descriptor.default`, если ключа нет
-     * (или файл был битый). Результат изолирован от внутреннего стора (глубокая
-     * копия) — мутация возвращённого объекта не затрагивает хранилище.
-     */
+    /** Глубокая копия: мутация результата стор не трогает. Битый файл — `descriptor.default`. */
     get<T>(descriptor: IStateDescriptor<T>): T;
 
-    /**
-     * Пишет значение в in-memory стор **синхронно** и планирует debounced-запись
-     * на диск. Значение копируется — последующая мутация переданного объекта не
-     * попадает в стор. Реальная durability гарантируется {@link flushSync} на
-     * выходе процесса.
-     */
+    /** Стор обновляется синхронно, диск — debounced; durability — {@link flushSync} на выходе. Значение копируется. */
     store<T>(descriptor: IStateDescriptor<T>, value: T): void;
 
-    /**
-     * Удаляет ключ из стора (вместе с записью версии): следующий `get` отдаст
-     * дефолт, а файл не копит пустышки. Запись на диск — как у {@link store}.
-     */
+    /** Вместе с записью версии: файл не копит пустышки. */
     remove<T>(descriptor: IStateDescriptor<T>): void;
 
     /**
-     * Открывает (или переключает) стор `workspace`-scope на проект
-     * `workspaceId`. Предыдущий workspace-стор сначала синхронно сбрасывается
-     * на диск. Пока воркспейс не открыт, `workspace`-дескрипторы обслуживает
-     * стор пустого окна (`EMPTY_WINDOW_WORKSPACE_ID`), а не `global`.
-     *
-     * Аргумент — идентичность проекта, а не путь папки: см.
-     * `resolveWorkspaceStorageDir`.
+     * Предыдущий workspace-стор сначала синхронно сбрасывается на диск. До открытия
+     * `workspace`-дескрипторы обслуживает стор пустого окна (`EMPTY_WINDOW_WORKSPACE_ID`), а не `global`.
      */
     openWorkspace(workspaceId: WorkspaceId): void;
 
-    /**
-     * Стор `workspace`-scope переключён на проект ({@link openWorkspace}) —
-     * аналог `IStorageService.onDidChangeTarget` VS Code. Синхронно, уже после
-     * загрузки нового стора: подписчик читает состояние проекта, а не пустого
-     * окна. Стор пустого окна, открытый на старте, события не даёт.
-     */
+    /** Синхронно, уже после загрузки нового стора; стор пустого окна на старте события не даёт. */
     readonly onDidOpenWorkspace: Event<WorkspaceId>;
 
-    /**
-     * Синхронно записывает все «грязные» сторы на диск. Безопасно вызывать в
-     * обработчике `process.on("exit")` (только синхронный I/O).
-     */
+    /** Только синхронный I/O — годится для `process.on("exit")`. */
     flushSync(): void;
 
     /**
-     * Глушит писателя: снимает запланированную debounced-запись и больше её не
-     * взводит. Ничего НЕ пишет — durability остаётся за {@link flushSync}.
-     *
-     * Нужно владельцу недолговечного хранилища (временный каталог теста,
-     * профиль на один прогон): без этого отложенная запись срабатывает уже
-     * после сноса каталога и пересоздаёт его.
+     * Ничего не пишет, только снимает отложенную запись: иначе у недолговечного хранилища
+     * (временный каталог теста) она сработает после сноса каталога и пересоздаст его.
      */
     dispose(): void;
 }
 
-/** Область видимости состояния. */
 export type StateScope =
-    /**
-     * Один на установку, вне профиля: `<userDataDir>/User/globalStorage/storage.json`
-     * (тот же файл, что у эталона). Здесь живёт то, что должно быть видно из
-     * любого профиля — реестр профилей и их привязки к воркспейсам.
-     */
+    /** Вне профиля: `User/globalStorage/storage.json` эталона; здесь реестр профилей. */
     | "application"
-    /** Per-profile: `<profileDir>/globalState.json`. Fallback, когда проект не открыт. */
+    /** `<profileDir>/globalState.json`; fallback, когда проект не открыт. */
     | "global"
     /** Per-project: `workspaceStorage/<workspaceId>/state.json`. */
     | "workspace";
 
-/**
- * Стор одной области видимости — чтение и запись без переключения воркспейса
- * и прощания. Его получает сервис, которому нужна ровно одна область раньше,
- * чем собран весь {@link IStateService} (реестр профилей читает
- * application-стор до резолва каталога активного профиля).
- */
+/** Одна область без всего сервиса: реестр профилей читает application-стор до резолва каталога профиля. */
 export type IStateStore = Pick<IStateService, "get" | "store" | "remove">;
 
-/**
- * Дескриптор одного сохраняемого состояния. Объявляется рядом с
- * контроллером-владельцем (не с TUIDom-элементом — тот не знает про
- * Configuration); агрегируются в `Workbench/Services/StateKeys.ts`.
- */
+/** Объявляется рядом с контроллером-владельцем, а не с TUIDom-элементом. */
 export interface IStateDescriptor<T> {
-    /** Ключ в сторе, namespaced в стиле VS Code (`"workbench.sideBar.width"`). */
     readonly key: string;
-    /** Где хранится. */
     readonly scope: StateScope;
-    /** Значение при первом запуске / битом файле. */
     readonly default: T;
-    /**
-     * Версия формы значения. Если задана вместе с {@link migrate}, стор запоминает
-     * версию записи и при чтении устаревшей формы прогоняет `migrate`.
-     */
+    /** Задана вместе с {@link migrate} — стор помнит версию записи и мигрирует устаревшую. */
     readonly version?: number;
-    /**
-     * Миграция значения старой формы к текущей. `from` — версия, под которой
-     * значение было записано (0, если версия неизвестна).
-     */
+    /** `from` — версия записи, 0 — неизвестна. */
     readonly migrate?: (raw: unknown, from: number) => T;
 }
 
-/** DI-токен машинного состояния UI/сессии ({@link IStateService}, см. docs/arch/State.md). */
 // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
 export const StateServiceDIToken = token<IStateService>("StateService");

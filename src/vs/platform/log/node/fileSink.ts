@@ -4,20 +4,11 @@ import type { ILogSink, LogEntry } from "../common/iLogService.ts";
 import { logLevelName } from "../common/logLevel.ts";
 
 export interface FileSinkOptions {
-    /**
-     * Режим открытия. `"w"` (truncate) — каждый запуск перезаписывает файл,
-     * удобно для dev. `"a"` (append) — накапливать историю.
-     */
+    /** `"w"` — каждый запуск перезаписывает файл, `"a"` — копит историю. */
     readonly flags?: "w" | "a";
 }
 
-/**
- * Пишет логи в файл построчно. Формат: `[ISO ts] [LEVEL] [channel] message`,
- * затем JSON-сериализованные args (если есть) через табы.
- *
- * Ошибки записи поглощаются — sink никогда не должен валить процесс. После
- * `dispose()` все последующие `append` no-op.
- */
+/** Ошибки записи поглощаются: sink не валит процесс. */
 export class FileSink implements ILogSink {
     private stream: fs.WriteStream | null;
     private disposed = false;

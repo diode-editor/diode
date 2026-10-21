@@ -1,14 +1,10 @@
-// Сообщения редактора, которые печатаются в терминал поверх вывода процесса
-// («Executing task: …», код выхода, «press any key to close»), — перенос
-// `platform/terminal/common/terminalStrings.ts` эталона: те же escape-
-// последовательности, поэтому выглядят они так же, как в VS Code.
+// Перенос terminalStrings.ts эталона: те же escape-последовательности, что в VS Code.
 
 export interface ITerminalFormatMessageOptions {
     /** Не начинать сообщение с новой строки (по умолчанию — начинать). */
     excludeLeadingNewLine?: boolean;
 }
 
-/** Оформляет сообщение редактора для печати в терминал: инверсная метка ` * ` и сброс стилей. */
 export function formatMessageForTerminal(message: string, options: ITerminalFormatMessageOptions = {}): string {
     let result = "";
     if (options.excludeLeadingNewLine !== true) result += "\r\n";

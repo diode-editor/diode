@@ -3,12 +3,8 @@ import type { Uri } from "../../../base/common/uri.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
 export interface IOpenURLOptions {
-    /**
-     * Не задано или `false` — URL пришёл не из самого продукта, а снаружи, и
-     * обработчик вправе спросить человека (как у эталона).
-     */
+    /** Не задано — URL пришёл снаружи, и обработчик вправе спросить человека. */
     readonly trusted?: boolean;
-    /** Исходная строка, как её ввели (до разбора в {@link Uri}). */
     readonly originalUrl?: string;
 }
 
@@ -17,11 +13,7 @@ export interface IURLHandler {
     handleURL(uri: Uri, options?: IOpenURLOptions): Promise<boolean>;
 }
 
-/**
- * Открытие URL продукта (`diode://…`) — аналог `IURLService` эталона: цепочка
- * обработчиков, первый ответивший `true` забирает URL. Источники URL —
- * `Developer: Open URL` (у эталона ещё протокол ОС и `--open-url`).
- */
+/** Цепочка обработчиков: первый ответивший `true` забирает URL. */
 export interface IURLService {
     open(uri: Uri, options?: IOpenURLOptions): Promise<boolean>;
     registerHandler(handler: IURLHandler): IDisposable;
@@ -29,7 +21,6 @@ export interface IURLService {
 
 export const URLServiceDIToken = token<IURLService>("URLService");
 
-/** `AbstractURLService` эталона: обработчики по порядку регистрации, до первого `true`. */
 export class URLService implements IURLService {
     public static dependencies = [] as const;
     private readonly handlers = new Set<IURLHandler>();

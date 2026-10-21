@@ -49,7 +49,6 @@ describe("KeybindingRegistry — getKeybindingForCommand", () => {
         registry.register(parseKeybinding("ctrl+s"), "go", "textInputFocus");
         registry.register(parseKeybinding("ctrl+l"), "go", "listFocus");
 
-        // Neither context key is set.
         const chord = registry.getKeybindingForCommand("go", ctx);
         expect(chord && formatKeybinding(chord)).toBe("Ctrl+S");
     });
@@ -100,14 +99,12 @@ describe("KeybindingRegistry — getKeybindingForCommand", () => {
         registry.register(parseKeybinding("ctrl+s"), "go");
         registry.register(parseKeybinding("ctrl+l"), "go", "listFocus");
 
-        // listFocus is not set, so the conditional binding does not apply.
         const chord = registry.getKeybindingForCommand("go", ctx);
         expect(chord && formatKeybinding(chord)).toBe("Ctrl+S");
     });
 });
 
 describe("KeybindingRegistry — подпись выбирается по доставляемости", () => {
-    /** Как объявляют бинды дефолты: канонический под tier-гейтом + досягаемый везде фолбэк. */
     function gatedPlusFallback(): KeybindingRegistry {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+k ctrl+e"), "format", "textInputFocus");
@@ -189,7 +186,6 @@ describe("KeybindingRegistry — подпись по приоритету рез
         registry.register(parseKeybinding("ctrl+alt+i"), "builtin");
         registry.setExtensionKeybindings([{ command: "ext.cmd", chord: parseChord("ctrl+i") }]);
         expect(label(registry, "builtin")).toBe("Ctrl+Alt+I");
-        // Сам перехватчик свою комбинацию подписывает.
         expect(label(registry, "ext.cmd")).toBe("Ctrl+I");
     });
 

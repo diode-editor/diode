@@ -28,12 +28,7 @@ const openFiles: IStateDescriptor<string[]> = { key: "workbench.editors.openFile
 
 describe("StateService", () => {
     let ws: ITempWorkspace;
-    /**
-     * Каждый созданный в кейсе сервис. `afterEach` глушит их ДО сноса
-     * каталога: debounced-запись, сработавшая после `rmSync`, пересоздала бы
-     * каталог (`mkdir` с `recursive` в `writeStoreAsync`) и тот остался бы
-     * в `os.tmpdir()` навсегда.
-     */
+    /** `afterEach` глушит их ДО сноса каталога: поздняя debounced-запись пересоздала бы его в `os.tmpdir()`. */
     let writers: StateService[];
 
     beforeEach(() => {
@@ -46,14 +41,12 @@ describe("StateService", () => {
         ws.dispose();
     });
 
-    /** `loadState` кейса: тот же контракт, плюс регистрация под `afterEach`. */
     function loadState(...args: Parameters<typeof loadStateReal>): StateService {
         const state = loadStateReal(...args);
         writers.push(state);
         return state;
     }
 
-    /** `new StateService(...)` кейса — см. {@link loadState}. */
     function newStateService(...args: ConstructorParameters<typeof StateService>): StateService {
         const state = new StateService(...args);
         writers.push(state);
@@ -120,7 +113,6 @@ describe("StateService", () => {
                 "workbench.sideBar.width": 50,
             });
             expect(fs.existsSync(p.globalStateFile)).toBe(false);
-            // Раскладка пустого окна переживает перезапуск.
             expect(loadState(p).get(wsWidth)).toBe(50);
         });
 
@@ -202,8 +194,8 @@ describe("StateService", () => {
             const svc = loadState(p);
             svc.openWorkspace(computeWorkspaceId("/projects/alpha"));
             svc.store(wsWidth, 11);
-            svc.openWorkspace(computeWorkspaceId("/projects/beta")); // flushes alpha, loads beta
-            expect(svc.get(wsWidth)).toBe(30); // beta has no stored value → default
+            svc.openWorkspace(computeWorkspaceId("/projects/beta"));
+            expect(svc.get(wsWidth)).toBe(30);
             svc.store(wsWidth, 22);
             svc.flushSync();
 

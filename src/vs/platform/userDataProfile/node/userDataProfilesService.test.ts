@@ -127,7 +127,6 @@ describe("UserDataProfilesService", () => {
             expect(renamed).toMatchObject({ id: "work", name: "Work 2", location: work.location });
             expect(state.get(USER_DATA_PROFILES_STATE)).toEqual([{ name: "Work 2", location: "work" }]);
             expect(events.at(-1)).toEqual({ added: [], removed: [], updated: [renamed], all: svc.profiles });
-            // Без `name` — имя прежнее.
             expect((await svc.updateProfile(renamed, {})).name).toBe("Work 2");
         });
 
@@ -309,7 +308,6 @@ describe("UserDataProfilesService", () => {
             ]);
             expect(events.at(-1)).toEqual({ added, removed: [], updated: [], all: svc.profiles });
             expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("2"), { profiles: ["legacy", "other"] });
-            // Идемпотентно.
             expect(svc.migrateProfileDirectories()).toEqual([]);
             expect(logger.info).toHaveBeenCalledTimes(1);
         });

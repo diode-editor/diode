@@ -15,7 +15,6 @@ function parse(content: unknown): ReturnType<typeof parseWorkspaceFile> {
     return parseWorkspaceFile(typeof content === "string" ? content : JSON.stringify(content), FILE);
 }
 
-/** Сообщение отказа разбора — по нему человек понимает, что не так с файлом. */
 function failure(content: unknown): string {
     try {
         parse(content);
@@ -50,7 +49,6 @@ describe("parseWorkspaceFile", () => {
         expect(parse({ folders: [{ path: ".", name: 1 }] }).folderName).toBeUndefined();
     });
 
-    // Файл пишут руками и коммитят: комментарии и висячая запятая — норма JSONC.
     it("JSONC: комментарии и висячая запятая", () => {
         const text = `{
             // папка монорепы
