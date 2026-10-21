@@ -712,7 +712,6 @@ describe("SimpleFileDialog — ход принятия", () => {
         testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
         await settle({ query: "/ws/docs", activeIndex: 1 });
-        // Выделенный хвост «docs» стирается одним Backspace.
         testApp.sendKey("Backspace");
         await settle({ query: "/ws/", activeIndex: -1 });
         type("s");
@@ -764,10 +763,7 @@ describe("SimpleFileDialog — ход принятия", () => {
     });
 });
 
-/**
- * Придерживает подгрузку каталога `folder`: `started` — она началась и ждёт,
- * `release` — отпустить.
- */
+/** Придерживает подгрузку каталога `folder` до `release`. */
 function holdFolder(files: FileService, folder: string): { started: () => Promise<void>; release: () => void } {
     const resolve = files.resolve.bind(files);
     let release = (): void => undefined;
@@ -863,7 +859,7 @@ describe("SimpleFileDialog — во время подгрузки каталог
     });
 });
 
-/** Придерживает stat пути `target`: `started` — он начался и ждёт, `release` — отпустить. */
+/** Придерживает stat пути `target` до `release`. */
 function holdStat(files: FileService, target: string): { started: () => Promise<void>; release: () => void } {
     const stat = files.stat.bind(files);
     let release = (): void => undefined;

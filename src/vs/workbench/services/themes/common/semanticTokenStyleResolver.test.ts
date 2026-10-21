@@ -199,7 +199,6 @@ describe("SemanticTokenStyleResolver — semanticTokenColors темы", () => {
 });
 
 describe("SemanticTokenStyleResolver — матч TM-правил по пробе (resolveScopes эталона)", () => {
-    /** Реестр с единственным дефолтом: тип `t` → заданные пробы. */
     function probing(probes: string[][], selector = "t") {
         const registry = new TokenClassificationRegistry();
         registry.registerTokenStyleDefault(registry.parseTokenSelector(selector), { scopesToProbe: probes });

@@ -11,7 +11,6 @@ import { NULL_STATE } from "../../../../editor/common/languages/iState.ts";
 import { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
 import type { IDocumentLanguageChange } from "../../../../editor/common/model/iDocumentLanguageChange.ts";
 
-/** Токенизатор-маркер: помечает всю строку одним токеном с заданным индексом цвета. */
 function markerTokenizer(marker: number): ITokenizationSupport {
     return {
         getInitialState: () => NULL_STATE,
@@ -32,7 +31,6 @@ const TS_ONLY_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageDisplayName: () => undefined,
 };
 
-/** Метка первого токена первой строки — чем токенизирован документ прямо сейчас. */
 function firstMarker(ctrl: TextEditorPane): number | undefined {
     const tokenStore = ctrl.viewState.tokenStore;
     tokenStore?.forceTokenization(0);
@@ -114,7 +112,6 @@ describe("TextFileModel — language", () => {
 
     it("hot-swap: грамматика, зарегистрированная после openFile, подхватывается", () => {
         ctrl.openFile(Uri.file(writeFile("a.ts", "const x = 1;")));
-        // Файл открыт до регистрации — работает fallback PlainTextTokenizer.
         expect(firstMarker(ctrl)).not.toBe(TYPESCRIPT);
 
         registry.register("typescript", markerTokenizer(TYPESCRIPT));

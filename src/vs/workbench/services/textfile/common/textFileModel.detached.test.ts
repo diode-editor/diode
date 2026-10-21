@@ -8,11 +8,7 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 
 import { TextFileModel } from "./textFileModel.ts";
 
-/**
- * Модель без единой прикреплённой вью: программные пути (save-участники,
- * сервисные команды) работают до/вне открытых редакторов — выделений брать
- * неоткуда, но правки и история обязаны вести себя как обычно.
- */
+/** Программные пути (save-участники, сервисные команды) работают и без открытых редакторов. */
 describe("TextFileModel — модель без прикреплённых вью", () => {
     function make(): TextFileModel {
         return new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService());
@@ -26,8 +22,6 @@ describe("TextFileModel — модель без прикреплённых вь�
         expect(model.eol).toBe(EndOfLine.CRLF);
         expect(model.isModified).toBe(true);
 
-        // Откат и повтор без действующей вью — восстанавливать выделения некому,
-        // но сам EOL обязан ходить туда-обратно.
         model.undo();
         expect(model.eol).toBe(EndOfLine.LF);
         model.redo();

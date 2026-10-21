@@ -11,7 +11,6 @@ import { encodeText } from "../../../../editor/common/model/encoding.ts";
 
 import { READ_CHUNK_SIZE } from "./textFileModel.ts";
 
-/** Открытые через `fs.openSync` дескрипторы → путь: чтение кусками обязано их закрывать. */
 const openFds = vi.hoisted(() => new Map<number, string>());
 
 vi.mock("node:fs", async (importActual) => {
@@ -35,10 +34,8 @@ function openPaths(): string[] {
 }
 
 /**
- * Файл читается кусками ({@link READ_CHUNK_SIZE}) и пишется снимком документа (A4,
- * docs/TODO/VscodeModel.md). Граница куска в настоящем файле режет `\r\n`,
- * многобайтовый символ utf-8, суррогатную пару и пару байт UTF-16 — открытие и
- * сохранение без правок обязаны вернуть файл байт в байт.
+ * Граница куска режет `\r\n`, многобайтовый utf-8, суррогатную пару и пару байт UTF-16 —
+ * открытие и сохранение без правок обязаны вернуть файл байт в байт (A4, docs/TODO/VscodeModel.md).
  */
 const CHUNK = READ_CHUNK_SIZE;
 
@@ -64,7 +61,6 @@ describe("TextFileModel — чтение кусками и запись сним
         // Строки по 63 символа + EOL, остаток — одной строкой перед хвостом.
         const lines = "a".repeat(62) + "\r\n";
         const body = lines.repeat(Math.floor(fill / lines.length)) + "b".repeat(fill % lines.length);
-        // Хвост и правда стоит на границе: до него ровно `CHUNK - before` байт.
         expect((await encodeText(body, encoding)).length).toBe(CHUNK - bytesBeforeBoundary);
         return `${body}${tail}\r\nend\r\n`;
     }
@@ -94,7 +90,7 @@ describe("TextFileModel — чтение кусками и запись сним
             expect(pane.model.eol).toBe(EndOfLine.CRLF);
             expect(pane.getText()).toBe(text.replace(/\r\n/g, "\n"));
 
-            // Сохранение без правок (`save` пишет и чистый буфер) — тот же файл.
+            // `save` пишет и чистый буфер.
             fs.rmSync(filePath);
             await pane.save();
             expect(fs.readFileSync(filePath).equals(bytes)).toBe(true);

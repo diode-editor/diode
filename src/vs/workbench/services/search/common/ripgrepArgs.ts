@@ -1,33 +1,17 @@
-/**
- * Аргументы ripgrep, общие для двух поисков — по именам файлов (Quick Open,
- * `rg --files`) и по содержимому (Search view, `rg --json`): прежде всего
- * ignore-файлы. Один код на оба — иначе набор файлов, который видит Quick
- * Open, разъехался бы с тем, где ищет Search view (так и было, пока Quick Open
- * обходил ФС сам и `.gitignore` не знал).
- *
- * Флаги — ровно эталона: `getRgArgs` в `ripgrepFileSearch.ts` и
- * `ripgrepTextSearchEngine.ts`. Чистый модуль, без `node:`.
- */
+// Общие флаги rg для Quick Open (`rg --files`) и Search view (`rg --json`) — иначе их
+// наборы файлов разъедутся. Флаги — как `getRgArgs` эталона.
 
 import type { IUseIgnoreFiles } from "../../../common/configuration/excludeSettings.ts";
 
 /**
- * Якорит шаблон к корню поиска, как `anchorGlob` эталона. У rg шаблон без `/`
- * матчится на ЛЮБОЙ глубине (семантика gitignore), а у нас (`isExcludedPath`,
- * дерево Explorer'а, watcher) — только против пути от корня: `out` — только
- * `<корень>/out`, не `pkg/out`. Ведущий `/` возвращает rg ту же семантику;
- * `**`-шаблоны и так от корня.
+ * Как `anchorGlob` эталона: у rg шаблон без `/` матчится на любой глубине, а у нас
+ * (`isExcludedPath`, Explorer, watcher) — только от корня.
  */
 export function anchorRgGlob(glob: string): string {
     return glob.startsWith("**") || glob.startsWith("/") ? glob : `/${glob}`;
 }
 
-/**
- * `--glob !<g>` на каждый шаблон исключения (пустые пропускаются), якорёные.
- * Общий для Quick Open и текстового поиска; поле «files to exclude», где `foo`
- * значит «на любой глубине», приходит сюда уже развёрнутым в `**\/foo`
- * (`parseSearchFieldGlobs`).
- */
+/** Поле «files to exclude» приходит уже развёрнутым (`foo` → `**\/foo`, `parseSearchFieldGlobs`). */
 export function rgExcludeArgs(excludes: readonly string[]): string[] {
     const args: string[] = [];
     for (const glob of excludes) {
@@ -39,15 +23,12 @@ export function rgExcludeArgs(excludes: readonly string[]): string[] {
 }
 
 /**
- * Флаги ignore-файлов. `--no-config` — всегда: `RIPGREPRC_PATH` пользователя не
- * должен молча менять набор файлов редактора. `--no-require-git` — `.gitignore`
- * уважается и в папке, которая не git-репозиторий (без него rg читает
- * `.gitignore` только внутри репо).
+ * `--no-config`: `RIPGREPRC_PATH` пользователя не меняет набор файлов редактора;
+ * `--no-require-git`: `.gitignore` уважается и вне git-репозитория.
  */
 export function rgIgnoreFilesArgs(useIgnoreFiles: IUseIgnoreFiles): string[] {
     const args = ["--no-require-git", "--no-config"];
     if (!useIgnoreFiles.local) {
-        // Ни `.gitignore`, ни `.ignore`, ни глобального, ни родительских.
         args.push("--no-ignore");
         return args;
     }
@@ -57,10 +38,8 @@ export function rgIgnoreFilesArgs(useIgnoreFiles: IUseIgnoreFiles): string[] {
 }
 
 /**
- * `rg --files` для индекса Quick Open: список файлов под cwd, пути
- * относительные. `--hidden` — dot-файлы ищутся (служебное режут
- * `files.exclude`/ignore-файлы, а не точка в имени). Симлинки не обходим (`--follow` эталона — за
- * `search.followSymlinks`, которой у нас нет): прежний обход их тоже пропускал.
+ * `--hidden`: dot-файлы режут `files.exclude`/ignore-файлы, а не точка в имени. Симлинки
+ * не обходим: `--follow` эталона — за `search.followSymlinks`, которой у нас нет.
  */
 export function buildRgFilesArgs(excludes: readonly string[], useIgnoreFiles: IUseIgnoreFiles): string[] {
     return ["--files", "--hidden", ...rgExcludeArgs(excludes), ...rgIgnoreFilesArgs(useIgnoreFiles)];

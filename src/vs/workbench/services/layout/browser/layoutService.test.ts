@@ -111,13 +111,11 @@ describe("LayoutService", () => {
 
         it("suppresses auto-capture while restoring, but captures afterwards", () => {
             state.store(SIDEBAR_WIDTH_STATE, 40);
-            // attachLayout вешает write-through на onDidChangeLayout — restore не эхо-пишет.
             const { service, layout } = make();
 
             service.restoreLayout();
             expect(layout.getLeftPanelWidth()).toBe(40);
 
-            // A genuine post-restore change still writes through.
             layout.setLeftPanelWidth(55);
             expect(state.get(SIDEBAR_WIDTH_STATE)).toBe(55);
         });
@@ -197,7 +195,6 @@ describe("LayoutService", () => {
             panelService.activateView("terminal");
             expect(state.get(PANEL_ACTIVE_VIEW_STATE)).toBe("terminal");
 
-            // «Перезапуск»: свежий PanelService с тем же порядком регистрации.
             panelService = new PanelService();
             panelService.addView({ id: "problems", title: "PROBLEMS" });
             panelService.addView({ id: "terminal", title: "TERMINAL" });
@@ -218,7 +215,6 @@ describe("LayoutService", () => {
             });
 
             make().service.restoreLayout();
-            // Ленивый спавн шелла висит на onDidActivateView — restore его не будит.
             expect(panelService.getActiveViewId()).toBe("terminal");
             expect(activated).toBe(0);
         });

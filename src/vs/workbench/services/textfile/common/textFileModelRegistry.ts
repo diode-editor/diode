@@ -3,11 +3,7 @@ import type { Uri } from "../../../../base/common/uri.ts";
 
 import type { TextFileModel } from "./textFileModel.ts";
 
-/**
- * Ссылка на модель из реестра. Освобождение последней ссылки диспозит модель
- * (watcher, undo-бакет — всё её штатное `dispose`). Повторный `dispose` ссылки —
- * no-op.
- */
+/** Последняя ссылка диспозит модель. Повторный `dispose` ссылки — no-op. */
 export interface ITextFileModelReference extends IDisposable {
     readonly model: TextFileModel;
 }
@@ -20,11 +16,8 @@ interface IModelEntry {
 }
 
 /**
- * Реестр моделей открытых файлов: один {@link TextFileModel} на ресурс, сколько
- * бы вкладок (в т.ч. в разных группах) его ни показывало — аналог
- * `ITextModelService`/reference-counting у VS Code. Владелец — `TextFileModelService`;
- * он же поставляет фабрику (создание + обвязка + `openFile`). Безымянные и
- * синтетические буферы в реестр не попадают — они уникальны по построению.
+ * Аналог reference-counting `ITextModelService`: одна модель на ресурс, сколько бы
+ * вкладок его ни показывало. Безымянные и синтетические буферы сюда не попадают.
  */
 export class TextFileModelRegistry {
     private readonly entries = new Set<IModelEntry>();
@@ -32,11 +25,7 @@ export class TextFileModelRegistry {
 
     public constructor(private readonly factory: (uri: Uri) => TextFileModel) {}
 
-    /**
-     * Возвращает ссылку на модель ресурса, создавая модель фабрикой при первом
-     * обращении (своя фабрика вызова — для ресурса, чьи байты уже прочитаны).
-     * Каждую полученную ссылку владелец обязан освободить.
-     */
+    /** Своя фабрика вызова — для ресурса, чьи байты уже прочитаны. Владелец обязан освободить ссылку. */
     public acquire(uri: Uri, factory: (uri: Uri) => TextFileModel = this.factory): ITextFileModelReference {
         const key = uri.toString();
         let entry = this.byUri.get(key);
@@ -59,26 +48,21 @@ export class TextFileModelRegistry {
         };
     }
 
-    /** Модель ресурса, если открыта; без создания и без изменения ref-count. */
     public get(uri: Uri): TextFileModel | null {
         return this.byUri.get(uri.toString())?.model ?? null;
     }
 
-    /** Число живых ссылок на модель ресурса (0 — не открыта). */
     public refCount(uri: Uri): number {
         return this.byUri.get(uri.toString())?.refs ?? 0;
     }
 
-    /** Все живые модели реестра (для обхода «каждому документу по разу»). */
     public models(): readonly TextFileModel[] {
         return [...this.entries].map((entry) => entry.model);
     }
 
     /**
-     * Перепривязывает ключ модели к её текущему uri (после `saveAs`). Если
-     * целевой ключ занят другой моделью, перемещённая остаётся без ключа:
-     * следующий `acquire` того же пути создаст свежую модель, а живые ссылки
-     * продолжают работать и корректно освобождаются — как «оторванная» вкладка.
+     * Если целевой ключ занят другой моделью, перемещённая остаётся без ключа: следующий
+     * `acquire` создаст свежую модель, а живые ссылки освобождаются корректно.
      */
     public handleUriChanged(model: TextFileModel): void {
         const entry = [...this.entries].find((candidate) => candidate.model === model);

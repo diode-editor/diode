@@ -33,14 +33,8 @@ import { queryTmuxClient, type TmuxClientInfo } from "./tmuxClientProbe.ts";
 export const TerminalEnvironmentServiceDIToken = token<TerminalEnvironmentService>("TerminalEnvironmentService");
 
 /**
- * Detects the terminal environment (capabilities → tier, modes, OS) and exposes
- * it for context-key wiring + the status bar.
- *
- * Detection is **synchronous** at construction (env vars: $TERM/$COLORTERM/$TMUX/$SSH/…),
- * so tier/modes are correct immediately and startup never blocks. `detect()` then kicks
- * off a **fire-and-forget** keyboard-protocol probe (encapsulated by the backend) that can
- * only *upgrade* `extended-keys` — useful inside tmux/ssh where $TERM is masked. When the
- * probe lands it fires `onDidChange`; nothing ever waits on it. Config can force any value.
+ * Detection is synchronous at construction (env vars), so startup never blocks; `detect()`
+ * then fires a keyboard-protocol probe nothing waits on. Config can force any value.
  */
 export class TerminalEnvironmentService extends Disposable {
     public static dependencies = [TerminalBackendDIToken, IConfigurationServiceDIToken] as const;
@@ -53,11 +47,9 @@ export class TerminalEnvironmentService extends Disposable {
     private osSignals: OsSignals;
     private resolvedOs: ResolvedOs;
 
-    /** Predicate-detected modes (local/ssh/tmux). */
     private readonly baseModes: ReadonlySet<string>;
-    /** Manual/config force overrides: name → on/off. Wins over baseModes. */
+    /** Wins over baseModes. */
     private readonly forcedModes = new Map<string, boolean>();
-    /** Declared custom mode names (manual-only) — surfaced for context-key registration. */
     private readonly customModeNames: string[];
 
     private readonly onDidChangeEmitter = this.register(new Emitter<void>());
@@ -76,7 +68,6 @@ export class TerminalEnvironmentService extends Disposable {
         this.osSignals = initialOsSignals(this.config.get("keyboard.platform"));
         this.resolvedOs = resolveOs(this.osSignals);
 
-        // Synchronous capability detection from environment (no terminal round-trip).
         this.capabilities["extended-keys"] = detectExtendedKeysHint();
         this.capabilities.truecolor = detectTruecolor();
         this.capabilities["kitty-graphics"] = detectKittyGraphicsHint();
@@ -84,7 +75,6 @@ export class TerminalEnvironmentService extends Disposable {
         // OSC52 is usually available, but default tmux blocks it unless `set-clipboard on`.
         this.capabilities.osc52 = !this.baseModes.has("tmux");
 
-        // Config: forced modes + declared custom modes.
         const forced = this.config.get<Record<string, boolean>>("terminal.modes");
         if (forced) {
             for (const [name, on] of Object.entries(forced)) this.forcedModes.set(name, on);
@@ -92,12 +82,9 @@ export class TerminalEnvironmentService extends Disposable {
         const custom = this.config.get<Record<string, unknown>>("terminal.customModes");
         this.customModeNames = custom ? Object.keys(custom) : [];
 
-        // Apply capability/tier config overrides and resolve the tier — all synchronous.
         this.applyCapabilityOverrides();
         this.tierValue = this.resolveTierWithOverride();
     }
-
-    // ─── Public snapshot ───
 
     public get tier(): Tier {
         return this.tierValue;
@@ -108,23 +95,17 @@ export class TerminalEnvironmentService extends Disposable {
         return this.resolvedOs.os;
     }
 
-    /** Откуда взят ответ {@link os}. */
     public get osSource(): OsSource {
         return this.resolvedOs.source;
     }
 
-    /**
-     * Как назвался внешний терминал — для Keyboard Doctor и рецептов эмуляторов:
-     * tmux `client_termtype` / XTVERSION, иначе `LC_TERMINAL`, иначе (не под tmux —
-     * там это «tmux») `$TERM_PROGRAM`. `undefined` — не знаем.
-     */
+    /** `$TERM_PROGRAM` — только не под tmux: там это «tmux». */
     public get terminalName(): string | undefined {
         const env = process.env;
         const own = this.baseModes.has("tmux") ? undefined : env.TERM_PROGRAM;
         return this.osSignals.terminalName ?? this.osSignals.lcTerminal ?? (own === "" ? undefined : own);
     }
 
-    /** Рунг мак-лестницы; `undefined` — клавиатура не маковская. */
     public get macKeysRung(): MacKeysRung | undefined {
         return resolveMacKeysRung(this.os, this.capabilities, this.getActiveModes());
     }
@@ -148,22 +129,13 @@ export class TerminalEnvironmentService extends Disposable {
         return active;
     }
 
-    /** All mode names known to the service — for context-key registration. */
     public getKnownModeNames(): readonly string[] {
         return [...new Set<string>(["local", "ssh", "tmux", ...this.forcedModes.keys(), ...this.customModeNames])];
     }
 
-    // ─── Detection ───
-
     /**
-     * Kicks off the fire-and-forget keyboard-protocol probe. Returns immediately; if the
-     * terminal confirms support, `extended-keys` is upgraded and `onDidChange` fires. The
-     * probe never downgrades (a non-reply over a slow link must not lose an env-detected
-     * capability), and a config-forced capability/tier always wins.
-     *
-     * Имя внешнего терминала без tmux узнаётся здесь же XTVERSION-пробой; под
-     * tmux XTVERSION не шлём (ответил бы сам tmux, «tmux 3.4»), имя и сигналы ОС
-     * даёт {@link detectTmuxClient}.
+     * The probe only upgrades: a non-reply over a slow link must not lose an env-detected
+     * capability. Под tmux XTVERSION не шлём — ответил бы сам tmux; имя даёт {@link detectTmuxClient}.
      */
     public detect(): void {
         if (this.probeStarted) return;
@@ -185,11 +157,8 @@ export class TerminalEnvironmentService extends Disposable {
     }
 
     /**
-     * Под tmux — имя внешнего терминала и сигналы ОС у самого tmux
-     * (`client_termtype` и переменные клиента); без tmux — no-op. Отдельно от
-     * {@link detect}, потому что опрос — спаун `tmux`, а синхронная часть спауна
-     * у процесса редактора стоит ~20 мс: старт зовёт это за первым кадром
-     * (`startWorkbench`), а не на пути к нему. Идемпотентен.
+     * Отдельно от {@link detect}: опрос — спаун `tmux`, синхронная часть которого стоит ~20 мс,
+     * поэтому старт зовёт это за первым кадром (`startWorkbench`). Идемпотентен.
      */
     public detectTmuxClient(): void {
         if (this.tmuxQueried || !this.baseModes.has("tmux")) return;
@@ -201,11 +170,8 @@ export class TerminalEnvironmentService extends Disposable {
     }
 
     /**
-     * Upgrade `extended-keys` from observed input — call when the app actually received a
-     * Kitty/CSI-u-encoded key. This is the only reliable signal behind tmux, which masks $TERM
-     * and silently drops the `CSI ? u` capability probe: the probe can't confirm support, but a
-     * key arriving in CSI-u form proves it. Upgrade-only and idempotent, like {@link detect};
-     * a config-forced value still wins. Fires `onDidChange` if the tier actually changes.
+     * The only reliable signal behind tmux, which masks $TERM and drops the `CSI ? u` probe:
+     * a key arriving in CSI-u form proves support. Upgrade-only, like {@link detect}.
      */
     public noteExtendedKeysObserved(): void {
         if (this.capabilities["extended-keys"]) return;
@@ -217,12 +183,7 @@ export class TerminalEnvironmentService extends Disposable {
         this.emitChange();
     }
 
-    /**
-     * Upgrade `super` from observed input — call when a key actually arrived with the super
-     * bit (Cmd on a mac). Like {@link noteExtendedKeysObserved}: upgrade-only, idempotent, a
-     * config-forced value still wins. Seeing super also proves extended keys (only the Kitty
-     * protocol encodes it). Fires `onDidChange` if anything visible changed.
-     */
+    /** Seeing super also proves extended keys (only the Kitty protocol encodes it). Upgrade-only. */
     public noteSuperObserved(): void {
         const rungBefore = this.macKeysRung;
         const tierBefore = this.tierValue;
@@ -234,11 +195,7 @@ export class TerminalEnvironmentService extends Disposable {
         this.emitChange();
     }
 
-    /**
-     * Имя внешнего терминала (XTVERSION / tmux `client_termtype`) пришло позже старта.
-     * Маковский терминал переворачивает ОС в сторону мака — только туда и не поверх
-     * явного ответа человека (см. {@link canUpgradeToMac}).
-     */
+    /** Переворачивает ОС только в сторону мака и не поверх явного ответа (см. {@link canUpgradeToMac}). */
     public noteTerminalName(name: string | undefined): void {
         this.noteOsSignals({ terminalName: name });
     }
@@ -274,15 +231,11 @@ export class TerminalEnvironmentService extends Disposable {
         return resolveTier(this.capabilities);
     }
 
-    // ─── Runtime mode toggle ───
-
     public setMode(name: string, active: boolean): void {
         if (this.forcedModes.get(name) === active) return;
         this.forcedModes.set(name, active);
         this.emitChange();
     }
-
-    // ─── Change notification ───
 
     public readonly onDidChange = this.onDidChangeEmitter.event;
 

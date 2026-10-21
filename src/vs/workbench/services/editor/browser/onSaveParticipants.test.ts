@@ -23,9 +23,6 @@ import {
     type IOnSaveParticipantHost,
 } from "./onSaveParticipants.ts";
 
-// Юнит-грань участников onSave: парсинг настройки и краевые случаи без
-// панели/источника. Поведение с настоящими панелями — editorService.onSave.test.ts.
-
 function config(values: Record<string, unknown>): IConfigurationService {
     return createTestConfigurationService(values);
 }
@@ -40,16 +37,11 @@ const SNAPSHOT: ISaveSnapshot = {
     encoding: "utf8",
 };
 
-/** Провайдер code actions теста: что вернуть на запрос и чем ответить на apply. */
 interface IFakeCodeActions {
     provide(request: ICodeActionRequest): Promise<readonly ICoreCodeAction[] | null>;
     apply(id: string, options?: IApplyCodeActionOptions): Promise<boolean>;
 }
 
-/**
- * Хост участников с реестрами, в которых — провайдеры теста под `*`
- * (`codeActions` — code-action-провайдер, `format` — документный форматтер).
- */
 function host(overrides: {
     configuration: IConfigurationService;
     codeActions?: IFakeCodeActions;
@@ -245,7 +237,6 @@ describe("createCodeActionsOnSaveParticipant", () => {
     });
 });
 
-/** Фейковая панель участников: строки документа, версия модели, viewState и журнал правок. */
 function fakePane(
     getText: () => string,
     versionId: () => number = () => 1,

@@ -55,7 +55,6 @@ function createEditorService(
     );
 }
 
-/** Minimal IConfigurationService that serves a fixed key/value map. */
 function stubConfigurationService(values: Record<string, unknown>): IConfigurationService {
     return createTestConfigurationService(values);
 }
@@ -398,7 +397,6 @@ describe("EditorService", () => {
             expect(ctrl.getActiveEditor()?.fileName).toBe("b.ts");
             expect(mruNames(ctrl)).toEqual(["b.ts", "a.ts"]);
 
-            // Cycling now only sees the two remaining editors.
             ctrl.editorGroups.activeGroup.cycleMru(1);
             expect(ctrl.getActiveEditor()?.fileName).toBe("a.ts");
         });
@@ -599,7 +597,6 @@ describe("EditorService", () => {
 
             ctrl.openFile(writeFile("a.ts", "const x = 1;"));
 
-            // The file opened successfully through the language-resolved path.
             expect(ctrl.editorGroups.activeGroup.editorCount).toBe(1);
             expect(ctrl.getActiveEditor()?.getText()).toBe("const x = 1;");
         });

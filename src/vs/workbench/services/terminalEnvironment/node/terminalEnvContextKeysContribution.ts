@@ -13,12 +13,8 @@ export const TerminalEnvContextKeysContributionDIToken = token<TerminalEnvContex
 );
 
 /**
- * Держит when-ключи терминального окружения (tier / os / cap_* / mode_* /
- * macKeys) в синхроне с {@link TerminalEnvironmentService}. Окружение меняется
- * только событием сервиса (finalize пробы, переключение мода, рунг по первому
- * Cmd), поэтому ключи пушатся по `onDidChange`, а не пересчитываются перед
- * каждым нажатием. Маппинг — общий с Keyboard Doctor
- * ({@link applyTerminalEnvContextKeys}).
+ * Окружение меняется только событием сервиса (finalize пробы, мод, рунг по первому Cmd),
+ * поэтому ключи пушатся по `onDidChange`, а не пересчитываются перед каждым нажатием.
  */
 export class TerminalEnvContextKeysContribution extends Disposable {
     public static dependencies = [ContextKeyServiceDIToken, TerminalEnvironmentServiceDIToken] as const;

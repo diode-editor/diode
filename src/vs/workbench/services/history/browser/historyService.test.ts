@@ -109,7 +109,6 @@ describe("HistoryService — стек навигации", () => {
 
         source.moveCaret(80);
         expect(service.canGoForward).toBe(false);
-        // Хвост (запись beta) отсечён и заменён новой записью alpha.
         expect(service.getEntries()).toMatchObject([{ line: 0 }, { line: 43 }, { line: 80 }]);
         expect(service.getEntries()[2].uri.toString()).toBe(alpha());
     });
@@ -135,8 +134,6 @@ describe("HistoryService — стек навигации", () => {
 
         service.goBack();
 
-        // openUri и goToPosition внутри Back шлют те же события, что и пользователь;
-        // без гашения они завели бы новую запись и убили forward-хвост.
         expect(service.getEntries()).toHaveLength(3);
         expect(service.currentIndex).toBe(1);
         expect(service.canGoForward).toBe(true);
@@ -148,7 +145,6 @@ describe("HistoryService — стек навигации", () => {
         source.moveCaret(100);
         source.open(alpha());
 
-        // Файл «сократился»: вкладку закрыли, а при переоткрытии в нём 5 строк.
         source.lineCounts.set(beta(), 5);
         source.close(beta());
         service.goBack();

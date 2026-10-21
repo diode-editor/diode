@@ -95,22 +95,15 @@ function getScopeMatcher(rule: ITokenColorRule): Matcher<ProbeScope> | null {
 }
 
 /**
- * Стиль семантического токена в активной теме — перенос `getTokenStyle` и
- * `resolveScopes` из `colorThemeData.ts` эталона:
+ * Перенос `getTokenStyle` и `resolveScopes` из `colorThemeData.ts` эталона:
+ * 1. правила `semanticTokenColors` темы: каждый атрибут — у совпавшего правила с наибольшим
+ *    весом селектора, при равенстве — у позднего;
+ * 2. для незаданных на шаге 1 — дефолтные правила реестра классификации: их TextMate-пробы
+ *    ищутся в `tokenColors`, первая давшая цвет или `fontStyle` идёт с весом селектора правила.
  *
- * 1. правила `semanticTokenColors` темы: каждый атрибут (fg, bold, italic,
- *    underline, strikethrough) берётся у совпавшего правила с наибольшим весом
- *    селектора, при равенстве — у позднего;
- * 2. атрибуты, заданные на шаге 1, закрыты; для остальных — дефолтные
- *    правила реестра классификации (встроенные, затем `semanticTokenScopes`
- *    расширений): их TextMate-пробы ищутся в `tokenColors` темы, и первая
- *    проба, давшая цвет или `fontStyle`, участвует с весом селектора правила.
- *
- * Отступление от эталона — момент разрешения: эталон запекает стиль в
- * метаданные токена при приёме ответа и на смене темы перезапрашивает
- * сервер; здесь стиль берётся при отрисовке через этот кэш, а смена темы лишь
- * сбрасывает его. `editor.semanticTokenColorCustomizations` не поддержан (нет
- * и `editor.tokenColorCustomizations`).
+ * Отступление: эталон запекает стиль в метаданные токена и на смене темы перезапрашивает сервер;
+ * здесь стиль берётся при отрисовке через этот кэш, а смена темы его сбрасывает.
+ * `editor.semanticTokenColorCustomizations` не поддержан.
  */
 export class SemanticTokenStyleResolver implements ISemanticTokenStyleResolver, IDisposable {
     private theme: IEditorTokenTheme;
@@ -193,9 +186,8 @@ export class SemanticTokenStyleResolver implements ISemanticTokenStyleResolver, 
             if (matchScore >= 0) processStyle(matchScore, rule.style);
         }
 
-        // Заданное правилом темы дефолтом не перекрывается. Эталон пропускает
-        // проход по дефолтам, если правила темы задали всё; здесь стиль и так
-        // кэшируется на (тип, модификаторы, язык), и оптимизация не нужна.
+        // Эталон пропускает проход по дефолтам, если правила темы задали всё; здесь стиль и так
+        // кэшируется на (тип, модификаторы, язык).
         for (const key of ["fg", ...FLAGS] as const) {
             if (score[key] !== -1) score[key] = Number.MAX_VALUE;
         }

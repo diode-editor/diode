@@ -25,7 +25,6 @@ describe("TerminalEnvironmentService", () => {
 
     beforeEach(() => {
         savedEnv = { ...process.env };
-        // Deterministic ambient environment for the constructor's sync detection.
         delete process.env.TMUX;
         delete process.env.SSH_CONNECTION;
         delete process.env.SSH_TTY;
@@ -189,7 +188,6 @@ describe("TerminalEnvironmentService", () => {
         it("ignores capability overrides that are unknown or non-boolean", () => {
             const service = new TerminalEnvironmentService(
                 new MockTerminalBackend(),
-                // `bogus` is not a known capability; `osc52` is, but its value is not a boolean.
                 configFrom({ terminal: { capabilities: { bogus: true, osc52: "nope" } } as never }),
             );
             // osc52 keeps its env-derived default (true outside tmux); the bad entries are skipped.
@@ -224,7 +222,7 @@ describe("TerminalEnvironmentService", () => {
             let fired = 0;
             service.onDidChange(() => fired++);
 
-            service.setMode("presentation", true); // first toggle fires
+            service.setMode("presentation", true);
             service.setMode("presentation", true); // same value → early return, no emit
 
             expect(service.isModeActive("presentation")).toBe(true);
@@ -242,17 +240,16 @@ describe("TerminalEnvironmentService", () => {
         });
 
         it("getActiveModes adds a forced-on mode and removes a forced-off base mode", () => {
-            process.env.TMUX = "/tmp/x,1,0"; // tmux is a base mode
+            process.env.TMUX = "/tmp/x,1,0";
             const service = new TerminalEnvironmentService(new MockTerminalBackend(), configFrom());
 
-            // Force a non-base mode ON and force the base "tmux" mode OFF at runtime.
             service.setMode("presentation", true);
             service.setMode("tmux", false);
 
             const active = service.getActiveModes();
-            expect(active.has("local")).toBe(true); // base mode untouched
-            expect(active.has("presentation")).toBe(true); // forced-on (line 106 branch)
-            expect(active.has("tmux")).toBe(false); // forced-off base mode removed (line 107 branch)
+            expect(active.has("local")).toBe(true);
+            expect(active.has("presentation")).toBe(true);
+            expect(active.has("tmux")).toBe(false);
         });
     });
 

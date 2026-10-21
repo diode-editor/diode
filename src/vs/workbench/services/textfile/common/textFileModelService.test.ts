@@ -13,10 +13,6 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 import type { TextFileModel } from "./textFileModel.ts";
 import { TextFileModelService } from "./textFileModelService.ts";
 
-/**
- * Модели вне вкладок: реестр файлов, сквозная нумерация безымянных, пайплайн
- * сохранения и агрегатное событие save.
- */
 describe("TextFileModelService", () => {
     let ws: ITempWorkspace;
     let service: TextFileModelService;

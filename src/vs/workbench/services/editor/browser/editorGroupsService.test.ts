@@ -17,11 +17,7 @@ import type { IEditorGroupsService } from "../common/editorGroupsService.ts";
 
 import { EditorService } from "./editorService.ts";
 
-/**
- * Граница двух сервисов: полоса групп (`IEditorGroupsService`) и «редакторы»
- * (`EditorService`). Порядок событий — контракт (`docs/arch/workbench/EditorPart.md`):
- * вкладки → активный редактор → активная группа; ни одно не стреляет дважды.
- */
+/** Порядок событий — контракт (`docs/arch/workbench/EditorPart.md`): вкладки → активный редактор → активная группа. */
 describe("IEditorGroupsService — события на границе с EditorService", () => {
     let ws: ITempWorkspace;
     let editors: EditorService;
@@ -131,7 +127,6 @@ describe("IEditorGroupsService — события на границе с EditorS
         expect(groups.groups.indexOf(side)).toBe(1);
         expect(groups.activeGroup).not.toBe(side);
         expect(events).toEqual(["groups:added"]);
-        // Существующий сосед справа отдаётся как есть, вторая группа не заводится.
         expect(groups.sideGroup()).toBe(side);
         expect(groups.groups).toHaveLength(2);
     });

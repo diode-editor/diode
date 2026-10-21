@@ -9,31 +9,19 @@ import type { IEditorGroupsService, IGroupsChangeEvent } from "../common/editorG
 import { EditorGroup, type GroupId, type MruCycleState } from "./editorGroupModel.ts";
 
 /**
- * Полоса групп редакторов — аналог upstream `IEditorGroupsService`, но
- * headless (у upstream его реализует view-часть `EditorPart`): список групп в
- * порядке ViewColumn, активная группа, сплиты, фокус, перенос и слияние
- * вкладок между группами, схлопывание опустевших. Вкладочные операции живут на
- * самой группе ({@link EditorGroup}).
- *
- * Вкладок сам не создаёт: дубль вкладки (сплит, копия в соседнюю группу)
- * открывает `EditorService` по рецепту — сюда он приходит колбэком «наполни
- * группу» ({@link splitActiveGroup}, {@link openInNeighborGroup}).
- *
+ * Headless-аналог upstream `IEditorGroupsService` (у upstream его реализует view-часть `EditorPart`).
+ * Вкладок сам не создаёт: дубль открывает `EditorService` колбэком «наполни группу».
  * Порядок событий — контракт: {@link onDidChangeEditors} → фокус →
  * {@link onDidChangeActivePane} → {@link onDidActiveGroupChange}.
  */
 export class EditorGroupsService extends Disposable implements IEditorGroupsService {
     public static dependencies = [ILogServiceDIToken] as const;
 
-    /** Полоса групп в порядке ViewColumn − 1; без сплитов — ровно одна. */
+    /** Порядок ViewColumn − 1; без сплитов — ровно одна группа. */
     private groupsList: EditorGroup[] = [];
     private activeGroupValue: EditorGroup;
-    /** Монотонный счётчик стабильных id групп (не переиспользуется). */
+    /** Id групп не переиспользуются. */
     private groupIdCounter = 0;
-    /**
-     * Подписки сервиса на события каждой группы — снимаются при схлопывании
-     * группы и при выключении сервиса.
-     */
     private readonly groupSubscriptions = new Map<GroupId, IDisposable[]>();
     private readonly logger: ILogger;
 
@@ -43,52 +31,29 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
     private readonly onDidChangeEditorsEmitter = new Emitter<void>();
     private readonly onDidChangeActivePaneEmitter = new Emitter<IEditorPane | null>();
 
-    /**
-     * Хук view-слоя «влезет ли ещё одна группа» (`EditorPartComponent`
-     * спрашивает свой `EditorPartElement.canFit`). Не задан (headless-тесты) —
-     * место не проверяется.
-     */
+    /** `EditorPartComponent` спрашивает свой `EditorPartElement.canFit`; не задан (headless) — место не проверяется. */
     public canAddGroupHook?: () => boolean;
 
-    /**
-     * Хук view-слоя «сфокусируй содержимое группы»: активную вкладку либо filler
-     * пустой группы — сервису filler недоступен. Не задан — фокус в активную
-     * вкладку напрямую.
-     */
+    /** Нужен ради filler'а пустой группы — сервису он недоступен. Не задан — фокус в активную вкладку. */
     public focusGroupContentHook?: (group: EditorGroup) => void;
 
-    /** Смена активной группы (сплит, фокус-команды, клик мышью в другую группу). */
     public readonly onDidActiveGroupChange = this.onDidActiveGroupChangeEmitter.event;
 
-    /**
-     * Жизнь серии Ctrl+Tab любой группы полосы (практически — активной: цикл
-     * запускают команды по активной группе): снимок замороженного MRU-списка с
-     * позицией цикла на каждом шаге и `null`, когда серия кончилась. Подписчик —
-     * оверлей переключателя вкладок (`TabSwitcherComponent`).
-     */
+    /** Снимок замороженного MRU-списка на каждом шаге серии Ctrl+Tab и `null`, когда серия кончилась. */
     public readonly onDidChangeMruCycle = this.onDidChangeMruCycleEmitter.event;
 
-    /** Структурное изменение полосы: группа добавлена/удалена/переставлена. */
     public readonly onDidGroupsChange = this.onDidGroupsChangeEmitter.event;
 
-    /** Агрегат `onDidChangeEditors` всех групп: вкладки, метки, активная вкладка. */
     public readonly onDidChangeEditors = this.onDidChangeEditorsEmitter.event;
 
-    /**
-     * Активная вкладка полосы сменилась: другая вкладка активной группы либо
-     * другая активная группа. Любого вида — сужение до текста делает
-     * `EditorService`.
-     */
+    /** Любого вида — сужение до текста делает `EditorService`. */
     public readonly onDidChangeActivePane = this.onDidChangeActivePaneEmitter.event;
 
     public constructor(logService: ILogService) {
         super();
         // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала и его метка — подпись в селекторе Output, поведения логирования не задают
         this.logger = logService.createLogger("workbench.editorGroups", { label: "Editor Groups" });
-        // Полоса групп начинается с единственной — она же активная.
         this.activeGroupValue = this.createGroup();
-        // Владение оставшимися группами: схлопнутые чистятся по ходу, остальные —
-        // при выключении сервиса.
         this.register({
             dispose: () => {
                 for (const subscriptions of this.groupSubscriptions.values()) {
@@ -101,17 +66,15 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         });
     }
 
-    /** Полоса групп в порядке ViewColumn − 1. */
     public get groups(): readonly EditorGroup[] {
         return this.groupsList;
     }
 
-    /** Активная группа — та, куда открываются ресурсы и по которой работают команды вкладок. */
     public get activeGroup(): EditorGroup {
         return this.activeGroupValue;
     }
 
-    /** Группа, содержащая вкладку, либо `null` (detached-панели групп не имеют). */
+    /** `null` и для detached-панелей: групп у них нет. */
     public groupOf(pane: IEditorPane): EditorGroup | null {
         for (const group of this.groupsList) {
             if (group.getPanes().includes(pane)) return group;
@@ -119,21 +82,14 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return null;
     }
 
-    /** Номер колонки группы (1..N) — производный от позиции в полосе. */
     public viewColumnOf(group: EditorGroup): number {
         return this.groupsList.indexOf(group) + 1;
     }
 
     /**
-     * Сплит: новая группа рядом с активной, наполняемая колбэком `fill`
-     * (`EditorService` открывает в ней дубль активной вкладки по рецепту) —
-     * VS Code `workbench.action.splitEditor`. Отказ: пустая активная группа
-     * либо не хватает места ({@link canAddGroupHook}; молча, с записью в лог —
-     * решение постановки №3). Возвращает новую группу либо `null` при отказе.
-     *
-     * Новая группа становится активной ДО наполнения: открытая в ней вкладка
-     * сразу считается активным редактором воркбенча. Осталась пустой (вкладку
-     * повторить нельзя) — активного редактора нет, фокус в её filler.
+     * VS Code `workbench.action.splitEditor`. Отказ (пустая активная группа или нет места) — молча,
+     * с записью в лог (решение постановки №3). Новая группа активна ДО наполнения: открытая в ней
+     * вкладка сразу — активный редактор воркбенча.
      */
     public splitActiveGroup(
         fill: (group: EditorGroup, source: IEditorPane) => void,
@@ -164,10 +120,6 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return group;
     }
 
-    /**
-     * Пустая группа рядом с активной (`workbench.action.newGroup*`). Отказ по
-     * месту — как у {@link splitActiveGroup}.
-     */
     public newGroup(position: "before" | "after", { focus = true }: { focus?: boolean } = {}): EditorGroup | null {
         if (this.canAddGroupHook !== undefined && !this.canAddGroupHook()) {
             this.logger.info("new group refused — not enough space");
@@ -184,11 +136,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return group;
     }
 
-    /**
-     * Фокус группы: по стабильному id, позиции в полосе, соседству или циклом.
-     * Делает группу активной и передаёт фокус её содержимому (активной вкладке
-     * либо filler'у пустой группы). За краем полосы — no-op (US-10).
-     */
+    /** За краем полосы — no-op (US-10). */
     public focusGroup(
         target: GroupId | { index: number } | { direction: "next" | "previous" | "cycle" },
         { focus = true }: { focus?: boolean } = {},
@@ -216,11 +164,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return this.groupsList[next] ?? null;
     }
 
-    /**
-     * Мышь/фокус сделали группу активной (capture-listener на поддереве группы —
-     * ставит `EditorPartComponent`). Фокус уже там, куда кликнули, — только
-     * события; группа уже активна — no-op.
-     */
+    /** Фокус уже там, куда кликнули, — только события. */
     public notifyGroupFocused(group: EditorGroup): void {
         // Тот же гард стоит в makeGroupActive: ранний выход лишь экономит вызов.
         // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
@@ -228,12 +172,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         this.makeGroupActive(group);
     }
 
-    /**
-     * Переносит активную вкладку в соседнюю группу; у единственной группы
-     * создаёт соседку и переносит (US-50). Фокус едет со вкладкой; опустевшая
-     * группа-источник схлопывается сама. Ресурс уже открыт в целевой группе —
-     * переносимая вкладка сливается с существующей (пер-группный дедуп).
-     */
+    /** У единственной группы создаёт соседку (US-50). Ресурс уже открыт в целевой — сливается с ней. */
     public moveActiveEditorToGroup(direction: "next" | "previous", { focus = true }: { focus?: boolean } = {}): void {
         const source = this.activeGroupValue;
         const index = source.activeIndex;
@@ -241,8 +180,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         const target = this.neighborOrNewGroup(direction);
         if (target === null) return;
 
-        // detachPane может схлопнуть опустевший источник (collapse внутри) —
-        // целевая группа взята по ссылке заранее и переживает перестройку полосы.
+        // detachPane может схлопнуть опустевший источник — целевая группа взята по ссылке заранее.
         const pane = source.detachPane(index);
         /* v8 ignore start -- activePane проверен выше, индекс валиден */
         // Stryker disable next-line ConditionalExpression: недостижимая ветвь по той же причине
@@ -260,11 +198,6 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         this.fireActiveGroupChanged(target);
     }
 
-    /**
-     * Соседняя группа по направлению (у единственной — новая, с проверкой
-     * места) становится активной и наполняется колбэком `fill` — копия
-     * активной вкладки по рецепту (US-17). Соседа нет и создать нельзя — no-op.
-     */
     public openInNeighborGroup(direction: "next" | "previous", fill: (group: EditorGroup) => void): void {
         const target = this.neighborOrNewGroup(direction);
         if (target === null) return;
@@ -274,11 +207,8 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
     }
 
     /**
-     * Открытие в группу: она становится активной ДО наполнения `fill` — так
-     * открытая вкладка сразу считается активным редактором воркбенча, — а
-     * {@link onDidActiveGroupChange} уходит после, если группа сменилась.
-     * Серию Ctrl+Tab прежней группы не завершает: это не уход фокуса, а
-     * открытие.
+     * Группа активна ДО `fill` — открытая вкладка сразу активный редактор воркбенча. Серию Ctrl+Tab
+     * прежней группы не завершает: это не уход фокуса, а открытие.
      */
     public openInGroup(group: EditorGroup, fill: () => void): void {
         const wasActive = group === this.activeGroupValue;
@@ -287,10 +217,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         if (!wasActive) this.fireActiveGroupChanged(group);
     }
 
-    /**
-     * Группа справа от активной для «Open to the Side»; нет — создаётся (нет
-     * места — фолбэк в активную). Активной не становится: это решает открытие.
-     */
+    /** Нет места — фолбэк в активную. Активной не становится: это решает открытие. */
     public sideGroup(): EditorGroup {
         const index = this.groupsList.indexOf(this.activeGroupValue);
         const next = this.groupsList.at(index + 1);
@@ -304,11 +231,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return group;
     }
 
-    /**
-     * Вливает СЛЕДУЮЩУЮ группу в активную (VS Code `joinTwoGroups`): вкладки
-     * переезжают в конец, дубликаты ресурса схлопываются (решение постановки
-     * №5), опустевший сосед схлопывается сам. У края полосы — no-op.
-     */
+    /** VS Code `joinTwoGroups`: дубликаты ресурса схлопываются (решение постановки №5). */
     public joinTwoGroups(): void {
         const target = this.activeGroupValue;
         const source = this.resolveGroupTarget({ direction: "next" });
@@ -318,7 +241,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         this.mergeGroupInto(source, target);
     }
 
-    /** Сливает все группы в первую; активная вкладка бывшей активной группы выживает (US-21). */
+    /** Активная вкладка бывшей активной группы выживает (US-21). */
     public joinAllGroups(): void {
         if (this.groupsList.length < 2) return;
         const rememberedUri = this.activeGroupValue.activePane?.uri ?? null;
@@ -337,7 +260,6 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         this.fireActiveGroupChanged(target);
     }
 
-    /** Переставляет активную группу по полосе (US-18); у края — no-op. */
     public moveActiveGroup(direction: "next" | "previous"): void {
         const from = this.groupsList.indexOf(this.activeGroupValue);
         const to = direction === "next" ? from + 1 : from - 1;
@@ -348,12 +270,8 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
     }
 
     /**
-     * Вкладки ВСЕХ групп для пикера открытых редакторов: активная группа первой
-     * (её активная вкладка — во главе списка), за ней остальные в порядке
-     * полосы; внутри группы — MRU-порядок ({@link EditorGroup.getMruPanes}).
-     * Глобального MRU-стека у нас нет — он живёт на группе, — и склейка по
-     * полосе от активной группы даёт ровно то, что пикер обещает заголовком:
-     * сверху то, где пользователь только что был.
+     * Глобального MRU-стека нет — он живёт на группе; склейка от активной группы по полосе даёт то,
+     * что пикер обещает заголовком: сверху то, где человек только что был.
      */
     public getOpenEditorsMru(): IEditorPane[] {
         const active = this.activeGroupValue;
@@ -361,11 +279,6 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return strip.flatMap((group) => group.getMruPanes());
     }
 
-    /**
-     * Показывает уже открытую вкладку: делает её группу активной и активирует
-     * саму вкладку с фокусом (пикер открытых редакторов). Панель не из полосы
-     * (detached-редактор, уже закрытая вкладка) — no-op.
-     */
     public revealPane(pane: IEditorPane): void {
         const group = this.groupOf(pane);
         if (group === null) return;
@@ -374,12 +287,8 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
     }
 
     /**
-     * Шаг по вкладкам в ВИЗУАЛЬНОМ порядке (VS Code `nextEditor` /
-     * `previousEditor`, Ctrl+PgDn/PgUp): вкладки всех групп слева направо, с
-     * заворотом на краях полосы. В отличие от MRU-цикла Ctrl+Tab здесь нет
-     * hold-сессии — каждый шаг сразу коммитится (обычный `activateTab` сам
-     * двигает цель в начало MRU). У пустой активной группы «вперёд» начинает с
-     * первой вкладки полосы, «назад» — с последней.
+     * VS Code `nextEditor`/`previousEditor`: визуальный порядок всех групп с заворотом. В отличие от
+     * Ctrl+Tab hold-сессии нет — каждый шаг сразу коммитится в MRU.
      */
     public cycleEditor(direction: 1 | -1): void {
         const entries: { group: EditorGroup; index: number }[] = [];
@@ -397,16 +306,14 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
             active.activateTab(target.index);
             return;
         }
-        // Переход через границу группы: цель становится активной группой (тот же
-        // порядок, что у moveActiveTabToGroup — сначала группа, потом вкладка).
-        // Идущую серию Ctrl+Tab источника завершаем как при любом уходе из группы.
+        // Через границу группы: сначала группа, потом вкладка (как moveActiveTabToGroup);
+        // серию Ctrl+Tab источника завершаем как при любом уходе из группы.
         active.endMruCycle();
         this.activeGroupValue = target.group;
         target.group.activateTab(target.index);
         this.fireActiveGroupChanged(target.group);
     }
 
-    /** Переливает вкладки source в target (дедуп по ресурсу) до схлопывания source. */
     private mergeGroupInto(source: EditorGroup, target: EditorGroup): void {
         if (source.editorCount === 0) {
             // Пустой сосед: некому схлопнуть его событием — снимаем явно.
@@ -427,10 +334,6 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         }
     }
 
-    /**
-     * Сосед активной группы по направлению; у единственной группы создаёт его
-     * (с проверкой места), у края многогрупповой полосы — `null`.
-     */
     private neighborOrNewGroup(direction: "next" | "previous"): EditorGroup | null {
         const existing = this.resolveGroupTarget({ direction });
         // Сосед по направлению активной группой не бывает: второе условие — страховка.
@@ -447,32 +350,22 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return group;
     }
 
-    /** Смена активной группы + события (без передачи фокуса). */
     private makeGroupActive(group: EditorGroup): void {
         if (group === this.activeGroupValue) return;
-        // Уход фокуса в другую группу завершает идущую серию Ctrl+Tab прежней:
-        // выбранная в серии вкладка фиксируется в MRU, оверлей переключателя
-        // получает `null` и гаснет.
+        // Уход фокуса в другую группу завершает серию Ctrl+Tab прежней: выбор фиксируется в MRU.
         this.activeGroupValue.endMruCycle();
         this.activeGroupValue = group;
-        // Табы/контент групп не меняются, но потребители «активного редактора
-        // воркбенча» обязаны переехать: статус-бар, host, autoReveal.
+        // Табы не меняются, но потребители активного редактора (статус-бар, host) обязаны переехать.
         this.fireActivePaneChanged(group.activePane);
         this.fireActiveGroupChanged(group);
     }
 
-    /** Фокус содержимого группы: через view-хук (умеет filler), иначе — вкладка. */
     private focusGroupContent(group: EditorGroup): void {
         if (this.focusGroupContentHook !== undefined) this.focusGroupContentHook(group);
         else group.focusEditor();
     }
 
-    /**
-     * Создаёт группу на позиции `index`, включает в полосу и переподнимает её
-     * события на сервисные: view-слой (`EditorGroupComponent`) слушает саму
-     * группу, а потребители «активного редактора» — сервис. Группа, оставшаяся
-     * без вкладок, схлопывается (кроме последней — US-47).
-     */
+    /** View (`EditorGroupComponent`) слушает саму группу, потребители активного редактора — сервис. */
     private createGroup(index: number = this.groupsList.length): EditorGroup {
         const group = new EditorGroup(++this.groupIdCounter);
         this.groupsList.splice(index, 0, group);
@@ -482,11 +375,9 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
                 this.onDidChangeEditorsEmitter.fire();
             }),
             group.onDidChangeActivePane((pane) => {
-                // Смена вкладки неактивной группы не трогает активный редактор
-                // воркбенча (US-13: MRU и активность — пер-группные).
+                // Смена вкладки неактивной группы активный редактор не трогает (US-13).
                 if (group === this.activeGroupValue) this.fireActivePaneChanged(pane);
-                // Активной вкладки нет ровно тогда, когда группа пуста: условия
-                // на `pane` и на `editorCount` взаимозаменяемы.
+                // Активной вкладки нет ровно тогда, когда группа пуста: условия взаимозаменяемы.
                 // Stryker disable next-line ConditionalExpression,LogicalOperator: эквивалентны — см. выше
                 if (pane === null && group.editorCount === 0 && this.groupsList.length > 1) {
                     this.collapseGroup(group);
@@ -500,11 +391,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return group;
     }
 
-    /**
-     * Схлопывает опустевшую группу: полоса сжимается, соседка получает фокус,
-     * если схлопнулась активная. Последнюю группу не схлопываем — пустая область
-     * редактора легальна (US-47).
-     */
+    /** Последнюю группу не схлопываем — пустая область редактора легальна (US-47). */
     private collapseGroup(group: EditorGroup): void {
         const index = this.groupsList.indexOf(group);
         /* v8 ignore start -- защитный гард: схлопывание зовётся только для группы из полосы */

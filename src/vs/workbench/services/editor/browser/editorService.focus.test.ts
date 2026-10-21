@@ -71,13 +71,9 @@ describe("IEditorService focus management on tab close", () => {
 
         const executeSpy = vi.spyOn(commandRegistry, "execute");
 
-        // Ctrl+S should still be dispatched and reach the root command handlers
         testApp.sendKey("Ctrl+S");
 
-        // The command may or may not execute depending on when-context guards,
-        // but the key must not be silently swallowed by an orphaned element.
-        // We verify the event was properly dispatched by checking no throw occurred
-        // and that activeElement remains null (no zombie focus restored).
+        // Клавиша не должна глохнуть на осиротевшем элементе, а зомби-фокус — восстанавливаться.
         expect(testApp.focusedElement).toBeNull();
     });
 
@@ -88,12 +84,10 @@ describe("IEditorService focus management on tab close", () => {
         workbench.openFile(ws.writeFile("c.ts", "c"));
         workbench.focusEditor();
 
-        // close active (index 2)
         editorService.editorGroups.activeGroup.closeTab(2);
 
         const focused = testApp.focusedElement;
         expect(focused).not.toBeNull();
-        // focused element must be reachable from root (in the live tree)
         expect(focused!.getRoot()).not.toBeNull();
     });
 
@@ -105,7 +99,6 @@ describe("IEditorService focus management on tab close", () => {
         editorService.editorGroups.activeGroup.closeTab(0);
 
         const focused = testApp.focusedElement;
-        // If focused is not null it must still be in the live tree
         if (focused !== null) {
             expect(focused.getRoot()).not.toBeNull();
         }
@@ -136,7 +129,6 @@ describe("IEditorService auto-focus on file open", () => {
         const fp = ws.writeFile("a.ts", "a");
         workbench.openFile(fp);
         workbench.openFile(ws.writeFile("b.ts", "b"));
-        // open a.ts again — should switch tab and focus
         workbench.openFile(fp);
 
         expect(testApp.focusedElement).not.toBeNull();

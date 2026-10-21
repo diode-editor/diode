@@ -15,12 +15,6 @@ import { ThemeService } from "../../themes/common/themeService.ts";
 
 import { EditorService } from "./editorService.ts";
 
-/**
- * Вкладка-снимок ({@link EditorService.openTextSnapshot}): текстовая read-only
- * вкладка с контентом от вызывающего (файл на ревизии из `git:`) — модель
- * синтетическая, мимо диска, реестра и персиста.
- */
-
 function createEditorService(): EditorService {
     return new EditorService(
         new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
@@ -52,8 +46,7 @@ describe("EditorService.openTextSnapshot", () => {
         expect(pane.label).toBe("a.ts (dev)");
         expect(pane.readOnly).toBe(true);
         expect(pane.viewState.document.languageId).toBe("typescript");
-        // Обычная вкладка: в группе, активна. Сравнение ссылок — `===`, не
-        // `toBe` (диф-принтер vitest на TUI-объектах валит воркер по памяти).
+        // `===`, не `toBe`: диф-принтер vitest на TUI-объектах валит воркер по памяти.
         expect(service.editorGroups.activeGroup.editorCount).toBe(1);
         expect(service.getActiveTabPane() === pane).toBe(true);
         service.dispose();
@@ -69,7 +62,6 @@ describe("EditorService.openTextSnapshot", () => {
         });
 
         expect(pane.isModified).toBe(false);
-        // Снимок живёт мимо диска: сохранять нечего и незачем.
         expect(pane.absoluteFilePath).toBeNull();
         expect(service.getOpenFilePaths()).toHaveLength(0);
         service.dispose();
@@ -126,8 +118,7 @@ describe("TextFileModel.openFile — гейт схемы", () => {
         const failures: string[] = [];
         service.onDidFailOpen(({ uri, reason }) => failures.push(`${uri.scheme}: ${reason}`));
 
-        // Провайдера схемы нет — открывать нечем, но падать нельзя: отказ
-        // ЛЮБОГО открытия уносил бы весь редактор через unhandled rejection.
+        // Падать нельзя: отказ любого открытия уносил бы весь редактор через unhandled rejection.
         await expect(service.openUri(REVISION_URI)).resolves.toBeUndefined();
 
         expect(service.editorGroups.activeGroup.editorCount).toBe(0);

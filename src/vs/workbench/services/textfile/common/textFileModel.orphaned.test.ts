@@ -10,7 +10,6 @@ import type { IFileWatcher } from "../../../../platform/files/common/iFileWatche
 
 import { ORPHAN_CHECK_DELAY_MS, type TextFileModel } from "./textFileModel.ts";
 
-/** Ручной watcher: тест сам решает, когда «пришло событие». */
 class FakeFileWatcher implements IFileWatcher {
     private readonly handlers = new Map<string, () => void>();
 
@@ -58,14 +57,13 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         return fp;
     }
 
-    /** Файл удалён снаружи, watcher сообщил, пауза перепроверки прошла. */
     function deleteExternally(fp: string): void {
         fs.rmSync(fp);
         watcher.fire(fp);
         vi.advanceTimersByTime(ORPHAN_CHECK_DELAY_MS);
     }
 
-    /** В корзину и обратно — переносом, как корзина: mtime и размер те же до наносекунды. */
+    /** Переносом, как корзина: mtime и размер те же до наносекунды. */
     function trashAndRestore(fp: string): void {
         fs.renameSync(fp, `${fp}.trashed`);
         watcher.fire(fp);
@@ -88,7 +86,6 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         vi.advanceTimersByTime(1);
         expect(pane.model.isOrphaned).toBe(true);
         expect(orphanedEvents).toBe(1);
-        // Вкладка перерисовывается по событию дискового состояния.
         expect(diskStateEvents).toBe(1);
         expect(pane.getText()).toBe("keep\n");
         expect(pane.isModified).toBe(false);
@@ -101,7 +98,6 @@ describe("TextFileModel — удалённый файл (orphaned)", () => {
         watcher.fire(fp);
         fs.writeFileSync(fp, "v2 longer\n");
         watcher.fire(fp);
-        // Вернувшийся файл гасит отложенную перепроверку.
         expect(vi.getTimerCount()).toBe(0);
         vi.advanceTimersByTime(ORPHAN_CHECK_DELAY_MS);
 

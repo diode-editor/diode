@@ -2,16 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import { createTestRegistry } from "./testRegistry.ts";
 
-/**
- * Обучающие тесты на сам `vscode-textmate.Registry`.
- * Документируют как библиотека находит и загружает грамматики.
- */
+/** Учебные тесты: как `vscode-textmate.Registry` находит и загружает грамматики. */
 describe("vscode-textmate :: Registry", () => {
     it("loadGrammar возвращает IGrammar для известного scopeName", async () => {
         const registry = createTestRegistry();
         const grammar = await registry.loadGrammar("source.js");
         expect(grammar).not.toBeNull();
-        // у IGrammar есть метод tokenizeLine
         expect(typeof grammar?.tokenizeLine).toBe("function");
     });
 

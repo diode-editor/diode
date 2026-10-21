@@ -9,10 +9,6 @@ export interface TerminalEnvironmentModuleContext {
     backend: ITerminalBackend;
 }
 
-/**
- * Binds the terminal backend (so the env service can probe it) and the
- * TerminalEnvironmentService itself.
- */
 export const terminalEnvironmentModule: ContainerModule<TerminalEnvironmentModuleContext> = (
     container,
     { backend },

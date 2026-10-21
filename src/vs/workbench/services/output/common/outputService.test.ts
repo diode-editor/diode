@@ -148,7 +148,6 @@ describe("OutputService: каналы", () => {
 
         expect(service.getChannels()).toEqual([{ id: "extensions.host", label: "Extension Host" }]);
         service.dispose();
-        // После dispose сервис больше не переносит метки в реестр.
         stack.logService.createLogger("late", { label: "Late" });
         expect(stack.registry.getChannel("late")).toBeUndefined();
     });

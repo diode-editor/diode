@@ -25,7 +25,6 @@ describe("Terminal environment integration (context keys + status bar)", () => {
         process.env = savedEnv;
     });
 
-    // activate() pushes the synchronously-detected env into context keys and starts the probe.
     async function setup() {
         const h = createAppTestHarness(); // WorkbenchComponent subscribes to env changes
         await h.workbench.activate();
@@ -72,7 +71,6 @@ describe("Terminal environment integration (context keys + status bar)", () => {
 
     it("custom-mode identifiers are valid in when-expressions without registration", async () => {
         const { contextKeys } = await setup();
-        // Unknown key evaluates to false without throwing.
         expect(contextKeys.evaluate("mode_presentation")).toBe(false);
         contextKeys.setRaw("mode_presentation", true);
         expect(contextKeys.evaluate("mode_presentation")).toBe(true);

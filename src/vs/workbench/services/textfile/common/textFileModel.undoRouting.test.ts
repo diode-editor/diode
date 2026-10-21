@@ -39,7 +39,6 @@ describe("TextFileModel — text undo routes through the unified UndoRedoService
         // Шаг называет путь документа — по нему потребители истории понимают,
         // чего он касается (у безымянного буфера список пуст).
         expect(undoRedo.peekUndo(controller.undoContext)?.resources).toEqual([controller.absoluteFilePath]);
-        // Not registered under the workspace (file-operations) context.
         expect(undoRedo.canUndo(WORKSPACE_UNDO_CONTEXT)).toBe(false);
 
         controller.undo();

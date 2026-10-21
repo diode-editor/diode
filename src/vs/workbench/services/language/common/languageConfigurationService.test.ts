@@ -81,7 +81,6 @@ describe("LanguageConfigurationService", () => {
         expect(config.comments).toEqual({ lineComment: "//", blockComment: ["/*", "*/"] });
         expect(config.brackets).toEqual([["{", "}"]]);
         expect(config.autoClosingPairs).toEqual([{ open: "'", close: "'", notIn: ["string"] }]);
-        // Комментарии и висячие запятые — валидный JSONC: ни одной жалобы в лог.
         expect(logger.warn).not.toHaveBeenCalled();
     });
 
@@ -155,7 +154,6 @@ describe("LanguageConfigurationService", () => {
     });
 
     it("treats a non-object document as the empty configuration", async () => {
-        // Массив, скаляр и `null` — всё это не конфигурация языка.
         for (const content of [`["not", "an", "object"]`, `42`, `null`]) {
             const { service } = createService({ [TS_CONFIG_PATH]: content });
             expect(await service.ensureLoaded("typescript")).toBe(EMPTY_LANGUAGE_CONFIGURATION);

@@ -7,10 +7,8 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/c
 
 import { FileSearchService } from "./fileSearchService.ts";
 
-// Поддельный `rg` — shell-скрипт: печатает заготовленные пути и ВИСИТ, пока его
-// не снимут. Так состояние «обход идёт, часть файлов уже пришла»
-// воспроизводится детерминированно, без гонки с настоящим rg, который на
-// маленьком дереве успевает закончить раньше любой проверки.
+// Поддельный `rg` печатает заготовленные пути и висит, пока его не снимут: «обход идёт,
+// часть пришла» без гонки с настоящим rg, который на маленьком дереве успевает раньше.
 
 describe.skipIf(process.platform === "win32")("FileSearchService — обход в процессе (поддельный rg)", () => {
     let bin: ITempWorkspace;
@@ -27,7 +25,6 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         vi.useRealTimers();
     });
 
-    /** `rg`, который печатает `lines` и висит (или выходит, если `hang: false`). */
     function fakeRg(lines: readonly string[], options: { hang?: boolean } = {}): string {
         const out = bin.writeFile("stdout.txt", lines.map((line) => `${line}\n`).join(""));
         const script = bin.writeFile(
@@ -38,7 +35,6 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         return script;
     }
 
-    /** Ждёт, пока в индекс придут первые пути (обход при этом не закончен). */
     async function waitForEntries(s: FileSearchService): Promise<void> {
         await vi.waitFor(
             () => {
@@ -122,11 +118,8 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
     });
 
     /**
-     * `rg`, который на SIGTERM выходит не сразу, а через 300 мс, и отмечает
-     * каждый свой старт строкой в `starts`. Так прежний обход гарантированно
-     * заканчивается ПОЗЖЕ, чем стартовал новый, — та самая гонка, где конец
-     * старого не должен трогать состояние нового. Скрипт один на оба обхода:
-     * переписывать файл, который ещё читает живой `sh`, нельзя.
+     * На SIGTERM выходит через 300 мс и отмечает старты в `starts`: прежний обход кончается
+     * позже старта нового. Скрипт один на оба обхода — файл, который читает живой `sh`, не переписать.
      */
     function slowExitRg(): { rg: string; starts: () => number } {
         const out = bin.writeFile("stdout.txt", "a.ts\n");
@@ -247,7 +240,7 @@ describe("FileSearchService — notify", () => {
     });
 
     it("dispose() with no pending notify timer is a no-op", () => {
-        // Never activated → notifyTimer is null. dispose() must take the false branch.
+        // Never activated: dispose() takes the `notifyTimer === null` branch.
         expect(() => {
             service.dispose();
         }).not.toThrow();

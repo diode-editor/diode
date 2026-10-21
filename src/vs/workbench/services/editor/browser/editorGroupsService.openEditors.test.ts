@@ -18,11 +18,6 @@ import { ThemeService } from "../../themes/common/themeService.ts";
 
 import { EditorService } from "./editorService.ts";
 
-/**
- * Фасад «открытые редакторы» — то, чем питается пикер `edt `
- * (`workbench.action.showAllEditors`): список вкладок ВСЕХ групп в MRU-порядке
- * и переход на выбранную вкладку через границу группы.
- */
 function createEditorService(): EditorService {
     return new EditorService(
         new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme)),
@@ -75,7 +70,6 @@ describe("EditorGroupsService — список открытых редактор
         const ctrl = createEditorService();
         ctrl.openFile(writeFile("a.ts"));
         ctrl.openFile(writeFile("b.ts"));
-        // Сплит дублирует активную вкладку в новую группу и делает её активной.
         ctrl.splitActiveGroup();
         ctrl.openFile(writeFile("c.ts"));
 
@@ -96,8 +90,7 @@ describe("EditorGroupsService — список открытых редактор
         ctrl.editorGroups.focusGroup(ctrl.editorGroups.groups[0].id);
         ctrl.editorGroups.joinTwoGroups();
 
-        // b приехала merge'ом и в MRU-стеке цели не значится — она хвостом списка,
-        // но в списке: иначе пикер потерял бы половину вкладок после join.
+        // Приехавшая merge'ом b — хвостом списка, но в нём: иначе пикер терял бы вкладки после join.
         expect(labels(ctrl)).toEqual(["a.ts", "b.ts"]);
     });
 

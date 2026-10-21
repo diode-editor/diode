@@ -54,7 +54,6 @@ const MARKER_THEME: ITextMateTheme = {
     colorMap: ["", "#000000", "#FFFFFF", "#AA0000", "#00BB00", "#0000CC"],
 };
 
-/** Цвета всех токенов строки (по метаданным пар [начало, метаданные]). */
 function colorsOf(tokens: Uint32Array): string[] {
     const colors: string[] = [];
     for (let i = 1; i < tokens.length; i += 2)

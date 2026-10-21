@@ -28,7 +28,6 @@ import { ThemeService } from "../../themes/common/themeService.ts";
 
 import { EditorService } from "./editorService.ts";
 
-/** Ручной watcher: «внешнее удаление» тест объявляет сам. */
 class FakeFileWatcher implements IFileWatcher {
     private readonly handlers = new Map<string, (() => void)[]>();
 
@@ -48,12 +47,6 @@ class FakeFileWatcher implements IFileWatcher {
     }
 }
 
-/**
- * Удалённый файл и открытые вкладки (эталон `EditorService.handleDeletedFile`):
- * удаление изнутри редактора закрывает чистые вкладки всегда, внешнее — только
- * при `workbench.editor.closeOnFileDelete`; вкладка с несохранёнными правками
- * не закрывается никогда.
- */
 describe("EditorService — вкладки удалённого файла", () => {
     let ws: ITempWorkspace;
     let files: FileService;
@@ -224,7 +217,6 @@ describe("EditorService — вкладки удалённого файла", () 
             deleteExternally("a.txt");
             deleteExternally("b.txt");
 
-            // Чистая c.txt жива: закрываются только вкладки удалённого файла.
             expect(tabs()).toEqual([ws.path("b.txt"), ws.path("src/c.txt")]);
             expect(textPane(0, 0).isOrphaned).toBe(true);
         });

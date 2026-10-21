@@ -111,7 +111,6 @@ describe("KeybindingDispatcher — одиночные биндинги", () => {
         const matched = keyDown({ key: "s", ctrlKey: true });
         h.dispatcher.handleKeyDown(matched);
         expect(matched.defaultPrevented).toBe(true);
-        // Прочие слушатели корня (мнемоники меню) съеденную клавишу не видят.
         expect(matched.immediatePropagationStopped).toBe(true);
 
         const unmatched = keyDown({ key: "x" });
@@ -156,7 +155,6 @@ describe("KeybindingDispatcher — чорды", () => {
         expect(press.defaultPrevented).toBe(true);
         expect(press.immediatePropagationStopped).toBe(true);
 
-        // Без взведённого swallow keypress проходит нетронутым.
         const plain = new TUIKeyboardEvent("keypress", { key: "a" });
         h.dispatcher.handleKeyPressCapture(plain);
         expect(plain.defaultPrevented).toBe(false);
@@ -166,7 +164,6 @@ describe("KeybindingDispatcher — чорды", () => {
         const h = createHarness();
         h.bind("ctrl+k s", "test.chordSave");
 
-        // Вне чорда capture ничего не делает — событие идёт дальше (bubble).
         const before = keyDown({ key: "s" });
         h.dispatcher.handleKeyDownCapture(before);
         expect(before.defaultPrevented).toBe(false);
@@ -178,7 +175,6 @@ describe("KeybindingDispatcher — чорды", () => {
         h.dispatcher.handleKeyDownCapture(modifier);
         expect(modifier.defaultPrevented).toBe(false);
 
-        // Продолжение перехватывается целиком и завершает чорд.
         const continuation = keyDown({ key: "s" });
         h.dispatcher.handleKeyDownCapture(continuation);
         expect(continuation.defaultPrevented).toBe(true);
@@ -249,7 +245,6 @@ describe("KeybindingDispatcher — чорды", () => {
         h.bind("ctrl+k s", "test.chordSave");
 
         h.dispatcher.dispatchKeyDown(keyDown({ key: "k", ctrlKey: true }));
-        // Второй Ctrl+K ломает чорд: живая запись ожидания обновляется на not-found.
         h.dispatcher.dispatchKeyDown(keyDown({ key: "k", ctrlKey: true }));
 
         expect(h.statusTexts()).toEqual(["(Ctrl+K Ctrl+K) is not a command"]);
@@ -330,7 +325,7 @@ describe("KeybindingDispatcher — модальные оверлеи", () => {
 
     it("фокус-ключ под отрицанием не делает команду focus-scoped — за оверлеем она глотается", () => {
         const h = createHarness();
-        // Раньше фокус-ключ искался подстрокой, и `!listFocus` пропускал команду за оверлей.
+        // Регрессия: фокус-ключ искался подстрокой, и `!listFocus` проходил за оверлей.
         h.bind("ctrl+b", "test.notInList", "!listFocus");
         h.bind("ctrl+e", "test.broken", "listFocus &&");
         h.dispatcher.hasKeyboardCapturingOverlay = () => true;
@@ -469,13 +464,7 @@ describe("KeybindingDispatcher — runtime-детект extended-keys", () => {
     });
 });
 
-// Применение пользовательских правил keybindings.json уехало из диспатчера в
-// KeybindingsEditorService — его тесты лежат рядом с сервисом
-// (keybindingsEditorService.test.ts).
-
-// Продюсер источника `keyboard` для смены каретки: стрелки и выделение с Shift
-// у нас исполняются КОМАНДАМИ, и без разметки диспатчера расширение видело бы
-// их как «источник неизвестен» вместо `TextEditorSelectionChangeKind.Keyboard`.
+// Без разметки диспатчера расширение видело бы стрелки-команды как «источник неизвестен».
 describe("KeybindingDispatcher — источник смены каретки", () => {
     it("команда с кейбинда исполняется внутри области keyboard", () => {
         const h = createHarness();

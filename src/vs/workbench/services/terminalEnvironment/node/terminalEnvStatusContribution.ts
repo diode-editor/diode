@@ -12,14 +12,6 @@ export const TerminalEnvStatusContributionDIToken = token<TerminalEnvStatusContr
     "TerminalEnvStatusContribution",
 );
 
-/**
- * Публикует в {@link StatusBarService} компактный индикатор терминального
- * окружения (первый слева): tier + активные моды кроме неявного `local`
- * и рунг мак-лестницы, если клавиатура маковская (например "kitty",
- * "csi-u · ssh,tmux", "kitty · mac-cmd"). Подсказывает пользователю, что
- * терминал можно проапгрейдить. Обновляется по `onDidChange` сервиса
- * (finalize пробы / переключение мода). Клик открывает Keyboard Doctor.
- */
 export class TerminalEnvStatusContribution extends Disposable {
     public static dependencies = [
         StatusBarServiceDIToken,
@@ -42,7 +34,6 @@ export class TerminalEnvStatusContribution extends Disposable {
                 text: this.segmentText(),
                 alignment: "left",
                 priority: 100,
-                // Клик — Keyboard Doctor: окружение, рунг и что реально приезжает с клавиатуры.
                 onClick: () => {
                     void commands.execute("diode.keyboardDoctor");
                 },

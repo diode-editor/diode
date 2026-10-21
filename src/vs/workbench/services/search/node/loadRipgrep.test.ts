@@ -35,7 +35,6 @@ describe("resolveRipgrepPath", () => {
         expect(path.basename(rgPath)).toBe(RG);
         expect(readFileSync(rgPath, "utf8")).toBe("#!/bin/sh\necho rg");
         if (process.platform !== "win32") expect(statSync(rgPath).mode & 0o111).not.toBe(0);
-        // Повторный вызов — тот же каталог, без перераспаковки.
         expect(resolveRipgrepPath(bundle, cacheRoot)).toBe(rgPath);
     });
 

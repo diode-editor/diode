@@ -59,7 +59,6 @@ const enum UpdateResult {
     InvalidPath,
 }
 
-/** Окружение диалога: где дом человека и откуда начинать без `defaultUri`. */
 export interface ISimpleFileDialogEnvironment {
     readonly userHome: string;
     readonly defaultFolder: () => string;
@@ -69,32 +68,15 @@ const FOLDER_ICON = CODICON_GLYPHS.folder;
 const FILE_ICON = CODICON_GLYPHS.file;
 
 /**
- * Диалог файлов на QuickInput-оверлее — порт `SimpleFileDialog` эталона
- * (`workbench/services/dialogs/browser/simpleFileDialog.ts`), его терминальный
- * диалог (`files.simpleDialog.enable`). В строке запроса — путь целиком, под
- * ней — содержимое каталога из этого пути; набор переходит по каталогам
- * (разделитель на конце, `..`, `~`), начало имени подсвечивает строку и
- * дописывает хвост выделенным (следующая буква его заменит), Enter на каталоге
- * входит в него, на файле или набранном пути — принимает после проверок
- * эталона (несуществующий путь, папка вместо файла, перезапись — вопросом).
+ * Порт `SimpleFileDialog` эталона (его терминальный диалог, `files.simpleDialog.enable`).
+ * Одноразовый: один показ — один экземпляр, поэтому состояние живёт в полях без сброса.
  *
- * Диалог одноразовый: один показ — один экземпляр (его заводит
- * `FileDialogService`), поэтому состояние показа живёт в полях без сброса.
- *
- * Отступления: только локальная ФС (без удалённых и `availableFileSystems`), без
- * кнопок «OK»/«Show Local»/«скрыть dot-файлы» (Enter и Escape делают своё,
- * dot-файлы видны, как по умолчанию у эталона), без иконок по типу файла —
- * каталог и файл различаются значками. `canSelectMany` не поддержан и у эталона.
- *
- * Устройство проще эталонного: эталон отличает свою смену строки запроса от
- * набора человека по сегментам «набрано»/«дописано» (`userEnteredPathSegment`,
- * `autoCompletePathSegment`), потому что события его пикера приходят позже.
- * У нашего пикера и смена строки (`onDidChangeValue`), и подсветка молчат или
- * приходят синхронно, поэтому своя смена строки помечается флагом на время
- * вызова, а `onDidChangeActive` приходит только от человека. Видимое то же:
- * начало имени подсвечивает строку, стрелка дописывает имя выделенным, «..» не
- * дописывается. Отличие одно: стёртое до самого каталога первую строку не
- * подсвечивает (сопоставлять пустое имя не с чем).
+ * Отступления: только локальная ФС, без кнопок «OK»/«Show Local»/«скрыть dot-файлы» и без
+ * иконок по типу файла. Эталон отличает свою смену строки от набора человека по сегментам
+ * `userEnteredPathSegment`/`autoCompletePathSegment`, потому что события его пикера приходят
+ * позже; у нашего они синхронны, поэтому своя смена помечается флагом на время вызова, а
+ * `onDidChangeActive` приходит только от человека. Видимое отличие одно: стёртое до самого
+ * каталога первую строку не подсвечивает (сопоставлять пустое имя не с чем).
  */
 export class SimpleFileDialog {
     // Выставляются в show*Dialog, до первого чтения.
@@ -207,7 +189,6 @@ export class SimpleFileDialog {
             });
             this.session = session;
 
-            // Ответ — и диалог закрыт: dispose снимает пикер с экрана.
             const doResolve = (picked: string | undefined): void => {
                 resolve(picked === undefined ? undefined : stripTrailingSeparator(picked));
                 session.dispose();
@@ -453,7 +434,6 @@ export class SimpleFileDialog {
             return true;
         }
         if (stat === undefined) {
-            // Только папки, родитель есть — предложить создать.
             if (
                 this.allowFolderSelection &&
                 !this.allowFileSelection &&
@@ -478,10 +458,7 @@ export class SimpleFileDialog {
         return true;
     }
 
-    /**
-     * Создать каталог после «да» в вопросе. Не вышло — диалог возвращается (вопрос
-     * его уже закрыл) с причиной в строке сообщения.
-     */
+    /** Не вышло — диалог возвращается (вопрос его уже закрыл) с причиной в строке сообщения. */
     private async createFolder(folder: string): Promise<boolean> {
         try {
             await this.files.createFolder(Uri.file(folder));
@@ -557,7 +534,6 @@ export class SimpleFileDialog {
         return items;
     }
 
-    /** stat пути; нет такого (или нечитаем) — undefined. */
     private statOrUndefined(target: string): Promise<{ isDirectory: boolean } | undefined> {
         return this.files.stat(fileUri(target)).catch(() => undefined);
     }

@@ -22,7 +22,7 @@ describe("appendKeybindingRule", () => {
         const next = appendKeybindingRule(FIXTURE, { key: "ctrl+k ctrl+u", command: "editor.action.showHover" });
 
         expect(next).toContain("// мой любимый бинд");
-        // Добавление (insertion), а не перезапись последнего: было 2 правила — стало 3.
+        // Вставка, а не перезапись последнего.
         const parsed = rules(next);
         expect(parsed).toHaveLength(3);
         expect(parsed.map((r) => r.command)).toEqual([
@@ -53,7 +53,6 @@ describe("appendKeybindingRule", () => {
     it("пустой и пробельный файл стартует с валидного пустого массива", () => {
         for (const content of ["", "   \n\t "]) {
             const next = appendKeybindingRule(content, { key: "f7", command: "a.b" });
-            // Ровно одно правило в валидном массиве (не мусор, не перезапись).
             const parsed = rules(next);
             expect(Array.isArray(parsed)).toBe(true);
             expect(parsed).toHaveLength(1);
@@ -72,7 +71,6 @@ describe("removeKeybindingRules", () => {
     });
 
     it("матчит по разобранной комбинации, а не по строке", () => {
-        // "Ctrl+H" и "ctrl+h" — одна комбинация.
         const next = removeKeybindingRules(FIXTURE, (rule) => chordsEqual(parseChord(rule.key), parseChord("Ctrl+H")));
 
         expect(next).not.toContain("startFindReplaceAction");
@@ -143,16 +141,13 @@ describe("removeKeybindingRules", () => {
         // Не-объект (5), правило без command ({key:"orphan"}) и с пустым command
         // до предиката не доходят.
         expect(seen.map((r) => r.command)).toEqual(["a", "b", "c", "d"]);
-        // when: непустая строка сохраняется; пустая, отсутствующая и НЕ-строка → undefined.
         expect(seen.map((r) => r.when)).toEqual(["listFocus", undefined, undefined, undefined]);
-        // key: строка сохраняется; отсутствующая и НЕ-строка → "".
         expect(seen.map((r) => r.key)).toEqual(["ctrl+s", "", "", ""]);
     });
 
     it("непустое содержимое не сбрасывается в пустой массив", () => {
         const content = '[{ "key": "ctrl+s", "command": "keep" }]\n';
 
-        // predicate=false ничего не удаляет — но ensureArrayContent не должен затереть файл.
         expect(removeKeybindingRules(content, () => false)).toContain("keep");
     });
 });

@@ -10,10 +10,8 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 import type { ISaveEdit } from "./iSaveParticipant.ts";
 import { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 
-// Композиция save-участников (#196, хвост): участники исполняются
-// последовательно, каждый получает СВЕЖИЙ снапшот (правки предыдущего уже в
-// буфере), зависший режется таймаутом, сбойный пропускается — запись на диск
-// происходит в любом случае.
+// #196: запись на диск происходит в любом случае — зависший участник режется таймаутом,
+// сбойный пропускается.
 
 describe("TextFileSaveParticipant — композиция save-участников", () => {
     let ws: ITempWorkspace;
@@ -51,7 +49,6 @@ describe("TextFileSaveParticipant — композиция save-участник
 
         await controller.save();
 
-        // Второй участник обязан видеть текст УЖЕ с правкой первого.
         expect(seenTexts).toEqual(["base", "1base"]);
         expect(fs.readFileSync(fp, "utf-8")).toBe("21base");
         controller.dispose();
@@ -88,7 +85,6 @@ describe("TextFileSaveParticipant — композиция save-участник
 
         controller.model.saveParticipant = new TextFileSaveParticipant(() => [
             () => Promise.reject(new Error("boom")),
-            // Отказ не-Error значением — тоже пропуск, а не крах save.
             // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- сьют проверяет ИМЕННО не-Error отказ
             () => Promise.reject("nope"),
             () => Promise.resolve([insertAtStart("ok:")]),
@@ -118,7 +114,6 @@ describe("TextFileSaveParticipant — композиция save-участник
             ]);
 
             const savePromise = controller.save();
-            // До таймаута запись не происходит — участник ещё «думает».
             await vi.advanceTimersByTimeAsync(4999);
             expect(fs.readFileSync(fp, "utf-8")).toBe("base");
             await vi.advanceTimersByTimeAsync(1);
@@ -150,7 +145,6 @@ describe("TextFileSaveParticipant — композиция save-участник
 
             await controller.save();
 
-            // Оба участника завершились сами — «страховочных» 5с-таймеров не осталось.
             expect(vi.getTimerCount()).toBe(0);
             controller.dispose();
         } finally {
@@ -182,19 +176,16 @@ describe("TextFileSaveParticipant — композиция save-участник
         controller.model.saveParticipant = new TextFileSaveParticipant(() => [
             () =>
                 Promise.resolve<ISaveEdit[]>([
-                    // line/char за верхней границей → (последняя строка, её длина)
                     {
                         kind: "text",
                         range: { start: { line: 99, character: 99 }, end: { line: 99, character: 99 } },
                         text: "A",
                     },
-                    // отрицательные line/char → (0, 0)
                     {
                         kind: "text",
                         range: { start: { line: -1, character: -1 }, end: { line: -1, character: -1 } },
                         text: "B",
                     },
-                    // в границах → без изменений позиции
                     {
                         kind: "text",
                         range: { start: { line: 0, character: 1 }, end: { line: 0, character: 1 } },

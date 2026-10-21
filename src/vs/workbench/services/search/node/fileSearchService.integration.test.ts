@@ -1,13 +1,3 @@
-/**
- * Integration test: FileSearchService against the real diode project.
- *
- * This test suite exercises FileSearchService with the actual workspace
- * at process.cwd() (i.e. /workspaces/vexx).  It verifies that:
- *   - real project files are indexed
- *   - fuzzy ranking produces VS Code-like results on actual filenames
- *   - known files are discoverable by their common abbreviations
- */
-
 import * as path from "node:path";
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -16,10 +6,8 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/c
 
 import { FileSearchService } from "./fileSearchService.ts";
 
-const ROOT = path.join(process.cwd()); // /workspaces/vexx
+const ROOT = path.join(process.cwd());
 const SRC = path.join(ROOT, "src");
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function relativePaths(results: ReturnType<FileSearchService["search"]>): string[] {
     return results.map((r) => r.entry.relativePath);
@@ -28,8 +16,6 @@ function relativePaths(results: ReturnType<FileSearchService["search"]>): string
 function scoreOf(results: ReturnType<FileSearchService["search"]>, fragment: string): number | undefined {
     return results.find((r) => r.entry.relativePath.includes(fragment))?.score;
 }
-
-// ─── Suite ────────────────────────────────────────────────────────────────────
 
 describe("FileSearchService — integration against real project", () => {
     let service: FileSearchService;
@@ -125,15 +111,10 @@ describe("FileSearchService — integration against real project", () => {
 
     describe("ranking on real files", () => {
         it('"wbc": WorkbenchComponent.ts ties for the top score among "wbc" matches', () => {
-            // Большой maxResults: WorkbenchComponent.ts делит топовый счёт с десятками
-            // `Workbench*`-соседей, поэтому за дефолтным капом 50 его может не быть.
-            // Проверяем именно «ничто не обходит его по счёту», а не позицию в срезе.
             const results = service.search("wbc", 2000);
             expect(results.length).toBeGreaterThan(0);
-            // WorkbenchComponent.ts ties for the best score — W, b and C hit word/camel boundaries.
-            // Files sharing the same boundary pattern (e.g. WorkbenchContextKeys.ts) share that top score, so asserting an
-            // exact position is brittle (it depends on walk order and how many siblings exist);
-            // assert instead that nothing outscores it.
+            // Files sharing the W·b·C boundary pattern (e.g. WorkbenchContextKeys.ts) tie for the top
+            // score, and their order depends on the walk — assert that nothing outscores it.
             const workbenchComponentScore = scoreOf(results, "workbenchComponent.ts");
             expect(workbenchComponentScore).toBeDefined();
             const maxScore = Math.max(...results.map((r) => r.score));
@@ -147,10 +128,8 @@ describe("FileSearchService — integration against real project", () => {
         });
 
         it('"kr": keybindingRegistry.ts ties for the top score among "kr" matches', () => {
-            // Позиция в топ-5 кодировала размер репозитория: любой новый
-            // `keybinding*`-файл с тем же boundary-паттерном (k в начале, R на
-            // camelCase-границе) делит счёт и выталкивает соседа из среза.
-            // Сверяем счёт, а не позицию (приём «wbc»-теста выше).
+            // Позиция в топ-5 кодировала размер репозитория: новый `keybinding*`-файл с тем же
+            // boundary-паттерном выталкивает соседа из среза. Сверяем счёт, а не позицию.
             const results = service.search("kr", 2000);
             const registryScore = scoreOf(results, "keybindingRegistry.ts");
             expect(registryScore).toBeDefined();
@@ -159,12 +138,8 @@ describe("FileSearchService — integration against real project", () => {
         });
 
         it('"co": files sharing the Command* prefix score alike', () => {
-            // Ранее тут стояло «ScrollContainerElement.ts в топ-10». Это кодировало
-            // размер репозитория, а не качество ранжирования: любой новый файл с более
-            // плотным «sc» (напр. settingsContext.ts) сдвигает индекс, ничего не ломая.
-            // Сверяем счёт, а не позицию — и берём выдачу с запасом: дефолтные 50
-            // строк это тот же размер репозитория, только с другой стороны (пачка
-            // новых `commit*`-файлов вытолкнула обоих участников сравнения).
+            // Сверяем счёт, а не позицию: позиция кодирует размер репозитория. Выдача — с запасом:
+            // дефолтные 50 строк — тот же размер с другой стороны.
             const results = service.search("co", 1000);
             const registry = scoreOf(results, "commandRegistry.ts");
             const action = scoreOf(results, "commandAction.ts");
@@ -183,13 +158,9 @@ describe("FileSearchService — integration against real project", () => {
         it('"workbenchComponent" exact substring \u2014 all results contain WorkbenchComponent in basename', () => {
             const results = service.search("workbenchComponent");
             expect(results.length).toBeGreaterThan(0);
-            // Every result should have "workbenchComponent" in basename (high word-boundary score)
-            // or at least in the path; files without it should score too low to appear in top-N
             const top = results.slice(0, results.length);
-            // All top results share the same matched region — verify they are all WorkbenchComponent files
             const scores = top.map((r) => r.score);
             const maxScore = scores[0];
-            // Files sharing the top score should all be WorkbenchComponent*.ts variants
             const topTier = top.filter((r) => r.score === maxScore);
             expect(topTier.every((r) => r.entry.relativePath.includes("workbenchComponent"))).toBe(true);
         });

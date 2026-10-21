@@ -8,7 +8,6 @@ describe("TextMateState", () => {
         const state = new TextMateState(INITIAL);
         const cloned = state.clone();
 
-        // A fresh wrapper instance — not the same object…
         expect(cloned).not.toBe(state);
         expect(cloned).toBeInstanceOf(TextMateState);
         // …but equal in content (StateStack is immutable, so its clone() is self).

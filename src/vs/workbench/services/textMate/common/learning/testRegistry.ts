@@ -8,11 +8,7 @@ import vsctm from "vscode-textmate";
 import { createDevAssetAccess } from "../../../../../base/node/assets/createDefaultAssetAccess.ts";
 import { getOnigLib } from "../onigLib.ts";
 
-/**
- * Тестовый хелпер: строит `Registry` поверх грамматик, лежащих в
- * builtin-расширениях `src/Extensions/builtin/`. Каждый тест получает свежий
- * Registry (общий `onigLib` синглтон, чтобы WASM грузился один раз на процесс).
- */
+// Свежий Registry на тест, `onigLib` общий — WASM грузится один раз на процесс.
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const builtinDir = path.resolve(here, "..", "..", "..", "..", "..", "..", "..", "extensions");

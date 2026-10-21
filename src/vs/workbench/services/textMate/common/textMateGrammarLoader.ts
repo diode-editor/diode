@@ -8,25 +8,13 @@ import type { ITextMateTheme } from "../../themes/common/textMateTheme.ts";
 import { getOnigLib } from "./onigLib.ts";
 import { TextMateTokenizationSupport } from "./textMateTokenizationSupport.ts";
 
-/**
- * Описание грамматики в bundle: scope (`source.js`), виртуальный путь к
- * `.tmLanguage.json` (резолвится через {@link IAssetAccess}) и опциональный
- * список injection-scopes, которые нужно подключать в эту грамматику.
- */
 export interface IGrammarRecord {
     readonly scopeName: string;
     readonly path: string;
     readonly injections?: readonly string[];
 }
 
-/**
- * Фабрика над `vscode-textmate.Registry`. Принимает массив записей
- * (включая injection-грамматики) и предоставляет асинхронную загрузку
- * нашего {@link ITokenizationSupport} по scope-имени.
- *
- * Все грамматики читаются через {@link IAssetAccess} лениво — при первом
- * запросе.
- */
+/** Грамматики читаются лениво — при первом запросе. */
 export class TextMateGrammarLoader {
     private readonly assets: IAssetAccess;
     private readonly registry: Registry;
@@ -69,11 +57,8 @@ export class TextMateGrammarLoader {
     }
 
     /**
-     * Тема подсветки (upstream `TextMateTokenizationFeature._updateTheme` →
-     * `Registry.setTheme`): с ней `tokenizeLine2` кладёт в метаданные индексы
-     * colorMap темы. Уже загруженные грамматики подхватывают новую тему сами;
-     * токены, посчитанные по прежней, перетокенизирует владелец
-     * (`TokenizationRegistry.setColorMap`).
+     * Upstream `TextMateTokenizationFeature._updateTheme`. Загруженные грамматики подхватывают тему
+     * сами; токены по прежней перетокенизирует владелец (`TokenizationRegistry.setColorMap`).
      */
     public setTheme(theme: ITextMateTheme): void {
         this.registry.setTheme(

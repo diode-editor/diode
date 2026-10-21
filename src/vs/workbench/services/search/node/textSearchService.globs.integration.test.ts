@@ -10,14 +10,9 @@ import { parseSearchFieldGlobs } from "../common/textSearch.ts";
 import { TextSearchService } from "./textSearchService.ts";
 
 /**
- * Какие файлы находит поиск по содержимому — на настоящем ripgrep и настоящем
- * дереве. Юнит-тесты на `buildRgArgs` проверяют аргументы, а не то, как их
- * понимает rg: баг «`"common": true` в `files.exclude` прячет `nci/common/**`»
- * был зелёным по ним. Здесь каждая строка — «шаблоны → набор найденных файлов».
- *
- * Запрос собирается так же, как его собирает Search view: шаблоны настроек как
- * есть, поля — через {@link parseSearchFieldGlobs}. Семантика — эталона:
- * шаблон настройки от корня, набранное в поле — на любой глубине.
+ * Юнит-тесты `buildRgArgs` проверяют аргументы, а не то, как их понимает rg: баг
+ * «`"common": true` в `files.exclude` прячет `nci/common/**`» был по ним зелёным. Запрос
+ * собирается как в Search view: шаблоны настроек — от корня, поля — через {@link parseSearchFieldGlobs}.
  */
 
 const NEEDLE = "needle";
@@ -47,9 +42,7 @@ function without(...excluded: string[]): string[] {
 interface ISearchSpec {
     /** `files.exclude` + `search.exclude` — шаблоны от корня. */
     settings?: string[];
-    /** Текст поля «files to include». */
     include?: string;
-    /** Текст поля «files to exclude». */
     exclude?: string;
     useIgnoreFiles?: IUseIgnoreFiles;
 }

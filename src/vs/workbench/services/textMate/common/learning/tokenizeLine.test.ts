@@ -4,10 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { createTestRegistry } from "./testRegistry.ts";
 
-/**
- * Учебные тесты на `IGrammar.tokenizeLine(line, prevState)`.
- * Документируют форму результата и базовый scope-стек на простой строке JS.
- */
+/** Учебные тесты: форма результата `IGrammar.tokenizeLine` и базовый scope-стек. */
 describe("vscode-textmate :: tokenizeLine", () => {
     it("возвращает массив токенов, ruleStack и флаг stoppedEarly", async () => {
         const reg = createTestRegistry();

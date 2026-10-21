@@ -10,7 +10,6 @@ import { SyntheticTextModel } from "../../../common/editor/syntheticTextModel.ts
 
 import { TextFileModel } from "./textFileModel.ts";
 
-/** Сервис языков, который знает `.ts` и записывает каждый запрос фич как есть (без дедупа). */
 function recordingLanguageService(): ILanguageService & { requests: string[] } {
     const requests: string[] = [];
     return {
@@ -23,11 +22,7 @@ function recordingLanguageService(): ILanguageService & { requests: string[] } {
     };
 }
 
-/**
- * Модель просит фичи языка там, где у документа появляется или меняется язык,
- * — отсюда активация расширений по `onLanguage:` для любой модели, а не только
- * для активного редактора.
- */
+/** Отсюда активация расширений по `onLanguage:` для любой модели, а не только активного редактора. */
 describe("TextFileModel — запрос фич языка", () => {
     let ws: ITempWorkspace;
     let languages: ReturnType<typeof recordingLanguageService>;

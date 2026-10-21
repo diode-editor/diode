@@ -1,11 +1,5 @@
-// Загрузчик бинаря ripgrep (`rg`) с двумя путями, ровно как loadNodePty:
-//   - dev (tsx/npm): путь из пакета @vscode/ripgrep (он же кладёт per-platform
-//     бинарь в node_modules);
-//   - упакованная сборка: бинарь вшит ассетом `rg.bundle`; на первом запуске
-//     распаковываем его в пользовательский кэш и запускаем оттуда (исполняемый
-//     файл нельзя запустить из JS-blob — нужен файл на диске).
-// Чтение ассета и безопасная распаковка — общие (base/node/assets): кэш по
-// хэшу содержимого, лок против двух одновременно стартующих diode.
+// Два пути, как loadNodePty: dev — @vscode/ripgrep из node_modules; сборка — ассет
+// `rg.bundle`, распакованный в кэш (исполняемый файл не запустить из JS-blob).
 
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -17,19 +11,13 @@ const ASSET_NAME = "rg.bundle";
 
 let cached: string | null = null;
 
-/** Абсолютный путь к исполняемому `rg`; кэшируется на процесс. */
 export function loadRipgrepPath(): string {
     // Stryker disable next-line AssignmentOperator: без кэша путь тот же — теряется только экономия повторного чтения ассета
     cached ??= resolveRipgrepPath();
     return cached;
 }
 
-/**
- * Путь к `rg` без кэша на процесс: `bundle` — байты `rg.bundle` упакованной
- * сборки (`null` — dev, берём @vscode/ripgrep), `cacheRoot` — корень кэша
- * распаковки (по умолчанию пользовательский кэш diode). Имя бинаря в бандле
- * платформозависимо (совпадает с pack-ripgrep.mjs).
- */
+/** `bundle === null` — dev (@vscode/ripgrep). Имя бинаря в бандле — как в pack-ripgrep.mjs. */
 export function resolveRipgrepPath(
     bundle: Uint8Array | null = readPackagedAsset(ASSET_NAME),
     cacheRoot?: string,

@@ -3,15 +3,7 @@ import type { IOnigLib } from "vscode-textmate";
 
 import type { IAssetAccess } from "../../../../base/common/assets/iAssetAccess.ts";
 
-/**
- * Singleton initializer for the `vscode-oniguruma` WASM regex engine.
- *
- * `loadWASM` мутирует глобальное состояние модуля и должен вызываться ровно
- * один раз за процесс. Возвращаемый `IOnigLib` совместим с
- * `vscode-textmate` `RegistryOptions.onigLib`. Источник `onig.wasm` —
- * абстракция {@link IAssetAccess}: в dev/tests читаем из реальной FS,
- * в SEA-сборке — из встроенного `diode.bundle`.
- */
+// `loadWASM` мутирует глобальное состояние модуля — ровно один раз за процесс.
 
 let onigLibPromise: Promise<IOnigLib> | undefined;
 

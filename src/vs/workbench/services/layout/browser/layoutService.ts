@@ -29,10 +29,8 @@ import {
 
 export const LayoutServiceDIToken = token<LayoutService>("LayoutService");
 
-/** Части workbench'а, между которыми ходит фокус (подмножество `Parts` эталона). */
 export type WorkbenchPart = "sidebar" | "editor" | "panel" | "auxiliarybar";
 
-/** Значения `workbench.secondarySideBar.defaultVisibility` (enum эталона). */
 type SecondarySideBarDefaultVisibility =
     | "hidden"
     | "visibleInWorkspace"
@@ -41,20 +39,10 @@ type SecondarySideBarDefaultVisibility =
     | "maximized";
 
 /**
- * Логика workbench-layout'а: видимость/ширина сайдбара, видимость нижней панели
- * и вторичной боковой панели и персист layout-состояния через
- * {@link IStateService} (write-through по `onDidChangeLayout` — drag сэша и
- * команды).
- *
- * Сам контрол `WorkbenchLayoutElement` остаётся у владельца корневой view
- * (`WorkbenchComponent`) и приходит через late-init шов {@link attachLayout} —
- * элемент про DI/StateService не знает, сервис читает/пишет его через
- * публичные геттеры/сеттеры.
- *
- * Истина видимости нижней панели — {@link PanelService}, вторичной панели —
- * {@link AuxiliaryBarService}: команды зовут их `setVisible`, а layout и
- * контекст-ключи `panelVisible`/`auxiliaryBarVisible` следуют за
- * `onDidChangeVisibility` (подписки в конструкторе).
+ * Контрол `WorkbenchLayoutElement` остаётся у владельца view и приходит через
+ * {@link attachLayout}: элемент про DI/StateService не знает. Истина видимости нижней
+ * панели — {@link PanelService}, вторичной — {@link AuxiliaryBarService}; layout и
+ * контекст-ключи следуют за их `onDidChangeVisibility`.
  */
 export class LayoutService extends Disposable {
     public static dependencies = [
@@ -80,7 +68,6 @@ export class LayoutService extends Disposable {
         private readonly workspaceContext: IWorkspaceContextService,
     ) {
         super();
-        // Видимость панели живёт в PanelService; layout и контекст-ключ следуют за ней.
         // Стартовое значение — сразу: рестор, совпавший с ним, события не даст.
         this.contextKeys.set("panelVisible", this.panelService.visible);
         this.register(
@@ -98,8 +85,6 @@ export class LayoutService extends Disposable {
                 this.state.store(PANEL_ACTIVE_VIEW_STATE, id);
             }),
         );
-        // Вторичная боковая панель — та же пара «истина в сервисе части, layout
-        // и ключ следуют».
         this.contextKeys.set("auxiliaryBarVisible", this.auxiliaryBarService.visible);
         this.register(
             this.auxiliaryBarService.onDidChangeVisibility((visible) => {
@@ -117,18 +102,13 @@ export class LayoutService extends Disposable {
     }
 
     /**
-     * Прикрепляет корневую view окна (аналог `ILayoutService.mainContainer`
-     * VS Code). Владелец view зовёт это ПЕРВЫМ делом, до резолва фич: оверлеи
+     * Аналог `ILayoutService.mainContainer`. Звать ПЕРВЫМ, до резолва фич: оверлеи
      * создают сессии на её слое в своих конструкторах.
      */
     public attachRoot(root: BodyElement): void {
         this.root = root;
     }
 
-    /**
-     * Корневая view окна: её overlay-слой — общий хост попапов и модалок.
-     * До {@link attachRoot} — ошибка, как и у layout'а.
-     */
     public get mainContainer(): BodyElement {
         if (this.root === null) {
             throw new Error("LayoutService: root is not attached (attachRoot must be called first)");
@@ -136,11 +116,6 @@ export class LayoutService extends Disposable {
         return this.root;
     }
 
-    /**
-     * Прикрепляет layout-элемент (зовёт владелец view сразу после его создания)
-     * и вешает write-through: любое пользовательское изменение layout'а
-     * (drag сэша, команда) снимается в стор.
-     */
     public attachLayout(layout: WorkbenchLayoutElement): void {
         this.layout = layout;
         layout.onDidChangeLayout = () => {
@@ -149,11 +124,8 @@ export class LayoutService extends Disposable {
     }
 
     /**
-     * Применяет сохранённый layout к элементу через его публичные сеттеры и
-     * синхронизирует истину видимости частей в их сервисах (иначе первый toggle
-     * после рестора отработал бы вхолостую). Зовётся до первого кадра (из
-     * `mount()` владельца) — после сборки контейнеров: пустую вторичную панель
-     * рестор не показывает.
+     * Синхронизирует видимость в сервисах частей — иначе первый toggle после рестора
+     * отработал бы вхолостую. Звать после сборки контейнеров: пустую вторичную панель рестор не показывает.
      */
     public restoreLayout(): void {
         const layout = this.requireLayout();
@@ -170,7 +142,6 @@ export class LayoutService extends Disposable {
             // вкладка TERMINAL восстанавливается с placeholder'ом, шелл не спавним.
             const activeViewId = this.state.get(PANEL_ACTIVE_VIEW_STATE);
             if (activeViewId !== "") this.panelService.setActiveView(activeViewId);
-            // Пустой id (вкладку не выбирали) сервис части пропускает сам.
             this.auxiliaryBarService.setActiveView(this.state.get(AUXILIARYBAR_ACTIVE_VIEW_STATE));
             // Истина видимости — в сервисы частей; их подписчики двигают layout
             // повторно, и эта запись — тоже рестор, а не действие пользователя:
@@ -183,11 +154,8 @@ export class LayoutService extends Disposable {
     }
 
     /**
-     * Скрыта ли вторичная панель на старте. Сохранённое значение — у этого
-     * воркспейса; впервые открытому — `workbench.secondarySideBar.defaultVisibility`
-     * (как `getDefaultAuxiliaryBarHidden` эталона). Часть без единого
-     * контейнера показывать нечем — у эталона рестор, не нашедший контейнера,
-     * тоже помечает её скрытой.
+     * Впервые открытому воркспейсу — `workbench.secondarySideBar.defaultVisibility`
+     * (`getDefaultAuxiliaryBarHidden` эталона). Без контейнеров — скрыта, как и у эталона.
      */
     private restoreAuxiliaryBarHidden(): boolean {
         if (this.auxiliaryBarService.getViews().length === 0) return true;
@@ -207,7 +175,6 @@ export class LayoutService extends Disposable {
         return false;
     }
 
-    /** Снимает текущий layout из элемента в стор (write-through). No-op во время restore. */
     public captureLayout(): void {
         if (this.restoring) return;
         const layout = this.requireLayout();
@@ -220,8 +187,6 @@ export class LayoutService extends Disposable {
         this.state.store(AUXILIARYBAR_HIDDEN_STATE, !layout.getRightPanelVisible());
         this.state.store(AUXILIARYBAR_ACTIVE_VIEW_STATE, this.auxiliaryBarService.getActiveViewId() ?? "");
     }
-
-    // ── Сайдбар ─────────────────────────────────────────────────────────────
 
     public isSidebarVisible(): boolean {
         return this.requireLayout().getLeftPanelVisible();
@@ -237,68 +202,42 @@ export class LayoutService extends Disposable {
         this.setSidebarVisible(!this.isSidebarVisible());
     }
 
-    /**
-     * Подменяет контент сайдбара (левой панели) — так `SidebarService`
-     * переключает вьюлеты (Explorer ↔ Source Control) без activity bar. Сам
-     * реестр вьюлетов живёт в сервисе, layout лишь показывает переданный элемент.
-     */
+    /** Так `SidebarService` переключает вьюлеты без activity bar. */
     public setSidebarContent(element: TUIElement | null): void {
         const layout = this.requireLayout();
         layout.setLeftPanel(element);
         layout.markDirty();
     }
 
-    /** Grow/shrink the sidebar by `delta` columns, clamped by the layout element. */
     public nudgeSidebarWidth(delta: number): void {
         this.requireLayout().nudgeLeftPanelWidth(delta);
     }
 
-    /** Restore the sidebar to its default width. */
     public resetSidebarWidth(): void {
         this.requireLayout().resetLeftPanelWidth();
     }
-
-    // ── Нижняя панель ───────────────────────────────────────────────────────
 
     public isPanelVisible(): boolean {
         return this.requireLayout().getBottomPanelVisible();
     }
 
-    /**
-     * Shows/hides the bottom Panel. Истина видимости — {@link PanelService};
-     * layout и контекст-ключ `panelVisible` следуют за ней через подписку
-     * `onDidChangeVisibility` (см. конструктор).
-     */
     public setPanelVisible(visible: boolean): void {
         this.panelService.setVisible(visible);
     }
-
-    // ── Вторичная боковая панель ────────────────────────────────────────────
 
     public isAuxiliaryBarVisible(): boolean {
         return this.requireLayout().getRightPanelVisible();
     }
 
-    /**
-     * Shows/hides the Secondary Side Bar. Истина видимости —
-     * {@link AuxiliaryBarService}; layout и контекст-ключ `auxiliaryBarVisible`
-     * следуют за ней через подписку (см. конструктор).
-     */
     public setAuxiliaryBarVisible(visible: boolean): void {
         this.auxiliaryBarService.setVisible(visible);
     }
 
-    /** Grow/shrink the Secondary Side Bar by `delta` columns, clamped by the layout element. */
     public nudgeAuxiliaryBarWidth(delta: number): void {
         this.requireLayout().nudgeRightPanelWidth(delta);
     }
 
-    // ── Фокус и ресайз по фокусу ────────────────────────────────────────────
-
-    /**
-     * Часть, в поддереве которой фокус (аналог `hasFocus(part)` эталона);
-     * фокус вне боковых частей и панели считается редактором.
-     */
+    /** Аналог `hasFocus(part)`; фокус вне боковых частей и панели — редактор. */
     public getFocusedPart(): WorkbenchPart {
         const layout = this.requireLayout();
         const active = this.root?.focusManager?.activeElement ?? null;
@@ -312,11 +251,8 @@ export class LayoutService extends Disposable {
     }
 
     /**
-     * Ресайз части с фокусом (`workbench.action.increaseViewSize` /
-     * `decreaseViewSize` эталона): боковые части меняют ширину на
-     * `columns`, панель — высоту на `rows`. Редактор растёт за счёт соседей,
-     * как в сетке эталона: по ширине первой уступает вторичная панель, затем
-     * сайдбар; по высоте — нижняя панель.
+     * `workbench.action.increaseViewSize` эталона. Редактор растёт за счёт соседей, как в
+     * сетке эталона: по ширине первой уступает вторичная панель, затем сайдбар.
      */
     public resizeFocusedPart(columns: number, rows: number): void {
         const layout = this.requireLayout();

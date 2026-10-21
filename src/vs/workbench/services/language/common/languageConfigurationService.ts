@@ -11,34 +11,16 @@ import {
 import type { ILanguageConfiguration } from "../../../../platform/extensions/common/iLanguageConfiguration.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 
-/**
- * Узкий порт к `LanguageRegistry`: сервису конфигураций от реестра нужен
- * только виртуальный путь к `language-configuration.json` языка.
- */
 export interface ILanguageConfigurationPathSource {
     getLanguage(languageId: string): { readonly configurationPath: string | undefined } | undefined;
 }
 
 /**
- * Загрузка/парсинг/кэш `language-configuration.json` по языку.
- *
- * Файл конфигурации адресуется виртуальным путём из манифеста расширения
- * (`ILanguageEntry.configurationPath`) и читается через {@link IAssetAccess} —
- * то же адресное пространство, что у грамматик. Формат — JSONC: реальные
- * файлы стоковых расширений содержат комментарии и висячие запятые, политика
- * разбора та же, что у `settings.json` (ошибки — в лог, частичный результат —
- * в дело).
- *
- * Кэш — по языку и навсегда (расширения сканируются один раз на старте,
- * горячей перезагрузки вкладов нет — см. `reloadWindow`). Кэшируются и
- * неудачи: язык без файла, нечитаемый ассет и не-объект после парсинга дают
- * {@link EMPTY_LANGUAGE_CONFIGURATION}, второй раз к диску никто не идёт.
- *
- * Поверх файла лежат слои расширений ({@link register}): как у эталона
- * (`ComposedLanguageConfiguration`), секции сливаются по полю — заданная слоем
- * секция заменяет секцию файла целиком, поздний слой побеждает ранний, — и уже
- * результат разворачивается в {@link IResolvedLanguageConfiguration} (так пары
- * авто-закрытия выводятся из скобок слоя, если своих пар у него нет).
+ * Формат — JSONC (в стоковых файлах комментарии и висячие запятые), политика разбора — как у
+ * `settings.json`: ошибки в лог, частичный результат в дело. Кэш по языку навсегда, включая
+ * неудачи: горячей перезагрузки вкладов нет (`reloadWindow`). Слои {@link register} — как
+ * `ComposedLanguageConfiguration` эталона: секция слоя заменяет секцию файла целиком, поздний
+ * слой побеждает, разворачивается уже результат слияния (пары выводятся из скобок слоя).
  */
 export class LanguageConfigurationService implements ILanguageConfigurationService {
     /** Сырой файл языка; `null` — загружен, но файла нет или он битый. */
@@ -91,9 +73,7 @@ export class LanguageConfigurationService implements ILanguageConfigurationServi
     }
 
     public ensureLoaded(languageId: string): Promise<IResolvedLanguageConfiguration> {
-        // Один промис на язык — и пока чтение в полёте, и после: повторный
-        // вызов получает тот же settled-промис, к ассету никто не идёт второй
-        // раз. Синхронный доступ к готовому значению — через {@link get}.
+        // Один промис на язык и после settle: к ассету второй раз не идут.
         let flight = this.flights.get(languageId);
         if (flight === undefined) {
             flight = this.load(languageId).then((file) => {

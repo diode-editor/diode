@@ -8,9 +8,8 @@ import type { IFileMatch, ITextSearchQuery } from "../common/textSearch.ts";
 
 import { TextSearchService } from "./textSearchService.ts";
 
-// Поддельный `rg` — shell-скрипт, который печатает заранее заготовленный вывод:
-// так граничные случаи (ровно лимит, отмена посреди чанка, код выхода 2)
-// воспроизводятся детерминированно, без зависимости от содержимого диска.
+// Поддельный `rg` печатает заготовленный вывод: ровно лимит, отмена посреди чанка и код
+// выхода 2 воспроизводятся детерминированно.
 
 const QUERY: ITextSearchQuery = {
     pattern: "foo",
@@ -48,7 +47,6 @@ describe.skipIf(process.platform === "win32")("TextSearchService — проти�
         rmSync(dir, { recursive: true, force: true });
     });
 
-    /** `rg`, который выводит `stdoutLines` одним куском, `stderr` и выходит с `code`. */
     function fakeRg(options: { stdoutLines?: string[]; stderr?: string; code?: number; hang?: boolean }): string {
         const out = path.join(dir, "stdout.txt");
         writeFileSync(out, (options.stdoutLines ?? []).map((line) => `${line}\n`).join(""));

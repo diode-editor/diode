@@ -6,39 +6,21 @@ import type {
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IUserKeybindingRule } from "../../../../platform/keybinding/common/userKeybindings.ts";
 
-/**
- * Исход мутации: ошибка записи файла — не исключение, а результат (приём
- * `IExtensionOperationResult`) — вкладка показывает её текстом и остаётся жива.
- */
+/** Ошибка записи файла — результат, а не исключение: вкладка показывает её текстом и остаётся жива. */
 export type IKeybindingMutationResult = { readonly ok: true } | { readonly ok: false; readonly error: string };
 
 /**
- * Редактирование пользовательских биндингов: единственный владелец применения
- * user-правил к реестру (bootstrap и UI-мутации) и записи keybindings.json.
- *
- * Мутации применяются мгновенно (register/removeBindings) И пишутся в файл —
- * без file-watcher'а: ручные правки файла доезжают после Reload Window, как и
- * раньше. Сессионный «леджер» эффектов user-правил (что добавлено, какие
- * дефолты сняты) позволяет `resetKeybinding` вернуть дефолты без
- * откатываемого слоя в самом реестре; после Reload истина — файл.
- *
- * Контракт в common: browser-вкладка не должна импортировать node-реализацию.
+ * Единственный владелец применения user-правил к реестру и записи keybindings.json.
+ * Мутации применяются мгновенно; file-watcher'а нет — ручные правки файла доезжают после Reload Window.
  */
 export interface IKeybindingsEditorService extends IDisposable {
-    /**
-     * Bootstrap: применяет правила keybindings.json к реестру (unbind-правила
-     * `-command` снимают дефолты, остальные добавляются источником "user") и
-     * заполняет леджер. Вызывается один раз, после регистрации всех дефолтов.
-     */
+    /** Один раз, после регистрации всех дефолтов. */
     applyUserKeybindings(rules: readonly IUserKeybindingRule[]): void;
 
     /**
-     * Назначает команде комбинацию. С `previous` — замена конкретной записи:
-     * дефолт/расширение снимается unbind-правилом в файле (VS Code-пара
-     * «`-command` + новое правило»), user-правило переписывается. Без
-     * `previous` — добавление ещё одного биндинга. `when` нового правила
-     * копируется из перекрываемой записи — резолвнутый when, включая вклеенный
-     * enablement (как пишет VS Code).
+     * С `previous` — замена записи: дефолт/расширение снимается unbind-правилом (пара
+     * «`-command` + новое правило» VS Code), user-правило переписывается; без — ещё один
+     * биндинг. `when` копируется резолвнутым, с вклеенным enablement, как пишет VS Code.
      */
     defineKeybinding(
         commandId: string,
@@ -46,26 +28,14 @@ export interface IKeybindingsEditorService extends IDisposable {
         previous?: IKeybindingEntrySnapshot,
     ): Promise<IKeybindingMutationResult>;
 
-    /** Снимает запись: user-правило удаляется из файла, дефолт/расширение — unbind-правилом. */
+    /** User-правило удаляется из файла, дефолт/расширение — unbind-правилом. */
     removeKeybinding(entry: IKeybindingEntrySnapshot): Promise<IKeybindingMutationResult>;
 
-    /**
-     * Сбрасывает команду к дефолтам: из файла уходят все её правила (и add, и
-     * `-command`), из реестра — user-записи, снятые дефолты возвращаются.
-     * Порядок возвращённых дефолтов относительно других записей той же
-     * комбинации может отличаться от исходного до Reload Window (re-register
-     * ставит в конец) — практический эффект виден только у конфликтующих
-     * дефолтов, вставку по индексу осознанно не делаем.
-     */
     resetKeybinding(commandId: string): Promise<IKeybindingMutationResult>;
 
-    /**
-     * Есть ли у команды пользовательские правки в этом сеансе (добавленные
-     * user-биндинги или снятые дефолты) — гейт пункта «Reset Keybinding».
-     */
+    /** Гейт пункта «Reset Keybinding». */
     hasUserModifications(commandId: string): boolean;
 
-    /** Изменился набор действующих биндингов (любая успешная мутация). */
     onDidChange(cb: () => void): IDisposable;
 }
 

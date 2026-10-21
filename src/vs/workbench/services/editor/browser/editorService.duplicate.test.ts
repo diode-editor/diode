@@ -20,11 +20,6 @@ import { EditorServiceDIToken } from "../common/editorService.ts";
 
 import { EditorService } from "./editorService.ts";
 
-/**
- * Сплит и копия в группу повторяют вкладку по её рецепту (фабрика вкладок
- * её вида), а не только файловую: недисковый ресурс (`jdt:`) тоже переезжает,
- * безымянный буфер — нет.
- */
 describe("EditorService — повтор вкладки по рецепту (сплит, копия в группу)", () => {
     let ws: ITempWorkspace;
     let service: EditorService;
@@ -158,7 +153,6 @@ describe("EditorService — повтор вкладки по рецепту (с�
         expect(service.editorGroups.activeGroup).toBe(right);
         expect(right.editorCount).toBe(1);
         expect(textPaneOf(1).viewState.selections).toEqual([createCursorSelection(2, 1)]);
-        // Вкладка источника своей каретки не потеряла.
         expect(textPaneOf(0).viewState.selections).toEqual([createCursorSelection(0, 0)]);
     });
 

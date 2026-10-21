@@ -14,36 +14,21 @@ import {
 
 import { loadRipgrepPath } from "./loadRipgrep.ts";
 
-/** Cap on total matches per search — a huge result set is killed early (VS Code caps too). */
 const MAX_RESULTS = 10000;
 
-/**
- * Content search across the workspace, backed by ripgrep. Spawns `rg --json`,
- * streams parsed per-line results to `onResult` as they arrive, and reports a
- * summary when done. Each call is an independent process — the UI cancels the
- * previous {@link ISearchHandle} before starting the next (debounced) query.
- */
+/** Each call is its own `rg` process; the caller cancels the previous handle. */
 export class TextSearchService extends Disposable implements ITextSearchService {
     public static dependencies = [] as const;
 
-    /** Live child processes, killed on dispose so a search never outlives the app. */
     private readonly children = new Set<GuardedChildProcess>();
     private resolvedRgPath: string | null;
 
-    /**
-     * @param ripgrepPath Explicit `rg` path (tests). Omitted in production, where
-     * it is resolved lazily via {@link loadRipgrepPath} (dev node_modules / SEA asset).
-     */
     public constructor(ripgrepPath?: string) {
         super();
         this.resolvedRgPath = ripgrepPath ?? null;
     }
 
-    /**
-     * Runs {@link query} under `folder`, streaming each file's matches to
-     * `onResult`. Returns immediately with a handle; awaiting `handle.complete`
-     * yields the summary. An empty/invalid query completes with zero results.
-     */
+    /** An empty or invalid query completes with zero results. */
     public search(query: ITextSearchQuery, folder: string, onResult: (match: IFileMatch) => void): ISearchHandle {
         const args = buildRgArgs(query, folder);
         if (args === null) {
@@ -56,8 +41,7 @@ export class TextSearchService extends Disposable implements ITextSearchService 
         }
 
         const child = spawn(this.rgPath(), args, { cwd: folder });
-        // Конец — по `close`: результаты разбираются из stdout, и после `exit` в
-        // нём ещё могут оставаться строки.
+        // Конец — по `close`: после `exit` в stdout ещё могут оставаться строки.
         // Stryker disable next-line StringLiteral: логгера у сервиса нет — метка в лог не попадает
         const guard = new GuardedChildProcess(child, { label: "rg", waitForStdio: true });
         this.children.add(guard);

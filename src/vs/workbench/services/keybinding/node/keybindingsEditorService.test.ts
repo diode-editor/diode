@@ -36,7 +36,6 @@ interface IHarness {
     registry: KeybindingRegistry;
     service: KeybindingsEditorService;
     file: string;
-    /** Снапшот записи команды из реестра — «строка вкладки», над которой работает мутация. */
     entryOf(commandId: string, chordSpec?: string): IKeybindingEntrySnapshot;
     fileContent(): string;
     rules(): { key?: string; command: string; when?: string; args?: unknown }[];
@@ -138,9 +137,7 @@ describe("defineKeybinding", () => {
         expect(content).toContain('"command": "test.save"');
         expect(content).toContain('"command": "-test.save"');
         expect(content).toContain('"key": "ctrl+s"');
-        // when скопирован из перекрытой записи.
         expect(content).toContain('"when": "textViewFocus"');
-        // Мгновенное применение: старой комбинации нет, новая работает в этом же сеансе.
         expect(h.resolves("ctrl+s")).toBeUndefined();
         expect(h.entryOf("test.save", "f6").source).toBe("user");
     });
@@ -201,8 +198,7 @@ describe("defineKeybinding", () => {
         await h.service.defineKeybinding("other.command", parseChord("f9"), h.entryOf("other.command"));
 
         const content = h.fileContent();
-        // Комментарий нетронутого правила выжил (комментарий заменяемого правила
-        // уходит вместе с ним — он его и аннотировал).
+        // Комментарий заменяемого правила уходит вместе с ним — он его и аннотировал.
         expect(content).toContain("// pinned by hand");
         expect(content).toContain('"key": "ctrl+h"');
         expect(content).toContain('"key": "f9"');
@@ -368,7 +364,6 @@ describe("исходы и события", () => {
     it("ошибка записи возвращается результатом, реестр не тронут", async () => {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+s"), "test.save");
-        // Путь «в файл внутри файла» — запись гарантированно падает.
         const blocker = ws.path("blocker");
         fs.writeFileSync(blocker, "", "utf-8");
         const service = new KeybindingsEditorService(
@@ -440,7 +435,6 @@ describe("выбор правила и запись файла — тонкос�
 
         expect(result.ok).toBe(true);
         const rules = h.rules();
-        // Обе записи на месте: чужое правило не снято (ветка «previous === undefined» не идёт в remove).
         expect(rules.map((r) => r.command).sort()).toEqual(["other.command", "test.save"]);
     });
 
@@ -452,7 +446,6 @@ describe("выбор правила и запись файла — тонкос�
 
         const rules = h.rules();
         expect(Array.isArray(rules)).toBe(true);
-        // Новое правило + unbind дефолта — ровно два, файл валиден (стартовый контент чистый).
         expect(rules).toHaveLength(2);
         expect(rules.map((r) => r.command).sort()).toEqual(["-test.save", "test.save"]);
         // Файл заканчивается закрытой скобкой массива — стартовый контент был "",
@@ -484,7 +477,6 @@ describe("выбор правила и запись файла — тонкос�
         await h.service.removeKeybinding(target);
 
         const rules = h.rules();
-        // Снята ровно цель; остальные три (другой command / key / when) на месте.
         expect(rules).toHaveLength(3);
         expect(rules.some((r) => r.command === "save" && r.key === "ctrl+s" && r.when === "listFocus")).toBe(false);
         expect(rules.some((r) => r.command === "other")).toBe(true);
@@ -493,8 +485,6 @@ describe("выбор правила и запись файла — тонкос�
     });
 
     it("remove снимает ТОЛЬКО user-правило с совпадающим when (matchesUserRule чувствителен к when)", async () => {
-        // Файл и реестр в bootstrap-состоянии: два user-правила одной команды и
-        // комбинации, различаются when.
         const h = makeHarness(`[
     { "key": "f6", "command": "dup.cmd", "when": "listFocus" },
     { "key": "f6", "command": "dup.cmd", "when": "textViewFocus" }
@@ -544,13 +534,12 @@ describe("выбор правила и запись файла — тонкос�
             { keybindingsResource: path.join(blocker, "keybindings.json") },
             NULL_LOG_SERVICE,
         );
-        // Bootstrap-снятие дефолта наполняет леджер (removedDefaults), файл не пишет.
+        // Bootstrap-снятие дефолта файл не пишет.
         service.applyUserKeybindings([{ key: "ctrl+s", command: "-test.save" }]);
         expect(registry.getKeybindingForCommand("test.save")).toBeUndefined();
 
         const result = await service.resetKeybinding("test.save");
 
-        // Запись упала → реестр остаётся в снятом состоянии, дефолт НЕ возвращён.
         expect(result.ok).toBe(false);
         expect(registry.getKeybindingForCommand("test.save")).toBeUndefined();
     });
@@ -562,7 +551,6 @@ describe("выбор правила и запись файла — тонкос�
 
         await h.service.removeKeybinding(h.entryOf("my.cmd", "f6"));
 
-        // added отфильтрован до пустого И ничего не попало в removedDefaults → нет правок.
         expect(h.service.hasUserModifications("my.cmd")).toBe(false);
     });
 
@@ -578,11 +566,9 @@ describe("выбор правила и запись файла — тонкос�
         ]);
 
         await h.service.removeKeybinding(h.entryOf("dup.cmd", "f6"));
-        // f7 всё ещё действует…
         expect(h.resolves("f7")).toBe("dup.cmd");
 
         await h.service.resetKeybinding("dup.cmd");
-        // …и reset снимает именно его (леджер.added хранил f7, не f6).
         expect(h.resolves("f7")).toBeUndefined();
     });
 
@@ -590,7 +576,6 @@ describe("выбор правила и запись файла — тонкос�
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "test.save");
         h.registry.register(parseChord("ctrl+h"), "other.command");
-        // Наберём файлу и прямое user-правило, и unbind этой же команды, и чужое.
         await h.service.defineKeybinding("test.save", parseChord("f6"), h.entryOf("test.save")); // add + -test.save
         await h.service.defineKeybinding("other.command", parseChord("f7"), h.entryOf("other.command"));
 
@@ -599,7 +584,6 @@ describe("выбор правила и запись файла — тонкос�
         const commands = h.rules().map((r) => r.command);
         expect(commands).not.toContain("test.save");
         expect(commands).not.toContain("-test.save");
-        // Чужие правила остались.
         expect(commands).toContain("other.command");
         expect(commands).toContain("-other.command");
     });

@@ -33,14 +33,12 @@ describe("HistoryService — шов прыжка", () => {
         source.moveCaret(20);
 
         service.jump(() => {
-            // Как это делает сайт навигации: сначала ресурс, потом позиция.
             source.open(beta());
             source.moveCaret(50);
         });
 
         const entries = service.getEntries();
         expect(entries).toMatchObject([{ line: 0 }, { line: 20 }, { line: 50 }]);
-        // Промежуточной записи «начало beta» нет — иначе первый Back вёл бы туда.
         expect(entries[2].uri.toString()).toBe(beta());
         expect(service.currentIndex).toBe(2);
 
@@ -90,8 +88,7 @@ describe("HistoryService — шов прыжка", () => {
         const target = "jdt://contents/lib.jar/pkg/Foo.java";
 
         await service.jumpAsync(async () => {
-            // Так ведёт себя открытие недискового ресурса: содержимое приезжает
-            // от провайдера через тик, и только потом можно двигать каретку.
+            // Содержимое недискового ресурса приезжает от провайдера через тик.
             await Promise.resolve();
             source.open(target);
             source.moveCaret(50);
@@ -113,7 +110,6 @@ describe("HistoryService — шов прыжка", () => {
             source.moveCaret(50);
         });
 
-        // Ни 5, ни 0 целевого файла — только origin и итоговая позиция.
         expect(service.getEntries()).toMatchObject([{ line: 0 }, { line: 50 }]);
     });
 
@@ -139,8 +135,6 @@ describe("HistoryService — шов прыжка", () => {
             source.moveCaret(50);
         });
 
-        // Вернуться в Output через openUri нельзя — его содержимое пишет
-        // владелец панели, а не ресурс; записи о нём быть не должно.
         expect(service.getEntries().map((e) => e.uri.scheme)).toEqual(["file"]);
     });
 });

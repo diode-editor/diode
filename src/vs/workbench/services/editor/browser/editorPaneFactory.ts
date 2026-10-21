@@ -9,74 +9,52 @@ import { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts"
 
 import type { EditorGroup } from "./editorGroupModel.ts";
 
-/** Куда открыть вкладку по рецепту. */
 export interface IEditorPaneOpenTarget {
     readonly group: EditorGroup;
     readonly focus: boolean;
 }
 
 /**
- * Фабрика вкладок одного вида: «рецепт» вкладки и открытие по нему (E2 — лёгкий
- * аналог upstream `EditorInput.copy()` + `EditorPaneDescriptor.describes` +
- * `IEditorSerializer`). Рецепт — plain-объект, а не input с жизненным циклом:
- * панель у нас сама владеет моделью через ссылку реестра, так что второй
- * объект-владелец не нужен.
- *
- * Через рецепт ядро повторяет вкладку любого вида, не зная этого вида: сплит и
- * копия в соседнюю группу ({@link EditorService.splitActiveGroup},
- * `copyActiveEditorToGroup`) и рестор сессии (`WorkbenchStateService`).
- *
- * Методы объявлены методами, а не полями-функциями, намеренно: параметры методов
- * бивариантны, поэтому фабрики разных рецептов живут в одном списке.
+ * Лёгкий аналог upstream `EditorInput.copy()` + `EditorPaneDescriptor.describes` + `IEditorSerializer`.
+ * Рецепт — plain-объект, а не input с жизненным циклом: панель сама владеет моделью через ссылку реестра.
+ * Методы, а не поля-функции, намеренно: параметры методов бивариантны, и фабрики разных рецептов живут в одном списке.
  */
 export interface IEditorPaneFactory<D> {
-    /**
-     * Идентичность вида в сессии: по нему сохранённая запись находит свою
-     * фабрику. Значения — upstream `typeId` соответствующих input'ов.
-     */
+    /** Upstream `typeId` соответствующего input'а: по нему запись сессии находит фабрику. */
     readonly typeId: string;
 
-    /**
-     * Вкладка вида одна на окно (upstream `EditorInputCapabilities.Singleton`):
-     * сплит и копия в группу её не повторяют.
-     */
+    /** Upstream `EditorInputCapabilities.Singleton`: сплит и копия в группу вкладку не повторяют. */
     readonly singleton?: boolean;
 
-    /** Рецепт вкладки своего вида; `undefined` — вкладка не своя либо повторить её нельзя. */
+    /** `undefined` — вкладка не своя либо повторить её нельзя. */
     describe(pane: IEditorPane): D | undefined;
 
-    /** Рецепт → строка для сессии; `undefined` — вкладка не переживает рестарт. */
+    /** `undefined` — вкладка не переживает рестарт. */
     serialize(descriptor: D): string | undefined;
 
-    /** Строка сессии → рецепт; `undefined` — повторить уже нельзя (файл удалён и т.п.). */
+    /** `undefined` — повторить уже нельзя (файл удалён и т.п.). */
     deserialize(value: string): D | undefined;
 
-    /**
-     * Открыть вкладку по рецепту в группе. Ресурс там уже открыт — активируется
-     * существующая вкладка. Обещание не отклоняется: неудачу открытия фабрика
-     * доносит сама.
-     */
+    /** Ресурс уже открыт в группе — активируется он. Обещание не отклоняется: неудачу фабрика доносит сама. */
     open(descriptor: D, target: IEditorPaneOpenTarget): Promise<void>;
 }
 
 /**
- * Фабрики вкладок из contrib — явным списком, который собирает модуль профиля
- * (узаконенное отклонение от upstream-реестра: `services/editor` про contrib не
- * знает). Фабрика получает контейнер при создании и ходит в него лениво — в
- * `open`, а не в конструкторе: так её создание не тянет за собой граф сервисов.
+ * Явный список, собранный модулем профиля (отклонение от upstream-реестра: `services/editor` про contrib
+ * не знает). В контейнер фабрика ходит лениво, в `open`: её создание не тянет граф сервисов.
  */
 export type EditorPaneFactoryCtor = (accessor: ServiceAccessor) => IEditorPaneFactory<unknown>;
 
 export const EditorPaneFactoriesDIToken = token<readonly IEditorPaneFactory<unknown>[]>("EditorPaneFactories");
 
-/** Каретка и скролл — что переезжает с текстовой вкладкой в её копию (US-1). */
+/** Что переезжает с текстовой вкладкой в её копию (US-1). */
 export interface ITextEditorViewState {
     readonly selections: readonly ISelection[];
     readonly scrollTop: number;
     readonly scrollLeft: number;
 }
 
-/** Рецепт текстовой вкладки: ресурс и вид на него (из сессии — без вида). */
+/** Из сессии — без `viewState`. */
 export interface ITextEditorPaneDescriptor {
     readonly uri: Uri;
     readonly viewState?: ITextEditorViewState;
@@ -85,19 +63,14 @@ export interface ITextEditorPaneDescriptor {
 /** upstream `FILE_EDITOR_INPUT_ID`: в сессию текстовая фабрика пишет только файлы. */
 export const TEXT_EDITOR_PANE_TYPE_ID = "workbench.editors.files.fileEditorInput";
 
-/** Что текстовой фабрике нужно от `EditorService`. */
 export interface ITextEditorPaneFactoryHost {
-    /** Откроется ли ресурс заново по одному uri (см. `EditorService.canRestore`). */
     canRestore(uri: Uri): boolean;
     openUri(uri: Uri, options: { focus: boolean; group: EditorGroup; viewState?: ITextEditorViewState }): Promise<void>;
 }
 
 /**
- * Фабрика текстовых вкладок: файл с диска (общая модель через реестр) и
- * недисковый ресурс, пока его схему обслуживает провайдер (`jdt:`). Безымянный
- * буфер не повторяется — его модель принадлежит одной вкладке, общей для
- * untitled в реестре нет (E3). Рестарт переживают только файлы: провайдер
- * недискового ресурса появляется лишь с активацией расширения.
+ * Безымянный буфер не повторяется — общей модели для untitled в реестре нет (E3). Рестарт переживают
+ * только файлы: провайдер недискового ресурса появляется лишь с активацией расширения.
  */
 export function createTextEditorPaneFactory(
     host: ITextEditorPaneFactoryHost,

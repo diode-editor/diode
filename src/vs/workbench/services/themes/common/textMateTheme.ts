@@ -14,11 +14,8 @@ export interface ITextMateThemingRule {
 }
 
 /**
- * Тема подсветки синтаксиса в форме, которую понимает vscode-textmate
- * (`Registry.setTheme(theme, colorMap)`): правила и colorMap — цвета по
- * индексам, которые грамматика кладёт в метаданные токенов
- * (`encodedTokenAttributes.ts`, `ColorId`). Индекс 1 — цвет текста редактора,
- * 2 — фон, 0 — «нет цвета».
+ * `Registry.setTheme(theme, colorMap)`: colorMap — цвета по индексам из метаданных токенов
+ * (`ColorId`). Индекс 1 — цвет текста редактора, 2 — фон, 0 — «нет цвета».
  */
 export interface ITextMateTheme {
     readonly settings: readonly ITextMateThemingRule[];
@@ -26,15 +23,9 @@ export interface ITextMateTheme {
 }
 
 /**
- * Upstream `ColorThemeData.tokenColors` + `tokenColorMap`: первое правило —
- * без скоупа, цвета текста и фона редактора (это и есть `ColorId`
- * 1 и 2); правила темы без скоупа отбрасываются — «умолчание» у эталона одно;
- * цвета нормализуются (`#RRGGBB`/`#RRGGBBAA` в верхнем регистре), colorMap —
- * цвета правил по порядку, без повторов.
- *
- * Не перенесено: `editor.tokenColorCustomizations` (настройки нет) и цвета
- * лог-токенов по умолчанию (`token.info-token` и др., `defaultThemeColors`
- * эталона).
+ * Upstream `ColorThemeData.tokenColors` + `tokenColorMap`: первое правило — без скоупа, цвета
+ * текста и фона (`ColorId` 1 и 2); правила темы без скоупа отбрасываются — «умолчание» у эталона
+ * одно. Не перенесено: `editor.tokenColorCustomizations` и цвета лог-токенов по умолчанию.
  */
 export function createTextMateTheme(theme: WorkbenchTheme): ITextMateTheme {
     const settings: ITextMateThemingRule[] = [
@@ -77,20 +68,12 @@ export function equalsTextMateTheme(a: ITextMateTheme | undefined, b: ITextMateT
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/**
- * Цвет редактора для правила по умолчанию. Тема из файла его имеет всегда
- * (умолчания реестра подложены, `WorkbenchTheme.fromThemeFile`); нет — правило
- * без цвета, и vscode-textmate подставит свой (`#000000`/`#ffffff`).
- */
+/** Тема из файла цвет имеет всегда (`WorkbenchTheme.fromThemeFile`); нет — vscode-textmate подставит свой. */
 function editorColor(color: number | undefined): string | undefined {
     return color === undefined ? undefined : normalizeColor(formatHexColor(color));
 }
 
-/**
- * Upstream `normalizeColor`: `#RGB`/`#RGBA`/`#RRGGBB`/`#RRGGBBAA` → верхний
- * регистр, короткая форма развёрнута, непрозрачная альфа `FF` снята.
- * Невалидный цвет — `undefined` (правило без этого цвета).
- */
+/** Upstream `normalizeColor`: верхний регистр, короткая форма развёрнута, альфа `FF` снята; невалидный — `undefined`. */
 export function normalizeColor(color: string | undefined): string | undefined {
     if (color === undefined || !/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(color)) {
         return undefined;

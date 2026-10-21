@@ -20,7 +20,6 @@ describe("ThemeRegistry", () => {
         const registry = new ThemeRegistry([A]);
         const theme = registry.resolve("Theme A");
         expect(theme?.name).toBe("Theme A");
-        // #111111 packed → non-undefined color value.
         expect(theme?.getColor("editor.background")).toBeDefined();
         expect(registry.resolve("Missing")).toBeUndefined();
     });
@@ -67,7 +66,6 @@ describe("built-in themes", () => {
         for (const file of builtinThemes) {
             const theme = registry.resolve(file.name!);
             expect(theme, `theme "${file.name}" should resolve`).toBeDefined();
-            // A real editor background parses to a packed color for every theme.
             expect(theme!.getColor("editor.background")).toBeDefined();
             expect(theme!.tokenTheme.rules.length).toBeGreaterThan(0);
         }

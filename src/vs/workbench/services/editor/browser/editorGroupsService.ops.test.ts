@@ -10,14 +10,6 @@ import type { IGroupsChangeEvent } from "../common/editorGroupsService.ts";
 import type { EditorGroup } from "./editorGroupModel.ts";
 import { EditorGroupsService } from "./editorGroupsService.ts";
 
-/**
- * Операции полосы групп напрямую, на фейковых вкладках: события (их состав и
- * порядок), передача фокуса, отказы по месту с записью в лог, схлопывание и
- * выключение сервиса. Сквозные сценарии с настоящими редакторами — в
- * `editorGroupsService.test.ts` и харнесс-тестах сплитов.
- */
-
-/** Вкладка-фейк: считает фокус и dispose. */
 class FakePane implements IEditorPane {
     public readonly view = new TUIElement();
     public readonly isModified = false;
@@ -63,7 +55,6 @@ function recordingLog(sink: string[]): ILogService {
     };
 }
 
-/** Сервис + журнал событий и фокусов содержимого групп. */
 function setup() {
     const logs: string[] = [];
     const service = new EditorGroupsService(recordingLog(logs));

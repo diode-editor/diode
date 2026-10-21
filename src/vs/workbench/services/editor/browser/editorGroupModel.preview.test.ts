@@ -7,10 +7,6 @@ import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
 
 import { EditorGroup } from "./editorGroupModel.ts";
 
-/**
- * Фейковая вкладка с управляемым `isModified` — предпросмотр весь про него:
- * «первая правка прикалывает» и «грязную не замещаем».
- */
 interface IFakePane extends IEditorPane {
     disposed: boolean;
     isModified: boolean;
@@ -92,7 +88,6 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         group.pinPane(pinned);
 
         expect(fired).toBe(0);
-        // Чужое прикалывание не сняло предпросмотр с настоящей превью-вкладки.
         expect(group.previewPane === preview).toBe(true);
     });
 
@@ -138,8 +133,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
 
     it("вкладка, приехавшая уже грязной, предпросмотром не становится", () => {
         const group = new EditorGroup(1);
-        // Дубль документа при сплите: у копии isModified true с рождения, и
-        // ждать от неё смены состояния нечего.
+        // Дубль документа при сплите грязный с рождения — смены состояния ждать нечего.
         const pane = makePane("/a.ts", true);
         group.insertPane(pane, { preview: true });
 
@@ -162,7 +156,6 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.getPanes().map((p) => p.label)).toEqual(["/pinned.ts", "/b.ts"]);
         expect(preview.disposed).toBe(true);
         expect(group.previewPane === next).toBe(true);
-        // Индекс активной вкладки не поехал — слот тот же.
         expect(group.activeIndex).toBe(1);
     });
 
@@ -190,7 +183,6 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         preview.fireStateChange();
 
         expect(fired).toBe(0);
-        // Правка в уже замещённой вкладке не снимает предпросмотр с новой.
         expect(group.previewPane?.label).toBe("/b.ts");
     });
 
@@ -203,9 +195,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         const preview = makePane("/a.ts");
         group.insertPane(preview, { preview: true });
 
-        // Обе границы проверяем по отдельности: `index === panes.length` и
-        // `index === -1` — ровно те точки, на которых промахивается сравнение
-        // «не тем знаком» и потерянная половина условия.
+        // Обе границы по отдельности: на них промахиваются сравнение «не тем знаком» и потерянная половина условия.
         expect(() => {
             group.replacePane(index, makePane("/b.ts"));
         }).not.toThrow();
@@ -253,7 +243,6 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         other.isModified = true;
         other.fireStateChange();
 
-        // Прикалывает ТА вкладка, которую правят, а не любая правка в группе.
         expect(group.previewPane === preview).toBe(true);
     });
 
@@ -263,11 +252,9 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         group.insertPane(makePane("/b.ts"));
         group.activateTab(0);
 
-        // Вставка правее активной: индекс активной прежний.
         group.insertPane(makePane("/after.ts"), { index: 1 });
         expect(group.activeIndex).toBe(0);
 
-        // Вставка РОВНО на позицию активной сдвигает её вправо.
         group.insertPane(makePane("/onto.ts"), { index: 0 });
         expect(group.activeIndex).toBe(1);
     });
@@ -332,8 +319,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
 
         group.replacePane(1, makePane("/c.ts"), { preview: true });
 
-        // Серия кончилась: оверлей переключателя обязан погаснуть, иначе он
-        // остался бы показывать вкладку, которой в полосе уже нет.
+        // Иначе оверлей переключателя показывал бы вкладку, которой в полосе уже нет.
         expect(cycleStates.at(-1)).toBe(null);
     });
 

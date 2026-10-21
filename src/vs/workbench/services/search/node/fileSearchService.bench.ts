@@ -5,22 +5,8 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/c
 
 import { FileSearchService } from "./fileSearchService.ts";
 
-// Бенчмарки построения индекса и поиска по нему.
-// Запуск: `npm run test:perf`.
-//
-// `activate()` строит индекс в фоне из потокового вывода `rg --files` (без
-// блокировки event loop и без рекурсивного watcher'а). Бенч меряет суммарное
-// время обхода, включая спавн rg.
-// `search()` — линейный O(N) скан, но с дешёвым bitmask-отсевом (charMask,
-// посчитан заранее в makeEntry) до дорогого fuzzy-match: запись без всех символов
-// запроса отбрасывается одним целочисленным AND. Заметнее всего на селективных и
-// непроходных запросах (см. docs/TODO/FileTreePerformance.md).
-//
-// NB: фикстуры строятся на верхнем уровне модуля, а не в beforeAll — в режиме
-// `vitest bench` тяжёлая инициализация внутри beforeAll отрабатывает некорректно
-// (бенч не набирает сэмплов). Очистка — через afterAll, он работает штатно.
-
-// ─── Фикстуры (строятся один раз при импорте) ────────────────────────────────
+// Фикстуры — на верхнем уровне модуля, а не в beforeAll: в `vitest bench` тяжёлый
+// beforeAll не даёт набрать сэмплов. afterAll работает штатно.
 
 const dir1k = createTempDir("diode-perf-index-1k-");
 generateFileTree(dir1k, { files: 1_000 });
@@ -28,7 +14,6 @@ generateFileTree(dir1k, { files: 1_000 });
 const dir10k = createTempDir("diode-perf-index-10k-");
 generateFileTree(dir10k, { files: 10_000 });
 
-// Готовый индекс для бенчей поиска (ждём завершения фонового обхода).
 const searchService = new FileSearchService(NULL_CONFIGURATION_SERVICE);
 await searchService.activate(dir10k);
 
@@ -38,11 +23,7 @@ afterAll(() => {
     cleanupDir(dir10k);
 });
 
-// ─── Индексация: реальный стартовый расход activate() ────────────────────────
-
 describe("FileSearchService.activate (index build)", () => {
-    // Меряем полный фоновый обход (await ready). Обход чанкованный и уступает
-    // event loop — bench измеряет суммарное время до готовности индекса.
     bench("activate / index 1000 files", async () => {
         const service = new FileSearchService(NULL_CONFIGURATION_SERVICE);
         await service.activate(dir1k);
@@ -55,8 +36,6 @@ describe("FileSearchService.activate (index build)", () => {
         service.dispose();
     });
 });
-
-// ─── Поиск по готовому индексу ───────────────────────────────────────────────
 
 describe("FileSearchService.search (10k index)", () => {
     bench("search empty query", () => {
@@ -75,10 +54,8 @@ describe("FileSearchService.search (10k index)", () => {
         searchService.search("zzzznomatch", 50);
     });
 
-    // Запрос из нескольких термов: матчер прогоняется по тексту на каждый терм,
-    // поэтому стоимость растёт с их числом. Контрольная точка против
-    // одно-термового «search path fragment» — чтобы разбиение по пробелам не
-    // уехало в разы на горячем пути.
+    // Контрольная точка против одно-термового «search path fragment»: матчер идёт по
+    // каждому терму, разбиение по пробелам не должно уехать в разы.
     bench("search two terms", () => {
         searchService.search("dir2 module", 50);
     });

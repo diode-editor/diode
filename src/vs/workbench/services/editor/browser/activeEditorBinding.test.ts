@@ -8,7 +8,6 @@ interface IFakeEditor {
     readonly name: string;
 }
 
-/** Источник-заглушка: активный редактор меняется руками, подписчики видны. */
 function fakeSource(initial: IFakeEditor | null): IActiveEditorSource<IFakeEditor> & {
     activate(editor: IFakeEditor | null): void;
     readonly listeners: number;
@@ -31,7 +30,6 @@ function fakeSource(initial: IFakeEditor | null): IActiveEditorSource<IFakeEdito
     };
 }
 
-/** Подписка, которая помнит, снята ли она. */
 function trackedSubscription(log: string[], name: string): IDisposable {
     return {
         dispose: () => {

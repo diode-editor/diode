@@ -10,9 +10,8 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import { UndoRedoService, WORKSPACE_UNDO_CONTEXT } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
-// `applyExternalEditsDetached` — шов bulk edit'а: правка ложится в историю
-// ДОКУМЕНТА как обычно, но шаг общей истории забирает вызывающий, чтобы собрать
-// ОДИН шаг на весь `workspace.applyEdit`.
+// `applyExternalEditsDetached` — шов bulk edit'а: правка ложится в историю документа, а шаг
+// общей истории забирает вызывающий, чтобы собрать ОДИН шаг на весь `workspace.applyEdit`.
 
 let tmpDir: string;
 let ws: ITempWorkspace;
@@ -36,7 +35,6 @@ function openPane(undoRedo: UndoRedoService, name: string, content: string): Tex
 
 const insertHead = (text: string): ReturnType<typeof createTextEdit> => createTextEdit(createRange(0, 0, 0, 0), text);
 
-/** Шпион-поверхность: считает `markDirty`, которым модель вещает «буфер изменился». */
 function spyEditTarget(pane: TextEditorPane): { markDirtyCalls: () => number } {
     let calls = 0;
     pane.model.attachEditTarget({
@@ -81,12 +79,9 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
 
         pane.pushUndo(pane.viewState.type("typed"));
 
-        // Сверху лежит набор текста: откат снял бы не нашу правку.
         expect(step.canUndo?.()).toBe(false);
-        // Своя история документа при этом работает как обычно.
         pane.undo();
         expect(pane.getText()).toBe("head\nbody");
-        // И наш шаг снова отменяем.
         expect(step.canUndo?.()).toBe(true);
     });
 
@@ -127,8 +122,6 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
 
-        // Программный путь (bulk edit) действующей вью не знает — цель берётся
-        // из прикреплённых.
         const step = pane.model.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit");
 
         expect(step).not.toBeNull();
@@ -170,7 +163,6 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         expect(a.getText()).toBe("Aalpha");
         expect(b.getText()).toBe("Bbeta");
 
-        // Вызывающий кладёт ОДИН элемент на оба документа.
         undoRedo.pushElement(
             {
                 label: "Refactor",
@@ -202,7 +194,6 @@ describe("TextFileModel.applyExternalEditsDetached", () => {
         const undoRedo = new UndoRedoService();
         const pane = openPane(undoRedo, "a.txt", "body");
         const model = pane.model;
-        // Вью отцепилась раньше модели (закрытие сплита) — цели для правки нет.
         pane.component.dispose();
         expect(model.applyExternalEditsDetached([insertHead("head\n")], "Workspace Edit")).toBeNull();
         expect(model.getText()).toBe("body");

@@ -10,7 +10,6 @@ import { createInsertEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { IFileWatcher } from "../../../../platform/files/common/iFileWatcher.ts";
 import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoService.ts";
 
-/** Fake watcher: records the onChange callback per path so tests fire it by hand. */
 class FakeFileWatcher implements IFileWatcher {
     private handlers = new Map<string, () => void>();
 
@@ -44,13 +43,8 @@ describe("TextFileModel — external change detection", () => {
     }
 
     /**
-     * Правка файла «другим процессом». Внешнее изменение детектится по паре
-     * (mtime, size), а mtime на этой ФС имеет грубую гранулярность: две записи
-     * подряд одинакового размера сплошь и рядом получают ОДИН И ТОТ ЖЕ mtimeMs
-     * (замерено: ~80% пар). Тогда тест зависел бы от того, попали ли записи по
-     * разные стороны тика таймера — то есть от загрузки машины. Двигаем mtime
-     * явно: намерение теста — «файл изменился снаружи», а не «нам повезло с
-     * часами».
+     * mtime явно: две записи одного размера подряд на этой ФС получают тот же mtimeMs
+     * (~80% пар, замерено) — тест зависел бы от загрузки машины.
      */
     function writeFileExternally(filePath: string, content: string): void {
         fs.writeFileSync(filePath, content, "utf-8");
@@ -65,14 +59,12 @@ describe("TextFileModel — external change detection", () => {
             controller.openFile(Uri.file(fp));
             controller.viewState.type("X"); // buffer now dirty
 
-            // Another process rewrites the file behind our back.
             writeFileExternally(fp, "external change from elsewhere\n");
 
             const outcome = await controller.save();
 
             expect(outcome).toBe("conflict");
             expect(controller.hasDiskConflict).toBe(true);
-            // The parallel change on disk survives — we did NOT clobber it.
             expect(fs.readFileSync(fp, "utf-8")).toBe("external change from elsewhere\n");
             controller.dispose();
         });
@@ -153,7 +145,6 @@ describe("TextFileModel — external change detection", () => {
             expect(controller.getText()).toBe("v2 from disk\n");
             expect(controller.isModified).toBe(false);
             expect(controller.hasDiskConflict).toBe(false);
-            // Reload notifies via disk-state (tab sync hangs off this event).
             expect(diskStateEvents).toBe(1);
 
             // Reload recreated the document — the controller-level content
@@ -192,7 +183,6 @@ describe("TextFileModel — external change detection", () => {
             controller.viewState.type("A");
 
             await controller.save();
-            // A watcher event for our own save must not re-trigger anything.
             watcher.fire(fp);
 
             expect(controller.hasDiskConflict).toBe(false);
@@ -210,7 +200,6 @@ describe("TextFileModel — external change detection", () => {
             fs.rmSync(fp);
             watcher.fire(fp);
 
-            // File gone mid-atomic-write: do not clobber the buffer to empty.
             expect(controller.getText()).toBe("keep\n");
             expect(controller.hasDiskConflict).toBe(false);
             controller.dispose();
@@ -289,7 +278,6 @@ describe("TextFileModel — external change detection", () => {
 
             expect(controller.model.document).toBe(document);
             expect(document.versionId).toBeGreaterThan(versionBefore);
-            // История забыта в обоих местах: в движке документа и в общем бакете.
             expect(controller.model.undoManager.canUndo).toBe(false);
             expect(undoRedo.peekUndo(controller.undoContext)).toBeUndefined();
             controller.dispose();
@@ -307,7 +295,6 @@ describe("TextFileModel — external change detection", () => {
             writeFileExternally(fp, "a\r\nb\r\n");
             controller.revertToDisk();
 
-            // По одному событию, и оба — после того как буфер снова «сохранён».
             expect(seen).toEqual(["content:false", "eol:false"]);
             controller.dispose();
         });

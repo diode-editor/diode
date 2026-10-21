@@ -5,25 +5,14 @@ import {
     toDisposable,
 } from "../../../../base/common/lifecycle.ts";
 
-/**
- * Источник активного редактора — ровно то, что нужно привязке. Узкий интерфейс,
- * а не `EditorService`: фичам достаточно этих двух членов, а тестам — фейка.
- */
 export interface IActiveEditorSource<E> {
     getActiveEditor(): E | null;
     onActiveEditorChanged(listener: (editor: E | null) => void): IDisposable;
 }
 
 /**
- * Привязка фичи к активному редактору — наш аналог времени жизни upstream
- * `IEditorContribution`: тело `bind(editor, store)` вызывается для текущего
- * редактора сразу и для каждого следующего при смене, подписки кладутся в
- * `store` и снимаются, как только редактор перестаёт быть активным. `editor` —
- * `null`, когда активного редактора нет (побочный эффект смены — «закрыть
- * попап» — пишется первой строкой тела и для `null` тоже).
- *
- * Возвращает подписку: её `dispose()` снимает слежение за сменой и подписки
- * текущего редактора.
+ * Аналог времени жизни upstream `IEditorContribution`: подписки из `store` снимаются, как только
+ * редактор перестаёт быть активным. `bind` зовётся и для `null` — побочный эффект смены («закрыть попап») пишут первой строкой.
  */
 export function bindActiveEditor<E>(
     source: IActiveEditorSource<E>,
@@ -32,7 +21,6 @@ export function bindActiveEditor<E>(
     const current = new MutableDisposable<DisposableStore>();
     const rebind = (editor: E | null): void => {
         const store = new DisposableStore();
-        // Новое значение слота освобождает подписки прежнего редактора.
         current.value = store;
         bind(editor, store);
     };

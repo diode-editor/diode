@@ -85,7 +85,6 @@ describe("TextFileModel — save participant", () => {
         await expect(controller.save()).resolves.toBe("saved");
 
         expect(fs.readFileSync(fp, "utf-8")).toBe("keep   \n");
-        // Атомарная замена — новый файл (временный сосед + rename).
         expect(fs.statSync(fp).ino).not.toBe(inode);
         controller.dispose();
     });
@@ -112,7 +111,6 @@ describe("TextFileModel — save participant", () => {
         await controller.saveAs(dst);
         expect(fs.statSync(dst).ino).not.toBe(inode);
 
-        // Снимок диска после saveAs — от записанного файла: своя запись не конфликт.
         await expect(controller.save()).resolves.toBe("saved");
         expect(controller.model.hasDiskConflict).toBe(false);
         controller.dispose();
