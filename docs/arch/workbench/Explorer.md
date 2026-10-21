@@ -91,5 +91,5 @@
 ложится в историю всех открытых затронутых буферов (`pushWorkspaceElement`; файл,
 открытый позже, принимает его через `adopt`; отказ отмены — тост
 `UndoRefusalNotificationContribution`). Корзина — `TrashService` за `ITrashService`
-(`platform/files/`). Контракт и люфты — [LSP.md](../../TODO/LSP.md), строка
+(`platform/files/`). Контракт и люфты — [API-COVERAGE](../../public/API-COVERAGE.md), строка
 `workspace.applyEdit`.

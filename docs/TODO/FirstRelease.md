@@ -63,7 +63,7 @@ watcher и Go в магазине — после поста.
   бюджет на кадр в `search`, инкрементальная сверка индекса от watcher'ов.
 - **Нативный watcher `@parcel/watcher`** вместо chokidar — не раньше уведомления про ENOSPC
   ([EnvironmentTuning.md](EnvironmentTuning.md)); платформенная матрица сборки под SEA.
-- **Go в магазине** (стоковый `golang.go` + gopls, пул задач — [GoLSP.md](GoLSP.md)). Тезис «не только TS/Python» к посту уже держат
+- **Go в магазине** (стоковый `golang.go` + gopls, пул задач — [LanguageServers.md](LanguageServers.md#go)). Тезис «не только TS/Python» к посту уже держат
   Java, Terraform и Python.
 - **Damage-tracking кадра** (LongLinePerformance.md «Осталось»): hover-damage, пер-item damage в
   `OverlayLayer`, сужение страховки consumed-key, клип-ограничение цикла строк редактора.

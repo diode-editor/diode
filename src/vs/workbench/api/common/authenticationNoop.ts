@@ -5,7 +5,7 @@ import { DisposableImpl, EventEmitter } from "./vscodeTypes.ts";
 
 /**
  * `vscode.authentication` как null-объект — до настоящих провайдеров входа
- * (вход в HCP Terraform и т. п., docs/TODO/Terraform.md).
+ * (вход в HCP Terraform и т. п., docs/TODO/LanguageServers.md).
  *
  * Отсутствие namespace'а убивало расширение ЦЕЛИКОМ: `hashicorp.terraform`
  * в `activate()` регистрирует свой провайдер и спрашивает сессию у панелей

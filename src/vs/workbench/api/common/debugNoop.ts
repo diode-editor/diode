@@ -7,7 +7,7 @@ import { DisposableImpl, EventEmitter } from "./vscodeTypes.ts";
 
 /**
  * `vscode.debug` как null-объект: дебаггера (DAP) в Diode нет и пока не
- * планируется (решение человека, docs/TODO/GoLSP.md), а отсутствие namespace'а
+ * планируется (решение человека, docs/arch/StockExtensions.md), а отсутствие namespace'а
  * убивало расширение ЦЕЛИКОМ. `golang.go` регистрирует провайдер конфигураций
  * и фабрику адаптера посреди `activate()` — `Cannot read properties of
  * undefined (reading 'registerDebugConfigurationProvider')` обрывал активацию,

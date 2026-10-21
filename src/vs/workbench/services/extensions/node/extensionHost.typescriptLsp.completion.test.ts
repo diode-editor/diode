@@ -28,7 +28,7 @@ import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 // Регресс, ради которого тест написан: стоковый конвертер клиента на КАЖДЫЙ
 // ответ сервера делает `new code.CompletionList(items, isIncomplete)`, а наш
 // `vscode`-стаб этот класс не экспортировал. Конвертация падала целиком, ошибка
-// уходила ТОЛЬКО в `client.outputChannel` (грабля из docs/TODO/LSP.md) — попап
+// уходила ТОЛЬКО в `client.outputChannel` (грабля из docs/arch/Extensions.md, «LSP и стоковые клиенты») — попап
 // молча оставался без единого LSP-пункта. Юнит-тест на стабе такое не ловит:
 // падает не наш код, а чужой, и молча.
 

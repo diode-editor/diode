@@ -64,7 +64,7 @@ export function buildCommandsNamespace(
     // Команда «только при активном редакторе» (семантика VS Code): без него —
     // предупреждение в stderr и no-op, с ним — колбэк получает редактор и
     // edit-builder. Builder у нас пустышка: применение батча правок шло бы через
-    // `workspace.applyEdit`-путь, которого ещё нет (docs/TODO/LSP.md); известные
+    // `workspace.applyEdit`-путь, которого ещё нет (docs/public/API-COVERAGE.md); известные
     // потребители (`basedpyright.organizeimports`) читают только `editor.document`
     // и шлют запрос серверу сами.
     const registerTextEditorCommand = (

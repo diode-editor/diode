@@ -12,11 +12,10 @@
 
 ## Крупные задачи
 
-- [ ] [Formatting](Formatting.md) — prettier и выбор форматтера (пункт 5 ParityBacklog, охват сужен: сначала prettier). Замерено: TS/JS форматирует tsserver, markdown/json не покрыты никем; провайдер выбирается первым матчащим, `editor.defaultFormatter` нет — отсюда риск конфликта prettier×tsserver
 - [~] [PreviewEditors](PreviewEditors.md) — режим предпросмотра вкладок: фаза 1 сделана (preview-флаг, замещение, прикалывание правкой/Ctrl+K Enter/сплитом, `workbench.editor.enablePreview`). Открыто: гейт «Keep Editor» по настройке, остальные точки открытия; движок → tuidom: курсив метки и активация одиночным кликом
 - [~] [Profiles](Profiles.md) — профили пользователя: итерации 1–2 сделаны (#601, #602: реестр в `User/globalStorage/storage.json`, привязка профиля к воркспейсу, `Profiles: Switch/New/Delete Profile...` с перезагрузкой окна, эталонная семантика настроек именованного профиля, свой `extensions.json` у профиля над общим каталогом). Открыто: хвосты 1–2 (два окна на одном user-data-dir затирают `storage.json`, подсказки в settings.json профиля, одна версия расширения на все профили, уборка общего каталога), итерация 3 (`useDefaultFlags`, `applyToAllProfiles`, пустое окно), итерация 4 (Profiles editor, Export/Import, горячее переключение)
+- [~] [LanguageServers](LanguageServers.md) — языковые серверы поверх стокового `vscode-languageclient`: TypeScript, Python (basedpyright + ruff), eslint, Java, Go, Terraform, prettier работают; открыто — F12 при нескольких целях, гонка didClose/didOpen с folding, перезапрос неполного completion, thematic break в hover, lombok-дефолт Java, деревья и HCP у Terraform, выбор форматтера
 - [~] [Tasks](Tasks.md) — задачи (tasks): первая итерация сделана (#572, #575) — Run Task / Rerun / Terminate / Restart / Show Running из `.diode/tasks.json` и провайдеров расширений, терминал задачи с честным reuse, `vscode.tasks` (провайдеры, `executeTask`, события, `CustomExecution`); без problem matchers; Configure Task с шаблонами и кастомизация задач провайдеров в tasks.json. Дальше — отложенное из документа: группы build/test, `dependsOn`, `inputs`, `resolveTask` провайдера, автозапуск, история пикера
-- [~] [Terraform](Terraform.md) — стоковое `hashicorp.terraform`: PR1 сделан — активация целиком (`env.createTelemetryLogger`, `vscode.authentication` как null-объект), работают hover, автодополнение по схеме AWS, F12, диагностики; дальше — деревья Providers/Module Calls (фаза 8b) и HCP Terraform с настоящим `authentication`
 - [~] [SecondarySideBar](SecondarySideBar.md) — вторичная боковая панель (auxiliary bar эталона) и перенос в неё видов и контейнеров из сайдбара и нижней панели; приёмка — TERMINAL справа с живым шеллом. Стек: PR0 (перенос `WorkbenchLayoutElement`) сделан, PR1 (часть) в работе, дальше модель расположения и живые виды
 - [~] [ClaudeCode](ClaudeCode.md) — интеграция с Claude Code: стоковое `Anthropic.claude-code` в режиме `useTerminal` в нашем магазине (v0.9.7) — `claude` вкладкой справа, контекст редактора, `getDiagnostics`, предложенный дифф с ✓/↺; открыты хвосты — уведомление на webview-команды, стоковые тесты терминала, `claude` во вторичной панели
 - [~] [VscodeStructureFollowUps](VscodeStructureFollowUps.md) — follow-up'ы после big-bang переезда на vscode-раскладку `src/vs/*` (осознанные отклонения от канона)
@@ -30,9 +29,6 @@
 - [~] [WordWrap](WordWrap.md) — перенос строк по словам (`editor.wordWrap`, Alt+Z): v1 готова; открыты follow-up'ы (wrappingIndent, wrap в диффе, affinity, персист toggle)
 - [~] [VscodeModel](VscodeModel.md) — перенос модели документа и токенизации из VS Code: B1 (фоновая и вьюпортная токенизация), A1+A2 (вендор PieceTree с upstream-тестами), A3 (`TextDocument` на PieceTree), A4 (полный текст с горячих путей) и B2 (бинарные токены VS Code, colorMap темы) сделаны; воркер (B3) замерен прототипом и отложен до этапа 2 OpenPerformance
 - [~] [Extensions](Extensions.md) — VS Code-совместимые расширения и магазин (сделанное — в [arch/Extensions](../arch/Extensions.md), [arch/Marketplace](../arch/Marketplace.md)); открыто: иконки, сниппеты, on-enter rules, dispose-цепочка и горячий reload, `extensionPack`, ESM и перезапуск extension host'а, виды расширений (`views`/TreeView), id магазина без учёта регистра, `yanked`
-- [~] [LSP](LSP.md) — платформа готова end-to-end со стоковым `typescript-language-server` (definition, hover, references, parameter hints, диагностики, автодополнение); Python готов ДВУМЯ серверами: сторонний basedpyright.vsix (типы, шесть фич сквозняком) + сторонний ruff.vsix (#305: линт-диагностики, quickfix, organize imports / fix all, формат от нативного `ruff server`; платформенные vsix через ось `targetPlatform` магазина); далее — gopls, закрытие остальных стабов (rename, implementations, …) по таблице в LSP.md
-- [ ] [GoLSP](GoLSP.md) — стоковый `golang.go` (gopls): волна A сделана (#657) — активация доходит до конца (`vscode.debug`/`vscode.tests` — null-объекты, `setLanguageConfiguration`), сьюта/e2e/сценарий на стоковом vsix, Go в CI; осталось A7 (запись в магазине), волна B (дыры ядра: completion `isIncomplete` и авто-импорт, `vscode.open`, untitled, `saveAll`), волна C — заработает с фичами ядра. Отладчик не делаем
-- [~] [JavaLSP](JavaLSP.md) — стоковый `redhat.java` (Eclipse JDT LS) поверх extension host: код закрыт целиком (#359 активация, #363 виртуальные `jdt:`-документы, добор `workspace.fs` / `workspace.findFiles` / `env.*` / заглушка custom editor), maven и gradle подняты живьём на JDK 21. Осталась запись в реестр магазина — платформенные vsix с вшитым JRE 21 плюс `universal` (затрагивает три репозитория, см. [arch/Marketplace](../arch/Marketplace.md))
 - [~] [Suggest](Suggest.md) — автодополнение работает, авто-открытие по эталону (`editor.quickSuggestions`, уступает призраку); дальше — сниппет-сессия с табстопами, markdown в описании, скролл панели
 - [~] [InlineCompletions](InlineCompletions.md) — призрачные подсказки (ghost text) v1 сделаны end-to-end (`registerInlineCompletionItemProvider`, Tab/Esc, view zones); открыты люфты (mid-line, partial accept, lifecycle-хуки, `selectedCompletionInfo`/augmentation под попапом) и часть 2 — реальный LLM-провайдер
 - [~] [E2E](E2E.md) — инфраструктура готова; открыто — кросс-платформенность Phase 1.x и найденный дефект фокуса (find + вторая вкладка)
@@ -102,17 +98,6 @@
 Смысл — управление ожиданиями: альфу не прячем, а показываем, куда идём и как быстро.
 Ключевой заявляемый пункт — конечная цель: **полная поддержка API расширений VS Code там, где
 она имеет смысл в терминале** (см. VISION.md «Что говорить вовне»). Ссылка с главной.
-
-### [x] Матрица покрытия API VS Code
-
-Публичная матрица «namespace/поверхность → поддержано / частично / запланировано / не будет
-by design» — [docs/public/API-COVERAGE.md](../public/API-COVERAGE.md). Заполнена руками по
-фактическому состоянию исходников (активная поверхность `vscode.d.ts` + таблица стабов из
-[LSP.md](LSP.md)): сводка со счётчиками и якорями, member-таблицы активных namespace, графа
-«не будет by design» (webview, UI-heavy). Решение — **без генератора, дисциплиной**: матрица
-обновляется в том же PR, который меняет поверхность API (крючок — правило роста `vscode.d.ts`
-в AGENTS.md и docs/arch/Extensions.md). Генератор остаётся опцией на будущее, если ручное
-ведение начнёт врать.
 
 ### [ ] Страница бенчмарков + ссылка с главной
 

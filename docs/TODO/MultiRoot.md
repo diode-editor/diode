@@ -175,7 +175,7 @@ e2e-сценарий на каждую видимую часть) в оценк�
 - **Расширения из магазина.** Стоковые расширения (eslint, ruff, basedpyright,
   redhat.java) в мульти-руте ведут себя иначе: eslint дёргает `pickFolder`
   (сейчас наш `showQuickPick` всегда отдаёт `undefined` — см.
-  [LSP.md](LSP.md)), `vscode-languageclient` при мульти-руте регистрирует
+  [API-COVERAGE](../public/API-COVERAGE.md)), `vscode-languageclient` при мульти-руте регистрирует
   `workspace/didChangeWorkspaceFolders` и требует, чтобы событие реально
   стреляло. Это не «наш код сломался» — это новая поверхность для приёмки.
 
@@ -340,5 +340,4 @@ e2e-сценарий на каждую видимую часть) в оценк�
 - [docs/arch/Configuration.md](../arch/Configuration.md) — слои настроек
 - [docs/arch/State.md](../arch/State.md) — per-workspace стор
 - [arch/workbench/SourceControl](../arch/workbench/SourceControl.md) — слой SCM
-- [LSP](LSP.md) — таблица стабов, в т.ч. `showQuickPick`/`pickFolder`
-- [API-COVERAGE](../public/API-COVERAGE.md) — матрица готовности
+- [API-COVERAGE](../public/API-COVERAGE.md) — готовность API, в т.ч. `showQuickPick`/`pickFolder`

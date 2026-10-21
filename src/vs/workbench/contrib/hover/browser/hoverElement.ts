@@ -22,7 +22,7 @@ interface IWrappedLines {
 /**
  * Попап hover'а: рамка + плоский текст с переносом по словам. Блоки (по одному
  * на провайдера) разделяются горизонтальной линией. Markdown сюда уже не
- * доезжает — его стрипает HoverService; рендерера markdown нет (docs/TODO/LSP.md).
+ * доезжает — его стрипает HoverService; рендерера markdown нет (docs/arch/Extensions.md, «LSP и стоковые клиенты»).
  *
  * Diode-специфичный элемент, поэтому живёт рядом со своим компонентом, а не в
  * tuidom (правило docs/arch/Workbench.md): посимвольный render поверх drawBox

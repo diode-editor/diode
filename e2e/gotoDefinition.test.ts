@@ -10,7 +10,7 @@ import { waitUntil } from "./helpers/waitFor.ts";
  * Сквозная интеграция стокового `typescript-language-server` в SEA-бинаре:
  * builtin `diode-lsp-typescript` (стоковый vscode-languageclient внутри бандла)
  * лениво активируется по открытию `.ts`, спавнит сервер из devDeps репозитория
- * (путь через настройку — сервер не пакуется в SEA, см. docs/TODO/LSP.md),
+ * (путь через настройку; вшитый сервер — docs/arch/Extensions.md, «Builtin LSP-клиент»),
  * и его диагностика доезжает до squiggle, а F12 прыгает в другой файл.
  *
  * Правки НЕ сохраняются на диск — сервер обязан видеть живой буфер (didChange).

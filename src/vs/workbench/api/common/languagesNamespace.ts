@@ -1212,7 +1212,7 @@ export function createLanguagesNamespace(
 
     // No-op регистрация провайдера — валидный Disposable; фича не работает,
     // но стоковый клиент (vscode-languageclient заводит провайдеры под
-    // capabilities сервера) не падает. Шаги закрытия каждого — docs/TODO/LSP.md.
+    // capabilities сервера) не падает. Готовность каждого — docs/public/API-COVERAGE.md.
     const registerNoopProvider = (): vscode.Disposable => new DisposableImpl(() => undefined);
 
     /**
@@ -1409,7 +1409,7 @@ export function createLanguagesNamespace(
 
         // ── No-op провайдеры (поверхность, которую трогает vscode-languageclient
         // под capabilities сервера). Закрытие каждого — по образцу definition:
-        // seam + RPC + UI-потребитель; см. таблицу стабов в docs/TODO/LSP.md. ──
+        // seam + RPC + UI-потребитель; см. матрицу docs/public/API-COVERAGE.md. ──
         registerDeclarationProvider: registerNoopProvider,
         registerImplementationProvider: registerNoopProvider,
         registerTypeDefinitionProvider: registerNoopProvider,

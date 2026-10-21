@@ -873,7 +873,7 @@ export class EventEmitter<T> implements vscode.EventEmitter<T> {
 // он `extends`-ит уже на этапе require (protocol*-конвертеры), поэтому они
 // обязаны быть конструируемыми классами, а enum'ы — настоящими значениями.
 // Семантика наивная (хранение без поведения) — глубина добавляется по мере
-// закрытия стабов (docs/TODO/LSP.md, таблица стабов).
+// закрытия стабов (docs/public/API-COVERAGE.md).
 // ─────────────────────────────────────────────────────────────────────────────
 
 export enum StatusBarAlignment {
@@ -1114,7 +1114,7 @@ export class Diagnostic implements vscode.Diagnostic {
     public severity: DiagnosticSeverity;
     public source?: string;
     public code?: string | number | { value: string | number; target: Uri };
-    /** Наивность: до маркеров не доезжает (wire его не несёт) — см. docs/TODO/LSP.md. */
+    /** Наивность: до маркеров не доезжает (wire его не несёт) — см. docs/public/API-COVERAGE.md. */
     public relatedInformation?: DiagnosticRelatedInformation[];
     public tags?: DiagnosticTag[];
 

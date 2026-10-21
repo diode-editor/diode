@@ -12,7 +12,7 @@ import { createWorkspaceNamespace } from "./workspaceNamespace.ts";
 
 // Наивная поверхность workspace, которую трогает vscode-languageclient:
 // валидные никогда-не-стреляющие события + простейшие методы. Статусы и шаги
-// закрытия — таблица стабов в docs/TODO/LSP.md.
+// закрытия — матрица docs/public/API-COVERAGE.md.
 
 /** Наивная поверхность workspace, отсутствующая в активной части vscode.d.ts (runtime опережает декларацию). */
 interface INaiveWorkspaceSurface {

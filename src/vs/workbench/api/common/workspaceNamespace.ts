@@ -390,7 +390,7 @@ export function createWorkspaceNamespace(
 
     // Последняя вкладка ресурса закрыта: сброс didOpen-дедупа + isClosed +
     // onDidCloseTextDocument (сервер получает LSP didClose и снова didOpen при
-    // повторном открытии — люфт из docs/TODO/LSP.md закрыт).
+    // повторном открытии — прежний люфт закрыт).
     rpc.handleNotification("editor.didClose", (params) => {
         const p: { uri?: unknown } = params;
         if (typeof p.uri !== "string" || p.uri === "") return;
@@ -703,7 +703,7 @@ export function createWorkspaceNamespace(
 
         // ── Наивная поверхность, которую трогает vscode-languageclient. События,
         // которых хост пока не фаерит, — валидные (никогда не стреляющие)
-        // Event'ы; шаги закрытия — таблица стабов в docs/TODO/LSP.md. ──────────
+        // Event'ы; шаги закрытия — матрица docs/public/API-COVERAGE.md. ──────────
         onDidChangeWorkspaceFolders: naiveEvent(),
         // Multi-root у нас нет (docs/TODO/MultiRoot.md): из всех смен набора
         // выполнима только та, что оставляет ровно одну папку, — её хост

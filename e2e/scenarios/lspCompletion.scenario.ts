@@ -23,7 +23,7 @@ export default defineScenario({
     name: "lsp-completion",
     title: "Stock typescript-language-server: completions + details panel",
     open: [sampleDir, mainFile],
-    // Сервер живёт в devDeps репозитория (в SEA не пакуется — см. docs/TODO/LSP.md).
+    // Сервер живёт в devDeps репозитория (вшитый — docs/arch/Extensions.md, «Builtin LSP-клиент»).
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
         "diode.lsp.typescript.tsserverPath": require_.resolve("typescript/lib/tsserver.js"),

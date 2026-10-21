@@ -981,7 +981,7 @@ export function createWindowNamespace(
         // ExtensionOutputAdapter). Ошибки vscode-languageclient
         // (`p2c.asDiagnostics` и т.п.) идут ТОЛЬКО сюда — канал обязан быть
         // настоящим. `clear`/`replace` — no-op (журнал ретенционный, см.
-        // docs/TODO/LSP.md). Канал принадлежит расширению, как в VS Code:
+        // docs/public/API-COVERAGE.md). Канал принадлежит расширению, как в VS Code:
         // id `extensions.<owner>.<slug>` — одноимённые каналы разных расширений
         // и логгеры хоста (`extensions.host`) не сталкиваются.
         createOutputChannel: (name: string): vscode.OutputChannel => {
@@ -1188,7 +1188,7 @@ export function createWindowNamespace(
         // window.progress.{start,report,end} — статус-бар показывает спиннер,
         // пока промис задачи не устаканился. Location игнорируется (в TUI всё —
         // ProgressLocation.Window); отмены нет — токен никогда не стреляет
-        // (ProgressPart languageclient'а это переживает, см. docs/TODO/LSP.md).
+        // (ProgressPart languageclient'а это переживает, см. docs/public/API-COVERAGE.md).
         withProgress: <R>(
             options: vscode.ProgressOptions,
             task: (

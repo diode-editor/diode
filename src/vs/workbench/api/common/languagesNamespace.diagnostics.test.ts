@@ -103,7 +103,7 @@ describe("LanguagesNamespace — createDiagnosticCollection", () => {
             range: { start: { line: 5, character: 4 }, end: { line: 5, character: 10 } },
             message: "Property 'retries' is missing",
         });
-        // Наивность wire-формы (docs/TODO/LSP.md): related information до маркеров
+        // Наивность wire-формы (docs/public/API-COVERAGE.md): related information до маркеров
         // не доезжает — но и публикацию не ломает.
         expect(markers[0]).not.toHaveProperty("relatedInformation");
         // Оригинальный объект расширения в коллекции цел — его читают code actions.

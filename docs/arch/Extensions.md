@@ -240,7 +240,7 @@
   undoable-батчем; all-or-nothing по валидации: закрытый или read-only ресурс — честный `false` без
   применения чего-либо). Файловые операции `WorkspaceEdit` не поддержаны — субпроцесс отвечает
   `false` сам, без RPC; сниппет-правки (`SnippetTextEdit` — класс-ловушка конвертера клиента)
-  применяются текстом со стрипом плейсхолдеров. Люфты — docs/TODO/LSP.md.
+  применяются текстом со стрипом плейсхолдеров. Люфты — [API-COVERAGE](../public/API-COVERAGE.md).
 - **Document sync (LSP) — зеркало документа в субпроцессе (G3, как `$acceptModelChanged` эталона):**
   `editor.didOpen` — полный снапшот (`IWireDocumentSyncSnapshot`: uri, languageId, `version` =
   `versionId` модели, text), дальше `editor.didChange` — правки батча модели
@@ -411,7 +411,7 @@
   субпроцесса**: клиенту нужно вернуть тот же самый объект пункта (`ProtocolCompletionItem` с
   приватным `data`), а не его копию. Триггер-символы сервера едут метаданными регистрации и видны
   только документам, которым провайдер подошёл. Грабли стека (падающий конвертер без
-  `CompletionList`/`SnippetString`, dot-accessor-пункты) — docs/TODO/LSP.md.
+  `CompletionList`/`SnippetString`, dot-accessor-пункты) — [«LSP и стоковые клиенты»](#lsp-и-стоковые-клиенты).
 - **Inline-completion seam (ghost text):** `languages.registerInlineCompletionItemProvider` — калька
   с completion, но проще: ОДИН RPC `languages.provideInlineCompletions` пачкой `{handles, …}` (без
   resolve и кэша идентичности — v1 не исполняет `item.command` и не шлёт lifecycle-хуки). Ядро
@@ -664,9 +664,9 @@
   декларации подняты целиком, `getSession` без `createIfNone`/`forceNewSession` — `undefined`, с
   ними — отказ с причиной (перегрузка обещает сессию, `undefined` уронил бы расширение невнятным
   `TypeError`), провайдер принимается и не зовётся, человеку — одна warn-строка в Output на id
-  провайдера. Настоящие провайдеры — [docs/TODO/Terraform.md](../TODO/Terraform.md).
+  провайдера. Настоящие провайдеры — [docs/TODO/LanguageServers.md](../TODO/LanguageServers.md#terraform).
 - **Отладка и Test API как null-объекты (`debugNoop.ts`, `testsNoop.ts`):** дебаггера (DAP) в Diode
-  нет и не планируется (решение человека, [docs/TODO/GoLSP.md](../TODO/GoLSP.md)), view Testing пока
+  нет и не планируется (решение человека, [StockExtensions.md](StockExtensions.md#go-golanggo-gopls)), view Testing пока
   нет, но ОТСУТСТВИЕ namespace'ов убивало расширение целиком: `golang.go` регистрирует провайдер
   конфигураций отладки посреди `activate()` и заводит контроллер тестов с тремя профилями
   `TestRunProfileKind` — без них не появлялись ~60 команд `go.*`, хотя gopls уже жил. Декларации
@@ -739,7 +739,7 @@
   запрос с `only` ⊇ `source.organizeImports.ts` и считает правки лениво; клиент дописывает действие
   с пустым `WorkspaceEdit`, и команда молчит, как в VS Code, вместо «No organize imports action for
   'javascript'». Наивные стабы поверхности languageclient (no-op провайдеры, naive-события, env,
-  `version` в лок-степе с `extensions/VSCODE_VERSION`) — статусы и шаги закрытия в docs/TODO/LSP.md.
+  `version` в лок-степе с `extensions/VSCODE_VERSION`) — статусы в [API-COVERAGE](../public/API-COVERAGE.md).
 - **Проекция выделения host → subprocess (#194):** первичное выделение едет в `IActiveEditorMeta` на
   смене активного редактора, а **каждое движение каретки** — отдельной нотификацией
   `editor.selectionChanged` (`IActiveEditorSelections`: uri + все выделения). Продюсер —
@@ -1098,6 +1098,88 @@
 `workbench/common/configuration/configurationContributions.ts`) + `contributes.configuration` всех
 builtin и пишет `settings-schema.generated.ts`, который бандлится в `out/extension.cjs`. Никакого
 рантайм-API за схемой расширение не ходит.
+
+## LSP и стоковые клиенты
+
+LSP-протокол diode не пишет. Языковой сервер поднимает **расширение** стоковым
+`vscode-languageclient` (сам спавнит сервер, гоняет JSON-RPC и отдаёт результаты через `vscode` API) —
+builtin `diode-lsp-typescript` (см. «Builtin LSP-клиент» выше) или сторонний vsix из магазина. Наша
+работа — шим `vscode` и швы ядра; готовность поверхности — [API-COVERAGE](../public/API-COVERAGE.md),
+заметки по конкретным расширениям — [StockExtensions.md](StockExtensions.md), открытое —
+[TODO/LanguageServers.md](../TODO/LanguageServers.md).
+
+### Грабли клиента и серверов
+
+- **Классы-ловушки.** Конвертеры клиента (`protocolConverter`) строят значения-классы шима:
+  `new code.CompletionList(items, isIncomplete)` на каждый ответ-список, `SnippetString`,
+  `SnippetTextEdit`, `SignatureHelp`, `Location`… Нет класса в namespace — конвертация падает
+  целиком, фича молча пустая, а единственный след уходит в `client.outputChannel` (без экспорта
+  `CompletionList` тест автодополнения висел таймаутом 60 с вместо ответа). Новый провайдер — сначала
+  проверить, какие классы зовёт его конвертер.
+- **`client.outputChannel` обязан быть настоящим.** Ошибки конвертации (`p2c.asDiagnostics` и т.п.)
+  логируются ТОЛЬКО туда — no-op канал теряет их молча.
+- `vscode-languageclient` шлёт `didOpen` серверу только для документов из
+  `window.visibleTextEditors` — пустой стаб даёт «сервер молча не получил документ, 0 диагностик».
+  Текст, набранный в редакторе и не сохранённый, сервер видит только через didChange — тесты на это
+  правят буфер, а не диск.
+- `vscode.version` — валидный VS Code semver (лок-степ с `extensions/VSCODE_VERSION`): languageclient
+  проверяет `^1.91.0`.
+- **Форк `process.execPath` из расширения под SEA.** Там `execPath` — diode-бинарь. Наши
+  builtin-клиенты спавнят сервер `{ command }`-формой, а сторонние форкают сами (`TransportKind.ipc`
+  у basedpyright), поэтому субпроцесс extension host'а чистит наследуемое окружение:
+  `DIODE_EXTENSION_HOST` снят, `DIODE_RUN_AS_NODE=1` — любой форк бинаря из расширения работает как
+  node (`main.ts` проверяет RUN_AS_NODE первым, env-фикс — `runExtensionHostSubprocess`). Продолжение:
+  `Files.resolve()` vscode-languageserver'а (так eslint ищет линтер в проекте) форкает с
+  `execArgv: ["-e", <скрипт>]` — runAsNode обязан понимать eval-режим, иначе расширение молча не
+  линтит. Гейты — `extensionHost.fork.test.ts`, `runAsNode.eval.test.ts`, e2e `pythonLsp`/`eslintLsp`
+  на настоящем SEA.
+- **Rename у tsserver проверять с каретки на ОБЪЯВЛЕНИИ.** С вызова импортированного символа сервер
+  переименовывает только локальный алиас (`useAliasesForRenames`, как в VS Code). На холодном старте
+  tsserver отвечает только по открытым файлам: перед кросс-файловым rename дождаться готовности проекта
+  (в e2e — через Find All References, в юнитах — опросом `provideReferences`).
+
+### Автодополнение поверх LSP
+
+Стек: попап у каретки ← `CompletionService` ← `EditorService.completionSource` ← хост ← RPC ←
+провайдеры субпроцесса ← `vscode-languageclient` ← сервер.
+
+- **Dot-accessor.** После `.` tsserver отдаёт `label: "getTime"`, `insertText`/`filterText`:
+  `.getTime`, а `range` накрывает саму точку. Поэтому границу префикса ядро берёт из провайдерского
+  `range` (свой `wordStart` включает `.` и `-` — префиксом стало бы `d.`), фильтрует по `filterText` и
+  не пересчитывает провайдерскую границу при доборе символов (иначе попап закрывался на первом же).
+- **Описание и авто-импорт — через resolve.** Клиент объявляет `resolveSupport: [documentation,
+  detail, additionalTextEdits]`, в первом ответе их нет; резолвить надо ТОТ ЖЕ объект пункта (см.
+  «Completion-провайдер seam» выше). Accept ждёт resolve до 300 мс, потом вставляет без импорта —
+  молчащий сервер не морозит правку. Сервер без `resolveProvider` (gopls) шлёт `additionalTextEdits`
+  сразу в списке: они едут в пункте (`ICoreCompletionItem.additionalEdits`), и accept применяет их без
+  resolve — как «sync additional edits» в `suggestController` эталона.
+- **Сниппеты не поддержаны** (осознанно): `SnippetString` — только транспорт, плейсхолдеры
+  вырезаются (`stripSnippetPlaceholders`), чтобы `${1:name}` не попал в буфер.
+- Markdown в документации и hover показывается текстом — рендерера markdown нет.
+
+### Участники сохранения
+
+`editor.codeActionsOnSave` (объект VS Code `{ "<kind>": true | "explicit" | "always" | false |
+"never" }` или массив kinds; все сохранения diode ручные, так что `"explicit"` ≡ `true`) и
+`editor.formatOnSave`; дефолты выключены.
+
+- **Композиция.** `TextFileSaveParticipant` (один на все модели) берёт список участников в момент
+  save (живые настройки); `EditorService.collectSaveParticipants` собирает порядок VS Code: code
+  actions → формат → will-save расширений (editorconfig). Каждый участник видит свежий снапшот —
+  предыдущий уже правил буфер (`workspace.applyEdit` из субпроцесса прилетает прямо во время await).
+- **Участники** (`services/editor/browser/onSaveParticipants.ts`): для каждого включённого kind —
+  `provide({ only: kind })` по всему документу (иерархический матч: `source.fixAll` берёт
+  `source.fixAll.ruff`) и `apply` вернувшихся действий по порядку; формат — по свежему тексту, с
+  отбросом устаревшего ответа и схлопыванием каретки (общий хвост `applyFormattingEdits` с Format
+  Document).
+- **Таймаут** — 5000 мс на участника (`SAVE_PARTICIPANT_TIMEOUT_MS`): зависший или сбойный
+  пропускается, сохраняем как есть (как VS Code).
+- **Люфты:** порядок kinds — порядок ключей настройки (VS Code сортирует fixAll-семейство); действия
+  одного kind применяются списком без пере-запроса между apply (как в VS Code); сохранение по таймауту
+  участника может получить его правки уже ПОСЛЕ записи (буфер останется «грязным»).
+- Гейты: `editorService.onSave.test.ts`, `onSaveParticipants.test.ts`,
+  `textFileSaveParticipant.test.ts`; стоковый стек — `extensionHost.ruffLsp.onSave.test.ts` (fixAll
+  чинит F401 и формат на диске за один Ctrl+S).
 
 ## Правило роста `vscode.d.ts` (важно)
 `src/vscode-dts/vscode.d.ts` — стадийная копия upstream `microsoft/vscode:src/vscode-dts/vscode.d.ts`, всё line-commented кроме активной поверхности. Это дословная копия реального API, а не стаб под реализацию. Инвариант: **файл меняется ТОЛЬКО снятием `// `**.
