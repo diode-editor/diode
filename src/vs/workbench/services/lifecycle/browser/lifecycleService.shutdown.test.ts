@@ -89,7 +89,7 @@ describe("LifecycleService.shutdown — единое прощание", () => {
 
         await lifecycle.shutdown("quit", () => undefined);
 
-        // Висящий таймер держал бы event loop процесса после выхода.
+        // A dangling timer would keep the process event loop alive after exit.
         expect(vi.getTimerCount()).toBe(0);
     });
 

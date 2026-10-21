@@ -1,9 +1,9 @@
 /**
- * Аналог vscode `LifecyclePhase`, монотонно растёт:
- * - `starting` — сервисы собираются, view ещё не смонтирована;
- * - `ready` — view смонтирована, лёгкие сервисы готовы (`WorkbenchComponent.mount`);
- * - `restored` — стартовые файлы открыты или сессия восстановлена;
- * - `eventually` — первый кадр нарисован, можно делать отложенное.
+ * Counterpart of vscode `LifecyclePhase`, grows monotonically:
+ * - `starting`: services are being built, the view is not mounted yet;
+ * - `ready`: the view is mounted, lightweight services are ready (`WorkbenchComponent.mount`);
+ * - `restored`: startup files are open or the session is restored;
+ * - `eventually`: the first frame is drawn, deferred work may run.
  */
 export type LifecyclePhase = "starting" | "ready" | "restored" | "eventually";
 

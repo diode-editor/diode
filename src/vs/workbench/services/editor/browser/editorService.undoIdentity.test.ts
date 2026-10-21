@@ -51,7 +51,7 @@ function createGroup(): EditorService {
     return group;
 }
 
-/** Через текст буферов, а не ключ бакета — ключ намеренно непрозрачен. */
+/** Via buffer text, not the bucket key: the key is opaque on purpose. */
 describe("EditorService — идентичность истории отмены", () => {
     it("два untitled-буфера не делят историю: undo в одном не трогает другой", () => {
         const group = createGroup();
@@ -107,8 +107,8 @@ describe("EditorService — идентичность истории отмены
         await editor.saveAs(path.join(tmpDir, "note.txt"));
 
         editor.undo();
-        // Промежуточный ассерт обязателен: без него тест проходит вакуумно —
-        // сломанный undo просто ничего не делает, и текст остаётся исходным.
+        // The intermediate assert is required: without it the test passes vacuously,
+        // since a broken undo does nothing and the text stays the original.
         expect(editor.getText()).toBe("");
 
         editor.redo();

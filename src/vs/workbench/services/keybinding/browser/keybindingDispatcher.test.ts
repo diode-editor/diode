@@ -34,7 +34,7 @@ function createHarness(logService: ILogService = NULL_LOG_SERVICE) {
     let extendedKeys = false;
     let superKey = false;
     const terminalEnv: IExtendedKeysObserver = {
-        // Строго: опечатка в имени capability у диспатчера — падение теста, а не тихий false.
+        // Strict: a typo in a capability name in the dispatcher fails the test instead of a silent false.
         hasCapability: (cap: string) => {
             if (cap === "super") return superKey;
             if (cap === "extended-keys") return extendedKeys;
@@ -170,7 +170,7 @@ describe("KeybindingDispatcher — чорды", () => {
 
         h.dispatcher.dispatchKeyDown(keyDown({ key: "k", ctrlKey: true }));
 
-        // Одиночный модификатор (Kitty) не ломает и не продвигает чорд.
+        // A lone modifier (Kitty) neither breaks nor advances the chord.
         const modifier = keyDown({ key: "Control", ctrlKey: true });
         h.dispatcher.handleKeyDownCapture(modifier);
         expect(modifier.defaultPrevented).toBe(false);
@@ -274,7 +274,7 @@ describe("KeybindingDispatcher — чорды", () => {
         h.dispatcher.dispatchKeyDown(keyDown({ key: "s" }));
         expect(h.executed).toEqual([]);
 
-        // Повторный вызов без pending-чорда — безопасный no-op.
+        // A repeated call without a pending chord is a safe no-op.
         h.dispatcher.cancelPendingChord();
     });
 
@@ -325,7 +325,7 @@ describe("KeybindingDispatcher — модальные оверлеи", () => {
 
     it("фокус-ключ под отрицанием не делает команду focus-scoped — за оверлеем она глотается", () => {
         const h = createHarness();
-        // Регрессия: фокус-ключ искался подстрокой, и `!listFocus` проходил за оверлей.
+        // Regression: the focus key was matched as a substring, so `!listFocus` got past the overlay.
         h.bind("ctrl+b", "test.notInList", "!listFocus");
         h.bind("ctrl+e", "test.broken", "listFocus &&");
         h.dispatcher.hasKeyboardCapturingOverlay = () => true;
@@ -435,7 +435,7 @@ describe("KeybindingDispatcher — runtime-детект extended-keys", () => {
         h.dispatcher.handleKeyDownCapture(keyDown({ key: "Tab", ctrlKey: true, raw: "\x1b[9;5u" }));
         expect(h.extendedKeysCalls).toEqual(["observed"]);
 
-        // Возможность уже подтверждена — повторный CSI-u ничего не сообщает.
+        // The capability is already confirmed — a repeated CSI-u reports nothing.
         h.dispatcher.handleKeyDownCapture(keyDown({ key: "Tab", ctrlKey: true, raw: "\x1b[9;5u" }));
         expect(h.extendedKeysCalls).toEqual(["observed"]);
     });
@@ -464,7 +464,7 @@ describe("KeybindingDispatcher — runtime-детект extended-keys", () => {
     });
 });
 
-// Без разметки диспатчера расширение видело бы стрелки-команды как «источник неизвестен».
+// Without the dispatcher's tagging, extensions would see arrow commands as "unknown source".
 describe("KeybindingDispatcher — источник смены каретки", () => {
     it("команда с кейбинда исполняется внутри области keyboard", () => {
         const h = createHarness();

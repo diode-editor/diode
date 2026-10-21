@@ -6,21 +6,21 @@ import type {
 } from "../../../../platform/keybinding/common/keybindingRegistry.ts";
 import type { IUserKeybindingRule } from "../../../../platform/keybinding/common/userKeybindings.ts";
 
-/** Ошибка записи файла — результат, а не исключение: вкладка показывает её текстом и остаётся жива. */
+/** A file write error is a result, not an exception: the tab shows it as text and stays alive. */
 export type IKeybindingMutationResult = { readonly ok: true } | { readonly ok: false; readonly error: string };
 
 /**
- * Единственный владелец применения user-правил к реестру и записи keybindings.json.
- * Мутации применяются мгновенно; file-watcher'а нет — ручные правки файла доезжают после Reload Window.
+ * Sole owner of applying user rules to the registry and of writing keybindings.json.
+ * Mutations apply immediately; there is no file watcher — manual file edits take effect after Reload Window.
  */
 export interface IKeybindingsEditorService extends IDisposable {
-    /** Один раз, после регистрации всех дефолтов. */
+    /** Called once, after all defaults are registered. */
     applyUserKeybindings(rules: readonly IUserKeybindingRule[]): void;
 
     /**
-     * С `previous` — замена записи: дефолт/расширение снимается unbind-правилом (пара
-     * «`-command` + новое правило» VS Code), user-правило переписывается; без — ещё один
-     * биндинг. `when` копируется резолвнутым, с вклеенным enablement, как пишет VS Code.
+     * With `previous`, replaces the entry: a default/extension binding is removed by an unbind
+     * rule (VS Code's "`-command` + new rule" pair), a user rule is rewritten; without it, adds
+     * another binding. `when` is copied resolved, with enablement folded in, as VS Code writes it.
      */
     defineKeybinding(
         commandId: string,
@@ -28,12 +28,12 @@ export interface IKeybindingsEditorService extends IDisposable {
         previous?: IKeybindingEntrySnapshot,
     ): Promise<IKeybindingMutationResult>;
 
-    /** User-правило удаляется из файла, дефолт/расширение — unbind-правилом. */
+    /** A user rule is deleted from the file; a default/extension binding gets an unbind rule. */
     removeKeybinding(entry: IKeybindingEntrySnapshot): Promise<IKeybindingMutationResult>;
 
     resetKeybinding(commandId: string): Promise<IKeybindingMutationResult>;
 
-    /** Гейт пункта «Reset Keybinding». */
+    /** Gates the "Reset Keybinding" menu item. */
     hasUserModifications(commandId: string): boolean;
 
     onDidChange(cb: () => void): IDisposable;

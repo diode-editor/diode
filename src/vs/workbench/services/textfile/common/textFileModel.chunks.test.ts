@@ -34,8 +34,8 @@ function openPaths(): string[] {
 }
 
 /**
- * Граница куска режет `\r\n`, многобайтовый utf-8, суррогатную пару и пару байт UTF-16 —
- * открытие и сохранение без правок обязаны вернуть файл байт в байт (A4, docs/TODO/VscodeModel.md).
+ * A chunk boundary splits `\r\n`, multibyte utf-8, a surrogate pair and a UTF-16 byte pair:
+ * opening and saving without edits must return the file byte for byte (A4, docs/TODO/VscodeModel.md).
  */
 const CHUNK = READ_CHUNK_SIZE;
 
@@ -51,14 +51,14 @@ describe("TextFileModel — чтение кусками и запись сним
     });
 
     /**
-     * Текст, у которого граница куска (байт `CHUNK` в выбранной кодировке, с
-     * BOM) режет `tail`: он начинается за `bytesBeforeBoundary` байт до неё.
+     * Text whose chunk boundary (byte `CHUNK` in the chosen encoding, BOM included)
+     * splits `tail`: it starts `bytesBeforeBoundary` bytes before the boundary.
      */
     async function straddling(encoding: string, tail: string, bytesBeforeBoundary: number): Promise<string> {
         const bomLength = (await encodeText("", encoding)).length;
         const unit = (await encodeText("a", encoding)).length - bomLength;
         const fill = (CHUNK - bomLength - bytesBeforeBoundary) / unit;
-        // Строки по 63 символа + EOL, остаток — одной строкой перед хвостом.
+        // Lines of 63 chars + EOL, the remainder as one line before the tail.
         const lines = "a".repeat(62) + "\r\n";
         const body = lines.repeat(Math.floor(fill / lines.length)) + "b".repeat(fill % lines.length);
         expect((await encodeText(body, encoding)).length).toBe(CHUNK - bytesBeforeBoundary);
@@ -90,7 +90,7 @@ describe("TextFileModel — чтение кусками и запись сним
             expect(pane.model.eol).toBe(EndOfLine.CRLF);
             expect(pane.getText()).toBe(text.replace(/\r\n/g, "\n"));
 
-            // `save` пишет и чистый буфер.
+            // `save` writes a clean buffer too.
             fs.rmSync(filePath);
             await pane.save();
             expect(fs.readFileSync(filePath).equals(bytes)).toBe(true);
@@ -105,7 +105,7 @@ describe("TextFileModel — чтение кусками и запись сним
         pane.openFile(Uri.file(filePath));
         expect(openPaths()).not.toContain(filePath);
 
-        // Reopen ждёт iconv, перечитка его обгоняет: начатое им чтение всё равно закрыто.
+        // Reopen waits for iconv and a reload overtakes it: the read it started is still closed.
         const pending = pane.reopenWithEncoding("windows1251");
         pane.revertToDisk();
         expect(await pending).toBe(false);

@@ -67,7 +67,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             const groupChanges: unknown[] = [];
             ctrl.editorGroups.onDidActiveGroupChange((group) => groupChanges.push(group));
 
-            // Активна c (последняя). MRU-шаг увёл бы в b; визуальный — заворот на a.
+            // c (the last) is active. An MRU step would go to b; a visual one wraps around to a.
             ctrl.editorGroups.cycleEditor(1);
             expect(activeName(ctrl)).toBe("a.ts");
             ctrl.editorGroups.cycleEditor(1);
@@ -116,7 +116,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             ctrl.openFile(writeFile("b.ts"));
             const split = ctrl.splitActiveGroup();
             expect(split).not.toBeNull();
-            // Полоса: g1 [a, b] · g2 [b]; активна g2:b (последняя вкладка полосы).
+            // Strip: g1 [a, b] · g2 [b]; g2:b is active (the strip's last tab).
             const groupChanges: number[] = [];
             ctrl.editorGroups.onDidActiveGroupChange((group) => groupChanges.push(group.id));
 
@@ -133,7 +133,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             ctrl.openFile(writeFile("b.ts"));
             ctrl.splitActiveGroup();
             ctrl.editorGroups.notifyGroupFocused(ctrl.editorGroups.groups[0]);
-            ctrl.editorGroups.activeGroup.activateTab(0); // g1:a — первая вкладка полосы
+            ctrl.editorGroups.activeGroup.activateTab(0); // g1:a — the strip's first tab
 
             ctrl.editorGroups.cycleEditor(-1);
 
@@ -150,7 +150,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             ctrl.editorGroups.cycleEditor(1);
             expect(activeName(ctrl)).toBe("a.ts");
 
-            // Схлопнувшуюся пустую группу пересоздаём для обратного направления.
+            // Recreate the collapsed empty group for the opposite direction.
             ctrl.editorGroups.newGroup("after");
             ctrl.editorGroups.cycleEditor(-1);
             expect(activeName(ctrl)).toBe("c.ts");
@@ -189,7 +189,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             const others: (MruCycleState | null)[] = [];
             ctrl.editorGroups.onDidChangeMruCycle((state) => others.push(state));
             subscription.dispose();
-            // Повторный dispose безвреден и НЕ трогает чужие подписки.
+            // A repeated dispose is harmless and does NOT touch other subscriptions.
             subscription.dispose();
             ctrl.editorGroups.activeGroup.cycleMru(1);
             expect(events).toHaveLength(2);
@@ -203,7 +203,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             const events = record(ctrl);
 
             ctrl.splitActiveGroup();
-            // Активная группа — новая (g2) с [b]; докидываем вторую вкладку для цикла.
+            // The active group is the new one (g2) with [b]; add a second tab for the cycle.
             ctrl.openFile(writeFile("c.ts"));
             ctrl.editorGroups.activeGroup.cycleMru(1);
 
@@ -218,7 +218,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             ctrl.editorGroups.notifyGroupFocused(ctrl.editorGroups.groups[0]);
             const events = record(ctrl);
 
-            ctrl.editorGroups.activeGroup.cycleMru(1); // серия в g1: c → b
+            ctrl.editorGroups.activeGroup.cycleMru(1); // series in g1: c → b
             expect(events.at(-1)).not.toBeNull();
 
             ctrl.editorGroups.notifyGroupFocused(ctrl.editorGroups.groups[1]);
@@ -234,9 +234,9 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             ctrl.editorGroups.notifyGroupFocused(ctrl.editorGroups.groups[0]);
             const events = record(ctrl);
 
-            ctrl.editorGroups.activeGroup.cycleMru(1); // серия в g1
-            ctrl.editorGroups.activeGroup.activateTab(0, { mru: true }); // остаёмся в серии, на первой вкладке полосы
-            ctrl.editorGroups.cycleEditor(-1); // шаг назад через границу полосы — в g2
+            ctrl.editorGroups.activeGroup.cycleMru(1); // series in g1
+            ctrl.editorGroups.activeGroup.activateTab(0, { mru: true }); // stay in the series, on the strip's first tab
+            ctrl.editorGroups.cycleEditor(-1); // step back across the strip boundary — into g2
 
             expect(events.at(-1)).toBeNull();
             expect(ctrl.editorGroups.activeGroup).toBe(ctrl.editorGroups.groups[1]);

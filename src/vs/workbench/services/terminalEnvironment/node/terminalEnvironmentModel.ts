@@ -6,8 +6,8 @@ import type { MacKeysRung } from "../../../../platform/keybinding/common/macKeys
 // bundles), modes (an unordered set of contexts: local/ssh/tmux plus custom).
 
 /**
- * `super` — «Cmd доезжает»: из tier не выводится (kitty под tmux — это
- * `tier == kitty`, а super мёртв), поэтому отдельный примитив.
+ * `super` means "Cmd gets through": it does not follow from tier (kitty under tmux is
+ * `tier == kitty` with super dead), hence a separate primitive.
  */
 export type Capability = "extended-keys" | "osc52" | "truecolor" | "kitty-graphics" | "mouse-sgr" | "super";
 
@@ -47,21 +47,21 @@ export function tierAtLeast(a: Tier, b: Tier): boolean {
 }
 
 /**
- * ОС **клавиатуры**, а не процесса: по ssh с мака на Linux-хост раскладка
- * должна быть маковской, хотя `process.platform === "linux"`. Так же поступает
- * эталон — раскладку решает UI-сторона.
+ * The OS of the **keyboard**, not the process: over ssh from a Mac to a Linux host the
+ * layout must be the Mac one, even though `process.platform === "linux"`. Upstream does
+ * the same — the UI side decides the layout.
  */
 export type OsName = "mac" | "linux" | "windows";
 
 const OS_NAMES: readonly OsName[] = ["mac", "linux", "windows"];
 
 /**
- * Провенанс ответа — для статус-бара и Keyboard Doctor:
- *  - setting:  `keyboard.platform` — человек всегда прав;
- *  - env:      `LC_DIODE_PLATFORM` из конфига эмулятора (LC_* доезжает по ssh);
- *  - terminal: сам терминал назвался маковским (`LC_TERMINAL`, XTVERSION);
- *  - platform: `process.platform` локальной сессии;
- *  - default:  сигналов нет — «не знаю», считаем не-мак.
+ * Provenance of the answer, for the status bar and Keyboard Doctor:
+ *  - setting:  `keyboard.platform` — the user is always right;
+ *  - env:      `LC_DIODE_PLATFORM` from the emulator config (LC_* passes through ssh);
+ *  - terminal: the terminal itself identified as a Mac one (`LC_TERMINAL`, XTVERSION);
+ *  - platform: `process.platform` of a local session;
+ *  - default:  no signals — "unknown", treated as non-mac.
  */
 export type OsSource = "setting" | "env" | "terminal" | "platform" | "default";
 
@@ -73,15 +73,15 @@ export interface ResolvedOs {
 export interface OsSignals {
     readonly setting?: string;
     readonly envPlatform?: string;
-    /** iTerm2 ставит сам. */
+    /** Set by iTerm2 itself. */
     readonly lcTerminal?: string;
-    /** XTVERSION или tmux `#{client_termtype}`, напр. `iTerm2 3.5.0`, `kitty(0.45.0)`. */
+    /** XTVERSION or tmux `#{client_termtype}`, e.g. `iTerm2 3.5.0`, `kitty(0.45.0)`. */
     readonly terminalName?: string;
     readonly platform: NodeJS.Platform;
     readonly ssh: boolean;
 }
 
-/** Префиксы ответа XTVERSION / LC_TERMINAL. */
+/** Prefixes of the XTVERSION / LC_TERMINAL reply. */
 const MAC_ONLY_TERMINALS = ["iterm2", "apple_terminal"];
 
 function asOsName(value: string | undefined): OsName | undefined {
@@ -89,24 +89,24 @@ function asOsName(value: string | undefined): OsName | undefined {
     return OS_NAMES.find((name) => name === normalized);
 }
 
-/** Только позитив: незнакомое имя — «не знаю», а не «не мак». */
+/** Positive only: an unknown name means "unknown", not "not mac". */
 export function isMacOnlyTerminal(name: string | undefined): boolean {
-    // Stryker disable next-line StringLiteral: любой непустой заменитель тоже не совпадёт ни с одним префиксом — эквивалентный мутант.
+    // Stryker disable next-line StringLiteral: any non-empty replacement matches no prefix either — an equivalent mutant.
     const normalized = name?.trim().toLowerCase() ?? "";
     return MAC_ONLY_TERMINALS.some((prefix) => normalized.startsWith(prefix));
 }
 
 /**
- * Лестница сигналов «какая ОС у клавиатуры», сверху вниз:
- *  1. настройка `keyboard.platform` (кроме `auto`);
+ * The "which OS is the keyboard" signal ladder, top to bottom:
+ *  1. the `keyboard.platform` setting (except `auto`);
  *  2. `LC_DIODE_PLATFORM`;
- *  3. `LC_TERMINAL` маковского терминала;
- *  4. имя терминала (XTVERSION / tmux `client_termtype`) — маковское;
- *  5. `process.platform === "darwin"` — но не по ssh: в мак могли зайти с PC-клавиатуры;
- *  6. иначе — не мак.
+ *  3. `LC_TERMINAL` of a Mac terminal;
+ *  4. a Mac terminal name (XTVERSION / tmux `client_termtype`);
+ *  5. `process.platform === "darwin"` — but not over ssh: the Mac may be reached from a PC keyboard;
+ *  6. otherwise not mac.
  *
- * Пп. 1–2 — явные и могут сказать «не мак». Пп. 3–5 только позитивные: не
- * сработали ⇒ «не знаю», и решение отдаётся ступени ниже.
+ * Steps 1–2 are explicit and may say "not mac". Steps 3–5 are positive only: if they
+ * do not fire, the answer is "unknown" and the decision passes to the next step down.
  */
 export function resolveOs(signals: OsSignals): ResolvedOs {
     const fromSetting = asOsName(signals.setting);
@@ -122,9 +122,9 @@ export function resolveOs(signals: OsSignals): ResolvedOs {
 }
 
 /**
- * Можно ли поздним (асинхронным) сигналом перевернуть уже принятый ответ.
- * Только в сторону мака и никогда обратно; явный ответ человека (настройка,
- * переменная) поздний сигнал не перебивает.
+ * Whether a late (async) signal may flip an already resolved answer.
+ * Only towards mac, never back; a late signal does not override an explicit user
+ * answer (setting, variable).
  */
 export function canUpgradeToMac(current: ResolvedOs, next: ResolvedOs): boolean {
     if (current.os === "mac" || next.os !== "mac") return false;
@@ -132,9 +132,9 @@ export function canUpgradeToMac(current: ResolvedOs, next: ResolvedOs): boolean 
 }
 
 /**
- * Рунг мак-лестницы из (os, caps, modes); `undefined` — клавиатура не маковская.
- * Под tmux Cmd не бывает никогда, даже при форсированном `super`: tmux пишет
- * Alt и super в один бит, и Cmd-бинд выстрелил бы по команде на Alt.
+ * Rung of the mac ladder from (os, caps, modes); `undefined` means the keyboard is not a Mac one.
+ * Under tmux there is never Cmd, even with a forced `super`: tmux encodes Alt and super
+ * in one bit, so a Cmd binding would fire on an Alt keypress.
  */
 export function resolveMacKeysRung(
     os: OsName,
@@ -181,10 +181,10 @@ export function detectKittyGraphicsHint(env: NodeJS.ProcessEnv = process.env): b
 
 /**
  * Provisional value until the async probe; under tmux/ssh $TERM is often masked, so it may
- * under-report. Под tmux env-флаги хост-терминала (`KITTY_WINDOW_ID` пробрасывается) ничего
- * не доказывают: расширенные клавиши доходят, только если их пропускает сам tmux
- * (`extended-keys on`, ≥ 3.2). Поверив флагу, мы завышали tier и выключали legacy-фоллбэки —
- * Ctrl+Shift+F приезжал как Ctrl+F. Под мультиплексором ждём probe или увиденный расширенный ввод.
+ * under-report. Under tmux the host terminal's env flags (`KITTY_WINDOW_ID` is passed through) prove
+ * nothing: extended keys get through only if tmux itself passes them (`extended-keys on`, ≥ 3.2).
+ * Trusting the flag overstated the tier and disabled legacy fallbacks, so Ctrl+Shift+F arrived as
+ * Ctrl+F. Under a multiplexer, wait for the probe or observed extended input.
  */
 export function detectExtendedKeysHint(env: NodeJS.ProcessEnv = process.env): boolean {
     const haystack = termHaystack(env);

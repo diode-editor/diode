@@ -6,7 +6,7 @@ import { STATUS_BAR_HIDDEN_STATE } from "../../../common/stateKeys.ts";
 
 import { StatusBarService } from "./statusBarService.ts";
 
-/** Стор в памяти: переживает пересоздание сервиса — это и есть персист. */
+/** An in-memory store that survives service re-creation, which is what persistence means here. */
 function memoryState(): IStateService {
     const store = new Map<string, unknown>();
     return {

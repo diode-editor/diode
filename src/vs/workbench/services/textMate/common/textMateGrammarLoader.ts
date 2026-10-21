@@ -14,7 +14,7 @@ export interface IGrammarRecord {
     readonly injections?: readonly string[];
 }
 
-/** Грамматики читаются лениво — при первом запросе. */
+/** Grammars are read lazily, on first request. */
 export class TextMateGrammarLoader {
     private readonly assets: IAssetAccess;
     private readonly registry: Registry;
@@ -46,19 +46,19 @@ export class TextMateGrammarLoader {
     }
 
     public async loadSupport(scopeName: string): Promise<ITokenizationSupport | null> {
-        // Если scope не зарегистрирован у нас — отдадим null без обращения к
-        // Registry, иначе vscode-textmate бросит «No grammar provided».
+        // If the scope is not registered with us, return null without touching the
+        // Registry, otherwise vscode-textmate throws "No grammar provided".
         if (!this.recordsByScope.has(scopeName)) return null;
         const grammar = await this.loadGrammar(scopeName);
-        /* v8 ignore start -- defensive: для зарегистрированного scope Registry либо бросает «No grammar provided», либо отдаёт грамматику; null здесь недостижим */
+        /* v8 ignore start -- defensive: for a registered scope the Registry either throws "No grammar provided" or returns the grammar; null is unreachable here */
         if (grammar === null) return null;
         /* v8 ignore stop */
         return new TextMateTokenizationSupport(grammar);
     }
 
     /**
-     * Upstream `TextMateTokenizationFeature._updateTheme`. Загруженные грамматики подхватывают тему
-     * сами; токены по прежней перетокенизирует владелец (`TokenizationRegistry.setColorMap`).
+     * Upstream `TextMateTokenizationFeature._updateTheme`. Loaded grammars pick up the theme
+     * themselves; tokens from the old one are retokenized by the owner (`TokenizationRegistry.setColorMap`).
      */
     public setTheme(theme: ITextMateTheme): void {
         this.registry.setTheme(
@@ -88,7 +88,7 @@ export class TextMateGrammarLoader {
     }
 }
 
-/** vscode-textmate ждёт изменяемый массив скоупов — отдаём копию. */
+/** vscode-textmate expects a mutable scope array, so pass a copy. */
 function copyScope(scope: string | readonly string[] | undefined): string | string[] | undefined {
     return typeof scope === "object" ? [...scope] : scope;
 }

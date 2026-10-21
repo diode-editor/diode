@@ -7,8 +7,8 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/c
 
 import { FileSearchService } from "./fileSearchService.ts";
 
-// Поддельный `rg` печатает заготовленные пути и висит, пока его не снимут: «обход идёт,
-// часть пришла» без гонки с настоящим rg, который на маленьком дереве успевает раньше.
+// A fake `rg` prints canned paths and hangs until killed: "walk in progress, part has
+// arrived" without racing a real rg, which finishes first on a small tree.
 
 describe.skipIf(process.platform === "win32")("FileSearchService — обход в процессе (поддельный rg)", () => {
     let bin: ITempWorkspace;
@@ -98,7 +98,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         await waitForEntries(s);
 
         s.dispose();
-        // Без kill висящий rg держал бы `ready` 30 секунд — тест упал бы по таймауту.
+        // Without kill, the hanging rg would hold `ready` for 30 seconds and the test would time out.
         await pending;
         expect(s.isIndexed).toBe(false);
     });
@@ -108,7 +108,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         const first = s.activate(bin.dir);
         await waitForEntries(s);
 
-        // Прежний rg висит: если его не снять, `first` не дорешится никогда.
+        // The previous rg hangs: unless it is killed, `first` never settles.
         fakeRg(["new.ts"], { hang: false });
         const second = s.activate(bin.dir);
         await Promise.all([first, second]);
@@ -118,8 +118,8 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
     });
 
     /**
-     * На SIGTERM выходит через 300 мс и отмечает старты в `starts`: прежний обход кончается
-     * позже старта нового. Скрипт один на оба обхода — файл, который читает живой `sh`, не переписать.
+     * Exits 300 ms after SIGTERM and records starts in `starts`, so the previous walk ends
+     * after the new one starts. One script serves both walks — a file a running `sh` reads cannot be rewritten.
      */
     function slowExitRg(): { rg: string; starts: () => number } {
         const out = bin.writeFile("stdout.txt", "a.ts\n");
@@ -135,7 +135,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         };
     }
 
-    /** Запускает обход A, поверх него обход B и ждёт, пока A доумрёт (B ещё идёт). */
+    /** Starts walk A, then walk B on top of it, and waits until A finishes dying (B is still running). */
     async function supersededWalk(s: FileSearchService, starts: () => number): Promise<{ second: Promise<void> }> {
         const first = s.activate(bin.dir);
         await vi.waitFor(() => {
@@ -146,8 +146,8 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
             expect(starts()).toBe(2);
         });
         await first;
-        // В объекте: промис, возвращённый из async-функции, развернулся бы, и
-        // вызывающий ждал бы конец B вместо конца A.
+        // Wrapped in an object: a promise returned from an async function would be unwrapped,
+        // and the caller would wait for B to end instead of A.
         return { second };
     }
 
@@ -156,8 +156,8 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, rg));
         const { second } = await supersededWalk(s, starts);
 
-        // Индекс ни разу не достроен — устарел по времени; отказ refreshIfStale
-        // держится только на `indexing` идущего обхода B.
+        // The index was never completed, so it is stale by time; refreshIfStale declines
+        // only because walk B is still `indexing`.
         const readyBefore = s.ready;
         s.refreshIfStale();
         expect(s.ready).toBe(readyBefore);
@@ -171,8 +171,8 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         const { rg, starts } = slowExitRg();
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, rg));
         const pending = s.activate(bin.dir);
-        // Обход отложен на setImmediate — снимаем до него. Запущенный после
-        // dispose rg снять было бы некому: `pending` не дорешился бы.
+        // The walk is deferred to setImmediate — dispose before it. An rg started after
+        // dispose would have no one to kill it, and `pending` would never settle.
         s.dispose();
         await pending;
 
@@ -185,7 +185,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, rg));
         const { second } = await supersededWalk(s, starts);
 
-        // Забытый rg обхода B крутился бы вечно, и `second` не дорешился бы.
+        // A forgotten rg of walk B would run forever, and `second` would never settle.
         s.dispose();
         await second;
         expect(s.isIndexed).toBe(false);
@@ -205,8 +205,8 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
     });
 
     it("обход кончается по `close`: строки, пришедшие после `exit`, в индексе", async () => {
-        // Сам `rg` выходит сразу, а унаследовавший его stdout потомок допечатывает
-        // строку позже: `exit` уже был, `close` — ещё нет.
+        // `rg` itself exits at once, while a child that inherited its stdout prints
+        // a line later: `exit` has fired, `close` has not yet.
         const script = bin.writeFile("rg", "#!/bin/sh\necho a.ts\n(sleep 0.3; echo late.ts) &\nexit 0\n");
         fs.chmodSync(script, 0o755);
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, script));
@@ -254,7 +254,7 @@ describe("FileSearchService — notify", () => {
             fired += 1;
         });
         await p;
-        // Не «ровно 1»: под нагрузкой debounce-таймер может успеть до `close`.
+        // Not "exactly 1": under load the debounce timer may fire before `close`.
         expect(fired).toBeGreaterThan(0);
     });
 

@@ -27,7 +27,7 @@ import { BaseTextEditorModel } from "../../../common/editor/textEditorModel.ts";
 
 import type { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 
-/** `conflict` — файл изменён снаружи с последней синхронизации, запись отменена; повтор — `{ overwrite: true }`. */
+/** `conflict`: the file changed externally since the last sync and the write was cancelled; retry with `{ overwrite: true }`. */
 export type SaveOutcome = "saved" | "conflict" | "no-file";
 
 interface IDiskStat {
@@ -39,37 +39,37 @@ function diskEtag(stat: IDiskStat): string {
     return etag({ mtime: stat.mtimeMs, size: stat.size });
 }
 
-/** Номер безымянного назначает группа ({@link TextFileModel.setUntitled}) — она владеет счётчиком. */
+/** The untitled number is assigned by the group ({@link TextFileModel.setUntitled}), which owns the counter. */
 const UNTITLED_PLACEHOLDER_URI = Uri.from({ scheme: "untitled", path: "Untitled" });
 
 /**
- * Как `TextFileEditorModel.onDidFilesChange` эталона: атомарная запись чужим редактором —
- * удаление и тут же новый файл, поэтому пропажу перепроверяем через паузу.
+ * Like upstream `TextFileEditorModel.onDidFilesChange`: another editor's atomic write is a
+ * delete immediately followed by a new file, so a disappearance is re-checked after a delay.
  */
 export const ORPHAN_CHECK_DELAY_MS = 100;
 
 /**
- * Аналог `ITextFileEditorModel`: файл с диска, ресурс провайдера ФС расширения
- * ({@link openProvided}) либо безымянный буфер; синтетика — `SyntheticTextModel`.
- * Экземпляр на файл, создаёт `EditorService`.
+ * Counterpart of `ITextFileEditorModel`: a file on disk, a resource of an extension's FS provider
+ * ({@link openProvided}) or an untitled buffer; synthetic content is `SyntheticTextModel`.
+ * One instance per file, created by `EditorService`.
  */
 export class TextFileModel extends BaseTextEditorModel {
     /**
-     * Состояние модели, а не документа: применяется на дисковой границе. Не undoable
-     * и не входит в isModified — как в VS Code.
+     * State of the model, not of the document: applied at the disk boundary. Not undoable
+     * and not part of isModified, as in VS Code.
      */
     private encodingValue: string = DEFAULT_ENCODING;
     private readonly onDidChangeEncodingEmitter = this.register(new Emitter<void>());
-    /** Отличает внешнее изменение от своей записи. `null` — файла не было при открытии. */
+    /** Tells an external change from our own write. `null`: the file did not exist when opened. */
     private diskStat: IDiskStat | null = null;
     private diskConflictValue = false;
     private readonly onDidChangeDiskStateEmitter = this.register(new Emitter<void>());
     private fileWatch: IDisposable | null = null;
-    /** `TextFileEditorModelState.ORPHAN` эталона. */
+    /** Upstream `TextFileEditorModelState.ORPHAN`. */
     private orphanedValue = false;
     private readonly onDidChangeOrphanedEmitter = this.register(new Emitter<void>());
     private orphanCheck: ReturnType<typeof setTimeout> | null = null;
-    /** Асинхронный reopen сверяет его, прежде чем писать в документ. */
+    /** An async reopen checks it before writing into the document. */
     private loadGeneration = 0;
     private providedWatch: IDisposable | null = null;
 
@@ -77,7 +77,7 @@ export class TextFileModel extends BaseTextEditorModel {
         return this.encodingValue;
     }
 
-    /** Неизвестные id игнорируются. Буфер не перечитывает — это {@link reopenWithEncoding}. */
+    /** Unknown ids are ignored. Does not re-read the buffer; that is {@link reopenWithEncoding}. */
     public setEncoding(encoding: string): void {
         if (getEncodingInfo(encoding) === undefined) return;
         this.applyEncoding(encoding);
@@ -91,43 +91,43 @@ export class TextFileModel extends BaseTextEditorModel {
 
     private readonly onDidSaveDocumentEmitter = this.register(new Emitter<void>());
 
-    /** Первым подписан владелец-сервис (перепривязка реестра моделей), дальше — вкладки. */
+    /** The owning service subscribes first (model registry rebinding), tabs come after. */
     public readonly onDidSaveDocument = this.onDidSaveDocumentEmitter.event;
 
     private fireSaved(): void {
         this.onDidSaveDocumentEmitter.fire();
     }
 
-    /** Инъектируется группой перед openFile; `null` — без live-watch. */
+    /** Injected by the group before openFile; `null` means no live watch. */
     public fileWatcher: IFileWatcher | null = null;
 
-    /** Общий для всех моделей `EditorService`; прогоняется и в `save`, и в `saveAs`. */
+    /** Shared by all models of `EditorService`; runs in both `save` and `saveAs`. */
     public saveParticipant: TextFileSaveParticipant | null = null;
 
-    /** Файл изменён снаружи при несохранённых правках: авто-перечитать нельзя. */
+    /** The file changed externally while there are unsaved edits, so it cannot be auto-reloaded. */
     public get hasDiskConflict(): boolean {
         return this.diskConflictValue;
     }
 
-    /** Подписка живёт на модели и переживает пересоздание документа в openFile. */
+    /** The subscription lives on the model and survives document re-creation in openFile. */
     public readonly onDidChangeDiskState = this.onDidChangeDiskStateEmitter.event;
 
     /**
-     * Снимается, когда файл вернулся, и после сохранения. Безымянный буфер и файл,
-     * которого не было уже при открытии, orphaned не бывают.
+     * Cleared when the file comes back and after a save. An untitled buffer and a file
+     * that was already missing when opened are never orphaned.
      */
     public get isOrphaned(): boolean {
         return this.orphanedValue;
     }
 
-    /** Следом файрится и {@link onDidChangeDiskState}; отдельно — для `workbench.editor.closeOnFileDelete`. */
+    /** {@link onDidChangeDiskState} fires right after; this one is separate for `workbench.editor.closeOnFileDelete`. */
     public readonly onDidChangeOrphaned = this.onDidChangeOrphanedEmitter.event;
 
     public readonly onDidChangeEncoding = this.onDidChangeEncodingEmitter.event;
 
     /**
-     * Гейт по схеме, а не по «`fsPath` непустой»: у не-file схемы `fsPath` отдаёт путь
-     * как есть (`untitled:Untitled-1` → `"Untitled-1"`), и он ушёл бы в `node:fs` как относительный.
+     * Gated by scheme, not by "`fsPath` is non-empty": for a non-file scheme `fsPath` returns the path
+     * as is (`untitled:Untitled-1` → `"Untitled-1"`), and it would reach `node:fs` as a relative path.
      */
     private get filePath(): string | null {
         return this.uriValue.scheme === "file" ? this.uriValue.fsPath : null;
@@ -143,8 +143,8 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     /**
-     * @param files Запись — через файловый сервис (атомарно, гард по etag). Чтение пока
-     * синхронное, мимо сервиса (docs/TODO/FileService.md, PR 5).
+     * @param files Writes go through the file service (atomic, guarded by etag). Reads are still
+     * synchronous and bypass the service (docs/TODO/FileService.md, PR 5).
      */
     public constructor(
         languageService: ILanguageService,
@@ -154,8 +154,8 @@ export class TextFileModel extends BaseTextEditorModel {
         super(languageService, undoRedoService, UNTITLED_PLACEHOLDER_URI);
         this.register({
             dispose: () => {
-                // Незавершённый reopen не пишет в закрытую модель.
-                // Stryker disable next-line UpdateOperator: см. readDiskBytes
+                // A pending reopen must not write into a disposed model.
+                // Stryker disable next-line UpdateOperator: see readDiskBytes
                 this.loadGeneration++;
                 this.fileWatch?.dispose();
                 this.providedWatch?.dispose();
@@ -169,18 +169,18 @@ export class TextFileModel extends BaseTextEditorModel {
         return filePath === null ? [] : [filePath];
     }
 
-    /** Звать до того, как редактор попадёт в список вкладок и станет кому-то виден. */
+    /** Call before the editor enters the tab list and becomes visible to anyone. */
     public setUntitled(untitledNumber: number): void {
         this.uriValue = Uri.from({ scheme: "untitled", path: `Untitled-${untitledNumber}` });
     }
 
     /**
-     * Относительные пути резолвит группа до подъёма в uri: `Uri.file` их не резолвит,
-     * после подъёма было бы поздно.
+     * The group resolves relative paths before lifting them into a uri: `Uri.file` does not
+     * resolve them, and after lifting it would be too late.
      */
     public openFile(uri: Uri): void {
-        // Без гейта `git:`-ресурс молча показал бы рабочее дерево и повесил watcher
-        // на чужой путь. Не-file буферы — `openSynthetic`.
+        // Without the gate a `git:` resource would silently show the working tree and attach
+        // a watcher to someone else's path. Non-file buffers go through `openSynthetic`.
         if (uri.scheme !== "file") {
             throw new Error(`TextFileModel.openFile: ожидается file:-uri, получен ${uri.scheme}:`);
         }
@@ -192,9 +192,9 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     /**
-     * Ресурс провайдера ФС расширения (`_claude_fs_right:` у Claude Code) — как файл
-     * в эталоне. Байты читает вызывающий: чтение провайдера асинхронное, а модель
-     * рождается в реестре синхронно.
+     * A resource of an extension's FS provider (`_claude_fs_right:` in Claude Code), treated as
+     * a file like upstream. The caller reads the bytes: provider reads are async, while the
+     * model is born in the registry synchronously.
      */
     public openProvided(uri: Uri, bytes: Uint8Array): void {
         if (uri.scheme === "file" || uri.scheme === "untitled") {
@@ -219,11 +219,11 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     /**
-     * Своя запись тоже приходит событием — её отличаем по тексту: перечитка того же
-     * текста стирала бы историю отмены при каждом сохранении.
+     * Our own write also arrives as an event and is told apart by text: re-reading the same
+     * text would wipe the undo history on every save.
      */
     private async reloadProvided(): Promise<void> {
-        // Stryker disable next-line UpdateOperator: см. readDiskBytes
+        // Stryker disable next-line UpdateOperator: see readDiskBytes
         const generation = ++this.loadGeneration;
         let bytes: Uint8Array;
         try {
@@ -241,18 +241,18 @@ export class TextFileModel extends BaseTextEditorModel {
         this.fireDiskStateChange();
     }
 
-    /** Кодировка пере-детектится (сниф BOM, иначе utf-8), как reload в VS Code; явная — {@link reopenWithEncoding}. */
+    /** The encoding is re-detected (BOM sniff, otherwise utf-8), like reload in VS Code; an explicit one is {@link reopenWithEncoding}. */
     private loadDocumentFromDisk(filePath: string): void {
         this.applyDecoded(filePath, decodeStreamByBOM(this.readDiskChunks(filePath)));
     }
 
     private readDiskChunks(filePath: string): Iterable<Buffer> {
-        // Stryker disable next-line UpdateOperator: поколение сверяется только на равенство — «--» тоже новое значение
+        // Stryker disable next-line UpdateOperator: the generation is only compared for equality, so "--" is a new value too
         this.loadGeneration++;
         return readFileChunks(filePath);
     }
 
-    /** Буфер собирается прямо из кусков декодера: строки всего файла не бывает (A4, docs/TODO/VscodeModel.md). */
+    /** The buffer is built straight from decoder chunks: a whole-file string never exists (A4, docs/TODO/VscodeModel.md). */
     private applyDecoded(filePath: string, { text, encoding }: IDecodedStream): void {
         let chars = 0;
         const factory = createTextBufferFactoryFromChunks(
@@ -263,25 +263,25 @@ export class TextFileModel extends BaseTextEditorModel {
                 }
             })(),
         );
-        // Вехи лестницы старта (docs/TODO/OpenPerformance.md).
+        // Startup ladder marks (docs/TODO/OpenPerformance.md).
         mark("textfile:decoded", { chars });
         this.applyEncoding(encoding);
         this.diskStat = this.readDiskStat(filePath);
         this.diskConflictValue = false;
-        // Файл вернулся, а watcher промолчал. Пропавший файл перечитка не воскрешает.
+        // The file came back but the watcher stayed silent. A reload does not resurrect a missing file.
         if (this.diskStat !== null) this.setOrphaned(false);
         this.replaceText(factory);
         mark("textfile:document-built", { lines: this.doc.lineCount });
-        // Язык — после текста: при первом открытии смена языка пересаживает
-        // токенизатор готовым вью на документ с текстом, а не на пустой.
+        // Language goes after the text: on first open a language change moves the tokenizer
+        // of an already-built view onto the document with text rather than an empty one.
         this.doc.setLanguage(this.resolveLanguageId(filePath));
     }
 
     public async save(options?: { overwrite?: boolean }): Promise<SaveOutcome> {
         const filePath = this.filePath;
         if (filePath === null && !this.isProvided) return "no-file";
-        // У ресурса провайдера снимка нет: его конфликт взводит перечитка.
-        // Stryker disable next-line ConditionalExpression: эквивалентный — без файла `diskStat` пуст, и stat «нет файла» от него не отличается
+        // A provider resource has no snapshot: its conflict is raised by the reload.
+        // Stryker disable next-line ConditionalExpression: equivalent, since without a file `diskStat` is empty and a "no file" stat does not differ from it
         if (options?.overwrite !== true && filePath !== null && this.hasExternalChange(filePath)) {
             this.setDiskConflict(true);
             return "conflict";
@@ -293,8 +293,8 @@ export class TextFileModel extends BaseTextEditorModel {
             const bytes = await encodeChunks(this.doc.createSnapshot(), this.encodingValue);
             written = await this.files.writeFile(this.uriValue, bytes, {
                 atomic: true,
-                // Тот же гард, что выше, но в момент записи: пока работали
-                // участники, файл мог измениться снаружи.
+                // Same guard as above, but at write time: the file may have changed
+                // externally while participants were running.
                 etag: options?.overwrite === true || this.diskStat === null ? undefined : diskEtag(this.diskStat),
             });
         } catch (e) {
@@ -310,7 +310,7 @@ export class TextFileModel extends BaseTextEditorModel {
         return "saved";
     }
 
-    /** "no-file" — вызывающий уводит в Save As; кодировка при этом уже выставлена. */
+    /** "no-file": the caller falls back to Save As; the encoding is already set by then. */
     public async saveWithEncoding(encoding: string, options?: { overwrite?: boolean }): Promise<SaveOutcome> {
         this.setEncoding(encoding);
         return this.save(options);
@@ -323,17 +323,17 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     /**
-     * Правки «грязной» вкладки, переехавшие за rename/move в проводнике: как
-     * `resolve({ contents })` у `TextFileEditorModelManager` эталона на MOVE —
-     * модель остаётся изменённой, история отмены с нуля.
+     * Edits of a dirty tab carried over by a rename/move in the explorer: like upstream
+     * `TextFileEditorModelManager` `resolve({ contents })` on MOVE, the model stays
+     * modified and the undo history starts from scratch.
      */
     public restoreUnsavedContents(text: string): void {
         this.replaceText(text, { unsaved: true });
     }
 
     /**
-     * Подтверждение у «грязного» буфера спрашивает вызывающий. `false` — нет файла
-     * либо перечитку обогнала другая (декод не-Unicode ждёт iconv).
+     * The caller asks for confirmation on a dirty buffer. `false`: no file, or another
+     * reload overtook this one (non-Unicode decoding waits for iconv).
      */
     public async reopenWithEncoding(encoding: string): Promise<boolean> {
         const filePath = this.filePath;
@@ -341,7 +341,7 @@ export class TextFileModel extends BaseTextEditorModel {
         const chunks = this.readDiskChunks(filePath);
         const generation = this.loadGeneration;
         const decoded = await decodeStream(chunks, encoding);
-        // Начатое чтение дочитывается и устаревшим: проход закрывает файл.
+        // A started read is drained even when stale: the pass closes the file.
         if (generation !== this.loadGeneration || filePath !== this.filePath) {
             Array.from(decoded.text);
             return false;
@@ -380,7 +380,7 @@ export class TextFileModel extends BaseTextEditorModel {
         }
     }
 
-    /** Отсутствие файла — не конфликт: `save` его пересоздаст. */
+    /** A missing file is not a conflict: `save` re-creates it. */
     private hasExternalChange(filePath: string): boolean {
         return this.differsFromDisk(this.readDiskStat(filePath));
     }
@@ -399,7 +399,7 @@ export class TextFileModel extends BaseTextEditorModel {
             }) ?? null;
     }
 
-    /** Свою запись отсеивает сверка stat: после save `diskStat` уже обновлён. */
+    /** The stat comparison filters out our own write: after save `diskStat` is already updated. */
     private handleExternalFileChange(filePath: string): void {
         const current = this.readDiskStat(filePath);
         if (current === null) {
@@ -418,7 +418,7 @@ export class TextFileModel extends BaseTextEditorModel {
     }
 
     private scheduleOrphanCheck(filePath: string): void {
-        // Файла не было уже при открытии — пропадать нечему.
+        // The file was already missing when opened, so nothing can disappear.
         if (this.orphanedValue || this.diskStat === null) return;
         this.cancelOrphanCheck();
         this.orphanCheck = setTimeout(() => {
@@ -455,20 +455,20 @@ export class TextFileModel extends BaseTextEditorModel {
 }
 
 /**
- * Не 64 КБ эталона (`readFileIntoStream`): куски по 64 КБ — обычные строки кучи,
- * peak RSS на 13 МБ файле был +40 МБ (`bench:open`, A4). Больше ~1 МБ (`EXTERN_APEX`)
- * node отдаёт внешней строкой вне кучи V8; 4 МБ — с запасом и для 2–3 байт на символ.
+ * Not upstream's 64 KB (`readFileIntoStream`): 64 KB chunks become regular heap strings, and
+ * peak RSS on a 13 MB file was +40 MB (`bench:open`, A4). Above ~1 MB (`EXTERN_APEX`) node
+ * returns an external string outside the V8 heap; 4 MB leaves headroom for 2–3 bytes per char.
  */
 export const READ_CHUNK_SIZE = 4 * 1024 * 1024;
 
-/** Файл закрывается в конце прохода или когда проход бросили. Нет файла — ни одного куска. */
+/** The file is closed at the end of the pass or when the pass is abandoned. No file yields no chunks. */
 function* readFileChunks(filePath: string): Generator<Buffer> {
     let bytes = 0;
     if (fs.existsSync(filePath)) {
         const fd = fs.openSync(filePath, "r");
         try {
             for (;;) {
-                // Новый буфер на кусок: декодер может держать хвост куска до следующего.
+                // A fresh buffer per chunk: the decoder may hold a chunk's tail until the next one.
                 const chunk = Buffer.allocUnsafe(READ_CHUNK_SIZE);
                 const read = fs.readSync(fd, chunk, 0, READ_CHUNK_SIZE, null);
                 if (read === 0) break;

@@ -31,8 +31,8 @@ interface ISemanticRule {
 const FLAGS = ["bold", "italic", "underline", "strikethrough"] as const;
 
 /**
- * `TokenStyle.fromSettings` эталона: `fontStyle` (даже пустой) сбрасывает все
- * четыре флага и выставляет перечисленные, перекрывая отдельные булевы.
+ * Upstream `TokenStyle.fromSettings`: `fontStyle` (even empty) resets all
+ * four flags and sets the listed ones, overriding the individual booleans.
  */
 function styleFromSettings(settings: ISemanticTokenColorSettings): SemanticTokenStyle {
     let { bold, italic, underline, strikethrough } = settings;
@@ -43,22 +43,22 @@ function styleFromSettings(settings: ISemanticTokenColorSettings): SemanticToken
         underline = fontStyle.includes("underline");
         strikethrough = fontStyle.includes("strikethrough");
     }
-    // Незаданный флаг остаётся ключом со значением undefined: потребитель
-    // (`processStyle`) берёт только заданные атрибуты.
+    // An unset flag stays a key with value undefined: the consumer
+    // (`processStyle`) takes only the set attributes.
     const style: IMutableStyle = { bold, italic, underline, strikethrough };
     if (settings.foreground !== undefined) style.fg = parseHexColor(settings.foreground);
     return style;
 }
 
 /**
- * `nameMatcher` эталона: каждый идентификатор пути правила найден в пробе
- * (ищется с конца); вес — по позиции последнего из них и длине идентификатора.
+ * Upstream `nameMatcher`: every identifier of the rule path is found in the probe
+ * (searched from the end); the weight comes from the position of the last one and the identifier length.
  */
 function nameMatcher(identifiers: readonly string[], scopes: ProbeScope): number {
     if (scopes.length < identifiers.length) {
         return -1;
     }
-    // Идентификаторов хотя бы один (do-while парсера) — начальное значение всегда перезаписывается.
+    // There is at least one identifier (the parser's do-while), so the initial value is always overwritten.
     let score = 0;
     for (const identifier of identifiers) {
         let found = -1;
@@ -74,7 +74,7 @@ function nameMatcher(identifiers: readonly string[], scopes: ProbeScope): number
     return score;
 }
 
-/** Скоуп `thisScopeName` — это `scopeName` или его потомок по точке. */
+/** Scope `thisScopeName` is `scopeName` or its dot-descendant. */
 function scopesAreMatching(thisScopeName: string, scopeName: string): boolean {
     return (
         thisScopeName === scopeName || (thisScopeName.startsWith(scopeName) && thisScopeName[scopeName.length] === ".")
@@ -90,20 +90,20 @@ function getScopeMatcher(rule: ITokenColorRule): Matcher<ProbeScope> | null {
     for (const scope of Array.isArray(ruleScope) ? ruleScope : [ruleScope]) {
         createMatchers(scope, nameMatcher, matchers);
     }
-    // Без единого матчера (пустой или битый селектор) — max пустого = -Infinity: не совпадает.
+    // No matchers at all (empty or broken selector): max of empty is -Infinity, i.e. no match.
     return (scope) => Math.max(...matchers.map((matcher) => matcher(scope)));
 }
 
 /**
- * Перенос `getTokenStyle` и `resolveScopes` из `colorThemeData.ts` эталона:
- * 1. правила `semanticTokenColors` темы: каждый атрибут — у совпавшего правила с наибольшим
- *    весом селектора, при равенстве — у позднего;
- * 2. для незаданных на шаге 1 — дефолтные правила реестра классификации: их TextMate-пробы
- *    ищутся в `tokenColors`, первая давшая цвет или `fontStyle` идёт с весом селектора правила.
+ * Port of `getTokenStyle` and `resolveScopes` from upstream `colorThemeData.ts`:
+ * 1. the theme's `semanticTokenColors` rules: each attribute comes from the matching rule with the highest
+ *    selector weight, the later one on a tie;
+ * 2. for attributes unset in step 1, the classification registry's default rules: their TextMate probes
+ *    are looked up in `tokenColors`, the first one yielding a color or `fontStyle` gets the rule's selector weight.
  *
- * Отступление: эталон запекает стиль в метаданные токена и на смене темы перезапрашивает сервер;
- * здесь стиль берётся при отрисовке через этот кэш, а смена темы его сбрасывает.
- * `editor.semanticTokenColorCustomizations` не поддержан.
+ * Deviation: upstream bakes the style into token metadata and re-requests the server on theme change;
+ * here the style is taken at render time through this cache, and a theme change resets it.
+ * `editor.semanticTokenColorCustomizations` is not supported.
  */
 export class SemanticTokenStyleResolver implements ISemanticTokenStyleResolver, IDisposable {
     private theme: IEditorTokenTheme;
@@ -151,12 +151,12 @@ export class SemanticTokenStyleResolver implements ISemanticTokenStyleResolver, 
         this.onDidChangeEmitter.dispose();
     }
 
-    /** Правила темы под текущий реестр; кэши стилей и TM-матчеров сброшены. */
+    /** Theme rules for the current registry; style and TM matcher caches are reset. */
     private compile(): ISemanticRule[] {
         this.scopeMatchers = undefined;
         this.cache.clear();
-        // Селекторы правил темы парсит реестр: вес `superType` зависит от
-        // иерархии типов, а её дополняют расширения.
+        // The registry parses theme rule selectors: the `superType` weight depends on
+        // the type hierarchy, which extensions extend.
         return (this.theme.semanticTokenRules ?? []).map((rule) => ({
             selector: this.registry.parseTokenSelector(rule.selector),
             style: styleFromSettings(rule.settings),
@@ -186,8 +186,8 @@ export class SemanticTokenStyleResolver implements ISemanticTokenStyleResolver, 
             if (matchScore >= 0) processStyle(matchScore, rule.style);
         }
 
-        // Эталон пропускает проход по дефолтам, если правила темы задали всё; здесь стиль и так
-        // кэшируется на (тип, модификаторы, язык).
+        // Upstream skips the defaults pass if theme rules set everything; here the style is cached
+        // per (type, modifiers, language) anyway.
         for (const key of ["fg", ...FLAGS] as const) {
             if (score[key] !== -1) score[key] = Number.MAX_VALUE;
         }
@@ -201,8 +201,8 @@ export class SemanticTokenStyleResolver implements ISemanticTokenStyleResolver, 
     }
 
     /**
-     * Первая проба, для которой в `tokenColors` темы нашёлся цвет или
-     * `fontStyle` (лучший по весу матча правила, при равенстве — поздний).
+     * The first probe for which the theme's `tokenColors` has a color or
+     * `fontStyle` (best by rule match weight, the later one on a tie).
      */
     private resolveScopes(probes: readonly ProbeScope[]): SemanticTokenStyle | undefined {
         this.scopeMatchers ??= this.theme.rules.flatMap((rule) => {

@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { createMatchers, type Matcher } from "./textMateScopeMatcher.ts";
 
 /**
- * Вход матчера — набор имён; имя-идентификатор совпадает, если есть во входе,
- * а вес — номер (1-based) последнего найденного идентификатора пути.
+ * Matcher input is a set of names; an identifier name matches if present in the input,
+ * and the weight is the (1-based) index of the last found path identifier.
  */
 function matchesName(names: readonly string[], input: readonly string[]): number {
     let score = -1;

@@ -11,8 +11,8 @@ export interface IActiveEditorSource<E> {
 }
 
 /**
- * Аналог времени жизни upstream `IEditorContribution`: подписки из `store` снимаются, как только
- * редактор перестаёт быть активным. `bind` зовётся и для `null` — побочный эффект смены («закрыть попап») пишут первой строкой.
+ * Counterpart of the upstream `IEditorContribution` lifetime: subscriptions in `store` are disposed as soon as
+ * the editor stops being active. `bind` is called for `null` too — put the change side effect ("close the popup") first.
  */
 export function bindActiveEditor<E>(
     source: IActiveEditorSource<E>,

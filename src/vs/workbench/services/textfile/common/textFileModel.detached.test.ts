@@ -8,7 +8,7 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 
 import { TextFileModel } from "./textFileModel.ts";
 
-/** Программные пути (save-участники, сервисные команды) работают и без открытых редакторов. */
+/** Programmatic paths (save participants, service commands) work without open editors too. */
 describe("TextFileModel — модель без прикреплённых вью", () => {
     function make(): TextFileModel {
         return new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService());
@@ -55,7 +55,7 @@ describe("TextFileModel — модель без прикреплённых вь�
         model.attachEditTarget(target("second"));
 
         first.dispose();
-        first.dispose(); // второй dispose не должен снять «second» по индексу -1
+        first.dispose(); // a second dispose must not remove "second" at index -1
 
         model.applyExternalEdits([createInsertEdit(0, 0, "x")], "edit");
         expect(calls).toEqual(["second"]);

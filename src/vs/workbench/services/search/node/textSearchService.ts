@@ -35,14 +35,14 @@ export class TextSearchService extends Disposable implements ITextSearchService 
             return {
                 complete: Promise.resolve(empty()),
                 cancel: () => {
-                    /* отменять нечего — запрос не запускался */
+                    /* nothing to cancel — the query never started */
                 },
             };
         }
 
         const child = spawn(this.rgPath(), args, { cwd: folder });
-        // Конец — по `close`: после `exit` в stdout ещё могут оставаться строки.
-        // Stryker disable next-line StringLiteral: логгера у сервиса нет — метка в лог не попадает
+        // End on `close`: stdout may still hold lines after `exit`.
+        // Stryker disable next-line StringLiteral: the service has no logger — the label never reaches a log
         const guard = new GuardedChildProcess(child, { label: "rg", waitForStdio: true });
         this.children.add(guard);
 
@@ -71,7 +71,7 @@ export class TextSearchService extends Disposable implements ITextSearchService 
             }
         });
 
-        // Stryker disable next-line StringLiteral,CallExpression: пустая кодировка у Node — тот же utf8, а без неё `+=` и так переводит Buffer в utf8-строку
+        // Stryker disable next-line StringLiteral,CallExpression: an empty encoding is utf8 in Node, and without it `+=` converts the Buffer to a utf8 string anyway
         child.stderr.setEncoding("utf8");
         child.stderr.on("data", (chunk: string) => {
             stderr += chunk;
@@ -79,7 +79,7 @@ export class TextSearchService extends Disposable implements ITextSearchService 
 
         const complete = new Promise<ITextSearchComplete>((resolve) => {
             guard.onDidEnd((end) => {
-                // Stryker disable next-line CallExpression: без удаления dispose лишь «убил» бы уже вышедший rg — kill мёртвому безвреден
+                // Stryker disable next-line CallExpression: without the delete, dispose would merely "kill" an already exited rg — killing a dead process is harmless
                 this.children.delete(guard);
                 // Spawn-level failure (e.g. rg binary missing) — no stdout/close.
                 // rg exit codes: 0 = matches, 1 = no matches, 2 = error (writes stderr).
@@ -97,7 +97,7 @@ export class TextSearchService extends Disposable implements ITextSearchService 
     }
 
     public override dispose(): void {
-        // kill, а не dispose guard'а: `complete` поиска должен дорешиться и после снятия.
+        // kill, not the guard's dispose: the search's `complete` must still settle after disposal.
         for (const guard of this.children) guard.child.kill();
         this.children.clear();
         super.dispose();

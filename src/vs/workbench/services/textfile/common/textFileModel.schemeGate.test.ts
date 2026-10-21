@@ -8,8 +8,8 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 import { TextFileModel } from "./textFileModel.ts";
 
 /**
- * Без гейта промах тихий: `fsPath` у не-file uri отдаёт «путь» как есть. Недисковые
- * ресурсы до модели не доезжают — их разбирает `EditorService.openUri`.
+ * Without the gate the miss is silent: `fsPath` of a non-file uri returns the "path" as is. Non-disk
+ * resources never reach the model; `EditorService.openUri` dispatches them.
  */
 describe("TextFileModel.openFile — гейт схемы", () => {
     function make(): TextFileModel {

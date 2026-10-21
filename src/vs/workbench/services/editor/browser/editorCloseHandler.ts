@@ -6,18 +6,18 @@ import type { DialogService } from "../../dialogs/browser/dialogService.ts";
 
 import type { EditorGroup } from "./editorGroupModel.ts";
 
-/** Все редактирующие поверхности всех групп: текстовые вкладки и стороны диффов. */
+/** All editing surfaces of all groups: text tabs and diff sides. */
 export interface IEditorCloseSurfaces {
     surfaces(): readonly TextEditorPane[];
 }
 
 /**
- * Аналог upstream `EditorGroupView.handleCloseConfirmation`. Save закрывает вкладку, только если
- * сохранились все её поверхности (untitled без пути оставляет вкладку — текст не теряется);
- * Cancel — вето, обрывающее серию.
+ * Counterpart of upstream `EditorGroupView.handleCloseConfirmation`. Save closes the tab only if
+ * all its surfaces were saved (untitled without a path keeps the tab — no text is lost);
+ * Cancel is a veto that aborts the series.
  */
 export class EditorCloseHandler {
-    /** Повторный запрос на ту же вкладку присоединяется к открытому диалогу (upstream `mapEditorToPendingConfirmation`). */
+    /** A repeated request for the same tab joins the open dialog (upstream `mapEditorToPendingConfirmation`). */
     private readonly pending = new Map<IEditorPane, Promise<boolean>>();
 
     public constructor(
@@ -26,13 +26,13 @@ export class EditorCloseHandler {
     ) {}
 
     /**
-     * Целями держим панели, а не номера: между диалогами вкладки сдвигаются, позиция ищется заново.
-     * Чистые вкладки закрываются синхронно, до первого диалога.
+     * Targets are held as panes, not indices: tabs shift between dialogs, so the position is looked up again.
+     * Clean tabs close synchronously, before the first dialog.
      */
     public async confirmAndClose(group: EditorGroup, panes: readonly IEditorPane[]): Promise<boolean> {
         for (const pane of panes) {
             if (this.needsCloseConfirm(pane) && !(await this.confirm(group, pane))) return false;
-            // Цель могла уже закрыться (пока шёл диалог или параллельным запросом): позицию -1 группа пропускает.
+            // The target may already be closed (during the dialog or by a concurrent request): the group skips position -1.
             group.closeTab(group.getPanes().indexOf(pane));
         }
         return true;
@@ -49,14 +49,14 @@ export class EditorCloseHandler {
     }
 
     private async doConfirm(group: EditorGroup, pane: IEditorPane): Promise<boolean> {
-        // Перед вопросом вкладка становится видимой (upstream `doOpenEditor`).
+        // The tab becomes visible before the question (upstream `doOpenEditor`).
         group.activateTab(group.getPanes().indexOf(pane));
         const targets = this.saveTargetsOf(pane);
         const choice = await this.dialogs.confirmSave(targets.map((target) => target.label).join(", "));
         if (choice === "cancel") return false;
         if (choice === "save") {
-            // Явный Save перезаписывает файл даже при внешних изменениях — выбор человека не должен
-            // пропасть. Не сохранилось (untitled без пути, ошибка записи) — вето.
+            // An explicit Save overwrites the file even with external changes — the user's choice must not
+            // get lost. Not saved (untitled without a path, write error) — veto.
             for (const target of targets) {
                 if ((await target.save({ overwrite: true })) !== "saved") return false;
             }
@@ -65,14 +65,14 @@ export class EditorCloseHandler {
     }
 
     /**
-     * Текстовая вкладка: изменена и последняя у документа. Дифф: есть грязная сторона, которую больше
-     * нигде не видно. Прочие панели: по `isModified`.
+     * Text tab: modified and the last one showing the document. Diff: has a dirty side that is no longer
+     * visible anywhere. Other panes: by `isModified`.
      */
     public needsCloseConfirm(pane: IEditorPane): boolean {
         if (pane instanceof DiffEditorPane2) return this.dirtyExclusiveDiffSides(pane).length > 0;
-        // Без ветки чужая панель (Keyboard Shortcuts) упала бы в текстовую формулу с `model === undefined`
-        // и дала тот же `isModified`, поэтому мутант эквивалентен. Ветка держит смысл, а не результат.
-        // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
+        // Without this branch a foreign pane (Keyboard Shortcuts) would fall into the text formula with `model === undefined`
+        // and give the same `isModified`, so the mutant is equivalent. The branch keeps the meaning, not the result.
+        // Stryker disable next-line ConditionalExpression: equivalent — see above
         if (!isTextEditorPane(pane)) return pane.isModified;
         return pane.isModified && this.isLastPaneForDocument(pane);
     }
@@ -81,15 +81,15 @@ export class EditorCloseHandler {
         return pane.sidePanes().filter((side) => side.isModified && this.holdersOf(side.model) <= 1);
     }
 
-    /** Пока документ виден где-то ещё, вкладка закрывается молча: правки живут в общей модели (как в VS Code). */
+    /** While the document is visible elsewhere, the tab closes silently: edits live in the shared model (as in VS Code). */
     public isLastPaneForDocument(editor: TextEditorPane): boolean {
         return this.holdersOf(editor.model) <= 1;
     }
 
     private saveTargetsOf(pane: IEditorPane): TextEditorPane[] {
         if (pane instanceof DiffEditorPane2) return this.dirtyExclusiveDiffSides(pane);
-        /* v8 ignore start -- needsCloseConfirm для не-диффа истинен только у текстовой панели: панели других видов (Keyboard Shortcuts, страница расширения) не бывают изменёнными */
-        // Stryker disable next-line ConditionalExpression,ArrayDeclaration: ветка недостижима — см. v8 ignore выше
+        /* v8 ignore start -- needsCloseConfirm for a non-diff is true only for a text pane: panes of other kinds (Keyboard Shortcuts, extension page) are never modified */
+        // Stryker disable next-line ConditionalExpression,ArrayDeclaration: unreachable branch — see v8 ignore above
         if (!isTextEditorPane(pane)) return [];
         /* v8 ignore stop */
         return [pane];

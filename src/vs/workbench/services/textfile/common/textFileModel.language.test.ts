@@ -20,7 +20,7 @@ function markerTokenizer(marker: number): ITokenizationSupport {
     };
 }
 
-// Метки токенизаторов: цвета, которых у plain text (ColorId.DefaultForeground) не бывает.
+// Tokenizer markers: colors that plain text (ColorId.DefaultForeground) never has.
 const MARKDOWN = 10;
 const TYPESCRIPT = 11;
 const PYTHON = 12;
@@ -73,8 +73,8 @@ describe("TextFileModel — language", () => {
 
     it("setLanguage меняет язык и ретранслирует событие подписчикам контроллера", () => {
         const changes: IDocumentLanguageChange[] = [];
-        // Подписка ДО openFile: открытие — тоже смена языка (документ один на
-        // всю жизнь модели и рождается plaintext).
+        // Subscribe BEFORE openFile: opening is a language change too (there is one document
+        // for the model's whole life, and it is born plaintext).
         ctrl.onDidChangeLanguage((change) => changes.push(change));
 
         ctrl.openFile(Uri.file(writeFile("a.ts", "const x = 1;")));

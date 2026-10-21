@@ -113,7 +113,7 @@ describe("enabledCodeActionKindsOnSave", () => {
 
     it("не задано / null / не-объект → пусто", () => {
         expect(enabledCodeActionKindsOnSave(config({}))).toEqual([]);
-        // Сервис без дефолтов (null-заглушка) — ключа нет вовсе.
+        // A service without defaults (null stub) has no key at all.
         expect(enabledCodeActionKindsOnSave(NULL_CONFIGURATION_SERVICE)).toEqual([]);
         expect(enabledCodeActionKindsOnSave(config({ "editor.codeActionsOnSave": null }))).toEqual([]);
         expect(enabledCodeActionKindsOnSave(config({ "editor.codeActionsOnSave": "source.fixAll" }))).toEqual([]);
@@ -178,7 +178,7 @@ describe("createCodeActionsOnSaveParticipant", () => {
         );
 
         expect(await participant(SNAPSHOT)).toEqual([]);
-        // Повод «при сохранении»: правки не подпадают под files.refactoring.autoSave.
+        // "On save" reason: the edits are not subject to files.refactoring.autoSave.
         expect(applied).toEqual([["1.1", { onSave: true }]]);
     });
 
@@ -203,7 +203,7 @@ describe("createCodeActionsOnSaveParticipant", () => {
         );
 
         expect(await participant({ ...SNAPSHOT, versionId: 7 })).toEqual([]);
-        // «one\ntwo»: конец диапазона — строка 1, длина «two».
+        // "one\ntwo": the range ends on line 1, at the length of "two".
         expect(provided).toEqual([{ versionId: 7, endLine: 1, endCharacter: 3 }]);
     });
 
@@ -245,8 +245,8 @@ function fakePane(
     applied: { edits: number; label: string }[];
 } {
     const applied: { edits: number; label: string }[] = [];
-    // Диапазон участники считают по строкам документа; полный текст панели
-    // читает только применение правок формата (`applyFormattingEdits`).
+    // Participants compute the range from document lines; the pane's full text
+    // is read only when applying format edits (`applyFormattingEdits`).
     const pane = {
         getText,
         model: {

@@ -46,7 +46,7 @@ describe("EditorService.openTextSnapshot", () => {
         expect(pane.label).toBe("a.ts (dev)");
         expect(pane.readOnly).toBe(true);
         expect(pane.viewState.document.languageId).toBe("typescript");
-        // `===`, не `toBe`: диф-принтер vitest на TUI-объектах валит воркер по памяти.
+        // `===`, not `toBe`: vitest's diff printer on TUI objects crashes the worker out of memory.
         expect(service.editorGroups.activeGroup.editorCount).toBe(1);
         expect(service.getActiveTabPane() === pane).toBe(true);
         service.dispose();
@@ -118,7 +118,7 @@ describe("TextFileModel.openFile — гейт схемы", () => {
         const failures: string[] = [];
         service.onDidFailOpen(({ uri, reason }) => failures.push(`${uri.scheme}: ${reason}`));
 
-        // Падать нельзя: отказ любого открытия уносил бы весь редактор через unhandled rejection.
+        // Must not throw: a rejection from any open would take down the whole editor via unhandled rejection.
         await expect(service.openUri(REVISION_URI)).resolves.toBeUndefined();
 
         expect(service.editorGroups.activeGroup.editorCount).toBe(0);

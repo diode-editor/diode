@@ -24,8 +24,8 @@ import { NULL_VIRTUAL_DOCUMENT_SOURCE } from "../common/iVirtualDocumentSource.t
 import { EditorService } from "./editorService.ts";
 
 /**
- * Главное — ни один исход не убивает процесс: раньше не-file uri доезжал до `TextFileModel.openFile`,
- * тот бросал, отказ команды никто не ловил, и Node клал редактор целиком.
+ * The point: no outcome kills the process. A non-file uri used to reach `TextFileModel.openFile`,
+ * which threw; nobody caught the command rejection, and Node took down the whole editor.
  */
 
 const JAVA_LANGUAGE_SERVICE: ILanguageService = {
@@ -75,7 +75,7 @@ function makeSource(scheme: string, provide: (uri: Uri) => Promise<string | null
     return { canProvide: (s) => s === scheme, provide };
 }
 
-/** Ровно как приходит от jdt.ls: нормализацию `Uri` проверяем на ней, а не на причёсанной строке. */
+/** Exactly as jdt.ls sends it: `Uri` normalization is tested on this, not on a tidied-up string. */
 const JDT_URI_RAW =
     "jdt://contents/commons-lang3-3.14.0.jar/org.apache.commons.lang3/StringUtils.java" +
     "?=mvn-proj/%5C/home%5C/vscode%5C/.m2%5C/repository%3D/maven.pomderived=/true";
@@ -115,7 +115,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.openFile("/tmp/other.txt");
         expect(service.editorGroups.activeGroup.editorCount).toBe(2);
 
-        // Go Back открывает ресурс и тут же ведёт каретку — между шагами тика нет.
+        // Go Back opens the resource and moves the cursor right away, with no tick in between.
         void service.openUri(uri);
 
         expect(service.editorGroups.activeGroup.activeIndex).toBe(0);
@@ -169,7 +169,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         const service = createEditorService();
         const failures: string[] = [];
         service.onDidFailOpen(({ reason }) => failures.push(reason));
-        // Провайдер — чужой код: отклониться он может чем угодно, не только Error.
+        // A provider is foreign code: it may reject with anything, not only an Error.
         // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
         service.virtualDocumentSource = makeSource("jdt", () => Promise.reject("server is shutting down"));
 
@@ -205,7 +205,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         void service.openUri(Uri.file("/tmp/sync.txt"));
 
-        // Ни одного await: сайты, которые открывают файл и сразу двигают каретку, иначе сломались бы.
+        // No await at all: call sites that open a file and immediately move the cursor would break otherwise.
         expect(service.editorGroups.activeGroup.editorCount).toBe(1);
         service.dispose();
     });
@@ -216,7 +216,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await service.openUri(Uri.parse("jdt:///Foo.java"), { group: "beside" });
 
-        // Пустая группа справа — худший исход: перекроенный экран вместо сообщения.
+        // An empty group on the right is the worst outcome: a rearranged screen instead of a message.
         expect(service.editorGroups.groups.length).toBe(1);
         service.dispose();
     });
@@ -257,13 +257,13 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
         service.openFile("/tmp/left.txt");
         await service.openUri(uri, { group: "beside" });
         expect(service.editorGroups.groups.length).toBe(2);
-        // Возвращаемся в левую группу: «соседняя справа» для неё — та, где
-        // ресурс уже открыт.
+        // Back to the left group: its "right neighbor" is the one where
+        // the resource is already open.
         service.editorGroups.focusGroup({ index: 0 });
 
         await service.openUri(uri, { group: "beside" });
 
-        // «Соседняя справа» ищется без побочных эффектов.
+        // The "right neighbor" lookup has no side effects.
         expect(service.editorGroups.groups.length).toBe(2);
         expect(service.editorGroups.groups[1].editorCount).toBe(1);
         expect(provide).toHaveBeenCalledTimes(1);
@@ -279,7 +279,7 @@ describe("EditorService.openUri — недисковые ресурсы", () => 
 
         await service.openUri(uri, { group: "beside" });
 
-        // Справа ресурса нет — открываем там свою вкладку, а не «уже открыто».
+        // The resource isn't open on the right: open our own tab there, not "already open".
         expect(service.editorGroups.groups.length).toBe(2);
         expect(service.editorGroups.groups[1].editorCount).toBe(1);
         expect(provide).toHaveBeenCalledTimes(2);
@@ -304,7 +304,7 @@ describe("EditorService.canRestore — что история умеет откр
 
         service.virtualDocumentSource = makeSource("jdt", () => Promise.resolve("x"));
         expect(service.canRestore(jdt)).toBe(true);
-        // Чужая схема — нет: Output пишет владелец панели, ресурс его не адресует.
+        // A foreign scheme is not: the pane owner writes Output, the resource doesn't address it.
         expect(service.canRestore(Uri.parse("output:extensions"))).toBe(false);
         service.dispose();
     });
@@ -436,7 +436,7 @@ describe("EditorService.canRestore — что история умеет откр
             await Promise.resolve();
 
             expect(service.getEditors()[0]?.getText()).toBe("v1\n");
-            // `null` — штатный ответ провайдера, а не сбой: в лог ничего не уходит.
+            // `null` is a regular provider answer, not a failure: nothing goes to the log.
             expect(logged).toEqual([]);
             service.dispose();
         });
@@ -456,8 +456,8 @@ describe("EditorService.openUri — фокус при открытии неди�
 
             await editors.openUri(Uri.parse("demo:///a"), { focus: false });
 
-            // На этом держится `preserveFocus` у `showTextDocument`: прежний редактор ушёл из дерева,
-            // поэтому «фокус не взяли» видно как отсутствие сфокусированного элемента.
+            // `showTextDocument`'s `preserveFocus` relies on this: the previous editor left the tree,
+            // so "focus not taken" shows up as no focused element.
             expect(editors.editorGroups.activeGroup.editorCount).toBe(2);
             expect(editors.getActiveTabPane()?.uri.scheme).toBe("demo");
             expect(h.testApp.focusedElement).toBeNull();

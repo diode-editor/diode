@@ -14,8 +14,8 @@ export const DialogServiceDIToken = token<DialogService>("DialogService");
 export type ConfirmSaveChoice = "save" | "dontSave" | "cancel";
 
 /**
- * Аналог vscode `IDialogService`. Хост с overlay-слоем прикрепляется через {@link attachHost}
- * после построения своей view.
+ * Counterpart of vscode `IDialogService`. A host with an overlay layer attaches via {@link attachHost}
+ * after building its view.
  */
 export class DialogService extends Disposable {
     public static dependencies = [] as const;
@@ -45,7 +45,7 @@ export class DialogService extends Disposable {
         this.host = host;
     }
 
-    /** Один экземпляр на приложение: повторный показ обновляет имя файла и колбэки. */
+    /** One instance per app: showing it again updates the file name and callbacks. */
     public showConfirmSaveDialog(
         filename: string,
         callbacks: { onSave: () => void; onDontSave: () => void; onCancel: () => void },
@@ -101,7 +101,7 @@ export class DialogService extends Disposable {
         return (this.confirmSaveSession?.isOpen() ?? false) ? this.confirmSaveDialog : null;
     }
 
-    /** Под каждый вопрос — новый компонент; закрытие (в т.ч. Escape) его освобождает. */
+    /** A new component per question; closing (including Escape) disposes it. */
     public showConfirmDialog(
         options: ConfirmDialogOptions,
         callbacks: { onConfirm: () => void; onCancel?: () => void },
@@ -126,8 +126,8 @@ export class DialogService extends Disposable {
             pointerPolicy: "modal",
             disposeOnClose: true,
             onClose: () => {
-                // Любой путь закрытия (колбэк, Escape, замена новым диалогом)
-                // проходит через сессию — освобождаем компонент здесь.
+                // Every close path (callback, Escape, replacement by a new dialog)
+                // goes through the session, so the component is disposed here.
                 this.confirmDialog = null;
                 this.confirmSession = null;
                 dialog.dispose();
@@ -140,7 +140,7 @@ export class DialogService extends Disposable {
         dialog.focusDefault();
     }
 
-    /** `false` — отмена, в т.ч. Escape. */
+    /** `false`: cancelled, including Escape. */
     public confirm(options: ConfirmDialogOptions): Promise<boolean> {
         return new Promise((resolve) => {
             this.showConfirmDialog(options, {
@@ -164,7 +164,7 @@ export class DialogService extends Disposable {
         this.confirmDialog = null;
     }
 
-    /** Диалог «About»: единственный экземпляр, повторный показ переоткрывает. */
+    /** Single instance; showing it again reopens it. */
     public showAboutDialog(): void {
         const host = this.requireHost();
         if (!this.aboutDialog) {

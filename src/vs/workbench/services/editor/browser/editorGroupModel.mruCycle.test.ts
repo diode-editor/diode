@@ -26,7 +26,7 @@ function makePane(uriPath: string): IEditorPane {
 
 function groupWith(...paths: string[]): { group: EditorGroup; events: (MruCycleState | null)[] } {
     const group = new EditorGroup(1);
-    // Как openFile: вставка + активация каждой — MRU наполняется активациями.
+    // Like openFile: insert + activate each — activations fill the MRU.
     for (const [index, path] of paths.entries()) {
         group.insertPane(makePane(path));
         group.activateTab(index);
@@ -43,7 +43,7 @@ function names(state: MruCycleState | null): string[] {
 describe("EditorGroup — событие серии Ctrl+Tab (onDidChangeMruCycle)", () => {
     it("каждый шаг cycleMru шлёт замороженный MRU-список и позицию цикла", () => {
         const { group, events } = groupWith("/a.ts", "/b.ts", "/c.ts");
-        // MRU после активации c: c, b, a.
+        // MRU after activating c: c, b, a.
         group.cycleMru(1);
 
         expect(events).toHaveLength(1);
@@ -107,7 +107,7 @@ describe("EditorGroup — событие серии Ctrl+Tab (onDidChangeMruCycl
         const subscription = group.onDidChangeMruCycle((state) => events.push(state));
         group.onDidChangeMruCycle((state) => others.push(state));
         subscription.dispose();
-        // Повторный dispose безвреден и НЕ трогает чужие подписки.
+        // A repeated dispose is harmless and does NOT touch other subscriptions.
         subscription.dispose();
         group.cycleMru(1);
         expect(events).toEqual([]);
@@ -119,7 +119,7 @@ describe("EditorGroup — событие серии Ctrl+Tab (onDidChangeMruCycl
         group.cycleMru(1);
         const first = events[0];
         group.cycleMru(1);
-        // Первый снимок остался на своей позиции — оверлей может держать его как есть.
+        // The first snapshot stays in place — the overlay may keep it as is.
         expect(first?.pointer).toBe(1);
         expect(events[1]?.pointer).toBe(2);
     });
@@ -138,7 +138,7 @@ describe("EditorGroup — MRU-снимок для пикера открытых 
 
     it("вкладка, ни разу не активированная (приехала merge'ом), всё равно в списке — хвостом", () => {
         const { group } = groupWith("/a.ts", "/b.ts");
-        // mergeGroupInto вставляет чужие вкладки без активации: в mruOrder их нет.
+        // mergeGroupInto inserts foreign tabs without activation: they are not in mruOrder.
         group.insertPane(makePane("/merged.ts"));
 
         expect(group.getMruPanes().map((pane) => pane.label)).toEqual(["/b.ts", "/a.ts", "/merged.ts"]);

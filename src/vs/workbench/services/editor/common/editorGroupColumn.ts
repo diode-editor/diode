@@ -2,14 +2,14 @@ import type { EditorGroup } from "../browser/editorGroupModel.ts";
 
 import type { IEditorGroupsService } from "./editorGroupsService.ts";
 
-/** `ACTIVE_GROUP` эталона — он же `vscode.ViewColumn.Active`: текущая колонка. */
+/** Upstream `ACTIVE_GROUP`, i.e. `vscode.ViewColumn.Active`: the current column. */
 export const ACTIVE_GROUP = -1;
-/** `SIDE_GROUP` эталона — он же `vscode.ViewColumn.Beside`: колонка справа от активной. */
+/** Upstream `SIDE_GROUP`, i.e. `vscode.ViewColumn.Beside`: the column right of the active one. */
 export const SIDE_GROUP = -2;
 
 /**
- * `columnToEditorGroup` эталона. За краем полосы — догоняющее создание хвостовых групп
- * (AS-5; не влезло — последняя).
+ * Upstream `columnToEditorGroup`. A column past the end of the strip creates trailing groups
+ * up to it (AS-5; if they don't fit, the last group).
  */
 export function columnToEditorGroup(groups: IEditorGroupsService, column: number): EditorGroup {
     if (column === ACTIVE_GROUP) return groups.activeGroup;
@@ -17,8 +17,8 @@ export function columnToEditorGroup(groups: IEditorGroupsService, column: number
         const index = groups.groups.indexOf(groups.activeGroup);
         return (
             groups.groups.at(index + 1) ??
-            // Любая позиция, кроме "before", — справа: пустая строка ведёт себя как "after".
-            // Stryker disable next-line StringLiteral: эквивалентен — см. выше
+            // Any position other than "before" means right: an empty string acts as "after".
+            // Stryker disable next-line StringLiteral: equivalent, see above
             groups.newGroup("after", { focus: false }) ??
             groups.activeGroup
         );
@@ -27,10 +27,10 @@ export function columnToEditorGroup(groups: IEditorGroupsService, column: number
     while (groups.groups.length < wanted) {
         const before = groups.groups.length;
         groups.focusGroup({ index: before - 1 }, { focus: false });
-        // Stryker disable next-line StringLiteral: позиция "" ведёт себя как "after" — эквивалентен
-        if (groups.newGroup("after", { focus: false }) === null) break; // не влезло — фолбэк в край
-        /* v8 ignore start -- защитный выход от зацикливания при неожиданном no-op */
-        // Stryker disable next-line ConditionalExpression,EqualityOperator: защитный выход — недостижим по той же причине
+        // Stryker disable next-line StringLiteral: position "" acts as "after", equivalent
+        if (groups.newGroup("after", { focus: false }) === null) break; // doesn't fit: fall back to the edge
+        /* v8 ignore start -- guard against looping on an unexpected no-op */
+        // Stryker disable next-line ConditionalExpression,EqualityOperator: guard exit, unreachable for the same reason
         if (groups.groups.length === before) break;
         /* v8 ignore stop */
     }

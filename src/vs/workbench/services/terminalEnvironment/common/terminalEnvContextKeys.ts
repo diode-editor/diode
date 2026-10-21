@@ -4,7 +4,7 @@ import { macKeysLevel, type MacKeysRung } from "../../../../platform/keybinding/
 export interface ITerminalEnvKeys {
     readonly tier: string;
     readonly os: string;
-    /** Рунг мак-лестницы; `undefined` — клавиатура не маковская. */
+    /** Rung of the mac ladder; `undefined` means the keyboard is not a Mac one. */
     readonly macKeysRung: MacKeysRung | undefined;
     readonly capabilities: Readonly<Record<string, boolean>>;
     readonly modes: Readonly<Record<string, boolean>>;
@@ -18,7 +18,7 @@ export function modeContextKey(mode: string): string {
     return `mode_${mode}`;
 }
 
-/** Единственный маппинг окружения в when-ключи — общий для живого контекста и Keyboard Doctor. */
+/** The single mapping of the environment to when keys — shared by the live context and Keyboard Doctor. */
 export function applyTerminalEnvContextKeys(contextKeys: ContextKeyService, env: ITerminalEnvKeys): void {
     contextKeys.set("tier", env.tier);
     contextKeys.set("os", env.os);

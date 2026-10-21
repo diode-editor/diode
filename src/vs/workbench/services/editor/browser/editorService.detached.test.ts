@@ -100,7 +100,7 @@ describe("TextFileModel: owner-write для detached", () => {
     });
 
     it("appendOwnedContent проходит в read-only редакторе", () => {
-        // Read-only запрещает правки человека, но владелец документа писать обязан — иначе хвост лога встал бы.
+        // Read-only forbids user edits, but the document owner must be able to write, otherwise the log tail would stall.
         const service = createEditorService();
         const pane = service.openDetached(OUTPUT_URI, "log");
         pane.readOnly = true;

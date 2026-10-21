@@ -15,52 +15,53 @@ export interface IEditorPaneOpenTarget {
 }
 
 /**
- * Лёгкий аналог upstream `EditorInput.copy()` + `EditorPaneDescriptor.describes` + `IEditorSerializer`.
- * Рецепт — plain-объект, а не input с жизненным циклом: панель сама владеет моделью через ссылку реестра.
- * Методы, а не поля-функции, намеренно: параметры методов бивариантны, и фабрики разных рецептов живут в одном списке.
+ * Lightweight counterpart of upstream `EditorInput.copy()` + `EditorPaneDescriptor.describes` + `IEditorSerializer`.
+ * The descriptor is a plain object, not an input with a lifecycle: the pane owns its model via a registry reference.
+ * Methods rather than function-typed fields on purpose: method parameters are bivariant, so factories of different
+ * descriptor types fit in one list.
  */
 export interface IEditorPaneFactory<D> {
-    /** Upstream `typeId` соответствующего input'а: по нему запись сессии находит фабрику. */
+    /** Upstream `typeId` of the matching input: a session entry finds its factory by it. */
     readonly typeId: string;
 
-    /** Upstream `EditorInputCapabilities.Singleton`: сплит и копия в группу вкладку не повторяют. */
+    /** Upstream `EditorInputCapabilities.Singleton`: split and copy to group do not duplicate the tab. */
     readonly singleton?: boolean;
 
-    /** `undefined` — вкладка не своя либо повторить её нельзя. */
+    /** `undefined` — the tab belongs to another factory or cannot be duplicated. */
     describe(pane: IEditorPane): D | undefined;
 
-    /** `undefined` — вкладка не переживает рестарт. */
+    /** `undefined` — the tab does not survive a restart. */
     serialize(descriptor: D): string | undefined;
 
-    /** `undefined` — повторить уже нельзя (файл удалён и т.п.). */
+    /** `undefined` — can no longer be reopened (file deleted, etc.). */
     deserialize(value: string): D | undefined;
 
-    /** Ресурс уже открыт в группе — активируется он. Обещание не отклоняется: неудачу фабрика доносит сама. */
+    /** If the resource is already open in the group, that tab is activated. Never rejects: the factory reports failures itself. */
     open(descriptor: D, target: IEditorPaneOpenTarget): Promise<void>;
 }
 
 /**
- * Явный список, собранный модулем профиля (отклонение от upstream-реестра: `services/editor` про contrib
- * не знает). В контейнер фабрика ходит лениво, в `open`: её создание не тянет граф сервисов.
+ * An explicit list assembled by the profile module (deviates from the upstream registry: `services/editor` does not
+ * know about contrib). The factory reaches into the container lazily, in `open`: creating it does not pull in the service graph.
  */
 export type EditorPaneFactoryCtor = (accessor: ServiceAccessor) => IEditorPaneFactory<unknown>;
 
 export const EditorPaneFactoriesDIToken = token<readonly IEditorPaneFactory<unknown>[]>("EditorPaneFactories");
 
-/** Что переезжает с текстовой вкладкой в её копию (US-1). */
+/** What carries over from a text tab to its copy (US-1). */
 export interface ITextEditorViewState {
     readonly selections: readonly ISelection[];
     readonly scrollTop: number;
     readonly scrollLeft: number;
 }
 
-/** Из сессии — без `viewState`. */
+/** Restored from the session — without `viewState`. */
 export interface ITextEditorPaneDescriptor {
     readonly uri: Uri;
     readonly viewState?: ITextEditorViewState;
 }
 
-/** upstream `FILE_EDITOR_INPUT_ID`: в сессию текстовая фабрика пишет только файлы. */
+/** Upstream `FILE_EDITOR_INPUT_ID`: the text factory writes only files to the session. */
 export const TEXT_EDITOR_PANE_TYPE_ID = "workbench.editors.files.fileEditorInput";
 
 export interface ITextEditorPaneFactoryHost {
@@ -69,8 +70,8 @@ export interface ITextEditorPaneFactoryHost {
 }
 
 /**
- * Безымянный буфер не повторяется — общей модели для untitled в реестре нет (E3). Рестарт переживают
- * только файлы: провайдер недискового ресурса появляется лишь с активацией расширения.
+ * An untitled buffer is not duplicated — the registry has no shared model for untitled (E3). Only files survive
+ * a restart: the provider of a non-disk resource appears only once its extension activates.
  */
 export function createTextEditorPaneFactory(
     host: ITextEditorPaneFactoryHost,

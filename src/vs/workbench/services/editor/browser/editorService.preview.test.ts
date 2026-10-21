@@ -28,7 +28,7 @@ import { EditorService } from "./editorService.ts";
 
 const PREVIEW_KEY = "workbench.editor.enablePreview";
 
-/** Дефолт `enablePreview` даёт реестр: на `NULL_CONFIGURATION_SERVICE` предпросмотр был бы выключен. */
+/** The registry provides the `enablePreview` default: with `NULL_CONFIGURATION_SERVICE` preview would be off. */
 function defaultsConfig(): IConfigurationService {
     return createTestConfigurationService();
 }
@@ -62,7 +62,7 @@ function switchableConfig(initial: boolean): {
     };
 }
 
-/** Молча грязнеет: `onDidChangeState` не шлёт, и защёлка «первая правка прикалывает» не срабатывает. */
+/** Gets dirty silently: doesn't fire `onDidChangeState`, so the "first edit pins" latch doesn't trip. */
 function makeSilentPane(uriPath: string): IEditorPane & { isModified: boolean } {
     return {
         uri: Uri.file(uriPath),
@@ -156,7 +156,7 @@ describe("EditorService — режим предпросмотра вкладок
         service.openFile(a, { preview: true });
         expect(service.editorGroups.activeGroup.previewPane?.label).toBe("a.ts");
 
-        // Ctrl+P по файлу, висящему предпросмотром.
+        // Ctrl+P on a file lingering as a preview.
         service.openFile(a);
 
         expect(service.editorGroups.activeGroup.previewPane).toBe(null);
@@ -191,8 +191,8 @@ describe("EditorService — режим предпросмотра вкладок
     });
 
     it("грязную вкладку замещение прикалывает, даже если защёлка её упустила", () => {
-        // Вторая линия обороны: защёлка не взведена, и между правками и замещением стоит
-        // только проверка `isModified` в самом замещении.
+        // Second line of defense: the latch isn't armed, and only the `isModified` check
+        // in the replacement itself stands between the edits and the replacement.
         const service = createEditorService();
         const group = service.editorGroups.activeGroup;
         const silent = makeSilentPane("/silent.ts");
@@ -208,8 +208,8 @@ describe("EditorService — режим предпросмотра вкладок
     });
 
     it("общая грязная модель: приехавшую грязной вкладку превью не делает, прежнюю прикалывает", () => {
-        // Модель общая через реестр, поэтому новая вкладка рождается грязной. Прежний (тоже грязный)
-        // предпросмотр обязан быть приколот, иначе следующее превью унесло бы его правки.
+        // The model is shared through the registry, so the new tab is born dirty. The previous (also dirty)
+        // preview must be pinned, otherwise the next preview would take its edits away.
         const service = createEditorService();
         const shared = writeFile("shared.ts");
         service.openFile(shared);
@@ -303,8 +303,8 @@ describe("EditorService — режим предпросмотра вкладок
         });
 
         it("событие по ключу превью при ВКЛЮЧЁННОЙ настройке предпросмотр не снимает", () => {
-            // Пересохранение settings.json шлёт событие по ключу, даже когда
-            // значение то же: прикалывать превью имеет право только ВЫКЛЮЧЕНИЕ.
+            // Re-saving settings.json fires an event for the key even when
+            // the value is the same: only TURNING OFF may pin previews.
             const config = switchableConfig(true);
             const service = createEditorService(config.service);
             service.openFile(writeFile("a.ts"), { preview: true });
@@ -341,7 +341,7 @@ describe("EditorService — режим предпросмотра вкладок
 
             config.set(false);
 
-            // Лишнее событие — лишняя перерисовка полосы у нетронутой половины сплита.
+            // An extra event means an extra strip repaint for the untouched half of the split.
             expect(quietGroupEvents).toBe(0);
             expect(withPreview.previewPane).toBe(null);
         });

@@ -13,8 +13,8 @@ export const TerminalEnvContextKeysContributionDIToken = token<TerminalEnvContex
 );
 
 /**
- * Окружение меняется только событием сервиса (finalize пробы, мод, рунг по первому Cmd),
- * поэтому ключи пушатся по `onDidChange`, а не пересчитываются перед каждым нажатием.
+ * The environment changes only through a service event (probe finalize, mode, rung on the first Cmd),
+ * so keys are pushed on `onDidChange` rather than recomputed before every keypress.
  */
 export class TerminalEnvContextKeysContribution extends Disposable {
     public static dependencies = [ContextKeyServiceDIToken, TerminalEnvironmentServiceDIToken] as const;

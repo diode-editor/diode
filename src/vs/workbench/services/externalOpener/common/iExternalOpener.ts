@@ -1,8 +1,8 @@
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
 /**
- * `true` — ссылка доехала до человека: её открыл системный обработчик или (ssh, контейнер)
- * URL показан и положен в буфер. `false` — ни то, ни другое, расширение вправе ругаться.
+ * `true` means the link reached the user: the system handler opened it, or (ssh, container)
+ * the URL was shown and copied to the clipboard. `false` means neither; the extension may complain.
  */
 export interface IExternalOpener {
     open(url: string): Promise<boolean>;

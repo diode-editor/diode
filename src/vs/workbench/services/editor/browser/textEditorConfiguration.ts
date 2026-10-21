@@ -7,11 +7,11 @@ import type {
 import type { TextEditorPane } from "../../../browser/parts/editor/textEditorPane.ts";
 
 /**
- * Аналог upstream `AbstractTextEditor.computeConfiguration`, но одним объектом на все поверхности;
- * список живых поверхностей даёт владелец колбэком.
+ * Counterpart of upstream `AbstractTextEditor.computeConfiguration`, but one object for all surfaces;
+ * the owner supplies the list of live surfaces via a callback.
  */
 export class TextEditorConfiguration extends Disposable {
-    /** Transient-состояние Alt+Z: `null` — действует конфиг (см. {@link toggleWordWrap}). */
+    /** Transient Alt+Z state: `null` — the configuration applies (see {@link toggleWordWrap}). */
     private wordWrapSessionOverride: "off" | "on" | null = null;
 
     public constructor(
@@ -28,7 +28,7 @@ export class TextEditorConfiguration extends Disposable {
     }
 
     public apply(editor: TextEditorPane): void {
-        // `"[makefile]": { "editor.insertSpaces": false }` из любого слоя бьёт плоское значение.
+        // `"[makefile]": { "editor.insertSpaces": false }` from any layer beats the plain value.
         const overrides = { overrideIdentifier: editor.languageId };
         // "singleFile"/"multiFile" both enable: we only support single-file scope.
         const occurrencesHighlight = this.configurationService.get("editor.occurrencesHighlight", overrides);
@@ -36,15 +36,15 @@ export class TextEditorConfiguration extends Disposable {
 
         editor.setCursorSurroundingLines(this.configurationService.get("editor.cursorSurroundingLines", overrides));
 
-        // Конфиг отступа — база, а не приказ: при `editor.detectIndentation` главнее файл. Не
-        // `setIndentOptions`: тот гасит автоопределение, а `get()` отдаёт и дефолты — детекция глохла бы всегда.
+        // Indent config is a baseline, not an order: with `editor.detectIndentation` the file wins. Not
+        // `setIndentOptions`: it disables detection, and `get()` returns defaults too — detection would always be off.
         editor.applyIndentConfiguration({
             tabSize: this.configurationService.get("editor.tabSize", overrides),
             insertSpaces: this.configurationService.get("editor.insertSpaces", overrides),
             detectIndentation: this.configurationService.get("editor.detectIndentation", overrides),
         });
 
-        // Session-override от Alt+Z главнее конфига (transient, как в VS Code).
+        // The Alt+Z session override beats the configuration (transient, as in VS Code).
         editor.setWordWrap(
             this.wordWrapSessionOverride ?? this.configuredWordWrap(overrides),
             this.configurationService.get("editor.wordWrapColumn", overrides),
@@ -52,8 +52,8 @@ export class TextEditorConfiguration extends Disposable {
     }
 
     /**
-     * Поверх конфига на сессию, settings.json не трогаем (у VS Code per-resource — упрощение,
-     * docs/TODO/WordWrap.md). Выключенный перенос включается конфигурным режимом, если он есть, иначе "on".
+     * Overrides the configuration for the session without touching settings.json (VS Code does it per resource —
+     * a simplification, docs/TODO/WordWrap.md). Turning wrap on uses the configured mode if there is one, otherwise "on".
      */
     public toggleWordWrap(): void {
         const configured = this.configuredWordWrap();
@@ -70,7 +70,7 @@ export class TextEditorConfiguration extends Disposable {
         for (const editor of this.surfaces()) this.apply(editor);
     }
 
-    /** Мусор из settings.json сервис уже заменил дефолтом схемы. */
+    /** The service has already replaced invalid settings.json values with the schema default. */
     private configuredWordWrap(overrides?: IConfigurationOverrides): WordWrapMode {
         return this.configurationService.get("editor.wordWrap", overrides);
     }

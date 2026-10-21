@@ -68,10 +68,10 @@ describe("TextMateTokenizationSupport", () => {
         const line = "const x = 1;";
         const tokens = support.tokenizeEncoded(line, true, support.getInitialState()).tokens;
 
-        // Пары [начало, метаданные]; `const` — storage.type, в Dark Modern синий.
+        // Pairs [start, metadata]; `const` is storage.type, blue in Dark Modern.
         expect(tokens[0]).toBe(0);
         expect(theme.colorMap[TokenMetadata.getForeground(tokens[1])]).toBe("#569CD6");
-        // `1` — constant.numeric: свой цвет, другой токен.
+        // `1` is constant.numeric: its own color, a separate token.
         const numberIndex = line.indexOf("1");
         const pairs = [...tokens].flatMap((value, i) => (i % 2 === 0 ? [[value, tokens[i + 1]] as const] : []));
         const numberToken = pairs.findLast(([start]) => start <= numberIndex);
@@ -100,7 +100,7 @@ describe("TextMateTokenizationSupport", () => {
         const r3 = support.tokenizeEncoded("line3", true, r2.endState);
 
         expect(r1.endState.equals(r2.endState)).toBe(true);
-        // Состояние не сменилось — объект переиспользуется (экономия аллокации, как у эталона).
+        // The state did not change, so the object is reused (saves an allocation, as upstream).
         expect(r2.endState).toBe(r1.endState);
         expect(r3.endState).toBe(r1.endState);
     });
@@ -133,7 +133,7 @@ describe("TextMateTokenizationSupport", () => {
 
     it("строка ровно на пределе длины токенизируется грамматикой", async () => {
         const loader = await createLoader();
-        // С темой `const` и `x…` разного цвета — два токена; без неё склеились бы в один.
+        // With the theme `const` and `x…` differ in color, two tokens; without it they would merge into one.
         loader.setTheme(createTextMateTheme(darkModern()));
         const support = await loader.loadSupport("source.js");
         if (!support) throw new Error("source.js not loaded");

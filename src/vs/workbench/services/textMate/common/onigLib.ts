@@ -3,7 +3,7 @@ import type { IOnigLib } from "vscode-textmate";
 
 import type { IAssetAccess } from "../../../../base/common/assets/iAssetAccess.ts";
 
-// `loadWASM` мутирует глобальное состояние модуля — ровно один раз за процесс.
+// `loadWASM` mutates the module's global state, exactly once per process.
 
 let onigLibPromise: Promise<IOnigLib> | undefined;
 
@@ -14,9 +14,9 @@ export function getOnigLib(assets: IAssetAccess): Promise<IOnigLib> {
 
 async function loadOnigLib(assets: IAssetAccess): Promise<IOnigLib> {
     const wasmBytes = await assets.read("onig.wasm");
-    // Инстанциатор, а не байты: с байтами `loadWASM` проверяет `instanceof Response`,
-    // а ленивый глобал `Response` грузит undici вместе с `http` (~40 мс на старте).
-    // Копия: `instantiate` типизирован на буфер поверх `ArrayBuffer`, а ассет — `ArrayBufferLike`.
+    // An instantiator, not bytes: with bytes `loadWASM` checks `instanceof Response`,
+    // and the lazy `Response` global loads undici together with `http` (~40 ms at startup).
+    // Copy: `instantiate` is typed for a buffer over `ArrayBuffer`, while the asset is `ArrayBufferLike`.
     const wasm = new Uint8Array(wasmBytes);
     await oniguruma.loadWASM({ instantiator: (imports) => WebAssembly.instantiate(wasm, imports) });
     return {

@@ -18,8 +18,8 @@ const SILENT_LOGGER: ILogger = {
 };
 
 /**
- * На настоящих файлах builtin-паков, цепочкой production bootstrap: ловит то, чего не видят
- * юниты на синтетике, — реальный JSONC и склейку виртуального пути из манифеста.
+ * On real builtin pack files, through the production bootstrap chain: catches what unit tests
+ * on synthetic data miss, i.e. real JSONC and joining the virtual path from the manifest.
  */
 async function createBuiltinService(): Promise<LanguageConfigurationService> {
     const assets = createDevAssetAccess();

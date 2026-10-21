@@ -82,8 +82,8 @@ describe("LanguageRegistry", () => {
 
     it("matches dotfile whose whole name equals a registered extension (.editorconfig)", () => {
         const registry = new LanguageRegistry();
-        // Стоковый editorconfig-vscode объявляет `extensions: [".editorconfig"]`,
-        // а файл называется целиком `.editorconfig` — у него `path.extname` пуст.
+        // The stock editorconfig-vscode declares `extensions: [".editorconfig"]`,
+        // while the file is named `.editorconfig` in full, so its `path.extname` is empty.
         registry.register(makeExt("ec", [{ id: "editorconfig", extensions: [".editorconfig"] }]));
 
         expect(registry.getLanguageIdForResource("/proj/.editorconfig")).toBe("editorconfig");
@@ -168,7 +168,7 @@ describe("LanguageRegistry", () => {
 
         d.dispose();
         expect(registry.getLanguage("typescript")).toBeUndefined();
-        // Второй dispose: запись языка уже удалена (delta<0, entry===undefined).
+        // Second dispose: the language entry is already removed (delta<0, entry===undefined).
         expect(() => {
             d.dispose();
         }).not.toThrow();
@@ -180,10 +180,10 @@ describe("LanguageRegistry", () => {
         const d1 = registry.register(makeExt("a", [{ id: "typescript", extensions: [".ts"] }]));
         registry.register(makeExt("b", [{ id: "typescript", extensions: [".js"] }]));
 
-        d1.dispose(); // удаляет ".ts", остаётся [".js"]
+        d1.dispose(); // removes ".ts", [".js"] remains
         expect(registry.getLanguage("typescript")?.extensions).toEqual([".js"]);
 
-        // Повторный dispose пытается снять уже отсутствующий ".ts" — indexOf вернёт -1, splice не вызывается.
+        // A repeated dispose tries to remove the already absent ".ts": indexOf returns -1, splice is not called.
         d1.dispose();
         expect(registry.getLanguage("typescript")?.extensions).toEqual([".js"]);
     });
@@ -232,7 +232,7 @@ describe("LanguageRegistry", () => {
         registry.register(makeExt("ts", [{ id: "typescript", extensions: [".ts", ".tsx"], aliases: ["TypeScript"] }]));
 
         expect(registry.getExtensionForLanguage("typescript")).toBe(".ts");
-        // plaintext — core-язык: именно он даёт ".txt" безымянному буферу в Save As.
+        // plaintext is a core language: it is what gives an untitled buffer ".txt" in Save As.
         expect(registry.getExtensionForLanguage("plaintext")).toBe(".txt");
     });
 
@@ -244,8 +244,8 @@ describe("LanguageRegistry", () => {
         expect(registry.getExtensionForLanguage("extensionless")).toBeUndefined();
     });
 
-    // Стоковый editorconfig-vscode вносит язык через `extensions: [".editorconfig"]` при пустых
-    // `filenames` — резолв держится на dotfile-матче имени против «расширения».
+    // The stock editorconfig-vscode contributes the language via `extensions: [".editorconfig"]` with empty
+    // `filenames`: resolution relies on a dotfile match of the name against the "extension".
     it("резолвит .editorconfig в 'editorconfig' по .extensions стокового расширения", () => {
         const registry = new LanguageRegistry();
         expect(registry.getLanguageIdForResource("/p/.editorconfig")).toBeUndefined();
@@ -263,11 +263,11 @@ describe("LanguageRegistry", () => {
 
     it("при конфликте расширений побеждает зарегистрированный позже (user > builtin)", () => {
         const registry = new LanguageRegistry();
-        // Builtin ini-пак (как в microsoft/vscode) регистрируется первым.
+        // The builtin ini pack (as in microsoft/vscode) registers first.
         registry.register(makeExt("ini", [{ id: "properties", extensions: [".ini", ".editorconfig"] }]));
         expect(registry.getLanguageIdForResource("/p/.editorconfig")).toBe("properties");
 
-        // Иначе completion-селектор {language:'editorconfig'} не сматчит.
+        // Otherwise the completion selector {language:'editorconfig'} does not match.
         registry.register(
             makeExt(
                 "editorconfig",

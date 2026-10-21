@@ -1,21 +1,21 @@
-// Общие флаги rg для Quick Open (`rg --files`) и Search view (`rg --json`) — иначе их
-// наборы файлов разъедутся. Флаги — как `getRgArgs` эталона.
+// rg flags shared by Quick Open (`rg --files`) and the Search view (`rg --json`) —
+// otherwise their file sets diverge. Flags follow upstream `getRgArgs`.
 
 import type { IUseIgnoreFiles } from "../../../common/configuration/excludeSettings.ts";
 
 /**
- * Как `anchorGlob` эталона: у rg шаблон без `/` матчится на любой глубине, а у нас
- * (`isExcludedPath`, Explorer, watcher) — только от корня.
+ * Like upstream `anchorGlob`: rg matches a glob without `/` at any depth, while ours
+ * (`isExcludedPath`, Explorer, watcher) match only from the root.
  */
 export function anchorRgGlob(glob: string): string {
     return glob.startsWith("**") || glob.startsWith("/") ? glob : `/${glob}`;
 }
 
-/** Поле «files to exclude» приходит уже развёрнутым (`foo` → `**\/foo`, `parseSearchFieldGlobs`). */
+/** The "files to exclude" field arrives already expanded (`foo` → `**\/foo`, `parseSearchFieldGlobs`). */
 export function rgExcludeArgs(excludes: readonly string[]): string[] {
     const args: string[] = [];
     for (const glob of excludes) {
-        // Хвостовой `/` у rg значит «только каталог», у нас его нет — срезаем, как эталон.
+        // A trailing `/` means "directories only" to rg; we have no such notion, so trim it like upstream.
         const trimmed = glob.replace(/\/+$/, "");
         if (trimmed !== "") args.push("--glob", `!${anchorRgGlob(trimmed)}`);
     }
@@ -23,8 +23,8 @@ export function rgExcludeArgs(excludes: readonly string[]): string[] {
 }
 
 /**
- * `--no-config`: `RIPGREPRC_PATH` пользователя не меняет набор файлов редактора;
- * `--no-require-git`: `.gitignore` уважается и вне git-репозитория.
+ * `--no-config`: the user's `RIPGREPRC_PATH` does not change the editor's file set;
+ * `--no-require-git`: `.gitignore` is honored outside a git repository too.
  */
 export function rgIgnoreFilesArgs(useIgnoreFiles: IUseIgnoreFiles): string[] {
     const args = ["--no-require-git", "--no-config"];
@@ -38,8 +38,9 @@ export function rgIgnoreFilesArgs(useIgnoreFiles: IUseIgnoreFiles): string[] {
 }
 
 /**
- * `--hidden`: dot-файлы режут `files.exclude`/ignore-файлы, а не точка в имени. Симлинки
- * не обходим: `--follow` эталона — за `search.followSymlinks`, которой у нас нет.
+ * `--hidden`: dotfiles are filtered by `files.exclude`/ignore files, not by the leading dot.
+ * Symlinks are not followed: upstream `--follow` sits behind `search.followSymlinks`, which
+ * we do not have.
  */
 export function buildRgFilesArgs(excludes: readonly string[], useIgnoreFiles: IUseIgnoreFiles): string[] {
     return ["--files", "--hidden", ...rgExcludeArgs(excludes), ...rgIgnoreFilesArgs(useIgnoreFiles)];

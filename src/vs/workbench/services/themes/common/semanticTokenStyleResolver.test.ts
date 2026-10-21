@@ -56,7 +56,7 @@ describe("SemanticTokenStyleResolver — фоллбэк на TextMate-скоуп
                 { scope: "comment", settings: { fontStyle: "bold strikethrough" } },
             ],
         });
-        // Проба `comment`: `comment.line` под неё не подходит.
+        // Probe `comment`: `comment.line` does not match it.
         expect(r.resolve("comment", [], "ts")).toStrictEqual({
             fg: parseHexColor(RED),
             bold: true,
@@ -86,7 +86,7 @@ describe("SemanticTokenStyleResolver — фоллбэк на TextMate-скоуп
             ],
         });
         expect(r.resolve("string", [], "ts")?.fg).toBe(parseHexColor(RED));
-        // Путь из одного скоупа не содержит `source` — правило с родителем мимо.
+        // A single-scope path has no `source`, so the rule with a parent misses.
         expect(r.resolve("keyword", [], "ts")).toBeNull();
     });
 
@@ -122,7 +122,7 @@ describe("SemanticTokenStyleResolver — semanticTokenColors темы", () => {
             rules: [{ scope: "variable", settings: { foreground: RED, fontStyle: "italic" } }],
             semanticTokenRules: [{ selector: "variable", settings: { foreground: GREEN } }],
         });
-        // Цвет — от semanticTokenColors, флаги — от фоллбэка (их правило темы не задало).
+        // Color comes from semanticTokenColors, flags from the fallback (the theme rule did not set them).
         expect(r.resolve("variable", [], "ts")).toStrictEqual({
             fg: parseHexColor(GREEN),
             bold: false,
@@ -267,7 +267,7 @@ describe("SemanticTokenStyleResolver — матч TM-правил по проб�
                 rules: [
                     { scope: "comment.line", settings: { fontStyle: "italic" } },
                     { scope: "comment", settings: { fontStyle: "bold" } },
-                    // Тот же вес, что у `italic`, и позже — но fontStyle не задаёт.
+                    // Same weight as `italic` and later, but sets no fontStyle.
                     { scope: "comment.line", settings: { foreground: RED } },
                 ],
             },
@@ -361,7 +361,7 @@ describe("SemanticTokenStyleResolver — жизненный цикл", () => {
         expect(r.resolve("annotation", [], "java")).toBeNull();
         r.dispose();
         registry.registerTokenType("annotation", "", "type");
-        // Кэш не сброшен: подписка на реестр снята.
+        // Cache not reset: the registry subscription is gone.
         expect(r.resolve("annotation", [], "java")).toBeNull();
         r.setTheme({ rules: [] });
         expect(listener).not.toHaveBeenCalled();

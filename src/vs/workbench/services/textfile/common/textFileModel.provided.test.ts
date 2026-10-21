@@ -13,10 +13,10 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 import type { TextFileModel } from "./textFileModel.ts";
 import { TextFileModelService } from "./textFileModelService.ts";
 
-// Ресурс пишущего провайдера ФС (`_claude_fs_right:` Claude Code) — общая модель, как файл;
-// своя же запись историю отмены не стирает.
+// A resource of a writable FS provider (`_claude_fs_right:` in Claude Code) is a shared model like
+// a file; our own write does not wipe the undo history.
 
-/** Как провайдер Claude Code, сообщает о каждой записи. */
+/** Like the Claude Code provider, reports every write. */
 class ChangeFiringProvider extends InMemoryFileSystemProvider {
     private readonly changes = new Emitter<readonly Uri[]>();
     public override readonly onDidChangeFile = this.changes.event;
@@ -118,7 +118,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
     it("своя запись не перечитывает буфер — история отмены цела", async () => {
         const model = await open();
         model.restoreUnsavedContents("edited\n");
-        // Перечитка — замена текста целиком: новая версия документа и сброс истории.
+        // A reload replaces the whole text: a new document version and a history reset.
         const version = model.document.versionId;
 
         let diskEvents = 0;
@@ -164,7 +164,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
     it("изменение чужого ресурса той же схемы модель не будит", async () => {
         const model = await open();
         const other = Uri.from({ scheme: SCHEME, path: "/b.ts" });
-        // Наш ресурс тоже изменился, но о нём провайдер не сообщил.
+        // Our resource changed too, but the provider did not report it.
         await provider.writeSilently(right, encode("silently\n"));
 
         await provider.writeFile(other, encode("other\n"));

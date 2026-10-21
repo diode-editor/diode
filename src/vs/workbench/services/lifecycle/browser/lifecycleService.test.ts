@@ -37,7 +37,7 @@ describe("LifecycleService", () => {
 
         const request = lifecycle.requestShutdown(onQuit);
 
-        // До первого await: чистый выход не откладывается на микротаск.
+        // Before the first await: a clean exit is not deferred to a microtask.
         expect(onQuit).toHaveBeenCalledOnce();
         await request;
     });
@@ -115,7 +115,7 @@ describe("LifecycleService", () => {
         lifecycle.registerShutdownParticipant({ collectDirty: () => [dirtyItem("a.txt"), second] });
 
         const request = lifecycle.requestShutdown(onQuit);
-        // Пока открыт диалог по a.txt, b.txt перестаёт быть грязным (вкладку закрыли).
+        // While the dialog for a.txt is open, b.txt stops being dirty (its tab was closed).
         secondStillDirty = false;
         dialogService.getOpenConfirmSaveDialog()!.onDontSave?.();
         await request;

@@ -7,7 +7,7 @@ import type { ILanguageService } from "../../../../editor/common/languages/iLang
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import type { ILanguageContribution } from "../../../../platform/extensions/common/iLanguageContribution.ts";
 
-/** Несколько расширений могут вносить один `languageId` — их данные сливаются в одну запись. */
+/** Several extensions may contribute the same `languageId`; their data merges into one entry. */
 export interface ILanguageEntry {
     readonly id: string;
     readonly aliases: readonly string[];
@@ -36,12 +36,12 @@ export class LanguageRegistry implements ILanguageService {
     private readonly onDidRequestLanguageFeaturesEmitter = new Emitter<string>();
 
     public constructor() {
-        // plaintext не вносит ни один пак (аналог modesRegistry в VS Code), но он нужен как fallback;
-        // refcount никогда не опускается до нуля.
+        // No pack contributes plaintext (VS Code's modesRegistry counterpart), but it is needed as a fallback;
+        // the refcount never drops to zero.
         this.applyContribution({ id: "plaintext", aliases: ["Plain Text"], extensions: [".txt"] }, "builtin:core/", 1);
     }
 
-    /** Запись языка живёт, пока её удерживает хотя бы один источник. */
+    /** A language entry lives while at least one source holds it. */
     public register(extension: IExtension): IDisposable {
         const langs = extension.manifest.contributes?.languages;
         if (langs === undefined || langs.length === 0) {
@@ -86,14 +86,14 @@ export class LanguageRegistry implements ILanguageService {
     }
 
     /**
-     * Первое заявленное, как и у alias'ов. У dotfile-языков «расширение» — всё имя (`.editorconfig`),
-     * так что склейка с именем буфера осмысленна не для любого языка; безымянный буфер — `plaintext`.
+     * The first declared one, as with aliases. For dotfile languages the "extension" is the whole name (`.editorconfig`),
+     * so joining it with the buffer name does not make sense for every language; an untitled buffer is `plaintext`.
      */
     public getExtensionForLanguage(languageId: string): string | undefined {
         return this.languages.get(languageId)?.extensions[0];
     }
 
-    /** Порядок, как в VS Code: `filenames`, затем `filenamePatterns`, затем `extensions` (без учёта регистра). */
+    /** Order as in VS Code: `filenames`, then `filenamePatterns`, then `extensions` (case-insensitive). */
     public getLanguageIdForResource(filePath: string): string | undefined {
         const baseName = path.basename(filePath);
         const baseNameLower = baseName.toLowerCase();
@@ -110,16 +110,16 @@ export class LanguageRegistry implements ILanguageService {
             }
         }
 
-        // Несколько языков заявляют один `.ext` — побеждает зарегистрированный позже, как в VS Code
-        // (user-расширение после builtin: `editorconfig` бьёт `properties`). Поэтому берём последнее.
+        // Several languages claim the same `.ext`: the one registered later wins, as in VS Code
+        // (a user extension after builtin: `editorconfig` beats `properties`). Hence the last one is taken.
         const ext = path.extname(baseName).toLowerCase();
         let match: string | undefined;
         for (const entry of this.languages.values()) {
             for (const candidate of entry.extensions) {
                 const cand = candidate.toLowerCase();
-                // Обычное расширение (foo.ts → ".ts") либо dotfile, чьё имя целиком
-                // совпадает с "расширением" (.editorconfig) — у таких `path.extname`
-                // пуст, но VS Code матчит их по суффиксу имени.
+                // A regular extension (foo.ts -> ".ts") or a dotfile whose whole name
+                // matches the "extension" (.editorconfig): their `path.extname`
+                // is empty, but VS Code matches them by name suffix.
                 if ((ext.length > 0 && cand === ext) || (ext.length === 0 && cand === baseNameLower)) {
                     match = entry.id;
                 }
@@ -159,7 +159,7 @@ export class LanguageRegistry implements ILanguageService {
                 entry.configurationPath = joinVirtualPath(extensionLocation, lang.configuration);
             }
         }
-        // firstLine/configurationPath при unregister не откатываются — снимаются вместе с пустой записью.
+        // firstLine/configurationPath are not rolled back on unregister; they go away with the empty entry.
 
         if (
             delta < 0 &&
@@ -186,7 +186,7 @@ function mergeStrings(target: string[], source: readonly string[] | undefined, d
     }
 }
 
-/** Только `*` и `?` — достаточно для `filenamePatterns` реальных расширений. */
+/** Only `*` and `?`: enough for real extensions' `filenamePatterns`. */
 function matchGlob(pattern: string, lowerName: string): boolean {
     const lowerPattern = pattern.toLowerCase();
     let regexSource = "^";

@@ -12,8 +12,8 @@ describe("OutputChannelRegistry", () => {
     });
 
     it("повторная регистрация не перетирает label", () => {
-        // Гонка «объявили с именем в bootstrap / досоздали по первой записи»
-        // иначе заменила бы «Extension Host» на сырой id.
+        // Otherwise the "declared with a name in bootstrap / created on first write" race
+        // would replace "Extension Host" with the raw id.
         const registry = new OutputChannelRegistry();
         registry.registerChannel({ id: "extensions.host", label: "Extension Host" });
 

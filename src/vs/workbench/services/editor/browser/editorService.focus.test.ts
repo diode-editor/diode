@@ -73,7 +73,7 @@ describe("IEditorService focus management on tab close", () => {
 
         testApp.sendKey("Ctrl+S");
 
-        // Клавиша не должна глохнуть на осиротевшем элементе, а зомби-фокус — восстанавливаться.
+        // A key must not get lost on an orphaned element, and zombie focus must not come back.
         expect(testApp.focusedElement).toBeNull();
     });
 

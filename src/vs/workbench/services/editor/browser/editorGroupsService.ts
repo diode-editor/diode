@@ -9,18 +9,18 @@ import type { IEditorGroupsService, IGroupsChangeEvent } from "../common/editorG
 import { EditorGroup, type GroupId, type MruCycleState } from "./editorGroupModel.ts";
 
 /**
- * Headless-аналог upstream `IEditorGroupsService` (у upstream его реализует view-часть `EditorPart`).
- * Вкладок сам не создаёт: дубль открывает `EditorService` колбэком «наполни группу».
- * Порядок событий — контракт: {@link onDidChangeEditors} → фокус →
+ * Headless counterpart of upstream `IEditorGroupsService` (upstream implements it in the view part, `EditorPart`).
+ * Creates no tabs itself: `EditorService` opens the duplicate via a "fill the group" callback.
+ * Event order is a contract: {@link onDidChangeEditors} → focus →
  * {@link onDidChangeActivePane} → {@link onDidActiveGroupChange}.
  */
 export class EditorGroupsService extends Disposable implements IEditorGroupsService {
     public static dependencies = [ILogServiceDIToken] as const;
 
-    /** Порядок ViewColumn − 1; без сплитов — ровно одна группа. */
+    /** ViewColumn − 1 order; without splits there is exactly one group. */
     private groupsList: EditorGroup[] = [];
     private activeGroupValue: EditorGroup;
-    /** Id групп не переиспользуются. */
+    /** Group ids are never reused. */
     private groupIdCounter = 0;
     private readonly groupSubscriptions = new Map<GroupId, IDisposable[]>();
     private readonly logger: ILogger;
@@ -31,27 +31,27 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
     private readonly onDidChangeEditorsEmitter = new Emitter<void>();
     private readonly onDidChangeActivePaneEmitter = new Emitter<IEditorPane | null>();
 
-    /** `EditorPartComponent` спрашивает свой `EditorPartElement.canFit`; не задан (headless) — место не проверяется. */
+    /** `EditorPartComponent` asks its `EditorPartElement.canFit`; unset (headless) — space is not checked. */
     public canAddGroupHook?: () => boolean;
 
-    /** Нужен ради filler'а пустой группы — сервису он недоступен. Не задан — фокус в активную вкладку. */
+    /** Needed for the empty group's filler, which the service cannot reach. Unset — focus goes to the active tab. */
     public focusGroupContentHook?: (group: EditorGroup) => void;
 
     public readonly onDidActiveGroupChange = this.onDidActiveGroupChangeEmitter.event;
 
-    /** Снимок замороженного MRU-списка на каждом шаге серии Ctrl+Tab и `null`, когда серия кончилась. */
+    /** Snapshot of the frozen MRU list at each step of a Ctrl+Tab series, and `null` when the series ends. */
     public readonly onDidChangeMruCycle = this.onDidChangeMruCycleEmitter.event;
 
     public readonly onDidGroupsChange = this.onDidGroupsChangeEmitter.event;
 
     public readonly onDidChangeEditors = this.onDidChangeEditorsEmitter.event;
 
-    /** Любого вида — сужение до текста делает `EditorService`. */
+    /** Any kind — `EditorService` narrows it to text. */
     public readonly onDidChangeActivePane = this.onDidChangeActivePaneEmitter.event;
 
     public constructor(logService: ILogService) {
         super();
-        // Stryker disable next-line StringLiteral,ObjectLiteral: имя канала и его метка — подпись в селекторе Output, поведения логирования не задают
+        // Stryker disable next-line StringLiteral,ObjectLiteral: the channel name and label are captions in the Output selector and do not affect logging behavior
         this.logger = logService.createLogger("workbench.editorGroups", { label: "Editor Groups" });
         this.activeGroupValue = this.createGroup();
         this.register({
@@ -59,8 +59,8 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
                 for (const subscriptions of this.groupSubscriptions.values()) {
                     for (const subscription of subscriptions) subscription.dispose();
                 }
-                // После выключения карту никто не читает — очистка лишь отпускает ссылки.
-                // Stryker disable next-line CallExpression: эквивалентен — см. выше
+                // Nobody reads the map after shutdown — clearing only releases references.
+                // Stryker disable next-line CallExpression: equivalent — see above
                 this.groupSubscriptions.clear();
             },
         });
@@ -74,7 +74,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return this.activeGroupValue;
     }
 
-    /** `null` и для detached-панелей: групп у них нет. */
+    /** `null` for detached panes too: they have no group. */
     public groupOf(pane: IEditorPane): EditorGroup | null {
         for (const group of this.groupsList) {
             if (group.getPanes().includes(pane)) return group;
@@ -87,14 +87,14 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
     }
 
     /**
-     * VS Code `workbench.action.splitEditor`. Отказ (пустая активная группа или нет места) — молча,
-     * с записью в лог (решение постановки №3). Новая группа активна ДО наполнения: открытая в ней
-     * вкладка сразу — активный редактор воркбенча.
+     * VS Code `workbench.action.splitEditor`. Refusal (empty active group or no space) is silent,
+     * with a log entry (spec decision #3). The new group is active BEFORE it is filled: the tab opened
+     * in it immediately becomes the workbench's active editor.
      */
     public splitActiveGroup(
         fill: (group: EditorGroup, source: IEditorPane) => void,
-        // Любая позиция, кроме "before", — справа: пустая строка ведёт себя как "after".
-        // Stryker disable next-line StringLiteral: эквивалентен — см. выше
+        // Any position other than "before" means right: an empty string behaves like "after".
+        // Stryker disable next-line StringLiteral: equivalent — see above
         { focus = true, position = "after" }: { focus?: boolean; position?: "before" | "after" } = {},
     ): EditorGroup | null {
         const source = this.activeGroupValue;
@@ -136,7 +136,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return group;
     }
 
-    /** За краем полосы — no-op (US-10). */
+    /** Past the edge of the strip — no-op (US-10). */
     public focusGroup(
         target: GroupId | { index: number } | { direction: "next" | "previous" | "cycle" },
         { focus = true }: { focus?: boolean } = {},
@@ -164,15 +164,15 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return this.groupsList[next] ?? null;
     }
 
-    /** Фокус уже там, куда кликнули, — только события. */
+    /** Focus is already where the click landed — only events. */
     public notifyGroupFocused(group: EditorGroup): void {
-        // Тот же гард стоит в makeGroupActive: ранний выход лишь экономит вызов.
-        // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
+        // makeGroupActive has the same guard: the early return only saves a call.
+        // Stryker disable next-line ConditionalExpression: equivalent — see above
         if (group === this.activeGroupValue) return;
         this.makeGroupActive(group);
     }
 
-    /** У единственной группы создаёт соседку (US-50). Ресурс уже открыт в целевой — сливается с ней. */
+    /** With a single group, creates a neighbor (US-50). If the resource is already open in the target, merges with it. */
     public moveActiveEditorToGroup(direction: "next" | "previous", { focus = true }: { focus?: boolean } = {}): void {
         const source = this.activeGroupValue;
         const index = source.activeIndex;
@@ -180,10 +180,10 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         const target = this.neighborOrNewGroup(direction);
         if (target === null) return;
 
-        // detachPane может схлопнуть опустевший источник — целевая группа взята по ссылке заранее.
+        // detachPane may collapse the emptied source — the target group is captured by reference beforehand.
         const pane = source.detachPane(index);
-        /* v8 ignore start -- activePane проверен выше, индекс валиден */
-        // Stryker disable next-line ConditionalExpression: недостижимая ветвь по той же причине
+        /* v8 ignore start -- activePane is checked above, the index is valid */
+        // Stryker disable next-line ConditionalExpression: unreachable branch for the same reason
         if (pane === null) return;
         /* v8 ignore stop */
         this.activeGroupValue = target;
@@ -207,8 +207,8 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
     }
 
     /**
-     * Группа активна ДО `fill` — открытая вкладка сразу активный редактор воркбенча. Серию Ctrl+Tab
-     * прежней группы не завершает: это не уход фокуса, а открытие.
+     * The group is active BEFORE `fill` — the opened tab immediately becomes the workbench's active editor. Does not
+     * end the previous group's Ctrl+Tab series: this is opening, not focus leaving.
      */
     public openInGroup(group: EditorGroup, fill: () => void): void {
         const wasActive = group === this.activeGroupValue;
@@ -217,7 +217,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         if (!wasActive) this.fireActiveGroupChanged(group);
     }
 
-    /** Нет места — фолбэк в активную. Активной не становится: это решает открытие. */
+    /** No space — falls back to the active group. Does not become active: opening decides that. */
     public sideGroup(): EditorGroup {
         const index = this.groupsList.indexOf(this.activeGroupValue);
         const next = this.groupsList.at(index + 1);
@@ -231,17 +231,17 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return group;
     }
 
-    /** VS Code `joinTwoGroups`: дубликаты ресурса схлопываются (решение постановки №5). */
+    /** VS Code `joinTwoGroups`: resource duplicates collapse (spec decision #5). */
     public joinTwoGroups(): void {
         const target = this.activeGroupValue;
         const source = this.resolveGroupTarget({ direction: "next" });
-        // Сосед по направлению активной группой не бывает: второе условие — страховка.
-        // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
+        // A directional neighbor is never the active group: the second condition is a safety net.
+        // Stryker disable next-line ConditionalExpression: equivalent — see above
         if (source === null || source === target) return;
         this.mergeGroupInto(source, target);
     }
 
-    /** Активная вкладка бывшей активной группы выживает (US-21). */
+    /** The active tab of the formerly active group survives (US-21). */
     public joinAllGroups(): void {
         if (this.groupsList.length < 2) return;
         const rememberedUri = this.activeGroupValue.activePane?.uri ?? null;
@@ -252,8 +252,8 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         }
         if (rememberedUri !== null) {
             const index = target.findPaneIndex(rememberedUri);
-            /* v8 ignore start -- uri взят с живой вкладки, merge с дедупом сохраняет ресурс в target */
-            // Stryker disable next-line ConditionalExpression: ресурс в target есть всегда по той же причине
+            /* v8 ignore start -- uri comes from a live tab, merge with dedup keeps the resource in target */
+            // Stryker disable next-line ConditionalExpression: the resource is always in target for the same reason
             if (index >= 0) target.activateTab(index);
             /* v8 ignore stop */
         }
@@ -270,8 +270,8 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
     }
 
     /**
-     * Глобального MRU-стека нет — он живёт на группе; склейка от активной группы по полосе даёт то,
-     * что пикер обещает заголовком: сверху то, где человек только что был.
+     * There is no global MRU stack — it lives on the group; concatenating from the active group along the strip gives
+     * what the picker title promises: on top is where the user just was.
      */
     public getOpenEditorsMru(): IEditorPane[] {
         const active = this.activeGroupValue;
@@ -287,8 +287,8 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
     }
 
     /**
-     * VS Code `nextEditor`/`previousEditor`: визуальный порядок всех групп с заворотом. В отличие от
-     * Ctrl+Tab hold-сессии нет — каждый шаг сразу коммитится в MRU.
+     * VS Code `nextEditor`/`previousEditor`: visual order of all groups, wrapping around. Unlike
+     * Ctrl+Tab there is no hold session — each step commits to MRU immediately.
      */
     public cycleEditor(direction: 1 | -1): void {
         const entries: { group: EditorGroup; index: number }[] = [];
@@ -306,8 +306,8 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
             active.activateTab(target.index);
             return;
         }
-        // Через границу группы: сначала группа, потом вкладка (как moveActiveTabToGroup);
-        // серию Ctrl+Tab источника завершаем как при любом уходе из группы.
+        // Across a group boundary: group first, then tab (like moveActiveTabToGroup);
+        // the source's Ctrl+Tab series ends as on any departure from the group.
         active.endMruCycle();
         this.activeGroupValue = target.group;
         target.group.activateTab(target.index);
@@ -316,17 +316,17 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
 
     private mergeGroupInto(source: EditorGroup, target: EditorGroup): void {
         if (source.editorCount === 0) {
-            // Пустой сосед: некому схлопнуть его событием — снимаем явно.
+            // Empty neighbor: no event will collapse it — remove it explicitly.
             this.collapseGroup(source);
             return;
         }
-        // Граница цикла и гард ниже страхуют друг друга: `>= 0` упёрся бы в
-        // `null` от пустой группы и вышел тем же break, а при `> 0` гард недостижим.
-        // Stryker disable next-line EqualityOperator: эквивалентен — см. выше
+        // The loop bound and the guard below back each other up: `>= 0` would hit
+        // `null` from the empty group and exit via the same break, and with `> 0` the guard is unreachable.
+        // Stryker disable next-line EqualityOperator: equivalent — see above
         while (source.editorCount > 0) {
             const pane = source.detachPane(0);
-            /* v8 ignore start -- editorCount > 0 гарантирует вкладку */
-            // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
+            /* v8 ignore start -- editorCount > 0 guarantees a tab */
+            // Stryker disable next-line ConditionalExpression: equivalent — see above
             if (pane === null) break;
             /* v8 ignore stop */
             if (target.findPaneIndex(pane.uri) >= 0) pane.dispose();
@@ -336,8 +336,8 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
 
     private neighborOrNewGroup(direction: "next" | "previous"): EditorGroup | null {
         const existing = this.resolveGroupTarget({ direction });
-        // Сосед по направлению активной группой не бывает: второе условие — страховка.
-        // Stryker disable next-line ConditionalExpression: эквивалентен — см. выше
+        // A directional neighbor is never the active group: the second condition is a safety net.
+        // Stryker disable next-line ConditionalExpression: equivalent — see above
         if (existing !== null && existing !== this.activeGroupValue) return existing;
         if (this.groupsList.length > 1) return null;
         if (this.canAddGroupHook !== undefined && !this.canAddGroupHook()) {
@@ -352,10 +352,10 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
 
     private makeGroupActive(group: EditorGroup): void {
         if (group === this.activeGroupValue) return;
-        // Уход фокуса в другую группу завершает серию Ctrl+Tab прежней: выбор фиксируется в MRU.
+        // Focus moving to another group ends the previous group's Ctrl+Tab series: the choice is committed to MRU.
         this.activeGroupValue.endMruCycle();
         this.activeGroupValue = group;
-        // Табы не меняются, но потребители активного редактора (статус-бар, host) обязаны переехать.
+        // Tabs do not change, but active-editor consumers (status bar, host) must follow.
         this.fireActivePaneChanged(group.activePane);
         this.fireActiveGroupChanged(group);
     }
@@ -365,7 +365,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         else group.focusEditor();
     }
 
-    /** View (`EditorGroupComponent`) слушает саму группу, потребители активного редактора — сервис. */
+    /** The view (`EditorGroupComponent`) listens to the group itself, active-editor consumers to the service. */
     private createGroup(index: number = this.groupsList.length): EditorGroup {
         const group = new EditorGroup(++this.groupIdCounter);
         this.groupsList.splice(index, 0, group);
@@ -375,10 +375,10 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
                 this.onDidChangeEditorsEmitter.fire();
             }),
             group.onDidChangeActivePane((pane) => {
-                // Смена вкладки неактивной группы активный редактор не трогает (US-13).
+                // A tab change in an inactive group does not touch the active editor (US-13).
                 if (group === this.activeGroupValue) this.fireActivePaneChanged(pane);
-                // Активной вкладки нет ровно тогда, когда группа пуста: условия взаимозаменяемы.
-                // Stryker disable next-line ConditionalExpression,LogicalOperator: эквивалентны — см. выше
+                // There is no active tab exactly when the group is empty: the conditions are interchangeable.
+                // Stryker disable next-line ConditionalExpression,LogicalOperator: equivalent — see above
                 if (pane === null && group.editorCount === 0 && this.groupsList.length > 1) {
                     this.collapseGroup(group);
                 }
@@ -391,20 +391,20 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return group;
     }
 
-    /** Последнюю группу не схлопываем — пустая область редактора легальна (US-47). */
+    /** The last group is not collapsed — an empty editor area is legal (US-47). */
     private collapseGroup(group: EditorGroup): void {
         const index = this.groupsList.indexOf(group);
-        /* v8 ignore start -- защитный гард: схлопывание зовётся только для группы из полосы */
-        // Stryker disable next-line ConditionalExpression: недостижимая ветвь по той же причине
+        /* v8 ignore start -- defensive guard: collapse is called only for a group in the strip */
+        // Stryker disable next-line ConditionalExpression: unreachable branch for the same reason
         if (index < 0) return;
         /* v8 ignore stop */
         this.groupsList.splice(index, 1);
-        /* v8 ignore start -- подписки заводит createGroup для каждой группы, фолбэк ?? [] недостижим */
-        // Stryker disable next-line ArrayDeclaration: недостижимый фолбэк по той же причине
+        /* v8 ignore start -- createGroup sets up subscriptions for every group, the ?? [] fallback is unreachable */
+        // Stryker disable next-line ArrayDeclaration: unreachable fallback for the same reason
         for (const subscription of this.groupSubscriptions.get(group.id) ?? []) subscription.dispose();
         /* v8 ignore stop */
-        // Подписки уже сняты: оставленная запись при выключении снялась бы повторно — no-op.
-        // Stryker disable next-line CallExpression: эквивалентен — см. выше
+        // Subscriptions are already disposed: a leftover entry would be disposed again on shutdown — a no-op.
+        // Stryker disable next-line CallExpression: equivalent — see above
         this.groupSubscriptions.delete(group.id);
         const wasActive = group === this.activeGroupValue;
         this.fireGroupsChanged({ kind: "removed", group, index });

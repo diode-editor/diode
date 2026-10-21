@@ -4,8 +4,8 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IOutputChannelDescriptor, IOutputChannelRegistry } from "./output.ts";
 
 /**
- * Повторная регистрация id — no-op, как у VS Code: иначе гонка «объявили в bootstrap /
- * досоздали по первой записи» перетирала бы label на сырой id.
+ * Re-registering an id is a no-op, as in VS Code: otherwise the "declared in bootstrap /
+ * created on first write" race would overwrite the label with the raw id.
  */
 export class OutputChannelRegistry implements IOutputChannelRegistry {
     public static dependencies = [] as const;
@@ -19,7 +19,7 @@ export class OutputChannelRegistry implements IOutputChannelRegistry {
         this.onDidRegisterChannelEmitter.fire(descriptor);
     }
 
-    /** Снимок в порядке регистрации — он же порядок пунктов селектора. */
+    /** A snapshot in registration order, which is also the selector item order. */
     public getChannels(): readonly IOutputChannelDescriptor[] {
         return [...this.channels.values()];
     }

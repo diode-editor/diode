@@ -7,7 +7,7 @@ import { createEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory
 import { Uri } from "../../../../base/common/uri.ts";
 import { ChokidarFileWatcher } from "../../../../platform/files/node/chokidarFileWatcher.ts";
 
-/** Атомарный save — новый inode (временный сосед + rename): настоящий наблюдатель обязан это пережить. */
+/** An atomic save is a new inode (temporary sibling + rename): a real watcher must survive it. */
 describe("TextFileModel — атомарный save и настоящий наблюдатель", () => {
     let ws: ITempWorkspace;
 
@@ -27,7 +27,7 @@ describe("TextFileModel — атомарный save и настоящий наб
         pane.viewState.type("X");
 
         await expect(pane.save()).resolves.toBe("saved");
-        // Даём наблюдателю отработать событие собственной записи (дебаунс 50 мс).
+        // Let the watcher process the event of our own write (50 ms debounce).
         await new Promise((resolve) => setTimeout(resolve, 300));
         expect(pane.model.hasDiskConflict).toBe(false);
         expect(pane.getText()).toBe("Xone\n");

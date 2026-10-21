@@ -27,7 +27,7 @@ import { ThemeService } from "../../themes/common/themeService.ts";
 
 import { EditorService } from "./editorService.ts";
 
-// Герметичный контракт (#196); стоковый стек — сетевой сьют extensionHost.ruffLsp.onSave.test.ts.
+// Hermetic contract (#196); the stock stack is covered by the network suite extensionHost.ruffLsp.onSave.test.ts.
 
 function stubConfigurationService(values: Record<string, unknown>): IConfigurationService {
     return createTestConfigurationService(values);
@@ -148,7 +148,7 @@ describe("EditorService — сохранение по настройкам onSav
                 },
                 apply: (id) => {
                     applied.push(id);
-                    // Субпроцесс применяет правки сам (workspace.applyEdit) — имитируем.
+                    // The subprocess applies edits itself (workspace.applyEdit); simulate that.
                     if (id === "fix.1") {
                         pane.applyExternalEdits([createTextEdit(createRange(0, 0, 1, 0), "")], "fix");
                     }
@@ -161,7 +161,7 @@ describe("EditorService — сохранение по настройкам onSav
             expect(provided).toHaveLength(1);
             expect(provided[0].only).toBe("source.fixAll");
             expect(provided[0].languageId).toBe("plaintext");
-            // Полный диапазон документа: 3 «строки» сплита, последняя пустая.
+            // Full document range: 3 "lines" after splitting, the last one empty.
             expect(provided[0].range).toEqual(createRange(0, 0, 2, 0));
             expect(provided[0].versionId).toBe(versionBefore);
             expect(pane.model.document.versionId).not.toBe(versionBefore);
@@ -258,7 +258,7 @@ describe("EditorService — сохранение по настройкам onSav
             expect(requests[0].versionId).toBe(versionBefore);
             expect(requests[0].range).toBeUndefined();
             expect(fs.readFileSync(fp, "utf-8")).toBe("a = 1\nb=2\n");
-            // Сеттер viewState сортирует мультикурсоры по позиции — первичное (0,2).
+            // The viewState setter sorts multi-cursors by position, so the primary is (0,2).
             expect(pane.viewState.selections).toHaveLength(1);
             expect(pane.viewState.selections[0].active).toEqual({ line: 0, character: 2 });
             ctrl.dispose();
@@ -287,7 +287,7 @@ describe("EditorService — сохранение по настройкам onSav
             const pane = ctrl.getActiveEditor()!;
 
             useFormatter(ctrl, () => {
-                // Пока «форматтер думает», буфер меняется (гонка с пользователем).
+                // While the "formatter is thinking", the buffer changes (a race with the user).
                 pane.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "typed:")], "user");
                 return Promise.resolve([createTextEdit(createRange(0, 0, 0, 3), "NEW")]);
             });
@@ -335,7 +335,7 @@ describe("EditorService — сохранение по настройкам onSav
             });
             useFormatter(ctrl, (req) => {
                 order.push("format");
-                // Формат обязан видеть версию ПОСЛЕ code action.
+                // Format must see the version AFTER the code action.
                 expect(afterFix).toBeDefined();
                 expect(req.versionId).toBe(afterFix);
                 return Promise.resolve([createTextEdit(createRange(0, 0, 0, 0), "fmt:")]);
@@ -383,7 +383,7 @@ describe("EditorService — сохранение по настройкам onSav
         });
 
         it("настройка включена, но её источник не подключён — участник не в списке", async () => {
-            // Гейты попарные: codeActions без источника и формат с выключенной настройкой обязаны выпасть.
+            // Gates are pairwise: codeActions without a source and format with the setting off must both drop out.
             const ctrl = createEditorService({ "editor.codeActionsOnSave": { "source.fixAll": true } });
             const fp = writeFile("halfoff.txt", "x\n");
             ctrl.openFile(fp);
@@ -406,7 +406,7 @@ describe("EditorService — сохранение по настройкам onSav
                 "editor.codeActionsOnSave": { "source.fixAll": true },
                 "editor.formatOnSave": true,
             });
-            // Модель БЕЗ панели — как редактируемая сторона Compare Untitled.
+            // A model WITHOUT a pane, like the editable side of Compare Untitled.
             const model = ctrl.textFileModels.createUntitledModel();
             useCodeActions(ctrl, {
                 provide: () => Promise.resolve([]),
@@ -446,7 +446,7 @@ describe("EditorService — сохранение по настройкам onSav
             writeFile("first.txt", "first\n");
             const fp = writeFile("second.txt", "second\n");
             ctrl.openFile(path.join(ws.dir, "first.txt"));
-            // Версии панелей разводим: first.txt правим дважды.
+            // Make pane versions diverge: edit first.txt twice.
             const first = ctrl.getActiveEditor()!;
             first.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "a")], "edit");
             first.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "b")], "edit");
@@ -463,7 +463,7 @@ describe("EditorService — сохранение по настройкам onSav
 
             await second.save();
 
-            // Панель ищется по uri снапшота: запрос обязан нести версию second.txt.
+            // The pane is looked up by the snapshot's uri: the request must carry second.txt's version.
             expect(versions).toEqual([second.model.document.versionId]);
             ctrl.dispose();
         });

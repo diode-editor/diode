@@ -1,9 +1,9 @@
-// Перенос `textMateScopeMatcher.ts` эталона. Дизъюнкция — `,`/`|`, конъюнкция — пробел
-// (путь скоупов), отрицание `-`, скобки, приоритеты `L:`/`R:` пропускаются.
+// Port of upstream `textMateScopeMatcher.ts`. Disjunction is `,`/`|`, conjunction is a space
+// (scope path), negation `-`, parentheses; `L:`/`R:` priorities are skipped.
 
 export type Matcher<T> = (matcherInput: T) => number;
 
-/** Поле `priority` эталона опущено: его здесь никто не читает (как и `resolveScopes` эталона). */
+/** Upstream's `priority` field is omitted: nothing here reads it (nor does upstream `resolveScopes`). */
 export function createMatchers<T>(
     selector: string,
     matchesName: (names: readonly string[], matcherInput: T) => number,
@@ -11,11 +11,11 @@ export function createMatchers<T>(
 ): void {
     const tokenizer = newTokenizer(selector);
     let token = tokenizer.next();
-    // Пустое тело зацикливает разбор — мутант виснет, а не выживает.
-    // Stryker disable next-line BlockStatement: см. выше
+    // An empty body loops the parser forever: the mutant hangs rather than survives.
+    // Stryker disable next-line BlockStatement: see above
     while (token !== null) {
         if (token.length === 2 && token.endsWith(":")) {
-            token = tokenizer.next(); // приоритет L:/R:
+            token = tokenizer.next(); // L:/R: priority
         }
         const matcher = parseConjunction();
         if (matcher) {
@@ -39,9 +39,9 @@ export function createMatchers<T>(
         if (token === "(") {
             token = tokenizer.next();
             const expressionInParents = parseInnerExpression();
-            // После скобочного выражения токен — либо ")", либо конец строки:
-            // безусловный next() на null дал бы тот же null.
-            // Stryker disable next-line ConditionalExpression: см. выше — эквивалентен
+            // After a parenthesized expression the token is either ")" or end of string:
+            // an unconditional next() on null would yield the same null.
+            // Stryker disable next-line ConditionalExpression: see above, equivalent
             if (token === ")") {
                 token = tokenizer.next();
             }
@@ -70,7 +70,7 @@ export function createMatchers<T>(
         }
         return (matcherInput) => {
             let min = matchers[0](matcherInput);
-            // Stryker disable next-line ConditionalExpression: ранний выход — оптимизация, min от отрицательного не растёт
+            // Stryker disable next-line ConditionalExpression: early exit is an optimization, min of a negative does not grow
             for (let i = 1; min >= 0 && i < matchers.length; i++) {
                 min = Math.min(min, matchers[i](matcherInput));
             }
@@ -86,9 +86,9 @@ export function createMatchers<T>(
         const matchers: Matcher<T>[] = [];
         while (matcher) {
             matchers.push(matcher);
-            // Конъюнкция кончается только на "|", ",", ")" или конце строки:
-            // без break следующая parseConjunction на ")"/конце вернёт null.
-            // Stryker disable next-line ConditionalExpression: см. выше — эквивалентен
+            // A conjunction ends only at "|", ",", ")" or end of string:
+            // without break the next parseConjunction at ")"/end returns null.
+            // Stryker disable next-line ConditionalExpression: see above, equivalent
             if (token !== "|" && token !== ",") break;
             do {
                 token = tokenizer.next();
@@ -106,7 +106,7 @@ export function createMatchers<T>(
 }
 
 function isIdentifier(token: string | null): token is string {
-    // Stryker disable next-line Regex: «хотя бы один символ» и «один символ» для test() неразличимы
+    // Stryker disable next-line Regex: "at least one char" and "one char" are indistinguishable for test()
     return token !== null && /[\w.:]+/.test(token);
 }
 

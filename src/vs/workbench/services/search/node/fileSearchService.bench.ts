@@ -5,8 +5,8 @@ import { NULL_CONFIGURATION_SERVICE } from "../../../../platform/configuration/c
 
 import { FileSearchService } from "./fileSearchService.ts";
 
-// Фикстуры — на верхнем уровне модуля, а не в beforeAll: в `vitest bench` тяжёлый
-// beforeAll не даёт набрать сэмплов. afterAll работает штатно.
+// Fixtures live at module top level, not in beforeAll: in `vitest bench` a heavy
+// beforeAll prevents collecting samples. afterAll works as usual.
 
 const dir1k = createTempDir("diode-perf-index-1k-");
 generateFileTree(dir1k, { files: 1_000 });
@@ -54,8 +54,8 @@ describe("FileSearchService.search (10k index)", () => {
         searchService.search("zzzznomatch", 50);
     });
 
-    // Контрольная точка против одно-термового «search path fragment»: матчер идёт по
-    // каждому терму, разбиение по пробелам не должно уехать в разы.
+    // Control point against the single-term "search path fragment": the matcher runs per
+    // term, and splitting on spaces must not make it several times slower.
     bench("search two terms", () => {
         searchService.search("dir2 module", 50);
     });

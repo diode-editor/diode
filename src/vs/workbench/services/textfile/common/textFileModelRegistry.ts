@@ -3,7 +3,7 @@ import type { Uri } from "../../../../base/common/uri.ts";
 
 import type { TextFileModel } from "./textFileModel.ts";
 
-/** Последняя ссылка диспозит модель. Повторный `dispose` ссылки — no-op. */
+/** The last reference disposes the model. Disposing a reference twice is a no-op. */
 export interface ITextFileModelReference extends IDisposable {
     readonly model: TextFileModel;
 }
@@ -11,13 +11,13 @@ export interface ITextFileModelReference extends IDisposable {
 interface IModelEntry {
     model: TextFileModel;
     refs: number;
-    /** Текущий ключ в {@link TextFileModelRegistry.byUri}; `null` — вытеснен коллизией saveAs. */
+    /** Current key in {@link TextFileModelRegistry.byUri}; `null`: evicted by a saveAs collision. */
     key: string | null;
 }
 
 /**
- * Аналог reference-counting `ITextModelService`: одна модель на ресурс, сколько бы
- * вкладок его ни показывало. Безымянные и синтетические буферы сюда не попадают.
+ * Counterpart of the reference-counting `ITextModelService`: one model per resource, no matter
+ * how many tabs show it. Untitled and synthetic buffers never get here.
  */
 export class TextFileModelRegistry {
     private readonly entries = new Set<IModelEntry>();
@@ -25,7 +25,7 @@ export class TextFileModelRegistry {
 
     public constructor(private readonly factory: (uri: Uri) => TextFileModel) {}
 
-    /** Своя фабрика вызова — для ресурса, чьи байты уже прочитаны. Владелец обязан освободить ссылку. */
+    /** A per-call factory is for a resource whose bytes are already read. The owner must release the reference. */
     public acquire(uri: Uri, factory: (uri: Uri) => TextFileModel = this.factory): ITextFileModelReference {
         const key = uri.toString();
         let entry = this.byUri.get(key);
@@ -61,8 +61,8 @@ export class TextFileModelRegistry {
     }
 
     /**
-     * Если целевой ключ занят другой моделью, перемещённая остаётся без ключа: следующий
-     * `acquire` создаст свежую модель, а живые ссылки освобождаются корректно.
+     * If the target key is taken by another model, the moved one is left keyless: the next
+     * `acquire` creates a fresh model, and live references still release correctly.
      */
     public handleUriChanged(model: TextFileModel): void {
         const entry = [...this.entries].find((candidate) => candidate.model === model);

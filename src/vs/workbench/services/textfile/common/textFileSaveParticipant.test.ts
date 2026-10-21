@@ -10,8 +10,8 @@ import { UndoRedoService } from "../../../../platform/undoRedo/common/undoRedoSe
 import type { ISaveEdit } from "./iSaveParticipant.ts";
 import { TextFileSaveParticipant } from "./textFileSaveParticipant.ts";
 
-// #196: запись на диск происходит в любом случае — зависший участник режется таймаутом,
-// сбойный пропускается.
+// #196: the disk write happens regardless: a hung participant is cut off by the timeout,
+// a failing one is skipped.
 
 describe("TextFileSaveParticipant — композиция save-участников", () => {
     let ws: ITempWorkspace;
@@ -85,7 +85,7 @@ describe("TextFileSaveParticipant — композиция save-участник
 
         controller.model.saveParticipant = new TextFileSaveParticipant(() => [
             () => Promise.reject(new Error("boom")),
-            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- сьют проверяет ИМЕННО не-Error отказ
+            // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the suite checks specifically a non-Error rejection
             () => Promise.reject("nope"),
             () => Promise.resolve([insertAtStart("ok:")]),
         ]);
@@ -106,7 +106,7 @@ describe("TextFileSaveParticipant — композиция save-участник
 
             let secondRan = false;
             controller.model.saveParticipant = new TextFileSaveParticipant(() => [
-                () => new Promise<ISaveEdit[]>(() => undefined), // никогда не резолвится
+                () => new Promise<ISaveEdit[]>(() => undefined), // never resolves
                 () => {
                     secondRan = true;
                     return Promise.resolve([insertAtStart("2:")]);
@@ -129,9 +129,9 @@ describe("TextFileSaveParticipant — композиция save-участник
     });
 
     it("таймер таймаута снимается, когда участник ответил сам (resolve и reject)", async () => {
-        // Фейкаем только таймеры, которые проверяем: setImmediate остаётся настоящим —
-        // на нём фоновая токенизация открытого буфера (DocumentTokenStore), и её
-        // кусок, ждущий очереди, — не утечка этого сценария.
+        // Fake only the timers under test: setImmediate stays real, since background
+        // tokenization of the open buffer (DocumentTokenStore) runs on it, and its
+        // queued chunk is not a leak of this scenario.
         vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"] });
         try {
             const controller = createEditorPane();

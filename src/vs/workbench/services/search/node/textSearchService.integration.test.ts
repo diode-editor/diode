@@ -183,8 +183,8 @@ describe("TextSearchService (against real ripgrep)", () => {
                 submatches: [{ match: { text: "foo" }, start: 0, end: 3 }],
             },
         });
-        // «rg», который выходит сразу, а строку результата дописывает его потомок,
-        // унаследовавший stdout: `exit` приходит раньше, чем вывод дочитан.
+        // An "rg" that exits at once while its child, which inherited stdout, writes the
+        // result line: `exit` arrives before the output is fully read.
         const bin = mkdtempSync(path.join(tmpdir(), "diode-fake-rg-"));
         const fakeRg = path.join(bin, "rg");
         writeFileSync(fakeRg, `#!/bin/sh\n(sleep 0.2; printf '%s\\n' '${line}') &\nexit 0\n`);

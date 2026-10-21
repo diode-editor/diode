@@ -36,7 +36,7 @@ class FocusablePart extends TUIElement {
 
 function setup(options: Options = {}) {
     const stored = new Map<string, unknown>(Object.entries(options.stored ?? {}));
-    /** И те записи, что значение не меняют. */
+    /** Includes writes that don't change the value. */
     const writes: string[] = [];
     const state: IStateService = {
         ...NULL_STATE_SERVICE,
@@ -79,7 +79,7 @@ function setup(options: Options = {}) {
     const root = new BodyElement();
     root.setContent(layout);
     root.setAsRoot();
-    // FocusManager у живого корня ставит TuiApplication.run — здесь его роль играет тест.
+    // TuiApplication.run sets FocusManager on a live root; here the test plays that role.
     root.focusManager = new FocusManager(root);
     service.attachRoot(root);
     service.attachLayout(layout);
@@ -173,7 +173,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(layout.getRightPanelWidth()).toBe(44);
             expect(auxiliaryBarService.getActiveViewId()).toBe("b");
             expect(stored.has(AUXILIARYBAR_HIDDEN_STATE.key)).toBe(false);
-            // Ни одной записи, даже того же значения: смена вкладки при ресторе — не выбор пользователя.
+            // No writes at all, not even of the same value: a tab change during restore is not a user choice.
             expect(writes).toEqual([]);
         });
 
@@ -205,7 +205,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             service.setAuxiliaryBarVisible(true);
             performLayout();
             service.nudgeAuxiliaryBarWidth(3);
-            // 100 колонок: дефолт 25 (четверть окна) + 3.
+            // 100 columns: default 25 (a quarter of the window) + 3.
             expect(stored.get(AUXILIARYBAR_SIZE_STATE.key)).toBe(28);
         });
 
@@ -276,7 +276,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             );
             service.attachLayout(new WorkbenchLayoutElement());
             expect(service.getFocusedPart()).toBe("editor");
-            // Живой корень получает FocusManager только в TuiApplication.run.
+            // A live root gets its FocusManager only in TuiApplication.run.
             service.attachRoot(new BodyElement());
             expect(service.getFocusedPart()).toBe("editor");
         });

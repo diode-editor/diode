@@ -9,7 +9,7 @@ import { RingBufferSink } from "../../../../platform/log/common/ringBufferSink.t
 import { OutputChannelRegistry } from "./outputChannelRegistry.ts";
 import { formatOutputLine, OutputService } from "./outputService.ts";
 
-/** Настоящие LogService + RingBufferSink: связка и есть предмет теста. */
+/** Real LogService + RingBufferSink: their wiring is what the test is about. */
 function createStack() {
     const logService = new LogService();
     const history = new RingBufferSink();
@@ -36,8 +36,8 @@ function entry(overrides: Partial<LogEntry> = {}): LogEntry {
 
 describe("formatOutputLine", () => {
     it("кладёт уровень в скобки — под стоковую грамматику log", () => {
-        // Грамматика extensions/log подсвечивает именно `[info]`/`[warn]`/`[error]`,
-        // поэтому форма скобок — часть контракта, а не косметика.
+        // The extensions/log grammar highlights exactly `[info]`/`[warn]`/`[error]`,
+        // so the bracket form is part of the contract, not cosmetics.
         const line = formatOutputLine(entry({ level: LogLevel.Warn, message: "activationEvents empty" }));
         expect(line).toContain("[warn] activationEvents empty");
     });
@@ -46,8 +46,8 @@ describe("formatOutputLine", () => {
         const timestamp = Date.UTC(2026, 0, 1, 12, 4, 31, 220);
         const d = new Date(timestamp);
         const pad = (n: number, w = 2) => String(n).padStart(w, "0");
-        // Ожидание считаем из тех же полей Date — тест про ФОРМАТ, а не про
-        // часовой пояс машины, где он гоняется.
+        // The expectation is built from the same Date fields: the test is about FORMAT, not
+        // the time zone of the machine it runs on.
         const expected = `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
         expect(formatOutputLine(entry({ timestamp })).slice(0, expected.length)).toBe(expected);
         expect(expected).toMatch(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
@@ -59,8 +59,8 @@ describe("formatOutputLine", () => {
     });
 
     it("ошибку в args печатает её сообщением, а не JSON-ом", () => {
-        // У `Error` поля не перечислимы — JSON дал бы `{}`; у пришедшей по RPC
-        // они свои, и JSON дал бы служебный `{"name":…,"message":…}`.
+        // `Error` fields are non-enumerable, so JSON would give `{}`; one received over RPC
+        // has own fields, and JSON would give the internal `{"name":…,"message":…}`.
         const native = new Error("boom");
         const wired = Object.assign(new Error(), { name: "Error", message: "from rpc" });
         const line = formatOutputLine(entry({ message: "failed", args: [native, wired] }));
@@ -74,8 +74,8 @@ describe("formatOutputLine", () => {
     });
 
     it("undefined в args не превращается в пустоту", () => {
-        // JSON.stringify(undefined) === undefined — без фоллбэка строка молча
-        // теряла бы аргумент.
+        // JSON.stringify(undefined) === undefined: without the fallback the line would
+        // silently lose the argument.
         expect(formatOutputLine(entry({ args: [undefined] }))).toContain("undefined");
     });
 });
@@ -102,8 +102,8 @@ describe("OutputService: каналы", () => {
     });
 
     it("канал, появившийся в живом потоке, авторегистрируется", () => {
-        // Логгер заводится ad hoc — если не добирать, подсистема не попала бы в
-        // селектор и её лог был бы недоступен.
+        // Loggers are created ad hoc: without auto-registration the subsystem would be missing
+        // from the selector and its log unreachable.
         const stack = createStack();
         const service = createService(stack);
         expect(service.getChannels()).toHaveLength(0);
@@ -196,9 +196,9 @@ describe("OutputService: активный канал", () => {
     });
 
     it("контекст-ключ activeOutputChannel обновлён ДО рассылки события", () => {
-        // На этом ключе висит `toggled` пунктов селектора. Пока ключ ставил
-        // подписчик, он успевал отработать позже того, кто пункты перечитывает, —
-        // и селектор показывал прошлый канал при уже переключённом содержимом.
+        // Selector items' `toggled` hangs on this key. When a subscriber set the key,
+        // it could run after whoever re-reads the items, and the selector
+        // showed the previous channel while the content had already switched.
         const { stack, service } = serviceWithTwoChannels();
         let keyAtNotify: unknown;
         service.onDidChangeActiveChannel(() => {

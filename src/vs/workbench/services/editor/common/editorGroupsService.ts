@@ -6,33 +6,33 @@ import type { EditorGroup, GroupId, MruCycleState } from "../browser/editorGroup
 export interface IGroupsChangeEvent {
     readonly kind: "added" | "removed" | "moved";
     readonly group: EditorGroup;
-    /** Для added/moved — новая. */
+    /** For added/moved, the new index. */
     readonly index: number;
-    /** View-слой делит её долю пополам. */
+    /** The view layer splits its share in half. */
     readonly source?: EditorGroup;
 }
 
 /**
- * Аналог `IEditorGroupsService`. Порядок событий — контракт: {@link onDidChangeEditors} →
- * фокус → {@link onDidChangeActivePane} → {@link onDidActiveGroupChange}.
+ * Counterpart of `IEditorGroupsService`. Event order is a contract: {@link onDidChangeEditors} →
+ * focus → {@link onDidChangeActivePane} → {@link onDidActiveGroupChange}.
  */
 export interface IEditorGroupsService {
-    /** Индекс — ViewColumn − 1. */
+    /** Index is ViewColumn − 1. */
     readonly groups: readonly EditorGroup[];
     readonly activeGroup: EditorGroup;
-    /** Detached-панели групп не имеют. */
+    /** Detached panes have no group. */
     groupOf(pane: IEditorPane): EditorGroup | null;
-    /** 1..N, производный от позиции в полосе. */
+    /** 1..N, derived from the position in the strip. */
     viewColumnOf(group: EditorGroup): number;
 
     readonly onDidActiveGroupChange: Event<EditorGroup>;
-    /** Серия Ctrl+Tab любой группы; `null` — конец серии. */
+    /** Ctrl+Tab series of any group; `null` ends the series. */
     readonly onDidChangeMruCycle: Event<MruCycleState | null>;
     readonly onDidGroupsChange: Event<IGroupsChangeEvent>;
     readonly onDidChangeEditors: Event<void>;
     readonly onDidChangeActivePane: Event<IEditorPane | null>;
 
-    /** Не задан — место не проверяется. */
+    /** Unset: available space is not checked. */
     canAddGroupHook?: () => boolean;
     focusGroupContentHook?: (group: EditorGroup) => void;
 
@@ -45,21 +45,21 @@ export interface IEditorGroupsService {
         target: GroupId | { index: number } | { direction: "next" | "previous" | "cycle" },
         options?: { focus?: boolean },
     ): void;
-    /** Только события. */
+    /** Fires events only. */
     notifyGroupFocused(group: EditorGroup): void;
-    /** У единственной группы — в новую. */
+    /** With a single group, moves into a new one. */
     moveActiveEditorToGroup(direction: "next" | "previous", options?: { focus?: boolean }): void;
     openInNeighborGroup(direction: "next" | "previous", fill: (group: EditorGroup) => void): void;
-    /** Группа становится активной до наполнения `fill`, событие смены — после. */
+    /** The group becomes active before `fill` runs; the change event fires after. */
     openInGroup(group: EditorGroup, fill: () => void): void;
     sideGroup(): EditorGroup;
     joinTwoGroups(): void;
     joinAllGroups(): void;
     moveActiveGroup(direction: "next" | "previous"): void;
-    /** Активная группа первой, MRU. */
+    /** Active group first, MRU order. */
     getOpenEditorsMru(): IEditorPane[];
     revealPane(pane: IEditorPane): void;
-    /** В визуальном порядке всей полосы. */
+    /** In visual order across the whole strip. */
     cycleEditor(direction: 1 | -1): void;
 }
 

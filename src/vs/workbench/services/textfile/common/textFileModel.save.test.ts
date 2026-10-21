@@ -34,7 +34,7 @@ describe("TextFileModel — save participant", () => {
         const controller = createEditorPane();
         const fp = writeFile("a.txt", "abc   \n");
         controller.openFile(Uri.file(fp));
-        // Удаляем хвостовые пробелы: правка стирает диапазон 3..6 строки 0.
+        // Trim trailing whitespace: the edit erases range 3..6 of line 0.
         setParticipant(controller, () =>
             Promise.resolve<ISaveEdit[]>([
                 { kind: "text", range: { start: { line: 0, character: 3 }, end: { line: 0, character: 6 } }, text: "" },
@@ -170,7 +170,7 @@ describe("TextFileModel — save participant", () => {
         fs.rmSync(fp);
         fs.mkdirSync(fp);
 
-        // overwrite — мимо гардов: до записи доходит каталог на месте файла.
+        // overwrite bypasses the guards, so the write hits a directory in place of the file.
         await expect(controller.save({ overwrite: true })).rejects.toThrow();
         expect(controller.model.hasDiskConflict).toBe(false);
         controller.dispose();

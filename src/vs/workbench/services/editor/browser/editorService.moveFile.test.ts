@@ -26,7 +26,7 @@ import { ThemeService } from "../../themes/common/themeService.ts";
 
 import { EditorService, movedResource } from "./editorService.ts";
 
-/** Баг из догфудинга: вкладка оставалась на старом пути, и сохранение воскрешало переименованный файл. */
+/** Dogfooding bug: the tab stayed at the old path, and saving resurrected the renamed file. */
 describe("EditorService — вкладки едут за перенесённым файлом", () => {
     let ws: ITempWorkspace;
     let files: FileService;
@@ -129,8 +129,8 @@ describe("EditorService — вкладки едут за перенесённы�
 
         await move("old.txt", "new.txt");
 
-        // Правки переливаются на каждую вкладку, но повторная заливка того же
-        // текста каретку уже замещённой вкладки первой группы не сбрасывает.
+        // Edits are carried over to each tab, but filling in the same text again
+        // doesn't reset the cursor of the already replaced tab in the first group.
         expect(textPane(0, 0).viewState.selections).toEqual([createCursorSelection(1, 2)]);
         expect(textPane(1, 0).viewState.selections).toEqual([createCursorSelection(0, 3)]);
 
@@ -204,7 +204,7 @@ describe("EditorService — вкладки едут за перенесённы�
         await files.copy(Uri.file(ws.path("old.txt")), Uri.file(ws.path("copy.txt")));
 
         expect(textPane(0, 0)).toBe(before);
-        // Группу, где ничего не переехало, не перерисовываем вхолостую.
+        // A group where nothing moved is not repainted for nothing.
         expect(events).toBe(0);
         expect(tabs()).toEqual([{ path: ws.path("old.txt"), label: "old.txt" }]);
     });
@@ -230,8 +230,8 @@ describe("movedResource", () => {
     });
 
     it("безымянный буфер — мимо, даже когда переносят текущий каталог процесса", () => {
-        // «Путь» `Untitled-1` относительный: сравнение по fsPath разрешило бы его
-        // от cwd и увело бы буфер вслед за каталогом.
+        // The "path" of `Untitled-1` is relative: comparing by fsPath would resolve it
+        // against cwd and drag the buffer along with the directory.
         const cwd = Uri.file(process.cwd());
         expect(movedResource(Uri.parse("untitled:Untitled-1"), cwd, target)).toBeNull();
     });

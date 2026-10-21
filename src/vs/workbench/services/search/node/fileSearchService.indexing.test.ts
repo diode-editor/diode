@@ -45,7 +45,7 @@ class StubConfig implements IConfigurationService {
         this.listeners.push(listener);
         return {
             dispose: () => {
-                /* подписки живут до конца теста */
+                /* subscriptions live until the test ends */
             },
         };
     }
@@ -296,8 +296,8 @@ describe("FileSearchService — indexing", () => {
         });
 
         it("шаблон матчится против пути ОТНОСИТЕЛЬНО корня, в posix-форме", async () => {
-            // `**/<имя>` обязан достать каталог на глубине, `<имя>` — только вход в корне. Сегменты
-            // склеиваются через `/`, не `path.sep`, — иначе на Windows `pkg/out` не задел бы ни один шаблон.
+            // `**/<name>` must reach a nested directory, `<name>` only a root entry. Segments are
+            // joined with `/`, not `path.sep` — otherwise on Windows no glob would match `pkg/out`.
             config.values[FILES_EXCLUDE_SETTING] = { "**/__pycache__": true, out: true };
             ws.writeFile("pkg/__pycache__/app.cpython-312.pyc", "");
             ws.writeFile("pkg/out/keep.txt", "");
@@ -362,8 +362,8 @@ describe("FileSearchService — indexing", () => {
 
     describe("ignore-файлы (search.useIgnoreFiles и соседи)", () => {
         it("по умолчанию .gitignore режет индекс — и вне git-репозитория", async () => {
-            // Временный каталог — не репозиторий: без `--no-require-git` rg
-            // `.gitignore` здесь бы не читал, а у эталона он действует.
+            // The temp directory is not a repository: without `--no-require-git` rg
+            // would not read `.gitignore` here, while upstream honors it.
             ws.writeFile(".gitignore", "dist/\n*.log\n");
             ws.writeFile("dist/bundle.js", "");
             ws.writeFile("debug.log", "");
@@ -409,9 +409,9 @@ describe("FileSearchService — indexing", () => {
         });
 
         it("глобальный gitignore — только при useGlobalIgnoreFiles", async () => {
-            // rg ищет его в `$XDG_CONFIG_HOME/git/ignore` (если в `~/.gitconfig`
-            // нет `core.excludesFile`) — оба подменены на временные, чтобы
-            // настройки машины не влияли на тест.
+            // rg looks for it in `$XDG_CONFIG_HOME/git/ignore` (if `~/.gitconfig`
+            // has no `core.excludesFile`) — both are replaced with temp ones so the
+            // machine's settings do not affect the test.
             vi.stubEnv("HOME", ws.path("home"));
             vi.stubEnv("XDG_CONFIG_HOME", ws.path("xdg"));
             ws.writeFile("xdg/git/ignore", "*.secret\n");

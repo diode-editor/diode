@@ -175,7 +175,7 @@ describe("parseRgMatchLine", () => {
         const m = parseRgMatchLine(line)!.matches[0];
         expect(m.preview.after.length).toBe(256);
         expect(m.preview.after.startsWith(" y")).toBe(true);
-        // Колонки не зависят от хвоста — считаются из before/inside.
+        // Columns do not depend on the tail — they come from before/inside.
         expect(m.startColumn).toBe(2);
         expect(m.endColumn).toBe(8);
     });
@@ -189,7 +189,7 @@ describe("parseRgMatchLine", () => {
             submatches: [{ text: "needle", start: 0, end: 6 }],
         });
         const m = parseRgMatchLine(line)!.matches[0];
-        // Высокий суррогат эмодзи попал на границу — срез сдвинут на символ влево.
+        // The emoji's high surrogate lands on the boundary — the cut shifts one char left.
         expect(m.preview.after.length).toBe(255);
         expect(m.preview.after.at(-1)).toBe("y");
     });

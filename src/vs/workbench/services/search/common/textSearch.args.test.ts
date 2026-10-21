@@ -76,12 +76,12 @@ describe("buildRgArgs", () => {
     });
 
     it("anchors globs without `**` to the search root, as the reference `getRgArgs` does", () => {
-        // `"common": true` в `files.exclude` — только `<корень>/common`; без якоря rg
-        // выкинул бы и `nci/common/**`.
+        // `"common": true` in `files.exclude` means only `<root>/common`; unanchored, rg
+        // would drop `nci/common/**` too.
         const args = buildRgArgs(query({ includes: ["src/*.ts"], excludes: ["common", "out/"] }), ROOT)!;
         expect(args).toContain("/src/*.ts");
         expect(args).toContain("!/common");
-        // хвостовой `/` срезается, как у Quick Open
+        // the trailing `/` is trimmed, as in Quick Open
         expect(args).toContain("!/out");
         expect(args).not.toContain("!common");
     });

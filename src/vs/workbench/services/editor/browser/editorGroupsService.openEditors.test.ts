@@ -73,7 +73,7 @@ describe("EditorGroupsService — список открытых редактор
         ctrl.splitActiveGroup();
         ctrl.openFile(writeFile("c.ts"));
 
-        // Активная группа (вторая) первой: её MRU — c, b; следом первая: b, a.
+        // The active (second) group first: its MRU is c, b; then the first: b, a.
         expect(labels(ctrl)).toEqual(["c.ts", "b.ts", "b.ts", "a.ts"]);
 
         ctrl.editorGroups.focusGroup(ctrl.editorGroups.groups[0].id);
@@ -86,11 +86,11 @@ describe("EditorGroupsService — список открытых редактор
         ctrl.openFile(writeFile("a.ts"));
         ctrl.splitActiveGroup();
         ctrl.openFile(writeFile("b.ts"));
-        // joinTwoGroups переносит вкладки без активации — мимо MRU-стека цели.
+        // joinTwoGroups moves tabs without activation — bypassing the target's MRU stack.
         ctrl.editorGroups.focusGroup(ctrl.editorGroups.groups[0].id);
         ctrl.editorGroups.joinTwoGroups();
 
-        // Приехавшая merge'ом b — хвостом списка, но в нём: иначе пикер терял бы вкладки после join.
+        // b, which arrived via merge, is at the tail of the list but present: otherwise the picker would lose tabs after a join.
         expect(labels(ctrl)).toEqual(["a.ts", "b.ts"]);
     });
 

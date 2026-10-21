@@ -2,7 +2,7 @@ import { formatHexColor } from "@tuidom/core/common/colorUtils";
 
 import type { WorkbenchTheme } from "../../../../platform/theme/common/workbenchTheme.ts";
 
-/** Правило темы для vscode-textmate (`IRawThemeSetting`) — upstream `ITextMateThemingRule`. */
+/** Theme rule for vscode-textmate (`IRawThemeSetting`), upstream `ITextMateThemingRule`. */
 export interface ITextMateThemingRule {
     readonly name?: string;
     readonly scope?: string | readonly string[];
@@ -14,8 +14,8 @@ export interface ITextMateThemingRule {
 }
 
 /**
- * `Registry.setTheme(theme, colorMap)`: colorMap — цвета по индексам из метаданных токенов
- * (`ColorId`). Индекс 1 — цвет текста редактора, 2 — фон, 0 — «нет цвета».
+ * `Registry.setTheme(theme, colorMap)`: colorMap holds colors by the indices in token metadata
+ * (`ColorId`). Index 1 is the editor foreground, 2 the background, 0 "no color".
  */
 export interface ITextMateTheme {
     readonly settings: readonly ITextMateThemingRule[];
@@ -23,9 +23,9 @@ export interface ITextMateTheme {
 }
 
 /**
- * Upstream `ColorThemeData.tokenColors` + `tokenColorMap`: первое правило — без скоупа, цвета
- * текста и фона (`ColorId` 1 и 2); правила темы без скоупа отбрасываются — «умолчание» у эталона
- * одно. Не перенесено: `editor.tokenColorCustomizations` и цвета лог-токенов по умолчанию.
+ * Upstream `ColorThemeData.tokenColors` + `tokenColorMap`: the first rule has no scope and holds the
+ * foreground and background (`ColorId` 1 and 2); theme rules without a scope are dropped, since upstream
+ * has a single default. Not ported: `editor.tokenColorCustomizations` and default log token colors.
  */
 export function createTextMateTheme(theme: WorkbenchTheme): ITextMateTheme {
     const settings: ITextMateThemingRule[] = [
@@ -48,7 +48,7 @@ export function createTextMateTheme(theme: WorkbenchTheme): ITextMateTheme {
         });
     }
 
-    // Upstream `TokenColorIndex`: id с единицы, нулевой — пустой.
+    // Upstream `TokenColorIndex`: ids start at one, zero is empty.
     const colorMap: string[] = [""];
     const seen = new Set<string>();
     const add = (color: string | undefined): void => {
@@ -63,17 +63,17 @@ export function createTextMateTheme(theme: WorkbenchTheme): ITextMateTheme {
     return { settings, colorMap };
 }
 
-/** Те же правила и тот же colorMap (upstream `equalsTokenRules` + `equalArray`); `undefined` — темы ещё не было. */
+/** Same rules and same colorMap (upstream `equalsTokenRules` + `equalArray`); `undefined` means no theme yet. */
 export function equalsTextMateTheme(a: ITextMateTheme | undefined, b: ITextMateTheme): boolean {
     return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** Тема из файла цвет имеет всегда (`WorkbenchTheme.fromThemeFile`); нет — vscode-textmate подставит свой. */
+/** A theme from a file always has a color (`WorkbenchTheme.fromThemeFile`); otherwise vscode-textmate substitutes its own. */
 function editorColor(color: number | undefined): string | undefined {
     return color === undefined ? undefined : normalizeColor(formatHexColor(color));
 }
 
-/** Upstream `normalizeColor`: верхний регистр, короткая форма развёрнута, альфа `FF` снята; невалидный — `undefined`. */
+/** Upstream `normalizeColor`: uppercase, short form expanded, `FF` alpha dropped; invalid yields `undefined`. */
 export function normalizeColor(color: string | undefined): string | undefined {
     if (color === undefined || !/^#(?:[0-9a-fA-F]{3,4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$/.test(color)) {
         return undefined;

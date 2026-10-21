@@ -40,8 +40,8 @@ describe("FileSearchService — integration against real project", () => {
         });
 
         it("indexes WorkbenchComponent.ts", () => {
-            // Ищем по имени: пустой запрос отдаёт первые N путей репозитория, и
-            // файл выпадает за порог, как только каталогов перед src/ становится больше.
+            // Search by name: an empty query returns the repository's first N paths, and
+            // the file falls past the cutoff as soon as more directories precede src/.
             const paths = relativePaths(service.search("workbenchComponent", 50));
             expect(paths.some((p) => p.includes("workbenchComponent.ts"))).toBe(true);
         });
@@ -71,9 +71,9 @@ describe("FileSearchService — integration against real project", () => {
 
     describe("finding well-known files", () => {
         it('"wbc" finds WorkbenchComponent.ts', () => {
-            // Десятки файлов `Workbench*` делят топовый счёт «wbc» (W·b·C по границам
-            // слов/камела), поэтому WorkbenchComponent.ts может стоять за дефолтным
-            // капом 50 — проверяем обнаруживаемость с большим maxResults, а не позицию.
+            // Dozens of `Workbench*` files share the top "wbc" score (W·b·C on word/camel
+            // boundaries), so WorkbenchComponent.ts may sit past the default cap of 50 —
+            // check discoverability with a large maxResults, not the position.
             const paths = relativePaths(service.search("wbc", 2000));
             expect(paths.some((p) => p.includes("workbenchComponent.ts"))).toBe(true);
         });
@@ -128,8 +128,8 @@ describe("FileSearchService — integration against real project", () => {
         });
 
         it('"kr": keybindingRegistry.ts ties for the top score among "kr" matches', () => {
-            // Позиция в топ-5 кодировала размер репозитория: новый `keybinding*`-файл с тем же
-            // boundary-паттерном выталкивает соседа из среза. Сверяем счёт, а не позицию.
+            // A top-5 position encoded the repository size: a new `keybinding*` file with the same
+            // boundary pattern pushes a neighbor out of the slice. Compare the score, not the position.
             const results = service.search("kr", 2000);
             const registryScore = scoreOf(results, "keybindingRegistry.ts");
             expect(registryScore).toBeDefined();
@@ -138,13 +138,13 @@ describe("FileSearchService — integration against real project", () => {
         });
 
         it('"co": files sharing the Command* prefix score alike', () => {
-            // Сверяем счёт, а не позицию: позиция кодирует размер репозитория. Выдача — с запасом:
-            // дефолтные 50 строк — тот же размер с другой стороны.
+            // Compare the score, not the position: the position encodes the repository size. Request
+            // extra results: the default 50 rows would encode the same size from the other side.
             const results = service.search("co", 1000);
             const registry = scoreOf(results, "commandRegistry.ts");
             const action = scoreOf(results, "commandAction.ts");
             expect(registry).toBeDefined();
-            // Оба начинаются с `Command` — префикс матчится одинаково, счёт совпадает.
+            // Both start with `Command` — the prefix matches the same way, so the scores are equal.
             expect(registry).toBe(action);
         });
 

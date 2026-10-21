@@ -90,7 +90,7 @@ export class TerminalEnvironmentService extends Disposable {
         return this.tierValue;
     }
 
-    /** ОС клавиатуры (не процесса) — см. {@link resolveOs}. */
+    /** The keyboard's OS (not the process's) — see {@link resolveOs}. */
     public get os(): OsName {
         return this.resolvedOs.os;
     }
@@ -99,7 +99,7 @@ export class TerminalEnvironmentService extends Disposable {
         return this.resolvedOs.source;
     }
 
-    /** `$TERM_PROGRAM` — только не под tmux: там это «tmux». */
+    /** `$TERM_PROGRAM`, only outside tmux: inside it is "tmux". */
     public get terminalName(): string | undefined {
         const env = process.env;
         const own = this.baseModes.has("tmux") ? undefined : env.TERM_PROGRAM;
@@ -135,7 +135,7 @@ export class TerminalEnvironmentService extends Disposable {
 
     /**
      * The probe only upgrades: a non-reply over a slow link must not lose an env-detected
-     * capability. Под tmux XTVERSION не шлём — ответил бы сам tmux; имя даёт {@link detectTmuxClient}.
+     * capability. Under tmux XTVERSION is not sent — tmux itself would reply; {@link detectTmuxClient} provides the name.
      */
     public detect(): void {
         if (this.probeStarted) return;
@@ -157,8 +157,8 @@ export class TerminalEnvironmentService extends Disposable {
     }
 
     /**
-     * Отдельно от {@link detect}: опрос — спаун `tmux`, синхронная часть которого стоит ~20 мс,
-     * поэтому старт зовёт это за первым кадром (`startWorkbench`). Идемпотентен.
+     * Separate from {@link detect}: the query spawns `tmux`, whose synchronous part costs ~20 ms,
+     * so startup calls this after the first frame (`startWorkbench`). Idempotent.
      */
     public detectTmuxClient(): void {
         if (this.tmuxQueried || !this.baseModes.has("tmux")) return;
@@ -195,12 +195,12 @@ export class TerminalEnvironmentService extends Disposable {
         this.emitChange();
     }
 
-    /** Переворачивает ОС только в сторону мака и не поверх явного ответа (см. {@link canUpgradeToMac}). */
+    /** Flips the OS only towards mac and never over an explicit answer (see {@link canUpgradeToMac}). */
     public noteTerminalName(name: string | undefined): void {
         this.noteOsSignals({ terminalName: name });
     }
 
-    /** Поздние сигналы дополняют стартовые; отсутствующий сигнал известное не стирает. */
+    /** Late signals extend the startup ones; a missing signal does not erase a known one. */
     private noteOsSignals(update: Pick<OsSignals, "envPlatform" | "lcTerminal" | "terminalName">): void {
         this.osSignals = {
             ...this.osSignals,
@@ -225,7 +225,7 @@ export class TerminalEnvironmentService extends Disposable {
     }
 
     private resolveTierWithOverride(): Tier {
-        // Значение вне enum схемы сервис настроек уже заменил дефолтом ("auto").
+        // The configuration service already replaced an out-of-enum value with the default ("auto").
         const forced = this.config.get("terminal.tier");
         if (forced !== "auto") return forced;
         return resolveTier(this.capabilities);
@@ -245,8 +245,8 @@ export class TerminalEnvironmentService extends Disposable {
 }
 
 /**
- * Синхронные сигналы ОС на старте. Под tmux свой `process.env` не читаем: он застыл на
- * момент создания сессии — живые значения приходят позже из самого tmux (см. `detect`).
+ * Synchronous OS signals at startup. Under tmux our own `process.env` is not read: it is frozen
+ * at session creation — live values arrive later from tmux itself (see `detect`).
  */
 function initialOsSignals(setting: string | undefined, env: NodeJS.ProcessEnv = process.env): OsSignals {
     const tmux = isInsideTmux(env);

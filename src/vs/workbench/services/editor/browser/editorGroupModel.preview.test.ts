@@ -110,7 +110,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
 
         pane.isModified = true;
         pane.fireStateChange();
-        // Undo до сохранённой версии: буфер снова чистый.
+        // Undo back to the saved version: the buffer is clean again.
         pane.isModified = false;
         pane.fireStateChange();
 
@@ -124,7 +124,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         let fired = 0;
         group.onDidChangeEditors(() => fired++);
 
-        // Сохранение, смена кодировки, read-only — всё это onDidChangeState без правки.
+        // Save, encoding change, read-only — all are onDidChangeState without an edit.
         pane.fireStateChange();
 
         expect(group.previewPane === pane).toBe(true);
@@ -133,7 +133,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
 
     it("вкладка, приехавшая уже грязной, предпросмотром не становится", () => {
         const group = new EditorGroup(1);
-        // Дубль документа при сплите грязный с рождения — смены состояния ждать нечего.
+        // A split's duplicate of the document is dirty from birth — there is no state change to wait for.
         const pane = makePane("/a.ts", true);
         group.insertPane(pane, { preview: true });
 
@@ -195,7 +195,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         const preview = makePane("/a.ts");
         group.insertPane(preview, { preview: true });
 
-        // Обе границы по отдельности: на них промахиваются сравнение «не тем знаком» и потерянная половина условия.
+        // Each bound separately: a wrong-sign comparison and a lost half of the condition both miss on them.
         expect(() => {
             group.replacePane(index, makePane("/b.ts"));
         }).not.toThrow();
@@ -210,14 +210,14 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         const preview = makePane("/a.ts");
         group.insertPane(pinned);
         group.activateTab(0);
-        // Превью вставлена, но НЕ активировалась — в стеке MRU её нет.
+        // The preview is inserted but NOT activated — it is not in the MRU stack.
         group.insertPane(preview, { preview: true });
         expect(group.getMruOrder().map((p) => p.label)).toEqual(["/pinned.ts"]);
 
         group.replacePane(1, makePane("/b.ts"), { preview: true });
 
-        // Вычёркивать из стека нечего; снять «последнего» вместо ненайденного
-        // значило бы выбросить из MRU приколотую соседку.
+        // Nothing to remove from the stack; dropping the "last" one instead of the missing one
+        // would evict the pinned neighbor from MRU.
         expect(group.getMruOrder().map((p) => p.label)).toEqual(["/pinned.ts"]);
     });
 
@@ -319,7 +319,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
 
         group.replacePane(1, makePane("/c.ts"), { preview: true });
 
-        // Иначе оверлей переключателя показывал бы вкладку, которой в полосе уже нет.
+        // Otherwise the switcher overlay would show a tab that is no longer in the strip.
         expect(cycleStates.at(-1)).toBe(null);
     });
 

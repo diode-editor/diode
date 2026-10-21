@@ -114,7 +114,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(service.passive()).toEqual([]);
         expect(vi.getTimerCount()).toBe(0);
 
-        service.dismiss(handle.id); // повторный — no-op
+        service.dismiss(handle.id); // repeated call is a no-op
         expect(service.passive()).toEqual([]);
     });
 
@@ -210,7 +210,7 @@ describe("NotificationService — вопросы", () => {
             const service = new NotificationService();
             const handle = service.show(message({ items: ["Activate"] }));
 
-            // Переживает даже самый долгий пассивный тост.
+            // Outlives even the longest passive toast.
             vi.advanceTimersByTime(NOTIFICATION_AUTO_HIDE_MS.error);
             expect(service.current()).not.toBeNull();
 
