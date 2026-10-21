@@ -90,7 +90,8 @@ describe("File explorer context menu — clipboard entries", () => {
     });
 
     // Item order: New File, New Folder, (sep), Copy, Cut, [Paste — if the clipboard
-    // is not empty], (sep), Copy Path, Copy Relative Path, (sep), Delete.
+    // is not empty], (sep), Select for Compare, (sep), Copy Path, Copy Relative Path,
+    // (sep), Rename, Delete.
     function rightClickRow(row: number): void {
         clickTree(row, "right");
     }
