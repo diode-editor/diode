@@ -51,9 +51,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
 
         expect(backend.getTextAt(new Point(37, 1), 3)).toBe(" × ");
         expect(backend.getFgAt(new Point(38, 1))).toBe(CLOSE_FG);
-        // В покое фон кнопки — фон панели, подсветка приходит только с курсором.
         expect(backend.getBgAt(new Point(38, 1))).toBe(BG);
-        // Строка границы и строки контента кнопкой не задеты.
         expect(backend.getTextAt(new Point(38, 0), 1)).toBe("─");
         expect(backend.getTextAt(new Point(38, 2), 1)).toBe(" ");
     });
@@ -70,7 +68,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
 
         expect(onClose).toHaveBeenCalledTimes(1);
         expect(onActivate).not.toHaveBeenCalled();
-        // Саму видимость контрол не трогает — это дело команды воркбенча.
+        // Видимость — дело команды воркбенча.
         expect(element.getActiveViewId()).toBe("problems");
     });
 
@@ -83,14 +81,12 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         for (const x of [37, 38, 39]) mouse(element, "mousedown", { x });
         expect(onClose).toHaveBeenCalledTimes(3);
 
-        // Обе границы зоны: колонка перед кнопкой и первая за правым краем панели.
         mouse(element, "mousedown", { x: 36 });
         mouse(element, "mousedown", { x: 40 });
         expect(onClose).toHaveBeenCalledTimes(3);
     });
 
     it("рисует кнопку на панели ровно её ширины", () => {
-        // Граница «панель уже кнопки»: три колонки — ещё рисуем, две — уже нет.
         const element = panel();
         const backend = render(element, 3, 4);
         const onClose = vi.fn();
@@ -102,8 +98,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
     });
 
     it("на узкой панели кнопка старше таб-строки — иначе из панели было бы не выйти", () => {
-        // Ширина 12: сегмент PROBLEMS — [1, 11), кнопка — [9, 12). Колонки 9 и 10
-        // принадлежат обоим, и выиграть обязана кнопка.
+        // Ширина 12: сегмент PROBLEMS — [1, 11), кнопка — [9, 12); колонки 9 и 10 общие, выиграть обязана кнопка.
         const element = panel();
         element.setActiveView("output");
         const backend = render(element, 12);
@@ -169,7 +164,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         mouse(element, "mousemove", { x: 38 });
         expect(render(element).getBgAt(new Point(38, 1))).toBe(HOVER_BG);
 
-        // Курсор съехал по той же строке — подсветка снимается сразу, не дожидаясь mouseleave.
+        // Не дожидаясь mouseleave.
         mouse(element, "mousemove", { x: 20 });
         expect(render(element).getBgAt(new Point(38, 1))).toBe(BG);
 
@@ -180,8 +175,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
     });
 
     it("не перерисовывает панель, пока курсор ходит внутри кнопки", () => {
-        // Мышь шлёт move на каждую колонку; кадр от этого не меняется, и будить
-        // перерисовку на каждое движение нельзя.
+        // Мышь шлёт move на каждую колонку; будить перерисовку на каждое движение нельзя.
         const element = panel();
         render(element);
         const markDirty = vi.spyOn(element, "markDirty");
@@ -196,12 +190,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         markDirty.mockRestore();
     });
 
-    /**
-     * Панель в приложении стоит не в начале координат: её смещают сайдбар и
-     * область редактора. Экранные координаты события обязаны приводиться к
-     * локальным ВЫЧИТАНИЕМ позиции, иначе и кнопка, и вкладки кликаются мимо —
-     * а в нуле координат ошибка знака не видна.
-     */
+    /** В нуле координат ошибка знака при переводе экранных координат в локальные не видна. */
     describe("панель смещена от начала координат", () => {
         const ORIGIN = new Offset(7, 4);
 
@@ -214,7 +203,6 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
             return element;
         }
 
-        /** Клик/движение в ЭКРАННЫХ координатах — как их отдаёт терминал. */
         function screenMouse(element: PanelContainerElement, type: "mousedown" | "mousemove", x: number, y: number) {
             element.dispatchEvent(
                 new TUIMouseEvent(type, { button: "left", screenX: x, screenY: y, localX: 0, localY: 0 }),
@@ -233,7 +221,6 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
             screenMouse(element, "mousedown", close.centerX, tabRow);
             expect(onClose).toHaveBeenCalledTimes(1);
 
-            // Та же колонка, но без поправки на смещение — мимо кнопки.
             screenMouse(element, "mousedown", 38, 1);
             expect(onClose).toHaveBeenCalledTimes(1);
         });

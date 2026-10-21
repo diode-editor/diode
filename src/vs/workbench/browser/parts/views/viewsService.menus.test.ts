@@ -72,7 +72,6 @@ function scmHarness(views = [CHANGES, GRAPH]): IViewsHarness {
     return h;
 }
 
-/** Пункты, с которыми открыли последнее контекст-меню. */
 function lastEntries(h: IViewsHarness): MenuEntry[] {
     return h.shown.at(-1)!.getEntries!();
 }
@@ -114,7 +113,6 @@ function entriesOf(submenuEntry: MenuSubmenuEntry): MenuEntry[] {
 describe("ViewsService — inline-кнопки заголовка", () => {
     it("группа navigation с иконкой едет в кнопки заголовка секции", () => {
         const h = scmHarness([CHANGES, GRAPH, "scm.stashes"]);
-        // Лейблы заголовка: название + по кнопке на inline-пункт + «⋯».
         expect(buttonIcons(h, CHANGES)).toEqual(["R"]);
         expect(buttonIcons(h, GRAPH)).toEqual(["L"]);
         expect(buttonIcons(h, "scm.stashes")).toEqual([]);
@@ -171,10 +169,8 @@ describe("ViewsService — inline-кнопки заголовка", () => {
         expect(run).toHaveBeenCalledOnce();
     });
 
-    // `registerView` заводит запись «в счёт будущего контейнера», поэтому в
-    // реестре легально живут контейнеры без собранного контрола: вьюлет, чей
-    // attachContainer ещё не случился, или панель, до которой не дошли. Обход
-    // по контекст-ключам обязан их пропускать, а не падать на attached().
+    // `registerView` легально заводит контейнеры без собранного контрола — обход по
+    // контекст-ключам обязан их пропускать, а не падать на attached().
     it("refreshTitleActions пропускает зарегистрированный, но не собранный контейнер", () => {
         const h = makeViewsHarness(CONTRIBUTIONS);
         h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
@@ -364,11 +360,8 @@ describe("ViewsService — merged: меню контейнера уезжает 
     });
 });
 
-// Как у эталона: тулбар заголовка создаётся только у открытого композита
-// (`CompositePart.createComposite` → `ViewPane.renderHeader`). Резолв меню
-// (when пунктов, `getKeybindingForCommand` на каждую кнопку) стоит дорого, а на
-// старте собраны все контейнеры при двух видимых, поэтому скрытый контейнер
-// кнопки не считает, а досчитывает при показе.
+// Как у эталона, скрытый контейнер кнопки заголовка не резолвит, а досчитывает при показе:
+// на старте собраны все контейнеры при двух видимых, а резолв меню дорог.
 describe("ViewsService — кнопки заголовка скрытого контейнера", () => {
     function hiddenScm(contributions: MenuContribution[] = CONTRIBUTIONS): IViewsHarness {
         const h = makeViewsHarness(contributions);

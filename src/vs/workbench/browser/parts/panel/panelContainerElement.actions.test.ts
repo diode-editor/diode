@@ -8,7 +8,6 @@ import { renderElement } from "../../../../../TestUtils/renderElement.ts";
 
 import { PanelContainerElement } from "./panelContainerElement.ts";
 
-/** Простейший контрол-заглушка вместо селектора: рисует свою метку. */
 class LabelStub extends TUIElement {
     public constructor(private readonly label: string) {
         super();
@@ -55,8 +54,7 @@ describe("PanelContainerElement: контролы вкладки в шапке",
     it("рисует контролы активной вкладки, прижав их вплотную к кнопке закрытия", () => {
         const { backend } = panelWithActions(new LabelStub("Bootstrap"));
 
-        // Строка табов — вторая (после верхней рамки); метка должна кончаться у
-        // кнопки `×`, а не идти сразу за табами.
+        // Метка должна кончаться у кнопки `×`, а не идти сразу за табами.
         const row = backend.getTextAt(new Point(0, 1), 60);
         expect(row).toContain("PROBLEMS");
         expect(row.trimEnd().endsWith("Bootstrap ×")).toBe(true);
@@ -91,8 +89,6 @@ describe("PanelContainerElement: контролы вкладки в шапке",
     });
 
     it("контролы не заезжают на табы, когда места мало", () => {
-        // Узкая панель: прижать вправо нельзя, но и перекрыть заголовки нельзя —
-        // иначе вкладки стали бы нечитаемыми.
         const { backend } = panelWithActions(new LabelStub("VeryLongChannelName"), 30);
 
         const row = backend.getTextAt(new Point(0, 1), 30);
@@ -101,8 +97,6 @@ describe("PanelContainerElement: контролы вкладки в шапке",
     });
 
     it("контролы рисуются и когда вкладок ещё нет", () => {
-        // Панель без табов: прижимать вправо не от чего, но контрол не должен
-        // ни исчезнуть, ни уехать за границу.
         const panel = new PanelContainerElement();
         panel.addView({ id: "output", title: "", content: null, actions: new LabelStub("Bootstrap") });
 
@@ -110,13 +104,8 @@ describe("PanelContainerElement: контролы вкладки в шапке",
     });
 
     it("клик по контролам не переключает вкладку", () => {
-        // Хендлер панели ловит любой клик по строке табов; без проверки источника
-        // клик по селектору ещё и менял бы активную вкладку под ним.
-        //
-        // Координату берём ВНУТРИ сегмента вкладки (x 3 — это PROBLEMS): клик по
-        // настоящим колонкам контролов отличить от «проверка источника пропала»
-        // нельзя, потому что справа от табов вкладки всё равно нет. Событие
-        // синтетическое — важно ровно то, что его target не панель.
+        // Координата ВНУТРИ сегмента вкладки: справа от табов вкладки нет, и
+        // пропавшую проверку источника там не отличить. Важно лишь, что target — не панель.
         const actions = new LabelStub("Bootstrap");
         const { panel } = panelWithActions(actions);
         const onActivate = vi.fn();

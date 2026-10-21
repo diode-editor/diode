@@ -63,7 +63,6 @@ describe("TabSwitcherComponent — без прикреплённого хост�
         const component = new TabSwitcherComponent(service, service as unknown as IEditorGroupsService);
 
         expect(component.isOpen()).toBe(false);
-        // Стабильный e2e-селектор оверлея (как editorGroup-<id> у групп).
         expect(component.view.id).toBe("tabSwitcher");
 
         fireCycle({ panes: [makePane("a.ts"), makePane("b.ts")], pointer: 1 });

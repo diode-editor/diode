@@ -10,7 +10,6 @@ describe("StatusBarComponent — language badge", () => {
 
     beforeEach(() => {
         savedEnv = { ...process.env };
-        // Детерминированное окружение: сегмент терминала — "legacy" без модов.
         delete process.env.TMUX;
         delete process.env.TMUX_PANE;
         delete process.env.SSH_CONNECTION;
@@ -77,11 +76,9 @@ describe("StatusBarComponent — language badge", () => {
         const firstEditor = source.openEditor();
         source.openEditor();
 
-        // Смена языка НЕактивного редактора беджик не трогает.
         firstEditor.setLanguage("python");
         expect(statusSegments(component.view)).toContainEqual({ text: "plaintext", side: "right" });
 
-        // Смена языка активного — обновляет.
         source.getActiveEditor()!.setLanguage("json");
         expect(statusSegments(component.view)).toContainEqual({ text: "json", side: "right" });
     });

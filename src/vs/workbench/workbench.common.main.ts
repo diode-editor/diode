@@ -206,31 +206,18 @@ import { TerminalEnvContextKeysContributionDIToken } from "./services/terminalEn
 import { TerminalEnvStatusContributionDIToken } from "./services/terminalEnvironment/node/terminalEnvStatusContribution.ts";
 
 /**
- * Агрегатор workbench'а (паритет имени с upstream `workbench.common.main.ts`):
- * единственное место ядра, которому разрешено знать все фичи (правило
- * направления в `scripts/check-layers.mjs`). Явный список workbench-contributions
- * (зеркало `WORKBENCH_ACTIONS` ниже, без import-side-effect саморегистрации). Порядок
- * внутри фазы = порядок инстанцирования. Новую фичу или проводку добавляем сюда,
- * а не строкой в конструктор `WorkbenchComponent`.
+ * Единственное место ядра, которому разрешено знать все фичи (`scripts/check-layers.mjs`).
+ * Порядок внутри фазы = порядок инстанцирования.
  */
 export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistration[] = [
-    // ── blockStartup: фич-компоненты и их сервисы ─────────────────────────────
-    // Инстанцируются в конструкторе корня — после прикрепления корневой view
-    // (хост оверлеев), до setWorkspaceFolder бутстрапа и до старта extension
-    // host'а. Порядок вкладок и вьюлетов от порядка записей НЕ зависит (его
-    // задаёт `order` контейнеров); порядок overlay-сессий suggest/hover/
-    // parameterHints (слой рисует их в порядке создания) — зависит.
-    // Explorer-кластер: сервис (корень своего дерева/провайдер/reveal) и компонент.
+    // Порядок вкладок и вьюлетов задаёт `order` контейнеров, а порядок overlay-сессий
+    // suggest/hover/parameterHints — порядок записей: слой рисует их в порядке создания.
     { token: ExplorerServiceDIToken, phase: "blockStartup" },
     { token: ExplorerComponentDIToken, phase: "blockStartup" },
-    // Вьюлеты сайдбара: Search (rg), магазин (каталог — лениво, при первом
-    // показе), References (наполняется по Find All References).
     { token: SearchComponentDIToken, phase: "blockStartup" },
     { token: ExtensionsComponentDIToken, phase: "blockStartup" },
     { token: ReferencesComponentDIToken, phase: "blockStartup" },
     { token: QuickOpenServiceDIToken, phase: "blockStartup" },
-    // Пары «компонент владеет попапом, сервис — логикой»: suggest, hover,
-    // подсказка параметров; призрачные подсказки рисуют прямо в редакторе.
     // Stryker disable next-line ObjectLiteral,StringLiteral: компонент всё равно резолвится (его держит CompletionService следующей записью) — запись только передаёт реестру владение жизнью, что юнитом не наблюдается
     { token: SuggestComponentDIToken, phase: "blockStartup" },
     { token: CompletionServiceDIToken, phase: "blockStartup" },
@@ -247,24 +234,18 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // Stryker disable next-line ObjectLiteral,StringLiteral: компонент всё равно резолвится (его держит FindService следующей записью) — запись только передаёт владение жизнью
     { token: FindComponentDIToken, phase: "blockStartup" },
     { token: FindServiceDIToken, phase: "blockStartup" },
-    // Панель: диагностики (headless), PROBLEMS, OUTPUT.
     { token: DiagnosticsServiceDIToken, phase: "blockStartup" },
     { token: ProblemsComponentDIToken, phase: "blockStartup" },
     { token: OutputComponentDIToken, phase: "blockStartup" },
-    // Source Control: секция CHANGES (команда `diode.scm.publishChanges`), GRAPH
-    // (`diode.scm.publishLog`), commit input, repo-state (`diode.scm.publishRepoState`)
-    // — команды обязаны существовать до активации git-расширения.
+    // Их команды `diode.scm.publish*` обязаны существовать до активации git-расширения.
     { token: ChangesComponentDIToken, phase: "blockStartup" },
     { token: GraphViewComponentDIToken, phase: "blockStartup" },
     { token: ScmInputComponentDIToken, phase: "blockStartup" },
     { token: ScmRepoStateServiceDIToken, phase: "blockStartup" },
-    // Терминал: сервис (вкладка TERMINAL, сессии) и его view.
     { token: TerminalServiceDIToken, phase: "blockStartup" },
     { token: TerminalPanelComponentDIToken, phase: "blockStartup" },
-    // Задачи: провайдеры расширений регистрируются в сервисе с первой активацией.
+    // Провайдеры задач регистрируются с первой активацией расширений.
     { token: TaskServiceDIToken, phase: "blockStartup" },
-    // Модальные оверлеи вкладки Keyboard Shortcuts и Keyboard Doctor (сессию
-    // создают лениво, при первом показе).
     // Stryker disable next-line ObjectLiteral,StringLiteral: без записи рекордер резолвится лениво первой же командой записи — запись лишь передаёт владение жизнью
     { token: KeybindingRecorderComponentDIToken, phase: "blockStartup" },
     // Stryker disable next-line ObjectLiteral,StringLiteral: то же — доктор резолвится лениво командой запуска
@@ -272,74 +253,51 @@ export const WORKBENCH_CONTRIBUTIONS: readonly IWorkbenchContributionRegistratio
     // `vscode.diff`: ext-host зовёт её по id — команда нужна до старта расширений.
     { token: VscodeDiffCommandContributionDIToken, phase: "blockStartup" },
 
-    // ── ready, afterRestored и eventually: фич-проводка ───────────────────────
     // `afterRestored` — то, что эталон держит на `LifecyclePhase.Restored`
-    // (`OutputContribution`, `QuickDiffWorkbenchController`,
-    // `SCMActiveRepositoryController`, `TaskStatusBarContributions`) и
-    // инстанцирует по idle: у нас — после кадра с подсветкой.
+    // (`OutputContribution`, `QuickDiffWorkbenchController`, `SCMActiveRepositoryController`,
+    // `TaskStatusBarContributions`).
     { token: EditorStatusContributionDIToken, phase: "ready" },
     { token: TerminalEnvStatusContributionDIToken, phase: "ready" },
-    // when-ключи окружения (tier/os/cap_*/mode_*/macKeys): до первого нажатия.
+    // Ключи окружения нужны до первого нажатия.
     { token: TerminalEnvContextKeysContributionDIToken, phase: "ready" },
     { token: AutoRevealContributionDIToken, phase: "ready" },
     { token: ThemeConfigContributionDIToken, phase: "ready" },
-    // Заголовок окна терминала (папка, профиль, приложение). Смена профиля вслед
-    // за Open Folder / Open Workspace from File — не contribution, а обёртка
-    // опенера воркспейса (`UserDataProfileWorkspaceOpener`, биндинг в workbenchModule).
     { token: WindowTitleContributionDIToken, phase: "ready" },
     { token: OpenFileCommandContributionDIToken, phase: "ready" },
-    // Встроенная `setContext`: расширение может дёрнуть её в activate(), то есть
-    // раньше любого пользовательского действия.
+    // `setContext` расширение может дёрнуть в activate(), раньше любого действия пользователя.
     // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё команды нет, и это ловит e2e-сценарий extension-storage (клавиша расширения не оживает после Arm)
     { token: SetContextCommandContributionDIToken, phase: "ready" },
     { token: PanelFocusContributionDIToken, phase: "ready" },
     { token: AuxiliaryBarFocusContributionDIToken, phase: "ready" },
-    // Сообщение «ресурс открыть нечем»: подписка должна стоять до первого
-    // открытия, иначе первая же неудача пройдёт молча.
+    // Подписка — до первого открытия, иначе первая же неудача пройдёт молча.
     // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё тост не появляется, и это ловит e2e-сценарий virtualDocument
     { token: OpenFailureNotificationContributionDIToken, phase: "ready" },
-    // Отказ Ctrl+Z на шаге нескольких документов: без тоста он выглядит как
-    // сломанная клавиша.
     // Stryker disable next-line ObjectLiteral,StringLiteral: снятие записи ненаблюдаемо юнитом; без неё тоста нет, и это ловит e2e-сценарий move-to-new-file-undo
     { token: UndoRefusalNotificationContributionDIToken, phase: "ready" },
-    // Спиннеры занятости в заголовках секций: подписка должна стоять до первой
-    // операции, иначе её начало пройдёт мимо.
+    // Подписка — до первой операции, иначе её начало пройдёт мимо.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
     { token: ViewProgressContributionDIToken, phase: "ready" },
-    // Долгие сетевые операции видно и когда Source Control не показан.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
     { token: ProgressStatusBarContributionDIToken, phase: "ready" },
-    // Живой тулбар: кнопки заголовков реагируют на смену контекст-ключей.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
     { token: ViewTitleActionsContributionDIToken, phase: "ready" },
-    // История навигации: подписки должны стоять до открытия первого файла.
-    // Убрать эту строку сейчас ничего не ломает — сервис всё равно поднимается
-    // раньше, когда workbenchContextKeys читает canGoBack/canGoForward. Но такая
-    // гарантия порядка держится на чужой детали, поэтому запись оставляем явной.
+    // Подписки — до открытия первого файла. Сейчас сервис поднимается и раньше (его читает
+    // workbenchContextKeys), но на чужую деталь не полагаемся — запись явная.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. выше — снятие записи ненаблюдаемо
     { token: HistoryServiceDIToken, phase: "ready" },
-    // Каналы Output как команды + пункты submenu селектора.
     { token: OutputChannelActionsDIToken, phase: "afterRestored" },
-    // Живые change-bars: считать дифф можно только после того, как есть редакторы.
+    // Считать дифф можно только после того, как есть редакторы.
     { token: QuickDiffServiceDIToken, phase: "afterRestored" },
-    // Автоосвежение снимочных сторон дифф-вкладок по onDidChangeFile (US-31).
     { token: DiffSnapshotRefreshContributionDIToken, phase: "ready" },
-    // Ветка + sync-счётчики в статус-баре (из repo-state git-расширения).
     { token: ScmStatusBarContributionDIToken, phase: "afterRestored" },
-    // Ключ занятости git: на нём висит enablement мутирующих команд.
     // Stryker disable next-line ObjectLiteral,StringLiteral: см. HistoryService ниже — снятие записи ненаблюдаемо юнитом, проводку проверяет поднятие приложения
     { token: ScmBusyContextContributionDIToken, phase: "ready" },
-    // `$(tools) N` бегущих задач.
     { token: TaskStatusBarContributionDIToken, phase: "afterRestored" },
 ];
 
 /**
- * Встроенные экшены Workbench'а: развёртки `<FEATURE>_ACTIONS` фич и экшены ядра. Регистрирует их владелец приложения
- * (`WorkbenchComponent`, через `CommandActionsDIToken`) единым циклом `registerAction`. Порядок здесь
- * поведения не держит: кто получит клавишу из команд на одной комбинации,
- * решает вес правила (`CommandAction.weight`, `KeybindingWeight`).
- * `builtinKeybindings.slice.test.ts` фиксирует старшинство и проверяет, что
- * обратный порядок массива его не меняет.
+ * Порядок здесь поведения не держит: клавишу на одной комбинации получает команда
+ * с большим весом правила (`KeybindingWeight`) — это проверяет `builtinKeybindings.slice.test.ts`.
  */
 export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...FILES_ACTIONS,
@@ -474,41 +432,26 @@ export const WORKBENCH_ACTIONS: readonly CommandAction[] = [
     ...SCM_ACTIONS,
     ...EXTENSIONS_ACTIONS,
     ...REFERENCES_ACTIONS,
-    // Rename Symbol (F2) — переименование rename-провайдерами расширений
     ...RENAME_ACTIONS,
 ];
 
-/**
- * Явный полный список menu-contributions (зеркало `WORKBENCH_ACTIONS`/
- * `WORKBENCH_CONTRIBUTIONS`): структура меню-бара + деривация из размещений
- * встроенных экшенов. Пункты резолвит {@link MenuRegistry.getMenuItems}:
- * порядок — group/order с авто-разделителями, шорткат — из `KeybindingRegistry`.
- */
+/** Порядок пунктов меню задают group/order, а не порядок массива. */
 export const MENU_CONTRIBUTIONS: readonly MenuContribution[] = [
     ...MENUBAR_SUBMENUS,
     ...GIT_MENU_SUBMENUS,
     ...WORKBENCH_ACTIONS.flatMap(menuItemsOfAction),
 ];
 
-/**
- * Явный список фич, которые сами выставляют свои контекст-ключи (зеркало
- * `WORKBENCH_CONTRIBUTIONS`). `WorkbenchContextKeys` опрашивает их в этом
- * порядке перед резолвом каждого биндинга и на смене фокуса. Новый фичевый
- * ключ — метод `updateContextKeys` у фичи и строка здесь, а не правка центра.
- */
+/** `WorkbenchContextKeys` опрашивает их в этом порядке перед резолвом каждого биндинга и на смене фокуса. */
 export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContributor>[] = [
     SearchComponentDIToken,
-    // Виджеты над редактором: их *Visible-ключи гейтят Enter/Escape/Tab/стрелки.
     FindServiceDIToken,
     CompletionServiceDIToken,
     HoverServiceDIToken,
     ParameterHintsServiceDIToken,
     InlineCompletionsServiceDIToken,
-    // Видимость вьюлетов: ключ объявляет дескриптор контейнера (visibleContextKey).
     SidebarServiceDIToken,
-    // Фокус во вторичной панели и её активный контейнер.
     AuxiliaryBarComponentDIToken,
-    // Вид с фокусом (`focusedView`) — для Move/Reset Focused View.
     ViewsServiceDIToken,
     ExplorerComponentDIToken,
     ScmInputComponentDIToken,
@@ -516,7 +459,6 @@ export const WORKBENCH_CONTEXT_KEY_CONTRIBUTORS: readonly Token<IContextKeyContr
     TerminalPanelComponentDIToken,
     TerminalEditorServiceDIToken,
     TabSwitcherComponentDIToken,
-    // «У документа есть провайдер такой-то фичи» — видимость пунктов контекст-меню.
     LanguageFeatureContextKeysDIToken,
     // Не ключи, а активное поле ввода для редактирующих команд — в том же опросе.
     InputWidgetServiceDIToken,

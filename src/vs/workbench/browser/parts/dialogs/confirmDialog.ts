@@ -9,22 +9,16 @@ const MIN_INNER_WIDTH = 40;
 
 export interface ConfirmDialogOptions {
     readonly title: string;
-    /** Текст вопроса — одна или несколько строк. */
     readonly message: string | readonly string[];
     readonly confirmLabel: string;
     readonly cancelLabel?: string;
-    /** Подсветить сообщение как предупреждение (жёлтым) — для необратимых действий. */
+    /** Для необратимых действий. */
     readonly warning?: boolean;
-    /** Какая кнопка в фокусе по умолчанию. По умолчанию — Cancel (безопаснее). */
+    /** По умолчанию — Cancel (безопаснее). */
     readonly defaultButton?: "confirm" | "cancel";
 }
 
-/**
- * Универсальный модальный диалог подтверждения (заголовок + текст +
- * Confirm/Cancel). Ответ — через callback-поля `onConfirm`/`onCancel`;
- * Esc = отмена. Под разные вопросы создаётся новый экземпляр (метки кнопок
- * неизменяемы). Открывается через `DialogService`.
- */
+/** Метки кнопок неизменяемы — под разные вопросы создаётся новый экземпляр. */
 export class ConfirmDialog extends DialogComponent {
     public onConfirm?: () => void;
     public onCancel?: () => void;
@@ -46,8 +40,7 @@ export class ConfirmDialog extends DialogComponent {
         const confirmWidth = options.confirmLabel.length + 4;
         const cancelWidth = (options.cancelLabel ?? "Cancel").length + 4;
         const buttonsWidth = confirmWidth + 2 + cancelWidth;
-        // Ширину окна задаёт самый широкий ряд: ряд кнопок расширяется
-        // левым спейсером до innerWidth, центрируя кнопки.
+        // Ряд кнопок расширяется левым спейсером до innerWidth, центрируя кнопки.
         const innerWidth = Math.min(MAX_INNER_WIDTH, Math.max(MIN_INNER_WIDTH, maxLine, buttonsWidth));
         const buttonsLeftPad = Math.max(0, Math.floor((innerWidth - buttonsWidth) / 2));
 

@@ -17,7 +17,6 @@ function createService(): { service: QuickInputService; component: QuickInputCom
     return { service, component, testApp };
 }
 
-/** Промис с ручным резолвом — им управляем гонкой ответов валидации. */
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
     let resolve!: (value: T) => void;
     const promise = new Promise<T>((r) => {
@@ -37,7 +36,6 @@ describe("QuickInputService.input — форма сообщения валида
         expect(component.view.validationSeverity).toBe("error");
 
         testApp.sendKey("Enter");
-        // Enter съеден: показ на месте, промис не устаканился.
         expect(component.isOpen()).toBe(true);
 
         testApp.sendKey("Backspace");

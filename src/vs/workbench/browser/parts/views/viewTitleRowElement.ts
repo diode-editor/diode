@@ -4,23 +4,17 @@ import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { HFlexElement, hflexFill, hflexFit, hflexFixed } from "@tuidom/elements/layout/hFlexElement";
 import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
-const ICON_EXPANDED = ""; //  nf-fa-angle_down — как в ListViewElement/TreeViewElement
+const ICON_EXPANDED = ""; //  nf-fa-angle_down
 const ICON_COLLAPSED = ""; //  nf-fa-angle_right
 
-/** Глиф кнопки overflow-меню. */
-const MENU_ICON = "⋯"; // ⋯
+const MENU_ICON = "⋯";
 
-/**
- * Ширина кнопки заголовка: пробел-глиф-пробел, чтобы hover-фон читался как
- * кнопка, а соседние кнопки не слипались.
- */
+/** Пробел-глиф-пробел: hover-фон читается кнопкой, соседние кнопки не слипаются. */
 const BUTTON_WIDTH = 3;
 
 /**
- * Разделитель между соседними кнопками — тонкая вертикальная черта. Рамка
- * вокруг каждой кнопки в одну строку читается слишком тяжело, а без границы
- * глиф не выглядит нажимаемым; черта даёт ровно тот минимум, который делает
- * ряд похожим на панель инструментов.
+ * Черта, а не рамка: рамка вокруг каждой кнопки в одну строку слишком тяжела, а без границы
+ * глиф не выглядит нажимаемым.
  */
 const SEPARATOR = "\u2502"; // │
 
@@ -29,39 +23,22 @@ export interface IViewTitleAction {
     /** Что вернёт {@link ViewTitleRowElement.hitZone}; обычно id команды. */
     readonly id: string;
     readonly icon: string;
-    /**
-     * `false` — команда сейчас недоступна (`enablement` пункта): кнопка остаётся
-     * на месте, но приглушена и не срабатывает. По умолчанию — доступна.
-     */
+    /** `false` — кнопка на месте, но приглушена и не срабатывает (`enablement` пункта). */
     readonly enabled?: boolean;
 }
 
-/** Куда попал клик по строке заголовка. */
 export type ViewTitleZone = { kind: "title" } | { kind: "action"; actionId: string } | { kind: "menu" };
 
 export interface IViewTitleRowOptions {
-    /**
-     * Рисовать шеврон свёрнутости слева от названия. Заголовок контейнера и
-     * несворачиваемая merged-секция шеврона не имеют.
-     */
     readonly chevron?: boolean;
 }
 
 /**
- * Строка заголовка view/контейнера — общая презентация для
- * {@link import("./paneHeaderElement.ts").PaneHeaderElement} (секция сайдбара) и
- * {@link import("./viewContainerHeaderElement.ts").ViewContainerHeaderElement}
- * (заголовок активити):
+ * `[ ␣шеврон? ␣НАЗВАНИЕ ][ fill ][ виджет? ][ inline-кнопки ][ ⋯ ]`
  *
- * ```
- * [ ␣шеврон? ␣НАЗВАНИЕ ][ fill ][ виджет? ][ inline-кнопки ][ ⋯ ]
- * ```
- *
- * Жестов у строки нет — их ведёт владелец: мышь по лейблам он забирает себе
- * (иначе pointer capture для drag границы не сработает), поэтому попадание по
- * кнопке считается арифметикой зон, а не хит-тестом ребёнка — {@link hitZone}
- * и есть эта арифметика. Исключение — {@link hitTestWidget}: виджет заголовка
- * настоящий контрол, клики обязаны доходить до него.
+ * Жесты ведёт владелец: мышь по лейблам он забирает себе (иначе pointer capture для drag
+ * границы не сработает), поэтому попадание по кнопке — арифметика зон {@link hitZone}.
+ * Исключение — {@link hitTestWidget}: виджет — настоящий контрол.
  */
 export class ViewTitleRowElement extends HFlexElement {
     private readonly titleLabel: TextLabelElement;
@@ -108,18 +85,13 @@ export class ViewTitleRowElement extends HFlexElement {
         this.titleLabel.setText(this.composeTitle());
     }
 
-    /** Inline-кнопки слева от «⋯», в порядке передачи. */
     public setActions(actions: readonly IViewTitleAction[]): void {
         if (sameActions(this.actions, actions)) return;
         this.actions = [...actions];
         this.syncChildren();
     }
 
-    /**
-     * Прятать ли кнопку «⋯». Заголовки сайдбара держат её всегда, а полоса
-     * контролов в таб-строке панели — только когда в меню есть что показать:
-     * там она стоит в одном ряду с табами и пустой кнопкой только мешает.
-     */
+    /** В таб-строке панели пустая «⋯» стоит в ряду с табами и только мешает. */
     public setMenuVisible(visible: boolean): void {
         if (this.menuVisible === visible) return;
         this.menuVisible = visible;
@@ -127,36 +99,26 @@ export class ViewTitleRowElement extends HFlexElement {
     }
 
     /**
-     * Кадр спиннера сразу после названия (`null` — секция не занята). Кадры
-     * гонит `ProgressService`, элемент сам ничего не анимирует. Место выбрано
-     * так, чтобы ряд кнопок не дёргался: лишние колонки съедает филлер, а
-     * `hitZone` считает зоны по разложенным ширинам и пересчитывается сам.
+     * Сразу после названия, чтобы ряд кнопок не дёргался: лишние колонки съедает филлер, а
+     * `hitZone` считает по разложенным ширинам.
      */
     public setSpinnerFrame(frame: string | null): void {
-        // Отсекать повторный кадр здесь незачем: единственный вызывающий —
-        // `ViewsService.setViewSpinner` — уже выходит рано на неизменившемся
-        // кадре, а после пересборки заголовка лейбл всё равно новый.
         this.spinner = frame;
         this.titleLabel.setText(this.composeTitle());
     }
 
-    /** Занята ли секция — наблюдаемость для инспектора/e2e (сам кадр крутится, его не отдаём). */
+    /** Для инспектора/e2e; сам кадр крутится, его не отдаём. */
     public get isBusy(): boolean {
         return this.spinner !== null;
     }
 
-    /** Произвольный контрол между названием и кнопками (переключатель каналов Output). */
     public setTitleWidget(widget: TUIElement | null): void {
         if (this.titleWidget === widget) return;
         this.titleWidget = widget;
         this.syncChildren();
     }
 
-    /**
-     * Зона под локальной X: кнопка / «⋯» / название. Кнопка, схлопнутая
-     * layout'ом в ноль колонок на узком заголовке, зоны не имеет — по ней
-     * нельзя попасть, потому что её не видно.
-     */
+    /** Кнопка, схлопнутая layout'ом в ноль колонок на узком заголовке, зоны не имеет. */
     public hitZone(localX: number): ViewTitleZone {
         for (let i = 0; i < this.actionLabels.length; i++) {
             if (inZone(this.actionLabels[i], localX)) return { kind: "action", actionId: this.actions[i].id };
@@ -173,9 +135,8 @@ export class ViewTitleRowElement extends HFlexElement {
     }
 
     /**
-     * Подсветить кнопку под курсором. Лейблы не участвуют в хит-тесте (мышь
-     * забирает заголовок), поэтому движок сам им `hover` не выставит — состояние
-     * ставит владелец по mousemove, зону считает {@link hitZone}.
+     * Лейблы не участвуют в хит-тесте (мышь забирает заголовок), поэтому `hover` им ставит
+     * владелец по mousemove.
      */
     public setHoveredZone(zone: ViewTitleZone | null): void {
         const hoveredAction = zone?.kind === "action" ? zone.actionId : null;
@@ -185,12 +146,7 @@ export class ViewTitleRowElement extends HFlexElement {
         this.menuLabel.setStyleState("hover", zone?.kind === "menu");
     }
 
-    /**
-     * Хит-тест ТОЛЬКО виджета заголовка. Лейблы строки презентационные (их
-     * клики считает {@link hitZone}), а виджет — настоящий интерактивный
-     * контрол (селектор каналов Output), и мышь обязана доходить до него:
-     * иначе он рисуется, но не нажимается.
-     */
+    /** Только виджет: лейблы презентационные, а виджет обязан получать клики, иначе не нажимается. */
     public hitTestWidget(point: Point): TUIElement | null {
         return this.titleWidget?.elementFromPoint(point) ?? null;
     }
@@ -216,8 +172,7 @@ export class ViewTitleRowElement extends HFlexElement {
             this.titleWidget.layoutStyle = { width: hflexFit(), height: 1 };
             children.push(this.titleWidget);
         }
-        // Черта — только МЕЖДУ соседними контролами: ведущая/хвостовая
-        // превратила бы ряд в рамку, а это и есть тот перебор с акцентом.
+        // Черта только МЕЖДУ контролами: ведущая/хвостовая превратила бы ряд в рамку.
         const controls: TUIElement[] = [...this.actionLabels];
         if (this.menuVisible) controls.push(this.menuLabel);
         controls.forEach((control, index) => {
@@ -228,12 +183,7 @@ export class ViewTitleRowElement extends HFlexElement {
     }
 }
 
-/**
- * Кнопка приглушена, но видима всегда (мыши может не быть вовсе). Фон в покое —
- * фон заголовка (наследуется каскадом), под курсором — свой: `hover` ставит
- * владелец через {@link ViewTitleRowElement.setHoveredZone}, потому что сами
- * лейблы в хит-тесте не участвуют.
- */
+/** Приглушена, но видима всегда (мыши может не быть вовсе); `hover` ставит владелец. */
 function buttonStyle(enabled: boolean): TUIElement["style"] {
     // У выключенной кнопки hover-варианта нет вовсе: подсвеченный фон читался бы
     // как «нажимается», а она не нажимается.
@@ -272,9 +222,8 @@ function sameActions(a: readonly IViewTitleAction[], b: readonly IViewTitleActio
 }
 
 /**
- * Доступность обязана участвовать в сравнении наравне с id и иконкой: иначе
- * ранний выход `setActions` съедает её смену, и кнопка навсегда остаётся в том
- * виде, в каком её собрали первый раз.
+ * Доступность сравнивается наравне с id и иконкой: иначе ранний выход `setActions` съест
+ * её смену, и кнопка навсегда останется такой, какой её собрали.
  */
 function sameAction(a: IViewTitleAction, b: IViewTitleAction): boolean {
     // Stryker disable next-line ConditionalExpression: «кнопки всегда разные» — это лишняя пересборка, ненаблюдаемая по кадру; пропуск нужной закрыт тестами на смену id, иконки и доступности

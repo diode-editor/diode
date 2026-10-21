@@ -4,7 +4,6 @@ import type { IViewsHarness } from "./viewsService.testUtils.ts";
 import { makeViewsHarness, testView } from "./viewsService.testUtils.ts";
 import type { IViewContainerDescriptor } from "./viewsService.ts";
 
-/** Регистрирует контейнер с одной view — как это делает фича в конструкторе. */
 function register(h: IViewsHarness, descriptor: Omit<IViewContainerDescriptor, "title">): void {
     h.service.registerContainer({ title: descriptor.id.toUpperCase(), ...descriptor });
     h.service.registerView(testView(`${descriptor.id}.view`, descriptor.id, 10));

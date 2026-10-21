@@ -12,7 +12,6 @@ import type { StatusBarService } from "../../../services/statusbar/common/status
 import { createStatusBarHarness, statusTexts } from "./statusBarComponent.testUtils.ts";
 
 const SCREEN = new Size(60, 10);
-/** Полоса — нижний ряд body, как в приложении. */
 const BAR_Y = SCREEN.height - 1;
 
 function rightClick(x: number, y: number, action: "press" | "release"): MouseToken {
@@ -32,14 +31,13 @@ function rightClick(x: number, y: number, action: "press" | "release"): MouseTok
 interface MenuHarness {
     app: TestApp;
     statusBarService: StatusBarService;
-    /** Правый клик по первой ячейке текста сегмента (null — по пустому месту полосы). */
+    /** null — по пустому месту полосы. */
     openMenuOn: (text: string | null) => void;
-    /** Сработавшие команды сегментов — правый клик их дёргать не должен. */
+    /** Правый клик их дёргать не должен. */
     clicks: string[];
     segments: () => string[];
 }
 
-/** Наблюдаемое состояние открытого меню (пункты + выделение) глазами инспектора. */
 function menuState(app: TestApp): { items: (string | null)[]; selectedIndex: number } {
     const menu = app.querySelector("PopupMenuElement");
     const state = menu?.inspectState();
@@ -47,12 +45,11 @@ function menuState(app: TestApp): { items: (string | null)[]; selectedIndex: num
     return { items: state.items as (string | null)[], selectedIndex: state.selectedIndex as number };
 }
 
-/** Пункты открытого меню (сепараторы — null). */
+/** Сепараторы — null. */
 function menuItems(app: TestApp): (string | null)[] {
     return menuState(app).items;
 }
 
-/** Доводит выделение до пункта с этим label и активирует его — как пользователь. */
 function activateMenuItem(app: TestApp, label: string): void {
     const target = menuItems(app).indexOf(label);
     if (target < 0) throw new Error(`в меню нет пункта "${label}"`);
@@ -75,7 +72,6 @@ function setup(): MenuHarness {
         onClick: () => clicks.push("alpha"),
     });
     harness.statusBarService.addEntry({ id: "beta", name: "Beta", text: "Beta", alignment: "left", priority: 5 });
-    // Транзиентный сегмент без имени — в меню его быть не должно.
     harness.statusBarService.addEntry({ id: "hint", text: "chord", alignment: "left", priority: 1 });
     harness.statusBarService.addEntry({ id: "omega", name: "Omega", text: "Omega", alignment: "right", priority: 1 });
 
@@ -88,7 +84,7 @@ function setup(): MenuHarness {
         const children = harness.component.view.getChildren();
         let x: number;
         if (text === null) {
-            // Пустое место — центральный распорный Filler между сторонами.
+            // Центральный распорный Filler между сторонами.
             const fill = children.find((child) => (child.layoutStyle as HFlexLayoutStyle).width.type === "fill");
             if (!fill) throw new Error("на полосе нет центрального распора");
             x = fill.globalPosition.x + Math.floor(fill.layoutSize.width / 2);
@@ -120,10 +116,8 @@ describe("StatusBarComponent — меню видимости", () => {
 
         openMenuOn("Alpha");
 
-        // Транзиентной записи без name («chord») в переключателе нет; правые
-        // сегменты идут после левых, как в порядке отрисовки.
+        // Правые сегменты идут после левых, как в порядке отрисовки.
         expect(menuItems(app)).toEqual(["Terminal Environment", "Alpha", "Beta", "Omega", null, "Hide 'Alpha'"]);
-        // Видимые записи отмечены галочкой.
         expect(app.backend.screenToString()).toContain(`${CHECKED_ICON} Alpha`);
     });
 

@@ -4,11 +4,7 @@ import { PaneCompositePartService } from "../paneCompositePartService.ts";
 export const AuxiliaryBarServiceDIToken = token<AuxiliaryBarService>("AuxiliaryBarService");
 
 /**
- * Таб-строка **вторичной боковой панели** (Secondary Side Bar, VS Code
- * `ViewContainerLocation.AuxiliaryBar`) + её видимость: вкладки — контейнеры с
- * `location: "auxiliarybar"`. У эталона `AuxiliaryBarPart` при
- * `workbench.activityBar.location=default` показывает контейнеры вкладками в
- * заголовке, как панель, поэтому механика общая —
- * {@link PaneCompositePartService}.
+ * Механика общая с панелью: у эталона `AuxiliaryBarPart` при
+ * `workbench.activityBar.location=default` показывает контейнеры вкладками в заголовке.
  */
 export class AuxiliaryBarService extends PaneCompositePartService {}

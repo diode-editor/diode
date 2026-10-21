@@ -9,14 +9,8 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 import { QuickInputServiceDIToken } from "../quickinput/quickInputService.ts";
 
 /**
- * Encoding picker (VS Code `workbench.action.editor.changeEncoding`):
- * двухуровневый флоу — сначала «Reopen with Encoding» / «Save with
- * Encoding», затем список кодировок с текущей в активной позиции.
- * «Reopen» скрыт для буферов без файла на диске (untitled); на «грязном»
- * буфере он сначала спрашивает подтверждение (перечитка отбрасывает
- * несохранённые правки). «Save» у безымянного буфера выставляет кодировку
- * и уводит в Save As (команда `workbench.action.files.saveAs`); конфликт с
- * внешней записью идёт через тот же Overwrite-диалог, что и обычный Save.
+ * VS Code `workbench.action.editor.changeEncoding`. «Reopen» на грязном буфере
+ * спрашивает подтверждение: перечитка отбрасывает несохранённые правки.
  */
 async function changeFileEncoding(accessor: ServiceAccessor): Promise<void> {
     const editorGroup = accessor.get(EditorServiceDIToken);
@@ -26,13 +20,10 @@ async function changeFileEncoding(accessor: ServiceAccessor): Promise<void> {
     const editor = editorGroup.getActiveEditor();
     if (editor === null) return;
 
-    // Перечитывать есть что, только если файл на диске есть (у `untitled:` нет
-    // провайдера в файловом сервисе — exists для него ложь).
+    // У `untitled:` нет провайдера в файловом сервисе — exists для него ложь.
     const canReopen = await accessor.get(IFileServiceDIToken).exists(editor.uri);
-    // Read-only запрещает запись, но не перечитывание файла с диска — поэтому
-    // команда остаётся доступной, а из режимов убирается только «Save with
-    // Encoding» (VS Code ведёт себя так же). Если перечитывать нечего (буфер без
-    // файла на диске), делать в read-only нечего вовсе.
+    // Read-only запрещает запись, но не перечитывание: убирается только «Save with
+    // Encoding» (как в VS Code).
     const modeItems = [
         ...(canReopen ? [{ label: "Reopen with Encoding", description: "Reinterpret the file on disk" }] : []),
         ...(editor.readOnly
@@ -80,15 +71,13 @@ async function changeFileEncoding(accessor: ServiceAccessor): Promise<void> {
             );
             return;
         }
-        // Не-Unicode кодировка декодируется асинхронно (ждёт iconv): команда
-        // завершается, когда текст уже перечитан.
+        // Не-Unicode декодируется асинхронно (iconv): команда завершается после перечитки.
         await editor.reopenWithEncoding(encoding);
         return;
     }
 
     const outcome = await editor.saveWithEncoding(encoding);
     if (outcome === "no-file") {
-        // Безымянный буфер: кодировка уже выставлена, путь спросит Save As.
         accessor.get(CommandRegistryDIToken).execute("workbench.action.files.saveAs");
         return;
     }

@@ -6,7 +6,6 @@ import { APP_NAME, DIODE_VERSION, REPO_URL } from "../../../../base/common/versi
 
 import { DIALOG_STYLES, DialogComponent } from "./dialogComponent.ts";
 
-/** Диалог «About»: имя, версия, Node, ссылка на репозиторий. */
 export class AboutDialog extends DialogComponent {
     public onClose?: () => void;
 

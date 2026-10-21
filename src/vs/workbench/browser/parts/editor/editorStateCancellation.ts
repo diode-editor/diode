@@ -4,29 +4,18 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 
 import type { TextEditorPane } from "./textEditorPane.ts";
 
-/**
- * Что в редакторе делает запрос устаревшим — подмножество upstream
- * `CodeEditorStateFlag` (`editor/contrib/editorState/browser/editorState.ts`):
- * без `Selection`/`Scroll`, их нашим потребителям не нужно.
- */
+/** Подмножество upstream `CodeEditorStateFlag`: `Selection`/`Scroll` нашим потребителям не нужны. */
 export enum EditorStateFlag {
-    /** Правка документа. */
     Value = 1,
-    /** Движение каретки. */
     Position = 2,
 }
 
-/** Часть панели, на которую смотрит источник: только события. */
 export type IEditorStateSource = Pick<TextEditorPane, "onDidChangeContent" | "onDidChangeCursorPosition">;
 
 /**
- * Токен «пока редактор в том же состоянии» — аналог upstream
- * `EditorStateCancellationTokenSource`: отменяется на правку документа
- * ({@link EditorStateFlag.Value}) и/или движение каретки
- * ({@link EditorStateFlag.Position}). Ответ, пришедший после того, как
- * человек ушёл печатать или двигать каретку, уже не применяется — так, например,
- * переход к определению не уносит его задним числом. Подписки на редактор
- * снимает `dispose()`.
+ * Аналог upstream `EditorStateCancellationTokenSource`: ответ, пришедший после того,
+ * как человек ушёл печатать, не применяется (переход к определению не уносит каретку
+ * задним числом).
  */
 export class EditorStateCancellationTokenSource extends CancellationTokenSource {
     private readonly subscriptions: IDisposable[] = [];

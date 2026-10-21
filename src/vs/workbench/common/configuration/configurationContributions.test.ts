@@ -6,36 +6,12 @@ import { ConfigurationRegistry } from "../../../platform/configuration/common/co
 import { CONFIGURATION_CONTRIBUTIONS } from "./configurationContributions.ts";
 
 /**
- * Ревизия `scope` у каждого нашего ключа настроек — в одной таблице, чтобы
- * ответ «можно ли этот ключ переопределять на уровне папки» был ЗАПИСАН, а не
- * подразумевался. Слоёв конфигурации ниже user'а у нас пока нет, и поле никем
- * не читается (см. docs/TODO/MultiRoot.md, M6): тест — единственное место, где
- * решение зафиксировано, и он же ловит опечатку в литерале.
- *
- * Обоснование по группам (сверено с эталоном vscode, где ключ у него есть):
- * - `editor.*` — `language-overridable`: у эталона весь узел `editor` объявлен
- *   с этим скоупом (`editorConfigurationBaseNode`), включая `formatOnSave` и
- *   `codeActionsOnSave`; наши `editor.inlineSuggest.{delay,requestTimeout}`
- *   своих у эталона не имеют и идут за семьёй. `files.autoSave` — тоже: у
- *   эталона `LANGUAGE_OVERRIDABLE` явно.
- * - `explorer.*`, `files.enableTrash`, `files.refactoring.autoSave`, `workbench.colorTheme`,
- *   `workbench.editor.enablePreview`, `workbench.editor.closeOnFileDelete`,
- *   `workbench.tree.expandMode`, `workbench.secondarySideBar.defaultVisibility` — `window`: у эталона скоуп не указан, то
- *   есть дефолтный `WINDOW` (одно значение на окно).
- * - `files.watcherExclude`, `files.watcherInclude`, `scm.graph.pageSize` —
- *   `resource`: у эталона первые два помечены `RESOURCE` явно, третий
- *   наследует `RESOURCE` от узла `scm`.
- * - `files.exclude`, `search.exclude` — `resource`: у эталона оба помечены
- *   `RESOURCE` явно, и это та же семья, что `files.watcherExclude` — «что
- *   считать мусором» свойство ПАПКИ, а не окна: у python-проекта и у
- *   node-проекта наборы разные, и в мульти-руте они должны уехать вместе с
- *   папкой. Туда же `search.use*IgnoreFiles` — у эталона `RESOURCE` явно.
- * - `terminal.tier`, `keyboard.platform`, `terminal.capabilities`,
- *   `terminal.modes` — `machine`: это свойства терминала и клавиатуры машины,
- *   а не проекта (`keyboard.platform` ставят как раз из-за ssh с другой ОС),
- *   и уезжать вместе с папкой в другое окружение они не должны.
- * - `terminal.customModes` — `window`, в отличие от соседей: это ОБЪЯВЛЕНИЕ
- *   именованных режимов под `when`-выражения, а не свойство машины, и проекту
+ * `scope` пока никем не читается (docs/TODO/MultiRoot.md, M6): таблица — единственное
+ * место, где решение «можно ли на уровне папки» записано. Скоупы — как у эталона
+ * (без `scope` там — `window`); наши ключи без пары в эталоне идут за семьёй.
+ * - `terminal.tier`, `keyboard.platform`, `terminal.capabilities`, `terminal.modes` —
+ *   `machine`: свойства терминала машины (`keyboard.platform` ставят из-за ssh с другой ОС);
+ * - `terminal.customModes` — `window`: это объявление режимов под `when`, проекту
  *   осмысленно завести своё.
  */
 const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
@@ -105,23 +81,19 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     // Хост-терминал один на процесс — не на окно и не на папку.
     "terminal.integrated.colorSource": "application",
 
-    // Задачи: у эталона без `scope` — значит `window`.
     "task.autoDetect": "window",
     "task.slowProviderWarning": "window",
     "task.quickOpen.detail": "window",
     "task.quickOpen.skip": "window",
     "task.saveBeforeRun": "window",
     "task.verboseLogging": "window",
-    // Доверие обработчикам URI — на всю установку, как у эталона.
     "extensions.confirmedUriHandlerExtensionIds": "application",
 };
 
 const registered = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getConfigurationProperties();
 
 describe("CONFIGURATION_CONTRIBUTIONS — scope каждого ключа", () => {
-    // Таблица обязана совпадать с реестром ПОИМЁННО: новый ключ без записи
-    // здесь роняет тест, и вопрос «а этот можно на папке?» задаётся при
-    // заведении ключа, а не задним числом ревизией всех настроек.
+    // Новый ключ без записи здесь роняет тест: вопрос «а этот можно на папке?» задаётся при заведении ключа.
     it("таблица ожиданий покрывает ровно зарегистрированные ключи", () => {
         expect([...registered.keys()].sort()).toEqual(Object.keys(EXPECTED_SCOPES).sort());
     });
@@ -130,8 +102,7 @@ describe("CONFIGURATION_CONTRIBUTIONS — scope каждого ключа", () =
         expect(registered.get(key)?.scope).toBe(scope);
     });
 
-    // Скоуп — не свободная строка: описка вроде "resources" обязана быть видна
-    // даже если ключ в таблице выше кто-то обновит вместе с узлом.
+    // Ловит описку вроде "resources", даже если таблицу выше обновят вместе с узлом.
     it("все скоупы — из объявленного набора", () => {
         const allowed: readonly ConfigurationScope[] = [
             "application",

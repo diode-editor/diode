@@ -11,16 +11,8 @@ import { terminalConfiguration } from "./terminalConfiguration.ts";
 import { workbenchConfiguration } from "./workbenchConfiguration.ts";
 
 /**
- * Явный список configuration-узлов приложения — наш аналог vscode-овского
- * `Registry.as(Extensions.Configuration).registerConfiguration(...)`, без
- * import-side-effects. Из него в `main.ts` собирается `ConfigurationRegistry`
- * (defaults-слой настроек, известные ключи для валидации settings.json), а
- * генератор схемы (`scripts/generate-settings-schema.mjs`) бандлит этот файл
- * для каталога автодополнения diode-settings — узлы держим чистыми данными.
- *
- * `contributes.configuration` расширений сюда не попадает: их ключи генератор
- * собирает из манифестов отдельно (Phase 6 в docs/TODO/Extensions.md — донести
- * их и до runtime-реестра).
+ * Узлы — чистые данные: этот файл бандлит генератор схемы
+ * (`scripts/generate-settings-schema.mjs`) для автодополнения diode-settings.
  */
 export const CONFIGURATION_CONTRIBUTIONS = [
     workbenchConfiguration,
@@ -34,7 +26,6 @@ export const CONFIGURATION_CONTRIBUTIONS = [
     extensionsConfiguration,
 ] as const satisfies readonly IConfigurationNode[];
 
-/** Значение одного JSON-schema типа. */
 type ValueOfType<T> = T extends "number"
     ? number
     : T extends "boolean"
@@ -49,7 +40,6 @@ type ValueOfType<T> = T extends "number"
               ? null
               : unknown;
 
-/** Тип значения ключа по его схеме: `enum` → union литералов, иначе по `type` (список типов — union). */
 type SettingValue<S> = S extends { readonly enum: readonly (infer E)[] }
     ? E
     : S extends { readonly type: readonly (infer T)[] }
@@ -60,14 +50,13 @@ type SettingValue<S> = S extends { readonly enum: readonly (infer E)[] }
 
 type UnionToIntersection<U> = (U extends unknown ? (x: U) => void : never) extends (x: infer I) => void ? I : never;
 
-/** Ключи и типы значений всех узлов: `{ "editor.tabSize": number; "editor.wordWrap": "off" | "on" | … }`. */
+/** `{ "editor.tabSize": number; "editor.wordWrap": "off" | "on" | … }`. */
 export type SettingsOf<Nodes extends readonly IConfigurationNode[]> = UnionToIntersection<
     {
         [I in keyof Nodes]: { -readonly [K in keyof Nodes[I]["properties"]]: SettingValue<Nodes[I]["properties"][K]> };
     }[number]
 >;
 
-/** Настройки приложения с типами по схеме — то, что видит `IConfigurationService.get(key)`. */
 export type DiodeSettings = SettingsOf<typeof CONFIGURATION_CONTRIBUTIONS>;
 
 declare module "../../../platform/configuration/common/iConfigurationService.ts" {

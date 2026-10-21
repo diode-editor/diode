@@ -19,7 +19,6 @@ function starts(ctrl: TextEditorPane): number[] {
     return ctrl.viewState.foldedRegions.map((r) => r.startLine).sort((a, b) => a - b);
 }
 
-/** A folding provider returning fixed regions for any request. */
 function providerOf(regions: IFoldingRegion[]): FoldingRangeProvider {
     return { provideFoldingRanges: async () => regions.map((r) => ({ ...r })) };
 }
@@ -84,10 +83,9 @@ describe("EditorComponent – extension folding provider merge", () => {
         providers.register("*", providerOf([{ startLine: 0, endLine: 3, isCollapsed: false }]));
         await flush();
 
-        ctrl.viewState.foldRegionContaining(0); // пользователь свернул
+        ctrl.viewState.foldRegionContaining(0);
         expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 0)?.isCollapsed).toBe(true);
 
-        // Второй провайдер перезапускает мерж — свёрнутость обязана уцелеть.
         providers.register("*", providerOf([{ startLine: 0, endLine: 3, isCollapsed: false }]));
         await flush();
         expect(ctrl.viewState.foldedRegions.find((r) => r.startLine === 0)?.isCollapsed).toBe(true);
@@ -104,7 +102,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         });
         await flush();
 
-        expect(starts(ctrl)).toEqual([0]); // indentation-фолды уцелели
+        expect(starts(ctrl)).toEqual([0]);
     });
 
     it("провайдер чужого языка не спрашивается: области не подъезжают", async () => {
@@ -159,7 +157,7 @@ describe("EditorComponent – extension folding provider merge", () => {
         providers.register("*", providerOf([]));
         await flush();
 
-        expect(starts(ctrl)).toEqual([0]); // indentation не потерян
+        expect(starts(ctrl)).toEqual([0]);
     });
 
     it("ответ, пришедший после закрытия редактора, не применяется", async () => {

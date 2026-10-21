@@ -4,10 +4,7 @@ import { SIDEBAR_VIEWS_STATE } from "../../../common/stateKeys.ts";
 
 import { makeViewsHarness, testView as view } from "./viewsService.testUtils.ts";
 
-/**
- * Контейнер Source Control в миниатюре: CHANGES развёрнут по дефолту, GRAPH —
- * свёрнут (ровно как в живом редакторе).
- */
+/** Source Control в миниатюре: CHANGES развёрнут по дефолту, GRAPH — свёрнут, как в живом редакторе. */
 function makeScm(): ReturnType<typeof makeViewsHarness> {
     const h = makeViewsHarness();
     h.service.registerContainer({ id: "scm", title: "SOURCE CONTROL", location: "sidebar" });
@@ -16,7 +13,6 @@ function makeScm(): ReturnType<typeof makeViewsHarness> {
     return h;
 }
 
-/** Свёрнутость секций контейнера по id — то, что видит пользователь. */
 function collapsedMap(h: ReturnType<typeof makeViewsHarness>): Record<string, boolean> {
     const paneView = h.paneView("scm");
     return Object.fromEntries(paneView.getPaneIds().map((id) => [id, paneView.isCollapsed(id)]));

@@ -8,18 +8,13 @@ import { ViewsServiceDIToken } from "../views/viewsService.ts";
 import { CLOSE_AUXILIARY_BAR_COMMAND_ID } from "./auxiliaryBarComponent.ts";
 import { AuxiliaryBarServiceDIToken } from "./auxiliaryBarService.ts";
 
-/**
- * Показать вторичную панель и отдать фокус её активному контейнеру — как
- * `setAuxiliaryBarHidden(false)` эталона, который открывает активный (или
- * первый) контейнер с фокусом. Пустой части фокусировать нечего.
- */
+/** Как `setAuxiliaryBarHidden(false)` эталона: открывает активный (или первый) контейнер с фокусом. */
 function showAndFocusAuxiliaryBar(accessor: ServiceAccessor): void {
     accessor.get(LayoutServiceDIToken).setAuxiliaryBarVisible(true);
     const activeId = accessor.get(AuxiliaryBarServiceDIToken).getActiveViewId();
     if (activeId !== null) accessor.get(ViewsServiceDIToken).focusContainer(activeId);
 }
 
-/** Шаг по вкладкам вторичной панели (по кругу), с показом и фокусом. */
 function cycleAuxiliaryBarView(accessor: ServiceAccessor, step: 1 | -1): void {
     const auxiliaryBar = accessor.get(AuxiliaryBarServiceDIToken);
     const views = auxiliaryBar.getViews();
@@ -47,11 +42,7 @@ export const toggleAuxiliaryBarAction: CommandAction = {
     },
 };
 
-/**
- * Скрыть вторичную панель — то, что зовёт кнопка `×` в её таб-строке. Отдельно
- * от toggle, как и в эталоне: `enablement` по `auxiliaryBarVisible` честно
- * гасит пункт в палитре на скрытой части.
- */
+/** Отдельно от toggle, как в эталоне: `enablement` гасит пункт в палитре на скрытой части. */
 export const closeAuxiliaryBarAction: CommandAction = {
     id: CLOSE_AUXILIARY_BAR_COMMAND_ID,
     title: "View: Hide Secondary Side Bar",
@@ -85,7 +76,6 @@ export const nextAuxiliaryBarViewAction: CommandAction = {
     },
 };
 
-/** Команды вторичной боковой панели — одной строкой в `WORKBENCH_ACTIONS`. */
 export const AUXILIARY_BAR_ACTIONS: readonly CommandAction[] = [
     toggleAuxiliaryBarAction,
     closeAuxiliaryBarAction,

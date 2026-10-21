@@ -8,7 +8,6 @@ import { QuickInputComponent } from "./quickInputComponent.ts";
 import { QuickInputService } from "./quickInputService.ts";
 import type { QuickPickSessionItem } from "./quickPickSession.ts";
 
-/** Всё, что пикер сообщил владельцу, — в порядке прихода. */
 type Logged = ["value", string] | ["accept"] | ["active", string[]] | ["selection", string[]] | ["hide"];
 
 function setup() {
@@ -26,7 +25,6 @@ function setup() {
         onDidChangeSelection: (items) => log.push(["selection", labels(items)]),
         onDidHide: () => log.push(["hide"]),
     });
-    /** Что сейчас на виджете — тот же снимок, что видит инспектор и e2e. */
     const view = (): Record<string, unknown> => component.view.inspectState();
     const type = (text: string): void => {
         for (const ch of text) testApp.sendKey(ch);
@@ -286,7 +284,6 @@ describe("QuickPickSession — скрытие", () => {
 });
 
 describe("QuickPickSession — точечные правки открытого пикера", () => {
-    /** Верхняя рамка оверлея (в ней заголовок) на ОТРИСОВАННОМ кадре. */
     function titleRow(testApp: ReturnType<typeof setup>["testApp"]): string {
         testApp.render();
         // Оверлей встаёт на 10% высоты (24 строки → строка 2).

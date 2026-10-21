@@ -9,26 +9,16 @@ import type { IViewTitleAction } from "./viewTitleRowElement.ts";
 const DEFAULT_MIN_BODY_HEIGHT = 3;
 
 export interface IPaneOptions {
-    /**
-     * Уникален в контейнере. Заголовок получает `id = paneHeader-<id>` с точками,
-     * заменёнными на дефисы — точка в селекторах инспектора/e2e не поддерживается
-     * (`workbench.scm.graph` → `#paneHeader-workbench-scm-graph`).
-     */
+    /** Уникален в контейнере; точки в id заголовка меняются на дефисы — селекторы инспектора/e2e их не поддерживают. */
     readonly id: string;
-    /** Название секции — рисуется как есть (конвенция VS Code: КАПСОМ). */
     readonly title: string;
     readonly body: TUIElement;
     readonly minBodyHeight?: number;
-    /**
-     * false — секция не сворачивается: без шеврона, клик/Enter по заголовку
-     * ничего не делают (merged одно-view контейнер, как в VS Code). По
-     * умолчанию true.
-     */
+    /** `false` — merged-секция: без шеврона, клик/Enter по заголовку ничего не делают. По умолчанию `true`. */
     readonly collapsible?: boolean;
     /**
-     * false — у секции нет своей строки заголовка вовсе. Так рисуется
-     * единственная секция вкладки нижней панели: её заголовок — сам таб.
-     * По умолчанию true.
+     * `false` — строки заголовка нет вовсе: у единственной секции вкладки панели заголовок —
+     * сам таб. По умолчанию `true`.
      */
     readonly headerVisible?: boolean;
 }
@@ -36,7 +26,6 @@ export interface IPaneOptions {
 interface PaneRecord {
     readonly id: string;
     readonly header: PaneHeaderElement;
-    /** Меняется на месте через {@link PaneViewElement.setPaneBody} — без пересборки секций. */
     body: TUIElement;
     readonly minBodyHeight: number;
     readonly collapsible: boolean;
@@ -49,32 +38,18 @@ interface PaneRecord {
 }
 
 /**
- * Контейнер view-секций сайдбара (аналог PaneView/SplitView VS Code): стопка
- * сворачиваемых секций, у каждой — заголовок {@link PaneHeaderElement} ровно в
- * 1 строку и тело. Развёрнутые тела делят остаток высоты пропорционально
- * весам (детерминированный largest remainder с клампом `minBodyHeight`);
- * свёрнутое тело остаётся в дереве с `hidden = true` (стили и root доходят,
- * layout/render пропускаются). Граница между секциями — сам заголовок нижней:
- * его drag перекидывает строки между парой соседних развёрнутых секций, после
- * чего веса замораживаются в фактические высоты (write-through у подписчика).
- *
- * Живёт в workbench, а не в tuidom: это составной виджет из готовых контролов,
- * своя тут только раскладка (прецедент — SearchViewElement).
+ * Стопка сворачиваемых секций (аналог PaneView/SplitView). Развёрнутые тела делят остаток
+ * высоты по весам; свёрнутое тело остаётся в дереве с `hidden = true`. Граница — сам заголовок
+ * нижней секции: drag перекидывает строки между соседями и замораживает веса в фактические высоты.
  */
 export class PaneViewElement extends TUIElement {
-    /**
-     * Collapse/resize по действию пользователя — подписчик (ViewsService)
-     * персистит состояние. НЕ зовётся из performLayout и программных сеттеров.
-     */
+    /** Только по действию пользователя — не из performLayout и программных сеттеров. */
     public onDidChangeState?: () => void;
-    /** Запрос меню «⋯» секции (клик по кнопке, правый клик, Shift+F10). */
     public onDidRequestPaneMenu?: (paneId: string, anchor: IPaneMenuAnchor) => void;
-    /** Клик по inline-кнопке заголовка секции. */
     public onDidRequestPaneAction?: (paneId: string, actionId: string) => void;
 
     private panes: PaneRecord[] = [];
 
-    /** Добавляет секцию в конец (порядок добавления = порядок на экране). */
     public addPane(options: IPaneOptions): void {
         if (this.findPane(options.id) !== undefined) {
             throw new Error(`PaneViewElement: duplicate pane id "${options.id}"`);
@@ -120,11 +95,7 @@ export class PaneViewElement extends TUIElement {
         this.markDirty();
     }
 
-    /**
-     * Подменяет тело секции на месте: свёрнутость, вес и позиция секции
-     * сохраняются (пересборка через remove/add их бы сбросила). Нужен фичам,
-     * которые переключают контент между «есть данные» и placeholder'ом.
-     */
+    /** Свёрнутость, вес и позиция сохраняются — пересборка через remove/add их бы сбросила. */
     public setPaneBody(id: string, body: TUIElement): void {
         const pane = this.paneOrThrow(id);
         if (pane.body === body) return;
@@ -135,22 +106,18 @@ export class PaneViewElement extends TUIElement {
         this.markDirty();
     }
 
-    /** Inline-кнопки в заголовке секции (группа `navigation` её меню). */
     public setPaneActions(id: string, actions: readonly IViewTitleAction[]): void {
         this.paneOrThrow(id).header.setActions(actions);
     }
 
-    /** Произвольный контрол в заголовке секции (переключатель каналов Output). */
     public setPaneTitleWidget(id: string, widget: TUIElement | null): void {
         this.paneOrThrow(id).header.setTitleWidget(widget);
     }
 
-    /** Кадр спиннера в заголовке занятой секции (кадры гонит `ProgressService`). */
     public setPaneSpinner(id: string, frame: string | null): void {
         this.paneOrThrow(id).header.setSpinnerFrame(frame);
     }
 
-    /** Прятать ли «⋯» секции — когда её меню пустое, кнопке нечего открывать. */
     public setPaneMenuVisible(id: string, visible: boolean): void {
         this.paneOrThrow(id).header.setMenuVisible(visible);
     }
@@ -191,7 +158,6 @@ export class PaneViewElement extends TUIElement {
         this.markDirty();
     }
 
-    /** Фокус заголовку секции (клавиатурная навигация, тесты). */
     public focusPane(id: string): void {
         this.paneOrThrow(id).header.focus();
     }
@@ -339,10 +305,8 @@ export class PaneViewElement extends TUIElement {
 }
 
 /**
- * Детерминированный largest remainder: целые доли `total` пропорционально
- * весам; остаток — по убыванию дробной части, при равенстве — более ранней
- * секции. Веса всегда положительные (инициализация единицей, setWeights
- * отфильтровывает мусор, drag клампит снизу единицей).
+ * Детерминированный largest remainder: остаток — по убыванию дробной части, при равенстве —
+ * более ранней секции. Веса всегда положительные.
  */
 function distributeByWeight(total: number, weights: readonly number[]): number[] {
     const sum = weights.reduce((a, b) => a + b, 0);

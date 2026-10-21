@@ -7,26 +7,15 @@ import type { PaneCompositePartService } from "./paneCompositePartService.ts";
 import type { IPanelContainerOptions } from "./panel/panelContainerElement.ts";
 import { PanelContainerElement } from "./panel/panelContainerElement.ts";
 
-/**
- * Компонент части с таб-строкой контейнеров (нижняя панель, вторичная боковая
- * панель): владеет {@link PanelContainerElement} и отражает в нём реестр своего
- * {@link PaneCompositePartService} — вкладки, их контент и активную вкладку.
- * Про конкретные вкладки ничего не знает: их заводит `ViewsService`. Клик по
- * табу возвращается в сервис (`activateView`) — на нём висят ленивые фичи
- * (спавн терминала).
- */
+/** Клик по табу возвращается в сервис (`activateView`) — на нём висят ленивые фичи (спавн терминала). */
 export class PaneCompositePartComponent extends Component {
     public readonly view: PanelContainerElement;
 
-    /** Контент, отданный контролу для каждой вкладки, — чтобы не перевешивать без нужды. */
+    /** Чтобы не перевешивать контент без нужды. */
     private contents = new Map<string, TUIElement | null>();
-    /** То же для контролов шапки — чтобы не перевешивать их на каждый чих. */
     private actions = new Map<string, TUIElement | null>();
 
-    /**
-     * @param viewId id корневого контрола — стабильный селектор части для e2e и инспектора.
-     * @param closeCommandId команда кнопки `×` в таб-строке.
-     */
+    /** @param viewId стабильный селектор части для e2e и инспектора. */
     protected constructor(
         private readonly partService: PaneCompositePartService,
         commands: CommandRegistry,
@@ -37,13 +26,11 @@ export class PaneCompositePartComponent extends Component {
         super();
         this.view = new PanelContainerElement(options);
         this.view.id = viewId;
-        // Клик по табу: контрол уже переключил активную вкладку у себя — синхронизируем
-        // сервис и даём его подписчикам среагировать (ленивый спавн терминала и т.п.).
+        // Контрол уже переключил вкладку у себя — синхронизируем сервис.
         this.view.onActivateView = (id) => {
             this.partService.activateView(id);
         };
-        // Кнопка `×` не трогает видимость сама: часть закрывает команда, и это та
-        // же дверь, что у кейбинда и у палитры (включая её `enablement`).
+        // `×` не трогает видимость сама: та же дверь, что у кейбинда и палитры (включая `enablement`).
         this.view.onClose = () => {
             void commands.execute(closeCommandId);
         };
@@ -63,7 +50,6 @@ export class PaneCompositePartComponent extends Component {
         this.syncViews();
     }
 
-    /** Приводит контрол к реестру сервиса: снятые и новые вкладки + изменившийся контент. */
     private syncViews(): void {
         const views = this.partService.getViews();
         for (const id of [...this.contents.keys()]) {
@@ -75,8 +61,7 @@ export class PaneCompositePartComponent extends Component {
         }
         for (const view of views) {
             if (!this.contents.has(view.id)) {
-                // Позиция — та же, что в реестре: вернувшийся контейнер встаёт на
-                // своё место по order, а не в хвост таб-строки.
+                // Вернувшийся контейнер встаёт на своё место по order, а не в хвост.
                 this.view.addView(
                     {
                         id: view.id,

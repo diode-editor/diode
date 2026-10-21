@@ -43,14 +43,9 @@ import { DiffEditorPane2 } from "./diffEditorPane2.ts";
 import { EditorGroupComponent } from "./editorGroupComponent.ts";
 
 const SCREEN = new Size(90, 12);
-/** Полоса вкладок — верхний ряд группы. */
 const TAB_ROW = 0;
 
-/**
- * Пункты меню вкладки собираются из co-located размещений тех же экшенов, что
- * регистрирует `WORKBENCH_ACTIONS` — так тест видит ровно тот состав, который
- * увидит пользователь, а не выдуманный.
- */
+/** Из co-located размещений экшенов `WORKBENCH_ACTIONS` — тот состав, что увидит пользователь. */
 const TAB_MENU_ACTIONS = [
     keepEditorAction,
     closeActiveEditorAction,
@@ -85,11 +80,9 @@ interface Harness {
     app: TestApp;
     service: EditorService;
     component: EditorGroupComponent;
-    /** Открывает меню правым кликом по вкладке с этим индексом. */
     openMenuOnTab: (index: number) => void;
-    /** Правый клик по колонке крестика вкладки. */
     rightClickCloseButton: (index: number) => void;
-    /** Левый клик по колонке крестика вкладки — контрольный «крестик работает». */
+    /** Контрольный «крестик работает». */
     leftClickCloseButton: (index: number) => void;
     tabLabels: () => string[];
     activeIndex: () => number;
@@ -198,7 +191,6 @@ describe("EditorGroupComponent — контекстное меню вкладк�
         harness.app.render();
     }
 
-    /** Открывает файл вкладкой-предпросмотра — как это делает дерево Explorer. */
     function openPreview(harness: Harness, name: string): void {
         harness.service.openFile(writeFile(name), { preview: true });
         harness.app.render();
@@ -371,7 +363,6 @@ describe("EditorGroupComponent — контекстное меню вкладк�
 
     it("«Keep Open» решается по вкладке под курсором, а не по активной", () => {
         const harness = createHarness();
-        // Приколотая слева, превью справа и активно.
         openFiles(harness, "a.ts");
         openPreview(harness, "b.ts");
 

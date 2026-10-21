@@ -64,7 +64,7 @@ describe("EditorComponent – folding recompute keeps the caret visible", () => 
         ctrl.viewState.type("!"); // edit after the region
         await flush();
 
-        expect(regionAt(ctrl, 0)?.isCollapsed).toBe(true); // still folded
+        expect(regionAt(ctrl, 0)?.isCollapsed).toBe(true);
     });
 
     it("drops the fold when the collapsed region's header is edited (current behavior)", async () => {
@@ -89,7 +89,6 @@ describe("EditorComponent – folding recompute keeps the caret visible", () => 
         ctrl.viewState.type("y"); // second edit hits the already-scheduled guard
         await flush();
 
-        // A single recompute ran and rebuilt regions from the final content.
         expect(regionAt(ctrl, 0)).toBeDefined();
         expect(ctrl.viewState.document.getLineContent(3)).toBe("tailxy");
     });

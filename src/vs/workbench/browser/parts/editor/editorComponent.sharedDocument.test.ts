@@ -15,12 +15,7 @@ import { TextFileModelRegistry } from "../../../services/textfile/common/textFil
 import { EditorComponent } from "./editorComponent.ts";
 import { TextEditorPane } from "./textEditorPane.ts";
 
-/**
- * Два редактора на один документ (сплит-вью): создаём вторую пару поверх той же
- * модели руками — тем же путём, каким это сделает split (реестр + ссылка), — и
- * проверяем контракт общего документа: правки видны везде, undo один на
- * документ, dirty/save общие, чужие каретки не прыгают.
- */
+/** Вторая пара поверх той же модели — тем же путём, каким это делает split (реестр + ссылка). */
 describe("EditorComponent: один документ в двух вью", () => {
     let ws: ITempWorkspace;
     let undoRedo: UndoRedoService;
@@ -64,12 +59,10 @@ describe("EditorComponent: один документ в двух вью", () => 
         a.viewState.selections = [createCursorSelection(0, 5)];
         typeIn(a, "\ninserted");
 
-        // Оба показывают один документ с правкой.
         expect(a.getText()).toBe("alpha\ninserted\nbeta\ngamma");
         expect(b.getText()).toBe("alpha\ninserted\nbeta\ngamma");
         // Каретка B сдвинулась вместе со своей строкой (была gamma:3 → строка съехала на 1).
         expect(b.viewState.selections[0].active).toEqual({ line: 3, character: 3 });
-        // Каретка A — своя, в конце вставки.
         expect(a.viewState.selections[0].active).toEqual({ line: 1, character: 8 });
     });
 
@@ -100,7 +93,6 @@ describe("EditorComponent: один документ в двух вью", () => 
         a.undo();
         expect(a.getText()).toBe("x");
 
-        // И redo идёт тем же общим стеком.
         a.redo();
         a.redo();
         expect(b.getText()).toBe("xAB");
@@ -141,14 +133,12 @@ describe("EditorComponent: один документ в двух вью", () => 
         typeIn(a, "!");
 
         a.dispose();
-        // Модель жива: вторая вью продолжает работать с правками.
         expect(b.getText()).toBe("!text");
         expect(b.isModified).toBe(true);
 
         const context = model.undoContext;
         expect(undoRedo.peekUndo(context)).toBeDefined();
         b.dispose();
-        // Штатный dispose модели: undo-бакет очищен.
         expect(undoRedo.peekUndo(context)).toBeUndefined();
     });
 
@@ -156,7 +146,6 @@ describe("EditorComponent: один документ в двух вью", () => 
         const { a, b } = openTwice("folds.txt", ["top", "if {", "  in1", "  in2", "}", "tail"].join("\n"));
         b.viewState.setFoldingRegions([{ startLine: 1, endLine: 4, isCollapsed: true }]);
 
-        // A вставляет строку выше региона.
         a.viewState.selections = [createCursorSelection(0, 3)];
         typeIn(a, "\nadded");
 

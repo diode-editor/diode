@@ -5,7 +5,6 @@ import type { LayoutService } from "../../../services/layout/browser/layoutServi
 
 import { SidebarService } from "./sidebarService.ts";
 
-/** Сайдбар с вьюлетами a и b, активен a; видимость сайдбара — в `layout.visible`. */
 function setup(): { service: SidebarService; layout: { visible: boolean } } {
     const layout = { visible: true };
     const fake = {

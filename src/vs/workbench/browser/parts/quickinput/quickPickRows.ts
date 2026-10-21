@@ -9,38 +9,20 @@ import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 import { CONTENT_PAD } from "./quickPickFrameElement.ts";
 
 /**
- * Строки результатов quick pick для `ListViewElement` — по образцу
- * `contrib/search/browser/searchResultRows.ts` и `contrib/scm/browser/scmChangeRows.ts`:
- * ряд собран из `TextLabelElement`, посимвольная подсветка совпадений — через
- * `setCharStyle`, правое выравнивание — филлером `hflexFill()`.
- *
- * Раскладку считаем здесь, на известной ширине контента: у пикера ширина задана
- * `preferredWidth` до layout, поэтому бюджет лейбла и описания не приходится
- * пересчитывать в `performLayout` (мутация текста во время layout ставила бы
- * дерево грязным на каждом кадре).
- *
- * Приоритет — у лейбла: он показывается целиком, пока влезает, а описание
- * ужимается до остатка (`abbreviatePath`). Метаданные (бейдж/шорткат/подсказка)
- * короткие и показываются всегда целиком.
+ * Раскладку считаем здесь, на известной ширине: мутация текста в `performLayout`
+ * ставила бы дерево грязным на каждом кадре. Лейбл показывается целиком, пока
+ * влезает, описание ужимается до остатка, метаданные — всегда целиком.
  */
 
-/** Отступ между лейблом и описанием / между метаданными. */
 const GAP = "  ";
-/** Колонка иконки: сам глиф плюс пробел за ним. */
 const ICON_WIDTH = 2;
-/** Колонка чекбокса множественного выбора: сам чекбокс плюс пробел за ним. */
 const CHECKBOX_WIDTH = 4;
-/**
- * Чекбоксы рисуем скобками и галочкой `✓` (той же, что у отмеченных
- * пунктов меню), а не символами `☐`/`☑`: у тех ширина в терминале
- * неоднозначная (East Asian Ambiguous) и колонка разъезжалась бы.
- */
+/** Не `☐`/`☑`: у них неоднозначная ширина в терминале (East Asian Ambiguous). */
 const CHECKED_BOX = "[✓] ";
 const UNCHECKED_BOX = "[ ] ";
 
 /**
- * Цвет, который на выделенной строке уступает место цвету выделения. Отдельным
- * when-вариантом, а не пересчётом при смене курсора: состояние `selected` ставит
+ * Отдельным when-вариантом, а не пересчётом при смене курсора: `selected` ставит
  * на хост-строку сам `ListViewElement`, а `in:` видит его на предке.
  */
 function dimmed(fg: string): { fg: string; when: readonly { states: readonly string[]; fg: string }[] } {
@@ -54,25 +36,14 @@ export function rowId(index: number): string {
     return `quickPickItem-${String(index)}`;
 }
 
-/**
- * Колонки ряда, общие для всего списка: их наличие решается по списку целиком,
- * иначе лейблы разъезжались бы между строками.
- */
+/** Наличие колонок решается по списку целиком, иначе лейблы разъезжались бы между строками. */
 export interface IRowColumns {
-    /** Колонка иконки включена (у кого-то в списке иконка есть). */
     readonly hasIcons: boolean;
-    /**
-     * Состояние чекбокса множественного выбора. `undefined` — колонки чекбоксов
-     * в этом списке нет вовсе (одиночный выбор).
-     */
+    /** `undefined` — колонки чекбоксов нет (одиночный выбор). */
     readonly checked?: boolean;
 }
 
-/**
- * Собирает ряд для предмета. `innerWidth` — ширина внутри рамки (фон выделения
- * тянется на неё целиком, поэтому отступы держат крайние филлеры ряда, а не
- * контейнер вокруг списка). Колонки — {@link IRowColumns}.
- */
+/** Фон выделения тянется на весь `innerWidth`, поэтому отступы держат крайние филлеры ряда. */
 export function buildItemRow(
     item: QuickPickItem,
     index: number,
@@ -82,7 +53,6 @@ export function buildItemRow(
     const { hasIcons, checked } = columns;
     const row = new HFlexElement();
     row.id = rowId(index);
-    // База без собственного фона — фон даёт рамка; выделение красит строку целиком.
     row.style = {
         when: [
             {
@@ -96,7 +66,6 @@ export function buildItemRow(
     const contentWidth = Math.max(0, innerWidth - CONTENT_PAD * 2);
     row.addChild(new FillerElement(), { width: hflexFixed(CONTENT_PAD), height: 1 });
 
-    // Чекбокс — самая левая колонка: взгляд ищет отметки одним столбцом.
     const checkboxWidth = checked !== undefined ? CHECKBOX_WIDTH : 0;
     if (checked !== undefined) {
         const box = new TextLabelElement(checked ? CHECKED_BOX : UNCHECKED_BOX);
@@ -124,7 +93,6 @@ export function buildItemRow(
     }
     const metaWidth = [...before, ...after].reduce((sum, part) => sum + textWidth(part), 0);
 
-    // Место, которое делят лейбл и описание, после фиксированных метаданных.
     const shared = Math.max(0, avail - metaWidth);
     const labelNatural = new DisplayLine(item.label).displayWidth;
     const labelFits = labelNatural <= shared;
@@ -134,7 +102,6 @@ export function buildItemRow(
     applyMatchHighlight(label, labelText, item.labelMatchRanges ?? []);
     row.addChild(label, { width: hflexFixed(new DisplayLine(labelText).displayWidth), height: 1 });
 
-    // Филлер съедает остаток — правые части прижимаются к правому краю контента.
     row.addChild(new FillerElement(), { width: hflexFill(), height: 1 });
 
     const description = buildDescription(item, labelFits ? shared - labelNatural : 0);
@@ -148,7 +115,6 @@ export function buildItemRow(
     return row;
 }
 
-/** Описание (путь/категория) в остаток места, при нехватке — сокращённое. */
 function buildDescription(item: QuickPickItem, budget: number): TextLabelElement | null {
     const text = item.description;
     if (text === undefined || text === "") return null;
@@ -168,10 +134,7 @@ function textWidth(label: TextLabelElement): number {
     return new DisplayLine(label.getText()).displayWidth;
 }
 
-/**
- * Красит найденные fuzzy-совпадения. Диапазоны приходят в code-unit-оффсетах
- * исходного лейбла — за обрез усечённого текста не заходим.
- */
+/** Диапазоны — в code-unit-оффсетах исходного лейбла; за обрез усечённого текста не заходим. */
 function applyMatchHighlight(label: TextLabelElement, text: string, ranges: readonly [number, number][]): void {
     for (const [start, end] of ranges) {
         for (let i = start; i < Math.min(end, text.length); i++) {

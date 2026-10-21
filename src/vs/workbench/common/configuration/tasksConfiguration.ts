@@ -1,14 +1,8 @@
 import type { IConfigurationNode } from "../../../platform/configuration/common/configurationRegistry.ts";
 
 /**
- * Настройки задач (`task.*`) — ключи, дефолты, enum и описания дословно из
- * `task.contribution.ts` эталона (у ключей без `scope` там действует
- * `window`). Не зарегистрированы (функции нет): `task.problemMatchers.neverPrompt`,
- * `task.quickOpen.history`, `task.quickOpen.showAll`, `task.allowAutomaticTasks`,
- * `task.reconnection`, `task.notifyWindowOnTaskCompletion`, `task.showDecorations`
- * — см. docs/TODO/Tasks.md. `markdownDescription` эталона (autoDetect,
- * slowProviderWarning, quickOpen.detail, saveBeforeRun) идёт в `description`:
- * markdown-описаний реестр настроек Diode не знает.
+ * Дословно `task.contribution.ts` эталона; `markdownDescription` идёт в `description`.
+ * Ключи без функции не зарегистрированы — docs/TODO/Tasks.md.
  */
 export const tasksConfiguration = {
     id: "task",

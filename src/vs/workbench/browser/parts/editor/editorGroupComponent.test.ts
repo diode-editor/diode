@@ -180,7 +180,6 @@ describe("EditorGroupComponent", () => {
         it("view is a single overlay host with a stable per-group id", () => {
             const { component } = createEditorGroup();
             expect(component.view).toBeInstanceOf(OverlayHostElement);
-            // id несёт id группы (стабилен), а не ViewColumn (пересчитывается).
             expect(component.view.id).toBe(`editorGroup-${String(component.group.id)}`);
         });
 
@@ -318,11 +317,10 @@ describe("EditorGroupComponent", () => {
             const { service, component, dialogs } = createEditorGroup();
             service.openFile(writeFile("a.ts", "const x = 1;"));
             service.openFile(writeFile("b.ts", "b"));
-            service.getEditors()[0].viewState.insertText("y"); // mark modified
+            service.getEditors()[0].viewState.insertText("y");
 
             tabStrip(component).onTabClose?.(0);
 
-            // Not closed — waiting on the user; the asked-about tab is brought forward.
             expect(dialogs.getOpenConfirmSaveDialog()).not.toBeNull();
             expect(tabLabels(component)).toEqual(["a.ts", "b.ts"]);
             expect(service.editorGroups.activeGroup.activeIndex).toBe(0);
@@ -375,9 +373,6 @@ describe("EditorGroupComponent", () => {
 
     describe("updateStyles with missing colors", () => {
         it("uses the default color registry when the theme omits editor foreground/background", () => {
-            // A theme with no colors at all: the dark default registry supplies
-            // editor.foreground / editor.background, so updateStyles never throws and
-            // the editor group is always colored.
             const emptyTheme = WorkbenchTheme.fromThemeFile({ name: "empty", type: "dark", colors: {} });
             const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
             const { service, component } = createEditorGroup({ themeService });

@@ -4,9 +4,7 @@ export const scmConfiguration = {
     id: "scm",
     title: "Source Control",
     properties: {
-        // Читает git-расширение (`refreshLog`): первая страница графа и шаг
-        // догрузки по «Load More». Границы 1..1000 (как в vscode) держит само
-        // расширение — схема настроек здесь min/max не выражает.
+        // Границы 1..1000 держит git-расширение (`refreshLog`): схема min/max здесь не выражает.
         "scm.graph.pageSize": {
             scope: "resource",
             type: "number",

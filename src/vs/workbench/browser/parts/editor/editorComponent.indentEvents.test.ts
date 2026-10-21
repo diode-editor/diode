@@ -4,10 +4,6 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 
-/**
- * Событие `onDidChangeIndentOptions`: смена действующих `tabSize`/`insertSpaces`
- * обязана доезжать до подписчиков (статус-бар), а холостые вызовы — нет.
- */
 describe("EditorComponent — onDidChangeIndentOptions", () => {
     let ws: ITempWorkspace;
 

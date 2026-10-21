@@ -10,9 +10,7 @@ describe("StatusBarComponent", () => {
 
     beforeEach(() => {
         savedEnv = { ...process.env };
-        // Deterministic ambient environment so the terminal-env segment resolves to
-        // a plain "legacy" tier with no non-local modes, regardless of the host
-        // (e.g. running inside tmux/ssh would otherwise leak "ssh,tmux").
+        // Иначе на хосте внутри tmux/ssh в сегмент протекло бы "ssh,tmux".
         delete process.env.TMUX;
         delete process.env.TMUX_PANE;
         delete process.env.SSH_CONNECTION;
@@ -40,7 +38,6 @@ describe("StatusBarComponent", () => {
     it("shows only the terminal-environment segment when no file is open", () => {
         const { component } = createStatusBarHarness();
 
-        // Test env has no probe → legacy tier, no non-local modes.
         expect(statusSegments(component.view)).toEqual([{ text: "legacy", side: "left" }]);
     });
 
@@ -55,8 +52,7 @@ describe("StatusBarComponent", () => {
             { text: "Tab Size: 4", side: "right" },
             { text: "UTF-8", side: "right" },
             { text: "LF", side: "right" },
-            // NULL_LANGUAGE_SERVICE не знает display name — беджик показывает
-            // сырой language id.
+            // NULL_LANGUAGE_SERVICE не знает display name — показывается сырой id.
             { text: "plaintext", side: "right" },
         ]);
     });
@@ -78,7 +74,6 @@ describe("StatusBarComponent", () => {
         const editor = source.openEditor();
         editor.viewState.selections = [];
 
-        // Язык остаётся: активный редактор есть, пропадает только Ln/Col.
         expect(statusTexts(component.view)).toEqual(["legacy", "Tab Size: 4", "UTF-8", "LF", "plaintext"]);
     });
 
@@ -99,7 +94,6 @@ describe("StatusBarComponent", () => {
     it("shows the chord hint entry and clears it on dispose", () => {
         const { component, statusBarService } = createStatusBarHarness();
 
-        // Chord-хинт публикует KeybindingDispatcher как обычную запись сервиса.
         const hint = statusBarService.addEntry({
             id: "status.chordHint",
             text: "(Ctrl+K) was pressed. Waiting for next key…",
@@ -177,7 +171,6 @@ describe("StatusBarComponent", () => {
 
         it("запись без onClick инертна", () => {
             const { component } = createStatusBarHarness();
-            // "legacy" — сегмент терминального окружения, колбэка у него нет.
             expect(() => {
                 clickSegment(component.view, "legacy");
             }).not.toThrow();
@@ -210,8 +203,7 @@ describe("StatusBarComponent", () => {
 
             hint.dispose();
 
-            // Лейбл отцеплен от полосы, но живёт в пуле; его индекс теперь за
-            // пределами снапшота — клик обязан молча ничего не делать.
+            // Лейбл живёт в пуле, но его индекс за пределами снапшота.
             label!.dispatchEvent(
                 new TUIMouseEvent("click", { button: "left", screenX: 0, screenY: 0, localX: 0, localY: 0 }),
             );
@@ -233,7 +225,6 @@ describe("StatusBarComponent", () => {
 
             editor.viewState.type("x");
 
-            // Тот же массив детей и тот же экземпляр лейбла — изменился только текст.
             expect(component.view.getChildren()).toEqual(childrenBefore);
             expect(labelBefore?.getText()).toBe(" Ln 1, Col 2 ");
         });
@@ -243,14 +234,13 @@ describe("StatusBarComponent", () => {
             const countBefore = component.view.getChildren().length;
 
             const hint = statusBarService.addEntry({ id: "hint", text: "hint", alignment: "left", priority: 50 });
-            // Новый левый сегмент → +лейбл (разделителей нет, воздух в самом лейбле).
+            // Разделителей нет — воздух в самом лейбле.
             expect(component.view.getChildren().length).toBe(countBefore + 1);
             const labelsAfterAdd = component.view.getChildren();
 
             hint.dispose();
             expect(component.view.getChildren().length).toBe(countBefore);
 
-            // Повторное добавление переиспользует пул — те же экземпляры детей.
             statusBarService.addEntry({ id: "hint2", text: "hint2", alignment: "left", priority: 50 });
             expect(component.view.getChildren()).toEqual(labelsAfterAdd);
         });

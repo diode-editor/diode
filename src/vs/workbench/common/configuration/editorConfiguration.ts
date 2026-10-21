@@ -24,16 +24,14 @@ export const editorConfiguration = {
                 "Controls whether `editor.tabSize` and `editor.insertSpaces` are automatically detected " +
                 "from the file contents when a file is opened.",
         },
-        // В VS Code дефолт 0; здесь держим небольшой отступ (issue #89) — курсор
-        // «оттупает» от края при прокрутке его в видимую область (PgUp/PgDown, Ctrl+End).
+        // У эталона дефолт 0; отступ — по issue #89: курсор не прилипает к краю при прокрутке в вид.
         "editor.cursorSurroundingLines": {
             scope: "language-overridable",
             type: "number",
             default: 3,
             description: "Controls the minimal number of visible leading lines around the cursor.",
         },
-        // Как в VS Code: "off" гасит подсветку вхождений. Область "multiFile" у нас
-        // не поддержана и ведёт себя как "singleFile".
+        // "multiFile" не поддержан и ведёт себя как "singleFile".
         "editor.occurrencesHighlight": {
             scope: "language-overridable",
             type: "string",
@@ -41,9 +39,7 @@ export const editorConfiguration = {
             default: "singleFile",
             description: "Controls whether the editor highlights semantic symbol occurrences.",
         },
-        // Эталон: editorConfigurationSchema.ts. `configuredByTheme` — флаг
-        // `semanticHighlighting` активной темы (у встроенных он включён). `type`
-        // у эталона нет (только `enum`); наша схема его требует.
+        // `type` у эталона нет (только `enum`); наша схема его требует.
         "editor.semanticHighlighting.enabled": {
             scope: "language-overridable",
             type: ["boolean", "string"],
@@ -56,7 +52,6 @@ export const editorConfiguration = {
             default: "configuredByTheme",
             description: "Controls whether the semanticHighlighting is shown for the languages that support it.",
         },
-        // Эталон: SmartSelect (editorOptions.ts) — Expand/Shrink Selection.
         "editor.smartSelect.selectLeadingAndTrailingWhitespace": {
             scope: "language-overridable",
             type: "boolean",
@@ -102,17 +97,13 @@ export const editorConfiguration = {
             default: false,
             description: "Format a file on save. A formatter must be available (an extension providing it).",
         },
-        // Как в VS Code, ключ гейтит ТОЛЬКО автозапрос: команда
-        // `editor.action.inlineSuggest.trigger` (Alt+\) работает и при `false` —
-        // это и есть «ручной режим».
+        // Как у эталона, гейтит только автозапрос: `editor.action.inlineSuggest.trigger` работает и при `false`.
         "editor.inlineSuggest.enabled": {
             scope: "language-overridable",
             type: "boolean",
             default: true,
             description: "Controls whether to automatically show inline suggestions in the editor.",
         },
-        // Эталон: `editor.inlineSuggest.suppressSuggestions` (editorOptions.ts). Гейт
-        // авто-открытия suggest-попапа, пока призрак на экране (`canShowQuickSuggest`).
         "editor.inlineSuggest.suppressSuggestions": {
             scope: "language-overridable",
             type: "boolean",
@@ -121,10 +112,8 @@ export const editorConfiguration = {
                 "Controls how inline suggestions interact with the suggest widget. If enabled, the suggest widget is " +
                 "not shown automatically when inline suggestions are available.",
         },
-        // Эталон: EditorQuickSuggestions (editorOptions.ts). Схема эталона — anyOf
-        // boolean | строка-режим | объект `{other, comments, strings}`; у нас anyOf
-        // нет, поэтому три типа без enum, а режимы проверяет
-        // `readQuickSuggestions` (тот же `validate`, что у эталона: мусор → дефолт).
+        // У эталона схема — anyOf; у нас anyOf нет, поэтому три типа без enum, а режимы
+        // проверяет `readQuickSuggestions` (мусор → дефолт, как `validate` эталона).
         "editor.quickSuggestions": {
             scope: "language-overridable",
             type: ["boolean", "string", "object"],
@@ -150,10 +139,8 @@ export const editorConfiguration = {
             default: true,
             description: "Controls whether suggestions should automatically show up when typing trigger characters.",
         },
-        // Эталон: editorConfigurationSchema.ts. `offWithInlineSuggestions` там
-        // смотрит не на `editor.inlineSuggest.enabled`, а на настройку включения
-        // Copilot из product.json (`github.copilot.enable`) — так и у нас, см.
-        // `CompletionService.wordBasedSuggestionsOff`.
+        // `offWithInlineSuggestions` смотрит не на `editor.inlineSuggest.enabled`, а на
+        // `github.copilot.enable`, как у эталона (`CompletionService.wordBasedSuggestionsOff`).
         "editor.wordBasedSuggestions": {
             scope: "language-overridable",
             type: "string",
@@ -170,9 +157,7 @@ export const editorConfiguration = {
                 "Controls whether completions should be computed based on words in the document and from which " +
                 "documents they are computed.",
         },
-        // Наши ключи в vscode-неймспейсе (в upstream дебаунс адаптивный и зашит
-        // константой, а таймаута ответа нет вовсе — там CancellationToken).
-        // Имя `delay` — по образцу `editor.quickSuggestionsDelay`.
+        // Наши ключи: у эталона дебаунс адаптивный и зашит константой, а таймаута нет (CancellationToken).
         "editor.inlineSuggest.delay": {
             scope: "language-overridable",
             type: "number",
@@ -191,12 +176,9 @@ export const editorConfiguration = {
                 "Milliseconds to wait for an inline suggestion provider to answer. " +
                 "After that the request is given up on and no suggestion is shown.",
         },
-        // Форма VS Code: объект «kind → включён ли» (`{"source.fixAll": true}`).
-        // Значения true | "explicit" | "always" включают вид, false | "never" —
-        // выключают; все сохранения diode ручные, так что "explicit" ≡ true.
+        // "explicit" ≡ true: все сохранения diode ручные.
         "editor.codeActionsOnSave": {
             scope: "language-overridable",
-            // Как у VS Code: объект «kind → включён» или массив включённых видов.
             type: ["object", "array"],
             default: {},
             description:

@@ -6,7 +6,6 @@ import type { IDisposable } from "../../../../base/common/lifecycle.ts";
 import type { IEditorStateSource } from "./editorStateCancellation.ts";
 import { EditorStateCancellationTokenSource, EditorStateFlag } from "./editorStateCancellation.ts";
 
-/** Панель-заглушка: события правки и каретки дёргаются руками. */
 function fakeEditor(): IEditorStateSource & {
     edit: () => void;
     moveCaret: () => void;

@@ -10,33 +10,18 @@ import { LayoutServiceDIToken } from "../../../services/layout/browser/layoutSer
 
 export const SidebarServiceDIToken = token<SidebarService>("SidebarService");
 
-/** Имя булева контекст-ключа — такими объявляются ключи «вьюлет показан». */
 export type BooleanContextKey = { [K in ContextKey]: ContextKeyTypes[K] extends boolean ? K : never }[ContextKey];
 
-/** Зарегистрированный вьюлет сайдбара: его корневой контрол + как его сфокусировать. */
 interface ISidebarViewlet {
     readonly view: TUIElement;
     readonly focus: () => void;
-    /** Ключ «вьюлет показан» (`searchViewletVisible`…) — из дескриптора контейнера. */
     readonly visibleContextKey: BooleanContextKey | undefined;
 }
 
 /**
- * Реестр вьюлетов сайдбара (левой панели) и переключатель между ними — Explorer,
- * Search, Source Control. У нас нет activity bar: роль переключателя играют
- * команды (`workbench.view.explorer` / `workbench.view.search` /
- * `workbench.view.scm`), а показ вьюлета — это подмена контента сайдбара через
- * {@link LayoutService} (`setSidebarContent`). Аналог `IViewletService`/
- * `ActivityBar` в VS Code, только без визуального бара.
- *
- * Вьюлет = контейнер view-секций, и регистрирует их сюда **только**
- * `ViewsService` (`attachContainer` для `location: "sidebar"`): фичи приносят
- * не контрол, а дескриптор своей view.
- *
- * Ключи «вьюлет показан» выставляет здесь же, одним генериком
- * (IContextKeyContributor): ключ объявляет дескриптор контейнера
- * (`visibleContextKey`), истинен он, когда сайдбар виден и вьюлет активен.
- * Тайминг pull — видимость сайдбара меняется и мимо этого сервиса (Ctrl+B,
+ * Аналог `IViewletService` VS Code без activity bar: переключают команды
+ * `workbench.view.*`. Регистрирует вьюлеты **только** `ViewsService`. Ключи
+ * «вьюлет показан» — pull: видимость сайдбара меняется и мимо сервиса (Ctrl+B,
  * восстановление layout'а), а опрос перед нажатием её не пропустит.
  */
 export class SidebarService implements IContextKeyContributor {
@@ -46,12 +31,12 @@ export class SidebarService implements IContextKeyContributor {
     private activeId: string | null = null;
     private readonly onDidChangeActiveViewletEmitter = new Emitter<string>();
 
-    /** Смена активного вьюлета (id нового) — и стартовая установка, и команда показа. */
+    /** И стартовая установка, и команда показа. */
     public readonly onDidChangeActiveViewlet = this.onDidChangeActiveViewletEmitter.event;
 
     public constructor(private readonly layout: LayoutService) {}
 
-    /** Регистрирует вьюлет под id (Explorer, SCM). Повторная регистрация заменяет. */
+    /** Повторная регистрация заменяет. */
     public registerViewlet(
         id: string,
         view: TUIElement,
@@ -61,23 +46,17 @@ export class SidebarService implements IContextKeyContributor {
         this.viewlets.set(id, { view, focus, visibleContextKey });
     }
 
-    /**
-     * Снимает вьюлет (контейнер уехал в другую часть или опустел). Снятый
-     * активный вьюлет освобождает сайдбар: какой показать вместо него, решает
-     * `ViewsService` (у него дефолтный контейнер).
-     */
+    /** Какой вьюлет показать вместо снятого активного, решает `ViewsService`. */
     public unregisterViewlet(id: string): void {
         if (!this.viewlets.delete(id) || this.activeId !== id) return;
         this.activeId = null;
         this.layout.setSidebarContent(null);
     }
 
-    /** Вьюлет активен и сайдбар виден — то есть он на экране. */
     public isViewletVisible(id: string): boolean {
         return this.activeId === id && this.layout.isSidebarVisible();
     }
 
-    /** Прячет сайдбар, если активен вьюлет `id` (закрыть вид, живущий в сайдбаре). */
     public hideViewlet(id: string): void {
         if (this.activeId === id) this.layout.setSidebarVisible(false);
     }
@@ -95,10 +74,8 @@ export class SidebarService implements IContextKeyContributor {
     }
 
     /**
-     * Делает вьюлет активным: подменяет контент сайдбара. При `reveal` (клик по
-     * команде показа) ещё и раскрывает сайдбар и отдаёт вьюлету фокус; при
-     * `reveal: false` (стартовая установка) — только контент, не трогая видимость,
-     * которую восстанавливает персист layout'а. Неизвестный id — no-op.
+     * `reveal: false` (стартовая установка) — только контент, не трогая видимость:
+     * её восстанавливает персист layout'а. Неизвестный id — no-op.
      */
     public showViewlet(id: string, reveal = true): void {
         const viewlet = this.viewlets.get(id);

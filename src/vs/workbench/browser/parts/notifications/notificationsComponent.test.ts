@@ -10,10 +10,7 @@ import { NotificationService } from "../../../services/notification/browser/noti
 
 import { clampRow, FOCUS_MESSAGE_COMMAND_ID, NotificationsComponent } from "./notificationsComponent.ts";
 
-// Полный маршрут «сервис → overlay-сессия → кадр» закрывает
-// workbench.notifications.test.ts; здесь — жизнь компонента ДО attachHost и
-// после dispose (сообщения в headless-порядке не должны ни падать, ни оставлять
-// открытых оверлеев) и подпись бинда в подсказке.
+// Полный маршрут «сервис → overlay → кадр» — в workbench.notifications.test.ts.
 
 function makeComponent(binding?: string) {
     const notifications = new NotificationService();
@@ -42,13 +39,11 @@ describe("clampRow", () => {
     });
 
     it("на низком экране высокий тост не уезжает выше строки меню", () => {
-        // Строка меню занимает ряд 0 — тост начинается не выше первого.
         expect(clampRow(-5, 24)).toBe(1);
         expect(clampRow(0, 24)).toBe(1);
     });
 
     it("и не уезжает за нижний край кадра", () => {
-        // Последний допустимый ряд — предпоследний: ниже статус-бар.
         expect(clampRow(100, 24)).toBe(23);
     });
 
@@ -110,7 +105,6 @@ describe("NotificationsComponent — кнопка закрытия тоста", 
         notifications.show({ severity: "error", message: "второй", modal: false, items: [] });
         expect(screen(testApp)).toContain("sticky");
 
-        // Кнопка первого тоста в стеке: жмём её так, как это делает человек.
         const buttons = testApp.querySelectorAll("ButtonElement");
         buttons[0].focus();
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
@@ -141,7 +135,6 @@ describe("NotificationsComponent — dispose", () => {
         expect(component.getOpenAsk()).toBeNull();
         expect(screen(testApp)).not.toContain("ask?");
 
-        // Сервис ещё жив, но компонент на него больше не реагирует.
         expect(() => {
             notifications.show({ severity: "error", message: "после dispose", modal: false, items: [] });
         }).not.toThrow();

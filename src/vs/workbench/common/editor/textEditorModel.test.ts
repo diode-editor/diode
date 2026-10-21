@@ -10,10 +10,6 @@ import { UndoRedoService } from "../../../platform/undoRedo/common/undoRedoServi
 import { SyntheticTextModel } from "./syntheticTextModel.ts";
 import type { ITextEditTarget } from "./textEditorModel.ts";
 
-/**
- * Буфер без файла (`BaseTextEditorModel` через `SyntheticTextModel`): шаги
- * истории, действующая вью, перерисовка прикреплённых вью.
- */
 describe("BaseTextEditorModel", () => {
     function setup() {
         const undoRedo = new UndoRedoService();
@@ -22,7 +18,6 @@ describe("BaseTextEditorModel", () => {
         return { undoRedo, model };
     }
 
-    /** Цель-вью без редактора: выделения задаёт тест, перерисовки считаются. */
     function fakeTarget(selections: ISelection[]): ITextEditTarget & { dirtied: number } {
         const target = {
             dirtied: 0,
@@ -35,7 +30,6 @@ describe("BaseTextEditorModel", () => {
         return target;
     }
 
-    /** Вью для undo/redo: записывает, какие выделения ей вернули. */
     function recordingView() {
         const restored: (readonly ISelection[])[] = [];
         return { restored, restoreSelections: (selections: readonly ISelection[]) => restored.push(selections) };

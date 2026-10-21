@@ -11,11 +11,6 @@ import { SyntheticTextModel } from "../../../common/editor/syntheticTextModel.ts
 import { EditorComponent } from "./editorComponent.ts";
 import { isTextEditorPane, TextEditorPane } from "./textEditorPane.ts";
 
-/**
- * Вкладка над синтетикой (Output, виртуальный документ, снимок диффа): файла
- * у неё нет, и файловые операции фасада отвечают честно — без записи, без
- * перечитки, с кодировкой по умолчанию.
- */
 describe("TextEditorPane над синтетической моделью", () => {
     function syntheticPane(): TextEditorPane<SyntheticTextModel> {
         const model = new SyntheticTextModel(

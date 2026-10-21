@@ -5,10 +5,6 @@ import { createTempWorkspace, type ITempWorkspace } from "../../../../../TestUti
 import { createEditorPane, type TextEditorPane } from "../../../../../TestUtils/TextEditorPaneFactory.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 
-/**
- * Провод `onDidType` от `EditorElement` до панели: подписчик панели слышит
- * набор, и подписка переживает пересоздание виджета при перечитке файла.
- */
 describe("TextEditorPane.onDidType", () => {
     let ws: ITempWorkspace;
 

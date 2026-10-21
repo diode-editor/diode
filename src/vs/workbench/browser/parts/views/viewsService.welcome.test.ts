@@ -16,7 +16,6 @@ const WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "button", label: "Open Folder", command: "openFolder" },
 ];
 
-/** Пустое состояние секции, которое реально стоит в контейнере (или `null`). */
 function placeholderOf(h: IViewsHarness, containerId: string, viewId: string): TUIElement | null {
     return h.paneView(containerId).querySelector(`#viewPlaceholder-${viewId.replaceAll(".", "-")}`);
 }
@@ -36,7 +35,6 @@ function viewWithBody(
     return { ...view(id, containerId, order, extra), body };
 }
 
-/** Стоит ли на экране именно тело секции (а не пустое состояние). */
 function bodyShown(h: IViewsHarness, containerId: string, descriptor: IViewDescriptor): boolean {
     const body = descriptor.body;
     if (body === null) throw new Error("bodyShown: дескриптор без тела");

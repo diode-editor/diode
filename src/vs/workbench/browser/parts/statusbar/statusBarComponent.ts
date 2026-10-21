@@ -18,31 +18,16 @@ import { Component } from "../../component.ts";
 
 export const StatusBarComponentDIToken = token<StatusBarComponent>("StatusBarComponent");
 
-/**
- * Стиль кликабельного сегмента: подсветка под курсором, как у элемента с
- * командой в VS Code. Инертные сегменты (`Ln X, Col Y`, язык) её не получают —
- * подсветка обещает клик, которого нет.
- */
+/** Инертные сегменты (`Ln X, Col Y`, язык) подсветку не получают: она обещает клик, которого нет. */
 const CLICKABLE_STYLE: TUIStyle = {
     when: [{ states: ["hover"], bg: "statusBarItem.hoverBackground", fg: "statusBarItem.hoverForeground" }],
 };
 const INERT_STYLE: TUIStyle = {};
 
 /**
- * Компонент статус-бара: собирает полосу из примитивов tuidom (HFlex +
- * TextLabel + Filler) и отражает в ней записи {@link StatusBarService}
- * (обновление по `onDidChangeEntries`). Про поставщиков записей ничего не
- * знает — сегменты публикуют contribution-сервисы (`EditorStatusContribution`
- * и др.).
- *
- * Дерево строится один раз и мутируется на месте (паттерн FindComponent):
- * пока состав сторон не меняется, обновляются только тексты лейблов — путь
- * курсора `Ln X, Col Y` не пересобирает поддерево на каждое нажатие.
- * Пересборка `replaceChildren` происходит лишь при смене числа сегментов;
- * лейблы живут в монотонно растущем пуле.
- *
- * Правый клик по полосе открывает меню видимости сегментов (галочки +
- * «Hide 'X'» для сегмента под курсором) — переключает {@link StatusBarService}.
+ * Дерево строится один раз и мутируется на месте: пока состав сторон не
+ * меняется, обновляются только тексты — путь курсора не пересобирает поддерево
+ * на каждое нажатие. Лейблы живут в монотонно растущем пуле.
  */
 export class StatusBarComponent extends Component {
     public static dependencies = [StatusBarServiceDIToken, ContextMenuServiceDIToken] as const;
@@ -50,14 +35,12 @@ export class StatusBarComponent extends Component {
     public readonly view: HFlexElement;
 
     /**
-     * Краевые паддинги полосы. Правый — не только воздух: нижне-правую ячейку
-     * терминала рендер вообще никогда не пишет (запись туда провоцирует
-     * hardware scroll — см. terminalRenderer), и паддинг гарантирует, что в
-     * эту нерисуемую ячейку не попадёт значимый символ последнего сегмента.
+     * Правый паддинг — не только воздух: нижне-правую ячейку терминала рендер не
+     * пишет никогда (hardware scroll, см. terminalRenderer), и значимый символ
+     * последнего сегмента туда не попадёт.
      */
     private readonly padLeft = new FillerElement();
     private readonly padRight = new FillerElement();
-    /** Заполняет середину между сторонами и красит фон полосы. */
     private readonly centerFill = new FillerElement();
     private readonly leftLabels: TextLabelElement[] = [];
     private readonly rightLabels: TextLabelElement[] = [];
@@ -71,8 +54,6 @@ export class StatusBarComponent extends Component {
         super();
         this.view = new HFlexElement();
         this.view.id = "statusBar";
-        // Лейблы и паддинги своих цветов не задают — наследуют fg/bg полосы
-        // через каскад; токены резолвит тема на корне.
         this.view.style = { fg: "statusBar.foreground", bg: "statusBar.background" };
         this.view.addEventListener("contextmenu", (event) => {
             event.preventDefault();
@@ -109,16 +90,10 @@ export class StatusBarComponent extends Component {
     }
 
     /**
-     * Приводит лейбл к записи: текст с краевыми пробелами (подсветка под
-     * курсором накрывает сегмент с воздухом, как блок элемента в VS Code),
-     * hover-стиль по кликабельности и id по записи. Присваивание стиля равным
-     * значением сеттер отсекает сам, текст сверяем здесь — иначе каждое
-     * движение курсора помечало бы лейбл грязным.
-     *
-     * Id лейбла едет за записью, а не за индексом в пуле: селектор
-     * `#statusBarItem-status-scm-branch` должен указывать на сегмент ветки,
-     * какой бы лейбл пула его сейчас ни рисовал. Точки в id меняем на дефисы —
-     * селекторы инспектора/e2e их не поддерживают (как в `ViewsService`).
+     * Текст сверяем здесь (равный стиль отсекает сам сеттер) — иначе каждое
+     * движение курсора помечало бы лейбл грязным. Id едет за записью, а не за
+     * индексом в пуле; точки в нём меняем на дефисы — селекторы инспектора/e2e
+     * их не поддерживают (как в `ViewsService`).
      */
     private syncLabel(label: TextLabelElement, entry: IStatusBarEntry): void {
         const text = ` ${entry.text} `;
@@ -128,13 +103,9 @@ export class StatusBarComponent extends Component {
     }
 
     /**
-     * Доращивает пул лейблов до нужного размера. Клик-слушатель вешается один
-     * раз при создании и замыкает (сторона, индекс): колбэк записи резолвится
-     * в момент клика из текущего снапшота, поэтому переиспользование лейбла
-     * под другую запись ничего не перевешивает, а запись без onClick инертна.
-     *
-     * Команду запускает только ЛЕВАЯ кнопка: правый клик по сегменту — это
-     * запрос меню видимости, и заодно чекаутить ветку он не должен.
+     * Колбэк записи резолвится в момент клика из текущего снапшота — переиспользование
+     * лейбла ничего не перевешивает. Команду запускает только ЛЕВАЯ кнопка: правый
+     * клик — запрос меню видимости, чекаутить ветку он не должен.
      */
     private ensureLabels(pool: TextLabelElement[], side: "left" | "right", count: number): void {
         while (pool.length < count) {
@@ -150,13 +121,8 @@ export class StatusBarComponent extends Component {
     }
 
     /**
-     * Пересобирает детей полосы: [padL, левые сегменты, centerFill, правые
-     * сегменты, padR]. Отдельных разделителей нет — соседние сегменты
-     * разделяют собственные краевые пробелы, как блоки элементов в VS Code.
-     * Каждая колонка покрыта каким-то ребёнком, поэтому фон полосы красится
-     * без собственного render у HFlex. При нехватке ширины centerFill
-     * схлопывается в 0 — правая группа теряет правое выравнивание и обрезается
-     * краем экрана.
+     * Разделителей нет — сегменты разделяют собственные краевые пробелы. Каждая
+     * колонка покрыта ребёнком, поэтому фон красится без своего render у HFlex.
      */
     private rebuildChildren(): void {
         const children: TUIElement[] = [];
@@ -179,10 +145,8 @@ export class StatusBarComponent extends Component {
     }
 
     /**
-     * Меню видимости: галочки по всем именованным записям (включая скрытые —
-     * иначе их нечем вернуть) и «Hide 'X'» для сегмента под курсором. Правый
-     * клик мимо сегментов даёт меню без «Hide» — это и есть путь назад, когда
-     * скрыто всё.
+     * Галочки — по всем записям, включая скрытые (иначе их нечем вернуть). Клик
+     * мимо сегментов даёт меню без «Hide» — путь назад, когда скрыто всё.
      */
     private showVisibilityMenu(event: TUIContextMenuEvent): void {
         const target = this.entryOfLabel(event.target);
@@ -194,8 +158,6 @@ export class StatusBarComponent extends Component {
     }
 
     private visibilityMenuEntries(target: IStatusBarEntry | null): MenuEntry[] {
-        // flatMap, а не filter+map: имя отсеивается и достаётся в одном месте,
-        // так что «оно тут точно есть» не приходится утверждать отдельно.
         const entries: MenuEntry[] = this.statusBarService.allEntries().flatMap((entry) => {
             const name = entry.name;
             if (name === undefined) return [];
@@ -224,12 +186,7 @@ export class StatusBarComponent extends Component {
         ];
     }
 
-    /**
-     * Запись, которой принадлежит лейбл-цель события (null — клик мимо
-     * сегментов). Ищем среди ТЕКУЩИХ записей, а не по всему пулу: лейбл,
-     * оставшийся в пуле от снятой записи, отцеплен от дерева и целью события
-     * быть не может.
-     */
+    /** Ищем среди ТЕКУЩИХ записей: лейбл снятой записи отцеплен от дерева и целью события быть не может. */
     private entryOfLabel(target: TUIElement | null): IStatusBarEntry | null {
         const left = this.currentLeft.findIndex((_, i) => this.leftLabels[i] === target);
         if (left >= 0) return this.currentLeft[left];

@@ -47,7 +47,7 @@ function token(overrides: Partial<MouseToken> & { action: MouseToken["action"] }
     };
 }
 
-/** Полный клик: press + release в одной ячейке (координаты 0-based экрана). */
+/** Press + release в одной ячейке; координаты 0-based экрана. */
 function click(app: TestApp, x: number, y: number, button: "left" | "right" = "left"): void {
     app.backend.simulateMouse(token({ action: "press", button, x: x + 1, y: y + 1 }));
     app.backend.simulateMouse(token({ action: "release", button, x: x + 1, y: y + 1 }));
@@ -255,7 +255,6 @@ describe("PaneViewElement mouse", () => {
         const hoverBg = app.backend.getBgAt(new Point(buttonX, pos.y));
         expect(hoverBg).not.toBe(restBg);
 
-        // Курсор ушёл на название — подсветка снялась.
         app.backend.simulateMouse(token({ action: "move", x: pos.x + 3, y: pos.y + 1 }));
         app.render();
         expect(app.backend.getBgAt(new Point(buttonX, pos.y))).toBe(restBg);

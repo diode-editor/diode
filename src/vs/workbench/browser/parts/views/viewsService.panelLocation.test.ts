@@ -16,9 +16,8 @@ const LEVELS = new MenuId("test.panel.levels");
 const channelItem: MenuContribution = { menuId: CHANNELS, command: "output.show.main", title: "Main" };
 
 /**
- * Контейнер в нижней панели — та же модель, что вьюлет сайдбара, только место
- * другое: заголовком служит таб, поэтому единственная секция рисуется без своей
- * строки заголовка, а её кнопки и виджет уезжают в таб-строку.
+ * Заголовком служит таб: единственная секция рисуется без своей строки заголовка, а её
+ * кнопки и виджет уезжают в таб-строку.
  */
 function panelHarness(views: string[], contributions: MenuContribution[] = []): IViewsHarness {
     const h = makeViewsHarness(contributions);
@@ -172,7 +171,6 @@ describe("ViewsService — полоса контролов в таб-строк�
         const labels = actions
             .querySelectorAll("TextLabelElement")
             .map((l) => (l as TextLabelElement).getText().trim());
-        // Пустое название, кнопка, разделитель, «⋯».
         expect(labels).toEqual(["", "C", "\u2502", "⋯"]);
 
         h.header(OUTPUT)!.onMenu?.({ screenX: 0, screenY: 0 });
@@ -271,7 +269,6 @@ describe("ViewsService — полоса контролов в таб-строк�
         ]);
     });
 
-    /** Есть ли «⋯» в полосе таб-строки при единственном пункте `item`. */
     function menuButtonShown(item: Partial<MenuContribution>): boolean {
         const h = panelHarness(
             ["output.view"],

@@ -153,7 +153,6 @@ describe("ViewTitleRowElement — скрытая кнопка «⋯»", () => {
         layout(row);
         // Кнопка осталась одна — уехала к правому краю, разделителя больше нет.
         expect(row.hitZone(28)).toEqual({ kind: "action", actionId: "cmd.clear" });
-        // Повтор того же состояния — no-op.
         row.setMenuVisible(false);
         layout(row);
         expect(row.hitZone(28)).toEqual({ kind: "action", actionId: "cmd.clear" });
@@ -193,7 +192,6 @@ describe("ViewTitleRowElement — подсветка под курсором", (
 
         row.setHoveredZone(row.hitZone(20));
         expect(bgAt(row, 20)).toBe(HOVER_BG);
-        // Соседняя кнопка и разделитель остаются в покое.
         expect(bgAt(row, 24)).toBe(restBg);
         expect(bgAt(row, 22)).toBe(restBg);
 
@@ -201,7 +199,6 @@ describe("ViewTitleRowElement — подсветка под курсором", (
         expect(bgAt(row, 28)).toBe(HOVER_BG);
         expect(bgAt(row, 20)).toBe(restBg);
 
-        // Курсор на названии — не подсвечено ничего.
         row.setHoveredZone(row.hitZone(2));
         expect(bgAt(row, 28)).toBe(restBg);
 
@@ -265,7 +262,6 @@ describe("ViewTitleRowElement — недоступная кнопка", () => {
         ]);
         layout(row);
         expect(render(row).getFgAt(new Point(24, 0))).toBe(DISABLED_FG);
-        // Соседняя осталась доступной.
         expect(render(row).getFgAt(new Point(20, 0))).toBe(ENABLED_FG);
     });
 
@@ -295,7 +291,6 @@ describe("ViewTitleRowElement — спиннер занятости", () => {
         expect(titleText(row)).toBe(` ${CHEVRON_EXPANDED} CHANGES ⠋`);
         expect(row.isBusy).toBe(true);
 
-        // Кадр сменился — надпись обновилась, повтор того же кадра no-op.
         row.setSpinnerFrame("⠙");
         expect(titleText(row)).toBe(` ${CHEVRON_EXPANDED} CHANGES ⠙`);
         row.setSpinnerFrame("⠙");

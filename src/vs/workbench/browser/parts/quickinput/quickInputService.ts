@@ -13,94 +13,50 @@ import {
 
 export const QuickInputServiceDIToken = token<QuickInputService>("QuickInputService");
 
-/**
- * Исход валидации: голая строка — ошибка (блокирует Enter), объект несёт свою
- * строгость (предупреждение и подсказка показываются, но Enter не блокируют).
- */
+/** Голая строка — ошибка (блокирует Enter); объект со своей строгостью Enter не блокирует. */
 export type InputValidation = string | { message: string; severity: ValidationSeverity };
 
-/**
- * Options for a single-line text prompt, mirroring VS Code's `showInputBox`.
- */
 export interface InputBoxOptions {
-    /** Title drawn in the overlay's top border. */
     title?: string;
-    /** Subtitle drawn under the input (dim), e.g. an instruction. */
     prompt?: string;
-    /** Ghost text shown when the field is empty. */
     placeholder?: string;
-    /** Initial value; the cursor is seeded at the end. */
+    /** Курсор ставится в конец. */
     value?: string;
-    /**
-     * Поле пароля: набранное закрывается маской и не показывается ни на экране,
-     * ни в инспекторе. Само значение (и то, что уезжает в `validateInput`, и то,
-     * чем резолвится показ) — настоящее.
-     */
+    /** Маска только на экране и в инспекторе; `validateInput` и результат получают настоящее значение. */
     password?: boolean;
-    /**
-     * Валидация значения. Вернуть {@link InputValidation} — показать сообщение
-     * (ошибка ещё и блокирует Enter), вернуть `null` — значение в порядке.
-     *
-     * Может быть асинхронной: за валидацией расширения стоит раунд-трип через
-     * границу процессов. Ответы, устаревшие к моменту прихода (пользователь уже
-     * дописал), сервис отбрасывает — на экране всегда сообщение о ТЕКУЩЕМ тексте.
-     */
+    /** Ответы, устаревшие к моменту прихода, отбрасываются — на экране сообщение о текущем тексте. */
     validateInput?: (value: string) => InputValidation | null | Promise<InputValidation | null>;
 }
 
-/**
- * Options for a list pick, mirroring VS Code's `showQuickPick`.
- */
 export interface QuickPickOptions {
-    /** Title drawn in the overlay's top border. */
     title?: string;
-    /** Ghost text shown when the query field is empty. */
     placeholder?: string;
-    /** The items to choose from. Filtered live by their `label` as the user types. */
     items: readonly QuickPickItem[];
-    /** Row to pre-highlight when the picker opens (clamped into range; default 0). */
+    /** Клампится в границы; по умолчанию 0. */
     activeIndex?: number;
-    /**
-     * Fired as the highlighted item changes (open, arrow navigation, filtering) —
-     * the hook behind live preview (e.g. applying a theme while browsing). Receives
-     * `undefined` when the filtered list is empty.
-     */
+    /** Файрится и на открытии и фильтрации, не только на навигации; `undefined` — список пуст. */
     onDidChangeActive?: (item: QuickPickItem | undefined, index: number) => void;
 }
 
 /** Options for a multi-select list pick (`showQuickPick` с `canPickMany`). */
 export interface QuickPickManyOptions {
-    /** Title drawn in the overlay's top border. */
     title?: string;
-    /** Ghost text shown when the query field is empty. */
     placeholder?: string;
-    /** The items to choose from. Filtered live by their `label` as the user types. */
     items: readonly QuickPickItem[];
-    /** Пункты, отмеченные при открытии. Идентичность — по ссылке на предмет. */
+    /** Идентичность — по ссылке на предмет. */
     picked?: readonly QuickPickItem[];
 }
 
-/** Что отдаёт наружу пикер: значение InputBox, строка списка либо набор строк. */
 type QuickInputResult = string | QuickPickItem | readonly QuickPickItem[] | undefined;
 
-/** Валидация вернула промис (а не готовый исход) — ждём его. */
 function isThenable(value: unknown): value is Promise<InputValidation | null> {
     return typeof (value as { then?: unknown } | null)?.then === "function";
 }
 
 /**
- * VS Code-style QuickInput service (the reusable "enter a value" / "pick from a
- * list" control).
- *
- * Виджетом и overlay-сессией владеет {@link QuickInputComponent} — общий с
- * {@link import("../../../contrib/quickaccess/browser/quickOpenService.ts").QuickOpenService}; сервис на каждый
- * показ полностью ре-инициализирует состояние и колбэки виджета. Only one
- * quick-input is ever active at a time; a new call cancels any previous one.
- *
- * Exposes the InputBox flavor (`input()`), the list-pick flavor (`quickPick()`),
- * множественный выбор (`quickPickMany()`) и живой объектный пикер
- * (`createQuickPick()`, {@link QuickPickSession}). The file-dialog flavor reuses
- * the same widget/session and is a future addition.
+ * Виджетом и overlay-сессией владеет {@link QuickInputComponent}, общий с
+ * QuickOpenService: на каждый показ состояние и колбэки виджета ре-инициализируются,
+ * новый показ отменяет предыдущий.
  */
 export class QuickInputService {
     public static dependencies = [QuickInputComponentDIToken] as const;
@@ -109,14 +65,9 @@ export class QuickInputService {
 
     public constructor(private readonly component: QuickInputComponent) {}
 
-    /**
-     * Prompt the user for a single line of text. Resolves with the entered value
-     * on Enter, or `undefined` if the prompt is dismissed (Escape / outside
-     * click / superseded by another call).
-     */
+    /** `undefined` — отмена: Escape, клик мимо, перехват другим показом. */
     public input(opts: InputBoxOptions = {}): Promise<string | undefined> {
-        // A previous prompt still open? Cancel it before starting a new one.
-        // (Включая чужой показ на общем виджете — например, открытый Quick Open.)
+        // Включая чужой показ на общем виджете — например, открытый Quick Open.
         this.settle(undefined);
         this.component.hide();
 
@@ -134,17 +85,12 @@ export class QuickInputService {
             view.placeholder = opts.placeholder ?? "";
             view.password = opts.password === true;
             view.validationSeverity = "error";
-            // Clear any list-pick leftovers so a prior quickPick() can't fire here.
+            // Иначе accept прошлого quickPick() сработал бы здесь.
             view.onAccept = null;
             view.onActiveItemChanged = null;
 
             const validate = opts.validateInput;
-            /**
-             * Последний запрос валидации. Асинхронная валидация — это гонка:
-             * пока расширение думает над `ab`, пользователь дописал до `abcde`,
-             * и ответ про `ab` пришёл бы последним. Применяем только ответ на
-             * САМЫЙ СВЕЖИЙ запрос этой сессии.
-             */
+            // Асинхронная валидация — гонка: ответ про `ab` может прийти после `abcde`.
             const validation = new LatestRequest();
             const showValidation = (outcome: InputValidation | null): void => {
                 if (outcome === null) {
@@ -171,8 +117,6 @@ export class QuickInputService {
                     return;
                 }
                 void outcome.then((result) => {
-                    // Ответ устарел либо сессию уже перехватили — молча гасим:
-                    // иначе под полем висело бы сообщение о чужом тексте.
                     if (ticket.isStale() || this.pendingResolve !== owner) return;
                     showValidation(result);
                 });
@@ -180,24 +124,14 @@ export class QuickInputService {
             view.onQueryChange = runValidation;
 
             view.setQuery(opts.value ?? "");
-            // Seed the validation state for the initial value.
             runValidation(view.getQuery());
 
             this.component.show();
         });
     }
 
-    /**
-     * Present a filterable list and resolve with the chosen {@link QuickPickItem}
-     * on Enter, or `undefined` if dismissed (Escape / outside click / superseded).
-     *
-     * The list is filtered live by a case-insensitive substring match on each
-     * item's `label`. `onDidChangeActive` fires whenever the highlighted item
-     * changes (open, navigation, filtering) — the seam for live preview.
-     */
     public quickPick(opts: QuickPickOptions): Promise<QuickPickItem | undefined> {
-        // A previous pick still open? Cancel it before starting a new one.
-        // (Включая чужой показ на общем виджете — например, открытый Quick Open.)
+        // Включая чужой показ на общем виджете — например, открытый Quick Open.
         this.settle(undefined);
         this.component.hide();
 
@@ -212,8 +146,7 @@ export class QuickInputService {
                 onDidChangeActive: opts.onDidChangeActive,
             });
             view.onAccept = (item) => {
-                // Mirror the InputBox flavor: defer the close so the trailing key
-                // event of this Enter does not land in the newly-focused editor.
+                // Отложенное закрытие: хвост этого Enter не должен долететь до редактора, получившего фокус.
                 queueMicrotask(() => {
                     this.settle(item);
                 });
@@ -226,12 +159,7 @@ export class QuickInputService {
         });
     }
 
-    /**
-     * Множественный выбор: у строк появляются чекбоксы, `Space` переключает
-     * отметку, `Enter` принимает набор. Резолвится массивом отмеченных предметов
-     * **в порядке исходного списка** (как в VS Code, а не в порядке отметки);
-     * пустой массив — «ничего не отмечено», а `undefined` — отмена.
-     */
+    /** Резолвится в порядке исходного списка, как в VS Code; `[]` — ничего не отмечено, `undefined` — отмена. */
     public quickPickMany(opts: QuickPickManyOptions): Promise<readonly QuickPickItem[] | undefined> {
         // Stryker disable next-line CallExpression: дублируется строкой ниже — `hide()` и так дёргает onDidClose прошлого владельца, а тот доводит его обещание до undefined; явный settle только называет намерение
         this.settle(undefined);
@@ -247,18 +175,14 @@ export class QuickInputService {
                 placeholder: opts.placeholder,
                 canPickMany: true,
             });
-            // Отметки ставим ПОСЛЕ заполнения списка: их рисуют сами строки.
+            // Отметки — ПОСЛЕ заполнения списка: их рисуют сами строки.
             // Stryker disable next-line ArrayDeclaration: подмена пустого массива непустым ничего не меняет — отметки ищутся по идентичности предметов списка, и чужой объект в наборе не совпадёт ни с одним из них
             view.setCheckedItems(opts.picked ?? []);
             view.onAccept = null;
             view.onAcceptMany = () => {
-                // Порядок ответа — исходного списка: фильтровать нужно allItems,
-                // а не отфильтрованные `view.items`, иначе отмеченное, но
-                // отсеянное текущим запросом, потерялось бы.
+                // Фильтруем allItems, а не `view.items`: иначе отмеченное, но отсеянное запросом, потерялось бы.
                 const checked = view.checkedItems;
                 const picked = allItems.filter((item) => checked.has(item));
-                // Отложенное закрытие — как у остальных флейворов: хвост того же
-                // Enter не должен долететь до получившего фокус редактора.
                 queueMicrotask(() => {
                     this.settle(picked);
                 });
@@ -268,11 +192,6 @@ export class QuickInputService {
         });
     }
 
-    /**
-     * Общая часть обоих list-флейворов: состояние виджета, живая фильтрация по
-     * `label` и подписка на смену подсветки. Возвращает настроенный виджет —
-     * колбэк принятия каждый флейвор вешает свой.
-     */
     private configurePick(
         allItems: readonly QuickPickItem[],
         opts: {
@@ -303,7 +222,6 @@ export class QuickInputService {
             const needle = query.trim().toLowerCase();
             // Stryker disable next-line ConditionalExpression,StringLiteral: ветка с пустым запросом — только чтобы не гонять фильтр вхолостую; `includes("")` истинно для любой строки, так что отфильтрованный список совпал бы с исходным
             view.items = needle === "" ? allItems : allItems.filter((it) => it.label.toLowerCase().includes(needle));
-            // `items =` resets the highlight to the top; surface that as an active change.
             notifyActive();
         };
         view.onActiveItemChanged = () => {
@@ -315,19 +233,12 @@ export class QuickInputService {
         return view;
     }
 
-    /**
-     * Объектный пикер (`createQuickPick` эталона): живой, закрывается только
-     * владельцем, Escape-ом или перехватом виджета. События — в `events`.
-     */
+    /** `createQuickPick` эталона: закрывается только владельцем, Escape-ом или перехватом виджета. */
     public createQuickPick<T extends QuickPickSessionItem>(events: QuickPickSessionEvents<T>): QuickPickSession<T> {
         return new QuickPickSession<T>(this.slot, events);
     }
 
-    /**
-     * Слот виджета для {@link QuickPickSession}: тот же механизм владения, что
-     * у промисных флейворов, — владелец показа это `pendingResolve`, и любой
-     * перехват (`settle`) доводит до него потерю.
-     */
+    /** Владелец показа — `pendingResolve`, как у промисных флейворов: перехват (`settle`) доводит до него потерю. */
     private readonly slot: IQuickInputSlot = {
         claim: (onLost) => {
             // Stryker disable next-line CallExpression: дублируется строкой ниже — `hide()` и так дёргает onDidClose прошлого владельца, а тот доводит его показ до конца сам; явный settle только называет намерение (как в quickPickMany)
@@ -345,41 +256,28 @@ export class QuickInputService {
         },
     };
 
-    /**
-     * Снять текущий показ извне (токен отмены расширения, смерть его процесса):
-     * промис владельца доводится до `undefined`, оверлей закрывается. Ничего не
-     * открыто — no-op.
-     */
     public cancel(): void {
         this.settle(undefined);
     }
 
-    /**
-     * Перехват общего виджета этим сервисом: колбэки отмены/принятия значения и
-     * канал закрытия сессии перенастраиваются на текущий промис (Quick Open при
-     * своём открытии выставляет их обратно на себя).
-     */
+    /** Quick Open при своём открытии перенастраивает колбэки виджета обратно на себя. */
     private takeOwnership(): void {
         const view = this.component.view;
         view.onCancel = () => {
             this.settle(undefined);
         };
         view.onAcceptValue = (value) => {
-            // The widget already blocks Enter on a hard validation error.
-            // Defer to a microtask (like QuickOpenService): closing the session here
-            // restores focus to the editor, and doing that synchronously mid-keypress would
-            // let the trailing key event of the same Enter land in the now-focused editor.
+            // Отложенное закрытие (как в QuickOpenService): синхронный возврат фокуса посреди
+            // нажатия отдал бы хвост того же Enter редактору.
             queueMicrotask(() => {
                 this.settle(value);
             });
         };
         this.component.onDidClose = () => {
-            // Outside click / Escape / programmatic close all resolve as cancelled.
             this.settle(undefined);
         };
     }
 
-    /** Resolve the pending promise exactly once and close the overlay. */
     private settle(value: QuickInputResult): void {
         const resolve = this.pendingResolve;
         if (resolve === null) return;

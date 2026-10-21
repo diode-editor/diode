@@ -4,9 +4,6 @@ import type { IMenuEntryGroup, ResolvedMenuEntry } from "../../../../platform/ac
 
 import { inlineActions, overflowEntries } from "./titleMenuEntries.ts";
 
-// Правило разбора меню заголовка на кнопки и «⋯» — на резолвнутых группах в
-// той форме, в какой их отдаёт `MenuRegistry`.
-
 function item(id: string, icon?: string): ResolvedMenuEntry {
     return { label: id, id, enabled: true, ...(icon !== undefined ? { icon } : {}) };
 }

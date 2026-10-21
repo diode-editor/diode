@@ -13,11 +13,7 @@ import { TerminalService, TerminalServiceDIToken } from "../../../contrib/termin
 
 const TOGGLE_TERMINAL = "workbench.action.terminal.toggleTerminal";
 
-/**
- * Регрессия на BUG-1/BUG-2 (#175): спрятанная панель не должна держать фокус.
- * Раньше `TerminalViewElement` оставался `activeElement` после `Ctrl+J` — ввод
- * уходил в невидимый шелл и там выполнялся.
- */
+/** #175: `TerminalViewElement` оставался `activeElement` после `Ctrl+J` — ввод уходил в невидимый шелл. */
 describe("PanelFocusContribution — фокус не остаётся на ушедшем со сцены содержимом панели", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -45,7 +41,7 @@ describe("PanelFocusContribution — фокус не остаётся на уш�
     }
 
     it("после скрытия панели фокус возвращается в редактор, а не остаётся на терминале", () => {
-        h.commands.execute(TOGGLE_TERMINAL); // показать + сфокусировать терминал
+        h.commands.execute(TOGGLE_TERMINAL); // показать + сфокусировать
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
 
         h.commands.execute(TOGGLE_TERMINAL); // спрятать
@@ -84,7 +80,7 @@ describe("PanelFocusContribution — фокус не остаётся на уш�
         h.commands.execute(TOGGLE_TERMINAL);
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
 
-        // Панель уже видима — команда лишь переключает активную вкладку.
+        // Панель уже видима — команда лишь переключает вкладку.
         h.commands.execute("workbench.actions.view.problems");
 
         expect(h.testApp.focusedElement).not.toBeInstanceOf(TerminalViewElement);

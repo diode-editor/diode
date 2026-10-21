@@ -5,18 +5,14 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 import { QuickInputServiceDIToken } from "../quickinput/quickInputService.ts";
 
 /**
- * `when: "!editorReadonly"` у команд ниже — декларация: `commandAction.ts`
- * вешает `when` на регистрацию кейбинда и на пункт меню, а у EOL-команд нет ни
- * того, ни другого. Реальный пользовательский путь — клик по сегменту статус-бара
- * (`editorStatusContribution.ts`), который зовёт команду напрямую через
- * `commands.execute` мимо `when`. Поэтому read-only проверяем ещё и здесь: иначе
- * в read-only пикер открывался бы и молча ничего не делал (правку всё равно
- * отбил бы `TextEditorPane.setEol`).
+ * `when: "!editorReadonly"` у команд ниже — лишь декларация: клик по сегменту
+ * статус-бара зовёт команду напрямую мимо `when`, поэтому read-only проверяем здесь —
+ * иначе пикер в read-only открывался бы и молча ничего не делал.
  */
 function setActiveEditorEol(accessor: Parameters<CommandAction["run"]>[0], eol: EndOfLine): void {
     const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
     if (editor === null || editor.readOnly) return;
-    // Сегмент статус-бара обновится сам: EditorStatusContribution подписан на onDidChangeEol.
+    // Сегмент статус-бара подписан на onDidChangeEol и обновится сам.
     editor.setEol(eol);
 }
 
@@ -38,10 +34,7 @@ export const convertToCrlfAction: CommandAction = {
     },
 };
 
-/**
- * EOL picker (VS Code `workbench.action.editor.changeEOL`): quick pick с
- * LF / CRLF, активная позиция — текущий EOL документа.
- */
+/** VS Code `workbench.action.editor.changeEOL`. */
 async function changeEol(accessor: ServiceAccessor): Promise<void> {
     const editor = accessor.get(EditorServiceDIToken).getActiveEditor();
     if (editor === null || editor.readOnly) return;

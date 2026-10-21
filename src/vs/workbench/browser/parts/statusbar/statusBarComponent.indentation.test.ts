@@ -7,7 +7,6 @@ describe("StatusBarComponent — индикатор отступов", () => {
 
     beforeEach(() => {
         savedEnv = { ...process.env };
-        // Детерминированное окружение: сегмент терминала — "legacy" без модов.
         delete process.env.TMUX;
         delete process.env.TMUX_PANE;
         delete process.env.SSH_CONNECTION;
@@ -52,7 +51,6 @@ describe("StatusBarComponent — индикатор отступов", () => {
     it("детекция по содержимому открытого файла доезжает до полосы", () => {
         const { component, source } = createStatusBarHarness();
 
-        // Файл с двухпробельными отступами: детекция в конструкторе view-state.
         source.openEditor("if (a) {\n  b();\n  c();\n}\n");
 
         expect(statusTexts(component.view)).toContain("Spaces: 2");
@@ -63,8 +61,7 @@ describe("StatusBarComponent — индикатор отступов", () => {
         const editor = source.openEditor();
         expect(statusTexts(component.view)).toContain("Tab Size: 4");
 
-        // Частичные патчи — как из настоящих источников (конфиг может прислать
-        // один ключ): сначала вид отступа, затем размер.
+        // Частичные патчи — конфиг может прислать один ключ.
         editor.setIndentOptions({ insertSpaces: true });
         expect(statusTexts(component.view)).toContain("Spaces: 4");
 
@@ -79,11 +76,9 @@ describe("StatusBarComponent — индикатор отступов", () => {
         const firstEditor = source.openEditor();
         source.openEditor();
 
-        // Смена отступов НЕактивного редактора полосу не трогает.
         firstEditor.setIndentOptions({ insertSpaces: true, tabSize: 2 });
         expect(statusTexts(component.view)).toContain("Tab Size: 4");
 
-        // Смена отступов активного — обновляет.
         source.getActiveEditor()!.setIndentOptions({ insertSpaces: true, tabSize: 2 });
         expect(statusTexts(component.view)).toContain("Spaces: 2");
     });

@@ -6,7 +6,6 @@ import type { LayoutService } from "../../../services/layout/browser/layoutServi
 
 import { SidebarService } from "./sidebarService.ts";
 
-/** Заглушка LayoutService: считает вызовы подмены контента и видимости. */
 function fakeLayout(): {
     layout: LayoutService;
     content: TUIElement[];
@@ -92,7 +91,7 @@ describe("SidebarService", () => {
             return [keys.get("searchViewletVisible"), keys.get("scmViewletVisible")];
         };
 
-        // Активного вьюлета ещё нет — все ключи опущены, но выставлены.
+        // Активного вьюлета нет — ключи опущены, но выставлены.
         expect(visibleKeys()).toEqual([false, false]);
         service.showViewlet("search");
         expect(visibleKeys()).toEqual([true, false]);

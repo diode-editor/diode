@@ -31,16 +31,10 @@ function move(x: number, y: number): MouseToken {
 
 interface HoverHarness {
     app: TestApp;
-    /** Экранные x-координаты всех ячеек сегмента, включая краевые пробелы. */
     cellsOf: (text: string) => number[];
 }
 
-/**
- * Полоса с тремя сегментами: два кликабельных ("Alpha", "Gamma") и инертный
- * ("Beta") между ними. Терминальный сегмент харнесса тоже инертен, но его текст
- * зависит от env — тест на него не смотрит и позиции берёт из фактической
- * геометрии лейблов.
- */
+/** Текст терминального сегмента зависит от env — позиции берутся из фактической геометрии лейблов. */
 function setup(): HoverHarness {
     const harness = createStatusBarHarness();
     harness.statusBarService.addEntry({
@@ -113,7 +107,6 @@ describe("StatusBarComponent hover", () => {
         app.render();
         expect(app.backend.getBgAt(new Point(cells[1], 0))).toBe(HOVER_BG);
 
-        // Середина полосы — centerFill, сегментов там нет.
         app.backend.simulateMouse(move(59, 0));
         app.render();
         expect(app.backend.getBgAt(new Point(cells[1], 0))).toBe(BAR_BG);

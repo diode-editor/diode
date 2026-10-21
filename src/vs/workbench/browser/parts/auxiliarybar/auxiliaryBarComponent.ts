@@ -12,22 +12,15 @@ import { AuxiliaryBarServiceDIToken } from "./auxiliaryBarService.ts";
 
 export const AuxiliaryBarComponentDIToken = token<AuxiliaryBarComponent>("AuxiliaryBarComponent");
 
-/** Подсказка пустой вторичной панели. */
 export const EMPTY_AUXILIARY_BAR_MESSAGE = "Use 'View: Move View' to display a view here.";
 
-/** Команда кнопки `×` в таб-строке вторичной панели (у эталона — `closeAuxiliaryBar`). */
+/** У эталона — `closeAuxiliaryBar`. */
 export const CLOSE_AUXILIARY_BAR_COMMAND_ID = "workbench.action.closeAuxiliaryBar";
 
 /**
- * Компонент вторичной боковой панели (`view.id = "auxiliarybar"`): та же
- * таб-строка контейнеров, что у нижней панели, но в одежде сайдбара — у
- * эталона у `AuxiliaryBarPart` своих цветов нет, фон и текст `sideBar.*`,
- * вкладки — `panelTitle.*`. Полосы `panel.border` сверху нет (часть во всю
- * высоту, сверху у неё строка меню), а первая колонка отдана сашу ресайза —
- * на её месте у эталона `sideBar.border` со стороны редактора.
- *
- * Свои ключи фича выставляет сама: `auxiliaryBarFocus` (фокус в поддереве
- * части) и `activeAuxiliary` (активный контейнер, пока часть видна).
+ * У эталона у `AuxiliaryBarPart` своих цветов нет: фон и текст `sideBar.*`,
+ * вкладки — `panelTitle.*`. Первая колонка отдана сашу — на её месте у эталона
+ * `sideBar.border`.
  */
 export class AuxiliaryBarComponent extends PaneCompositePartComponent implements IContextKeyContributor {
     public static dependencies = [AuxiliaryBarServiceDIToken, CommandRegistryDIToken] as const;
@@ -41,8 +34,7 @@ export class AuxiliaryBarComponent extends PaneCompositePartComponent implements
             foreground: "sideBar.foreground",
             topBorder: false,
             contentLeft: 1,
-            // Отступление: у эталона «Drag a view here to display.», но
-            // перетаскивания видов у нас нет — подсказка называет команду.
+            // Отступление: у эталона «Drag a view here to display.», но перетаскивания видов у нас нет.
             emptyMessage: EMPTY_AUXILIARY_BAR_MESSAGE,
         });
     }

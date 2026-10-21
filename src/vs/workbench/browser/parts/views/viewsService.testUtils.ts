@@ -24,56 +24,36 @@ import type { ViewContainerHeaderElement } from "./viewContainerHeaderElement.ts
 import type { IViewDescriptor } from "./viewsService.ts";
 import { ViewsService } from "./viewsService.ts";
 
-/** Общий стенд тестов ViewsService: реальные реестры меню, фейки места и стора. */
 export interface IViewsHarness {
     readonly service: ViewsService;
-    /** Настоящий реестр вкладок нижней панели — для контейнеров location: "panel". */
     readonly panelService: PanelService;
     readonly auxiliaryBarService: AuxiliaryBarService;
     readonly menuService: MenuService;
     readonly commands: CommandRegistry;
     readonly contextKeys: ContextKeyService;
-    /**
-     * Настоящий источник правды о папках: тест открывает папку
-     * `workspace.setWorkspaceFolder(path)` и проверяет, что секции с
-     * `requiresWorkspaceFolder` сменили пустое состояние на тело.
-     */
     readonly workspace: WorkspaceContextService;
-    /** Делегаты, с которыми открывали контекст-меню (последний — самый свежий). */
+    /** Последний — самый свежий. */
     readonly shown: IContextMenuDelegate[];
     readonly stored: Map<string, unknown>;
-    /** Открыть стор проекта — как `IStateService.openWorkspace`, с событием. */
     openWorkspace(): void;
-    /** Id вьюлетов сайдбара в порядке регистрации. */
     readonly viewlets: string[];
-    /** Вызовы `showViewlet` сайдбара: id и флаг reveal. */
     readonly shownViewlets: { id: string; reveal: boolean | undefined }[];
-    /** Вызовы `hideViewlet` сайдбара, спрятавшие активный вьюлет. */
     readonly hiddenViewlets: string[];
-    /**
-     * Показать вьюлет, как это делает команда (`showViewlet` сайдбара): кнопки
-     * заголовков ViewsService резолвит только у показанного контейнера.
-     */
+    /** Кнопки заголовков ViewsService резолвит только у показанного контейнера. */
     showViewlet(containerId: string): void;
-    /** Корневой контрол контейнера, отданный месту (сайдбару или панели). */
     root(containerId: string): TUIElement;
-    /** Полоса контролов в таб-строке панели (`null` — контейнеру нечего показывать). */
+    /** `null` — контейнеру нечего показывать. */
     tabActions(containerId: string): TUIElement | null;
-    /** Как место отдаёт контейнеру фокус. */
     focus(containerId: string): void;
     paneView(containerId: string): PaneViewElement;
-    /**
-     * Строка заголовка контейнера: в сайдбаре — над секциями (`null`, если
-     * контейнер merged), в панели — полоса контролов таб-строки.
-     */
+    /** В сайдбаре — над секциями (`null` у merged), в панели — полоса контролов таб-строки. */
     header(containerId: string): ViewContainerHeaderElement | null;
 }
 
 export function makeViewsHarness(contributions: readonly MenuContribution[] = []): IViewsHarness {
     const registered = new Map<string, { view: TUIElement; focus: () => void }>();
     const shownViewlets: { id: string; reveal: boolean | undefined }[] = [];
-    // Активный вьюлет — как у настоящего сервиса: от него зависит, считает ли
-    // ViewsService кнопки заголовков контейнера сейчас или при показе.
+    // От активного вьюлета зависит, считает ли ViewsService кнопки заголовков сейчас или при показе.
     let activeViewlet: string | null = null;
     const activeViewletEmitter = new Emitter<string>();
     const hiddenViewlets: string[] = [];
@@ -92,7 +72,6 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
             if (activeViewlet === id) activeViewlet = null;
         },
         getActiveViewletId: () => activeViewlet,
-        // Сайдбар стенда всегда виден: прятать его некому.
         isViewletVisible: (id: string) => activeViewlet === id,
         hideViewlet: (id: string) => {
             if (activeViewlet === id) hiddenViewlets.push(id);
@@ -117,8 +96,6 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
 
     const stored = new Map<string, unknown>();
     const openWorkspaceEmitter = new Emitter<WorkspaceId>();
-    // Стор в памяти поверх null-сервиса: свои только get/store, остальное —
-    // общие no-op'ы, чтобы не плодить их копии.
     const state: IStateService = {
         ...NULL_STATE_SERVICE,
         get<T>(descriptor: IStateDescriptor<T>): T {
@@ -145,8 +122,7 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
     const paneViewOf = (containerId: string): PaneViewElement => {
         const element = root(containerId);
         const selector = `#viewContainer-${containerId.replaceAll(".", "-")}`;
-        // В панели корень контейнера — сам PaneViewElement, в сайдбаре он лежит
-        // под стопкой с заголовком.
+        // В панели корень — сам PaneViewElement, в сайдбаре — стопка с заголовком над ним.
         return (element.id === selector.slice(1) ? element : element.querySelector(selector)) as PaneViewElement;
     };
     const workspace = new WorkspaceContextService();
@@ -182,8 +158,6 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
         },
         root,
         focus: (containerId) => {
-            // Как и root(): неизвестный контейнер — внятная ошибка, а не падение
-            // на разыменовании undefined.
             const viewlet = registered.get(containerId);
             if (viewlet === undefined) throw new Error(`makeViewsHarness: viewlet "" is not registered`);
             viewlet.focus();
@@ -198,7 +172,6 @@ export function makeViewsHarness(contributions: readonly MenuContribution[] = []
     };
 }
 
-/** Дескриптор view с телом-филлером (`#<id>-body`) и настраиваемыми полями. */
 export function testView(
     id: string,
     containerId: string,
@@ -220,7 +193,6 @@ export function testView(
     };
 }
 
-/** Заголовки секций контейнера в порядке отображения. */
 export function paneTitles(paneView: PaneViewElement): string[] {
     return paneView.getPaneIds().map((id) => {
         const header = paneView.querySelector(`#paneHeader-${id.replaceAll(".", "-")}`);

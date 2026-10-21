@@ -11,13 +11,9 @@ import { ViewsServiceDIToken } from "./viewsService.ts";
 export const ViewProgressContributionDIToken = token<ViewProgressContribution>("ViewProgressContribution");
 
 /**
- * Мост `ProgressService` → заголовки view-секций: раскладывает кадры спиннера по
- * viewId и снимает их у тех, кто закончил. Свой набор показанных секций нужен
- * именно для снятия — сервис про закончившуюся операцию уже забыл, а заголовок
- * с ней остался бы крутиться вечно.
- *
- * Проводка отдельной контрибуцией, а не подпиской внутри `ViewsService`: тот —
- * презентационная инфраструктура, которой незачем знать про прогресс.
+ * Свой набор показанных секций нужен для снятия спиннера: сервис про закончившуюся операцию
+ * уже забыл, а заголовок крутился бы вечно. Отдельной контрибуцией, чтобы `ViewsService`
+ * не знал про прогресс.
  */
 export class ViewProgressContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [ProgressServiceDIToken, ViewsServiceDIToken] as const;

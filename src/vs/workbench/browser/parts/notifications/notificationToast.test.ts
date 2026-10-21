@@ -25,15 +25,9 @@ function notification(patch: Partial<IActiveNotification> = {}): IActiveNotifica
     return { id: 1, severity: "info", message: "hello", modal: false, items: [], ...patch };
 }
 
-/** Полная ширина тоста в приложении: текст плюс рамка и отступы контента. */
 const TOAST_WIDTH = TOAST_TEXT_WIDTH + 6;
 
-/**
- * Монтирует тост в обёртку ФИКСИРОВАННОЙ ширины — ровно так его держит
- * `NotificationsComponent`. Без обёртки ряд кнопок (в нём растягивающийся
- * спейсер) растянул бы рамку на весь экран, и кадр в тесте не совпадал бы с
- * тем, что видит человек.
- */
+/** Обёртка ФИКСИРОВАННОЙ ширины, как в `NotificationsComponent`: иначе спейсер ряда кнопок растянул бы рамку на весь экран. */
 function mount(patch: Partial<IActiveNotification> = {}, keyLabel = "F6") {
     const toast = new NotificationToast(notification(patch), keyLabel);
     const holder = new SizedBoxElement(TOAST_WIDTH);
@@ -48,12 +42,7 @@ function screen(testApp: TestApp): string {
     return testApp.backend.screenToString();
 }
 
-/**
- * Рендерит тост в его НАСТОЯЩЕЙ ширине: overlay-слой даёт loose-constraints, и
- * обёртка фиксированной ширины занимает свои {@link TOAST_WIDTH} колонок. Под
- * tight-constraints тестового приложения ряд кнопок растянул бы рамку на весь
- * экран — кадр не совпал бы с тем, что видит человек.
- */
+/** Под tight-constraints тестового приложения ряд кнопок растянул бы рамку на весь экран. */
 function renderToast(patch: Partial<IActiveNotification> = {}, keyLabel = "F6"): MockTerminalBackend {
     const toast = new NotificationToast(notification(patch), keyLabel);
     const holder = new SizedBoxElement(TOAST_WIDTH);
@@ -64,11 +53,7 @@ function renderToast(patch: Partial<IActiveNotification> = {}, keyLabel = "F6"):
     });
 }
 
-/**
- * Непустые строки кадра без хвостовых пробелов — рамка тоста как её видно.
- * Значки codicon (приватная область Unicode) вырезаются: нарисовать их может
- * только шрифт, и в текстовом сравнении они только мешают.
- */
+/** Значки codicon (приватная область Unicode) вырезаются: в текстовом сравнении они только мешают. */
 function boxLines(backend: MockTerminalBackend): string[] {
     return backend
         .screenToString()
@@ -95,7 +80,7 @@ describe("toastLines", () => {
     });
 
     it("ровно предельное число строк сохраняется целиком, без многоточия", () => {
-        // Ровно TOAST_MAX_LINES строк по ширине рамки — это ещё НЕ «слишком много».
+        // Ровно TOAST_MAX_LINES строк — это ещё НЕ «слишком много».
         const exact = Array.from({ length: TOAST_MAX_LINES }, (_, i) => "x".repeat(40) + String(i)).join(" ");
         const lines = toastLines(exact);
         expect(lines).toHaveLength(TOAST_MAX_LINES);
@@ -116,14 +101,11 @@ describe("toastUnfocusedHint", () => {
 
 describe("NotificationToast — что видно на кадре", () => {
     it("рамка вопроса собрана ровно так: текст, пустая строка, кнопки справа, подсказка", () => {
-        // Ассерт на ВСЮ рамку целиком: он держит и порядок строк, и отступы, и
-        // прижатие ряда кнопок вправо с одним пробелом между ними. Последняя в
-        // ряду — кнопка закрытия: сообщение обязано быть чем убрать.
+        // Ассерт на ВСЮ рамку: держит порядок строк, отступы и прижатие кнопок вправо.
         const box = boxLines(renderToast({ severity: "warn", message: "Upload failed", items: ["Retry", "Cancel"] }));
         expect(box).toEqual([
             "╭──────────────────────────────────────────────────╮",
-            // Заголовок — строка рамки со значком строгости (codicon из
-            // приватной области Unicode, поэтому в тексте он «невидим»).
+            // Значок строгости — codicon из приватной области Unicode, в тексте «невидим».
             "│                     Warning                     │",
             "├──────────────────────────────────────────────────┤",
             "│  Upload failed                                   │",
@@ -232,7 +214,6 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         toast.onSelect = onSelect;
         toast.onClose = onClose;
 
-        // Последняя в ряду — «×», а не кнопка расширения.
         buttons.at(-1)?.focus();
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
 
@@ -264,7 +245,6 @@ describe("NotificationToast — ответ с клавиатуры", () => {
     });
 
     it("Tab ходит по кольцу, а не уводит фокус из тоста", () => {
-        // Ряд — «A» и кнопка закрытия: Tab обходит его по кругу.
         const { toast, testApp, buttons } = mount({ items: ["A"] });
         expect(buttons).toHaveLength(2);
         toast.focusDefault();
@@ -272,14 +252,12 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Tab" }));
         expect(testApp.focusedElement).toBe(buttons[1]);
 
-        // С последней кнопки — снова на первую.
         testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Tab" }));
         expect(testApp.focusedElement).toBe(buttons[0]);
     });
 
     it("Tab идёт вперёд, Shift+Tab назад — видно на трёх кнопках", () => {
-        // На двух кнопках обе стороны кольца ведут в одну и ту же — направление
-        // различимо только начиная с трёх.
+        // На двух кнопках обе стороны кольца ведут в одну — направление различимо с трёх.
         const forward = mount({ items: ["A", "B"] });
         forward.toast.focusDefault();
         forward.testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Tab" }));
@@ -288,13 +266,11 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         const back = mount({ items: ["A", "B"] });
         back.toast.focusDefault();
         back.testApp.focusedElement?.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Tab", shiftKey: true }));
-        // Назад с первой кнопки — на последнюю в ряду, то есть на «×».
         expect(back.testApp.focusedElement).toBe(back.buttons.at(-1));
     });
 
     it("Tab не уводит фокус из тоста к соседям по дереву", () => {
-        // Сессия тоста passthrough'ная: не перехвати он Tab — фокус ушёл бы к
-        // любому другому фокусируемому элементу приложения.
+        // Сессия passthrough'ная: без перехвата Tab фокус ушёл бы к другому фокусируемому.
         const toast = new NotificationToast(notification({ items: ["A", "B"] }), "F6");
         const outsider = new ButtonElement("outside");
         const stack = new VStackElement();
@@ -313,8 +289,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
     });
 
     it("тост без обработчиков не падает ни на Enter, ни на Escape, ни на Tab", () => {
-        // Пассивный тост живёт без onSelect/onClose, а клавиши до него доходят
-        // (например когда фокус привели командой и тут же нажали Escape).
+        // Клавиши доходят и до пассивного тоста (фокус привели командой и нажали Escape).
         const { toast, testApp, buttons } = mount({ items: ["One"] });
         toast.focusDefault();
         expect(() => {
@@ -325,8 +300,7 @@ describe("NotificationToast — ответ с клавиатуры", () => {
         const passive = mount();
         expect(() => {
             passive.toast.view.dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Tab" }));
-            // И кнопка закрытия: обработчик ей ставит компонент, а виджет живёт и
-            // без него (пассивный тост создают и в тестах, и до проводки).
+            // Обработчик кнопке закрытия ставит компонент, а виджет живёт и без него.
             passive.buttons[0].dispatchEvent(new TUIKeyboardEvent("keydown", { key: "Enter" }));
         }).not.toThrow();
     });

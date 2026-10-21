@@ -19,18 +19,15 @@ import {
 
 export const WindowTitleContributionDIToken = token<WindowTitleContribution>("WindowTitleContribution");
 
-/** Имя приложения в заголовке (`${appName}` эталона). */
+/** `${appName}` эталона. */
 export const APP_NAME = "Diode";
-/** Разделитель частей заголовка — дефолт `window.titleSeparator` эталона. */
+/** Дефолт `window.titleSeparator` эталона. */
 const TITLE_SEPARATOR = " - ";
 
 /**
- * Заголовок окна терминала: `${rootName}${separator}${profileName}${separator}${appName}`
- * — подмножество дефолта `window.title` эталона (`windowTitle.ts`): без
- * активного файла и грязности, без самого ключа `window.title`
- * (docs/TODO/Profiles.md). `${profileName}` пуст у Default — как в эталоне,
- * `${rootName}` — имя папки или `web (Workspace)` у окна из файла
- * (`getWorkspaceLabel`). Пустые части схлопываются вместе с разделителем.
+ * Подмножество дефолта `window.title` эталона (`windowTitle.ts`): без активного
+ * файла и грязности, без самого ключа `window.title` (docs/TODO/Profiles.md).
+ * Пустые части схлопываются вместе с разделителем.
  */
 export function windowTitle(workspace: IWorkspace, profile: IUserDataProfile): string {
     const rootName =
@@ -41,11 +38,7 @@ export function windowTitle(workspace: IWorkspace, profile: IUserDataProfile): s
     return [rootName, profileName, APP_NAME].filter((part) => part !== "").join(TITLE_SEPARATOR);
 }
 
-/**
- * Держит заголовок окна актуальным: при подъёме и на смену воркспейса (Open
- * Folder, Open Workspace from File). Профиль фиксирован на процесс, так что
- * его смена — это новое окно со своим заголовком.
- */
+/** Профиль фиксирован на процесс: его смена — новое окно со своим заголовком. */
 export class WindowTitleContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [
         IWorkspaceContextServiceDIToken,

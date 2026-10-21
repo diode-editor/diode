@@ -3,30 +3,20 @@ import { BoxConstraints, Size } from "@tuidom/core/common/geometryPromitives";
 import { BORDER_THICKNESS } from "@tuidom/core/dom/borderStyle";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
 
-/**
- * Отступ между рамкой и контентом — ОДИН на строку запроса, сообщение и строки
- * списка. Раньше он был тремя независимыми литералами в разных местах render'а,
- * отчего текст запроса ехал на символ левее результатов.
- */
+/** Один на запрос, сообщение и строки списка: разные литералы сдвигали запрос относительно результатов. */
 export const CONTENT_PAD = 1;
 
 /**
- * Хром пикера: рамка, врезанный в верхнюю границу заголовок (`┤ Save As ├`) и
- * сепаратор с T-коннекторами на заданной строке. Ровно то, чего не умеет
- * движковый `BoxContainerElement` (у него заголовок — отдельная строка внутри
- * рамки, а сепаратор жёстко на строке 2), и ровно то, ради чего
- * docs/arch/Workbench.md разрешает элементу жить рядом со своим компонентом.
- *
- * Содержимое — ЕДИНСТВЕННЫЙ ребёнок, разложенный внутри рамки. Отступы контента
- * рамка не считает: их задаёт `PaddingContainerElement` внутри, одним местом.
+ * Заголовок, врезанный в рамку (`┤ Save As ├`), и сепаратор на заданной строке —
+ * то, чего не умеет движковый `BoxContainerElement`. Отступы контента рамка не
+ * считает: их задаёт `PaddingContainerElement` внутри.
  */
 export class QuickPickFrameElement extends TUIElement {
     private readonly child: TUIElement;
     private titleValue: string | undefined = undefined;
-    /** Строка (в координатах элемента), на которой рисовать `├───┤`; null — не рисовать. */
+    /** В координатах элемента; null — не рисовать. */
     private separatorRowValue: number | null = null;
 
-    /** Содержимое отдаётся сразу и не меняется: у рамки один ребёнок на всю жизнь. */
     public constructor(child: TUIElement) {
         super();
         this.child = child;
@@ -62,15 +52,13 @@ export class QuickPickFrameElement extends TUIElement {
     public override render(context: RenderContext): void {
         const w = this.layoutSize.width;
         const h = this.layoutSize.height;
-        // Не помещается даже рамка — рисовать нечего.
         if (w < BORDER_THICKNESS * 2 || h < BORDER_THICKNESS * 2) return;
 
         const border = this.styleVar("quickPick.border");
         const background = this.styleVar("quickInput.background");
 
-        // Сепаратор — часть бокса (T-коннекторы ├ ┤ ставит drawBox), а не
-        // отдельный цикл: строка-распорка внутри контента фон не красит, поэтому
-        // линия остаётся видна из-под детей.
+        // Сепаратор — часть бокса, а не отдельный цикл: строка-распорка фон не красит,
+        // и линия видна из-под детей.
         const separator = this.separatorRowValue;
         const separators = separator !== null && separator > 0 && separator < h - 1 ? [separator] : undefined;
         context.drawBox(0, 0, w, h, { fg: border, bg: background, fill: true, separators });
@@ -83,11 +71,10 @@ export class QuickPickFrameElement extends TUIElement {
         this.renderChildren(context);
     }
 
-    /** Заголовок по центру верхней рамки: `┤ title ├`. */
     private renderTitle(context: RenderContext, title: string, w: number, background: number, border: number): void {
         const label = ` ${title} `;
         const labelWidth = new DisplayLine(label).displayWidth;
-        // Нужно место под две «крышки» плюс углы рамки.
+        // Две «крышки» плюс углы рамки.
         if (labelWidth + 4 > w) return;
         const startX = Math.max(2, Math.floor((w - labelWidth) / 2));
         context.setCell(startX - 1, 0, { char: "┤", fg: border, bg: background });

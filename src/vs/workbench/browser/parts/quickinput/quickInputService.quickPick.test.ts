@@ -84,9 +84,7 @@ describe("QuickInputService.quickPick", () => {
             onDidChangeActive: (item) => seen.push(item?.label),
         });
 
-        // Fired once for the initial active item...
         expect(seen).toEqual(["Dark Modern"]);
-        // ...then again for each navigation step.
         testApp.sendKey("ArrowDown");
         testApp.sendKey("ArrowDown");
         expect(seen).toEqual(["Dark Modern", "Dark+", "Monokai"]);
@@ -98,7 +96,6 @@ describe("QuickInputService.quickPick", () => {
     it("filters items live by label substring", async () => {
         const { service, component, testApp } = createService();
         const result = service.quickPick({ items: ITEMS });
-        // Type "light" → only "Light Modern" remains; it becomes the active item.
         for (const ch of "light") testApp.sendKey(ch);
         expect(component.view.items.map((i) => i.label)).toEqual(["Light Modern"]);
         testApp.sendKey("Enter");
@@ -111,7 +108,7 @@ describe("QuickInputService.quickPick", () => {
         for (const ch of "light") testApp.sendKey(ch);
         expect(component.view.items).toHaveLength(1);
 
-        // Backspace the query empty again → the empty-needle branch returns every item.
+        // Пустой запрос — отдельная ветка, отдающая весь список.
         for (const _ch of "light") testApp.sendKey("Backspace");
         expect(component.view.items.map((i) => i.label)).toEqual(ITEMS.map((i) => i.label));
     });

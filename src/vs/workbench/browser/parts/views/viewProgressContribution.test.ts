@@ -8,7 +8,6 @@ import type { ViewsService } from "./viewsService.ts";
 const CHANGES = "workbench.scm.changes";
 const GRAPH = "workbench.scm.graph";
 
-/** Записывает, какой кадр контрибуция положила в какую секцию. */
 function fakeViews(): { views: ViewsService; frames: Map<string, string | null>; calls: number } {
     const state = { frames: new Map<string, string | null>(), calls: 0 };
     const views = {

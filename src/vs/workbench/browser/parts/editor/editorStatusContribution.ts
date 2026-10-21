@@ -12,11 +12,7 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import type { IStatusBarEntryHandle, StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
-/**
- * Минимальный срез активного редактора, нужный сегментам статус-бара.
- * `TextEditorPane` (`TextFileModel` + `EditorComponent`) соответствует ему структурно;
- * связывание делает DI-модуль (`ActiveEditorStatusSourceDIToken`).
- */
+/** `TextEditorPane` соответствует структурно; связывает DI-модуль. */
 export interface IActiveEditorStatus {
     readonly encoding: string;
     readonly eol: EndOfLine;
@@ -29,7 +25,6 @@ export interface IActiveEditorStatus {
     onDidChangeIndentOptions(listener: () => void): IDisposable;
 }
 
-/** Поставщик активного редактора для {@link EditorStatusContribution}. */
 export interface IActiveEditorStatusSource {
     getActiveEditor(): IActiveEditorStatus | null;
     onActiveEditorChanged(listener: (editor: IActiveEditorStatus | null) => void): IDisposable;
@@ -38,14 +33,7 @@ export interface IActiveEditorStatusSource {
 export const ActiveEditorStatusSourceDIToken = token<IActiveEditorStatusSource>("ActiveEditorStatusSource");
 export const EditorStatusContributionDIToken = token<EditorStatusContribution>("EditorStatusContribution");
 
-/**
- * Публикует в {@link StatusBarService} сегменты активного редактора — правые,
- * в порядке VS Code: `Ln X, Col Y` · Indentation · Encoding · EOL · Language.
- * Encoding и EOL кликабельны — исполняют команды пикеров через
- * `CommandRegistry`; Indentation пока инертен (команд смены отступов нет).
- * Подписан на смену активного редактора и его события
- * (курсор/отступы/язык/EOL/кодировка).
- */
+/** Сегменты в порядке VS Code: `Ln X, Col Y` · Indentation · Encoding · EOL · Language. */
 export class EditorStatusContribution extends Disposable {
     public static dependencies = [
         StatusBarServiceDIToken,
@@ -88,15 +76,10 @@ export class EditorStatusContribution extends Disposable {
                 this.languageHandle?.dispose();
             },
         });
-        // Подхватываем редактор, ставший активным до создания contribution'а.
         this.bindEditorListeners(this.source.getActiveEditor());
         this.update();
     }
 
-    /**
-     * Re-points the per-editor listeners at the currently active editor so the
-     * Ln/Col and language indicators track it live. Disposes the previous ones.
-     */
     private bindEditorListeners(editor: IActiveEditorStatus | null): void {
         this.unbindEditorListeners();
         if (editor === null) return;
@@ -124,7 +107,6 @@ export class EditorStatusContribution extends Disposable {
         this.editorSubscriptions = [];
     }
 
-    /** Пересчитывает сегменты и синхронизирует записи в StatusBarService. */
     private update(): void {
         const editor = this.source.getActiveEditor();
 
@@ -177,7 +159,6 @@ export class EditorStatusContribution extends Disposable {
         );
     }
 
-    /** Приводит запись сегмента к целевому тексту: снять / обновить / добавить. */
     private setSegment(
         current: IStatusBarEntryHandle | null,
         text: string | null,
@@ -194,10 +175,6 @@ export class EditorStatusContribution extends Disposable {
         return create(text);
     }
 
-    /**
-     * VS Code-style indentation indicator: "Spaces: N" when the editor indents
-     * with spaces, "Tab Size: N" when with tabs. Null without an active editor.
-     */
     private indentationSegment(editor: IActiveEditorStatus | null): string | null {
         if (editor === null) return null;
         const viewState = editor.viewState;
@@ -205,11 +182,7 @@ export class EditorStatusContribution extends Disposable {
         return viewState.insertSpaces ? `Spaces: ${tabSize}` : `Tab Size: ${tabSize}`;
     }
 
-    /**
-     * VS Code-style encoding indicator: the short status label of the active
-     * editor's disk encoding ("UTF-8", "Windows 1251"). Null without an active
-     * editor; unknown ids (defensive) fall back to the raw id.
-     */
+    /** Неизвестный id (защитно) — как есть. */
     private encodingSegment(editor: IActiveEditorStatus | null): string | null {
         if (editor === null) return null;
         const info = getEncodingInfo(editor.encoding);
@@ -219,17 +192,12 @@ export class EditorStatusContribution extends Disposable {
         return info.statusLabel;
     }
 
-    /** VS Code-style end-of-line indicator: "LF" or "CRLF". */
     private eolSegment(editor: IActiveEditorStatus | null): string | null {
         if (editor === null) return null;
         return editor.eol === EndOfLine.CRLF ? "CRLF" : "LF";
     }
 
-    /**
-     * VS Code-style language indicator for the active editor: the language
-     * display name ("TypeScript"), falling back to the raw language id when
-     * the language has no registered alias. Null without an active editor.
-     */
+    /** Без зарегистрированного алиаса — сырой id языка. */
     private languageSegment(editor: IActiveEditorStatus | null): string | null {
         if (editor === null) return null;
         const languageId = editor.languageId;
@@ -237,12 +205,8 @@ export class EditorStatusContribution extends Disposable {
     }
 
     /**
-     * VSCode-style "Ln X, Col Y" for the primary cursor, or null when there is
-     * no active editor. The column is the tab-expanded display column (matching
-     * the rendered cursor), 1-based like the line.
-     *
-     * В мультикурсоре к позиции первичной каретки добавляется счётчик
-     * `(N selections)` — как в VS Code: иначе индикатор молча врал бы, что курсор один.
+     * Колонка — экранная с раскрытыми табами (как рисуется каретка), 1-based как и
+     * строка. В мультикурсоре — `(N selections)`, как в VS Code.
      */
     private cursorPositionText(editor: IActiveEditorStatus | null): string | null {
         if (editor === null) return null;

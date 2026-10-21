@@ -94,7 +94,6 @@ describe("PanelComponent — контекстное меню вкладки", ()
         // Таб-строка панели — её строка 1; OUTPUT — колонки 11..18 панели.
         expect(menu("mouse", 5 + 13, 3 + 1)).toBe(true);
         expect(requests).toEqual([{ id: "output", anchor: { screenX: 18, screenY: 4 }, owner: component.view }]);
-        // Правый клик вкладку не переключает.
         expect(component.view.getActiveViewId()).toBe("problems");
     });
 

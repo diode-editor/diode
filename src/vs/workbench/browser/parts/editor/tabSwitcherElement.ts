@@ -10,39 +10,26 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { CONTENT_PAD, QuickPickFrameElement } from "../quickinput/quickPickFrameElement.ts";
 
-/** Колонка иконки: сам глиф плюс пробел за ним (как в quick pick). */
+/** Глиф плюс пробел за ним (как в quick pick). */
 const ICON_WIDTH = 2;
-/** Правая колонка маркера изменённости: пробел плюс точка (как в tab strip). */
 const MODIFIED_MARKER = " ●";
 
-/** Одна строка оверлея переключателя — вкладка замороженного MRU-списка. */
 export interface TabSwitcherItem {
     readonly icon: string;
-    /** Цвет иконки (packed RGB из {@link import("../../../../base/common/fileIcons.ts").getFileIcon}, как у tab strip'а). */
+    /** Packed RGB, как у tab strip'а. */
     readonly iconColor: number;
     readonly label: string;
     readonly isModified: boolean;
 }
 
 /**
- * Оверлей серии Ctrl+Tab: рамка quick pick'а со списком вкладок текущей группы
- * в MRU-порядке и подсветкой позиции цикла. Чисто презентационный — ввода не
- * принимает и фокуса не берёт (клавиатуру серии ведут команды MRU-цикла, а
- * жизнью оверлея управляет {@link import("./tabSwitcherComponent.ts").TabSwitcherComponent}
- * по событиям модели).
- *
- * Живёт в Diode, а не в `@tuidom/elements`: собран целиком из движковых
- * примитивов (рамка + HFlex-строки), собственного посимвольного render'а нет,
- * а API говорит понятиями редактора (MRU-список, маркер изменённости).
- *
- * Длинный список не скроллится, а показывает скользящее окно в
- * {@link maxVisibleItems} строк вокруг позиции цикла — как окно у списка quick
- * pick'а, но без виртуализации: строк максимум десяток.
+ * Чисто презентационный: ввода не принимает и фокуса не берёт — серию ведут команды
+ * MRU-цикла. Длинный список не скроллится, а показывает скользящее окно вокруг
+ * позиции цикла, без виртуализации: строк максимум десяток.
  */
 export class TabSwitcherElement extends TUIElement {
-    /** Желаемая ширина в колонках (клампится constraints'ами). */
+    /** Клампится constraints'ами. */
     public preferredWidth = 48;
-    /** Сколько строк списка показывать одновременно (дальше — скользящее окно). */
     public maxVisibleItems = 10;
 
     private readonly frame: QuickPickFrameElement;
@@ -50,7 +37,6 @@ export class TabSwitcherElement extends TUIElement {
 
     private itemsValue: readonly TabSwitcherItem[] = [];
     private currentIndexValue = 0;
-    /** Первая видимая строка скользящего окна. */
     private windowStart = 0;
 
     public constructor() {
@@ -61,19 +47,14 @@ export class TabSwitcherElement extends TUIElement {
         this.appendChild(this.frame);
     }
 
-    /**
-     * Снимок серии: список вкладок и позиция цикла. Двигает скользящее окно так,
-     * чтобы позиция осталась видимой, и пересобирает строки.
-     */
+    /** Двигает скользящее окно так, чтобы позиция цикла осталась видимой. */
     public setItems(items: readonly TabSwitcherItem[], currentIndex: number): void {
         this.itemsValue = items;
         this.currentIndexValue = Math.max(0, Math.min(items.length - 1, currentIndex));
         this.slideWindow();
-        // Пересборка строк помечает дерево грязным сама (setChildren → markDirty).
         this.rebuildRows();
     }
 
-    /** Наблюдаемое состояние: метки строк, позиция цикла и окно показа. */
     public override inspectState(): Record<string, unknown> {
         return {
             items: this.itemsValue.map((item) => item.label),
@@ -82,15 +63,11 @@ export class TabSwitcherElement extends TUIElement {
         };
     }
 
-    /** Высота оверлея: видимые строки окна плюс рамка (для позиционирования и тестов). */
     public get totalHeight(): number {
         return Math.min(this.itemsValue.length, this.maxVisibleItems) + BORDER_THICKNESS * 2;
     }
 
-    /**
-     * Держит позицию цикла внутри окна: выход за нижний край тянет окно вниз,
-     * за верхний — вверх; заворот цикла возвращает окно к соответствующему краю.
-     */
+    /** Заворот цикла возвращает окно к соответствующему краю. */
     private slideWindow(): void {
         const lastStart = Math.max(0, this.itemsValue.length - this.maxVisibleItems);
         // Stryker disable next-line EqualityOperator: на границе (current == windowStart) присваивание пишет то же значение — мутант `<=` неотличим
@@ -114,11 +91,7 @@ export class TabSwitcherElement extends TUIElement {
         this.body.replaceChildren(rows);
     }
 
-    /**
-     * Строка вкладки: `[pad][icon ][label…][fill][ ●][pad]`. Подсветка позиции
-     * цикла — цвета выделения списка на всю строку; иконка держит свой цвет
-     * токена и на подсвеченной строке (как в tab strip'е).
-     */
+    /** Иконка держит цвет своего токена и на подсвеченной строке (как в tab strip'е). */
     private buildRow(item: TabSwitcherItem, isCurrent: boolean, innerWidth: number): HFlexElement {
         const row = new HFlexElement();
         if (isCurrent) {
@@ -146,8 +119,6 @@ export class TabSwitcherElement extends TUIElement {
         row.addChild(new FillerElement(), { width: hflexFixed(CONTENT_PAD), height: 1 });
         return row;
     }
-
-    // ─── Layout ─────────────────────────────────────────────────────────────
 
     protected override performLayout(constraints: BoxConstraints): Size {
         const natural = new Size(this.preferredWidth, this.totalHeight);

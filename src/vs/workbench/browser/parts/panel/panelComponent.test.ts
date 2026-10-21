@@ -49,7 +49,6 @@ describe("PanelComponent", () => {
         service.setViewActions("problems", actions);
         expect(setViewActions).toHaveBeenCalledTimes(1);
         expect(setViewActions).toHaveBeenCalledWith("problems", actions);
-        // Те же контролы при следующей пересинхронизации — уже без вызова.
         service.addView({ id: "output", title: "OUTPUT" });
         expect(setViewActions).toHaveBeenCalledTimes(1);
         component.dispose();
@@ -61,7 +60,6 @@ describe("PanelComponent", () => {
         service.addView({ id: "problems", title: "PROBLEMS", content: null, placeholder: "empty" });
 
         const component = new PanelComponent(service, new CommandRegistry());
-        // Вкладка, зарегистрированная ДО компонента, подхвачена начальным sync'ом.
         expect(component.view.getViewIds()).toEqual(["problems"]);
         expect(component.view.getActiveViewId()).toBe("problems");
 
@@ -88,8 +86,6 @@ describe("PanelComponent", () => {
         const onActivate = vi.fn();
         service.onDidActivateView(onActivate);
 
-        // Контрол уже переключил вкладку у себя и зовёт onActivateView — компонент
-        // синхронизирует сервис и будит подписчиков активации (ленивые фичи).
         component.view.setActiveView("terminal");
         component.view.onActivateView?.("terminal");
 
@@ -116,11 +112,9 @@ describe("PanelComponent", () => {
 
         const tree = new TUIElement();
         service.setViewContent("problems", tree);
-        // Активная вкладка — problems: её контент в детях контрола и не скрыт.
         expect(component.view.getChildren()).toContain(tree);
         expect(tree.hidden).toBe(false);
 
-        // Смена контента другой вкладки не перевешивает контент problems.
         const setViewContent = vi.spyOn(component.view, "setViewContent");
         const widget = new TUIElement();
         service.setViewContent("terminal", widget);
@@ -129,7 +123,6 @@ describe("PanelComponent", () => {
         setViewContent.mockRestore();
 
         service.setViewContent("problems", null);
-        // Контент problems отцеплен; виджет terminal остаётся скрытым ребёнком.
         expect(component.view.getChildren()).not.toContain(tree);
         expect(tree.getParent()).toBeNull();
         expect(component.view.getChildren()).toContain(widget);

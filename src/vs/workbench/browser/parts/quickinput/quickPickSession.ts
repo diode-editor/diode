@@ -2,15 +2,12 @@ import type { QuickPickItem } from "../../../common/quickPickItem.ts";
 
 import type { QuickPickElement } from "./quickPickElement.ts";
 
-/** Строка объектного пикера: то, что видно, плюс поля, по которым идёт поиск. */
 export interface QuickPickSessionItem extends QuickPickItem {
-    /** Текст для поиска при {@link QuickPickSessionState.matchOnDetail}. */
+    /** Ищется при {@link QuickPickSessionState.matchOnDetail}. */
     readonly detail?: string;
-    /** Фильтр по запросу строку не прячет. */
     readonly alwaysShow?: boolean;
 }
 
-/** Состояние объектного пикера — то, что владелец задаёт и меняет на ходу. */
 export interface QuickPickSessionState<T extends QuickPickSessionItem> {
     readonly title: string | undefined;
     readonly step: number | undefined;
@@ -18,32 +15,22 @@ export interface QuickPickSessionState<T extends QuickPickSessionItem> {
     readonly placeholder: string | undefined;
     readonly prompt: string | undefined;
     readonly value: string;
-    /**
-     * Выделение в строке запроса `[начало, конец)` — `valueSelection` эталона:
-     * так диалог файлов показывает дописанный автодополнением хвост пути
-     * выделенным, и следующая набранная буква его заменяет. Применяется вместе
-     * с `value` (или само по себе); `undefined` — курсор в конце.
-     */
+    /** `valueSelection` эталона, `[начало, конец)`; `undefined` — курсор в конце. */
     readonly valueSelection: readonly [number, number] | undefined;
-    /** Сообщение под строкой запроса (ошибка) — `validationMessage` эталона. */
     readonly validationMessage: string | undefined;
     readonly canSelectMany: boolean;
-    /** Искать ли по `label` (эталон: `matchOnLabel`). Ни одного поля — список не фильтруется. */
+    /** Ни одного поля поиска — список не фильтруется. */
     readonly matchOnLabel: boolean;
     readonly matchOnDescription: boolean;
     readonly matchOnDetail: boolean;
     readonly keepScrollPosition: boolean;
-    /**
-     * Что подсвечивать при новых предметах — `itemActivation` эталона: первую
-     * строку или ничего (тогда Enter принимает набранное, а не строку).
-     */
+    /** `itemActivation` эталона; `"none"` — Enter принимает набранное, а не строку. */
     readonly itemActivation: "first" | "none";
     readonly items: readonly T[];
     readonly activeItems: readonly T[];
     readonly selectedItems: readonly T[];
 }
 
-/** Что человек сделал с пикером — события `QuickPick` эталона. */
 export interface QuickPickSessionEvents<T extends QuickPickSessionItem> {
     onDidChangeValue(value: string): void;
     onDidAccept(): void;
@@ -53,16 +40,13 @@ export interface QuickPickSessionEvents<T extends QuickPickSessionItem> {
 }
 
 /**
- * Слот общего виджета, который сервис выдаёт показу. `claim` перехватывает
- * виджет (прежний владелец — палитра, Quick Open, другой показ — получает
- * отмену) и запоминает, кому сообщить о потере. Потеря доходит СИНХРОННО —
- * Escape, клик мимо, чужой показ или `release` самого владельца, — поэтому
- * владелец знает, что виджет его, без отдельного вопроса слоту.
+ * `claim` перехватывает виджет (прежний владелец получает отмену). Потеря
+ * доходит СИНХРОННО, поэтому владелец знает, что виджет его, без вопроса слоту.
  */
 export interface IQuickInputSlot {
     claim(onLost: () => void): QuickPickElement;
     open(): void;
-    /** Закрыть показ; зовёт только текущий владелец. */
+    /** Зовёт только текущий владелец. */
     release(): void;
 }
 
@@ -87,22 +71,13 @@ const DEFAULT_STATE: QuickPickSessionState<never> = {
 };
 
 /**
- * Объектный пикер на общем QuickInput-оверлее — `QuickPick` эталона
- * (`platform/quickinput/browser/quickInput.ts`), под ним `window.createQuickPick`
- * расширений.
- *
- * В отличие от промисных {@link import("./quickInputService.ts").QuickInputService.quickPick}
- * пикер ЖИВОЙ: владелец меняет предметы, запрос и прочее, пока он открыт, а
- * Enter его НЕ закрывает — он только сообщает о принятии (`onDidAccept`), и
- * закрывать ли — решает владелец (эталон). Скрытый пикер можно показать снова
- * с тем же состоянием.
- *
- * Фильтрация — та же, что у промисного пикера: подстрока без учёта регистра по
- * `label` (плюс `description`/`detail` по флагам, `alwaysShow` не прячется).
+ * `QuickPick` эталона (`platform/quickinput/browser/quickInput.ts`). В отличие от
+ * промисного quickPick — живой: владелец меняет состояние на ходу, а Enter пикер
+ * НЕ закрывает, только сообщает `onDidAccept` — закрывать решает владелец (эталон).
  */
 export class QuickPickSession<T extends QuickPickSessionItem> {
     private state: QuickPickSessionState<T> = DEFAULT_STATE;
-    /** Виджет, пока пикер показан; `null` — скрыт. */
+    /** `null` — скрыт. */
     private view: QuickPickElement | null = null;
     private disposed = false;
 
@@ -120,12 +95,8 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
     }
 
     /**
-     * Поменять состояние (присланы только изменённые поля). Видимый пикер
-     * перерисовывается сразу; смена предметов, запроса или правил поиска
-     * пересчитывает фильтр и, как в эталоне, ставит подсветку на первую строку
-     * (без `keepScrollPosition`) — об этом владелец узнаёт `onDidChangeActive`.
-     * Программная смена запроса тоже даёт `onDidChangeValue` (эталон: событие
-     * шлёт сеттер `value`).
+     * Как в эталоне: смена предметов, запроса или правил поиска ставит подсветку на
+     * первую строку, а программная смена запроса тоже даёт `onDidChangeValue`.
      */
     public update(changes: Partial<QuickPickSessionState<T>>): void {
         if (this.disposed) return;
@@ -162,7 +133,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         view.markDirty();
     }
 
-    /** Показать (перехватив общий виджет). Уже видим или снят — no-op. */
+    /** Уже видим или снят — no-op. */
     public show(): void {
         if (this.disposed || this.view !== null) return;
         const view = this.slot.claim(() => {
@@ -174,7 +145,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         this.slot.open();
     }
 
-    /** Скрыть; `onDidHide` придёт тем же путём, что и от Escape. */
+    /** `onDidHide` придёт тем же путём, что и от Escape. */
     public hide(): void {
         if (this.view !== null) this.slot.release();
     }
@@ -184,7 +155,6 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         this.disposed = true;
     }
 
-    /** Полная настройка виджета на показ: флейвор, колбэки, список. */
     private configure(view: QuickPickElement): void {
         view.resetFlavorState();
         // Stryker disable next-line StringLiteral: режим читается единственным сравнением `acceptMode === "value"`, поэтому любая другая строка ведёт себя как "item"
@@ -195,10 +165,8 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         view.onQueryChange = (query) => {
             this.state = { ...this.state, value: query };
             this.events.onDidChangeValue(query);
-            // Владелец мог в ответ отдать виджет (вопрос диалога файлов закрывается
-            // от набора) — тогда список в нём уже чужой.
+            // Владелец мог в ответ отдать виджет (диалог файлов) — тогда список уже чужой.
             if (this.view !== view) return;
-            // Искать не по чему — список от запроса не зависит, подсветку не трогаем.
             if (!this.searches()) return;
             this.fillList(view, false);
             this.notifyActive(view);
@@ -207,8 +175,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
             this.notifyActive(view);
         };
         view.onAccept = (item) => {
-            // Одиночный выбор: принятая строка становится выбором, потом —
-            // принятие (порядок событий эталона).
+            // Сначала выбор, потом принятие — порядок событий эталона.
             const picked = [item as T];
             this.state = { ...this.state, selectedItems: picked };
             this.events.onDidChangeSelection(picked);
@@ -234,14 +201,12 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         this.notifyActive(view);
     }
 
-    /** Выделение (или курсор в конце) в строке запроса — по {@link QuickPickSessionState.valueSelection}. */
     private applyValueSelection(view: QuickPickElement): void {
         const selection = this.state.valueSelection;
         if (selection === undefined) return;
         view.setQuerySelection(selection[0], selection[1]);
     }
 
-    /** Заголовок с шагами, подсказка, placeholder, режим отметок — не сам список. */
     private paintChrome(view: QuickPickElement): void {
         view.title = composeTitle(this.state);
         view.prompt = this.state.prompt;
@@ -256,12 +221,10 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         if (keepPosition) view.refreshItems(visible);
         else view.items = visible;
         if (this.state.itemActivation === "none") view.clearActive();
-        // Отметки — по идентичности предмета: после замены предметов прежние
-        // объекты в наборе ни с чем не совпадут, поэтому ставим набор заново.
+        // Отметки — по идентичности: после замены предметов прежние объекты ни с чем не совпадут.
         view.setCheckedItems(this.state.selectedItems);
     }
 
-    /** Фильтрует ли запрос список (хоть одно поле поиска включено). */
     private searches(): boolean {
         const { matchOnLabel, matchOnDescription, matchOnDetail } = this.state;
         return matchOnLabel || matchOnDescription || matchOnDetail;
@@ -270,8 +233,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
     private filtered(): readonly T[] {
         const needle = this.state.value.trim().toLowerCase();
         const { matchOnLabel, matchOnDescription, matchOnDetail } = this.state;
-        // Искать не по чему — список целиком (эталон: так диалог файлов держит
-        // каталог, пока в строке запроса — путь).
+        // Эталон: так диалог файлов держит каталог, пока в строке запроса — путь.
         if (!this.searches()) return this.state.items;
         const hit = (text: string | undefined): boolean => text?.toLowerCase().includes(needle) === true;
         return this.state.items.filter(
@@ -283,10 +245,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
         );
     }
 
-    /**
-     * Программная подсветка (`activeItems =`) — молча, как в эталоне. Пустой
-     * набор снимает подсветку; незнакомый предмет её не трогает.
-     */
+    /** Молча, как в эталоне. Пустой набор снимает подсветку; незнакомый предмет её не трогает. */
     private applyActive(view: QuickPickElement): void {
         if (this.state.activeItems.length === 0) {
             view.clearActive();
@@ -299,8 +258,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
     private notifyActive(view: QuickPickElement): void {
         const index = view.selectedIndex;
         const active = index < 0 ? undefined : (view.items.at(index) as T | undefined);
-        // Подсветка не сдвинулась (перефильтровали, а первая строка та же) —
-        // молчим, как эталон: событие только про настоящую смену.
+        // Событие — только про настоящую смену, как в эталоне.
         if (active === this.state.activeItems.at(0)) return;
         const items = active === undefined ? [] : [active];
         this.state = { ...this.state, activeItems: items };
@@ -308,7 +266,7 @@ export class QuickPickSession<T extends QuickPickSessionItem> {
     }
 }
 
-/** Заголовок с шагами многошагового ввода — `getTitle` эталона: «Title (2/3)». */
+/** `getTitle` эталона: «Title (2/3)». */
 function composeTitle(state: QuickPickSessionState<QuickPickSessionItem>): string | undefined {
     const steps =
         state.step === undefined

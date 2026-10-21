@@ -7,11 +7,8 @@ import type { UndoRedoService } from "../../../platform/undoRedo/common/undoRedo
 import { BaseTextEditorModel } from "./textEditorModel.ts";
 
 /**
- * Буфер, содержимое которого даёт **владелец**, а не файловая система: Output-канал
- * (`output:<channel>`), виртуальный документ расширения (`jdt:`), снимочная
- * сторона диффа (git-ревизия, буфер обмена, диск). Аналог upstream: голый
- * `ITextModel` из `IModelService.createModel` — без сохранения, кодировки,
- * слежения за диском и «несохранённых изменений»: у такого ресурса нет диска.
+ * Содержимое даёт владелец (Output-канал, виртуальный документ, снимочная сторона
+ * диффа), а не диск. Как голый `ITextModel` из `IModelService.createModel` эталона.
  */
 export class SyntheticTextModel extends BaseTextEditorModel {
     /** Язык задаётся явно: выводить его из «пути» вида `output:extensions` нечем. */
@@ -26,29 +23,20 @@ export class SyntheticTextModel extends BaseTextEditorModel {
     }
 
     /**
-     * Дописывает текст в конец буфера от имени владельца.
-     *
-     * Идёт мимо `EditorViewState`, в отличие от {@link applyExternalEdits}, и это
-     * намеренно: там стоит read-only-гард, а владелец писать обязан. Это ровно
-     * разделение VS Code — `OutputChannelModel` пишет в `ITextModel`, а `readOnly`
-     * живёт на виджете редактора и правки владельца не касается.
-     *
-     * API специально **только append**: правка в самом конце документа не сдвигает
-     * ни выделения, ни фолды выше неё. Произвольные правки так проводить нельзя —
-     * для них {@link applyExternalEdits}.
+     * Мимо `EditorViewState` намеренно: там read-only-гард, а владелец писать обязан
+     * (как `OutputChannelModel` vscode). Только append: правка в конце не сдвигает
+     * выделения и фолды — произвольные правки идут через {@link applyExternalEdits}.
      */
     public appendContent(text: string): void {
         if (text.length === 0) return;
         const line = this.doc.lineCount - 1;
         const column = this.doc.getLineLength(line);
         this.doc.applyEdits([createTextEdit(createRange(line, column, line, column), text)]);
-        // Правка владельца не пачкает буфер: «несохранённых изменений» у ресурса
-        // без диска не бывает.
+        // У ресурса без диска «несохранённых изменений» не бывает.
         this.markSaved();
         this.broadcastMarkDirty();
     }
 
-    /** Заменяет содержимое целиком (смена Output-канала, свежий снимок, onDidChange провайдера). */
     public replaceContent(text: string): void {
         this.replaceText(text);
     }

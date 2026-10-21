@@ -26,19 +26,9 @@ import type { EditorComponent, IIndentConfiguration } from "./editorComponent.ts
 import type { IEditorPane } from "./iEditorPane.ts";
 
 /**
- * Пара «модель + view-компонент» одного открытого **текстового** редактора.
- * Владеет временем жизни обоих и делегирует единый публичный API по
- * принадлежности: буферное — в модель ({@link BaseTextEditorModel}), файловое —
- * в {@link fileModel} (у синтетики его нет: сохранять, перечитывать и
- * перекодировать нечего — ответы честные: `"no-file"`, `false`, кодировка по
- * умолчанию), view-обвязочное — в {@link EditorComponent}. Это поверхность, которую видят
- * потребители «активного редактора» (экшены, Find/Completion, швы Workbench,
- * host-адаптеры); создаёт и хранит пары `EditorService`.
- *
- * Реализует {@link IEditorPane} — общий контракт вкладки, по которому группа
- * работает с панелями любого вида. Всё, чего в этом контракте нет (сохранение,
- * EOL, кодировка, folding, автодополнение), доступно только тем, кто явно
- * спросил текстовую панель.
+ * Пара «модель + view-компонент» одного текстового редактора, владеет обоими.
+ * Всё, чего нет в {@link IEditorPane} (сохранение, EOL, кодировка, folding),
+ * доступно только тем, кто явно спросил текстовую панель.
  */
 export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorModel>
     extends Disposable
@@ -46,20 +36,15 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
 {
     private readonly onDidChangeReadOnlyEmitter = this.register(new Emitter<void>());
     /**
-     * Редактор вне таб-строки (нижняя Panel: Output). Такой редактор попадает в
-     * `getActivePane()`, когда фокус внутри него, — и потребители, работающие
-     * с ВКЛАДКОЙ (переключение read-only, `activeTextEditor` для расширений),
-     * обязаны его пропускать: содержимым владеет фича, а не пользователь.
-     * Ставит `EditorService.openDetached`.
+     * Редактор вне таб-строки (Output в нижней Panel): попадает в `getActivePane()`
+     * по фокусу, но потребители, работающие с вкладкой, обязаны его пропускать.
      */
     public detached = false;
 
     /**
-     * @param modelOwnership — чем панель владеет вместо самой модели: ссылка
-     * реестра моделей (`TextFileModelRegistry.acquire`). Закрытие вкладки
-     * освобождает ссылку, а модель умирает только с последней из них — так две
-     * вкладки одного файла в разных группах переживают закрытие любой одной.
-     * Без параметра панель владеет моделью единолично (untitled, detached).
+     * @param modelOwnership — ссылка реестра моделей вместо самой модели: модель
+     * умирает с последней ссылкой, так вкладки одного файла в разных группах
+     * переживают закрытие любой одной. Без параметра панель владеет моделью сама.
      */
     public constructor(
         public readonly model: TModel,
@@ -71,21 +56,14 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.register(modelOwnership ?? model);
     }
 
-    /**
-     * Сводит текстовые события, влияющие на вид вкладки, в одно: правка контента
-     * даёт/снимает маркер изменённости, смена EOL меняет `isModified` не трогая
-     * текст, а внешнее изменение файла на диске перечитывает буфер или поднимает
-     * флаг конфликта. Группе достаточно знать, что «что-то во вкладке поменялось».
-     */
     public onDidChangeState(cb: () => void): IDisposable {
         const subscriptions = [
             this.onDidChangeContent(cb),
             this.onDidChangeEol(cb),
             this.onDidChangeDiskState(cb),
             this.onDidChangeReadOnly(cb),
-            // Сохранение меняет вид вкладки: гаснет маркер изменённости, после
-            // saveAs — имя. Событие модели, а не слот onDidSave: у документа
-            // может быть несколько вкладок, и перерисоваться обязана каждая.
+            // Событие модели, а не слот onDidSave: у документа может быть
+            // несколько вкладок, и перерисоваться обязана каждая.
             this.onDidSave(cb),
         ];
         return {
@@ -95,9 +73,7 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         };
     }
 
-    // ─── Модель: ресурс, dirty, save, оси encoding/EOL/language ────────────────
-
-    /** Файловая модель вкладки; `null` — синтетика (Output, виртуальный документ, снимок). */
+    /** `null` — синтетика (Output, виртуальный документ, снимок). */
     public get fileModel(): TextFileModel | null {
         return this.model instanceof TextFileModel ? this.model : null;
     }
@@ -106,16 +82,9 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.model.uri;
     }
 
-    /**
-     * Метка вкладки, когда ресурс её не выражает: `a.ts (dev)` у снимка ревизии —
-     * из `git:`-uri с JSON-query такую не вывести. Задаёт владелец при открытии.
-     */
+    /** Когда ресурс метку не выражает: `a.ts (dev)` из `git:`-uri с JSON-query не вывести. */
     public labelOverride: string | null = null;
 
-    /**
-     * Имя файла, либо `Untitled-N` для безымянного буфера: у `untitled:`-ресурса
-     * метка уже лежит в самом пути, отдельного поля-счётчика для неё не нужно.
-     */
     public get label(): string {
         if (this.labelOverride !== null) return this.labelOverride;
         const uri = this.model.uri;
@@ -134,7 +103,6 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.model.isModified;
     }
 
-    /** Файл вкладки удалён с диска (зачёркнутая вкладка); у синтетики — никогда. */
     public get isOrphaned(): boolean {
         return this.fileModel?.isOrphaned ?? false;
     }
@@ -159,22 +127,18 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.model.undoContext;
     }
 
-    /** Документ записан на диск (save/saveAs) — событие файловой модели; у синтетики молчит. */
     public get onDidSave(): Event<void> {
         return this.fileModel?.onDidSaveDocument ?? Event.None;
     }
 
-    /** Токен темы для фона редактора (см. `EditorComponent.backgroundToken`). */
     public set backgroundToken(token: WorkbenchColorKey) {
         this.component.backgroundToken = token;
     }
 
-    /** Смена курсора/выделения в этом редакторе (см. `EditorComponent.onDidChangeSelection`). */
     public onDidChangeSelection(cb: () => void): IDisposable {
         return this.component.onDidChangeSelection(cb);
     }
 
-    /** Файловая модель — или отказ: операция осмысленна только для файла. */
     private requireFileModel(operation: string): TextFileModel {
         const fileModel = this.fileModel;
         if (fileModel === null) throw new Error(`${operation}: у буфера ${this.uri.toString()} нет файла`);
@@ -193,11 +157,7 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.fileModel?.saveWithEncoding(encoding, options) ?? Promise.resolve("no-file");
     }
 
-    /**
-     * Save As файла: запись по новому пути и перепривязка модели к нему.
-     * Синтетику так не сохранить — её копию на диск пишет вызывающий
-     * (`fileActions`, как upstream: сохранённое открывается обычным файлом).
-     */
+    /** Копию синтетики на диск пишет вызывающий (`fileActions`, как upstream). */
     public saveAs(newPath: string): Promise<void> {
         return this.requireFileModel("saveAs").saveAs(newPath);
     }
@@ -228,15 +188,14 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return this.model.getText();
     }
 
-    /** Строки буфера без переводов строк — дешевле, чем `getText().split("\n")`. */
+    /** Дешевле, чем `getText().split("\n")`. */
     public getLinesContent(): string[] {
         return this.model.document.getLinesContent();
     }
 
     /**
-     * Программный батч одним шагом истории. Выделения после него назначает
-     * `computeCursorState` (обратные правки — в порядке `edits`), без него они
-     * сдвигаются вслед за правками — как `editor.executeEdits` эталона.
+     * Выделения после батча назначает `computeCursorState` (обратные правки — в
+     * порядке `edits`), без него они сдвигаются за правками — как `editor.executeEdits`.
      */
     public applyExternalEdits(
         edits: readonly ITextEdit[],
@@ -247,9 +206,8 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
     }
 
     /**
-     * То же, но шаг истории отдаётся вызывающему, а не кладётся в бакет
-     * документа — им bulk edit собирает ОДИН шаг на весь `workspace.applyEdit`
-     * (см. `TextFileModel.applyExternalEditsDetached`).
+     * Шаг истории отдаётся вызывающему, а не кладётся в бакет документа: так bulk
+     * edit собирает ОДИН шаг на весь `workspace.applyEdit`.
      */
     public applyExternalEditsDetached(edits: readonly ITextEdit[], label: string): IUndoRedoElement | null {
         return this.model.applyExternalEditsDetached(edits, label, this.component.editTarget);
@@ -286,8 +244,6 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         return (this.fileModel?.onDidChangeDiskState ?? Event.None)(listener);
     }
 
-    // ─── Компонент: view, курсор/скролл, декорации, folding ────────────────────
-
     public get view(): ScrollBarDecorator {
         return this.component.view;
     }
@@ -301,10 +257,8 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
     }
 
     /**
-     * Режим «только чтение» вкладки (VS Code `EditorOption.readOnly`). Правки
-     * документа блокирует сам `EditorViewState`; здесь флаг нужен ещё и для
-     * путей мимо него — undo/redo, смена EOL и кодировки идут в `TextFileModel`
-     * напрямую, как `pushUndoStop`/`popUndoStop` в `CodeEditorWidget`.
+     * Правки блокирует сам `EditorViewState`; флаг нужен для путей мимо него — undo/redo,
+     * EOL и кодировка идут в `TextFileModel` напрямую.
      */
     public get readOnly(): boolean {
         return this.component.viewState.readOnly;
@@ -316,17 +270,12 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.onDidChangeReadOnlyEmitter.fire();
     }
 
-    /**
-     * Смена режима read-only. На неё подписан `EditorService` — таб должен
-     * получить/потерять замок сразу, как это уже сделано для EOL и dirty.
-     */
     public readonly onDidChangeReadOnly = this.onDidChangeReadOnlyEmitter.event;
 
     public onDidChangeCursorPosition(listener: () => void): IDisposable {
         return this.component.onDidChangeCursorPosition(listener);
     }
 
-    /** Набор печатного символа с клавиатуры (upstream `ICodeEditor.onDidType`). */
     public onDidType(listener: (text: string) => void): IDisposable {
         return this.component.onDidType(listener);
     }
@@ -351,7 +300,6 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.component.setIndentOptions(patch);
     }
 
-    /** Смена действующих настроек отступа (см. `EditorComponent.onDidChangeIndentOptions`). */
     public onDidChangeIndentOptions(listener: () => void): IDisposable {
         return this.component.onDidChangeIndentOptions(listener);
     }
@@ -369,9 +317,8 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
     }
 
     /**
-     * Дифф-редактор взводит флаг у своих сторон: они выравниваются по
-     * view-строкам (зоны диффа), и перенос развёл бы половины. Форс живёт в
-     * сеттере, а не у вызывающих: им накрыты и live-reload конфига, и Alt+Z.
+     * Стороны диффа выравниваются по view-строкам — перенос развёл бы их. Форс живёт
+     * в сеттере, а не у вызывающих: им накрыты и live-reload конфига, и Alt+Z.
      */
     public wordWrapForcedOff = false;
 
@@ -391,7 +338,6 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
         this.component.setGutterChangeDecorations(decorations);
     }
 
-    /** Ставит/снимает призрачную подсказку (ghost text инлайн-подсказок). */
     public setGhostText(ghost: IGhostText | null): void {
         this.component.setGhostText(ghost);
     }
@@ -457,11 +403,7 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
     }
 }
 
-/**
- * Текстовая ли это вкладка — с сужением к `TextEditorPane` над любой моделью.
- * Голый `instanceof` у обобщённого класса сужает к `TextEditorPane<any>`, и
- * дальше по коду расползается `any`.
- */
+/** Голый `instanceof` у обобщённого класса сужает к `TextEditorPane<any>`. */
 export function isTextEditorPane(pane: unknown): pane is TextEditorPane {
     return pane instanceof TextEditorPane;
 }
