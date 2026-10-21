@@ -523,6 +523,14 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
             "Controls whether preview mode is used when editors open. There is a maximum of one preview mode editor per editor group. Its contents will be replaced by the next editor opened in preview mode. Making a change in a preview mode editor will persist it, as will the 'Keep Open' option in its tab context menu.",
     },
     {
+        key: "workbench.list.openMode",
+        type: "string",
+        default: "singleClick",
+        description:
+            "Controls how to open items in trees and lists using the mouse (if supported). Note that some trees and lists might choose to ignore this setting if it is not applicable.",
+        enum: ["singleClick", "doubleClick"],
+    },
+    {
         key: "workbench.secondarySideBar.defaultVisibility",
         type: "string",
         default: "visibleInWorkspace",

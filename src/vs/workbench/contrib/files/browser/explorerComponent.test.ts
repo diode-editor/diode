@@ -182,15 +182,13 @@ describe("ExplorerComponent", () => {
         expect(h.opened).toEqual([ws.path("README.md")]);
     });
 
-    it("the tree opens a file as PREVIEW — the only such entry point", () => {
+    it("Enter opens a file PINNED and moves focus, as upstream `list.select`", () => {
         app.sendKey("ArrowDown"); // README.md
         app.render();
         app.sendKey("Enter");
         app.render();
 
-        // Upstream previews from the tree but not from Quick Open or code navigation
-        // (`enablePreviewFrom*` is off there), so the tree sets the flag.
-        expect(h.openOptions).toEqual([{ preview: true }]);
+        expect(h.openOptions).toEqual([{ preview: false, focus: true }]);
     });
 
     it("Shift+F10 opens the popup menu anchored at the selected row", () => {

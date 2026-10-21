@@ -51,7 +51,7 @@ describe("FileTree opens file in editor", () => {
         expect(editorGroupCtrl.getActiveEditor()?.fileName).toBe("hello.txt");
     });
 
-    it("activating a second file REPLACES the first — the tree opens previews", () => {
+    it("Enter on a second file opens it beside the first — Enter pins, as upstream `list.select`", () => {
         const tree = testApp.querySelector("TreeViewElement");
         tree!.focus();
         testApp.render();
@@ -64,10 +64,9 @@ describe("FileTree opens file in editor", () => {
         testApp.sendKey("Enter");
         testApp.render();
 
-        // Walking the tree doesn't pile up tabs: a group has a single preview tab,
-        // and the next preview takes its slot (`workbench.editor.enablePreview`).
+        // Only a click previews (workbench.previewTabs.test.ts); a keyboard open is permanent.
         const editorGroupCtrl = (workbench as unknown as { editorService: IEditorService }).editorService;
-        expect(editorGroupCtrl.editorGroups.activeGroup.editorCount).toBe(1);
+        expect(editorGroupCtrl.editorGroups.activeGroup.editorCount).toBe(2);
         expect(editorGroupCtrl.getActiveEditor()?.fileName).toBe("notes.md");
     });
 

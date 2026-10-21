@@ -56,6 +56,16 @@ export const workbenchConfiguration = {
                 "Controls how tree folders are expanded when clicking the folder names. Note that some trees and " +
                 "lists might choose to ignore this setting if it is not applicable.",
         },
+        // Only the Explorer reads it so far: other trees and lists open on Enter and double click.
+        "workbench.list.openMode": {
+            scope: "window",
+            type: "string",
+            enum: ["singleClick", "doubleClick"],
+            default: "singleClick",
+            description:
+                "Controls how to open items in trees and lists using the mouse (if supported). Note that some " +
+                "trees and lists might choose to ignore this setting if it is not applicable.",
+        },
         // We can't maximize a part, so `maximized*` means "visible". Like upstream, an empty part is not shown.
         "workbench.secondarySideBar.defaultVisibility": {
             scope: "window",

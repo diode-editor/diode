@@ -18,6 +18,7 @@ import { Component } from "../../../browser/component.ts";
 import type { ViewsService } from "../../../browser/parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../../../browser/parts/views/viewsService.ts";
 import type { IViewWelcomeBlock } from "../../../browser/parts/views/viewWelcomeElement.ts";
+import type { IOpenUriOptions } from "../../../services/editor/common/editorService.ts";
 import {} from "../../../services/themes/common/themeTokens.ts";
 
 import type { ExplorerService } from "./explorerService.ts";
@@ -129,11 +130,13 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         /* v8 ignore stop */
         // The 1-column indent is inside the tree, not outer padding: the cursor highlight fills the
         // row from the panel edge. `workbench.tree.expandMode` (upstream's `expandOnlyOnTwistieClick`)
-        // is read on every gesture — a settings.json edit takes effect at once.
+        // and `workbench.list.openMode` (upstream's `openOnSingleClick`) are read on every gesture —
+        // a settings.json edit takes effect at once.
         const tree = new TreeViewElement<FileTreeNode>(provider, {
             leftPadding: 1,
             expandOnlyOnTwistieClick: () =>
                 this.configurationService.get("workbench.tree.expandMode") === "doubleClick",
+            openOnSingleClick: () => this.configurationService.get("workbench.list.openMode") !== "doubleClick",
         });
         const scrollBars = new ScrollBarDecorator(tree);
         scrollBars.id = "explorerView";
@@ -147,10 +150,12 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
                 provider.unwatchNode(node);
             }
         };
-        tree.onActivate = (node) => {
+        tree.onActivate = (node, { pinned, preserveFocus }) => {
             if (!node.isDirectory) {
-                // Only the tree asks for preview: upstream's Quick Open and code navigation don't.
-                this.commands.execute("workbench.openFile", node.path, { preview: true });
+                // Upstream `explorerView.onDidOpen`: a click previews and keeps focus in the tree, a double
+                // click and Enter pin. Only the tree asks for preview: Quick Open and code navigation don't.
+                const options: IOpenUriOptions = { preview: !pinned, focus: !preserveFocus };
+                this.commands.execute("workbench.openFile", node.path, options);
             }
         };
         tree.onContextMenu = (node, screenX, screenY) => {
