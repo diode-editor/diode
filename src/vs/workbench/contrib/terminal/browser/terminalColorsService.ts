@@ -1,13 +1,6 @@
-// Цвета встроенного терминала: 16 ANSI-цветов, в которые эмулятор разворачивает
-// palette-ячейки, и дефолтные фон/текст поверх токенов темы. Источник —
-// `terminal.integrated.colorSource`: тема (`terminal.ansi*`, как в vscode) либо
-// хост-терминал, в котором запущен diode (его ответы на OSC 4/10/11). Чего хост не
-// сообщил, берётся из темы поштучно. Смена темы или настройки — новое событие.
-//
 // Хост спрашивается не раньше фазы `restored`: к ней `app.run()` уже перевёл tty в
-// raw-режим. Запрос из конструктора (сервис строится до `run()`) уходил, пока tty
-// ещё в cooked-режиме с ECHO, — ядро печатало ответы терминала (`^[]10;rgb:…`) на
-// основной экран, и после выхода из alt-screen они оставались мусором в шелле.
+// raw-режим. Запрос из конструктора уходил в cooked-режиме с ECHO — ответы
+// (`^[]10;rgb:…`) оставались мусором в шелле после выхода из alt-screen.
 
 import type { HostTerminalColors, ITerminalBackend } from "@tuidom/core/backend/iTerminalBackend";
 
@@ -30,20 +23,14 @@ export const TerminalColorsServiceDIToken = token<TerminalColorsService>("Termin
 const COLOR_SOURCE_SETTING = "terminal.integrated.colorSource";
 
 export interface ITerminalColors {
-    /** Цвета palette-индексов 0..15 (всегда 16). */
+    /** Всегда 16: palette-индексы 0..15. */
     readonly ansi: readonly number[];
-    /**
-     * Дефолтные фон и текст терминала поверх токенов `terminal.background` /
-     * `terminal.foreground` (var-scope виджета); `undefined` — токен темы как есть.
-     */
+    /** Поверх токенов `terminal.background`/`terminal.foreground`; `undefined` — токен темы как есть. */
     readonly background: number | undefined;
     readonly foreground: number | undefined;
 }
 
-/**
- * Цвета терминала: что сообщил хост-терминал (`host`), то от него, остальное — из
- * темы поштучно. `undefined` (режим темы или хост ещё не ответил) — всё из темы.
- */
+/** Чего хост не сообщил — из темы поштучно; `host: undefined` — всё из темы. */
 export function resolveTerminalColors(theme: WorkbenchTheme, host: HostTerminalColors | undefined): ITerminalColors {
     return {
         ansi: TERMINAL_ANSI_COLOR_KEYS.map((key, index) => host?.ansi[index] ?? theme.getRequiredColor(key)),
@@ -52,11 +39,7 @@ export function resolveTerminalColors(theme: WorkbenchTheme, host: HostTerminalC
     };
 }
 
-/**
- * Держит актуальные {@link ITerminalColors} и сообщает об их смене. Хост-терминал
- * спрашивается один раз, только в режиме `host` и не раньше фазы `restored` — в
- * режиме темы diode в терминал запросов не шлёт.
- */
+/** В режиме темы diode в терминал запросов не шлёт; хост спрашивается один раз. */
 export class TerminalColorsService extends Disposable {
     public static dependencies = [
         ThemeServiceDIToken,

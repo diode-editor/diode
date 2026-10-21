@@ -14,9 +14,6 @@ import {
 } from "./tasksJsonEdits.ts";
 import { getTaskTemplates } from "./taskTemplates.ts";
 
-// Правки текста tasks.json: дописывание записи без порчи соседнего текста,
-// шаблоны, запись-кастомизация задачи провайдера, поиск записи в тексте.
-
 const spaces4 = { insertSpaces: true, tabSize: 4 };
 const tabs = { insertSpaces: false, tabSize: 4 };
 const entry = { type: "npm", script: "lint" };
@@ -104,7 +101,6 @@ describe("шаблоны и новый файл", () => {
         const [, , , others] = getTaskTemplates();
         expect(applyTaskTemplate("", others.content, tabs)).toBe(others.content);
         expect(applyTaskTemplate(" \n", others.content, tabs)).toBe(others.content);
-        // Новые ключи — отформатированы отступом редактора.
         expect(applyTaskTemplate('{\n    "x": 1\n}', others.content, spaces4)).toContain('\n    "version": "2.0.0",\n');
         const merged = applyTaskTemplate('{ "version": "1.0.0", "x": 1 }', others.content, spaces4);
         expect(JSON.parse(merged)).toStrictEqual({

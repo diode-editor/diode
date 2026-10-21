@@ -41,7 +41,6 @@ function makeHarness(): IHarness {
     const harness = { confirms: 0 };
 
     const services = new Map<unknown, unknown>([
-        // Прогресс операций: транспортные швы просят его у контейнера.
         [ProgressServiceDIToken, new ProgressService()],
         [
             ScmInputComponentDIToken,

@@ -7,9 +7,6 @@ import { DEFAULT_PRESENTATION } from "../common/tasks.ts";
 
 import { type ITaskProvider, TASK_PROVIDER_TIMEOUT_MS } from "./taskService.ts";
 
-// Сервис задач: списки (tasks.json + провайдеры), запуск с `saveBeforeRun`,
-// политика повторного запуска, rerun/restart, пикеры и ключ `taskRunning`.
-
 const definition = (taskType: string, when?: string): ITaskDefinitionSchema => ({
     extensionId: "pub.ext",
     taskType,
@@ -202,7 +199,6 @@ describe("TaskService — провайдеры и типы", () => {
             "Error: raw",
             'The task provider for "c" tasks unexpectedly provided a task of type "other".',
         ]);
-        // С фильтром по типу задача чужого типа не проходит.
         expect(await h.service.tasks({ type: "c" })).toStrictEqual([]);
         h.dispose();
     });
@@ -425,7 +421,6 @@ describe("TaskService — запуск уже бегущей (instancePolicy)", 
         await vi.waitFor(() => {
             expect(h.sessions).toHaveLength(2);
         });
-        // Задача была не видна — её терминал показан до вопроса.
         expect(shown.mock.calls[0]).toStrictEqual([true]);
         expect(h.picks[0].placeholder).toBe("Select an instance to terminate");
         expect(h.lastPickLabels()).toStrictEqual(["build"]);
@@ -458,7 +453,6 @@ describe("TaskService — запуск уже бегущей (instancePolicy)", 
         });
         expect(h.sessions).toHaveLength(1);
         expect(h.service.getActiveTasks()).toHaveLength(1);
-        // Отмена — не сбой: тоста нет.
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(h.notifications.passive()).toStrictEqual([]);
         h.dispose();

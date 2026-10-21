@@ -22,37 +22,20 @@ import type { IScmCommit, ScmGraphService } from "./graphService.ts";
 import { ScmGraphServiceDIToken } from "./graphService.ts";
 import { applyGraphLine, buildCommitRow, buildLoadMoreRow, LOAD_MORE_ROW_ID } from "./scmGraphRows.ts";
 
-/**
- * Догрузка следующей страницы истории. Id живёт здесь, а не рядом с самим
- * экшеном (`graphActions.ts`): экшену нужен id секции отсюда, и объявление в
- * обе стороны замкнуло бы импорты в цикл.
- */
+/** Здесь, а не в `graphActions.ts`: экшену нужен id секции отсюда — иначе цикл импортов. */
 export const GRAPH_LOAD_MORE_COMMAND = "scm.graph.loadMore";
 
 export const GraphViewComponentDIToken = token<GraphViewComponent>("GraphViewComponent");
 
 /**
- * Графовые лейблы строк в порядке коммитов — их перекрашивает смена выделения.
- * Параллельны снимку сервиса, поэтому индексируются им же, а не sha: один и тот
- * же коммит `git log` печатает дважды, когда в него приходят две ветки.
+ * Индексируются снимком сервиса, а не sha: `git log` печатает коммит дважды, когда
+ * в него приходят две ветки.
  */
 type GraphLabels = TextLabelElement[];
 
 /**
- * View-секция **GRAPH** контейнера Source Control: история репозитория с
- * настоящим графом ветвлений. Укладку считает порт lazygit
- * ({@link renderCommitGraph}), данные приходят снимком {@link ScmGraphService}
- * (публикует git-расширение), команды на коммите — меню
- * {@link MenuId.ScmGraphContext}.
- *
- * Страница ограничена (`scm.graph.pageSize`); пока история продолжается, под
- * списком стоит строка «Load More…».
- *
- * **Секция ленивая.** Пока она не раскрыта (свёрнута шевроном или скрыта через
- * «⋯» контейнера), строк нет вовсе: публикации проходят мимо, укладка не
- * считается, а расширению через {@link ScmGraphService.setActive}
- * сказано не запускать `git log`. Раскрытие достраивает секцию из накопленного
- * снимка немедленно — свежую страницу расширение принесёт следом.
+ * Секция ленивая: пока не раскрыта, строк нет, укладка не считается, а `git log`
+ * расширению запрещён через {@link ScmGraphService.setActive}.
  */
 export class GraphViewComponent extends Component {
     public static dependencies = [
@@ -62,19 +45,14 @@ export class GraphViewComponent extends Component {
         CommandRegistryDIToken,
     ] as const;
 
-    /** Список коммитов — доступен тестам и оркестрации (фокус, inspectState). */
     public readonly list = new ListViewElement();
-    /** Тело view-секции GRAPH — вкидывается в контейнер через ViewsService. */
     public readonly view: PaddingContainerElement;
 
     private graphLabels: GraphLabels = [];
-    /** sha → коммит: цель команд контекстного меню. */
     private readonly commitsBySha = new Map<string, IScmCommit>();
-    /** Коммит, чьи линии подсвечены, — курсор списка. */
     private selectedSha: string | null = null;
-    /** Видит ли пользователь тело секции (см. `ViewsService.isViewExpanded`). */
     private expanded = false;
-    /** Курсор, переживающий сворачивание: строки на это время не хранятся. */
+    /** Переживает сворачивание: строки на это время не хранятся. */
     private cursorId: string | null = null;
 
     public constructor(
@@ -96,14 +74,10 @@ export class GraphViewComponent extends Component {
             containerId: SCM_VIEWLET_ID,
             title: "GRAPH",
             order: 20,
-            // История репозитория дороже списка изменений и нужна реже: секция
-            // открывается свёрнутой, а `git log` в расширении до раскрытия не
-            // запускается вовсе (см. `ScmGraphService.setActive`).
+            // `git log` дорогой и нужен реже: до раскрытия расширение его не запускает.
             collapsed: true,
             body: this.view,
-            // Истории без репозитория нет. Кнопки тут нет осознанно: welcome с
-            // кнопкой Open Folder показывает CHANGES, и дублировать её второй
-            // раз в том же контейнере — шум (у эталона welcome на контейнер один).
+            // Кнопки нет осознанно: Open Folder показывает CHANGES, у эталона welcome на контейнер один.
             requiresWorkspaceFolder: true,
             placeholder: "No folder opened.",
             focus: () => {
@@ -115,8 +89,7 @@ export class GraphViewComponent extends Component {
             this.setSelected(listRowId(element));
         };
         this.list.onActivate = (element) => {
-            // Строка догрузки — единственная активируемая: у коммитов действия
-            // живут в контекстном меню.
+            // Активируется только догрузка: действия коммитов — в контекстном меню.
             if (element.id === LOAD_MORE_ROW_ID) void this.commands.execute(GRAPH_LOAD_MORE_COMMAND);
         };
         this.list.onContextMenu = (element, screenX, screenY) => {
@@ -127,8 +100,7 @@ export class GraphViewComponent extends Component {
 
         this.register(
             this.graphService.onDidChangeCommits(() => {
-                // Свёрнутая секция строк не держит: раскрытие соберёт их с нуля
-                // из снимка, который сервис хранит и без нас.
+                // Свёрнутая секция строк не держит: раскрытие соберёт их из снимка сервиса.
                 if (this.expanded) this.rebuild();
             }),
         );
@@ -137,18 +109,14 @@ export class GraphViewComponent extends Component {
                 if (viewId === SCM_GRAPH_VIEW_ID) this.setExpanded(expanded);
             }),
         );
-        // Компонент создаётся DI раньше, чем workbench собирает контейнер, —
-        // здесь секция ещё не раскрыта. Спрашиваем всё равно: порядок сборки
-        // workbench'а не наша забота.
+        // DI создаёт компонент раньше сборки контейнера — секция ещё не раскрыта, но спрашиваем всё равно.
         this.setExpanded(viewsService.isViewExpanded(SCM_GRAPH_VIEW_ID));
     }
 
     /**
-     * Секцию раскрыли или свернули. Раскрытие строит из накопленного снимка
-     * сразу, не дожидаясь расширения: следующая публикация может оказаться
-     * байт-идентичной прежней, и {@link ScmGraphService} погасит её по подписи —
-     * секция так и осталась бы пустой. Сворачивание освобождает строки: их у
-     * страницы до тысячи, и свёрнутому телу они не нужны.
+     * Раскрытие строит из накопленного снимка сразу: следующая публикация может быть
+     * байт-идентичной, и {@link ScmGraphService} погасит её по подписи — секция осталась
+     * бы пустой. Сворачивание освобождает строки: их у страницы до тысячи.
      */
     private setExpanded(expanded: boolean): void {
         if (expanded === this.expanded) return;
@@ -168,11 +136,7 @@ export class GraphViewComponent extends Component {
         this.list.focus();
     }
 
-    /**
-     * Пересобирает строки из снимка сервиса. Курсор возвращается на прежнюю
-     * строку по id, если она пережила публикацию (как у вкладки Changes); после
-     * сворачивания строк уже нет, и id берётся из {@link cursorId}.
-     */
+    /** После сворачивания строк уже нет — id курсора берётся из {@link cursorId}. */
     private rebuild(): void {
         const cursorId = this.list.getCursorElement()?.id ?? this.cursorId ?? undefined;
         this.cursorId = null;
@@ -189,7 +153,7 @@ export class GraphViewComponent extends Component {
         let lastGraphWidth = 0;
         for (let i = 0; i < commits.length; i++) {
             const commit = commits[i];
-            // Цвет бейджей — цвет дорожки коммита, известный уже после укладки.
+            // Цвет дорожки известен только после укладки.
             const parts = buildCommitRow(commit, lines[i], palette.colorOf(commit.sha));
             this.list.appendRow(parts.root, { label: commit.subject });
             this.commitsBySha.set(commit.sha, commit);
@@ -203,19 +167,14 @@ export class GraphViewComponent extends Component {
             this.list.appendRow(buildLoadMoreRow(lastGraphWidth), { label: "Load More" });
         }
 
-        // Курсор возвращаем только на строку, которая в списке действительно
-        // есть: догрузка последней страницы убирает «Load More…» из-под него.
+        // Догрузка последней страницы убирает «Load More…» из-под курсора.
         if (cursorId === undefined) return;
         if (this.commitsBySha.has(cursorId) || (loadMore && cursorId === LOAD_MORE_ROW_ID)) {
             this.list.setCursorTo(cursorId);
         }
     }
 
-    /**
-     * Подсветка линий выделенного коммита. Строки не пересобираются: меняются
-     * только графовые лейблы, и точечный `markDirty` внутри них оставляет
-     * остальной кадр нетронутым.
-     */
+    /** Строки не пересобираются: точечный `markDirty` графовых лейблов не трогает остальной кадр. */
     private setSelected(sha: string): void {
         // Курсор на строке «Load More…» подсветку снимает: коммита за ней нет.
         const selected = this.commitsBySha.has(sha) ? sha : null;
@@ -229,7 +188,6 @@ export class GraphViewComponent extends Component {
         }
     }
 
-    /** Контекстное меню коммита — делегат ContextMenuService (как у Changes). */
     private showContextMenu(commit: IScmCommit, screenX: number, screenY: number): void {
         const context: ScmGraphMenuContext = {
             sha: commit.sha,

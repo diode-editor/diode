@@ -19,7 +19,6 @@ describe("createGraphPalette", () => {
         const { styleFor } = createGraphPalette([commit("a"), commit("b")]);
         const first = styleFor("a", null);
         expect(first).toBe(GRAPH_PALETTE[0]);
-        // Тот же цвет тянется вниз по ветке, сколько бы в ней ни было коммитов.
         expect(styleFor("b", first)).toBe(first);
         expect(styleFor("c", first)).toBe(first);
     });
@@ -96,7 +95,6 @@ describe("цвета на уложенном графе", () => {
         ]);
         const [mergeStyle, featureStyle, mainStyle, rootStyle] = styles;
         expect(featureStyle).not.toBe(mergeStyle);
-        // Дорожка main проходит через merge, коммит в main и общий корень.
         expect(mainStyle).toBe(mergeStyle);
         expect(rootStyle).toBe(mergeStyle);
     });

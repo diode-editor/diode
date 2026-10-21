@@ -8,10 +8,6 @@ import type { ITerminalSessionOptions } from "../common/terminalSessionFactory.t
 
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 
-// Терминалы задач: инстанс, который ждёт после выхода процесса (`waitOnExit`
-// эталона), сообщение о коде выхода, «press any key to close» и перезапуск
-// процесса на месте (`reuseTerminal`).
-
 const INVERSE = "\x1b[0m\x1b[7m * \x1b[0m";
 
 function buildHarness() {
@@ -201,7 +197,6 @@ describe("TerminalService — relaunchInstance", () => {
         expect(h.sessions[0].relaunches).toStrictEqual([{ cwd: process.cwd() }]);
         expect(instance.title).toBe("b");
         expect(h.events).toStrictEqual(["exit:1:0", "title:1:b"]);
-        // Без waitOnExit на этот раз — выход снимает инстанс.
         h.sessions[0].emitExit(0);
         expect(h.service.getInstance(instance.id)).toBeNull();
         h.service.dispose();

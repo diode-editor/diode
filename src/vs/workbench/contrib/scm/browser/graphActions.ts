@@ -7,14 +7,10 @@ import { SCM_GRAPH_VIEW_ID } from "../common/scmViews.ts";
 import { runGitOp, withGitProgress } from "./gitOpClient.ts";
 import { GRAPH_LOAD_MORE_COMMAND } from "./graphViewComponent.ts";
 
-/** nf-cod-refresh — inline-кнопка заголовка секции GRAPH. */
+/** nf-cod-refresh. */
 const REFRESH_ICON = "\ueb37";
 
-/**
- * Ручное обновление view GRAPH — Refresh кнопкой в заголовке секции. Делегирует
- * команде `git.refresh` расширения (паттерн {@link CommandOriginalResourceProvider}):
- * до активации расширения команды нет — тогда тихий no-op, как у quickDiff.
- */
+/** До активации расширения команды `git.refresh` нет — тихий no-op. */
 export const scmGraphRefreshAction: CommandAction = {
     id: "scm.graph.refresh",
     title: "Source Control: Refresh Graph",
@@ -32,17 +28,12 @@ export const scmGraphRefreshAction: CommandAction = {
     run(accessor) {
         const commands = accessor.get(CommandRegistryDIToken);
         if (!commands.has("git.refresh")) return undefined;
-        // Промис прокси-команды расширения раньше выбрасывался — без него
-        // спиннеру нечего было бы держать.
+        // Промис прокси-команды не выбрасываем: его держит спиннер.
         return withGitProgress(accessor, "refresh", () => Promise.resolve(commands.execute("git.refresh")));
     },
 };
 
-/**
- * Следующая страница истории. Предел держит расширение (операция `logLoadMore`
- * растит его на `scm.graph.pageSize`) — ядро только просит и ждёт новой
- * публикации снимка.
- */
+/** Предел держит расширение (`logLoadMore` растит его на `scm.graph.pageSize`); ядро только просит. */
 export const scmGraphLoadMoreAction: CommandAction = {
     id: GRAPH_LOAD_MORE_COMMAND,
     title: "Source Control: Load More Commits",

@@ -28,12 +28,8 @@ import { STASH_ACTIONS } from "./stashActions.ts";
 import { SYNC_ACTIONS } from "./syncActions.ts";
 
 /**
- * Экшены фичи scm одним массивом. Всё, что мутирует репозиторий (или гоняет
- * git по нашей команде), гасится на время уже идущей операции —
- * `enablement: !gitOperationInProgress` ({@link gitMutating}). В VS Code это
- * поле у каждой команды манифеста; у нас — один список здесь, чтобы не
- * расходился с тем, что реально ходит через транспортные швы. Регистрирует
- * агрегатор (`WORKBENCH_ACTIONS`).
+ * Мутирующее гасится на время операции ({@link gitMutating}): в VS Code это поле каждой
+ * команды манифеста, у нас — один список, чтобы не расходился с транспортными швами.
  */
 export const SCM_ACTIONS: readonly CommandAction[] = [
     compareWithHeadAction,

@@ -4,13 +4,8 @@ import type { IPipe } from "./commitGraph.ts";
 import { getBoxDrawingChars, GRAPH_HIGHLIGHT_STYLE, PipeKind, renderPipeSet } from "./commitGraph.ts";
 
 /**
- * Кейсы `TestRenderPipeSet` из lazygit — они проверяют не только символы, но и
- * **цвет каждого символа**: приоритет «вертикаль важнее горизонтали», перекрытие
- * соединителя стартующей линией и подсветку линий выделенного коммита.
- *
- * Цвета в оригинале — ANSI-стили; здесь это произвольные строки-имена, ядру
- * графа они непрозрачны. `undefined` — оригинальный `style.Nothing`: пробел не
- * красится.
+ * Кейсы `TestRenderPipeSet` из lazygit — сверяют и цвет каждого символа. Цвета —
+ * непрозрачные ядру строки; `undefined` — оригинальный `style.Nothing`.
  */
 const CYAN = "cyan";
 const RED = "red";
@@ -244,7 +239,6 @@ describe("renderPipeSet — символы и цвета", () => {
 });
 
 describe("getBoxDrawingChars", () => {
-    /** Таблица lazygit целиком: `up down left right` → узел + соединитель справа. */
     const TABLE: readonly [boolean, boolean, boolean, boolean, string, string][] = [
         [true, true, true, true, "│", "─"],
         [true, true, true, false, "│", " "],

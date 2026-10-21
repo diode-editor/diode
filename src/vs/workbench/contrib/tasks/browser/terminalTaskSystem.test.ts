@@ -14,10 +14,6 @@ import { TaskVariableError } from "../common/taskVariables.ts";
 
 import { type ITaskEvent, TerminalTaskSystem, waitOnExitOf } from "./terminalTaskSystem.ts";
 
-// Исполнение задач во встроенном терминале: настоящий TerminalService с
-// фейковыми сессиями — видно, с чем создан и перезапущен терминал, что
-// напечатано, в каком порядке шли события.
-
 const REUSE_MESSAGE = "Terminal will be reused by tasks, press any key to close it.";
 const executing = (text: string): string =>
     formatMessageForTerminal(`Executing task: ${text}`, { excludeLeadingNewLine: true });
@@ -106,7 +102,6 @@ describe("TerminalTaskSystem — запуск шелл-задачи", () => {
         await expect(result.promise).resolves.toStrictEqual({ exitCode: 0 });
         expect(h.events.slice(4)).toStrictEqual(["changed", "processEnded:build:0", "inactive:build:1", "end:build:1"]);
         expect(h.system.getActiveTasks()).toStrictEqual([]);
-        // Терминал остался ждать и напечатал сообщение о переиспользовании.
         expect(h.terminals.getInstance(instance.id)).toBe(instance);
         expect(h.sessions[0].printed).toStrictEqual([
             formatMessageForTerminal(REUSE_MESSAGE, { excludeLeadingNewLine: true }),
@@ -292,7 +287,6 @@ describe("TerminalTaskSystem — показ терминала", () => {
         h.sessions[1].emitExit(2);
         expect(h.views.panelService.visible).toBe(true);
         expect(h.terminals.getActiveInstance()?.id).toBe(2);
-        // Показ после падения — без фокуса.
         expect(h.focus).not.toHaveBeenCalled();
         h.dispose();
     });
@@ -339,7 +333,6 @@ describe("TerminalTaskSystem — показ терминала", () => {
         h.views.panelService.setActiveView(TERMINAL_VIEW_ID);
         h.views.panelService.setVisible(false);
         expect(h.system.isTaskVisible(a)).toBe(false);
-        // revealTask показывает без фокуса.
         expect(h.focus).not.toHaveBeenCalled();
         // Задача, которая нигде не бежала, чужой терминал своим не считает.
         const c = makeTask({ label: "c" });
@@ -478,7 +471,6 @@ describe("TerminalTaskSystem — терминал задачи по presentation
         h.system.run(shared, h.context());
         h.system.run(dedicated, h.context());
         expect(h.factoryCalls).toHaveLength(4);
-        // Событий конца второй раз нет: задачи уже кончились.
         expect(h.events.filter((e) => e.startsWith("end"))).toStrictEqual(["end:a:1", "end:b:2"]);
         h.dispose();
     });
@@ -586,7 +578,6 @@ describe("TerminalTaskSystem — остановка", () => {
             "terminated:build:user",
         ]);
         expect(h.terminals.getInstances()).toStrictEqual([]);
-        // Закрытый терминал не переиспользуется.
         h.system.run(task, h.context());
         expect(h.factoryCalls).toHaveLength(2);
         h.dispose();

@@ -6,7 +6,6 @@ import type { ContextKeyService } from "../../../../platform/contextkey/common/c
 import { ContextKeyServiceDIToken } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { token } from "../../../../platform/instantiation/common/diContainer.ts";
 
-/** Команда, которой git-расширение публикует снимок состояния репозитория. */
 export const PUBLISH_REPO_STATE_COMMAND = "diode.scm.publishRepoState";
 
 export type ScmRepoOpState = "idle" | "merging" | "rebasing" | "cherry-picking";
@@ -21,7 +20,7 @@ export interface IScmRepoState {
     readonly state: ScmRepoOpState;
 }
 
-/** До первой публикации: репозитория нет (или расширение не активно). */
+/** До первой публикации: репозитория нет или расширение не активно. */
 const NO_REPO: IScmRepoState = {
     branch: null,
     detached: false,
@@ -36,13 +35,7 @@ const OP_STATES: readonly ScmRepoOpState[] = ["idle", "merging", "rebasing", "ch
 
 export const ScmRepoStateServiceDIToken = token<ScmRepoStateService>("ScmRepoStateService");
 
-/**
- * Снимок состояния репозитория от git-расширения (ветка/upstream/ahead-behind/
- * remotes/merge-rebase) + деривация when-ключей `gitHasRepo, gitHasRemotes,
- * gitHasUpstream, gitMerging, gitRebasing, gitDetached` — на них висят
- * sync/branch/stash-команды. Паттерн — {@link ScmChangesService}: приватная
- * push-команда, валидация через границу процесса, дедуп по подписи.
- */
+/** Паттерн — {@link ScmChangesService}; на деривированных when-ключах висят sync/branch/stash-команды. */
 export class ScmRepoStateService extends Disposable {
     public static dependencies = [CommandRegistryDIToken, ContextKeyServiceDIToken] as const;
 
@@ -64,12 +57,11 @@ export class ScmRepoStateService extends Disposable {
         );
     }
 
-    /** Последний опубликованный снимок ({@link NO_REPO} до первой публикации). */
     public get state(): IScmRepoState {
         return this.repoState;
     }
 
-    /** Публиковалось ли состояние вообще (расширение активно, репозиторий есть). */
+    /** Расширение активно и репозиторий есть. */
     public get hasRepository(): boolean {
         return this.hasRepo;
     }
@@ -98,7 +90,7 @@ export class ScmRepoStateService extends Disposable {
     }
 }
 
-/** Валидация payload из-за границы процесса: всё непохожее — null (снимок не трогаем). */
+/** Непохожее — null: снимок не трогаем. */
 function parseRepoState(payload: unknown): IScmRepoState | null {
     if (typeof payload !== "object" || payload === null) return null;
     const raw = payload as Record<string, unknown>;

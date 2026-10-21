@@ -27,50 +27,32 @@ import { SWITCH_TERMINAL_SHOW_TABS, terminalIndexedLabel } from "./terminalTabsL
 /** Ровно те tier'ы, где Ctrl+символ кодируется однозначно (в legacy Ctrl+` — это NUL). */
 const MODERN_TIER = "tier == 'kitty' || tier == 'csi-u'";
 
-/** `$(plus)` / `$(trash)` — иконки inline-кнопок заголовка вкладки, как у эталона. */
+/** `$(plus)` / `$(trash)`. */
 const PLUS_ICON = "";
 const TRASH_ICON = "";
 
-/**
- * Показать вид TERMINAL там, где он стоит (нижняя панель, вторичная боковая
- * панель, сайдбар), — без пробуждения ленивого спавна: что создать, решает
- * команда. Аналог `terminalGroupService.showPanel` эталона, который тоже
- * открывает вид через `viewsService`, а не прибит к панели.
- */
+/** Без пробуждения ленивого спавна; вид открывается там, где стоит, как `showPanel` эталона. */
 function showTerminalView(accessor: ServiceAccessor): void {
     accessor.get(ViewsServiceDIToken).openView(TERMINAL_VIEW_ID, false, false);
 }
 
-/**
- * Показать вид TERMINAL с фокусом в активном терминале (эталон
- * `terminalGroupService.showPanel(true)`; кому фокус нужен в другом месте —
- * список вкладок, — переставляет его следом). Контекст-ключи освежает сама
- * смена фокуса (`WorkbenchContextKeys`).
- */
+/** Кому фокус нужен в другом месте (список вкладок), переставляет его следом. */
 function showPanel(accessor: ServiceAccessor): void {
     showTerminalView(accessor);
     accessor.get(TerminalServiceDIToken).focusActive();
 }
 
-/**
- * Число и наличие терминалов меняются без смены фокуса (фокус остался в
- * редакторе или в списке вкладок) — ключи `terminalCount`/`terminalIsOpen`
- * и кнопки заголовка освежаем явно.
- */
+/** Число терминалов меняется без смены фокуса — ключи и кнопки заголовка освежаем явно. */
 function refreshContextKeys(accessor: ServiceAccessor): void {
     accessor.get(WorkbenchContextKeysDIToken).update();
 }
 
-/** Инстанс из аргумента меню вкладки (`TerminalTabContext`) или `null`. */
 function menuInstanceArg(context: unknown): readonly unknown[] {
     return [(context as TerminalTabMenuContext).instanceId];
 }
 
-// Integrated Terminal. Только tier csi-u/kitty умеет однозначно кодировать
-// Ctrl+` (в legacy это NUL = Ctrl+Space), поэтому канонические бинды под
-// tier-гейтом, а досягаемые везде пути — лидер-аккорды Ctrl+K T (в семье
-// Ctrl+K F / Ctrl+K G / Ctrl+K E, которой открываются вьюлеты и панели) и
-// Ctrl+K Alt+T для новой вкладки терминала.
+// Ctrl+` однозначен только в csi-u/kitty (в legacy это NUL = Ctrl+Space), поэтому
+// канонические бинды под tier-гейтом, а досягаемые везде — аккорды Ctrl+K T и Ctrl+K Alt+T.
 export const toggleTerminalAction: CommandAction = {
     id: "workbench.action.terminal.toggleTerminal",
     title: "Terminal: Toggle Terminal",
@@ -79,8 +61,6 @@ export const toggleTerminalAction: CommandAction = {
     keybinding: parseChord("ctrl+k t"),
     keybindings: [{ keys: parseKeybinding("ctrl+`"), when: MODERN_TIER }],
     run(accessor) {
-        // Toggle like VS Code: hide the part if Terminal is already the
-        // visible view there, otherwise show + spawn/focus a terminal.
         const views = accessor.get(ViewsServiceDIToken);
         const terminal = accessor.get(TerminalServiceDIToken);
         // Пустая вкладка (шелл вышел, остался placeholder) — это не «терминал показан»:
@@ -116,12 +96,9 @@ export const newTerminalAction: CommandAction = {
             icon: PLUS_ICON,
             visible: viewMenuVisible(TERMINAL_VIEW_ID),
         },
-        // Меню Terminal меню-бара (`TerminalMenuBarGroup.Create` эталона).
         { menuId: MenuId.MenubarTerminalMenu, group: "1_create", order: 1 },
     ],
     run(accessor) {
-        // `terminal.integrated.defaultLocation: editor` — новый терминал вкладкой
-        // в активной группе (`createTerminal` эталона без `location`).
         if (accessor.get(IConfigurationServiceDIToken).get("terminal.integrated.defaultLocation") === "editor") {
             accessor.get(TerminalEditorServiceDIToken).createTerminal();
         } else {
@@ -149,10 +126,7 @@ export const createTerminalEditorSideAction: CommandAction = {
     },
 };
 
-/**
- * Перенос терминала вида TERMINAL вкладкой в область редакторов: цель — инстанс
- * из меню вкладки терминала, иначе активный (`activeInstanceType: 'view'` эталона).
- */
+/** Цель — инстанс из меню вкладки, иначе активный (`activeInstanceType: 'view'` эталона). */
 export const moveToEditorAction: CommandAction = {
     id: "workbench.action.terminal.moveToEditor",
     title: "Terminal: Move Terminal into Editor Area",
@@ -169,10 +143,7 @@ export const moveToEditorAction: CommandAction = {
     },
 };
 
-/**
- * Возврат вкладки-терминала в вид TERMINAL: цель — вкладка из её меню, иначе
- * активная вкладка, если она терминал. Вид показан с фокусом в терминале.
- */
+/** Цель — вкладка из её меню, иначе активная, если она терминал. */
 export const moveToTerminalPanelAction: CommandAction = {
     id: "workbench.action.terminal.moveToTerminalPanel",
     title: "Terminal: Move Terminal into Panel",
@@ -196,11 +167,7 @@ export const moveToTerminalPanelAction: CommandAction = {
     },
 };
 
-/**
- * Ctrl+W во вкладке-терминале закрывает вкладку (и убивает процесс), как у
- * эталона: в шелл клавиша не уходит. Закрытие — та же команда, что у вкладки
- * любого вида.
- */
+/** Ctrl+W закрывает вкладку и убивает процесс, как у эталона: в шелл клавиша не уходит. */
 export const killEditorAction: CommandAction = {
     id: "workbench.action.terminal.killEditor",
     title: "Terminal: Kill the Active Terminal in Editor Area",
@@ -215,7 +182,6 @@ export const killEditorAction: CommandAction = {
     },
 };
 
-/** Фокус в активный терминал, создав его при нужде (эталон `TerminalCommandId.Focus`). */
 export const focusTerminalAction: CommandAction = {
     id: "workbench.action.terminal.focus",
     title: "Terminal: Focus Terminal",
@@ -271,7 +237,6 @@ export const focusPreviousTerminalAction: CommandAction = {
     },
 };
 
-/** Убить инстанс; если терминалы остались — показать панель с фокусом (эталон `killInstance`). */
 function killInstance(accessor: ServiceAccessor, id: number | undefined): void {
     const terminal = accessor.get(TerminalServiceDIToken);
     terminal.closeInstance(id);
@@ -283,7 +248,7 @@ export const killTerminalAction: CommandAction = {
     id: "workbench.action.terminal.kill",
     title: "Terminal: Kill the Active Terminal Instance",
     shortTitle: "Kill Terminal",
-    // Кнопка «корзина» в заголовке (эталон — `tabs.showActions`, см. трекер).
+    // У эталона — по `tabs.showActions` (см. трекер).
     menus: [
         {
             menuId: MenuId.ViewTitle,
@@ -299,11 +264,7 @@ export const killTerminalAction: CommandAction = {
     },
 };
 
-/**
- * Kill из списка вкладок (Delete) и из меню вкладки: цель — инстанс из
- * аргумента меню, иначе строка под курсором списка. После kill фокус остаётся
- * в списке, пока он виден (эталон зовёт `focusTabs()`).
- */
+/** Цель — инстанс из аргумента меню, иначе строка под курсором списка. */
 export const killActiveTabAction: CommandAction = {
     id: "workbench.action.terminal.killActiveTab",
     title: "Terminal: Kill Terminal",
@@ -332,12 +293,7 @@ export const killAllTerminalsAction: CommandAction = {
     },
 };
 
-/**
- * Выбор в дропдауне терминалов (`tabs.enabled=false`), эталон
- * `TerminalCommandId.SwitchTerminal`: аргумент — подпись пункта.
- * `N: title` активирует N-й терминал, «Show Tabs» включает список обратно.
- * Без аргумента (из палитры) — тот же выбор quick pick'ом.
- */
+/** Аргумент — подпись пункта дропдауна (`tabs.enabled=false`); без него — quick pick. */
 export const switchTerminalAction: CommandAction = {
     id: SWITCH_TERMINAL_COMMAND_ID,
     title: "Terminal: Switch Terminal",
@@ -362,7 +318,6 @@ export const switchTerminalAction: CommandAction = {
 
 const CREATE_NEW_TERMINAL_LABEL = "Create New Terminal";
 
-/** Quick pick терминалов (эталон `TerminalQuickAccessProvider`): `N: title` + «Create New Terminal». */
 async function pickTerminal(accessor: ServiceAccessor): Promise<void> {
     const terminal = accessor.get(TerminalServiceDIToken);
     const instances = terminal.getInstances();
@@ -395,7 +350,6 @@ export const quickOpenTermAction: CommandAction = {
     },
 };
 
-/** Экшены интегрированного терминала. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const TERMINAL_ACTIONS: readonly CommandAction[] = [
     toggleTerminalAction,
     newTerminalAction,

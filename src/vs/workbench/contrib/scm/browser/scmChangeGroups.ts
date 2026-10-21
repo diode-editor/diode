@@ -1,48 +1,31 @@
 import { type IScmChange, type ScmGroupId } from "./changesService.ts";
 
 /**
- * Группа, под заголовком которой показывается запись. Untracked своего
- * заголовка не получает: для пользователя «новый файл» и «правка» — одна мысль
- * «ещё не в индексе», и делить их на две секции значит дробить один список
- * надвое. Так же умеет VS Code (`git.untrackedChanges: mixed`). Сам id
- * `untracked` в протоколе остаётся: по нему стейджинг и discard выбирают
- * `git clean` вместо `git checkout`, а строка красится своим цветом.
+ * Untracked своего заголовка не получает — как VS Code `git.untrackedChanges: mixed`.
+ * Id `untracked` в протоколе остаётся: по нему discard выбирает `git clean` вместо
+ * `git checkout`, а строка красится своим цветом.
  */
 function displayGroupOf(group: ScmGroupId): ScmGroupId {
     return group === "untracked" ? "worktree" : group;
 }
 
-/**
- * Группа, у которой есть собственный заголовок: `untracked` своего не имеет и
- * приезжает под «Changes» (см. {@link displayGroupOf}).
- */
 export type ScmDisplayGroupId = Exclude<ScmGroupId, "untracked">;
 
-/** Заголовки групп — как resource groups в VS Code. */
 export const SCM_GROUP_LABELS: Readonly<Record<ScmDisplayGroupId, string>> = {
     merge: "Merge Changes",
     index: "Staged Changes",
     worktree: "Changes",
 };
 
-/**
- * Порядок показа непустых групп. `untracked` здесь нет намеренно — он
- * приезжает под заголовком «Changes» (см. {@link displayGroupOf}).
- */
 const DISPLAY_ORDER: readonly ScmDisplayGroupId[] = ["merge", "index", "worktree"];
 
-/** Непустая группа изменений в порядке показа. */
 export interface IScmChangeGroup {
     readonly id: ScmGroupId;
     readonly label: string;
     readonly changes: readonly IScmChange[];
 }
 
-/**
- * Раскладывает плоский снимок сервиса по группам в порядке VS Code:
- * Merge → Staged → Changes; пустые группы опущены. Порядок записей внутри
- * группы — порядок прихода от расширения (сортирует потребитель).
- */
+/** Порядок внутри группы — порядок прихода от расширения (сортирует потребитель). */
 export function groupChanges(changes: readonly IScmChange[]): readonly IScmChangeGroup[] {
     const byGroup = new Map<ScmGroupId, IScmChange[]>();
     for (const change of changes) {

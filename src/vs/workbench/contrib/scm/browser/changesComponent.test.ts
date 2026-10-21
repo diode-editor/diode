@@ -31,8 +31,6 @@ import { ScmInputComponent } from "./scmInputComponent.ts";
 
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 
-// ─── Fakes / helpers ──────────────────────────────────────────────────────────
-
 type FakeMenuEntry = { label: string; onSelect?: () => void } | { type: "separator" };
 
 function fakeMenu(entries: FakeMenuEntry[] = []): { service: MenuService; menu: IMenu } {
@@ -46,18 +44,15 @@ function fakeMenu(entries: FakeMenuEntry[] = []): { service: MenuService; menu: 
     };
     const service = {
         createMenu: () => menu,
-        // Живой резолв точки: сервис ходит в то же меню, что и `createMenu`, —
-        // так ассерты на аргументы `getEntries` остаются про контекст открытия.
+        // Живой резолв: ассерты на аргументы `getEntries` остаются про контекст открытия.
         getEntries: (_menuId: unknown, context: unknown) => menu.getEntries(context, () => null),
         getEntryGroups: () => [],
     } as unknown as MenuService;
     return { service, menu };
 }
 
-/** In-memory стейт: get отдаёт сохранённое или дефолт, store записывает. */
 function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
     const stored = new Map<string, unknown>();
-    // Как настоящий сервис: openWorkspace сообщает об открытии стора проекта.
     const openWorkspaceEmitter = new Emitter<WorkspaceId>();
     const service: IStateService = {
         get<T>(descriptor: IStateDescriptor<T>): T {
@@ -84,7 +79,6 @@ interface IHarness {
     menu: IMenu;
     themeService: ThemeService;
     executed: [string, unknown[]][];
-    /** Дескрипторы, с которыми компонент регистрировал свои view. */
     views: { id: string; canMoveView?: boolean }[];
 }
 
@@ -93,7 +87,6 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
     const scm = new ScmChangesService(commands);
     const { service: menuService, menu } = fakeMenu(opts.menuEntries);
     const themeService = new ThemeService(theme);
-    // Реестр view здесь только записывает дескрипторы — компонент тестируется standalone.
     const views: IHarness["views"] = [];
     const viewsService = {
         registerContainer: () => {},
@@ -152,12 +145,11 @@ function uriOf(rel: string): string {
     return Uri.file(`/repo/${rel}`).toString();
 }
 
-/** Id файловой строки по конвенции `scmRow-<group>-<sanitized-path>`. */
 function rowIdOf(rel: string, group = "worktree"): string {
     return `scmRow-${group}-${rel.replace(/[^A-Za-z0-9_-]+/g, "-")}`;
 }
 
-/** Кадр области списка (без контролов коммита — их проверяет scmInputComponent.test). */
+/** Без контролов коммита — их проверяет scmInputComponent.test. */
 function frame(h: IHarness, w = 40, ht = 10): string {
     return renderElement(h.component.listView, w, ht, { themeVars: true }).screenToString();
 }
@@ -177,7 +169,6 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         const screen = frame(h);
         expect(screen).toContain("a.txt");
         expect(screen).toContain("nested/b.txt");
-        // Буква статуса — в строке файла.
         expect(screen).toContain("U");
         // Кнопка перехода к файлу раскрывается только на активной строке.
         expect(screen).not.toContain(OPEN_FILE_GLYPH);
@@ -212,7 +203,6 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
 
         const input = h.component.view.querySelector("#scmInputBox");
         expect(input).not.toBeNull();
-        // Список — под контролами, а не рядом с ними.
         expect(h.component.listView.globalPosition.y).toBeGreaterThan(input!.globalPosition.y);
     });
 
@@ -240,7 +230,6 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         pressEnter(h);
         expect(frame(h)).not.toContain("a.txt");
 
-        // Свёрнутость группы переживает повторный publish другого набора.
         publish(h.commands, [{ rel: "a.txt" }, { rel: "b.txt" }]);
         expect(frame(h)).not.toContain("b.txt");
         expect(h.executed).toEqual([]);
@@ -351,7 +340,6 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
 
         const screen = frame(h);
         expect(screen).toContain("Merge Changes");
-        // Merge-секция выше worktree-секции.
         expect(screen.indexOf("Merge Changes")).toBeLessThan(screen.indexOf("conflict.txt"));
         expect(screen.indexOf("conflict.txt")).toBeLessThan(screen.indexOf("a.txt"));
     });
@@ -371,18 +359,17 @@ describe("ChangesComponent — tree-режим", () => {
 
         h.component.setViewMode("tree");
         let screen = frame(h);
-        expect(screen).toContain("src/vs"); // компакт-цепочка одним узлом
+        expect(screen).toContain("src/vs");
         expect(screen).toContain("a.ts");
         expect(screen).not.toContain("src/vs/a.ts");
 
-        // Активация папки сворачивает её вместе с детьми.
         h.component.list.setCursorTo("scmDir-worktree-src-vs");
         pressEnter(h);
         screen = frame(h);
         expect(screen).not.toContain("a.ts");
-        expect(h.executed).toEqual([]); // папка не открывает дифф
+        expect(h.executed).toEqual([]);
 
-        expect(h.component.getCursorChange()).toBeNull(); // курсор на папке — не файл
+        expect(h.component.getCursorChange()).toBeNull();
     });
 
     it("открытие стора проекта восстанавливает режим без вызова извне", () => {
@@ -437,7 +424,7 @@ describe("ChangesComponent — тема и контекстное меню", () 
         h.themeService.setTheme(theme); // повторное применение гоняет рестайл по строкам
 
         expect(frame(h)).toBe(before);
-        expect(h.component.list.getChildren()[0]).toBe(rowBefore); // те же элементы
+        expect(h.component.list.getChildren()[0]).toBe(rowBefore);
     });
 
     it("активация и контекст-меню строки с неизвестным id — тихий no-op (защита моста rowMeta)", () => {

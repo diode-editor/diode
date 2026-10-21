@@ -22,8 +22,7 @@ import {
 import { ChangesComponentDIToken } from "./changesComponent.ts";
 import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
-// scm.action.openChanges покрыт сквозными тестами workbench.changes.test.ts
-// (активация строки, untracked-фолбэк); здесь — пути резолва цели и view-mode.
+// scm.action.openChanges покрыт сквозными workbench.changes.test.ts; здесь — резолв цели и view-mode.
 
 function accessorWith(services: Map<unknown, unknown>): ServiceAccessor {
     return {
@@ -41,7 +40,6 @@ describe("showScmAction", () => {
         expect(sidebar.showViewlet).toHaveBeenCalledWith(SCM_VIEWLET_ID);
     });
 
-    // Парно с Search: аккорд работает всегда, подсказка следует за терминалом.
     it("аккорд Ctrl+K G работает всегда, подсказка зависит от терминала", () => {
         const commands = new CommandRegistry();
         const keybindings = new KeybindingRegistry();

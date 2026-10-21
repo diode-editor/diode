@@ -8,9 +8,6 @@ import type { ITaskDefinitionSchema } from "../../../api/common/taskIdentity.ts"
 import { createCustomizedTask, parseTasksJson } from "./taskConfiguration.ts";
 import { DEFAULT_RUN_OPTIONS } from "./tasks.ts";
 
-// Записи tasks.json с типом провайдера (`ConfiguringTask`) и их слияние с
-// задачей провайдера (`createCustomTask` эталона).
-
 const folder: IWorkspaceFolder = { uri: Uri.file("/ws"), name: "ws", index: 0 };
 
 const npmSchema: ITaskDefinitionSchema = {

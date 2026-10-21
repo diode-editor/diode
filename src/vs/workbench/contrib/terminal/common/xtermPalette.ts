@@ -1,16 +1,7 @@
-// Стандартная xterm-палитра из 256 цветов → packed RGB.
-//
-// @xterm/headless держит модель экрана, но НЕ применяет тему: в palette-режиме
-// `cell.getFgColor()` отдаёт индекс 0..255, а не RGB (в отличие от truecolor-режима,
-// где отдаётся уже 0xRRGGBB). Поэтому palette-индексы разворачиваем в RGB сами по
-// канонической таблице xterm:
-//   - 0..15   — 16 системных ANSI-цветов (значения по умолчанию xterm);
-//   - 16..231 — куб 6×6×6 (по осям r,g,b уровни 0..5, уровень→0/95/135/175/215/255);
-//   - 232..255 — 24 оттенка серого (8, 18, …, 238).
-//
-// Здесь зафиксированы «дефолтные» цвета xterm. Первые 16 у живой сессии подменяются
-// (`buildXtermPalette`): цветами темы `terminal.ansi*` или хост-терминала — по
-// `terminal.integrated.colorSource`; куб и серые остаются каноническими, как у xterm.js.
+// @xterm/headless не применяет тему: в palette-режиме `getFgColor()` отдаёт индекс 0..255, а не
+// RGB, — разворачиваем сами по канонической таблице xterm (0..15 системные, 16..231 куб 6×6×6,
+// 232..255 серые). Первые 16 у живой сессии подменяет `buildXtermPalette` по
+// `terminal.integrated.colorSource`.
 
 import { packRgb } from "@tuidom/core/common/colorUtils";
 
@@ -38,10 +29,7 @@ const CUBE_LEVELS: readonly number[] = [0, 95, 135, 175, 215, 255];
 /** Таблица palette-индекс (0..255) → packed RGB. */
 export type XtermPalette = readonly number[];
 
-/**
- * Палитра с заданными 16 системными цветами (0..15, `ansi[i]` — цвет индекса i);
- * куб 6×6×6 и серые — канонические.
- */
+/** `ansi[i]` — цвет индекса i (0..15); куб и серые — канонические. */
 export function buildXtermPalette(ansi: readonly number[]): XtermPalette {
     const table = ansi.slice(0, 16);
 
@@ -64,13 +52,9 @@ export function buildXtermPalette(ansi: readonly number[]): XtermPalette {
     return table;
 }
 
-/** Каноническая таблица xterm — пока сессии не задали свои 16 цветов. */
 export const DEFAULT_XTERM_PALETTE = buildXtermPalette(SYSTEM_16);
 
-/**
- * Разворачивает palette-индекс xterm (0..255) в packed RGB по таблице `palette`;
- * вне таблицы — цвет индекса 7 (white), чтобы текст не пропал.
- */
+/** Вне таблицы — цвет индекса 7 (white), чтобы текст не пропал. */
 export function xtermPaletteToRgb(index: number, palette: XtermPalette = DEFAULT_XTERM_PALETTE): number {
     return palette[index] ?? palette[7];
 }

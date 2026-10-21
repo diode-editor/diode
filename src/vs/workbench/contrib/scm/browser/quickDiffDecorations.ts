@@ -3,21 +3,12 @@ import type { DetailedLineRangeMapping } from "../../../../editor/common/diff/ra
 import type { IGutterChangeDecoration } from "../../../../editor/common/model/iGutterChangeDecoration.ts";
 
 /**
- * Перевод результата перенесённого из upstream diff-движка в gutter-декорации
- * ядра — **единственная точка стыка двух систем координат** (см.
- * docs/arch/Editor.md, «Координаты: ядро 0-based, вендор 1-based»):
- *
- * | | upstream `LineRange` | наш `IRange` для гуттера |
- * |---|---|---|
- * | нумерация строк | с 1 | с 0 |
- * | правая граница | `endExclusive` | `end.line` **включительно** |
- *
- * Решение — адаптер здесь, а не миграция ядра на upstream-примитивы: место
- * вызова одно, а миграция затронула бы весь редактор. Долг записан в
- * docs/TODO/Diff.md, «Долг».
+ * Единственная точка стыка координат (docs/arch/Editor.md): upstream `LineRange` — с 1 и
+ * `endExclusive`, наш `IRange` гуттера — с 0 и `end.line` включительно. Адаптер, а не
+ * миграция ядра: место вызова одно (долг — docs/TODO/Diff.md).
  */
 
-/** Цвета баров, уже резолвнутые темой в packed-RGB. */
+/** Уже резолвнутые темой в packed-RGB. */
 export interface IQuickDiffColors {
     readonly added: number;
     readonly modified: number;
@@ -25,15 +16,8 @@ export interface IQuickDiffColors {
 }
 
 /**
- * Собирает бары гуттера по изменениям.
- *
- * Вид ханка выводится из пустоты диапазонов, как это делает и сам upstream:
- * пустой `original` — вставка, пустой `modified` — удаление, иначе правка.
- *
- * У удаления в новом файле нет ни одной своей строки, поэтому оно рисуется
- * **одной граничной строкой** ({@link IGutterChangeDecoration}) — той, что стоит
- * НАД местом удаления. Удаление в начале файла границы сверху не имеет, поэтому
- * прижимается к первой строке.
+ * Вид ханка — по пустоте диапазонов, как у upstream. У удаления своей строки нет: оно
+ * рисуется граничной строкой НАД местом удаления, а в начале файла — первой строкой.
  */
 export function toGutterDecorations(
     changes: readonly DetailedLineRangeMapping[],

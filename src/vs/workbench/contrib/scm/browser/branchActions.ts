@@ -13,14 +13,13 @@ import { queryRefs } from "./syncActions.ts";
 
 const inChangesMenu = viewMenuVisible(SCM_CHANGES_VIEW_ID);
 
-/** Спец-пункты ref-пикера checkout (как в VS Code). */
 export const CREATE_BRANCH_LABEL = "＋ Create new branch...";
 export const CREATE_BRANCH_FROM_LABEL = "＋ Create new branch from...";
 export const CHECKOUT_DETACHED_LABEL = "⇢ Checkout detached...";
 
 type RefKind = "head" | "remote" | "tag";
 
-/** Пикер ref'ов (ветки/remote-ветки/теги — сорт по свежести делает расширение). */
+/** Сортировку по свежести делает расширение. */
 async function pickRef(
     accessor: ServiceAccessor,
     title: string,
@@ -41,10 +40,7 @@ async function pickRef(
     return ref === undefined ? null : { name: ref.name, kind: ref.kind };
 }
 
-/**
- * Ввод имени ref'а (ветки, тега) — валидацию имени делает git, ошибка придёт
- * notice-ом. Общий с командами графа: там так же спрашивают имя тега.
- */
+/** Валидацию имени делает git — ошибка придёт notice-ом. */
 export function inputRefName(
     accessor: ServiceAccessor,
     title: string,
@@ -59,16 +55,11 @@ export function inputRefName(
     });
 }
 
-/** Ввод имени новой ветки. */
 function inputBranchName(accessor: ServiceAccessor, title: string, value?: string): Promise<string | undefined> {
     return inputRefName(accessor, title, "Branch name", value);
 }
 
-/**
- * Создание ветки: ввод имени → `checkout -b <name> [<base>]`. `baseLabel` —
- * что показать в заголовке вместо самого base (граф передаёт короткий sha:
- * сорок знаков в заголовке нечитаемы).
- */
+/** `baseLabel` — вместо base в заголовке: граф передаёт короткий sha, сорок знаков нечитаемы. */
 export async function createBranch(accessor: ServiceAccessor, base?: string, baseLabel?: string): Promise<void> {
     const title = base === undefined ? "Create Branch" : `Create Branch From ${baseLabel ?? base}`;
     const name = await inputBranchName(accessor, title);
@@ -76,10 +67,6 @@ export async function createBranch(accessor: ServiceAccessor, base?: string, bas
     await runGitOp(accessor, "branchCreate", base === undefined ? { name: name.trim() } : { name: name.trim(), base });
 }
 
-/**
- * Checkout to... — пикер VS Code: спец-пункты create/create-from/detached +
- * локальные ветки, remote-ветки (DWIM создаст трекающую локальную) и теги.
- */
 export const gitCheckoutAction: CommandAction = {
     id: "git.checkout",
     title: "Git: Checkout to...",

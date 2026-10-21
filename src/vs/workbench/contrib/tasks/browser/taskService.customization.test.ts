@@ -10,10 +10,6 @@ import { QuickInputServiceDIToken } from "../../../browser/parts/quickinput/quic
 import { runTaskAction } from "./taskActions.ts";
 import { TaskServiceDIToken } from "./taskService.ts";
 
-// Кастомизации задач провайдеров из tasks.json: слияние в списках задач,
-// сообщение о записи, которой провайдер задачи не дал, и Run Task с такими
-// записями на первом уровне (задача провайдера ищется только по выбору).
-
 const npmDefinition: ITaskDefinitionSchema = {
     extensionId: "pub.ext",
     taskType: "npm",

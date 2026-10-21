@@ -14,13 +14,8 @@ export { COMPARE_NOTICE_MS } from "../../diff/browser/openDiffPair.ts";
 export type OpenDiffResult = "opened" | "no-original";
 
 /**
- * «Сравнить с ревизией из git» для произвольного uri, не требуя активного
- * редактора. Оригинал даёт SCM-расширение (`IOriginalResourceProvider`) через
- * реестр провайдеров ФС; modified-сторона — открытый буфер этого uri
- * (несохранённые правки видны), а без него — снимок с диска; файл, не
- * читающийся с диска (удалён, status D), даёт дифф «ревизия ↔ пусто».
- * Открытие вкладки, идентичность пары и дедуп — у общего ядра
- * ({@link openDiffPair}).
+ * modified-сторона — открытый буфер uri (несохранённые правки видны), без него — снимок
+ * с диска; удалённый файл (status D) даёт дифф «ревизия ↔ пусто».
  */
 export async function openDiffWithHead(accessor: ServiceAccessor, uri: Uri, ref = "HEAD"): Promise<OpenDiffResult> {
     const options = await buildHeadPairOptions(accessor, uri, ref);
@@ -30,12 +25,9 @@ export async function openDiffWithHead(accessor: ServiceAccessor, uri: Uri, ref 
 }
 
 /**
- * Пара «ревизия из git ↔ файл» как опции сравнения — общая заготовка обычной
- * смотрелки и диффа v2. Политики «не читается»: справа всегда «пусто» — файл,
- * удалённый в рабочем дереве (status D), даёт дифф «ревизия ↔ пусто». Слева
- * зависит от того, чья это ревизия: для HEAD сбой чтения — это сломанный git
- * (untracked расширение отсекло раньше), отказ честнее пустоты; для явно
- * выбранного ref «файла на ревизии нет» — штатный случай, весь дифф добавлен.
+ * Справа сбой чтения — всегда «пусто» (status D). Слева: для HEAD сбой — сломанный git
+ * (untracked отсекло расширение), отказ честнее пустоты; для явного ref «файла нет» —
+ * штатно, весь дифф добавлен.
  */
 export async function buildHeadPairOptions(
     accessor: ServiceAccessor,
@@ -62,19 +54,16 @@ export async function buildHeadPairOptions(
     };
 }
 
-/** `git:`-ресурс ревизии, либо `null`, если сравнивать не с чем. */
 async function resolveOriginalUri(accessor: ServiceAccessor, uri: Uri, ref: string): Promise<Uri | null> {
     try {
         const original = await accessor.get(OriginalResourceProviderDIToken).provideOriginalResource(uri, ref);
-        // Схема без провайдера отдельно не проверяется: сторона HEAD тогда не
-        // прочитается, и исход тот же — «сравнивать не с чем».
+        // Схема без провайдера не проверяется: HEAD не прочитается, исход тот же.
         return original;
     } catch {
         return null;
     }
 }
 
-/** Палитра: сравнивает активный файл; без активного редактора — тихий no-op. */
 async function compareWithHead(accessor: ServiceAccessor): Promise<void> {
     const editors = accessor.get(EditorServiceDIToken);
     // На самой дифф-вкладке повторный вызов обязан целиться в её исходный файл,
@@ -85,8 +74,7 @@ async function compareWithHead(accessor: ServiceAccessor): Promise<void> {
 
     const result = await openDiffWithHead(accessor, uri);
     if (result === "no-original") {
-        // Untracked, вне репозитория, git недоступен, SCM-расширение не поднялось —
-        // для пользователя всё это одно и то же: сравнивать не с чем.
+        // Untracked, вне репозитория, git недоступен — для пользователя одно и то же.
         showCompareNotice(accessor, "No changes to compare: the file has no version in git");
     }
 }

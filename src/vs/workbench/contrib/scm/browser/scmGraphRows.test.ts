@@ -93,7 +93,6 @@ describe("buildRefsLabel", () => {
         const refs = ["release/2026-08-alpha", "release/2026-08-beta", "hotfix"].map((n) => ref(n, "head"));
         const { text, styles } = buildRefsLabel(refs, COMMIT_STYLE);
         expect(text.trim()).toBe("release/2026-08-alpha +2");
-        // «+2» тоже красится посимвольно — и вся метка остаётся выровненной.
         expect(styles).toHaveLength(text.length);
         const plusAt = text.indexOf(" +2");
         expect(styles.slice(plusAt, plusAt + " +2".length)).toEqual(Array.from(" +2", () => "descriptionForeground"));

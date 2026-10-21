@@ -19,9 +19,6 @@ import { TerminalEditorPane } from "./terminalEditorPane.ts";
 import { TerminalEditorServiceDIToken } from "./terminalEditorService.ts";
 import { TerminalServiceDIToken } from "./terminalService.ts";
 
-// Вкладка-терминал в области редакторов на настоящем workbench: куда встаёт,
-// что видно в кадре, и как связаны жизни вкладки и процесса.
-
 const LIGHT = WorkbenchTheme.fromThemeFile(lightPlusTheme);
 
 describe("TerminalEditorService", () => {
@@ -67,9 +64,7 @@ describe("TerminalEditorService", () => {
         expect(frame).toContain("alpha");
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
         expect(service().paneOf(instance.id)).toBe(pane);
-        // Вид TERMINAL про него не знает.
         expect(terminals().getInstances()).toStrictEqual([]);
-        // Виджет адресуется селектором; вкладка — без замка и без выделения текста.
         expect(h.testApp.querySelector(`#terminalEditor-${String(instance.id)}`)).toBe(pane?.view);
         expect(pane?.readOnly).toBe(false);
         expect(pane?.getSelectedTexts()).toStrictEqual([]);
@@ -137,7 +132,6 @@ describe("TerminalEditorService", () => {
         service().reveal(instance.id, false);
         expect(groups().activeGroup).toBe(groups().groups[1]);
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
-        // Неизвестный id — ничего.
         service().reveal(999, false);
     });
 
@@ -155,7 +149,6 @@ describe("TerminalEditorService", () => {
         expect(disposeSpy).toHaveBeenCalledTimes(1);
         disposeSpy.mockRestore();
         expect(session.disposed).toBe(true);
-        // Снятая вкладка свои события больше не шлёт.
         const changes = vi.fn();
         pane?.onDidChangeState(changes);
         pane?.refreshLabel();
@@ -238,7 +231,6 @@ describe("TerminalEditorService", () => {
         expect(terminals().getInstances()).toStrictEqual([instance]);
         expect(sessionOf(instance.id).disposed).toBe(false);
         expect(groups().groups).toHaveLength(1);
-        // Не тот id — ничего.
         service().moveToPanel(999);
         service().moveToEditor(999);
     });
@@ -250,7 +242,6 @@ describe("TerminalEditorService", () => {
         const child = service().splitInstance(parent.id, { name: "child" });
         expect(groups().groups).toHaveLength(3);
         expect(groups().groups[2].activePane).toBe(service().paneOf(child.id));
-        // Родителя нет — от активной группы.
         const orphan = service().splitInstance(999);
         expect(service().paneOf(orphan.id)).toBeDefined();
     });

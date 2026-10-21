@@ -6,10 +6,6 @@ import { makeViewsHarness } from "../../../browser/parts/views/viewsService.test
 
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 
-// Место инстанса (`TerminalLocation` эталона): редакторные инстансы живут
-// отдельным списком — вид TERMINAL их не видит, активным они не становятся,
-// а перенос между местами процесс не трогает. Вкладки — terminalEditorService.test.ts.
-
 function buildHarness(settings: Record<string, unknown> = {}) {
     const views = makeViewsHarness();
     const sessions: FakeTerminalSurface[] = [];
@@ -100,7 +96,6 @@ describe("TerminalService — инстансы в области редакто�
         expect(h.service.getInstances()).toStrictEqual([first]);
         expect(h.service.getEditorInstances()).toStrictEqual([second]);
         expect(h.sessions[1].disposed).toBe(false);
-        // Повторный перенос и неизвестный id — no-op.
         expect(h.service.moveToEditor(second.id)).toBeUndefined();
         expect(h.service.moveToEditor(99)).toBeUndefined();
         h.service.dispose();
@@ -127,10 +122,8 @@ describe("TerminalService — инстансы в области редакто�
         expect(editor.target).toBe("panel");
         expect(h.events).toStrictEqual([`open:${String(editor.id)}`, `active:${String(editor.id)}`]);
         expect(h.service.getInstances()).toStrictEqual([panel, editor]);
-        // Переехал именно названный, второй редакторный остался на месте.
         expect(h.service.getEditorInstances()).toStrictEqual([other]);
         expect(h.service.getActiveInstance()).toBe(editor);
-        // Панельный и неизвестный — no-op.
         expect(h.service.moveToPanel(panel.id)).toBeUndefined();
         expect(h.service.moveToPanel(99)).toBeUndefined();
         h.service.dispose();

@@ -63,7 +63,6 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
         themeService,
         panelService,
         panelComponent,
-        /** Виджеты терминала внутри вкладки: тело секции — это активный виджет. */
         widgets: (): TUIElement[] => views.paneView(TERMINAL_VIEW_ID).querySelectorAll("TerminalViewElement"),
         service,
         component,
@@ -111,7 +110,6 @@ describe("TerminalPanelComponent", () => {
     });
 
     it("re-focuses the active widget on focusActive; no-op without terminals", () => {
-        // Ни одного инстанса — запрос фокуса не должен падать (activeWidget = null).
         expect(() => {
             h.service.focusActive();
         }).not.toThrow();
@@ -136,7 +134,6 @@ describe("TerminalPanelComponent", () => {
 
         h.created[0].emitExit(0);
 
-        // Инстанс снят: виджет dispose'нут, контент вкладки снова null → placeholder.
         expect(disposeSpy).toHaveBeenCalledTimes(1);
         expect(h.widgets()).toEqual([]);
         h.testApp.render();
@@ -155,7 +152,7 @@ describe("TerminalPanelComponent", () => {
     });
 
     it("falls back to the previous terminal's widget when the active one exits", () => {
-        h.service.newTerminal(); // #1
+        h.service.newTerminal();
         const firstWidget = h.widgets()[0];
         h.service.newTerminal(); // #2 active
 
@@ -166,18 +163,17 @@ describe("TerminalPanelComponent", () => {
     });
 
     it("keeps the active widget when a NON-active terminal exits", () => {
-        h.service.newTerminal(); // #1
+        h.service.newTerminal();
         h.service.newTerminal(); // #2 — активный
         const activeWidget = h.widgets()[0];
 
-        h.created[0].emitExit(0); // выходит НЕактивный #1
+        h.created[0].emitExit(0);
 
         expect(h.widgets()[0]).toBe(activeWidget);
         h.dispose();
     });
 
-    // Регрессия на BUG-3 (#177): после `exit` фокус оставался на снятом с дерева
-    // виджете (FocusManager его обнулял) — ввод пропадал целиком.
+    // Регрессия BUG-3 (#177).
     it("hands focus to the editor when the last shell exits", () => {
         h.service.openTerminal();
         h.testApp.render();
@@ -189,7 +185,7 @@ describe("TerminalPanelComponent", () => {
     });
 
     it("hands focus to the remaining terminal when the focused one exits", () => {
-        h.service.newTerminal(); // #1
+        h.service.newTerminal();
         const firstWidget = h.widgets()[0] as TerminalViewElement;
         h.service.newTerminal(); // #2 — активный и в фокусе
         h.testApp.render();

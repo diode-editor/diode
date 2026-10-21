@@ -7,14 +7,9 @@ import { GRAPH_CURRENT_REF_STYLE, GRAPH_REMOTE_REF_STYLE } from "../common/commi
 import type { IScmCommit, IScmCommitRef } from "./graphService.ts";
 
 /**
- * Строки view GRAPH: `[граф][бейджи refs][subject]`. Колонки sha здесь нет —
- * в сайдбаре шириной ~30 хеш вытеснил бы тему коммита, а достать его можно
- * командой Copy Commit ID.
- *
- * Графика **не выравнивается в колонку**: у каждой строки своя ширина, и текст
- * идёт сразу за её последней дорожкой (как в lazygit). Выравнивание по
- * максимуму превратило бы список в таблицу и в узкой истории с одним-двумя
- * ветвлениями отодвинуло бы все темы вправо ради пары строк.
+ * Колонки sha нет: в сайдбаре шириной ~30 хеш вытеснил бы тему (есть Copy Commit ID).
+ * Графика не выравнивается в колонку (как в lazygit): выравнивание по максимуму
+ * отодвинуло бы все темы вправо ради пары ветвлений.
  */
 
 /** Потолок колонки бейджей — дальше они схлопываются в `+N`. */
@@ -25,10 +20,7 @@ export const LOAD_MORE_ROW_ID = "scmGraphLoadMore";
 
 export const LOAD_MORE_LABEL = "Load More…";
 
-/**
- * Части строки коммита. Возвращаются вместе, чтобы перерисовать графовую
- * колонку при смене выделения, не пересобирая строку целиком.
- */
+/** Вместе — чтобы перерисовать графовую колонку при смене выделения, не пересобирая строку. */
 export interface IScmGraphRowParts {
     readonly root: HFlexElement;
     readonly graph: TextLabelElement;
@@ -36,12 +28,8 @@ export interface IScmGraphRowParts {
 }
 
 /**
- * Кладёт строку графа в лейбл: её собственный текст плюс цвет каждого символа.
- *
- * Ширина строки — `2 * (число дорожек)` и от выделения не зависит: подсветка
- * меняет символы, но не число клеток. Поэтому лейбл не «прыгает», когда курсор
- * ходит по списку. Последняя клетка всегда отдаёт пробел-соединитель — он же
- * служит разделителем до бейджей и темы коммита.
+ * Ширина — `2 * (число дорожек)` и от выделения не зависит: лейбл не прыгает под курсором.
+ * Последняя клетка — пробел-соединитель, он же разделитель до бейджей.
  */
 export function applyGraphLine(label: TextLabelElement, line: IGraphLine): void {
     label.setText(line.text);
@@ -59,21 +47,14 @@ function refRank(ref: IScmCommitRef): number {
     return ref.current ? 0 : REF_ORDER[ref.kind];
 }
 
-/**
- * Цвет бейджа: текущая ветка и remote — семантические цвета, остальные (теги и
- * прочие локальные ветки) красятся цветом линии своего коммита (правило vscode).
- */
+/** Текущая ветка и remote — семантические цвета, остальные — цвет линии коммита (правило vscode). */
 function refStyle(ref: IScmCommitRef, commitStyle: string): string {
     if (ref.current) return GRAPH_CURRENT_REF_STYLE;
     if (ref.kind === "remote") return GRAPH_REMOTE_REF_STYLE;
     return commitStyle;
 }
 
-/**
- * Текст и посимвольные цвета колонки бейджей. Не влезающие в
- * {@link REFS_MAX_WIDTH} схлопываются в `+N` — иначе длинный список веток
- * съел бы тему коммита целиком.
- */
+/** Схлопывание в `+N` — иначе длинный список веток съел бы тему коммита. */
 export function buildRefsLabel(
     refs: readonly IScmCommitRef[],
     commitStyle: string,
@@ -87,8 +68,7 @@ export function buildRefsLabel(
 
     for (const ref of sorted) {
         const piece = shown === 0 ? ref.name : ` ${ref.name}`;
-        // Первый бейдж показываем всегда: пустая колонка полезнее, чем «+N»
-        // без единого имени.
+        // Первый бейдж — всегда: «+N» без единого имени бесполезнее.
         if (shown > 0 && text.length + piece.length > REFS_MAX_WIDTH) break;
         const style = refStyle(ref, commitStyle);
         text += piece;
@@ -109,11 +89,7 @@ export function buildRefsLabel(
     return { text, styles };
 }
 
-/**
- * Строка коммита: график по своей ширине, бейджи по содержимому и тема коммита
- * на весь остаток. Id строки — полный sha (идентичность в списке и аргумент
- * команд контекстного меню).
- */
+/** Id строки — полный sha: идентичность в списке и аргумент команд контекстного меню. */
 export function buildCommitRow(commit: IScmCommit, line: IGraphLine, commitStyle: string): IScmGraphRowParts {
     const root = new HFlexElement();
     root.id = commit.sha;
@@ -138,11 +114,7 @@ export function buildCommitRow(commit: IScmCommit, line: IGraphLine, commitStyle
     return { root, graph, subject };
 }
 
-/**
- * Строка догрузки под последним коммитом — появляется, только пока история
- * продолжается (как «Load More» в vscode). `indent` — ширина графики последней
- * строки: так надпись встаёт ровно под её темой, а не липнет к краю.
- */
+/** `indent` — ширина графики последней строки: надпись встаёт под её темой. */
 export function buildLoadMoreRow(indent: number): HFlexElement {
     const root = new HFlexElement();
     root.id = LOAD_MORE_ROW_ID;

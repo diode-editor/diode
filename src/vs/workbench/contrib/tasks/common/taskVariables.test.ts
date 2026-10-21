@@ -4,9 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import { type ITaskVariableContext, resolveVariables, TaskVariableError } from "./taskVariables.ts";
 
-// Подстановка переменных задачи (`variableResolver.ts` эталона): значения,
-// тексты отказов эталона, неизвестная переменная остаётся как есть.
-
 function context(overrides: Partial<ITaskVariableContext> = {}): ITaskVariableContext {
     return {
         folderPath: "/ws/proj",

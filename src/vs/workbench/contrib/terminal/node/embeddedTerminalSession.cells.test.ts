@@ -5,9 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
-// Тесты гоняют РЕАЛЬНЫЕ node-pty + @xterm/headless: печатаем точные VT-последовательности
-// через `/bin/bash -c 'printf …'` и читаем разложенную эмулятором сетку через readCell.
-// Так проверяется весь путь SGR → эмулятор → resolveFg/resolveBg/resolveStyle.
+// Реальные node-pty + @xterm/headless: printf точных VT-последовательностей → сетка через readCell.
 
 function emptyCell(): TerminalCell {
     return { char: "", fg: 0, bg: 0, style: 0, width: 1 };
@@ -22,7 +20,6 @@ function readRow(session: EmbeddedTerminalSession, row: number, width: number): 
     return text;
 }
 
-/** Спавнит шелл, печатающий `script`, и ждёт, пока `marker` появится в первой строке. */
 async function printed(script: string, marker: string): Promise<EmbeddedTerminalSession> {
     const session = new EmbeddedTerminalSession({
         cols: 40,
@@ -150,13 +147,11 @@ describe("EmbeddedTerminalSession — форма сетки", () => {
         const session = await printed("世X", "世");
         const out = emptyCell();
 
-        // Голова wide-char на x=0.
         expect(session.readCell(0, 0, out)).toBe(true);
         expect(out.char).toBe("世");
         expect(out.width).toBe(2);
         // x=1 — continuation (getWidth() === 0), out не трогаем.
         expect(session.readCell(1, 0, out)).toBe(false);
-        // Следующий обычный символ читается нормально.
         expect(session.readCell(2, 0, out)).toBe(true);
         expect(out.char).toBe("X");
         expect(out.width).toBe(1);

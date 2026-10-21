@@ -49,7 +49,6 @@ function makeHarness(): IHarness {
     const lastPickItems: { value: readonly { label: string; description?: string }[] } = { value: [] };
 
     const services = new Map<unknown, unknown>([
-        // Прогресс операций: транспортные швы просят его у контейнера.
         [ProgressServiceDIToken, new ProgressService()],
         [
             CommandRegistryDIToken,

@@ -12,8 +12,6 @@ import type { TaskService } from "./taskService.ts";
 import { RUNNING_TASKS_STATUS_ID, TaskStatusBarContribution } from "./taskStatusBarContribution.ts";
 import type { ITaskEvent } from "./terminalTaskSystem.ts";
 
-// Сегмент `$(tools) N` бегущих задач (`TaskStatusBarContributions` эталона).
-
 describe("TaskStatusBarContribution", () => {
     it("появляется с первой задачей, считает бегущие, исчезает с последней; клик — Show Running Tasks", async () => {
         const h = buildTaskServiceHarness();

@@ -61,7 +61,6 @@ function makeHarness(): IHarness {
     const confirmAnswer = { value: true };
 
     const services = new Map<unknown, unknown>([
-        // Прогресс операций: транспортные швы просят его у контейнера.
         [ProgressServiceDIToken, new ProgressService()],
         [
             DialogServiceDIToken,
@@ -299,7 +298,6 @@ describe("git.clean / git.cleanAll", () => {
         await gitCleanAction.run(h.accessor, [uriOf("a.ts"), uriOf("new.ts"), uriOf("s.ts")]);
 
         expect(h.confirms).toHaveLength(1);
-        // Staged-запись (index) discard'ом не трогается.
         expect(h.executed).toEqual([[CLEAN_TRANSPORT_COMMAND, [[uriOf("a.ts"), uriOf("new.ts")]]]]);
     });
 

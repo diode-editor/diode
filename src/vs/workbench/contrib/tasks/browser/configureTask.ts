@@ -1,10 +1,3 @@
-// Configure Task (`_runConfigureTasks` эталона): пикер задач — свои задачи
-// tasks.json и задачи провайдеров — и строка «Create tasks.json file from
-// template» / «Open tasks.json file», пока своих задач нет. Своя задача —
-// открыть tasks.json на её записи (`openConfig`); задача провайдера —
-// дописать в tasks.json её кастомизацию и открыть файл на ней (`customize`);
-// строка файла — шаблон (`_openTaskFile`). Правки текста — `tasksJsonEdits.ts`.
-
 import { Uri } from "../../../../base/common/uri.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
@@ -38,7 +31,6 @@ export const CREATE_TASKS_JSON = "Create tasks.json file from template";
 export const OPEN_TASKS_JSON = "Open tasks.json file";
 export const TASK_TEMPLATE_PLACEHOLDER = "Select a Task Template";
 
-/** Строка пикера: с задачей — задача, без неё — «создать/открыть tasks.json». */
 type IConfigureTaskEntry = ITaskQuickPickEntry;
 
 interface IConfigureContext {
@@ -86,13 +78,11 @@ export async function configureTaskCommand(accessor: ServiceAccessor): Promise<v
     }
 }
 
-/** Своя задача (или уже кастомизированная): tasks.json на её записи. */
 async function openConfig(context: IConfigureContext, uri: Uri, text: string | undefined, task: ITask): Promise<void> {
     // Stryker disable next-line StringLiteral,UnaryOperator: эквивалентный — своя задача прочитана из этого файла, у неё есть и текст, и индекс записи; фоллбэки — для типов
     await openAtEntry(context, uri, text ?? "", task.configIndex ?? -1);
 }
 
-/** Задача провайдера: её кастомизация — в конец `tasks`, файл — на ней (`customize` эталона). */
 async function customize(context: IConfigureContext, uri: Uri, task: ITask): Promise<void> {
     const text = (await readText(context.files, uri)) ?? "";
     if (!isWritableTasksJson(text)) {
@@ -110,7 +100,6 @@ async function customize(context: IConfigureContext, uri: Uri, task: ITask): Pro
     await openAtEntry(context, uri, appended.text, appended.index);
 }
 
-/** «Create/Open tasks.json file» (`_openTaskFile`): нет задач — шаблон; затем открыть файл. */
 async function openTaskFile(context: IConfigureContext, uri: Uri): Promise<void> {
     const text = await readText(context.files, uri);
     // Битый файл не трогаем — человек увидит его как есть.
@@ -126,11 +115,7 @@ async function openTaskFile(context: IConfigureContext, uri: Uri): Promise<void>
     await context.editors.openUri(uri);
 }
 
-/**
- * Записать tasks.json (каталог `.diode` — при нужде создать). Открытый с
- * несохранёнными правками файл не перезаписывается — ошибка эталона
- * (`errorTasksConfigurationFileDirty`); чистый открытый перечитывается сразу.
- */
+/** Открытый с несохранёнными правками не перезаписывается — ошибка эталона; чистый открытый перечитывается сразу. */
 async function writeTasksJson(context: IConfigureContext, uri: Uri, text: string): Promise<boolean> {
     const model = context.editors.textFileModels.get(uri);
     if (model?.isModified === true) {
@@ -150,7 +135,6 @@ async function writeTasksJson(context: IConfigureContext, uri: Uri, text: string
     return true;
 }
 
-/** Открыть tasks.json с кареткой в начале записи `tasks[index]` и записью на экране. */
 async function openAtEntry(context: IConfigureContext, uri: Uri, text: string, index: number): Promise<void> {
     await context.editors.openUri(uri);
     const range = taskEntryRange(text, index);

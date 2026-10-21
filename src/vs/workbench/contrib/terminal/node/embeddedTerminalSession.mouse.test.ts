@@ -3,12 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 
 import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
-// Мышь проверяем сквозным путём на РЕАЛЬНОМ шелле:
-//   sendMouse(семантика) → mapButton/mapAction → coreMouseService xterm → кодировщик SGR
-//   → term.onData → pty.write → шелл.
-// Шелл включает «report any motion» (?1003) + SGR-кодировку (?1006) и печатает всё, что
-// пришло ему на stdin, через `cat -v` (ESC виден как `^[`). `stty -echo -icanon` убирает
-// эхо драйвера и построчную буферизацию, иначе отчёт не дойдёт до cat без перевода строки.
+// Сквозной путь на реальном шелле: sendMouse → coreMouseService xterm → SGR → pty → `cat -v`
+// (ESC виден как `^[`). `stty -echo -icanon` убирает эхо и построчную буферизацию, иначе отчёт
+// не дойдёт до cat без перевода строки.
 const MOUSE_SHELL = 'stty -echo -icanon; printf "\\033[?1003h\\033[?1006h"; cat -v';
 
 const COLS = 70;
@@ -30,11 +27,7 @@ interface MouseCase {
     expected: string;
 }
 
-/**
- * Шлёт каждый кейс в сессию, разделяя отчёты переводом строки, и возвращает по строке
- * экрана на кейс. Порядок байтов в PTY гарантирован, поэтому достаточно дождаться
- * последней строки.
- */
+/** Порядок байтов в PTY гарантирован, поэтому достаточно дождаться последней строки. */
 async function collectReports(cases: readonly MouseCase[]): Promise<string[]> {
     const session = new EmbeddedTerminalSession({
         cols: COLS,

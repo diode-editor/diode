@@ -3,18 +3,12 @@ import type { CommandRegistry } from "../../../../platform/commands/common/comma
 
 import type { IOriginalResourceProvider } from "./quickDiffService.ts";
 
-/** Команда, которой SCM-расширение отдаёт ресурс оригинала (аналог `provideOriginalResource`). */
+/** Аналог `provideOriginalResource`. */
 export const ORIGINAL_RESOURCE_COMMAND = "diode.scm.originalResource";
 
 /**
- * {@link IOriginalResourceProvider} поверх реестра команд: ресурс оригинала
- * спрашивается у расширения командой {@link ORIGINAL_RESOURCE_COMMAND}.
- *
- * Транспорт временный и осознанно такой: канонический путь — `scm`-неймспейс с
- * `SourceControl.quickDiffProvider`, но он в `vscode.d.ts` ещё закомментирован
- * (см. «Долг» в docs/TODO/Diff.md). Граница владения при этом уже правильная —
- * решение «есть ли оригинал» принимает расширение, — поэтому переход на `scm`
- * будет заменой реализации этого класса, а не переделкой `QuickDiffService`.
+ * Транспорт временный: канонический `scm`-неймспейс с `quickDiffProvider` в `vscode.d.ts`
+ * ещё закомментирован (docs/TODO/Diff.md). Переход заменит этот класс, а не `QuickDiffService`.
  */
 export class CommandOriginalResourceProvider implements IOriginalResourceProvider {
     public constructor(private readonly commands: CommandRegistry) {}

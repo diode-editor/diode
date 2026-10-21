@@ -27,15 +27,10 @@ interface ISetup {
     commands: CommandRegistry;
     registered: IViewDescriptor[];
     shownMenus: { menuId: unknown; menuContext: unknown; owner: unknown; anchor: unknown }[];
-    /** Свернуть/раскрыть секцию так же, как это делает настоящий ViewsService. */
     setExpanded(expanded: boolean): void;
 }
 
-/**
- * Стенд секции. `expanded` — раскрыта ли она на момент создания компонента:
- * дефолт `true` описывает обычное состояние сайдбара, а `false` — стартовое
- * (контейнер ещё не собран) и свёрнутое.
- */
+/** `expanded: false` — стартовое состояние (контейнер ещё не собран) и свёрнутое. */
 function make(expanded = true): ISetup {
     const commands = new CommandRegistry();
     const graphService = new ScmGraphService(commands);
@@ -56,7 +51,6 @@ function make(expanded = true): ISetup {
     };
     const shownMenus: { menuId: unknown; menuContext: unknown; owner: unknown; anchor: unknown }[] = [];
     const contextMenuService = {
-        // Делегат резолвят при открытии — фейк дёргает его так же, как настоящий сервис.
         showContextMenu: (delegate: {
             menuId?: unknown;
             menuContext?: unknown;
@@ -106,9 +100,7 @@ describe("GraphViewComponent", () => {
             containerId: SCM_VIEWLET_ID,
             title: "GRAPH",
             order: 20,
-            // История дороже списка изменений — секция открывается свёрнутой.
             collapsed: true,
-            // Как у эталона: секцию можно увезти в другое место.
             canMoveView: true,
         });
     });
@@ -146,7 +138,6 @@ describe("GraphViewComponent", () => {
         const lines = renderElement(component.view, 40, 6, { themeVars: true }).screenToString().split("\n");
         const columnOf = (subject: string): number => lines.find((l) => l.includes(subject))!.indexOf(subject);
 
-        // У «tip» одна дорожка — его тема левее, чем у строк с ветвлением.
         expect(columnOf("tip")).toBeLessThan(columnOf("merge"));
         // Строки одной ширины по-прежнему совпадают — это не хаос, а своя ширина.
         expect(columnOf("base")).toBe(columnOf("merge"));
@@ -178,7 +169,6 @@ describe("GraphViewComponent", () => {
         ]);
 
         const screen = renderElement(component.view, 40, 4, { themeVars: true }).screenToString();
-        // Текущая ветка идёт первой, тег за ней, тема — последней.
         expect(screen).toMatch(/main.*v1\.0.*feat: панель/);
     });
 
@@ -196,7 +186,6 @@ describe("GraphViewComponent", () => {
         component.list.onActivate?.(component.list.getCursorElement()!);
         expect(loadMore).toHaveBeenCalledTimes(1);
 
-        // История закончилась — строка уходит.
         publish(commands, [{ sha: SHA_A, subject: "first" }], false);
         expect(component.list.rowCount).toBe(1);
     });
@@ -226,7 +215,6 @@ describe("GraphViewComponent", () => {
             shortSha: SHA_A.slice(0, 8),
             subject: "feat: панель",
         } satisfies ScmGraphMenuContext);
-        // Владелец меню — список, якорь — точка клика: по ним сервис его позиционирует.
         expect(shownMenus[0].owner).toBe(component.list);
         expect(shownMenus[0].anchor).toEqual({ screenX: 5, screenY: 5 });
     });
@@ -378,8 +366,7 @@ describe("GraphViewComponent: ленивость", () => {
 
     it("свёрнутой с самого старта секции расширение истории не считает", () => {
         const { commands } = make(false);
-        // Единственный pull-канал: расширение спрашивает при активации, нужен ли
-        // ему `git log`. Свёрнутый по дефолту GRAPH отвечает «не нужен».
+        // Свёрнутый по дефолту GRAPH отвечает расширению «`git log` не нужен».
         expect(commands.execute(GRAPH_ENABLED_COMMAND)).toBe(false);
 
         expect(make(true).commands.execute(GRAPH_ENABLED_COMMAND)).toBe(true);

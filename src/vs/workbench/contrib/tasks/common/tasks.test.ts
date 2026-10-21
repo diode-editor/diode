@@ -4,8 +4,6 @@ import { makeTask, TASK_FOLDER } from "../../../../../TestUtils/taskFixtures.ts"
 
 import { getMapKey } from "./tasks.ts";
 
-// Ключ «та же задача» (`getMapKey` эталона): по нему ищутся бегущая копия и терминал.
-
 const ext = { type: "npm", extensionId: "pub.ext", source: "npm" };
 
 describe("getMapKey", () => {

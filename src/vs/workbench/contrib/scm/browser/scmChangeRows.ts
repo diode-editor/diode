@@ -8,7 +8,6 @@ import type { IWorkbenchColors } from "../../../../platform/theme/common/colors/
 
 import type { IScmChange } from "./changesService.ts";
 
-/** `gitDecoration.*`, которыми расширение помечает статусы — резолвим их в цвета строк. */
 export const GIT_STATUS_COLOR_IDS = [
     "gitDecoration.modifiedResourceForeground",
     "gitDecoration.addedResourceForeground",
@@ -19,29 +18,20 @@ export const GIT_STATUS_COLOR_IDS = [
     "gitDecoration.ignoredResourceForeground",
 ] as const satisfies readonly (keyof IWorkbenchColors)[];
 
-/** Цвета содержимого строк Changes (выделение/hover красит сам ListViewElement). */
+/** Выделение и hover красит сам ListViewElement. */
 export interface IScmRowStyles {
-    /** `gitDecoration.*` id → цвет (число или имя токена темы). */
     readonly statusColors: Partial<Record<string, StyleColor>>;
 }
 
-/** nf-cod-go_to_file () — инлайн-кнопка «открыть сам файл» (клик делегирует контейнер). */
+/** nf-cod-go_to_file; клик делегирует контейнер. */
 export const OPEN_FILE_GLYPH = "";
 
-/** Ширина кнопки Open File: глиф с воздухом по бокам — зона клика. */
+/** Воздух по бокам глифа — зона клика. */
 export const OPEN_FILE_BUTTON_WIDTH = OPEN_FILE_GLYPH.length + 2;
 
 /**
- * Корень файловой строки: HFlex, который отдаёт колонки кнопке Open File только
- * пока строка активна — под указателем мыши или под курсором сфокусированного
- * списка ({@link LIST_ROW_ACTIVE_STATE}). В покое кнопка получает ширину 0
- * (легальный размер, `HFlexElement` клампит детей по остатку), и всё место
- * достаётся имени файла.
- *
- * Решение живёт в layout, а не в стиле, именно потому, что это про геометрию:
- * покрасить кнопку «в цвет фона» значило бы держать колонки занятыми впустую.
- * Состояние читается до стилевого прохода — список выставляет его на обёртке
- * строки прямо перед её раскладкой.
+ * Кнопка Open File получает колонки, только пока строка активна ({@link LIST_ROW_ACTIVE_STATE}),
+ * в покое — ширину 0. В layout, а не в стиле: кнопка «в цвет фона» держала бы колонки впустую.
  */
 export class ScmFileRowElement extends HFlexElement {
     public constructor(private readonly openButton: TextLabelElement) {
@@ -58,13 +48,7 @@ export class ScmFileRowElement extends HFlexElement {
     }
 }
 
-/**
- * Части файловой строки: {@link ScmFileRowElement}-корень (его id — идентичность
- * строки в списке) и три поля — имя (fill), кнопка Open File (раскрывается по
- * активности строки) и буква статуса (fixed 1, правый край). Части
- * возвращаются вместе, чтобы формат-функция могла перекрашивать строку при смене
- * темы без пересборки.
- */
+/** Вместе — чтобы перекрашивать строку при смене темы без пересборки. */
 export interface IScmFileRowParts {
     readonly root: ScmFileRowElement;
     readonly name: TextLabelElement;
@@ -73,12 +57,8 @@ export interface IScmFileRowParts {
 }
 
 /**
- * Строит файловую строку. `rowId` — идентичность строки в списке (id-конвенция
- * `scmRow-<group>-<path>` живёт у вызывающего), `label` — display-путь (flat)
- * или имя файла (tree). `onOpenFile` вызывается кликом по кнопке: кнопка
- * потребляет click через `preventDefault()` (контракт делегации
- * ListViewElement), а парный dblclick-listener гасит и двойной клик, чтобы тот
- * не активировал строку.
+ * `rowId` — конвенция `scmRow-<group>-<path>` у вызывающего. Кнопка потребляет click
+ * `preventDefault()` (делегация ListViewElement), парный dblclick — чтобы не активировал строку.
  */
 export function buildFileRow(
     rowId: string,
@@ -91,11 +71,8 @@ export function buildFileRow(
     const openButton = new TextLabelElement(` ${OPEN_FILE_GLYPH} `);
     const status = new TextLabelElement("");
 
-    // Вид — как у кнопки «⋯» в заголовках view (`PaneHeaderElement`): глиф без
-    // рамки, приглушённый, фон наследует от строки. Своего hover-варианта нет
-    // намеренно: мышь принадлежит списку (строки презентационные), поэтому
-    // `in:hover` был бы истиной для всех раскрытых кнопок разом. Роль
-    // affordance играет само появление кнопки на активной строке.
+    // Своего hover нет намеренно: мышь принадлежит списку, и `in:hover` был бы истиной
+    // для всех раскрытых кнопок разом.
     openButton.style = { fg: "descriptionForeground" };
     openButton.addEventListener("click", (event) => {
         event.preventDefault();
@@ -116,7 +93,6 @@ export function buildFileRow(
     return parts;
 }
 
-/** Перекрашивает/перезаполняет файловую строку (стрим-обновление и смена темы). */
 export function formatFileRow(parts: IScmFileRowParts, change: IScmChange, label: string, styles: IScmRowStyles): void {
     const color: StyleColor | undefined = styles.statusColors[change.colorId];
 
@@ -135,18 +111,12 @@ export function formatFileRow(parts: IScmFileRowParts, change: IScmChange, label
     parts.root.markDirty();
 }
 
-/** Папочная строка tree-режима: метка-цепочка, цвета наследуются, шеврон рисует список. */
 export function buildFolderRow(id: string, label: string): TextLabelElement {
     const row = new TextLabelElement(label);
     row.id = id;
     return row;
 }
 
-/**
- * Заголовок группы ресурсов (Merge/Staged/Changes): метка (fill) +
- * счётчик у правого края приглушённым. Шеврон сворачивания рисует сам список —
- * у заголовка есть дети. Цвета — токены темы, рестайл не нужен.
- */
 export function buildGroupRow(id: string, label: string, count: number): HFlexElement {
     const root = new HFlexElement();
     root.id = id;

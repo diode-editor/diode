@@ -27,7 +27,6 @@ import {
 
 function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
     const stored = new Map<string, unknown>();
-    // Как настоящий сервис: openWorkspace сообщает об открытии стора проекта.
     const openWorkspaceEmitter = new Emitter<WorkspaceId>();
     const service: IStateService = {
         get<T>(descriptor: IStateDescriptor<T>): T {
@@ -75,9 +74,8 @@ function make(): IHarness {
     const changes = new ScmChangesService(commands);
     const repoState = new ScmRepoStateService(commands, new ContextKeyService());
     const progress = new ProgressService();
-    // Бинды commit — как объявлены экшеном: досягаемый всюду Alt+Enter и
-    // канонический mod+Enter под tier-гейтом (в legacy Ctrl+Enter — это сам
-    // Enter). Плейсхолдер подписывает тот, который в этом окружении работает.
+    // Досягаемый всюду Alt+Enter и канонический mod+Enter под tier-гейтом (в legacy
+    // Ctrl+Enter — это сам Enter): плейсхолдер подписывает работающий.
     const keybindings = new KeybindingRegistry();
     keybindings.register(parseKeybinding("alt+enter"), "git.commit", "scmInputFocus");
     keybindings.register(parseKeybinding("mod+enter"), "git.commit", "scmInputFocus && tier != 'legacy'");
@@ -153,7 +151,6 @@ describe("ScmInputComponent — поле", () => {
             return keys.get("scmInputFocus");
         };
         expect(focusKey(h.component.input)).toBe(true);
-        // Обычное поле ввода (и кнопка рядом) — не поле коммита.
         expect(focusKey(new InputElement())).toBe(false);
         expect(focusKey(h.component.actionButton)).toBe(false);
         expect(focusKey(null)).toBe(false);
@@ -216,7 +213,6 @@ describe("ScmInputComponent — поле", () => {
 
         const inputY = h.component.input.globalPosition.y;
         const buttonY = h.component.actionButton.globalPosition.y;
-        // Ровно одна свободная строка между ними (обе высотой 1).
         expect(buttonY - inputY).toBe(2);
         expect(h.component.view.layoutSize.height).toBe(SCM_INPUT_HEIGHT);
     });
@@ -228,9 +224,8 @@ describe("ScmInputComponent — поле", () => {
         // плейсхолдер обрезается.
         const screen = renderElement(h.component.view, 40, SCM_INPUT_HEIGHT, { themeVars: true });
 
-        // Ассерт на абсолютную позицию, а не на разницу с кнопкой: относительные
-        // смещения переживают лишний отступ сверху, ради снятия которого правка
-        // и делалась.
+        // Абсолютная позиция, а не разница с кнопкой: относительные смещения переживают
+        // лишний отступ сверху.
         expect(h.component.input.globalPosition.y).toBe(0);
         expect(screen.screenToString().split("\n")[0]).toContain("Message (Ctrl+Enter to commit)");
 
@@ -350,12 +345,10 @@ describe("ScmInputComponent — кнопка действия", () => {
         h.publishChanges(1);
         expect(h.component.actionButton.getLabel()).toBe("Commit");
 
-        // Коммит: изменения ушли, ahead вырос.
         h.publishChanges(0);
         h.publishRepoState({ ahead: 1 });
         expect(h.component.actionButton.getLabel()).toBe("Sync Changes ↓0 ↑1");
 
-        // Sync: расхождение схлопнулось.
         h.publishRepoState({ ahead: 0 });
         expect(h.component.actionButton.getLabel()).toBe("Commit");
         expect(h.component.actionButton.isDisabled()).toBe(true);
@@ -368,10 +361,8 @@ describe("ScmInputComponent — кнопка действия", () => {
         const screen = renderElement(h.component.view, 30, SCM_INPUT_HEIGHT, { themeVars: true }).screenToString();
         expect(screen).toContain("Message (Ctrl+Enter to comm"); // безрамочный input, клип по ширине
         const buttonLine = screen.split("\n").find((l) => l.includes("Commit"))!;
-        // Центрирование: слева и справа от label есть отступ кнопки.
         expect(buttonLine.indexOf("Commit")).toBeGreaterThan(3);
 
-        // Disabled-вид рендерится secondary-цветами без падений.
         h.publishChanges(0);
         expect(h.component.actionButton.isDisabled()).toBe(true);
         expect(renderElement(h.component.view, 30, SCM_INPUT_HEIGHT, { themeVars: true }).screenToString()).toContain(

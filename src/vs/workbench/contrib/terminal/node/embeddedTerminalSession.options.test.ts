@@ -3,9 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { buildEnv, EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
-// Опции шелла терминала расширения (`TerminalOptions`): окружение, `strictEnv`,
-// `message` и pid. Окружение проверяем и чистой функцией, и настоящим шеллом —
-// что дошло до процесса, видно только в его выводе.
+// Окружение проверяем и чистой функцией, и настоящим шеллом: что дошло до процесса, видно только в его выводе.
 
 function screen(session: EmbeddedTerminalSession, rows: number, width: number): string {
     const out: TerminalCell = { char: "", fg: 0, bg: 0, style: 0, width: 1 };

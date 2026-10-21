@@ -1,16 +1,4 @@
-// Связка node-pty ↔ @xterm/headless — «сервер» встроенного терминала.
-//
-// Держит реальную PTY-пару (node-pty: ядро выдаёт настоящий TTY → интерактивность)
-// и VT-эмулятор (@xterm/headless: парсит вывод шелла в сетку ячеек, читаемую через
-// `terminal.buffer.active`). Наружу торчит контракт `ITerminalSurface`: прочитать
-// ячейку (`readCell`), позицию курсора (`getCursor`), подать ввод (`write`), мышь
-// (`sendMouse`), сменить размер (`resize`), подписаться на «есть новые данные»
-// (`onUpdate`) и на выход шелла (`onExit`). Эмуляторная половина общая с pty
-// расширений — `XtermSurface`; здесь только PTY.
-//
-// Это Workbench-слой (выше TUIDom), поэтому импорт node-pty здесь допустим: слои
-// TUIDom и ниже остаются чистыми, а виджет `TerminalViewElement` видит только
-// `ITerminalSurface`. См. docs/arch/workbench/Terminal.md.
+// PTY-половина встроенного терминала (node-pty); эмуляторная, общая с pty расширений, — `XtermSurface`.
 
 import type { IPty } from "node-pty";
 
@@ -31,18 +19,14 @@ export interface EmbeddedTerminalOptions {
     cwd?: string;
     /** Поверх унаследованного окружения; `null` снимает переменную. */
     env?: Record<string, string | null>;
-    /** Окружение — ровно `env`, без унаследованного от процесса. */
     strictEnv?: boolean;
-    /** Строка в эмулятор до вывода шелла (с переводом строки); в шелл не уходит. */
     message?: string;
     scrollback?: number;
 }
 
 /**
- * Окружение шелла: база (унаследованное или пустое при `strictEnv`), поверх —
- * `env` терминала (`null` снимает переменную, как `TerminalOptions.env`), затем
- * довесок `contribute` (коллекции окружения расширений) и наше обязательное:
- * `TERM` эмулятора, без `TMUX` (внутри собственного tmux-хоста он сбивает детект).
+ * Слои: база (пустая при `strictEnv`) → `env` терминала (`null` снимает) → `contribute` расширений →
+ * наше: `TERM` эмулятора, без `TMUX` (внутри собственного tmux-хоста он сбивает детект).
  */
 export function buildEnv(
     base: Record<string, string>,
@@ -59,7 +43,6 @@ export function buildEnv(
     return Object.fromEntries(Object.entries(env).filter((entry): entry is [string, string] => entry[1] !== undefined));
 }
 
-/** Отфильтровать `undefined`-значения из process.env (node-pty ждёт `Record<string,string>`). */
 function currentEnv(): Record<string, string> {
     const out: Record<string, string> = {};
     for (const [key, value] of Object.entries(process.env)) {
@@ -71,14 +54,10 @@ function currentEnv(): Record<string, string> {
 }
 
 export class EmbeddedTerminalSession extends XtermSurface {
-    /** Запущенный шелл — по нему вкладка терминала получает заголовок. */
     public shell: string;
     private pty: IPty;
 
-    /**
-     * @param environment довесок к окружению каждого запуска процесса —
-     *   коллекции расширений (не при `strictEnv`)
-     */
+    /** @param environment коллекции окружения расширений; при `strictEnv` не применяются. */
     public constructor(
         options: EmbeddedTerminalOptions,
         private readonly environment?: ITerminalEnvironmentContributor,
@@ -93,7 +72,6 @@ export class EmbeddedTerminalSession extends XtermSurface {
         this.pty = this.spawn(this.shell, options);
     }
 
-    /** Pid процесса шелла. */
     public get pid(): number {
         return this.pty.pid;
     }
@@ -102,7 +80,6 @@ export class EmbeddedTerminalSession extends XtermSurface {
         this.pty.write(data);
     }
 
-    /** Синхронный ресайз PTY (TIOCSWINSZ+SIGWINCH). */
     protected onDidResize(cols: number, rows: number): void {
         this.pty.resize(cols, rows);
     }
@@ -116,10 +93,7 @@ export class EmbeddedTerminalSession extends XtermSurface {
         }
     }
 
-    /**
-     * Новый PTY с текущим размером эмулятора. Прежний уже вышел: его `onExit`
-     * отстрелял, и подписки на него больше не сработают — снимать нечего.
-     */
+    /** Прежний PTY уже вышел и его подписки отстреляли — снимать нечего. */
     protected relaunchProcess(options: ITerminalRelaunchOptions): void {
         this.shell = options.shell ?? getSystemShell();
         this.pty = this.spawn(this.shell, { ...options, cols: this.cols, rows: this.rows });
@@ -147,7 +121,6 @@ export class EmbeddedTerminalSession extends XtermSurface {
             cwd,
             env,
         });
-        // Вывод шелла → эмулятор → сигнал перерисовки контролу (см. feedOutput).
         pty.onData((data) => {
             this.feedOutput(data);
         });

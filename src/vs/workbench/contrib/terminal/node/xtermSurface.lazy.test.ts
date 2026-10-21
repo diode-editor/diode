@@ -8,10 +8,7 @@ import { EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 import { ExtensionPtySession } from "./extensionPtySession.ts";
 import type { XtermNamespace } from "./xtermSurface.ts";
 
-// @xterm/headless — ленивый кусок бандла: эмулятор появляется, когда кусок
-// загрузился. Здесь загрузчик придерживаем вручную и проверяем гонки «человек
-// или процесс успели раньше куска»: вывод не теряется и идёт по порядку, ввод
-// и ресайз доходят до процесса, ничего не падает.
+// Загрузчик куска придерживаем вручную: гонки «человек или процесс успели раньше куска».
 
 function row(session: ExtensionPtySession | EmbeddedTerminalSession, y: number, width: number): string {
     const out: TerminalCell = { char: "", fg: 0, bg: 0, style: 0, width: 1 };
@@ -22,7 +19,6 @@ function row(session: ExtensionPtySession | EmbeddedTerminalSession, y: number, 
     return text.trimEnd();
 }
 
-/** Загрузчик кусков, который отдаёт модуль только по `release()` (или отказывает по `fail()`). */
 function holdLoader() {
     const requested: string[] = [];
     let release!: () => void;

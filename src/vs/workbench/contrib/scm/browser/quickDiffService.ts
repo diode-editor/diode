@@ -17,36 +17,25 @@ import { toGutterDecorations } from "./quickDiffDecorations.ts";
 
 /** Максимум времени на один дифф; сверх — грубый результат вместо залипшего UI. */
 const MAX_DIFF_COMPUTATION_MS = 1000;
-/** Дефолт паузы перед пересчётом после правки (мс). */
 const DEFAULT_DEBOUNCE_MS = 200;
 
-/**
- * Минимальный срез открытого редактора, нужный quick diff: ресурс, текст,
- * событие правки и канал gutter-декораций. `TextEditorPane` соответствует ему
- * структурно, связывание делает DI-модуль (образец — `DiagnosticsService`).
- */
+/** `TextEditorPane` соответствует структурно, связывание делает DI-модуль. */
 export interface IQuickDiffEditor {
     readonly uri: Uri;
-    /** Строки буфера без переводов строк — без строки всего текста (пересчёт на каждую правку). */
+    /** Не строка всего текста: пересчёт идёт на каждую правку. */
     getLinesContent(): string[];
     onDidChangeContent(listener: () => void): IDisposable;
     setGutterChangeDecorations(decorations: readonly IGutterChangeDecoration[]): void;
 }
 
-/** Поставщик открытых редакторов для {@link QuickDiffService}. */
 export interface IQuickDiffEditorSource {
     getActiveEditor(): IQuickDiffEditor | null;
     onActiveEditorChanged(listener: (editor: IQuickDiffEditor | null) => void): IDisposable;
 }
 
 /**
- * Источник «оригинала» ресурса — аналог `QuickDiffProvider.provideOriginalResource`
- * из vscode API. Отдаёт URI версии, с которой сравнивать (у git это `git:`), либо
- * `null`, если сравнивать не с чем.
- *
- * Решение «есть ли у файла оригинал» принадлежит именно поставщику: untracked,
- * ignored, файл вне репозитория — всё это знает git, а не ядро. Ядро получает
- * ресурс и читает его через {@link IFileService}, не зная про git.
+ * Аналог `QuickDiffProvider.provideOriginalResource`. Есть ли у файла оригинал, решает
+ * поставщик: untracked, ignored, вне репозитория — это знает git, а не ядро.
  */
 export interface IOriginalResourceProvider {
     /** `ref` — ревизия оригинала; не задан — `HEAD` (обычный quick diff). */
@@ -58,17 +47,8 @@ export const OriginalResourceProviderDIToken = token<IOriginalResourceProvider>(
 export const QuickDiffServiceDIToken = token<QuickDiffService>("QuickDiffService");
 
 /**
- * Живые change-bars в гуттере: дифф **буфера** против версии из git,
- * пересчитываемый по каждой правке (аналог `quickDiffModel.ts` в VS Code).
- *
- * До этого дифф считало git-расширение по файлу **на диске**, по
- * `onDidSaveTextDocument` — поэтому бары залипали до сохранения. Здесь текст
- * оригинала лежит в памяти, а сравнивается с ним живой буфер, так что бары
- * двигаются вместе с набором.
- *
- * Область — активный редактор: неактивные вкладки держат последний
- * посчитанный набор (их содержимое без фокуса не меняется), а при возврате
- * пересчитываются.
+ * Дифф буфера (не файла на диске) против версии из git, по каждой правке — аналог
+ * `quickDiffModel.ts`. Неактивные вкладки держат последний набор и пересчитываются при возврате.
  */
 export class QuickDiffService extends Disposable {
     public static dependencies = [
@@ -81,16 +61,12 @@ export class QuickDiffService extends Disposable {
 
     private readonly computer = new DefaultLinesDiffComputer();
     /**
-     * Строки оригинала по ресурсу редактора (разбиты один раз, а не на каждый
-     * пересчёт). Кэшируются ТОЛЬКО удачные чтения:
-     * «оригинала нет» может означать и «SCM-расширение ещё не активировалось»,
-     * а закэшировав такой ответ, мы бы навсегда остались без баров. Цена —
-     * один дешёвый запрос к расширению на каждый пересчёт файла без оригинала.
+     * Кэшируются только удачные чтения: «оригинала нет» может значить «SCM-расширение ещё
+     * не активировалось», и закэшированный ответ оставил бы файл без баров навсегда.
      */
     private readonly originals = new Map<string, string[]>();
     private activeContentSubscription: IDisposable | null = null;
     private debounceTimer: ReturnType<typeof setTimeout> | undefined;
-    /** Последний пересчёт: устаревший асинхронный ответ не применяется. */
     private readonly latest = new LatestRequest();
 
     public constructor(
@@ -115,9 +91,8 @@ export class QuickDiffService extends Disposable {
                 void this.refresh(this.editorSource.getActiveEditor());
             }),
         );
-        // SCM-расширение активируется асинхронно и обычно уже ПОСЛЕ открытия
-        // первого файла: к моменту стартового пересчёта поставщика ещё нет.
-        // Без этой подписки бары не появились бы до следующей правки.
+        // SCM-расширение активируется обычно уже после открытия первого файла —
+        // без этой подписки бары не появились бы до следующей правки.
         this.register(
             this.providers.onDidChangeFileSystemProviderRegistrations(() => {
                 void this.refresh(this.editorSource.getActiveEditor());
@@ -129,7 +104,6 @@ export class QuickDiffService extends Disposable {
                 void this.refresh(this.editorSource.getActiveEditor());
             }),
         );
-        // Смена темы меняет цвета баров: пере-резолвим и перекладываем.
         this.register(
             this.themeService.onThemeChange(() => {
                 void this.refresh(this.editorSource.getActiveEditor());
@@ -147,7 +121,6 @@ export class QuickDiffService extends Disposable {
         void this.refresh(active);
     }
 
-    /** Пересчитывает бары активного редактора по правке — с паузой на серию нажатий. */
     private bindActiveEditor(editor: IQuickDiffEditor | null): void {
         this.activeContentSubscription?.dispose();
         this.activeContentSubscription =
@@ -164,10 +137,7 @@ export class QuickDiffService extends Disposable {
         }, this.debounceMs());
     }
 
-    /**
-     * Считает дифф и кладёт бары. Выключенная настройка и отсутствие оригинала
-     * снимают бары — иначе на экране остался бы прошлый набор.
-     */
+    /** Выключенная настройка и отсутствие оригинала снимают бары — иначе остался бы прошлый набор. */
     private async refresh(editor: IQuickDiffEditor | null): Promise<void> {
         if (editor === null) return;
         const ticket = this.latest.start();
@@ -178,8 +148,6 @@ export class QuickDiffService extends Disposable {
         }
 
         const original = await this.originalLines(editor.uri);
-        // Пока ходили за оригиналом, мог смениться редактор или прийти новая
-        // правка — устаревший ответ не применяем.
         if (ticket.isStale()) return;
         if (original === null) {
             editor.setGutterChangeDecorations([]);
@@ -194,7 +162,6 @@ export class QuickDiffService extends Disposable {
         editor.setGutterChangeDecorations(toGutterDecorations(diff.changes, this.colors()));
     }
 
-    /** Строки оригинала с кэшированием удачных чтений; `null` — сравнивать не с чем. */
     private async originalLines(uri: Uri): Promise<string[] | null> {
         const key = uri.toString();
         const cached = this.originals.get(key);
@@ -214,8 +181,7 @@ export class QuickDiffService extends Disposable {
             // Схема без провайдера — отказ readFile (Unavailable), ловится ниже.
             return new TextDecoder().decode((await this.providers.readFile(originalResource)).value);
         } catch {
-            // Расширения нет, git недоступен, файла нет в ревизии — во всех
-            // случаях показывать нечего, и это не повод шуметь.
+            // Расширения нет, git недоступен, файла нет в ревизии — показывать нечего, не шумим.
             return null;
         }
     }

@@ -39,51 +39,23 @@ import { SCM_INPUT_HEIGHT, ScmInputComponentDIToken } from "./scmInputComponent.
 
 export const ChangesComponentDIToken = token<ChangesComponent>("ChangesComponent");
 
-/**
- * Пустое состояние Source Control без открытой папки — по эталону («In order to
- * use Git features, you can open a folder containing a Git repository…»), минус
- * клон: команды клонирования у нас нет.
- */
+/** Как в эталоне, минус клон: команды клонирования у нас нет. */
 const SCM_WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "text", text: "To use source control, open a folder containing a Git repository." },
     { kind: "text", text: "" },
     { kind: "button", label: "Open Folder", command: "workbench.action.files.openFolder" },
 ];
 
-/** Метаданные строки списка — мост «id строки → модель» (как rowMeta у поиска). */
 type ScmRowMeta =
     | { readonly kind: "file"; readonly parts: IScmFileRowParts; readonly change: IScmChange; readonly label: string }
     | { readonly kind: "folder"; readonly group: ScmGroupId; readonly changes: readonly IScmChange[] }
     | { readonly kind: "group"; readonly group: ScmGroupId; readonly changes: readonly IScmChange[] };
 
-/**
- * Санитизация в id-алфавит строк списка (`[A-Za-z0-9_-]`): e2e-селектор `#id`
- * другого не матчит. Коллизии ("a.b" ↔ "a-b") разводит {@link ChangesComponent}
- * суффиксом.
- */
+/** e2e-селектор `#id` матчит только `[A-Za-z0-9_-]`; коллизии ("a.b" ↔ "a-b") разводит суффикс. */
 function sanitizeIdSegment(value: string): string {
     return value.replace(/[^A-Za-z0-9_-]+/g, "-");
 }
 
-/**
- * View-секция **CHANGES** контейнера Source Control в сайдбаре: список
- * изменённых файлов на виртуализирующем {@link ListViewElement}. Регистрирует
- * себя в {@link ViewsService} (контейнер собирает и вешает в сайдбар
- * `WorkbenchComponent.setWorkspaceFolder`). Потребитель
- * {@link ScmChangesService}, набор в который пушит SCM-расширение.
- *
- * Строки собирает {@link buildFileRow}/{@link buildFolderRow}; режимы плоско/
- * дерево ({@link setViewMode}, персист по-проектно) отличаются только эмиссией:
- * flat — отсортированные пути без parentId, tree — pre-order обход
- * {@link buildScmTree} с компакт-папками. Активация файла исполняет
- * `scm.action.openChanges` (прямой дифф без промежуточной вкладки), инлайн-глиф
- * строки — `scm.action.openFile`, правый клик/Shift+F10 поднимают контекстное
- * меню `MenuId.ScmContext` через `ContextMenuService` (делегат, как у Explorer).
- *
- * Место в сайдбаре (а не в нижней Panel) — как в VS Code: у нас нет activity bar,
- * поэтому Explorer ↔ Source Control переключают команды (`workbench.view.*`),
- * а сам показ — подмена контента сайдбара через {@link SidebarService}.
- */
 export class ChangesComponent extends Component {
     public static dependencies = [
         ScmChangesServiceDIToken,
@@ -94,22 +66,16 @@ export class ChangesComponent extends Component {
         ScmInputComponentDIToken,
     ] as const;
 
-    /** Список изменений — доступен тестам и оркестрации (фокус, inspectState). */
     public readonly list = new ListViewElement();
-    /**
-     * Тело view-секции Source Control — вкидывается в контейнер через
-     * ViewsService: контролы коммита сверху, список изменений под ними.
-     */
     public readonly view: VFlexElement;
-    /** Область списка (без контролов) — якорь координат для e2e. */
+    /** Якорь координат для e2e. */
     public readonly listView: PaddingContainerElement;
 
     private readonly scrollBars: ScrollBarDecorator;
 
     private viewMode: ScmViewMode;
     private rowMeta = new Map<string, ScmRowMeta>();
-    // Токены темы: строки красятся именами gitDecoration.* — резолвит каскад,
-    // рестайл на смену темы не нужен.
+    // Имена gitDecoration.* резолвит каскад — рестайл на смену темы не нужен.
     private readonly rowStyles: IScmRowStyles = {
         statusColors: Object.fromEntries(GIT_STATUS_COLOR_IDS.map((id) => [id, id])),
     };
@@ -124,8 +90,6 @@ export class ChangesComponent extends Component {
     ) {
         super();
         this.viewMode = this.stateService.get(SCM_VIEW_MODE_STATE);
-        // Workspace-стор проекта открыт (Open Folder или бутстрап) — состояние
-        // view теперь читается из него, а не из стора пустого окна.
         this.register(
             this.stateService.onDidOpenWorkspace(() => {
                 this.restoreViewMode();
@@ -139,8 +103,7 @@ export class ChangesComponent extends Component {
         this.listView.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
         this.list.style = { fg: "sideBar.foreground", bg: "sideBar.background" };
 
-        // Контролы коммита — часть тела view, а не «шапка» контейнера над всеми
-        // секциями (как в VS Code, где input живёт в теле Source Control):
+        // Контролы коммита — в теле секции, а не шапкой контейнера (как в VS Code):
         // свернул секцию — убрались и они.
         this.view = new VFlexElement();
         this.view.id = "scmView";
@@ -148,8 +111,7 @@ export class ChangesComponent extends Component {
         this.view.addChild(scmInput.view, { height: vflexFit(), width: "fill" });
         this.view.addChild(this.listView, { height: vflexFill(), width: "fill" });
 
-        // Контейнер Source Control (секции CHANGES и GRAPH) регистрирует его
-        // первая секция; GRAPH записывается в него из своего компонента.
+        // Контейнер регистрирует первая секция; GRAPH записывается в него из своего компонента.
         viewsService.registerContainer({
             id: SCM_VIEWLET_ID,
             title: "SOURCE CONTROL",
@@ -165,16 +127,14 @@ export class ChangesComponent extends Component {
             title: "CHANGES",
             order: 10,
             body: this.view,
-            // Без папки репозитория нет, расширение git не активируется, и поле
-            // коммита с пустым списком изменений выглядит рабочим, ничего при
-            // этом не делая. Честное пустое состояние вместо этого.
+            // Без папки git не активируется, и поле коммита выглядело бы рабочим,
+            // ничего не делая, — честное пустое состояние вместо этого.
             requiresWorkspaceFolder: true,
             placeholder: SCM_WELCOME,
             focus: () => {
                 this.focus();
             },
-            // Контролы коммита занимают 4 строки (поле + зазор + кнопка +
-            // padding снизу) — дефолтных трёх на секцию уже не хватает.
+            // Поле + зазор + кнопка + padding: дефолтных трёх строк на секцию не хватает.
             minBodyHeight: SCM_INPUT_HEIGHT + 3,
         });
 
@@ -195,12 +155,11 @@ export class ChangesComponent extends Component {
         this.rebuild();
     }
 
-    /** Focuses the changes list (used by the "Show Source Control" command). */
     public focus(): void {
         this.list.focus();
     }
 
-    /** Изменение под курсором списка — цель SCM-команд без явного uri-аргумента. */
+    /** Цель SCM-команд без явного uri-аргумента. */
     public getCursorChange(): IScmChange | null {
         const id = this.list.getCursorElement()?.id;
         if (id === undefined) return null;
@@ -208,10 +167,7 @@ export class ChangesComponent extends Component {
         return meta?.kind === "file" ? meta.change : null;
     }
 
-    /**
-     * Файловые записи текущего выделения списка (multi-select; пустое выделение —
-     * строка под курсором) в порядке показа — цели групповых staging-команд.
-     */
+    /** Пустое выделение — строка под курсором; порядок — как в показе. */
     public getSelectedChanges(): readonly IScmChange[] {
         const changes: IScmChange[] = [];
         for (const element of this.list.getSelectedElements()) {
@@ -225,7 +181,6 @@ export class ChangesComponent extends Component {
         return this.viewMode;
     }
 
-    /** Переключает вид плоско/дерево, пересобирая строки из снимка сервиса. */
     public setViewMode(mode: ScmViewMode): void {
         if (mode === this.viewMode) return;
         this.viewMode = mode;
@@ -233,7 +188,7 @@ export class ChangesComponent extends Component {
         this.rebuild();
     }
 
-    /** Восстанавливает вид из workspace-стора (зовётся после `openWorkspace`, без write-through). */
+    /** Зовётся после `openWorkspace`, без write-through. */
     public restoreViewMode(): void {
         const mode = this.stateService.get(SCM_VIEW_MODE_STATE);
         if (mode === this.viewMode) return;
@@ -241,7 +196,6 @@ export class ChangesComponent extends Component {
         this.rebuild();
     }
 
-    /** Активация строки: заголовок группы и папка сворачиваются, файл открывает дифф. */
     private activateRow(id: string): void {
         const meta = this.rowMeta.get(id);
         if (meta === undefined) return;
@@ -253,11 +207,8 @@ export class ChangesComponent extends Component {
     }
 
     /**
-     * Пересобирает строки из снимка {@link ScmChangesService} (publish, смена
-     * режима, restore). Строки секционированы группами ресурсов
-     * ({@link groupChanges}); свёрнутость групп переживает пересборку (снимок до
-     * `clear()`), курсор возвращается на прежнюю строку по id. Свёрнутость папок
-     * при этом сбрасывается — принято (как у поиска при новом запросе).
+     * Свёрнутость групп переживает пересборку, курсор возвращается на строку по id;
+     * свёрнутость папок сбрасывается — принято (как у поиска при новом запросе).
      */
     private rebuild(): void {
         const cursorId = this.list.getCursorElement()?.id;
@@ -304,9 +255,8 @@ export class ChangesComponent extends Component {
     }
 
     /**
-     * Id строки несёт НАСТОЯЩУЮ группу записи, а не заголовок, под которым она
-     * показана: untracked едет под «Changes», но остаётся `scmRow-untracked-…`
-     * — так селектор говорит правду о том, что за файл под курсором.
+     * Id несёт настоящую группу записи, а не заголовок: untracked едет под «Changes»,
+     * но остаётся `scmRow-untracked-…` — селектор говорит правду о файле.
      */
     private appendFileRow(change: IScmChange, label: string, parentId: string): void {
         const rowId = this.uniqueRowId(`scmRow-${change.group}-${sanitizeIdSegment(displayPath(change))}`);
@@ -317,7 +267,6 @@ export class ChangesComponent extends Component {
         this.rowMeta.set(rowId, { kind: "file", parts, change, label });
     }
 
-    /** Разводит коллизии санитизации ("a.b" ↔ "a-b") числовым суффиксом. */
     private uniqueRowId(base: string): string {
         if (!this.rowMeta.has(base)) return base;
         let n = 2;
@@ -325,7 +274,6 @@ export class ChangesComponent extends Component {
         return `${base}_${n}`;
     }
 
-    /** Собирает файлы поддерева (для будущих операций над папкой целиком). */
     private static collectFiles(nodes: readonly ScmTreeNode[]): readonly IScmChange[] {
         const files: IScmChange[] = [];
         const walk = (level: readonly ScmTreeNode[]): void => {
@@ -339,10 +287,8 @@ export class ChangesComponent extends Component {
     }
 
     /**
-     * Контекстное меню строки — делегат ContextMenuService (как у Explorer).
-     * Цели: файловая строка в текущем выделении → всё выделение, вне его — одна
-     * строка; папка → её файлы; заголовок группы → вся группа (и своя точка меню
-     * `ScmResourceGroupContext`).
+     * Цели: файл в выделении → всё выделение, вне его — одна строка; папка → её файлы;
+     * заголовок группы → вся группа (и своя точка меню `ScmResourceGroupContext`).
      */
     private showContextMenu(meta: ScmRowMeta, screenX: number, screenY: number): void {
         let kind: ScmMenuContext["kind"];

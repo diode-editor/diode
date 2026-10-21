@@ -1,9 +1,5 @@
-// Двухуровневый пикер Run Task (`taskQuickPick.ts` эталона): на первом уровне
-// — задачи из tasks.json (свои и кастомизации задач провайдеров; пусто —
-// «Configure a Task») и по пункту на тип задач провайдеров, на втором —
-// задачи выбранного типа и «Go back ↩». Разделителей групп у нашего пикера
-// нет: подпись группы («configured», «contributed») стоит подсказкой справа у
-// первой строки группы — там же, где эталон рисует метку разделителя.
+// Разделителей групп у нашего пикера нет: подпись группы стоит подсказкой у первой
+// строки группы — там, где эталон рисует метку разделителя.
 
 import { renderCodicons } from "../../../../base/common/codicons.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
@@ -17,10 +13,6 @@ export const SHOW_ALL_TASKS = "Show All Tasks...";
 export const GO_BACK = "Go back ↩";
 export const CONFIGURE_A_TASK = "$(plus) Configure a Task";
 
-/**
- * Строка пикера: задача, запись-кастомизация (задача провайдера ещё не
- * найдена), тип второго уровня, «показать все», «назад» или «настроить».
- */
 interface IRunTaskEntry extends ITaskQuickPickEntry {
     readonly configuring?: IConfiguringTask;
     readonly type?: string;
@@ -29,13 +21,11 @@ interface IRunTaskEntry extends ITaskQuickPickEntry {
     readonly configure?: true;
 }
 
-/** Задачи первого уровня: свои и записи-кастомизации tasks.json без скрытых (порядок — по подписи в строках). */
 interface IConfiguredTasks {
     readonly tasks: readonly ITask[];
     readonly configuring: readonly IConfiguringTask[];
 }
 
-/** С подписью группы у первой строки (место разделителя эталона). */
 function withGroupLabel(entries: readonly IRunTaskEntry[], label: string): IRunTaskEntry[] {
     return entries.map((entry, index) => (index === 0 ? { ...entry, hint: label } : entry));
 }
@@ -48,11 +38,7 @@ async function configuredTasks(service: TaskService): Promise<IConfiguredTasks> 
     };
 }
 
-/**
- * Показать Run Task и вернуть выбранную задачу (`TaskQuickPick.show`):
- * `startAtType` открывает сразу второй уровень. Одна задача в tasks.json и
- * `task.quickOpen.skip` — без пикера. `null` — выбрали «Configure a Task».
- */
+/** `null` — выбрали «Configure a Task». Одна задача и `task.quickOpen.skip` — без пикера. */
 export async function pickTaskToRun(
     service: TaskService,
     quickInput: QuickInputService,
@@ -98,10 +84,6 @@ async function pick(
     return (await quickInput.quickPick({ placeholder: RUN_TASK_PLACEHOLDER, items })) as IRunTaskEntry | undefined;
 }
 
-/**
- * Первый уровень (`getTopLevelEntries`): configured (нет своих задач —
- * «Configure a Task»), затем типы и «Show All Tasks...».
- */
 async function firstLevel(service: TaskService, configured?: IConfiguredTasks): Promise<IRunTaskEntry[]> {
     const { tasks, configuring } = configured ?? (await configuredTasks(service));
     const configuredEntries: IRunTaskEntry[] = [
@@ -122,7 +104,6 @@ async function firstLevel(service: TaskService, configured?: IConfiguredTasks): 
     return entries;
 }
 
-/** Второй уровень (`doPickerSecondLevel`): задачи типа и «Go back ↩» либо все задачи. */
 async function secondLevel(service: TaskService, type: string): Promise<IRunTaskEntry[]> {
     if (type === SHOW_ALL_TASKS) {
         return service.taskEntries((await service.tasks()).filter((task) => task.hide !== true).sort(compareTasks));

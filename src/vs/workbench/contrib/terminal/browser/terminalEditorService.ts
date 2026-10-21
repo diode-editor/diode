@@ -15,12 +15,7 @@ import { TerminalEditorPane } from "./terminalEditorPane.ts";
 import type { ITerminalCreateOptions, ITerminalInstance, TerminalService } from "./terminalService.ts";
 import { TerminalServiceDIToken } from "./terminalService.ts";
 
-/**
- * Куда открыть вкладку-терминал (`TerminalEditorLocation` эталона): колонка
- * `vscode.ViewColumn` (по умолчанию — активная группа) либо готовая группа
- * (повтор вкладки по рецепту); `preserveFocus` — открыть, не забирая фокус и
- * не меняя активную группу.
- */
+/** Без колонки — активная группа; `preserveFocus` — не забирая фокус и не меняя активную группу. */
 export interface ITerminalEditorLocation {
     readonly viewColumn?: number;
     readonly group?: EditorGroup;
@@ -28,21 +23,15 @@ export interface ITerminalEditorLocation {
 }
 
 /**
- * Терминалы в области редакторов (`TerminalEditorService` эталона): заводит
- * инстанс `target: "editor"` в {@link TerminalService} и держит его вкладку
- * {@link TerminalEditorPane}. Жизни связаны в обе стороны: закрыли вкладку —
- * процесс убит (`user`), инстанс снят (выход процесса, `dispose()`
- * расширения) — вкладка закрыта. Перенос между панелью и областью
- * редакторов процесс не трогает.
- *
- * Вкладку-терминал по id инстанса находит {@link paneOf}; активным
- * терминалом сервиса (`window.activeTerminal`) она не становится — см.
- * отступления в docs/arch/Extensions.md.
+ * Жизни вкладки и инстанса связаны в обе стороны: закрыли вкладку — процесс
+ * убит (`user`), инстанс снят — вкладка закрыта. Перенос между панелью и
+ * областью редакторов процесс не трогает. Активным терминалом сервиса
+ * (`window.activeTerminal`) вкладка не становится — отступление,
+ * docs/arch/Extensions.md.
  */
 export class TerminalEditorService extends Disposable implements IContextKeyContributor {
     public static dependencies = [TerminalServiceDIToken, EditorServiceDIToken, TerminalColorsServiceDIToken] as const;
 
-    /** Открытые вкладки по id инстанса. */
     private readonly panes = new Map<number, TerminalEditorPane>();
 
     public constructor(
@@ -69,7 +58,6 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         );
     }
 
-    /** IContextKeyContributor: `terminalEditorFocus`, `terminalEditorActive`. */
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
         const focusPath = active?.getAncestorPath();
         contextKeys.set(
@@ -79,15 +67,12 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         contextKeys.set("terminalEditorActive", this.editors.getActiveTabPane() instanceof TerminalEditorPane);
     }
 
-    /** Вкладка инстанса или `undefined` (инстанс не в области редакторов либо фоновый). */
+    /** `undefined` — инстанс не в области редакторов либо фоновый. */
     public paneOf(instanceId: number): TerminalEditorPane | undefined {
         return this.panes.get(instanceId);
     }
 
-    /**
-     * Новый терминал вкладкой (`createTerminal` с `TerminalLocation.Editor`
-     * эталона). Фоновый (`hideFromUser`) вкладку получит по {@link reveal}.
-     */
+    /** Фоновый (`hideFromUser`) вкладку получит по {@link reveal}. */
     public createTerminal(
         options: Omit<ITerminalCreateOptions, "target"> = {},
         location: ITerminalEditorLocation = {},
@@ -97,10 +82,7 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         return instance;
     }
 
-    /**
-     * Терминал рядом с редакторным родителем (`splitInstance` эталона):
-     * группа родителя становится активной, новый встаёт в группу справа.
-     */
+    /** Группа родителя становится активной, новый встаёт в группу справа. */
     public splitInstance(parentId: number, options: Omit<ITerminalCreateOptions, "target"> = {}): ITerminalInstance {
         const parent = this.panes.get(parentId);
         // Stryker disable next-line ConditionalExpression: эквивалентный — groupOf панели, которой нет ни в одной группе, и так null
@@ -111,11 +93,7 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         return this.createTerminal(options, { viewColumn: SIDE_GROUP });
     }
 
-    /**
-     * Показать вкладку инстанса (`revealActiveEditor` эталона): открытую —
-     * активировать в её группе, нет вкладки (фоновый только что показан) —
-     * открыть в активной группе.
-     */
+    /** Нет вкладки (фоновый только что показан) — открыть в активной группе. */
     public reveal(instanceId: number, preserveFocus: boolean): void {
         const pane = this.panes.get(instanceId);
         if (pane === undefined) {
@@ -133,13 +111,11 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         group?.activateTab(group.getPanes().indexOf(pane), { focus: false });
     }
 
-    /** Перенести панельный инстанс вкладкой в область редакторов (`moveToEditor` эталона). */
     public moveToEditor(instanceId: number, location: ITerminalEditorLocation = {}): void {
         const instance = this.terminals.moveToEditor(instanceId);
         if (instance !== undefined) this.openEditor(instance, location);
     }
 
-    /** Вернуть вкладку-терминал в вид TERMINAL (`moveToTerminalView` эталона). */
     public moveToPanel(instanceId: number): void {
         const pane = this.panes.get(instanceId);
         if (pane === undefined) return;
@@ -147,11 +123,7 @@ export class TerminalEditorService extends Disposable implements IContextKeyCont
         this.terminals.moveToPanel(instanceId);
     }
 
-    /**
-     * Вкладка инстанса (у него её ещё нет) в группе колонки: фокус — в неё,
-     * если не `preserveFocus` (тогда активная группа остаётся прежней, как у
-     * `showTextDocument`).
-     */
+    /** С `preserveFocus` активная группа остаётся прежней, как у `showTextDocument`. */
     private openEditor(instance: ITerminalInstance, location: ITerminalEditorLocation): void {
         const groups = this.editors.editorGroups;
         const previous = groups.activeGroup;

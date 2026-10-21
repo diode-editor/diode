@@ -33,12 +33,7 @@ import {
     TerminalTabsList,
 } from "./terminalTabsList.ts";
 
-/**
- * Минимальный срез редакторов, нужный терминалу: куда вернуть фокус, когда
- * виджет терминала уходит со сцены (шелл вышел, а других терминалов нет).
- * `EditorService` соответствует ему структурно — связывание делает DI-модуль
- * ({@link TerminalFocusFallbackDIToken}).
- */
+/** Куда вернуть фокус, когда последний терминал уходит со сцены; `EditorService` подходит структурно. */
 export interface ITerminalFocusFallback {
     focusEditor(): void;
 }
@@ -46,28 +41,19 @@ export interface ITerminalFocusFallback {
 export const TerminalFocusFallbackDIToken = token<ITerminalFocusFallback>("TerminalFocusFallback");
 export const TerminalPanelComponentDIToken = token<TerminalPanelComponent>("TerminalPanelComponent");
 
-/** Контекст открытия `MenuId.TerminalTabContext`: инстанс, по которому открыто меню. */
 export interface TerminalTabMenuContext {
     readonly instanceId: number;
 }
 
-/** id команды переключения из дропдауна (эталон `TerminalCommandId.SwitchTerminal`). */
 export const SWITCH_TERMINAL_COMMAND_ID = "workbench.action.terminal.switchTerminal";
 
-/** Id виджета имени активного терминала в заголовке — селектор e2e/инспектора. */
+/** Селектор e2e/инспектора. */
 export const TERMINAL_ACTIVE_TAB_ID = "terminalActiveTab";
 
 /**
- * View-владелец встроенного терминала: по каждому инстансу {@link TerminalService}
- * строит `TerminalViewElement`, держит тело вкладки TERMINAL — терминал плюс
- * список вкладок сбоку ({@link TerminalTabbedViewElement}, эталон
- * `TerminalTabbedView`), — и виджет в заголовке вкладки: имя активного
- * терминала (`tabs.showActiveTerminal`) или дропдаун при `tabs.enabled=false`.
- *
- * Не наследник `Component`: собственного корневого контрола нет — тело и виджет
- * заголовка попадают в панель через ViewsService. ВАЖНО: у TUIElement нет
- * unmount-хуков, поэтому компонент обязан сам dispose'ить виджеты — при
- * закрытии инстанса и при своём dispose().
+ * Не наследник `Component`: корневого контрола нет — тело и виджет заголовка
+ * попадают в панель через ViewsService. У TUIElement нет unmount-хуков, поэтому
+ * виджеты компонент dispose'ит сам — при закрытии инстанса и в своём dispose().
  */
 export class TerminalPanelComponent extends Disposable implements IContextKeyContributor {
     public static dependencies = [
@@ -85,12 +71,10 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
 
     public readonly tabs: TerminalTabsList;
     public readonly view: TerminalTabbedViewElement;
-    /** Имя активного терминала в заголовке (эталон `SingleTerminalTabActionViewItem`). */
     // Stryker disable next-line StringLiteral: текст ставит titleWidget до того, как метка попадает в заголовок
     private readonly activeTabLabel = new TextLabelElement("");
-    /** Терминал, чьё имя сейчас нарисовано в {@link activeTabLabel} (цель клика). */
+    /** Цель клика по {@link activeTabLabel}. */
     private activeTabInstanceId = 0;
-    /** Дропдаун терминалов при выключенном списке (эталон `SwitchTerminalActionViewItem`). */
     private readonly switcher = new SelectBoxElement();
 
     public constructor(
@@ -106,7 +90,6 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         this.tabs = new TerminalTabsList({
             onDidSelectInstance: (id) => {
                 this.terminalService.setActiveInstance(id);
-                // `tabs.focusMode: singleClick` — клик (и любой выбор) сразу фокусирует терминал.
                 if (this.configuration.get("terminal.integrated.tabs.focusMode") === "singleClick") {
                     this.terminalService.focusActive();
                 }
@@ -178,8 +161,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         for (const instance of terminalService.getInstances()) this.handleOpen(instance);
         this.handleActiveChange(terminalService.getActiveInstance());
 
-        // Виджеты обязаны быть dispose'нуты (подписки на surface): и оставшиеся
-        // при закрытии приложения — здесь, и по одному — в handleClose.
+        // Виджеты держат подписки на surface: оставшиеся — здесь, по одному — в handleClose.
         this.register({
             dispose: () => {
                 for (const widget of this.widgets.values()) widget.dispose();
@@ -188,20 +170,15 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         });
     }
 
-    /** IContextKeyContributor: `terminalTabsFocus` — фокус в списке вкладок. */
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
         contextKeys.set("terminalTabsFocus", active === this.tabs.list);
     }
 
-    /** Виден ли сейчас список вкладок (`_shouldShowTabs` эталона применён). */
     public get tabsVisible(): boolean {
         return this.view.isTabsVisible;
     }
 
-    /**
-     * Фокус в список вкладок (`focusTabs` эталона). Списка не видно — фокус в
-     * активный терминал: эталон перед этим зовёт `showPanel(true)`.
-     */
+    /** Списка не видно — фокус в активный терминал: эталон перед этим зовёт `showPanel(true)`. */
     public focusTabs(): void {
         if (this.view.isTabsVisible) this.tabs.list.focus();
         else this.terminalService.focusActive();
@@ -223,7 +200,6 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         this.syncChrome();
     }
 
-    /** Вкидывает виджет активного инстанса в тело вкладки (null → placeholder). */
     private handleActiveChange(instance: ITerminalInstance | null): void {
         // Фокус подмену терминала не переживает: уходящий виджет снимают с
         // дерева, а FocusManager на этом обнуляет фокус — после `exit` ввод
@@ -253,11 +229,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         else this.focusFallback.focusEditor();
     }
 
-    /**
-     * Приводит «обвязку» к состоянию сервиса и настройкам: строки списка, его
-     * видимость и место, виджет заголовка. Дёшево (строк — единицы), поэтому
-     * пересобирается целиком на любое изменение.
-     */
+    /** Дёшево (строк — единицы), поэтому пересобирается целиком на любое изменение. */
     private syncChrome(): void {
         const instances = this.terminalService.getInstances();
         const active = this.terminalService.getActiveInstance();
@@ -279,7 +251,6 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         return count > 1;
     }
 
-    /** Что стоит в заголовке вкладки: дропдаун, имя активного или ничего. */
     private titleWidget(instances: readonly ITerminalInstance[], active: ITerminalInstance | null): TUIElement | null {
         if (active === null) return null;
         if (!this.configuration.get("terminal.integrated.tabs.enabled")) {
@@ -297,11 +268,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
         return this.activeTabLabel;
     }
 
-    /**
-     * `tabs.showActiveTerminal` (эталон — when-клауза пункта Focus в `ViewTitle`).
-     * Узкого «иконочного» списка у нас нет, поэтому `singleTerminalOrNarrow`
-     * сводится к `singleTerminal`.
-     */
+    /** Узкого «иконочного» списка у нас нет — `singleTerminalOrNarrow` сводится к `singleTerminal`. */
     private shouldShowActiveTerminal(count: number): boolean {
         switch (this.configuration.get("terminal.integrated.tabs.showActiveTerminal")) {
             case "always":
@@ -324,11 +291,7 @@ export class TerminalPanelComponent extends Disposable implements IContextKeyCon
     }
 }
 
-/**
- * Цвета терминала → сессия (палитра 0..15) и виджет: фон/текст хоста перекрывают
- * токены `terminal.background`/`terminal.foreground` в var-scope виджета, без них
- * виджет видит токены темы. Общая с вкладкой-терминалом области редакторов.
- */
+/** Фон/текст хоста перекрывают `terminal.background`/`terminal.foreground` в var-scope виджета; без них — токены темы. */
 export function applyTerminalColors(
     instance: ITerminalInstance,
     widget: TerminalViewElement,
@@ -341,7 +304,6 @@ export function applyTerminalColors(
     widget.setStyleVars(vars);
 }
 
-/** Держит ли фокус сам виджет или что-то в его поддереве. */
 function holdsFocus(widget: TerminalViewElement): boolean {
     const active = widget.getRoot()?.focusManager?.activeElement ?? null;
     return active?.getAncestorPath().includes(widget) === true;

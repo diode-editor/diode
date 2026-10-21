@@ -1,9 +1,5 @@
-// Правки текста tasks.json для Configure Task — чистые функции над
-// содержимым файла. Запись дописывается вставкой перед `]` массива `tasks`,
-// остальной текст не трогается — комментарии и форматирование человека
-// выживают (`modify` jsonc-parser переформатировал бы соседнюю запись и унёс
-// бы её хвостовой комментарий). Недостающие ключи — `modify`. Чтение/запись
-// на диск и открытие файла — `configureTask.ts`.
+// Запись дописывается вставкой перед `]` массива `tasks`, а не `modify`: тот
+// переформатировал бы соседнюю запись и унёс бы её хвостовой комментарий.
 
 import {
     applyEdits,
@@ -19,7 +15,6 @@ import {
 
 import type { ITask, ITaskGroup } from "./tasks.ts";
 
-/** Отступы новых строк: `editor.insertSpaces` / `editor.tabSize`. */
 export interface ITasksJsonIndentation {
     readonly insertSpaces: boolean;
     readonly tabSize: number;
@@ -27,7 +22,6 @@ export interface ITasksJsonIndentation {
 
 type Json = Record<string, unknown>;
 
-/** Табы в начале строк шаблона → пробелы, если отступ пробелами (как у эталона). */
 export function expandTemplateTabs(content: string, indentation: ITasksJsonIndentation): string {
     if (!indentation.insertSpaces) return content;
     return content.replace(
@@ -50,27 +44,21 @@ function parseObject(text: string): Json | undefined {
     return root as Json;
 }
 
-/** Текст пуст или задаёт объект без синтаксических ошибок — в него можно писать. */
 export function isWritableTasksJson(text: string): boolean {
     return text.trim() === "" || parseObject(text) !== undefined;
 }
 
-/** В файле есть хотя бы одна запись `tasks` (`_configHasTasks` эталона). */
 export function tasksJsonHasTasks(text: string): boolean {
     const tasks = parseObject(text)?.tasks;
     return Array.isArray(tasks) && tasks.length > 0;
 }
 
-/** Группа в форме tasks.json (`GroupKind.to`): не группа по умолчанию — строкой. */
+/** Не группа по умолчанию — строкой (`GroupKind.to`). */
 function groupToJson(group: ITaskGroup): string | Json {
     return group.isDefault === true ? { kind: group.id, isDefault: true } : group.id;
 }
 
-/**
- * Запись tasks.json, кастомизирующая задачу провайдера
- * (`_createCustomizableTask` эталона): определение без `_key`, матчеры
- * (пустой список, если у задачи их нет), группа, подпись и подробность.
- */
+/** `_createCustomizableTask` эталона: матчеры — пустым списком, если у задачи их нет. */
 export function customizationEntryOf(task: ITask): Json {
     const { _key: _ignored, ...identifier } = task.definition;
     return {
@@ -82,19 +70,13 @@ export function customizationEntryOf(task: ITask): Json {
     };
 }
 
-/** Новый tasks.json с одной записью (`customize` эталона без файла): шапка-комментарий и 2.0.0. */
 export function newTasksJsonWith(entry: Json, indentation: ITasksJsonIndentation): string {
     const body = JSON.stringify({ version: "2.0.0", tasks: [entry] }, undefined, "\t").slice(1);
     const content = `{\n\t// See https://go.microsoft.com/fwlink/?LinkId=733558 \n\t// for the documentation about the tasks.json format${body}`;
     return expandTemplateTabs(content, indentation);
 }
 
-/**
- * Дописать запись в конец `tasks` (нет массива — завести его, нет `version`
- * — поставить 2.0.0: без неё Diode файл не читает). Текст обязан быть
- * пригодным для записи ({@link isWritableTasksJson}). Возвращает новый текст
- * и индекс записи.
- */
+/** Нет `version` — ставится 2.0.0: без неё Diode файл не читает. Текст обязан пройти {@link isWritableTasksJson}. */
 export function appendTaskEntry(
     text: string,
     entry: Json,
@@ -116,7 +98,7 @@ export function appendTaskEntry(
     return { text: insertLastElement(next, tasks, children, entry, options.formattingOptions), index: children.length };
 }
 
-/** Узел `tasks` (или `tasks[index]`, если путь продолжен); пустой текст — `undefined`. */
+/** Пустой текст — `undefined`. */
 function findTasksNode(text: string, rest: readonly number[]): Node | undefined {
     // Разбор терпимый сам: висячие запятые — ошибка в `errors`, дерево строится всё равно.
     const root = parseTree(text);
@@ -128,7 +110,6 @@ function lineStartOf(text: string, offset: number): number {
     return text.lastIndexOf("\n", offset - 1) + 1;
 }
 
-/** Отступ строки, в которой лежит смещение: пробелы и табы от начала строки. */
 function lineIndentAt(text: string, offset: number): string {
     const lineStart = lineStartOf(text, offset);
     let end = lineStart;
@@ -136,12 +117,7 @@ function lineIndentAt(text: string, offset: number): string {
     return text.slice(lineStart, end);
 }
 
-/**
- * Вставить элемент в конец массива: после последнего элемента — запятая
- * (если её нет), сам элемент — отдельной строкой перед `]`, за хвостовыми
- * комментариями. Отступ элемента — как у последнего элемента на своей строке,
- * иначе отступ строки массива плюс шаг.
- */
+/** Отступ — как у последнего элемента на своей строке, иначе отступ строки массива плюс шаг. */
 function insertLastElement(
     text: string,
     array: Node,
@@ -174,10 +150,7 @@ function insertLastElement(
     return text.slice(0, lastEnd) + comma + text.slice(lastEnd, insertAt) + element + text.slice(close);
 }
 
-/**
- * Есть ли запятая между концом последнего элемента и `]` (висячая запятая
- * JSONC). Двоеточия там не бывает — любой разделитель в этом промежутке запятая.
- */
+/** Двоеточия там не бывает — любой разделитель в этом промежутке запятая. */
 function hasComma(text: string, from: number, to: number): boolean {
     let found = false;
     visit(text, {
@@ -189,10 +162,7 @@ function hasComma(text: string, from: number, to: number): boolean {
     return found;
 }
 
-/**
- * Применить шаблон к файлу без задач (`_openTaskFile` эталона): пустой
- * файл получает шаблон целиком, иначе в файл переносятся ключи шаблона.
- */
+/** Пустой файл получает шаблон целиком, иначе в файл переносятся ключи шаблона. */
 export function applyTaskTemplate(text: string, template: string, indentation: ITasksJsonIndentation): string {
     const content = expandTemplateTabs(template, indentation);
     if (text.trim() === "") return content;
@@ -203,7 +173,6 @@ export function applyTaskTemplate(text: string, template: string, indentation: I
     return next;
 }
 
-/** Где в тексте запись `tasks[index]`: смещения начала и конца; нет такой — `undefined`. */
 export function taskEntryRange(
     text: string,
     index: number,

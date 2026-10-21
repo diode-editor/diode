@@ -1,13 +1,3 @@
-// Оркестратор встроенного терминала — headless-сервис: держит список инстансов,
-// активный из них, лениво спавнит шелл при первом открытии/активации вкладки
-// TERMINAL и убивает PTY при выходе шелла, по команде kill или в dispose().
-// Виджеты (`TerminalViewElement`) и список вкладок сервис не трогает — ими
-// владеет `TerminalPanelComponent`, подписанный на события инстансов.
-//
-// Связка с PTY/эмулятором спрятана за `TerminalSessionFactory` (DI-шов): в тестах
-// фабрика возвращает FakeTerminalSurface, в проде — EmbeddedTerminalSession.
-// См. docs/arch/workbench/Terminal.md.
-
 import { basename } from "node:path";
 
 import type { ITerminalSurface } from "@tuidom/core/common/iTerminalSurface";
@@ -29,26 +19,18 @@ import {
     TerminalSessionFactoryDIToken,
 } from "../common/terminalSessionFactory.ts";
 
-/** VS Code view id of the integrated Terminal view living in the bottom Panel. */
 export const TERMINAL_VIEW_ID = "terminal";
 
 export const TerminalServiceDIToken = token<TerminalService>("TerminalService");
 
-/** Начальный размер PTY до первого performLayout (реальный размер придёт с ресайзом). */
+/** До первого performLayout. */
 export const INITIAL_COLS = 80;
 export const INITIAL_ROWS = 24;
 
-/**
- * Почему инстанс закрылся — `TerminalExitReason` эталона: шелл вышел сам
- * (`process`), его убил человек командой Kill (`user`), закрыло расширение
- * (`Terminal.dispose()`, `extension`).
- */
+/** `user` — команда Kill, `extension` — `Terminal.dispose()` расширения. */
 export type TerminalExitReason = "process" | "user" | "extension";
 
-/**
- * Чем запущен инстанс — `IShellLaunchConfig` эталона в объёме, который
- * расширение видит как `Terminal.creationOptions` чужого терминала.
- */
+/** То, что расширение видит как `Terminal.creationOptions` чужого терминала. */
 export interface ITerminalLaunchInfo {
     readonly shellPath: string;
     readonly shellArgs: readonly string[] | undefined;
@@ -57,50 +39,31 @@ export interface ITerminalLaunchInfo {
     readonly hideFromUser: boolean;
 }
 
-/**
- * Где стоит инстанс — `TerminalLocation` эталона: вкладкой в виде TERMINAL
- * (`panel`) или вкладкой в области редакторов (`editor`). Вкладкой-редактором
- * владеет `TerminalEditorService`; список вкладок вида TERMINAL и его активный
- * инстанс — только панельные.
- */
+/** Список вкладок вида TERMINAL и активный инстанс — только панельные; редакторными владеет `TerminalEditorService`. */
 export type TerminalTarget = "panel" | "editor";
 
-/** Один открытый терминал: сессия (PTY+эмулятор) за интерфейсом поверхности. */
 export interface ITerminalInstance {
     readonly id: number;
     readonly target: TerminalTarget;
     /**
-     * Заголовок вкладки — имя процесса шелла (`${process}` эталона: `bash`,
-     * `zsh`) либо имя, данное создателем (`TerminalOptions.name` расширения).
-     * Номер «N:» к нему приписывают только quick pick и дропдаун, как
-     * у эталона; одинаковые заголовки не дедуплицируются — у эталона тоже.
+     * Номер «N:» приписывают только quick pick и дропдаун, одинаковые заголовки не
+     * дедуплицируются — как у эталона.
      */
     readonly title: string;
-    /**
-     * Поверхность сессии — по ней компонент строит `TerminalViewElement` и задаёт
-     * ей 16 ANSI-цветов (`terminal.integrated.colorSource`).
-     */
     readonly session: ITerminalSurface & Pick<ITerminalSession, "setAnsiColors">;
-    /** Pid процесса шелла; `undefined`, если процесса на нашей стороне нет. */
+    /** `undefined`, если процесса на нашей стороне нет. */
     readonly processId: number | undefined;
     readonly launch: ITerminalLaunchInfo;
-    /** Код выхода шелла; `undefined`, пока он жив или если его закрыли не выходом. */
+    /** `undefined`, пока шелл жив или если инстанс закрыли не выходом. */
     readonly exitCode: number | undefined;
-    /** Причина закрытия; `undefined`, пока инстанс жив. */
     readonly exitReason: TerminalExitReason | undefined;
 }
 
-/** Снятый инстанс: причина закрытия уже известна. */
 export interface IDisposedTerminalInstance extends ITerminalInstance {
     readonly exitReason: TerminalExitReason;
 }
 
-/**
- * Чем терминал расширения (`window.createTerminal`) отличается от шелла по
- * умолчанию — `TerminalOptions` эталона в объёме, который понимает сессия.
- */
 export interface ITerminalCreateOptions {
-    /** Заголовок; без него — имя процесса шелла. */
     readonly name?: string;
     readonly shellPath?: string;
     readonly shellArgs?: readonly string[];
@@ -109,45 +72,27 @@ export interface ITerminalCreateOptions {
     readonly env?: Readonly<Record<string, string | null>>;
     /** Окружение шелла — ровно `env`, без наследования от процесса. */
     readonly strictEnv?: boolean;
-    /** Строка, напечатанная в терминале до вывода шелла (в шелл не уходит). */
+    /** Печатается до вывода шелла, в шелл не уходит. */
     readonly message?: string;
-    /**
-     * Фоновый терминал (`hideFromUser`): процесс жив, но в списке вкладок его
-     * нет и активным он не становится, пока его не покажут
-     * ({@link TerminalService.showInstance}) — `_backgroundedTerminalInstances`
-     * эталона.
-     */
+    /** Процесс жив, но вкладки нет и активным не становится, пока не покажут ({@link TerminalService.showInstance}). */
     readonly hideFromUser?: boolean;
-    /**
-     * Готовая сессия вместо шелла из фабрики (`customPtyImplementation`
-     * эталона): процессом владеет кто-то другой — pty расширения. Создаётся с
-     * размером {@link INITIAL_COLS}×{@link INITIAL_ROWS}; шелловые опции при
-     * ней не используются, кроме `message` — его сервис печатает в сессию сам.
-     */
+    /** Процессом владеет pty расширения; из шелловых опций при ней работает только `message`. */
     readonly session?: ITerminalSession;
     /**
-     * Не снимать инстанс, когда процесс вышел (`waitOnExit` эталона): терминал
-     * остаётся с выводом, печатает сообщение о коде выхода (если он не 0) и
-     * `waitOnExit` — строку как есть, функцию — по коду выхода; `true` — молча.
-     * Закрывает его любая клавиша человека или Kill. Терминалы задач.
+     * Не снимать инстанс после выхода процесса: печатается код выхода (если не 0) и
+     * `waitOnExit`; закрывает любая клавиша или Kill.
      */
     readonly waitOnExit?: TerminalWaitOnExit;
-    /**
-     * Место инстанса; без него — панель. Редакторный инстанс сервис только
-     * заводит: вкладку ему открывает `TerminalEditorService`.
-     */
+    /** Без него — панель; вкладку редакторному открывает `TerminalEditorService`. */
     readonly target?: TerminalTarget;
 }
 
-/** Ждать ли после выхода процесса и что тогда напечатать (см. {@link ITerminalCreateOptions.waitOnExit}). */
 export type TerminalWaitOnExit = boolean | string | ((exitCode: number) => string);
 
-/** С чем перезапускается инстанс, ждущий после выхода ({@link TerminalService.relaunchInstance}). */
 export interface ITerminalRelaunchInstanceOptions extends Omit<
     ITerminalCreateOptions,
     "session" | "hideFromUser" | "target"
 > {
-    /** Стереть вывод прежнего процесса (`presentation.clear` задачи). */
     readonly clear?: boolean;
 }
 
@@ -161,24 +106,16 @@ interface TerminalInstanceRecord extends ITerminalInstance {
     exitCode: number | undefined;
     exitReason: TerminalExitReason | undefined;
     waitOnExit: TerminalWaitOnExit | undefined;
-    /** Процесс вышел, инстанс ждёт клавишу (`waitOnExit`); его можно перезапустить. */
+    /** Процесс вышел, инстанс ждёт клавишу (`waitOnExit`). */
     waiting: boolean;
-    /** Процессом владеет не сессия, а pty расширения — командной строки у него нет. */
+    /** Процессом владеет pty расширения — командной строки нет. */
     readonly external: boolean;
 }
 
 /**
- * Владеет инстансами встроенного терминала и вкладкой TERMINAL нижней Panel
- * (регистрирует её в {@link PanelService}; шелл спавнится **лениво** — по
- * `onDidActivateView` вкладки или командам toggle/new). Видимостью Panel
- * управляют toggle-команды через `PanelService.setVisible`; сервис лишь
- * создаёт/активирует/закрывает инстансы и чистит PTY. View не знает: виджеты и
- * список вкладок строит `TerminalPanelComponent` по событиям
- * `onDidOpenInstance` / `onDidCloseInstance` / `onDidChangeActiveInstance` /
- * `onDidRequestFocus`.
- *
- * Групп (сплитов) нет: группа эталона здесь — один инстанс, поэтому
- * `setActiveToNext`/`setActiveToPrevious` ходят по инстансам.
+ * Шелл спавнится лениво — по активации вкладки TERMINAL или командам toggle/new.
+ * Виджеты строит `TerminalPanelComponent` по событиям сервиса. Групп (сплитов)
+ * нет: группа эталона здесь — один инстанс.
  */
 export class TerminalService extends Disposable implements IContextKeyContributor {
     public static dependencies = [
@@ -188,9 +125,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     ] as const;
 
     private instances: TerminalInstanceRecord[] = [];
-    /** Фоновые (`hideFromUser`): живы, но не в списке вкладок, пока их не покажут. */
     private backgroundInstances: TerminalInstanceRecord[] = [];
-    /** Вкладки в области редакторов (`TerminalEditorService.instances` эталона). */
     private editorInstances: TerminalInstanceRecord[] = [];
     private activeId: number | null = null;
     private nextId = 1;
@@ -211,8 +146,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         private readonly factory: TerminalSessionFactory,
     ) {
         super();
-        // Вкладка TERMINAL присутствует всегда; шелл спавнится лениво при её
-        // активации, поэтому по умолчанию у view нет тела и она рисует подсказку.
+        // Без тела view рисует подсказку; шелл спавнится при активации.
         viewsService.registerContainer({ id: TERMINAL_VIEW_ID, title: "TERMINAL", location: "panel", order: 2 });
         viewsService.registerView({
             canMoveView: true,
@@ -226,9 +160,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
                 this.ensureAndFocus();
             },
         });
-        // Активация вида TERMINAL (клик по его вкладке в любой части — панели,
-        // вторичной панели, вьюлете) лениво спавнит шелл и фокусирует его; чужие
-        // виды игнорируем.
+        // Вид активируется в любой части (панель, вторичная панель, вьюлет).
         this.register(
             viewsService.onDidActivateView((id) => {
                 if (id === TERMINAL_VIEW_ID) this.ensureAndFocus();
@@ -236,66 +168,53 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         );
     }
 
-    /** True, пока открыт хотя бы один инстанс терминала (для контекст-ключа terminalIsOpen). */
     public get hasOpenTerminals(): boolean {
         return this.instances.length > 0;
     }
 
-    /** IContextKeyContributor: `terminalIsOpen`, `terminalCount`. */
     public updateContextKeys(contextKeys: ContextKeyService): void {
         contextKeys.set("terminalIsOpen", this.hasOpenTerminals);
         contextKeys.set("terminalCount", this.instances.length);
     }
 
-    /** Открытые инстансы вида TERMINAL в порядке создания (редакторные и фоновые — нет). */
+    /** Без редакторных и фоновых. */
     public getInstances(): readonly ITerminalInstance[] {
         return this.instances;
     }
 
-    /** Активный инстанс или null, если ни одного не открыто. */
     public getActiveInstance(): ITerminalInstance | null {
         return this.active() ?? null;
     }
 
-    /** Инстанс по id, в том числе фоновый (null — такого нет, уже закрыт или id не задан). */
+    /** В том числе фоновый. */
     public getInstance(id: number | undefined): ITerminalInstance | null {
         return this.find(id) ?? null;
     }
 
-    /** Фоновые инстансы (`hideFromUser`), ещё не показанные, в порядке создания. */
     public getBackgroundInstances(): readonly ITerminalInstance[] {
         return this.backgroundInstances;
     }
 
-    /** Инстансы-вкладки области редакторов в порядке появления там. */
     public getEditorInstances(): readonly ITerminalInstance[] {
         return this.editorInstances;
     }
 
-    /** Задать рабочий каталог для будущих инстансов (следует за папкой воркспейса). */
     public setWorkingDirectory(cwd: string): void {
         this.cwd = cwd;
     }
 
-    /**
-     * Показать активный терминал (создав лениво, если ни одного нет) и сфокусировать.
-     * Используется командой Toggle Terminal и активацией вкладки.
-     */
     public openTerminal(): void {
         this.ensureAndFocus();
     }
 
-    /** Создать НОВЫЙ инстанс, сделать его активным и сфокусировать (команда «Create New Terminal»). */
     public newTerminal(): void {
         this.createInstance();
         this.fireFocus();
     }
 
     /**
-     * Создаёт инстанс терминала и делает его активным (без фокуса). Опции —
-     * у терминалов расширений; фоновый (`hideFromUser`) и редакторный
-     * (`target: "editor"`) в список вкладок вида не попадают и активным не
-     * становятся — {@link onDidCreateInstance} о них всё равно сообщает.
+     * Без фокуса. Фоновый и редакторный в список вкладок не попадают и активными не
+     * становятся, но {@link onDidCreateInstance} о них сообщает.
      */
     public createInstance(options: ITerminalCreateOptions = {}): ITerminalInstance {
         const id = this.nextId++;
@@ -344,12 +263,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return instance;
     }
 
-    /**
-     * Перезапустить процесс инстанса, который ждёт после выхода
-     * (`reuseTerminal` эталона — так задачи переиспользуют свой терминал):
-     * эмулятор, вкладка и id те же, процесс — новый, заголовок — новое имя.
-     * Инстанс, который не ждёт (жив или снят), не трогается — `undefined`.
-     */
+    /** Эмулятор, вкладка и id те же, процесс новый (`reuseTerminal` эталона). Не ждущий инстанс — `undefined`. */
     public relaunchInstance(id: number, options: ITerminalRelaunchInstanceOptions = {}): ITerminalInstance | undefined {
         const instance = this.find(id);
         if (instance?.waiting !== true) return undefined;
@@ -371,11 +285,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return instance;
     }
 
-    /**
-     * Показать инстанс (`Terminal.show` расширения, `$show` эталона): фоновый
-     * переезжает в список вкладок своего места, панельный становится активным.
-     * Панель, вкладку редактора и фокус — забота вызывающего. Неизвестный id — no-op.
-     */
+    /** Панель, вкладку редактора и фокус показывает вызывающий. */
     public showInstance(id: number): void {
         const background = this.backgroundInstances.find((i) => i.id === id);
         if (background !== undefined) {
@@ -390,12 +300,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.setActiveInstance(id);
     }
 
-    /**
-     * Перенести панельный инстанс в область редакторов (`moveToEditor`
-     * эталона): процесс и эмулятор те же, вкладка вида TERMINAL уходит (как
-     * при закрытии — со сменой активного), вкладку редактора открывает
-     * вызывающий. Не панельный и неизвестный id — `undefined`.
-     */
+    /** Процесс и эмулятор те же; вкладку редактора открывает вызывающий. */
     public moveToEditor(id: number): ITerminalInstance | undefined {
         const instance = this.instances.find((i) => i.id === id);
         if (instance === undefined) return undefined;
@@ -406,11 +311,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return instance;
     }
 
-    /**
-     * Вернуть редакторный инстанс в вид TERMINAL (`moveToTerminalView`
-     * эталона): он встаёт последним в список и становится активным. Вкладку
-     * редактора снимает вызывающий. Не редакторный и неизвестный id — `undefined`.
-     */
+    /** Встаёт последним и становится активным; вкладку редактора снимает вызывающий. */
     public moveToPanel(id: number): ITerminalInstance | undefined {
         const instance = this.editorInstances.find((i) => i.id === id);
         if (instance === undefined) return undefined;
@@ -423,11 +324,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         return instance;
     }
 
-    /**
-     * Подать текст в шелл как набор (`Terminal.sendText`, `TerminalInstance.sendText`
-     * эталона): переводы строк — нажатия Enter (`\r`), `shouldExecute` добавляет
-     * Enter в конец, если его там нет. Неизвестный id — no-op.
-     */
+    /** Переводы строк уходят нажатиями Enter (`\r`); `shouldExecute` дописывает Enter, если его нет в конце. */
     public sendText(id: number | undefined, text: string, shouldExecute: boolean): void {
         const instance = this.find(id);
         if (instance === undefined) return;
@@ -435,10 +332,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         instance.session.write(shouldExecute && !normalized.endsWith("\r") ? `${normalized}\r` : normalized);
     }
 
-    /**
-     * Сделать инстанс активным (без фокуса — так ведут себя стрелки и клик по
-     * списку вкладок эталона). Неизвестный id и уже активный — no-op.
-     */
+    /** Без фокуса — как стрелки и клик по списку вкладок эталона. */
     public setActiveInstance(id: number): void {
         const instance = this.instances.find((i) => i.id === id);
         if (instance === undefined || this.activeId === id) return;
@@ -446,76 +340,53 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.onDidChangeActiveInstanceEmitter.fire(instance);
     }
 
-    /** Активировать инстанс по позиции в списке (`focusAtIndexN` эталона); вне диапазона — no-op. */
     public setActiveInstanceByIndex(index: number): void {
         if (index < 0 || index >= this.instances.length) return;
         this.setActiveInstance(this.instances[index].id);
     }
 
-    /** Следующий инстанс по кругу (`setActiveGroupToNext` эталона); при одном — no-op. */
     public setActiveToNext(): void {
         this.setActiveByOffset(1);
     }
 
-    /** Предыдущий инстанс по кругу (`setActiveGroupToPrevious` эталона). */
     public setActiveToPrevious(): void {
         this.setActiveByOffset(-1);
     }
 
-    /**
-     * Убить инстанс (команды Kill — причина `user`; `Terminal.dispose()`
-     * расширения — `extension`): PTY закрывается, инстанс снимается со
-     * списка. Активным становится сосед с тем же индексом, иначе последний —
-     * как `removeGroup` эталона. Неизвестный id (и `undefined` — «нечего
-     * убивать») — no-op.
-     */
+    /** Активным становится сосед с тем же индексом, иначе последний — как `removeGroup` эталона. */
     public closeInstance(id: number | undefined, reason: TerminalExitReason = "user"): void {
         this.removeInstance(this.find(id), reason);
     }
 
-    /** Сфокусировать активный терминал (если он есть). */
     public focusActive(): void {
         this.fireFocus();
     }
 
-    /**
-     * Инстанс заведён — любой, в том числе фоновый (`onDidCreateInstance`
-     * эталона). Для виджетов — {@link onDidOpenInstance}.
-     */
+    /** В том числе фоновый; для виджетов — {@link onDidOpenInstance}. */
     public readonly onDidCreateInstance = this.onDidCreateInstanceEmitter.event;
 
-    /**
-     * Инстанс снят — любой, в том числе фоновый; `exitReason`/`exitCode` уже
-     * заполнены (`onDidDisposeInstance` эталона).
-     */
+    /** В том числе фоновый; `exitReason`/`exitCode` уже заполнены. */
     public readonly onDidDisposeInstance = this.onDidDisposeInstanceEmitter.event;
 
     /**
-     * Процесс инстанса вышел (`onExit` эталона) — раньше снятия инстанса;
-     * `exitCode` уже заполнен. У ждущего (`waitOnExit`) инстанс после этого
-     * остаётся, у прочих следом приходит {@link onDidDisposeInstance}.
-     * Закрытие Kill'ом/расширением этим событием не сообщается.
+     * Приходит раньше снятия инстанса; ждущий (`waitOnExit`) после него остаётся.
+     * Закрытие Kill'ом и расширением этим событием не сообщается.
      */
     public readonly onDidExitInstance = this.onDidExitInstanceEmitter.event;
 
-    /** Сменился заголовок инстанса (перезапуск под другим именем). */
     public readonly onDidChangeInstanceTitle = this.onDidChangeInstanceTitleEmitter.event;
 
-    /** Инстанс появился в списке вкладок (компонент строит по нему виджет). */
     public readonly onDidOpenInstance = this.onDidOpenInstanceEmitter.event;
 
-    /** Закрытие инстанса — выход шелла или kill (компонент dispose'ит его виджет). */
     public readonly onDidCloseInstance = this.onDidCloseInstanceEmitter.event;
 
-    /** Смена активного инстанса; null — терминалов не осталось (вернуть placeholder). */
+    /** `null` — терминалов не осталось. */
     public readonly onDidChangeActiveInstance = this.onDidChangeActiveInstanceEmitter.event;
 
-    /** Запрос фокуса на виджет активного инстанса. */
     public readonly onDidRequestFocus = this.onDidRequestFocusEmitter.event;
 
     public override dispose(): void {
-        // Убиваем все PTY и рвём подписки до базового dispose(). События close не
-        // файрим: виджеты чистит их владелец (TerminalPanelComponent) в своём dispose.
+        // События close не файрим: виджеты чистит их владелец в своём dispose.
         for (const instance of [...this.instances, ...this.backgroundInstances, ...this.editorInstances])
             this.destroyInstance(instance);
         this.instances = [];
@@ -525,7 +396,6 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         super.dispose();
     }
 
-    /** Гарантирует активный инстанс (создав при необходимости) и фокусирует его. */
     private ensureAndFocus(): void {
         if (this.active() === undefined) this.createInstance();
         this.fireFocus();
@@ -540,11 +410,6 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.setActiveInstance(next.id);
     }
 
-    /**
-     * Процесс инстанса вышел: без `waitOnExit` инстанс снимается, с ним —
-     * остаётся ждать клавишу; перед этим печатается сообщение о ненулевом коде
-     * выхода и текст `waitOnExit` (`_onProcessExit` эталона).
-     */
     private handleProcessExit(instance: TerminalInstanceRecord, code: number): void {
         instance.exitCode = code;
         this.onDidExitInstanceEmitter.fire(instance);
@@ -562,21 +427,17 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     }
 
     /**
-     * Снять инстанс (выход шелла или kill): закрыть PTY, оповестить, выбрать
-     * нового активного. Последний закрытый терминал прячет панель
-     * (`terminal.integrated.hideOnLastClosed`), если вкладка TERMINAL сейчас
-     * активна — у эталона `hidePanel` закрывает view, когда она одна в контейнере.
+     * Последний закрытый прячет панель (`hideOnLastClosed`), если активна вкладка
+     * TERMINAL — как `hidePanel` эталона.
      */
     private removeInstance(instance: TerminalInstanceRecord | undefined, reason: TerminalExitReason): void {
-        // Неизвестный id у closeInstance — инстанса нет в списке.
         if (instance === undefined) return;
         // Причина — до любых событий: подписчики close/dispose её уже видят.
         const disposed: IDisposedTerminalInstance = Object.assign(instance, { exitReason: reason });
         for (const list of [this.backgroundInstances, this.editorInstances]) {
             const index = list.indexOf(instance);
             if (index === -1) continue;
-            // Фонового и редакторного нет ни в списке вкладок вида, ни среди
-            // активных — только снять (вкладку редактора закроет её владелец).
+            // Фоновых и редакторных нет среди вкладок вида — только снять.
             list.splice(index, 1);
             this.destroyInstance(instance);
             this.onDidDisposeInstanceEmitter.fire(disposed);
@@ -593,11 +454,7 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         );
     }
 
-    /**
-     * Снять инстанс со списка вкладок вида: `detach` — что сделать с ним до
-     * события закрытия (убить или переселить), `closed` — после него, затем
-     * выбор нового активного.
-     */
+    /** `detach` — до события закрытия (убить или переселить), `closed` — после него. */
     private removeFromPanel(instance: TerminalInstanceRecord, detach: () => void, closed?: () => void): void {
         const index = this.instances.indexOf(instance);
         const wasActive = this.activeId === instance.id;
@@ -615,7 +472,6 @@ export class TerminalService extends Disposable implements IContextKeyContributo
         this.viewsService.closeView(TERMINAL_VIEW_ID);
     }
 
-    /** Освобождает ресурсы одного инстанса: PTY и наши подписки на сессию. */
     private destroyInstance(instance: TerminalInstanceRecord): void {
         instance.session.dispose();
         for (const sub of instance.subscriptions) sub.dispose();
@@ -634,7 +490,6 @@ export class TerminalService extends Disposable implements IContextKeyContributo
     }
 }
 
-/** Опции сессии из опций инстанса: только заданные поля, cwd уже разрешён. */
 function sessionOptions(
     options: ITerminalRelaunchInstanceOptions,
     cwd: string,
@@ -663,11 +518,7 @@ function launchInfo(
     return { shellPath: session.shell, shellArgs: options.shellArgs, cwd, env: options.env, hideFromUser };
 }
 
-/**
- * Сообщение о ненулевом коде выхода (`parseExitResult` эталона): с командной
- * строкой процесса — исполняемый файл и аргументы в кавычках через запятую,
- * как печатает эталон; у pty расширения процесса нет — без неё.
- */
+/** Как `parseExitResult` эталона; у pty расширения командной строки нет. */
 function exitMessage(instance: TerminalInstanceRecord, code: number): string {
     if (instance.external) return `The terminal process terminated with exit code: ${code}.`;
     const args = (instance.launch.shellArgs ?? []).map((a) => ` '${a}'`).join();

@@ -6,49 +6,37 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import { GIT_OP_COMMAND } from "../common/gitProtocol.ts";
 
 /**
- * Команда, которой git-расширение публикует страницу истории репозитория.
- * Зеркало {@link PUBLISH_CHANGES_COMMAND}: набор пушит расширение, а команду
- * регистрирует ядро (см. {@link ScmGraphService}); строка дублируется по
+ * Набор пушит git-расширение, команду регистрирует ядро; строка дублируется по
  * значению на стороне расширения — общих импортов через границу процесса нет.
  */
 export const PUBLISH_LOG_COMMAND = "diode.scm.publishLog";
 
 /**
- * Расширение спрашивает ядро, нужна ли графу история. Единственный pull-канал
- * в эту сторону: остальные (`PUBLISH_*`) — push. Нужен, потому что в момент,
- * когда ядро впервые объявляет своё состояние ({@link ScmGraphService.setActive}),
- * расширения может ещё не быть, а перезапуск extension host'а обнуляет его
- * память. Ответ `undefined` (команды нет) расширение трактует как «канал не
- * поддержан» и работает по-старому.
+ * Единственный pull-канал (остальные — push): на первом {@link ScmGraphService.setActive}
+ * расширения может ещё не быть, а перезапуск extension host'а обнуляет его память.
+ * Ответ `undefined` (команды нет) расширение трактует как «канал не поддержан».
  */
 export const GRAPH_ENABLED_COMMAND = "diode.scm.graphEnabled";
 
-/**
- * Операция диспетчера `diode.git.op`, которой ядро включает и выключает
- * публикацию истории. Строка дублируется по значению на стороне расширения —
- * общих импортов через границу процесса нет.
- */
+/** Операция `diode.git.op`; строка дублируется по значению на стороне расширения. */
 const LOG_SET_ENABLED_OP = "logSetEnabled";
 
-/** Ссылка на коммит — бейдж рядом со строкой графа. */
 export interface IScmCommitRef {
-    /** Короткое имя: `main`, `origin/main`, `v1.0`. */
     readonly name: string;
     readonly kind: "head" | "remote" | "tag";
     /** Ветка, на которой стоит HEAD. */
     readonly current: boolean;
 }
 
-/** Один коммит истории — вход укладки графа и материал строки списка. */
 export interface IScmCommit {
     readonly sha: string;
-    /** Короткий sha (`%h`); при отсутствии ядро урезает sha само. */
+    /** При отсутствии ядро урезает sha само. */
     readonly shortSha: string;
-    /** Родители в порядке git; пусто — корневой коммит. */
+    /** В порядке git; пусто — корневой коммит. */
     readonly parents: readonly string[];
     readonly refs: readonly IScmCommitRef[];
     readonly author: string;
-    /** Время коммита, unix-секунды. */
+    /** Unix-секунды. */
     readonly timestamp: number;
     readonly subject: string;
 }
@@ -58,28 +46,18 @@ export const ScmGraphServiceDIToken = token<ScmGraphService>("ScmGraphService");
 const REF_KINDS = new Set(["head", "remote", "tag"]);
 
 /**
- * Снимок истории от git-расширения — данные view **GRAPH**
- * ({@link GraphViewComponent}). Устройство один-в-один со
- * {@link ScmChangesService}: команда-приёмник, валидация payload из-за границы
- * процесса, замена снимка целиком и гашение повторной идентичной публикации.
- *
- * Страница ограничена (`scm.graph.pageSize`); {@link hasMore} говорит, что
- * история продолжается — view рисует строку «Load More…».
- *
- * Сервис же держит и обратный конец канала: {@link setActive} говорит
- * расширению, нужна ли история вообще. Пока секция GRAPH не раскрыта, `git log`
- * в расширении не запускается — граф не стоит подпроцесса на каждое сохранение
- * файла.
+ * Устройство — как у {@link ScmChangesService}. Обратный конец канала — {@link setActive}:
+ * пока GRAPH не раскрыта, `git log` не запускается — граф не стоит подпроцесса на каждое сохранение.
  */
 export class ScmGraphService extends Disposable {
     public static dependencies = [CommandRegistryDIToken] as const;
 
     private commitList: readonly IScmCommit[] = [];
     private more = false;
-    /** Подпись текущего набора — чтобы не файрить при повторной публикации того же. */
+    /** Гасит повторную публикацию того же набора. */
     private signature = "";
     private readonly onDidChangeCommitsEmitter = this.register(new Emitter<void>());
-    /** Нужна ли графу история; `null` — ядро ещё не объявляло своё состояние. */
+    /** `null` — ядро ещё не объявляло своё состояние. */
     private active: boolean | null = null;
 
     public constructor(private readonly commands: CommandRegistry) {
@@ -92,26 +70,19 @@ export class ScmGraphService extends Disposable {
         this.register(commands.register(GRAPH_ENABLED_COMMAND, () => this.active === true));
     }
 
-    /** Последний опубликованный набор (от новых коммитов к старым). */
+    /** От новых коммитов к старым. */
     public get commits(): readonly IScmCommit[] {
         return this.commitList;
     }
 
-    /** Есть ли за последним коммитом ещё история. */
     public get hasMore(): boolean {
         return this.more;
     }
 
     /**
-     * Объявляет расширению, нужна ли история. Зовёт {@link GraphViewComponent}
-     * на каждой смене раскрытости своей секции; первый вызов уходит всегда,
-     * даже если состояние совпало с дефолтом.
-     *
-     * Best-effort, как и приём публикаций: расширения может ещё не быть — тогда
-     * сигнал теряется, и его подберёт pull по {@link GRAPH_ENABLED_COMMAND} при
-     * активации. Полноценный `runGitOp` здесь не нужен: он требует
-     * `ServiceAccessor` и показывает notice в статус-баре, а фоновому сигналу
-     * рассказывать пользователю не о чем.
+     * Первый вызов уходит всегда, даже если совпал с дефолтом. Best-effort: потерянный
+     * сигнал подберёт pull по {@link GRAPH_ENABLED_COMMAND}. Не `runGitOp`: тот требует
+     * `ServiceAccessor` и показывает notice, а фоновому сигналу сказать пользователю нечего.
      */
     public setActive(active: boolean): void {
         if (this.active === active) return;
@@ -144,7 +115,6 @@ function commitSignature(commit: IScmCommit): string {
     return `${commit.sha}\t${commit.subject}\t${commit.parents.join(" ")}\t${refs}`;
 }
 
-/** Разбирает `{commits, hasMore}` из-за границы: мусор тихо пропускается. */
 function parseLogPayload(payload: unknown): { commits: IScmCommit[]; hasMore: boolean } {
     if (typeof payload !== "object" || payload === null) return { commits: [], hasMore: false };
     const { commits, hasMore } = payload as { commits?: unknown; hasMore?: unknown };

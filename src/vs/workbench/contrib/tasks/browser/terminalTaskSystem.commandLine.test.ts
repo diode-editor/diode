@@ -2,9 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { buildShellCommandLine, shellArgsOf } from "./terminalTaskSystem.ts";
 
-// Командная строка шелла задачи (`_buildShellCommandLine` эталона) и аргументы
-// шелла (`-c`, `/d /c`, `-Command`) — перенос таблицы экранирования.
-
 const linux = (
     command: Parameters<typeof buildShellCommandLine>[3],
     args: Parameters<typeof buildShellCommandLine>[5] = [],

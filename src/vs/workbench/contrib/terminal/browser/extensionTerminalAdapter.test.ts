@@ -11,10 +11,6 @@ import type { ITerminalSessionOptions } from "../common/terminalSessionFactory.t
 import { ExtensionTerminalAdapter } from "./extensionTerminalAdapter.ts";
 import { TERMINAL_VIEW_ID, TerminalService } from "./terminalService.ts";
 
-// Адаптер стока терминалов в одиночку: что он делает с адресами, которых нет,
-// и как пересказывает инстансы. Сквозной контракт с проводом —
-// services/extensions/node/customers/terminalCustomer.test.ts.
-
 function setup(settings: Record<string, unknown> = {}) {
     const views = makeViewsHarness();
     const sessions: FakeTerminalSurface[] = [];
@@ -159,7 +155,6 @@ describe("ExtensionTerminalAdapter", () => {
         expect(activeId).toBe(3);
         h.adapter.reset();
         expect(h.adapter.snapshot().terminals[1].extHostId).toBeUndefined();
-        // После уборки старая метка ничего не адресует.
         h.adapter.sendText({ extHostId: 1 }, "x", true);
         expect(h.sessions[1].writes).toStrictEqual([]);
         h.service.dispose();
@@ -176,7 +171,6 @@ describe("ExtensionTerminalAdapter", () => {
             { id: 1, code: 9, reason: "process" },
             { id: 2, reason: "extension" },
         ]);
-        // Метка закрытого больше ничего не адресует — и её можно завести заново.
         h.adapter.create({ extHostId: 3 });
         h.adapter.sendText({ extHostId: 1 }, "x", true);
         expect(h.sessions[2].writes).toStrictEqual([]);
@@ -341,7 +335,6 @@ describe("ExtensionTerminalAdapter — место терминала", () => {
         expect(h.views.panelService.visible).toBe(true);
         h.adapter.show({ extHostId: 2 }, false);
         expect(h.editorTerminals.revealed).toStrictEqual([{ id: 2, preserveFocus: false }]);
-        // Хостовый id, которого уже нет, — молча.
         expect(() => {
             h.adapter.show({ id: 999 }, false);
         }).not.toThrow();

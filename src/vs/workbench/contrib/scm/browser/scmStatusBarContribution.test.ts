@@ -78,7 +78,6 @@ describe("ScmStatusBarContribution", () => {
         h.publish({ ...STATE, branch: null, detached: true, state: "merging", remotes: [], upstream: null });
         expect(h.texts()).toEqual([`${BRANCH_GLYPH} detached (merging)`]);
 
-        // Возврат remotes — сегмент возвращается.
         h.publish(STATE);
         expect(h.texts()).toEqual([`${BRANCH_GLYPH} main`, "↓2 ↑1"]);
     });

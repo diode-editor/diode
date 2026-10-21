@@ -55,7 +55,7 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
     );
     const testApp = TestApp.createWithContent(panelComponent.view, new Size(70, 12));
     const widget = (): TUIElement => views.paneView(TERMINAL_VIEW_ID).querySelectorAll("TerminalViewElement")[0];
-    /** Цвета ячейки (1, 0) терминала — пустая, без своих цветов: видны дефолтные фон/текст. */
+    /** Ячейка (1, 0) пустая — видны дефолтные фон/текст. */
     const defaultCell = (): { fg: number; bg: number } => {
         testApp.render();
         const pos = widget().globalPosition;

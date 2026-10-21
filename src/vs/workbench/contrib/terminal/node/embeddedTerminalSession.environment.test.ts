@@ -5,10 +5,6 @@ import type { ITerminalEnvironmentContributor } from "../common/extensionEnviron
 
 import { buildEnv, EmbeddedTerminalSession } from "./embeddedTerminalSession.ts";
 
-// Коллекции окружения расширений (`environmentVariableCollection`) ложатся на
-// окружение каждого запуска процесса — поверх унаследованного и `env`
-// терминала, под нашими `TERM`/`TMUX`; при `strictEnv` — нет.
-
 function screen(session: EmbeddedTerminalSession, rows: number, width: number): string {
     const out: TerminalCell = { char: "", fg: 0, bg: 0, style: 0, width: 1 };
     const lines: string[] = [];
@@ -28,7 +24,6 @@ function awaitExit(session: EmbeddedTerminalSession): Promise<number> {
     });
 }
 
-/** Довесок: дописывает метку и запоминает, с каким окружением и cwd его позвали. */
 function contributor() {
     const calls: { env: Record<string, string | undefined>; cwd: string }[] = [];
     const environment: ITerminalEnvironmentContributor = {

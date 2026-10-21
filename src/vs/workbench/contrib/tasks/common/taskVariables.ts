@@ -1,35 +1,25 @@
-// Подстановка переменных в задачу (`variableResolver.ts` эталона,
-// `services/configurationResolver/common/`) в объёме задач первой итерации.
-// Неизвестная `${foo}` остаётся как есть — так ведёт себя эталон; известная,
-// но не поддержанная (`${input:…}`, `${command:…}`) — ошибка: запуск с
+// Неизвестная `${foo}` остаётся как есть, как у эталона; известная, но не
+// поддержанная (`${input:…}`, `${command:…}`) — ошибка: запуск с
 // литералом вместо значения хуже явного отказа (docs/TODO/Tasks.md).
 
 import * as paths from "node:path";
 
-/** Откуда берутся значения: папка задачи, активный редактор, окружение, настройки. */
 export interface ITaskVariableContext {
-    /** Путь папки воркспейса задачи; `undefined` — папка не открыта. */
     readonly folderPath: string | undefined;
-    /** Путь файла активного редактора; `undefined` — редактора нет. */
     readonly filePath: string | undefined;
-    /** Строка каретки активного редактора, 1-based. */
+    /** 1-based. */
     readonly lineNumber: number | undefined;
     readonly env: Readonly<Record<string, string | undefined>>;
     readonly userHome: string | undefined;
     readonly cwd: string;
-    /** Значение настройки по ключу (`${config:…}`). */
     getConfiguration(key: string): unknown;
 }
 
-/** Отказ подстановки — текст уходит человеку и в лог, задача не запускается. */
 export class TaskVariableError extends Error {}
 
 const VARIABLE = /\$\{(.*?)\}/g;
 
-/**
- * Подставляет переменные в строку. `resolved` копит то, что подставлено
- * (`${name}` → значение) — его отдаёт событие старта задачи.
- */
+/** `resolved` копит подставленное (`${name}` → значение) — его отдаёт событие старта задачи. */
 export function resolveVariables(value: string, context: ITaskVariableContext, resolved?: Map<string, string>): string {
     return value.replace(VARIABLE, (match: string, inner: string) => {
         const result = resolveOne(match, inner, context);

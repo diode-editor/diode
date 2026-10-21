@@ -15,11 +15,8 @@ function readRow(session: EmbeddedTerminalSession, row: number, width: number): 
 }
 
 /**
- * Весь видимый экран одной строкой. Нужен там, где вывод идёт через ИНТЕРАКТИВНЫЙ шелл:
- * длина его промпта зависит от машины (на CI `runner@…:~/work/diode/diode$` — длиннее, чем
- * локально), поэтому номер строки, на которую ляжет вывод, предсказать нельзя. Склейка
- * без разделителя заодно переживает перенос строки: у перенесённой строки нет хвостовых
- * пробелов, так что маркер, разорванный переносом, снова становится целым.
+ * Весь экран одной строкой: длина промпта интерактивного шелла зависит от машины (на CI длиннее),
+ * а склейка без разделителя заодно собирает маркер, разорванный переносом строки.
  */
 function readScreen(session: EmbeddedTerminalSession, rows: number, width: number): string {
     let text = "";
@@ -140,11 +137,8 @@ describe("EmbeddedTerminalSession — resize", () => {
             cols: 40,
             rows: 6,
             shell: "/bin/bash",
-            // Шелл печатает свой размер по SIGWINCH — так виден именно TIOCSWINSZ на
-            // реальном tty, а не только внутренний ресайз эмулятора. `stty size` печатает
-            // "<rows> <cols>".
-            // Короткий sleep в цикле: bash откладывает обработчик trap до конца текущей
-            // команды, поэтому один длинный sleep растянул бы тест на всю свою длину.
+            // Шелл печатает `stty size` по SIGWINCH — так виден TIOCSWINSZ на реальном tty. Короткий
+            // sleep в цикле: bash откладывает trap до конца текущей команды.
             args: ["-c", "trap 'stty size' WINCH; while true; do sleep 0.1; done"],
         });
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -222,7 +216,6 @@ describe("EmbeddedTerminalSession — подписки", () => {
 
         subscription.dispose();
         const afterDispose = updates.length;
-        // Второй кусок вывода уже не должен дёргать снятый колбэк.
         await vi.waitFor(
             () => {
                 expect(readRow(session, 0, 40)).toContain("onetwo");

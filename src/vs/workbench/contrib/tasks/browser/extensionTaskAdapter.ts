@@ -16,15 +16,9 @@ import type { ITask } from "../common/tasks.ts";
 
 import type { TaskService } from "./taskService.ts";
 
-/**
- * Мост `vscode.tasks` расширений к сервису задач ядра (`MainThreadTask`
- * эталона): провайдеры расширений становятся провайдерами сервиса,
- * `fetchTasks`/`executeTask`/`terminate` — его вызовами, а события жизни задач
- * сервиса — событиями исполнений у расширений (про все задачи, и запущенные из
- * палитры). Перевод описаний — `taskDto.ts`.
- */
+/** События жизни задач сервиса уходят расширениям про все задачи, и запущенные из палитры. */
 export class ExtensionTaskAdapter implements IExtensionTaskSink {
-    /** Подписчик жизни задач: ему же уходит конец задачи, не дошедшей до старта. */
+    /** Ему же уходит конец задачи, не дошедшей до старта. */
     private events: IExtensionTaskEvents | null = null;
 
     public constructor(
@@ -97,10 +91,8 @@ export class ExtensionTaskAdapter implements IExtensionTaskSink {
     }
 
     /**
-     * `$executeTask`: задача ядра по id или описание целиком. Ответ — сразу
-     * после запуска; задача, не дошедшая до старта (переменная не
-     * подставилась), всё равно кончается у расширения событием конца — иначе
-     * её исполнение висело бы в `taskExecutions` вечно (так делает и эталон).
+     * Задача, не дошедшая до старта, всё равно кончается у расширения событием
+     * конца — иначе висела бы в `taskExecutions` вечно (как у эталона).
      */
     public async execute(request: WireTaskExecuteRequest): Promise<IWireTaskExecution> {
         const task =
@@ -137,13 +129,7 @@ function executionOf(task: ITask): IWireTaskExecution {
 /** Событие активации, которым эталон будит провайдеров перед Run Task. */
 export const RUN_TASK_ACTIVATION_EVENT = "onCommand:workbench.action.tasks.runTask";
 
-/**
- * Точки расширения задач в сервисе ядра (`TaskDefinitionRegistry` и
- * `_activateTaskProviders` эталона): типы задач из `contributes.taskDefinitions`
- * всех расширений, активация провайдеров (`onCommand:…runTask` и
- * `onTaskType:<type>`, без типа — все известные типы) и pty для задач с
- * `CustomExecution`.
- */
+/** Без типа активация будит провайдеров всех известных типов. */
 export function bindExtensionTasks(
     tasks: TaskService,
     extensions: IExtensionService,

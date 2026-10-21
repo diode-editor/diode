@@ -59,7 +59,6 @@ function makeHarness(): IHarness {
 
     const hasCommand = { value: true };
     const services = new Map<unknown, unknown>([
-        // Прогресс операций: транспортные швы просят его у контейнера.
         [ProgressServiceDIToken, new ProgressService()],
         [
             CommandRegistryDIToken,
@@ -182,7 +181,6 @@ describe("pull / fetch / sync", () => {
         });
         h.setPick("origin/dev");
         await gitPullFromAction.run(h.accessor);
-        // Один remote — пикер remote не показывается, только пикер ветки.
         expect(h.picks).toHaveLength(1);
         expect(h.picks[0].items.map((i) => i.label)).toEqual(["origin/main", "origin/dev"]);
         expect(h.ops).toEqual([{ op: "pull", params: { remote: "origin", ref: "dev" } }]);

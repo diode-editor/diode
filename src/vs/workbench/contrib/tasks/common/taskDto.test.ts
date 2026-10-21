@@ -8,8 +8,6 @@ import type { IWireTask } from "../../../api/common/taskWireTypes.ts";
 import { type ITaskFromWireContext, taskFromWire, taskToWire } from "./taskDto.ts";
 import { DEFAULT_PRESENTATION, DEFAULT_RUN_OPTIONS } from "./tasks.ts";
 
-// Задача ядра ↔ описание расширений (`TaskDTO.to`/`from` эталона).
-
 const other = { uri: Uri.file("/other"), name: "other", index: 1 };
 const schema: ITaskDefinitionSchema = {
     extensionId: "pub.ext",

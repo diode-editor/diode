@@ -12,19 +12,13 @@ import { ChangesComponentDIToken } from "./changesComponent.ts";
 import { openDiffWithHead } from "./compareWithHeadAction.ts";
 import { ScmInputComponentDIToken } from "./scmInputComponent.ts";
 
-/**
- * Показать Source Control в сайдбаре (VS Code `workbench.view.scm`). У нас нет
- * activity bar, поэтому Explorer ↔ Source Control переключают команды: эта
- * подменяет контент сайдбара на список изменений (`SidebarService`) и отдаёт ему
- * фокус. Кейбинд — `ctrl+shift+g`, как у SCM-вьюлета в VS Code.
- */
 export const showScmAction: CommandAction = {
     id: "workbench.view.scm",
     title: "View: Show Source Control",
     shortTitle: "Source Control",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 15 }],
-    // Парно с Search (см. searchActions): аккорд работает на любом терминале,
-    // канонический Ctrl+Shift+G объявлен там, где терминал способен его передать.
+    // Парно с Search: аккорд работает на любом терминале, канонический Ctrl+Shift+G
+    // объявлен там, где терминал способен его передать.
     keybinding: parseChord("ctrl+k g"),
     keybindings: [{ keys: parseKeybinding("ctrl+shift+g"), when: "tier != 'legacy'" }],
     run(accessor) {
@@ -32,11 +26,7 @@ export const showScmAction: CommandAction = {
     },
 };
 
-/**
- * Показать Source Control и поставить фокус в commit input box — VS Code
- * `workbench.scm.focus`. `workbench.view.scm` при этом по-прежнему фокусит
- * список изменений (сложившийся инвариант e2e).
- */
+/** `workbench.view.scm` при этом по-прежнему фокусит список изменений (инвариант e2e). */
 export const scmFocusInputAction: CommandAction = {
     id: "workbench.scm.focus",
     title: "Source Control: Focus on Source Control View",
@@ -46,11 +36,7 @@ export const scmFocusInputAction: CommandAction = {
     },
 };
 
-/**
- * Фокус из commit input box в список CHANGES — стрелка вниз (InputElement
- * ArrowDown не обрабатывает, событие доходит до диспетчера кейбиндов).
- * Обратно — `workbench.scm.focus`.
- */
+/** InputElement ArrowDown не обрабатывает — событие доходит до диспетчера кейбиндов. */
 export const scmFocusChangesAction: CommandAction = {
     id: "scm.action.focusChanges",
     title: "Source Control: Focus Changes List",
@@ -61,16 +47,11 @@ export const scmFocusChangesAction: CommandAction = {
     },
 };
 
-/**
- * Общий резолв цели SCM-команд: явный uri-аргумент (строкой — из пункта меню или
- * инлайн-кнопки) либо курсорная строка списка Changes (клавиатурный путь).
- */
 function resolveScmUri(accessor: ServiceAccessor, rawUri: unknown): Uri | null {
     if (typeof rawUri === "string" && rawUri !== "") return Uri.parse(rawUri);
     return accessor.get(ChangesComponentDIToken).getCursorChange()?.uri ?? null;
 }
 
-/** Открыть сам файл (не дифф) — инлайн-кнопка строки, пункт меню и клавиатура. */
 export const scmOpenFileAction: CommandAction = {
     id: "scm.action.openFile",
     title: "Source Control: Open File",
@@ -92,9 +73,8 @@ export const scmOpenFileAction: CommandAction = {
 };
 
 /**
- * Открыть дифф изменения (активация строки и пункт меню). Файл без версии в git
- * (untracked, вне репозитория) откатывается на открытие самого файла: его полный
- * контент и есть «всё новое», а notice оставлен палитре, где файл уже открыт.
+ * Файл без версии в git откатывается на открытие самого файла: его контент и есть «всё
+ * новое», а notice оставлен палитре.
  */
 export const scmOpenChangesAction: CommandAction = {
     id: "scm.action.openChanges",
@@ -119,12 +99,7 @@ export const scmOpenChangesAction: CommandAction = {
     },
 };
 
-/**
- * Режим списка изменений: дерево папок (с компакцией цепочек) или плоский
- * список путей. Пара команд вместо тоггла — как у поиска и VS Code; выбор
- * персистится по-проектно. Живут и в меню «⋯» секции CHANGES
- * (`MenuId.ViewTitle`, фильтр — императивный `viewMenuVisible`).
- */
+/** Пара команд вместо тоггла — как у поиска и VS Code. */
 export const scmViewAsTreeAction: CommandAction = {
     id: "scm.action.viewAsTree",
     title: "Source Control: View as Tree",
