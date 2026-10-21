@@ -161,7 +161,7 @@ afterEach(() => {
 });
 
 describe("git.checkout", () => {
-    it("локальная ветка — checkout по имени; remote — DWIM коротким именем", async () => {
+    it("local branch: checkout by name; remote: DWIM by short name", async () => {
         const h = makeHarness();
         h.setRefs([
             { name: "dev", kind: "head" },
@@ -177,7 +177,7 @@ describe("git.checkout", () => {
         expect(h.ops).toEqual([{ op: "checkout", params: { ref: "feature" } }]);
     });
 
-    it("спец-пункты: create / create-from / detached", async () => {
+    it("special items: create / create-from / detached", async () => {
         const h = makeHarness();
         h.setRefs([{ name: "main", kind: "head" }]);
 
@@ -198,7 +198,7 @@ describe("git.checkout", () => {
         expect(h.ops).toEqual([{ op: "checkout", params: { ref: "main", detach: true } }]);
     });
 
-    it("отмена пикера и отмена ввода имени — no-op", async () => {
+    it("cancelling the picker or the name input is a no-op", async () => {
         const h = makeHarness();
         h.setRefs([{ name: "main", kind: "head" }]);
         h.setPicks([undefined]);
@@ -211,8 +211,8 @@ describe("git.checkout", () => {
     });
 });
 
-describe("branch-операции", () => {
-    it("git.branch: ввод имени → branchCreate; rename с prefill текущей", async () => {
+describe("branch operations", () => {
+    it("git.branch: name input → branchCreate; rename prefilled with the current one", async () => {
         const h = makeHarness();
         h.setInputs(["new-branch"]);
         await gitBranchAction.run(h.accessor);
@@ -230,7 +230,7 @@ describe("branch-операции", () => {
         expect(h.ops).toEqual([]);
     });
 
-    it("git.deleteBranch: текущая ветка не в списке; not-merged → confirm → force", async () => {
+    it("git.deleteBranch: current branch is not listed; not-merged → confirm → force", async () => {
         const h = makeHarness();
         h.setRefs([
             { name: "main", kind: "head" },
@@ -247,7 +247,7 @@ describe("branch-операции", () => {
         ]);
     });
 
-    it("git.deleteBranch: отказ от force и отсутствие других веток", async () => {
+    it("git.deleteBranch: declining force and no other branches", async () => {
         const h = makeHarness();
         h.setRefs([
             { name: "main", kind: "head" },
@@ -266,7 +266,7 @@ describe("branch-операции", () => {
         expect(h.notices.some((n) => n.includes("no other local branches"))).toBe(true);
     });
 
-    it("git.deleteRemoteBranch: пикер remote-веток → pushDelete", async () => {
+    it("git.deleteRemoteBranch: remote branch picker → pushDelete", async () => {
         const h = makeHarness();
         h.setRefs([{ name: "origin/feat", kind: "remote" }]);
         h.setPicks(["origin/feat"]);
@@ -274,7 +274,7 @@ describe("branch-операции", () => {
         expect(h.ops).toEqual([{ op: "pushDelete", params: { remote: "origin", ref: "feat" } }]);
     });
 
-    it("merge: конфликт — notice про Merge Changes; mergeAbort — прямая операция", async () => {
+    it("merge: conflict gives a notice about Merge Changes; mergeAbort is a direct operation", async () => {
         const h = makeHarness();
         h.setRefs([{ name: "feat", kind: "head" }]);
         h.setPicks(["feat"]);
@@ -288,7 +288,7 @@ describe("branch-операции", () => {
         expect(h.ops).toEqual([{ op: "mergeAbort", params: undefined }]);
     });
 
-    it("rebase: обычная ошибка — notice с сообщением", async () => {
+    it("rebase: an ordinary error gives a notice with the message", async () => {
         const h = makeHarness();
         h.setRefs([{ name: "main", kind: "head" }]);
         h.setPicks(["main"]);
@@ -297,7 +297,7 @@ describe("branch-операции", () => {
         expect(h.notices.some((n) => n.includes("cannot rebase"))).toBe(true);
     });
 
-    it("cherryPick: ввод sha; отмена — no-op", async () => {
+    it("cherryPick: sha input; cancel is a no-op", async () => {
         const h = makeHarness();
         h.setInputs(["abc123"]);
         await gitCherryPickAction.run(h.accessor);
@@ -309,7 +309,7 @@ describe("branch-операции", () => {
         expect(h.ops).toEqual([]);
     });
 
-    it("checkoutDetached: пустые refs — notice; бесхозный label пикера — no-op; happy path", async () => {
+    it("checkoutDetached: empty refs give a notice; an orphan picker label is a no-op; happy path", async () => {
         const h = makeHarness();
         h.setRefs([]);
         await gitCheckoutDetachedAction.run(h.accessor);
@@ -326,7 +326,7 @@ describe("branch-операции", () => {
         expect(h.ops).toEqual([{ op: "checkout", params: { ref: "v1.0", detach: true } }]);
     });
 
-    it("checkout: тег в пикере помечен, пикер-«призрак» — no-op; валидатор имени ветки", async () => {
+    it("checkout: a tag is marked in the picker, a ghost picker item is a no-op; branch name validator", async () => {
         const h = makeHarness();
         h.setRefs([
             { name: "main", kind: "head" },
@@ -347,7 +347,7 @@ describe("branch-операции", () => {
         expect(h.lastInputValidate.value?.("ok")).toBeNull();
     });
 
-    it("branchFrom: happy path и отмена базового пикера", async () => {
+    it("branchFrom: happy path and cancelling the base picker", async () => {
         const h = makeHarness();
         h.setRefs([{ name: "main", kind: "head" }]);
         h.setPicks(["main"]);
@@ -361,7 +361,7 @@ describe("branch-операции", () => {
         expect(h.ops).toEqual([]);
     });
 
-    it("deleteBranch: отмена пикера, успех без диалога, generic-ошибка — notice", async () => {
+    it("deleteBranch: picker cancel, success without a dialog, generic error gives a notice", async () => {
         const h = makeHarness();
         h.setRefs([
             { name: "main", kind: "head" },
@@ -383,7 +383,7 @@ describe("branch-операции", () => {
         expect(h.notices.some((n) => n.includes("cannot delete"))).toBe(true);
     });
 
-    it("deleteRemoteBranch без remote-веток — notice; merge: отмена и успех", async () => {
+    it("deleteRemoteBranch without remote branches gives a notice; merge: cancel and success", async () => {
         const h = makeHarness();
         h.setRefs([{ name: "main", kind: "head" }]);
         await gitDeleteRemoteBranchAction.run(h.accessor);
@@ -399,7 +399,7 @@ describe("branch-операции", () => {
         expect(h.ops).toEqual([{ op: "merge", params: { ref: "main" } }]);
     });
 
-    it("rebase: конфликт — notice про Merge Changes; успех — тихо; rebaseAbort", async () => {
+    it("rebase: conflict gives a notice about Merge Changes; success is silent; rebaseAbort", async () => {
         const h = makeHarness();
         h.setRefs([{ name: "main", kind: "head" }]);
         h.setPicks(["main"]);
@@ -418,7 +418,7 @@ describe("branch-операции", () => {
         expect(h.ops).toEqual([{ op: "rebaseAbort", params: undefined }]);
     });
 
-    it("cherryPick: пробельный ввод — no-op; валидатор", async () => {
+    it("cherryPick: whitespace input is a no-op; validator", async () => {
         const h = makeHarness();
         h.setInputs(["   "]);
         await gitCherryPickAction.run(h.accessor);
@@ -427,7 +427,7 @@ describe("branch-операции", () => {
         expect(h.lastInputValidate.value?.("abc")).toBeNull();
     });
 
-    it("добивка отмен: спец-пункты checkout с отменённым вторым пикером, rename на detached, rebase-отмена, merge-ошибка", async () => {
+    it("remaining cancels: checkout special items with the second picker cancelled, rename on detached, rebase cancel, merge error", async () => {
         const h = makeHarness();
         h.setRefs([{ name: "main", kind: "head" }]);
 
@@ -457,7 +457,7 @@ describe("branch-операции", () => {
         expect(h.notices.some((n) => n.includes("merge refused"))).toBe(true);
     });
 
-    it("номенклатура и when-гейты abort-команд", () => {
+    it("nomenclature and when gates of the abort commands", () => {
         expect(BRANCH_ACTIONS.map((a) => a.id)).toEqual([
             "git.checkout",
             "git.checkoutDetached",

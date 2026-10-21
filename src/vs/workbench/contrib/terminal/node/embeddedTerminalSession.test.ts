@@ -21,7 +21,7 @@ function awaitExit(session: EmbeddedTerminalSession): Promise<number> {
 }
 
 describe("EmbeddedTerminalSession", () => {
-    it("запоминает запущенный шелл; без явного — системный (getSystemShell)", async () => {
+    it("remembers the launched shell; without an explicit one — the system shell (getSystemShell)", async () => {
         const explicit = new EmbeddedTerminalSession({ cols: 20, rows: 5, shell: "/bin/sh", args: ["-c", "exit 0"] });
         expect(explicit.shell).toBe("/bin/sh");
         await awaitExit(explicit);
@@ -35,7 +35,7 @@ describe("EmbeddedTerminalSession", () => {
         system.dispose();
     });
 
-    it("без args шелл стартует интерактивно, без аргументов", async () => {
+    it("without args the shell starts interactively, with no arguments", async () => {
         const session = new EmbeddedTerminalSession({ cols: 40, rows: 6, shell: "/bin/sh" });
         const exited = awaitExit(session);
         session.write("exit 5\r");

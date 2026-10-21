@@ -12,7 +12,7 @@ const FIXTURE = extensionFixture("test.providesSelectionRanges", "providesSelect
 const CONTENT = "alpha beta\ngamma\nlast\n";
 
 describe("ExtensionHost — selection range providers (subprocess)", () => {
-    it("ступень провайдера встаёт между встроенными; shrink возвращает к каретке", async () => {
+    it("the provider step sits between the built-in ones; shrink returns to the cursor", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.txt", content: CONTENT },
             extensions: [FIXTURE],

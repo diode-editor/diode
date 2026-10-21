@@ -129,8 +129,8 @@ describe("ExtensionsWorkbenchService", () => {
         return new ExtensionsWorkbenchService(source, profile, HOST);
     }
 
-    describe("состав профиля", () => {
-        it("расширение на диске вне профиля в списке не видно", () => {
+    describe("profile contents", () => {
+        it("an extension on disk outside the profile is not in the list", () => {
             ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
             installOnDisk(ws, "acme.tools", "1.0.0");
             installOnDisk(ws, "acme.elsewhere", "1.0.0", {}, false);
@@ -140,7 +140,7 @@ describe("ExtensionsWorkbenchService", () => {
             expect(service.getEntries().map((e) => e.id)).toEqual(["acme.tools"]);
         });
 
-        it("карточка реестра для расширения другого профиля — available", async () => {
+        it("a registry card for an extension of another profile is available", async () => {
             ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
             installOnDisk(ws, "acme.tools", "1.0.0", {}, false);
             addToProfile(ws, OTHER_PROFILE_FILE, "acme.tools", "1.0.0");
@@ -152,7 +152,7 @@ describe("ExtensionsWorkbenchService", () => {
             expect(service.getEntries()[0]?.installedVersion).toBeNull();
         });
 
-        it("удаление убирает из профиля, а с диска — нет, пока расширение нужно другому", async () => {
+        it("uninstall removes from the profile but not from disk while another profile needs the extension", async () => {
             ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
             installOnDisk(ws, "acme.tools", "1.0.0");
             addToProfile(ws, OTHER_PROFILE_FILE, "acme.tools", "1.0.0");
@@ -167,7 +167,7 @@ describe("ExtensionsWorkbenchService", () => {
         });
     });
 
-    it("до первого показа каталог пуст, а установленное уже видно", () => {
+    it("before the first show the catalog is empty, but installed extensions are already visible", () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
         installOnDisk(ws, "acme.tools", "1.0.0");
         const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
@@ -176,7 +176,7 @@ describe("ExtensionsWorkbenchService", () => {
         expect(service.getEntries()[0]?.latestVersion).toBeNull();
     });
 
-    it("ensureLoaded читает индекс один раз, refresh — каждый раз", async () => {
+    it("ensureLoaded reads the index once, refresh every time", async () => {
         const source = new FakeSource(index(entry({ id: "acme.tools" })));
         const service = createService(source);
 
@@ -188,7 +188,7 @@ describe("ExtensionsWorkbenchService", () => {
         expect(source.indexCalls).toBe(2);
     });
 
-    it("смена состава каталога доезжает до подписчиков", async () => {
+    it("a catalog contents change reaches subscribers", async () => {
         const source = new FakeSource(index(entry({ id: "acme.tools" })));
         const service = createService(source);
         let changes = 0;
@@ -206,7 +206,7 @@ describe("ExtensionsWorkbenchService", () => {
         expect(service.getEntries().map((e) => e.id)).toEqual(["acme.tools", "acme.other"]);
     });
 
-    it("подписка снимается по dispose ссылки", async () => {
+    it("the subscription is removed by disposing the reference", async () => {
         const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
         let changes = 0;
         const subscription = service.onDidChange(() => {
@@ -218,14 +218,14 @@ describe("ExtensionsWorkbenchService", () => {
         expect(changes).toBe(0);
     });
 
-    describe("состояние карточки", () => {
-        it("не установлено и совместимо — available", async () => {
+    describe("card state", () => {
+        it("not installed and compatible — available", async () => {
             const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
             await service.ensureLoaded();
             expect(service.getEntries()[0]?.availability).toBe("available");
         });
 
-        it("установлена последняя версия — installed", async () => {
+        it("latest version installed — installed", async () => {
             ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
             installOnDisk(ws, "acme.tools", "1.0.0");
             const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
@@ -238,7 +238,7 @@ describe("ExtensionsWorkbenchService", () => {
             });
         });
 
-        it("установлена версия старее реестровой — outdated", async () => {
+        it("installed version older than the registry one — outdated", async () => {
             ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
             installOnDisk(ws, "acme.tools", "0.9.0");
             const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
@@ -251,7 +251,7 @@ describe("ExtensionsWorkbenchService", () => {
             });
         });
 
-        it("engines последней версии не подходят сборке — incompatible", async () => {
+        it("engines of the latest version do not fit the build — incompatible", async () => {
             const source = new FakeSource(
                 index(entry({ id: "acme.tools", latest: { version: "2.0.0", engines: { vscode: "^99.0.0" } } })),
             );
@@ -261,7 +261,7 @@ describe("ExtensionsWorkbenchService", () => {
             expect(service.getEntries()[0]?.availability).toBe("incompatible");
         });
 
-        it("несовместимость важнее установленной версии", async () => {
+        it("incompatibility takes precedence over the installed version", async () => {
             ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
             installOnDisk(ws, "acme.tools", "0.9.0");
             const source = new FakeSource(
@@ -275,7 +275,7 @@ describe("ExtensionsWorkbenchService", () => {
 
         // semver is a lazy chunk: the service is created at workbench startup,
         // and the chunk must not load until someone opens the catalog.
-        it("semver грузится с каталогом, а не при создании сервиса", async () => {
+        it("semver loads with the catalog, not at service creation", async () => {
             const requested: string[] = [];
             setLazyModuleLoader(<T>(id: string, importer: () => Promise<T>) => {
                 requested.push(id);
@@ -299,7 +299,7 @@ describe("ExtensionsWorkbenchService", () => {
         });
     });
 
-    it("установленное из магазина — одна карточка, а не две", async () => {
+    it("installed from the marketplace — one card, not two", async () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
         installOnDisk(ws, "acme.tools", "1.0.0");
         const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
@@ -310,7 +310,7 @@ describe("ExtensionsWorkbenchService", () => {
         expect(service.getEntries().map((e) => e.id)).toEqual(["acme.tools"]);
     });
 
-    it("установленное вне реестра идёт после каталога и берёт поля из манифеста", async () => {
+    it("installed outside the registry comes after the catalog and takes fields from the manifest", async () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
         installOnDisk(ws, "local.sideloaded", "0.1.0", {
             displayName: "Sideloaded",
@@ -332,7 +332,7 @@ describe("ExtensionsWorkbenchService", () => {
         });
     });
 
-    it("манифест без displayName/description — карточка обходится id", async () => {
+    it("a manifest without displayName/description — the card makes do with the id", async () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
         installOnDisk(ws, "local.bare", "0.1.0");
         const service = createService(new FakeSource(index()));
@@ -344,7 +344,7 @@ describe("ExtensionsWorkbenchService", () => {
         });
     });
 
-    it("сетевая ошибка не бросается: каталог пуст, причина в getCatalogError", async () => {
+    it("a network error is not thrown: the catalog is empty, the reason is in getCatalogError", async () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
         installOnDisk(ws, "local.sideloaded", "0.1.0");
         const service = createService(new FakeSource(new Error("getaddrinfo ENOTFOUND example.invalid")));
@@ -356,7 +356,7 @@ describe("ExtensionsWorkbenchService", () => {
         expect(service.getEntries().map((e) => e.id)).toEqual(["local.sideloaded"]);
     });
 
-    it("не-Error причина сбоя тоже доезжает текстом", async () => {
+    it("a non-Error failure reason also arrives as text", async () => {
         const source = new FakeSource(index());
         const service = createService(source);
         // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the suite checks a non-Error rejection SPECIFICALLY
@@ -366,7 +366,7 @@ describe("ExtensionsWorkbenchService", () => {
         expect(service.getCatalogError()).toBe("boom");
     });
 
-    it("удачный refresh снимает прежнюю ошибку", async () => {
+    it("a successful refresh clears the previous error", async () => {
         const source = new FakeSource(new Error("offline"));
         const service = createService(source);
         await service.ensureLoaded();
@@ -378,7 +378,7 @@ describe("ExtensionsWorkbenchService", () => {
         expect(service.getEntries().map((e) => e.id)).toEqual(["acme.tools"]);
     });
 
-    it("неудачный refresh сохраняет прошлый каталог", async () => {
+    it("a failed refresh keeps the previous catalog", async () => {
         const source = new FakeSource(index(entry({ id: "acme.tools" })));
         const service = createService(source);
         await service.ensureLoaded();
@@ -389,7 +389,7 @@ describe("ExtensionsWorkbenchService", () => {
         expect(service.getCatalogError()).toBe("offline");
     });
 
-    it("reloadInstalled подхватывает появившееся на диске расширение", async () => {
+    it("reloadInstalled picks up an extension that appeared on disk", async () => {
         ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
         const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
         await service.ensureLoaded();
@@ -412,7 +412,7 @@ describe("ExtensionsWorkbenchService", () => {
             versions: [],
         };
 
-        it("кэширует ответ реестра", async () => {
+        it("caches the registry response", async () => {
             const source = new FakeSource(index(entry({ id: "acme.tools" })), { "acme.tools": meta });
             const service = createService(source);
 
@@ -421,7 +421,7 @@ describe("ExtensionsWorkbenchService", () => {
             expect(source.metaCalls).toBe(1);
         });
 
-        it("кэширует и промах — «такого id нет» тоже ответ", async () => {
+        it("caches a miss too — 'no such id' is also an answer", async () => {
             const source = new FakeSource(index());
             const service = createService(source);
 
@@ -431,7 +431,7 @@ describe("ExtensionsWorkbenchService", () => {
         });
     });
 
-    it("dispose снимает подписки", async () => {
+    it("dispose removes subscriptions", async () => {
         const source = new FakeSource(index(entry({ id: "acme.tools" })));
         const service = createService(source);
         let changes = 0;
@@ -444,7 +444,7 @@ describe("ExtensionsWorkbenchService", () => {
         expect(changes).toBe(0);
     });
 
-    describe("установка и удаление", () => {
+    describe("install and uninstall", () => {
         async function withInstallable(
             version = "1.0.0",
             options: { sha256?: string; dependsOn?: string } = {},
@@ -496,7 +496,7 @@ describe("ExtensionsWorkbenchService", () => {
             };
         }
 
-        it("зависимости ставятся вместе с расширением и тоже ждут перезагрузки", async () => {
+        it("dependencies install along with the extension and also wait for a reload", async () => {
             const { service } = await withInstallable("1.0.0", { dependsOn: "acme.base" });
             await service.ensureLoaded();
 
@@ -513,7 +513,7 @@ describe("ExtensionsWorkbenchService", () => {
             expect(cards.get("acme.base")?.needsReload).toBe(true);
         });
 
-        it("ставит расширение на диск и помечает карточку ожиданием перезагрузки", async () => {
+        it("installs the extension to disk and marks the card as pending reload", async () => {
             const { service } = await withInstallable();
             await service.ensureLoaded();
 
@@ -528,7 +528,7 @@ describe("ExtensionsWorkbenchService", () => {
             expect(card.needsReload).toBe(true);
         });
 
-        it("установка включает в профиль и зависимость, уже лежавшую на диске для другого профиля", async () => {
+        it("install also adds to the profile a dependency already on disk for another profile", async () => {
             ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
             installOnDisk(ws, "acme.base", "2.0.0", {}, false);
             addToProfile(ws, OTHER_PROFILE_FILE, "acme.base", "2.0.0");
@@ -542,7 +542,7 @@ describe("ExtensionsWorkbenchService", () => {
             expect(service.getEntries().map((e) => e.id)).toEqual(["acme.base", "acme.tools"]);
         });
 
-        it("установка перерисовывает список подписчикам", async () => {
+        it("install redraws the list for subscribers", async () => {
             const { service } = await withInstallable();
             await service.ensureLoaded();
             let changes = 0;
@@ -555,7 +555,7 @@ describe("ExtensionsWorkbenchService", () => {
             expect(changes).toBe(1);
         });
 
-        it("обновление сносит прежнюю версию — на диске остаётся одна", async () => {
+        it("update removes the previous version — one remains on disk", async () => {
             ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
             installOnDisk(ws, "acme.tools", "0.9.0");
             const { service } = await withInstallable("1.0.0");
@@ -568,7 +568,7 @@ describe("ExtensionsWorkbenchService", () => {
             expect(service.getEntries()[0]?.installedVersion).toBe("1.0.0");
         });
 
-        it("битый артефакт не ставится, а причина возвращается текстом", async () => {
+        it("a broken artifact is not installed and the reason is returned as text", async () => {
             const { service } = await withInstallable("1.0.0", { sha256: "0".repeat(64) });
             await service.ensureLoaded();
 
@@ -581,7 +581,7 @@ describe("ExtensionsWorkbenchService", () => {
             expect(service.getEntries()[0]?.needsReload).toBe(false);
         });
 
-        it("незнакомый реестру id — ошибка значением, а не исключением", async () => {
+        it("an id unknown to the registry is an error value, not an exception", async () => {
             const service = createService(new FakeSource(index()));
 
             await expect(service.install("acme.missing")).resolves.toEqual({
@@ -590,7 +590,7 @@ describe("ExtensionsWorkbenchService", () => {
             });
         });
 
-        it("удаляет расширение с диска и просит перезагрузку", async () => {
+        it("removes the extension from disk and asks for a reload", async () => {
             ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
             installOnDisk(ws, "acme.tools", "1.0.0");
             const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
@@ -606,7 +606,7 @@ describe("ExtensionsWorkbenchService", () => {
             expect(card.needsReload).toBe(true);
         });
 
-        it("удалять нечего — это отказ, а не тихий успех", async () => {
+        it("nothing to uninstall is a refusal, not a silent success", async () => {
             const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
             await service.ensureLoaded();
 
@@ -616,27 +616,24 @@ describe("ExtensionsWorkbenchService", () => {
             expect(service.getEntries()[0]?.needsReload).toBe(false);
         });
 
-        it.skipIf(process.platform === "win32")(
-            "сбой файловой системы приезжает текстом, а не исключением",
-            async () => {
-                ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
-                installOnDisk(ws, "acme.tools", "1.0.0");
-                const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
-                await service.ensureLoaded();
+        it.skipIf(process.platform === "win32")("a file system failure arrives as text, not an exception", async () => {
+            ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
+            installOnDisk(ws, "acme.tools", "1.0.0");
+            const service = createService(new FakeSource(index(entry({ id: "acme.tools" }))));
+            await service.ensureLoaded();
 
-                // The extensions directory is read-only: nothing can be removed from it.
-                fs.chmodSync(ws.path("extensions"), 0o500);
-                try {
-                    const result = await service.uninstall("acme.tools");
-                    expect(result.ok).toBe(false);
-                    expect(!result.ok && result.error).toMatch(/EACCES|EPERM/);
-                } finally {
-                    fs.chmodSync(ws.path("extensions"), 0o700);
-                }
-            },
-        );
+            // The extensions directory is read-only: nothing can be removed from it.
+            fs.chmodSync(ws.path("extensions"), 0o500);
+            try {
+                const result = await service.uninstall("acme.tools");
+                expect(result.ok).toBe(false);
+                expect(!result.ok && result.error).toMatch(/EACCES|EPERM/);
+            } finally {
+                fs.chmodSync(ws.path("extensions"), 0o700);
+            }
+        });
 
-        it("ожидание перезагрузки переживает Refresh каталога", async () => {
+        it("a pending reload survives a catalog Refresh", async () => {
             const { service, source } = await withInstallable();
             await service.ensureLoaded();
             await service.install("acme.tools");
@@ -648,7 +645,7 @@ describe("ExtensionsWorkbenchService", () => {
             expect(service.getEntries().find((e) => e.id === "acme.other")?.needsReload).toBe(false);
         });
 
-        it("расширение мимо магазина тоже ждёт перезагрузки после удаления", async () => {
+        it("a sideloaded extension also waits for a reload after uninstall", async () => {
             ws = createTempWorkspace({ prefix: "diode-extensions-view-" });
             installOnDisk(ws, "solo.thing", "0.1.0");
             installOnDisk(ws, "other.thing", "0.1.0");

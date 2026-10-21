@@ -7,8 +7,8 @@ import { testLayoutService } from "../../../../../TestUtils/testLayoutService.ts
 
 import { HoverComponent } from "./hoverComponent.ts";
 
-describe("HoverComponent — overlay-сессия попапа", () => {
-    it("создаёт скрытую сессию на слое корневой view уже в конструкторе", () => {
+describe("HoverComponent — popup overlay session", () => {
+    it("creates a hidden session on the root view's layer right in the constructor", () => {
         const body = new BodyElement();
         const component = new HoverComponent(testLayoutService(body));
         // The id is a contract for the inspector and e2e tree queries.
@@ -19,7 +19,7 @@ describe("HoverComponent — overlay-сессия попапа", () => {
         component.dispose();
     });
 
-    it("openAt открывает сессию, close закрывает", () => {
+    it("openAt opens the session, close closes it", () => {
         const component = new HoverComponent(testLayoutService());
 
         component.setBlocks(["const answer: number"]);
@@ -37,7 +37,7 @@ describe("HoverComponent — overlay-сессия попапа", () => {
         component.dispose();
     });
 
-    it("openAt анкорит попап у каретки на каждом показе", () => {
+    it("openAt anchors the popup at the cursor on every show", () => {
         const body = new BodyElement();
         const app = TestApp.create(body, new Size(80, 24));
         const component = new HoverComponent(testLayoutService(body));
@@ -57,9 +57,9 @@ describe("HoverComponent — overlay-сессия попапа", () => {
         component.dispose();
     });
 
-    it("dispose закрывает живую сессию", () => {
+    it("dispose closes a live session", () => {
         const component = new HoverComponent(testLayoutService());
-        component.setBlocks(["текст"]);
+        component.setBlocks(["text"]);
         component.openAt({ screenX: 1, screenY: 1, preferBelow: true });
         expect(component.isOpen()).toBe(true);
 

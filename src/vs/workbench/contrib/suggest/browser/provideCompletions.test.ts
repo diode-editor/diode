@@ -24,7 +24,7 @@ function provider(result: Promise<ICoreCompletionResult>): CompletionItemProvide
 }
 
 describe("provideCompletions", () => {
-    it("склеивает пункты в порядке провайдеров и помнит владельца каждого", async () => {
+    it("concatenates items in provider order and remembers the owner of each", async () => {
         const first = provider(Promise.resolve({ items: [{ label: "a", insertText: "a" }], isIncomplete: false }));
         const second = provider(
             Promise.resolve({
@@ -44,7 +44,7 @@ describe("provideCompletions", () => {
         expect(result.providerOf.get(result.items[2])).toBe(second);
     });
 
-    it("всем провайдерам уходит ОДИН объект запроса и токен запроса — по ним хост склеит вызовы в один RPC", async () => {
+    it("all providers get the SAME request object and request token — the host batches the calls into one RPC by them", async () => {
         const first = provider(Promise.resolve({ items: [], isIncomplete: false }));
         const second = provider(Promise.resolve({ items: [], isIncomplete: false }));
 
@@ -56,7 +56,7 @@ describe("provideCompletions", () => {
         expect(vi.mocked(second.provideCompletionItems)).toHaveBeenCalledWith(REQUEST, TOKEN);
     });
 
-    it("неполный список хотя бы одного — неполный весь ответ", async () => {
+    it("an incomplete list from any provider makes the whole result incomplete", async () => {
         const result = await provideCompletions(
             [
                 provider(Promise.resolve({ items: [], isIncomplete: false })),
@@ -68,7 +68,7 @@ describe("provideCompletions", () => {
         expect(result.isIncomplete).toBe(true);
     });
 
-    it("сбойный провайдер = пустой список, остальные доезжают", async () => {
+    it("a failing provider yields an empty list, the others still arrive", async () => {
         const result = await provideCompletions(
             [
                 provider(Promise.reject(new Error("boom"))),

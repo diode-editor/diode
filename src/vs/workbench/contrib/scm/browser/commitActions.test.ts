@@ -124,7 +124,7 @@ afterEach(() => {
 });
 
 describe("git.commit (smart)", () => {
-    it("staged есть — коммитит индекс и очищает input", async () => {
+    it("staged changes exist: commits the index and clears the input", async () => {
         const h = makeHarness();
         h.message.value = "feat: msg";
         h.setChanges(["index", "worktree"]);
@@ -141,7 +141,7 @@ describe("git.commit (smart)", () => {
         expect(h.confirms).toBe(0);
     });
 
-    it("индекс пуст, tracked есть — вопрос; подтверждение коммитит всё", async () => {
+    it("empty index, tracked changes exist: asks; confirming commits everything", async () => {
         const h = makeHarness();
         h.message.value = "msg";
         h.setChanges(["worktree"]);
@@ -151,7 +151,7 @@ describe("git.commit (smart)", () => {
         expect(h.ops[0].params?.all).toBe(true);
     });
 
-    it("индекс пуст, отказ в диалоге — коммита нет", async () => {
+    it("empty index, dialog declined: no commit", async () => {
         const h = makeHarness();
         h.message.value = "msg";
         h.setChanges(["worktree"]);
@@ -162,7 +162,7 @@ describe("git.commit (smart)", () => {
         expect(h.message.value).toBe("msg");
     });
 
-    it("нечего коммитить (только untracked) — notice без диалога", async () => {
+    it("nothing to commit (untracked only): notice without a dialog", async () => {
         const h = makeHarness();
         h.message.value = "msg";
         h.setChanges(["untracked"]);
@@ -173,7 +173,7 @@ describe("git.commit (smart)", () => {
         expect(h.notices.some((n) => n.includes("no changes"))).toBe(true);
     });
 
-    it("пустое сообщение — notice, op не зовётся", async () => {
+    it("empty message: notice, op is not called", async () => {
         const h = makeHarness();
         h.setChanges(["index"]);
 
@@ -182,7 +182,7 @@ describe("git.commit (smart)", () => {
         expect(h.notices.some((n) => n.includes("commit message is empty"))).toBe(true);
     });
 
-    it("ошибка op — сообщение остаётся в input", async () => {
+    it("op error: the message stays in the input", async () => {
         const h = makeHarness();
         h.message.value = "msg";
         h.setChanges(["index"]);
@@ -193,7 +193,7 @@ describe("git.commit (smart)", () => {
         expect(h.notices.some((n) => n.includes("hook failed"))).toBe(true);
     });
 
-    it("расширение не активно — тихий no-op, сообщение остаётся", async () => {
+    it("extension is not active: silent no-op, the message stays", async () => {
         const h = makeHarness();
         h.message.value = "msg";
         h.setChanges(["index"]);
@@ -205,8 +205,8 @@ describe("git.commit (smart)", () => {
     });
 });
 
-describe("варианты commit-семейства", () => {
-    it("commitStaged не задаёт smart/all; commitAll шлёт all", async () => {
+describe("commit family variants", () => {
+    it("commitStaged sets neither smart nor all; commitAll sends all", async () => {
         const h = makeHarness();
         h.message.value = "msg";
         h.setChanges([]); // the smart branch must not kick in
@@ -220,7 +220,7 @@ describe("варианты commit-семейства", () => {
         expect(h.confirms).toBe(0);
     });
 
-    it("amend с пустым сообщением допустим (--no-edit на стороне расширения)", async () => {
+    it("amend with an empty message is allowed (--no-edit on the extension side)", async () => {
         const h = makeHarness();
         h.setChanges(["index"]);
 
@@ -230,7 +230,7 @@ describe("варианты commit-семейства", () => {
         ]);
     });
 
-    it("вся номенклатура зарегистрирована с id в стиле VS Code", () => {
+    it("the whole nomenclature is registered with VS Code-style ids", () => {
         expect(COMMIT_ACTIONS.map((a) => a.id)).toEqual([
             "git.commit",
             "git.commitStaged",
@@ -248,7 +248,7 @@ describe("варианты commit-семейства", () => {
 });
 
 describe("git.undoCommit", () => {
-    it("успех возвращает сообщение в input box", async () => {
+    it("success puts the message back into the input box", async () => {
         const h = makeHarness();
         h.setOpResult({ ok: true, data: { message: "feat: undone" } });
 
@@ -257,7 +257,7 @@ describe("git.undoCommit", () => {
         expect(h.message.value).toBe("feat: undone");
     });
 
-    it("ошибка (merge/корневой коммит) — notice, input не трогается", async () => {
+    it("error (merge/root commit): notice, the input is untouched", async () => {
         const h = makeHarness();
         h.message.value = "draft";
         h.setOpResult({ ok: false, kind: "git-error", message: "cannot undo a merge commit" });
@@ -267,7 +267,7 @@ describe("git.undoCommit", () => {
         expect(h.notices.some((n) => n.includes("merge commit"))).toBe(true);
     });
 
-    it("успех без сообщения в data — input не трогается", async () => {
+    it("success without a message in data: the input is untouched", async () => {
         const h = makeHarness();
         h.message.value = "draft";
         h.setOpResult({ ok: true });

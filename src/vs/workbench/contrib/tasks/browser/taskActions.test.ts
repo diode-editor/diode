@@ -62,8 +62,8 @@ const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 
 const folderLabel = (type: string): string => `${CODICON_GLYPHS.folder ?? ""} ${type}`;
 const configureATask = `${CODICON_GLYPHS.plus ?? ""} Configure a Task`;
 
-describe("Run Task — двухуровневый пикер", () => {
-    it("первый уровень: configured (подсказка у первой), типы (contributed) и «Show All Tasks...»", async () => {
+describe("Run Task — two-level picker", () => {
+    it("first level: configured (hint on the first), types (contributed) and 'Show All Tasks...'", async () => {
         const h = build({
             tasksJson: tasksJsonOf([
                 { label: "b", command: "x" },
@@ -86,7 +86,7 @@ describe("Run Task — двухуровневый пикер", () => {
         h.dispose();
     });
 
-    it("задача первого уровня запускается", async () => {
+    it("a first-level task runs", async () => {
         const h = build({ tasksJson: tasksJsonOf([{ label: "a", command: "x" }]) });
         h.answerPicks("a");
         await runTaskAction.run(h.accessor);
@@ -95,7 +95,7 @@ describe("Run Task — двухуровневый пикер", () => {
         h.dispose();
     });
 
-    it("тип → задачи типа и «Go back ↩»; назад — снова первый уровень; там — задача", async () => {
+    it("type → tasks of the type and 'Go back ↩'; back — the first level again; there — a task", async () => {
         const h = build({ tasksJson: tasksJsonOf([{ label: "a", command: "x" }]) });
         h.withNpm(["test", "build"]);
         h.answerPicks(folderLabel("npm"), GO_BACK, folderLabel("npm"), "npm: test");
@@ -111,7 +111,7 @@ describe("Run Task — двухуровневый пикер", () => {
         h.dispose();
     });
 
-    it("тип без задач — «No npm tasks found. Go back ↩»; Show All — все задачи", async () => {
+    it("type without tasks — 'No npm tasks found. Go back ↩'; Show All — all tasks", async () => {
         const h = build({ tasksJson: tasksJsonOf([{ label: "a", command: "x" }]) });
         h.withNpm([]);
         h.service.registerTaskProvider(
@@ -132,7 +132,7 @@ describe("Run Task — двухуровневый пикер", () => {
         h.dispose();
     });
 
-    it("отмена на втором уровне — ничего; ни задач, ни типов — «Configure a Task» (и по ней — Configure Task)", async () => {
+    it("cancel on the second level — nothing; no tasks and no types — 'Configure a Task' (which runs Configure Task)", async () => {
         const h = build();
         h.answerPicks(configureATask, undefined);
         await runTaskAction.run(h.accessor);
@@ -150,7 +150,7 @@ describe("Run Task — двухуровневый пикер", () => {
         h.dispose();
     });
 
-    it("task.quickOpen.skip и одна задача tasks.json — без пикера", async () => {
+    it("task.quickOpen.skip and a single tasks.json task — no picker", async () => {
         const h = build({
             settings: { "task.quickOpen.skip": true },
             tasksJson: tasksJsonOf([{ label: "only", command: "x" }]),
@@ -162,7 +162,7 @@ describe("Run Task — двухуровневый пикер", () => {
         h.dispose();
     });
 
-    it("без task.quickOpen.skip одна задача — всё равно пикер; со skip, но двумя — тоже", async () => {
+    it("without task.quickOpen.skip a single task still gets the picker; with skip but two tasks — too", async () => {
         const one = build({ tasksJson: tasksJsonOf([{ label: "only", command: "x" }]) });
         one.answerPicks(undefined);
         await runTaskAction.run(one.accessor);
@@ -181,7 +181,7 @@ describe("Run Task — двухуровневый пикер", () => {
         two.dispose();
     });
 
-    it("скрытые задачи (hide) — ни на одном уровне; назад со второго уровня — configured по порядку", async () => {
+    it("hidden tasks (hide) — on no level; back from the second level — configured in order", async () => {
         const h = build({
             tasksJson: tasksJsonOf([
                 { label: "b", command: "x" },
@@ -214,7 +214,7 @@ describe("Run Task — двухуровневый пикер", () => {
         h.dispose();
     });
 
-    it("аргумент-подпись — задача сразу; неизвестная — пикер", async () => {
+    it("a label argument — the task right away; an unknown one — the picker", async () => {
         const h = build({ tasksJson: tasksJsonOf([{ label: "a", command: "x" }]) });
         await runTaskAction.run(h.accessor, "a");
         await flush();
@@ -226,7 +226,7 @@ describe("Run Task — двухуровневый пикер", () => {
         h.dispose();
     });
 
-    it("аргумент-определение — задача провайдера по ключу; не нашлась — сразу второй уровень её типа", async () => {
+    it("a definition argument — the provider task by key; not found — straight to the second level of its type", async () => {
         const h = build();
         h.withNpm(["lint", "test"]);
         await runTaskAction.run(h.accessor, { type: "npm", script: "test" });
@@ -239,7 +239,7 @@ describe("Run Task — двухуровневый пикер", () => {
         h.dispose();
     });
 
-    it("отказ запуска не отклоняет команду", async () => {
+    it("a run refusal does not reject the command", async () => {
         const h = build({ tasksJson: tasksJsonOf([{ label: "bad", command: "${input:x}" }]) });
         await expect(runTaskAction.run(h.accessor, "bad")).resolves.toBeUndefined();
         h.answerPicks("bad");
@@ -250,7 +250,7 @@ describe("Run Task — двухуровневый пикер", () => {
 });
 
 describe("Rerun / Restart / Terminate / Show Running", () => {
-    it("Rerun Last Task: нечего — открывает Run Task", async () => {
+    it("Rerun Last Task: nothing to rerun — opens Run Task", async () => {
         const h = build({ tasksJson: tasksJsonOf([{ label: "a", command: "x" }]) });
         h.answerPicks("a");
         await reRunTaskAction.run(h.accessor);
@@ -264,7 +264,7 @@ describe("Rerun / Restart / Terminate / Show Running", () => {
         h.dispose();
     });
 
-    it("Restart: одна бегущая — она без вопроса", async () => {
+    it("Restart: a single running task — restarted without asking", async () => {
         const h = build({ tasksJson: tasksJsonOf([{ label: "a", type: "shell", command: "x" }]) });
         await runTaskAction.run(h.accessor, "a");
         await flush();
@@ -276,7 +276,7 @@ describe("Rerun / Restart / Terminate / Show Running", () => {
         h.dispose();
     });
 
-    it("Restart: несколько — по аргументу или пикером «Select the task to restart»; пусто — «No task to restart»", async () => {
+    it("Restart: several — by argument or the 'Select the task to restart' picker; none — 'No task to restart'", async () => {
         const h = build({
             tasksJson: tasksJsonOf([
                 { label: "a", command: "x" },
@@ -307,7 +307,7 @@ describe("Rerun / Restart / Terminate / Show Running", () => {
         h.dispose();
     });
 
-    it("Terminate: 'terminateAll' — все; аргумент — подходящая; пикер — «All Running Tasks» при нескольких", async () => {
+    it("Terminate: 'terminateAll' — all; an argument — the matching one; picker — 'All Running Tasks' with several", async () => {
         const h = build({
             tasksJson: tasksJsonOf([
                 { label: "a", command: "x" },
@@ -344,7 +344,7 @@ describe("Rerun / Restart / Terminate / Show Running", () => {
         h.dispose();
     });
 
-    it("Show Running Tasks — к сервису", async () => {
+    it("Show Running Tasks goes to the service", async () => {
         const h = build();
         h.answerPicks(undefined);
         await showTasksAction.run(h.accessor);
@@ -352,7 +352,7 @@ describe("Rerun / Restart / Terminate / Show Running", () => {
         h.dispose();
     });
 
-    it("заголовки палитры и меню Terminal — как у эталона", () => {
+    it("command palette and Terminal menu titles match upstream", () => {
         expect(TASKS_ACTIONS.map((a) => [a.id, a.title])).toStrictEqual([
             ["workbench.action.tasks.runTask", "Tasks: Run Task"],
             ["workbench.action.tasks.reRunTask", "Tasks: Rerun Last Task"],

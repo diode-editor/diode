@@ -29,7 +29,7 @@ describe("Workbench — Keyboard Doctor", () => {
 
         const done = commands.execute("diode.keyboardDoctor");
         expect(screen()).toContain("Keyboard Doctor");
-        expect(screen()).toContain("Шаг 1/");
+        expect(screen()).toContain("Step 1/");
         expect(screen()).not.toContain("super");
 
         // Changing the environment on the fly (Cmd was seen) redraws the header.
@@ -38,10 +38,10 @@ describe("Workbench — Keyboard Doctor", () => {
 
         // Ctrl+S is looked up in the live registry: save uses mod and is active in this environment.
         testApp.sendKey("Ctrl+S");
-        expect(screen()).toContain("бинд: workbench.action.files.save [when: !(macKeys >= 3)]");
+        expect(screen()).toContain("keybinding: workbench.action.files.save [when: !(macKeys >= 3)]");
 
         for (let i = 0; i < 30 && screen().includes("Keyboard Doctor"); i++) {
-            testApp.sendKey(screen().includes("теперь отпусти модификатор") ? "Enter" : "Escape");
+            testApp.sendKey(screen().includes("now release the modifier") ? "Enter" : "Escape");
         }
         await done;
         expect(harness.activeEditor().getText()).toMatch(/^Diode Keyboard Doctor\n/);

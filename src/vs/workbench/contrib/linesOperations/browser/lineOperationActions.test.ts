@@ -63,7 +63,7 @@ afterEach(() => {
 });
 
 describe("line operation actions", () => {
-    it("copyLinesDown дублирует строку и уводит каретку на нижнюю копию", async () => {
+    it("copyLinesDown duplicates the line and moves the cursor to the lower copy", async () => {
         const { editor, exec } = openEditor("alpha\nbeta");
         editor.viewState.selections = [createCursorSelection(0, 2)];
 
@@ -73,7 +73,7 @@ describe("line operation actions", () => {
         expect(editor.viewState.selections[0].active).toEqual({ line: 1, character: 2 });
     });
 
-    it("copyLinesUp дублирует строку, каретка остаётся на верхней", async () => {
+    it("copyLinesUp duplicates the line, the cursor stays on the upper one", async () => {
         const { editor, exec } = openEditor("alpha\nbeta");
         editor.viewState.selections = [createCursorSelection(0, 2)];
 
@@ -83,7 +83,7 @@ describe("line operation actions", () => {
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 2 });
     });
 
-    it("duplicateSelection дублирует выделенный текст и выделяет копию", async () => {
+    it("duplicateSelection duplicates the selected text and selects the copy", async () => {
         const { editor, exec } = openEditor("hello world");
         editor.viewState.selections = [createSelection(0, 0, 0, 5)];
 
@@ -94,7 +94,7 @@ describe("line operation actions", () => {
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 10 });
     });
 
-    it("moveLinesDown/Up перемещают строку туда и обратно", async () => {
+    it("moveLinesDown/Up move the line there and back", async () => {
         const { editor, exec } = openEditor("a\nb\nc");
         editor.viewState.selections = [createCursorSelection(0, 0)];
 
@@ -107,7 +107,7 @@ describe("line operation actions", () => {
         expect(editor.viewState.selections[0].active.line).toBe(0);
     });
 
-    it("deleteLines удаляет строку каретки", async () => {
+    it("deleteLines deletes the cursor line", async () => {
         const { editor, exec } = openEditor("alpha\nbeta\ngamma");
         editor.viewState.selections = [createCursorSelection(1, 2)];
 
@@ -117,7 +117,7 @@ describe("line operation actions", () => {
         expect(editor.viewState.selections[0].active).toEqual({ line: 1, character: 2 });
     });
 
-    it("операция — один элемент undo: откат возвращает и текст, и выделение", async () => {
+    it("an operation is one undo element: undo restores both text and selection", async () => {
         const { editor, exec } = openEditor("alpha\nbeta");
         editor.viewState.selections = [createCursorSelection(0, 2)];
 
@@ -129,7 +129,7 @@ describe("line operation actions", () => {
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 2 });
     });
 
-    it("undo после deleteLines возвращает удалённые строки одним шагом", async () => {
+    it("undo after deleteLines restores the deleted lines in one step", async () => {
         const { editor, exec } = openEditor("a\nb\nc\nd");
         editor.viewState.selections = [createSelection(1, 0, 2, 1)];
 
@@ -140,7 +140,7 @@ describe("line operation actions", () => {
         expect(editor.getText()).toBe("a\nb\nc\nd");
     });
 
-    it("без активного текстового редактора все операции — безопасные no-op", async () => {
+    it("without an active text editor all operations are safe no-ops", async () => {
         const ctrl = createTestActiveEditorService(null); // no open tabs
         const commands = new CommandRegistry();
         const accessor = new Container();
@@ -159,7 +159,7 @@ describe("line operation actions", () => {
         }
     });
 
-    it("метаданные запиннены: id/title/бинды/when — пользовательский контракт", () => {
+    it("metadata is pinned: id/title/keybindings/when are a user contract", () => {
         expect(copyLinesUpAction.id).toBe("editor.action.copyLinesUpAction");
         expect(copyLinesUpAction.title).toBe("Copy Line Up");
         expect(copyLinesUpAction.keybinding).toEqual(parseKeybinding("ctrl+shift+alt+up"));
@@ -194,7 +194,7 @@ describe("line operation actions", () => {
         expect(deleteLinesAction.when).toBe("textInputFocus && !editorReadonly");
     });
 
-    it("no-op у края не кладёт элемент в undo-стек", async () => {
+    it("a no-op at the edge does not push an element onto the undo stack", async () => {
         const { editor, exec } = openEditor("a\nb");
         editor.viewState.selections = [createCursorSelection(0, 0)];
 

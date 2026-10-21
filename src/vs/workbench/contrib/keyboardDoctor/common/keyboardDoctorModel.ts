@@ -100,48 +100,61 @@ export function doctorSteps(env: KeyboardDoctorEnv): DoctorStep[] {
     const tmux = inTmux(env);
     const steps: DoctorStep[] = [];
     // Under tmux Ctrl+S can be the prefix — it goes to the multiplexer.
-    if (!tmux) steps.push(step(env, "base.save", "mod+s", "работает ли базовый набор"));
+    if (!tmux) steps.push(step(env, "base.save", "mod+s", "whether the basic set works"));
     steps.push(
-        step(env, "base.palette", "mod+shift+p", "работает ли базовый набор"),
-        step(env, "base.quickOpen", "mod+p", "работает ли базовый набор"),
-        step(env, "base.find", "mod+f", "работает ли базовый набор"),
+        step(env, "base.palette", "mod+shift+p", "whether the basic set works"),
+        step(env, "base.quickOpen", "mod+p", "whether the basic set works"),
+        step(env, "base.find", "mod+f", "whether the basic set works"),
     );
     if (mac) {
         steps.push(
-            step(env, "option.word", "alt+left", "вставился символ вместо перехода — Option не настроен как Alt"),
-            step(env, "option.compose", "alt+a", "пришло å вместо Alt+A — тот же диагноз", { expectsBinding: false }),
+            step(
+                env,
+                "option.word",
+                "alt+left",
+                "a character is inserted instead of moving — Option is not set up as Alt",
+            ),
+            step(env, "option.compose", "alt+a", "å arrives instead of Alt+A — same diagnosis", {
+                expectsBinding: false,
+            }),
             {
                 id: "option.intl",
-                prompt: "Option+буква, которая на твоей раскладке даёт @ [ ] { } (нет такой — Escape)",
+                prompt: "Option+letter that types @ [ ] { } on your layout (if none — Escape)",
                 expected: undefined,
                 expectsBinding: false,
-                catches: "не съели ли мы ввод символа на интернациональной раскладке",
+                catches: "whether we swallow character input on an international layout",
             },
         );
     }
-    steps.push(step(env, "home", "home", "уехал ли курсор или проскроллился буфер терминала"));
-    if (mac) steps.push(step(env, "missionControl", "ctrl+left", "переключился Space вместо перехода по слову"));
+    steps.push(step(env, "home", "home", "whether the cursor moves or the terminal buffer scrolls"));
+    if (mac) steps.push(step(env, "missionControl", "ctrl+left", "macOS switches Space instead of moving by word"));
     steps.push(
-        step(env, "ctrlShift.e", "ctrl+shift+e", "доезжает ли Ctrl+Shift; не вылез ли caron (ˇ)"),
-        step(env, "ctrlShift.m", "ctrl+shift+m", "доезжает ли Ctrl+Shift; не вылез ли caron (ˇ)"),
-        step(env, "hold", "ctrl+tab", "есть ли keyup (kitty event types) — от него закрывается оверлей вкладок", {
-            prompt: `${formatForHuman(parseKeybinding("ctrl+tab"), env)} — подержи Ctrl и отпусти`,
-            keyUp: "Control",
-            expectsBinding: false,
-        }),
+        step(env, "ctrlShift.e", "ctrl+shift+e", "whether Ctrl+Shift arrives; whether a caron (ˇ) pops up"),
+        step(env, "ctrlShift.m", "ctrl+shift+m", "whether Ctrl+Shift arrives; whether a caron (ˇ) pops up"),
+        step(
+            env,
+            "hold",
+            "ctrl+tab",
+            "whether keyup arrives (kitty event types) — it closes the tab switcher overlay",
+            {
+                prompt: `${formatForHuman(parseKeybinding("ctrl+tab"), env)} — hold Ctrl, then release`,
+                keyUp: "Control",
+                expectsBinding: false,
+            },
+        ),
     );
     if (env.macKeysRung === "cmd") {
         steps.push(
-            step(env, "cmd.save", "meta+s", "доезжает ли super и что показывают байты"),
-            step(env, "cmd.quickOpen", "meta+p", "доезжает ли super и что показывают байты"),
-            step(env, "cmd.top", "meta+up", "доезжает ли super и что показывают байты"),
-            step(env, "cmd.deleteAllLeft", "meta+backspace", "доезжает ли super и что показывают байты"),
+            step(env, "cmd.save", "meta+s", "whether super arrives and what the bytes show"),
+            step(env, "cmd.quickOpen", "meta+p", "whether super arrives and what the bytes show"),
+            step(env, "cmd.top", "meta+up", "whether super arrives and what the bytes show"),
+            step(env, "cmd.deleteAllLeft", "meta+backspace", "whether super arrives and what the bytes show"),
         );
     }
     if (mac && tmux) {
         steps.push(
-            step(env, "cmd.tmux", "alt+s", "Cmd под tmux приезжает как Alt — Cmd-бинды должны быть выключены", {
-                prompt: "Cmd+S (внутри tmux)",
+            step(env, "cmd.tmux", "alt+s", "under tmux Cmd arrives as Alt — Cmd keybindings must be off", {
+                prompt: "Cmd+S (inside tmux)",
                 expectsBinding: false,
             }),
         );
@@ -194,15 +207,15 @@ export function describeVerdict(verdict: Verdict): string {
         case "ok":
             return "OK";
         case "lost":
-            return "не дошла вовсе";
+            return "did not arrive at all";
         case "missing-modifier":
-            return `дошла без модификатора: ${verdict.missing.join("+")}`;
+            return `arrived without modifier: ${verdict.missing.join("+")}`;
         case "different":
-            return "пришло другое";
+            return "something else arrived";
         case "not-matched":
-            return "дошла, но не сматчилась";
+            return "arrived, but did not match";
         case "no-keyup":
-            return "дошла, но keyup модификатора не пришёл";
+            return "arrived, but the modifier keyup never came";
     }
 }
 
@@ -238,11 +251,11 @@ export function describeEvent(received: ObservedKey): string {
 }
 
 export function describeBindings(bindings: readonly MatchedBinding[]): string {
-    if (bindings.length === 0) return "нет";
+    if (bindings.length === 0) return "none";
     return bindings
         .map(
             (b) =>
-                `${b.commandId}${b.active ? "" : " (не действует здесь)"}${b.when === undefined ? "" : ` [when: ${b.when}]`}`,
+                `${b.commandId}${b.active ? "" : " (inactive here)"}${b.when === undefined ? "" : ` [when: ${b.when}]`}`,
         )
         .join("; ");
 }
@@ -251,9 +264,9 @@ export function describeEnv(env: KeyboardDoctorEnv): string[] {
     const rung = env.macKeysRung === undefined ? "—" : `mac-${env.macKeysRung}`;
     const caps = env.capabilities.length > 0 ? env.capabilities.join(", ") : "—";
     return [
-        `os: ${env.os} (источник: ${env.osSource}) · tier: ${env.tier} · рунг: ${rung}`,
+        `os: ${env.os} (source: ${env.osSource}) · tier: ${env.tier} · rung: ${rung}`,
         `caps: ${caps} · modes: ${env.modes.join(", ")}`,
-        `терминал: ${env.terminalName ?? "не опознан"} · TERM=${env.term ?? "—"}`,
+        `terminal: ${env.terminalName ?? "unknown"} · TERM=${env.term ?? "—"}`,
     ];
 }
 
@@ -277,37 +290,37 @@ export function terminalFamily(name: string | undefined): TerminalFamily | undef
 
 const RECIPES: Record<TerminalFamily, readonly string[]> = {
     iterm2: [
-        "iTerm2: Settings → Profiles → Keys → Left/Right Command = Super (иначе Cmd уходит в меню).",
-        "iTerm2: включи «Apps can change how keys are reported» (Kitty keyboard protocol).",
-        "iTerm2: Left Option key = Esc+ (Option как Alt; правый оставь для символов).",
+        "iTerm2: Settings → Profiles → Keys → Left/Right Command = Super (otherwise Cmd goes to the menu).",
+        "iTerm2: enable «Apps can change how keys are reported» (Kitty keyboard protocol).",
+        "iTerm2: Left Option key = Esc+ (Option as Alt; keep the right one for symbols).",
     ],
     apple_terminal: [
-        "Terminal.app: Cmd до приложений не доходит никогда (нет Kitty-протокола) — рунг не выше mac-legacy.",
+        "Terminal.app: Cmd never reaches applications (no Kitty protocol) — rung is at most mac-legacy.",
         "Terminal.app: Settings → Profiles → Keyboard → «Use Option as Meta key».",
     ],
     kitty: [
-        "kitty.conf: macos_option_as_alt left (только левый — правый оставь для @ [ ] { }).",
-        "kitty.conf: сними свои Cmd-шорткаты, которые нужны редактору: map cmd+t/cmd+n/cmd+p … no_op (Cmd+C/V оставь).",
+        "kitty.conf: macos_option_as_alt left (left only — keep the right one for @ [ ] { }).",
+        "kitty.conf: remove your Cmd shortcuts that the editor needs: map cmd+t/cmd+n/cmd+p … no_op (keep Cmd+C/V).",
     ],
     ghostty: [
         "ghostty: macos-option-as-alt = left.",
-        "ghostty: keybind = alt+arrow_left=unbind и alt+arrow_right=unbind — иначе шлёт legacy ESC b/f.",
-        "ghostty: сними super+… шорткаты, нужные редактору (keybind = super+p=unbind …).",
+        "ghostty: keybind = alt+arrow_left=unbind and alt+arrow_right=unbind — otherwise it sends legacy ESC b/f.",
+        "ghostty: remove super+… shortcuts that the editor needs (keybind = super+p=unbind …).",
     ],
     wezterm: [
         "wezterm.lua: config.enable_kitty_keyboard = true.",
-        "wezterm.lua: config.send_composed_key_when_left_alt_is_pressed = false (левый Option как Alt).",
+        "wezterm.lua: config.send_composed_key_when_left_alt_is_pressed = false (left Option as Alt).",
     ],
 };
 
 const TMUX_RECIPE: readonly string[] = [
     "tmux (≥ 3.5): set -s extended-keys always; set -s extended-keys-format csi-u; set -as terminal-features ',*:extkeys'.",
-    "tmux: Cmd под tmux не доезжает никогда — у tmux три модификатора, Cmd сливается с Option.",
-    "tmux: чтобы Diode видел LC_DIODE_PLATFORM после переподключения — set -ag update-environment LC_DIODE_PLATFORM.",
+    "tmux: Cmd never arrives under tmux — tmux has three modifiers, so Cmd merges with Option.",
+    "tmux: for Diode to see LC_DIODE_PLATFORM after reattaching — set -ag update-environment LC_DIODE_PLATFORM.",
 ];
 
 const SSH_RECIPE =
-    "ssh: чтобы мак-раскладка включилась на хосте, выставь в эмуляторе LC_DIODE_PLATFORM=mac (LC_* ssh пересылает по умолчанию) или keyboard.platform = mac в настройках.";
+    "ssh: to enable the Mac keymap on the host, set LC_DIODE_PLATFORM=mac in the emulator (ssh forwards LC_* by default) or keyboard.platform = mac in settings.";
 
 export function emulatorRecipes(env: KeyboardDoctorEnv): string[] {
     const family = terminalFamily(env.terminalName);
@@ -321,25 +334,28 @@ export function formatReport(env: KeyboardDoctorEnv, results: readonly StepResul
     const lines = ["Diode Keyboard Doctor", ...describeEnv(env), ""];
     results.forEach((result, index) => {
         const { step: s, received } = result;
-        const expected = s.expected === undefined ? "печатный символ" : formatForHuman(s.expected, env);
-        lines.push(`[${String(index + 1)}] ${s.prompt} — ловим: ${s.catches}`);
-        lines.push(`    ожидали: ${expected}`);
+        const expected = s.expected === undefined ? "printable character" : formatForHuman(s.expected, env);
+        lines.push(`[${String(index + 1)}] ${s.prompt} — checks: ${s.catches}`);
+        lines.push(`    expected: ${expected}`);
         if (received === null) {
-            lines.push("    получили: ничего");
+            lines.push("    received: nothing");
         } else {
-            lines.push(`    байты: ${hexBytes(received.raw)}`);
-            lines.push(`    токены: ${describeTokens(received.raw).join(" | ")}`);
-            lines.push(`    событие: ${describeEvent(received)}`);
-            lines.push(`    бинд: ${describeBindings(result.bindings)}`);
-            if (s.keyUp !== undefined) lines.push(`    keyup ${s.keyUp}: ${result.keyUpSeen ? "да" : "нет"}`);
+            lines.push(`    bytes: ${hexBytes(received.raw)}`);
+            lines.push(`    tokens: ${describeTokens(received.raw).join(" | ")}`);
+            lines.push(`    event: ${describeEvent(received)}`);
+            lines.push(`    keybinding: ${describeBindings(result.bindings)}`);
+            if (s.keyUp !== undefined) lines.push(`    keyup ${s.keyUp}: ${result.keyUpSeen ? "yes" : "no"}`);
         }
-        lines.push(`    вердикт: ${describeVerdict(judge(result, env))}`);
+        lines.push(`    verdict: ${describeVerdict(judge(result, env))}`);
     });
     const recipes = emulatorRecipes(env);
     if (recipes.length > 0) {
-        lines.push("", "Рецепты (не проверено на живом маке — поправь, если у тебя иначе):");
+        lines.push("", "Recipes (not verified on a real Mac — correct them if yours differs):");
         for (const recipe of recipes) lines.push(`- ${recipe}`);
     }
-    lines.push("", "Про Cmd+Q / Cmd+W / Cmd+H и Ctrl+C / Ctrl+D / Ctrl+Z вне редактора — напиши словами, работают ли.");
+    lines.push(
+        "",
+        "Cmd+Q / Cmd+W / Cmd+H and Ctrl+C / Ctrl+D / Ctrl+Z outside the editor — describe in words whether they work.",
+    );
     return `${lines.join("\n")}\n`;
 }

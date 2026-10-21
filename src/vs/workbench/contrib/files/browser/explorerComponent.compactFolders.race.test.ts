@@ -25,7 +25,7 @@ import type { FileTreeDataProvider } from "./fileTreeDataProvider.ts";
  * waits on the FS while the parent is reread — the row is now held by a new object without a chain,
  * and `revealChain` spun on the head in microtasks, never yielding the event loop.
  */
-describe("ExplorerComponent — compactFolders: reveal после перечитывания родителя посреди раскрытия", () => {
+describe("ExplorerComponent — compactFolders: reveal after the parent is re-read mid-expansion", () => {
     let ws: ITempWorkspace;
     let service: ExplorerService;
     let component: ExplorerComponent;
@@ -48,7 +48,7 @@ describe("ExplorerComponent — compactFolders: reveal после перечит
         const findNode = provider.findNode.bind(provider);
         let calls = 0;
         vi.spyOn(provider, "findNode").mockImplementation((dirPath) => {
-            if (++calls > 1000) throw new Error("revealChain не продвигается по дереву");
+            if (++calls > 1000) throw new Error("revealChain makes no progress through the tree");
             return findNode(dirPath);
         });
     }
@@ -120,16 +120,16 @@ describe("ExplorerComponent — compactFolders: reveal после перечит
         });
     }
 
-    it("строка, перечитанная посреди раскрытия, всё равно показывает цепочку «pkg/a/b»", async () => {
+    it("a row re-read mid-expansion still shows the chain 'pkg/a/b'", async () => {
         await expandHeadWhileParentIsReread();
         const frame = rows();
         expect(frame[0]).toMatch(/pkg\/a\/b$/);
         expect(frame.join("\n")).toContain("D.java");
     });
 
-    it("reveal файла в цепочке завершается и выделяет файл", async () => {
+    it("revealing a file in a chain completes and selects the file", async () => {
         await expandHeadWhileParentIsReread();
-        if (!service.provider) throw new Error("провайдер не создан");
+        if (!service.provider) throw new Error("provider not created");
         failInsteadOfHanging(service.provider);
 
         const target = ws.path("pkg/a/b/C.java");

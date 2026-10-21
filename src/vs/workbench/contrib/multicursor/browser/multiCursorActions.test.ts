@@ -51,42 +51,42 @@ afterEach(() => {
     ws.dispose();
 });
 
-describe("MULTI_CURSOR_ACTIONS — достижимость по id", () => {
-    it("insertCursorBelow добавляет каретку", () => {
+describe("MULTI_CURSOR_ACTIONS — reachable by id", () => {
+    it("insertCursorBelow adds a cursor", () => {
         const { editor, commands } = openEditor("alpha\nbeta");
         commands.execute("editor.action.insertCursorBelow");
         expect(editor.viewState.selections).toHaveLength(2);
     });
 
-    it("insertCursorAbove добавляет каретку", () => {
+    it("insertCursorAbove adds a cursor", () => {
         const { editor, commands } = openEditor("alpha\nbeta");
         editor.viewState.selections = [createCursorSelection(1, 0)];
         commands.execute("editor.action.insertCursorAbove");
         expect(editor.viewState.selections).toHaveLength(2);
     });
 
-    it("removeSecondaryCursors схлопывает набор", () => {
+    it("removeSecondaryCursors collapses the set", () => {
         const { editor, commands } = openEditor("alpha\nbeta");
         commands.execute("editor.action.insertCursorBelow");
         commands.execute("removeSecondaryCursors");
         expect(editor.viewState.selections).toHaveLength(1);
     });
 
-    it("insertCursorAtEndOfEachLineSelected раскладывает каретки по концам строк", () => {
+    it("insertCursorAtEndOfEachLineSelected places cursors at line ends", () => {
         const { editor, commands } = openEditor("alpha\nbeta");
         editor.viewState.selections = [createSelection(0, 0, 1, 4)];
         commands.execute("editor.action.insertCursorAtEndOfEachLineSelected");
         expect(editor.viewState.selections.map((sel) => sel.active.line)).toEqual([0, 1]);
     });
 
-    it("addSelectionToNextFindMatch выделяет слово, затем следующее вхождение", () => {
+    it("addSelectionToNextFindMatch selects the word, then the next occurrence", () => {
         const { editor, commands } = openEditor("foo\nfoo");
         commands.execute("editor.action.addSelectionToNextFindMatch");
         commands.execute("editor.action.addSelectionToNextFindMatch");
         expect(editor.viewState.selections).toHaveLength(2);
     });
 
-    it("addSelectionToPreviousFindMatch добавляет вхождение выше", () => {
+    it("addSelectionToPreviousFindMatch adds the occurrence above", () => {
         const { editor, commands } = openEditor("foo\nfoo");
         editor.viewState.selections = [createCursorSelection(1, 0)];
         commands.execute("editor.action.addSelectionToPreviousFindMatch");
@@ -94,7 +94,7 @@ describe("MULTI_CURSOR_ACTIONS — достижимость по id", () => {
         expect(editor.viewState.selections.map((sel) => sel.active.line)).toEqual([0, 1]);
     });
 
-    it("moveSelectionToNextFindMatch переносит последнее выделение", () => {
+    it("moveSelectionToNextFindMatch moves the last selection", () => {
         const { editor, commands } = openEditor("foo\nfoo\nfoo");
         commands.execute("editor.action.addSelectionToNextFindMatch");
         commands.execute("editor.action.addSelectionToNextFindMatch");
@@ -102,7 +102,7 @@ describe("MULTI_CURSOR_ACTIONS — достижимость по id", () => {
         expect(editor.viewState.selections.map((sel) => sel.active.line)).toEqual([0, 2]);
     });
 
-    it("moveSelectionToPreviousFindMatch переносит его же назад", () => {
+    it("moveSelectionToPreviousFindMatch moves it back", () => {
         const { editor, commands } = openEditor("foo\nfoo\nfoo");
         commands.execute("editor.action.addSelectionToNextFindMatch");
         commands.execute("editor.action.addSelectionToNextFindMatch");
@@ -110,19 +110,19 @@ describe("MULTI_CURSOR_ACTIONS — достижимость по id", () => {
         expect(editor.viewState.selections.map((sel) => sel.active.line)).toEqual([0, 2]);
     });
 
-    it("selectHighlights выделяет все вхождения разом", () => {
+    it("selectHighlights selects all occurrences at once", () => {
         const { editor, commands } = openEditor("foo\nfoo\nfoo");
         commands.execute("editor.action.selectHighlights");
         expect(editor.viewState.selections).toHaveLength(3);
     });
 
-    it("changeAll — тот же мультикурсор по вхождениям под именем эталона", () => {
+    it("changeAll is the same multi-cursor over occurrences under the upstream name", () => {
         const { editor, commands } = openEditor("foo\nfoo\nfoo");
         commands.execute("editor.action.changeAll");
         expect(editor.viewState.selections).toHaveLength(3);
     });
 
-    it("без активного редактора все команды — тихий no-op", () => {
+    it("without an active editor all commands are a silent no-op", () => {
         const commands = new CommandRegistry();
         const keybindings = new KeybindingRegistry();
         const accessor = new Container();
@@ -134,7 +134,7 @@ describe("MULTI_CURSOR_ACTIONS — достижимость по id", () => {
     });
 });
 
-describe("removeSecondaryCursors — when-гейт", () => {
+describe("removeSecondaryCursors — when gate", () => {
     function resolveEscape(keybindings: KeybindingRegistry, hasMultiple: boolean) {
         const contextKeys = new ContextKeyService();
         contextKeys.set("textViewFocus", true);
@@ -142,7 +142,7 @@ describe("removeSecondaryCursors — when-гейт", () => {
         return keybindings.resolveKey(parseKeybinding("escape"), contextKeys);
     }
 
-    it("Escape перехватывается, только когда кареток больше одной", () => {
+    it("Escape is intercepted only with more than one cursor", () => {
         const { keybindings } = openEditor("alpha\nbeta");
         expect(resolveEscape(keybindings, true)).toEqual({
             kind: "command",
@@ -151,7 +151,7 @@ describe("removeSecondaryCursors — when-гейт", () => {
         });
     });
 
-    it("при одной каретке Escape свободен для find-виджета и попапа автодополнения", () => {
+    it("with one cursor Escape is free for the find widget and the suggest popup", () => {
         const { keybindings } = openEditor("alpha\nbeta");
         expect(resolveEscape(keybindings, false)).toEqual({ kind: "none" });
     });

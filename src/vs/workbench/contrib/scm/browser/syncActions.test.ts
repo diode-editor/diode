@@ -146,7 +146,7 @@ afterEach(() => {
 });
 
 describe("pull / fetch / sync", () => {
-    it("git.pull зовёт op pull; конфликт — понятный notice", async () => {
+    it("git.pull calls op pull; a conflict gives a clear notice", async () => {
         const h = makeHarness();
         await gitPullAction.run(h.accessor);
         expect(h.ops).toEqual([{ op: "pull", params: undefined }]);
@@ -156,7 +156,7 @@ describe("pull / fetch / sync", () => {
         expect(h.notices.some((n) => n.includes("Merge Changes"))).toBe(true);
     });
 
-    it("auth-ошибка — диалог с подсказкой про credential helper", async () => {
+    it("auth error: a dialog with a credential helper hint", async () => {
         const h = makeHarness();
         h.setOpResults([{ ok: false, kind: "auth", message: "terminal prompts disabled" }]);
         await gitFetchAllAction.run(h.accessor);
@@ -164,13 +164,13 @@ describe("pull / fetch / sync", () => {
         expect(h.dialogs).toEqual(["Git: Authentication Failed"]);
     });
 
-    it("git.sync шлёт op sync", async () => {
+    it("git.sync sends op sync", async () => {
         const h = makeHarness();
         await gitSyncAction.run(h.accessor);
         expect(h.ops).toEqual([{ op: "sync", params: undefined }]);
     });
 
-    it("git.pullFrom: пикер remote-ветки → pull remote+ref", async () => {
+    it("git.pullFrom: remote branch picker → pull remote+ref", async () => {
         const h = makeHarness();
         h.setQueryResult({
             refs: [
@@ -187,15 +187,15 @@ describe("pull / fetch / sync", () => {
     });
 });
 
-describe("push и его реакции", () => {
-    it("успешный push — одна операция, без диалогов", async () => {
+describe("push and its reactions", () => {
+    it("a successful push is one operation, no dialogs", async () => {
         const h = makeHarness();
         await gitPushAction.run(h.accessor);
         expect(h.ops).toEqual([{ op: "push", params: {} }]);
         expect(h.dialogs).toEqual([]);
     });
 
-    it("no-upstream → предложение Publish → push -u в единственный remote", async () => {
+    it("no-upstream → Publish offer → push -u to the single remote", async () => {
         const h = makeHarness();
         h.setOpResults([{ ok: false, kind: "no-upstream", message: "no upstream" }, { ok: true }]);
         await gitPushAction.run(h.accessor);
@@ -206,7 +206,7 @@ describe("push и его реакции", () => {
         ]);
     });
 
-    it("push-rejected → предложение Pull → op pull", async () => {
+    it("push-rejected → Pull offer → op pull", async () => {
         const h = makeHarness();
         h.setOpResults([{ ok: false, kind: "push-rejected", message: "[rejected]" }, { ok: true }]);
         await gitPushAction.run(h.accessor);
@@ -217,7 +217,7 @@ describe("push и его реакции", () => {
         ]);
     });
 
-    it("отказ в диалогах rejected/publish — второй операции нет", async () => {
+    it("declining the rejected/publish dialogs: no second operation", async () => {
         const h = makeHarness();
         h.confirmAnswer.value = false;
         h.setOpResults([{ ok: false, kind: "push-rejected", message: "[rejected]" }]);
@@ -225,7 +225,7 @@ describe("push и его реакции", () => {
         expect(h.ops).toEqual([{ op: "push", params: {} }]);
     });
 
-    it("git.pushForce: confirm → force-with-lease; отказ — no-op", async () => {
+    it("git.pushForce: confirm → force-with-lease; declining is a no-op", async () => {
         const h = makeHarness();
         await gitPushForceAction.run(h.accessor);
         expect(h.dialogs).toEqual(["Force Push"]);
@@ -237,7 +237,7 @@ describe("push и его реакции", () => {
         expect(h.ops).toEqual([]);
     });
 
-    it("git.pushTo: несколько remotes — пикер; detached — notice", async () => {
+    it("git.pushTo: several remotes give a picker; detached gives a notice", async () => {
         const h = makeHarness();
         h.setRepoState({ remotes: ["origin", "fork"] });
         h.setPick("fork");
@@ -252,7 +252,7 @@ describe("push и его реакции", () => {
         expect(h.notices.some((n) => n.includes("not on a branch"))).toBe(true);
     });
 
-    it("git.publish: без remotes — notice; отмена пикера — no-op", async () => {
+    it("git.publish: without remotes a notice; picker cancel is a no-op", async () => {
         const h = makeHarness();
         h.setRepoState({ remotes: [] });
         await gitPublishAction.run(h.accessor);
@@ -266,14 +266,14 @@ describe("push и его реакции", () => {
     });
 });
 
-describe("хелперы", () => {
-    it("pickRemote: один remote — без пикера", async () => {
+describe("helpers", () => {
+    it("pickRemote: a single remote needs no picker", async () => {
         const h = makeHarness();
         expect(await pickRemote(h.accessor, "T")).toBe("origin");
         expect(h.picks).toEqual([]);
     });
 
-    it("queryRefs фильтрует мусор и переживает null", async () => {
+    it("queryRefs filters garbage and survives null", async () => {
         const h = makeHarness();
         expect(await queryRefs(h.accessor)).toEqual([]);
 
@@ -281,7 +281,7 @@ describe("хелперы", () => {
         expect(await queryRefs(h.accessor)).toEqual([{ name: "main", kind: "head", sha: "a", subject: "s" }]);
     });
 
-    it("флаговые варианты шлют свои параметры", async () => {
+    it("flag variants send their parameters", async () => {
         const h = makeHarness();
         await gitPullRebaseAction.run(h.accessor);
         await gitSyncRebaseAction.run(h.accessor);
@@ -301,7 +301,7 @@ describe("хелперы", () => {
         ]);
     });
 
-    it("git.publish без ветки (detached) — notice; pullFrom с отменой пикера — no-op", async () => {
+    it("git.publish without a branch (detached) gives a notice; pullFrom with a picker cancel is a no-op", async () => {
         const h = makeHarness();
         h.setRepoState({ branch: null });
         await gitPublishAction.run(h.accessor);
@@ -314,7 +314,7 @@ describe("хелперы", () => {
         expect(h.ops).toEqual([]);
     });
 
-    it("generic git-error: pull — notice с сообщением, push — той же дорогой", async () => {
+    it("generic git error: pull gives a notice with the message, push goes the same way", async () => {
         const h = makeHarness();
         h.setOpResults([{ ok: false, kind: "git-error", message: "could not resolve host" }]);
         await gitPullAction.run(h.accessor);
@@ -325,7 +325,7 @@ describe("хелперы", () => {
         expect(h.notices.some((n) => n.includes("would be overwritten"))).toBe(true);
     });
 
-    it("runGitQuery без команды расширения и при реджекте канала — null", async () => {
+    it("runGitQuery without the extension command and on channel rejection gives null", async () => {
         const h = makeHarness();
         h.hasCommand.value = false;
         expect(await runGitQuery(h.accessor, "refs")).toBeNull();
@@ -335,7 +335,7 @@ describe("хелперы", () => {
         expect(await runGitQuery(h.accessor, "refs")).toBeNull();
     });
 
-    it("отмены пикеров и confirm-ов: pushTo/pushToForce/pullFrom/publish-поток", async () => {
+    it("picker and confirm cancels: pushTo/pushToForce/pullFrom/publish flow", async () => {
         const h = makeHarness();
         // pushTo: picker cancelled (several remotes).
         h.setRepoState({ remotes: ["origin", "fork"] });
@@ -367,7 +367,7 @@ describe("хелперы", () => {
         expect(h.notices.some((n) => n.includes("no remotes"))).toBe(true);
     });
 
-    it("push при неактивном расширении — тихий no-op", async () => {
+    it("push with an inactive extension is a silent no-op", async () => {
         const h = makeHarness();
         h.hasCommand.value = false;
         await gitPushAction.run(h.accessor);
@@ -375,7 +375,7 @@ describe("хелперы", () => {
         expect(h.dialogs).toEqual([]);
     });
 
-    it("номенклатура и when-гейты", () => {
+    it("nomenclature and when gates", () => {
         expect(SYNC_ACTIONS.map((a) => a.id)).toEqual([
             "git.pull",
             "git.pullRebase",

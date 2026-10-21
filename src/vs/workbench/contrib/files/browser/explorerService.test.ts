@@ -73,7 +73,7 @@ function fakeView(overrides?: Partial<IExplorerView>): IExplorerView & {
     return view;
 }
 
-describe("ExplorerService — операции до присвоения корня/дерева", () => {
+describe("ExplorerService — operations before the root/tree is assigned", () => {
     it("returns an empty selection and a null paste target without a view", () => {
         const service = createService();
 
@@ -111,7 +111,7 @@ describe("ExplorerService — операции до присвоения кор�
     });
 });
 
-describe("ExplorerService — view-шов (IExplorerView)", () => {
+describe("ExplorerService — view seam (IExplorerView)", () => {
     it("delegates focus/refresh/selection to the attached view", async () => {
         const service = createService();
         const view = fakeView({
@@ -173,7 +173,7 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
         ws.dispose();
     });
 
-    it("getSelectedFilePath: файл → путь, каталог и пустое дерево → null (Open to the Side)", () => {
+    it("getSelectedFilePath: file → path, directory and empty tree → null (Open to the Side)", () => {
         const service = createService();
 
         expect(service.getSelectedFilePath()).toBeNull();
@@ -191,7 +191,7 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
         service.dispose();
     });
 
-    it("revealPath с деревом, но без корня — false, дерево не трогается", async () => {
+    it("revealPath with a tree but no root — false, the tree is untouched", async () => {
         const service = createService();
         const view = fakeView();
         service.attachView(view);
@@ -225,7 +225,7 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
         ws.dispose();
     });
 
-    it("строка цепочки, которая отстала от провайдера, не останавливает спуск: reveal доходит до файла", async () => {
+    it("a chain row lagging behind the provider does not stop the descent: reveal reaches the file", async () => {
         // The provider knows the chain pkg → pkg/a → pkg/a/b, but the row from findNode doesn't (`path` is
         // the head), and `expand` of an expanded key won't update it: reveal looped on microtasks.
         const ws = createTempWorkspace({ prefix: "diode-explorer-svc-reveal-stale-" });
@@ -236,11 +236,11 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
         const head = path.join(ws.dir, "pkg");
         const chainDirs = [head, path.join(head, "a"), path.join(head, "a", "b")];
         const staleRow: FileTreeNode = { name: "pkg", path: head, isDirectory: true };
-        if (!service.provider) throw new Error("провайдер не создан");
+        if (!service.provider) throw new Error("provider not created");
         let calls = 0;
         vi.spyOn(service.provider, "findNode").mockImplementation((dirPath) => {
             // The regression is an endless loop, not an error: break it so the test fails instead of hanging.
-            if (++calls > 100) throw new Error("revealChain не продвигается по дереву");
+            if (++calls > 100) throw new Error("revealChain makes no progress through the tree");
             return chainDirs.includes(dirPath) ? staleRow : undefined;
         });
 
@@ -253,7 +253,7 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
         ws.dispose();
     });
 
-    it("раскрытая компактная строка уводит спуск сразу в свою последнюю папку, мимо промежуточных", async () => {
+    it("an expanded compact row sends the descent straight to its last folder, past the intermediate ones", async () => {
         // After expansion the "pkg/a/b" row points at the last folder, while the
         // provider no longer recognizes the intermediate ones (it may have forgotten
         // the chain, the row hasn't yet). Descending one segment at a time would hand
@@ -275,7 +275,7 @@ describe("ExplorerService — view-шов (IExplorerView)", () => {
             },
         });
         service.attachView(view);
-        if (!service.provider) throw new Error("провайдер не создан");
+        if (!service.provider) throw new Error("provider not created");
         vi.spyOn(service.provider, "findNode").mockImplementation((dirPath) => (dirPath === head ? row : undefined));
 
         const target = path.join(last, "C.java");
@@ -359,7 +359,7 @@ describe("ExplorerService — files.exclude", () => {
         };
     }
 
-    it("провайдер дерева скрывает входы по шаблонам настройки", async () => {
+    it("the tree provider hides entries by the setting's patterns", async () => {
         const ws = createTempWorkspace({ prefix: "diode-explorer-exclude-" });
         ws.writeFile("__pycache__/app.cpython-312.pyc", "");
         ws.writeFile("app.py", "");
@@ -374,7 +374,7 @@ describe("ExplorerService — files.exclude", () => {
         ws.dispose();
     });
 
-    it("правка настройки перечитывает дерево — без перезапуска", () => {
+    it("editing the setting re-reads the tree — no restart", () => {
         const config = emittingConfig({ "files.exclude": { "**/__pycache__": true } });
         const service = createService({ configurationService: config });
         const view = fakeView();
@@ -386,7 +386,7 @@ describe("ExplorerService — files.exclude", () => {
         service.dispose();
     });
 
-    it("чужая настройка дерево не трогает", () => {
+    it("an unrelated setting does not touch the tree", () => {
         const config = emittingConfig({});
         const service = createService({ configurationService: config });
         const view = fakeView();
@@ -398,7 +398,7 @@ describe("ExplorerService — files.exclude", () => {
         service.dispose();
     });
 
-    it("explorer.decorations.* пересобирает декорации, чужая настройка — нет", () => {
+    it("explorer.decorations.* rebuilds decorations, an unrelated setting does not", () => {
         const ws = createTempWorkspace({ prefix: "diode-explorer-deco-settings-" });
         const config = emittingConfig({ "explorer.decorations.colors": true, "explorer.decorations.badges": true });
         const service = createService({ configurationService: config });

@@ -17,7 +17,7 @@ import { SearchComponent } from "./searchComponent.ts";
 
 // The seams "what the component puts into the query" and "what rg finds" are tested separately; here — that they meet in
 // the frame. The scenario is a monorepo bug: `"common": true` in `files.exclude` hid `nci/common/**`.
-describe("SearchComponent + настоящий ripgrep", () => {
+describe("SearchComponent + real ripgrep", () => {
     let ws: ITempWorkspace;
     let service: TextSearchService;
 
@@ -81,21 +81,21 @@ describe("SearchComponent + настоящий ripgrep", () => {
         return screen(component);
     }
 
-    it("корневой `common` из files.exclude не прячет `nci/common/**`", async () => {
+    it("a root `common` from files.exclude does not hide `nci/common/**`", async () => {
         const component = make({ "files.exclude": { common: true } });
         const frame = await search(component, "TopicStreamConsumer", "in 1 file");
         expect(frame).toContain("TopicStreamConsumer.java");
         expect(frame).not.toContain("RootOnly.java");
     });
 
-    it("`common` в поле «files to exclude» прячет его на любой глубине", async () => {
+    it("`common` in the 'files to exclude' field hides it at any depth", async () => {
         const component = make({});
         component.toggleQueryDetails(true, false);
         setInput(component, 2, "common");
         await search(component, "TopicStreamConsumer", "No results");
     });
 
-    it("`common` в поле «files to include» находит его на любой глубине", async () => {
+    it("`common` in the 'files to include' field finds it at any depth", async () => {
         const component = make({});
         component.toggleQueryDetails(true, false);
         setInput(component, 1, "common");

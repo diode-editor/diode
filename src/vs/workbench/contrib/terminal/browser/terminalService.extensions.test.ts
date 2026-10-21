@@ -30,8 +30,8 @@ function buildHarness() {
     return { views, service, sessions, factoryCalls, events };
 }
 
-describe("TerminalService — инстансы с опциями", () => {
-    it("опции уходят фабрике поверх cwd сервиса; заголовок — имя; launch и pid на инстансе", () => {
+describe("TerminalService — instances with options", () => {
+    it("options go to the factory over the service cwd; title is the name; launch and pid on the instance", () => {
         const h = buildHarness();
         h.service.setWorkingDirectory("/ws");
         const instance = h.service.createInstance({
@@ -69,7 +69,7 @@ describe("TerminalService — инстансы с опциями", () => {
         h.service.dispose();
     });
 
-    it("без опций — как шелл человека: имя процесса, cwd процесса, фабрике только размер", () => {
+    it("without options — like the user's shell: process name, process cwd, only the size goes to the factory", () => {
         const h = buildHarness();
         const instance = h.service.createInstance({ name: "", cwd: "/explicit" });
         expect(h.factoryCalls).toStrictEqual([{ cols: 80, rows: 24, cwd: "/explicit" }]);
@@ -80,7 +80,7 @@ describe("TerminalService — инстансы с опциями", () => {
         h.service.dispose();
     });
 
-    it("sendText: переводы строк → Enter, shouldExecute добавляет Enter, если его нет; чужой id — мимо", () => {
+    it("sendText: newlines → Enter, shouldExecute adds Enter if missing; an unknown id is ignored", () => {
         const h = buildHarness();
         const { id } = h.service.createInstance();
         h.service.sendText(id, "echo a\necho b\r\n", true);
@@ -93,8 +93,8 @@ describe("TerminalService — инстансы с опциями", () => {
     });
 });
 
-describe("TerminalService — фоновые инстансы (hideFromUser)", () => {
-    it("фоновый: только create, в список вкладок не попадает, активный не меняется", () => {
+describe("TerminalService — background instances (hideFromUser)", () => {
+    it("background: only create, not in the tab list, the active one doesn't change", () => {
         const h = buildHarness();
         const visible = h.service.createInstance();
         h.events.length = 0;
@@ -110,7 +110,7 @@ describe("TerminalService — фоновые инстансы (hideFromUser)", (
         h.service.dispose();
     });
 
-    it("showInstance фонового: переезжает в конец списка, open, становится активным", () => {
+    it("showInstance of a background one: moves to the end of the list, open, becomes active", () => {
         const h = buildHarness();
         h.service.createInstance();
         const hidden = h.service.createInstance({ hideFromUser: true });
@@ -126,7 +126,7 @@ describe("TerminalService — фоновые инстансы (hideFromUser)", (
         h.service.dispose();
     });
 
-    it("выход фонового шелла: dispose с кодом и причиной process, без close и смены активного", () => {
+    it("background shell exit: dispose with code and reason process, without close or an active change", () => {
         const h = buildHarness();
         const visible = h.service.createInstance();
         const hidden = h.service.createInstance({ hideFromUser: true });
@@ -142,7 +142,7 @@ describe("TerminalService — фоновые инстансы (hideFromUser)", (
         h.service.dispose();
     });
 
-    it("фоновый не подменяет чужой адрес: showInstance видимого и запись по незнакомому id его не трогают", () => {
+    it("a background one doesn't hijack another address: showInstance of a visible one and a write to an unknown id leave it alone", () => {
         const h = buildHarness();
         const visible = h.service.createInstance();
         h.service.createInstance({ hideFromUser: true });
@@ -157,7 +157,7 @@ describe("TerminalService — фоновые инстансы (hideFromUser)", (
         h.service.dispose();
     });
 
-    it("dispose сервиса убивает и фоновые сессии", () => {
+    it("service dispose kills background sessions too", () => {
         const h = buildHarness();
         h.service.createInstance({ hideFromUser: true });
         h.service.dispose();
@@ -165,8 +165,8 @@ describe("TerminalService — фоновые инстансы (hideFromUser)", (
     });
 });
 
-describe("TerminalService — причины закрытия", () => {
-    it("выход шелла: код и причина process уже на инстансе в close и dispose", () => {
+describe("TerminalService — close reasons", () => {
+    it("shell exit: code and reason process are already on the instance in close and dispose", () => {
         const h = buildHarness();
         const instance = h.service.createInstance();
         const seen = vi.fn();
@@ -182,7 +182,7 @@ describe("TerminalService — причины закрытия", () => {
         h.service.dispose();
     });
 
-    it("closeInstance без причины — user (команды Kill); с причиной extension — она; фоновый тоже закрывается", () => {
+    it("closeInstance without a reason is user (Kill commands); with reason extension it's that; a background one closes too", () => {
         const h = buildHarness();
         const killed = h.service.createInstance();
         const disposed = h.service.createInstance();

@@ -16,7 +16,7 @@ function change(rel: string, group: ScmGroupId): IScmChange {
 }
 
 describe("groupChanges", () => {
-    it("раскладывает по группам в порядке VS Code, пустые группы опущены", () => {
+    it("splits into groups in VS Code order, empty groups are omitted", () => {
         const groups = groupChanges([change("b.ts", "worktree"), change("a.ts", "index"), change("c.ts", "untracked")]);
 
         expect(groups.map((g) => [g.id, g.label, g.changes.length])).toEqual([
@@ -25,7 +25,7 @@ describe("groupChanges", () => {
         ]);
     });
 
-    it("untracked показывается под заголовком Changes, сохраняя свою группу в записи", () => {
+    it("untracked is shown under the Changes header while keeping its own group in the entry", () => {
         const groups = groupChanges([change("new.ts", "untracked"), change("edited.ts", "worktree")]);
 
         expect(groups).toHaveLength(1);
@@ -34,7 +34,7 @@ describe("groupChanges", () => {
         expect(groups[0].changes.map((c) => c.group)).toEqual(["untracked", "worktree"]);
     });
 
-    it("merge — первой группой, порядок записей внутри группы сохраняется", () => {
+    it("merge comes first, entry order within a group is preserved", () => {
         const groups = groupChanges([
             change("z.ts", "worktree"),
             change("a.ts", "worktree"),
@@ -46,7 +46,7 @@ describe("groupChanges", () => {
         expect(groups[1].changes.map((c) => c.path)).toEqual(["z.ts", "a.ts"]);
     });
 
-    it("пустой снимок — пустой список групп", () => {
+    it("an empty snapshot gives an empty group list", () => {
         expect(groupChanges([])).toEqual([]);
     });
 });

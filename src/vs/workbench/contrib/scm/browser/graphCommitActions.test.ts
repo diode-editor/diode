@@ -126,28 +126,28 @@ function makeHarness(): IHarness {
     };
 }
 
-describe("команды коммита в графе", () => {
-    it("Checkout (Detached) чекаутит sha в detached-состоянии", async () => {
+describe("commit commands in the graph", () => {
+    it("Checkout (Detached) checks out the sha in detached state", async () => {
         const h = makeHarness();
         await graphCheckoutDetachedAction.run(h.accessor, SHA);
         expect(h.ops).toEqual([{ op: "checkout", params: { ref: SHA, detach: true } }]);
     });
 
-    it("Create Branch создаёт ветку от коммита", async () => {
+    it("Create Branch creates a branch from the commit", async () => {
         const h = makeHarness();
         h.setInputs(["feature/graph"]);
         await graphBranchAction.run(h.accessor, SHA);
         expect(h.ops).toEqual([{ op: "branchCreate", params: { name: "feature/graph", base: SHA } }]);
     });
 
-    it("Create Tag ставит тег на выбранный коммит", async () => {
+    it("Create Tag puts a tag on the selected commit", async () => {
         const h = makeHarness();
         h.setInputs(["v1.0"]);
         await graphCreateTagAction.run(h.accessor, SHA);
         expect(h.ops).toEqual([{ op: "tagCreate", params: { name: "v1.0", ref: SHA } }]);
     });
 
-    it("отменённый ввод имени операцию не запускает", async () => {
+    it("a cancelled name input does not run the operation", async () => {
         const h = makeHarness();
         h.setInputs([undefined]);
         await graphCreateTagAction.run(h.accessor, SHA);
@@ -155,7 +155,7 @@ describe("команды коммита в графе", () => {
         expect(h.ops).toEqual([]);
     });
 
-    it("Cherry Pick сообщает о конфликте понятным notice", async () => {
+    it("Cherry Pick reports a conflict with a clear notice", async () => {
         const h = makeHarness();
         h.setOpResults([{ ok: false, kind: "conflict", message: "raw stderr" }]);
         await graphCherryPickAction.run(h.accessor, SHA);
@@ -163,7 +163,7 @@ describe("команды коммита в графе", () => {
         expect(h.notices.join()).toContain("cherry pick resulted in conflicts");
     });
 
-    it("Cherry Pick: прочие ошибки показывает как есть, успех молчит", async () => {
+    it("Cherry Pick: other errors are shown as is, success is silent", async () => {
         const failing = makeHarness();
         failing.setOpResults([{ ok: false, kind: "git-error", message: "bad object" }]);
         await graphCherryPickAction.run(failing.accessor, SHA);
@@ -174,7 +174,7 @@ describe("команды коммита в графе", () => {
         expect(ok.notices).toEqual([]);
     });
 
-    it("Revert кладёт обратный коммит; конфликт и прочие ошибки — разные notice", async () => {
+    it("Revert adds an inverse commit; conflict and other errors give different notices", async () => {
         const h = makeHarness();
         await graphRevertAction.run(h.accessor, SHA);
         expect(h.ops).toEqual([{ op: "revert", params: { ref: SHA } }]);
@@ -191,7 +191,7 @@ describe("команды коммита в графе", () => {
         expect(failing.notices.join()).toContain("bad object");
     });
 
-    it("без git-расширения операции молчат: notice показывать не о чем", async () => {
+    it("without the git extension operations are silent: there is nothing to notify about", async () => {
         // `runGitOp` returns null when there is no bridge; the caller must not fail.
         const h = makeHarness();
         h.setOpResults([null]);
@@ -200,7 +200,7 @@ describe("команды коммита в графе", () => {
         expect(h.notices).toEqual([]);
     });
 
-    it("Reset предлагает три режима, mixed идёт без подтверждения", async () => {
+    it("Reset offers three modes, mixed runs without confirmation", async () => {
         const h = makeHarness();
         h.setPicks(["Mixed"]);
         await graphResetAction.run(h.accessor, SHA);
@@ -210,7 +210,7 @@ describe("команды коммита в графе", () => {
         expect(h.dialogs).toEqual([]);
     });
 
-    it("Reset soft тоже без подтверждения — правки не теряются", async () => {
+    it("Reset soft also runs without confirmation: no edits are lost", async () => {
         const h = makeHarness();
         h.setPicks(["Soft"]);
         await graphResetAction.run(h.accessor, SHA);
@@ -218,7 +218,7 @@ describe("команды коммита в графе", () => {
         expect(h.dialogs).toEqual([]);
     });
 
-    it("Reset hard требует подтверждения; отказ отменяет операцию", async () => {
+    it("Reset hard requires confirmation; declining cancels the operation", async () => {
         const h = makeHarness();
         h.setPicks(["Hard"]);
         h.confirmAnswer.value = false;
@@ -232,7 +232,7 @@ describe("команды коммита в графе", () => {
         expect(confirmed.ops).toEqual([{ op: "reset", params: { ref: SHA, mode: "hard" } }]);
     });
 
-    it("отменённый пикер режима ничего не делает", async () => {
+    it("a cancelled mode picker does nothing", async () => {
         const h = makeHarness();
         h.setPicks([undefined]);
         await graphResetAction.run(h.accessor, SHA);
@@ -240,7 +240,7 @@ describe("команды коммита в графе", () => {
         expect(h.dialogs).toEqual([]);
     });
 
-    it("нераспознанный ответ пикера до git не доезжает", async () => {
+    it("an unrecognized picker answer never reaches git", async () => {
         const h = makeHarness();
         h.setPicks(["Rebase"]);
         await graphResetAction.run(h.accessor, SHA);
@@ -248,14 +248,14 @@ describe("команды коммита в графе", () => {
         expect(h.dialogs).toEqual([]);
     });
 
-    it("Copy Commit ID и Copy Commit Message кладут значения в буфер", async () => {
+    it("Copy Commit ID and Copy Commit Message put the values on the clipboard", async () => {
         const h = makeHarness();
         await graphCopyCommitIdAction.run(h.accessor, SHA);
-        await graphCopyCommitMessageAction.run(h.accessor, "feat: панель");
-        expect(h.clipboard).toEqual([SHA, "feat: панель"]);
+        await graphCopyCommitMessageAction.run(h.accessor, "feat: panel");
+        expect(h.clipboard).toEqual([SHA, "feat: panel"]);
     });
 
-    it("без аргумента (вызов из палитры) команды выходят тихо", async () => {
+    it("without an argument (invoked from the palette) the commands exit silently", async () => {
         const h = makeHarness();
         for (const action of GRAPH_COMMIT_ACTIONS) {
             await action.run(h.accessor, undefined);
@@ -266,18 +266,18 @@ describe("команды коммита в графе", () => {
         expect(h.dialogs).toEqual([]);
     });
 
-    it("все команды графа сидят в меню коммита и передают ему аргумент", () => {
+    it("all graph commands sit in the commit menu and get its argument", () => {
         for (const action of GRAPH_COMMIT_ACTIONS) {
             expect(action.menus, action.id).toHaveLength(1);
             expect(action.menus![0].args, action.id).toBeDefined();
         }
     });
 
-    it("аргумент резолвится из контекста меню: sha всем, кроме Copy Commit Message", () => {
-        const context: ScmGraphMenuContext = { sha: SHA, shortSha: SHA.slice(0, 8), subject: "feat: панель" };
+    it("the argument is resolved from the menu context: sha for all except Copy Commit Message", () => {
+        const context: ScmGraphMenuContext = { sha: SHA, shortSha: SHA.slice(0, 8), subject: "feat: panel" };
         const argOf = (action: (typeof GRAPH_COMMIT_ACTIONS)[number]): unknown => action.menus![0].args!(context)[0];
 
-        expect(argOf(graphCopyCommitMessageAction)).toBe("feat: панель");
+        expect(argOf(graphCopyCommitMessageAction)).toBe("feat: panel");
         for (const action of GRAPH_COMMIT_ACTIONS) {
             if (action === graphCopyCommitMessageAction) continue;
             expect(argOf(action), action.id).toBe(SHA);

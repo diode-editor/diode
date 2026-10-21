@@ -50,7 +50,7 @@ describe("PreferencesActions", () => {
         expect(openKeybindingsFileAction.keybindings).toBeUndefined();
     });
 
-    it("команды воркспейса: id и заголовки эталона, в палитре только с открытой папкой", () => {
+    it("workspace commands: upstream ids and titles, in the palette only with an open folder", () => {
         expect(openWorkspaceSettingsAction.id).toBe("workbench.action.openWorkspaceSettings");
         expect(openWorkspaceSettingsAction.title).toBe("Preferences: Open Workspace Settings");
         expect(openWorkspaceSettingsFileAction.id).toBe("workbench.action.openWorkspaceSettingsFile");
@@ -59,7 +59,7 @@ describe("PreferencesActions", () => {
         expect(openWorkspaceSettingsFileAction.enablement).toBe("workbenchState != 'empty'");
     });
 
-    it("вызов в обход гейта без папки — тихий no-op, файлов и вкладок нет", async () => {
+    it("a call bypassing the gate without a folder is a silent no-op, no files or tabs", async () => {
         const container = new Container();
         container.bind(IWorkspaceContextServiceDIToken, () => ({
             getWorkspace: () => ({ id: null, folders: [] }),
@@ -91,7 +91,7 @@ describe("PreferencesActions", () => {
         expect(keybindings.getKeybindingForCommand("workbench.action.openGlobalKeybindingsFile")).toBeUndefined();
     });
 
-    it("вкладка Keyboard Shortcuts подписывает комбинации по ОС клавиатуры: на маке — глифами", () => {
+    it("the Keyboard Shortcuts tab labels combinations by keyboard OS: on mac — with glyphs", () => {
         function openedScreen(isMac: boolean): string {
             const keybindings = new KeybindingRegistry();
             const commands = new CommandRegistry();

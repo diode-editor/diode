@@ -124,7 +124,7 @@ afterEach(() => {
 });
 
 describe("editor.action.formatDocument", () => {
-    it("применяет правки провайдера одним батчем с меткой Format Document", async () => {
+    it("applies provider edits in one batch labeled Format Document", async () => {
         const setup = makeSetup(() => Promise.resolve([EDIT]), {
             selection: { anchor: { line: 0, character: 7 }, active: { line: 0, character: 7 } },
         });
@@ -150,7 +150,7 @@ describe("editor.action.formatDocument", () => {
         ]);
     });
 
-    it("без форматтера для документа показывает «нет форматтера» и ничего не меняет", async () => {
+    it("without a formatter for the document shows 'no formatter' and changes nothing", async () => {
         const noSource = makeSetup(undefined);
         await formatDocumentAction.run(noSource.accessor);
         expect(noSource.applied).toEqual([]);
@@ -168,14 +168,14 @@ describe("editor.action.formatDocument", () => {
         ]);
     });
 
-    it("пустой ответ — тихий no-op: ни правок, ни сообщения", async () => {
+    it("an empty response is a silent no-op: no edits, no message", async () => {
         const setup = makeSetup(() => Promise.resolve([]));
         await formatDocumentAction.run(setup.accessor);
         expect(setup.applied).toEqual([]);
         expect(setup.notices).toEqual([]);
     });
 
-    it("устаревший ответ отбрасывается: текст изменился или вкладка сменилась, пока ждали", async () => {
+    it("a stale response is dropped: the text or the tab changed while waiting", async () => {
         const changedText = makeSetup(() => Promise.resolve([EDIT]));
         const run = formatDocumentAction.run(changedText.accessor);
         changedText.setText("mutated while waiting");
@@ -189,7 +189,7 @@ describe("editor.action.formatDocument", () => {
         expect(swapped.applied).toEqual([]);
     });
 
-    it("правка за время запроса отменяет и работу форматтера", async () => {
+    it("an edit during the request also cancels the formatter's work", async () => {
         let seen: ICancellationToken | null = null;
         const setup = makeSetup((_request, token) => {
             seen = token;
@@ -203,7 +203,7 @@ describe("editor.action.formatDocument", () => {
         await run;
     });
 
-    it("каретка после формата клампится к новому тексту; без выделений — (0,0)", async () => {
+    it("the cursor after formatting is clamped to the new text; without selections it is (0,0)", async () => {
         const outOfRange = makeSetup(() => Promise.resolve([EDIT]), {
             selection: { anchor: { line: 99, character: 50 }, active: { line: 99, character: 50 } },
         });
@@ -216,7 +216,7 @@ describe("editor.action.formatDocument", () => {
         expect(noSelections.selections()).toEqual([createSelection(0, 0, 0, 0)]);
     });
 
-    it("без активного редактора — тихий выход, источник не спрашивается", async () => {
+    it("without an active editor: a silent exit, the source is not queried", async () => {
         const setup = makeSetup(() => Promise.resolve([EDIT]));
         setup.dropActiveEditor();
         await formatDocumentAction.run(setup.accessor);
@@ -226,8 +226,8 @@ describe("editor.action.formatDocument", () => {
     });
 });
 
-describe("метаданные формат-команд", () => {
-    it("палитра/бинды/when запиннены: это пользовательский контракт, а не украшение", () => {
+describe("format command metadata", () => {
+    it("palette/keybindings/when are pinned: a user contract, not decoration", () => {
         expect(formatDocumentAction.id).toBe("editor.action.formatDocument");
         expect(formatDocumentAction.title).toBe("Format Document");
         expect(formatDocumentAction.when).toBe("textInputFocus && !editorReadonly");
@@ -246,7 +246,7 @@ describe("метаданные формат-команд", () => {
 });
 
 describe("editor.action.formatSelection", () => {
-    it("непустое выделение (в т.ч. перевёрнутое) едет нормализованным range", async () => {
+    it("a non-empty selection (including a reversed one) is sent as a normalized range", async () => {
         const forward = makeSetup(() => Promise.resolve([]), {
             selection: { anchor: { line: 1, character: 1 }, active: { line: 2, character: 3 } },
         });
@@ -262,7 +262,7 @@ describe("editor.action.formatSelection", () => {
         expect(setup.applied).toEqual([{ edits: [EDIT], label: "Format Selection" }]);
     });
 
-    it("пустое выделение — строка каретки целиком", async () => {
+    it("an empty selection means the whole cursor line", async () => {
         const setup = makeSetup(() => Promise.resolve([]), {
             selection: { anchor: { line: 1, character: 4 }, active: { line: 1, character: 4 } },
         });
@@ -271,7 +271,7 @@ describe("editor.action.formatSelection", () => {
         expect(setup.requests[0].range).toEqual(createRange(1, 0, 1, 11));
     });
 
-    it("грани: вью без выделений — строка 0; каретка за пределами текста — пустой диапазон", async () => {
+    it("edges: a view without selections gives line 0; a cursor past the text gives an empty range", async () => {
         // Empty selection list (never happens in a live editor, defensive branch):
         // the default empty position (0,0) is line 0 ("const  a=1;", 11 chars).
         const noSelections = makeSetup(() => Promise.resolve([]), { noSelections: true });

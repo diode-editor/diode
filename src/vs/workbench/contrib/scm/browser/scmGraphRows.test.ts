@@ -37,7 +37,7 @@ function ref(name: string, kind: IScmCommitRef["kind"], current = false): IScmCo
 }
 
 describe("applyGraphLine", () => {
-    it("кладёт строку как есть — своей ширины, без добивки до общей колонки", () => {
+    it("puts the row as is, at its own width, without padding to a common column", () => {
         const label = new TextLabelElement("");
         applyGraphLine(label, line("\u25cb "));
         expect(label.getText()).toBe("\u25cb ");
@@ -47,7 +47,7 @@ describe("applyGraphLine", () => {
         expect(label.getText()).toBe("\u2502 \u25cb ");
     });
 
-    it("перерисовка не копит стили от прошлой строки", () => {
+    it("a redraw does not accumulate styles from the previous row", () => {
         const label = new TextLabelElement("");
         applyGraphLine(label, { text: "\u25cb\u2500\u256f", styles: ["a", "b", "c"] });
         applyGraphLine(label, { text: "\u25cb", styles: [undefined] });
@@ -56,11 +56,11 @@ describe("applyGraphLine", () => {
 });
 
 describe("buildRefsLabel", () => {
-    it("без ref'ов колонка пустая", () => {
+    it("without refs the column is empty", () => {
         expect(buildRefsLabel([], COMMIT_STYLE)).toEqual({ text: "", styles: [] });
     });
 
-    it("порядок как в vscode: текущая ветка → remote → локальные → теги", () => {
+    it("order as in vscode: current branch → remote → local → tags", () => {
         // Short names: a long set would collapse into "+N" and hide the order.
         const { text } = buildRefsLabel(
             [ref("v1", "tag"), ref("feat", "head"), ref("o/main", "remote"), ref("main", "head", true)],
@@ -69,7 +69,7 @@ describe("buildRefsLabel", () => {
         expect(text.trim()).toBe("main o/main feat v1");
     });
 
-    it("текущая ветка и remote красятся семантическими цветами, прочие — цветом линии", () => {
+    it("the current branch and remote get semantic colors, the rest the line color", () => {
         const { text, styles } = buildRefsLabel([ref("main", "head", true), ref("v1.0", "tag")], COMMIT_STYLE);
         expect(styles[0]).toBe(GRAPH_CURRENT_REF_STYLE);
         // The tag's first char comes after "main" and the separator space.
@@ -83,13 +83,13 @@ describe("buildRefsLabel", () => {
         expect(remote.styles).toHaveLength(remote.text.length);
     });
 
-    it("разделитель до темы коммита остаётся неокрашенным", () => {
+    it("the separator before the commit subject stays uncolored", () => {
         const { text, styles } = buildRefsLabel([ref("main", "head", true)], COMMIT_STYLE);
         expect(text.endsWith(" ")).toBe(true);
         expect(styles[styles.length - 1]).toBeUndefined();
     });
 
-    it("не влезающие бейджи схлопываются в +N", () => {
+    it("badges that do not fit collapse into +N", () => {
         const refs = ["release/2026-08-alpha", "release/2026-08-beta", "hotfix"].map((n) => ref(n, "head"));
         const { text, styles } = buildRefsLabel(refs, COMMIT_STYLE);
         expect(text.trim()).toBe("release/2026-08-alpha +2");
@@ -98,25 +98,21 @@ describe("buildRefsLabel", () => {
         expect(styles.slice(plusAt, plusAt + " +2".length)).toEqual(Array.from(" +2", () => "descriptionForeground"));
     });
 
-    it("первый бейдж показывается всегда, даже если он один длиннее потолка", () => {
+    it("the first badge is always shown, even if it alone exceeds the cap", () => {
         const long = "b".repeat(REFS_MAX_WIDTH * 2);
         expect(buildRefsLabel([ref(long, "head")], COMMIT_STYLE).text.trim()).toBe(long);
     });
 });
 
 describe("buildCommitRow", () => {
-    it("id строки — полный sha, тема коммита попадает в строку", () => {
-        const parts = buildCommitRow(
-            commit({ sha: "a".repeat(40), subject: "feat: панель" }),
-            line("○ "),
-            COMMIT_STYLE,
-        );
+    it("the row id is the full sha, the commit subject goes into the row", () => {
+        const parts = buildCommitRow(commit({ sha: "a".repeat(40), subject: "feat: panel" }), line("○ "), COMMIT_STYLE);
         expect(parts.root.id).toBe("a".repeat(40));
         expect(parts.graph.getText()).toBe("○ ");
-        expect(parts.subject.getText()).toBe("feat: панель");
+        expect(parts.subject.getText()).toBe("feat: panel");
     });
 
-    it("колонка бейджей появляется только при наличии ref'ов", () => {
+    it("the badge column appears only when there are refs", () => {
         const bare = buildCommitRow(commit({ sha: "a".repeat(40) }), line("○ "), COMMIT_STYLE);
         const tagged = buildCommitRow(
             commit({ sha: "b".repeat(40), refs: [ref("main", "head", true)] }),
@@ -128,7 +124,7 @@ describe("buildCommitRow", () => {
 });
 
 describe("buildLoadMoreRow", () => {
-    it("несёт свой id и выравнивается по колонке тем коммитов", () => {
+    it("carries its own id and aligns to the commit subject column", () => {
         const row = buildLoadMoreRow(4);
         expect(row.id).toBe(LOAD_MORE_ROW_ID);
         expect(row.getChildren()).toHaveLength(2);

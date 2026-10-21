@@ -26,15 +26,15 @@ function commit(fields: Partial<IScmCommit> & { sha: string; subject: string }):
     };
 }
 
-const A = commit({ sha: SHA_A, subject: "feat: панель", parents: [SHA_B] });
-const B = commit({ sha: SHA_B, subject: "fix: сэш" });
+const A = commit({ sha: SHA_A, subject: "feat: panel", parents: [SHA_B] });
+const B = commit({ sha: SHA_B, subject: "fix: cache" });
 
 function publish(commands: CommandRegistry, commits: unknown, hasMore = false): void {
     commands.execute(PUBLISH_LOG_COMMAND, { commits, hasMore });
 }
 
 describe("ScmGraphService", () => {
-    it("публикует страницу командой и отдаёт её снимком + событием", () => {
+    it("publishes the page via a command and exposes it as a snapshot + event", () => {
         const { service, commands } = setup();
         const changed = vi.fn();
         service.onDidChangeCommits(changed);
@@ -46,7 +46,7 @@ describe("ScmGraphService", () => {
         expect(service.hasMore).toBe(false);
     });
 
-    it("hasMore переезжает в снимок и участвует в подписи набора", () => {
+    it("hasMore moves into the snapshot and takes part in the set signature", () => {
         const { service, commands } = setup();
         const changed = vi.fn();
         service.onDidChangeCommits(changed);
@@ -59,7 +59,7 @@ describe("ScmGraphService", () => {
         expect(service.hasMore).toBe(false);
     });
 
-    it("повторная идентичная публикация гасится без события", () => {
+    it("an identical repeated publish is suppressed without an event", () => {
         const { service, commands } = setup();
         const changed = vi.fn();
         service.onDidChangeCommits(changed);
@@ -73,7 +73,7 @@ describe("ScmGraphService", () => {
         expect(service.commits).toEqual([]);
     });
 
-    it("смена родителей или бейджей при том же sha перерисовывает граф", () => {
+    it("a change of parents or badges for the same sha redraws the graph", () => {
         const { service, commands } = setup();
         const changed = vi.fn();
         service.onDidChangeCommits(changed);
@@ -93,7 +93,7 @@ describe("ScmGraphService", () => {
         expect(changed).toHaveBeenCalledTimes(3);
     });
 
-    it("отбрасывает мусорные записи, не-объект трактует как пустой набор", () => {
+    it("drops garbage entries, treats a non-object as an empty set", () => {
         const { service, commands } = setup();
 
         publish(commands, [A, null, 42, { sha: "" }, { sha: SHA_B, subject: 1 }]);
@@ -107,7 +107,7 @@ describe("ScmGraphService", () => {
         expect(service.hasMore).toBe(false);
     });
 
-    it("мусор в родителях и бейджах отсеивается по одному элементу", () => {
+    it("garbage in parents and badges is filtered element by element", () => {
         const { service, commands } = setup();
 
         publish(commands, [
@@ -123,7 +123,7 @@ describe("ScmGraphService", () => {
                     42,
                 ],
                 author: 7,
-                timestamp: "вчера",
+                timestamp: "yesterday",
             },
         ]);
 
@@ -139,14 +139,14 @@ describe("ScmGraphService", () => {
         ]);
     });
 
-    it("shortSha необязателен: без него ядро урезает sha", () => {
+    it("shortSha is optional: without it the core truncates the sha", () => {
         const { service, commands } = setup();
 
         publish(commands, [{ sha: SHA_A, subject: "s" }]);
         expect(service.commits[0].shortSha).toBe("aaaaaaaa");
     });
 
-    it("отписка события работает", () => {
+    it("event unsubscription works", () => {
         const { service, commands } = setup();
         const changed = vi.fn();
         const subscription = service.onDidChangeCommits(changed);
@@ -157,13 +157,13 @@ describe("ScmGraphService", () => {
     });
 });
 
-describe("ScmGraphService: канал «нужна ли история»", () => {
-    it("до слова ядра история не нужна — pull отвечает false", () => {
+describe("ScmGraphService: the 'is history needed' channel", () => {
+    it("until the core says so, history is not needed: pull answers false", () => {
         const { commands } = setup();
         expect(commands.execute(GRAPH_ENABLED_COMMAND)).toBe(false);
     });
 
-    it("pull отдаёт объявленное состояние", () => {
+    it("pull returns the declared state", () => {
         const { service, commands } = setup();
 
         service.setActive(true);
@@ -172,7 +172,7 @@ describe("ScmGraphService: канал «нужна ли история»", () =>
         expect(commands.execute(GRAPH_ENABLED_COMMAND)).toBe(false);
     });
 
-    it("операция уходит только на изменении состояния", () => {
+    it("the operation is sent only when the state changes", () => {
         const { service, commands } = setup();
         const ops: unknown[] = [];
         commands.register(GIT_OP_COMMAND, (payload) => {
@@ -189,7 +189,7 @@ describe("ScmGraphService: канал «нужна ли история»", () =>
         ]);
     });
 
-    it("расширения ещё нет — сигнал молча теряется, его подберёт pull", () => {
+    it("no extension yet: the signal is silently lost, pull will pick it up", () => {
         const { service, commands } = setup();
 
         expect(() => {

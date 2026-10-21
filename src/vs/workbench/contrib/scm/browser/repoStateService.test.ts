@@ -23,7 +23,7 @@ const STATE = {
 };
 
 describe("ScmRepoStateService", () => {
-    it("до публикации — «репозитория нет», все git-ключи false", () => {
+    it("before publish: 'no repository', all git keys false", () => {
         const { service, contextKeys } = setup();
         expect(service.hasRepository).toBe(false);
         expect(service.state.branch).toBeNull();
@@ -32,7 +32,7 @@ describe("ScmRepoStateService", () => {
         expect(contextKeys.get("gitHasUpstream")).toBe(false);
     });
 
-    it("публикация выставляет снимок, событие и when-ключи", () => {
+    it("publish sets the snapshot, the event and the when keys", () => {
         const { service, commands, contextKeys } = setup();
         const changed = vi.fn();
         service.onDidChangeState(changed);
@@ -49,7 +49,7 @@ describe("ScmRepoStateService", () => {
         expect(contextKeys.get("gitDetached")).toBe(false);
     });
 
-    it("merge/rebase/detached отражаются в своих ключах", () => {
+    it("merge/rebase/detached are reflected in their own keys", () => {
         const { commands, contextKeys } = setup();
         commands.execute(PUBLISH_REPO_STATE_COMMAND, {
             ...STATE,
@@ -69,7 +69,7 @@ describe("ScmRepoStateService", () => {
         expect(contextKeys.get("gitMerging")).toBe(false);
     });
 
-    it("идентичная повторная публикация гасится, мусор отбрасывается", () => {
+    it("an identical repeated publish is suppressed, garbage is dropped", () => {
         const { service, commands } = setup();
         const changed = vi.fn();
         service.onDidChangeState(changed);
@@ -95,7 +95,7 @@ describe("ScmRepoStateService", () => {
         expect(service.state).toEqual(STATE);
     });
 
-    it("подписку можно снять; dispose снимает команду", () => {
+    it("the subscription can be removed; dispose removes the command", () => {
         const { service, commands } = setup();
         const changed = vi.fn();
         const sub = service.onDidChangeState(changed);

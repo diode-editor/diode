@@ -208,8 +208,8 @@ function createService(
     };
 }
 
-describe("QuickOpenService — общий виджет", () => {
-    it("сбрасывает режим множественного выбора, оставшийся от чужого показа", () => {
+describe("QuickOpenService — shared widget", () => {
+    it("resets the multi-select mode left over from another show", () => {
         const { service, view } = createService();
         view.canPickMany = true;
         view.items = [{ label: "alpha" }];
@@ -223,7 +223,7 @@ describe("QuickOpenService — общий виджет", () => {
         expect(view.onAcceptMany).toBeNull();
     });
 
-    it("снимает маску, оставшуюся от чужого поля пароля", () => {
+    it("removes the mask left over from another password input", () => {
         const { service, view } = createService();
         view.password = true;
 
@@ -234,7 +234,7 @@ describe("QuickOpenService — общий виджет", () => {
         expect(view.inspectState().query).toBe("readme");
     });
 
-    it("после чужого множественного выбора Enter в палитре снова исполняет команду", async () => {
+    it("after another multi-select, Enter in the palette runs the command again", async () => {
         const { service, view, commands } = createService();
         let executed = 0;
         commands.register(
@@ -571,15 +571,15 @@ describe("QuickOpenService — files mode", () => {
     });
 });
 
-describe("QuickOpenService — префилл запроса (show с текстом, не только префиксом)", () => {
-    it("show('текст') префиллит строку ввода и сразу фильтрует файлы по нему", () => {
+describe("QuickOpenService — query prefill (show with text, not only a prefix)", () => {
+    it("show('text') prefills the input and immediately filters files by it", () => {
         const { service, view, fileSearch } = createService([makeSearchResult("src/app.ts")]);
         service.show("app");
         expect(view.getQuery()).toBe("app");
         expect(fileSearch.search).toHaveBeenCalledWith("app", 50);
     });
 
-    it("show('>текст') активирует режим команд и фильтрует по тексту", () => {
+    it("show('>text') activates command mode and filters by the text", () => {
         const { service, commands, view } = createService();
         commands.register("cmd.match", () => {}, "Open Settings");
         commands.register("cmd.other", () => {}, "Close Editor");
@@ -614,7 +614,7 @@ describe("QuickOpenService — commands mode", () => {
         expect(labels).toContain("Command B");
     });
 
-    it("недоступная сейчас команда в палитре не показывается", () => {
+    it("a command that is currently unavailable is not shown in the palette", () => {
         function labelsWhenBusy(busy: boolean): string[] {
             const { service, commands, contextKeys, view } = createService();
             commands.register("git.commit", () => {}, "Git: Commit", "!gitOperationInProgress");
@@ -650,7 +650,7 @@ describe("QuickOpenService — commands mode", () => {
         expect(item?.shortcut).toBe("Ctrl+S");
     });
 
-    it("на маке (isMac) шорткат подписан глифами: ⌘K ⌘S", () => {
+    it("on mac (isMac) the shortcut is labeled with glyphs: ⌘K ⌘S", () => {
         const { service, commands, keybindings, contextKeys, view } = createService();
         commands.register("cmd.save", () => {}, "File: Save");
         keybindings.register(parseChord("mod+k mod+s"), "cmd.save");
@@ -769,14 +769,14 @@ describe("QuickOpenService — open editors mode", () => {
         return { service, view, openEditors };
     }
 
-    it("префикс «edt » выбирает пикер открытых редакторов, а не файловый поиск", () => {
+    it("the `edt ` prefix selects the open editors picker, not file search", () => {
         const { service, view } = openThree();
         service.show(OpenEditorsQuickAccessProvider.PREFIX);
         expect(view.placeholder).toBe("Show All Opened Editors");
         expect(view.getQuery()).toBe("edt ");
     });
 
-    it("список — открытые вкладки в MRU-порядке, с путём и маркером правок", () => {
+    it("the list is the open tabs in MRU order, with path and dirty marker", () => {
         const { service, view } = openThree();
         service.show(OpenEditorsQuickAccessProvider.PREFIX);
         expect(view.items.map((item) => item.label)).toEqual(["main.ts", "readme.md", "core.ts"]);
@@ -784,7 +784,7 @@ describe("QuickOpenService — open editors mode", () => {
         expect(view.items.map((item) => item.hint)).toEqual([undefined, "●", undefined]);
     });
 
-    it("ввод фильтрует список тем же fuzzy, что и файловый пикер", () => {
+    it("typing filters the list with the same fuzzy as the file picker", () => {
         const { service, view } = openThree();
         service.show(OpenEditorsQuickAccessProvider.PREFIX);
         view.onQueryChange?.("edt cor");
@@ -792,7 +792,7 @@ describe("QuickOpenService — open editors mode", () => {
         expect(view.items[0].labelMatchRanges).toEqual([[0, 3]]);
     });
 
-    it("принятие строки переключает на её вкладку", async () => {
+    it("accepting a row switches to its tab", async () => {
         const { service, view, openEditors } = openThree();
         service.show(OpenEditorsQuickAccessProvider.PREFIX);
         view.onQueryChange?.("edt readme");
@@ -806,7 +806,7 @@ describe("QuickOpenService — open editors mode", () => {
         expect(openEditors.revealed.map((pane) => pane.label)).toEqual(["readme.md"]);
     });
 
-    it("стирание префикса возвращает файловый поиск", () => {
+    it("erasing the prefix returns to file search", () => {
         const results = [makeSearchResult("src/main.ts")];
         const { service, view } = createService(results, [makeOpenEditorPane("/root/only-open.ts")]);
         service.show(OpenEditorsQuickAccessProvider.PREFIX);

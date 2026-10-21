@@ -15,33 +15,33 @@ function withCommand(result: unknown) {
 }
 
 describe("CommandOriginalResourceProvider", () => {
-    it("разбирает ответ расширения в ресурс оригинала", async () => {
+    it("parses the extension's response into the original resource", async () => {
         const resource = await withCommand(GIT_URI).provideOriginalResource(FILE);
 
         expect(resource?.scheme).toBe("git");
         expect(resource?.toString()).toBe(GIT_URI);
     });
 
-    it("нет SCM-расширения — нет оригинала, и это не ошибка", async () => {
+    it("no SCM extension means no original, and that is not an error", async () => {
         const provider = new CommandOriginalResourceProvider(new CommandRegistry());
 
         await expect(provider.provideOriginalResource(FILE)).resolves.toBeNull();
     });
 
-    it("расширение ответило null (untracked/вне репо) — оригинала нет", async () => {
+    it("the extension answered null (untracked/outside a repo): no original", async () => {
         await expect(withCommand(null).provideOriginalResource(FILE)).resolves.toBeNull();
     });
 
-    it("пустая строка не превращается в ресурс", async () => {
+    it("an empty string does not become a resource", async () => {
         await expect(withCommand("").provideOriginalResource(FILE)).resolves.toBeNull();
     });
 
-    it("нестроковый ответ игнорируется", async () => {
+    it("a non-string response is ignored", async () => {
         await expect(withCommand(42).provideOriginalResource(FILE)).resolves.toBeNull();
         await expect(withCommand(undefined).provideOriginalResource(FILE)).resolves.toBeNull();
     });
 
-    it("ресурс передаётся расширению строкой", async () => {
+    it("the resource is passed to the extension as a string", async () => {
         const registry = new CommandRegistry();
         const seen: unknown[] = [];
         registry.register(ORIGINAL_RESOURCE_COMMAND, (arg) => {

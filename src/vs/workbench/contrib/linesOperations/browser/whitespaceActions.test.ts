@@ -60,7 +60,7 @@ describe("WhitespaceActions — trimTrailingWhitespace", () => {
         expect(editor.getText()).toBe("a b\nc\td\n  keep  x");
     });
 
-    it("не плодит каретки по числу строк: одна каретка остаётся одной и сдвигается к обрезанному концу", () => {
+    it("does not multiply cursors per line: a single cursor stays single and moves to the trimmed end", () => {
         // Regression: the batch put the cursor at the end of EACH edit — one cursor per
         // trimmed line. As in upstream, selections are only shifted.
         const { editor, exec } = openEditor("a  \nbb   \ncc\t\nd");
@@ -72,7 +72,7 @@ describe("WhitespaceActions — trimTrailingWhitespace", () => {
         expect(editor.viewState.selections.map((sel) => [sel.active.line, sel.active.character])).toEqual([[1, 2]]);
     });
 
-    it("каретка вне обрезаемого хвоста остаётся на месте", () => {
+    it("a cursor outside the trimmed tail stays in place", () => {
         const { editor, exec } = openEditor("a  \nbbb\ncc  ");
         editor.viewState.selections = [createCursorSelection(1, 1)];
 

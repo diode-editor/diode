@@ -24,18 +24,18 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
 const IDLE = { busy: false, needsReload: false };
 
 describe("describeExtensionButtons", () => {
-    it("не установлено — одна кнопка Install", () => {
+    it("not installed — a single Install button", () => {
         expect(describeExtensionButtons(entry(), IDLE)).toEqual([{ kind: "install", label: "Install", enabled: true }]);
     });
 
-    it("установлена последняя версия — только удаление", () => {
+    it("latest version installed — uninstall only", () => {
         const entryValue = entry({ installedVersion: "1.0.0", availability: "installed" });
         expect(describeExtensionButtons(entryValue, IDLE)).toEqual([
             { kind: "uninstall", label: "Uninstall", enabled: true },
         ]);
     });
 
-    it("есть версия новее — кнопка обновления называет её и стоит перед удалением", () => {
+    it("a newer version exists — the update button names it and comes before uninstall", () => {
         const entryValue = entry({ installedVersion: "0.9.0", availability: "outdated" });
         expect(describeExtensionButtons(entryValue, IDLE)).toEqual([
             { kind: "update", label: "Update to 1.0.0", enabled: true },
@@ -43,32 +43,32 @@ describe("describeExtensionButtons", () => {
         ]);
     });
 
-    it("несовместимое не ставится: кнопка видна, но выключена", () => {
+    it("an incompatible one cannot be installed: the button is visible but disabled", () => {
         expect(describeExtensionButtons(entry({ availability: "incompatible" }), IDLE)).toEqual([
             { kind: "install", label: "Install", enabled: false },
         ]);
     });
 
-    it("несовместимое установленное можно только удалить — обновлять некуда", () => {
+    it("an installed incompatible one can only be uninstalled — nothing to update to", () => {
         const entryValue = entry({ installedVersion: "0.9.0", availability: "incompatible" });
         expect(describeExtensionButtons(entryValue, IDLE)).toEqual([
             { kind: "uninstall", label: "Uninstall", enabled: true },
         ]);
     });
 
-    it("ни в реестре, ни на диске — действий нет: ставить нечего", () => {
+    it("neither in the registry nor on disk — no actions: nothing to install", () => {
         const entryValue = entry({ latestVersion: null, installedVersion: null });
         expect(describeExtensionButtons(entryValue, IDLE)).toEqual([]);
     });
 
-    it("установлено мимо магазина — только удаление", () => {
+    it("sideloaded — uninstall only", () => {
         const entryValue = entry({ latestVersion: null, installedVersion: "0.1.0", availability: "installed" });
         expect(describeExtensionButtons(entryValue, IDLE)).toEqual([
             { kind: "uninstall", label: "Uninstall", enabled: true },
         ]);
     });
 
-    it("после установки первой идёт перезагрузка окна — это следующий шаг пользователя", () => {
+    it("after install reload window comes first — it is the user's next step", () => {
         const entryValue = entry({ installedVersion: "1.0.0", availability: "installed" });
         expect(describeExtensionButtons(entryValue, { busy: false, needsReload: true })).toEqual([
             { kind: "reload", label: "Reload Window", enabled: true },
@@ -76,7 +76,7 @@ describe("describeExtensionButtons", () => {
         ]);
     });
 
-    it("во время операции гаснут все кнопки, включая перезагрузку", () => {
+    it("during an operation all buttons are disabled, including reload", () => {
         const entryValue = entry({ installedVersion: "0.9.0", availability: "outdated" });
         const buttons = describeExtensionButtons(entryValue, { busy: true, needsReload: true });
 

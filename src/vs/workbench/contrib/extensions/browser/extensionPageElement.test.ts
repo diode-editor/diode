@@ -93,7 +93,7 @@ function buttonElement(element: ExtensionPageElement, kind: ExtensionButtonKind)
 }
 
 describe("ExtensionPageElement", () => {
-    it("до первой раскладки строк нет — переносить нечем", () => {
+    it("before the first layout there are no lines — nothing to wrap", () => {
         const element = createPage();
         expect(lines(element)).toEqual([]);
         expect(headerLines(element)).toEqual([]);
@@ -105,7 +105,7 @@ describe("ExtensionPageElement", () => {
         expect(headerLines(element)).toEqual([]);
     });
 
-    it("повторная раскладка той же ширины не пересобирает строки — курсор на месте", () => {
+    it("a repeated layout at the same width does not rebuild lines — the cursor stays put", () => {
         const element = createPage();
         renderElement(element, 40, 16, { themeVars: true });
         const list = element.querySelector("#extensionPageLines") as ListViewElement;
@@ -117,7 +117,7 @@ describe("ExtensionPageElement", () => {
         expect(list.getCursorElement()?.id).toBe("extensionPageLine-2");
     });
 
-    it("шапка и кнопки попадают в кадр, readme — под ними", () => {
+    it("the header and buttons are in the frame, the readme below them", () => {
         const element = createPage({ buttons: [INSTALL, UNINSTALL] });
         const screen = renderElement(element, 40, 16, { themeVars: true });
         const frame = screen.screenToString().split("\n");
@@ -130,7 +130,7 @@ describe("ExtensionPageElement", () => {
         expect(readmeRow).toBeGreaterThan(buttonRow);
     });
 
-    it("readme отбит колонкой слева — как списки сайдбара", () => {
+    it("the readme is indented by a column on the left — like sidebar lists", () => {
         const element = createPage();
         const rows = renderElement(element, 40, 16, { themeVars: true }).screenToString().split("\n");
 
@@ -138,7 +138,7 @@ describe("ExtensionPageElement", () => {
         expect(readmeRow.startsWith(" alpha")).toBe(true);
     });
 
-    it("перенос учитывает отступ и колонку полосы прокрутки", () => {
+    it("wrapping accounts for the padding and the scrollbar column", () => {
         const element = createPage();
         renderElement(element, 20, 16, { themeVars: true });
 
@@ -149,7 +149,7 @@ describe("ExtensionPageElement", () => {
         expect(Math.max(...readme.map((l) => l.length))).toBeLessThanOrEqual(18);
     });
 
-    it("смена ширины пересобирает перенос", () => {
+    it("a width change rewraps", () => {
         const element = createPage();
         renderElement(element, 40, 16, { themeVars: true });
         const wide = lines(element);
@@ -158,7 +158,7 @@ describe("ExtensionPageElement", () => {
         expect(lines(element).length).toBeGreaterThan(wide.length);
     });
 
-    it("тон строки виден цветом: имя, справочная строка и ошибка красятся по-разному", () => {
+    it("the line tone shows as color: name, info line and error are colored differently", () => {
         const element = createPage({
             content: content({ meta: undefined, metaError: "boom", operationError: "install failed" }),
         });
@@ -175,7 +175,7 @@ describe("ExtensionPageElement", () => {
         expect(fg(errorRow)).not.toBe(fg(idRow));
     });
 
-    it("setContent перерисовывает страницу и ряд кнопок под новые данные", () => {
+    it("setContent redraws the page and the button row for new data", () => {
         const element = createPage();
         renderElement(element, 60, 20, { themeVars: true });
         expect(headerLines(element)).toContain("Not installed");
@@ -191,7 +191,7 @@ describe("ExtensionPageElement", () => {
         expect(frame).not.toContain("[ Install ]");
     });
 
-    it("Enter на кнопке зовёт обработчик с её видом", () => {
+    it("Enter on a button calls the handler with its kind", () => {
         const onActivate = vi.fn();
         const element = createPage({ buttons: [INSTALL, UNINSTALL], onActivate });
         mount(element);
@@ -201,7 +201,7 @@ describe("ExtensionPageElement", () => {
         expect(onActivate).toHaveBeenCalledExactlyOnceWith("uninstall");
     });
 
-    it("фокус страницы встаёт на первое доступное действие", () => {
+    it("page focus lands on the first enabled action", () => {
         const element = createPage({ buttons: [INSTALL, UNINSTALL] });
         mount(element);
 
@@ -210,7 +210,7 @@ describe("ExtensionPageElement", () => {
         expect(buttonElement(element, "install").isFocused).toBe(true);
     });
 
-    it("выключенная кнопка не берёт фокус — он уходит в текст", () => {
+    it("a disabled button takes no focus — it goes to the text", () => {
         const onActivate = vi.fn();
         const element = createPage({ buttons: [DISABLED_INSTALL], onActivate });
         mount(element);
@@ -225,7 +225,7 @@ describe("ExtensionPageElement", () => {
         expect(onActivate).not.toHaveBeenCalled();
     });
 
-    it("стрелки ходят по ряду кнопок и не уезжают за края", () => {
+    it("arrows move along the button row and do not go past the edges", () => {
         const element = createPage({ buttons: [INSTALL, UNINSTALL] });
         mount(element);
         element.focus();
@@ -247,7 +247,7 @@ describe("ExtensionPageElement", () => {
         expect(install.isFocused).toBe(true);
     });
 
-    it("стрелки вне ряда кнопок страницу не трогают — это навигация по readme", () => {
+    it("arrows outside the button row leave the page alone — that is readme navigation", () => {
         const element = createPage({ buttons: [INSTALL, UNINSTALL] });
         mount(element);
         const list = element.querySelector("#extensionPageLines") as ListViewElement;
@@ -259,7 +259,7 @@ describe("ExtensionPageElement", () => {
         expect(list.isFocused).toBe(true);
     });
 
-    it("Tab водит фокус между кнопками и текстом readme", () => {
+    it("Tab moves focus between the buttons and the readme text", () => {
         const element = createPage({ buttons: [INSTALL] });
         mount(element);
         element.focus();
@@ -274,7 +274,7 @@ describe("ExtensionPageElement", () => {
         expect(install.isFocused).toBe(true);
     });
 
-    it("буквы не листают страницу: строки заводятся без label", () => {
+    it("letters do not scroll the page: lines are created without a label", () => {
         const element = createPage();
         renderElement(element, 60, 20, { themeVars: true });
         const list = element.querySelector("#extensionPageLines") as ListViewElement;

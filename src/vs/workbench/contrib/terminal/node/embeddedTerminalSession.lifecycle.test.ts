@@ -30,12 +30,12 @@ function awaitExit(session: EmbeddedTerminalSession): Promise<number> {
     });
 }
 
-describe("EmbeddedTerminalSession — выбор шелла и аргументов", () => {
+describe("EmbeddedTerminalSession — shell and argument selection", () => {
     afterEach(() => {
         vi.unstubAllEnvs();
     });
 
-    it("берёт шелл из $SHELL, когда options.shell не задан", async () => {
+    it("takes the shell from $SHELL when options.shell isn't set", async () => {
         vi.stubEnv("SHELL", "/bin/bash");
         // Without args an interactive bash just waits for input — check it's alive,
         // which also covers the `options.args ?? []` default.
@@ -50,7 +50,7 @@ describe("EmbeddedTerminalSession — выбор шелла и аргумент�
         session.dispose();
     }, 20000);
 
-    it("откатывается на bash, когда нет ни options.shell, ни $SHELL", async () => {
+    it("falls back to bash when there is neither options.shell nor $SHELL", async () => {
         vi.stubEnv("SHELL", undefined);
         const session = new EmbeddedTerminalSession({ cols: 40, rows: 6, args: ["-c", "echo fallback-shell"] });
         await awaitExit(session);
@@ -63,7 +63,7 @@ describe("EmbeddedTerminalSession — выбор шелла и аргумент�
         session.dispose();
     }, 20000);
 
-    it("прокидывает options.env и cwd в шелл", async () => {
+    it("passes options.env and cwd to the shell", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 60,
             rows: 6,
@@ -85,7 +85,7 @@ describe("EmbeddedTerminalSession — выбор шелла и аргумент�
 });
 
 describe("EmbeddedTerminalSession — write", () => {
-    it("доставляет ввод в живой шелл", async () => {
+    it("delivers input to a live shell", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 40,
             rows: 6,
@@ -104,7 +104,7 @@ describe("EmbeddedTerminalSession — write", () => {
 });
 
 describe("EmbeddedTerminalSession — isExited", () => {
-    it("переключается с false на true после выхода шелла", async () => {
+    it("switches from false to true after the shell exits", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 40,
             rows: 6,
@@ -132,7 +132,7 @@ describe("EmbeddedTerminalSession — resize", () => {
         });
     }
 
-    it("рефлоует шелл при реальной смене размера", async () => {
+    it("reflows the shell on an actual size change", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 40,
             rows: 6,
@@ -158,7 +158,7 @@ describe("EmbeddedTerminalSession — resize", () => {
         [-1, 6],
         [40, -1],
     ])(
-        "игнорирует неположительный размер %ix%i",
+        "ignores a non-positive size %ix%i",
         async (cols, rows) => {
             const session = liveSession();
             await session.xtermReady;
@@ -170,7 +170,7 @@ describe("EmbeddedTerminalSession — resize", () => {
         20000,
     );
 
-    it("no-op при совпадении размера с текущим", async () => {
+    it("no-op when the size matches the current one", async () => {
         const session = liveSession();
         await session.xtermReady;
         expect(() => {
@@ -180,7 +180,7 @@ describe("EmbeddedTerminalSession — resize", () => {
         session.dispose();
     }, 20000);
 
-    it("ресайзит эмулятор, но не мёртвый PTY, после выхода шелла", async () => {
+    it("resizes the emulator but not the dead PTY after the shell exits", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 40,
             rows: 6,
@@ -197,8 +197,8 @@ describe("EmbeddedTerminalSession — resize", () => {
     }, 20000);
 });
 
-describe("EmbeddedTerminalSession — подписки", () => {
-    it("зовёт onUpdate на новые данные и перестаёт после dispose подписки", async () => {
+describe("EmbeddedTerminalSession — subscriptions", () => {
+    it("calls onUpdate on new data and stops after the subscription is disposed", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 40,
             rows: 6,
@@ -226,7 +226,7 @@ describe("EmbeddedTerminalSession — подписки", () => {
         session.dispose();
     }, 20000);
 
-    it("не зовёт onExit после dispose подписки", async () => {
+    it("doesn't call onExit after the subscription is disposed", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 40,
             rows: 6,
@@ -242,7 +242,7 @@ describe("EmbeddedTerminalSession — подписки", () => {
         expect(exits).toEqual([]);
     }, 20000);
 
-    it("раздаёт код выхода всем живым подписчикам", async () => {
+    it("delivers the exit code to all live subscribers", async () => {
         const session = new EmbeddedTerminalSession({
             cols: 40,
             rows: 6,

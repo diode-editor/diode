@@ -23,7 +23,7 @@ import { ThemeService } from "../../../services/themes/common/themeService.ts";
 
 import { DiagnosticsService } from "./diagnosticsService.ts";
 
-describe("DiagnosticsService — все группы", () => {
+describe("DiagnosticsService — all groups", () => {
     let ws: ITempWorkspace;
     let editors: EditorService;
     let markers: MarkerService;
@@ -60,7 +60,7 @@ describe("DiagnosticsService — все группы", () => {
         ws.dispose();
     });
 
-    it("маркер ресурса доходит до его вкладки в неактивной группе", () => {
+    it("resource marker reaches its tab in an inactive group", () => {
         editors.openFile(ws.path("a.ts"));
         editors.splitActiveGroup(); // group 2 — duplicate of a.ts
         editors.editorGroups.focusGroup({ index: 0 });
@@ -75,7 +75,7 @@ describe("DiagnosticsService — все группы", () => {
         expect(pushed).toHaveBeenCalledWith([{ range: createRange(1, 0, 1, 4), severity: MarkerSeverity.Error }]);
     });
 
-    it("маркер ресурса не попадает во вкладки других ресурсов", () => {
+    it("resource marker does not leak into tabs of other resources", () => {
         editors.openFile(ws.path("a.ts"));
         editors.openFile(ws.path("b.ts"));
         const other = editors.getActiveEditor()!;

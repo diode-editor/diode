@@ -30,7 +30,7 @@ function entry(overrides: Partial<IExtensionListEntry> = {}): IExtensionListEntr
 }
 
 describe("describeExtensionRow", () => {
-    it("не установлено — имя и версия реестра, без бейджа", () => {
+    it("not installed — name and registry version, no badge", () => {
         const row = describeExtensionRow(entry());
         expect(row.text).toBe("Acme Tools  1.0.0");
         expect(row.badge).toBeNull();
@@ -39,20 +39,20 @@ describe("describeExtensionRow", () => {
         expect(row.text.slice(row.version.start, row.version.start + row.version.length)).toBe("1.0.0");
     });
 
-    it("установлена последняя версия — бейдж Installed", () => {
+    it("latest version installed — Installed badge", () => {
         const row = describeExtensionRow(entry({ installedVersion: "1.0.0", availability: "installed" }));
         expect(row.text).toBe("Acme Tools  1.0.0  Installed");
         expect(row.badge?.kind).toBe("installed");
     });
 
-    it("есть обновление — бейдж называет версию, до которой обновит установка", () => {
+    it("an update exists — the badge names the version install will update to", () => {
         const row = describeExtensionRow(entry({ installedVersion: "0.9.0", availability: "outdated" }));
         expect(row.text).toBe("Acme Tools  0.9.0  Update 1.0.0");
         expect(row.badge).toEqual({ start: 19, length: 12, kind: "update" });
         expect(row.text.slice(row.badge!.start, row.badge!.start + row.badge!.length)).toBe("Update 1.0.0");
     });
 
-    it("ждём перезагрузки — бейдж говорит об этом раньше всего остального", () => {
+    it("reload pending — the badge says so before anything else", () => {
         // The installed version is visible, but it starts working only after
         // a window reload, which is the key fact about such an entry.
         const row = describeExtensionRow(
@@ -62,34 +62,34 @@ describe("describeExtensionRow", () => {
         expect(row.badge?.kind).toBe("reload");
     });
 
-    it("несовместимо — бейдж вместо обновления, даже если версия старая", () => {
+    it("incompatible — a badge instead of update, even if the version is old", () => {
         const row = describeExtensionRow(entry({ installedVersion: "0.9.0", availability: "incompatible" }));
         expect(row.text).toBe("Acme Tools  0.9.0  Incompatible");
         expect(row.badge?.kind).toBe("incompatible");
     });
 
-    it("установлено мимо магазина — бейдж Installed без обновления", () => {
+    it("sideloaded — Installed badge without update", () => {
         const row = describeExtensionRow(
             entry({ latestVersion: null, installedVersion: "0.1.0", availability: "installed" }),
         );
         expect(row.text).toBe("Acme Tools  0.1.0  Installed");
     });
 
-    it("версии нет вовсе — строка остаётся именем", () => {
+    it("no version at all — the row is just the name", () => {
         const row = describeExtensionRow(entry({ latestVersion: null, installedVersion: null }));
         expect(row.text).toBe("Acme Tools");
         expect(row.version.length).toBe(0);
     });
 });
 
-describe("строки списка", () => {
-    it("строка несёт свой id и текст раскладки", () => {
+describe("list rows", () => {
+    it("a row carries its id and layout text", () => {
         const row = buildExtensionRow("row-1", entry(), STYLES);
         expect(row.id).toBe("row-1");
         expect(row.getText()).toBe("Acme Tools  1.0.0");
     });
 
-    it("каждый вид бейджа красится своим цветом", () => {
+    it("each badge kind gets its own color", () => {
         const fgOfBadge = (e: IExtensionListEntry): number => {
             const row = buildExtensionRow("row-1", e, STYLES);
             const screen = renderElement(row, 40, 1, { themeVars: true });
@@ -103,7 +103,7 @@ describe("строки списка", () => {
         expect(new Set([installed, update, incompatible]).size).toBe(3);
     });
 
-    it("подсветка не растекается за спан версии", () => {
+    it("highlighting does not spill past the version span", () => {
         const entryWithBadge = entry({ availability: "incompatible" });
         const row = buildExtensionRow("row-1", entryWithBadge, STYLES);
         const screen = renderElement(row, 40, 1, { themeVars: true });
@@ -114,7 +114,7 @@ describe("строки списка", () => {
         expect(screen.getFgAt(new Point(afterVersion, 0))).toBe(screen.getFgAt(new Point(0, 0)));
     });
 
-    it("имя, версия и бейдж покрашены по-разному — это видно в кадре", () => {
+    it("name, version and badge are colored differently — visible in the frame", () => {
         const row = buildExtensionRow("row-1", entry({ availability: "incompatible" }), STYLES);
         const screen = renderElement(row, 40, 1, { themeVars: true });
         const layout = describeExtensionRow(entry({ availability: "incompatible" }));
@@ -128,7 +128,7 @@ describe("строки списка", () => {
         expect(badgeFg).not.toBe(versionFg);
     });
 
-    it("заголовок группы — приглушённая строка со своим id", () => {
+    it("a group header is a dimmed row with its own id", () => {
         const row = buildGroupRow("group-1", "MARKETPLACE", "descriptionForeground");
         expect(row.id).toBe("group-1");
         expect(row.getText()).toBe("MARKETPLACE");
@@ -142,8 +142,8 @@ describe("строки списка", () => {
     });
 });
 
-describe("пометка о частичной поддержке", () => {
-    it("стоит между версией и бейджем состояния", () => {
+describe("partial support marker", () => {
+    it("sits between the version and the state badge", () => {
         const row = describeExtensionRow(
             entry({ support: { level: "partial", limits: ["Chat needs a webview"] }, installedVersion: "1.0.0" }),
         );
@@ -155,19 +155,19 @@ describe("пометка о частичной поддержке", () => {
         expect(row.text.slice(row.badge!.start, row.badge!.start + row.badge!.length)).toBe("Installed");
     });
 
-    it("видна и у неустановленного расширения", () => {
+    it("is shown for a non-installed extension too", () => {
         const row = describeExtensionRow(entry({ support: { level: "partial", limits: ["Chat"] } }));
         expect(row.text).toBe("Acme Tools  1.0.0  Partial");
         expect(row.badge).toBeNull();
     });
 
-    it("полной поддержки и отсутствия пометки не видно", () => {
+    it("full support and a missing marker are not shown", () => {
         expect(describeExtensionRow(entry({ support: { level: "full" } })).partialSupport).toBeNull();
         expect(describeExtensionRow(entry()).partialSupport).toBeNull();
         expect(describeExtensionRow(entry({ support: { level: "full" } })).text).toBe("Acme Tools  1.0.0");
     });
 
-    it("красится не цветом остального текста строки", () => {
+    it("is colored differently from the rest of the row text", () => {
         const withPartial = entry({ support: { level: "partial", limits: ["Chat"] }, installedVersion: "1.0.0" });
         const row = buildExtensionRow("row-1", withPartial, STYLES);
         const screen = renderElement(row, 40, 1, { themeVars: true });

@@ -347,7 +347,7 @@ export class WorkspaceEditService {
         // so the check isn't considered "always true" and stays meaningful at runtime).
         const kind: string = edit.kind;
         if (kind !== "move" && kind !== "rename" && kind !== "copy" && kind !== "delete" && kind !== "create") {
-            throw new Error(`Неподдерживаемый вид правки: ${kind}`);
+            throw new Error(`Unsupported edit kind: ${kind}`);
         }
 
         if (edit.kind === "move") {
@@ -389,7 +389,7 @@ export class WorkspaceEditService {
             let created = await copyInto(files, from, toDir);
             resources.push(created);
             ops.push({
-                confirmBeforeUndo: `Удалить вставленный «${path.basename(created)}»?`,
+                confirmBeforeUndo: `Are you sure you want to delete '${path.basename(created)}'?`,
                 undo: () => removeIfExists(files, created),
                 redo: async () => {
                     created = await copyInto(files, from, toDir);
@@ -424,7 +424,7 @@ export class WorkspaceEditService {
             // Collision with an explicit name is an error (per-edit try/catch → no-op); the prompt's validation guards against it.
             const replaced = edit.overwrite === true ? await keepAside(files, to) : null;
             // Stryker disable next-line StringLiteral: the error text is swallowed by the caller's per-edit try/catch — only the refusal itself is observable
-            if (replaced === null && (await files.exists(Uri.file(to)))) throw new Error(`Уже существует: ${to}`);
+            if (replaced === null && (await files.exists(Uri.file(to)))) throw new Error(`File already exists: ${to}`);
 
             // The topmost of the created ancestors — so undo removes exactly what
             // create added (and doesn't touch directories that already existed).

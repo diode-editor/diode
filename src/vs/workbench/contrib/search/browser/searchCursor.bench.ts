@@ -48,18 +48,18 @@ const shortRows = makeSearchApp(200, 0);
 const longRows = makeSearchApp(200, 10_000);
 const manyRows = makeSearchApp(10_000, 0);
 
-describe("Search — курсор по дереву результатов (4 кадра за итерацию)", () => {
-    bench("200 строк, короткий after — базовая стоимость", () => {
+describe("Search — cursor over the result tree (4 frames per iteration)", () => {
+    bench("200 lines, short after: baseline cost", () => {
         shortRows.sendKey("ArrowDown");
         shortRows.sendKey("ArrowUp");
     });
 
-    bench("200 строк, after 10k символов — цена пересегментации видимых рядов", () => {
+    bench("200 lines, 10k-char after: cost of re-segmenting visible rows", () => {
         longRows.sendKey("ArrowDown");
         longRows.sendKey("ArrowUp");
     });
 
-    bench("10k строк, короткий after — цена O(N) стилевого обхода", () => {
+    bench("10k lines, short after: cost of the O(N) style pass", () => {
         manyRows.sendKey("ArrowDown");
         manyRows.sendKey("ArrowUp");
     });

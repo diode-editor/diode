@@ -118,8 +118,8 @@ function make(opts: { state?: IStateService; menuEntries?: FakeMenuEntry[] } = {
     return { component, commands, scm, menu, themeService, executed, views };
 }
 
-describe("ChangesComponent — регистрация", () => {
-    it("секция CHANGES переносится в другое место", () => {
+describe("ChangesComponent — registration", () => {
+    it("the CHANGES section can be moved elsewhere", () => {
         const { views } = make();
         expect(views.find((view) => view.id === SCM_CHANGES_VIEW_ID)).toMatchObject({ canMoveView: true });
     });
@@ -158,8 +158,8 @@ function pressEnter(h: IHarness): void {
     h.component.list.dispatchEvent(new TUIKeyboardEvent("keypress", { key: "Enter" }));
 }
 
-describe("ChangesComponent — flat-режим (по умолчанию)", () => {
-    it("рисует пути и букву статуса у правого края; кнопки Open File в покое нет", () => {
+describe("ChangesComponent — flat mode (default)", () => {
+    it("draws paths and the status letter at the right edge; no Open File button at rest", () => {
         const h = make();
         publish(h.commands, [
             { rel: "nested/b.txt" },
@@ -178,7 +178,7 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(h.component.list.rowCount).toBe(3);
     });
 
-    it("кнопка Open File появляется на строке под курсором сфокусированного списка", () => {
+    it("the Open File button appears on the cursor row of a focused list", () => {
         const h = make();
         publish(h.commands, [{ rel: "a.txt" }]);
         const app = TestApp.createWithContent(h.component.view, new Size(40, 12));
@@ -197,7 +197,7 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(screen()).not.toContain(OPEN_FILE_GLYPH);
     });
 
-    it("контролы коммита живут в теле view над списком", () => {
+    it("commit controls live in the view body above the list", () => {
         const h = make();
         TestApp.createWithContent(h.component.view, new Size(40, 12));
 
@@ -206,13 +206,13 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(h.component.listView.globalPosition.y).toBeGreaterThan(input!.globalPosition.y);
     });
 
-    it("пустой набор — пустой список (рамку SOURCE CONTROL рисует контейнер ViewsService)", () => {
+    it("an empty set gives an empty list (the SOURCE CONTROL frame is drawn by the ViewsService container)", () => {
         const h = make();
         expect(h.component.list.rowCount).toBe(0);
         expect(frame(h).trim()).toBe("");
     });
 
-    it("Enter по файлу исполняет scm.action.openChanges с uri строкой", () => {
+    it("Enter on a file runs scm.action.openChanges with the uri as a string", () => {
         const h = make();
         publish(h.commands, [{ rel: "a.txt" }]);
 
@@ -222,7 +222,7 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(h.executed).toEqual([["scm.action.openChanges", [uriOf("a.txt")]]]);
     });
 
-    it("Enter по заголовку группы сворачивает её вместе с файлами", () => {
+    it("Enter on a group header collapses it together with its files", () => {
         const h = make();
         publish(h.commands, [{ rel: "a.txt" }]);
 
@@ -235,7 +235,7 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(h.executed).toEqual([]);
     });
 
-    it("клик по глифу исполняет scm.action.openFile, не трогая курсор", () => {
+    it("clicking the glyph runs scm.action.openFile without moving the cursor", () => {
         const h = make();
         publish(h.commands, [{ rel: "a.txt" }, { rel: "b.txt" }]);
 
@@ -272,7 +272,7 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(list.getCursorElement()?.id).toBe("scmGroup-worktree");
     });
 
-    it("getCursorChange отдаёт изменение под курсором, а на пустом списке — null", () => {
+    it("getCursorChange returns the change under the cursor, and null on an empty list", () => {
         const h = make();
         expect(h.component.getCursorChange()).toBeNull();
 
@@ -284,7 +284,7 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(h.component.getCursorChange()).toBeNull();
     });
 
-    it("курсор переживает publish, если строка осталась в наборе", () => {
+    it("the cursor survives publish if its row stays in the set", () => {
         const h = make();
         publish(h.commands, [{ rel: "a.txt" }, { rel: "b.txt" }]);
         h.component.list.setCursorTo(rowIdOf("b.txt"));
@@ -294,7 +294,7 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(h.component.list.getCursorElement()?.id).toBe(rowIdOf("b.txt"));
     });
 
-    it("файл в двух группах (MM) — две строки с разными id", () => {
+    it("a file in two groups (MM) gives two rows with different ids", () => {
         const h = make();
         publish(h.commands, [
             { rel: "a.txt", group: "index", status: "M" },
@@ -312,7 +312,7 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(h.component.getCursorChange()?.group).toBe("worktree");
     });
 
-    it("коллизия санитизации id (a.b ↔ a-b ↔ a_b-двойник) разводится суффиксом", () => {
+    it("an id sanitization collision (a.b ↔ a-b ↔ a_b twin) is resolved with a suffix", () => {
         const h = make();
         publish(h.commands, [{ rel: "a.b" }, { rel: "a-b" }, { rel: "a?b" }]);
 
@@ -326,7 +326,7 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
         expect(h.component.getCursorChange()).not.toBeNull();
     });
 
-    it("конфликтный файл попадает в группу Merge Changes первой секцией", () => {
+    it("a conflicted file lands in the Merge Changes group as the first section", () => {
         const h = make();
         publish(h.commands, [
             { rel: "a.txt" },
@@ -345,8 +345,8 @@ describe("ChangesComponent — flat-режим (по умолчанию)", () =>
     });
 });
 
-describe("ChangesComponent — tree-режим", () => {
-    it("setViewMode('tree') группирует по папкам с компакцией и collapse работает", () => {
+describe("ChangesComponent — tree mode", () => {
+    it("setViewMode('tree') groups by folders with compaction, and collapse works", () => {
         const h = make();
         // src/vs is a compact chain; src/vs/sub next to files breaks compaction below
         // and exercises recursive collection of folder files (rowMeta of folder src/vs).
@@ -372,7 +372,7 @@ describe("ChangesComponent — tree-режим", () => {
         expect(h.component.getCursorChange()).toBeNull();
     });
 
-    it("открытие стора проекта восстанавливает режим без вызова извне", () => {
+    it("opening the project store restores the mode without an external call", () => {
         const { service, stored } = fakeState();
         const h = make({ state: service });
         expect(h.component.getViewMode()).toBe("flat");
@@ -383,7 +383,7 @@ describe("ChangesComponent — tree-режим", () => {
         expect(h.component.getViewMode()).toBe("tree");
     });
 
-    it("setViewMode пишет в стор, restoreViewMode читает без записи", () => {
+    it("setViewMode writes to the store, restoreViewMode reads without writing", () => {
         const { service, stored } = fakeState();
         const h = make({ state: service });
         expect(h.component.getViewMode()).toBe("flat");
@@ -402,7 +402,7 @@ describe("ChangesComponent — tree-режим", () => {
         expect(h.component.getViewMode()).toBe("flat");
     });
 
-    it("переключение режимов пересобирает строки из снимка без нового publish", () => {
+    it("switching modes rebuilds rows from the snapshot without a new publish", () => {
         const h = make();
         publish(h.commands, [{ rel: "nested/b.txt" }]);
 
@@ -413,8 +413,8 @@ describe("ChangesComponent — tree-режим", () => {
     });
 });
 
-describe("ChangesComponent — тема и контекстное меню", () => {
-    it("смена темы перекрашивает строки на месте, без пересборки (в т.ч. папки дерева)", () => {
+describe("ChangesComponent — theme and context menu", () => {
+    it("a theme change recolors rows in place without a rebuild (tree folders included)", () => {
         const h = make();
         publish(h.commands, [{ rel: "nested/a.txt" }]);
         h.component.setViewMode("tree"); // the folder row passes the restyle untouched
@@ -427,7 +427,7 @@ describe("ChangesComponent — тема и контекстное меню", () 
         expect(h.component.list.getChildren()[0]).toBe(rowBefore);
     });
 
-    it("активация и контекст-меню строки с неизвестным id — тихий no-op (защита моста rowMeta)", () => {
+    it("activation and context menu of a row with an unknown id are a silent no-op (rowMeta bridge guard)", () => {
         const h = make();
         publish(h.commands, [{ rel: "a.txt" }]);
 
@@ -437,7 +437,7 @@ describe("ChangesComponent — тема и контекстное меню", () 
         expect(h.executed).toEqual([]);
     });
 
-    it("getSelectedChanges: курсор на заголовке группы — пустой список целей", () => {
+    it("getSelectedChanges: cursor on a group header gives an empty target list", () => {
         const h = make();
         publish(h.commands, [{ rel: "a.txt" }]);
 
@@ -445,7 +445,7 @@ describe("ChangesComponent — тема и контекстное меню", () 
         expect(h.component.getSelectedChanges()).toEqual([]);
     });
 
-    it("правый клик по файлу открывает контекстное меню, Enter выбирает, Escape закрывает", () => {
+    it("right click on a file opens the context menu, Enter picks, Escape closes", () => {
         const onSelect = vi.fn();
         // The separator checks that it passes the onSelect wrapper unchanged.
         const h = make({ menuEntries: [{ label: "Open File", onSelect }, { type: "separator" }] });
@@ -493,7 +493,7 @@ describe("ChangesComponent — тема и контекстное меню", () 
         expect(app.backend.screenToString()).not.toContain("Open File");
     });
 
-    it("вне приложения правый клик — тихий no-op (нет overlay-слоя)", () => {
+    it("outside the app a right click is a silent no-op (no overlay layer)", () => {
         const h = make({ menuEntries: [{ label: "Open File" }] });
         publish(h.commands, [{ rel: "nested/b.txt" }]);
 
@@ -512,7 +512,7 @@ describe("ChangesComponent — тема и контекстное меню", () 
         ).not.toThrow();
     });
 
-    it("меню на папке несёт файлы поддерева, на заголовке группы — всю группу", () => {
+    it("the menu on a folder carries the subtree files, on a group header the whole group", () => {
         const h = make({ menuEntries: [{ label: "Stage Changes" }] });
         publish(h.commands, [{ rel: "nested/a.txt" }, { rel: "nested/b.txt" }, { rel: "root.txt" }]);
         h.component.setViewMode("tree");
@@ -550,7 +550,7 @@ describe("ChangesComponent — тема и контекстное меню", () 
         );
     });
 
-    it("правый клик по строке из multi-select несёт всё выделение, вне его — одну строку", () => {
+    it("right click on a row in a multi-select carries the whole selection, outside it a single row", () => {
         const h = make({ menuEntries: [{ label: "Stage Changes" }] });
         publish(h.commands, [{ rel: "a.txt" }, { rel: "b.txt" }, { rel: "c.txt" }]);
         const app = TestApp.createWithContent(h.component.view, new Size(40, 12));

@@ -19,16 +19,16 @@ function dump(nodes: readonly SearchTreeNode<Item>[], indent = ""): string[] {
 }
 
 describe("buildSearchTree", () => {
-    it("файлы в корне — листья без папок", () => {
+    it("files at the root are leaves without folders", () => {
         expect(dump(buildSearchTree([item("b.ts"), item("a.ts")]))).toEqual(["a.ts", "b.ts"]);
     });
 
-    it("строит иерархию: папки раньше файлов, внутри групп — по алфавиту", () => {
+    it("builds a hierarchy: folders before files, alphabetical within groups", () => {
         const nodes = buildSearchTree([item("z.ts"), item("src/y/b.ts"), item("src/x/a.ts"), item("src/root.ts")]);
         expect(dump(nodes)).toEqual(["src/", "  x/", "    a.ts", "  y/", "    b.ts", "  root.ts", "z.ts"]);
     });
 
-    it("одиночные цепочки папок компактируются в один узел с полным path", () => {
+    it("single-child folder chains are compacted into one node with the full path", () => {
         const nodes = buildSearchTree([item("deep/nested/dir/c.ts")]);
         expect(dump(nodes)).toEqual(["deep/nested/dir/", "  c.ts"]);
         const folder = nodes[0];
@@ -39,12 +39,12 @@ describe("buildSearchTree", () => {
         }
     });
 
-    it("файл внутри цепочки останавливает компакцию", () => {
+    it("a file inside the chain stops compaction", () => {
         const nodes = buildSearchTree([item("a/b/c/x.ts"), item("a/b/y.ts")]);
         expect(dump(nodes)).toEqual(["a/b/", "  c/", "    x.ts", "  y.ts"]);
     });
 
-    it("новый файл раскалывает компакт-цепочку при пересборке", () => {
+    it("a new file splits a compacted chain on rebuild", () => {
         const before = buildSearchTree([item("a/b/c/x.ts")]);
         expect(dump(before)).toEqual(["a/b/c/", "  x.ts"]);
 
@@ -52,13 +52,13 @@ describe("buildSearchTree", () => {
         expect(dump(after)).toEqual(["a/", "  b/c/", "    x.ts", "  d/", "    y.ts"]);
     });
 
-    it("path вложенных папок включает префикс родителя", () => {
+    it("the path of nested folders includes the parent prefix", () => {
         const nodes = buildSearchTree([item("a/b/x.ts"), item("a/c/y.ts")]);
         const a = nodes[0];
-        if (a.kind !== "folder") throw new Error("ожидалась папка");
+        if (a.kind !== "folder") throw new Error("expected a folder");
         expect(a.path).toBe("a");
         const [b, c] = a.children;
-        if (b.kind !== "folder" || c.kind !== "folder") throw new Error("ожидались папки");
+        if (b.kind !== "folder" || c.kind !== "folder") throw new Error("expected folders");
         expect(b.path).toBe("a/b");
         expect(c.path).toBe("a/c");
     });

@@ -35,7 +35,7 @@ const encode = (text: string) => new TextEncoder().encode(text);
 const right = Uri.from({ scheme: "_claude_fs_right", path: "/a.txt" });
 const revision = Uri.from({ scheme: "gitrev", path: "/a.txt" });
 
-describe("openDiffPair — сторона провайдера ФС", () => {
+describe("openDiffPair — file system provider side", () => {
     let ws: ITempWorkspace;
     let workbench: WorkbenchComponent;
     let editors: IEditorService;
@@ -80,11 +80,11 @@ describe("openDiffPair — сторона провайдера ФС", () => {
 
     function activeDiff(): DiffEditorPane2 {
         const pane = editors.editorGroups.activeGroup.activePane;
-        if (!(pane instanceof DiffEditorPane2)) throw new Error("активная вкладка — не дифф");
+        if (!(pane instanceof DiffEditorPane2)) throw new Error("active tab is not a diff");
         return pane;
     }
 
-    it("пишущий провайдер: сторона — общая модель под своим uri, правится и сохраняется в провайдера", async () => {
+    it("writable provider: the side is a shared model under its own uri, editable and saved to the provider", async () => {
         const result = await openDiffPair(container, { original: fileSide(), modified: side(right) });
         await settle(10);
         app.render();
@@ -107,7 +107,7 @@ describe("openDiffPair — сторона провайдера ФС", () => {
         expect(pane.isModified).toBe(false);
     });
 
-    it("закрытая вкладка отпускает модель провайдера", async () => {
+    it("closing the tab releases the provider model", async () => {
         await openDiffPair(container, { original: fileSide(), modified: side(right) });
         const models = container.get(TextFileModelServiceDIToken);
         expect(models.get(right)).not.toBeNull();
@@ -118,7 +118,7 @@ describe("openDiffPair — сторона провайдера ФС", () => {
         expect(models.get(right)).toBeNull();
     });
 
-    it("read-only провайдер: сторона — снимок, как прежде", async () => {
+    it("read-only provider: the side is a snapshot, as before", async () => {
         const result = await openDiffPair(container, { original: side(revision), modified: fileSide() });
         await settle(10);
         app.render();
@@ -129,7 +129,7 @@ describe("openDiffPair — сторона провайдера ФС", () => {
         expect(app.backend.screenToString()).toMatch(/2-\s+bravo-old/u);
     });
 
-    it("нечитаемый ресурс пишущего провайдера — по политике onMissing", async () => {
+    it("unreadable resource of a writable provider follows the onMissing policy", async () => {
         const missing = Uri.from({ scheme: right.scheme, path: "/missing.txt" });
 
         await expect(openDiffPair(container, { original: fileSide(), modified: side(missing) })).resolves.toBe(
@@ -142,7 +142,7 @@ describe("openDiffPair — сторона провайдера ФС", () => {
         expect(container.get(TextFileModelServiceDIToken).get(missing)).toBeNull();
     });
 
-    it("preferDisk у стороны провайдера — снимок, а не модель", async () => {
+    it("preferDisk on a provider side gives a snapshot, not a model", async () => {
         await openDiffPair(container, { original: fileSide(), modified: { ...side(right), preferDisk: true } });
 
         expect(activeDiff().snapshotSides()).toEqual(["modified"]);

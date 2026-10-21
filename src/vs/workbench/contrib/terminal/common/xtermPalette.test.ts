@@ -5,7 +5,7 @@ import { buildXtermPalette, xtermPaletteToRgb } from "./xtermPalette.ts";
 
 // Expectations follow the canonical xterm-256color table (the same one `infocmp`/xterm prints).
 
-describe("xtermPaletteToRgb — 16 системных цветов", () => {
+describe("xtermPaletteToRgb — 16 system colors", () => {
     it.each([
         [0, 0, 0, 0], // black
         [1, 128, 0, 0], // red
@@ -28,7 +28,7 @@ describe("xtermPaletteToRgb — 16 системных цветов", () => {
     });
 });
 
-describe("xtermPaletteToRgb — куб 6×6×6 (16..231)", () => {
+describe("xtermPaletteToRgb — 6×6×6 cube (16..231)", () => {
     const LEVELS = [0, 95, 135, 175, 215, 255];
 
     it.each([
@@ -44,7 +44,7 @@ describe("xtermPaletteToRgb — куб 6×6×6 (16..231)", () => {
         expect(xtermPaletteToRgb(index)).toBe(packRgb(r, g, b));
     });
 
-    it("покрывает все 216 индексов по формуле 16 + 36*r + 6*g + b", () => {
+    it("covers all 216 indices by the formula 16 + 36*r + 6*g + b", () => {
         for (let r = 0; r < 6; r++) {
             for (let g = 0; g < 6; g++) {
                 for (let b = 0; b < 6; b++) {
@@ -56,17 +56,17 @@ describe("xtermPaletteToRgb — куб 6×6×6 (16..231)", () => {
     });
 });
 
-describe("xtermPaletteToRgb — серая шкала (232..255)", () => {
+describe("xtermPaletteToRgb — grayscale ramp (232..255)", () => {
     it.each([
         [232, 8], // ramp start
         [233, 18],
         [243, 118], // middle
         [255, 238], // ramp end
-    ])("index %i → серый %i", (index, level) => {
+    ])("index %i → gray %i", (index, level) => {
         expect(xtermPaletteToRgb(index)).toBe(packRgb(level, level, level));
     });
 
-    it("покрывает все 24 оттенка по формуле 8 + i*10", () => {
+    it("covers all 24 shades by the formula 8 + i*10", () => {
         for (let i = 0; i < 24; i++) {
             const level = 8 + i * 10;
             expect(xtermPaletteToRgb(232 + i)).toBe(packRgb(level, level, level));
@@ -74,33 +74,33 @@ describe("xtermPaletteToRgb — серая шкала (232..255)", () => {
     });
 });
 
-describe("xtermPaletteToRgb — индексы вне диапазона", () => {
+describe("xtermPaletteToRgb — out-of-range indices", () => {
     // Outside 0..255 there is no table — fall back to index 7 (white) so text doesn't disappear.
     const WHITE = packRgb(192, 192, 192);
 
-    it.each([[-1], [256], [1000], [0.5], [Number.NaN]])("index %p → фоллбэк на белый index 7", (index) => {
+    it.each([[-1], [256], [1000], [0.5], [Number.NaN]])("index %p → falls back to white index 7", (index) => {
         expect(xtermPaletteToRgb(index)).toBe(WHITE);
     });
 });
 
-describe("buildXtermPalette — свои 16 системных цветов", () => {
+describe("buildXtermPalette — custom 16 system colors", () => {
     const ansi = Array.from({ length: 16 }, (_, i) => packRgb(i, 1, 2));
     const palette = buildXtermPalette(ansi);
 
-    it("0..15 берутся из переданных, по индексу", () => {
+    it("0..15 come from the given colors, by index", () => {
         for (let i = 0; i < 16; i++) expect(xtermPaletteToRgb(i, palette)).toBe(packRgb(i, 1, 2));
     });
 
-    it("куб и серые остаются каноническими", () => {
+    it("the cube and grays stay canonical", () => {
         expect(palette).toHaveLength(256);
         for (let i = 16; i < 256; i++) expect(xtermPaletteToRgb(i, palette)).toBe(xtermPaletteToRgb(i));
     });
 
-    it("переданный массив не трогает", () => {
+    it("doesn't mutate the given array", () => {
         expect(ansi).toHaveLength(16);
     });
 
-    it("вне диапазона — фоллбэк на свой index 7", () => {
+    it("out of range — falls back to the custom index 7", () => {
         expect(xtermPaletteToRgb(256, palette)).toBe(packRgb(7, 1, 2));
     });
 });

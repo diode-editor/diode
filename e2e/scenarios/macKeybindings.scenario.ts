@@ -57,7 +57,7 @@ export default defineScenario({
         await editor.waitForText((t) => !t.includes("File: Save"));
 
         await editor.sendKey("F6");
-        await editor.waitForText((t) => t.includes("Keyboard Doctor") && t.includes("рунг: mac-cmd"));
+        await editor.waitForText((t) => t.includes("Keyboard Doctor") && t.includes("rung: mac-cmd"));
         await editor.capture("keyboard-doctor");
     },
 });

@@ -136,7 +136,7 @@ afterEach(() => {
 });
 
 describe("resolveScmTargets", () => {
-    it("фильтрует явные uri по применимости групп и дедуплицирует MM-файл", () => {
+    it("filters explicit uris by group applicability and dedupes an MM file", () => {
         const h = makeHarness();
         h.setChanges([
             change("mm.ts", "index"),
@@ -154,7 +154,7 @@ describe("resolveScmTargets", () => {
         expect(targets.map((u) => u.toString())).toEqual([uriOf("mm.ts"), uriOf("plain.ts")]);
     });
 
-    it("без явных uri берёт выделение списка Changes", () => {
+    it("without explicit uris takes the Changes list selection", () => {
         const h = makeHarness();
         h.setChanges([change("a.ts", "worktree"), change("b.ts", "index")]);
         h.setSelection([change("a.ts", "worktree"), change("b.ts", "index")]);
@@ -166,7 +166,7 @@ describe("resolveScmTargets", () => {
         expect(unstageable.map((u) => u.toString())).toEqual([uriOf("b.ts")]);
     });
 
-    it("не-строковые элементы аргумента → фолбэк на выделение", () => {
+    it("non-string argument elements → fallback to the selection", () => {
         const h = makeHarness();
         h.setChanges([change("a.ts", "worktree")]);
         h.setSelection([change("a.ts", "worktree")]);
@@ -177,7 +177,7 @@ describe("resolveScmTargets", () => {
 });
 
 describe("runGitTransport", () => {
-    it("пустые цели и отсутствующая команда — тихие no-op", async () => {
+    it("empty targets and a missing command are silent no-ops", async () => {
         const h = makeHarness();
         await runGitTransport(h.accessor, STAGE_TRANSPORT_COMMAND, []);
         expect(h.executed).toEqual([]);
@@ -188,14 +188,14 @@ describe("runGitTransport", () => {
         expect(h.notices).toEqual([]);
     });
 
-    it("успех — без notice; цели уходят строками", async () => {
+    it("success: no notice; targets are sent as strings", async () => {
         const h = makeHarness();
         await runGitTransport(h.accessor, STAGE_TRANSPORT_COMMAND, [Uri.file("/repo/a.ts")]);
         expect(h.executed).toEqual([[STAGE_TRANSPORT_COMMAND, [[uriOf("a.ts")]]]]);
         expect(h.notices).toEqual([]);
     });
 
-    it("ошибка транспорта — транзиентный notice с сообщением git", async () => {
+    it("transport error: a transient notice with the git message", async () => {
         const h = makeHarness();
         h.setTransport({ ok: false, message: "fatal: pathspec 'x' did not match" });
         await runGitTransport(h.accessor, UNSTAGE_TRANSPORT_COMMAND, [Uri.file("/repo/a.ts")]);
@@ -203,7 +203,7 @@ describe("runGitTransport", () => {
         vi.runAllTimers(); // disposing the notice timer must not throw
     });
 
-    it("реджект канала и пустое сообщение — generic notice", async () => {
+    it("channel rejection and an empty message give a generic notice", async () => {
         const h = makeHarness();
         h.setTransport(() => Promise.reject(new Error("channel closed")));
         await runGitTransport(h.accessor, STAGE_TRANSPORT_COMMAND, [Uri.file("/repo/a.ts")]);
@@ -215,21 +215,21 @@ describe("runGitTransport", () => {
 });
 
 describe("git.stage / git.unstage", () => {
-    it("git.stage шлёт применимые цели в diode.git.stage", async () => {
+    it("git.stage sends the applicable targets to diode.git.stage", async () => {
         const h = makeHarness();
         h.setChanges([change("a.ts", "worktree"), change("s.ts", "index")]);
         await gitStageAction.run(h.accessor, [uriOf("a.ts"), uriOf("s.ts")]);
         expect(h.executed).toEqual([[STAGE_TRANSPORT_COMMAND, [[uriOf("a.ts")]]]]);
     });
 
-    it("git.unstage шлёт только staged-цели в diode.git.unstage", async () => {
+    it("git.unstage sends only staged targets to diode.git.unstage", async () => {
         const h = makeHarness();
         h.setChanges([change("a.ts", "worktree"), change("s.ts", "index")]);
         await gitUnstageAction.run(h.accessor, [uriOf("a.ts"), uriOf("s.ts")]);
         expect(h.executed).toEqual([[UNSTAGE_TRANSPORT_COMMAND, [[uriOf("s.ts")]]]]);
     });
 
-    it("видимость пунктов меню — по группам целей контекста", () => {
+    it("menu item visibility follows the groups of the context targets", () => {
         const worktreeCtx = { kind: "resource", uris: [], groups: ["worktree"] };
         const indexCtx = { kind: "resource", uris: [], groups: ["index"] };
         const mixedCtx = { kind: "resource", uris: [], groups: ["index", "worktree"] };
@@ -251,7 +251,7 @@ describe("git.stage / git.unstage", () => {
 describe("buildDiscardConfirm", () => {
     const u = (rel: string) => Uri.file(`/repo/${rel}`);
 
-    it("только tracked: обычный confirm, имя файла или количество", () => {
+    it("tracked only: a regular confirm, with the file name or the count", () => {
         expect(buildDiscardConfirm([u("a.ts")], [])).toEqual({
             title: "Discard Changes",
             message: "Are you sure you want to discard changes in a.ts?",
@@ -262,7 +262,7 @@ describe("buildDiscardConfirm", () => {
         );
     });
 
-    it("только untracked: warning про необратимое удаление", () => {
+    it("untracked only: a warning about irreversible deletion", () => {
         const single = buildDiscardConfirm([], [u("new.ts")]);
         expect(single.title).toBe("Delete File");
         expect(single.warning).toBe(true);
@@ -278,7 +278,7 @@ describe("buildDiscardConfirm", () => {
         expect(many.message[0]).toBe("Are you sure you want to DELETE 2 files?");
     });
 
-    it("смешанное: warning с обоими количествами", () => {
+    it("mixed: a warning with both counts", () => {
         const mixed = buildDiscardConfirm([u("a.ts")], [u("new.ts")]);
         expect(mixed.warning).toBe(true);
         expect(mixed.message[0]).toBe(
@@ -292,7 +292,7 @@ describe("buildDiscardConfirm", () => {
 });
 
 describe("git.clean / git.cleanAll", () => {
-    it("confirm → транспорт с tracked+untracked целями", async () => {
+    it("confirm → transport with tracked+untracked targets", async () => {
         const h = makeHarness();
         h.setChanges([change("a.ts", "worktree"), change("new.ts", "untracked"), change("s.ts", "index")]);
         await gitCleanAction.run(h.accessor, [uriOf("a.ts"), uriOf("new.ts"), uriOf("s.ts")]);
@@ -301,7 +301,7 @@ describe("git.clean / git.cleanAll", () => {
         expect(h.executed).toEqual([[CLEAN_TRANSPORT_COMMAND, [[uriOf("a.ts"), uriOf("new.ts")]]]]);
     });
 
-    it("cancel — транспорт не зовётся", async () => {
+    it("cancel: the transport is not called", async () => {
         const h = makeHarness();
         h.setChanges([change("a.ts", "worktree")]);
         h.confirmAnswer.value = false;
@@ -311,7 +311,7 @@ describe("git.clean / git.cleanAll", () => {
         expect(h.executed).toEqual([]);
     });
 
-    it("без применимых целей — no-op без диалога", async () => {
+    it("without applicable targets: no-op without a dialog", async () => {
         const h = makeHarness();
         h.setChanges([change("s.ts", "index")]);
         await gitCleanAction.run(h.accessor, [uriOf("s.ts")]);
@@ -319,14 +319,14 @@ describe("git.clean / git.cleanAll", () => {
         expect(h.executed).toEqual([]);
     });
 
-    it("git.cleanAll берёт весь снимок worktree+untracked", async () => {
+    it("git.cleanAll takes the whole worktree+untracked snapshot", async () => {
         const h = makeHarness();
         h.setChanges([change("a.ts", "worktree"), change("new.ts", "untracked"), change("s.ts", "index")]);
         await gitCleanAllAction.run(h.accessor);
         expect(h.executed).toEqual([[CLEAN_TRANSPORT_COMMAND, [[uriOf("a.ts"), uriOf("new.ts")]]]]);
     });
 
-    it("видимость пунктов меню: только при worktree/untracked в целях", () => {
+    it("menu item visibility: only with worktree/untracked among the targets", () => {
         const stagedOnly = { kind: "resource", uris: [], groups: ["index"] };
         const wt = { kind: "resource", uris: [], groups: ["worktree"] };
         for (const placement of gitCleanAction.menus!) {
@@ -337,7 +337,7 @@ describe("git.clean / git.cleanAll", () => {
 });
 
 describe("git.stageAll / git.unstageAll", () => {
-    it("берут все применимые файлы из снимка сервиса", async () => {
+    it("take all applicable files from the service snapshot", async () => {
         const h = makeHarness();
         h.setChanges([
             change("a.ts", "worktree"),
@@ -354,7 +354,7 @@ describe("git.stageAll / git.unstageAll", () => {
         expect(h.executed).toEqual([[UNSTAGE_TRANSPORT_COMMAND, [[uriOf("s.ts")]]]]);
     });
 
-    it("пустой снимок — no-op без вызова транспорта", async () => {
+    it("an empty snapshot is a no-op without calling the transport", async () => {
         const h = makeHarness();
         await gitStageAllAction.run(h.accessor);
         await gitUnstageAllAction.run(h.accessor);

@@ -85,7 +85,7 @@ describe("RenameService — Rename Symbol", () => {
         group().getActiveEditor()?.goToPosition(0, 8);
     }
 
-    it("имя от prepare подставляется в поле, новое имя уезжает провайдеру", async () => {
+    it("the name from prepare fills the input, the new name goes to the provider", async () => {
         const seen: { request?: IRenameRequest; newName?: string } = {};
         provider({
             prepareRename: () => name("value"),
@@ -116,7 +116,7 @@ describe("RenameService — Rename Symbol", () => {
         expect(notices).toEqual([]);
     });
 
-    it("prepare вернул null — поле заполняется словом под кареткой (фолбэк эталона)", async () => {
+    it("prepare returned null — the input is filled with the word at the cursor (upstream fallback)", async () => {
         provider({ provideRenameEdits: () => Promise.resolve({ applied: true }) });
         caretOnValue();
         typed = ["renamed"];
@@ -126,7 +126,7 @@ describe("RenameService — Rename Symbol", () => {
         expect(opened[0]).toMatchObject({ value: "value" });
     });
 
-    it("prepare отказал — причина человеку, поля ввода нет", async () => {
+    it("prepare refused — the reason goes to the user, no input box", async () => {
         const provideRenameEdits = vi.fn((): Promise<ICoreRenameResult> => Promise.resolve({ applied: true }));
         provider({
             prepareRename: () => Promise.resolve({ kind: "reject", reason: "You cannot rename this element." }),
@@ -142,7 +142,7 @@ describe("RenameService — Rename Symbol", () => {
         expect(notices).toEqual(["rename.notice: Rename failed: You cannot rename this element."]);
     });
 
-    it("prepare вернул null И каретка не на слове — поля ввода нет вовсе", async () => {
+    it("prepare returned null AND the cursor is not on a word — no input box at all", async () => {
         const provideRenameEdits = vi.fn((): Promise<ICoreRenameResult> => Promise.resolve({ applied: true }));
         provider({ provideRenameEdits });
         // Column 13 is the space after `=`: there's no word at the cursor or
@@ -156,7 +156,7 @@ describe("RenameService — Rename Symbol", () => {
         expect(provideRenameEdits).not.toHaveBeenCalled();
     });
 
-    it("каретка за последней строкой — молчаливый no-op, а не падение", async () => {
+    it("cursor past the last line — a silent no-op, not a crash", async () => {
         // The whole group is fake: a real editor clamps the position, but the
         // fallback must survive a line that went stale for a frame (see
         // `referencesService.test.ts`, the "cursor past the end of the text" case).
@@ -182,7 +182,7 @@ describe("RenameService — Rename Symbol", () => {
         expect(provideRenameEdits).not.toHaveBeenCalled();
     });
 
-    it("Escape (undefined) и то же самое имя — провайдера не зовём", async () => {
+    it("Escape (undefined) and the same name — the provider is not called", async () => {
         const provideRenameEdits = vi.fn((): Promise<ICoreRenameResult> => Promise.resolve({ applied: true }));
         provider({ prepareRename: () => name("value"), provideRenameEdits });
         caretOnValue();
@@ -196,7 +196,7 @@ describe("RenameService — Rename Symbol", () => {
         expect(notices).toEqual([]);
     });
 
-    it("пустое имя — сообщение, провайдера не зовём", async () => {
+    it("empty name — a message, the provider is not called", async () => {
         const provideRenameEdits = vi.fn((): Promise<ICoreRenameResult> => Promise.resolve({ applied: true }));
         provider({ prepareRename: () => name("value"), provideRenameEdits });
         caretOnValue();
@@ -208,7 +208,7 @@ describe("RenameService — Rename Symbol", () => {
         expect(notices).toEqual(["rename.notice: Rename failed: the new name is empty"]);
     });
 
-    it("отказ провайдера с сообщением показывается человеку", async () => {
+    it("provider refusal with a message is shown to the user", async () => {
         provider({
             prepareRename: () => name("value"),
             provideRenameEdits: () => Promise.resolve({ applied: false, error: "'class' is not a valid identifier" }),
@@ -221,7 +221,7 @@ describe("RenameService — Rename Symbol", () => {
         expect(notices).toEqual(["rename.notice: Rename failed: 'class' is not a valid identifier"]);
     });
 
-    it("отказ БЕЗ сообщения тихий: переименовывать было нечего", async () => {
+    it("refusal WITHOUT a message is silent: there was nothing to rename", async () => {
         provider({ prepareRename: () => name("value"), provideRenameEdits: () => Promise.resolve({ applied: false }) });
         caretOnValue();
         typed = ["renamed"];
@@ -231,7 +231,7 @@ describe("RenameService — Rename Symbol", () => {
         expect(notices).toEqual([]);
     });
 
-    it("версия пересобирается на момент применения: провайдер видит живой документ", async () => {
+    it("the version is recomputed at apply time: the provider sees the live document", async () => {
         const seen: { prepared?: number; applied?: number } = {};
         provider({
             prepareRename: (request) => {
@@ -260,7 +260,7 @@ describe("RenameService — Rename Symbol", () => {
         expect(seen.applied).not.toBe(seen.prepared);
     });
 
-    it("редактор закрылся, пока вводили имя — провайдер получает снапшот запроса", async () => {
+    it("the editor closed while the name was being typed — the provider gets the request snapshot", async () => {
         const seen: { prepared?: number; applied?: number } = {};
         provider({
             prepareRename: (request) => {
@@ -299,7 +299,7 @@ describe("RenameService — Rename Symbol", () => {
         expect(seen.applied).not.toBe(editor?.model.document.versionId);
     });
 
-    it("без провайдеров под документ и без активного редактора — no-op", async () => {
+    it("no providers for the document and no active editor — no-op", async () => {
         caretOnValue();
         typed = ["renamed"];
         await service().rename();
@@ -318,7 +318,7 @@ describe("RenameService — Rename Symbol", () => {
         expect(provideRenameEdits).not.toHaveBeenCalled();
     });
 
-    it("провайдер чужого языка документ не трогает", async () => {
+    it("a provider of another language does not touch the document", async () => {
         const provideRenameEdits = vi.fn((): Promise<ICoreRenameResult> => Promise.resolve({ applied: true }));
         features.renameProvider.register(
             { language: "python" },

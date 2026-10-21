@@ -92,8 +92,8 @@ function moveFoo(h: IHarness): BulkEdit {
     ];
 }
 
-describe("WorkspaceEditService — отмена во всех затронутых файлах", () => {
-    it("Ctrl+Z из любой открытой затронутой вкладки откатывает шаг целиком", async () => {
+describe("WorkspaceEditService — undo across all touched files", () => {
+    it("Ctrl+Z from any open touched tab undoes the whole step", async () => {
         const h = harness();
         const a = h.open("a.ts", SOURCE);
         const b = h.open("b.ts", USER);
@@ -121,7 +121,7 @@ describe("WorkspaceEditService — отмена во всех затронуты
         expect(h.refusals).toEqual([]);
     });
 
-    it("правили соседний файл после шага — отказ с его именем, ничего не откатилось", async () => {
+    it("a sibling file was edited after the step: refusal naming it, nothing is undone", async () => {
         const h = harness();
         const a = h.open("a.ts", SOURCE);
         const b = h.open("b.ts", USER);
@@ -140,7 +140,7 @@ describe("WorkspaceEditService — отмена во всех затронуты
         expect(fs.existsSync(h.file("Foo.ts"))).toBe(true);
     });
 
-    it("новый файл, открытый ПОСЛЕ правки, отменяет её из своей вкладки", async () => {
+    it("a new file opened AFTER the edit undoes it from its own tab", async () => {
         const h = harness();
         const a = h.open("a.ts", SOURCE);
         h.open("b.ts", USER);
@@ -156,7 +156,7 @@ describe("WorkspaceEditService — отмена во всех затронуты
         expect(a.getText()).toBe(SOURCE);
     });
 
-    it("вкладку с правкой шага закрыли — отмена честно отказывает и сбрасывает историю", async () => {
+    it("the tab holding the step's edit was closed: undo refuses and resets the history", async () => {
         const h = harness();
         const a = h.open("a.ts", SOURCE);
         const b = h.open("b.ts", USER);
@@ -176,8 +176,8 @@ describe("WorkspaceEditService — отмена во всех затронуты
     });
 });
 
-describe("WorkspaceEditService — буфер с правкой шага перечитан с диска", () => {
-    it("отмена отказывает: файл изменён несовместимо (строка эталона)", async () => {
+describe("WorkspaceEditService — the buffer with the step's edit was reloaded from disk", () => {
+    it("undo refuses: the file was changed incompatibly (upstream string)", async () => {
         const h = harness();
         const a = h.open("a.ts", SOURCE);
         const b = h.open("b.ts", USER);
@@ -196,7 +196,7 @@ describe("WorkspaceEditService — буфер с правкой шага пер�
 });
 
 describe("WorkspaceEditService — files.refactoring.autoSave", () => {
-    it("рефакторинг больше чем по одному ресурсу сохраняет свои грязные буферы", async () => {
+    it("a refactoring across more than one resource saves its dirty buffers", async () => {
         const h = harness();
         const a = h.open("a.ts", SOURCE);
         const b = h.open("b.ts", USER);
@@ -209,7 +209,7 @@ describe("WorkspaceEditService — files.refactoring.autoSave", () => {
         expect(fs.readFileSync(h.file("b.ts"), "utf8")).toBe("// moved\n" + USER);
     });
 
-    it("файл и файловая операция — два ресурса: исходник сохраняется", async () => {
+    it("a file and a file operation are two resources: the source is saved", async () => {
         const h = harness();
         const a = h.open("a.ts", SOURCE);
 
@@ -225,7 +225,7 @@ describe("WorkspaceEditService — files.refactoring.autoSave", () => {
         expect(a.isModified).toBe(false);
     });
 
-    it("не сохраняет: один ресурс, правка не рефакторинг, настройка выключена", async () => {
+    it("does not save: single resource, edit is not a refactoring, setting is off", async () => {
         const single = harness();
         const one = single.open("a.ts", SOURCE);
         await single.service.applyWorkspaceEdit(
@@ -248,7 +248,7 @@ describe("WorkspaceEditService — files.refactoring.autoSave", () => {
         expect(c.isModified).toBe(true);
     });
 
-    it("отказ одного сохранения не мешает остальным и не делает edit неуспешным", async () => {
+    it("one failed save does not block the others and does not fail the edit", async () => {
         const h = harness();
         const a = h.open("a.ts", SOURCE);
         const b = h.open("b.ts", USER);

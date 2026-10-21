@@ -85,12 +85,12 @@ describe("ExplorerComponent — workbench.tree.expandMode", () => {
         ws.dispose();
     });
 
-    it("дефолт — singleClick, как у эталона", () => {
+    it("defaults to singleClick, as upstream", () => {
         expect(config.get("workbench.tree.expandMode")).toBe("singleClick");
     });
 
     describe("singleClick", () => {
-        it("клик по имени папки раскрывает её, второй клик сворачивает", async () => {
+        it("clicking a folder name expands it, a second click collapses it", async () => {
             click(4, 1); // src
             await expectFrame((text) => {
                 expect(text).toContain("main.ts");
@@ -102,7 +102,7 @@ describe("ExplorerComponent — workbench.tree.expandMode", () => {
             expect(opened).toEqual([]);
         });
 
-        it("Enter на папке раскрывает её", async () => {
+        it("Enter on a folder expands it", async () => {
             app.sendKey("ArrowDown"); // src
             app.sendKey("Enter");
             await expectFrame((text) => {
@@ -111,7 +111,7 @@ describe("ExplorerComponent — workbench.tree.expandMode", () => {
             expect(opened).toEqual([]);
         });
 
-        it("клик по файлу его не открывает — открывают Enter и двойной клик", async () => {
+        it("clicking a file does not open it — Enter and double click do", async () => {
             click(4, 2); // README.md
             frame();
             expect(opened).toEqual([]);
@@ -119,7 +119,7 @@ describe("ExplorerComponent — workbench.tree.expandMode", () => {
             expect(opened).toEqual([ws.path("README.md")]);
         });
 
-        it("клик по сегменту компактной строки делает его текущим и сворачивает строку", async () => {
+        it("clicking a compact row segment makes it current and collapses the row", async () => {
             click(4, 0); // docs → expands and compacts into "docs/a/b"
             await expectFrame((text) => {
                 expect(text).toContain("docs/a/b");
@@ -135,7 +135,7 @@ describe("ExplorerComponent — workbench.tree.expandMode", () => {
     });
 
     describe("doubleClick", () => {
-        it("клик по имени и Enter папку не раскрывают; правка настройки действует сразу", async () => {
+        it("clicking the name and Enter do not expand the folder; editing the setting applies right away", async () => {
             await config.updateValue("workbench.tree.expandMode", "doubleClick");
 
             click(4, 1); // src

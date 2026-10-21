@@ -111,7 +111,7 @@ describe("DiagnosticsService — settings.json validation", () => {
         h.service.dispose();
     });
 
-    it("секция языка — известный ключ верхнего уровня", () => {
+    it("language section is a known top-level key", () => {
         const h = createHarness();
         const text = ["{", '    "[python]": { "editor.tabSize": 2 },', '    "[nope": 1', "}"].join("\n");
         h.source.open(new FakeEditor(SETTINGS_PATH, text));
@@ -132,7 +132,7 @@ describe("DiagnosticsService — settings.json validation", () => {
         h.service.dispose();
     });
 
-    it("ключи расширений — известные, в том числе без дефолта; чужие — нет", () => {
+    it("extension keys are known, including ones without a default; foreign keys are not", () => {
         const registry = appConfigurationRegistry();
         registry.registerExtensionConfiguration("acme.ruff", {
             "ruff.importStrategy": { default: "fromEnvironment" },
@@ -233,7 +233,7 @@ describe("DiagnosticsService — settings.json validation", () => {
     });
 });
 
-describe("DiagnosticsService — settings.json воркспейса", () => {
+describe("DiagnosticsService — workspace settings.json", () => {
     const FOLDER = "/ws/project";
     const WORKSPACE_SETTINGS = "/ws/project/.diode/settings.json";
 
@@ -256,7 +256,7 @@ describe("DiagnosticsService — settings.json воркспейса", () => {
         return { source, markerService, service };
     }
 
-    it("файл воркспейса валидируется: неизвестный ключ — предупреждение, machine-ключ — подсказка эталона", () => {
+    it("workspace file is validated: unknown key is a warning, machine key gets the upstream hint", () => {
         const h = createWorkspaceHarness();
         const text = ["{", '    "editor.tabSize": 2,', '    "terminal.tier": "kitty",', '    "nope.key": 1', "}"].join(
             "\n",
@@ -274,7 +274,7 @@ describe("DiagnosticsService — settings.json воркспейса", () => {
         h.service.dispose();
     });
 
-    it("в user settings.json тот же machine-ключ подсказки не получает", () => {
+    it("the same machine key in user settings.json gets no hint", () => {
         const h = createWorkspaceHarness();
         h.source.open(new FakeEditor(SETTINGS_PATH, `{ "terminal.tier": "kitty" }`));
 
@@ -282,7 +282,7 @@ describe("DiagnosticsService — settings.json воркспейса", () => {
         h.service.dispose();
     });
 
-    it("settings.json чужой папки и .vscode/settings.json не валидируются; без папки — тоже", () => {
+    it("settings.json of a foreign folder and .vscode/settings.json are not validated; neither without a folder", () => {
         const h = createWorkspaceHarness();
         h.source.open(new FakeEditor("/ws/other/.diode/settings.json", `{ "nope.key": 1 }`));
         h.source.open(new FakeEditor("/ws/project/.vscode/settings.json", `{ "nope.key": 1 }`));
@@ -295,19 +295,19 @@ describe("DiagnosticsService — settings.json воркспейса", () => {
         empty.service.dispose();
     });
 
-    it("в папке окна из папки window-ключ действует — подсказки нет", () => {
+    it("in a folder window a window key applies — no hint", () => {
         const h = createWorkspaceHarness();
         h.source.open(new FakeEditor(WORKSPACE_SETTINGS, `{ "workbench.colorTheme": "Light" }`));
         expect(h.markerService.read()).toEqual([]);
         h.service.dispose();
     });
 
-    describe("окно из .code-workspace", () => {
+    describe("window from .code-workspace", () => {
         const WORKSPACE_FILE = "/ws/project/web.code-workspace";
 
         // Workspace file keys live in the `settings` block, not at the root: `folders`
         // is not a setting, but an unknown key inside `settings` is.
-        it("файл воркспейса: проверяется блок settings — неизвестный и machine-ключ", () => {
+        it("workspace file: the settings block is checked — unknown and machine key", () => {
             const h = createWorkspaceHarness([FOLDER], WORKSPACE_FILE);
             const text = JSON.stringify(
                 {
@@ -330,14 +330,14 @@ describe("DiagnosticsService — settings.json воркспейса", () => {
             h.service.dispose();
         });
 
-        it("файл воркспейса без блока settings — маркеров нет", () => {
+        it("workspace file without a settings block — no markers", () => {
             const h = createWorkspaceHarness([FOLDER], WORKSPACE_FILE);
             h.source.open(new FakeEditor(WORKSPACE_FILE, `{ "folders": [{ "path": "." }] }`));
             expect(h.markerService.read()).toEqual([]);
             h.service.dispose();
         });
 
-        it("чужой .code-workspace не проверяется", () => {
+        it("a foreign .code-workspace is not checked", () => {
             const h = createWorkspaceHarness([FOLDER], WORKSPACE_FILE);
             h.source.open(new FakeEditor("/ws/project/backend.code-workspace", `{ "settings": { "nope.key": 1 } }`));
             expect(h.markerService.read()).toEqual([]);
@@ -346,7 +346,7 @@ describe("DiagnosticsService — settings.json воркспейса", () => {
 
         // A `window` key is taken from the workspace file: in a folder it has no effect —
         // hint with upstream's text (`unsupportedWindowSetting`).
-        it(".diode/settings.json папки: window-ключ — подсказка эталона, resource-ключ — нет", () => {
+        it("folder .diode/settings.json: window key gets the upstream hint, resource key does not", () => {
             const h = createWorkspaceHarness([FOLDER], WORKSPACE_FILE);
             const text = ["{", '    "workbench.colorTheme": "Light",', '    "editor.tabSize": 2', "}"].join("\n");
             h.source.open(new FakeEditor(WORKSPACE_SETTINGS, text));
@@ -361,7 +361,7 @@ describe("DiagnosticsService — settings.json воркспейса", () => {
             h.service.dispose();
         });
 
-        it(".diode/settings.json папки только с ключами папки и machine-ключом — подсказка лишь на machine", () => {
+        it("folder .diode/settings.json with only folder keys and a machine key — hint on machine only", () => {
             const h = createWorkspaceHarness([FOLDER], WORKSPACE_FILE);
             h.source.open(
                 new FakeEditor(

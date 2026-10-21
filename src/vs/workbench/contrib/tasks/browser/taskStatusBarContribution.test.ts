@@ -13,7 +13,7 @@ import { RUNNING_TASKS_STATUS_ID, TaskStatusBarContribution } from "./taskStatus
 import type { ITaskEvent } from "./terminalTaskSystem.ts";
 
 describe("TaskStatusBarContribution", () => {
-    it("появляется с первой задачей, считает бегущие, исчезает с последней; клик — Show Running Tasks", async () => {
+    it("appears with the first task, counts running ones, disappears with the last; click — Show Running Tasks", async () => {
         const h = buildTaskServiceHarness();
         const bar = new StatusBarService(NULL_STATE_SERVICE);
         const commands = new CommandRegistry();
@@ -47,7 +47,7 @@ describe("TaskStatusBarContribution", () => {
         h.dispose();
     });
 
-    it("перемена без бегущих задач и без сегмента — ничего (сегмента нет)", () => {
+    it("a change with no running tasks and no segment does nothing (no segment)", () => {
         const bar = new StatusBarService(NULL_STATE_SERVICE);
         const events = new Emitter<ITaskEvent>();
         const tasks = { onDidStateChange: events.event, getActiveTasks: () => [] } as unknown as TaskService;

@@ -3,37 +3,43 @@ import { describe, expect, it } from "vitest";
 import { collectWordCompletions } from "./collectWordCompletions.ts";
 
 describe("collectWordCompletions", () => {
-    it("собирает уникальные слова, сохраняя порядок первого появления", () => {
+    it("collects unique words in order of first appearance", () => {
         expect(collectWordCompletions(["foo bar foo baz"], "")).toEqual(["foo", "bar", "baz"]);
     });
 
-    it("исключает набираемый префикс и короткие (<2) слова", () => {
+    it("excludes the typed prefix and short (<2) words", () => {
         expect(collectWordCompletions(["ind indent a bb ind"], "ind")).toEqual(["indent", "bb"]);
     });
 
-    it("объединяет несколько текстов с дедупом", () => {
+    it("merges several texts with deduplication", () => {
         expect(collectWordCompletions(["alpha beta", "beta gamma"], "")).toEqual(["alpha", "beta", "gamma"]);
     });
 
-    it("игнорирует не-идентификаторные символы и цифры в начале", () => {
+    it("ignores non-identifier characters and leading digits", () => {
         expect(collectWordCompletions(["a1 = 12; _x.y-z"], "")).toEqual(["a1", "_x"]);
     });
 
-    it("собирает слова любого алфавита, а не только ASCII", () => {
-        expect(collectWordCompletions(["фыва привет_2 naïve 1тест"], "")).toEqual([
-            "фыва",
-            "привет_2",
+    it("collects words of any alphabet, not only ASCII", () => {
+        // "fyva privet_2 naive 1test"
+        expect(
+            collectWordCompletions(
+                ["\u0444\u044b\u0432\u0430 \u043f\u0440\u0438\u0432\u0435\u0442_2 naïve 1\u0442\u0435\u0441\u0442"],
+                "",
+            ),
+        ).toEqual([
+            "\u0444\u044b\u0432\u0430", // "fyva"
+            "\u043f\u0440\u0438\u0432\u0435\u0442_2", // "privet_2"
             "naïve",
-            "тест",
+            "\u0442\u0435\u0441\u0442", // "test"
         ]);
     });
 
-    it("пропускает документы крупнее лимита (защита больших файлов)", () => {
+    it("skips documents above the size limit (large file protection)", () => {
         const big = "word ".repeat(500); // > the limit below
         expect(collectWordCompletions([big, "small tiny"], "", { maxBytesPerText: 100 })).toEqual(["small", "tiny"]);
     });
 
-    it("ограничивает число слов кап'ом", () => {
+    it("caps the number of words", () => {
         const words = collectWordCompletions(["aa bb cc dd ee"], "", { maxWords: 3 });
         expect(words).toEqual(["aa", "bb", "cc"]);
     });

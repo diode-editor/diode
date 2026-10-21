@@ -108,7 +108,7 @@ describe("ExplorerComponent", () => {
         expect(h.component.view.id).toBe("explorerView");
     });
 
-    it("filesExplorerFocus — по пути предков до тела секции", () => {
+    it("filesExplorerFocus — along the ancestor path up to the section body", () => {
         const keys = new ContextKeyService();
         const focusKey = (active: TUIElement | null): unknown => {
             h.component.updateContextKeys(keys, active);
@@ -124,7 +124,7 @@ describe("ExplorerComponent", () => {
         expect(focusKey(null)).toBe(false);
     });
 
-    it("filesExplorerFocus опущен, пока дерева ещё нет (корень не задан)", () => {
+    it("filesExplorerFocus is off while there is no tree yet (root not set)", () => {
         const empty = createExplorer();
         const keys = new ContextKeyService();
         empty.component.updateContextKeys(keys, new FillerElement());
@@ -159,7 +159,7 @@ describe("ExplorerComponent", () => {
         expect(output).toContain("main.ts");
     });
 
-    it("Enter на папке переключает её и редактор не открывает", async () => {
+    it("Enter on a folder toggles it and does not open an editor", async () => {
         // Upstream: `list.select` → `toggleCollapsed`.
         app.sendKey("Enter");
         await vi.waitFor(() => {
@@ -174,7 +174,7 @@ describe("ExplorerComponent", () => {
         expect(h.opened).toEqual([]);
     });
 
-    it("Enter на файле открывает его", () => {
+    it("Enter on a file opens it", () => {
         app.sendKey("ArrowDown"); // README.md
         app.render();
         app.sendKey("Enter");
@@ -182,7 +182,7 @@ describe("ExplorerComponent", () => {
         expect(h.opened).toEqual([ws.path("README.md")]);
     });
 
-    it("дерево открывает файл ПРЕДПРОСМОТРОМ — единственная такая дверь", () => {
+    it("the tree opens a file as PREVIEW — the only such entry point", () => {
         app.sendKey("ArrowDown"); // README.md
         app.render();
         app.sendKey("Enter");

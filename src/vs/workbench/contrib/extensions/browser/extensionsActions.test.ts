@@ -49,7 +49,7 @@ function makeAccessor(): {
 }
 
 describe("extensionsActions", () => {
-    it("объявляет id и биндинги как в VS Code", () => {
+    it("declares ids and keybindings as in VS Code", () => {
         expect(showExtensionsAction.id).toBe("workbench.view.extensions");
         expect(refreshExtensionsAction.id).toBe("extensions.refresh");
 
@@ -67,13 +67,13 @@ describe("extensionsActions", () => {
         expect(conditional).toMatchObject({ when: "tier != 'legacy'" });
     });
 
-    it("показ вьюлета переключает сайдбар на магазин", () => {
+    it("showing the viewlet switches the sidebar to the marketplace", () => {
         const h = makeAccessor();
         showExtensionsAction.run(h.accessor);
         expect(h.shown).toEqual([EXTENSIONS_VIEWLET_ID]);
     });
 
-    it("Refresh перечитывает каталог и показывает прогресс в заголовке секции", async () => {
+    it("Refresh rereads the catalog and shows progress in the section header", async () => {
         const h = makeAccessor();
         const start = vi.spyOn(h.progress, "withProgress");
 
@@ -86,7 +86,7 @@ describe("extensionsActions", () => {
         );
     });
 
-    it("Refresh живёт кнопкой в заголовке своей секции", () => {
+    it("Refresh is a button in its section header", () => {
         const placement = refreshExtensionsAction.menus?.[0];
         expect(placement?.menuId).toBe(MenuId.ViewTitle);
         expect(placement?.group).toBe("navigation");

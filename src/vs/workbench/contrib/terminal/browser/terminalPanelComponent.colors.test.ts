@@ -70,8 +70,8 @@ function buildHarness(settings: Readonly<Record<string, unknown>> = {}) {
     return { themeService, configuration, service, sessions, widget, defaultCell, dispose };
 }
 
-describe("TerminalPanelComponent — цвета терминала (terminal.integrated.colorSource)", () => {
-    it("по умолчанию — тема: сессия получает terminal.ansi* темы, фон/текст — токены темы", () => {
+describe("TerminalPanelComponent — terminal colors (terminal.integrated.colorSource)", () => {
+    it("theme by default: the session gets the theme's terminal.ansi*, background/foreground from theme tokens", () => {
         const h = buildHarness();
         h.service.openTerminal();
         expect(h.sessions[0].ansiColors?.[1]).toBe(DARK.getRequiredColor("terminal.ansiRed"));
@@ -83,7 +83,7 @@ describe("TerminalPanelComponent — цвета терминала (terminal.int
         h.dispose();
     });
 
-    it("смена темы перекрашивает палитру открытых терминалов", () => {
+    it("a theme change repaints the palette of open terminals", () => {
         const h = buildHarness();
         h.service.openTerminal();
         h.service.newTerminal();
@@ -93,7 +93,7 @@ describe("TerminalPanelComponent — цвета терминала (terminal.int
         h.dispose();
     });
 
-    it("host: палитра и дефолтные фон/текст — от хост-терминала, неотвеченное — из темы", () => {
+    it("host: palette and default background/foreground from the host terminal, unanswered ones from the theme", () => {
         const h = buildHarness({ "terminal.integrated.colorSource": "host" });
         h.service.openTerminal();
         expect(h.sessions[0].ansiColors?.[1]).toBe(HOST_RED);
@@ -102,7 +102,7 @@ describe("TerminalPanelComponent — цвета терминала (terminal.int
         h.dispose();
     });
 
-    it("переключение настройки на лету: host красит открытый терминал, theme возвращает токены темы", async () => {
+    it("switching the setting on the fly: host repaints an open terminal, theme restores the theme tokens", async () => {
         const h = buildHarness();
         h.service.openTerminal();
         const themeCell = h.defaultCell();

@@ -49,7 +49,7 @@ function makeService(explorer: Partial<ExplorerService>): { service: FileOperati
 }
 
 describe("FileOperationsService.resolveInputPath", () => {
-    it("`~` и `~/…` разворачиваются в домашний каталог окружения", () => {
+    it("`~` and `~/…` expand to the environment's home directory", () => {
         const { service } = makeService({});
         expect(service.resolveInputPath("~")).toBe(os.homedir());
         expect(service.resolveInputPath(" ~/notes.md ")).toBe(path.join(os.homedir(), "notes.md"));
@@ -57,7 +57,7 @@ describe("FileOperationsService.resolveInputPath", () => {
     });
 });
 
-describe("FileOperationsService — отменённый промпт", () => {
+describe("FileOperationsService — cancelled prompt", () => {
     it("runCreate is a no-op when the prompt is cancelled", async () => {
         const ws = createTempWorkspace({ prefix: "diode-fileops-" });
         const { service, edits } = makeService({ getPasteTargetDir: () => ws.dir });
@@ -75,7 +75,7 @@ describe("FileOperationsService — отменённый промпт", () => {
     });
 });
 
-describe("FileOperationsService — подсказка отмены в диалоге удаления в корзину", () => {
+describe("FileOperationsService — undo hint in the move-to-trash dialog", () => {
     function trashHint(bind: string | null, isMac: boolean): unknown {
         const shown: { message?: unknown }[] = [];
         const keybindings = new KeybindingRegistry();
@@ -102,26 +102,26 @@ describe("FileOperationsService — подсказка отмены в диал�
         return shown[0].message;
     }
 
-    it("подпись действующего бинда отмены дерева — по ОС клавиатуры (дерево «в фокусе»)", () => {
+    it("label of the tree's active undo keybinding follows the keyboard OS (tree 'focused')", () => {
         expect(trashHint("mod+z", false)).toEqual([
-            "«a.txt» будет перемещён в корзину.",
-            "Можно восстановить (Ctrl+Z или из корзины).",
+            "Are you sure you want to delete 'a.txt'?",
+            "You can restore this file using the Undo command (Ctrl+Z) or from the Trash.",
         ]);
         expect(trashHint("mod+z", true)).toEqual([
-            "«a.txt» будет перемещён в корзину.",
-            "Можно восстановить (⌘Z или из корзины).",
+            "Are you sure you want to delete 'a.txt'?",
+            "You can restore this file using the Undo command (⌘Z) or from the Trash.",
         ]);
     });
 
-    it("без бинда отмены — только путь через корзину", () => {
+    it("without an undo keybinding — only the way through the trash", () => {
         expect(trashHint(null, false)).toEqual([
-            "«a.txt» будет перемещён в корзину.",
-            "Можно восстановить из корзины.",
+            "Are you sure you want to delete 'a.txt'?",
+            "You can restore this file from the Trash.",
         ]);
     });
 });
 
-describe("FileOperationsService — что уходит исполнителю правок", () => {
+describe("FileOperationsService — what reaches the edit executor", () => {
     function recording(answer?: string): {
         service: FileOperationsService;
         calls: { edits: unknown; label: string }[];
@@ -157,7 +157,7 @@ describe("FileOperationsService — что уходит исполнителю �
         return { service, calls, clipboard };
     }
 
-    it("удаление без подтверждения — шаг «Delete»", async () => {
+    it("delete without confirmation — 'Delete' step", async () => {
         const { service, calls } = recording();
         service.requestDeleteFile("/ws/a.txt");
         await vi.waitFor(() => {
@@ -165,7 +165,7 @@ describe("FileOperationsService — что уходит исполнителю �
         });
     });
 
-    it("переименование — шаг «Rename» на точный путь", async () => {
+    it("rename — 'Rename' step to the exact path", async () => {
         const { service, calls } = recording("b.txt");
         await service.runRename("/ws/a.txt");
         expect(calls).toEqual([
@@ -173,7 +173,7 @@ describe("FileOperationsService — что уходит исполнителю �
         ]);
     });
 
-    it("вставка вырезанного — шаг «Move», буфер пустеет", async () => {
+    it("pasting cut entries — 'Move' step, the clipboard empties", async () => {
         const { service, calls, clipboard } = recording();
         clipboard.write(["/ws/a.txt"], "cut");
         await service.paste();
@@ -181,7 +181,7 @@ describe("FileOperationsService — что уходит исполнителю �
         expect(clipboard.read()).toBeNull();
     });
 
-    it("вставка скопированного — шаг «Paste», буфер остаётся", async () => {
+    it("pasting copied entries — 'Paste' step, the clipboard stays", async () => {
         const { service, calls, clipboard } = recording();
         clipboard.write(["/ws/a.txt"], "copy");
         await service.paste();

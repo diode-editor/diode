@@ -42,7 +42,7 @@ function makePty(cols = 30, rows = 4) {
     return { session, onInput, onResize };
 }
 
-describe("XtermSurface — эмулятор из ленивого куска", () => {
+describe("XtermSurface — emulator from a lazy chunk", () => {
     afterEach(() => {
         setLazyModuleLoader(undefined);
         setUnexpectedErrorHandler((e) => {
@@ -50,7 +50,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         });
     });
 
-    it("кусок спрашивают при создании сессии, а не раньше; каждая из нескольких сессий получает свой вывод", async () => {
+    it("the chunk is requested on session creation, not earlier; each of several sessions gets its own output", async () => {
         const loader = holdLoader();
         expect(loader.requested).toStrictEqual([]);
         const first = makePty().session;
@@ -68,7 +68,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         second.dispose();
     });
 
-    it("до куска: сетка пустая, курсора и mouse-режима нет, мышь и прокрутка — no-op; вывод копится и уходит по порядку", async () => {
+    it("before the chunk: empty grid, no cursor or mouse mode, mouse and scrolling are no-ops; output is buffered and flushed in order", async () => {
         const loader = holdLoader();
         const { session, onInput } = makePty();
         const updates = vi.fn();
@@ -102,7 +102,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         session.dispose();
     });
 
-    it("до куска: ввод и ресайз уходят процессу сразу; эмулятор рождается уже нового размера", async () => {
+    it("before the chunk: input and resize go to the process right away; the emulator is born with the new size", async () => {
         const loader = holdLoader();
         const { session, onInput, onResize } = makePty(10, 4);
         session.write("ls\r");
@@ -119,7 +119,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         session.dispose();
     });
 
-    it("dispose до куска: эмулятор не создаётся, накопленный вывод не всплывает", async () => {
+    it("dispose before the chunk: no emulator is created, buffered output doesn't surface", async () => {
         const loader = holdLoader();
         const { session } = makePty();
         session.feed("late");
@@ -130,7 +130,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         expect(session.getCursor()).toBeNull();
     });
 
-    it("кусок не загрузился: ошибка — в onUnexpectedError, сессия выходит с кодом 1, вывод сброшен", async () => {
+    it("the chunk failed to load: the error goes to onUnexpectedError, the session exits with code 1, output dropped", async () => {
         const errors: unknown[] = [];
         setUnexpectedErrorHandler((e) => errors.push(e));
         const loader = holdLoader();
@@ -138,7 +138,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         const exits = vi.fn();
         session.onExit(exits);
         session.feed("lost");
-        const broken = new Error("кусок битый");
+        const broken = new Error("broken chunk");
         loader.fail(broken);
         await session.xtermReady;
         expect(errors).toStrictEqual([broken]);
@@ -147,7 +147,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         session.dispose();
     });
 
-    it("отказ куска после dispose: ошибка в лог, но onExit уже закрытой сессии не стреляет", async () => {
+    it("chunk refusal after dispose: the error is logged, but onExit of the closed session doesn't fire", async () => {
         const errors: unknown[] = [];
         setUnexpectedErrorHandler((e) => errors.push(e));
         const loader = holdLoader();
@@ -155,13 +155,13 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         const exits = vi.fn();
         session.onExit(exits);
         session.dispose();
-        loader.fail(new Error("кусок битый"));
+        loader.fail(new Error("broken chunk"));
         await session.xtermReady;
         expect(errors).toHaveLength(1);
         expect(exits).not.toHaveBeenCalled();
     });
 
-    it("эмулятор строится из того, что отдал загрузчик (`default` пространства имён), с размером и скролбэком сессии", async () => {
+    it("the emulator is built from what the loader returned (the namespace `default`), with the session size and scrollback", async () => {
         const real = await import("@xterm/headless");
         const constructed: unknown[] = [];
         class SpyTerminal extends real.default.Terminal {
@@ -184,7 +184,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         session.dispose();
     }, 20000);
 
-    it("ESM-форма пространства имён (только именованный `Terminal`, без `default` — так модуль отдаёт tsx из исходников) — эмулятор тоже строится", async () => {
+    it("ESM namespace shape (only a named `Terminal`, no `default` — how tsx serves the module from sources) — the emulator is built too", async () => {
         const real = await import("@xterm/headless");
         const constructed: unknown[] = [];
         class SpyTerminal extends real.default.Terminal {
@@ -206,7 +206,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         session.dispose();
     }, 20000);
 
-    it("шелл, который успел вывести и выйти до куска: вывод на экране, код выхода — как был", async () => {
+    it("a shell that printed and exited before the chunk: output on screen, exit code as it was", async () => {
         const loader = holdLoader();
         const session = new EmbeddedTerminalSession({
             cols: 40,
@@ -227,7 +227,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
         session.dispose();
     }, 20000);
 
-    it("кусок не загрузился у шелла: PTY убит (процесс не висит без экрана)", async () => {
+    it("the chunk failed to load for a shell: the PTY is killed (the process doesn't hang without a screen)", async () => {
         setUnexpectedErrorHandler(() => {});
         const loader = holdLoader();
         const session = new EmbeddedTerminalSession({
@@ -237,7 +237,7 @@ describe("XtermSurface — эмулятор из ленивого куска", (
             args: ["-c", "sleep 30"],
         });
         const pid = session.pid;
-        loader.fail(new Error("кусок битый"));
+        loader.fail(new Error("broken chunk"));
         await session.xtermReady;
         await vi.waitFor(() => {
             expect(isAlive(pid)).toBe(false);

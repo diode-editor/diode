@@ -51,7 +51,7 @@ describe("DefinitionService — Go to Definition", () => {
     const service = () => h.container.get(DefinitionServiceDIToken);
     const caret = () => group().getActiveEditor()?.viewState.selections[0].active;
 
-    it("прыжок в том же файле: каретка встаёт на начало цели", async () => {
+    it("a jump within the same file puts the cursor at the target start", async () => {
         const mainUri = Uri.file(ws.path("main.ts")).toString();
         const seen: { request?: IDefinitionRequest } = {};
         useDefinitions((request) => {
@@ -66,7 +66,7 @@ describe("DefinitionService — Go to Definition", () => {
         expect(seen.request?.versionId).toBe(group().getActiveEditor()?.model.document.versionId);
     });
 
-    it("кросс-файловый прыжок: открывает другой файл и доводит каретку", async () => {
+    it("a cross-file jump opens the other file and moves the cursor", async () => {
         const defsUri = Uri.file(ws.path("defs.ts")).toString();
         useDefinitions(() => Promise.resolve([{ uri: defsUri, range: createRange(0, 16, 0, 23) }]));
 
@@ -76,7 +76,7 @@ describe("DefinitionService — Go to Definition", () => {
         expect(caret()).toMatchObject({ line: 0, character: 16 });
     });
 
-    it("F12 из пользовательского состояния запускает прыжок", async () => {
+    it("F12 from user state starts a jump", async () => {
         const defsUri = Uri.file(ws.path("defs.ts")).toString();
         useDefinitions(() => Promise.resolve([{ uri: defsUri, range: createRange(1, 4, 1, 10) }]));
 
@@ -88,7 +88,7 @@ describe("DefinitionService — Go to Definition", () => {
         expect(caret()).toMatchObject({ line: 1, character: 4 });
     });
 
-    it("Ctrl+K F12 (revealDefinitionAside): цель открывается в соседней группе", async () => {
+    it("Ctrl+K F12 (revealDefinitionAside): the target opens in the neighbor group", async () => {
         const defsUri = Uri.file(ws.path("defs.ts")).toString();
         const mainUri = Uri.file(ws.path("main.ts")).toString();
         useDefinitions(() => Promise.resolve([{ uri: defsUri, range: createRange(0, 16, 0, 23) }]));
@@ -104,7 +104,7 @@ describe("DefinitionService — Go to Definition", () => {
         expect(caret()).toMatchObject({ line: 0, character: 16 });
     });
 
-    it("уход каретки отменяет запрос и у провайдера", () => {
+    it("moving the cursor away also cancels the request at the provider", () => {
         const tokens: ICancellationToken[] = [];
         useDefinitions((_request, token) => {
             tokens.push(token);
@@ -129,7 +129,7 @@ describe("DefinitionService — Go to Definition", () => {
         return pending;
     }
 
-    it("ответ после правки документа не прыгает", async () => {
+    it("a response after a document edit does not jump", async () => {
         const defsUri = Uri.file(ws.path("defs.ts")).toString();
         const mainUri = Uri.file(ws.path("main.ts")).toString();
         const pending = deferredSource();
@@ -143,7 +143,7 @@ describe("DefinitionService — Go to Definition", () => {
         expect(caret()).toMatchObject({ line: 0, character: 1 });
     });
 
-    it("ответ после ухода каретки не прыгает", async () => {
+    it("a response after the cursor moves away does not jump", async () => {
         const mainUri = Uri.file(ws.path("main.ts")).toString();
         const pending = deferredSource();
 
@@ -155,7 +155,7 @@ describe("DefinitionService — Go to Definition", () => {
         expect(caret()).toMatchObject({ line: 1, character: 2 });
     });
 
-    it("повторный F12 перебивает прежний: запоздавший первый ответ не прыгает", async () => {
+    it("a repeated F12 supersedes the previous one: a late first response does not jump", async () => {
         const defsUri = Uri.file(ws.path("defs.ts")).toString();
         const mainUri = Uri.file(ws.path("main.ts")).toString();
         const pending = deferredSource();
@@ -172,7 +172,7 @@ describe("DefinitionService — Go to Definition", () => {
         expect(caret()).toMatchObject({ line: 1, character: 6 });
     });
 
-    it("нет источника / пустой результат / нет активного редактора — no-op", async () => {
+    it("no source / empty result / no active editor is a no-op", async () => {
         // No source.
         await service().revealDefinition();
         expect(caret()).toMatchObject({ line: 0, character: 0 });

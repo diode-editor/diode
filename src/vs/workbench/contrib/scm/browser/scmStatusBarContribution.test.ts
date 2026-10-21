@@ -51,7 +51,7 @@ function setup(): {
 }
 
 describe("ScmStatusBarContribution", () => {
-    it("до публикации repo-state записей нет; публикация даёт ветку и счётчики", () => {
+    it("no entries before repo-state is published; publish gives the branch and counters", () => {
         const h = setup();
         expect(h.texts()).toEqual([]);
 
@@ -59,7 +59,7 @@ describe("ScmStatusBarContribution", () => {
         expect(h.texts()).toEqual([`${BRANCH_GLYPH} main`, "↓2 ↑1"]);
     });
 
-    it("клики: ветка → git.checkout, счётчики → git.sync, без upstream → git.publish", () => {
+    it("clicks: branch → git.checkout, counters → git.sync, without upstream → git.publish", () => {
         const h = setup();
         h.publish(STATE);
         h.click("status.scm.branch");
@@ -73,7 +73,7 @@ describe("ScmStatusBarContribution", () => {
         expect(h.executed).toEqual(["git.publish"]);
     });
 
-    it("detached и merge-состояние отражаются в тексте; без remotes sync-сегмент исчезает", () => {
+    it("detached and merge state are reflected in the text; without remotes the sync segment disappears", () => {
         const h = setup();
         h.publish({ ...STATE, branch: null, detached: true, state: "merging", remotes: [], upstream: null });
         expect(h.texts()).toEqual([`${BRANCH_GLYPH} detached (merging)`]);
@@ -82,13 +82,13 @@ describe("ScmStatusBarContribution", () => {
         expect(h.texts()).toEqual([`${BRANCH_GLYPH} main`, "↓2 ↑1"]);
     });
 
-    it("unborn HEAD (не detached, ветки нет) — метка unborn", () => {
+    it("unborn HEAD (not detached, no branch): the unborn label", () => {
         const h = setup();
         h.publish({ ...STATE, branch: null, upstream: null, remotes: [] });
         expect(h.texts()).toEqual([`${BRANCH_GLYPH} unborn`]);
     });
 
-    it("dispose снимает записи", () => {
+    it("dispose removes the entries", () => {
         const h = setup();
         h.publish(STATE);
         h.contribution.dispose();

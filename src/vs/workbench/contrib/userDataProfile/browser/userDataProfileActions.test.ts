@@ -70,7 +70,7 @@ interface IHarness {
     cancelShutdown: { value: boolean };
 }
 
-describe("экшены профилей", () => {
+describe("profile actions", () => {
     let ws: ITempWorkspace;
     let h: IHarness;
 
@@ -228,7 +228,7 @@ describe("экшены профилей", () => {
         folders: [{ uri: Uri.file(dir), name: path.basename(dir), index: 0 }],
     });
 
-    it("ID и названия команд — как у эталона, категория Profiles", () => {
+    it("command IDs and titles match upstream, category Profiles", () => {
         expect(USER_DATA_PROFILE_ACTIONS.map((a) => [a.id, a.title])).toEqual([
             ["workbench.profiles.actions.switchProfile", "Profiles: Switch Profile..."],
             ["workbench.profiles.actions.createProfile", "Profiles: New Profile..."],
@@ -237,7 +237,7 @@ describe("экшены профилей", () => {
     });
 
     describe("Switch Profile", () => {
-        it("пикер по алфавиту с галочкой у текущего; выбор — привязка воркспейса и перезагрузка в профиль", async () => {
+        it("alphabetical picker with a check on the current one; picking associates the workspace and reloads into the profile", async () => {
             const work = await h.profiles.createNamedProfile("work");
             await h.profiles.createNamedProfile("alpha");
             h.setWorkspace(folderWorkspace(path.join(ws.dir, "proj")));
@@ -252,7 +252,7 @@ describe("экшены профилей", () => {
             expect(h.restarts).toEqual([{ profile: "work" }]);
         });
 
-        it("окно из .code-workspace привязывается по файлу, а не по папке", async () => {
+        it("a window from .code-workspace is associated by file, not by folder", async () => {
             const work = await h.profiles.createNamedProfile("work");
             const file = path.join(ws.dir, "web.code-workspace");
             h.setWorkspace({ ...folderWorkspace(path.join(ws.dir, "proj")), configuration: Uri.file(file) });
@@ -264,7 +264,7 @@ describe("экшены профилей", () => {
             expect(h.profiles.getProfileForWorkspace(profileWorkspaceKeyOf(path.join(ws.dir, "proj")))).toBeUndefined();
         });
 
-        it("пустое окно: привязки нет, только перезагрузка в профиль", async () => {
+        it("empty window: no association, only reload into the profile", async () => {
             await h.profiles.createNamedProfile("work");
             h.setPicks(["work"]);
 
@@ -274,7 +274,7 @@ describe("экшены профилей", () => {
             expect(h.state.get(PROFILE_ASSOCIATIONS_STATE)).toEqual({});
         });
 
-        it("выбор текущего или отмена — ничего не делает", async () => {
+        it("picking the current one or cancelling does nothing", async () => {
             await h.profiles.createNamedProfile("work");
             h.setWorkspace(folderWorkspace(path.join(ws.dir, "proj")));
             h.setPicks([`${CODICON_GLYPHS.check} Default`, undefined]);
@@ -286,7 +286,7 @@ describe("экшены профилей", () => {
             expect(h.profiles.getProfileForWorkspace(profileWorkspaceKeyOf(path.join(ws.dir, "proj")))).toBeUndefined();
         });
 
-        it("Cancel в диалоге прощания оставляет окно на месте (привязка уже записана)", async () => {
+        it("Cancel in the shutdown dialog keeps the window in place (the association is already written)", async () => {
             await h.profiles.createNamedProfile("work");
             h.setWorkspace(folderWorkspace(path.join(ws.dir, "proj")));
             h.setPicks(["work"]);
@@ -300,7 +300,7 @@ describe("экшены профилей", () => {
             );
         });
 
-        it("отказ привязки — тост с ошибкой, отказ уходит дальше в лог команд, перезагрузки нет", async () => {
+        it("association refusal — error toast, the refusal propagates to the command log, no reload", async () => {
             await h.profiles.createNamedProfile("work");
             h.setWorkspace(folderWorkspace(path.join(ws.dir, "proj")));
             h.setPicks(["work"]);
@@ -314,7 +314,7 @@ describe("экшены профилей", () => {
     });
 
     describe("New Profile", () => {
-        it("имя → Empty → профиль создан пустым, воркспейс привязан, окно перезагружается", async () => {
+        it("name → Empty → profile created empty, workspace associated, window reloads", async () => {
             const current = h.profiles.defaultProfile;
             fs.mkdirSync(current.location, { recursive: true });
             fs.writeFileSync(current.settingsResource, `{ "editor.tabSize": 2 }`);
@@ -342,7 +342,7 @@ describe("экшены профилей", () => {
             expect(h.restarts).toEqual([{ profile: "My Work" }]);
         });
 
-        it("Copy from current копирует settings.json без application-ключей, keybindings.json и extensions.json", async () => {
+        it("Copy from current copies settings.json without application keys, keybindings.json and extensions.json", async () => {
             const current = h.profiles.defaultProfile;
             fs.mkdirSync(current.location, { recursive: true });
             fs.writeFileSync(
@@ -367,7 +367,7 @@ describe("экшены профилей", () => {
             expect(h.restarts).toEqual([{ profile: "work" }]);
         });
 
-        it("валидация имени: пустое — без ошибки, занятое — текст эталона", async () => {
+        it("name validation: empty — no error, taken — upstream text", async () => {
             await h.profiles.createNamedProfile("work");
             h.setInputs([undefined]);
 
@@ -381,7 +381,7 @@ describe("экшены профилей", () => {
             expect(validate("Default")).toBe(profileNameExistsMessage("Default"));
         });
 
-        it("отказ создания (ENAMETOOLONG на mkdir) — тост с ошибкой, не-Error — его текст", async () => {
+        it("creation refusal (ENAMETOOLONG on mkdir) — error toast, non-Error — its text", async () => {
             h.setWorkspace(folderWorkspace(path.join(ws.dir, "proj")));
             h.setInputs(["x", "y"]);
             h.setPicks([NEW_PROFILE_EMPTY_LABEL, NEW_PROFILE_EMPTY_LABEL]);
@@ -400,7 +400,7 @@ describe("экшены профилей", () => {
             expect(h.restarts).toEqual([]);
         });
 
-        it("отмена имени, пустое имя или отмена второго шага — профиль не создаётся", async () => {
+        it("cancelled name, empty name or cancelled second step — no profile is created", async () => {
             // If cancel or blanks reached the second step, "Empty" would create a profile.
             h.setInputs([undefined]);
             h.setPicks([NEW_PROFILE_EMPTY_LABEL]);
@@ -419,7 +419,7 @@ describe("экшены профилей", () => {
     });
 
     describe("Delete Profile", () => {
-        it("мультивыбор именованных, текущий помечен «Current»; удалённый не текущий — без перезагрузки", async () => {
+        it("multi-select of named profiles, the current one marked 'Current'; deleting a non-current one — no reload", async () => {
             const work = await h.profiles.createNamedProfile("work");
             const home = await h.profiles.createNamedProfile("home");
             h.setCurrent(work);
@@ -436,7 +436,7 @@ describe("экшены профилей", () => {
             expect(h.restarts).toEqual([]);
         });
 
-        it("удалён текущий — окно перезагружается в профиль воркспейса (Default после снятия привязки)", async () => {
+        it("current one deleted — the window reloads into the workspace profile (Default after the association is removed)", async () => {
             const work = await h.profiles.createNamedProfile("work");
             const dir = path.join(ws.dir, "proj");
             await h.profiles.setProfileForWorkspace(profileWorkspaceKeyOf(dir), work);
@@ -450,7 +450,7 @@ describe("экшены профилей", () => {
             expect(h.restarts).toEqual([{ profile: "Default" }]);
         });
 
-        it("удалён текущий среди прочих, а воркспейс привязан к другому профилю — перезагрузка в него", async () => {
+        it("current one deleted among others while the workspace is associated with another profile — reload into it", async () => {
             const work = await h.profiles.createNamedProfile("work");
             const home = await h.profiles.createNamedProfile("home");
             await h.profiles.createNamedProfile("tmp");
@@ -466,7 +466,7 @@ describe("экшены профилей", () => {
             expect(h.restarts).toEqual([{ profile: "home" }]);
         });
 
-        it("без именованных профилей пикер не открывается; отмена и пустой выбор — ничего", async () => {
+        it("without named profiles the picker does not open; cancel and empty selection do nothing", async () => {
             await deleteProfileAction.run(h.accessor);
             expect(h.pickItems).toEqual([]);
 
@@ -480,7 +480,7 @@ describe("экшены профилей", () => {
             expect(h.restarts).toEqual([]);
         });
 
-        it("отказ удаления — тост с ошибкой, остальное выполняется", async () => {
+        it("deletion refusal — error toast, the rest still runs", async () => {
             const work = await h.profiles.createNamedProfile("work");
             h.setManyPicks(["work"]);
             const remove = vi.spyOn(h.profiles, "removeProfile").mockRejectedValueOnce(new Error("EBUSY"));
@@ -494,7 +494,7 @@ describe("экшены профилей", () => {
     });
 
     describe("copyProfileContents / withoutKeys", () => {
-        it("нет файлов у источника — ничего не пишется", async () => {
+        it("source has no files — nothing is written", async () => {
             const from = h.profiles.defaultProfile;
             const to = await h.profiles.createNamedProfile("to");
             await copyProfileContents(h.files, from, to, ["update.mode"]);
@@ -503,7 +503,7 @@ describe("экшены профилей", () => {
             expect(fs.readFileSync(to.extensionsResource, "utf-8")).toBe("[]");
         });
 
-        it("withoutKeys: снимает только перечисленные ключи, остальное дословно; не-объект — как есть", () => {
+        it("withoutKeys: removes only the listed keys, the rest verbatim; non-object — as is", () => {
             // jsonc `modify` reformats the neighbors of the removed key — normal for the settings editor.
             expect(withoutKeys(`{ "a": 1, "b": 2 }`, ["a", "zzz"])).toBe(`{\n    "b": 2\n}`);
             expect(withoutKeys(`{ "a": 1 }`, ["b"])).toBe(`{ "a": 1 }`);
@@ -512,7 +512,7 @@ describe("экшены профилей", () => {
             expect(withoutKeys(`null`, ["a"])).toBe(`null`);
         });
 
-        it("withoutKeys: отступ соседей — как в файле (2 пробела, табуляция), комментарий перед ключом не сбивает его", () => {
+        it("withoutKeys: sibling indentation follows the file (2 spaces, tab), a comment before the key does not throw it off", () => {
             expect(withoutKeys(`{\n  "a": false,\n  // c\n  "b": "x"\n}\n`, ["b"])).toBe(`{\n  "a": false\n}\n`);
             expect(withoutKeys(`{\n  "a": false,\n  // c\n  "b": "x",\n  "z": 1\n}\n`, ["b"])).toBe(
                 `{\n  "a": false,\n  "z": 1\n}\n`,

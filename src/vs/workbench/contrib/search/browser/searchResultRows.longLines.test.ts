@@ -29,8 +29,8 @@ function parseMatch(lineText: string, start: number, end: number) {
     return parseRgMatchLine(line)!.matches[0];
 }
 
-describe("searchResultRows — длинные строки ограничены у истока", () => {
-    it("ряд для матча в 100k-символьной строке остаётся коротким", () => {
+describe("searchResultRows — long lines are capped at the source", () => {
+    it("the row for a match in a 100k-character line stays short", () => {
         const match = parseMatch("const needle = " + "x".repeat(100_000) + "\n", 6, 12);
 
         const row = buildMatchRow("m", match, STYLES);
@@ -39,7 +39,7 @@ describe("searchResultRows — длинные строки ограничены 
         expect(row.getText().length).toBeLessThan(300);
     });
 
-    it("аргументы ripgrep не содержат --max-columns — осознанно", () => {
+    it("ripgrep arguments deliberately omit --max-columns", () => {
         // The cap lives in splitPreviewByBytes: --max-columns would change the byte
         // offsets of submatches and drop long lines from the results entirely.
         const args = buildRgArgs(

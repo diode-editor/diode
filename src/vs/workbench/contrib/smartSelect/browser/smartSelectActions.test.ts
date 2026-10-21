@@ -26,7 +26,7 @@ const CONFIGURATION: IResolvedLanguageConfiguration = {
 };
 const CONTENT = "fn {\n  call(fooBar)\n}\n";
 
-describe("Expand / Shrink Selection — команды и бинды", () => {
+describe("Expand / Shrink Selection — commands and keybindings", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
@@ -71,7 +71,7 @@ describe("Expand / Shrink Selection — команды и бинды", () => {
         return seen;
     }
 
-    it("Shift+Alt+→ расширяет по ступеням, Shift+Alt+← сужает обратно", async () => {
+    it("Shift+Alt+→ expands step by step, Shift+Alt+← shrinks back", async () => {
         boot();
         expect(await press("Shift+Alt+ArrowRight", 7)).toEqual([
             "Bar",
@@ -85,7 +85,7 @@ describe("Expand / Shrink Selection — команды и бинды", () => {
         expect(await press("Shift+Alt+ArrowLeft", 2)).toEqual(["\n  call(fooBar)\n", "  call(fooBar)"]);
     });
 
-    it("настройки editor.smartSelect.* выключают подслова и ступени строк", async () => {
+    it("editor.smartSelect.* settings turn off subword and line steps", async () => {
         boot({
             "editor.smartSelect.selectSubwords": false,
             "editor.smartSelect.selectLeadingAndTrailingWhitespace": false,
@@ -93,7 +93,7 @@ describe("Expand / Shrink Selection — команды и бинды", () => {
         expect(await press("Shift+Alt+ArrowRight", 3)).toEqual(["fooBar", "(fooBar)", "\n  call(fooBar)\n"]);
     });
 
-    it("настройки читаются с языковой секцией", async () => {
+    it("settings are read with the language section", async () => {
         boot({
             "[plaintext]": {
                 "editor.smartSelect.selectSubwords": false,

@@ -295,8 +295,8 @@ function pendingSource(): {
     };
 }
 
-describe("InlineCompletionsService — показ", () => {
-    it("набор символа авто-запрашивает источник и показывает хвост подсказки", async () => {
+describe("InlineCompletionsService — showing", () => {
+    it("typing a character auto-requests the source and shows the suggestion's tail", async () => {
         const fake = makeEditor("const x", 7);
         const requests: IInlineCompletionRequest[] = [];
         const source = (req: IInlineCompletionRequest): Promise<readonly ICoreInlineCompletionItem[]> => {
@@ -324,7 +324,7 @@ describe("InlineCompletionsService — показ", () => {
         expect(contextKey(service, "inlineSuggestionVisible")).toBe(true);
     });
 
-    it("многострочный insertText режется на строки ghost-а", async () => {
+    it("a multi-line insertText is split into ghost text lines", async () => {
         const fake = makeEditor("function fib", 12);
         const service = makeService(makeGroup(fake.editor, items({ insertText: "(n) {\n    return n;\n}" })).group);
 
@@ -338,7 +338,7 @@ describe("InlineCompletionsService — показ", () => {
         expect(service.isOpen()).toBe(true);
     });
 
-    it("ручной триггер шлёт Invoke и работает без эвристики набора", async () => {
+    it("a manual trigger sends Invoke and works without the typing heuristic", async () => {
         const fake = makeEditor("abc", 3);
         const requests: IInlineCompletionRequest[] = [];
         const source = (req: IInlineCompletionRequest): Promise<readonly ICoreInlineCompletionItem[]> => {
@@ -353,7 +353,7 @@ describe("InlineCompletionsService — показ", () => {
         expect(service.isOpen()).toBe(true);
     });
 
-    it("range провайдера: набранное — префикс filterText, ghost — хвост insertText", async () => {
+    it("provider range: the typed text is a filterText prefix, the ghost text is the insertText tail", async () => {
         const fake = makeEditor("con", 3);
         const item: ICoreInlineCompletionItem = {
             insertText: "console.log()",
@@ -368,7 +368,7 @@ describe("InlineCompletionsService — показ", () => {
         expect(service.isOpen()).toBe(true);
     });
 
-    it("неподошедшие пункты пропускаются — берётся первый подходящий", async () => {
+    it("non-matching items are skipped — the first matching one is taken", async () => {
         const fake = makeEditor("con", 3);
         const service = makeService(
             makeGroup(
@@ -434,7 +434,7 @@ describe("InlineCompletionsService — показ", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 3, lines: ["st y = 1;"] });
     });
 
-    it("range, начинающийся ровно в каретке, — валидная вставка", async () => {
+    it("a range starting exactly at the cursor is a valid insertion", async () => {
         const fake = makeEditor("con", 3);
         const item: ICoreInlineCompletionItem = {
             insertText: "tinue;",
@@ -447,7 +447,7 @@ describe("InlineCompletionsService — показ", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 3, lines: ["tinue;"] });
     });
 
-    it("повторный запрос с пустым ответом гасит показанную подсказку", async () => {
+    it("a repeat request with an empty response hides the shown suggestion", async () => {
         const fake = makeEditor("ab", 2);
         let empty = false;
         const source = (): Promise<readonly ICoreInlineCompletionItem[]> =>
@@ -463,7 +463,7 @@ describe("InlineCompletionsService — показ", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
-    it("пустой ответ и ошибка источника не показывают ничего", async () => {
+    it("an empty response and a source error show nothing", async () => {
         const fake = makeEditor("abc", 3);
         const service = makeService(makeGroup(fake.editor, items()).group);
         await service.trigger();
@@ -476,8 +476,8 @@ describe("InlineCompletionsService — показ", () => {
     });
 });
 
-describe("InlineCompletionsService — гейты", () => {
-    it("не запрашивает: выделение, мультикурсор, read-only", async () => {
+describe("InlineCompletionsService — gates", () => {
+    it("does not request: selection, multi-cursor, read-only", async () => {
         const source = vi.fn(items({ insertText: "x" }));
 
         const withSelection = makeEditor("abc", 3);
@@ -495,7 +495,7 @@ describe("InlineCompletionsService — гейты", () => {
         expect(source).not.toHaveBeenCalled();
     });
 
-    it("без активного редактора и без источника — no-op", async () => {
+    it("no active editor and no source — no-op", async () => {
         const noEditor = makeService(makeGroup(null, items({ insertText: "x" })).group);
         await noEditor.trigger();
         expect(noEditor.isOpen()).toBe(false);
@@ -506,7 +506,7 @@ describe("InlineCompletionsService — гейты", () => {
         expect(noSource.isOpen()).toBe(false);
     });
 
-    it("вызов без подошедших провайдеров ничего не трогает: запрос в полёте доживает", async () => {
+    it("a call with no matching providers touches nothing: the request in flight survives", async () => {
         const fake = makeEditor("a", 1);
         const languageFeatures = new LanguageFeaturesService();
         let resolveLate!: (v: readonly ICoreInlineCompletionItem[]) => void;
@@ -527,7 +527,7 @@ describe("InlineCompletionsService — гейты", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(expect.objectContaining({ lines: ["-late"] }));
     });
 
-    it("устаревший ответ отброшен: новый запрос обгоняет старый", async () => {
+    it("a stale response is dropped: a new request overtakes the old one", async () => {
         const fake = makeEditor("a", 1);
         let resolveFirst!: (v: readonly ICoreInlineCompletionItem[]) => void;
         let calls = 0;
@@ -551,7 +551,7 @@ describe("InlineCompletionsService — гейты", () => {
         expect(fake.setGhostText).not.toHaveBeenCalledWith(expect.objectContaining({ lines: ["-first"] }));
     });
 
-    it("ревалидация после await: смена редактора / versionId / мультикурсор / каретка / попап", async () => {
+    it("revalidation after await: editor change / versionId / multi-cursor / cursor / popup", async () => {
         const deferred = (): {
             source: () => Promise<readonly ICoreInlineCompletionItem[]>;
             resolvers: ((v: readonly ICoreInlineCompletionItem[]) => void)[];
@@ -632,7 +632,7 @@ describe("InlineCompletionsService — гейты", () => {
         expect(s6.isOpen()).toBe(false);
     });
 
-    it("ответ, пережитый правкой документа, не показывается", async () => {
+    it("a response outlived by a document edit is not shown", async () => {
         const fake = makeEditor("a", 1);
         const resolvers: ((v: readonly ICoreInlineCompletionItem[]) => void)[] = [];
         const source = (): Promise<readonly ICoreInlineCompletionItem[]> =>
@@ -654,8 +654,8 @@ describe("InlineCompletionsService — гейты", () => {
     });
 });
 
-describe("InlineCompletionsService — жизнь сессии", () => {
-    it("набор совпадающего символа сжимает ghost локально, без нового запроса", async () => {
+describe("InlineCompletionsService — session lifetime", () => {
+    it("typing a matching character shrinks the ghost text locally, without a new request", async () => {
         const fake = makeEditor("ab", 2);
         const source = vi.fn(items({ insertText: "cde" }));
         const service = makeService(makeGroup(fake.editor, source).group);
@@ -670,7 +670,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(service.isOpen()).toBe(true);
     });
 
-    it("Backspace растит ghost обратно (набранное всё ещё префикс)", async () => {
+    it("Backspace grows the ghost text back (the typed text is still a prefix)", async () => {
         const fake = makeEditor("abc", 3);
         const source = vi.fn(
             items({ insertText: "cde", range: { start: { line: 0, character: 2 }, end: { line: 0, character: 3 } } }),
@@ -686,7 +686,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(source).toHaveBeenCalledTimes(1);
     });
 
-    it("расходящийся набор гасит подсказку и перезапрашивает", async () => {
+    it("diverging typing hides the suggestion and re-requests", async () => {
         const fake = makeEditor("ab", 2);
         const source = vi.fn(items({ insertText: "cde" }));
         const service = makeService(makeGroup(fake.editor, source).group);
@@ -699,7 +699,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(source).toHaveBeenCalledTimes(2); // auto re-request after the mismatch
     });
 
-    it("допечатанная целиком подсказка гаснет (перезапрос после — легитимен)", async () => {
+    it("a suggestion typed out in full is hidden (a re-request afterwards is legitimate)", async () => {
         const fake = makeEditor("ab", 2);
         let calls = 0;
         const source = (): Promise<readonly ICoreInlineCompletionItem[]> => {
@@ -718,7 +718,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(calls).toBe(2); // a new auto request goes out after typing more
     });
 
-    it("движение каретки без правки гасит подсказку", async () => {
+    it("cursor movement without an edit hides the suggestion", async () => {
         const fake = makeEditor("ab", 2);
         const service = makeService(makeGroup(fake.editor, items({ insertText: "cde" })).group);
         await service.trigger();
@@ -729,7 +729,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
-    it("каретка ушла назад ВНУТРЬ подсказки без правки — подсказка гаснет", async () => {
+    it("the cursor moved back INSIDE the suggestion without an edit — the suggestion is hidden", async () => {
         const fake = makeEditor("abc", 3);
         const source = items({
             insertText: "cde",
@@ -746,7 +746,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("каретка на другой строке (та же колонка) гасит подсказку", async () => {
+    it("the cursor on another line (same column) hides the suggestion", async () => {
         const fake = makeEditor("ab", 2);
         const service = makeService(makeGroup(fake.editor, items({ insertText: "cde" })).group);
         await service.trigger();
@@ -758,7 +758,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("строка укоротилась ниже начала сессии — подсказка гаснет, а не съезжает", async () => {
+    it("the line got shorter than the session start — the suggestion is hidden instead of shifting", async () => {
         const fake = makeEditor("ab", 2);
         let calls = 0;
         const source = (): Promise<readonly ICoreInlineCompletionItem[]> => {
@@ -776,7 +776,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
-    it("под открытым suggest-попапом ответ прячется, а Esc по попапу показывает его сразу, без перезапроса", async () => {
+    it("under an open suggest popup the response is hidden, and Esc on the popup shows it right away, without a re-request", async () => {
         const fake = makeEditor("con", 3);
         const source = vi.fn(items({ insertText: "sole.log();" }));
         let popupOpen = true;
@@ -802,7 +802,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(source).toHaveBeenCalledTimes(1);
     });
 
-    it("открывшийся suggest-попап прячет показанный призрак, закрывшийся — возвращает", async () => {
+    it("an opening suggest popup hides the shown ghost text, a closing one brings it back", async () => {
         const fake = makeEditor("con", 3);
         let popupOpen = false;
         const service = makeService(makeGroup(fake.editor, items({ insertText: "sole" })).group, {
@@ -825,7 +825,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 4, lines: ["ole"] });
     });
 
-    it("закрытие попапа, когда сессия протухла без события (тихая смена редактора), её не показывает", async () => {
+    it("closing the popup does not show a session that went stale without an event (silent editor change)", async () => {
         const fake = makeEditor("con", 3);
         let popupOpen = false;
         const g = makeGroup(fake.editor, items({ insertText: "sole" }));
@@ -841,7 +841,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
-    it("закрытие попапа с испорченной сессией гасит её и перезапрашивает", async () => {
+    it("closing the popup with a broken session hides it and re-requests", async () => {
         const fake = makeEditor("con", 3);
         const source = vi.fn(items({ insertText: "sole" }));
         let popupOpen = false;
@@ -859,7 +859,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(source).toHaveBeenCalledTimes(2);
     });
 
-    it("закрытие попапа без активного редактора — no-op (trigger сам гейтит)", async () => {
+    it("closing the popup without an active editor is a no-op (trigger gates by itself)", async () => {
         const fake = makeEditor("con", 3);
         const source = vi.fn(items({ insertText: "x" }));
         const g = makeGroup(fake.editor, source);
@@ -873,7 +873,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("первое событие каретки без правки ничего не запрашивает", async () => {
+    it("the first cursor event without an edit requests nothing", async () => {
         const fake = makeEditor("ab", 2);
         const source = vi.fn(items({ insertText: "cde" }));
         makeService(makeGroup(fake.editor, source).group);
@@ -884,7 +884,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(source).not.toHaveBeenCalled();
     });
 
-    it("две правки подряд — два авто-запроса (подавление не липнет)", async () => {
+    it("two edits in a row — two auto requests (suppression does not stick)", async () => {
         const fake = makeEditor("ab", 2);
         const source = vi.fn(items());
         const service = makeService(makeGroup(fake.editor, source).group);
@@ -898,7 +898,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("правка поверх отложенного запроса перезапускает дебаунс, а не копит таймеры", async () => {
+    it("an edit over a pending request restarts the debounce instead of piling up timers", async () => {
         const fake = makeEditor("ab", 2);
         const source = vi.fn(items());
         makeService(makeGroup(fake.editor, source).group, { delay: 5 });
@@ -910,7 +910,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(source).toHaveBeenCalledTimes(1);
     });
 
-    it("ручной триггер отменяет отложенный авто-запрос (не два RPC)", async () => {
+    it("a manual trigger cancels the pending auto request (not two RPCs)", async () => {
         const fake = makeEditor("ab", 2);
         const source = vi.fn(items({ insertText: "cde" }));
         const service = makeService(makeGroup(fake.editor, source).group);
@@ -922,7 +922,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(source).toHaveBeenCalledTimes(1);
     });
 
-    it("чистое движение каретки отменяет отложенный авто-запрос", async () => {
+    it("a pure cursor movement cancels the pending auto request", async () => {
         const fake = makeEditor("ab\ncd", 2);
         const source = vi.fn(items({ insertText: "xyz" }));
         const service = makeService(makeGroup(fake.editor, source).group);
@@ -935,7 +935,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(source).not.toHaveBeenCalled();
     });
 
-    it("мультикурсор при живой сессии гасит подсказку", async () => {
+    it("multi-cursor during a live session hides the suggestion", async () => {
         const fake = makeEditor("ab", 2);
         const service = makeService(makeGroup(fake.editor, items({ insertText: "cde" })).group);
         await service.trigger();
@@ -946,7 +946,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("активный редактор тихо сменился на другой — cursor-событие старого гасит подсказку", async () => {
+    it("the active editor silently changed — a cursor event of the old one hides the suggestion", async () => {
         const fake = makeEditor("ab", 2);
         const other = makeEditor("zz", 2);
         const fakeGroup = makeGroup(fake.editor, items({ insertText: "cde" }));
@@ -961,7 +961,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
-    it("каретка дёрнулась, когда активного редактора уже нет — подсказка гаснет", async () => {
+    it("the cursor moved when there is no active editor anymore — the suggestion is hidden", async () => {
         const fake = makeEditor("ab", 2);
         const fakeGroup = makeGroup(fake.editor, items({ insertText: "cde" }));
         const service = makeService(fakeGroup.group);
@@ -977,7 +977,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
-    it("смена активного редактора гасит подсказку", async () => {
+    it("an active editor change hides the suggestion", async () => {
         const fake = makeEditor("ab", 2);
         const fakeGroup = makeGroup(fake.editor, items({ insertText: "cde" }));
         const service = makeService(fakeGroup.group);
@@ -990,7 +990,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
-    it("после смены редактора события старого не запускают запросов (подписки сняты)", async () => {
+    it("after an editor change, the old one's events start no requests (subscriptions removed)", async () => {
         const fake = makeEditor("ab", 2);
         const other = makeEditor("zz", 2);
         const source = vi.fn(items({ insertText: "cde" }));
@@ -1005,7 +1005,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("смена редактора снимает отложенный авто-запрос старого", async () => {
+    it("an editor change drops the old one's pending auto request", async () => {
         const fake = makeEditor("ab", 2);
         const other = makeEditor("zz", 2);
         const source = vi.fn(items({ insertText: "cde" }));
@@ -1019,7 +1019,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(source).not.toHaveBeenCalled();
     });
 
-    it("смена редактора не тащит «была правка» на новый: чистое движение не запрашивает", async () => {
+    it("an editor change does not carry `had an edit` over to the new one: a pure movement does not request", async () => {
         const fake = makeEditor("ab", 2);
         const other = makeEditor("zz", 2);
         const source = vi.fn(items({ insertText: "cde" }));
@@ -1033,7 +1033,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(source).not.toHaveBeenCalled();
     });
 
-    it("hide() гасит подсказку (Escape)", async () => {
+    it("hide() hides the suggestion (Escape)", async () => {
         const fake = makeEditor("ab", 2);
         const service = makeService(makeGroup(fake.editor, items({ insertText: "cde" })).group);
         await service.trigger();
@@ -1048,7 +1048,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText.mock.calls.length).toBe(calls);
     });
 
-    it("dispose гасит видимую подсказку", async () => {
+    it("dispose hides the visible suggestion", async () => {
         const fake = makeEditor("ab", 2);
         const service = makeService(makeGroup(fake.editor, items({ insertText: "cde" })).group);
         await service.trigger();
@@ -1060,7 +1060,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith(null);
     });
 
-    it("dispose гасит подсказку и снимает подписки", async () => {
+    it("dispose hides the suggestion and removes subscriptions", async () => {
         const fake = makeEditor("ab", 2);
         const other = makeEditor("zz", 2);
         const source = vi.fn(items({ insertText: "cde" }));
@@ -1091,8 +1091,8 @@ describe("InlineCompletionsService — жизнь сессии", () => {
     });
 });
 
-describe("InlineCompletionsService — принятие", () => {
-    it("acceptCurrent заменяет диапазон целым insertText одной правкой и не перезапрашивает", async () => {
+describe("InlineCompletionsService — accept", () => {
+    it("acceptCurrent replaces the range with the whole insertText in one edit and does not re-request", async () => {
         const fake = makeEditor("con", 3);
         const source = vi.fn(
             items({
@@ -1130,7 +1130,7 @@ describe("InlineCompletionsService — принятие", () => {
         expect(source).toHaveBeenCalledTimes(1);
     });
 
-    it("acceptCurrent без показанной подсказки — no-op", () => {
+    it("acceptCurrent without a shown suggestion is a no-op", () => {
         const fake = makeEditor("con", 3);
         const service = makeService(makeGroup(fake.editor, items({ insertText: "x" })).group);
         service.acceptCurrent();
@@ -1138,8 +1138,8 @@ describe("InlineCompletionsService — принятие", () => {
     });
 });
 
-describe("InlineCompletionsService — каретка в середине строки", () => {
-    it("набор в середине строки запрашивает источник и показывает призрака перед хвостом", async () => {
+describe("InlineCompletionsService — cursor in the middle of a line", () => {
+    it("typing in the middle of a line requests the source and shows ghost text before the tail", async () => {
         const fake = makeEditor(";", 0);
         const requests: IInlineCompletionRequest[] = [];
         const source = (req: IInlineCompletionRequest): Promise<readonly ICoreInlineCompletionItem[]> => {
@@ -1158,7 +1158,7 @@ describe("InlineCompletionsService — каретка в середине стр
         expect(service.isOpen()).toBe(true);
     });
 
-    it("Tab вставляет подсказку в середину строки, не трогая хвост", async () => {
+    it("Tab inserts the suggestion in the middle of the line without touching the tail", async () => {
         const fake = makeEditor("const greeting;", 14);
         const service = makeService(makeGroup(fake.editor, items({ insertText: ' = "Hello"' })).group);
 
@@ -1181,7 +1181,7 @@ describe("InlineCompletionsService — каретка в середине стр
         expect(service.isOpen()).toBe(false);
     });
 
-    it("набор совпадающего символа в середине строки сжимает призрака, а не гасит", async () => {
+    it("typing a matching character in the middle of a line shrinks the ghost text instead of hiding it", async () => {
         const fake = makeEditor("const greeting;", 14);
         const service = makeService(makeGroup(fake.editor, items({ insertText: ' = "Hello"' })).group);
         await service.trigger();
@@ -1195,8 +1195,8 @@ describe("InlineCompletionsService — каретка в середине стр
     });
 });
 
-describe("InlineCompletionsService — отмена запроса", () => {
-    it("новый запрос отменяет предыдущий: доживает только последний", async () => {
+describe("InlineCompletionsService — request cancellation", () => {
+    it("a new request cancels the previous one: only the last one survives", async () => {
         const fake = makeEditor("const x", 7);
         const pending = pendingSource();
         const service = makeService(makeGroup(fake.editor, pending.source).group);
@@ -1221,7 +1221,7 @@ describe("InlineCompletionsService — отмена запроса", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("повторный trigger без правки тоже отменяет предыдущий запрос", async () => {
+    it("a repeat trigger without an edit cancels the previous request too", async () => {
         const fake = makeEditor("const x", 7);
         const pending = pendingSource();
         const service = makeService(makeGroup(fake.editor, pending.source).group);
@@ -1237,7 +1237,7 @@ describe("InlineCompletionsService — отмена запроса", () => {
         expect(pending.tokens[1].isCancellationRequested).toBe(false);
     });
 
-    it("hide (Escape) отменяет запрос, у которого призрака ещё нет, и поздний ответ не всплывает", async () => {
+    it("hide (Escape) cancels a request that has no ghost text yet, and a late response does not pop up", async () => {
         const fake = makeEditor("const x", 7);
         const pending = pendingSource();
         const service = makeService(makeGroup(fake.editor, pending.source).group);
@@ -1258,7 +1258,7 @@ describe("InlineCompletionsService — отмена запроса", () => {
         expect(fake.setGhostText).not.toHaveBeenCalledWith(expect.objectContaining({ lines: ["= 42;"] }));
     });
 
-    it("hide снимает и отложенный авто-запрос — призрак не всплывёт следом за Escape", async () => {
+    it("hide drops the pending auto request too — ghost text does not pop up right after Escape", async () => {
         const fake = makeEditor("const x", 7);
         const source = vi.fn(items({ insertText: " = 42;" }));
         const service = makeService(makeGroup(fake.editor, source).group);
@@ -1273,7 +1273,7 @@ describe("InlineCompletionsService — отмена запроса", () => {
         expect(service.isOpen()).toBe(false);
     });
 
-    it("уход каретки отменяет запрос", async () => {
+    it("the cursor moving away cancels the request", async () => {
         const fake = makeEditor("const x", 7);
         const pending = pendingSource();
         const service = makeService(makeGroup(fake.editor, pending.source).group);
@@ -1287,7 +1287,7 @@ describe("InlineCompletionsService — отмена запроса", () => {
         expect(contextKey(service, "inlineSuggestionRequestPending")).toBe(false);
     });
 
-    it("смена активного редактора (переключение вкладки) отменяет запрос", async () => {
+    it("an active editor change (tab switch) cancels the request", async () => {
         const fake = makeEditor("const x", 7);
         const other = makeEditor("other", 5);
         const pending = pendingSource();
@@ -1304,7 +1304,7 @@ describe("InlineCompletionsService — отмена запроса", () => {
         expect(contextKey(service, "inlineSuggestionRequestPending")).toBe(false);
     });
 
-    it("дождавшийся ответа запрос не отменяется — нормальный путь цел", async () => {
+    it("a request that got its response is not cancelled — the normal path is intact", async () => {
         const fake = makeEditor("const x", 7);
         const pending = pendingSource();
         const service = makeService(makeGroup(fake.editor, pending.source).group);
@@ -1320,7 +1320,7 @@ describe("InlineCompletionsService — отмена запроса", () => {
         expect(fake.setGhostText).toHaveBeenLastCalledWith({ line: 0, character: 7, lines: [" = 42;"] });
     });
 
-    it("dispose сервиса отменяет запрос в полёте", async () => {
+    it("disposing the service cancels the request in flight", async () => {
         const fake = makeEditor("const x", 7);
         const pending = pendingSource();
         const service = makeService(makeGroup(fake.editor, pending.source).group);
@@ -1333,8 +1333,8 @@ describe("InlineCompletionsService — отмена запроса", () => {
     });
 });
 
-describe("InlineCompletionsService — гейт Tab против отступа", () => {
-    it("подсказка с ≥ таба отступа при каретке в отступе выключает ключ", async () => {
+describe("InlineCompletionsService — Tab gate versus indentation", () => {
+    it("a suggestion with ≥ a tab of indentation while the cursor is in the indentation turns the key off", async () => {
         const fake = makeEditor("    ", 4);
         const service = makeService(makeGroup(fake.editor, items({ insertText: "    return n;" })).group);
         expect(contextKey(service, "inlineSuggestionHasIndentationLessThanTabSize")).toBe(true); // default without a session
@@ -1345,7 +1345,7 @@ describe("InlineCompletionsService — гейт Tab против отступа"
         expect(contextKey(service, "inlineSuggestionHasIndentationLessThanTabSize")).toBe(false);
     });
 
-    it("подсказка после текста строки ключ не трогает", async () => {
+    it("a suggestion after the line's text leaves the key alone", async () => {
         const fake = makeEditor("if (x) {", 8);
         const service = makeService(makeGroup(fake.editor, items({ insertText: "    }" })).group);
         await service.trigger();
@@ -1354,8 +1354,8 @@ describe("InlineCompletionsService — гейт Tab против отступа"
     });
 });
 
-describe("InlineCompletionsService — настройки", () => {
-    it("enabled:false гасит авто-запрос, но не явный триггер (ручной режим)", async () => {
+describe("InlineCompletionsService — settings", () => {
+    it("enabled:false suppresses the auto request but not an explicit trigger (manual mode)", async () => {
         const fake = makeEditor("ab", 2);
         const requests: IInlineCompletionRequest[] = [];
         const service = makeService(makeGroup(fake.editor, recordingItems(requests, { insertText: "abc" })).group, {
@@ -1378,7 +1378,7 @@ describe("InlineCompletionsService — настройки", () => {
         expect(service.isOpen()).toBe(true);
     });
 
-    it("после явного триггера при enabled:false расхождение гасит призрака навсегда", async () => {
+    it("after an explicit trigger with enabled:false, divergence hides the ghost text for good", async () => {
         const fake = makeEditor("ab", 2);
         const source = vi.fn(items({ insertText: "abc" }));
         const service = makeService(makeGroup(fake.editor, source).group, { enabled: false });
@@ -1394,7 +1394,7 @@ describe("InlineCompletionsService — настройки", () => {
         expect(source).toHaveBeenCalledTimes(1);
     });
 
-    it("enabled читается на каждом запросе — правка настройки применяется без пересоздания сервиса", async () => {
+    it("enabled is read on every request — a setting change applies without recreating the service", async () => {
         const fake = makeEditor("ab", 2);
         const source = vi.fn(items({ insertText: "abc" }));
         const options: ServiceOptions = { enabled: true };
@@ -1416,7 +1416,7 @@ describe("InlineCompletionsService — настройки", () => {
         expect(service.isOpen()).toBe(true);
     });
 
-    it("delay задаёт паузу перед авто-запросом и читается на каждой правке", async () => {
+    it("delay sets the pause before the auto request and is read on every edit", async () => {
         const fake = makeEditor("ab", 2);
         const source = vi.fn(items());
         const options: ServiceOptions = { delay: 40 };
@@ -1434,7 +1434,7 @@ describe("InlineCompletionsService — настройки", () => {
         expect(source).toHaveBeenCalledTimes(2);
     });
 
-    it("настройки читаются для языка документа: секция `[typescript]` бьёт плоские", async () => {
+    it("settings are read for the document's language: the `[typescript]` section beats the flat ones", async () => {
         const fake = makeEditor("ab", 2); // the document is typescript
         const requests: IInlineCompletionRequest[] = [];
         const options: ServiceOptions = {
@@ -1466,7 +1466,7 @@ describe("InlineCompletionsService — настройки", () => {
         expect(requests).toHaveLength(2);
     });
 
-    it("requestTimeout едет в источник с каждым запросом", async () => {
+    it("requestTimeout goes to the source with every request", async () => {
         const fake = makeEditor("ab", 2);
         const requests: IInlineCompletionRequest[] = [];
         const options: ServiceOptions = { requestTimeout: 20000 };
@@ -1483,13 +1483,13 @@ describe("InlineCompletionsService — настройки", () => {
         expect(requests[1]).toMatchObject({ timeoutMs: 1234 });
     });
 
-    it("негодные значения настроек откатываются на дефолты, а не ломают редактор", async () => {
+    it("invalid setting values fall back to defaults instead of breaking the editor", async () => {
         // Exactly what a person can write by hand.
         const fake = makeEditor("ab", 2);
         const requests: IInlineCompletionRequest[] = [];
         const service = makeService(makeGroup(fake.editor, recordingItems(requests, { insertText: "abc" })).group, {
             delay: -5,
-            requestTimeout: "много",
+            requestTimeout: "lots",
         });
 
         await service.trigger();
@@ -1506,7 +1506,7 @@ describe("InlineCompletionsService — настройки", () => {
 });
 
 describe("computeIndentationLessThanTabSize", () => {
-    it("считает видимую ширину пробелов и табов против tabSize", () => {
+    it("measures the visible width of spaces and tabs against tabSize", () => {
         expect(computeIndentationLessThanTabSize("  ", 2, "    x", 4)).toBe(false);
         // A tab pads up to the tabSize boundary → false.
         expect(computeIndentationLessThanTabSize("", 0, "\tx", 4)).toBe(false);
@@ -1523,8 +1523,8 @@ describe("computeIndentationLessThanTabSize", () => {
     });
 });
 
-describe("InlineCompletionsService — состояние для quick suggest", () => {
-    it("регистрируется в suggest и снимается на dispose", () => {
+describe("InlineCompletionsService — state for quick suggest", () => {
+    it("registers with suggest and unregisters on dispose", () => {
         const fake = makeEditor("a", 1);
         const service = makeService(makeGroup(fake.editor, items()).group);
         expect(service.inlineState()).not.toBeNull();
@@ -1532,7 +1532,7 @@ describe("InlineCompletionsService — состояние для quick suggest",
         expect(service.inlineState()).toBeNull();
     });
 
-    it("loading: отложенный и летящий запрос; событие на исходе; visible — показанный призрак", async () => {
+    it("loading: a pending and an in-flight request; an event on completion; visible means shown ghost text", async () => {
         const fake = makeEditor("con", 3);
         const pending = pendingSource();
         const service = makeService(makeGroup(fake.editor, pending.source).group, { delay: 20 });
@@ -1556,7 +1556,7 @@ describe("InlineCompletionsService — состояние для quick suggest",
         expect(changed).toHaveBeenCalled();
     });
 
-    it("пустой ответ — тоже исход: событие есть, призрака нет", async () => {
+    it("an empty response is a completion too: an event, but no ghost text", async () => {
         const fake = makeEditor("con", 3);
         const service = makeService(makeGroup(fake.editor, items()).group);
         const state = service.inlineState()!;
@@ -1568,7 +1568,7 @@ describe("InlineCompletionsService — состояние для quick suggest",
         expect(state.isLoading()).toBe(false);
     });
 
-    it("stopAutomatic отменяет летящий запрос (тайм-аут ожидания у suggest)", () => {
+    it("stopAutomatic cancels the in-flight request (suggest's wait timeout)", () => {
         const fake = makeEditor("con", 3);
         const pending = pendingSource();
         const service = makeService(makeGroup(fake.editor, pending.source).group);
@@ -1583,7 +1583,7 @@ describe("InlineCompletionsService — состояние для quick suggest",
         expect(changed).toHaveBeenCalled();
     });
 
-    it("открытие попапа — событие состояния (призрак ушёл с экрана)", async () => {
+    it("opening the popup is a state event (ghost text left the screen)", async () => {
         const fake = makeEditor("con", 3);
         let popupOpen = false;
         const service = makeService(makeGroup(fake.editor, items({ insertText: "sole" })).group, {
@@ -1599,7 +1599,7 @@ describe("InlineCompletionsService — состояние для quick suggest",
         expect(state.isVisible()).toBe(false);
     });
 
-    it("открытие попапа без сессии ничего не рисует", () => {
+    it("opening the popup without a session draws nothing", () => {
         const fake = makeEditor("con", 3);
         const service = makeService(makeGroup(fake.editor, items()).group, { popupOpen: () => true });
         service.firePopupShow();

@@ -20,15 +20,15 @@ function context(overrides: Partial<ITaskVariableContext> = {}): ITaskVariableCo
 const resolve = (value: string, overrides?: Partial<ITaskVariableContext>): string =>
     resolveVariables(value, context(overrides));
 
-describe("resolveVariables — значения", () => {
-    it("папка воркспейса и её имя (с устаревшими синонимами)", () => {
+describe("resolveVariables — values", () => {
+    it("workspace folder and its name (with deprecated aliases)", () => {
         expect(resolve("${workspaceFolder}|${workspaceRoot}")).toBe("/ws/proj|/ws/proj");
         expect(resolve("${workspaceFolderBasename}|${workspaceRootFolderName}")).toBe("proj|proj");
         expect(resolve("${workspaceFolder:proj}")).toBe("/ws/proj");
         expect(resolve("${workspaceFolder:}")).toBe("/ws/proj");
     });
 
-    it("файл активного редактора и его части", () => {
+    it("active editor file and its parts", () => {
         expect(resolve("${file}")).toBe("/ws/proj/src/app.test.ts");
         expect(resolve("${fileBasename}")).toBe("app.test.ts");
         expect(resolve("${fileBasenameNoExtension}")).toBe("app.test");
@@ -39,18 +39,18 @@ describe("resolveVariables — значения", () => {
         expect(resolve("${lineNumber}")).toBe("7");
     });
 
-    it("файл в корне папки — относительный каталог «.»; без папки — абсолютные пути", () => {
+    it("file at the folder root — relative directory '.'; without a folder — absolute paths", () => {
         expect(resolve("${relativeFileDirname}", { filePath: "/ws/proj/x.ts" })).toBe(".");
         expect(resolve("${relativeFile}|${relativeFileDirname}", { folderPath: undefined })).toBe(
             "/ws/proj/src/app.test.ts|/ws/proj/src",
         );
     });
 
-    it("окружение: значение, пустое — пусто, нет переменной — пусто", () => {
+    it("env: value, empty — empty, missing variable — empty", () => {
         expect(resolve("${env:HOME}|${env:EMPTY}|${env:NOPE}")).toBe("/home/u||");
     });
 
-    it("настройки: строка как есть, число — текстом", () => {
+    it("config: string as is, number as text", () => {
         expect(resolve("${config:a.str}/${config:a.num}")).toBe("s/3");
         // The substitution map (the definition in the start event) also gets the text.
         const resolved = new Map<string, string>();
@@ -58,21 +58,21 @@ describe("resolveVariables — значения", () => {
         expect(resolved.get("${config:a.num}")).toBe("3");
     });
 
-    it("cwd: с папкой — папка (как у эталона), без папки — каталог процесса", () => {
+    it("cwd: with a folder — the folder (as upstream), without a folder — the process directory", () => {
         expect(resolve("${cwd}")).toBe("/ws/proj");
         expect(resolve("${cwd}", { folderPath: undefined })).toBe("/proc/cwd");
     });
 
-    it("домашний каталог, разделитель пути", () => {
+    it("home directory, path separator", () => {
         expect(resolve("${userHome}")).toBe("/home/u");
         expect(resolve("${pathSeparator}${/}")).toBe(`${paths.sep}${paths.sep}`);
     });
 
-    it("неизвестная переменная и текст без переменных — как есть; несколько в строке", () => {
+    it("unknown variable and text without variables — as is; several in one string", () => {
         expect(resolve("${foo} ${workspaceFolder} $x {y}")).toBe("${foo} /ws/proj $x {y}");
     });
 
-    it("собирает подставленное в карту, неизменённое — нет", () => {
+    it("collects resolved values into the map, unchanged ones are not", () => {
         const resolved = new Map<string, string>();
         resolveVariables("${workspaceFolder} ${foo} ${env:EMPTY}", context(), resolved);
         expect([...resolved]).toStrictEqual([
@@ -82,12 +82,12 @@ describe("resolveVariables — значения", () => {
     });
 });
 
-describe("resolveVariables — отказы (тексты эталона)", () => {
+describe("resolveVariables — refusals (upstream texts)", () => {
     const fails = (value: string, message: string, overrides?: Partial<ITaskVariableContext>): void => {
         expect(() => resolve(value, overrides)).toThrow(new TaskVariableError(message));
     };
 
-    it("нет редактора — переменные файла", () => {
+    it("no editor — file variables", () => {
         for (const name of [
             "file",
             "fileBasename",
@@ -103,7 +103,7 @@ describe("resolveVariables — отказы (тексты эталона)", () =
         }
     });
 
-    it("нет папки — переменные папки; чужое имя папки", () => {
+    it("no folder — folder variables; unknown folder name", () => {
         fails("${workspaceFolder}", "Variable workspaceFolder can not be resolved. Please open a folder.", {
             folderPath: undefined,
         });
@@ -121,7 +121,7 @@ describe("resolveVariables — отказы (тексты эталона)", () =
         });
     });
 
-    it("окружение и настройки без имени, настройка не найдена или структурная", () => {
+    it("env and config without a name, config not found or structured", () => {
         fails("${env}", "Variable ${env} can not be resolved because no environment variable name is given.");
         fails("${env:}", "Variable ${env:} can not be resolved because no environment variable name is given.");
         fails("${config}", "Variable ${config} can not be resolved because no settings name is given.");
@@ -131,7 +131,7 @@ describe("resolveVariables — отказы (тексты эталона)", () =
         fails("${config:a.obj}", "Variable ${config:a.obj} can not be resolved because 'a.obj' is a structured value.");
     });
 
-    it("нет домашнего каталога, нет строки каретки", () => {
+    it("no home directory, no cursor line", () => {
         fails("${userHome}", "Variable ${userHome} can not be resolved. UserHome path is not defined", {
             userHome: undefined,
         });
@@ -142,7 +142,7 @@ describe("resolveVariables — отказы (тексты эталона)", () =
         );
     });
 
-    it("${input:…} и ${command:…} — не поддержаны: явный отказ, а не литерал", () => {
+    it("${input:…} and ${command:…} are not supported: an explicit refusal, not a literal", () => {
         fails("${input:pick}", "Variable ${input:pick} is not supported in tasks yet.");
         fails("${command:x.y}", "Variable ${command:x.y} is not supported in tasks yet.");
     });

@@ -26,7 +26,7 @@ const UNTRACKED = packRgb(115, 201, 145);
 const DELETED = packRgb(199, 78, 57);
 
 /** Like VS Code: a folder with changes inside takes the descendant's color and the "●" badge. A real tree over a real disk. */
-describe("ExplorerComponent — декорации всплывают к папкам", () => {
+describe("ExplorerComponent — decorations bubble up to folders", () => {
     let ws: ITempWorkspace;
     let config: InMemoryConfigurationService;
     let service: ExplorerService;
@@ -46,7 +46,7 @@ describe("ExplorerComponent — декорации всплывают к пап�
     function rowOf(text: string): { y: number; row: string } {
         const all = rows();
         const y = all.findIndex((row) => new RegExp(`(^|\\s|/)${text}(\\s|$)`).test(row));
-        expect(y, `строка «${text}» в кадре:\n${all.join("\n")}`).toBeGreaterThanOrEqual(0);
+        expect(y, `row "${text}" in frame:\n${all.join("\n")}`).toBeGreaterThanOrEqual(0);
         return { y, row: all[y] };
     }
 
@@ -106,12 +106,12 @@ describe("ExplorerComponent — декорации всплывают к пап�
         ws.dispose();
     });
 
-    it("дефолты настроек — true, как у эталона", () => {
+    it("settings default to true, as upstream", () => {
         expect(config.get("explorer.decorations.colors")).toBe(true);
         expect(config.get("explorer.decorations.badges")).toBe(true);
     });
 
-    it("свёрнутая папка с изменённым файлом глубоко внутри — цвет файла и «●»", async () => {
+    it("a collapsed folder with a modified file deep inside — the file's color and '●'", async () => {
         await decorate([{ path: ws.path("src/lib/util.ts"), color: MODIFIED, badge: "M", propagate: true }]);
 
         expect(badgeOf("src")).toBe("●");
@@ -134,7 +134,7 @@ describe("ExplorerComponent — декорации всплывают к пап�
         expect(labelFg("util.ts")).toBe(MODIFIED);
     });
 
-    it("файл стал чистым — предки гаснут", async () => {
+    it("file became clean — ancestors clear", async () => {
         await decorate([{ path: ws.path("src/lib/util.ts"), color: MODIFIED, badge: "M", propagate: true }]);
         expect(badgeOf("src")).toBe("●");
 
@@ -143,7 +143,7 @@ describe("ExplorerComponent — декорации всплывают к пап�
         expect(labelFg("src")).not.toBe(MODIFIED);
     });
 
-    it("из двух изменённых один стал чистым — папка берёт цвет оставшегося", async () => {
+    it("one of two modified files became clean — the folder takes the remaining one's color", async () => {
         await decorate([
             { path: ws.path("src/main.ts"), color: UNTRACKED, badge: "U", propagate: true },
             { path: ws.path("src/lib/util.ts"), color: MODIFIED, badge: "M", propagate: true },
@@ -156,13 +156,13 @@ describe("ExplorerComponent — декорации всплывают к пап�
         expect(labelFg("src")).toBe(UNTRACKED);
     });
 
-    it("декорация без propagate (удалённый файл) к папке не всплывает", async () => {
+    it("a decoration without propagate (deleted file) does not bubble to the folder", async () => {
         await decorate([{ path: ws.path("old/gone.ts"), color: DELETED, badge: "D", propagate: false }]);
         expect(badgeOf("old")).toBe("");
         expect(labelFg("old")).not.toBe(DELETED);
     });
 
-    it("компактная цепочка «pkg/a/b» несёт декорацию своей последней папки", async () => {
+    it("the compact chain 'pkg/a/b' carries its last folder's decoration", async () => {
         service.focus();
         app.sendKey("ArrowDown"); // old → pkg
         app.sendKey("ArrowRight");
@@ -176,7 +176,7 @@ describe("ExplorerComponent — декорации всплывают к пап�
         expect(labelFg("pkg/a/b")).toBe(UNTRACKED);
     });
 
-    it("explorer.decorations.badges=false гасит бейджи, цвет остаётся; настройка живая", async () => {
+    it("explorer.decorations.badges=false hides badges, color stays; the setting is live", async () => {
         await decorate([
             { path: ws.path("src/lib/util.ts"), color: MODIFIED, badge: "M", propagate: true },
             { path: ws.path("README.md"), color: UNTRACKED, badge: "U" },
@@ -193,7 +193,7 @@ describe("ExplorerComponent — декорации всплывают к пап�
         expect(badgeOf("src")).toBe("●");
     });
 
-    it("explorer.decorations.colors=false гасит цвет, бейджи остаются; настройка живая", async () => {
+    it("explorer.decorations.colors=false hides color, badges stay; the setting is live", async () => {
         await decorate([
             { path: ws.path("src/lib/util.ts"), color: MODIFIED, badge: "M", propagate: true },
             { path: ws.path("README.md"), color: UNTRACKED, badge: "U" },

@@ -8,8 +8,8 @@ function signature(label: string, parameters: ICoreSignature["parameters"]): ICo
     return { label, parameters };
 }
 
-describe("activeParameterSpan — куда ложится подсветка", () => {
-    it("строковая метка ищется по границе слова, а не первым indexOf", () => {
+describe("activeParameterSpan — where the highlight lands", () => {
+    it("a string label is searched at a word boundary, not with the first indexOf", () => {
         const sig = signature("greet(nameLength: number, name: string): void", [
             { label: "nameLength: number" },
             { label: "name" },
@@ -19,13 +19,13 @@ describe("activeParameterSpan — куда ложится подсветка", (
         expect(sig.label.slice(26, 30)).toBe("name");
     });
 
-    it("метка-пара офсетов берётся как есть", () => {
+    it("an offset-pair label is taken as is", () => {
         const sig = signature("greet(name: string)", [{ label: [6, 18] as const }]);
 
         expect(activeParameterSpan(sig, 0)).toEqual([6, 18]);
     });
 
-    it("пустой диапазон: нет параметра, пустая метка, вывернутая пара, не найдено", () => {
+    it("empty range: no parameter, empty label, inverted pair, not found", () => {
         const sig = signature("greet(name: string)", [
             { label: "" },
             { label: [10, 10] as const },
@@ -38,19 +38,19 @@ describe("activeParameterSpan — куда ложится подсветка", (
         expect(activeParameterSpan(sig, 2)).toEqual([0, 0]);
     });
 
-    it("отрицательный индекс не подсвечивает ничего", () => {
+    it("a negative index highlights nothing", () => {
         const sig = signature("greet(name: string)", [{ label: "name" }]);
 
         expect(activeParameterSpan(sig, -1)).toEqual([0, 0]);
     });
 
-    it("параметр в самом начале метки — граница слева есть", () => {
+    it("a parameter at the very start of the label has a left boundary", () => {
         const sig = signature("name: string", [{ label: "name" }]);
 
         expect(activeParameterSpan(sig, 0)).toEqual([0, 4]);
     });
 
-    it("параметр в самом конце метки — справа граница тоже есть", () => {
+    it("a parameter at the very end of the label has a right boundary too", () => {
         // The server may send a truncated label (`greet(name` without the paren):
         // the last character simply has no neighbor.
         const sig = signature("greet(name", [{ label: "name" }]);
@@ -58,19 +58,19 @@ describe("activeParameterSpan — куда ложится подсветка", (
         expect(activeParameterSpan(sig, 0)).toEqual([6, 10]);
     });
 
-    it("вхождение только внутри слова = не найдено", () => {
+    it("an occurrence only inside a word means not found", () => {
         const sig = signature("greet(username: string)", [{ label: "name" }]);
 
         expect(activeParameterSpan(sig, 0)).toEqual([0, 0]);
     });
 });
 
-describe("wrapSignature — перенос с сохранением офсетов", () => {
-    it("короткая метка — один кусок с нулевым офсетом", () => {
+describe("wrapSignature — wrapping that preserves offsets", () => {
+    it("a short label is one chunk at offset zero", () => {
         expect(wrapSignature("greet(name: string)", 40)).toEqual([{ text: "greet(name: string)", start: 0 }]);
     });
 
-    it("длинная метка режется по словам, офсеты указывают в исходную строку", () => {
+    it("a long label is split at words, offsets point into the original string", () => {
         const label = "greet(name: string, age: number): void";
 
         const chunks = wrapSignature(label, 22);
@@ -84,7 +84,7 @@ describe("wrapSignature — перенос с сохранением офсет�
         }
     });
 
-    it("слово шире строки режется по ширине", () => {
+    it("a word wider than the line is split by width", () => {
         const chunks = wrapSignature("aVeryLongIdentifierWithoutSpaces", 10);
 
         expect(chunks).toEqual([
@@ -95,24 +95,24 @@ describe("wrapSignature — перенос с сохранением офсет�
         ]);
     });
 
-    it("широкие символы считаются по экранной ширине, а не по длине строки", () => {
+    it("wide characters count by display width, not by string length", () => {
         // Each CJK character is two columns: exactly two fit into width 4.
-        expect(wrapSignature("абв(名前名前)", 4)).toEqual([
-            { text: "абв(", start: 0 },
+        expect(wrapSignature("abc(名前名前)", 4)).toEqual([
+            { text: "abc(", start: 0 },
             { text: "名前", start: 4 },
             { text: "名前", start: 6 },
             { text: ")", start: 8 },
         ]);
     });
 
-    it("широкий символ шире всей строки всё равно сдвигает разбор", () => {
+    it("a wide character wider than the whole line still advances the scan", () => {
         expect(wrapSignature("名前", 1)).toEqual([
             { text: "名", start: 0 },
             { text: "前", start: 1 },
         ]);
     });
 
-    it("перевод строки в метке — жёсткий перенос, «\\n» не попадает в кусок", () => {
+    it("a newline in the label is a hard break, \\n does not end up in a chunk", () => {
         const label = "greet(\n    name: string,\n)";
 
         const chunks = wrapSignature(label, 40);
@@ -127,12 +127,12 @@ describe("wrapSignature — перенос с сохранением офсет�
         }
     });
 
-    it("нулевая и отрицательная ширина не дают кусков", () => {
+    it("zero and negative width yield no chunks", () => {
         expect(wrapSignature("greet()", 0)).toEqual([]);
         expect(wrapSignature("greet()", -1)).toEqual([]);
     });
 
-    it("пустая метка не даёт пустой строки в попапе", () => {
+    it("an empty label yields no empty line in the popup", () => {
         expect(wrapSignature("", 20)).toEqual([]);
         expect(wrapSignature("   ", 20)).toEqual([]);
     });

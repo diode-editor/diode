@@ -39,7 +39,7 @@ function flushTimers(): Promise<void> {
  * With auto-closing, `(` inserts `()` (line +2), while typeover of `)` does not change the line at all —
  * the typing is visible only through `onDidType`.
  */
-describe("ParameterHintsService — набор с авто-закрытием пары", () => {
+describe("ParameterHintsService — typing with auto-closing pairs", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let requests: ISignatureHelpRequest[];
@@ -82,7 +82,7 @@ describe("ParameterHintsService — набор с авто-закрытием п
         ws.dispose();
     });
 
-    it("`(`, вставившая `()`, открывает подсказку как триггер-символ", async () => {
+    it("`(` that inserted `()` opens the hint as a trigger character", async () => {
         h.testApp.sendKey("End");
         h.testApp.sendKey("(");
         await flushTimers();
@@ -96,7 +96,7 @@ describe("ParameterHintsService — набор с авто-закрытием п
         expect(h.container.get(ParameterHintsServiceDIToken).isOpen()).toBe(true);
     });
 
-    it("typeover `)` уходит серверу ретриггер-символом и закрывает подсказку", async () => {
+    it("typeover of `)` goes to the server as a retrigger character and closes the hint", async () => {
         h.testApp.sendKey("End");
         h.testApp.sendKey("(");
         await flushTimers();

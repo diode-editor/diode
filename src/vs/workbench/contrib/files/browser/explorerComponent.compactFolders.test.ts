@@ -89,11 +89,11 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         ws.dispose();
     });
 
-    it("дефолт настройки — true, как у эталона", () => {
+    it("setting defaults to true, as upstream", () => {
         expect(config.get("explorer.compactFolders")).toBe(true);
     });
 
-    it("раскрытая папка с единственным ребёнком-каталогом — одна строка «pkg/a/b» с детьми последней папки", async () => {
+    it("an expanded folder with a single directory child is one row 'pkg/a/b' with the last folder's children", async () => {
         // The chain is unknown until expanded — compaction is lazy, like upstream.
         const initial = rows();
         expect(initial).toHaveLength(2);
@@ -113,7 +113,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(frame).toHaveLength(4);
     });
 
-    it("действия над компактной строкой бьют в последнюю папку цепочки", async () => {
+    it("actions on a compact row target the last folder of the chain", async () => {
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("pkg/a/b");
@@ -124,7 +124,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(service.getPasteTargetDir()).toBe(last);
     });
 
-    it("раскрытая компактная строка следит за каждой своей папкой, свёрнутая — ни за одной", async () => {
+    it("an expanded compact row watches each of its folders, a collapsed one — none", async () => {
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("pkg/a/b");
@@ -138,7 +138,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         });
     });
 
-    it("свернул и снова раскрыл — строка остаётся компактной", async () => {
+    it("collapsed and expanded again — the row stays compact", async () => {
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("C.java");
@@ -150,7 +150,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(rows()[0]).toContain("pkg/a/b");
     });
 
-    it("правый клик по сегменту открывает меню про его папку и делает его текущим", async () => {
+    it("right click on a segment opens the menu for its folder and makes it current", async () => {
         const show = vi.spyOn(contextMenuService, "showContextMenu").mockImplementation(() => {});
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
@@ -171,7 +171,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(service.getSelectedPaths()).toEqual([ws.path("pkg/a")]);
     });
 
-    it("контекст-ключи explorerViewletCompressed* следуют за текущим сегментом", async () => {
+    it("explorerViewletCompressed* context keys follow the current segment", async () => {
         const keys = new ContextKeyService();
         const update = () => {
             component.updateContextKeys(keys, app.focusedElement);
@@ -192,7 +192,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(update()).toEqual([true, true, false]);
     });
 
-    it("Left/Right выбирают сегмент, действия идут в его папку", async () => {
+    it("Left/Right select a segment, actions go to its folder", async () => {
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("C.java");
@@ -212,7 +212,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(service.getCompressedFocus()).toEqual({ first: false, last: true });
     });
 
-    it("reveal файла внутри цепочки раскрывает компактную строку и выделяет файл", async () => {
+    it("revealing a file inside a chain expands the compact row and selects the file", async () => {
         const target = ws.path("pkg/a/b/D.java");
         expect(await service.revealPath(target)).toBe(true);
 
@@ -222,7 +222,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(service.getSelectedPaths()).toEqual([target]);
     });
 
-    it("reveal промежуточной папки выделяет компактную строку", async () => {
+    it("revealing an intermediate folder selects the compact row", async () => {
         expect(await service.revealPath(ws.path("pkg/a"))).toBe(true);
 
         expect(rows()[0]).toContain("pkg/a/b");
@@ -231,7 +231,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(service.getSelectedPaths()).toEqual([ws.path("pkg/a/b")]);
     });
 
-    it("reveal входа, о котором цепочка ещё не знает, выделяет ближайшую компактную строку", async () => {
+    it("revealing an entry the chain does not know yet selects the nearest compact row", async () => {
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("pkg/a/b");
@@ -245,7 +245,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(service.getSelectedPaths()).toEqual([ws.path("pkg/a/b")]);
     });
 
-    it("второй вход в промежуточной папке рвёт цепочку на перечитывании", async () => {
+    it("a second entry in an intermediate folder breaks the chain on re-read", async () => {
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("pkg/a/b");
@@ -262,7 +262,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(frame[2]).toContain("x.ts");
     });
 
-    it("папка, ставшая единственной, удлиняет цепочку на перечитывании", async () => {
+    it("a folder that became the only child extends the chain on re-read", async () => {
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("pkg/a/b");
@@ -279,7 +279,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(frame[1]).toContain("E.java");
     });
 
-    it("files.exclude решает, единственный ли ребёнок", async () => {
+    it("files.exclude decides whether the child is the only one", async () => {
         // A pattern without a dot: the settings diff doesn't see dotted pattern keys
         // ("**/*.log") yet — see docs/TODO/README.md#настройки.
         ws.writeFile("pkg/a/NOTES", "");
@@ -296,7 +296,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(rows().join("\n")).not.toContain("NOTES");
     });
 
-    it("настройка выключается вживую — папки снова по одной", async () => {
+    it("setting turned off live — folders are one per row again", async () => {
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("pkg/a/b");
@@ -313,7 +313,7 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
         expect(frame[2]).toContain("README.md");
     });
 
-    it("вырезанная компактная строка подсвечивается по пути последней папки", async () => {
+    it("a cut compact row is highlighted by the last folder's path", async () => {
         app.sendKey("ArrowRight");
         await vi.waitFor(() => {
             expect(rows().join("\n")).toContain("pkg/a/b");

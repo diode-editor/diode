@@ -24,19 +24,19 @@ function workspace(paths: string[]) {
 }
 
 describe("terminalEnvironmentScope", () => {
-    it("папка, в которой лежит cwd", () => {
+    it("the folder containing cwd", () => {
         expect(terminalEnvironmentScope("/w/b/src", workspace(["/w/a", "/w/b"]))).toEqual({
             workspaceFolder: { uri: "file:///w/b", name: "b", index: 1 },
         });
     });
 
-    it("cwd вне папок — первый корень", () => {
+    it("cwd outside folders — the first root", () => {
         expect(terminalEnvironmentScope("/tmp", workspace(["/w/a", "/w/b"]))).toEqual({
             workspaceFolder: { uri: "file:///w/a", name: "a", index: 0 },
         });
     });
 
-    it("без папок — без области", () => {
+    it("no folders — no scope", () => {
         expect(terminalEnvironmentScope("/tmp", workspace([]))).toEqual({});
     });
 });
@@ -65,7 +65,7 @@ describe("createExtensionEnvironmentContributor", () => {
         ]),
     );
 
-    it("слияние — с областью папки cwd, на текущем на момент запуска слиянии", () => {
+    it("merge uses the cwd folder scope and the merge current at launch time", () => {
         let current = new MergedEnvironmentVariableCollection(new Map());
         const contributor = createExtensionEnvironmentContributor(() => current, workspace(["/w/a", "/w/b"]), false);
         const before: Record<string, string | undefined> = {};
@@ -80,7 +80,7 @@ describe("createExtensionEnvironmentContributor", () => {
         expect(inA).toEqual({ G: "g", PATH: ";x" });
     });
 
-    it("платформа Windows доезжает до слияния (регистр имён)", () => {
+    it("the Windows platform reaches the merge (name case)", () => {
         const env: Record<string, string | undefined> = { Path: "p" };
         createExtensionEnvironmentContributor(() => merged, workspace([]), true).apply(env, "/tmp");
         expect(env.Path).toBe("p;x");

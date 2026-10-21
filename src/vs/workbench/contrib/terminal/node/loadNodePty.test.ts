@@ -18,11 +18,11 @@ describe("resolveNodePty", () => {
         rmSync(cacheRoot, { recursive: true, force: true });
     });
 
-    it("dev: без упакованного ассета — node-pty из node_modules", () => {
+    it("dev: without a packaged asset — node-pty from node_modules", () => {
         expect(typeof resolveNodePty(null).spawn).toBe("function");
     });
 
-    it("упакованная сборка: модуль грузится из распакованного кэша, нативные файлы исполняемы", () => {
+    it("packaged build: the module loads from the extracted cache, native files are executable", () => {
         // A JS module of the same shape instead of the real addon: tests extraction and loading, not the PTY.
         const bundle = packBundle([
             { virtualPath: "node-pty/package.json", data: Buffer.from(JSON.stringify({ main: "index.js" })) },
@@ -47,7 +47,7 @@ describe("resolveNodePty", () => {
         }
     });
 
-    it("loadNodePty кэширует модуль на процесс", () => {
+    it("loadNodePty caches the module per process", () => {
         const first = loadNodePty();
         expect(loadNodePty()).toBe(first);
         expect(typeof first.spawn).toBe("function");

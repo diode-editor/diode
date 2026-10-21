@@ -19,7 +19,7 @@ const tabs = { insertSpaces: false, tabSize: 4 };
 const entry = { type: "npm", script: "lint" };
 
 describe("appendTaskEntry", () => {
-    it("пустой массив в одну строку — запись отдельными строками с отступом от строки массива", () => {
+    it("empty single-line array — the entry goes on separate lines indented from the array line", () => {
         const result = appendTaskEntry('{\n  "version": "2.0.0",\n  "tasks": []\n}', entry, {
             insertSpaces: true,
             tabSize: 2,
@@ -30,14 +30,14 @@ describe("appendTaskEntry", () => {
         });
     });
 
-    it("пустой массив с комментарием внутри — комментарий остаётся перед записью", () => {
-        const text = '{\n\t"version": "2.0.0",\n\t"tasks": [\n\t\t// пока пусто\n\t]\n}';
+    it("empty array with a comment inside — the comment stays before the entry", () => {
+        const text = '{\n\t"version": "2.0.0",\n\t"tasks": [\n\t\t// empty for now\n\t]\n}';
         expect(appendTaskEntry(text, entry, tabs).text).toBe(
-            '{\n\t"version": "2.0.0",\n\t"tasks": [\n\t\t// пока пусто\n\t\t{\n\t\t\t"type": "npm",\n\t\t\t"script": "lint"\n\t\t}\n\t]\n}',
+            '{\n\t"version": "2.0.0",\n\t"tasks": [\n\t\t// empty for now\n\t\t{\n\t\t\t"type": "npm",\n\t\t\t"script": "lint"\n\t\t}\n\t]\n}',
         );
     });
 
-    it("висячая запятая после последней записи — вторую не ставим; индекс — длина массива", () => {
+    it("trailing comma after the last entry — no second one is added; the index is the array length", () => {
         const text = '{ "version": "2.0.0", "tasks": [\n    { "label": "a" },\n    { "label": "b" },\n] }';
         const result = appendTaskEntry(text, entry, spaces4);
         expect(result.index).toBe(2);
@@ -46,14 +46,14 @@ describe("appendTaskEntry", () => {
         );
     });
 
-    it("запись на одной строке с `[` — отступ от строки массива плюс шаг; CRLF сохраняется", () => {
+    it("entry on the same line as `[` — indent from the array line plus one step; CRLF is preserved", () => {
         const text = '{\r\n    "version": "2.0.0",\r\n    "tasks": [{ "label": "a" }]\r\n}';
         expect(appendTaskEntry(text, { a: 1 }, spaces4).text).toBe(
             '{\r\n    "version": "2.0.0",\r\n    "tasks": [{ "label": "a" },\r\n        {\r\n            "a": 1\r\n        }\r\n    ]\r\n}',
         );
     });
 
-    it("нет tasks — массив заводится; нет version — ставится 2.0.0; пустой текст — новый файл", () => {
+    it("no tasks — the array is created; no version — 2.0.0 is set; empty text — a new file", () => {
         const noTasks = appendTaskEntry('{\n    "version": "2.0.0"\n}', entry, spaces4);
         expect(noTasks.index).toBe(0);
         expect(JSON.parse(noTasks.text)).toStrictEqual({ version: "2.0.0", tasks: [entry] });
@@ -67,14 +67,14 @@ describe("appendTaskEntry", () => {
         });
     });
 
-    it("отступ — как у последней записи на своей строке, даже не кратный шагу; чужая версия не трогается", () => {
+    it("indent follows the last entry on its own line, even when not a multiple of the step; another version is left alone", () => {
         const text = '{\n  "version": "0.1.0",\n  "tasks": [\n      {"a": 1}\n  ]\n}';
         expect(appendTaskEntry(text, { b: 2 }, { insertSpaces: true, tabSize: 2 }).text).toBe(
             '{\n  "version": "0.1.0",\n  "tasks": [\n      {"a": 1},\n      {\n        "b": 2\n      }\n  ]\n}',
         );
     });
 
-    it("запись делит строку с `[` и переносит `{` — отступ от массива; запятая после `]` не считается", () => {
+    it("entry shares a line with `[` and wraps `{` — indent from the array; a comma after `]` does not count", () => {
         const text = '{\n  "version": "2.0.0",\n  "tasks": [{\n    "a": 1\n  }],\n  "x": [1, 2]\n}';
         expect(appendTaskEntry(text, { b: 2 }, { insertSpaces: true, tabSize: 2 }).text).toBe(
             '{\n  "version": "2.0.0",\n  "tasks": [{\n    "a": 1\n  },\n    {\n      "b": 2\n    }\n  ],\n  "x": [1, 2]\n}',
@@ -82,22 +82,22 @@ describe("appendTaskEntry", () => {
     });
 });
 
-describe("шаблоны и новый файл", () => {
-    it("newTasksJsonWith — шапка эталона и 2.0.0; отступ табами или пробелами", () => {
+describe("templates and a new file", () => {
+    it("newTasksJsonWith — upstream header and 2.0.0; indent with tabs or spaces", () => {
         expect(newTasksJsonWith({ a: 1 }, tabs)).toBe(
             '{\n\t// See https://go.microsoft.com/fwlink/?LinkId=733558 \n\t// for the documentation about the tasks.json format\n\t"version": "2.0.0",\n\t"tasks": [\n\t\t{\n\t\t\t"a": 1\n\t\t}\n\t]\n}',
         );
         expect(newTasksJsonWith({ a: 1 }, { insertSpaces: true, tabSize: 2 })).toContain('\n      "a": 1\n');
     });
 
-    it("expandTemplateTabs — только ведущие табы строк, по tabSize; без insertSpaces — как есть", () => {
+    it("expandTemplateTabs — only leading tabs of lines, by tabSize; without insertSpaces — as is", () => {
         expect(expandTemplateTabs('{\n\t\t"a": "\\t"\t}', { insertSpaces: true, tabSize: 3 })).toBe(
             '{\n      "a": "\\t"\t}',
         );
         expect(expandTemplateTabs("{\n\t}", tabs)).toBe("{\n\t}");
     });
 
-    it("applyTaskTemplate — пустой файл получает шаблон; иначе ключи шаблона поверх", () => {
+    it("applyTaskTemplate — an empty file gets the template; otherwise the template keys go on top", () => {
         const [, , , others] = getTaskTemplates();
         expect(applyTaskTemplate("", others.content, tabs)).toBe(others.content);
         expect(applyTaskTemplate(" \n", others.content, tabs)).toBe(others.content);
@@ -110,7 +110,7 @@ describe("шаблоны и новый файл", () => {
         });
     });
 
-    it("getTaskTemplates — порядок эталона: по sort/label, «Others» последним", () => {
+    it("getTaskTemplates — upstream order: by sort/label, 'Others' last", () => {
         expect(getTaskTemplates().map((t) => t.id)).toStrictEqual([
             "msbuild",
             "maven",
@@ -120,7 +120,7 @@ describe("шаблоны и новый файл", () => {
     });
 });
 
-describe("разбор и поиск", () => {
+describe("parsing and lookup", () => {
     it("isWritableTasksJson / tasksJsonHasTasks", () => {
         expect(isWritableTasksJson("")).toBe(true);
         expect(isWritableTasksJson("{ // c\n }")).toBe(true);
@@ -136,7 +136,7 @@ describe("разбор и поиск", () => {
         expect(tasksJsonHasTasks("{ oops")).toBe(false);
     });
 
-    it("taskEntryRange — смещения записи; нет записи или текста — undefined", () => {
+    it("taskEntryRange — entry offsets; no entry or text — undefined", () => {
         const text = '{ "tasks": [ {"a":1}, {"b":2} ] }';
         expect(taskEntryRange(text, 1)).toStrictEqual({ start: text.indexOf('{"b"'), end: text.indexOf('{"b"') + 7 });
         expect(taskEntryRange(text, 2)).toBeUndefined();
@@ -154,7 +154,7 @@ describe("customizationEntryOf", () => {
             ...extra,
         });
 
-    it("определение без _key, пустые матчеры, подпись задачи; без группы и подробности — без ключей", () => {
+    it("definition without _key, empty matchers, task label; without group and detail — no keys", () => {
         expect(customizationEntryOf(npm())).toStrictEqual({
             type: "npm",
             script: "build",
@@ -164,7 +164,7 @@ describe("customizationEntryOf", () => {
         });
     });
 
-    it("матчеры, группа (по умолчанию — объектом, иначе строкой) и подробность провайдера переносятся", () => {
+    it("provider matchers, group (default as an object, otherwise a string) and detail are carried over", () => {
         const withAll = {
             ...npm({ detail: "tsc" }),
             problemMatchers: ["$tsc"],

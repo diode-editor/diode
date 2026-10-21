@@ -133,8 +133,8 @@ afterEach(() => {
     vi.useRealTimers();
 });
 
-describe("remote-команды", () => {
-    it("addRemote: URL → имя → op; отмены на каждом шаге", async () => {
+describe("remote commands", () => {
+    it("addRemote: URL → name → op; cancels at every step", async () => {
         const h = makeHarness();
         h.setInputs(["https://x/y.git", "upstream"]);
         await gitAddRemoteAction.run(h.accessor);
@@ -148,7 +148,7 @@ describe("remote-команды", () => {
         expect(h.ops).toEqual([]);
     });
 
-    it("removeRemote: единственный remote — сразу op; отмена пикера при нескольких", async () => {
+    it("removeRemote: a single remote goes straight to op; picker cancel with several", async () => {
         const h = makeHarness();
         await gitRemoveRemoteAction.run(h.accessor);
         expect(h.ops).toEqual([{ op: "remoteRemove", params: { name: "origin" } }]);
@@ -160,7 +160,7 @@ describe("remote-команды", () => {
         expect(h.ops).toEqual([]);
     });
 
-    it("валидаторы полей ввода: пустое значение — ошибка", async () => {
+    it("input field validators: an empty value is an error", async () => {
         const h = makeHarness();
         h.setInputs(["https://x", "up"]);
         await gitAddRemoteAction.run(h.accessor);
@@ -175,8 +175,8 @@ describe("remote-команды", () => {
     });
 });
 
-describe("tag-команды", () => {
-    it("createTag: имя + пустое сообщение → lightweight; Escape на сообщении — отмена", async () => {
+describe("tag commands", () => {
+    it("createTag: name + empty message → lightweight; Escape on the message cancels", async () => {
         const h = makeHarness();
         h.setInputs(["v1.0", ""]);
         await gitCreateTagAction.run(h.accessor);
@@ -190,7 +190,7 @@ describe("tag-команды", () => {
         expect(h.ops).toEqual([]);
     });
 
-    it("deleteTag: пикер локальных тегов; пусто — notice", async () => {
+    it("deleteTag: local tag picker; empty gives a notice", async () => {
         const h = makeHarness();
         h.setRefs([
             { name: "v1.0", kind: "tag" },
@@ -207,7 +207,7 @@ describe("tag-команды", () => {
         expect(h.notices.some((n) => n.includes("no tags"))).toBe(true);
     });
 
-    it("deleteRemoteTag: remote (пикер при нескольких) → тег → pushDelete; отмены", async () => {
+    it("deleteRemoteTag: remote (picker with several) → tag → pushDelete; cancels", async () => {
         const h = makeHarness();
         h.setRemotes(["origin", "fork"]);
         h.setRefs([{ name: "v1.0", kind: "tag" }]);
@@ -225,7 +225,7 @@ describe("tag-команды", () => {
 });
 
 describe("git.showOutput", () => {
-    it("делегирует команде показа канала ext-host stdout; без неё — no-op", () => {
+    it("delegates to the ext-host stdout channel show command; without it a no-op", () => {
         const h = makeHarness();
         gitShowOutputAction.run(h.accessor);
         expect(h.executed).toEqual(["workbench.action.output.show.extensions.host.stdout"]);
@@ -237,8 +237,8 @@ describe("git.showOutput", () => {
     });
 });
 
-describe("номенклатура", () => {
-    it("id в стиле VS Code", () => {
+describe("nomenclature", () => {
+    it("VS Code-style ids", () => {
         expect(REMOTE_TAG_ACTIONS.map((a) => a.id)).toEqual([
             "git.addRemote",
             "git.removeRemote",

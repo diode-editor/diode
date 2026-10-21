@@ -59,44 +59,44 @@ function texts(lines: readonly { text: string }[]): string[] {
 }
 
 describe("wrapText", () => {
-    it("режет по словам, не разрывая их", () => {
+    it("wraps at words without breaking them", () => {
         expect(wrapText("alpha beta gamma delta", 12)).toEqual(["alpha beta", "gamma delta"]);
     });
 
-    it("сохраняет пустые строки — в markdown это границы абзацев", () => {
+    it("keeps empty lines — in markdown they are paragraph boundaries", () => {
         expect(wrapText("one\n\ntwo", 20)).toEqual(["one", "", "two"]);
     });
 
-    it("слово длиннее ширины режет жёстко", () => {
+    it("hard-breaks a word longer than the width", () => {
         expect(wrapText("aaaaaaaaaaaa", 8)).toEqual(["aaaaaaaa", "aaaa"]);
     });
 
-    it("длинное слово в середине абзаца не съедает соседей", () => {
+    it("a long word mid-paragraph does not swallow its neighbors", () => {
         expect(wrapText("hi aaaaaaaaaaaa bye", 8)).toEqual(["hi", "aaaaaaaa", "aaaa bye"]);
     });
 
-    it("схлопывает двойные пробелы и обрезает хвостовые", () => {
+    it("collapses double spaces and trims trailing ones", () => {
         expect(wrapText("alpha  beta   ", 20)).toEqual(["alpha beta"]);
     });
 
-    it("хвостовые пробелы не считаются в ширину — строка не рвётся из-за них", () => {
+    it("trailing spaces do not count toward the width — the line does not break because of them", () => {
         // Exactly at the limit plus two spaces: trimming the tail must remove both.
         expect(wrapText("alpha beta  ", 10)).toEqual(["alpha beta"]);
     });
 
-    it("абзац из одних пробелов даёт пустую строку, а не пробелы", () => {
+    it("a whitespace-only paragraph yields an empty line, not spaces", () => {
         expect(wrapText("one\n   \ntwo", 20)).toEqual(["one", "", "two"]);
     });
 
-    it("нулевая ширина не зацикливается — режет по минимальной", () => {
+    it("zero width does not loop — wraps at the minimum", () => {
         expect(wrapText("abcdefghijkl", 0)).toEqual(["abcdefgh", "ijkl"]);
     });
 
-    it("строка ровно по ширине не переносится", () => {
+    it("a line exactly as wide as the width does not wrap", () => {
         expect(wrapText("alpha beta", 10)).toEqual(["alpha beta"]);
     });
 
-    it("пробел между словами считается в ширину — на колонку длиннее уже перенос", () => {
+    it("the space between words counts toward the width — one column longer already wraps", () => {
         // 6 + 1 + 4 = 11 > 10: without counting the space the line would overflow.
         expect(wrapText("alphas beta", 10)).toEqual(["alphas", "beta"]);
     });
@@ -107,11 +107,11 @@ describe("statusLine", () => {
         expect(statusLine(entry())).toBe("Not installed");
     });
 
-    it("installed — с версией", () => {
+    it("installed — with the version", () => {
         expect(statusLine(entry({ availability: "installed", installedVersion: "1.0.0" }))).toBe("Installed 1.0.0");
     });
 
-    it("outdated — обе версии", () => {
+    it("outdated — both versions", () => {
         expect(statusLine(entry({ availability: "outdated", installedVersion: "0.9.0" }))).toBe(
             "Installed 0.9.0 · update available: 1.0.0",
         );
@@ -123,7 +123,7 @@ describe("statusLine", () => {
 });
 
 describe("buildExtensionHeaderLines", () => {
-    it("шапка несёт идентичность, статус, версию, требования и вид записи", () => {
+    it("the header carries identity, status, version, requirements and entry kind", () => {
         const lines = buildExtensionHeaderLines(
             { entry: entry(), meta: meta(), metaError: null, operationError: null },
             60,
@@ -142,7 +142,7 @@ describe("buildExtensionHeaderLines", () => {
         ]);
     });
 
-    it("требования обоих каналов идут одной строкой", () => {
+    it("requirements of both channels go on one line", () => {
         const lines = buildExtensionHeaderLines(
             {
                 entry: entry(),
@@ -164,7 +164,7 @@ describe("buildExtensionHeaderLines", () => {
         expect(texts(lines)).toContain("Requires: diode ^1.2.0, vscode ^1.90.0");
     });
 
-    it("требование только к diode — без хвоста про vscode", () => {
+    it("a diode-only requirement has no vscode tail", () => {
         const lines = buildExtensionHeaderLines(
             {
                 entry: entry(),
@@ -186,7 +186,7 @@ describe("buildExtensionHeaderLines", () => {
         expect(texts(lines)).toContain("Requires: diode ^0.3.0");
     });
 
-    it("версии в мете нет — строки требований тоже нет", () => {
+    it("no version in the metadata — no requirements line either", () => {
         const lines = buildExtensionHeaderLines(
             { entry: entry({ latestVersion: "9.9.9" }), meta: meta(), metaError: null, operationError: null },
             60,
@@ -194,7 +194,7 @@ describe("buildExtensionHeaderLines", () => {
         expect(texts(lines).some((t) => t.startsWith("Requires:"))).toBe(false);
     });
 
-    it("ссылки и лицензия показываются, когда они есть в мете", () => {
+    it("links and license are shown when present in the metadata", () => {
         const lines = buildExtensionHeaderLines(
             {
                 entry: entry(),
@@ -217,7 +217,7 @@ describe("buildExtensionHeaderLines", () => {
         );
     });
 
-    it("нет записи в реестре — ни лицензии, ни ссылок: их брать неоткуда", () => {
+    it("no registry entry — neither license nor links: nowhere to take them from", () => {
         const lines = buildExtensionHeaderLines(
             {
                 entry: entry({
@@ -236,7 +236,7 @@ describe("buildExtensionHeaderLines", () => {
         expect(texts(lines)).toEqual(["Acme Tools", "acme.tools", "Tools for acme", "", "Installed 0.1.0", ""]);
     });
 
-    it("ошибка операции стоит в шапке предупреждением — рядом с кнопками, которые её вызвали", () => {
+    it("an operation error is a warning in the header — next to the buttons that caused it", () => {
         const lines = buildExtensionHeaderLines(
             { entry: entry(), meta: meta(), metaError: null, operationError: "sha256 mismatch" },
             60,
@@ -246,7 +246,7 @@ describe("buildExtensionHeaderLines", () => {
         expect(lines.at(-1)).toEqual({ text: "", tone: "normal" });
     });
 
-    it("несовместимость подсвечена, а не спрятана в приглушённой строке", () => {
+    it("incompatibility is highlighted, not hidden in a dimmed line", () => {
         const lines = buildExtensionHeaderLines(
             { entry: entry({ availability: "incompatible" }), meta: meta(), metaError: null, operationError: null },
             60,
@@ -254,7 +254,7 @@ describe("buildExtensionHeaderLines", () => {
         expect(lines.find((l) => l.text.startsWith("Incompatible"))?.tone).toBe("warning");
     });
 
-    it("пустое описание не даёт пустой строки в шапке", () => {
+    it("an empty description yields no empty line in the header", () => {
         const lines = buildExtensionHeaderLines(
             { entry: entry({ description: "" }), meta: meta(), metaError: null, operationError: null },
             60,
@@ -264,7 +264,7 @@ describe("buildExtensionHeaderLines", () => {
         expect(texts(lines).slice(0, 4)).toEqual(["Acme Tools", "acme.tools", "", "Not installed"]);
     });
 
-    it("readme в шапку не попадает — он живёт в прокручиваемом теле", () => {
+    it("the readme does not go into the header — it lives in the scrollable body", () => {
         const lines = buildExtensionHeaderLines(
             { entry: entry(), meta: meta({ readme: "Readme body" }), metaError: null, operationError: null },
             60,
@@ -274,7 +274,7 @@ describe("buildExtensionHeaderLines", () => {
 });
 
 describe("buildExtensionBodyLines", () => {
-    it("readme переносится по ширине и идёт обычным тоном — это содержимое", () => {
+    it("the readme wraps to the width in the normal tone — it is content", () => {
         const lines = buildExtensionBodyLines(
             {
                 entry: entry(),
@@ -292,7 +292,7 @@ describe("buildExtensionBodyLines", () => {
         ]);
     });
 
-    it("нет readme — так и написано, приглушённой строкой", () => {
+    it("no readme — says so in a dimmed line", () => {
         const lines = buildExtensionBodyLines(
             { entry: entry(), meta: meta(), metaError: null, operationError: null },
             60,
@@ -300,7 +300,7 @@ describe("buildExtensionBodyLines", () => {
         expect(lines).toEqual([{ text: "No readme published for this extension.", tone: "dim" }]);
     });
 
-    it("нет записи в реестре — тело честно говорит, откуда расширение", () => {
+    it("no registry entry — the body states where the extension comes from", () => {
         const lines = buildExtensionBodyLines(
             {
                 entry: entry({ latestVersion: null, installedVersion: "0.1.0", availability: "installed" }),
@@ -318,7 +318,7 @@ describe("buildExtensionBodyLines", () => {
         ]);
     });
 
-    it("сетевой сбой меты вытесняет readme и красится предупреждением", () => {
+    it("a metadata network failure replaces the readme and is colored as a warning", () => {
         const lines = buildExtensionBodyLines(
             { entry: entry(), meta: undefined, metaError: "fetch failed (ENOTFOUND)", operationError: null },
             100,
@@ -331,7 +331,7 @@ describe("buildExtensionBodyLines", () => {
         ]);
     });
 
-    it("сбой меты перебивает даже пришедшую мету — показывать полуправду хуже, чем причину", () => {
+    it("a metadata failure overrides even received metadata — showing a half-truth is worse than the reason", () => {
         const lines = buildExtensionBodyLines(
             { entry: entry(), meta: meta({ readme: "Readme body" }), metaError: "boom", operationError: null },
             100,
@@ -340,7 +340,7 @@ describe("buildExtensionBodyLines", () => {
     });
 });
 
-describe("страница расширения с частичной поддержкой", () => {
+describe("page of a partially supported extension", () => {
     const content = (o: Partial<IExtensionPageContent> = {}): IExtensionPageContent => ({
         entry: entry(),
         meta: meta(),
@@ -355,7 +355,7 @@ describe("страница расширения с частичной подде
         limits: ["Chat panel needs a webview", "Sign-in opens a browser"],
     } as const;
 
-    it("шапка предупреждает одной строкой", () => {
+    it("the header warns in one line", () => {
         const lines = buildExtensionHeaderLines(content({ entry: entry({ support }) }), 80);
         // Text as a literal, not via the constant: otherwise the assert moves together
         // with it, and a changed string goes unnoticed.
@@ -364,12 +364,12 @@ describe("страница расширения с частичной подде
         expect(PARTIAL_SUPPORT_HEADLINE).toBe("Partial support: some features do not work in Diode");
     });
 
-    it("тело не повторяет заголовок из шапки", () => {
+    it("the body does not repeat the header title", () => {
         const lines = buildExtensionBodyLines(content({ entry: entry({ support }) }), 80);
         expect(lines.map((l) => l.text)).not.toContain(PARTIAL_SUPPORT_HEADLINE);
     });
 
-    it("тело перечисляет что работает и что нет — до readme", () => {
+    it("the body lists what works and what does not — before the readme", () => {
         const lines = buildExtensionBodyLines(
             content({ entry: entry({ support }), meta: meta({ readme: "# Readme body" }) }),
             80,
@@ -382,7 +382,7 @@ describe("страница расширения с частичной подде
         expect(texts.indexOf("- Chat panel needs a webview")).toBeLessThan(texts.indexOf("# Readme body"));
     });
 
-    it("ограничения видны даже когда мету не прочитать", () => {
+    it("limitations are visible even when the metadata cannot be read", () => {
         const lines = buildExtensionBodyLines(
             content({ entry: entry({ support }), meta: undefined, metaError: "network is down" }),
             80,
@@ -392,7 +392,7 @@ describe("страница расширения с частичной подде
         expect(texts.some((t) => t.includes("network is down"))).toBe(true);
     });
 
-    it("блок целиком: тон каждой строки и зазор перед readme", () => {
+    it("the whole block: each line's tone and the gap before the readme", () => {
         const lines = buildExtensionBodyLines(
             content({
                 entry: entry({ support: { level: "partial", works: ["Ghost text"], limits: ["Chat panel"] } }),
@@ -412,7 +412,7 @@ describe("страница расширения с частичной подде
         expect(lines[5]?.text).toBe("# Readme body");
     });
 
-    it("нет списка — нет и его заголовка", () => {
+    it("no list — no list heading either", () => {
         const onlyLimits = buildExtensionBodyLines(
             content({ entry: entry({ support: { level: "partial", limits: ["Chat panel"] } }) }),
             80,
@@ -421,7 +421,7 @@ describe("страница расширения с частичной подде
         expect(onlyLimits.map((l) => l.text)).toContain("Does not work:");
     });
 
-    it("пустой список не даёт заголовка без пунктов", () => {
+    it("an empty list yields no heading without items", () => {
         // The registry won't publish this, but the type allows it: a
         // "Works in Diode:" title with nothing under it would read as "nothing".
         const lines = buildExtensionBodyLines(
@@ -433,7 +433,7 @@ describe("страница расширения с частичной подде
         expect(texts).toContain("Does not work:");
     });
 
-    it("у полной поддержки блока нет", () => {
+    it("full support has no block", () => {
         const full = buildExtensionBodyLines(
             content({ entry: entry({ support: { level: "full" } }), meta: undefined, metaError: null }),
             80,

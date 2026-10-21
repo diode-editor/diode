@@ -26,8 +26,8 @@ function buildHarness(settings: Record<string, unknown> = {}) {
     return { views, service, sessions, events };
 }
 
-describe("TerminalService — инстансы в области редакторов", () => {
-    it("редакторный: только create, в списке вида его нет, активный не меняется", () => {
+describe("TerminalService — instances in the editor area", () => {
+    it("editor terminal: only create, not in the view list, the active one doesn't change", () => {
         const h = buildHarness();
         const panel = h.service.createInstance();
         h.events.length = 0;
@@ -43,7 +43,7 @@ describe("TerminalService — инстансы в области редакто�
         h.service.dispose();
     });
 
-    it("выход процесса снимает редакторный без close и смены активного; вид не прячется", () => {
+    it("process exit removes an editor terminal without close or an active change; the view isn't hidden", () => {
         const h = buildHarness();
         const panel = h.service.createInstance();
         const editor = h.service.createInstance({ target: "editor" });
@@ -58,7 +58,7 @@ describe("TerminalService — инстансы в области редакто�
         h.service.dispose();
     });
 
-    it("sendText и closeInstance находят редакторный по id", () => {
+    it("sendText and closeInstance find an editor terminal by id", () => {
         const h = buildHarness();
         const editor = h.service.createInstance({ target: "editor" });
         h.service.sendText(editor.id, "ls", true);
@@ -69,7 +69,7 @@ describe("TerminalService — инстансы в области редакто�
         h.service.dispose();
     });
 
-    it("показ фонового редакторного переводит его в область редакторов, не в вид", () => {
+    it("showing a background editor terminal moves it to the editor area, not the view", () => {
         const h = buildHarness();
         const hidden = h.service.createInstance({ target: "editor", hideFromUser: true });
         expect(h.service.getBackgroundInstances()).toStrictEqual([hidden]);
@@ -84,7 +84,7 @@ describe("TerminalService — инстансы в области редакто�
         h.service.dispose();
     });
 
-    it("moveToEditor: вкладка вида уходит со сменой активного, процесс жив", () => {
+    it("moveToEditor: the view tab leaves and the active one changes, the process lives", () => {
         const h = buildHarness();
         const first = h.service.createInstance();
         const second = h.service.createInstance();
@@ -101,7 +101,7 @@ describe("TerminalService — инстансы в области редакто�
         h.service.dispose();
     });
 
-    it("moveToEditor последнего прячет вид (hideOnLastClosed), процесс жив", () => {
+    it("moveToEditor of the last one hides the view (hideOnLastClosed), the process lives", () => {
         const h = buildHarness();
         const only = h.service.createInstance();
         h.service.moveToEditor(only.id);
@@ -111,7 +111,7 @@ describe("TerminalService — инстансы в области редакто�
         h.service.dispose();
     });
 
-    it("moveToPanel: встаёт последним и активным, процесс тот же", () => {
+    it("moveToPanel: becomes last and active, same process", () => {
         const h = buildHarness();
         const panel = h.service.createInstance();
         const editor = h.service.createInstance({ target: "editor" });
@@ -129,7 +129,7 @@ describe("TerminalService — инстансы в области редакто�
         h.service.dispose();
     });
 
-    it("dispose сервиса убивает и редакторные процессы", () => {
+    it("service dispose kills editor terminal processes too", () => {
         const h = buildHarness();
         h.service.createInstance({ target: "editor" });
         h.service.dispose();

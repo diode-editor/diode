@@ -80,8 +80,8 @@ function line(backend: MockTerminalBackend, y: number): string {
     return backend.screenToString().split("\n")[y];
 }
 
-describe("ReferencesComponent — наполнение панели", () => {
-    it("группирует ссылки по файлам со счётчиком и строками кода", () => {
+describe("ReferencesComponent — filling the panel", () => {
+    it("groups references by file with a counter and code lines", () => {
         const component = make();
         component.setResults(twoFiles());
 
@@ -96,24 +96,24 @@ describe("ReferencesComponent — наполнение панели", () => {
         expect(component.results.contentHeight).toBe(5);
     });
 
-    it("единственный файл считается в единственном числе", () => {
+    it("a single file is counted in the singular", () => {
         const component = make();
         component.setResults([group("a.ts", [[1, "", "greet", ""]])]);
         expect(render(component).screenToString()).toContain("1 results in 1 file");
     });
 
-    it("пустой результат — «No results», а не пустая шапка", () => {
+    it("an empty result is 'No results', not an empty header", () => {
         const component = make();
         component.setResults([]);
         expect(render(component).screenToString()).toContain("No results");
         expect(component.resultCount).toBe(0);
     });
 
-    it("до первого поиска шапка пуста", () => {
+    it("the header is empty before the first search", () => {
         expect(render(make()).screenToString()).not.toContain("results");
     });
 
-    it("новый поиск вытесняет прежние ссылки, а clear() возвращает панель в исходное", () => {
+    it("a new search replaces the previous references, and clear() resets the panel", () => {
         const component = make();
         component.setResults(twoFiles());
         component.setResults([group("c.ts", [[2, "const ", "other", " = 1;"]])]);
@@ -132,15 +132,15 @@ describe("ReferencesComponent — наполнение панели", () => {
         expect(component.resultCount).toBe(0);
     });
 
-    it("курсор встаёт на первую ссылку, а не на строку файла", () => {
+    it("the cursor lands on the first reference, not on the file row", () => {
         const component = make();
         component.setResults(twoFiles());
         expect(component.results.getCursorElement()?.id).toBe("ref:src/a.ts:0");
     });
 });
 
-describe("ReferencesComponent — оформление", () => {
-    it("шапка с отступом в колонку и цветами сайдбара", () => {
+describe("ReferencesComponent — styling", () => {
+    it("the header has a one-column indent and sidebar colors", () => {
         const component = make();
         component.setResults(twoFiles());
         const backend = render(component);
@@ -151,7 +151,7 @@ describe("ReferencesComponent — оформление", () => {
         expect(backend.getBgAt(new Point(0, 1))).toBe(theme.getRequiredColor("sideBar.background"));
     });
 
-    it("вхождение в строке подсвечено фоном word-highlight", () => {
+    it("the match in the line is highlighted with the word-highlight background", () => {
         const component = make();
         component.setResults(twoFiles());
         const backend = render(component);
@@ -168,11 +168,11 @@ describe("ReferencesComponent — оформление", () => {
         );
     });
 
-    it("до первого поиска шапка пустая, а не с текстом", () => {
+    it("before the first search the header is blank, not text", () => {
         expect(line(render(make()), 0)).toBe("".padEnd(40, " "));
     });
 
-    it("единственный файл — «file», несколько — «files»", () => {
+    it("a single file is 'file', several are 'files'", () => {
         const one = make();
         one.setResults([group("a.ts", [[1, "", "greet", ""]])]);
         expect(line(render(one), 0).trim()).toBe("1 results in 1 file");
@@ -182,19 +182,19 @@ describe("ReferencesComponent — оформление", () => {
         expect(line(render(many), 0).trim()).toBe("3 results in 2 files");
     });
 
-    it("пустой результат — ровно «No results»", () => {
+    it("an empty result is exactly 'No results'", () => {
         const component = make();
         component.setResults([]);
         expect(line(render(component), 0).trim()).toBe("No results");
     });
 
-    it("корень view несёт id — по нему его находят тесты и инспектор", () => {
+    it("the view root carries an id that tests and the inspector find it by", () => {
         expect(make().view.id).toBe("referencesView");
     });
 });
 
-describe("ReferencesComponent — клавиатура списка", () => {
-    it("typeahead прыгает на файл по началу имени", () => {
+describe("ReferencesComponent — list keyboard", () => {
+    it("typeahead jumps to a file by name prefix", () => {
         const component = make();
         component.setResults(twoFiles());
         // The cursor is on the first reference of src/a.ts; typing "src/b" moves to the row
@@ -206,8 +206,8 @@ describe("ReferencesComponent — клавиатура списка", () => {
     });
 });
 
-describe("ReferencesComponent — сворачивание", () => {
-    it("Collapse All сворачивает файлы, Expand All возвращает ссылки", () => {
+describe("ReferencesComponent — collapsing", () => {
+    it("Collapse All collapses files, Expand All brings references back", () => {
         const component = make();
         component.setResults(twoFiles());
         expect(component.results.contentHeight).toBe(5);
@@ -224,7 +224,7 @@ describe("ReferencesComponent — сворачивание", () => {
         expect(component.results.isCollapsed("file:src/a.ts")).toBe(false);
     });
 
-    it("контекст-ключи следуют за состоянием панели", () => {
+    it("context keys follow the panel state", () => {
         const contextKeys = new ContextKeyService();
         const component = make({ contextKeys });
 
@@ -243,8 +243,8 @@ describe("ReferencesComponent — сворачивание", () => {
     });
 });
 
-describe("ReferencesComponent — открытие ссылки", () => {
-    it("активация ссылки открывает файл на её позиции", () => {
+describe("ReferencesComponent — opening a reference", () => {
+    it("activating a reference opens the file at its position", () => {
         const reveal = fakeReveal();
         const component = make({ reveal: reveal.target });
         component.setResults(twoFiles());
@@ -257,7 +257,7 @@ describe("ReferencesComponent — открытие ссылки", () => {
         expect(reveal.ranges).toEqual([{ start: { line: 6, character: 9 }, end: { line: 6, character: 14 } }]);
     });
 
-    it("активация строки файла сворачивает её, а не открывает файл", () => {
+    it("activating a file row collapses it instead of opening the file", () => {
         const reveal = fakeReveal();
         const component = make({ reveal: reveal.target });
         component.setResults(twoFiles());
@@ -268,7 +268,7 @@ describe("ReferencesComponent — открытие ссылки", () => {
         expect(component.results.isCollapsed("file:src/a.ts")).toBe(true);
     });
 
-    it("после clear() старые строки мертвы: активация исчезнувшей ссылки — no-op", () => {
+    it("after clear() old rows are dead: activating a vanished reference is a no-op", () => {
         const reveal = fakeReveal();
         const component = make({ reveal: reveal.target });
         component.setResults(twoFiles());
@@ -280,18 +280,18 @@ describe("ReferencesComponent — открытие ссылки", () => {
         expect(reveal.opened).toEqual([]);
     });
 
-    it("активация неизвестной строки не роняет панель", () => {
+    it("activating an unknown row does not crash the panel", () => {
         const reveal = fakeReveal();
         const component = make({ reveal: reveal.target });
         component.setResults(twoFiles());
 
         expect(() => {
-            component.results.onActivate!({ id: "нет такой строки" } as never);
+            component.results.onActivate!({ id: "no such row" } as never);
         }).not.toThrow();
         expect(reveal.opened).toEqual([]);
     });
 
-    it("без активного редактора после openUri позиция не выставляется", () => {
+    it("without an active editor after openUri the position is not set", () => {
         const reveal = fakeReveal({ noEditor: true });
         const component = make({ reveal: reveal.target });
         component.setResults(twoFiles());
@@ -303,8 +303,8 @@ describe("ReferencesComponent — открытие ссылки", () => {
     });
 });
 
-describe("ReferencesComponent — обход по F4", () => {
-    it("идёт по всем файлам подряд и заворачивается с последней на первую", () => {
+describe("ReferencesComponent — F4 navigation", () => {
+    it("walks all files in order and wraps from the last to the first", () => {
         const reveal = fakeReveal();
         const component = make({ reveal: reveal.target });
         component.setResults(twoFiles());
@@ -319,7 +319,7 @@ describe("ReferencesComponent — обход по F4", () => {
         expect(reveal.opened).toEqual(["/work/project/src/a.ts", "/work/project/src/b.ts", "/work/project/src/a.ts"]);
     });
 
-    it("Shift+F4 с первой ссылки заворачивается на последнюю", () => {
+    it("Shift+F4 from the first reference wraps to the last", () => {
         const component = make();
         component.setResults(twoFiles());
 
@@ -329,7 +329,7 @@ describe("ReferencesComponent — обход по F4", () => {
         expect(component.results.getCursorElement()?.id).toBe("ref:src/a.ts:1");
     });
 
-    it("свёрнутый файл раскрывается — курсор не уезжает в невидимое", () => {
+    it("a collapsed file expands so the cursor does not move into hidden rows", () => {
         const component = make();
         component.setResults(twoFiles());
         // Everything collapsed: the cursor left the reference (its row is hidden), so a step
@@ -348,7 +348,7 @@ describe("ReferencesComponent — обход по F4", () => {
         expect(component.results.isCollapsed("file:src/b.ts")).toBe(false);
     });
 
-    it("курсор на строке файла: вперёд — на первую ссылку, назад — на последнюю", () => {
+    it("cursor on a file row: forward goes to the first reference, back to the last", () => {
         const forward = make();
         forward.setResults(twoFiles());
         forward.results.setCursorTo("file:src/b.ts");
@@ -362,7 +362,7 @@ describe("ReferencesComponent — обход по F4", () => {
         expect(backward.results.getCursorElement()?.id).toBe("ref:src/b.ts:0");
     });
 
-    it("на пустой панели обход — no-op", () => {
+    it("navigation on an empty panel is a no-op", () => {
         const reveal = fakeReveal();
         const component = make({ reveal: reveal.target });
 

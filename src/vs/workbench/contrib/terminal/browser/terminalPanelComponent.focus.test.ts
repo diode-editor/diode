@@ -12,7 +12,7 @@ import { TerminalServiceDIToken } from "./terminalService.ts";
 const TOGGLE_TERMINAL = "workbench.action.terminal.toggleTerminal";
 
 /** Regression BUG-3 (#177): after `exit` FocusManager cleared focus — all input was lost. */
-describe("Терминал после выхода шелла отдаёт фокус", () => {
+describe("Terminal gives up focus after the shell exits", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
     let terminal: TerminalService;
@@ -36,7 +36,7 @@ describe("Терминал после выхода шелла отдаёт фо�
         return instance.session as unknown as FakeTerminalSurface;
     }
 
-    it("после exit фокус возвращается в редактор", () => {
+    it("after exit focus returns to the editor", () => {
         h.commands.execute(TOGGLE_TERMINAL);
         expect(h.testApp.focusedElement).toBeInstanceOf(TerminalViewElement);
 
@@ -45,7 +45,7 @@ describe("Терминал после выхода шелла отдаёт фо�
         expect(h.testApp.focusedElement).toBeInstanceOf(EditorElement);
     });
 
-    it("ввод после exit идёт в редактор, а не в никуда", () => {
+    it("input after exit goes to the editor, not nowhere", () => {
         h.commands.execute(TOGGLE_TERMINAL);
         activeSurface().emitExit(0);
 

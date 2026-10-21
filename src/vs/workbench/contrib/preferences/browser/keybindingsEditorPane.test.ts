@@ -133,7 +133,7 @@ function makeHarness(labelStyle?: () => KeybindingLabelStyle): IHarness {
         const row = rows.find((candidate) =>
             (candidate as unknown as { getText(): string }).getText().startsWith(title),
         );
-        expect(row, `строка «${title}» не найдена`).toBeDefined();
+        expect(row, `row "${title}" not found`).toBeDefined();
         return row!;
     };
 
@@ -157,7 +157,7 @@ function makeHarness(labelStyle?: () => KeybindingLabelStyle): IHarness {
                 }
             ).onContextMenu?.(rowOf(title), 3, 4);
             const delegate = shownMenus.at(-1);
-            expect(delegate, "контекст-меню не показано").toBeDefined();
+            expect(delegate, "context menu not shown").toBeDefined();
             return delegate!.getEntries?.() ?? [];
         },
     };
@@ -165,7 +165,7 @@ function makeHarness(labelStyle?: () => KeybindingLabelStyle): IHarness {
 
 function entryByLabel(entries: MenuEntry[], label: string): MenuItemEntry {
     const entry = entries.find((candidate) => "label" in candidate && candidate.label === label);
-    expect(entry, `пункт «${label}» не найден`).toBeDefined();
+    expect(entry, `item "${label}" not found`).toBeDefined();
     return entry as MenuItemEntry;
 }
 
@@ -173,8 +173,8 @@ function settle(): Promise<void> {
     return new Promise((resolve) => setImmediate(resolve));
 }
 
-describe("KeybindingsEditorPane — контракт вкладки", () => {
-    it("read-only вкладка с фиксированной идентичностью", () => {
+describe("KeybindingsEditorPane — tab contract", () => {
+    it("read-only tab with a fixed identity", () => {
         const h = makeHarness();
 
         expect(h.pane.uri.toString()).toBe(keybindingsEditorUri().toString());
@@ -186,7 +186,7 @@ describe("KeybindingsEditorPane — контракт вкладки", () => {
         expect(h.pane.getSelectedTexts()).toEqual([]);
     });
 
-    it("несёт свои id: корень, контейнер контрола и список", () => {
+    it("carries its ids: root, control container and list", () => {
         const h = makeHarness();
 
         expect(h.pane.view.id).toBe("keybindingsEditor");
@@ -194,7 +194,7 @@ describe("KeybindingsEditorPane — контракт вкладки", () => {
         expect(h.pane.view.querySelector("#keybindingsList")).not.toBeNull();
     });
 
-    it("onDidChangeState отдаёт отписываемую заглушку", () => {
+    it("onDidChangeState returns a disposable stub", () => {
         const h = makeHarness();
 
         expect(() => {
@@ -202,7 +202,7 @@ describe("KeybindingsEditorPane — контракт вкладки", () => {
         }).not.toThrow();
     });
 
-    it("focusEditor ставит фокус в строку поиска", () => {
+    it("focusEditor focuses the search box", () => {
         const h = makeHarness();
         const input = h.pane.view.querySelectorAll("InputElement")[0] as InputElement;
         const focusSpy = vi.spyOn(input, "focus").mockImplementation(() => {});
@@ -213,8 +213,8 @@ describe("KeybindingsEditorPane — контракт вкладки", () => {
     });
 });
 
-describe("KeybindingsEditorPane — кадр", () => {
-    it("на маке комбинации — глифами (стиль берётся у панели при каждой перестройке строк)", () => {
+describe("KeybindingsEditorPane — frame", () => {
+    it("on mac combinations use glyphs (the style is taken from the pane on every row rebuild)", () => {
         const h = makeHarness(() => "mac");
         const screen = h.render();
 
@@ -223,7 +223,7 @@ describe("KeybindingsEditorPane — кадр", () => {
         expect(screen).not.toContain("Ctrl+S");
     });
 
-    it("первый кадр полон: шапка колонок и строки биндингов", () => {
+    it("the first frame is complete: column header and keybinding rows", () => {
         const h = makeHarness();
 
         const screen = h.render();
@@ -240,7 +240,7 @@ describe("KeybindingsEditorPane — кадр", () => {
         expect(screen).not.toContain("No keybindings found");
     });
 
-    it("setFilter фильтрует список (путь «Show Conflicts»)", () => {
+    it("setFilter filters the list (the 'Show Conflicts' path)", () => {
         const h = makeHarness();
         h.render();
 
@@ -251,7 +251,7 @@ describe("KeybindingsEditorPane — кадр", () => {
         expect(screen).not.toContain("Save File");
     });
 
-    it("пустой результат фильтра показывает заглушку", () => {
+    it("an empty filter result shows a placeholder", () => {
         const h = makeHarness();
         h.render();
 
@@ -260,7 +260,7 @@ describe("KeybindingsEditorPane — кадр", () => {
         expect(h.render()).toContain("No keybindings found");
     });
 
-    it("набор до первой раскладки не падает: строки соберёт первый кадр", () => {
+    it("typing before the first layout does not throw: the first frame builds the rows", () => {
         const h = makeHarness();
 
         h.pane.setFilter("hover");
@@ -268,7 +268,7 @@ describe("KeybindingsEditorPane — кадр", () => {
         expect(h.render()).toContain("Show Hover");
     });
 
-    it("до первой раскладки строки не строятся — guard по width", () => {
+    it("rows are not built before the first layout — guarded by width", () => {
         const h = makeHarness();
         // setFilter triggers rebuildRows, but there was no layout yet (width null).
         h.pane.setFilter("hover");
@@ -277,7 +277,7 @@ describe("KeybindingsEditorPane — кадр", () => {
         expect(h.render()).toContain("Show Hover");
     });
 
-    it("смена ширины пересобирает колонки под новую ширину", () => {
+    it("a width change rebuilds the columns for the new width", () => {
         const h = makeHarness();
         const headerLine = (screen: string): string => screen.split("\n").find((line) => line.includes("Keybinding"))!;
         const wide = renderElement(h.pane.view, 100, 12, { themeVars: true }).screenToString();
@@ -286,7 +286,7 @@ describe("KeybindingsEditorPane — кадр", () => {
         expect(headerLine(wide).indexOf("Source")).toBeGreaterThan(headerLine(narrow).indexOf("Source"));
     });
 
-    it("событие сервиса перечитывает реестр — новая запись появляется в кадре", () => {
+    it("a service event re-reads the registry — the new entry appears in the frame", () => {
         const h = makeHarness();
         h.render();
 
@@ -297,8 +297,8 @@ describe("KeybindingsEditorPane — кадр", () => {
     });
 });
 
-describe("KeybindingsEditorPane — действия строки", () => {
-    it("Enter по строке пишет новую комбинацию через рекордер, previous — запись строки", async () => {
+describe("KeybindingsEditorPane — row actions", () => {
+    it("Enter on a row records a new combination via the recorder, previous is the row's entry", async () => {
         const h = makeHarness();
         h.render();
         h.recorder.nextChord = parseChord("f6");
@@ -315,7 +315,7 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(chordsEqual(call.previous!.chord, parseChord("ctrl+s"))).toBe(true);
     });
 
-    it("Enter по строке без биндинга — добавление (previous отсутствует)", async () => {
+    it("Enter on a row without a keybinding adds one (no previous)", async () => {
         const h = makeHarness();
         h.render();
         h.recorder.nextChord = parseChord("f7");
@@ -328,7 +328,7 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(h.service.defines[0].previous).toBeUndefined();
     });
 
-    it("отмена рекордера мутаций не делает — и для Change, и для Add", async () => {
+    it("cancelling the recorder makes no mutations — for both Change and Add", async () => {
         const h = makeHarness();
         h.render();
         h.recorder.nextChord = null;
@@ -340,7 +340,7 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(h.service.defines).toEqual([]);
     });
 
-    it("контекст-меню: Add добавляет без previous, Remove снимает запись строки", async () => {
+    it("context menu: Add adds without previous, Remove removes the row's entry", async () => {
         const h = makeHarness();
         h.render();
 
@@ -357,7 +357,7 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(h.service.removed[0].source).toBe("extension");
     });
 
-    it("Reset показывается только при пользовательских правках и вызывает сервис", async () => {
+    it("Reset shows only with user edits and calls the service", async () => {
         const h = makeHarness();
         h.render();
 
@@ -371,7 +371,7 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(h.service.resets).toEqual(["save"]);
     });
 
-    it("у строки без биндинга нет Remove и Show Conflicts", () => {
+    it("a row without a keybinding has no Remove or Show Conflicts", () => {
         const h = makeHarness();
         h.render();
 
@@ -380,7 +380,7 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(labels).not.toContain("Show Conflicts");
     });
 
-    it("Show Conflicts сеет фильтр @conflicts с комбинацией строки", () => {
+    it("Show Conflicts seeds the @conflicts filter with the row's combination", () => {
         const h = makeHarness();
         h.render();
 
@@ -390,7 +390,7 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(input.inputState.value).toBe("@conflicts ctrl+s");
     });
 
-    it("конфликтующие строки доезжают до кадра и фильтруются @conflicts", () => {
+    it("conflicting rows reach the frame and are filtered by @conflicts", () => {
         const h = makeHarness();
         h.registry.register(parseChord("ctrl+s"), "hover", undefined, "user");
         h.service.emit();
@@ -404,7 +404,7 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(screen).not.toContain("Never Bound");
     });
 
-    it("Copy Command ID кладёт id в буфер", () => {
+    it("Copy Command ID puts the id on the clipboard", () => {
         const h = makeHarness();
         h.render();
 
@@ -413,7 +413,7 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(h.copied).toEqual(["hover"]);
     });
 
-    it("ошибка мутации показывается строкой и уходит после успешной", async () => {
+    it("a mutation error shows as a line and goes away after a successful one", async () => {
         const h = makeHarness();
         h.render();
         h.recorder.nextChord = parseChord("f6");
@@ -433,7 +433,7 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(h.render()).not.toContain("disk full");
     });
 
-    it("Change Keybinding из меню — тот же путь, что Enter", async () => {
+    it("Change Keybinding from the menu takes the same path as Enter", async () => {
         const h = makeHarness();
         h.render();
         h.recorder.nextChord = parseChord("f9");
@@ -445,7 +445,7 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(h.service.defines[0].previous?.source).toBe("default");
     });
 
-    it("делегат меню несёт владельца и якорь у курсора", () => {
+    it("the menu delegate carries the owner and an anchor at the cursor", () => {
         const h = makeHarness();
         h.render();
 
@@ -456,7 +456,7 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(delegate.getAnchor()).toEqual({ screenX: 3, screenY: 4 });
     });
 
-    it("меню несёт разделитель между правками и Copy Command ID", () => {
+    it("the menu carries a separator between edits and Copy Command ID", () => {
         const h = makeHarness();
         h.render();
 
@@ -468,7 +468,7 @@ describe("KeybindingsEditorPane — действия строки", () => {
         expect(copyIndex).toBeGreaterThan(sepIndex);
     });
 
-    it("шапка и заглушки не активируются и меню не несут", () => {
+    it("the header and placeholders do not activate and carry no menu", () => {
         const h = makeHarness();
         h.render();
         const list = h.pane.view.querySelector("#keybindingsList")!;

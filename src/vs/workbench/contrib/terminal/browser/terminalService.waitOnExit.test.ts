@@ -32,7 +32,7 @@ function buildHarness() {
 }
 
 describe("TerminalService — waitOnExit", () => {
-    it("без waitOnExit выход снимает инстанс; onDidExitInstance — раньше снятия, с кодом", () => {
+    it("without waitOnExit exit removes the instance; onDidExitInstance fires before removal, with the code", () => {
         const h = buildHarness();
         const instance = h.service.createInstance({ name: "t" });
         h.sessions[0].emitExit(3);
@@ -41,7 +41,7 @@ describe("TerminalService — waitOnExit", () => {
         h.service.dispose();
     });
 
-    it("waitOnExit: false — как без него", () => {
+    it("waitOnExit: false — same as without it", () => {
         const h = buildHarness();
         h.service.createInstance({ waitOnExit: false });
         h.sessions[0].emitExit(0);
@@ -49,7 +49,7 @@ describe("TerminalService — waitOnExit", () => {
         h.service.dispose();
     });
 
-    it("строка: инстанс остаётся, печатаются код выхода с командной строкой и сообщение", () => {
+    it("string: the instance stays, the exit code with the command line and the message are printed", () => {
         const h = buildHarness();
         const instance = h.service.createInstance({
             shellPath: "/bin/bash",
@@ -67,7 +67,7 @@ describe("TerminalService — waitOnExit", () => {
         h.service.dispose();
     });
 
-    it("код 0 — без сообщения о коде; функция получает код выхода", () => {
+    it("code 0 — no exit code message; a function gets the exit code", () => {
         const h = buildHarness();
         h.service.createInstance({ waitOnExit: (code) => `exited ${String(code)}` });
         h.sessions[0].emitExit(0);
@@ -75,7 +75,7 @@ describe("TerminalService — waitOnExit", () => {
         h.service.dispose();
     });
 
-    it("true — ждёт молча; без аргументов командная строка — один исполняемый файл", () => {
+    it("true — waits silently; without arguments the command line is just the executable", () => {
         const h = buildHarness();
         h.service.createInstance({ waitOnExit: true });
         h.sessions[0].emitExit(1);
@@ -86,7 +86,7 @@ describe("TerminalService — waitOnExit", () => {
         h.service.dispose();
     });
 
-    it("pty расширения — код выхода без командной строки", () => {
+    it("extension pty — exit code without a command line", () => {
         const h = buildHarness();
         const session = new FakeExtensionPtySession({
             cols: 80,
@@ -104,7 +104,7 @@ describe("TerminalService — waitOnExit", () => {
         h.service.dispose();
     });
 
-    it("готовая сессия без message — редактор ничего не печатает", () => {
+    it("a ready session without message — the editor prints nothing", () => {
         const h = buildHarness();
         const session = new FakeExtensionPtySession({
             cols: 80,
@@ -119,7 +119,7 @@ describe("TerminalService — waitOnExit", () => {
         h.service.dispose();
     });
 
-    it("любая клавиша после выхода закрывает ждущий инстанс (причина user); до выхода ввод идёт в процесс", () => {
+    it("any key after exit closes a waiting instance (reason user); before exit input goes to the process", () => {
         const h = buildHarness();
         h.service.createInstance({ waitOnExit: "bye" });
         h.sessions[0].write("a");
@@ -131,7 +131,7 @@ describe("TerminalService — waitOnExit", () => {
         h.service.dispose();
     });
 
-    it("Kill ждущего — снят с причиной user, повторной печати нет", () => {
+    it("Kill of a waiting one — removed with reason user, nothing printed again", () => {
         const h = buildHarness();
         const instance = h.service.createInstance({ waitOnExit: "bye" });
         h.sessions[0].emitExit(0);
@@ -142,7 +142,7 @@ describe("TerminalService — waitOnExit", () => {
 });
 
 describe("TerminalService — relaunchInstance", () => {
-    it("ждущий инстанс перезапускается на месте: опции сессии, новый pid, снова ждёт по новому waitOnExit", () => {
+    it("a waiting instance relaunches in place: session options, new pid, waits again per the new waitOnExit", () => {
         const h = buildHarness();
         h.service.setWorkingDirectory("/ws");
         const instance = h.service.createInstance({ name: "build", waitOnExit: "first" });
@@ -189,7 +189,7 @@ describe("TerminalService — relaunchInstance", () => {
         h.service.dispose();
     });
 
-    it("без clear — поля clear у сессии нет; другое имя — новый заголовок и событие", () => {
+    it("without clear — the session has no clear field; a different name — new title and event", () => {
         const h = buildHarness();
         const instance = h.service.createInstance({ name: "a", waitOnExit: true });
         h.sessions[0].emitExit(0);
@@ -202,7 +202,7 @@ describe("TerminalService — relaunchInstance", () => {
         h.service.dispose();
     });
 
-    it("перезапущенный инстанс снова не ждёт: второй перезапуск до выхода — undefined", () => {
+    it("a relaunched instance isn't waiting anymore: a second relaunch before exit is undefined", () => {
         const h = buildHarness();
         const instance = h.service.createInstance({ waitOnExit: true });
         h.sessions[0].emitExit(0);
@@ -212,7 +212,7 @@ describe("TerminalService — relaunchInstance", () => {
         h.service.dispose();
     });
 
-    it("живой, снятый и неизвестный инстансы не перезапускаются — undefined", () => {
+    it("live, removed and unknown instances don't relaunch — undefined", () => {
         const h = buildHarness();
         const live = h.service.createInstance({ waitOnExit: true });
         expect(h.service.relaunchInstance(live.id)).toBeUndefined();
@@ -224,7 +224,7 @@ describe("TerminalService — relaunchInstance", () => {
         h.service.dispose();
     });
 
-    it("фоновый ждущий инстанс перезапускается фоновым", () => {
+    it("a background waiting instance relaunches as background", () => {
         const h = buildHarness();
         const instance = h.service.createInstance({ hideFromUser: true, waitOnExit: true });
         h.sessions[0].emitExit(0);

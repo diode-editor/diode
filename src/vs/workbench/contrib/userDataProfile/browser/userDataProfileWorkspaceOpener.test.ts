@@ -96,7 +96,7 @@ describe("UserDataProfileWorkspaceOpener", () => {
 
     const settle = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
 
-    it("папка с другим профилем — перезагрузка в него с новым воркспейсом в аргументах; папка окна не меняется", async () => {
+    it("folder with another profile — reload into it with the new workspace in the arguments; the window folder does not change", async () => {
         const work = await profiles.createNamedProfile("work");
         const dir = path.join(ws.dir, "proj");
         await profiles.setProfileForWorkspace(profileWorkspaceKeyOf(dir), work);
@@ -109,7 +109,7 @@ describe("UserDataProfileWorkspaceOpener", () => {
         expect(logger.info).toHaveBeenCalledWith(expect.stringContaining("work"));
     });
 
-    it("папка того же профиля — смена папки как есть, без перезагрузки", async () => {
+    it("folder of the same profile — folder switch as is, without reload", async () => {
         const work = await profiles.createNamedProfile("work");
         const dir = path.join(ws.dir, "proj");
         await profiles.setProfileForWorkspace(profileWorkspaceKeyOf(dir), work);
@@ -122,7 +122,7 @@ describe("UserDataProfileWorkspaceOpener", () => {
         expect(logger.info).not.toHaveBeenCalled();
     });
 
-    it("папка без привязки из именованного профиля — перезагрузка в Default", async () => {
+    it("unassociated folder from a named profile — reload into Default", async () => {
         const work = await profiles.createNamedProfile("work");
         const dir = path.join(ws.dir, "proj");
 
@@ -133,7 +133,7 @@ describe("UserDataProfileWorkspaceOpener", () => {
         expect(opened).toEqual([]);
     });
 
-    it("файл .code-workspace: ключ — файл; чужой профиль — перезагрузка, свой — открытие как есть", async () => {
+    it(".code-workspace file: the key is the file; other profile — reload, same profile — open as is", async () => {
         const work = await profiles.createNamedProfile("work");
         const file = path.join(ws.dir, "web.code-workspace");
         await profiles.setProfileForWorkspace(profileWorkspaceKeyOf(file), work);
@@ -146,7 +146,7 @@ describe("UserDataProfileWorkspaceOpener", () => {
         expect(opened).toEqual([["file", file, contents]]);
     });
 
-    it("Cancel в «Save changes?» — окно остаётся в прежней папке и прежнем профиле", async () => {
+    it("Cancel in 'Save changes?' — the window stays in the previous folder and profile", async () => {
         const work = await profiles.createNamedProfile("work");
         const dir = path.join(ws.dir, "proj");
         await profiles.setProfileForWorkspace(profileWorkspaceKeyOf(dir), work);
@@ -159,7 +159,7 @@ describe("UserDataProfileWorkspaceOpener", () => {
         expect(opened).toEqual([]);
     });
 
-    it("отказ пути перезагрузки — в лог, не в необработанный промис; папка не меняется", async () => {
+    it("reload path refusal goes to the log, not to an unhandled promise; the folder does not change", async () => {
         const work = await profiles.createNamedProfile("work");
         const dir = path.join(ws.dir, "proj");
         await profiles.setProfileForWorkspace(profileWorkspaceKeyOf(dir), work);

@@ -19,14 +19,14 @@ function pipe(fromPos: number, toPos: number, fromHash: string, toHash: string, 
 }
 
 describe("getNextPipes", () => {
-    it("линия доходит до своего родителя и стартует новая", () => {
+    it("a line reaches its parent and a new one starts", () => {
         expect(getNextPipes([pipe(0, 0, "a", "b", PipeKind.Starts)], { sha: "b", parents: ["c"] }, getStyle)).toEqual([
             pipe(0, 0, "a", "b", PipeKind.Terminates),
             pipe(0, 0, "b", "c", PipeKind.Starts),
         ]);
     });
 
-    it("терминировавший пайп предыдущей строки в расчёт не идёт, соседний продолжается", () => {
+    it("a pipe terminated on the previous row is not counted, the neighbor continues", () => {
         expect(
             getNextPipes(
                 [
@@ -44,13 +44,13 @@ describe("getNextPipes", () => {
         ]);
     });
 
-    it("корневой коммит уходит в пустое дерево", () => {
+    it("a root commit goes into an empty tree", () => {
         expect(
             getNextPipes([pipe(0, 0, "a", "root", PipeKind.Terminates)], { sha: "root", parents: [] }, getStyle),
         ).toEqual([pipe(1, 1, "root", EMPTY_TREE_HASH, PipeKind.Starts)]);
     });
 
-    it("merge-коммит раздаёт дополнительным родителям свободные колонки справа", () => {
+    it("a merge commit hands free columns on the right to its extra parents", () => {
         expect(
             getNextPipes([pipe(0, 0, "a", "b", PipeKind.Starts)], { sha: "b", parents: ["c", "d", "e"] }, getStyle),
         ).toEqual([
@@ -63,7 +63,7 @@ describe("getNextPipes", () => {
 });
 
 describe("getPipeSets", () => {
-    it("затравочный пайп ставит первый коммит в нулевую колонку", () => {
+    it("the seed pipe puts the first commit into column zero", () => {
         const sets = getPipeSets([{ sha: "1", parents: ["2"] }], getStyle);
         expect(sets).toHaveLength(1);
         expect(sets[0]).toEqual([
@@ -74,7 +74,7 @@ describe("getPipeSets", () => {
         ]);
     });
 
-    it("на каждый коммит приходится ровно один набор пайпов", () => {
+    it("every commit gets exactly one pipe set", () => {
         const sets = getPipeSets(
             [
                 { sha: "1", parents: ["2"] },
@@ -85,7 +85,7 @@ describe("getPipeSets", () => {
         expect(sets).toHaveLength(2);
     });
 
-    it("пустой список коммитов — пустой результат", () => {
+    it("an empty commit list gives an empty result", () => {
         expect(getPipeSets([], getStyle)).toEqual([]);
     });
 });

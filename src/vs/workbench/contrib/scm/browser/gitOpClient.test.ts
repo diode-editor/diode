@@ -44,13 +44,13 @@ afterEach(() => {
 });
 
 describe("runGitOp", () => {
-    it("расширение не активно — null без notice", async () => {
+    it("extension is not active: null without a notice", async () => {
         const { accessor, notices } = makeAccessor({ has: false });
         expect(await runGitOp(accessor, "commit")).toBeNull();
         expect(notices).toEqual([]);
     });
 
-    it("реджект канала и мусорный ответ — null", async () => {
+    it("channel rejection and a garbage response give null", async () => {
         const rejected = makeAccessor({ execute: () => Promise.reject(new Error("closed")) });
         expect(await runGitOp(rejected.accessor, "commit")).toBeNull();
 
@@ -58,7 +58,7 @@ describe("runGitOp", () => {
         expect(await runGitOp(garbage.accessor, "commit")).toBeNull();
     });
 
-    it("ошибка операции — notice; silent подавляет", async () => {
+    it("operation error gives a notice; silent suppresses it", async () => {
         const failure = { ok: false, kind: "git-error", message: "boom" };
         const loud = makeAccessor({ execute: () => failure });
         expect(await runGitOp(loud.accessor, "commit")).toEqual(failure);

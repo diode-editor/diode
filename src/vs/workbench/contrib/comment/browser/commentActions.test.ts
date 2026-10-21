@@ -86,8 +86,8 @@ afterEach(() => {
     ws.dispose();
 });
 
-describe("commentActions — id и бинды, как в VS Code", () => {
-    it("ID команд и клавиши совпадают со стоковыми", () => {
+describe("commentActions — ids and keybindings as in VS Code", () => {
+    it("command IDs and keys match the stock ones", () => {
         expect(commentLineAction.id).toBe("editor.action.commentLine");
         expect(commentLineAction.keybinding).toEqual(parseKeybinding("mod+/"));
         expect(addCommentLineAction.id).toBe("editor.action.addCommentLine");
@@ -105,8 +105,8 @@ describe("commentActions — id и бинды, как в VS Code", () => {
     });
 });
 
-describe("commentActions — исполнение над активным редактором", () => {
-    it("commentLine тогглит строку каретки токеном языка", async () => {
+describe("commentActions — execution on the active editor", () => {
+    it("commentLine toggles the cursor line with the language token", async () => {
         const { editor, exec } = openEditor("const a = 1;");
         editor.viewState.selections = [createCursorSelection(0, 0)];
         await exec(commentLineAction);
@@ -115,7 +115,7 @@ describe("commentActions — исполнение над активным ред
         expect(editor.getText()).toBe("const a = 1;");
     });
 
-    it("commentLine кладёт шаг в undo редактора", async () => {
+    it("commentLine pushes a step onto the editor undo", async () => {
         const { editor, exec } = openEditor("aaa");
         await exec(commentLineAction);
         expect(editor.getText()).toBe("// aaa");
@@ -123,7 +123,7 @@ describe("commentActions — исполнение над активным ред
         expect(editor.getText()).toBe("aaa");
     });
 
-    it("add/remove работают принудительно, не глядя на состояние строки", async () => {
+    it("add/remove act unconditionally, regardless of the line state", async () => {
         const { editor, exec } = openEditor("// aaa");
         await exec(addCommentLineAction);
         expect(editor.getText()).toBe("// // aaa");
@@ -131,20 +131,20 @@ describe("commentActions — исполнение над активным ред
         expect(editor.getText()).toBe("// aaa");
     });
 
-    it("blockComment оборачивает выделение", async () => {
+    it("blockComment wraps the selection", async () => {
         const { editor, exec } = openEditor("const a = 1;");
         editor.viewState.selections = [createSelection(0, 6, 0, 7)];
         await exec(blockCommentAction);
         expect(editor.getText()).toBe("const /* a */ = 1;");
     });
 
-    it("язык без секции comments — no-op", async () => {
+    it("a language without a comments section is a no-op", async () => {
         const { editor, exec } = openEditor("aaa", fixedConfiguration(EMPTY_LANGUAGE_CONFIGURATION));
         await exec(commentLineAction);
         expect(editor.getText()).toBe("aaa");
     });
 
-    it("без активного редактора — безопасный no-op", async () => {
+    it("without an active editor: a safe no-op", async () => {
         const ctrl = createTestActiveEditorService(null);
         const commands = new CommandRegistry();
         const keybindings = new KeybindingRegistry();
@@ -157,7 +157,7 @@ describe("commentActions — исполнение над активным ред
         }
     });
 
-    it("документ, ПОДМЕНЁННЫЙ пока конфигурация грузилась, не правится задним числом", async () => {
+    it("a document REPLACED while the configuration was loading is not edited after the fact", async () => {
         // Reloading the file from disk recreates the document and the editor view state.
         // A fresh document has its own version that may match the captured one, so
         // the command checks not only the version but the document itself.
@@ -190,7 +190,7 @@ describe("commentActions — исполнение над активным ред
         expect(original.document.getText()).toBe("original");
     });
 
-    it("документ, изменившийся ПОКА конфигурация грузилась, не правится задним числом", async () => {
+    it("a document changed WHILE the configuration was loading is not edited after the fact", async () => {
         const { editor, exec } = openEditor("aaa");
         let release: (value: IResolvedLanguageConfiguration) => void = () => undefined;
         const gate = new Promise<IResolvedLanguageConfiguration>((resolve) => {

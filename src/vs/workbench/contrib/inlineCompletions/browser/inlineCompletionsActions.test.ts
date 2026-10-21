@@ -41,8 +41,8 @@ function keybindingOf(action: CommandAction): string | undefined {
     return bound == null ? undefined : formatKeybinding(bound);
 }
 
-describe("inlineCompletionsActions — объявления", () => {
-    it("id команд и ключи when — дословно VS Code", () => {
+describe("inlineCompletionsActions — declarations", () => {
+    it("command ids and when keys are verbatim VS Code", () => {
         expect(triggerInlineSuggestAction.id).toBe("editor.action.inlineSuggest.trigger");
         expect(commitInlineSuggestAction.id).toBe("editor.action.inlineSuggest.commit");
         expect(hideInlineSuggestAction.id).toBe("editor.action.inlineSuggest.hide");
@@ -56,7 +56,7 @@ describe("inlineCompletionsActions — объявления", () => {
         expect(triggerInlineSuggestAction.when).toBe("textInputFocus && !editorReadonly");
     });
 
-    it("when у hide проходит и на показанном призраке, и на запросе в полёте — но не вне редактора", () => {
+    it("hide's when passes both with ghost text shown and with a request in flight — but not outside the editor", () => {
         const keys = new ContextKeyService();
         const passes = (): boolean => keys.evaluate(hideInlineSuggestAction.when!);
 
@@ -76,14 +76,14 @@ describe("inlineCompletionsActions — объявления", () => {
         expect(passes()).toBe(false);
     });
 
-    it("биндинги: Tab у commit, Escape у hide, Alt+\\ у trigger", () => {
+    it("keybindings: Tab for commit, Escape for hide, Alt+\\ for trigger", () => {
         expect(keybindingOf(commitInlineSuggestAction)).toBe("Tab");
         expect(keybindingOf(hideInlineSuggestAction)).toBe("Escape");
         // The keybindings editor must show it exactly like this.
         expect(keybindingOf(triggerInlineSuggestAction)).toBe("Alt+\\");
     });
 
-    it("Alt+\\ разбирается в тот же keydown, что шлёт терминал (ESC + \\)", () => {
+    it("Alt+\\ parses into the same keydown the terminal sends (ESC + \\)", () => {
         expect(triggerInlineSuggestAction.keybinding).toEqual({
             key: "\\",
             ctrlKey: false,
@@ -94,8 +94,8 @@ describe("inlineCompletionsActions — объявления", () => {
     });
 });
 
-describe("inlineCompletionsActions — run-обработчики", () => {
-    it("делегируют в InlineCompletionsService", () => {
+describe("inlineCompletionsActions — run handlers", () => {
+    it("delegate to InlineCompletionsService", () => {
         const { accessor, calls } = makeAccessor();
         triggerInlineSuggestAction.run(accessor);
         commitInlineSuggestAction.run(accessor);

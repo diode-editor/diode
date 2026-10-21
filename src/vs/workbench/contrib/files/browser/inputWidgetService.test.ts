@@ -34,8 +34,8 @@ function setup(text = ""): {
     return { controller, input, changes };
 }
 
-describe("InputWidgetService — активное поле из опроса контрибьюторов", () => {
-    it("забирает сфокусированный InputElement, а любой другой фокус снимает поле", () => {
+describe("InputWidgetService — active input from polling contributors", () => {
+    it("takes the focused InputElement; any other focus clears the input", () => {
         const { controller, input, changes } = setup("ab");
         const keys = new ContextKeyService();
 

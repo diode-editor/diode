@@ -18,13 +18,13 @@ function make(): {
 }
 
 describe("ScmBusyContextContribution", () => {
-    it("на старте ключ ложный", () => {
+    it("the key is false at startup", () => {
         const h = make();
         expect(h.contextKeys.get("gitOperationInProgress")).toBe(false);
         h.contribution.dispose();
     });
 
-    it("операция любой секции SCM поднимает ключ и опускает по завершении", async () => {
+    it("an operation in any SCM section raises the key and lowers it on completion", async () => {
         for (const viewId of [SCM_CHANGES_VIEW_ID, SCM_GRAPH_VIEW_ID]) {
             const h = make();
             let done!: () => void;
@@ -47,7 +47,7 @@ describe("ScmBusyContextContribution", () => {
         }
     });
 
-    it("чужая секция ключ не поднимает", () => {
+    it("another section does not raise the key", () => {
         const h = make();
         void h.progress.withProgress(
             { location: "view", viewId: "workbench.view.search", title: "Searching…" },
@@ -57,7 +57,7 @@ describe("ScmBusyContextContribution", () => {
         h.contribution.dispose();
     });
 
-    it("после dispose ключ больше не обновляется", () => {
+    it("after dispose the key is no longer updated", () => {
         const h = make();
         h.contribution.dispose();
         void h.progress.withProgress(
