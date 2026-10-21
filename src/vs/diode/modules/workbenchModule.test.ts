@@ -24,13 +24,7 @@ afterEach(() => {
     ws.dispose();
 });
 
-/**
- * Проводка открывателя внешних ссылок в DI. Проверяем не «биндинг объявлен», а
- * что через него доезжают НАСТОЯЩИЕ швы: без графического сеанса ссылка обязана
- * оказаться и в буфере обмена приложения, и сообщением на экране. Перепутанный
- * шов даёт рабочий контейнер и молчащий редактор — ровно тот случай, из-за
- * которого расширение «ведёт в никуда».
- */
+/** Перепутанный шов даёт рабочий контейнер и молчащий редактор — проверяем, что доезжают настоящие швы. */
 describe("workbenchModule — env.openExternal", () => {
     it("без графического сеанса кладёт ссылку в буфер приложения и показывает сообщение", async () => {
         const { container } = createTestContainer();
@@ -47,8 +41,7 @@ describe("workbenchModule — env.openExternal", () => {
             await expect(opener.open("https://example.com/activate?token=42")).resolves.toBe(true);
 
             expect(await container.get(ClipboardDIToken).readText()).toBe("https://example.com/activate?token=42");
-            // Строгость важна: она выбирает заголовок и цвет тоста, а «ссылка в
-            // буфере» — сообщение информационное, не ошибка.
+            // Строгость выбирает заголовок и цвет тоста: «ссылка в буфере» — информация, не ошибка.
             expect(notifications.passive()).toEqual([
                 expect.objectContaining({
                     severity: "info",
@@ -69,11 +62,6 @@ describe("workbenchModule — env.openExternal", () => {
     });
 });
 
-/**
- * Доступ bulk edit'а к открытым буферам: без него `workspace.applyEdit` правил
- * бы открытый файл на диске мимо его буфера — и буфер с файлом разъехались бы.
- * Проверяем не «биндинг объявлен», а что через него видно НАСТОЯЩУЮ вкладку.
- */
 describe("workbenchModule — доступ bulk edit'а к буферам", () => {
     it("открытая вкладка видна как буфер, а чужой ресурс — нет", () => {
         const { container } = createTestContainer();
@@ -88,7 +76,6 @@ describe("workbenchModule — доступ bulk edit'а к буферам", () =
         expect(target).not.toBeNull();
         expect(target).not.toBe("read-only");
         expect(buffers.get("file:///nowhere/closed.ts")).toBeNull();
-        // Бакет истории для тронутого буфера — бакет его вкладки.
         expect(buffers.undoParticipants([pane.uri.toString()])).toEqual([
             { context: pane.undoContext, label: pane.label, owner: true },
         ]);

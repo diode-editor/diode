@@ -12,22 +12,10 @@ import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken
 import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
 
 /**
- * Продакшен: реальные watcher'ы — пофайловый на chokidar прямо здесь (следит за
- * открытыми файлами и сигналит контроллеру о внешних изменениях) и по дереву
- * (`workspace.createFileSystemWatcher` расширений, встроенный git) — в
- * **отдельном процессе**: полный обход дерева с подпиской на каждый каталог
- * измеряется секундами и в главном цикле стоил редактору отзывчивости на
- * старте. Здесь остаётся прокси, за границей — `ChokidarTreeWatcher` под
- * `SharedTreeWatcher` (см. `treeWatcherMain.ts`).
- *
- * Ошибки watcher'а (ENOSPC и прочие отказы ОС) приезжают из того процесса
- * в тот же канал `files.watcher`, а не роняют редактор.
- *
- * Два токена на один объект — осознанно: потребители видят интерфейс, а
- * владельцу процесса нужен сам `SubprocessTreeWatcher`. Снимается он в
- * синхронной фазе прощания (`LifecycleService.onShutdownSync`): при
- * перезагрузке окна дальше блокируется event loop, и не снятый процесс пережил
- * бы своё окно со всеми inotify-подписками.
+ * Дерево — в отдельном процессе: полный обход с подпиской на каждый каталог занимает секунды и в главном
+ * цикле стоил отзывчивости на старте. Два токена на один объект осознанно: владельцу процесса нужен сам
+ * `SubprocessTreeWatcher`. Снимается он в синхронной фазе прощания: при перезагрузке окна event loop дальше
+ * блокируется, и процесс пережил бы окно со всеми inotify-подписками.
  */
 export const fileWatcherModule: ContainerModule = (container) => {
     container.bind(
@@ -49,7 +37,6 @@ export const fileWatcherModule: ContainerModule = (container) => {
     container.bind(ITreeFileWatcherDIToken, () => container.get(SubprocessTreeWatcherDIToken));
 };
 
-/** Тесты/дефолт: no-op watcher'ы (live-watch выключен, если фейк не подставлен). */
 export const fileWatcherModuleDefault: ContainerModule = (container) => {
     container.bind(IFileWatcherDIToken, () => NULL_FILE_WATCHER);
     container.bind(ITreeFileWatcherDIToken, () => NULL_TREE_FILE_WATCHER);

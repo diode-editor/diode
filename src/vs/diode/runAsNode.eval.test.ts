@@ -3,13 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-// Eval-режим runAsNode (`-e <код>`): ровно так `Files.resolve()`
-// vscode-languageserver'а ищет библиотеку линтера в проекте —
-// fork(process.execPath, "", { execArgv: ["-e", <resolve-скрипт>] }). До
-// поддержки `-e` стоковый eslint под SEA молча не линтил ни одного файла:
-// резолвер падал с ERR_MODULE_NOT_FOUND '<workspace>/-e' (виден только в
-// канале Output ESLint). Гоняем через child-process с tsx-загрузчиком —
-// argv-арифметика совпадает с SEA (argv[1] — entry ↔ вшитый плейсхолдер).
+// До поддержки `-e` стоковый eslint под SEA молча не линтил ни одного файла (ERR_MODULE_NOT_FOUND
+// '<workspace>/-e'). Child-process с tsx: argv-арифметика совпадает с SEA.
 
 const ENTRY = fileURLToPath(new URL("./runAsNode.testEntry.ts", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));

@@ -16,12 +16,7 @@ import { EditorServiceDIToken } from "../../workbench/services/editor/common/edi
 import { extensionsModule } from "./extensionsModule.ts";
 import { createTestContainer } from "./testProfile.ts";
 
-/**
- * Проводка магазина в DI: продовый модуль поверх тестового контейнера. Проверяем
- * не «биндинги объявлены», а что через них доезжают настоящие параметры —
- * адрес реестра, каталог установленного и версии сборки: перепутанный аргумент
- * даёт рабочий контейнер и неверный список расширений.
- */
+/** Перепутанный аргумент даёт рабочий контейнер и неверный список расширений. */
 
 const HOST = { diode: "1.0.0", vscode: "1.90.0" };
 
@@ -50,12 +45,7 @@ describe("extensionsModule", () => {
         ws = undefined;
     });
 
-    /**
-     * Контейнер тестового профиля с продовой проводкой магазина поверх. Токены
-     * магазина заранее «отравлены»: если продовый модуль перестанет их
-     * перебивать, резолв упадёт — иначе тест зелёный на дефолтных биндингах
-     * тестового профиля и ничего не проверяет.
-     */
+    /** Токены магазина «отравлены»: перестань продовый модуль их перебивать — тест прошёл бы на дефолтах профиля. */
     function setup(options: { problems?: string[] } = {}): ReturnType<typeof createTestContainer>["container"] {
         const { container } = createTestContainer({
             environment: { registry: ws!.path("registry"), extensionsDir: ws!.path("extensions") },

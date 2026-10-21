@@ -99,26 +99,15 @@ const SUBPROCESS_ENTRY = fileURLToPath(
 );
 
 /**
- * Чем транспилировать `.ts` внутри тестового subprocess'а.
- *
- * - `"tsx"` (дефолт) — полный `tsx` (не `tsx/esm`) регистрирует и ESM-, и
- *   CJS-хук: расширения грузятся через `createRequire(mainPath)`, поэтому
- *   `.ts`-main (напр. builtin `git`) требует CJS-транспиляции;
- * - `"node"` — родное стирание типов Node (`--experimental-transform-types`,
- *   нужен из-за `enum`). Это ЕДИНСТВЕННЫЙ режим, в котором виден настоящий
- *   резолв ESM-расширений: `tsx` своим хуком уводит `import … from "vscode"` в
- *   CJS-резолвер и тем самым маскирует отсутствие нашего ESM-хука. Платой идёт
- *   отсутствие CJS-транспиляции `.ts` — фикстуры такого теста обязаны быть
- *   `.cjs`/`.mjs`.
+ * - `"tsx"` — полный `tsx`, не `tsx/esm`: расширения грузятся `createRequire`, и
+ *   `.ts`-main (builtin `git`) требует CJS-хука;
+ * - `"node"` — родное стирание типов; единственный режим, где виден настоящий
+ *   резолв ESM-расширений: `tsx` уводит `import … from "vscode"` в CJS-резолвер и
+ *   маскирует отсутствие нашего ESM-хука. Фикстуры такого теста — `.cjs`/`.mjs`.
  */
 export type SubprocessLoader = "tsx" | "node";
 
-/**
- * Возвращает `spawnArgs`-фабрику для тестового запуска subprocess'а — вместо
- * `main.ts` запускает {@link SUBPROCESS_ENTRY}. Это нужно, т.к. в vitest
- * `process.argv[1]` указывает на vitest CLI, а не на `main.ts`. Чем
- * транспилировать `.ts` — см. {@link SubprocessLoader}.
- */
+/** В vitest `process.argv[1]` — vitest CLI, а не `main.ts`, поэтому свой entry. */
 export function subprocessSpawnArgsForTests(
     loader: SubprocessLoader = "tsx",
 ): () => { command: string; args: string[]; env?: NodeJS.ProcessEnv } {
@@ -130,30 +119,20 @@ export function subprocessSpawnArgsForTests(
     });
 }
 
-/** Абсолютный путь к `src/Extensions/Host/__fixtures__` с тестовыми `.cjs`-расширениями. */
 export const EXTENSION_FIXTURES_DIR = path.dirname(SUBPROCESS_ENTRY);
 
-/**
- * Регистрация fixture-расширения из {@link EXTENSION_FIXTURES_DIR} с минимальным
- * тестовым манифестом (`publisher: "test"`) и eager-событием `*`. Расширяемые поля
- * (`commandTitles`, свои `activationEvents`) добавляются спредом:
- * `{ ...extensionFixture(...), commandTitles }`.
- */
 export function extensionFixture(id: string, file: string): IExtensionRegistration {
     return {
         id,
         manifest: { name: id, publisher: "test", version: "0.0.1" },
         mainPath: path.join(EXTENSION_FIXTURES_DIR, file),
-        // Eager — тестовый дефолт (см. `testRegistration`); свои события — спредом.
         activationEvents: ["*"],
     };
 }
 
 /**
- * Регистрация в тестовом виде: без своих событий расширение eager (`["*"]`) —
- * в проде такого дефолта нет (пусто значит пусто), это удобство тестов, — плюс
- * неявные `onCommand:<id>` из `commandTitles`, как их посчитал бы
- * `computeActivationEvents` по `contributes.commands` при сборке регистрации.
+ * Без своих событий расширение eager — удобство тестов, в проде пусто значит пусто;
+ * плюс неявные `onCommand:<id>`, как их посчитал бы `computeActivationEvents`.
  */
 export function testRegistration(reg: IExtensionRegistration): IExtensionRegistration {
     const events = [...(reg.activationEvents ?? ["*"])];
@@ -163,11 +142,6 @@ export function testRegistration(reg: IExtensionRegistration): IExtensionRegistr
     return { ...reg, activationEvents: events };
 }
 
-/**
- * Манифест с `contributes.configuration` из dotted-map дефолтов — так тест
- * описывает настройки расширения там же, где их объявляет настоящее
- * расширение; харнесс регистрирует их в общем реестре, как `main.ts`.
- */
 export function manifestWithDefaults(
     manifest: IExtensionRegistration["manifest"],
     defaults: Readonly<Record<string, unknown>>,
@@ -176,12 +150,6 @@ export function manifestWithDefaults(
     return { ...manifest, contributes: { configuration: { properties } } };
 }
 
-/**
- * Тест-хелпер: регистрирует расширение (в тестовом виде, см.
- * {@link testRegistration}) и сразу активирует его через `activateByEvent("*")`.
- * Заменяет прежний eager `await host.registerExtension(reg)` в тестах, которым
- * важно, что расширение активно сразу. Возвращает disposable от регистрации.
- */
 export async function registerAndActivate(host: ExtensionHost, reg: IExtensionRegistration): Promise<IDisposable> {
     const disposable = host.registerExtension(testRegistration(reg));
     await host.activateByEvent("*");
@@ -196,129 +164,46 @@ import { TestApp } from "./TestApp.ts";
 export interface IExtensionHarnessOptions {
     readonly initialFile?: { readonly name: string; readonly content: string };
     readonly extensions?: readonly IExtensionRegistration[];
-    /**
-     * Событие(я) активации, которые харнесс фаерит после регистрации расширений.
-     * По умолчанию — `["*"]` (eager, эквивалент прежнего поведения). Тесты
-     * ленивой активации передают собственный набор (или `[]`, чтобы драйвить
-     * `harness.host.activateByEvent(...)` вручную).
-     */
+    /** `[]` — драйвить `harness.host.activateByEvent(...)` вручную. */
     readonly activateEvents?: readonly string[];
-    /**
-     * Пользовательский слой настроек (дерево), который host запушит в subprocess
-     * (`workspace.initialize`). Читается расширением через `getConfiguration`.
-     */
     readonly configuration?: Readonly<Record<string, unknown>>;
-    /**
-     * Слой настроек воркспейса (дерево, как `.diode/settings.json` после
-     * фильтра по `scope`) — `inspect().workspaceValue` и перекрытие user-слоя.
-     */
     readonly workspaceConfiguration?: Readonly<Record<string, unknown>>;
-    /** Файл `.code-workspace` окна (`uri.toString()`) — `workspace.workspaceFile`/`name`; нет — окно из папки. */
+    /** `uri.toString()`; нет — окно из папки. */
     readonly workspaceFile?: string;
-    /**
-     * Дополнительные переопределения дефолтов (dotted-ключи) — то, что в
-     * приложении кладёт хост (`builtinConfigInjection`: пути вшитого tsserver).
-     * Дефолты `contributes.configuration` зарегистрированных расширений и
-     * курируемые инъекции харнесс собирает сам — тем же контрибьютором, что и
-     * `main.ts`.
-     */
+    /** То, что в приложении кладёт хост (`builtinConfigInjection`); дефолты манифестов харнесс собирает сам. */
     readonly configurationDefaults?: Readonly<Record<string, unknown>>;
-    /**
-     * Сервис настроек ЯДРА (`EditorService` и его onSave-участники). По
-     * умолчанию — NULL-заглушка; тесты codeActionsOnSave/formatOnSave передают
-     * стаб с нужными ключами. Не путать с `configuration` — снапшотом для
-     * subprocess'а.
-     */
+    /** Настройки ЯДРА (`EditorService`, onSave-участники) — не путать с `configuration` для субпроцесса. */
     readonly configurationService?: IConfigurationService;
     /**
-     * Сервис настроек, из которого субпроцесс получает слои и в который пишет
-     * `WorkspaceConfiguration.update` (в приложении это один сервис с ядром). По
-     * умолчанию — {@link InMemoryConfigurationService} над `configuration` и
-     * `workspaceConfiguration`: запись видна `get()` и шлёт `configurationChanged`,
-     * но не трогает диск. Тест, которому нужен файл, передаёт файловый сервис;
-     * `configuration`/`workspaceConfiguration` тогда не читаются.
+     * По умолчанию — in-memory над `configuration`/`workspaceConfiguration`, диск не
+     * трогает; передан файловый — те две опции не читаются.
      */
     readonly extensionConfigurationService?: IConfigurationService;
-    /**
-     * Папки воркспейса (`workspace.workspaceFolders`). Строка — ПУТЬ на ФС
-     * (тесту удобнее оперировать `tmpDir`, uri харнесс поднимет сам); объект —
-     * готовый дескриптор, когда тесту нужна не-`file:` схема. По умолчанию —
-     * tmpDir.
-     */
+    /** Строка — путь на ФС; объект — когда нужна не-`file:` схема. */
     readonly workspaceFolders?: readonly (string | IWorkspaceFolderInfo)[];
-    /**
-     * Сервис определения языка (для `document.languageId`). По умолчанию —
-     * {@link NULL_LANGUAGE_SERVICE} (всё — `plaintext`).
-     */
     readonly languageService?: ILanguageService;
-    /** Сток диагностик расширений (`diagnostics.publish`). По умолчанию не подключён. */
     readonly diagnosticsSink?: DiagnosticsSink;
-    /** Чтение MarkerService для обратного пути диагностик. По умолчанию не подключено. */
     readonly markers?: IMarkerReader;
-    /** Сток прогресса расширений (`window.progress.*`). По умолчанию не подключён. */
     readonly progressSink?: IProgressSink;
-    /** Сток output-каналов расширений (`output.append`/`show`). По умолчанию не подключён. */
     readonly outputSink?: IOutputSink;
-    /** Сток пунктов статус-бара расширений (`window.statusBarItem.*`). По умолчанию не подключён. */
     readonly statusBarItemSink?: IStatusBarItemSink;
-    /**
-     * Сток ввода расширений (`window.showInputBox`/`showQuickPick`). По умолчанию
-     * не подключён — расширение мгновенно получает «отменено».
-     */
+    /** Не подключён — расширение мгновенно получает «отменено». */
     readonly quickInputSink?: IQuickInputSink;
-    /**
-     * Сток сообщений (`window.show*Message` и тосты самого хоста). По
-     * умолчанию не подключён — сообщения уходят только в лог.
-     */
     readonly notificationSink?: INotificationSink;
-    /** Сток смены папок воркспейса (`workspace.updateWorkspaceFolders`). По умолчанию не подключён. */
     readonly workspaceFoldersSink?: IWorkspaceFoldersSink;
-    /** Мост gutter-декораций к редакторам (Chunk 4). По умолчанию не подключён. */
     readonly editorDecorations?: IEditorDecorationsService;
-    /** Мост файловых декораций к дереву (Chunk 4). По умолчанию не подключён. */
     readonly fileDecorations?: IFileDecorationsService;
-    /** Резолвер ThemeColor id → packed-RGB (+ смена темы). По умолчанию не подключён. */
     readonly themeColorResolver?: IThemeColorResolver;
-    /**
-     * Наблюдатель за деревом для `workspace.createFileSystemWatcher`. По
-     * умолчанию не подключён — watcher'ы расширений создаются, но не стреляют.
-     */
+    /** Не подключён — watcher'ы расширений создаются, но не стреляют. */
     readonly fileWatcher?: IExtensionFileWatcher;
-    /**
-     * Корни приватных каталогов расширений (`globalStorageUri`/`storageUri`/`logUri`).
-     * По умолчанию — внутри `tmpDir` харнесса (изолировано на прогон, как и
-     * файлы-фикстуры); `storageUri` при этом есть, как при открытой папке.
-     */
     readonly storageHomes?: () => IExtensionStorageHomes;
-    /**
-     * Хранилище `ExtensionContext.secrets`. По умолчанию — in-memory (живёт
-     * ровно прогон). Тесты персистентности передают файловое, чтобы увидеть
-     * записанное на диске.
-     */
     readonly secrets?: IExtensionSecretStore;
-    /**
-     * Хранилище memento расширений (`globalState`/`workspaceState`). По
-     * умолчанию — без персиста (memento живёт в памяти субпроцесса).
-     */
     readonly extensionState?: IExtensionStateStore;
-    /** Логгер хоста — тестам, которые проверяют предупреждения. По умолчанию его нет. */
     readonly logger?: ILogger;
-    /**
-     * Доступ к дереву воркспейса для `workspaceContains:`-активации. По
-     * умолчанию — настоящая ФС (то есть `tmpDir` харнесса, куда пишет
-     * `writeFile`); тесты обхода передают карту каталогов в памяти.
-     */
     readonly workspaceScanner?: IWorkspaceScanner;
-    /** Константы `env` хоста (`machineId`, `shell`); по умолчанию — фоллбэк хоста. */
     readonly environment?: IExtensionHostEnvironment;
-    /** Хранилище коллекций окружения расширений; по умолчанию — в памяти хоста. */
     readonly environmentVariableCollections?: IEnvironmentVariableCollectionStore;
-    /** Куда ложатся слои `languages.setLanguageConfiguration` (в приложении — сервис конфигураций языков). */
     readonly languageConfigurations?: Pick<ILanguageConfigurationService, "register">;
-    /**
-     * Чем транспилировать `.ts` в subprocess'е. По умолчанию `"tsx"`; `"node"`
-     * нужен тестам ESM-расширений — см. {@link SubprocessLoader}.
-     */
     readonly subprocessLoader?: SubprocessLoader;
 }
 
@@ -326,47 +211,24 @@ export interface IExtensionHarness {
     readonly app: TestApp;
     readonly host: ExtensionHost;
     readonly group: EditorService;
-    /**
-     * Реестры языковых провайдеров ядра: прокси провайдеров субпроцесса в них
-     * держит `LanguageFeaturesAdapter` — зеркально extensionHostModule.
-     */
     readonly languageFeatures: ILanguageFeaturesService;
-    /** ThemeService, за которым стоит харнесс (для тестов смены темы). */
     readonly themeService: ThemeService;
-    /**
-     * Host-реестр команд, за которым стоит {@link ExtensionHost}. Тест может
-     * `execute(...)` прокси-команду сабпроцесса (host → subprocess) или
-     * `register(...)` хостовую команду, которую сабпроцесс вызовет fall-through.
-     */
     readonly commandRegistry: CommandRegistry;
     readonly tmpDir: string;
     writeFile(name: string, content: string): string;
-    /**
-     * Прокачивает microtask-очередь — RPC в Phase 1 идёт через `queueMicrotask`,
-     * один полный round-trip = два «оборота» (request → handler → response).
-     */
+    /** Один round-trip RPC через `queueMicrotask` — два оборота (request → handler → response). */
     flushRpc(turns?: number): Promise<void>;
     dispose(): Promise<void>;
 }
 
-/**
- * Test harness для расширений: поднимает реальный {@link EditorService} (плюс
- * {@link EditorGroupComponent} как view группы) + {@link ExtensionHost},
- * оборачивает в {@link TestApp} (через body вокруг view группы), опционально
- * открывает файл и регистрирует расширения.
- *
- * Расширения регистрируются (bookkeeping), затем харнесс фаерит события
- * активации (`activateEvents`, по умолчанию `["*"]`) — каждое `activateByEvent`
- * ждёт завершения `activate()` и RPC-вызовов внутри него.
- */
+/** Проводка — зеркально extensionHostModule и main.ts: меняешь там — меняй здесь. */
 export async function createExtensionTestHarness(options: IExtensionHarnessOptions = {}): Promise<IExtensionHarness> {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-ext-"));
 
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     const configurationService = options.configurationService ?? NULL_CONFIGURATION_SERVICE;
     const undoRedoService = new UndoRedoService();
-    // Реестры языковых провайдеров — общие у группы (on-save участники) и
-    // адаптера host'а, как один DI-синглтон в extensionHostModule.
+    // Один экземпляр у группы (on-save участники) и адаптера хоста, как DI-синглтон.
     const languageFeatures = new LanguageFeaturesService();
     const group = new EditorService(
         themeService,
@@ -391,9 +253,6 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         group.editorGroups,
     );
 
-    // Настоящий исполнитель `workspace.applyEdit` — зеркально extensionHostModule:
-    // правки по закрытым файлам ложатся на диск, по открытым — в их буферы, и
-    // весь edit остаётся одним шагом общей истории (`undoRedoService`).
     const workspaceEditService = new WorkspaceEditService(
         undoRedoService,
         new TrashService(),
@@ -404,15 +263,9 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     const adapter = new EditorOptionsServiceAdapter(group, group.editorGroups, workspaceEditService);
     const commandRegistry = new CommandRegistry();
     const commandAdapter = new CommandServiceAdapter(commandRegistry);
-    // `IWorkspaceFolderInfo.uri` — настоящий uri, как в extensionHostModule:
-    // хост читает из него путь папки (`workspaceContains:`), а субпроцесс —
-    // `WorkspaceFolder.uri`. Опция харнесса при этом принимает ПУТЬ, потому что
-    // тесту удобнее оперировать `tmpDir`.
     const folders = (options.workspaceFolders ?? [tmpDir]).map((folder, index) =>
         typeof folder === "string" ? { uri: Uri.file(folder).toString(), name: path.basename(folder), index } : folder,
     );
-    // Дефолты — зеркально main.ts: общий реестр, в который контрибьютор кладёт
-    // `contributes.configuration` и курируемые инъекции всех расширений харнесса.
     const configurationRegistry = new ConfigurationRegistry();
     new ExtensionConfigurationContributor(options.extensions ?? [], configurationRegistry, (ext) =>
         curatedConfigInjection(ext.id),
@@ -426,7 +279,6 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
             // Папки нет — и слоя воркспейса нет: запись туда отклоняется, как в пустом окне.
             folders.length === 0 ? undefined : (options.workspaceConfiguration ?? {}),
         );
-    // Адаптер — зеркально extensionHostModule.
     const configuration: IExtensionHostConfigProvider = {
         getSnapshot: () => extensionConfigurationService.getConfigurationData(),
         getWorkspaceFolders: () => folders,
@@ -438,10 +290,8 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         updateValue: (key, value, target) => extensionConfigurationService.updateValue(key, value, target),
         getConfigurationScopes: () => configurationRegistry.getConfigurationScopes(),
     };
-    // Полоса групп — зеркально extensionHostModule (правило двух сим-точек).
     const editorLayout = new EditorLayoutServiceAdapter(group, group.editorGroups);
-    // Каталоги хранения расширений — зеркально extensionHostModule, но корни
-    // внутри tmpDir харнесса: тест не должен писать в user-data машины.
+    // Внутри tmpDir: тест не должен писать в user-data машины.
     const storageHomes =
         options.storageHomes ??
         ((): IExtensionStorageHomes => ({
@@ -466,9 +316,6 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         ...(options.workspaceFoldersSink !== undefined ? { workspaceFoldersSink: options.workspaceFoldersSink } : {}),
         ...(options.editorDecorations !== undefined ? { editorDecorations: options.editorDecorations } : {}),
         ...(options.fileDecorations !== undefined ? { fileDecorations: options.fileDecorations } : {}),
-        // Дефолт — настоящий адаптер поверх `themeService` харнесса (зеркально
-        // extensionHostModule): `harness.themeService.setTheme(...)` доезжает до
-        // расширения как `window.onDidChangeActiveColorTheme`.
         themeColorResolver: options.themeColorResolver ?? new ThemeColorResolverAdapter(themeService),
         ...(options.fileWatcher !== undefined ? { fileWatcher: options.fileWatcher } : {}),
         ...(options.secrets !== undefined ? { secrets: options.secrets } : {}),
@@ -483,17 +330,12 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
             : {}),
     });
 
-    // Языковые провайдеры (languages.register) → прокси в реестрах ядра — как в extensionHostModule.
     new LanguageFeaturesAdapter(host, languageFeatures);
-    // Save-pipeline (WP6): проброс will-save/did-save между группой и хостом.
     group.saveParticipant = (snapshot) => host.willSaveTextDocument(snapshot);
     group.onEditorSaved((meta) => {
         host.didSaveTextDocument(meta);
     });
-    // Document sync (LSP): продюсер didOpen/didChange — как в extensionHostModule.
     bindDocumentSync(group, group.editorGroups, host);
-    // Содержимое недисковых ресурсов (registerTextDocumentContentProvider) — как
-    // в extensionHostModule: по нему открываются read-only вкладки `jdt:`/`class:`.
     group.virtualDocumentSource = {
         canProvide: (scheme) => host.hasTextContentProvider(scheme),
         provide: (uri) => host.provideTextDocumentContent(uri),
@@ -526,19 +368,13 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     for (const reg of options.extensions ?? []) {
         host.registerExtension(testRegistration(reg));
     }
-    // Активация теперь событийная: фаерим согласованные события (по умолчанию
-    // `*` — eager, как раньше). Последовательно — каждый activateByEvent ждёт
-    // завершения activate() и внутренних RPC.
     for (const event of options.activateEvents ?? ["*"]) {
         await host.activateByEvent(event);
     }
 
     const dispose = async (): Promise<void> => {
-        // Ждём ФАКТИЧЕСКОГО выхода субпроцесса, а не фиксированное окно: пока он
-        // жив, он пишет в `tmpDir` (globalStorage расширений), и снос каталога
-        // из-под живого писателя либо падает, либо каталог воскресает его же
-        // `mkdir`. Прежние 100 мс были заведомо меньше таймаута вежливого
-        // прощания — отсюда гигабайты `diode-ext-*` в os.tmpdir().
+        // Ждём выхода субпроцесса, а не окно: живой, он пишет в `tmpDir`, и снос либо
+        // падает, либо каталог воскресает его `mkdir` — отсюда были гигабайты `diode-ext-*`.
         await host.shutdown();
         groupComponent.dispose();
         group.dispose();
@@ -548,14 +384,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     return { app, host, group, languageFeatures, themeService, commandRegistry, tmpDir, writeFile, flushRpc, dispose };
 }
 
-/**
- * Hover'ы для запроса так, как их собирает `HoverService`: подошедшие документу
- * провайдеры реестра харнесса, склейка в порядке `ordered`.
- */
-/**
- * Версия документа открытого редактора по `uri` — для запросов провайдерам:
- * запросы текста не везут, субпроцесс читает зеркало документа этой версии.
- */
+/** Запросы текста не везут: субпроцесс читает зеркало документа этой версии. */
 export function documentVersion(harness: IExtensionHarness, uri: string): number {
     const editor = harness.group.getEditors().find((candidate) => candidate.uri.toString() === uri);
     if (editor === undefined) throw new Error(`no open editor for ${uri}`);
@@ -570,7 +399,6 @@ export function provideHovers(
     return getHovers(harness.languageFeatures.hoverProvider, targetOf(request), request, token);
 }
 
-/** Цели definition так, как их собирает `DefinitionService` (реестр харнесса). */
 export function provideDefinitions(
     harness: IExtensionHarness,
     request: IDefinitionRequest,
@@ -579,7 +407,6 @@ export function provideDefinitions(
     return getDefinitions(harness.languageFeatures.definitionProvider, targetOf(request), request, token);
 }
 
-/** Ссылки так, как их собирает `ReferencesService` (реестр харнесса). */
 export function provideReferences(
     harness: IExtensionHarness,
     request: IReferenceRequest,
@@ -588,7 +415,6 @@ export function provideReferences(
     return getReferences(harness.languageFeatures.referenceProvider, targetOf(request), request, token);
 }
 
-/** Подсказка параметров так, как её собирает `ParameterHintsService` (реестр харнесса). */
 export function provideSignatureHelp(
     harness: IExtensionHarness,
     request: ISignatureHelpRequest,
@@ -601,11 +427,6 @@ export function provideSignatureHelp(
     );
 }
 
-/**
- * Триггер- и ретриггер-символы подсказки параметров для документа — то, что
- * `ParameterHintsService` видит у подошедших провайдеров (объединение, без
- * повторов, в порядке `ordered`).
- */
 export function signatureHelpCharacters(
     harness: IExtensionHarness,
     document: { readonly uri: string; readonly languageId: string },
@@ -617,7 +438,7 @@ export function signatureHelpCharacters(
     };
 }
 
-/** Автодополнения так, как их собирает `CompletionService` (без word-based пунктов). */
+/** Без word-based пунктов `CompletionService`. */
 export async function provideCompletions(
     harness: IExtensionHarness,
     request: ICompletionRequest,
@@ -628,7 +449,6 @@ export async function provideCompletions(
     return { items, isIncomplete };
 }
 
-/** Триггер-символы completion для документа — объединение по подошедшим провайдерам. */
 export function completionTriggerCharacters(
     harness: IExtensionHarness,
     document: { readonly uri: string; readonly languageId: string },
@@ -637,18 +457,14 @@ export function completionTriggerCharacters(
     return [...new Set(providers.flatMap((provider) => provider.triggerCharacters))];
 }
 
-/**
- * Правки форматирования так, как их собирают команды Format Document/Selection
- * (`editor/contrib/format`): `null` — форматтера для документа нет.
- */
+/** `null` — форматтера для документа нет. */
 export function formatDocumentFor(
     harness: IExtensionHarness,
     request: IFormattingRequest,
     token: ICancellationToken = CancellationTokenNone,
 ): Promise<readonly ITextEdit[] | null> {
     const { range } = request;
-    // Запрос текста не везёт — диапазон всего документа (для range-форматтера
-    // без документного) берём из открытого редактора, как команда.
+    // Диапазон документа — для range-форматтера без документного, как у команды.
     const text =
         harness.group
             .getEditors()
@@ -659,7 +475,6 @@ export function formatDocumentFor(
         : formatRange(harness.languageFeatures, targetOf(request), { ...request, range }, token);
 }
 
-/** Code actions так, как их собирают команды (`editor/contrib/codeAction`). */
 export async function provideCodeActions(
     harness: IExtensionHarness,
     request: ICodeActionRequest,
@@ -669,7 +484,6 @@ export async function provideCodeActions(
     return items.map((item) => item.action);
 }
 
-/** Области сворачивания от провайдеров так, как их собирает `EditorComponent`. */
 export function provideFoldingRegions(
     harness: IExtensionHarness,
     request: IFoldingRequest,
@@ -682,7 +496,6 @@ export function provideFoldingRegions(
     );
 }
 
-/** Инлайн-подсказки так, как их собирает `InlineCompletionsService`. */
 export function provideInlineCompletions(
     harness: IExtensionHarness,
     request: IInlineCompletionRequest,
@@ -692,12 +505,10 @@ export function provideInlineCompletions(
     return provideInlineCompletionsFrom(providers, request, token);
 }
 
-/** Текущее имя символа так, как его спрашивает `RenameService` (реестр харнесса). */
 export function prepareRenameAt(harness: IExtensionHarness, request: IRenameRequest): Promise<IPreparedRename> {
     return prepareRename(harness.languageFeatures.renameProvider, targetOf(request), request);
 }
 
-/** Переименование так, как его запускает `RenameService` (реестр харнесса). */
 export function provideRename(
     harness: IExtensionHarness,
     request: IRenameRequest,
@@ -706,7 +517,6 @@ export function provideRename(
     return renameSymbol(harness.languageFeatures.renameProvider, targetOf(request), request, newName);
 }
 
-/** Документ запроса как цель скоринга реестра. */
 function targetOf(request: { readonly uri: string; readonly languageId: string }): ILanguageFeatureTarget {
     return { uri: Uri.parse(request.uri), languageId: request.languageId };
 }

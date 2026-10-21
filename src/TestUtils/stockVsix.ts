@@ -15,25 +15,14 @@ import { sha256File } from "../vs/platform/extensionManagement/node/installFromR
 import { currentTargetPlatform } from "../vs/platform/extensionManagement/node/targetPlatform.ts";
 import { VSCODE_SHIM_VERSION } from "../vs/workbench/api/common/vscodeShimVersion.ts";
 
-/**
- * Общий fetch-хелпер сьютов на стоковые расширения (docs/TESTING.md «Тесты на
- * стоковые расширения — из магазина»): скачивает последнюю совместимую версию
- * записи из публичного магазина тем же путём резолва, что у клиента (мета →
- * `resolveCompatibleVersion` → артефакт → `sha256`), и кэширует vsix по
- * `<id>-<version>`. Кэш валидируется по `sha256` из меты, а не по факту
- * существования файла; забег параллельных vitest-воркеров разруливается
- * атомарным rename.
- */
+/** Резолв — тем же путём, что у клиента; кэш валидируется по `sha256` из меты, а не по наличию файла. */
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
-/** Кэш скачанных vsix; в node_modules — вне рабочего дерева и переживает прогоны. */
 const VSIX_CACHE_DIR = path.join(REPO_ROOT, "node_modules", ".cache", "diode-stock-vsix");
 
 export interface IStockVsix {
-    /** Путь к скачанному (или закэшированному) vsix. */
     readonly vsixPath: string;
-    /** Версия, которую отдал резолв, — последняя совместимая с этим билдом. */
     readonly version: string;
 }
 
@@ -55,8 +44,7 @@ export async function fetchStockVsix(id: string): Promise<IStockVsix> {
     if (version === undefined) {
         throw new Error(`${id}: no version compatible with this build in the registry`);
     }
-    // Платформенный vsix кэшируется под своим таргетом: общий кэш может жить
-    // в примонтированном node_modules, который переживает смену платформы.
+    // Примонтированный node_modules переживает смену платформы.
     const platformSuffix = version.targetPlatform === undefined ? "" : `@${version.targetPlatform}`;
     const cached = path.join(VSIX_CACHE_DIR, `${id}-${version.version}${platformSuffix}.vsix`);
     if (fs.existsSync(cached) && (await sha256File(cached)) === version.sha256) {
@@ -72,14 +60,8 @@ export async function fetchStockVsix(id: string): Promise<IStockVsix> {
             );
         }
         fs.mkdirSync(VSIX_CACHE_DIR, { recursive: true });
-        // Через свой temp внутри каталога кэша: rename атомарен только в пределах
-        // одной ФС, а os.tmpdir() может жить на другой.
-        //
-        // Случайный суффикс, а НЕ один `process.pid`: воркеры vitest — это потоки
-        // ОДНОГО процесса, и два сьюта, тянущие одно расширение одновременно,
-        // получали одинаковое имя. Первый переименовывал, второй падал на
-        // `ENOENT: rename …vsix.<pid>.tmp` — поймано красным dry run мутационного
-        // гейта, когда java-сьютов стало два.
+        // Temp внутри кэша: rename атомарен только в пределах одной ФС. Случайный суффикс,
+        // а не только pid: воркеры vitest — потоки одного процесса, и второй падал на ENOENT.
         const staging = `${cached}.${String(process.pid)}.${randomBytes(6).toString("hex")}.tmp`;
         fs.copyFileSync(artifact, staging);
         fs.renameSync(staging, cached);

@@ -13,7 +13,6 @@ import {
     reapByEnv,
 } from "./processSweep.ts";
 
-/** Таблица процессов из литерала: pid → окружение (`null` — недоступно). */
 function fakeTable(procs: Record<number, string[] | null>, parents: Record<number, number> = {}): ProcessTable {
     return {
         pids: () => Object.keys(procs).map(Number),
@@ -76,7 +75,6 @@ describe("processSweep — процессы по метке в окружени�
             let polls = 0;
             const table: ProcessTable = {
                 pids: () => [30],
-                // Первые два опроса процесс ещё жив, потом вышел сам.
                 environ: () => (polls++ < 2 ? ["MARK=a"] : null),
                 command: () => "lsp",
                 parent: () => 1,
@@ -116,7 +114,6 @@ describe("processSweep — процессы по метке в окружени�
                 const reaping = reapByEnv("MARK", "a", { table, kill });
 
                 await vi.advanceTimersByTimeAsync(1900);
-                // Ещё в пределах дефолтной отсрочки: никого не добили.
                 expect(kill).not.toHaveBeenCalled();
                 alive = false;
                 await vi.advanceTimersByTimeAsync(100);
@@ -141,7 +138,6 @@ describe("processSweep — процессы по метке в окружени�
 
     it("parseParentPid — четвёртое поле после последней скобки имени", () => {
         expect(parseParentPid("123 (sleep) S 45 123 45 0")).toBe(45);
-        // имя с пробелами и скобками
         expect(parseParentPid("123 (a) b (c)) R 7 1 1")).toBe(7);
         expect(parseParentPid("мусор")).toBeNull();
     });
@@ -155,8 +151,7 @@ describe("processSweep — процессы по метке в окружени�
         const children: ChildProcess[] = [];
 
         afterEach(() => {
-            // Всей группе: убитый в одиночку `sh` оставил бы `sleep` сиротой (это и
-            // поймал teardown корня прогона, когда тест убивал только `sh`).
+            // Всей группе: убитый в одиночку `sh` оставил бы `sleep` сиротой.
             for (const child of children.splice(0)) {
                 try {
                     process.kill(-child.pid!, "SIGKILL");
@@ -167,12 +162,11 @@ describe("processSweep — процессы по метке в окружени�
         });
 
         function spawnMarked(value: string): ChildProcess {
-            // Внук, а не ребёнок: прямых детей поиск пропускает намеренно. `sh` держит
-            // `sleep` своим ребёнком (без exec — за ним ещё команда).
+            // Внук, а не ребёнок: прямых детей поиск пропускает. `; true` не даёт `sh` сделать exec.
             const child = spawn("sh", ["-c", "sleep 30; true"], {
                 env: { ...process.env, SWEEP_TEST_MARK: value },
                 stdio: "ignore",
-                detached: true, // своя группа — afterEach убивает её целиком
+                detached: true,
             });
             children.push(child);
             return child;
@@ -186,7 +180,6 @@ describe("processSweep — процессы по метке в окружени�
             );
         }
 
-        /** Ждёт, пока `sh` запустит своего `sleep`, и отдаёт найденных. */
         async function waitFound(value: string): Promise<ReturnType<typeof findByEnv>> {
             for (let i = 0; i < 100; i++) {
                 const found = findByEnv("SWEEP_TEST_MARK", value);
@@ -202,14 +195,12 @@ describe("processSweep — процессы по метке в окружени�
             const markedExit = exited(marked);
 
             const found = await waitFound("run-1");
-            // Только `sleep`: сам `sh` — прямой ребёнок этого процесса, его пропускаем.
             expect(found).toHaveLength(1);
             expect(found[0]?.pid).not.toBe(marked.pid);
             expect(found[0]?.command).toBe("sleep 30");
             expect(procTable?.parent(found[0].pid)).toBe(marked.pid);
 
             expect(killByEnv("SWEEP_TEST_MARK", "run-1")).toEqual(found);
-            // `sleep` убит — `sh` доходит до `true` и выходит сам, кодом 0.
             expect(await markedExit).toBe(0);
             expect(neighbour.exitCode).toBeNull();
             expect(await waitFound("run-2")).toHaveLength(1);
@@ -218,7 +209,7 @@ describe("processSweep — процессы по метке в окружени�
         it("таблица видит текущие процессы, а исчезнувший — пустой", () => {
             expect(procTable?.pids()).toContain(process.pid);
             expect(procTable?.command(process.pid)).toContain("node");
-            // pid за пределом pid_max (2^22) не существует никогда.
+            // За пределом pid_max (2^22).
             const missing = 2 ** 23;
             expect(procTable?.environ(missing)).toBeNull();
             expect(procTable?.command(missing)).toBe("");

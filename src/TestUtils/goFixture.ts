@@ -12,66 +12,38 @@ import { registrationFromInstalled } from "./installedExtensionRegistration.ts";
 import { fetchStockVsix } from "./stockVsix.ts";
 
 /**
- * Общая обвязка сьютов на стоковый golang.go (extensionHost.goLsp*, e2e
- * goLsp, сценарий go-lsp): НАСТОЯЩИЙ vsix, установленный штатным
- * `installVsix`, — ни строчки нашего кода расширения. Клиент расширения
- * (стоковый vscode-languageclient) поднимает gopls по stdio.
- *
- * Чего нет в vsix — Go toolchain и gopls:
- * - **Go** — с машины (`go` в PATH; в CI его ставит `actions/setup-go`). Нет
- *   Go — сьюты честно пропускаются с причиной ({@link goToolchainMissing}):
- *   без него и в VS Code расширение отказывает в активации.
- * - **gopls** фикстура ставит заранее (`go install` в кэшируемый GOBIN, как
- *   `npm install eslint` у eslintFixture.ts) — иначе каждый прогон собирал бы
- *   его по сети. Путь авто-установки самим расширением закрывает один e2e.
- *
- * Vsix — из магазина, последней совместимой версией (запись `golang.go` в
- * реестре; e2e и сценарий ставят её по id, как пользователь).
+ * Go с машины (`go` в PATH): без него и в VS Code расширение не активируется, и
+ * сьюты пропускаются ({@link goToolchainMissing}). gopls ставится заранее в
+ * кэшируемый GOBIN, иначе каждый прогон собирал бы его по сети.
  */
 
-/**
- * id записи в реестре — как в манифесте vsix (`golang.go`); Open VSX пишет
- * namespace/name `golang/Go`, но наш клиент сверяет id с манифестом побайтно.
- */
+/** Как в манифесте vsix: Open VSX пишет `golang/Go`, а клиент сверяет id с манифестом побайтно. */
 export const GO_ID = "golang.go";
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
-/** Канонический Go-модуль сьютов и сценария: тот же, что видит человек в демо. */
 export const GO_SAMPLE_DIR = path.join(REPO_ROOT, "e2e", "fixtures", "goSample");
 
-/** Кэш `go install gopls` — вне рабочего дерева, переживает прогоны (в CI — actions/cache). */
 export const GO_TOOLS_DIR = path.join(REPO_ROOT, "node_modules", ".cache", "diode-go-fixture");
-/** GOBIN с gopls: сюда же смотрит расширение (`getBinPath` проверяет `GOBIN`). */
+/** Сюда же смотрит расширение: `getBinPath` проверяет `GOBIN`. */
 export const GO_TOOLS_BIN = path.join(GO_TOOLS_DIR, "bin");
 
 const EXE = process.platform === "win32" ? ".exe" : "";
 
-/** Module cache Go-сессий редактора — вне временного корня прогона (см. {@link GO_SESSION_ENV}). */
 export const GO_MODCACHE = path.join(REPO_ROOT, "node_modules", ".cache", "diode-go-modcache");
 
 /**
- * Окружение Go для сессий редактора в изолированном корне (e2e, сценарий).
- * На активации расширение само ставит хелпер `vscgo` (`go install`), а module
- * cache Go read-only: скачанный в изолированный HOME, он ронял уборку
- * временного корня (`EACCES` на `rmSync`). `GOFLAGS=-modcacherw` расширение
- * для своих установок не пробрасывает, поэтому кэш просто живёт вне корня.
+ * Module cache Go read-only: скачанный в изолированный HOME (расширение само ставит
+ * `vscgo`), он ронял уборку корня `EACCES`; `-modcacherw` расширение не пробрасывает.
  */
 export const GO_SESSION_ENV: Readonly<Record<string, string>> = { GOMODCACHE: GO_MODCACHE, GOTOOLCHAIN: "local" };
 
-/** Мини-сервис языков: `.go` → go, иначе — undefined. */
 export const GO_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".go") ? "go" : undefined),
     getLanguageDisplayName: () => undefined,
 };
 
-/**
- * Файлы {@link GO_SAMPLE_DIR} (относительный путь → текст) — сид воркспейса для
- * харнесса и e2e. `main.go`: лишний импорт `"os"` и ошибка типов (диагностики),
- * вызов `greet.Hello` (hover с doc-комментарием и F12 в `greet/greet.go`),
- * неотформатированный `fmt.Println( msg,broken )` (format on save).
- */
 export function goSampleFiles(): Record<string, string> {
     const files: Record<string, string> = {};
     const walk = (dir: string): void => {
@@ -85,7 +57,6 @@ export function goSampleFiles(): Record<string, string> {
     return files;
 }
 
-/** Путь к `go` из PATH или `undefined`. */
 export function findGoBinary(): string | undefined {
     for (const dir of (process.env.PATH ?? "").split(path.delimiter)) {
         if (dir === "") continue;
@@ -95,17 +66,13 @@ export function findGoBinary(): string | undefined {
     return undefined;
 }
 
-/** Причина пропуска Go-сьютов или `undefined`, если Go есть. */
 export function goToolchainMissing(): string | undefined {
     return findGoBinary() === undefined
         ? "Go toolchain не найден в PATH — сьюты golang.go пропущены (в CI его ставит actions/setup-go)"
         : undefined;
 }
 
-/**
- * Гарантирует кэшированный gopls (последняя версия на момент первого прогона;
- * версию не пиним — как у стоковых vsix) и возвращает путь к нему.
- */
+/** Версию gopls не пиним — как у стоковых vsix. */
 export function ensureGopls(): string {
     const gopls = path.join(GO_TOOLS_BIN, `gopls${EXE}`);
     if (fs.existsSync(gopls)) return gopls;
@@ -132,12 +99,6 @@ export interface IInstalledGo {
     dispose(): void;
 }
 
-/**
- * Устанавливает vsix в изолированный каталог и собирает регистрацию из
- * УСТАНОВЛЕННОГО манифеста той же функцией, что приложение. Курируемых
- * дефолтов нет: `go.testExplorer.enable` и прочие манифестные дефолты работают
- * как есть (Test API — инертный null-объект).
- */
 export async function installGo(): Promise<IInstalledGo> {
     const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-vsix-"));
     const { id, version } = await installVsix((await fetchStockVsix(GO_ID)).vsixPath, extensionsDir);

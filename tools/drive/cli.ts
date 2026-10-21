@@ -27,8 +27,6 @@ import { DEFAULT_BINARY, gcSessions, repoRoot, startSession, stopSession } from 
 import { isAlive } from "./processes.ts";
 import { type SessionRecord, SessionRegistry, validateSessionName } from "./sessionRegistry.ts";
 
-/** Инструмент живого прогона: водит headless-diode через инспектор. Справка — `drive help`. */
-
 const HELP = `npm run drive -- <команда> [аргументы] [-s <сессия>] [--json]
 
 Сессия живёт между вызовами (реестр — .drive/sessions/ этого checkout'а).
@@ -153,7 +151,6 @@ async function settle(client: DriveClient): Promise<void> {
     await client.waitForIdle({});
 }
 
-/** Кадр и фокус — то, что печатается при таймауте ожидания и в `dump`. */
 async function postmortem(client: DriveClient): Promise<string> {
     const parts: string[] = [];
     try {
@@ -179,8 +176,6 @@ function tailOf(file: string, lines: number): string {
 function errorMessage(error: unknown): string {
     return error instanceof Error ? error.message : String(error);
 }
-
-// ── Команды ──────────────────────────────────────────────────────────────────
 
 async function cmdStart(args: ParsedArgs): Promise<void> {
     const name = sessionName(args);
@@ -539,7 +534,7 @@ async function cmdExec(args: ParsedArgs): Promise<void> {
         try {
             return JSON.parse(raw) as unknown;
         } catch {
-            return raw; // не JSON — строка как есть
+            return raw;
         }
     });
     await withClient(args, async (client) => {
@@ -592,11 +587,7 @@ async function cmdPalette(args: ParsedArgs): Promise<void> {
     });
 }
 
-/**
- * Окно после `reloadWindow` — новый процесс на том же порту; старое ещё может
- * отвечать, поэтому ждём ДРУГОЙ pid и его готовность. Своё подключение с
- * ретраями: в момент перезапуска порт никто не слушает.
- */
+/** Старое окно ещё может отвечать на том же порту — поэтому ждём ДРУГОЙ pid. */
 async function waitReload(record: SessionRecord, timeoutMs: number): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -611,7 +602,7 @@ async function waitReload(record: SessionRecord, timeoutMs: number): Promise<voi
     }
 }
 
-/** Pid и готовность окна на порту — отдельным подключением (старое могло закрыться). */
+/** Отдельным подключением: старое могло закрыться. */
 async function probeWindow(port: number): Promise<{ pid: number; ready: boolean } | undefined> {
     try {
         const client = await DriveClient.connect(port, 1000);
@@ -621,7 +612,7 @@ async function probeWindow(port: number): Promise<{ pid: number; ready: boolean 
             client.close();
         }
     } catch {
-        return undefined; // окно в перезапуске — порт ещё не слушают
+        return undefined;
     }
 }
 

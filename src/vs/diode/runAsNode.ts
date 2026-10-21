@@ -4,33 +4,20 @@ import * as path from "node:path";
 import { importModule } from "../base/node/importModule.ts";
 
 /**
- * Режим «diode как node» (`DIODE_RUN_AS_NODE=1`): бинарь исполняет внешний
- * JS-скрипт вместо запуска редактора — калька `ELECTRON_RUN_AS_NODE`
- * VS Code/Electron. Нужен SEA-поставке, где `process.execPath` — сам diode:
- * language-серверы (typescript-language-server) и их внуки (tsserver форкается
- * сервером через `child_process.fork` → `process.execPath`) запускаются нашим
- * бинарём без node в PATH. Сигнал — env (наследуется fork'ами автоматически;
- * argv-флаг вставить во внучьи спавны невозможно), путь скрипта — argv.
+ * Калька `ELECTRON_RUN_AS_NODE`: в SEA `process.execPath` — сам diode, и language-серверы с внуками
+ * (tsserver через `fork`) запускаются нашим бинарём без node в PATH. Сигнал — env: он наследуется
+ * fork'ами, а argv-флаг во внучьи спавны не вставить.
  *
- * Механика загрузки (варианты проверены на настоящем SEA-бинаре) живёт в
- * {@link importModule} — она же нужна ESM-расширениям в extension host.
- *
- * Ограничение: ведущие `--*`-аргументы пропускаются без интерпретации — SEA не
- * умеет node-флаги из командной строки (`--max-old-space-size` от
- * `maxTsServerMemory` игнорируется; при надобности — трансляция в NODE_OPTIONS).
- * Исключение — `-e`/`--eval`: исполняется как у node (см. ниже).
+ * Ведущие `--*` пропускаются: SEA не умеет node-флаги (`--max-old-space-size` игнорируется; при
+ * надобности — трансляция в NODE_OPTIONS). Исключение — `-e`/`--eval`.
  */
 export function runAsNode(): void {
-    // Под SEA argv[1] — плейсхолдер вшитого main; пользовательские аргументы —
-    // argv.slice(2) (та же арифметика, что у parseCliArgs редакторной ветки).
+    // Под SEA argv[1] — плейсхолдер вшитого main.
     const args = process.argv.slice(2);
     let scriptIndex = 0;
     while (scriptIndex < args.length && (args[scriptIndex].startsWith("--") || args[scriptIndex] === "-e")) {
-        // `-e <код>` — eval-режим node: CJS-модуль в cwd, argv без слота
-        // скрипта (как у настоящего node). Так `Files.resolve()`
-        // vscode-languageserver'а ищет библиотеку линтера в проекте:
-        // fork(execPath, "", { execArgv: ["-e", <resolve-скрипт>] }) — скрипт
-        // говорит с родителем по IPC fork'а (проверено стоковым eslint).
+        // Как у node: CJS-модуль в cwd, argv без слота скрипта. Так `Files.resolve()` vscode-languageserver'а
+        // ищет библиотеку линтера в проекте (проверено стоковым eslint).
         if (args[scriptIndex] === "-e" || args[scriptIndex] === "--eval") {
             const code = args.at(scriptIndex + 1);
             if (code === undefined) {
@@ -59,9 +46,7 @@ export function runAsNode(): void {
     }
     const scriptPath = path.resolve(script);
 
-    // Скрипт и его форки должны видеть мир как обычный node: argv[1] — путь
-    // скрипта (на это смотрят commander в cli.mjs и sys.getExecutingFilePath()
-    // tsserver'а), argv без наших пропущенных флагов.
+    // argv[1] — путь скрипта: на него смотрят commander в cli.mjs и `sys.getExecutingFilePath()` tsserver'а.
     process.argv = [process.argv[0], scriptPath, ...args.slice(scriptIndex + 1)];
 
     void importModule(scriptPath).catch((err: unknown) => {

@@ -40,8 +40,7 @@ describe("removeDirLoud", () => {
     it.skipIf(process.platform === "win32")("снести не удалось — предупреждаем, но не роняем прогон", () => {
         const dir = path.join(parent, "stubborn");
         fs.mkdirSync(dir);
-        // Родитель только для чтения: удалить запись из него уже нельзя —
-        // настоящий EACCES вместо подмены fs (в ESM модуль не сконфигурировать).
+        // Настоящий EACCES вместо подмены fs: ESM-модуль не сконфигурировать.
         fs.chmodSync(parent, 0o500);
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 

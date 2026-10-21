@@ -5,15 +5,12 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { APP_JAVA_PATH, createMavenProject, type IMavenProject, JAVA_LANGUAGE_SERVICE } from "./javaFixture.ts";
 
-// Обвязка java-сьютов сама по себе: её сетевую часть (`installJava`) закрывают
-// сьюты extensionHost.javaLsp*, а здесь — то, что от сети не зависит.
+// Сетевую часть (`installJava`) закрывают сьюты extensionHost.javaLsp*.
 
 describe("javaFixture — языковой сервис", () => {
     it(".java получает язык java, прочее — undefined", () => {
         expect(JAVA_LANGUAGE_SERVICE.getLanguageIdForResource("/tmp/App.java")).toBe("java");
-        // Отрицательная ветка важна: сервис отдаёт язык ВСЕМУ, что откроет
-        // харнесс, и пометь он `java` на pom.xml — расширение получило бы
-        // didOpen на xml-файле.
+        // Пометь сервис `java` на pom.xml — расширение получило бы didOpen на xml-файле.
         expect(JAVA_LANGUAGE_SERVICE.getLanguageIdForResource("/tmp/pom.xml")).toBeUndefined();
     });
 
@@ -41,8 +38,6 @@ describe("javaFixture — maven-проект", () => {
         project = createMavenProject();
         const other = createMavenProject();
         try {
-            // Два вызова не должны делить корень: иначе параллельные сьюты
-            // перетирали бы друг другу проект.
             expect(other.root).not.toBe(project.root);
         } finally {
             other.dispose();

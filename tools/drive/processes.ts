@@ -3,10 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { SESSION_MARKER_ENV } from "./sessionRegistry.ts";
 
 /**
- * Жив ли процесс (сигнал 0 — проверка без доставки; EPERM — жив, но чужой).
- * Зомби — мёртв: лидер сессии, убитый `kill -9`, переподвешивается к init, а
- * init контейнера не всегда пожинает детей — `kill(pid, 0)` такому отвечает
- * «есть», хотя сессии уже нет.
+ * Зомби — мёртв: убитый лидер переподвешивается к init, а init контейнера не всегда
+ * пожинает детей, и `kill(pid, 0)` отвечает «есть», хотя сессии уже нет.
  */
 export function isAlive(pid: number): boolean {
     try {
@@ -20,7 +18,7 @@ export function isAlive(pid: number): boolean {
 function isZombie(pid: number): boolean {
     try {
         const stat = readFileSync(`/proc/${String(pid)}/stat`, "utf8");
-        // `pid (comm) S …` — comm может содержать пробелы и скобки, состояние — после последней `)`.
+        // comm может содержать пробелы и скобки — состояние после последней `)`.
         return stat.slice(stat.lastIndexOf(")") + 2, stat.lastIndexOf(")") + 3) === "Z";
     } catch {
         return false; // не Linux или уже пожат
@@ -32,13 +30,7 @@ export interface MarkedProcess {
     readonly marker: string;
 }
 
-/**
- * Процессы с маркером сессии в env (Linux, `/proc/<pid>/environ`). Маркер
- * наследуют все потомки редактора — субпроцесс расширений, языковые серверы,
- * watcher, — в том числе ушедшие в свою группу (`setsid`), до которых
- * `kill(-pgid)` не дотягивается. На других ОС список пуст: там уборка держится
- * только на группе процессов.
- */
+/** Маркер достаёт и ушедших в свою группу (`setsid`), до которых `kill(-pgid)` не дотягивается. */
 export function findMarkedProcesses(): MarkedProcess[] {
     if (process.platform !== "linux") return [];
     const prefix = `${SESSION_MARKER_ENV}=`;
@@ -81,12 +73,7 @@ function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Гасит всё, что принадлежит сессии: группу лидера `pid` и все процессы с её
- * маркером. Сначала SIGTERM (дать extension host'у и серверам уйти самим),
- * через `graceMs` — SIGKILL всем, кто остался. Возвращает, сколько процессов
- * пришлось добивать SIGKILL.
- */
+/** Возвращает, сколько пришлось добивать SIGKILL. */
 export async function killSessionProcesses(pid: number | undefined, marker: string, graceMs = 3000): Promise<number> {
     const targets = (): number[] => {
         const pids = findMarkedProcesses()

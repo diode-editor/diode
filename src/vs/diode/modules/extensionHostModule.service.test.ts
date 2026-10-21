@@ -17,7 +17,6 @@ import { LanguageRegistry } from "../../workbench/services/language/common/langu
 
 import { extensionHostModule } from "./extensionHostModule.ts";
 
-/** Встроенное расширение, исходник которого не читается, — повод для лога регистрации. */
 const BROKEN_BUILTIN: IExtension = {
     id: "acme.broken",
     location: "extensions/broken/",
@@ -25,10 +24,7 @@ const BROKEN_BUILTIN: IExtension = {
     manifest: { name: "broken", publisher: "acme", version: "1.0.0", engines: { vscode: "*" }, main: "out/e.cjs" },
 };
 
-/**
- * Проводка сервиса расширений: продовый модуль поверх тестового харнесса.
- * Субпроцесс не поднимается — у набора нет расширений с событиями активации.
- */
+/** Субпроцесс не поднимается — у набора нет расширений с событиями активации. */
 describe("extensionHostModule — сервис расширений", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -45,7 +41,6 @@ describe("extensionHostModule — сервис расширений", () => {
         h = createAppTestHarness({
             containerOverrides: (container) => {
                 container.bind(ILogServiceDIToken, () => logService);
-                // Настоящий реестр языков: он и шлёт «языку нужны фичи».
                 container.bind(LanguageServiceDIToken, () => languages);
                 container.use(extensionHostModule, {
                     extensions: [BROKEN_BUILTIN],

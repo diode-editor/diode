@@ -23,19 +23,14 @@ export interface IEditorPaneOverrides {
     readonly languageService?: ILanguageService;
     readonly themeService?: ThemeService;
     readonly undoRedoService?: UndoRedoService;
-    /** Реестр folding-провайдеров (как `ILanguageFeaturesService.foldingRangeProvider`). */
     readonly foldingProviders?: LanguageFeatureRegistry<FoldingRangeProvider>;
-    /** Файловый сервис записи модели; по умолчанию — настоящий диск. */
+    /** По умолчанию — настоящий диск. */
     readonly files?: IFileService;
-    /** Семантическая подсветка (как из DI в `TextEditorPaneBuilder`); нет — только TextMate. */
+    /** Нет — только TextMate. */
     readonly semanticTokens?: DocumentSemanticTokensFeature;
 }
 
-/**
- * Обвязка юнит-тестов пары `TextFileModel` + `EditorComponent`: собирает пару так
- * же, как `TextEditorPaneBuilder.build`, и отдаёт
- * {@link TextEditorPane} — сценарии работают с единой поверхностью пары.
- */
+/** Собирает пару так же, как `TextEditorPaneBuilder.build`. */
 export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEditorPane<TextFileModel> {
     const themeService = overrides.themeService ?? new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     const model = new TextFileModel(

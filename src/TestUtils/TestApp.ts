@@ -8,8 +8,7 @@ import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";
 
 let cachedVars: Record<string, number> | null = null;
-/** Живая палитра Dark+ (не снапшот из tuidom/testing): diode-тесты резолвят
- * токены ровно тем же кодом темы, что и приложение. */
+/** Не снапшот из tuidom/testing: токены резолвятся тем же кодом темы, что в приложении. */
 function liveThemeVars(): Record<string, number> {
     cachedVars ??= computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     return cachedVars;
@@ -17,7 +16,6 @@ function liveThemeVars(): Record<string, number> {
 
 export type TestApp = TuidomTestApp;
 export const TestApp = {
-    /** `styleVars` — своя палитра вместо Dark+ (харнесс приложения кладёт палитру активной темы). */
     create(root: BodyElement, size?: Size, styleVars?: Readonly<Record<string, number>>): TestApp {
         return TuidomTestApp.create(root, size, styleVars ?? liveThemeVars());
     },

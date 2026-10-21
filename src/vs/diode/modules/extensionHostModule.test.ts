@@ -12,16 +12,9 @@ import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/brow
 import { extensionHostConfigProvider, extensionHostModule, workspaceFoldersProvider } from "./extensionHostModule.ts";
 import { createTestContainer } from "./testProfile.ts";
 
-/**
- * Проводка extension host'а в прощание: продовый модуль поверх тестового
- * контейнера. Субпроцесс не поднимается (расширений нет) — проверяем, что
- * прощание вообще доходит до host'а: снятый host больше не принимает
- * регистраций. Порядок и тайм-аут закрыты юнитами `LifecycleService`, вежливый
- * выход и добивание субпроцесса — юнитами `ExtensionHost`.
- */
+/** Субпроцесс не поднимается (расширений нет): проверяем, что прощание вообще доходит до host'а. */
 describe("extensionHostModule — прощание", () => {
     it("shutdown снимает extension host", async () => {
-        // Корни хранения расширений — из окружения тестового профиля (временный каталог).
         const { container } = createTestContainer();
         const dir = path.join(tmpdir(), "diode-exthost-module-test");
         container.use(extensionHostModule, {
@@ -46,7 +39,6 @@ describe("extensionHostModule — прощание", () => {
         await lifecycle.shutdown("quit", () => undefined);
 
         expect(shutdownBeforeSyncPhase).toBe(true);
-        // Синхронная фаза добивает субпроцесс, если вежливое прощание не успело.
         expect(disposeNow).toHaveBeenCalledOnce();
         expect(() => {
             host.registerExtension({
@@ -59,11 +51,7 @@ describe("extensionHostModule — прощание", () => {
     });
 });
 
-/**
- * Источник папок — настоящий `WorkspaceContextService` (он без зависимостей, так
- * что заглушка была бы дороже правды): `setWorkspaceFolder` двигает папку между
- * вызовами провайдера, свежий экземпляр — пустое окно.
- */
+/** Настоящий `WorkspaceContextService`: он без зависимостей, заглушка была бы дороже правды. */
 function workspaceWithFolder(root: string | null): WorkspaceContextService {
     const service = new WorkspaceContextService();
     if (root !== null) service.setWorkspaceFolder(root);
@@ -82,25 +70,18 @@ describe("workspaceFoldersProvider", () => {
     });
 
     it("uri — настоящий file-uri, а не голый путь", () => {
-        // Пробел обязан уехать в percent-encoding: подстановка пути «как есть»
-        // дала бы расширению неразбираемый uri.
+        // Путь «как есть» дал бы расширению неразбираемый uri.
         expect(workspaceFoldersProvider(workspaceWithFolder("/work/my project"))()[0]?.uri).toBe(
             "file:///work/my%20project",
         );
     });
 
-    // Главный инвариант пустого окна: никакого process.cwd() под видом
-    // воркспейса — иначе git и прочие уходят шерстить каталог запуска.
     it("папки нет — ПУСТОЙ список, а не подставленный cwd", () => {
         const folders = workspaceFoldersProvider(workspaceWithFolder(null))();
         expect(folders).toEqual([]);
         expect(JSON.stringify(folders)).not.toContain(process.cwd());
     });
 
-    // Вторая половина контракта: папки читаются на КАЖДЫЙ вызов. Снимок,
-    // взятый в момент биндинга, залипал бы на «папки нет» — extension host
-    // спрашивает папки уже после setWorkspaceFolder, а Open Folder меняет их
-    // и вовсе в рантайме.
     it("читает папки на каждый вызов, а не запоминает их при создании", () => {
         const workspace = workspaceWithFolder(null);
         const getFolders = workspaceFoldersProvider(workspace);
@@ -130,8 +111,6 @@ describe("extensionHostConfigProvider", () => {
         expect(provider.getConfigurationScopes().get("t.flag")).toBe("application");
     });
 
-    // `workspace.workspaceFile` расширений: файл окна читается на каждый вызов —
-    // Open Workspace from File меняет его в рантайме.
     it("файл воркспейса — uri файла окна из .code-workspace, у окна из папки — нет", () => {
         const workspace = workspaceWithFolder("/work/project");
         const provider = extensionHostConfigProvider(

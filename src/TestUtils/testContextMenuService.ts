@@ -6,12 +6,6 @@ import { ContextKeyService } from "../vs/platform/contextkey/common/contextKeySe
 import { ContextMenuService } from "../vs/platform/contextview/browser/contextMenuService.ts";
 import { KeybindingRegistry } from "../vs/platform/keybinding/common/keybindingRegistry.ts";
 
-/**
- * `ContextMenuService` для тестов: по умолчанию с пустым реестром (тестам,
- * которым сервис нужен как зависимость, а не как меню), либо со своими
- * вкладами и командами — тогда меню собирается по-настоящему. Классы plain
- * (DI.md), поэтому собирается напрямую.
- */
 export function createTestContextMenuService(
     options: { commands?: CommandRegistry; contributions?: readonly MenuContribution[] } = {},
 ): ContextMenuService {

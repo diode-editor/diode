@@ -49,28 +49,15 @@ import { workbenchModule } from "./workbenchModule.ts";
 import { workspaceModule } from "./workspaceModule.ts";
 
 /**
- * Тестовый контейнер. Возвращает контейнер с подключёнными NULL-стабами для
- * tokenization/language и `darkPlusTheme`. `TuiApplicationDIToken` биндится
- * **позже** через `bindApp(testApp.app)` — порядок такой:
- *
- *     const { container, bindApp } = createTestContainer();
- *     const workbench = container.get(WorkbenchComponentDIToken);
- *     workbench.mount();
- *     const testApp = TestApp.create(workbench.view, size);
- *     bindApp(testApp.app);
+ * `TuiApplicationDIToken` биндится позже, через `bindApp(testApp.app)`: после `workbench.mount()` и
+ * `TestApp.create(workbench.view, size)`.
  */
 export interface TestContainerHandle {
     container: Container;
     bindApp: (app: TuiApplication) => void;
 }
 
-/**
- * Окружение тестов: полное, как в приложении, но в своём временном каталоге на
- * каждый контейнер, которого на диске нет. Реестр расширений не читается, каталог
- * установленного пуст, в сеть никто не ходит (`registry` — путь, а не публичный
- * магазин); команда, которая что-то пишет в user data (Open Settings), пишет
- * сюда — каталог убирает за собой харнесс.
- */
+/** Свой временный каталог на контейнер; в сеть никто не ходит (`registry` — путь, а не публичный магазин). */
 export function createTestEnvironment(): IEnvironmentService {
     const root = path.join(tmpdir(), `diode-tests-${randomUUID()}`);
     const profileDir = path.join(root, "user-data", "User");

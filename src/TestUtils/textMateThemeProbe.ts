@@ -1,10 +1,6 @@
 /**
- * Стиль, который тема даст токену со стеком скоупов `scopes`, — как его
- * посчитает настоящий vscode-textmate (`Registry.setTheme` + `tokenizeLine2`) и
- * рендер (`ColorMapTokenStyleResolver`). Для тестов тем: скоупов в токенах больше
- * нет, тема матчится грамматикой. Проба — грамматика `scopes[0]` из одного
- * правила, чьё `name` — остальные скоупы через пробел (TextMate кладёт их
- * стопкой).
+ * Скоупов в токенах нет — тема матчится грамматикой, поэтому проба: грамматика
+ * `scopes[0]` из одного правила, чьё `name` — остальные скоупы через пробел (стопкой).
  */
 import { createDevAssetAccess } from "../vs/base/node/assets/createDefaultAssetAccess.ts";
 import { ColorMapTokenStyleResolver } from "../vs/editor/common/languages/colorMapTokenStyleResolver.ts";

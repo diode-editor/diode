@@ -19,77 +19,39 @@ import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser
 import { NotificationServiceDIToken } from "../workbench/services/notification/browser/notificationService.ts";
 import { TerminalEnvironmentServiceDIToken } from "../workbench/services/terminalEnvironment/node/terminalEnvironmentService.ts";
 
-/**
- * То, что стартовая последовательность делает руками владельца процесса: у
- * приложения это `TuiApplication`, инспектор, прогрев грамматик и extension
- * host, у теста — `TestApp` и заглушки.
- */
 export interface IWorkbenchStartupHost {
-    /** До `mount()`: корень рендера смотрит на view окна (`app.root = view`). */
     attachRoot(view: BodyElement): void;
-    /** Сразу после `mount()`: цикл рендера пошёл (`app.run()`). */
     run(): void;
-    /** После вехи `workbench:mounted`, до `activate()` (инспектор). */
     afterMounted(): Promise<void>;
-    /** Грамматики стартовых файлов — ДО открытия (см. {@link startWorkbench}). */
     preloadGrammars(files: readonly string[]): Promise<void>;
-    /**
-     * Регистрация расширений и стартовая активация — за кадром с подсветкой,
-     * перед `eventually`. Не ожидается — `eventually` от активации не зависит
-     * (повисший `activate()` расширения не должен откладывать фоновую работу окна).
-     */
+    /** Не ожидается: повисший `activate()` расширения не должен откладывать `eventually`. */
     startExtensions(): void;
-    /**
-     * Отложить колбэк за ближайший кадр (`setImmediate`: отложенный рендер
-     * стоит в той же очереди раньше).
-     */
+    /** `setImmediate`: отложенный рендер стоит в той же очереди раньше. */
     afterNextFrame(callback: () => void): void;
 }
 
 export interface IWorkbenchStartupOptions {
     readonly targets: IStartupTargets;
-    /**
-     * Файл воркспейса, если окно открывается через него (`diode
-     * web.code-workspace`); тогда `targets.folder` — его папка.
-     */
+    /** Тогда `targets.folder` — его папка. */
     readonly workspace?: IStartupWorkspace;
-    /** Все расширения (builtin + user) — для их `contributes.keybindings`. */
     readonly extensions: readonly IExtension[];
     readonly extensionsLogger?: ILogger;
 }
 
 /**
- * Стартовая последовательность окна — от собранного контейнера до фазы
- * `eventually` (аналог `Workbench.startup` + `restore` у vscode). Порядок
- * шагов — инварианты, которые раньше держались только комментариями в `main.ts`:
+ * Аналог `Workbench.startup` + `restore` у vscode. Порядок шагов — инварианты:
  *
- * 1. `contributes.keybindings` расширений — ПОСЛЕ builtin-биндингов (их заводит
- *    конструктор `WorkbenchComponent`), чтобы расширение могло переопределить
- *    встроенный аккорд.
- * 2. Папка воркспейса — ДО `mount()`: рестор layout'а читает стор воркспейса.
- * 3. `mount()` — фаза `ready` (её двигает сам `mount`), затем цикл рендера.
- * 4. Грамматики стартовых файлов грузятся ДО открытия, а токенизация — ПОСЛЕ
- *    первого кадра: реестр токенизаторов придержан до него
- *    (`TokenizationRegistry.hold`). Первый кадр — текст без подсветки (как у
- *    эталона): первая токенизация компилирует regex'ы грамматики (TypeScript —
- *    ~160 мс), и в кадре она откладывала бы текст. Цвет — следующим кадром, без
- *    ожидания загрузки: грамматика уже на руках.
- * 5. Открытие (дифф / файлы с `--goto` / рестор сессии) — фаза `restored`.
- * 6. Расширения регистрируются, и extension host поднимается после кадра с
- *    подсветкой, как у эталона (`NativeExtensionService`: «delay extension host
- *    creation and extension scanning until the workbench is running» —
- *    `runWhenWindowIdle` после `LifecyclePhase.Ready`). Регистрация идёт на
- *    микротасках и кадр не пропускает, а спаун синхронный — до кадров они
- *    откладывали текст. События активации, пришедшие раньше (открытый файл —
- *    `onLanguage:`), помнит барьер `ExtensionService`. `eventually` их
- *    активацию не ждёт.
- * 7. Отпуск токенизаторов — после первого кадра, фаза `eventually` — после
- *    следующего, с подсветкой: её фоновая работа (прогрев всех грамматик,
- *    ~150 мс) встала бы перед кадром с цветом. Из самого `mount()` фаза не
- *    годится: он идёт до `run()` и сработал бы раньше любого кадра.
+ * 1. Бинды расширений — после builtin (их заводит конструктор `WorkbenchComponent`), чтобы
+ *    расширение перебивало встроенный аккорд.
+ * 2. Папка воркспейса — до `mount()`: рестор layout'а читает стор воркспейса.
+ * 3. Токенизаторы придержаны до первого кадра: первая токенизация компилирует regex'ы грамматики
+ *    (TypeScript — ~160 мс) и откладывала бы текст. Первый кадр без подсветки, как у эталона.
+ * 4. Расширения — после кадра с подсветкой, как `NativeExtensionService` эталона: спаун синхронный.
+ *    Ранние события активации (`onLanguage:` открытого файла) помнит барьер `ExtensionService`.
+ * 5. `eventually` — после кадра с цветом: прогрев всех грамматик (~150 мс) встал бы перед ним.
+ *    Из `mount()` фаза не годится — он идёт до `run()`.
  *
- * Вехи трассы старта (`mark`) — те же имена, что читает бенч; лишних `await`
- * до `main:files-opened` здесь нет и быть не должно.
+ * Вехи `mark` читает бенч; лишних `await` до `main:files-opened` быть не должно.
  */
 export async function startWorkbench(
     accessor: ServiceAccessor,
@@ -103,11 +65,7 @@ export async function startWorkbench(
     const tokenizersHeld = accessor.get(TokenizationRegistryDIToken).hold();
 
     registerExtensionKeybindings(options.extensions, accessor.get(KeybindingRegistryDIToken), options.extensionsLogger);
-    // Пункты меню расширений — до первого открытия меню: состав точек реестр
-    // отдаёт по запросу, а регистрация стоит рядом с биндами того же манифеста.
     registerExtensionMenus(options.extensions, accessor.get(MenuRegistryDIToken), options.extensionsLogger);
-    // `<вид>.focus` объявленных видов расширений — до активации: расширение
-    // зовёт её из своих команд, а вида у нас нет, и человек должен узнать почему.
     const notifications = accessor.get(NotificationServiceDIToken);
     registerExtensionViewFocusCommands(
         options.extensions,
@@ -116,9 +74,7 @@ export async function startWorkbench(
         options.extensionsLogger,
     );
 
-    // Папка воркспейса — только если её назвали явно. Без неё окно поднимается
-    // пустым: ни Explorer-корня, ни индекса файлов, ни workspaceFolders у
-    // расширений (и, значит, никакого обхода текущего каталога).
+    // Без явной папки окно пустое — никакого обхода текущего каталога.
     if (options.workspace !== undefined) {
         workbench.openWorkspaceFile(options.workspace.file, options.workspace.contents);
     } else if (targets.folder !== undefined) {
@@ -136,9 +92,6 @@ export async function startWorkbench(
     mark("workbench:activated");
     const explicitFiles = targets.files;
     const diffSides = targets.diff === undefined ? [] : [targets.diff.original, targets.diff.modified];
-    // Что откроется на старте — для прогрева грамматик. Явные файлы (и стороны
-    // диффа) перебивают сохранённую сессию (как `code file.ts`); без них сессию
-    // восстанавливаем, но только когда есть воркспейс: у пустого окна сессии нет.
     let startupFiles: readonly string[];
     if (diffSides.length > 0) {
         startupFiles = diffSides;
@@ -149,20 +102,17 @@ export async function startWorkbench(
     } else {
         startupFiles = [];
     }
-    // Ждём именно те языки, что открываются (обычно один, ~2 мс), а не все
-    // грамматики (~420 мс); остальные догоняет фоновый прогрев в `eventually`.
+    // Только открываемые языки (~2 мс), а не все грамматики (~420 мс).
     await host.preloadGrammars(startupFiles);
     mark("main:grammars-preloaded");
     if (targets.diff !== undefined) {
-        // Тот же вход, что у расширений (`vscode.diff`): сторон-снимков тут нет,
-        // отсутствующий файл легитимно даёт пустую сторону.
+        // Отсутствующий файл легитимно даёт пустую сторону.
         await accessor
             .get(CommandRegistryDIToken)
             .execute("vscode.diff", Uri.file(targets.diff.original), Uri.file(targets.diff.modified));
     } else if (explicitFiles.length > 0) {
         for (const file of explicitFiles) workbench.openFile(file.path);
-        // `--goto`: каретка в указанную позицию последнего открытого файла —
-        // он же активный. Координаты CLI 1-based, редактора — 0-based.
+        // Координаты CLI 1-based, редактора — 0-based.
         const last = explicitFiles[explicitFiles.length - 1];
         if (last.line !== undefined) {
             // Stryker disable next-line OptionalChaining: openFile всегда делает открытую вкладку активной (отсутствующий файл — пустой буфер), null тут недостижим; `?.` — страховка типа
@@ -172,19 +122,17 @@ export async function startWorkbench(
                 ?.goToPosition(last.line - 1, (last.column ?? 1) - 1);
         }
     } else if (targets.folder !== undefined) {
-        // Иначе восстанавливаем открытые файлы прошлой сессии этого воркспейса.
         workbench.restoreOpenEditors();
     }
     workbench.focusEditor();
-    // Вкладки с файлами созданы; кадр с текстом — первый `frame` после этой вехи.
+    // Кадр с текстом — первый `frame` после этой вехи.
     mark("main:files-opened", { files: startupFiles.length });
     lifecycle.setPhase("restored");
 
     host.afterNextFrame(() => {
         tokenizersHeld.dispose();
         host.afterNextFrame(() => {
-            // Опрос tmux (имя внешнего терминала, сигналы ОС) — спаун, как и
-            // extension host: синхронная часть стоит ~20 мс, поэтому за кадрами.
+            // Опрос tmux — спаун (~20 мс синхронно), поэтому за кадрами.
             terminalEnv.detectTmuxClient();
             host.startExtensions();
             lifecycle.setPhase("eventually");

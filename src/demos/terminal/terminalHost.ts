@@ -1,17 +1,5 @@
-// Демо-песочница встроенного терминала.
-//
-// Размещает контрол `TerminalViewElement` (реальный шелл через node-pty + @xterm/headless)
-// в панели с тулбаром из управляющих кнопок. Показывает ввод/вывод, цвета/стили,
-// полноэкранные TUI (htop/vim) и реакцию на ресайз (кнопки Narrower/Wider и ресайз окна).
-//
-// Контрол и связка с PTY уже интегрированы в приложение — демо потребляет те же модули:
-// `EmbeddedTerminalSession` (Workbench) реализует `ITerminalSurface`, а
-// `TerminalViewElement` (TUIDom) рендерит эту абстрактную поверхность. Отдельного
-// demo-only копипаста больше нет.
-//
+// Песочница встроенного терминала: реальный шелл, полноэкранные TUI и ресайз.
 // Запуск: npm run demo:terminal   (Ctrl+Q — выйти из демо; Ctrl+C уходит в шелл)
-//
-// См. docs/arch/workbench/Terminal.md.
 
 import { TuiApplication } from "@tuidom/core/dom/tuiApplication";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
@@ -39,13 +27,12 @@ const session = new EmbeddedTerminalSession({
 const terminalView = new TerminalViewElement(session);
 const panel = new TitledPanelElement("Terminal — click buttons · Ctrl+Q quit demo · Ctrl+C → shell", terminalView);
 
-// ─── Тулбар с управляющими кнопками ───
 const toolbar = new HFlexElement();
 const addButton = (label: string, onActivate: () => void): void => {
     const button = new ButtonElement(label);
     button.onActivate = onActivate;
     toolbar.addChild(button, { width: hflexFit(), height: 1 });
-    toolbar.addChild(new TUIElement(), { width: hflexFixed(1), height: 1 }); // спейсер
+    toolbar.addChild(new TUIElement(), { width: hflexFixed(1), height: 1 });
 };
 
 const layout = new HeaderBodyLayout(toolbar, panel, 1);
@@ -78,12 +65,10 @@ addButton("Quit", quit);
 
 body.setContent(layout);
 
-// Ctrl+Q выходит из демо (регистрируем ДО app.run, чтобы сработать раньше диспетчера
-// и не проксировать Ctrl+Q в шелл). Ctrl+C намеренно уходит в шелл.
+// До app.run — чтобы сработать раньше диспетчера и не уйти в шелл.
 backend.onInput((event) => {
     if (event.ctrlKey && event.key === "q") quit();
 });
-// Если шелл сам завершился (`exit`) — закрываем демо.
 session.onExit(() => {
     quit();
 });
@@ -91,5 +76,5 @@ session.onExit(() => {
 app.root = body;
 app.run();
 
-// autofocus пока не реализован (docs/TODO/README.md #4) — фокусируем контрол вручную.
+// Пока нет autofocus (docs/TODO/README.md #4).
 terminalView.focus();

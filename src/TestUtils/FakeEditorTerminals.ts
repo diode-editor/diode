@@ -10,14 +10,8 @@ import type {
 
 type EditorTerminals = Pick<TerminalEditorService, "createTerminal" | "splitInstance" | "reveal">;
 
-/**
- * Вкладки-терминалы без области редакторов — для мостов, которым она не нужна
- * (терминалы расширений, задачи): инстанс заводится редакторным, а куда его
- * поставили и что показали — записывается. Сквозной путь до вкладки — в
- * `workbench.extensionTerminal.test.ts` на настоящем `TerminalEditorService`.
- */
+/** Сквозной путь до вкладки — в `workbench.extensionTerminal.test.ts` на настоящем сервисе. */
 export class FakeEditorTerminals implements EditorTerminals {
-    /** Каждое создание: id инстанса и место (`split` — рядом с родителем). */
     public readonly created: { id: number; location: ITerminalEditorLocation | { split: number } }[] = [];
     public readonly revealed: { id: number; preserveFocus: boolean }[] = [];
 

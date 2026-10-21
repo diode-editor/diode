@@ -24,7 +24,6 @@ describe("tmpRoot — корень временных каталогов про�
         fs.rmSync(parent, { recursive: true, force: true });
     });
 
-    /** Корень с явно заданным владельцем — как его оставил бы другой прогон. */
     function rootOwnedBy(pid: number): string {
         return createRunTmpRoot(parent, pid);
     }
@@ -63,7 +62,6 @@ describe("tmpRoot — корень временных каталогов про�
             try {
                 pruneStaleRoots(parent, (pid) => pid === 2222, killMarked);
 
-                // Живой прогон не трогаем вовсе — ни каталоги, ни процессы.
                 expect(killMarked.mock.calls).toEqual([[dead]]);
                 expect(fs.existsSync(alive)).toBe(true);
                 expect(info).toHaveBeenCalledWith(
@@ -104,7 +102,6 @@ describe("tmpRoot — корень временных каталогов про�
         });
 
         it("не наш префикс не трогаем даже без метки", () => {
-            // `diode-tests-*` принадлежит createTestEnvironment, `foo` — вообще не нам.
             const foreign = fs.mkdtempSync(path.join(parent, "diode-tests-"));
             const alien = fs.mkdtempSync(path.join(parent, "foo-"));
 
@@ -127,9 +124,7 @@ describe("tmpRoot — корень временных каталогов про�
 
         it.skipIf(process.platform === "win32")("корень, который не снести, не попадает в снесённые", () => {
             const stubborn = rootOwnedBy(1111);
-            // Родитель только для чтения: `readdir` ещё работает, а снос внутри
-            // него — уже нет. Настоящий EACCES вместо подмены fs (в ESM модуль
-            // не сконфигурировать).
+            // Настоящий EACCES вместо подмены fs: ESM-модуль не сконфигурировать.
             fs.chmodSync(parent, 0o500);
             try {
                 expect(pruneStaleRoots(parent, () => false)).toEqual([]);
@@ -145,7 +140,7 @@ describe("tmpRoot — корень временных каталогов про�
                 throw Object.assign(new Error("not permitted"), { code: "EPERM" });
             });
             try {
-                // Без инъекции — через настоящий isAlive, где и живёт разбор EPERM.
+                // Без инъекции: разбор EPERM живёт в настоящем isAlive.
                 expect(pruneStaleRoots(parent)).toEqual([]);
             } finally {
                 kill.mockRestore();
@@ -167,9 +162,7 @@ describe("tmpRoot — корень временных каталогов про�
     });
 
     describe("setup (globalSetup vitest)", () => {
-        // `setup` пишет в окружение прогона — возвращаем его штатной идиомой
-        // vitest: `stubEnv` запоминает оригинал (даже если дальше переменную
-        // перезапишут напрямую), `unstubAllEnvs` его восстанавливает.
+        // `stubEnv` запоминает оригинал, даже если `setup` перезапишет переменную напрямую.
         beforeEach(() => {
             for (const name of [...TEMP_ENV_VARS, "DIODE_TEST_TMP"]) vi.stubEnv(name, process.env[name]);
         });
@@ -186,12 +179,8 @@ describe("tmpRoot — корень временных каталогов про�
 
             const root = process.env.DIODE_TEST_TMP;
             expect(root).toBeDefined();
-            // Весь набор, а не только posix-переменная: на Windows `os.tmpdir()`
-            // читает TEMP/TMP, и без них корень остался бы пустым.
             expect(TEMP_ENV_VARS.map((name) => process.env[name])).toEqual([root, root, root]);
-            // Главное свойство: тест, не менявший ни строки, пишет уже внутрь корня.
             expect(path.dirname(fs.mkdtempSync(path.join(os.tmpdir(), "inside-")))).toBe(root);
-            // Забытое в корне уходит вместе с ним — это и есть страховка от OOM.
             fs.writeFileSync(path.join(root!, "forgotten.txt"), "мусор");
 
             teardown();
@@ -201,10 +190,7 @@ describe("tmpRoot — корень временных каталогов про�
 
         it("подчищает корни мёртвых прогонов и сообщает об этом", () => {
             process.env.DIODE_TEST_TMP_PARENT = parent;
-            // `setup` проверяет владельца настоящим `process.kill(pid, 0)`, поэтому pid
-            // должен быть несуществующим, а не «скорее всего мёртвым»: с 1111 тест
-            // падал на раннере CI, где процесс с таким номером иногда жив. Этот — выше
-            // потолка pid любой платформы.
+            // Выше потолка pid любой платформы: с 1111 тест падал на CI, где такой процесс иногда жив.
             const dead = rootOwnedBy(2 ** 31 - 1);
             const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
 
@@ -229,7 +215,6 @@ describe("tmpRoot — корень временных каталогов про�
                 const root = process.env.DIODE_TEST_TMP!;
                 teardown();
 
-                // Метка прогона — путь корня; добивание — пока корень ещё на месте.
                 expect(seen).toEqual([{ root, existed: true }]);
                 expect(warn).toHaveBeenCalledWith(
                     expect.stringMatching(/добито процессов, переживших прогон: 1\n {2}88 diode --headless/),

@@ -22,38 +22,15 @@ import { ThemeServiceDIToken } from "../vs/workbench/services/themes/common/them
 import { TestApp } from "./TestApp.ts";
 
 export interface IAppHarnessOptions {
-    /** Передаётся в `workbench.setWorkspaceFolder()` перед mount. Omit — путь «без воркспейса». */
     readonly workspaceFolder?: string;
-    /** Размер терминала; по умолчанию 80×24. */
     readonly size?: Size;
-    /** Абсолютный путь файла, который открыть после mount (`workbench.openFile`). */
     readonly openFile?: string;
-    /** Сфокусировать редактор и отрендерить кадр после boot'а. */
     readonly focusEditor?: boolean;
-    /**
-     * До какой фазы довести старт: по умолчанию `eventually`, как приложение;
-     * `ready` — остановиться сразу после `mount()` (до `afterRestored`).
-     */
+    /** `ready` — остановиться сразу после `mount()`, до `afterRestored`. */
     readonly phase?: "ready" | "eventually";
-    /** Реальный {@link IStateService} для тестов персистентности; по умолчанию NULL (не персистит). */
     readonly stateService?: IStateService;
-    /**
-     * Реальный {@link IConfigurationService} — для тестов live-apply настроек;
-     * по умолчанию `NULL_CONFIGURATION_SERVICE` (событий не шлёт). Перебивает
-     * биндинг ДО резолва WorkbenchComponent, так что и WorkbenchComponent, и
-     * EditorService получают один и тот же экземпляр.
-     */
     readonly configurationService?: IConfigurationService;
-    /**
-     * Перебить поля окружения (например `settingsResource`/`keybindingsResource`)
-     * поверх тестового окружения профиля — пути во временном каталоге.
-     */
     readonly environment?: Partial<IEnvironmentService>;
-    /**
-     * Произвольная перебивка биндингов ДО резолва `WorkbenchComponent` — для
-     * сервисов, у которых нет своей именованной опции (например настоящий
-     * `ILogService` + `LogHistory` вместо null-сервисов профиля тестов).
-     */
     readonly containerOverrides?: (container: Container) => void;
 }
 
@@ -61,32 +38,16 @@ export interface IAppHarness {
     readonly testApp: TestApp;
     readonly workbench: WorkbenchComponent;
     readonly commands: CommandRegistry;
-    /** Полный контейнер — для suite-specific сервисов: `h.container.get(ThemeServiceDIToken)`. */
     readonly container: Container;
-    /** Активный редактор группы; бросает, если его нет. */
     activeEditor(): TextEditorPane;
-    /** `workbench.dispose()`. Воркспейсом НЕ владеет — композиция с {@link createTempWorkspace}. */
+    /** Воркспейсом не владеет — его освобождает {@link createTempWorkspace}. */
     dispose(): void;
 }
 
-/**
- * Boot-харнесс интеграционных тестов над {@link WorkbenchComponent}: тестовый
- * DI-контейнер → workbench → mount → {@link TestApp} → bindApp. Канонический вид:
- *
- *     beforeEach(() => {
- *         ws = createTempWorkspace({ files: { "alpha.txt": "Alpha" } });
- *         h = createAppTestHarness({ workspaceFolder: ws.dir });
- *     });
- *     afterEach(() => { h.dispose(); ws.dispose(); });
- *
- * Харнесс синхронный: async-активация (`await workbench.activate()` +
- * `fileIndexReady`) остаётся в тесте поверх харнесса.
- */
+/** Синхронный: `await workbench.activate()` и `fileIndexReady` остаются в тесте. */
 export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarness {
     const { container, bindApp } = createTestContainer({ environment: options.environment });
-    // Rebind before the WorkbenchComponent is resolved (it reads these at construction).
-    // По умолчанию состояние не персистится (NULL_STATE_SERVICE из stateModuleDefault);
-    // тест может подсунуть реальный StateService, перебив биндинг ДО резолва WorkbenchComponent.
+    // Перебивки — до резолва WorkbenchComponent: он читает их в конструкторе.
     if (options.stateService !== undefined) {
         const stateService = options.stateService;
         container.bind(StateServiceDIToken, () => stateService);
@@ -101,9 +62,7 @@ export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarn
         workbench.setWorkspaceFolder(options.workspaceFolder);
     }
     workbench.mount();
-    // Палитра корня — от активной темы контейнера (по умолчанию Dark+ тестового
-    // профиля), а не фиксированный Dark+: тест, подменивший ThemeService, видит
-    // свою тему в первом же кадре — как приложение.
+    // От темы контейнера, а не фиксированный Dark+: подменённый ThemeService виден в первом кадре.
     const testApp = TestApp.create(
         workbench.view,
         options.size ?? new Size(80, 24),
@@ -118,9 +77,6 @@ export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarn
         workbench.focusEditor();
         testApp.render();
     }
-    // Старт до конца, как у приложения (`startWorkbench`): файлы открыты —
-    // `restored`, дальше `eventually`, а с ним и contribution'ы `afterRestored`
-    // (каналы Output, change-bars, статус-бары). Кадров харнесс не ждёт.
     container.get(LifecycleServiceDIToken).setPhase(options.phase ?? "eventually");
 
     const group = container.get(EditorServiceDIToken);
@@ -139,8 +95,6 @@ export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarn
         },
         dispose: () => {
             workbench.dispose();
-            // Каталог user data тестового окружения: его создаёт только команда,
-            // что-то записавшая в user data (Open Settings и т.п.).
             fs.rmSync(userDataRoot, { recursive: true, force: true });
         },
     };

@@ -1,9 +1,4 @@
-// Крошечный демо-контейнер: фиксированной высоты «шапка» сверху + тело на остаток высоты.
-//
-// VStackElement требует фиксированную высоту у каждого ребёнка и не умеет «занять остаток»,
-// а нам нужен тулбар в 1 строку и терминал на всё остальное. Паттерн layout/render —
-// как в VStackElement/HFlexElement. Дополнительно `bodyPadX` inset'ит тело по горизонтали
-// (демонстрация ресайза контрола без изменения окна).
+// Не VStackElement: он требует фиксированную высоту у каждого ребёнка и не умеет «занять остаток».
 
 import { BoxConstraints, Offset, Point, Rect, Size } from "@tuidom/core/common/geometryPromitives";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
@@ -13,7 +8,7 @@ export class HeaderBodyLayout extends TUIElement {
     private readonly body: TUIElement;
     private readonly headerHeight: number;
 
-    /** Горизонтальный отступ тела с каждой стороны (для демо ресайза). */
+    /** С каждой стороны — ресайз контрола без изменения окна. */
     public bodyPadX = 0;
 
     public constructor(header: TUIElement, body: TUIElement, headerHeight = 1) {

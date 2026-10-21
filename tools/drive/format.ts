@@ -5,16 +5,13 @@ import type { NodeSnapshot } from "@tuidom/inspector/protocol";
 
 import { $$ } from "../../e2e/helpers/query.ts";
 
-// Текстовые представления для вывода `npm run drive`. Чистые функции: всё, что
-// печатает CLI, проходит через них — тестируются без живого редактора.
+// Всё, что печатает CLI, проходит через эти чистые функции — тестируются без живого редактора.
 
-/** Packed RGB → `#rrggbb`; сентинел «цвет терминала по умолчанию» → `default`. */
 export function colorHex(color: number): string {
     if (color === DEFAULT_COLOR) return "default";
     return `#${color.toString(16).padStart(6, "0")}`;
 }
 
-/** Битовая маска стиля → имена флагов (`bold+underline`), пустая → `none`. */
 export function styleNames(style: number): string {
     const names = Object.entries(StyleFlags)
         .filter(([, bit]) => bit !== 0 && (style & bit) !== 0)
@@ -33,7 +30,7 @@ export interface CellInfo {
     readonly width: number;
 }
 
-/** Ячейка кадра в читаемом виде. Глифы codicon'ов неразличимы на глаз — отсюда код-пойнт. */
+/** Код-пойнт — потому что глифы codicon'ов неразличимы на глаз. */
 export function cellInfo(frame: GridSnapshot, x: number, y: number): CellInfo {
     if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= frame.cols || y >= frame.rows) {
         throw new Error(`ячейка ${String(x)},${String(y)} вне кадра ${String(frame.cols)}x${String(frame.rows)}`);
@@ -56,11 +53,7 @@ export function formatCell(info: CellInfo): string {
     return `${String(info.x)},${String(info.y)} ${JSON.stringify(info.char)} ${info.codePoint} fg=${info.fg} bg=${info.bg} style=${info.style} width=${String(info.width)}`;
 }
 
-/**
- * Строки кадра с отрезанными хвостовыми пробелами. `numbered` — с номером
- * строки (`y`) слева и линейкой колонок сверху: координаты для `click`/`cell`
- * читаются прямо с экрана.
- */
+/** `numbered` — номера строк и линейка колонок: координаты для `click`/`cell` читаются с экрана. */
 export function screenText(frame: GridSnapshot, numbered: boolean): string {
     const lines: string[] = [];
     for (let y = 0; y < frame.rows; y++) {
@@ -76,9 +69,8 @@ export function screenText(frame: GridSnapshot, numbered: boolean): string {
 }
 
 export interface TreeOptions {
-    /** Глубина от корня (или от каждого совпадения `selector`). */
+    /** От корня или от каждого совпадения `selector`. */
     readonly depth?: number;
-    /** Печатать `state` узлов. */
     readonly state?: boolean;
 }
 
@@ -91,7 +83,6 @@ function nodeLine(node: NodeSnapshot, state: boolean): string {
     return `${node.type}${id}${role} ${box}${focus}${st}`;
 }
 
-/** Дерево узлов отступами: тип#id@role [x,y wxh] *focus {state}. */
 export function treeText(root: NodeSnapshot | null, options: TreeOptions = {}): string {
     if (root === null) return "<нет документа>";
     const maxDepth = options.depth ?? Number.POSITIVE_INFINITY;
@@ -104,18 +95,13 @@ export function treeText(root: NodeSnapshot | null, options: TreeOptions = {}): 
     return lines.join("\n");
 }
 
-/** Поддеревья всех совпадений селектора; пусто — сообщение, а не тишина. */
 export function selectedTreesText(root: NodeSnapshot | null, selector: string, options: TreeOptions = {}): string {
     const matches = $$(root, selector);
     if (matches.length === 0) return `<нет узлов по селектору ${selector}>`;
     return matches.map((node) => treeText(node, options)).join("\n");
 }
 
-/**
- * Путь от корня до сфокусированного листа: `Тип#id > … > Лист`. Флаг `focused`
- * в снимке стоит только на самом листе, поэтому путь — поиском, а не спуском
- * по флагам (как `focusPath` e2e).
- */
+/** `focused` в снимке стоит только на листе, поэтому путь — поиском, а не спуском по флагам. */
 export function focusText(root: NodeSnapshot | null): string {
     const path = root === null ? null : pathToFocused(root);
     if (path === null) return "<нет фокуса>";
@@ -123,7 +109,6 @@ export function focusText(root: NodeSnapshot | null): string {
 }
 
 function pathToFocused(node: NodeSnapshot): NodeSnapshot[] | null {
-    // Самый глубокий: сперва ищем в детях, сам узел — только если глубже никого.
     for (const child of node.children) {
         const sub = pathToFocused(child);
         if (sub !== null) return [node, ...sub];

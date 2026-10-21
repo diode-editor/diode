@@ -4,8 +4,6 @@ import { createExtensionTestHarness, documentVersion, formatDocumentFor } from "
 
 describe("createExtensionTestHarness", () => {
     it("builds a harness with no extensions and no initial file (line 99 ?? [] branch)", async () => {
-        // No `extensions` and no `initialFile`: exercises the `options.extensions ?? []`
-        // fallback and skips the initial-file branch. No subprocess is forked.
         const harness = await createExtensionTestHarness();
         try {
             expect(harness.app).toBeDefined();
@@ -21,7 +19,6 @@ describe("createExtensionTestHarness", () => {
         const harness = await createExtensionTestHarness();
         try {
             expect(() => documentVersion(harness, "file:///nowhere.ts")).toThrow(/no open editor/);
-            // Форматтеров нет вовсе — ответ null; диапазон всего документа взят из пустого текста.
             expect(
                 await formatDocumentFor(harness, {
                     uri: "file:///nowhere.ts",
@@ -61,7 +58,6 @@ describe("createExtensionTestHarness", () => {
     it("flushRpc accepts an explicit turn count (line 91 explicit-argument branch)", async () => {
         const harness = await createExtensionTestHarness();
         try {
-            // Count how many microtask turns elapse to confirm the loop honours the argument.
             const order: string[] = [];
             const flushed = harness.flushRpc(1).then(() => order.push("flushed"));
             await flushed;

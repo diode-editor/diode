@@ -21,12 +21,7 @@ import { LanguageFeaturesService } from "../../editor/common/services/languageFe
 import { createTestContainer } from "./testProfile.ts";
 import { tokenizationModule } from "./tokenizationModule.ts";
 
-/**
- * Проводка языковых сервисов в DI. Проверяем не «биндинг объявлен», а что через
- * каждый токен доезжает ИМЕННО тот инстанс, который отдал владелец приложения:
- * перепутанный (или потерянный) аргумент даёт рабочий контейнер и редактор без
- * подсветки/скобок.
- */
+/** Перепутанный аргумент даёт рабочий контейнер и редактор без подсветки и скобок. */
 describe("tokenizationModule", () => {
     it("отдаёт по токенам инстансы владельца приложения, а не дефолты профиля", () => {
         const { container } = createTestContainer();

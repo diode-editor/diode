@@ -2,9 +2,7 @@ import { afterEach, beforeEach } from "vitest";
 
 import { UnexpectedErrorCollector } from "./unexpectedErrors.ts";
 
-// Общий setupFiles vitest: непредвиденная ошибка за время теста роняет тест.
-// Тест, которому нужен свой обработчик, ставит его сам (`setUnexpectedErrorHandler`)
-// — тогда собирать становится нечего.
+// Тест со своим `setUnexpectedErrorHandler` перебивает сборщик — тогда собирать нечего.
 const collector = new UnexpectedErrorCollector();
 
 beforeEach(() => {

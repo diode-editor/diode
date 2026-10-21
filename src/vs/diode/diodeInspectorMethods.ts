@@ -2,23 +2,11 @@ import type { ICommandSnapshot } from "../platform/commands/common/commandRegist
 import type { IOutputChannelDescriptor } from "../workbench/services/output/common/output.ts";
 
 /**
- * Методы инспектора уровня редактора — `Diode.*` поверх протокола `TUIDom.*`
- * (`@tuidom/inspector`). Движок знает только дерево, ввод и кадр; всё, что
- * агенту нужно знать о РЕДАКТОРЕ (готов ли он, что в OUTPUT, чему равен
- * контекст-ключ), — здесь, и регистрируется в ядро инспектора через его
- * публичный `register`, без правки движка. Поднимаются только по
- * `--inspect-tui` (как и сам инспектор). Клиент — `npm run drive`
- * (`tools/drive/`), рецепты — `.claude/skills/drive/SKILL.md`.
- *
- * Модуль не знает DI: сервисы приходят портами (узкие срезы настоящих
- * классов), проводка — в `main.ts`. Так методы тестируются без контейнера.
+ * `Diode.*` поверх протокола `TUIDom.*`: то, что агенту нужно знать о редакторе, а не о дереве.
+ * Клиент — `npm run drive`. Сервисы приходят портами, без DI, — методы тестируются без контейнера.
  */
 export const DiodeInspectorMethod = {
-    /**
-     * `{timeoutMs?}` → `{ready, pid}`: старт дошёл до конца (extension host
-     * активирован, фаза eventually). `pid` окна отличает новое окно после
-     * `reloadWindow` (тот же порт) от старого, ещё не успевшего уйти.
-     */
+    /** `{timeoutMs?}` → `{ready, pid}`; `pid` отличает новое окно после `reloadWindow` (тот же порт) от старого. */
     whenReady: "Diode.whenReady",
     /** `{id, args?, timeoutMs?}` → `{settled, result?}`: выполнить команду по id. */
     executeCommand: "Diode.executeCommand",
@@ -50,16 +38,13 @@ export interface IDiodeInspectorPorts {
     };
     /** Резолвится, когда старт дошёл до конца; не отклоняется. */
     readonly ready: Promise<void>;
-    /** Pid процесса окна. */
     readonly pid: number;
 }
 
-/** Регистрирующая функция ядра инспектора (`InspectorCore.register`). */
 export type RegisterInspectorMethod = (method: string, handler: (params: unknown) => unknown) => void;
 
-/** Сколько ждать завершения команды, вернувшей промис (команды бывают «до закрытия диалога»). */
+/** Команды бывают «до закрытия диалога». */
 export const DEFAULT_COMMAND_TIMEOUT_MS = 10_000;
-/** Сколько ждать готовности по умолчанию. */
 export const DEFAULT_READY_TIMEOUT_MS = 60_000;
 
 export function registerDiodeInspectorMethods(register: RegisterInspectorMethod, ports: IDiodeInspectorPorts): void {
@@ -74,9 +59,7 @@ export function registerDiodeInspectorMethods(register: RegisterInspectorMethod,
         const args = optionalArray(params, "args") ?? [];
         const timeoutMs = optionalNumber(params, "timeoutMs") ?? DEFAULT_COMMAND_TIMEOUT_MS;
         if (!ports.commands.has(id)) throw new Error(`unknown command: ${id}`);
-        // Промис команды не ждём дольше таймаута: quick pick и диалоги
-        // резолвятся только по ответу пользователя, а ответить он может лишь
-        // следующим вызовом — то есть после нашего ответа.
+        // Не ждём дольше таймаута: quick pick резолвится только по ответу, а ответить можно лишь следующим вызовом.
         const outcome = await settleWithin(Promise.resolve(ports.commands.execute(id, ...args)), timeoutMs);
         return outcome.settled ? { settled: true, result: toWire(outcome.value) } : { settled: false };
     });
@@ -110,10 +93,7 @@ export function registerDiodeInspectorMethods(register: RegisterInspectorMethod,
 
 type Settled<T> = { settled: true; value: T } | { settled: false };
 
-/**
- * Исход промиса, если он уложился в `timeoutMs`. Отказ пробрасывается — это
- * ответ-ошибка протокола, а не «не успел».
- */
+/** Отказ пробрасывается — это ответ-ошибка протокола, а не «не успел». */
 async function settleWithin<T>(promise: Promise<T>, timeoutMs: number): Promise<Settled<T>> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<Settled<T>>((resolve) => {
@@ -128,17 +108,12 @@ async function settleWithin<T>(promise: Promise<T>, timeoutMs: number): Promise<
     }
 }
 
-/**
- * Значение, пригодное для JSON-ответа. Сервер инспектора сериализует ответ
- * `JSON.stringify` — объект с циклом (модель, редактор) уронил бы отправку, а
- * `undefined` молча пропал бы из ответа. Несериализуемое отдаём строкой.
- */
+/** Ответ уходит через `JSON.stringify`: цикл уронил бы отправку, а `undefined` молча пропал бы. */
 export function toWire(value: unknown): unknown {
     if (value === undefined) return null;
     try {
         return JSON.parse(JSON.stringify(value)) as unknown;
     } catch {
-        // Цикл (объект модели) или BigInt: JSON их не выражает.
         return typeof value === "bigint" ? value.toString() : `<несериализуемо: ${typeof value}>`;
     }
 }
@@ -157,8 +132,7 @@ function requiredString(params: unknown, name: string): string {
 function optionalNumber(params: unknown, name: string): number | undefined {
     const value = field(params, name);
     if (value === undefined) return undefined;
-    // `Number.isFinite` сам отвергает не-числа (в отличие от глобального `isFinite`),
-    // отдельная проверка `typeof` была бы недостижимой веткой.
+    // `Number.isFinite` сам отвергает не-числа — отдельный `typeof` был бы недостижимой веткой.
     if (!Number.isFinite(value) || (value as number) < 0) throw new Error(`'${name}' must be a non-negative number`);
     return value as number;
 }

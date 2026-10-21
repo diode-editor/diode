@@ -12,12 +12,6 @@ export interface ConfigurationModuleContext {
     configurationRegistry: ConfigurationRegistry;
 }
 
-/**
- * Биндит `IConfigurationServiceDIToken` на готовый экземпляр сервиса и
- * `ConfigurationRegistryDIToken` на реестр схем настроек. В production-сборке
- * это `loadConfiguration(paths, …, registry)` из `main.ts`, в тестах —
- * `InMemoryConfigurationService` (см. `configurationModuleDefault`).
- */
 export const configurationModule: ContainerModule<ConfigurationModuleContext> = (
     container,
     { configurationService, configurationRegistry },
@@ -26,11 +20,7 @@ export const configurationModule: ContainerModule<ConfigurationModuleContext> = 
     container.bind(ConfigurationRegistryDIToken, () => configurationRegistry);
 };
 
-/**
- * Shortcut для тестов и demo: настоящий реестр (из `CONFIGURATION_CONTRIBUTIONS`)
- * и сервис в памяти **с теми же дефолтами** — тесты видят те же значения по
- * умолчанию, что приложение, а запись (выбор темы и т.п.) не трогает диск.
- */
+/** Настоящий реестр и сервис в памяти с теми же дефолтами: тесты видят значения приложения, а запись не трогает диск. */
 export const configurationModuleDefault: ContainerModule = (container) => {
     const configurationRegistry = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS);
     container.bind(IConfigurationServiceDIToken, () => new InMemoryConfigurationService(configurationRegistry));

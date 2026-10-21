@@ -1,17 +1,9 @@
 /**
- * Key Diagnostics Demo — full input-pipeline tracer for debugging keys across
- * environments (local vs ssh vs tmux).
+ * Трассировка ввода для отладки клавиш (local / ssh / tmux): включает ровно те же
+ * режимы, что бэкенд diode, и печатает цепочку raw bytes → tokens → KeyPressEvent →
+ * binding → builtin-команда с её `when`.
  *
- * Usage: npx tsx src/demos/keyDiagnosticsDemo.ts
- *
- * Enables EXACTLY what the real diode backend enables (Kitty keyboard protocol +
- * xterm modifyOtherKeys + bracketed paste), then for every keypress prints the
- * whole chain so you can see where a key gets lost:
- *
- *   raw bytes → tokens (with Kitty eventType) → KeyPressEvent → binding string →
- *   which builtin command it matches (+ its `when` gate)
- *
- * Press keys (Ctrl+Tab, Ctrl+Shift+L, …). Ctrl+C to exit.
+ * Usage: npx tsx src/demos/keyDiagnosticsDemo.ts   (Ctrl+C — выход)
  */
 
 import type { KeyPressEvent } from "@tuidom/core/input/keyEvent";
@@ -39,15 +31,12 @@ import {
 
 import { addCleanup, isCtrlC, KITTY_DISABLE, KITTY_ENABLE, stdin, stdout, writeDirect } from "./demoSetup.ts";
 
-// ── Replicate the rest of diode's input modes (demoSetup already did Kitty + raw mode) ──
 const MODIFY_OTHER_KEYS_ENABLE = "\x1b[>4;2m";
 const MODIFY_OTHER_KEYS_DISABLE = "\x1b[>4;0m";
 const BRACKETED_PASTE_ENABLE = "\x1b[?2004h";
 const BRACKETED_PASTE_DISABLE = "\x1b[?2004l";
-// Порядок — как у бэкенда (tuidom #13): modifyOtherKeys ДО kitty-push. iTerm2
-// трактует любой `CSI > 4 ; n m` как сброс kitty-стека, и kitty, включённый
-// раньше (demoSetup), откатился бы в legacy — Cmd ушёл бы в меню-бар. Поэтому
-// снимаем push demoSetup и повторяем его последним.
+// modifyOtherKeys ДО kitty-push, как у бэкенда (tuidom #13): iTerm2 считает любой
+// `CSI > 4 ; n m` сбросом kitty-стека — поэтому push demoSetup снимаем и повторяем последним.
 writeDirect(KITTY_DISABLE);
 writeDirect(MODIFY_OTHER_KEYS_ENABLE);
 writeDirect(KITTY_ENABLE);
@@ -57,7 +46,6 @@ addCleanup(() => {
     writeDirect(BRACKETED_PASTE_DISABLE);
 });
 
-// ── Colors ──
 const cyan = (s: string) => `\x1b[36m${s}\x1b[0m`;
 const green = (s: string) => `\x1b[32m${s}\x1b[0m`;
 const yellow = (s: string) => `\x1b[33m${s}\x1b[0m`;
@@ -65,14 +53,12 @@ const red = (s: string) => `\x1b[31m${s}\x1b[0m`;
 const gray = (s: string) => `\x1b[90m${s}\x1b[0m`;
 const bold = (s: string) => `\x1b[1m${s}\x1b[0m`;
 
-// ── Builtin bindings to resolve against (the ones we care about while debugging) ──
 interface ResolvedBinding {
     id: string;
     kb: Keybinding;
     when: string | undefined;
 }
 
-/** Flatten an action's primary + alternative bindings into plain Keybindings (+ when). */
 function actionBindings(action: CommandAction): ResolvedBinding[] {
     const out: ResolvedBinding[] = [];
     const entries = [action.keybinding, ...(action.keybindings ?? [])].filter((e) => e != null);
@@ -107,7 +93,7 @@ function eventToKeybinding(e: KeyPressEvent): Keybinding {
     return { key: e.key, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey };
 }
 
-/** Same shape as KeybindingRegistry.matchesBinding (mods exact + key case-insensitive). */
+/** Копия KeybindingRegistry.matchesBinding. */
 function matches(e: KeyPressEvent, b: Keybinding): boolean {
     return (
         e.ctrlKey === b.ctrlKey &&
@@ -118,7 +104,6 @@ function matches(e: KeyPressEvent, b: Keybinding): boolean {
     );
 }
 
-// ── Helpers ──
 const hex = (s: string) => Array.from(s, (c) => "0x" + c.charCodeAt(0).toString(16).padStart(2, "0")).join(" ");
 
 function mods(e: { ctrlKey: boolean; shiftKey: boolean; altKey: boolean; metaKey: boolean }): string {
@@ -144,7 +129,6 @@ function describeToken(t: ReturnType<typeof tokenize>[number]): string {
     return t.kind;
 }
 
-// ── Environment snapshot ──
 function printEnv(): void {
     const caps = emptyCapabilities();
     caps["extended-keys"] = detectExtendedKeysHint();

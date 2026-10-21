@@ -19,15 +19,12 @@ import {
 
 import { fileWatcherModule } from "./fileWatcherModule.ts";
 
-// Настоящий watcher-процесс здесь не нужен (его сквозняк — в
-// treeWatcherMain.integration.test.ts); проверяем проводку: что продовый модуль
-// уводит обход за границу процесса, а не ведёт его здесь.
+// Сквозняк настоящего процесса — в treeWatcherMain.integration.test.ts; здесь только проводка.
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 
 const { spawn } = await import("node:child_process");
 const spawnMock = vi.mocked(spawn);
 
-/** ChildProcess ровно настолько, насколько его трогает прокси. */
 class FakeChild extends EventEmitter {
     public readonly sent: unknown[] = [];
     public readonly stderr = null;
@@ -49,12 +46,7 @@ afterEach(() => {
     spawnMock.mockReset();
 });
 
-/**
- * Проводка слежения за деревом в DI: продовый модуль поверх голого контейнера.
- * Проверяем не «биндинг объявлен», а два свойства, ради которых он такой:
- * обход уезжает в отдельный процесс (иначе он снова сядет на главный цикл
- * редактора), и прощание (`LifecycleService.shutdown`) снимает именно его.
- */
+/** Обход обязан уезжать в отдельный процесс (иначе снова сядет на главный цикл), и прощание снимает именно его. */
 describe("fileWatcherModule", () => {
     function setup(): { container: Container; entries: LogEntry[]; child: FakeChild; logService: LogService } {
         const child = new FakeChild();

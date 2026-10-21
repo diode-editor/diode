@@ -5,12 +5,6 @@ import type {
 
 import { FakeTerminalSurface } from "./FakeTerminalSurface.ts";
 
-/**
- * Фейк сессии pty-терминала расширения: поверхность из `@tuidom/testing` плюс
- * вход `feed` (вывод расширения копится в `fed`) и `exit` (эмуляция
- * `onDidClose` pty). Набор человека (`write`) и ресайз уходят в колбэки опций,
- * как у настоящей `ExtensionPtySession`.
- */
 export class FakeExtensionPtySession extends FakeTerminalSurface implements IExtensionPtySession {
     public readonly fed: string[] = [];
 
