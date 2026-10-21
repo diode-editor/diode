@@ -6,7 +6,7 @@ import { defineScenario } from "./framework.ts";
 
 export default defineScenario({
     name: "extension-settings-known",
-    title: "settings.json: ключи расширений известны, предупреждение — только у чужого ключа",
+    title: "settings.json: extension keys are known, only an unknown key gets a warning",
     settings: {
         "git.enabled": true,
         "git.refreshDebounce": 300,
@@ -29,7 +29,7 @@ export default defineScenario({
 
         const warnings = frameToText(frame).split("Unknown Configuration Setting").length - 1;
         if (warnings !== 1) {
-            throw new Error(`extension-settings-known: ожидалось одно предупреждение, на экране ${String(warnings)}`);
+            throw new Error(`extension-settings-known: expected one warning, got ${String(warnings)} on screen`);
         }
     },
 });

@@ -5,7 +5,6 @@ import { frameLine } from "../helpers/frame.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-editor-title");
 
@@ -25,7 +24,7 @@ const tabRow = (text: string): string => text.split("\n")[TAB_ROW] ?? "";
 
 export default defineScenario({
     name: "editor-title",
-    title: "Панель действий группы: editor/title расширения справа от вкладок",
+    title: "Group actions bar: extension editor/title actions to the right of the tabs",
     seedUserData: userData,
     open: [sampleFile],
     cols: 120,

@@ -33,7 +33,7 @@ function rowFor(text: string, name: string): string | undefined {
 
 export default defineScenario({
     name: "git-badge-live-update",
-    title: "Правка файла снаружи редактора зажигает git-бейдж в дереве",
+    title: "Editing a file outside the editor lights up the git badge in the tree",
     open: [repoDir],
     cols: 100,
     rows: 20,

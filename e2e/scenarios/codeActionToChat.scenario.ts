@@ -10,7 +10,7 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-chat-panel
 
 export default defineScenario({
     name: "code-action-to-chat",
-    title: "Code action «в чат»: действие исполняется, вместо webview-панели — внятный тост",
+    title: "'To chat' code action: the action runs, and a clear toast replaces the webview panel",
     seedUserData: userData,
     open: [repoRoot, sampleFile],
     cols: 120,

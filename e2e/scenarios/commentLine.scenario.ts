@@ -2,12 +2,11 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "comment-line",
-    title: "Toggle Line Comment (Ctrl+/) и Block Comment по language-configuration",
+    title: "Toggle Line Comment (Ctrl+/) and Block Comment from language-configuration",
     open: [repoRoot, sampleFile],
     // A legacy terminal does not pass Shift+Alt+A, so the same command is bound to the reachable F6.
     userKeybindings: [{ key: "f6", command: "editor.action.blockComment" }],
@@ -30,9 +29,7 @@ export default defineScenario({
         await editor.sendKey("Shift+ArrowDown");
         await editor.sendKey("Shift+End");
         await editor.sendKey("Ctrl+/");
-        await editor.waitForText(
-            (t) => t.includes("// export function greet") && t.includes("// }"),
-        );
+        await editor.waitForText((t) => t.includes("// export function greet") && t.includes("// }"));
         await editor.capture("toggle-selection");
         await editor.sendKey("Ctrl+/");
         await editor.waitForText((t) => !t.includes("// export function"));

@@ -19,7 +19,7 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-codicon-de
 /** Font character for a codicon name, from the same source of truth the substitution uses. */
 function glyph(name: string): string {
     const found = CODICON_GLYPHS[name];
-    if (found === undefined) throw new Error(`codicon-labels: в таблице нет значка "${name}"`);
+    if (found === undefined) throw new Error(`codicon-labels: no icon "${name}" in the table`);
     return found;
 }
 
@@ -39,7 +39,7 @@ function expectGlyphs(frame: GridSnapshot, step: string, names: readonly string[
     const present = puaOnFrame(frame);
     const missing = names.filter((name) => !present.has(glyph(name)));
     if (missing.length > 0) {
-        throw new Error(`codicon-labels/${step}: на кадре нет глифов ${missing.join(", ")}\n${dumpFrame(frame)}`);
+        throw new Error(`codicon-labels/${step}: frame lacks glyphs ${missing.join(", ")}\n${dumpFrame(frame)}`);
     }
 }
 
@@ -47,7 +47,7 @@ function expectGlyphs(frame: GridSnapshot, step: string, names: readonly string[
 function expectNoMarkup(frame: GridSnapshot, step: string): void {
     for (let y = 0; y < frame.rows; y++) {
         if (frameLine(frame, y).includes("$(")) {
-            throw new Error(`codicon-labels/${step}: на кадре остался литерал $(…)\n${dumpFrame(frame)}`);
+            throw new Error(`codicon-labels/${step}: literal $(…) left on the frame\n${dumpFrame(frame)}`);
         }
     }
 }
@@ -57,7 +57,7 @@ function expectVerbatim(frame: GridSnapshot, step: string, needle: string): void
     const lines: string[] = [];
     for (let y = 0; y < frame.rows; y++) lines.push(frameLine(frame, y));
     if (!lines.some((line) => line.includes(needle))) {
-        throw new Error(`codicon-labels/${step}: на кадре нет дословного "${needle}"\n${dumpFrame(frame)}`);
+        throw new Error(`codicon-labels/${step}: frame lacks verbatim "${needle}"\n${dumpFrame(frame)}`);
     }
 }
 
@@ -69,7 +69,7 @@ async function openPalette(editor: ScenarioDriver, query: string): Promise<void>
 
 export default defineScenario({
     name: "codicon-labels",
-    title: "Значки $(name) от расширения во всех раковинах: палитра, quick pick, поле ввода, прогресс, Output, полоса",
+    title: "Extension $(name) icons in every sink: palette, quick pick, input box, progress, Output, status bar",
     seedUserData: userData,
     open: [sampleFile],
     cols: 120,

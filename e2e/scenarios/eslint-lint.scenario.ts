@@ -16,14 +16,15 @@ const sampleDir = mkdtempSync(join(tmpdir(), "diode-eslint-demo-"));
 const lintFile = join(sampleDir, "app.js");
 
 /** A "gone after the fix" / "remains" pair: no-extra-semi is fixable, no-unused-vars is not. */
-const APP_JS = 'const unused = 1;;\n\nfunction greet(name) {\n    return "hi " + name;;\n}\n\nconsole.log(greet("world"));\n';
+const APP_JS =
+    'const unused = 1;;\n\nfunction greet(name) {\n    return "hi " + name;;\n}\n\nconsole.log(greet("world"));\n';
 
 /** StyleFlags.Undercurl. */
 const UNDERCURL = 8;
 
 export default defineScenario({
     name: "eslint-lint",
-    title: "JS-линт из коробки: eslint — squiggle, quickfix, fix on save",
+    title: "JS lint out of the box: eslint — squiggle, quickfix, fix on save",
     open: [sampleDir, lintFile],
     installVsix: ["dbaeumer.vscode-eslint"],
     settings: {
@@ -50,7 +51,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от eslint", timeoutMs: 30_000, intervalMs: 500 },
+            { describe: "undercurl squiggle from eslint", timeoutMs: 30_000, intervalMs: 500 },
         );
         await editor.capture("diagnostics");
 

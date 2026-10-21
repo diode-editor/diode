@@ -12,7 +12,7 @@ const FILES = {
     "alpha.ts": "const Foo = 1;\nconst foobar = 2;\n// FOO here\n",
     "beta.txt": "foo appears here\nplain line\n",
     "sub/gamma.md": "## Foo heading\nfoobar again\n",
-    "unicode.txt": "Привет Foo мир\n",
+    "unicode.txt": "\u041f\u0440\u0438\u0432\u0435\u0442 Foo \u043c\u0438\u0440\n", // "Privet Foo mir"
 } as const;
 
 const KEYS = [
@@ -41,7 +41,7 @@ describe("Search panel (functional e2e)", () => {
         await getBinaryPath();
     }, 300_000);
 
-    it("свап Explorer→Search фокусирует строку запроса и ищет через rg", async () => {
+    it("swapping Explorer→Search focuses the query field and searches via rg", async () => {
         const app = await openSearch();
         const { session } = app;
 
@@ -61,7 +61,7 @@ describe("Search panel (functional e2e)", () => {
         expect(counts(text)).toEqual({ matches: 7, files: 4 });
     }, 120_000);
 
-    it("«No results» на отсутствующем запросе, пустой запрос очищает счётчик", async () => {
+    it("'No results' for a missing query, an empty query clears the counter", async () => {
         const app = await openSearch();
         const { session } = app;
 
@@ -75,7 +75,7 @@ describe("Search panel (functional e2e)", () => {
         expect(text).not.toMatch(/results in/u);
     }, 120_000);
 
-    it("тумблер Aa делает поиск регистрозависимым", async () => {
+    it("the Aa toggle makes search case-sensitive", async () => {
         const app = await openSearch();
         const { session } = app;
 
@@ -95,7 +95,7 @@ describe("Search panel (functional e2e)", () => {
         expect(after).toEqual({ matches: 1, files: 1 });
     }, 120_000);
 
-    it("тумблер \\b исключает подстроки (foo не матчит foobar)", async () => {
+    it("the \\b toggle excludes substrings (foo does not match foobar)", async () => {
         const app = await openSearch();
         const { session } = app;
 
@@ -111,7 +111,7 @@ describe("Search panel (functional e2e)", () => {
         expect(frameToText(await session.captureFrame())).not.toContain("foobar");
     }, 120_000);
 
-    it("литеральный метасимвол ищется буквально, тумблер .* включает regex", async () => {
+    it("a metacharacter is searched literally, the .* toggle enables regex", async () => {
         const app = await openSearch();
         const { session } = app;
 
@@ -126,7 +126,7 @@ describe("Search panel (functional e2e)", () => {
     }, 120_000);
 
     // The include/exclude fields are behind "···" (F8 here = Ctrl+Shift+J); expanding moves focus to include.
-    it("include-glob сужает до .txt, exclude-glob убирает .ts", async () => {
+    it("include glob narrows to .txt, exclude glob drops .ts", async () => {
         const app = await openSearch();
         const { session } = app;
 
@@ -160,7 +160,7 @@ describe("Search panel (functional e2e)", () => {
         expect(text).toContain("sub/gamma.md");
     }, 120_000);
 
-    it("клик по полю include фокусирует его, ввод уходит туда, а не в query", async () => {
+    it("clicking the include field focuses it, typing goes there and not to the query", async () => {
         const app = await openSearch();
         const { session } = app;
         await session.text("foo");
@@ -180,7 +180,7 @@ describe("Search panel (functional e2e)", () => {
         expect(text).toContain("XX");
     }, 120_000);
 
-    it("превью не бьётся на не-ASCII строке (byte offsets)", async () => {
+    it("the preview does not break on a non-ASCII line (byte offsets)", async () => {
         const app = await openSearch();
         const { session } = app;
 
@@ -189,10 +189,10 @@ describe("Search panel (functional e2e)", () => {
         const text = frameToText(await session.captureFrame());
         // The line has non-ASCII text before and after `Foo`; with a correct byte split it stays intact.
         expect(text).toContain("unicode.txt");
-        expect(text).toContain("Привет Foo мир");
+        expect(text).toContain("\u041f\u0440\u0438\u0432\u0435\u0442 Foo \u043c\u0438\u0440"); // "Privet Foo mir"
     }, 120_000);
 
-    it("workbench.view.explorer возвращает Explorer в сайдбар", async () => {
+    it("workbench.view.explorer returns Explorer to the sidebar", async () => {
         const app = await openSearch();
         const { session } = app;
         await session.key("F7");

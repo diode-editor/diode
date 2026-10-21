@@ -4,7 +4,7 @@
 
 /** How the answer is printed: cancellation and an empty string are distinct outcomes. */
 function describe(value) {
-    if (value === undefined) return "отменено";
+    if (value === undefined) return "cancelled";
     if (value === "") return "«»";
     return value;
 }
@@ -40,8 +40,8 @@ exports.activate = function activate(context) {
     register("diodeProbe.askName", async function () {
         const value = await vscode.window.showInputBox({
             title: "Your name",
-            prompt: "Как к вам обращаться",
-            placeHolder: "имя",
+            prompt: "How should we address you",
+            placeHolder: "name",
         });
         show("Ask Name: " + describe(value));
     });
@@ -49,9 +49,9 @@ exports.activate = function activate(context) {
     register("diodeProbe.askNamePrefilled", async function () {
         const value = await vscode.window.showInputBox({
             title: "Your name",
-            prompt: "Как к вам обращаться",
-            placeHolder: "имя",
-            value: "Ада Лавлейс",
+            prompt: "How should we address you",
+            placeHolder: "name",
+            value: "Ada Lovelace",
         });
         show("Ask Name: " + describe(value));
     });
@@ -63,8 +63,8 @@ exports.activate = function activate(context) {
         await delay(DELAY_MS);
         const value = await vscode.window.showInputBox({
             title: "Your name",
-            prompt: "Как к вам обращаться",
-            placeHolder: "имя",
+            prompt: "How should we address you",
+            placeHolder: "name",
         });
         show("Ask Name: " + describe(value));
     });
@@ -73,25 +73,25 @@ exports.activate = function activate(context) {
     register("diodeProbe.askSecret", async function () {
         const value = await vscode.window.showInputBox({
             title: "Secret",
-            prompt: "Набранное закрыто маской",
-            placeHolder: "пароль",
+            prompt: "Typed text is masked",
+            placeHolder: "password",
             password: true,
         });
-        show("Secret length: " + (value === undefined ? "отменено" : String(value.length)));
+        show("Secret length: " + (value === undefined ? "cancelled" : String(value.length)));
     });
 
     // An error blocks Enter, a warning does not.
     register("diodeProbe.askPort", async function () {
         const value = await vscode.window.showInputBox({
             title: "Port",
-            prompt: "Порт сервера",
+            prompt: "Server port",
             placeHolder: "8080",
             validateInput: function (text) {
                 if (text === "") return null;
-                if (!/^\d+$/.test(text)) return "Только цифры";
+                if (!/^\d+$/.test(text)) return "Digits only";
                 if (Number(text) < 1024) {
                     return {
-                        message: "Порт < 1024 требует прав root",
+                        message: "Port < 1024 requires root",
                         severity: vscode.InputBoxValidationSeverity.Warning,
                     };
                 }
@@ -106,12 +106,12 @@ exports.activate = function activate(context) {
     register("diodeProbe.askSlowValidate", async function () {
         const value = await vscode.window.showInputBox({
             title: "Slow validate",
-            prompt: "Валидация отвечает через секунду",
+            prompt: "Validation answers after a second",
             validateInput: async function (text) {
                 await delay(SLOW_MS);
                 if (text === "") return null;
                 return {
-                    message: "Проверено: " + text,
+                    message: "Checked: " + text,
                     severity: vscode.InputBoxValidationSeverity.Info,
                 };
             },
@@ -127,10 +127,10 @@ exports.activate = function activate(context) {
         }, DELAY_MS);
         try {
             const value = await vscode.window.showInputBox(
-                { title: "Ask With Timeout", prompt: "Закроется само через 3 секунды" },
+                { title: "Ask With Timeout", prompt: "Closes by itself in 3 seconds" },
                 source.token,
             );
-            show("Ask With Timeout: " + (value === undefined ? "отменено по токену" : describe(value)));
+            show("Ask With Timeout: " + (value === undefined ? "cancelled by token" : describe(value)));
         } finally {
             clearTimeout(timer);
             source.dispose();
@@ -140,7 +140,7 @@ exports.activate = function activate(context) {
 
     register("diodeProbe.pickFruit", async function () {
         const value = await vscode.window.showQuickPick(["apple", "banana", "cherry"], {
-            placeHolder: "Выберите фрукт",
+            placeHolder: "Pick a fruit",
         });
         show("Fruit: " + describe(value));
     });
@@ -152,21 +152,21 @@ exports.activate = function activate(context) {
                 { label: "JavaScript", description: ".js, .jsx" },
                 { label: "Python", description: ".py" },
             ],
-            { placeHolder: "Выберите язык" },
+            { placeHolder: "Pick a language" },
         );
-        show("Kind: " + (picked === undefined ? "отменено" : picked.label));
+        show("Kind: " + (picked === undefined ? "cancelled" : picked.label));
     });
 
     /** Checked items as a string; an empty set differs from cancellation. */
     function describePicked(picked) {
-        if (picked === undefined) return "отменено";
-        if (picked.length === 0) return "(пусто)";
+        if (picked === undefined) return "cancelled";
+        if (picked.length === 0) return "(empty)";
         return picked.join(", ");
     }
 
     register("diodeProbe.pickMany", async function () {
         const picked = await vscode.window.showQuickPick(["alpha", "beta", "gamma"], {
-            placeHolder: "Отметьте пробелом",
+            placeHolder: "Check with Space",
             canPickMany: true,
         });
         show("Picked: " + describePicked(picked));
@@ -175,7 +175,7 @@ exports.activate = function activate(context) {
     register("diodeProbe.pickManyPreselected", async function () {
         const picked = await vscode.window.showQuickPick(
             [{ label: "alpha" }, { label: "beta", picked: true }, { label: "gamma" }],
-            { placeHolder: "Отметьте пробелом", canPickMany: true },
+            { placeHolder: "Check with Space", canPickMany: true },
         );
         show(
             "Picked: " +
@@ -193,7 +193,7 @@ exports.activate = function activate(context) {
         const items = [];
         for (let i = 1; i <= 100; i++) items.push("item-" + String(i).padStart(3, "0"));
         const picked = await vscode.window.showQuickPick(items, {
-            placeHolder: "Отметьте пробелом",
+            placeHolder: "Check with Space",
             canPickMany: true,
         });
         show("Picked: " + describePicked(picked));
@@ -202,22 +202,22 @@ exports.activate = function activate(context) {
     // The list arrives as a promise: nothing changes on screen until it resolves.
     register("diodeProbe.pickAsync", async function () {
         const items = delay(SLOW_MS).then(function () {
-            return ["считано-1", "считано-2", "считано-3"];
+            return ["loaded-1", "loaded-2", "loaded-3"];
         });
-        const value = await vscode.window.showQuickPick(items, { placeHolder: "Считаем список…" });
+        const value = await vscode.window.showQuickPick(items, { placeHolder: "Loading the list…" });
         show("Async: " + describe(value));
     });
 
     register("diodeProbe.pickEmpty", async function () {
-        const value = await vscode.window.showQuickPick([], { placeHolder: "Список пуст" });
+        const value = await vscode.window.showQuickPick([], { placeHolder: "The list is empty" });
         show("Empty: " + describe(value));
     });
 
 
     register("diodeProbe.askThenPick", async function () {
-        const name = await vscode.window.showInputBox({ title: "Step 1", prompt: "Имя" });
+        const name = await vscode.window.showInputBox({ title: "Step 1", prompt: "Name" });
         const fruit = await vscode.window.showQuickPick(["apple", "banana", "cherry"], {
-            placeHolder: "Шаг 2: фрукт",
+            placeHolder: "Step 2: fruit",
         });
         show("Both: " + describe(name) + " / " + describe(fruit));
     });
@@ -248,7 +248,7 @@ exports.activate = function activate(context) {
                     }).map(function (m) {
                         return { label: "$(package) " + m.name, detail: m.path, path: m.path };
                     });
-                    quickPick.prompt = query === "" ? "Все модули" : "Найдено по «" + query + "»";
+                    quickPick.prompt = query === "" ? "All modules" : "Matches for \"" + query + "\"";
                     quickPick.busy = false;
                 }, 300);
             };

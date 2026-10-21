@@ -44,7 +44,7 @@ interface ButtonState {
     disabled?: boolean;
 }
 
-describe("SCM: прогресс git-операции (functional e2e)", () => {
+describe("SCM: git operation progress (functional e2e)", () => {
     let app: HeadlessApp | null = null;
 
     beforeAll(async () => {
@@ -56,7 +56,7 @@ describe("SCM: прогресс git-операции (functional e2e)", () => {
         app = null;
     });
 
-    it("коммит с медленным хуком крутит спиннер в заголовке и в кнопке", async () => {
+    it("a commit with a slow hook spins the spinner in the title and in the button", async () => {
         const repo = makeSlowRepo();
         app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
         const { session } = app;

@@ -15,7 +15,7 @@ const textFile = join(sampleDir, "notes.txt");
 
 export default defineScenario({
     name: "terminal-theme-background",
-    title: "Integrated terminal: фон из темы — фон панели (Catppuccin Mocha)",
+    title: "Integrated terminal: theme background is the panel background (Catppuccin Mocha)",
     open: [sampleDir, textFile],
     installVsix: ["Catppuccin.catppuccin-vsc"],
     network: true,
@@ -41,7 +41,7 @@ export default defineScenario({
         const frame = await editor.captureFrame();
         const cell = frame.cells[(frame.rows - 2) * frame.cols + Math.floor(frame.cols * 0.75)];
         if (cell?.bg !== MOCHA_BASE) {
-            throw new Error(`фон терминала ${String(cell?.bg?.toString(16))}, ожидался фон панели Mocha 1e1e2e`);
+            throw new Error(`terminal background ${String(cell?.bg?.toString(16))}, expected Mocha panel 1e1e2e`);
         }
         await editor.capture("mocha");
     },

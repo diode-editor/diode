@@ -27,9 +27,9 @@ exports.activate = function activate(context) {
     fs.writeFileSync(runsFile, JSON.stringify({ runs }), "utf-8");
 
     out.appendLine("globalStorageUri: " + globalDir);
-    out.appendLine("storageUri: " + (context.storageUri === undefined ? "(нет: папка не открыта)" : context.storageUri.fsPath));
+    out.appendLine("storageUri: " + (context.storageUri === undefined ? "(none: no folder open)" : context.storageUri.fsPath));
     out.appendLine("logUri: " + context.logUri.fsPath);
-    out.appendLine("runs.json прочитан и перезаписан: runs=" + runs);
+    out.appendLine("runs.json read and rewritten: runs=" + runs);
 
     // Two items, not one: an extension item's text is truncated at 24 glyphs
     // (MAX_ITEM_WIDTH in ExtensionStatusBarAdapter), and we need to show both the launch

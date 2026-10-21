@@ -14,16 +14,16 @@ const lines = (prefix: string): string => Array.from({ length: 40 }, (_, i) => `
 async function cursor(session: HeadlessSession): Promise<string> {
     const text = frameToText(await session.captureFrame());
     const m = /Ln (\d+), Col (\d+)/u.exec(text);
-    expect(m, `в кадре нет позиции курсора:\n${text}`).not.toBeNull();
+    expect(m, `no cursor position in the frame:\n${text}`).not.toBeNull();
     return `${m![1]}:${m![2]}`;
 }
 
-describe("Навигационная история: Go Back / Go Forward", () => {
+describe("Navigation history: Go Back / Go Forward", () => {
     beforeAll(async () => {
         await getBinaryPath();
     }, 300_000);
 
-    it("Back возвращает в место, откуда ушли, Forward — обратно", async () => {
+    it("Back returns to where we left, Forward goes back again", async () => {
         const { session } = await useHeadlessApp({
             files: { "alpha.ts": lines("alpha"), "beta.ts": lines("beta") },
             // The workspace folder gives Quick Open somewhere to index files.

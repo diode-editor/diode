@@ -41,7 +41,7 @@ exports.activate = function activate(context) {
                             return t.label;
                         })
                         .join(", ") +
-                    " — расширение живо, хотя дерева нет",
+                    " — the extension is alive even without a tree",
             );
             channel.show();
         }),

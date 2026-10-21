@@ -1,7 +1,7 @@
 {
     "name": "status-bar-demo",
     "displayName": "Status Bar Demo",
-    "description": "Демо-расширение статус-бара: пункт с командой по клику, show/hide/dispose, значки, приоритеты.",
+    "description": "Status bar demo: an item with a click command, show/hide/dispose, icons, priorities.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

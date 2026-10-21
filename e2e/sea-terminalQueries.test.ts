@@ -44,12 +44,12 @@ function answerTerminalQueries(session: DiodeSession): () => void {
     };
 }
 
-describeUnix("запросы к хост-терминалу — SEA", () => {
+describeUnix("host terminal queries — SEA", () => {
     beforeAll(async () => {
         await getBinaryPath();
     }, 300_000);
 
-    it("colorSource=host: запросы уходят после входа в raw-режим, ответы не печатаются эхом", async () => {
+    it("colorSource=host: queries go out after entering raw mode, replies are not echoed", async () => {
         const { session } = await usePtyApp({
             files: { "a.txt": "hello\n" },
             open: ["a.txt"],

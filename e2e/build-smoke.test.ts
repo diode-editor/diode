@@ -14,7 +14,7 @@ import { smokeTestBinary } from "../scripts/smoke-binary.mjs";
  * "spawn OK, exited with code null", and a broken diode-macos-x64 shipped in a release.
  * In e2e rather than unit tests: `scripts/` is outside the vitest include and the coverage ratchet.
  */
-describe.skipIf(process.platform === "win32")("smokeTestBinary — самотест сборки", () => {
+describe.skipIf(process.platform === "win32")("smokeTestBinary — build self-test", () => {
     let dir = "";
 
     beforeEach(() => {
@@ -32,31 +32,31 @@ describe.skipIf(process.platform === "win32")("smokeTestBinary — самоте�
         return path;
     }
 
-    it("падает на бинаре, который крашится по SIGSEGV (регресс #143)", () => {
+    it("fails on a binary that crashes with SIGSEGV (regression #143)", () => {
         const binary = fakeBinary("segfault", "kill -SEGV $$");
         expect(() => smokeTestBinary(binary)).toThrow(/signal SIGSEGV/);
     });
 
-    it("падает на ненулевом коде возврата", () => {
+    it("fails on a nonzero exit code", () => {
         const binary = fakeBinary("failing", 'echo "boom" >&2\nexit 3');
         expect(() => smokeTestBinary(binary)).toThrow(/exited with code 3/);
     });
 
-    it("падает, когда бинарь не печатает версию", () => {
+    it("fails when the binary does not print a version", () => {
         const binary = fakeBinary("silent", "exit 0");
         expect(() => smokeTestBinary(binary)).toThrow(/no version/);
     });
 
-    it("падает, когда бинаря нет или он неисполним", () => {
+    it("fails when the binary is missing or not executable", () => {
         expect(() => smokeTestBinary(join(dir, "missing"))).toThrow(/cannot be executed/);
     });
 
-    it("проходит и возвращает версию, когда бинарь стартует", () => {
+    it("passes and returns the version when the binary starts", () => {
         const binary = fakeBinary("working", 'echo "0.1.0-nightly"');
         expect(smokeTestBinary(binary)).toBe("0.1.0-nightly");
     });
 
-    it("зовёт бинарь именно с --version, а не как-нибудь ещё", () => {
+    it("invokes the binary with exactly --version", () => {
         // The self-test must take a path that exits with code 0 on its own: without
         // arguments the real binary brings up an empty window and waits for a TTY.
         const binary = fakeBinary("cli", '[ "$1" = "--version" ] || { echo "no --version" >&2; exit 1; }\necho "1.2.3"');
@@ -70,7 +70,7 @@ describe.skipIf(process.platform === "win32")("smokeTestBinary — самоте�
      * rather than tail's behavior: the number in the stub must have no leading zeros, and
      * gzip must start at OFFSET.
      */
-    describe("склейка стаба и payload (#144)", () => {
+    describe("stub and payload concatenation (#144)", () => {
         const STUB = '#!/bin/sh\nOFFSET=@@OFFSET@@\nexec echo hi\n';
         const GZIP = Buffer.from([0x1f, 0x8b, 0x08, 0x00]);
 
@@ -81,7 +81,7 @@ describe.skipIf(process.platform === "win32")("smokeTestBinary — самоте�
             return path;
         }
 
-        it("OFFSET указывает ровно на первый байт payload и не имеет ведущих нулей", () => {
+        it("OFFSET points exactly at the first payload byte and has no leading zeros", () => {
             const stub = renderStub(STUB) as string;
 
             const offset = Number(/^OFFSET=(\d+)$/m.exec(stub)![1]);
@@ -92,14 +92,14 @@ describe.skipIf(process.platform === "win32")("smokeTestBinary — самоте�
             expect(() => verifyOffset(writeSelfExtract("ok", stub), stub)).not.toThrow();
         });
 
-        it("ведущий ноль в OFFSET отвергается (BSD tail прочитал бы его как octal)", () => {
+        it("a leading zero in OFFSET is rejected (BSD tail would read it as octal)", () => {
             // This is exactly what the bug looked like: 0000003427 consists only of octal digits,
             // so BSD tail parses it silently and fully → 1815 instead of 3427.
             const stub = '#!/bin/sh\nOFFSET=0000003427\n';
             expect(() => verifyOffset(writeSelfExtract("octal", stub), stub)).toThrow(/leading zero/);
         });
 
-        it("разъехавшийся offset отвергается", () => {
+        it("a desynced offset is rejected", () => {
             const stub = "#!/bin/sh\nOFFSET=99999\n";
             expect(() => verifyOffset(writeSelfExtract("desync", stub), stub)).toThrow(/gzip magic/);
         });

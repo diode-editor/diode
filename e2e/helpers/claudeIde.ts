@@ -42,7 +42,7 @@ export async function waitForIdeLock(home: string, timeoutMs = 60_000): Promise<
     const file = await waitUntil(
         () => (existsSync(dir) ? readdirSync(dir).find((f) => f.endsWith(".lock")) : undefined),
         (found) => found !== undefined,
-        { describe: `лок ide-сервера в ${dir}`, timeoutMs, intervalMs: 250 },
+        { describe: `ide server lock in ${dir}`, timeoutMs, intervalMs: 250 },
     );
     const name = file ?? "";
     const body = JSON.parse(readFileSync(join(dir, name), "utf8")) as Omit<IIdeLock, "port">;
@@ -132,9 +132,9 @@ export class IdeProbe {
             () => this.notifications.find((n) => n.method === method && predicate(n.params)),
             (n) => n !== undefined,
             {
-                describe: `уведомление ${method} от ide-сервера`,
+                describe: `${method} notification from the ide server`,
                 timeoutMs,
-                diagnose: () => `пришли: ${JSON.stringify(this.notifications)}`,
+                diagnose: () => `received: ${JSON.stringify(this.notifications)}`,
             },
         );
         return found?.params ?? {};

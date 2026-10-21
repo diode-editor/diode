@@ -8,7 +8,6 @@ import { findTextCell, frameToText } from "../helpers/frame.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 import { defineScenario } from "./framework.ts";
 
-
 const BLOCKS = 10_000; // 6 lines per block, 60k lines
 const dir = join(tmpdir(), "diode-scenario-large-file");
 const file = join(dir, "large.ts");
@@ -57,7 +56,7 @@ export default defineScenario({
         const top = await waitUntil(
             () => editor.captureFrame(),
             (frame) => exportFg(frame, 0) !== undefined && exportFg(frame, 0) !== valueFg(frame, 0),
-            { describe: "верх файла покрашен", diagnose: (last) => frameToText(last as GridSnapshot) },
+            { describe: "top of the file is highlighted", diagnose: (last) => frameToText(last as GridSnapshot) },
         );
         const keyword = exportFg(top, 0);
         await editor.capture("top");
@@ -67,7 +66,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => exportFg(frame, BLOCKS - 1) === keyword,
-            { describe: "конец файла покрашен", diagnose: (last) => frameToText(last as GridSnapshot) },
+            { describe: "end of the file is highlighted", diagnose: (last) => frameToText(last as GridSnapshot) },
         );
         await editor.capture("end");
 
@@ -80,7 +79,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => exportFg(frame, middleBlock) === keyword,
-            { describe: "середина файла покрашена", diagnose: (last) => frameToText(last as GridSnapshot) },
+            { describe: "middle of the file is highlighted", diagnose: (last) => frameToText(last as GridSnapshot) },
         );
         await editor.capture("middle");
 
@@ -96,9 +95,11 @@ export default defineScenario({
             () => editor.captureFrame(),
             (frame) => {
                 const typed = fgAt(frame, "const answer = 42;");
-                return typed !== undefined && typed === fgAt(frame, "const text") && typed !== valueFg(frame, middleBlock);
+                return (
+                    typed !== undefined && typed === fgAt(frame, "const text") && typed !== valueFg(frame, middleBlock)
+                );
             },
-            { describe: "набранное покрашено", diagnose: (last) => frameToText(last as GridSnapshot) },
+            { describe: "typed text is highlighted", diagnose: (last) => frameToText(last as GridSnapshot) },
         );
         await editor.capture("typed");
     },

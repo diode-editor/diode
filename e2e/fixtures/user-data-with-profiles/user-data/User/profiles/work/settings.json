@@ -1,4 +1,4 @@
 {
-    // Профиль «work»: светлая тема — отличие от Default видно в кадре.
+    // The "work" profile: a light theme, so the difference from Default shows in the frame.
     "workbench.colorTheme": "Light Modern"
 }

@@ -15,7 +15,7 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-virtual-do
 
 export default defineScenario({
     name: "virtual-document",
-    title: "Read-only документ от registerTextDocumentContentProvider (F12 в библиотеку)",
+    title: "Read-only document from registerTextDocumentContentProvider (F12 into a library)",
     seedUserData: userData,
     open: [sampleDir, sampleFile],
     cols: 110,
@@ -23,7 +23,7 @@ export default defineScenario({
     // Extension host scenario: the CI safety net runs on Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("Документ-образец"), { timeoutMs: 20_000 });
+        await editor.waitForText((t) => t.includes("Sample document"), { timeoutMs: 20_000 });
         // Providers register in `activate()` after a few seconds; the status bar marker means "the registry is no
         // longer empty".
         await editor.waitForText((t) => t.includes("jdt: provider ready"), { timeoutMs: 30_000 });

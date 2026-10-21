@@ -26,19 +26,19 @@ async function waitForServerReady(session: {
     await waitUntil(
         () => session.captureFrame(),
         (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-        { describe: "undercurl squiggle от basedpyright", timeoutMs: 180_000, intervalMs: 500 },
+        { describe: "undercurl squiggle from basedpyright", timeoutMs: 180_000, intervalMs: 500 },
     );
 }
 
 // Linux only: extension host + a forked language server (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
-    "SEA binary — стоковый basedpyright.vsix (Python LSP)",
+    "SEA binary — stock basedpyright.vsix (Python LSP)",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("hover: Ctrl+K Ctrl+U показывает сигнатуру из другого файла", { timeout: 300_000 }, async () => {
+        it("hover: Ctrl+K Ctrl+U shows a signature from another file", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: FILES,
                 installVsix: [BASEDPYRIGHT_ID],
@@ -64,12 +64,12 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             const frame = await waitUntil(
                 () => session.captureFrame(),
                 (f) => !frameToText(f).includes("greet(name: str) -> str"),
-                { describe: "hover-попап закрыт по Escape", timeoutMs: 30_000, intervalMs: 250 },
+                { describe: "hover popup closed by Escape", timeoutMs: 30_000, intervalMs: 250 },
             );
             expect(frameToText(frame)).toContain('reply: int = greet("world")');
         });
 
-        it("F12 прыгает в объявление greet в defs.py", { timeout: 300_000 }, async () => {
+        it("F12 jumps to the greet declaration in defs.py", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: FILES,
                 installVsix: [BASEDPYRIGHT_ID],
@@ -101,7 +101,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             );
         });
 
-        it("точка открывает попап с членами int из typeshed", { timeout: 300_000 }, async () => {
+        it("a dot opens a popup with int members from typeshed", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: FILES,
                 installVsix: [BASEDPYRIGHT_ID],
@@ -122,7 +122,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             });
         });
 
-        it("«(» открывает подсказку параметров с сигнатурой greet", { timeout: 300_000 }, async () => {
+        it("'(' opens parameter hints with the greet signature", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: FILES,
                 installVsix: [BASEDPYRIGHT_ID],
@@ -140,7 +140,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             });
         });
 
-        it("Ctrl+K Ctrl+R собирает ссылки из двух файлов во вьюлет REFERENCES", { timeout: 300_000 }, async () => {
+        it("Ctrl+K Ctrl+R collects references from two files into the REFERENCES viewlet", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: FILES,
                 installVsix: [BASEDPYRIGHT_ID],

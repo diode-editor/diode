@@ -25,23 +25,23 @@ function makeRepo(): { repoDir: string } {
     const appFile = join(repoDir, "app.ts");
     writeFileSync(appFile, "export const version = 1;\n");
     git(repoDir, "add", "-A");
-    git(repoDir, "commit", "-qm", "feat: старт");
+    git(repoDir, "commit", "-qm", "feat: start");
     git(repoDir, "tag", "v1.0");
 
     git(repoDir, "checkout", "-q", "-b", "feature");
     writeFileSync(join(repoDir, "util.ts"), "export const twice = (n: number) => n * 2;\n");
     git(repoDir, "add", "-A");
-    git(repoDir, "commit", "-qm", "feat: утилита");
+    git(repoDir, "commit", "-qm", "feat: util");
 
     git(repoDir, "checkout", "-q", "main");
     writeFileSync(appFile, "export const version = 2;\n");
-    git(repoDir, "commit", "-aqm", "fix: версия");
+    git(repoDir, "commit", "-aqm", "fix: version");
 
-    git(repoDir, "merge", "-q", "--no-ff", "feature", "-m", "merge: ветка");
+    git(repoDir, "merge", "-q", "--no-ff", "feature", "-m", "merge: branch");
 
     // A commit on top of the merge: one lane versus two below — shows that the theme sticks to its point.
     writeFileSync(appFile, "export const version = 3;\n");
-    git(repoDir, "commit", "-aqm", "chore: полировка");
+    git(repoDir, "commit", "-aqm", "chore: polish");
 
     // An edit on disk keeps the Source Control section non-empty in the frame.
     writeFileSync(appFile, "export const version = 4;\n");
@@ -52,7 +52,7 @@ const { repoDir } = makeRepo();
 
 export default defineScenario({
     name: "scm-graph",
-    title: "View GRAPH: граф коммитов с ветвлением, бейджи refs и команды на коммите",
+    title: "GRAPH view: commit graph with branching, ref badges and commit commands",
     open: [repoDir],
     cols: 100,
     // The commit controls take 5 rows of the section — leave height to spare.
@@ -68,12 +68,12 @@ export default defineScenario({
         await editor.sendKey("Alt+C");
         await editor.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("GRAPH"));
         await editor.clickNode("#paneHeader-workbench-scm-graph", { dx: 3 });
-        await editor.waitForText((t) => t.includes("merge: ветка") && t.includes("app.ts"));
+        await editor.waitForText((t) => t.includes("merge: branch") && t.includes("app.ts"));
         await editor.capture("sections");
 
         // Collapsing Source Control hides the commit controls too — app.ts is visible only there.
         await editor.clickNode("#paneHeader-workbench-scm-changes", { dx: 3 });
-        await editor.waitForText((t) => !t.includes("app.ts") && t.includes("feat: старт") && t.includes("◎"));
+        await editor.waitForText((t) => !t.includes("app.ts") && t.includes("feat: start") && t.includes("◎"));
         await editor.capture("graph");
 
         const header = await editor.waitForNode("#paneHeader-workbench-scm-graph");
@@ -93,14 +93,14 @@ export default defineScenario({
 
         // A collapsed GRAPH holds no rows: no layout and no `git log` until it is expanded.
         await editor.clickNode("#paneHeader-workbench-scm-graph", { dx: 3 });
-        await editor.waitForText((t) => t.includes("GRAPH") && !t.includes("feat: старт") && !t.includes("◎"));
+        await editor.waitForText((t) => t.includes("GRAPH") && !t.includes("feat: start") && !t.includes("◎"));
         await editor.capture("graph-collapsed");
 
         await editor.clickNode("#paneHeader-workbench-scm-graph", { dx: 3 });
-        await editor.waitForText((t) => t.includes("feat: старт") && t.includes("◎"));
+        await editor.waitForText((t) => t.includes("feat: start") && t.includes("◎"));
         await editor.capture("graph-restored");
 
         await editor.clickNode("#paneHeader-workbench-scm-changes", { dx: 3 });
-        await editor.waitForText((t) => t.includes("app.ts") && t.includes("fix: версия"));
+        await editor.waitForText((t) => t.includes("app.ts") && t.includes("fix: version"));
     },
 });

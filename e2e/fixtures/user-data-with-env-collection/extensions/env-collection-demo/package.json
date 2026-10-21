@@ -1,7 +1,7 @@
 {
     "name": "env-collection-demo",
     "displayName": "Environment Collection Demo",
-    "description": "Демо ExtensionContext.environmentVariableCollection: расширение кладёт переменные в окружение терминалов, как Claude Code — порт своего сервера.",
+    "description": "ExtensionContext.environmentVariableCollection demo: the extension puts variables into the terminal environment, the way Claude Code passes its server port.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

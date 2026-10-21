@@ -20,7 +20,10 @@ function makeRepo(): { repoDir: string; trackedFile: string } {
     git(repoDir, "config", "commit.gpgsign", "false");
     const trackedFile = join(repoDir, "greeting.ts");
     const body = Array.from({ length: 14 }, (_, i) => `const value${String(i)} = ${String(i)};`);
-    writeFileSync(trackedFile, [...body, "export function greet(name: string) {", '    return "hi " + name;', "}", ""].join("\n"));
+    writeFileSync(
+        trackedFile,
+        [...body, "export function greet(name: string) {", '    return "hi " + name;', "}", ""].join("\n"),
+    );
     git(repoDir, "add", "-A");
     git(repoDir, "commit", "-qm", "init");
     return { repoDir, trackedFile };
@@ -30,7 +33,7 @@ const { repoDir, trackedFile } = makeRepo();
 
 export default defineScenario({
     name: "diff-editor",
-    title: "Вкладка diff: изменения файла против HEAD",
+    title: "Diff tab: file changes against HEAD",
     open: [repoDir, trackedFile],
     cols: 132,
     rows: 22,

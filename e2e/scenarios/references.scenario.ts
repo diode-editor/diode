@@ -16,7 +16,7 @@ const UNDERCURL = 8;
 
 export default defineScenario({
     name: "references",
-    title: "Find All References: ссылки из двух файлов в сайдбаре, F4 по ним",
+    title: "Find All References: references from two files in the sidebar, F4 through them",
     open: [sampleDir, mainFile],
     // The server comes from the repo's devDeps (the built-in one: docs/arch/Extensions.md, "Builtin LSP client"
     // section).
@@ -36,7 +36,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+            { describe: "tsserver undercurl squiggle", timeoutMs: 120_000, intervalMs: 500 },
         );
 
         // Onto the `greet` call (line 2, column 23).

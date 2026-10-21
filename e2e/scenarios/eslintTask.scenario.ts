@@ -21,7 +21,7 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 
 export default defineScenario({
     name: "eslint-task",
-    title: "Задача стокового расширения: vscode-eslint — Run Task «lint whole folder»",
+    title: "Stock extension task: vscode-eslint — Run Task 'lint whole folder'",
     open: [sampleDir],
     installVsix: ["dbaeumer.vscode-eslint"],
     settings: { "eslint.lintTask.enable": true },

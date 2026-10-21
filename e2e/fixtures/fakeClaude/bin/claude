@@ -1,9 +1,9 @@
 #!/bin/sh
-# Подставной `claude` для e2e стокового Anthropic.claude-code: настоящий CLI в
-# тестах не запускаем (подписка, сеть). Терминальный режим расширения набирает
-# в терминале голое `claude` из PATH — тест кладёт этот каталог первым в PATH.
-# Печатает то, по чему настоящий CLI находит IDE: порт из окружения терминала
-# и лок `<CLAUDE_CONFIG_DIR|~/.claude>/ide/<порт>.lock` с ideName.
+# Fake `claude` for the stock Anthropic.claude-code e2e: tests do not run the
+# real CLI (subscription, network). The extension's terminal mode types a bare
+# `claude` from PATH, so the test puts this directory first in PATH.
+# Prints what the real CLI uses to find the IDE: the port from the terminal
+# environment and the `<CLAUDE_CONFIG_DIR|~/.claude>/ide/<port>.lock` lock with ideName.
 lock="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/ide/${CLAUDE_CODE_SSE_PORT}.lock"
 echo "fake-claude port=${CLAUDE_CODE_SSE_PORT:-none}"
 if [ -f "$lock" ]; then

@@ -4,7 +4,6 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-
 function makeFiles(): { left: string; right: string } {
     const dir = mkdtempSync(join(tmpdir(), "diode-diff-arg-"));
     const base = ["export function greet(name: string) {", '    return "hi " + name;', "}", ""];
@@ -19,7 +18,7 @@ const { left, right } = makeFiles();
 
 export default defineScenario({
     name: "diff-arg",
-    title: "CLI -d <a> <b> — дифф-вкладка сразу на старте",
+    title: "CLI -d <a> <b> — diff tab right at startup",
     extraArgs: ["-d"],
     open: [left, right],
     cols: 132,

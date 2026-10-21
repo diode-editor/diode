@@ -1,7 +1,7 @@
 {
     "name": "codicon-demo",
     "displayName": "Codicon Demo",
-    "description": "Пишет разметку значков $(name) во все раковины «текст от расширения → интерфейс»: заголовок и категорию команды, метки и описания quick pick'а, подсказку поля ввода, имя канала Output, текст пункта статус-бара и подпись прогресса.",
+    "description": "Writes $(name) icon markup into every extension-text-to-UI sink: command title and category, quick pick labels and descriptions, input box prompt, Output channel name, status bar item text and progress title.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

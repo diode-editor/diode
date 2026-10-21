@@ -16,7 +16,7 @@ const UNDERCURL = 8;
 
 export default defineScenario({
     name: "editor-context-menu",
-    title: "Контекст-меню редактора: состав как в VS Code (с живым языковым сервером)",
+    title: "Editor context menu: same items as VS Code (with a live language server)",
     open: [sampleDir, mainFile],
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
@@ -37,7 +37,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+            { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
         );
 
         await waitUntil(
@@ -53,7 +53,7 @@ export default defineScenario({
                 text.includes("Rename Symbol") &&
                 text.includes("Format Document") &&
                 text.includes("Refactor"),
-            { describe: "языковые пункты в контекст-меню", timeoutMs: 60_000, intervalMs: 1000 },
+            { describe: "language items in the context menu", timeoutMs: 60_000, intervalMs: 1000 },
         );
         await editor.capture("full");
     },

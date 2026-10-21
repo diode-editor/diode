@@ -7,7 +7,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "view-locations",
-    title: "Перенос видов между панелью и вторичной боковой панелью",
+    title: "Moving views between the panel and the secondary sidebar",
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,

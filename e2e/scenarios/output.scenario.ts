@@ -10,7 +10,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "output",
-    title: "Output: лог подсистемы в нижней панели",
+    title: "Output: a subsystem log in the bottom panel",
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,

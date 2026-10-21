@@ -35,13 +35,13 @@ function tsServerCacheEntries(home: string): string[] {
 }
 
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
-    "Вшитый language-сервер — из коробки, без node в PATH и node_modules",
+    "Bundled language server — out of the box, without node in PATH or node_modules",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("SEA: squiggle + F12 на голом окружении; кэш распакован атомарно и переиспользуется", { timeout: 300_000 }, async () => {
+        it("SEA: squiggle + F12 in a bare environment; the cache is extracted atomically and reused", { timeout: 300_000 }, async () => {
             // keepRoot: the second launch needs the first one's cache (warm start);
             // the root is removed manually at the end.
             const app = await useHeadlessApp({
@@ -58,7 +58,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от вшитого tsserver", timeoutMs: 180_000, intervalMs: 500 },
+                { describe: "undercurl squiggle from the bundled tsserver", timeoutMs: 180_000, intervalMs: 500 },
             );
 
             // Cache: exactly one versioned directory, published atomically.
@@ -88,7 +88,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 await waitUntil(
                     () => second.session.captureFrame(),
                     (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                    { describe: "squiggle на тёплом кэше", timeoutMs: 120_000, intervalMs: 500 },
+                    { describe: "squiggle on a warm cache", timeoutMs: 120_000, intervalMs: 500 },
                 );
                 expect(tsServerCacheEntries(home)).toHaveLength(1);
                 expect(statSync(join(entries[0], ".diode-ready")).mtimeMs).toBe(readyMtime);
@@ -98,7 +98,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             }
         });
 
-        it("workspace-версия сервера на голом PATH: JS-энтрипоинт нашим рантаймом, не .bin-шим", { timeout: 300_000 }, async () => {
+        it("workspace server version on a bare PATH: JS entry point via our runtime, not the .bin shim", { timeout: 300_000 }, async () => {
             // Regression of a real failure: the project has typescript-language-server in
             // devDeps → the workspace candidate wins over the bundled one. A `.bin` shim
             // executed directly as the candidate has the shebang `#!/usr/bin/env node`,
@@ -129,14 +129,14 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 await waitUntil(
                     () => app.session.captureFrame(),
                     (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                    { describe: "undercurl squiggle от workspace-сервера", timeoutMs: 180_000, intervalMs: 500 },
+                    { describe: "undercurl squiggle from the workspace server", timeoutMs: 180_000, intervalMs: 500 },
                 );
             } finally {
                 await app.dispose();
             }
         });
 
-        it("self-extract: squiggle на голом окружении (node из payload'а)", { timeout: 300_000 }, async () => {
+        it("self-extract: squiggle in a bare environment (node from the payload)", { timeout: 300_000 }, async () => {
             const selfExtractBinary = await getSelfExtractPath();
             const app = await startHeadlessApp({
                 files: WORKSPACE_FILES,

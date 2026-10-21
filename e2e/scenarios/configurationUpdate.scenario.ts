@@ -25,14 +25,14 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 
 export default defineScenario({
     name: "configuration-update",
-    title: "WorkspaceConfiguration.update: расширение пишет свою настройку в .diode/settings.json",
+    title: "WorkspaceConfiguration.update: an extension writes its setting to .diode/settings.json",
     seedUserData: userData,
     open: [sampleDir],
     cols: 120,
     rows: 26,
     skipOn: ["win32", "darwin"],
     async prepare() {
-        writeFileSync(join(sampleDir, "BUILD"), "# демо-воркспейс\n");
+        writeFileSync(join(sampleDir, "BUILD"), "# demo workspace\n");
     },
     async run(editor) {
         await editor.waitForText((t) => t.includes("projectview.open=true") && t.includes("BUILD"), {
@@ -48,7 +48,7 @@ export default defineScenario({
         await waitUntil(
             () => Promise.resolve(readSettings()),
             (text) => text.includes('"configUpdateDemo.projectview.open": false'),
-            { describe: ".diode/settings.json с записанным ключом", timeoutMs: 5000, intervalMs: 100 },
+            { describe: ".diode/settings.json with the written key", timeoutMs: 5000, intervalMs: 100 },
         );
         await editor.capture("written");
 

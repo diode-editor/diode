@@ -10,7 +10,7 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-tree-outli
 
 export default defineScenario({
     name: "tree-view-noop",
-    title: "Расширение с деревом живёт без панели дерева (Output + палитра)",
+    title: "An extension with a tree view works without the tree panel (Output + palette)",
     seedUserData: userData,
     open: [repoRoot, sampleFile],
     cols: 120,

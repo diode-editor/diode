@@ -79,13 +79,13 @@ export function firstSatisfiedAt(
 export type WorkloadStepKey = "insert" | "enter" | "undoEnter" | "undoInsert" | "save" | "ctrlEnd" | "search";
 
 export const WORKLOAD_STEPS: readonly { key: WorkloadStepKey; label: string }[] = [
-    { key: "insert", label: "вставка символа" },
+    { key: "insert", label: "insert char" },
     { key: "enter", label: "Enter" },
     { key: "undoEnter", label: "undo (Enter)" },
-    { key: "undoInsert", label: "undo (символ)" },
-    { key: "save", label: "сохранение" },
+    { key: "undoInsert", label: "undo (char)" },
+    { key: "save", label: "save" },
     { key: "ctrlEnd", label: "Ctrl+End" },
-    { key: "search", label: "поиск по слову" },
+    { key: "search", label: "word search" },
 ];
 
 export interface WorkloadStepResult {
@@ -208,7 +208,7 @@ function linePrefix(fixture: OpenFixture, index: number): string {
 async function settle(ctx: StepContext, predicate: (screen: AnsiScreen) => boolean, stableMs = 150): Promise<void> {
     const deadline = performance.now() + ctx.timeoutMs;
     while (performance.now() < deadline) {
-        if (ctx.session.isExited) throw new Error("процесс редактора завершился во время нагрузки");
+        if (ctx.session.isExited) throw new Error("editor process exited during the workload");
         if (predicate(ctx.session.parseScreen())) {
             const before = ctx.chunks.length;
             await sleep(stableMs);
@@ -217,7 +217,7 @@ async function settle(ctx: StepContext, predicate: (screen: AnsiScreen) => boole
         }
         await sleep(25);
     }
-    throw new Error(`нагрузка: экран не дождался состояния за ${String(ctx.timeoutMs)} мс`);
+    throw new Error(`workload: screen did not reach the expected state within ${String(ctx.timeoutMs)} ms`);
 }
 
 async function runWorkload(ctx: StepContext, fixture: OpenFixture): Promise<WorkloadStepResult[]> {

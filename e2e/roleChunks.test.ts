@@ -20,7 +20,7 @@ import { waitUntil } from "./helpers/waitFor.ts";
  * find the directory without `import.meta` (`define` in scripts/build-lazy-chunks.mjs).
  */
 
-const TEXT = "Привет, мир!\n";
+const TEXT = "\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440!\n"; // "Privet, mir!"
 
 /** Synthetic extension: opens cp1251.txt as windows-1251 and writes the result to result.txt. */
 const PROBE_MAIN = `
@@ -54,7 +54,7 @@ function writeVsix(vsixPath: string, entries: Readonly<Record<string, string>>):
     });
 }
 
-describe("роли процесса на SEA — ленивые куски", () => {
+describe("process roles on SEA — lazy chunks", () => {
     let dir: string;
     let vsix: string;
 
@@ -79,7 +79,7 @@ describe("роли процесса на SEA — ленивые куски", () 
         fs.rmSync(dir, { recursive: true, force: true });
     });
 
-    it("extension host из куска грузит кусок iconv: openTextDocument в windows-1251", async () => {
+    it("extension host from a chunk loads the iconv chunk: openTextDocument in windows-1251", async () => {
         const { session, env } = await useHeadlessApp({
             files: { "cp1251.txt": iconv.encode(TEXT, "windows1251") },
             installVsix: [vsix],
@@ -89,7 +89,7 @@ describe("роли процесса на SEA — ленивые куски", () 
     }, 120_000);
 
     it.skipIf(process.platform === "win32")(
-        "self-extract: куски — файлы рядом с main.cjs, extension host находит кусок iconv",
+        "self-extract: chunks are files next to main.cjs, the extension host finds the iconv chunk",
         async () => {
             const app = await startHeadlessApp({
                 files: { "cp1251.txt": iconv.encode(TEXT, "windows1251") },
@@ -112,6 +112,6 @@ function probeResult(workspaceDir: string): Promise<string | null> {
     return waitUntil(
         () => (fs.existsSync(result) ? fs.readFileSync(result, "utf8") : null),
         (content) => content !== null,
-        { describe: "result.txt от расширения" },
+        { describe: "result.txt from the extension" },
     );
 }

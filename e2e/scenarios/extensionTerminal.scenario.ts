@@ -19,7 +19,7 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 
 export default defineScenario({
     name: "extension-terminal",
-    title: "Терминалы расширения: шелл и pty через window.createTerminal в панели TERMINAL",
+    title: "Extension terminals: shell and pty via window.createTerminal in the TERMINAL panel",
     seedUserData: userData,
     open: [sampleFile],
     cols: 120,
@@ -36,7 +36,9 @@ export default defineScenario({
 
         await runCommand(editor, "Terminal: Create New Terminal");
         await runCommand(editor, "Terminal Demo: List Terminals");
-        await editor.waitForText((t) => t.includes("ev:list") && /ls:Demo Runner,\S/u.test(t) && !t.includes("act:Demo"));
+        await editor.waitForText(
+            (t) => t.includes("ev:list") && /ls:Demo Runner,\S/u.test(t) && !t.includes("act:Demo"),
+        );
         await editor.capture("two-terminals");
 
         await runCommand(editor, "Terminal Demo: Dispose");

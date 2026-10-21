@@ -20,7 +20,7 @@ const BOTH_IMPORT_FIXED = 'import { alpha } from "./both";';
 
 export default defineScenario({
     name: "quick-fix-undo",
-    title: "Undo после quick fix'а: Ctrl+Z возвращает строку импорта дословно",
+    title: "Undo after a quick fix: Ctrl+Z restores the import line verbatim",
     open: [sampleDir, mainFile],
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
@@ -37,7 +37,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+            { describe: "tsserver undercurl squiggle", timeoutMs: 120_000, intervalMs: 500 },
         );
         await editor.capture("before");
 

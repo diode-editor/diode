@@ -27,13 +27,13 @@ const UNDERCURL = 8;
 
 // Linux only: extension host + a spawned server (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
-    "SEA binary — стоковый vscode-eslint.vsix (JS-линт, fix on save)",
+    "SEA binary — stock vscode-eslint.vsix (JS lint, fix on save)",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("Ctrl+S с codeActionsOnSave чинит no-extra-semi в буфере и на диске", { timeout: 300_000 }, async () => {
+        it("Ctrl+S with codeActionsOnSave fixes no-extra-semi in the buffer and on disk", { timeout: 300_000 }, async () => {
             // A workspace with the eslint library can't be a committed fixture
             // (node_modules) and gets saved, hence a temp directory.
             const sampleDir = mkdtempSync(join(tmpdir(), "diode-eslint-e2e-"));
@@ -59,7 +59,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от eslint", timeoutMs: 30_000, intervalMs: 500 },
+                { describe: "undercurl squiggle from eslint", timeoutMs: 30_000, intervalMs: 500 },
             );
             expect(frameToText(await session.captureFrame())).toContain("const unused = 1;;");
 

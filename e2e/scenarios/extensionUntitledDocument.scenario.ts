@@ -2,12 +2,11 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-untitled-report");
 
 export default defineScenario({
     name: "extension-untitled-document",
-    title: "openTextDocument({ content, language }): отчёт расширения в безымянном документе",
+    title: "openTextDocument({ content, language }): an extension report in an untitled document",
     seedUserData: userData,
     cols: 110,
     rows: 22,

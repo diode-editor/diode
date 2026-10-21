@@ -7,7 +7,7 @@
 
 /** How the answer is printed: closing without a choice is a separate outcome. */
 function describe(value) {
-    if (value === undefined) return "закрыто без выбора";
+    if (value === undefined) return "closed without a choice";
     if (typeof value === "string") return value;
     return "item:" + value.title;
 }
@@ -74,7 +74,7 @@ exports.activate = function activate(context) {
     register("diodeNotify.askModal", async function () {
         const answer = await vscode.window.showWarningMessage(
             "Delete 12 files permanently?",
-            { modal: true, detail: "Это действие нельзя отменить." },
+            { modal: true, detail: "This action cannot be undone." },
             "Delete",
             { title: "Cancel", isCloseAffordance: true },
         );

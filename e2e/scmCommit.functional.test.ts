@@ -38,7 +38,7 @@ interface InputState {
     showsPlaceholder?: boolean;
 }
 
-describe("SCM commit input box (functional e2e, спека SourceControl.md)", () => {
+describe("SCM commit input box (functional e2e, spec SourceControl.md)", () => {
     let app: HeadlessApp | null = null;
 
     beforeAll(async () => {
@@ -50,7 +50,7 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         app = null;
     });
 
-    it("US-13: input box с плейсхолдером внутри секции Source Control, над списком", async () => {
+    it("US-13: input box with a placeholder inside the Source Control section, above the list", async () => {
         const repo = makeRepo();
         app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
         const { session } = app;
@@ -72,7 +72,7 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         expect(button.box.y - input.box.y).toBe(2);
     }, 120_000);
 
-    it("US-14: workbench.scm.focus фокусит input; Down уводит в список", async () => {
+    it("US-14: workbench.scm.focus focuses the input; Down moves into the list", async () => {
         const repo = makeRepo();
         app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
         const { session } = app;
@@ -88,7 +88,7 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         await session.waitForFocus("ScmCommitInputElement");
     }, 120_000);
 
-    it("US-16/US-18: Ctrl+Enter коммитит staged и очищает input; пустое сообщение — отказ", async () => {
+    it("US-16/US-18: Ctrl+Enter commits staged changes and clears the input; an empty message is refused", async () => {
         const repo = makeRepo();
         gitQ(repo, "add", "-A"); // stage the app.ts edit
         app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
@@ -115,7 +115,7 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         expect(execFileSync("git", ["status", "--porcelain=v1"], { cwd: repo }).toString()).toBe("");
     }, 120_000);
 
-    it("US-17: пустой индекс — smart commit спрашивает и коммитит всё tracked", async () => {
+    it("US-17: empty index — smart commit asks and commits all tracked files", async () => {
         const repo = makeRepo(); // app.ts modified, not staged
         app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
         const { session } = app;
@@ -135,7 +135,7 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: repo }).toString().trim()).toBe("feat: smart");
     }, 120_000);
 
-    it("US-19/US-20: amend меняет последний коммит; undoCommit возвращает сообщение в input", async () => {
+    it("US-19/US-20: amend changes the last commit; undoCommit returns the message to the input", async () => {
         const repo = makeRepo();
         gitQ(repo, "add", "-A");
         gitQ(repo, "commit", "-qm", "feat: second");
@@ -167,7 +167,7 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: repo }).toString().trim()).toBe("1");
     }, 120_000);
 
-    it("US-15: черновик сообщения переживает рестарт", async () => {
+    it("US-15: the message draft survives a restart", async () => {
         const repo = makeRepo();
         app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30, keepRoot: true });
         const root = app.env.root;

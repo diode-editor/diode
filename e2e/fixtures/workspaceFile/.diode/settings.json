@@ -1,4 +1,4 @@
 {
-    // Общее для всех режимов монорепы: действует поверх файла воркспейса.
+    // Shared by all monorepo modes: applies on top of the workspace file.
     "files.exclude": { "**/generated": true }
 }

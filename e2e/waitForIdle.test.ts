@@ -9,7 +9,7 @@ describe("inspector — waitForIdle & settling verbs", () => {
         await getBinaryPath();
     }, 180_000);
 
-    it("waitForIdle возвращает idle и растущий счётчик кадров", async () => {
+    it("waitForIdle returns idle and a growing frame counter", async () => {
         const { session } = await useHeadlessApp({ files: { "a.txt": "hello world\n" }, open: ["a.txt"] });
         await session.waitForText((t) => t.includes("hello world"));
 

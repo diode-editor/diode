@@ -17,7 +17,7 @@ async function runProbeCommand(editor: ScenarioDriver, title: string): Promise<v
 
 export default defineScenario({
     name: "notifications",
-    title: "Сообщения расширений с кнопками (show*Message) и env.openExternal",
+    title: "Extension messages with buttons (show*Message) and env.openExternal",
     seedUserData: userData,
     open: [repoRoot, sampleFile],
     cols: 100,

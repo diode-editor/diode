@@ -92,7 +92,7 @@ async function clickMenuItem(session: HeadlessApp["session"], label: string): Pr
     await session.click(col + 1, row);
 }
 
-describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
+describe("SCM staging (functional e2e, spec SourceControl.md)", () => {
     let app: HeadlessApp | null = null;
 
     beforeAll(async () => {
@@ -104,7 +104,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         app = null;
     });
 
-    it("US-1: группы Staged/Changes/Untracked с корректным разнесением, MM — в двух группах", async () => {
+    it("US-1: Staged/Changes/Untracked groups split files correctly, MM is in both groups", async () => {
         const repo = makeRepo({
             committed: { "mm.ts": A, "plain.ts": A },
             staged: { "mm.ts": A_MOD },
@@ -132,7 +132,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         expect(worktree.y).toBeLessThan(newRow.box.y);
     }, 120_000);
 
-    it("US-2/US-3: stage из контекстного меню, затем unstage — строка мигрирует между группами", async () => {
+    it("US-2/US-3: stage from the context menu, then unstage — the row moves between groups", async () => {
         const repo = makeRepo({ committed: { "app.ts": A }, modify: { "app.ts": A_MOD } });
         app = await open(repo);
         const { session } = app;
@@ -160,7 +160,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         expect(git(repo, "diff", "--cached", "--name-only").trim()).toBe("");
     }, 120_000);
 
-    it("US-5: Stage All Changes с заголовка группы стейджит всю группу", async () => {
+    it("US-5: Stage All Changes in the group header stages the whole group", async () => {
         const repo = makeRepo({
             committed: { "a.ts": A, "b.ts": A },
             modify: { "a.ts": A_MOD, "b.ts": A_MOD },
@@ -181,7 +181,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         expect(git(repo, "diff", "--cached", "--name-only").trim().split("\n").sort()).toEqual(["a.ts", "b.ts"]);
     }, 120_000);
 
-    it("US-6: git.stageAll / git.unstageAll из команд (untracked стейджится тоже)", async () => {
+    it("US-6: git.stageAll / git.unstageAll from commands (untracked files are staged too)", async () => {
         const repo = makeRepo({
             committed: { "a.ts": A },
             modify: { "a.ts": A_MOD },
@@ -207,7 +207,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         expect(git(repo, "diff", "--cached", "--name-only").trim()).toBe("");
     }, 120_000);
 
-    it("US-7/US-8: multi-select Shift/Ctrl и stage ровно выбранного", async () => {
+    it("US-7/US-8: Shift/Ctrl multi-select and staging exactly the selection", async () => {
         const repo = makeRepo({
             committed: { "a.ts": A, "b.ts": A, "c.ts": A },
             modify: { "a.ts": A_MOD, "b.ts": A_MOD, "c.ts": A_MOD },
@@ -245,7 +245,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         expect(git(repo, "diff", "--cached", "--name-only").trim().split("\n").sort()).toEqual(["a.ts", "c.ts"]);
     }, 120_000);
 
-    it("US-10/US-11: discard tracked откатывает файл, untracked — удаляет; Esc в диалоге = no-op", async () => {
+    it("US-10/US-11: discard reverts a tracked file, deletes an untracked one; Esc in the dialog is a no-op", async () => {
         const repo = makeRepo({
             committed: { "app.ts": A },
             modify: { "app.ts": A_MOD },
@@ -289,7 +289,7 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         expect(existsSync(join(repo, "new.ts"))).toBe(false);
     }, 120_000);
 
-    it("US-12: наборы пунктов контекстного меню по группам; Esc закрывает без действий", async () => {
+    it("US-12: context menu items per group; Esc closes without an action", async () => {
         const repo = makeRepo({
             committed: { "st.ts": A, "wt.ts": A },
             staged: { "st.ts": A_MOD },

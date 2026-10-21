@@ -46,7 +46,7 @@ async function tabLabels(app: HeadlessApp): Promise<string[]> {
 /** List row text by its id: unlike the frame, it doesn't depend on the sidebar width. */
 async function rowText(app: HeadlessApp, id: string): Promise<string> {
     const row = await app.session.node(`#${id}`);
-    expect(row, `строка #${id} не найдена`).not.toBeNull();
+    expect(row, `row #${id} not found`).not.toBeNull();
     return row?.text ?? "";
 }
 
@@ -55,7 +55,7 @@ describe("Extensions view (functional e2e)", () => {
         await getBinaryPath();
     }, 300_000);
 
-    it("US-1: команда показа открывает вьюлет со строкой поиска и обеими секциями", async () => {
+    it("US-1: the show command opens the viewlet with a search box and both sections", async () => {
         const app = await openExtensions();
         const screen = frameToText(await app.session.captureFrame());
 
@@ -66,7 +66,7 @@ describe("Extensions view (functional e2e)", () => {
         expect(screen).toContain("Acme Sample");
     });
 
-    it("US-4/5/6: бейджи установленного, обновления и несовместимости", async () => {
+    it("US-4/5/6: installed, update and incompatible badges", async () => {
         const app = await openExtensions();
         // The sidebar is narrow and the badge is clipped in the frame, so read the row text:
         // it doesn't depend on the panel width.
@@ -76,7 +76,7 @@ describe("Extensions view (functional e2e)", () => {
         expect(await rowText(app, "extensionsGroup-marketplace-old-legacy")).toBe("Legacy Thing  3.0.0  Incompatible");
     });
 
-    it("US-2: фильтр по мере ввода оставляет только совпавшие записи", async () => {
+    it("US-2: filtering as you type keeps only matching entries", async () => {
         const app = await openExtensions();
         await app.session.text("acme");
         await app.session.waitForNoNode("#extensionsGroup-marketplace-old-legacy");
@@ -86,13 +86,13 @@ describe("Extensions view (functional e2e)", () => {
         expect(screen).not.toContain("Legacy Thing");
     });
 
-    it("US-3: не нашлось — пустое состояние", async () => {
+    it("US-3: no matches — empty state", async () => {
         const app = await openExtensions();
         await app.session.text("zzzz");
         await app.session.waitForText((t) => t.includes("No extensions found"));
     });
 
-    it("US-8: Enter на записи открывает страницу расширения с readme", async () => {
+    it("US-8: Enter on an entry opens the extension page with the readme", async () => {
         const app = await openExtensions();
         await app.session.text("acme");
         await app.session.waitForText((t) => t.includes("Acme Sample"));
@@ -107,7 +107,7 @@ describe("Extensions view (functional e2e)", () => {
         expect(screen).toContain("Kind: native");
     });
 
-    it("US-9: повторное открытие переключает на ту же вкладку, второй не заводит", async () => {
+    it("US-9: opening again switches to the same tab instead of creating a second one", async () => {
         const app = await openExtensions();
         await app.session.text("acme");
         await app.session.waitForText((t) => t.includes("Acme Sample"));
@@ -129,7 +129,7 @@ describe("Extensions view (functional e2e)", () => {
         expect(await tabLabels(app)).toEqual(["Acme Sample"]);
     });
 
-    it("US-18/20: недоступный реестр — причина и повтор, установленные видны", async () => {
+    it("US-18/20: unreachable registry — reason and retry, installed extensions are visible", async () => {
         const app = await openExtensions({ registry: resolve(here, "fixtures", "registry-missing") });
         await app.session.waitForText((t) => t.includes("Retry"));
 

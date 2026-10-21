@@ -18,12 +18,12 @@ async function frameText(session: HeadlessSession): Promise<string> {
     return frameToText(await session.captureFrame());
 }
 
-describe("Фоллбэки клавиш для legacy-терминала", () => {
+describe("Key fallbacks for legacy terminals", () => {
     beforeAll(async () => {
         await getBinaryPath();
     }, 300_000);
 
-    it("Ctrl+6 тумблерит два последних редактора", async () => {
+    it("Ctrl+6 toggles between the two most recent editors", async () => {
         const { session } = await useHeadlessApp({ files, open: ["alpha.ts", "bravo.ts"] });
         await session.waitForText((t) => t.includes("const bravo"));
 
@@ -37,7 +37,7 @@ describe("Фоллбэки клавиш для legacy-терминала", () =>
     }, 120_000);
 
     // Sidebar viewlets exist only with an open folder, otherwise the command does nothing.
-    it("Ctrl+K F открывает Search, Ctrl+K G — Source Control", async () => {
+    it("Ctrl+K F opens Search, Ctrl+K G opens Source Control", async () => {
         const { session } = await useHeadlessApp({ files, open: [".", "alpha.ts"] });
         await session.waitForText((t) => t.includes("const alpha"));
 

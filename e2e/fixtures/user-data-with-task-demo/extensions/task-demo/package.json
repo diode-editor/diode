@@ -1,7 +1,7 @@
 {
     "name": "task-demo",
     "displayName": "Task Demo",
-    "description": "Демо-расширение задач: провайдер типа demo (ShellExecution и CustomExecution), executeTask своей задачи, fetchTasks, terminate и события исполнений в статус-баре — форма провайдера bazel-java.",
+    "description": "Tasks demo: a provider of type demo (ShellExecution and CustomExecution), executeTask of its own task, fetchTasks, terminate and execution events in the status bar, shaped like the bazel-java provider.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

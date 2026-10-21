@@ -27,13 +27,13 @@ const SIGNATURE = "greet(name: string, age: number): string";
 
 // Linux only: extension host + language server spawn (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
-    "SEA binary — подсказка параметров от стокового typescript-language-server",
+    "SEA binary — parameter hints from the stock typescript-language-server",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("«(» открывает подсказку, запятая двигает параметр, Escape закрывает", { timeout: 240_000 }, async () => {
+        it("'(' opens parameter hints, a comma advances the parameter, Escape closes them", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
@@ -49,7 +49,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+                { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
             await session.key("Ctrl+End");
@@ -66,7 +66,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frameToText(frame).includes(SIGNATURE),
-                { describe: "подсказка пережила запятую", timeoutMs: 30_000, intervalMs: 250 },
+                { describe: "parameter hints survive the comma", timeoutMs: 30_000, intervalMs: 250 },
             );
 
             // Typing `world` may also open completion, and Escape belongs to it while it's shown

@@ -29,7 +29,7 @@ export function getBinaryPath(): Promise<string> {
 export function getSelfExtractPath(): Promise<string> {
     try {
         const path = resolveInjected("DIODE_E2E_SELFEXTRACT") ?? fromCache().selfExtract;
-        if (path === undefined) throw new Error("self-extract на этой платформе не собирается");
+        if (path === undefined) throw new Error("self-extract is not built on this platform");
         return Promise.resolve(path);
     } catch (err) {
         return Promise.reject(err as Error);
@@ -52,9 +52,9 @@ function resolveInjected(envName: string): string | undefined {
     if (injected === undefined || injected.length === 0) return undefined;
     if (!existsSync(injected)) {
         throw new Error(
-            `${envName}=${injected}: файла нет. Под test:e2e сборку отдаёт globalSetup из кэша ` +
-                `(scripts/e2e-artifacts.mjs), и она read-only — пропасть посреди прогона ей нечем, ` +
-                `кроме ручного сноса кэша. Воркер сам не пересобирает: это сломало бы соседей.`,
+            `${envName}=${injected}: file not found. Under test:e2e the build comes from globalSetup's cache ` +
+                `(scripts/e2e-artifacts.mjs) and is read-only — it can only vanish mid-run if the cache ` +
+                `was deleted by hand. The worker does not rebuild itself: that would break its neighbors.`,
         );
     }
     return injected;

@@ -10,7 +10,7 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-chat-panel
 
 export default defineScenario({
     name: "webview-noop",
-    title: "Расширение с чат-панелью живёт без webview (Output + палитра)",
+    title: "An extension with a chat panel works without webviews (Output + palette)",
     seedUserData: userData,
     open: [repoRoot, sampleFile],
     cols: 120,

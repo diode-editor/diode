@@ -17,7 +17,7 @@ const UNDERCURL = 8;
 
 export default defineScenario({
     name: "diagnostics-guides",
-    title: "Диагностика поверх направляющих отступа и под quick pick",
+    title: "Diagnostics over indent guides and under a quick pick",
     open: [sampleDir, mainFile],
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
@@ -33,7 +33,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+            { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
         );
         await editor.capture("diagnostics");
 

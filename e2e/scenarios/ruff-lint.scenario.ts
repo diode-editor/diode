@@ -14,7 +14,7 @@ const UNDERCURL = 8;
 
 export default defineScenario({
     name: "ruff-lint",
-    title: "Python-линт из коробки: ruff — squiggle, quickfix, формат",
+    title: "Out-of-the-box Python lint: ruff — squiggle, quickfix, format",
     open: [sampleDir, lintFile],
     installVsix: ["charliermarsh.ruff"],
     network: true,
@@ -28,7 +28,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от ruff", timeoutMs: 180_000, intervalMs: 500 },
+            { describe: "ruff undercurl squiggle", timeoutMs: 180_000, intervalMs: 500 },
         );
         await editor.capture("diagnostics");
 

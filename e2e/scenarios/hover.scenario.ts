@@ -5,7 +5,6 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const require_ = createRequire(import.meta.url);
 /** StyleFlags.Undercurl. */
 const UNDERCURL = 8;
@@ -31,7 +30,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от tsserver (сервер готов)", timeoutMs: 120_000, intervalMs: 500 },
+            { describe: "undercurl squiggle from tsserver (server is ready)", timeoutMs: 120_000, intervalMs: 500 },
         );
 
         // The `greet` call: line 2, column 23.

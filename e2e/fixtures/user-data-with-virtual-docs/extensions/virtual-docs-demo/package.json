@@ -1,7 +1,7 @@
 {
     "name": "virtual-docs-demo",
     "displayName": "Virtual Docs Demo",
-    "description": "Демо workspace.registerTextDocumentContentProvider: Go to Definition уводит на jdt:-ресурс, содержимое которого отдаёт провайдер расширения (срез поведения стокового redhat.java).",
+    "description": "workspace.registerTextDocumentContentProvider demo: Go to Definition navigates to a jdt: resource whose content the extension's provider serves (a slice of stock redhat.java behavior).",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

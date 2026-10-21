@@ -14,12 +14,12 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 // node-pty is unix-only in the current packaging (like the `terminal` scenario).
 const describeUnix = process.platform === "win32" ? describe.skip : describe;
 
-describeUnix("встроенный терминал сразу после старта — SEA", () => {
+describeUnix("integrated terminal right after startup — SEA", () => {
     beforeAll(async () => {
         await getBinaryPath();
     }, 300_000);
 
-    it("три терминала и набор команды до готовности редактора: вывод на экране, кэш кода принят", async () => {
+    it("three terminals and a command typed before the editor is ready: output on screen, code cache accepted", async () => {
         const { session } = await useHeadlessApp({
             files: { "a.txt": "hello\n" },
             open: ["a.txt"],

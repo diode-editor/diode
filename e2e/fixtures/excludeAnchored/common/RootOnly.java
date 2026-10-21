@@ -1,4 +1,4 @@
-// Корневой `common/` — его прячет `"common": true` в files.exclude сценария.
+// The root `common/`: hidden by `"common": true` in the scenario's files.exclude.
 class RootOnly {
     String token = "quietHarborLantern";
 }

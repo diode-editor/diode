@@ -10,7 +10,7 @@ const fourSpaceTs = resolve(repoRoot, "e2e", "fixtures", "folding.ts");
 
 export default defineScenario({
     name: "indent-detection",
-    title: "Автоопределение отступа по содержимому файла",
+    title: "Indentation detection from file contents",
     open: [repoRoot, fourSpaceTs, twoSpaceJson],
     cols: 120,
     rows: 32,

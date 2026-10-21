@@ -8,12 +8,12 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 // shifting the boundaries the view got line numbers outside the document, and the exception in the main
 // loop killed the process. Unit tests see only the exception; only e2e sees the process dying.
 
-describe("Мультикурсор: undo вставки многострочного текста", () => {
+describe("Multi-cursor: undo of a multi-line paste", () => {
     beforeAll(async () => {
         await getBinaryPath();
     }, 300_000);
 
-    it("редактор остаётся жив, текст и каретки возвращаются", async () => {
+    it("the editor stays alive, text and cursors are restored", async () => {
         const { session } = await useHeadlessApp({
             files: { "empty.txt": "\n\n\n\n" },
             open: ["empty.txt"],

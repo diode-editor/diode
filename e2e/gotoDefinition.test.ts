@@ -31,7 +31,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await getBinaryPath();
         }, 300_000);
 
-        it("squiggle от tsserver и F12 через несохранённую правку", { timeout: 240_000 }, async () => {
+        it("squiggle from tsserver and F12 across an unsaved edit", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
@@ -47,7 +47,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+                { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
             // Unsaved edit: the greet call moves down to line 4.

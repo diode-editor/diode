@@ -24,7 +24,7 @@ async function runTask(editor: ScenarioDriver, label: string): Promise<void> {
 
 export default defineScenario({
     name: "tasks",
-    title: "Задачи tasks.json: Run Task, вывод и код выхода в терминале, Rerun, Terminate",
+    title: "tasks.json tasks: Run Task, output and exit code in the terminal, Rerun, Terminate",
     open: [folder],
     cols: 120,
     rows: 32,

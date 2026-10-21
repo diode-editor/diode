@@ -19,7 +19,7 @@ const UNDERCURL = 8;
 
 export default defineScenario({
     name: "supermaven-fix",
-    title: "Fix with Supermaven: действие стокового Supermaven исполняется, вместо чата — тост",
+    title: "Fix with Supermaven: the stock Supermaven action runs, a toast instead of the chat",
     seedUserData: userData,
     installVsix: ["Supermaven.supermaven"],
     network: true,
@@ -39,7 +39,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+            { describe: "tsserver undercurl squiggle", timeoutMs: 120_000, intervalMs: 500 },
         );
 
         await editor.sendKey("ArrowDown");

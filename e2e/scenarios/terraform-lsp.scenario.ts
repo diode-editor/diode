@@ -18,7 +18,7 @@ function occurrences(text: string, needle: string): number {
 
 export default defineScenario({
     name: "terraform-lsp",
-    title: "Terraform из магазина: terraform-ls — squiggle, hover, F12, автодополнение",
+    title: "Terraform from the marketplace: terraform-ls — squiggle, hover, F12, completion",
     open: [sampleDir, mainFile],
     installVsix: ["hashicorp.terraform"],
     network: true,
@@ -32,7 +32,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от terraform-ls", timeoutMs: 180_000, intervalMs: 500 },
+            { describe: "terraform-ls undercurl squiggle", timeoutMs: 180_000, intervalMs: 500 },
         );
         await editor.capture("diagnostics");
 

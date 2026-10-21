@@ -12,7 +12,7 @@ const notesFile = resolve(sampleDir, "notes.txt");
 
 export default defineScenario({
     name: "activation-workspace-contains",
-    title: "Активация по workspaceContains: стоковый ruff поднят рекурсивным глобом",
+    title: "workspaceContains activation: stock ruff started by a recursive glob",
     open: [sampleDir, notesFile],
     installVsix: ["charliermarsh.ruff"],
     network: true,
@@ -21,7 +21,7 @@ export default defineScenario({
     userKeybindings: ACTIVATION_LOG_KEYBINDINGS,
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("Заметки проекта"));
+        await editor.waitForText((t) => t.includes("Project notes"));
         await editor.capture("workspace");
 
         await openActivationLog(editor);

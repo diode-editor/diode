@@ -37,7 +37,7 @@ describe("View containers (functional e2e)", () => {
         await getBinaryPath();
     }, 300_000);
 
-    it("Explorer — контейнер сайдбара с одной секцией, заголовки слиты", async () => {
+    it("Explorer is a sidebar container with one section, headers merged", async () => {
         const app = await openApp();
         const { session } = app;
 
@@ -52,7 +52,7 @@ describe("View containers (functional e2e)", () => {
         expect(header?.state).toMatchObject({ title: "EXPLORER", collapsible: false });
     });
 
-    it("заголовок Explorer'а несёт кнопки создания и обновления", async () => {
+    it("the Explorer header carries the create and refresh buttons", async () => {
         const app = await openApp();
         const { session } = app;
         const header = await session.node("#paneHeader-workbench-explorer-fileView");
@@ -69,7 +69,7 @@ describe("View containers (functional e2e)", () => {
     // computes them when shown (OpenPerformance, lever 8). The show command right after
     // startup (the first key the inspector accepts) arrives before the `eventually` phase:
     // the header must already come with the button.
-    it("контейнер, показанный сразу после старта, приходит с кнопками заголовка", async () => {
+    it("a container shown right after startup comes with its header buttons", async () => {
         const app = await useHeadlessApp({ files: FILES, keybindings: KEYS, cols: 100, rows: 30 });
         const { session } = app;
 
@@ -84,7 +84,7 @@ describe("View containers (functional e2e)", () => {
         expect(row).toContain("\ueac5");
     });
 
-    it("Search — тоже один контейнер одной секции, переключение места не ломает корень", async () => {
+    it("Search is also a single-section container, moving it does not break the root", async () => {
         const app = await openApp();
         const { session } = app;
 
@@ -98,7 +98,7 @@ describe("View containers (functional e2e)", () => {
         expect(await session.node("#explorer")).not.toBeNull();
     });
 
-    it("вкладка нижней панели — контейнер того же реестра, без своего заголовка", async () => {
+    it("a bottom panel tab is a container of the same registry, without its own header", async () => {
         const app = await openApp();
         const { session } = app;
 

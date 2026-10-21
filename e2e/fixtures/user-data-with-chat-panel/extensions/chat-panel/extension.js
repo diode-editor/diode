@@ -27,7 +27,7 @@ exports.activate = function activate(context) {
 
     context.subscriptions.push(
         vscode.commands.registerCommand("chatPanel.ping", function () {
-            channel.appendLine("pong — расширение живо, хотя панели нет");
+            channel.appendLine("pong: the extension is alive even without a panel");
             channel.show();
             return "pong";
         }),

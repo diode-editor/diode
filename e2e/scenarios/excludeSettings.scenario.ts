@@ -10,7 +10,7 @@ const sampleDir = resolve(repoRoot, "e2e", "fixtures", "excludeSettings");
 
 export default defineScenario({
     name: "exclude-settings",
-    title: "files.exclude / search.exclude: дефолты в дереве, Quick Open и поиске",
+    title: "files.exclude / search.exclude: defaults in the tree, Quick Open and search",
     open: [sampleDir],
     cols: 110,
     rows: 26,

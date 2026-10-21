@@ -14,13 +14,13 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 
 // Linux only: extension host (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
-    "SEA binary — стоковый prettier.vsix (формат markdown и json)",
+    "SEA binary — stock prettier.vsix (markdown and json formatting)",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("markdown: Ctrl+K Ctrl+E приводит заголовок и список к формату prettier", { timeout: 300_000 }, async () => {
+        it("markdown: Ctrl+K Ctrl+E formats the heading and the list the prettier way", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: { "doc.md": MESSY_MD },
                 installVsix: [PRETTIER_ID],
@@ -50,7 +50,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             expect(after).not.toContain("#   Hello");
         });
 
-        it("json: Ctrl+K Ctrl+E расставляет пробелы по prettier", { timeout: 300_000 }, async () => {
+        it("json: Ctrl+K Ctrl+E spaces the json the prettier way", { timeout: 300_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: { "data.json": MESSY_JSON },
                 installVsix: [PRETTIER_ID],

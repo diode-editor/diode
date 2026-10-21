@@ -32,7 +32,7 @@ const APP_JAVA = [
 
 export default defineScenario({
     name: "java-move-type-undo",
-    title: "Java: Move type to new file (jdt.ls) и Ctrl+Z из любой затронутой вкладки",
+    title: "Java: Move type to new file (jdt.ls) and Ctrl+Z from any affected tab",
     open: [sampleDir, appFile],
     installVsix: ["redhat.java"],
     network: true,
@@ -76,7 +76,7 @@ export default defineScenario({
         await waitUntil(
             () => Promise.resolve(existsSync(helperFile) ? readFileSync(helperFile, "utf8") : ""),
             (text) => text.includes("class Helper"),
-            { describe: "класс Helper в новом Helper.java на диске", timeoutMs: 120_000, intervalMs: 500 },
+            { describe: "Helper class in a new Helper.java on disk", timeoutMs: 120_000, intervalMs: 500 },
         );
         await editor.waitForText((t) => t.includes("public class App {") && !t.includes("class Helper {"), {
             timeoutMs: 60_000,
@@ -87,7 +87,7 @@ export default defineScenario({
         await waitUntil(
             () => Promise.resolve(existsSync(helperFile)),
             (exists) => !exists,
-            { describe: "Helper.java убран отменой", timeoutMs: 30_000, intervalMs: 250 },
+            { describe: "Helper.java removed by undo", timeoutMs: 30_000, intervalMs: 250 },
         );
         await editor.waitForText((t) => t.includes("class Helper {"));
         await editor.capture("undone");

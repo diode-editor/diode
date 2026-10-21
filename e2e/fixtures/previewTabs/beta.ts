@@ -1,1 +1,1 @@
-export const beta = "второй файл: занимает слот предпросмотра";
+export const beta = "second file: takes over the preview slot";

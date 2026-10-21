@@ -34,7 +34,7 @@ const { repoDir } = makeRepo();
 
 export default defineScenario({
     name: "scm-staging",
-    title: "Source Control: группы ресурсов, commit input box и staging из меню",
+    title: "Source Control: resource groups, commit input box and staging from the menu",
     open: [repoDir],
     cols: 100,
     rows: 26,

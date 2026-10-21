@@ -1,7 +1,7 @@
 {
     "name": "secrets-demo",
     "displayName": "Secrets Demo",
-    "description": "Демо ExtensionContext.secrets (get/store/delete/onDidChange с персистом в user-data) и каталога vscode.extensions (all/getExtension/isActive).",
+    "description": "Demo of ExtensionContext.secrets (get/store/delete/onDidChange persisted in user-data) and the vscode.extensions catalog (all/getExtension/isActive).",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

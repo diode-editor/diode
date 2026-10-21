@@ -9,7 +9,7 @@ const sampleDir = resolve(repoRoot, "e2e", "fixtures", "excludeAnchored");
 
 export default defineScenario({
     name: "exclude-anchored",
-    title: "files.exclude: `common` прячет только корневой каталог — вложенный `nci/common` ищется",
+    title: "files.exclude: `common` hides only the root folder — the nested `nci/common` is still searched",
     open: [sampleDir],
     cols: 110,
     rows: 26,

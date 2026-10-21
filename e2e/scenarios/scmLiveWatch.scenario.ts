@@ -21,7 +21,7 @@ function makeRepo(): string {
     writeFileSync(join(repoDir, "app.ts"), "export const version = 1;\n");
     writeFileSync(join(repoDir, "util.ts"), "export const twice = (n: number) => n * 2;\n");
     git(repoDir, "add", "-A");
-    git(repoDir, "commit", "-qm", "feat: старт");
+    git(repoDir, "commit", "-qm", "feat: start");
     return repoDir;
 }
 
@@ -52,7 +52,7 @@ async function writeUntilSeen(
 
 export default defineScenario({
     name: "scm-live-watch",
-    title: "Source Control оживает от правок мимо редактора (внешний git и запись на диск)",
+    title: "Source Control picks up changes made outside the editor (external git and disk writes)",
     open: [repoDir],
     cols: 100,
     rows: 24,
@@ -68,7 +68,7 @@ export default defineScenario({
             editor,
             () => {
                 writeFileSync(join(repoDir, "app.ts"), "export const version = 2;\n");
-                writeFileSync(join(repoDir, "notes.md"), "# заметки\n");
+                writeFileSync(join(repoDir, "notes.md"), "# notes\n");
             },
             (t) => t.includes("app.ts") && t.includes("notes.md"),
         );

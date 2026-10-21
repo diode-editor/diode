@@ -1,3 +1,3 @@
 def kettleBrightSignal() -> int:
-    """Единственное место, где это имя написано руками."""
+    """The only place where this name is written by hand."""
     return 42

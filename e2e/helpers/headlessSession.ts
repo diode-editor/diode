@@ -125,7 +125,7 @@ export class HeadlessSession {
         if (this.ws.readyState === this.ws.CLOSED) return Promise.resolve();
         return new Promise<void>((resolve, reject) => {
             const timer = setTimeout(() => {
-                reject(new Error("окно не ушло на перезапуск: сокет инспектора всё ещё открыт"));
+                reject(new Error("window did not reload: the inspector socket is still open"));
             }, timeoutMs);
             this.ws.once("close", () => {
                 clearTimeout(timer);
@@ -251,7 +251,7 @@ export class HeadlessSession {
      */
     public async waitForReady(timeoutMs = 60_000): Promise<void> {
         const { ready } = await this.rpc<{ ready: boolean }>("Diode.whenReady", { timeoutMs });
-        if (!ready) throw new Error(`Diode.whenReady: редактор не готов за ${String(timeoutMs)} мс`);
+        if (!ready) throw new Error(`Diode.whenReady: editor not ready within ${String(timeoutMs)} ms`);
     }
 
     /** Output channel text (by id or label). */
@@ -402,11 +402,11 @@ async function connectOrDie(child: ChildProcess, url: string, stderr: () => stri
     const abort = new AbortController();
     const died = new Promise<never>((_, reject) => {
         child.once("error", (err) => {
-            reject(new Error(`редактор не запустился: ${err.message}`));
+            reject(new Error(`editor failed to start: ${err.message}`));
         });
         child.once("exit", (code, signal) => {
-            const how = signal === null ? `кодом ${String(code)}` : `сигналом ${signal}`;
-            reject(new Error(`редактор вышел ${how} до подключения инспектора\n${stderr().slice(-4000)}`));
+            const how = signal === null ? `with code ${String(code)}` : `on signal ${signal}`;
+            reject(new Error(`editor exited ${how} before the inspector connected\n${stderr().slice(-4000)}`));
         });
     });
     try {

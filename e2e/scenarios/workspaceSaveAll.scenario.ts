@@ -12,7 +12,7 @@ const noteFile = join(sampleDir, "notes.txt");
 
 export default defineScenario({
     name: "workspace-save-all",
-    title: "workspace.saveAll: расширение сохраняет несохранённые файлы",
+    title: "workspace.saveAll: an extension saves unsaved files",
     seedUserData: userData,
     open: [sampleDir, noteFile],
     cols: 100,
@@ -37,7 +37,7 @@ export default defineScenario({
             timeoutMs: 20_000,
         });
         const onDisk = readFileSync(noteFile, "utf8");
-        if (onDisk !== "edited draft\n") throw new Error(`notes.txt на диске не сохранён: ${JSON.stringify(onDisk)}`);
+        if (onDisk !== "edited draft\n") throw new Error(`notes.txt not saved to disk: ${JSON.stringify(onDisk)}`);
         await editor.capture("saved");
     },
 });

@@ -2,12 +2,11 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-env-collection");
 
 export default defineScenario({
     name: "extension-environment-collection",
-    title: "environmentVariableCollection: переменные расширения в окружении терминала",
+    title: "environmentVariableCollection: extension variables in the terminal environment",
     seedUserData: userData,
     cols: 120,
     rows: 24,

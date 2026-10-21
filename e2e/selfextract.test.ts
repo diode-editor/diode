@@ -53,7 +53,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
         return join(cacheHome, "diode", entries[0]);
     }
 
-    it("распаковывается в XDG_CACHE_HOME и печатает версию", () => {
+    it("extracts into XDG_CACHE_HOME and prints the version", () => {
         const result = run(["--version"]);
 
         expect(result.status).toBe(0);
@@ -62,13 +62,13 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
 
         const dir = unpackedDir();
         for (const file of ["node", "main.cjs", "diode.bundle", "lazy/yauzl.cjs", ".ready"]) {
-            expect(existsSync(join(dir, file)), `${file} должен быть распакован`).toBe(true);
+            expect(existsSync(join(dir, file)), `${file} must be extracted`).toBe(true);
         }
         // The directory is published fully ready: the marker is written before the rename.
         expect(existsSync(join(dir, ".lock"))).toBe(false);
     });
 
-    it("повторный запуск не распаковывает заново", () => {
+    it("a second run does not extract again", () => {
         run(["--version"]);
         const marker = join(unpackedDir(), "node");
         const before = statSync(marker).mtimeMs;
@@ -79,7 +79,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
         expect(statSync(marker).mtimeMs).toBe(before);
     });
 
-    it("пробрасывает код возврата приложения", () => {
+    it("propagates the application's exit code", () => {
         // Unknown flag → CliArgsError → exit 2. `exec` in the stub passes the code through as is.
         const result = run(["--definitely-not-a-flag"]);
 
@@ -87,7 +87,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
         expect(result.signal).toBeNull();
     });
 
-    it("работает из произвольного cwd", () => {
+    it("works from an arbitrary cwd", () => {
         const cwd = mkdtempSync(join(tmpdir(), "diode-elsewhere-"));
         try {
             const result = run(["--version"], { cwd });
@@ -101,7 +101,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
         }
     });
 
-    itLinuxOnly("поднимает редактор и читает diode.bundle с диска — подсветка работает", async () => {
+    itLinuxOnly("starts the editor and reads diode.bundle from disk — highlighting works", async () => {
         // user-data/HOME are isolated by usePtyApp, but XDG_CACHE_HOME stays shared
         // (warmed up by unpacking in the previous `run()` calls), so it's passed
         // explicitly: the extra env overrides the isolated cache.

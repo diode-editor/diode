@@ -26,7 +26,7 @@ exports.activate = function activate(context) {
         demo.text = "Demo 42";
     });
     register("statusBarDemo.setTooltip", () => {
-        demo.tooltip = "Подсказка демо-расширения";
+        demo.tooltip = "Demo extension tooltip";
     });
     // Hides the most recently created item: `Hidden Demo` if it exists, otherwise
     // `Demo` itself. This way the command always applies to the item in question.

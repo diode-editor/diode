@@ -2,12 +2,11 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "dialogs",
-    title: "Модальные диалоги (Workbench-компоненты): confirm-save и About",
+    title: "Modal dialogs (workbench components): confirm-save and About",
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,

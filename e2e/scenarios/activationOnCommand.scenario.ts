@@ -13,7 +13,7 @@ const notesFile = resolve(sampleDir, "notes.txt");
 
 export default defineScenario({
     name: "activation-on-command",
-    title: "Активация по onCommand: команда стокового ruff в палитре до его подъёма",
+    title: "onCommand activation: stock ruff command in the palette before it starts",
     open: [sampleDir, notesFile],
     installVsix: ["charliermarsh.ruff"],
     network: true,
@@ -22,7 +22,7 @@ export default defineScenario({
     userKeybindings: ACTIVATION_LOG_KEYBINDINGS,
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("Единственная дверь"));
+        await editor.waitForText((t) => t.includes("The only way in"));
 
         await editor.sendKey("F1");
         await editor.waitForNode("#quickInput");

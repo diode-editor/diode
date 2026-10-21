@@ -1,5 +1,5 @@
 {
-    // Задачи e2e-сценариев tasks / extension-tasks и ручной проверки:
+    // Tasks for the tasks / extension-tasks e2e scenarios and manual testing:
     //   diode e2e/fixtures/tasks → F1 «Tasks: Run Task».
     "version": "2.0.0",
     "tasks": [

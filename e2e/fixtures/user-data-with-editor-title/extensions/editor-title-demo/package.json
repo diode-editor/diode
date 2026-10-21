@@ -1,7 +1,7 @@
 {
     "name": "editor-title-demo",
     "displayName": "Editor Title Demo",
-    "description": "Демо-расширение панели действий группы (editor/title) в форме вклада Claude Code: accept/reject предложенного диффа кодиконами под setContext-ключом и пункт с SVG-иконкой под config.*-ключом.",
+    "description": "Editor group actions (editor/title) demo shaped like the Claude Code contributions: accept/reject of a proposed diff as codicons under a setContext key, and an item with an SVG icon under a config.* key.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

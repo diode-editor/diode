@@ -15,7 +15,7 @@ function hasPrompt(text: string, fromX = 0): boolean {
 
 export default defineScenario({
     name: "auxiliary-bar-terminal",
-    title: "TERMINAL во вторичной боковой панели: живой шелл справа",
+    title: "TERMINAL in the Secondary Side Bar: a live shell on the right",
     open: [repoRoot],
     cols: 120,
     rows: 32,
@@ -56,7 +56,7 @@ export default defineScenario({
         await editor.sendMouse({ action: "move", button: "left", x: part.box.x - 20, y: midY });
         await editor.sendMouse({ action: "release", button: "left", x: part.box.x - 20, y: midY });
         part = await editor.waitForNode("#auxiliarybar");
-        if (part.box.width !== 50) throw new Error(`ширина вторичной панели ${part.box.width}, ждали 50`);
+        if (part.box.width !== 50) throw new Error(`secondary side bar width ${part.box.width}, expected 50`);
         await editor.capture("resized");
 
         // Window reload: TERMINAL stays on the right, and so does its width.
@@ -64,7 +64,7 @@ export default defineScenario({
         await editor.reconnect();
         part = await editor.waitForNode("#auxiliarybar");
         await editor.waitForText((t) => t.split("\n")[1].slice(part.box.x).includes("TERMINAL"));
-        if (part.box.width !== 50) throw new Error(`после перезагрузки ширина ${part.box.width}, ждали 50`);
+        if (part.box.width !== 50) throw new Error(`width after reload ${part.box.width}, expected 50`);
         // The shell starts on activation, same as in the bottom panel.
         await editor.sendKey("Ctrl+Alt+T");
         await editor.waitForText((t) => hasPrompt(t, part.box.x));

@@ -38,13 +38,13 @@ const UNDERCURL = 8;
 // Extension-host subprocess + language server spawn — Linux-only, like
 // organizeImports / formatDocument (see docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
-    "SEA binary — Quick Fix от стокового typescript-language-server",
+    "SEA binary — Quick Fix from the stock typescript-language-server",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("Ctrl+K Ctrl+Q → «Remove import from …» убирает импорт", { timeout: 240_000 }, async () => {
+        it("Ctrl+K Ctrl+Q → 'Remove import from …' removes the import", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true, noUnusedLocals: true } }),
@@ -59,7 +59,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+                { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
             // The cursor is on the import line (opening puts it at the start of the file).
@@ -77,12 +77,12 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                     const text = frameToText(f);
                     return !text.includes("Code Actions") && !text.includes(ZETA_IMPORT) && text.includes("export const kept");
                 },
-                { describe: "импорт удалён правкой quickfix", timeoutMs: 60_000, intervalMs: 500 },
+                { describe: "import removed by the quickfix edit", timeoutMs: 60_000, intervalMs: 500 },
             );
             expect(frameToText(frame)).toContain('const bad: number = "oops";');
         });
 
-        it("Ctrl+Z после quick fix'а возвращает строку импорта дословно", { timeout: 240_000 }, async () => {
+        it("Ctrl+Z after the quick fix restores the import line verbatim", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true, noUnusedLocals: true } }),
@@ -98,7 +98,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+                { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
             // Put the cursor on the `zeta` identifier in the first line (column 16).
@@ -113,14 +113,14 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (f) => frameToText(f).includes(BOTH_IMPORT_FIXED),
-                { describe: "quickfix убрал zeta из списка импорта", timeoutMs: 60_000, intervalMs: 500 },
+                { describe: "quickfix removed zeta from the import list", timeoutMs: 60_000, intervalMs: 500 },
             );
 
             await session.key("Ctrl+Z");
             const undone = await waitUntil(
                 () => session.captureFrame(),
                 (f) => frameToText(f).includes(BOTH_IMPORT),
-                { describe: "Ctrl+Z вернул строку импорта", timeoutMs: 30_000, intervalMs: 250 },
+                { describe: "Ctrl+Z restored the import line", timeoutMs: 30_000, intervalMs: 250 },
             );
             // The scrambled buffer (`import { alphazeta,  } from …`) consists of the same
             // characters, so containment is not enough — also check it is absent.

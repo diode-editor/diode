@@ -23,9 +23,9 @@ function makeRepo(): string {
     const appFile = join(repoDir, "app.ts");
     writeFileSync(appFile, "export const version = 1;\n");
     git(repoDir, "add", "-A");
-    git(repoDir, "commit", "-qm", "feat: старт");
+    git(repoDir, "commit", "-qm", "feat: start");
     writeFileSync(appFile, "export const version = 2;\n");
-    git(repoDir, "commit", "-aqm", "fix: версия");
+    git(repoDir, "commit", "-aqm", "fix: version");
     // An on-disk edit keeps CHANGES non-empty in the frame.
     writeFileSync(appFile, "export const version = 3;\n");
     return repoDir;
@@ -37,16 +37,16 @@ async function expectExpanded(editor: ScenarioDriver, viewId: string, expanded: 
     const header = await editor.waitForNode(`#paneHeader-${viewId.replaceAll(".", "-")}`);
     const state = header.state as { expanded?: boolean; collapsible?: boolean } | undefined;
     if (state?.expanded !== expanded) {
-        throw new Error(`${viewId}: expanded=${String(state?.expanded)}, ожидалось ${String(expanded)}`);
+        throw new Error(`${viewId}: expanded=${String(state?.expanded)}, expected ${String(expanded)}`);
     }
     // Collapsible is not the same as collapsed: a merged container (one visible section) would hold `expanded: true`
     // simply because it has no chevron.
-    if (state.collapsible !== true) throw new Error(`${viewId}: секция не сворачиваемая`);
+    if (state.collapsible !== true) throw new Error(`${viewId}: section is not collapsible`);
 }
 
 export default defineScenario({
     name: "view-collapsed-default",
-    title: "Дефолт свёрнутости view: GRAPH открывается свёрнутым, выбор пользователя переживает перезагрузку",
+    title: "Default view collapse state: GRAPH opens collapsed, the user's choice survives a reload",
     open: [repoDir],
     cols: 100,
     rows: 30,
@@ -72,13 +72,13 @@ export default defineScenario({
 
         // A collapsed section takes no empty space: CHANGES took the full container height, and there are no commit
         // subjects in the frame at all.
-        if (frameToText(collapsed).includes("feat: старт")) {
-            throw new Error("свёрнутый GRAPH показал историю");
+        if (frameToText(collapsed).includes("feat: start")) {
+            throw new Error("collapsed GRAPH showed history");
         }
 
         // Click the GRAPH chevron — the history is collected, the extension gets logSetEnabled and returns the log.
         await editor.clickNode("#paneHeader-workbench-scm-graph", { dx: 3 });
-        await editor.waitForText((t) => t.includes("feat: старт") && t.includes("fix: версия"));
+        await editor.waitForText((t) => t.includes("feat: start") && t.includes("fix: version"));
         await expectExpanded(editor, "workbench.scm.graph", true);
         await editor.capture("expanded");
 
@@ -91,7 +91,7 @@ export default defineScenario({
 
         // The default did NOT override the saved choice: GRAPH is still expanded and full of history again.
         await editor.sendKey("Alt+C");
-        await editor.waitForText((t) => t.includes("feat: старт") && t.includes("fix: версия"));
+        await editor.waitForText((t) => t.includes("feat: start") && t.includes("fix: version"));
         await expectExpanded(editor, "workbench.scm.graph", true);
         await editor.capture("after-reload");
     },

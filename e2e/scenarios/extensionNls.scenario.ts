@@ -12,7 +12,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "extensionNls.txt");
 
 export default defineScenario({
     name: "extension-nls",
-    title: "NLS манифеста: человеческие имена команд стокового redhat.java в палитре",
+    title: "Manifest NLS: human-readable command names of stock redhat.java in the palette",
     open: [sampleFile],
     installVsix: ["redhat.java"],
     network: true,
@@ -25,7 +25,7 @@ export default defineScenario({
     rows: 24,
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        await editor.waitForText((t) => t.includes("Ни строчки Java"), { timeoutMs: 60_000 });
+        await editor.waitForText((t) => t.includes("Not a single line of Java"), { timeoutMs: 60_000 });
 
         await editor.sendKey("F1");
         await editor.waitForNode("#quickInput", { timeoutMs: 30_000 });
@@ -36,7 +36,7 @@ export default defineScenario({
             timeoutMs: 60_000,
         });
         if (frameToText(frame).includes("%java.")) {
-            throw new Error("extension-nls: в палитре остался nls-ключ вместо заголовка");
+            throw new Error("extension-nls: an nls key instead of a title is left in the palette");
         }
         await editor.capture("command-palette");
     },

@@ -33,7 +33,7 @@ const { repoDir } = makeRepo();
 
 export default defineScenario({
     name: "scm-progress",
-    title: "Source Control: прогресс операции — спиннер в заголовке и в кнопке",
+    title: "Source Control: operation progress — spinner in the header and in the button",
     open: [repoDir],
     cols: 100,
     rows: 26,

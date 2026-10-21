@@ -37,7 +37,7 @@ export default defineScenario({
                 await editor.sendKey("b");
             }
         }
-        if (!ghostShown) throw new Error("inline-completion: ghost text не появился за 10 попыток");
+        if (!ghostShown) throw new Error("inline-completion: ghost text did not appear in 10 attempts");
         await editor.capture("ghost");
 
         // While the text was ghost text the cursor stayed on Ln 2, so "Ln 5" proves the insertion.
@@ -64,7 +64,7 @@ export default defineScenario({
                 await editor.sendKey("g");
             }
         }
-        if (!midLineShown) throw new Error("inline-completion: призрак в середине строки не появился за 10 попыток");
+        if (!midLineShown) throw new Error("inline-completion: mid-line ghost text did not appear in 10 attempts");
         await editor.capture("ghost-mid-line");
 
         // Col 43 = 14 typed + 28 inserted + 1.

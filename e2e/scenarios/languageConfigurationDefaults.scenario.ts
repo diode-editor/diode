@@ -11,7 +11,7 @@ const makefile = resolve(repoRoot, "e2e", "fixtures", "makefileDefaults", "Makef
 
 export default defineScenario({
     name: "language-configuration-defaults",
-    title: "configurationDefaults [makefile]: Makefile открывается с табами",
+    title: "configurationDefaults [makefile]: Makefile opens with tabs",
     open: [makefile],
     cols: 100,
     rows: 20,
@@ -19,7 +19,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("build:"));
         const frame = await editor.waitForText((t) => t.includes("Tab Size: 4"));
         if (frameToText(frame).includes("Spaces:")) {
-            throw new Error("language-configuration-defaults: Makefile открылся с пробелами");
+            throw new Error("language-configuration-defaults: Makefile opened with spaces");
         }
         await editor.sendKey("End");
         await editor.sendKey("Enter");

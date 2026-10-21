@@ -1,7 +1,7 @@
 {
     "name": "sample-theme",
     "displayName": "Sample Theme",
-    "description": "Синтетическое расширение-тема для проверки магазина: три цветовые темы, без кода расширения.",
+    "description": "Synthetic theme extension for marketplace checks: three color themes, no extension code.",
     "version": "0.0.1",
     "publisher": "test",
     "engines": {

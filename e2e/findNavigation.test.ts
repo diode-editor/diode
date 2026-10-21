@@ -13,16 +13,16 @@ const files = { "notes.txt": "alpha\nbeta\nalpha\ngamma\nalpha\n" };
 async function cursor(session: HeadlessSession): Promise<string> {
     const text = frameToText(await session.captureFrame());
     const m = /Ln (\d+), Col (\d+)/u.exec(text);
-    expect(m, `в кадре нет позиции курсора:\n${text}`).not.toBeNull();
+    expect(m, `no cursor position in the frame:\n${text}`).not.toBeNull();
     return `${m![1]}:${m![2]}`;
 }
 
-describe("Find: навигация по совпадениям", () => {
+describe("Find: match navigation", () => {
     beforeAll(async () => {
         await getBinaryPath();
     }, 300_000);
 
-    it("F3 ищет дальше после закрытия виджета", async () => {
+    it("F3 keeps searching after the widget is closed", async () => {
         const { session } = await useHeadlessApp({ files, open: ["notes.txt"], cols: 100, rows: 24 });
         await session.waitForText((t) => t.includes("gamma"));
         expect(await cursor(session)).toBe("1:1");
@@ -50,7 +50,7 @@ describe("Find: навигация по совпадениям", () => {
     // Ctrl+Backspace arrives only in CSI-u form: the legacy byte 0x08 is indistinguishable from
     // Ctrl+H, so the binding itself is behind a tier gate, and the path that works everywhere is
     // Alt+Backspace (`ESC 0x7f`). The e2e environment is pinned to tier=legacy.
-    it("Alt+Backspace стирает слово в поле поиска", async () => {
+    it("Alt+Backspace deletes a word in the find input", async () => {
         const { session } = await useHeadlessApp({ files, open: ["notes.txt"], cols: 100, rows: 24 });
         await session.waitForText((t) => t.includes("gamma"));
 
@@ -62,7 +62,7 @@ describe("Find: навигация по совпадениям", () => {
         await session.waitForText((t) => t.includes("alpha ") && !t.includes("alpha beta"));
     }, 120_000);
 
-    it("F3 без запроса берёт выделенное слово", async () => {
+    it("F3 without a query uses the selected word", async () => {
         const { session } = await useHeadlessApp({ files, open: ["notes.txt"], cols: 100, rows: 24 });
         await session.waitForText((t) => t.includes("gamma"));
 

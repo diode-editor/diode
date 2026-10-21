@@ -14,7 +14,7 @@ const UNDERCURL = 8;
 
 export default defineScenario({
     name: "python-lsp",
-    title: "Python LSP из коробки: basedpyright — squiggle, hover, references",
+    title: "Out-of-the-box Python LSP: basedpyright — squiggle, hover, references",
     open: [sampleDir, mainFile],
     installVsix: ["detachhead.basedpyright"],
     network: true,
@@ -28,7 +28,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от basedpyright", timeoutMs: 180_000, intervalMs: 500 },
+            { describe: "basedpyright undercurl squiggle", timeoutMs: 180_000, intervalMs: 500 },
         );
         await editor.capture("diagnostics");
 

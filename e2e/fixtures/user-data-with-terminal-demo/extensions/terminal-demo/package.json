@@ -1,7 +1,7 @@
 {
     "name": "terminal-demo",
     "displayName": "Terminal Demo",
-    "description": "Демо-расширение терминалов: createTerminal + sendText + show, как cleanup-команды bazel-java и Code Runner; pty-терминал лога, как Bazel Build Status; window.terminals и события в статус-баре.",
+    "description": "Terminals demo: createTerminal + sendText + show, like the bazel-java cleanup commands and Code Runner; a pty log terminal, like Bazel Build Status; window.terminals and events in the status bar.",
     "version": "0.0.1",
     "publisher": "test",
     "main": "./extension.js",

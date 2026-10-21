@@ -17,7 +17,7 @@ const MAIN_COLUMN = 8;
 
 export default defineScenario({
     name: "explorer-compact-segments",
-    title: "explorer.compactFolders: сегменты компактной строки — выбор и действия в папку сегмента",
+    title: "explorer.compactFolders: compact row segments — selection and actions target the segment's folder",
     open: [workspace],
     cols: 100,
     rows: 20,
@@ -52,7 +52,7 @@ export default defineScenario({
             (t) => t.includes("src/main/java") && !t.includes("src/main/java/com") && t.includes("Probe.java"),
         );
         if (!existsSync(join(workspace, "src", "main", "java", "Probe.java"))) {
-            throw new Error("New File… на сегменте «java» создал файл не в src/main/java");
+            throw new Error("New File… on the 'java' segment created the file outside src/main/java");
         }
         await editor.capture("new-file-in-segment");
     },

@@ -24,7 +24,7 @@ const UNDERCURL = 8;
 
 export default defineScenario({
     name: "bulk-workspace-edit",
-    title: "Bulk workspace edit: code action правит ЗАКРЫТЫЙ файл (Declare method)",
+    title: "Bulk workspace edit: a code action edits a CLOSED file (Declare method)",
     open: [sampleDir, mainFile],
     settings: {
         "diode.lsp.typescript.serverPath": require_.resolve("typescript-language-server/lib/cli.mjs"),
@@ -44,7 +44,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+            { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
         );
         await editor.capture("before");
 
@@ -63,7 +63,7 @@ export default defineScenario({
         await waitUntil(
             () => Promise.resolve(readFileSync(closedFile, "utf8")),
             (text) => text.includes("greet"),
-            { describe: "метод greet дописан в закрытый b.ts", timeoutMs: 60_000, intervalMs: 250 },
+            { describe: "greet method appended to the closed b.ts", timeoutMs: 60_000, intervalMs: 250 },
         );
 
         await editor.sendKey("Ctrl+P");

@@ -26,13 +26,13 @@ const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply: number = greet(
 const UNDERCURL = 8;
 
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
-    "SEA binary — completion от стокового typescript-language-server",
+    "SEA binary — completion from stock typescript-language-server",
     () => {
         beforeAll(async () => {
             await getBinaryPath();
         }, 300_000);
 
-        it("точка открывает попап с членами типа, Ctrl+Space — панель описания", { timeout: 240_000 }, async () => {
+        it("a dot opens the popup with type members, Ctrl+Space the details pane", { timeout: 240_000 }, async () => {
             const { session } = await useHeadlessApp({
                 files: {
                     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
@@ -47,7 +47,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-                { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+                { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
             // Go to the end of the file, start a new line, type `reply.`.

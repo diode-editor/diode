@@ -9,7 +9,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "theme-swap",
-    title: "Смена темы: токены + корневой var-scope (Н3)",
+    title: "Theme swap: tokens + root var scope (N3)",
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,

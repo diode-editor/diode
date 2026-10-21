@@ -5,7 +5,6 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "lspSample");
 const mainFile = resolve(sampleDir, "main.ts");
@@ -38,7 +37,7 @@ export default defineScenario({
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
-            { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
+            { describe: "undercurl squiggle from tsserver", timeoutMs: 120_000, intervalMs: 500 },
         );
         await editor.sendKey("Ctrl+J");
         await editor.waitForText((t) => /not assignable/i.test(t));

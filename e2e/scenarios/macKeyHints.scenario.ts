@@ -25,7 +25,7 @@ function makeRepo(): string {
 
 export default defineScenario({
     name: "mac-key-hints",
-    title: "Мак: подсказка ⌘Enter в поле коммита — из бинда, а не литералом",
+    title: "Mac: the ⌘Enter hint in the commit input comes from the keybinding, not a literal",
     open: [makeRepo()],
     settings: {
         "keyboard.platform": "mac",

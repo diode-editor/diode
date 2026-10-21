@@ -23,7 +23,7 @@ export async function scenarioSuite(index: number | "heavy"): Promise<void> {
     );
 
     describe(`screenshot scenarios ${String(index)}/${String(SCENARIO_SLICES)}`, () => {
-        it("срез непустой, а файлов срезов ровно столько, сколько срезов", () => {
+        it("the slice is non-empty and there are exactly as many slice files as slices", () => {
             expect(scenarios.length).toBeGreaterThan(0);
             for (const heavy of HEAVY_SCENARIOS) expect(scenarioFiles()).toContain(heavy);
             // Otherwise some scenarios would silently drop out of the run: slice 5 of 4 is empty, and a forgotten slice

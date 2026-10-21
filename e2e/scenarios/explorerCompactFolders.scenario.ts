@@ -9,7 +9,7 @@ const appFile = resolve(sampleDir, "src", "main", "java", "com", "example", "App
 
 export default defineScenario({
     name: "explorer-compact-folders",
-    title: "explorer.compactFolders: цепочка единственных папок — одной строкой",
+    title: "explorer.compactFolders: a chain of single-child folders on one row",
     open: [sampleDir, appFile],
     cols: 110,
     rows: 20,

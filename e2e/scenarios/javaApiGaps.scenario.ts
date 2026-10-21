@@ -11,7 +11,7 @@ const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-java-api-p
 
 export default defineScenario({
     name: "java-api-gaps",
-    title: "env.uiKind, workspace.fs, findFiles и заглушка custom editor в одном activate()",
+    title: "env.uiKind, workspace.fs, findFiles and the custom editor stub in one activate()",
     seedUserData: userData,
     open: [sampleDir, sampleFile],
     cols: 120,
@@ -22,7 +22,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Java API sample"), { timeoutMs: 20_000 });
 
         // A failure word in the marker means some step failed.
-        await editor.waitForText((t) => t.includes("java api: готово"), { timeoutMs: 30_000 });
+        await editor.waitForText((t) => t.includes("java api: done"), { timeoutMs: 30_000 });
         await editor.capture("activated");
 
         // Hide the sidebar: the panel does not wrap, so with the explorer open the tail of a long line falls
@@ -44,10 +44,11 @@ export default defineScenario({
         // `exclude: undefined` applies `files.exclude` and drops the other pom, while `exclude: null` finds it: so the
         // file exists and it is our filtering that drops it.
         await editor.waitForText(
-            (t) => t.includes("по умолчанию=[pom.xml]") && t.includes("без исключений=2") && t.includes("maxResults1=1"),
+            (t) =>
+                t.includes("default=[pom.xml]") && t.includes("noExcludes=2") && t.includes("maxResults1=1"),
             { timeoutMs: 15_000 },
         );
-        await editor.waitForText((t) => t.includes("итог: все шаги прошли"), { timeoutMs: 15_000 });
+        await editor.waitForText((t) => t.includes("result: all steps passed"), { timeoutMs: 15_000 });
         await editor.capture("report");
     },
 });

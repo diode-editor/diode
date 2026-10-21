@@ -5,7 +5,6 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
@@ -30,7 +29,7 @@ const repoDir = makeRepo();
 
 export default defineScenario({
     name: "explorer-git-badge",
-    title: "Буква git-статуса в дереве отступает от правого края",
+    title: "The git status letter in the tree is inset from the right edge",
     open: [repoDir],
     cols: 100,
     rows: 20,

@@ -20,7 +20,7 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 
 export default defineScenario({
     name: "user-overrides-extension-keybinding",
-    title: "Пользовательский бинд сильнее бинда расширения на той же комбинации",
+    title: "A user keybinding beats an extension keybinding on the same chord",
     seedUserData: userData,
     userKeybindings: [{ key: "alt+q", command: "workbench.action.quickOpen", args: "AGENTS" }],
     open: [sampleFile],
@@ -41,7 +41,7 @@ export default defineScenario({
         await editor.capture("user-wins");
 
         if (!frame.includes("armed · fired 0")) {
-            throw new Error("alt+q ушёл бинду расширения: пользовательский слой не сильнее слоя extension");
+            throw new Error("alt+q went to the extension keybinding: the user layer does not beat the extension layer");
         }
     },
 });

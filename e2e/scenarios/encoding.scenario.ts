@@ -2,7 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-
+const PRIVET_MIR = "\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440!"; // "Privet, mir!"
 const cp1251File = resolve(repoRoot, "e2e", "fixtures", "cp1251.txt");
 
 export default defineScenario({
@@ -33,7 +33,7 @@ export default defineScenario({
         await editor.capture("picker-encoding");
         await editor.sendKey("Enter");
 
-        await editor.waitForText((t) => t.includes("Привет, мир!") && t.includes("Windows 1251"));
+        await editor.waitForText((t) => t.includes(PRIVET_MIR) && t.includes("Windows 1251"));
         await editor.capture("decoded-cp1251");
     },
 });

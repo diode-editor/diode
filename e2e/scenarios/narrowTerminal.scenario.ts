@@ -8,7 +8,7 @@ const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
 export default defineScenario({
     name: "narrow-terminal",
-    title: "Тесный терминал: раскладка остаётся внутри границ (Н2)",
+    title: "Narrow terminal: layout stays within bounds (N2)",
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,

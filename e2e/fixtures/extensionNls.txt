@@ -1,4 +1,4 @@
-Ни строчки Java в этом файле.
+Not a single line of Java in this file.
 
-Расширение redhat.java установлено, но НЕ активировано: заголовки его команд в
-палитре приезжают из манифеста, а не из работающего jdt.ls.
+The redhat.java extension is installed but NOT activated: its command titles in
+the command palette come from the manifest, not from a running jdt.ls.

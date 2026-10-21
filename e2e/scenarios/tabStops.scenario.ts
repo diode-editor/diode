@@ -9,7 +9,7 @@ const demoFile = resolve(repoRoot, "e2e", "fixtures", "tabStopsDemo.txt");
 
 export default defineScenario({
     name: "tab-stops",
-    title: "Tab выравнивает каретку по табстопам",
+    title: "Tab aligns the cursor to tab stops",
     open: [repoRoot, demoFile],
     cols: 100,
     rows: 24,

@@ -28,15 +28,15 @@ interface IActivationLogUi {
 export async function openActivationLog(ui: IActivationLogUi): Promise<void> {
     await ui.sendKey("Alt+B");
     await ui.sendKey("Alt+U");
-    await waitPastToasts(ui, (t) => t.includes("OUTPUT"), "вкладка OUTPUT");
+    await waitPastToasts(ui, (t) => t.includes("OUTPUT"), "OUTPUT tab");
     await ui.sendKey("Alt+J");
     // The channel label is on the RIGHT of the header, right under the toast (CI flake: the log line was
     // in the frame, but ruff's toast covered "Extension Host").
-    await waitPastToasts(ui, (t) => t.includes("Extension Host"), "канал Extension Host");
+    await waitPastToasts(ui, (t) => t.includes("Extension Host"), "Extension Host channel");
 }
 
 export async function waitForActivationLine(ui: IActivationLogUi, needle: string): Promise<void> {
-    await waitPastToasts(ui, (t) => t.includes(needle), `строка журнала «${needle}»`);
+    await waitPastToasts(ui, (t) => t.includes(needle), `log line "${needle}"`);
     // One more clear before the frame: the toast may return between the check and
     // the screenshot, and the demo would show it instead of the log.
     await ui.sendKey("Alt+Y");
@@ -61,5 +61,5 @@ async function waitPastToasts(
             // Not there yet (or the toast came back) — retry.
         }
     }
-    throw new Error(`activation log: не дождались — ${what}`);
+    throw new Error(`activation log: timed out waiting for ${what}`);
 }

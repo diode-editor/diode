@@ -58,7 +58,7 @@ export default defineScenario({
                     // Still folded — press the chord again.
                 }
             }
-            throw new Error("region-folding: unfoldAll не развернул документ за 10 попыток");
+            throw new Error("region-folding: unfoldAll did not unfold the document in 10 attempts");
         };
         let regionFolded = false;
         for (let attempt = 0; attempt < 20 && !regionFolded; attempt++) {
@@ -82,7 +82,7 @@ export default defineScenario({
             }
         }
         if (!regionFolded) {
-            throw new Error("region-folding: провайдерный фолд так и не появился за 20 попыток");
+            throw new Error("region-folding: the provider fold did not appear in 20 attempts");
         }
         await editor.capture("region-folded");
 
