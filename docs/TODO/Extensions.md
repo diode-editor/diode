@@ -20,6 +20,20 @@
 - [ ] Запись настройки в секцию языка (`WorkspaceConfiguration.update(…, overrideInLanguage)`) — пока отказ.
 - [ ] Конфликты точек вклада: сейчас резолвятся только по id расширения, не по перекрывающимся language ids.
 
+### Не типизированы в `IExtensionManifest`
+
+Секции ниже манифест принимает как `unknown` (индексная сигнатура `contributes`); тип и потребитель
+появляются вместе с фичей. `iconThemes`, `snippets`, `viewsContainers` — пунктами выше и ниже.
+
+- [ ] `viewsWelcome`
+- [ ] `colors`
+- [ ] `debuggers`, `breakpoints`, `problemMatchers`, `problemPatterns`
+- [ ] `jsonValidation`
+- [ ] `terminal`, `walkthroughs`
+- [ ] `notebooks`, `notebookRenderer`
+- [ ] `customEditors`, `authentication`, `resourceLabelFormatters`
+- [ ] `typescriptServerPlugins`, `htmlLanguageParticipants`
+
 ## Активация и lifecycle
 
 - [ ] Кнопки на тосте неудовлетворённой зависимости, как у эталона (`mainThreadExtensionService`):

@@ -87,42 +87,10 @@ export interface IExtensionContributions {
     /** Views are not rendered yet (docs/TODO/Extensions.md); only the `<id>.focus` command is taken. */
     readonly views?: Readonly<Record<string, readonly IViewContribution[]>>;
 
-    // ── TODO(extensions phase 2+): uncomment as implemented ──
-    //
-    // readonly iconThemes?: readonly IIconThemeContribution[];
-    // readonly productIconThemes?: readonly IProductIconThemeContribution[];
-    //
-    // readonly snippets?: readonly ISnippetContribution[];
-    //
-    // readonly viewsContainers?: Readonly<Record<string, readonly IViewContainerContribution[]>>;
-    // readonly viewsWelcome?: readonly IViewWelcomeContribution[];
-    //
-    // readonly colors?: readonly IColorContribution[];
-    //
-    // readonly debuggers?: readonly IDebuggerContribution[];
-    // readonly breakpoints?: readonly IBreakpointContribution[];
-    // readonly problemMatchers?: readonly IProblemMatcherContribution[];
-    // readonly problemPatterns?: readonly IProblemPatternContribution[];
-    //
-    // readonly jsonValidation?: readonly IJsonValidationContribution[];
-    //
-    // readonly terminal?: ITerminalContribution;
-    // readonly walkthroughs?: readonly IWalkthroughContribution[];
-    //
-    // readonly notebooks?: readonly INotebookContribution[];
-    // readonly notebookRenderer?: readonly INotebookRendererContribution[];
-    //
-    // readonly customEditors?: readonly ICustomEditorContribution[];
-    // readonly authentication?: readonly IAuthenticationContribution[];
-    // readonly resourceLabelFormatters?: readonly IResourceLabelFormatterContribution[];
-    //
     /** Not strictly typed: the manifest is foreign data, the registrar validates it. */
     readonly semanticTokenTypes?: unknown;
     readonly semanticTokenModifiers?: unknown;
     readonly semanticTokenScopes?: unknown;
-    //
-    // readonly typescriptServerPlugins?: readonly ITypescriptServerPluginContribution[];
-    // readonly htmlLanguageParticipants?: readonly IHtmlLanguageParticipantContribution[];
 
     readonly [key: string]: unknown;
 }
