@@ -5,16 +5,13 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Organize Imports поверх стокового typescript-language-server (#196):
-// импорты в обратном порядке пересортировываются source-действием сервера.
-// Команда вызывается через палитру — как пользователь (Shift+Alt+O живёт
-// только на kitty/csi-u, key-DSL headless-сессии его не сериализует).
+// #196. Через палитру: Shift+Alt+O живёт только на kitty/csi-u, key-DSL headless-сессии его не сериализует.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "organizeSample");
 const mainFile = resolve(sampleDir, "main.ts");
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
+/** StyleFlags.Undercurl. */
 const UNDERCURL = 8;
 
 const ALPHA_IMPORT = 'import { alpha } from "./alpha";';
@@ -35,7 +32,7 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes(ZETA_IMPORT));
 
-        // Readiness: undercurl от НАСТОЯЩЕГО tsserver'а (ошибка типов в main.ts).
+        // Readiness: undercurl от настоящего tsserver'а.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
@@ -43,7 +40,6 @@ export default defineScenario({
         );
         await editor.capture("before");
 
-        // Команда — через палитру (Quick Open + префикс «>»), как пользователь.
         await editor.sendKey("Ctrl+P");
         await editor.sendText(">Organize Imports");
         await editor.waitForText((t) => t.includes("Organize Imports"));

@@ -16,38 +16,16 @@ export interface DiodeSessionOptions {
     cols?: number;
     rows?: number;
     env?: Record<string, string>;
-    /**
-     * Working directory for the spawned process. Extensions see this as
-     * `workspace.workspaceFolders[0]` (the extension host derives folders from
-     * `process.cwd()`), which matters e.g. for `EditorConfig.generate`.
-     */
+    /** Расширения видят его как `workspaceFolders[0]`: хост выводит папки из `process.cwd()`. */
     cwd?: string;
-    /**
-     * Start the real app with the TUIDom inspector enabled. The harness picks a
-     * free port, injects `--inspect-tui=127.0.0.1:<port>` into the args and lets
-     * assertions read the live document tree via {@link DiodeSession.getDocument}
-     * / {@link DiodeSession.waitForDocument} — no ANSI-screen parsing needed.
-     */
+    /** Инспектор TUIDom на свободном порту: дерево читается через {@link DiodeSession.getDocument}. */
     inspect?: boolean;
-    /**
-     * Бинарь, который запускаем. По умолчанию — SEA (`getBinaryPath()`).
-     * Переопределяется, чтобы прогнать те же сценарии против self-extract-сборки
-     * (см. `getSelfExtractPath()` и `selfextract.test.ts`).
-     */
+    /** По умолчанию — SEA (`getBinaryPath()`); self-extract-сборка — для `selfextract.test.ts`. */
     binary?: string;
-    /**
-     * Хук на каждый чанк stdout, вызывается синхронно в момент прихода данных.
-     * Нужен бенчмаркам (`e2e/bench/`): они записывают таймстемп каждого чанка,
-     * чтобы восстановить момент появления содержимого на экране точнее, чем
-     * позволяет поллинг `waitFor`.
-     */
+    /** Синхронно в момент прихода чанка: бенчи ставят таймстемпы точнее поллинга `waitFor`. */
     onData?: (data: string) => void;
 }
 
-/**
- * Wraps a `node-pty` spawn of the SEA binary, accumulates stdout for ANSI
- * parsing and provides convenience methods for e2e assertions.
- */
 export class DiodeSession {
     public readonly cols: number;
     public readonly rows: number;
@@ -67,14 +45,9 @@ export class DiodeSession {
         const binary = options.binary ?? (await getBinaryPath());
         const cols = options.cols ?? 120;
         const rows = options.rows ?? 32;
-        // Терминальная идентичность (TERM, маркеры kitty/tmux/ssh) пинуется к
-        // детерминированному baseline — иначе keyboard-tier и вывод зависят от
-        // машины, на которой гоняется e2e (см. hermeticEnv.ts).
         const sessionTag = randomUUID();
         const env = hermeticSpawnEnv({ ...options.env, [SESSION_MARKER_ENV]: sessionTag });
 
-        // Launch exactly like the other e2e tests; when inspecting, the only
-        // difference is an injected --inspect-tui flag on a free loopback port.
         const args = [...options.args];
         let inspectorPort: number | null = null;
         if (options.inspect === true) {
@@ -150,10 +123,7 @@ export class DiodeSession {
         if (!this.exited) this.term.write(input);
     }
 
-    /**
-     * Resolves once `predicate(parsedScreen)` returns true AND there are no new
-     * bytes for `stableMs`. Throws on timeout.
-     */
+    /** Резолвится, когда предикат истинен И нет новых байт `stableMs`. */
     public async waitFor(
         predicate: (screen: AnsiScreen) => boolean,
         opts: { timeoutMs?: number; stableMs?: number } = {},
@@ -161,18 +131,14 @@ export class DiodeSession {
         const timeoutMs = opts.timeoutMs ?? (process.platform === "win32" ? 30_000 : 10_000);
         const stableMs = opts.stableMs ?? 150;
         const deadline = Date.now() + timeoutMs;
-        // On Windows, ConPTY can inject clearing sequences after each resize that
-        // cause the app's delta renderer to miss cells. Do up to 5 resize cycles so
-        // the app eventually resets prevGrid and issues a full redraw that lands
-        // AFTER the ConPTY injections have settled. The 1.2 s sleep after the
-        // second resize gives ConPTY and the app enough time to finish.
+        // Windows: ConPTY после resize вставляет очищающие последовательности, и дельта-рендерер теряет
+        // ячейки. До 5 циклов resize — пока полная перерисовка не ляжет ПОСЛЕ вставок ConPTY.
         let winKicksLeft = process.platform === "win32" ? 5 : 0;
         let winNextKickAt = process.platform === "win32" ? Date.now() + 500 : Infinity;
 
         while (Date.now() < deadline) {
             const screen = this.parseScreen();
             if (predicate(screen)) {
-                // Wait for quiescence to make sure the frame is fully flushed.
                 const sizeBefore = this.buffer.length;
                 await sleep(stableMs);
                 if (this.buffer.length === sizeBefore) {
@@ -196,7 +162,6 @@ export class DiodeSession {
         );
     }
 
-    /** Lazily open (and cache) the inspector WebSocket, retrying until it's up. */
     private async ensureInspector(): Promise<WebSocket> {
         if (this.inspectorPort === null) {
             throw new Error("DiodeSession was started without { inspect: true }");
@@ -207,16 +172,12 @@ export class DiodeSession {
         return this.inspectorWs;
     }
 
-    /** Fetch the current document tree from the inspector. Requires `inspect: true`. */
+    /** Требует `inspect: true`. */
     public async getDocument(): Promise<GetDocumentResult> {
         const ws = await this.ensureInspector();
         return getDocument(ws);
     }
 
-    /**
-     * Poll the inspector's document tree until `predicate(root)` holds, then
-     * return the matching root. The inspector-side analogue of {@link waitFor}.
-     */
     public async waitForDocument(
         predicate: (root: NodeSnapshot) => boolean,
         opts: { timeoutMs?: number; intervalMs?: number } = {},
@@ -295,9 +256,7 @@ export class DiodeSession {
         }
         // Группе — и после выхода лидера: помощники в ней сами не уходят.
         if (process.platform !== "win32") killGroup(group, "SIGKILL");
-        // If onExit still hasn't fired (can happen on Windows when ConPTY
-        // terminates the process without propagating the exit event), mark the
-        // session as disposed so callers are not left hanging.
+        // Под Windows ConPTY может убить процесс без события exit — не оставляем вызывающих висеть.
         if (!this.exited) {
             this.exited = true;
             for (const w of this.waiters.splice(0)) w();

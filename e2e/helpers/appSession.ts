@@ -8,128 +8,72 @@ import { HeadlessSession, type HeadlessSessionOptions } from "./headlessSession.
 import { reapSession } from "./processGroup.ts";
 import { DiodeSession } from "./runDiode.ts";
 
-// ── Hermetic app session ─────────────────────────────────────────────────────
-// Единственная реализация изолированного запуска настоящего бинаря для e2e.
-// Раньше изоляция («временный --user-data-dir + keybindings.json») жила внутри
-// `runScenario`, наружу не торчала, и половина сьютов стартовала против реального
-// `~/.diode`: восстанавливали чужую сессию, видели чужие расширения, писали в
-// корзину и `diode.log` разработчика. Здесь один временный корень изолирует всё:
+// Единственная реализация изолированного запуска бинаря для e2e: без неё сьюты стартовали против
+// реального `~/.diode` (чужая сессия, чужие расширения, корзина и `diode.log` разработчика).
 //
 //     <root>/
 //       user-data-dir/   → --user-data-dir (settings, keybindings, globalState, extensions)
 //       home/            → HOME/USERPROFILE + XDG_{DATA,CACHE,CONFIG}_HOME (корзина, кеши)
 //       workspace/       → cwd процесса (diode.log, ext-host folders) + сид-воркспейс
-//
-// Два транспорта поверх одного окружения: `startHeadlessApp` (инспектор, основной
-// путь) и `startPtyApp` (ANSI-уровень, для sea-*). Изоляция — в одном месте.
 
 /** Сид-файл в изолированный воркспейс: относительный путь → текст (utf-8) или байты как есть (файл в чужой кодировке). */
 export type SeedFiles = Readonly<Record<string, string | Uint8Array>>;
 
 export interface AppEnvOptions {
-    /** Сид-файлы воркспейса (относительные пути; родители создаются). */
+    /** Относительные пути; родители создаются. */
     files?: SeedFiles;
-    /** settings.json активного профиля — объект (сериализуется) или готовая строка. */
     settings?: Readonly<Record<string, unknown>> | string;
-    /** keybindings.json активного профиля. */
     keybindings?: readonly { key: string; command: string; when?: string; args?: unknown }[];
-    /**
-     * Что установить до запуска (тот же путь, что `--install-extension`): путь к
-     * `.vsix` либо id записи из публичного магазина — различение как у CLI, по
-     * суффиксу `.vsix`. Установка по id ходит в сеть.
-     */
+    /** Путь к `.vsix` или id из публичного магазина (различение по суффиксу, как у CLI); id ходит в сеть. */
     installVsix?: readonly string[];
-    /**
-     * Каталог-фикстура user-data-dir, чьё содержимое копируется в изолированный
-     * `--user-data-dir` перед запуском (например `extensions/<id>` с уже
-     * распакованным расширением). Копия, а не сам каталог, — чтобы состояние
-     * сессии не писалось обратно в закоммиченную фикстуру.
-     */
+    /** Копируется в изолированный `--user-data-dir` — чтобы сессия не писала в закоммиченную фикстуру. */
     seedUserData?: string;
     /**
-     * Что открыть. Относительные пути резолвятся от изолированного воркспейса,
-     * абсолютные — как есть (можно открыть repo-фикстуру, сохранив изоляцию
-     * user-data/home). Поле опущено — каталог воркспейса (workspaceFolder).
-     * Пустой массив — ЯВНО «без позиционных аргументов»: голый `diode`, пустое окно.
+     * Относительные пути — от изолированного воркспейса. Опущено — сам воркспейс (workspaceFolder);
+     * пустой массив — ЯВНО голый `diode`, пустое окно.
      */
     open?: readonly string[];
-    /** Дополнительные CLI-флаги (кроме headless/inspect-tui — их ставит транспорт). */
+    /** Кроме headless/inspect-tui — их ставит транспорт. */
     extraArgs?: readonly string[];
-    /** Доп. переменные окружения поверх изолированных. */
     env?: Readonly<Record<string, string>>;
-    /**
-     * Переиспользовать существующий корень (тесты на рестарт: второй запуск видит
-     * состояние первого). Обычно — значение `root` от прошлой сессии.
-     */
+    /** Корень прошлой сессии — тесты на рестарт. */
     root?: string;
-    /** Не удалять корень при `dispose` — для рестарта и пост-мортема. */
     keepRoot?: boolean;
-    /**
-     * Не изолировать HOME/XDG (оставить реальные). По умолчанию `true` —
-     * изолируем. Опт-аут для редкого теста, которому нужен настоящий HOME.
-     */
+    /** По умолчанию изолируем; `false` — для теста, которому нужен настоящий HOME. */
     isolateHome?: boolean;
-    /**
-     * cwd процесса. По умолчанию — изолированный воркспейс (`diode.log` и
-     * ext-host folders изолируются). Переопределяется, когда тест/сценарий
-     * должен стартовать из конкретного каталога (сценарии — из repoRoot).
-     */
+    /** По умолчанию — изолированный воркспейс (туда же `diode.log`); сценарии стартуют из repoRoot. */
     cwd?: string;
     cols?: number;
     rows?: number;
 }
 
-/** Разложенное изолированное окружение: пути, аргументы, env, уборка. */
 export interface AppEnv {
-    /** Временный корень сессии. */
     readonly root: string;
-    /** Значение `--user-data-dir`. */
     readonly userDataDir: string;
-    /** Изолированный HOME (или реальный, если `isolateHome: false`). */
     readonly home: string;
-    /** Каталог воркспейса — cwd процесса и (по умолчанию) workspaceFolder. */
+    /** cwd процесса и (по умолчанию) workspaceFolder. */
     readonly workspaceDir: string;
-    /** Позиционные аргументы (что открыть). */
     readonly args: string[];
-    /** Env для спавна. */
     readonly env: Record<string, string>;
-    /** Удаляет корень (если не `keepRoot`). */
     dispose(): void;
 }
 
-/** Раскладка User-каталога внутри `--user-data-dir` (см. resolveUserDataPaths). */
+/** Зеркало раскладки `resolveUserDataPaths`. */
 function userProfileDir(userDataDir: string): string {
     return join(userDataDir, "user-data", "User");
 }
 
 /**
- * Настройки, которые изолированное окружение ставит само, по платформе — и
- * только тогда, когда тест не управляет `settings.json` сам.
- *
- * На Windows-раннере встроенный TypeScript-сервер не поднимается вовсе
- * («Server initialization failed … connection got disposed»), и все e2e-сьюты
- * TS-LSP там уже пропускаются (`skipIf(process.platform === "win32" …)`). Пока
- * его ошибка уходила только в лог, это никого не задевало; теперь сообщения
- * расширений ВИДНЫ, и error-тосты нерабочего клиента занимают правый нижний
- * угол — то есть роняют сценарии, к языковому серверу отношения не имеющие.
- * Гасим клиент там, где он всё равно нерабочий; сам его запуск на Windows —
- * отдельная задача.
- *
- * Тесту, который прислал свои настройки, мы в файл не дописываем НИЧЕГО: такие
- * тесты сверяют его содержимое дословно (`extensionTheme.test.ts` — «настройка не
- * переписана»). Если такой тест однажды споткнётся о тост нерабочего клиента, он
- * гасит его у себя сам, этой же настройкой.
+ * На Windows встроенный TS-сервер не поднимается («Server initialization failed …»), а его
+ * error-тосты роняют сценарии, к LSP отношения не имеющие, — там клиент гасим. Тесту со своими
+ * настройками не дописываем НИЧЕГО: такие сверяют файл дословно (`extensionTheme.test.ts`).
  */
 function platformSettingDefaults(explicit: AppEnvOptions["settings"]): Record<string, unknown> {
     if (explicit !== undefined || process.platform !== "win32") return {};
     return { "diode.lsp.typescript.enabled": false };
 }
 
-/**
- * Собирает изолированное окружение: корень, подкаталоги, сид-файлы, settings и
- * keybindings, устанавливает `.vsix`. Ничего не запускает — только готовит FS и
- * возвращает аргументы/env для транспорта.
- */
+/** Только готовит FS и возвращает аргументы/env для транспорта — ничего не запускает. */
 export async function prepareAppEnv(options: AppEnvOptions = {}): Promise<AppEnv> {
     const isolateHome = options.isolateHome !== false;
     const root = options.root ?? mkdtempSync(join(tmpdir(), "diode-e2e-"));
@@ -140,21 +84,16 @@ export async function prepareAppEnv(options: AppEnvOptions = {}): Promise<AppEnv
     mkdirSync(workspaceDir, { recursive: true });
     if (isolateHome) mkdirSync(home, { recursive: true });
 
-    // Копия фикстуры user-data-dir (расширения/настройки) в изолированный корень.
     if (options.seedUserData !== undefined) {
         cpSync(options.seedUserData, userDataDir, { recursive: true });
     }
 
-    // Сид-файлы воркспейса.
     for (const [rel, content] of Object.entries(options.files ?? {})) {
         const file = join(workspaceDir, rel);
         mkdirSync(join(file, ".."), { recursive: true });
         writeFileSync(file, content);
     }
 
-    // settings.json / keybindings.json активного профиля. Настройки теста идут в
-    // файл как есть; платформенные дефолты (см. ниже) добавляются только когда
-    // своих настроек тест не прислал.
     const settings = options.settings ?? platformSettingDefaults(options.settings);
     const hasSettings = typeof settings === "string" || Object.keys(settings).length > 0;
     if (hasSettings || options.keybindings !== undefined) {
@@ -174,10 +113,6 @@ export async function prepareAppEnv(options: AppEnvOptions = {}): Promise<AppEnv
         await installExtension(userDataDir, vsix);
     }
 
-    // Что открыть: относительное — от воркспейса, абсолютное — как есть; поле
-    // опущено — сам каталог воркспейса (становится workspaceFolder). ПУСТОЙ
-    // массив — это не «по умолчанию», а явное «без позиционных аргументов»:
-    // запуск голого `diode`, поднимающего пустое окно.
     const opens =
         options.open !== undefined
             ? options.open.map((p) => (isAbsoluteLike(p) ? p : join(workspaceDir, p)))
@@ -205,9 +140,7 @@ function isAbsoluteLike(p: string): boolean {
 }
 
 /**
- * Изолированное env: HOME/XDG внутрь корня. Терминальную идентичность
- * ($TERM, маркеры kitty/tmux/ssh) здесь не трогаем — её пинует к
- * детерминированному baseline сам спаун сессии
+ * HOME/XDG — внутрь корня. Терминальную идентичность пинует сам спаун сессии
  * ({@link import("./hermeticEnv.ts").hermeticSpawnEnv}), последним шагом мержа.
  */
 function buildEnv(home: string, isolateHome: boolean, extra?: Readonly<Record<string, string>>): Record<string, string> {
@@ -218,11 +151,7 @@ function buildEnv(home: string, isolateHome: boolean, extra?: Readonly<Record<st
     return env;
 }
 
-/**
- * Переменные, перенаправляющие HOME/XDG внутрь `home`. Ловят пути мимо
- * `--user-data-dir`: корзину (`trashService`), кеш self-extract, шелл-конфиги.
- * Экспортируется для сьютов со своей проводкой запуска (editorconfig-stock).
- */
+/** Ловят пути мимо `--user-data-dir`: корзину (`trashService`), кеш self-extract, шелл-конфиги. */
 export function homeIsolationEnv(home: string): Record<string, string> {
     return {
         HOME: home,
@@ -234,9 +163,8 @@ export function homeIsolationEnv(home: string): Record<string, string> {
 }
 
 /**
- * Устанавливает `.vsix` в user-data-dir через реальный CLI (`--install-extension`).
- * Реджектит на ненулевом коде, чтобы битая фикстура роняла сессию, а не давала
- * молча незаряженное расширение.
+ * Реджектит на ненулевом коде: битая фикстура должна ронять сессию, а не давать молча
+ * незаряженное расширение.
  */
 async function installExtension(userDataDir: string, vsix: string): Promise<void> {
     const binary = await getBinaryPath();
@@ -255,15 +183,8 @@ async function installExtension(userDataDir: string, vsix: string): Promise<void
 }
 
 /**
- * Удаляет временный каталог, переживая Windows.
- *
- * `dispose()` завершает процесс редактора, но Windows отдаёт хендлы не мгновенно
- * — и `rmSync` падает с `EPERM`. `maxRetries`/`retryDelay` — штатный ответ Node
- * ровно на этот класс ошибок. Если и после ретраев не вышло — не падаем: каталог
- * лежит внутри корня прогона, и его снесёт teardown (`src/TestUtils/tmpRoot.ts`).
- *
- * Прежде здесь стояло «подчистит система» — не подчищала: в `/tmp` от прогонов
- * накопились гигабайты, пока корня прогона не появилось.
+ * Windows отдаёт хендлы не мгновенно — `rmSync` падает с `EPERM`, отсюда `maxRetries`. Не вышло —
+ * не падаем: каталог внутри корня прогона, его снесёт teardown (`src/TestUtils/tmpRoot.ts`).
  */
 export function removeTempDir(dir: string): void {
     try {
@@ -273,19 +194,13 @@ export function removeTempDir(dir: string): void {
     }
 }
 
-// ── Headless transport (inspector) ───────────────────────────────────────────
 
-/** Изолированная headless-сессия: инспектор + разложенное окружение + уборка. */
 export interface HeadlessApp {
     readonly session: HeadlessSession;
     readonly env: AppEnv;
     dispose(): Promise<void>;
 }
 
-/**
- * Запускает бинарь headless в изолированном окружении и отдаёт инспектор-сессию.
- * `dispose()` гасит процесс и убирает корень (если не `keepRoot`).
- */
 export async function startHeadlessApp(options: AppEnvOptions & { binary?: string } = {}): Promise<HeadlessApp> {
     const env = await prepareAppEnv(options);
     const sessionOpts: HeadlessSessionOptions = {
@@ -310,9 +225,7 @@ export async function startHeadlessApp(options: AppEnvOptions & { binary?: strin
     };
 }
 
-// ── PTY transport (ANSI screen) ──────────────────────────────────────────────
 
-/** Изолированная PTY-сессия: настоящий терминал + окружение + уборка. */
 export interface PtyApp {
     readonly session: DiodeSession;
     readonly env: AppEnv;
@@ -322,14 +235,9 @@ export interface PtyApp {
 export interface PtyAppOptions extends AppEnvOptions {
     /** Поднять инспектор рядом с PTY (ассерты по дереву без ANSI-парсинга). */
     inspect?: boolean;
-    /** Нестандартный бинарь (self-extract-сборка). */
     binary?: string;
 }
 
-/**
- * Запускает бинарь через настоящий PTY (`node-pty`) в изолированном окружении.
- * Для сьютов, которые проверяют ANSI-вывод; инспектор — опционально (`inspect`).
- */
 export async function startPtyApp(options: PtyAppOptions = {}): Promise<PtyApp> {
     const env = await prepareAppEnv(options);
     const session = await DiodeSession.start({

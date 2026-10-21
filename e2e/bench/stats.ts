@@ -1,8 +1,3 @@
-/**
- * Статистика прогонов бенча: медиана, квартили, IQR и флаг шума.
- * Отдельный модуль — чтобы отчёт (`benchOpen.ts`) и перф-гейт
- * (`startupBudget.bench.ts`) считали цифры одним и тем же способом.
- */
 
 export function quantile(values: readonly number[], q: number): number {
     const sorted = [...values].sort((a, b) => a - b);
@@ -20,7 +15,6 @@ export interface Stats {
     readonly median: number;
     readonly q1: number;
     readonly q3: number;
-    /** Межквартильный размах — мера шума прогонов. */
     readonly iqr: number;
     readonly min: number;
     readonly max: number;
@@ -29,7 +23,6 @@ export interface Stats {
     readonly noisy: boolean;
 }
 
-/** Порог шума: IQR больше пятой части медианы — прогон помечается «шумным». */
 export const NOISY_IQR_RATIO = 0.2;
 
 export function stats(values: readonly number[]): Stats | null {
@@ -50,7 +43,6 @@ export function stats(values: readonly number[]): Stats | null {
     };
 }
 
-/** Статистика по значениям, где null (не измерено) выброшен; null — если измерять было нечего. */
 export function statsOf(values: readonly (number | null | undefined)[]): Stats | null {
     return stats(values.filter((v): v is number => typeof v === "number"));
 }

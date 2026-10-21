@@ -2,18 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Смена воркспейса на живом окне доезжает до расширений. У эталона «File: Open
-// Workspace from File...» перезагружает окно, и процесс расширений поднимается
-// заново; без этого расширение навсегда оставалось в воркспейсе, в котором его
-// активировали: redhat.java отдавал jdt.ls пустой набор папок, и Java в
-// открытом командой `.code-workspace` не работала вовсе.
-//
-// Фикстурное расширение `workspace-probe` при активации пишет в статус-бар
-// `workspace.name` («web (Workspace)» у окна из файла) — читает его один раз,
-// как настоящие расширения. Окно открывается файлом `web.code-workspace` (кадр `web`), палитра →
-// «File: Open Workspace from File...» → `backend.code-workspace` над тем же
-// каталогом: пункт зонда меняется на `backend (Workspace)` (кадр `backend`) —
-// процесс расширений перезапущен уже в новом воркспейсе.
+// Как у эталона, смена воркспейса перезапускает процесс расширений: иначе redhat.java отдавал jdt.ls пустой
+// набор папок. `workspace-probe` читает `workspace.name` один раз, как настоящие расширения.
 
 const fixture = resolve(repoRoot, "e2e", "fixtures", "workspaceFile");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-workspace-probe");

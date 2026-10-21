@@ -5,10 +5,7 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Живые change-bars в гуттере: дифф считает ядро против БУФЕРА, а не против
-// файла на диске. Раньше ханки считало git-расширение по `git diff` на диске
-// с пересчётом по onDidSaveTextDocument — бары стояли до Ctrl+S. Сценарий
-// показывает ровно это: печатаем НЕ СОХРАНЯЯ, и бар появляется сразу.
+// Дифф считает ядро против БУФЕРА, а не файла на диске: бар появляется до сохранения.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -36,21 +33,16 @@ export default defineScenario({
     open: [repoDir, trackedFile],
     cols: 90,
     rows: 16,
-    // Нужен extension host (git-расширение отдаёт версию из HEAD) — как у
-    // прочих extension-сценариев, гоняем только на Linux.
+    // Нужен extension host (git-расширение отдаёт версию из HEAD) — только Linux.
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        // Файл совпадает с HEAD — гуттер пуст.
         await editor.waitForText((t) => t.includes("charlie"));
         await editor.capture("clean");
 
-        // Правим вторую строку и НЕ сохраняем.
         await editor.sendKey("ArrowDown");
         await editor.sendText("XX");
         await editor.waitForText((t) => t.includes("XXbravo"));
 
-        // Бар появляется от самой правки: до старого пересчёта по сохранению
-        // здесь было бы пусто.
         await editor.waitForText((t) => t.includes("┋"));
         await editor.capture("live-bars");
     },

@@ -1,30 +1,18 @@
 "use strict";
 
 /**
- * Демо пяти поверхностей API, на которых стоковый `redhat.java` (jdt.ls) не
- * доживал до конца `activate()`. Каждый шаг повторяет то, что делает настоящее
- * расширение, и печатает результат в канал Output — их и читает сценарий.
+ * Поверхности API, на которых стоковый `redhat.java` не доживал до конца `activate()`; итог шагов —
+ * в Output, его читает сценарий. Не настоящий `redhat.java`: его нет в нашем реестре магазина, а
+ * сам он требует JDK 21 и полминуты на подъём сервера.
  *
- * Настоящим `redhat.java` это демо не сделать: записи в нашем реестре магазина
- * у него ещё нет (отдельная задача), а сам он требует JDK 21 и полминуты на
- * подъём сервера. Поэтому здесь тот же контракт на фикстуре — по конвенции
- * AGENTS.md герметичный контракт и закрывается своей фикстурой.
- *
- * Порядок шагов не случаен: `workspace.fs` САМ создаёт ловушку для
- * `findFiles` — чужой `pom.xml` внутри `node_modules`, — а в конце сам же её и
- * сносит. Так одна цепочка проверяет и запись, и перечисление, и копирование, и
- * переименование, и удаление, и дефолтные исключения поиска.
- *
- * Ручная проверка:
- *   diode --user-data-dir=<каталог с этой фикстурой> e2e/fixtures/javaApiSample
+ * Порядок шагов не случаен: `workspace.fs` сам ставит ловушку для `findFiles` и в конце её сносит.
  */
 
 exports.activate = async function activate(context) {
     const vscode = require("vscode");
     const out = vscode.window.createOutputChannel("Java API Probe");
 
-    // Короткий маркер в полосе: сценарий ждёт его, прежде чем открывать панель.
-    // Полоса узкая — подробности живут в Output, здесь только счёт шагов.
+    // Маркер для сценария; полоса узкая — подробности в Output.
     const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     status.name = "Java API Probe";
     status.text = "java api: работает";
@@ -36,9 +24,7 @@ exports.activate = async function activate(context) {
         steps.push(step + ": ПРОВАЛ " + String(err && err.message ? err.message : err));
     };
 
-    // ── 1. env: то, что redhat.java читает первым делом ────────────────────
-    // Первое падение активации было ровно здесь: `switch (env.uiKind)` ломался
-    // на `Cannot read properties of undefined (reading 'Desktop')`.
+    // 1. env. Первое падение активации: `switch (env.uiKind)` → `Cannot read properties of undefined (reading 'Desktop')`.
     try {
         const kind = vscode.env.uiKind === vscode.UIKind.Desktop ? "Desktop" : "Web";
         steps.push(
@@ -59,18 +45,13 @@ exports.activate = async function activate(context) {
     const join = (...parts) => vscode.Uri.file(parts.join("/"));
     const root = folder ? folder.uri.fsPath : "";
 
-    // ── 2. workspace.fs: мутирующая половина ───────────────────────────────
-    // Так jdt.ls раскладывает `-configuration` в globalStorageUri; падало на
-    // `fs.createDirectory is not a function`.
-    // Ловушка лежит в служебном каталоге VCS: именно он — дефолт настройки
-    // `files.exclude`, которую `findFiles` применяет на шаге 3. Ставить её в
-    // `node_modules` нельзя: у эталона (и у нас) в `files.exclude` его НЕТ —
-    // зависимости скрыты только из поиска, настройкой `search.exclude`.
+    // 2. workspace.fs — так jdt.ls раскладывает `-configuration`; падало на `fs.createDirectory is not a function`.
+    // Ловушка — в каталоге VCS: он в дефолте `files.exclude`. `node_modules` там нет (и у эталона) —
+    // его скрывает только `search.exclude`.
     const decoyParent = root + "/.hg";
     const decoyDir = decoyParent + "/decoy";
     try {
         await vscode.workspace.fs.createDirectory(vscode.Uri.file(decoyDir));
-        // Ловушка для шага 3: чужой сборочный файл внутри зависимостей.
         await vscode.workspace.fs.writeFile(join(decoyDir, "pom.tmp"), Buffer.from("<project/>", "utf8"));
         await vscode.workspace.fs.rename(join(decoyDir, "pom.tmp"), join(decoyDir, "pom.xml"));
         await vscode.workspace.fs.copy(join(decoyDir, "pom.xml"), join(decoyDir, "pom.bak"));
@@ -87,11 +68,8 @@ exports.activate = async function activate(context) {
         fail("fs", err);
     }
 
-    // ── 3. workspace.findFiles: детект сборочного файла ────────────────────
-    // Этого члена не было вовсе, а redhat.java зовёт его около десяти раз на
-    // одной активации. `exclude: undefined` обязан применить настройку
-    // `files.exclude` (и только её, как в контракте эталона) — чужой pom в
-    // служебном каталоге VCS не признак проекта пользователя.
+    // 3. findFiles — redhat.java зовёт его около десяти раз за активацию. `exclude: undefined` обязан
+    // применить `files.exclude`, и только её, как в контракте эталона.
     try {
         const withDefaults = await vscode.workspace.findFiles("**/pom.xml");
         const withoutExcludes = await vscode.workspace.findFiles("**/pom.xml", null);
@@ -117,9 +95,7 @@ exports.activate = async function activate(context) {
         fail("fs.delete", err);
     }
 
-    // ── 4. registerCustomEditorProvider: заглушка, а не поддержка ──────────
-    // У redhat.java на ней висит редактор настроек форматтера. Webview в TUI не
-    // будет by design, но регистрация обязана не падать.
+    // 4. registerCustomEditorProvider: webview в TUI не будет by design, но регистрация обязана не падать.
     try {
         const registration = vscode.window.registerCustomEditorProvider("javaApiProbe.settings", {
             resolveCustomTextEditor: () => Promise.resolve(),

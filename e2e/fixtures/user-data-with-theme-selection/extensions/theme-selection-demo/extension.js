@@ -1,18 +1,5 @@
 "use strict";
 
-/**
- * Демо-расширение двух окон API: активной темы и выделения.
- *
- *   - `window.activeColorTheme` + `onDidChangeActiveColorTheme` → пункт
- *     статус-бара `Theme: <вид>`; он верен уже в момент активации и меняется
- *     на смене темы (Ctrl+K Ctrl+T).
- *   - `window.onDidChangeTextEditorSelection` → пункт `Sel <строка>:<колонка>
- *     <вид жеста>`; вид берётся из `TextEditorSelectionChangeKind`, так что
- *     стрелка и клик мышью читаются по-разному.
- *
- * Используется e2e-сценарием themeSelectionApi и ручной проверкой:
- *   diode --user-data-dir=<каталог с этой фикстурой> <какой-нибудь файл>
- */
 
 exports.activate = function activate(context) {
     const vscode = require("vscode");

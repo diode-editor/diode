@@ -6,19 +6,14 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Сохранение с onSave-настройками (#196, хвост): НАСТОЯЩИЙ ruff из магазина +
-// `editor.codeActionsOnSave: {"source.fixAll": true}` + `editor.formatOnSave`.
-// Один Ctrl+S чинит файл целиком: fixAll удаляет неиспользуемый `import sys`
-// (F401, safe-фикс), формат чинит `print( "x" )` → `print("x")` — и всё это
-// ДО записи, на диск уходит уже поправленный текст.
+// #196: один Ctrl+S с `codeActionsOnSave` fixAll и formatOnSave — на диск уходит уже поправленный текст.
 
-// Копия фикстуры во временном каталоге: сценарий СОХРАНЯЕТ файл, и запись
-// поверх коммитнутой e2e/fixtures/ruffSample испачкала бы рабочее дерево.
+// Копия: сценарий сохраняет файл, а запись поверх e2e/fixtures/ruffSample испачкала бы рабочее дерево.
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-onsave-demo-"));
 const lintFile = join(sampleDir, "lint.py");
 copyFileSync(resolve(repoRoot, "e2e", "fixtures", "ruffSample", "lint.py"), lintFile);
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) — сигнал «сервер поднялся». */
+/** StyleFlags.Undercurl. */
 const UNDERCURL = 8;
 
 export default defineScenario({
@@ -38,8 +33,7 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("import sys"));
 
-        // Дождаться, пока настоящий ruff отлинтит открытый файл: значит, сервер
-        // поднялся и save не упрётся в холодный старт.
+        // Дождаться линта от ruff, чтобы save не упёрся в холодный старт сервера.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
@@ -47,7 +41,6 @@ export default defineScenario({
         );
         await editor.capture("before-save");
 
-        // Один Ctrl+S: fixAll удаляет `import sys`, формат чинит `print( "x" )`.
         await editor.sendKey("Ctrl+S");
         await editor.waitForText((t) => !t.includes("import sys") && t.includes('print("x")'), {
             timeoutMs: 60_000,

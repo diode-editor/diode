@@ -5,10 +5,7 @@ import type { NodeSnapshot } from "@tuidom/inspector/protocol";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Контекстное меню вкладки (VS Code `editor/title/context`): правый клик по
-// табу открывает меню его вкладки — закрытия, сплиты, пути, reveal. Цель —
-// вкладка ПОД КУРСОРОМ: правый клик активную вкладку не меняет, поэтому меню
-// открывается на неактивном табе, а «Close Others» оставляет именно его.
+// Цель — вкладка ПОД КУРСОРОМ: правый клик активную не меняет, поэтому меню открывается на неактивном табе.
 
 const fileA = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const fileB = resolve(repoRoot, "e2e", "fixtures", "folding.ts");
@@ -19,12 +16,10 @@ interface TabState {
     active: boolean;
 }
 
-/** Вкладки полосы глазами инспектора (`EditorTabStripElement.inspectState`). */
 function tabsOf(strip: NodeSnapshot): TabState[] {
     return (strip.state?.tabs ?? []) as TabState[];
 }
 
-/** Ждёт, пока в полосе окажется ровно `count` вкладок; возвращает их и полосу. */
 async function waitForTabs(
     editor: ScenarioDriver,
     count: number,

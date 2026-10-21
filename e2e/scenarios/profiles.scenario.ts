@@ -7,29 +7,14 @@ import { frameToText } from "../helpers/frame.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Профили пользователя (итерация 1, docs/TODO/Profiles.md): реестр в
-// `User/globalStorage/storage.json`, привязка профиля к ВОРКСПЕЙСУ (к файлу
-// `.code-workspace`, если окно открыто им, иначе к папке), переключение —
-// перезагрузкой окна. Сид user-data несёт каталог `User/profiles/work/` из
-// времён, когда профиль был только флагом `--profile`: на первом старте он
-// регистрируется как профиль `work` (миграция) и уже виден в пикере.
-//
-// Профиль `work` держит светлую тему — так смена профиля видна в кадре: у
-// Light Modern фон редактора белый, у Dark Modern белых ячеек нет вовсе.
-//
-// Кадры: `default` (окно `web.code-workspace` в Default), `switch-picker`
-// (пикер с галочкой у текущего), `work` (окно перезагрузилось в `work`),
-// `backend-default` («Open Workspace from File...» → `backend.code-workspace`
-// над той же папкой без привязки → окно перезагружается в Default),
-// `new-profile-picker` (New Profile → `scratch` → Empty → окно в `scratch`),
-// `deleted` (Delete Profile текущего → окно перезагружается в Default).
+// Сид несёт `User/profiles/work/` без реестра — миграция регистрирует его профилем `work`. У `work` светлая
+// тема: так смена профиля видна в кадре (у Dark Modern белых ячеек нет вовсе).
 
 const fixture = resolve(repoRoot, "e2e", "fixtures", "workspaceFile");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-profiles");
 
 const WHITE = 0xffffff;
 
-/** Сколько ячеек кадра залито цветом `bg` — светлая тема против тёмной. */
 function countBackground(frame: GridSnapshot, bg: number): number {
     return frame.cells.filter((cell) => cell.bg === bg).length;
 }

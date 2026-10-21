@@ -2,9 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Menu mnemonics in the Russian layout. Alt+а goes in as the legacy ESC prefix
-// (tmux and terminals without the kitty protocol send only the character), the
-// engine maps «а» to the physical KeyF and the File menu opens — the same as Alt+f.
+// Alt+а приходит legacy-префиксом ESC (терминал шлёт только символ): движок сводит «а» к физической KeyF.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 

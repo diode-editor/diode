@@ -7,9 +7,6 @@ import { frameToText } from "../helpers/frame.ts";
 
 import { defineScenario } from "./framework.ts";
 
-// Стейджинг в Source Control (устройство — docs/arch/workbench/SourceControl.md): группы
-// ресурсов Staged/Changes/Untracked со счётчиками, commit input box над
-// секциями, контекстное меню строки со Stage/Discard, стейдж из меню.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -48,27 +45,21 @@ export default defineScenario({
         { key: "alt+m", command: "workbench.scm.focus" },
     ],
     async run(editor) {
-        // Готовность: Explorer видит файлы, расширение считает git status.
         await editor.waitForText((t) => t.includes("app.ts") && t.includes("extra.ts"));
 
-        // Source Control: input box над секциями, три группы со счётчиками.
         await editor.sendKey("Alt+C");
         await editor.waitForText(
             (t) => t.includes("Staged Changes") && t.includes("Changes") && t.includes("app.ts"),
         );
         await editor.capture("groups");
 
-        // Черновик сообщения в commit input box.
         await editor.sendKey("Alt+M");
-        // Окружение e2e пинуется к tier=legacy, где Ctrl+Enter — это сам Enter:
-        // подсказка называет досягаемый Alt+Enter (на kitty она вернётся к
-        // каноническому Ctrl+Enter, на маке с Cmd — к ⌘Enter, см. mac-key-hints).
+        // e2e пинуется к tier=legacy, где Ctrl+Enter — это Enter: подсказка называет досягаемый Alt+Enter (см. mac-key-hints).
         await editor.waitForText((t) => t.includes("Message (Alt+Enter"));
         await editor.sendText("feat: greet louder");
         await editor.waitForText((t) => t.includes("feat: greet louder"));
         await editor.capture("commit-input");
 
-        // Контекстное меню modified-строки: Open/Stage/Discard по группе.
         const row = await editor.waitForNode("#scmRow-worktree-app-ts");
         const x = row.box.x + 2;
         const y = row.box.y;
@@ -77,8 +68,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Stage Changes") && t.includes("Discard Changes"));
         await editor.capture("context-menu");
 
-        // Стейдж из меню: клик по пункту «Stage Changes» (координаты — по тексту
-        // кадра), строка мигрирует в Staged Changes.
+        // Координаты пункта «Stage Changes» — по тексту кадра.
         const menuFrame = frameToText(await editor.captureFrame());
         const menuLines = menuFrame.split("\n");
         const menuY = menuLines.findIndex((l) => l.includes("Stage Changes"));

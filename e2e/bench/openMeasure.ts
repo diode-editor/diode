@@ -1,10 +1,3 @@
-/**
- * Один прогон бенча открытия файла: SEA-бинарь в PTY, чёрный ящик (таймстемпы
- * чанков stdout → момент появления текста/подсветки), белый ящик (трасса вех
- * по `DIODE_STARTUP_TRACE`), нагрузка после открытия (латентность клавиш) и
- * пиковый RSS. Общий модуль для отчёта (`benchOpen.ts`) и перф-гейта
- * (`startupBudget.bench.ts`).
- */
 
 import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import * as os from "node:os";
@@ -25,7 +18,6 @@ import { type Ladder, ladderFromTrace, parseTrace } from "./startupLadder.ts";
 export const COLS = 120;
 export const ROWS = 32;
 
-// ── Предикаты по экрану ──────────────────────────────────────────────────────
 
 const KEYWORD_FG = packRgb(0x56, 0x9c, 0xd6);
 
@@ -39,7 +31,6 @@ export function highlightVisible(screen: AnsiScreen): boolean {
     return screen.cellAt(pos.x, pos.y).fg === KEYWORD_FG;
 }
 
-// ── Реплей чанков ────────────────────────────────────────────────────────────
 
 export interface Chunk {
     /** мс от спауна. */
@@ -58,9 +49,8 @@ function renderPrefix(chunks: readonly Chunk[], upTo: number, cols: number, rows
 }
 
 /**
- * Таймстемп первого чанка в `[from, to]`, после которого предикат выполняется.
- * Бинарный поиск — предикат монотонный на отрезке: появившееся на экране
- * изменение последующие кадры отрезка не стирают.
+ * Бинарный поиск по чанкам `[from, to]`: предикат монотонный — появившееся изменение последующие
+ * кадры отрезка не стирают.
  */
 export function firstSatisfiedAt(
     chunks: readonly Chunk[],
@@ -85,7 +75,6 @@ export function firstSatisfiedAt(
     return chunks[found].t;
 }
 
-// ── Результат прогона ────────────────────────────────────────────────────────
 
 export type WorkloadStepKey = "insert" | "enter" | "undoEnter" | "undoInsert" | "save" | "ctrlEnd" | "search";
 
@@ -121,9 +110,8 @@ export interface OpenRunResult {
     readonly ladder: Ladder | null;
     readonly workload: readonly WorkloadStepResult[];
     /**
-     * Исход нагрузки отдельно от открытия: файл мог открыться, а на первой же
-     * правке процесс умер (500 МБ на CI — OOM в куче V8). `crash` — процесс
-     * завершился, `failed` — шаг не дождался экрана, `skipped` — не гоняли.
+     * Отдельно от открытия: файл мог открыться, а процесс умереть на первой правке (OOM в куче V8).
+     * `crash` — процесс завершился, `failed` — шаг не дождался экрана, `skipped` — не гоняли.
      */
     readonly workloadOutcome: "ok" | "crash" | "failed" | "skipped";
     readonly workloadError: string | null;
@@ -139,10 +127,7 @@ export interface OpenMeasureOptions {
     readonly workload?: boolean;
     /** Сколько ждать трассу (extension host поднимается после кадра). */
     readonly traceWaitMs?: number;
-    /**
-     * Куда сохранить трассу прогона (`--keep-traces`, вход `npm run bench:services`);
-     * тогда в ней есть и созданные сервисы (`DIODE_STARTUP_TRACE_INSTANTIATIONS=1`).
-     */
+    /** С ним трасса пишет и созданные сервисы (`DIODE_STARTUP_TRACE_INSTANTIATIONS=1`). */
     readonly keepTraceAs?: string;
 }
 
@@ -163,7 +148,6 @@ async function waitForTrace(path: string, deadline: number): Promise<string | nu
     return null;
 }
 
-// ── Нагрузка после открытия ──────────────────────────────────────────────────
 
 const KEY_CTRL_G = "\x07";
 const KEY_CTRL_F = "\x06";
@@ -186,9 +170,8 @@ interface StepContext {
 }
 
 /**
- * Пишет клавишу в PTY и ждёт кадр, в котором предикат выполнился; латентность —
- * от записи до таймстемпа этого чанка (бинарный поиск по чанкам после записи).
- * Предикат обязан быть ложным до записи — иначе шаг считается невалидным.
+ * Латентность — от записи клавиши до таймстемпа чанка, где предикат выполнился. Предикат обязан
+ * быть ложным до записи — иначе шаг невалиден.
  */
 async function measureStep(
     ctx: StepContext,
@@ -219,9 +202,8 @@ function linePrefix(fixture: OpenFixture, index: number): string {
 }
 
 /**
- * Подготовительный шаг нагрузки (не меряется): ждём, пока предикат выполнится
- * и вывод устоится. В отличие от `session.waitFor` замечает смерть процесса
- * сразу, а не по таймауту (на `log500m` это 300 с ожидания после OOM).
+ * Не меряется. В отличие от `session.waitFor` замечает смерть процесса сразу, а не по таймауту
+ * (на `log500m` это было 300 с ожидания после OOM).
  */
 async function settle(ctx: StepContext, predicate: (screen: AnsiScreen) => boolean, stableMs = 150): Promise<void> {
     const deadline = performance.now() + ctx.timeoutMs;
@@ -293,7 +275,6 @@ async function runWorkload(ctx: StepContext, fixture: OpenFixture): Promise<Work
     return results;
 }
 
-// ── Один прогон ──────────────────────────────────────────────────────────────
 
 export async function measureOpenOnce(options: OpenMeasureOptions): Promise<OpenRunResult> {
     const { binary, fixture, timeoutMs } = options;

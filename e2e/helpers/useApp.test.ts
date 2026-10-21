@@ -5,8 +5,6 @@ import type { GridSnapshot } from "@tuidom/core/rendering/gridSnapshot";
 import { dumpSession } from "./diagnostics.ts";
 import { type FinishableApp, finishHeadlessApp } from "./useApp.ts";
 
-// Завершение теста и пост-мортем — без бинаря, на фейковой сессии: проверяем
-// порядок «снимок → уборка» и то, что молчащий редактор диагностику не вешает.
 
 const FRAME = {
     cols: 2,
@@ -14,7 +12,6 @@ const FRAME = {
     cells: [{ char: "o" }, { char: "k" }],
 } as unknown as GridSnapshot;
 
-/** Фейковое приложение, записывающее порядок обращений. */
 function fakeApp(over: Partial<FinishableApp["session"]> = {}): { app: FinishableApp; calls: string[] } {
     const calls: string[] = [];
     let disposed = false;

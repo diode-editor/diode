@@ -6,24 +6,13 @@ import { describe, expect, it } from "vitest";
 
 import { loadScenarios, runScenario, scenarioFiles } from "./framework.ts";
 
-// CI safety net: run every screenshot scenario against the real binary and assert
-// it still produces PNGs. This keeps the demo code (in e2e/scenarios/) from
-// rotting — it is not a functional test, so no domain assertions here.
-//
-// Сценарии нарезаны на SCENARIO_SLICES файлов `e2e/scenarios-<N>.test.ts`: одним
-// файлом это были минуты в одном воркере — самый длинный файл прогона, который
-// не делится между воркерами и при флаке повторяется целиком. Срез — каждый
-// N-й файл сценария по имени (см. `loadScenarios`); сценарии с JVM — отдельным
-// файлом `scenarios-heavy.test.ts` в тяжёлой полосе.
+// CI safety net: every screenshot scenario must still produce PNGs against the real binary — no domain assertions.
+// Срезы — потому что одним файлом это минуты в одном воркере, и при флаке он повторяется целиком.
 
 /** Сколько срезов. Меняешь — заведи/убери файлы `e2e/scenarios-<N>.test.ts`. */
 export const SCENARIO_SLICES = 4;
 
-/**
- * Сценарии с настоящими JVM — отдельным файлом `e2e/scenarios-heavy.test.ts` в
- * тяжёлой полосе (последовательно, после остальных; см. vitest.e2e.config.ts).
- * В обычные срезы они не попадают.
- */
+/** Последовательно, после остальных (vitest.e2e.config.ts); в обычные срезы не попадают. */
 export const HEAVY_SCENARIOS: readonly string[] = ["java-lsp.scenario.ts", "javaMoveTypeUndo.scenario.ts"];
 
 const e2eDir = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");

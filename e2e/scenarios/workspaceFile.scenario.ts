@@ -2,28 +2,12 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Файлы воркспейса над одним каталогом: два режима монорепы, у каждого свои
-// закоммиченные настройки.
-//
-// Фикстура — каталог с `web/`, `backend/` и `generated/`. Рядом лежат
-// `web.code-workspace` (прячет `backend`) и `backend.code-workspace` (прячет
-// `web`), оба смотрят на `"."`. Общее для всех режимов — `.diode/settings.json`
-// каталога: он прячет `generated` и действует поверх файла воркспейса (слой
-// папки, как у эталона).
-//
-// Редактор открывается файлом `web.code-workspace` (`diode web.code-workspace`):
-// в Explorer каталог `web` есть, `backend` и `generated` нет (кадр `web`).
-// Палитра → «File: Open Workspace from File...» → `backend.code-workspace`: тот
-// же каталог, но теперь виден `backend`, а `web` спрятан; `generated`
-// по-прежнему скрыт общим файлом папки (кадр `backend`).
+// `web.code-workspace` прячет `backend`, `backend.code-workspace` — `web`; `.diode/settings.json` каталога прячет
+// `generated` и действует поверх файла воркспейса (слой папки, как у эталона).
 
 const fixture = resolve(repoRoot, "e2e", "fixtures", "workspaceFile");
 
-/**
- * Каталог верхнего уровня в дереве Explorer: строка — шеврон (глиф codicon,
- * в тексте кадра — один символ) и имя, дальше пусто (вкладок в сценарии нет).
- * Файлы корня (`backend.code-workspace U`) под шаблон не попадают.
- */
+/** Шеврон (один символ в тексте кадра) и имя, дальше пусто; файлы корня под шаблон не попадают. */
 function hasTopDir(screen: string, name: string): boolean {
     return new RegExp(`^\\s*\\S?\\s*${name}$`, "m").test(screen);
 }

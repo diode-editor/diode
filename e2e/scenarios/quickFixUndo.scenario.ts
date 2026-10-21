@@ -5,16 +5,14 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Undo после quick fix'а: удаление ОДНОГО имени из списка импорта сервер
-// присылает двумя смежными диапазонами на одной строке, и обратные правки
-// схлопываются в одну точку. Ctrl+Z обязан вернуть строку дословно — раньше
-// буфер собирался перемешанным (`import { alphazeta,  } from "./both";`).
+// Удаление одного имени импорта сервер присылает двумя смежными диапазонами на строке — обратные правки
+// схлопываются в одну точку; Ctrl+Z обязан вернуть строку дословно, а не `import { alphazeta,  }`.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "quickfixUndoSample");
 const mainFile = resolve(sampleDir, "main.ts");
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
+/** StyleFlags.Undercurl. */
 const UNDERCURL = 8;
 
 const BOTH_IMPORT = 'import { alpha, zeta } from "./both";';
@@ -43,7 +41,7 @@ export default defineScenario({
         );
         await editor.capture("before");
 
-        // Каретка на идентификатор `zeta` (колонка 16) → меню действий.
+        // На `zeta` (колонка 16).
         for (let i = 0; i < 16; i++) await editor.sendKey("ArrowRight");
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+Q");
@@ -56,8 +54,7 @@ export default defineScenario({
         await editor.capture("fixed");
 
         await editor.sendKey("Ctrl+Z");
-        // Перемешанный буфер состоит из тех же символов, поэтому мало вхождения
-        // исходной строки — ждём и отсутствия склейки.
+        // Перемешанный буфер — из тех же символов: мало вхождения строки, ждём и отсутствия склейки.
         await editor.waitForText((t) => t.includes(BOTH_IMPORT) && !t.includes("alphazeta"), { timeoutMs: 30_000 });
         await editor.capture("undone");
     },

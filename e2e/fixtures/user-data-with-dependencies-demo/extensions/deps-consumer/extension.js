@@ -1,11 +1,6 @@
 "use strict";
 
-/**
- * Зависимое расширение демо extensionDependencies. В `activate()` сразу
- * тянется к API зависимости (как форк bazel-java к `redhat.java`) и пишет
- * увиденное в статус-бар: «Dep: Started» — зависимость поднялась раньше,
- * «Dep: not ready» — нет.
- */
+/** Тянется к API зависимости сразу в `activate()`, как форк bazel-java к `redhat.java`. */
 exports.activate = function activate() {
     const vscode = require("vscode");
     const dep = vscode.extensions.getExtension("test.deps-provider");

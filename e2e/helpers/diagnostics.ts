@@ -4,11 +4,7 @@ import { dumpFrame } from "./frame.ts";
 import type { HeadlessSession } from "./headlessSession.ts";
 import { focusPath } from "./query.ts";
 
-// Пост-мортем для упавшего функционального e2e. Раньше при падении vitest печатал
-// кадр одной простынёй; здесь — нумерованный кадр, путь фокуса и скелет дерева,
-// чтобы падение сразу показывало, что было на экране и куда ушёл фокус.
 
-/** Отступами — дерево типов с box и (если есть) state; обрезано по глубине. */
 export function treeSkeleton(root: NodeSnapshot | null, maxDepth = 40): string {
     if (root === null) return "<no document>";
     const lines: string[] = [];
@@ -26,16 +22,12 @@ export function treeSkeleton(root: NodeSnapshot | null, maxDepth = 40): string {
 /** Сколько пост-мортем ждёт ответа редактора на каждый свой запрос. */
 const PROBE_TIMEOUT_MS = 10_000;
 
-/** Что пост-мортему нужно от сессии (сужено до используемого — фейкается в тесте). */
+/** Сужено до используемого — фейкается в тесте. */
 export type DumpableSession = Pick<HeadlessSession, "captureFrame" | "getDocument" | "getStderr">;
 
 /**
- * Снимок состояния сессии для отчёта о падении: нумерованный кадр, путь фокуса,
- * скелет дерева, stderr и (если задан) путь к сохранённому temp-корню. Ничего не
- * бросает и не ждёт дольше `probeTimeoutMs` на запрос — вызывается из хука
- * упавшего теста, где диагностика не имеет права ни уронить репортер, ни
- * съесть прогон: редактор, из-за которого тест упал, может и не ответить
- * (завис, умер), а без срока хук молчал бы весь `hookTimeout`.
+ * Ничего не бросает и не ждёт дольше `probeTimeoutMs` на запрос: зовётся из хука упавшего теста,
+ * а редактор, из-за которого тест упал, может и не ответить — без срока хук молчал бы весь `hookTimeout`.
  */
 export async function dumpSession(
     session: DumpableSession,
@@ -62,7 +54,6 @@ export async function dumpSession(
     return parts.join("\n");
 }
 
-/** `promise` наперегонки со сроком: не ответил за `timeoutMs` — отказ с понятной причиной. */
 function within<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
     return new Promise<T>((resolve, reject) => {
         const timer = setTimeout(() => {

@@ -4,13 +4,7 @@ import { join, resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `workspace.saveAll`: фикстура `save-all-demo` по команде палитры сохраняет
-// все несохранённые файлы — как golang.go перед «go mod tidy» — и показывает
-// ответ хоста. Кадр: вкладка была грязной (●), после команды — чистая (×),
-// правка лежит на диске, расширение увидело `true`.
-//
-// Каталог сценарий наполняет в prepare: сохранение пишет НА ДИСК, а
-// коммитнутую фикстуру пачкать нельзя (паттерн bulkWorkspaceEdit.scenario.ts).
+// Каталог наполняется в prepare: сохранение пишет на диск, а коммитнутую фикстуру пачкать нельзя.
 
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-save-all");
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-saveall-demo-"));

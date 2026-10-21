@@ -1,23 +1,12 @@
 /**
- * Бенчмарк открытия файла — «линейка» плана docs/TODO/OpenPerformance.md.
- *
- * Чёрный ящик: настоящий SEA-бинарь через PTY (тот же путь, что у пользователя),
- * таймстемп каждого чанка stdout, момент появления текста/подсветки — реплеем
- * чанков. Белый ящик: трасса вех `performance.mark` того же процесса
- * (`DIODE_STARTUP_TRACE`), лестница печатается рядом — расхождение между ними
- * само по себе находка. Отсчёт главной цифры — от пола node, снятого тем же
- * способом (PTY). После открытия — нагрузка (правки, Ctrl+End, поиск) с
- * латентностью клавиши и пиковый RSS процесса.
- *
- * LSP в замер не входит: замер заканчивается на TextMate-подсветке, language
- * server приезжает асинхронно позже.
+ * Бенчмарк открытия файла (docs/TODO/OpenPerformance.md): SEA-бинарь через PTY (чёрный ящик —
+ * реплей чанков stdout) рядом с трассой вех `DIODE_STARTUP_TRACE` (белый ящик); расхождение
+ * между ними само по себе находка. Главная цифра — от пола node, снятого тем же PTY-путём.
+ * LSP в замер не входит: он приезжает после TextMate-подсветки.
  *
  * Запуск: `npm run bench:open [-- --sizes=small,xlarge --runs=3 --json=out.json --md=out.md --label="от сети, фон пуст"]`
- * (`--keep-traces=<каталог>` — сохранить трассы прогонов для `npm run bench:services`)
- * Бинарь берётся из кэша e2e-сборок по хешу исходников (`getBinaryPath` →
- * scripts/e2e-artifacts.mjs; промах — одна сборка), либо
- * передаётся готовый через env `DIODE_E2E_BINARY`. Тяжёлый прогон — под лизу
- * (скилл heavy-run).
+ * (`--keep-traces=<каталог>` — трассы для `npm run bench:services`). Бинарь — из кэша
+ * e2e-сборок по хешу исходников либо `DIODE_E2E_BINARY`. Тяжёлый прогон — под лизу.
  */
 
 import { spawnSync } from "node:child_process";
@@ -33,7 +22,6 @@ import { COLS, measureOpenOnce, type OpenRunResult, ROWS } from "./openMeasure.t
 import { formatMs, type FullReport, renderMarkdown, type SizeReport, summarizeSize } from "./openReport.ts";
 import { BINARY_FLOOR_ARGS, measureFloorPty, NODE_FLOOR_ARGS, NODE_VERSION_ARGS } from "./ptyFloor.ts";
 
-// ── CLI ──────────────────────────────────────────────────────────────────────
 
 interface CliOptions {
     sizes: readonly SizeSpec[];
@@ -43,7 +31,7 @@ interface CliOptions {
     /** Подпись условий локального прогона (машина, питание, фон). */
     label: string | null;
     workload: boolean;
-    /** Каталог, куда сложить трассы прогонов (`<размер>-<n>.json`), — вход `npm run bench:services`. */
+    /** Каталог трасс прогонов (`<размер>-<n>.json`). */
     traceDir: string | null;
 }
 
@@ -88,7 +76,6 @@ export function parseCli(argv: readonly string[]): CliOptions {
     return options;
 }
 
-/** Строка условий в шапке: shared-раннер CI или локальная машина разработчика. */
 export function describeConditions(env: Readonly<Record<string, string | undefined>>, label: string | null): string {
     const ci = env.GITHUB_ACTIONS === "true" || env.CI === "true" || env.CI === "1";
     if (ci) return `CI, shared runner (GitHub Actions)${label === null ? "" : `; ${label}`}`;

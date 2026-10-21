@@ -5,26 +5,15 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Подсказка параметров от стокового typescript-language-server: набранная «(»
-// открывает попап над строкой вызова, запятая переводит подсветку на следующий
-// параметр.
-//
-// Демо обязательное: юнит-тесты видят данные, но не кадр — а именно на кадре
-// видно, что попап встал НАД кареткой (не подрался с автодополнением), рамка не
-// съехала и активный параметр действительно подсвечен.
 
 const require_ = createRequire(import.meta.url);
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
+/** StyleFlags.Undercurl. */
 const UNDERCURL = 8;
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "lspHints");
 const mainFile = resolve(sampleDir, "main.ts");
 
-/**
- * Набор нажатиями клавиш: подсказка открывается на НАБРАННЫЙ триггер-символ
- * (событие редактора `onDidType`), а вставка — `sendText` доставляется как
- * bracketed paste — даже одного символа набором не считается, как в VS Code.
- */
+/** Нажатиями, не `sendText`: вставка идёт bracketed paste и набором не считается, как в VS Code. */
 async function type_(editor: { sendKey(name: string): Promise<void> }, text: string): Promise<void> {
     for (const char of text) await editor.sendKey(char);
 }
@@ -40,31 +29,25 @@ export default defineScenario({
     },
     cols: 100,
     rows: 24,
-    // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only,
-    // как goto-definition / hover / references.
+    // Extension host + спавн сервера — только Linux.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("const label"));
 
-        // Ждём readiness настоящего tsserver'а: squiggle — сигнал «сервер
-        // проиндексировал проект», без него провайдер ещё не зарегистрирован.
+        // Squiggle — сигнал «сервер проиндексировал проект»: без него провайдер ещё не зарегистрирован.
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
             { describe: "undercurl squiggle от tsserver (сервер готов)", timeoutMs: 120_000, intervalMs: 500 },
         );
 
-        // Набираем вызов перегруженной функции в конце файла: «(» — триггер-символ
-        // сервера, подсказка открывается сама. Попап автодополнения после «(» не
-        // открывается (quick suggest — только в конце слова, как в VS Code).
+        // Попап автодополнения после «(» не открывается: quick suggest — только в конце слова, как в VS Code.
         await editor.sendKey("Ctrl+End");
         await type_(editor, "describe(");
         await editor.waitForText((t) => t.includes("1/2 describe(what: string): string"), { timeoutMs: 60_000 });
         await editor.capture("parameter-hints");
 
-        // Стрелка вниз листает перегрузки (счётчик 1/2 → 2/2). Escape здесь
-        // закрыл бы саму подсказку: попапа автодополнения, которому он достался
-        // бы раньше, после «(» больше нет.
+        // Не Escape: он закрыл бы саму подсказку.
         await editor.sendKey("ArrowDown");
         await editor.waitForText((t) => t.includes("2/2 describe(what: string, times: number): string"), {
             timeoutMs: 60_000,

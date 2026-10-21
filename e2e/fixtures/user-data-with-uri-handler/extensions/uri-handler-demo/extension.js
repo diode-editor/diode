@@ -1,10 +1,6 @@
 "use strict";
 
-/**
- * Демо `window.registerUriHandler` (сценарий extension-uri-handler): расширение
- * ленивое (`onUri`), обработчик заводит на активации и показывает полученный
- * путь с запросом тостом.
- */
+/** Расширение ленивое (`onUri`): обработчик заводится на активации. */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 

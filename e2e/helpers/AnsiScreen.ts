@@ -1,18 +1,6 @@
 /**
- * Минимальный парсер ANSI-вывода ровно под то, что эмитит наш TerminalRenderer
- * (`src/Rendering/TerminalRenderer.ts`) и `NodeTerminalBackend.renderFrame`
- * (`src/Backend/NodeTerminalBackend.ts`).
- *
- * Поддерживается ровно тот сабсет, который реально шлёт приложение:
- * - CSI `H` — абсолютное позиционирование курсора (1-based)
- * - CSI `m` — SGR: `0` reset, `1/2/3/4/7/9` стили, `38;2;r;g;b` truecolor fg,
- *   `48;2;r;g;b` truecolor bg, `39` reset fg, `49` reset bg
- * - CSI `2J` — clear screen
- * - CSI ? <num> h/l — DEC private modes (alt-screen, cursor visibility,
- *   synchronized output) — игнорируются
- * - Kitty `>11u`, `<u` — игнорируются
- *
- * `\n` и `\r` обрабатываются для устойчивости, но рендерер их не использует.
+ * Минимальный парсер ANSI ровно под то, что шлёт рендерер приложения: CUP (1-based), SGR
+ * (стили, truecolor), очистки и скролл; DEC private modes и kitty-протокол игнорируются.
  */
 
 import { DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
@@ -56,7 +44,6 @@ export class AnsiScreen {
                     i += consumed;
                     continue;
                 }
-                // Unknown — skip the ESC byte.
                 i++;
                 continue;
             }
@@ -71,7 +58,6 @@ export class AnsiScreen {
                 i++;
                 continue;
             }
-            // Skip other C0 controls.
             const code = ch.charCodeAt(0);
             if (code < 0x20 || code === 0x7f) {
                 i++;
@@ -94,23 +80,16 @@ export class AnsiScreen {
         }
     }
 
-    /**
-     * Returns the number of bytes consumed (including the leading ESC), or 0 if
-     * the sequence is not recognized.
-     */
+    /** Число съеденных байт вместе с ESC; 0 — последовательность не распознана. */
     private handleEscape(input: string, start: number): number {
-        // Need at least ESC + one more byte
         if (start + 1 >= input.length) return 0;
         const next = input[start + 1];
 
-        // CSI sequence: ESC [ <params> <final>
         if (next === "[") {
             return this.handleCsi(input, start);
         }
-        // DCS / OSC etc. — приложение их не использует кроме TMUX-обёртки,
-        // которая в e2e не встречается. Просто съедаем ESC X ... ST.
+        // DCS/OSC приложение шлёт только в TMUX-обёртке, которой в e2e нет, — съедаем до ST.
         if (next === "P" || next === "]" || next === "X" || next === "^" || next === "_") {
-            // Find ST (ESC \) or BEL.
             let i = start + 2;
             while (i < input.length) {
                 if (input[i] === "\x07") return i - start + 1;
@@ -123,15 +102,12 @@ export class AnsiScreen {
     }
 
     private handleCsi(input: string, start: number): number {
-        // input[start] = ESC, input[start+1] = '['
         let i = start + 2;
         let priv = "";
-        // Optional private prefix `?`, `>`, `<`, `=`
         if (i < input.length && (input[i] === "?" || input[i] === ">" || input[i] === "<" || input[i] === "=")) {
             priv = input[i];
             i++;
         }
-        // Parameters: digits and `;` and `:`
         let paramsStart = i;
         while (i < input.length) {
             const ch = input[i];
@@ -141,7 +117,6 @@ export class AnsiScreen {
             }
             break;
         }
-        // Optional intermediate bytes
         while (i < input.length && input[i] >= " " && input[i] <= "/") {
             i++;
         }
@@ -151,7 +126,6 @@ export class AnsiScreen {
         const consumed = i - start + 1;
 
         if (priv !== "") {
-            // DEC private + kitty + others — ignore.
             return consumed;
         }
 
@@ -176,10 +150,7 @@ export class AnsiScreen {
                 return consumed;
             }
             case "K": {
-                // Erase in Line (EL)
-                // Mode 0 (default): erase from cursor to end of line
-                // Mode 1: erase from start of line to cursor
-                // Mode 2: erase entire line
+                // EL: 0 — от курсора до конца строки, 1 — от начала до курсора, 2 — вся строка.
                 const mode = params[0] ?? 0;
                 if (mode === 0) {
                     for (let x = this.cursorX; x < this.width; x++) {
@@ -377,7 +348,6 @@ export class AnsiScreen {
         return lines.join("\n");
     }
 
-    /** Locate text on screen. Returns top-left coordinates of the first match or null. */
     public findText(text: string): { x: number; y: number } | null {
         for (let y = 0; y < this.height; y++) {
             const line = this.lineText(y);

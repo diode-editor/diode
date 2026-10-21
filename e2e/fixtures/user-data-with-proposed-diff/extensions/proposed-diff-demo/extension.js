@@ -1,26 +1,12 @@
 "use strict";
 
 /**
- * Демо-расширение предложенного диффа: повторяет `openDiff` стокового
- * Anthropic.claude-code в терминальном режиме (сверено с бандлом 2.1.304):
- *
- * - правая сторона кладётся в собственный `FileSystemProvider` расширения
- *   (схема `_demo_fs_right`, провайдер в памяти, как класс `iG` бандла);
- * - `vscode.diff(left, right, title, { preview: false })`, вкладку ждут
- *   опросом `tabGroups.all` (`TabInputTextDiff` с нашим `modified`);
- * - гонка исходов: accept/reject командой (кнопки ✓/↺ в `editor/title`),
- *   закрытие вкладки (= reject), сохранение правой стороны (= FILE_SAVED с
- *   её текстом, только при `files.autoSave === "off"`);
- * - ключ `proposedDiffDemo.viewingProposedDiff` — по `onDidChangeVisibleTextEditors`
- *   (видна ли сторона на нашей схеме);
- * - «закрыть вкладку» (`close_tab` у CLI): сохранить правую сторону и
- *   `tabGroups.close` — без диалога о несохранённом.
- *
- * Исход — пункт статус-бара `diff:<исход>` (у FILE_SAVED — последнее слово
- * первой строки текста: статус-бар узкий) и полный текст в канале Output «Proposed Diff Demo».
- *
- * Используется e2e-сценарием proposedDiff и ручной проверкой:
- *   diode --user-data-dir=<каталог с этой фикстурой> <какой-нибудь файл>
+ * Повторяет `openDiff` стокового Anthropic.claude-code в терминальном режиме (сверено с бандлом
+ * 2.1.304): правая сторона — в своём `FileSystemProvider` в памяти (класс `iG` бандла), вкладку
+ * ждут опросом `tabGroups.all`. Гонка исходов: accept/reject командой, закрытие вкладки
+ * (= reject), сохранение правой стороны (= FILE_SAVED, только при `files.autoSave === "off"`).
+ * `close_tab` у CLI — сохранить правую сторону и `tabGroups.close` без диалога о несохранённом.
+ * У FILE_SAVED в статус-баре — последнее слово первой строки (полоса узкая), полный текст — в Output.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -32,7 +18,6 @@ exports.activate = function activate(context) {
     const output = vscode.window.createOutputChannel("Proposed Diff Demo");
     context.subscriptions.push(status, output);
 
-    // Провайдер в памяти — форма класса `iG` бандла.
     const documents = new Map();
     const emitter = new vscode.EventEmitter();
     const provider = {
@@ -172,7 +157,6 @@ exports.activate = function activate(context) {
         output.appendLine(`${outcome}\n${text}`);
     }
 
-    // `close_tab` CLI: правая сторона сохраняется, потом вкладка закрывается.
     async function closeTab() {
         for (const tab of allTabs()) {
             if (tab.label !== lastTitle) continue;

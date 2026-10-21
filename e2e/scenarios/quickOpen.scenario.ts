@@ -14,18 +14,14 @@ export default defineScenario({
     cols: 120,
     rows: 32,
     async run(editor) {
-        // The opened file has rendered in the editor pane.
         await editor.waitForText((t) => t.includes("greeting"));
         await editor.capture("editor");
 
-        // Open the Quick Open overlay and screenshot it.
         await editor.sendKey("Ctrl+P");
         await editor.waitForText((t) => t.includes("Go to File"));
         await editor.capture("overlay");
 
-        // Низкий терминал: контракт performLayout (Н1) — пикер обязан ужаться в
-        // выделенную высоту (короткое окно списка, целая нижняя рамка), а не
-        // рисовать natural-высоту под обрезку клипом.
+        // Низкий терминал: контракт performLayout (Н1) — пикер ужимается в выделенную высоту, а не обрезается клипом.
         await editor.resize(120, 10);
         await editor.waitForText((t) => t.includes("Go to File"));
         await editor.capture("low-terminal");

@@ -1,18 +1,12 @@
 /**
- * Лестница вех старта — белый ящик бенча открытия файла.
- *
- * Приложение под `DIODE_STARTUP_TRACE=<файл>` выгружает `performance.mark`-вехи
- * (см. `src/vs/diode/startupTrace.ts`); здесь трасса переводится в лестницу
- * «мс от спауна» для каждой вехи, чтобы стоять в отчёте рядом с чёрным ящиком
- * (таймстемпы чанков PTY). Совмещение часов — через epoch: у трассы есть
- * `timeOrigin` процесса, у бенча — epoch-момент спауна.
+ * Трасса `DIODE_STARTUP_TRACE` → «мс от спауна» по вехам. Часы совмещаются через epoch:
+ * `timeOrigin` процесса в трассе и epoch-момент спауна у бенча.
  */
 
 import type { IStartupTrace } from "../../src/vs/diode/startupTrace.ts";
 
 export type { IStartupTrace };
 
-/** Веха лестницы: ключ отчёта, подпись и как её вывести из трассы. */
 export interface Milestone {
     readonly key: string;
     readonly label: string;
@@ -68,10 +62,8 @@ function firstFrameAfter(marks: readonly MarkView[], after: number | null): numb
 }
 
 /**
- * Переводит трассу в лестницу «мс от спауна». `spawnEpoch` — epoch-мс момента
- * спауна у бенча (`performance.timeOrigin + performance.now()` перед spawn).
- * Кадр с текстом — первый кадр после `main:files-opened`; кадр с подсветкой —
- * первый кадр после того, как и вкладки открыты, и токенайзер у редактора.
+ * `spawnEpoch` — `performance.timeOrigin + performance.now()` перед spawn. Кадр с подсветкой —
+ * первый кадр после того, как открыты и вкладки, и токенайзер у редактора.
  */
 export function ladderFromTrace(trace: IStartupTrace, spawnEpoch: number): Ladder {
     const offset = trace.timeOrigin - spawnEpoch;
@@ -111,7 +103,6 @@ export function ladderFromTrace(trace: IStartupTrace, spawnEpoch: number): Ladde
     };
 }
 
-/** Разбирает файл трассы; невалидный или неполный JSON → null. */
 export function parseTrace(json: string): IStartupTrace | null {
     try {
         const parsed = JSON.parse(json) as Partial<IStartupTrace>;

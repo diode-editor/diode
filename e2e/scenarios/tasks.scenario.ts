@@ -3,12 +3,6 @@ import { resolve } from "node:path";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Задачи из `.diode/tasks.json`: F1 → «Tasks: Run Task» → пикер configured →
-// задача бежит в терминале с «Executing task: …» и после выхода ждёт клавишу
-// («Terminal will be reused by tasks, press any key to close it.»); падающая
-// показывает код выхода. Rerun Last Task переиспользует тот же терминал, долгая
-// задача видна сегментом `$(tools) 1` в статус-баре и останавливается
-// «Tasks: Terminate Task».
 
 const folder = resolve(repoRoot, "e2e", "fixtures", "tasks");
 
@@ -20,7 +14,6 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
     await editor.sendKey("Enter");
 }
 
-/** Run Task → строка пикера по подписи. */
 async function runTask(editor: ScenarioDriver, label: string): Promise<void> {
     await runCommand(editor, "Tasks: Run Task");
     await editor.waitForText((t) => t.includes("Select the task to run"));
@@ -52,8 +45,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("exit code: 3."));
         await editor.capture("fail-exit-code");
 
-        // Rerun — тот же терминал (вкладка одна), новый процесс: `fail` печатает
-        // pid своего шелла, и после повтора он другой.
+        // `fail` печатает pid своего шелла: после Rerun он другой, а вкладка та же.
         let firstPid = "";
         await editor.waitForText((t) => {
             firstPid = /about to fail in (\d+)/u.exec(t)?.[1] ?? "";

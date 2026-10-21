@@ -1,21 +1,11 @@
 "use strict";
 
 /**
- * Демо `WorkspaceConfiguration.update`. Повторяет Bazel-плагин
- * (`tihonove.bazel-java-tihonove`): тот на старте читает
- * `bazel.projectview.open` и гасит его `getConfiguration("bazel.projectview")
- * .update("open", false)` — без цели, то есть в настройки воркспейса.
- *
- * - статус-бар показывает текущее `get("open")` и обновляется по
- *   `onDidChangeConfiguration` — запись видна без перезапуска;
- * - «Do Not Open Project View Again» пишет `false` и сразу после `await`
- *   читает значение обратно (эталон: к резолву `get()` уже видит запись);
- * - «Write Unregistered Key» пишет ключ, которого нет в реестре: хост
- *   отклоняет запись (`ERROR_UNKNOWN_KEY` эталона), расширение само
- *   показывает текст отказа — Diode тостов за него не рисует.
- *
- * Используется e2e-сценарием configurationUpdate и ручной проверкой:
- *   diode --user-data-dir=<каталог с этой фикстурой> <папка>
+ * Повторяет Bazel-плагин (`tihonove.bazel-java-tihonove`): на старте гасит
+ * `bazel.projectview.open` через `update("open", false)` без цели — в настройки воркспейса.
+ * Сразу после `await update` значение читается обратно: эталон к резолву уже видит запись.
+ * Незарегистрированный ключ хост отклоняет (`ERROR_UNKNOWN_KEY`), текст отказа показывает само
+ * расширение — Diode тостов за него не рисует.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

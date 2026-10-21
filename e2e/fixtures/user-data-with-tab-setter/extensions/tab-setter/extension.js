@@ -1,10 +1,6 @@
 "use strict";
 
-/**
- * E2E user extension: subprocess extension host загружает этот CJS-файл и
- * вызывает `activate()`. Расширение ставит уникальный tabSize=7 на активный
- * редактор; e2e тест проверяет визуальную раскладку tab-символов.
- */
+/** tabSize=7 уникален — по раскладке табов видно, что его поставило расширение. */
 exports.activate = function activate(_context) {
     const vscode = require("vscode");
     const editor = vscode.window.activeTextEditor;

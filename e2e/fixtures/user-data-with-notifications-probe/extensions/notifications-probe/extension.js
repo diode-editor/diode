@@ -1,15 +1,8 @@
 "use strict";
 
 /**
- * Расширение-пробник сообщений: по команде показывает сообщение (с кнопками и
- * без, немодальное и модальное) и печатает в канал Output то, что ему вернули.
- *
- * Печать в Output здесь — не дубль ради красоты, а единственный способ увидеть
- * ОТВЕТ: сам тост показывает вопрос, а доехала ли нажатая кнопка обратно в
+ * Ответ печатается в Output: тост показывает вопрос, а доехала ли нажатая кнопка обратно в
  * расширение, видно только по его собственному следу.
- *
- * Используется e2e-сценарием `notifications` и ручными прогонами
- * (`--user-data-dir` с этой фикстурой).
  */
 
 /** Как печатаем ответ: закрытие без выбора — отдельный исход. */
@@ -30,7 +23,6 @@ exports.activate = function activate(context) {
         context.subscriptions.push(vscode.commands.registerCommand(id, run));
     };
 
-    // ─── Сообщения без кнопок ───────────────────────────────────────────────
 
     register("diodeNotify.info", function () {
         vscode.window.showInformationMessage("Ruff: formatted 3 files");
@@ -59,7 +51,6 @@ exports.activate = function activate(context) {
         channel.appendLine("Await error returned: " + describe(answer));
     });
 
-    // ─── Сообщения с кнопками ───────────────────────────────────────────────
 
     // Дословно случай Supermaven: единственная дверь к регистрации расширения.
     register("diodeNotify.ask", async function () {
@@ -100,7 +91,6 @@ exports.activate = function activate(context) {
         });
     });
 
-    // ─── env ────────────────────────────────────────────────────────────────
 
     register("diodeNotify.openExternal", async function () {
         const opened = await vscode.env.openExternal(vscode.Uri.parse("https://example.com/activate?token=42"));
