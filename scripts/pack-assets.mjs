@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * Pack assets into `dist/diode.bundle` for SEA-сборки.
+ * Pack assets into `dist/diode.bundle` for the SEA build.
  *
- * Формат синхронен с декодером `src/vs/base/common/assets/assetBundleFormat.ts`;
- * дублируется намеренно, чтобы build-pipeline не зависел от tsx/jiti.
+ * The format is kept in sync with the decoder in `src/vs/base/common/assets/assetBundleFormat.ts`;
+ * duplicated on purpose so the build pipeline does not depend on tsx/jiti.
  *
  * Layout:
  *   [magic 8B "DIODEBND"]
@@ -92,7 +92,7 @@ export function buildDiodeBundle({ repoRoot }) {
     const inputs = [];
     inputs.push({ virtualPath: "onig.wasm", data: readFileSync(onigWasmPath) });
 
-    // TS-исходники скомпилированных builtin'ов выкидываем — под SEA они нерекуайрабельны.
+    // Drop TS sources of compiled builtins: under SEA they cannot be required.
     const codeBuiltins = new Set(
         readdirSync(builtinSrc, { withFileTypes: true })
             .filter((e) => e.isDirectory() && existsSync(join(builtinSrc, e.name, "out")))

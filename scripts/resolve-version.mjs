@@ -1,16 +1,16 @@
 /**
- * Один источник версии для `__DIODE_VERSION__` (tsup) и ключа кэша self-extract:
- * разъедься они — стаб распаковывал бы payload не в каталог своей версии.
+ * Single version source for `__DIODE_VERSION__` (tsup) and the self-extract cache key:
+ * if they diverged, the stub would unpack the payload into another version's directory.
  *
- * Приоритет: env `DIODE_VERSION` (CI) → точный тег `vX.Y.Z` → `nightly-<short-hash>` → `0.0.0-dev`.
+ * Priority: env `DIODE_VERSION` (CI) -> exact tag `vX.Y.Z` -> `nightly-<short-hash>` -> `0.0.0-dev`.
  */
 
 import { execSync } from "node:child_process";
 
 /**
- * @param {{ repoRoot?: string }} [params] По умолчанию `process.cwd()`, а не
- *   `import.meta.dirname`: tsup бандлит конфиг во временный файл, и в worktree git
- *   отдавал бы HEAD основного репозитория.
+ * @param {{ repoRoot?: string }} [params] Defaults to `process.cwd()`, not
+ *   `import.meta.dirname`: tsup bundles the config into a temp file, and in a worktree git
+ *   would return the main repository's HEAD.
  * @returns {string}
  */
 export function resolveDiodeVersion(params = {}) {
@@ -25,7 +25,7 @@ export function resolveDiodeVersion(params = {}) {
             .trim();
         if (/^v\d/.test(tag)) return tag.replace(/^v/, "");
     } catch {
-        // HEAD не на релизном теге.
+        // HEAD is not on a release tag.
     }
 
     try {
@@ -34,7 +34,7 @@ export function resolveDiodeVersion(params = {}) {
             .trim();
         if (shortSha) return `nightly-${shortSha}`;
     } catch {
-        // git недоступен.
+        // git is unavailable.
     }
 
     return "0.0.0-dev";

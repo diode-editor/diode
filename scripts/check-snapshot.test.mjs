@@ -1,4 +1,4 @@
-// Запуск: node --test scripts/ (npm run test:scripts).
+// Run: node --test scripts/ (npm run test:scripts).
 import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,7 +7,7 @@ import { test } from "node:test";
 
 import { ALLOWED_TOP_LEVEL, auditTopLevel, findBakedEnvironment } from "./check-snapshot.mjs";
 
-/** Синтетический бандл: модули с маркерами esbuild и вход снапшота, как у main.cjs. */
+/** Synthetic bundle: modules with esbuild markers and a snapshot entry, like main.cjs. */
 function bundle(dir, modules) {
     const body = Object.entries(modules)
         .map(([path, code]) => `// ${path}\n${code}\n`)
@@ -32,7 +32,7 @@ const sub = (dir, name) => {
     return path;
 };
 
-test("чистый верхний уровень: чтения окружения внутри функций гейт не трогают", () => {
+test("clean module top level: environment reads inside functions do not trip the gate", () => {
     withDir((dir) => {
         const mainPath = bundle(dir, {
             "src/vs/good.ts": [
@@ -45,7 +45,7 @@ test("чистый верхний уровень: чтения окружени�
     });
 });
 
-test("константа из окружения: ловушка называет модуль, отравленная сборка находит метку в блобе", () => {
+test("constant from the environment: the trap names the module, the poisoned build finds the mark in the blob", () => {
     withDir((dir) => {
         const mainPath = bundle(dir, {
             "src/vs/good.ts": "globalThis.ok = 1;",
@@ -68,7 +68,7 @@ test("константа из окружения: ловушка называе�
     });
 });
 
-test("ленивый синглтон, разбуженный при сборке: cwd сборки запечён", () => {
+test("lazy singleton woken at build time: the build cwd is baked in", () => {
     withDir((dir) => {
         const mainPath = bundle(dir, {
             "src/vs/lazy.ts": [
@@ -88,7 +88,7 @@ test("ленивый синглтон, разбуженный при сборк�
     });
 });
 
-test("время, случайность и таймер на верхнем уровне — нарушения", () => {
+test("time, randomness and a timer at the module top level are violations", () => {
     withDir((dir) => {
         const mainPath = bundle(dir, {
             "src/vs/clock.ts": [
@@ -106,7 +106,7 @@ test("время, случайность и таймер на верхнем у�
     });
 });
 
-test("нативный объект на верхнем уровне (Intl.Segmenter) роняет сборку снапшота", () => {
+test("a native object at the module top level (Intl.Segmenter) fails the snapshot build", () => {
     withDir((dir) => {
         const mainPath = bundle(dir, {
             "src/vs/native.ts": [
@@ -114,13 +114,13 @@ test("нативный объект на верхнем уровне (Intl.Segme
                 "globalThis.split = (s) => [...segmenter.segment(s)];",
             ].join("\n"),
         });
-        assert.throws(() => auditTopLevel({ mainPath, workDir: sub(dir, "audit") }), /не собрался/);
+        assert.throws(() => auditTopLevel({ mainPath, workDir: sub(dir, "audit") }), /failed to build/);
     });
 });
 
-test("исключения верхнего уровня — с причиной", () => {
+test("module top level exceptions have a reason", () => {
     for (const allowed of ALLOWED_TOP_LEVEL) {
-        assert.ok(allowed.why.length > 20, `${allowed.what}: причина обязательна`);
+        assert.ok(allowed.why.length > 20, `${allowed.what}: a reason is required`);
         assert.match(allowed.module, /^(src|node_modules)\//);
     }
 });

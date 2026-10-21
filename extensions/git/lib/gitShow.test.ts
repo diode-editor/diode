@@ -32,43 +32,43 @@ afterEach(() => {
 });
 
 describe("toRepoRelativePath", () => {
-    it("делает путь относительным от корня репозитория", () => {
+    it("makes the path relative to the repository root", () => {
         expect(toRepoRelativePath("/repo", "/repo/src/a.ts")).toBe("src/a.ts");
     });
 
-    it("файл вне репозитория — null", () => {
+    it("a file outside the repository gives null", () => {
         expect(toRepoRelativePath("/repo", "/other/a.ts")).toBeNull();
     });
 
-    it("сам корень — null (это не файл)", () => {
+    it("the root itself gives null (not a file)", () => {
         expect(toRepoRelativePath("/repo", "/repo")).toBeNull();
     });
 
-    it("путь на верхний уровень — null", () => {
+    it("a path to the parent level gives null", () => {
         expect(toRepoRelativePath("/repo/src", "/repo/a.ts")).toBeNull();
     });
 });
 
 describe("showFileAtRevision", () => {
-    it("отдаёт содержимое ревизии и зовёт git show с относительным путём", async () => {
-        nextGit(0, "исходный текст\n");
+    it("returns the revision content and calls git show with a relative path", async () => {
+        nextGit(0, "original text\n");
 
         const bytes = await showFileAtRevision("/repo", "/repo/src/a.ts", "HEAD");
 
-        expect(new TextDecoder().decode(bytes)).toBe("исходный текст\n");
+        expect(new TextDecoder().decode(bytes)).toBe("original text\n");
         expect(spawnMock.mock.calls[0][1]).toEqual(["show", "HEAD:src/a.ts"]);
         expect(spawnMock.mock.calls[0][2]).toMatchObject({ cwd: "/repo" });
     });
 
-    it("пустой ref адресует индекс", async () => {
-        nextGit(0, "из индекса");
+    it("an empty ref addresses the index", async () => {
+        nextGit(0, "from index");
 
         await showFileAtRevision("/repo", "/repo/a.ts", "");
 
         expect(spawnMock.mock.calls[0][1]).toEqual(["show", ":a.ts"]);
     });
 
-    it("файла нет в ревизии (ненулевой код) → GitRevisionNotFoundError", async () => {
+    it("file absent at the revision (non-zero code) → GitRevisionNotFoundError", async () => {
         nextGit(128);
 
         await expect(showFileAtRevision("/repo", "/repo/new.ts", "HEAD")).rejects.toBeInstanceOf(
@@ -76,7 +76,7 @@ describe("showFileAtRevision", () => {
         );
     });
 
-    it("файл вне репозитория отвергается БЕЗ запуска git", async () => {
+    it("rejects a file outside the repository WITHOUT running git", async () => {
         await expect(showFileAtRevision("/repo", "/other/a.ts", "HEAD")).rejects.toBeInstanceOf(
             GitRevisionNotFoundError,
         );
@@ -84,7 +84,7 @@ describe("showFileAtRevision", () => {
         expect(spawnMock).not.toHaveBeenCalled();
     });
 
-    it("недоступный git — тот же отказ: гуттеру нечего показывать в обоих случаях", async () => {
+    it("unavailable git gives the same rejection: the gutter has nothing to show either way", async () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never);
         queueMicrotask(() => child.emit("error", new Error("ENOENT")));
@@ -94,7 +94,7 @@ describe("showFileAtRevision", () => {
         );
     });
 
-    it("пробрасывает env в дочерний процесс (настройка git.path)", async () => {
+    it("passes env to the child process (git.path setting)", async () => {
         nextGit(0, "x");
 
         await showFileAtRevision("/repo", "/repo/a.ts", "HEAD", { PATH: "/custom/bin" });
@@ -102,7 +102,7 @@ describe("showFileAtRevision", () => {
         expect(spawnMock.mock.calls[0][2]).toMatchObject({ env: { PATH: "/custom/bin" } });
     });
 
-    it("пустое содержимое ревизии — валидный результат, а не ошибка", async () => {
+    it("empty revision content is a valid result, not an error", async () => {
         nextGit(0, "");
 
         expect(new TextDecoder().decode(await showFileAtRevision("/repo", "/repo/empty.ts", "HEAD"))).toBe("");

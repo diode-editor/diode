@@ -1,11 +1,11 @@
-// Diode demo extension: реализует минимальную поддержку .editorconfig.
-// Ищет ближайший .editorconfig вверх по дереву от директории открытого файла
-// (editor.document.fileName) и применяет indent_style / indent_size / tab_width
-// через vscode.window.onDidChangeActiveTextEditor.
+// Diode demo extension: minimal .editorconfig support.
+// Finds the nearest .editorconfig up the tree from the open file's directory
+// (editor.document.fileName) and applies indent_style / indent_size / tab_width
+// via vscode.window.onDidChangeActiveTextEditor.
 //
-// CJS-формат (.cjs) используется намеренно: SEA-бинарник Diode загружает
-// пользовательские расширения через createRequire(), который работает только
-// с CommonJS. ESM dynamic import() в SEA не поддерживает внешние file:// URL.
+// The CJS format (.cjs) is intentional: the Diode SEA binary loads
+// user extensions via createRequire(), which works only
+// with CommonJS. ESM dynamic import() in SEA does not support external file:// URLs.
 
 "use strict";
 
@@ -91,7 +91,7 @@ function activate(context) {
         }),
     );
 
-    // Применяем к уже открытому редактору (если есть)
+    // Apply to the editor that is already open (if any)
     applyEditorConfig(vscode.window.activeTextEditor, out);
 }
 

@@ -1,9 +1,9 @@
 name: CI
 
-# Ручной запуск — удалённый раннер тяжёлых гейтов для ветки без PR
-# (`npm run ci:run -- <gate>`, scripts/ci-run.mjs; .claude/skills/heavy-run/SKILL.md, «Гейт в CI без PR»).
-# `token` нужен только затем, чтобы скрипт нашёл свой прогон по имени среди
-# соседних; у push/PR имя пустое → GitHub ставит обычное.
+# A manual run is the remote runner of the heavy gates for a branch without a PR
+# (`npm run ci:run -- <gate>`, scripts/ci-run.mjs; .claude/skills/heavy-run/SKILL.md#гейт-в-ci-без-pr).
+# `token` exists only so the script can find its own run by name among
+# its neighbors; for push/PR the name is empty, so GitHub uses the usual one.
 run-name: "${{ github.event_name == 'workflow_dispatch' && format('ci {0} {1}', inputs.gate, inputs.token) || '' }}"
 
 on:
@@ -14,27 +14,27 @@ on:
   workflow_dispatch:
     inputs:
       gate:
-        description: Какой гейт прогнать
+        description: Which gate to run
         type: choice
         options: [all, static, test, mutation, e2e, e2e-windows]
         default: all
       base:
-        description: База диффа мутационного гейта (SHA); пусто — merge-base с origin/main
+        description: Diff base of the mutation gate (SHA); empty means merge-base with origin/main
         type: string
         required: false
       token:
-        description: Метка прогона для поиска по имени (ставит scripts/ci-run.mjs)
+        description: Run tag for finding the run by name (set by scripts/ci-run.mjs)
         type: string
         required: false
 
 jobs:
-  # Статические гейты: типы и линт. Отдельной job'ой, а не шагом внутри `test`,
-  # чтобы падение линта не прятало результат тестов (и наоборот) — обе картины
-  # видны в одном прогоне.
+  # Static gates: types and lint. A separate job rather than a step inside `test`,
+  # so a lint failure doesn't hide the test results (and vice versa): both pictures
+  # are visible in one run.
   #
-  # `npm run lint` линтует ровно те же пути, что и локально (src/ + extensions/),
-  # и требует сгенерированный `settings-schema.generated.ts` только как файл на
-  # диске — он закоммичен, так что билд расширений здесь не нужен.
+  # `npm run lint` lints exactly the same paths as locally (src/ + extensions/),
+  # and needs the generated `settings-schema.generated.ts` only as a file on
+  # disk; it is committed, so no extension build is needed here.
   static:
     if: github.event_name != 'workflow_dispatch' || inputs.gate == 'all' || inputs.gate == 'static'
     runs-on: ubuntu-latest
@@ -49,8 +49,8 @@ jobs:
 
       - run: npm install
 
-      # continue-on-error на каждом гейте, чтобы остальные тоже отработали и PR
-      # получил всю картину сразу; красным job делает шаг Gate.
+      # continue-on-error on every gate so the others run too and the PR
+      # gets the whole picture at once; the Gate step turns the job red.
       - name: Typecheck
         id: typecheck
         continue-on-error: true
@@ -61,15 +61,15 @@ jobs:
         continue-on-error: true
         run: npm run lint
 
-      # Оси слоёв и окружений (scripts/check-layers.mjs, docs/ARCHITECTURE.md),
-      # включая подпути @tuidom/* и запрет движкового disposable.
+      # Layer and environment axes (scripts/check-layers.mjs, docs/ARCHITECTURE.md),
+      # including the @tuidom/* subpaths and the ban on the engine's disposable.
       - name: Layers
         id: layers
         continue-on-error: true
         run: npm run valid-layers-check
 
-      # Граф первого кадра: ленивые куски бандла (scripts/build-lazy-chunks.mjs)
-      # не протекли в dist/main.cjs статическим импортом — по metafile esbuild.
+      # First frame graph: lazy chunks (scripts/build-lazy-chunks.mjs) haven't
+      # leaked into dist/main.cjs through a static import, per the esbuild metafile.
       - name: Lazy chunks
         id: lazy
         continue-on-error: true
@@ -82,11 +82,11 @@ jobs:
         continue-on-error: true
         run: npm run cyrillic-check
 
-      # V8-снапшот ядра (SEA `useSnapshot`): main.cjs собирается в снапшот, верхний
-      # уровень модулей не читает окружение сборки (ловушки + отравленная сборка),
-      # после десериализации — окружение запуска (scripts/check-snapshot.mjs).
-      # Тем node, что вшивает релиз (build.yml): node до 26.11 в процессе из
-      # снапшота роняет воркер с node:net, и пробник гейта это ловит.
+      # The core's V8 snapshot (SEA `useSnapshot`): main.cjs builds into a snapshot, the
+      # module top level doesn't read the build environment (traps + a poisoned build),
+      # and after deserialization it sees the launch environment (scripts/check-snapshot.mjs).
+      # With the node the release embeds (build.yml): node before 26.11 crashes a worker
+      # with node:net in a process from a snapshot, and the gate's probe catches that.
       - uses: actions/setup-node@v4
         with:
           node-version: '26.12.0'
@@ -105,7 +105,7 @@ jobs:
           echo "lazy:      ${{ steps.lazy.outcome }}"
           echo "cyrillic:  ${{ steps.cyrillic.outcome }}"
           echo "snapshot:  ${{ steps.snapshot.outcome }}"
-          echo 'Форматирование и сортировку импортов чинит `npm run lint:fix`, остальное — руками.'
+          echo 'Formatting and import order are fixed by `npm run lint:fix`; the rest by hand.'
           exit 1
 
   test:
@@ -123,30 +123,30 @@ jobs:
 
       - run: npm install
 
-      # Go для стоковых сьютов golang.go (иначе они пропускаются) + кэш gopls.
+      # Go for the golang.go stock extension suites (otherwise they are skipped) + gopls cache.
       - uses: ./.github/actions/go-tools
 
       - run: npm run test:coverage
 
-      # Постим (или обновляем) комментарий с таблицей покрытия и непокрытыми
-      # строками затронутых файлов. always() — чтобы отчёт появился и когда
-      # покрытие упало ниже порога и предыдущий шаг сделал job красным
-      # (reportOnFailure в vitest.config.ts гарантирует, что отчёт всё равно
-      # сгенерирован).
+      # Post (or update) a comment with the coverage table and the uncovered
+      # lines of the touched files. always() so the report appears even when
+      # coverage fell below the threshold and the previous step turned the job red
+      # (reportOnFailure in vitest.config.ts guarantees the report is still
+      # generated).
       - name: Report coverage
         if: always() && github.event_name == 'pull_request'
         uses: davelosert/vitest-coverage-report-action@v2
 
-  # Мутационный гейт на код, который тронул PR. Покрытие по устройству слепо к
-  # ненаписанному: тест, проходящий по всем веткам без единого ассерта, даёт 100%
-  # по всем четырём метрикам и 11% мутационного балла — замерено. Этот job ловит
-  # именно такие дыры.
+  # The mutation gate on the code the PR touched. Coverage is by design blind to
+  # what isn't written: a test that walks every branch without a single assert gives 100%
+  # on all four metrics and an 11% mutation score (measured). This job catches
+  # exactly such holes.
   #
-  # `--ignoreStatic` здесь не экономия ради экономии, а условие того, чтобы гейт
-  # вообще жил на PR: статические мутанты (верхнеуровневый код — таблицы,
-  # регистрации команд) не сужаются per-test покрытием, и на каждого гоняется весь
-  # связанный набор. Замер на #261: полный прогон 41 минута, без статики — 11:45.
-  # Статику добирает ночной прогон (mutation.yml), там она с критического пути снята.
+  # `--ignoreStatic` isn't saving for its own sake but the condition for the gate
+  # to live on PRs at all: static mutants (module top level code: tables,
+  # command registrations) aren't narrowed by per-test coverage, and each one runs the whole
+  # related set. Measured on #261: a full run is 41 minutes, without static ones 11:45.
+  # The scheduled run (mutation.yml) picks up the static ones off the critical path.
   mutation:
     if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && (inputs.gate == 'all' || inputs.gate == 'mutation'))
     runs-on: ubuntu-latest
@@ -157,8 +157,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Без полной истории `git merge-base` не работает, а на нём стоит весь
-          # расчёт diff-скоупа в scripts/mutation-diff.mjs.
+          # Without the full history `git merge-base` doesn't work, and the whole
+          # diff scope computation in scripts/mutation-diff.mjs rests on it.
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -167,14 +167,14 @@ jobs:
 
       - run: npm install
 
-      # Go для стоковых сьютов golang.go (иначе они пропускаются) + кэш gopls.
+      # Go for the golang.go stock extension suites (otherwise they are skipped) + gopls cache.
       - uses: ./.github/actions/go-tools
 
-      # Инкрементальный режим: результаты прошлого пуша этой же ветки лежат в
-      # reports/stryker-incremental.json, и мутант, у которого не менялись ни код,
-      # ни убивший его тест, заново не гоняется. Ключ кэша уникален на прогон
-      # (кэш в Actions неизменяем), восстановление — по префиксу ветки: берётся
-      # самый свежий. Первый пуш ветки идёт с нуля, как раньше.
+      # Incremental mode: the results of the previous push of this same branch live in
+      # reports/stryker-incremental.json, and a mutant whose code and killing test
+      # both haven't changed isn't rerun. The cache key is unique per run
+      # (Actions caches are immutable), restore goes by the branch prefix and takes
+      # the freshest one. A branch's first push starts from scratch, as before.
       - name: Restore incremental mutation results
         id: incremental
         uses: actions/cache/restore@v4
@@ -184,23 +184,23 @@ jobs:
           restore-keys: |
             stryker-incremental-${{ github.head_ref || github.ref_name }}-
 
-      # Логика самого гейта (ключ мутанта, скоуп, балл): секунды, и сломанный
-      # гейт лучше узнать до получасового Stryker'а, чем по тихо-зелёному отчёту.
-      # Тем же скриптом идут тесты хуков Claude Code (.claude/hooks/): bash-guard
-      # разбирает аргументы гейта его же `parseArgs`.
+      # The gate's own logic (mutant key, scope, score): seconds, and it's better to learn
+      # about a broken gate before a half-hour Stryker run than from a quietly green report.
+      # The same script runs the Claude Code hook tests (.claude/hooks/): bash-guard
+      # parses the gate's arguments with the gate's own `parseArgs`.
       - name: Gate self-test
         run: npm run test:scripts
 
-      # continue-on-error, чтобы отчёт долетел до PR и когда балл ниже порога;
-      # красным job делает последний шаг.
-      # База: у PR — первый родитель merge-ref (`HEAD^1`), то есть ровно тот
-      # main, с которым собран проверяемый код. НЕ `pull_request.base.sha`: он
-      # фиксируется на момент события и отстаёт, если main ушёл вперёд, а
-      # merge-ref GitHub собирает против свежего main — тогда в скоуп попадали
-      # чужие, уже влитые коммиты (#663: выжившие в viewsService.ts из #660).
-      # У ручного запуска — `base` из inputs, без него merge-base с main
-      # (fetch-depth: 0 приносит origin/main).
-      # Лог — в артефакт: при ручном запуске комментария в PR нет.
+      # continue-on-error so the report reaches the PR even when the score is below the threshold;
+      # the last step turns the job red.
+      # Base: for a PR it's the first parent of the merge ref (`HEAD^1`), i.e. exactly the
+      # main the checked code was built with. NOT `pull_request.base.sha`: it is
+      # fixed at event time and lags if main moved on, while GitHub builds the
+      # merge ref against fresh main, so other, already merged commits got into the scope
+      # (#663: surviving mutants in viewsService.ts from #660).
+      # For a manual run it's `base` from inputs, otherwise merge-base with main
+      # (fetch-depth: 0 brings origin/main).
+      # The log goes to an artifact: a manual run has no PR comment.
       - name: Mutation testing
         id: mutation
         continue-on-error: true
@@ -214,17 +214,17 @@ jobs:
           else
             base="${BASE:-$(git merge-base origin/main HEAD)}"
           fi
-          echo "База диффа: $base"
+          echo "Diff base: $base"
           mkdir -p reports/mutation
-          # Перепроверка вживлением — после Stryker'а, в том же шаге; бюджет с
-          # запасом под timeout-minutes job'а: не успевшие — inconclusive (красный).
+          # Re-verification by planting runs after Stryker in the same step; the budget leaves
+          # headroom under the job's timeout-minutes: the ones that don't make it are inconclusive (red).
           node scripts/mutation-diff.mjs --base "$base" \
             --ignoreStatic --incremental --reporters json,html,clear-text \
             --verify-budget 40 \
             2>&1 | tee reports/mutation/mutation.log
 
-      # always(): результаты нужны следующему пушу и когда балл ниже порога —
-      # не убитые Stryker'ом перепроверяются вживлением каждый прогон
+      # always(): the next push needs the results even when the score is below the threshold:
+      # mutants Stryker didn't kill are re-verified by planting on every run
       # (scripts/verify-mutants.mjs).
       - name: Save incremental mutation results
         if: always() && hashFiles('reports/stryker-incremental.json') != ''
@@ -237,32 +237,32 @@ jobs:
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
-          # head.sha, а не github.sha: последний — merge-коммит PR, ссылки на
-          # строки в нём ведут не в те места.
+          # head.sha, not github.sha: the latter is the PR's merge commit, and line
+          # links into it point to the wrong places.
           MUTATION_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
           set -euo pipefail
           if [ ! -f reports/mutation/mutation.json ]; then
-            # «Нет отчёта» бывает и от пустого скоупа, и от упавшего скрипта —
-            # различает их только исход, который скрипт пишет в gate.json.
+            # "No report" comes both from an empty scope and from a crashed script;
+            # only the outcome the script writes to gate.json tells them apart.
             if [ "$(jq -r .outcome reports/mutation/gate.json 2>/dev/null)" = "empty-scope" ]; then
-              echo "PR не трогает продуктовый код — мутировать нечего."
+              echo "The PR doesn't touch product code: nothing to mutate."
               exit 0
             fi
-            echo "::error::Мутационный прогон не дошёл до отчёта — смотри шаг Mutation testing."
+            echo "::error::The mutation run didn't get to a report; see the Mutation testing step."
             exit 1
           fi
           {
             echo "<!-- mutation-report -->"
-            echo "## Мутационное тестирование"
+            echo "## Mutation testing"
             echo
             node scripts/mutation-report.mjs
           } > mutation-comment.md
           cat mutation-comment.md >> "$GITHUB_STEP_SUMMARY"
-          # Ручной запуск: PR может не быть — отчёт остаётся в summary и артефакте.
+          # Manual run: there may be no PR, so the report stays in the summary and the artifact.
           if [ "${{ github.event_name }}" != pull_request ]; then exit 0; fi
-          # --edit-last, чтобы пуши в PR не плодили комментарии; если предыдущего
-          # нет, gh падает — тогда создаём новый.
+          # --edit-last so pushes to the PR don't pile up comments; if there is no previous
+          # one, gh fails, and then we create a new one.
           gh pr comment "${{ github.event.pull_request.number }}" \
             --body-file mutation-comment.md --edit-last \
             || gh pr comment "${{ github.event.pull_request.number }}" \
@@ -284,14 +284,14 @@ jobs:
       - name: Gate
         if: steps.mutation.outcome == 'failure'
         run: |
-          echo "Мутационный гейт красный: настоящие выжившие (real) или мутанты без вердикта —"
-          echo "классы и причины в комментарии к PR / summary прогона, разбор — docs/MUTATION.md."
-          echo "real — убиваем тестом либо гасим: // Stryker disable next-line <мутатор>: причина"
-          echo "phantom гейт уже разоблачил сам — их чинить и гасить не нужно."
+          echo "The mutation gate is red: real surviving mutants (real) or mutants without a verdict;"
+          echo "classes and reasons are in the PR comment / run summary, triage in docs/MUTATION.md."
+          echo "real: kill with a test or suppress: // Stryker disable next-line <mutator>: reason"
+          echo "phantom: the gate has already exposed them itself, no need to fix or suppress them."
           exit 1
 
-  # Ручной запуск делит матрицу: `e2e` — ubuntu, `e2e-windows` — windows. Имена
-  # проверок на PR (`e2e (ubuntu-latest)`, `e2e (windows-latest)`) те же.
+  # A manual run splits the matrix: `e2e` is ubuntu, `e2e-windows` is windows. The check
+  # names on PRs (`e2e (ubuntu-latest)`, `e2e (windows-latest)`) stay the same.
   e2e:
     if: github.event_name != 'workflow_dispatch' || contains(fromJSON('["all","e2e","e2e-windows"]'), inputs.gate)
     strategy:
@@ -302,14 +302,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Тот же node, что вшивает релизная сборка (build.yml): e2e гоняют SEA-бинарь.
+      # The same node the release build embeds (build.yml): e2e runs the SEA binary.
       - uses: actions/setup-node@v4
         with:
           node-version: '26.12.0'
 
-      # node-pty собирается из исходников, если для текущей версии Node нет prebuild.
-      # На ubuntu нужен build-essential + python3 (на macOS они уже есть из Xcode CLT,
-      # на Windows setup-node + windows-build-tools обычно достаточно).
+      # node-pty builds from source when there is no prebuild for the current Node version.
+      # Ubuntu needs build-essential + python3 (macOS already has them from Xcode CLT,
+      # on Windows setup-node + windows-build-tools is usually enough).
       - name: Install build deps for node-pty (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -318,30 +318,30 @@ jobs:
 
       - run: npm install
 
-      # Go для e2e goLsp и сценария go-lsp (extension-host e2e — только Linux).
+      # Go for e2e goLsp and the go-lsp scenario (extension host e2e is Linux only).
       - if: runner.os == 'Linux'
         uses: ./.github/actions/go-tools
 
-      # Последовательный прогон в CI (как было до параллелизации): детерминизм
-      # на общих раннерах важнее скорости — несколько SEA/PTY-процессов на слабой
-      # машине дают тайминг-флейк. Параллель доступна локально (DIODE_E2E_WORKERS).
+      # Sequential run in CI (as before parallelization): determinism on shared
+      # runners matters more than speed, since several SEA/PTY processes on a weak
+      # machine produce timing flakes. Parallelism is available locally (DIODE_E2E_WORKERS).
       #
-      # `test:e2e` — обёртка scripts/e2e.mjs: упавшие файлы перепрогоняются вторым
-      # проходом поодиночке, и job зелёный, только если второй проход зелёный.
-      # Флаки (упал — потом прошёл) не прячутся: список FLAKY уходит в summary
-      # job'а и аннотациями. Бинарь собирается один раз (scripts/e2e-artifacts.mjs),
-      # второй проход берёт его из кэша раннера.
+      # `test:e2e` is the scripts/e2e.mjs wrapper: failed files are rerun one by one
+      # in a second pass, and the job is green only if the second pass is green.
+      # Flakes (failed, then passed) aren't hidden: the FLAKY list goes to the job
+      # summary and to annotations. The binary is built once (scripts/e2e-artifacts.mjs),
+      # and the second pass takes it from the runner cache.
       #
-      # Артефакта нет намеренно: пост-мортем сессии (e2e/helpers/diagnostics.ts)
-      # печатается в stderr, то есть в лог job'а, а его целиком забирает
-      # scripts/ci-run.mjs.
+      # No artifact on purpose: the session post-mortem (e2e/helpers/diagnostics.ts)
+      # is printed to stderr, i.e. to the job log, which scripts/ci-run.mjs
+      # fetches whole.
       - run: npm run test:e2e
         env:
           DIODE_E2E_WORKERS: '1'
 
-      # Перф-гейт старта (e2e/bench/startupBudget.bench.ts): бюджет «наших мс» на
-      # small откалиброван по ubuntu-раннеру, поэтому только здесь. Бинарь — из
-      # кэша, который только что собрал test:e2e.
+      # Startup perf gate (e2e/bench/startupBudget.bench.ts): the "our ms" budget for
+      # small is calibrated on the ubuntu runner, hence only here. The binary comes from
+      # the cache test:e2e has just built.
       - name: Startup budget (small)
         if: runner.os == 'Linux'
         run: npm run test:perf:startup

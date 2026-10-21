@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
- * Упаковка бинаря ripgrep (`rg`) в ассет `rg.bundle` для SEA-сборки: исполняемый
- * файл из SEA-blob не запустить, `loadRipgrep.ts` распаковывает его на диск.
+ * Packs the ripgrep binary (`rg`) into the `rg.bundle` asset for the SEA build: an executable
+ * cannot run from the SEA blob, so `loadRipgrep.ts` unpacks it to disk.
  *
- * Бинарь — из `@vscode/ripgrep-<platform>-<arch>` текущей платформы (SEA собирается
- * на своей ОС). Виртуальное имя (`rg` / `rg.exe`) обязано совпадать с
- * `RG_BINARY_NAME` в `src/vs/workbench/services/search/node/loadRipgrep.ts`.
+ * The binary comes from `@vscode/ripgrep-<platform>-<arch>` of the current platform (SEA is
+ * built on its own OS). The virtual name (`rg` / `rg.exe`) must match
+ * `RG_BINARY_NAME` in `src/vs/workbench/services/search/node/loadRipgrep.ts`.
  *
- * Верифицирован linux-x64; macOS/Windows end-to-end не проверены.
+ * Verified on linux-x64; macOS/Windows are not verified end to end.
  */
 
 import { readFileSync, statSync, writeFileSync } from "node:fs";
@@ -30,8 +30,8 @@ export function buildRipgrepBundle({ repoRoot }) {
         rgBinaryPath = requireFromRoot.resolve(`${platformPkg}/bin/${binaryName}`);
     } catch {
         throw new Error(
-            `[pack-ripgrep] бинарь ripgrep не найден (${platformPkg}/bin/${binaryName}) — ` +
-                `установите optionalDependencies для текущей платформы (${process.platform}-${process.arch})`,
+            `[pack-ripgrep] ripgrep binary not found (${platformPkg}/bin/${binaryName}); ` +
+                `install optionalDependencies for the current platform (${process.platform}-${process.arch})`,
         );
     }
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseForEachRefZ, parseStashListZ } from "./queryParse.ts";
 
 describe("parseForEachRefZ", () => {
-    it("раскладывает heads/remotes/tags в короткие имена", () => {
+    it("splits heads/remotes/tags into short names", () => {
         const out = [
             "refs/heads/main\0abc123\0feat: latest",
             "refs/remotes/origin/main\0abc123\0feat: latest",
@@ -19,14 +19,14 @@ describe("parseForEachRefZ", () => {
         ]);
     });
 
-    it("битые строки пропускаются, отсутствующий subject — пустая строка", () => {
-        expect(parseForEachRefZ("refs/heads/only-name\nгарбидж")).toEqual([]);
+    it("skips broken lines; a missing subject is an empty string", () => {
+        expect(parseForEachRefZ("refs/heads/only-name\ngarbage")).toEqual([]);
         expect(parseForEachRefZ("refs/heads/x\0abc")).toEqual([{ name: "x", kind: "head", sha: "abc", subject: "" }]);
     });
 });
 
 describe("parseStashListZ", () => {
-    it("индекс + описание; мусор мимо", () => {
+    it("index + description; garbage skipped", () => {
         const out = ["stash@{0}\0WIP on main: abc feat", "stash@{1}\0On feature: custom message", "junk\0x", ""].join(
             "\n",
         );

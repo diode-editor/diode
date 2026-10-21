@@ -1,23 +1,23 @@
 #!/usr/bin/env node
 /**
- * Самопроверка мутационного гейта: каждого не убитого Stryker'ом мутанта
- * вживляем РОВНО как Stryker (`location` → `replacement` по `files[f].source`
- * отчёта), гоняем vitest и даём класс (`CLASSES` в `mutation-inject.mjs`).
+ * Mutation gate self-check: every mutant Stryker did not kill is injected EXACTLY
+ * as Stryker does it (`location` → `replacement` over the report's `files[f].source`),
+ * vitest runs, and the mutant gets a class (`CLASSES` in `mutation-inject.mjs`).
  *
- *   node scripts/verify-mutants.mjs [<mutation.json>] [--filter <подстрока пути>]
- *       [--limit N] [--jobs N] [--full] [--timeout <сек>] [--budget <мин>] [--root <проект>]
+ *   node scripts/verify-mutants.mjs [<mutation.json>] [--filter <path substring>]
+ *       [--limit N] [--jobs N] [--full] [--timeout <sec>] [--budget <min>] [--root <project>]
  *
- * Вердикты — в reports/mutation/verdict.json, фантомы в отчёте становятся Killed.
- * Код возврата 1 — есть блокирующие классы.
+ * Verdicts go to reports/mutation/verdict.json; phantoms become Killed in the report.
+ * Exit code 1 means there are blocking classes.
  *
- * Этапы, от дешёвого к дорогому: `coveredBy` + соседние `<имя>*.test.ts`; все
- * транзитивные импортёры (как `vitest related`, но без сервера vite на вызов);
- * `--full` — весь сьют. Уликой считается только тест, зелёный БЕЗ мутанта, и
- * падение обязано повториться С ним — флак фантомом не делаем. Прогон без
- * мутанта кэшируется по файлу: связанный набор горячего файла — сотни файлов.
+ * Stages, from cheap to expensive: `coveredBy` + sibling `<name>*.test.ts`; all
+ * transitive importers (like `vitest related`, but without a vite server per call);
+ * `--full`: the whole suite. Only a test green WITHOUT the mutant counts as evidence,
+ * and the failure must reproduce WITH it: a flake never becomes a phantom. The run
+ * without the mutant is cached per file: the related set of a hot file is hundreds of files.
  *
- * Вживление — в песочнице `.stryker-tmp/verify-*`: прерванный прогон не оставляет
- * мутанта в рабочем дереве, соседние сессии чужой правки не видят.
+ * Injection happens in a `.stryker-tmp/verify-*` sandbox: an interrupted run leaves
+ * no mutant in the working tree, and neighboring sessions do not see the edit.
  */
 
 import { spawn, spawnSync } from "node:child_process";
@@ -42,10 +42,10 @@ import {
 } from "./mutation-inject.mjs";
 import { mutantKey } from "./mutation-gate.mjs";
 
-/** То же, что Stryker не берёт в свою песочницу. */
+/** The same entries Stryker leaves out of its sandbox. */
 const SANDBOX_SKIP = new Set(["node_modules", ".git", ".stryker-tmp", "reports", "dist", "coverage", ".claude"]);
 
-/** Обход каталога вне git-репозитория — для синтетических проектов из тестов скрипта. */
+/** Directory walk outside a git repository, for synthetic projects in the script's tests. */
 export function listProjectFiles(root) {
     const git = spawnSync("git", ["ls-files", "-co", "--exclude-standard", "-z"], {
         cwd: root,
@@ -78,7 +78,7 @@ function createSandbox(root, files, index) {
     mkdirSync(dir, { recursive: true });
     for (const file of files) {
         if (SANDBOX_SKIP.has(file.split("/")[0])) continue;
-        // Не жёсткая ссылка: с общей inode мутант оказался бы в рабочем дереве.
+        // Not a hard link: with a shared inode the mutant would end up in the working tree.
         cpSync(path.join(root, file), path.join(dir, file), { dereference: true });
     }
     if (existsSync(path.join(root, "node_modules")))
@@ -86,7 +86,7 @@ function createSandbox(root, files, index) {
     return dir;
 }
 
-/** Своя группа процессов: на таймауте убиваем и воркеры — зациклившийся форк пережил бы нас. */
+/** Own process group: on timeout we kill the workers too, otherwise a looping fork would outlive us. */
 function runVitest(sandbox, testFiles, { bail, timeoutMs, label }) {
     const outFile = path.join(
         sandbox,
@@ -116,7 +116,7 @@ function runVitest(sandbox, testFiles, { bail, timeoutMs, label }) {
         let output = "";
         const keep = (chunk) => {
             output += chunk;
-            // Нужен только хвост: там сводка vitest и Unhandled Errors.
+            // Only the tail matters: it holds the vitest summary and Unhandled Errors.
             if (output.length > 400_000) output = output.slice(-200_000);
         };
         child.stdout.on("data", keep);
@@ -229,14 +229,14 @@ export async function verifyMutants({
         for (const child of activeChildren) killGroup(child);
         for (const sandbox of sandboxes) rmSync(sandbox, { recursive: true, force: true });
     };
-    // Иначе по Ctrl+C зациклившийся форк остаётся жить.
+    // Otherwise a looping fork survives Ctrl+C.
     const onSignal = () => {
         cleanup();
         process.exit(130);
     };
     for (const signal of ["SIGINT", "SIGTERM", "SIGHUP"]) process.on(signal, onSignal);
 
-    // Без мутанта набор не меняется от мутанта к мутанту — кэшируем по файлу.
+    // Without the mutant the results do not change between mutants, so cache them per file.
     const baselineCache = new Map();
     async function baseline(sandbox, list, perRunTimeout) {
         const missing = list.filter((file) => !baselineCache.has(file));
@@ -253,8 +253,8 @@ export async function verifyMutants({
         if (unusable !== undefined)
             return {
                 error: unusable.timedOut
-                    ? "прогон без мутанта не уложился в таймаут"
-                    : "прогон без мутанта не оставил отчёта",
+                    ? "the run without the mutant timed out"
+                    : "the run without the mutant left no report",
             };
         const parts = runs.map((run) => {
             const file = run.only;
@@ -267,7 +267,7 @@ export async function verifyMutants({
                 total: 0,
             };
         });
-        // Падение vitest вне тестов без мутанта — чтобы не записать мутанту чужое.
+        // A vitest crash outside tests without the mutant, so the mutant is not blamed for it.
         const crashed = runs.some(
             (run) => run.code !== 0 && run.result.failed.size === 0 && run.result.failedFiles.size === 0,
         );
@@ -298,37 +298,38 @@ export async function verifyMutants({
         const onDisk =
             sources.get(file) ??
             (existsSync(path.join(root, file)) ? readFileSync(path.join(root, file), "utf8") : null);
-        if (onDisk === null) return verdict("stale", "файла больше нет — отчёт протух");
-        if (source === undefined) return verdict("stale", "в отчёте нет исходника файла — сверить координаты не с чем");
+        if (onDisk === null) return verdict("stale", "the file no longer exists; the report is stale");
+        if (source === undefined)
+            return verdict("stale", "the report has no source for the file; nothing to check the coordinates against");
         if (source !== onDisk)
             return verdict(
                 "stale",
-                "файл менялся после прогона Stryker'а — отчёт протух, координаты мутанта указывают не туда",
+                "the file changed after the Stryker run; the report is stale and the mutant coordinates point elsewhere",
             );
-        if (Date.now() - startedAt > budgetMs) return verdict("inconclusive", "кончился бюджет времени перепроверки");
+        if (Date.now() - startedAt > budgetMs) return verdict("inconclusive", "re-verification time budget ran out");
 
         let mutated;
         try {
             mutated = applyMutant(source, mutant);
         } catch (error) {
-            return verdict("stale", `координаты мутанта не ложатся на исходник: ${error.message}`);
+            return verdict("stale", `mutant coordinates do not fit the source: ${error.message}`);
         }
 
         const covering = coveringTestFiles(report, mutant).filter((test) => testFiles.includes(test));
         const stage1 = [...new Set([...covering, ...siblingTestFiles(file, testFiles)])].sort();
         const related = relatedTestFiles(file, importers).filter((test) => !stage1.includes(test));
         const stages = [
-            { name: "coveredBy+соседи", tests: stage1 },
-            { name: "граф импортов", tests: related },
+            { name: "coveredBy+siblings", tests: stage1 },
+            { name: "import graph", tests: related },
         ];
         if (full)
             stages.push({
-                name: "весь сьют",
+                name: "full suite",
                 tests: testFiles.filter((test) => !stage1.includes(test) && !related.includes(test)),
             });
         const ran = stages.filter((stage) => stage.tests.length > 0);
         if (ran.length === 0)
-            return verdict("inconclusive", "ни одного теста: ни coveredBy, ни соседних, ни импортирующих файл");
+            return verdict("inconclusive", "no tests: no coveredBy, no siblings, no importers of the file");
 
         const sandboxFile = path.join(sandbox, file);
         const withoutMutant = async (fn) => {
@@ -342,7 +343,7 @@ export async function verifyMutants({
         writeFileSync(sandboxFile, mutated);
         let flaky = [];
         let redWithout = [];
-        // Фантом — вердикт; иначе копим «падало и без мутанта» и «не повторилось».
+        // A phantom is a verdict; otherwise accumulate "failed without the mutant too" and "did not reproduce".
         const analyze = async (stage, run, perRun) => {
             const touched = filesOf(run.result);
             if (touched.length === 0) return null;
@@ -350,7 +351,7 @@ export async function verifyMutants({
             if (base.error !== undefined) return verdict("inconclusive", base.error, { stage: stage.name });
             const evidence = killers(base.result, run.result);
             if (evidence.any) {
-                // Повтор с мутантом только по уликам: флак фантомом не делаем.
+                // Rerun with the mutant only on the evidence: a flake never becomes a phantom.
                 const suspects = [
                     ...new Set([...evidence.files, ...evidence.tests.map((key) => key.slice(0, key.indexOf(" > ")))]),
                 ];
@@ -360,7 +361,7 @@ export async function verifyMutants({
                     const tests = [...confirmed.tests, ...confirmed.files];
                     return verdict(
                         "phantom",
-                        `убит на этапе «${stage.name}»: ${tests.slice(0, 3).join("; ")}${tests.length > 3 ? ` и ещё ${String(tests.length - 3)}` : ""}`,
+                        `killed at stage "${stage.name}": ${tests.slice(0, 3).join("; ")}${tests.length > 3 ? ` and ${String(tests.length - 3)} more` : ""}`,
                         { tests, stage: stage.name },
                     );
                 }
@@ -376,17 +377,17 @@ export async function verifyMutants({
                 const timedOut = () =>
                     verdict(
                         "timeout",
-                        `vitest с мутантом не уложился в ${String(Math.round(perRun / 1000))} с на этапе «${stage.name}» (${String(stage.tests.length)} файлов)`,
+                        `vitest with the mutant did not finish in ${String(Math.round(perRun / 1000))} s at stage "${stage.name}" (${String(stage.tests.length)} files)`,
                         { stage: stage.name },
                     );
-                // Сначала с --bail: фантома обычно валит первый же тест.
+                // First with --bail: the very first test usually kills a phantom.
                 let run = await runVitest(sandbox, stage.tests, { bail: true, timeoutMs: perRun, label: "mutant" });
                 if (run.timedOut) return timedOut();
                 if (run.result !== null && filesOf(run.result).length > 0) {
                     const found = await analyze(stage, run, perRun);
                     if (found !== null) return found;
-                    // Первым упал тест, который не улика (красный и без мутанта,
-                    // флак), а bail оборвал остальные — догоняем этап целиком.
+                    // The first failure was not evidence (red without the mutant too, or
+                    // a flake), and bail cut off the rest, so rerun the whole stage.
                     run = await runVitest(sandbox, stage.tests, {
                         bail: false,
                         timeoutMs: perRun,
@@ -398,19 +399,19 @@ export async function verifyMutants({
                         if (again !== null) return again;
                     }
                 }
-                // Упал без тестов-виновников (unhandled error, воркер, нет отчёта) — сверяем с прогоном без мутанта.
+                // Crashed without culprit tests (unhandled error, worker, no report): compare with the run without the mutant.
                 const crashed =
                     run.result === null ||
                     (run.code !== 0 && run.result.failed.size === 0 && run.result.failedFiles.size === 0);
                 if (crashed) {
                     const excerpt =
                         runtimeErrorExcerpt(run.output) ??
-                        `vitest вышел кодом ${String(run.code)} без упавших тестов${run.result === null ? " и без отчёта" : ""}`;
+                        `vitest exited with code ${String(run.code)} without failed tests${run.result === null ? " and without a report" : ""}`;
                     const base = await withoutMutant(() => baseline(sandbox, stage.tests, perRun));
                     if (base.error !== undefined || base.crashed) {
                         return verdict(
                             "inconclusive",
-                            `vitest падает и без мутанта — вердикта нет: ${base.error ?? excerpt}`,
+                            `vitest fails without the mutant too; no verdict: ${base.error ?? excerpt}`,
                             { stage: stage.name },
                         );
                     }
@@ -424,21 +425,21 @@ export async function verifyMutants({
         if (redWithout.length > 0) {
             return verdict(
                 "inconclusive",
-                `тесты красные и без мутанта — вердикта нет: ${redWithout.slice(0, 3).join("; ")}`,
+                `tests are red without the mutant too; no verdict: ${redWithout.slice(0, 3).join("; ")}`,
                 { tests: redWithout },
             );
         }
         if (flaky.length > 0) {
             return verdict(
                 "inconclusive",
-                `падение с мутантом не повторилось (флак?): ${flaky.slice(0, 3).join("; ")}`,
+                `the failure with the mutant did not reproduce (flake?): ${flaky.slice(0, 3).join("; ")}`,
                 { tests: flaky },
             );
         }
         const hint = equivalentHint(source, mutant, siblings);
         return verdict(
             "real",
-            `все подобранные тесты зелёные с мутантом (${String(checked)} файлов: ${ran.map((stage) => `${stage.name} — ${String(stage.tests.length)}`).join(", ")})`,
+            `all selected tests are green with the mutant (${String(checked)} files: ${ran.map((stage) => `${stage.name} — ${String(stage.tests.length)}`).join(", ")})`,
             { hint },
         );
     }
@@ -464,17 +465,17 @@ export async function verifyMutants({
 }
 
 const LABELS = {
-    real: "НАСТОЯЩИЙ",
-    phantom: "фантом",
+    real: "REAL",
+    phantom: "phantom",
     "runtime-error": "RUNTIME",
-    inconclusive: "БЕЗ ВЕРДИКТА",
-    timeout: "ТАЙМАУТ",
-    stale: "ПРОТУХ",
+    inconclusive: "INCONCLUSIVE",
+    timeout: "TIMEOUT",
+    stale: "STALE",
 };
 
 export function formatVerdict(verdict) {
     const what = `${verdict.file}:${String(verdict.line)}:${String(verdict.column)} ${verdict.mutatorName} → ${JSON.stringify(verdict.replacement).slice(0, 40)}`;
-    const hint = verdict.hint ? `\n      ↳ возможно, эквивалентный: ${verdict.hint}` : "";
+    const hint = verdict.hint ? `\n      ↳ possibly equivalent: ${verdict.hint}` : "";
     const reason = verdict.reason.split("\n").slice(0, 3).join("\n      ");
     return `[${LABELS[verdict.class].padEnd(12)}] ${what}\n      ${reason}${hint}`;
 }
@@ -513,7 +514,7 @@ function parseCli(argv) {
         const arg = argv[i];
         const value = () => {
             const next = argv[++i];
-            if (next === undefined) throw new Error(`${arg} требует значение`);
+            if (next === undefined) throw new Error(`${arg} requires a value`);
             return next;
         };
         if (arg === "--root") options.root = path.resolve(value());
@@ -524,7 +525,7 @@ function parseCli(argv) {
         else if (arg === "--timeout") options.timeoutMs = Number(value()) * 1000;
         else if (arg === "--budget") options.budgetMs = Number(value()) * 60_000;
         else if (!arg.startsWith("-") && options.reportPath === null) options.reportPath = arg;
-        else throw new Error(`Непонятный аргумент «${arg}»`);
+        else throw new Error(`Unexpected argument "${arg}"`);
     }
     return options;
 }
@@ -537,11 +538,11 @@ if (import.meta.filename === process.argv[1]) {
         console.error(error.message);
         process.exit(2);
     }
-    // `--root`: отчёт CI перепроверяется на распакованном снимке его коммита.
+    // `--root`: a CI report is re-verified against an unpacked snapshot of its commit.
     const root = options.root ?? path.resolve(import.meta.dirname, "..");
     const reportPath = path.resolve(options.reportPath ?? path.join(root, "reports", "mutation", "mutation.json"));
     if (!existsSync(reportPath)) {
-        console.error(`Отчёта нет: ${reportPath} — сначала npm run test:mutation.`);
+        console.error(`No report: ${reportPath}; run npm run test:mutation first.`);
         process.exit(2);
     }
     const report = JSON.parse(readFileSync(reportPath, "utf8"));
@@ -549,6 +550,6 @@ if (import.meta.filename === process.argv[1]) {
     mergeVerdicts(report, verdicts);
     writeFileSync(reportPath, JSON.stringify(report));
     writeVerdictFile(path.dirname(reportPath), verdicts);
-    console.log(`\nПерепроверено вживлением: ${String(verdicts.length)} (${formatSummary(verdicts) || "некого"}).`);
+    console.log(`\nRe-verified by injection: ${String(verdicts.length)} (${formatSummary(verdicts) || "none"}).`);
     process.exit(blockingVerdicts(verdicts).length > 0 || verdicts.some((verdict) => verdict.class === "real") ? 1 : 0);
 }

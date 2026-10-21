@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { classifyGitStderr } from "./classifyGitError.ts";
 
 describe("classifyGitStderr", () => {
-    it("auth: отключённые промпты, пароли, ssh", () => {
+    it("auth: disabled prompts, passwords, ssh", () => {
         expect(classifyGitStderr("fatal: could not read Username for 'https://x': terminal prompts disabled")).toBe(
             "auth",
         );
@@ -29,7 +29,7 @@ describe("classifyGitStderr", () => {
         expect(classifyGitStderr("error: the branch 'x' is not fully merged")).toBe("not-merged");
     });
 
-    it("прочее — git-error", () => {
+    it("anything else is git-error", () => {
         expect(classifyGitStderr("fatal: unable to access 'https://nowhere/': Could not resolve host")).toBe(
             "git-error",
         );

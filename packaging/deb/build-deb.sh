@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Собирает .deb из готового linux-бинаря без сторонних инструментов (только dpkg-deb).
+# Builds a .deb from a prebuilt linux binary with no third-party tools (dpkg-deb only).
 #
 #   packaging/deb/build-deb.sh <binary> <arch: amd64|arm64> <version> <out-dir>
 #
-# Бинарь — SEA-сборка (`diode-linux-x64` / `diode-linux-arm64`); пакет кладёт его
-# в /usr/bin/diode и объявляет рантайм-зависимости вшитого node (`ldd`: libc, libstdc++, libatomic).
-# Результат: <out-dir>/diode_<version>_<arch>.deb
+# The binary is a SEA build (`diode-linux-x64` / `diode-linux-arm64`); the package puts it
+# into /usr/bin/diode and declares the runtime dependencies of the embedded node (`ldd`: libc, libstdc++, libatomic).
+# Output: <out-dir>/diode_<version>_<arch>.deb
 
 set -euo pipefail
 

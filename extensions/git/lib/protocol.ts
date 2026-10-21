@@ -1,16 +1,16 @@
 /**
- * Зеркало типов — в `src/vs/workbench/contrib/scm/common/gitProtocol.ts`, по значению:
- * общих импортов через границу процесса нет. Не generic-exec: argv собирает расширение.
+ * The types are mirrored by value in `src/vs/workbench/contrib/scm/common/gitProtocol.ts`:
+ * no shared imports across the process boundary. Not a generic exec: the extension builds argv.
  */
 export const GIT_OP_COMMAND = "diode.git.op";
 
 export interface IGitOpRequest {
     readonly op: string;
-    /** Валидирует расширение. */
+    /** Validated by the extension. */
     readonly params?: Readonly<Record<string, unknown>>;
 }
 
-/** По мотивам GitErrorCodes VS Code. */
+/** Modeled on VS Code GitErrorCodes. */
 export type GitErrorKind =
     | "auth"
     | "conflict"

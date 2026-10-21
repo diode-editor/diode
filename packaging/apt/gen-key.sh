@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# Одноразово: ключ подписи apt-репозитория.
+# One-off: the apt repository signing key.
 #
-#   packaging/apt/gen-key.sh [out-dir]          (по умолчанию ~/diode-apt-key)
+#   packaging/apt/gen-key.sh [out-dir]          (default ~/diode-apt-key)
 #
-# 1. Генерирует ed25519-ключ «только подпись, без срока действия» в ТЕКУЩЕМ keyring
-#    ($GNUPGHOME или ~/.gnupg) — он остаётся там как резерв. Пароль спрашивает pinentry.
-# 2. Экспортирует в <out-dir>:
-#      apt-signing-key.private.asc — приватная половина (armored), chmod 600
-#      apt-signing-key.public.asc  — публичная, для справки (в релиз она уедет из CI сама)
-# 3. Печатает base64 приватной половины одной строкой — это значение секрета
-#    APT_GPG_PRIVATE_KEY (release.yml декодирует его обратно). Пароль ключа —
-#    отдельный секрет APT_GPG_PASSPHRASE.
+# 1. Generates an ed25519 "sign only, no expiry" key in the CURRENT keyring
+#    ($GNUPGHOME or ~/.gnupg); it stays there as a backup. pinentry asks for the passphrase.
+# 2. Exports into <out-dir>:
+#      apt-signing-key.private.asc — the private half (armored), chmod 600
+#      apt-signing-key.public.asc  — the public half, for reference (CI ships it to the release itself)
+# 3. Prints the base64 of the private half on one line: the value of the
+#    APT_GPG_PRIVATE_KEY secret (release.yml decodes it back). The key passphrase is
+#    a separate APT_GPG_PASSPHRASE secret.
 #
-# Срок действия не ставим намеренно: apt отказывает в `update` по истёкшему ключу,
-# а обновить keyring у всех пользователей нельзя. Потеря ключа = новый keyring у всех,
-# поэтому base64 и пароль — в парольницу.
+# No expiry on purpose: apt refuses `update` with an expired key, and there is no way
+# to update the keyring of every user. Losing the key = a new keyring for everyone,
+# so the base64 and the passphrase go into a password manager.
 #
-# Неинтерактивный режим (тесты): DIODE_KEY_PASSPHRASE=<пароль> — без pinentry.
+# Non-interactive mode (tests): DIODE_KEY_PASSPHRASE=<passphrase>, no pinentry.
 
 set -euo pipefail
 
@@ -24,7 +24,7 @@ out="${1:-$HOME/diode-apt-key}"
 uid="Diode apt repository <noreply@diode-editor.github.io>"
 
 if gpg --batch --list-secret-keys "$uid" >/dev/null 2>&1; then
-    echo "gen-key.sh: ключ «$uid» уже есть в keyring — экспортирую его, новый не создаю" >&2
+    echo "gen-key.sh: key \"$uid\" is already in the keyring; exporting it instead of creating a new one" >&2
 else
     if [[ -n "${DIODE_KEY_PASSPHRASE:-}" ]]; then
         gpg --batch --quiet --pinentry-mode loopback --passphrase "$DIODE_KEY_PASSPHRASE" \
@@ -48,15 +48,15 @@ gpg --batch --armor --export "$uid" > "$out/apt-signing-key.public.asc"
 fpr="$(gpg --batch --list-keys --with-colons "$uid" | awk -F: '$1=="fpr"{print $10; exit}')"
 
 {
-    echo "Ключ:        $fpr"
-    echo "Приватный:   $out/apt-signing-key.private.asc"
-    echo "Публичный:   $out/apt-signing-key.public.asc"
+    echo "Key:         $fpr"
+    echo "Private:     $out/apt-signing-key.private.asc"
+    echo "Public:      $out/apt-signing-key.public.asc"
     echo
-    echo "Секреты репозитория:"
+    echo "Repository secrets:"
     echo "  gh secret set APT_GPG_PRIVATE_KEY --repo diode-editor/diode < $out/apt-signing-key.private.b64"
-    echo "  gh secret set APT_GPG_PASSPHRASE  --repo diode-editor/diode   # спросит пароль"
+    echo "  gh secret set APT_GPG_PASSPHRASE  --repo diode-editor/diode   # prompts for the passphrase"
     echo
-    echo "APT_GPG_PRIVATE_KEY (base64, одной строкой; также записан в $out/apt-signing-key.private.b64):"
+    echo "APT_GPG_PRIVATE_KEY (base64, one line; also written to $out/apt-signing-key.private.b64):"
 } >&2
 
 base64 < "$out/apt-signing-key.private.asc" | tr -d '\n' > "$out/apt-signing-key.private.b64"

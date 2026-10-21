@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 /**
- * Гейт V8-снапшота ядра (`npm run snapshot-check`). Верхний уровень `dist/main.cjs`
- * исполняется один раз, при сборке на CI: прочитанное им окружение запекается и молча
- * врёт у пользователя — сборка снапшота падает только на нативных объектах.
- * Правила — docs/arch/Common.md («Верхний уровень модулей и V8-снапшот»).
+ * Gate on the core V8 snapshot (`npm run snapshot-check`). The module top level of
+ * `dist/main.cjs` runs once, at build time on CI: any environment it reads is baked in and
+ * silently lies on the user's machine, while the snapshot build fails only on native objects.
+ * Rules: docs/arch/Common.md, the module top level and V8 snapshot section.
  *
- *  1. Ловушки (`snapshot-audit-prelude.cjs`): чтения окружения, времени, случайности
- *     и таймеры на верхнем уровне; исключения — {@link ALLOWED_TOP_LEVEL}.
- *  2. Отравленная сборка: метки в node-пути, cwd, env и argv; меток в блобе не больше,
- *     чем у пустого снапшота того же node (тот сам кладёт `execPath` и `argv`).
- *  3. Тот же блоб в чистом окружении: `--version`, CLI расширений, run-as-node видят
- *     окружение запуска.
+ *  1. Traps (`snapshot-audit-prelude.cjs`): reads of the environment, time, randomness
+ *     and timers at the module top level; exceptions are {@link ALLOWED_TOP_LEVEL}.
+ *  2. Poisoned build: marks in the node path, cwd, env and argv; the blob holds no more marks
+ *     than an empty snapshot of the same node (which itself stores `execPath` and `argv`).
+ *  3. The same blob in a clean environment: `--version`, the extensions CLI and run-as-node see
+ *     the launch environment.
  *
- * Без SEA: куча та же, а бинарь (секунды и сотни МБ) не нужен.
+ * No SEA: the heap is the same, and the binary (seconds and hundreds of MB) is not needed.
  *
- *   node scripts/check-snapshot.mjs                 # собрать main.cjs во временный каталог (tsup)
- *   node scripts/check-snapshot.mjs --main <путь>   # проверить готовый main.cjs
+ *   node scripts/check-snapshot.mjs                 # build main.cjs into a temp directory (tsup)
+ *   node scripts/check-snapshot.mjs --main <path>   # check a ready main.cjs
  */
 
 import { execFileSync, spawnSync } from "node:child_process";
@@ -36,11 +36,11 @@ export const ALLOWED_TOP_LEVEL = [
     {
         what: "process.env.VSCODE_TEXTMATE_DEBUG",
         module: "node_modules/vscode-textmate/release/main.js",
-        why: "отладочный флаг чужого пакета (DebugFlags.InDebugMode): в сборке не задан и запекается false — у пользователя отладка textmate через env не включится, и это нормально",
+        why: "a debug flag of a third-party package (DebugFlags.InDebugMode): unset at build time and baked as false; users cannot enable textmate debugging via env, which is fine",
     },
 ];
 
-/** Латиница с цифрой: однобайтная строка видна в блобе как есть (UTF-16LE ищется отдельно). */
+/** Latin letters with a digit: a one-byte string shows up in the blob as is (UTF-16LE is searched separately). */
 const MARKS = {
     cwd: "Zq7snapCwd",
     execPath: "Zq7snapExec",
@@ -84,14 +84,14 @@ function poisonedEnv() {
         COLUMNS: "7",
         LINES: "7",
     };
-    // Windows без SystemRoot не поднимает и сам node.
+    // Without SystemRoot, Windows cannot even start node.
     for (const key of ["SystemRoot", "SYSTEMROOT", "windir"]) {
         if (process.env[key] !== undefined) env[key] = process.env[key];
     }
     return env;
 }
 
-/** Флаги V8 сборки — только {@link SNAPSHOT_BUILD_FLAGS}, как у build-sea. */
+/** The only build V8 flags are {@link SNAPSHOT_BUILD_FLAGS}, as in build-sea. */
 function cleanEnv(extra = {}) {
     const env = { ...process.env, ...extra };
     delete env.NODE_OPTIONS;
@@ -106,14 +106,14 @@ function buildSnapshot({ node, entry, blob, cwd, env, extraArgs = [] }) {
     });
     if (result.status !== 0) {
         throw new Error(
-            `снапшот ${basename(entry)} не собрался (код ${String(result.status)}, сигнал ${String(result.signal)}):\n` +
+            `snapshot ${basename(entry)} failed to build (code ${String(result.status)}, signal ${String(result.signal)}):\n` +
                 stripSnapshotWarnings(result.stderr ?? ""),
         );
     }
     return result.stderr ?? "";
 }
 
-/** Предупреждения о встроенных модулях есть на каждой сборке — шум. */
+/** Builtin module warnings appear on every build, so they are noise. */
 function stripSnapshotWarnings(stderr) {
     return stderr
         .split("\n")
@@ -125,7 +125,7 @@ function stripSnapshotWarnings(stderr) {
         .trim();
 }
 
-/** esbuild пишет `// <путь>` перед каждым модулем бандла. */
+/** esbuild writes `// <path>` before every bundle module. */
 function moduleIndex(source) {
     const lines = source.split("\n");
     const starts = [];
@@ -168,8 +168,8 @@ export function auditTopLevel({ mainPath, workDir, node = process.execPath }) {
     /** @type {Map<string, { what: string, module: string, line: number, code: string, allowed: boolean }>} */
     const found = new Map();
     for (const { what, stack } of hits) {
-        // Кадры node между ловушкой и бандлом — либо наш вызов (`path.resolve` читает cwd),
-        // либо его собственная кухня (предупреждения, загрузчик модулей) — её пропускаем.
+        // Node frames between the trap and the bundle are either our call (`path.resolve` reads cwd)
+        // or node internals (warnings, the module loader), which are skipped.
         const index = stack.findIndex((f, i) => {
             if (i === 0) return false;
             const match = entryFrame.exec(f);
@@ -195,7 +195,7 @@ export function auditTopLevel({ mainPath, workDir, node = process.execPath }) {
  * @returns {{ leaks: Array<{ mark: string, value: string, inMain: number, inEmpty: number }>, blob: string, node: string }}
  */
 export function findBakedEnvironment({ mainPath, workDir }) {
-    // execPath сборки — тоже окружение (в SEA это сам бинарь).
+    // The build execPath is environment too (in SEA it is the binary itself).
     const nodeDir = join(workDir, MARKS.execPath);
     mkdirSync(nodeDir, { recursive: true });
     const node = join(nodeDir, basename(process.execPath));
@@ -235,8 +235,8 @@ export function findBakedEnvironment({ mainPath, workDir }) {
 }
 
 /**
- * Обычный `process.execPath`, не node из каталога с меткой: иначе путь рантайма в
- * тексте ошибки выглядел бы утечкой.
+ * Plain `process.execPath`, not the node from the marked directory: otherwise the runtime
+ * path in an error text would look like a leak.
  *
  * @param {{ mainPath: string, blob: string, workDir: string }} params
  * @returns {string[]}
@@ -260,7 +260,7 @@ export function checkDeserializedBehaviour({ mainPath, blob, workDir }) {
         APPDATA: join(runHome, "AppData", "Roaming"),
         LOCALAPPDATA: join(runHome, "AppData", "Local"),
     });
-    // `plain` — без снапшота: эталон, с которым сверяется вывод.
+    // `plain` runs without the snapshot: the reference output to compare against.
     const run = (args, extraEnv = {}, { plain = false } = {}) =>
         spawnSync(node, [...(plain ? [] : ["--snapshot-blob", blob]), mainPath, ...args], {
             cwd: runCwd,
@@ -273,13 +273,13 @@ export function checkDeserializedBehaviour({ mainPath, blob, workDir }) {
         const plain = run(args, { DIODE_RUN_AS_NODE: "1" }, { plain: true });
         if (fromSnapshot.status !== 0) problems.push(`${name}: ${describe(fromSnapshot)}`);
         else if (fromSnapshot.stdout !== plain.stdout) {
-            problems.push(`${name}: из снапшота ${fromSnapshot.stdout}, без снапшота ${plain.stdout}`);
+            problems.push(`${name}: from snapshot ${fromSnapshot.stdout}, without snapshot ${plain.stdout}`);
         } else if (fromSnapshot.stdout !== JSON.stringify(expected)) {
-            problems.push(`${name}: видит ${fromSnapshot.stdout}, ожидалось ${JSON.stringify(expected)}`);
+            problems.push(`${name}: sees ${fromSnapshot.stdout}, expected ${JSON.stringify(expected)}`);
         }
         return fromSnapshot;
     };
-    const describe = (r) => `код ${String(r.status)}, stdout ${JSON.stringify(r.stdout)}, stderr ${JSON.stringify(stripSnapshotWarnings(r.stderr ?? ""))}`;
+    const describe = (r) => `code ${String(r.status)}, stdout ${JSON.stringify(r.stdout)}, stderr ${JSON.stringify(stripSnapshotWarnings(r.stderr ?? ""))}`;
     const marked = (text) => Object.values(MARKS).filter((mark) => text.includes(mark));
 
     const version = run(["--version"]);
@@ -288,7 +288,7 @@ export function checkDeserializedBehaviour({ mainPath, blob, workDir }) {
     const list = run(["--list-extensions"]);
     if (list.status !== 0) problems.push(`--list-extensions: ${describe(list)}`);
     else if (readdirSync(runHome).length === 0) {
-        problems.push("--list-extensions не создал данные пользователя в HOME запуска — каталог запечён при сборке?");
+        problems.push("--list-extensions did not create user data in the launch HOME; is the directory baked in at build time?");
     }
 
     const evalCode =
@@ -305,8 +305,8 @@ export function checkDeserializedBehaviour({ mainPath, blob, workDir }) {
         path: "function",
     });
 
-    // Как language-сервер. `require.main === module` false и без снапшота: скрипт грузит
-    // import() синтетического модуля (importModule.ts).
+    // Like a language server. `require.main === module` is false even without the snapshot:
+    // the script is loaded by import() of a synthetic module (importModule.ts).
     const scriptDir = join(workDir, "script");
     mkdirSync(scriptDir, { recursive: true });
     writeFileSync(join(scriptDir, "dep.cjs"), "module.exports = 42;\n");
@@ -316,7 +316,7 @@ export function checkDeserializedBehaviour({ mainPath, blob, workDir }) {
         'process.stdout.write(JSON.stringify({ dep: require("./dep.cjs"), main: require.main === module, ' +
             "argv: process.argv.slice(1), filename: __filename, cwd: process.cwd() }));\n",
     );
-    const scriptRun = probe("run-as-node скрипт", [script, "--stdio"], {
+    const scriptRun = probe("run-as-node script", [script, "--stdio"], {
         dep: 42,
         main: false,
         argv: [script, "--stdio"],
@@ -324,8 +324,8 @@ export function checkDeserializedBehaviour({ mainPath, blob, workDir }) {
         cwd: runCwd,
     });
 
-    // Как фоновый анализ pyright: node до 26.11 из user-снапшота падал SIGABRT на
-    // первом `stream_wrap` в воркере (nodejs/node#65978).
+    // Like pyright background analysis: node before 26.11 from a user snapshot aborted with SIGABRT
+    // on the first `stream_wrap` in a worker (nodejs/node#65978).
     const workerScript = join(scriptDir, "worker.cjs");
     writeFileSync(
         workerScript,
@@ -333,17 +333,17 @@ export function checkDeserializedBehaviour({ mainPath, blob, workDir }) {
             'const w = new Worker(\'require("node:net"); require("node:v8"); require("node:worker_threads").parentPort.postMessage("ok")\', { eval: true });\n' +
             "w.on(\"message\", (m) => { process.stdout.write(JSON.stringify({ worker: m })); process.exit(0); });\n",
     );
-    const workerRun = probe("run-as-node воркер с node:net", [workerScript], { worker: "ok" });
+    const workerRun = probe("run-as-node worker with node:net", [workerScript], { worker: "ok" });
 
     for (const [name, r] of [
-        ["run-as-node воркер", workerRun],
+        ["run-as-node worker", workerRun],
         ["--version", version],
         ["--list-extensions", list],
         ["run-as-node -e", evalRun],
-        ["run-as-node скрипт", scriptRun],
+        ["run-as-node script", scriptRun],
     ]) {
         const leaked = marked(`${r.stdout ?? ""}${r.stderr ?? ""}`);
-        if (leaked.length > 0) problems.push(`${name}: в выводе окружение сборки (${leaked.join(", ")})`);
+        if (leaked.length > 0) problems.push(`${name}: build environment in the output (${leaked.join(", ")})`);
     }
     return problems;
 }
@@ -364,14 +364,14 @@ async function main() {
     let failed = false;
     try {
         const mainPath = values.main === undefined ? buildMain(join(workDir, "dist")) : resolve(values.main);
-        if (!existsSync(mainPath)) throw new Error(`нет ${mainPath}`);
+        if (!existsSync(mainPath)) throw new Error(`missing ${mainPath}`);
 
         const findings = auditTopLevel({ mainPath, workDir: mkdirIn(workDir, "audit") });
         const violations = findings.filter((f) => !f.allowed);
-        for (const f of findings.filter((f) => f.allowed)) console.log(`  разрешено: ${f.what} — ${f.module}`);
+        for (const f of findings.filter((f) => f.allowed)) console.log(`  allowed: ${f.what} — ${f.module}`);
         if (violations.length > 0) {
             failed = true;
-            console.error("Верхний уровень модулей читает окружение — при сборке снапшота оно запечётся:");
+            console.error("Module top level reads the environment, which the snapshot build bakes in:");
             for (const v of violations) console.error(`  ${v.what} — ${v.module} (main.cjs:${String(v.line)}): ${v.code}`);
         }
 
@@ -379,22 +379,22 @@ async function main() {
         const { leaks, blob } = findBakedEnvironment({ mainPath, workDir: poisonDir });
         if (leaks.length > 0) {
             failed = true;
-            console.error("Окружение сборки запеклось в кучу снапшота (метки в блобе сверх пустого снапшота):");
-            for (const l of leaks) console.error(`  ${l.value}: ${l.mark} — ${String(l.inMain)} против ${String(l.inEmpty)}`);
+            console.error("Build environment is baked into the snapshot heap (marks in the blob beyond an empty snapshot):");
+            for (const l of leaks) console.error(`  ${l.value}: ${l.mark} — ${String(l.inMain)} vs ${String(l.inEmpty)}`);
         }
 
         const problems = checkDeserializedBehaviour({ mainPath, blob, workDir: mkdirIn(workDir, "run") });
         if (problems.length > 0) {
             failed = true;
-            console.error("После десериализации снапшот ведёт себя не так, как у пользователя:");
+            console.error("After deserialization the snapshot behaves differently than on the user's machine:");
             for (const p of problems) console.error(`  ${p}`);
         }
 
         if (failed) {
-            console.error("Правила верхнего уровня — docs/arch/Common.md («Верхний уровень модулей и V8-снапшот»).");
+            console.error("Module top level rules: docs/arch/Common.md, the module top level and V8 snapshot section.");
             process.exitCode = 1;
         } else {
-            console.log("Снапшот ядра собирается; окружение сборки не запекается; после десериализации — окружение запуска.");
+            console.log("Core snapshot builds; build environment is not baked in; after deserialization it sees the launch environment.");
         }
     } finally {
         rmSync(workDir, { recursive: true, force: true });

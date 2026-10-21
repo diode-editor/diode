@@ -1,12 +1,12 @@
 name: Nightly
 
-# Ночная сборка на статическом теге `nightly`: релиз обновляется подменой
-# ассетов (upload --clobber), сам тег не двигается — иначе force-push тега
-# ломал бы `git fetch` у всех чекаутов («would clobber existing tag»).
-# URL на скачивание артефактов при этом остаётся неизменным.
+# Nightly build on the static `nightly` tag: the release is updated by replacing
+# its assets (upload --clobber) and the tag itself never moves; a force-pushed tag
+# would break `git fetch` in every checkout ("would clobber existing tag").
+# Download URLs for the assets stay the same.
 on:
   schedule:
-    # Каждую ночь в 03:00 UTC.
+    # Every night at 03:00 UTC.
     - cron: "0 3 * * *"
   workflow_dispatch:
 
@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 jobs:
-  # Вычисляем short-hash заранее, чтобы зашить его в бинарник через build.yml.
+  # Compute the short hash up front so build.yml can bake it into the binary.
   prepare:
     runs-on: ubuntu-latest
     outputs:
@@ -24,7 +24,7 @@ jobs:
       - id: sha
         run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
 
-  # Та же переиспользуемая сборка, что и у стабильного релиза.
+  # The same reusable build as the stable release.
   build:
     needs: prepare
     uses: ./.github/workflows/build.yml
@@ -49,16 +49,16 @@ jobs:
         run: |
           short_sha="${{ needs.prepare.outputs.short_sha }}"
           title="Nightly ($short_sha)"
-          notes="Ночная сборка из коммита $short_sha ($(date -u +'%Y-%m-%d %H:%M') UTC)."
+          notes="Nightly build from commit $short_sha ($(date -u +'%Y-%m-%d %H:%M') UTC)."
 
           if gh release view nightly >/dev/null 2>&1; then
-            # Обычный путь: релиз есть — обновляем метаданные и подменяем ассеты.
-            # Тег не трогаем, поэтому fetch у чекаутов больше не конфликтует.
+            # Usual path: the release exists, so update its metadata and replace the assets.
+            # The tag stays put, so fetch in checkouts doesn't conflict.
             gh release edit nightly --prerelease --title "$title" --notes "$notes"
             gh release upload nightly artifacts/* --clobber
           else
-            # Первый запуск (или релиз удалили руками): gh создаст релиз на
-            # существующем теге nightly, а если тега нет — лёгкий тег на HEAD.
+            # First run (or the release was deleted by hand): gh creates the release on
+            # the existing nightly tag, or a lightweight tag on HEAD if there is none.
             gh release create nightly \
               --prerelease \
               --title "$title" \

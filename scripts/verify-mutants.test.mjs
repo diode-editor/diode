@@ -1,5 +1,5 @@
-// Сквозной тест самопроверки гейта на синтетическом проекте: настоящий vitest,
-// настоящая песочница, по мутанту на каждый класс. Запуск: npm run test:scripts.
+// End-to-end test of the gate self-check on a synthetic project: real vitest,
+// real sandbox, one mutant per class. Run: npm run test:scripts.
 import assert from "node:assert/strict";
 import {
     existsSync,
@@ -49,7 +49,7 @@ test("isPositive", () => {
     expect(isPositive(-5)).toBe(false);
 });
 
-// Ровно случай #343: тест не различает «левый операнд снят» и «всё условие на месте».
+// Exactly case #343: the test cannot tell "left operand removed" from "whole condition intact".
 test("guard", () => {
     expect(guard(null)).toBe("no");
     expect(guard({})).toBe("yes");
@@ -64,7 +64,7 @@ test("count", () => {
     expect(count(3)).toBe(3);
 });
 `,
-    // Файл без своих тестов: его проверяет только тот, кто импортирует обёртку.
+    // A file without its own tests: only the test importing the wrapper checks it.
     "src/deep.ts": `export function twice(x: number): number {
     return x * 2;
 }
@@ -82,7 +82,7 @@ test("quad", () => {
     expect(quad(1)).toBe(4);
 });
 `,
-    // Тест красный и без мутанта: вердикта по такому набору нет.
+    // The test is red without the mutant too: such a set gives no verdict.
     "src/broken.ts": `export const answer = 42;
 `,
     "src/broken.test.ts": `import { expect, test } from "vitest";
@@ -94,10 +94,10 @@ test("answer", () => {
 `,
 };
 
-/** Позиция подстроки в стиле Stryker'а: 1-based строка и колонка, конец — за последним символом. */
+/** Substring position in Stryker style: 1-based line and column, the end is past the last character. */
 function locate(source, snippet, from = 0) {
     const at = source.indexOf(snippet, from);
-    assert.ok(at >= 0, `нет «${snippet}» в исходнике`);
+    assert.ok(at >= 0, `"${snippet}" not found in the source`);
     const pos = (offset) => {
         const before = source.slice(0, offset).split("\n");
         return { line: before.length, column: before.at(-1).length + 1 };
@@ -135,11 +135,11 @@ before(async () => {
             "src/calc.ts": {
                 source: calc,
                 mutants: [
-                    // Граница `>` → `>=`: тесты не берут 0 — настоящая дыра, подсказка «эквивалентный?».
+                    // Boundary `>` → `>=`: the tests never pass 0, a real hole with an "equivalent?" hint.
                     mutant("real-boundary", "src/calc.ts", "x > 0", "EqualityOperator", "x >= 0"),
-                    // Stryker «потерял» прогон (coveredBy пуст), а тест его убивает.
+                    // Stryker "lost" the run (coveredBy is empty), yet a test kills it.
                     mutant("phantom", "src/calc.ts", "x > 0", "ConditionalExpression", "false"),
-                    // Левый операнд `||` — НЕ всё условие: с тестами выше дыра настоящая.
+                    // The left operand of `||` is NOT the whole condition: with the tests above the hole is real.
                     mutant(
                         "real-left-operand",
                         "src/calc.ts",
@@ -147,15 +147,15 @@ before(async () => {
                         "ConditionalExpression",
                         "false",
                     ),
-                    // Слушатель кидает в таймере: тест зелёный, vitest красный.
+                    // The listener throws in a timer: the test is green, vitest is red.
                     mutant("runtime", "src/calc.ts", "cb()", "CallExpression", "null.x()", { status: "RuntimeError" }),
-                    // Синхронный бесконечный цикл: ни один тест не доезжает.
+                    // A synchronous infinite loop: no test gets to finish.
                     mutant("hang", "src/calc.ts", "i++", "UpdateOperator", "i--"),
                 ],
             },
             "src/deep.ts": {
                 source: FILES["src/deep.ts"],
-                // Ни coveredBy, ни соседнего теста — убивает только тест обёртки через граф импортов.
+                // No coveredBy and no sibling test: only the wrapper's test kills it, via the import graph.
                 mutants: [
                     mutant("via-graph", "src/deep.ts", "x * 2", "ArithmeticOperator", "x / 2", {
                         status: "NoCoverage",
@@ -167,7 +167,7 @@ before(async () => {
                 mutants: [mutant("red-baseline", "src/broken.ts", "42", "NumberLiteral", "41")],
             },
             "src/wrap.ts": {
-                // Отчёт снят с другой версии файла — координатам верить нельзя.
+                // The report was taken from another version of the file: the coordinates cannot be trusted.
                 source: FILES["src/wrap.ts"].replace("twice(twice(x))", "twice(x) * 2"),
                 mutants: [mutant("stale", "src/wrap.ts", "twice", "StringLiteral", '""')],
             },
@@ -189,56 +189,56 @@ const byId = (id) => {
     throw new Error(id);
 };
 
-test("настоящий выживший — real, граничный оператор помечен как кандидат в эквивалентные", () => {
+test("a real survivor is real; the boundary operator is flagged as an equivalence candidate", () => {
     const verdict = byId("real-boundary");
     assert.equal(verdict.class, "real");
-    assert.match(verdict.hint, /граничный/);
+    assert.match(verdict.hint, /boundary/);
 });
 
-test("фантом: тест, зелёный без мутанта, валит его — phantom с именем теста", () => {
+test("phantom: a test green without the mutant fails with it, phantom with the test name", () => {
     const verdict = byId("phantom");
     assert.equal(verdict.class, "phantom");
     assert.ok(verdict.tests.some((name) => name.includes("src/calc.test.ts > isPositive")));
 });
 
-test("вживляется ровно левый операнд `||`, а не всё условие (#343)", () => {
+test("injects exactly the left operand of `||`, not the whole condition (#343)", () => {
     assert.equal(byId("real-left-operand").class, "real");
 });
 
-test("мутант, роняющий vitest вне тестов, — runtime-error", () => {
+test("a mutant crashing vitest outside tests is runtime-error", () => {
     const verdict = byId("runtime");
     assert.equal(verdict.class, "runtime-error");
     assert.match(verdict.reason, /Unhandled|TypeError/);
 });
 
-test("зависание — timeout, а не фантом", () => {
+test("a hang is timeout, not phantom", () => {
     assert.equal(byId("hang").class, "timeout");
 });
 
-test("промах подбора тестов добирает граф импортов", () => {
+test("the import graph catches a test selection miss", () => {
     const verdict = byId("via-graph");
     assert.equal(verdict.class, "phantom");
-    assert.equal(verdict.stage, "граф импортов");
+    assert.equal(verdict.stage, "import graph");
 });
 
-test("тест красный и без мутанта — inconclusive", () => {
+test("a test red without the mutant too is inconclusive", () => {
     const verdict = byId("red-baseline");
     assert.equal(verdict.class, "inconclusive");
-    assert.match(verdict.reason, /без мутанта/);
+    assert.match(verdict.reason, /without the mutant/);
 });
 
-test("исходник не тот, что в отчёте, — stale", () => {
+test("a source different from the report is stale", () => {
     assert.equal(byId("stale").class, "stale");
 });
 
-test("рабочее дерево не тронуто, песочница убрана", () => {
+test("the working tree is untouched, the sandbox is removed", () => {
     for (const [file, text] of Object.entries(FILES))
         assert.equal(readFileSync(path.join(root, file), "utf8"), text, file);
     const sandboxes = path.join(root, ".stryker-tmp");
     assert.deepEqual(existsSync(sandboxes) ? readdirSync(sandboxes) : [], []);
 });
 
-test("вердикты вносятся в отчёт: фантом — Killed, runtime-error — RuntimeError, real — с классом", () => {
+test("verdicts are merged into the report: phantom → Killed, runtime-error → RuntimeError, real keeps its class", () => {
     const merged = mergeVerdicts(structuredClone(report), verdicts);
     const calc = merged.files["src/calc.ts"].mutants;
     const get = (id) => calc.find((m) => m.id === id);

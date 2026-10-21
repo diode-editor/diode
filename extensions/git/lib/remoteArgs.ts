@@ -12,7 +12,7 @@ export function remoteRemoveArgs(params: Record<string, unknown>): string[] | nu
     return name === null ? null : ["remote", "remove", name];
 }
 
-/** Аннотированный тег при непустом сообщении, иначе lightweight; без `ref` — HEAD. */
+/** An annotated tag for a non-empty message, otherwise lightweight; HEAD when `ref` is absent. */
 export function tagCreateArgs(params: Record<string, unknown>): string[] | null {
     const name = safeRefArg(params.name);
     if (name === null) return null;

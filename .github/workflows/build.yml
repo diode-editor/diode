@@ -1,19 +1,19 @@
 name: Build SEA
 
-# Переиспользуемая сборка бинарников (SEA) под все платформы.
-# Вызывается из release.yml и nightly.yml через `workflow_call`,
-# а также может быть запущена вручную через `workflow_dispatch`.
+# Reusable build of the binaries (SEA) for all platforms.
+# Called from release.yml and nightly.yml via `workflow_call`,
+# and can also be run by hand via `workflow_dispatch`.
 on:
   workflow_call:
     inputs:
       version:
-        description: "Версия, зашиваемая в бинарник (релиз: vX.Y.Z; ночная: nightly-<hash>)"
+        description: "Version baked into the binary (release: vX.Y.Z; nightly: nightly-<hash>)"
         required: false
         type: string
   workflow_dispatch:
     inputs:
       version:
-        description: "Версия, зашиваемая в бинарник (релиз: vX.Y.Z; ночная: nightly-<hash>)"
+        description: "Version baked into the binary (release: vX.Y.Z; nightly: nightly-<hash>)"
         required: false
         type: string
 
@@ -21,18 +21,18 @@ jobs:
   build:
     strategy:
       matrix:
-        # mode: чем упаковываем.
-        #   sea         — Node SEA (`node --build-sea`). Дефолт для всех платформ:
-        #                 V8-снапшот ядра (#620) возможен только в SEA.
-        #   selfextract — sh-стаб + приклеенный payload (нетронутый node + main.cjs +
-        #                 diode.bundle). Только Intel macOS: там node не собирает
-        #                 рабочий SEA — инъекция блоба портит Mach-O chained fixups
-        #                 → segfault до main() (#143, #144). Цена SEA на linux —
-        #                 бинарь ~150 МБ против ~48 у selfextract; принята ради
-        #                 снапшота (решение 2026-10-15).
-        # linux-arm64 (Raspberry Pi 3/4/5 на 64-битной ОС) собирается на нативном
-        # arm-раннере: node-pty компилируется и ripgrep приезжает под свою
-        # архитектуру при npm install, smoke гоняется на реальном arm64.
+        # mode: how we package.
+        #   sea         — Node SEA (`node --build-sea`). The default on all platforms:
+        #                 the core's V8 snapshot (#620) is possible only in SEA.
+        #   selfextract — an sh stub + an appended payload (untouched node + main.cjs +
+        #                 diode.bundle). Intel macOS only: there node can't build a
+        #                 working SEA, blob injection breaks the Mach-O chained fixups
+        #                 → segfault before main() (#143, #144). The price of SEA on linux
+        #                 is a ~150 MB binary vs ~48 for selfextract; accepted for the
+        #                 snapshot (decision 2026-10-15).
+        # linux-arm64 (Raspberry Pi 3/4/5 on a 64-bit OS) builds on a native
+        # arm runner: npm install compiles node-pty and fetches ripgrep for its
+        # architecture, and the smoke test runs on real arm64.
         include:
           - os: ubuntu-latest
             asset: diode-linux-x64
@@ -60,13 +60,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Версия сборочного node. Для mode: selfextract держи в лок-степе с
-      # NODE_VERSION в scripts/build-selfextract.mjs — там node, который уезжает
-      # в payload и становится рантаймом пользователя.
-      # Точная версия, не мажор: в процессе из V8-снапшота (SEA `useSnapshot`)
-      # node до 26.11 роняет воркер с `node:net`/`http`/`v8` (SIGABRT
-      # `shutdown_wrap_template_.IsEmpty()`), а setup-node с мажором может взять
-      # из кэша раннера старую 26.x.
+      # The build node version. For mode: selfextract keep it in lockstep with
+      # NODE_VERSION in scripts/build-selfextract.mjs: that node goes into
+      # the payload and becomes the user's runtime.
+      # An exact version, not a major: in a process started from a V8 snapshot (SEA `useSnapshot`)
+      # node before 26.11 crashes a worker that uses `node:net`/`http`/`v8` (SIGABRT
+      # `shutdown_wrap_template_.IsEmpty()`), and setup-node with a major may pick
+      # an old 26.x from the runner's cache.
       - uses: actions/setup-node@v4
         with:
           node-version: "26.12.0"
@@ -83,25 +83,25 @@ jobs:
         env:
           DIODE_VERSION: ${{ inputs.version }}
 
-      # Переименовываем в платформо-зависимое имя ассета, чтобы:
-      #  - файлы не конфликтовали при заливке в один релиз;
-      #  - URL на скачивание был стабильным (важно для nightly).
+      # Rename to the platform-specific asset name so that:
+      #  - files don't clash when uploaded to one release;
+      #  - the download URL stays stable (matters for nightly).
       - name: Rename binary
         shell: bash
         run: mv "${{ matrix.binary }}" "${{ matrix.asset }}"
 
-      # Последний рубеж перед публикацией: ассет обязан реально стартовать на этом
-      # железе. Именно этого не хватало в #143 — segfault-ящий diode-macos-x64 уехал
-      # в релиз, потому что никто ни разу не запустил собранный файл.
-      # Самотесты внутри build-скриптов проверяют то же, но здесь проверяется
-      # ровно тот файл, который уйдёт в upload-artifact, и уже после rename.
+      # Last line of defense before publishing: the asset must actually start on this
+      # hardware. This is exactly what #143 lacked: a segfaulting diode-macos-x64 shipped
+      # in a release because nobody ever ran the built file.
+      # The self-tests inside the build scripts check the same, but here we check
+      # exactly the file that goes to upload-artifact, after the rename.
       - name: Smoke — asset actually starts
         shell: bash
         run: ./${{ matrix.asset }} --version
 
-      # Сайдкар с контрольной суммой: его читают install.sh, npm-обёртка и
-      # packaging/render.mjs (формула brew, манифест winget). Формат — как у
-      # `sha256sum`, чтобы `sha256sum -c` работал из коробки.
+      # Checksum sidecar: read by install.sh, the npm wrapper and
+      # packaging/render.mjs (brew cask, winget manifest). The format matches
+      # `sha256sum`, so `sha256sum -c` works out of the box.
       - name: Checksum
         shell: bash
         run: |

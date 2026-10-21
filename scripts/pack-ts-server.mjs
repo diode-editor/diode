@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * typescript-language-server + минимальный TypeScript → ассет `ts-server.bundle`:
- * LSP из коробки без node_modules в проекте и node в PATH (docs/arch/Extensions.md).
+ * typescript-language-server + a minimal TypeScript -> the `ts-server.bundle` asset:
+ * LSP out of the box without node_modules in the project or node in PATH (docs/arch/Extensions.md).
  *
- * Списки фиксированные: выброшены локали (~4.4 МБ), tsc (~6 МБ), tsserverlibrary,
- * *.map и typingsInstaller (ATA для bundled-пути выключен, resolveServer.ts).
+ * The lists are fixed: dropped are locales (~4.4 MB), tsc (~6 MB), tsserverlibrary,
+ * *.map and typingsInstaller (ATA is off for the bundled path, resolveServer.ts).
  *
- * Раскладка `node_modules/typescript/...` намеренная: cli.mjs находит TypeScript
- * `require.resolve`'ом от себя, без initializationOptions. Виртуальные пути обязаны
- * совпадать с константами `loadTsServer.ts`.
+ * The `node_modules/typescript/...` layout is deliberate: cli.mjs finds TypeScript with
+ * `require.resolve` from itself, without initializationOptions. Virtual paths must match
+ * the `loadTsServer.ts` constants.
  */
 
 import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -17,16 +17,16 @@ import { dirname, join, resolve } from "node:path";
 
 import { packBundle } from "./pack-assets.mjs";
 
-/** watchGuard.js — для Windows. */
+/** watchGuard.js is for Windows. */
 const TYPESCRIPT_LIB_FILES = ["tsserver.js", "_tsserver.js", "typescript.js", "typesMap.json", "watchGuard.js"];
 
 /**
- * `import()` из вшитого SEA-main ловит embedder-хук (только builtin'ы), а
- * `require(esm)` не берёт cli.mjs из-за top-level await; `import()` из ВНЕШНЕГО
- * CJS-файла идёт настоящим ESM-loader'ом (проверено на бинаре).
+ * `import()` from the embedded SEA main hits the embedder hook (builtins only), and
+ * `require(esm)` cannot load cli.mjs because of top-level await; `import()` from an EXTERNAL
+ * CJS file goes through the real ESM loader (verified on the binary).
  */
 const RUN_CLI_CJS = `"use strict";
-// diode: CJS-шим для SEA-режима — см. scripts/pack-ts-server.mjs.
+// diode: CJS shim for SEA mode, see scripts/pack-ts-server.mjs.
 const { pathToFileURL } = require("node:url");
 const { join } = require("node:path");
 import(pathToFileURL(join(__dirname, "cli.mjs")).href).catch((err) => {
@@ -48,7 +48,7 @@ export function buildTsServerBundle({ repoRoot }) {
         try {
             return requireFromRoot.resolve(spec);
         } catch {
-            throw new Error(`[pack-ts-server] не найден "${spec}" — установите devDependencies (npm install)`);
+            throw new Error(`[pack-ts-server] "${spec}" not found; install devDependencies (npm install)`);
         }
     };
 
@@ -73,7 +73,7 @@ export function buildTsServerBundle({ repoRoot }) {
     }
     const stdlibs = readdirSync(typescriptLibDir).filter((name) => TYPESCRIPT_STDLIB_RE.test(name));
     if (stdlibs.length === 0) {
-        throw new Error(`[pack-ts-server] в ${typescriptLibDir} не найдено ни одной lib.*.d.ts`);
+        throw new Error(`[pack-ts-server] no lib.*.d.ts found in ${typescriptLibDir}`);
     }
     for (const file of stdlibs.sort()) {
         inputs.push({

@@ -1,5 +1,5 @@
-// Пакет тонкий: редактор (50–160 МБ, свой Node) качается в `vendor/` из GitHub
-// Releases того же тега, что и версия пакета; sha256 — по сайдкару `<asset>.sha256`.
+// A thin package: the editor (50–160 MB, its own Node) is downloaded into `vendor/` from the
+// GitHub Release with the package's version tag; sha256 is checked against the `<asset>.sha256` sidecar.
 
 import { createHash } from "node:crypto";
 import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -35,7 +35,7 @@ async function fetchBytes(url) {
     return Buffer.from(await response.arrayBuffer());
 }
 
-/** Нет сайдкара (старые релизы) — только предупреждение. */
+/** A missing sidecar (old releases) is only a warning. */
 export async function download({ version = packageVersion(), log = console.error } = {}) {
     const asset = assetName();
     const base = `https://github.com/${REPO}/releases/download/v${version}/${asset}`;

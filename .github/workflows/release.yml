@@ -1,17 +1,17 @@
 name: Release
 
-# Стабильный (версионный) релиз: триггерится пушем тега вида v1.2.3.
-# Тег обычно создаётся через bump-version.yml.
+# Stable (versioned) release: triggered by pushing a tag like v1.2.3.
+# The tag is usually created via bump-version.yml.
 #
-# После публикации GitHub-релиза тот же тег разъезжается по каналам (packaging/README.md):
-#   packages — .deb + метаданные плоского apt-репозитория, ассетами в этот же релиз;
-#   npm      — @diode-editor/diode (тонкая обёртка, качает бинарь из релиза; OIDC, без токена);
-#   brew     — cask в diode-editor/homebrew-tap (не формула: формула без бутылки требует CLT на macOS);
-#   winget   — PR в microsoft/winget-pkgs;
-#   site     — версия в футере diode-editor.github.io (site-version.yml).
-# Каждый канал — отдельная job: упавший npm не мешает brew. Канал молча пропускается,
-# если его секрет не задан (env HAS_* ниже) — так релиз работает и без всех ключей.
-# Исключение — site: без SITE_PAT она падает, чтобы отставший сайт был виден.
+# Once the GitHub release is published, the same tag goes out to the channels (packaging/README.md):
+#   packages — .deb + flat apt repository metadata, as assets of this same release;
+#   npm      — @diode-editor/diode (a thin wrapper that downloads the binary from the release; OIDC, no token);
+#   brew     — a cask in diode-editor/homebrew-tap (not a formula: a formula without a bottle requires CLT on macOS);
+#   winget   — a PR to microsoft/winget-pkgs;
+#   site     — the version in the diode-editor.github.io footer (site-version.yml).
+# Each channel is a separate job: a failed npm doesn't block brew. A channel is silently skipped
+# when its secret isn't set (env HAS_* below), so a release works without all the keys.
+# The exception is site: without SITE_PAT it fails, so a stale site is visible.
 on:
   push:
     tags:
@@ -26,11 +26,11 @@ env:
   HAS_WINGET_TOKEN: ${{ secrets.WINGET_TOKEN != '' }}
 
 jobs:
-  # Собираем бинарники переиспользуемым воркфлоу.
+  # Build the binaries with the reusable workflow.
   build:
     uses: ./.github/workflows/build.yml
     with:
-      # Зашиваем версию из тега (vX.Y.Z) — build.yml срежет ведущую `v`.
+      # Bake in the version from the tag (vX.Y.Z); build.yml strips the leading `v`.
       version: ${{ github.ref_name }}
 
   release:
@@ -39,15 +39,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # git-cliff нужна полная история, чтобы построить changelog.
+          # git-cliff needs the full history to build the changelog.
           fetch-depth: 0
 
       - name: Generate Changelog
         id: cliff
         uses: orhun/git-cliff-action@v4
         with:
-          # Группировка и фильтрация коммитов настроены в cliff.toml (корень репо):
-          # в changelog попадают только пользовательские изменения редактора.
+          # Commit grouping and filtering live in cliff.toml (repo root):
+          # only user-facing editor changes make it into the changelog.
           config: cliff.toml
           args: --latest --strip all
 
@@ -64,9 +64,9 @@ jobs:
           body: ${{ steps.cliff.outputs.content }}
           files: artifacts/*
 
-  # .deb для amd64/arm64 и плоский apt-репозиторий: Packages/InRelease лежат ассетами
-  # релиза, а sources.list смотрит на releases/latest/download (packaging/apt/build-repo.sh).
-  # Packages перечисляет и все прошлые версии со ссылками в их релизы (fetch-history.sh).
+  # .deb for amd64/arm64 and a flat apt repository: Packages/InRelease are release
+  # assets, and sources.list points at releases/latest/download (packaging/apt/build-repo.sh).
+  # Packages also lists all past versions with links into their releases (fetch-history.sh).
   packages:
     needs: release
     runs-on: ubuntu-latest
@@ -85,16 +85,16 @@ jobs:
           packaging/deb/build-deb.sh artifacts/diode-linux-arm64 arm64 "$version" repo
           ls -la repo
 
-      # Секрет хранит armored-ключ в base64 одной строкой (так его печатает
-      # packaging/apt/gen-key.sh); пароль ключа — отдельный секрет.
+      # The secret holds the armored key as one line of base64 (the way
+      # packaging/apt/gen-key.sh prints it); the key passphrase is a separate secret.
       - name: Import apt signing key
         if: env.HAS_APT_KEY == 'true'
         run: printf '%s' "$APT_GPG_PRIVATE_KEY" | base64 -d | gpg --batch --import
         env:
           APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
 
-      # Прошлые версии — станзами из Packages прошлых релизов, Filename через ../../download/vX/
-      # (packaging/apt/fetch-history.sh): apt install diode=<версия> и откат работают.
+      # Past versions as stanzas from the Packages of past releases, Filename via ../../download/vX/
+      # (packaging/apt/fetch-history.sh): apt install diode=<version> and rollback work.
       - name: Collect previous releases for apt
         if: env.HAS_APT_KEY == 'true'
         run: packaging/apt/fetch-history.sh "$RUNNER_TEMP/apt-history" "$GITHUB_REF_NAME"
@@ -103,7 +103,7 @@ jobs:
 
       - name: Build apt repository metadata
         if: env.HAS_APT_KEY == 'true'
-        # apt-ftparchive (пакет apt-utils) пропал из образа ubuntu-latest — ставим явно.
+        # apt-ftparchive (the apt-utils package) is gone from the ubuntu-latest image, so install it explicitly.
         run: |
           command -v apt-ftparchive >/dev/null || { sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends apt-utils; }
           packaging/apt/build-repo.sh repo
@@ -116,11 +116,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Публикация без токена: npm Trusted Publishing (OIDC). На npmjs.com у пакета
-  # настроен Trusted Publisher «GitHub Actions: diode-editor/diode, release.yml»;
-  # npm ≥ 11.5.1 обменивает id-token на право публикации, provenance ставится сам.
-  # Первая версия пакета публикуется руками (packaging/README.md) — Trusted Publisher
-  # настраивается только у существующего пакета.
+  # Tokenless publishing: npm Trusted Publishing (OIDC). On npmjs.com the package has
+  # the Trusted Publisher "GitHub Actions: diode-editor/diode, release.yml" configured;
+  # npm >= 11.5.1 exchanges the id-token for publish rights, and provenance is added automatically.
+  # The package's first version is published by hand (packaging/README.md): a Trusted Publisher
+  # can be configured only on an existing package.
   npm:
     needs: release
     runs-on: ubuntu-latest
@@ -175,15 +175,15 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Casks/diode.rb
-          # Формула того же имени перетянула бы на себя `brew install` (и упёрлась бы в CLT).
+          # A formula with the same name would take over `brew install` (and hit the CLT requirement).
           git rm -q --ignore-unmatch Formula/diode.rb
           git diff --cached --quiet && { echo "cask unchanged"; exit 0; }
           git commit -m "diode ${GITHUB_REF_NAME}"
           git push
 
-  # Обновление уже существующего пакета DiodeEditor.Diode: wingetcreate сам форкает
-  # microsoft/winget-pkgs и открывает PR. Первая подача — руками из packaging/out/winget
-  # (см. packaging/README.md); до её мержа эта job падать и должна.
+  # Updates the existing DiodeEditor.Diode package: wingetcreate forks
+  # microsoft/winget-pkgs and opens a PR itself. The first submission is by hand from packaging/out/winget
+  # (see packaging/README.md); until it is merged this job is expected to fail.
   winget:
     needs: release
     runs-on: windows-latest
@@ -199,7 +199,7 @@ jobs:
         env:
           WINGET_TOKEN: ${{ secrets.WINGET_TOKEN }}
 
-  # Версия на лендинге. Отдельный воркфлоу, чтобы её можно было перевыложить руками.
+  # The version on the landing page. A separate workflow so it can be republished by hand.
   site:
     needs: release
     uses: ./.github/workflows/site-version.yml

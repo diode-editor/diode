@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Гейт на граф первого кадра (`npm run lazy-chunks-check`, CI job `static`):
- * ленивые куски бандла не протекли в `dist/main.cjs`. Та же проверка роняет и
- * `build-dist.mjs`, но та идёт только в e2e — здесь ответ за секунды.
+ * Gate on the first-frame graph (`npm run lazy-chunks-check`, CI job `static`):
+ * lazy chunks have not leaked into `dist/main.cjs`. `build-dist.mjs` fails on the same
+ * check, but it runs only in e2e; here the answer takes seconds.
  */
 
 import { execFileSync } from "node:child_process";
@@ -22,12 +22,12 @@ try {
     const errors = verifyLazyChunks({ mainMetafile, chunks });
     for (const line of describeEntryChunks({ mainMetafile, chunks })) console.log(line);
     if (errors.length > 0) {
-        console.error("Ленивые куски протекли в граф первого кадра:");
+        console.error("Lazy chunks leaked into the first-frame graph:");
         for (const error of errors) console.error(`  ${error}`);
-        console.error("Рецепт — docs/arch/Common.md («Ленивые куски»).");
+        console.error("Recipe: docs/arch/Common.md, the lazy chunks section.");
         process.exit(1);
     }
-    console.log(`Ленивые куски вне main.cjs: ${LAZY_CHUNKS.map((c) => c.id).join(", ")}`);
+    console.log(`Lazy chunks outside main.cjs: ${LAZY_CHUNKS.map((c) => c.id).join(", ")}`);
 } finally {
     rmSync(outDir, { recursive: true, force: true });
 }

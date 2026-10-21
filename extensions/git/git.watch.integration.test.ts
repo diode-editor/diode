@@ -20,8 +20,8 @@ import { PUBLISH_REPO_STATE_COMMAND } from "../../src/vs/workbench/contrib/scm/b
 import type { IExtensionRegistration } from "../../src/vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
 /**
- * Настоящий watcher ядра и настоящий git: расширение, узнававшее о правках только
- * из своих сохранений, молча не видело правок снаружи (терминал, checkout, worktree).
+ * The real core watcher and real git: an extension that learned of edits only
+ * from its own saves silently missed outside edits (terminal, checkout, worktree).
  */
 
 const GIT_MAIN = fileURLToPath(new URL("./main.ts", import.meta.url));
@@ -81,7 +81,7 @@ async function waitFor<T>(pick: () => T | undefined, timeoutMs = 8000): Promise<
     return pick();
 }
 
-describe("builtin git plugin — живое слежение", () => {
+describe("builtin git plugin — live watching", () => {
     let harness: IExtensionHarness | undefined;
     let workDir: string | undefined;
     afterEach(async () => {
@@ -91,7 +91,7 @@ describe("builtin git plugin — живое слежение", () => {
         workDir = undefined;
     });
 
-    /** Не `harness.tmpDir`: корень воркспейса должен существовать до старта, а в worktree-сценарии он вложенный. */
+    /** Not `harness.tmpDir`: the workspace root must exist before start, and in the worktree scenario it is nested. */
     async function startOver(
         makeWorkspace: (dir: string) => string,
     ): Promise<{ changes: IPublishedChange[][]; repoStates: IPublishedRepoState[]; root: string }> {
@@ -107,18 +107,18 @@ describe("builtin git plugin — живое слежение", () => {
             repoStates.push(payload as IPublishedRepoState);
         });
         await registerAndActivate(harness.host, gitRegistration());
-        // До `ready` chokidar с ignoreInitial глотает всё найденное.
+        // Before `ready`, chokidar with ignoreInitial swallows everything it finds.
         await settle(400);
         return { changes, repoStates, root };
     }
 
-    it("правка файла мимо редактора приезжает в Changes", async () => {
+    it("a file edit outside the editor reaches Changes", async () => {
         const { changes, root } = await startOver((dir) => {
             makeRepo(dir);
             return dir;
         });
 
-        fs.writeFileSync(path.join(root, "tracked.txt"), "a\nИЗМЕНЕНО\nc\n");
+        fs.writeFileSync(path.join(root, "tracked.txt"), "a\nCHANGED\nc\n");
 
         const seen = await waitFor(() =>
             changes.at(-1)?.some((c) => c.path === "tracked.txt" && c.group === "worktree") === true
@@ -128,10 +128,10 @@ describe("builtin git plugin — живое слежение", () => {
         expect(seen?.map((c) => `${c.path} ${c.status} ${c.group}`)).toContain("tracked.txt M worktree");
     }, 30000);
 
-    it("`git add` из терминала переводит файл в индекс", async () => {
+    it("`git add` from a terminal moves the file into the index", async () => {
         const { changes, root } = await startOver((dir) => {
             makeRepo(dir);
-            fs.writeFileSync(path.join(dir, "tracked.txt"), "a\nИЗМЕНЕНО\nc\n");
+            fs.writeFileSync(path.join(dir, "tracked.txt"), "a\nCHANGED\nc\n");
             return dir;
         });
 
@@ -143,7 +143,7 @@ describe("builtin git plugin — живое слежение", () => {
         expect(seen?.map((c) => `${c.path} ${c.group}`)).toContain("tracked.txt index");
     }, 30000);
 
-    it("checkout ветки снаружи обновляет состояние репозитория", async () => {
+    it("an outside branch checkout updates the repository state", async () => {
         const { repoStates, root } = await startOver((dir) => {
             makeRepo(dir);
             return dir;
@@ -157,9 +157,9 @@ describe("builtin git plugin — живое слежение", () => {
         expect(seen?.branch).toBe("feature");
     }, 30000);
 
-    it("обновление ref'а upstream'а снаружи двигает ahead/behind", async () => {
-        // `update-ref` напрямую: ref глубже первого уровня `.git`, и никакой
-        // другой путь, кроме watcher'а ref'а, сработать не должен.
+    it("an outside update of the upstream ref moves ahead/behind", async () => {
+        // `update-ref` directly: the ref is deeper than the top level of `.git`, and nothing
+        // but the ref watcher should fire.
         const { repoStates, root } = await startOver((dir) => {
             const bare = path.join(dir, "remote.git");
             const work = path.join(dir, "work");
@@ -176,8 +176,8 @@ describe("builtin git plugin — живое слежение", () => {
         git(root, "checkout", "-q", "-");
         git(root, "branch", "-qD", "side");
         expect(await waitFor(() => repoStates.find((s) => s.upstream === "origin/main"))).toBeDefined();
-        // Тишина: иначе «behind» мог бы приехать с рефрешами подготовки, и тест
-        // проходил бы без watcher'а ref'а вовсе.
+        // Quiet period: otherwise "behind" could arrive with the setup refreshes, and the test
+        // would pass without the ref watcher at all.
         await settle(800);
         const quiet = repoStates.length;
 
@@ -187,7 +187,7 @@ describe("builtin git plugin — живое слежение", () => {
         expect(seen?.behind).toBe(1);
     }, 30000);
 
-    it("в linked worktree (`.git` — файл) слежение работает так же", async () => {
+    it("watching works the same in a linked worktree (`.git` is a file)", async () => {
         const { changes, root } = await startOver((dir) => {
             const main = path.join(dir, "main");
             fs.mkdirSync(main);
@@ -196,10 +196,10 @@ describe("builtin git plugin — живое слежение", () => {
             git(main, "worktree", "add", "-q", linked, "-b", "feature");
             return linked;
         });
-        // Предусловие сценария: тут `.git` действительно файл-указатель.
+        // Scenario precondition: here `.git` really is a pointer file.
         expect(fs.statSync(path.join(root, ".git")).isFile()).toBe(true);
 
-        fs.writeFileSync(path.join(root, "tracked.txt"), "a\nИЗМЕНЕНО\nc\n");
+        fs.writeFileSync(path.join(root, "tracked.txt"), "a\nCHANGED\nc\n");
 
         const seen = await waitFor(() =>
             changes.at(-1)?.some((c) => c.path === "tracked.txt") === true ? changes.at(-1) : undefined,

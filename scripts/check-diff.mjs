@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// Быстрый внутренний цикл по диффу ветки: типы, линт и тесты только изменённого.
-// НЕ гейт сдачи — полные гейты остаются перед PR и в CI (docs/TESTING.md). Флаги — usage().
+// Fast inner loop over the branch diff: types, lint and tests of the changed files only.
+// NOT a hand-off gate: the full gates stay before the PR and in CI (docs/TESTING.md). Flags: usage().
 //
-// Шаги ПОСЛЕДОВАТЕЛЬНО: tsc и type-aware eslint строят по программе каждый и
-// параллельно дерутся за память.
+// Steps run SEQUENTIALLY: tsc and type-aware eslint each build a program and fight over
+// memory in parallel.
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readdirSync } from "node:fs";
 import path from "node:path";
@@ -15,14 +15,14 @@ const TEST_RE = /\.test\.ts$/;
 const STEPS = ["tsc", "lint", "test"];
 
 function usage(code) {
-    console.log(`Использование: npm run check:diff -- [--base <ref>] [--near] [--coverage] [--skip tsc,lint,test] [--list]
+    console.log(`Usage: npm run check:diff -- [--base <ref>] [--near] [--coverage] [--skip tsc,lint,test] [--list]
 
-  --base <ref>   база диффа (по умолчанию merge-base с origin/main)
-  --near         вместо \`vitest related\` (весь граф импортёров) — только соседние
-                 тесты: Foo.ts → Foo.test.ts, Foo.*.test.ts; плюс изменённые тесты
-  --coverage     добавить покрытие изменённых не-тестовых файлов (храповик не трогается)
-  --skip <шаги>  пропустить шаги через запятую: tsc, lint, test
-  --list         только показать файлы диффа и выйти`);
+  --base <ref>   diff base (merge-base with origin/main by default)
+  --near         instead of \`vitest related\` (the whole importer graph), only neighbor
+                 tests: Foo.ts → Foo.test.ts, Foo.*.test.ts; plus the changed tests
+  --coverage     add coverage of the changed non-test files (the ratchet is untouched)
+  --skip <steps> skip comma-separated steps: tsc, lint, test
+  --list         only list the diff files and exit`);
     process.exit(code);
 }
 
@@ -42,13 +42,13 @@ function parseArgs(argv) {
         else if (a === "--skip") addSkip(argv[++i] ?? "");
         else if (a.startsWith("--skip=")) addSkip(a.slice("--skip=".length));
         else {
-            console.error(`check:diff: неизвестный аргумент «${a}»`);
+            console.error(`check:diff: unknown argument "${a}"`);
             usage(2);
         }
     }
     for (const s of opts.skip) {
         if (!STEPS.includes(s)) {
-            console.error(`check:diff: неизвестный шаг в --skip: «${s}» (есть: ${STEPS.join(", ")})`);
+            console.error(`check:diff: unknown step in --skip: "${s}" (known: ${STEPS.join(", ")})`);
             process.exit(2);
         }
     }
@@ -95,7 +95,7 @@ function run(title, cmd, args) {
     const r = spawnSync(cmd, args, { stdio: "inherit" });
     const secs = ((Date.now() - started) / 1000).toFixed(1);
     const ok = r.status === 0;
-    console.log(`${ok ? "✓" : "✗"} ${title} — ${secs} с`);
+    console.log(`${ok ? "✓" : "✗"} ${title} — ${secs} s`);
     return ok;
 }
 
@@ -105,11 +105,11 @@ function main() {
     const files = changedFiles(base);
     const shortBase = git(["rev-parse", "--short", base]).trim();
 
-    console.log(`check:diff: база ${shortBase}, файлов в диффе: ${files.length}`);
+    console.log(`check:diff: base ${shortBase}, files in diff: ${files.length}`);
     for (const f of files) console.log(`  ${f}`);
     if (opts.list) return;
     if (files.length === 0) {
-        console.log("Нечего проверять: в src/ и extensions/ изменений нет.");
+        console.log("Nothing to check: no changes in src/ and extensions/.");
         return;
     }
 
@@ -118,7 +118,7 @@ function main() {
     const failed = [];
 
     if (!opts.skip.has("tsc")) {
-        // По всей программе: правка в одном файле ломает чужие.
+        // The whole program: an edit in one file breaks others.
         const ok = run("tsc --noEmit --incremental", bin("tsc"), [
             "--noEmit",
             "--incremental",
@@ -129,8 +129,8 @@ function main() {
     }
 
     if (!opts.skip.has("lint")) {
-        // Кэш eslint не знает о зависимостях между файлами: сменился тип в соседнем —
-        // вердикт не перепроверится. Поэтому полный `npm run lint` остаётся за CI.
+        // The eslint cache doesn't know about cross-file dependencies: when a type changes in a
+        // neighbor file the verdict isn't rechecked. So the full `npm run lint` stays with CI.
         const ok = run(`eslint (${files.length})`, bin("eslint"), [
             "--cache",
             "--cache-strategy",
@@ -147,17 +147,17 @@ function main() {
         let args;
         if (opts.near) {
             const tests = nearTests(files);
-            console.log(`\nСоседних тестов: ${tests.length}`);
+            console.log(`\nNeighbor tests: ${tests.length}`);
             for (const t of tests) console.log(`  ${t}`);
             args = ["run", "--passWithNoTests", ...tests];
             if (tests.length === 0) args = undefined;
         } else {
-            // Для модуля из base/ или platform/ это сотни файлов — тогда --near.
+            // For a module in base/ or platform/ this is hundreds of files; use --near then.
             args = ["related", "--run", "--passWithNoTests", ...files];
         }
         if (args && opts.coverage) {
             const sources = files.filter((f) => !TEST_RE.test(f));
-            // Храповик 100% с autoUpdate на подмножестве тестов покраснеет и перепишет vitest.config.ts.
+            // The 100% ratchet with autoUpdate on a subset of tests goes red and rewrites vitest.config.ts.
             args.push(
                 "--coverage",
                 "--coverage.thresholds.autoUpdate=false",
@@ -173,17 +173,17 @@ function main() {
             );
         }
         if (args) {
-            const title = `vitest ${opts.near ? "run (соседние)" : "related"}${opts.coverage ? " --coverage" : ""}`;
+            const title = `vitest ${opts.near ? "run (neighbors)" : "related"}${opts.coverage ? " --coverage" : ""}`;
             if (!run(title, bin("vitest"), args)) failed.push("test");
         } else {
-            console.log("Тестов рядом с изменёнными файлами нет — шаг test пропущен.");
+            console.log("No tests next to the changed files, skipping the test step.");
         }
     }
 
     console.log(
         failed.length === 0
-            ? "\ncheck:diff: зелёный. Перед сдачей — полные гейты (lint, typecheck, test:coverage, test:mutation)."
-            : `\ncheck:diff: красный — ${failed.join(", ")}.`,
+            ? "\ncheck:diff: green. Before hand-off, run the full gates (lint, typecheck, test:coverage, test:mutation)."
+            : `\ncheck:diff: red: ${failed.join(", ")}.`,
     );
     process.exitCode = failed.length === 0 ? 0 : 1;
 }

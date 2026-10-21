@@ -1,15 +1,15 @@
 #!/usr/bin/env node
 /**
- * Детерминированная упаковка каталога расширения в `.vsix` для магазина.
+ * Deterministic packing of an extension directory into a `.vsix` for the gallery.
  *
- * Заглушку `extension.vsixmanifest` ждёт формат; наш установщик читает только
- * `extension/package.json`. Детерминированность — не эстетика: запись реестра пинит
- * артефакт по `sha256`, и пересборка без изменений обязана давать те же байты.
+ * The format expects an `extension.vsixmanifest` stub; our installer reads only
+ * `extension/package.json`. Determinism is not cosmetic: the registry entry pins the
+ * artifact by `sha256`, and an unchanged rebuild must produce the same bytes.
  *
- * Использование:
- *   node scripts/pack-vsix.mjs <каталог-расширения> <выходной .vsix>
+ * Usage:
+ *   node scripts/pack-vsix.mjs <extension-dir> <out.vsix>
  *
- * Печатает id, версию, размер и sha256 — ровно то, что идёт в запись реестра.
+ * Prints the id, version, size and sha256: exactly what goes into the registry entry.
  */
 
 import { createHash } from "node:crypto";
@@ -36,7 +36,7 @@ function listFiles(root) {
         }
     };
     walk(root);
-    // Порядок readdir зависит от файловой системы.
+    // readdir order depends on the file system.
     return out.sort();
 }
 

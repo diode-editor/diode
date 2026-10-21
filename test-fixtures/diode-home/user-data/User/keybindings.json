@@ -1,3 +1,3 @@
-// Keybindings — заглушка. Парсинг пока не реализован; файл создан,
-// чтобы зафиксировать каноничное расположение в раскладке user data.
+// Keybindings: a stub. Parsing is not implemented yet; the file exists
+// to pin its canonical location in the user data layout.
 []

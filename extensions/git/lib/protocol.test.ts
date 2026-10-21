@@ -4,9 +4,9 @@ import { GIT_OP_COMMAND as CORE_GIT_OP_COMMAND } from "../../../src/vs/workbench
 
 import { GIT_OP_COMMAND } from "./protocol.ts";
 
-// Общих импортов через границу процесса нет — тест держит зеркала в лок-степе.
+// No shared imports across the process boundary: the test keeps the mirrors in lockstep.
 describe("git op protocol", () => {
-    it("имя команды диспетчера совпадает с зеркалом ядра", () => {
+    it("dispatcher command name matches the core mirror", () => {
         expect(GIT_OP_COMMAND).toBe(CORE_GIT_OP_COMMAND);
     });
 });

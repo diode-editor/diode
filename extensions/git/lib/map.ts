@@ -2,8 +2,8 @@ export interface IStatusDecoration {
     badge: string;
     colorId: string;
     /**
-     * Всплывает ли к папкам-предкам. Как в эталоне (`Resource.resourceDecoration`):
-     * удалённые не всплывают; ignored там отдаёт отдельный провайдер без `propagate`.
+     * Whether it propagates to ancestor folders. As upstream (`Resource.resourceDecoration`):
+     * deleted files don't propagate; there, ignored files come from a separate provider without `propagate`.
      */
     propagate: boolean;
 }
@@ -19,13 +19,13 @@ const DECORATION_BY_STATUS = {
     U: { badge: "U", colorId: "gitDecoration.conflictingResourceForeground", propagate: true },
 } satisfies Record<string, IStatusDecoration>;
 
-// `Record<string, T>` отдал бы на любой ключ непустой тип, и проверка на
-// неизвестную букву выглядела бы мёртвой.
+// `Record<string, T>` would give a non-undefined type for any key, and the check for
+// an unknown letter would look dead.
 const DECORATION_LOOKUP: Partial<Record<string, IStatusDecoration>> = DECORATION_BY_STATUS;
 
 const UNMERGED_CODES = new Set(["DD", "AU", "UD", "UA", "DU", "AA", "UU"]);
 
-/** Индекс важнее рабочего дерева; неизвестный код — «modified». */
+/** The index wins over the working tree; an unknown code means "modified". */
 export function statusToDecoration(xy: string): IStatusDecoration {
     const code = primaryStatusChar(xy);
     return DECORATION_LOOKUP[code] ?? DECORATION_BY_STATUS.M;
@@ -48,8 +48,8 @@ export interface IScmResourceState {
 }
 
 /**
- * `MM` попадает и в `index`, и в `worktree`, как в VS Code. Буква каждой записи —
- * по своей стороне `XY`, а не по приоритету {@link statusToDecoration} (тот — для дерева файлов).
+ * `MM` lands in both `index` and `worktree`, as in VS Code. Each entry's letter comes
+ * from its own side of `XY`, not from the {@link statusToDecoration} priority (that one is for the file tree).
  */
 export function xyToResourceStates(xy: string): IScmResourceState[] {
     if (xy === "!!") return [];
@@ -65,7 +65,7 @@ export function xyToResourceStates(xy: string): IScmResourceState[] {
     return states;
 }
 
-/** Неизвестная буква — цвет modified, бейдж — сама буква. */
+/** An unknown letter gets the modified color, with the letter itself as the badge. */
 function decorationFor(letter: string): { badge: string; colorId: string } {
     const deco = DECORATION_LOOKUP[letter];
     if (deco === undefined) return { badge: letter, colorId: DECORATION_BY_STATUS.M.colorId };

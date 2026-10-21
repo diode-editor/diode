@@ -1,4 +1,4 @@
-// Запуск: node --test scripts/ (npm run test:scripts).
+// Run: node --test scripts/ (npm run test:scripts).
 import assert from "node:assert/strict";
 import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from "node:fs";
@@ -29,11 +29,11 @@ function gitRepo() {
     return repo;
 }
 
-test("computeBuildKey: стабилен и меняется ровно от входов сборки", () => {
+test("computeBuildKey: is stable and changes exactly with the build inputs", () => {
     const repo = gitRepo();
     const base = computeBuildKey(repo, {});
     assert.match(base, /^[0-9a-f]{16}$/);
-    assert.equal(computeBuildKey(repo, {}), base, "тот же вход — тот же ключ");
+    assert.equal(computeBuildKey(repo, {}), base, "same input, same key");
 
     writeFileSync(join(repo, "e2e", "x.test.ts"), "changed\n");
     writeFileSync(join(repo, "src", "main.test.ts"), "new test\n");
@@ -51,9 +51,9 @@ test("computeBuildKey: стабилен и меняется ровно от вх
     assert.notEqual(withUntracked, base);
     writeFileSync(join(repo, "src", "extra.ts"), "y\n");
     const untrackedY = computeBuildKey(repo, {});
-    assert.notEqual(untrackedY, withUntracked, "содержимое неотслеживаемого файла — в ключе");
+    assert.notEqual(untrackedY, withUntracked, "untracked file content is part of the key");
 
-    // Ключ — от содержимого, а не от git.
+    // The key comes from content, not from git.
     execFileSync("git", ["add", "."], { cwd: repo });
     execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "more"], { cwd: repo });
     assert.equal(computeBuildKey(repo, {}), untrackedY);
@@ -64,23 +64,23 @@ test("computeBuildKey: стабилен и меняется ровно от вх
     assert.notEqual(computeBuildKey(repo, { DIODE_VERSION: "1.2.3" }), computeBuildKey(repo, {}));
 });
 
-test("computeBuildKey: не git — null (кэшировать нечем)", () => {
+test("computeBuildKey: not git, null (nothing to key the cache on)", () => {
     assert.equal(computeBuildKey(dir, {}), null);
 });
 
-test("buildVersion / cacheRoot: пин e2e-версии и корень кэша из окружения", () => {
+test("buildVersion / cacheRoot: pinned e2e version and cache root from the environment", () => {
     assert.equal(buildVersion({}), E2E_VERSION);
     assert.equal(buildVersion({ DIODE_VERSION: " v9 " }), "v9");
     assert.equal(cacheRoot({ DIODE_E2E_CACHE_DIR: "/x/y" }), "/x/y");
     assert.equal(cacheRoot({ XDG_CACHE_HOME: "/c" }), join("/c", "diode-e2e"));
 });
 
-test("acquireLock: второй ждёт, замок мёртвого владельца снимается", () => {
+test("acquireLock: the second one waits, a dead owner's lock is removed", () => {
     const lock = join(dir, "k.lock");
     const release = acquireLock(lock);
     assert.equal(readFileSync(join(lock, "owner"), "utf-8"), String(process.pid));
-    // Свой же замок живого владельца: ждать бессмысленно — короткий таймаут.
-    assert.throws(() => acquireLock(lock, { waitMs: 0 }), /не дождался замка/);
+    // Our own lock with a live owner: waiting is pointless, so a short timeout.
+    assert.throws(() => acquireLock(lock, { waitMs: 0 }), /timed out waiting for lock/);
     release();
     assert.equal(existsSync(lock), false);
 
@@ -88,11 +88,11 @@ test("acquireLock: второй ждёт, замок мёртвого владе
     writeFileSync(join(lock, "owner"), "999999");
     const logs = [];
     const again = acquireLock(lock, { waitMs: 0, isProcessAlive: () => false, log: (m) => logs.push(m) });
-    assert.match(logs[0], /мёртвого процесса 999999/);
+    assert.match(logs[0], /dead process 999999/);
     again();
 });
 
-test("acquireLock: соседний процесс держит замок — дожидаемся его", async () => {
+test("acquireLock: a neighbor process holds the lock, we wait for it", async () => {
     const lock = join(dir, "k.lock");
     const holder = spawn(
         process.execPath,
@@ -109,8 +109,8 @@ test("acquireLock: соседний процесс держит замок — �
     const logs = [];
     const started = Date.now();
     const release = acquireLock(lock, { waitMs: 10_000, log: (m) => logs.push(m) });
-    assert.ok(Date.now() - started >= 500, "ждали соседа");
-    assert.match(logs[0], new RegExp(`собирает процесс ${String(holder.pid)}`));
+    assert.ok(Date.now() - started >= 500, "waited for the neighbor");
+    assert.match(logs[0], new RegExp(`process ${String(holder.pid)} is building`));
     release();
     await new Promise((resolve) => holder.once("exit", resolve));
 });
@@ -125,37 +125,37 @@ function entry(root, key, ageSec, files = { binary: "diode" }) {
     return path;
 }
 
-test("readManifest: нет файла из манифеста — запись битая", () => {
+test("readManifest: a file from the manifest is missing, the entry is broken", () => {
     const ok = entry(dir, "a".repeat(16), 0);
     assert.deepEqual(readManifest(ok), { files: { binary: "diode" } });
     const broken = entry(dir, "b".repeat(16), 0, { binary: "diode", selfExtract: "gone" });
     removeTree(join(broken, "gone"));
     assert.equal(readManifest(broken), null);
-    assert.equal(readManifest(join(dir, "нет")), null);
+    assert.equal(readManifest(join(dir, "missing")), null);
 });
 
-test("evict: держит K свежих и всё, что используется живым прогоном", () => {
+test("evict: keeps K freshest and everything a live run uses", () => {
     const keys = ["1", "2", "3", "4", "5"].map((c) => c.repeat(16));
-    keys.forEach((k, i) => entry(dir, k, i * 100)); // keys[0] — самый свежий
+    keys.forEach((k, i) => entry(dir, k, i * 100)); // keys[0] is the freshest
     mkdirSync(join(dir, ".in-use"));
-    writeFileSync(join(dir, ".in-use", `${keys[4]}@111`), ""); // старейший, но в работе
-    writeFileSync(join(dir, ".in-use", `${keys[3]}@222`), ""); // метка мёртвого прогона
-    // недостроенные сборки: мёртвого и живого процесса
+    writeFileSync(join(dir, ".in-use", `${keys[4]}@111`), ""); // oldest, but in use
+    writeFileSync(join(dir, ".in-use", `${keys[3]}@222`), ""); // mark of a dead run
+    // unfinished builds: of a dead and of a live process
     mkdirSync(join(dir, `${keys[0]}.tmp-333`));
     mkdirSync(join(dir, `${keys[1]}.tmp-444`));
-    mkdirSync(join(dir, "чужое"));
+    mkdirSync(join(dir, "foreign"));
 
     const removed = evict(dir, { keep: 2, isProcessAlive: (pid) => pid === 111 || pid === 444 });
 
     assert.deepEqual(removed.sort(), [join(dir, keys[2]), join(dir, keys[3]), join(dir, `${keys[0]}.tmp-333`)].sort());
-    assert.ok(existsSync(join(dir, keys[4])), "используемую не трогаем");
-    assert.ok(existsSync(join(dir, `${keys[1]}.tmp-444`)), "живую сборку не трогаем");
-    assert.ok(existsSync(join(dir, "чужое")));
-    assert.equal(existsSync(join(dir, ".in-use", `${keys[3]}@222`)), false, "метка мёртвого убрана");
-    assert.deepEqual(evict(join(dir, "нет-такого")), []);
+    assert.ok(existsSync(join(dir, keys[4])), "a build in use stays");
+    assert.ok(existsSync(join(dir, `${keys[1]}.tmp-444`)), "a live build stays");
+    assert.ok(existsSync(join(dir, "foreign")));
+    assert.equal(existsSync(join(dir, ".in-use", `${keys[3]}@222`)), false, "a dead run's mark is removed");
+    assert.deepEqual(evict(join(dir, "no-such-dir")), []);
 });
 
-test("removeTree: сносит дерево только для чтения", { skip: process.platform === "win32" }, () => {
+test("removeTree: removes a read-only tree", { skip: process.platform === "win32" }, () => {
     const path = entry(dir, "c".repeat(16), 0);
     execFileSync("chmod", ["-R", "a-w", path]);
     removeTree(path);

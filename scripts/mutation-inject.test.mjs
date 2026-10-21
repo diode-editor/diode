@@ -1,4 +1,4 @@
-// Запуск: npm run test:scripts (node --test).
+// Run: npm run test:scripts (node --test).
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -25,31 +25,31 @@ const at = (line, column, endLine, endColumn) => ({
     end: { line: endLine, column: endColumn },
 });
 
-test("applyMutant: ровно диапазон [start, end) — левый операнд `||`, а не всё условие", () => {
+test("applyMutant: exactly the [start, end) range, the left operand of `||`, not the whole condition", () => {
     const source = 'x;\nif (typeof v !== "object" || v === null) return;\n';
-    // Колонки Stryker'а 1-based: `typeof` начинается с 5-й.
+    // Stryker columns are 1-based: `typeof` starts at column 5.
     const mutated = applyMutant(source, { location: at(2, 5, 2, 26), replacement: "false" });
     assert.equal(mutated, "x;\nif (false || v === null) return;\n");
 });
 
-test("applyMutant: многострочный мутант (вырезанное тело)", () => {
+test("applyMutant: multiline mutant (removed body)", () => {
     const source = "function f() {\n    a();\n    b();\n}\n";
     assert.equal(applyMutant(source, { location: at(1, 14, 4, 2), replacement: "{}" }), "function f() {}\n");
 });
 
-test("offsetOf: конец сразу за последним символом строки допустим, дальше — ошибка", () => {
+test("offsetOf: an end right after the last character of a line is allowed, beyond that is an error", () => {
     assert.equal(offsetOf("ab\ncd", { line: 2, column: 3 }), 5);
-    assert.throws(() => offsetOf("ab\ncd", { line: 2, column: 4 }), /колонки/);
-    assert.throws(() => offsetOf("ab", { line: 3, column: 1 }), /строки/);
+    assert.throws(() => offsetOf("ab\ncd", { line: 2, column: 4 }), /column/);
+    assert.throws(() => offsetOf("ab", { line: 3, column: 1 }), /line \d+ is out of range$/);
 });
 
-test("isCandidate: всё, что Stryker не записал убитым и не погасил", () => {
+test("isCandidate: everything Stryker neither marked killed nor silenced", () => {
     for (const status of ["Survived", "NoCoverage", "RuntimeError"]) assert.ok(isCandidate({ status }), status);
     for (const status of ["Killed", "Timeout", "Ignored", "CompileError", "Pending"])
         assert.ok(!isCandidate({ status }), status);
 });
 
-test("coveringTestFiles: id тестов из coveredBy → их файлы", () => {
+test("coveringTestFiles: test ids from coveredBy → their files", () => {
     const report = {
         testFiles: {
             "src/a.test.ts": { tests: [{ id: "1" }, { id: "2" }] },
@@ -61,7 +61,7 @@ test("coveringTestFiles: id тестов из coveredBy → их файлы", ()
     assert.deepEqual(coveringTestFiles(report, {}), []);
 });
 
-test("siblingTestFiles: свой каталог, своё имя, подразделы — но не тёзки-префиксы", () => {
+test("siblingTestFiles: same directory, same name, sub-suffixes, but not prefix namesakes", () => {
     const all = [
         "src/x/a.test.ts",
         "src/x/a.events.test.ts",
@@ -72,7 +72,7 @@ test("siblingTestFiles: свой каталог, своё имя, подразд
     assert.deepEqual(siblingTestFiles("src/x/a.ts", all), ["src/x/a.events.test.ts", "src/x/a.test.ts"]);
 });
 
-test("importSpecifiers: многострочный import, export from, side-effect, dynamic, vi.mock; пакеты — нет", () => {
+test("importSpecifiers: multiline import, export from, side-effect, dynamic, vi.mock; packages excluded", () => {
     const text = `import {\n  a,\n  b,\n} from "./a.js";\nimport type { T } from "../t.js";\nexport * from "./re.js";\nimport "./side.js";\nconst m = await import("./lazy.js");\nvi.mock("./mocked.js");\nimport { x } from "vitest";\n`;
     assert.deepEqual(importSpecifiers(text).sort(), [
         "../t.js",
@@ -84,7 +84,7 @@ test("importSpecifiers: многострочный import, export from, side-eff
     ]);
 });
 
-test("resolveSpecifier: .js → .ts, без расширения, index, выход вверх", () => {
+test("resolveSpecifier: .js → .ts, no extension, index, going up", () => {
     const known = new Set(["src/a/b.ts", "src/c/index.ts", "src/d.ts"]);
     assert.equal(resolveSpecifier("src/a/x.ts", "./b.js", known), "src/a/b.ts");
     assert.equal(resolveSpecifier("src/a/x.ts", "../c", known), "src/c/index.ts");
@@ -92,9 +92,9 @@ test("resolveSpecifier: .js → .ts, без расширения, index, вых�
     assert.equal(resolveSpecifier("src/a/x.ts", "./nope.js", known), null);
 });
 
-test("relatedTestFiles: транзитивно через нетестовые модули, без циклов", () => {
+test("relatedTestFiles: transitive through non-test modules, no cycles", () => {
     const sources = new Map([
-        ["src/core.ts", 'import { w } from "./wrap.js";'], // цикл
+        ["src/core.ts", 'import { w } from "./wrap.js";'], // cycle
         ["src/wrap.ts", 'import { c } from "./core.js";'],
         ["src/ui/view.ts", 'import { w } from "../wrap.js";'],
         ["src/ui/view.test.ts", 'import { v } from "./view.js";'],
@@ -114,7 +114,7 @@ const vitestJson = (results) => ({
     })),
 });
 
-test("killers: улика — только тест, зелёный без мутанта; файл целиком — если без мутанта он грузился", () => {
+test("killers: evidence is only a test green without the mutant; a whole file counts if it loaded without the mutant", () => {
     const base = parseVitestJson(
         vitestJson([
             [
@@ -145,11 +145,11 @@ test("killers: улика — только тест, зелёный без му�
     assert.deepEqual(found.tests, ["/p/a.test.ts > t1"]);
     assert.deepEqual(found.files, ["/p/b.test.ts"]);
     assert.ok(found.any);
-    // Красное и без мутанта — не улика.
+    // Red without the mutant too: not evidence.
     assert.ok(!killers(base, parseVitestJson(vitestJson([["/p/a.test.ts", "failed", [["t2", "failed"]]]]))).any);
 });
 
-test("runtimeErrorExcerpt: вырезает блок Unhandled Errors без ANSI, нет маркера — null", () => {
+test("runtimeErrorExcerpt: extracts the Unhandled Errors block without ANSI, null without a marker", () => {
     const output =
         "ok\n\u001b[31m⎯⎯⎯⎯ Unhandled Errors ⎯⎯⎯⎯\u001b[39m\n\nVitest caught 1 unhandled error during the test run.\nThis might cause false positive tests.\n⎯⎯⎯⎯ Uncaught Exception ⎯⎯⎯⎯\nTypeError: Cannot read properties of null\n at later (src/calc.ts:11)\n";
     assert.equal(
@@ -159,15 +159,15 @@ test("runtimeErrorExcerpt: вырезает блок Unhandled Errors без ANS
     assert.equal(runtimeErrorExcerpt("Test Files 1 passed"), null);
 });
 
-test("equivalentHint: граница, человекочитаемая строка, охраняющее условие с убитым соседом", () => {
-    const source = 'if (i < n) log("готово к работе");\nif (ready) go();\n';
+test("equivalentHint: boundary, human-readable string, guard condition with a killed sibling", () => {
+    const source = 'if (i < n) log("ready to go now");\nif (ready) go();\n';
     assert.match(
         equivalentHint(
             source,
             { mutatorName: "EqualityOperator", replacement: "i <= n", location: at(1, 5, 1, 10) },
             [],
         ),
-        /граничный/,
+        /boundary/,
     );
     assert.equal(
         equivalentHint(
@@ -179,7 +179,7 @@ test("equivalentHint: граница, человекочитаемая стро�
     );
     assert.match(
         equivalentHint(source, { mutatorName: "StringLiteral", replacement: '""', location: at(1, 16, 1, 33) }, []),
-        /человекочитаемая/,
+        /human-readable/,
     );
     const self = {
         mutatorName: "ConditionalExpression",
@@ -193,11 +193,11 @@ test("equivalentHint: граница, человекочитаемая стро�
         status: "Killed",
         location: at(2, 5, 2, 10),
     };
-    assert.match(equivalentHint(source, self, [self, killed]), /охраняющее условие/);
+    assert.match(equivalentHint(source, self, [self, killed]), /guard condition/);
     assert.equal(equivalentHint(source, self, [self, { ...killed, status: "Survived" }]), null);
 });
 
-test("countClasses/blockingVerdicts: real и phantom гейт сами не красят — красят балл и Killed", () => {
+test("countClasses/blockingVerdicts: real and phantom do not fail the gate on their own; the score and Killed do", () => {
     const verdicts = ["real", "phantom", "phantom", "stale", "timeout", "inconclusive", "runtime-error"].map((cls) => ({
         class: cls,
     }));

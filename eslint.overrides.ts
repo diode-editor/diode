@@ -8,7 +8,7 @@ const overrides: TSESLint.FlatConfig.ConfigArray = [
             "@typescript-eslint/no-non-null-assertion": "off",
             "@typescript-eslint/no-empty-function": "off",
             "@typescript-eslint/unbound-method": "off",
-            // Мок-реализации async-интерфейсов часто не содержат await — это норма для тестов.
+            // Mocks of async interfaces often have no await, which is fine in tests.
             "@typescript-eslint/require-await": "off",
         },
     },
@@ -31,26 +31,26 @@ const overrides: TSESLint.FlatConfig.ConfigArray = [
                 "error",
                 {
                     selector: "TSImportType",
-                    message: "Не используй inline import() для типов. Добавь `import type { ... }` в начало файла.",
+                    message: "Do not use inline import() for types. Add `import type { ... }` at the top of the file.",
                 },
             ],
         },
     },
     {
-        // Рукописный список слушателей — без изоляции ошибок слушателя и с разной
-        // семантикой отписки в обходе. Правило перекрывает no-restricted-syntax выше
-        // целиком, поэтому селектор inline import() повторён.
+        // A hand-rolled listener list lacks listener error isolation and differs in
+        // unsubscribe-during-dispatch semantics. This rule overrides no-restricted-syntax above
+        // entirely, so the inline import() selector is repeated.
         files: ["src/vs/**/*.ts"],
         ignores: [
             "**/*.test.ts",
             "**/*testUtils.ts",
             "src/vs/base/common/event.ts",
-            // Одноразовое событие с повтором для опоздавшего подписчика — свой контракт.
+            // One-shot event that replays to a late subscriber: its own contract.
             "src/vs/base/common/cancellation.ts",
-            // vscode.EventEmitter для расширений — публичный тип API, свой класс.
+            // vscode.EventEmitter for extensions is a public API type, its own class.
             "src/vs/workbench/api/common/vscodeTypes.ts",
-            // Участники выхода: синхронный шаг прощания рассылается в обратном
-            // порядке подписки (LIFO), а Emitter порядок не переворачивает.
+            // Shutdown participants: the synchronous farewell step is dispatched in reverse
+            // subscription order (LIFO), and Emitter does not reverse the order.
             "src/vs/workbench/services/lifecycle/browser/lifecycleService.ts",
         ],
         rules: {
@@ -58,12 +58,12 @@ const overrides: TSESLint.FlatConfig.ConfigArray = [
                 "error",
                 {
                     selector: "TSImportType",
-                    message: "Не используй inline import() для типов. Добавь `import type { ... }` в начало файла.",
+                    message: "Do not use inline import() for types. Add `import type { ... }` at the top of the file.",
                 },
                 ...["listeners", "/Listeners$/"].map((name) => ({
                     selector: `PropertyDefinition[key.name=${name}][value.type=/^(ArrayExpression|NewExpression)$/]`,
                     message:
-                        "Рукописный список слушателей: заведи `Emitter` из vs/base/common/event.ts (docs/arch/Common.md#события-eventts).",
+                        "Hand-rolled listener list: use `Emitter` from vs/base/common/event.ts (docs/arch/Common.md#события-eventts).",
                 })),
             ],
         },

@@ -12,8 +12,8 @@ export default tseslint.config(
             "src/vscode-dts/vscode.d.ts",
             "src/vs/workbench/services/extensions/node/__fixtures__/*.cjs",
             "extensions/*/out/",
-            // Дословный перенос upstream: замечания исправлять нельзя по определению.
-            // Пути точечно: наши тесты в тех же каталогах линтуются на общих основаниях.
+            // Vendored copy of upstream: by definition its findings must not be fixed.
+            // Explicit paths: our tests in the same directories are linted as usual.
             "src/vs/editor/common/diff/linesDiffComputer.ts",
             "src/vs/editor/common/diff/rangeMapping.ts",
             "src/vs/editor/common/diff/defaultLinesDiffComputer/**",
@@ -30,9 +30,9 @@ export default tseslint.config(
             "src/vs/editor/common/model/textModelSearch.ts",
             "src/vs/editor/common/core/{textChange,wordCharacterClassifier,characterClassifier}.ts",
             "src/vs/base/common/uint.ts",
-            // Upstream-тесты PieceTree — тоже дословная копия (mocha-стиль, табы).
+            // Upstream PieceTree tests are a vendored copy too (mocha style, tabs).
             "src/vs/editor/test/common/model/pieceTreeTextBuffer/pieceTreeTextBuffer.test.ts",
-            // Тестовые ДАННЫЕ корпуса: чужие исходники, а не наш код.
+            // Corpus test DATA: foreign sources, not our code.
             "**/__fixtures__/**",
         ],
     },

@@ -1,4 +1,4 @@
-/** Отбрасывает всё, похожее на флаг (argument injection): значения приходят из-за границы процесса. */
+/** Drops anything that looks like a flag (argument injection): values come from across the process boundary. */
 export function safeRefArg(value: unknown): string | null {
     if (typeof value !== "string") return null;
     const trimmed = value.trim();

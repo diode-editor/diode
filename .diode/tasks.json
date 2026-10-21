@@ -1,5 +1,5 @@
 {
-    // Задачи проекта для Diode (F1 → «Tasks: Run Task»). Для VS Code — .vscode/tasks.json.
+    // Project tasks for Diode (F1 → "Tasks: Run Task"). For VS Code see .vscode/tasks.json.
     "version": "2.0.0",
     "tasks": [
         {

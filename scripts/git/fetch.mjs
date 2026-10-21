@@ -1,16 +1,16 @@
 #!/usr/bin/env node
-// npm run git:fetch [-- <ветка>…] — обновить origin/main (и названные ветки)
-// по https, НЕ удаляя остальные ref'ы.
+// npm run git:fetch [-- <branch>…]: update origin/main (and the named branches)
+// over https WITHOUT deleting other refs.
 //
-// Грабля, которую это закрывает: на машине fetch.prune=true, и
-// `git fetch <url> main:refs/remotes/origin/main` считает все прочие
-// refs/remotes/origin/* удалёнными на сервере и сносит их. --no-prune обязателен.
+// The pitfall it closes: the machine has fetch.prune=true, so
+// `git fetch <url> main:refs/remotes/origin/main` treats every other
+// refs/remotes/origin/* as deleted on the server and removes it. --no-prune is required.
 import { assertDiodeCheckout, die, git, gitOk, loud, REPO_URL, short } from "./lib.mjs";
 
 assertDiodeCheckout();
 
 const branches = ["main", ...process.argv.slice(2).filter((b) => b !== "main")];
-for (const b of branches) if (b.startsWith("-")) die(`git:fetch принимает только имена веток, а не «${b}»`);
+for (const b of branches) if (b.startsWith("-")) die(`git:fetch takes only branch names, not "${b}"`);
 
 const before = new Map(
     branches.map((b) => [
@@ -27,6 +27,6 @@ if (code !== 0) process.exit(code);
 for (const b of branches) {
     const now = git("rev-parse", `refs/remotes/origin/${b}`);
     const was = before.get(b);
-    const what = was === undefined ? "новая" : was === now ? "без изменений" : `${short(was)} → ${short(now)}`;
+    const what = was === undefined ? "new" : was === now ? "unchanged" : `${short(was)} → ${short(now)}`;
     console.log(`origin/${b}: ${short(now)} (${what})`);
 }

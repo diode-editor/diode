@@ -1,6 +1,6 @@
 import { safeRefArg } from "./syncArgs.ts";
 
-/** Все имена/ref'ы — через {@link safeRefArg} (argument injection). */
+/** Every name/ref goes through {@link safeRefArg} (argument injection). */
 export function checkoutArgs(params: Record<string, unknown>): string[] | null {
     const ref = safeRefArg(params.ref);
     if (ref === null) return null;

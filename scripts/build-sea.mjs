@@ -9,7 +9,7 @@ import { buildLazyChunkCodeCaches, SNAPSHOT_BUILD_FLAGS, SNAPSHOT_ENTRY, snapsho
 import { smokeTestBinary, smokeTestNodeMode } from "./smoke-binary.mjs";
 
 const root = resolve(import.meta.dirname, "..");
-// `--dist-dir=<path>` — собрать не в рабочий `dist/` (e2e кладёт сборку в кэш по хешу исходников).
+// `--dist-dir=<path>` builds outside the working `dist/` (e2e puts the build into a cache keyed by source hash).
 const dist = resolve(root, parseDistDir(process.argv.slice(2)) ?? "dist");
 const isWindows = process.platform === "win32";
 const isMac = process.platform === "darwin";
@@ -37,9 +37,9 @@ const { mainJsPath, bundlePath, nodePtyBundlePath, ripgrepBundlePath, tsServerBu
     distDir: dist,
 });
 
-// Два прохода: V8 принимает кэш кода кусков, только если процесс восстановлен из
-// снапшота того же `main.cjs` с теми же флагами, — кэш снимает бинарь первого прохода.
-// Не в `<dist>/lazy/`: там его нашёл бы `node dist/main.cjs` под чужим node.
+// Two passes: V8 accepts the chunk code cache only if the process is restored from a
+// snapshot of the same `main.cjs` with the same flags, so the first-pass binary takes the cache.
+// Not in `<dist>/lazy/`: `node dist/main.cjs` would find it there under a different node.
 buildBinary([]);
 const lazyChunkCaches = buildLazyChunkCodeCaches({
     chunks: lazyChunks,
@@ -54,8 +54,8 @@ function buildBinary(lazyChunkCaches) {
         main: SNAPSHOT_ENTRY,
         output: outputPath,
         mainFormat: "commonjs",
-        // Верхний уровень модулей исполняется при сборке — правила в docs/arch/Common.md,
-        // гейт — `npm run snapshot-check`.
+        // The module top level runs at build time: rules in docs/arch/Common.md,
+        // the gate is `npm run snapshot-check`.
         useSnapshot: true,
         disableExperimentalSEAWarning: true,
         assets: {
@@ -63,7 +63,7 @@ function buildBinary(lazyChunkCaches) {
             "node-pty.bundle": nodePtyBundlePath,
             "rg.bundle": ripgrepBundlePath,
             "ts-server.bundle": tsServerBundlePath,
-            // Ключ каталога распаковки без хэширования бандла на каждом старте.
+            // Unpack directory key without hashing the bundle on every start.
             "ts-server.bundle.sha256": `${tsServerBundlePath}.sha256`,
             ...Object.fromEntries([...lazyChunks, ...lazyChunkCaches].map(({ asset, path }) => [asset, path])),
         },
@@ -73,8 +73,8 @@ function buildBinary(lazyChunkCaches) {
     writeFileSync(configPath, JSON.stringify(seaConfig, null, 2));
     console.log(`SEA config written to ${configPath}`);
 
-    // Тот же node, что в ключе кэша e2e-сборок; флаги одинаковы в обоих проходах,
-    // иначе бинарь отвергнет кэш кусков.
+    // The same node as in the e2e build cache key; flags are identical in both passes,
+    // otherwise the binary rejects the chunk cache.
     console.log(`> node ${SNAPSHOT_BUILD_FLAGS.join(" ")} --build-sea ${configPath}`);
     execFileSync(process.execPath, [...SNAPSHOT_BUILD_FLAGS, "--build-sea", configPath], {
         stdio: "inherit",
@@ -85,7 +85,7 @@ function buildBinary(lazyChunkCaches) {
     const binStats = statSync(outputPath);
     console.error(`[build-sea] Binary: ${outputPath} (${(binStats.size / 1024 / 1024).toFixed(1)} MB)`);
 
-    // Подпись macOS: без неё SEA не запустится, в том числе бинарь первого прохода.
+    // macOS signing: without it SEA does not start, the first-pass binary included.
     if (isMac) {
         run(`chmod +x ${outputPath}`);
 
@@ -98,14 +98,14 @@ function buildBinary(lazyChunkCaches) {
             console.error(`[build-sea] lipo: ${lipoInfo}`);
         } catch {}
 
-        // Quarantine bit ставит macOS на части CI-окружений.
+        // macOS sets the quarantine bit on some CI environments.
         try {
             execSync(`xattr -d com.apple.quarantine "${outputPath}"`, { stdio: "pipe" });
         } catch {
             // No quarantine attribute — that is fine.
         }
 
-        // postject оставляет битую подпись.
+        // postject leaves a broken signature.
         try {
             execSync(`codesign --remove-signature "${outputPath}"`, { stdio: "pipe", cwd: root });
             console.error("[build-sea] Removed existing signature");
@@ -123,7 +123,7 @@ function buildBinary(lazyChunkCaches) {
     }
 }
 
-// Намеренно ВНЕ `if (isMac)`: проверка только под macOS пропустила segfault в релиз (#143).
+// Deliberately OUTSIDE `if (isMac)`: a macOS-only check let a segfault into a release (#143).
 const version = smokeTestBinary(outputPath, { cwd: root });
 smokeTestNodeMode(outputPath);
 console.log("Smoke: node mode (DIODE_RUN_AS_NODE) OK");

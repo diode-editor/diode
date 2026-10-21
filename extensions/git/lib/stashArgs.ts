@@ -10,7 +10,7 @@ export function stashPushArgs(params: Record<string, unknown>): string[] {
     if (params.includeUntracked === true) args.push("-u");
     if (params.staged === true) args.push("--staged");
     if (typeof params.message === "string" && params.message.trim() !== "") {
-        // Значение после `-m` — инъекция флагов невозможна.
+        // A value after `-m` can't inject flags.
         args.push("-m", params.message.trim());
     }
     return args;

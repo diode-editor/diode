@@ -1,15 +1,15 @@
 /**
- * Ленивые куски бандла: зависимости, не нужные до первого кадра, собираются не в
- * `dist/main.cjs`, а отдельными `lazy/<id>.cjs` (SEA — ассетами, иначе файлом
- * рядом с `main.cjs`); грузит их `loadLazyModule` при первом обращении к фиче.
- * В `main.cjs` от куска остаётся внешний `import("<id>")` (`tsup.config.ts`) —
- * запасной путь dev-сборки.
+ * Lazy chunks: dependencies not needed before the first frame are built not into
+ * `dist/main.cjs` but as separate `lazy/<id>.cjs` files (SEA assets, otherwise a file
+ * next to `main.cjs`); `loadLazyModule` loads them on first use of the feature.
+ * `main.cjs` keeps an external `import("<id>")` of the chunk (`tsup.config.ts`) as
+ * the dev-build fallback.
  *
- * Кусок — либо пакет (`id`), либо наш код (`entry`, роль процесса); роль делит с
- * ядром общие модули и несёт их копией в пределах `sharedBudgetKb`.
+ * A chunk is either a package (`id`) or our own code (`entry`, a process role); a role
+ * shares common modules with the core and carries a copy of them within `sharedBudgetKb`.
  *
- * Новый кусок — запись в {@link LAZY_CHUNKS} плюс `loadLazyModule`/`importLazyModule`
- * на шве; остальное подхватывается из списка. Рецепт — docs/arch/Common.md («Ленивые куски»).
+ * A new chunk is an entry in {@link LAZY_CHUNKS} plus `loadLazyModule`/`importLazyModule`
+ * at the seam; the rest is picked up from the list. Recipe: docs/arch/Common.md, the lazy chunks section.
  */
 
 import { execFileSync } from "node:child_process";
@@ -20,8 +20,8 @@ import { basename, dirname, join, resolve } from "node:path";
 import { resolveDiodeVersion } from "./resolve-version.mjs";
 
 /**
- * Флаги сборки V8-снапшота: без `--predictable` кэш кусков, снятый бинарём первого
- * прохода, бинарь второго отвергает ({@link buildLazyChunkCodeCaches}).
+ * V8 snapshot build flags: without `--predictable` the second-pass binary rejects the
+ * chunk cache taken by the first-pass binary ({@link buildLazyChunkCodeCaches}).
  */
 export const SNAPSHOT_BUILD_FLAGS = ["--predictable"];
 
@@ -36,22 +36,22 @@ export function snapshotEntryEnv(mainPath) {
 }
 
 /**
- * `warmup` — прогрев при снятии кэша кода: V8 кэширует только уже скомпилированные
- * функции, а компилирует лениво, так что без прогрева в кэш попадает лишь исполнение
- * модуля. Функция уезжает в дочерний node исходником (`String(fn)`) — без замыканий.
+ * `warmup` runs while the code cache is taken: V8 caches only already compiled
+ * functions and compiles lazily, so without a warmup the cache holds only the module
+ * top level. The function goes to the child node as source (`String(fn)`), so no closures.
  *
- * `entry` — путь модуля-входа от корня репозитория; `sharedBudgetKb` при нём обязателен.
+ * `entry` is the entry module path from the repo root; it requires `sharedBudgetKb`.
  *
  * @type {ReadonlyArray<{ id: string, reason: string, warmup?: (module: any) => unknown, entry?: string, sharedBudgetKb?: number }>}
  */
 export const LAZY_CHUNKS = [
-    { id: "yauzl", reason: "установка .vsix" },
-    // Зовётся из common-кода — через importLazyModule.
-    { id: "semver", reason: "магазин расширений: версии реестра и engines" },
+    { id: "yauzl", reason: ".vsix install" },
+    // Called from common code, hence importLazyModule.
+    { id: "semver", reason: "extension gallery: registry versions and engines" },
     {
         id: "@xterm/headless",
-        reason: "встроенный терминал: VT-эмулятор",
-        // Как первый вывод XtermSurface: цвет и перевод строки.
+        reason: "integrated terminal: VT emulator",
+        // Like the first XtermSurface output: a color and a newline.
         warmup: async (xterm) => {
             const term = new xterm.Terminal({ cols: 80, rows: 24, allowProposedApi: true, scrollback: 1000 });
             await new Promise((resolve) => term.write("diode \u001b[32mwarmup\u001b[0m\r\n$ ", resolve));
@@ -60,40 +60,40 @@ export const LAZY_CHUNKS = [
     },
     {
         id: "iconv-lite",
-        reason: "кодировки кроме utf-8 и UTF-16",
-        // Однобайтная кодировка туда и обратно — как encoding.ts на reopen и save.
+        reason: "encodings other than utf-8 and UTF-16",
+        // A single-byte encoding round trip, like encoding.ts on reopen and save; Cyrillic text ("Privet, mir!").
         warmup: (iconv) => {
-            const bytes = iconv.encode("Привет, мир!\n", "windows1251", { addBOM: false });
+            const bytes = iconv.encode("\u041f\u0440\u0438\u0432\u0435\u0442, \u043c\u0438\u0440!\n", "windows1251", { addBOM: false });
             iconv.decode(bytes, "windows1251", { stripBOM: false });
         },
     },
-    // Бюджет — замер плюс ~5 %; общее с ядром — vscodeTypes, протокол RPC, vscode-uri,
-    // jsonc-parser, base/common. Подъёмы: 155 — парсеры environmentVariableCollection,
-    // 156 (решение человека) — `sideEditors` в снимке полосы (#683, 155.06 КБ).
+    // Budget is the measurement plus ~5%; shared with the core: vscodeTypes, the RPC protocol,
+    // vscode-uri, jsonc-parser, base/common. Raises: 155 for the environmentVariableCollection
+    // parsers, 156 (a human decision) for `sideEditors` in the strip snapshot (#683, 155.06 KB).
     {
         id: "roles/extension-host",
-        reason: "роль extension host: реализация vscode API",
+        reason: "extension host role: vscode API implementation",
         entry: "src/vs/diode/roles/extensionHostRole.ts",
         sharedBudgetKb: 156,
     },
-    // Общее с ядром (63 КБ из 75) — chokidar: ядро держит его для подписок на файлы настроек.
+    // Shared with the core (63 KB of 75): chokidar, which the core keeps for settings file subscriptions.
     {
         id: "roles/file-watcher",
-        reason: "роль file watcher: обход дерева",
+        reason: "file watcher role: tree walk",
         entry: "src/vs/diode/roles/fileWatcherRole.ts",
         sharedBudgetKb: 66,
     },
 ];
 
 /**
- * `module` раньше `main`: под CJS esbuild берёт `main`, а у jsonc-parser там UMD с
- * `require` внутри фабрики — esbuild его не вклеит, и бандл падает в рантайме.
+ * `module` before `main`: for CJS esbuild picks `main`, where jsonc-parser has a UMD build
+ * with `require` inside the factory; esbuild does not inline it, and the bundle fails at runtime.
  */
 export const MAIN_FIELDS = ["module", "main"];
 
 /**
- * Путь — от `repoRoot`: tsup бандлит свой конфиг вместе с этим модулем, и
- * `import.meta.dirname` здесь указывал бы на корень.
+ * The path is relative to `repoRoot`: tsup bundles its config together with this module,
+ * so `import.meta.dirname` here would point at the root.
  *
  * @param {string} repoRoot
  * @returns {{ define: Record<string, string>, inject: string[] }}
@@ -108,8 +108,9 @@ export function importMetaUrlShim(repoRoot) {
 const LAZY_CHUNK_IDS = new Set(LAZY_CHUNKS.map(({ id }) => id));
 
 /**
- * `import()` входа куска → внешний `import("<id>")`: без code-splitting esbuild вклеил
- * бы вход в `main.cjs`. Статический импорт входа превращается так же — и его ловит гейт.
+ * Rewrites `import()` of a chunk entry to an external `import("<id>")`: without code splitting
+ * esbuild would inline the entry into `main.cjs`. A static import of the entry is rewritten
+ * the same way, and the gate catches it.
  *
  * @param {string} repoRoot
  * @returns {import("esbuild").Plugin}
@@ -130,7 +131,7 @@ export function lazyEntryChunksPlugin(repoRoot) {
 }
 
 /**
- * Ключ SEA-ассета и путь относительно `main.cjs`; та же формула — в `src/vs/base/node/lazyModule.ts`.
+ * SEA asset key and path relative to `main.cjs`; `src/vs/base/node/lazyModule.ts` uses the same formula.
  *
  * @param {string} id
  */
@@ -139,7 +140,7 @@ export function lazyChunkAssetName(id) {
 }
 
 /**
- * Та же формула — в `src/vs/base/node/lazyModule.ts`.
+ * `src/vs/base/node/lazyModule.ts` uses the same formula.
  *
  * @param {string} id
  */
@@ -148,21 +149,21 @@ export function lazyChunkCacheAssetName(id) {
 }
 
 /**
- * Только для SEA. V8 принимает кэш, лишь если совпали версия, флаги и снапшот процесса
- * (у node 26 — снапшот того же входа с `--predictable`), поэтому кэш снимает бинарь
- * первого прохода в run-as-node, а второй проход вшивает его в бинарь из того же
- * `main.cjs`. Без `NODE_OPTIONS`: флаги V8 обязаны совпасть с рантаймом бинаря.
+ * SEA only. V8 accepts a cache only if the version, flags and process snapshot match
+ * (on node 26, a snapshot of the same entry with `--predictable`), so the first-pass binary
+ * takes the cache in run-as-node, and the second pass embeds it into a binary built from the
+ * same `main.cjs`. No `NODE_OPTIONS`: V8 flags must match the binary's runtime.
  *
  * @param {{ chunks: ReadonlyArray<{ id: string, asset: string, path: string }>, outDir: string, command: readonly string[] }} params
- *   `command` — чем исполнять `lazy-chunk-code-cache.cjs`: `[бинарь]` (с
- *   `DIODE_RUN_AS_NODE=1`) или любая команда с той же семантикой argv.
+ *   `command` runs `lazy-chunk-code-cache.cjs`: `[binary]` (with
+ *   `DIODE_RUN_AS_NODE=1`) or any command with the same argv semantics.
  * @returns {Array<{ asset: string, path: string }>}
  */
 export function buildLazyChunkCodeCaches({ chunks, outDir, command }) {
     const warmups = new Map(LAZY_CHUNKS.map(({ id, warmup }) => [id, warmup]));
     const env = { ...process.env, DIODE_RUN_AS_NODE: "1" };
     delete env.NODE_OPTIONS;
-    // Не константой модуля: tsup вклеивает файл в свой конфиг, и `import.meta.dirname` там — корень.
+    // Not a module constant: tsup inlines this file into its config, where `import.meta.dirname` is the root.
     const script = join(import.meta.dirname, "lazy-chunk-code-cache.cjs");
     const [file, ...prefix] = command;
     return chunks.map(({ id, asset, path }) => {
@@ -178,7 +179,7 @@ export function buildLazyChunkCodeCaches({ chunks, outDir, command }) {
 
 /**
  * @param {{ repoRoot: string, distDir: string, write?: boolean }} params
- *   `write: false` — только собрать (гейт без сборки бинаря).
+ *   `write: false` only builds (the gate without a binary build).
  * @returns {Promise<Array<{ id: string, asset: string, path: string, metafile: import("esbuild").Metafile }>>}
  */
 export async function buildLazyChunks({ repoRoot, distDir, write = true }) {
@@ -202,11 +203,11 @@ export async function buildLazyChunks({ repoRoot, distDir, write = true }) {
             ...(entry === undefined
                 ? {}
                 : {
-                      // Другие куски зовутся import()'ом через загрузчик.
+                      // Other chunks are reached by import() through the loader.
                       external: [...LAZY_CHUNK_IDS].filter((other) => other !== id),
-                      // Та же сборка пакетов, что в main.cjs, иначе общий модуль — разные файлы, и гейт копию не видит.
+                      // Same package builds as main.cjs, otherwise a shared module is a different file and the gate misses the copy.
                       mainFields: MAIN_FIELDS,
-                      // Тот же шим, что у ядра: entryDir() куска обязан быть каталогом main.cjs.
+                      // Same shim as the core: the chunk's entryDir() must be the main.cjs directory.
                       define: {
                           __DIODE_VERSION__: JSON.stringify(resolveDiodeVersion()),
                           ...importMetaUrlShim(repoRoot).define,
@@ -233,12 +234,12 @@ function isBuiltin(path) {
 }
 
 /**
- * Храповик на граф первого кадра. Кусок из нашего кода делит с ядром общие модули,
- * поэтому для него правило мягче, чем для пакета: вход вне `main.cjs`, а копия общих
- * модулей (лишний парс и состояние модуля в двух экземплярах) — в бюджете.
+ * Ratchet on the first-frame graph. A chunk of our own code shares common modules with the core,
+ * so its rule is softer than a package's: the entry stays out of `main.cjs`, and the copy of shared
+ * modules (an extra parse and module state in two instances) stays within budget.
  *
  * @param {{ mainMetafile: import("esbuild").Metafile, chunks: ReadonlyArray<{ id: string, metafile: import("esbuild").Metafile, entry?: string, sharedBudgetKb?: number }> }} params
- * @returns {string[]} нарушения, по строке на каждое
+ * @returns {string[]} violations, one line each
  */
 export function verifyLazyChunks({ mainMetafile, chunks }) {
     const errors = [];
@@ -246,30 +247,30 @@ export function verifyLazyChunks({ mainMetafile, chunks }) {
     const mainInputs = new Set(mainOutputs.flatMap(([, output]) => Object.keys(output.inputs)));
 
     for (const { id, metafile, entry, sharedBudgetKb } of chunks) {
-        // 1. Модули куска не продублированы в ядре.
+        // 1. Chunk modules are not duplicated in the core.
         if (entry === undefined) {
             for (const input of Object.keys(metafile.inputs)) {
                 if (input !== "<stdin>" && mainInputs.has(input)) {
-                    errors.push(`${id}: модуль ${input} лежит и в куске, и в main.cjs — его тянет статический импорт ядра`);
+                    errors.push(`${id}: module ${input} is in both the chunk and main.cjs; a static import in the core pulls it in`);
                 }
             }
         } else {
             errors.push(...verifyEntryChunk({ id, metafile, entry, sharedBudgetKb, mainInputs }));
         }
-        // 2. Ядро зовёт кусок только динамически (запасной путь loadLazyModule).
+        // 2. The core reaches the chunk only dynamically (the loadLazyModule fallback).
         for (const [file, output] of mainOutputs) {
             for (const imp of output.imports) {
                 if (imp.path === id && imp.kind !== "dynamic-import") {
-                    errors.push(`${id}: ${basename(file)} импортирует кусок статически (${imp.kind}) — только через loadLazyModule / importLazyModule`);
+                    errors.push(`${id}: ${basename(file)} imports the chunk statically (${imp.kind}); use loadLazyModule / importLazyModule`);
                 }
             }
         }
-        // 3. Кусок самодостаточен: только встроенные модули и другие куски через import().
+        // 3. The chunk is self-contained: only builtin modules and other chunks via import().
         for (const output of Object.values(metafile.outputs)) {
             for (const imp of output.imports) {
                 if (!imp.external || isBuiltin(imp.path)) continue;
                 if (LAZY_CHUNK_IDS.has(imp.path) && imp.kind === "dynamic-import") continue;
-                errors.push(`${id}: кусок тянет внешний модуль ${imp.path} — в SEA его не будет`);
+                errors.push(`${id}: the chunk requires external module ${imp.path}, which SEA does not have`);
             }
         }
     }
@@ -297,7 +298,7 @@ function sharedWithMain(metafile, mainInputs) {
 }
 
 /**
- * По этой сводке бюджет выставляют и поднимают осознанно.
+ * The summary to set and raise budgets by.
  *
  * @param {{ mainMetafile: import("esbuild").Metafile, chunks: ReadonlyArray<{ id: string, metafile: import("esbuild").Metafile, entry?: string, sharedBudgetKb?: number }> }} params
  * @returns {string[]}
@@ -310,7 +311,7 @@ export function describeEntryChunks({ mainMetafile, chunks }) {
             const total = Object.values(metafile.outputs).reduce((sum, output) => sum + output.bytes, 0);
             const { sharedBytes } = sharedWithMain(metafile, mainInputs);
             const kb = (/** @type {number} */ n) => (n / 1024).toFixed(1);
-            return `${id}: кусок ${kb(total)} КБ, из них общих с main.cjs ${kb(sharedBytes)} КБ (бюджет ${sharedBudgetKb} КБ)`;
+            return `${id}: chunk ${kb(total)} KB, shared with main.cjs ${kb(sharedBytes)} KB (budget ${sharedBudgetKb} KB)`;
         });
 }
 
@@ -320,19 +321,19 @@ export function describeEntryChunks({ mainMetafile, chunks }) {
  */
 function verifyEntryChunk({ id, metafile, entry, sharedBudgetKb, mainInputs }) {
     if (sharedBudgetKb === undefined) {
-        return [`${id}: у куска из нашего кода нет sharedBudgetKb — сколько общих с ядром модулей он вправе нести копией`];
+        return [`${id}: a chunk of our own code has no sharedBudgetKb, how much of shared core modules it may carry as a copy`];
     }
     if (mainInputs.has(entry)) {
-        return [`${id}: вход ${entry} лежит в main.cjs — ядро импортирует роль статически, кусок бесполезен`];
+        return [`${id}: entry ${entry} is in main.cjs; the core imports the role statically, so the chunk is useless`];
     }
     const { shared, sharedBytes } = sharedWithMain(metafile, mainInputs);
     if (sharedBytes <= sharedBudgetKb * 1024) return [];
     const top = shared
         .slice(0, 5)
-        .map(([input, { bytesInOutput }]) => `${input} ${(bytesInOutput / 1024).toFixed(1)} КБ`)
+        .map(([input, { bytesInOutput }]) => `${input} ${(bytesInOutput / 1024).toFixed(1)} KB`)
         .join(", ");
     return [
-        `${id}: общих с main.cjs модулей ${(sharedBytes / 1024).toFixed(1)} КБ — больше бюджета ${sharedBudgetKb} КБ ` +
-            `(крупнейшие: ${top}). Код роли протёк в ядро статическим импортом, или роль потянула лишнее из ядра`,
+        `${id}: modules shared with main.cjs take ${(sharedBytes / 1024).toFixed(1)} KB, over the ${sharedBudgetKb} KB budget ` +
+            `(largest: ${top}). Role code leaked into the core via a static import, or the role pulls in too much of the core`,
     ];
 }

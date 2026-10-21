@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Общая часть упаковок SEA (`build-sea.mjs`, вшивает бандлы ассетами) и self-extract
- * (`build-selfextract.mjs`, кладёт файлами рядом с `main.cjs`).
+ * Shared part of the SEA packaging (`build-sea.mjs`, embeds bundles as assets) and self-extract
+ * (`build-selfextract.mjs`, puts them as files next to `main.cjs`).
  */
 
 import { execFileSync } from "node:child_process";
@@ -17,7 +17,7 @@ import { buildRipgrepBundle } from "./pack-ripgrep.mjs";
 import { buildTsServerBundle } from "./pack-ts-server.mjs";
 
 /**
- * Другой `distDir` нужен e2e: неизменяемая сборка в кэше по хешу (`scripts/e2e-artifacts.mjs`).
+ * e2e passes another `distDir`: an immutable build in a cache keyed by hash (`scripts/e2e-artifacts.mjs`).
  *
  * @param {{ repoRoot: string, distDir?: string }} params
  * @returns {Promise<{ distDir: string, mainJsPath: string, bundlePath: string, nodePtyBundlePath: string, ripgrepBundlePath: string, tsServerBundlePath: string, lazyChunks: Array<{ id: string, asset: string, path: string }> }>}
@@ -25,8 +25,8 @@ import { buildTsServerBundle } from "./pack-ts-server.mjs";
 export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "dist") }) {
     mkdirSync(distDir, { recursive: true });
 
-    // CLI tsup напрямую, массивом аргументов: на Windows `npx` требует шелл, а
-    // кавычки и обратные слэши пути там ломаются.
+    // The tsup CLI directly, with an argument array: on Windows `npx` needs a shell,
+    // where quotes and backslashes in paths break.
     const tsupCli = join(repoRoot, "node_modules", "tsup", "dist", "cli-default.js");
     console.log(`> tsup --out-dir ${distDir}`);
     execFileSync(process.execPath, [tsupCli, "--out-dir", distDir], { stdio: "inherit", cwd: repoRoot });
@@ -35,11 +35,11 @@ export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "d
     const mainMetafile = JSON.parse(readFileSync(join(distDir, "metafile-cjs.json"), "utf8"));
     const lazyErrors = verifyLazyChunks({ mainMetafile, chunks: lazyChunks });
     if (lazyErrors.length > 0) {
-        throw new Error(`[build-dist] Ленивые куски протекли в main.cjs:\n  ${lazyErrors.join("\n  ")}`);
+        throw new Error(`[build-dist] Lazy chunks leaked into main.cjs:\n  ${lazyErrors.join("\n  ")}`);
     }
     console.log(`[build-dist] Lazy chunks: ${lazyChunks.map((c) => c.asset).join(", ")}`);
 
-    // ДО упаковки, иначе скомпилированный entry не попадёт в diode.bundle.
+    // BEFORE packing, otherwise the compiled entry misses diode.bundle.
     const builtExtensions = await buildExtensions({ repoRoot });
     console.log(
         `[build-dist] Compiled ${builtExtensions.length} code-builtin(s): ${builtExtensions.map((b) => b.id).join(", ") || "—"}`,
@@ -67,8 +67,8 @@ export async function buildDistArtifacts({ repoRoot, distDir = join(repoRoot, "d
     const { bundle: tsBundle, fileCount: tsFileCount } = buildTsServerBundle({ repoRoot });
     const tsServerBundlePath = join(distDir, "ts-server.bundle");
     writeFileSync(tsServerBundlePath, tsBundle);
-    // Сайдкар: по нему рантайм строит каталог распаковки без хэша 13 МБ на старте
-    // (`packagedAssetCacheDirByName` в packagedAsset.ts).
+    // Sidecar: the runtime derives the unpack directory from it without hashing 13 MB at startup
+    // (`packagedAssetCacheDirByName` in packagedAsset.ts).
     writeFileSync(`${tsServerBundlePath}.sha256`, createHash("sha256").update(tsBundle).digest("hex"));
     console.log(
         `[build-dist] Packed ts-server (${tsFileCount} files) → ${tsServerBundlePath} (${(tsBundle.length / 1024 / 1024).toFixed(1)} MB)`,

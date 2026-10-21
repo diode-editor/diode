@@ -1,8 +1,8 @@
-/** Чистая логика мутационного гейта — общая для `mutation-diff.mjs` и `mutation-report.mjs`. */
+/** Pure logic of the mutation gate, shared by `mutation-diff.mjs` and `mutation-report.mjs`. */
 
 /**
- * `stryker run --help`, v10. Отличают значение флага (`--concurrency 4`) от
- * позиционного `[configFile]` (`--incremental X`).
+ * `stryker run --help`, v10. Tells a flag value (`--concurrency 4`) from the
+ * positional `[configFile]` (`--incremental X`).
  */
 const STRYKER_BOOLEAN_FLAGS = new Set([
     "--ignoreStatic",
@@ -14,17 +14,17 @@ const STRYKER_BOOLEAN_FLAGS = new Set([
     "--inPlace",
 ]);
 
-/** Отдельный класс — для `.claude/hooks/bash-guard.mjs`: хук отказывает ровно там, где упал бы гейт. */
+/** A separate class for `.claude/hooks/bash-guard.mjs`: the hook refuses exactly where the gate would fail. */
 export class PositionalArgumentError extends Error {
     constructor(arg) {
-        super(`Непонятный позиционный аргумент «${arg}». База диффа задаётся флагом: --base ${arg}`);
+        super(`Unexpected positional argument "${arg}". The diff base is set with a flag: --base ${arg}`);
         this.arg = arg;
     }
 }
 
 /**
- * Позиционный аргумент — ошибка: npm-скрипт сам ставит `--ignoreStatic --incremental`
- * первыми, и `npm run test:mutation -- X` молча отдавал `X` Stryker'у как имя конфига.
+ * A positional argument is an error: the npm script puts `--ignoreStatic --incremental`
+ * first, and `npm run test:mutation -- X` silently passed `X` to Stryker as a config name.
  */
 export function parseArgs(argv) {
     let base = null;
@@ -43,7 +43,7 @@ export function parseArgs(argv) {
         }
         if (arg in VERIFY_NUMBER_FLAGS) {
             const value = Number(argv[++i]);
-            if (!Number.isFinite(value) || value <= 0) throw new Error(`${arg} требует положительное число`);
+            if (!Number.isFinite(value) || value <= 0) throw new Error(`${arg} requires a positive number`);
             const [option, scale] = VERIFY_NUMBER_FLAGS[arg];
             verify[option] = value * scale;
             continue;
@@ -51,7 +51,7 @@ export function parseArgs(argv) {
         if (arg === "--base" || arg.startsWith("--base=")) {
             const value = arg === "--base" ? argv[++i] : arg.slice("--base=".length);
             if (value === undefined || value === "" || value.startsWith("-")) {
-                throw new Error("--base требует ревизию: --base <ref>");
+                throw new Error("--base requires a revision: --base <ref>");
             }
             base = value;
             continue;
@@ -68,14 +68,14 @@ export function parseArgs(argv) {
     return { base, scopeOnly, verify, strykerArgs: ensureJsonReporter(strykerArgs) };
 }
 
-/** Флаг → опция `verifyMutants` и множитель единицы. */
+/** Flag → `verifyMutants` option and unit multiplier. */
 const VERIFY_NUMBER_FLAGS = {
     "--verify-jobs": ["jobs", 1],
     "--verify-timeout": ["timeoutMs", 1000],
     "--verify-budget": ["budgetMs", 60_000],
 };
 
-/** Без json-репортёра нет `mutation.json`, а с ним и вердикта; остальные репортёры остаются. */
+/** Without the json reporter there is no `mutation.json` and hence no verdict; other reporters stay. */
 export function ensureJsonReporter(args) {
     return args.map((arg, i) => {
         if (arg.startsWith("--reporters=")) return `--reporters=${withJson(arg.slice("--reporters=".length))}`;
@@ -90,8 +90,9 @@ function withJson(list) {
 }
 
 /**
- * Состав — как у Stryker'а (`mutantToIdentifyingKey`). Без конца и замены `→ true`
- * и `→ false` на одной позиции склеивались, и убитый записывал убитым второго.
+ * Same fields as Stryker's (`mutantToIdentifyingKey`). Without the end and the
+ * replacement, `→ true` and `→ false` at one position merged, and the killed one
+ * marked the other as killed too.
  */
 export function mutantKey(file, mutant) {
     const { start, end } = mutant.location;
@@ -106,7 +107,7 @@ export function parseScope(entries) {
     });
 }
 
-/** Целиком внутри диапазона — как `locationIncluded` инструментатора Stryker'а. */
+/** Entirely inside the range, like `locationIncluded` of the Stryker instrumenter. */
 export function inScope(scope, file, mutant) {
     const start = mutant.location?.start?.line;
     if (start === undefined) return false;
@@ -114,7 +115,7 @@ export function inScope(scope, file, mutant) {
     return scope.some((entry) => entry.file === file && start >= entry.start && end <= entry.end);
 }
 
-/** Инкрементальный Stryker дописывает старые результаты вне `--mutate` — из прошлых веток и до ребейза. */
+/** Incremental Stryker appends old results outside `--mutate`, from previous branches and before a rebase. */
 export function filterReportToScope(report, scope) {
     let dropped = 0;
     for (const [file, data] of Object.entries(report.files ?? {})) {
@@ -127,8 +128,8 @@ export function filterReportToScope(report, scope) {
 }
 
 /**
- * Ровно по формуле Stryker'а (`mutation-testing-metrics`). Пустой знаменатель — 100
- * (у Stryker'а NaN, и порог он тоже не роняет).
+ * Exactly Stryker's formula (`mutation-testing-metrics`). An empty denominator gives 100
+ * (Stryker gives NaN, which does not break the threshold either).
  */
 export function scoreReport(report) {
     const counts = { Killed: 0, Timeout: 0, Survived: 0, NoCoverage: 0, RuntimeError: 0, CompileError: 0, Ignored: 0, Pending: 0 };

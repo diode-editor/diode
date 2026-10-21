@@ -1,5 +1,5 @@
 export interface IGitRef {
-    /** Короткое имя: `main`, `origin/main`, `v1.0`. */
+    /** Short name: `main`, `origin/main`, `v1.0`. */
     readonly name: string;
     readonly kind: "head" | "remote" | "tag";
     readonly sha: string;
@@ -31,7 +31,7 @@ export function parseForEachRefZ(stdout: string): IGitRef[] {
         } else {
             continue;
         }
-        // `origin/HEAD` — симлинк-указатель, в пикерах бесполезен.
+        // `origin/HEAD` is a symbolic pointer, useless in pickers.
         if (kind === "remote" && name.endsWith("/HEAD")) continue;
         refs.push({ name, kind, sha, subject: subject ?? "" });
     }
@@ -39,7 +39,7 @@ export function parseForEachRefZ(stdout: string): IGitRef[] {
 }
 
 export interface IGitStash {
-    /** `stash@{0}` — аргумент для pop/apply/drop. */
+    /** `stash@{0}`, the argument for pop/apply/drop. */
     readonly index: string;
     readonly description: string;
 }

@@ -1,11 +1,11 @@
 /**
- * Формат самораспаковывающегося файла:
+ * Self-extracting file format:
  *
- *     [ #!/bin/sh стаб (selfextract-stub.sh) ][ payload.tar.gz ]
+ *     [ #!/bin/sh stub (selfextract-stub.sh) ][ payload.tar.gz ]
  *
- * Отдельно от `build-selfextract.mjs`, чтобы тест не тянул пайплайн сборки.
- * Без шебанга сознательно: vitest на Windows инлайнит файл через esbuild transform,
- * который шебанг НЕ срезает, — `#!` падает в ESM как SyntaxError.
+ * Separate from `build-selfextract.mjs` so the test does not pull in the build pipeline.
+ * No shebang on purpose: vitest on Windows inlines the file via an esbuild transform
+ * that does NOT strip the shebang, and `#!` fails in ESM as a SyntaxError.
  */
 
 import { chmodSync, closeSync, mkdirSync, openSync, readFileSync, readSync, writeFileSync } from "node:fs";
@@ -30,13 +30,13 @@ export function writeSelfExtract({ outputPath, payload, key }) {
 }
 
 /**
- * Offset — длина самого стаба в байтах +1 (`tail -c +N` 1-based); подстановка меняет
- * длину, поэтому итерируем до неподвижной точки.
+ * The offset is the stub's own length in bytes +1 (`tail -c +N` is 1-based); substitution
+ * changes the length, so iterate to a fixed point.
  *
- * Ведущие нули до фиксированной ширины НЕ годятся: BSD tail на macOS молча читает
- * `0000003427` как восьмеричное (1815), и tar получает текст стаба вместо gzip.
+ * Zero padding to a fixed width does NOT work: BSD tail on macOS silently reads
+ * `0000003427` as octal (1815), and tar gets the stub text instead of gzip.
  *
- * @param {string} template Стаб со всеми плейсхолдерами кроме `@@OFFSET@@`.
+ * @param {string} template The stub with all placeholders filled except `@@OFFSET@@`.
  * @returns {string}
  */
 export function renderStub(template) {
@@ -51,11 +51,11 @@ export function renderStub(template) {
 }
 
 /**
- * Читаем записанный файл, а не буфер: при кросс-сборке самотест не запускается, и
- * ошибка в offset дожила бы до первого запуска пользователем.
+ * Reads the written file, not the buffer: a cross build skips the self-test, and an
+ * offset bug would survive until the user's first launch.
  *
  * @param {string} outputPath
- * @param {string} stub Отрендеренный стаб — из него же берём OFFSET, как его увидит sh.
+ * @param {string} stub The rendered stub; OFFSET is taken from it, as sh will see it.
  */
 export function verifyOffset(outputPath, stub) {
     const declared = /^OFFSET=(\d+)$/m.exec(stub);
@@ -68,7 +68,7 @@ export function verifyOffset(outputPath, stub) {
     const fd = openSync(outputPath, "r");
     try {
         const magic = Buffer.alloc(2);
-        readSync(fd, magic, 0, 2, offset - 1); // tail -c +N — 1-based
+        readSync(fd, magic, 0, 2, offset - 1); // tail -c +N is 1-based
         if (magic[0] !== 0x1f || magic[1] !== 0x8b) {
             throw new Error(
                 `[selfextract] No gzip magic at OFFSET=${String(offset)} (got ${magic.toString("hex")}) — ` +

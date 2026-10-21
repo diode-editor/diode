@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
- * Рантайм-раскладка `node-pty` → ассет `node-pty.bundle`: `process.dlopen` требует
- * файл на диске, поэтому `loadNodePty.ts` на первом запуске распаковывает ассет в
- * tmpdir и делает `require` из `<targetDir>/node-pty` — отсюда префикс `node-pty/`
- * у каждой записи.
+ * Runtime layout of `node-pty` -> the `node-pty.bundle` asset: `process.dlopen` needs a
+ * file on disk, so `loadNodePty.ts` unpacks the asset into tmpdir on first launch and
+ * does `require` from `<targetDir>/node-pty`, hence the `node-pty/` prefix on every entry.
  *
- * Проверено end-to-end только на linux-x64/arm64; macOS/Windows пакуются, но не
- * проверены (docs/TODO/IntegratedTerminal.md).
+ * Verified end to end only on linux-x64/arm64; macOS/Windows are packed but not
+ * verified (docs/TODO/IntegratedTerminal.md).
  */
 
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -35,7 +34,7 @@ function walkFiles(rootDir, filter) {
  * @returns {{ bundle: Buffer, inputs: { virtualPath: string, data: Buffer }[], nodePtyRoot: string }}
  */
 export function buildNodePtyBundle({ repoRoot }) {
-    // От repoRoot, а не от скрипта: бандл берётся из node_modules сборки.
+    // From repoRoot, not the script: the bundle comes from the build's node_modules.
     const requireFromRoot = createRequire(join(repoRoot, "package.json"));
     const nodePtyRoot = requireFromRoot.resolve("node-pty/package.json").replace(/package\.json$/, "");
 
@@ -54,9 +53,9 @@ export function buildNodePtyBundle({ repoRoot }) {
     ).sort();
     for (const filePath of libFiles) addFile(filePath);
 
-    // Те же каталоги, где нативы ищет сам node-pty (lib/utils.js): Linux компилирует
-    // `build/Release` на install, macOS/Windows получают `prebuilds/`. Раскладка
-    // сохраняется — после распаковки резолв тот же. .pdb — виндовые debug-символы (десятки МБ).
+    // The same directories where node-pty itself looks for natives (lib/utils.js): Linux compiles
+    // `build/Release` on install, macOS/Windows get `prebuilds/`. The layout is kept, so resolution
+    // after unpacking is the same. .pdb files are Windows debug symbols (tens of MB).
     const nativeDirs = [
         join(nodePtyRoot, "build", "Release"),
         join(nodePtyRoot, "prebuilds", `${process.platform}-${process.arch}`),
@@ -71,8 +70,8 @@ export function buildNodePtyBundle({ repoRoot }) {
     }
     if (nativeCount === 0) {
         throw new Error(
-            `[pack-node-pty] нативы node-pty не найдены (искали ${nativeDirs.join(", ")}) — ` +
-                `соберите node-pty под текущую платформу`,
+            `[pack-node-pty] node-pty natives not found (searched ${nativeDirs.join(", ")}); ` +
+                `build node-pty for the current platform`,
         );
     }
 

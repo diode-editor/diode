@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// postinstall: предзагрузка бинаря. Ошибка сети здесь не валит `npm install` —
-// бинарь докачается при первом запуске (bin/diode.js). Так пакет ставится и в
-// офлайн-сборках/с `--ignore-scripts`, а падает только там, где его реально запускают.
+// postinstall: prefetches the binary. A network error here doesn't fail `npm install`:
+// the binary is downloaded on first run (bin/diode.js). So the package installs in
+// offline builds and with `--ignore-scripts`, and fails only where it is actually run.
 import { download, isInstalled } from "./lib/binary.js";
 
 if (!isInstalled()) {

@@ -1,25 +1,25 @@
 #!/usr/bin/env bash
-# Проектное окружение Diode: только то, без чего репозиторий не собирается и не
-# работает. Личные инструменты и конфиги (tmux.conf, шелл, редактор) сюда не
-# попадают — они приезжают из dotfiles-репозитория, одинаково локально и в
-# Codespaces. Смешивать слои нельзя: у них разный срок жизни, проектный
-# замораживается на годы, личный меняется каждую неделю.
+# Project environment for Diode: only what the repo needs to build and run.
+# Personal tools and configs (tmux.conf, shell, editor) do not belong here: they
+# come from a dotfiles repo, the same locally and in Codespaces. Do not mix the
+# layers, they live on different timescales: the project one is frozen for years,
+# the personal one changes every week.
 set -euo pipefail
 
 LAZYGIT_VERSION=0.45.2
 
-# Фича node ставит его через nvm, а lifecycle-команды выполняются в
-# неинтерактивном шелле, где /etc/profile.d не подхватывается — без этого
-# npm ниже просто не найдётся.
+# The node feature installs it via nvm, and lifecycle commands run in a
+# non-interactive shell that does not source /etc/profile.d; without this
+# npm below is not found.
 export NVM_DIR=/usr/local/share/nvm
 # shellcheck disable=SC1091
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 
 sudo apt-get update
-# tmux — рабочая оболочка для TUI: держит длинные сессии редактора и панели рядом с ним.
-# ncurses-term — полная terminfo-запись; без неё TUI внутри tmux разъезжаются.
-# build-essential и python3 — node-gyp. Под node 26 готовых сборок нативных
-#   модулей (node-pty) ещё нет, они компилируются из исходников.
+# tmux is the working shell for the TUI: it keeps long editor sessions with panes next to them.
+# ncurses-term is the full terminfo entry; without it TUIs inside tmux render garbled.
+# build-essential and python3 are for node-gyp. Node 26 has no prebuilt native
+#   modules (node-pty) yet, so they compile from source.
 sudo apt-get install -y --no-install-recommends \
 	tmux \
 	ncurses-term \
@@ -30,14 +30,14 @@ sudo apt-get install -y --no-install-recommends \
 	python3
 sudo locale-gen en_US.UTF-8
 
-# lazygit называет ассеты x86_64 и arm64 — сопоставление с uname обязательно.
-# Захардкоженный x86_64 в URL молча ставит amd64-бинарник на aarch64, и он
-# падает с exec format error уже при первом запуске.
+# lazygit names its assets x86_64 and arm64, so mapping from uname is required.
+# A hardcoded x86_64 in the URL silently installs the amd64 binary on aarch64, and it
+# fails with exec format error on the first run.
 case "$(uname -m)" in
 	x86_64) lazygit_arch=x86_64 ;;
 	aarch64) lazygit_arch=arm64 ;;
 	*)
-		echo "lazygit: нет сборки под $(uname -m), пропускаю" >&2
+		echo "lazygit: no build for $(uname -m), skipping" >&2
 		lazygit_arch=
 		;;
 esac

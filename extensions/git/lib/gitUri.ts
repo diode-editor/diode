@@ -1,13 +1,13 @@
 /**
- * Как `extensions/git/src/uri.ts` upstream: `git:/repo/a.ts?{"path":"/repo/a.ts","ref":"HEAD"}`.
- * Путь дублируется в query намеренно: на Windows `uri.path` несёт ведущий слэш
- * (`/C:/repo/a.ts`), а в query лежит ровно `fsPath`.
+ * Like upstream `extensions/git/src/uri.ts`: `git:/repo/a.ts?{"path":"/repo/a.ts","ref":"HEAD"}`.
+ * The path is duplicated in the query on purpose: on Windows `uri.path` carries a leading slash
+ * (`/C:/repo/a.ts`), while the query holds exactly `fsPath`.
  */
 
 export interface IGitUriParams {
-    /** `fsPath` исходного ресурса. */
+    /** `fsPath` of the original resource. */
     path: string;
-    /** `HEAD`, `` (индекс), sha, имя ветки. */
+    /** `HEAD`, `` (index), sha, branch name. */
     ref: string;
 }
 
@@ -21,7 +21,7 @@ export function toGitUri(
     return { scheme: GIT_SCHEME, path: uri.path, query: JSON.stringify(params) };
 }
 
-/** `null` — чужой ресурс или query: провайдер отвечает «файла нет», а не читает мусор. */
+/** `null` for a foreign resource or query: the provider answers "no file" instead of reading garbage. */
 export function fromGitUri(uri: { scheme: string; query: string }): IGitUriParams | null {
     if (uri.scheme !== GIT_SCHEME) return null;
     let parsed: unknown;
@@ -37,8 +37,8 @@ export function fromGitUri(uri: { scheme: string; query: string }): IGitUriParam
 }
 
 /**
- * Аналог `QuickDiffProvider.provideOriginalResource`. Id дублируется в ядре
- * (`contrib/scm/browser/commandOriginalResourceProvider.ts`); временный
- * контракт до `scm`-неймспейса — docs/TODO/Diff.md, «Долг».
+ * Counterpart of `QuickDiffProvider.provideOriginalResource`. The id is duplicated in the core
+ * (`contrib/scm/browser/commandOriginalResourceProvider.ts`); a temporary
+ * contract until the `scm` namespace, see docs/TODO/Diff.md#долг.
  */
 export const ORIGINAL_RESOURCE_COMMAND = "diode.scm.originalResource";

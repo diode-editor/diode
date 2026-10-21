@@ -1,24 +1,24 @@
-name: Go toolchain для стоковых сьютов golang.go
+name: Go toolchain for the golang.go stock extension suites
 description: >-
-  Ставит Go (actions/setup-go), восстанавливает кэш модулей и сборки и кладёт
-  gopls в GOBIN фикстуры (node_modules/.cache/diode-go-fixture/bin). Без Go
-  сьюты golang.go (extensionHost.goLsp*, e2e goLsp, сценарий go-lsp) честно
-  пропускаются, без кэша каждый прогон собирал бы gopls по сети. Вызывать
-  после `npm install`.
+  Installs Go (actions/setup-go), restores the module and build caches and puts
+  gopls into the fixture's GOBIN (node_modules/.cache/diode-go-fixture/bin). Without Go
+  the golang.go suites (extensionHost.goLsp*, e2e goLsp, the go-lsp scenario) are
+  skipped explicitly; without the cache every run would build gopls over the network.
+  Call after `npm install`.
 
 runs:
   using: composite
   steps:
-    # Последний stable: стоковое расширение и gopls@latest версию Go не пинят, и мы не пиним.
+    # Latest stable: neither the stock extension nor gopls@latest pins a Go version, so we don't either.
     - uses: actions/setup-go@v5
       with:
         go-version: stable
-        # Встроенный кэш setup-go ключуется по go.sum, которого у репозитория нет.
+        # setup-go's built-in cache is keyed on go.sum, which this repo doesn't have.
         cache: false
 
-    # Ключи с месяцем: gopls@latest не застывает навечно на первой собранной
-    # версии — раз в месяц соберётся свежий. Кэш gopls поэтому без
-    # restore-keys, а кэш модулей и сборки берёт прошлый месяц — сборка не с нуля.
+    # Keys carry the month so gopls@latest doesn't freeze at the first built
+    # version: a fresh one is built once a month. Hence the gopls cache has no
+    # restore-keys, while the module and build caches fall back to last month, so the build isn't from scratch.
     - name: Go tools cache key
       id: key
       shell: bash
@@ -39,16 +39,16 @@ runs:
         path: node_modules/.cache/diode-go-fixture
         key: go-gopls-${{ runner.os }}-${{ steps.key.outputs.month }}
 
-    # gopls собирается здесь, а не в `ensureGopls` фикстуры: сборка — минуты, и
-    # внутри тестов она съедала бюджет initial test run мутационного гейта.
-    # Тот же путь, что у фикстуры, — `ensureGopls` найдёт готовый.
+    # gopls is built here, not in the fixture's `ensureGopls`: the build takes minutes, and
+    # inside tests it ate the mutation gate's initial test run budget.
+    # Same path as the fixture's, so `ensureGopls` finds the prebuilt one.
     - name: Build gopls
       if: steps.gopls.outputs.cache-hit != 'true'
       shell: bash
       run: GOBIN="$PWD/node_modules/.cache/diode-go-fixture/bin" go install golang.org/x/tools/gopls@latest
 
-    # Явное сохранение сразу после сборки: post-шаг actions/cache пишет кэш
-    # только при зелёной джобе, и красный прогон собирал бы gopls заново.
+    # Save explicitly right after the build: the actions/cache post step writes the cache
+    # only when the job is green, so a red run would rebuild gopls next time.
     - if: steps.gopls.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:

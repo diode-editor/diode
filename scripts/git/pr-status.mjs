@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// npm run git:pr-status [-- <PR | ветка>] — мерджабельность и проверки PR одним взглядом.
+// npm run git:pr-status [-- <PR | branch>]: PR mergeability and checks at a glance.
 //
-// Что он знает сверх `gh pr view`:
-//   - mergeable=UNKNOWN — GitHub ещё считает; переспрашивает с паузой, а не
-//     отвечает «неизвестно»;
-//   - CONFLICTING и нет ни одной проверки — CI НЕ ЗАПУСТИТСЯ, пока PR не станет
-//     мерджабельным (pull_request-событие для конфликтного PR не создаёт
-//     merge-коммит). «Нет проверок» тут значит «ребейзни», а не «подожди».
+// What it knows beyond `gh pr view`:
+//   - mergeable=UNKNOWN means GitHub is still computing; it asks again after a pause
+//     instead of answering "unknown";
+//   - CONFLICTING with no checks at all means CI WILL NOT START until the PR becomes
+//     mergeable (the pull_request event creates no merge commit for a conflicting PR).
+//     "No checks" here means "rebase", not "wait".
 import { cap, die, sleep } from "./lib.mjs";
 
 const target = process.argv.slice(2).find((a) => !a.startsWith("-"));
@@ -20,7 +20,7 @@ function view() {
 
 let pr = view();
 for (let i = 0; pr.state === "OPEN" && pr.mergeable === "UNKNOWN" && i < 5; i++) {
-    console.log("GitHub ещё считает мерджабельность — жду 3 с…");
+    console.log("GitHub is still computing mergeability, waiting 3 s…");
     sleep(3000);
     pr = view();
 }
@@ -38,7 +38,7 @@ console.log(`#${pr.number} ${pr.title}
 ${pr.url}
 ${pr.state}${pr.isDraft ? " (draft)" : ""}: ${pr.headRefName} → ${pr.baseRefName}
 mergeable: ${pr.mergeable}, mergeStateStatus: ${pr.mergeStateStatus}
-проверки: ${checks.length === 0 ? "нет" : [...groups].map(([v, cs]) => `${v} ${cs.length}`).join(", ")}`);
+checks: ${checks.length === 0 ? "none" : [...groups].map(([v, cs]) => `${v} ${cs.length}`).join(", ")}`);
 
 const BAD = new Set(["FAILURE", "ERROR", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE"]);
 for (const c of checks) {
@@ -48,9 +48,9 @@ for (const c of checks) {
 
 if (pr.state === "OPEN" && pr.mergeable === "CONFLICTING") {
     console.log(`
-⚠ PR конфликтует с ${pr.baseRefName}.${checks.length === 0 ? " CI на нём не запустится вовсе, пока PR не станет мерджабельным:" : " Свежий CI не запустится, пока конфликт не снят:"}
-  npm run git:fetch && git rebase origin/${pr.baseRefName}   (стек после squash — npm run git:stack-rebase)
+⚠ The PR conflicts with ${pr.baseRefName}.${checks.length === 0 ? " CI will not start on it at all until the PR becomes mergeable:" : " Fresh CI will not start until the conflict is resolved:"}
+  npm run git:fetch && git rebase origin/${pr.baseRefName}   (stack after a squash: npm run git:stack-rebase)
   npm run git:push`);
 } else if (pr.state === "OPEN" && pr.mergeable === "UNKNOWN") {
-    console.log("\nmergeable так и остался UNKNOWN — спроси ещё раз через минуту.");
+    console.log("\nmergeable is still UNKNOWN: ask again in a minute.");
 }
