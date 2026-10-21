@@ -5,19 +5,13 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Слежение за деревом живёт в отдельном процессе (`SubprocessTreeWatcher`), и
-// «зелёные юниты по обе стороны IPC» ничего не говорят о том, доезжает ли
-// событие до пользователя. Здесь доезжает целиком: файл правит кто-то снаружи
-// редактора (этот сценарий, как это сделал бы терминал), watcher-процесс ловит
-// inotify-событие, пачка едет через IPC в редактор, оттуда — в git-расширение,
-// и в дереве появляется буква M. Ни одного из этих звеньев не видно ни в одном
-// юните.
+// Сквозной путь, которого не видит ни один юнит: внешняя правка → inotify в watcher-процессе
+// (`SubprocessTreeWatcher`) → IPC → git-расширение → буква M в дереве.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
 
-/** Чистый репозиторий: на старте в дереве нет ни одного бейджа. */
 function makeRepo(): string {
     const repoDir = mkdtempSync(join(tmpdir(), "diode-git-live-demo-"));
     git(repoDir, "init", "-q");
@@ -33,7 +27,6 @@ function makeRepo(): string {
 
 const repoDir = makeRepo();
 
-/** Строка дерева с этим файлом — и есть ли в ней буква статуса. */
 function rowFor(text: string, name: string): string | undefined {
     return text.split("\n").find((line) => line.includes(name));
 }
@@ -44,21 +37,14 @@ export default defineScenario({
     open: [repoDir],
     cols: 100,
     rows: 20,
-    // Нужен extension host (буквы поставляет git-расширение) — как у прочих
-    // extension-сценариев, гоняем только на Linux.
     skipOn: ["win32", "darwin"],
     async run(editor) {
-        // Дерево поднялось, репозиторий чистый: буквы статуса ещё нет.
         await editor.waitForText((t) => rowFor(t, "app.ts") !== undefined);
         await editor.capture("clean");
 
-        // Правка «из терминала»: редактор этот файл не открывал и о записи не знает.
-        // Единственный путь, по которому она может доехать до дерева, — событие из
-        // watcher-процесса. Подписку git-расширение заводит при активации, а та
-        // не ждётся стартом окна, и watcher-процесс ещё поднимается и делает
-        // начальный обход: правка, сделанная раньше, события не даёт (её видел бы
-        // разве что первичный `git status`). Поэтому правку повторяем, пока
-        // событие не доедет; если слежение сломано, не доедет ни одна.
+        // Подписку git-расширение заводит при активации, которую старт окна не ждёт, а watcher ещё делает начальный
+        // обход: ранняя правка события не даёт. Поэтому правку повторяем, пока событие не доедет; сломано слежение —
+        // не доедет ни одна.
         const edited = (t: string): boolean => {
             const changed = rowFor(t, "app.ts");
             const untracked = rowFor(t, "untracked.md");

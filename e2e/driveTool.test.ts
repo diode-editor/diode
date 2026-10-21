@@ -7,12 +7,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 
-// Инструмент живого прогона `npm run drive` (tools/drive/) на настоящем
-// бинаре: каждый шаг — отдельный процесс CLI, сессия живёт между ними, как у
-// агента в Bash. Заодно это e2e методов инспектора `Diode.*`
-// (src/vs/diode/diodeInspectorMethods.ts): готовность, команды, OUTPUT,
-// контекст-ключи — по проводу из живого редактора. Конец каждого сценария —
-// ноль процессов с маркером сессии и ноль временных каталогов.
+// Каждый шаг — отдельный процесс CLI, сессия живёт между ними, как у агента в Bash.
+// Конец каждого сценария — ноль процессов с маркером сессии и ноль временных каталогов.
 
 const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 const cli = resolve(repoRoot, "tools", "drive", "cli.ts");

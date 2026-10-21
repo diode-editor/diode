@@ -7,12 +7,7 @@ import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
-/**
- * Hover от стокового `typescript-language-server` в SEA-бинаре: Ctrl+K Ctrl+U
- * показывает попап с типом символа под кареткой, Escape закрывает его. Ассерт
- * ждёт текст, которого НЕТ в буфере (сигнатуру из соседнего модуля) — грабля
- * «слабый ассерт прячет неработающую фичу» из docs/TODO/Suggest.md.
- */
+/** Ассерт ждёт текст, которого НЕТ в буфере, — грабля «слабый ассерт» (docs/TODO/Suggest.md). */
 
 const require_ = createRequire(import.meta.url);
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
@@ -24,14 +19,12 @@ const LSP_SETTINGS = {
 };
 
 const DEFS_TS = 'export function greet(name: string): string {\n    return "hi " + name;\n}\n';
-// Ошибка типов: greet возвращает string, а reply объявлен number → squiggle.
+// Ошибка типов — для squiggle (readiness).
 const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply: number = greet("world");\n\nexport { reply };\n';
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
 const UNDERCURL = 8;
 
-// Extension-host subprocess + спавн language-сервера — Linux-only, как
-// gotoDefinition / editorconfig-stock (см. docs/TODO/E2E.md).
+// Только Linux: extension host + спавн language-сервера (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
     "SEA binary — hover от стокового typescript-language-server",
     () => {
@@ -51,8 +44,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             });
             await session.waitForNode("EditorElement");
 
-            // Диагностика настоящего tsserver'а дорисовалась до squiggle — это же
-            // readiness-сигнал «сервер проиндексировал проект».
+            // Squiggle от tsserver — readiness-сигнал «сервер проиндексировал проект».
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
@@ -66,17 +58,13 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await session.key("Ctrl+K");
             await session.key("Ctrl+U");
 
-            // Попап показывает сигнатуру: для call-site импортированного символа
-            // tsserver отвечает `(alias) greet(name: string): string` — этого
-            // текста в буфере main.ts нет, кадр не может пройти ассерт без
-            // работающего hover'а (грабля «слабый ассерт»).
+            // `(alias) greet(name: string): string` в буфере main.ts нет.
             await session.waitForText((text) => text.includes("(alias) greet(name: string): string"), {
                 timeoutMs: 60_000,
                 intervalMs: 500,
             });
 
-            // Escape закрывает попап, буфер остаётся нетронутым: строка цела —
-            // значит ни чорд, ни Escape не просочились в редактор.
+            // Строка цела — ни чорд, ни Escape не просочились в редактор.
             await session.key("Escape");
             const frame = await waitUntil(
                 () => session.captureFrame(),

@@ -21,16 +21,11 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Go от НАСТОЯЩЕГО стокового golang.go в SEA-бинаре: расширение ставится штатным
- * `--install-extension golang.go` из магазина (последняя опубликованная версия), клиент внутри расширения поднимает gopls по stdio. Ассерты
- * ждут текст, которого НЕТ в буфере (doc-комментарий из другого пакета,
- * отформатированная строка), а диск сверяется с буфером — контракт onSave.
- *
- * Настройки сохранения не задаются: formatOnSave и organize imports приезжают
- * из `configurationDefaults` `[go]` самого расширения — ровно как у человека.
+ * Стоковый golang.go из магазина; клиент расширения поднимает gopls по stdio.
+ * Настройки сохранения не задаются: formatOnSave и organize imports приезжают из
+ * `configurationDefaults` `[go]` самого расширения — ровно как у человека.
  */
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
 const UNDERCURL = 8;
 
 const skipReason = goToolchainMissing();
@@ -54,8 +49,7 @@ async function waitForGopls(session: { captureFrame: () => Promise<{ cells: { st
     );
 }
 
-// Extension-host subprocess + спавн сервера — Linux-only, как pythonLsp/eslintLsp
-// (см. docs/TODO/E2E.md); без сети и без Go toolchain сьют пропускается.
+// Только Linux: extension host + спавн сервера (docs/TODO/E2E.md).
 describe.skipIf(
     process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE || skipReason !== undefined,
 )("SEA binary — стоковый golang.go (gopls)", () => {
@@ -117,9 +111,8 @@ describe.skipIf(
         expect(onDisk).not.toContain('"os"');
     });
 
-    // Путь человека без gopls: расширение само зовёт `go install gopls@latest` в
-    // GOBIN и поднимает свежесобранный сервер. Один тест на весь путь — сборка
-    // gopls дорогая даже с кэшами модулей и сборки хоста.
+    // Без gopls расширение само зовёт `go install gopls@latest`. Один тест на весь путь —
+    // сборка gopls дорогая даже с кэшами хоста.
     it("без gopls расширение ставит его само и поднимает сервер", { timeout: 900_000 }, async () => {
         const gobin = mkdtempSync(join(tmpdir(), "diode-go-gobin-"));
         try {

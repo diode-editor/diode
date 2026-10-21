@@ -32,10 +32,8 @@ describe("SEA binary — bundled assets", () => {
     });
 
     itLinuxOnly("работает из произвольного cwd без файлов рядом с бинарём — подсветка из bundle", async () => {
-        // Копируем бинарь в пустой каталог (никаких diode.bundle/Extensions рядом)
-        // и запускаем ИМЕННО его из этого cwd: SEA несёт ассеты внутри себя, а не в
-        // sidecar-файлах. `usePtyApp` изолирует user-data/HOME, `binary`+`cwd`
-        // указывают на копию.
+        // Копия бинаря в пустом каталоге и запуск из него: SEA несёт ассеты внутри себя,
+        // а не в sidecar-файлах.
         const tmp = mkdtempSync(join(tmpdir(), "diode-sea-isolated-"));
         try {
             const isolatedBinary = join(tmp, "diode");
@@ -43,7 +41,6 @@ describe("SEA binary — bundled assets", () => {
             const isolatedFixture = join(tmp, "sample.ts");
             copyFileSync(fixturePath, isolatedFixture);
 
-            // Sanity: рядом с бинарём нет ассетов.
             expect(existsSync(join(tmp, "diode.bundle"))).toBe(false);
             expect(existsSync(join(tmp, "Extensions"))).toBe(false);
 
@@ -54,8 +51,7 @@ describe("SEA binary — bundled assets", () => {
                 return pos !== null && s.cellAt(pos.x, pos.y).fg === KEYWORD_FG;
             });
 
-            // Минимальная проверка подсветки — `const` должен быть keyword-цветом,
-            // что доказывает что грамматика реально загрузилась из bundle.
+            // Цвет keyword доказывает, что грамматика реально загрузилась из bundle.
             const constPos = screen.findText("const greeting");
             expect(constPos).not.toBeNull();
             const sample = screen.cellAt(constPos!.x, constPos!.y);

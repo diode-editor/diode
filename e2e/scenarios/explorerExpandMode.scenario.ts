@@ -2,10 +2,6 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// workbench.tree.expandMode (дефолт singleClick, как в эталоне): папку в
-// Explorer'е раскрывает и сворачивает одиночный клик по имени и Enter
-// (`list.select` эталона), а не только шеврон, → и двойной клик. Файлы клик
-// по-прежнему лишь выделяет: открывают их Enter и двойной клик.
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "compactFolders");
 
@@ -19,17 +15,15 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("src") && t.includes("README.md"));
         await editor.capture("collapsed");
 
-        // Клик по имени «src» (отступ 1, шеврон, пробел — имя с колонки 3).
+        // Отступ 1, шеврон, пробел — имя с колонки 3.
         await editor.clickNode("TreeViewElement", { dx: 4, dy: 0 });
         await editor.waitForText((t) => t.includes("src/main/java/com/example") && t.includes("App.java"));
         await editor.capture("click-expands");
 
-        // Enter на той же строке сворачивает её.
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("src/main/java/com/example") && !t.includes("App.java"));
         await editor.capture("enter-collapses");
 
-        // И снова раскрывает.
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.includes("App.java"));
         await editor.capture("enter-expands");

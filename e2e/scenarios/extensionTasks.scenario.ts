@@ -3,15 +3,8 @@ import { resolve } from "node:path";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Задачи расширения (`vscode.tasks`): фикстурное расширение `task-demo` даёт
-// провайдер типа `demo` формой bazel-java (`new Task(def, TaskScope.Workspace,
-// name, "demo", new ShellExecution(cmd))`) и задачу на своём pty
-// (`CustomExecution`). Что расширение видит в ответ (события исполнений,
-// `taskExecutions`, свой ли объект пришёл), пишется в пункты статус-бара
-// `ev:`/`ls:`. Кадры: второй уровень Run Task с задачами провайдера → задача из
-// палитры доходит до расширения событиями с её name/source → своя задача
-// `executeTask` приходит тем же объектом (`own/…`) → pty расширения в терминале
-// задачи → `terminate()` бегущей задачи, найденной по name+source.
+// Что расширение видит в ответ (события исполнений, `taskExecutions`, свой ли объект пришёл), оно пишет в
+// пункты статус-бара `ev:`/`ls:`.
 
 const folder = resolve(repoRoot, "e2e", "fixtures", "tasks");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-task-demo");
@@ -24,7 +17,6 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
     await editor.sendKey("Enter");
 }
 
-/** Run Task → тип `demo` → задача провайдера по имени. */
 async function runDemoTask(editor: ScenarioDriver, name: string): Promise<void> {
     await runCommand(editor, "Tasks: Run Task");
     await editor.waitForText((t) => t.includes("contributed"));

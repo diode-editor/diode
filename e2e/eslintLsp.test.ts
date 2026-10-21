@@ -19,18 +19,13 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * JS-линт и fix-on-save от НАСТОЯЩЕГО стокового vscode-eslint в SEA-бинаре:
- * расширение ставится ИЗ МАГАЗИНА штатным `--install-extension <id>`,
- * библиотека eslint приезжает в воркспейс фикстурой (расширение её не бандлит).
- * Ассерты ждут текст, которого НЕТ в буфере (грабля «слабый ассерт» из
- * docs/TODO/Suggest.md), а диск сверяется с буфером — контракт onSave.
+ * Стоковый vscode-eslint из магазина; библиотека eslint — в воркспейсе (расширение её
+ * не бандлит). Ассерты ждут текст, которого НЕТ в буфере (грабля «слабый ассерт»).
  */
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
 const UNDERCURL = 8;
 
-// Extension-host subprocess + спавн сервера — Linux-only, как pythonLsp
-// (см. docs/TODO/E2E.md); без сети сьют пропускается.
+// Только Linux: extension host + спавн сервера (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
     "SEA binary — стоковый vscode-eslint.vsix (JS-линт, fix on save)",
     () => {
@@ -54,9 +49,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             });
             await session.waitForNode("EditorElement");
 
-            // Дождаться диагностик именно eslint (undercurl — ложный сигнал:
-            // builtin TS-клиент линтит .js тоже, см. helpers/eslintReady.ts);
-            // после этого save не упрётся в холодный старт сервера.
+            // Undercurl — ложный сигнал: builtin TS-клиент линтит .js тоже (helpers/eslintReady.ts).
+            // После диагностик eslint save не упрётся в холодный старт сервера.
             await waitForEslintDiagnostics({
                 key: (name) => session.sendKey(name),
                 text: (value) => session.sendText(value),
@@ -73,7 +67,6 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             await session.key("Ctrl+S");
             await session.waitForText((text) => !text.includes(";;"), { timeoutMs: 60_000, intervalMs: 500 });
 
-            // На диск ушёл уже поправленный текст; неавтофиксный no-unused-vars остался в буфере.
             expect(readFileSync(lintFile, "utf-8")).toBe("const unused = 1;\n");
         });
     },

@@ -8,10 +8,6 @@ import { findTextCell, frameToText } from "../helpers/frame.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 import { defineScenario } from "./framework.ts";
 
-// Большой файл: Ctrl+End и переход в середину красятся сразу, не дожидаясь,
-// пока токенизация дойдёт туда с начала файла (фоновая + вьюпортная
-// токенизация эталона, docs/TODO/VscodeModel.md B1). Ввод во время фоновой
-// токенизации не ждёт её.
 
 const BLOCKS = 10_000; // 6 строк на блок — 60k строк
 const dir = join(tmpdir(), "diode-scenario-large-file");
@@ -88,8 +84,6 @@ export default defineScenario({
         );
         await editor.capture("middle");
 
-        // Ввод посреди фоновой токенизации: новая строка над `// block` сразу
-        // на экране и в подсветке — `const` тем же цветом, что `const text` ниже.
         const fgAt = (frame: GridSnapshot, needle: string): number | undefined => {
             const cell = findTextCell(frame, needle);
             return cell === null ? undefined : frame.cells[cell.y * frame.cols + cell.x].fg;

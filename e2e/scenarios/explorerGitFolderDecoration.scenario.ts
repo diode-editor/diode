@@ -5,10 +5,7 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Папка, внутри которой есть изменённые файлы, подсвечивается как в VS Code:
-// цвет потомка и бейдж «●» вместо буквы. Всплытие идёт от `propagate` git-
-// расширения через хост в дерево; удалённый файл (как в эталоне) не всплывает.
-// Второй кадр — файл снова чистый, и предки гаснут.
+// Удалённый файл, как в эталоне, в папку не всплывает.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
@@ -40,7 +37,6 @@ function makeRepo(): string {
 
 const repoDir = makeRepo();
 
-/** Строка дерева с меткой `name` (отдельным словом). */
 function rowFor(text: string, name: string): string | undefined {
     return text.split("\n").find((line) => new RegExp(`(^|\\s)${name}(\\s|$)`).test(line));
 }

@@ -5,15 +5,10 @@ import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 /**
- * Встроенный терминал на SEA-бинаре, открытый сразу после старта.
- *
- * VT-эмулятор (@xterm/headless) — ленивый кусок бандла `lazy/@xterm/headless.cjs`:
- * в `main.cjs` его нет, сессия терминала создаётся сразу, а эмулятор появляется,
- * когда кусок загрузился (`XtermSurface`). Здесь — гонка, которую юнит не
- * воспроизводит целиком: человек открыл несколько терминалов и печатает раньше,
- * чем редактор дозапустился и кусок загрузился. Вывод и ввод не теряются,
- * процесс жив. Заодно — кэш кода куска: V8 его принял (отказ ушёл бы в канал
- * Bootstrap как непредвиденная ошибка).
+ * VT-эмулятор — ленивый кусок `lazy/@xterm/headless.cjs`: сессия терминала создаётся
+ * сразу, эмулятор — когда кусок загрузился. Здесь — гонка, которую юнит целиком не
+ * воспроизводит: несколько терминалов и ввод раньше загрузки куска. Отказ кэша кода
+ * куска ушёл бы в Bootstrap непредвиденной ошибкой.
  */
 
 // node-pty — только unix в нынешней упаковке (как сценарий `terminal`).
@@ -44,7 +39,6 @@ describeUnix("встроенный терминал сразу после ста
         const frame = await session.waitForText((text) => text.includes("lazy-term-42"), { timeoutMs: 30_000 });
         expect(frameToText(frame)).toContain("TERMINAL");
 
-        // Все три сессии живы: у каждой своя вкладка в списке терминалов.
         expect(await session.nodes("#terminalTabsList TextLabelElement")).toHaveLength(3);
 
         const bootstrap = await session.getOutput("bootstrap");

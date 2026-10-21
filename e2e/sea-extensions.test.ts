@@ -23,8 +23,7 @@ const STRING_FG = packRgb(0xce, 0x91, 0x78); // string — Dark+ orange
 const COMMENT_FG = packRgb(0x6a, 0x99, 0x55); // comment — Dark+ green
 const NUMBER_FG = packRgb(0xb5, 0xce, 0xa8); // constant.numeric — Dark+ light green
 
-// ConPTY interaction makes colour assertions unreliable on non-Linux.
-// See docs/TODO/E2E.md.
+// ConPTY interaction makes colour assertions unreliable on non-Linux (docs/TODO/E2E.md).
 const itLinuxOnly = process.platform === "linux" ? it : it.skip;
 
 describe("SEA binary — user extensions", () => {
@@ -44,22 +43,18 @@ describe("SEA binary — user extensions", () => {
             (s) => s.findText("hello world") !== null && rowHasFg(s, locateRow(s, "hello world"), KEYWORD_FG),
         );
 
-        // `hello` — keyword.control → синий
         const helloPos = screen.findText("hello world");
         expect(helloPos).not.toBeNull();
         const helloCell = screen.cellAt(helloPos!.x, helloPos!.y);
         expect(helloCell.fg).toBe(KEYWORD_FG);
 
-        // `world` — string.quoted → оранжевый
         const worldX = helloPos!.x + "hello ".length;
         const worldCell = screen.cellAt(worldX, helloPos!.y);
         expect(worldCell.fg).toBe(STRING_FG);
 
-        // Комментарий → зелёный
         const commentRow = locateRow(screen, "// greeting");
         expect(rowHasFg(screen, commentRow, COMMENT_FG)).toBe(true);
 
-        // Число 42 (не внутри комментария) → светло-зелёный
         const numPos = screen.findText("score 42");
         expect(numPos).not.toBeNull();
         const numCell = screen.cellAt(numPos!.x + "score ".length, numPos!.y);
@@ -68,12 +63,9 @@ describe("SEA binary — user extensions", () => {
 
     itLinuxOnly("without --user-data-dir hello-lang grammar is not applied", async () => {
         const { session } = await usePtyApp({ open: [fixturePath] });
-        // Кадр с текстом идёт без подсветки и при установленном расширении —
-        // ждём статус-бар с режимом языка: `.hello` без расширения — Plain Text.
+        // Кадр с текстом идёт без подсветки — ждём режим языка в статус-баре.
         const screen = await session.waitFor((s) => s.findText("hello") !== null && s.findText("Plain Text") !== null);
 
-        // Без расширения .hello — plain text, ни одна ячейка не должна быть покрашена
-        // в KEYWORD_FG через нашу грамматику.
         const helloPos = screen.findText("hello");
         expect(helloPos).not.toBeNull();
         const helloCell = screen.cellAt(helloPos!.x, helloPos!.y);
@@ -81,41 +73,28 @@ describe("SEA binary — user extensions", () => {
     });
 
     itLinuxOnly("user extension с main self-spawn'ит subprocess и проставляет tabSize", async () => {
-        // tab-setter ставит tabSize=7 / insertSpaces=false на активный
-        // редактор через `vscode.window.activeTextEditor.options`. RPC от
-        // subprocess'а до host'а должен сработать в течение boot'а.
-        //
-        // Открываем файл с tab-символом в строке "\tindented". При
-        // tabSize=7 видимая позиция "indented" — столбец 7 (после
-        // gutter'а с line numbers).
+        // tab-setter ставит tabSize=7 / insertSpaces=false через `activeTextEditor.options`;
+        // при tabSize=7 «indented» после таба — в столбце 7.
         const { session } = await usePtyApp({
             seedUserData: tabSetterUserDataPath,
             open: [tabbedFixturePath],
             inspect: true,
         });
-        // Ждём, пока RPC субпроцесса реально проставит tabSize=7 на редактор —
-        // предикатом по inspectState, а не по факту появления текста (иначе под
-        // нагрузкой кадр снимается раньше, чем RPC долетит: pre-existing гонка).
+        // Предикатом по inspectState, а не по появлению текста: под нагрузкой кадр
+        // снимается раньше, чем долетит RPC.
         await session.waitForDocument(
             (root) => findNode(root, (n) => n.type === "EditorElement")?.state?.tabSize === 7,
             { timeoutMs: 20_000 },
         );
-        // Состояние и кадр — два независимых канала: inspectState приезжает
-        // по WebSocket, кадр — байтами в PTY. Ждать «на экране есть слово
-        // indented» нельзя: слово там есть при ЛЮБОМ tabSize, предикат
-        // закрывается мгновенно, и под голодом раннера снимался кадр,
-        // отрисованный ещё до RPC (CI 37195942480: expected 4 to be 7).
-        // Ждём сам отступ — наблюдаемое значение, ради которого тест и
-        // написан. Перерисовка при этом исправна: решение расширения,
-        // пришедшее через 6 с после того, как редактор замолчал, догоняет
-        // кадр за 1 мс (проверено пробой на живом бинаре).
+        // Состояние и кадр — независимые каналы (WebSocket и PTY). Ждать слово «indented»
+        // нельзя: оно есть при ЛЮБОМ tabSize, и под голодом раннера снимался кадр до RPC
+        // (CI 37195942480: expected 4 to be 7). Ждём сам отступ.
         const screen = await session.waitFor((s) => tabIndentOf(s) === 7, { timeoutMs: 20_000 });
         const indentedRow = locateRow(screen, "indented");
         const indentedPos = screen.findText("indented")!;
         const endPos = screen.findText("end");
         expect(endPos).not.toBeNull();
         const indent = indentedPos.x - endPos!.x;
-        // tab at column 0 with tabSize=7 → 'indented' starts at column 7
         expect(indent).toBe(7);
         expect(indentedRow).toBe(indentedPos.y);
     });
@@ -123,10 +102,8 @@ describe("SEA binary — user extensions", () => {
     itLinuxOnly(
         "will-save участник user extension трансформирует байты при Ctrl+S (проводка saveParticipant)",
         async () => {
-            // Герметичный гейт проводки extensionHostModule: `group.saveParticipant`
-            // обязан быть привязан к `host.willSaveTextDocument`. Юниты willSave
-            // гоняют участника на харнессе, а этот тест — в реальном приложении;
-            // до него единственным гейтом был СЕТЕВОЙ сьют стокового editorconfig.
+            // Герметичный гейт проводки: `group.saveParticipant` обязан быть привязан к
+            // `host.willSaveTextDocument`; до него гейтом был только сетевой сьют editorconfig.
             const { session, env } = await usePtyApp({
                 seedUserData: willSaveUserDataPath,
                 files: { "trim.txt": "one  \ntwo\t" },

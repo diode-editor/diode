@@ -2,9 +2,6 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `diode -g <file>:<line>:<column>` — открыть файл и сразу поставить каретку.
-// Наблюдаемый результат — позиция в статус-баре («Ln N, Col M») и прокрученный
-// к ней вьюпорт: без флага редактор открывается на первой строке.
 
 // Фикстура на 128 строк — прокрутка к строке 30 видна на кадре.
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "gutterWidthFolding.ts");

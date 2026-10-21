@@ -2,11 +2,6 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `workspace.openTextDocument({ content, language })`: фикстура
-// `untitled-report-demo` повторяет «Go: Locate Configured Go Tools» у golang.go —
-// отчёт в безымянный markdown-документ и `showTextDocument`. Кадры: вкладка
-// `Untitled-1 ●` (грязная, язык Markdown в статус-баре), затем Ctrl+S — Save As
-// предлагает `Untitled-1.md`, как у File → New Untitled File.
 
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-untitled-report");
 

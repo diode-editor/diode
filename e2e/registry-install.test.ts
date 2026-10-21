@@ -11,13 +11,8 @@ import { currentTargetPlatform } from "../src/vs/platform/extensionManagement/no
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 
 /**
- * E2E установки из файлового реестра (`--registry <dir> --install-extension <id>`)
- * против собранного SEA-бинаря. Юниты покрывают модули по отдельности; здесь
- * проверяется склейка cliArgs → main → FileExtensionRegistrySource →
- * installFromRegistry и ленивый `import("yauzl")` на новом кодовом пути в SEA.
- *
- * Тот же флаг с http(s)-адресом и установка из настоящего опубликованного реестра —
- * `e2e/marketplace/marketplace.test.ts`.
+ * Склейка cliArgs → main → FileExtensionRegistrySource → installFromRegistry и ленивый
+ * `import("yauzl")` в SEA — юниты покрывают модули только по отдельности.
  */
 
 interface CliResult {
@@ -103,11 +98,9 @@ describe("SEA binary — install from file registry", () => {
                 ],
             }),
         );
-        // Второе расширение — только платформенные записи одной версии: запись
-        // ТЕКУЩЕГО таргета машины с настоящим артефактом и чужая с битым путём.
-        // Ставится оно, только если склейка main.ts реально передала
-        // targetPlatform хоста в резолв (юниты передают его руками — этот шов
-        // без e2e не покрыт ничем).
+        // Платформенные записи одной версии: ТЕКУЩИЙ таргет с настоящим артефактом и чужой
+        // с битым путём. Ставится, только если main.ts реально передал targetPlatform хоста
+        // в резолв — юниты передают его руками.
         const hostTarget = currentTargetPlatform();
         if (hostTarget !== undefined) {
             const platformedRel = `artifacts/acme.platformed-2.0.0@${hostTarget}.vsix`;

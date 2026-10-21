@@ -7,22 +7,12 @@ import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 /**
- * Формат markdown и json от НАСТОЯЩЕГО стокового `esbenp.prettier-vscode` в
- * SEA-бинаре: расширение ставится ИЗ МАГАЗИНА штатным
- * `--install-extension <id>`. Это языки, которых не покрывает ни один наш LSP —
- * до prettier `Ctrl+K Ctrl+E` на `.md` отвечал «No formatter for 'markdown'
- * installed».
- *
- * Сьют же закрывает загрузку ESM-расширений на СОБРАННОМ бинаре: prettier с
- * 12.x — `"type": "module"`, и под SEA прямой `import()` из вшитого main
- * перехватывается embedder-хуком. Юнитом это не проверить, гейт тут.
- *
- * Ассерты ждут текст, которого в буфере НЕ БЫЛО (грабля «слабый ассерт» из
- * docs/TODO/Suggest.md).
+ * Сьют же — гейт загрузки ESM-расширений на собранном бинаре: prettier с 12.x —
+ * `"type": "module"`, и под SEA прямой `import()` из вшитого main перехватывается
+ * embedder-хуком. Юнитом это не проверить.
  */
 
-// Extension-host subprocess — Linux-only, как ruffLsp (см. docs/TODO/E2E.md);
-// без сети сьют пропускается.
+// Только Linux: extension host (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
     "SEA binary — стоковый prettier.vsix (формат markdown и json)",
     () => {

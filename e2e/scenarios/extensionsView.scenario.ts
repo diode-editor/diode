@@ -2,12 +2,6 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Магазин расширений в UI: вьюлет EXTENSIONS в сайдбаре и страница расширения
-// отдельной вкладкой (docs/arch/workbench/ExtensionsView.md).
-//
-// Реестр — файловая фикстура, а не публичный магазин: демо не должно зависеть
-// ни от сети, ни от того, что сейчас опубликовано. Состояния карточек в ней
-// заданы прямо, поэтому на кадре видны все три бейджа сразу.
 
 const registry = resolve(repoRoot, "e2e", "fixtures", "registry");
 // В user-data уже стоит test.tab-setter@0.0.1, а реестр знает 0.0.2 — на кадре

@@ -7,14 +7,8 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario } from "./framework.ts";
 
-// Bulk workspace edit (M1): code action стокового typescript-language-server
-// правит ВТОРОЙ файл, которого нет ни в одной вкладке. Раньше такой edit
-// отвечал честным `false`, и пользователь видел «Code action failed» на любом
-// действии, трогающем соседний файл («Add import from …», «Declare method …»,
-// «Move to a new file»).
-//
-// Каталог сценарий наполняет в prepare: правка закрытого файла ложится НА ДИСК,
-// а коммитнутую фикстуру пачкать нельзя (паттерн eslint-lint.scenario.ts).
+// Code action стокового typescript-language-server правит второй файл, не открытый ни в одной вкладке, —
+// правка ложится на диск, поэтому каталог наполняется в prepare: коммитнутую фикстуру пачкать нельзя.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-bulkedit-demo-"));
@@ -25,7 +19,7 @@ const closedFile = join(sampleDir, "b.ts");
 const A_TS = 'import { B } from "./b";\n\nconst b = new B();\nb.greet();\n';
 const B_TS = "export class B {}\n";
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
+/** StyleFlags.Undercurl. */
 const UNDERCURL = 8;
 
 export default defineScenario({
@@ -38,7 +32,6 @@ export default defineScenario({
     },
     cols: 100,
     rows: 24,
-    // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only.
     skipOn: ["win32", "darwin"],
     async prepare() {
         writeFileSync(join(sampleDir, "tsconfig.json"), JSON.stringify({ compilerOptions: { strict: true } }, null, 2));
@@ -48,16 +41,13 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("const b = new B()"));
 
-        // Readiness: undercurl от НАСТОЯЩЕГО tsserver (`greet` нет у класса B).
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
             { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
         );
-        // Открыт только a.ts: b.ts правится не через вкладку, а по диску.
         await editor.capture("before");
 
-        // Каретка на `b.greet()` (открытие ставит её в (0,0)) → меню действий.
         await editor.sendKey("Ctrl+Home");
         for (let i = 0; i < 3; i++) await editor.sendKey("ArrowDown");
         for (let i = 0; i < 3; i++) await editor.sendKey("ArrowRight");
@@ -70,14 +60,12 @@ export default defineScenario({
         await editor.capture("menu");
 
         await editor.sendKey("Enter");
-        // Главная проверка: ЗАКРЫТЫЙ b.ts изменился на диске.
         await waitUntil(
             () => Promise.resolve(readFileSync(closedFile, "utf8")),
             (text) => text.includes("greet"),
             { describe: "метод greet дописан в закрытый b.ts", timeoutMs: 60_000, intervalMs: 250 },
         );
 
-        // Видимая часть: открываем b.ts и показываем новый метод в кадре.
         await editor.sendKey("Ctrl+P");
         await editor.sendText("b.ts");
         await editor.waitForText((t) => t.includes("b.ts"));

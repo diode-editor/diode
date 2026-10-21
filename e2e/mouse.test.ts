@@ -12,10 +12,6 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 const here = fileURLToPath(new URL(".", import.meta.url));
 const fixturePath = resolve(here, "fixtures", "sample.ts");
 
-// Проверяем `TUIDom.sendMouse` на настоящем бинаре: находим узел в дереве
-// инспектора, целимся в его `box` и кликаем. Ровно так e2e покрывает мышь
-// (вкладки панели, сэш, колесо). Запуск изолирован (`useHeadlessApp`): свой
-// user-data-dir и HOME, уборка — на `onTestFinished`.
 describe("SEA binary — mouse injection via the inspector", () => {
     beforeAll(async () => {
         await getBinaryPath();

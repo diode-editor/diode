@@ -11,10 +11,7 @@ import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { frameToText } from "./helpers/frame.ts";
 import type { HeadlessSession } from "./helpers/headlessSession.ts";
 
-// Функциональный e2e для диффа (PR #202, с PR-4 DiffEditable — живой дифф v2
-// из двух настоящих редакторов): чёрным ящиком через инспектор настоящего
-// бинаря. Extension host нужен (git-расширение отдаёт версию из HEAD), поэтому
-// гоняем только на Linux.
+// Только Linux: нужен extension host — git-расширение отдаёт версию из HEAD.
 
 const runOnLinux = process.platform === "linux" ? describe : describe.skip;
 
@@ -27,7 +24,6 @@ interface Repo {
     file(rel: string): string;
 }
 
-/** Временный git-репозиторий с закоммиченными сид-файлами. */
 function makeRepo(committed: Record<string, string>): Repo {
     const dir = mkdtempSync(join(tmpdir(), "diode-diff-e2e-"));
     git(dir, "init", "-q");

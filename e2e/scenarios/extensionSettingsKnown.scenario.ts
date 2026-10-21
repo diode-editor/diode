@@ -1,15 +1,7 @@
 import { frameToText } from "../helpers/frame.ts";
 import { defineScenario } from "./framework.ts";
 
-// Настройки расширений — в общем реестре конфигурации.
-//
-// В settings.json сценария — два ключа встроенного расширения git
-// (`contributes.configuration` его манифеста) и один ключ, которого не
-// объявляет никто. Открываем settings.json (палитра → «Preferences: Open User
-// Settings») и панель Problems (Ctrl+J): предупреждение «Unknown Configuration
-// Setting» стоит только у чужого ключа — ключи git валидатор знает, потому что
-// их регистрирует тот же реестр, из которого собираются дефолты ядра. Раньше
-// предупреждения висели на всех трёх.
+// В settings.json сценария два ключа встроенного git и один ничей: «Unknown Configuration Setting» — только у ничьего.
 
 export default defineScenario({
     name: "extension-settings-known",
@@ -34,7 +26,6 @@ export default defineScenario({
         );
         await editor.capture("problems");
 
-        // Ключи встроенного расширения — известные: предупреждение ровно одно.
         const warnings = frameToText(frame).split("Unknown Configuration Setting").length - 1;
         if (warnings !== 1) {
             throw new Error(`extension-settings-known: ожидалось одно предупреждение, на экране ${String(warnings)}`);

@@ -2,11 +2,6 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Демо вторичной боковой панели (Secondary Side Bar, auxiliary bar эталона):
-// Ctrl+Alt+B показывает правую колонку во всю высоту — фон сайдбара, кнопка
-// закрытия в таб-строке; саш на её левой колонке тянется мышью; на узком
-// терминале она уступает первой, редактор держит свои 20 колонок. Контейнеров
-// в ней пока нет — переносить виды в неё учит следующий шаг.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
@@ -19,7 +14,6 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("greeting"));
 
-        // Ctrl+Alt+B — часть справа, ширина по умолчанию 30 (как у сайдбара).
         await editor.sendKey("Ctrl+Alt+B");
         let part = await editor.waitForNode("#auxiliarybar");
         if (part.box.width !== 30) throw new Error(`ширина вторичной панели ${part.box.width}, ждали 30`);

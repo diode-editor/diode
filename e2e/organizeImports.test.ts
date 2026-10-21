@@ -7,13 +7,7 @@ import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
-/**
- * Organize Imports (#196) от стокового `typescript-language-server` в
- * SEA-бинаре: команда из палитры гонит source-действие через провайдерный шов,
- * правки сервера (готовый WorkspaceEdit) ложатся в буфер — и в .ts, и в .js.
- * Тишина там, где менять нечего (CommonJS), закрыта интеграционным сьютом
- * extensionHost.typescriptLsp.codeActions.test.ts.
- */
+/** #196. Тишина там, где менять нечего (CommonJS), — в extensionHost.typescriptLsp.codeActions.test.ts. */
 
 const require_ = createRequire(import.meta.url);
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");

@@ -1,20 +1,11 @@
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Приёмка вторичной боковой панели (docs/TODO/SecondarySideBar.md): вид TERMINAL
-// переносится из нижней панели во вторичную боковую и живёт там — живой шелл,
-// ввод, ресайз сашем, переживание перезагрузки окна. Ради этого и делалась
-// часть: держать терминал с `claude` справа.
-//
-// Команды — пользовательскими биндами: Ctrl+` есть не на всех tier'ах, а
-// палитра ранжирует «View: Move Focused View» ниже «View: Move Editor…».
-// Маркер вывода разорван пустой подстановкой (aux-term""-ok): целиком он
-// появляется только в выводе шелла (см. terminal.scenario.ts).
-//
-// Приглашение: rc-файлы раннера переставляют PS1 (`user@host:dir$`), а кадр
-// обрезает хвостовые пробелы строки — поэтому ждём строку, кончающуюся на
-// `$`, или `❯` starship'а, а не `"$ "`.
+// Команды — пользовательскими биндами: Ctrl+` есть не на всех tier'ах, а палитра ранжирует
+// «View: Move Focused View» ниже «View: Move Editor…». Маркер разорван пустой подстановкой (aux-term""-ok):
+// целиком он появляется только в выводе шелла.
+// Приглашение ждём по `$` или `❯` в конце строки, а не `"$ "`: rc-файлы раннера меняют PS1, а кадр обрезает
+// хвостовые пробелы.
 
-/** Строка кадра (её часть правее `fromX`) несёт приглашение шелла. */
 function hasPrompt(text: string, fromX = 0): boolean {
     return text.split("\n").some((row) => {
         const tail = row.slice(fromX).trimEnd();
@@ -43,11 +34,9 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForReady();
 
-        // Терминал в нижней панели, фокус в нём.
         await editor.sendKey("Ctrl+Alt+T");
         await editor.waitForText((t) => t.includes("TERMINAL") && hasPrompt(t));
 
-        // Move Focused View → New Secondary Side Bar Entry.
         await editor.sendKey("Ctrl+Alt+M");
         await editor.waitForText((t) => t.includes("View: Move TERMINAL"));
         await editor.sendText("New Secondary");
@@ -57,13 +46,11 @@ export default defineScenario({
         await editor.waitForText((t) => t.split("\n")[1].slice(part.box.x).includes("TERMINAL"));
         await editor.capture("moved");
 
-        // Шелл живой и получает ввод уже справа.
         await editor.sendText('echo aux-term""-ok');
         await editor.sendKey("Enter");
         await editor.waitForText((t) => t.split("\n").some((row) => row.slice(part.box.x).includes("aux-term-ok")));
         await editor.capture("shell-live");
 
-        // Саш на первой колонке части: тянем на 20 колонок шире — эмулятор следует.
         const midY = part.box.y + Math.floor(part.box.height / 2);
         await editor.sendMouse({ action: "press", button: "left", x: part.box.x, y: midY });
         await editor.sendMouse({ action: "move", button: "left", x: part.box.x - 20, y: midY });

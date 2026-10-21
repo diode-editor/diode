@@ -2,10 +2,6 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `ExtensionContext.environmentVariableCollection`: фикстура `env-collection-demo`
-// на старте кладёт `DEMO_SERVER_PORT` и каталог в начало `PATH` — так Claude Code
-// отдаёт CLI порт своего сервера — и показывает «Env demo ready». Кадр: шелл
-// человека, открытый после этого, видит обе переменные в окружении процесса.
 
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-env-collection");
 
@@ -15,7 +11,7 @@ export default defineScenario({
     seedUserData: userData,
     cols: 120,
     rows: 24,
-    // Extension-host сценарий с настоящим шеллом: только Linux/macOS.
+    // Настоящий шелл.
     skipOn: ["win32"],
     async run(editor) {
         // Коллекция записана — первый шелл после этого уже с ней.

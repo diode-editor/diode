@@ -5,15 +5,12 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Format Document (Shift+Alt+F) поверх стокового typescript-language-server:
-// каша из пробелов в буфере приводится правками настоящего tsserver'а (#196).
-// Кадры: до (с undercurl-диагностикой — сервер жив) и после форматирования.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "formatSample");
 const mainFile = resolve(sampleDir, "main.ts");
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
+/** StyleFlags.Undercurl. */
 const UNDERCURL = 8;
 
 export default defineScenario({
@@ -26,12 +23,10 @@ export default defineScenario({
     },
     cols: 100,
     rows: 24,
-    // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("function   greet"));
 
-        // Readiness: undercurl от НАСТОЯЩЕГО tsserver'а (ошибка типов в 1-й строке).
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
@@ -39,8 +34,7 @@ export default defineScenario({
         );
         await editor.capture("before");
 
-        // Shift+Alt+F legacy-терминал не передаёт (ESC F без shift-флага) —
-        // жмём досягаемый чорд Ctrl+K Ctrl+E, второй бинд той же команды.
+        // Shift+Alt+F legacy-терминал не передаёт (ESC F без shift-флага) — второй бинд той же команды.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+E");
         await editor.waitForText((t) => t.includes("function greet(name: string) {"), { timeoutMs: 60_000 });

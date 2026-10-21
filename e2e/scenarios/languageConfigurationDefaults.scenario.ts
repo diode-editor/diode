@@ -4,15 +4,8 @@ import { frameToText } from "../helpers/frame.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Настройки по языку: секции `"[lang]"`.
-//
-// Встроенное расширение make объявляет в `contributes.configurationDefaults`
-// `"[makefile]": { "editor.insertSpaces": false }` — Makefile без табов не
-// работает. Глобально `editor.insertSpaces: true` (дефолт), а в отступах
-// Makefile'а пока ничего нет, так что автоопределению не на что опереться:
-// отступ решает настройка для языка. Открываем такой Makefile — статус-бар
-// показывает «Tab Size», а не «Spaces», и Tab вставляет табуляцию (кадр
-// `makefile-tabs`). Раньше секция языка терялась, и Makefile получал пробелы.
+// `[makefile]` из configurationDefaults встроенного make: в отступах Makefile'а ещё ничего нет, автоопределению
+// не на что опереться — отступ решает настройка языка.
 
 const makefile = resolve(repoRoot, "e2e", "fixtures", "makefileDefaults", "Makefile");
 

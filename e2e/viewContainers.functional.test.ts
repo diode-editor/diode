@@ -5,10 +5,6 @@ import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Функциональный e2e общей модели view-контейнеров: чёрным ящиком через
-// инспектор настоящего бинаря. Здесь важна не картинка, а наблюдаемые
-// инварианты модели — состав секций (`PaneViewElement.inspectState`), слияние
-// заголовков и стабильность корня контейнера при смене корня воркспейса.
 
 const FILES = {
     "alpha.ts": "export const a = 1;\n",
@@ -30,7 +26,6 @@ async function openApp(): Promise<HeadlessApp> {
     return app;
 }
 
-/** Id секций контейнера — из inspectState его PaneViewElement. */
 async function paneIds(app: HeadlessApp, containerId: string): Promise<string[]> {
     const node = await app.session.node(`#viewContainer-${containerId.replaceAll(".", "-")}`);
     const state = node?.state as { panes?: { id: string }[] } | undefined;

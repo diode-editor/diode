@@ -8,21 +8,11 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Закрытие редактора не оставляет живых процессов: ни субпроцесса расширений,
- * ни языкового сервера, которого поднял не редактор, а само расширение (внук).
- * Тест смотрит не на кадр, а на дерево процессов — здесь только оно и видно.
- *
- * **Что он НЕ закрывает.** Это не гейт группового kill'а (`detached` +
- * `process.kill(-pid)`): проверено — тест зелёный и с выключенным `detached`,
- * потому что стоковый `typescript-language-server` корректно закрывает tsserver
- * сам, по `deactivate`. Гейт группового сигнала — юнит
- * `extensionHost.orphans.test.ts`: там фикстура сервер намеренно НЕ закрывает,
- * то есть воспроизводит расширение, которое упало или не успело попрощаться
- * (как jdtls, оставлявший сироты и 56 МБ CDS-архива за прогон). Не удаляй тот
- * юнит, решив, что этот его дублирует — он проверяет другое.
- *
- * Ценность этого теста — сквозной путь в настоящем SEA-бинаре: прощание идёт по
- * всей цепочке, а не в харнессе.
+ * Закрытие редактора не оставляет живых процессов, включая внука — сервер, поднятый
+ * самим расширением. Это НЕ гейт группового kill'а: тест зелёный и без `detached`,
+ * стоковый сервер закрывает tsserver сам по `deactivate`. Гейт — юнит
+ * `extensionHost.orphans.test.ts` (фикстура сервер НЕ закрывает, как jdtls) —
+ * не удаляй его как дубль этого.
  */
 
 const require_ = createRequire(import.meta.url);
@@ -36,7 +26,7 @@ const LSP_SETTINGS = {
 
 const MAIN_TS = 'export function greet(name: string): string {\n    return "hi " + name;\n}\n';
 
-/** Прямые дети процесса. Пустой список — детей нет (pgrep выходит кодом 1). */
+/** Пустой список — детей нет: pgrep выходит кодом 1. */
 function childrenOf(pid: number): number[] {
     try {
         return execFileSync("pgrep", ["-P", String(pid)], { encoding: "utf-8" })
@@ -86,9 +76,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             const editorPid = session.pid;
             expect(editorPid).toBeDefined();
 
-            // Ждём именно ВНУКА: субпроцесс расширений — прямой ребёнок, а
-            // языковой сервер живёт на уровень глубже. Если ждать «любых
-            // потомков», тест пройдёт и без поднятого сервера.
+            // Ждём именно ВНУКА: субпроцесс расширений — прямой ребёнок, и «любые потомки»
+            // нашлись бы без поднятого сервера.
             const tree = await waitUntil(
                 () => Promise.resolve(processTree(editorPid as number)),
                 (pids) => pids.length >= 3,

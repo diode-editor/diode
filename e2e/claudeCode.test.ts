@@ -18,31 +18,19 @@ import { findTextCell, frameToText } from "./helpers/frame.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * НАСТОЯЩИЙ стоковый Anthropic.claude-code в SEA-бинаре, поставленный штатным
- * `--install-extension Anthropic.claude-code` из магазина (последняя
- * опубликованная версия, платформенный vsix). Терминальный режим
- * (`claudeCode.useTerminal` — курируемая инъекция): расширение поднимает
- * ide-сервер, к которому подключается `claude`.
- *
- * Настоящий CLI не запускается (подписка, сеть). Вместо него — пробный клиент
- * ide-сервера (`IdeProbe`: порт и токен из лока, MCP `initialize`) и подставной
- * `claude` в PATH, который печатает порт из окружения и `ideName` из лока, —
- * ровно то, по чему CLI находит IDE.
- *
- * Расширение ставится один раз на сьют (130 МБ), кейсы идут по одной сессии
- * последовательно: контекст — пока фокус в редакторе, терминалы — в конце.
+ * Стоковый Anthropic.claude-code из магазина в SEA-бинаре. Настоящий CLI не
+ * запускается (подписка, сеть): вместо него пробный клиент ide-сервера (`IdeProbe`)
+ * и подставной `claude` в PATH — ровно то, по чему CLI находит IDE.
+ * Кейсы идут по одной сессии последовательно (расширение 130 МБ ставится раз
+ * на сьют): контекст — пока фокус в редакторе, терминалы — в конце.
  */
 
 const MAIN_TS = 'const reply: number = "hi";\nexport { reply };\n';
-/** Правка, которую «предлагает» CLI через `openDiff`. */
 const PROPOSED_TS = 'const reply: string = "hello";\nexport { reply };\n';
-/** codicon `check` — кнопка «принять» в панели группы. */
 const CHECK = "\u{eab2}";
-/** codicon `discard` — кнопка «отклонить». */
 const DISCARD = "\u{eae2}";
 
-// Extension-host subprocess + подставной `claude` на sh — Linux, как goLsp/eslintLsp
-// (docs/TODO/E2E.md); без сети (установка из магазина) сьют пропускается.
+// Только Linux: extension host + подставной `claude` на sh (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
     "SEA binary — стоковый Anthropic.claude-code (терминальный режим)",
     () => {
@@ -146,7 +134,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
                         new_file_contents: PROPOSED_TS,
                         tab_name: tabName,
                     });
-                // Вкладка с кнопками ✓/↺ (ключ `claude-code.viewingProposedDiff` — по видимой стороне).
+                // Кнопки ✓/↺ — по ключу `claude-code.viewingProposedDiff`, он считается по видимой стороне.
                 const waitForDiffTab = (title: string): Promise<unknown> =>
                     app.session.waitForText((t) => t.includes(title) && t.includes(CHECK) && t.includes(DISCARD), {
                         timeoutMs: 30_000,

@@ -2,15 +2,10 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `extensionDependencies`. Три фикстурных расширения в user-data:
-// - `deps-consumer` объявляет зависимость `test.deps-provider` и в activate()
-//   читает её exports — в статус-баре «Dep: Started», если зависимость
-//   поднялась раньше него, хотя её собственное событие так и не наступило;
-// - `deps-broken` зависит от неустановленного `test.not-installed` — он не
-//   активируется вовсе, а человек видит тост с причиной (как в VS Code).
+// `deps-consumer` читает exports `test.deps-provider` в activate(): зависимость поднята раньше, хотя её событие
+// не наступило. `deps-broken` зависит от неустановленного и не активируется — тост с причиной.
 
-// Markdown и без папки-воркспейса — как в status-bar-сценариях: иначе полосу
-// делят сегменты SCM и спиннер tsserver, и её раскладка плывёт.
+// Markdown без папки: иначе полосу делят сегменты SCM и спиннер tsserver, и раскладка плывёт.
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-dependencies-demo");
 
@@ -21,7 +16,6 @@ export default defineScenario({
     open: [sampleFile],
     cols: 120,
     rows: 24,
-    // Extension-host сценарий: CI-safety-net гоняем только на Linux.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText(
@@ -29,7 +23,6 @@ export default defineScenario({
                 t.includes("Dep: Started") &&
                 t.includes("Cannot activate the 'Deps Broken' extension") &&
                 t.includes("'test.not-installed'") &&
-                // Сломанное расширение так и не поднялось: его пункта в статус-баре нет.
                 !t.includes("Broken: activated"),
             { timeoutMs: 20_000 },
         );

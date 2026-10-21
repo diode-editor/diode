@@ -2,20 +2,10 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Отмена устаревших запросов призрачной подсказки. Фикстурное расширение
-// `inline-ghost` тянет с ответом 900 мс (`inlineGhost.responseDelay` в
-// настройках сценария) и пишет в свой канал OUTPUT по строке
-// на событие: `#<n> старт`, `#<n> отменён`, `#<n> ответ <k> пунктов`,
-// `#<n> B опрошен` (второй провайдер). Набор в темпе живого человека рисует в
-// канале цепочку: у всех запросов, кроме последнего, есть `отменён` — и до
-// второго провайдера отменённый запрос не доезжает. До этой заявки в том же
-// прогоне до `ответ` доживали ВСЕ запросы: провайдер получал вечно-живой
-// токен, и работу никто не снимал.
-//
-// Файл — plaintext без латиницы намеренно: языкового сервера на нём нет, а
-// попапу автодополнения по словам буфера не из чего открыться. Иначе попап
-// перебивал бы призрака на каждом набранном символе (при открытом попапе ядро
-// подсказку не запрашивает — люфт v1).
+// Канал OUTPUT фикстуры `inline-ghost` пишет строку на событие (`#<n> старт`/`отменён`/`ответ <k> пунктов`/
+// `B опрошен`): у всех запросов, кроме последнего, есть `отменён`, и до второго провайдера отменённый не доезжает.
+// Файл — plaintext без латиницы намеренно: попапу по словам не из чего открыться, иначе он перебивал бы призрака
+// (при открытом попапе ядро подсказку не запрашивает).
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "ghost-cancel-sample.txt");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-inline-ghost");
@@ -33,23 +23,17 @@ export default defineScenario({
     title: "Inline completions: stale provider requests are cancelled (OUTPUT log)",
     seedUserData: userData,
     settings: {
-        // Провайдер тянет с ответом заметно для глаза: иначе запрос успевает
-        // договорить раньше следующего символа, и отменять будет нечего.
+        // Иначе запрос договорит раньше следующего символа, и отменять будет нечего.
         "inlineGhost.responseDelay": 900,
-        // Quick suggest ждёт призрака не дольше 750 мс и бросает его запрос
-        // (как `_waitForInlineCompletionsAndTrigger` эталона): 900 мс фикстуры
-        // туда не влезают, и призрак не дожил бы до кадра. Сценарий — про отмену
-        // запросов набором, поэтому авто-попап выключен.
+        // Quick suggest ждёт призрака не дольше 750 мс (как `_waitForInlineCompletionsAndTrigger` эталона) — 900 мс не влезают.
         "editor.quickSuggestions": "off",
     },
     open: [repoRoot, sampleFile],
     cols: 100,
     rows: 30,
-    // Extension-host сценарий: CI-safety-net гоняем только на Linux (субпроцесс
-    // расширений на Windows флейкает — как settings-completion).
+    // Субпроцесс расширений на Windows флейкает.
     skipOn: ["win32"],
-    // Канал фикстуры — user-биндом, а не палитрой: палитра уводит фокус.
-    // Буквы F/E/S/V/G/H заняты мнемониками меню-бара, а O — префикс SS3
+    // Канал — user-биндом: палитра уводит фокус. F/E/S/V/G/H — мнемоники меню-бара, O — префикс SS3
     // (`ESC O P` = F1), поэтому J.
     userKeybindings: [
         { key: "alt+j", command: "workbench.action.output.show.extensions.test.inline-ghost.inline-ghost" },
@@ -61,10 +45,8 @@ export default defineScenario({
         await editor.sendKey("End");
         await editor.sendKey("Enter");
 
-        // Прогрев: расширение активируется асинхронно (на холодном раннере —
-        // секундами), и запрос, ушедший до регистрации провайдера, возвращает
-        // пусто. Вставляем триггер целиком и ждём призрака; не дождались —
-        // стираем строку одной правкой и пробуем снова (паттерн region-folding).
+        // Прогрев: запрос до регистрации провайдера (на холодном раннере — секунды) возвращает пусто; не дождались
+        // призрака — стираем строку одной правкой и пробуем снова.
         let live = false;
         for (let attempt = 0; attempt < 10 && !live; attempt++) {
             await editor.sendText(TRIGGER);
@@ -79,26 +61,21 @@ export default defineScenario({
         }
         if (!live) throw new Error("inline-completion-cancel: призрак не появился за 10 попыток прогрева");
 
-        // Чистим строку одной правкой и даём прогревочному запросу договорить,
-        // чтобы в кадр попала цепочка самого набора, а не хвост прогрева.
+        // Даём прогревочному запросу договорить, чтобы в кадр попала цепочка самого набора, а не хвост прогрева.
         await editor.sendKey("Escape");
         await editor.sendKey("Home");
         await editor.sendKey("Shift+End");
         await editor.sendKey("Backspace");
         await sleep(1500);
 
-        // Набор в темпе человека: каждый следующий символ делает предыдущий
-        // запрос устаревшим — и тот отменяется, не дожидаясь ответа.
         for (const char of TRIGGER) {
             await editor.sendKey(char);
             await sleep(TYPING_PAUSE_MS);
         }
 
-        // Дожил до ответа только последний запрос — за кареткой призрак.
         await editor.waitForText((t) => t.includes("Hello from ghost text!"), { timeoutMs: 15_000 });
         await editor.capture("ghost");
 
-        // Журнал фикстуры: цепочка `старт`/`отменён` и один ответ в хвосте.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+H");
         await editor.waitForText((t) => t.includes("OUTPUT"));

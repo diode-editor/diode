@@ -10,10 +10,7 @@ import { frameToText } from "./helpers/frame.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Функциональные e2e стейджинга (устройство — docs/arch/workbench/SourceControl.md;
-// бывшие US-1…US-9, US-12): группы ресурсов, stage/unstage из контекстного меню (строка, заголовок
-// группы, палитро-команды stageAll/unstageAll), multi-select. Git-ассерты —
-// строго после того, как UI-предикат подтвердил завершение операции.
+// Git-ассерты — строго после того, как UI-предикат подтвердил завершение операции.
 
 const SWITCH_KEYS = [
     { key: "alt+c", command: "workbench.view.scm" },
@@ -80,16 +77,13 @@ const A = 'export const a = "one";\n';
 const A_MOD = 'export const a = "two";\n';
 
 /**
- * Ждёт, пока Source Control освободится. Исчезновение строки — сигнал того, что
- * расширение опубликовало новый набор, но сама операция в этот момент ещё идёт
- * (публикация происходит внутри неё), а пока она идёт, мутирующие git-команды
- * недоступны. Кнопка действия гаснет ровно на время операции — по ней и ждём.
+ * Исчезновение строки — ещё не конец: публикация идёт внутри операции, и мутирующие
+ * git-команды пока недоступны. Кнопка действия гаснет ровно на время операции.
  */
 async function waitForScmIdle(session: HeadlessApp["session"]): Promise<void> {
     await session.waitForState("#scmActionButton", (s) => (s as { disabled?: boolean })?.disabled === false);
 }
 
-/** Кликает по пункту открытого меню, найдя его текст в кадре. */
 async function clickMenuItem(session: HeadlessApp["session"], label: string): Promise<void> {
     const frame = await session.waitForText((t) => t.includes(label));
     const lines = frameToText(frame).split("\n");
@@ -130,10 +124,8 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         // но помнит свою группу в id (по ней discard выбирает clean vs checkout).
         expect(await session.node("#scmGroup-untracked")).toBeNull();
         const newRow = await session.waitForNode("#scmRow-untracked-new-ts");
-        // MM-файл присутствует в обеих группах.
         await session.waitForNode("#scmRow-index-mm-ts");
         await session.waitForNode("#scmRow-worktree-mm-ts");
-        // Порядок секций: Staged выше Changes, untracked-строка — внутри Changes.
         const staged = (await session.node("#scmGroup-index"))!.box;
         const worktree = (await session.node("#scmGroup-worktree"))!.box;
         expect(staged.y).toBeLessThan(worktree.y);
@@ -149,17 +141,14 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("app.ts"));
         const row = await session.waitForNode("#scmRow-worktree-app-ts");
 
-        // Правый клик по строке → Stage Changes.
         await session.sendMouse({ action: "press", button: "right", x: row.box.x + 2, y: row.box.y });
         await session.sendMouse({ action: "release", button: "right", x: row.box.x + 2, y: row.box.y });
         await clickMenuItem(session, "Stage Changes");
 
-        // Строка переехала в Staged Changes; git подтверждает.
         await session.waitForNode("#scmRow-index-app-ts");
         await session.waitForNoNode("#scmRow-worktree-app-ts");
         expect(git(repo, "diff", "--cached", "--name-only").trim()).toBe("app.ts");
 
-        // Unstage через контекстное меню staged-строки.
         await waitForScmIdle(session);
         const stagedRow = await session.waitForNode("#scmRow-index-app-ts");
         await session.sendMouse({ action: "press", button: "right", x: stagedRow.box.x + 2, y: stagedRow.box.y });
@@ -230,7 +219,6 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("a.ts"));
         const rowA = await session.waitForNode("#scmRow-worktree-a-ts");
 
-        // Клик по a.ts, Shift+Down дважды: выделены a, b, c.
         await session.click(rowA.box.x + 2, rowA.box.y);
         await session.key("Shift+ArrowDown");
         await session.key("Shift+ArrowDown");
@@ -245,9 +233,8 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
             return ids.length === 2 && !ids.includes("scmRow-worktree-b-ts");
         });
 
-        // Контекстное меню по строке ИЗ выделения (правый клик по a.ts — курсор
-        // после Ctrl+клика стоит на снятой b.ts, keyboard-меню целилось бы в неё):
-        // цели — всё выделение, staged ровно a и c.
+        // Правый клик по a.ts: после Ctrl+клика курсор стоит на снятой b.ts, и keyboard-меню
+        // целилось бы в неё. Цели — всё выделение.
         await session.sendMouse({ action: "press", button: "right", x: rowA.box.x + 2, y: rowA.box.y });
         await session.sendMouse({ action: "release", button: "right", x: rowA.box.x + 2, y: rowA.box.y });
         await clickMenuItem(session, "Stage Changes");
@@ -270,7 +257,6 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.key("Alt+C");
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("app.ts"));
 
-        // Дискард tracked: сперва Cancel по Esc — файл не тронут.
         const row = await session.waitForNode("#scmRow-worktree-app-ts");
         await session.sendMouse({ action: "press", button: "right", x: row.box.x + 2, y: row.box.y });
         await session.sendMouse({ action: "release", button: "right", x: row.box.x + 2, y: row.box.y });
@@ -291,7 +277,6 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         // Windows: git checkout восстанавливает файл с CRLF (autocrlf) — нормализуем.
         expect(readFileSync(join(repo, "app.ts"), "utf8").replace(/\r\n/g, "\n")).toBe(A);
 
-        // Дискард untracked: warning про удаление, файл исчезает с диска.
         await waitForScmIdle(session);
         const newRow = await session.waitForNode("#scmRow-untracked-new-ts");
         await session.sendMouse({ action: "press", button: "right", x: newRow.box.x + 2, y: newRow.box.y });
@@ -317,7 +302,6 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.key("Alt+C");
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("st.ts"));
 
-        // Staged-строка: Unstage есть, Stage нет.
         const stagedRow = await session.waitForNode("#scmRow-index-st-ts");
         await session.sendMouse({ action: "press", button: "right", x: stagedRow.box.x + 2, y: stagedRow.box.y });
         await session.sendMouse({ action: "release", button: "right", x: stagedRow.box.x + 2, y: stagedRow.box.y });
@@ -328,7 +312,6 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.key("Escape");
         await session.waitForText((t) => !t.includes("Unstage Changes"));
 
-        // Worktree-строка: Stage есть.
         const wtRow = await session.waitForNode("#scmRow-worktree-wt-ts");
         await session.sendMouse({ action: "press", button: "right", x: wtRow.box.x + 2, y: wtRow.box.y });
         await session.sendMouse({ action: "release", button: "right", x: wtRow.box.x + 2, y: wtRow.box.y });
@@ -337,7 +320,6 @@ describe("SCM staging (functional e2e, спека SourceControl.md)", () => {
         await session.key("Escape");
         await session.waitForText((t) => !t.includes("Stage Changes"));
 
-        // Ничего не изменилось: индекс ровно с st.ts.
         expect(git(repo, "diff", "--cached", "--name-only").trim()).toBe("st.ts");
     }, 120_000);
 });

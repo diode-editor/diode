@@ -4,12 +4,8 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Семейство команд сравнения (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): «File: Compare Active
-// File With…» открывает пикер второй стороны (открытые вкладки + файлы
-// workspace), выбор — вкладку диффа `a ↔ b`; активный файл слева. Терминал
-// шире порога — кадр side-by-side.
+// Терминал шире порога side-by-side.
 
-/** Воркспейс без git: семейство File-команд от репозитория не зависит. */
 function makeWorkspace(): { dir: string; leftFile: string } {
     const dir = mkdtempSync(join(tmpdir(), "diode-compare-demo-"));
     const base = [
@@ -42,7 +38,6 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("greet"));
 
-        // Команда — через палитру, как пользователь.
         await editor.sendKey("Ctrl+P");
         await editor.sendText(">Compare Active File With...");
         await editor.waitForText((t) => t.includes("Compare Active File With..."));

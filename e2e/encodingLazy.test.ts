@@ -10,17 +10,13 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Кодировки на SEA-бинаре. iconv-lite — ленивый кусок бандла `lazy/iconv-lite.cjs`:
- * в `main.cjs` его нет, utf-8 и UTF-16 идут нативно, а кусок грузится на первом
- * Reopen with Encoding в однобайтной кодировке. Упакованная сборка без куска
- * упала бы на запасном `import("iconv-lite")` — пакета рядом нет, — поэтому
- * проверяется именно бинарь: правка и запись байт в байт, ошибок в Bootstrap нет
- * (отказ кэша кода куска ушёл бы туда непредвиденной ошибкой).
+ * iconv-lite — ленивый кусок `lazy/iconv-lite.cjs`, грузится на первой однобайтной
+ * кодировке. Сборка без куска упала бы на запасном `import("iconv-lite")` — поэтому
+ * проверяется бинарь; в Bootstrap ушёл бы и отказ кэша кода куска.
  */
 
 const TEXT = "Привет, мир!\n";
 
-/** «Change File Encoding» → режим → кодировка, как человек: F1, фильтр, Enter. */
 async function changeEncoding(session: HeadlessSession, mode: string, encodingLabel: string): Promise<void> {
     await session.sendKey("F1");
     await session.waitForNode("#quickInput");

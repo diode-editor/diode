@@ -9,11 +9,8 @@ import type { HeadlessApp } from "./helpers/appSession.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Функциональный e2e прогресса git-операций: спиннер в заголовке секции CHANGES
-// и в подписи кнопки, пока идёт коммит. Медленным делаем не наш код, а сам
-// `git commit` — настоящим pre-commit-хуком со `sleep` (husky/lint-staged
-// ровно так и выглядят). Всё остальное — настоящее: extension host, диспетчер
-// diode.git.op, очередь мутаций расширения.
+// Медленным делаем не наш код, а сам `git commit` — настоящим pre-commit-хуком со
+// `sleep`; extension host, диспетчер diode.git.op и очередь мутаций — настоящие.
 
 const SWITCH_KEYS = [
     { key: "alt+c", command: "workbench.view.scm" },
@@ -24,7 +21,6 @@ function gitQ(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
 
-/** Репозиторий со staged-правкой и медленным pre-commit-хуком. */
 function makeSlowRepo(): string {
     const repoDir = mkdtempSync(join(tmpdir(), "diode-scm-progress-"));
     gitQ(repoDir, "init", "-q");
@@ -74,9 +70,8 @@ describe("SCM: прогресс git-операции (functional e2e)", () => {
         await session.text("feat: slow");
         await session.key("Alt+Enter");
 
-        // Пока хук спит: заголовок секции занят, кнопка погашена и говорит, чем.
-        // Во время анимации шлём только ожидания и снимки — settling-ввод не
-        // дождался бы «тихого» кадра, пока спиннер тикает.
+        // Во время анимации — только ожидания и снимки: settling-ввод не дождался бы «тихого»
+        // кадра, пока спиннер тикает.
         await session.waitForState("#paneHeader-workbench-scm-changes", (s) => (s as { busy?: boolean })?.busy === true);
         await session.waitForState("#scmActionButton", (s) => {
             const state = (s ?? {}) as ButtonState;
@@ -87,7 +82,6 @@ describe("SCM: прогресс git-операции (functional e2e)", () => {
         // недоступна (enablement), а не встаёт второй в очередь мутаций.
         await session.key("Alt+Enter", { settle: false });
 
-        // Хук отработал: спиннер снят, кнопка вернулась, коммит на месте.
         await session.waitForState(
             "#paneHeader-workbench-scm-changes",
             (s) => (s as { busy?: boolean })?.busy === false,

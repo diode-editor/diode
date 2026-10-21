@@ -18,10 +18,8 @@ import {
     startOutputApp,
 } from "./outputPanel.shared.ts";
 
-// Регрессии вокруг фикса шести дефектов PR #197 (255d596): фиксы трогают общую
-// машинерию (Tab-обход всего дерева, пересборку редактора при перечитке, пиннинг
-// цели find, гейт read-only), поэтому смотрим на соседей. На общих хелперах:
-// ни одного sleep, координаты — от контента (clickText) или из inspectState.
+// Фиксы шести дефектов PR #197 (255d596) трогают общую машинерию: Tab-обход дерева,
+// пересборку редактора при перечитке, пиннинг цели find, гейт read-only — смотрим на соседей.
 
 describe("Output panel fix — регрессии соседних механизмов", () => {
     let app: HeadlessApp | null = null;
@@ -62,17 +60,10 @@ describe("Output panel fix — регрессии соседних механи�
     }, 180_000);
 
     /**
-     * `it.fails` — тест документирует ИЗВЕСТНЫЙ дефект и «проходит», пока дефект
-     * жив; когда его починят, он покраснеет и попросит снять маркер. Дефект
-     * пре-существующий, не из PR #197. Репро — docs/TODO/E2E.md, «Найденные дефекты».
-     *
-     * Воркспейс здесь — **герметичная папка из двух файлов**, а не repoRoot, как у
-     * соседей. Причина: дефект — гонка фокуса вокруг смены вкладки, и на большом
-     * репозитории её исход зависит от фонового шума (LSP индексирует дерево, git
-     * следит за рабочей копией, сборка пишет в `dist/` прямо во время прогона) —
-     * тест начинает флейкать в обе стороны. В герметичной папке дефект
-     * воспроизводится стабильно, поэтому `it.fails` снова осмыслен: он краснеет
-     * от починки дефекта, а не от занятости машины.
+     * `it.fails` документирует известный дефект (не из #197; репро — docs/TODO/E2E.md):
+     * починят — покраснеет и попросит снять маркер. Воркспейс — герметичная папка, а не
+     * repoRoot: дефект — гонка фокуса, и на большом репозитории фоновый шум (LSP, git,
+     * сборка в `dist/`) давал флейк в обе стороны.
      */
     it.fails("find, оставленный открытым, переживает смену вкладки", async () => {
         const workspace = mkdtempSync(join(tmpdir(), "diode-find-focus-"));
@@ -103,7 +94,6 @@ describe("Output panel fix — регрессии соседних механи�
         await session.key("Ctrl+F");
         expect(await focusedType(session)).toBe("InputElement");
         await session.key("Tab");
-        // После Tab фокус обязан на чём-то стоять (не «провалиться»).
         expect(await focusedType(session)).not.toBeUndefined();
         await session.key("Escape");
         expect(await focusedType(session)).toBe("EditorElement");
@@ -113,8 +103,7 @@ describe("Output panel fix — регрессии соседних механи�
         app = await startOutputApp();
         const { session } = app;
         await session.waitForText((t) => t.includes("greeting"));
-        // Курсор сразу после «greeting» (перед пробелом и «=»): Tab там вставляет
-        // выравнивающий отступ. Позиция — по контенту, не по магической координате.
+        // Курсор сразу после «greeting»: Tab там вставляет выравнивающий отступ.
         await clickText(session, "const greeting", { dx: "const greeting".length });
         await session.key("Tab");
         const row = findTextRow(await session.captureFrame(), "const greeting");
@@ -156,7 +145,6 @@ describe("Output panel fix — регрессии соседних механи�
             if (m !== null) lineNos.push(Number(m[1]));
         }
         expect(lineNos.length, "в панели должны быть видны строки лога").toBeGreaterThan(0);
-        // Хвост: последняя видимая строка — одна из самых свежих.
         expect(Math.max(...lineNos)).toBeGreaterThan(15);
     }, 180_000);
 
@@ -175,8 +163,7 @@ describe("Output panel fix — регрессии соседних механи�
         const { session } = app;
         await session.waitForText((t) => t.includes("original line"));
 
-        // Уводим фокус из редактора — в дерево файлов (клик по имени в сайдбаре,
-        // не по одноимённой вкладке сверху: ограничиваем столбец).
+        // Фокус — в дерево файлов; `maxX` — чтобы не попасть в одноимённую вкладку сверху.
         await clickText(session, "watched.txt", { maxX: 20 });
         const before = await focusedType(session);
         expect(before, "фокус должен уйти из редактора").not.toBe("EditorElement");
@@ -184,12 +171,11 @@ describe("Output panel fix — регрессии соседних механи�
         writeFileSync(file, "changed on disk\n");
         await session.waitForText((t) => t.includes("changed on disk"), { timeoutMs: 15_000 });
 
-        // Перечитка не должна утаскивать фокус в редактор.
         expect(await focusedType(session)).toBe(before);
     }, 180_000);
 });
 
-/** Индекс строки кадра с первым вхождением `needle` (или -1). */
+/** -1 — не нашлось. */
 function findTextRow(frame: import("@tuidom/core/rendering/gridSnapshot").GridSnapshot, needle: string): number {
     for (let y = 0; y < frame.rows; y++) if (frameLine(frame, y).includes(needle)) return y;
     return -1;

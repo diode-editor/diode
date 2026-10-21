@@ -23,14 +23,9 @@ interface IGhostState {
 const describeLinuxOnly = process.platform === "linux" ? describe : describe.skip;
 
 /**
- * Ждёт появления ghost text, перепечатывая последний символ триггера при
- * неудаче: расширение активируется асинхронно (на медленном раннере — секундами
- * после открытия файла), а запрос, ушедший до регистрации провайдера,
- * возвращает пусто. Backspace+символ — новая правка → новый авто-запрос
- * (паттерн region-folding: retry до признака, который даёт только провайдер).
- * Escape перед перепечаткой закрывает suggest-попап: пока провайдера призрака
- * не было, quick suggest не ждал его и мог открыть попап по словам буфера, а
- * под открытым попапом призрак не рисуется.
+ * Перепечатывает последний символ триггера, пока нет призрака: запрос, ушедший до
+ * регистрации провайдера (активация асинхронна), возвращает пусто. Escape перед
+ * перепечаткой закрывает suggest-попап по словам буфера — под ним призрак не рисуется.
  */
 async function waitForGhostRetyping(
     session: {
@@ -57,10 +52,6 @@ async function waitForGhostRetyping(
     }
 }
 
-// Призрачные подсказки end-to-end на настоящем бинаре: фикстурное расширение
-// inline-ghost (канированный «LLM» с задержкой ответа) — набор текста рисует
-// ghost text, Esc гасит, Tab принимает одной undo-правкой. Ассерты — по
-// inspectState (ghostText/viewZones/lineCount): фантом не должен менять документ.
 describeLinuxOnly("inline completions — ghost text from a user extension", () => {
     beforeAll(async () => {
         await getBinaryPath();
@@ -77,8 +68,7 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.key("Enter");
         await session.text("function fib");
 
-        // Ghost появился (inspectState) и дорисован в кадре, а документ не
-        // изменился: строк по-прежнему 3 (фантом живёт в view zones).
+        // Документ не изменился: фантом живёт в view zones.
         const withGhost = await waitForGhostRetyping(session, "b");
         const ghost = withGhost.state?.ghostText as IGhostState;
         expect(ghost).toEqual({ line: 1, character: 12, lines: FIB_BODY.split("\n") });
@@ -86,8 +76,6 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         expect(withGhost.state?.lineCount).toBe(3); // «// Fibonacci demo», «function fib», хвостовая пустая
         await session.waitForText((t) => t.includes("return fibonacci(n - 1)"), { timeoutMs: 5000 });
 
-        // Tab принимает подсказку целиком: строки стали настоящими (lineCount
-        // 3 → 6), ghost и зоны сняты, каретка в конце вставки.
         await session.key("Tab");
         const accepted = await session.waitForState(
             "EditorElement",
@@ -102,10 +90,8 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.waitForState("EditorElement", (s) => s?.lineCount === 3, { timeoutMs: 5000 });
     }, 120_000);
 
-    // Догфудинг: попап по словам буфера перебивал призрака на каждом символе.
-    // Эталон (`editor.quickSuggestions` → `offWhenInlineCompletions`): quick
-    // suggest ждёт исхода запроса призрака — пришёл призрак, попапа нет; нечего
-    // предложить — попап открывается.
+    // Эталон: `editor.quickSuggestions` → `offWhenInlineCompletions` — quick suggest
+    // ждёт исхода запроса призрака.
     it("quick suggest уступает призраку: есть подсказка — попапа нет, нет — попап открывается", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
@@ -124,8 +110,7 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         expect(await session.node("CompletionListElement")).toBeFalsy();
         expect(((await session.node("EditorElement"))?.state?.ghostText as IGhostState).lines[0]).toBe("onacci(n) {");
 
-        // Провайдеру нечего сказать на «fibb» — попап по словам открывается
-        // после его пустого ответа.
+        // На «fibb» провайдеру нечего сказать — попап открывается после пустого ответа.
         await session.key("b");
         await session.waitForNode("CompletionListElement", { timeoutMs: 5000 });
         const editor = await session.node("EditorElement");
@@ -143,22 +128,19 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.waitForNode("EditorElement");
         await session.key("End");
         await session.key("Enter");
-        // До полного триггера: попап открываем ЯВНО (Ctrl+Space, «fi» —
-        // префикс «fibber»), чтобы правка ниже гарантированно пришлась на
-        // открытый попап — без гонки с таймингами авто-suggest.
+        // Попап открываем ЯВНО (Ctrl+Space на «fi»): правка ниже гарантированно придётся
+        // на открытый попап, без гонки с таймингами авто-suggest.
         await session.text("function fi");
         await session.key("Ctrl+Space");
         await session.waitForNode("CompletionListElement", { timeoutMs: 5000 });
 
-        // Правка при открытом попапе: запрос призрака уходит, но ответ под
-        // попапом не рисуется — попап остаётся («fib» всё ещё префикс).
+        // Ответ призрака под открытым попапом не рисуется — попап остаётся.
         await session.key("b");
         await session.waitForNode("CompletionListElement", { timeoutMs: 5000 });
         const held = await session.node("EditorElement");
         expect(held?.state?.ghostText ?? null).toBeNull();
 
-        // Esc закрывает попап — призрак появляется БЕЗ новой правки: готовый
-        // ответ возвращается на экран сразу, иначе запрос уходит сам.
+        // Призрак появляется БЕЗ новой правки: готовый ответ возвращается на экран сразу.
         await session.key("Escape");
         await session.waitForNoNode("CompletionListElement", { timeoutMs: 5000 });
         const withGhost = await session.waitForState("EditorElement", (s) => (s?.ghostText ?? null) !== null, {
@@ -167,13 +149,9 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         expect((withGhost.state?.ghostText as IGhostState).lines[0]).toBe("onacci(n) {");
     }, 120_000);
 
-    // Заявка n-4: каретка в середине строки (типичный случай — внутри скобок,
-    // в середине объекта). Пользователь ждёт призрака между кареткой и хвостом
-    // строки; сегодня подсказка не показывается вовсе.
     it("каретка в середине строки: призрак рисуется перед хвостом, Tab вставляет, Esc возвращает строку", async () => {
         const { session } = await useHeadlessApp({
             seedUserData: userData,
-            // Во второй строке заранее лежит хвост «)» — наберём триггер перед ним.
             files: { "sample.ts": "// demo\n)\n" },
             open: ["sample.ts"],
         });
@@ -182,11 +160,9 @@ describeLinuxOnly("inline completions — ghost text from a user extension", () 
         await session.key("Home");
         await session.text("const greeting");
 
-        // Призрак пришёл на каретку (колонка 14), хвост строки — за ним.
         const withGhost = await waitForGhostRetyping(session, "g");
         const ghost = withGhost.state?.ghostText as IGhostState;
         expect(ghost).toEqual({ line: 1, character: 14, lines: [GREETING_BODY] });
-        // Кадр: пользователь видит и подсказку, и свой хвост «)».
         await session.waitForText((t) => t.includes(`const greeting${GREETING_BODY})`), { timeoutMs: 5000 });
         // Документ фантом не трогает: строк по-прежнему 3.
         expect(withGhost.state?.lineCount).toBe(3);

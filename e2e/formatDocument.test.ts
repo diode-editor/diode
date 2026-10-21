@@ -7,11 +7,7 @@ import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
-/**
- * Format Document (Shift+Alt+F) от стокового `typescript-language-server` в
- * SEA-бинаре: команда ядра гонит запрос через провайдерный шов и применяет
- * правки настоящего tsserver'а к буферу (#196).
- */
+/** Format Document от стокового `typescript-language-server` в SEA-бинаре (#196). */
 
 const require_ = createRequire(import.meta.url);
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
@@ -22,14 +18,12 @@ const LSP_SETTINGS = {
     "diode.lsp.typescript.tsserverPath": TSSERVER_JS,
 };
 
-// Каша из пробелов + ошибка типов (readiness по undercurl — сервер проиндексировал).
+// Ошибка типов — для readiness по undercurl.
 const MESSY_TS = 'const  answer :   number  =  "oops";\n\nfunction   greet( name:string ){\n        return  "hi "  +  name;\n}\n';
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
 const UNDERCURL = 8;
 
-// Extension-host subprocess + спавн language-сервера — Linux-only, как
-// gotoDefinition / parameterHints (см. docs/TODO/E2E.md).
+// Только Linux: extension host + спавн language-сервера (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
     "SEA binary — Format Document от стокового typescript-language-server",
     () => {
@@ -48,8 +42,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             });
             await session.waitForNode("EditorElement");
 
-            // Диагностика настоящего tsserver'а дорисовалась до squiggle — это же
-            // readiness-сигнал «сервер проиндексировал проект».
+            // Squiggle от tsserver — readiness-сигнал «сервер проиндексировал проект».
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),

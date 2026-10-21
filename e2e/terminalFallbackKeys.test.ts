@@ -5,13 +5,9 @@ import { frameToText } from "./helpers/frame.ts";
 import type { HeadlessSession } from "./helpers/headlessSession.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Комбинации, которые обычный терминал передать не может.
-//
-// Ctrl+Shift+F/G и Ctrl+Tab на legacy-терминале физически неотличимы от Ctrl+F,
-// Ctrl+G и Tab, поэтому у команд есть запасной путь: leader-аккорды Ctrl+K F /
-// Ctrl+K G и Ctrl+6 (control-код 0x1e доходит везде). E2E-спаун герметичен —
-// маркеры терминала вычищены, tier там ровно `legacy`, то есть тот же режим,
-// в котором сидит пользователь под tmux.
+// Ctrl+Shift+F/G и Ctrl+Tab на legacy-терминале неотличимы от Ctrl+F, Ctrl+G и Tab —
+// запасной путь: Ctrl+K F / Ctrl+K G и Ctrl+6 (0x1e доходит везде). E2E-спаун
+// герметичен, tier ровно `legacy` — как у пользователя под tmux.
 
 const files = {
     "alpha.ts": "const alpha = 1;\n",
@@ -40,8 +36,7 @@ describe("Фоллбэки клавиш для legacy-терминала", () =>
         await session.waitForText((t) => t.includes("const bravo"));
     }, 120_000);
 
-    // Сайдбар показывает вьюлеты только при открытой папке — открываем воркспейс
-    // вместе с файлом, иначе команда отработает «в никуда».
+    // Вьюлеты сайдбара — только при открытой папке, иначе команда отработает «в никуда».
     it("Ctrl+K F открывает Search, Ctrl+K G — Source Control", async () => {
         const { session } = await useHeadlessApp({ files, open: [".", "alpha.ts"] });
         await session.waitForText((t) => t.includes("const alpha"));

@@ -6,16 +6,7 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Java: «Move type to new file» НАСТОЯЩЕГО redhat.java (jdt.ls) и его отмена.
-// Путь как у пользователя VS Code: меню рефакторингов → «Move...» → quick pick
-// расширения «Move type Helper to new file» (`refactorAction.ts` vscode-java:
-// `java/move` с `moveTypeToNewFile`, правку расширение применяет само через
-// `workspace.applyEdit`). Вторичный тип `Helper` из App.java уезжает в свой
-// Helper.java; Ctrl+Z из исходника откатывает шаг целиком — новый файл уходит
-// с диска, класс возвращается.
-//
-// Каталог наполняется в prepare: сценарий пишет на диск. pom.xml — тот же, что
-// у java-lsp (проект без внешних зависимостей, ~/.m2 не нужен).
+// Каталог наполняется в prepare: сценарий пишет на диск. pom.xml — тот же, что у java-lsp.
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-java-move-demo-"));
 const packageDir = join(sampleDir, "src", "main", "java", "demo");
@@ -60,11 +51,10 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("class Helper {"));
 
-        // Каретка на `Helper` в объявлении (строка 9, колонка 6).
+        // `Helper` в объявлении: строка 9, колонка 6.
         for (let i = 0; i < 8; i++) await editor.sendKey("ArrowDown");
         for (let i = 0; i < 6; i++) await editor.sendKey("ArrowRight");
-        // Рефакторинги jdt.ls отдаёт, только когда импортировал проект:
-        // переоткрываем меню, пока пункт не появится (см. java-lsp).
+        // Рефакторинги jdt.ls отдаёт только после импорта проекта — переоткрываем меню, пока пункт не появится.
         const deadline = Date.now() + 400_000;
         for (;;) {
             await editor.sendKey("F6");
@@ -93,7 +83,6 @@ export default defineScenario({
         });
         await editor.capture("moved");
 
-        // Ctrl+Z из исходника: шаг целиком — новый файл уходит с диска.
         await editor.sendKey("Ctrl+Z");
         await waitUntil(
             () => Promise.resolve(existsSync(helperFile)),

@@ -6,15 +6,7 @@ import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
-/**
- * Сквозная интеграция стокового `typescript-language-server` в SEA-бинаре:
- * builtin `diode-lsp-typescript` (стоковый vscode-languageclient внутри бандла)
- * лениво активируется по открытию `.ts`, спавнит сервер из devDeps репозитория
- * (путь через настройку; вшитый сервер — docs/arch/Extensions.md, «Builtin LSP-клиент»),
- * и его диагностика доезжает до squiggle, а F12 прыгает в другой файл.
- *
- * Правки НЕ сохраняются на диск — сервер обязан видеть живой буфер (didChange).
- */
+/** Правки НЕ сохраняются на диск — сервер обязан видеть живой буфер (didChange). */
 
 const require_ = createRequire(import.meta.url);
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
@@ -26,14 +18,12 @@ const LSP_SETTINGS = {
 };
 
 const DEFS_TS = 'export function greet(name: string): string {\n    return "hi " + name;\n}\n';
-// Ошибка типов: greet возвращает string, а reply объявлен number → squiggle.
+// Ошибка типов — для squiggle (readiness).
 const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply: number = greet("world");\n\nexport { reply };\n';
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
 const UNDERCURL = 8;
 
-// Extension-host subprocess + спавн language-сервера — Linux-only, как
-// editorconfig-stock / sea-git (см. docs/TODO/E2E.md).
+// Только Linux: extension host + спавн language-сервера (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
     "SEA binary — stock typescript-language-server (LSP)",
     () => {
@@ -53,16 +43,14 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             });
             await session.waitForNode("EditorElement");
 
-            // 1. Диагностика настоящего tsserver'а дорисовалась до squiggle —
-            // это же readiness-сигнал «сервер проиндексировал проект».
+            // Squiggle от tsserver — readiness-сигнал «сервер проиндексировал проект».
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
                 { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
-            // 2. Несохранённая правка: две пустые строки в начале main.ts —
-            // вызов greet съезжает на строку 4. Сервер обязан видеть живой буфер.
+            // Несохранённая правка: вызов greet съезжает на строку 4.
             await session.key("Enter");
             await session.key("Enter");
 
@@ -72,8 +60,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             for (let i = 0; i < 23; i++) await session.key("ArrowRight");
             await session.key("F12");
 
-            // 4. Прыжок в defs.ts: контент другого файла на экране, каретка на
-            // объявлении greet (0-based 0:16).
+            // Каретка на объявлении greet в defs.ts (0-based 0:16).
             await session.waitForText((text) => text.includes('return "hi " + name'), {
                 timeoutMs: 60_000,
                 intervalMs: 500,

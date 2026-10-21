@@ -8,14 +8,8 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Автодополнение стокового `typescript-language-server` в SEA-бинаре: набор
- * точки сам открывает попап с членами типа (триггер-символ объявляет сервер),
- * а Ctrl+Space при открытом попапе разворачивает панель описания, куда
- * приезжает сигнатура из отдельного `completionItem/resolve`.
- *
- * Почему e2e, а не юнит: до этой задачи конвертер стокового клиента падал на
- * каждом ответе сервера молча (ошибка только в его outputChannel), и попап
- * оставался с одними словами из буфера. Такое видно лишь на настоящем кадре.
+ * Почему e2e: конвертер стокового клиента падал на каждом ответе молча (ошибка только
+ * в его outputChannel), и попап оставался со словами буфера — видно лишь на кадре.
  */
 
 const require_ = createRequire(import.meta.url);
@@ -29,7 +23,6 @@ const DEFS_TS = 'export function greet(name: string): string {\n    return "hi "
 // Ошибка типов даёт squiggle — он же readiness-сигнал «сервер поднялся».
 const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply: number = greet("world");\n\nexport { reply };\n';
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8). */
 const UNDERCURL = 8;
 
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
@@ -51,7 +44,6 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             });
             await session.waitForNode("EditorElement");
 
-            // Сервер поднялся и проиндексировал проект.
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
@@ -64,8 +56,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await session.key("Enter");
             for (const key of ["r", "e", "p", "l", "y", "."]) await session.key(key);
 
-            // Точка — триггер-символ сервера: попап открылся сам, и в нём члены
-            // number, а не слова из буфера (их в файле нет вовсе).
+            // Точка — триггер-символ сервера; членов number в файле нет — это не слова буфера.
             await session.waitForText((text) => text.includes("toFixed") && text.includes("toPrecision"), {
                 timeoutMs: 120_000,
                 intervalMs: 500,
@@ -92,17 +83,13 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             const list = boxes.find((n) => n.type === "CompletionListElement");
             expect(details?.box.width).toBeGreaterThan(0);
             expect(list?.box.width).toBeGreaterThan(0);
-            // Не пересекаются: панель стоит сбоку (слева или справа — как влезло).
             const [left, right] =
                 details!.box.x < list!.box.x ? [details!.box, list!.box] : [list!.box, details!.box];
             expect(left.x + left.width).toBeLessThanOrEqual(right.x);
 
-            // Несловесный символ закрывает попап, и Enter снова печатает перевод
-            // строки. Пока список оставался видимым, Enter забирал себе
-            // `acceptSelectedSuggestion` (when: suggestWidgetVisible) и молча
-            // заменял набранное пунктом — пользователь видел «стёрлась часть
-            // текста». Проверяем на живом сервере: границу префикса здесь задал
-            // он сам (range после точки), а именно её нельзя пересчитывать.
+            // Пока список оставался видимым, Enter забирал `acceptSelectedSuggestion` и молча
+            // заменял набранное пунктом. На живом сервере: границу префикса задал он сам
+            // (range после точки), а её нельзя пересчитывать.
             for (const key of ["t", "o"]) await session.key(key);
             await session.waitForText((text) => text.includes("reply.to"), { timeoutMs: 60_000 });
 

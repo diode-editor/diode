@@ -7,23 +7,14 @@ import { waitUntil } from "../helpers/waitFor.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `WorkspaceConfiguration.update` из расширения. Фикстура `config-update-demo`
-// повторяет Bazel-плагин: держит в статус-баре `get("open")` своей настройки
-// и по команде гасит её `update("open", false)` без цели — в настройки
-// воркспейса. Кадры: значение по умолчанию → после записи статус-бар и тост
-// расширения (читает сразу после `await`) видят `false`, а файл
-// `.diode/settings.json` папки лёг на диск → он же через «Preferences: Open
-// Workspace Settings (JSON)» → запись незарегистрированного ключа отклонена
-// текстом эталона, который расширение показало само.
-//
-// Папка — во временном каталоге: запись ложится НА ДИСК, коммитнутую фикстуру
-// пачкать нельзя (паттерн bulkWorkspaceEdit.scenario.ts).
+// Фикстура `config-update-demo` повторяет Bazel-плагин: `update("open", false)` без цели пишет в настройки
+// воркспейса, тост читает значение сразу после `await`. Папка — во временном каталоге: запись ложится на диск,
+// коммитнутую фикстуру пачкать нельзя.
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-config-update-demo-"));
 const settingsFile = join(sampleDir, ".diode", "settings.json");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-config-update");
 
-/** Исполняет команду через палитру (F1 → заголовок → Enter). */
 async function runCommand(editor: ScenarioDriver, title: string): Promise<void> {
     await editor.sendKey("F1");
     await editor.waitForNode("#quickInput");
@@ -39,7 +30,6 @@ export default defineScenario({
     open: [sampleDir],
     cols: 120,
     rows: 26,
-    // Extension-host сценарий: CI-safety-net гоняем только на Linux.
     skipOn: ["win32", "darwin"],
     async prepare() {
         writeFileSync(join(sampleDir, "BUILD"), "# демо-воркспейс\n");
@@ -52,11 +42,9 @@ export default defineScenario({
 
         await runCommand(editor, "Config Update Demo: Do Not Open Project View Again");
         await editor.waitForText(
-            // Статус-бар перерисован по onDidChangeConfiguration — без перезапуска.
             (t) => t.includes("projectview.open=false") && t.includes("After await update(): open=false"),
             { timeoutMs: 10_000 },
         );
-        // Главная проверка: файл настроек воркспейса на диске.
         await waitUntil(
             () => Promise.resolve(readSettings()),
             (text) => text.includes('"configUpdateDemo.projectview.open": false'),

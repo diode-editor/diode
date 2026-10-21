@@ -2,13 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// explorer.compactFolders (дефолт true, как в эталоне): Java-раскладка
-// `src/main/java/com/example` — цепочка папок с единственным ребёнком-каталогом
-// — показывается в дереве одной строкой «src/main/java/com/example».
-//
-// Сжатие ленивое, как у эталона: цепочку узнают, когда раскрывают её голову.
-// Здесь её раскрывает автоподсветка открытого файла (explorer.autoReveal) —
-// reveal идёт сквозь компактную строку и выделяет файл под ней.
+// Сжатие ленивое, как у эталона: цепочку раскрывает автоподсветка открытого файла (explorer.autoReveal).
 
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "compactFolders");
 const appFile = resolve(sampleDir, "src", "main", "java", "com", "example", "App.java");
