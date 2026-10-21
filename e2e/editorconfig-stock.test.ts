@@ -13,24 +13,9 @@ import { findNode } from "./helpers/inspectorClient.ts";
 import { DiodeSession } from "./helpers/runDiode.ts";
 
 /**
- * Сквозная интеграция стокового расширения `EditorConfig.EditorConfig`
- * (немодифицированный `.vsix` из open-vsx) с Diode:
- *
- *   1. установка ИЗ МАГАЗИНА по id CLI-флагом `--install-extension` —
- *      последняя опубликованная совместимая версия, без пина в тесте
- *      (конвенция — docs/TESTING.md «Тесты на стоковые расширения»);
- *   2. запуск собранного SEA-бинаря и проверка всех свойств EditorConfig на
- *      реальном коде расширения — отступы, trim_trailing_whitespace,
- *      insert_final_newline, end_of_line (LF↔CRLF), charset (graceful degrade),
- *      команда `EditorConfig.generate`, completion в `.editorconfig`.
- *
- * Предмет сьюта — работа ЧУЖОГО кода в Diode; наши контракты, на которые он
- * опирается (will-save participants, `TextEditor.options`, смена EOL, encoding,
- * contributed-команды, completion-провайдеры), закрыты герметичными сьютами на
- * синтетических расширениях — этот сьют их не заменяет и не дублирует.
- *
- * Save-трансформации проверяются по БАЙТАМ на диске (не через inspector).
- * Готовность/состояние UI — через TUIDom-inspector. Ввод — через pty.
+ * Предмет сьюта — работа ЧУЖОГО кода: стоковый EditorConfig из магазина, версия не
+ * пинится. Наши контракты под ним закрыты герметичными сьютами, этот их не дублирует.
+ * Save-трансформации проверяются по БАЙТАМ на диске.
  */
 
 const EC_ID = "EditorConfig.EditorConfig";
@@ -39,7 +24,7 @@ const here = fileURLToPath(new URL(".", import.meta.url));
 const PROJECT_FIXTURE = path.resolve(here, "fixtures", "editorconfig", "project");
 
 const SAVE = "\x13"; // Ctrl+S → workbench.action.files.save
-const CTRL_SPACE = "\x00"; // Ctrl+Space → editor.action.triggerSuggest
+const CTRL_SPACE = "\x00";
 
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -63,10 +48,7 @@ function runCli(binary: string, args: readonly string[]): Promise<CliResult> {
     });
 }
 
-// Gated to non-Windows: the suite drives the app through the pty (Ctrl+S, typing,
-// Ctrl+Space), and Windows ConPTY does not deliver injected input reliably — the
-// same reason the repo's screen-content e2e are Linux-only. The Linux e2e job is
-// the reference for this integration proof.
+// Не Windows: ввод идёт через pty, а ConPTY инъектированный ввод доставляет ненадёжно.
 describe.skipIf(process.platform === "win32" || MARKETPLACE_OFFLINE)("SEA binary — stock editorconfig-vscode integration", () => {
     let binary: string;
     let tempRoot: string;
@@ -78,13 +60,10 @@ describe.skipIf(process.platform === "win32" || MARKETPLACE_OFFLINE)("SEA binary
         tempRoot = await fs.promises.mkdtemp(path.join(os.tmpdir(), "diode-ec-e2e-"));
         userDataDir = path.join(tempRoot, "user-data-root");
 
-        // (1) Install from the public marketplace by id — the user's own path
-        // (registry meta → latest compatible version → download → sha256 → unpack).
         const install = await runCli(binary, ["--user-data-dir", userDataDir, "--install-extension", EC_ID]);
         expect(install.stderr).toBe("");
         expect(install.code).toBe(0);
-        // The version is whatever the registry currently publishes — parse it from
-        // the CLI report instead of pinning it here (docs/TESTING.md convention).
+        // Версия — какую реестр публикует сейчас: не пинить (docs/TESTING.md).
         const installed = new RegExp(`Installed ${EC_ID}@(\\S+)`).exec(install.stdout);
         expect(installed).not.toBeNull();
         const version = installed![1];

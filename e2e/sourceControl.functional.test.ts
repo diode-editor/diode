@@ -12,14 +12,8 @@ import { frameToText } from "./helpers/frame.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Функциональные e2e Source Control (#207, миграция на ListViewElement): чёрным
-// ящиком через инспектор настоящего бинаря. Проверяем заявленное поведение и
-// крайние случаи: переключение Explorer↔SCM, список изменений, прямой дифф по
-// двойному клику (одной вкладкой), инлайн-кнопку Open File, режимы tree/flat,
-// контекстное меню, untracked/deleted, чистое репо, не-git папку.
 
-// Переключатели вьюлетов и режимов — user-кейбиндами (детерминированно, без
-// палитры). Буквы НЕ мнемонические (F/E/S/V/G/H — меню-бар), как в scenario.
+// Буквы НЕ мнемонические: F/E/S/V/G/H заняты меню-баром.
 const SWITCH_KEYS = [
     { key: "alt+c", command: "workbench.view.scm" },
     { key: "alt+x", command: "workbench.view.explorer" },
@@ -32,15 +26,10 @@ function git(cwd: string, ...args: string[]): void {
 }
 
 interface RepoOptions {
-    /** Файлы, которые коммитим в начальный коммит. */
     committed?: Record<string, string>;
-    /** Правки поверх закоммиченного (modified). */
     modify?: Record<string, string>;
-    /** Новые файлы на диске (untracked). */
     untracked?: Record<string, string>;
-    /** Не делать никаких рабочих изменений (чистое дерево). */
     clean?: boolean;
-    /** Не инициализировать git вовсе (обычная папка). */
     noGit?: boolean;
 }
 
@@ -77,12 +66,11 @@ async function open(repoDir: string, keybindings = SWITCH_KEYS): Promise<Headles
     return useHeadlessApp({ open: [repoDir], keybindings, cols: 100, rows: 24 });
 }
 
-/** Строка кадра, содержащая иглу (для проверки бейджа-статуса рядом с именем). */
 function lineWith(frame: string, needle: string): string {
     return frame.split("\n").find((l) => l.includes(needle)) ?? "";
 }
 
-/** Текст только внутри прямоугольника узла (колонки/строки), без соседних панелей. */
+/** Текст только внутри прямоугольника узла — без соседних панелей. */
 function regionText(frame: string, box: { x: number; y: number; width: number; height: number }): string {
     const lines = frame.split("\n");
     const out: string[] = [];
@@ -112,7 +100,6 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         app = await open(repo);
         const { session } = app;
 
-        // Explorer по умолчанию: файлы видны.
         await session.waitForText((t) => t.includes("EXPLORER") && t.includes("app.ts") && t.includes("extra.ts"));
 
         await session.key("Alt+C");
@@ -121,10 +108,8 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
             .then(frameToText);
 
         expect(await session.node("#changesView")).not.toBeNull();
-        // Бейджи-статусы стоят рядом с именами: M у modified, U у untracked.
         expect(lineWith(frame, "app.ts")).toContain("M");
         expect(lineWith(frame, "extra.ts")).toContain("U");
-        // Список получил фокус (showViewlet reveal).
         expect(await session.focusedType()).toBe("ListViewElement");
     }, 120_000);
 
@@ -191,8 +176,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("app.ts"));
         const list = await session.waitForNode("#changesList");
 
-        // Файловая строка — под заголовком группы. Кнопка Open File раскрывается
-        // только на строке под указателем, поэтому сначала наводим мышь.
+        // Кнопка Open File раскрывается только на строке под указателем — сначала наводим мышь.
         const rowY = list.box.y + 1;
         await session.sendMouse({ action: "move", button: "none", x: list.box.x, y: rowY });
 
@@ -201,7 +185,6 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.sendMouse({ action: "press", button: "left", x: buttonX, y: rowY });
         await session.sendMouse({ action: "release", button: "left", x: buttonX, y: rowY });
 
-        // Открылась файловая вкладка с рабочим содержимым, диффа нет.
         const frame = await session.waitForText((t) => t.includes('"hello " + name')).then(frameToText);
         expect(frame).not.toContain("↔ HEAD");
     }, 120_000);
@@ -250,7 +233,6 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         const frame = await session.waitForText((t) => t.includes("Open File")).then(frameToText);
         expect(frame).toContain("Open Changes");
 
-        // Escape закрывает меню, приложение живо.
         await session.key("Escape");
         await session.waitForText((t) => !t.includes("Open Changes"));
         expect((await session.getDocument()).root).not.toBeNull();
@@ -265,7 +247,6 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.key("Alt+C");
         await session.waitForText((t) => t.includes("SOURCE CONTROL"));
 
-        // Вьюлет есть, приложение живо; файл-изменений в списке нет.
         expect(await session.node("#changesView")).not.toBeNull();
         const frame = frameToText(await session.captureFrame());
         // В SCM-вьюлете Explorer подменён, поэтому app.ts не должен фигурировать как изменение.
@@ -315,7 +296,6 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         const frame = await session
             .waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("mod.ts"))
             .then(frameToText);
-        // Метка — относительный путь, а не просто basename.
         expect(frame).toContain("src/deep/mod.ts");
     }, 120_000);
 
@@ -354,12 +334,10 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         app = await useHeadlessApp({ open: [repo, filePath], keybindings: SWITCH_KEYS, cols: 100, rows: 24 });
         const { session } = app;
 
-        // Открыт файл + переключаемся на пустой Source Control (изменений пока нет).
         await session.waitForText((t) => t.includes("greet"));
         await session.key("Alt+C");
         await session.waitForText((t) => t.includes("SOURCE CONTROL"));
-        // Регион списка (колонки сайдбара) — чтобы имя из вкладки редактора справа
-        // не считалось за изменение. Список пуст: app.ts тут пока нет.
+        // Регион списка — чтобы имя из вкладки редактора справа не считалось за изменение.
         const box = (await session.waitForNode("#changesView")).box;
         const scmBefore = regionText(frameToText(await session.captureFrame()), box);
         expect(scmBefore).not.toContain("app.ts");
@@ -370,7 +348,6 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.text("// touch\n");
         await session.key("Ctrl+S");
 
-        // Список обязан вживую показать app.ts как изменённый (M) — без переключения.
         const listLine = await session
             .waitForText((t) => regionText(t, box).includes("app.ts"), { timeoutMs: 30_000 })
             .then((f) => lineWith(regionText(frameToText(f), box), "app.ts"));

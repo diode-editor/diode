@@ -2,14 +2,7 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Призрачные подсказки (inline suggest, ghost text): фикстурное расширение
-// `inline-ghost` — фейковый «LLM» с канированными продолжениями и задержкой
-// ответа ~250 мс. Печатаем `function fib` — серым курсивом дорисовывается
-// многострочное тело функции (первая строка — хвост строки каретки, остальные —
-// view zones без номеров строк); Tab принимает подсказку одной правкой, и
-// строки становятся настоящими (у них появляются номера в гуттере). Вторая
-// половина — каретка в СЕРЕДИНЕ строки: призрак встаёт между кареткой и хвостом
-// строки (фантомные колонки внутри layout строки), Tab вставляет перед хвостом.
+// Фикстура `inline-ghost` — фейковый «LLM» с канированными продолжениями и задержкой ответа ~250 мс.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "ghost-sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-inline-ghost");
@@ -21,28 +14,18 @@ export default defineScenario({
     open: [repoRoot, sampleFile],
     cols: 100,
     rows: 24,
-    // Extension-host сценарий: CI-safety-net гоняем только на Linux (субпроцесс
-    // расширений на Windows флейкает — как settings-completion).
+    // Субпроцесс расширений на Windows флейкает.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("Fibonacci demo"));
 
-        // Новая строка под комментарием; набираем триггер фейкового «LLM».
         await editor.sendKey("End");
         await editor.sendKey("Enter");
         await editor.sendText("function fib");
 
-        // Ghost text дорисовался за кареткой: тела функции НЕТ в буфере — это
-        // фантом (в т.ч. строки-зоны ниже, у них пустой гуттер). Расширение
-        // активируется асинхронно — при неудаче перепечатываем последний символ
-        // (новая правка → новый авто-запрос), паттерн region-folding.
-        //
-        // Word-based попап («Fibonacci» лежит в самом буфере) призраку не
-        // мешает: quick suggest в режиме `offWhenInlineCompletions` ждёт ответа
-        // провайдера призрака и, раз призрак пришёл, не открывается вовсе.
-        // Esc перед перепечаткой — только против гонки активации: пока
-        // провайдера ещё нет, ждать нечего, и попап по словам открывается, а
-        // под открытым попапом призрак не рисуется.
+        // Расширение активируется асинхронно — при неудаче перепечатываем последний символ (новая правка → новый запрос).
+        // Esc перед перепечаткой — против гонки активации: пока провайдера нет, попап по словам открывается, а под ним
+        // призрак не рисуется.
         let ghostShown = false;
         for (let attempt = 0; attempt < 10 && !ghostShown; attempt++) {
             try {
@@ -57,17 +40,12 @@ export default defineScenario({
         if (!ghostShown) throw new Error("inline-completion: ghost text не появился за 10 попыток");
         await editor.capture("ghost");
 
-        // Tab принимает подсказку целиком: строки становятся настоящими, а
-        // каретка уезжает в конец вставки — статус-бар показывает Ln 5 (пока
-        // текст был фантомом, каретка стояла на Ln 2 и «Ln 5» в кадре не было).
+        // Пока текст был фантомом, каретка стояла на Ln 2 — «Ln 5» доказывает вставку.
         await editor.sendKey("Tab");
         await editor.waitForText((t) => t.includes("Ln 5"), { timeoutMs: 4000 });
         await editor.capture("accepted");
 
-        // Заявка n-4: каретка в СЕРЕДИНЕ строки. Готовим строку с хвостом —
-        // комментарий справа от каретки, — и печатаем триггер перед ним: призрак
-        // встаёт МЕЖДУ кареткой и хвостом (фантомные колонки внутри layout
-        // строки), а не поверх хвоста.
+        // Заявка n-4: каретка в середине строки — призрак встаёт между кареткой и хвостом, а не поверх.
         await editor.sendKey("End");
         await editor.sendKey("Enter");
         await editor.sendText("// greeting for the demo");
@@ -89,9 +67,7 @@ export default defineScenario({
         if (!midLineShown) throw new Error("inline-completion: призрак в середине строки не появился за 10 попыток");
         await editor.capture("ghost-mid-line");
 
-        // Tab вставляет подсказку перед хвостом: текст на экране тот же, но он
-        // уже настоящий — каретка встала за вставкой (Col 43 = 14 набранных + 28
-        // вставленных + 1), а комментарий остался за ней.
+        // Col 43 = 14 набранных + 28 вставленных + 1.
         await editor.sendKey("Tab");
         await editor.waitForText((t) => t.includes("Col 43"), { timeoutMs: 4000 });
         await editor.capture("mid-line-accepted");

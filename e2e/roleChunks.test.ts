@@ -12,17 +12,12 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Роли процесса — ленивые куски бандла (`roles/*` в scripts/build-lazy-chunks.mjs):
- * extension host грузит `lazy/roles/extension-host.cjs`, войдя в свою ветку
- * `main.ts`. Общие с редактором модули у куска свои, в том числе
- * `base/common/lazyModule.ts`, поэтому вход роли заново подставляет загрузчик
- * кусков. Без этого `openTextDocument` с однобайтной кодировкой искал бы iconv в
- * node_modules, которых у SEA нет. Остальное (активация, LSP, watcher) идёт через
- * куски в каждом e2e расширений; здесь — шов «кусок из куска», который они не видят.
- *
- * Self-extract — второй путь того же шва: там куски — файлы рядом с `main.cjs`, и
- * копия `entryDir()` в куске обязана найти этот каталог без `import.meta` (кусок —
- * CJS; см. `define` в scripts/build-lazy-chunks.mjs).
+ * Extension host грузит ленивый кусок `lazy/roles/extension-host.cjs`, а общие модули у
+ * куска свои, включая `base/common/lazyModule.ts`, — вход роли заново подставляет
+ * загрузчик кусков. Без этого `openTextDocument` в однобайтной кодировке искал бы iconv
+ * в node_modules, которых у SEA нет. Шов «кусок из куска» прочие e2e не видят.
+ * Self-extract: куски — файлы рядом с `main.cjs`, и `entryDir()` в CJS-куске обязан
+ * найти каталог без `import.meta` (`define` в scripts/build-lazy-chunks.mjs).
  */
 
 const TEXT = "Привет, мир!\n";

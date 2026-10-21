@@ -5,12 +5,8 @@ import { findTextCell } from "../helpers/frame.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Claude Code: НАСТОЯЩИЙ стоковый Anthropic.claude-code из магазина по id (как у
-// пользователя), терминальный режим. Кадры: пункт «✻ Claude Code» в статус-баре
-// после активации → клик открывает `claude` вкладкой в группе справа от файла.
-// Вместо настоящего CLI (подписка, сеть) — подставной `claude` из
-// e2e/fixtures/fakeClaude: печатает порт ide-сервера из окружения терминала и
-// `ideName` из лока — то, по чему настоящий `claude` находит Diode.
+// Стоковый Anthropic.claude-code из магазина; вместо настоящего CLI (подписка, сеть) — подставной `claude` из
+// e2e/fixtures/fakeClaude: печатает то, по чему настоящий находит Diode, — порт ide-сервера и `ideName` из лока.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
@@ -23,7 +19,7 @@ export default defineScenario({
     env: claudeCodeSessionEnv(),
     cols: 140,
     rows: 30,
-    // Extension-host сценарий с шеллом и sh-заглушкой — Linux, как go-lsp.
+    // sh-заглушка вместо `claude` — только Linux.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("✻ Claude Code"), { timeoutMs: 60_000 });

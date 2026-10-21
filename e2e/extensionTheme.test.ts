@@ -15,15 +15,9 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Темы от расширений (`contributes.themes`, docs/arch/Theme.md) на настоящем
- * бинаре: расширение-тема ставится тем же CLI-путём, что у пользователя
- * (`--install-extension <vsix>` из файлового реестра-фикстуры, упакованного
- * продовым `scripts/pack-vsix.mjs`), а проверяется кадр — цвет ячейки фона
- * редактора / статус-бара равен `editor.background` / `statusBar.background`
- * из файла темы, а не «в реестре есть запись».
- *
- * Порядок старта (`main.ts`: сканирование → регистрация тем → выбор активной)
- * закрывается здесь, а не юнитом: продюсер порядка — сам main.ts.
+ * Проверяется кадр — цвет ячейки равен цвету из файла темы, а не «в реестре есть запись».
+ * Порядок старта (сканирование → регистрация тем → выбор активной) закрывается здесь,
+ * а не юнитом: продюсер порядка — сам main.ts.
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));
@@ -32,7 +26,6 @@ const SAMPLE_SOURCE = resolve(here, "fixtures", "sample-theme");
 /** Цвета из e2e/fixtures/sample-theme/themes/*.json. */
 const SAMPLE_DARK = { editorBg: 0x101820, statusBg: 0x0a0f14, keywordFg: 0xff7b72 };
 const SAMPLE_LIGHT = { editorBg: 0xfafaf5, statusBg: 0xdde3e9, keywordFg: 0xcf222e };
-/** Dark Modern (дефолт при ненайденной теме). */
 const DARK_MODERN = { editorBg: 0x1f1f1f, statusBg: 0x181818, keywordFg: 0x569cd6 };
 
 const SAMPLE_FILE = "sample.ts";
@@ -46,13 +39,12 @@ function statusBarBg(frame: GridSnapshot): number {
     return frame.cells[y * frame.cols].bg;
 }
 
-/** Цвет `const` в первой строке образца; текста ещё нет — `undefined`. */
 function keywordFg(frame: GridSnapshot): number | undefined {
     const keyword = findTextCell(frame, "const answer");
     return keyword === null ? undefined : frame.cells[keyword.y * frame.cols + keyword.x].fg;
 }
 
-/** Фон ячейки редактора на второй строке документа (первая — под кареткой и occurrence-подсветкой). */
+/** Вторая строка: первая — под кареткой и occurrence-подсветкой. */
 async function editorBg(app: HeadlessApp, frame: GridSnapshot): Promise<number> {
     const root = (await app.session.getDocument()).root;
     const editor = findNode(root, (n) => n.type === "EditorElement");
@@ -84,8 +76,6 @@ describe("Extension themes (e2e)", () => {
             open: [".", SAMPLE_FILE],
         });
 
-        // Первый захваченный кадр, в котором вообще что-то нарисовано, — и все
-        // последующие до устоявшегося: ни один не в Dark Modern.
         const observed: number[] = [];
         const first = await waitUntil(
             () => app.session.captureFrame(),
@@ -103,9 +93,7 @@ describe("Extension themes (e2e)", () => {
         expect(statusBarBg(settled)).toBe(SAMPLE_DARK.statusBg);
         expect(await editorBg(app, settled)).toBe(SAMPLE_DARK.editorBg);
 
-        // US-8: `const` — правило `storage`/`keyword` темы расширения. Кадр с
-        // текстом идёт без подсветки (токенизация — следующим кадром), поэтому
-        // ждём кадр, где `const` уже покрашен.
+        // US-8: кадр с текстом идёт без подсветки (токенизация — следующим кадром).
         await waitUntil(
             () => app.session.captureFrame(),
             (frame) => keywordFg(frame) === SAMPLE_DARK.keywordFg,

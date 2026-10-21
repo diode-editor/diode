@@ -11,16 +11,9 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * «Батарейки вшиты»: LSP работает из коробки — typescript-language-server +
- * TypeScript приезжают с бинарём (ts-server.bundle), распаковываются в
- * XDG-кэш при первом использовании и запускаются НАШИМ node-рантаймом.
- *
- * Окружение теста агрессивно голое: PATH без node, воркспейс без node_modules,
- * никаких LSP-настроек, чистый изолированный XDG_CACHE_HOME. Ровно так diode
- * выглядит на машине пользователя без тулчейна.
- *
- * Оба формата поставки: SEA (diode-as-node, DIODE_RUN_AS_NODE) и self-extract
- * (распакованный настоящий node из payload'а).
+ * LSP из коробки: ts-server.bundle распаковывается в XDG-кэш и запускается НАШИМ
+ * node-рантаймом. Окружение нарочно голое (PATH без node, без node_modules и
+ * LSP-настроек) — как у пользователя без тулчейна. Оба формата: SEA и self-extract.
  */
 
 /** PATH без node (nvm/юзер-бинарей): sh/tar/gzip для selfextract-стаба есть в /usr/bin. */
@@ -29,14 +22,12 @@ const BARE_PATH = "/usr/bin:/bin";
 const WORKSPACE_FILES = {
     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
     "defs.ts": 'export function greet(name: string): string {\n    return "hi " + name;\n}\n',
-    // Ошибка типов: greet возвращает string, а reply объявлен number → squiggle.
+    // Ошибка типов — для squiggle (readiness).
     "main.ts": 'import { greet } from "./defs";\n\nconst reply: number = greet("world");\n\nexport { reply };\n',
 };
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
 const UNDERCURL = 8;
 
-/** Каталоги ts-server в изолированном XDG-кэше сессии. */
 function tsServerCacheEntries(home: string): string[] {
     const root = join(home, ".cache", "diode", "ts-server");
     if (!existsSync(root)) return [];

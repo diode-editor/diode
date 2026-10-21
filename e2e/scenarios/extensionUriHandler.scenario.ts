@@ -2,10 +2,6 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// `window.registerUriHandler` и `onUri`. Фикстура `uri-handler-demo` ленивая:
-// `Developer: Open URL` с `diode://test.uri-handler-demo/…` поднимает её, но
-// сперва спрашивает человека (URL пришёл «снаружи»). Кадры: поле ввода URL →
-// вопрос «Allow … to open this URI?» → тост расширения с путём и запросом.
 
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-uri-handler");
 const URL = "diode://test.uri-handler-demo/install-plugin?name=demo";
@@ -16,7 +12,6 @@ export default defineScenario({
     seedUserData: userData,
     cols: 120,
     rows: 24,
-    // Extension-host сценарий: CI-safety-net гоняем только на Linux.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.sendKey("F1");

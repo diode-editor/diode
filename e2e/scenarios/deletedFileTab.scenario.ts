@@ -8,14 +8,8 @@ import { findTextCell, frameLine } from "../helpers/frame.ts";
 
 import { defineScenario } from "./framework.ts";
 
-// Удалённый открытый файл (orphaned-модель VS Code): вкладка остаётся, имя
-// зачёркнуто и окрашено list.errorForeground, к нему приписано «(deleted)».
-//
-// - Внешнее удаление: по умолчанию (`workbench.editor.closeOnFileDelete: false`)
-//   вкладка остаётся зачёркнутой; файл вернулся — вкладка снова обычная.
-// - Удаление каталога из проводника (в корзину — мимо файлового сервиса):
-//   чистая вкладка файла внутри закрывается, как в VS Code, а вкладка с
-//   несохранёнными правками остаётся зачёркнутой — данные не теряются.
+// Удаление каталога из проводника идёт в корзину мимо файлового сервиса: чистая вкладка файла внутри
+// закрывается (как в VS Code), а вкладка с несохранёнными правками остаётся зачёркнутой.
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-deleted-tab-demo-"));
 // Корзина freedesktop — во временном каталоге, а не в домашнем у того, кто гоняет e2e.
@@ -27,12 +21,10 @@ const dirty = join(sampleDir, "src", "dirty.txt");
 /** `StyleFlags.Strikethrough` движка. */
 const STRIKETHROUGH = 32;
 
-/** Строка полосы вкладок — первая, где есть имя хотя бы одной из открытых вкладок. */
 function tabRow(text: string): string {
     return text.split("\n").find((line) => line.includes("notes.txt") && line.includes("dirty.txt")) ?? "";
 }
 
-/** Зачёркнута ли ячейка с первой буквой `needle` в кадре. */
 function isStruck(frame: GridSnapshot, needle: string): boolean {
     const cell = findTextCell(frame, needle);
     if (cell === null) throw new Error(`«${needle}» нет в кадре`);

@@ -7,16 +7,7 @@ import { waitUntil } from "../helpers/waitFor.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// «Tasks: Configure Task» — задача без ручного tasks.json. В папке без
-// `.diode/tasks.json` пикер показывает задачи провайдера фикстурного
-// расширения `task-demo` и «Create tasks.json file from template» → шаблон
-// «Others» ложится в файл и открывается. Второй Configure Task уже без строки
-// файла; задача провайдера `demo: ok` дописывается в конец `tasks` (запись и
-// комментарий человека над ней целы), и файл открыт на новой записи. Run Task
-// показывает обе в «configured», запуск кастомизации — команда провайдера.
-//
-// Папка — во временном каталоге: команда пишет НА ДИСК, коммитнутую фикстуру
-// пачкать нельзя (паттерн configurationUpdate.scenario.ts).
+// Папка — во временном каталоге: команда пишет на диск, коммитнутую фикстуру пачкать нельзя.
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-configure-task-demo-"));
 const tasksFile = join(sampleDir, ".diode", "tasks.json");
@@ -30,7 +21,6 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
     await editor.sendKey("Enter");
 }
 
-/** Строка открытого пикера по подписи. */
 async function pick(editor: ScenarioDriver, label: string): Promise<void> {
     await editor.sendText(label);
     await editor.waitForText((t) => t.includes(label));
@@ -44,7 +34,7 @@ export default defineScenario({
     open: [sampleDir],
     cols: 120,
     rows: 32,
-    // Extension-host сценарий с настоящим шеллом: как extension-tasks.
+    // Настоящий шелл задачи.
     skipOn: ["win32"],
     prepare() {
         writeFileSync(join(sampleDir, "README.md"), "# configure task demo\n");
@@ -65,7 +55,7 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes('"command": "echo Hello"'));
         await editor.capture("template-opened");
 
-        // Человек оставил комментарий в файле — дописывание его не трогает.
+        // Комментарий человека: дописывание задачи провайдера обязано его сохранить.
         writeFileSync(tasksFile, readFileSync(tasksFile, "utf-8").replace('"tasks": [', '"tasks": [\n        // моё'));
 
         await runCommand(editor, "Tasks: Configure Task");

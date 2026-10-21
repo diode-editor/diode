@@ -6,13 +6,7 @@ import { createRegistryFixture } from "../helpers/registryFixture.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Установка расширения из UI: страница с кнопками и её состояние после
-// установки — приглашение перезагрузить окно (docs/arch/workbench/ExtensionsView.md).
-//
-// Реестр — файловая фикстура с НАСТОЯЩИМ `.vsix`: демо ставит расширение
-// по-настоящему, поэтому ни сети, ни того, что опубликовано в магазине, здесь
-// не требуется. Фикстуру собираем на импорте модуля: путь к реестру нужен уже в
-// `extraArgs`, то есть до запуска редактора.
+// Фикстуру реестра собираем на импорте модуля: путь к нему нужен уже в `extraArgs`, до запуска редактора.
 
 const registry = await createRegistryFixture(join(mkdtempSync(join(tmpdir(), "diode-scenario-registry-")), "registry"), [
     {

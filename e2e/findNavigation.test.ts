@@ -5,13 +5,11 @@ import { frameToText } from "./helpers/frame.ts";
 import type { HeadlessSession } from "./helpers/headlessSession.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// F3 продолжает поиск с закрытым виджетом — как в VS Code, где «Find Next» висит
-// на фокусе редактора (`EditorContextKeys.focus`), а не на видимости виджета.
-// Наблюдаемый признак — позиция курсора в статус-баре: поиск тянет её за собой.
+// F3 работает и с закрытым виджетом — как в VS Code, где «Find Next» висит на
+// фокусе редактора (`EditorContextKeys.focus`), а не на видимости виджета.
 
 const files = { "notes.txt": "alpha\nbeta\nalpha\ngamma\nalpha\n" };
 
-/** «Ln N, Col M» из статус-бара. */
 async function cursor(session: HeadlessSession): Promise<string> {
     const text = frameToText(await session.captureFrame());
     const m = /Ln (\d+), Col (\d+)/u.exec(text);

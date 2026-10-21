@@ -4,8 +4,6 @@ import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { findNode } from "./helpers/inspectorClient.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Проверяем механику ожиданий на настоящем бинаре: `waitForIdle` (серверный
-// «рендер устоялся») и settle-глаголы (`key`) вместо `sleep`.
 describe("inspector — waitForIdle & settling verbs", () => {
     beforeAll(async () => {
         await getBinaryPath();
@@ -19,11 +17,9 @@ describe("inspector — waitForIdle & settling verbs", () => {
         expect(first.idle).toBe(true);
         expect(first.frames).toBeGreaterThan(0);
 
-        // Открываем меню Edit клавишей и settle — кадр обязан смениться.
         await session.key("Alt+E");
         const after = await session.waitForIdle();
         expect(after.frames).toBeGreaterThanOrEqual(first.frames);
-        // Меню действительно открылось (settle дождался отрисовки).
         const { root } = await session.getDocument();
         expect(findNode(root, (n) => n.type === "PopupMenuElement")).not.toBeNull();
     }, 60_000);

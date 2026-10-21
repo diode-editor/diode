@@ -11,13 +11,10 @@ import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Настраиваемый состав статус-бара (как в VS Code): правый клик по полосе даёт
-// переключатель с галочками, снятая галочка убирает сегмент, и выбор переживает
-// рестарт — он глобальный, а не по-проектный.
+// Выбор состава статус-бара переживает рестарт — он глобальный, а не по-проектный.
 
 const FILES = { "app.ts": 'export const a = "one";\n' };
 
-/** Кликает по пункту открытого меню, найдя его текст в кадре. */
 async function clickMenuItem(session: HeadlessApp["session"], label: string): Promise<void> {
     const frame = await session.waitForText((t) => t.includes(label));
     const lines = frameToText(frame).split("\n");
@@ -26,7 +23,6 @@ async function clickMenuItem(session: HeadlessApp["session"], label: string): Pr
     await session.click(col + 1, row);
 }
 
-/** Правый клик по сегменту статус-бара — открывает переключатель видимости. */
 async function openVisibilityMenu(session: HeadlessApp["session"], selector: string): Promise<void> {
     const segment = await session.waitForNode(selector);
     const x = segment.box.x + 1;
@@ -68,13 +64,11 @@ describe("Статус-бар: настраиваемый состав (function
 
         await first.session.waitForText((t) => t.includes("UTF-8"));
         await openVisibilityMenu(first.session, "#statusBarItem-status-editor-encoding");
-        // Пункт под курсором — «Hide 'Editor Encoding'», как в VS Code.
         await clickMenuItem(first.session, "Hide 'Editor Encoding'");
         await first.session.waitForText((t) => !t.includes("UTF-8"));
         await waitForHiddenPersisted(root, "status.editor.encoding");
         await first.session.dispose(); // корень НЕ удаляем (keepRoot)
 
-        // Рестарт на том же user-data-dir: сегмент так и скрыт.
         app = await useHeadlessApp({ root, open: ["app.ts"] });
         const frame = await app.session.waitForText((t) => t.includes("Ln 1, Col 1"), { timeoutMs: 30_000 });
         expect(frameToText(frame)).not.toContain("UTF-8");

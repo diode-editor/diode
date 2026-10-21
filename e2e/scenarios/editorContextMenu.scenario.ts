@@ -5,19 +5,13 @@ import { waitUntil } from "../helpers/waitFor.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Полное контекст-меню редактора: состав и порядок — дословно upstream'ские
-// (Go to Definition, Go to References / Rename Symbol, Change All Occurrences,
-// Format Document, Refactor…, Source Action… / Quick Fix / Cut, Copy, Paste /
-// Command Palette…). Пункты языковых фич гейтятся ключами
-// `editorHas*Provider`, поэтому демо берёт файл с ЖИВЫМ стоковым
-// typescript-language-server: без него меню показало бы только то, что работает
-// без провайдеров.
+// Языковые пункты гейтятся `editorHas*Provider`, поэтому файл — с живым стоковым typescript-language-server.
 
 const require_ = createRequire(import.meta.url);
 const sampleDir = resolve(repoRoot, "e2e", "fixtures", "lspSample");
 const mainFile = resolve(sampleDir, "main.ts");
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) — признак живого сервера. */
+/** StyleFlags.Undercurl — признак живого сервера. */
 const UNDERCURL = 8;
 
 export default defineScenario({
@@ -30,27 +24,22 @@ export default defineScenario({
     },
     cols: 100,
     rows: 32,
-    // Extension-host сценарии гоняют subprocess + спавн сервера — Linux only.
     skipOn: ["win32", "darwin"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("const reply"));
 
-        // До старта сервера провайдеров нет — в меню только то, что работает
-        // без них: Change All Occurrences, буфер обмена, палитра.
+        // До старта сервера провайдеров нет — в меню только пункты, которым они не нужны.
         await editor.sendKey("Shift+F10");
         await editor.waitForText((t) => t.includes("Command Palette"));
         await editor.capture("without-providers");
         await editor.sendKey("Escape");
 
-        // Ждём живой tsserver (squiggle на ошибке типов в фикстуре).
         await waitUntil(
             () => editor.captureFrame(),
             (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
             { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
         );
 
-        // Теперь меню несёт и языковые пункты — ровно те, под которые есть
-        // провайдер.
         await waitUntil(
             async () => {
                 await editor.sendKey("Shift+F10");

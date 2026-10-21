@@ -21,11 +21,8 @@ const KEYWORD_FG = packRgb(0x56, 0x9c, 0xd6);
 const itLinuxOnly = process.platform === "linux" ? it : it.skip;
 
 /**
- * Self-extracting бинарь (#144) — замена сломанному SEA на Intel macOS.
- *
- * Здесь проверяется контракт стаба (идемпотентная распаковка, проброс argv/кода
- * возврата, независимость от cwd) и то, ради чего всё затевалось: приложение
- * реально стартует и читает `diode.bundle` с диска fs-загрузчиком.
+ * #144: замена сломанному SEA на Intel macOS. Главное — приложение реально стартует
+ * и читает `diode.bundle` с диска fs-загрузчиком.
  */
 describe.skipIf(process.platform === "win32")("self-extract binary", () => {
     let binary = "";
@@ -33,8 +30,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
 
     beforeAll(async () => {
         binary = await getSelfExtractPath();
-        // Изолированный кэш: тест не должен зависеть от ~/.cache разработчика и не
-        // должен его засорять. Стаб обязан уважать XDG_CACHE_HOME.
+        // Стаб обязан уважать XDG_CACHE_HOME: ~/.cache разработчика не трогаем.
         cacheHome = mkdtempSync(join(tmpdir(), "diode-xdg-cache-"));
     }, 300_000);
 
@@ -42,7 +38,6 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
         rmSync(cacheHome, { recursive: true, force: true });
     });
 
-    /** Запускает бинарь синхронно с изолированным кэшем. */
     function run(args: string[], options: { cwd?: string } = {}) {
         return spawnSync(binary, args, {
             encoding: "utf8",
@@ -52,7 +47,6 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
         });
     }
 
-    /** Единственный каталог распаковки внутри изолированного кэша. */
     function unpackedDir(): string {
         const entries = readdirSync(join(cacheHome, "diode")).filter((e) => !e.startsWith("."));
         expect(entries).toHaveLength(1);
@@ -66,7 +60,6 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
         expect(result.signal).toBeNull();
         expect(result.stdout.trim()).not.toBe("");
 
-        // Payload лёг целиком — ровно то, что кладёт build-selfextract.
         const dir = unpackedDir();
         for (const file of ["node", "main.cjs", "diode.bundle", "lazy/yauzl.cjs", ".ready"]) {
             expect(existsSync(join(dir, file)), `${file} должен быть распакован`).toBe(true);

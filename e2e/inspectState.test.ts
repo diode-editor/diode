@@ -3,8 +3,6 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Проверяем на настоящем бинаре, что inspectState виджетов доходит по проводу и
-// локаторы/settle-глаголы водят приложение без sleep и без координат-литералов.
 describe("inspector — inspectState & locators end-to-end", () => {
     beforeAll(async () => {
         await getBinaryPath();
@@ -21,7 +19,6 @@ describe("inspector — inspectState & locators end-to-end", () => {
         expect(before?.state?.readOnly).toBe(false);
         expect(before?.state?.hasSelection).toBe(false);
 
-        // Выделяем вправо клавишами — state.selections должно показать не-collapsed.
         await session.key("Shift+ArrowRight");
         await session.key("Shift+ArrowRight");
         const editor = await session.waitForState("EditorElement", (s) => s?.hasSelection === true);
@@ -33,8 +30,6 @@ describe("inspector — inspectState & locators end-to-end", () => {
         const { session } = await useHeadlessApp({ files: { "a.txt": "hi\n" }, open: ["a.txt"] });
         await session.waitForNode("MenuBarElement");
 
-        // Клик по метке "Edit" в меню-баре по локатору роли/типа не нужен —
-        // достаточно открыть меню клавишей и прочитать его состояние.
         await session.key("Alt+E");
         const menu = await session.waitForNode("PopupMenuElement");
         expect(Array.isArray(menu.state?.items)).toBe(true);

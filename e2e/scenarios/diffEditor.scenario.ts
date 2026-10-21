@@ -5,17 +5,13 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Вкладка диффа v2 (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): «Git: Compare Active File with
-// HEAD» открывает пару из двух НАСТОЯЩИХ редакторов — зоны-филлеры выравнивают
-// стороны, unchanged свёрнут обычным фолдингом с парными плашками, маркеры
-// `-`/`+` в гуттерах, intra-line декорациями. Правку НЕ сохраняем — modified
-// сторона и есть живой буфер файла, дифф пересчитывается по правкам сам.
+// Правку не сохраняем: modified-сторона — живой буфер файла, дифф пересчитывается по правкам сам.
 
 function git(cwd: string, ...args: string[]): void {
     execFileSync("git", args, { cwd, stdio: "ignore" });
 }
 
-/** Свой репозиторий: закоммиченный файл, достаточно длинный, чтобы свёртка была видна. */
+/** Закоммиченный файл достаточно длинный, чтобы свёртка unchanged была видна. */
 function makeRepo(): { repoDir: string; trackedFile: string } {
     const repoDir = mkdtempSync(join(tmpdir(), "diode-diff-demo-"));
     git(repoDir, "init", "-q");

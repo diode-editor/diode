@@ -5,22 +5,14 @@ import { frameToText } from "../helpers/frame.ts";
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Каталоги хранения расширения + команда setContext. Фикстурное расширение
-// `ext-storage-demo` в activate() пишет счётчик запусков в `globalStorageUri`
-// (туда же AI-автодополнения кладут скачанный движок) и объявляет свой кейбинд
-// `alt+q` под `when: "extStorageDemo.armed"`. Кадры показывают круг целиком:
-// расширение поднялось и прочитало своё хранилище → клавиша мертва, пока ключ
-// не выставлен → `Arm` её оживил → `Disarm` погасил снова → пути хранения
-// напечатаны в канал Output.
+// Фикстура `ext-storage-demo` объявляет `alt+q` под `when: "extStorageDemo.armed"`: клавиша мертва, пока ключ
+// не выставлен.
 
-// Markdown и без папки-воркспейса — как в status-bar-сценарии: иначе полосу
-// делят сегменты SCM и спиннер tsserver, и её раскладка плывёт по ходу прогона.
-// Побочный (и честный) эффект: `storageUri` при закрытой папке — `undefined`,
-// ровно как в VS Code; это видно на последнем кадре.
+// Markdown без папки: иначе полосу делят сегменты SCM и спиннер tsserver. Поэтому `storageUri` на последнем
+// кадре — `undefined`, как в VS Code.
 const sampleFile = resolve(repoRoot, "AGENTS.md");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-ext-storage-demo");
 
-/** Исполняет команду расширения через палитру (F1 → заголовок → Enter). */
 async function runCommand(editor: ScenarioDriver, title: string): Promise<void> {
     await editor.sendKey("F1");
     await editor.waitForNode("#quickInput");
@@ -29,10 +21,8 @@ async function runCommand(editor: ScenarioDriver, title: string): Promise<void> 
 }
 
 /**
- * Нажимает Alt+Q и дожидается барьера: следом идёт ArrowDown, и мы ждём нового
- * `Ln`. Ввод обрабатывается по порядку, поэтому доехавший курсор означает, что
- * Alt+Q тоже уже обработан — иначе «ничего не произошло» было бы неотличимо от
- * «ещё не успело произойти».
+ * Барьер — ArrowDown следом и новый `Ln`: ввод обрабатывается по порядку, иначе «ничего не произошло» было бы
+ * неотличимо от «ещё не успело произойти».
  */
 async function pressGateKey(editor: ScenarioDriver, line: number): Promise<string> {
     await editor.sendKey("Alt+q");

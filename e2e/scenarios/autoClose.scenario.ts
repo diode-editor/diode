@@ -2,12 +2,6 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Скобки при наборе по language configuration стокового пака typescript-basics:
-// открывающая вставляет пару с кареткой внутри, набор закрывающей перешагивает
-// её (typeover), а скобка/кавычка при непустом выделении обрамляет его
-// (auto-surround), а не затирает. Пары приезжают из
-// extensions/typescript-basics/language-configuration.json (PR 1), сами
-// решения — editor/common/languages/autoClosing.ts.
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 
@@ -26,7 +20,6 @@ export default defineScenario({
     async run(editor) {
         await editor.waitForText((t) => t.includes("greeting"));
 
-        // Новая строка после объявления → набор `{` вставляет пару, каретка внутри.
         await editor.sendKey("ArrowDown");
         await editor.sendKey("End");
         await editor.sendKey("Enter");
@@ -34,12 +27,10 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("const pair = {}"));
         await editor.capture("autoclose-pair");
 
-        // Набор `}` НЕ плодит вторую скобку — перешагивает вставленную; `;` в хвост.
         await typeText(editor, "};");
         await editor.waitForText((t) => t.includes("const pair = {};") && !t.includes("{}}"));
         await editor.capture("typeover");
 
-        // Auto-surround: выделяем имя и жмём кавычку — имя обёрнуто, не затёрто.
         await editor.sendKey("Home");
         for (let i = 0; i < "const ".length; i++) await editor.sendKey("ArrowRight");
         for (let i = 0; i < "pair".length; i++) await editor.sendKey("Shift+ArrowRight");

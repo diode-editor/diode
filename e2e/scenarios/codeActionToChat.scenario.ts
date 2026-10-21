@@ -2,17 +2,8 @@ import { resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Code action «в чат» у расширения с webview-чатом — форма стокового Supermaven
-// («Fix with Supermaven»). Действие без правок: только команда с
-// `vscode.Position` в аргументах, а её обработчик без await зовёт
-// `chatPanel.chatView.focus` и шлёт сообщение в webview. Раньше пользователь
-// видел «Code action failed»: меню собирается из ответов нескольких
-// провайдеров, и кэш субпроцесса вытеснял действие самого быстрого раньше, чем
-// его выбирали. Теперь действие исполняется, а вместо панели чата (webview в
-// TUI не будет) — внятный тост от команды `<вид>.focus`.
-//
-// Заодно видно `CodeAction.disabled`: неактивный «Rewrite with Chat Panel»
-// Quick Fix не показывает (как эталон).
+// Code action «в чат» в форме стокового Supermaven: действие без правок, только команда, которая фокусирует
+// webview-вид; webview в TUI нет, поэтому ожидается тост, а не «Code action failed».
 
 const sampleFile = resolve(repoRoot, "e2e", "fixtures", "sample.ts");
 const userData = resolve(repoRoot, "e2e", "fixtures", "user-data-with-chat-panel");
@@ -24,20 +15,16 @@ export default defineScenario({
     open: [repoRoot, sampleFile],
     cols: 120,
     rows: 32,
-    // Extension-host сценарий: субпроцесс расширений на Windows флейкает (как webview-noop).
+    // Субпроцесс расширений на Windows флейкает.
     skipOn: ["win32"],
     async run(editor) {
         await editor.waitForText((t) => t.includes("greeting"));
-        // Провайдеры code actions регистрирует activate() расширения, а extension
-        // host поднимается после первых кадров: без ожидания Ctrl+K Ctrl+Q уходит
-        // раньше регистрации, и меню нечего показать.
+        // Провайдеры регистрирует activate(), а хост поднимается после первых кадров: без ожидания меню пустое.
         await editor.waitForReady();
 
-        // Меню code actions у каретки (Ctrl+K Ctrl+Q — досягаемый на legacy бинд).
-        // Ждём ОБА quickfix'а расширения: медленный отвечает позже быстрого.
+        // Ctrl+K Ctrl+Q досягаем на legacy-терминале. Ждём ОБА quickfix'а: медленный провайдер отвечает позже быстрого.
         await editor.sendKey("Ctrl+K");
         await editor.sendKey("Ctrl+Q");
-        // Неактивный рефакторинг в Quick Fix не попадает.
         await editor.waitForText(
             (t) =>
                 t.includes("Fix with Chat Panel") &&
@@ -51,7 +38,6 @@ export default defineScenario({
         await editor.waitForText((t) => t.includes("Fix with Chat Panel") && !t.includes("Explain with Chat Panel"));
         await editor.sendKey("Enter");
 
-        // Тост команды `<вид>.focus` — и никакого «Code action failed».
         await editor.waitForText((t) => t.includes(`view "Chat" is a webview`) && !t.includes("Code action failed"), {
             timeoutMs: 15000,
         });

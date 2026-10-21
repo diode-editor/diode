@@ -11,15 +11,9 @@ import { fetchStockVsix } from "../src/TestUtils/stockVsix.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 
 /**
- * E2E против собранного SEA-бинаря для CLI-команд управления расширениями
- * (`--install-extension`/`--list-extensions`/`--uninstall-extension`).
- *
- * Это не TUI, а обычные команды «выполнил и вышел», поэтому спавним бинарь
- * напрямую и читаем stdout/exit code — без PTY (и без ConPTY-флака). Главная
- * ценность на Windows: только здесь реально исполняется путь установки в SEA —
- * yauzl из ленивого куска `lazy/yauzl.cjs` (ассет бинаря, `loadLazyModule`).
- * В `main.cjs` yauzl нет вовсе, запасной `import("yauzl")` в SEA упал бы, так
- * что успешная установка и есть доказательство, что кусок загрузился.
+ * CLI-команды «выполнил и вышел» — без PTY. На Windows только здесь исполняется путь
+ * установки в SEA: yauzl из ленивого куска `lazy/yauzl.cjs`; в `main.cjs` его нет,
+ * так что успешная установка доказывает, что кусок загрузился.
  */
 
 interface CliResult {
@@ -89,7 +83,6 @@ describe("SEA binary — extension install CLI", () => {
         expect(install.code).toBe(0);
         expect(install.stdout).toContain("Installed acme.demo@1.2.3");
 
-        // Расширение распаковано в ожидаемый scanner'ом layout, node_modules на месте.
         const extDir = path.join(userDataDir, "extensions", "acme.demo-1.2.3");
         expect(fs.existsSync(path.join(extDir, "package.json"))).toBe(true);
         expect(fs.existsSync(path.join(extDir, "node_modules", "dep", "index.js"))).toBe(true);
@@ -111,8 +104,8 @@ describe("SEA binary — extension install CLI", () => {
     it("--profile: ставит, перечисляет и удаляет в составе профиля; общий каталог чистится, когда расширение не нужно никому", async () => {
         const root = path.join(tempRoot, "user-data-profiles");
         const cli = (...args: string[]) => runCli(binary, ["--user-data-dir", root, ...args]);
-        // Профиль `work` из прошлой версии — каталог без состава; пустой состав
-        // задаём явно (без файла миграция отдала бы ему все установленные).
+        // Профиль `work` из прошлой версии; пустой состав задаём явно — без файла миграция
+        // отдала бы ему все установленные.
         const workDir = path.join(root, "user-data", "User", "profiles", "work");
         await fs.promises.mkdir(workDir, { recursive: true });
         await fs.promises.writeFile(path.join(workDir, "extensions.json"), "[]");
@@ -149,12 +142,7 @@ describe("SEA binary — extension install CLI", () => {
     });
 });
 
-/**
- * Тот же путь установки, но на настоящем стоковом `.vsix` из магазина (версию не
- * пиним — docs/TESTING.md «Тесты на стоковые расширения»): реальный zip от vsce,
- * а не собранный yazl'ом в тесте, проходит через ленивый кусок yauzl в SEA, а
- * установка по id — ещё и через кусок semver (разбор реестра, совместимость).
- */
+/** Настоящий zip от vsce, а не собранный yazl'ом в тесте; установка по id — ещё и через кусок semver. */
 describe.skipIf(MARKETPLACE_OFFLINE)("SEA binary — stock extension through the lazy chunks (yauzl, semver)", () => {
     const STOCK_ID = "EditorConfig.EditorConfig";
     let binary: string;
@@ -171,11 +159,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("SEA binary — stock extension through the
         await fs.promises.rm(tempRoot, { recursive: true, force: true });
     });
 
-    // Установка по id из публичного реестра: разбор его meta и выбор версии,
-    // совместимой с этой сборкой, идут через ленивый кусок semver
-    // (`lazy/semver.cjs`), распаковка — через кусок yauzl. Ожидаемую версию тест
-    // считает тем же правилом (`fetchStockVsix` → resolveCompatibleVersion) в
-    // своём процессе, где semver берётся из node_modules.
+    // Ожидаемую версию тест считает тем же правилом (`fetchStockVsix` →
+    // resolveCompatibleVersion) в своём процессе, где semver берётся из node_modules.
     it("installs the stock extension by id from the registry: the compatible version is picked inside the binary", async () => {
         const userDataDir = path.join(tempRoot, "user-data-by-id");
 

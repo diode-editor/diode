@@ -6,15 +6,7 @@ import { createRegistryFixture } from "../helpers/registryFixture.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Тема из магазина (#84, docs/arch/Theme.md): расширение-тема проходит тот же
-// путь, что любое расширение — Install со страницы магазина → Reload Window →
-// его темы в пикере Color Theme → выбор перекрашивает окно. Кадры: страница
-// после установки, пикер с live preview на `Sample Dark`, окно после Enter.
-//
-// Реестр — файловая фикстура с НАСТОЯЩИМ `.vsix` синтетического расширения
-// `test.sample-theme` (e2e/fixtures/sample-theme): демо ставит тему по-настоящему,
-// без сети. Фикстуру собираем на импорте модуля: путь к реестру нужен уже в
-// `extraArgs`, то есть до запуска редактора.
+// Фикстуру реестра собираем на импорте модуля: путь к нему нужен уже в `extraArgs`, до запуска редактора.
 
 const registry = await createRegistryFixture(join(mkdtempSync(join(tmpdir(), "diode-scenario-theme-")), "registry"), [
     {

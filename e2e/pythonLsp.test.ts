@@ -8,25 +8,18 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Python LSP от НАСТОЯЩЕГО стороннего basedpyright в SEA-бинаре: расширение
- * ставится ИЗ МАГАЗИНА штатным `--install-extension <id>` (последняя
- * опубликованная версия — версию в репозитории не пиним: обновилась запись и
- * сломалась, значит краснеем и идём чинить), клиент внутри vsix форкает вшитый
- * сервер (TransportKind.ipc → fork process.execPath — это и есть прогон
- * env-фикса runAsNode под SEA). Ассерты ждут текст, которого НЕТ в буфере
- * (грабля «слабый ассерт прячет неработающую фичу» из docs/TODO/Suggest.md).
+ * Клиент внутри vsix форкает вшитый сервер (TransportKind.ipc → fork process.execPath) —
+ * это и есть прогон env-фикса runAsNode под SEA.
  */
 
 const DEFS_PY = 'def greet(name: str) -> str:\n    return "hi " + name\n';
-// Ошибка типов: greet возвращает str, а reply аннотирован int → squiggle.
+// Ошибка типов — для squiggle (readiness).
 const MAIN_PY = 'from defs import greet\n\nreply: int = greet("world")\nprint(reply)\n';
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
 const UNDERCURL = 8;
 
 const FILES = { "defs.py": DEFS_PY, "main.py": MAIN_PY };
 
-/** Сервер поднялся и проверил открытый файл — undercurl на намеренной ошибке. */
 async function waitForServerReady(session: {
     captureFrame: () => Promise<{ cells: { style: number }[] }>;
 }): Promise<void> {
@@ -37,9 +30,7 @@ async function waitForServerReady(session: {
     );
 }
 
-// Extension-host subprocess + форк language-сервера — Linux-only, как hover /
-// gotoDefinition / editorconfig-stock (см. docs/TODO/E2E.md); без сети сьют
-// пропускается — расширение приезжает из магазина.
+// Только Linux: extension host + форк language-сервера (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
     "SEA binary — стоковый basedpyright.vsix (Python LSP)",
     () => {
@@ -69,7 +60,6 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
                 intervalMs: 500,
             });
 
-            // Escape закрывает попап, буфер нетронут.
             await session.key("Escape");
             const frame = await waitUntil(
                 () => session.captureFrame(),
@@ -93,7 +83,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             for (let i = 0; i < 15; i++) await session.key("ArrowRight");
             await session.key("F12");
 
-            // Контент другого файла на экране, каретка на объявлении (0-based 0:4).
+            // Каретка на объявлении (0-based 0:4).
             await session.waitForText((text) => text.includes('return "hi " + name'), {
                 timeoutMs: 60_000,
                 intervalMs: 500,
@@ -120,15 +110,12 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             await session.waitForNode("EditorElement");
             await waitForServerReady(session);
 
-            // В конец файла, набираем `reply.` — точка = триггер-символ сервера.
             await session.key("Ctrl+End");
             // Нажатиями: триггер-символ открывает попап только набором, не вставкой.
             for (const char of "reply.") await session.key(char);
 
-            // Члены int из typeshed-стабов — таких слов в буфере нет вовсе.
-            // Ассертим пункты из НАЧАЛА алфавитного списка: ниже LSP-пунктов в
-            // окне попапа стоят word-based кандидаты буфера, и хвост списка
-            // (bit_length, to_bytes) за пределами видимых строк.
+            // Пункты из НАЧАЛА алфавитного списка: ниже LSP-пунктов стоят word-based кандидаты
+            // буфера, и хвост (bit_length, to_bytes) — за пределами видимых строк.
             await session.waitForText((text) => text.includes("as_integer_ratio") && text.includes("bit_count"), {
                 timeoutMs: 120_000,
                 intervalMs: 500,
@@ -144,7 +131,6 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             await session.waitForNode("EditorElement");
             await waitForServerReady(session);
 
-            // Набираем вызов в конце файла: «(» — триггер-символ сервера.
             await session.key("Ctrl+End");
             for (const char of "greet(") await session.key(char);
 
@@ -170,8 +156,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             await session.key("Ctrl+K");
             await session.key("Ctrl+R");
 
-            // Ссылки из двух файлов; строка объявления добрана из defs.py,
-            // которого нет в открытом буфере.
+            // Строка объявления добрана из defs.py, которого нет в открытом буфере.
             await session.waitForText((text) => text.includes("results in 2") && text.includes("def greet"), {
                 timeoutMs: 120_000,
                 intervalMs: 500,

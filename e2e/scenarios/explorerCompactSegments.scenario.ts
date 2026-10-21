@@ -4,14 +4,8 @@ import { join, resolve } from "node:path";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Сегменты компактной строки Explorer'а (explorer.compactFolders), как
-// `CompressedNavigationController` у эталона: у строки «src/main/java/com/example»
-// есть текущий сегмент (по умолчанию последний, подчёркнут), Left/Right ходят
-// по сегментам, клик делает сегмент текущим, контекстное меню и действия идут
-// в его папку. Сценарий: Left → текущий «com»; правый клик по «java» → New File…
-// → файл ложится в src/main/java, цепочка рвётся на «src/main/java» + «com».
-//
-// Фикстура копируется во временный каталог: сценарий пишет на диск.
+// Сегменты компактной строки — как `CompressedNavigationController` эталона. Фикстура копируется во временный
+// каталог: сценарий пишет на диск.
 
 const workspace = mkdtempSync(join(tmpdir(), "diode-compact-segments-demo-"));
 cpSync(resolve(repoRoot, "e2e", "fixtures", "compactFolders"), workspace, { recursive: true });
@@ -29,26 +23,20 @@ export default defineScenario({
     rows: 20,
     async run(editor) {
         await editor.waitForText((t) => t.includes("src") && t.includes("README.md"));
-        // Клик по «src» раскрывает папку (workbench.tree.expandMode: singleClick)
-        // — цепочка находится лениво, как у эталона, и текущим становится
-        // последний сегмент.
         await editor.clickNode("TreeViewElement", { dx: 4, dy: 0 });
         await editor.waitForText((t) => t.includes("src/main/java/com/example") && t.includes("App.java"));
         await editor.capture("last-segment");
 
-        // Left — к сегменту «com» (строка не сворачивается).
         await editor.sendKey("ArrowLeft");
         await editor.capture("left-to-com");
 
-        // Клик мышью по «main» делает его текущим и, как у эталона, переключает
-        // строку целиком — она сворачивается; второй клик раскрывает обратно.
+        // Клик по сегменту, как у эталона, ещё и переключает строку целиком — второй клик раскрывает обратно.
         await editor.clickNode("TreeViewElement", { dx: MAIN_COLUMN, dy: 0 });
         await editor.waitForText((t) => t.includes("src/main/java/com/example") && !t.includes("App.java"));
         await editor.capture("click-main");
         await editor.clickNode("TreeViewElement", { dx: MAIN_COLUMN, dy: 0 });
         await editor.waitForText((t) => t.includes("App.java"));
 
-        // Правый клик по «java» → New File… → имя → файл в src/main/java.
         const tree = await editor.waitForNode("TreeViewElement");
         const x = tree.box.x + JAVA_COLUMN;
         await editor.sendMouse({ action: "press", button: "right", x, y: tree.box.y });
@@ -59,9 +47,7 @@ export default defineScenario({
         await editor.sendText("Probe.java");
         await editor.waitForText((t) => t.includes("Probe.java"));
         await editor.sendKey("Enter");
-        // Хвост цепочки («com») стоит свёрнутым, как у эталона (новая сжатая
-        // строка состояния головы не наследует); его цепочку дерево узнает,
-        // когда его раскроют (сжатие ленивое).
+        // Хвост «com» стоит свёрнутым, как у эталона: новая сжатая строка состояния головы не наследует.
         await editor.waitForText(
             (t) => t.includes("src/main/java") && !t.includes("src/main/java/com") && t.includes("Probe.java"),
         );

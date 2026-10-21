@@ -15,10 +15,7 @@ import {
     waitForPanelPersisted,
 } from "./outputPanel.shared.ts";
 
-// Функциональные тесты панели Output (PR #197) на общих хелперах: чёрным ящиком
-// через инспектор настоящего бинаря, без sleep и координат-литералов. Каждый
-// `it` — одна гарантия или один дефект из ревью. Помеченные `[BUG-n]` падали на
-// head PR до фикса (cda7424).
+// Помеченные `[BUG-n]` падали на head PR #197 до фикса (cda7424).
 
 describe("Output panel (functional e2e)", () => {
     let app: HeadlessApp | null = null;
@@ -32,7 +29,6 @@ describe("Output panel (functional e2e)", () => {
         app = null;
     });
 
-    // ── Заявленное поведение ────────────────────────────────────────────────
 
     it("открывает вкладку OUTPUT между PROBLEMS и TERMINAL с непустым логом", async () => {
         app = await startOutputApp();
@@ -58,28 +54,23 @@ describe("Output panel (functional e2e)", () => {
         const { session } = app;
         await openOutput(session);
 
-        // Клик по селектору раскрывает список, но активной остаётся вкладка OUTPUT.
         await session.clickNode("SelectBoxElement");
         await session.waitForNode("PopupMenuElement");
         expect(await activeTab(session)).toBe("OUTPUT");
         await session.key("Escape");
         await session.waitForNoNode("PopupMenuElement");
 
-        // Уходим на PROBLEMS (не TERMINAL: тот спавнит настоящий PTY) — селектор исчезает.
+        // Не TERMINAL: тот спавнит настоящий PTY.
         await clickTab(session, "PROBLEMS");
         await session.waitForNoNode("SelectBoxElement");
         expect(await activeTab(session)).toBe("PROBLEMS");
 
-        // Назад на OUTPUT — селектор возвращается.
         await clickTab(session, "OUTPUT");
         await session.waitForNode("SelectBoxElement");
     }, 120_000);
 
-    // Каналы Output (селектор и команды `workbench.action.output.show.*`) —
-    // contribution фазы `afterRestored`: как у эталона, он приходит после
-    // восстановления, у нас — после кадра с подсветкой (OpenPerformance, рычаг 8).
-    // Панель, открытая первой же клавишей, ещё до кадра с текстом, получает
-    // селектор, а команда канала работает.
+    // Каналы Output — contribution фазы `afterRestored`, как у эталона; у нас она приходит
+    // после кадра с подсветкой (OpenPerformance, рычаг 8).
     it("OUTPUT, открытый сразу после старта, получает селектор и команды каналов", async () => {
         app = await startOutputApp();
         const { session } = app;
@@ -91,7 +82,6 @@ describe("Output panel (functional e2e)", () => {
         expect(select?.state?.selectedText).toMatch(/Extensions/u);
     }, 120_000);
 
-    // ── Дефекты ─────────────────────────────────────────────────────────────
 
     it("[BUG-1] после смены канала мышью фокус не теряется", async () => {
         app = await startOutputApp();
@@ -100,7 +90,6 @@ describe("Output panel (functional e2e)", () => {
         expect(await focusedType(session)).toBe("EditorElement");
 
         await pickChannel(session, "Extensions");
-        // Фактически до фикса: focusedLeaf === null, ввод «проваливался».
         expect(await focusedType(session)).toBe("EditorElement");
     }, 120_000);
 
@@ -133,18 +122,15 @@ describe("Output panel (functional e2e)", () => {
         const { session } = app;
         await openOutput(session);
 
-        // Выделяем от начала лога вниз (Ctrl+Home → строка 0 с текстом; вниз —
-        // выделение в верхней, стабильной части, не зависящей от длины канала и
-        // от автоскролла к хвосту).
-        // Контроль: статичный канал Bootstrap — выделение живёт.
+        // Выделение в верхней, стабильной части лога: не зависит от длины канала и автоскролла.
+        // Контроль — статичный канал Bootstrap.
         await pickChannel(session, "Bootstrap");
         await focusLogBody(session);
         await session.key("Ctrl+Home");
         for (let i = 0; i < 2; i++) await session.key("Shift+ArrowDown");
         expect((await focusedEditorState(session))?.hasSelection).toBe(true);
 
-        // Опыт: живой канал Keybindings (пишет на каждый keydown) — до фикса
-        // revealLastLine схлопывал выделение на каждой записи.
+        // Опыт: живой канал Keybindings пишет на каждый keydown — revealLastLine схлопывал выделение.
         await pickChannel(session, "Keybindings");
         await focusLogBody(session);
         await session.key("Ctrl+Home");
@@ -165,7 +151,6 @@ describe("Output panel (functional e2e)", () => {
             (t) => t.split("\n").some((l) => l.includes("[ ↑ ]")),
             {},
         ).then((f) => findWidgetLine(f));
-        // Фактически до фикса: "No results" — искали по sample.ts.
         expect(findLine).not.toContain("No results");
     }, 120_000);
 
@@ -175,7 +160,6 @@ describe("Output panel (functional e2e)", () => {
         await openOutput(session);
         await focusLogBody(session);
         await session.key("Tab");
-        // Фактически до фикса: QuickPickElement из OverlayLayer ловил ввод.
         expect(await focusedType(session)).not.toBe("QuickPickElement");
     }, 120_000);
 
@@ -184,8 +168,6 @@ describe("Output panel (functional e2e)", () => {
         const root = first.env.root;
         try {
             await openOutput(first.session);
-            // Ждём, пока debounce StateService запишет видимость панели на диск —
-            // иначе рестарт её не восстановит (async-хвост, не покрывается idle).
             await waitForPanelPersisted(root);
         } finally {
             await first.session.dispose(); // корень НЕ удаляем (keepRoot)
@@ -203,7 +185,6 @@ describe("Output panel (functional e2e)", () => {
     }, 180_000);
 });
 
-/** Кликает вкладку нижней панели по подписи — координаты из inspectState. */
 async function clickTab(session: import("./helpers/headlessSession.ts").HeadlessSession, title: string): Promise<void> {
     const panel = await session.node("PanelContainerElement");
     const tabs = (panel?.state?.tabs ?? []) as { title: string; centerX: number }[];
@@ -213,7 +194,6 @@ async function clickTab(session: import("./helpers/headlessSession.ts").Headless
     await session.click(tab.centerX, tabRow);
 }
 
-/** Подпись активной вкладки нижней панели. */
 async function activeTab(session: import("./helpers/headlessSession.ts").HeadlessSession): Promise<string | undefined> {
     const panel = await session.node("PanelContainerElement");
     const tabs = (panel?.state?.tabs ?? []) as { title: string; active: boolean }[];

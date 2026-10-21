@@ -6,20 +6,12 @@ import { setup as setupTmpRoot } from "../src/TestUtils/tmpRoot.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
-// Бинари для прогона — неизменяемая сборка из общего кэша по хешу исходников
-// (scripts/e2e-artifacts.mjs): попадание — ноль секунд, промах — одна сборка в
-// отдельный каталог, публикуемая атомарно и затем read-only. Рабочий `dist/` прогон
-// не трогает вовсе: ручной `build:sea` посреди e2e больше ничего не ломает, а
-// редактор, открытый сценарием на репозитории, не смотрит на сотни МБ записи.
-//
-// Пути уходят воркерам через env (`DIODE_E2E_BINARY`, `DIODE_E2E_SELFEXTRACT`):
-// форки наследуют env родителя на момент спавна, то есть после globalSetup.
-// Воркер не собирает никогда (helpers/buildOnce.ts). Self-extract — POSIX
-// sh-стаб, под Windows его нет (selfextract.test.ts там пропускается).
-//
-// Тем же наследованием едет `TMPDIR`: все временные каталоги прогона ложатся в
-// один корень, который teardown сносит целиком — вместе с процессами, которые
-// в нём ещё живут (см. src/TestUtils/tmpRoot.ts).
+// Бинари — неизменяемая сборка из общего кэша по хешу исходников (scripts/e2e-artifacts.mjs);
+// рабочий `dist/` прогон не трогает, ручной `build:sea` посреди e2e ничего не ломает.
+// Пути уходят воркерам через env (`DIODE_E2E_BINARY`, `DIODE_E2E_SELFEXTRACT`): форки
+// наследуют env на момент спавна, то есть после globalSetup; воркер не собирает никогда.
+// Тем же путём едет `TMPDIR`: временные каталоги прогона — в одном корне, который
+// teardown сносит вместе с живущими в нём процессами (src/TestUtils/tmpRoot.ts).
 export default function setup(): () => void {
     const artifacts = ensureE2eArtifacts({ repoRoot });
     const teardownTmpRoot = setupTmpRoot();

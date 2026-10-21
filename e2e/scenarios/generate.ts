@@ -5,8 +5,7 @@ import { screenshotsDir } from "../helpers/renderScreenshot.ts";
 
 import { type CapturedShot, loadScenarios, runScenario } from "./framework.ts";
 
-// `npm run screenshots` — regenerate every scenario's PNGs into the git-ignored
-// screenshots/ dir plus an INDEX.md gallery. Attach the produced PNGs to the PR.
+// `npm run screenshots`: PNGs go to the git-ignored screenshots/ dir plus an INDEX.md gallery.
 
 async function main(): Promise<void> {
     const scenarios = await loadScenarios();

@@ -8,20 +8,14 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Python-линт/формат от НАСТОЯЩЕГО стороннего ruff в SEA-бинаре: расширение
- * ставится ИЗ МАГАЗИНА штатным `--install-extension <id>` — это ЕДИНСТВЕННЫЙ
- * сквозной прогон платформенного маршрута магазина (запись `targetPlatform`
- * текущей машины → платформенный vsix → распаковка с exec-битом → spawn
- * нативного `ruff server` из бандла). Ассерты ждут текст, которого НЕТ в
- * буфере (грабля «слабый ассерт» из docs/TODO/Suggest.md).
+ * ЕДИНСТВЕННЫЙ сквозной прогон платформенного маршрута магазина: запись `targetPlatform`
+ * машины → платформенный vsix → распаковка с exec-битом → spawn нативного `ruff server`.
  */
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
 const UNDERCURL = 8;
 
 const FILES = { "lint.py": LINT_PY };
 
-/** Сервер поднялся и отлинтил открытый файл — undercurl на неиспользуемом импорте. */
 async function waitForServerReady(session: {
     captureFrame: () => Promise<{ cells: { style: number }[] }>;
 }): Promise<void> {
@@ -32,8 +26,7 @@ async function waitForServerReady(session: {
     );
 }
 
-// Extension-host subprocess + спавн нативного сервера — Linux-only, как
-// pythonLsp (см. docs/TODO/E2E.md); без сети сьют пропускается.
+// Только Linux: extension host + спавн нативного сервера (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
     "SEA binary — стоковый ruff.vsix (Python-линт и формат)",
     () => {
@@ -50,7 +43,6 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             await session.waitForNode("EditorElement");
             await waitForServerReady(session);
 
-            // До формата в кадре кривой вызов с пробелами внутри скобок.
             const before = frameToText(await session.captureFrame());
             expect(before).toContain('print( "x" )');
 
@@ -58,8 +50,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             await session.key("Ctrl+K");
             await session.key("Ctrl+E");
 
-            // Отформатированного варианта в буфере не было — он мог появиться
-            // только правками настоящего ruff-форматтера.
+            // Такой вариант мог появиться только правками настоящего ruff-форматтера.
             await session.waitForText((text) => text.includes('print("x")'), {
                 timeoutMs: 60_000,
                 intervalMs: 500,
@@ -75,7 +66,6 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             await session.waitForNode("EditorElement");
             await waitForServerReady(session);
 
-            // В несортированном файле sys стоит ПЕРВОЙ строкой.
             const before = frameToText(await session.captureFrame());
             expect(before.indexOf("import sys")).toBeLessThan(before.indexOf("import os"));
 
@@ -86,7 +76,6 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             await session.waitForText((text) => text.includes("Organize Imports"), { timeoutMs: 30_000 });
             await session.key("Enter");
 
-            // После organize imports os — раньше sys (сортировка, без удаления).
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => {

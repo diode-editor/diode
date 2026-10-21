@@ -8,14 +8,9 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Quick Fix (#196) от стокового `typescript-language-server` в SEA-бинаре:
- * Ctrl+K Ctrl+Q открывает меню действий у каретки, выбранное действие
- * («Remove import from …») правит буфер.
- *
- * Второй кейс — undo после quick fix'а: удаление ОДНОГО имени из списка
- * импорта сервер присылает двумя смежными диапазонами на одной строке, и
- * Ctrl+Z обязан вернуть строку дословно (буфер собирался перемешанным —
- * `import { alphazeta,  } from …`).
+ * #196. Undo после quick fix'а: удаление ОДНОГО имени из импорта сервер присылает двумя
+ * смежными диапазонами на одной строке, и Ctrl+Z обязан вернуть строку дословно
+ * (собиралось перемешанным — `import { alphazeta,  } from …`).
  */
 
 const require_ = createRequire(import.meta.url);

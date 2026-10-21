@@ -10,14 +10,9 @@ import { renderStub, verifyOffset } from "../scripts/selfextract-format.mjs";
 import { smokeTestBinary } from "../scripts/smoke-binary.mjs";
 
 /**
- * Регресс на первопричину #143: самотест сборки обязан ПАДАТЬ на бинаре, который
- * не стартует. Прошлая версия проверки смотрела только на `error` от spawnSync,
- * поэтому segfault выглядел как «spawn OK, exited with code null», и битый
- * diode-macos-x64 уехал в релиз.
- *
- * Живёт в e2e, а не в юнитах: `scripts/` не входит ни в один vitest-include, и
- * втягивать его в unit-конфиг = втягивать в храповик 100% покрытия. Сборка бинаря
- * тесту не нужна — «бинари» здесь это sh-скрипты, поэтому тест быстрый.
+ * #143: самотест обязан падать на нестартующем бинаре — segfault выглядел как
+ * «spawn OK, exited with code null», и битый diode-macos-x64 уехал в релиз.
+ * В e2e, а не в юнитах: `scripts/` вне vitest-include и храповика покрытия.
  */
 describe.skipIf(process.platform === "win32")("smokeTestBinary — самотест сборки", () => {
     let dir = "";
@@ -30,7 +25,6 @@ describe.skipIf(process.platform === "win32")("smokeTestBinary — самоте�
         rmSync(dir, { recursive: true, force: true });
     });
 
-    /** Кладёт исполняемый sh-скрипт, притворяющийся собранным бинарём. */
     function fakeBinary(name: string, body: string): string {
         const path = join(dir, name);
         writeFileSync(path, `#!/bin/sh\n${body}\n`);

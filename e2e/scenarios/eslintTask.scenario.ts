@@ -7,13 +7,7 @@ import { ensureEslintLibrary, ESLINT_FLAT_CONFIG, linkEslintLibrary } from "../.
 import type { ScenarioDriver } from "./framework.ts";
 import { defineScenario } from "./framework.ts";
 
-// Задача стокового расширения: НАСТОЯЩИЙ vscode-eslint из магазина с
-// `eslint.lintTask.enable: true` регистрирует провайдер задач типа `eslint`
-// (`new Task({ type: "eslint" }, folder, "lint whole folder", "eslint",
-// new ShellExecution("<eslint> ."), "$eslint-stylish")`). Run Task → тип eslint →
-// «eslint: lint whole folder» — eslint реально проходит по папке, его отчёт в
-// терминале задачи. Problem matcher `$eslint-stylish` не исполняется
-// (docs/TODO/Tasks.md) — задача просто бежит до выхода.
+// Problem matcher `$eslint-stylish` не исполняется (docs/TODO/Tasks.md) — задача просто бежит до выхода.
 
 const sampleDir = mkdtempSync(join(tmpdir(), "diode-eslint-task-"));
 
@@ -42,8 +36,7 @@ export default defineScenario({
     },
     async run(editor) {
         await editor.waitForText((t) => t.includes("app.js"));
-        // Провайдер eslint регистрируется на `onStartupFinished` — Run Task
-        // поднимает его и сам (`onTaskType:eslint`), а второй уровень ждёт его ответа.
+        // Провайдер регистрируется на `onStartupFinished`; Run Task поднимает его сам (`onTaskType:eslint`).
         await runCommand(editor, "Tasks: Run Task");
         await editor.waitForText((t) => t.includes("eslint") && t.includes("contributed"), { timeoutMs: 30_000 });
         await editor.sendText("eslint");

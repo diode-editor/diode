@@ -10,9 +10,6 @@ import { frameToText } from "./helpers/frame.ts";
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Функциональные e2e commit input box (устройство — docs/arch/workbench/SourceControl.md,
-// бывшие US-13…US-20): поле над секциями, фокус-переходы, персист черновика; commit-
-// сценарии добавляются вместе с фазой 6 (git.commit).
 
 const SWITCH_KEYS = [
     { key: "alt+c", command: "workbench.view.scm" },
@@ -62,19 +59,15 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         await session.waitForText((t) => t.includes("SOURCE CONTROL"));
         const input = await session.waitForNode("#scmCommitInput");
         expect((input.state as InputState).showsPlaceholder).toBe(true);
-        // Плейсхолдер клипуется шириной сайдбара — проверяем начало. Окружение
-        // e2e пинуется к tier=legacy, где Ctrl+Enter — это сам Enter: подсказка
-        // обязана назвать досягаемый Alt+Enter (на kitty она вернётся к
-        // каноническому Ctrl+Enter, см. scmInputComponent.test.ts).
+        // Плейсхолдер клипуется шириной сайдбара. e2e пинуется к tier=legacy, где Ctrl+Enter —
+        // это Enter: подсказка обязана назвать досягаемый Alt+Enter.
         expect(frameToText(await session.captureFrame())).toContain("Message (Alt+Enter");
 
-        // Контролы — в теле секции: ниже её заголовка, но выше списка изменений.
         const changesHeader = await session.waitForNode("#paneHeader-workbench-scm-changes");
         const list = await session.waitForNode("#changesView");
         expect(input.box.y).toBeGreaterThan(changesHeader.box.y);
         expect(input.box.y).toBeLessThan(list.box.y);
 
-        // Кнопка действия — под полем, с пустой строкой между ними.
         const button = await session.waitForNode("#scmActionButton");
         expect(button.box.y - input.box.y).toBe(2);
     }, 120_000);
@@ -106,7 +99,6 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         // Расширение активируется асинхронно: ждём публикации staged-группы,
         // иначе Ctrl+Enter упадёт в no-op (transport-команды ещё нет).
         await session.waitForNode("#scmGroup-index");
-        // Пустое сообщение: notice, git log не вырос.
         await session.key("Alt+Enter");
         await session.waitForText((t) => t.includes("commit message is empty"));
         expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: repo }).toString().trim()).toBe("1");
@@ -115,7 +107,6 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         await session.waitForState("#scmCommitInput", (s) => (s as InputState)?.value === "feat: change");
         await session.key("Alt+Enter");
 
-        // Input очистился, staged-группа ушла; git подтверждает.
         await session.waitForState("#scmCommitInput", (s) => (s as InputState)?.value === "");
         await session.waitForNoNode("#scmGroup-index");
         expect(execFileSync("git", ["log", "-1", "--format=%s"], { cwd: repo }).toString().trim()).toBe(
@@ -158,9 +149,7 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
 
         await session.key("Alt+M");
         await session.waitForFocus("ScmCommitInputElement");
-        // Расширение активно, когда GRAPH показал последний коммит. Секция
-        // открывается свёрнутой (дефолт её дескриптора) — раскрываем шевроном:
-        // до раскрытия расширение `git log` не запускает вовсе.
+        // Секция GRAPH открывается свёрнутой, а до раскрытия расширение `git log` не запускает.
         await session.clickNode("#paneHeader-workbench-scm-graph", { dx: 3 });
         await session.waitForText((t) => t.includes("feat: second"));
 
@@ -173,7 +162,6 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         );
         expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: repo }).toString().trim()).toBe("2");
 
-        // Undo: HEAD откатился, сообщение вернулось в input.
         await session.key("Alt+D");
         await session.waitForState("#scmCommitInput", (s) => (s as InputState)?.value === "feat: amended");
         expect(execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: repo }).toString().trim()).toBe("1");

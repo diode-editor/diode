@@ -5,11 +5,8 @@ import { frameToText } from "./helpers/frame.ts";
 import type { HeadlessSession } from "./helpers/headlessSession.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Go Back / Go Forward в собранном бинаре: история помнит не вкладку, а место —
-// после прыжка в другой файл Back возвращает каретку туда, откуда ушли.
-// Команды повешены на alt+b / alt+n через keybindings.json: аккорд Ctrl+K Ctrl+B
-// к делу отношения не имеет, а палитра увела бы фокус из редактора. Alt+F занят
-// мнемоникой меню File — отсюда alt+n («next») вместо него.
+// Команды на alt+b / alt+n через keybindings.json: палитра увела бы фокус из
+// редактора, а Alt+F занят мнемоникой меню File.
 
 const lines = (prefix: string): string => Array.from({ length: 40 }, (_, i) => `${prefix} line ${String(i)}`).join("\n");
 

@@ -6,12 +6,7 @@ import { createRegistryFixture } from "../helpers/registryFixture.ts";
 
 import { defineScenario, repoRoot } from "./framework.ts";
 
-// Установка из магазина тянет `extensionDependencies`, как VS Code: без
-// вопросов, вместе с расширением. У Lang Pack своих вкладов нет — только
-// зависимость на Sample Lang; после Install в списке установленных оба, и оба
-// ждут перезагрузки окна.
-//
-// Реестр — файловая фикстура с НАСТОЯЩИМИ `.vsix` (как в extensions-install).
+// У Lang Pack своих вкладов нет — только зависимость на Sample Lang.
 
 const registry = await createRegistryFixture(join(mkdtempSync(join(tmpdir(), "diode-scenario-registry-")), "registry"), [
     {
