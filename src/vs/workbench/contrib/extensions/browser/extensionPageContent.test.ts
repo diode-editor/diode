@@ -54,7 +54,6 @@ function meta(overrides: Partial<IRegistryExtensionMeta> = {}): IRegistryExtensi
     };
 }
 
-/** Тексты строк — то, что видит пользователь; тон проверяем там, где он несёт смысл. */
 function texts(lines: readonly { text: string }[]): string[] {
     return lines.map((l) => l.text);
 }
@@ -129,9 +128,7 @@ describe("buildExtensionHeaderLines", () => {
             { entry: entry(), meta: meta(), metaError: null, operationError: null },
             60,
         );
-        // Сравниваем строки целиком, вместе с тоном: цвет здесь — часть смысла
-        // (что имя, что справочная строка, что предупреждение), и ассерт на один
-        // текст пропустил бы перекрашивание половины страницы.
+        // Целиком, вместе с тоном: цвет — часть смысла, и ассерт на текст пропустил бы перекрашивание.
         expect(lines.slice(0, 9)).toEqual([
             { text: "Acme Tools", tone: "normal" },
             { text: "acme.tools", tone: "dim" },
@@ -344,7 +341,6 @@ describe("buildExtensionBodyLines", () => {
 });
 
 describe("страница расширения с частичной поддержкой", () => {
-    /** Содержимое страницы: меты и ошибок нет, если тест не сказал иначе. */
     const content = (o: Partial<IExtensionPageContent> = {}): IExtensionPageContent => ({
         entry: entry(),
         meta: meta(),
@@ -404,9 +400,8 @@ describe("страница расширения с частичной подде
             }),
             80,
         );
-        // Сравниваем начало блока целиком вместе с тоном: заголовок списка —
-        // справочная строка, пункт «не работает» — предупреждение, а последняя
-        // строка блока пустая, иначе readme прилипнет к списку.
+        // Целиком с тоном: заголовок — справочная строка, «не работает» — предупреждение, последняя
+        // строка пустая, иначе readme прилипнет к списку.
         expect(lines.slice(0, 5)).toEqual([
             { text: "Works in Diode:", tone: "dim" },
             { text: "- Ghost text", tone: "dim" },

@@ -37,11 +37,7 @@ import { ExplorerServiceDIToken } from "./explorerService.ts";
 
 export const FileOperationsServiceDIToken = token<FileOperationsService>("FileOperationsService");
 
-/**
- * Промпт ввода имени/пути (InputBox) — узкий срез `QuickInputService.input`
- * (соответствует структурно). Оставлен интерфейсом, чтобы юнит-тесты могли
- * подставлять фейковый промпт; в DI шов замкнут на `QuickInputServiceDIToken`.
- */
+/** Узкий срез `QuickInputService.input` (соответствует структурно). */
 export interface IExplorerInputPrompt {
     input(options: {
         title?: string;
@@ -51,16 +47,9 @@ export interface IExplorerInputPrompt {
     }): Promise<string | undefined>;
 }
 
-/**
- * Превращает содержимое файлового буфера в набор `ResourceFileEdit` для вставки в `targetDir`:
- * режим `cut` → перемещение, `copy` → копирование. Исполнение и запись в историю отмены —
- * на стороне `WorkspaceEditService.applyFileEdits`.
- */
 export function buildPasteEdits(entry: FileClipboardEntry, targetDir: string): ResourceFileEdit[] {
-    // Как у эталона (`resources.distinctParents` над буфером): путь, чей предок
-    // тоже в буфере, приедет вместе с предком — отдельной правкой не идёт.
-    // Так компактная строка в мультивыборе (все папки цепочки) вставляется
-    // одной головой.
+    // Как `resources.distinctParents` эталона: путь, чей предок тоже в буфере, приедет вместе
+    // с предком — так компактная строка в мультивыборе вставляется одной головой.
     const paths = entry.paths.filter(
         (candidate) => !entry.paths.some((other) => candidate.startsWith(other + path.sep)),
     );
@@ -70,12 +59,6 @@ export function buildPasteEdits(entry: FileClipboardEntry, targetDir: string): R
     );
 }
 
-/**
- * Файловые операции Explorer'а: создание/переименование/удаление, copy/cut/paste
- * через {@link IFileClipboard} и workspace-undo/redo. Исполнение правок — через
- * обратимый {@link WorkspaceEditService}; подтверждения — {@link DialogService};
- * дерево обновляется/раскрывается через {@link ExplorerService}.
- */
 export class FileOperationsService {
     public static dependencies = [
         ExplorerServiceDIToken,
@@ -110,9 +93,8 @@ export class FileOperationsService {
     ) {}
 
     /**
-     * Как отменить удаление: подпись действующего бинда workspace-undo дерева
-     * (под `listFocus` — дерево в фокусе, пока открыт диалог, его нет) либо, без
-     * бинда, общий путь через корзину.
+     * Подпись бинда workspace-undo дерева (под `listFocus`: пока открыт диалог, фокуса нет)
+     * либо, без бинда, путь через корзину.
      */
     private undoHint(): string {
         const chord = this.keybindings.getKeybindingForCommand("fileOperations.undo", this.contextKeys, {
@@ -122,19 +104,16 @@ export class FileOperationsService {
         return `Можно восстановить (${formatKeybinding(chord, keybindingLabelStyle(this.contextKeys))} или из корзины).`;
     }
 
-    /** Кладёт выбранные в дереве пути в файловый буфер (режим copy). */
     public copySelected(): void {
         const paths = this.explorer.getSelectedPaths();
         if (paths.length > 0) this.fileClipboard.write(paths, "copy");
     }
 
-    /** Кладёт выбранные в дереве пути в файловый буфер (режим cut). */
     public cutSelected(): void {
         const paths = this.explorer.getSelectedPaths();
         if (paths.length > 0) this.fileClipboard.write(paths, "cut");
     }
 
-    /** Вставляет содержимое файлового буфера в каталог под курсором дерева. */
     public async paste(): Promise<void> {
         const targetDir = this.explorer.getPasteTargetDir();
         if (!targetDir) return;
@@ -150,7 +129,6 @@ export class FileOperationsService {
         await this.explorer.refresh();
     }
 
-    /** Удаление файла: подтверждение (всегда — если безвозвратно) + запись в историю отмены. */
     public requestDeleteFile(filePath: string): void {
         const willTrash = this.workspaceEditService.willMoveToTrash();
         const confirmDelete = this.configurationService.get("explorer.confirmDelete");
@@ -188,7 +166,7 @@ export class FileOperationsService {
         );
     }
 
-    /** Отмена последней файловой операции; для деструктивной — переспрашивает (confirmUndo). */
+    /** Деструктивную операцию переспрашивает (confirmUndo). */
     public undoWorkspace(): void {
         const element = this.undoRedoService.peekUndo(WORKSPACE_UNDO_CONTEXT);
         if (!element) return;
@@ -218,21 +196,13 @@ export class FileOperationsService {
         }
     }
 
-    /** Повтор последней отменённой файловой операции. */
     public redoWorkspace(): void {
         void this.undoRedoService.redo(WORKSPACE_UNDO_CONTEXT).then((ok) => {
             if (ok) void this.explorer.refresh();
         });
     }
 
-    /**
-     * New File / New Folder in the explorer (VS Code `explorer.newFile` /
-     * `explorer.newFolder`). Prompts for a name relative to the target directory
-     * (nested paths like `foo/bar.txt` are allowed and create intermediate dirs),
-     * creates it via the undoable {@link WorkspaceEditService}, refreshes and
-     * reveals it in the tree, and — for files — opens it in the editor
-     * (команда `workbench.openFile`).
-     */
+    /** Вложенные пути (`foo/bar.txt`) разрешены и создают промежуточные каталоги. */
     public async runCreate(kind: "file" | "folder", explorerPath?: string): Promise<void> {
         const targetDir = explorerPath
             ? (await this.files.stat(Uri.file(explorerPath))).isDirectory
@@ -273,11 +243,6 @@ export class FileOperationsService {
         }
     }
 
-    /**
-     * Rename a file or folder in the explorer (VS Code `renameFile`, F2). Prompts
-     * for the new name pre-filled with the current basename, renames it in place via
-     * the undoable {@link WorkspaceEditService}, then refreshes and reveals it.
-     */
     public async runRename(filePath: string): Promise<void> {
         const parentDir = path.dirname(filePath);
         const oldName = path.basename(filePath);
@@ -302,18 +267,14 @@ export class FileOperationsService {
         if (name === undefined) return;
 
         const trimmed = name.trim();
-        if (trimmed === oldName) return; // имя не изменилось — ничего не делаем
+        if (trimmed === oldName) return;
         const resolved = path.resolve(parentDir, trimmed);
         await this.workspaceEditService.applyFileEdits([{ kind: "rename", from: filePath, to: resolved }], "Rename");
         await this.explorer.refresh();
         await this.explorer.revealPath(resolved);
     }
 
-    /**
-     * Expand a leading `~` to the home directory, then resolve the path against
-     * the current workspace root (falling back to the process cwd). Returns null
-     * for an empty input.
-     */
+    /** Ведущий `~` — домашний каталог, база — корень воркспейса (без него — cwd); `null` для пустого ввода. */
     public resolveInputPath(value: string): string | null {
         const trimmed = value.trim();
         if (trimmed === "") return null;
@@ -325,11 +286,8 @@ export class FileOperationsService {
     }
 
     /**
-     * Current workspace root, or the process cwd when no folder is open. The
-     * root comes from `IWorkspaceContextService`; `folders.at(0)` is the visible
-     * narrowing to today's single-folder semantics (with several folders the
-     * reference resolves input against the active editor's folder — stage F in
-     * docs/TODO/MultiRoot.md).
+     * `folders.at(0)` — сужение до одной папки; эталон с несколькими разрешает ввод от папки
+     * активного редактора (этап F в docs/TODO/MultiRoot.md).
      */
     private workspaceRoot(): string {
         return this.workspaceContext.getWorkspace().folders.at(0)?.uri.fsPath ?? process.cwd();

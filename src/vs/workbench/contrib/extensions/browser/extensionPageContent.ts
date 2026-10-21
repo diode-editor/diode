@@ -4,14 +4,8 @@ import { INHERITED_FG } from "@tuidom/core/dom/styles/tuiStyle";
 import type { IRegistryExtensionMeta } from "../../../../platform/extensionManagement/common/registryFormat.ts";
 import type { IExtensionListEntry } from "../common/extensionsWorkbench.ts";
 
-/**
- * Содержимое страницы расширения как строки — чистая функция от карточки, меты
- * и ширины. Разметку читают тесты, а элемент лишь раскладывает готовые строки:
- * перенос по словам считаем сами, потому что в tuidom нет wrap-элемента
- * (`TextBlockElement` — блок фиксированных строк).
- */
+// Перенос по словам считаем сами: в tuidom нет wrap-элемента (`TextBlockElement` — блок фиксированных строк).
 
-/** Тон строки: цвет решает элемент, содержание — эта функция. */
 export type ExtensionPageTone = "normal" | "dim" | "warning";
 
 export interface IExtensionPageLine {
@@ -19,10 +13,6 @@ export interface IExtensionPageLine {
     readonly tone: ExtensionPageTone;
 }
 
-/**
- * Тон → цвет темы. Таблицей, а не switch: тон — это данные. Живёт рядом с
- * типом тона, потому что красят строки обе половины страницы (шапка и тело).
- */
 export const TONE_COLORS: Record<ExtensionPageTone, StyleColor> = {
     normal: INHERITED_FG,
     dim: "descriptionForeground",
@@ -35,26 +25,18 @@ export interface IExtensionPageContent {
     readonly meta: IRegistryExtensionMeta | undefined;
     /** Почему меты нет (сетевой сбой); `null` — реестр ответил. */
     readonly metaError: string | null;
-    /** Чем кончилась последняя установка/удаление; `null` — ошибки не было. */
     readonly operationError: string | null;
 }
 
-/** Ширина, уже недостаточная для осмысленного переноса: ниже неё не режем. */
 const MIN_WRAP_WIDTH = 8;
 
-/**
- * Перенос по словам. Пустые строки сохраняются (в markdown это разделитель
- * абзацев), слово длиннее ширины режется жёстко — иначе оно ушло бы за край.
- */
+/** Пустые строки сохраняются (разделитель абзацев), слово длиннее ширины режется жёстко. */
 export function wrapText(text: string, width: number): string[] {
     const limit = Math.max(MIN_WRAP_WIDTH, width);
     const out: string[] = [];
     for (const paragraph of text.split("\n")) {
         let line = "";
         for (const word of paragraph.split(" ")) {
-            // Пустые куски (двойной пробел, пустой абзац) отдельной ветки не
-            // требуют: у пустого слова нет ни одного куска, и цикл ниже его
-            // молча пропускает.
             for (const piece of splitLongWord(word, limit)) {
                 if (line.length === 0) {
                     line = piece;
@@ -66,30 +48,19 @@ export function wrapText(text: string, width: number): string[] {
                 }
             }
         }
-        // Хвост выталкиваем всегда: у абзаца из одних пробелов он пустой — и
-        // пустая строка как раз и есть то, что абзац означает.
+        // Хвост выталкиваем всегда: у абзаца из одних пробелов он пустой — это и есть пустая строка абзаца.
         out.push(line);
     }
     return out;
 }
 
-/**
- * Слово длиннее строки — на куски по лимиту; короткое отдаётся одним куском.
- * Число кусков считаем заранее, а не режем циклом «пока длинно»: у функции
- * переноса тогда не остаётся конструкции, способной зациклиться (мутационный
- * прогон именно так и вешал раннер, роняя соседние мутанты в «не проверено»).
- */
+/** Число кусков считаем заранее, а не циклом «пока длинно»: такой цикл мутанты зацикливали, вешая раннер. */
 function splitLongWord(word: string, limit: number): string[] {
     const chunks = Math.ceil(word.length / limit);
     return Array.from({ length: chunks }, (_, i) => word.slice(i * limit, (i + 1) * limit));
 }
 
-/**
- * Человеческий статус карточки — та же информация, что бейдж строки списка.
- * Считается по версиям, а не по `availability`: тогда у каждой ветки есть
- * достижимое состояние, а «установлено, но версия неизвестна» просто не
- * выражается.
- */
+/** По версиям, а не по `availability`: так у каждой ветки есть достижимое состояние. */
 export function statusLine(entry: IExtensionListEntry): string {
     if (entry.availability === "incompatible") return "Incompatible with this build of Diode";
     if (entry.installedVersion === null) return "Not installed";
@@ -99,21 +70,13 @@ export function statusLine(entry: IExtensionListEntry): string {
     return `Installed ${entry.installedVersion}`;
 }
 
-/**
- * Строка шапки про урезанную поддержку. Отдельной константой, потому что её же
- * ищет демо-сценарий: текст — часть контракта страницы, а не оформление.
- */
+/** Текст ищет демо-сценарий — он часть контракта страницы. */
 export const PARTIAL_SUPPORT_HEADLINE = "Partial support: some features do not work in Diode";
 
-/** Заголовки списков в блоке поддержки. */
 const WORKS_TITLE = "Works in Diode:";
 const LIMITS_TITLE = "Does not work:";
 
-/**
- * Блок про поддержку: что работает и чего человек лишится. Строится из карточки,
- * а не из меты, — тогда он виден даже когда мету не удалось прочитать (сеть),
- * потому что пометка приезжает уже в индексе.
- */
+/** Из карточки, а не из меты: пометка приезжает уже в индексе, и блок виден, даже когда меты нет. */
 export function buildSupportLines(content: IExtensionPageContent, width: number): IExtensionPageLine[] {
     const support = content.entry.support;
     const { lines, push, wrapped } = lineWriter(width);
@@ -127,16 +90,13 @@ export function buildSupportLines(content: IExtensionPageContent, width: number)
     ] as const) {
         if (items === undefined || items.length === 0) continue;
         push(title, "dim");
-        // Маркер без ведущих пробелов: `wrapText` режет по пробелам и отступ
-        // первой строки всё равно бы потерялся, а у перенесённого хвоста его
-        // не было бы никогда — ровный левый край честнее рваного.
+        // Маркер без ведущих пробелов: `wrapText` режет по пробелам, и отступ всё равно бы потерялся.
         for (const item of items) wrapped(`- ${item}`, tone);
     }
     push("");
     return lines;
 }
 
-/** `engines` последней версии одной строкой; пусто — требований нет. */
 function requirementsOf(meta: IRegistryExtensionMeta | undefined, version: string | null): string {
     const engines = meta?.versions.find((v) => v.version === version)?.engines;
     const parts: string[] = [];
@@ -145,7 +105,6 @@ function requirementsOf(meta: IRegistryExtensionMeta | undefined, version: strin
     return parts.join(", ");
 }
 
-/** Накопитель строк: сам переносит по ширине и помнит тон. */
 function lineWriter(width: number): {
     lines: IExtensionPageLine[];
     push: (text: string, tone?: ExtensionPageTone) => void;
@@ -161,11 +120,7 @@ function lineWriter(width: number): {
     return { lines, push, wrapped };
 }
 
-/**
- * Шапка страницы: идентичность, состояние, требования, ссылки и — если
- * установка/удаление сорвались — причина. Живёт закреплённой над readme,
- * поэтому кончается пустой строкой-зазором перед рядом кнопок.
- */
+/** Закреплена над readme, поэтому кончается пустой строкой-зазором перед рядом кнопок. */
 export function buildExtensionHeaderLines(content: IExtensionPageContent, width: number): IExtensionPageLine[] {
     const { entry, meta, operationError } = content;
     const { lines, push, wrapped } = lineWriter(width);
@@ -190,16 +145,11 @@ export function buildExtensionHeaderLines(content: IExtensionPageContent, width:
     return lines;
 }
 
-/**
- * Тело страницы: readme реестра как есть — рендерера markdown в проекте нет, и
- * заводить его ради страницы магазина не стали. Вместо readme может стоять
- * причина, по которой его нет.
- */
+/** Readme как есть: рендерера markdown в проекте нет. */
 export function buildExtensionBodyLines(content: IExtensionPageContent, width: number): IExtensionPageLine[] {
     const { meta, metaError } = content;
     const { lines, wrapped } = lineWriter(width);
-    // Что именно урезано — раньше readme: это решение «ставить или нет», а не
-    // справка. И раньше веток «меты нет»: пометка приходит уже с индексом.
+    // Что урезано — раньше readme и раньше веток «меты нет»: пометка приходит уже с индексом.
     lines.push(...buildSupportLines(content, width));
 
     if (metaError !== null) {
@@ -207,8 +157,6 @@ export function buildExtensionBodyLines(content: IExtensionPageContent, width: n
         return lines;
     }
     if (meta === undefined) {
-        // Установлено мимо магазина: реестр про него ничего не знает, и
-        // выдумывать описание неоткуда.
         wrapped("This extension is not in the marketplace — it was installed from a file.", "dim");
         return lines;
     }

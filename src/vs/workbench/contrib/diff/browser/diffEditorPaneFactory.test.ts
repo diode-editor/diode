@@ -10,10 +10,6 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 import { DIFF_EDITOR_PANE_TYPE_ID } from "./diffEditorPaneFactory.ts";
 import { type IOpenDiffPairOptions, openDiffPair } from "./openDiffPair.ts";
 
-/**
- * Дифф-вкладка повторяется по рецепту — спекам сторон, по которым её открыло
- * ядро сравнения: сплит, копия в группу, рестор сессии.
- */
 describe("Фабрика дифф-вкладки", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;

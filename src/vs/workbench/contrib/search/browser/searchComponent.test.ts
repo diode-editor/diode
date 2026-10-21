@@ -35,9 +35,6 @@ import { type ISearchRevealTarget, SearchComponent } from "./searchComponent.ts"
 const theme = WorkbenchTheme.fromThemeFile(darkPlusTheme);
 const ROOT = "/work/project";
 
-// ─── Fakes ────────────────────────────────────────────────────────────────────
-
-/** A TextSearchService that streams the given results synchronously on search(). */
 function fakeSearch(
     results: IFileMatch[],
     opts: { complete?: ITextSearchComplete; onCancel?: () => void } = {},
@@ -54,11 +51,7 @@ function fakeSearch(
     return { service };
 }
 
-/**
- * Папки воркспейса глазами компонента: корень отдаём строкой как есть — тест
- * Windows-путей опирается именно на строку, а `Uri.file` нормализовал бы её к
- * posix-виду.
- */
+/** Корень строкой как есть: тест Windows-путей опирается на строку, а `Uri.file` нормализовал бы её. */
 function fakeWorkspace(root: string | null): IWorkspaceContextService {
     const folders = root === null ? [] : [{ uri: { fsPath: root }, name: "", index: 0 }];
     return { getWorkspace: () => ({ id: root, folders }) } as unknown as IWorkspaceContextService;
@@ -76,7 +69,6 @@ function fileMatch(absolutePath: string, lines: [number, string, string, string]
     };
 }
 
-/** Reveal-цель, записывающая открытия и переходы (аналог фейка Problems). */
 function fakeReveal(): {
     target: ISearchRevealTarget;
     opened: string[];
@@ -96,10 +88,8 @@ function fakeReveal(): {
     return { target, opened, positions, ranges };
 }
 
-/** In-memory стейт: get отдаёт сохранённое или дефолт, store записывает. */
 function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
     const stored = new Map<string, unknown>();
-    // Как настоящий сервис: openWorkspace сообщает об открытии стора проекта.
     const openWorkspaceEmitter = new Emitter<WorkspaceId>();
     const service: IStateService = {
         get<T>(descriptor: IStateDescriptor<T>): T {
@@ -119,7 +109,6 @@ function fakeState(): { service: IStateService; stored: Map<string, unknown> } {
     return { service, stored };
 }
 
-/** Реестр view не участвует в юнит-тестах компонента — merged-контейнер собирает workbench. */
 const NULL_VIEWS_SERVICE = { registerContainer: () => {}, registerView: () => {} } as unknown as ViewsService;
 
 function make(
@@ -152,15 +141,12 @@ function queryInput(component: SearchComponent): InputElement {
     return component.view.querySelectorAll("InputElement")[0] as InputElement;
 }
 
-/** Types into the query input and fires the debounced search. */
 function typeQuery(component: SearchComponent, text: string): void {
     const input = queryInput(component);
     input.inputState.value = text;
     input.onChange?.(text);
     vi.advanceTimersByTime(200);
 }
-
-// ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("SearchComponent", () => {
     beforeEach(() => vi.useFakeTimers());
@@ -491,7 +477,6 @@ describe("SearchComponent", () => {
             expect(screen).toContain("a.ts");
             expect(screen).not.toContain("src/x/a.ts");
 
-            // Сворачивание папки прячет всё поддерево.
             component.results.toggleCollapsed("dir:src");
             expect(component.results.contentHeight).toBe(1);
         });

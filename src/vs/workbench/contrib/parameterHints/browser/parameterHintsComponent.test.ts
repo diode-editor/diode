@@ -50,13 +50,11 @@ describe("ParameterHintsComponent — overlay-сессия попапа", () => 
         const component = new ParameterHintsComponent(testLayoutService(body));
         component.setHint(HINT);
 
-        // Якорь редактора всегда приходит с preferBelow: true (см. getCaretAnchor) —
-        // подсказка обязана его перевернуть, иначе легла бы на попап автодополнения.
+        // Якорь редактора всегда с preferBelow: true — подсказка обязана его перевернуть.
         component.openAt({ screenX: 10, screenY: 12, preferBelow: true });
         app.render();
 
         const height = component.view.getMaxIntrinsicHeight(component.view.getMaxIntrinsicWidth(0));
-        // Нижняя строка попапа — ровно над строкой каретки, сама строка видна.
         expect(component.view.globalPosition.y).toBe(12 - height);
 
         component.dispose();

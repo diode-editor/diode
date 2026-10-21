@@ -6,27 +6,18 @@ import { SidebarServiceDIToken } from "../../../browser/parts/sidebar/sidebarSer
 
 import { SEARCH_VIEW_ID, SEARCH_VIEWLET_ID, SearchComponentDIToken } from "./searchComponent.ts";
 
-/** nf-cod-collapse_all — inline-кнопка заголовка Search. */
+/** nf-cod-collapse_all */
 const COLLAPSE_ALL_ICON = "\ueac5";
-/** nf-cod-expand_all — она же в обратном состоянии. */
+/** nf-cod-expand_all */
 const EXPAND_ALL_ICON = "\ueb95";
 
-/**
- * Показать вьюлет Search в сайдбаре (Ctrl+Shift+F) — сделать его активным, раскрыть
- * сайдбар и сфокусировать строку запроса. Как и Explorer/SCM, переключение идёт
- * через команду (`workbench.view.search`), activity bar у нас нет. Между Explorer
- * (order 10) и Source Control (15), как в VS Code.
- */
 export const showSearchAction: CommandAction = {
     id: "workbench.view.search",
     title: "View: Show Search",
     shortTitle: "Search",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 12 }],
-    // Leader-аккорд — основной рабочий путь: на legacy-терминале Ctrl+Shift+F
-    // неотличим от Ctrl+F, а на «полном» терминале комбинацию может перехватить
-    // сам эмулятор (у kitty Ctrl+Shift+* — его собственные шорткаты). Поэтому
-    // аккорд безусловен, а канонический бинд объявлен там, где терминал вообще
-    // способен его передать, — иначе подсказка в меню обещала бы нерабочее.
+    // Аккорд безусловен: на legacy-терминале Ctrl+Shift+F неотличим от Ctrl+F, а kitty перехватывает
+    // Ctrl+Shift+*. Канонический бинд — только там, где терминал способен его передать.
     keybinding: parseChord("ctrl+k f"),
     keybindings: [{ keys: parseKeybinding("mod+shift+f"), when: "tier != 'legacy'" }],
     run(accessor) {
@@ -34,12 +25,7 @@ export const showSearchAction: CommandAction = {
     },
 };
 
-/**
- * Режим отображения результатов: дерево (сворачиваемые файл-группы) или плоский
- * список. Пара команд вместо тоггла — как у VS Code (`search.action.viewAsTree`/
- * `viewAsList`); выбор персистится по-проектно. Живут и в меню «⋯» заголовка
- * Search (`MenuId.ViewTitle`) с галочкой активного режима (`toggled`).
- */
+/** Пара команд вместо тоггла — как у VS Code; галочка активного режима в «⋯» — через `toggled`. */
 export const searchViewAsTreeAction: CommandAction = {
     id: "search.action.viewAsTree",
     title: "Search: View as Tree",
@@ -59,13 +45,7 @@ export const searchViewAsTreeAction: CommandAction = {
     },
 };
 
-/**
- * Collapse All / Expand All результатов — пара в группе `navigation`, один слот
- * (group/order): сменяются по viewHasSomeCollapsibleResult, как в VS Code, и
- * потому дают ровно одну кнопку в заголовке Search.
- * Collapse — поэтапный CollapseDeepestExpandedLevel (сначала матчи под
- * файлами, потом всё дерево).
- */
+/** Collapse/Expand делят слот (group/order) и сменяются по viewHasSomeCollapsibleResult — в заголовке одна кнопка, как в VS Code. */
 export const collapseSearchResultsAction: CommandAction = {
     id: "search.action.collapseSearchResults",
     title: "Search: Collapse All",
@@ -106,12 +86,7 @@ export const expandSearchResultsAction: CommandAction = {
     },
 };
 
-/**
- * Кольцо фокуса панели поиска: Down/Up (и Ctrl+Down/Ctrl+Up, как в VS Code)
- * ходят query → include → exclude → список и обратно; скрытые за «···» инпуты
- * пропускаются. Плоские стрелки свободны: инпуты однострочные, а
- * searchInputBoxFocus не задевает ни редактор (textInputFocus), ни Find-виджет.
- */
+/** Плоские стрелки свободны: инпуты однострочные, а searchInputBoxFocus не задевает ни редактор, ни Find-виджет. */
 export const focusNextInputBoxAction: CommandAction = {
     id: "search.focus.nextInputBox",
     title: "Search: Focus Next Input Box",
@@ -134,7 +109,6 @@ export const focusPreviousInputBoxAction: CommandAction = {
     },
 };
 
-/** Up с первой строки результатов — назад в инпуты (VS Code: focusSearchFromResults). */
 export const focusSearchFromResultsAction: CommandAction = {
     id: "search.action.focusSearchFromResults",
     title: "Search: Focus Search From Results",
@@ -146,11 +120,6 @@ export const focusSearchFromResultsAction: CommandAction = {
     },
 };
 
-/**
- * Тумблер блока «files to include/exclude» под строкой запроса (VS Code:
- * Toggle Search Details, та же Ctrl+Shift+J). Кнопка «···» в панели — та же
- * команда мышью.
- */
 export const toggleSearchDetailsAction: CommandAction = {
     id: "workbench.action.search.toggleQueryDetails",
     title: "Search: Toggle Search Details",
@@ -182,7 +151,6 @@ export const searchViewAsListAction: CommandAction = {
     },
 };
 
-/** Экшены вьюлета поиска. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const SEARCH_ACTIONS: readonly CommandAction[] = [
     showSearchAction,
     searchViewAsTreeAction,

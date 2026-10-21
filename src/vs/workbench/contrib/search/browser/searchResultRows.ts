@@ -3,27 +3,19 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import type { ITextMatch } from "../../../services/search/common/textSearch.ts";
 
-/** Цвета содержимого строк поиска (выделение/hover красит сам ListViewElement). */
+/** Выделение и hover красит сам ListViewElement. */
 export interface ISearchRowStyles {
     /** Номера строк и счётчики матчей у файлов. */
     readonly dimFg: StyleColor;
-    /** Подсветка найденного спана. */
     readonly matchFg: StyleColor;
     readonly matchBg: StyleColor;
 }
 
-/** Отступ между смысловыми кусками строки (путь↔счётчик, номер↔текст). */
 const GAP = "  ";
-/** Сколько колонок контекста слева от матча оставляем при обрезке длинного before. */
 const MAX_BEFORE_LENGTH = 24;
 const ELLIPSIS = "…";
 
-/**
- * Строки результатов поиска для ListViewElement: обычные TextLabelElement с
- * посимвольной подсветкой (setCharStyle ключуется code-unit-оффсетами — теми же,
- * в которых предразрезан preview матча). Формат-функции переиспользуются и при
- * стриме (обновление счётчика файла), и при смене темы (рестайл всех строк).
- */
+// setCharStyle ключуется code-unit-оффсетами — теми же, в которых предразрезан preview матча.
 
 export function buildFileRow(id: string, relPath: string, count: number, styles: ISearchRowStyles): TextLabelElement {
     const row = new TextLabelElement("");
@@ -43,7 +35,6 @@ export function formatFileRow(row: TextLabelElement, relPath: string, count: num
     row.markDirty();
 }
 
-/** Строка папки tree-режима: метка (возможно, компакт-цепочка "src/vs") без счётчика. */
 export function buildFolderRow(id: string, label: string): TextLabelElement {
     const row = new TextLabelElement(label);
     row.id = id;
@@ -72,10 +63,7 @@ export function formatMatchRow(row: TextLabelElement, match: ITextMatch, styles:
     row.markDirty();
 }
 
-/**
- * Обрезает длинный контекст слева от матча, чтобы сам матч оставался на экране:
- * от длинного before остаётся хвост в MAX_BEFORE_LENGTH символов с ведущим «…».
- */
+/** Чтобы сам матч оставался на экране. */
 export function trimBefore(before: string): string {
     if (before.length <= MAX_BEFORE_LENGTH) return before;
     return ELLIPSIS + before.slice(before.length - (MAX_BEFORE_LENGTH - ELLIPSIS.length));

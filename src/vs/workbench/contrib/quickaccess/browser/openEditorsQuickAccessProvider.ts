@@ -12,11 +12,6 @@ import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAcce
 
 import { splitPathMatchRanges } from "./pathMatchRanges.ts";
 
-/**
- * Открытые редакторы глазами пикера: список вкладок всех групп в MRU-порядке,
- * их метки и переход на выбранную. `EditorService` соответствует шву
- * структурно; связывание — в `diode/modules/workbenchModule.ts`.
- */
 export interface IOpenEditorsSource {
     getOpenEditorsMru(): readonly IEditorPane[];
     displayName(editor: IEditorPane): string;
@@ -30,36 +25,22 @@ export const OpenEditorsQuickAccessProviderDIToken = token<OpenEditorsQuickAcces
 );
 // Stryker restore StringLiteral
 
-/** Маркер несохранённых правок в строке пикера — та же точка, что во вкладке. */
 const MODIFIED_MARKER = "●";
 
-/** Строка пикера до фильтрации: вкладка плюс то, по чему её ищут и показывают. */
 interface OpenEditorEntry {
     readonly pane: IEditorPane;
-    /** Метка вкладки: имя файла (у безымянного буфера — `Untitled-N`). */
     readonly label: string;
-    /** Каталог вкладки относительно корня воркспейса; «» — корень или не файл. */
+    /** «» — корень или не файл. */
     readonly description: string;
 }
 
-/** Совпадение запроса со строкой: чем выше score, тем ближе к началу списка. */
 interface MatchedEntry {
     readonly entry: OpenEditorEntry;
     readonly score: number;
     readonly matchedIndices: readonly number[];
 }
 
-/**
- * Пикер открытых редакторов (`edt `, VS Code `workbench.action.showAllEditors`):
- * вкладки всех групп в MRU-порядке с fuzzy-фильтром по имени и пути — тем же,
- * что у файлового пикера (сперва имя файла с {@link BASENAME_BONUS}, иначе весь
- * относительный путь). Соседний Ctrl+Tab показывает тот же MRU-список, но
- * hold-оверлеем без ввода; здесь — обычный список с фильтром.
- *
- * Источник дешёвый (десятки открытых вкладок, никакого индекса), поэтому ни
- * `debounceQuery`, ни живого обновления по `onShow` тут нет: список строится
- * заново на каждый запрос.
- */
+/** Без debounce и живого обновления: десятки вкладок, список строится на каждый запрос. */
 export class OpenEditorsQuickAccessProvider implements IQuickAccessProvider {
     /** С пробелом, как у vscode: `edt` без него остаётся запросом к файлам. */
     public static readonly PREFIX = "edt ";
@@ -83,9 +64,8 @@ export class OpenEditorsQuickAccessProvider implements IQuickAccessProvider {
             return [{ label: "No opened editors" }];
         }
 
-        // Префикс срезается ДО разбора по пробелам: у этого пикера он сам
-        // кончается пробелом (`edt `), и разбор целого запроса оставил бы `edt`
-        // отдельным термом — ни одна вкладка его бы не прошла.
+        // Префикс срезается ДО разбора по пробелам: он сам кончается пробелом, и `edt`
+        // остался бы отдельным термом, который не проходит ни одна вкладка.
         const filter = prepareQuery(query.slice(OpenEditorsQuickAccessProvider.PREFIX.length));
         const matched = entries.flatMap((entry) => {
             const match = matchEntry(entry, filter);
@@ -101,25 +81,17 @@ export class OpenEditorsQuickAccessProvider implements IQuickAccessProvider {
         return { pane, label: this.editors.displayName(pane), description: this.directoryOf(pane) };
     }
 
-    /**
-     * Каталог вкладки для описания строки: относительно корня воркспейса — как
-     * в файловом пикере. Файл вне корня (открыт из CLI по абсолютному пути) и
-     * воркспейс без корня показываются абсолютным путём: цепочка `../../..`
-     * читается хуже, чем сам путь.
-     */
+    /** Файл вне корня и воркспейс без корня — абсолютным путём: `../../..` читается хуже. */
     private directoryOf(pane: IEditorPane): string {
         // Гейт по схеме, а не по пустому пути: fsPath у не-file схемы (untitled,
         // output, сторона диффа) вернёт мусор, а не бросит.
         if (pane.uri.scheme !== "file") return "";
 
         const directory = nodePath.dirname(pane.uri.fsPath);
-        // `getWorkspaceFolder` уже отвечает `null` и на пустое окно, и на файл вне
-        // папок — отдельная проверка «а не уехал ли путь в ../..» не нужна, и та
-        // же строка заработает при нескольких папках.
+        // `null` и на пустое окно, и на файл вне папок — проверка на `../` не нужна.
         const folder = this.workspace.getWorkspaceFolder(pane.uri);
         if (folder === null) return directory;
         const relative = nodePath.relative(folder.uri.fsPath, directory);
-        // Слэш на всех платформах, как у относительных путей файлового пикера.
         return relative.split(nodePath.sep).join("/");
     }
 
@@ -143,19 +115,11 @@ export class OpenEditorsQuickAccessProvider implements IQuickAccessProvider {
     }
 }
 
-/** Текст, по которому ищут строку: относительный путь вкладки целиком. */
 function searchTextOf(entry: OpenEditorEntry): string {
     return entry.description === "" ? entry.label : `${entry.description}/${entry.label}`;
 }
 
-/**
- * Матчит запрос со строкой по правилам файлового пикера
- * (`FileSearchService.search`): сперва имя файла — совпадение в нём получает
- * {@link BASENAME_BONUS} и бьёт совпадение только в пути, — иначе весь
- * относительный путь. Пустой запрос отдельной ветки не требует: он совпадает с
- * любым именем на нулевые очки и без подсветки, так что список остаётся целым и
- * в исходном (MRU) порядке.
- */
+/** Как `FileSearchService.search`: совпадение в имени получает {@link BASENAME_BONUS}, иначе — по пути. */
 function matchEntry(entry: OpenEditorEntry, filter: PreparedQuery): MatchedEntry | null {
     const searchText = searchTextOf(entry);
     const offset = searchText.length - entry.label.length;

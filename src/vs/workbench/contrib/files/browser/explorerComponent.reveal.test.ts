@@ -70,7 +70,6 @@ describe("ExplorerService — revealPath (через дерево ExplorerCompon
     });
 
     it("expands ancestor directories and selects a nested file", async () => {
-        // Collapsed initially — the nested file is not visible.
         expect(app.backend.screenToString()).not.toContain("target.ts");
 
         const targetPath = path.join(ws.dir, "src", "deep", "target.ts");
@@ -81,7 +80,6 @@ describe("ExplorerService — revealPath (через дерево ExplorerCompon
         const output = app.backend.screenToString();
         expect(output).toContain("deep");
         expect(output).toContain("target.ts");
-        // The revealed file becomes the tree cursor/selection.
         expect(service.getSelectedPaths()).toEqual([targetPath]);
     });
 

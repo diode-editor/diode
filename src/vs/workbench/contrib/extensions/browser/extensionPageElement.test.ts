@@ -66,10 +66,7 @@ function createPage(
     );
 }
 
-/**
- * Поднимает страницу в приложении: фокус живёт в `FocusManager` корня, и без
- * настоящего дерева `focus()` некуда было бы поставить.
- */
+/** Фокус живёт в `FocusManager` корня — без настоящего дерева `focus()` некуда поставить. */
 function mount(element: ExtensionPageElement): void {
     const app = TestApp.createWithContent(element);
     app.render();
@@ -82,12 +79,10 @@ function press(target: TUIElement, key: string): boolean {
     return event.defaultPrevented;
 }
 
-/** Строки readme, как их показывает элемент (тот же снимок читает инспектор). */
 function lines(element: ExtensionPageElement): string[] {
     return element.inspectState().lines as string[];
 }
 
-/** Строки шапки — они живут в своём элементе и в свой снимок. */
 function headerLines(element: ExtensionPageElement): string[] {
     const header = element.querySelector("#extensionPageHeader")!;
     return header.inspectState()!.lines as string[];

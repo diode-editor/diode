@@ -5,21 +5,15 @@ import type {
     ICoreCompletionItem,
 } from "../../../../editor/common/languages/iCompletionSource.ts";
 
-/** Склеенный ответ провайдеров: пункты, признак неполноты и владелец каждого пункта. */
 export interface ICompletionsFromProviders {
     readonly items: readonly ICoreCompletionItem[];
-    /** Хоть один провайдер отдал неполный список — добор символа перезапрашивает. */
     readonly isIncomplete: boolean;
-    /** Чей пункт: resolve спрашивается у того провайдера, что его отдал. */
     readonly providerOf: ReadonlyMap<ICoreCompletionItem, CompletionItemProvider>;
 }
 
 /**
- * Пункты автодополнения от всех подошедших документу провайдеров (upstream
- * `editor/contrib/suggest/browser/suggest.ts:provideSuggestionItems`, без
- * групп по score — склеиваются все подошедшие, как и раньше): спрашиваем
- * параллельно одним и тем же объектом запроса (по нему хост склеит вызовы в
- * один RPC), склеиваем в порядке `ordered`. Сбойный провайдер = пустой список.
+ * upstream `provideSuggestionItems` без групп по score. Один объект запроса на всех — по нему хост
+ * склеит вызовы в один RPC; сбойный провайдер — пустой список.
  */
 export async function provideCompletions(
     providers: readonly CompletionItemProvider[],

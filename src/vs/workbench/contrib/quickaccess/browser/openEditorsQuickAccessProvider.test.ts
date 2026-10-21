@@ -12,7 +12,6 @@ import { OpenEditorsQuickAccessProvider } from "./openEditorsQuickAccessProvider
 
 const ROOT = "/repo";
 
-/** Минимальная вкладка: пикеру нужны ресурс, метка и маркер правок. */
 function makePane(
     uriPath: string,
     { modified = false, label }: { modified?: boolean; label?: string } = {},
@@ -30,7 +29,6 @@ function makePane(
     };
 }
 
-/** Безымянный буфер: схема не `file`, пути на диске нет. */
 function makeUntitledPane(name: string): IEditorPane {
     return { ...makePane(`/${name}`), uri: Uri.parse(`untitled:${name}`), label: name };
 }
@@ -54,7 +52,6 @@ function createProvider(panes: IEditorPane[], root: string | null = ROOT): Harne
     return { provider: new OpenEditorsQuickAccessProvider(editors, workspace), revealed };
 }
 
-/** Запрос целиком, как его отдаёт реестр: провайдер сам срезает префикс. */
 function query(filter: string): string {
     return OpenEditorsQuickAccessProvider.PREFIX + filter;
 }

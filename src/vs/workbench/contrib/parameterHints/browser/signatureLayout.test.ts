@@ -10,8 +10,6 @@ function signature(label: string, parameters: ICoreSignature["parameters"]): ICo
 
 describe("activeParameterSpan — куда ложится подсветка", () => {
     it("строковая метка ищется по границе слова, а не первым indexOf", () => {
-        // `name` встречается внутри `nameLength` РАНЬШЕ, чем сам параметр:
-        // голый indexOf подсветил бы кусок чужого параметра.
         const sig = signature("greet(nameLength: number, name: string): void", [
             { label: "nameLength: number" },
             { label: "name" },

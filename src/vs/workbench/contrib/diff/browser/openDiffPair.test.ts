@@ -16,12 +16,6 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
 
 import { openDiffPair } from "./openDiffPair.ts";
 
-/**
- * Ядро пары источников: идентичность вкладки, дедуп по всем группам, политика
- * нечитаемой стороны, «The files are identical», живые file-стороны. Команды
- * семейства сравнения — тонкие обёртки над этим, их тесты живут рядом с командами.
- */
-
 describe("openDiffPair", () => {
     let ws: ITempWorkspace;
     let workbench: WorkbenchComponent;
@@ -125,7 +119,6 @@ describe("openDiffPair", () => {
 
         expect(result).toBe("opened");
         expect(app.backend.screenToString()).toContain("The files are identical");
-        // Вкладка нормально закрывается и не ломает навигацию.
         const pane = editors.editorGroups.activeGroup.getPanes().find((p) => p instanceof DiffEditorPane2);
         expect(pane).toBeDefined();
         editors.editorGroups.activeGroup.closeTab(

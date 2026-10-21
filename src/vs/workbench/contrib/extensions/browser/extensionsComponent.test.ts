@@ -21,10 +21,8 @@ import { ExtensionEditorPane } from "./extensionEditorPane.ts";
 import type { IExtensionPageActions } from "./extensionPageActions.ts";
 import { ExtensionsComponent, type IExtensionsEditorTarget } from "./extensionsComponent.ts";
 
-/** Реестр view не участвует в юнит-тестах компонента — контейнер собирает workbench. */
 const NULL_VIEWS_SERVICE = { registerContainer: () => {}, registerView: () => {} } as unknown as ViewsService;
 
-/** Реестр view, запоминающий дескриптор: через него проверяется показ секции. */
 function recordingViewsService(): { service: ViewsService; descriptor: () => { focus: () => void; title: string } } {
     let captured: { focus: () => void; title: string } | undefined;
     const service = {
@@ -59,7 +57,6 @@ function entry(overrides: Partial<IExtensionListEntry> & { id: string }): IExten
     };
 }
 
-/** Сервис-фейк: карточки и ошибка задаются тестом, вызовы записываются. */
 class FakeService implements IExtensionsWorkbenchService {
     public ensureLoadedCalls = 0;
     public refreshCalls = 0;
@@ -114,7 +111,6 @@ class FakeService implements IExtensionsWorkbenchService {
         return { dispose: () => this.listeners.delete(listener) };
     }
 
-    /** Смена данных «с той стороны» — как после установки или Refresh. */
     public update(entries: IExtensionListEntry[], error: string | null = null): void {
         this.entries = entries;
         this.error = error;
@@ -127,7 +123,6 @@ function fakeTarget(): { target: IExtensionsEditorTarget; opened: IEditorPane[] 
     return { target: { openPane: (pane) => opened.push(pane) }, opened };
 }
 
-/** Действия страницы вьюлету нужны только чтобы передать их открытой вкладке. */
 const PAGE_ACTIONS: IExtensionPageActions = {
     install: () => Promise.resolve({ ok: true, version: "1.0.0" }),
     uninstall: () => Promise.resolve({ ok: true }),
@@ -145,14 +140,12 @@ function render(component: ExtensionsComponent, w = 44, h = 16): MockTerminalBac
     return renderElement(component.view, w, h, { themeVars: true });
 }
 
-/** Набор в строку поиска — тем же путём, что даёт виджет ввода. */
 function typeQuery(component: ExtensionsComponent, text: string): void {
     const input = component.view.querySelectorAll("InputElement")[0] as InputElement;
     input.inputState.value = text;
     input.onChange?.(text);
 }
 
-/** Активация строки списка по её id — то же, что Enter/двойной клик. */
 function activate(component: ExtensionsComponent, rowId: string): void {
     const row = component.view.querySelector(`#${rowId}`);
     expect(row, `строка #${rowId} не найдена`).not.toBeNull();

@@ -15,13 +15,8 @@ import { TextSearchService } from "../../../services/search/node/textSearchServi
 
 import { SearchComponent } from "./searchComponent.ts";
 
-/**
- * Search view целиком — настройки, поля, настоящий ripgrep, кадр. Шов «что
- * компонент кладёт в запрос» и шов «что rg находит по запросу» проверены
- * отдельно (`searchComponent.test.ts`, `textSearchService.globs.integration.test.ts`);
- * здесь — что они сходятся там, куда смотрит пользователь. Сценарий — баг из
- * монорепы: `"common": true` в `files.exclude` прятал из поиска `nci/common/**`.
- */
+// Швы «что компонент кладёт в запрос» и «что rg находит» проверены отдельно; здесь — что они сходятся в
+// кадре. Сценарий — баг из монорепы: `"common": true` в `files.exclude` прятал `nci/common/**`.
 describe("SearchComponent + настоящий ripgrep", () => {
     let ws: ITempWorkspace;
     let service: TextSearchService;
@@ -72,11 +67,7 @@ describe("SearchComponent + настоящий ripgrep", () => {
         return renderElement(component.view, 60, 20, { themeVars: true }).screenToString();
     }
 
-    /**
-     * Запускает поиск, дожидается конца запущенного rg (после debounce) и
-     * отдаёт кадр со сводкой `summary`. Ждать одну сводку мало: «No results»
-     * виден и до старта rg, а «1 … in 1 file» — пока rg стримит второй файл.
-     */
+    /** Одной сводки мало: «No results» виден и до старта rg, а «1 … in 1 file» — пока rg стримит второй файл. */
     async function search(component: SearchComponent, query: string, summary: string): Promise<string> {
         const spy = vi.spyOn(service, "search");
         setInput(component, 0, query);

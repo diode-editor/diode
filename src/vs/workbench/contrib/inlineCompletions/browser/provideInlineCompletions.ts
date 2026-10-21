@@ -6,11 +6,8 @@ import type {
 } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 
 /**
- * Инлайн-подсказки от всех подошедших документу провайдеров (upstream
- * `editor/contrib/inlineCompletions/browser/model/provideInlineCompletions.ts`):
- * спрашиваем параллельно одним объектом запроса и одним токеном (по ним хост
- * склеит вызовы в один RPC), склеиваем в порядке `ordered`. Сбойный провайдер
- * = подсказок нет.
+ * upstream `provideInlineCompletions`: один объект запроса и один токен на всех — хост склеит вызовы
+ * в один RPC. Сбойный провайдер = подсказок нет.
  */
 export async function provideInlineCompletions(
     providers: readonly InlineCompletionsProvider[],

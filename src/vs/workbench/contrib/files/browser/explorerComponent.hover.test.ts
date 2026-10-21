@@ -104,11 +104,9 @@ describe("ExplorerComponent hover", () => {
         expect(sidebarBg).not.toBeUndefined();
         expect(hoverBg).not.toBe(sidebarBg);
 
-        // A non-hovered, non-cursor row keeps the plain sidebar background...
         const plainBg = app.backend.getBgAt(new Point(2, SECOND_ROW_SCREEN_Y));
         expect(plainBg).toBe(sidebarBg);
 
-        // ...and turns into the hover background once the mouse is over it.
         app.backend.simulateMouse(makeMove(4, SECOND_ROW_SCREEN_Y + 1));
         app.render();
         const hoveredBg = app.backend.getBgAt(new Point(2, SECOND_ROW_SCREEN_Y));
@@ -117,7 +115,6 @@ describe("ExplorerComponent hover", () => {
     });
 
     it("does not move the selection cursor when hovering (hover is focus-independent)", () => {
-        // The cursor starts on the first row. Hovering another row must not move it.
         app.backend.simulateMouse(makeMove(4, SECOND_ROW_SCREEN_Y + 1));
         app.render();
 
@@ -133,7 +130,6 @@ describe("ExplorerComponent hover", () => {
         app.render();
         expect(app.backend.getBgAt(new Point(2, SECOND_ROW_SCREEN_Y))).toBe(theme.getColor("list.hoverBackground"));
 
-        // Move the mouse below the last row (empty area) — the row reverts to plain bg.
         app.backend.simulateMouse(makeMove(4, 9));
         app.render();
         expect(app.backend.getBgAt(new Point(2, SECOND_ROW_SCREEN_Y))).toBe(sidebarBg);

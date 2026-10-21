@@ -7,7 +7,6 @@ import { wrapText } from "@tuidom/elements/completionlist/completionDetailsEleme
 
 import { type ISignatureChunk, wrapSignature } from "./signatureLayout.ts";
 
-// ─── Layout ───────────────────────────────────────────────────────────────────
 // [│(0)][pad(1)][текст…][pad(w-2)][│(w-1)] — раскладка HoverElement.
 const TEXT_X = 2;
 const RIGHT_PAD = 1;
@@ -16,23 +15,15 @@ const DEFAULT_MAX_WIDTH = 70;
 /** Кламп высоты v1: длинная документация обрезается, скролл — отдельной задачей. */
 const DEFAULT_MAX_HEIGHT = 10;
 
-/**
- * Что показывает попап. Разметку и поиск активного параметра делает
- * {@link import("./parameterHintsService.ts").ParameterHintsService} — сюда
- * приезжает готовый плоский текст и уже посчитанный диапазон.
- */
 export interface IParameterHint {
-    /** Метка сигнатуры целиком: `greet(name: string): void`. */
     readonly label: string;
-    /** Диапазон активного параметра в метке, `[start, end)`; пустой — подсветки нет. */
     readonly activeSpan: readonly [number, number];
-    /** Счётчик перегрузок `1/2`; `null`, когда сигнатура одна. */
+    /** `null`, когда сигнатура одна. */
     readonly counter: string | null;
-    /** Блоки описания (параметра и сигнатуры) — плоский текст без markdown. */
+    /** Плоский текст без markdown. */
     readonly documentation: readonly string[];
 }
 
-/** Строка контента попапа: кусок метки, разделитель или строка описания. */
 interface IHintLine {
     readonly text: string;
     /** Офсет в метке сигнатуры, которому соответствует `text[prefixLength]`; `null` — это не метка. */
@@ -43,21 +34,16 @@ interface IHintLine {
 }
 
 /**
- * Попап подсказки параметров: рамка, счётчик перегрузок, метка сигнатуры с
- * подсвеченным активным параметром и описания под разделителем.
- *
- * Diode-специфичный элемент, поэтому живёт рядом со своим компонентом, а не в
- * tuidom (правило docs/arch/Workbench.md): посимвольная подсветка поверх
- * drawBox композицией примитивов не выражается — эталон `HoverElement`.
- * Фокус не забирает — как suggest и hover, живёт при активном редакторе.
+ * Не в tuidom: посимвольная подсветка поверх drawBox композицией примитивов не выражается
+ * (эталон — `HoverElement`).
  */
 export class ParameterHintsElement extends TUIElement {
-    /** Предельная ширина попапа; фактическая — по самой длинной строке. */
+    /** Фактическая — по самой длинной строке. */
     public maxWidth = DEFAULT_MAX_WIDTH;
     public maxHeight = DEFAULT_MAX_HEIGHT;
 
     private hintValue: IParameterHint | null = null;
-    /** Кэш раскладки: (ширина текста) → строки. Layout зовут на каждый кадр. */
+    /** Layout зовут на каждый кадр. */
     private linesCache: { width: number; lines: readonly IHintLine[] } | null = null;
 
     public constructor() {
@@ -65,12 +51,10 @@ export class ParameterHintsElement extends TUIElement {
         this.focusable = false;
     }
 
-    /** Есть ли что показывать (пустой попап не занимает места). */
     public get isEmpty(): boolean {
         return this.hintValue === null;
     }
 
-    /** Показываемая подсказка — для тестов и инспектора. */
     public get hint(): IParameterHint | null {
         return this.hintValue;
     }
@@ -82,12 +66,10 @@ export class ParameterHintsElement extends TUIElement {
         this.markDirty();
     }
 
-    /** Строки контента после раскладки — для тестов и измерения. */
     public linesFor(textWidth: number): readonly string[] {
         return this.layoutFor(textWidth).map((line) => line.text);
     }
 
-    /** Отступ метки под счётчиком перегрузок: `1/2 ` слева от сигнатуры. */
     private labelIndentFor(hint: IParameterHint): number {
         return hint.counter === null ? 0 : hint.counter.length + 1;
     }
@@ -129,8 +111,6 @@ export class ParameterHintsElement extends TUIElement {
         }
         return lines;
     }
-
-    // ─── Sizing ──────────────────────────────────────────────────────────────
 
     private textWidthFor(hint: IParameterHint): number {
         const natural = Math.max(
@@ -175,8 +155,6 @@ export class ParameterHintsElement extends TUIElement {
         super.performLayout(BoxConstraints.tight(size));
         return size;
     }
-
-    // ─── Render ──────────────────────────────────────────────────────────────
 
     public override render(context: RenderContext): void {
         const hint = this.hintValue;
@@ -234,7 +212,6 @@ export class ParameterHintsElement extends TUIElement {
     }
 }
 
-/** Ширина самой длинной строки текста как есть (до переноса). */
 function naturalWidth(text: string): number {
     let max = 0;
     for (const line of text.split("\n")) max = Math.max(max, new DisplayLine(line).displayWidth);

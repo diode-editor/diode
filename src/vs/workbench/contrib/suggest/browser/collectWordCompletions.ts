@@ -1,17 +1,11 @@
-/**
- * Идентификатор-подобное «слово» для word-based автодополнения — буквы любого
- * алфавита (как эталонный `DEFAULT_WORD_REGEXP`): кириллические слова буфера
- * тоже подсказываются.
- */
+/** Буквы любого алфавита, как эталонный `DEFAULT_WORD_REGEXP`. */
 const WORD_RE = /[\p{L}_][\p{L}\p{M}\p{N}_]*/gu;
 
-/** Минимальная длина слова (одиночные буквы — шум). */
 const MIN_WORD_LENGTH = 2;
 
-/** Предельный размер документа-источника, байт: большие файлы пропускаем (как VS Code). */
+/** Байт; источник крупнее пропускается целиком (как VS Code). */
 const DEFAULT_MAX_BYTES_PER_TEXT = 1_000_000;
 
-/** Кап на число собранных слов (ограничивает список и время). */
 const DEFAULT_MAX_WORDS = 1000;
 
 export interface IWordCompletionOptions {
@@ -19,16 +13,7 @@ export interface IWordCompletionOptions {
     readonly maxWords?: number;
 }
 
-/**
- * Собирает уникальные слова из набора текстов (все открытые редакторы) для
- * word-based автодополнения — аналог `editor.wordBasedSuggestions` в VS Code,
- * когда языковые провайдеры ничего не дали.
- *
- * Защиты для больших файлов (как VS Code, который исключает слишком большие
- * модели из фичи): документы крупнее `maxBytesPerText` пропускаются целиком, а
- * общее число слов ограничено `maxWords`. Слово `exclude` (набираемый префикс
- * под курсором) не включается.
- */
+/** Слово `exclude` (набираемый префикс под курсором) не включается. */
 export function collectWordCompletions(
     texts: readonly string[],
     exclude: string,
@@ -40,7 +25,7 @@ export function collectWordCompletions(
     const seen = new Set<string>();
     const words: string[] = [];
     for (const text of texts) {
-        if (text.length > maxBytes) continue; // слишком большой источник — пропускаем
+        if (text.length > maxBytes) continue;
         WORD_RE.lastIndex = 0;
         let match: RegExpExecArray | null;
         while ((match = WORD_RE.exec(text)) !== null) {

@@ -20,13 +20,9 @@ import { QUERY_COMMAND } from "../../scm/browser/syncActions.ts";
 
 import { resetSelectedForCompare } from "./compareActions.ts";
 
-/**
- * Семейство команд сравнения (US-3…US-7, US-9, US-12): каждая — тонкая обёртка
- * над openDiffPair, поэтому здесь проверяется именно выбор сторон и вход
- * (пикеры, меню, буфер обмена), а механика вкладки — в openDiffPair.test.ts.
- */
+// Здесь — выбор сторон и вход (пикеры, меню, буфер обмена); механика вкладки — в openDiffPair.test.ts.
 
-/** Журнал фокусов содержимого групп (view-хук полосы оборачивается, не заменяется). */
+/** View-хук полосы оборачивается, а не заменяется. */
 function recordGroupFocus(groups: IEditorGroupsService): number[] {
     const focused: number[] = [];
     const viewHook = groups.focusGroupContentHook;
@@ -302,8 +298,7 @@ describe("Команды сравнения файлов", () => {
             h.commands.execute("diode.scm.openFileAtRevision");
             await settle(50);
             h.testApp.render();
-            // Активная вкладка — снимок; команда гейтится текстовым РЕДАКТИРУЕМЫМ
-            // файлом? Нет: снимок тоже TextEditorPane — вернёмся в исходный файл.
+            // Снимок — тоже TextEditorPane: вернёмся в исходный файл.
             h.testApp.sendKey("Escape");
             editors.editorGroups.activeGroup.activateTab(0);
             h.commands.execute("diode.scm.openFileAtRevision");

@@ -7,12 +7,6 @@ import { gotoLineAction, quickOpenAction, showAllEditorsAction, showCommandsActi
 import type { QuickOpenService } from "./quickOpenService.ts";
 import { QuickOpenServiceDIToken } from "./quickOpenService.ts";
 
-/**
- * Аксессор с QuickOpenService-заглушкой, записывающей запрос показа. Составление
- * запроса (префикс провайдера + args) — зона этих экшенов; то, что show(запрос)
- * префиллит строку ввода и фильтрует список, закрывают тесты QuickOpenService,
- * сквозной путь из keybindings.json — e2e-сценарий quick-open-prefill.
- */
 function makeAccessor(): { accessor: ServiceAccessor; shown: string[] } {
     const shown: string[] = [];
     const stub = {

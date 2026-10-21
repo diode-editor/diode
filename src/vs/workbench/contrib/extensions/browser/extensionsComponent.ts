@@ -19,17 +19,10 @@ import { buildExtensionRow, buildGroupRow, type IExtensionRowStyles } from "./ex
 
 export const ExtensionsComponentDIToken = token<ExtensionsComponent>("ExtensionsComponent");
 
-/** Id вьюлета Extensions в сайдбаре (см. команду `workbench.view.extensions`). */
 export const EXTENSIONS_VIEWLET_ID = "extensions";
 
-/** Id единственной view merged-контейнера Extensions (заголовок + меню «⋯»). */
 export const EXTENSIONS_VIEW_ID = "workbench.extensions.marketplace";
 
-/**
- * Минимальный срез полосы редакторов: открыть страницу расширения вкладкой.
- * `EditorService` соответствует ему структурно — связывание делает DI-модуль
- * (как `SearchRevealTargetDIToken` у поиска).
- */
 export interface IExtensionsEditorTarget {
     openPane(pane: IEditorPane): void;
 }
@@ -48,20 +41,11 @@ const ROW_STYLES: IExtensionRowStyles = {
     warningFg: "editorWarning.foreground",
 };
 
-/** Что делает Enter на строке: открыть страницу расширения либо повторить запрос каталога. */
 type RowAction = { readonly kind: "open"; readonly id: string } | { readonly kind: "retry" };
 
 /**
- * Extensions view (левый сайдбар): строка поиска и список — каталог магазина
- * плюс установленное. Enter на записи открывает страницу расширения отдельной
- * вкладкой ({@link ExtensionEditorPane}).
- *
- * Установленное показывается ОТДЕЛЬНОЙ секцией и одновременно остаётся в
- * каталоге с бейджем `Installed`: «что у меня стоит» и «что есть в магазине» —
- * два разных вопроса, и второй не должен терять записи из-за первого.
- *
- * Фильтрация локальная (индекс кэширован сервисом), поэтому debounce не нужен:
- * набор буквы — это `filter` по массиву, а не запрос в сеть.
+ * Установленное — отдельной секцией и одновременно в каталоге с бейджем `Installed`: каталог не
+ * должен терять записи. Фильтрация локальная по кэшу сервиса — debounce не нужен.
  */
 export class ExtensionsComponent extends Component {
     public static dependencies = [
@@ -76,7 +60,6 @@ export class ExtensionsComponent extends Component {
         listId: "extensionsList",
         placeholder: "Search Extensions",
     });
-    /** Публичен для команд list-навигации и тестов (конвенция SearchComponent). */
     public readonly list: ListViewElement;
     private readonly actions = new Map<string, RowAction>();
     /** Идёт чтение каталога: пустой список в этот момент — «ещё не знаем», а не «пусто». */
@@ -106,8 +89,7 @@ export class ExtensionsComponent extends Component {
         );
         this.rebuildRows();
 
-        // Порядок среди вьюлетов тот же, что в activity bar VS Code: магазин
-        // после Source Control.
+        // Порядок — как в activity bar VS Code: магазин после Source Control.
         viewsService.registerContainer({
             id: EXTENSIONS_VIEWLET_ID,
             title: "EXTENSIONS",
@@ -134,24 +116,17 @@ export class ExtensionsComponent extends Component {
         return this.control.view;
     }
 
-    /**
-     * Фокус в строку поиска. Он же момент первого чтения каталога: до показа
-     * вьюлета в сеть не ходим, а показ без списка бессмыслен.
-     */
+    /** Он же момент первого чтения каталога: до показа вьюлета в сеть не ходим. */
     public focus(): void {
         this.control.focusInput();
         void this.withLoadingRow(() => this.service.ensureLoaded());
     }
 
-    /** Перечитать каталог (команда `extensions.refresh`). */
     public refresh(): Promise<void> {
         return this.withLoadingRow(() => this.service.refresh());
     }
 
-    /**
-     * Держит строку «Loading…» на время чтения каталога. Без неё первый показ
-     * вьюлета на медленной сети выглядит как пустой магазин — то есть врёт.
-     */
+    /** Без «Loading…» первый показ на медленной сети выглядит пустым магазином. */
     private async withLoadingRow(read: () => Promise<void>): Promise<void> {
         this.loading = true;
         this.rebuildRows();
@@ -163,7 +138,6 @@ export class ExtensionsComponent extends Component {
         }
     }
 
-    /** Текущий запрос — наблюдаемость для тестов. */
     public getQuery(): string {
         return this.control.getQuery();
     }
@@ -179,8 +153,6 @@ export class ExtensionsComponent extends Component {
         const error = this.service.getCatalogError();
         if (error !== null) {
             this.appendGroup(MARKETPLACE_GROUP_ID, "MARKETPLACE");
-            // Действие впереди причины: строка кликабельна, и первое слово
-            // говорит, что с ней можно сделать.
             const row = new TextLabelElement(`Retry — ${error}`);
             row.id = ERROR_ROW_ID;
             row.setColors("editorWarning.foreground", INHERITED_BG);
@@ -209,9 +181,8 @@ export class ExtensionsComponent extends Component {
     }
 
     private appendEntry(groupId: string, entry: IExtensionListEntry): void {
-        // Одна запись может стоять в обеих секциях — id строки несёт секцию,
-        // иначе вторая строка перетёрла бы первую. Точки в id меняем на дефисы:
-        // селектор инспектора (`#id`) точку не понимает (конвенция контейнеров view).
+        // Одна запись может стоять в обеих секциях — id несёт секцию. Точки — в дефисы: селектор
+        // инспектора (`#id`) точку не понимает.
         const rowId = `${groupId}-${entry.id.replaceAll(".", "-")}`;
         this.list.appendRow(buildExtensionRow(rowId, entry, ROW_STYLES), {
             parentId: groupId,
@@ -221,8 +192,7 @@ export class ExtensionsComponent extends Component {
     }
 
     private activateRow(rowId: string): void {
-        // Обе ветки явные: «всё остальное» как fallback означало бы, что строка
-        // с испорченным действием молча делает что-то одно из двух.
+        // Обе ветки явные: fallback молча делал бы одно из двух при испорченном действии.
         const action = this.actions.get(rowId);
         if (action?.kind === "open") {
             void this.openExtensionPage(action.id);
@@ -231,10 +201,7 @@ export class ExtensionsComponent extends Component {
         if (action?.kind === "retry") void this.refresh();
     }
 
-    /**
-     * Открывает страницу расширения. Мету тянем здесь, а не в панели: сетевой
-     * сбой обязан доехать до страницы текстом, а не оставить пустую вкладку.
-     */
+    /** Мету тянем здесь, а не в панели: сетевой сбой обязан доехать до страницы текстом. */
     public async openExtensionPage(id: string): Promise<void> {
         const entry = this.service.getEntries().find((e) => e.id === id);
         if (entry === undefined) return;

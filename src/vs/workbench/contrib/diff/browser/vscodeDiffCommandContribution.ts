@@ -11,11 +11,7 @@ export const VscodeDiffCommandContributionDIToken = token<VscodeDiffCommandContr
     "VscodeDiffCommandContribution",
 );
 
-/**
- * `vscode.diff` — программный вход с контрактом VS Code: без title, мимо
- * палитры; ext-host исполняет её по id через мост команд, поэтому команда
- * обязана существовать до старта расширений (фаза `blockStartup`).
- */
+/** Ext-host исполняет `vscode.diff` по id через мост — команда обязана существовать до старта расширений (`blockStartup`). */
 export class VscodeDiffCommandContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [CommandRegistryDIToken, ServiceAccessorDIToken] as const;
 

@@ -27,7 +27,6 @@ import type { CompletionService, IInlineSuggestionsState } from "../../suggest/b
 
 import { computeIndentationLessThanTabSize, InlineCompletionsService } from "./inlineCompletionsService.ts";
 
-/** Значение ключа, который сервис выставляет как IContextKeyContributor. */
 function contextKey(contributor: IContextKeyContributor, key: ContextKey): unknown {
     const keys = new ContextKeyService();
     contributor.updateContextKeys(keys, null);
@@ -147,12 +146,10 @@ interface FakeGroup {
     setActiveEditorSilently: (editor: TextEditorPane | null) => void;
 }
 
-/** Источник подсказок теста: что ответить на запрос и с каким токеном отмены. */
 type FakeInlineSource =
     | ((request: IInlineCompletionRequest, token: ICancellationToken) => Promise<readonly ICoreInlineCompletionItem[]>)
     | undefined;
 
-/** Источник фейковой группы — в реестр сервиса его кладёт {@link makeService}. */
 const sources = new WeakMap<IEditorService, FakeInlineSource>();
 
 function makeGroup(editor: TextEditorPane | null, source: FakeInlineSource): FakeGroup {
@@ -180,27 +177,23 @@ function makeGroup(editor: TextEditorPane | null, source: FakeInlineSource): Fak
 
 interface ServiceOptions {
     popupOpen?: () => boolean;
-    /** `editor.inlineSuggest.enabled`; `undefined` — ключа в модели нет. */
+    /** `undefined` — ключа в модели нет. */
     enabled?: boolean;
-    /** `editor.inlineSuggest.delay`; по умолчанию 0 — детерминированный авто-запрос. */
+    /** По умолчанию 0 — детерминированный авто-запрос. */
     delay?: unknown;
-    /** `editor.inlineSuggest.requestTimeout`; `undefined` — ключа в модели нет. */
+    /** `undefined` — ключа в модели нет. */
     requestTimeout?: unknown;
-    /** Свой реестр вместо провайдера-источника группы. */
     languageFeatures?: LanguageFeaturesService;
-    /** Секции языков (`"[typescript]": { … }`): значения для чтения с `overrideIdentifier`. */
     languages?: Readonly<Record<string, Omit<ServiceOptions, "popupOpen" | "languages" | "languageFeatures">>>;
 }
 
-/** Сервис с ручками фейкового suggest: события попапа и зарегистрированное в нём состояние. */
 type TestInlineService = InlineCompletionsService & {
     firePopupClose: () => void;
     firePopupShow: () => void;
-    /** Что сервис зарегистрировал в CompletionService (`null` — снято при dispose). */
+    /** `null` — снято при dispose. */
     inlineState: () => IInlineSuggestionsState | null;
 };
 
-/** Схемы ключей приложения — по ним заглушка конфига отбраковывает мусор, как настоящий сервис. */
 const APP_SCHEMAS = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS).getConfigurationProperties();
 
 function makeService(group: IEditorService, options: ServiceOptions = {}): TestInlineService {
@@ -226,10 +219,7 @@ function makeService(group: IEditorService, options: ServiceOptions = {}): TestI
             };
         },
     } as unknown as CompletionService;
-    // Живой конфиг: читается на каждом обращении, значения берутся из `options`
-    // в момент чтения — тест может подменить их по ходу (live-reload).
-    // Как настоящий сервис настроек: значение вне схемы ключа (и отсутствующее) —
-    // дефолт схемы.
+    // Живой: значения берутся из `options` в момент чтения; вне схемы и отсутствующее — дефолт схемы.
     const configuration = {
         get: (key: string, overrides?: IConfigurationOverrides): unknown => {
             const language =
@@ -275,10 +265,6 @@ function items(...list: ICoreInlineCompletionItem[]): () => Promise<readonly ICo
     return () => Promise.resolve(list);
 }
 
-/**
- * Источник, который складывает пришедшие запросы в `into` — тестам настроек
- * важны не только пункты, но и поля самого запроса (`triggerKind`, `timeoutMs`).
- */
 function recordingItems(
     into: IInlineCompletionRequest[],
     ...list: ICoreInlineCompletionItem[]
@@ -289,11 +275,7 @@ function recordingItems(
     };
 }
 
-/**
- * Источник, который держит ответ до `respond` и отдаёт наружу токены запросов —
- * на них и смотрят тесты отмены (провайдер за источником узнаёт об отмене
- * ровно через такой токен).
- */
+/** Держит ответ до `respond` и отдаёт токены запросов — на них смотрят тесты отмены. */
 function pendingSource(): {
     source: FakeInlineSource;
     tokens: ICancellationToken[];
@@ -627,8 +609,7 @@ describe("InlineCompletionsService — гейты", () => {
         await p4;
         expect(s4.isOpen()).toBe(false);
 
-        // Suggest-попап открылся за время запроса: ответ не выбрасывается, а
-        // ждёт закрытия попапа невидимым (см. «жизнь сессии»).
+        // Suggest-попап открылся за время запроса: ответ не выбрасывается, а ждёт его закрытия невидимым.
         const popup = makeEditor("ab", 2);
         const d5 = deferred();
         let popupOpen = false;
@@ -1017,7 +998,6 @@ describe("InlineCompletionsService — жизнь сессии", () => {
         const service = makeService(g.group);
 
         g.setActiveEditor(other.editor);
-        // Правка в СТАРОМ редакторе: его подписки сняты — запросов нет.
         fake.type("ab ", 3);
         await tick();
 
@@ -1096,7 +1076,7 @@ describe("InlineCompletionsService — жизнь сессии", () => {
 
         fake.type("ab x", 4);
         await tick();
-        expect(source).toHaveBeenCalledTimes(1); // после dispose набор не запрашивает
+        expect(source).toHaveBeenCalledTimes(1);
 
         // И смена активного редактора больше не перевешивает подписки.
         g.setActiveEditor(other.editor);
@@ -1158,12 +1138,6 @@ describe("InlineCompletionsService — принятие", () => {
     });
 });
 
-/**
- * Заявка n-4: подсказка нужна и когда каретка НЕ в конце строки (внутри
- * скобок, в середине объекта) — сегодня сервис её просто не показывает
- * (гейт `caret.character !== lineContent.length`), и значительная часть
- * подсказок провайдера до пользователя не доходит.
- */
 describe("InlineCompletionsService — каретка в середине строки", () => {
     it("набор в середине строки запрашивает источник и показывает призрака перед хвостом", async () => {
         const fake = makeEditor(";", 0);
@@ -1388,7 +1362,6 @@ describe("InlineCompletionsService — настройки", () => {
             enabled: false,
         });
 
-        // Набор при выключенной настройке провайдера не опрашивает вовсе.
         fake.type("ab ", 3);
         await tick();
         expect(requests).toHaveLength(0);
@@ -1511,8 +1484,7 @@ describe("InlineCompletionsService — настройки", () => {
     });
 
     it("негодные значения настроек откатываются на дефолты, а не ломают редактор", async () => {
-        // `delay: -5` и `requestTimeout: "много"` — ровно то, что человек может
-        // написать руками: редактор обязан вести себя как с дефолтами.
+        // Ровно то, что человек может написать руками.
         const fake = makeEditor("ab", 2);
         const requests: IInlineCompletionRequest[] = [];
         const service = makeService(makeGroup(fake.editor, recordingItems(requests, { insertText: "abc" })).group, {
@@ -1535,15 +1507,12 @@ describe("InlineCompletionsService — настройки", () => {
 
 describe("computeIndentationLessThanTabSize", () => {
     it("считает видимую ширину пробелов и табов против tabSize", () => {
-        // Каретка в отступе, подсказка с 4 пробелами (= tabSize) → false.
         expect(computeIndentationLessThanTabSize("  ", 2, "    x", 4)).toBe(false);
         // Таб добивает до границы tabSize → false.
         expect(computeIndentationLessThanTabSize("", 0, "\tx", 4)).toBe(false);
-        // Отступ подсказки меньше таба → true.
         expect(computeIndentationLessThanTabSize("  ", 2, "  x", 4)).toBe(true);
         // Каретка не в отступе — всегда true.
         expect(computeIndentationLessThanTabSize("ab  ", 4, "    x", 4)).toBe(true);
-        // Подсказка без отступа → true.
         expect(computeIndentationLessThanTabSize("    ", 4, "x", 4)).toBe(true);
         // Скан отступа подсказки останавливается на первом непробельном
         // символе — длинный непробельный хвост ширину не набирает.

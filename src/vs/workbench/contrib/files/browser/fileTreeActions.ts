@@ -10,11 +10,6 @@ import { FileOperationsServiceDIToken } from "./fileOperationsService.ts";
 /** nf-cod-refresh — inline-кнопка заголовка Explorer'а. */
 const REFRESH_ICON = "\ueb37";
 
-/**
- * Удаление файла/каталога из explorer'а: подтверждение + запись в историю отмены
- * (см. `FileOperationsService.requestDeleteFile`). Без аргумента берёт выбранный
- * в дереве путь.
- */
 export const fileDeleteAction: CommandAction = {
     id: "fileOperations.deleteFile",
     title: "File: Delete",
@@ -29,7 +24,6 @@ export const fileDeleteAction: CommandAction = {
     },
 };
 
-/** Переименование файла/каталога (VS Code `renameFile`, F2) через промпт нового имени. */
 export const fileRenameAction: CommandAction = {
     id: "fileOperations.rename",
     title: "File: Rename",
@@ -43,11 +37,7 @@ export const fileRenameAction: CommandAction = {
     },
 };
 
-/**
- * Перечитать содержимое дерева с диска (внешние изменения, которые live-watcher
- * мог пропустить — сетевые шары, игнорируемые пути). Без кейбиндинга: палитра
- * команд и контекстное меню дерева.
- */
+/** Для внешних изменений, которые live-watcher мог пропустить (сетевые шары, игнорируемые пути). */
 export const refreshExplorerAction: CommandAction = {
     id: "workbench.files.action.refreshFilesExplorer",
     title: "File: Refresh Explorer",
@@ -67,7 +57,6 @@ export const refreshExplorerAction: CommandAction = {
     },
 };
 
-/** Отмена последней файловой операции (workspace-undo); деструктивную — переспрашивает. */
 export const fileUndoAction: CommandAction = {
     id: "fileOperations.undo",
     title: "File: Undo",
@@ -78,7 +67,6 @@ export const fileUndoAction: CommandAction = {
     },
 };
 
-/** Повтор последней отменённой файловой операции (workspace-redo). */
 export const fileRedoAction: CommandAction = {
     id: "fileOperations.redo",
     title: "File: Redo",

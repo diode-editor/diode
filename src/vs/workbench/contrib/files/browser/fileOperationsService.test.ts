@@ -19,11 +19,7 @@ import type { WorkspaceEditService } from "../../bulkEdit/browser/workspaceEditS
 import type { ExplorerService } from "./explorerService.ts";
 import { FileOperationsService } from "./fileOperationsService.ts";
 
-/**
- * Юнит-крайности FileOperationsService: отменённый промпт (Escape / клик мимо →
- * `input()` резолвится undefined) оставляет create/rename no-op'ом. Основные
- * флоу покрыты интеграционно (Workbench.FileCreate/FileRename/FileDelete/…).
- */
+/** Основные флоу покрыты интеграционно (Workbench.FileCreate/FileRename/FileDelete/…). */
 function makeService(explorer: Partial<ExplorerService>): { service: FileOperationsService; edits: unknown[] } {
     const edits: unknown[] = [];
     const workspaceEdits = {
@@ -32,7 +28,7 @@ function makeService(explorer: Partial<ExplorerService>): { service: FileOperati
             return null;
         },
     } as unknown as WorkspaceEditService;
-    // Промпт, который пользователь сразу отменяет (шов IExplorerInputPrompt).
+    // Escape / клик мимо — `input()` резолвится undefined.
     const cancelledPrompt = { input: () => Promise.resolve(undefined) };
     const service = new FileOperationsService(
         explorer as ExplorerService,

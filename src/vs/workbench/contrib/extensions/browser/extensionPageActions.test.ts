@@ -12,7 +12,6 @@ import type {
 
 import { ExtensionPageActions } from "./extensionPageActions.ts";
 
-/** Магазин-фейк: интересны только исходы операций и то, что их звали. */
 function fakeService(
     results: {
         install?: IExtensionInstallResult;
@@ -53,7 +52,6 @@ function createActions(service: IExtensionsWorkbenchService): {
     return { actions: new ExtensionPageActions(service, progress, statusBar, commands), statusBar, commands, progress };
 }
 
-/** Тексты записей статус-бара — сообщение о результате видно именно там. */
 function statusTexts(statusBar: StatusBarService): string[] {
     return statusBar.entries().map((entry) => entry.text);
 }

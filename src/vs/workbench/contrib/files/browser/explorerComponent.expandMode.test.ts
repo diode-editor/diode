@@ -21,12 +21,7 @@ import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 import { ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
 
-/**
- * `workbench.tree.expandMode` до кадра: настоящее дерево Explorer'а над
- * настоящим диском, настройки с дефолтами приложения. Строки: «docs» (папка с
- * цепочкой a/b), «src» (папка), «README.md». Имя папки — с колонки 3
- * (отступ 1, шеврон, пробел).
- */
+/** Строки: «docs» (папка с цепочкой a/b), «src», «README.md»; имя папки — с колонки 3 (отступ 1, шеврон, пробел). */
 describe("ExplorerComponent — workbench.tree.expandMode", () => {
     let ws: ITempWorkspace;
     let config: InMemoryConfigurationService;
@@ -46,7 +41,6 @@ describe("ExplorerComponent — workbench.tree.expandMode", () => {
         );
     }
 
-    /** Даёт дереву дочитать каталог с диска и проверяет кадр. */
     async function expectFrame(check: (text: string) => void): Promise<void> {
         await vi.waitFor(() => {
             check(frame());

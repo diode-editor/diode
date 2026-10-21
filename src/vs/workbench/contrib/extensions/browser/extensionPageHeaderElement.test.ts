@@ -48,7 +48,6 @@ function lines(header: ExtensionPageHeaderElement): string[] {
     return header.inspectState().lines as string[];
 }
 
-/** Строки кадра без хвостовых пробелов — так проще сравнивать раскладку целиком. */
 function frame(screen: MockTerminalBackend): string[] {
     return screen
         .screenToString()

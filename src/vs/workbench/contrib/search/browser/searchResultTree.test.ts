@@ -10,7 +10,6 @@ function item(relPath: string): Item {
     return { relPath };
 }
 
-/** Компактная текстовая форма дерева для наглядных ассертов. */
 function dump(nodes: readonly SearchTreeNode<Item>[], indent = ""): string[] {
     return nodes.flatMap((node) =>
         node.kind === "folder"

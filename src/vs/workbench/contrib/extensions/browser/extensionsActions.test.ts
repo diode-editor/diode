@@ -13,7 +13,6 @@ import { refreshExtensionsAction, showExtensionsAction } from "./extensionsActio
 import type { ExtensionsComponent } from "./extensionsComponent.ts";
 import { EXTENSIONS_VIEW_ID, EXTENSIONS_VIEWLET_ID, ExtensionsComponentDIToken } from "./extensionsComponent.ts";
 
-/** Контейнер с фейками ровно тех сервисов, которые дёргают эти два экшена. */
 function makeAccessor(): {
     accessor: Container;
     shown: string[];

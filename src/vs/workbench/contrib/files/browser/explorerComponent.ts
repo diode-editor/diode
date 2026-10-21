@@ -26,17 +26,11 @@ import type { FileTreeNode } from "./fileTreeDataProvider.ts";
 
 export const ExplorerComponentDIToken = token<ExplorerComponent>("ExplorerComponent");
 
-/** Id контейнера Explorer в сайдбаре (см. {@link SidebarService}). */
 export const EXPLORER_VIEWLET_ID = "explorer";
 
-/** Id единственной view контейнера — дерева файлов (VS Code `workbench.explorer.fileView`). */
 export const EXPLORER_VIEW_ID = "workbench.explorer.fileView";
 
-/**
- * Пустое состояние Explorer, когда папка не открыта (редактор поднят на одном
- * файле или вовсе без аргументов). Текст — эталонный, кнопка зовёт обычную
- * команду Open Folder: другой двери из этого состояния нет, и теперь она видна.
- */
+/** Папка не открыта (редактор поднят на файле или без аргументов). Текст — эталонный. */
 const EXPLORER_WELCOME: readonly IViewWelcomeBlock[] = [
     { kind: "text", text: "You have not yet opened a folder." },
     { kind: "text", text: "" },
@@ -49,18 +43,8 @@ interface ExplorerViewParts {
 }
 
 /**
- * Компонент Explorer'а (сайдбар с деревом файлов): владеет `TreeViewElement`
- * поверх провайдера {@link ExplorerService} (обёрнутым в скроллбар),
- * перестраивает дерево по смене корня воркспейса и регистрирует его в сервисе
- * (шов `IExplorerView`). Заголовок, «⋯»-меню и сворачивание даёт общая модель
- * view-контейнеров ({@link ViewsService}) — компонент отдаёт ей только тело
- * секции ({@link ViewsService.setViewBody}), поэтому смена корня не пересоздаёт
- * вьюлет и не рвёт ссылку, которую держит сайдбар.
- *
- * Активация файла уходит в команду `workbench.openFile`; правый клик/Shift+F10
- * (единое событие "contextmenu" движка) открывают контекстное меню через
- * `ContextMenuService` — делегат с точкой `MenuId.ExplorerContext`, пункты
- * исполняют команды `explorer.*`/`fileOperations.*`.
+ * Отдаёт ViewsService только тело секции ({@link ViewsService.setViewBody}), поэтому смена
+ * корня не пересоздаёт вьюлет и не рвёт ссылку, которую держит сайдбар.
  */
 export class ExplorerComponent extends Component implements IContextKeyContributor {
     public static dependencies = [
@@ -83,12 +67,8 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         private readonly configurationService: IConfigurationService,
     ) {
         super();
-        // Пустое тело до первого setRootPath: пока папка не открыта, секция
-        // рисует welcome — как `viewsWelcome` в VS Code, тем же составом (текст
-        // плюс кнопка, которая зовёт обычную команду Open Folder). Кнопки Clone
-        // Repository у нас нет, потому что нет и самой команды клона.
-        // Контейнер сайдбара регистрирует сама фича (как `registerViewContainer`
-        // у VS Code): первый по порядку и показывается по умолчанию.
+        // Пока папка не открыта, секция рисует welcome, как `viewsWelcome` VS Code; кнопки Clone
+        // Repository нет — нет и команды клона.
         viewsService.registerContainer({
             id: EXPLORER_VIEWLET_ID,
             title: "EXPLORER",
@@ -119,12 +99,11 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         }
     }
 
-    /** Тело секции. До первого setRootPath сервиса дерева ещё нет (как и раньше у контроллера). */
+    /** До первого setRootPath дерева ещё нет. */
     public get view(): TUIElement {
         return this.parts?.scrollBars as TUIElement;
     }
 
-    /** IContextKeyContributor: `filesExplorerFocus` — активный элемент внутри тела секции (дерево файлов). */
     public updateContextKeys(contextKeys: ContextKeyService, active: TUIElement | null): void {
         contextKeys.set("filesExplorerFocus", this.containsFocus(active));
         // Эталонные ключи компактной строки под курсором (`explorerView.onFocusChanged`
@@ -143,19 +122,14 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         return false;
     }
 
-    /** Пересоздаёт дерево под новый провайдер сервиса и регистрирует его как view сервиса. */
     private rebuild(): void {
         const provider = this.explorerService.provider;
         /* v8 ignore start -- defensive: onDidChangeRoot only fires from setRootPath, where the provider is (re)created */
         if (!provider) return;
         /* v8 ignore stop */
-        // Отступ контента в 1 колонку живёт внутри дерева, а не во внешнем
-        // паддинг-контейнере: так подсветка курсора заливает строку от края панели.
-        // `workbench.tree.expandMode` (эталон: `expandOnlyOnTwistieClick` у
-        // explorerView): `singleClick` — папку переключают клик по имени и
-        // Enter, `doubleClick` — только шеврон и двойной клик. Предикат
-        // читает настройку на каждом жесте — правка settings.json действует
-        // сразу. Вложенных файлов (`hasNests`) у нас нет.
+        // Отступ в 1 колонку — внутри дерева, а не во внешнем паддинге: подсветка курсора заливает
+        // строку от края панели. `workbench.tree.expandMode` (`expandOnlyOnTwistieClick` эталона)
+        // читается на каждом жесте — правка settings.json действует сразу.
         const tree = new TreeViewElement<FileTreeNode>(provider, {
             leftPadding: 1,
             expandOnlyOnTwistieClick: () =>
@@ -175,9 +149,7 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         };
         tree.onActivate = (node) => {
             if (!node.isDirectory) {
-                // Второй аргумент — режим предпросмотра: дерево единственная
-                // дверь, которая его просит (у эталона Quick Open и навигация по
-                // коду превью не делают — `enablePreviewFrom*` выключены).
+                // Превью просит только дерево: у эталона Quick Open и навигация по коду его не делают.
                 this.commands.execute("workbench.openFile", node.path, { preview: true });
             }
         };
@@ -197,9 +169,6 @@ export class ExplorerComponent extends Component implements IContextKeyContribut
         screenX: number,
         screenY: number,
     ): void {
-        // Контекст открытия несёт путь узла (args команд) и признак непустого
-        // буфера (видимость Paste); пункты собирает ContextMenuService из
-        // MenuId.ExplorerContext.
         this.contextMenuService.showContextMenu({
             getOwner: () => tree,
             getAnchor: () => ({ screenX, screenY }),

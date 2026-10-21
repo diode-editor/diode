@@ -43,7 +43,6 @@ function index(...extensions: IRegistryIndexEntry[]): IRegistryIndex {
     return { schemaVersion: REGISTRY_SCHEMA_VERSION, extensions };
 }
 
-/** Источник-фейк: полностью под контролем теста, без сети и файлов реестра. */
 class FakeSource implements IExtensionRegistrySource {
     public indexCalls = 0;
     public metaCalls = 0;
@@ -63,14 +62,12 @@ class FakeSource implements IExtensionRegistrySource {
         return Promise.resolve(this.metas[id]);
     }
 
-    /** Артефакт версии — настоящий `.vsix` по абсолютному пути из её записи. */
     public fetchArtifact(version: IRegistryVersion): Promise<string> {
         if (version.artifact.type !== "path") throw new Error("not used");
         return Promise.resolve(version.artifact.path);
     }
 }
 
-/** Собирает настоящий `.vsix` — установка распаковывает его как обычно. */
 function buildVsix(file: string, manifest: object): Promise<void> {
     return new Promise((resolve, reject) => {
         const zip = new yazl.ZipFile();
@@ -90,16 +87,12 @@ function buildVsix(file: string, manifest: object): Promise<void> {
 const PROFILE_FILE = "extensions/extensions.json";
 const OTHER_PROFILE_FILE = "profiles/other/extensions.json";
 
-/** Добавляет запись в состав профиля `file`, минуя сервис. */
 function addToProfile(ws: ITempWorkspace, file: string, id: string, version: string): void {
     const entries = readProfileExtensions(ws.path(file)) ?? [];
     writeProfileExtensions(ws.path(file), [...entries, { identifier: { id }, version }]);
 }
 
-/**
- * Кладёт в `extensions/` каталог установленного расширения с манифестом и
- * включает его в профиль сервиса (`inProfile: false` — только на диск).
- */
+/** `inProfile: false` — только на диск. */
 function installOnDisk(
     ws: ITempWorkspace,
     id: string,
@@ -112,7 +105,6 @@ function installOnDisk(
     if (inProfile) addToProfile(ws, PROFILE_FILE, id, version);
 }
 
-/** Id в составе профиля `file`. */
 function profileIds(ws: ITempWorkspace, file: string): string[] | undefined {
     return readProfileExtensions(ws.path(file))?.map((e) => e.identifier.id);
 }
@@ -453,10 +445,6 @@ describe("ExtensionsWorkbenchService", () => {
     });
 
     describe("установка и удаление", () => {
-        /**
-         * Готовит источник, отдающий настоящий `.vsix` версии `version`, и сервис
-         * поверх временного каталога расширений.
-         */
         async function withInstallable(
             version = "1.0.0",
             options: { sha256?: string; dependsOn?: string } = {},
@@ -478,7 +466,6 @@ describe("ExtensionsWorkbenchService", () => {
             return { service: createService(source), source };
         }
 
-        /** Запись реестра одной версии с настоящим `.vsix` во временном каталоге. */
         async function registryMeta(
             id: string,
             version: string,

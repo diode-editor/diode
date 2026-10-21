@@ -23,10 +23,7 @@ import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 import { ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
 
-/**
- * `explorer.compactFolders` до кадра: настоящее дерево Explorer'а над
- * настоящим диском, настройки с дефолтами приложения (сжатие включено).
- */
+/** Настоящее дерево над настоящим диском, настройки с дефолтами приложения (сжатие включено). */
 describe("ExplorerComponent — explorer.compactFolders", () => {
     let ws: ITempWorkspace;
     let config: InMemoryConfigurationService;
@@ -35,10 +32,8 @@ describe("ExplorerComponent — explorer.compactFolders", () => {
     let component: ExplorerComponent;
     let app: TestApp;
     let contextMenuService: ContextMenuService;
-    /** Каталоги, за которыми сейчас следит провайдер дерева. */
     let watched: Set<string>;
 
-    /** Строки кадра без пустых хвостов. */
     function rows(): string[] {
         app.render();
         return app.backend

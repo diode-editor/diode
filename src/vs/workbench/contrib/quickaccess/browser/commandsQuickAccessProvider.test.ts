@@ -165,7 +165,6 @@ describe("CommandsQuickAccessProvider — порядок и подсветка",
         const { provider, commands } = createProvider();
         commands.register("c.d", () => undefined, "Go Line");
 
-        // "Go Line": `go` → 0..1, `line` → 3..6.
         expect(provider.getItems(">go line")[0].labelMatchRanges).toEqual([
             [0, 2],
             [3, 7],

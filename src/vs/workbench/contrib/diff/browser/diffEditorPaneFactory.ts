@@ -24,13 +24,8 @@ interface ISerializedDiff {
 }
 
 /**
- * Фабрика дифф-вкладки: рецепт — спеки сторон, по которым её открыло ядро
- * сравнения ({@link openDiffPair}). Сплит и копия в группу повторяют любую
- * такую вкладку, кроме untitled-пары (сторона-модель принадлежит одной панели).
- * Рестарт переживают только диффы файлов с диска, как у upstream
- * `DiffEditorInputSerializer` с несериализуемой стороной: снимок буфера обмена
- * не сохраняется, а `git:`-сторону на старте читать ещё некому — её провайдер
- * появляется с активацией расширения.
+ * Рестарт переживают только диффы файлов с диска, как у upstream `DiffEditorInputSerializer`: снимок
+ * буфера обмена не сохраняется, а провайдер `git:` на старте ещё не активирован.
  */
 export function createDiffEditorPaneFactory(accessor: ServiceAccessor): IEditorPaneFactory<IOpenDiffPairOptions> {
     return {

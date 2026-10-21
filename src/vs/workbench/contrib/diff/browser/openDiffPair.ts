@@ -18,47 +18,26 @@ import { showTransientNotice, TRANSIENT_NOTICE_MS } from "../../../services/stat
 import type { TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 import { TextFileModelServiceDIToken } from "../../../services/textfile/common/textFileModelService.ts";
 
-/** Схема вкладки диффа: не ресурс на диске, а пара «источник ↔ источник». */
 const DIFF_SCHEME = "diode-diff";
 
-/** Сколько держать нотис о том, что сравнение не удалось. */
 export const COMPARE_NOTICE_MS = TRANSIENT_NOTICE_MS;
 
 /**
- * Сторона сравнения. Вид источника выводится из полей (см. {@link resolveSide}):
- * готовая модель (`ownedModel`) → редактируемая сторона, которой владеет
- * панель; готовый текст (`text`) → снимок; `file:`-uri → **живая общая модель**
- * из реестра (несохранённые правки видны, редактируется прямо в диффе); иные
- * схемы (`git:`) и `preferDisk` → снимок, читаемый провайдером ФС.
+ * Вид стороны выводится из полей ({@link resolveSide}): `ownedModel` — редактируемая, ею владеет
+ * панель; `text` — снимок; `file:` — живая общая модель реестра; иные схемы и `preferDisk` — снимок.
  */
 export interface IDiffSideSpec {
-    /** Ресурс стороны; не задан — сторона живёт только в `text`/`ownedModel`. */
     readonly uri?: Uri;
     /** Готовый текст стороны (Clipboard); задан — `uri` для чтения не используется. */
     readonly text?: string;
-    /**
-     * Готовая модель стороны (untitled-стороны «Compare New Untitled Text
-     * Files»). Владение переходит панели диффа вместе с открытием вкладки.
-     */
+    /** Владение переходит панели диффа вместе с открытием вкладки. */
     readonly ownedModel?: TextFileModel;
-    /** Подпись колонки side-by-side и половина метки вкладки. */
     readonly label: string;
-    /**
-     * Ключ идентичности вкладки. Пара ключей (упорядоченная) определяет
-     * «ту же» вкладку: тот же ключ → та же вкладка (снимочные стороны
-     * обновляются на месте), другой → отдельная вкладка.
-     */
+    /** Упорядоченная пара ключей — идентичность вкладки: та же пара → та же вкладка, снимки обновляются на месте. */
     readonly identity: string;
-    /**
-     * Читать `uri` с диска (провайдером), игнорируя открытый буфер, — для
-     * «Compare with Saved», где левая сторона обязана быть версией с диска.
-     */
+    /** Читать с диска мимо открытого буфера («Compare with Saved»). */
     readonly preferDisk?: boolean;
-    /**
-     * Что значит «не читается»: `"empty"` — легитимно пустая сторона (файл
-     * удалён в рабочем дереве — дифф «HEAD ↔ пусто», US-10), `"error"` —
-     * сравнение не удаётся (выбранный в пикере файл исчез). Дефолт — `"error"`.
-     */
+    /** `"empty"` — файл удалён в рабочем дереве (дифф «HEAD ↔ пусто»), `"error"` — сравнение не удаётся. Дефолт — `"error"`. */
     readonly onMissing?: "empty" | "error";
 }
 
@@ -72,26 +51,13 @@ export interface IOpenDiffPairOptions {
 /** `"unreadable"` — сторона не прочиталась; нотис показывает вызывающий. */
 export type OpenDiffPairResult = "opened" | "unreadable";
 
-/**
- * Куда открыть вкладку: в эту группу (повтор вкладки по рецепту — сплит,
- * рестор). Не задано — команда сравнения: вкладка ищется по всем группам, новая
- * открывается в активной.
- */
+/** Не задано — вкладка ищется по всем группам, новая открывается в активной. */
 export interface IOpenDiffPairTarget {
     readonly group: EditorGroup;
     readonly focus: boolean;
 }
 
-/**
- * Ядро сравнения: открывает **живую** дифф-вкладку v2 ({@link DiffEditorPane2})
- * для произвольной пары источников — им пользуются и «Compare with HEAD», и всё
- * семейство команд сравнения (два файла, буфер обмена, сохранённая версия,
- * ревизия, untitled-пара), и программная `vscode.diff`.
- *
- * Стороны-модели живут: правки (в диффе или в обычной вкладке того же файла)
- * пересчитывают дифф сами. Снимочные стороны (git-ревизия, clipboard, диск)
- * обновляются повторным вызовом команды — вкладка та же, содержимое свежее.
- */
+/** Стороны-модели пересчитывают дифф сами; снимочные (git, clipboard, диск) освежает повторный вызов — вкладка та же. */
 export async function openDiffPair(
     accessor: ServiceAccessor,
     options: IOpenDiffPairOptions,
@@ -101,11 +67,8 @@ export async function openDiffPair(
     const groups = accessor.get(EditorGroupsServiceDIToken);
     const uri = pairUri(options);
 
-    // Дедуп по идентичности пары — по ВСЕМ группам (вкладка могла остаться в
-    // другой группе): живые стороны уже актуальны, снимочные освежаем — иначе
-    // повторный вызов (единственный способ «обновить» снимок) показал бы старое.
-    // Повтор вкладки в заданную группу ищет только в ней: копия в соседней
-    // группе — ровно то, что просили.
+    // Дедуп по всем группам: повторный вызов — единственный способ освежить снимок. Повтор в заданную
+    // группу ищет только в ней: копия в соседней группе — ровно то, что просили.
     for (const group of target !== undefined ? [target.group] : groups.groups) {
         const index = group.findPaneIndex(uri);
         if (index < 0) continue;
@@ -136,51 +99,32 @@ export async function openDiffPair(
         accessor.get(IFileServiceDIToken),
         accessor.get(TokenizationRegistryDIToken),
         accessor.get(TokenStyleResolverDIToken),
-        // Персист тумблера US-22: новая вкладка рождается в выбранном режиме.
         { ...input, modeOverride: accessor.get(StateServiceDIToken).get(DIFF_VIEW_MODE_STATE) },
     );
-    // Стороны — редактирующие поверхности: editor.*-конфиг (tabSize, отступы)
-    // применяется как к обычным вкладкам.
     for (const side of pane.sidePanes()) editors.editorConfiguration.apply(side);
-    // Спеки сторон — для автоосвежения снимков по onDidChangeFile (US-31):
-    // политика чтения (`onMissing`) остаётся в одном месте.
+    // Для автоосвежения снимков по onDidChangeFile (US-31).
     paneOptions.set(pane, options);
     editors.openPane(pane, target);
     return "opened";
 }
 
-/**
- * Рецепт открытой дифф-вкладки — спеки её сторон (фабрика вкладки диффа: сплит,
- * копия в группу, рестор). `undefined` — вкладка открыта мимо этого ядра либо
- * повторить её нельзя: сторона-модель (`ownedModel`, untitled-пара) принадлежит
- * одной панели и во вторую не переезжает.
- */
+/** `undefined` — вкладка открыта мимо этого ядра либо сторона-модель (`ownedModel`) во вторую панель не переезжает. */
 export function diffPaneRecipe(pane: DiffEditorPane2): IOpenDiffPairOptions | undefined {
     const options = paneOptions.get(pane);
     if (options === undefined) return undefined;
     return options.original.ownedModel === undefined && options.modified.ownedModel === undefined ? options : undefined;
 }
 
-/** Спеки сторон открытых вкладок; живут и умирают вместе с панелью. */
 const paneOptions = new WeakMap<DiffEditorPane2, IOpenDiffPairOptions>();
 
-/**
- * Освежает снимочные стороны вкладки по её же спекам (US-31: git-провайдер
- * сообщил об изменении ресурса — HEAD сдвинулся). Неизменившийся текст панель
- * отбрасывает сама; ошибка чтения стороны здесь молча пропускается — вкладка
- * продолжает показывать прежний снимок, нотиса без действий пользователя нет.
- */
+/** Ошибка чтения стороны молча пропускается: вкладка показывает прежний снимок, нотиса без действий пользователя нет. */
 export async function refreshDiffSnapshots(providers: IFileService, pane: DiffEditorPane2): Promise<void> {
     const options = paneOptions.get(pane);
     if (options === undefined) return;
     await refreshSnapshotSides(providers, pane, options);
 }
 
-/**
- * Резолв обеих сторон в готовый вход панели, без открытия вкладки. `null` —
- * сторона не читается по её политике (ссылки/модели уже взятых сторон
- * освобождаются — вкладки не будет).
- */
+/** `null` — сторона не читается по её политике; ссылки уже взятых сторон освобождаются. */
 export async function buildDiffInput(
     accessor: ServiceAccessor,
     options: IOpenDiffPairOptions,
@@ -201,38 +145,26 @@ export async function buildDiffInput(
         original,
         modified,
         languageId: resolveLanguageId(accessor, options),
-        // Стороны вкладки — для TabInputTextDiff в API расширений; сторона без
-        // uri (Clipboard) остаётся без ресурса.
+        // Для TabInputTextDiff в API расширений.
         ...(options.original.uri !== undefined ? { originalUri: options.original.uri } : {}),
         ...(options.modified.uri !== undefined ? { modifiedUri: options.modified.uri } : {}),
     };
 }
 
-/**
- * Идентичность вкладки: путь — правой (изменённой) стороны, чтобы вкладка
- * группировалась с файлом, о котором она; в query — упорядоченная пара ключей
- * сторон. `(лево, право)` ≠ `(право, лево)` by design: это разные сравнения.
- */
+// Путь — правой стороны (вкладка группируется со своим файлом); в query — упорядоченная пара
+// ключей: `(лево, право)` ≠ `(право, лево)`.
 function pairUri(options: IOpenDiffPairOptions): Uri {
     const path = options.modified.uri?.path ?? options.original.uri?.path ?? "/compare";
     const query = `left=${encodeURIComponent(options.original.identity)}&right=${encodeURIComponent(options.modified.identity)}`;
     return Uri.from({ scheme: DIFF_SCHEME, path, query });
 }
 
-/**
- * Источник стороны по её спеке. Порядок ветвления — от явного к выводимому:
- * готовая модель → готовый текст → без uri пусто → **живая модель** ресурса
- * пишущего провайдера ФС расширения → снимок с диска/провайдера (`preferDisk`,
- * прочие не-file схемы) → **живая модель из реестра** для `file:`.
- * Файл, которого нет ни в буферах, ни на диске, — по политике `onMissing`.
- */
 async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Promise<DiffV2SideSource | null> {
     if (side.ownedModel !== undefined) return { kind: "owned", model: side.ownedModel };
     if (side.text !== undefined) return { kind: "snapshot", text: side.text };
     if (side.uri === undefined) return { kind: "snapshot", text: "" };
     if (side.preferDisk !== true && isWritableProvided(accessor.get(IFileServiceDIToken), side.uri)) {
-        // Сторона на пишущей схеме расширения (предложенная правка Claude Code) —
-        // правится и сохраняется в провайдера, как в эталоне.
+        // Пишущая схема расширения (предложенная правка Claude Code) — правится и сохраняется в провайдера, как в эталоне.
         try {
             return { kind: "shared", ref: await accessor.get(TextFileModelServiceDIToken).acquireProvided(side.uri) };
         } catch {
@@ -246,10 +178,8 @@ async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Prom
 
     const models = accessor.get(TextFileModelServiceDIToken);
     if (models.get(side.uri) === null) {
-        // Файл не открыт — политика `onMissing` требует знать, существует ли он,
-        // а фабрика реестра отсутствующий файл молча открыла бы пустым буфером
-        // (семантика «новый файл по пути»). Пробуем чтение провайдером; сам
-        // контент возьмёт модель.
+        // Фабрика реестра открыла бы отсутствующий файл пустым буфером, а `onMissing` требует
+        // знать, существует ли он, — пробуем чтение провайдером.
         try {
             await accessor.get(IFileServiceDIToken).readFile(side.uri);
         } catch {
@@ -259,7 +189,6 @@ async function resolveSide(accessor: ServiceAccessor, side: IDiffSideSpec): Prom
     return { kind: "shared", ref: models.acquire(side.uri) };
 }
 
-/** Ресурс пишущего провайдера ФС (не `file:`): сторона такого ресурса — живая модель. */
 function isWritableProvided(files: IFileService, uri: Uri): boolean {
     return (
         // Stryker disable next-line ConditionalExpression,StringLiteral: эквивалентный по результату — `file:` дошёл бы до `acquireProvided`, `openProvided` его отверг бы, и сторона ушла бы общим путём; гард экономит лишнее чтение файла
@@ -269,9 +198,6 @@ function isWritableProvided(files: IFileService, uri: Uri): boolean {
     );
 }
 
-/**
- * Текст снимочной стороны; `null` — не читается (и это ошибка по её политике).
- */
 async function readSideText(providers: IFileService, side: IDiffSideSpec): Promise<string | null> {
     if (side.text !== undefined) return side.text;
     if (side.uri === undefined) return "";
@@ -283,11 +209,6 @@ async function readSideText(providers: IFileService, side: IDiffSideSpec): Promi
     }
 }
 
-/**
- * Освежает снимочные стороны существующей вкладки свежими текстами (HEAD
- * сдвинулся, диск перезаписан). Живые стороны не трогаются — они и так
- * актуальны. Неизменившийся текст панель отбрасывает сама (no-op).
- */
 async function refreshSnapshotSides(
     providers: IFileService,
     pane: DiffEditorPane2,
@@ -301,7 +222,6 @@ async function refreshSnapshotSides(
     return true;
 }
 
-/** Язык подсветки снимков: открытая модель стороны с uri, иначе по расширению файла. */
 function resolveLanguageId(accessor: ServiceAccessor, options: IOpenDiffPairOptions): string {
     const languages = accessor.get(LanguageServiceDIToken);
     const models = accessor.get(TextFileModelServiceDIToken);
@@ -315,12 +235,10 @@ function resolveLanguageId(accessor: ServiceAccessor, options: IOpenDiffPairOpti
     return "plaintext";
 }
 
-/** Транзиентный нотис в статус-баре — единая форма отказов сравнения. */
 export function showCompareNotice(accessor: ServiceAccessor, text: string): void {
     showTransientNotice(accessor.get(StatusBarServiceDIToken), "diff.compare.notice", text);
 }
 
-/** Имя файла для меток вкладки/колонок: basename пути uri. */
 export function compareLabelOf(uri: Uri): string {
     return uri.path.slice(uri.path.lastIndexOf("/") + 1);
 }

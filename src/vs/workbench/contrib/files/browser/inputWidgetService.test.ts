@@ -7,7 +7,6 @@ import { ContextKeyService } from "../../../../platform/contextkey/common/contex
 
 import { InputWidgetService } from "./inputWidgetService.ts";
 
-/** A real (in-memory) clipboard — not a spy. */
 function memoryClipboard(initial = ""): IClipboard {
     let text = initial;
     return {
@@ -19,11 +18,6 @@ function memoryClipboard(initial = ""): IClipboard {
     };
 }
 
-/**
- * Builds an InputElement seeded with `text`, with the cursor at the end,
- * plus a controller already pointed at it. `changes` records every onChange
- * payload so tests can assert the change notification fires.
- */
 function setup(text = ""): {
     controller: InputWidgetService;
     input: InputElement;
@@ -73,7 +67,6 @@ describe("InputWidgetService — editing (delete)", () => {
 
     it("deleteRight at end of text is a no-op (still notifies onChange)", () => {
         const { controller, input, changes } = setup("hi");
-        // cursor already at end
 
         controller.deleteRight();
 
@@ -83,7 +76,6 @@ describe("InputWidgetService — editing (delete)", () => {
 
     it("deleteWordLeft removes the previous word", () => {
         const { controller, input, changes } = setup("foo bar");
-        // cursor at end
 
         controller.deleteWordLeft();
 
@@ -190,7 +182,6 @@ describe("InputWidgetService — clipboard", () => {
     it("copy with no selection writes nothing", async () => {
         const { controller } = setup("hello");
         const clipboard = memoryClipboard("PREEXISTING");
-        // no selection
 
         await controller.copy(clipboard);
 
@@ -262,10 +253,7 @@ describe("InputWidgetService — clipboard", () => {
     });
 });
 
-/**
- * A clipboard whose read/write promises stay pending until manually resolved — lets us
- * change the active input mid-await to reproduce the focus race that crashed the editor.
- */
+/** Промисы висят до ручного resolve: смена активного поля посреди await воспроизводит гонку, ронявшую редактор. */
 function deferredClipboard(text = ""): { clipboard: IClipboard; resolveRead(): void; resolveWrite(): void } {
     const holder: { read?: () => void; write?: () => void } = {};
     const clipboard: IClipboard = {

@@ -21,7 +21,6 @@ interface StubCalls {
     redone: number;
 }
 
-/** Аксессор со стабами Explorer-сервисов; наблюдаемые вызовы — в `calls`. */
 function makeAccessor(selectedPaths: string[] = []): { accessor: Container; calls: StubCalls } {
     const calls: StubCalls = { deleted: [], renamed: [], refreshed: 0, undone: 0, redone: 0 };
     const accessor = new Container();

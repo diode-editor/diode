@@ -18,7 +18,6 @@ const CHAIN: FileTreeNode = {
 const PLAIN_DIR: FileTreeNode = { name: "docs", path: "/w/docs", isDirectory: true };
 const FILE: FileTreeNode = { name: "a.txt", path: "/w/a.txt", isDirectory: false };
 
-/** View, у которого курсор на `cursor`, выбор — `selection`, текущий сегмент — `segment`. */
 function serviceWith(options: { cursor: FileTreeNode | null; selection?: FileTreeNode[]; segment?: number }) {
     const service = new ExplorerService(
         new InMemoryFileClipboard(),
@@ -60,7 +59,6 @@ describe("ExplorerService — сегменты компактной строки
             NULL_TREE_FILE_WATCHER,
         );
         expect(service.nodePath(CHAIN)).toBe("/w/src/main/java");
-        // Команды *CompressedFolder без дерева — no-op.
         for (const target of ["previous", "next", "first", "last"] as const) {
             expect(() => {
                 service.moveCompressedFocus(target);

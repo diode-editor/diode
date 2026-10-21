@@ -7,11 +7,7 @@ import { GotoLineQuickAccessProvider } from "./gotoLineQuickAccessProvider.ts";
 import { OpenEditorsQuickAccessProvider } from "./openEditorsQuickAccessProvider.ts";
 import { QuickOpenServiceDIToken } from "./quickOpenService.ts";
 
-/**
- * Строковый аргумент команды (например, `args` у правила keybindings.json) —
- * префилл строки ввода Quick Open. Всё прочее (нет аргумента, не строка)
- * игнорируется, как в VS Code.
- */
+/** Не строка — игнорируется, как в VS Code. */
 function prefillOf(args: readonly unknown[]): string {
     return typeof args[0] === "string" ? args[0] : "";
 }
@@ -22,8 +18,6 @@ export const quickOpenAction: CommandAction = {
     menus: [{ menuId: MenuId.MenubarGoMenu, group: "1_goto", order: 10 }],
     keybinding: parseKeybinding("mod+p"),
     run(accessor, ...args) {
-        // Аргумент — запрос целиком (VS Code parity): ">тест" откроет команды,
-        // ":12" — переход к строке, просто текст — поиск файла.
         accessor.get(QuickOpenServiceDIToken).show(prefillOf(args));
     },
 };
@@ -48,16 +42,9 @@ export const showCommandsAction: CommandAction = {
         { menuId: MenuId.EditorContext, title: "Command Palette...", group: "z_commands", order: 1 },
     ],
     keybinding: parseKeybinding("mod+shift+p"),
-    // Ctrl+Shift+<буква> на legacy-терминалах ненадёжен, поэтому у палитры есть
-    // второй бинд. Раньше им был аккорд Ctrl+K Ctrl+P, но в VS Code этот аккорд
-    // открывает пикер открытых редакторов (showAllEditors ниже) — аккорд отдан
-    // ему, а палитре достался F1: тоже дословный бинд VS Code, и он проходит
-    // терминалом любого tier'а.
-    //
-    // F1 БЕЗУСЛОВЕН намеренно. Под гейтом `tier == 'legacy'` он исчезал там, где
-    // нужнее всего: tier поднимается по env-хинту (tmux 3.4 + kitty) и по первой
-    // же пришедшей CSI-u клавише, а расширенные клавиши при этом может не
-    // доставлять ни одна сторона — редактор оставался вообще без палитры.
+    // F1 — второй бинд палитры (дословно VS Code; Ctrl+K Ctrl+P отдан showAllEditors). Безусловен
+    // намеренно: под `tier == 'legacy'` он пропадал, когда tier поднят (tmux 3.4 + kitty, первая
+    // CSI-u клавиша), а расширенные клавиши не доходят — редактор оставался без палитры.
     keybindings: [parseKeybinding("f1")],
     run(accessor, ...args) {
         accessor.get(QuickOpenServiceDIToken).show(CommandsQuickAccessProvider.PREFIX + prefillOf(args));
@@ -68,15 +55,13 @@ export const showAllEditorsAction: CommandAction = {
     id: "workbench.action.showAllEditors",
     title: "Show All Editors",
     menus: [{ menuId: MenuId.MenubarViewMenu, title: "Open Editors...", group: "1_palette", order: 20 }],
-    // Аккорд из двух ctrl+буква проходит терминалом любого tier'а — отдельный
-    // legacy-фоллбэк этому бинду не нужен.
+    // Аккорд из двух ctrl+буква проходит терминалом любого tier'а — legacy-фоллбэк не нужен.
     keybinding: parseChord("ctrl+k ctrl+p"),
     run(accessor, ...args) {
         accessor.get(QuickOpenServiceDIToken).show(OpenEditorsQuickAccessProvider.PREFIX + prefillOf(args));
     },
 };
 
-/** Экшены Quick Open и пикеров. Фича отдаёт их одним массивом; регистрирует агрегатор (`WORKBENCH_ACTIONS`). */
 export const QUICK_ACCESS_ACTIONS: readonly CommandAction[] = [
     quickOpenAction,
     showCommandsAction,

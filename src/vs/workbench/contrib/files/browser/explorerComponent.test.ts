@@ -27,7 +27,6 @@ import { MENU_CONTRIBUTIONS } from "../../../workbench.common.main.ts";
 import { ExplorerComponent } from "./explorerComponent.ts";
 import { ExplorerService } from "./explorerService.ts";
 
-/** Собирает ContextMenuService для explorer-меню поверх переданного CommandRegistry. */
 function makeContextMenuService(commands: CommandRegistry): ContextMenuService {
     return new ContextMenuService(
         new MenuService(
@@ -41,9 +40,7 @@ interface ExplorerHarness {
     component: ExplorerComponent;
     commands: CommandRegistry;
     clipboard: InMemoryFileClipboard;
-    /** Пути, открытые через команду `workbench.openFile` (регистрирует харнесс). */
     opened: string[];
-    /** Опции, с которыми дерево позвало `workbench.openFile`. */
     openOptions: unknown[];
     dispose(): void;
 }
@@ -137,7 +134,6 @@ describe("ExplorerComponent", () => {
 
     it("shows root directory contents after refresh", () => {
         const output = app.backend.screenToString();
-        // Should show "src" directory and "README.md" file
         expect(output).toContain("src");
         expect(output).toContain("README.md");
     });
@@ -149,14 +145,12 @@ describe("ExplorerComponent", () => {
         app.sendKey("ArrowDown");
         app.render();
 
-        // After navigating, still shows both items
         const output2 = app.backend.screenToString();
         expect(output2).toContain("src");
         expect(output2).toContain("README.md");
     });
 
     it("expands directory with ArrowRight", async () => {
-        // First item should be "src" directory
         app.sendKey("ArrowRight");
         await new Promise((r) => setTimeout(r, 50));
         app.render();
@@ -166,7 +160,7 @@ describe("ExplorerComponent", () => {
     });
 
     it("Enter на папке переключает её и редактор не открывает", async () => {
-        // Первая строка — папка src. Эталон: `list.select` → `toggleCollapsed`.
+        // Эталон: `list.select` → `toggleCollapsed`.
         app.sendKey("Enter");
         await vi.waitFor(() => {
             app.render();
@@ -200,7 +194,6 @@ describe("ExplorerComponent", () => {
     });
 
     it("Shift+F10 opens the popup menu anchored at the selected row", () => {
-        // "src" is the first/selected row after refresh; дерево в фокусе.
         app.sendKey("Shift+F10");
         app.render();
 
@@ -223,7 +216,6 @@ describe("ExplorerComponent", () => {
         app.sendKey("Enter");
         app.render();
         expect(created).toEqual([ws.path("README.md")]);
-        // Selecting the entry also closes the menu.
         expect(app.querySelector("PopupMenuElement")).toBeNull();
     });
 
@@ -254,12 +246,9 @@ describe("ExplorerComponent", () => {
 
     it("cleans up on dispose", () => {
         h.dispose();
-        // No error thrown — test passes
     });
 
     it("exposes the tree provider for the opened root", () => {
-        // «Корень воркспейса» сервис больше не публикует (за ним ходят в
-        // IWorkspaceContextService) — наружу торчит только провайдер дерева.
         expect(h.service.provider).not.toBeNull();
     });
 
@@ -276,7 +265,6 @@ describe("ExplorerComponent", () => {
         app.render();
 
         const output = app.backend.screenToString();
-        // Collapsed: child is hidden again, root entries remain.
         expect(output).not.toContain("main.ts");
         expect(output).toContain("src");
         expect(output).toContain("README.md");
@@ -292,7 +280,6 @@ describe("ExplorerComponent", () => {
 
         expect(app.backend.screenToString()).toContain("U");
 
-        // Some cell now carries the resolved git decoration colour as its fg.
         let coloured = false;
         const size = app.backend.getSize();
         for (let y = 0; y < size.height && !coloured; y++) {
@@ -320,7 +307,6 @@ describe("ExplorerComponent", () => {
     });
 
     it("highlights cut files when the file clipboard enters cut mode and clears afterwards", () => {
-        // Подсветка «вырезанных» следует за буфером через подписку сервиса.
         expect(() => {
             h.clipboard.write([ws.path("README.md")], "cut");
             app.render();
@@ -347,7 +333,6 @@ describe("ExplorerComponent — root assigned after construction", () => {
     it("builds and wires the tree when the root arrives after the component", async () => {
         // Component first, while there is no provider yet (пустой конструкторный путь).
         const h = createExplorer();
-        // Assigning the root after construction must rebuild the view and wire events.
         h.service.setRootPath(wsB.dir);
 
         const app = TestApp.createWithContent(h.component.view, new Size(30, 10));
@@ -410,11 +395,7 @@ describe("ExplorerComponent — root assigned after construction", () => {
     });
 });
 
-/**
- * Строка ниже единственного файла воркспейса: у строки 0 стоит курсор дерева, а
- * заголовка в теле секции больше нет (его рисует контейнер) — фон сайдбара
- * проверяем на пустой строке.
- */
+/** Строка ниже единственного файла: у строки 0 курсор дерева, поэтому фон сайдбара проверяем на пустой. */
 const EMPTY_ROW_SCREEN_Y = 5;
 
 describe("ExplorerComponent with ThemeService", () => {
@@ -443,8 +424,6 @@ describe("ExplorerComponent with ThemeService", () => {
         app.render();
 
         const expectedBg = themeService.theme.getColor("sideBar.background")!;
-        // Пустая строка под файлами: у строки 0 теперь курсор дерева — заголовок
-        // контейнера рисует ViewsService, а не тело секции.
         expect(app.backend.getBgAt(new Point(0, EMPTY_ROW_SCREEN_Y))).toBe(expectedBg);
 
         h.dispose();
@@ -474,8 +453,7 @@ describe("ExplorerComponent with ThemeService", () => {
     });
 
     it("uses default registry sidebar fg/bg when the theme defines neither", async () => {
-        // A theme with no colors at all: sideBar.foreground and sideBar.background are
-        // supplied by the dark default color registry, so the sidebar is always colored.
+        // Тема без цветов: sideBar.* приходят из дефолтного реестра.
         const bareThemeFile = { ...darkPlusTheme, colors: {} };
         const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(bareThemeFile));
         const h = createExplorer(themeService);
@@ -486,11 +464,8 @@ describe("ExplorerComponent with ThemeService", () => {
         await h.service.refresh();
         app.render();
 
-        // Sidebar colors come from the dark default registry (fromThemeFile
-        // слоит дефолты под цвета темы, токены всегда резолвятся).
         expect(h.component.view.resolvedStyle.fg).toBe(0xcccccc); // default dark "sideBar.foreground"
         expect(h.component.view.resolvedStyle.bg).toBe(0x252526); // default dark "sideBar.background"
-        // Still renders its contents.
         expect(app.backend.screenToString()).toContain("index.ts");
 
         h.dispose();

@@ -8,35 +8,23 @@ import type { IQuickAccessProvider, QuickAccessItem } from "../common/iQuickAcce
 import type { QuickAccessRegistry } from "../common/quickAccessRegistry.ts";
 import { QuickAccessRegistryDIToken } from "../common/quickAccessRegistry.ts";
 
-/**
- * Debounce window for debounced providers (file search). A single keystroke
- * after an idle period runs synchronously (leading edge); rapid bursts coalesce
- * into one trailing run so typing stays smooth on huge trees.
- */
 const SEARCH_DEBOUNCE_MS = 16;
 
 export const QuickOpenServiceDIToken = token<QuickOpenService>("QuickOpenService");
 
 /**
- * Quick Open (Ctrl+P): контроллер показа поверх общего виджета
- * {@link QuickInputComponent} (аналог `QuickAccessController` vscode). О
- * конкретных режимах не знает: провайдера выбирает {@link QuickAccessRegistry}
- * по префиксу запроса (`""` — файлы, `">"` — команды, `":"` — goto-line);
- * провайдер отдаёт пункты/плейсхолдер, принятие — колбэк `accept` на пункте.
- * На каждый показ сервис полностью ре-инициализирует состояние и колбэки
- * виджета (соседний клиент — `QuickInputService` — делает то же).
+ * Аналог `QuickAccessController` vscode. Общий виджет делит с `QuickInputService`, поэтому на каждый
+ * показ полностью ре-инициализирует его состояние и колбэки.
  */
 export class QuickOpenService extends Disposable {
     public static dependencies = [QuickAccessRegistryDIToken, QuickInputComponentDIToken] as const;
 
-    /** Активный провайдер текущего показа; null — показ закрыт. */
+    /** null — показ закрыт. */
     private currentProvider: IQuickAccessProvider | null = null;
-    /** Владеем ли текущим показом общего виджета (сессию мог занять QuickInputService). */
+    /** Сессию общего виджета мог занять QuickInputService. */
     private active = false;
 
-    /** Active cooldown timer for the debounced-query cooldown; null when idle. */
     private searchTimer: ReturnType<typeof setTimeout> | null = null;
-    /** Latest debounced query awaiting a trailing run, or null if none pending. */
     private pendingQuery: string | null = null;
 
     public constructor(
@@ -50,7 +38,6 @@ export class QuickOpenService extends Disposable {
         return this.component.view;
     }
 
-    /** Открывает Quick Open с префиксом провайдера (`""` / `">"` / `":"` …). */
     public show(prefix = ""): void {
         if (this.active && this.component.isOpen()) {
             this.view.focus();
@@ -63,7 +50,6 @@ export class QuickOpenService extends Disposable {
         this.active = true;
 
         const view = this.view;
-        // Полный ре-инит общего виджета под Quick Open.
         view.resetFlavorState();
         view.maxVisibleItems = 10;
         view.acceptMode = "item";
@@ -82,7 +68,6 @@ export class QuickOpenService extends Disposable {
             this.close();
         };
         this.component.onDidClose = () => {
-            // Клик мимо / Escape / программное закрытие — единый путь зачистки.
             this.handleDidClose();
         };
 
@@ -105,8 +90,6 @@ export class QuickOpenService extends Disposable {
         super.dispose();
     }
 
-    // ─── Private ─────────────────────────────────────────────────────────────
-
     private handleDidClose(): void {
         this.active = false;
         this.cancelPendingSearch();
@@ -114,10 +97,6 @@ export class QuickOpenService extends Disposable {
         this.currentProvider = null;
     }
 
-    /**
-     * Резолвит провайдера под запрос; на смене провайдера деактивирует прежнего
-     * (onHide), активирует нового (onShow) и применяет его плейсхолдер.
-     */
     private activateProviderFor(query: string): IQuickAccessProvider {
         const { provider } = this.quickAccess.getProvider(query);
         if (provider === this.currentProvider) return provider;
@@ -138,17 +117,14 @@ export class QuickOpenService extends Disposable {
     private handleQueryChange(query: string): void {
         const provider = this.activateProviderFor(query);
 
-        // Cheap providers (tiny synchronous item list) run immediately and drop
-        // any pending debounced run.
         if (provider.debounceQuery !== true) {
             this.cancelPendingSearch();
             this.updateItems(query);
             return;
         }
 
-        // Debounced provider: leading + trailing. Idle → run now (leading) and
-        // start a cooldown; within the cooldown → remember the latest query and
-        // let the trailing run pick it up.
+        // Leading + trailing: после паузы — сразу, внутри cooldown запоминаем последний запрос
+        // для хвостового прогона.
         if (this.searchTimer === null) {
             this.updateItems(query);
             this.armSearchTimer();
@@ -164,7 +140,6 @@ export class QuickOpenService extends Disposable {
             const query = this.pendingQuery;
             this.pendingQuery = null;
             this.updateItems(query);
-            // Keep coalescing if the user is still typing.
             this.armSearchTimer();
         }, SEARCH_DEBOUNCE_MS);
     }
@@ -181,8 +156,6 @@ export class QuickOpenService extends Disposable {
         const accept = (item as QuickAccessItem).accept;
 
         queueMicrotask(() => {
-            // An item without accept is info-only (e.g. "type a line number") —
-            // no-op, keep the picker open so the user can keep typing.
             if (accept === undefined) return;
             this.close();
             accept();
