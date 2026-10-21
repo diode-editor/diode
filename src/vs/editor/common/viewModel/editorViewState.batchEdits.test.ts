@@ -10,8 +10,8 @@ import { UndoManager } from "../model/undoManager.ts";
 import { EditorViewState } from "./editorViewState.ts";
 
 /**
- * Как `editor.executeEdits` эталона без cursor computer: каретки не множатся по числу правок
- * и остаются ВНУТРИ документа — колонка за концом строки роняла рендер на highlight вхождений.
+ * Like upstream `editor.executeEdits` without a cursor computer: cursors don't multiply per edit
+ * and stay INSIDE the document — a column past the line end crashed rendering in occurrence highlight.
  */
 describe("EditorViewState: каретки после батча правок", () => {
     function carets(state: EditorViewState): [number, number][] {
@@ -46,7 +46,7 @@ describe("EditorViewState: каретки после батча правок", (
     it("многострочная правка и правка правее неё на той же строке: каретки сдвигаются точно", () => {
         const doc = new TextDocument("hello\nhello baz\nx");
         const state = new EditorViewState(doc);
-        // Внутри заменяемого «el», на его конце, на конце удаляемого «o» и ниже.
+        // Inside the replaced "el", at its end, at the end of the deleted "o", and below.
         state.selections = [
             createCursorSelection(0, 2),
             createCursorSelection(0, 3),
@@ -103,8 +103,8 @@ describe("EditorViewState: каретки после батча правок", (
             },
         );
 
-        // Правка основной вставки шла в батче первой — и обратная ей первая,
-        // хотя документ применял импорт выше раньше по порядку.
+        // The main insertion edit came first in the batch, so its inverse comes first too,
+        // even though the document applied the import above earlier in order.
         expect(seen).toEqual(["fooBar", "a\n"]);
         expect(carets(state)).toEqual([[2, 6]]);
     });
@@ -138,7 +138,7 @@ describe("EditorViewState: каретки после батча правок", (
     });
 });
 
-/** Перекрытые правки документ применял по уже съеденному тексту: в «hello world» пропадало «hello wo». */
+/** The document applied overlapping edits to already-consumed text: "hello world" lost "hello wo". */
 describe("EditorViewState: перекрывающиеся удаления мультикурсора", () => {
     it("две каретки внутри слова удаляют его один раз и сливаются в одну", () => {
         const doc = new TextDocument("hello world");
@@ -183,8 +183,8 @@ describe("EditorViewState: перекрывающиеся удаления му�
     });
 
     it("правка, полностью накрытая предыдущей, выбрасывается", () => {
-        // Обе каретки внутри единственного слова: у обеих граница справа —
-        // конец строки, поэтому вторая правка целиком лежит в первой.
+        // Both cursors inside the only word: both have the line end as the right boundary,
+        // so the second edit lies entirely within the first.
         const doc = new TextDocument("hello");
         const state = new EditorViewState(doc);
         state.selections = [createCursorSelection(0, 1), createCursorSelection(0, 3)];
@@ -195,7 +195,7 @@ describe("EditorViewState: перекрывающиеся удаления му�
 
         expect(doc.getText()).toBe("h");
         expect(state.selections.map((sel) => sel.active)).toEqual([{ line: 0, character: 1 }]);
-        // Накрытая правка выброшена, а не превращена в пустышку: подписчики получили одно событие.
+        // The covered edit is dropped, not turned into a no-op: subscribers got one event.
         expect(changes).toHaveLength(1);
     });
 
@@ -206,14 +206,14 @@ describe("EditorViewState: перекрывающиеся удаления му�
 
         state.deleteWordRight();
 
-        // Каретка на 1 съедает «ello», каретка на 3 — «lo » до начала слова
-        // «world»: диапазоны стыкуются в один, каретки — в одну.
+        // Cursor at 1 eats "ello", cursor at 3 eats "lo " up to the start of "world":
+        // the ranges join into one, and so do the cursors.
         expect(doc.getText()).toBe("hworld");
         expect(state.selections.map((sel) => sel.active)).toEqual([{ line: 0, character: 1 }]);
     });
 });
 
-/** Удаление слова склеивает строки — без сдвига фолдов свёрнутый регион скрывал бы чужие строки. */
+/** Deleting a word joins lines — without shifting folds a collapsed region would hide other lines. */
 describe("EditorViewState: фолды под удалением слова", () => {
     const sixLines = (): TextDocument => new TextDocument("aa\nbb\ncc\ndd\nee\nff");
 

@@ -16,7 +16,7 @@ describe("EditorViewState.onDidChangeView", () => {
 
         state.scrollTop = 2;
         expect(fired).toBe(1);
-        state.scrollTop = 2; // то же значение — молчит
+        state.scrollTop = 2; // same value — no event
         expect(fired).toBe(1);
         expect(state.scrollTop).toBe(2);
 
@@ -38,7 +38,7 @@ describe("EditorViewState.onDidChangeView", () => {
 
         state.currentSearchMatchIndex = 0;
         expect(fired).toBe(2);
-        state.currentSearchMatchIndex = 0; // тот же индекс — молчит
+        state.currentSearchMatchIndex = 0; // same index — no event
         expect(fired).toBe(2);
         expect(state.currentSearchMatchIndex).toBe(0);
     });

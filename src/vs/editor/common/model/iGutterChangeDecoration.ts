@@ -1,6 +1,6 @@
 import type { IRange } from "../core/iRange.ts";
 
-/** Удалённый ханк — пустой диапазон на строке под удалением. */
+/** A deleted hunk is an empty range on the line below the deletion. */
 export interface IGutterChangeDecoration {
     readonly range: IRange;
     /** Packed 24-bit RGB. */

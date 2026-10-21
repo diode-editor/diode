@@ -69,7 +69,7 @@ describe("EditorElement view zones — рендер", () => {
         expect(editor.contentHeight).toBe(9);
         editor.viewState.scrollTop = 5;
         app.render();
-        // Вью: a b ····· c d; scrollTop 5 — экран начинается с хвоста зоны.
+        // View: a b ····· c d; scrollTop 5, so the screen starts at the view zone's tail.
         const lines = screenLines(app);
         expect(lines[0]).toBe("");
         expect(lines[1]).toBe("");
@@ -120,10 +120,10 @@ describe("EditorElement view zones — мышь", () => {
         const { app, editor } = createEditor("alpha\nbravo\ncharlie", [{ afterLine: 0, size: 2 }]);
         app.render();
 
-        fireMouseDown(editor, editor.gutterWidth + 2, 1); // первая строка зоны
+        fireMouseDown(editor, editor.gutterWidth + 2, 1); // first view zone row
         expect(editor.viewState.selections[0].active.line).toBe(0);
 
-        fireMouseDown(editor, editor.gutterWidth + 2, 3); // строка bravo
+        fireMouseDown(editor, editor.gutterWidth + 2, 3); // bravo line
         expect(editor.viewState.selections[0].active.line).toBe(1);
     });
 

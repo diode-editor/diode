@@ -15,7 +15,7 @@ function setup(text: string) {
     return { doc, viewState, undoManager };
 }
 
-/** Без правки текста, версия не меняется. */
+/** No text edit; the version doesn't change. */
 function eolElement(doc: TextDocument, viewState: EditorViewState, before: EndOfLine, after: EndOfLine): IUndoElement {
     const selections = [...viewState.selections];
     return {

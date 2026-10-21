@@ -5,7 +5,7 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-// Вьюпорт 10 колонок: "aaaa bbbb cccc" → ряды "aaaa bbbb " (offset 0..10) и "cccc".
+// Viewport of 10 columns: "aaaa bbbb cccc" → rows "aaaa bbbb " (offset 0..10) and "cccc".
 function makeState(lines = "aaaa bbbb cccc\nshort", viewportWidth = 10): EditorViewState {
     const state = new EditorViewState(new TextDocument(lines), [createCursorSelection(0, 0)]);
     state.viewportWidth = viewportWidth;
@@ -23,7 +23,7 @@ describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 2)];
         state.cursorDown();
-        // Колонка 2 фрагмента 2 → offset 10 + 2.
+        // Column 2 of fragment 2 → offset 10 + 2.
         expect(active(state)).toEqual({ line: 0, character: 12 });
         state.cursorDown();
         expect(active(state)).toEqual({ line: 1, character: 2 });
@@ -39,20 +39,20 @@ describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
     it("липкая колонка переживает короткий фрагмент", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 9)];
-        state.cursorDown(); // "cccc" — всего 4 колонки, каретка в конец
+        state.cursorDown(); // "cccc" is only 4 columns, cursor goes to the end
         expect(active(state)).toEqual({ line: 0, character: 14 });
         state.cursorUp();
         expect(active(state)).toEqual({ line: 0, character: 9 });
     });
 
     it("каретка на не-последнем фрагменте не переезжает границу при посадке", () => {
-        // Вторая строка длинная: спуск с конца первого ряда не должен дать offset границы.
+        // The second line is long: going down from the end of the first row must not yield the boundary offset.
         const state = makeState("aaaa bbbb cccc\naaaa bbbb cccc");
-        state.selections = [createCursorSelection(0, 14)]; // конец "cccc" (ряд 2)
+        state.selections = [createCursorSelection(0, 14)]; // end of "cccc" (row 2)
         state.cursorDown();
         expect(active(state)).toEqual({ line: 1, character: 4 });
         state.selections = [createCursorSelection(0, 9)];
-        state.cursorDown(); // ряд 2 ("cccc"): липкая колонка 9 клампится в конец строки
+        state.cursorDown(); // row 2 ("cccc"): sticky column 9 clamps to the line end
         expect(active(state)).toEqual({ line: 0, character: 14 });
     });
 
@@ -69,7 +69,7 @@ describe("word wrap navigation — cursorUp/cursorDown по рядам", () => {
     it("cursorDown проскакивает ряд-зону между строками", () => {
         const state = makeState();
         state.setViewZones([{ afterLine: 0, size: 1 }]);
-        state.selections = [createCursorSelection(0, 12)]; // второй фрагмент
+        state.selections = [createCursorSelection(0, 12)]; // second fragment
         state.cursorDown();
         expect(active(state)).toEqual({ line: 1, character: 2 });
     });
@@ -88,7 +88,7 @@ describe("word wrap navigation — скрытые строки и зоны", () 
     it("cursorUp со скрытой строки садится на ПЕРВУЮ строку документа, если она ближайшая видимая", () => {
         const state = makeState("head\nhidden\ntail");
         state.setFoldingRegions([{ startLine: 0, endLine: 1, isCollapsed: true }]);
-        // Каретка на скрытую строку — в обход reconcileHiddenCursors.
+        // Cursor on a hidden line — bypassing reconcileHiddenCursors.
         state.selections = [createCursorSelection(1, 2)];
         state.cursorUp();
         expect(active(state)).toEqual({ line: 0, character: 2 });
@@ -106,7 +106,7 @@ describe("word wrap navigation — скрытые строки и зоны", () 
         const state = makeState("short\naaaa bbbb cccc");
         state.selections = [createCursorSelection(0, 5)];
         state.cursorEnd();
-        state.cursorDown(); // ряд 1 — НЕ-последний фрагмент строки 1
+        state.cursorDown(); // row 1 — NOT the last fragment of line 1
         expect(active(state)).toEqual({ line: 1, character: 9 });
     });
 });
@@ -134,7 +134,7 @@ describe("word wrap navigation — Home/End по фрагменту", () => {
         const state = makeState();
         state.selections = [createCursorSelection(0, 2)];
         state.cursorEnd();
-        // Граница фрагмента — offset 10; каретка перед нею, на пробеле (9).
+        // The fragment boundary is offset 10; the cursor is before it, on the space (9).
         expect(active(state)).toEqual({ line: 0, character: 9 });
     });
 
@@ -194,21 +194,21 @@ describe("word wrap navigation — мультикурсор и страницы"
     });
 
     it("PageDown шагает в рядах вью", () => {
-        // 3 перенесённые строки по 2 ряда; вьюпорт 4 ряда → страница = 3 ряда.
+        // 3 wrapped lines of 2 rows each; viewport of 4 rows → page = 3 rows.
         const state = makeState("aaaa bbbb cccc\naaaa bbbb cccc\naaaa bbbb cccc");
         state.viewportHeight = 4;
         state.selections = [createCursorSelection(0, 2)];
         state.cursorPageDown();
-        // Ряд 0 → ряд 3 (второй фрагмент строки 1), колонка 2 → offset 12.
+        // Row 0 → row 3 (second fragment of line 1), column 2 → offset 12.
         expect(active(state)).toEqual({ line: 1, character: 12 });
     });
 
     it("PageUp с зоной перед началом вью откатывается к первому документному ряду ниже", () => {
         const state = makeState("aaaa bbbb cccc\nshort");
-        state.viewportHeight = 3; // страница = 2 ряда
+        state.viewportHeight = 3; // page = 2 rows
         state.setViewZones([{ afterLine: -1, size: 2 }]);
-        state.selections = [createCursorSelection(0, 2)]; // ряд 2 (после двух рядов зоны)
-        state.cursorPageUp(); // целевой ряд 0 — зона; выше документных нет — вниз к ряду 2
+        state.selections = [createCursorSelection(0, 2)]; // row 2 (after the zone's two rows)
+        state.cursorPageUp(); // target row 0 is a zone; no document rows above — down to row 2
         expect(active(state)).toEqual({ line: 0, character: 2 });
     });
 
@@ -222,34 +222,34 @@ describe("word wrap navigation — мультикурсор и страницы"
 
     it("PageUp с ряда-продолжения держит колонку относительно фрагмента", () => {
         const state = makeState();
-        state.viewportHeight = 2; // страница = 1 ряд
-        state.selections = [createCursorSelection(0, 12)]; // ряд 1, колонка 2 фрагмента
+        state.viewportHeight = 2; // page = 1 row
+        state.selections = [createCursorSelection(0, 12)]; // row 1, column 2 of the fragment
         state.cursorPageUp();
         expect(active(state)).toEqual({ line: 0, character: 2 });
     });
 
     it("PageUp на зону, чей ближайший документный ряд — самый первый", () => {
         const state = makeState("ab\ncd");
-        state.viewportHeight = 2; // страница = 1 ряд
+        state.viewportHeight = 2; // page = 1 row
         state.setViewZones([{ afterLine: 0, size: 1 }]);
         state.selections = [createCursorSelection(1, 0)];
-        state.cursorPageUp(); // целевой ряд 1 — зона → откат вверх к ряду 0
+        state.cursorPageUp(); // target row 1 is a zone → back up to row 0
         expect(active(state)).toEqual({ line: 0, character: 0 });
     });
 
     it("PageDown садится мимо зоны на ближайший документный ряд", () => {
         const state = makeState("aaaa bbbb cccc\nshort");
-        state.viewportHeight = 3; // страница = 2 ряда
+        state.viewportHeight = 3; // page = 2 rows
         state.setViewZones([{ afterLine: 0, size: 1 }]);
         state.selections = [createCursorSelection(0, 2)];
-        state.cursorPageDown(); // ряд 0 + 2 = зона → откат к последнему документному выше
+        state.cursorPageDown(); // row 0 + 2 = zone → back to the last document row above
         expect(active(state)).toEqual({ line: 0, character: 12 });
     });
 });
 
 describe("word wrap navigation — reveal", () => {
     it("reveal показывает РЯД каретки: хвост длинной строки скроллит вьюпорт", () => {
-        // 8 фрагментов по 10 колонок; вьюпорт 3 ряда.
+        // 8 fragments of 10 columns; viewport of 3 rows.
         const state = makeState(`${"aaaa bbbb ".repeat(8)}end`, 10);
         state.viewportHeight = 3;
         state.goToPosition(0, 82);

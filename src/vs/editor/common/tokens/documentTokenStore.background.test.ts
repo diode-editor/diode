@@ -10,7 +10,7 @@ import { TextDocument } from "../model/textDocument.ts";
 import type { ITokensChangedEvent } from "./documentTokenStore.ts";
 import { DocumentTokenStore } from "./documentTokenStore.ts";
 
-/** Смещение от цветов по умолчанию. */
+/** Offset from the default colors. */
 const stateMark = (counter: number): number => 10 + counter;
 
 class CounterState implements IState {
@@ -26,7 +26,7 @@ class CounterState implements IState {
     }
 }
 
-/** `>` поднимает счётчик; foreground токена — входящее состояние. */
+/** `>` bumps the counter; the token foreground is the incoming state. */
 class StatefulTokenizer implements ITokenizationSupport {
     public constructor(private readonly onLine: () => void = () => undefined) {}
     public getInitialState(): IState {
@@ -44,8 +44,8 @@ const lines = (count: number, line = "x"): TextDocument =>
     new TextDocument(new Array<string>(count).fill(line).join("\n"));
 
 /**
- * Срок обязателен: без него мутант крутил бы цикл и после таймаута теста —
- * мутационный прогон виснет (docs/TESTING.md, «обрывай счётчиком»).
+ * The deadline is mandatory: without it a mutant would keep spinning the loop past the test timeout —
+ * the mutation run hangs (docs/TESTING.md: cut such a test off with a counter).
  */
 async function until(condition: () => boolean): Promise<void> {
     const deadline = Date.now() + 2000;
@@ -84,7 +84,7 @@ describe("DocumentTokenStore — фоновая токенизация", () => {
 
     it("уступает между кусками: за один заход очереди — строки за ~1 мс, не весь файл", () => {
         vi.useFakeTimers();
-        // Строка «стоит» 1 мс фейкового времени: кусок обрывается после второй строки.
+        // A line "costs" 1 ms of fake time: the chunk stops after the second line.
         const doc = lines(100);
         const store = new DocumentTokenStore(
             doc,

@@ -7,7 +7,7 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { DocumentTokenStore } from "./documentTokenStore.ts";
 
-/** Метка — цвет токена; строки в тестах длиной 1. */
+/** The mark is the token color; lines in the tests have length 1. */
 const MARK = 42;
 const marker = (): Uint32Array => storedTokens([[0, markedMetadata(MARK)]], 1);
 

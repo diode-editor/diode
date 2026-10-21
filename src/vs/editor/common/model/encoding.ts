@@ -3,11 +3,11 @@ import type IconvLiteModule from "iconv-lite";
 import { importLazyModule } from "../../../base/common/lazyModule.ts";
 
 export interface IEncodingInfo {
-    /** Канонический id VS Code — ровно `TextDocument.encoding` API, мост расширений не мапит. */
+    /** Canonical VS Code id, exactly the API's `TextDocument.encoding`; the extension bridge does not map it. */
     readonly id: string;
     readonly label: string;
     readonly statusLabel: string;
-    /** Отличается от id только у "utf8bom". */
+    /** Differs from id only for "utf8bom". */
     readonly iconvName: string;
     readonly bom?: readonly number[];
 }
@@ -18,7 +18,7 @@ const BOM_UTF8 = [0xef, 0xbb, 0xbf] as const;
 const BOM_UTF16LE = [0xff, 0xfe] as const;
 const BOM_UTF16BE = [0xfe, 0xff] as const;
 
-/** Порядок — как у SUPPORTED_ENCODINGS VS Code. */
+/** Same order as VS Code's SUPPORTED_ENCODINGS. */
 export const SUPPORTED_ENCODINGS: readonly IEncodingInfo[] = [
     { id: "utf8", label: "UTF-8", statusLabel: "UTF-8", iconvName: "utf8" },
     { id: "utf8bom", label: "UTF-8 with BOM", statusLabel: "UTF-8 with BOM", iconvName: "utf8", bom: BOM_UTF8 },
@@ -85,7 +85,7 @@ const encodingsById = new Map(SUPPORTED_ENCODINGS.map((info) => [info.id, info])
 
 function requireEncodingInfo(id: string): IEncodingInfo {
     const info = encodingsById.get(id);
-    /* v8 ignore start -- вызывается только с табличными id (explicit проверен has(), сниф/DEFAULT — элементы таблицы); throw — недостижимый инвариант-гард */
+    /* v8 ignore start -- only called with table ids (explicit is checked by has(), sniffed/DEFAULT are table entries); the throw is an unreachable invariant guard */
     if (info === undefined) throw new Error(`No encoding info for id: ${id}`);
     /* v8 ignore stop */
     return info;
@@ -103,7 +103,7 @@ function startsWithBytes(buffer: Buffer, bytes: readonly number[]): boolean {
     return true;
 }
 
-/** Только BOM, без угадывания по содержимому — дефолт VS Code. */
+/** BOM only, no content guessing: the VS Code default. */
 export function detectEncodingByBOM(buffer: Buffer): string | null {
     if (startsWithBytes(buffer, BOM_UTF8)) return "utf8bom";
     if (startsWithBytes(buffer, BOM_UTF16LE)) return "utf16le";
@@ -113,34 +113,34 @@ export function detectEncodingByBOM(buffer: Buffer): string | null {
 
 export interface IDecodedText {
     readonly text: string;
-    /** Id таблицы {@link SUPPORTED_ENCODINGS}, не имя iconv. */
+    /** Id from the {@link SUPPORTED_ENCODINGS} table, not the iconv name. */
     readonly encoding: string;
 }
 
 export type IconvLite = typeof IconvLiteModule;
 
 /**
- * Ленивый кусок бандла (docs/arch/Common.md): 540 KB, которые открытие utf-8/UTF-16
- * не парсит. `default` — `module.exports` на любом пути загрузки.
+ * A lazy chunk (docs/arch/Common.md): 540 KB that opening utf-8/UTF-16 never parses.
+ * `default` is `module.exports` on any load path.
  */
 export async function loadIconv(): Promise<IconvLite> {
     return (await importLazyModule("iconv-lite", () => import("iconv-lite"))).default;
 }
 
-/** Побайтно как iconv-lite: тот делегирует эти кодировки тем же примитивам node. */
+/** Byte-identical to iconv-lite: it delegates these encodings to the same node primitives. */
 interface INativeCodec {
     decode(body: Buffer): string;
     encode(text: string): Buffer;
 }
 
 const NATIVE_CODECS: ReadonlyMap<string, INativeCodec> = new Map<string, INativeCodec>([
-    // Stryker disable next-line StringLiteral: Buffer.from с пустым именем кодировки — тоже utf-8
+    // Stryker disable next-line StringLiteral: Buffer.from with an empty encoding name is utf-8 too
     ["utf8", { decode: (body) => body.toString("utf8"), encode: (text) => Buffer.from(text, "utf8") }],
     ["utf16le", { decode: (body) => body.toString("utf16le"), encode: (text) => Buffer.from(text, "utf16le") }],
     [
         "utf16be",
         {
-            // Копия не портит буфер вызывающего; нечётный хвостовой байт отбрасывается, как у iconv-lite.
+            // The copy keeps the caller's buffer intact; an odd trailing byte is dropped, as in iconv-lite.
             decode: (body) =>
                 Buffer.from(body.subarray(0, body.length & ~1))
                     .swap16()
@@ -152,14 +152,14 @@ const NATIVE_CODECS: ReadonlyMap<string, INativeCodec> = new Map<string, INative
 
 export function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefined): IEncodingInfo {
     const sniffed = detectEncodingByBOM(buffer);
-    // Stryker disable next-line ConditionalExpression: has(undefined) и так false — проверка нужна типам, не поведению
+    // Stryker disable next-line ConditionalExpression: has(undefined) is false anyway; the check is for types, not behavior
     if (explicitEncoding !== undefined && encodingsById.has(explicitEncoding)) {
         return requireEncodingInfo(explicitEncoding === "utf8" && sniffed === "utf8bom" ? "utf8bom" : explicitEncoding);
     }
     return requireEncodingInfo(sniffed ?? DEFAULT_ENCODING);
 }
 
-/** Неизвестный id — utf-8. */
+/** An unknown id falls back to utf-8. */
 export function resolveEncodeEncoding(encoding: string): IEncodingInfo {
     return encodingsById.get(encoding) ?? requireEncodingInfo(DEFAULT_ENCODING);
 }
@@ -168,36 +168,36 @@ export function stripBOM(buffer: Buffer, info: IEncodingInfo): Buffer {
     return info.bom !== undefined && startsWithBytes(buffer, info.bom) ? buffer.subarray(info.bom.length) : buffer;
 }
 
-/** Синхронно и без iconv: сниф даёт только utf-8 или UTF-16. */
+/** Synchronous and iconv-free: sniffing yields only utf-8 or UTF-16. */
 export function decodeBufferByBOM(buffer: Buffer): IDecodedText {
     const info = resolveDecodeEncoding(buffer, undefined);
     const codec = NATIVE_CODECS.get(info.iconvName);
-    /* v8 ignore start -- сниф даёт только utf8/utf8bom/utf16le/utf16be, у всех есть нативный кодек; throw — инвариант-гард */
-    // Stryker disable next-line all: недостижимый инвариант-гард, см. v8 ignore выше
+    /* v8 ignore start -- sniffing yields only utf8/utf8bom/utf16le/utf16be, all with a native codec; the throw is an invariant guard */
+    // Stryker disable next-line all: unreachable invariant guard, see v8 ignore above
     if (codec === undefined) throw new Error(`No native codec for sniffed encoding: ${info.id}`);
     /* v8 ignore stop */
     return { text: codec.decode(stripBOM(buffer, info)), encoding: info.id };
 }
 
 /**
- * `explicitEncoding` побеждает сниф, кроме "utf8" на буфере с BOM — тот становится
- * "utf8bom", чтобы BOM пережил сохранение. Без явной кодировки — синхронный
- * {@link decodeBufferByBOM}, результат тот же.
+ * `explicitEncoding` beats sniffing, except "utf8" on a buffer with a BOM: that becomes
+ * "utf8bom" so the BOM survives saving. Without an explicit encoding the synchronous
+ * {@link decodeBufferByBOM} gives the same result.
  */
 export async function decodeBuffer(buffer: Buffer, explicitEncoding?: string): Promise<IDecodedText> {
     const info = resolveDecodeEncoding(buffer, explicitEncoding);
     const body = stripBOM(buffer, info);
     const codec = NATIVE_CODECS.get(info.iconvName);
-    // Опции BOM iconv-lite не передаём: у не-Unicode кодеков они пустые.
+    // No iconv-lite BOM options: they are no-ops for non-Unicode codecs.
     const text = codec !== undefined ? codec.decode(body) : (await loadIconv()).decode(body, info.iconvName);
     return { text, encoding: info.id };
 }
 
-/** BOM пишут "utf8bom" и оба UTF-16, как в VS Code; непредставимое — "?" iconv-lite. */
+/** "utf8bom" and both UTF-16 write a BOM, as in VS Code; unrepresentable chars become iconv-lite's "?". */
 export async function encodeText(text: string, encoding: string): Promise<Buffer> {
     const info = resolveEncodeEncoding(encoding);
     const codec = NATIVE_CODECS.get(info.iconvName);
-    // addBOM, как и stripBOM в decodeBuffer, у не-Unicode кодеков пустой.
+    // Like stripBOM in decodeBuffer, addBOM is a no-op for non-Unicode codecs.
     const body = codec !== undefined ? codec.encode(text) : (await loadIconv()).encode(text, info.iconvName);
     if (info.bom === undefined) return body;
     return Buffer.concat([Buffer.from(info.bom), body]);

@@ -8,7 +8,7 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { DocumentTokenStore } from "./documentTokenStore.ts";
 
-/** Смещение от цветов по умолчанию. */
+/** Offset from the default colors. */
 const stateMark = (counter: number): number => 10 + counter;
 
 class CounterState implements IState {
@@ -24,7 +24,7 @@ class CounterState implements IState {
     }
 }
 
-/** `>` поднимает счётчик; foreground токена — входящее состояние. */
+/** `>` bumps the counter; the token foreground is the incoming state. */
 class StatefulTokenizer implements ITokenizationSupport {
     public getInitialState(): IState {
         return new CounterState(0);
@@ -38,7 +38,7 @@ class StatefulTokenizer implements ITokenizationSupport {
 
 const tenLines = (): TextDocument => new TextDocument("a\nb\nc\nd\ne\nf\ng\nh\ni\nj");
 
-// Ранний выход по сошедшемуся end-state не вправе объявлять валидным никогда не токенизированный хвост.
+// An early exit on a converged end-state must not declare a never-tokenized tail valid.
 describe("DocumentTokenStore — виден только вьюпорт", () => {
     it("после правки выше вьюпорта хвост всё ещё токенизируется", () => {
         const doc = tenLines();
@@ -81,8 +81,8 @@ describe("DocumentTokenStore — виден только вьюпорт", () => 
         expect(store.getLineTokens(5)).toBeDefined();
         expect(store.getLineTokens(6)).toBeUndefined();
 
-        // Удаление начинается ВЫШЕ фронтира, а кончается НИЖЕ: фронтир обязан
-        // опуститься на начало правки, иначе строка останется без токенов навсегда.
+        // The deletion starts ABOVE the frontier and ends BELOW it: the frontier must
+        // drop to the edit start, otherwise the line stays without tokens forever.
         doc.applyEdits([createDeleteEdit(4, 0, 8, 0)]);
         expect(doc.getText()).toBe("a\nb\nc\nd\ni\nj");
 

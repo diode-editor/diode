@@ -79,7 +79,7 @@ describe("EditorElement – indentation guides", () => {
     });
 
     it("highlights the innermost region enclosing the cursor as active", () => {
-        // Курсор в теле if (B): активен его гайд, а не охватывающего A.
+        // Cursor in the body of if (B): its guide is active, not the enclosing A.
         const { app, editor } = createEditor(SAMPLE, 3);
         app.render();
         const gw = editor.gutterWidth;
@@ -119,7 +119,7 @@ describe("EditorElement – indentation guides", () => {
         editor.viewState.toggleFold(0);
         app.render();
         const gw = editor.gutterWidth;
-        // Ряд 1 теперь показывает строку 8 («}»).
+        // Row 1 now shows line 8 ("}").
         expect(app.backend.getTextAt(new Point(gw, 0), 1)).toBe("f");
         expect(app.backend.getTextAt(new Point(gw, 1), 1)).toBe("}");
     });
@@ -130,12 +130,12 @@ describe("EditorElement – indentation guides", () => {
         app.render();
         const gw = editor.gutterWidth;
         expect(app.backend.getTextAt(new Point(gw, 3), 1)).toBe(GUIDE);
-        // Гайд A (кол. 0) ушёл за левый край — там текст строки.
+        // Guide A (col. 0) went past the left edge; line text is there.
         expect(app.backend.getTextAt(new Point(gw, 3), 1)).not.toBe(" ");
     });
 
     it("skips regions that lie entirely outside the visible window", () => {
-        // Вьюпорт — строки 0..2: тела B и C за окном, их диапазоны обрезаются в пустоту.
+        // Viewport is lines 0..2: the bodies of B and C are outside, their ranges clip to nothing.
         const { app, editor } = createEditor(SAMPLE, 0, 34, 3);
         app.render();
         const gw = editor.gutterWidth;
@@ -144,7 +144,7 @@ describe("EditorElement – indentation guides", () => {
     });
 
     it("drops guides whose indent column falls past the right edge", () => {
-        // contentCols = 2 (ширина 8 − gutterWidth 6): гайд B (кол. 2) — первая колонка за краем.
+        // contentCols = 2 (width 8 − gutterWidth 6): guide B (col. 2) is the first column past the edge.
         const { app, editor } = createEditor(SAMPLE, 3, 8, 9);
         app.render();
         const gw = editor.gutterWidth;
@@ -168,7 +168,7 @@ describe("EditorElement – indentation guides", () => {
     });
 });
 
-// Области провайдера (`#region`) стоят на ОДНОМ отступе с телом — гайд лёг бы на код (#194).
+// Provider regions (`#region`) share the body's indent, so a guide would land on code (#194).
 describe("EditorElement – indentation guides, provider regions", () => {
     // 0: function foo() {   ← indentation region (0..4), indent 0
     // 1:   /* #region */    ← provider region (1..4), indent 2 — same as its body
@@ -197,7 +197,7 @@ describe("EditorElement – indentation guides, provider regions", () => {
         const { app, editor } = createWithProviderRegion();
         app.render();
         const gw = editor.gutterWidth;
-        // Колонка области провайдера (2) — ровно начало «const a = 1;».
+        // The provider region column (2) is exactly the start of "const a = 1;".
         expect(app.backend.getTextAt(new Point(gw + 2, 2), 1)).toBe("c");
         expect(app.backend.getTextAt(new Point(gw + 2, 4), 1)).toBe("/");
     });

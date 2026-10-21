@@ -42,7 +42,7 @@ describe("UndoManager redo guard and version bookkeeping", () => {
         undoManager.undo(viewState);
         expect(doc.getText()).toBe("");
 
-        // Первый redo переписывает versionAfter следующего элемента — второй остаётся валидным.
+        // The first redo rewrites versionAfter of the next element — the second stays valid.
         expect(undoManager.redo(viewState)).toBe(true);
         expect(doc.getText()).toBe("A");
 

@@ -130,7 +130,7 @@ describe("TextDocument", () => {
         const doc = new TextDocument("line1\nline2\nline3");
         doc.applyEdits([
             createDeleteEdit(1, 0, 1, 5),
-            // Координаты обеих правок — по исходному тексту, а не после первой.
+            // Both edits use coordinates in the original text, not after the first one.
             createInsertEdit(0, 5, "\nnewLine"),
         ]);
         expect(doc.getText()).toBe("line1\nnewLine\n\nline3");

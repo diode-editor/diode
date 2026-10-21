@@ -8,8 +8,8 @@ import { EditorViewState } from "../viewModel/editorViewState.ts";
 import { TextDocument } from "./textDocument.ts";
 import { UndoManager } from "./undoManager.ts";
 
-// Герметичный двойник quick fix стокового typescript-language-server: два смежных
-// удаления на одной строке (форма снята с живого сервера,
+// Hermetic double of a quick fix from the stock typescript-language-server: two adjacent
+// deletions on one line (shape captured from a live server,
 // extensionHost.typescriptLsp.codeActions.test.ts).
 
 const IMPORT_LINE = 'import { test, assert } from "./test.js";';
@@ -24,7 +24,7 @@ function setup(text: string) {
     return { doc, viewState, undoManager };
 }
 
-/** Тот же путь, что у applyExternalEdits. */
+/** Same path as applyExternalEdits. */
 function applyExternal(
     viewState: EditorViewState,
     undoManager: UndoManager,
@@ -83,7 +83,7 @@ describe("UndoManager — внешний батч правок (quick fix)", () 
     });
 
     it("undo батча, склеившего строки, возвращает переводы строк на место", () => {
-        // Обратная правка второй обязана уехать и по строке, И по колонке.
+        // The second inverse edit must shift by line AND by column.
         const text = 'import {\n    test, assert,\n} from "./test.js";';
         const { doc, viewState, undoManager } = setup(text);
 

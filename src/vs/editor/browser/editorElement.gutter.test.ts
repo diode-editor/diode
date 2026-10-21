@@ -17,7 +17,7 @@ function createEditor(text: string, width = 30, height = 10): { app: TestApp; ed
     return { app, editor };
 }
 
-// Гуттер: 2 колонки отступа + цифры + 3 колонки фолдинга (зазор, шеврон, зазор).
+// Gutter: 2 padding columns + digits + 3 folding columns (gap, chevron, gap).
 
 describe("gutterWidth", () => {
     it("returns GUTTER_LEFT_PADDING + 1 digit + 3 fold margin for 1–9 lines", () => {
@@ -86,8 +86,8 @@ describe("gutter rendering", () => {
         app.render();
 
         const backend = app.backend;
-        // Ряд 1 — логическая строка 150: её последняя цифра обязана пережить свёрнутую
-        // проекцию (регрессия: показывало «15»). В ряду 0 шеврон, поэтому проверяем только цифры.
+        // Row 1 is logical line 150: its last digit must survive the folded
+        // projection (regression: it showed "15"). Row 0 has a chevron, so only digits are checked.
         expect(backend.getTextAt(new Point(0, 0), 6)).toBe("    1 ");
         expect(backend.getTextAt(new Point(0, 1), 8)).toBe("  150   ");
     });
@@ -97,7 +97,7 @@ describe("gutter rendering", () => {
         app.render();
 
         const backend = app.backend;
-        // VS Code не рисует vim-тильды за концом документа.
+        // VS Code does not draw vim tildes past the end of the document.
         expect(backend.getTextAt(new Point(0, 2), 6)).toBe("      ");
         expect(backend.getTextAt(new Point(0, 3), 6)).toBe("      ");
         expect(backend.getTextAt(new Point(0, 4), 6)).toBe("      ");
@@ -132,7 +132,7 @@ describe("gutter colors", () => {
         app.render();
 
         const backend = app.backend;
-        // Ряд 0 активен (курсор на строке 0) — проверяем ряд 1.
+        // Row 0 is active (cursor on line 0), so row 1 is checked.
         expect(backend.getFgAt(new Point(2, 1))).toBe(lnFg);
     });
 
@@ -196,7 +196,7 @@ describe("gutter colors", () => {
         const editorBg = packRgb(25, 26, 27);
         const gutterBg = packRgb(18, 19, 20);
 
-        // Тема, прибившая editorGutter.background к фону редактора (dark2026): у Output свой фон.
+        // A theme that pins editorGutter.background to the editor background (dark2026): Output has its own background.
         const themed = createEditor("Hi", 15, 3);
         themed.editor.setStyleVars({ "editorGutter.background": gutterBg });
         themed.editor.style = { bg: editorBg };
@@ -316,7 +316,7 @@ describe("scrolling", () => {
             app.render();
 
             const backend = app.backend;
-            // scrollTop=3: строка 5 — на screenY=2.
+            // scrollTop=3: line 5 is at screenY=2.
             expect(backend.getFgAt(new Point(2, 2))).toBe(lnActiveFg);
             expect(backend.getFgAt(new Point(2, 0))).toBe(lnFg);
         });

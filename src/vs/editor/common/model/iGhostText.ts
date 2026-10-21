@@ -1,4 +1,4 @@
-/** `lines[0]` дорисовывается в хвост строки `line` после `character`, остальные — view zones под ней. */
+/** `lines[0]` is drawn at the tail of line `line` after `character`; the rest are view zones below it. */
 export interface IGhostText {
     readonly line: number;
     readonly character: number;

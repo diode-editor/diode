@@ -39,7 +39,7 @@ describe("EditorElement — геометрия вторичных кареток
         expect(head.char).toBe("漢");
         expect(head.width).toBe(2);
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(CARET_BG);
-        // Ячейка-продолжение широкого символа окрашивается движком заодно с головой.
+        // The engine paints a wide character's continuation cell together with its head.
         expect(app.backend.getBgAt(new Point(gw + 1, 0))).toBe(CARET_BG);
     });
 
@@ -49,7 +49,7 @@ describe("EditorElement — геометрия вторичных кареток
         editor.focus();
         app.render();
 
-        // Смещение 1 — это дисплейная колонка 2 (широкий символ занял 0 и 1).
+        // Offset 1 is display column 2 (the wide character took 0 and 1).
         expect(app.backend.getBgAt(new Point(gw + 2, 0))).toBe(CARET_BG);
     });
 
@@ -101,7 +101,7 @@ describe("EditorElement — геометрия вторичных кареток
         editor.focus();
         app.render();
 
-        // Строка вью 0 — заголовок; каретки на скрытой строке 1 в кадре нет.
+        // View row 0 is the header; the cursor on hidden line 1 is not in the frame.
         for (let x = 0; x < 6; x++) {
             expect(app.backend.getBgAt(new Point(gw + x, 0))).not.toBe(CARET_BG);
         }
@@ -118,7 +118,7 @@ describe("EditorElement — геометрия вторичных кареток
         editor.focus();
         app.render();
 
-        // Видна только каретка строки 11 → экранная строка 1.
+        // Only the line 11 cursor is visible → screen row 1.
         expect(app.backend.getBgAt(new Point(gw + 0, 1))).toBe(CARET_BG);
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).not.toBe(CARET_BG);
         expect(app.backend.getBgAt(new Point(gw + 0, 3))).not.toBe(CARET_BG);
@@ -131,9 +131,9 @@ describe("EditorElement — геометрия вторичных кареток
         editor.focus();
         app.render();
 
-        // Каретка строки 1 ровно на левом крае вьюпорта.
+        // The line 1 cursor is exactly at the viewport's left edge.
         expect(app.backend.getBgAt(new Point(gw + 0, 1))).toBe(CARET_BG);
-        // Каретка строки 0 уехала влево — в кадре её нет ни в одной колонке.
+        // The line 0 cursor scrolled off to the left: it is in no column of the frame.
         for (let x = 0; x + gw < 20; x++) {
             expect(app.backend.getBgAt(new Point(gw + x, 0))).not.toBe(CARET_BG);
         }
@@ -159,9 +159,9 @@ describe("EditorElement — геометрия вторичных кареток
         app.render();
 
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(CARET_BG);
-        // Экранная строка 1 — зона: документной строки за ней нет.
+        // Screen row 1 is a view zone: no document line behind it.
         expect(app.backend.getBgAt(new Point(gw + 0, 1))).not.toBe(CARET_BG);
-        // Строка 1 документа уехала на экранную 2.
+        // Document line 1 moved to screen row 2.
         expect(app.backend.getBgAt(new Point(gw + 0, 2))).toBe(CARET_BG);
     });
 });

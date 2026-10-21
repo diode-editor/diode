@@ -5,8 +5,8 @@ import type { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import { EditorElement } from "./editorElement.ts";
 
 /**
- * Виджет такой один — `EditorElement`, но пара ключей `textViewFocus`/`textInputFocus`
- * жива: when-клаузы несут разную семантику («нужна каретка» против «нужен ввод»).
+ * `EditorElement` is the only such widget, but both `textViewFocus`/`textInputFocus` keys
+ * stay: when-clauses mean different things ("needs a cursor" vs "needs input").
  */
 export interface ITextViewElement extends TUIElement {
     readonly viewState: EditorViewState;

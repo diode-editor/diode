@@ -8,7 +8,7 @@ import { UndoManager } from "../model/undoManager.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-/** Свои правки вью не ремапятся — они пересчитывают себя точно. */
+/** The view's own edits aren't remapped — they recompute themselves exactly. */
 describe("EditorViewState: ремап чужих правок", () => {
     function twoViews(text: string): { doc: TextDocument; a: EditorViewState; b: EditorViewState } {
         const doc = new TextDocument(text);
@@ -30,7 +30,7 @@ describe("EditorViewState: ремап чужих правок", () => {
         const { doc, b } = twoViews("one\ntwo\nthree\nfour");
         b.selections = [createCursorSelection(3, 2)];
 
-        // Правка напрямую через документ (путь undo/владельца) — вью A не участвует.
+        // Edit straight through the document (the undo/owner path) — view A is not involved.
         doc.applyEdits([createTextEdit(createRange(0, 0, 2, 0), "")]);
 
         expect(b.selections[0].active).toEqual({ line: 1, character: 2 });
@@ -67,7 +67,7 @@ describe("EditorViewState: ремап чужих правок", () => {
         a.selections = [createCursorSelection(0, 5)];
         a.type(" world");
 
-        // Точный пересчёт мутатора: каретка в конце вставки, без смещений.
+        // Exact recomputation by the mutator: cursor at the end of the insertion, no offsets.
         expect(a.selections[0].active).toEqual({ line: 0, character: 11 });
     });
 
@@ -107,14 +107,14 @@ describe("EditorViewState: ремап чужих правок", () => {
     });
 
     /**
-     * События батча считаются снизу вверх, а летят в документном порядке: без сдвига границ
-     * нижняя правка адресовала строки мимо документа, и каретка оставалась за концом строки.
+     * Batch events are computed bottom-up but fire in document order: without shifting boundaries
+     * the lower edit addressed lines past the document, and the cursor stayed past the line end.
      */
     it("батч из двух правок не оставляет каретку чужой вью за концом строки", () => {
         const { doc, b } = twoViews("aaa\nbbbbb");
         b.selections = [createCursorSelection(1, 5)];
 
-        // Верхняя правка добавляет строку, нижняя укорачивает строку под кареткой.
+        // The upper edit adds a line, the lower one shortens the line under the cursor.
         doc.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "X\n"), createTextEdit(createRange(1, 1, 1, 5), "")]);
 
         expect(doc.getText()).toBe("X\naaa\nb");

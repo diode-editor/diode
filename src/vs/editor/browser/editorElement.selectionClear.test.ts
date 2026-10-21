@@ -21,9 +21,9 @@ describe("EditorElement in app frame loop", () => {
         editor.occurrenceHighlightEnabled = false; // isolate selection-bg clearing from word highlighting
         const body = new BodyElement();
         body.setContent(editor);
-        // Хостовый токен без дефолта tuidom — явная таблица styleVars; тело
-        // остаётся без собственного фона, чтобы снятое выделение вернулось к
-        // DEFAULT_COLOR (это и проверяем).
+        // Host token with no tuidom default: an explicit styleVars table. The body
+        // has no background of its own, so a cleared selection falls back to
+        // DEFAULT_COLOR (which is what we check).
         body.setStyleVars({ "editor.selectionBackground": packRgb(38, 79, 120) });
         app.root = body;
         app.run();

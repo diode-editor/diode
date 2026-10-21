@@ -8,11 +8,11 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-// «Сколько стоит СОСЕДНИЙ виджет» (docs/TODO/LongLinePerformance.md), `npm run test:perf`:
-// под damage-tracking поддерево устоявшегося Output не рендерится, и сплит с 10k-строкой
-// должен стоить как с короткой.
+// "What a NEIGHBOUR widget costs" (docs/TODO/LongLinePerformance.md), `npm run test:perf`:
+// with damage tracking a settled Output subtree is not rendered, so a split with a 10k-char
+// line must cost the same as with a short one.
 //
-// Фикстуры на верхнем уровне модуля: в `vitest bench` тяжёлый beforeAll не набирает сэмплов.
+// Fixtures live at module top level: in `vitest bench` a heavy beforeAll collects no samples.
 
 class SplitElement extends TUIElement {
     public constructor(

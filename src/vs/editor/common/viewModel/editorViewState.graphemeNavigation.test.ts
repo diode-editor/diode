@@ -13,7 +13,7 @@ function createState(text: string, line = 0, character = 0): EditorViewState {
 
 describe("cursorRight — grapheme navigation", () => {
     it("skips entire emoji (surrogate pair)", () => {
-        // Эмодзи — offsets 1-2.
+        // The emoji is offsets 1-2.
         const state = createState("a😀b", 0, 1);
         state.cursorRight();
         expect(state.selections[0].active.character).toBe(3);
@@ -77,7 +77,7 @@ describe("cursorLeft — grapheme navigation", () => {
 
 describe("idealColumn — display column semantics", () => {
     it("cursorDown preserves display column through line with tab", () => {
-        // "\tx": таб — колонки 0-3, "x" — колонка 4.
+        // "\tx": the tab is columns 0-3, "x" is column 4.
         const state = createState("abcdef\n\tx\nxyzwvuabcd", 0, 5);
         state.cursorDown();
         expect(state.selections[0].active.line).toBe(1);
@@ -89,7 +89,7 @@ describe("idealColumn — display column semantics", () => {
     });
 
     it("cursorDown preserves display column through line with CJK", () => {
-        // "漢字xyz": 漢 — колонки 0-1, 字 — 2-3.
+        // "漢字xyz": 漢 is columns 0-1, 字 is 2-3.
         const state = createState("abcdef\n漢字xyz\n0123456789", 0, 3);
         state.cursorDown();
         expect(state.selections[0].active.line).toBe(1);

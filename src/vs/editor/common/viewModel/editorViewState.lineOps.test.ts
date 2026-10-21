@@ -98,14 +98,14 @@ describe("EditorViewState.copyLinesDown", () => {
     it("дубль в конце файла прокручивает вьюпорт за уехавшей кареткой", () => {
         const doc = Array.from({ length: 30 }, (_, i) => `line${String(i)}`).join("\n");
         const s = state(doc, [createCursorSelection(29, 0)]);
-        s.scrollTop = 6; // каретка у нижнего края вьюпорта 80x24
+        s.scrollTop = 6; // cursor at the bottom edge of the 80x24 viewport
         s.copyLinesDown();
         expect(s.scrollTop).toBe(7);
     });
 
     it("форма правки: дубль вниз вставляется НАД блоком, дубль вверх — ПОД ним", () => {
-        // Форма — контракт undo/redo и сдвига фолдов (forwardEdits переигрывает
-        // redo): текст совпадает у обеих форм, а side-эффекты — нет.
+        // The shape is the contract for undo/redo and fold shifting (forwardEdits replays
+        // redo): the text is the same for both shapes, the side effects are not.
         const down = state("alpha\nbeta", [createCursorSelection(0, 2)]);
         expect(down.copyLinesDown()?.forwardEdits).toEqual([{ range: createRange(0, 0, 0, 0), text: "alpha\n" }]);
 
@@ -168,8 +168,8 @@ describe("EditorViewState.duplicateSelection", () => {
     });
 
     it("схлопнутая каретка над выделением: строки ниже съезжают на строку дубля", () => {
-        // Хвостовые строки ниже выделения — чтобы ошибка сдвига не маскировалась
-        // клампом выделений к концу документа.
+        // Trailing lines below the selection, so a shift bug isn't masked by clamping
+        // selections to the document end.
         const s = state("ab\ncd\nef\ngh\nij", [createCursorSelection(0, 1), createSelection(2, 0, 2, 2)]);
         s.duplicateSelection();
         expect(s.document.getText()).toBe("ab\nab\ncd\nefef\ngh\nij");
@@ -208,9 +208,9 @@ describe("EditorViewState.duplicateSelection", () => {
     });
 
     it("каретка между двумя выделениями одной строки не теряет их колоночный сдвиг", () => {
-        // Правка каретки встаёт в НАЧАЛО строки, то есть левее правки первого
-        // выделения: накопительная «дельта последней строки» такой порядок не
-        // описывала и сбивала посадку третьего выделения.
+        // The cursor's edit lands at the START of the line, i.e. left of the first selection's
+        // edit: the cumulative "last line delta" didn't model that order and misplaced
+        // the third selection.
         const s = state("ab cd ef", [
             createSelection(0, 0, 0, 2),
             createCursorSelection(0, 3),
@@ -220,16 +220,16 @@ describe("EditorViewState.duplicateSelection", () => {
         expect(s.document.getText()).toBe("ab cd ef\nabab cd efef");
         expect(s.selections[0].anchor).toEqual({ line: 1, character: 2 });
         expect(s.selections[0].active).toEqual({ line: 1, character: 4 });
-        // Каретка стояла перед `c`; в строке с двумя вставленными копиями `c`
-        // теперь на колонке 5 — каретка держится за свой символ, а не за колонку.
+        // The cursor was before `c`; in the line with two inserted copies `c` is now
+        // at column 5 — the cursor sticks to its character, not to the column.
         expect(s.selections[1].active).toEqual({ line: 1, character: 5 });
         expect(s.selections[2].anchor).toEqual({ line: 1, character: 10 });
         expect(s.selections[2].active).toEqual({ line: 1, character: 12 });
     });
 
     it("многострочное выделение и выделение правее него на его последней строке", () => {
-        // Копия многострочного выделения кончается НЕ в нулевой колонке: хвост
-        // строки уезжает за неё, и позиция следующей правки считается от неё.
+        // The copy of a multi-line selection does NOT end at column zero: the line tail
+        // moves past it, and the next edit's position is computed from it.
         const s = state("ab\ncd ef", [createSelection(0, 0, 1, 2), createSelection(1, 3, 1, 5)]);
         s.duplicateSelection();
         expect(s.document.getText()).toBe("ab\ncdab\ncd efef");

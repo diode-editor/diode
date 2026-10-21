@@ -9,7 +9,7 @@ function makeState(lines: string): EditorViewState {
     return new EditorViewState(new TextDocument(lines), [createCursorSelection(0, 0)]);
 }
 
-/** Вид всех строк вью компактной строкой: номер doc-строки либо `·` у зоны. */
+/** All view lines as a compact string: the doc line number, or `·` for a zone. */
 function sketch(state: EditorViewState): string {
     const parts: string[] = [];
     for (let v = 0; v < state.getViewLineCount(); v++) {
@@ -103,7 +103,7 @@ describe("EditorViewState view zones — проекция", () => {
             { afterLine: -1, size: 1 },
             { afterLine: 1, size: 2 },
         ]);
-        // Вью: · 0 1 · · 2
+        // View: · 0 1 · · 2
 
         expect(state.docLineForViewLine(1)).toBe(0);
         expect(state.docLineForViewLine(3)).toBe(1);
@@ -129,7 +129,7 @@ describe("EditorViewState view zones — проекция", () => {
             { afterLine: -1, size: 2 },
             { afterLine: 1, size: 3 },
         ]);
-        // Вью: · · 0 1 · · · 2
+        // View: · · 0 1 · · · 2
 
         expect(state.zoneRowForViewLine(0)).toEqual({ anchor: -1, offset: 0 });
         expect(state.zoneRowForViewLine(1)).toEqual({ anchor: -1, offset: 1 });
@@ -144,9 +144,9 @@ describe("EditorViewState view zones — проекция", () => {
         const lines = Array.from({ length: 10 }, (_, i) => `l${String(i)}`).join("\n");
         const state = makeState(lines);
         state.setFoldingRegions([{ startLine: 1, endLine: 5, isCollapsed: true }]);
-        // Якорь скрыт свёрткой — зона выживает после заголовка региона.
+        // The anchor is hidden by a fold — the zone survives after the region header.
         state.setViewZones([{ afterLine: 3, size: 2 }]);
-        // Вью: 0 1 · · 6 7 8 9
+        // View: 0 1 · · 6 7 8 9
 
         expect(state.zoneRowForViewLine(2)).toEqual({ anchor: 3, offset: 0 });
         expect(state.zoneRowForViewLine(3)).toEqual({ anchor: 3, offset: 1 });
@@ -155,7 +155,7 @@ describe("EditorViewState view zones — проекция", () => {
     it("docLineForViewLine перешагивает многострочную зону до начала файла", () => {
         const state = makeState("a\nb");
         state.setViewZones([{ afterLine: -1, size: 2 }]);
-        // Вью: · · 0 1 — ближайшая документная снизу через вторую строку зоны.
+        // View: · · 0 1 — the nearest document line below, through the zone's second line.
 
         expect(state.docLineForViewLine(0)).toBe(0);
     });
@@ -199,7 +199,7 @@ describe("EditorViewState view zones × folding", () => {
         state.setFoldingRegions([{ startLine: 0, endLine: 2, isCollapsed: true }]);
         state.setViewZones([{ afterLine: 1, size: 1 }]);
 
-        // Вью: заголовок 0 (тело 1-2 скрыто), зона после него, затем 3.
+        // View: header 0 (body 1-2 hidden), the zone after it, then 3.
         expect(sketch(state)).toBe("0 · 3");
     });
 
@@ -220,7 +220,7 @@ describe("EditorViewState view zones — каретка", () => {
             { afterLine: -1, size: 1 },
             { afterLine: 1, size: 1 },
         ]);
-        // Вью: · 0 1 ·
+        // View: · 0 1 ·
 
         state.selections = [createCursorSelection(0, 0)];
         state.cursorUp();
@@ -250,7 +250,7 @@ describe("EditorViewState view zones — каретка", () => {
         state.selections = [createCursorSelection(0, 0)];
 
         state.cursorPageDown();
-        // Вью: 0 1 · · · 2 3 …; страница = 5 строк вью → view 5 → doc 2.
+        // View: 0 1 · · · 2 3 …; page = 5 view lines → view 5 → doc 2.
         expect(state.selections[0].active.line).toBe(2);
 
         state.cursorPageUp();
@@ -264,7 +264,7 @@ describe("EditorViewState view zones — каретка", () => {
         state.selections = [createCursorSelection(0, 0)];
 
         state.cursorPageDown();
-        // Вью: 0 1 2 · · 3 …; цель view 3 — зона → ближайшая документная 2.
+        // View: 0 1 2 · · 3 …; target view 3 is a zone → nearest document line 2.
         expect(state.selections[0].active.line).toBe(2);
     });
 
@@ -287,7 +287,7 @@ describe("EditorViewState view zones — каретка", () => {
         state.setViewZones([{ afterLine: 0, size: 10 }]);
 
         state.goToPosition(20, 0);
-        // Каретка на doc 20 = view 30; вьюпорт обязан доехать.
+        // Cursor on doc 20 = view 30; the viewport must follow.
         const caretView = state.logicalToVisualLine(20);
         expect(caretView).toBe(30);
         expect(state.scrollTop).toBeGreaterThan(caretView - state.viewportHeight);
@@ -299,8 +299,8 @@ describe("EditorViewState — скрытая каретка на краю (ре�
     it("cursorDown со скрытой строки хвостового региона остаётся на месте", () => {
         const state = makeState("a\nh\nb1\nb2");
         state.setFoldingRegions([{ startLine: 1, endLine: 3, isCollapsed: true }]);
-        // Сеттер selections скрытую каретку не выправляет (это делает reconcile после
-        // фолд-команд) — так выглядит момент между схлопыванием и выправкой.
+        // The selections setter doesn't fix a hidden cursor (reconcile does that after
+        // fold commands) — this is the moment between collapsing and fixing.
         state.selections = [createCursorSelection(2, 0)];
 
         state.cursorDown();
@@ -345,7 +345,7 @@ describe("EditorViewState view zones — правки документа", () =>
         const state = makeState("a\nb\nc\nd");
         state.setViewZones([{ afterLine: 1, size: 1 }]);
         const before = state.viewZones[0];
-        // Удаление диапазона [1..2): editStartLine 1, кламп якоря 1 → 1.
+        // Deleting range [1..2): editStartLine 1, anchor clamp 1 → 1.
         state.selections = [{ anchor: { line: 1, character: 0 }, active: { line: 2, character: 0 } }];
         state.deleteLeft();
 
@@ -360,10 +360,10 @@ describe("EditorViewState view zones — правки документа", () =>
         state.scrollTop = 15;
         state.setViewZones([{ afterLine: 25, size: 1 }]);
 
-        // Чужая правка: вставка строки в начале (мимо мутаторов этого view-state).
+        // Foreign edit: a line inserted at the start (bypassing this view state's mutators).
         doc.applyEdits([{ range: { start: { line: 0, character: 0 }, end: { line: 0, character: 0 } }, text: "x\n" }]);
 
-        // Гейт: с зонами логический сдвиг ≠ визуальному — скролл не трогаем.
+        // Guard: with zones the logical shift ≠ the visual one — scroll is left alone.
         expect(state.scrollTop).toBe(15);
         expect(state.viewZones).toEqual([{ afterLine: 26, size: 1 }]);
     });

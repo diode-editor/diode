@@ -1,9 +1,9 @@
 import type { IRange } from "../core/iRange.ts";
 
-// Цвета — ИМЕНА ТОКЕНОВ темы, резолвятся при отрисовке: смена темы перекрашивает
-// без пересчёта у владельца (в отличие от packed-RGB `IGutterChangeDecoration`).
+// Colors are theme TOKEN NAMES resolved at render time: a theme change recolors without
+// the owner recomputing anything (unlike packed-RGB `IGutterChangeDecoration`).
 
-/** Включая гуттер, `endLine` включительно. */
+/** Includes the gutter; `endLine` is inclusive. */
 export interface ILineBackgroundDecoration {
     readonly startLine: number;
     readonly endLine: number;
@@ -20,23 +20,23 @@ export interface IGutterMarkerDecoration {
     readonly char: string;
 }
 
-/** Свой стиль у строки: зоны с одним якорем сливаются, призраки и плашка свёртки соседствуют. */
+/** Per-line style: zones with one anchor merge, ghosts and the fold placeholder sit side by side. */
 export interface IViewZoneLine {
     readonly text: string;
-    /** Без него — цвет текста редактора. */
+    /** Defaults to the editor text color. */
     readonly colorToken?: string;
-    /** Без него — фон редактора. */
+    /** Defaults to the editor background. */
     readonly bgToken?: string;
 }
 
-/** `lines` побеждает `text`/`fillChar` на строках, где он задан. */
+/** `lines` beats `text`/`fillChar` on the lines where it is set. */
 export interface IViewZoneDecoration {
     readonly afterLine: number;
     readonly fillChar?: string;
     readonly text?: string;
-    /** Без него — цвет текста редактора. */
+    /** Defaults to the editor text color. */
     readonly colorToken?: string;
-    /** По offset строки зоны. */
+    /** Indexed by the zone's line offset. */
     readonly lines?: readonly IViewZoneLine[];
 }
 

@@ -87,18 +87,18 @@ describe("EditorElement — авто-закрытие при наборе", () =
     });
 
     it("typeover только у части кареток — набирается обычный символ у всех", () => {
-        // Первая каретка перед `}` (перешагнула бы), вторая — в тексте.
+        // The first cursor is before `}` (would type over), the second is inside text.
         const { editor, viewState } = makeEditor("{}\nab", [createCursorSelection(0, 1), createCursorSelection(1, 1)]);
         press(editor, "}");
         expect(viewState.document.getText()).toBe("{}}\na}b");
     });
 
     it("каретки, которым подошли РАЗНЫЕ пары, откатываются к обычному набору", () => {
-        // `*` после `/*` открывает `/**` → ` */`, а `*` в пустом месте — свою
-        // пару: закрывающие разные, единого решения нет.
+        // `*` after `/*` opens `/**` → ` */`, while `*` in empty space gets its own
+        // pair: the closing parts differ, so there is no single decision.
         const { editor, viewState } = makeEditor("/*\nab", [
             createCursorSelection(0, 2),
-            // Конец строки — там пара тоже срабатывает, но своя.
+            // End of line: the pair fires here too, but a different one.
             createCursorSelection(1, 2),
         ]);
         editor.languageConfigurationSource = () => ({
@@ -113,8 +113,8 @@ describe("EditorElement — авто-закрытие при наборе", () =
     });
 
     it("каретки с разъехавшимся контекстом откатываются к обычному набору", () => {
-        // Первая каретка в конце строки (вставила бы пару), вторая посреди
-        // слова (обычный набор) — решения не сошлись, набираем как есть.
+        // The first cursor is at the end of a line (would insert a pair), the second is mid-word
+        // (plain typing): the decisions disagree, so the character is typed as is.
         const { editor, viewState } = makeEditor("a\nword", [createCursorSelection(0, 1), createCursorSelection(1, 2)]);
         press(editor, "{");
         expect(viewState.document.getText()).toBe("a{\nwo{rd");
@@ -148,9 +148,9 @@ describe("EditorElement — auto-surround выделения", () => {
     });
 
     it("смешанные выделения не закрываются парой, даже когда контекст это позволяет", () => {
-        // У обоих участников контекст «за кареткой пусто» (пробел и конец строки),
-        // так что решение об автозакрытии было бы единогласным — но обрамлять
-        // нечего (выделение только у одного), а затирать пару нельзя.
+        // Both participants have "nothing after the cursor" (a space and end of line),
+        // so the auto-close decision would be unanimous — but surrounding is not unanimous
+        // (only one has a selection), and replacing a selection with a pair is not allowed.
         const { editor, viewState } = makeEditor("aa b", [createSelection(0, 0, 0, 2), createCursorSelection(0, 4)]);
         press(editor, "{");
         expect(viewState.document.getText()).toBe("{ b{");

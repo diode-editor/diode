@@ -38,7 +38,7 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         state.insertCursorBelow();
         state.insertCursorBelow();
         state.insertCursorBelow();
-        // Копии внутренних кареток совпадают с уже существующими и схлопываются слиянием.
+        // Copies of the inner cursors coincide with existing ones and collapse on merge.
         expect(actives(state)).toEqual([
             [0, 0],
             [1, 0],
@@ -80,8 +80,8 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         state.insertCursorBelow();
         expect(actives(state)).toEqual([
             [0, 6],
-            [1, 2], // строка короче — каретка прижата к её концу
-            [2, 6], // но «запомненная» колонка вернула её на место
+            [1, 2], // shorter line — cursor clamped to its end
+            [2, 6], // but the remembered column brings it back
         ]);
     });
 
@@ -90,8 +90,8 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         const state = new EditorViewState(doc, [createCursorSelection(0, 2)]);
         state.tabSize = 4;
         state.insertCursorBelow();
-        // Два таба — это 8 дисплейных колонок, значит на строке из подчёркиваний
-        // каретка встаёт в смещение 8, а не 2.
+        // Two tabs are 8 display columns, so on the underscore line the cursor
+        // lands at offset 8, not 2.
         expect(actives(state)).toEqual([
             [0, 2],
             [1, 8],
@@ -139,8 +139,8 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
     });
 
     it("выделение со второй строки переезжает на нулевую", () => {
-        // Якорь встаёт ровно на нулевую строку — граничный случай «двигать некуда»
-        // проходит по строке ниже нуля, а не по самой нулевой.
+        // The anchor lands exactly on line zero — the "nowhere to move" edge case
+        // is checked on the line below zero, not on line zero itself.
         const state = new EditorViewState(new TextDocument("abcdef\nabcdef\nabcdef"), [createSelection(1, 1, 1, 4)]);
 
         state.insertCursorAbove();
@@ -151,8 +151,8 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
     });
 
     it("обратное выделение у края документа копии не даёт и события не шлёт", () => {
-        // Якорь на последней строке двигаться не может, а active может: копия целиком
-        // легла бы внутрь исходного выделения, и слияние съело бы её без следа.
+        // An anchor on the last line can't move but active can: the copy would lie entirely
+        // inside the original selection, and the merge would swallow it without a trace.
         const state = new EditorViewState(new TextDocument("aaa\nbbb\nccc"), [createSelection(2, 0, 1, 0)]);
         let fired = 0;
         state.onDidChangeCursorPosition(() => {
@@ -167,12 +167,12 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
         const state = new EditorViewState(new TextDocument(makeLines(40)), [createCursorSelection(30, 0)]);
         state.viewportHeight = 10;
         state.viewportWidth = 40;
-        state.scrollTop = 30; // каретка в первой видимой строке
+        state.scrollTop = 30; // cursor on the first visible line
 
         state.insertCursorAbove();
 
-        // Показывать надо ВЕРХНЮЮ каретку — она и есть новая. Показывай нижнюю,
-        // вьюпорт не двинулся бы: она и так на экране.
+        // The TOP cursor must be revealed — it is the new one. Revealing the bottom one
+        // wouldn't move the viewport: it is already on screen.
         expect(state.scrollTop).toBe(29);
     });
 
@@ -286,8 +286,8 @@ describe("EditorViewState.revealSelection", () => {
 
         state.revealSelection(createSelection(1, 0, 5, 0));
 
-        // Спрятать выделение может любой из его концов, поэтому разворачивать надо
-        // оба: проверка на каретке этого не видит — там начало и конец совпадают.
+        // Either end of a selection can hide it, so both must be unfolded: a check on
+        // the cursor can't see this — there start and end coincide.
         expect(state.foldedRegions.map((region) => region.isCollapsed)).toEqual([false, false]);
     });
 

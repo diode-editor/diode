@@ -8,7 +8,7 @@ import { EditorViewState } from "./editorViewState.ts";
 
 describe("EditorViewState.runDetectIndentation — disabled", () => {
     it("falls back to the configured values when detectIndentation is false", () => {
-        // Документ отступлён табами, но детекцию выключили — содержимое не в счёт.
+        // The document is tab-indented, but detection is off — content doesn't count.
         const doc = new TextDocument("\tindented\n\tindented");
         const state = new EditorViewState(doc);
         state.configuredInsertSpaces = true;
@@ -31,7 +31,7 @@ describe("EditorViewState.cursorLeft — end-of-line and grapheme slots", () => 
     });
 
     it("lands at column 0 when the cursor sits inside the first grapheme", () => {
-        // Offset 1 — внутри эмодзи-слота 0.
+        // Offset 1 is inside emoji slot 0.
         const doc = new TextDocument("😀b");
         const state = new EditorViewState(doc, [createCursorSelection(0, 1)]);
         state.cursorLeft();
@@ -55,7 +55,7 @@ describe("EditorViewState.deleteLeft — slot boundaries", () => {
     });
 
     it("deletes back to column 0 when the cursor is inside the first grapheme", () => {
-        // Offset 1 — внутри эмодзи-слота 0, поэтому удаляется [0, 1).
+        // Offset 1 is inside emoji slot 0, so [0, 1) is deleted.
         const doc = new TextDocument("😀b");
         const before = doc.getText().length;
         const state = new EditorViewState(doc, [createCursorSelection(0, 1)]);
@@ -85,7 +85,7 @@ describe("EditorViewState page navigation — fresh cursor", () => {
     });
 
     it("cursorPageDown reuses the stored idealColumn on a second invocation", () => {
-        // Второй вызов идёт уже с явным idealColumn от первого.
+        // The second call already carries the explicit idealColumn from the first.
         const doc = new TextDocument("0123\n0123\n0123\n0123\n0123\n0123\n0123");
         const state = new EditorViewState(doc, [createCursorSelection(0, 3)]);
         state.viewportHeight = 3;

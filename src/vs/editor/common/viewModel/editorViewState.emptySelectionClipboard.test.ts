@@ -125,7 +125,7 @@ describe("EditorViewState.cutSelections", () => {
     it("пустая каретка на строке непустого выделения не режет строку вторым разом", () => {
         const s = state("hello world", [createCursorSelection(0, 8), createSelection(0, 0, 0, 5)]);
         s.cutSelections(true);
-        // Строку уже задевает выделение — каретка не добавляет удаление всей строки.
+        // A selection already touches the line, so the cursor doesn't add a whole-line delete.
         expect(s.document.getText()).toBe(" world");
     });
 
@@ -149,8 +149,8 @@ describe("EditorViewState.cutSelections", () => {
     });
 
     it("cut прокручивает вьюпорт к каретке, если та ушла с экрана", () => {
-        // Пользователь укатил экран колесом от каретки и нажал Ctrl+X: правка
-        // идёт у каретки, значит показать надо её (как в VS Code).
+        // The user scrolled away from the cursor with the wheel and hit Ctrl+X: the edit happens
+        // at the cursor, so that is what must be revealed (as in VS Code).
         const doc = Array.from({ length: 40 }, (_, i) => `line${String(i)}`).join("\n");
         const s = state(doc, [createCursorSelection(0, 0)]);
         s.scrollTop = 15;
@@ -228,7 +228,7 @@ describe("EditorViewState.pasteText", () => {
     it("линейная вставка в конце файла прокручивает вьюпорт за кареткой", () => {
         const doc = Array.from({ length: 30 }, (_, i) => `line${String(i)}`).join("\n");
         const s = state(doc, [createCursorSelection(29, 0)]);
-        s.scrollTop = 6; // каретка у нижнего края вьюпорта 80x24
+        s.scrollTop = 6; // cursor at the bottom edge of the 80x24 viewport
         s.pasteText("x\n", true);
         expect(s.scrollTop).toBe(7);
     });

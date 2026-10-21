@@ -12,13 +12,13 @@ export interface IApplyEditsResult {
     readonly inverseEdits: readonly ITextEdit[];
 }
 
-/** Строки 0-based. */
+/** Lines are 0-based. */
 export interface ITextDocument {
     readonly lineCount: number;
     readonly versionId: number;
     readonly languageId: string;
 
-    /** Только для {@link serialize}: строки хранятся LF-канонично. */
+    /** Only for {@link serialize}: lines are stored LF-canonical. */
     readonly eol: EndOfLine;
 
     getLineContent(lineIndex: number): string;
@@ -28,29 +28,29 @@ export interface ITextDocument {
     getTextInRange(range: IRange): string;
 
     serialize(): string;
-    /** Не меняет строки и `versionId`. */
+    /** Changes neither lines nor `versionId`. */
     setEol(eol: EndOfLine): void;
 
     applyEdits(edits: readonly ITextEdit[]): IApplyEditsResult;
 
     /**
-     * {@link applyEdits} сдвигает декорации до своих событий; {@link setText} правок
-     * не несёт — диапазоны остаются на месте, приведённые к новому тексту.
+     * {@link applyEdits} moves decorations before firing its events; {@link setText} carries
+     * no edits, so ranges stay in place, clamped to the new text.
      */
     deltaDecorations(oldIds: readonly string[], newDecorations: readonly IModelDeltaDecoration[]): string[];
     getDecorationRange(id: string): IRange | null;
 
-    /** Не меняет `versionId` — смена языка не делает документ dirty. */
+    /** Leaves `versionId` alone: a language change does not make the document dirty. */
     setLanguage(languageId: string): void;
 
-    /** Несколько изменений одного `applyEdits` — по очереди, в документном порядке. */
+    /** Several changes from one `applyEdits` fire one by one, in document order. */
     onDidChangeContent(listener: (change: IDocumentContentChange) => void): IDisposable;
 
-    /** После всех {@link onDidChangeContent} того же батча. */
+    /** After every {@link onDidChangeContent} of the same batch. */
     onDidChangeModelContent(listener: (event: IModelContentChangedEvent) => void): IDisposable;
 
     onDidChangeLanguage(listener: (change: IDocumentLanguageChange) => void): IDisposable;
 
-    /** Смена EOL в {@link onDidChangeContent} не попадает. */
+    /** An EOL change does not show up in {@link onDidChangeContent}. */
     onDidChangeEol(listener: () => void): IDisposable;
 }

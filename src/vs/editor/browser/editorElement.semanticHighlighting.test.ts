@@ -28,7 +28,7 @@ const KEYWORD_FG = packRgb(255, 0, 0);
 const CLASS_FG = packRgb(0, 200, 100);
 const VAR_FG = packRgb(10, 20, 30);
 
-/** TextMate: `if` — красный курсивом, остальное — без правила. */
+/** TextMate: `if` is red italic, everything else has no rule. */
 class TmResolver implements ITokenStyleResolver {
     public resolve(metadata: number): ResolvedTokenStyle {
         const foreground: number = TokenMetadata.getForeground(metadata);
@@ -43,7 +43,7 @@ const LEGEND: ISemanticTokensLegend = {
     tokenModifiers: ["readonly", "static"],
 };
 
-/** Тема: class — свой цвет, variable.readonly — жирный без цвета, keyword — снять курсив. */
+/** Theme: class has its own color, variable.readonly is bold without a color, keyword drops italic. */
 function themeResolver(): ISemanticTokenStyleResolver & { calls: string[] } {
     const calls: string[] = [];
     return {
@@ -101,7 +101,7 @@ describe("EditorElement — семантические токены поверх
     });
 
     it("стиль без цвета оставляет цвет TM и меняет только заданные флаги", () => {
-        // "if": TM — красный курсив; семантика keyword — italic:false, underline:true.
+        // "if": TM is red italic; semantic keyword is italic:false, underline:true.
         const { cell } = setup("if x", [0, 0, 2, 2, 0]);
         expect(cell(0).fg).toBe(KEYWORD_FG);
         expect(cell(0).style & StyleFlags.Italic).toBe(0);
@@ -154,7 +154,7 @@ describe("EditorElement — семантические токены поверх
         const { editor, cell, render } = setup("a Foo", [0, 2, 3, 0, 0]);
         editor.setGhostText({ line: 0, character: 1, lines: ["XYZ"] });
         render();
-        // "a" + "XYZ" + " Foo": Foo начинается с колонки 5.
+        // "a" + "XYZ" + " Foo": Foo starts at column 5.
         expect(cell(4).fg).not.toBe(CLASS_FG);
         expect(cell(5).fg).toBe(CLASS_FG);
         expect(cell(7).fg).toBe(CLASS_FG);

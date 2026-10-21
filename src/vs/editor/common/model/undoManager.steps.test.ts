@@ -54,7 +54,7 @@ describe("UndoManager — токены шагов", () => {
         expect(manager.canUndoStep(manager.peekUndoStep())).toBe(true);
 
         manager.undo();
-        // Версия ушла вперёд, но менеджер подновил `versionAfter` нашего шага.
+        // The version moved on, but the manager refreshed our step's `versionAfter`.
         expect(manager.canUndoStep(first)).toBe(true);
     });
 
@@ -67,7 +67,7 @@ describe("UndoManager — токены шагов", () => {
         doc.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "mimo")]);
 
         expect(manager.canUndoStep(step)).toBe(false);
-        // И сам `undo` отказывается — токен не обещает больше, чем менеджер.
+        // And `undo` itself refuses — the token promises no more than the manager.
         expect(manager.undo()).toBe(false);
     });
 
@@ -96,7 +96,7 @@ describe("UndoManager — токены шагов", () => {
         doc.applyEdits([createTextEdit(createRange(0, 0, 0, 0), "mimo")]);
 
         expect(manager.canRedoStep(token)).toBe(false);
-        // И сам `redo` отказывается — токен не обещает больше, чем менеджер.
+        // And `redo` itself refuses — the token promises no more than the manager.
         expect(manager.redo()).toBe(false);
     });
 

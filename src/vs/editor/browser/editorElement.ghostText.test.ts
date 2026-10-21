@@ -67,18 +67,18 @@ describe("EditorElement — ghost text", () => {
         expect(app.backend.getFgAt(new Point(gutterW, 1))).toBe(GHOST_FG);
         expect(app.backend.getTextAt(new Point(gutterW, 2), 5)).toBe("three");
         expect(app.backend.getTextAt(new Point(0, 1), gutterW)).toBe(" ".repeat(gutterW));
-        // Хвост zone-строки за текстом залит фоном редактора (не мусором грида).
+        // The view zone row past the text is filled with the editor background (not grid garbage).
         const contentCols = 24 - gutterW;
         expect(app.backend.getTextAt(new Point(gutterW + 5, 1), contentCols - 5)).toBe(" ".repeat(contentCols - 5));
         expect(app.backend.getBgAt(new Point(gutterW + 10, 1))).toBe(BG);
         expect(app.backend.getBgAt(new Point(gutterW + contentCols - 1, 2))).toBe(BG);
-        // bravo уехал под зону — и хвост подсказки НЕ дорисован на его строке.
+        // bravo moved below the view zone, and the ghost text tail is NOT drawn on its line.
         expect(app.backend.getTextAt(new Point(gutterW, 3), 9)).toBe("bravo    ");
     });
 
     it("соседние строки документа фантом не красит", () => {
-        // Фантом адресован строке каретки: на других строках их собственный
-        // текст в тех же колонках обязан остаться текстом редактора.
+        // Ghost text targets the cursor line: other lines must keep their own
+        // text in the same columns as editor text.
         const { app, editor } = createEditor("alpha\nbravo-charlie", {
             line: 0,
             character: 5,
@@ -93,21 +93,21 @@ describe("EditorElement — ghost text", () => {
     });
 
     it("строки-зоны: таб, широкие символы и обрезка по правому краю", () => {
-        const contentCols = 24 - 6; // gutterWidth однозначной нумерации = 6
+        const contentCols = 24 - 6; // gutterWidth with single-digit line numbers = 6
         const { app, editor } = createEditor("alpha", {
             line: 0,
             character: 5,
             lines: [
                 "-",
-                "x\t你ok", // таб добивает до границы tabSize, широкий символ — свои 2 колонки
-                "a".repeat(contentCols - 1) + "你", // широкий символ не влезает у края
-                "b".repeat(contentCols + 5), // длиннее контентной области — обрезка
+                "x\t你ok", // the tab pads to the tabSize boundary, the wide char takes its 2 columns
+                "a".repeat(contentCols - 1) + "你", // the wide char does not fit at the edge
+                "b".repeat(contentCols + 5), // longer than the content area: clipped
             ],
         });
 
         const gutterW = editor.gutterWidth;
         expect(gutterW).toBe(6);
-        // Таб: «x» на колонке 0, дальше пробелы до колонки 4, затем «你ok».
+        // Tab: "x" at column 0, spaces up to column 4, then "你ok".
         expect(app.backend.getTextAt(new Point(gutterW, 1), 8)).toBe("x   你ok");
         const wideRow = app.backend.getTextAt(new Point(gutterW, 2), contentCols);
         expect(wideRow).toBe("a".repeat(contentCols - 1) + " ");
@@ -116,7 +116,7 @@ describe("EditorElement — ghost text", () => {
 
     it("чужие зоны переживают однострочную подсказку (свои зоны не трогаются)", () => {
         const viewState = new EditorViewState(new TextDocument("alpha\nbravo"));
-        viewState.setViewZones([{ afterLine: 1, size: 1 }]); // зона владельца вью
+        viewState.setViewZones([{ afterLine: 1, size: 1 }]); // the view owner's zone
         const editor = new EditorElement(viewState);
         editor.setStyleVars(STYLE_VARS);
 
@@ -128,20 +128,20 @@ describe("EditorElement — ghost text", () => {
     });
 
     it("колонка подсказки за концом строки — защитный кламп в конец (устаревший ghost)", () => {
-        // Строка успела укоротиться под показанной подсказкой: колонки 5 в ней
-        // уже нет. Фантом встаёт в конец строки, а не в воздух.
+        // The line got shorter under the shown ghost text: column 5 no longer
+        // exists. Ghost text goes to the end of the line, not into thin air.
         const { app, editor } = createEditor("ab", { line: 0, character: 5, lines: ["ZZ"] });
 
         const gutterW = editor.gutterWidth;
         expect(app.backend.getTextAt(new Point(gutterW, 0), 6)).toBe("abZZ  ");
-        // Именно фантомные колонки, а не текст цветом редактора.
+        // Ghost text columns specifically, not text in the editor color.
         expect(app.backend.getFgAt(new Point(gutterW + 2, 0))).toBe(GHOST_FG);
     });
 
     it("строки подсказки в документе нет — кадр рисуется без неё и без падения", () => {
-        // Строка исчезла под показанной подсказкой (или её поставили мимо):
-        // адресовать фантом не к чему — кадр просто рисует документ. Строка
-        // ровно за последней (номер == lineCount) — тоже мимо: нумерация с нуля.
+        // The line vanished under the shown ghost text (or it was placed off target):
+        // there is nothing to attach ghost text to, so the frame just draws the document. A line
+        // right after the last one (number == lineCount) is off target too: numbering is 0-based.
         for (const line of [-1, 1, 5]) {
             const { app, editor } = createEditor("ab", { line, character: 0, lines: ["ZZ"] });
             expect(app.backend.getTextAt(new Point(editor.gutterWidth, 0), 4)).toBe("ab  ");
@@ -156,7 +156,7 @@ describe("EditorElement — ghost text", () => {
     });
 
     it("word wrap: хвост подсказки рисуется на последнем фрагменте с учётом его начала", () => {
-        const text = "a".repeat(15); // шире контентной области → перенос
+        const text = "a".repeat(15); // wider than the content area → wraps
         const viewState = new EditorViewState(new TextDocument(text));
         viewState.wordWrap = "on";
         const editor = new EditorElement(viewState);
@@ -166,8 +166,8 @@ describe("EditorElement — ghost text", () => {
         app.render();
 
         const gutterW = editor.gutterWidth; // 6 → contentCols = 10
-        // 15 «a» → фрагменты [0..10) и [10..15); хвост на втором ряду с
-        // колонки 15 - fragStartCol(10) = 5 — старт фрагмента учтён.
+        // 15 "a" → fragments [0..10) and [10..15); the tail is on the second row from
+        // column 15 - fragStartCol(10) = 5, so the fragment start is accounted for.
         expect(app.backend.getTextAt(new Point(gutterW, 0), 10)).toBe("a".repeat(10));
         expect(app.backend.getTextAt(new Point(gutterW, 1), 8)).toBe("aaaaaGH ");
         expect(app.backend.getFgAt(new Point(gutterW + 5, 1))).toBe(GHOST_FG);
@@ -229,8 +229,8 @@ describe("EditorElement — ghost text", () => {
         const gutterW = editor.gutterWidth;
         const contentCols = 24 - gutterW;
         const row = app.backend.getTextAt(new Point(gutterW, 0), contentCols);
-        // Полное равенство до последней колонки: обрезка не превращает
-        // обычные символы в пробелы (это судьба только широких у края).
+        // Exact equality up to the last column: clipping does not turn
+        // ordinary characters into spaces (only wide ones at the edge get that).
         expect(row).toBe("ab-очень-длинный-призрачный-хвост".slice(0, contentCols));
         expect(row.length).toBe(contentCols);
     });
@@ -243,29 +243,29 @@ describe("EditorElement — ghost text", () => {
         });
 
         const gutterW = editor.gutterWidth;
-        // «你» — 2 колонки, таб добит пробелами до своей ширины, дальше "ok".
-        // Ширина таба считается по ЭКРАННОЙ колонке: фантом вклеен в строку, и
-        // DisplayLine строится от композитного текста «x你\tok».
+        // "你" is 2 columns, the tab is padded with spaces to its width, then "ok".
+        // Tab width is computed from the SCREEN column: ghost text is spliced into the line, and
+        // DisplayLine is built from the composed text "x你\tok".
         expect(app.backend.getTextAt(new Point(gutterW + 1, 0), 1)).toBe("你");
-        const tabWidth = 4 - (3 % 4); // таб на колонке 3 строки → до границы 4
+        const tabWidth = 4 - (3 % 4); // tab at line column 3 → up to boundary 4
         expect(app.backend.getTextAt(new Point(gutterW + 1 + 2, 0), tabWidth)).toBe(" ".repeat(tabWidth));
         expect(app.backend.getTextAt(new Point(gutterW + 1 + 2 + tabWidth, 0), 2)).toBe("ok");
         expect(app.backend.getFgAt(new Point(gutterW + 1 + 2 + tabWidth, 0))).toBe(GHOST_FG);
     });
 
     it("горизонтальный скролл: колонки подсказки левее вьюпорта пропускаются", () => {
-        // Строка каретки длиннее вьюпорта; скролл вправо уводит начало
-        // подсказки за левый край — видим только её хвост.
+        // The cursor line is wider than the viewport; scrolling right moves the start
+        // of the ghost text past the left edge, so only its tail is visible.
         const viewState = new EditorViewState(new TextDocument("0123456789abcdefghij"));
         const editor = new EditorElement(viewState);
         editor.setStyleVars(STYLE_VARS);
         editor.setGhostText({ line: 0, character: 20, lines: ["GHOST-TAIL"] });
-        viewState.scrollLeft = 24; // старт подсказки (кол. 20) левее вьюпорта
+        viewState.scrollLeft = 24; // ghost text start (col. 20) is left of the viewport
         const app = TestApp.createWithContent(editor, new Size(16, 3));
         app.render();
 
         const gutterW = editor.gutterWidth;
-        // Первые 4 колонки подсказки отрезаны скроллом: видно "T-TAIL".
+        // The first 4 ghost text columns are cut off by the scroll: "T-TAIL" is visible.
         expect(app.backend.getTextAt(new Point(gutterW, 0), 6)).toBe("T-TAIL");
         expect(app.backend.getFgAt(new Point(gutterW, 0))).toBe(GHOST_FG);
     });
@@ -279,7 +279,7 @@ describe("EditorElement — ghost text", () => {
 
         const gutterW = editor.gutterWidth; // 6 → contentCols = 18
         const contentCols = 24 - gutterW;
-        // «你» ложится на последнюю колонку (screenX 17): целиком не влезает → пробел.
+        // "你" lands on the last column (screenX 17): it does not fit whole → a space.
         const row = app.backend.getTextAt(new Point(gutterW, 0), contentCols);
         expect(row.includes("你")).toBe(false);
         expect(row.startsWith("x" + "a".repeat(16))).toBe(true);
@@ -299,8 +299,8 @@ describe("ghostTextEquals", () => {
         const a: IGhostText = { line: 1, character: 2, lines: ["x", "y"] };
         expect(ghostTextEquals(a, { line: 1, character: 2, lines: ["x", "y"] })).toBe(true);
         expect(ghostTextEquals(a, { line: 1, character: 2, lines: ["x"] })).toBe(false);
-        // И в обратную сторону: b длиннее при общем префиксе — every() этого
-        // не увидит, разницу обязана ловить проверка длин.
+        // And the other way round: b is longer with a common prefix; every() does not
+        // see that, so the length check must catch the difference.
         expect(ghostTextEquals({ line: 1, character: 2, lines: ["x"] }, a)).toBe(false);
         expect(ghostTextEquals(a, { line: 1, character: 2, lines: ["x", "z"] })).toBe(false);
         expect(ghostTextEquals(a, { line: 1, character: 3, lines: ["x", "y"] })).toBe(false);

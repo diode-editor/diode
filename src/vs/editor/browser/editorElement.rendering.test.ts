@@ -26,7 +26,7 @@ describe("tab rendering", () => {
 
         const backend = app.backend;
         const gw = editor.gutterWidth;
-        // Таб после «a» добивает до стопа 4 — три пробела.
+        // The tab after "a" pads to tab stop 4: three spaces.
         expect(backend.getTextAt(new Point(gw, 0), 5)).toBe("a   b");
     });
 
@@ -51,8 +51,8 @@ describe("tab rendering", () => {
     });
 
     it("regression: all tab columns receive editor background (not just the first)", () => {
-        // Таб раньше рисовался одним setCell с width=4, а Grid знает только 1 и 2 —
-        // колонки 1–3 оставались с DEFAULT_COLOR.
+        // The tab used to be drawn as one setCell with width=4, but Grid knows only 1 and 2,
+        // so columns 1–3 kept DEFAULT_COLOR.
         const EDITOR_BG = packRgb(30, 30, 46);
         const { app, editor } = createEditor("\tx", 20, 3);
         editor.tabSize = 4;
@@ -83,7 +83,7 @@ describe("CJK rendering", () => {
 
         const backend = app.backend;
         const gw = editor.gutterWidth;
-        // «a» — кол. 0, «漢» — 1–2, «b» — 3.
+        // "a" is col. 0, "漢" is 1–2, "b" is 3.
         expect(backend.getTextAt(new Point(gw, 0), 1)).toBe("a");
         expect(backend.getTextAt(new Point(gw + 1, 0), 1)).toBe("漢");
         expect(backend.getTextAt(new Point(gw + 3, 0), 1)).toBe("b");
@@ -115,7 +115,7 @@ describe("emoji rendering", () => {
 
 describe("selection with special chars", () => {
     it("selection highlights correct display columns with tabs", () => {
-        // Таб=4 → «    bc»: символы 1..3 — колонки 4..6.
+        // Tab=4 → "    bc": characters 1..3 are columns 4..6.
         const { app, editor } = createEditor("\tbc", 20, 3);
         editor.tabSize = 4;
         editor.viewState.selections = [{ anchor: { line: 0, character: 1 }, active: { line: 0, character: 3 } }];
@@ -160,7 +160,7 @@ describe("selection with special chars", () => {
     });
 
     it("selecting a tab in the middle of a line highlights only its expanded columns", () => {
-        // Таб с колонки 2 добивает до стопа 4 — шириной 2 колонки.
+        // A tab at column 2 pads to stop 4, so it is 2 columns wide.
         const { app, editor } = createEditor("ab\tcd", 20, 3);
         editor.tabSize = 4;
         editor.viewState.selections = [{ anchor: { line: 0, character: 2 }, active: { line: 0, character: 3 } }];
@@ -177,7 +177,7 @@ describe("selection with special chars", () => {
     });
 
     it("selecting an emoji (2 code units) highlights its 2 display columns", () => {
-        // «😀» — 2 code unit'а (суррогатная пара) и 2 колонки.
+        // "😀" is 2 code units (a surrogate pair) and 2 columns.
         const { app, editor } = createEditor("a😀b", 20, 3);
         editor.viewState.selections = [{ anchor: { line: 0, character: 1 }, active: { line: 0, character: 3 } }];
         app.render();
@@ -191,7 +191,7 @@ describe("selection with special chars", () => {
     });
 
     it("selecting from middle of line through tab highlights tab fully", () => {
-        // Таб после «a» — колонки 1..3 до стопа 4.
+        // The tab after "a" takes columns 1..3 up to stop 4.
         const { app, editor } = createEditor("a\tb", 20, 3);
         editor.tabSize = 4;
         editor.viewState.selections = [{ anchor: { line: 0, character: 0 }, active: { line: 0, character: 2 } }];
@@ -250,14 +250,14 @@ describe("contentWidth with special chars", () => {
 describe("wide char at viewport edge", () => {
     it("wide char that doesn't fit at right edge is replaced with space", () => {
         const { app, editor } = createEditor("ab漢", 10, 3); // gw=6, contentCols=4
-        // «漢» на колонках 2–3 влезает.
+        // "漢" fits at columns 2–3.
         app.render();
 
         const backend = app.backend;
         const gw = editor.gutterWidth;
         expect(backend.getTextAt(new Point(gw + 2, 0), 1)).toBe("漢");
 
-        // width=9: contentCols=3, а «漢» нужны колонки 2–3.
+        // width=9: contentCols=3, but "漢" needs columns 2–3.
         const { app: app2, editor: editor2 } = createEditor("ab漢", 9, 3); // gw=6, contentCols=3
         app2.render();
 
@@ -281,7 +281,7 @@ describe("carriage return handling", () => {
 
 describe("horizontal scroll with wide chars", () => {
     it("scrollLeft into middle of a wide char shows space placeholder", () => {
-        // scrollLeft=1 попадает в колонку-продолжение «漢» — вместо половинки символа пробел.
+        // scrollLeft=1 lands on the continuation column of "漢": a space instead of half a glyph.
         const { app, editor } = createEditor("漢abc", 20, 3);
         editor.viewState.scrollLeft = 1;
         app.render();

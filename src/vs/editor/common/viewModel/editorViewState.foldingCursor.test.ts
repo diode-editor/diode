@@ -57,7 +57,7 @@ describe("EditorViewState – cursor reconciliation on fold", () => {
     });
 
     it("finds the outermost hiding region regardless of region array order", () => {
-        // Регионы изнутри наружу: всё равно выбирается объемлющий.
+        // Regions inside-out: the enclosing one is still chosen.
         const doc = new TextDocument("a\n  b\n    c\n  d\n  e\n  f\ng");
         const state = new EditorViewState(doc);
         state.setFoldingRegions([createFoldingRegion(1, 3), createFoldingRegion(0, 5)]);
@@ -70,7 +70,7 @@ describe("EditorViewState – cursor reconciliation on fold", () => {
         const state = nested();
         state.selections = [createCursorSelection(2, 4)]; // char 4 on "    c"
         state.foldRegionContaining(2);
-        // Заголовок "  b" длиной 3 — колонка клампится.
+        // Header "  b" has length 3 — the column is clamped.
         expect(cursorLine(state)).toBe(1);
         expect(state.selections[0].active.character).toBeLessThanOrEqual(3);
     });

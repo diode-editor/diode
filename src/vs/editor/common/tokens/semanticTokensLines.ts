@@ -2,8 +2,8 @@ import type { IRange } from "../core/iRange.ts";
 import type { ISemanticTokensLegend } from "../languages/iSemanticTokensSource.ts";
 
 /**
- * Четвёрки `[startChar, endChar, typeIdx, modifierSet]` по возрастанию `startChar`,
- * без пересечений; индексы — в легенде провайдера, давшего ответ.
+ * Quadruples `[startChar, endChar, typeIdx, modifierSet]` in ascending `startChar`, non-overlapping;
+ * indices refer to the legend of the provider that answered.
  */
 export interface ISemanticLineTokens {
     readonly legend: ISemanticTokensLegend;
@@ -22,7 +22,7 @@ const CHAR_UPPER_Z = 90;
 const CHAR_LOWER_A = 97;
 const CHAR_LOWER_Z = 122;
 
-/** Только `\n`, в отличие от `countEOL` эталона: `TextDocument.applyEdits` режет вставку по `\n`. */
+/** Only `\n`, unlike upstream `countEOL`: `TextDocument.applyEdits` splits inserted text on `\n`. */
 export function countEOL(text: string): [eolCount: number, firstLineLength: number, lastLineLength: number] {
     const firstEol = text.indexOf("\n");
     if (firstEol === -1) return [0, text.length, text.length];
@@ -30,8 +30,8 @@ export function countEOL(text: string): [eolCount: number, firstLineLength: numb
 }
 
 /**
- * `toMultilineTokens2` эталона. Стиль здесь не считается: токен без стиля просто
- * не перекрасит TextMate при отрисовке (эталон отбрасывает его сразу).
+ * Upstream `toMultilineTokens2`. Styles are not computed here: a token without a style
+ * simply does not repaint TextMate at render time (upstream drops it right away).
  */
 export function decodeSemanticTokens(data: Uint32Array, legend: ISemanticTokensLegend): SemanticTokensLines {
     const result = new SemanticTokensLines();
@@ -45,7 +45,7 @@ export function decodeSemanticTokens(data: Uint32Array, legend: ISemanticTokensL
         char = deltaLine === 0 ? char + data[i + 1] : data[i + 1];
         const end = char + data[i + 2];
         if (end <= char) continue; // invalid length
-        // По номеру строки, а не по deltaLine: отброшенный токен мог открыть строку.
+        // By line number, not deltaLine: a dropped token may have opened the line.
         if (current === undefined || currentLine !== line) {
             current = result.ensureLine(line, legend);
             currentLine = line;
@@ -57,7 +57,7 @@ export function decodeSemanticTokens(data: Uint32Array, legend: ISemanticTokensL
     return result;
 }
 
-/** Перенос через правки — случаи `SparseMultilineTokensStorage.acceptDeleteRange`/`acceptInsertText` эталона. */
+/** Moves tokens across edits per the cases of upstream `SparseMultilineTokensStorage.acceptDeleteRange`/`acceptInsertText`. */
 export class SemanticTokensLines {
     private lines: (IMutableLine | undefined)[] = [];
 
@@ -87,8 +87,8 @@ export class SemanticTokensLines {
         for (let line = startLine; line <= endLine; line++) {
             const entry = source.lines[line];
             if (entry === undefined) {
-                // Stryker disable next-line ArrayDeclaration: дыра и пустая строка неотличимы для getLine
-                // Stryker disable next-line ConditionalExpression,EqualityOperator: за концом массива присваивание лишь добавляет дыры — неотличимо
+                // Stryker disable next-line ArrayDeclaration: a hole and an empty line are indistinguishable to getLine
+                // Stryker disable next-line ConditionalExpression,EqualityOperator: past the array end the assignment only adds holes, indistinguishable
                 if (line < this.lines.length) this.lines[line] = undefined;
             } else {
                 this.lines[line] = { legend: entry.legend, tokens: [...entry.tokens] };
@@ -96,7 +96,7 @@ export class SemanticTokensLines {
         }
     }
 
-    /** `range` — в исходных координатах. */
+    /** `range` is in original (pre-edit) coordinates. */
     public applyEdit(range: IRange, text: string): void {
         const [eolCount, firstLineLength, lastLineLength] = countEOL(text);
         this.acceptDeleteRange(range);
@@ -106,7 +106,7 @@ export class SemanticTokensLines {
             eolCount,
             firstLineLength,
             lastLineLength,
-            // У пустого текста NaN: ни с одним диапазоном словесных символов не сравнится.
+            // NaN for empty text: it matches no word-character range.
             text.charCodeAt(0),
         );
     }
@@ -116,21 +116,21 @@ export class SemanticTokensLines {
         const { line: endLine, character: endChar } = range.end;
         const kept: number[] = [];
         const first = this.lines[startLine];
-        // Stryker disable next-line AssignmentOperator,ConditionalExpression: шаг назад или вечное условие зацикливают — мутант виснет, а не выживает
+        // Stryker disable next-line AssignmentOperator,ConditionalExpression: a backward step or an always-true condition loops forever, the mutant hangs rather than survives
         for (let i = 0; first !== undefined && i < first.tokens.length; i += 4) {
             const start = first.tokens[i];
             let end = first.tokens[i + 1];
-            // Граничные сравнения ниже (здесь и в ветках) эквивалентны: токен, касающийся
-            // края удаления, в соседней ветке получает те же координаты.
-            // Stryker disable next-line EqualityOperator: см. выше
+            // The boundary comparisons below (here and in the branches) are equivalent: a token
+            // touching the deletion edge gets the same coordinates in the neighbouring branch.
+            // Stryker disable next-line EqualityOperator: see above
             if (end <= startChar) {
                 // 1a. The token is completely before the deletion range
             } else if (start < startChar) {
                 // 1b, 1c, 1d — the token survives, but it needs to shrink
-                // Stryker disable next-line EqualityOperator: см. выше
+                // Stryker disable next-line EqualityOperator: see above
                 end = startLine === endLine && end > endChar ? end - (endChar - startChar) : startChar;
             } else if (startLine === endLine) {
-                // Stryker disable next-line EqualityOperator: см. выше
+                // Stryker disable next-line EqualityOperator: see above
                 if (start < endChar) {
                     // 2c / 3c — ends after the deletion: shrinks / moves right after it; otherwise deleted
                     if (end <= endChar) continue;
@@ -156,11 +156,11 @@ export class SemanticTokensLines {
         let legend = first?.legend;
         if (startLine !== endLine) {
             const last = this.lines[endLine];
-            // Stryker disable next-line AssignmentOperator: шаг назад зацикливает — мутант виснет, а не выживает
+            // Stryker disable next-line AssignmentOperator: a backward step loops forever, the mutant hangs rather than survives
             for (let i = 0; last !== undefined && i < last.tokens.length; i += 4) {
                 const start = last.tokens[i];
                 const end = last.tokens[i + 1];
-                // Stryker disable next-line EqualityOperator: см. выше
+                // Stryker disable next-line EqualityOperator: see above
                 if (start < endChar) {
                     // 3c — the token moves to continue right after the deletion; 3a/3b — deleted
                     if (end <= endChar) continue;
@@ -239,7 +239,7 @@ export class SemanticTokensLines {
             }
         }
 
-        // За концом известных строк splice лишь допишет пустые строки.
+        // Past the known lines splice only appends empty lines.
         if (eolCount > 0) {
             const inserted = new Array<IMutableLine | undefined>(eolCount - 1).fill(undefined);
             inserted.push(entry === undefined ? undefined : { legend: entry.legend, tokens: moves });

@@ -1,6 +1,6 @@
 /**
- * Горячие пути рендера при движении курсора: кэши по versionId (и foldsVersion) делают
- * кадр O(1) — до них навигация по файлу в 3500 строк стоила ~44 мс/кадр.
+ * Hot render paths on cursor movement: caches keyed by versionId (and foldsVersion) make a
+ * frame O(1) — without them navigating a 3500-line file cost ~44 ms/frame.
  */
 
 import { DisplayLine } from "@tuidom/core/common/displayLine";
@@ -125,9 +125,9 @@ describe("EditorElement / EditorViewState render-loop performance (cached)", () 
     }, 120_000);
 });
 
-// Длинные строки: `contentWidth` раньше пересегментировал весь документ на каждый
-// versionId, а Output поднимает его на каждую запись — строка в 200k символов стоила
-// ~72 мс на проход. Теперь кэш ширин инкрементальный, а DisplayLine ограничен
+// Long lines: `contentWidth` used to resegment the whole document on every
+// versionId, and Output bumps it on every append — a 200k-char line cost
+// ~72 ms per pass. The width cache is now incremental, and DisplayLine is capped at
 // STOP_RENDERING_LINE_AFTER.
 
 const EXTREME_LINE_LENGTH = 200_000;
@@ -175,8 +175,8 @@ describe("EditorElement — extremely long lines must not freeze", () => {
     }, 120_000);
 
     /**
-     * Проверка времени относительная (с капом против без капа на той же строке):
-     * абсолютный бюджет в мс флакал на медленном CI.
+     * The timing check is relative (capped vs uncapped on the same line):
+     * an absolute ms budget was a flake on slow CI.
      */
     it("displayLineFor caps the visible long line", () => {
         const doc = makeDocWithLongLine();
@@ -201,7 +201,7 @@ describe("EditorElement — extremely long lines must not freeze", () => {
         console.log(
             `[long-line] ${ITER}× DisplayLine — capped ${capped.toFixed(1)} ms vs uncapped ${uncapped.toFixed(1)} ms`,
         );
-        // Реальное отношение ~20–35×; 3× — запас на шум, но кап, переставший работать, виден.
+        // The real ratio is ~20–35×; 3× leaves room for noise but still catches a broken cap.
         expect(capped * 3).toBeLessThan(uncapped);
     }, 120_000);
 });

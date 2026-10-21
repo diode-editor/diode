@@ -75,8 +75,8 @@ describe("EditorElement — marker squiggle decorations", () => {
     });
 });
 
-// Догфудинг: до новых диагностик провайдера squiggle стоял на старых координатах и
-// подчёркивал чужой текст. В эталоне маркеры — декорации модели и едут с правкой сразу.
+// Dogfooding: until the provider's new diagnostics arrived, the squiggle stayed at old coordinates and
+// underlined unrelated text. In upstream markers are model decorations and move with the edit at once.
 describe("EditorElement — squiggle едет вместе с текстом при правке", () => {
     const ERROR_FG = packRgb(0xf1, 0x4c, 0x4c); // default editorError.foreground
 
@@ -151,19 +151,19 @@ describe("EditorElement — squiggle едет вместе с текстом п�
     });
 });
 
-// Файл с ошибкой на каждой строке красил направляющие фолдинга в красный: squiggle ставил
-// fg и на ячейки отступа с глифом `│`. В VS Code направляющая — отдельный слой.
+// A file with an error on every line painted folding guides red: the squiggle set
+// fg on indent cells with the `│` glyph too. In VS Code the guide is a separate layer.
 describe("EditorElement — squiggle over indentation guides", () => {
-    // Вложенные области: на строке 2 (`        return 1;`) ДВА гайда — от внешней
-    // функции (колонка 0) и от `if` (колонка 4).
+    // Nested regions: line 2 (`        return 1;`) has TWO guides — from the outer
+    // function (column 0) and from `if` (column 4).
     const SAMPLE = ["function foo() {", "    if (ready) {", "        return 1;", "    }", "}"].join("\n");
     const ERROR_FG = packRgb(0xf1, 0x4c, 0x4c); // default editorError.foreground
-    // Каретка стоит на строке 0: её охватывает только внешняя область, поэтому
-    // гайд колонки 0 активный, а вложенный (колонка 4) — обычный.
+    // The cursor is on line 0: only the outer region encloses it, so the
+    // column 0 guide is active and the nested one (column 4) is regular.
     const ACTIVE_GUIDE_FG = packRgb(0x70, 0x70, 0x70); // editorIndentGuide.activeBackground1
     const GUIDE_FG = packRgb(0x40, 0x40, 0x40); // editorIndentGuide.background1
 
-    /** Редактор с отступным фолдингом и ошибкой на весь блок (строки 0..3). */
+    /** Editor with indent-based folding and an error over the whole block (lines 0..3). */
     function makeFoldedEditor(): { app: TestApp; editor: EditorElement } {
         const doc = new TextDocument(SAMPLE);
         const viewState = new EditorViewState(doc);
@@ -195,7 +195,7 @@ describe("EditorElement — squiggle over indentation guides", () => {
     it("still paints the severity colour on the range's text cells", () => {
         const { app, editor } = makeFoldedEditor();
         const gw = editor.gutterWidth;
-        // "return" на строке 2 начинается с колонки 8 — обычная ячейка текста.
+        // "return" on line 2 starts at column 8: a regular text cell.
         expect(app.backend.getTextAt(new Point(gw + 8, 2), 1)).toBe("r");
         expect(app.backend.getFgAt(new Point(gw + 8, 2))).toBe(ERROR_FG);
         expect(app.app.screen.getCell(new Point(gw + 8, 2)).style & StyleFlags.Undercurl).toBe(StyleFlags.Undercurl);
@@ -204,7 +204,7 @@ describe("EditorElement — squiggle over indentation guides", () => {
     it("paints the severity colour on whitespace that carries no guide", () => {
         const { app, editor } = makeFoldedEditor();
         const gw = editor.gutterWidth;
-        // Колонка 1 строки 2 — тот же отступ, но направляющей там нет: цвет ошибки.
+        // Column 1 of line 2 has the same indent but no guide: error color.
         expect(app.backend.getTextAt(new Point(gw + 1, 2), 1)).toBe(" ");
         expect(app.backend.getFgAt(new Point(gw + 1, 2))).toBe(ERROR_FG);
     });

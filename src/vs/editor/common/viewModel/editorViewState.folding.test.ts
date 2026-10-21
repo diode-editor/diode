@@ -42,7 +42,7 @@ describe("foldingRegionContaining", () => {
     });
 
     it("picks the innermost region regardless of array order", () => {
-        // Регионы изнутри наружу: объемлющий идёт позже и не должен вытеснить внутренний.
+        // Regions inside-out: the enclosing one comes later and must not displace the inner one.
         const doc = new TextDocument("a\n  b\n    c\n  d\n  e\n  f\ng");
         const state = new EditorViewState(doc);
         state.setFoldingRegions([createFoldingRegion(1, 3), createFoldingRegion(0, 5)]);

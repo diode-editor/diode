@@ -1,18 +1,18 @@
 import type { EndOfLine } from "../core/endOfLine.ts";
 import type { IRange } from "../core/iRange.ts";
 
-/** `[startLine .. oldEndLine]` в координатах ДО правки заменено на `[startLine .. newEndLine]`. */
+/** `[startLine .. oldEndLine]` in coordinates BEFORE the edit is replaced by `[startLine .. newEndLine]`. */
 export interface IDocumentContentChange {
     readonly startLine: number;
     readonly oldEndLine: number;
     readonly newEndLine: number;
-    /** Документ тот же, но выведенное из прежнего текста (отступ, фолды) пора вывести заново. */
+    /** Same document, but anything derived from the old text (indentation, folds) must be re-derived. */
     readonly isFlush?: boolean;
 }
 
 /**
- * Диапазон — в координатах ДО этой правки; текст модель режет по `\n`, зеркало
- * обязано так же. Порядок в батче — порядок применения (по убыванию позиций).
+ * The range is in coordinates BEFORE this edit; the model splits text on `\n` and the
+ * mirror must do the same. Order within a batch is apply order (descending positions).
  */
 export interface IModelContentChange {
     readonly range: IRange;
@@ -20,7 +20,7 @@ export interface IModelContentChange {
 }
 
 export interface IModelContentChangedEvent {
-    /** У `isFlush` пусто. */
+    /** Empty when `isFlush`. */
     readonly changes: readonly IModelContentChange[];
     readonly versionId: number;
     readonly eol: EndOfLine;

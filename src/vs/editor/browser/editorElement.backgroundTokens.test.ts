@@ -49,7 +49,7 @@ describe("EditorElement — токены вне кадра", () => {
 
         app.render();
 
-        // Пять строк вьюпорта, а не 50 тысяч до него.
+        // Five viewport lines, not the 50 thousand before it.
         expect(spy).toHaveBeenCalledTimes(5);
         expect(app.backend.getFgAt(new Point(editor.gutterWidth, 4))).toBe(KEYWORD_FG);
     });
@@ -73,7 +73,7 @@ describe("EditorElement — токены вне кадра", () => {
     });
 
     it("до первого кадра экрана нет — и просить перерисовку не о чем", () => {
-        // Без приложения: TestApp снимает кадр уже при создании.
+        // No app: TestApp takes a frame right on creation.
         const editor = new EditorElement(new EditorViewState(new TextDocument("if x")));
         const markDirty = vi.spyOn(editor, "markDirty");
         editor.handleTokensChanged(0, 9);

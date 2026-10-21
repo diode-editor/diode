@@ -17,22 +17,22 @@ interface MutableUndoElement {
     eolAfter?: EndOfLine;
 }
 
-/** Остальные вью документа ремапят состояние сами по `onDidChangeContent`. */
+/** The document's other views remap their state themselves on `onDidChangeContent`. */
 export interface IUndoViewBinding {
     restoreSelections(selections: readonly ISelection[]): void;
 }
 
 /**
- * Идентичность записи стека. Сравнивать по версии документа нельзя: `undo`
- * переписывает `versionAfter` следующего элемента, снятый снаружи снимок версии устаревает.
+ * Identity of a stack entry. Comparing by document version does not work: `undo`
+ * rewrites the next element's `versionAfter`, so a version captured outside goes stale.
  */
 export interface UndoStepToken {
     readonly label: string;
 }
 
 /**
- * Один на документ, а не на вью: иначе version-гейт в {@link undo} молча
- * отбрасывал бы шаги, сделанные «чужой» вью.
+ * One per document, not per view: otherwise the version gate in {@link undo} would
+ * silently drop steps made by "another" view.
  */
 export class UndoManager {
     private undoStack: MutableUndoElement[] = [];
@@ -72,7 +72,7 @@ export class UndoManager {
         return this.redoStack.at(-1);
     }
 
-    /** `undefined` — валидный аргумент и всегда `false`. */
+    /** `undefined` is a valid argument and always gives `false`. */
     public canUndoStep(token: UndoStepToken | undefined): boolean {
         const top = this.undoStack.at(-1);
         return top !== undefined && top === token && this.doc.versionId === top.versionAfter;
@@ -83,7 +83,7 @@ export class UndoManager {
         return top !== undefined && top === token && this.doc.versionId === top.versionAfter;
     }
 
-    /** `view` — та, кому восстановить снимок выделений шага; остальные ремапят сами. */
+    /** `view` gets the step's selection snapshot restored; other views remap themselves. */
     public undo(view: IUndoViewBinding | null = null): boolean {
         const element = this.undoStack.pop();
         if (!element) return false;

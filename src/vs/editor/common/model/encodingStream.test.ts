@@ -24,11 +24,11 @@ const SAMPLES = [
     "привет\r\nмир",
     "😀 и 𝄞\n",
     "\ufeffвнутренний BOM",
-    // Двухбайтовый символ utf-8 с наименьшим допустимым ведущим байтом C2.
+    // Two-byte utf-8 character with the smallest valid lead byte C2.
     "© 2026",
-    // Трёхбайтовый с наименьшим ведущим байтом E0 (U+0800–U+0FFF).
+    // Three-byte with the smallest lead byte E0 (U+0800–U+0FFF).
     "नमस्ते",
-    // Одинокие суррогаты: utf-8 даёт EF BF BD, UTF-16 — кодовую единицу как есть.
+    // Lone surrogates: utf-8 yields EF BF BD, UTF-16 keeps the code unit as is.
     "x\ud83dy",
     "\udc00z\ud83d",
 ];
@@ -93,7 +93,7 @@ describe("decodeStream / decodeStreamByBOM", () => {
         }
         const decoded = decodeStreamByBOM(source());
         expect(pulled).toEqual([0]);
-        // Ровно три байта — уже хватает на самый длинный BOM, второй кусок не нужен.
+        // Exactly three bytes already suffice for the longest BOM; the second chunk isn't needed.
         pulled.length = 0;
         function* short(): Generator<Buffer> {
             for (let i = 0; i < 2; i++) {

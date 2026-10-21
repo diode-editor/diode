@@ -11,7 +11,7 @@ import { LONG_LINE_TRUNCATION_BADGE, STOP_RENDERING_LINE_AFTER } from "../common
 
 import { EditorElement } from "./editorElement.ts";
 
-/** `editor.selectionBackground` Dark+ — палитра TestApp кладёт его в var-scope. */
+/** Dark+ `editor.selectionBackground`; the TestApp palette puts it into the var scope. */
 const SELECTION_BG = packRgb(38, 79, 120);
 const BADGE_LABEL = LONG_LINE_TRUNCATION_BADGE.trim();
 
@@ -55,10 +55,10 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
     });
 
     it("хвост фрагмента после точки переноса — фон, а не текст следующего фрагмента", () => {
-        // Перенос по слову на 8-й колонке: ряд короче contentCols.
+        // Wrap at a word boundary at column 8: the row is shorter than contentCols.
         const { app, editor } = createEditor("aaaaaaa bbbbbb");
-        // Собственный фон, отличный от подложки body: пропуск заливки хвоста
-        // был бы неотличим по глифам (подложка и так чистит кадр пробелами).
+        // A background of its own, distinct from the body's base: a skipped tail fill
+        // would be indistinguishable by glyphs (the base already clears the frame with spaces).
         const editorBg = packRgb(12, 34, 56);
         editor.style = { bg: editorBg };
         app.render();
@@ -74,26 +74,26 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         vs.selections = [createSelection(0, 2, 0, 12)];
         app.render();
         const gw = editor.gutterWidth;
-        // Ряд 0: offsets 2..9 → колонки 2..9.
+        // Row 0: offsets 2..9 → columns 2..9.
         expect(app.backend.getBgAt(new Point(gw + 2, 0))).toBe(SELECTION_BG);
         expect(app.backend.getBgAt(new Point(gw + 9, 0))).toBe(SELECTION_BG);
         expect(app.backend.getBgAt(new Point(gw + 1, 0))).not.toBe(SELECTION_BG);
-        // Ряд 1: offsets 10..11 → колонки 0..1 фрагмента.
+        // Row 1: offsets 10..11 → fragment columns 0..1.
         expect(app.backend.getBgAt(new Point(gw, 1))).toBe(SELECTION_BG);
         expect(app.backend.getBgAt(new Point(gw + 1, 1))).toBe(SELECTION_BG);
         expect(app.backend.getBgAt(new Point(gw + 2, 1))).not.toBe(SELECTION_BG);
     });
 
     it("выделение до конца строки не заливает ни хвост фрагмента, ни виртуальную ячейку перевода", () => {
-        const { app, editor, vs } = createEditor("aaaaaaa bbbbbb\nzz"); // фрагменты 8 и 6 колонок
+        const { app, editor, vs } = createEditor("aaaaaaa bbbbbb\nzz"); // fragments of 8 and 6 columns
         vs.selections = [createSelection(0, 0, 0, 14)];
         app.render();
         const gw = editor.gutterWidth;
-        // Ряд 0: подсветка кончается на границе фрагмента (кол. 7), хвост чист.
+        // Row 0: the highlight ends at the fragment boundary (col. 7), the tail is clean.
         expect(app.backend.getBgAt(new Point(gw + 7, 0))).toBe(SELECTION_BG);
         expect(app.backend.getBgAt(new Point(gw + 8, 0))).not.toBe(SELECTION_BG);
-        // Ряд 1: текст залит, виртуальная ячейка перевода строки (кол. 6) — нет:
-        // выделение кончается ровно на конце строки, не захватывая перевод.
+        // Row 1: text is filled, the virtual line-break cell (col. 6) is not:
+        // the selection ends exactly at end of line without covering the line break.
         expect(app.backend.getBgAt(new Point(gw + 5, 1))).toBe(SELECTION_BG);
         expect(app.backend.getBgAt(new Point(gw + 6, 1))).not.toBe(SELECTION_BG);
     });
@@ -103,7 +103,7 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         vs.selections = [createSelection(0, 2, 1, 1)];
         app.render();
         const gw = editor.gutterWidth;
-        expect(app.backend.getBgAt(new Point(gw + 6, 1))).toBe(SELECTION_BG); // виртуальный перевод
+        expect(app.backend.getBgAt(new Point(gw + 6, 1))).toBe(SELECTION_BG); // virtual line break
         expect(app.backend.getBgAt(new Point(gw, 2))).toBe(SELECTION_BG); // "z"
     });
 
@@ -116,7 +116,7 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
     });
 
     it("плашка Long line trimmed стоит ровно в точке обрыва короткого последнего фрагмента", () => {
-        // contentCols 34: 10000 % 34 = 4 — последний фрагмент из 4 колонок.
+        // contentCols 34: 10000 % 34 = 4, so the last fragment is 4 columns.
         const { app, editor } = createEditor("x".repeat(STOP_RENDERING_LINE_AFTER + 500), 40, 4);
         const vs = editor.viewState;
         vs.scrollTop = vs.getViewLineCount() - 4;
@@ -131,8 +131,8 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
     });
 
     it("плашка на полноширинном последнем фрагменте прижимается в видимую область", () => {
-        // contentCols 25: 10000 % 25 = 0 — последний фрагмент занимает всю ширину,
-        // без клампа плашка стояла бы ровно за краем.
+        // contentCols 25: 10000 % 25 = 0, so the last fragment takes the full width;
+        // without the clamp the badge would sit just past the edge.
         const { app, editor } = createEditor("x".repeat(STOP_RENDERING_LINE_AFTER + 500), 31, 4);
         const vs = editor.viewState;
         vs.scrollTop = vs.getViewLineCount() - 4;
@@ -151,7 +151,7 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         const vs = new EditorViewState(doc);
         const editor = new EditorElement(vs);
         const app = TestApp.createWithContent(editor, new Size(16, 4));
-        app.render(); // без переноса: row0 = "aaaaaaa bb", гуттер row1 несёт "2"
+        app.render(); // no wrap: row0 = "aaaaaaa bb", gutter row1 carries "2"
         const gw = editor.gutterWidth;
         expect(app.backend.getTextAt(new Point(gw, 0), 10)).toBe("aaaaaaa bb");
         expect(app.backend.getTextAt(new Point(0, 1), gw)).toContain("2");
@@ -159,8 +159,8 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         vs.wordWrap = "on";
         editor.markDirty();
         app.render();
-        // Хвост ряда 0 обязан быть перерисован фоном (не остатками "bb"), гуттер
-        // продолжения — пробелами (не остатком "2").
+        // The row 0 tail must be repainted with background (not leftover "bb"), and the
+        // continuation gutter with spaces (not leftover "2").
         expect(app.backend.getTextAt(new Point(gw, 0), 10)).toBe("aaaaaaa   ");
         expect(app.backend.getTextAt(new Point(gw, 1), 10)).toBe("bbbbbb    ");
         expect(app.backend.getTextAt(new Point(0, 1), gw)).toBe(" ".repeat(gw));
@@ -182,9 +182,9 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         vs.setFoldingRegions([{ startLine: 0, endLine: 1, isCollapsed: false }]);
         app.render();
         const gw = editor.gutterWidth;
-        // Ряд 1 — первый фрагмент тела: гайд поверх отступа в колонке заголовка.
+        // Row 1 is the first fragment of the body: the guide is over the indent at the header column.
         expect(app.backend.getTextAt(new Point(gw, 1), 1)).toBe("│");
-        // Ряд 2 — продолжение с колонки 0: текст, никакого гайда поверх.
+        // Row 2 is a continuation from column 0: text, no guide over it.
         expect(app.backend.getTextAt(new Point(gw, 2), 1)).toBe("b");
     });
 });
@@ -229,7 +229,7 @@ describe("EditorElement word wrap — performLayout и ширина вьюпор
         const { app, editor } = createEditor("aaaa bbbb cccc");
         app.render();
         await flushMicrotasks();
-        app.render(); // возможный дозаказ после первого layout уже съеден
+        app.render(); // any follow-up frame request after the first layout is consumed
         await flushMicrotasks();
         app.render();
         await flushMicrotasks();
@@ -272,10 +272,10 @@ describe("EditorElement word wrap — мышь и каретки", () => {
     });
 
     it("клик правее конца не-последнего фрагмента не утаскивает каретку на следующий ряд", () => {
-        const { editor } = createEditor("aaaaaaa bbbbbb"); // фрагмент 1 — 8 колонок
+        const { editor } = createEditor("aaaaaaa bbbbbb"); // fragment 1 is 8 columns
         const gw = editor.gutterWidth;
         fireMouseDown(editor, gw + 9, 0);
-        // Последняя графема фрагмента — пробел (offset 7), не offset границы (8).
+        // The fragment's last grapheme is the space (offset 7), not the boundary offset (8).
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 7 });
     });
 
@@ -287,7 +287,7 @@ describe("EditorElement word wrap — мышь и каретки", () => {
     });
 
     it("клик РОВНО в колонку границы фрагмента остаётся на своём ряду", () => {
-        const { editor } = createEditor("aaaaaaa bbbbbb"); // граница фрагмента — offset 8, колонка 8
+        const { editor } = createEditor("aaaaaaa bbbbbb"); // fragment boundary is offset 8, column 8
         const gw = editor.gutterWidth;
         fireMouseDown(editor, gw + 8, 0);
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 7 });
@@ -296,7 +296,7 @@ describe("EditorElement word wrap — мышь и каретки", () => {
     it("клик по ряду-зоны при wrap маппится в якорную строку по колонке клика", () => {
         const { editor, vs } = createEditor("aaaa bbbb cccc\nzz");
         vs.setViewZones([{ afterLine: 0, size: 1 }]);
-        // Ряды: 0-1 — фрагменты строки 0, 2 — зона, 3 — "zz".
+        // Rows: 0-1 are line 0 fragments, 2 is the view zone, 3 is "zz".
         expect(editor.docPositionAt(editor.gutterWidth + 3, 2)).toEqual({ line: 0, character: 3 });
     });
 
@@ -307,7 +307,7 @@ describe("EditorElement word wrap — мышь и каретки", () => {
     });
 
     it("клик далеко за концом ПОСЛЕДНЕГО фрагмента даёт конец строки, без клампа", () => {
-        const { editor } = createEditor("aaaaaaa bbbbbb"); // ряд 1 = "bbbbbb", конец строки 14
+        const { editor } = createEditor("aaaaaaa bbbbbb"); // row 1 = "bbbbbb", end of line 14
         const gw = editor.gutterWidth;
         fireMouseDown(editor, gw + 9, 1);
         expect(editor.viewState.selections[0].active).toEqual({ line: 0, character: 14 });
@@ -348,14 +348,14 @@ describe("EditorElement word wrap — мышь и каретки", () => {
     it("каретка на строке, скрытой свёрткой, не рисуется", () => {
         const { app, editor, vs } = createEditor("head\nhidden line here\ntail");
         vs.setFoldingRegions([{ startLine: 0, endLine: 1, isCollapsed: true }]);
-        // Каретку на скрытую строку кладём в обход reconcileHiddenCursors.
+        // Put a cursor on the hidden line, bypassing reconcileHiddenCursors.
         vs.selections = [createCursorSelection(0, 0), createCursorSelection(1, 2)];
         editor.focus();
         app.render();
         const gw = editor.gutterWidth;
         const caretBg = packRgb(0xae, 0xaf, 0xad); // editorCursor.foreground
         expect(app.backend.getBgAt(new Point(gw, 0))).toBe(caretBg);
-        // Ряд 1 — уже "tail", каретки скрытой строки на нём нет.
+        // Row 1 is already "tail"; the hidden line's cursor is not on it.
         expect(app.backend.getBgAt(new Point(gw + 2, 1))).not.toBe(caretBg);
     });
 
@@ -363,12 +363,12 @@ describe("EditorElement word wrap — мышь и каретки", () => {
         const { editor, vs } = createEditor("aaaa bbbb cc\nbody\ntail");
         const region = { startLine: 0, endLine: 1, isCollapsed: false };
         vs.setFoldingRegions([region]);
-        fireMouseDown(editor, editor.foldControlColumn, 1); // ряд-продолжение заголовка
+        fireMouseDown(editor, editor.foldControlColumn, 1); // header continuation row
         expect(region.isCollapsed).toBe(false);
-        // Клик упал в гуттер продолжения → каретка в начало фрагмента.
+        // The click hit the continuation gutter → cursor to the fragment start.
         expect(vs.selections[0].active).toEqual({ line: 0, character: 10 });
 
-        fireMouseDown(editor, editor.foldControlColumn, 0); // первый фрагмент — фолдит
+        fireMouseDown(editor, editor.foldControlColumn, 0); // first fragment: folds
         expect(region.isCollapsed).toBe(true);
     });
 });

@@ -50,7 +50,7 @@ describe("indentLines – insertSpaces=true", () => {
         const state = createState("ab", { insertSpaces: true, tabSize: 2 });
         state.selections = [createCursorSelection(0, 1)];
         state.indentLines();
-        // Каретка на колонке 1, табстоп — колонка 2: один пробел, не два.
+        // Cursor at column 1, tab stop at column 2: one space, not two.
         expect(state.document.getText()).toBe("a b");
         expect(state.selections[0].active).toEqual({ line: 0, character: 2 });
     });
@@ -100,7 +100,7 @@ describe("detectIndentation drives the indent unit", () => {
 });
 
 describe("runDetectIndentation — приоритет источников", () => {
-    /** Файл отступлён двойкой: детекция, если ей дать сработать, скажет 2/spaces. */
+    /** Two-space indented file: detection, if allowed to run, reports 2/spaces. */
     const TWO_SPACE_DOC = "function foo() {\n  const x = 1;\n}";
 
     it("детекция главнее конфига", () => {

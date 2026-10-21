@@ -12,7 +12,7 @@ function generateLargeText(lineCount: number): string {
     return lines.join("\n");
 }
 
-/** LCG; целые в [0, max). */
+/** LCG; integers in [0, max). */
 function makePrng(seed: number) {
     let state = seed;
     return (max: number): number => {

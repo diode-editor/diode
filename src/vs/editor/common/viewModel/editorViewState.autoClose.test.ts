@@ -45,7 +45,7 @@ describe("EditorViewState.typeWithAutoClose", () => {
 
     it("многосимвольный close (`/**` → ` */`)", () => {
         const state = makeState("", [createCursorSelection(0, 0)]);
-        // Набранный символ — `*` после уже стоящего `/*`; вставляется только он и close.
+        // The typed character is `*` after an existing `/*`; only it and the close are inserted.
         state.document.setText("/*");
         state.selections = [createCursorSelection(0, 2)];
         state.typeWithAutoClose("*", " */");

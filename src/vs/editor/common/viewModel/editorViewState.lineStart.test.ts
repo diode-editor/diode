@@ -11,7 +11,7 @@ describe("EditorViewState.cursorLineStart", () => {
         state.cursorLineStart();
         expect(state.selections[0].anchor).toEqual({ line: 0, character: 0 });
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
-        state.cursorLineStart(); // повторно — остаётся на месте (не smart-home toggle)
+        state.cursorLineStart(); // again — stays put (no smart-home toggle)
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
