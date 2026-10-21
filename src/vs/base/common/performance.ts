@@ -1,7 +1,7 @@
 /**
- * Вехи старта; без `enablePerformanceMarks()` — no-op ценой одной проверки флага.
- * Включает `DIODE_STARTUP_TRACE` (`src/vs/diode/startupTrace.ts`). Имена —
- * `<область>:<веха>`.
+ * Startup marks; without `enablePerformanceMarks()` a no-op at the cost of one flag check.
+ * Enabled by `DIODE_STARTUP_TRACE` (`src/vs/diode/startupTrace.ts`). Names are
+ * `<area>:<mark>`.
  */
 
 const MARK_PREFIX = "diode/";
@@ -18,13 +18,13 @@ export function isPerformanceMarksEnabled(): boolean {
 
 export function mark(name: string, detail?: Readonly<Record<string, unknown>>): void {
     if (!enabled) return;
-    // Без detail node кладёт в запись null — getMarks его не отдаёт.
+    // Without detail, node stores null in the entry; getMarks doesn't return it.
     performance.mark(MARK_PREFIX + name, { detail });
 }
 
 export interface IPerformanceMark {
     readonly name: string;
-    /** мс от `performance.timeOrigin`. */
+    /** ms since `performance.timeOrigin`. */
     readonly startTime: number;
     readonly detail?: unknown;
 }

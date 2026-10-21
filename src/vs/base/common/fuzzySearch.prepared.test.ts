@@ -6,7 +6,7 @@ function match(query: string, text: string): ReturnType<typeof fuzzyMatchPrepare
     return fuzzyMatchPrepared(prepareQuery(query), text);
 }
 
-/** Очки совпадения; null превращается в NaN, чтобы сравнение не прошло молча. */
+/** Match score; null turns into NaN so a comparison can't pass silently. */
 function score(query: string, text: string): number {
     return match(query, text)?.score ?? Number.NaN;
 }
@@ -142,7 +142,7 @@ describe("fuzzyMatchPrepared — скоринг", () => {
     });
 
     it("бонус за границу слова остаётся: пробел в ТЕКСТЕ — по-прежнему граница", () => {
-        // `panel` после пробела бьёт `anel` внутри слова той же длины.
+        // `panel` after a space beats `anel` inside a word of the same length.
         expect(score("toggle panel", "Toggle Panel")).toBeGreaterThan(score("toggle anel", "Toggle Xanel"));
     });
 
@@ -161,7 +161,7 @@ describe("fuzzyMatchPrepared — индексы совпадений", () => {
     });
 
     it("позиция, накрытая двумя термами, попадает в набор один раз", () => {
-        // `ab` → 0,1; `ba` → 1,2. Индекс 1 общий.
+        // `ab` → 0,1; `ba` → 1,2. Index 1 is shared.
         expect(match("ab ba", "aba")?.matchedIndices).toEqual([0, 1, 2]);
     });
 

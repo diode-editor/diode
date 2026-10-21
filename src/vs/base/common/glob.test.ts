@@ -64,7 +64,7 @@ describe("glob", () => {
     it("matchRelativeGlob: шаблон матчится по пути относительно base", () => {
         expect(matchRelativeGlob({ base: "/home/user", pattern: "*.json" }, "/home/user/a.json")).toBe(true);
         expect(matchRelativeGlob({ base: "/home/user/", pattern: "*.json" }, "/home/user/a.json")).toBe(true);
-        // `*` относительно base не спускается в подкаталог — значит, base действительно отрезан.
+        // `*` relative to base doesn't descend into a subdirectory, so base really is stripped.
         expect(matchRelativeGlob({ base: "/home/user", pattern: "*.json" }, "/home/user/sub/a.json")).toBe(false);
         expect(matchRelativeGlob({ base: "/home/user", pattern: "**/*.json" }, "/home/user/sub/a.json")).toBe(true);
     });

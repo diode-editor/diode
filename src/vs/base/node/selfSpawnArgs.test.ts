@@ -48,7 +48,7 @@ describe("selfSpawnArgs", () => {
 });
 
 describe("spawnSelfAsRole", () => {
-    /** Ребёнок-заглушка: шлёт по IPC флаг роли, значение из env и то, открыт ли ему stdout. */
+    /** Stub child: sends over IPC the role flag, a value from env and whether its stdout is open. */
     const probe = `process.send({ role: process.env.DIODE_FILE_WATCHER, inherited: process.env.DIODE_PROBE, stdout: process.stdout.isTTY === undefined && process.stdout.writable }, () => process.exit(0));`;
     const spec = { command: process.execPath, args: ["-e", probe] };
 
@@ -76,7 +76,7 @@ describe("spawnSelfAsRole", () => {
         await new Promise((resolve) => child.once("exit", resolve));
     });
 
-    /** Поля `/proc/self/stat` читаем после последней `)`: в `comm` бывают пробелы и скобки. */
+    /** `/proc/self/stat` fields are read after the last `)`: `comm` may contain spaces and parentheses. */
     const groupProbe = [
         'const fs = require("node:fs");',
         'const stat = fs.readFileSync("/proc/self/stat", "utf-8");',

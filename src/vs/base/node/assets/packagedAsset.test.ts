@@ -158,8 +158,8 @@ describe("packagedAssetCacheDirByName", () => {
         expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBe(expected);
         writeFileSync(path.join(dir, "ts-server.bundle.sha256"), "not-a-digest");
         expect(packagedAssetCacheDirByName("ts-server", "ts-server.bundle", environment({}), "/cache")).toBe(expected);
-        // Ровно 64 hex-символа и ничего вокруг: короче на символ, мусор спереди или сзади — битый.
-        // Хвост — к ЧУЖОМУ дайджесту: ключ из него разошёлся бы с ожидаемым, а не совпал случайно.
+        // Exactly 64 hex characters and nothing around them: one character short, junk before or after is broken.
+        // The tail belongs to ANOTHER digest: a key from it would differ from the expected one rather than match by chance.
         const other = "f".repeat(64);
         for (const broken of [digest.slice(1), `x${digest}`, `${other}x`]) {
             writeFileSync(path.join(dir, "ts-server.bundle.sha256"), broken);

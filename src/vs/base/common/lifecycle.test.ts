@@ -519,7 +519,7 @@ describe("DisposableTracker", () => {
         const report = tracker.computeLeakingDisposables();
         expect(report?.leaks).toEqual([store]);
         expect(report?.details).toContain("Leaking disposable 1/1: DisposableStore");
-        // Стек начинается с места создания, а не с кадров учёта.
+        // The stack starts at the creation site, not at the tracking frames.
         expect(report?.details).not.toMatch(/^\s*at .*trackDisposable/m);
         expect(report?.details).toContain("lifecycle.test.ts");
         expect(report?.details.match(/\n\s+at /g)?.length).toBeGreaterThan(1);

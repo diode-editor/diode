@@ -1,6 +1,6 @@
 import type { IAssetAccess, IAssetEntry } from "./iAssetAccess.ts";
 
-/** Побеждает самый длинный префикс, `""` — fallback. */
+/** The longest prefix wins, `""` is the fallback. */
 export class CompositeAssetAccess implements IAssetAccess {
     private readonly routes: readonly (readonly [string, IAssetAccess])[];
 

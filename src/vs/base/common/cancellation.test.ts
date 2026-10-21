@@ -7,7 +7,7 @@ import { CancellationTokenNone, CancellationTokenSource, LatestRequest } from ".
 
 ensureNoDisposablesAreLeakedInTestSuite();
 
-/** Родитель-шпион: видно, подписан ли на него кто-то прямо сейчас. */
+/** Spy parent: shows whether anyone is subscribed to it right now. */
 function spyParent(): { token: ICancellationToken; fire: () => void; readonly subscribers: number } {
     const listeners = new Set<ICancellationListener>();
     return {
@@ -69,7 +69,7 @@ describe("CancellationTokenSource", () => {
         source.token.onCancellationRequested(kept);
 
         subscription.dispose();
-        // Повторный dispose не выбрасывает чужого слушателя.
+        // A second dispose doesn't remove someone else's listener.
         subscription.dispose();
         source.cancel();
 
@@ -175,7 +175,7 @@ describe("LatestRequest", () => {
         expect(latest.pending).toBe(true);
         ticket.done();
         expect(latest.pending).toBe(false);
-        // Отработавший билет отмена владельца не трогает.
+        // Owner cancellation doesn't touch a completed ticket.
         latest.cancel();
         expect(ticket.isStale()).toBe(false);
 

@@ -4,7 +4,7 @@ export type ICancellationListener = () => void;
 
 export interface ICancellationToken {
     readonly isCancellationRequested: boolean;
-    /** Уже отменённый токен зовёт слушателя сразу, синхронно. */
+    /** An already cancelled token calls the listener right away, synchronously. */
     readonly onCancellationRequested: (listener: ICancellationListener) => IDisposable;
 }
 
@@ -15,7 +15,7 @@ export const CancellationTokenNone: ICancellationToken = {
     onCancellationRequested: () => NO_SUBSCRIPTION,
 };
 
-/** `dispose()` снимает слушателей, но не отменяет: запрос дожил до ответа своим ходом. */
+/** `dispose()` removes listeners but doesn't cancel: the request reached its response on its own. */
 export class CancellationTokenSource {
     private listeners: ICancellationListener[] = [];
     private cancelled = false;
@@ -38,10 +38,10 @@ export class CancellationTokenSource {
     }
 
     public cancel(): void {
-        // Stryker disable next-line ConditionalExpression: гард только экономит работу — повторный проход найдёт пустой список, мутант эквивалентен
+        // Stryker disable next-line ConditionalExpression: the guard only saves work; a second pass finds an empty list, the mutant is equivalent
         if (this.cancelled) return;
         this.cancelled = true;
-        // Снапшот: слушатель вправе отписаться (или отписать соседа) из колбэка.
+        // Snapshot: a listener may unsubscribe itself (or a neighbor) from the callback.
         const listeners = [...this.listeners];
         this.listeners.length = 0;
         for (const listener of listeners) listener();
@@ -70,11 +70,11 @@ export class CancellationTokenSource {
 export interface IRequestTicket {
     readonly token: ICancellationToken;
     isStale(): boolean;
-    /** Звать после последней проверки {@link isStale}: отмена владельцем отработавший билет уже не трогает. */
+    /** Call after the last {@link isStale} check: owner cancellation no longer touches a completed ticket. */
     done(): void;
 }
 
-/** «Последний запрос побеждает»: `start()` отменяет предыдущий. */
+/** "Last request wins": `start()` cancels the previous one. */
 export class LatestRequest implements IDisposable {
     private current: CancellationTokenSource | undefined;
     private disposed = false;

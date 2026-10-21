@@ -3,12 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/arrays.ts
-// Узкое извлечение под перенесённый код editor/common: полный файл тянет ~30
-// файлов base/common. Логика и имена — дословно upstream, чтобы сверять глазами.
+// Narrow extraction for the vendored editor/common code: the full file pulls in ~30
+// base/common files. Logic and names are verbatim upstream so they can be diffed by eye.
 
 export type CompareResult = number;
 
-// Слияние type + namespace не трогать: перенесённый код зовёт и тип, и `CompareResult.*`.
+// Keep the type + namespace merge: vendored code uses both the type and `CompareResult.*`.
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CompareResult {
     export function isLessThan(result: CompareResult): boolean {
@@ -89,7 +89,7 @@ export function* groupAdjacentBy<T>(
     let last: T | undefined;
     for (const item of items) {
         if (last !== undefined && shouldBeGrouped(last, item)) {
-            // `last` задан только после итерации, создавшей группу.
+            // `last` is set only after the iteration that created the group.
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             currentGroup!.push(item);
         } else {

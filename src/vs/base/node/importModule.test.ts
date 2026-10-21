@@ -6,7 +6,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { importModule } from "./importModule.ts";
 
-// Под SEA это проверяет только e2e на собранном бинаре; здесь — контракт: ESM (с top-level await) и CJS одинаково.
+// Under SEA only e2e on the built binary checks this; here it is the contract: ESM (with top-level await) and CJS alike.
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-import-module-"));
 

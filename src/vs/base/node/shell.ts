@@ -1,8 +1,8 @@
 import { userInfo } from "node:os";
 
 /**
- * `/bin/false` (учётка без входа) заменяется на `/bin/bash`, иначе терминал
- * сразу бы завершился.
+ * `/bin/false` (a no-login account) is replaced with `/bin/bash`, otherwise the terminal
+ * would exit right away.
  */
 export function getSystemShell(
     platform: NodeJS.Platform = process.platform,
@@ -18,12 +18,12 @@ function nonEmpty(value: string | null | undefined): string | null | undefined {
     return value === "" ? undefined : value;
 }
 
-// Stryker disable BlockStatement: пустой catch вернул бы undefined — для `??` у вызывающего то же, что null
+// Stryker disable BlockStatement: an empty catch would return undefined, the same as null for the caller's `??`
 function accountShell(readUserInfo: () => { readonly shell: string | null }): string | null {
     try {
         return readUserInfo().shell;
     } catch {
-        // `userInfo` бросает SystemError, если у пользователя нет имени или домашнего каталога.
+        // `userInfo` throws a SystemError if the user has no name or home directory.
         return null;
     }
 }

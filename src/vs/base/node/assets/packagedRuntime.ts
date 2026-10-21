@@ -6,9 +6,9 @@ import { isSeaBinary } from "../isSea.ts";
 import { bundleFileExists } from "./bundleFile.ts";
 
 /**
- * В сборке `import.meta.url` — URL главного скрипта (шим
- * `scripts/import-meta-url-shim.mjs`), под `tsx` — этого модуля, где бандла нет:
- * это и даёт фолбэк в dev.
+ * In the build `import.meta.url` is the main script's URL (the
+ * `scripts/import-meta-url-shim.mjs` shim); under `tsx` it is this module's, with no bundle around:
+ * that is what gives the dev fallback.
  */
 export function entryDir(): string | null {
     try {
@@ -19,8 +19,8 @@ export function entryDir(): string | null {
 }
 
 /**
- * «Как в проде» спрашивать здесь, а не `isSeaBinary()`: self-extract — обычный
- * Node с `isSea() === false`, и получил бы dev-поведение (`diode.log` в cwd).
+ * Ask "like in production" here, not `isSeaBinary()`: self-extract is a plain
+ * Node with `isSea() === false` and would get dev behavior (`diode.log` in cwd).
  */
 export function isPackagedRuntime(): boolean {
     if (isSeaBinary()) return true;

@@ -13,8 +13,8 @@ import { entryDir } from "./packagedRuntime.ts";
 const SEA_BUNDLE_KEY = BUNDLE_FILE_NAME;
 
 /**
- * В SEA бандл берётся `getRawAsset()` — вид без копии (8 МБ на каждом старте),
- * только для чтения: запись в вид уронила бы процесс.
+ * In SEA the bundle comes from `getRawAsset()`, a view without a copy (8 MB on every startup),
+ * read-only: writing to the view would crash the process.
  */
 export function createDefaultAssetAccess(): IAssetAccess {
     const seaBundle = tryLoadSeaBundle();

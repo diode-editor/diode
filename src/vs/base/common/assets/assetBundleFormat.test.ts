@@ -50,13 +50,13 @@ describe("AssetBundleFormat", () => {
 
     it("rejects bundles whose declared header length exceeds the buffer", () => {
         const bundle = packBundle([{ virtualPath: "x", data: bytesOf("y") }]);
-        // Проходит проверку magic + headerLen, но обрывается посреди заголовка.
+        // Passes the magic + headerLen check but is cut off mid-header.
         const truncated = bundle.subarray(0, 14);
         expect(() => readBundleHeader(truncated)).toThrow(/truncated: header length exceeds buffer/);
     });
 
     it("rejects bundles with an unsupported version", () => {
-        // packBundle всегда пишет version: 1, поэтому собираем буфер вручную:
+        // packBundle always writes version: 1, so the buffer is built by hand:
         // [magic][headerLen LE][header JSON].
         const headerJson = enc.encode(JSON.stringify({ version: 2, files: {} }));
         const magic = new Uint8Array([0x44, 0x49, 0x4f, 0x44, 0x45, 0x42, 0x4e, 0x44]);

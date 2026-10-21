@@ -1,6 +1,6 @@
 import type { TUIElement } from "@tuidom/core/dom/tuiElement";
 
-/** `appendRow` движка отвергает строки без id, так что `""` недостижим — тип этого не знает. */
+/** The engine's `appendRow` rejects rows without an id, so `""` is unreachable; the type doesn't know that. */
 export function listRowId(element: TUIElement): string {
     return element.id ?? "";
 }

@@ -75,7 +75,7 @@ describe("BundleAssetAccess", () => {
     });
 
     it("бросает при конфликте имени (файл и каталог одновременно)", () => {
-        // "a" присутствует как файл и как сегмент-каталог "a/b" → конфликт в индексе.
+        // "a" is both a file and the directory segment of "a/b" → index conflict.
         const conflicting = packBundle([
             { virtualPath: "a", data: enc.encode("file") },
             { virtualPath: "a/b", data: enc.encode("under-dir") },

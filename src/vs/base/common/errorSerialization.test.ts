@@ -50,7 +50,7 @@ describe("CancellationError", () => {
     it("узнаётся экземпляром и формой (имя и сообщение — Canceled), но не одним именем", () => {
         expect(new CancellationError()).toMatchObject({ name: canceledName, message: canceledName });
         expect(isCancellationError(new CancellationError())).toBe(true);
-        // Ошибка отмены, пересёкшая границу процесса, — уже не экземпляр.
+        // A cancellation error that crossed a process boundary is no longer an instance.
         const crossed = transformErrorFromSerialization(transformErrorForSerialization(new CancellationError()));
         expect(isCancellationError(crossed)).toBe(true);
         expect(isCancellationError(Object.assign(new Error("other"), { name: canceledName }))).toBe(false);

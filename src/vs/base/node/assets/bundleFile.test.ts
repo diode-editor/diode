@@ -24,7 +24,7 @@ describe("BundleFile", () => {
         ws.dispose();
     });
 
-    /** Кладёт рядом настоящий бандл — ровно так, как это делает build-selfextract. */
+    /** Puts a real bundle alongside, exactly as build-selfextract does. */
     function writeBundle(target: string = dir): void {
         const bundle = packBundle([
             { virtualPath: "onig.wasm", data: ONIG },
@@ -62,8 +62,8 @@ describe("BundleFile", () => {
     });
 
     it("tryReadBundleFile не глотает ошибки ФС кроме ENOENT", () => {
-        // Каталог вместо файла — чтение даёт EISDIR, а не ENOENT: молча свалиться
-        // в dev-режим здесь нельзя, это скрыло бы битую сборку.
+        // A directory instead of a file: reading gives EISDIR, not ENOENT. Silently falling
+        // back to dev mode here is not allowed, it would hide a broken build.
         mkdirSync(bundleFilePath(dir));
         expect(() => tryReadBundleFile(dir)).toThrow();
     });

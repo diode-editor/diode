@@ -51,7 +51,7 @@ export class SetMap<K, V> {
     }
 }
 
-/** Не на `LinkedMap`, как upstream, а на порядке вставки `Map`, без ratio. */
+/** Built on `Map` insertion order rather than `LinkedMap` as upstream, without ratio. */
 export class LRUCache<K, V> {
     private readonly map = new Map<K, V>();
 

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { getSystemShell } from "./shell.ts";
 
-/** Учётная запись с заданным шеллом (`null` — шелла в /etc/passwd нет). */
+/** An account with the given shell (`null` means no shell in /etc/passwd). */
 const account = (shell: string | null) => () => ({ shell });
 const noAccount = (): never => {
     throw new Error("user has no username or homedir");

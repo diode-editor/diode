@@ -6,7 +6,7 @@
 
 import { CharCode } from "./charCode.ts";
 
-// Числами, а не членами const enum: иначе no-unsafe-enum-comparison (docs/STYLE.md).
+// Numbers rather than const enum members: otherwise no-unsafe-enum-comparison (docs/STYLE.md).
 const SPACE: number = CharCode.Space;
 const TAB: number = CharCode.Tab;
 const UTF8_BOM: number = CharCode.UTF8_BOM;
@@ -108,7 +108,7 @@ export function getNextCodePoint(str: string, len: number, offset: number): numb
 }
 
 // Generated using https://github.com/alexdima/unicode-utils/blob/main/rtl-test.js
-// Не лениво, как upstream `makeContainsRtl`: литерал регэкспа V8-снапшоту не мешает.
+// Not lazy like upstream's `makeContainsRtl`: a regex literal doesn't bother the V8 snapshot.
 const CONTAINS_RTL =
     /(?:[\u05BE\u05C0\u05C3\u05C6\u05D0-\u05F4\u0608\u060B\u060D\u061B-\u064A\u066D-\u066F\u0671-\u06D5\u06E5\u06E6\u06EE\u06EF\u06FA-\u0710\u0712-\u072F\u074D-\u07A5\u07B1-\u07EA\u07F4\u07F5\u07FA\u07FE-\u0815\u081A\u0824\u0828\u0830-\u0858\u085E-\u088E\u08A0-\u08C9\u200F\uFB1D\uFB1F-\uFB28\uFB2A-\uFD3D\uFD50-\uFDC7\uFDF0-\uFDFC\uFE70-\uFEFC]|\uD802[\uDC00-\uDD1B\uDD20-\uDE00\uDE10-\uDE35\uDE40-\uDEE4\uDEEB-\uDF35\uDF40-\uDFFF]|\uD803[\uDC00-\uDD23\uDE80-\uDEA9\uDEAD-\uDF45\uDF51-\uDF81\uDF86-\uDFF6]|\uD83A[\uDC00-\uDCCF\uDD00-\uDD43\uDD4B-\uDFFF]|\uD83B[\uDC00-\uDEBB])/;
 
@@ -140,6 +140,6 @@ export function containsUnusualLineTerminators(str: string): boolean {
 export const UTF8_BOM_CHARACTER = String.fromCharCode(UTF8_BOM);
 
 export function startsWithUTF8BOM(str: string): boolean {
-    // Upstream ещё проверяет `str.length > 0`; на пустой строке `charCodeAt(0)` — NaN.
+    // Upstream also checks `str.length > 0`; on an empty string `charCodeAt(0)` is NaN.
     return str.charCodeAt(0) === UTF8_BOM;
 }

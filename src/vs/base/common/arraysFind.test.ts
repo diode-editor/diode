@@ -8,7 +8,7 @@ import {
     MonotonousArray,
 } from "./arraysFind.ts";
 
-/** Предикат монотонен: `[true, ..., true, false, ..., false]`. */
+/** Monotonic predicate: `[true, ..., true, false, ..., false]`. */
 
 const arr = [1, 2, 3, 4, 5];
 const upTo = (n: number) => (x: number) => x <= n;
@@ -42,7 +42,7 @@ describe("findLastMonotonous", () => {
 });
 
 describe("findFirstIdxMonotonousOrArrLen", () => {
-    // Здесь монотонность обратная: [false, ..., false, true, ..., true].
+    // Monotonic the other way here: [false, ..., false, true, ..., true].
     const atLeast = (n: number) => (x: number) => x >= n;
 
     it("находит индекс первого true", () => {
@@ -79,7 +79,7 @@ describe("MonotonousArray", () => {
         try {
             const m = new MonotonousArray(arr);
             expect(m.findLastMonotonous(upTo(4))).toBe(4);
-            // Предикат стал строже — нарушение контракта, обязано быть замечено.
+            // The predicate got stricter: a contract violation that must be caught.
             expect(() => m.findLastMonotonous(upTo(1))).toThrow(/weaker/);
         } finally {
             MonotonousArray.assertInvariants = false;

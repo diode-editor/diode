@@ -1,7 +1,7 @@
 /**
- * Подмножество `GlobPattern` VS Code: `*` и `?` — внутри сегмента, `**` — любое
- * число сегментов (`**\/x` матчит и просто `x`), `{a,b}`. Диапазонов `[0-9]`
- * нет — скобка матчится буквально. Путь — posix, приводит вызывающий.
+ * A subset of VS Code's `GlobPattern`: `*` and `?` within a segment, `**` any
+ * number of segments (`**\/x` also matches plain `x`), `{a,b}`. No `[0-9]`
+ * ranges: a bracket matches literally. The path is posix; the caller converts it.
  */
 
 const cache = new Map<string, RegExp>();
@@ -19,7 +19,7 @@ export function globToRegExp(glob: string): RegExp {
                 i++;
                 if (glob[i + 1] === "/") {
                     i++;
-                    re += "(?:.*/)?"; // `**/` — ноль и более сегментов пути
+                    re += "(?:.*/)?"; // `**/` is zero or more path segments
                 } else {
                     re += ".*";
                 }
@@ -56,9 +56,9 @@ export function matchAnyGlob(patterns: readonly string[], path: string): boolean
     return patterns.some((pattern) => matchGlob(pattern, path));
 }
 
-/** `vscode.RelativePattern` на проводе. */
+/** `vscode.RelativePattern` on the wire. */
 export interface IRelativePattern {
-    /** Абсолютный базовый каталог (posix-форма). */
+    /** Absolute base directory (posix form). */
     readonly base: string;
     readonly pattern: string;
 }
@@ -69,7 +69,7 @@ export function matchRelativeGlob(pattern: IRelativePattern, path: string): bool
     return matchGlob(pattern.pattern, path.slice(base.length));
 }
 
-/** Как upstream `splitGlobAware`: пустые сегменты в середине сохраняются, пустой хвост — нет. */
+/** As upstream's `splitGlobAware`: empty segments in the middle are kept, an empty tail is not. */
 export function splitGlobAware(pattern: string, splitChar: string): string[] {
     const segments: string[] = [];
     let inBraces = false;

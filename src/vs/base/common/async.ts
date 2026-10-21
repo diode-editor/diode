@@ -40,7 +40,7 @@ export interface IdleDeadline {
     timeRemaining(): number;
 }
 
-/** Только ветка upstream без `requestIdleCallback`: Node простоя не публикует. */
+/** Only upstream's branch without `requestIdleCallback`: Node doesn't expose idle time. */
 export function runWhenGlobalIdle(callback: (idle: IdleDeadline) => void): IDisposable {
     let disposed = false;
     setTimeout0(() => {

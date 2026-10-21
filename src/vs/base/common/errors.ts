@@ -3,16 +3,16 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/errors.ts
-// Отклонение: дефолтный обработчик не перебрасывает ошибку, как upstream, а
-// пишет в console.error — `assertFn` перенесённого диффа срабатывает на
-// пограничных входах, и ронять из-за этого TUI несоразмерно.
+// Deviation: the default handler doesn't rethrow as upstream does but logs to
+// console.error: the vendored diff's `assertFn` fires on edge-case inputs, and
+// crashing the TUI over that is out of proportion.
 
 /**
  * Error indicating a bug in the code — only catch it to recover gracefully.
  */
 export class BugIndicatingError extends Error {
     public constructor(message?: string) {
-        // `||`, а не `??`: пустое сообщение тоже даёт текст по умолчанию, как в upstream.
+        // `||`, not `??`: an empty message also gets the default text, as upstream.
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         super(message || "An unexpected bug occurred.");
         Object.setPrototypeOf(this, BugIndicatingError.prototype);

@@ -169,7 +169,7 @@ describe("Emitter", () => {
             emitter.fire(1);
             expect(fn).not.toHaveBeenCalled();
 
-            // Поздняя отписка от мёртвого эмиттера хук второй раз не дёргает.
+            // A late unsubscribe from a dead emitter doesn't fire the hook a second time.
             sub.dispose();
             emitter.dispose();
             expect(onDidRemoveLastListener).toHaveBeenCalledOnce();

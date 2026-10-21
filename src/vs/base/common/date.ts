@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/date.ts
-// `Intl.*` создаётся лениво: на верхнем уровне модуля его не пускает V8-снапшот.
+// `Intl.*` is created lazily: the V8 snapshot forbids it at module top level.
 
 import { Lazy } from "./lazy.ts";
 
