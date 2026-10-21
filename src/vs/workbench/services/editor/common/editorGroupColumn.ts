@@ -1,5 +1,7 @@
+import type { Uri } from "../../../../base/common/uri.ts";
 import type { EditorGroup } from "../browser/editorGroupModel.ts";
 
+import { findGroup, isGroupLockedForEditor } from "./editorGroupFinder.ts";
 import type { IEditorGroupsService } from "./editorGroupsService.ts";
 
 /** Upstream `ACTIVE_GROUP`, i.e. `vscode.ViewColumn.Active`: the current column. */
@@ -8,19 +10,21 @@ export const ACTIVE_GROUP = -1;
 export const SIDE_GROUP = -2;
 
 /**
- * Upstream `columnToEditorGroup`. A column past the end of the strip creates trailing groups
- * up to it (AS-5; if they don't fit, the last group).
+ * Upstream `columnToEditorGroup` + `findGroup`. A column past the end of the strip creates trailing groups
+ * up to it (AS-5; if they don't fit, the last group). Active and side targets avoid a group locked for
+ * `resource`; an explicit column is honored even when locked.
  */
-export function columnToEditorGroup(groups: IEditorGroupsService, column: number): EditorGroup {
-    if (column === ACTIVE_GROUP) return groups.activeGroup;
+export function columnToEditorGroup(groups: IEditorGroupsService, column: number, resource?: Uri): EditorGroup {
+    if (column === ACTIVE_GROUP) return findGroup(groups, resource, undefined);
     if (column === SIDE_GROUP) {
         const index = groups.groups.indexOf(groups.activeGroup);
+        const neighbor = groups.groups.at(index + 1);
+        if (neighbor !== undefined && !isGroupLockedForEditor(neighbor, resource)) return neighbor;
         return (
-            groups.groups.at(index + 1) ??
+            // A locked neighbor: the new group goes between, as upstream `addGroup(activeGroup, right)`.
             // Any position other than "before" means right: an empty string acts as "after".
             // Stryker disable next-line StringLiteral: equivalent, see above
-            groups.newGroup("after", { focus: false }) ??
-            groups.activeGroup
+            groups.newGroup("after", { focus: false }) ?? neighbor ?? groups.activeGroup
         );
     }
     const wanted = Math.max(1, Math.floor(column));

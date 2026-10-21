@@ -37,6 +37,22 @@ export const workbenchConfiguration = {
             ],
             description: "Controls where the editor actions are shown.",
         },
+        // Upstream builds the keys from the editor resolver; ours are the editor ids we have. Webview ids
+        // (`mainThreadWebview-*`) and `workbench.editor.processExplorer` have no editor here.
+        "workbench.editor.autoLockGroups": {
+            scope: "window",
+            type: "object",
+            default: {
+                default: false,
+                terminalEditor: true,
+            },
+            description:
+                "If an editor matching one of the listed types is opened as the first in an editor group and more " +
+                "than one group is open, the group is automatically locked. Locked groups will only be used for " +
+                "opening editors when explicitly chosen by a user gesture (for example drag and drop), but not by " +
+                "default. Consequently, the active editor in a locked group is less likely to be replaced " +
+                "accidentally with a different editor.",
+        },
         "workbench.editor.closeOnFileDelete": {
             scope: "window",
             type: "boolean",

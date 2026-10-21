@@ -6,7 +6,7 @@ import type { MenuService } from "../../../../platform/actions/common/menuServic
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 import type { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import type { ContextMenuService } from "../../../../platform/contextview/browser/contextMenuService.ts";
-import type { GroupId } from "../../../services/editor/browser/editorGroupModel.ts";
+import type { EditorGroup } from "../../../services/editor/browser/editorGroupModel.ts";
 import type { EditorTitleBarMenuContext } from "../../actions/menuContexts.ts";
 import { inlineActions, overflowEntries, runAction } from "../views/titleMenuEntries.ts";
 import { ViewContainerHeaderElement } from "../views/viewContainerHeaderElement.ts";
@@ -33,12 +33,12 @@ export class EditorTitleActions extends Disposable {
     private visible = false;
 
     public constructor(
-        private readonly groupId: GroupId,
+        private readonly group: EditorGroup,
         private readonly services: IEditorTitleActionsServices,
     ) {
         super();
         this.element = new ViewContainerHeaderElement("");
-        this.element.id = `editorTitleActions-${String(groupId)}`;
+        this.element.id = `editorTitleActions-${String(group.id)}`;
         // Buttons are for the mouse and commands; Tab skips them (tabs aren't focusable either).
         this.element.focusable = false;
         this.element.style = { fg: "descriptionForeground", bg: "editorGroupHeader.tabsBackground" };
@@ -63,6 +63,12 @@ export class EditorTitleActions extends Disposable {
                 this.refresh();
             }),
         );
+        // The lock is per group: an inactive group's lock changes no context key.
+        this.register(
+            group.onDidChangeLocked(() => {
+                this.refresh();
+            }),
+        );
         this.register(
             services.configuration.onDidChangeConfiguration((event) => {
                 if (event.affectsConfiguration(ACTIONS_LOCATION)) this.refresh();
@@ -78,7 +84,7 @@ export class EditorTitleActions extends Disposable {
     public readonly onDidChangeVisibility = this.onDidChangeVisibilityEmitter.event;
 
     private groups(): IMenuEntryGroup[] {
-        const context: EditorTitleBarMenuContext = { groupId: this.groupId };
+        const context: EditorTitleBarMenuContext = { groupId: this.group.id, groupLocked: this.group.isLocked };
         return this.services.menus.getEntryGroups(MenuId.EditorTitle, context);
     }
 

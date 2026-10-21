@@ -24,6 +24,11 @@
             "workbench.action.showCommands"
         ]
     },
+    "EditorTitle": {
+        "navigation": [
+            "workbench.action.unlockEditorGroup"
+        ]
+    },
     "EditorTitleContext": {
         "1_close": [
             "workbench.action.closeActiveEditor",

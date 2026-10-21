@@ -113,6 +113,7 @@ export interface ContextKeyTypes {
     /** 1-based (ViewColumn). */
     activeEditorGroupIndex: number;
     activeEditorGroupLast: boolean;
+    activeEditorGroupLocked: boolean;
     multipleEditorGroups: boolean;
 
     isLinux: boolean;

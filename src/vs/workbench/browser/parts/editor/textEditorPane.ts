@@ -23,7 +23,7 @@ import type { BaseTextEditorModel } from "../../../common/editor/textEditorModel
 import { type SaveOutcome, TextFileModel } from "../../../services/textfile/common/textFileModel.ts";
 
 import type { EditorComponent, IIndentConfiguration } from "./editorComponent.ts";
-import type { IEditorPane } from "./iEditorPane.ts";
+import { DEFAULT_EDITOR_ID, type IEditorPane } from "./iEditorPane.ts";
 
 /**
  * The "model + view component" pair of one text editor; owns both.
@@ -40,6 +40,8 @@ export class TextEditorPane<TModel extends BaseTextEditorModel = BaseTextEditorM
      * through focus, but consumers that work with tabs must skip it.
      */
     public detached = false;
+
+    public readonly editorId = DEFAULT_EDITOR_ID;
 
     /**
      * @param modelOwnership — a model registry reference to dispose instead of the model itself: the model

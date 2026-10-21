@@ -9,7 +9,7 @@ import { EditorServiceDIToken } from "../../services/editor/common/editorService
 import { EditorPartComponentDIToken } from "../parts/editor/editorPartComponent.ts";
 
 import { resolveAddressedTab } from "./editorTabTarget.ts";
-import { editorTabTargetArg } from "./menuContexts.ts";
+import { editorTabTargetArg, editorTitleBarGroupArg, editorTitleBarGroupLocked } from "./menuContexts.ts";
 
 /** Kitty/CSI-u are the only tiers where Ctrl+digit reaches the application. */
 const EXTENDED_TIERS = "tier == 'kitty' || tier == 'csi-u'";
@@ -317,6 +317,58 @@ export const joinAllGroupsAction: CommandAction = {
     },
 };
 
+/** nf-cod-lock. */
+const LOCK_ICON = "\uea75";
+
+/** Upstream `CLOSE_ORDER - 1`: the unlock button sits at the right end of the title. */
+const UNLOCK_BUTTON_ORDER = 999_999;
+
+/** Upstream `setEditorGroupLock`: a title bar passes its group id; the palette acts on the active group. */
+function setEditorGroupLock(accessor: ServiceAccessor, locked: boolean | undefined, groupId: unknown): void {
+    const groups = accessor.get(EditorGroupsServiceDIToken);
+    const group = groups.groups.find((candidate) => candidate.id === groupId) ?? groups.activeGroup;
+    group.lock(locked ?? !group.isLocked);
+}
+
+// Upstream also lists it in the title's "⋯" (`8_group_operations`, toggled): we have no other built-in
+// `editor/title` items yet, and that one entry would put "⋯" into every group's tab row.
+export const toggleEditorGroupLockAction: CommandAction = {
+    id: "workbench.action.toggleEditorGroupLock",
+    title: "View: Toggle Editor Group Lock",
+    run(accessor, groupId) {
+        setEditorGroupLock(accessor, undefined, groupId);
+    },
+};
+
+// Upstream's `precondition` on the lock state is left out: our enablement is global, and it would
+// disable the unlock button of an inactive locked group. Locking a locked group is a no-op anyway.
+export const lockEditorGroupAction: CommandAction = {
+    id: "workbench.action.lockEditorGroup",
+    title: "View: Lock Editor Group",
+    run(accessor, groupId) {
+        setEditorGroupLock(accessor, true, groupId);
+    },
+};
+
+export const unlockEditorGroupAction: CommandAction = {
+    id: "workbench.action.unlockEditorGroup",
+    title: "View: Unlock Editor Group",
+    menus: [
+        {
+            menuId: MenuId.EditorTitle,
+            title: "Unlock Group",
+            group: "navigation",
+            order: UNLOCK_BUTTON_ORDER,
+            icon: LOCK_ICON,
+            visible: editorTitleBarGroupLocked,
+            args: editorTitleBarGroupArg,
+        },
+    ],
+    run(accessor, groupId) {
+        setEditorGroupLock(accessor, false, groupId);
+    },
+};
+
 export const editorLayoutSingleAction: CommandAction = {
     id: "workbench.action.editorLayoutSingle",
     title: "View: Single Column Editor Layout",
@@ -483,6 +535,9 @@ export const EDITOR_GROUP_ACTIONS: readonly CommandAction[] = [
     moveActiveEditorGroupRightAction,
     joinTwoGroupsAction,
     joinAllGroupsAction,
+    toggleEditorGroupLockAction,
+    lockEditorGroupAction,
+    unlockEditorGroupAction,
     editorLayoutSingleAction,
     toggleEditorGroupLayoutAction,
     evenEditorWidthsAction,

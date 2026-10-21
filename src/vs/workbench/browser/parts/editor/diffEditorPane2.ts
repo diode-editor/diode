@@ -29,7 +29,7 @@ import { Component } from "../../component.ts";
 import type { DiffPaneMode, DiffPaneModeOverride } from "./diffPaneElement.ts";
 import { DiffPaneElement } from "./diffPaneElement.ts";
 import { EditorComponent } from "./editorComponent.ts";
-import type { IEditorPane } from "./iEditorPane.ts";
+import { DEFAULT_EDITOR_ID, type IEditorPane } from "./iEditorPane.ts";
 import { TextEditorPane } from "./textEditorPane.ts";
 
 /** Time budget for the diff; past it we take a coarse result instead of a hung tab. */
@@ -78,6 +78,8 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
     public readonly uri: Uri;
     public readonly label: string;
     public readonly view: TUIElement;
+    // Upstream: both sides share the editor id; ours are always text sides.
+    public readonly editorId = DEFAULT_EDITOR_ID;
     public readonly originalUri: Uri | null;
     public readonly modifiedUri: Uri | null;
 

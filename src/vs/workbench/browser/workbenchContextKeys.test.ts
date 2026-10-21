@@ -5,6 +5,7 @@ import { FillerElement } from "@tuidom/elements/layout/fillerElement";
 import { VFlexElement, vflexFixed } from "@tuidom/elements/layout/vFlexElement";
 import { describe, expect, it, vi } from "vitest";
 
+import { Emitter } from "../../base/common/event.ts";
 import type { IContextKeyContributor } from "../../platform/contextkey/common/contextKeyContributor.ts";
 import { ContextKeyService } from "../../platform/contextkey/common/contextKeyService.ts";
 import type { ServiceAccessor, Token } from "../../platform/instantiation/common/diContainer.ts";
@@ -36,9 +37,17 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
         cancelPendingChord,
     };
 
+    const onDidChangeGroupLocked = new Emitter<unknown>();
+    const activeGroup = { editorCount: 0, isLocked: false };
+    const groups = {
+        groups: [],
+        activeGroup,
+        viewColumnOf: () => 1,
+        onDidChangeGroupLocked: onDidChangeGroupLocked.event,
+    } as unknown as IEditorGroupsService;
     const service = new WorkbenchContextKeys(
         contextKeys,
-        { groups: [], activeGroup: { editorCount: 0 }, viewColumnOf: () => 1 } as unknown as IEditorGroupsService,
+        groups,
         dispatcher as unknown as KeybindingDispatcher,
         { canGoBack: false, canGoForward: false } as unknown as HistoryService,
         focusTracker,
@@ -54,6 +63,8 @@ function makeHarness(contributors: IContextKeyContributor[] = []) {
         onDidChangeFocus,
         cancelPendingChord,
         dispatcher,
+        activeGroup,
+        onDidChangeGroupLocked,
     };
 }
 
@@ -89,6 +100,16 @@ describe("WorkbenchContextKeys", () => {
         h.service.update();
         expect(h.contextKeys.get("workbenchState")).toBe("folder");
         expect(h.contextKeys.evaluate("workbenchState != 'empty'")).toBe(true);
+    });
+
+    it("activeEditorGroupLocked follows a lock change without a focus change (auto-lock while opening)", () => {
+        const h = makeHarness();
+        h.service.update();
+        expect(h.contextKeys.get("activeEditorGroupLocked")).toBe(false);
+
+        h.activeGroup.isLocked = true;
+        h.onDidChangeGroupLocked.fire(h.activeGroup);
+        expect(h.contextKeys.get("activeEditorGroupLocked")).toBe(true);
     });
 
     it("closes the dispatcher hook: updateContextKeys refreshes the keys", () => {

@@ -71,12 +71,13 @@ export class EditorLayoutServiceAdapter extends Disposable implements IEditorLay
         const uri = Uri.parse(params.uri);
         const focus = params.preserveFocus !== true;
         const previousActive = this.groups.activeGroup;
-        const target = columnToEditorGroup(this.groups, params.viewColumn ?? ACTIVE_GROUP);
+        const target = columnToEditorGroup(this.groups, params.viewColumn ?? ACTIVE_GROUP, uri);
 
         this.groups.focusGroup(target.id, { focus: false });
         // Await the open: a non-disk resource (`jdt:`) arrives from the scheme provider
-        // as a promise, and the selection from `params` must be applied to it.
-        await this.editors.openUri(uri, { focus });
+        // as a promise, and the selection from `params` must be applied to it. The group is explicit:
+        // the column is already resolved, and a locked one the extension named must not redirect.
+        await this.editors.openUri(uri, { focus, group: target });
 
         const opened = this.groups.activeGroup;
         const editor = opened.activePane;

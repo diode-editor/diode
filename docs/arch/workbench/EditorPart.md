@@ -113,6 +113,28 @@
   `nextEditor`/`previousEditor`, Ctrl+PgDn/PgUp) — без hold-сессии, каждый
   шаг коммитится в MRU сразу; `getOpenEditorsMru`/`revealPane` — пикер
   открытых редакторов.
+- **Блокировка группы** (upstream `isLocked`/`lock`, `editorGroupFinder.ts`).
+  `EditorGroup.lock(bool)` + `onDidChangeLocked`; сервис агрегирует в
+  `onDidChangeGroupLocked` (ключ `activeEditorGroupLocked`, кнопка-замок
+  «Unlock Group» в `editor/title` своей группы — по `groupLocked` контекста
+  бара, а не по глобальному ключу). Автоблокировка — как в
+  `EditorGroupView.openEditor`: новая вкладка первой в группе при ≥2 группах
+  запирает группу, если её `IEditorPane.editorId` включён в
+  `workbench.editor.autoLockGroups` (дефолт — `terminalEditor: true`, то есть
+  терминал вкладкой «рядом» — `claude` из Claude Code). Выбор группы для
+  открытия — `services/editor/common/editorGroupFinder.ts`
+  (`findGroup`/`peekGroup`, порт `doFindGroup`): явная группа — как есть;
+  без группы — первая незапертая по `getGroupsByMru()` (активная — первой);
+  «рядом» — сосед, если не заперт; запертая группа принимает ресурс, который
+  в ней уже открыт; всё заперто — новая группа справа от активной
+  (`addGroup`, не активирует). Через `findGroup` идут `openUri`, `openPane`
+  без группы (дифф, расширения), `openTextSnapshot`, `newUntitled`,
+  `ViewColumn.Active/Beside` (`columnToEditorGroup(…, resource)`); явная
+  колонка расширения (`ViewColumn.Two`) запертой группы не обходит. Команды
+  `workbench.action.{lock,unlock,toggle}EditorGroupLock` — палитра; пункта
+  «Lock Group» в «⋯» заголовка нет (отступление: он один дал бы «⋯» в каждой
+  группе), `precondition` по состоянию замка тоже нет — наш `enablement`
+  глобальный и гасил бы кнопку неактивной запертой группы.
 - `parts/editor/editorPartComponent.ts` — часть «область редактора» (аналог
   `EditorPart`): владеет `@tuidom/elements/editorpart/editorPartElement` (полоса N
   вью + N−1 сашей, нормированные веса, min-клампы 20×5, максимизация,

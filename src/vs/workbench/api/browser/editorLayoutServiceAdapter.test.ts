@@ -151,7 +151,7 @@ describe("EditorLayoutServiceAdapter", () => {
             selection: { anchorLine: 5, anchorCharacter: 1, activeLine: 5, activeCharacter: 1 },
         });
 
-        expect(openUri).toHaveBeenCalledWith(expect.anything(), { focus: false });
+        expect(openUri).toHaveBeenCalledWith(expect.anything(), { focus: false, group: before });
         expect(service.editorGroups.activeGroup === before).toBe(true);
         expect(service.getActiveEditor()!.viewState.selections[0].active).toEqual({ line: 5, character: 1 });
     });

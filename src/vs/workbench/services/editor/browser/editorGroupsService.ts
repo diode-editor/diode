@@ -1,5 +1,7 @@
 import { Emitter } from "../../../../base/common/event.ts";
 import { Disposable, type IDisposable } from "../../../../base/common/lifecycle.ts";
+import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
+import { IConfigurationServiceDIToken } from "../../../../platform/configuration/common/iConfigurationServiceDIToken.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { ILogServiceDIToken } from "../../../../platform/log/common/iLogServiceDIToken.ts";
@@ -15,11 +17,13 @@ import { EditorGroup, type GroupId, type MruCycleState } from "./editorGroupMode
  * {@link onDidChangeActivePane} → {@link onDidActiveGroupChange}.
  */
 export class EditorGroupsService extends Disposable implements IEditorGroupsService {
-    public static dependencies = [ILogServiceDIToken] as const;
+    public static dependencies = [ILogServiceDIToken, IConfigurationServiceDIToken] as const;
 
     /** ViewColumn − 1 order; without splits there is exactly one group. */
     private groupsList: EditorGroup[] = [];
     private activeGroupValue: EditorGroup;
+    /** Upstream `mostRecentActiveGroups`; mru[0] is the active group. */
+    private groupMru: EditorGroup[];
     /** Group ids are never reused. */
     private groupIdCounter = 0;
     private readonly groupSubscriptions = new Map<GroupId, IDisposable[]>();
@@ -30,6 +34,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
     private readonly onDidChangeMruCycleEmitter = new Emitter<MruCycleState | null>();
     private readonly onDidChangeEditorsEmitter = new Emitter<void>();
     private readonly onDidChangeActivePaneEmitter = new Emitter<IEditorPane | null>();
+    private readonly onDidChangeGroupLockedEmitter = new Emitter<EditorGroup>();
 
     /** `EditorPartComponent` asks its `EditorPartElement.canFit`; unset (headless) — space is not checked. */
     public canAddGroupHook?: () => boolean;
@@ -46,14 +51,21 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
 
     public readonly onDidChangeEditors = this.onDidChangeEditorsEmitter.event;
 
+    /** Upstream `GroupModelChangeKind.GROUP_LOCKED`: the `activeEditorGroupLocked` key and the title's unlock button. */
+    public readonly onDidChangeGroupLocked = this.onDidChangeGroupLockedEmitter.event;
+
     /** Any kind — `EditorService` narrows it to text. */
     public readonly onDidChangeActivePane = this.onDidChangeActivePaneEmitter.event;
 
-    public constructor(logService: ILogService) {
+    public constructor(
+        logService: ILogService,
+        private readonly configurationService: Pick<IConfigurationService, "get">,
+    ) {
         super();
         // Stryker disable next-line StringLiteral,ObjectLiteral: the channel name and label are captions in the Output selector and do not affect logging behavior
         this.logger = logService.createLogger("workbench.editorGroups", { label: "Editor Groups" });
         this.activeGroupValue = this.createGroup();
+        this.groupMru = [this.activeGroupValue];
         this.register({
             dispose: () => {
                 for (const subscriptions of this.groupSubscriptions.values()) {
@@ -110,7 +122,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         const group = this.createGroup(index);
         this.fireGroupsChanged({ kind: "added", group, index, source });
 
-        this.activeGroupValue = group;
+        this.setActiveGroup(group);
         fill(group, sourcePane);
         if (group.editorCount === 0) {
             this.fireActivePaneChanged(null);
@@ -129,7 +141,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         const index = position === "before" ? anchor : anchor + 1;
         const group = this.createGroup(index);
         this.fireGroupsChanged({ kind: "added", group, index });
-        this.activeGroupValue = group;
+        this.setActiveGroup(group);
         this.fireActivePaneChanged(null);
         if (focus) this.focusGroupContent(group);
         this.fireActiveGroupChanged(group);
@@ -186,7 +198,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         // Stryker disable next-line ConditionalExpression: unreachable branch for the same reason
         if (pane === null) return;
         /* v8 ignore stop */
-        this.activeGroupValue = target;
+        this.setActiveGroup(target);
         const existing = target.findPaneIndex(pane.uri);
         if (existing >= 0) {
             pane.dispose();
@@ -210,11 +222,33 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
      * The group is active BEFORE `fill` — the opened tab immediately becomes the workbench's active editor. Does not
      * end the previous group's Ctrl+Tab series: this is opening, not focus leaving.
      */
-    public openInGroup(group: EditorGroup, fill: () => void): void {
+    public openInGroup<T>(group: EditorGroup, fill: () => T): T {
         const wasActive = group === this.activeGroupValue;
-        this.activeGroupValue = group;
-        fill();
+        this.setActiveGroup(group);
+        const result = fill();
         if (!wasActive) this.fireActiveGroupChanged(group);
+        return result;
+    }
+
+    /** Upstream `getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE)`: a group never activated goes last, in strip order. */
+    public getGroupsByMru(): EditorGroup[] {
+        return [...this.groupMru, ...this.groupsList.filter((group) => !this.groupMru.includes(group))];
+    }
+
+    /**
+     * Upstream `addGroup(location, direction)` for the group finder: the new group does not become active,
+     * opening decides that. `null` when it does not fit.
+     */
+    public addGroup(location: EditorGroup, position: "before" | "after"): EditorGroup | null {
+        if (this.canAddGroupHook !== undefined && !this.canAddGroupHook()) {
+            this.logger.info("new group refused — not enough space");
+            return null;
+        }
+        const anchor = this.groupsList.indexOf(location);
+        const index = position === "before" ? anchor : anchor + 1;
+        const group = this.createGroup(index);
+        this.fireGroupsChanged({ kind: "added", group, index, source: location });
+        return group;
     }
 
     /** No space — falls back to the active group. Does not become active: opening decides that. */
@@ -246,7 +280,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         if (this.groupsList.length < 2) return;
         const rememberedUri = this.activeGroupValue.activePane?.uri ?? null;
         const target = this.groupsList[0];
-        this.activeGroupValue = target;
+        this.setActiveGroup(target);
         while (this.groupsList.length > 1) {
             this.mergeGroupInto(this.groupsList[1], target);
         }
@@ -309,7 +343,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         // Across a group boundary: group first, then tab (like moveActiveTabToGroup);
         // the source's Ctrl+Tab series ends as on any departure from the group.
         active.endMruCycle();
-        this.activeGroupValue = target.group;
+        this.setActiveGroup(target.group);
         target.group.activateTab(target.index);
         this.fireActiveGroupChanged(target.group);
     }
@@ -350,11 +384,30 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         return group;
     }
 
+    private setActiveGroup(group: EditorGroup): void {
+        this.activeGroupValue = group;
+        const index = this.groupMru.indexOf(group);
+        if (index >= 0) this.groupMru.splice(index, 1);
+        this.groupMru.unshift(group);
+    }
+
+    /**
+     * Upstream `EditorGroupView.openEditor`: a new editor that is the first in its group, with more than one
+     * group open, locks the group when its id is enabled in `workbench.editor.autoLockGroups`.
+     */
+    private autoLockGroup(group: EditorGroup, pane: IEditorPane): void {
+        if (group.editorCount !== 1 || this.groupsList.length < 2 || pane.editorId === undefined) return;
+        // Upstream `isObject` guard: a broken value (or no schema registered) means "lock nothing".
+        const enabled: unknown = this.configurationService.get("workbench.editor.autoLockGroups");
+        if (typeof enabled !== "object" || enabled === null) return;
+        if ((enabled as Readonly<Record<string, unknown>>)[pane.editorId] === true) group.lock(true);
+    }
+
     private makeGroupActive(group: EditorGroup): void {
         if (group === this.activeGroupValue) return;
         // Focus moving to another group ends the previous group's Ctrl+Tab series: the choice is committed to MRU.
         this.activeGroupValue.endMruCycle();
-        this.activeGroupValue = group;
+        this.setActiveGroup(group);
         // Tabs do not change, but active-editor consumers (status bar, host) must follow.
         this.fireActivePaneChanged(group.activePane);
         this.fireActiveGroupChanged(group);
@@ -386,6 +439,12 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
             group.onDidChangeMruCycle((state) => {
                 this.onDidChangeMruCycleEmitter.fire(state);
             }),
+            group.onDidInsertPane((pane) => {
+                this.autoLockGroup(group, pane);
+            }),
+            group.onDidChangeLocked(() => {
+                this.onDidChangeGroupLockedEmitter.fire(group);
+            }),
         ];
         this.groupSubscriptions.set(group.id, subscriptions);
         return group;
@@ -399,6 +458,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         if (index < 0) return;
         /* v8 ignore stop */
         this.groupsList.splice(index, 1);
+        this.groupMru = this.groupMru.filter((candidate) => candidate !== group);
         /* v8 ignore start -- createGroup sets up subscriptions for every group, the ?? [] fallback is unreachable */
         // Stryker disable next-line ArrayDeclaration: unreachable fallback for the same reason
         for (const subscription of this.groupSubscriptions.get(group.id) ?? []) subscription.dispose();
@@ -410,7 +470,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
         this.fireGroupsChanged({ kind: "removed", group, index });
         if (wasActive) {
             const neighbor = this.groupsList[Math.max(0, index - 1)];
-            this.activeGroupValue = neighbor;
+            this.setActiveGroup(neighbor);
             this.fireActivePaneChanged(neighbor.activePane);
             this.fireActiveGroupChanged(neighbor);
             this.focusGroupContent(neighbor);

@@ -222,7 +222,11 @@ CLI и `terraform init`; форматирование требует terraform �
 `createTerminal({ location: { viewColumn: ViewColumn.Beside }, isTransient: true })` — терминал
 вкладкой в группе справа; это и есть «правая панель» в VS Code. Вторичная боковая панель у
 расширения — только для webview-чата. Свой терминал через `tabGroups`/`TabInputTerminal` оно не
-ищет. `Ctrl+Esc` жив только с kitty/csi-u (в legacy это Esc).
+ищет. `Ctrl+Esc` жив только с kitty/csi-u (в legacy это Esc). Группу с `claude` запирает
+не расширение (его `claudeCode.lockEditorGroups` — только путь webview), а сам редактор:
+`workbench.editor.autoLockGroups.terminalEditor` (дефолт `true`), поэтому файлы из SCM, диффы и
+`openFile` CLI открываются в группе с файлами, а не рядом с Claude
+([EditorPart.md](workbench/EditorPart.md#группы-редакторов), «Блокировка группы»).
 
 **Грабли активации** (порядок падений): `NotebookCellOutputItem.error(...).mime` на верхнем уровне
 модуля (без класса модуль не грузится) → `window.registerUriHandler` → `context.extension.packageJSON`

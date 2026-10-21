@@ -2,6 +2,7 @@ import { TUIElement } from "@tuidom/core/dom/tuiElement";
 import { describe, expect, it } from "vitest";
 
 import { Uri } from "../../../../base/common/uri.ts";
+import { InMemoryConfigurationService } from "../../../../platform/configuration/common/inMemoryConfigurationService.ts";
 import type { ILogService } from "../../../../platform/log/common/iLogService.ts";
 import { NULL_LOG_SERVICE } from "../../../../platform/log/common/nullLogService.ts";
 import type { IEditorPane } from "../../../browser/parts/editor/iEditorPane.ts";
@@ -57,7 +58,7 @@ function recordingLog(sink: string[]): ILogService {
 
 function setup() {
     const logs: string[] = [];
-    const service = new EditorGroupsService(recordingLog(logs));
+    const service = new EditorGroupsService(recordingLog(logs), new InMemoryConfigurationService());
     const events: string[] = [];
     const groupEvents: IGroupsChangeEvent[] = [];
     const focusedGroups: EditorGroup[] = [];
@@ -400,6 +401,91 @@ describe("EditorGroupsService — strip operations", () => {
 
             expect(events).toEqual([]);
             expect(editorsChanged).toBe(0);
+        });
+    });
+
+    describe("addGroup (the group finder's new group)", () => {
+        it("goes before or after its anchor, with a source event, and does not become active", () => {
+            const { service, groupEvents } = setup();
+            const left = service.activeGroup;
+            const right = service.addGroup(left, "after")!;
+            const middle = service.addGroup(right, "before")!;
+            const tail = service.addGroup(right, "after")!;
+
+            expect(service.groups).toEqual([left, middle, right, tail]);
+            expect(groupEvents).toEqual([
+                { kind: "added", group: right, index: 1, source: left },
+                { kind: "added", group: middle, index: 1, source: right },
+                { kind: "added", group: tail, index: 3, source: right },
+            ]);
+            expect(service.activeGroup).toBe(left);
+            // The first group was active from the start: it precedes the never-activated ones.
+            expect(service.getGroupsByMru()).toEqual([left, middle, right, tail]);
+            const head = service.addGroup(left, "before")!;
+            expect(service.getGroupsByMru()).toEqual([left, head, middle, right, tail]);
+        });
+
+        it("no room: null and a log entry", () => {
+            const { service, logs } = setup();
+            service.canAddGroupHook = () => false;
+
+            expect(service.addGroup(service.activeGroup, "after")).toBeNull();
+            expect(service.groups).toHaveLength(1);
+            expect(logs).toEqual(["new group refused — not enough space"]);
+        });
+    });
+
+    describe("most recently active order", () => {
+        it("moving a tab to a neighbor makes that group the most recent", () => {
+            const { service } = setup();
+            const left = service.activeGroup;
+            open(left, "a");
+            open(left, "b");
+            service.newGroup("after", { focus: false });
+            const right = service.activeGroup;
+            open(right, "c");
+            service.focusGroup({ index: 0 }, { focus: false });
+
+            service.moveActiveEditorToGroup("next", { focus: false });
+
+            expect(service.activeGroup).toBe(right);
+            expect(service.getGroupsByMru()).toEqual([right, left]);
+        });
+
+        it("joinAllGroups: the surviving first group heads the order", () => {
+            const { service, events, focusedGroups } = setup();
+            const left = service.activeGroup;
+            open(left, "a");
+            service.newGroup("after", { focus: false });
+            open(service.activeGroup, "b");
+            events.length = 0;
+
+            service.joinAllGroups();
+
+            expect(service.getGroupsByMru()).toEqual([left]);
+            expect({ events, focusedGroups }).toEqual({
+                events: ["groups:removed", "pane:b", "group:1"],
+                focusedGroups: [],
+            });
+        });
+
+        it("a collapsed group leaves the order; the rest keep theirs, not the strip's", () => {
+            const { service } = setup();
+            const first = service.activeGroup;
+            open(first, "a");
+            service.newGroup("after", { focus: false });
+            const second = service.activeGroup;
+            open(second, "b");
+            service.newGroup("after", { focus: false });
+            const third = service.activeGroup;
+            open(third, "c");
+            service.focusGroup({ index: 0 }, { focus: false });
+            service.focusGroup({ index: 2 }, { focus: false });
+            expect(service.getGroupsByMru()).toEqual([third, first, second]);
+
+            second.closeTab(0);
+
+            expect(service.getGroupsByMru()).toEqual([third, first]);
         });
     });
 
