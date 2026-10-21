@@ -94,3 +94,32 @@
 | живой запуск | live run |
 | сценарий-демо | demo scenario |
 | урок #194 | lesson #194 |
+| экшен | action |
+| бинд (клавиши) | keybinding |
+| контрибьютор | contributor |
+| вклады расширения (`contributes`) | contributions |
+| субпроцесс (extension host) | subprocess |
+| ядро (сторона редактора) | core |
+| провод, форма на проводе | wire, wire shape |
+| зеркало документа | mirror |
+| реестр | registry |
+| заглушка / пустышка | stub / dummy |
+| сток | sink |
+| отказ (reject промиса, API-команды) | refusal |
+| отступление от эталона | deviation from upstream |
+| эквивалентный мутант | equivalent mutant |
+| магазин | marketplace |
+| мимо магазина | sideloaded |
+| вьюлет | viewlet |
+| призрак (inline completion) | ghost text |
+| пикер / квик-пик | picker / quick pick |
+| попап | popup |
+| бейдж | badge |
+| шим | shim |
+| ночная сборка | nightly |
+| прогрев | warm-up |
+| уборка | cleanup |
+| быстрый выход | fast path |
+| решение человека | maintainer's decision |
+| человек (отвечает на диалог) | user |
+| лексема | token |
