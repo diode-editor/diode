@@ -21,11 +21,11 @@
 - [x] `src/vs/editor`: browser, viewModel, model, tokens (1923) — #732
 - [x] `workbench/browser/parts` и `workbench/common` (2657) — #729
 - [x] `workbench/browser`: верхний уровень и actions (1503) — #733
-- [~] `workbench/services/extensions/node/extensionHost.*` (1308)
+- [x] `workbench/services/extensions/node/extensionHost.*` (1308) — #734
 - [~] `workbench/services/extensions`: остальное (1828)
 - [~] `workbench/services`: остальное (2563)
 - [~] `workbench/api`: browser, node, common a–l (1926)
-- [ ] `workbench/api/common` m–z (1595)
+- [~] `workbench/api/common` m–z (1595)
 - [ ] `workbench/contrib`: scm, terminal, tasks (1917)
 - [ ] `workbench/contrib`: files, extensions, diff, search, suggest, parameterHints, inlineCompletions, quickaccess (2236)
 - [ ] `workbench/contrib`: остальные фичи и прочее `workbench/` (1734)
