@@ -1,166 +1,92 @@
 # Extensions — VS Code-совместимые расширения
 
-Цель: загружать расширения по формату VS Code (`package.json` с `contributes`) — сначала встроенные, потом из `~/.diode/extensions/`. Архитектура должна быть готова к разгрузке (clean unload через `IDisposable`) и инкрементальному добавлению contribution points.
+Цель: загружать расширения по формату VS Code (`package.json` с `contributes`) — встроенные и из
+каталога пользователя, с разгрузкой через `IDisposable` и инкрементальным добавлением точек вклада.
 
-Готовое (Phase 1 языки/грамматики, Phase 8 extension host + completion, стоковый editorconfig-vscode) описано в [docs/arch/Extensions.md](../arch/Extensions.md). Ниже — только открытые фазы.
+Готовое — в справочниках: рантайм, extension host, активация, вклады — [docs/arch/Extensions.md](../arch/Extensions.md);
+магазин (реестр, формат, клиент) — [docs/arch/Marketplace.md](../arch/Marketplace.md); UI магазина —
+[docs/arch/workbench/ExtensionsView.md](../arch/workbench/ExtensionsView.md); готовность API —
+[docs/public/API-COVERAGE.md](../public/API-COVERAGE.md). Ниже — только открытое.
 
 ---
 
-## Phase 2 — Темы и иконки
+## Вклады (`contributes`)
 
-- [ ] `contributes.themes` — workbench colors + `tokenColors` (TextMate). Парсинг готов в `Theme/`, нужно подцепить к scanner. Детали плана — [Theming.md](Theming.md).
-- [ ] `contributes.iconThemes` / `productIconThemes` — file icons.
-- [ ] Theme switcher в DI.
+- [ ] `contributes.iconThemes` / `productIconThemes` — файловые иконки.
+- [ ] Language configuration: on-enter rules (smart indent после `{`, продолжение `//`-комментариев);
+  bracket matching, folding markers; `notIn` string/comment у auto-closing пар (у планировщика нет токенов).
+- [ ] `contributes.snippets` — парсер тел сниппетов, движок (табстопы, плейсхолдеры, трансформации),
+  интеграция с автодополнением; сниппет-сессия — [Suggest](Suggest.md).
+- [ ] Запись настройки в секцию языка (`WorkspaceConfiguration.update(…, overrideInLanguage)`) — пока отказ.
+- [ ] Конфликты точек вклада: сейчас резолвятся только по id расширения, не по перекрывающимся language ids.
 
-## Phase 3 — Language configuration runtime
+## Активация и lifecycle
 
-- [x] Загрузка `language-configuration.json` per language (#321, PR 1 → #324: `LanguageConfigurationService` — загрузка/парсинг JSONC/кэш по языку; comments, brackets, autoClosingPairs, surroundingPairs, autoCloseBefore).
-- [x] Комментирование по `comments` (#321, PR 2 → #325: `editor.action.commentLine` / `blockComment` / `addCommentLine` / `removeCommentLine`).
-- [x] Auto-closing pairs / surrounding pairs в редакторе (#321, PR 3 → #326: пара с кареткой внутри, typeover закрывающей, auto-surround выделения; `notIn` string/comment пока не учитывается — у планировщика нет токенов).
-- [ ] On-enter rules (smart indent после `{`, продолжение `//`-комментариев).
-- [ ] Bracket matching, folding markers.
+- [ ] Кнопки на тосте неудовлетворённой зависимости, как у эталона (`mainThreadExtensionService`):
+  «Install and Reload» (зависимость есть в магазине), «Reload Window» (установлена, но не загружена).
+- [ ] `extensionPack`: члены пака ставятся вместе с ним (несовместимый член — пропуск с логом, как у
+  эталона); страница расширения — вкладки Dependencies / Extension Pack.
+- [ ] `IDisposable`-цепочка: при выгрузке убираются все вклады (TokenizationRegistry, CommandRegistry, …).
+- [~] Горячий reload одного расширения (dispose → re-register) без перезапуска. Грубый ответ есть —
+  перезагрузка окна (`workbench.action.reloadWindow`); горячему нужна dispose-цепочка выше.
+- [ ] Остальные события активации (`onDebug`, `onFileSystem`, `onView`, …) — по мере появления поверхностей.
 
-## Phase 4 — Snippets
+## Extension host
 
-- [ ] `contributes.snippets` — JSON-парсер snippet bodies.
-- [ ] Snippet engine (tabstops, placeholders, transforms).
-- [ ] Интеграция с completion-механизмом.
-
-## Phase 5 — Commands и keybindings
-
-- [ ] `contributes.commands` — регистрация в `CommandRegistry` без runtime callback (заглушка пока нет extension host).
-- [ ] `contributes.menus` / `submenus` — пункты в menu bar / context menus.
-  (`contributes.keybindings` сделан — #194, `extensionKeybindingContributor.ts`.)
-
-## Phase 6 — Configuration
-
-Инфраструктура настроек готова, `contributes.configuration` расширений — в общем реестре ядра (см. [docs/arch/Configuration.md](../arch/Configuration.md), [docs/arch/Extensions.md](../arch/Extensions.md)). Остаётся:
-
-- [x] Persistent storage и запись из расширений (`WorkspaceConfiguration.update`) — цели user/workspace/папка, отказы эталона; см. [arch/Configuration.md](../arch/Configuration.md#слой-воркспейса-diodesettingsjson).
-- [ ] Запись в секцию языка (`update(…, overrideInLanguage)`) — пока отказ.
-- [x] Workspace-слой (`.diode/settings.json` в корне проекта).
-
-## Phase 7 — Активация и lifecycle
-
-- [x] `activationEvents`: `*`, `onStartupFinished`, `onLanguage:*`, `onCommand:*`, `workspaceContains:*` и lazy activation сделаны.
-      `onCommand:*` — заглушка-активатор в `CommandRegistry` (команда видна в палитре до активации, её исполнение
-      ждёт `activate()`), плюс НЕЯВНЫЕ события из `contributes.commands`, как в эталоне.
-      `workspaceContains:*` — две семантики одного префикса (проверка существования пути против поиска по дереву),
-      повод считается по расширению и пересчитывается на открытии папки. Расхождение по глобам и детали —
-      [arch/Extensions.md](../arch/Extensions.md#активация-activationevents).
-      `onUri:<id>` — вместе с `window.registerUriHandler` (поднимает расширение перед доставкой URL).
-      Остальные виды (`onDebug`, `onFileSystem`, `onView`, …) — по мере появления самих поверхностей.
-- [x] `extensionDependencies` на активации: зависимости поднимаются раньше зависимого; неизвестная, упавшая
-      или зацикленная зависимость — зависимое не активируется (лог, неизвестная — ещё и тост), как в эталоне.
-      Детали — [arch/Extensions.md](../arch/Extensions.md#активация-activationevents).
-- [ ] Кнопки на тосте неудовлетворённой зависимости, как у эталона (`mainThreadExtensionService`): «Install and
-      Reload» (зависимость есть в магазине), «Reload Window» (установлена, но не загружена). Сейчас тост без кнопок.
-- [x] Установка из магазина (CLI, страница расширения, `.vsix`) ставит `extensionDependencies` следом, как
-      `getAllDepsAndPackExtensions` эталона — [arch/Extensions.md](../arch/Extensions.md).
-- [ ] `extensionPack`: члены пака ставятся вместе с ним (несовместимый член — пропуск с логом, а не отказ, как у
-      эталона); страница расширения — вкладки Dependencies / Extension Pack.
-- [ ] `IDisposable`-цепочка: при unload корректно убираются все contributions (TokenizationRegistry, CommandRegistry, …).
-- [~] Reload расширения (dispose → re-register). Грубый ответ есть — **перезагрузка окна** (`workbench.action.reloadWindow`, `base/node/restartProcess.ts`): процесс поднимается заново с теми же аргументами, сессия восстанавливается, вклады сканируются на старте. Именно её просит магазин после установки. Горячий reload одного расширения без перезапуска — по-прежнему впереди и требует dispose-цепочки выше.
-
-## Phase 8 — [~] Extension host (ядро готово)
-
-Ядро (RPC поверх IPC, self-spawn, vscode-стаб, completion WP8, стоковый editorconfig) — сделано, см. [docs/arch/Extensions.md](../arch/Extensions.md). Остаётся:
-
-- [x] `activationEvents` triggers — вызов `activate(context)` в нужный момент: `*`/`onStartupFinished`/`onLanguage:*`/`onCommand:*`/`workspaceContains:*` (см. Phase 7).
-- [~] Расширение всего vscode-API: `commands`, `workspace`, `languages`, `window` за пределами `activeTextEditor.options`. Сделано: active-editor API (`window.activeTextEditor` / `onDidChangeActiveTextEditor` / `visibleTextEditors`); `languages.registerFoldingRangeProvider` (#194); **editor-write API** (`TextEditor.edit`/`selection(s)`, value-тип `Selection`, #194); **событие выделения** (`window.onDidChangeTextEditorSelection` с `kind` от жеста) и **активная тема** (`window.activeColorTheme` + `onDidChangeActiveColorTheme`). Осталось: `revealRange`, snippets, ESM.
-- [~] Изоляция исключений: упавшее расширение не валит host (RPC + try/catch; с #194 ещё и `unhandledRejection`-гард в субпроцессе — fire-and-forget вызов несуществующей команды больше не убивает host). Остаётся diagnostics.
-- [ ] **Свежесть текста документа в субпроцессе.** `editor.activeEditorChanged` / `editor.selectionChanged` несут только метаданные; полный текст (`upsertFull`) заезжает попутно — на запросах `languages.provideFoldingRanges` / `provideCompletionItems` и в снапшоте will-save. Без зарегистрированных провайдеров `document.getText()` в расширении отстаёт от буфера. Нужен настоящий `workspace.onDidChangeTextDocument` с инкрементальной синхронизацией.
+- [~] API `vscode.*` дальше: `revealRange`, snippets — по матрице [API-COVERAGE](../public/API-COVERAGE.md).
+- [~] Изоляция исключений: упавшее расширение не валит host (RPC + try/catch, `unhandledRejection`-гард);
+  осталась диагностика.
 - [ ] Маршрутизация ошибок RPC обратно в `editor.options =`, чтобы fire-and-forget не глотал.
 - [ ] ESM-расширения (`import * as vscode from "vscode"` через ESM loader hooks).
-- [ ] Restart subprocess'а при крэше (сейчас при exit'е extension host'а все RPC падают).
-- [x] **Каталоги хранения расширения** (`ExtensionContext.globalStorageUri`/`storageUri`/`logUri`
-      + депрекейтнутые строковые близнецы) — корни даёт хост из user-data, см.
-      [arch/Extensions.md](../arch/Extensions.md). Это был блокер №1 для класса
-      «свой движок + ghost text»: туда такие расширения кладут скачанный бинарь,
-      и без поля `activate()` падал на `.fsPath` раньше всего остального.
-- [x] **Команда `setContext`** — расширение публикует свои when-ключи; вычислитель
-      научился точечным именам (`publisher.thing`).
-- [x] **Активная тема и событие выделения** — `window.activeColorTheme` /
-      `onDidChangeActiveColorTheme` (без них `activate()` падал целиком) и
-      `window.onDidChangeTextEditorSelection` с `kind` от жеста.
-- [x] **Видимые сообщения с КНОПКАМИ** — последний блокер того же класса (замерено на
-      живом Supermaven 1.1.5: `showInformationMessage(msg, ...items)` — единственная
-      дверь к экрану его регистрации, команды в палитре для этого выбора у него нет).
-      Все четыре перегрузки `show*Message` + `MessageOptions.modal`/`detail`; заодно
-      настоящие `env.clipboard` и `env.openExternal` (путь платной подписки идёт
-      ссылкой в браузер). Поверхность и провод — [arch/workbench/Notifications.md](../arch/workbench/Notifications.md)
-      и [arch/Extensions.md](../arch/Extensions.md).
+- [ ] Перезапуск субпроцесса при крэше (сейчас при выходе extension host'а все RPC падают).
 
-## Phase 8b — UI-вклады: `contributes.viewsContainers` / `contributes.views`
+## UI-вклады: `viewsContainers` / `views`
 
-Ядро под это готово: `ViewsService` — общая модель container↔view с местами
-(`location: "sidebar" | "panel"`), заголовками, «⋯»-меню и переключателем
-видимости секций (см. [docs/arch/workbench/Views.md](../arch/workbench/Views.md)). Ей уже подчиняются все встроенные панели, так что
-контрибьютор расширений ложится на готовый контракт
-(`registerContainer`/`registerView`/`setViewBody`) без переделки модели.
+Модель `ViewsService` (container↔view, места `sidebar`/`panel`) готова и общая со встроенными панелями
+([arch/workbench/Views.md](../arch/workbench/Views.md)) — контрибьютор ложится на готовый контракт.
+Виды `type: "webview"` — ⛔ by design, как весь webview ([API-COVERAGE](../public/API-COVERAGE.md#не-будет-by-design)).
 
-- [~] Типы `IViewContribution` / `IViewContainerContribution` + раскомментировать
-      `views`/`viewsContainers` в `iExtensionManifest.ts`. Сделано: `IViewContribution`
-      и `views` (для команд `.focus` ниже); `viewsContainers` — нет.
-- [~] Команда `<viewId>.focus` на каждый вид (эталон `registerFocusViewAction`):
-      расширения зовут её перед сообщением своей панели (Supermaven: «Fix with
-      Supermaven», «Add to Chat»). Сделано: `extensionViewFocusCommands.ts` заводит
-      её на старте для всех видов манифеста; пока видов нет, исполнение — тост с
-      причиной (webview — «не будет в терминале», дерево — «пока не
-      поддерживается») и успех, а не «command not found». Отступление: в палитру
-      не попадает. Когда виды начнут рисоваться — команда показывает контейнер и
-      фокусирует вид (и будит `onView:<id>`).
-- Виды `type: "webview"` (чат Supermaven `supermaven-view`, фикстура
-  `chat-panel`) — ⛔ by design, как весь webview (матрица API,
-  [LSP.md](LSP.md) — таблица стабов): регистрация провайдера — no-op, команда
-  `.focus` — тост. Строить их не планируем.
-- [ ] `extensionViewsContributor.ts` рядом с `extensionKeybindingContributor.ts`
-      (декларативно, без host'а): контейнер + пустые секции с `body: null` и
-      welcome-текстом; набор берёт из `IExtensionService.extensions` в своём
-      DI-модуле, а не вызывается из `main.ts` (G8).
-- [ ] Команда показа контейнера расширения (`workbench.view.<id>`) —
-      activity bar'а нет, переключатель командный.
-- [ ] Активация `onView:<id>` (Phase 7 закрывает `onCommand:*`, это следующее).
-- [~] TreeView-API поверх RPC: `window.registerTreeDataProvider`/`createTreeView`,
-      `views.getChildren`/`getTreeItem` (pull, как у completion), рендер в
-      `TreeViewElement`. Сделано: закрытие типов в `vscode.d.ts` поднято
-      (`ThemeIcon`, `IconPath`, `TreeDataProvider`, `TreeItem*`, `TreeView*`,
-      `ViewBadge`; `TreeViewOptions` без `dragAndDropController`), значения
-      `TreeItem`/enum'ы/`ThemeIcon` — эталонные, а рантайм обеих функций —
-      заглушка `api/common/treeViewNoop.ts` (регистрация проходит, `TreeView`
-      инертный, одна строка в Output на view). Честная проводка заменяет
-      заглушку без смены поверхности. Первый стоковый потребитель — форк
-      bazel-java (`tihonove.bazel-java-tihonove`, view `bazelTaskOutline`).
-- [ ] `contributes.menus` для `view/title` и `view/item/context` — точки
-      `MenuId.ViewTitle` / `MenuId.ViewContainerTitle` и императивная фильтрация
-      по `menuContext` уже есть.
+- [~] Типы `IViewContribution` / `IViewContainerContribution` в `iExtensionManifest.ts`: `views` есть,
+  `viewsContainers` — нет.
+- [~] Команда `<viewId>.focus` на каждый вид (`extensionViewFocusCommands.ts`): пока видов нет —
+  тост с причиной и успех. Отступление: в палитру не попадает. Когда виды начнут рисоваться —
+  показывает контейнер, фокусирует вид и будит `onView:<id>`.
+- [ ] `extensionViewsContributor.ts` рядом с `extensionKeybindingContributor.ts` (декларативно, без
+  host'а): контейнер + пустые секции с welcome-текстом; набор — из `IExtensionService.extensions` в
+  своём DI-модуле, а не из `main.ts`.
+- [ ] Команда показа контейнера расширения (`workbench.view.<id>`) — activity bar'а нет.
+- [ ] Активация `onView:<id>`.
+- [~] TreeView-API поверх RPC (`registerTreeDataProvider`/`createTreeView`, pull как у completion,
+  рендер в `TreeViewElement`): типы подняты, рантайм — заглушка `api/common/treeViewNoop.ts`
+  (регистрация проходит, `TreeView` инертный). Первый стоковый потребитель — форк bazel-java
+  (`tihonove.bazel-java-tihonove`, view `bazelTaskOutline`).
 
-## Phase 9 — Внешние расширения
+## Магазин
 
-Инфраструктура сканирования user-префикса + `CompositeAssetAccess` + `mergeExtensions` готова (см. [docs/arch/Extensions.md](../arch/Extensions.md)). Остаётся:
-
-- [ ] Установка из `.vsix` (откуда берётся артефакт и как выбирается версия — см. Phase 10).
-- [ ] Версионирование (выбор последней из нескольких версий одного id), миграции (резолв версии — см. Phase 10).
-- [ ] Конфликты contribution points (сейчас резолвится только по id расширения, не по перекрывающимся language ids).
-- [ ] Активация user-расширений в ExtensionHost после Phase 7/8.
-
-## Phase 10 — Discovery и дистрибуция (registry)
-
-Модель пересмотрена: **курируемый registry-репозиторий** (наполнение PR-ами) вместо
-краулера по GitHub-топику. Дизайн, формат данных, статус и оставшиеся шаги —
-[Marketplace.md](Marketplace.md). Из старого дизайна сохранены артефакт/версия-
-ориентированность, `sha256`, матчинг `engines` и install-флоу поверх `installVsix`;
-сделаны файловый и HTTP источники, резолв совместимой версии и CLI `--registry` +
-`--install-extension <id>` (без флагов — из публичного реестра). UI магазина
-(вьюлет + страница расширения) — [ExtensionsView.md](ExtensionsView.md); там же
-зафиксировано, что до горячей перезагрузки вкладов (Phase 7) установка просит
-перезапуск.
+- [ ] **id без учёта регистра в `--install-extension` и в поиске меты.** Open VSX пишет `golang/Go`, а
+  id в манифесте — `golang.go`; реестр хранит id манифеста (сверка при установке побайтная), поэтому
+  `--install-extension golang.Go` отвечает «not found». В эталоне `ExtensionIdentifier` сравнивается
+  без регистра — клиенту нужен канонический id из `index.json` перед запросом `meta/<id>.json`
+  (Pages регистрозависим).
+- [ ] `categories` есть в `IRegistryIndexEntry`, но не в `IRegistryExtensionMeta` — вывести их сборке
+  реестра неоткуда, поле не заполняется (аддитивно чинится в `registryFormat.ts`).
+- [ ] Отзыв версии (`yanked`): иммутабельность запрещает удаление, а скомпрометированную версию надо
+  уметь снять.
+- [ ] Перезагрузка окна оставляет висеть процесс-супервизор (заблокирован в `spawnSync`, держит
+  терминал и память). Плата за то, что новое окно не дерётся за терминал с шеллом; альтернатива —
+  отдельный launcher на каждом старте, то есть лишние сотни миллисекунд к запуску всегда.
+- [ ] Строка курсора на странице расширения подсвечена (тело — `ListViewElement`, он всегда рисует
+  курсор); отключаемого курсора у виджета нет — если убирать, это задача в tuidom.
+- [ ] Метка вкладки при коллизиях: две страницы с одинаковым `displayName` от разных publisher'ов
+  дадут одинаковые метки (у файлов разводку делает таб-стрип по пути, здесь пути нет).
+- [ ] Нужна ли секция `INSTALLED` или достаточно бейджа `Installed` на записи каталога.
+- [ ] `--registry` на недоступный источник при старте: только ошибка во вьюлете или ещё и
+  предупреждение на старте.
+- [ ] Момент миграции на open-vsx как источник discovery — открыт (смена источника, не формата).
 
 ---
 
 ## Открытые вопросы
 
-- Совместимость API `vscode.*` — насколько глубоко имитировать (минимум для language extensions: workspace, languages, commands, window).
 - Unbundled vs bundled extensions при SEA-сборке.
-- Webview / notebook — отдельный большой подпроект.
-- Вопросы дистрибуции (миграция на openvsx, формат артефакта, доверие publisher) — [Marketplace.md](Marketplace.md).
+- Notebook — отдельный большой подпроект.

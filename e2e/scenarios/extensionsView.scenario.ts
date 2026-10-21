@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Магазин расширений в UI: вьюлет EXTENSIONS в сайдбаре и страница расширения
-// отдельной вкладкой (docs/TODO/ExtensionsView.md).
+// отдельной вкладкой (docs/arch/workbench/ExtensionsView.md).
 //
 // Реестр — файловая фикстура, а не публичный магазин: демо не должно зависеть
 // ни от сети, ни от того, что сейчас опубликовано. Состояния карточек в ней

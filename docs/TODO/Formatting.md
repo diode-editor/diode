@@ -39,7 +39,7 @@ HTML не покрыты никем — ровно ту дыру и закрыв
 
 `esbenp.prettier-vscode` в курируемый реестр магазина. Затрагивает три
 репозитория (реестр, сайт, витрина) — порядок и грабли в
-[Marketplace.md](Marketplace.md).
+[Marketplace.md](../arch/Marketplace.md).
 
 Перед записью в реестр — **спайк на живом расширении** по образцу
 [JavaLSP](JavaLSP.md) и спайка Supermaven: поднять `.vsix` руками, дойти до

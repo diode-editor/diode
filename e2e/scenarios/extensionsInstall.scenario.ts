@@ -7,7 +7,7 @@ import { createRegistryFixture } from "../helpers/registryFixture.ts";
 import { defineScenario, repoRoot } from "./framework.ts";
 
 // Установка расширения из UI: страница с кнопками и её состояние после
-// установки — приглашение перезагрузить окно (docs/TODO/ExtensionsView.md).
+// установки — приглашение перезагрузить окно (docs/arch/workbench/ExtensionsView.md).
 //
 // Реестр — файловая фикстура с НАСТОЯЩИМ `.vsix`: демо ставит расширение
 // по-настоящему, поэтому ни сети, ни того, что опубликовано в магазине, здесь

@@ -33,7 +33,7 @@ import type {
  * Каталог кэшируется в памяти на сессию: индекс тянется один раз при первом
  * показе вьюлета, фильтрация локальная, а перечитывание — явный Refresh.
  * Дискового кэша с TTL нет сознательно — это отдельный слой хранения со своей
- * инвалидацией (см. docs/TODO/ExtensionsView.md).
+ * инвалидацией (см. docs/arch/workbench/ExtensionsView.md).
  */
 export class ExtensionsWorkbenchService extends Disposable implements IExtensionsWorkbenchService {
     private readonly onDidChangeEmitter = this.register(new Emitter<void>());

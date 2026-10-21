@@ -23,7 +23,7 @@ DI-модули и профили — `src/vs/diode/modules/` (см. [../DI.md](
 | [QuickInput.md](workbench/QuickInput.md) | общий виджет квик-инпута, Quick Open и его провайдеры, разбор запроса |
 | [Explorer.md](workbench/Explorer.md) | дерево файлов, файловые операции, bulk edit |
 | [Notifications.md](workbench/Notifications.md) | тосты и вопросы, внешние ссылки, диалоги |
-| [ExtensionsView.md](workbench/ExtensionsView.md) | магазин расширений в UI |
+| [ExtensionsView.md](workbench/ExtensionsView.md) | магазин расширений в UI (реестр и клиент — [Marketplace.md](Marketplace.md)) |
 | [KeybindingsEditor.md](workbench/KeybindingsEditor.md) | редактор Keyboard Shortcuts и user-слой биндингов |
 | [Tasks.md](workbench/Tasks.md) | задачи (`contrib/tasks`) |
 | [Terminal.md](workbench/Terminal.md) | встроенный терминал: PTY + эмулятор, упаковка node-pty, вкладки, терминал в редакторе, цвета |

@@ -85,7 +85,7 @@ Open in Terminal`) открывает `claude` **вкладкой редакто
 
 Родственные документы:
 [VISION.md](../VISION.md) (направления B и C), [IntegratedTerminal.md](IntegratedTerminal.md),
-[DiffEditable.md](DiffEditable.md), [Marketplace.md](Marketplace.md),
+[DiffEditable.md](DiffEditable.md), [Marketplace.md](../arch/Marketplace.md),
 матрица [API-COVERAGE.md](../public/API-COVERAGE.md).
 
 ## Решение

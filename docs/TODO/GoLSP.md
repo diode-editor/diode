@@ -3,7 +3,7 @@
 Статус: **[ ] спайк сделан, пул задач ниже.** Маршрут тот же, что у Java и Python:
 настоящий `golang.go` с open-vsx как есть, ни строчки нашего кода расширения;
 gopls поднимает стоковый `vscode-languageclient` внутри расширения. Родственные
-документы: [LSP.md](LSP.md), [JavaLSP.md](JavaLSP.md), [Marketplace.md](Marketplace.md).
+документы: [LSP.md](LSP.md), [JavaLSP.md](JavaLSP.md), [Marketplace.md](../arch/Marketplace.md).
 
 **Решения человека (октябрь 2026):**
 
@@ -136,7 +136,7 @@ gopls жив, даже когда активация падает (дыра №1
       >=0.9.2` (волна A вошла после 0.9.1; раньше активация падала), `support: partial`
       (сайт#19). id — `golang.go`, как в манифесте vsix, хотя Open VSX пишет `golang/Go`:
       `--install-extension golang.Go` у нас пока «not found» (задача в
-      [Marketplace.md](Marketplace.md)). Смоук в `e2e/marketplace/checks.ts` — undercurl
+      [Marketplace.md](../arch/Marketplace.md)). Смоук в `e2e/marketplace/checks.ts` — undercurl
       gopls на `main.go` фикстуры с заранее собранным gopls в GOBIN; без Go кейс
       пропускается полем `requires`. Мост `fetchStockVsixOrOpenVsx` удалён, e2e и сценарий
       ставят расширение по id.
