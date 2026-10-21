@@ -9,7 +9,6 @@ import { KeybindingRegistry, parseChord, parseKeybinding } from "../../keybindin
 import type { CommandAction } from "./commandAction.ts";
 import { combineWhen, registerAction } from "./commandAction.ts";
 
-// Maps the structured resolveKey result to a command id (or undefined).
 function resolve(
     keybindings: KeybindingRegistry,
     event: KeyboardEventLike,
@@ -232,7 +231,6 @@ describe("registerAction", () => {
         ctx.set("tier", "legacy");
         expect(resolve(keybindings, KEY("ArrowRight", { altKey: true }), ctx)).toBe("wordRight");
 
-        // The unconditional ctrl+right works on every tier.
         ctx.set("tier", "kitty");
         expect(resolve(keybindings, KEY("ArrowRight", { ctrlKey: true }), ctx)).toBe("wordRight");
     });

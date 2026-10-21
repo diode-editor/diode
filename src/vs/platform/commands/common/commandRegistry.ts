@@ -8,7 +8,6 @@ export const CommandRegistryDIToken = token<CommandRegistry>("CommandRegistry");
 
 export type CommandHandler = (...args: unknown[]) => unknown;
 
-/** Вернул ли хендлер что-то ожидаемое (промис команды, объявленной `async`). */
 function isThenable(value: unknown): value is PromiseLike<unknown> {
     return typeof (value as PromiseLike<unknown> | null)?.then === "function";
 }
@@ -20,30 +19,15 @@ interface CommandEntry {
     category?: string;
 }
 
-/** Запись реестра для потребителей, которые перечисляют команды (палитра). */
 export interface ICommandSnapshot {
     readonly id: string;
     readonly title: string;
-    /**
-     * When-выражение доступности, если объявлено экшеном. Реестр его НЕ
-     * проверяет — принуждением занимается сам хендлер (`registerAction`);
-     * здесь это метаданные для тех, кто рисует список команд.
-     */
+    /** Реестр его НЕ проверяет — принуждает сам хендлер (`registerAction`); здесь только метаданные. */
     readonly enablement?: string;
-    /**
-     * Группа команды (`category` из `contributes.commands`: `"Java"`). В САМ
-     * заголовок не входит — её приклеивает тот, кто рисует список команд
-     * ({@link commandPaletteLabel}). Так и в VS Code: в палитре пункт выглядит
-     * как «Java: Switch to Standard Mode», а пункт меню или подпись в
-     * статус-баре остаются без префикса.
-     */
+    /** В заголовок не входит, как в VS Code: префикс только в палитре ({@link commandPaletteLabel}). */
     readonly category?: string;
 }
 
-/**
- * Подпись команды для палитры: `category: title`, как в VS Code («Java: Switch
- * to Standard Mode»). Без категории — сам заголовок.
- */
 export function commandPaletteLabel(cmd: Pick<ICommandSnapshot, "title" | "category">): string {
     return cmd.category === undefined || cmd.category === "" ? cmd.title : `${cmd.category}: ${cmd.title}`;
 }
@@ -51,11 +35,6 @@ export function commandPaletteLabel(cmd: Pick<ICommandSnapshot, "title" | "categ
 export class CommandRegistry implements IDisposable {
     private entries = new Map<string, CommandEntry>();
 
-    /**
-     * Логгер отказов асинхронных команд. Не задан — отказ проглатывается молча
-     * (минимальные контейнеры тестов); процесс не падает в любом случае, см.
-     * {@link execute}.
-     */
     public constructor(private readonly logger: ILogger = NULL_LOGGER) {}
 
     public register(
@@ -76,18 +55,10 @@ export class CommandRegistry implements IDisposable {
     }
 
     /**
-     * Запускает команду. Возвращает то, что вернул её хендлер, — включая промис
-     * асинхронной команды: тот, кто его ждёт (мост расширений через
-     * `commands.executeCommand`), обязан увидеть настоящий отказ.
-     *
-     * Здесь же — **единственная общая точка, где у этого промиса появляется
-     * обработчик отказа**. Команды почти все асинхронные, а зовут их «выстрелил
-     * и забыл»: диспетчер клавиш, пункт меню, клик по статус-бару, палитра —
-     * ни один из них результат не ждёт. Необработанный отказ Node считает
-     * фатальным и убивает процесс, то есть закрывает редактор со всеми
-     * несохранёнными буферами из-за неудачи ОДНОЙ команды (так F12 в
-     * `jdt:`-ресурс уносил весь редактор). Обработчик вешаем на исходный промис,
-     * а не подменяем его: отказ гасится только для забывших, ждущим он доедет.
+     * Единственная общая точка, где у промиса команды появляется обработчик отказа:
+     * зовут их «выстрелил и забыл», а необработанный отказ убивает процесс со всеми
+     * несохранёнными буферами (так F12 в `jdt:`-ресурс уносил редактор). Обработчик
+     * вешаем на исходный промис, а не подменяем его: ждущему (`executeCommand`) отказ доедет.
      */
     public execute(id: string, ...args: unknown[]): unknown {
         const entry = this.entries.get(id);
@@ -105,7 +76,6 @@ export class CommandRegistry implements IDisposable {
         return this.entries.has(id);
     }
 
-    /** Человекочитаемый title команды (для label пунктов меню), или undefined. */
     public getTitle(id: string): string | undefined {
         return this.entries.get(id)?.title;
     }

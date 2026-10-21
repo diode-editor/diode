@@ -56,7 +56,6 @@ describe("isValidConfigurationValue", () => {
         expect(isValidConfigurationValue(timeout, 10)).toBe(true);
         expect(isValidConfigurationValue(timeout, 0)).toBe(false);
         expect(isValidConfigurationValue(timeout, 11)).toBe(false);
-        // Без границ — любое конечное число, в том числе отрицательное.
         expect(isValidConfigurationValue(schema({ type: "number" }), -5)).toBe(true);
     });
 });
@@ -142,7 +141,6 @@ describe("filterWorkspaceSettings", () => {
             "[go]": { editor: { tabSize: 8 } },
         });
         expect([...result.excludedKeys].sort()).toEqual(["[go].terminal.modes", "terminal.tier", "update.mode"]);
-        // Исходная модель не тронута.
         expect(model.get("terminal.tier")).toBe("kitty");
     });
 
@@ -165,7 +163,6 @@ describe("filterWorkspaceSettings", () => {
             const picked = pickRegisteredSettings(model, scopes, ["application"]);
             expect(picked.toRaw()).toEqual({ update: { mode: "none" }, "[go]": { update: { mode: "manual" } } });
             expect(picked.getOverrideIdentifiers()).toEqual(["go"]);
-            // Исходная модель не тронута.
             expect(model.get("x.y")).toBe(1);
         });
 

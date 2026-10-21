@@ -1,21 +1,7 @@
 /**
- * Иммутабельная модель одного слоя настроек или результата слияния.
- *
- * Внутри — глубоко вложенный объект, нормализованный к одной форме:
- * любые ключи с точками (`"editor.tabSize": 2`) при создании
- * разворачиваются в `{ editor: { tabSize: 2 } }`. Лукапы по точечному
- * ключу просто идут по вложенной структуре.
- *
- * Слияние: глубоко по объектам, для примитивов/массивов выигрывает
- * правый операнд (последующий слой). Это совпадает с поведением VS Code:
- * массивы не конкатенируются, объекты сливаются рекурсивно.
- *
- * Секции языков (`"[go]": { "editor.insertSpaces": false }`, в том числе
- * сдвоенные `"[javascript][typescript]"`) хранятся отдельно от основного дерева
- * — как `overrides` у `ConfigurationModel` vscode — и сливаются послойно так же.
- * Значение для языка даёт {@link override}: основное дерево, поверх — секция
- * языка. Применяется к уже слитой модели всех слоёв, поэтому `[lang]` из
- * любого слоя (и из дефолтов расширения) бьёт плоское значение любого слоя.
+ * Слияние как у VS Code: массивы не конкатенируются, объекты сливаются рекурсивно.
+ * Секции языков хранятся отдельно от основного дерева; {@link override} применяется
+ * к уже слитой модели, поэтому `[lang]` любого слоя бьёт плоское значение любого слоя.
  */
 export class ConfigurationModel {
     public static readonly EMPTY = new ConfigurationModel({}, new Map());
@@ -28,11 +14,7 @@ export class ConfigurationModel {
         this.overrides = overrides;
     }
 
-    /**
-     * Создаёт модель из произвольного результата `JSON.parse`. Не-объекты
-     * (включая `null`, массивы и примитивы на верхнем уровне) трактуются
-     * как «пусто» — для слоя настроек это всегда корневой объект.
-     */
+    /** Не-объект на верхнем уровне — пустая модель. */
     public static fromRaw(raw: unknown): ConfigurationModel {
         if (!isPlainObject(raw)) return ConfigurationModel.EMPTY;
         const contents: Record<string, unknown> = {};
@@ -67,38 +49,29 @@ export class ConfigurationModel {
         return new ConfigurationModel(acc, overrides);
     }
 
-    /** Идентификаторы языков, у которых в модели есть своя секция. */
     public getOverrideIdentifiers(): string[] {
         return [...this.overrides.keys()];
     }
 
-    /** Секция языка как самостоятельная модель (без основного дерева); пустая, если секции нет. */
+    /** Без основного дерева. */
     public getOverride(identifier: string): ConfigurationModel {
         const section = this.overrides.get(identifier);
         return section === undefined ? ConfigurationModel.EMPTY : new ConfigurationModel(section, new Map());
     }
 
-    /**
-     * Модель для языка: основное дерево, поверх — секция `identifier` (аналог
-     * `ConfigurationModel.override` vscode). Без секции — та же модель.
-     */
     public override(identifier: string): ConfigurationModel {
         const section = this.overrides.get(identifier);
         if (section === undefined) return this;
         return new ConfigurationModel(deepMerge(this.tree, section), new Map());
     }
 
-    /**
-     * Сырая форма слоя: основное дерево плюс секции `"[lang]"` — то, что едет в
-     * extension host и разбирается там тем же {@link fromRaw}.
-     */
+    /** Обратима через {@link fromRaw}: так слой едет в extension host. */
     public toRaw(): Record<string, unknown> {
         const raw: Record<string, unknown> = { ...this.tree };
         for (const [identifier, section] of this.overrides) raw[`[${identifier}]`] = section;
         return raw;
     }
 
-    /** Точечный лукап. */
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
     public get<T>(key: string): T | undefined {
         const segments = splitKey(key);
@@ -112,13 +85,12 @@ export class ConfigurationModel {
         return current as T;
     }
 
-    /** Возвращает корень (без аргумента) или поддерево по dotted-section. */
     public getValue(section?: string): unknown {
         if (section === undefined || section.length === 0) return this.tree;
         return this.get<unknown>(section);
     }
 
-    /** Плоский список всех «листовых» dotted-ключей. Используется для diff. */
+    /** Только листовые dotted-ключи. */
     public collectKeys(): string[] {
         const out: string[] = [];
         collectKeys(this.tree, "", out);
@@ -128,10 +100,9 @@ export class ConfigurationModel {
 
 type ReadonlyTree = Readonly<Record<string, unknown>>;
 
-/** `"[go]"` → `["go"]`, `"[javascript][typescript]"` → оба; обычный ключ → `null`. */
+/** Как `OVERRIDE_PROPERTY_REGEX` vscode: `"[go]"`, сдвоенный `"[javascript][typescript]"`. */
 const OVERRIDE_KEY = /^(\[[^\]]+\])+$/;
 
-/** Ключ секции языка (`"[go]"`, `"[a][b]"`) — как `OVERRIDE_PROPERTY_REGEX` vscode. */
 export function isOverrideKey(key: string): boolean {
     return OVERRIDE_KEY.test(key);
 }
@@ -158,16 +129,9 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Разворачивает dotted-ключи **верхнего уровня** слоя в вложенные объекты.
- * При коллизии «строковый ключ + объект» побеждает позднее объявленный
- * (последовательность ключей в объекте, как и в JSON, неупорядочена —
- * поведение задокументировано, рассчитывать на порядок нельзя).
- *
- * Вглубь значения нормализация НЕ идёт — ровно как `toValuesTree` в VS Code.
- * Иначе map-настройки, у которых ключ сам по себе данные, разваливались бы:
- * `"files.watcherExclude": { ".git/objects/**": true }` превратился бы в
- * `{ "": { "git/objects/**": true } }`, а `files.associations` — в мусор на
- * каждом `*.ext`. Точка внутри значения — это точка, а не разделитель пути.
+ * Только dotted-ключи **верхнего уровня**, вглубь значения — НЕ, как `toValuesTree`
+ * VS Code: иначе `"files.watcherExclude": { ".git/objects/**": true }` развалился бы
+ * в `{ "": { "git/objects/**": true } }`. Точка внутри значения — не разделитель пути.
  */
 function normalizeNode(raw: Record<string, unknown>): Record<string, unknown> {
     const result: Record<string, unknown> = {};

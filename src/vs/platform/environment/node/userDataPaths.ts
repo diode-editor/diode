@@ -4,9 +4,7 @@ import { PROFILE_ID_PATTERN, RESERVED_PROFILE_ID } from "../../userDataProfile/c
 import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextService.ts";
 
 /**
- * Резолв путей user data в стиле VS Code. Полностью pure — никакого I/O.
- *
- * Раскладка (см. docs/arch/Configuration.md, docs/arch/State.md):
+ * Раскладка (docs/arch/Configuration.md, docs/arch/State.md):
  *
  *     <root>/
  *       extensions/                      ← внешние расширения, плоско (переносится `--extensions-dir`)
@@ -33,104 +31,49 @@ import type { WorkspaceId } from "../../workspace/common/iWorkspaceContextServic
  *               globalStorage/
  *               workspaceStorage/
  *
- * Default-профиль использует файлы прямо в `User/`. Именованный кладёт их в
- * `User/profiles/<id>/`: сюда приходит **id** (имя каталога) из реестра
- * профилей — соответствие имени профиля и каталога знает `IUserDataProfilesService`,
- * а не резолвер путей.
+ * Сюда приходит **id** профиля (имя каталога), а не имя: соответствие знает
+ * `IUserDataProfilesService`.
  */
 export interface IUserDataPaths {
-    /** Корень — `<userDataDir>` (то, что было передано через `--user-data-dir` или дефолт `~/.diode`). */
     readonly root: string;
-    /** Каталог внешних расширений: `<root>/extensions` либо override `--extensions-dir`. */
     readonly extensionsDir: string;
-    /** `<root>/user-data`. */
     readonly userDataDir: string;
-    /** `<root>/user-data/User`. */
     readonly userDir: string;
-    /** `<userDir>/profiles` — родитель каталогов именованных профилей (`profilesHome` эталона). */
     readonly profilesHome: string;
-    /**
-     * `<userDir>/globalStorage/storage.json` — состояние области `application`
-     * (см. docs/arch/State.md): один файл на установку, вне профиля, — реестр
-     * профилей и привязки к воркспейсам. Тот же путь, что у эталона.
-     */
+    /** Один на установку, вне профиля: реестр профилей и привязки к воркспейсам. */
     readonly applicationStateFile: string;
-    /** Id (каталог) активого профиля. `"default"` для Default-профиля. */
+    /** Id (каталог) активного профиля. */
     readonly profileName: string;
-    /** `true`, если активен Default-профиль. */
     readonly isDefaultProfile: boolean;
-    /** Каталог настроек активного профиля: `userDir` (default) или `userDir/profiles/<name>`. */
     readonly profileDir: string;
-    /** `<profileDir>/settings.json` — основной settings.json активного профиля. */
     readonly settingsFile: string;
-    /** `<profileDir>/keybindings.json`. */
     readonly keybindingsFile: string;
-    /**
-     * `<profileDir>/globalState.json` — машинное состояние UI/сессии в области
-     * `global` (см. docs/arch/State.md). Per-profile: смена `--profile` даёт
-     * отдельный global-state. Отдельно от человекочитаемого `settings.json`.
-     */
     readonly globalStateFile: string;
     /**
-     * `<profileDir>/secrets.json` — секреты расширений
-     * (`ExtensionContext.secrets`), по одному лотку на расширение. Per-profile,
-     * как `globalStateFile`: токены рабочего профиля не должны быть видны из
-     * личного. **Открытым текстом под правами `0600`** — связки ключей ОС у нас
-     * нет, и замалчивать это нельзя (см. `extensionSecretsStore.ts`).
+     * Per-profile: токены рабочего профиля не должны быть видны из личного.
+     * **Открытым текстом под `0600`** — связки ключей ОС у нас нет (`extensionSecretsStore.ts`).
      */
     readonly secretsFile: string;
-    /**
-     * `<profileDir>/workspaceStorage` — корень per-project состояния. Конкретный
-     * файл проекта резолвится {@link resolveWorkspaceStatePath}. Под `profileDir`
-     * (а не `userDir`), чтобы именованные профили были изолированы так же, как
-     * `globalStateFile`.
-     */
+    /** Под `profileDir`, а не `userDir`: именованные профили изолированы. */
     readonly workspaceStorageDir: string;
-    /**
-     * `<profileDir>/globalStorage` — родитель приватных каталогов расширений в
-     * области `global` (`ExtensionContext.globalStorageUri` = `<этот>/<extId>`).
-     * Под `profileDir` — как `globalStateFile`, и как `User/globalStorage` в
-     * VS Code (там он тоже переезжает вместе с профилем).
-     */
     readonly globalStorageDir: string;
-    /**
-     * `<userDataDir>/logs` — родитель каталогов логов расширений
-     * (`ExtensionContext.logUri` = `<этот>/<extId>`). Вне профиля — как `logs/`
-     * рядом с `User/` в VS Code. Отличие от эталона: у нас без подкаталога
-     * сессии (`logs/<timestamp>/`) — ротации логов по запускам у нас нет.
-     */
+    /** Вне профиля. Отличие от эталона: без подкаталога сессии `logs/<timestamp>/` — ротации по запускам нет. */
     readonly logsDir: string;
 }
 
-/** Id Default-профиля для путей; реестр профилей его именованным не выдаёт. */
+/** Реестр профилей этот id именованным не выдаёт. */
 export const DEFAULT_PROFILE_NAME = RESERVED_PROFILE_ID;
 
-/** Имя корневого каталога user data в `homedir()`. */
 export const DEFAULT_USER_DATA_ROOT_NAME = ".diode";
 
 export interface IResolveUserDataPathsOptions {
-    /** Абсолютный путь — если задан, замещает дефолт `~/.diode`. */
     readonly userDataDir?: string;
-    /**
-     * Id активного профиля — имя его каталога в `User/profiles/`. По умолчанию
-     * `"default"` (файлы прямо в `User/`). Имя пользователя в id превращает
-     * реестр профилей (`profileIdFromName`), сюда приходит уже готовый.
-     */
+    /** Id, не имя: имя в id превращает реестр профилей (`profileIdFromName`). */
     readonly profile?: string;
-    /**
-     * Каталог внешних расширений (`--extensions-dir`). Замещает дефолт
-     * `<root>/extensions`, не трогая остальную раскладку: расширения можно
-     * держать отдельно от настроек и состояния, как в VS Code.
-     */
     readonly extensionsDir?: string;
-    /** Хоум-каталог пользователя. Передаётся явно ради тестируемости. */
     readonly homedir: string;
 }
 
-/**
- * Резолвит набор путей user data. Не создаёт каталоги, не читает FS.
- * Все возвращаемые пути — абсолютные (через `path.resolve`).
- */
 export function resolveUserDataPaths(options: IResolveUserDataPathsOptions): IUserDataPaths {
     const profileName = normalizeProfileName(options.profile);
     const root =
@@ -168,34 +111,13 @@ export function resolveUserDataPaths(options: IResolveUserDataPathsOptions): IUs
 }
 
 /**
- * Резолвит каталог конкретного проекта внутри `workspaceStorageDir`. Ключ
- * каталога — {@link WorkspaceId}, идентичность воркспейса (её считает
- * `computeWorkspaceId`, `platform/workspace/common/workspaceId.ts`; формат на
- * диске — `workspaceStorage/<id>/`, как в VS Code). Pure, без I/O.
- *
- * Функция принимает именно **id**, а не путь папки: адресация per-workspace
- * сторов не должна знать, из чего идентичность выведена — иначе подмена «набор
- * папок / `.code-workspace` = один проект» превращается в раскопки по всем
- * вызывающим (см. `docs/TODO/MultiRoot.md`, M8).
- *
- * В каталоге лежит и наше `state.json` ({@link resolveWorkspaceStatePath}), и
- * приватные каталоги расширений (`<id>/<extId>` = `ExtensionContext.storageUri`) —
- * ровно как в VS Code, где рядом с `state.vscdb` живут те же `<extId>`.
- *
- * @param workspaceStorageDir корень хранилища (`IUserDataPaths.workspaceStorageDir`)
- * @param workspaceId идентичность воркспейса
+ * Принимает **id**, а не путь папки: адресация сторов не должна знать, из чего
+ * идентичность выведена (`docs/TODO/MultiRoot.md`, M8).
  */
 export function resolveWorkspaceStorageDir(workspaceStorageDir: string, workspaceId: WorkspaceId): string {
     return path.join(workspaceStorageDir, workspaceId);
 }
 
-/**
- * Резолвит путь к state.json конкретного проекта внутри `workspaceStorageDir`.
- * Pure, без I/O.
- *
- * @param workspaceStorageDir корень хранилища (`IUserDataPaths.workspaceStorageDir`)
- * @param workspaceId идентичность воркспейса
- */
 export function resolveWorkspaceStatePath(workspaceStorageDir: string, workspaceId: WorkspaceId): string {
     return path.join(resolveWorkspaceStorageDir(workspaceStorageDir, workspaceId), "state.json");
 }

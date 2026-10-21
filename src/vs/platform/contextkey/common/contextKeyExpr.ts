@@ -1,6 +1,6 @@
 import { scanWhen, type WhenToken } from "./scanner.ts";
 
-/** Значение контекст-ключа. Массив и объект нужны оператору `in` (`resource in someList`). */
+/** Массив и объект — для оператора `in`. */
 export type ContextKeyValue =
     | boolean
     | string
@@ -9,16 +9,12 @@ export type ContextKeyValue =
     | Readonly<Record<string, unknown>>
     | undefined;
 
-/** Источник значений для вычисления: незнакомый ключ — просто `undefined`, реестра имён нет. */
+/** Реестра имён нет: незнакомый ключ — просто `undefined`. */
 export interface IContext {
     getValue(key: string): ContextKeyValue;
 }
 
-/**
- * Разобранное when-выражение. Узлы и их семантика — как у upstream
- * `vs/platform/contextkey/common/contextkey.ts`, но без нормализации: дерево
- * повторяет строку (скобки сняты, `a == true` свёрнуто в `a`, как у upstream).
- */
+/** Узлы — как у upstream `contextkey.ts`, но без нормализации: дерево повторяет строку. */
 export type ContextKeyExpression =
     | { readonly type: "true" }
     | { readonly type: "false" }
@@ -44,16 +40,14 @@ const COMPARISONS: Partial<Record<WhenToken["type"], ComparisonType>> = {
     ">=": "greaterEquals",
 };
 
-/** Ошибка разбора — один объект-маркер: разбор без восстановления, текст ошибки никому не нужен. */
 const PARSE_ERROR = new Error("when: parse error");
 
 /**
- * Рекурсивный спуск по грамматике upstream `Parser`:
+ * Грамматика upstream `Parser`:
  * `or := and ('||' and)*`, `and := term ('&&' term)*`,
  * `term := '!' (KEY | true | false | '(' or ')') | primary`,
  * `primary := true | false | '(' or ')' | KEY [op value | '=~' REGEX | 'not' 'in' value]`.
- * Без восстановления после ошибок: любая ошибка — `undefined`. Лексему `eof`
- * парсер никогда не потребляет, поэтому курсор не выходит за массив.
+ * Лексему `eof` парсер никогда не потребляет, поэтому курсор не выходит за массив.
  */
 class Parser {
     private current = 0;
@@ -210,11 +204,7 @@ function comparisonExpression(type: ComparisonType, key: string, text: string): 
     return { type, key, value: Number.isNaN(number) ? text : number };
 }
 
-/**
- * Разбирает when-строку; при ошибке лексики или синтаксиса — `undefined`.
- * Отдельной проверки лексем `error` нет: ни одно правило грамматики их не
- * принимает, так что разбор на них и так падает.
- */
+/** Отдельной проверки лексем `error` нет: ни одно правило грамматики их не принимает. */
 // Stryker disable BlockStatement: эквивалентный — пустой catch тоже даёт undefined
 export function parseWhen(input: string): ContextKeyExpression | undefined {
     try {
@@ -225,14 +215,9 @@ export function parseWhen(input: string): ContextKeyExpression | undefined {
 }
 // Stryker restore BlockStatement
 
-/**
- * Кэш разбора по строке. Общий на модуль законно: результат — чистая функция
- * строки, дерево неизменяемо, а набор строк ограничен регистрациями (встроенные
- * экшены, бинды расширений и `keybindings.json`), так что вытеснение не нужно.
- */
+/** Без вытеснения: дерево неизменяемо, а набор строк ограничен регистрациями. */
 const parseCache = new Map<string, ContextKeyExpression | undefined>();
 
-/** {@link parseWhen} с кэшем: каждая строка разбирается один раз за процесс. */
 export function deserializeWhen(input: string): ContextKeyExpression | undefined {
     if (parseCache.has(input)) return parseCache.get(input);
     const expr = parseWhen(input);
@@ -240,7 +225,7 @@ export function deserializeWhen(input: string): ContextKeyExpression | undefined
     return expr;
 }
 
-/** Вычисляет выражение над контекстом. Семантика узлов — upstream (loose `==`, `parseFloat` в сравнениях). */
+/** Семантика upstream: loose `==`, `parseFloat` в сравнениях. */
 export function evaluateWhen(expr: ContextKeyExpression, context: IContext): boolean {
     switch (expr.type) {
         case "true":
@@ -289,10 +274,7 @@ function compare(type: ComparisonType, actual: ContextKeyValue, expected: number
     }
 }
 
-/**
- * Текст значения для регекса и сравнений. Скаляр и `undefined` — как `String()`
- * у upstream; у массива и объекта (значения для `in`) текста нет — пустая строка.
- */
+/** У массива и объекта (значения для `in`) текста нет. */
 function scalarText(value: ContextKeyValue): string {
     return typeof value === "object" ? "" : String(value);
 }
@@ -303,7 +285,6 @@ function isIn(item: ContextKeyValue, source: ContextKeyValue): boolean {
     return false;
 }
 
-/** Все ключи, на которые ссылается выражение (в любой позиции), без повторов. */
 export function whenKeys(expr: ContextKeyExpression): string[] {
     const keys = new Set<string>();
     const visit = (node: ContextKeyExpression): void => {
@@ -331,11 +312,7 @@ export function whenKeys(expr: ContextKeyExpression): string[] {
     return [...keys];
 }
 
-/**
- * Ключи, которые выражение требует истинными или сравнивает, — то есть стоящие
- * не под отрицанием (`!a`, `!(a && b)`, `a not in b`). Нужно потребителю,
- * которому важно «бинд живёт при фокусе в X», а не «выражение упоминает X».
- */
+/** Ключи не под отрицанием (`!a`, `!(a && b)`, `a not in b`): «бинд живёт при X», а не «упоминает X». */
 export function whenPositiveKeys(expr: ContextKeyExpression): string[] {
     const keys = new Set<string>();
     const visit = (node: ContextKeyExpression, negated: boolean): void => {
@@ -359,11 +336,7 @@ export function whenPositiveKeys(expr: ContextKeyExpression): string[] {
     return [...keys];
 }
 
-/**
- * Каноническая запись выражения: лишние скобки и пробелы сняты, операнды
- * `&&`/`||` упорядочены, так что `b && a`, `(a) && b` и `a&&b` пишутся одинаково.
- * Строки — в одинарных кавычках, как у upstream.
- */
+/** Каноническая: операнды `&&`/`||` упорядочены, так что `b && a`, `(a) && b` и `a&&b` пишутся одинаково. */
 export function serializeWhen(expr: ContextKeyExpression): string {
     switch (expr.type) {
         case "true":
@@ -401,7 +374,6 @@ export function serializeWhen(expr: ContextKeyExpression): string {
     }
 }
 
-/** Операнды `&&`/`||` с раскрытыми вложенными узлами того же типа: `a && (b && c)` → `[a, b, c]`. */
 function flatten(expr: Extract<ContextKeyExpression, { type: "and" | "or" }>): ContextKeyExpression[] {
     return expr.exprs.flatMap((child) => (child.type === expr.type ? flatten(child) : [child]));
 }

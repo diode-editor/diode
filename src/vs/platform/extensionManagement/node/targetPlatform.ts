@@ -1,14 +1,7 @@
 /**
- * Платформенный таргет текущего хоста в терминах VS Code Marketplace / Open VSX
- * (`<os>-<arch>`: `linux-x64`, `darwin-arm64`, `win32-arm64`, …). Именно эти
- * значения несут поле `targetPlatform` записей реестра и платформенные vsix
- * Open VSX — словарь один, свой не изобретаем.
- *
- * Неизвестная комбинация ОС/архитектуры → `undefined`: такой хост получает
- * только universal-записи (см. `IHostVersions.targetPlatform`). Alpine/musl
- * (`alpine-x64`/`alpine-arm64` у Open VSX) сознательно не детектится —
- * `process.platform` там тот же `"linux"`, а сборок Diode под musl нет; если
- * появятся, детект добавится здесь, не трогая формат.
+ * Словарь VS Code Marketplace / Open VSX — свой не изобретаем. Alpine/musl
+ * (`alpine-x64` у Open VSX) сознательно не детектится: `process.platform` там тот же
+ * `"linux"`, а сборок Diode под musl нет.
  */
 export function currentTargetPlatform(
     platform: NodeJS.Platform = process.platform,

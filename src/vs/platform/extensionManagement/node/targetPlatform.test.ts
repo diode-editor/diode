@@ -15,7 +15,6 @@ describe("currentTargetPlatform", () => {
         expect(currentTargetPlatform(platform, arch)).toBe(expected);
     });
 
-    // Неизвестная комбинация — universal-only хост, а не выдуманный таргет.
     it.each([
         ["freebsd", "x64"],
         ["win32", "ia32"],

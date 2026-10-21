@@ -1,112 +1,44 @@
-/**
- * Парсер аргументов командной строки Diode. Принимает `argv` без первых
- * двух элементов (`node` и путь до скрипта) — то, что обычно получаешь
- * через `process.argv.slice(2)`.
- *
- * Поддерживаемые формы:
- *   --user-data-dir <path>          | --user-data-dir=<path>
- *   --extensions-dir <path>         | --extensions-dir=<path>
- *   --profile <name>                | --profile=<name>
- *   --inspect-tui                   | --inspect-tui=<host:port>
- *   --log <level>                   | --log <channel>:<level>  (повторяемый)
- *   --verbose                       | ≡ --log trace
- *   --goto, -g                      | позиционные читаются как file:line:col
- *   --diff, -d                      | ровно два позиционных — стороны диффа
- *   --disable-extensions            | не грузить пользовательские расширения
- *   --help, -h
- *   --version, -v
- *   --                              | всё после трактуется как позиционные
- *   <позиционные>                   | файлы/папки для открытия; **необязательны** —
- *                                   | без них поднимается пустое окно
- */
-
 import { DEFAULT_REGISTRY_URL } from "../../extensionManagement/node/createRegistrySource.ts";
 import { LogLevel, parseLogLevel } from "../../log/common/logLevel.ts";
 
 export interface ICliArgs {
-    /** Файлы и/или директории для открытия. */
     readonly positional: readonly string[];
-    /** Значение `--user-data-dir`, если указано. */
     readonly userDataDir: string | undefined;
-    /**
-     * Имя профиля из `--profile`, если указано: окно открывается в нём, а
-     * воркспейс к нему привязывается; неизвестное имя создаёт пустой профиль
-     * (`resolveActiveProfile`, `platform/userDataProfile/common`).
-     */
+    /** Воркспейс к нему привязывается; неизвестное имя создаёт пустой профиль (`resolveActiveProfile`). */
     readonly profile: string | undefined;
-    /**
-     * Адрес TUIDom-инспектора, если передан `--inspect-tui`. Голый флаг даёт
-     * дефолт {@link DEFAULT_INSPECT_TUI}; `--inspect-tui=host:port` — заданный адрес.
-     */
     readonly inspectTui: { host: string; port: number } | undefined;
-    /**
-     * Размер виртуального терминала для headless-режима, если передан `--headless`.
-     * Голый флаг даёт {@link DEFAULT_HEADLESS_SIZE}; `--headless=<cols>x<rows>` —
-     * заданный размер. Требует одновременно `--inspect-tui` (иначе сессией не
-     * порулить и кадр не снять).
-     */
+    /** Требует `--inspect-tui`: иначе сессией не порулить и кадр не снять. */
     readonly headless: { cols: number; rows: number } | undefined;
-    /** Был ли передан `--help` / `-h`. */
     readonly help: boolean;
-    /** Был ли передан `--version` / `-v`. */
     readonly version: boolean;
-    /**
-     * Аргумент `--install-extension`, если указан: путь к `.vsix` (по суффиксу)
-     * либо id `publisher.name` из реестра.
-     */
+    /** Путь к `.vsix` (по суффиксу) либо id `publisher.name` из реестра. */
     readonly installExtension: string | undefined;
-    /**
-     * Источник реестра расширений из `--registry` — каталог в публикуемом формате
-     * registry-репозитория либо его http(s)-адрес. Влияет и на
-     * `--install-extension <id>`, и на магазин в UI (вьюлет Extensions);
-     * не задан — публичный реестр (`DEFAULT_REGISTRY_URL`).
-     */
+    /** Каталог или http(s)-адрес; влияет и на `--install-extension <id>`, и на вьюлет Extensions. */
     readonly registry: string | undefined;
-    /** id (`publisher.name`) из `--uninstall-extension`, если указан. */
     readonly uninstallExtension: string | undefined;
-    /** Был ли передан `--list-extensions`. */
     readonly listExtensions: boolean;
-    /**
-     * Каталог внешних расширений из `--extensions-dir`. Не задан — дефолт
-     * `<user-data-dir>/extensions`. Отвязывает расширения от `--user-data-dir`,
-     * как одноимённый флаг VS Code.
-     */
     readonly extensionsDir: string | undefined;
-    /**
-     * Был ли передан `-g` / `--goto`. Это **режим**, а не значение (как в
-     * VS Code): позиционные начинают читаться как `file[:line[:column]]`.
-     */
+    /** **Режим**, а не значение (как в VS Code): позиционные читаются как `file[:line[:column]]`. */
     readonly goto: boolean;
-    /**
-     * Был ли передан `-d` / `--diff`. Тоже режим: два позиционных — стороны
-     * дифф-вкладки (original, modified).
-     */
+    /** Тоже режим: два позиционных — original и modified. */
     readonly diff: boolean;
     /**
-     * Был ли передан `--disable-extensions`. Гасит **только** пользовательские
-     * расширения; встроенные продолжают работать — дословная семантика эталона
-     * (`_isDisabledInEnv`: `!extension.isBuiltin`), иначе вместе с расширениями
-     * уехали бы грамматики и language-configuration.
+     * Гасит **только** пользовательские расширения, как эталон (`_isDisabledInEnv`):
+     * иначе вместе со встроенными уехали бы грамматики и language-configuration.
      */
     readonly disableExtensions: boolean;
-    /**
-     * Правила уровней логирования из `--log` (повторяемый) и `--verbose`,
-     * в порядке появления. Применяются через `LogService.setLevel`.
-     */
+    /** `--log` и `--verbose` в порядке появления. */
     readonly logLevels: readonly ILogLevelRule[];
 }
 
-/** Одно правило `--log`: уровень для канала (`channel: "*"` — для всех). */
 export interface ILogLevelRule {
-    /** Канал или вайлдкард `"*"` — то, что понимает `LogService.setLevel`. */
+    /** `"*"` — все каналы. */
     readonly channel: string;
     readonly level: LogLevel;
 }
 
-/** Адрес инспектора по умолчанию для голого `--inspect-tui`. */
 export const DEFAULT_INSPECT_TUI = "127.0.0.1:9223";
 
-/** Размер виртуального терминала по умолчанию для голого `--headless`. */
 export const DEFAULT_HEADLESS_SIZE = { cols: 120, rows: 32 } as const;
 
 export const USAGE = `Usage: diode [options] [<file-or-dir> ...]
@@ -155,15 +87,9 @@ export class CliArgsError extends Error {
 }
 
 interface IFlagSpec {
-    /** Канонический ключ в `ICliArgs`. */
     readonly key: "userDataDir" | "extensionsDir" | "profile" | "installExtension" | "uninstallExtension" | "registry";
 }
 
-/**
- * Флаги со значением: каждый требует его следующим аргументом или через `=`.
- * Флаги-переключатели (`--help`, `--list-extensions`, …) разбираются выше по
- * телу цикла и в таблицу не попадают.
- */
 const FLAG_SPECS: Readonly<Record<string, IFlagSpec | undefined>> = {
     "--user-data-dir": { key: "userDataDir" },
     "--extensions-dir": { key: "extensionsDir" },
@@ -173,10 +99,7 @@ const FLAG_SPECS: Readonly<Record<string, IFlagSpec | undefined>> = {
     "--registry": { key: "registry" },
 };
 
-/**
- * Разбирает `host:port` для `--inspect-tui`. Хост обязателен и непуст; порт —
- * целое 0..65535 (0 = эфемерный). Бросает {@link CliArgsError} при неверном формате.
- */
+/** Порт 0 — эфемерный. */
 function parseInspectTui(raw: string): { host: string; port: number } {
     const idx = raw.lastIndexOf(":");
     if (idx === -1) {
@@ -194,10 +117,6 @@ function parseInspectTui(raw: string): { host: string; port: number } {
     return { host, port };
 }
 
-/**
- * Разбирает `<cols>x<rows>` для `--headless`. Оба измерения — положительные целые.
- * Бросает {@link CliArgsError} при неверном формате.
- */
 function parseHeadlessSize(raw: string): { cols: number; rows: number } {
     const match = /^(\d+)x(\d+)$/iu.exec(raw);
     if (match === null) {
@@ -212,17 +131,13 @@ function parseHeadlessSize(raw: string): { cols: number; rows: number } {
 }
 
 /**
- * Разбирает одну запись `--log`: либо голый уровень (`debug` — для всех
- * каналов), либо `<channel>:<level>` (`extensions.host:debug`). Канал режем по
- * ПОСЛЕДНЕМУ двоеточию: имена каналов у нас точечные (`extensions.host.rpc`),
- * но двоеточие в них не запрещено. Бросает {@link CliArgsError} на неизвестном
- * уровне — молча проглоченный `--log dbug` оставил бы человека без логов.
+ * Канал режем по ПОСЛЕДНЕМУ двоеточию: в имени канала оно не запрещено. Неизвестный
+ * уровень — ошибка: молча проглоченный `--log dbug` оставил бы человека без логов.
  */
 function parseLogRule(raw: string): ILogLevelRule {
     const idx = raw.lastIndexOf(":");
     const channel = idx === -1 ? "*" : raw.slice(0, idx);
-    // Без двоеточия `idx` = -1, и `slice(0)` сам отдаёт всю строку — отдельная
-    // ветка тут была бы дословным дубликатом (и эквивалентным мутантом).
+    // Без двоеточия `slice(0)` сам отдаёт всю строку — отдельная ветка была бы эквивалентным мутантом.
     const level = parseLogLevel(raw.slice(idx + 1));
     if (level === undefined) {
         throw new CliArgsError(
@@ -237,8 +152,6 @@ function parseLogRule(raw: string): ILogLevelRule {
 
 export function parseCliArgs(argv: readonly string[]): ICliArgs {
     const positional: string[] = [];
-    // Значения флагов из FLAG_SPECS — по их каноническому ключу; ветвление по
-    // ключу не нужно, спек сам говорит, куда класть.
     const flagValues: Partial<Record<IFlagSpec["key"], string>> = {};
     let inspectTui: { host: string; port: number } | undefined;
     let headless: { cols: number; rows: number } | undefined;
@@ -295,16 +208,14 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
             continue;
         }
 
-        // `--verbose` — не отдельный канал настройки, а алиас самого низкого
-        // уровня: кладём в тот же список, чтобы порядок с `--log` сохранялся.
+        // В тот же список, что `--log`: порядок между ними значим.
         if (arg === "--verbose") {
             logLevels.push({ channel: "*", level: LogLevel.Trace });
             i += 1;
             continue;
         }
 
-        // Повторяемый флаг со значением: в FLAG_SPECS (там одно значение на ключ)
-        // он не помещается, поэтому разбирается здесь.
+        // Повторяемый — в FLAG_SPECS (одно значение на ключ) не помещается.
         if (arg === "--log" || arg.startsWith("--log=")) {
             const eqIndex = arg.indexOf("=");
             let raw: string;
@@ -322,7 +233,6 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
             continue;
         }
 
-        // Опциональное значение: голый `--inspect-tui` → дефолт, иначе `=host:port`.
         if (arg === "--inspect-tui" || arg.startsWith("--inspect-tui=")) {
             const eqIndex = arg.indexOf("=");
             const raw = eqIndex === -1 ? DEFAULT_INSPECT_TUI : arg.slice(eqIndex + 1);
@@ -331,7 +241,6 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
             continue;
         }
 
-        // Опциональное значение: голый `--headless` → дефолт, иначе `=<cols>x<rows>`.
         if (arg === "--headless" || arg.startsWith("--headless=")) {
             const eqIndex = arg.indexOf("=");
             headless = eqIndex === -1 ? { ...DEFAULT_HEADLESS_SIZE } : parseHeadlessSize(arg.slice(eqIndex + 1));
@@ -381,8 +290,6 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
         throw new CliArgsError("--headless requires --inspect-tui to drive the session");
     }
 
-    // Режимы позиционных исключают друг друга: у `--diff` они значат «стороны»,
-    // у `--goto` — «файл с позицией», и совместить это не во что.
     if (diffMode && gotoMode) {
         throw new CliArgsError("--diff cannot be combined with --goto");
     }
@@ -410,25 +317,16 @@ export function parseCliArgs(argv: readonly string[]): ICliArgs {
     };
 }
 
-/** Что у следующего окна иначе, чем у этого (перезагрузка окна, `IHostProcess.restart`). */
 export interface IRelaunchOverrides {
-    /** Имя профиля следующего окна — всегда явный `--profile <name>`. */
     readonly profile: string;
-    /**
-     * Новый воркспейс (папка или файл `.code-workspace`): замещает позиционные
-     * аргументы этого окна вместе с режимами `--goto`/`--diff` — они описывали
-     * прежний. Без него позиционные остаются как были.
-     */
+    /** Замещает позиционные этого окна вместе с `--goto`/`--diff` — они описывали прежний воркспейс. */
     readonly workspace?: string | undefined;
 }
 
 /**
- * Воркспейс следующего окна (ключ привязки: путь папки или `.code-workspace`).
- * Запрошенный явно (Open Folder в чужом профиле) — он. Иначе — текущий, если
- * окно сменило воркспейс после старта: Open Folder в тот же профиль обходится
- * без перезагрузки, и без этого следующая (Reload Window, Switch Profile)
- * подняла бы стартовую папку из argv, а явный `--profile` привязал бы к профилю
- * её. Воркспейс не менялся — `undefined`: позиционные этого окна едут как есть.
+ * Текущий воркспейс, если окно сменило его после старта: Open Folder в тот же
+ * профиль обходится без перезагрузки, и без этого Reload Window подняла бы
+ * стартовую папку из argv, а явный `--profile` привязал бы к профилю её.
  */
 export function relaunchWorkspace(
     requested: string | undefined,
@@ -439,16 +337,11 @@ export function relaunchWorkspace(
     return current !== startup ? current : undefined;
 }
 
-/** Флаги, чьё значение идёт следующим аргументом (без `=`); остальные флаги — одним аргументом. */
 const VALUE_FLAGS: ReadonlySet<string> = new Set([...Object.keys(FLAG_SPECS), "--log"]);
 
 /**
- * Аргументы следующего окна по аргументам этого (`process.argv.slice(2)`):
- * прежний `--profile` снимается (иначе он перебил бы только что записанную
- * привязку воркспейса), профиль передаётся явно, а при смене воркспейса
- * позиционные (и `--goto`/`--diff`) замещаются его путём. Остальные флаги
- * (`--user-data-dir`, `--headless`, `--inspect-tui`, `--log`, …) едут как есть.
- * Позиционные идут после `--`: путь, начинающийся с `-`, не станет флагом.
+ * Прежний `--profile` снимается — иначе он перебил бы только что записанную
+ * привязку воркспейса. Позиционные идут после `--`: путь на `-` не станет флагом.
  */
 export function relaunchArgs(args: readonly string[], overrides: IRelaunchOverrides): string[] {
     const flags: string[] = [];
@@ -476,7 +369,6 @@ export function relaunchArgs(args: readonly string[], overrides: IRelaunchOverri
             continue;
         }
         if (VALUE_FLAGS.has(arg)) {
-            // Чтение по индексу — через `at`: за хвостом массива значения нет.
             const value = args.at(i + 1);
             if (value !== undefined) flags.push(arg, value);
             i += 2;

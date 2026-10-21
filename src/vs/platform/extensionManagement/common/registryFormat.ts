@@ -10,58 +10,35 @@ import type { Semver } from "../../../base/common/semver.ts";
  * <root>/artifacts/**        — .vsix для path-артефактов (файловый source/тесты)
  * ```
  *
- * Этот модуль — source of truth типов формата: типы и парсеры переживут
- * файловый источник и будут переиспользованы HTTP-источником и CI-тулингом
- * registry-репозитория. Философия валидации — как у `scanExtensions`: битая
- * ЗАПИСЬ (расширение в index, версия в meta) пропускается с диагностикой в
- * `problems`, битый ФАЙЛ целиком (не JSON, чужой schemaVersion, id ≠
- * publisher.name) — ошибка. Модуль чистый: диагностики логирует вызывающий.
+ * Валидация — как у `scanExtensions`: битая ЗАПИСЬ (расширение в index, версия в
+ * meta) пропускается с диагностикой в `problems`, битый ФАЙЛ целиком — ошибка.
  *
- * Версии валидируются node-semver, а он — ленивый кусок бандла: парсеры
- * получают его параметром (`loadSemver()` из `base/common/semver.ts` зовёт
- * асинхронный источник перед разбором).
+ * node-semver — ленивый кусок бандла, поэтому парсеры получают его параметром.
  */
 
-/** Текущая версия схемы. Опциональные поля добавляются без bump'а. */
+/** Опциональные поля добавляются без bump'а. */
 export const REGISTRY_SCHEMA_VERSION = 1;
 
 /**
- * Форма id `publisher.name`. Id участвует в адресе меты (`meta/<id>.json`) — и как
- * имя файла у файлового источника, и как сегмент URL у HTTP-источника, — поэтому
- * шаблон проверяется до обращения к источнику. Регистр допускается: манифесты
- * стоковых расширений пишем не мы (`EditorConfig.EditorConfig`), а `installFromRegistry`
- * сверяет id с манифестом побайтно.
+ * Id — имя файла и сегмент URL меты, поэтому шаблон проверяется до обращения к
+ * источнику. Регистр допускается: манифесты стоковых расширений пишем не мы
+ * (`EditorConfig.EditorConfig`), а `installFromRegistry` сверяет id побайтно.
  */
 export const EXTENSION_ID_RE = /^[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$/i;
 
 /**
- * Курационная классификация: `proxy-openvsx` — протестированный нами сток из
- * openvsx (версия запинена URL + sha256), `proxy-hosted` — такой же сток, но не
- * опубликованный на Open VSX: немодифицированный vsix перевыложен в самом
- * реестре под лицензией расширения, `native` — нативное diode-расширение.
- * В install-флоу не участвует — нужна странице расширения и политике наполнения.
+ * `proxy-openvsx` — сток из openvsx (запинен URL + sha256), `proxy-hosted` — сток,
+ * которого нет на Open VSX: vsix перевыложен в реестре. В install-флоу не участвует.
  */
 export type RegistryExtensionKind = "proxy-openvsx" | "proxy-hosted" | "native";
 
-/**
- * Насколько расширение работает в Diode: `full` — целиком, `partial` — часть
- * возможностей недоступна (обычно потому, что упирается в webview или в другой
- * наш осознанный потолок). Поле курационное: его пишет реестр, а не манифест
- * расширения, и оно ничего не меняет в установке — только предупреждает
- * человека ДО неё.
- */
+/** Пишет реестр, а не манифест; на установку не влияет — только предупреждает человека ДО неё. */
 export type RegistrySupportLevel = "full" | "partial";
 
-/**
- * Курационная пометка о поддержке. `partial` без единого пункта в `limits`
- * бессмысленна (пометка «работает не всё» обязана сказать, что именно), поэтому
- * такая запись поля отбрасывается парсером.
- */
+/** `partial` без пунктов в `limits` парсер отбрасывает: «работает не всё» обязано сказать, что именно. */
 export interface IRegistrySupport {
     readonly level: RegistrySupportLevel;
-    /** Что работает — короткими пунктами, для страницы расширения. */
     readonly works?: readonly string[];
-    /** Что НЕ работает и почему — короткими пунктами. */
     readonly limits?: readonly string[];
 }
 
@@ -71,63 +48,47 @@ export type RegistryArtifact =
     /** POSIX-путь строго внутри каталога реестра (без `..` и ведущего `/`). */
     | { readonly type: "path"; readonly path: string };
 
-/** Требования совместимости версии; хотя бы одно из полей обязано присутствовать. */
+/** Хотя бы одно из полей обязано присутствовать. */
 export interface IRegistryEngines {
     readonly diode?: string;
     readonly vscode?: string;
 }
 
-/** Одна опубликованная версия расширения. */
 export interface IRegistryVersion {
     readonly version: string;
     readonly engines: IRegistryEngines;
     readonly artifact: RegistryArtifact;
-    /** sha256 содержимого `.vsix`, hex lowercase — проверяется перед установкой. */
+    /** hex lowercase. */
     readonly sha256: string;
     /**
-     * Платформенный таргет артефакта в терминах VS Code Marketplace / Open VSX
-     * (`linux-x64`, `darwin-arm64`, …); не задан — universal-артефакт. Одна
-     * semver-версия может присутствовать несколькими записями с разными
-     * `targetPlatform` — выбор за {@link resolveCompatibleVersion}. Значение не
-     * сверяется со словарём таргетов намеренно: неизвестный клиенту таргет
-     * просто не совпадёт с его платформой (реестр может обогнать клиента).
+     * Не задан — universal. Одна semver-версия может идти несколькими записями с
+     * разными таргетами. Со словарём таргетов намеренно не сверяется: реестр может
+     * обогнать клиента, неизвестный таргет просто не совпадёт с платформой.
      */
     readonly targetPlatform?: string;
-    /** Размер `.vsix` в байтах (информационное, для UI). */
     readonly size?: number;
-    /** ISO-дата публикации (информационное). */
     readonly publishedAt?: string;
 }
 
-/** Запись `index.json` — всё, что нужно списку/поиску без ленивого чтения меты. */
 export interface IRegistryIndexEntry {
-    /** Строго `${publisher}.${name}`. */
     readonly id: string;
     readonly publisher: string;
     readonly name: string;
     readonly displayName: string;
     readonly description: string;
     readonly kind: RegistryExtensionKind;
-    /** Категории из словаря VS Code (опционально). */
     readonly categories?: readonly string[];
-    /**
-     * Пометка о поддержке. Живёт и в индексе, а не только в мете: бейдж списка
-     * обязан быть виден до открытия страницы — иначе человек узнаёт об урезанной
-     * поддержке уже после установки.
-     */
+    /** И в индексе, не только в мете: бейдж списка обязан быть виден до установки. */
     readonly support?: IRegistrySupport;
-    /** Последняя версия — чтобы view показывал версию и совместимость сразу. */
     readonly latest: { readonly version: string; readonly engines: IRegistryEngines };
 }
 
 export interface IRegistryIndex {
     readonly schemaVersion: number;
-    /** Момент сборки индекса CI (информационное, клиент не интерпретирует). */
     readonly generatedAt?: string;
     readonly extensions: readonly IRegistryIndexEntry[];
 }
 
-/** `meta/<id>.json` — полная мета расширения (страница расширения + установка). */
 export interface IRegistryExtensionMeta {
     readonly schemaVersion: number;
     readonly id: string;
@@ -136,12 +97,10 @@ export interface IRegistryExtensionMeta {
     readonly displayName: string;
     readonly description: string;
     readonly kind: RegistryExtensionKind;
-    /** Пометка о поддержке; дублируется в индексе ради бейджа списка. */
     readonly support?: IRegistrySupport;
     readonly repository?: string;
     readonly license?: string;
     readonly homepage?: string;
-    /** Inline markdown для страницы расширения в табе. */
     readonly readme?: string;
     readonly versions: readonly IRegistryVersion[];
 }
@@ -162,7 +121,6 @@ function isKind(value: unknown): value is RegistryExtensionKind {
     return value === "proxy-openvsx" || value === "proxy-hosted" || value === "native";
 }
 
-/** Валидирует engines: объект хотя бы с одним из полей `diode`/`vscode`-строк. */
 function parseEngines(value: unknown): IRegistryEngines | undefined {
     const record = asRecord(value);
     if (record === undefined) return undefined;
@@ -174,7 +132,7 @@ function parseEngines(value: unknown): IRegistryEngines | undefined {
     return { diode, vscode };
 }
 
-/** Массив непустых строк или `undefined`; всё прочее (в т.ч. не-массив) — `null` как признак битого поля. */
+/** `null` — битое поле. */
 function parseBulletList(value: unknown): readonly string[] | undefined | null {
     if (value === undefined) return undefined;
     if (!Array.isArray(value) || !value.every(isNonEmptyString)) return null;
@@ -182,10 +140,8 @@ function parseBulletList(value: unknown): readonly string[] | undefined | null {
 }
 
 /**
- * Разбирает пометку о поддержке. Поле косметическое, поэтому его невалидность
- * НЕ убивает запись расширения (в отличие от идентичности или версии): битая
- * пометка просто отбрасывается, и карточка показывается без неё. Молча — иначе
- * `problems` наполнялся бы диагностикой о том, что на установку не влияет.
+ * Поле косметическое: битая пометка молча отбрасывается, запись живёт — иначе
+ * `problems` наполнялся бы тем, что на установку не влияет.
  */
 function parseSupport(value: unknown): IRegistrySupport | undefined {
     const record = asRecord(value);
@@ -195,13 +151,10 @@ function parseSupport(value: unknown): IRegistrySupport | undefined {
     const works = parseBulletList(record.works);
     const limits = parseBulletList(record.limits);
     if (works === null || limits === null) return undefined;
-    // «Работает не всё» без списка ограничений — пустое предупреждение: человек
-    // видит бейдж и не понимает, чего лишается.
     if (level === "partial" && (limits === undefined || limits.length === 0)) return undefined;
     return { level, works, limits };
 }
 
-/** Относительный POSIX-путь строго внутри корня: без `\`, ведущего `/` и `..`-сегментов. */
 function isSafeRelativePath(value: string): boolean {
     if (value.includes("\\")) return false;
     // Ведущий "/" отдельно не проверяем: он даёт пустой первый сегмент, который отсекает every ниже.
@@ -226,7 +179,6 @@ function parseArtifact(value: unknown): RegistryArtifact | undefined {
     return undefined;
 }
 
-/** Разбирает запись версии; невалидная → `undefined` (в `problems` пишет вызывающий). */
 function parseVersionRecord(value: unknown, semver: Semver): IRegistryVersion | undefined {
     const record = asRecord(value);
     if (record === undefined) return undefined;
@@ -247,7 +199,6 @@ function parseVersionRecord(value: unknown, semver: Semver): IRegistryVersion | 
     return { version, engines, artifact, sha256, targetPlatform, size, publishedAt };
 }
 
-/** Общие для index-записи и меты поля идентичности; `undefined` при любой невалидности. */
 function parseIdentity(record: Record<string, unknown>):
     | {
           id: string;
@@ -268,14 +219,12 @@ function parseIdentity(record: Record<string, unknown>):
     ) {
         return undefined;
     }
-    // Отдельно валидировать record["id"] как непустую строку избыточно: строгое равенство
-    // непустому шаблону `${publisher}.${name}` уже гарантирует и тип, и непустоту.
+    // Строгое равенство непустому шаблону уже проверяет и тип, и непустоту `record.id`.
     const id = `${publisher}.${name}`;
     if (record.id !== id) return undefined;
     return { id, publisher, name, displayName, description, kind };
 }
 
-/** Разбирает JSON-текст файла и валидирует конверт (объект + schemaVersion). */
 function parseEnvelope(text: string, what: string): Record<string, unknown> {
     let raw: unknown;
     try {
@@ -322,10 +271,6 @@ function parseIndexEntry(value: unknown, semver: Semver): IRegistryIndexEntry | 
     };
 }
 
-/**
- * Разбирает `index.json`. Битый файл (не JSON, чужой schemaVersion, extensions
- * не массив) — ошибка; битая запись расширения — пропуск с текстом в `problems`.
- */
 export function parseRegistryIndex(text: string, semver: Semver): { index: IRegistryIndex; problems: string[] } {
     const record = parseEnvelope(text, "index");
     const rawExtensions = record.extensions;
@@ -356,11 +301,6 @@ export function parseRegistryIndex(text: string, semver: Semver): { index: IRegi
     };
 }
 
-/**
- * Разбирает `meta/<id>.json`. Битый файл (не JSON, чужой schemaVersion,
- * невалидная идентичность, id ≠ `expectedId`) — ошибка; битая запись версии —
- * пропуск с текстом в `problems`.
- */
 export function parseRegistryMeta(
     text: string,
     semver: Semver,
@@ -410,26 +350,20 @@ export function parseRegistryMeta(
     };
 }
 
-/** Поля, по которым ищется расширение: запись индекса и карточка view несут их обе. */
 export interface IExtensionSearchFields {
     readonly id: string;
     readonly displayName: string;
     readonly description: string;
 }
 
-/** Приводит запрос к виду, в котором его ждёт {@link matchesExtensionQuery}. */
 export function normalizeExtensionQuery(query: string): string {
     return query.trim().toLowerCase();
 }
 
 /**
- * Совпадает ли запись с **нормализованным** запросом: case-insensitive substring
- * по id/displayName/description. Пустая игла истинна для любой записи, поэтому
- * пустой запрос отдельной ветки не требует.
- *
- * Отдельно от {@link searchRegistryIndex}, потому что Extensions view фильтрует
- * не индекс, а свои карточки (в них есть и установленное, которого в индексе
- * нет) — а семантика поиска обязана быть одна на оба списка.
+ * `needle` — уже через {@link normalizeExtensionQuery}. Отдельно от
+ * {@link searchRegistryIndex}: Extensions view фильтрует свои карточки (в них есть
+ * установленное, которого нет в индексе), а семантика поиска обязана быть одна.
  */
 export function matchesExtensionQuery(entry: IExtensionSearchFields, needle: string): boolean {
     return (
@@ -439,10 +373,6 @@ export function matchesExtensionQuery(entry: IExtensionSearchFields, needle: str
     );
 }
 
-/**
- * Поиск по индексу: case-insensitive substring по id/displayName/description.
- * Пустой (или пробельный) запрос — весь список. Используется CLI и Extensions view.
- */
 export function searchRegistryIndex(index: IRegistryIndex, query: string): IRegistryIndexEntry[] {
     const needle = normalizeExtensionQuery(query);
     return index.extensions.filter((e) => matchesExtensionQuery(e, needle));

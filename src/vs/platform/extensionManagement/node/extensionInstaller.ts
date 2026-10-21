@@ -14,46 +14,19 @@ import {
     parseNlsBundle,
 } from "../../extensions/common/extensionNls.ts";
 
-/**
- * Установка/удаление расширений из `.vsix` на локальный диск.
- *
- * `.vsix` — обычный zip: полезная нагрузка лежит под каталогом `extension/`
- * (рядом — служебные `extension.vsixmanifest` и `[Content_Types].xml`, которые
- * нам не нужны). Мы распаковываем только `extension/**` во временный каталог,
- * читаем и валидируем `package.json`, затем атомарным `rename` переносим в
- * `<extensionsDir>/<publisher>.<name>-<version>/` — именно этот layout ждёт
- * {@link scanExtensions} (id/version он берёт из `package.json`, но имя каталога
- * держим по конвенции).
- *
- * Модуль намеренно чистый: `node:fs`/`node:path`/`yauzl` плюс чистые хелперы
- * (`extensionNls`), без DI/логгера/UI. Печать и коды выхода — на стороне
- * вызывающего (main.ts).
- */
-
-/** Установленное расширение (по чтению `package.json` в подкаталоге). */
 export interface IInstalledExtension {
-    /** `<publisher>.<name>`. */
     readonly id: string;
     readonly version: string;
-    /** Абсолютный путь к каталогу расширения. */
     readonly dir: string;
-    /**
-     * `displayName` манифеста, если он там есть. Нужен странице расширения,
-     * поставленного мимо реестра: показать в UI нечего, кроме манифеста.
-     */
+    /** Странице расширения, поставленного мимо реестра, показать нечего, кроме манифеста. */
     readonly displayName?: string;
-    /** `description` манифеста, если он там есть (тот же случай). */
     readonly description?: string;
-    /**
-     * `extensionDependencies` манифеста: профиль берёт расширение вместе с
-     * ними (`ProfileExtensions.add`), даже если на диске они уже лежали.
-     */
+    /** Профиль берёт расширение вместе с ними (`ProfileExtensions.add`), даже если на диске они уже лежали. */
     readonly dependencies: readonly string[];
 }
 
 const EXTENSION_PREFIX = "extension/";
 
-/** Валидирует, что поле манифеста — непустая строка. Иначе бросает с понятным текстом. */
 function requireManifestString(manifest: Record<string, unknown>, field: string, source: string): string {
     const value = manifest[field];
     if (typeof value !== "string" || value.length === 0) {
@@ -62,48 +35,26 @@ function requireManifestString(manifest: Record<string, unknown>, field: string,
     return value;
 }
 
-/**
- * Читает nls-бандл расширения с диска по кандидатам локали интерфейса
- * (`nlsFileCandidates`). Отсутствующий или битый файл — просто следующий
- * кандидат; не нашлось ни одного — `undefined`.
- *
- * Своё чтение, а не `loadNlsBundle`: тот ходит через `IAssetAccess` (нужен
- * builtin'ам внутри SEA-бандла), а installer по устройству работает с
- * физическими каталогами.
- */
+/** Не `loadNlsBundle`: тот ходит через `IAssetAccess` (для builtin'ов в SEA), а installer — по физическим каталогам. */
 function readNlsBundleSync(dir: string, locale: string): INlsBundle | undefined {
     for (const file of nlsFileCandidates(locale)) {
         try {
-            // Декодирование явным шагом, а не вторым аргументом readFileSync:
-            // так кодировка — наблюдаемое решение (неверная бросает), а не
-            // подсказка, которую `JSON.parse` всё равно сгладил бы, приведя
-            // Buffer к строке сам.
+            // Декодирование явным шагом: так кодировка — наблюдаемое решение, а не
+            // подсказка, которую `JSON.parse` сгладил бы, приведя Buffer к строке сам.
             return parseNlsBundle(fs.readFileSync(path.join(dir, file)).toString("utf8"));
         } catch {
-            // Нет файла или битый JSON — пробуем следующего кандидата.
+            // следующий кандидат
         }
     }
     return undefined;
 }
 
-/**
- * Перечисляет установленные расширения: readdir первого уровня, для каждого
- * подкаталога читает `package.json` и извлекает id/version (как это делает
- * {@link scanExtensions}). Битые/без манифеста подкаталоги — пропускает.
- * Работает по реальным путям через `node:fs` (installer оперирует физическими
- * каталогами, а не абстракцией `IAssetAccess`).
- *
- * `displayName`/`description` отдаются **локализованными**: в манифесте там
- * обычно `"%displayName%"`, и страница расширения показывала бы сам ключ.
- * Резолв ключей во всём дереве `contributes` делает `scanExtensions` — здесь
- * нужны ровно эти два поля, поэтому и подменяются только они.
- */
+/** `displayName`/`description` — **локализованные**: в манифесте там обычно `"%displayName%"`. */
 function readInstalled(extensionsDir: string): IInstalledExtension[] {
     let entries: fs.Dirent[];
     try {
         entries = fs.readdirSync(extensionsDir, { withFileTypes: true });
     } catch {
-        // Каталога ещё нет — считаем, что расширений нет.
         return [];
     }
 
@@ -117,7 +68,6 @@ function readInstalled(extensionsDir: string): IInstalledExtension[] {
         try {
             manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8")) as Record<string, unknown>;
         } catch {
-            // Нет package.json или битый JSON — не расширение, пропускаем.
             continue;
         }
 
@@ -133,10 +83,8 @@ function readInstalled(extensionsDir: string): IInstalledExtension[] {
             continue;
         }
 
-        // Бандл читаем безусловно, не «только когда есть что локализовать»:
-        // предохранитель сэкономил бы один промах readFileSync на расширение и
-        // стоил бы ветки, неотличимой по поведению. Резолвит тот же обход, что
-        // и у сканера, — просто по двум полям вместо всего манифеста.
+        // Бандл читаем безусловно: проверка «есть ли что локализовать» сэкономила бы
+        // один промах readFileSync ценой ветки, неотличимой по поведению.
         const nls = readNlsBundleSync(dir, UI_LOCALE);
         const { displayName, description } = localizeManifest(
             { displayName: manifest.displayName, description: manifest.description },
@@ -155,22 +103,11 @@ function readInstalled(extensionsDir: string): IInstalledExtension[] {
     return result;
 }
 
-/**
- * yauzl нужен только установке и чтению `.vsix`, поэтому он — ленивый кусок
- * бандла (`scripts/build-lazy-chunks.mjs`): в `main.cjs` его нет, упакованная
- * сборка грузит его из ассета при первой установке, dev — из node_modules.
- */
+/** Ленивый кусок бандла (`scripts/build-lazy-chunks.mjs`): в `main.cjs` yauzl нет. */
 function loadYauzl(): Promise<typeof Yauzl> {
     return loadLazyModule("yauzl", () => import("yauzl"));
 }
 
-/**
- * Открывает zip и распаковывает записи под `extension/` в `destDir`. Записи вне
- * `extension/` (включая `extension.vsixmanifest` и `[Content_Types].xml`) и
- * каталоги — пропускаются. Защита от zip-slip: путь, выходящий за `destDir`,
- * приводит к reject (yauzl сам отвергает `..`-имена, но guard оставлен как
- * defense-in-depth).
- */
 async function extractExtensionPayload(vsixPath: string, destDir: string): Promise<void> {
     const yauzl = await loadYauzl();
     return new Promise((resolve, reject) => {
@@ -181,7 +118,6 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
             }
 
             const destRoot = path.resolve(destDir);
-            // yauzl эмитит "error" для битого архива и для имён с `..`.
             zipfile.on("error", (err: Error) => {
                 reject(err);
             });
@@ -192,7 +128,6 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
             zipfile.on("entry", (entry: Entry) => {
                 const name = entry.fileName;
 
-                // Только полезная нагрузка под extension/, каталоги пропускаем.
                 if (!name.startsWith(EXTENSION_PREFIX) || name.endsWith("/")) {
                     zipfile.readEntry();
                     return;
@@ -210,10 +145,9 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
                 }
                 /* v8 ignore stop */
 
-                // Unix-права записи живут в верхних 16 битах externalFileAttributes,
-                // когда архив собран на unix (старший байт versionMadeBy === 3).
-                // Восстанавливаем исполняемость: платформенные vsix несут нативные
-                // серверы (bundled ruff), и без exec-бита их spawn падает EACCES.
+                // Unix-права — в верхних 16 битах externalFileAttributes, если архив собран
+                // на unix (versionMadeBy >> 8 === 3). Платформенные vsix несут нативные
+                // серверы (bundled ruff): без exec-бита их spawn падает EACCES.
                 const unixMode = entry.versionMadeBy >>> 8 === 3 ? entry.externalFileAttributes >>> 16 : 0;
                 const executable = (unixMode & 0o111) !== 0;
 
@@ -231,8 +165,7 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
                     readStream.on("error", reject);
                     writeStream.on("error", reject);
                     writeStream.on("close", () => {
-                        // chmod после записи, а не mode у createWriteStream: тот
-                        // режется umask'ом процесса и недетерминирован.
+                        // Не mode у createWriteStream: тот режется umask'ом процесса.
                         if (executable) fs.chmodSync(target, 0o755);
                         zipfile.readEntry();
                     });
@@ -245,19 +178,12 @@ async function extractExtensionPayload(vsixPath: string, destDir: string): Promi
     });
 }
 
-/**
- * Манифест (`extension/package.json`) из `.vsix` — без распаковки и без
- * установки. Нужен до установки: зависимости расширения
- * (`extensionDependencies`) резолвятся заранее, чтобы отказ зависимости не
- * трогал диск (как `getAllDepsAndPackExtensions` эталона). Разбирает манифест
- * так же, как {@link installVsix}: нет файла или не JSON-объект — та же ошибка.
- */
+/** Без распаковки: зависимости резолвятся до установки, чтобы их отказ не трогал диск (как `getAllDepsAndPackExtensions`). */
 export async function readVsixManifest(vsixPath: string): Promise<Record<string, unknown>> {
     const yauzl = await loadYauzl();
     const malformed = (): Error =>
         new Error(`Invalid .vsix: missing or malformed extension/package.json in ${vsixPath}`);
-    // Нет записи манифеста — пустой текст: разбор ниже отвергнет его той же
-    // ошибкой, что и битый JSON.
+    // Нет записи манифеста — пустой текст: разбор ниже отвергнет его той же ошибкой.
     const text = await new Promise<string>((resolve, reject) => {
         yauzl.open(vsixPath, { lazyEntries: true }, (openErr, zipfile) => {
             if (openErr !== null) {
@@ -304,28 +230,19 @@ export async function readVsixManifest(vsixPath: string): Promise<Record<string,
     try {
         parsed = JSON.parse(text);
     } catch {
-        // Битый JSON — та же ошибка, что «не объект», ниже.
+        // та же ошибка, что «не объект», ниже
     }
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw malformed();
     return parsed as Record<string, unknown>;
 }
 
-/**
- * Устанавливает расширение из `.vsix` в `extensionsDir`. Распаковывает
- * `extension/**` во временный каталог, валидирует `package.json`, атомарно
- * переносит в `<extensionsDir>/<id>-<version>/` и удаляет прочие версии того же
- * id. Возвращает id/version и список ранее установленных версий этого id.
- *
- * Старые версии сносятся только после того, как новая успешно установлена, —
- * битый `.vsix` не разрушает текущую установку. При любой ошибке временный
- * каталог подчищается.
- */
+/** Старые версии сносятся только после успешной установки новой: битый `.vsix` не разрушает текущую. */
 export async function installVsix(
     vsixPath: string,
     extensionsDir: string,
 ): Promise<{ id: string; version: string; previous: string[] }> {
     fs.mkdirSync(extensionsDir, { recursive: true });
-    // Temp в том же каталоге, что и цель → rename атомарен, без EXDEV.
+    // Temp в том же каталоге, что и цель: rename атомарен, без EXDEV.
     const tempDir = fs.mkdtempSync(path.join(extensionsDir, ".vsix-install-"));
 
     try {
@@ -346,19 +263,15 @@ export async function installVsix(
         const id = `${publisher}.${name}`;
 
         const targetDir = path.join(extensionsDir, `${id}-${version}`);
-        // Исключаем собственный temp-каталог: в нём уже лежит распакованный
-        // package.json, иначе readInstalled принял бы его за установленную версию.
+        // В temp уже лежит package.json — readInstalled принял бы его за установленную версию.
         const sameId = readInstalled(extensionsDir).filter((e) => e.id === id && e.dir !== tempDir);
         const previous = sameId.map((e) => e.version);
 
-        // Целевой каталог должен отсутствовать для чистого rename.
         if (fs.existsSync(targetDir)) {
             fs.rmSync(targetDir, { recursive: true, force: true });
         }
-        // temp создан внутри extensionsDir → тот же ФС, rename атомарен (без EXDEV).
         fs.renameSync(tempDir, targetDir);
 
-        // Новая версия на месте — теперь сносим прочие версии того же id.
         for (const e of sameId) {
             if (e.dir !== targetDir) {
                 fs.rmSync(e.dir, { recursive: true, force: true });
@@ -372,10 +285,6 @@ export async function installVsix(
     }
 }
 
-/**
- * Удаляет все установленные версии расширения с данным id (`publisher.name`).
- * Возвращает список снесённых каталогов.
- */
 export function uninstallExtension(id: string, extensionsDir: string): { removed: string[] } {
     const removed: string[] = [];
     for (const e of readInstalled(extensionsDir)) {
@@ -387,7 +296,6 @@ export function uninstallExtension(id: string, extensionsDir: string): { removed
     return { removed };
 }
 
-/** Возвращает установленные расширения, отсортированные по id. */
 export function listInstalledExtensions(extensionsDir: string): IInstalledExtension[] {
     return readInstalled(extensionsDir).sort((a, b) => a.id.localeCompare(b.id));
 }

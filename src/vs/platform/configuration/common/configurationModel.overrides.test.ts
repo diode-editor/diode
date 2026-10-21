@@ -23,7 +23,6 @@ describe("ConfigurationModel — секции языков", () => {
         expect(model.getValue()).toEqual({ editor: { tabSize: 4, insertSpaces: true } });
         expect(model.override("makefile").get("editor.insertSpaces")).toBe(false);
         expect(model.override("makefile").get("editor.tabSize")).toBe(4);
-        // Нет секции — та же модель.
         expect(model.override("go")).toBe(model);
         expect(model.getOverrideIdentifiers()).toEqual(["makefile"]);
     });

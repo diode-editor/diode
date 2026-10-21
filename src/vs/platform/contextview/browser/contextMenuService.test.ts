@@ -68,8 +68,7 @@ describe("ContextMenuService", () => {
             menuId: MenuId.EditorContext,
         });
 
-        // Пункты языковых фич гейтятся `editorHas*Provider` — в этом сетапе
-        // контекст-ключей нет, поэтому видно то, что работает без провайдеров.
+        // Пункты языковых фич гейтятся `editorHas*Provider`, а контекст-ключей в сетапе нет.
         expect(openMenuLabels(app)).toEqual([
             "Change All Occurrences",
             "─",
@@ -85,7 +84,6 @@ describe("ContextMenuService", () => {
         first?.onSelect?.();
 
         expect(executed).toEqual(["editor.action.changeAll"]);
-        // Выбор пункта закрыл меню.
         expect(service.isContextMenuVisible()).toBe(false);
     });
 

@@ -7,45 +7,27 @@ import type { Keybinding, KeybindingChord, KeybindingRegistry } from "../../keyb
 
 import type { MenuId } from "./menuId.ts";
 
-/**
- * A binding plus an optional `when` that narrows JUST this binding — used for
- * environment-conditional defaults (tier / mode / capability / OS). The per-binding
- * `when` is AND-ed with the action-wide `when`.
- *
- * Example: bind Ctrl+Shift+Right only where the terminal can disambiguate it:
- *   { keys: parseKeybinding("ctrl+shift+right"), when: "tier == 'kitty' || tier == 'csi-u'" }
- */
+/** Per-binding `when` is AND-ed with the action-wide `when`. */
 export interface ConditionalKeybinding {
     readonly keys: Keybinding | KeybindingChord;
     readonly when?: string;
-    /** Вес только этого бинда; иначе — {@link CommandAction.weight}. */
     readonly weight?: number;
 }
 
 export type KeybindingEntry = Keybinding | KeybindingChord | ConditionalKeybinding;
 
-/**
- * Co-located размещение команды в меню (аналог поля `menu` у `registerAction2`
- * VS Code): экшен сам объявляет, в каких меню он виден. Из этих размещений
- * деривируется `MENU_CONTRIBUTIONS` (см. `Menus/menuContributions.ts`).
- * Семантика полей — как у `IMenuContribution`, минус `command` (это id экшена).
- */
+/** Как `IMenuContribution` минус `command` (это id экшена); поле `menu` у `registerAction2` VS Code. */
 export interface CommandMenuPlacement {
     readonly menuId: MenuId;
-    /** Label только для этого меню; иначе — `shortTitle`/`title` экшена. */
     readonly title?: string;
-    /** Условие видимости через контекст-ключи (`ContextKeyService.evaluate`). */
     readonly when?: string;
-    /** Сужает {@link CommandAction.enablement} для этого размещения (AND). */
+    /** Сужает {@link CommandAction.enablement} (AND). */
     readonly enablement?: string;
-    /** Императивная видимость по контексту открытия (см. `IMenuContribution.visible`). */
     readonly visible?: (context: unknown) => boolean;
-    /** When-выражение «пункт сейчас включён» — галочка в иконной колонке (см. `IMenuContribution.toggled`). */
     readonly toggled?: string;
     readonly group?: string;
     readonly order?: number;
     readonly icon?: string;
-    /** Аргументы для `execute`, резолвятся из контекста открытия меню. */
     readonly args?: (context: unknown) => readonly unknown[];
     /** `false` — не показывать шорткат; строка — литерал; иначе — из `KeybindingRegistry`. */
     readonly shortcut?: string | false;
@@ -54,47 +36,25 @@ export interface CommandMenuPlacement {
 export interface CommandAction {
     readonly id: string;
     readonly title: string;
-    /**
-     * Короткий label для меню (аналог `shortTitle` VS Code): без категории
-     * («File: Copy» → «Copy»). Палитра команд показывает `title`, меню — его.
-     */
+    /** Без категории («File: Copy» → «Copy»): палитра показывает `title`, меню — его. */
     readonly shortTitle?: string;
-    /** Primary binding. A combination, a chord, or a conditional `{ keys, when }`. */
     readonly keybinding?: KeybindingEntry;
-    /** Alternative bindings, each a combination, chord, or conditional `{ keys, when }`. */
     readonly keybindings?: KeybindingEntry[];
-    /** Action-wide when, AND-ed with any per-binding when. */
     readonly when?: string;
-    /**
-     * Вес кейбиндов экшена (`KeybindingWeight`, по умолчанию `EditorCore`):
-     * решает, кто из команд на одной комбинации с проходящими разом `when`
-     * получит клавишу. При равном весе сильнее зарегистрированный позже.
-     */
+    /** По умолчанию `EditorCore`; при равном весе сильнее зарегистрированный позже. */
     readonly weight?: number;
-    /**
-     * When-выражение «команду сейчас можно исполнить» (аналог `precondition`
-     * VS Code, поле `enablement` в манифесте расширения). Отличие от `when`:
-     * тот прячет пункт, а этот его гасит — пункт остаётся на месте, но
-     * приглушён и не исполняется. Отсутствие = доступно всегда.
-     */
+    /** Как `precondition` VS Code: `when` прячет пункт, а этот гасит — пункт на месте, но не исполняется. */
     readonly enablement?: string;
-    /** Co-located размещения в меню (см. {@link CommandMenuPlacement}). */
     readonly menus?: readonly CommandMenuPlacement[];
     run(accessor: ServiceAccessor, ...args: unknown[]): unknown;
 }
 
-/**
- * Явный список встроенных экшенов приложения (как `MenuContributionsDIToken`):
- * значение собирает агрегатор (`WORKBENCH_ACTIONS` в `workbench.common.main.ts`),
- * регистрирует его владелец приложения единым циклом `registerAction`.
- */
 export const CommandActionsDIToken = token<readonly CommandAction[]>("CommandActions");
 
 function isConditionalKeybinding(entry: KeybindingEntry): entry is ConditionalKeybinding {
     return !Array.isArray(entry) && "keys" in entry;
 }
 
-/** AND-combines the action-wide `when` with a per-binding `when` (either may be absent). */
 export function combineWhen(actionWhen?: string, bindingWhen?: string): string | undefined {
     if (actionWhen && bindingWhen) return `(${actionWhen}) && (${bindingWhen})`;
     return actionWhen ?? bindingWhen;
@@ -108,11 +68,8 @@ export function registerAction(
 ): IDisposable {
     const disposables: IDisposable[] = [];
 
-    // Guard доступности — на самой команде: так `enablement` накрывает ВСЕ пути
-    // запуска (пункт меню, inline-кнопка, кейбинд, палитра, программный
-    // execute), а не только те, что рисуют пункт. Сервис резолвим лениво и
-    // только когда `enablement` есть: команды без него не должны требовать его
-    // биндинга (минимальные контейнеры тестов экшенов).
+    // Guard на самой команде накрывает ВСЕ пути запуска, а не только рисующие пункт.
+    // Сервис резолвим лениво: команды без `enablement` не должны требовать его биндинга.
     const handler = (...args: unknown[]): unknown => {
         if (action.enablement !== undefined && !accessor.get(ContextKeyServiceDIToken).evaluate(action.enablement)) {
             return undefined;
@@ -129,9 +86,8 @@ export function registerAction(
         allBindings.push(...action.keybindings);
     }
 
-    // `enablement` складывается в when биндинга — так же, как VS Code кладёт
-    // `precondition` в правило кейбинда. Иначе диспетчер нашёл бы биндинг,
-    // проглотил клавишу и не сделал ничего; а так она уходит дальше по цепочке.
+    // `enablement` в when биндинга, как `precondition` у VS Code: иначе диспетчер
+    // проглотил бы клавишу и не сделал ничего, а так она уходит дальше по цепочке.
     const scope = combineWhen(action.when, action.enablement);
     for (const entry of allBindings) {
         const { keys, when, weight } = isConditionalKeybinding(entry)

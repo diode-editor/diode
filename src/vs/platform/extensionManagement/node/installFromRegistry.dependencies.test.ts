@@ -18,14 +18,6 @@ import {
     sha256File,
 } from "./installFromRegistry.ts";
 
-/**
- * `extensionDependencies` при установке из реестра — как VS Code
- * (`getAllDepsAndPackExtensions`): зависимости ставятся следом без вопросов,
- * транзитивно; уже установленные не трогаются; нет в реестре — расширение
- * всё равно ставится (отказ будет на активации); найдена, но поставить нельзя —
- * отказ, и диск не тронут.
- */
-
 const HOST: IHostVersions = { diode: "0.3.0", vscode: "1.127.0" };
 
 function buildVsixBuffer(manifest: object): Promise<Buffer> {
@@ -45,9 +37,7 @@ function buildVsixBuffer(manifest: object): Promise<Buffer> {
 interface ISeed {
     readonly version?: string;
     readonly engines?: IRegistryEngines;
-    /** Поля манифеста поверх `publisher`/`name`/`version` (зависимости — здесь). */
     readonly manifest?: Record<string, unknown>;
-    /** Подменить sha256 в записи реестра. */
     readonly sha256?: string;
 }
 
@@ -67,7 +57,6 @@ afterEach(async () => {
     await fs.promises.rm(tempRoot, { recursive: true, force: true });
 });
 
-/** Кладёт в реестр версии расширения `id` (`publisher.name`). */
 async function seed(id: string, ...seeds: ISeed[]): Promise<void> {
     const [publisher, name] = id.split(".");
     const versions = [];
@@ -132,8 +121,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         const result = await install("acme.plugin");
 
         expect(result.dependencies).toEqual([]);
-        // Узнана как установленная, а не «нет в реестре»: реестр под другим
-        // регистром её бы и не нашёл.
+        // Реестр под другим регистром её бы и не нашёл — значит, узнана как установленная.
         expect(result.missingDependencies).toEqual([]);
         expect(installed()).toEqual(["acme.base@1.0.0", "acme.plugin@1.0.0"]);
     });
@@ -159,7 +147,6 @@ describe("installFromRegistry — extensionDependencies", () => {
     });
 
     it("зависимость на встроенное расширение VS Code не ищется в магазине и не считается пропавшей", async () => {
-        // Как стоковый Supermaven: `extensionDependencies: ["vscode.git"]`.
         await seed("acme.plugin", { manifest: { extensionDependencies: ["vscode.git", "acme.base"] } });
         await seed("acme.base");
         const files = source();
@@ -202,7 +189,6 @@ describe("installFromRegistry — extensionDependencies", () => {
             const installRoot = path.dirname(dir);
             expect(path.dirname(installRoot)).toBe(os.tmpdir());
             expect(path.basename(installRoot)).toMatch(/^diode-registry-install-/u);
-            // Убран после установки.
             expect(fs.existsSync(installRoot)).toBe(false);
         }
     });
@@ -238,7 +224,6 @@ describe("installFromRegistry — extensionDependencies", () => {
         expect((error as Error).message).toMatch(
             /^Cannot install acme\.plugin: its dependency "acme\.base" cannot be installed — Extension "acme\.base" has no version compatible with this build/u,
         );
-        // Исходная причина не теряется — она в `cause`.
         expect((error as Error).cause).toBeInstanceOf(Error);
         expect(((error as Error).cause as Error).message).toMatch(/^Extension "acme\.base" has no version compatible/u);
         expect(installed()).toEqual(["acme.plugin@0.9.0"]);
@@ -256,8 +241,8 @@ describe("installFromRegistry — extensionDependencies", () => {
     });
 
     it("сбой установки самого расширения снимает уже поставленные зависимости", async () => {
-        // Манифест без version: подготовка его пропускает (id сходится), а
-        // установка отвергает — сбой случается ПОСЛЕ установки зависимости.
+        // Без version подготовка пропускает (id сходится), а установка отвергает —
+        // сбой случается ПОСЛЕ установки зависимости.
         await seed("acme.plugin", { manifest: { version: undefined, extensionDependencies: ["acme.base"] } });
         await seed("acme.base");
 

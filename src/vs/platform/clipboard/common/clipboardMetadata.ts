@@ -1,21 +1,9 @@
-/** Метаданные последнего текста, ушедшего в буфер через Copy/Cut редактора. */
 export interface IClipboardTextMetadata {
-    /**
-     * Текст скопирован единственным ПУСТЫМ выделением (вся строка целиком,
-     * `editor.emptySelectionClipboard`) — маркер линейной вставки: paste кладёт
-     * такую строку строкой выше курсорной, а не в позицию каретки.
-     */
+    /** Маркер линейной вставки: paste кладёт строку строкой выше курсорной, а не в позицию каретки. */
     readonly isFromEmptySelection: boolean;
 }
 
-/**
- * Память о происхождении содержимого буфера обмена — перенос
- * `InMemoryClipboardMetadataManager` из VS Code. Системный буфер несёт голый
- * текст, поэтому метаданные последней записи живут сбоку и выдаются только
- * при точном совпадении текста: изменился буфер снаружи — метаданные молча
- * устаревают. Синглтон, как и в VS Code: копирование и вставка — разные
- * команды, а буфер у приложения один.
- */
+/** Метаданные выдаются только при точном совпадении текста: буфер, изменённый снаружи, их молча гасит. */
 export class InMemoryClipboardMetadataManager {
     private lastCopiedText: string | null = null;
     private metadata: IClipboardTextMetadata | null = null;
@@ -25,7 +13,6 @@ export class InMemoryClipboardMetadataManager {
         this.metadata = metadata;
     }
 
-    /** Метаданные, если `text` — ровно последняя записанная строка; иначе `null`. */
     public get(text: string): IClipboardTextMetadata | null {
         return this.lastCopiedText === text ? this.metadata : null;
     }

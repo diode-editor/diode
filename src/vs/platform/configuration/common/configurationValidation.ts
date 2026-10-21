@@ -6,12 +6,7 @@ import type {
 } from "./configurationRegistry.ts";
 import { WORKSPACE_SCOPES } from "./workspaceSettings.ts";
 
-/**
- * Проходит ли значение схему ключа: `type` (один или любой из списка), `enum`,
- * `minimum`/`maximum` — то подмножество JSON-schema, которое объявляют наши
- * узлы. Аналог `validate()` опций редактора vscode (`EditorBooleanOption` и
- * соседи), но по схеме реестра, а не по классу на опцию.
- */
+/** Аналог `validate()` опций редактора vscode, но по схеме реестра, а не по классу на опцию. */
 export function isValidConfigurationValue(schema: IConfigurationPropertySchema, value: unknown): boolean {
     if (schema.enum !== undefined && !schema.enum.includes(value)) return false;
     const types: readonly ConfigurationValueType[] = typeof schema.type === "string" ? [schema.type] : schema.type;
@@ -39,18 +34,11 @@ function matchesType(type: ConfigurationValueType, schema: IConfigurationPropert
     }
 }
 
-/** `Number.isFinite` с сужением типа: не-числа он и так отвергает, без приведения. */
 function isFiniteNumber(value: unknown): value is number {
     return Number.isFinite(value);
 }
 
-/**
- * Итоговая модель, в которой значение каждого зарегистрированного ключа,
- * не прошедшее его схему, заменено дефолтом схемы. Мусор из settings.json
- * (`"editor.tabSize": "four"`, неизвестный режим `editor.wordWrap`) так не
- * доезжает до потребителей — санировать его на месте вызова не нужно.
- * Незарегистрированные ключи (настройки расширений) идут как есть.
- */
+/** Незарегистрированные ключи (настройки расширений) идут как есть. */
 export function sanitizeConfiguration(
     model: ConfigurationModel,
     schemas: ReadonlyMap<string, IConfigurationPropertySchema>,
@@ -67,10 +55,8 @@ export function sanitizeConfiguration(
 }
 
 /**
- * Модель для языка: итоговое значение, поверх — секция `"[identifier]"` из
- * слитых слоёв, без ключей ядра, которые не объявлены `language-overridable`
- * (их значение в секции игнорируется, как у VS Code), и уже прошедшее схему.
- * Ключи вне схемы ядра (настройки расширений) в секции действуют как есть.
+ * Ключи ядра не-`language-overridable` в секции игнорируются, как у VS Code; ключи
+ * вне схемы ядра (настройки расширений) действуют как есть.
  */
 export function languageConfiguration(
     merged: ConfigurationModel,
@@ -97,23 +83,12 @@ function deletePath(tree: Record<string, unknown>, segments: readonly string[]):
 }
 
 export interface IWorkspaceSettingsFilterResult {
-    /** Слой без ключей чужого скоупа — в основном дереве и в секциях языков. */
     readonly model: ConfigurationModel;
-    /** Отброшенные ключи (dotted; в секции языка — с префиксом `[lang].`) — чтобы назвать их человеку в логе. */
+    /** В секции языка — с префиксом `[lang].`. */
     readonly excludedKeys: readonly string[];
 }
 
-/**
- * Слой воркспейса без ключей, чей `scope` этому слою не положен (как фильтр по
- * `scopes` у `ConfigurationModelParser` эталона): `application`/`machine`-ключ в
- * `.diode/settings.json` не действует — ни в основном дереве, ни в секции
- * языка. Скоупы — ключей ядра и расширений
- * (`ConfigurationRegistry.getConfigurationScopes`); ключ вне реестра идёт как есть.
- *
- * `allowed` — какие скоупы слой принимает: `WORKSPACE_SCOPES` у слоя
- * воркспейса, `FOLDER_SCOPES` у слоя папки, когда окно открыто файлом
- * `.code-workspace` (там `window`-ключ папки тоже не действует).
- */
+/** Как фильтр по `scopes` у `ConfigurationModelParser` эталона; ключ вне реестра идёт как есть. */
 export function filterWorkspaceSettings(
     model: ConfigurationModel,
     scopes: ReadonlyMap<string, ConfigurationScope>,
@@ -136,13 +111,7 @@ export function filterWorkspaceSettings(
     return { model: excludedKeys.length === 0 ? model : ConfigurationModel.fromRaw(raw), excludedKeys };
 }
 
-/**
- * Только ключи реестра с одним из `allowed` скоупов — в основном дереве и в
- * секциях языков; всё остальное, включая ключи вне реестра, отбрасывается (как
- * `skipUnregistered` у `ConfigurationModelParser` эталона). Так читается
- * `User/settings.json` Default-профиля для именованного: из него приезжают
- * только `application`-ключи, и незарегистрированный ключ — тоже не они.
- */
+/** В отличие от {@link filterWorkspaceSettings}, ключ вне реестра отбрасывается (`skipUnregistered` эталона). */
 export function pickRegisteredSettings(
     model: ConfigurationModel,
     scopes: ReadonlyMap<string, ConfigurationScope>,
@@ -163,11 +132,7 @@ export function pickRegisteredSettings(
     return Object.keys(raw).length === 0 ? ConfigurationModel.EMPTY : ConfigurationModel.fromRaw(raw);
 }
 
-/**
- * Удаляет ключ из дерева вместе с опустевшими предками: отброшенный
- * `terminal.tier` не должен оставлять в слое `terminal: {}` — пустой объект
- * перекрыл бы при слиянии ничего, но доехал бы до хоста как значение секции.
- */
+/** С опустевшими предками: `terminal: {}` доехал бы до хоста как значение секции. */
 function prunePath(tree: Record<string, unknown>, segments: readonly string[]): void {
     const [head, ...rest] = segments;
     if (rest.length > 0) {

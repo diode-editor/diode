@@ -23,7 +23,6 @@ function setup(items: IMenuContribution[]): Harness {
     const keybindings = new KeybindingRegistry();
     const contextKeys = new ContextKeyService();
     const executed: { id: string; args: unknown[] }[] = [];
-    // Регистрируем команды пунктов, чтобы execute был наблюдаем и getTitle работал.
     const seen = new Set<string>();
     for (const item of items) {
         if (seen.has(item.command)) continue;
@@ -93,7 +92,6 @@ describe("MenuRegistry", () => {
             { menuId: MenuId.EditorContext, command: "z", group: "2_second" },
             { menuId: MenuId.EditorContext, command: "a", group: "1_first" },
         ]);
-        // группы 1_first перед 2_second, разделитель между; нет ведущих/хвостовых.
         expect(labels(h.registry.getMenuItems(MenuId.EditorContext))).toEqual(["Title:a", "─", "Title:z"]);
     });
 
@@ -118,7 +116,6 @@ describe("MenuRegistry", () => {
             { menuId: MenuId.EditorContext, command: "nav", group: "navigation" },
             { menuId: MenuId.EditorContext, command: "second", group: "2_second" },
         ]);
-        // navigation впереди (спец-группа vscode), дальше — 1_first < 2_second.
         expect(labels(h.registry.getMenuItems(MenuId.EditorContext))).toEqual([
             "Title:nav",
             "─",
@@ -163,7 +160,7 @@ describe("MenuRegistry", () => {
     it("label: явный title → title команды → id команды", () => {
         const commands = new CommandRegistry();
         commands.register("withTitle", () => {}, "Command Title");
-        commands.register("noTitle", () => {}); // без title
+        commands.register("noTitle", () => {});
         const registry = new MenuRegistry(commands, new KeybindingRegistry(), new ContextKeyService(), [
             { menuId: MenuId.EditorContext, command: "withTitle", title: "Explicit" },
             { menuId: MenuId.EditorContext, command: "withTitle" },
@@ -208,7 +205,7 @@ describe("MenuRegistry", () => {
             },
         ]);
         const entries = items(h.registry.getMenuItems(MenuId.ExplorerContext, { path: "/ws/a.txt" }));
-        expect(called).toBe(1); // резолвер отработал при сборке меню
+        expect(called).toBe(1);
         entries[0].onSelect?.();
         expect(h.executed).toEqual([{ id: "rename", args: ["/ws/a.txt"] }]);
     });
@@ -297,7 +294,6 @@ describe("MenuRegistry", () => {
             .map((e) => ("label" in e ? e.label : "—"));
         expect(titles).toEqual(["Title:cmd"]);
 
-        // Свой контекст + when=true: оба подменю в списке.
         h.contextKeys.set("listFocus", true);
         titles = h.registry
             .getMenuItems(MenuId.ViewTitle, { view: "changes" }, resolver as never)
@@ -357,7 +353,6 @@ describe("MenuRegistry — enablement", () => {
         // В отличие от `when`, пункт остаётся в списке — гасится, а не исчезает.
         expect(entries).toHaveLength(1);
         expect(entryOf(h).enabled).toBe(false);
-        // Попап движка рисует его серым и пропускает стрелками.
         expect(entryOf(h).disabled).toBe(true);
     });
 

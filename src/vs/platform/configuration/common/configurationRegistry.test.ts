@@ -86,7 +86,6 @@ describe("ConfigurationRegistry — настройки расширений", ()
         // `undefined`-значением: toEqual такого не различил бы).
         expect(registry.getExtensionConfigurationProperties().has("ruff.path")).toBe(true);
         expect(Object.keys(registry.getDefaultConfiguration().ruff as object)).toEqual(["importStrategy"]);
-        // Схемы ядра (по ним идёт валидация) ключей расширений не содержат.
         expect(registry.getConfigurationProperties().has("ruff.importStrategy")).toBe(false);
     });
 

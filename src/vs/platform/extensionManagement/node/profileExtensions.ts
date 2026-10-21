@@ -9,48 +9,30 @@ import { NULL_LOGGER } from "../../log/common/nullLogService.ts";
 import { type IInstalledExtension, listInstalledExtensions, uninstallExtension } from "./extensionInstaller.ts";
 
 /**
- * Состав расширений профиля — `extensions.json` (аналог
- * `extensionsProfileScannerService.ts` эталона). Сами расширения лежат в общем
- * каталоге `extensions/` (`IInstalledExtension`), а файл профиля перечисляет,
- * какие из них в этом профиле включены. Default хранит свой файл в самом
- * каталоге расширений (`<extensionsDir>/extensions.json`, как
- * `getDefaultProfileExtensionsLocation` эталона), именованный профиль — в своём
- * каталоге (`User/profiles/<id>/extensions.json`).
+ * Состав профиля (`extensionsProfileScannerService.ts` эталона): расширения лежат в
+ * общем `extensions/`, а `extensions.json` профиля перечисляет включённые.
  *
- * Отступление от эталона: версия расширения одна на все профили. Установка
- * (`installVsix`) сносит прочие версии того же id, поэтому запись профиля
- * сопоставляется с диском по id, а `version`/`relativeLocation` в файле —
- * справочные (их обновляет установка в этот профиль). Обновил расширение в
- * одном профиле — обновилось во всех, где оно есть.
+ * Отступление от эталона: версия одна на все профили — `installVsix` сносит прочие
+ * версии id, поэтому запись сопоставляется с диском по id, а `version` и
+ * `relativeLocation` в файле справочные.
  *
- * Модуль на `node:fs`, синхронный — как `extensionInstaller.ts`: файлы
- * маленькие, а читают их бутстрап и CLI до подъёма TUI.
+ * Синхронный: файлы маленькие, читают их бутстрап и CLI до подъёма TUI.
  */
 
-/** Имя файла состава профиля — и у Default (в каталоге расширений), и у именованного. */
 export const PROFILE_EXTENSIONS_FILE = "extensions.json";
 
-/**
- * Запись `extensions.json` — подмножество `IStoredProfileExtension` эталона:
- * `identifier.id`, `version`, `relativeLocation` (каталог в `extensions/`).
- * Чужие поля записи (`location`, `metadata` из файла эталона) при перезаписи
- * сохраняются как есть.
- */
+/** Подмножество `IStoredProfileExtension` эталона; чужие поля записи при перезаписи сохраняются. */
 export interface IStoredProfileExtension {
     readonly identifier: { readonly id: string };
     readonly version: string;
     readonly relativeLocation?: string;
 }
 
-/**
- * Записи `extensions.json`; `undefined` — файла нет. Не JSON-массив — ошибка:
- * перезапись такого файла молча стёрла бы чужой состав. Элементы без
- * `identifier.id` пропускаются (их и эталон не читает).
- */
+/** `undefined` — файла нет. Не JSON-массив — ошибка: перезапись молча стёрла бы чужой состав. */
 export function readProfileExtensions(file: string): IStoredProfileExtension[] | undefined {
     let text: string;
     try {
-        // Декодирование явным шагом: неверная кодировка бросает, а не сглаживается `JSON.parse`.
+        // Явным шагом: неверная кодировка бросает, а не сглаживается `JSON.parse`.
         text = fs.readFileSync(file).toString("utf8");
     } catch (err) {
         if (isFileNotFound(err)) return undefined;
@@ -60,16 +42,13 @@ export function readProfileExtensions(file: string): IStoredProfileExtension[] |
     try {
         parsed = JSON.parse(text);
     } catch {
-        // Битый JSON — та же ошибка, что «не массив», ниже.
+        // та же ошибка, что «не массив», ниже
     }
     if (!Array.isArray(parsed)) throw new Error(`Invalid extensions profile content in ${file}`);
     return parsed.filter(isStoredProfileExtension);
 }
 
-/**
- * Пишет состав профиля целиком: во временный файл рядом и `rename` — обрыв
- * посреди записи не оставит профиль с обрезанным JSON. Каталог создаётся.
- */
+/** Через временный файл и `rename`: обрыв посреди записи не оставит обрезанный JSON. */
 export function writeProfileExtensions(file: string, entries: readonly IStoredProfileExtension[]): void {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const temp = `${file}.${String(process.pid)}.tmp`;
@@ -77,7 +56,6 @@ export function writeProfileExtensions(file: string, entries: readonly IStoredPr
     fs.renameSync(temp, file);
 }
 
-/** Запись профиля по установленному расширению. */
 function toStoredExtension(installed: IInstalledExtension): IStoredProfileExtension {
     return {
         identifier: { id: installed.id },
@@ -86,18 +64,14 @@ function toStoredExtension(installed: IInstalledExtension): IStoredProfileExtens
     };
 }
 
-/** Ключи id, которые перечисляет файл профиля; файла нет — пусто. */
 function profileKeys(file: string): Set<string> {
     return new Set((readProfileExtensions(file) ?? []).map((e) => extensionKey(e.identifier.id)));
 }
 
 /**
- * Миграция на состав по профилю: профиль без `extensions.json` получает **все**
- * установленные расширения — до этой версии они и были видны в каждом
- * профиле, и после обновления ничего не пропадает. Файл пишется один раз;
- * дальше состав профиля — только его файл. Новые профили файл получают сразу
- * (пустой — `UserDataProfilesService.createNamedProfile`), так что сюда
- * попадают лишь профили из прошлых версий. Возвращает записанные файлы.
+ * Профиль без `extensions.json` получает **все** установленные: до состава по профилю
+ * они были видны в каждом. Новые профили получают пустой файл сразу
+ * (`createNamedProfile`), так что сюда попадают лишь профили прошлых версий.
  */
 export function migrateProfileExtensions(extensionsDir: string, profileFiles: readonly string[]): string[] {
     const missing = profileFiles.filter((file) => !fs.existsSync(file));
@@ -108,20 +82,14 @@ export function migrateProfileExtensions(extensionsDir: string, profileFiles: re
     return missing;
 }
 
-/**
- * Файлы состава всех профилей: известные реестру плюс `extensions.json` в
- * каждом каталоге `profilesHome` на диске. Диск — потому что реестр процесса
- * может не знать профиль, созданный другим окном (`storage.json` каждый
- * процесс держит своим снимком), а снести расширение, которое тот профиль
- * держит, нельзя.
- */
+/** Плюс диск: реестр процесса может не знать профиль, созданный другим окном (`storage.json` — снимок). */
 export function profileExtensionsFiles(known: readonly string[], profilesHome: string): string[] {
     const files = new Set(known);
     let entries: fs.Dirent[] = [];
     try {
         entries = fs.readdirSync(profilesHome, { withFileTypes: true });
     } catch {
-        // Каталога профилей нет — именованных профилей на диске нет.
+        // именованных профилей на диске нет
     }
     for (const entry of entries) {
         if (entry.isDirectory()) files.add(path.join(profilesHome, entry.name, PROFILE_EXTENSIONS_FILE));
@@ -129,12 +97,7 @@ export function profileExtensionsFiles(known: readonly string[], profilesHome: s
     return [...files];
 }
 
-/**
- * Удаляет из общего каталога расширения, которых нет ни в одном профиле (как
- * `deleteExtensionsNotInProfiles` эталона); `candidates` — сузить проверку до
- * этих id. Нечитаемый файл профиля считается держащим всё: удалить то, что
- * может быть в нём, нельзя. Возвращает id удалённых.
- */
+/** Как `deleteExtensionsNotInProfiles`. Нечитаемый файл профиля считается держащим всё. */
 export function deleteUnusedExtensions(
     extensionsDir: string,
     profileFiles: readonly string[],
@@ -162,29 +125,19 @@ export function deleteUnusedExtensions(
 }
 
 export interface IProfileExtensionsOptions {
-    /** Общий каталог установленных расширений. */
     readonly extensionsDir: string;
-    /** `extensions.json` профиля, с которым работаем. */
     readonly profileFile: string;
-    /** Файлы состава всех профилей (включая этот) — для решения, удалять ли расширение с диска. */
+    /** Включая этот. */
     readonly allProfileFiles: () => readonly string[];
     readonly logger?: ILogger;
 }
 
-/** Итог {@link ProfileExtensions.remove}. */
 export interface IProfileExtensionRemoval {
-    /** Расширение было в профиле и убрано из него. */
     readonly removed: boolean;
-    /** Id, снесённые с диска (оно само): ни одному профилю расширение больше не нужно. */
+    /** Снесённые с диска: ни одному профилю больше не нужны. */
     readonly deleted: readonly string[];
 }
 
-/**
- * Расширения одного профиля поверх общего каталога: что в профиле (`list`),
- * взять поставленное в профиль (`add`), убрать из профиля (`remove`). Им
- * пользуются и магазин в окне (`ExtensionsWorkbenchService`), и CLI
- * (`--install-extension`/`--uninstall-extension`/`--list-extensions`).
- */
 export class ProfileExtensions {
     private readonly logger: ILogger;
 
@@ -196,11 +149,7 @@ export class ProfileExtensions {
         return this.options.extensionsDir;
     }
 
-    /**
-     * Установленные расширения профиля, по id. Нечитаемый файл профиля —
-     * пустой состав и ошибка в лог: окно поднимается, расширения не грузятся,
-     * а файл остаётся нетронутым до явной установки или удаления.
-     */
+    /** Нечитаемый файл — пустой состав и ошибка в лог: окно поднимается, файл остаётся нетронутым. */
     public list(): IInstalledExtension[] {
         let keys: Set<string>;
         try {
@@ -213,11 +162,8 @@ export class ProfileExtensions {
     }
 
     /**
-     * Включает в профиль установленные расширения `ids` вместе с их
-     * `extensionDependencies` (транзитивно, из того, что лежит на диске):
-     * зависимость, поставленная раньше для другого профиля, в этом тоже нужна.
-     * Запись уже включённого обновляется (версия после установки новой).
-     * Нечитаемый файл профиля — ошибка, файл не перезаписывается.
+     * Вместе с `extensionDependencies` транзитивно: зависимость, поставленная раньше
+     * для другого профиля, в этом тоже нужна. Нечитаемый файл — ошибка, не перезапись.
      */
     public add(ids: readonly string[]): void {
         const installed = new Map(
@@ -237,11 +183,7 @@ export class ProfileExtensions {
         writeProfileExtensions(this.options.profileFile, [...entries, ...[...adding.values()].map(toStoredExtension)]);
     }
 
-    /**
-     * Убирает расширение из профиля; если ни одному профилю оно больше не
-     * нужно — сносит и его каталог (`onDidRemoveExtensions` эталона). Не было в
-     * профиле — ничего не меняет.
-     */
+    /** Не нужно больше ни одному профилю — сносит и каталог (`onDidRemoveExtensions` эталона). */
     public remove(id: string): IProfileExtensionRemoval {
         const key = extensionKey(id);
         const entries = readProfileExtensions(this.options.profileFile) ?? [];
@@ -255,18 +197,12 @@ export class ProfileExtensions {
 }
 
 function isStoredProfileExtension(value: unknown): value is IStoredProfileExtension {
-    // Чтение поля у примитива безопасно (`undefined`), опасны только null/undefined.
     const identifier = (value as { identifier?: unknown } | null | undefined)?.identifier;
     const id = (identifier as { id?: unknown } | null | undefined)?.id;
     return typeof id === "string" && id.length > 0;
 }
 
-/**
- * {@link ProfileExtensions} активного профиля по реестру: файлы всех профилей —
- * реестр плюс каталоги `profilesHome` на диске ({@link profileExtensionsFiles}).
- * Типы структурные — модель профиля живёт в `platform/userDataProfile`, и
- * установке расширений знать о ней больше незачем.
- */
+/** Типы структурные: установке расширений незачем знать модель профиля из `platform/userDataProfile`. */
 export function createProfileExtensions(input: {
     readonly extensionsDir: string;
     readonly profile: { readonly extensionsResource: string };

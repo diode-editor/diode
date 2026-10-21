@@ -15,11 +15,6 @@ import { type ConfigurationService, loadConfiguration } from "./configurationSer
 
 const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 
-/**
- * Окно, открытое файлом `.code-workspace` (раскладка эталона): слой воркспейса —
- * блок `settings` файла, `.diode/settings.json` папки — слой папки поверх него
- * с ключами `FOLDER_SCOPES`.
- */
 describe("ConfigurationService — окно из файла .code-workspace", () => {
     let userData: ITempWorkspace;
     let repo: ITempWorkspace;
@@ -201,8 +196,6 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
             expect(watchFile).toHaveBeenCalledWith(repo.path("backend.code-workspace"), expect.any(Function));
         });
 
-        // Open Folder на ту же папку: файл воркспейса уходит, `.diode/settings.json`
-        // снова сам — слой воркспейса, и его window-ключи снова действуют.
         it("из файла в ту же папку напрямую: .diode/settings.json снова слой воркспейса", async () => {
             writeWorkspaceFile({ "workbench.colorTheme": "Solar", "editor.tabSize": 2 });
             writeFolderSettings({ "workbench.colorTheme": "Folder" });
@@ -320,7 +313,6 @@ describe("ConfigurationService — окно из файла .code-workspace", ()
     });
 });
 
-/** Окно из папки напрямую: цель-папка — тот же `.diode/settings.json`, что у воркспейса. */
 describe("ConfigurationService — цель workspaceFolder у окна из папки", () => {
     let userData: ITempWorkspace;
     let folder: ITempWorkspace;
