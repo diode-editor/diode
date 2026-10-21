@@ -9,30 +9,30 @@ import { NULL_LOGGER } from "../../log/common/nullLogService.ts";
 import { type IInstalledExtension, listInstalledExtensions, uninstallExtension } from "./extensionInstaller.ts";
 
 /**
- * Состав профиля (`extensionsProfileScannerService.ts` эталона): расширения лежат в
- * общем `extensions/`, а `extensions.json` профиля перечисляет включённые.
+ * Profile contents (upstream `extensionsProfileScannerService.ts`): extensions live in
+ * the shared `extensions/`, and the profile's `extensions.json` lists the enabled ones.
  *
- * Отступление от эталона: версия одна на все профили — `installVsix` сносит прочие
- * версии id, поэтому запись сопоставляется с диском по id, а `version` и
- * `relativeLocation` в файле справочные.
+ * Deviation from upstream: one version serves all profiles, since `installVsix` removes
+ * other versions of the id, so entries match the disk by id, and `version` and
+ * `relativeLocation` in the file are informational.
  *
- * Синхронный: файлы маленькие, читают их бутстрап и CLI до подъёма TUI.
+ * Synchronous: the files are small and are read by bootstrap and the CLI before the TUI starts.
  */
 
 export const PROFILE_EXTENSIONS_FILE = "extensions.json";
 
-/** Подмножество `IStoredProfileExtension` эталона; чужие поля записи при перезаписи сохраняются. */
+/** Subset of upstream `IStoredProfileExtension`; unknown entry fields are preserved on rewrite. */
 export interface IStoredProfileExtension {
     readonly identifier: { readonly id: string };
     readonly version: string;
     readonly relativeLocation?: string;
 }
 
-/** `undefined` — файла нет. Не JSON-массив — ошибка: перезапись молча стёрла бы чужой состав. */
+/** `undefined` means no file. A non-JSON-array is an error: rewriting would silently wipe someone else's contents. */
 export function readProfileExtensions(file: string): IStoredProfileExtension[] | undefined {
     let text: string;
     try {
-        // Явным шагом: неверная кодировка бросает, а не сглаживается `JSON.parse`.
+        // Explicit decoding: a wrong encoding throws instead of being smoothed over by `JSON.parse`.
         text = fs.readFileSync(file).toString("utf8");
     } catch (err) {
         if (isFileNotFound(err)) return undefined;
@@ -42,13 +42,13 @@ export function readProfileExtensions(file: string): IStoredProfileExtension[] |
     try {
         parsed = JSON.parse(text);
     } catch {
-        // та же ошибка, что «не массив», ниже
+        // same error as "not an array" below
     }
     if (!Array.isArray(parsed)) throw new Error(`Invalid extensions profile content in ${file}`);
     return parsed.filter(isStoredProfileExtension);
 }
 
-/** Через временный файл и `rename`: обрыв посреди записи не оставит обрезанный JSON. */
+/** Via a temp file and `rename`: an interruption mid-write can't leave truncated JSON. */
 export function writeProfileExtensions(file: string, entries: readonly IStoredProfileExtension[]): void {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const temp = `${file}.${String(process.pid)}.tmp`;
@@ -69,27 +69,27 @@ function profileKeys(file: string): Set<string> {
 }
 
 /**
- * Профиль без `extensions.json` получает **все** установленные: до состава по профилю
- * они были видны в каждом. Новые профили получают пустой файл сразу
- * (`createNamedProfile`), так что сюда попадают лишь профили прошлых версий.
+ * A profile without `extensions.json` gets **all** installed extensions: before
+ * per-profile contents they were visible in every profile. New profiles get an empty
+ * file right away (`createNamedProfile`), so only profiles from older versions land here.
  */
 export function migrateProfileExtensions(extensionsDir: string, profileFiles: readonly string[]): string[] {
     const missing = profileFiles.filter((file) => !fs.existsSync(file));
-    // Stryker disable next-line ConditionalExpression: экономия обхода каталога расширений на каждом старте — без неё результат тот же (пустой список, ничего не записано)
+    // Stryker disable next-line ConditionalExpression: saves scanning the extensions directory on every start; without it the result is the same (empty list, nothing written)
     if (missing.length === 0) return [];
     const all = listInstalledExtensions(extensionsDir).map(toStoredExtension);
     for (const file of missing) writeProfileExtensions(file, all);
     return missing;
 }
 
-/** Плюс диск: реестр процесса может не знать профиль, созданный другим окном (`storage.json` — снимок). */
+/** Plus the disk: the process's registry may not know a profile created by another window (`storage.json` is a snapshot). */
 export function profileExtensionsFiles(known: readonly string[], profilesHome: string): string[] {
     const files = new Set(known);
     let entries: fs.Dirent[] = [];
     try {
         entries = fs.readdirSync(profilesHome, { withFileTypes: true });
     } catch {
-        // именованных профилей на диске нет
+        // no named profiles on disk
     }
     for (const entry of entries) {
         if (entry.isDirectory()) files.add(path.join(profilesHome, entry.name, PROFILE_EXTENSIONS_FILE));
@@ -97,7 +97,7 @@ export function profileExtensionsFiles(known: readonly string[], profilesHome: s
     return [...files];
 }
 
-/** Как `deleteExtensionsNotInProfiles`. Нечитаемый файл профиля считается держащим всё. */
+/** Like `deleteExtensionsNotInProfiles`. An unreadable profile file counts as holding everything. */
 export function deleteUnusedExtensions(
     extensionsDir: string,
     profileFiles: readonly string[],
@@ -127,14 +127,14 @@ export function deleteUnusedExtensions(
 export interface IProfileExtensionsOptions {
     readonly extensionsDir: string;
     readonly profileFile: string;
-    /** Включая этот. */
+    /** Includes this one. */
     readonly allProfileFiles: () => readonly string[];
     readonly logger?: ILogger;
 }
 
 export interface IProfileExtensionRemoval {
     readonly removed: boolean;
-    /** Снесённые с диска: ни одному профилю больше не нужны. */
+    /** Removed from disk: no profile needs them anymore. */
     readonly deleted: readonly string[];
 }
 
@@ -149,7 +149,7 @@ export class ProfileExtensions {
         return this.options.extensionsDir;
     }
 
-    /** Нечитаемый файл — пустой состав и ошибка в лог: окно поднимается, файл остаётся нетронутым. */
+    /** An unreadable file yields an empty list and a logged error: the window starts and the file stays untouched. */
     public list(): IInstalledExtension[] {
         let keys: Set<string>;
         try {
@@ -162,8 +162,8 @@ export class ProfileExtensions {
     }
 
     /**
-     * Вместе с `extensionDependencies` транзитивно: зависимость, поставленная раньше
-     * для другого профиля, в этом тоже нужна. Нечитаемый файл — ошибка, не перезапись.
+     * Together with `extensionDependencies`, transitively: a dependency installed earlier
+     * for another profile is needed in this one too. An unreadable file is an error, not a rewrite.
      */
     public add(ids: readonly string[]): void {
         const installed = new Map(
@@ -183,7 +183,7 @@ export class ProfileExtensions {
         writeProfileExtensions(this.options.profileFile, [...entries, ...[...adding.values()].map(toStoredExtension)]);
     }
 
-    /** Не нужно больше ни одному профилю — сносит и каталог (`onDidRemoveExtensions` эталона). */
+    /** When no profile needs it anymore, also removes the directory (upstream `onDidRemoveExtensions`). */
     public remove(id: string): IProfileExtensionRemoval {
         const key = extensionKey(id);
         const entries = readProfileExtensions(this.options.profileFile) ?? [];
@@ -202,7 +202,7 @@ function isStoredProfileExtension(value: unknown): value is IStoredProfileExtens
     return typeof id === "string" && id.length > 0;
 }
 
-/** Типы структурные: установке расширений незачем знать модель профиля из `platform/userDataProfile`. */
+/** Structural types: extension installation has no need to know the profile model from `platform/userDataProfile`. */
 export function createProfileExtensions(input: {
     readonly extensionsDir: string;
     readonly profile: { readonly extensionsResource: string };

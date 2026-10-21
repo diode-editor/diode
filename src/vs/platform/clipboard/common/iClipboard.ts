@@ -5,5 +5,5 @@ export interface IClipboard {
     writeText(text: string): Promise<void>;
 }
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference; the string inside is only a debug label
 export const ClipboardDIToken = token<IClipboard>("Clipboard");

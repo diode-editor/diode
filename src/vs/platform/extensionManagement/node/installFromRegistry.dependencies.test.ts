@@ -121,7 +121,7 @@ describe("installFromRegistry — extensionDependencies", () => {
         const result = await install("acme.plugin");
 
         expect(result.dependencies).toEqual([]);
-        // Реестр под другим регистром её бы и не нашёл — значит, узнана как установленная.
+        // The registry wouldn't even find it under a different case, so it was recognized as installed.
         expect(result.missingDependencies).toEqual([]);
         expect(installed()).toEqual(["acme.base@1.0.0", "acme.plugin@1.0.0"]);
     });
@@ -241,8 +241,8 @@ describe("installFromRegistry — extensionDependencies", () => {
     });
 
     it("сбой установки самого расширения снимает уже поставленные зависимости", async () => {
-        // Без version подготовка пропускает (id сходится), а установка отвергает —
-        // сбой случается ПОСЛЕ установки зависимости.
+        // Without version, preparation passes (the id matches) but install rejects it,
+        // so the failure happens AFTER the dependency is installed.
         await seed("acme.plugin", { manifest: { version: undefined, extensionDependencies: ["acme.base"] } });
         await seed("acme.base");
 
@@ -269,7 +269,7 @@ describe("installFromRegistry — extensionDependencies", () => {
             getMeta: (id) => files.getMeta(id),
             fetchArtifact: (version, tempDir) =>
                 version.artifact.type === "path" && version.artifact.path.includes("acme.base")
-                    ? // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- предмет теста: чужой код отказывает не-Error значением
+                    ? // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors -- the point of the test: foreign code rejects with a non-Error value
                       Promise.reject("network down")
                     : files.fetchArtifact(version, tempDir),
         };

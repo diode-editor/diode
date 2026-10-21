@@ -59,7 +59,7 @@ describe("installFromRegistry", () => {
         for (const seed of versions) {
             const suffix = seed.targetPlatform === undefined ? "" : `@${seed.targetPlatform}`;
             const relPath = `artifacts/${id}-${seed.version}${suffix}.vsix`;
-            // Маркер в манифесте доказывает, ЧЕЙ артефакт распакован, а не только какая версия выбрана.
+            // The manifest marker proves WHOSE artifact was extracted, not just which version was picked.
             const vsix = await buildVsixBuffer(
                 seed.manifest ?? {
                     publisher,
@@ -253,7 +253,7 @@ describe("installFromRegistry", () => {
         ["успешной установки", "1.0.0", false],
         ["провалившейся установки", "b".repeat(64), true],
     ] satisfies [string, string, boolean][])("temp-каталог не остаётся после %s", async (_label, seedSha, fails) => {
-        // Общий os.tmpdir() делят параллельные файлы, и счёт каталогов в нём плыл бы.
+        // The shared os.tmpdir() is used by parallel test files, so the directory count there would drift.
         const privateTmp = path.join(tempRoot, "tmp");
         await fs.promises.mkdir(privateTmp);
         for (const name of ["TMPDIR", "TMP", "TEMP"]) vi.stubEnv(name, privateTmp);

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { scanWhen } from "./scanner.ts";
 
-/** Ожидания перенесены из upstream `contextkey/test/common/scanner.test.ts` (там `===` — отдельный тип, у нас — `==`). */
+/** Expectations ported from upstream `contextkey/test/common/scanner.test.ts` (there `===` is a separate type, here it is `==`). */
 describe("scanWhen", () => {
     it("ключ с символами, которые VS Code допускает в имени", () => {
         expect(scanWhen("foo.bar<C-shift+2>")).toEqual([
@@ -43,7 +43,7 @@ describe("scanWhen", () => {
     });
 
     it("сравнения < <= > >= — и без пробелов", () => {
-        expect(scanWhen("a<1").map((t) => t.type)).toEqual(["str", "eof"]); // `<` — символ слова
+        expect(scanWhen("a<1").map((t) => t.type)).toEqual(["str", "eof"]); // `<` is a word character
         expect(scanWhen("a < 1 && b <= 2 && c > 3 && d >= -1").map((t) => t.type)).toEqual([
             "str",
             "<",

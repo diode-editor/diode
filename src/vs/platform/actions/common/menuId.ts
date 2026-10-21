@@ -1,4 +1,4 @@
-/** Сравнение — по идентичности инстанса; id уникальны. */
+/** Compared by instance identity; ids are unique. */
 export class MenuId {
     private static readonly instances = new Set<string>();
 
@@ -8,20 +8,20 @@ export class MenuId {
     public static readonly ScmResourceGroupContext = new MenuId("ScmResourceGroupContext");
     public static readonly ScmGraphContext = new MenuId("ScmGraphContext");
     /**
-     * Цель — вкладка под курсором, а не активная: пункты адресуются через `menuContext`
-     * (`EditorTitleMenuContext`), видимость — императивно (`visible`), не when-ключами.
+     * Targets the tab under the mouse, not the active one: items address it via `menuContext`
+     * (`EditorTitleMenuContext`), and visibility is imperative (`visible`), not via when keys.
      */
     public static readonly EditorTitleContext = new MenuId("EditorTitleContext");
-    /** Контекст открытия — `EditorTitleBarMenuContext` (id группы). */
+    /** Opened with `EditorTitleBarMenuContext` (the group id) as context. */
     public static readonly EditorTitle = new MenuId("EditorTitle");
-    /** Цель — инстанс под курсором (`TerminalTabMenuContext`). */
+    /** Targets the instance under the mouse (`TerminalTabMenuContext`). */
     public static readonly TerminalTabContext = new MenuId("TerminalTabContext");
     /**
-     * Фильтруется по `menuContext.view` (`viewMenuVisible`): глобальный when-ключ не
-     * годится — в сайдбаре одновременно видно несколько секций.
+     * Filtered by `menuContext.view` (`viewMenuVisible`): a global when key does not
+     * work, since the sidebar shows several sections at once.
      */
     public static readonly ViewTitle = new MenuId("ViewTitle");
-    /** Фильтруется по `menuContext.container` (`containerMenuVisible`). */
+    /** Filtered by `menuContext.container` (`containerMenuVisible`). */
     public static readonly ViewContainerTitle = new MenuId("ViewContainerTitle");
     public static readonly MenubarMainMenu = new MenuId("MenubarMainMenu");
     public static readonly MenubarFileMenu = new MenuId("MenubarFileMenu");

@@ -20,16 +20,16 @@ import type {
 import { folderScopeWriteError, NO_WORKSPACE_OPENED_ERROR, workspaceScopeWriteError } from "./workspaceSettings.ts";
 
 /**
- * Профиля нет: один user-слой. Окна из `.code-workspace` нет: цель-папка пишет в
- * слой воркспейса со своей проверкой скоупа.
+ * No profile: a single user layer. No `.code-workspace` window: the folder target writes to
+ * the workspace layer with its own scope check.
  */
 export class InMemoryConfigurationService implements IConfigurationService {
     private readonly defaultsLayer: ConfigurationModel;
     private readonly schemas: ReadonlyMap<string, IConfigurationPropertySchema>;
     private readonly scopes: ReadonlyMap<string, ConfigurationScope>;
-    /** В форме settings.json: запись заменяет ключ целиком, как в файле. */
+    /** In settings.json shape: a write replaces the whole key, as in the file. */
     private readonly userSettings: Record<string, unknown>;
-    /** `null` — папка не открыта. */
+    /** `null` means no folder is open. */
     private readonly workspaceSettings: Record<string, unknown> | null;
     private userLayer: ConfigurationModel;
     private workspaceLayer: ConfigurationModel;
@@ -37,7 +37,7 @@ export class InMemoryConfigurationService implements IConfigurationService {
     private readonly onDidChangeConfigurationEmitter = new Emitter<IConfigurationChangeEvent>();
     public readonly onDidChangeConfiguration = this.onDidChangeConfigurationEmitter.event;
 
-    /** @param workspace не передан — папка не открыта (пустое `{}` — открыта). */
+    /** @param workspace omitted means no folder is open (an empty `{}` means open). */
     public constructor(
         registry?: ConfigurationRegistry,
         initial: Readonly<Record<string, unknown>> = {},
@@ -54,7 +54,7 @@ export class InMemoryConfigurationService implements IConfigurationService {
     }
 
     private computeWorkspaceLayer(): ConfigurationModel {
-        // Stryker disable next-line ConditionalExpression: fromRaw(null) — тот же пустой слой; ветка нужна типу
+        // Stryker disable next-line ConditionalExpression: fromRaw(null) is the same empty layer; the branch is for the type checker
         if (this.workspaceSettings === null) return ConfigurationModel.EMPTY;
         return filterWorkspaceSettings(ConfigurationModel.fromRaw(this.workspaceSettings), this.scopes).model;
     }
@@ -67,7 +67,7 @@ export class InMemoryConfigurationService implements IConfigurationService {
     }
 
     public get<K extends keyof IConfigurationKeys>(key: K, overrides?: IConfigurationOverrides): IConfigurationKeys[K];
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T — приведение для чужих ключей, как у ConfigurationModel.get
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- T is a cast for foreign keys, like ConfigurationModel.get
     public get<T>(key: string, overrides?: IConfigurationOverrides): T | undefined;
     public get<T>(key: string, overrides?: IConfigurationOverrides): T | undefined {
         return this.snapshot.model(overrides).get<T>(key);
@@ -97,7 +97,7 @@ export class InMemoryConfigurationService implements IConfigurationService {
         };
     }
 
-    // Stryker disable next-line StringLiteral: любая цель, кроме "workspace", пишет в user — дефолт виден только типу
+    // Stryker disable next-line StringLiteral: any target other than "workspace" writes to user; the default matters only to the type checker
     public updateValue(key: string, value: unknown, target: ConfigurationTarget = "user"): Promise<void> {
         const prev = this.snapshot;
         if (target === "workspace" || target === "workspaceFolder") {

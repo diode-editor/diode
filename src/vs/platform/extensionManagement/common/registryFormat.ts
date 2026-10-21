@@ -1,54 +1,55 @@
 import type { Semver } from "../../../base/common/semver.ts";
 
 /**
- * Формат данных реестра расширений (публикуемый вид registry-репозитория).
+ * Extension registry data format (the published form of the registry repository).
  *
- * Каталог реестра:
+ * Registry layout:
  * ```
- * <root>/index.json          — компактный список для поиска и Extensions view
- * <root>/meta/<id>.json      — полная мета расширения, читается лениво
- * <root>/artifacts/**        — .vsix для path-артефактов (файловый source/тесты)
+ * <root>/index.json          — compact list for search and the Extensions view
+ * <root>/meta/<id>.json      — full extension meta, read lazily
+ * <root>/artifacts/**        — .vsix for path artifacts (file source/tests)
  * ```
  *
- * Валидация — как у `scanExtensions`: битая ЗАПИСЬ (расширение в index, версия в
- * meta) пропускается с диагностикой в `problems`, битый ФАЙЛ целиком — ошибка.
+ * Validation follows `scanExtensions`: a broken RECORD (an extension in index, a
+ * version in meta) is skipped with a diagnostic in `problems`; a broken FILE is an error.
  *
- * node-semver — ленивый кусок бандла, поэтому парсеры получают его параметром.
+ * node-semver is a lazy chunk, so parsers receive it as a parameter.
  */
 
-/** Опциональные поля добавляются без bump'а. */
+/** Optional fields are added without a bump. */
 export const REGISTRY_SCHEMA_VERSION = 1;
 
 /**
- * Id — имя файла и сегмент URL меты, поэтому шаблон проверяется до обращения к
- * источнику. Регистр допускается: манифесты стоковых расширений пишем не мы
- * (`EditorConfig.EditorConfig`), а `installFromRegistry` сверяет id побайтно.
+ * The id is the meta file name and URL segment, so the pattern is checked before
+ * hitting the source. Uppercase is allowed: we don't write stock extension manifests
+ * (`EditorConfig.EditorConfig`), and `installFromRegistry` compares ids byte for byte.
  */
 export const EXTENSION_ID_RE = /^[a-z0-9][a-z0-9_-]*\.[a-z0-9][a-z0-9_-]*$/i;
 
 /**
- * `proxy-openvsx` — сток из openvsx (запинен URL + sha256), `proxy-hosted` — сток,
- * которого нет на Open VSX: vsix перевыложен в реестре. В install-флоу не участвует.
+ * `proxy-openvsx` is a stock extension from openvsx (pinned URL + sha256),
+ * `proxy-hosted` is a stock extension missing from Open VSX, its vsix re-hosted in
+ * the registry. Not used by the install flow.
  */
 export type RegistryExtensionKind = "proxy-openvsx" | "proxy-hosted" | "native";
 
-/** Пишет реестр, а не манифест; на установку не влияет — только предупреждает человека ДО неё. */
+/** Set by the registry, not the manifest; doesn't affect install, only warns the user BEFORE it. */
 export type RegistrySupportLevel = "full" | "partial";
 
-/** `partial` без пунктов в `limits` парсер отбрасывает: «работает не всё» обязано сказать, что именно. */
+/** The parser drops `partial` without `limits` items: "not everything works" must say what doesn't. */
 export interface IRegistrySupport {
     readonly level: RegistrySupportLevel;
     readonly works?: readonly string[];
     readonly limits?: readonly string[];
 }
 
-/** Откуда берётся `.vsix` версии. `origin` — provenance для UI/аудита, поведение клиента от него не зависит. */
+/** Where the version's `.vsix` comes from. `origin` is provenance for UI/audit; client behavior doesn't depend on it. */
 export type RegistryArtifact =
     | { readonly type: "url"; readonly url: string; readonly origin?: "openvsx" | "github-release" }
-    /** POSIX-путь строго внутри каталога реестра (без `..` и ведущего `/`). */
+    /** POSIX path strictly inside the registry directory (no `..` or leading `/`). */
     | { readonly type: "path"; readonly path: string };
 
-/** Хотя бы одно из полей обязано присутствовать. */
+/** At least one field must be present. */
 export interface IRegistryEngines {
     readonly diode?: string;
     readonly vscode?: string;
@@ -61,9 +62,9 @@ export interface IRegistryVersion {
     /** hex lowercase. */
     readonly sha256: string;
     /**
-     * Не задан — universal. Одна semver-версия может идти несколькими записями с
-     * разными таргетами. Со словарём таргетов намеренно не сверяется: реестр может
-     * обогнать клиента, неизвестный таргет просто не совпадёт с платформой.
+     * Unset means universal. One semver version may come as several records with
+     * different targets. Deliberately not checked against the target vocabulary: the
+     * registry may be ahead of the client, and an unknown target simply won't match.
      */
     readonly targetPlatform?: string;
     readonly size?: number;
@@ -78,7 +79,7 @@ export interface IRegistryIndexEntry {
     readonly description: string;
     readonly kind: RegistryExtensionKind;
     readonly categories?: readonly string[];
-    /** И в индексе, не только в мете: бейдж списка обязан быть виден до установки. */
+    /** In the index too, not just the meta: the list badge must be visible before install. */
     readonly support?: IRegistrySupport;
     readonly latest: { readonly version: string; readonly engines: IRegistryEngines };
 }
@@ -132,7 +133,7 @@ function parseEngines(value: unknown): IRegistryEngines | undefined {
     return { diode, vscode };
 }
 
-/** `null` — битое поле. */
+/** `null` means a broken field. */
 function parseBulletList(value: unknown): readonly string[] | undefined | null {
     if (value === undefined) return undefined;
     if (!Array.isArray(value) || !value.every(isNonEmptyString)) return null;
@@ -140,8 +141,8 @@ function parseBulletList(value: unknown): readonly string[] | undefined | null {
 }
 
 /**
- * Поле косметическое: битая пометка молча отбрасывается, запись живёт — иначе
- * `problems` наполнялся бы тем, что на установку не влияет.
+ * Cosmetic field: a broken value is silently dropped and the record survives;
+ * otherwise `problems` would fill up with things that don't affect install.
  */
 function parseSupport(value: unknown): IRegistrySupport | undefined {
     const record = asRecord(value);
@@ -157,7 +158,7 @@ function parseSupport(value: unknown): IRegistrySupport | undefined {
 
 function isSafeRelativePath(value: string): boolean {
     if (value.includes("\\")) return false;
-    // Ведущий "/" отдельно не проверяем: он даёт пустой первый сегмент, который отсекает every ниже.
+    // No separate leading "/" check: it yields an empty first segment, which `every` below rejects.
     return value.split("/").every((segment) => segment.length > 0 && segment !== "..");
 }
 
@@ -219,7 +220,7 @@ function parseIdentity(record: Record<string, unknown>):
     ) {
         return undefined;
     }
-    // Строгое равенство непустому шаблону уже проверяет и тип, и непустоту `record.id`.
+    // Strict equality to a non-empty template already checks both the type and non-emptiness of `record.id`.
     const id = `${publisher}.${name}`;
     if (record.id !== id) return undefined;
     return { id, publisher, name, displayName, description, kind };
@@ -361,9 +362,9 @@ export function normalizeExtensionQuery(query: string): string {
 }
 
 /**
- * `needle` — уже через {@link normalizeExtensionQuery}. Отдельно от
- * {@link searchRegistryIndex}: Extensions view фильтрует свои карточки (в них есть
- * установленное, которого нет в индексе), а семантика поиска обязана быть одна.
+ * `needle` is already passed through {@link normalizeExtensionQuery}. Separate from
+ * {@link searchRegistryIndex}: the Extensions view filters its own cards (which include
+ * installed extensions missing from the index), and search semantics must be shared.
  */
 export function matchesExtensionQuery(entry: IExtensionSearchFields, needle: string): boolean {
     return (

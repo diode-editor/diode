@@ -41,7 +41,7 @@ export class ContextMenuService {
         return this.controller.isOpen();
     }
 
-    /** Сепаратор — как `ContextMenuMenuDelegate.transform` upstream. */
+    /** Separators as in upstream `ContextMenuMenuDelegate.transform`. */
     private collectEntries(delegate: IContextMenuDelegate | IContextMenuMenuDelegate): MenuEntry[] {
         const own = delegate.getEntries?.() ?? [];
         let registry: MenuEntry[] = [];

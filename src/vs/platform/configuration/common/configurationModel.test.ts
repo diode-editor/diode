@@ -33,8 +33,8 @@ describe("ConfigurationModel", () => {
         });
 
         it("не разворачивает точки внутри значения — ключ map'а это данные", () => {
-            // Регрессия: рекурсивная нормализация ломала map-настройки, у которых
-            // ключ сам по себе данные (глоб `files.watcherExclude`, `*.ext`
+            // Regression: recursive normalization broke map settings whose
+            // key is data itself (a `files.watcherExclude` glob, `*.ext`
             // `files.associations`).
             const m = ConfigurationModel.fromRaw({
                 "files.watcherExclude": { ".git/objects/**": true, "**/node_modules/**": true },

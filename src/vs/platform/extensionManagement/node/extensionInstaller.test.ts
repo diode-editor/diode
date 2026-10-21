@@ -102,12 +102,12 @@ describe("ExtensionInstaller", () => {
         const dir = path.join(extensionsDir, "acme.native-1.0.0");
         const serverMode = fs.statSync(path.join(dir, "bundled/bin/server")).mode;
         const dataMode = fs.statSync(path.join(dir, "bundled/data.txt")).mode;
-        expect(serverMode & 0o111).not.toBe(0); // исполняемый
-        expect(dataMode & 0o111).toBe(0); // обычный файл exec-бит не получил
+        expect(serverMode & 0o111).not.toBe(0);
+        expect(dataMode & 0o111).toBe(0);
     });
 
-    // yazl всегда пишет unix (3) в host-байт version-made-by, поэтому подделываем
-    // его в 0 (MS-DOS) прямо в central directory собранного zip.
+    // yazl always writes unix (3) into the version-made-by host byte, so we patch it
+    // to 0 (MS-DOS) directly in the central directory of the built zip.
     it.skipIf(process.platform === "win32")("не доверяет exec-битам архива от не-unix упаковщика", async () => {
         const vsixPath = path.join(vsixDir, "acme.dos.vsix");
         await new Promise<void>((resolve, reject) => {
@@ -127,8 +127,8 @@ describe("ExtensionInstaller", () => {
             zip.end();
         });
         const bytes = fs.readFileSync(vsixPath);
-        // Записи central directory: сигнатура PK\x01\x02, host-OS — старший байт
-        // version-made-by по смещению +5 от сигнатуры.
+        // Central directory records: signature PK\x01\x02; host OS is the high byte of
+        // version-made-by at offset +5 from the signature.
         for (let i = 0; i + 5 < bytes.length; i++) {
             if (bytes[i] === 0x50 && bytes[i + 1] === 0x4b && bytes[i + 2] === 0x01 && bytes[i + 3] === 0x02) {
                 bytes[i + 5] = 0;
@@ -393,10 +393,10 @@ describe("ExtensionInstaller", () => {
     });
 
     it("отклоняет zip-slip запись за пределами целевого каталога", async () => {
-        // yazl (как и yauzl) запрещает `..` в имени, поэтому собираем архив с
-        // плейсхолдер-именем той же длины и патчим байты на `..`-путь.
+        // yazl (like yauzl) forbids `..` in names, so we build the archive with a
+        // same-length placeholder name and patch the bytes to a `..` path.
         const placeholder = "extension/aa/evil.txt";
-        const malicious = "extension/../evil.txt"; // та же длина (21)
+        const malicious = "extension/../evil.txt"; // same length (21)
         const vsix = await makeVsix("evil.vsix", {
             "extension/package.json": JSON.stringify({ name: "hello", publisher: "acme", version: "1.0.0" }),
             [placeholder]: "pwned",
@@ -467,7 +467,7 @@ describe("ExtensionInstaller", () => {
         });
     });
 
-    /** `rejects.toThrow(текст)` проходит и на отказе с `undefined` (замерено мутантом). */
+    /** `rejects.toThrow(text)` also passes on a rejection with `undefined` (caught by a mutant). */
     async function rejectionOf(promise: Promise<unknown>): Promise<unknown> {
         try {
             await promise;

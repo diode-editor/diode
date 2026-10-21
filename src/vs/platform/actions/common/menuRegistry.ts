@@ -27,7 +27,7 @@ export interface ISubmenuEntry {
     readonly title: string;
     readonly mnemonic?: string;
     readonly submenu: MenuId;
-    /** Рендерится выпадающим списком, а не вложенным попапом (`SelectBox` тулбара VS Code). */
+    /** Rendered as a dropdown instead of a nested popup (VS Code toolbar `SelectBox`). */
     readonly isSelection?: boolean;
 }
 
@@ -35,7 +35,7 @@ export const CHECKED_ICON = "\u2713"; // ✓
 
 export const MenuRegistryDIToken = token<MenuRegistry>("MenuRegistry");
 
-/** `enabled` читает заголовок view (кнопка приглушена), `disabled` движка — попап. */
+/** `enabled` is read by the view title (dimmed button), the engine's `disabled` by the popup. */
 export interface IResolvedMenuItemEntry extends MenuItemEntry {
     readonly enabled: boolean;
 }
@@ -60,12 +60,12 @@ export function joinMenuGroups(groups: readonly IMenuEntryGroup[]): MenuEntry[] 
     return result;
 }
 
-/** `null` — подменю выбрасывается (пустое или цикл `MenuId`). */
+/** `null` drops the submenu (empty or a `MenuId` cycle). */
 export type SubmenuResolver = (submenu: ISubmenuEntry) => MenuSubmenuEntry | null;
 
 /**
- * `navigation` всегда первая, как в `_compareMenuItems` VS Code. Ключи в пределах
- * меню уникальны, поэтому ветки равенства нет.
+ * `navigation` always comes first, as in VS Code `_compareMenuItems`. Keys are unique
+ * within a menu, so there is no equality branch.
  */
 function compareGroups(a: string, b: string): number {
     if (a === "navigation") return -1;
@@ -73,7 +73,7 @@ function compareGroups(a: string, b: string): number {
     return a < b ? -1 : 1;
 }
 
-/** Пункты внутри группы — по order, при равенстве стабильно по индексу вставки. */
+/** Items within a group are sorted by order, ties broken stably by insertion index. */
 function collectSorted<T extends { group?: string; order?: number }>(items: readonly T[]): T[][] {
     const groups = new Map<string, { item: T; index: number }[]>();
     items.forEach((item, index) => {
@@ -90,7 +90,7 @@ function collectSorted<T extends { group?: string; order?: number }>(items: read
         });
 }
 
-/** Состояние открытия (напр. буфер обмена) приходит параметром `context`, не через DI. */
+/** Open-time state (e.g. the clipboard) comes in via the `context` parameter, not via DI. */
 export class MenuRegistry {
     public static dependencies = [
         CommandRegistryDIToken,
@@ -134,12 +134,12 @@ export class MenuRegistry {
     public getMenuItemGroups(menuId: MenuId, context?: unknown, resolveSubmenu?: SubmenuResolver): IMenuEntryGroup[] {
         const visible = this.items.filter((item) => {
             if (item.menuId !== menuId) return false;
-            // Без резолвера submenu-записи потребляет только `getSubmenus` (меню-бар).
+            // Without a resolver, submenu entries are consumed only by `getSubmenus` (the menu bar).
             if (isSubmenuContribution(item)) {
                 if (resolveSubmenu === undefined) return false;
                 if (item.when !== undefined && !this.contextKeys.evaluate(item.when)) return false;
-                // Подменю секции сайдбара фильтруются по `menuContext.view`: when-ключ
-                // не годится — в сайдбаре видно несколько секций.
+                // Sidebar section submenus are filtered by `menuContext.view`: a when key
+                // does not work, since the sidebar shows several sections.
                 if (item.visible !== undefined && !item.visible(context)) return false;
                 return true;
             }
@@ -153,7 +153,7 @@ export class MenuRegistry {
             const groupEntries: ResolvedMenuEntry[] = [];
             for (const item of bucket) {
                 if (isSubmenuContribution(item)) {
-                    // Резолвер здесь заведомо есть: без него submenu-записи отсеял фильтр выше.
+                    // The resolver is always present here: without it the filter above drops submenu entries.
                     const entry = resolveSubmenu?.(this.toSubmenuEntry(item)) ?? null;
                     if (entry !== null)
                         groupEntries.push(item.isSelection === true ? { ...entry, isSelection: true } : entry);
@@ -168,9 +168,9 @@ export class MenuRegistry {
     }
 
     /**
-     * БЕЗ `when`: кнопка «⋯» живёт в заголовке всё время, а `when`-ключи меняются
-     * без событий — «пусто ли сейчас» навсегда спрятало бы кнопку, если в момент
-     * сборки ключ был ложным.
+     * Ignores `when`: the "⋯" button stays in the title all the time, and `when` keys change
+     * without events, so "is it empty now" would hide the button forever if the key
+     * was false at build time.
      */
     public hasItems(menuId: MenuId, context?: unknown, predicate?: (item: MenuContribution) => boolean): boolean {
         return this.items.some((item) => {
@@ -208,8 +208,8 @@ export class MenuRegistry {
     private toEntry(item: IMenuContribution, context: unknown): IResolvedMenuItemEntry {
         const label = item.title ?? this.commands.getTitle(item.command) ?? item.command;
         const resolvedArgs = item.args ? item.args(context) : [];
-        // Фиксируется на момент резолва, как VS Code при открытии попапа; inline-кнопки
-        // не протухают — их группы пере-резолвятся и на клике, и по смене контекста.
+        // Captured at resolve time, like VS Code when opening a popup; inline buttons
+        // do not go stale: their groups are re-resolved both on click and on context change.
         const enabled = item.enablement === undefined || this.contextKeys.evaluate(item.enablement);
         return {
             label,
@@ -219,7 +219,7 @@ export class MenuRegistry {
             shortcut: this.resolveShortcut(item),
             icon: item.toggled !== undefined && this.contextKeys.evaluate(item.toggled) ? CHECKED_ICON : item.icon,
             onSelect: () => {
-                // Контрибуция может ссылаться на команду расширения без своего guard'а.
+                // A contribution may point to an extension command that has no guard of its own.
                 if (!enabled) return;
                 this.commands.execute(item.command, ...resolvedArgs);
             },

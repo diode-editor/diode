@@ -75,7 +75,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(cfg.get("workbench.colorTheme")).toBe("Solar");
             expect(cfg.inspect("editor.tabSize")).toEqual({
                 default: 4,
-                // Именованный профиль: из User/settings.json только application-ключи.
+                // Named profile: only application keys come from User/settings.json.
                 user: undefined,
                 profile: 3,
                 workspace: 8,
@@ -139,7 +139,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             expect(cfg.get("java.home")).toBe("/jdk");
             expect(cfg.get("unknown.key")).toBe(1);
             expect(cfg.get("files.exclude")).toEqual({ out: true });
-            // В секции языка отброшен только machine-ключ.
+            // Only the machine key is dropped in the language section.
             expect(cfg.get("terminal.tier", { overrideIdentifier: "go" })).toBe("legacy");
             expect(cfg.get("editor.tabSize", { overrideIdentifier: "go" })).toBe(8);
             expect(cfg.getConfigurationData().workspace).toEqual({
@@ -152,7 +152,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             const message = logger.warn.mock.calls[0][0];
             expect(message).toContain(path.join(folder.dir, ".diode", "settings.json"));
             expect(message).toContain("ignored settings that can be set only in User settings");
-            // Список — через запятую, в порядке реестра, секция языка — следом за ключом.
+            // Comma-separated list in registry order, the language section right after the key.
             expect(message.endsWith(": terminal.tier, [go].terminal.tier, update.mode, java.secret")).toBe(true);
         });
 
@@ -195,8 +195,8 @@ describe("ConfigurationService — слой воркспейса", () => {
                 const seen = events(cfg);
                 const file = path.join(folder.dir, ".diode", "settings.json");
 
-                // Тот же путь в другом написании — та же папка: ни события, ни
-                // перевешивания watch'а (перевес на тот же путь снял бы его).
+                // The same path spelled differently is the same folder: no event and no
+                // watch re-registration (re-registering on the same path would remove it).
                 await cfg.setWorkspace([path.join(folder.dir, ".")]);
                 expect(seen).toHaveLength(0);
                 expect(watcher.watched()).toContain(file);
@@ -220,7 +220,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8 }`);
             const cfg = await load();
 
-            // Открытие ждёт диска, закрытие — нет: оно кончится первым.
+            // Opening waits for the disk, closing does not: it finishes first.
             const opening = cfg.setWorkspace([folder.dir]);
             await cfg.setWorkspace([]);
             await opening;
@@ -256,7 +256,7 @@ describe("ConfigurationService — слой воркспейса", () => {
                 other.writeFile(".diode/settings.json", `{ "editor.tabSize": 2 }`);
                 const cfg = await load();
 
-                // Не ждём первую — вторая начинается, пока первая читает файл.
+                // Not awaiting the first: the second starts while the first is reading the file.
                 const first = cfg.setWorkspace([folder.dir]);
                 const second = cfg.setWorkspace([other.dir]);
                 await Promise.all([first, second]);
@@ -328,7 +328,7 @@ describe("ConfigurationService — слой воркспейса", () => {
             const cfg = await load({ folder: folder.dir, watcher });
 
             fs.writeFileSync(file, `{ "editor.tabSize": 5 }`);
-            // Перечитывание стартует и ждёт диска, а папку тем временем закрыли.
+            // The reread starts and waits for the disk; meanwhile the folder is closed.
             watcher.fire(file);
             await cfg.setWorkspace([]);
             await new Promise((resolve) => setTimeout(resolve, 50));
@@ -346,16 +346,16 @@ describe("ConfigurationService — слой воркспейса", () => {
             };
 
             await cfg.setWorkspace([]);
-            // Watch старой папки снят — колбэк никто не держит.
+            // The old folder's watch is removed: nobody holds the callback.
             handler();
             await cfg.reload();
             expect(cfg.get("editor.tabSize")).toBe(4);
         });
 
         it("файл открыт в редакторе: каждое сохранение из него применяется (настоящий watcher)", async () => {
-            // Регрессия: модель документа и сервис настроек следили за одним
-            // файлом двумя экземплярами chokidar, и после первого атомарного
-            // сохранения (временный сосед + rename) слепли оба.
+            // Regression: the document model and the configuration service watched one
+            // file with two chokidar instances, and after the first atomic
+            // save (temporary sibling + rename) both went blind.
             const file = folder.writeFile(".diode/settings.json", `{ "editor.tabSize": 8 }`);
             const cfg = await load({ folder: folder.dir, watcher: new ChokidarFileWatcher() });
             let modelCalls = 0;
@@ -363,8 +363,8 @@ describe("ConfigurationService — слой воркспейса", () => {
                 modelCalls++;
             });
             try {
-                // До `ready` chokidar глотает события как начальное состояние:
-                // пишем на месте, пока запись не увидят оба наблюдателя.
+                // Before `ready` chokidar swallows events as the initial state:
+                // keep writing in place until both watchers see the write.
                 await vi.waitFor(
                     () => {
                         fs.writeFileSync(file, `{ "editor.tabSize": 7 }`);
@@ -417,7 +417,7 @@ describe("ConfigurationService — слой воркспейса", () => {
         it("нечитаемый файл (не ENOENT) — отказ записи, содержимое не перетёрто", async () => {
             const file = folder.writeFile(".diode/settings.json", `{ "workbench.colorTheme": "Solar" }`);
             const cfg = await load({ folder: folder.dir });
-            // Только запись: чтение отказывает EACCES, а запись прошла бы.
+            // Write only: reading fails with EACCES, while writing would succeed.
             fs.chmodSync(file, 0o200);
             try {
                 await expect(cfg.updateValue("editor.tabSize", 8, "workspace")).rejects.toThrow(/EACCES/);

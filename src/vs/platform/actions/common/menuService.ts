@@ -12,8 +12,8 @@ import { joinMenuGroups, MenuRegistryDIToken } from "./menuRegistry.ts";
 export const MenuServiceDIToken = token<MenuService>("MenuService");
 
 /**
- * `onDidChange` — только смена состава реестра; `when` и `enablement` учитываются
- * при каждом `getEntries`, постоянный UI пере-резолвится по `ContextKeyService.onDidChange`.
+ * `onDidChange` fires only when the registry contents change; `when` and `enablement` are evaluated
+ * on every `getEntries`; persistent UI re-resolves on `ContextKeyService.onDidChange`.
  */
 export interface IMenu extends IDisposable {
     getEntries(context?: unknown, resolveSubmenu?: SubmenuResolver): MenuEntry[];
@@ -30,7 +30,7 @@ export class MenuService {
         return new Menu(this.registry, menuId);
     }
 
-    /** Разовый резолв без подписки: подменю раскрываются сразу, `when` — на момент вызова. */
+    /** One-off resolve without a subscription: submenus expand immediately, `when` is evaluated at call time. */
     public getEntries(menuId: MenuId, context?: unknown): MenuEntry[] {
         return joinMenuGroups(this.getEntryGroups(menuId, context));
     }
@@ -44,7 +44,7 @@ export class MenuService {
         return this.registry.getMenuItemGroups(menuId, context, this.submenuResolver(context, seen));
     }
 
-    /** Пустые подменю выбрасываются; `seen` рвёт циклы `MenuId` (как `submenuIds` в vscode `menu.ts`). */
+    /** Empty submenus are dropped; `seen` breaks `MenuId` cycles (like `submenuIds` in vscode `menu.ts`). */
     private submenuResolver(context: unknown, seen: Set<MenuId>): SubmenuResolver {
         return (submenu) => {
             if (seen.has(submenu.submenu)) return null;

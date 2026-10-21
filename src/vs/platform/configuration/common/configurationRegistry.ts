@@ -1,13 +1,13 @@
 import { isOverrideKey } from "./configurationModel.ts";
 
-/** Где ключ **разрешено** переопределять; порядок — от самой узкой области записи к самой широкой. */
+/** Where a key **may** be overridden; ordered from the narrowest write scope to the widest. */
 export type ConfigurationScope =
     | "application"
-    /** Свойство окружения, а не проекта: user или машина, но не воркспейс. */
+    /** A property of the environment, not the project: user or machine, but not workspace. */
     | "machine"
-    /** Свойство машины, которое проекту разрешено переопределить (путь к JDK у redhat.java). */
+    /** A machine property the project may override (the JDK path for redhat.java). */
     | "machine-overridable"
-    /** Одно значение на окно: user или воркспейс, но не отдельная папка. */
+    /** One value per window: user or workspace, but not a single folder. */
     | "window"
     | "resource"
     | "language-overridable";
@@ -18,8 +18,8 @@ export interface IConfigurationPropertySchema {
     readonly type: ConfigurationValueType | readonly ConfigurationValueType[];
     readonly default: unknown;
     /**
-     * Обязательное, в отличие от эталона с дефолтом `WINDOW`: молча получить `window`
-     * у ключа про папку дороже, чем ответить на вопрос при заведении ключа.
+     * Required, unlike upstream's `WINDOW` default: silently getting `window`
+     * for a folder key costs more than answering the question when adding the key.
      */
     readonly scope: ConfigurationScope;
     readonly description?: string;
@@ -32,11 +32,11 @@ export interface IConfigurationPropertySchema {
 export interface IConfigurationNode {
     readonly id: string;
     readonly title?: string;
-    /** Полные dotted-ключи: `"editor.tabSize"`, не `"tabSize"`. */
+    /** Full dotted keys: `"editor.tabSize"`, not `"tabSize"`. */
     readonly properties: Readonly<Record<string, IConfigurationPropertySchema>>;
 }
 
-/** Схему расширения (`$ref`, `pattern`…) не валидируем: значения идут к потребителям как есть. */
+/** Extension schemas (`$ref`, `pattern`…) are not validated: values reach consumers as is. */
 export interface IExtensionConfigurationProperty {
     readonly default: unknown;
     readonly scope: ConfigurationScope;
@@ -56,9 +56,9 @@ const SCOPES: readonly ConfigurationScope[] = [
     "language-overridable",
 ];
 
-/** Как `parseScope` vscode; незнакомое значение — `window`. */
+/** Like vscode's `parseScope`; an unknown value maps to `window`. */
 function parseExtensionScope(scope: unknown): ConfigurationScope {
-    // `application-machine` эталона для слоя воркспейса равен `application`: оба только в user-настройках.
+    // Upstream's `application-machine` equals `application` for the workspace layer: both live only in user settings.
     if (scope === "application-machine") return "application";
     return SCOPES.find((s) => s === scope) ?? "window";
 }
@@ -66,7 +66,7 @@ function parseExtensionScope(scope: unknown): ConfigurationScope {
 export class ConfigurationRegistry {
     private readonly properties = new Map<string, IConfigurationPropertySchema>();
     private readonly extensionProperties = new Map<string, IExtensionConfigurationProperty>();
-    /** Позднее — главнее. */
+    /** Later wins. */
     private readonly defaultOverrides = new Map<string, unknown>();
 
     public constructor(nodes: readonly IConfigurationNode[] = []) {
@@ -84,7 +84,7 @@ export class ConfigurationRegistry {
         }
     }
 
-    /** Занятый ключ пропускается с предупреждением, а не бросает, как у ядра: здесь это чужой манифест. */
+    /** A taken key is skipped with a warning instead of throwing like core does: this is a foreign manifest. */
     public registerExtensionConfiguration(
         extensionId: string,
         properties: Readonly<Record<string, { readonly default?: unknown; readonly scope?: unknown }>>,
@@ -104,7 +104,7 @@ export class ConfigurationRegistry {
         }
     }
 
-    /** Повторная запись ключа главнее прежней; секции языков (`"[go]"`) от разных источников сливаются по ключам. */
+    /** A repeated key overrides the earlier one; language sections (`"[go]"`) from different sources merge by key. */
     public registerDefaultConfigurations(overrides: Readonly<Record<string, unknown>>): void {
         for (const [key, value] of Object.entries(overrides)) {
             const existing = this.defaultOverrides.get(key);
@@ -132,7 +132,7 @@ export class ConfigurationRegistry {
         return this.properties;
     }
 
-    /** Вложенное дерево (`{ editor: { tabSize: 4 } }`), а не плоские dotted-ключи. */
+    /** A nested tree (`{ editor: { tabSize: 4 } }`), not flat dotted keys. */
     public getDefaultConfiguration(): Readonly<Record<string, unknown>> {
         const defaults = new Map<string, unknown>();
         for (const [key, schema] of this.properties) defaults.set(key, schema.default);

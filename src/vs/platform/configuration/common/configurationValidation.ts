@@ -6,7 +6,7 @@ import type {
 } from "./configurationRegistry.ts";
 import { WORKSPACE_SCOPES } from "./workspaceSettings.ts";
 
-/** Аналог `validate()` опций редактора vscode, но по схеме реестра, а не по классу на опцию. */
+/** Counterpart of vscode's editor option `validate()`, driven by the registry schema rather than a class per option. */
 export function isValidConfigurationValue(schema: IConfigurationPropertySchema, value: unknown): boolean {
     if (schema.enum !== undefined && !schema.enum.includes(value)) return false;
     const types: readonly ConfigurationValueType[] = typeof schema.type === "string" ? [schema.type] : schema.type;
@@ -38,7 +38,7 @@ function isFiniteNumber(value: unknown): value is number {
     return Number.isFinite(value);
 }
 
-/** Незарегистрированные ключи (настройки расширений) идут как есть. */
+/** Unregistered keys (extension settings) pass through as is. */
 export function sanitizeConfiguration(
     model: ConfigurationModel,
     schemas: ReadonlyMap<string, IConfigurationPropertySchema>,
@@ -55,8 +55,8 @@ export function sanitizeConfiguration(
 }
 
 /**
- * Ключи ядра не-`language-overridable` в секции игнорируются, как у VS Code; ключи
- * вне схемы ядра (настройки расширений) действуют как есть.
+ * Core keys that are not `language-overridable` are ignored in a section, as in VS Code; keys
+ * outside the core schema (extension settings) apply as is.
  */
 export function languageConfiguration(
     merged: ConfigurationModel,
@@ -84,11 +84,11 @@ function deletePath(tree: Record<string, unknown>, segments: readonly string[]):
 
 export interface IWorkspaceSettingsFilterResult {
     readonly model: ConfigurationModel;
-    /** В секции языка — с префиксом `[lang].`. */
+    /** Inside a language section, prefixed with `[lang].`. */
     readonly excludedKeys: readonly string[];
 }
 
-/** Как фильтр по `scopes` у `ConfigurationModelParser` эталона; ключ вне реестра идёт как есть. */
+/** Like the `scopes` filter of upstream's `ConfigurationModelParser`; a key outside the registry passes as is. */
 export function filterWorkspaceSettings(
     model: ConfigurationModel,
     scopes: ReadonlyMap<string, ConfigurationScope>,
@@ -111,7 +111,7 @@ export function filterWorkspaceSettings(
     return { model: excludedKeys.length === 0 ? model : ConfigurationModel.fromRaw(raw), excludedKeys };
 }
 
-/** В отличие от {@link filterWorkspaceSettings}, ключ вне реестра отбрасывается (`skipUnregistered` эталона). */
+/** Unlike {@link filterWorkspaceSettings}, a key outside the registry is dropped (upstream's `skipUnregistered`). */
 export function pickRegisteredSettings(
     model: ConfigurationModel,
     scopes: ReadonlyMap<string, ConfigurationScope>,
@@ -132,7 +132,7 @@ export function pickRegisteredSettings(
     return Object.keys(raw).length === 0 ? ConfigurationModel.EMPTY : ConfigurationModel.fromRaw(raw);
 }
 
-/** С опустевшими предками: `terminal: {}` доехал бы до хоста как значение секции. */
+/** Along with emptied ancestors: `terminal: {}` would otherwise reach the host as a section value. */
 function prunePath(tree: Record<string, unknown>, segments: readonly string[]): void {
     const [head, ...rest] = segments;
     if (rest.length > 0) {

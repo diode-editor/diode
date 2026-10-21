@@ -71,8 +71,8 @@ describe("InMemoryConfigurationService", () => {
 
         await service.updateValue("files.exclude", { "**/b": true });
 
-        // Дефолт реестра под пользовательским объектом по-прежнему виден (слои
-        // сливаются), но прежнее пользовательское значение заменено.
+        // The registry default under the user object is still visible (layers
+        // merge), but the previous user value is replaced.
         expect(service.inspect("files.exclude").user).toEqual({ "**/b": true });
     });
 

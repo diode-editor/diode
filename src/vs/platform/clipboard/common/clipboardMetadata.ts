@@ -1,9 +1,9 @@
 export interface IClipboardTextMetadata {
-    /** Маркер линейной вставки: paste кладёт строку строкой выше курсорной, а не в позицию каретки. */
+    /** Line-paste marker: paste inserts the text as a line above the cursor line, not at the cursor position. */
     readonly isFromEmptySelection: boolean;
 }
 
-/** Метаданные выдаются только при точном совпадении текста: буфер, изменённый снаружи, их молча гасит. */
+/** Metadata is returned only on an exact text match: an externally changed clipboard silently invalidates it. */
 export class InMemoryClipboardMetadataManager {
     private lastCopiedText: string | null = null;
     private metadata: IClipboardTextMetadata | null = null;

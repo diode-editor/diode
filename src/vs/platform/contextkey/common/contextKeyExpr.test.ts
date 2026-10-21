@@ -22,7 +22,7 @@ function evaluate(when: string, values: Record<string, ContextKeyValue> = {}): b
     return evaluateWhen(expr, context(values));
 }
 
-/** Каноническая запись разобранной строки или `undefined` при ошибке. */
+/** Canonical form of the parsed string, or `undefined` on error. */
 function canon(when: string): string | undefined {
     const expr = parseWhen(when);
     return expr === undefined ? undefined : serializeWhen(expr);
@@ -68,7 +68,7 @@ describe("parseWhen — дерево", () => {
         expect(parseWhen("a != false")).toEqual({ type: "defined", key: "a" });
         expect(parseWhen("a == 'true'")).toEqual({ type: "equals", key: "a", value: "true" });
         expect(parseWhen("a != 'false'")).toEqual({ type: "notEquals", key: "a", value: "false" });
-        // `in` и пустая правая часть — так пишут существующие расширения.
+        // `in` and an empty right-hand side: existing extensions write it this way.
         expect(parseWhen("a == in")).toEqual({ type: "equals", key: "a", value: "in" });
         expect(parseWhen("a == ")).toEqual({ type: "equals", key: "a", value: "" });
         expect(parseWhen("a == && b")).toEqual({
@@ -90,7 +90,7 @@ describe("parseWhen — дерево", () => {
     it("in / not in", () => {
         expect(parseWhen("resource in list")).toEqual({ type: "in", key: "resource", valueKey: "list" });
         expect(parseWhen("resource not in 'list'")).toEqual({ type: "notIn", key: "resource", valueKey: "list" });
-        // Ключевые слова справа — просто имена.
+        // Keywords on the right-hand side are plain names.
         expect(parseWhen("a in true")).toEqual({ type: "in", key: "a", valueKey: "true" });
         expect(parseWhen("a not in false")).toEqual({ type: "notIn", key: "a", valueKey: "false" });
     });
@@ -142,7 +142,7 @@ describe("evaluateWhen — семантика узлов как у upstream", ()
         expect(evaluate("a")).toBe(false);
         expect(evaluate("!a")).toBe(true);
         expect(evaluate("!a", { a: true })).toBe(false);
-        // Имена из глобального объекта — обычные незнакомые ключи.
+        // Names from the global object are ordinary unknown keys.
         expect(evaluate("constructor")).toBe(false);
         expect(evaluate("toString")).toBe(false);
     });
@@ -150,7 +150,7 @@ describe("evaluateWhen — семантика узлов как у upstream", ()
     it("литералы", () => {
         expect(evaluate("true")).toBe(true);
         expect(evaluate("false")).toBe(false);
-        // Литерал не смотрит в контекст, даже если тот отвечает истиной на что угодно.
+        // A literal ignores the context, even one that answers true to anything.
         const truthy: IContext = { getValue: () => true };
         expect(evaluateWhen(parseWhen("false")!, truthy)).toBe(false);
         expect(evaluateWhen(parseWhen("!true")!, truthy)).toBe(false);
@@ -187,8 +187,8 @@ describe("evaluateWhen — семантика узлов как у upstream", ()
         expect(evaluate("r =~ /\\.ts$/", { r: "a.ts" })).toBe(true);
         expect(evaluate("r =~ /\\.ts$/", { r: "a.js" })).toBe(false);
         expect(evaluate("r =~ /^A/i", { r: "abc" })).toBe(true);
-        expect(evaluate("r =~ /^undefined$/")).toBe(true); // как у upstream: test(undefined)
-        // У массива и объекта (значения для `in`) текста нет.
+        expect(evaluate("r =~ /^undefined$/")).toBe(true); // like upstream: test(undefined)
+        // Arrays and objects (values for `in`) have no text.
         expect(evaluate("r =~ /^$/", { r: ["a"] })).toBe(true);
         expect(evaluate("r =~ /a/", { r: { a: 1 } })).toBe(false);
         expect(evaluate("n >= 0", { n: [1] })).toBe(false);
@@ -199,7 +199,7 @@ describe("evaluateWhen — семантика узлов как у upstream", ()
         expect(evaluate("x in list", { x: "c", list: ["a", "b"] })).toBe(false);
         expect(evaluate("x in map", { x: "b", map: { b: 1 } })).toBe(true);
         expect(evaluate("x in map", { x: "toString", map: { b: 1 } })).toBe(false);
-        expect(evaluate("x in map", { x: 1, map: { 1: 1 } })).toBe(false); // ключ объекта — только строка
+        expect(evaluate("x in map", { x: 1, map: { 1: 1 } })).toBe(false); // an object key is always a string
         expect(evaluate("x in list", { x: "a", list: "abc" })).toBe(false);
         expect(evaluate("x in list", { x: "a" })).toBe(false);
         expect(evaluate("x not in list", { x: "c", list: ["a"] })).toBe(true);
@@ -225,7 +225,7 @@ describe("serializeWhen — каноническая запись", () => {
         expect(canon("(a)&&b")).toBe("a && b");
         expect(canon("a && (b && c)")).toBe("a && b && c");
         expect(canon("c || (b || a)")).toBe("a || b || c");
-        // Вложенный узел раскрывается до сортировки, а не сортируется целиком.
+        // A nested node is flattened before sorting rather than sorted as a whole.
         expect(canon("b && (a && c)")).toBe("a && b && c");
         expect(canon("b || (a || c)")).toBe("a || b || c");
         expect(canon("c || a && b")).toBe("a && b || c");

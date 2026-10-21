@@ -8,7 +8,7 @@ describe("parseCliArgs — режимы позиционных", () => {
     it("parses -g / --goto as a mode flag, not a value flag", () => {
         expect(parseCliArgs(["-g", "a.ts:10:5"]).goto).toBe(true);
         expect(parseCliArgs(["--goto", "a.ts:10:5"]).goto).toBe(true);
-        // Разбор file:line:col живёт в startupTargets.
+        // file:line:col parsing lives in startupTargets.
         expect(parseCliArgs(["-g", "a.ts:10:5"]).positional).toEqual(["a.ts:10:5"]);
         expect(parseCliArgs([]).goto).toBe(false);
     });

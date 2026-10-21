@@ -89,7 +89,7 @@ describe("ContextKeyService", () => {
         it("returns false for invalid expression", () => {
             const ctx = new ContextKeyService();
             expect(ctx.evaluate("???invalid!!!")).toBe(false);
-            // Повторный резолв того же мусора идёт мимо кэша — и снова false.
+            // Resolving the same garbage again bypasses the cache and is false again.
             expect(ctx.evaluate("???invalid!!!")).toBe(false);
         });
 
@@ -131,7 +131,7 @@ describe("ContextKeyService", () => {
 
             const listener = vi.fn();
             ctx.onDidChange(listener);
-            // Так делает WorkbenchContextKeys перед каждым кейбиндом.
+            // WorkbenchContextKeys does this before every keybinding.
             ctx.set("textInputFocus", true);
             await Promise.resolve();
             expect(listener).not.toHaveBeenCalled();
@@ -195,7 +195,7 @@ describe("ContextKeyService — overlay («что если»)", () => {
         expect(contextKeys.evaluate("listFocus")).toBe(false);
         expect(contextKeys.get("listFocus")).toBe(false);
         expect(contextKeys.evaluate("tier == 'kitty'", { tier: "kitty" })).toBe(true);
-        expect(contextKeys.evaluate("tier == 'legacy'", {})).toBe(true); // пустой overlay — как без него
+        expect(contextKeys.evaluate("tier == 'legacy'", {})).toBe(true); // an empty overlay behaves like none
     });
 
     it("работает и для точечных ключей расширений", () => {
