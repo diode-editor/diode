@@ -151,7 +151,7 @@ describe("buildStartupTrace / writeStartupTrace", () => {
         expect(trace.pid).toBe(process.pid);
         expect(trace.timeOrigin).toBe(performance.timeOrigin);
         expect(trace.nodeTiming.bootstrapComplete).toBeGreaterThan(0);
-        // Только числовые вехи: `name`/`entryType` из nodeTiming.toJSON() отсеяны.
+        // Only numeric marks: `name`/`entryType` from nodeTiming.toJSON() are filtered out.
         expect(Object.values(trace.nodeTiming).every((v) => typeof v === "number")).toBe(true);
         expect("name" in trace.nodeTiming).toBe(false);
         expect(trace.complete).toBe(false);

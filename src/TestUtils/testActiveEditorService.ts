@@ -14,7 +14,7 @@ type ActiveEditorRole = Pick<
     | "onDidChangeActiveEditorSelection"
 >;
 
-/** Члены вне роли бросают с именем члена: тест падает громко, а не получает `undefined`. */
+/** Members outside the role throw with the member name: the test fails loudly instead of getting `undefined`. */
 export function createTestActiveEditorService(editor: TextEditorPane | null): IEditorService {
     const role = {
         getActivePane: () => editor,
@@ -31,7 +31,7 @@ export function createTestActiveEditorService(editor: TextEditorPane | null): IE
     return new Proxy(role, {
         get(target, member) {
             if (member in target) return target[member as keyof typeof target];
-            // Служебные пробы рантайма (thenable-проверка, символы инспекции) — не члены роли.
+            // Runtime probes (thenable check, inspection symbols) are not role members.
             if (typeof member === "symbol" || member === "then") return undefined;
             throw new Error(`createTestActiveEditorService: «${member}» вне роли «активный редактор»`);
         },

@@ -8,7 +8,7 @@ import { LogHistoryDIToken } from "../../workbench/services/output/common/output
 
 export interface LoggingModuleContext {
     logService: ILogService;
-    /** Подключён к `LogService` ещё до подъёма UI, иначе ранние каналы пропали бы. */
+    /** Attached to `LogService` before the UI is up, otherwise early channels would be lost. */
     logHistory: ILogHistory;
 }
 

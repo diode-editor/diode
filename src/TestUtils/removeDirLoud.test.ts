@@ -40,7 +40,7 @@ describe("removeDirLoud", () => {
     it.skipIf(process.platform === "win32")("снести не удалось — предупреждаем, но не роняем прогон", () => {
         const dir = path.join(parent, "stubborn");
         fs.mkdirSync(dir);
-        // Настоящий EACCES вместо подмены fs: ESM-модуль не сконфигурировать.
+        // A real EACCES instead of mocking fs: an ESM module can't be reconfigured.
         fs.chmodSync(parent, 0o500);
         const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 

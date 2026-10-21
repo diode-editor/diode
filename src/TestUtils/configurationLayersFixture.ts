@@ -22,7 +22,7 @@ export class FakeFileWatcher implements IFileWatcher {
     }
 }
 
-/** По ключу на каждый скоуп; `java.home` в воркспейс можно, `java.secret` — нельзя. */
+/** One key per scope; `java.home` is allowed in the workspace, `java.secret` is not. */
 export function testRegistry(): ConfigurationRegistry {
     const registry = new ConfigurationRegistry([
         {

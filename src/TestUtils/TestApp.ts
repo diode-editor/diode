@@ -8,7 +8,7 @@ import { WorkbenchTheme } from "../vs/platform/theme/common/workbenchTheme.ts";
 import { darkPlusTheme } from "../vs/workbench/services/themes/common/themes/darkPlus.ts";
 
 let cachedVars: Record<string, number> | null = null;
-/** Не снапшот из tuidom/testing: токены резолвятся тем же кодом темы, что в приложении. */
+/** Not the tuidom/testing snapshot: tokens are resolved by the same theme code as in the app. */
 function liveThemeVars(): Record<string, number> {
     cachedVars ??= computeThemeVars(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     return cachedVars;

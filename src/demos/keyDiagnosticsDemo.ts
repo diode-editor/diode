@@ -1,9 +1,9 @@
 /**
- * Трассировка ввода для отладки клавиш (local / ssh / tmux): включает ровно те же
- * режимы, что бэкенд diode, и печатает цепочку raw bytes → tokens → KeyPressEvent →
- * binding → builtin-команда с её `when`.
+ * Input tracing for debugging keys (local / ssh / tmux): enables exactly the same
+ * modes as the diode backend and prints the chain raw bytes → tokens → KeyPressEvent →
+ * binding → builtin command with its `when`.
  *
- * Usage: npx tsx src/demos/keyDiagnosticsDemo.ts   (Ctrl+C — выход)
+ * Usage: npx tsx src/demos/keyDiagnosticsDemo.ts   (Ctrl+C to exit)
  */
 
 import type { KeyPressEvent } from "@tuidom/core/input/keyEvent";
@@ -35,8 +35,8 @@ const MODIFY_OTHER_KEYS_ENABLE = "\x1b[>4;2m";
 const MODIFY_OTHER_KEYS_DISABLE = "\x1b[>4;0m";
 const BRACKETED_PASTE_ENABLE = "\x1b[?2004h";
 const BRACKETED_PASTE_DISABLE = "\x1b[?2004l";
-// modifyOtherKeys ДО kitty-push, как у бэкенда (tuidom #13): iTerm2 считает любой
-// `CSI > 4 ; n m` сбросом kitty-стека — поэтому push demoSetup снимаем и повторяем последним.
+// modifyOtherKeys BEFORE the kitty push, like the backend (tuidom #13): iTerm2 treats any
+// `CSI > 4 ; n m` as a kitty stack reset, so the demoSetup push is popped and repeated last.
 writeDirect(KITTY_DISABLE);
 writeDirect(MODIFY_OTHER_KEYS_ENABLE);
 writeDirect(KITTY_ENABLE);
@@ -93,7 +93,7 @@ function eventToKeybinding(e: KeyPressEvent): Keybinding {
     return { key: e.key, ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, altKey: e.altKey, metaKey: e.metaKey };
 }
 
-/** Копия KeybindingRegistry.matchesBinding. */
+/** Copy of KeybindingRegistry.matchesBinding. */
 function matches(e: KeyPressEvent, b: Keybinding): boolean {
     return (
         e.ctrlKey === b.ctrlKey &&

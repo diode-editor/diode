@@ -8,11 +8,11 @@ import { macKeysLevel, type MacKeysRung } from "../vs/platform/keybinding/common
 import { withMacKeybindings } from "../vs/workbench/browser/actions/macKeybindings.ts";
 import { WORKBENCH_ACTIONS } from "../vs/workbench/workbench.common.main.ts";
 
-/** Так, как регистрирует WorkbenchComponent: порядок `actions` важен. */
+/** Registers the way WorkbenchComponent does: the order of `actions` matters. */
 export function registerBuiltins(actions: readonly CommandAction[] = WORKBENCH_ACTIONS): KeybindingRegistry {
     const keybindings = new KeybindingRegistry();
     const commands = new CommandRegistry();
-    const accessor = {} as ServiceAccessor; // enablement резолвится только при исполнении
+    const accessor = {} as ServiceAccessor; // enablement is resolved only on execution
     for (const action of actions) registerAction(commands, keybindings, accessor, withMacKeybindings(action));
     return keybindings;
 }
@@ -34,7 +34,7 @@ export const ENVIRONMENTS: readonly Environment[] = [
     { name: "mac-cmd (kitty)", tier: "kitty", rung: "cmd" },
 ];
 
-/** Представительные фокус-контексты: у биндов с разным фокусом when взаимоисключающие сами. */
+/** Representative focus contexts: bindings with different focus have mutually exclusive `when` clauses anyway. */
 export const FOCUS_CONTEXTS: readonly Readonly<Record<string, boolean>>[] = [
     {},
     { textViewFocus: true, textInputFocus: true, editorGroupHasEditors: true, editorTabsMultiple: true },

@@ -1,6 +1,6 @@
 /**
- * Движок незнакомое имя клавиши не отвергает: `"Down"` уезжает в редактор четырьмя
- * буквами и ловится только по испорченному буферу — поэтому проверка до отправки.
+ * The engine does not reject an unknown key name: `"Down"` reaches the editor as four
+ * letters and shows up only as a corrupted buffer, hence the check before sending.
  */
 
 const MODIFIERS = ["Ctrl", "Shift", "Alt", "Meta"] as const;
@@ -45,7 +45,7 @@ const ALIASES: Readonly<Partial<Record<string, string>>> = {
 
 export function validateKey(name: string): string {
     const parts = name.split("+");
-    // `Ctrl++` — плюс как клавиша: последний сегмент пустой.
+    // `Ctrl++`: the key is plus, so the last segment is empty.
     if (name.endsWith("++")) parts.splice(parts.length - 2, 2, "+");
     const base = parts.pop() ?? "";
     const mods = parts.map((m) => {

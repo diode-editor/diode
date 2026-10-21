@@ -24,7 +24,7 @@ afterEach(() => {
     ws.dispose();
 });
 
-/** Перепутанный шов даёт рабочий контейнер и молчащий редактор — проверяем, что доезжают настоящие швы. */
+/** A swapped seam yields a working container and a silent editor — checks that the real seams arrive. */
 describe("workbenchModule — env.openExternal", () => {
     it("без графического сеанса кладёт ссылку в буфер приложения и показывает сообщение", async () => {
         const { container } = createTestContainer();
@@ -33,7 +33,7 @@ describe("workbenchModule — env.openExternal", () => {
         delete noDisplay.WAYLAND_DISPLAY;
         const restore = process.env;
         try {
-            // Окружение читается в момент создания сервиса — правим его вокруг резолва.
+            // The environment is read when the service is created — patch it around the resolve.
             process.env = noDisplay as NodeJS.ProcessEnv;
             const opener = container.get(ExternalOpenerDIToken);
             const notifications = container.get(NotificationServiceDIToken);
@@ -41,7 +41,7 @@ describe("workbenchModule — env.openExternal", () => {
             await expect(opener.open("https://example.com/activate?token=42")).resolves.toBe(true);
 
             expect(await container.get(ClipboardDIToken).readText()).toBe("https://example.com/activate?token=42");
-            // Строгость выбирает заголовок и цвет тоста: «ссылка в буфере» — информация, не ошибка.
+            // Severity picks the toast's title and color: "link copied" is info, not an error.
             expect(notifications.passive()).toEqual([
                 expect.objectContaining({
                     severity: "info",

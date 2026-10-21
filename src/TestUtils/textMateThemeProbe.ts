@@ -1,6 +1,6 @@
 /**
- * Скоупов в токенах нет — тема матчится грамматикой, поэтому проба: грамматика
- * `scopes[0]` из одного правила, чьё `name` — остальные скоупы через пробел (стопкой).
+ * Tokens carry no scopes — the theme is matched by the grammar, hence a probe: a `scopes[0]`
+ * grammar with a single rule whose `name` is the remaining scopes, space-separated (a stack).
  */
 import { createDevAssetAccess } from "../vs/base/node/assets/createDefaultAssetAccess.ts";
 import { ColorMapTokenStyleResolver } from "../vs/editor/common/languages/colorMapTokenStyleResolver.ts";
@@ -15,7 +15,7 @@ export async function resolveScopesStyle(
 ): Promise<ResolvedTokenStyle> {
     const [root, ...rest] = scopes;
     const grammar = JSON.stringify({ scopeName: root, patterns: [{ match: "x", name: rest.join(" ") }] });
-    // Свой экземпляр доступа к ассетам: onig.wasm — настоящий, текст грамматики — проба.
+    // A dedicated asset access instance: onig.wasm is real, the grammar text is the probe.
     const assets = Object.assign(createDevAssetAccess(), { readText: () => Promise.resolve(grammar) });
     const loader = new TextMateGrammarLoader(assets, [{ scopeName: root, path: "probe.json" }]);
     try {

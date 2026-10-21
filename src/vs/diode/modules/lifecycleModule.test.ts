@@ -6,12 +6,12 @@ import { HostProcessDIToken } from "../../workbench/services/lifecycle/common/ho
 import { lifecycleModule } from "./lifecycleModule.ts";
 import { createTestContainer } from "./testProfile.ts";
 
-/** Перепутанный аргумент даёт рабочий контейнер и окно, которое не выходит и не перезагружается. */
+/** A swapped argument yields a working container and a window that never exits or reloads. */
 describe("lifecycleModule", () => {
     it("шов процесса-владельца отдаёт хуки владельца приложения", () => {
         const { container } = createTestContainer();
         const hostProcess: IHostProcess = { exit: () => undefined, restart: () => undefined };
-        // Токен «отравлен»: перестань модуль его перебивать — тест прошёл бы на дефолте тестового профиля.
+        // The token is poisoned: if the module stopped overriding it, the test would pass on the test profile default.
         container.bind(HostProcessDIToken, () => {
             throw new Error("шов процесса-владельца не перебит продовым модулем");
         });

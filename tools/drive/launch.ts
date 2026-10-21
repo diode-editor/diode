@@ -27,12 +27,12 @@ export const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), ".
 const MAIN_TS = join(repoRoot, "src", "vs", "diode", "main.ts");
 export const DEFAULT_BINARY = join(repoRoot, "dist", process.platform === "win32" ? "diode.exe" : "diode");
 
-/** Холодный tsx — секунды. */
+/** A cold tsx start takes seconds. */
 const CONNECT_TIMEOUT_MS = 60_000;
 
 export interface StartOptions {
     readonly name: string;
-    /** Не задан — запуск из исходников. */
+    /** Unset means running from sources. */
     readonly binary?: string;
     readonly cols: number;
     readonly rows: number;
@@ -41,7 +41,7 @@ export interface StartOptions {
     readonly seed?: string;
     readonly settings?: AppEnvOptions["settings"];
     readonly keybindings?: AppEnvOptions["keybindings"];
-    /** id из магазина или путь к `.vsix`. */
+    /** Marketplace id or path to a `.vsix`. */
     readonly install: readonly string[];
     readonly extraArgs: readonly string[];
     readonly keep: boolean;
@@ -58,8 +58,8 @@ export interface StartResult {
 
 function launcher(binary: string | undefined): { command: string; prefix: string[]; entry: string } {
     if (binary !== undefined) return { command: binary, prefix: [], entry: binary };
-    // `--import <url tsx>`, а не CLI `tsx`: один процесс (pid в реестре — сам редактор), и
-    // абсолютный URL резолвится из изолированного воркспейса, где `node_modules` нет.
+    // `--import <url tsx>` rather than the `tsx` CLI: a single process (the registry pid is the editor itself),
+    // and the absolute URL resolves from the isolated workspace, which has no `node_modules`.
     return { command: process.execPath, prefix: ["--import", import.meta.resolve("tsx"), MAIN_TS], entry: MAIN_TS };
 }
 
@@ -114,12 +114,12 @@ export async function startSession(registry: SessionRegistry, options: StartOpti
 
     const root = mkdtempSync(join(tmpdir(), `${ROOT_PREFIX}${options.name}-`));
     const marker = `${options.name}:${root}`;
-    // Пока процесса нет, «лидер» корня — мы сами: `gc` соседнего worktree корень не снесёт.
+    // Until the process exists, we are the root's "leader": `gc` from a sibling worktree will not remove the root.
     mkdirSync(join(root, "drive"), { recursive: true });
     writeFileSync(rootRecordFile(root), JSON.stringify({ pid: process.pid, keep: options.keep }));
     let child: ChildProcess | undefined;
     try {
-        // До prepareAppEnv: withWorkspaceFolder должен видеть засеянные каталоги.
+        // Before prepareAppEnv: withWorkspaceFolder must see the seeded directories.
         const workspaceDir = join(root, "workspace");
         mkdirSync(workspaceDir, { recursive: true });
         if (options.seed !== undefined) cpSync(options.seed, workspaceDir, { recursive: true });
@@ -133,7 +133,7 @@ export async function startSession(registry: SessionRegistry, options: StartOpti
             keepRoot: true,
             ...(options.settings !== undefined ? { settings: options.settings } : {}),
             ...(options.keybindings !== undefined ? { keybindings: options.keybindings } : {}),
-            // Без папки нет ни дерева файлов, ни SCM, ни workspaceFolders у расширений.
+            // Without a folder there is no file tree, no SCM and no workspaceFolders for extensions.
             ...(options.open !== undefined ? { open: withWorkspaceFolder(root, options.open) } : {}),
             extraArgs: options.extraArgs,
         });
@@ -249,7 +249,7 @@ export async function stopSession(
             try {
                 await Promise.race([client.shutdown(), sleep(3000)]);
             } catch {
-                // сокет закрывается вместе с процессом — это и есть успех
+                // the socket closes together with the process; that is success
             } finally {
                 client.close();
             }
@@ -257,7 +257,7 @@ export async function stopSession(
             while (isAlive(record.pid) && Date.now() < deadline) await sleep(100);
             graceful = !isAlive(record.pid);
         } catch {
-            // инспектор не отвечает — сразу к сигналам
+            // the inspector does not respond; go straight to signals
         }
     }
     return disposeSession(registry, record, { keep: opts.keep, graceful });
@@ -286,8 +286,8 @@ export interface GcResult {
 }
 
 /**
- * Источник правды — копия записи в корне сессии, а не реестр: реестр соседнего
- * worktree не виден, а корень виден, и живую чужую сессию трогать нельзя.
+ * The source of truth is the record copy in the session root, not the registry: a sibling worktree's
+ * registry is not visible but its root is, and a live foreign session must not be touched.
  */
 export async function gcSessions(registry: SessionRegistry, opts: { kept: boolean }): Promise<GcResult> {
     const deadSessions: string[] = [];

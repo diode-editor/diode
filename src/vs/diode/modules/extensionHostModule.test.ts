@@ -12,7 +12,7 @@ import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/brow
 import { extensionHostConfigProvider, extensionHostModule, workspaceFoldersProvider } from "./extensionHostModule.ts";
 import { createTestContainer } from "./testProfile.ts";
 
-/** Субпроцесс не поднимается (расширений нет): проверяем, что прощание вообще доходит до host'а. */
+/** No subprocess is spawned (no extensions): checks that shutdown reaches the host at all. */
 describe("extensionHostModule — прощание", () => {
     it("shutdown снимает extension host", async () => {
         const { container } = createTestContainer();
@@ -29,8 +29,8 @@ describe("extensionHostModule — прощание", () => {
         const lifecycle = container.get(LifecycleServiceDIToken);
         const shutdown = vi.spyOn(host, "shutdown");
         const disposeNow = vi.spyOn(host, "disposeNow");
-        // Подписан позже host'а — в синхронной фазе срабатывает раньше него:
-        // к этому моменту host уже снят вежливо, в асинхронной фазе.
+        // Subscribed after the host, so it fires before it in the sync phase:
+        // by then the host is already shut down gracefully in the async phase.
         let shutdownBeforeSyncPhase = false;
         lifecycle.onShutdownSync(() => {
             shutdownBeforeSyncPhase = shutdown.mock.calls.length === 1;
@@ -51,7 +51,7 @@ describe("extensionHostModule — прощание", () => {
     });
 });
 
-/** Настоящий `WorkspaceContextService`: он без зависимостей, заглушка была бы дороже правды. */
+/** Real `WorkspaceContextService`: it has no dependencies, so a stub would cost more than the real thing. */
 function workspaceWithFolder(root: string | null): WorkspaceContextService {
     const service = new WorkspaceContextService();
     if (root !== null) service.setWorkspaceFolder(root);
@@ -70,7 +70,7 @@ describe("workspaceFoldersProvider", () => {
     });
 
     it("uri — настоящий file-uri, а не голый путь", () => {
-        // Путь «как есть» дал бы расширению неразбираемый uri.
+        // A raw path would give the extension an unparsable uri.
         expect(workspaceFoldersProvider(workspaceWithFolder("/work/my project"))()[0]?.uri).toBe(
             "file:///work/my%20project",
         );

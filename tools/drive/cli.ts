@@ -544,7 +544,7 @@ async function cmdExec(args: ParsedArgs): Promise<void> {
             result = await client.executeCommand(id, commandArgs, timeoutMs);
             await settle(client);
         } catch (error) {
-            // reloadWindow/quit: окно уходит, не ответив, — это исход команды, а не сбой.
+            // reloadWindow/quit: the window goes away without replying; that is the command's outcome, not a failure.
             if (!client.closed) throw error;
             emit(args, { windowClosed: true }, "окно закрылось (выход или перезагрузка) — дальше: wait reload");
             return;
@@ -587,7 +587,7 @@ async function cmdPalette(args: ParsedArgs): Promise<void> {
     });
 }
 
-/** Старое окно ещё может отвечать на том же порту — поэтому ждём ДРУГОЙ pid. */
+/** The old window may still answer on the same port, so wait for a DIFFERENT pid. */
 async function waitReload(record: SessionRecord, timeoutMs: number): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -602,7 +602,7 @@ async function waitReload(record: SessionRecord, timeoutMs: number): Promise<voi
     }
 }
 
-/** Отдельным подключением: старое могло закрыться. */
+/** Uses its own connection: the old one may have closed. */
 async function probeWindow(port: number): Promise<{ pid: number; ready: boolean } | undefined> {
     try {
         const client = await DriveClient.connect(port, 1000);

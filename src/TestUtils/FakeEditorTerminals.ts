@@ -10,7 +10,7 @@ import type {
 
 type EditorTerminals = Pick<TerminalEditorService, "createTerminal" | "splitInstance" | "reveal">;
 
-/** Сквозной путь до вкладки — в `workbench.extensionTerminal.test.ts` на настоящем сервисе. */
+/** The end-to-end path to the tab is covered in `workbench.extensionTerminal.test.ts` with the real service. */
 export class FakeEditorTerminals implements EditorTerminals {
     public readonly created: { id: number; location: ITerminalEditorLocation | { split: number } }[] = [];
     public readonly revealed: { id: number; preserveFocus: boolean }[] = [];

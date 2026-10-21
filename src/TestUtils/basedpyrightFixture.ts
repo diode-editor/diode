@@ -12,8 +12,8 @@ import { fetchStockVsix } from "./stockVsix.ts";
 import { settle } from "./timing.ts";
 
 /**
- * Версию vsix не пиним: стоки тестируем тем, что реально опубликовано, — сломалась
- * новая запись, значит краснеем и чиним. Без сети — `DIODE_E2E_OFFLINE=1`.
+ * The vsix version is not pinned: stock extensions are tested against what is actually published —
+ * if a new release breaks, we go red and fix it. Offline — `DIODE_E2E_OFFLINE=1`.
  */
 
 export const BASEDPYRIGHT_ID = "detachhead.basedpyright";
@@ -25,10 +25,10 @@ export const PY_LANGUAGE_SERVICE: ILanguageService = {
 };
 
 export const DEFS_PY = 'def greet(name: str) -> str:\n    return "hi " + name\n';
-// Ошибка типов (str в int) — она же сигнал готовности сервера.
+// A type error (str into int) — also the server readiness signal.
 export const MAIN_PY = 'from defs import greet\n\nreply: int = greet("world")\nprint(reply)\n';
 
-/** Молчаливые падения конвертеров стокового languageclient. */
+/** Silent converter crashes of the stock languageclient. */
 export const CLIENT_CRASH_PATTERNS = /is not a constructor|Converting circular|Cannot read propert/i;
 
 export interface IInstalledBasedpyright {
@@ -47,7 +47,7 @@ export async function installBasedpyright(): Promise<IInstalledBasedpyright> {
     };
 }
 
-/** Холодный старт bundled-сервера — десятки секунд, sleep'ы не годятся. */
+/** A cold start of the bundled server takes tens of seconds; sleeps won't do. */
 export async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs = 120_000): Promise<T> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {

@@ -16,7 +16,7 @@ import { EditorServiceDIToken } from "../../workbench/services/editor/common/edi
 import { extensionsModule } from "./extensionsModule.ts";
 import { createTestContainer } from "./testProfile.ts";
 
-/** Перепутанный аргумент даёт рабочий контейнер и неверный список расширений. */
+/** A swapped argument yields a working container with the wrong extension list. */
 
 const HOST = { diode: "1.0.0", vscode: "1.90.0" };
 
@@ -45,7 +45,7 @@ describe("extensionsModule", () => {
         ws = undefined;
     });
 
-    /** Токены магазина «отравлены»: перестань продовый модуль их перебивать — тест прошёл бы на дефолтах профиля. */
+    /** Marketplace tokens are poisoned: if the production module stopped overriding them, the test would pass on profile defaults. */
     function setup(options: { problems?: string[] } = {}): ReturnType<typeof createTestContainer>["container"] {
         const { container } = createTestContainer({
             environment: { registry: ws!.path("registry"), extensionsDir: ws!.path("extensions") },
@@ -74,7 +74,7 @@ describe("extensionsModule", () => {
             "extensions/local.helper-0.1.0/package.json",
             JSON.stringify({ publisher: "local", name: "helper", version: "0.1.0" }),
         );
-        // На диске, но не в профиле окна (Default: `extensions/extensions.json`) — не видно.
+        // On disk but not in the window's profile (Default: `extensions/extensions.json`) — not visible.
         ws.writeFile(
             "extensions/local.other-0.1.0/package.json",
             JSON.stringify({ publisher: "local", name: "other", version: "0.1.0" }),
@@ -88,7 +88,7 @@ describe("extensionsModule", () => {
         await service.ensureLoaded();
 
         expect(service.getEntries().map((e) => `${e.id}:${e.availability}`)).toEqual([
-            // Совместимость считается по версиям сборки из того же биндинга.
+            // Compatibility is computed against build versions from the same binding.
             "acme.tools:available",
             "old.legacy:incompatible",
             "local.helper:installed",
@@ -144,8 +144,8 @@ describe("extensionsModule", () => {
         ws.writeFile("registry/index.json", indexJson([]));
         const container = setup();
 
-        // Удалять нечего — важно, что ответ пришёл от настоящего сервиса поверх
-        // переданного каталога, а не от заглушки.
+        // Nothing to uninstall — what matters is that the answer comes from the real service over
+        // the given directory, not from a stub.
         await expect(container.get(ExtensionPageActionsDIToken).uninstall("acme.tools")).resolves.toEqual({
             ok: false,
             error: "Extension acme.tools is not installed",

@@ -37,7 +37,7 @@ export function keyboardDoctorSnapshot(env: TerminalEnvironmentService): Keyboar
 export const preferencesModule: ContainerModule = (container) => {
     container.bind(KeybindingsEditorTargetDIToken, () => container.get(EditorServiceDIToken));
     container.bind(KeybindingsEditorServiceDIToken, KeybindingsEditorService);
-    // Узкий срез node-сервиса замыкается здесь, чтобы browser-компонент не импортировал node-окружение.
+    // A narrow slice of the node service is captured here so the browser component does not import the node environment.
     container.bind(
         KeybindingRecorderComponentDIToken,
         () =>

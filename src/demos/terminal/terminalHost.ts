@@ -1,5 +1,5 @@
-// Песочница встроенного терминала: реальный шелл, полноэкранные TUI и ресайз.
-// Запуск: npm run demo:terminal   (Ctrl+Q — выйти из демо; Ctrl+C уходит в шелл)
+// Embedded terminal sandbox: a real shell, full-screen TUIs and resize.
+// Run: npm run demo:terminal   (Ctrl+Q exits the demo; Ctrl+C goes to the shell)
 
 import { TuiApplication } from "@tuidom/core/dom/tuiApplication";
 import { TUIElement } from "@tuidom/core/dom/tuiElement";
@@ -21,7 +21,7 @@ const body = new BodyElement();
 const initialSize = backend.getSize();
 const session = new EmbeddedTerminalSession({
     cols: Math.max(1, initialSize.width),
-    rows: Math.max(1, initialSize.height - 2), // приблизительно; точный размер задаст layout
+    rows: Math.max(1, initialSize.height - 2), // approximate; layout sets the exact size
 });
 
 const terminalView = new TerminalViewElement(session);
@@ -65,7 +65,7 @@ addButton("Quit", quit);
 
 body.setContent(layout);
 
-// До app.run — чтобы сработать раньше диспетчера и не уйти в шелл.
+// Before app.run, so it fires ahead of the dispatcher and does not reach the shell.
 backend.onInput((event) => {
     if (event.ctrlKey && event.key === "q") quit();
 });
@@ -76,5 +76,5 @@ session.onExit(() => {
 app.root = body;
 app.run();
 
-// Пока нет autofocus (docs/TODO/README.md #4).
+// Until there is autofocus (docs/TODO/README.md #4).
 terminalView.focus();

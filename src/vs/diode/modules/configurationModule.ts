@@ -8,7 +8,7 @@ import { CONFIGURATION_CONTRIBUTIONS } from "../../workbench/common/configuratio
 
 export interface ConfigurationModuleContext {
     configurationService: IConfigurationService;
-    /** Реестр схем настроек — тот же, из которого собран defaults-слой сервиса. */
+    /** Settings schema registry — the same one the service's defaults layer is built from. */
     configurationRegistry: ConfigurationRegistry;
 }
 
@@ -20,7 +20,7 @@ export const configurationModule: ContainerModule<ConfigurationModuleContext> = 
     container.bind(ConfigurationRegistryDIToken, () => configurationRegistry);
 };
 
-/** Настоящий реестр и сервис в памяти с теми же дефолтами: тесты видят значения приложения, а запись не трогает диск. */
+/** Real registry and an in-memory service with the same defaults: tests see app values, and writes never touch disk. */
 export const configurationModuleDefault: ContainerModule = (container) => {
     const configurationRegistry = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS);
     container.bind(IConfigurationServiceDIToken, () => new InMemoryConfigurationService(configurationRegistry));

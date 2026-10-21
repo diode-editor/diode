@@ -1,9 +1,9 @@
 /**
- * Неизвестный флаг — ошибка, а не тихий позиционный аргумент; текст, начинающийся
- * с `-`, передаётся после `--`.
+ * An unknown flag is an error, not a silent positional argument; text starting
+ * with `-` goes after `--`.
  */
 
-/** Повторяемые копятся массивом. */
+/** Repeated flags accumulate into an array. */
 const VALUE_FLAGS = new Set([
     "session",
     "timeout",
@@ -101,7 +101,7 @@ export function parseArgs(argv: readonly string[]): ParsedArgs {
     return { command, positionals: others, flags, booleans };
 }
 
-/** Повтор переопределяет. */
+/** The last repeat wins. */
 export function flag(args: ParsedArgs, name: string): string | undefined {
     return args.flags.get(name)?.at(-1);
 }
@@ -131,7 +131,7 @@ export function parseSize(raw: string): { cols: number; rows: number } {
     return { cols, rows };
 }
 
-/** `\n` в содержимом — перевод строки. */
+/** `\n` in the content is a newline. */
 export function parseFileSpec(raw: string): [string, string] {
     const eq = raw.indexOf("=");
     if (eq <= 0) throw new UsageError(`--file ожидается как <путь>=<содержимое>, получено ${JSON.stringify(raw)}`);

@@ -5,12 +5,12 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { APP_JAVA_PATH, createMavenProject, type IMavenProject, JAVA_LANGUAGE_SERVICE } from "./javaFixture.ts";
 
-// Сетевую часть (`installJava`) закрывают сьюты extensionHost.javaLsp*.
+// The network part (`installJava`) is covered by the extensionHost.javaLsp* suites.
 
 describe("javaFixture — языковой сервис", () => {
     it(".java получает язык java, прочее — undefined", () => {
         expect(JAVA_LANGUAGE_SERVICE.getLanguageIdForResource("/tmp/App.java")).toBe("java");
-        // Пометь сервис `java` на pom.xml — расширение получило бы didOpen на xml-файле.
+        // If the service tagged pom.xml as `java`, the extension would get didOpen for an xml file.
         expect(JAVA_LANGUAGE_SERVICE.getLanguageIdForResource("/tmp/pom.xml")).toBeUndefined();
     });
 

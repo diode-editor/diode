@@ -3,8 +3,8 @@ import { loadLazyModule } from "../../base/node/lazyModule.ts";
 import { runTreeWatcherSubprocess } from "../../platform/files/node/treeWatcherMain.ts";
 
 /**
- * Watcher кусков пока не грузит; загрузчик подставляется в копию `lazyModule.ts` куска (как в
- * `extensionHostRole.ts`), чтобы роль не зависела от того, попадёт ли туда `importLazyModule`.
+ * The watcher loads no lazy chunks yet; the loader is injected into the chunk's copy of `lazyModule.ts` (as in
+ * `extensionHostRole.ts`) so the role does not depend on whether `importLazyModule` ends up there.
  */
 export function runFileWatcherRole(): void {
     setLazyModuleLoader(loadLazyModule);

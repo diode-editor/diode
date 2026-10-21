@@ -11,9 +11,9 @@ import { registrationFromInstalled } from "./installedExtensionRegistration.ts";
 import { fetchStockVsix } from "./stockVsix.ts";
 
 /**
- * Стоковый vsix redhat.java из магазина. В vitest `DIODE_VERSION` — `0.0.0-dev`,
- * гейт `engines.diode` не блокирует, и резолв отдаёт платформенную запись со
- * вшитым JRE: своего JDK машине не нужно.
+ * The stock redhat.java vsix from the marketplace. Under vitest `DIODE_VERSION` is `0.0.0-dev`,
+ * the `engines.diode` gate does not block, and resolution returns the platform entry with an
+ * embedded JRE: the machine needs no JDK of its own.
  */
 
 export const JAVA_ID = "redhat.java";
@@ -25,12 +25,12 @@ export const JAVA_LANGUAGE_SERVICE: ILanguageService = {
 };
 
 /**
- * `onLanguage:java` у redhat.java нет — только `workspaceContains:`; одиночный
- * `.java` без build-файла не заводит расширение и в VS Code.
+ * redhat.java has no `onLanguage:java` — only `workspaceContains:`; a lone `.java`
+ * without a build file does not start the extension in VS Code either.
  */
 export const JAVA_ACTIVATION_EVENT = "workspaceContains:pom.xml";
 
-/** Без зависимостей: внешний jar тянется в `~/.m2` по сети и добавляет минуты; classpath проверяет отдельный сьют. */
+/** No dependencies: an external jar downloads into `~/.m2` and adds minutes; a separate suite covers classpath. */
 export const POM_XML = `<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0">
   <modelVersion>4.0.0</modelVersion>
@@ -45,7 +45,7 @@ export const POM_XML = `<?xml version="1.0" encoding="UTF-8"?>
 </project>
 `;
 
-/** `broken` — ошибка типов и заодно сигнал готовности: диагностика jdt.ls приходит только после импорта и сборки. */
+/** `broken` is a type error and the readiness signal: jdt.ls diagnostics arrive only after import and build. */
 export const APP_JAVA = `package demo;
 
 public class App {
@@ -70,9 +70,9 @@ export interface IMavenProject {
 }
 
 /**
- * Свой каталог, а не `tmpDir` харнесса: там же лежит `globalStorage`, куда jdt.ls
- * кладёт eclipse-конфигурацию, и проект, содержащий её, он не импортирует —
- * «App.java is a non-project file», ни одной семантической диагностики до таймаута.
+ * A dedicated directory, not the harness `tmpDir`: `globalStorage` lives there, where jdt.ls
+ * puts its eclipse configuration, and jdt.ls won't import a project containing it —
+ * "App.java is a non-project file", and no semantic diagnostics until the timeout.
  */
 export function createMavenProject(): IMavenProject {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), "diode-java-proj-"));

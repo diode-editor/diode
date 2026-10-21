@@ -24,34 +24,34 @@ export interface IWorkbenchStartupHost {
     run(): void;
     afterMounted(): Promise<void>;
     preloadGrammars(files: readonly string[]): Promise<void>;
-    /** Не ожидается: повисший `activate()` расширения не должен откладывать `eventually`. */
+    /** Not awaited: a hung extension `activate()` must not delay `eventually`. */
     startExtensions(): void;
-    /** `setImmediate`: отложенный рендер стоит в той же очереди раньше. */
+    /** `setImmediate`: the deferred render sits earlier in the same queue. */
     afterNextFrame(callback: () => void): void;
 }
 
 export interface IWorkbenchStartupOptions {
     readonly targets: IStartupTargets;
-    /** Тогда `targets.folder` — его папка. */
+    /** Then `targets.folder` is its folder. */
     readonly workspace?: IStartupWorkspace;
     readonly extensions: readonly IExtension[];
     readonly extensionsLogger?: ILogger;
 }
 
 /**
- * Аналог `Workbench.startup` + `restore` у vscode. Порядок шагов — инварианты:
+ * Counterpart of upstream `Workbench.startup` + `restore`. The step order is an invariant:
  *
- * 1. Бинды расширений — после builtin (их заводит конструктор `WorkbenchComponent`), чтобы
- *    расширение перебивало встроенный аккорд.
- * 2. Папка воркспейса — до `mount()`: рестор layout'а читает стор воркспейса.
- * 3. Токенизаторы придержаны до первого кадра: первая токенизация компилирует regex'ы грамматики
- *    (TypeScript — ~160 мс) и откладывала бы текст. Первый кадр без подсветки, как у эталона.
- * 4. Расширения — после кадра с подсветкой, как `NativeExtensionService` эталона: спаун синхронный.
- *    Ранние события активации (`onLanguage:` открытого файла) помнит барьер `ExtensionService`.
- * 5. `eventually` — после кадра с цветом: прогрев всех грамматик (~150 мс) встал бы перед ним.
- *    Из `mount()` фаза не годится — он идёт до `run()`.
+ * 1. Extension keybindings after builtin ones (registered by the `WorkbenchComponent` constructor), so that
+ *    an extension overrides a built-in chord.
+ * 2. Workspace folder before `mount()`: layout restore reads the workspace storage.
+ * 3. Tokenizers are held until the first frame: the first tokenization compiles the grammar regexes
+ *    (TypeScript: ~160 ms) and would delay the text. The first frame has no highlighting, as in upstream.
+ * 4. Extensions after the highlighted frame, like upstream `NativeExtensionService`: the spawn is synchronous.
+ *    Early activation events (`onLanguage:` of an open file) are remembered by the `ExtensionService` barrier.
+ * 5. `eventually` after the colored frame: warming up all grammars (~150 ms) would land before it.
+ *    The `mount()` phase won't do — it runs before `run()`.
  *
- * Вехи `mark` читает бенч; лишних `await` до `main:files-opened` быть не должно.
+ * The bench reads the `mark` calls; no extra `await` is allowed before `main:files-opened`.
  */
 export async function startWorkbench(
     accessor: ServiceAccessor,
@@ -74,7 +74,7 @@ export async function startWorkbench(
         options.extensionsLogger,
     );
 
-    // Без явной папки окно пустое — никакого обхода текущего каталога.
+    // Without an explicit folder the window is empty — no scan of the current directory.
     if (options.workspace !== undefined) {
         workbench.openWorkspaceFile(options.workspace.file, options.workspace.contents);
     } else if (targets.folder !== undefined) {
@@ -102,20 +102,20 @@ export async function startWorkbench(
     } else {
         startupFiles = [];
     }
-    // Только открываемые языки (~2 мс), а не все грамматики (~420 мс).
+    // Only the languages being opened (~2 ms), not all grammars (~420 ms).
     await host.preloadGrammars(startupFiles);
     mark("main:grammars-preloaded");
     if (targets.diff !== undefined) {
-        // Отсутствующий файл легитимно даёт пустую сторону.
+        // A missing file legitimately yields an empty side.
         await accessor
             .get(CommandRegistryDIToken)
             .execute("vscode.diff", Uri.file(targets.diff.original), Uri.file(targets.diff.modified));
     } else if (explicitFiles.length > 0) {
         for (const file of explicitFiles) workbench.openFile(file.path);
-        // Координаты CLI 1-based, редактора — 0-based.
+        // CLI coordinates are 1-based, the editor's are 0-based.
         const last = explicitFiles[explicitFiles.length - 1];
         if (last.line !== undefined) {
-            // Stryker disable next-line OptionalChaining: openFile всегда делает открытую вкладку активной (отсутствующий файл — пустой буфер), null тут недостижим; `?.` — страховка типа
+            // Stryker disable next-line OptionalChaining: openFile always makes the opened tab active (a missing file is an empty buffer), so null is unreachable here; `?.` is a type safeguard
             accessor
                 .get(EditorServiceDIToken)
                 .getActiveEditor()
@@ -125,14 +125,14 @@ export async function startWorkbench(
         workbench.restoreOpenEditors();
     }
     workbench.focusEditor();
-    // Кадр с текстом — первый `frame` после этой вехи.
+    // The text frame is the first `frame` after this mark.
     mark("main:files-opened", { files: startupFiles.length });
     lifecycle.setPhase("restored");
 
     host.afterNextFrame(() => {
         tokenizersHeld.dispose();
         host.afterNextFrame(() => {
-            // Опрос tmux — спаун (~20 мс синхронно), поэтому за кадрами.
+            // The tmux poll is a spawn (~20 ms synchronous), so it goes after the frames.
             terminalEnv.detectTmuxClient();
             host.startExtensions();
             lifecycle.setPhase("eventually");

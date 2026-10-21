@@ -12,10 +12,10 @@ import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken
 import { LifecycleServiceDIToken } from "../../workbench/services/lifecycle/browser/lifecycleService.ts";
 
 /**
- * Дерево — в отдельном процессе: полный обход с подпиской на каждый каталог занимает секунды и в главном
- * цикле стоил отзывчивости на старте. Два токена на один объект осознанно: владельцу процесса нужен сам
- * `SubprocessTreeWatcher`. Снимается он в синхронной фазе прощания: при перезагрузке окна event loop дальше
- * блокируется, и процесс пережил бы окно со всеми inotify-подписками.
+ * The tree watcher runs in a separate process: a full crawl subscribing to every directory takes seconds and
+ * on the main loop cost startup responsiveness. Two tokens for one object on purpose: the process owner needs
+ * the `SubprocessTreeWatcher` itself. It is killed in the sync shutdown phase: on window reload the event loop
+ * then blocks, and the process would outlive the window with all its inotify watches.
  */
 export const fileWatcherModule: ContainerModule = (container) => {
     container.bind(

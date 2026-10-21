@@ -5,7 +5,7 @@ import type { NodeSnapshot } from "@tuidom/inspector/protocol";
 
 import { $$ } from "../../e2e/helpers/query.ts";
 
-// Всё, что печатает CLI, проходит через эти чистые функции — тестируются без живого редактора.
+// Everything the CLI prints goes through these pure functions, so they are tested without a live editor.
 
 export function colorHex(color: number): string {
     if (color === DEFAULT_COLOR) return "default";
@@ -30,7 +30,7 @@ export interface CellInfo {
     readonly width: number;
 }
 
-/** Код-пойнт — потому что глифы codicon'ов неразличимы на глаз. */
+/** Includes the code point, since codicon glyphs are indistinguishable by eye. */
 export function cellInfo(frame: GridSnapshot, x: number, y: number): CellInfo {
     if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= frame.cols || y >= frame.rows) {
         throw new Error(`ячейка ${String(x)},${String(y)} вне кадра ${String(frame.cols)}x${String(frame.rows)}`);
@@ -53,7 +53,7 @@ export function formatCell(info: CellInfo): string {
     return `${String(info.x)},${String(info.y)} ${JSON.stringify(info.char)} ${info.codePoint} fg=${info.fg} bg=${info.bg} style=${info.style} width=${String(info.width)}`;
 }
 
-/** `numbered` — номера строк и линейка колонок: координаты для `click`/`cell` читаются с экрана. */
+/** `numbered` adds line numbers and a column ruler, so `click`/`cell` coordinates can be read off the screen. */
 export function screenText(frame: GridSnapshot, numbered: boolean): string {
     const lines: string[] = [];
     for (let y = 0; y < frame.rows; y++) {
@@ -69,7 +69,7 @@ export function screenText(frame: GridSnapshot, numbered: boolean): string {
 }
 
 export interface TreeOptions {
-    /** От корня или от каждого совпадения `selector`. */
+    /** From the root or from each `selector` match. */
     readonly depth?: number;
     readonly state?: boolean;
 }
@@ -101,7 +101,7 @@ export function selectedTreesText(root: NodeSnapshot | null, selector: string, o
     return matches.map((node) => treeText(node, options)).join("\n");
 }
 
-/** `focused` в снимке стоит только на листе, поэтому путь — поиском, а не спуском по флагам. */
+/** `focused` is set only on the leaf in a snapshot, so the path is found by search, not by descending along flags. */
 export function focusText(root: NodeSnapshot | null): string {
     const path = root === null ? null : pathToFocused(root);
     if (path === null) return "<нет фокуса>";

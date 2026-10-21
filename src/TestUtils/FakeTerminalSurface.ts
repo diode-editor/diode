@@ -5,12 +5,12 @@ import type { ITerminalRelaunchOptions } from "../vs/workbench/contrib/terminal/
 
 export type { FakeCellOptions } from "@tuidom/testing/FakeTerminalSurface";
 
-/** Ввод после выхода не пишется, а будит `onDidInputAfterExit` — как у настоящей сессии. */
+/** Input after exit is not written but fires `onDidInputAfterExit` — like a real session. */
 export class FakeTerminalSurface extends EngineFakeTerminalSurface {
     public pid: number | undefined;
     public readonly relaunches: ITerminalRelaunchOptions[] = [];
     public readonly printed: string[] = [];
-    /** `undefined` — не задавались. */
+    /** `undefined` — never set. */
     public ansiColors: readonly number[] | undefined;
     private readonly inputAfterExit = new Emitter<void>();
     public readonly onDidInputAfterExit = this.inputAfterExit.event;

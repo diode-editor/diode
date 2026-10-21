@@ -49,7 +49,7 @@ import { workbenchModule } from "./workbenchModule.ts";
 import { workspaceModule } from "./workspaceModule.ts";
 
 /**
- * `TuiApplicationDIToken` биндится позже, через `bindApp(testApp.app)`: после `workbench.mount()` и
+ * `TuiApplicationDIToken` is bound later via `bindApp(testApp.app)`: after `workbench.mount()` and
  * `TestApp.create(workbench.view, size)`.
  */
 export interface TestContainerHandle {
@@ -57,7 +57,7 @@ export interface TestContainerHandle {
     bindApp: (app: TuiApplication) => void;
 }
 
-/** Свой временный каталог на контейнер; в сеть никто не ходит (`registry` — путь, а не публичный магазин). */
+/** A temp directory per container; nothing hits the network (`registry` is a path, not the public marketplace). */
 export function createTestEnvironment(): IEnvironmentService {
     const root = path.join(tmpdir(), `diode-tests-${randomUUID()}`);
     const profileDir = path.join(root, "user-data", "User");
@@ -76,19 +76,19 @@ export function createTestEnvironment(): IEnvironmentService {
 }
 
 export interface TestContainerOptions {
-    /** Перебить поля тестового окружения (например путь settings.json в каталоге теста). */
+    /** Overrides for test environment fields (e.g. a settings.json path in the test's directory). */
     readonly environment?: Partial<IEnvironmentService>;
 }
 
 export function createTestContainer(options: TestContainerOptions = {}): TestContainerHandle {
     const environment = { ...createTestEnvironment(), ...options.environment };
-    // Реестр профилей — настоящий, но над стором в памяти и в каталоге тестового
-    // окружения: команды профилей создают каталоги там же, где всё остальное.
+    // A real profiles registry, but over an in-memory store and the test environment's
+    // directory: profile commands create directories alongside everything else.
     const userDir = path.join(environment.userDataRoot, "user-data", "User");
     const profilesService = new UserDataProfilesService({
         profilesHome: path.join(userDir, "profiles"),
         defaultProfileHome: userDir,
-        // Состав расширений Default — в каталоге расширений, как в проде.
+        // The Default profile's extension list lives in the extensions directory, as in production.
         defaultProfileExtensionsResource: path.join(environment.extensionsDir, "extensions.json"),
         state: new StateFileStore(undefined),
     });
@@ -115,8 +115,8 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
         .use(filesModule)
         .use(markersModule)
         .use(workbenchModule)
-        // Выход и перезагрузка окна в тестах — no-op: настоящие унесли бы
-        // раннер. Тест, которому важен сам вызов, перебивает биндинг.
+        // Exit and window reload are no-ops in tests: the real ones would take down
+        // the runner. A test that cares about the call overrides the binding.
         .use(lifecycleModule, {
             hostProcess: {
                 exit: () => {
@@ -127,21 +127,20 @@ export function createTestContainer(options: TestContainerOptions = {}): TestCon
                 },
             },
         })
-        // Магазин — та же продовая проводка, что в приложении, но по путям
-        // тестового окружения, которых нет. Отдельного «пустого» магазина для
-        // тестов не держим — он расходился бы с настоящим.
+        // Marketplace: the same production wiring as the app, but over test environment
+        // paths that do not exist. No separate "empty" marketplace for tests — it would
+        // drift from the real one.
         .use(extensionsModule, {
             host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION, targetPlatform: currentTargetPlatform() },
         })
         .use(preferencesModule);
 
-    // Перебиваем прод-фабрику терминальных сессий на фейк: тесты не спавнят реальные
-    // PTY. Каждый вызов возвращает свежий FakeTerminalSurface; тесты, которым нужен
-    // доступ к созданным инстансам, перебивают биндинг локально своей фабрикой.
+    // Tests never spawn real PTYs: each call returns a fresh FakeTerminalSurface. Tests that
+    // need the created instances override the binding locally with their own factory.
     container.bind(TerminalSessionFactoryDIToken, () => () => new FakeTerminalSurface());
-    // Pty-терминалы расширений — тот же фейк поверхности с входом `feed`.
+    // Extension pty terminals: the same fake surface with a `feed` input.
     container.bind(ExtensionPtySessionFactoryDIToken, () => (options) => new FakeExtensionPtySession(options));
-    // Шелл задач — фиксированный: тестам не важно, что стоит в $SHELL машины.
+    // Fixed task shell: tests must not depend on the machine's $SHELL.
     container.bind(DefaultShellResolverDIToken, () => () => "/bin/bash");
 
     return {

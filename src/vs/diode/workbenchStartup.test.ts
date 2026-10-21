@@ -70,7 +70,7 @@ interface IStartup {
     readonly container: ReturnType<typeof createTestContainer>["container"];
     readonly log: string[];
     readonly preloaded: (readonly string[])[];
-    /** Зовёт колбэки, отложенные `afterNextFrame` до него. */
+    /** Calls the callbacks deferred by `afterNextFrame` so far. */
     nextFrame(): void;
     testApp(): TestApp | undefined;
     run(targets: IStartupTargets, extensions?: readonly IExtension[], workspace?: IStartupWorkspace): Promise<void>;
@@ -160,12 +160,12 @@ describe("startWorkbench", () => {
             "phase:restored",
             "afterNextFrame",
         ]);
-        // Первый кадр (с текстом) отпускает токенизаторы и откладывает остальное ещё на кадр.
+        // The first frame (with text) releases the tokenizers and defers the rest by one more frame.
         startup.nextFrame();
         expect(startup.log.at(-1)).toBe("afterNextFrame");
         expect(startup.container.get(LifecycleServiceDIToken).phase).toBe("restored");
         expect(tmuxProbe).not.toHaveBeenCalled();
-        // Второй (с подсветкой) — опрос tmux, расширения, затем `eventually`.
+        // The second one (highlighted): tmux poll, extensions, then `eventually`.
         startup.nextFrame();
         expect(tmuxProbe).toHaveBeenCalledOnce();
         expect(startup.log.slice(-2)).toEqual(["startExtensions", "phase:eventually"]);
@@ -180,7 +180,7 @@ describe("startWorkbench", () => {
         startup.nextFrame();
         startup.nextFrame();
 
-        // Сервисы по дороге ставят и свои вехи (`textfile:read`, `frame`) — смотрим на лестницу.
+        // Services set their own marks along the way too (`textfile:read`, `frame`) — check the ladder only.
         const marks = getMarks().filter((m) => m.name.startsWith("workbench:") || m.name.startsWith("main:"));
         expect(marks.map((m) => m.name)).toEqual([
             "workbench:mounted",
@@ -212,9 +212,9 @@ describe("startWorkbench", () => {
 
         await startup.run(NO_TARGETS, [MENU_EXTENSION]);
 
-        // Label резолвит реестр команд, а титулы команд расширения заводит
-        // host при активации — здесь его нет, и пункт честно подписан id.
-        // Нам важно другое: пункт из манифеста в точке меню ЕСТЬ.
+        // The label comes from the command registry, and extension command titles are registered by
+        // the host on activation — there is none here, so the item shows the id. What matters is that
+        // the manifest item IS in the menu.
         const labels = startup.container
             .get(MenuRegistryDIToken)
             .getMenuItems(MenuId.EditorContext)
@@ -352,7 +352,7 @@ describe("startWorkbench", () => {
         app?.render();
 
         expect(tokenized).toEqual(["one", "two", "three", ""]);
-        // Фоновая работа `eventually` — только за кадром с подсветкой, не перед ним.
+        // Background `eventually` work comes only after the highlighted frame, not before it.
         expect(startup.container.get(LifecycleServiceDIToken).phase).toBe("restored");
         startup.nextFrame();
         expect(startup.container.get(LifecycleServiceDIToken).phase).toBe("eventually");
@@ -378,8 +378,8 @@ describe("startWorkbench", () => {
         });
 
         afterEach(() => {
-            // Писателей глушим ДО сноса каталога: debounced-запись, сработавшая
-            // после `rmSync`, пересоздаёт его.
+            // Silence the writers BEFORE removing the directory: a debounced write firing
+            // after `rmSync` recreates it.
             for (const writer of writers) writer.dispose();
             userData.dispose();
         });

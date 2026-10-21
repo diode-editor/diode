@@ -24,13 +24,13 @@ export interface IEditorPaneOverrides {
     readonly themeService?: ThemeService;
     readonly undoRedoService?: UndoRedoService;
     readonly foldingProviders?: LanguageFeatureRegistry<FoldingRangeProvider>;
-    /** По умолчанию — настоящий диск. */
+    /** Defaults to the real disk. */
     readonly files?: IFileService;
-    /** Нет — только TextMate. */
+    /** Absent — TextMate only. */
     readonly semanticTokens?: DocumentSemanticTokensFeature;
 }
 
-/** Собирает пару так же, как `TextEditorPaneBuilder.build`. */
+/** Builds the pair the same way as `TextEditorPaneBuilder.build`. */
 export function createEditorPane(overrides: IEditorPaneOverrides = {}): TextEditorPane<TextFileModel> {
     const themeService = overrides.themeService ?? new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     const model = new TextFileModel(

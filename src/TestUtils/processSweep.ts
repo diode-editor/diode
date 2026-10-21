@@ -2,10 +2,10 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 /**
- * Метка в окружении, а не дерево процессов: языковые серверы живут в своей группе
- * (субпроцесс расширений `detached`), групповой сигнал до них не доходит, а после
- * убитого воркера дерево разорвано — внуки у init. Окружение же наследуется по всей
- * цепочке. Только Linux (`/proc/<pid>/environ`).
+ * A marker in the environment, not the process tree: language servers live in their own group
+ * (the extension subprocess is `detached`), so a group signal doesn't reach them, and after a
+ * worker is killed the tree is broken — grandchildren are reparented to init. The environment,
+ * however, is inherited down the whole chain. Linux only (`/proc/<pid>/environ`).
  */
 
 export interface MarkedProcess {
@@ -15,10 +15,10 @@ export interface MarkedProcess {
 
 export interface ProcessTable {
     pids(): number[];
-    /** Окружение процесса как `NAME=value`; `null` — процесс исчез или чужой. */
+    /** Process environment as `NAME=value`; `null` — the process is gone or foreign. */
     environ(pid: number): string[] | null;
     command(pid: number): string;
-    /** `null` — процесс исчез. */
+    /** `null` — the process is gone. */
     parent(pid: number): number | null;
 }
 
@@ -57,15 +57,15 @@ function readNulSeparated(file: string): string[] | null {
     }
 }
 
-/** `pid (comm) state ppid …`: comm может содержать пробелы и скобки — поля после ПОСЛЕДНЕЙ `)`. */
+/** `pid (comm) state ppid …`: comm may contain spaces and parentheses — fields follow the LAST `)`. */
 export function parseParentPid(stat: string): number | null {
     const ppid = Number(stat.slice(stat.lastIndexOf(")") + 2).split(" ")[1]);
     return Number.isInteger(ppid) ? ppid : null;
 }
 
 /**
- * Кроме текущего и его прямых детей: это воркеры vitest, доживающие в teardown сами,
- * или редактор, уже убитый групповым сигналом. Добивать нужно глубже и сирот.
+ * Excludes the current process and its direct children: those are vitest workers that exit on their own
+ * in teardown, or an editor already killed by a group signal. Deeper descendants and orphans need killing.
  */
 export function findByEnv(name: string, value: string, table: ProcessTable | null = procTable): MarkedProcess[] {
     if (table === null) return [];
@@ -93,7 +93,7 @@ export function killByEnv(name: string, value: string, options: KillOptions = {}
             kill(proc.pid, "SIGKILL");
             killed.push(proc);
         } catch {
-            // успел выйти сам или чужой — не наша забота
+            // exited on its own or foreign — not our concern
         }
     }
     return killed;
@@ -104,7 +104,7 @@ export interface ReapOptions extends KillOptions {
     pollMs?: number;
 }
 
-/** Непустой результат — утечка, о ней стоит сказать вслух. */
+/** A non-empty result is a leak worth reporting loudly. */
 export async function reapByEnv(name: string, value: string, options: ReapOptions = {}): Promise<MarkedProcess[]> {
     const { graceMs = 2000, pollMs = 100, table = procTable } = options;
     const deadline = Date.now() + graceMs;

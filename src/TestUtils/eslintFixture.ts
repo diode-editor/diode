@@ -12,8 +12,8 @@ import { registrationFromInstalled } from "./installedExtensionRegistration.ts";
 import { fetchStockVsix } from "./stockVsix.ts";
 
 /**
- * Библиотеку eslint сервер расширения резолвит из `node_modules` проекта — vsix её
- * не бандлит, поэтому фикстура доносит её в воркспейс ({@link linkEslintLibrary}).
+ * The extension's server resolves the eslint library from the project's `node_modules` — the vsix
+ * does not bundle it, so the fixture brings it into the workspace ({@link linkEslintLibrary}).
  */
 
 export const ESLINT_ID = "dbaeumer.vscode-eslint";
@@ -27,10 +27,10 @@ export const JS_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageDisplayName: () => undefined,
 };
 
-/** no-unused-vars без автофикса и no-extra-semi с ним: «остаётся» и «уходит» после Fix All. */
+/** no-unused-vars without an autofix and no-extra-semi with one: "stays" and "goes" after Fix All. */
 export const LINT_JS = "const unused = 1;;\n";
 
-/** Только core-правила — кроме пакета `eslint`, в воркспейс ничего не ставится. */
+/** Core rules only — nothing but the `eslint` package is installed into the workspace. */
 export const ESLINT_FLAT_CONFIG =
     'export default [\n    { rules: { "no-unused-vars": "error", "no-extra-semi": "error" } },\n];\n';
 
@@ -50,7 +50,7 @@ export async function installEslint(): Promise<IInstalledEslint> {
     };
 }
 
-/** Версию не пиним — как у стоковых vsix; кэш живёт до чистки node_modules. */
+/** Version is not pinned — as with stock vsix; the cache lives until node_modules is cleaned. */
 export function ensureEslintLibrary(): string {
     const nodeModules = path.join(ESLINT_LIB_CACHE_DIR, "node_modules");
     if (fs.existsSync(path.join(nodeModules, "eslint", "package.json"))) return nodeModules;
@@ -65,7 +65,7 @@ export function ensureEslintLibrary(): string {
     try {
         fs.renameSync(staging, ESLINT_LIB_CACHE_DIR);
     } catch {
-        // Параллельный воркер успел первым — его установка ничем не хуже.
+        // A parallel worker got there first — its install is just as good.
         fs.rmSync(staging, { recursive: true, force: true });
     }
     return nodeModules;

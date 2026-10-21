@@ -9,7 +9,7 @@ import type { IExtensionRegistration } from "../vs/workbench/services/extensions
 import { registrationFromInstalled } from "./installedExtensionRegistration.ts";
 import { fetchStockVsix } from "./stockVsix.ts";
 
-/** terraform CLI не нужен: схемы провайдеров (AWS и др.) вшиты в `terraform-ls`. */
+/** The terraform CLI is not needed: provider schemas (AWS etc.) are embedded in `terraform-ls`. */
 export const TERRAFORM_ID = "hashicorp.terraform";
 
 export const TF_LANGUAGE_SERVICE: ILanguageService = {
@@ -19,8 +19,8 @@ export const TF_LANGUAGE_SERVICE: ILanguageService = {
 };
 
 /**
- * `bogus_attr` — диагностика «Unexpected attribute», сигнал готовности сервера.
- * Строки 0-based: `variable` — 8, `var.region` — 14, тело `aws_instance` — 18–19.
+ * `bogus_attr` yields the "Unexpected attribute" diagnostic, the server readiness signal.
+ * Lines are 0-based: `variable` — 8, `var.region` — 14, the `aws_instance` body — 18–19.
  */
 export const MAIN_TF = [
     "terraform {",

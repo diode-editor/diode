@@ -1,5 +1,5 @@
 /**
- * Осознанная копия tuidom/demos/demoSetup.ts: демо-каталог не входит в npm-пакет tuidom.
+ * Deliberate copy of tuidom/demos/demoSetup.ts: the demos directory is not part of the tuidom npm package.
  */
 
 export const stdin = process.stdin;
@@ -21,8 +21,8 @@ export function writePassthrough(sequence: string): void {
 }
 
 /**
- * Режимы ввода — без TMUX passthrough: tmux ведёт их per-pane, а passthrough включил бы
- * режим внешнему терминалу глобально, и кодировка клавиш утекла бы в другие панели.
+ * Input modes go without tmux passthrough: tmux tracks them per pane, while passthrough would enable
+ * the mode in the outer terminal globally and leak the key encoding into other panes.
  */
 export function writeDirect(sequence: string): void {
     stdout.write(sequence);

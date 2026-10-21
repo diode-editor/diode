@@ -1,16 +1,15 @@
 /**
- * Слой поверх дефолтов манифеста, ниже пользовательских настроек (переопределяем).
+ * Layer above the manifest defaults (overrides them) and below user settings.
  *
- * - basedpyright: `fromEnvironment` ищет сервер через API ms-python.python и роняет всю активацию,
- *   когда того нет (вызов в activate() не обёрнут, проверено на 1.40.0), — остаётся вшитый сервер.
- * - ruff: `fromEnvironment` зависит от PATH; вшитый нативный бинарь детерминирован (bundled ≥ 0.5.3).
- * - redhat.java: lombok на jdt.ls 1.57 + JDK 21 ломает компиляцию всего проекта («Internal compiler
- *   error», `NoSuchFieldError … constructorCall`). `updateBuildConfiguration` не трогаем: вопрос
- *   «Synchronize now» с #352 отвечаем, `"automatic"` молча забрал бы решение у человека.
- * - Anthropic.claude-code: webview-панели в TUI нет (docs/public/API-COVERAGE.md) — рабочий только
- *   терминальный режим.
+ * - basedpyright: `fromEnvironment` looks the server up via the ms-python.python API and fails the whole
+ *   activation when it is missing (the call in activate() is unguarded, checked on 1.40.0) — keep the bundled server.
+ * - ruff: `fromEnvironment` depends on PATH; the bundled native binary is deterministic (bundled ≥ 0.5.3).
+ * - redhat.java: lombok on jdt.ls 1.57 + JDK 21 breaks compilation of the whole project ("Internal compiler
+ *   error", `NoSuchFieldError … constructorCall`). `updateBuildConfiguration` is left alone: since #352 we answer
+ *   the "Synchronize now" prompt, and `"automatic"` would silently take the decision away from the user.
+ * - Anthropic.claude-code: the TUI has no webview panels (docs/public/API-COVERAGE.md) — only terminal mode works.
  *
- * Id без учёта регистра: id расширений VS Code регистронезависимы (`Anthropic`, `DetachHead`).
+ * Ids are matched case-insensitively: VS Code extension ids are case-insensitive (`Anthropic`, `DetachHead`).
  */
 export function curatedConfigInjection(extensionId: string): Record<string, unknown> {
     const id = extensionId.toLowerCase();

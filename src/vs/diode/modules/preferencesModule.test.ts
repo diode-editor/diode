@@ -29,9 +29,9 @@ describe("keyboardDoctorSnapshot", () => {
     it("снимок окружения для доктора: ОС с источником, рунг, включённые caps и отсортированные моды", () => {
         const env = new TerminalEnvironmentService(new MockTerminalBackend(), createTestConfigurationService());
         env.noteTerminalName("kitty(0.45.0)");
-        env.setMode("presentation", true); // вставляется последним — снимок сортирует
+        env.setMode("presentation", true); // inserted last — the snapshot sorts
         expect(keyboardDoctorSnapshot(env)).toEqual({
-            os: "linux", // под tmux свой LC_DIODE_PLATFORM не читается — только из tmux
+            os: "linux", // under tmux our own LC_DIODE_PLATFORM is not read — only tmux's
             osSource: "default",
             tier: "kitty",
             macKeysRung: undefined,

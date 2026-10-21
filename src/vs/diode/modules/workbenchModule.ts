@@ -433,7 +433,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(QuickAccessProvidersDIToken, () => QUICK_ACCESS_PROVIDERS);
     container.bind(QuickAccessRegistryDIToken, QuickAccessRegistry);
     container.bind(QuickOpenServiceDIToken, QuickOpenService);
-    // Чужой профиль у новой папки перезагружает окно в него, а не меняет папку: профиль фиксирован на процесс.
+    // A new folder with a different profile reloads the window into it instead of switching folders: the profile is fixed per process.
     container.bind(
         WorkspaceFolderOpenerDIToken,
         () =>
@@ -442,7 +442,7 @@ export const workbenchModule: ContainerModule = (container) => {
                 container.get(IUserDataProfilesServiceDIToken),
                 container.get(IUserDataProfileServiceDIToken),
                 container.get(ServiceAccessorDIToken),
-                // Stryker disable next-line StringLiteral: имя канала лога
+                // Stryker disable next-line StringLiteral: log channel name
                 container.get(ILogServiceDIToken).createLogger("profiles"),
             ),
     );
@@ -452,7 +452,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(EditorGroupsServiceDIToken, EditorGroupsService);
     container.bind(EditorServiceDIToken, EditorService);
     container.bind(EditorPaneFactoriesDIToken, () => EDITOR_PANE_FACTORIES.map((create) => create(container)));
-    // Правки открытого ресурса идут через буфер, а не диск (иначе буфер и файл разъедутся), и одним шагом отмены в бакет вкладки.
+    // Edits to an open resource go through the buffer, not disk (or buffer and file diverge), as one undo step in the tab's bucket.
     container.bind(
         IBulkEditBuffersDIToken,
         () => new BulkEditBuffers(container.get(EditorServiceDIToken), container.get(TextFileModelServiceDIToken)),
@@ -494,7 +494,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(ThemeConfigContributionDIToken, ThemeConfigContribution);
     container.bind(WindowTitleContributionDIToken, WindowTitleContribution);
     container.bind(OpenFileCommandContributionDIToken, OpenFileCommandContribution);
-    // Stryker disable next-line ArrowFunction: биндинг DI без юнита; сквозняк — e2e-сценарий extension-storage
+    // Stryker disable next-line ArrowFunction: DI binding without a unit test; end-to-end — e2e scenario extension-storage
     container.bind(SetContextCommandContributionDIToken, SetContextCommandContribution);
     container.bind(PanelServiceDIToken, PanelService);
     container.bind(PanelComponentDIToken, PanelComponent);
@@ -508,7 +508,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(OutputComponentDIToken, OutputComponent);
     container.bind(OutputChannelActionsDIToken, OutputChannelActions);
     container.bind(EnvironmentVariableServiceDIToken, EnvironmentVariableService);
-    // Stryker disable ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression: production-проводка модуля — решения живут в `createExtensionEnvironmentContributor`/`buildEnv` и закрыты юнитами, сквозняк — e2e-сценарий extension-environment-collection
+    // Stryker disable ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression: production module wiring — the decisions live in `createExtensionEnvironmentContributor`/`buildEnv`, covered by unit tests; end-to-end — e2e scenario extension-environment-collection
     container.bind(TerminalSessionFactoryDIToken, () => {
         const environment = createExtensionEnvironmentContributor(
             () => container.get(EnvironmentVariableServiceDIToken).mergedCollection,
@@ -518,10 +518,10 @@ export const workbenchModule: ContainerModule = (container) => {
         return (options) => new EmbeddedTerminalSession(options, environment);
     });
     // Stryker restore ArrowFunction,BlockStatement,EqualityOperator,StringLiteral,ConditionalExpression,CallExpression
-    // Stryker disable next-line ArrowFunction,CallExpression: биндинг DI без юнита; сквозняк — e2e-сценарий extension-terminal
+    // Stryker disable next-line ArrowFunction,CallExpression: DI binding without a unit test; end-to-end — e2e scenario extension-terminal
     container.bind(ExtensionPtySessionFactoryDIToken, () => (options) => new ExtensionPtySession(options));
     container.bind(TerminalServiceDIToken, TerminalService);
-    // Stryker disable next-line ArrowFunction,CallExpression: биндинг DI без юнита (профиль тестов ставит свой шелл); сквозняк — e2e-сценарий tasks
+    // Stryker disable next-line ArrowFunction,CallExpression: DI binding without a unit test (the test profile sets its own shell); end-to-end — e2e scenario tasks
     container.bind(DefaultShellResolverDIToken, () => () => getSystemShell());
     container.bind(TaskServiceDIToken, TaskService);
     container.bind(TaskStatusBarContributionDIToken, TaskStatusBarContribution);
@@ -534,7 +534,7 @@ export const workbenchModule: ContainerModule = (container) => {
     container.bind(SearchRevealTargetDIToken, () => container.get(EditorServiceDIToken));
     container.bind(ReferencesRevealTargetDIToken, () => container.get(EditorServiceDIToken));
     container.bind(DiagnosticsServiceDIToken, DiagnosticsService);
-    // Гейт detached: с дифф-вкладки getActiveEditor() отдаёт её сторону, а у диффа своя разметка гуттера.
+    // Gated on detached: on a diff tab getActiveEditor() returns one of its sides, but the diff has its own gutter markup.
     container.bind(QuickDiffEditorSourceDIToken, () => {
         const editors = container.get(EditorServiceDIToken);
         return {

@@ -5,10 +5,10 @@ import type { IExtensionManifest } from "../vs/platform/extensions/common/iExten
 import { toExtensionRegistration } from "../vs/workbench/services/extensions/node/extensionRegistration.ts";
 import type { IExtensionRegistration } from "../vs/workbench/services/extensions/node/iExtensionEntry.ts";
 
-/** Тот же префикс, что у пользовательских расширений в ассетах приложения. */
+/** Same prefix as user extensions in the app's assets. */
 const USER_PREFIX = "UserExtensions/";
 
-/** Той же функцией, что у приложения, — регистрация ровно та, что в проде, а не её копия. */
+/** Uses the app's own function, so the registration is exactly the production one, not a copy. */
 export async function registrationFromInstalled(
     extensionsDir: string,
     id: string,
@@ -23,12 +23,12 @@ export async function registrationFromInstalled(
         {
             userPrefix: USER_PREFIX,
             userExtensionsDir: extensionsDir,
-            /* v8 ignore start -- установленное расширение пользовательское, исходник встроенного здесь не читается */
+            /* v8 ignore start -- an installed extension is a user one; builtin sources are never read here */
             readBuiltinSource: () => Promise.reject(new Error("not a builtin extension")),
             /* v8 ignore stop */
         },
     );
-    /* v8 ignore start -- у стокового vsix main есть всегда; ветка достижима только на битом манифесте */
+    /* v8 ignore start -- a stock vsix always has main; the branch is reachable only with a broken manifest */
     if (registration === null) throw new Error(`${dirName}: в манифесте нет main`);
     /* v8 ignore stop */
     return registration;

@@ -99,15 +99,15 @@ const SUBPROCESS_ENTRY = fileURLToPath(
 );
 
 /**
- * - `"tsx"` — полный `tsx`, не `tsx/esm`: расширения грузятся `createRequire`, и
- *   `.ts`-main (builtin `git`) требует CJS-хука;
- * - `"node"` — родное стирание типов; единственный режим, где виден настоящий
- *   резолв ESM-расширений: `tsx` уводит `import … from "vscode"` в CJS-резолвер и
- *   маскирует отсутствие нашего ESM-хука. Фикстуры такого теста — `.cjs`/`.mjs`.
+ * - `"tsx"` — full `tsx`, not `tsx/esm`: extensions are loaded via `createRequire`, and a
+ *   `.ts` main (builtin `git`) needs the CJS hook;
+ * - `"node"` — native type stripping; the only mode that exercises real ESM extension
+ *   resolution: `tsx` routes `import … from "vscode"` to the CJS resolver and masks a
+ *   missing ESM hook of ours. Fixtures for such a test are `.cjs`/`.mjs`.
  */
 export type SubprocessLoader = "tsx" | "node";
 
-/** В vitest `process.argv[1]` — vitest CLI, а не `main.ts`, поэтому свой entry. */
+/** Under vitest `process.argv[1]` is the vitest CLI, not `main.ts`, hence a dedicated entry. */
 export function subprocessSpawnArgsForTests(
     loader: SubprocessLoader = "tsx",
 ): () => { command: string; args: string[]; env?: NodeJS.ProcessEnv } {
@@ -131,8 +131,8 @@ export function extensionFixture(id: string, file: string): IExtensionRegistrati
 }
 
 /**
- * Без своих событий расширение eager — удобство тестов, в проде пусто значит пусто;
- * плюс неявные `onCommand:<id>`, как их посчитал бы `computeActivationEvents`.
+ * An extension without its own events is eager — a test convenience; in production empty means empty.
+ * Plus the implicit `onCommand:<id>` events, as `computeActivationEvents` would compute them.
  */
 export function testRegistration(reg: IExtensionRegistration): IExtensionRegistration {
     const events = [...(reg.activationEvents ?? ["*"])];
@@ -164,22 +164,22 @@ import { TestApp } from "./TestApp.ts";
 export interface IExtensionHarnessOptions {
     readonly initialFile?: { readonly name: string; readonly content: string };
     readonly extensions?: readonly IExtensionRegistration[];
-    /** `[]` — драйвить `harness.host.activateByEvent(...)` вручную. */
+    /** `[]` — drive `harness.host.activateByEvent(...)` manually. */
     readonly activateEvents?: readonly string[];
     readonly configuration?: Readonly<Record<string, unknown>>;
     readonly workspaceConfiguration?: Readonly<Record<string, unknown>>;
-    /** `uri.toString()`; нет — окно из папки. */
+    /** `uri.toString()`; absent — a folder window. */
     readonly workspaceFile?: string;
-    /** То, что в приложении кладёт хост (`builtinConfigInjection`); дефолты манифестов харнесс собирает сам. */
+    /** What the host injects in the app (`builtinConfigInjection`); the harness collects manifest defaults itself. */
     readonly configurationDefaults?: Readonly<Record<string, unknown>>;
-    /** Настройки ЯДРА (`EditorService`, onSave-участники) — не путать с `configuration` для субпроцесса. */
+    /** CORE settings (`EditorService`, onSave participants) — not the subprocess `configuration`. */
     readonly configurationService?: IConfigurationService;
     /**
-     * По умолчанию — in-memory над `configuration`/`workspaceConfiguration`, диск не
-     * трогает; передан файловый — те две опции не читаются.
+     * Defaults to in-memory over `configuration`/`workspaceConfiguration`, without touching
+     * the disk; when a file-backed one is passed, those two options are ignored.
      */
     readonly extensionConfigurationService?: IConfigurationService;
-    /** Строка — путь на ФС; объект — когда нужна не-`file:` схема. */
+    /** A string is a file system path; an object is for a non-`file:` scheme. */
     readonly workspaceFolders?: readonly (string | IWorkspaceFolderInfo)[];
     readonly languageService?: ILanguageService;
     readonly diagnosticsSink?: DiagnosticsSink;
@@ -187,14 +187,14 @@ export interface IExtensionHarnessOptions {
     readonly progressSink?: IProgressSink;
     readonly outputSink?: IOutputSink;
     readonly statusBarItemSink?: IStatusBarItemSink;
-    /** Не подключён — расширение мгновенно получает «отменено». */
+    /** When not wired, the extension gets "cancelled" immediately. */
     readonly quickInputSink?: IQuickInputSink;
     readonly notificationSink?: INotificationSink;
     readonly workspaceFoldersSink?: IWorkspaceFoldersSink;
     readonly editorDecorations?: IEditorDecorationsService;
     readonly fileDecorations?: IFileDecorationsService;
     readonly themeColorResolver?: IThemeColorResolver;
-    /** Не подключён — watcher'ы расширений создаются, но не стреляют. */
+    /** When not wired, extension watchers are created but never fire. */
     readonly fileWatcher?: IExtensionFileWatcher;
     readonly storageHomes?: () => IExtensionStorageHomes;
     readonly secrets?: IExtensionSecretStore;
@@ -216,19 +216,19 @@ export interface IExtensionHarness {
     readonly commandRegistry: CommandRegistry;
     readonly tmpDir: string;
     writeFile(name: string, content: string): string;
-    /** Один round-trip RPC через `queueMicrotask` — два оборота (request → handler → response). */
+    /** One RPC round trip over `queueMicrotask` takes two turns (request → handler → response). */
     flushRpc(turns?: number): Promise<void>;
     dispose(): Promise<void>;
 }
 
-/** Проводка — зеркально extensionHostModule и main.ts: меняешь там — меняй здесь. */
+/** Wiring mirrors extensionHostModule and main.ts: change it there — change it here. */
 export async function createExtensionTestHarness(options: IExtensionHarnessOptions = {}): Promise<IExtensionHarness> {
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-ext-"));
 
     const themeService = new ThemeService(WorkbenchTheme.fromThemeFile(darkPlusTheme));
     const configurationService = options.configurationService ?? NULL_CONFIGURATION_SERVICE;
     const undoRedoService = new UndoRedoService();
-    // Один экземпляр у группы (on-save участники) и адаптера хоста, как DI-синглтон.
+    // One instance shared by the group (on-save participants) and the host adapter, like a DI singleton.
     const languageFeatures = new LanguageFeaturesService();
     const group = new EditorService(
         themeService,
@@ -276,7 +276,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         new InMemoryConfigurationService(
             configurationRegistry,
             options.configuration,
-            // Папки нет — и слоя воркспейса нет: запись туда отклоняется, как в пустом окне.
+            // No folder means no workspace layer: writes to it are rejected, as in an empty window.
             folders.length === 0 ? undefined : (options.workspaceConfiguration ?? {}),
         );
     const configuration: IExtensionHostConfigProvider = {
@@ -291,7 +291,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
         getConfigurationScopes: () => configurationRegistry.getConfigurationScopes(),
     };
     const editorLayout = new EditorLayoutServiceAdapter(group, group.editorGroups);
-    // Внутри tmpDir: тест не должен писать в user-data машины.
+    // Inside tmpDir: a test must not write to the machine's user data.
     const storageHomes =
         options.storageHomes ??
         ((): IExtensionStorageHomes => ({
@@ -373,8 +373,8 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     }
 
     const dispose = async (): Promise<void> => {
-        // Ждём выхода субпроцесса, а не окно: живой, он пишет в `tmpDir`, и снос либо
-        // падает, либо каталог воскресает его `mkdir` — отсюда были гигабайты `diode-ext-*`.
+        // Wait for the subprocess to exit, not a fixed window: while alive it writes to `tmpDir`, and removal
+        // either fails or its `mkdir` resurrects the directory — that is how gigabytes of `diode-ext-*` piled up.
         await host.shutdown();
         groupComponent.dispose();
         group.dispose();
@@ -384,7 +384,7 @@ export async function createExtensionTestHarness(options: IExtensionHarnessOptio
     return { app, host, group, languageFeatures, themeService, commandRegistry, tmpDir, writeFile, flushRpc, dispose };
 }
 
-/** Запросы текста не везут: субпроцесс читает зеркало документа этой версии. */
+/** Requests carry no text: the subprocess reads its mirror of the document at this version. */
 export function documentVersion(harness: IExtensionHarness, uri: string): number {
     const editor = harness.group.getEditors().find((candidate) => candidate.uri.toString() === uri);
     if (editor === undefined) throw new Error(`no open editor for ${uri}`);
@@ -438,7 +438,7 @@ export function signatureHelpCharacters(
     };
 }
 
-/** Без word-based пунктов `CompletionService`. */
+/** Without the word-based items of `CompletionService`. */
 export async function provideCompletions(
     harness: IExtensionHarness,
     request: ICompletionRequest,
@@ -457,14 +457,14 @@ export function completionTriggerCharacters(
     return [...new Set(providers.flatMap((provider) => provider.triggerCharacters))];
 }
 
-/** `null` — форматтера для документа нет. */
+/** `null` — no formatter for the document. */
 export function formatDocumentFor(
     harness: IExtensionHarness,
     request: IFormattingRequest,
     token: ICancellationToken = CancellationTokenNone,
 ): Promise<readonly ITextEdit[] | null> {
     const { range } = request;
-    // Диапазон документа — для range-форматтера без документного, как у команды.
+    // Whole-document range — for a range formatter without a document one, as the command does.
     const text =
         harness.group
             .getEditors()

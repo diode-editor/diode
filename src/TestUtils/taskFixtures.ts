@@ -37,7 +37,7 @@ export function makeTask(options: ITaskFixtureOptions = {}): ITask {
         presentation: { ...DEFAULT_PRESENTATION, ...options.presentation },
     };
     const extension = options.extension;
-    // Ключ по формуле эталона: по нему задачу находят команды с аргументом-определением.
+    // Key computed as upstream does: commands taking a definition argument find the task by it.
     const keyed =
         extension === undefined
             ? undefined
