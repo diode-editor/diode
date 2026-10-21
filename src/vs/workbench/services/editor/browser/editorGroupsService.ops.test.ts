@@ -419,6 +419,10 @@ describe("EditorGroupsService — strip operations", () => {
                 { kind: "added", group: tail, index: 3, source: right },
             ]);
             expect(service.activeGroup).toBe(left);
+            // The first group was active from the start: it precedes the never-activated ones.
+            expect(service.getGroupsByMru()).toEqual([left, middle, right, tail]);
+            const head = service.addGroup(left, "before")!;
+            expect(service.getGroupsByMru()).toEqual([left, head, middle, right, tail]);
         });
 
         it("no room: null and a log entry", () => {
@@ -476,11 +480,12 @@ describe("EditorGroupsService — strip operations", () => {
             const third = service.activeGroup;
             open(third, "c");
             service.focusGroup({ index: 0 }, { focus: false });
-            expect(service.getGroupsByMru()).toEqual([first, third, second]);
+            service.focusGroup({ index: 2 }, { focus: false });
+            expect(service.getGroupsByMru()).toEqual([third, first, second]);
 
-            first.closeTab(0);
+            second.closeTab(0);
 
-            expect(service.getGroupsByMru()).toEqual([second, third]);
+            expect(service.getGroupsByMru()).toEqual([third, first]);
         });
     });
 

@@ -23,7 +23,7 @@ export class EditorGroupsService extends Disposable implements IEditorGroupsServ
     private groupsList: EditorGroup[] = [];
     private activeGroupValue: EditorGroup;
     /** Upstream `mostRecentActiveGroups`; mru[0] is the active group. */
-    private groupMru: EditorGroup[] = [];
+    private groupMru: EditorGroup[];
     /** Group ids are never reused. */
     private groupIdCounter = 0;
     private readonly groupSubscriptions = new Map<GroupId, IDisposable[]>();
