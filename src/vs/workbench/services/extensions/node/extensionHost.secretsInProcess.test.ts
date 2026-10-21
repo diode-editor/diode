@@ -8,10 +8,7 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import { ExtensionHost } from "./extensionHost.ts";
 import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
 
-// Детерминированный in-process тест хостовых хендлеров `secrets.*`: на живом
-// субпроцессе битую форму запроса не послать (её собирает наш же namespace), а
-// проверить отказ надо — это граница доверия хоста (паттерн
-// extensionHost.statusBarInProcess.test.ts).
+// Битую форму запроса живой субпроцесс не пошлёт, а отказ — граница доверия хоста.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,

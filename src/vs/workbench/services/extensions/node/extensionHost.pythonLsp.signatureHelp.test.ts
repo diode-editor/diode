@@ -18,17 +18,11 @@ import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts"
 import { Uri } from "../../../../base/common/uri.ts";
 import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 
-// Signature help поверх настоящего стороннего basedpyright.vsix (см.
-// basedpyrightFixture): конвертер клиента конструирует SignatureHelp/
-// SignatureInformation/ParameterInformation на каждый ответ — чужой код,
-// проверяемый только сквозняком.
-
 // Каретка внутри скобок вызова greet( — как после набора «(».
 const MAIN_PY = "from defs import greet\n\ngreet(\n";
 
 let installed: IInstalledBasedpyright;
 
-// Vsix приезжает из магазина (см. basedpyrightFixture.ts) — в оффлайне пропускаем.
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — signature help от стокового basedpyright", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();

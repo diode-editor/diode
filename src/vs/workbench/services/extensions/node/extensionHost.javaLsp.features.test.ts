@@ -38,15 +38,8 @@ import { SemanticTokenStyleResolver } from "../../themes/common/semanticTokenSty
 import { darkModernTheme } from "../../themes/common/themes/darkModern.ts";
 import { registerExtensionSemanticTokens } from "../common/extensionSemanticTokensContributor.ts";
 
-// Фич-матрица Java на НАСТОЯЩЕМ jdt.ls: hover, автодополнение, definition внутри
-// проекта, references и пункт статус-бара. Базовый сьют (extensionHost.javaLsp)
-// проверяет загрузку и диагностики; здесь — то, что ломается молча, когда мы
-// курочим редактор и API, а расширение при этом продолжает активироваться.
-//
-// ОДИН харнесс на все кейсы, в отличие от python-сьютов с их файлом на фичу:
-// холодный старт jdt.ls — это две JVM и импорт проекта (~16с), и платить их
-// пятикратно нечем. Кейсы друг друга не портят: все читают один буфер и ничего
-// в нём не меняют.
+// ОДИН харнесс на все кейсы: холодный старт jdt.ls — две JVM и импорт проекта
+// (~16 с). Кейсы буфер не меняют, поэтому друг друга не портят.
 
 let installed: IInstalledJava | undefined;
 let project: IMavenProject | undefined;
@@ -106,9 +99,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
 
     it("hover над вызовом отдаёт сигнатуру из объявления", { timeout: 120_000 }, async () => {
         expect(harness).toBeDefined();
-        // Каретка на `greet(` в строке `String message = greet("world");`.
-        // Через `until`: пока сервер крутит фоновую работу, он отвечает пустым —
-        // одиночный вызов тут флакует (проверено).
+        // Каретка на `greet(`. Через `until`: занятый фоновой работой сервер отвечает
+        // пустым, одиночный вызов флакует (проверено).
         const hovers: readonly ICoreHover[] = await until(
             "hover над `greet`",
             async () => {
@@ -131,11 +123,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
 
     it("автодополнение отдаёт члены типа из JDK", { timeout: 120_000 }, async () => {
         expect(harness).toBeDefined();
-        // Каретка внутри `System.out.println(...)` сразу ПОСЛЕ `System.out.` —
-        // позиция есть в самом буфере, подменять текст не нужно. Это важно: если
-        // прислать в запрос текст, отличный от открытого буфера, ответ зависит от
-        // того, успела ли доехать синхронизация, и кейс флакует (поймано красным
-        // CI: сервер дополнял `System.` и отдавал единственный `out`).
+        // Каретка после `System.out.` прямо в буфере: текст запроса, отличный от буфера,
+        // флакует на синхронизации (красный CI: сервер дополнял `System.` одним `out`).
         const items = await until(
             "completion после `System.out.`",
             async () => {
@@ -267,7 +256,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
             );
             expect(second?.tokens && isSemanticTokensEdits(second.tokens) ? second.tokens.edits : null).toEqual([]);
 
-            // Стиль в Dark Modern: параметр — цвет `variable.parameter`, а не дефолт текста.
             const theme = createDefaultTokenClassificationRegistry();
             const { id, manifest } = installed!.registration;
             registerExtensionSemanticTokens(

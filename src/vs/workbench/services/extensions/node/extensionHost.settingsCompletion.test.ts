@@ -15,8 +15,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Грузим настоящий builtin `diode-settings` по mainPath (subprocess тестов —
-// tsx, транспилирует `.ts`-main и вшитый `settings-schema.generated.ts`).
+// `.ts`-main грузится как есть: subprocess тестов — tsx.
 const DIODE_SETTINGS_MAIN = fileURLToPath(
     new URL("../../../../../../extensions/diode-settings/main.ts", import.meta.url),
 );
@@ -30,11 +29,7 @@ function settingsExtension(): IExtensionRegistration {
     };
 }
 
-/**
- * Подсказки позиционно-зависимы, а текста в запросе нет — его субпроцесс берёт
- * из зеркала открытого документа. Поэтому файл пишется в каталог харнесса и
- * открывается в редакторе; отдаём uri с текущей версией модели.
- */
+/** Текста в запросе нет — субпроцесс берёт его из зеркала открытого документа. */
 async function openDocument(
     harness: IExtensionHarness,
     name: string,
@@ -55,11 +50,10 @@ const SETTINGS_POSITION = { languageId: "json", line: 1, character: 4 };
 describe("diode-settings — автодополнение ключей в settings.json", () => {
     it("активируется onLanguage:json и предлагает известные ключи настроек", async () => {
         const harness = await createExtensionTestHarness({
-            activateEvents: [], // управляем активацией вручную — проверяем лениость
+            activateEvents: [], // проверяем ленивость
             extensions: [settingsExtension()],
         });
         try {
-            // Пока событие языка не наступило — расширение не активно.
             expect(harness.host.hasExtension("diode.settings")).toBe(false);
 
             await harness.host.activateByEvent("onLanguage:json");
@@ -74,7 +68,6 @@ describe("diode-settings — автодополнение ключей в settin
             expect(labels).toContain("workbench.colorTheme");
             expect(labels).toContain("git.enabled");
 
-            // Rich-метаданные из схемы доезжают до элемента.
             const gitEnabled = items.find((i) => i.label === "git.enabled");
             expect(gitEnabled?.detail).toContain("boolean");
             expect(gitEnabled?.documentation).toBe("Master switch for the built-in Git integration.");
@@ -83,7 +76,6 @@ describe("diode-settings — автодополнение ключей в settin
         }
     });
 
-    // Файл воркспейса держит те же настройки в блоке `settings`: подсказки — там.
     it("в файле .code-workspace предлагает ключи внутри блока settings", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
@@ -125,15 +117,10 @@ describe("diode-settings — автодополнение ключей в settin
     });
 });
 
-/**
- * Сквозь настоящий subprocess: элементы несут `range`, накрывающий кавычки. Это
- * не формальность — `readRange` в LanguagesNamespace берёт range только через
- * `instanceof Range`, так что тут проверяется в том числе, что расширение и хост
- * видят один и тот же класс `Range`. Потеряйся range — ядро откатилось бы на свой
- * префикс, и кавычки бы удвоились.
- */
+// `readRange` берёт range только через `instanceof Range`: сквозняк проверяет, что
+// расширение и хост видят один класс. Потеряйся range — кавычки удвоились бы.
 describe("diode-settings — кавычки и значения (e2e через subprocess)", () => {
-    /** Каретка задаётся маркером `|` — кейс читается как то, что видит пользователь. */
+    /** Каретка — маркер `|`. */
     async function complete(marked: string) {
         const offset = marked.indexOf("|");
         if (offset === -1) throw new Error("В кейсе нет маркера каретки `|`");

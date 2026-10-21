@@ -18,11 +18,9 @@ import type { IProtocolMessage } from "../../../api/common/rpcEndpoint.ts";
 import { ExtensionHost } from "./extensionHost.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// `spawn` is mocked so no real subprocess is launched; `createRequire` is mocked so the
-// SEA-detection branch in `defaultSpawnArgs` can be driven from the test.
+// `createRequire` замокан, чтобы вести ветку SEA-детекта в `defaultSpawnArgs`.
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 
-// Mutable knob read by the mocked `createRequire` at call time.
 const seaState: { mode: "real" | "isSea" | "throw" } = { mode: "real" };
 vi.mock("node:module", async (importOriginal) => {
     const actual = await importOriginal<typeof nodeModule>();
@@ -43,7 +41,6 @@ vi.mock("node:module", async (importOriginal) => {
 const { spawn } = await import("node:child_process");
 const spawnMock = vi.mocked(spawn);
 
-/** Minimal in-memory ChildProcess speaking the RPC envelope, with controllable kill behaviour. */
 class FakeChild extends EventEmitter {
     public exitCode: number | null = null;
     public killed = false;
@@ -54,16 +51,12 @@ class FakeChild extends EventEmitter {
 
     /** When false, a SIGTERM/SIGKILL does NOT flip `killed` — models a child that ignores signals. */
     public markKilled = true;
-    /** When true, exit in response to this exact signal. */
     public exitOnSignal: string | null = null;
-    /** When false, host→child requests get no reply (used to make shutdown hang). */
     public autoRespond = true;
 
     public send(message: IProtocolMessage): boolean {
         this.sent.push(message);
-        // Auto-reply to every host→child request so `activateByEvent` (host.activateExtension)
-        // resolves. `host.shutdown` is intentionally NOT answered: the shutdown path must fall
-        // back to signals.
+        // `host.shutdown` без ответа намеренно: выключение обязано уйти в сигналы.
         if (message.kind === "req" && this.autoRespond && message.method !== "host.shutdown") {
             queueMicrotask(() => this.emit("message", { kind: "res", id: message.id, result: null }));
         }
@@ -138,7 +131,6 @@ async function waitUntil(pred: () => boolean, timeoutMs = 2000): Promise<void> {
     if (!pred()) throw new Error("waitUntil timed out");
 }
 
-/** Spawn a host whose subprocess becomes ready on the next microtask. */
 function spawnReadyHost(child: FakeChild, options = {}): ExtensionHost {
     spawnMock.mockReturnValue(child as never);
     queueMicrotask(() => {
@@ -202,7 +194,7 @@ describe("ExtensionHost — defaultSpawnArgs / detectIsSea (lines 268-290)", () 
         queueMicrotask(() => {
             child.emitReady();
         });
-        const host = new ExtensionHost(new FakeEditorOptions(), NULL_COMMAND_SERVICE); // no spawnArgs → defaultSpawnArgs
+        const host = new ExtensionHost(new FakeEditorOptions(), NULL_COMMAND_SERVICE);
 
         await registerAndActivate(host, makeReg("ext.a"));
 
@@ -251,7 +243,7 @@ describe("ExtensionHost — defaultSpawnArgs / detectIsSea (lines 268-290)", () 
 
     it("throws when the main script cannot be determined", async () => {
         const original = process.argv[1];
-        process.argv[1] = ""; // simulate a missing main script
+        process.argv[1] = "";
         try {
             const host = new ExtensionHost(new FakeEditorOptions(), NULL_COMMAND_SERVICE);
             host.registerExtension(makeReg("ext.a"));

@@ -18,12 +18,8 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 
-// onSave поверх СТОКОВОГО стека (#196, хвост): настоящий ruff.vsix + вшитый
-// `ruff server`. `editor.codeActionsOnSave: {"source.fixAll": true}` при
-// сохранении прогоняет `source.fixAll.ruff` (иерархический матч), а
-// `editor.formatOnSave` — формат от того же сервера; на диск уходит уже
-// поправленный текст. Герметичный контракт пайплайна —
-// editorService.onSave.test.ts; здесь — что его закрывает стоковое расширение.
+// #196: герметичный контракт onSave — editorService.onSave.test.ts; здесь —
+// что его закрывает стоковое расширение.
 
 let installed: IInstalledRuff;
 
@@ -40,7 +36,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
         installed.dispose();
     });
 
-    /** Харнесс с настройками ядра + открытый lint.py + активация ruff. */
     async function openLintFile(configuration: Record<string, unknown>): Promise<{
         harness: IExtensionHarness;
         lintPath: string;
@@ -85,7 +80,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
                 const buffer = harness.group.getActiveEditor()?.getText() ?? "";
                 expect(buffer).not.toContain("import sys");
                 expect(buffer).toContain("import os");
-                // Ключевой контракт onSave: на диск ушёл УЖЕ поправленный текст.
                 expect(fs.readFileSync(lintPath, "utf-8")).toBe(buffer);
             } finally {
                 await harness.dispose();
@@ -112,7 +106,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
 
             expect(outcome).toBe("saved");
             const buffer = harness.group.getActiveEditor()?.getText() ?? "";
-            // Ruff-формат чинит лишние пробелы: `print( "x" )` → `print("x")`.
             expect(buffer).toContain('print("x")');
             expect(fs.readFileSync(lintPath, "utf-8")).toBe(buffer);
         } finally {

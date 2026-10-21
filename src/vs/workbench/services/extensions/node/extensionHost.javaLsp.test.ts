@@ -16,22 +16,13 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
-// Java «как у пользователя»: НАСТОЯЩИЙ сторонний vsix redhat.java из магазина,
-// установленный штатным installVsix, на настоящем ext-host subprocess'е — ни
-// строчки нашего кода расширения (детали и курируемый дефолт lombok —
-// src/TestUtils/javaFixture.ts). Базовый сьют: активация по workspaceContains:,
-// импорт maven-проекта и диагностика над живым буфером.
-//
-// Времена: на холодном jdt_ws до первой диагностики ~16 с (замерено на
-// проекте без зависимостей). Отсюда щедрые таймауты — это не запас «на всякий
-// случай», а рабочая величина для двух JVM (syntax + standard server).
+// Холодный jdt_ws до первой диагностики — ~16 с (две JVM): щедрые таймауты —
+// рабочая величина, а не запас.
 
-// `| undefined` осознанно: если `beforeAll` упал (расширения нет в реестре, сеть),
-// afterAll всё равно выполнится, и безусловный `installed.dispose()` подменил бы
-// настоящую причину падения на «Cannot read properties of undefined».
+// `| undefined`: при упавшем `beforeAll` безусловный `installed.dispose()` в afterAll
+// подменил бы причину падения на «Cannot read properties of undefined».
 let installed: IInstalledJava | undefined;
 
-// Vsix приезжает из магазина (см. javaFixture.ts) — в оффлайне пропускаем.
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.java (jdt.ls, сквозняк)", () => {
     beforeAll(async () => {
         installed = await installJava();
@@ -48,9 +39,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         async () => {
             const published: { resource: string; markers: readonly WireMarker[] }[] = [];
             const outputLines: { level: string; value: string }[] = [];
-            // Проект — ДО харнесса и в своём каталоге: папка воркспейса не должна
-            // совпадать с `tmpDir`, где лежит storage расширения (почему — в
-            // javaFixture.createMavenProject).
+            // Папка воркспейса не должна совпадать с `tmpDir` со storage расширения
+            // (почему — в javaFixture.createMavenProject).
             const project = createMavenProject();
             const harness: IExtensionHarness = await createExtensionTestHarness({
                 languageService: JAVA_LANGUAGE_SERVICE,
@@ -92,8 +82,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                 // `int broken = message;` — десятая строка фикстуры (0-based 9).
                 expect(mismatch.range.start.line).toBe(9);
 
-                // ИЗМЕНЯЕМЫЙ КОД: чиним тип БЕЗ сохранения на диск — сервер обязан
-                // пере-проверить живой буфер, а не файл с диска.
+                // Без сохранения: сервер обязан пере-проверить живой буфер, а не файл.
                 harness.group
                     .getActiveEditor()
                     ?.applyExternalEdits([createTextEdit(createRange(9, 8, 9, 11), "String")], "fix type");
@@ -108,7 +97,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                     280_000,
                 );
 
-                // Конвертеры стокового клиента не падали молча (конвенция TS-сьютов).
                 const crashes = outputLines.filter((l) => CLIENT_CRASH_PATTERNS.test(l.value));
                 expect(crashes).toEqual([]);
             } finally {

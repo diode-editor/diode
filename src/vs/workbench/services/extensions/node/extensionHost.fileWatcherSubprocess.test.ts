@@ -8,30 +8,20 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import { ChokidarTreeWatcher } from "../../../../platform/files/node/chokidarTreeWatcher.ts";
 import { FileWatcherAdapter } from "../../../api/browser/fileWatcherAdapter.ts";
 
-/**
- * Сквозной тест `workspace.createFileSystemWatcher` на НАСТОЯЩЕМ субпроцессе и
- * НАСТОЯЩЕМ файловом watcher'е: тест трогает файлы на диске, а расширение
- * должно увидеть события. Проверяется весь путь целиком — chokidar в ядре →
- * матчинг шаблона на хосте → RPC → эмиттеры субпроцесса.
- */
-
 const fixture = extensionFixture("diode.watch", "watchesFiles.cjs");
 
-/** Реальный watcher, как в проде (`extensionHostModule`), но без excludes. */
 function realWatcher(): FileWatcherAdapter {
     return new FileWatcherAdapter(new ChokidarTreeWatcher(), () => []);
 }
 
 /**
- * Даёт chokidar доскан­ировать дерево. До события `ready` он считает всё
- * найденное «начальным состоянием» и с `ignoreInitial: true` глотает — файл,
- * созданный в первые миллисекунды жизни watcher'а, до расширения не доедет.
+ * До `ready` chokidar считает найденное начальным состоянием и с `ignoreInitial`
+ * глотает — файл, созданный в первые миллисекунды, до расширения не доедет.
  */
 async function waitUntilWatching(): Promise<void> {
     await settle(400);
 }
 
-/** Ждёт, пока расширение увидит ожидаемое число событий (chokidar асинхронен). */
 async function waitForEvents(
     harness: Awaited<ReturnType<typeof createExtensionTestHarness>>,
     count: number,
@@ -69,8 +59,7 @@ describe("workspace.createFileSystemWatcher — сквозь субпроцес�
             await waitUntilWatching();
             const readme = path.join(harness.tmpDir, "readme.md");
 
-            // `**/*.ts` не должен реагировать на .md, а `*.md`-watcher заведён с
-            // ignoreChangeEvents — увидит только создание.
+            // `*.md`-watcher заведён с ignoreChangeEvents — увидит только создание.
             fs.writeFileSync(readme, "первая версия");
             await waitForEvents(harness, 1);
             fs.writeFileSync(readme, "вторая версия");

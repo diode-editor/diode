@@ -16,10 +16,6 @@ import type {
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Детерминированный in-process тест стока quick input'а
-// (`window.showInputBox` / `window.showQuickPick` / `window.quickInput.cancel`):
-// installHostHandlers на in-process RPC-паре (паттерн extensionHost.progress.test).
-
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
     setActiveEditorOptions: () => undefined,
@@ -42,9 +38,8 @@ interface IStubSink extends IQuickInputSink {
     readonly cancelled: number[];
     readonly quickPickUpdates: IWireQuickPickUpdate[];
     readonly disposedQuickPicks: number[];
-    /** Последний `emit`, отданный стоку вместе с апдейтом пикера. */
     readonly emit: { current: ((event: IWireQuickPickEvent) => void) | null };
-    /** Резолв висящего showInputBox (по умолчанию показ висит). */
+    /** По умолчанию показ висит. */
     settleInput(value: string | undefined): void;
     settlePick(indices: readonly number[] | undefined): void;
 }
@@ -101,7 +96,7 @@ function makeHost(sink?: IQuickInputSink) {
         sink !== undefined ? { quickInputSink: sink } : {},
     );
     const [a, b] = createInProcessChannelPair();
-    /** Предупреждения хостового RPC — так видно, что обработчик нотификации бросил. */
+    /** Исключения хендлеров нотификаций видны только здесь. */
     const warnings: string[] = [];
     const rpcLogger = {
         trace: () => undefined,
@@ -349,7 +344,6 @@ describe("ExtensionHost — учёт живых показов", () => {
         const { peer } = makeHost();
         peer.notify("window.quickInput.cancel", { handle: 1 });
         await flushMicrotasks();
-        // Дошли сюда — обработчик не кинул на отсутствующем стоке.
         await expect(peer.request("window.showInputBox", { handle: 1, validates: false })).resolves.toEqual({
             value: null,
         });

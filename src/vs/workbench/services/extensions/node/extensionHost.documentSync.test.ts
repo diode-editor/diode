@@ -11,11 +11,6 @@ import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 
-// Тест ПРОДЮСЕРА document sync (правило AGENTS: на каждое новое RPC-сообщение —
-// тест продюсера): настоящий редактор + настоящий subprocess. Фикстура
-// recordsDocumentSync.cjs записывает, что реально доехало до расширения.
-
-/** Мини-сервис языков: `.ts` → typescript, иначе — undefined. */
 const TS_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".ts") ? "typescript" : undefined),
@@ -53,16 +48,13 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
         try {
             await settle();
 
-            // Активный документ запушен на host.ready ДО активации — расширение
-            // видит его в workspace.textDocuments уже в activate() (так стоковый
-            // vscode-languageclient читает документы на start()).
+            // Стоковый vscode-languageclient читает workspace.textDocuments уже в activate().
             const activate = (await dumpLog(harness)).find((e) => e.kind === "activate");
             expect(activate?.docs).toHaveLength(1);
             expect(activate?.docs?.[0].text).toBe("const a = 1;\n");
             expect(activate?.docs?.[0].languageId).toBe("typescript");
             const openVersion = activate?.docs?.[0].version ?? 0;
 
-            // Правка НЕ сохраняется на диск — расширение обязано увидеть живой буфер.
             const editor = harness.group.getActiveEditor();
             editor?.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "// intro\n")], "test edit");
             await settle();
@@ -70,13 +62,11 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
             let changes = (await dumpLog(harness)).filter((e) => e.kind === "change");
             expect(changes).toHaveLength(1);
             expect(changes[0].text).toBe("// intro\nconst a = 1;\n");
-            // Дельта, а не full-range: вставка в начало, без удаления.
             expect(changes[0].newText).toBe("// intro\n");
             expect(changes[0].rangeLength).toBe(0);
             expect(changes[0].version).toBe(editor?.model.document.versionId);
             expect(changes[0].version ?? 0).toBeGreaterThan(openVersion);
 
-            // Вторая правка — версия продолжает расти.
             editor?.applyExternalEdits([createTextEdit(createRange(1, 0, 1, 0), "let b = 2;\n")], "test edit");
             await settle();
 
@@ -107,7 +97,6 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
             await settle();
 
             const log = await dumpLog(harness);
-            // Нет открытого файла на момент активации — снапшот пуст.
             expect(log.find((e) => e.kind === "activate")?.docs).toHaveLength(0);
             const opens = log.filter((e) => e.kind === "open");
             expect(opens.map((e) => e.text)).toEqual(["first content", "second content"]);
@@ -147,11 +136,8 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            // Subprocess уже поднят (noop активирован eager); didOpen НЕ гейтится
-            // подпиской — полный текст доезжает до реестра прямо при открытии.
             // Стоковый languageclient на start() рассылает серверу didOpen для
-            // документов из workspace.textDocuments — meta-обёртка с пустым
-            // текстом отравила бы сервер.
+            // workspace.textDocuments — обёртка с пустым текстом отравила бы сервер.
             const fp = harness.writeFile("late.ts", "export const late = true;\n");
             harness.group.openFile(fp);
             await settle();
@@ -163,9 +149,8 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
             const activateDocs = log.find((e) => e.kind === "activate")?.docs;
             expect(activateDocs).toHaveLength(1);
             expect(activateDocs?.[0].text).toBe("export const late = true;\n");
-            // Событие onDidOpen отфаерилось в момент открытия (подписчиков ещё не
-            // было) и дедупнуто — поздний подписчик событий не получает, документы
-            // он находит сам в workspace.textDocuments (семантика VS Code).
+            // Семантика VS Code: поздний подписчик событий не получает, документы
+            // находит сам в workspace.textDocuments.
             expect(log.filter((e) => e.kind === "open")).toHaveLength(0);
         } finally {
             await harness.dispose();

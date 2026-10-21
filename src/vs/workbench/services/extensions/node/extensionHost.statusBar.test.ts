@@ -9,16 +9,9 @@ import { ExtensionStatusBarAdapter } from "../../../api/browser/extensionStatusB
 import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 
-// Полный круг `window.createStatusBarItem` через НАСТОЯЩИЙ субпроцесс: пункт,
-// созданный расширением при активации, доезжает до StatusBarService, клик по
-// его записи исполняет команду расширения, а её правка текста возвращается в
-// полосу. Герметичный аналог сценариев 1–7 постановки.
-
 /**
- * Харнесс с настоящим мостом полосы. Адаптер собирается ДО харнесса —
- * расширение ставит пункт уже в `activate()`, и сток обязан быть живым к этому
- * моменту. Реестр команд харнесса ещё не существует, поэтому он резолвится
- * лениво, в момент клика.
+ * Адаптер — до харнесса: пункт ставится уже в `activate()`. Реестра команд тогда
+ * ещё нет, поэтому он резолвится лениво, в момент клика.
  */
 async function makeHarness(withBridge = true) {
     const bar = new StatusBarService(NULL_STATE_SERVICE);
@@ -44,7 +37,6 @@ function assertRegistry(registry: CommandRegistry | null): CommandRegistry {
     return registry;
 }
 
-/** Тексты записей полосы в порядке отрисовки. */
 function texts(bar: StatusBarService): string[] {
     return bar.entries().map((entry) => entry.text);
 }
@@ -63,8 +55,6 @@ describe("ExtensionHost — пункт статус-бара расширени�
                 name: "Status Bar Demo",
             });
 
-            // Клик по записи полосы → команда расширения → правка текста пункта
-            // → обратно в полосу. Ровно то, чего ядро само сделать не может.
             entry?.onClick?.();
             await settle();
             expect(texts(bar)).toEqual(["Demo · clicked 1"]);
@@ -100,7 +90,6 @@ describe("ExtensionHost — пункт статус-бара расширени�
             await settle();
             expect(texts(bar)).toEqual([]);
 
-            // Остальные команды расширения живы.
             await harness.commandRegistry.execute("test.statusBar.createLeft");
             await settle();
             expect(texts(bar)).toEqual(["L-high"]);
@@ -116,16 +105,12 @@ describe("ExtensionHost — пункт статус-бара расширени�
             bar.addEntry({ id: "status.editor.encoding", text: "UTF-8", alignment: "right", priority: 30 });
             expect(texts(bar)).toEqual(["Demo", "UTF-8"]);
 
-            // Расширение роняет свой процесс: его `dispose` не придёт никогда,
-            // и снять пункт может только хост.
+            // `dispose` от упавшего расширения не придёт — снять пункт может только хост.
             await harness.commandRegistry.execute("test.statusBar.kill");
             await settle(500);
             expect(texts(bar)).toEqual(["UTF-8"]);
 
-            // Следующее событие активации — ЛЮБОЕ, не только «своё» — поднимает
-            // субпроцесс заново: `*` у пережившего смерть расширения давно
-            // отгорел и второй раз не наступит (в приложении это открытие файла,
-            // то есть `onLanguage:<язык>`).
+            // `*` у пережившего смерть давно отгорел — субпроцесс поднимает ЛЮБОЕ событие.
             await harness.host.activateByEvent("onLanguage:markdown");
             await settle();
             expect(texts(bar)).toEqual(["Demo", "UTF-8"]);

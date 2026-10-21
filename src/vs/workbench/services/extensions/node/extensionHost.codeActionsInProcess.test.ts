@@ -12,13 +12,6 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-/**
- * Запросы code actions по handle: субпроцесса нет, канал сшит in-process — так
- * проверяются ветки, недостижимые через настоящий fork (документ без
- * синхронизации, форма параметров, остановка субпроцесса). Образец —
- * `extensionHost.formattingInProcess.test.ts`.
- */
-
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
     setActiveEditorOptions: () => undefined,
@@ -33,7 +26,6 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
 const DOCUMENT = { uri: "file:///a.py", languageId: "python", version: 3, text: "import os\n" };
 
 const WIRE_ACTION = { id: "1.0", title: "Fix", kind: "quickfix" };
@@ -52,7 +44,6 @@ function makeHost(
     options: {
         warn?: ILogger["warn"];
         maxSyncedDocumentChars?: number;
-        /** Открыть {@link DOCUMENT} субпроцессу (по умолчанию — да). */
         open?: boolean;
     } = {},
 ): { host: ExtensionHost; peer: RpcEndpoint } {
@@ -86,14 +77,12 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
         expect(await host.provideCodeActions(3, requestOf())).toEqual([WIRE_ACTION]);
         expect(provide.mock.calls[0]?.[0]).toMatchObject({ handle: 3 });
         expect(await host.applyCodeAction("1.0")).toBe(true);
-        // Второй аргумент любого хендлера — токен отмены запроса (RpcEndpoint
-        // выдаёт его всем методам; code actions его пока не используют).
+        // Второй аргумент — токен отмены: RpcEndpoint выдаёт его всем методам.
         expect(apply).toHaveBeenCalledExactlyOnceWith(
             { id: "1.0" },
             expect.objectContaining({ isCancellationRequested: false }),
         );
 
-        // Повод «при сохранении» доезжает флагом; без него поля нет вовсе.
         expect(await host.applyCodeAction("1.0", { onSave: true })).toBe(true);
         expect(apply).toHaveBeenLastCalledWith({ id: "1.0", onSave: true }, expect.anything());
 
@@ -175,7 +164,6 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
 
         source.cancel();
         await flushMicrotasks();
-        // Провайдер расширения узнаёт, что его ответ больше не нужен, и бросает работу.
         expect(seen!.isCancellationRequested).toBe(true);
         void pending;
     });

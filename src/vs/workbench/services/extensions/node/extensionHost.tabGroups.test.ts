@@ -7,11 +7,6 @@ import {
 } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 
-// Тест ПРОДЮСЕРА `editor.layoutChanged` + `editor.showTextDocument` (правило
-// AGENTS: на каждое новое RPC-сообщение — тест продюсера): настоящая полоса
-// групп + настоящий subprocess. Фикстура tabGroupsWatcher.cjs записывает, что
-// реально доехало до расширения через window.tabGroups.
-
 interface ITabsDumpEntry {
     kind: "activate" | "tabs" | "groups" | "visible";
     opened?: (string | number)[];
@@ -63,7 +58,6 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
             expect(initial.groups[0].tabs[0].isPinned).toBe(false);
             expect(initial.visible).toBe(1);
 
-            // Сплит: вторая группа с дублем вкладки.
             harness.group.splitActiveGroup();
             await settle();
             const afterSplit = await snapshot(harness);
@@ -73,9 +67,7 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
             expect(afterSplit.visible).toBe(2);
 
             const log = await dump(harness);
-            // Событие групп: opened с колонкой 2.
             expect(log.some((entry) => entry.kind === "groups" && (entry.opened ?? []).includes(2))).toBe(true);
-            // Событие видимых редакторов дошло.
             expect(log.some((entry) => entry.kind === "visible" && entry.count === 2)).toBe(true);
         } finally {
             await harness.dispose();

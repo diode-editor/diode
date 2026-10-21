@@ -8,10 +8,7 @@ import { QuickInputExtensionAdapter } from "../../../api/browser/quickInputExten
 import { QuickInputComponent } from "../../../browser/parts/quickinput/quickInputComponent.ts";
 import { QuickInputService } from "../../../browser/parts/quickinput/quickInputService.ts";
 
-// Объектный пикер (`window.createQuickPick`) — полный круг: команда расширения
-// в НАСТОЯЩЕМ субпроцессе → диффы состояния по проводу → наш адаптер и общий
-// QuickInput-оверлей → клавиши, как их жмёт человек → события обратно в
-// расширение → значение команды. Стаба-«человека» здесь нет: ответ даёт виджет.
+// Стаба-«человека» нет: ответ даёт настоящий виджет на клавишах.
 
 async function setup() {
     const component = new QuickInputComponent();

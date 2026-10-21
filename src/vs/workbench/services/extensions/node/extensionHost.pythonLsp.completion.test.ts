@@ -18,16 +18,12 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreCompletionItem } from "../../../../editor/common/languages/iCompletionSource.ts";
 import { CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
 
-// Автодополнение поверх настоящего стороннего basedpyright.vsix (см.
-// basedpyrightFixture): стоковый конвертер клиента на каждый ответ делает
-// `new code.CompletionList(...)`, resolve догружает документацию — обе точки
-// исполняются чужим кодом и проверяются только сквозняком.
+// `new code.CompletionList(...)` и resolve исполняет чужой код — проверяются только сквозняком.
 
 const MAIN_PY = 'text = "hi"\ntext.\n';
 
 let installed: IInstalledBasedpyright;
 
-// Vsix приезжает из магазина (см. basedpyrightFixture.ts) — в оффлайне пропускаем.
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — completion от стокового basedpyright", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();

@@ -6,16 +6,6 @@ import { FileOperationResult } from "../../../../platform/files/common/files.ts"
 import { FileService } from "../../../../platform/files/common/fileService.ts";
 import { FileSystemProviderAdapter } from "../../../api/browser/fileSystemProviderAdapter.ts";
 
-/**
- * Тест продюсера для нового RPC `workspace.fs.readFile` + нотификаций
- * `workspace.fileSystemProvidersChanged` / `workspace.fs.didChangeFile`
- * (требование AGENTS.md: «субпроцесс умеет разобрать сообщение» — только
- * половина контракта, вторая — кто и по какому событию его шлёт).
- *
- * Гоняется на НАСТОЯЩЕМ субпроцессе с настоящим расширением: оно регистрирует
- * `FileSystemProvider` для схемы `demo:`, а хост читает ресурс сквозь мост.
- */
-
 const fixture = extensionFixture("diode.fs", "providesFileSystem.cjs");
 
 async function harnessWithProvider() {
@@ -37,8 +27,7 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
     });
 
     it("сквозь адаптер ядро пишет в пишущий провайдер: создание, перезапись, stat", async () => {
-        // Цепочка сохранения правой стороны предложенного диффа:
-        // IFileService → адаптер → ExtensionHost → RPC → провайдер расширения.
+        // Цепочка сохранения правой стороны предложенного диффа.
         const harness = await harnessWithProvider();
         const registry = new FileService();
         const adapter = new FileSystemProviderAdapter(harness.host, registry);
@@ -119,8 +108,7 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
     });
 
     it("сквозь адаптер и реестр ядра ресурс читается end-to-end", async () => {
-        // Полная цепочка, которой пользуется живой гуттер:
-        // расширение → RPC → ExtensionHost → адаптер → IFileService.
+        // Цепочка, которой пользуется живой гуттер.
         const harness = await harnessWithProvider();
         const registry = new FileService();
         const adapter = new FileSystemProviderAdapter(harness.host, registry);

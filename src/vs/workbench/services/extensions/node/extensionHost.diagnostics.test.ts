@@ -13,10 +13,6 @@ import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Детерминированный in-process тест стока диагностик (`diagnostics.publish`):
-// вместо форка subprocess'а гоняем `installHostHandlers` на in-process RPC-паре
-// (паттерн extensionHost.decorationsInProcess.test.ts).
-
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
     setActiveEditorOptions: () => undefined,
@@ -137,7 +133,6 @@ describe("ExtensionHost — сток диагностик сквозняком (
 });
 
 describe("ExtensionHost — обратный путь диагностик сквозняком (subprocess)", () => {
-    // Мост стока в MarkerService — как в module (`extensionHostModule.ts`).
     const SEVERITY = [MarkerSeverity.Error, MarkerSeverity.Warning, MarkerSeverity.Info, MarkerSeverity.Hint];
     function bridge(markerService: MarkerService): DiagnosticsSink {
         return (owner, resource, markers) => {
@@ -154,7 +149,6 @@ describe("ExtensionHost — обратный путь диагностик ск�
 
     it("getDiagnostics видит чужие маркеры (семя и поток), свои — один раз; onDidChangeDiagnostics стреляет", async () => {
         const markerService = new MarkerService();
-        // Маркер настроек лёг ДО спавна — доедет семенем.
         markerService.changeOne("settings", SETTINGS, [
             { severity: MarkerSeverity.Warning, range: RANGE, message: "Unknown setting", source: "settings" },
         ]);
@@ -175,9 +169,8 @@ describe("ExtensionHost — обратный путь диагностик ск�
             ]);
             await harness.flushRpc();
 
-            // Своя диагностика — из коллекции, без эха через MarkerService; чужая —
-            // из зеркала. Зеркало завелось семенем до активации, поэтому оно
-            // первое в наборе (у эталона — тоже порядок появления).
+            // Зеркало завелось семенем до активации, поэтому оно первое в наборе
+            // (у эталона — тоже порядок появления).
             expect(await get(MAIN)).toEqual([
                 { message: "Build failed", severity: 0, code: "TS1", range: [3, 0, 3, 7] },
                 { message: "Broken type", severity: 1, source: "fixture", range: [0, 1, 0, 5] },
@@ -198,7 +191,6 @@ describe("ExtensionHost — обратный путь диагностик ск�
                 expect(changes.flat()).toEqual(expect.arrayContaining([SETTINGS, MAIN]));
             });
 
-            // Чужие сняты — зеркало пустеет, свои на месте.
             markerService.changeOne("tasks", MAIN, []);
             await harness.flushRpc();
             expect(await get(MAIN)).toEqual([expect.objectContaining({ message: "Broken type" })]);

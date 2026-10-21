@@ -14,8 +14,6 @@ describe("ExtensionHost — EditorConfig.generate (workspace.fs, WP7)", () => {
             const target = path.join(harness.tmpDir, ".editorconfig");
             expect(fs.existsSync(target)).toBe(false);
 
-            // Полная цепочка: host CommandRegistry → RPC → сабпроцесс →
-            // workspace.fs.writeFile (node:fs, локально).
             const result = await harness.commandRegistry.execute("EditorConfig.generate");
             expect(result).toBe("generated");
 

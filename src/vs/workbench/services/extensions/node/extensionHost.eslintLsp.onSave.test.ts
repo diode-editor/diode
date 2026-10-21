@@ -23,11 +23,8 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 
-// Флагманский сценарий eslint (#196 + #310 поверх стока): настоящий
-// vscode-eslint.vsix, `editor.codeActionsOnSave: {"source.fixAll": true}` —
-// сохранение прогоняет `source.fixAll.eslint` иерархическим матчем, на диск
-// уходит уже поправленный текст. Герметичный контракт пайплайна —
-// editorService.onSave.test.ts; здесь — что его закрывает стоковое расширение.
+// Герметичный контракт пайплайна — editorService.onSave.test.ts; здесь — что его
+// закрывает стоковое расширение (#196, #310).
 
 let installed: IInstalledEslint;
 let eslintNodeModules: string;
@@ -63,8 +60,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
             harness.group.openFile(lintPath);
             await harness.host.activateByEvent("onStartupFinished");
 
-            // Прогрев: дождаться, пока сервер начнёт отдавать fixAll-действия,
-            // иначе первый save попадёт в холодный старт и его 5с-таймауты.
+            // Прогрев: иначе первый save попадёт в холодный старт и его 5с-таймауты.
             await until("source.fixAll action от eslint", async () => {
                 const actions = await provideCodeActions(harness, {
                     uri: lintUri,
@@ -80,9 +76,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
 
             expect(outcome).toBe("saved");
             const buffer = harness.group.getActiveEditor()?.getText() ?? "";
-            // Safe-фикс no-extra-semi применён, no-unused-vars фикса не имеет.
             expect(buffer).toBe("const unused = 1;\n");
-            // Ключевой контракт onSave: на диск ушёл УЖЕ поправленный текст.
             expect(fs.readFileSync(lintPath, "utf-8")).toBe(buffer);
         } finally {
             await harness.dispose();

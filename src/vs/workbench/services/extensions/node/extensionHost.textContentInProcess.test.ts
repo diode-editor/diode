@@ -9,13 +9,8 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-/**
- * Детерминированный in-process тест хендлеров провайдеров содержимого: вместо
- * форка субпроцесса гоняем `installHostHandlers` на in-process RPC-паре и шлём
- * нотификации сами. Так пробиваются guard-ветки на структурно чужие параметры,
- * которые честный субпроцесс никогда не пришлёт (образец —
- * `extensionHost.fileSystemInProcess.test.ts`).
- */
+// In-process RPC-пара вместо форка: guard-ветки на структурно чужие параметры,
+// которые честный субпроцесс не пришлёт.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -72,9 +67,6 @@ describe("ExtensionHost — провайдеры содержимого неди
     it("до первой подписки список слушателей пуст — уведомление никого не зовёт", async () => {
         const { host, peer } = makeHost();
 
-        // Мусор в начальном значении списка слушателей уронил бы рассылку на
-        // первом же уведомлении — а подписчик, пришедший позже, остался бы
-        // без событий.
         peer.notify("workspace.textDocumentContentChanged", { uri: "jdt:/Foo.java" });
         await flushMicrotasks();
 
@@ -139,7 +131,6 @@ describe("ExtensionHost — провайдеры содержимого неди
     });
 
     it("без субпроцесса запрос содержимого отклоняется, а не молчит", async () => {
-        // Спавн к хосту не подключался — канала к провайдерам нет.
         const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {});
 
         await expect(host.provideTextDocumentContent(Uri.parse("jdt:/Foo.java"))).rejects.toThrow(

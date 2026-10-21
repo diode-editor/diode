@@ -14,22 +14,13 @@ import {
     InlineCompletionTriggerKind,
 } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 
-/**
- * Расширение с чат-панелью обязано активироваться ЦЕЛИКОМ. Webview в TUI не
- * будет by design, но его отсутствие не должно убивать всё остальное: пока
- * `window.createWebviewPanel` / `registerWebviewViewProvider` /
- * `registerWebviewPanelSerializer` отсутствуют в шиме, `activate()` падает на
- * первом же обращении, и вместе с панелью пропадают команды и провайдеры
- * расширения — пользователь получает мёртвое расширение, а не просто
- * отсутствующую панель.
- */
+/** Webview в TUI не будет, но без этих точек входа `activate()` расширения с чат-панелью падает целиком. */
 const WEBVIEW_ENTRY_POINTS = [
     "createWebviewPanel",
     "registerWebviewViewProvider",
     "registerWebviewPanelSerializer",
 ] as const;
 
-/** Запрос в конец строки открытого в харнессе `main.ts` — с его текущей версией. */
 function requestIn(harness: IExtensionHarness): IInlineCompletionRequest {
     const uri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
     return {

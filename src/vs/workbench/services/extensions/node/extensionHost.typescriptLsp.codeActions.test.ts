@@ -27,21 +27,10 @@ import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Code actions поверх СТОКОВОГО стека (правило AGENTS): настоящий builtin
-// `diode-lsp-typescript` + настоящий `typescript-language-server`.
-//
-// 1. Organize Imports — сервер отдаёт action вида `source.organizeImports.ts` с
-//    готовым WorkspaceEdit (documentChanges): проверяет и иерархический матч
-//    `only`, и tuple-форму `WorkspaceEdit.set` конвертера клиента, и применение
-//    через workspace.applyEdit.
-// 2. Quick fix «удалить неиспользуемый импорт» + Ctrl+Z/Ctrl+Shift+Z. Сервер
-//    присылает правку ДВУМЯ смежными диапазонами на одной строке (", " и
-//    "assert"), обратные правки которых схлопываются в одну точку — именно на
-//    этой форме undo перемешивал текст. Ядро контракта закрыто герметично в
-//    textDocument.inverseEdits.test.ts / undoManager.externalBatch.test.ts.
-// 3. Organize Imports, когда менять нечего (CommonJS `require()` в .js): сервер
-//    действия не отдаёт, клиент подставляет холостое (эталонное TS-расширение
-//    отдаёт его всегда) — команда молчит, а не пишет «No organize imports action».
+// Quick fix «удалить неиспользуемый импорт»: сервер присылает правку ДВУМЯ смежными диапазонами на одной строке,
+// их обратные правки схлопываются в точку — на этой форме undo перемешивал текст.
+// Organize Imports в CommonJS: сервер действия не отдаёт, клиент подставляет холостое (как эталонное TS-расширение),
+// и команда молчит, а не пишет «No organize imports action».
 
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
@@ -56,16 +45,12 @@ const TS_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageDisplayName: () => undefined,
 };
 
-// Импорты в обратном алфавитном порядке — organize imports их пересортирует.
 const MAIN_TS = 'import { zeta } from "./zeta";\nimport { alpha } from "./alpha";\n\nalpha();\nzeta();\n';
 
-// Файл для quick fix: `assert` импортирован и не используется (tsserver даёт
-// 6133). Диапазон идентификатора в первой строке — (0,15)-(0,21).
 const UNUSED_TS = 'import { alpha, zeta } from "./both.js";\n\nalpha();\n';
 const BOTH_TS = "export function alpha(): void {}\nexport function zeta(): void {}\n";
 const UNUSED_FIXED = 'import { alpha } from "./both.js";\n\nalpha();\n';
 
-// CommonJS: tsserver'у сортировать нечего — ответ organizeImports пустой.
 const REQUIRE_JS = 'const z = require("./zeta.js");\nconst a = require("./alpha.js");\n\na.alpha();\nz.zeta();\n';
 
 function lspClientRegistration(): IExtensionRegistration {
@@ -121,8 +106,6 @@ describe("ExtensionHost — code actions от стокового typescript-lang
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:typescript");
 
-            // Шов: дождаться регистрации провайдера клиентом и непустого ответа
-            // сервера на запрошенный вид (иерархический матч .ts-подвида).
             await until("organize imports action от tsserver", async () => {
                 const actions = await provideCodeActions(harness, {
                     uri: mainUri,
@@ -204,8 +187,6 @@ describe("ExtensionHost — code actions от стокового typescript-lang
             await harness.commandRegistry.execute("editor.action.organizeImports");
             await settle();
 
-            // Ни сообщения («No organize imports action» / «Code action failed»),
-            // ни правки буфера: пустой edit не трогает документ.
             expect(notices).toEqual([]);
             expect(harness.group.getActiveEditor()?.getText()).toBe(REQUIRE_JS);
             expect(documentVersion(harness, mainUri)).toBe(versionBefore);
@@ -241,7 +222,6 @@ describe("ExtensionHost — code actions от стокового typescript-lang
                 harness.group.openFile(mainPath);
                 await harness.host.activateByEvent("onLanguage:typescript");
 
-                // Readiness-сигнал: сервер проиндексировал проект и увидел 6133.
                 await until("диагностика 6133 про неиспользуемый zeta", () =>
                     Promise.resolve(published.some((p) => p.resource === mainUri && p.hasUnused) ? true : null),
                 );
@@ -267,8 +247,6 @@ describe("ExtensionHost — code actions от стокового typescript-lang
                 registerAction(harness.commandRegistry, keybindings, accessor, undoAction);
                 registerAction(harness.commandRegistry, keybindings, accessor, redoAction);
 
-                // Ctrl+Z: строка импорта обязана вернуться ДОСЛОВНО — на этой форме
-                // правок (два смежных диапазона) она собиралась перемешанной.
                 await harness.commandRegistry.execute("undo");
                 await settle();
                 expect(harness.group.getActiveEditor()?.getText()).toBe(UNUSED_TS);

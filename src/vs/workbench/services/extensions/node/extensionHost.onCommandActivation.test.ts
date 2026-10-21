@@ -3,16 +3,8 @@ import { describe, expect, it } from "vitest";
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 
-/**
- * Активация по `onCommand:<id>`: у неактивного расширения команда обязана уже
- * БЫТЬ в host-реестре (иначе её не видно в палитре и не исполнить по id), а её
- * исполнение — СНАЧАЛА поднять расширение и только потом уйти в его хендлер.
- * Без ожидания активации команда не находилась бы вовсе: реальный прокси заводит
- * сам субпроцесс в `commands.registerCommand`, то есть уже после `activate()`.
- *
- * Харнесс с `activateEvents: []` не фаерит ничего — единственным поводом
- * активации в этих тестах остаётся сама команда.
- */
+// Настоящий прокси субпроцесс заводит уже после `activate()` — до него команду
+// держит заглушка. `activateEvents: []`: единственный повод активации — сама команда.
 describe("ExtensionHost — активация по onCommand:<id>", () => {
     it("команда есть в реестре до активации, а её исполнение поднимает расширение", async () => {
         const harness = await createExtensionTestHarness({
@@ -26,15 +18,11 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
             ],
         });
         try {
-            // Зарегистрировано, НЕ активировано — но команда уже исполнима.
             expect(harness.host.hasExtension("test.oncommand")).toBe(false);
             expect(harness.commandRegistry.has("test.applyTab")).toBe(true);
 
-            // Исполнение доводит до настоящего хендлера расширения: значение
-            // вернул сам субпроцесс, а не заглушка.
             await expect(harness.commandRegistry.execute("test.applyTab", 7)).resolves.toBe("applied:7");
             expect(harness.host.hasExtension("test.oncommand")).toBe(true);
-            // И побочный эффект хендлера доехал до ядра.
             expect(harness.group.getActiveEditor()?.viewState.tabSize).toBe(7);
         } finally {
             await harness.dispose();
@@ -118,14 +106,12 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
             ],
         });
         try {
-            // Заглушка-активатор: расширение ещё не поднято, но в палитре пункт
-            // уже с группой — иначе подпись «прыгнула» бы после первого запуска.
+            // Иначе подпись в палитре «прыгнула» бы после первого запуска.
             expect(harness.host.hasExtension("test.category")).toBe(false);
             expect(harness.commandRegistry.listCommands()).toEqual([
                 { id: "test.applyTab", title: "Apply Tab Size", enablement: undefined, category: "Test" },
             ]);
 
-            // Активация сменяет заглушку настоящим прокси — категория обязана остаться.
             await harness.commandRegistry.execute("test.applyTab", 4);
             await settle();
             expect(harness.host.hasExtension("test.category")).toBe(true);
@@ -167,7 +153,6 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         });
         try {
             await expect(harness.commandRegistry.execute("test.missing")).resolves.toBeUndefined();
-            // Расширение подняли (событие наступило), просто команды у него нет.
             expect(harness.host.hasExtension("test.forgot")).toBe(true);
         } finally {
             await harness.dispose();
@@ -181,8 +166,6 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
         });
         try {
             expect(harness.host.hasExtension("test.active")).toBe(true);
-            // Второе расширение объявляет ТУ ЖЕ команду — прокси первого должен
-            // остаться на месте, иначе рабочая команда стала бы активатором.
             harness.host.registerExtension({
                 ...extensionFixture("test.latecomer", "noopExtension.cjs"),
                 activationEvents: ["onCommand:test.applyTab"],
@@ -232,7 +215,6 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
             });
 
             first.dispose();
-            // Второе расширение по-прежнему ждёт эту команду — заглушка её.
             expect(harness.commandRegistry.has("test.applyTab")).toBe(true);
         } finally {
             await harness.dispose();
@@ -242,8 +224,6 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
     it("непричастный сосед дверь не удерживает: заглушка снимается вместе с хозяином", async () => {
         const harness = await createExtensionTestHarness({ activateEvents: [] });
         try {
-            // Сосед остаётся зарегистрированным, но ЭТУ команду не объявляет —
-            // значит после снятия хозяина держать заглушку не за что.
             harness.host.registerExtension({
                 ...extensionFixture("test.bystander", "noopExtension.cjs"),
                 activationEvents: ["onCommand:test.other"],
@@ -256,7 +236,6 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
 
             owner.dispose();
             expect(harness.commandRegistry.has("test.applyTab")).toBe(false);
-            // Своя команда соседа при этом на месте.
             expect(harness.commandRegistry.has("test.other")).toBe(true);
         } finally {
             await harness.dispose();

@@ -10,9 +10,6 @@ import type { IWireOpenDialogRequest, IWireSaveDialogRequest } from "../../../ap
 import { ExtensionHost } from "./extensionHost.ts";
 import { parseWireOpenDialogRequest, parseWireSaveDialogRequest } from "./hostWireParsers.ts";
 
-// Диалоги файлов расширений (`window.showOpenDialog` / `showSaveDialog`) на
-// стороне хоста: installHostHandlers на in-process RPC-паре.
-
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
     setActiveEditorOptions: () => undefined,

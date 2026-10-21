@@ -9,10 +9,6 @@ import type { IWireWorkspaceEditOp } from "../../../api/common/wireTypes.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Консьюмер RPC `workspace.applyEdit`: host-хендлер парсит wire-параметры и
-// отдаёт их в порт `IEditorOptionsService.applyWorkspaceEdit`, возвращая его
-// вердикт субпроцессу. In-process RPC-пара — как в decorations-тестах.
-
 const NOOP_COMMANDS = {
     execute: () => undefined,
     registerProxy: () => ({ dispose: () => undefined }),
@@ -86,8 +82,7 @@ describe("ExtensionHost — workspace.applyEdit", () => {
 
     it("мусор в параметрах — false без обращения к порту (edit all-or-nothing)", async () => {
         const { peer, applied } = makeHost(true);
-        // Мусорная операция рядом с валидной отбивает ВЕСЬ набор: применить
-        // половину workspace edit'а нельзя.
+        // Применить половину workspace edit'а нельзя.
         const result = await peer.request("workspace.applyEdit", {
             ops: [
                 { kind: "text", resource: "file:///a.ts", edits: [WIRE_EDIT] },

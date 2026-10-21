@@ -9,9 +9,6 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Детерминированный in-process тест стока прогресса (`window.progress.*`):
-// installHostHandlers на in-process RPC-паре (паттерн extensionHost.diagnostics.test).
-
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
     setActiveEditorOptions: () => undefined,

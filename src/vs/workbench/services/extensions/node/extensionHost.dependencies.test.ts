@@ -16,16 +16,11 @@ import type { INotificationRequest } from "../../../api/common/iExtensionWindowS
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 /**
- * `extensionDependencies` на настоящем субпроцессе: зависимость поднимается ДО
- * зависимого (как `_handleActivationRequest` эталона), даже если её
- * собственные события не наступали. Фикстура `requiresDependency.cjs` бросает,
- * если зависимость к началу её `activate()` не активна или без `exports`, так
- * что «зависимый активен» доказывает порядок, а не совпадение. Неудовлетворённая
- * зависимость — зависимый не поднимается: причина в лог, а неизвестная
- * зависимость ещё и тостом (`unknownDep` эталона).
+ * Фикстура `requiresDependency.cjs` бросает, если зависимость к началу её
+ * `activate()` не активна или без `exports`, так что «зависимый активен»
+ * доказывает порядок, а не совпадение.
  */
 
-/** Зависимое расширение: поднимается по `onLanguage:java` и требует `deps`. */
 function dependent(
     deps: readonly string[],
     file = "requiresDependency.cjs",
@@ -38,7 +33,7 @@ function dependent(
     };
 }
 
-/** Зависимость `test.dep`: своё событие никогда не наступает — поднять её может только зависимый. */
+/** Своё событие никогда не наступает — поднять её может только зависимый. */
 function dependency(file = "exportsMarker.cjs", extra: Record<string, unknown> = {}): IExtensionRegistration {
     return {
         ...extensionFixture("test.dep", file),
@@ -79,11 +74,7 @@ async function start(
     return { harness, logger, toasts };
 }
 
-/**
- * Путь файла-маркера фикстуры во временном каталоге, переданный ей через
- * переменную окружения `name` (субпроцесс наследует env на старте харнесса,
- * поэтому звать ДО `start`). Каталог и переменная убираются после теста.
- */
+/** Звать ДО `start`: субпроцесс наследует env на старте харнесса. */
 function markerFile(name: string): string {
     const marker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "diode-deps-")), "marker");
     vi.stubEnv(name, marker);
@@ -103,8 +94,6 @@ describe("ExtensionHost — extensionDependencies активируются пе�
 
         await harness.host.activateByEvent("onLanguage:java");
 
-        // Зависимый активен — значит, его activate() застал зависимость активной
-        // и с exports (иначе фикстура бросает).
         expect(harness.host.hasExtension("test.dep")).toBe(true);
         expect(harness.host.hasExtension("test.dependent")).toBe(true);
         expect(toasts).toEqual([]);
@@ -205,8 +194,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
     });
 
     it("встроенного расширения VS Code (vscode.git) нет — отступление: зависимое поднимается без него, с предупреждением в лог", async () => {
-        // Как стоковый Supermaven: `extensionDependencies: ["vscode.git"]`, а
-        // git у Diode — `diode.git`.
+        // Как стоковый Supermaven: git у Diode — `diode.git`.
         const { harness, logger, toasts } = await start([dependent(["vscode.git"], "noopExtension.cjs")]);
 
         await harness.host.activateByEvent("onLanguage:java");
@@ -289,14 +277,12 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         const { harness, logger } = await start([dependent(["test.dep"]), dependency("hangsOnActivate.cjs")]);
 
         const activation = harness.host.activateByEvent("onLanguage:java");
-        // Маркер пишет субпроцесс: под инструментацией Stryker (полный прогон,
-        // два раннера) он поднимается дольше секунды поллинга по умолчанию.
+        // Под инструментацией Stryker субпроцесс поднимается дольше секунды поллинга по умолчанию.
         await expect.poll(() => fs.existsSync(marker), { timeout: 10_000 }).toBe(true);
         harness.host.dispose();
         await activation;
 
         expect(harness.host.hasExtension("test.dependent")).toBe(false);
-        // Возвращать к оживлению некого — хост выключен, регистрации сняты.
         expect(logger.warn).not.toHaveBeenCalledWith(
             'activation of "test.dependent" interrupted by extension host death — will retry',
         );
@@ -314,8 +300,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
             'activation of "test.dependent" interrupted by extension host death — will retry',
         );
 
-        // Любое следующее событие проигрывает журнал: onLanguage:java снова
-        // поднимает зависимого, а он — зависимость (второй раз она не падает).
+        // Любое следующее событие проигрывает журнал: onLanguage:java снова поднимает зависимого.
         await harness.host.activateByEvent("onLanguage:anything");
 
         expect(harness.host.hasExtension("test.dep")).toBe(true);

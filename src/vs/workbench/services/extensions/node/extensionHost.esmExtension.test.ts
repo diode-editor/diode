@@ -22,17 +22,8 @@ import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 /**
- * ESM-расширения (`"type": "module"` в манифесте) — настоящий субпроцесс.
- *
- * Субпроцесс здесь поднимается БЕЗ tsx (`subprocessLoader: "node"`): tsx
- * регистрирует свой ESM-хук, который уводит незнакомый ему `"vscode"` в
- * CJS-резолвер — и тем самым прячет ровно то, что проверяет этот файл. На
- * родном loader'е Node без нашего `module.registerHooks` активация падает с
- * `ERR_MODULE_NOT_FOUND: Cannot find package 'vscode'`.
- *
- * Фикстура — каталог со своим `package.json` (`"type": "module"`), то есть та же
- * форма, в которой ESM-расширение приезжает из магазина (`esbenp.prettier-vscode`
- * 12.x).
+ * Субпроцесс — БЕЗ tsx (`subprocessLoader: "node"`): ESM-хук tsx уводит
+ * незнакомый ему `"vscode"` в CJS-резолвер и прячет ровно то, что проверяет файл.
  */
 
 function esmFixture(): IExtensionRegistration {
@@ -43,7 +34,6 @@ function esmFixture(): IExtensionRegistration {
     };
 }
 
-/** Регистрирует настоящую команду формата (как WORKBENCH_ACTIONS в проде). */
 function registerFormatAction(harness: {
     commandRegistry: Parameters<typeof registerAction>[0];
     group: unknown;
@@ -72,8 +62,6 @@ describe("ExtensionHost — ESM-расширение (subprocess без tsx)", (
         });
         try {
             await settle();
-            // Команда, зарегистрированная из ESM-модуля, доехала до host-реестра —
-            // значит `import { commands } from "vscode"` отработал.
             expect(await harness.commandRegistry.execute("test.esm.ping")).toBe("pong from esm");
         } finally {
             await harness.dispose();

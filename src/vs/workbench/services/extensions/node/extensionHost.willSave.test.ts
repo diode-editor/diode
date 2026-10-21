@@ -27,11 +27,9 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
 
             const fp = path.join(harness.tmpDir, "trim.txt");
             expect(fs.readFileSync(fp, "utf-8")).toBe("alpha\nbeta\ngamma\n");
-            // Буфер тоже трансформирован, документ снова «чистый» после записи.
             expect(editor?.getText()).toBe("alpha\nbeta\ngamma\n");
             expect(editor?.isModified).toBe(false);
 
-            // Undo откатывает pre-save правки одним шагом.
             editor?.undo();
             await settle(20);
             expect(editor?.getText()).toBe("alpha   \nbeta\t\ngamma");
@@ -72,7 +70,7 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
             await editor?.save();
 
             const fp = path.join(harness.tmpDir, "enc.txt");
-            // Файл записан в cp1251; для ASCII-содержимого байты совпадают с utf-8.
+            // Для ASCII-содержимого байты cp1251 совпадают с utf-8.
             expect(fs.readFileSync(fp, "utf-8")).toBe("encoding=windows1251\nbody\n");
         } finally {
             await harness.dispose();
@@ -85,9 +83,7 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
             extensions: [extensionFixture("test.willSaveDelegate", "willSaveDelegatesCommand.cjs")],
         });
         try {
-            // НАСТОЯЩАЯ core-команда из whitespaceActions.ts, а не тестовая
-            // копия: контракт «расширение зовёт встроенную команду по её боевому
-            // id» должен ломаться здесь, если id или поведение ядра поедут.
+            // НАСТОЯЩАЯ core-команда, а не тестовая копия: контракт должен ломаться здесь, если id или поведение ядра поедут.
             const accessor = new Container();
             accessor.bind(EditorServiceDIToken, () => harness.group);
             accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
@@ -124,8 +120,6 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
     });
 
     it("без подписки onWillSave сохранение не трансформирует содержимое (гейтинг)", async () => {
-        // reportDidSave подписан только на did-save → willSaveSubscribed=false,
-        // will-save RPC не идёт, файл пишется как есть.
         const harness = await createExtensionTestHarness({
             initialFile: { name: "plain.txt", content: "keep   \n" },
             extensions: [extensionFixture("test.reportDidSave", "reportDidSave.cjs")],
@@ -136,8 +130,7 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
 
             const fp = path.join(harness.tmpDir, "plain.txt");
             expect(fs.readFileSync(fp, "utf-8")).toBe("keep   \n");
-            // Дать did-save round-trip (расширение ставит editor.options) осесть
-            // до teardown — иначе pending subprocess→host запрос ловит dispose.
+            // Дать did-save round-trip осесть до teardown — иначе pending subprocess→host запрос ловит dispose.
             await settle();
         } finally {
             await harness.dispose();

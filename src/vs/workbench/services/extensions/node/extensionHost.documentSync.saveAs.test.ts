@@ -12,12 +12,9 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 
-// Save As меняет uri (и язык) у ТОЙ ЖЕ модели. Для расширений это смена
-// документа, как в эталоне: onDidClose старого uri и onDidOpen нового — с
-// новым languageId. Иначе хост считает новый uri несинхронизированным и молча
-// отвечает пустым результатом на каждый запрос провайдера (семантика, folding).
+// Save As меняет uri у ТОЙ ЖЕ модели; без close/open хост считает новый uri
+// несинхронизированным и молча отвечает пусто на каждый запрос провайдера.
 
-/** `.cs` → csharp (селектор фикстуры folding), остальное — plaintext. */
 const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".cs") ? "csharp" : undefined),
@@ -70,7 +67,6 @@ describe("ExtensionHost — document sync на Save As (subprocess)", () => {
                 { kind: "open", uri: uriIn(harness, "Program2.cs"), languageId: "csharp" },
             ]);
 
-            // Новый uri синхронизирован: запрос доходит до провайдера субпроцесса.
             const uri = uriIn(harness, "Program2.cs");
             const regions = await provideFoldingRegions(harness, {
                 uri,

@@ -18,7 +18,6 @@ import type {
 import type { IBulkEditService } from "../../../contrib/bulkEdit/common/iBulkEditService.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
-/** Исполнитель bulk edit'ов: этим тестам он не нужен — честный отказ. */
 const NO_BULK_EDITS: IBulkEditService = { applyWorkspaceEdit: () => Promise.resolve(false) };
 
 class FakeOptionsService implements IEditorOptionsService {

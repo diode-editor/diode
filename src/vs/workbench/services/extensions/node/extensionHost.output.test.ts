@@ -9,9 +9,6 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Детерминированный in-process тест стока output-каналов (`output.append`/`show`):
-// installHostHandlers на in-process RPC-паре (паттерн extensionHost.progress.test).
-
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
     setActiveEditorOptions: () => undefined,

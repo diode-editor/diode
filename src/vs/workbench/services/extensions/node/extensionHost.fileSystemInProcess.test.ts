@@ -9,13 +9,7 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-/**
- * Детерминированный in-process тест хендлеров провайдеров ФС: вместо форка
- * субпроцесса гоняем `installHostHandlers` на in-process RPC-паре и шлём
- * нотификации сами. Так пробиваются guard-ветки на структурно чужие параметры,
- * которые честный субпроцесс никогда не пришлёт (образец —
- * `extensionHost.decorationsInProcess.test.ts`).
- */
+// In-process пара пробивает guard-ветки на чужие параметры, которые честный субпроцесс не пришлёт.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -37,8 +31,7 @@ function makeHost() {
     const hostRpc = new RpcEndpoint(a);
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
-    // installHostHandlers не выставляет this.rpc (это делает spawn) — для
-    // readProvidedFile подставляем ту же пару вручную.
+    // installHostHandlers не выставляет this.rpc (это делает spawn).
     const attachRpc = () => {
         (host as unknown as { rpc: RpcEndpoint | null }).rpc = hostRpc;
     };
@@ -119,7 +112,7 @@ describe("ExtensionHost — нотификации провайдеров ФС (
     });
 
     it("повторный dispose подписок безопасен", () => {
-        // Идемпотентность: владелец может звать dispose и сам, и через Disposable-набор.
+        // Второй dispose — не дубль: владелец зовёт его и сам, и через Disposable-набор.
         const { host } = makeHost();
         const schemes = host.onFileSystemProvidersChanged(() => undefined);
         const files = host.onDidChangeProvidedFile(() => undefined);
@@ -134,7 +127,6 @@ describe("ExtensionHost — нотификации провайдеров ФС (
     });
 
     it("readProvidedFile без поднятого host'а отклоняется", async () => {
-        // Спавн к хосту не подключался — канала к провайдерам нет.
         const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {});
 
         await expect(host.readProvidedFile(Uri.parse("git:/a.ts"))).rejects.toThrow(/extension host is not running/);

@@ -12,13 +12,8 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-/**
- * Запрос подсказки параметров по handle: субпроцесса нет, канал сшит
- * in-process — так проверяются ветки, недостижимые через настоящий fork
- * (документ без синхронизации, дефолтный таймаут, доставка триггер-символов
- * метаданными регистрации). Образец —
- * `extensionHost.referencesInProcess.test.ts`.
- */
+// Канал сшит in-process: ветки, недостижимые через настоящий fork (документ без
+// синхронизации, дефолтный таймаут, триггер-символы в метаданных регистрации).
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -34,7 +29,7 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
+/** Запросы ходят только по документам, синхронизированным с субпроцессом. */
 const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
 
 const HELP = {
@@ -60,10 +55,9 @@ function makeHost(
     options: {
         warn?: ILogger["warn"];
         debug?: ILogger["debug"];
-        /** Срок ответа `languages.provideSignatureHelp`, мс (`requestTimeouts`). */
+        /** Мс. */
         timeoutMs?: number;
         maxSyncedDocumentChars?: number;
-        /** Открыть {@link DOCUMENT} субпроцессу (по умолчанию — да). */
         open?: boolean;
     } = {},
 ): {
@@ -243,7 +237,6 @@ describe("ExtensionHost — подсказка параметров по handle 
         expect(await host.provideSignatureHelp(0, requestOf())).toBeNull();
         // Истёкший срок — штатный исход медленного провайдера: debug, не warn.
         expect(debug).toHaveBeenCalledWith('request "languages.provideSignatureHelp" timed out after 5ms');
-        // Провайдер узнаёт, что ответа больше не ждут (`$/cancelRequest`).
         await vi.waitFor(() => {
             expect(seen?.isCancellationRequested).toBe(true);
         });
@@ -264,7 +257,6 @@ describe("ExtensionHost — подсказка параметров по handle 
 
         source.cancel();
         await flushMicrotasks();
-        // Провайдер расширения узнаёт, что его ответ больше не нужен, и бросает работу.
         expect(seen!.isCancellationRequested).toBe(true);
         void pending;
     });

@@ -21,13 +21,10 @@ import type { IWireTaskExecution } from "../../../api/common/taskWireTypes.ts";
 import { ExtensionHost, type IExtensionHostConfigProvider } from "./extensionHost.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// `spawn` is the only side effect we need to control; everything else (IPC channel,
-// RPC endpoint) runs for real against the in-memory FakeChild below.
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 const { spawn } = await import("node:child_process");
 const spawnMock = vi.mocked(spawn);
 
-/** A minimal in-memory stand-in for a forked ChildProcess speaking the RPC envelope protocol. */
 class FakeChild extends EventEmitter {
     public exitCode: number | null = null;
     public killed = false;
@@ -36,11 +33,8 @@ class FakeChild extends EventEmitter {
     public readonly sent: IProtocolMessage[] = [];
     public readonly signals: string[] = [];
 
-    /** When true, auto-replies to host→child requests with a `res` envelope. */
     public autoRespond = true;
-    /** Optional override: simulate the child exiting in response to a SIGTERM/SIGKILL. */
     public exitOnSignal: string | null = null;
-    /** Optional override: simulate the child exiting when it receives `host.shutdown`. */
     public exitOnShutdown = false;
 
     public send(message: IProtocolMessage): boolean {
@@ -64,12 +58,10 @@ class FakeChild extends EventEmitter {
         return true;
     }
 
-    /** Simulate the subprocess announcing readiness. */
     public emitReady(): void {
         this.emit("message", { kind: "notif", method: "host.ready", params: undefined });
     }
 
-    /** Simulate the subprocess sending a request/notification to the host. */
     public receiveFromHostPeer(message: IProtocolMessage): void {
         this.emit("message", message);
     }
@@ -150,7 +142,6 @@ class FakeEditorOptions implements IEditorOptionsService {
     }
 }
 
-/** Подписка на массив слушателей; dispose снимает ровно её. */
 function subscribe<T>(listeners: T[], listener: T): IDisposable {
     listeners.push(listener);
     return {
@@ -164,13 +155,11 @@ function subscribe<T>(listeners: T[], listener: T): IDisposable {
 const spawnArgs = () => ({ command: "node", args: ["host.js"] });
 
 function makeReg(id: string, mainPath: string): IExtensionRegistration {
-    // Eager, как в тестах принято (см. `testRegistration`): дефолта `*` у регистрации нет.
+    // Eager: дефолта `*` у регистрации нет.
     return { id, manifest: { name: id, publisher: "test", version: "0.0.1" }, mainPath, activationEvents: ["*"] };
 }
 
 function makeLogger() {
-    // `isEnabled` — часть ILogger: без него логгер не подставить в типизированные
-    // опции хоста (`spawnReadyHost` принимает их нетипизированным `options = {}`).
     return { trace: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), isEnabled: () => true };
 }
 
@@ -183,7 +172,6 @@ async function waitUntil(pred: () => boolean, timeoutMs = 2000): Promise<void> {
     if (!pred()) throw new Error("waitUntil timed out");
 }
 
-/** Spawn a host whose subprocess becomes ready on the next microtask. */
 function spawnReadyHost(
     child: FakeChild,
     editorOptions: FakeEditorOptions,
@@ -197,12 +185,11 @@ function spawnReadyHost(
     return new ExtensionHost(editorOptions, commandService, { spawnArgs, ...options });
 }
 
-/** Records execute/registerProxy calls for asserting the host commands bridge. */
 class FakeCommandService implements ICommandService {
     public readonly executed: { id: string; args: readonly unknown[] }[] = [];
     public executeResult: unknown = "core-result";
     public executeThrows: string | null = null;
-    /** Every proxy ever registered (kept across re-registers to observe dispose). */
+    /** Не чистится на перерегистрации — так виден dispose прежних. */
     public readonly proxies: { id: string; invoke: (args: readonly unknown[]) => unknown; disposed: boolean }[] = [];
 
     public execute(id: string, args: readonly unknown[]): unknown {
@@ -232,13 +219,8 @@ afterEach(() => {
     spawnMock.mockReset();
 });
 
-/**
- * Продюсер каталога `vscode.extensions`: что именно хост кладёт в провод.
- * Потребителя (`extensionsNamespace`) проверяют свои юниты, сквозняк —
- * `extensionHost.extensionsCatalog.test.ts` на живом субпроцессе; здесь — форма
- * сообщения, которую ни тот, ни другой не видят (разбор на той стороне
- * отбрасывает мусор и прячет лишнее в каталоге).
- */
+// Форма сообщения продюсера: разбор на той стороне отбрасывает мусор, так что
+// ни юниты потребителя, ни сквозняк её не видят.
 describe("ExtensionHost — каталог расширений на проводе", () => {
     const catalogs = (child: FakeChild): { extensions: unknown[] }[] =>
         child.sent
@@ -303,10 +285,8 @@ describe("ExtensionHost — каталог расширений на прово�
     });
 
     it("после смерти субпроцесса состав переезжает целиком, а активность честно обнуляется", async () => {
-        // В новом субпроцессе в момент handshake не активен НИКТО — оживление
-        // ещё впереди, и рапортовать `isActive: true` значило бы соврать
-        // соседу, который читает каталог прямо в своём `activate()`. Флаг
-        // возвращает уже `extensions.activated`, по одному на оживлённого.
+        // На handshake не активен никто: `isActive: true` соврал бы соседу, читающему
+        // каталог в `activate()`. Флаг возвращает `extensions.activated`.
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         host.registerExtension(makeReg("ext.a", "/a.js"));
@@ -347,9 +327,7 @@ describe("ExtensionHost — registration lifecycle", () => {
         expect(spawnMock).toHaveBeenCalledOnce();
         expect(host.hasExtension("ext.a")).toBe(true);
         expect(host.extensionCount).toBe(1);
-        // host.activateExtension request was sent to the subprocess
         expect(child.sent.some((m) => m.kind === "req" && m.method === "host.activateExtension")).toBe(true);
-        // initial active editor state pushed after ready
         expect(child.sent.some((m) => m.kind === "notif" && m.method === "editor.activeEditorChanged")).toBe(true);
 
         reg.dispose();
@@ -420,7 +398,6 @@ describe("ExtensionHost — registration lifecycle", () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
-        // Субпроцесс завис в deactivate(): на host.shutdown не отвечает.
         child.autoRespond = false;
 
         void host.shutdown();
@@ -440,7 +417,6 @@ describe("ExtensionHost — registration lifecycle", () => {
         await waitUntil(
             () => child.sent.filter((m) => m.kind === "req" && m.method === "host.activateExtension").length === 2,
         );
-        // Оба запроса ушли до первого ответа — второй не ждал первого.
         const requests = child.sent.filter((m) => m.kind === "req" && m.method === "host.activateExtension");
         expect(host.hasExtension("ext.slow")).toBe(false);
         expect(host.hasExtension("ext.fast")).toBe(false);
@@ -505,7 +481,6 @@ describe("ExtensionHost — registration lifecycle", () => {
         expect(host.hasExtension("ext.a")).toBe(false);
         const sentBefore = child.sent.length;
 
-        // The disposable returned by registerExtension must not re-trigger a deactivate.
         reg.dispose();
         await waitUntil(() => true);
         expect(child.sent.length).toBe(sentBefore);
@@ -517,7 +492,6 @@ describe("ExtensionHost — registration lifecycle", () => {
         const host = spawnReadyHost(child, new FakeEditorOptions(), { logger });
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
 
-        // Make the next host→child request (deactivate) reject by replying with an error envelope.
         child.autoRespond = false;
         const promise = host.unregisterExtension("ext.a");
         await waitUntil(() => child.sent.some((m) => m.kind === "req" && m.method === "host.deactivateExtension"));
@@ -559,7 +533,6 @@ describe("ExtensionHost — editor options RPC handlers", () => {
         const host = spawnReadyHost(child, editorOptions);
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
 
-        // params is not an object → sanitizeOptionsPatch returns {}
         child.receiveFromHostPeer({ kind: "req", id: 102, method: "editor.setOptions", params: 42 });
 
         await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 102));
@@ -572,7 +545,6 @@ describe("ExtensionHost — editor options RPC handlers", () => {
         const host = spawnReadyHost(child, editorOptions);
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
 
-        // tabSize is not a positive finite number and insertSpaces is not a boolean → both dropped.
         child.receiveFromHostPeer({
             kind: "req",
             id: 103,
@@ -681,7 +653,6 @@ describe("ExtensionHost — commands RPC handlers", () => {
         child.receiveFromHostPeer({ kind: "notif", method: "commands.registerCommand", params: { id: "ext.cmd" } });
         await waitUntil(() => commands.proxies.some((p) => p.id === "ext.cmd"));
 
-        // Invoking the proxy issues a host→subprocess commands.executeCommand request.
         void commands.last("ext.cmd").invoke([9]);
         await waitUntil(() =>
             child.sent.some(
@@ -744,7 +715,6 @@ describe("ExtensionHost — commands RPC handlers", () => {
         const commands = new FakeCommandService();
         await readyHostWithCommands(child, commands);
 
-        // Neither throws; nothing to dispose.
         child.receiveFromHostPeer({ kind: "notif", method: "commands.unregisterCommand", params: { id: "never" } });
         child.receiveFromHostPeer({ kind: "notif", method: "commands.unregisterCommand", params: {} });
         await waitUntil(() => true);
@@ -779,14 +749,14 @@ describe("ExtensionHost — stdout/stderr piping", () => {
 
         child.stdout.emit("data", "hello\nwor");
         child.stdout.emit("data", "ld\n");
-        child.stdout.emit("data", "tail-info"); // partial line buffered until end
-        child.stdout.emit("end"); // flushes the buffered tail via info
+        child.stdout.emit("data", "tail-info");
+        child.stdout.emit("end");
         expect(stdoutLogger.info).toHaveBeenCalledWith("hello");
         expect(stdoutLogger.info).toHaveBeenCalledWith("world");
         expect(stdoutLogger.info).toHaveBeenCalledWith("tail-info");
 
         child.stderr.emit("data", "oops\ntail-without-newline");
-        child.stderr.emit("end"); // flushes the buffered tail
+        child.stderr.emit("end");
         expect(stderrLogger.warn).toHaveBeenCalledWith("oops");
         expect(stderrLogger.warn).toHaveBeenCalledWith("tail-without-newline");
     });
@@ -798,8 +768,6 @@ describe("ExtensionHost — stdout/stderr piping", () => {
         const host = spawnReadyHost(child, new FakeEditorOptions(), { stdoutLogger });
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
 
-        // A blank line (leading "\n") produces a zero-length `line` → skipped (line 349 false branch).
-        // The trailing "\n" leaves the buffer empty, so `end` logs nothing (line 357 false branch).
         child.stdout.emit("data", "\nreal\n");
         child.stdout.emit("end");
 
@@ -809,10 +777,7 @@ describe("ExtensionHost — stdout/stderr piping", () => {
     });
 });
 
-/**
- * Готовит следующий спавн: возвращённый ребёнок объявляет готовность сразу
- * после того, как хост подпишется на его сообщения.
- */
+/** Ребёнок следующего спавна объявит готовность сразу после подписки хоста. */
 function armNextChild(): FakeChild {
     const child = new FakeChild();
     spawnMock.mockImplementation((() => {
@@ -824,7 +789,6 @@ function armNextChild(): FakeChild {
     return child;
 }
 
-/** Активирован ли `id` в этом субпроцессе (по отправленному host.activateExtension). */
 function activated(child: FakeChild, id: string): boolean {
     return child.sent.some(
         (m) => m.kind === "req" && m.method === "host.activateExtension" && (m.params as { id: string }).id === id,
@@ -1039,7 +1003,6 @@ describe("ExtensionHost — смерть субпроцесса", () => {
             testRegistration({ ...makeReg("ext.a", "/a.js"), commandTitles: { "ext.a.run": "Run" } }),
         );
         await host.activateByEvent("*");
-        // Субпроцесс завёл настоящий прокси — заглушка снята.
         child.receiveFromHostPeer({ kind: "notif", method: "commands.registerCommand", params: { id: "ext.a.run" } });
         const beforeDeath = commands.proxies.length;
 
@@ -1052,7 +1015,6 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         expect(commands.proxies.length).toBeGreaterThan(beforeDeath);
         expect(commands.proxies.at(-1)?.id).toBe("ext.a.run");
 
-        // И заглушка правда оживляет: её исполнение поднимает новый субпроцесс.
         const next = armNextChild();
         await commands.proxies.at(-1)?.invoke([]);
         expect(activated(next, "ext.a")).toBe(true);
@@ -1116,7 +1078,6 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         void host.activateByEvent("onLanguage:java");
         await waitUntil(() => activated(child, "ext.slow"));
 
-        // Событию без своих расширений ждать нечего — `ext.slow` его не держит.
         await expect(host.activateByEvent("onLanguage:markdown")).resolves.toBeUndefined();
         host.dispose();
     });
@@ -1138,7 +1099,6 @@ describe("ExtensionHost — смерть субпроцесса", () => {
 
         first.simulateExit(1);
         const next = armNextChild();
-        // Событие ни при чём — повод у оживления свой: журнал + проход по ФС.
         await host.activateByEvent("onLanguage:markdown");
 
         expect(activated(next, "ext.java")).toBe(true);
@@ -1185,7 +1145,6 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         const registration = host.registerExtension(makeReg("ext.a", "/a.js"));
 
         const activation = host.activateByEvent("*");
-        // Субпроцесс ещё не ответил ready — снимаем расширение из очереди.
         registration.dispose();
 
         await expect(activation).resolves.toBeUndefined();
@@ -1208,7 +1167,6 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         });
         // Даём промисам отыграть целиком (макротаск, а не один микротаск).
         await new Promise((resolve) => setTimeout(resolve, 10));
-        // Ответа на activateExtension ещё нет — второй вызов не врёт «готово».
         expect(secondDone).toBe(false);
 
         const req = child.sent.find((m) => m.kind === "req" && m.method === "host.activateExtension");
@@ -1237,7 +1195,6 @@ describe("ExtensionHost — смерть субпроцесса", () => {
     });
 });
 
-/** Провайдер настроек, у которого папки воркспейса меняются на ходу (смена воркспейса окна). */
 function makeSwitchableWorkspace(initial: string) {
     let folder = initial;
     const provider: IExtensionHostConfigProvider = {
@@ -1252,7 +1209,6 @@ function makeSwitchableWorkspace(initial: string) {
     };
 }
 
-/** Папки из семени `workspace.initialize`, которое получил субпроцесс. */
 function initialFolders(child: FakeChild): unknown {
     const init = child.sent.find((m) => m.kind === "notif" && m.method === "workspace.initialize");
     return (init as { params: { workspaceFolders: unknown } } | undefined)?.params.workspaceFolders;
@@ -1278,7 +1234,6 @@ describe("ExtensionHost — смена воркспейса окна", () => {
         expect(host.hasExtension("ext.a")).toBe(true);
         expect(logger.info).toHaveBeenCalledWith("workspace changed — restarting extension host");
         expect(logger.info).toHaveBeenCalledWith('activated extension "ext.a" (workspaceChanged)');
-        // Вежливое выключение — не смерть: тревоги в логе нет.
         expect(logger.warn).not.toHaveBeenCalledWith(DEATH_WARNING);
         host.dispose();
     });
@@ -1373,7 +1328,6 @@ describe("ExtensionHost — причина активации в логе", () =
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             logger,
             configuration: makeConfigProvider().provider,
-            // Папка воркспейса провайдера — `/repo`; сканер отвечает за неё.
             workspaceScanner: {
                 exists: (absolutePath: string) => Promise.resolve(absolutePath.endsWith("build.gradle")),
                 readDirectory: () => Promise.resolve([]),
@@ -1384,8 +1338,7 @@ describe("ExtensionHost — причина активации в логе", () =
             activationEvents: ["workspaceContains:pom.xml", "workspaceContains:build.gradle"],
         });
 
-        // Субпроцесс поднимется только по итогу обхода — ready-ответ вешаем на
-        // сам spawn, а не на микротаск создания хоста.
+        // Субпроцесс поднимется только по итогу обхода — ready-ответ вешаем на spawn.
         armNextChild();
         await host.activateByWorkspaceContains();
 
@@ -1445,8 +1398,6 @@ describe("ExtensionHost — причина активации в логе", () =
         const child = new FakeChild();
         const readDirectory = vi.fn(() => Promise.resolve([]));
         const exists = vi.fn(() => Promise.resolve(true));
-        // Хост без `configuration` — профиль/харнесс, где мост настроек не
-        // подключён: папок воркспейса просто неоткуда взять.
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             workspaceScanner: { exists, readDirectory },
         });
@@ -1510,14 +1461,12 @@ describe("ExtensionHost — subprocess events", () => {
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
 
-        child.simulateExit(0); // subprocess gone before we tear down
-        // Смерть уже разобрана хостом (handleSubprocessDeath): ссылок на канал
-        // нет, и выключению нечего и некому слать.
+        child.simulateExit(0);
         host.dispose();
         await new Promise((r) => setTimeout(r, 20));
 
         expect(child.sent.some((m) => m.kind === "req" && m.method === "host.shutdown")).toBe(false);
-        expect(child.signals).toEqual([]); // no SIGTERM/SIGKILL — it was already dead
+        expect(child.signals).toEqual([]);
     });
 });
 
@@ -1596,8 +1545,6 @@ describe("ExtensionHost — readiness failures", () => {
         const logger = makeLogger();
         const commands = new FakeCommandService();
         const host = spawnReadyHost(child, new FakeEditorOptions(), { logger }, commands);
-        // Субпроцесс отвечает на activateExtension, но `commands.registerCommand`
-        // не присылает — ровно случай опечатки в манифесте или сбоя в activate().
         host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["onCommand:ext.a.run"] });
 
         await expect(commands.proxies.at(-1)?.invoke([])).resolves.toBeUndefined();
@@ -1611,8 +1558,6 @@ describe("ExtensionHost — readiness failures", () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never); // ready не придёт никогда
         const commands = new FakeCommandService();
-        // Логгера нет (профиль с NULL_LOG_SERVICE, харнессы): обращение к нему
-        // в обработчике провала не должно превращать «вернул undefined» в reject.
         const host = new ExtensionHost(new FakeEditorOptions(), commands, { spawnArgs, readyTimeoutMs: 20 });
         host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["onCommand:ext.a.run"] });
 
@@ -1631,7 +1576,7 @@ describe("ExtensionHost — shutdown", () => {
         host.dispose();
 
         await waitUntil(() => child.sent.some((m) => m.kind === "req" && m.method === "host.shutdown"));
-        expect(child.signals).toEqual([]); // exited cleanly, no signal needed
+        expect(child.signals).toEqual([]);
         host.dispose(); // idempotent
     });
 
@@ -1648,9 +1593,8 @@ describe("ExtensionHost — shutdown", () => {
     });
 
     it("sends a single SIGTERM when the subprocess ignores both shutdown and the signal", async () => {
-        // NOTE: the SIGKILL escalation (ExtensionHost.ts:239-245) is unreachable in practice —
-        // child.kill() sets child.killed=true, so the second `!child.killed` guard never passes
-        // after SIGTERM. Left uncovered intentionally (latent bug, not forced by a test).
+        // Эскалация до SIGKILL недостижима: `kill()` взводит `child.killed`, второй гард
+        // после SIGTERM не проходит. Латентный баг, тестом сознательно не форсируем.
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions(), { shutdownTimeoutMs: 10 });
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
@@ -1864,8 +1808,6 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
     it("показ без логгера не роняет обработчик: сообщение всё равно доходит до стока", async () => {
         const child = new FakeChild();
         const shown: string[] = [];
-        // Логгера НЕТ (в этой сборке хост создан без него) — путь дублирования в
-        // лог обязан это переживать, иначе показ отклонится целиком.
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             notificationSink: {
                 showMessage: (request: { message: string }) => {
@@ -1999,8 +1941,6 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
     });
 
     it("поломка поверхности БЕЗ логгера тоже не отклоняет запрос", async () => {
-        // Логгера нет, а сток кидает: путь дублирования в лог обязан это
-        // переживать, иначе отказ доедет до расширения и уронит субпроцесс.
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             notificationSink: {
@@ -2190,7 +2130,6 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         await waitUntil(() => editorOptions.lastPatch !== null);
         expect(editorOptions.lastPatch).toEqual({ tabSize: 3 });
 
-        // Явный tabSize имеет приоритет — indentSize игнорируется.
         editorOptions.lastPatch = null;
         child.receiveFromHostPeer({
             kind: "req",

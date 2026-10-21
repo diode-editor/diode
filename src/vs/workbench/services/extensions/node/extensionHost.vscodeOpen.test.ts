@@ -5,10 +5,6 @@ import { describe, expect, it } from "vitest";
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 
-// Встроенная API-команда `vscode.open` сквозь настоящий subprocess: расширение
-// зовёт её так же, как golang.go в `Go: Toggle Test File`, а смотрим мы в
-// полосу групп ядра — открылся ли файл там, куда просили.
-
 interface IOpenOutcome {
     ok: boolean;
     result?: unknown;

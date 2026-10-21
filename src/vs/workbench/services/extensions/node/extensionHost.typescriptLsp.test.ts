@@ -23,14 +23,7 @@ import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Закрытие стека СТОКОВЫМ language-сервером (правило AGENTS: фича поверх
-// стокового расширения закрывается стоковым расширением): настоящий builtin
-// `diode-lsp-typescript` (бандл с vscode-languageclient) + настоящий
-// `typescript-language-server` из devDeps на настоящем ext-host subprocess'е.
-//
-// Ключевое требование — тесты над ИЗМЕНЯЕМЫМ кодом: правки НЕ сохраняются на
-// диск, сервер обязан видеть живой буфер (доказывает didOpen/didChange
-// pipeline, а не чтение с диска).
+// Правки НЕ сохраняются на диск: сервер обязан видеть живой буфер (didOpen/didChange), а не файл.
 
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
@@ -38,7 +31,6 @@ const CLIENT_BUNDLE = path.join(REPO_ROOT, "extensions/diode-lsp-typescript/out/
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
 const TSSERVER_JS = require_.resolve("typescript/lib/tsserver.js");
 
-/** Мини-сервис языков: `.ts` → typescript, `.md` → markdown, иначе — undefined. */
 const TS_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) =>
@@ -47,7 +39,6 @@ const TS_LANGUAGE_SERVICE: ILanguageService = {
 };
 
 const DEFS_TS = 'export function greet(name: string): string {\n    return "hi " + name;\n}\n';
-// Ошибка типов: greet возвращает string, а reply объявлен number.
 const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply: number = greet("world");\n\nexport { reply };\n';
 
 function lspClientRegistration(): IExtensionRegistration {
@@ -66,7 +57,7 @@ function lspClientRegistration(): IExtensionRegistration {
     };
 }
 
-/** Опрос с дедлайном: LSP-сервер индексирует проект секундами, sleep'ы не годятся. */
+/** Опрос с дедлайном: сервер индексирует проект секундами, sleep'ы не годятся. */
 async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs = 60_000): Promise<T> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -79,7 +70,6 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
 
 describe("ExtensionHost — стоковый typescript-language-server (сквозняк)", () => {
     beforeAll(async () => {
-        // Свежий бандл клиента: тест закрывает именно то, что уедет в приложение.
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
         )) as { buildExtensions: (options: { repoRoot: string }) => Promise<unknown> };
@@ -90,14 +80,8 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
         "смешанный воркспейс не отравляет сервер: markdown не синхронизируется, канал без ошибок",
         { timeout: 180_000 },
         async () => {
-            // Регресс пользовательского сценария (реальный проект): subprocess уже
-            // жив (eager-расширение, как builtin git), АКТИВНЫЙ файл при спавне —
-            // markdown, ts-файл открывается ПОЗЖЕ и активирует клиент. До фикса
-            // сервер получал didOpen для markdown (наивный languages.match) и
-            // meta-обёртки с пустым текстом (didOpen гейтился подпиской) — и ронял
-            // хендлеры: «Cannot open document (languageId: markdown)», «Unexpected
-            // resource», падения foldingRange. Ошибки сервера клиент пишет в свой
-            // output-канал — по нему и ассертим.
+            // Регресс: subprocess уже жив, активный файл при спавне — markdown, ts открывается позже. Сервер получал
+            // didOpen для markdown и пустые meta-обёртки и ронял хендлеры; ошибки видны только в output-канале клиента.
             const published: { resource: string; markers: readonly WireMarker[] }[] = [];
             const outputLines: { level: string; value: string }[] = [];
             const harness: IExtensionHarness = await createExtensionTestHarness({
@@ -123,15 +107,13 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 harness.writeFile("defs.ts", DEFS_TS);
                 const mainUri = Uri.file(mainPath).toString();
 
-                // markdown активен при живом subprocess ДО активации клиента —
-                // он попадает в workspace.textDocuments (полным, didOpen не гейтится).
+                // markdown открыт при живом subprocess до активации клиента — попадает в workspace.textDocuments.
                 harness.group.openFile(readmePath);
                 await settle();
 
                 harness.group.openFile(mainPath);
                 await harness.host.activateByEvent("onLanguage:typescript");
 
-                // Положительный сигнал: сервер жив, проект обработан, диагностика пришла.
                 await until("диагностика на main.ts", () => {
                     const hit = published.some(
                         (p) => p.resource === mainUri && p.markers.some((m) => m.message.includes("not assignable")),
@@ -139,15 +121,11 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                     return Promise.resolve(hit ? true : null);
                 });
 
-                // Погонять вкладки markdown ↔ ts при подписанном клиенте — didOpen
-                // markdown обязан отфильтроваться настоящим languages.match.
                 harness.group.openFile(readmePath);
                 await settle();
                 harness.group.openFile(mainPath);
                 await settle(1000);
 
-                // Канал клиента чист: серверные window/logMessage об ошибках didOpen /
-                // «Unexpected resource» / упавших хендлерах отсутствуют.
                 const errors = outputLines.filter((l) =>
                     /Cannot open document|Unexpected resource|already open|failed with message/i.test(l.value),
                 );
@@ -192,8 +170,6 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:typescript");
 
-            // Прогресс запуска (наш withProgress вокруг client.start()) виден
-            // сразу после активации — и обязан закрыться по готовности сервера.
             const startEvent = progressEvents.find((e) => e.kind === "start");
             expect(startEvent?.title).toContain("TypeScript (Diode)");
             expect(startEvent?.title).toContain("starting language server");
@@ -202,8 +178,6 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 return Promise.resolve(done ? true : null);
             });
 
-            // Output-канал клиента — настоящий: строка о старте сервера доехала
-            // с label канала (селектор Output) и id вида extensions.<owner>.<slug>.
             const started = await until("строка о старте сервера в output-канале", () => {
                 const line = outputLines.find((l) => l.value.includes("language server started"));
                 return Promise.resolve(line ?? null);
@@ -212,8 +186,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             expect(started.label).toBe("TypeScript (Diode)");
             expect(started.level).toBe("info");
 
-            // Диагностика от НАСТОЯЩЕГО tsserver'а — она же readiness-сигнал
-            // «сервер проиндексировал проект» перед go-to-definition.
+            // Диагностика — заодно readiness-сигнал «сервер проиндексировал проект» перед go-to-definition.
             const marker = await until("диагностика 'not assignable' в main.ts", () => {
                 const hit = markersFor(mainUri).find((m) => m.message.includes("not assignable to type 'number'"));
                 return Promise.resolve(hit ?? null);
@@ -221,7 +194,6 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             expect(marker.range.start.line).toBe(2);
             expect(marker.source).toBe("typescript");
 
-            // Go to Definition: каретка на вызове greet → объявление в defs.ts.
             const definitionAt = (line: number, character: number) =>
                 provideDefinitions(harness, {
                     uri: mainUri,
@@ -237,8 +209,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             expect(locations[0].uri).toBe(defsUri);
             expect(locations[0].range.start).toMatchObject({ line: 0, character: 16 });
 
-            // ИЗМЕНЯЕМЫЙ КОД: сдвигаем объявление greet в defs.ts на 2 строки
-            // вниз, НЕ сохраняя на диск. Сервер обязан увидеть живой буфер.
+            // Без сохранения на диск: сервер обязан увидеть живой буфер.
             harness.group.openFile(defsPath);
             harness.group
                 .getActiveEditor()
@@ -253,7 +224,6 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             expect(moved[0].uri).toBe(defsUri);
             expect(moved[0].range.start).toMatchObject({ line: 2, character: 16 });
 
-            // Чиним ошибку типов правкой (тоже без сохранения) — маркер обязан уйти.
             harness.group
                 .getActiveEditor()
                 ?.applyExternalEdits([createTextEdit(createRange(2, 13, 2, 19), "string")], "fix type");
@@ -261,11 +231,8 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 Promise.resolve(markersFor(mainUri).length === 0 ? true : null),
             );
 
-            // Регрессия «Unexpected resource»: фолдинг для файла, открытого
-            // посреди сессии. Запрос по документу, которого субпроцесс не видел
-            // открытым, хост не шлёт вовсе, поэтому файл открывается в редакторе:
-            // didOpen обязан дойти до сервера раньше foldingRange — иначе клиент
-            // спросит про неизвестный документ и получит отказ (фолдов нет).
+            // Регрессия «Unexpected resource»: файл открыт посреди сессии — didOpen обязан дойти до сервера раньше
+            // foldingRange, иначе клиент спросит про неизвестный документ.
             const extraPath = harness.writeFile(
                 "extra.ts",
                 "export function block(): void {\n    void 0;\n    void 0;\n}\n",
@@ -282,12 +249,8 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             });
             expect(folds[0]).toMatchObject({ startLine: 0 });
 
-            // Регрессия крэша tsserver «reading 'charCount'»: запрос с НОВОЙ
-            // версией уходит в ТОМ ЖЕ тике, что и правка, — обгоняя
-            // коалесированный (microtask) didChange. Когда-то запрос нёс текст и
-            // писал его в реестр мимо событий, следующий didChange нёс диапазон
-            // от уже нового текста, и tsserver получал правку за пределами своей
-            // копии. Теперь зеркало правит только didChange.
+            // Регрессия крэша tsserver «reading 'charCount'»: запрос с новой версией уходит в том же тике, что и
+            // правка, обгоняя коалесированный didChange; зеркало обязано править только didChange.
             harness.group.openFile(mainPath);
             const editor = harness.group.getActiveEditor();
             editor?.applyExternalEdits([createTextEdit(createRange(4, 0, 4, 0), "\nconst tail = 1;\n")], "grow");
@@ -297,15 +260,12 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 versionId: documentVersion(harness, mainUri),
             });
             await racing;
-            // Сервер жив и видит согласованный буфер: ломаем типы ещё раз и
-            // ждём диагностику на ПРАВИЛЬНОЙ строке.
             editor?.applyExternalEdits([createTextEdit(createRange(2, 13, 2, 19), "number")], "break again");
             const reMarker = await until("диагностика после гонки didChange/фолдинга", () => {
                 const hit = markersFor(mainUri).find((m) => m.message.includes("not assignable to type 'number'"));
                 return Promise.resolve(hit ?? null);
             });
             expect(reMarker.range.start.line).toBe(2);
-            // Канал чист от крэшей tsserver и отказов по неизвестным документам.
             const serverErrors = outputLines.filter((l) =>
                 /charCount|TypeScript Server Error|Unexpected resource|should be opened/i.test(l.value),
             );

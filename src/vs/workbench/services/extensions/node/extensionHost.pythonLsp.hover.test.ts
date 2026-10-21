@@ -19,14 +19,11 @@ import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts"
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreHover } from "../../../../editor/common/languages/iHoverSource.ts";
 
-// Hover поверх настоящего стороннего basedpyright.vsix (см. basedpyrightFixture):
-// стоковый клиент регистрирует hover-провайдер под capability сервера, его
-// конвертер зовёт `new code.Hover(...)` / `new code.MarkdownString(...)` —
-// падение этих точек видно только на чужом коде, юнит на стабе его не исполняет.
+// Конвертер стокового клиента зовёт `new code.Hover(...)` — его падение видно
+// только на чужом коде, юнит на стабе его не исполняет.
 
 let installed: IInstalledBasedpyright;
 
-// Vsix приезжает из магазина (см. basedpyrightFixture.ts) — в оффлайне пропускаем.
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover от стокового basedpyright", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
@@ -55,7 +52,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover от стоков�
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:python");
 
-            // Каретка на вызове `greet` — ждём его сигнатуру от настоящего сервера.
             const hovers = await until("hover над `greet`", async () => {
                 const found: readonly ICoreHover[] = await provideHovers(harness, {
                     uri: mainUri,
@@ -67,8 +63,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover от стоков�
                 return found.length > 0 ? found : null;
             });
 
-            // Текст, которого НЕТ в буфере (правило Suggest.md): возвращаемый тип
-            // из объявления в другом файле.
+            // Текста НЕТ в буфере (правило Suggest.md): тип из объявления в другом файле.
             const joined = hovers.flatMap((hover) => hover.contents).join("\n");
             expect(joined).toContain("greet(name: str) -> str");
 

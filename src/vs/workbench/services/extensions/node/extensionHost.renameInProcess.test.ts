@@ -10,12 +10,7 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-/**
- * Rename по handle: субпроцесса нет, канал сшит in-process — так видно, что
- * уезжает субпроцессу (документ, версия, позиция, новое имя), что отсекается
- * без синхронизации документа и по таймауту и что остановка субпроцесса
- * отрезает запросы.
- */
+// Канал сшит in-process: виден провод и ветки, недостижимые через настоящий fork.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -31,7 +26,7 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
+/** Запросы ходят только по документам, синхронизированным с субпроцессом. */
 const DOCUMENT = { uri: "file:///proj/main.ts", languageId: "typescript", version: 3, text: "const value = 1;\n" };
 
 function makeHost(
@@ -206,7 +201,6 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
             'request "languages.provideRenameEdits" timed out after 10ms',
         ]);
         expect(warnings).toEqual([]);
-        // Оба провайдера узнают, что ответа больше не ждут (`$/cancelRequest`).
         await vi.waitFor(() => {
             expect(tokens.map((token) => token.isCancellationRequested)).toEqual([true, true]);
         });

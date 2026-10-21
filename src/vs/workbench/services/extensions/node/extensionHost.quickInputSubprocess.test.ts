@@ -4,12 +4,8 @@ import { createExtensionTestHarness, extensionFixture } from "../../../../../Tes
 import type { IQuickInputBoxRequest, IQuickInputSink } from "../../../api/common/iExtensionWindowSinks.ts";
 import type { IWireQuickPickRequest, IWireValidationMessage } from "../../../api/common/wireTypes.ts";
 
-// Полный круг quick input'а через НАСТОЯЩИЙ субпроцесс: команда расширения →
-// window.showInputBox/showQuickPick → RPC → сток хоста → ответ → обратно в
-// расширение. Сток здесь — стаб, который отвечает вместо человека: сам оверлей
-// закрыт тестами QuickInputExtensionAdapter, а предмет этого теста — провод.
-
-/** Сток-«человек»: отвечает заранее заданным и записывает, о чём спросили. */
+// Сток — стаб вместо человека: оверлей закрыт тестами QuickInputExtensionAdapter,
+// предмет здесь — провод.
 function makeSink(answers: {
     input?: (request: IQuickInputBoxRequest) => Promise<string | undefined>;
     pick?: (request: IWireQuickPickRequest) => Promise<readonly number[] | undefined>;

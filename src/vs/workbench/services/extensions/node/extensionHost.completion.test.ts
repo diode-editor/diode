@@ -11,7 +11,6 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICompletionRequest } from "../../../../editor/common/languages/iCompletionSource.ts";
 
-/** Запрос по открытому в харнессе `.editorconfig` (`ind|`) — с его текущей версией. */
 function requestIn(harness: IExtensionHarness): ICompletionRequest {
     const uri = Uri.file(`${harness.tmpDir}/.editorconfig`).toString();
     return { uri, languageId: "editorconfig", versionId: documentVersion(harness, uri), line: 0, character: 3 };
@@ -26,16 +25,14 @@ describe("ExtensionHost — completion bridge (subprocess)", () => {
         try {
             await settle();
 
-            // Через group.completionSource (wiring харнесса) — как это делает ядро.
             const { items } = await provideCompletions(harness, requestIn(harness));
             expect(items.map((i) => i.label)).toEqual(["indent_style", "indent_size"]);
 
             const style = items.find((i) => i.label === "indent_style");
-            expect(style?.insertText).toBe("indent_style"); // fallback на label
+            expect(style?.insertText).toBe("indent_style");
             expect(style?.detail).toBe("EditorConfig");
             expect(style?.command?.command).toBe("editorconfig._triggerSuggestAfterDelay");
 
-            // item.command доезжает через commands bridge и правит активный редактор.
             expect(harness.commandRegistry.has("editorconfig._triggerSuggestAfterDelay")).toBe(true);
             await harness.commandRegistry.execute(style!.command!.command);
             await settle();

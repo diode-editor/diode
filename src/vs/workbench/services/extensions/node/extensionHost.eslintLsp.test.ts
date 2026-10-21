@@ -18,17 +18,12 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
-// JS-линт «как у пользователя»: НАСТОЯЩИЙ сторонний vsix vscode-eslint,
-// установленный штатным installVsix, на настоящем ext-host subprocess'е — ни
-// строчки нашего кода расширения (обвязка — src/TestUtils/eslintFixture.ts).
 // Библиотеку eslint сервер расширения резолвит из node_modules воркспейса —
-// фикстура доносит её симлинком. Базовый сьют: активация по onStartupFinished,
-// push-диагностики над живым буфером и их пересчёт после несохранённой правки.
+// фикстура доносит её симлинком.
 
 let installed: IInstalledEslint;
 let eslintNodeModules: string;
 
-// Vsix и npm-пакет eslint приезжают по сети — в оффлайне пропускаем.
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый vscode-eslint.vsix (JS-линт, сквозняк)", () => {
     beforeAll(async () => {
         installed = await installEslint();
@@ -65,12 +60,9 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый vscode-
                     published.filter((p) => p.resource === uri).at(-1)?.markers ?? [];
 
                 harness.group.openFile(lintPath);
-                // Ленивая активация ровно тем событием, которое объявляет манифест vsix.
                 await harness.host.activateByEvent("onStartupFinished");
-                // activate() выжил на нашем стабе — расширение числится активным.
                 expect(harness.host.hasExtension(ESLINT_ID)).toBe(true);
 
-                // Push-диагностика от НАСТОЯЩЕГО eslintServer — readiness-сигнал.
                 const extraSemi = await until("диагностика no-extra-semi в lint.js", () => {
                     const hit = markersFor(lintUri).find((m) => (m.code ?? "") === "no-extra-semi");
                     return Promise.resolve(hit ?? null);
@@ -78,18 +70,15 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый vscode-
                 expect(extraSemi.range.start.line).toBe(0);
                 expect(markersFor(lintUri).some((m) => (m.code ?? "") === "no-unused-vars")).toBe(true);
 
-                // ИЗМЕНЯЕМЫЙ КОД: убираем лишнюю `;` БЕЗ сохранения на диск —
-                // eslint.run=onType обязан пересчитать диагностику живого буфера.
+                // БЕЗ сохранения на диск: eslint.run=onType пересчитывает живой буфер.
                 harness.group
                     .getActiveEditor()
                     ?.applyExternalEdits([createTextEdit(createRange(0, 17, 0, 18), "")], "drop extra semi");
                 await until("no-extra-semi ушла после правки", () =>
                     Promise.resolve(markersFor(lintUri).some((m) => (m.code ?? "") === "no-extra-semi") ? null : true),
                 );
-                // Пересчёт, а не сброс: непофиксенная no-unused-vars осталась.
                 expect(markersFor(lintUri).some((m) => (m.code ?? "") === "no-unused-vars")).toBe(true);
 
-                // Конвертеры стокового клиента не падали молча (конвенция TS-сьютов).
                 const crashes = outputLines.filter((l) => CLIENT_CRASH_PATTERNS.test(l.value));
                 expect(crashes).toEqual([]);
             } finally {

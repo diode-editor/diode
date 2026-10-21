@@ -21,11 +21,6 @@ import { formatDocumentAction } from "../../../contrib/format/browser/formatActi
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
-// Формат Python поверх СТОКОВОГО стека: настоящий ruff.vsix + вшитый
-// `ruff server` (documentFormatting и rangeFormatting регистрируются
-// клиентом динамически — client/registerCapability). Образец — сьют
-// extensionHost.typescriptLsp.formatting.
-
 // Две кривые строки: формат чинит обе (кавычки ruff не трогает — стиль
 // по умолчанию double).
 const MESSY_PY = 'x  =  1\nprint( "x" )\n';
@@ -53,7 +48,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — форматирован
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:python");
 
-            // Шов: дождаться динамической регистрации провайдера и правок сервера.
+            // Провайдер формата клиент регистрирует динамически (client/registerCapability).
             const edits = await until("formatting edits от ruff", async () => {
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: mainUri,
@@ -66,7 +61,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — форматирован
             });
             expect(edits.length).toBeGreaterThan(0);
 
-            // Настоящая команда (как WORKBENCH_ACTIONS в проде) — и текст в буфере.
             const statusBar = {
                 addEntry: () => ({ dispose: () => undefined }),
             } as unknown as StatusBarService;

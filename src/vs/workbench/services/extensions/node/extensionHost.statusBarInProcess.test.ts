@@ -11,11 +11,6 @@ import type { IWireStatusBarItem } from "../../../api/common/wireTypes.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Детерминированный in-process тест стока пунктов статус-бара
-// (`window.statusBarItem.*`): вместо форка subprocess'а гоняем
-// `installHostHandlers` на in-process RPC-паре (паттерн
-// extensionHost.diagnostics.test.ts).
-
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
     setActiveEditorOptions: () => undefined,
@@ -40,13 +35,10 @@ function makeHost(withSink: boolean) {
     const sink: IStatusBarItemSink = {
         update: (item) => updates.push(item),
         remove: (handle) => removed.push(handle),
-        // Снятие всех пунктов идёт не через RPC, а при смерти субпроцесса —
-        // его проверяет extensionHost.statusBar.test.ts на живом субпроцессе.
+        // Не RPC, а смерть субпроцесса — её проверяет extensionHost.statusBar.test.ts.
         clear: () => undefined,
     };
-    // Логгер RPC ловит исключения хендлеров нотификаций (они там глотаются
-    // молча) — по нему видно, что битый конверт или отсутствующий сток не
-    // уронили обработчик.
+    // Исключения хендлеров нотификаций RPC глотает молча — видны они только в логгере.
     const rpcLogger = {
         trace: vi.fn(),
         debug: vi.fn(),

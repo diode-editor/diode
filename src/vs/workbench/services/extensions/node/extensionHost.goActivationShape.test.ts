@@ -6,14 +6,7 @@ import { NULL_LOGGER } from "../../../../platform/log/common/nullLogService.ts";
 import type { IOutputSink } from "../../../api/common/iExtensionWindowSinks.ts";
 import { LanguageConfigurationService } from "../../language/common/languageConfigurationService.ts";
 
-/**
- * Расширение с дебаггером и Test API обязано активироваться ЦЕЛИКОМ — форма
- * `golang.go`: провайдер конфигураций отладки, фабрики адаптера, контроллер
- * тестов с тремя профилями и в самом конце `languages.setLanguageConfiguration`.
- * Без `vscode.debug` пользователь терял ~60 команд `go.*` (gopls при этом
- * жил). Проверка — на настоящем субпроцессе расширений, слой конфигурации —
- * в настоящем сервисе конфигураций ядра.
- */
+// Форма `golang.go`: без `vscode.debug` пользователь терял ~60 команд `go.*`.
 describe("ExtensionHost — расширение с дебаггером и Test API активируется целиком", () => {
     it("activate() доходит до команды; сессий нет, профили и коллекции рабочие, слой языка — в ядре", async () => {
         const output: { channel: string; level: string; value: string }[] = [];
@@ -46,14 +39,12 @@ describe("ExtensionHost — расширение с дебаггером и Test
                 symbol: 0,
             });
 
-            // Комментарии и скобки слоя применяет ядро (комментирование, авто-закрытие).
             expect(await languageConfigurations.ensureLoaded("gofixture")).toMatchObject({
                 comments: { lineComment: "//", blockComment: ["/*", "*/"] },
                 brackets: [["{", "}"]],
                 autoClosingPairs: [{ open: "{", close: "}", notIn: [] }],
             });
 
-            // Человеку — по строке на тип отладчика, контроллер тестов и попытку запуска.
             expect(output.map((line) => `${line.channel}/${line.level}: ${line.value}`)).toEqual([
                 expect.stringMatching(/^extensions\/warn: отладка "go" в TUI пока не поддержана/),
                 expect.stringMatching(/^extensions\/warn: тесты "go" в TUI пока не показываются/),
@@ -63,7 +54,6 @@ describe("ExtensionHost — расширение с дебаггером и Test
             await harness.dispose();
         }
 
-        // Субпроцесс ушёл — слои его расширений сняты вместе с ним.
         expect(languageConfigurations.get("gofixture")?.comments).toBeUndefined();
     });
 });

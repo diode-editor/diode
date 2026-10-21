@@ -13,7 +13,6 @@ import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLang
 import type { ISignatureHelpRequest } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 
-/** Мини-сервис языков: `.ts` → typescript, иначе — undefined. */
 const TS_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".ts") ? "typescript" : undefined),
@@ -53,15 +52,13 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
         });
         try {
             const mainUri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
-            // Символы обеих регистраций доехали метаданными и видны ядру для
-            // документа (порядок — по реестру: новая регистрация первой).
+            // Порядок — по реестру: новая регистрация первой.
             expect(signatureHelpCharacters(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)))).toEqual(
                 {
                     triggerCharacters: [",", "<", "("],
                     retriggerCharacters: [")"],
                 },
             );
-            // Документу на другом языке символы typescript-провайдеров не видны.
             expect(signatureHelpCharacters(harness, { uri: mainUri, languageId: "markdown" })).toEqual({
                 triggerCharacters: [],
                 retriggerCharacters: [],

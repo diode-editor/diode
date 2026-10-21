@@ -25,12 +25,6 @@ interface IUpdateResult {
     readonly error?: string;
 }
 
-/**
- * Сквозняк `WorkspaceConfiguration.update`: синтетическое расширение в
- * настоящем субпроцессе пишет через хост в ФАЙЛОВЫЙ сервис настроек — тот же,
- * что у приложения, — и видит результат в `get()`, `inspect()` и
- * `onDidChangeConfiguration`, а файл ложится на диск.
- */
 describe("ExtensionHost — WorkspaceConfiguration.update (subprocess → settings.json)", () => {
     let userData: ITempWorkspace;
     let folder: ITempWorkspace;
@@ -49,7 +43,6 @@ describe("ExtensionHost — WorkspaceConfiguration.update (subprocess → settin
         options: { readonly withFolder: boolean },
         run: (harness: IExtensionHarness) => Promise<void>,
     ): Promise<void> {
-        // Реестр — как в main.ts: настройки расширения из его манифеста.
         const registry = new ConfigurationRegistry();
         registry.registerExtensionConfiguration(ID, {
             "test.update.open": { default: true },

@@ -7,12 +7,7 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Детерминированный in-process тест валидации хостовых обработчиков
-// `editor.showTextDocument`/`closeTabs`/`closeGroups` (как
-// extensionHost.documentSyncGate.test.ts): реальный субпроцесс шлёт только
-// корректные параметры (их формирует vscodeNamespace), поэтому мусор в провод
-// кладём напрямую через RPC-пару. Заодно фиксируем контракт
-// NULL_EDITOR_LAYOUT_SERVICE — дефолтного порта хоста без полосы групп.
+// Реальный субпроцесс шлёт только корректные параметры — мусор кладём через RPC-пару.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,

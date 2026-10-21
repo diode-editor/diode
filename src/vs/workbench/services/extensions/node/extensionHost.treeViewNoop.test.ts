@@ -4,13 +4,8 @@ import { createExtensionTestHarness, extensionFixture } from "../../../../../Tes
 import { settle } from "../../../../../TestUtils/timing.ts";
 import type { IOutputSink } from "../../../../workbench/api/common/iExtensionWindowSinks.ts";
 
-/**
- * Расширение с деревом обязано активироваться ЦЕЛИКОМ. Дерево пока не
- * рисуется (Phase 8b), но без `vscode.TreeItem` модуль расширения падал ещё
- * при загрузке (`class Target extends vscode.TreeItem` на уровне модуля), а
- * без `window.registerTreeDataProvider` — второй строкой `activate()`. Оба
- * раза пользователь терял всё расширение: команды, задачи, провайдеры.
- */
+// Без `vscode.TreeItem` модуль расширения падал при загрузке, без
+// `registerTreeDataProvider` — в `activate()`: пользователь терял всё расширение.
 describe("ExtensionHost — расширение с деревом активируется целиком", () => {
     it("модуль с `extends vscode.TreeItem` грузится, команда после регистрации дерева исполняется", async () => {
         const output: { channel: string; level: string; value: string }[] = [];
@@ -32,7 +27,6 @@ describe("ExtensionHost — расширение с деревом активи�
                 "//app:main:0:play",
                 "//lib:greeter:0:play",
             ]);
-            // Человеку — одна строка, что дерева не будет.
             expect(output).toEqual([
                 {
                     channel: "extensions",

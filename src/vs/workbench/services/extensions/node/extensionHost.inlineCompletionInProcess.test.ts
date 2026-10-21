@@ -10,12 +10,6 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-/**
- * Guard-ветки подписки inline completions: флаг `hasInlineCompletionProviders`
- * гейтит RPC целиком, чужая форма флага читается как false (образец —
- * `extensionHost.completionInProcess.test.ts`).
- */
-
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
     setActiveEditorOptions: () => undefined,
@@ -30,7 +24,7 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Документ, который тесты открывают субпроцессу: запросы ходят только по синхронизированным. */
+/** Запросы ходят только по документам, синхронизированным с субпроцессом. */
 const DOCUMENT = { uri: "file:///proj/main.ts", languageId: "typescript", version: 3, text: "con" };
 
 const REQ = {
@@ -69,8 +63,7 @@ describe("ExtensionHost — inline completions (in-process)", () => {
 
         expect(first).toEqual([{ insertText: " = 42;" }]);
         expect(second).toEqual([{ insertText: " = 7;" }]);
-        // Параметры с версией вместо текста + пачка handle + токен отмены этого
-        // запроса (второй аргумент хендлера — его выдаёт RpcEndpoint принимающей стороны).
+        // Второй аргумент хендлера — токен отмены от RpcEndpoint принимающей стороны.
         expect(seen).toHaveBeenCalledExactlyOnceWith(
             {
                 handles: [3, 8],
@@ -150,7 +143,6 @@ describe("ExtensionHost — inline completions (in-process)", () => {
 
         expect(await host.provideInlineCompletions(0, REQ)).toEqual([]);
         await flushMicrotasks();
-        // Молчащий провайдер узнаёт, что его ответа больше не ждут.
         expect(seen!.isCancellationRequested).toBe(true);
     });
 });

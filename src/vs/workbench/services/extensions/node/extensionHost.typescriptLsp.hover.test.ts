@@ -19,14 +19,7 @@ import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLang
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Hover поверх СТОКОВОГО стека (правило AGENTS: фича поверх стокового
-// расширения закрывается стоковым расширением): настоящий builtin
-// `diode-lsp-typescript` (бандл с vscode-languageclient) + настоящий
-// `typescript-language-server` из devDeps на настоящем ext-host subprocess'е.
-// Стоковый клиент сам регистрирует hover-провайдер под capability сервера, а
-// его конвертер дёргает `new code.Hover(...)`/`new code.MarkdownString(...)` и
-// безусловно пишет `supportHtml` — падение любой из этих точек видно только
-// здесь, юнит-тест на стабе чужой код не исполняет.
+// Стоковый конвертер дёргает `new code.Hover`/`new code.MarkdownString` и безусловно пишет `supportHtml`.
 
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
@@ -34,7 +27,6 @@ const CLIENT_BUNDLE = path.join(REPO_ROOT, "extensions/diode-lsp-typescript/out/
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
 const TSSERVER_JS = require_.resolve("typescript/lib/tsserver.js");
 
-/** Мини-сервис языков: `.ts` → typescript. */
 const TS_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".ts") ? "typescript" : undefined),
@@ -59,7 +51,6 @@ function lspClientRegistration(): IExtensionRegistration {
     };
 }
 
-/** Опрос с дедлайном: сервер индексирует проект секундами, sleep'ы не годятся. */
 async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs = 60_000): Promise<T> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -72,7 +63,6 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
 
 describe("ExtensionHost — hover от стокового typescript-language-server", () => {
     beforeAll(async () => {
-        // Свежий бандл клиента: тест закрывает именно то, что уедет в приложение.
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
         )) as { buildExtensions: (options: { repoRoot: string }) => Promise<unknown> };
@@ -101,7 +91,6 @@ describe("ExtensionHost — hover от стокового typescript-language-se
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:typescript");
 
-            // Каретка на `answer` — ждём от настоящего tsserver его тип.
             const hovers = await until("hover над `answer`", async () => {
                 const found: readonly ICoreHover[] = await provideHovers(harness, {
                     uri: mainUri,
@@ -113,11 +102,9 @@ describe("ExtensionHost — hover от стокового typescript-language-se
                 return found.length > 0 ? found : null;
             });
 
-            // tsserver отвечает MarkupContent(markdown): сигнатура — fenced-блоком.
             const joined = hovers.flatMap((hover) => hover.contents).join("\n");
             expect(joined).toContain("const answer: number");
 
-            // Молчаливый провал конвертации чужого кода виден только в канале клиента.
             const conversionErrors = outputLines.filter((line) =>
                 /is not a constructor|Converting|Cannot read propert/i.test(line.value),
             );

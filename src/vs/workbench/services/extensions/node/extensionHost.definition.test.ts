@@ -12,14 +12,13 @@ import type { IDefinitionRequest } from "../../../../editor/common/languages/iDe
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 
-/** Мини-сервис языков: `.ts` → typescript, иначе — undefined. */
 const TS_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,
     getLanguageIdForResource: (filePath) => (filePath.endsWith(".ts") ? "typescript" : undefined),
     getLanguageDisplayName: () => undefined,
 };
 
-/** Версия для запросов по документу без открытого редактора: ответ пустой при любой. */
+/** Ответ пустой при любой версии. */
 const UNOPENED_VERSION = 1;
 
 function requestFor(uri: string, line: number, versionId: number): IDefinitionRequest {
@@ -44,7 +43,7 @@ describe("ExtensionHost — definition providers (subprocess)", () => {
             );
             expect(fromLocation).toEqual([{ uri: defsUri, range: createRange(2, 4, 2, 9) }]);
 
-            // Строка 1 → массив LocationLink; прицельный диапазон — targetSelectionRange.
+            // Строка 1 → массив LocationLink.
             const fromLink = await provideDefinitions(
                 harness,
                 requestFor(mainUri, 1, documentVersion(harness, mainUri)),
@@ -56,7 +55,6 @@ describe("ExtensionHost — definition providers (subprocess)", () => {
     });
 
     it("без subprocess'а и без провайдеров реестр definition пуст", async () => {
-        // Расширение зарегистрировано, но не активировано — subprocess не поднят.
         const lazy = await createExtensionTestHarness({
             extensions: [extensionFixture("test.providesDefinition", "providesDefinition.cjs")],
             activateEvents: [],
@@ -68,7 +66,6 @@ describe("ExtensionHost — definition providers (subprocess)", () => {
             await lazy.dispose();
         }
 
-        // Subprocess поднят (noop активен), но definition-провайдеров никто не регистрировал.
         const noProviders = await createExtensionTestHarness({
             extensions: [extensionFixture("test.noop", "noopExtension.cjs")],
             languageService: TS_LANGUAGE_SERVICE,

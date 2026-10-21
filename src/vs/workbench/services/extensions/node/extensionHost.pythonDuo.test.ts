@@ -18,11 +18,8 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
-// ДВА python-сервера разом — продовая конфигурация Python в Diode: basedpyright
-// (типы) + ruff (линт/формат). Проверяются ровно места стыка: диагностики обеих
-// DiagnosticCollection сливаются по одному файлу, а формат отдаёт ruff —
-// у basedpyright формат-capability нет, «первый матчащий провайдер» не должен
-// упереться в него.
+// basedpyright + ruff разом: у basedpyright формат-capability нет, и «первый
+// матчащий провайдер» не должен упереться в него.
 
 // И ошибка типов (basedpyright: str в int), и криво отформатированное
 // присваивание с неиспользуемым импортом (ruff: F401 + формат).
@@ -57,7 +54,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — basedpyright + ruff од
             expect(harness.host.hasExtension("charliermarsh.ruff")).toBe(true);
             expect(harness.host.hasExtension("detachhead.basedpyright")).toBe(true);
 
-            // Последний снапшот маркеров файла от КАЖДОГО владельца коллекции.
             const latestByOwner = (predicate: (m: WireMarker) => boolean): WireMarker | undefined => {
                 for (const p of [...published].reverse()) {
                     if (p.resource !== duoUri) continue;
@@ -67,8 +63,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — basedpyright + ruff од
                 return undefined;
             };
 
-            // Оба сервера дошли до одного файла: F401 от ruff, ошибка типов от
-            // basedpyright (его холодный старт — десятки секунд, ruff давно готов).
+            // Холодный старт basedpyright — десятки секунд, ruff давно готов.
             await until("F401 от ruff", () =>
                 Promise.resolve(latestByOwner((m) => /F401|unused/.test(`${m.code ?? ""} ${m.message}`)) ?? null),
             );
@@ -76,7 +71,6 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — basedpyright + ruff од
                 Promise.resolve(latestByOwner((m) => m.message.includes("is not assignable")) ?? null),
             );
 
-            // Формат: единственный формат-провайдер — ruff; правки чинят присваивание.
             const edits = await until("formatting edits при двух серверах", async () => {
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: duoUri,
