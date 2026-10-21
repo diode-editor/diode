@@ -12,8 +12,8 @@ describe("Uri — file-схема", () => {
     });
 
     it("file() НЕ резолвит относительный путь против cwd — только префиксует слэшем", () => {
-        // Ловушка миграции: path.resolve() ушёл бы в cwd, Uri.file() — нет.
-        // Резолвить надо ДО подъёма в Uri.
+        // Migration trap: path.resolve() would go to cwd, Uri.file() doesn't.
+        // Resolve BEFORE lifting into a Uri.
         expect(Uri.file("rel/x.ts").path).toBe("/rel/x.ts");
     });
 
@@ -60,7 +60,7 @@ describe("Uri — не-file схемы", () => {
     });
 
     it("fsPath у не-file схемы возвращает путь как есть и НЕ бросает", () => {
-        // Поэтому дисковые операции гейтим по scheme, а не по «путь непустой».
+        // Hence disk operations are gated on scheme, not on "the path is non-empty".
         expect(Uri.parse("untitled:Untitled-1").fsPath).toBe("Untitled-1");
     });
 });

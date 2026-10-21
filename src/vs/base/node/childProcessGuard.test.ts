@@ -16,7 +16,7 @@ function recordingLogger(): { warn(message: string): void; lines: string[] } {
     };
 }
 
-/** Ждёт конца процесса и отдаёт все его концы (их обязан быть ровно один). */
+/** Waits for the process to end and returns all its endings (there must be exactly one). */
 function ends(guard: GuardedChildProcess): { all: IChildProcessEnd[]; first: Promise<IChildProcessEnd> } {
     const all: IChildProcessEnd[] = [];
     const first = new Promise<IChildProcessEnd>((resolve) => {
@@ -32,7 +32,7 @@ function node(script: string, stdio: "pipe" | "ignore" = "pipe") {
     return spawn(process.execPath, ["-e", script], { stdio: ["ignore", stdio, stdio] });
 }
 
-/** Ребёнок без stdio, у которого `exit` и `close` эмитятся руками — порядок под контролем теста. */
+/** A child without stdio whose `exit` and `close` are emitted by hand, so the test controls the order. */
 function scriptedChild(): ChildProcess {
     const child = new EventEmitter() as EventEmitter & { stdin: null; stdout: null; stderr: null };
     child.stdin = null;
@@ -206,7 +206,7 @@ describe("splitLines", () => {
 
         return new Promise<void>((resolve) => {
             stream.on("end", () => {
-                // Снимается только `\r` перед переводом строки, а не любой.
+                // Only a `\r` before a newline is stripped, not any.
                 expect(lines).toEqual(["one", "in\rside", "two", "three"]);
                 resolve();
             });

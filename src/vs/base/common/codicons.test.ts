@@ -45,7 +45,7 @@ describe("renderCodicons", () => {
     });
 
     it("таблица кодпоинтов приехала целиком", () => {
-        // Нижняя граница — защита от «генератор отдал пустышку, а тесты зелёные».
+        // The lower bound guards against "the generator produced an empty table and tests are green".
         expect(Object.keys(CODICON_GLYPHS).length).toBeGreaterThan(700);
     });
 });

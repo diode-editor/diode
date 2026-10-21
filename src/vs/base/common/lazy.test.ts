@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { safeIntl } from "./date.ts";
 import { Lazy } from "./lazy.ts";
 
-/** Потребитель — перенесённый `core/wordCharacterClassifier.ts`. */
+/** Consumer: the vendored `core/wordCharacterClassifier.ts`. */
 
 describe("Lazy", () => {
     it("считает значение один раз — при первом чтении", () => {

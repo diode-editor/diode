@@ -2,8 +2,8 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-// Извлечение из upstream `src/vs/base/common/errors.ts` (microsoft/vscode@1.127.0):
-// логика и имена дословно, без `noTelemetry`/`ErrorNoTelemetry` — телеметрии нет.
+// Extracted from upstream `src/vs/base/common/errors.ts` (microsoft/vscode@1.127.0):
+// logic and names verbatim, without `noTelemetry`/`ErrorNoTelemetry`: there is no telemetry.
 type ErrorWithCode = Error & {
     code: string | undefined;
 };
@@ -22,7 +22,7 @@ export function transformErrorForSerialization(error: unknown): unknown;
 export function transformErrorForSerialization(error: unknown): unknown {
     if (error instanceof Error) {
         const { name, message, cause } = error;
-        // Именно `||`, как в upstream: пустой `stacktrace` уступает `stack`.
+        // `||` on purpose, as upstream: an empty `stacktrace` yields to `stack`.
         // eslint-disable-next-line @typescript-eslint/prefer-nullish-coalescing
         const stack = (error as { stacktrace?: string }).stacktrace || error.stack;
         return {
@@ -59,7 +59,7 @@ export const canceledName = "Canceled";
  * Checks if the given error is a promise in canceled state
  */
 export function isCancellationError(error: unknown): boolean {
-    // Stryker disable next-line ConditionalExpression,BlockStatement: эквивалентны — экземпляр всегда имеет и форму, которую узнаёт проверка ниже
+    // Stryker disable next-line ConditionalExpression,BlockStatement: equivalent, an instance always also has the shape the check below recognizes
     if (error instanceof CancellationError) {
         return true;
     }

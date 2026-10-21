@@ -6,13 +6,13 @@ import * as path from "node:path";
 import { isSeaBinary } from "./isSea.ts";
 
 /**
- * Перезагрузка окна заменой процесса. Наивный `spawn + exit` не годится:
- * родитель вернёт терминал шеллу, и приглашение подерётся за экран с новым
- * окном. Поэтому первый reload делает текущий процесс **супервизором**,
- * который держит терминал и синхронно ждёт ребёнка, а следующие reload'ы —
- * выход ребёнка с {@link RELOAD_EXIT_CODE}. Процессов всегда ровно два.
- * Другие аргументы (смена профиля, папки) окно оставляет супервизору в файле
- * {@link RELAUNCH_FILE_ENV}.
+ * Window reload by process replacement. A naive `spawn + exit` doesn't work:
+ * the parent returns the terminal to the shell, and the prompt fights the new
+ * window for the screen. So the first reload turns the current process into a **supervisor**
+ * that holds the terminal and synchronously waits for the child, and subsequent reloads are
+ * the child exiting with {@link RELOAD_EXIT_CODE}. There are always exactly two processes.
+ * Other arguments (profile or folder change) the window leaves to the supervisor in the
+ * {@link RELAUNCH_FILE_ENV} file.
  */
 
 export const RELOAD_EXIT_CODE = 77;
@@ -25,12 +25,12 @@ export interface IProcessSnapshot {
     readonly execPath: string;
     readonly execArgv: readonly string[];
     readonly argv: readonly string[];
-    /** SEA-бинарь: скрипта в `argv[1]` нет, там сам бинарь. */
+    /** SEA binary: `argv[1]` holds the binary itself, not a script. */
     readonly isSea: boolean;
     readonly env: NodeJS.ProcessEnv;
 }
 
-/** `null` — убит сигналом. */
+/** `null` means killed by a signal. */
 export interface ISpawnResult {
     readonly status: number | null;
 }
@@ -42,10 +42,10 @@ export interface IRestartHooks {
         options: { stdio: "inherit"; env: NodeJS.ProcessEnv },
     ): ISpawnResult;
     exit(code: number): never;
-    /** Файл аргументов следующего окна — один на всю жизнь супервизора. */
+    /** The next window's arguments file, one for the supervisor's whole life. */
     relaunchFilePath(): string;
     writeRelaunchFile(filePath: string, userArgs: readonly string[]): void;
-    /** Читает и снимает файл; нет или битый — `null`: аргументы не менялись. */
+    /** Reads and removes the file; missing or broken gives `null`: the arguments didn't change. */
     readRelaunchFile(filePath: string): readonly string[] | null;
 }
 
@@ -61,7 +61,7 @@ export function restartArgs(
     return [...snapshot.execArgv, mainScript, ...userArgs];
 }
 
-/** Вызывать последним: терминал, extension host и сессия к этому моменту уже отпущены. */
+/** Call last: the terminal, extension host and session are already released by then. */
 export function restartProcess(snapshot: IProcessSnapshot, hooks: IRestartHooks, userArgs?: readonly string[]): never {
     if (snapshot.env[SUPERVISED_ENV] === "1") {
         const relaunchFile = snapshot.env[RELAUNCH_FILE_ENV];
@@ -99,20 +99,20 @@ export const realRestartHooks: IRestartHooks = {
     exit: (code) => process.exit(code),
     relaunchFilePath: () => path.join(os.tmpdir(), `diode-relaunch-${String(process.pid)}.json`),
     writeRelaunchFile: (filePath, userArgs) => {
-        // Stryker disable next-line StringLiteral: пустая кодировка у writeFileSync — та же utf-8 по умолчанию
+        // Stryker disable next-line StringLiteral: an empty encoding in writeFileSync is the same default utf-8
         fs.writeFileSync(filePath, JSON.stringify(userArgs), "utf-8");
     },
     readRelaunchFile: (filePath) => {
         let content: string;
-        // Stryker disable BlockStatement: без раннего выхода parseRelaunchArgs(undefined) всё равно даёт null — эквивалентный мутант
+        // Stryker disable BlockStatement: without the early return parseRelaunchArgs(undefined) still gives null, an equivalent mutant
         try {
-            // Stryker disable next-line StringLiteral: без кодировки readFileSync отдаёт Buffer, и JSON.parse читает его той же utf-8
+            // Stryker disable next-line StringLiteral: without an encoding readFileSync returns a Buffer, and JSON.parse reads it as the same utf-8
             content = fs.readFileSync(filePath, "utf-8");
         } catch {
             return null;
         }
         // Stryker restore BlockStatement
-        // Stryker disable next-line ObjectLiteral,BooleanLiteral: `force` — на гонку с чужим удалением между чтением и снятием; из теста не воспроизводится
+        // Stryker disable next-line ObjectLiteral,BooleanLiteral: `force` covers a race with someone else deleting between read and removal; not reproducible from a test
         fs.rmSync(filePath, { force: true });
         return parseRelaunchArgs(content);
     },
@@ -120,7 +120,7 @@ export const realRestartHooks: IRestartHooks = {
 
 export function parseRelaunchArgs(content: string): readonly string[] | null {
     let parsed: unknown;
-    // Stryker disable BlockStatement: без раннего выхода `parsed` остаётся undefined и отсеивается Array.isArray — эквивалентный мутант
+    // Stryker disable BlockStatement: without the early return `parsed` stays undefined and is filtered out by Array.isArray, an equivalent mutant
     try {
         parsed = JSON.parse(content);
     } catch {

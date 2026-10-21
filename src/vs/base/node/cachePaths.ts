@@ -1,7 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 
-/** Раскладка совпадает с кэшем `scripts/selfextract-stub.sh`. */
+/** The layout matches the `scripts/selfextract-stub.sh` cache. */
 export function userCacheDir(
     env: NodeJS.ProcessEnv = process.env,
     platform: NodeJS.Platform = process.platform,

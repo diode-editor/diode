@@ -14,7 +14,7 @@ import {
     sumBy,
 } from "./arrays.ts";
 
-/** Корпус фикстур diff-движка гоняет шим насквозь, но не достаёт до граничных веток — они здесь. */
+/** The diff engine fixture corpus runs the shim end to end but misses the edge branches; they are here. */
 
 describe("CompareResult", () => {
     it("классифицирует результат сравнения", () => {

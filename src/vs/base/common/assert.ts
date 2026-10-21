@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/assert.ts
-// Отклонение: из `assertFn` убран `debugger` upstream — под инспектором он вешал бы TUI.
+// Deviation: upstream's `debugger` is removed from `assertFn`, under an inspector it would hang the TUI.
 
 import { BugIndicatingError, onUnexpectedError } from "./errors.ts";
 

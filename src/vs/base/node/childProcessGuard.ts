@@ -19,17 +19,17 @@ export interface IChildProcessGuardOptions {
     readonly logger?: IChildProcessLogger;
     readonly logStderr?: boolean;
     /**
-     * Конец по `close`, а не `exit`: нужен разбирающим stdout (rg) — после `exit`
-     * в потоках ещё есть данные. Не для самофорков: stdio наследуют внуки, и
-     * `close` не придёт, пока жив последний.
+     * Ends on `close`, not `exit`: needed by stdout parsers (rg), after `exit`
+     * the streams still hold data. Not for self-forks: grandchildren inherit stdio, and
+     * `close` won't come while the last one is alive.
      */
     readonly waitForStdio?: boolean;
 }
 
 /**
- * - `error` через `on`, не `once`: закрытый IPC-канал эмитит ошибку на каждый
- *   `send`, и вторая без слушателя роняет редактор;
- * - `error` без `exit` (неудачный спавн) — тоже конец процесса.
+ * - `error` via `on`, not `once`: a closed IPC channel emits an error on every
+ *   `send`, and the second one without a listener crashes the editor;
+ * - `error` without `exit` (failed spawn) also ends the process.
  */
 export class GuardedChildProcess extends Disposable {
     private readonly onDidEndEmitter = this.register(new Emitter<IChildProcessEnd>());
@@ -50,7 +50,7 @@ export class GuardedChildProcess extends Disposable {
         });
         const streams = { stdin: child.stdin, stdout: child.stdout, stderr: child.stderr };
         for (const [name, stream] of Object.entries(streams)) {
-            // Сломавшийся поток без слушателя убил бы редактор.
+            // A broken stream without a listener would kill the editor.
             stream?.on("error", (error: unknown) => {
                 this.options.logger?.warn(`[${options.label}] ${name} stream error: ${String(error)}`);
             });

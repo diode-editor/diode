@@ -3,6 +3,6 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/test/common/utils.ts
-// Путь upstream: сюда смотрит относительный импорт дословно перенесённых тестов.
+// Upstream path: the relative import of vendored tests points here.
 
 export { ensureNoDisposablesAreLeakedInTestSuite } from "../../../../TestUtils/disposableLeaks.ts";

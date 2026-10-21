@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { onUnexpectedError, setUnexpectedErrorHandler } from "./errors.ts";
 
-/** Отклонение от upstream: дефолт пишет в консоль, а не роняет процесс (шапка errors.ts). */
+/** Deviation from upstream: the default logs to the console instead of crashing the process (see the errors.ts header). */
 
 afterEach(() => {
     setUnexpectedErrorHandler((e) => {
@@ -12,8 +12,8 @@ afterEach(() => {
 
 describe("onUnexpectedError", () => {
     it("по умолчанию пишет в консоль и не бросает", async () => {
-        // Общий setupFiles ставит свой обработчик на каждый тест — дефолт
-        // видно только у свежего экземпляра модуля.
+        // The shared setupFiles installs its own handler for every test; the default
+        // is visible only on a fresh module instance.
         vi.resetModules();
         const fresh = await import("./errors.ts");
         const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);

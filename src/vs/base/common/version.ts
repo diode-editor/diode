@@ -1,7 +1,7 @@
-/** Подставляет `define` в `tsup.config.ts`; под `tsx` его нет. */
+/** Substituted by `define` in `tsup.config.ts`; absent under `tsx`. */
 declare const __DIODE_VERSION__: string | undefined;
 
-/* v8 ignore start -- ветка с подставленным __DIODE_VERSION__ исполняется только в собранном бандле (tsup define), не в dev/тестах */
+/* v8 ignore start -- the branch with __DIODE_VERSION__ substituted runs only in the built bundle (tsup define), not in dev/tests */
 export const DIODE_VERSION: string = typeof __DIODE_VERSION__ !== "undefined" ? __DIODE_VERSION__ : "0.0.0-dev";
 /* v8 ignore stop */
 

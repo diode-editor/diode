@@ -60,7 +60,7 @@ function buildPrefixIndex(paths: Iterable<string>): Map<string, Map<string, bool
                 bucket = new Map();
                 index.set(prefix, bucket);
             }
-            // Одно имя как файл и как каталог бывает только при битом bundle.
+            // The same name as both a file and a directory only happens in a broken bundle.
             const existing = bucket.get(name);
             if (existing === undefined) bucket.set(name, isDirectory);
             else if (existing !== isDirectory) {

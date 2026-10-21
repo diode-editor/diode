@@ -1,20 +1,19 @@
-// Ядро src/vs/base/common/lifecycle.ts эталона, отклонения от него
+// The core of upstream's src/vs/base/common/lifecycle.ts; deviations from it
 // (docs/arch/Common.md#жизненный-цикл-lifecyclets):
-// - `DisposableStore` освобождает в обратном порядке (LIFO): классы проекта
-//   писались под так устроенный прежний класс `@tuidom/core`;
-// - добавление в освобождённый стор освобождает объект сразу, а не оставляет
-//   его утекать с предупреждением: асинхронная работа договаривает после
-//   смерти владельца.
+// - `DisposableStore` disposes in reverse order (LIFO): project classes were
+//   written against the former `@tuidom/core` class that worked this way;
+// - adding to a disposed store disposes the object right away instead of letting
+//   it leak with a warning: async work finishes after its owner is gone.
 
 export interface IDisposable {
     dispose(): void;
 }
 
-// #region Учёт утечек
+// #region Leak tracking
 
 export interface IDisposableTracker {
     trackDisposable(disposable: IDisposable): void;
-    /** `null` — объект отдан из-под владельца. */
+    /** `null` means the object was released from its owner. */
     setParent(child: IDisposable, parent: IDisposable | null): void;
     markAsDisposed(disposable: IDisposable): void;
     markAsSingleton(disposable: IDisposable): void;
@@ -22,15 +21,15 @@ export interface IDisposableTracker {
 
 interface DisposableInfo {
     readonly value: IDisposable;
-    /** Место создания; `null` — объект попал в учёт только как чей-то ребёнок. */
+    /** Creation site; `null` means the object got tracked only as someone's child. */
     source: Error | null;
     parent: IDisposable | null;
     isSingleton: boolean;
 }
 
 /**
- * Утечка — живой объект без живого владельца, чей корень не синглтон; отчёт —
- * по корням. Включается хелпером `ensureNoDisposablesAreLeakedInTestSuite`.
+ * A leak is a live object without a live owner whose root isn't a singleton; reported
+ * per root. Enabled by the `ensureNoDisposablesAreLeakedInTestSuite` helper.
  */
 export class DisposableTracker implements IDisposableTracker {
     private readonly living = new Map<IDisposable, DisposableInfo>();
@@ -128,7 +127,7 @@ export function isDisposable<E>(thing: E): thing is E & IDisposable {
     return typeof candidate === "function" && candidate.length === 0;
 }
 
-/** Упавший `dispose()` не мешает освободить остальных: ошибки бросаются в конце. */
+/** A failing `dispose()` doesn't stop the rest from being disposed: errors are thrown at the end. */
 export function dispose<T extends IDisposable>(disposable: T): T;
 export function dispose<T extends IDisposable>(disposable: T | undefined): T | undefined;
 export function dispose<T extends IDisposable>(disposables: T[]): T[];
@@ -171,7 +170,7 @@ class FunctionDisposable implements IDisposable {
     }
 }
 
-/** `fn` вызывается не больше одного раза. */
+/** `fn` is called at most once. */
 export function toDisposable(fn: () => void): IDisposable {
     return new FunctionDisposable(fn);
 }
@@ -247,7 +246,7 @@ export abstract class Disposable implements IDisposable {
         return this.store.add(o);
     }
 
-    /** Имя эталона для дословно перенесённого кода (`model/pieceTreeTextBuffer/`); наш код зовёт `register`. */
+    /** The upstream name for vendored code (`model/pieceTreeTextBuffer/`); our code calls `register`. */
     protected _register<T extends IDisposable>(o: T): T {
         return this.register(o);
     }

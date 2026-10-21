@@ -1,8 +1,8 @@
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/event.ts
-// Свой узкий `Emitter` с API эталона, гарантии G1–G6 — docs/arch/Common.md#события-eventts.
-// Массив слушателей copy-on-write: `fire` идёт по захваченной ссылке, поэтому
-// добавленный во время `fire` слушатель в нём не зовётся. Очереди доставки, как
-// в эталоне, нет: вложенный `fire` доставляется вглубь.
+// Our own narrow `Emitter` with the upstream API, guarantees G1–G6: docs/arch/Common.md#события-eventts.
+// The listener array is copy-on-write: `fire` iterates the captured reference, so a
+// listener added during `fire` isn't called by it. Unlike upstream there is no delivery
+// queue: a nested `fire` is delivered depth-first.
 
 import { onUnexpectedError } from "./errors.ts";
 import { Disposable, type IDisposable, toDisposable } from "./lifecycle.ts";
@@ -14,8 +14,8 @@ export const Event = {
 
     once<T>(event: Event<T>): Event<T> {
         return (listener) => {
-            // Событие может прийти синхронно, ещё до того, как подписка вернулась:
-            // тогда снимать её приходится уже после возврата.
+            // The event may arrive synchronously, before the subscription has returned:
+            // then it has to be removed after the return.
             const state: { fired?: true; subscription?: IDisposable } = {};
             const subscription = event((e) => {
                 if (state.fired) return;
@@ -32,7 +32,7 @@ export const Event = {
 
 export interface IEmitterOptions {
     onWillAddFirstListener?(): void;
-    /** Зовётся и при `dispose`. */
+    /** Also called on `dispose`. */
     onDidRemoveLastListener?(): void;
     onListenerError?(e: unknown): void;
 }
@@ -61,7 +61,7 @@ export class Emitter<T> implements IDisposable {
     }
 
     private remove(listener: IListener<T>): void {
-        // Снятый `dispose()` эмиттера: список уже пуст, хук уже позван.
+        // Removed by the emitter's `dispose()`: the list is already empty, the hook already called.
         if (listener.removed) return;
         listener.removed = true;
         this.listeners = this.listeners.filter((l) => l !== listener);

@@ -2,10 +2,10 @@ import { Module } from "node:module";
 import * as path from "node:path";
 
 /**
- * Обход SEA: прямой `import()` из вшитого main умеет только builtin'ы, а
- * `require(esm)` не берёт top-level await. `import()` из синтетического
- * CJS-модуля (`Module._compile`) идёт настоящим ESM-loader'ом. `filename` —
- * путь целевого файла, чтобы относительный `require` смотрел туда же.
+ * SEA workaround: a bare `import()` from the embedded main only handles builtins, and
+ * `require(esm)` doesn't support top-level await. `import()` from a synthetic
+ * CJS module (`Module._compile`) goes through the real ESM loader. `filename` is
+ * the target file's path so a relative `require` resolves from there too.
  */
 export async function importModule(filePath: string): Promise<unknown> {
     const source =

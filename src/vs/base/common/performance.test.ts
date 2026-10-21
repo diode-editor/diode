@@ -52,7 +52,7 @@ describe("performance marks", () => {
         performance.mark("someone-else");
         mark("workbench:mounted");
         expect(getMarks().map((m) => m.name)).toEqual(["workbench:mounted"]);
-        // Сырое имя в performance — с префиксом, чтобы не пересекаться с чужими.
+        // The raw name in performance is prefixed so it doesn't clash with others.
         expect(performance.getEntriesByName("diode/workbench:mounted")).toHaveLength(1);
     });
 

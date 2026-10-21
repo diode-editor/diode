@@ -4,14 +4,14 @@ import * as path from "node:path";
 import { validateVirtualPath } from "../../common/assets/assetBundleFormat.ts";
 import type { IAssetAccess, IAssetEntry } from "../../common/assets/iAssetAccess.ts";
 
-/** Префикс каталога кончается на `/`; без `/` — полный путь одиночного файла. */
+/** A directory prefix ends with `/`; without `/` it is the full path of a single file. */
 export type AssetMapping = Readonly<Record<string, string>>;
 
 export class FsAssetAccess implements IAssetAccess {
     private readonly mapping: readonly (readonly [string, string])[];
 
     public constructor(mapping: AssetMapping) {
-        // Длинные префиксы первыми — иначе `""` проглотит всё.
+        // Longest prefixes first, otherwise `""` swallows everything.
         this.mapping = Object.entries(mapping).sort((a, b) => b[0].length - a[0].length);
     }
 

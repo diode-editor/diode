@@ -27,7 +27,7 @@ function devSnapshot(overrides: Partial<IProcessSnapshot> = {}): IProcessSnapsho
     };
 }
 
-/** Снимок SEA-бинаря: `argv[1]` — сам бинарь, а не скрипт. */
+/** Snapshot of a SEA binary: `argv[1]` is the binary itself, not a script. */
 function seaSnapshot(overrides: Partial<IProcessSnapshot> = {}): IProcessSnapshot {
     return devSnapshot({
         execPath: "/opt/diode",
@@ -38,7 +38,7 @@ function seaSnapshot(overrides: Partial<IProcessSnapshot> = {}): IProcessSnapsho
     });
 }
 
-/** Ошибка-заглушка вместо `process.exit`: хук обязан не возвращать управление. */
+/** A stub error instead of `process.exit`: the hook must not return control. */
 class ExitCalled extends Error {
     public constructor(public readonly code: number) {
         super(`exit(${String(code)})`);
@@ -52,9 +52,9 @@ interface IRecordedSpawn {
 }
 
 /**
- * Хуки, записывающие вызовы; `statuses` — коды выхода детей по порядку,
- * `relaunches` — что «окно» оставило в файле аргументов перед каждым выходом
- * (`null` — ничего), по порядку перезапусков.
+ * Hooks that record calls; `statuses` are the children's exit codes in order,
+ * `relaunches` is what the "window" left in the arguments file before each exit
+ * (`null` means nothing), in restart order.
  */
 function createHooks(
     statuses: readonly (number | null)[],
@@ -142,7 +142,7 @@ describe("restartProcess", () => {
 
         expect(code).toBe(RELOAD_EXIT_CODE);
         expect(spawns).toEqual([]);
-        // Аргументы не менялись — супервизору нечего оставлять, даже когда файл для них есть.
+        // The arguments didn't change: the supervisor has nothing to leave, even when there is a file for them.
         runRestart(devSnapshot({ env: { [SUPERVISED_ENV]: "1", [RELAUNCH_FILE_ENV]: "/tmp/sup.json" } }), hooks);
         expect(written).toEqual([]);
     });
@@ -175,8 +175,8 @@ describe("restartProcess", () => {
         expect(spawns).toHaveLength(1);
         expect(spawns[0].command).toBe("/usr/bin/node");
         expect(spawns[0].args).toEqual(restartArgs(devSnapshot()));
-        // stdio наследуется — иначе новое окно рисовало бы в трубу, а не в терминал;
-        // env-флаг говорит ребёнку, что супервизор над ним уже есть.
+        // stdio is inherited, otherwise the new window would draw into a pipe instead of the terminal;
+        // the env flag tells the child it already has a supervisor.
         expect(spawns[0].options).toEqual({
             stdio: "inherit",
             env: { HOME: "/home/user", [SUPERVISED_ENV]: "1", [RELAUNCH_FILE_ENV]: "/tmp/relaunch.json" },
@@ -189,7 +189,7 @@ describe("restartProcess", () => {
         runRestart(devSnapshot(), hooks, ["/other", "--profile", "work"]);
 
         expect(spawns[0].args).toEqual(restartArgs(devSnapshot(), ["/other", "--profile", "work"]));
-        // Ребёнок вышел не reload'ом — файл аргументов не читается.
+        // The child exited without a reload: the arguments file isn't read.
         expect(reads).toEqual([]);
     });
 
@@ -244,7 +244,7 @@ describe("боевые хуки и снимок процесса", () => {
         expect(snapshot.argv).toBe(process.argv);
         expect(snapshot.execArgv).toBe(process.execArgv);
         expect(snapshot.env).toBe(process.env);
-        // Тесты идут не из SEA-бинаря — иначе снимок соврал бы про командную строку.
+        // Tests don't run from a SEA binary, otherwise the snapshot would lie about the command line.
         expect(snapshot.isSea).toBe(false);
     });
 

@@ -9,7 +9,7 @@ import { setUnexpectedErrorHandler } from "../common/errors.ts";
 
 import { lazyChunkAssetName, lazyChunkCacheAssetName, loadLazyModule, resetLazyModulesForTests } from "./lazyModule.ts";
 
-/** Источник, отдающий один кусок по имени ассета; всё прочее — «куска нет». */
+/** A source that serves one chunk by asset name; anything else is "no chunk". */
 function chunkSource(assetName: string, code: string) {
     return {
         read: vi.fn((name: string) => (name === assetName ? new TextEncoder().encode(code) : null)),
@@ -51,7 +51,7 @@ describe("loadLazyModule — кэш кода V8", () => {
         });
     });
 
-    /** Кэш снят тем же `scripts/lazy-chunk-code-cache.cjs`, что у сборки SEA, но без V8-снапшота. */
+    /** Cache taken by the same `scripts/lazy-chunk-code-cache.cjs` as the SEA build, but without the V8 snapshot. */
     function cacheFromBuild(assetName: string): Uint8Array {
         const chunk = path.join(dir, "chunk.cjs");
         const out = path.join(dir, "chunk.v8cache");
@@ -136,7 +136,7 @@ describe("loadLazyModule", () => {
         expect((mod.join as (a: string, b: string) => string)("a", "b")).toBe("a/b");
         expect(mod.self).toBe(true);
         expect(mod.where).toEqual(["diode:lazy/pkg.cjs", "diode:lazy"]);
-        // default — сам module.exports, как у import() над CJS в node.
+        // default is module.exports itself, as with import() of CJS in node.
         expect((mod.default as Record<string, unknown>).join).toBe(mod.join);
     });
 
@@ -183,7 +183,7 @@ describe("loadLazyModule", () => {
 
         expect(a).toBe(b);
         expect(c).toBe(a);
-        // Кусок и его кэш кода — по разу.
+        // The chunk and its code cache, once each.
         expect(source.read).toHaveBeenCalledTimes(2);
         expect(g.__lazyRuns).toBe(1);
         delete g.__lazyRuns;

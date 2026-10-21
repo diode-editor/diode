@@ -84,8 +84,8 @@ describe("FsAssetAccess", () => {
     });
 
     it("read пропускает не совпавший exact-mapping и берёт следующий", async () => {
-        // Длинный exact-префикс сортируется первым, но не совпадает с путём →
-        // resolveToFs должен его пропустить и взять следующий "/"-mapping.
+        // The long exact prefix sorts first but doesn't match the path →
+        // resolveToFs must skip it and take the next "/" mapping.
         const assets = new FsAssetAccess({
             "long-exact-file-name.wasm": join(root, "onig.wasm"),
             "ext/": join(root, "ext"),
@@ -94,8 +94,8 @@ describe("FsAssetAccess", () => {
     });
 
     it("listEntries пропускает exact-mapping (без /) и берёт следующий", async () => {
-        // Тот же случай для resolveDirToFs: exact-mapping не оканчивается на "/" →
-        // пропускается, директория резолвится по "/"-mapping.
+        // Same case for resolveDirToFs: the exact mapping doesn't end with "/" →
+        // it is skipped, the directory resolves via the "/" mapping.
         const assets = new FsAssetAccess({
             "long-exact-file-name.wasm": join(root, "onig.wasm"),
             "ext/": join(root, "ext"),

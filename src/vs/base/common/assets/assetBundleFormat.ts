@@ -1,7 +1,7 @@
 /**
  * `[magic 8B "DIODEBND"][headerLength uint32 LE][header JSON][data…]`,
- * `offset` — от начала data. Формат продублирован в `scripts/pack-assets.mjs` —
- * менять оба.
+ * `offset` is from the start of data. The format is duplicated in `scripts/pack-assets.mjs`;
+ * change both.
  */
 
 const MAGIC = new Uint8Array([0x44, 0x49, 0x4f, 0x44, 0x45, 0x42, 0x4e, 0x44]); // "DIODEBND"
@@ -98,7 +98,7 @@ export function validateVirtualPath(virtualPath: string): void {
     }
 }
 
-/** Без нормализации: `..` не поддержан, снимается только ведущий `./`. */
+/** No normalization: `..` is unsupported, only a leading `./` is stripped. */
 export function joinVirtualPath(prefix: string, relative: string): string {
     if (prefix.length === 0) return relative.replace(/^\.\//, "");
     const cleanPrefix = prefix.endsWith("/") ? prefix.slice(0, -1) : prefix;

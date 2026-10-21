@@ -166,21 +166,21 @@ export function charMask(textLower: string): number {
 const QUERY_SEPARATOR = /\s+/;
 
 /**
- * Запрос, разобранный один раз на термы — аналог `prepareQuery` VS Code
- * (`vs/base/common/fuzzyScorer.ts`). Пробел — **разделитель термов**, а не искомый
- * символ: `src other` ищет записи, где есть и `src`, и `other`, в любом порядке.
+ * A query split into terms once, like VS Code's `prepareQuery`
+ * (`vs/base/common/fuzzyScorer.ts`). A space is a **term separator**, not a character
+ * to search for: `src other` finds entries containing both `src` and `other`, in any order.
  */
 export interface PreparedQuery {
-    /** Пустой массив (в том числе из одних пробелов) совпадает со всем. */
+    /** Empty (including all spaces) matches everything. */
     readonly terms: readonly string[];
-    /** Маска всех термов ({@link charMask}) для отсева на стороне вызывающего; пробелов в ней нет. */
+    /** Mask of all terms ({@link charMask}) for filtering on the caller's side; it holds no spaces. */
     readonly bits: number;
 }
 
 /**
- * Считать **один раз на нажатие**, до цикла по записям. Ведущий, хвостовой и
- * повторные пробелы термами не становятся: пользователь набирает на ходу, и
- * хвостовой пробел не должен гасить список.
+ * Compute **once per keystroke**, before the loop over entries. Leading, trailing and
+ * repeated spaces don't become terms: the user types as they go, and a
+ * trailing space must not empty the list.
  */
 export function prepareQuery(query: string): PreparedQuery {
     const terms: string[] = [];
@@ -195,9 +195,9 @@ export function prepareQuery(query: string): PreparedQuery {
 }
 
 /**
- * Совпасть обязаны **все** термы (AND), каждый — самостоятельным
- * {@link fuzzyMatchBest} в любом месте текста. Границы слов считаются по самому
- * `text`, поэтому разбиение запроса бонусов не отнимает.
+ * **All** terms must match (AND), each as its own {@link fuzzyMatchBest}
+ * anywhere in the text. Word boundaries come from `text` itself, so splitting
+ * the query costs no bonuses.
  */
 export function fuzzyMatchPrepared(query: PreparedQuery, text: string): FuzzyMatch | null {
     return fuzzyMatchPreparedLower(query, text, text.toLowerCase());
@@ -209,10 +209,10 @@ export function fuzzyMatchPreparedLower(query: PreparedQuery, text: string, text
 
     const first = fuzzyMatchBestLower(terms[0], text, textLower);
     if (first === null) return null;
-    // Ветка чисто за скорость: горячий путь (10k записей индекса на каждое
-    // нажатие) лишнего копирования не прощает — замерено бенчом
-    // `FileSearchService.search`, на запросе `dir2` сведение стоит ×1.6.
-    // Stryker disable next-line ConditionalExpression: мутант в `false` эквивалентен — общий путь ниже на одном терме даёт тот же результат, отличить его тестом нельзя, только бенчом.
+    // A branch purely for speed: the hot path (10k index entries on every
+    // keystroke) can't afford extra copying; measured by the
+    // `FileSearchService.search` bench, on the `dir2` query the merge costs ×1.6.
+    // Stryker disable next-line ConditionalExpression: the `false` mutant is equivalent; the generic path below gives the same result on one term, only a bench can tell them apart.
     if (terms.length === 1) return first;
 
     let score = first.score;
@@ -228,9 +228,9 @@ export function fuzzyMatchPreparedLower(query: PreparedQuery, text: string, text
 }
 
 /**
- * Термы матчатся независимо, поэтому их наборы идут вразнобой и могут накрыть
- * одну позицию (`ab ba` в «aba»), а потребители подсветки склеивают соседние
- * индексы в диапазон и ждут возрастающий набор. Сортирует `indices` на месте.
+ * Terms match independently, so their index sets come out of order and may overlap
+ * at one position (`ab ba` in "aba"), while highlight consumers merge adjacent
+ * indices into ranges and expect an ascending set. Sorts `indices` in place.
  */
 function ascendingUnique(indices: number[]): number[] {
     indices.sort((a, b) => a - b);

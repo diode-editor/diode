@@ -18,7 +18,7 @@ describe("RunOnceScheduler", () => {
 
         scheduler.schedule();
         vi.advanceTimersByTime(60);
-        scheduler.schedule(); // перезавод: отсчёт заново
+        scheduler.schedule(); // rescheduling restarts the countdown
         vi.advanceTimersByTime(60);
         expect(runner).not.toHaveBeenCalled();
 
@@ -41,7 +41,7 @@ describe("RunOnceScheduler", () => {
 
     it("isScheduled горит от schedule до запуска или отмены", () => {
         const scheduler = new RunOnceScheduler(() => {
-            expect(scheduler.isScheduled()).toBe(false); // в момент запуска уже погашен
+            expect(scheduler.isScheduled()).toBe(false); // already cleared when it runs
         }, 10);
         expect(scheduler.isScheduled()).toBe(false);
 
@@ -74,7 +74,7 @@ describe("RunOnceScheduler", () => {
 
         scheduler.schedule();
         scheduler.dispose();
-        // dispose снимает и таймер, а не только отпускает функцию.
+        // dispose clears the timer too, not just releases the function.
         expect(scheduler.isScheduled()).toBe(false);
         vi.advanceTimersByTime(100);
         scheduler.schedule();

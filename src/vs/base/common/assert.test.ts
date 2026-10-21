@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { assert, assertFn, checkAdjacentItems } from "./assert.ts";
 import { BugIndicatingError, setUnexpectedErrorHandler } from "./errors.ts";
 
-/** Отклонение от upstream: `assertFn` не бросает, а уходит в обработчик ошибок — иначе TUI не пережил бы пограничный дифф. */
+/** Deviation from upstream: `assertFn` doesn't throw but goes to the error handler, otherwise the TUI wouldn't survive an edge-case diff. */
 
 afterEach(() => {
     setUnexpectedErrorHandler((e) => {

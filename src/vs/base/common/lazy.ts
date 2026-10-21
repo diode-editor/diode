@@ -3,7 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/lazy.ts
-// Не дословно: upstream кладёт `unknown` из `catch` в `Error | undefined`, наш strict это не пускает.
+// Not verbatim: upstream assigns the `unknown` from `catch` to `Error | undefined`, our strict mode rejects that.
 
 const enum LazyValueState {
     Uninitialized,

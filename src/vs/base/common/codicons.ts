@@ -1,11 +1,11 @@
 import { CODICON_GLYPHS } from "./codicons.generated.ts";
 
-/** `$(имя)`, `$(имя~модификатор)` или экранированный `\$(имя)`; калька с `renderLabelWithIcons` upstream. */
+/** `$(name)`, `$(name~modifier)` or escaped `\$(name)`; mirrors upstream's `renderLabelWithIcons`. */
 const ICON_MARKUP = /(\\)?\$\(([a-z0-9-]+?)(?:~[a-z0-9-]*?)?\)/giu;
 
 /**
- * Неизвестное имя выбрасывается — литерал `$(foo)` хуже пустоты; модификатор
- * (`~spin`) игнорируется — анимации нет.
+ * An unknown name is dropped: a literal `$(foo)` is worse than nothing. The modifier
+ * (`~spin`) is ignored: there is no animation.
  */
 export function renderCodicons(text: string): string {
     return text.replace(ICON_MARKUP, (match: string, escape: string | undefined, name: string) => {

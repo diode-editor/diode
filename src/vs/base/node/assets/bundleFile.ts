@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-/** Совпадает с ключом SEA-ассета в `scripts/build-sea.mjs`. */
+/** Matches the SEA asset key in `scripts/build-sea.mjs`. */
 export const BUNDLE_FILE_NAME = "diode.bundle";
 
 export function bundleFilePath(dir: string): string {
@@ -12,7 +12,7 @@ export function bundleFileExists(dir: string): boolean {
     return fs.existsSync(bundleFilePath(dir));
 }
 
-/** Только ENOENT — `null`: молча свалиться в dev-режим из-за битых прав — худший диагноз. */
+/** Only ENOENT gives `null`: silently falling back to dev mode over broken permissions is the worst diagnosis. */
 export function tryReadBundleFile(dir: string): Uint8Array | null {
     try {
         return readBundleFile(dir);

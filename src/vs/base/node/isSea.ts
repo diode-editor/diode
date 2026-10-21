@@ -1,17 +1,17 @@
 import { createRequire } from "node:module";
 
 /**
- * База — `process.execPath`, а не `"file:///"`: тот на win32 бросает
- * (`ERR_INVALID_FILE_URL_PATH`: у файлового URL нет буквы диска), и `isSeaBinary()`
- * на Windows-SEA молча отвечал бы `false` — ассеты искались бы файлами рядом с exe.
+ * The base is `process.execPath`, not `"file:///"`: the latter throws on win32
+ * (`ERR_INVALID_FILE_URL_PATH`: a file URL without a drive letter), and `isSeaBinary()`
+ * on a Windows SEA would silently answer `false`, so assets would be looked up as files next to the exe.
  */
 export function seaRequire(): NodeJS.Require {
     return createRequire(process.execPath);
 }
 
 /**
- * `node:sea` доступен только через `require()` внутри SEA-сборки — статический
- * ESM-импорт падает с `ERR_UNKNOWN_BUILTIN_MODULE` даже в работающем SEA exe.
+ * `node:sea` is available only via `require()` inside a SEA build; a static
+ * ESM import fails with `ERR_UNKNOWN_BUILTIN_MODULE` even in a working SEA exe.
  */
 export function isSeaBinary(): boolean {
     try {
@@ -23,14 +23,14 @@ export function isSeaBinary(): boolean {
     }
 }
 
-// Stryker disable all: тело исполняется только внутри SEA-бинаря — юнитом не достать (файл исключён и из покрытия); проверяет e2e на собранном бинаре
+// Stryker disable all: the body runs only inside the SEA binary, unreachable for unit tests (the file is excluded from coverage too); e2e on the built binary covers it
 export function readSeaAsset(name: string): ArrayBuffer {
     const req = seaRequire();
     const sea = req("node:sea") as { getAsset(key: string): ArrayBuffer };
     return sea.getAsset(name);
 }
 
-/** Вид на память бинаря: только чтение, запись роняет процесс. */
+/** A view onto the binary's memory: read-only, writing crashes the process. */
 export function readSeaRawAsset(name: string): ArrayBuffer | null {
     const req = seaRequire();
     const sea = req("node:sea") as { getRawAsset(key: string): ArrayBuffer };

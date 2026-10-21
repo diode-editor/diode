@@ -17,7 +17,7 @@ export interface IPackagedAssetEnvironment {
 
 const processEnvironment: IPackagedAssetEnvironment = { isSea: isSeaBinary, readSeaAsset, readSeaRawAsset, entryDir };
 
-/** `null` в dev — вызывающий берёт node_modules. */
+/** `null` in dev: the caller uses node_modules. */
 export function readPackagedAsset(
     name: string,
     environment: IPackagedAssetEnvironment = processEnvironment,
@@ -26,7 +26,7 @@ export function readPackagedAsset(
     return readEntryDirFile(name, environment);
 }
 
-/** В SEA — вид на память бинаря без копии: **только чтение**, запись роняет процесс. */
+/** In SEA, a view onto the binary's memory without a copy: **read-only**, writing crashes the process. */
 export function readPackagedAssetView(
     name: string,
     environment: IPackagedAssetEnvironment = processEnvironment,
@@ -43,17 +43,17 @@ function readEntryDirFile(name: string, environment: IPackagedAssetEnvironment):
     return existsSync(file) ? readFileSync(file) : null;
 }
 
-/** Ключ по содержимому, а не по размеру: новая сборка того же размера не получит чужой бинарь. */
+/** Keyed by content, not size: a new build of the same size doesn't get someone else's binary. */
 export function packagedAssetCacheDir(kind: string, bytes: Uint8Array, cacheRoot: string = userCacheDir()): string {
     return cacheDirForDigest(kind, sha256Hex(bytes), cacheRoot);
 }
 
-/** Сайдкар пишет `build-dist.mjs`. */
+/** The sidecar is written by `build-dist.mjs`. */
 export const PACKAGED_ASSET_DIGEST_SUFFIX = ".sha256";
 
 /**
- * Хэш берётся из сайдкара, посчитанного при сборке: хэш 13-мегабайтного
- * `ts-server.bundle` на пути к первому кадру стоил ~12 мс. Нет сайдкара — хэш по байтам.
+ * The hash comes from a sidecar computed at build time: hashing the 13 MB
+ * `ts-server.bundle` on the way to the first frame cost ~12 ms. No sidecar means hashing the bytes.
  */
 export function packagedAssetCacheDirByName(
     kind: string,

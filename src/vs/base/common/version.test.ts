@@ -9,7 +9,7 @@ describe("Version", () => {
     });
 
     it("falls back to the dev marker when not injected at build time", () => {
-        // В тестах (vitest, без tsup `define`) глобал `__DIODE_VERSION__` отсутствует.
+        // In tests (vitest, no tsup `define`) the `__DIODE_VERSION__` global is absent.
         expect(DIODE_VERSION).toBe("0.0.0-dev");
     });
 

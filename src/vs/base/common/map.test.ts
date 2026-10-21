@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { SetMap } from "./map.ts";
 
-/** Потребитель — перенесённый `computeMovedLines`. */
+/** Consumer: the vendored `computeMovedLines`. */
 
 describe("SetMap", () => {
     it("копит несколько значений под одним ключом", () => {

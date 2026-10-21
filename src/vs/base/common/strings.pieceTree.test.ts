@@ -14,7 +14,7 @@ import {
     UTF8_BOM_CHARACTER,
 } from "./strings.ts";
 
-/** Потребители — перенесённые `model/pieceTreeTextBuffer/*` и `model/textModelSearch.ts`. */
+/** Consumers: the vendored `model/pieceTreeTextBuffer/*` and `model/textModelSearch.ts`. */
 
 describe("firstNonWhitespaceIndex", () => {
     it("пропускает пробелы и табы", () => {

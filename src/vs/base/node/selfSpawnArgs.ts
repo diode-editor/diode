@@ -8,7 +8,7 @@ export interface ISelfSpawnSpec {
     readonly args: string[];
 }
 
-/** В dev `execArgv` несёт loader'ы вроде `tsx` — без них ребёнок не прочитает наш TypeScript. */
+/** In dev `execArgv` carries loaders like `tsx`; without them the child can't read our TypeScript. */
 export function selfSpawnArgs(snapshot: IProcessSnapshot = currentProcessSnapshot()): ISelfSpawnSpec {
     if (snapshot.isSea) return { command: snapshot.execPath, args: [] };
     const mainScript = snapshot.argv.at(1);
@@ -18,19 +18,19 @@ export function selfSpawnArgs(snapshot: IProcessSnapshot = currentProcessSnapsho
     return { command: snapshot.execPath, args: [...snapshot.execArgv, mainScript] };
 }
 
-/** Развилку по флагу держит `main.ts`. */
+/** `main.ts` owns the branching on the flag. */
 export type SelfProcessRole = "DIODE_FILE_WATCHER" | "DIODE_EXTENSION_HOST";
 
 export interface ISpawnSelfAsRoleOptions {
-    /** Без `"inherit"`: печать ребёнка в общий терминал испортила бы кадр TUI. */
+    /** Not `"inherit"`: the child printing to the shared terminal would corrupt the TUI frame. */
     readonly stdout?: "ignore" | "pipe";
     readonly stderr: "ignore" | "pipe";
     readonly spec?: ISelfSpawnSpec;
     readonly env?: NodeJS.ProcessEnv;
     /**
-     * Своя группа процессов (posix): сигнал выключения достаёт внуков — языковые
-     * серверы расширений, иначе они остаются сиротами. Плата: SIGINT терминала
-     * ребёнку больше не приходит, снимать его обязан владелец.
+     * Its own process group (posix): the shutdown signal reaches grandchildren, the extensions'
+     * language servers, otherwise they are left orphaned. The cost: the terminal's SIGINT
+     * no longer reaches the child, the owner must handle it.
      */
     readonly ownProcessGroup?: boolean;
 }
@@ -40,7 +40,7 @@ export function spawnSelfAsRole(role: SelfProcessRole, options: ISpawnSelfAsRole
     return spawn(spec.command, spec.args, {
         stdio: ["ignore", options.stdout ?? "ignore", options.stderr, "ipc"],
         env: { ...(options.env ?? process.env), [role]: "1" },
-        // Stryker disable next-line ConditionalExpression,StringLiteral: на posix-раннере `platform !== "win32"` всегда истинно — мутант эквивалентен; ветку win32 закрывает e2e на windows
+        // Stryker disable next-line ConditionalExpression,StringLiteral: on a posix runner `platform !== "win32"` is always true, the mutant is equivalent; e2e on windows covers the win32 branch
         detached: options.ownProcessGroup === true && process.platform !== "win32",
     });
 }
