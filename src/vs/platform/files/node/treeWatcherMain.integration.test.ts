@@ -15,9 +15,9 @@ import type { IWatcherProcess } from "./subprocessTreeWatcher.ts";
 import { SubprocessTreeWatcher } from "./subprocessTreeWatcher.ts";
 
 /**
- * Юниты по обе стороны говорят с фейками и не видят поломок самой границы
- * (сообщение не переживает JSON, ребёнок не доходит до входа). `spawnProcess` —
- * тестовый вход под tsx: боевой `selfSpawnArgs()` из-под vitest запустил бы не нас.
+ * Unit tests on both sides talk to fakes and don't see breakage of the boundary itself
+ * (a message doesn't survive JSON, the child never reaches the entry point). `spawnProcess`
+ * is a test entry under tsx: the production `selfSpawnArgs()` under vitest would launch something else.
  */
 
 const ENTRY = fileURLToPath(new URL("./treeWatcherMain.testEntry.ts", import.meta.url));
@@ -89,8 +89,8 @@ describe("watcher-процесс — сквозной прогон", () => {
             const seen: ITreeFileChange[] = [];
             watcher.watchTree(root, { recursive: true, excludes: [] }, (changes) => seen.push(...changes));
 
-            // Пишем в цикле: ребёнку нужно время подняться и досканировать
-            // дерево, а всё, что он застал при старте, `ignoreInitial` съедает.
+            // Write in a loop: the child needs time to start and finish scanning
+            // the tree, and `ignoreInitial` swallows everything it finds at startup.
             let n = 0;
             await until(
                 () => seen.some((change) => path.basename(change.path).startsWith("bump-")),
@@ -148,9 +148,9 @@ describe("watcher-процесс — сквозной прогон", () => {
     it(
         "роль не протекает дальше: внутри процесса DIODE_FILE_WATCHER снят, режим — node",
         async () => {
-            // Калька с `extensionHost.fork.test.ts`: флаг роли наследуется через
-            // spawn, и не снятый здесь увёл бы любой запущенный рядом процесс
-            // (под SEA это наш же бинарь) в watcher-ветку вместо его работы.
+            // Mirrors `extensionHost.fork.test.ts`: the role flag is inherited through
+            // spawn, and if not cleared here it would send any process launched alongside
+            // (under SEA that's our own binary) down the watcher branch instead of its own work.
             const { watcher, root, entries } = setup();
             watcher.watchTree(root, { recursive: true, excludes: [] }, () => undefined);
 
@@ -165,8 +165,8 @@ describe("watcher-процесс — сквозной прогон", () => {
     it(
         "закрытый IPC-канал уводит watcher-процесс в exit — сироты с подписками не остаётся",
         async () => {
-            // Здесь нужен сам ChildProcess, а не шов хоста: закрытие канала без
-            // сигнала — это то, что случается с ребёнком, когда редактор умирает.
+            // This needs the ChildProcess itself, not the host seam: the channel closing without
+            // a signal is what happens to the child when the editor dies.
             const child = spawn(process.execPath, ["--import", "tsx", ENTRY], {
                 stdio: ["ignore", "ignore", "inherit", "ipc"],
                 env: { ...process.env, DIODE_FILE_WATCHER: "1" },

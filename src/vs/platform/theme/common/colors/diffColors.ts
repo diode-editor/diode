@@ -1,9 +1,9 @@
 import type { ColorContribution } from "../colorRegistry.ts";
 
 /**
- * Отклонение от эталона: там цвета полупрозрачные (`rgba(155,185,85,.2)`), здесь — результат
- * их наложения на `editor.background` тёмной и светлой темы. Тема, переопределившая фон
- * редактора, должна переопределить и эти цвета.
+ * Deviation from upstream: there the colors are translucent (`rgba(155,185,85,.2)`), here they are
+ * the result of compositing them over `editor.background` of the dark and light themes. A theme
+ * that overrides the editor background must override these colors too.
  */
 export const diffColors = {
     "diffEditor.insertedLineBackground": {

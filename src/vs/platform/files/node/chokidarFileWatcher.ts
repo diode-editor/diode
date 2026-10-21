@@ -10,32 +10,31 @@ import type { IFileWatcher } from "../common/iFileWatcher.ts";
 
 interface IWatchTarget {
     readonly directory: string;
-    /** Сам файл либо недостающий каталог на пути к нему. */
+    /** The file itself or the missing directory on the way to it. */
     readonly awaited: string;
 }
 
 /**
- * Форма, в какой chokidar отдаёт путь предикату `ignored` (прямые слэши): на
- * Windows сравнение с родным путём отбросило бы всё, и сам файл.
+ * The form in which chokidar passes a path to the `ignored` predicate (forward slashes):
+ * on Windows comparing against the native path would drop everything, the file included.
  */
 export function toChokidarPath(fsPath: string): string {
     return fsPath.replaceAll("\\", "/");
 }
 
 /**
- * Дебаунсит всплеск событий: атомарная запись — unlink+add за пару миллисекунд.
+ * Debounces event bursts: an atomic write is unlink+add within a couple of milliseconds.
  *
- * **Chokidar'у отдаём каталог файла, а не сам файл** (`depth: 0`, соседи
- * отфильтрованы). За файлом-корнем chokidar держит `fs.watch` на inode, общий
- * на процесс для всех экземпляров; атомарное сохранение меняет inode, первый
- * заметивший переподписывается на тот же мёртвый общий `fs.watch` — и глохнут
- * оба, молча. А `settings.json` смотрят двое: модель документа и сервис
- * настроек (`chokidarFileWatcher.atomicSave.test.ts`). Inode каталога не меняется.
+ * **Chokidar gets the file's directory, not the file itself** (`depth: 0`, siblings
+ * filtered out). For a file root chokidar holds an `fs.watch` on the inode, shared
+ * process-wide across instances; an atomic save changes the inode, the first one to
+ * notice re-subscribes to the same dead shared `fs.watch`, and both go silent.
+ * And `settings.json` has two watchers: the document model and the configuration
+ * service (`chokidarFileWatcher.atomicSave.test.ts`). The directory inode doesn't change.
  *
- * **Нет каталога** (`.diode/settings.json` до первой записи) — следим за
- * ближайшим существующим предком и перевешиваемся ближе к файлу по мере
- * появления сегментов. Файл, успевший появиться к перевешиванию, — изменение:
- * `ignoreInitial` его бы не отдал.
+ * **No directory** (`.diode/settings.json` before the first write): watch the nearest
+ * existing ancestor and move closer to the file as segments appear. A file that already
+ * appeared by the time we move counts as a change: `ignoreInitial` would not report it.
  */
 export class ChokidarFileWatcher implements IFileWatcher {
     private readonly logger: ILogger | undefined;
@@ -56,9 +55,9 @@ export class ChokidarFileWatcher implements IFileWatcher {
             }, 50);
         };
 
-        /** `fileMayExist` — файл мог появиться, пока нас не было. */
+        /** `fileMayExist`: the file may have appeared while we weren't watching. */
         const rearm = (fileMayExist: boolean): void => {
-            // Stryker disable next-line OptionalChaining: rearm зовут только события живого watcher'а — он не null; `?.` нужен типу
+            // Stryker disable next-line OptionalChaining: rearm is only called from events of a live watcher, so it's not null; `?.` is for the type
             void watcher?.close();
             watcher = null;
             arm();
@@ -80,8 +79,8 @@ export class ChokidarFileWatcher implements IFileWatcher {
                 created.on("add", notify);
                 created.on("unlink", () => {
                     notify();
-                    // Снесли каталог целиком (`rm -rf .diode`) — watch на нём мёртв.
-                    // Stryker disable next-line BooleanLiteral: каталога нет — значит, нет и файла; «мог появиться» проверит exists и ничего не найдёт
+                    // The whole directory is gone (`rm -rf .diode`): the watch on it is dead.
+                    // Stryker disable next-line BooleanLiteral: no directory means no file; "may have appeared" would check exists and find nothing
                     if (!this.exists(directory)) rearm(false);
                 });
             } else {
@@ -90,8 +89,8 @@ export class ChokidarFileWatcher implements IFileWatcher {
                 });
             }
 
-            // Без слушателя 'error' chokidar роняет процесс unhandledRejection'ом
-            // (типично ENOSPC — исчерпан лимит inotify); watcher после ошибки мёртв.
+            // Without an 'error' listener chokidar crashes the process with an unhandledRejection
+            // (typically ENOSPC, the inotify limit is exhausted); the watcher is dead after an error.
             created.on("error", (error) => {
                 const { code, hint } = describeFileWatchError(error);
                 this.logger?.warn(`file watcher error${hint}`, { filePath, code, error: String(error) });

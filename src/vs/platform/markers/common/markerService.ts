@@ -3,7 +3,7 @@ import { token } from "../../instantiation/common/diContainer.ts";
 
 import type { IMarker, IMarkerData, MarkerSeverity } from "./iMarker.ts";
 
-/** Поля комбинируются по AND. */
+/** Fields combine with AND. */
 export interface IMarkerReadFilter {
     readonly owner?: string;
     readonly resource?: string;
@@ -11,16 +11,16 @@ export interface IMarkerReadFilter {
 }
 
 /**
- * Хранение `owner → resource → markers`: каждый провайдер заменяет свой срез ресурса, не трогая
- * чужой. `resource` — `uri.toString()`, а не путь: диагностики бывают у ресурсов вне диска
- * (безымянный буфер, git-версия), а `Map` не сравнивает `Uri` по значению.
+ * Stored as `owner → resource → markers`: each provider replaces its own slice of a resource without
+ * touching others. `resource` is `uri.toString()`, not a path: diagnostics exist for off-disk resources
+ * (an untitled buffer, a git revision), and `Map` doesn't compare `Uri` by value.
  */
 export class MarkerService {
     private byOwner = new Map<string, Map<string, IMarker[]>>();
     private readonly onDidChangeMarkersEmitter = new Emitter<readonly string[]>();
     public readonly onDidChangeMarkers = this.onDidChangeMarkersEmitter.event;
 
-    /** Пустой массив очищает срез. */
+    /** An empty array clears the slice. */
     public changeOne(owner: string, resource: string, markers: readonly IMarkerData[]): void {
         let byResource = this.byOwner.get(owner);
 
@@ -59,5 +59,5 @@ export class MarkerService {
     }
 }
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it, the string inside is just a debug label
 export const MarkerServiceDIToken = token<MarkerService>("MarkerService");

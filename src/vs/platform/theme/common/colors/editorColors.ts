@@ -21,8 +21,8 @@ export const editorColors = {
         defaults: { dark: "#AEAFAD", light: "#000000" },
         description: "Color of the editor cursor.",
     },
-    // В VS Code дефолта нет — фоллбэк `Color.opposite()` от `editorCursor.foreground`, у нас запечён
-    // hex-ом; `defaults: null` нельзя: `styleVar` без фоллбэка бросает.
+    // VS Code has no default, falling back to `Color.opposite()` of `editorCursor.foreground`; we
+    // bake it as hex. `defaults: null` won't do: `styleVar` throws without a fallback.
     "editorCursor.background": {
         defaults: { dark: "#515052", light: "#FFFFFF" },
         description:
@@ -37,7 +37,7 @@ export const editorColors = {
         description: "Background color for the highlight of line at the cursor position.",
     },
     // Opaque approximations of VS Code's #575757b8 (dark) / #57575740 (light)
-    // composited over the editor bg — терминальный рендер без альфы.
+    // composited over the editor bg: terminal rendering has no alpha.
     "editor.wordHighlightBackground": {
         defaults: { dark: "#474747", light: "#C6C6C6" },
         description: "Background color of a symbol during read-access, for example when reading a variable.",
@@ -67,7 +67,7 @@ export const editorColors = {
         description: "Foreground color of hints in the editor.",
     },
     // Opaque approximations of VS Code's #ffffff56 (dark) / #0007 (light)
-    // composited over the editor bg — как у `editor.wordHighlightBackground`.
+    // composited over the editor bg, as for `editor.wordHighlightBackground`.
     "editorGhostText.foreground": {
         defaults: { dark: "#6A6A6A", light: "#888888" },
         description: "Foreground color of the ghost text in the editor.",
@@ -104,13 +104,13 @@ export const editorColors = {
         defaults: { dark: "#454545", light: "#C8C8C8" },
         description: "Border color of the editor widget.",
     },
-    // Тень попапов (`TUIElement.shadow` в tuidom): полупрозрачный чёрный, как у
-    // VS Code; композитится движком с тем, что под оверлеем.
+    // Popup shadow (`TUIElement.shadow` in tuidom): translucent black, as in VS Code; the engine
+    // composites it with whatever is under the overlay.
     "widget.shadow": {
         defaults: { dark: "#0000005C", light: "#00000029" },
         description: "Shadow color of widgets such as find/replace inside the editor.",
     },
-    // Производные от editorWidget.*, как в реестре VS Code.
+    // Derived from editorWidget.*, as in the VS Code registry.
     "editorHoverWidget.foreground": {
         defaults: { dark: "editorWidget.foreground", light: "editorWidget.foreground" },
         description: "Foreground color of the editor hover.",
@@ -123,9 +123,9 @@ export const editorColors = {
         defaults: { dark: "editorWidget.border", light: "editorWidget.border" },
         description: "Border color of the editor hover.",
     },
-    // Автодополнение (виджет tuidom `completionlist` читает эти токены):
-    // производные, как в реестре VS Code — фон/рамка от editorWidget.*, текст от
-    // редактора, выделение от списка.
+    // Suggest widget (the tuidom `completionlist` widget reads these tokens): derived as in the
+    // VS Code registry, background/border from editorWidget.*, text from the editor, selection
+    // from the list.
     "editorSuggestWidget.background": {
         defaults: { dark: "editorWidget.background", light: "editorWidget.background" },
         description: "Background color of the suggest widget.",
@@ -146,8 +146,8 @@ export const editorColors = {
         defaults: { dark: "list.activeSelectionForeground", light: "list.activeSelectionForeground" },
         description: "Foreground color of the selected entry in the suggest widget.",
     },
-    // Активный параметр в подсказке (VS Code выводит этот цвет из
-    // list.highlightForeground — у нас значения запечены, как у соседей выше).
+    // Active parameter in the hover (VS Code derives this color from list.highlightForeground;
+    // we bake the values, like the neighbors above).
     "editorHoverWidget.highlightForeground": {
         defaults: { dark: "#2AAAFF", light: "#0066BF" },
         description: "Foreground color of the active item in the parameter hint.",

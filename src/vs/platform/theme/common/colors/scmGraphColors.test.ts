@@ -6,7 +6,7 @@ import { WorkbenchTheme } from "../workbenchTheme.ts";
 
 import type { IWorkbenchColors } from "./colorContributions.ts";
 
-/** Дефолты vscode (`scmHistory.ts`): цвета линий одинаковы на dark и light, цвета ref'ов различаются. */
+/** vscode defaults (`scmHistory.ts`): line colors are the same on dark and light, ref colors differ. */
 const EXPECTED: Record<"dark" | "light", Partial<Record<keyof IWorkbenchColors, string>>> = {
     dark: {
         "scmGraph.foreground1": "#FFB000",

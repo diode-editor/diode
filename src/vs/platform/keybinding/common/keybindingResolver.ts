@@ -1,11 +1,11 @@
-/** Больший вес побеждает среди записей одной комбинации с проходящими `when`; перебить базовую команду на той же клавише — вес выше `EditorCore`. */
+/** Higher weight wins among entries of one chord with passing `when`; overriding a core command needs a weight above `EditorCore`. */
 export const KeybindingWeight = {
     EditorCore: 0,
     EditorContrib: 100,
     WorkbenchContrib: 200,
 } as const;
 
-/** User сильнее extension, extension — дефолтов, независимо от веса и порядка регистрации слоя. */
+/** User beats extension, extension beats defaults, regardless of weight and layer registration order. */
 export const KeybindingLayerRank = {
     default: 0,
     extension: 1,
@@ -15,16 +15,16 @@ export const KeybindingLayerRank = {
 export interface IKeybindingPriority {
     readonly layer: number;
     readonly weight: number;
-    /** Тайбрейк при равном весе: позже зарегистрированное правило сильнее. */
+    /** Tie-breaker at equal weight: a later registered rule is stronger. */
     readonly seq: number;
 }
 
-/** Слой, потом вес, потом номер правила. */
+/** Layer, then weight, then rule sequence number. */
 export function compareKeybindingPriority(a: IKeybindingPriority, b: IKeybindingPriority): number {
     return a.layer - b.layer || a.weight - b.weight || a.seq - b.seq;
 }
 
-/** Последняя — самая сильная: резолвер читает с конца. */
+/** The last is the strongest: the resolver reads from the end. */
 export function sortByPriority<T extends IKeybindingPriority>(entries: readonly T[]): T[] {
     return [...entries].sort(compareKeybindingPriority);
 }

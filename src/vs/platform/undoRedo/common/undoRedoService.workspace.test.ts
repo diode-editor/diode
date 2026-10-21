@@ -90,12 +90,12 @@ describe("UndoRedoService — шаг нескольких документов",
 
         const other = step("Other");
         service.pushWorkspaceElement(other.element, [{ context: "c", label: "c.ts", owner: true }, A]);
-        // pushElement в a обрезал redo шага во ВСЕХ бакетах: повторять нечего.
+        // pushElement into `a` truncated the step's redo in ALL buckets: nothing to redo.
         expect(await service.redo("b")).toBe(false);
         expect(redo).not.toHaveBeenCalled();
         expect(refusals).toEqual([]);
 
-        // Настоящий отказ redo: шаг в redo обоих, но в одном он не верхний.
+        // A real redo refusal: the step is in both redo stacks but not on top in one.
         const third = step("Third");
         service.pushWorkspaceElement(third.element, [A, B]);
         await service.undo("a");
@@ -195,7 +195,7 @@ describe("UndoRedoService — шаг нескольких документов",
                     "Could not undo 'Move to a new file' across all files. The following files have been closed and modified on disk: b.ts.",
             },
         ]);
-        // Неразбиваемый шаг: история участника сброшена целиком, повторных отказов нет.
+        // The step is never split: the participant's history is cleared entirely, no repeated refusals.
         expect(service.canUndo("a")).toBe(false);
         expect(await service.undo("a")).toBe(false);
         expect(refusals).toHaveLength(1);
@@ -247,7 +247,7 @@ describe("UndoRedoService — шаг нескольких документов",
         const { element } = step("Rename");
         service.pushWorkspaceElement(element, [A, B]);
         await service.undo("a");
-        // Ломаем шаг, не выводя его из redo: метка потери как у undo-стека.
+        // Break the step without removing it from redo: the same loss mark as on the undo stack.
         (
             service as unknown as { workspaceElements: WeakMap<IUndoRedoElement, { removed: Map<string, string> }> }
         ).workspaceElements
@@ -305,7 +305,7 @@ describe("UndoRedoService — шаг нескольких документов",
         const second = step("Rename", ["/p/Foo.ts", "/p/x.ts"]);
         const foreign = step("Other", ["/p/a.ts"]);
         const plain = step("Typing", ["/p/Foo.ts"]);
-        // Бакет b создан раньше бакета a: обход бакетов дал бы обратный порядок.
+        // Bucket b was created before bucket a: iterating buckets would give the reverse order.
         service.canUndo("b");
         service.pushWorkspaceElement(first.element, [A]);
         service.pushWorkspaceElement(foreign.element, [A]);
@@ -319,7 +319,7 @@ describe("UndoRedoService — шаг нескольких документов",
 
         expect(await service.undo("foo")).toBe(true);
         expect(second.undo).toHaveBeenCalledOnce();
-        // Принятый бакет — участник без своей правки: его закрытие шаг не ломает.
+        // An adopted bucket is a participant without its own edit: closing it doesn't break the step.
         service.clear("foo");
         expect(await service.undo("a")).toBe(true);
         expect(foreign.undo).toHaveBeenCalledOnce();

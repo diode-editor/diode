@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import * as path from "node:path";
 
-/** Как VS Code/Finder: `name` → `name copy` → `name copy 2`, расширение сохраняется. */
+/** Like VS Code/Finder: `name` → `name copy` → `name copy 2`, keeping the extension. */
 export function resolveNonConflictingDest(targetDir: string, name: string): string {
     const direct = path.join(targetDir, name);
     if (!fs.existsSync(direct)) return direct;
@@ -16,7 +16,7 @@ export function resolveNonConflictingDest(targetDir: string, name: string): stri
     }
 }
 
-/** На точный путь, а не «внутрь каталога»; на `EXDEV` — копия и удаление. */
+/** Moves to the exact path, not "into the directory"; on `EXDEV` copies and deletes. */
 export function moveToPath(src: string, dest: string): void {
     try {
         fs.renameSync(src, dest);

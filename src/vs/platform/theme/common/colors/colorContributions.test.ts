@@ -14,7 +14,7 @@ import { scmGraphColors } from "./scmGraphColors.ts";
 import { terminalColors } from "./terminalColors.ts";
 import { workbenchColors } from "./workbenchColors.ts";
 
-/** Держи в синхроне с вызовами `getRequiredColor(...)`: цвет без дефолта реестра валит тест на темах, где его нет. */
+/** Keep in sync with `getRequiredColor(...)` calls: a color without a registry default fails the test on themes lacking it. */
 const REQUIRED_COLORS: (keyof IWorkbenchColors)[] = [
     "foreground",
     "sash.hoverBorder",
@@ -62,7 +62,7 @@ describe("default color registry coverage", () => {
         });
     }
 
-    /** На реестре, а не на темах: тема может случайно «закрыть» битую ссылку. */
+    /** On the registry, not on themes: a theme may accidentally mask a broken reference. */
     it("reference defaults point at registered keys with defaults and form no cycles", () => {
         const contributions: ColorContribution = COLOR_CONTRIBUTIONS;
         for (const [key, definition] of Object.entries(contributions)) {

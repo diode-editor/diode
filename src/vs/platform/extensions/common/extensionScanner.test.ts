@@ -93,8 +93,7 @@ describe("scanBuiltinExtensions", () => {
     });
 
     it("пропускает записи верхнего уровня, не являющиеся каталогами", async () => {
-        // Свободный файл прямо под rootPrefix — не каталог расширения,
-        // сканер обязан его пропустить (entry.isDirectory === false).
+        // A loose file right under rootPrefix is not an extension directory (entry.isDirectory === false).
         await fs.promises.writeFile(path.join(tempDir, "stray.txt"), "noise");
         await writeManifest("real-ext", { name: "n", publisher: "p", version: "1.0.0" });
 

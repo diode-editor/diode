@@ -1,6 +1,6 @@
 /**
- * Регистр сохраняется для сообщений человеку; мусор отброшен молча — схему
- * эталона (`uniqueItems`/`pattern`) проверяет только редактор манифеста.
+ * Case is preserved for user-facing messages; junk is dropped silently: only the manifest editor
+ * checks the upstream schema (`uniqueItems`/`pattern`).
  */
 export function readExtensionDependencies(manifest: Readonly<Record<string, unknown>>): readonly string[] {
     const raw = manifest.extensionDependencies;
@@ -22,33 +22,32 @@ export function extensionFriendlyName(id: string, manifest: Readonly<Record<stri
     return typeof displayName === "string" && displayName !== "" ? displayName : id;
 }
 
-/** Как `ExtensionIdentifier.toKey` эталона: `"Redhat.Java"` — та же зависимость, что `redhat.java`. */
+/** Like upstream `ExtensionIdentifier.toKey`: `"Redhat.Java"` is the same dependency as `redhat.java`. */
 export function extensionKey(id: string): string {
     return id.toLowerCase();
 }
 
 /**
- * Отступление от эталона: отсутствующая зависимость на `vscode.*` не срывает
- * ни активацию, ни установку. У эталона они часть продукта, у нас многих нет
- * (`git` — `diode.git`), а в магазине их не взять; стоковый Supermaven зависит
- * от `vscode.git` и без него работает.
+ * Deviation from upstream: a missing `vscode.*` dependency breaks neither activation nor install.
+ * Upstream ships them as part of the product; we lack many (`git` is `diode.git`) and they aren't
+ * in the marketplace. The stock Supermaven depends on `vscode.git` and works without it.
  */
 export function isBuiltinVSCodeExtension(id: string): boolean {
     return extensionKey(id).startsWith("vscode.");
 }
 
 /**
- * Цепочка от `startId` обратно к нему (`["a", "b", "a"]`). `dependenciesOf`
- * отдаёт `undefined` для неизвестного — по нему цикл не продолжается. Циклы без
- * `startId` не ищутся: каждое участвующее расширение узнает о цикле на своей
- * активации (у эталона они выпадают из реестра целиком).
+ * Chain from `startId` back to itself (`["a", "b", "a"]`). `dependenciesOf` returns `undefined`
+ * for an unknown id, and the walk doesn't continue through it. Cycles without `startId` are not
+ * searched: each participating extension learns about the cycle on its own activation (upstream
+ * drops them from the registry entirely).
  */
 export function findDependencyLoop(
     startId: string,
     dependenciesOf: (key: string) => readonly string[] | undefined,
 ): readonly string[] | null {
     const start = extensionKey(startId);
-    // Стартовое в `visited` не нужно: возврат к нему проверяется раньше.
+    // The start doesn't need to be in `visited`: a return to it is checked earlier.
     const visited = new Set<string>();
     const walk = (key: string, chain: readonly string[]): readonly string[] | null => {
         const deps = dependenciesOf(key);

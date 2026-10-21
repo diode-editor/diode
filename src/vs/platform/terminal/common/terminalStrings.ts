@@ -1,14 +1,14 @@
-// Перенос terminalStrings.ts эталона: те же escape-последовательности, что в VS Code.
+// Port of upstream terminalStrings.ts: the same escape sequences as VS Code.
 
 export interface ITerminalFormatMessageOptions {
-    /** Не начинать сообщение с новой строки (по умолчанию — начинать). */
+    /** Don't start the message on a new line (it does by default). */
     excludeLeadingNewLine?: boolean;
 }
 
 export function formatMessageForTerminal(message: string, options: ITerminalFormatMessageOptions = {}): string {
     let result = "";
     if (options.excludeLeadingNewLine !== true) result += "\r\n";
-    // «Громкого» оформления эталона (`loudFormatting`) нет: потребителя у него пока нет.
+    // Upstream's "loud" formatting (`loudFormatting`) is left out: nothing consumes it yet.
     result += `\x1b[0m\x1b[7m * \x1b[0m ${message} \x1b[0m\n\r`;
     return result;
 }

@@ -2,9 +2,9 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 
 /**
- * На Windows — и junction. Пути нет — не ссылка: появится каталогом, и обход
- * предка его увидит. Отдельным модулем: её зовёт и редактор, а импорт из
- * `sharedTreeWatcher.ts` тянул бы обход дерева в `main.cjs`.
+ * On Windows, junctions too. A missing path is not a link: it will appear as a directory, and
+ * the ancestor's traversal will see it. A separate module because the editor calls it too, and
+ * importing from `sharedTreeWatcher.ts` would pull tree walking into `main.cjs`.
  */
 export function passesThroughSymlink(root: string, relative: string): boolean {
     let current = root;

@@ -110,11 +110,11 @@ describe("applyThemeVars — тема → корневой var-scope", () => {
             return root.styleVar("menu.border");
         };
 
-        expect(border("#00000000")).toBe(0x808080); // прозрачная
-        expect(border("#272727")).toBe(0x808080); // разница каналов 7 < порога 8
-        expect(border("#282828")).toBe(0x282828); // разница 8 — различима
-        expect(border("#202030")).toBe(0x202030); // различима по одному каналу — считается максимум, не минимум
-        // Полупрозрачный белый над #202020 даёт +28 по каналам — различим, остаётся как есть (с альфой).
+        expect(border("#00000000")).toBe(0x808080); // transparent
+        expect(border("#272727")).toBe(0x808080); // channel difference 7 < threshold 8
+        expect(border("#282828")).toBe(0x282828); // difference 8: distinguishable
+        expect(border("#202030")).toBe(0x202030); // distinguishable by one channel: max counts, not min
+        // Translucent white over #202020 gives +28 per channel: distinguishable, kept as is (with alpha).
         expect(border("#FFFFFF20")).toBe(packRgba(255, 255, 255, 0x20));
     });
 

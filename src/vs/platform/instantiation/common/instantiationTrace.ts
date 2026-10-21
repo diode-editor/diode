@@ -1,29 +1,29 @@
-// Трасса инстанцирования (как `Trace` эталона), флаг `DIODE_STARTUP_TRACE_INSTANTIATIONS=1`. Без
-// него `Container.get` платит одну проверку на промахе кэша, попадание в кэш не трогается.
-// Таблицу печатает `npm run bench:services`.
+// Instantiation trace (like upstream `Trace`), enabled by `DIODE_STARTUP_TRACE_INSTANTIATIONS=1`. Without
+// it `Container.get` pays one check on a cache miss; cache hits are untouched.
+// `npm run bench:services` prints the table.
 
 export interface IInstantiationTraceEntry {
     readonly id: string;
-    /** мс от `performance.timeOrigin`. */
+    /** ms since `performance.timeOrigin`. */
     readonly start: number;
-    /** С вложенными созданиями, мс. */
+    /** Including nested creations, ms. */
     readonly inclusive: number;
-    /** Без вложенных созданий, мс. */
+    /** Excluding nested creations, ms. */
     readonly self: number;
-    /** Глубина в дереве созданий: 0 — запрошен не из конструктора другого сервиса. */
+    /** Depth in the creation tree: 0 means not requested from another service's constructor. */
     readonly depth: number;
     /**
-     * Id токена-родителя; на верхнем уровне — `contributions:<фаза>` либо первая функция стека
-     * за контейнером (`new WorkbenchComponent`, `runEditor`…).
+     * Parent token id; at the top level, `contributions:<phase>` or the first stack function
+     * past the container (`new WorkbenchComponent`, `runEditor`…).
      */
     readonly requester: string;
-    /** Фаза контрибуций, внутри которой шло создание; null — вне реестра. */
+    /** Contribution phase the creation ran in; null outside the registry. */
     readonly phase: string | null;
-    /** true — сам токен зарегистрирован контрибуцией и создан её фазой. */
+    /** true if the token itself is registered by a contribution and created by its phase. */
     readonly contribution: boolean;
 }
 
-/** Вызыватель верхнего уровня — пока сырой стек: форматирует его V8 лениво, при выгрузке. */
+/** A top-level caller, kept as a raw stack for now: V8 formats it lazily, on export. */
 type Requester = string | Error;
 
 interface Frame {
@@ -38,17 +38,17 @@ interface Frame {
 
 type RawEntry = Omit<IInstantiationTraceEntry, "requester"> & { readonly requester: Requester };
 
-/** Кадров стека хватает дойти от контейнера до вызывателя; меньше кадров — дешевле захват. */
+/** Enough stack frames to get from the container to the caller; fewer frames make capture cheaper. */
 const CALLER_STACK_LIMIT = 8;
 
 export class InstantiationTracer {
     private readonly entries: RawEntry[] = [];
     private readonly stack: Frame[] = [];
     private readonly phases: string[] = [];
-    /** Фаза контрибуции, чьё создание идёт следующим на верхнем уровне; null — не контрибуция. */
+    /** Phase of the contribution whose creation comes next at the top level; null if not a contribution. */
     private pendingContribution: string | null = null;
 
-    /** Исключение пробрасывает, запись не оставляет. */
+    /** Rethrows exceptions without leaving an entry. */
     public trace<T>(id: string, factory: () => T): T {
         const parent = this.stack.at(-1);
         const phase = this.phases.at(-1) ?? null;
@@ -96,9 +96,9 @@ export class InstantiationTracer {
     }
 
     /**
-     * Создание контрибуции фазой `phase` (реестр контрибуций): само создание
-     * помечено флагом `contribution`, оно и всё вложенное — фазой. Уже созданная
-     * контрибуция (кэш контейнера) записи не даёт.
+     * Creates a contribution in phase `phase` (contribution registry): the creation itself
+     * is flagged `contribution`, and it plus everything nested is tagged with the phase. An
+     * already created contribution (container cache) produces no entry.
      */
     public contribution<T>(phase: string, run: () => T): T {
         this.phases.push(phase);
@@ -111,7 +111,7 @@ export class InstantiationTracer {
         }
     }
 
-    /** Записи в порядке завершения создания; стеки вызывателей форматируются здесь. */
+    /** Entries in order of creation completion; caller stacks are formatted here. */
     public getEntries(): IInstantiationTraceEntry[] {
         return this.entries.map((entry) =>
             typeof entry.requester === "string"
@@ -122,8 +122,8 @@ export class InstantiationTracer {
 }
 
 /**
- * Захват стека без форматирования: строку `.stack` V8 собирает при первом
- * чтении, а оно — в {@link callerName} при выгрузке, вне замеряемого окна.
+ * Captures the stack without formatting: V8 builds the `.stack` string on first
+ * read, which happens in {@link callerName} on export, outside the measured window.
  */
 function captureCaller(): Error {
     const limit = Error.stackTraceLimit;
@@ -134,16 +134,16 @@ function captureCaller(): Error {
 }
 
 /**
- * Первая функция стека за пределами контейнера и трассы. В бандле имена
- * классов и функций esbuild сохраняет, файл и строку отбрасываем: в SEA это
- * строка `main.cjs`, ни о чём не говорящая.
+ * The first stack function outside the container and the tracer. esbuild keeps class
+ * and function names in the bundle; file and line are dropped: in the SEA it's a
+ * meaningless `main.cjs` line.
  */
 function callerName(error: Error): string {
-    // Stryker disable next-line StringLiteral: `stack` у Error в V8 — всегда строка, фоллбэк — страховка типа
+    // Stryker disable next-line StringLiteral: in V8 an Error's `stack` is always a string; the fallback is a type guard
     for (const line of (error.stack ?? "").split("\n")) {
-        // `at name (file:line:col)`; безымянная функция — `at file:line:col`, её
-        // пропускаем, как и кадры самого node (`processTicksAndRejections` после
-        // await). Первая строка стека (`Error`) не совпадает ни с чем.
+        // `at name (file:line:col)`; an anonymous function is `at file:line:col` and is
+        // skipped, as are node's own frames (`processTicksAndRejections` after
+        // await). The first stack line (`Error`) matches nothing.
         const match = /at (?:async )?(.+?) \((.*)\)/.exec(line);
         if (match === null || match[2].startsWith("node:")) continue;
         const name = match[1];
@@ -157,18 +157,18 @@ function callerName(error: Error): string {
 
 let activeTracer: InstantiationTracer | undefined;
 
-/** Включает трассу инстанцирования (идемпотентно) и возвращает её. */
+/** Enables the instantiation trace (idempotent) and returns it. */
 export function enableInstantiationTrace(): InstantiationTracer {
     activeTracer ??= new InstantiationTracer();
     return activeTracer;
 }
 
-/** Активная трасса либо undefined — трасса выключена. */
+/** The active tracer, or undefined if tracing is off. */
 export function getInstantiationTracer(): InstantiationTracer | undefined {
     return activeTracer;
 }
 
-/** Выключает трассу и сбрасывает записи — для тестов. */
+/** Disables the trace and drops its entries; for tests. */
 export function resetInstantiationTrace(): void {
     activeTracer = undefined;
 }

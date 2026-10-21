@@ -21,9 +21,9 @@ describe("parseHexColor", () => {
     it("keeps the alpha of #RRGGBBAA — the engine composites it at paint time", () => {
         expect(parseHexColor("#007ACC80")).toBe(packRgba(0x00, 0x7a, 0xcc, 0x80));
         expect(parseHexColor("#F1F1F133")).toBe(packRgba(0xf1, 0xf1, 0xf1, 0x33));
-        // Альфа 255 нормализуется в непрозрачное 24-битное число.
+        // Alpha 255 normalizes to an opaque 24-bit number.
         expect(parseHexColor("#1E1E1EFF")).toBe(packRgb(0x1e, 0x1e, 0x1e));
-        // Альфа 0 — прозрачный сентинел: RGB такого цвета ничего не значит.
+        // Alpha 0 is the transparent sentinel: the RGB of such a color means nothing.
         expect(parseHexColor("#FFFFFF00")).toBe(TRANSPARENT_COLOR);
     });
 
@@ -65,7 +65,7 @@ describe("isHexColor", () => {
             0x1e1e1e,
             null,
         ];
-        // Не-строка со строковым видом цвета — тоже нет: проверяется тип, а не toString.
+        // A non-string that stringifies to a color is rejected too: the type is checked, not toString.
         values.push({ toString: () => "#FFFFFF" }, undefined);
         for (const value of values) expect(isHexColor(value), String(value)).toBe(false);
     });

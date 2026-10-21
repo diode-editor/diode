@@ -1,6 +1,6 @@
 import type { IRange } from "../../../editor/common/core/iRange.ts";
 
-/** Значения — как `MarkerSeverity` VS Code: старшая серьёзность — большее число. */
+/** Values match VS Code `MarkerSeverity`: higher severity is a larger number. */
 export enum MarkerSeverity {
     Hint = 1,
     Info = 2,
@@ -8,7 +8,7 @@ export enum MarkerSeverity {
     Error = 8,
 }
 
-/** Как `IMarkerData` VS Code: `owner`/`resource` передаются в `changeOne`, а не лежат в записи. */
+/** Like VS Code `IMarkerData`: `owner`/`resource` are passed to `changeOne`, not stored in the record. */
 export interface IMarkerData {
     readonly severity: MarkerSeverity;
     readonly range: IRange;
@@ -19,7 +19,7 @@ export interface IMarkerData {
 
 export interface IMarker extends IMarkerData {
     readonly owner: string;
-    /** Ресурс как `uri.toString()` — не путь на диске (бывает `untitled:`, `git:`, …). */
+    /** The resource as `uri.toString()`, not a disk path (can be `untitled:`, `git:`, …). */
     readonly resource: string;
 }
 

@@ -1,7 +1,7 @@
-// Типы — они же форма провода и состояния: коллекция живёт в субпроцессе, хост её хранит и
-// применяет к окружению каждого терминала.
+// These types are also the wire and state shape: the collection lives in the subprocess, the host
+// stores it and applies it to each terminal's environment.
 
-/** Значения — эталонные. */
+/** Values match upstream. */
 export enum EnvironmentVariableMutatorType {
     Replace = 1,
     Append = 2,
@@ -13,7 +13,7 @@ export interface IEnvironmentVariableMutatorOptions {
     readonly applyAtShellIntegration?: boolean;
 }
 
-/** Папка воркспейса в области коллекции: применяется к терминалу этой папки (по `index`). */
+/** Workspace folder in the collection scope: applies to that folder's terminal (by `index`). */
 export interface IEnvironmentVariableScope {
     readonly workspaceFolder?: { readonly uri: string; readonly name: string; readonly index: number };
 }
@@ -31,7 +31,7 @@ export interface IEnvironmentVariableCollectionDescription {
     readonly scope: IEnvironmentVariableScope | undefined;
 }
 
-/** Коллекция одного расширения: ключ — переменная, с областью — `<переменная>:::<uri папки>`. */
+/** One extension's collection: the key is the variable, or `<variable>:::<folder uri>` with a scope. */
 export type SerializableEnvironmentVariableCollection = readonly (readonly [string, IEnvironmentVariableMutator])[];
 export type SerializableEnvironmentDescriptionMap = readonly (readonly [
     string,
@@ -47,7 +47,7 @@ export interface IExtensionOwnedEnvironmentVariableMutator extends IEnvironmentV
     readonly extensionIdentifier: string;
 }
 
-/** Переменные активации Python трогает только расширение окружений Python (эталон). */
+/** Only the Python environments extension may touch Python activation variables (as upstream). */
 const PYTHON_ACTIVATION_VARS_PATTERN = /^VSCODE_PYTHON_(PWSH|ZSH|BASH|FISH)_ACTIVATE/;
 const PYTHON_ENV_EXTENSION_ID = "ms-python.vscode-python-envs";
 
@@ -55,7 +55,7 @@ function blockPythonActivationVar(variable: string, extensionIdentifier: string)
     return PYTHON_ACTIVATION_VARS_PATTERN.test(variable) && extensionIdentifier !== PYTHON_ENV_EXTENSION_ID;
 }
 
-/** `Replace` первым отсекает остальные мутаторы; применяются в обратном порядке заведения. */
+/** A leading `Replace` cuts off the other mutators; they apply in reverse order of addition. */
 export class MergedEnvironmentVariableCollection {
     private readonly map = new Map<string, IExtensionOwnedEnvironmentVariableMutator[]>();
 
@@ -65,14 +65,14 @@ export class MergedEnvironmentVariableCollection {
                 if (blockPythonActivationVar(key, extensionIdentifier)) continue;
                 const entry = this.map.get(key) ?? [];
                 this.map.set(key, entry);
-                // Replace первым — остальные он всё равно перезапишет.
+                // A leading Replace would overwrite the rest anyway.
                 if (entry.at(0)?.type === EnvironmentVariableMutatorType.Replace) continue;
                 entry.unshift({ ...mutator, extensionIdentifier });
             }
         }
     }
 
-    /** Мутаторы, действующие в области `scope`: глобальные и той же папки. */
+    /** Mutators in effect for `scope`: global ones and those of the same folder. */
     public getVariableMap(
         scope: IEnvironmentVariableScope | undefined,
     ): Map<string, IExtensionOwnedEnvironmentVariableMutator[]> {
@@ -86,8 +86,8 @@ export class MergedEnvironmentVariableCollection {
     }
 
     /**
-     * Под Windows имя сверяется без регистра. Только при создании процесса: `applyAtShellIntegration`
-     * читать некому — shell integration нет.
+     * On Windows names compare case-insensitively. Process creation only: nothing reads
+     * `applyAtShellIntegration`, since there is no shell integration.
      */
     public applyToProcessEnvironment(
         env: Record<string, string | undefined>,
@@ -116,7 +116,7 @@ export class MergedEnvironmentVariableCollection {
     }
 }
 
-/** Как у эталона, мутатор с областью без папки (`getScoped({})`) не применяется нигде. */
+/** As upstream, a mutator with a folderless scope (`getScoped({})`) applies nowhere. */
 function filterScope(mutator: IEnvironmentVariableMutator, scope: IEnvironmentVariableScope | undefined): boolean {
     if (mutator.scope === undefined) return true;
     const folder = mutator.scope.workspaceFolder;

@@ -14,12 +14,12 @@ import type {
 import type { IWorkspaceFileContents } from "./workspaceFile.ts";
 import { computeWorkspaceId } from "./workspaceId.ts";
 
-/** Токен владельца набора папок; читатели берут `IWorkspaceContextServiceDIToken` — интерфейс без писателя. */
+/** Token for the owner of the folder set; readers use `IWorkspaceContextServiceDIToken`, an interface without a writer. */
 export const WorkspaceContextServiceDIToken = token<WorkspaceContextService>("WorkspaceContextServiceOwner");
 
 const EMPTY_WORKSPACE: IWorkspace = { id: null, folders: [] };
 
-/** «Закрыть папку» нет, поэтому обратного перехода в `empty` тоже нет. Мульти-рут расширит {@link setWorkspaceFolder}: читатели уже смотрят на массив. */
+/** There is no "Close Folder", so no transition back to `empty` either. Multi-root will extend {@link setWorkspaceFolder}: readers already look at the array. */
 export class WorkspaceContextService implements IWorkspaceContextService {
     private workspace: IWorkspace = EMPTY_WORKSPACE;
     private readonly onDidChangeWorkspaceFoldersEmitter = new Emitter<void>();
@@ -45,17 +45,17 @@ export class WorkspaceContextService implements IWorkspaceContextService {
     }
 
     /**
-     * Открывает папку как воркспейс и оповещает подписчиков. Зовёт единственный
-     * владелец — `WorkbenchComponent.setWorkspaceFolder`: из бутстрапа `main.ts`
-     * и из команды Open Folder.
+     * Opens a folder as the workspace and notifies subscribers. Called by the sole
+     * owner, `WorkbenchComponent.setWorkspaceFolder`: from the `main.ts` bootstrap
+     * and from the Open Folder command.
      *
-     * Возвращает {@link WorkspaceId} открытого воркспейса — тот же, что лежит в
-     * `getWorkspace().id`, но уже без `null`: владельцу он нужен сразу, чтобы
-     * открыть per-workspace сторы, и проверять «а вдруг пусто» ему незачем.
+     * Returns the {@link WorkspaceId} of the opened workspace, the same as
+     * `getWorkspace().id` but without `null`: the owner needs it right away to
+     * open per-workspace stores and has no reason to check for empty.
      *
-     * Путь поднимается в `Uri` здесь — это та самая «одна точка на слой» с
-     * `path.resolve` вплотную перед `Uri.file` (docs/ARCHITECTURE.md);
-     * идентичность считается от того же абсолютного пути.
+     * The path is lifted into a `Uri` here: this is the "one point per layer" with
+     * `path.resolve` right before `Uri.file` (docs/ARCHITECTURE.md);
+     * the identity is computed from the same absolute path.
      */
     public setWorkspaceFolder(folderPath: string): WorkspaceId {
         const resolved = path.resolve(folderPath);
@@ -69,10 +69,10 @@ export class WorkspaceContextService implements IWorkspaceContextService {
     }
 
     /**
-     * Открывает воркспейс из файла `.code-workspace` (уже разобранного —
-     * `parseWorkspaceFile`) и оповещает подписчиков. Идентичность — от пути
-     * ФАЙЛА, а не папки: два файла над одним каталогом — два проекта со своими
-     * сторами, и оба отличны от той же папки, открытой напрямую.
+     * Opens a workspace from a `.code-workspace` file (already parsed by
+     * `parseWorkspaceFile`) and notifies subscribers. The identity comes from the FILE
+     * path, not the folder: two files over one directory are two projects with their own
+     * stores, and both differ from the same folder opened directly.
      */
     public setWorkspaceFile(filePath: string, contents: IWorkspaceFileContents): WorkspaceId {
         const resolvedFile = path.resolve(filePath);

@@ -3,10 +3,10 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { Uri } from "../../../base/common/uri.ts";
 import { token } from "../../instantiation/common/diContainer.ts";
 
-// Всё асинхронное: провайдеры расширений живут за границей процесса.
-// Устройство — docs/ARCHITECTURE.md, «Файловый сервис».
+// Everything is async: extension providers live across a process boundary.
+// Design: docs/ARCHITECTURE.md, the file service section.
 
-/** У симлинка — `SymbolicLink` плюс тип цели (флаги, как у vscode). */
+/** A symlink is `SymbolicLink` plus the target type (flags, as in vscode). */
 export enum FileType {
     Unknown = 0,
     File = 1,
@@ -19,15 +19,15 @@ export enum FileSystemProviderCapabilities {
     Readonly = 1,
     Trash = 2,
     FileAtomicWrite = 4,
-    /** Пока без реализации. */
+    /** Not implemented yet. */
     FileReadStream = 8,
 }
 
 export interface IStat {
     readonly type: FileType;
-    /** Мс. */
+    /** Milliseconds. */
     readonly mtime: number;
-    /** Байты. */
+    /** Bytes. */
     readonly size: number;
 }
 
@@ -47,7 +47,7 @@ export interface IFileStatChild {
 }
 
 export interface IFileStatWithChildren extends IFileStat {
-    /** У файла — пусто. */
+    /** Empty for a file. */
     readonly children: readonly IFileStatChild[];
 }
 
@@ -60,9 +60,9 @@ export interface IReadFileOptions {
 }
 
 export interface IWriteFileOptions {
-    /** Etag последнего чтения: файл на диске с тех пор изменился — отказ {@link FileOperationResult.ModifiedSince}. */
+    /** Etag of the last read: if the file on disk changed since, fails with {@link FileOperationResult.ModifiedSince}. */
     readonly etag?: string;
-    /** Если провайдер умеет. */
+    /** If the provider supports it. */
     readonly atomic?: boolean;
 }
 
@@ -75,7 +75,7 @@ export interface IDeleteOptions {
     readonly useTrash?: boolean;
 }
 
-/** У провайдера расширения сейчас только чтение. */
+/** Extension providers are read-only for now. */
 export interface IFileSystemProvider {
     readonly capabilities: FileSystemProviderCapabilities;
     readonly onDidChangeFile: Event<readonly Uri[]>;
@@ -115,7 +115,7 @@ export enum FileOperationResult {
     PermissionDenied = "PERMISSION_DENIED",
     Exists = "EXISTS",
     TooLarge = "TOO_LARGE",
-    /** Схема без провайдера или операция, которой провайдер не умеет. */
+    /** A scheme without a provider, or an operation the provider doesn't support. */
     Unavailable = "UNAVAILABLE",
 }
 
@@ -133,37 +133,37 @@ export function isFileOperationError(error: unknown, result: FileOperationResult
     return error instanceof FileOperationError && error.result === result;
 }
 
-/** Форма эталона. */
+/** Same format as upstream. */
 export function etag(stat: Pick<IStat, "mtime" | "size">): string {
     return `${stat.mtime.toString(29)}${stat.size.toString(31)}`;
 }
 
 export interface IFileService {
-    /** Занятая схема — ошибка. */
+    /** Throws if the scheme is already taken. */
     registerProvider(scheme: string, provider: IFileSystemProvider): IDisposable;
     hasProvider(resource: Uri): boolean;
     hasCapability(resource: Uri, capability: FileSystemProviderCapabilities): boolean;
-    /** Провайдер расширения появляется асинхронно, обычно уже после открытия первого файла. */
+    /** An extension provider appears asynchronously, usually after the first file is already open. */
     readonly onDidChangeFileSystemProviderRegistrations: Event<IFileSystemProviderRegistrationEvent>;
 
     stat(resource: Uri): Promise<IFileStat>;
     exists(resource: Uri): Promise<boolean>;
-    /** Тип цели симлинка у детей уже разрешён. */
+    /** Children's symlink target types are already resolved. */
     resolve(resource: Uri): Promise<IFileStatWithChildren>;
     readFile(resource: Uri, options?: IReadFileOptions): Promise<IFileContent>;
 
     writeFile(resource: Uri, value: Uint8Array, options?: IWriteFileOptions): Promise<IFileStat>;
-    /** Вместе с недостающими родителями. */
+    /** Creates missing parents too. */
     createFolder(resource: Uri): Promise<void>;
     del(resource: Uri, options?: IDeleteOptions): Promise<void>;
     move(source: Uri, target: Uri, overwrite?: boolean): Promise<void>;
     copy(source: Uri, target: Uri, overwrite?: boolean): Promise<void>;
 
-    /** «Это сделали мы» — без ожидания watcher'а. */
+    /** "We did this", without waiting for the watcher. */
     readonly onDidRunOperation: Event<IFileOperationEvent>;
-    /** Изменения снаружи от всех провайдеров. */
+    /** External changes from all providers. */
     readonly onDidFilesChange: Event<readonly Uri[]>;
 }
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string inside is just a debug label
 export const IFileServiceDIToken = token<IFileService>("FileService");

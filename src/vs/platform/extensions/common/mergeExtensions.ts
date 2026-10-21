@@ -3,8 +3,8 @@ import type { ILogger } from "../../log/common/iLogger.ts";
 import type { IExtension } from "./iExtension.ts";
 
 /**
- * При совпадении id побеждает builtin, внутри списка — первая запись; о каждом
- * конфликте — warning: пользователь должен знать, что его расширение перекрыто.
+ * On an id clash builtin wins, and within a list the first entry wins; each conflict logs a warning:
+ * the user must know their extension is shadowed.
  */
 export function mergeExtensions(
     builtin: readonly IExtension[],

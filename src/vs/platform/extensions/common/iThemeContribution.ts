@@ -1,12 +1,12 @@
 export interface IThemeContribution {
     readonly id?: string;
 
-    /** Ключ темы в реестре и в `workbench.colorTheme`, как у VS Code; `name` из файла темы игнорируется. */
+    /** Theme key in the registry and in `workbench.colorTheme`, as in VS Code; `name` from the theme file is ignored. */
     readonly label: string;
 
-    /** Нет или неизвестен — тёмная, с warning в лог. */
+    /** Missing or unknown means dark, with a warning in the log. */
     readonly uiTheme?: "vs" | "vs-dark" | "hc-black" | "hc-light";
 
-    /** Относительно корня расширения. */
+    /** Relative to the extension root. */
     readonly path: string;
 }

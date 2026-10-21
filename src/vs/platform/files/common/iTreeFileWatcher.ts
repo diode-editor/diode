@@ -1,32 +1,32 @@
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 
-/** Один-в-один `vscode.FileChangeType`. */
+/** Matches `vscode.FileChangeType` one to one. */
 export type TreeFileChangeType = "created" | "changed" | "deleted";
 
 export interface ITreeFileChange {
     readonly type: TreeFileChangeType;
-    /** Абсолютный, в форме ОС (на Windows — с `\`). */
+    /** Absolute, in OS form (with `\` on Windows). */
     readonly path: string;
 }
 
 export interface ITreeFileWatchOptions {
-    /** Иначе — только прямые дети. */
+    /** Otherwise only direct children. */
     readonly recursive: boolean;
     /**
-     * Glob относительно `rootPath` (posix-форма), куда watcher не заходит вовсе —
-     * не постфильтр: `node_modules` иначе съедает лимит inotify. Обязательное:
-     * «следить за всем» — осознанный `[]`.
+     * Globs relative to `rootPath` (posix form) that the watcher never enters at all,
+     * not a post-filter: otherwise `node_modules` eats the inotify limit. Required:
+     * "watch everything" is a deliberate `[]`.
      */
     readonly excludes: readonly string[];
 }
 
 /**
- * События приходят **пачками** (коалесинг в десятки мс): за checkout или
- * сборкой стоят сотни изменений, звать потребителя на каждое — заставить его
- * дебаунсить самому.
+ * Events arrive in **batches** (coalesced over tens of ms): a checkout or a build
+ * means hundreds of changes, and calling the consumer for each would force it to
+ * debounce on its own.
  */
 export interface ITreeFileWatcher {
-    /** Каждый вызов — независимая подписка, даже если реализация делит под ними один обход. */
+    /** Each call is an independent subscription, even if the implementation shares one traversal under them. */
     watchTree(
         rootPath: string,
         options: ITreeFileWatchOptions,

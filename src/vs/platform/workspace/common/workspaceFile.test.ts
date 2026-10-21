@@ -26,8 +26,8 @@ function failure(content: unknown): string {
 }
 
 describe("parseWorkspaceFile", () => {
-    // Главный сценарий: файлы воркспейса лежат в корне монорепы и смотрят на неё
-    // же — `"."` считается от каталога ФАЙЛА, а не от cwd процесса.
+    // The main scenario: workspace files sit at the monorepo root and point at it,
+    // so `"."` resolves against the FILE's directory, not the process cwd.
     it("относительный path — от каталога файла", () => {
         expect(parse({ folders: [{ path: "." }] }).folder).toBe("/repo");
         expect(parse({ folders: [{ path: "packages/web" }] }).folder).toBe("/repo/packages/web");
@@ -74,8 +74,8 @@ describe("parseWorkspaceFile", () => {
         expect(failure("1")).toBe(expected);
     });
 
-    // Мульти-рута нет: молча взять первую папку значило бы открыть не то, что
-    // человек ждёт, — поэтому отказ с объяснением.
+    // No multi-root: silently taking the first folder would open something other than
+    // what the user expects, so refuse with an explanation.
     it("больше одной папки — отказ «мульти-рут не поддержан»", () => {
         expect(failure({ folders: [{ path: "a" }, { path: "b" }] })).toBe(
             "Workspace file /repo/web.code-workspace lists 2 folders: multi-root workspaces are not supported yet, a workspace file must have exactly one folder",

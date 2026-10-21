@@ -8,7 +8,7 @@ export const WORKSPACE_UNDO_CONTEXT = "workspace";
 export interface IUndoParticipant {
     readonly context: string;
     readonly label: string;
-    /** Шаг несёт правку буфера этого бакета: потеря такого бакета ломает шаг, бакета без правки — нет. */
+    /** The step edits this bucket's buffer: losing such a bucket breaks the step, losing one without an edit doesn't. */
     readonly owner: boolean;
 }
 
@@ -20,21 +20,21 @@ export interface IUndoRefusal {
 }
 
 interface WorkspaceElementState {
-    /** Порядок кладки — по нему шаги встают в бакет открытого позже файла. */
+    /** Push order: steps enter the bucket of a file opened later in this order. */
     readonly order: number;
     readonly participants: Map<string, IUndoParticipant>;
-    /** Потерянные бакеты с правкой шага; непуст — шаг сломан. */
+    /** Lost buckets that held the step's edit; non-empty means the step is broken. */
     readonly removed: Map<string, UndoClearReason>;
 }
 
 /**
- * История разнесена по бакетам: непрозрачный ключ редактора (`TextFileModel.undoContext`)
- * либо {@link WORKSPACE_UNDO_CONTEXT}. Ключ — не путь: путь ломался на безымянных буферах
- * (сходились в один бакет) и на `saveAs` (история сиротела).
+ * History is split into buckets: an opaque editor key (`TextFileModel.undoContext`)
+ * or {@link WORKSPACE_UNDO_CONTEXT}. The key is not a path: paths broke on untitled buffers
+ * (they shared one bucket) and on `saveAs` (the history got orphaned).
  *
- * Шаг нескольких документов лежит в бакетах всех участников, как workspace-элемент эталона,
- * и откатывается, только когда он верхний во всех. Отступление от эталона (решение
- * человека): шаг не разбивается по файлам — нет «Undo in N Files / Undo this File».
+ * A multi-document step sits in the buckets of all participants, like upstream's workspace element,
+ * and is undone only when it is on top in all of them. Deviation from upstream (a human decision):
+ * the step is never split per file, so there is no "Undo in N Files / Undo this File".
  */
 export class UndoRedoService {
     private undoStacks = new Map<string, IUndoRedoElement[]>();
@@ -59,7 +59,7 @@ export class UndoRedoService {
         this.truncateRedo(context);
     }
 
-    /** Без участников шаг уходит в бакет {@link WORKSPACE_UNDO_CONTEXT}. */
+    /** Without participants the step goes to the {@link WORKSPACE_UNDO_CONTEXT} bucket. */
     public pushWorkspaceElement(element: IUndoRedoElement, participants: readonly IUndoParticipant[]): void {
         if (participants.length === 0) {
             this.pushElement(element, WORKSPACE_UNDO_CONTEXT);
@@ -74,9 +74,9 @@ export class UndoRedoService {
     }
 
     /**
-     * Файл открыли уже после шага нескольких документов, который его тронул: шаг встаёт и
-     * в новый бакет, как у эталона, где история привязана к ресурсу, а не к вкладке.
-     * Зовётся на свежем бакете, поэтому порядок шагов в нём — порядок кладки.
+     * The file was opened after a multi-document step that touched it: the step also enters
+     * the new bucket, as in upstream, where history is bound to the resource rather than the tab.
+     * Called on a fresh bucket, so the step order in it is the push order.
      */
     public adopt(context: string, resource: string, label: string): void {
         const adopted = new Map<IUndoRedoElement, WorkspaceElementState>();
@@ -87,7 +87,7 @@ export class UndoRedoService {
                 if (element.resources.includes(resource)) adopted.set(element, state);
             }
         }
-        // Бакеты обходятся в порядке их создания, а не кладки шагов.
+        // Buckets are iterated in creation order, not in step push order.
         const ordered = [...adopted].sort(([, a], [, b]) => a.order - b.order);
         for (const [element, state] of ordered) {
             state.participants.set(context, { context, label, owner: false });
@@ -113,16 +113,16 @@ export class UndoRedoService {
         return stack[stack.length - 1];
     }
 
-    /** `false` — откатывать нечего либо шаг отказался ({@link IUndoRedoElement.canUndo}); отказавший шаг остаётся в стеке. */
+    /** `false`: nothing to undo or the step refused ({@link IUndoRedoElement.canUndo}); a refusing step stays on the stack. */
     public async undo(context: string): Promise<boolean> {
         const stack = this.stack(this.undoStacks, context);
         const element = stack.at(-1);
         if (!element) return false;
         if (!this.checkWorkspaceElement(element, this.undoStacks, "undo")) return false;
         const canUndo = element.canUndo?.();
-        // Синхронный ответ не ждём: тогда шаг уходит в redo-стек до первого
-        // await (см. ниже). Промис — шаг спрашивает диск; пока спрашивал, стек
-        // могли сдвинуть, и снимать тогда чужой верхний шаг нельзя.
+        // A sync answer is not awaited, so the step moves to the redo stack before the first
+        // await (see below). A promise means the step asks the disk; meanwhile the stack
+        // may have shifted, and we must not pop someone else's top step.
         if (
             canUndo instanceof Promise
                 ? !(await canUndo) || !this.isTopEverywhere(element, context, this.undoStacks)
@@ -130,8 +130,8 @@ export class UndoRedoService {
         ) {
             return false;
         }
-        // Перемещаем по стекам синхронно (до await), чтобы немедленный redo сразу видел
-        // элемент; синхронная часть element.undo() тоже успевает отработать до возврата.
+        // Move between stacks synchronously (before await) so an immediate redo sees the
+        // element; the sync part of element.undo() also runs before we return.
         this.move(element, context, this.undoStacks, this.redoStacks);
         await element.undo();
         return true;
@@ -155,7 +155,7 @@ export class UndoRedoService {
         return true;
     }
 
-    /** Шаг нескольких документов с правкой этого буфера ломается: следующая отмена его сбросит. */
+    /** A multi-document step that edits this buffer breaks: the next undo drops it. */
     public clear(context: string, reason: UndoClearReason = "closed"): void {
         for (const element of this.stack(this.undoStacks, context))
             this.leave(element, context, reason, this.undoStacks);
@@ -165,7 +165,7 @@ export class UndoRedoService {
         this.stack(this.redoStacks, context).length = 0;
     }
 
-    /** Уход бакета со своей правкой ломает шаг: в undo он помечается сломанным, из redo уходит отовсюду. */
+    /** Losing a bucket with its own edit breaks the step: in undo it is marked broken, in redo it is dropped everywhere. */
     private leave(
         element: IUndoRedoElement,
         context: string,
@@ -175,7 +175,7 @@ export class UndoRedoService {
         const state = this.workspaceElements.get(element);
         if (state === undefined) return;
         const participant = state.participants.get(context);
-        // Stryker disable next-line ConditionalExpression: шаг лежит в бакете, только пока бакет — его участник (pushWorkspaceElement/adopt кладут обоих сразу, leave снимает обоих), поэтому участник здесь есть всегда
+        // Stryker disable next-line ConditionalExpression: a step sits in a bucket only while the bucket is its participant (pushWorkspaceElement/adopt add both at once, leave removes both), so the participant always exists here
         if (participant === undefined) return;
         state.participants.delete(context);
         if (!participant.owner) return;
@@ -186,10 +186,10 @@ export class UndoRedoService {
         this.dropFromRedo(element, state);
     }
 
-    /** Шаг нескольких документов, ушедший из redo одного бакета, уходит из redo всех. */
+    /** A multi-document step dropped from one bucket's redo is dropped from all of them. */
     private truncateRedo(context: string): void {
         const redo = this.stack(this.redoStacks, context);
-        // Копия: свой бакет шаг тоже покидает — правка массива на ходу.
+        // Copy: the step also leaves this bucket, which would mutate the array mid-iteration.
         for (const element of [...redo]) {
             const state = this.workspaceElements.get(element);
             if (state !== undefined) this.dropFromRedo(element, state);
@@ -201,15 +201,15 @@ export class UndoRedoService {
         for (const context of state.participants.keys()) {
             const redo = this.stack(this.redoStacks, context);
             const index = redo.indexOf(element);
-            // Stryker disable next-line ConditionalExpression: из redo шаг уходит только отсюда и сразу из всех участников, поэтому в redo участника он есть всегда; гард — от `splice(-1)`, который снял бы чужой шаг
+            // Stryker disable next-line ConditionalExpression: a step leaves redo only here and from all participants at once, so it is always in a participant's redo; the guard protects against `splice(-1)`, which would remove another step
             if (index >= 0) redo.splice(index, 1);
         }
     }
 
     /**
-     * Отказ — строками эталона `cannotWorkspaceUndo*`. Сломанный шаг эталон тоже сбрасывает
-     * целиком; не верхний в каком-то бакете эталон откатил бы «только этот файл», у нас шаг
-     * не разбивается — отказ, история цела.
+     * Refusals use upstream's `cannotWorkspaceUndo*` strings. Upstream also drops a broken step
+     * entirely; a step not on top in some bucket upstream would undo for "this file only", but here
+     * the step is never split, so we refuse and keep the history intact.
      */
     private checkWorkspaceElement(
         element: IUndoRedoElement,
@@ -242,7 +242,7 @@ export class UndoRedoService {
         return true;
     }
 
-    /** Верхний ли шаг во всех своих бакетах (у обычного шага — в своём). */
+    /** Whether the step is on top in all its buckets (for a plain step, in its own). */
     private isTopEverywhere(
         element: IUndoRedoElement,
         context: string,
@@ -251,7 +251,7 @@ export class UndoRedoService {
         return this.contextsOf(element, context).every((each) => this.stack(stacks, each).at(-1) === element);
     }
 
-    /** Снимает верхний шаг со всех его бакетов в `from` и кладёт в `to`. */
+    /** Pops the top step from all its buckets in `from` and pushes it to `to`. */
     private move(
         element: IUndoRedoElement,
         context: string,
@@ -270,7 +270,7 @@ export class UndoRedoService {
     }
 }
 
-/** Пояснение к сломанному шагу — строки `RemovedResources.createMessage` эталона. */
+/** Explanation for a broken step: upstream's `RemovedResources.createMessage` strings. */
 function removedMessage(removed: ReadonlyMap<string, UndoClearReason>): string {
     const closed = [...removed].filter(([, reason]) => reason === "closed").map(([label]) => label);
     const replaced = [...removed].filter(([, reason]) => reason === "replaced").map(([label]) => label);

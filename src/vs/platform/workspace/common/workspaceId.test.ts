@@ -5,15 +5,15 @@ import { describe, expect, it } from "vitest";
 import { computeWorkspaceId } from "./workspaceId.ts";
 
 describe("computeWorkspaceId", () => {
-    // Формат — раскладка, уже лежащая у пользователей на диске: смена формулы = миграция каталогов.
+    // The format is a layout already on users' disks: changing the formula means migrating directories.
     it("даёт sha256-hex от абсолютного пути папки — формат vscode", () => {
         const expected = crypto.createHash("sha256").update("/projects/app").digest("hex");
         expect(computeWorkspaceId("/projects/app")).toBe(expected);
         expect(computeWorkspaceId("/projects/app")).toMatch(/^[0-9a-f]{64}$/);
     });
 
-    // Одна и та же папка, названная по-разному, обязана давать ОДИН проект:
-    // иначе `diode .` и `diode /abs/path` открыли бы разные сторы сессии.
+    // The same folder named differently must yield ONE project:
+    // otherwise `diode .` and `diode /abs/path` would open different session stores.
     it("нормализует путь перед хешированием", () => {
         const canonical = computeWorkspaceId("/projects/app");
         expect(computeWorkspaceId("/projects/app/")).toBe(canonical);

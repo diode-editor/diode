@@ -8,12 +8,12 @@ import { LogLevel } from "./logLevel.ts";
 const WILDCARD = "*";
 const DEFAULT_LEVEL: LogLevel = LogLevel.Trace;
 
-/** Логгер кеширует уровень канала до `setLevel`: тот поднимает версию, и логгер пере-резолвит. */
+/** A logger caches its channel level until `setLevel`, which bumps the version so the logger re-resolves. */
 export class LogService implements ILogService {
     private readonly sinks: ILogSink[] = [];
     private readonly levels = new Map<string, LogLevel>();
-    // Ошибку слушателя записи глушим, а не отдаём в onUnexpectedError: тот в
-    // проде пишет в этот же лог — была бы рекурсия «ошибка → лог → слушатель».
+    // A listener error is swallowed rather than sent to onUnexpectedError: in production that
+    // writes to this same log, giving an "error → log → listener" recursion.
     private readonly onDidAppendEmitter = new Emitter<LogEntry>({ onListenerError: () => undefined });
     public readonly onDidAppend = this.onDidAppendEmitter.event;
     private readonly channels = new Map<string, ILogChannelDescriptor>();
@@ -65,13 +65,13 @@ export class LogService implements ILogService {
         };
     }
 
-    /** Зовётся логгером после фильтрации по уровню; падение одного sink не ломает остальные. */
+    /** Called by a logger after level filtering; one failing sink doesn't break the others. */
     public append(entry: LogEntry): void {
         for (const sink of this.sinks) {
             try {
                 sink.append(entry);
             } catch {
-                // sinks не должны валить процесс
+                // sinks must not crash the process
             }
         }
         this.onDidAppendEmitter.fire(entry);

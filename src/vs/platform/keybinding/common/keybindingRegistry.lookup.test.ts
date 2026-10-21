@@ -54,9 +54,9 @@ describe("KeybindingRegistry — getKeybindingForCommand", () => {
     });
 
     it("shows the tier-specific chord fallback when the tier matches (Show All Commands on legacy)", () => {
-        // Форма quick-open-экшенов: безусловный бинд плюс фоллбэк, действующий
-        // только на legacy-терминалах (у самой палитры фоллбэк — F1; здесь взят
-        // аккорд, чтобы заодно проверить форматирование аккордного фоллбэка).
+        // The shape of quick-open actions: an unconditional binding plus a fallback active
+        // only on legacy terminals (the command palette's own fallback is F1; a chord is used
+        // here to also check formatting of a chord fallback).
         const registry = new KeybindingRegistry();
         const ctx = new ContextKeyService();
         registry.register(parseKeybinding("ctrl+shift+p"), "workbench.action.showCommands");
@@ -120,8 +120,8 @@ describe("KeybindingRegistry — подпись выбирается по дос
     }
 
     it("на legacy подписывает фолбэк, хотя в объявлении он идёт первым и условным", () => {
-        // Иначе палитра обещала бы Shift+Alt+F: в legacy это `ESC F` без
-        // shift-флага, и нажатие подсказанного ничего не делает.
+        // Otherwise the command palette would promise Shift+Alt+F: on legacy that's `ESC F`
+        // without the shift flag, and pressing the suggested key does nothing.
         const chord = gatedPlusFallback().getKeybindingForCommand("format", contextFor("legacy"));
         expect(chord && formatKeybinding(chord)).toBe("Ctrl+K Ctrl+E");
     });
@@ -132,8 +132,8 @@ describe("KeybindingRegistry — подпись выбирается по дос
     });
 
     it("безусловный доставляемый бинд обгоняет недоставляемый условный", () => {
-        // Палитра: Ctrl+Shift+P проходит по `when` и на legacy, но до приложения
-        // не доходит — подписывать надо F1.
+        // Command palette: Ctrl+Shift+P passes `when` on legacy too, but never reaches
+        // the app, so F1 is the one to label.
         const registry = new KeybindingRegistry();
         registry.register(parseKeybinding("ctrl+shift+p"), "palette", "!(macKeys >= 3)");
         registry.register(parseKeybinding("f1"), "palette");
@@ -160,7 +160,7 @@ describe("KeybindingRegistry — getKeybindingForCommand с overlay", () => {
         registry.register(parseKeybinding("mod+enter"), "commit", "scmInputFocus");
         const contextKeys = new ContextKeyService();
         contextKeys.set("macKeys", 3);
-        // Без overlay фокуса нет: ни один when не проходит — берётся первый зарегистрированный (Ctrl-вариант).
+        // Without overlay there is no focus: no when passes, so the first registered one (the Ctrl variant) is used.
         expect(formatKeybinding(registry.getKeybindingForCommand("commit", contextKeys)!)).toBe("Ctrl+Enter");
         expect(
             formatKeybinding(registry.getKeybindingForCommand("commit", contextKeys, { scmInputFocus: true })!),
@@ -213,7 +213,7 @@ describe("KeybindingRegistry — подпись по приоритету рез
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+k ctrl+s"), "chorded");
         registry.register(parseKeybinding("f2"), "chorded");
-        // Слабее по весу, но полное совпадение на первой клавише побеждает всегда.
+        // Lower weight, but a complete match on the first key always wins.
         registry.register(parseKeybinding("ctrl+k"), "short", undefined, "default", undefined, { weight: -1 });
         expect(label(registry, "chorded")).toBe("F2");
     });

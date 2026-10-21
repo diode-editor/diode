@@ -22,9 +22,9 @@ class FakeWatcher implements ITreeFileWatcher {
         return {
             dispose: () => {
                 this.disposed.push(index);
-                // Настоящий обход после dispose молчит (chokidar закрыт, коалесинг
-                // погашен) — фейк обязан вести себя так же, иначе тест ниже
-                // проверял бы несуществующую ситуацию.
+                // A real traversal is silent after dispose (chokidar closed, coalescing
+                // cancelled): the fake must behave the same, otherwise the test below
+                // would check a situation that can't happen.
                 this.sinks[index] = () => undefined;
             },
         };

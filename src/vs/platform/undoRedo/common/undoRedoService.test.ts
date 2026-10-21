@@ -31,7 +31,7 @@ describe("UndoRedoService", () => {
         await service.undo(CTX);
 
         expect(service.peekRedo(CTX)).toBe(el);
-        expect(service.canRedo(CTX)).toBe(true); // peek не снимает элемент
+        expect(service.canRedo(CTX)).toBe(true); // peek doesn't pop the element
     });
 
     it("undo calls element.undo and moves it to the redo stack", async () => {
@@ -185,7 +185,7 @@ describe("UndoRedoService — отказ шага", () => {
         const pending = service.redo(CTX);
         const other = makeElement("Move");
         service.pushElement(other.el, CTX);
-        await service.undo(CTX); // other уходит в стек повтора поверх asking
+        await service.undo(CTX); // `other` goes onto the redo stack on top of `asking`
         answer(true);
 
         expect(await pending).toBe(false);

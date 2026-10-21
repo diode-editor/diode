@@ -21,7 +21,7 @@ function themeWith(colors: Record<string, string>): WorkbenchTheme {
     return WorkbenchTheme.fromThemeFile(json);
 }
 
-/** Композитинг закрывают тесты tuidom (`grid.alpha.test.ts`) и кадровые тесты редактора; здесь — что тема ничего не теряет по дороге. */
+/** Compositing is covered by tuidom tests (`grid.alpha.test.ts`) and editor frame tests; here, that the theme loses nothing on the way. */
 describe("WorkbenchTheme — цвета с альфой уходят в палитру как есть", () => {
     it("полупрозрачное значение темы остаётся полупрозрачным числом", () => {
         const theme = themeWith({ "statusBarItem.hoverBackground": "#F1F1F133" });
@@ -42,7 +42,7 @@ describe("WorkbenchTheme — цвета с альфой уходят в пали
         expect(overDark.getRequiredColor("statusBarItem.hoverBackground")).toBe(
             overLight.getRequiredColor("statusBarItem.hoverBackground"),
         );
-        // А вот наложение на разные подложки даёт разное — это и рисует движок.
+        // Compositing over different backdrops does differ, and that is what the engine paints.
         expect(compositeOver(packRgba(255, 255, 255, 0x80), packRgb(0, 0, 0))).not.toBe(
             compositeOver(packRgba(255, 255, 255, 0x80), packRgb(255, 255, 255)),
         );
@@ -65,13 +65,13 @@ describe("WorkbenchTheme — цвета с альфой уходят в пали
     it("встроенные темы: Dark Modern везёт 12 цветов с альфой, Dark+ — два; ни один не отброшен", () => {
         const countTranslucent = (file: IThemeFile): number => {
             const palette = WorkbenchTheme.fromThemeFile(file).colors as Readonly<Record<string, number>>;
-            // Только ключи самого файла: дефолты реестра тоже могут нести альфу.
+            // Only the file's own keys: registry defaults may carry alpha too.
             return Object.keys(file.colors).filter((key) => isTranslucent(palette[key])).length;
         };
         const alphaInFile = (file: IThemeFile): string[] =>
             Object.values(file.colors).filter((hex) => /^#[0-9a-f]{8}$/i.test(hex) && !/ff$/i.test(hex));
-        // Полностью прозрачный (`#00000000`, button.secondaryBackground) — не
-        // полупрозрачный, а сентинел TRANSPARENT_COLOR.
+        // Fully transparent (`#00000000`, button.secondaryBackground) is not translucent but the
+        // TRANSPARENT_COLOR sentinel.
         const translucentInFile = (file: IThemeFile): number =>
             Object.values(file.colors).filter((hex) => isTranslucent(parseHexColor(hex))).length;
 

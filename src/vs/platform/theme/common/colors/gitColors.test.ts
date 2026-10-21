@@ -6,7 +6,7 @@ import { WorkbenchTheme } from "../workbenchTheme.ts";
 
 import type { IWorkbenchColors } from "./colorContributions.ts";
 
-/** Ожидания — дефолты VS Code: editorGutter — реестр SCM quickDiff, gitDecoration — `contributes.colors` расширения git. */
+/** Expectations are VS Code defaults: editorGutter from the SCM quickDiff registry, gitDecoration from the git extension's `contributes.colors`. */
 const EXPECTED: Record<"dark" | "light", Partial<Record<keyof IWorkbenchColors, string>>> = {
     dark: {
         "editorGutter.modifiedBackground": "#1B81A8",

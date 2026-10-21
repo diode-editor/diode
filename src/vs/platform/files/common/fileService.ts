@@ -24,14 +24,14 @@ import {
 } from "./files.ts";
 
 /**
- * Сверх провайдера: гард грязной записи по etag, очередь записи на ресурс (два
- * save подряд не переплетаются), события «это сделали мы» и «изменилось снаружи».
+ * On top of the provider: an etag guard against dirty writes, a per-resource write queue (two
+ * saves in a row don't interleave), and "we did this" / "changed externally" events.
  */
 export class FileService extends Disposable implements IFileService {
     public static dependencies = [] as const;
 
     private readonly providers = new Map<string, IFileSystemProvider>();
-    /** Ключ — `uri.toString()`. */
+    /** Keyed by `uri.toString()`. */
     private readonly writeQueues = new Map<string, Promise<unknown>>();
 
     private readonly onDidChangeFileSystemProviderRegistrationsEmitter = this.register(
@@ -51,14 +51,14 @@ export class FileService extends Disposable implements IFileService {
             throw new Error(`file system provider for scheme "${scheme}" is already registered`);
         }
         this.providers.set(scheme, provider);
-        // Подписка на изменения живёт ровно столько, сколько регистрация: иначе
-        // умерший extension host продолжал бы будить потребителей.
+        // The change subscription lives exactly as long as the registration, otherwise
+        // a dead extension host would keep waking consumers.
         const subscription = provider.onDidChangeFile((uris) => {
             if (uris.length > 0) this.onDidFilesChangeEmitter.fire(uris);
         });
         this.onDidChangeFileSystemProviderRegistrationsEmitter.fire({ scheme, added: true });
-        // toDisposable снимает регистрацию ровно раз, а занять схему заново можно
-        // только после этого снятия — чужую регистрацию оно задеть не может.
+        // toDisposable unregisters exactly once, and the scheme can be taken again only
+        // after that, so it can't hit someone else's registration.
         return toDisposable(() => {
             subscription.dispose();
             this.providers.delete(scheme);
@@ -105,12 +105,12 @@ export class FileService extends Disposable implements IFileService {
     public async readFile(resource: Uri, options: IReadFileOptions = {}): Promise<IFileContent> {
         const provider = this.provider(resource);
         if (provider.stat === undefined) {
-            // Провайдер без stat (расширение): метаданные — из самого содержимого.
+            // A provider without stat (extension): metadata comes from the content itself.
             const value = await provider.readFile(resource);
             checkLimit(resource, value.byteLength, options.limit);
             return { ...toFileStat(resource, { type: FileType.File, mtime: 0, size: value.byteLength }), value };
         }
-        // Stat до чтения: каталог и слишком большой файл отказываются, не читаясь.
+        // Stat before reading: a directory or a too-large file is rejected without being read.
         const stat = await provider.stat(resource);
         if ((stat.type & FileType.Directory) !== 0) {
             throw new FileOperationError(`'${resource.toString()}' is a directory`, FileOperationResult.IsDirectory);
@@ -204,24 +204,24 @@ export class FileService extends Disposable implements IFileService {
         return provider;
     }
 
-    /** Перенос и копирование — внутри одного провайдера: межсхемных потребителей нет. */
+    /** Move and copy stay within one provider: there are no cross-scheme consumers. */
     private sameProvider(source: Uri, target: Uri, operation: string): IFileSystemProvider {
         if (source.scheme !== target.scheme) throw unavailable(operation, target);
         return this.writable(source, operation);
     }
 
-    /** Запись в ресурс идёт строго после предыдущей (успешной или нет). */
+    /** A write to a resource runs strictly after the previous one (successful or not). */
     private queue<T>(resource: Uri, task: () => Promise<T>): Promise<T> {
         const key = resource.toString();
         const previous = this.writeQueues.get(key) ?? Promise.resolve();
         const next = previous.then(task, task);
         const tail = next.catch(() => undefined);
         this.writeQueues.set(key, tail);
-        // Уборка отработавшего хвоста — только память: порядок записей держит
-        // цепочка промисов, а не наличие ключа в карте.
-        // Stryker disable next-line all: ненаблюдаемо снаружи — см. выше
+        // Cleaning up a finished tail is only about memory: write order is kept by
+        // the promise chain, not by the key being in the map.
+        // Stryker disable next-line all: unobservable from outside, see above
         void tail.then(() => {
-            // Stryker disable next-line all: ненаблюдаемо снаружи — см. выше
+            // Stryker disable next-line all: unobservable from outside, see above
             if (this.writeQueues.get(key) === tail) this.writeQueues.delete(key);
         });
         return next;

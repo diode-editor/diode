@@ -25,7 +25,7 @@ export class DiskFileSystemProvider implements IFileSystemProvider {
             const target = await fs.promises.stat(fsPath);
             return toStat(target, FileType.SymbolicLink | typeOf(target));
         } catch {
-            // Висячая ссылка: цели нет, но сама ссылка — есть.
+            // Dangling link: the target is gone, but the link itself exists.
             return toStat(link, FileType.SymbolicLink | FileType.Unknown);
         }
     }
@@ -57,15 +57,15 @@ export class DiskFileSystemProvider implements IFileSystemProvider {
             await guard(resource, async () => {
                 try {
                     await fs.promises.writeFile(temp, content);
-                    // Права заменяемого файла переезжают на новый: rename иначе
-                    // оставил бы права по umask (скрипт потерял бы +x).
+                    // Carry the replaced file's mode over to the new one, otherwise rename
+                    // would leave umask permissions (a script would lose +x).
                     if (replace.mode !== undefined) await fs.promises.chmod(temp, replace.mode);
                     await fs.promises.rename(temp, fsPath);
                 } catch (e) {
-                    // Падает до rename только запись соседа (её ошибка и всплывает),
-                    // а сам rename поверх каталога сюда не доходит: каталог пишется
-                    // на месте (atomicReplacement) — исход уборки не наблюдаем.
-                    // Stryker disable next-line ObjectLiteral,BooleanLiteral: см. выше
+                    // Only the temp file write fails before rename (and its error surfaces),
+                    // while rename over a directory never gets here: a directory is written
+                    // in place (atomicReplacement), so the cleanup outcome is unobservable.
+                    // Stryker disable next-line ObjectLiteral,BooleanLiteral: see above
                     await fs.promises.rm(temp, { force: true });
                     throw e;
                 }
@@ -89,7 +89,7 @@ export class DiskFileSystemProvider implements IFileSystemProvider {
             try {
                 await fs.promises.rename(source.fsPath, target.fsPath);
             } catch (e) {
-                // Между файловыми системами rename не умеет — копируем и удаляем.
+                // rename can't cross file systems: copy and delete instead.
                 if ((e as NodeJS.ErrnoException).code !== "EXDEV") throw e;
                 await fs.promises.cp(source.fsPath, target.fsPath, { recursive: true });
                 await fs.promises.rm(source.fsPath, { recursive: true });
@@ -104,10 +104,9 @@ export class DiskFileSystemProvider implements IFileSystemProvider {
 }
 
 /**
- * `null` — писать на месте, как у эталона: симлинк (`rename` заменил бы ссылку
- * файлом), лишние жёсткие ссылки (остались бы на старом содержимом), чужой
- * владелец (новый файл стал бы нашим). Атомарно — чтобы падение посреди записи
- * не оставило обрезанный файл.
+ * `null` means write in place, as upstream does: a symlink (`rename` would replace the link
+ * with a file), extra hard links (they would keep the old content), another owner (the new
+ * file would become ours). Atomic so that a crash mid-write doesn't leave a truncated file.
  */
 async function atomicReplacement(fsPath: string): Promise<{ readonly mode?: number } | null> {
     let stat: fs.Stats;
@@ -117,7 +116,7 @@ async function atomicReplacement(fsPath: string): Promise<{ readonly mode?: numb
         return {};
     }
     if (stat.isSymbolicLink() || stat.nlink > 1) return null;
-    // Владелец есть только на POSIX; на Windows `getuid` нет.
+    // Ownership exists only on POSIX; Windows has no `getuid`.
     if (process.getuid !== undefined && stat.uid !== process.getuid()) return null;
     return { mode: stat.mode & 0o7777 };
 }
@@ -141,7 +140,7 @@ function toStat(stat: fs.Stats, type: FileType): IStat {
     return { type, mtime: stat.mtimeMs, size: stat.size };
 }
 
-/** Ошибки ОС → общий словарь {@link FileOperationResult}; прочие — как есть. */
+/** Maps OS errors to the shared {@link FileOperationResult} vocabulary; others pass through as is. */
 async function guard<T>(resource: Uri, run: () => Promise<T>): Promise<T> {
     try {
         return await run();

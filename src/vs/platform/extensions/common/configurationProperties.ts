@@ -1,6 +1,6 @@
 import type { IConfigurationContribution, IConfigurationPropertySchema } from "./iExtensionManifest.ts";
 
-/** Не-объектные схемы пропускаются. */
+/** Non-object schemas are skipped. */
 export function collectConfigurationProperties(
     configuration: IConfigurationContribution | readonly IConfigurationContribution[] | undefined,
 ): Record<string, IConfigurationPropertySchema> {

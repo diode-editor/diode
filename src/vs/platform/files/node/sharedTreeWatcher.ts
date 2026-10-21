@@ -24,11 +24,11 @@ interface ISubscriber {
 }
 
 /**
- * Запрос, чьё поддерево уже покрыто живым обходом, едет на его потоке событий
- * вместо своего `chokidar.watch` (как watcher-процесс VS Code): встроенный git
- * просит три обхода, каждый LSP-клиент — свои, и без дедупликации вторая-третья
- * волна подписок упирается в лимит inotify. Снаружи поведение неотличимо от
- * независимых watcher'ов.
+ * A request whose subtree is already covered by a live traversal rides its event stream
+ * instead of its own `chokidar.watch` (like VS Code's watcher process): built-in git
+ * asks for three traversals, each LSP client for its own, and without deduplication the
+ * second or third wave of subscriptions hits the inotify limit. From outside the behavior
+ * is indistinguishable from independent watchers.
  */
 export class SharedTreeWatcher implements ITreeFileWatcher {
     private readonly traversals = new Set<ITraversal>();
@@ -43,7 +43,7 @@ export class SharedTreeWatcher implements ITreeFileWatcher {
         options: ITreeFileWatchOptions,
         onChanges: (changes: readonly ITreeFileChange[]) => void,
     ): IDisposable {
-        // «Предок/потомок» дальше считается по строкам.
+        // Ancestor/descendant checks below work on strings.
         const base = path.resolve(rootPath);
         const subscriber: ISubscriber = { base, recursive: options.recursive, onChanges, disposed: false };
         const traversal = this.findReusable(base, options) ?? this.createTraversal(base, options);
@@ -75,7 +75,7 @@ export class SharedTreeWatcher implements ITreeFileWatcher {
         const { recursive } = options;
         const subscribers = new Set<ISubscriber>();
         const subscription = this.delegate.watchTree(base, options, (changes) => {
-            // Снимок: подписчик вправе отписаться (и унести соседа) из своего колбэка.
+            // Snapshot: a subscriber may unsubscribe (itself or a neighbor) from its callback.
             for (const subscriber of [...subscribers]) {
                 if (subscriber.disposed) continue;
                 const batch = filterForSubscriber(base, recursive, subscriber, changes);
@@ -95,7 +95,7 @@ export class SharedTreeWatcher implements ITreeFileWatcher {
     }
 }
 
-/** Excludes сравнивает вызывающий. */
+/** The caller compares excludes. */
 function covers(traversal: ITraversal, base: string, recursive: boolean): boolean {
     if (traversal.root === base) return traversal.recursive || !recursive;
     if (!traversal.recursive) return false;
@@ -104,17 +104,17 @@ function covers(traversal: ITraversal, base: string, recursive: boolean): boolea
 }
 
 /**
- * Даст ли вложенной базе обход те же события, что свой watcher на ней. Excludes
- * матчатся **относительно корня обхода** (`**\/.git/objects/**` на корне и на
- * `.git` исключает разное), поэтому делим поток, только когда переякоривание
- * заведомо ничего не меняет:
- * - каждый шаблон — `**\/<один сегмент>`: он не зависит от числа сегментов перед ним;
- * - ни база, ни каталог по пути к ней не исключены — иначе chokidar до базы не дойдёт;
- * - ни база, ни каталог по пути к ней не симлинк: обход по ссылкам не ходит, а
- *   свой запрос разрешается до цели. Эталон (`removeDuplicateRequests`) ссылку
- *   выше базы не проверяет — мы проверяем, иначе событий не было бы вовсе.
+ * Whether the traversal gives a nested base the same events as its own watcher would.
+ * Excludes match **relative to the traversal root** (`**\/.git/objects/**` on the root
+ * and on `.git` excludes different things), so the stream is shared only when re-anchoring
+ * is known to change nothing:
+ * - every pattern is `**\/<single segment>`: it doesn't depend on the number of segments before it;
+ * - neither the base nor any directory on the way to it is excluded, otherwise chokidar never reaches the base;
+ * - neither the base nor any directory on the way to it is a symlink: the traversal doesn't follow
+ *   links, while a dedicated request resolves to the target. Upstream (`removeDuplicateRequests`)
+ *   doesn't check for a link above the base; we do, otherwise there would be no events at all.
  *
- * Лишний обход дешевле молча не доставленных событий.
+ * An extra traversal is cheaper than silently undelivered events.
  */
 function reanchorsCleanly(traversal: ITraversal, relativeBase: string): boolean {
     if (!traversal.excludes.every(isAnchorAgnostic)) return false;
@@ -145,12 +145,12 @@ function filterForSubscriber(
 }
 
 /**
- * `null`, если `child` не **строго внутри** `parent`. Оба пути уже нормализованы,
- * поэтому хватает префикса по границе сегмента — дешевле `path.relative` на
- * каждое событие.
+ * `null` if `child` is not **strictly inside** `parent`. Both paths are already normalized,
+ * so a prefix check on a segment boundary suffices, which is cheaper than `path.relative`
+ * per event.
  */
 function relativeUnder(parent: string, child: string): string | null {
-    // Корень (`/`, `C:\`) сам кончается разделителем — второй сломал бы префикс.
+    // A root (`/`, `C:\`) already ends with a separator; a second one would break the prefix.
     const prefix = parent.endsWith(path.sep) ? parent : parent + path.sep;
     return child.startsWith(prefix) ? child.slice(prefix.length) : null;
 }

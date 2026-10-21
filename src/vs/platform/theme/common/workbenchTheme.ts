@@ -23,10 +23,10 @@ export class WorkbenchTheme {
     }
 
     /**
-     * Дефолты реестра для вида темы ложатся ПОД её цвета, как у VS Code, — любой цвет
-     * резолвится на любой теме; ссылка в дефолте (`quickInput.background` →
-     * `editorWidget.background`) разрешается уже по слитой таблице. Альфа сохраняется:
-     * композитит движок при отрисовке (STYLES.md, «Модель цвета»).
+     * Registry defaults for the theme kind go UNDER its colors, as in VS Code, so any color resolves
+     * on any theme; a reference in a default (`quickInput.background` → `editorWidget.background`)
+     * resolves against the merged table. Alpha is kept: the engine composites when painting
+     * (tuidom STYLES.md, "Color model").
      */
     public static fromThemeFile(json: IThemeFile): WorkbenchTheme {
         const merged: Record<string, string> = { ...defaultWorkbenchColors(themeKindOf(json.type)), ...json.colors };
@@ -44,12 +44,12 @@ export class WorkbenchTheme {
         return new WorkbenchTheme(json.name ?? "Unnamed", json.type ?? "dark", colors, tokenTheme);
     }
 
-    /** `undefined` — только у цветов без дефолта в реестре; для обязательного хрома — {@link getRequiredColor}. */
+    /** `undefined` only for colors without a registry default; for required chrome use {@link getRequiredColor}. */
     public getColor(key: keyof IWorkbenchColors): number | undefined {
         return this.colors[key];
     }
 
-    /** Бросает, если ключа нет ни в теме, ни в дефолтах: цвет без определения — ошибка программиста. */
+    /** Throws if the key is in neither the theme nor the defaults: an undefined color is a programmer error. */
     public getRequiredColor(key: keyof IWorkbenchColors): number {
         const color = this.colors[key];
         if (color === undefined) {
@@ -62,7 +62,7 @@ export class WorkbenchTheme {
     }
 }
 
-/** Ссылки — по цепочке; цикл или ссылка на незарегистрированный ключ — ошибка определения цвета (сторожит colorContributions.test.ts). */
+/** Follows references along the chain; a cycle or a reference to an unregistered key is a color definition error (guarded by colorContributions.test.ts). */
 function resolveReference(table: Readonly<Record<string, string>>, key: string): string {
     const trail = [key];
     let value = table[key];

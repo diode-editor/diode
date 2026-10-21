@@ -19,13 +19,13 @@ class FakeWatcher extends EventEmitter {
     }
     public close(): Promise<void> {
         this.closed++;
-        // Как настоящий chokidar: после close() события больше не приходят.
+        // Like real chokidar: no events arrive after close().
         this.removeAllListeners();
         return Promise.resolve();
     }
 }
 
-/** Диск — набор существующих путей; `null` — существует всё. */
+/** The disk is a set of existing paths; `null` means everything exists. */
 class TestFileWatcher extends ChokidarFileWatcher {
     public readonly created: FakeWatcher[] = [];
     public existing: Set<string> | null = null;
@@ -56,7 +56,7 @@ function createLogService(): { logService: LogService; entries: LogEntry[] } {
 
 const settle = (): Promise<void> => new Promise((r) => setTimeout(r, 120));
 
-/** `ignored` chokidar'а как предикат: строка/регэксп фейку не нужны. */
+/** chokidar's `ignored` as a predicate: the fake needs no string/regexp forms. */
 function ignoredBy(options: ChokidarOptions): (candidate: string) => boolean {
     const ignored = options.ignored;
     if (typeof ignored !== "function") throw new Error("expected an `ignored` predicate");
@@ -75,8 +75,8 @@ describe("toChokidarPath", () => {
 
 describe("ChokidarFileWatcher", () => {
     it("survives a watcher 'error' (ENOSPC) instead of crashing the process", () => {
-        // Регрессия на исходный краш: без слушателя 'error' EventEmitter chokidar'а
-        // бросает исключение из своих async-потрохов — процесс падает целиком.
+        // Regression for the original crash: without an 'error' listener chokidar's EventEmitter
+        // throws from its async internals and the whole process crashes.
         const watcher = new TestFileWatcher();
         watcher.watchFile("/home/user/.diode/user-data/User/settings.json", () => {
             /* no-op */
@@ -191,8 +191,8 @@ describe("ChokidarFileWatcher", () => {
                 calls++;
             });
 
-            // `mkdir .diode && echo {} > .diode/settings.json` — к моменту события
-            // каталога файл уже лежит, а `ignoreInitial` его бы не отдал.
+            // `mkdir .diode && echo {} > .diode/settings.json`: by the time of the directory
+            // event the file already exists, and `ignoreInitial` would not report it.
             watcher.existing.add("/ws/.diode").add("/ws/.diode/settings.json");
             watcher.created[0].emit("addDir", "/ws/.diode");
 
@@ -256,7 +256,7 @@ describe("ChokidarFileWatcher", () => {
             watcher.created[0].emit("unlink");
             await settle();
 
-            expect(calls).toBe(1); // потребитель перечитает (слой станет пустым)
+            expect(calls).toBe(1); // the consumer rereads (the layer becomes empty)
             expect(watcher.created[0].closed).toBe(1);
             expect(watcher.created[1].target).toBe("/ws");
             expect(watcher.created[1].options.depth).toBe(0);

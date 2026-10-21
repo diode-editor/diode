@@ -38,7 +38,7 @@ function entry(overrides: Partial<LogEntry> = {}): LogEntry {
 
 async function flushAndDispose(sink: FileSink): Promise<void> {
     sink.dispose();
-    // FileSink.dispose() вызывает stream.end() — небольшой tick для записи на диск.
+    // FileSink.dispose() calls stream.end(): give it a short tick to flush to disk.
     await new Promise((r) => setTimeout(r, 20));
 }
 
@@ -87,7 +87,7 @@ describe("FileSink", () => {
 
     it("serializes Error without stack via name and message fallback", async () => {
         const err = new Error("boom");
-        err.stack = undefined; // форсируем ветку `?? `${name}: ${message}``
+        err.stack = undefined; // force the branch `?? `${name}: ${message}``
         const sink = new FileSink(file);
         sink.append(entry({ level: LogLevel.Error, message: "fail", args: [err] }));
         await flushAndDispose(sink);
@@ -127,8 +127,8 @@ describe("FileSink", () => {
     });
 
     it("does not throw if file path is invalid", () => {
-        // На invalid path конструктор может не бросить (createWriteStream ленив),
-        // но и не должен падать на append.
+        // On an invalid path the constructor may not throw (createWriteStream is lazy),
+        // but append must not fail either.
         const sink = new FileSink(ws.path("nonexistent-subdir/x.log"));
         expect(() => {
             sink.append(entry());

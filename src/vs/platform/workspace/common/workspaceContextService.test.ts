@@ -27,7 +27,7 @@ describe("WorkspaceContextService", () => {
             expect(folders.length).toBe(1);
             expect(folders[0]?.name).toBe("my project");
             expect(folders[0]?.index).toBe(0);
-            // Uri, а не голый путь: пробел обязан уехать в percent-encoding.
+            // A Uri, not a bare path: the space must become percent-encoded.
             expect(folders[0]?.uri.toString()).toBe("file:///work/my%20project");
             expect(folders[0]?.uri.fsPath).toBe("/work/my project");
         });
@@ -45,8 +45,8 @@ describe("WorkspaceContextService", () => {
             expect(service.getWorkspace().id).toBe(returned);
         });
 
-        // Путь резолвится в абсолютный ОДИН раз: и папка, и id обязаны считаться
-        // от одного и того же пути, иначе `diode .` и `diode /abs` разъедутся.
+        // The path is resolved to absolute ONCE: both the folder and the id must come
+        // from the same path, otherwise `diode .` and `diode /abs` would diverge.
         it("резолвит относительный путь — и в папке, и в идентичности", () => {
             const service = new WorkspaceContextService();
             const id = service.setWorkspaceFolder("sub/dir");
@@ -82,8 +82,8 @@ describe("WorkspaceContextService", () => {
             expect(service.getWorkspace().folders[0]?.name).toBe("Web");
         });
 
-        // Ради этого файлы воркспейса и заводятся: у двух файлов над одним
-        // каталогом — свои вкладки и раскладка, и обе отличны от самой папки.
+        // This is why workspace files exist: two files over one directory have
+        // their own tabs and layout, and both differ from the folder itself.
         it("идентичность — от пути файла: два файла над одной папкой и сама папка — три проекта", () => {
             const service = new WorkspaceContextService();
             const web = service.setWorkspaceFile("/repo/web.code-workspace", {
@@ -138,8 +138,8 @@ describe("WorkspaceContextService", () => {
             expect(opened().getWorkspaceFolder(Uri.file("/work/project"))?.name).toBe("project");
         });
 
-        // Матч по границе сегмента, а не по строковому префиксу: иначе соседний
-        // `/work/project-old` уехал бы в тот же воркспейс.
+        // Match on a segment boundary, not a string prefix: otherwise the sibling
+        // `/work/project-old` would land in the same workspace.
         it("сосед с общим префиксом имени — null", () => {
             expect(opened().getWorkspaceFolder(Uri.file("/work/project-old/x.ts"))).toBeNull();
         });
@@ -148,14 +148,14 @@ describe("WorkspaceContextService", () => {
             expect(opened().getWorkspaceFolder(Uri.file("/elsewhere/x.ts"))).toBeNull();
         });
 
-        // Ресурс от расширения (`jdt:`, `git:`) в папку на диске не попадает,
-        // даже если его путь текстуально совпал.
+        // An extension resource (`jdt:`, `git:`) doesn't belong to an on-disk folder,
+        // even if its path matches textually.
         it("другая схема — null даже при совпадающем пути", () => {
             expect(opened().getWorkspaceFolder(Uri.parse("git:/work/project/src/x.ts"))).toBeNull();
         });
 
-        // Корень ФС — единственная папка, чей путь сам кончается на `/`:
-        // приклеенный разделитель дал бы `//` и выкинул из воркспейса всё.
+        // The FS root is the only folder whose path itself ends with `/`:
+        // appending a separator would give `//` and drop everything from the workspace.
         it("папка-корень `/` вмещает любой файл", () => {
             const service = new WorkspaceContextService();
             service.setWorkspaceFolder("/");
@@ -176,8 +176,8 @@ describe("WorkspaceContextService", () => {
             expect(listener).toHaveBeenCalledTimes(2);
         });
 
-        // Подписчик обязан видеть УЖЕ новое состояние: на этом событии висит
-        // активация расширений по `workspaceContains:`.
+        // The subscriber must ALREADY see the new state: `workspaceContains:`
+        // extension activation hangs off this event.
         it("на момент вызова слушателя папка уже новая", () => {
             const service = new WorkspaceContextService();
             const seen: (string | undefined)[] = [];
@@ -207,8 +207,8 @@ describe("WorkspaceContextService", () => {
             expect(listener).not.toHaveBeenCalled();
         });
 
-        // Слушатели обходятся по копии набора: отписка изнутри обработчика
-        // (её делает, например, одноразовый подписчик) не должна пропускать соседа.
+        // Listeners are iterated over a copy of the set: unsubscribing from inside a handler
+        // (as a one-shot subscriber does) must not skip the next one.
         it("отписка изнутри обработчика не съедает соседних слушателей", () => {
             const service = new WorkspaceContextService();
             const second = vi.fn();
