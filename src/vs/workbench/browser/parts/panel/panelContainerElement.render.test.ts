@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 
 import { PanelContainerElement } from "./panelContainerElement.ts";
 
-// Экран БОЛЬШЕ панели: запись за её край видна как изменившаяся ячейка, а не пропадает в клипе.
+// Screen LARGER than the panel: a write past its edge shows up as a changed cell instead of being clipped.
 const SCREEN = new Size(30, 8);
 const ORIGIN = new Offset(2, 1);
 
@@ -59,8 +59,8 @@ function row(screen: TerminalScreen, y: number, from: number, length: number): s
     return Array.from({ length }, (_, i) => at(screen, from + i, y).char).join("");
 }
 
-// Фикстура: "PROBLEMS" (8) → сегмент [1, 11), глифы 2..9; "OUT" (3) → [11, 16),
-// глифы 12..14. Хвост таб-строки — 16; кнопка `×` на ширине 20 — колонки 17..19.
+// Fixture: "PROBLEMS" (8) → segment [1, 11), glyphs 2..9; "OUT" (3) → [11, 16),
+// glyphs 12..14. Tab row tail is 16; at width 20 the `×` button is columns 17..19.
 function twoTabs(): PanelContainerElement {
     const panel = themed();
     panel.addView({ id: "a", title: "PROBLEMS", content: null });
@@ -75,7 +75,7 @@ describe("PanelContainerElement: отрисовка", () => {
         expect(at(screen, 0, 4).bg).toBe(BG);
         expect(at(screen, 19, 4).bg).toBe(BG);
         expect(at(screen, 19, 0).bg).toBe(BG);
-        // Пробел на фоне панели, а не «никак».
+        // A space on the panel background, not "nothing".
         expect(at(screen, 5, 3).char).toBe(" ");
         expect(at(screen, 5, 3).bg).toBe(BG);
         expect(at(screen, 20, 0).bg).not.toBe(BG);
@@ -104,7 +104,7 @@ describe("PanelContainerElement: отрисовка", () => {
     it("не красит таб-строку дальше последней вкладки", () => {
         const screen = paint(twoTabs(), new Size(20, 5));
 
-        // Колонка 16 — сразу за хвостом таб-строки: цвет от заливки, НЕ цвет названий.
+        // Column 16 is right after the tab row tail: fill color, NOT the label color.
         expect(at(screen, 16, 1).fg).not.toBe(TITLE_FG);
         expect(at(screen, 16, 1).fg).toBe(at(screen, 5, 3).fg);
     });
@@ -123,9 +123,9 @@ describe("PanelContainerElement: отрисовка", () => {
 
         expect(at(screen, 2, 1).style).toBe(StyleFlags.Underline);
         expect(at(screen, 9, 1).style).toBe(StyleFlags.Underline);
-        expect(at(screen, 1, 1).style).toBe(StyleFlags.None); // ведущая отбивка
-        expect(at(screen, 10, 1).style).toBe(StyleFlags.None); // хвостовая отбивка
-        expect(at(screen, 12, 1).style).toBe(StyleFlags.None); // глиф НЕактивной
+        expect(at(screen, 1, 1).style).toBe(StyleFlags.None); // leading padding
+        expect(at(screen, 10, 1).style).toBe(StyleFlags.None); // trailing padding
+        expect(at(screen, 12, 1).style).toBe(StyleFlags.None); // glyph of the INACTIVE tab
 
         panel.setActiveView("b");
         const after = paint(panel, new Size(20, 5));
@@ -139,7 +139,7 @@ describe("PanelContainerElement: отрисовка", () => {
         panel.addView({ id: "a", title: "P", content: null, placeholder: "0123456789ABCDEF" });
         const screen = paint(panel, new Size(10, 5));
 
-        // Хвост не вылезает за панель.
+        // The tail does not spill past the panel.
         expect(row(screen, 2, 0, 10)).toBe("  01234567");
         expect(at(screen, 10, 2).char).not.toBe("8");
         expect(at(screen, 10, 2).bg).not.toBe(BG);
@@ -156,7 +156,7 @@ describe("PanelContainerElement: отрисовка", () => {
     });
 
     it("placeholder не показывается у вкладки, у которой контент есть", () => {
-        // С контентом welcome-состояние обязано молчать, даже если текст объявлен.
+        // With content the welcome state must stay silent, even if the text is set.
         const panel = themed();
         panel.addView({ id: "a", title: "P", content: new MarkerContent("X"), placeholder: "hidden" });
         const screen = paint(panel, new Size(20, 5));
@@ -166,7 +166,7 @@ describe("PanelContainerElement: отрисовка", () => {
     });
 
     it("не рисует placeholder, когда строки контента нет вовсе", () => {
-        // Места под контент нет; запись в несуществующую строку видна только на экране больше панели.
+        // No room for content; a write to a nonexistent row is visible only on a screen larger than the panel.
         const panel = themed();
         panel.addView({ id: "a", title: "P", content: null, placeholder: "hidden" });
         const screen = paint(panel, new Size(20, 2));
@@ -187,7 +187,7 @@ describe("PanelContainerElement: отрисовка", () => {
     });
 
     it("панель без вкладок вовсе раскладывается и рисуется", () => {
-        // Чтение активной вкладки обязано быть опциональным, иначе кадр падает.
+        // Reading the active tab must be optional, otherwise the frame crashes.
         const panel = themed();
 
         expect(() => paint(panel, new Size(20, 5))).not.toThrow();

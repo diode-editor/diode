@@ -6,9 +6,9 @@ import { describe, expect, it } from "vitest";
 import { PanelContainerElement } from "./panelContainerElement.ts";
 
 /**
- * Порядок, на котором ловились баги семейства #204: ребёнка прикрепляют до
- * укоренения панели, вкладка становится активной без клика. С протухшим root
- * `focus()`/`open()` молча ничего не делают.
+ * The order that caught the #204 family of bugs: a child is attached before the
+ * panel is rooted, and the tab becomes active without a click. With a stale root
+ * `focus()`/`open()` silently do nothing.
  */
 function rootInto(container: TUIElement): BodyElement {
     const body = new BodyElement();
@@ -66,7 +66,7 @@ describe("PanelContainerElement: контракт дерева", () => {
         panel.addView({ id: "other", title: "OTHER", content: inactive });
         panel.setActiveView("other");
 
-        const body = rootInto(panel); // пока активна другая вкладка
+        const body = rootInto(panel); // while another tab is active
         panel.setActiveView("output");
 
         expect(actions.getRoot()).toBe(body);

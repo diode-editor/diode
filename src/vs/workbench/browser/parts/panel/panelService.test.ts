@@ -61,7 +61,7 @@ describe("PanelService — view registry", () => {
     });
 
     it("activateView switches the tab AND fires the user-activation event", () => {
-        // На событии активации висят ленивые фичи (спавн терминала) — будить их должен только «клик».
+        // Lazy features (terminal spawn) listen to the activation event; only a "click" should wake them.
         const service = new PanelService();
         service.addView({ id: "problems", title: "PROBLEMS" });
         service.addView({ id: "terminal", title: "TERMINAL" });

@@ -8,5 +8,5 @@ export type IPanelViewDescriptor = IPaneCompositeViewDescriptor;
 
 export type IPanelView = IPaneCompositeView;
 
-/** Свой класс ради своего DI-токена, как у эталона `PanelPart` рядом с `AuxiliaryBarPart`. */
+/** A separate class for its own DI token, like upstream `PanelPart` next to `AuxiliaryBarPart`. */
 export class PanelService extends PaneCompositePartService {}

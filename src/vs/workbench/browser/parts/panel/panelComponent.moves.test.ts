@@ -71,7 +71,7 @@ describe("PanelComponent — контекстное меню вкладки", ()
         service.addView({ id: "output", title: "OUTPUT" });
         const requests: IPaneCompositeTabContextMenuRequest[] = [];
         service.onDidRequestTabContextMenu((request) => requests.push(request));
-        // Панель по смещению: экранные координаты ≠ локальным.
+        // Panel at an offset: screen coordinates ≠ local ones.
         component.view.localPosition = new Offset(5, 3);
         component.view.layout(BoxConstraints.tight(new Size(40, 8)));
         const menu = (trigger: "mouse" | "keyboard", screenX: number, screenY: number): boolean => {
@@ -91,7 +91,7 @@ describe("PanelComponent — контекстное меню вкладки", ()
 
     it("правый клик по вкладке — запрос меню с её id, точкой клика и владельцем-панелью", () => {
         const { component, requests, menu } = scene();
-        // Таб-строка панели — её строка 1; OUTPUT — колонки 11..18 панели.
+        // The panel tab row is its row 1; OUTPUT occupies panel columns 11..18.
         expect(menu("mouse", 5 + 13, 3 + 1)).toBe(true);
         expect(requests).toEqual([{ id: "output", anchor: { screenX: 18, screenY: 4 }, owner: component.view }]);
         expect(component.view.getActiveViewId()).toBe("problems");
@@ -113,7 +113,7 @@ describe("PanelComponent — контекстное меню вкладки", ()
             menu("mouse", 5 + x, 3 + 1);
             map += requests.at(0)?.id.charAt(0) ?? ".";
         }
-        // PROBLEMS — колонки 1..10 (с отступами таба), OUTPUT — 11..18.
+        // PROBLEMS is columns 1..10 (with tab padding), OUTPUT is 11..18.
         expect(map).toBe(".ppppppppppoooooooo.....");
     });
 

@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 
 import { PanelContainerElement } from "./panelContainerElement.ts";
 
-// Геометрия таб-строки (см. TAB_INDENT=1, TAB_PAD=1, TAB_ROW=1):
-// "PROBLEMS" (8) → сегмент [1, 11); "OUTPUT" (6) → [11, 19).
-// Кнопка `×` — три правые колонки: на ширине 40 это [37, 40).
+// Tab row geometry (see TAB_INDENT=1, TAB_PAD=1, TAB_ROW=1):
+// "PROBLEMS" (8) → segment [1, 11); "OUTPUT" (6) → [11, 19).
+// The `×` button is the three rightmost columns: at width 40 that is [37, 40).
 describe("PanelContainerElement.inspectState", () => {
     it("reports tabs with absolute hit geometry and the active id", () => {
         const panel = new PanelContainerElement();
@@ -41,7 +41,7 @@ describe("PanelContainerElement.inspectState", () => {
         panel.localPosition = new Offset(30, 12);
         panel.layout(BoxConstraints.tight(new Size(40, 8)));
 
-        // Сценарий кликает именно по этим координатам, а не пересчитывает их сам.
+        // A scenario clicks exactly these coordinates instead of recomputing them.
         expect(panel.inspectState().close).toEqual({ x: 67, width: 3, centerX: 68 });
     });
 

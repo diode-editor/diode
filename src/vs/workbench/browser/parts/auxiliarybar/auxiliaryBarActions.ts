@@ -8,7 +8,7 @@ import { ViewsServiceDIToken } from "../views/viewsService.ts";
 import { CLOSE_AUXILIARY_BAR_COMMAND_ID } from "./auxiliaryBarComponent.ts";
 import { AuxiliaryBarServiceDIToken } from "./auxiliaryBarService.ts";
 
-/** Как `setAuxiliaryBarHidden(false)` эталона: открывает активный (или первый) контейнер с фокусом. */
+/** Like upstream `setAuxiliaryBarHidden(false)`: opens the active (or first) container and focuses it. */
 function showAndFocusAuxiliaryBar(accessor: ServiceAccessor): void {
     accessor.get(LayoutServiceDIToken).setAuxiliaryBarVisible(true);
     const activeId = accessor.get(AuxiliaryBarServiceDIToken).getActiveViewId();
@@ -21,7 +21,7 @@ function cycleAuxiliaryBarView(accessor: ServiceAccessor, step: 1 | -1): void {
     if (views.length === 0) return;
     const current = views.findIndex((view) => view.id === auxiliaryBar.getActiveViewId());
     const next = views[(current + step + views.length) % views.length];
-    // Пользовательская активация: ленивые фичи (терминал) просыпаются, как от клика по табу.
+    // User activation: lazy features (terminal) wake up as if the tab was clicked.
     auxiliaryBar.activateView(next.id);
     showAndFocusAuxiliaryBar(accessor);
 }
@@ -42,7 +42,7 @@ export const toggleAuxiliaryBarAction: CommandAction = {
     },
 };
 
-/** Отдельно от toggle, как в эталоне: `enablement` гасит пункт в палитре на скрытой части. */
+/** Separate from toggle, as upstream: `enablement` disables the palette entry while the part is hidden. */
 export const closeAuxiliaryBarAction: CommandAction = {
     id: CLOSE_AUXILIARY_BAR_COMMAND_ID,
     title: "View: Hide Secondary Side Bar",

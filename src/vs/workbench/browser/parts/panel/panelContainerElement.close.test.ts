@@ -21,7 +21,7 @@ const VARS = {
     "toolbar.hoverBackground": HOVER_BG,
 };
 
-/** Панель с двумя вкладками; на ширине 40 кнопка `×` занимает колонки 37..39. */
+/** Panel with two tabs; at width 40 the `×` button occupies columns 37..39. */
 function panel(): PanelContainerElement {
     const element = new PanelContainerElement();
     element.addView({ id: "problems", title: "PROBLEMS", content: null });
@@ -68,7 +68,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
 
         expect(onClose).toHaveBeenCalledTimes(1);
         expect(onActivate).not.toHaveBeenCalled();
-        // Видимость — дело команды воркбенча.
+        // Visibility is up to the workbench command.
         expect(element.getActiveViewId()).toBe("problems");
     });
 
@@ -98,7 +98,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
     });
 
     it("на узкой панели кнопка старше таб-строки — иначе из панели было бы не выйти", () => {
-        // Ширина 12: сегмент PROBLEMS — [1, 11), кнопка — [9, 12); колонки 9 и 10 общие, выиграть обязана кнопка.
+        // Width 12: PROBLEMS segment is [1, 11), the button is [9, 12); columns 9 and 10 overlap and the button must win.
         const element = panel();
         element.setActiveView("output");
         const backend = render(element, 12);
@@ -151,8 +151,8 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         const onClose = vi.fn();
         element.onClose = onClose;
 
-        mouse(element, "mousedown", { x: 38, y: 0 }); // полоса верхней границы
-        mouse(element, "mousedown", { x: 38, y: 4 }); // область контента
+        mouse(element, "mousedown", { x: 38, y: 0 }); // top border strip
+        mouse(element, "mousedown", { x: 38, y: 4 }); // content area
 
         expect(onClose).not.toHaveBeenCalled();
     });
@@ -164,7 +164,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         mouse(element, "mousemove", { x: 38 });
         expect(render(element).getBgAt(new Point(38, 1))).toBe(HOVER_BG);
 
-        // Не дожидаясь mouseleave.
+        // Without waiting for mouseleave.
         mouse(element, "mousemove", { x: 20 });
         expect(render(element).getBgAt(new Point(38, 1))).toBe(BG);
 
@@ -175,7 +175,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
     });
 
     it("не перерисовывает панель, пока курсор ходит внутри кнопки", () => {
-        // Мышь шлёт move на каждую колонку; будить перерисовку на каждое движение нельзя.
+        // The mouse sends a move for every column; a repaint must not be triggered on every move.
         const element = panel();
         render(element);
         const markDirty = vi.spyOn(element, "markDirty");
@@ -190,7 +190,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
         markDirty.mockRestore();
     });
 
-    /** В нуле координат ошибка знака при переводе экранных координат в локальные не видна. */
+    /** At the coordinate origin a sign error in screen-to-local conversion is invisible. */
     describe("панель смещена от начала координат", () => {
         const ORIGIN = new Offset(7, 4);
 
@@ -244,7 +244,7 @@ describe("PanelContainerElement: кнопка закрытия панели", ()
             const tabRow = element.inspectState().tabRow as number;
             const markDirty = vi.spyOn(element, "markDirty");
 
-            screenMouse(element, "mousemove", 38, 1); // без поправки — не кнопка
+            screenMouse(element, "mousemove", 38, 1); // without the offset correction it is not the button
             expect(markDirty).not.toHaveBeenCalled();
 
             screenMouse(element, "mousemove", close.centerX, tabRow);

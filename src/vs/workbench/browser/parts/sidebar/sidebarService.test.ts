@@ -91,16 +91,16 @@ describe("SidebarService", () => {
             return [keys.get("searchViewletVisible"), keys.get("scmViewletVisible")];
         };
 
-        // Активного вьюлета нет — ключи опущены, но выставлены.
+        // No active viewlet: the keys are false but still set.
         expect(visibleKeys()).toEqual([false, false]);
         service.showViewlet("search");
         expect(visibleKeys()).toEqual([true, false]);
         service.showViewlet("scm");
         expect(visibleKeys()).toEqual([false, true]);
-        // Сайдбар спрятан мимо сервиса (Ctrl+B) — опрос это видит.
+        // Sidebar hidden bypassing the service (Ctrl+B): polling sees it.
         setSidebarShown(false);
         expect(visibleKeys()).toEqual([false, false]);
-        // Вьюлет без ключа (Explorer) ключей не трогает.
+        // A viewlet without a key (Explorer) leaves the keys alone.
         setSidebarShown(true);
         service.showViewlet("explorer");
         expect(visibleKeys()).toEqual([false, false]);

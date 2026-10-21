@@ -56,7 +56,7 @@ describe("AuxiliaryBarComponent — ключи контекста", () => {
 });
 
 describe("AuxiliaryBarFocusContribution — края", () => {
-    // Исключение подписчика setupFiles превращает в падение теста: «no-op» здесь — ещё и «без ошибки».
+    // setupFiles turns a listener exception into a test failure, so "no-op" here also means "no error".
     it("часть вне дерева или корень без менеджера фокуса: скрытие — no-op", () => {
         for (const rooted of ["none", "bare"] as const) {
             const { service, focusEditor } = scene(rooted);

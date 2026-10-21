@@ -4,7 +4,7 @@ import { PaneCompositePartService } from "../paneCompositePartService.ts";
 export const AuxiliaryBarServiceDIToken = token<AuxiliaryBarService>("AuxiliaryBarService");
 
 /**
- * Механика общая с панелью: у эталона `AuxiliaryBarPart` при
- * `workbench.activityBar.location=default` показывает контейнеры вкладками в заголовке.
+ * Shares its mechanics with the panel: with `workbench.activityBar.location=default`,
+ * upstream `AuxiliaryBarPart` shows containers as tabs in its title.
  */
 export class AuxiliaryBarService extends PaneCompositePartService {}

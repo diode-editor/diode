@@ -14,13 +14,13 @@ export const AuxiliaryBarComponentDIToken = token<AuxiliaryBarComponent>("Auxili
 
 export const EMPTY_AUXILIARY_BAR_MESSAGE = "Use 'View: Move View' to display a view here.";
 
-/** У эталона — `closeAuxiliaryBar`. */
+/** Upstream: `closeAuxiliaryBar`. */
 export const CLOSE_AUXILIARY_BAR_COMMAND_ID = "workbench.action.closeAuxiliaryBar";
 
 /**
- * У эталона у `AuxiliaryBarPart` своих цветов нет: фон и текст `sideBar.*`,
- * вкладки — `panelTitle.*`. Первая колонка отдана сашу — на её месте у эталона
- * `sideBar.border`.
+ * Upstream `AuxiliaryBarPart` has no colors of its own: background and text come from `sideBar.*`,
+ * tabs from `panelTitle.*`. The first column belongs to the sash; upstream draws
+ * `sideBar.border` there.
  */
 export class AuxiliaryBarComponent extends PaneCompositePartComponent implements IContextKeyContributor {
     public static dependencies = [AuxiliaryBarServiceDIToken, CommandRegistryDIToken] as const;
@@ -34,7 +34,7 @@ export class AuxiliaryBarComponent extends PaneCompositePartComponent implements
             foreground: "sideBar.foreground",
             topBorder: false,
             contentLeft: 1,
-            // Отступление: у эталона «Drag a view here to display.», но перетаскивания видов у нас нет.
+            // Deviation: upstream says "Drag a view here to display.", but we have no view drag and drop.
             emptyMessage: EMPTY_AUXILIARY_BAR_MESSAGE,
         });
     }

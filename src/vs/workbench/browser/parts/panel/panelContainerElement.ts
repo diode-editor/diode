@@ -8,7 +8,7 @@ export interface PanelView {
     readonly id: string;
     readonly title: string;
     content: TUIElement | null;
-    /** Область `MenuId.ViewTitle` у VS Code. */
+    /** VS Code `MenuId.ViewTitle` area. */
     actions?: TUIElement | null;
     readonly placeholder?: string;
 }
@@ -22,21 +22,21 @@ interface TabSegment {
 const TAB_PAD = 1;
 const TAB_INDENT = 1;
 /**
- * Дефолты — нижняя панель; вторичная боковая (у эталона — тот же
- * `AbstractPaneCompositePart`) рисуется как сайдбар.
+ * Defaults match the bottom panel; the auxiliary bar (upstream the same
+ * `AbstractPaneCompositePart`) is drawn like the sidebar.
  */
 export interface IPanelContainerOptions {
     readonly background?: string;
     readonly foreground?: string;
     readonly topBorder?: boolean;
     readonly contentLeft?: number;
-    /** У эталона — «Drag a view here to display.» в `paneCompositePart.ts`. */
+    /** Upstream: "Drag a view here to display." in `paneCompositePart.ts`. */
     readonly emptyMessage?: string;
 }
 
 /**
- * Не codicon: иконки приватной области Unicode не видно в текстовом дампе
- * кадра, и сценарий не смог бы её проверить.
+ * Not a codicon: private use area glyphs are invisible in a text dump of the
+ * frame, so a scenario could not check it.
  */
 const CLOSE_LABEL = " × ";
 const CLOSE_WIDTH = CLOSE_LABEL.length;
@@ -45,7 +45,7 @@ const CLOSE_WIDTH = CLOSE_LABEL.length;
 export class PanelContainerElement extends TUIElement {
     public onActivateView?: (id: string) => void;
     public onClose?: () => void;
-    /** Правый клик или Shift+F10; якорь — экранная точка попапа. */
+    /** Right click or Shift+F10; the anchor is the popup's screen point. */
     public onTabContextMenu?: (id: string, anchor: { readonly screenX: number; readonly screenY: number }) => void;
 
     private views: PanelView[] = [];
@@ -68,13 +68,13 @@ export class PanelContainerElement extends TUIElement {
         this.style = { fg: options.foreground, bg: options.background ?? "panel.background" };
         this.addEventListener("mousedown", (event) => {
             if (event.button !== "left") return;
-            // Событие из дочернего контрола (селектор в шапке) не наше: иначе клик по нему переключал бы вкладку.
+            // An event from a child control (the header selector) is not ours: otherwise clicking it would switch tabs.
             if (event.target !== this) return;
             const localY = event.screenY - this.globalPosition.y;
             if (localY !== this.tabRow) return;
             const localX = event.screenX - this.globalPosition.x;
-            // Кнопка закрытия раньше вкладок: на узкой панели она рисуется ПОВЕРХ
-            // хвоста таб-строки и там должна срабатывать.
+            // Close button before tabs: on a narrow panel it is drawn ON TOP of the
+            // tab row tail and must win there.
             if (this.isCloseHit(localX)) {
                 this.onClose?.();
                 return;
@@ -84,7 +84,7 @@ export class PanelContainerElement extends TUIElement {
             this.setActiveView(segment.id);
             this.onActivateView?.(segment.id);
         });
-        // Проверки источника, как у mousedown, не нужно: ни один ребёнок в колонки кнопки не попадает.
+        // No source check as in mousedown: no child overlaps the button columns.
         this.addEventListener("mousemove", (event) => {
             const localY = event.screenY - this.globalPosition.y;
             const localX = event.screenX - this.globalPosition.x;
@@ -93,7 +93,7 @@ export class PanelContainerElement extends TUIElement {
         this.addEventListener("mouseleave", () => {
             this.setCloseHovered(false);
         });
-        // У эталона — меню композит-бара («Move To», «Reset Location»).
+        // Upstream: the composite bar menu ("Move To", "Reset Location").
         this.addEventListener("contextmenu", (event) => {
             if (event.target !== this) return;
             const menuEvent = event as TUIContextMenuEvent;
@@ -124,7 +124,7 @@ export class PanelContainerElement extends TUIElement {
         this.syncChildren();
     }
 
-    /** Снятая активная передаёт активность первой оставшейся. */
+    /** Removing the active one activates the first remaining one. */
     public removeView(id: string): void {
         const index = this.views.findIndex((v) => v.id === id);
         if (index < 0) return;
@@ -154,9 +154,9 @@ export class PanelContainerElement extends TUIElement {
     }
 
     /**
-     * Все вкладки живут в дереве постоянно, неактивные — hidden: иначе контент,
-     * прицепленный до укоренения панели, оставался с протухшим root (#204).
-     * `setChildren` зовёт `markDirty` сам — сеттерам своего вызова не нужно.
+     * All tabs stay in the tree, inactive ones hidden: otherwise content attached
+     * before the panel was rooted kept a stale root (#204).
+     * `setChildren` calls `markDirty` itself, so setters need no call of their own.
      */
     private syncChildren(): void {
         const children: TUIElement[] = [];
@@ -182,7 +182,7 @@ export class PanelContainerElement extends TUIElement {
         return this.views.map((v) => v.id);
     }
 
-    /** Абсолютная геометрия хит-боксов — тест кликает `tabs[i].centerX` / `close.centerX`. */
+    /** Absolute hit-box geometry: a test clicks `tabs[i].centerX` / `close.centerX`. */
     public override inspectState(): Record<string, unknown> {
         const originX = this.globalPosition.x;
         let x = TAB_INDENT;
@@ -215,7 +215,7 @@ export class PanelContainerElement extends TUIElement {
         return this.views.reduce((x, view) => x + view.title.length + TAB_PAD * 2, TAB_INDENT);
     }
 
-    /** `null` — панель уже самой кнопки. */
+    /** `null` when the panel is narrower than the button itself. */
     private closeStart(): number | null {
         const width = this.layoutSize.width;
         return width < CLOSE_WIDTH ? null : width - CLOSE_WIDTH;
@@ -249,8 +249,8 @@ export class PanelContainerElement extends TUIElement {
 
     protected override performLayout(constraints: BoxConstraints): Size {
         const containerSize = super.performLayout(constraints);
-        // Ширину берём интринсиковую и не даём заехать ни на табы, ни на кнопку
-        // закрытия: её ведущий пробел и служит зазором.
+        // Use the intrinsic width and keep it off both the tabs and the close
+        // button: the button's leading space serves as the gap.
         const actions = this.activeView()?.actions;
         if (actions != null) {
             const available = Math.max(0, containerSize.width - CLOSE_WIDTH);
@@ -310,13 +310,13 @@ export class PanelContainerElement extends TUIElement {
         // Controls are drawn after the tabs so they win the shared row.
         this.renderChildren(context);
 
-        // Кнопка закрытия — последней: на узкой панели перекрывает хвост табов и контролов.
+        // Close button last: on a narrow panel it overlaps the tail of tabs and controls.
         this.renderCloseButton(context);
 
         const active = this.activeView();
         if (active?.content == null && active?.placeholder !== undefined && height > this.contentTop) {
             const message = active.placeholder;
-            // Stryker disable next-line UpdateOperator: «i--» зацикливает отрисовку — тест виснет (таймаут верификатора), а не проходит; текст плейсхолдера закрыт тестами отрисовки
+            // Stryker disable next-line UpdateOperator: "i--" loops rendering forever — the test hangs (verifier timeout) rather than passing; the placeholder text is covered by render tests
             for (let i = 0; i < message.length && i + this.contentLeft < width; i++) {
                 context.setCell(i + this.contentLeft, this.contentTop, {
                     char: message[i],
@@ -326,7 +326,7 @@ export class PanelContainerElement extends TUIElement {
             }
         }
 
-        // С переносом по словам: вторичная боковая панель узкая.
+        // Word-wrapped: the auxiliary bar is narrow.
         if (this.views.length === 0 && this.emptyMessage !== undefined) {
             const lines = wrapText(this.emptyMessage, Math.max(1, width - this.contentLeft));
             for (let row = 0; row < lines.length && this.contentTop + row < height; row++) {

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 import { PaneCompositePartService } from "./paneCompositePartService.ts";
 
-/** Наследник ради открытого конструктора — как PanelService/AuxiliaryBarService. */
+/** Subclass for a public constructor, like PanelService/AuxiliaryBarService. */
 class TestPart extends PaneCompositePartService {}
 
 function withViews(...ids: string[]): { part: TestPart; changes: number[]; active: string[] } {

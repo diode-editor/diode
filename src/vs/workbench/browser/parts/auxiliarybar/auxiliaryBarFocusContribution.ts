@@ -12,7 +12,7 @@ export const AuxiliaryBarFocusContributionDIToken = token<AuxiliaryBarFocusContr
     "AuxiliaryBarFocusContribution",
 );
 
-/** У эталона `setAuxiliaryBarHidden` на скрытии зовёт `focusPanelOrEditor`. */
+/** Upstream `setAuxiliaryBarHidden` calls `focusPanelOrEditor` when hiding. */
 export class AuxiliaryBarFocusContribution extends PaneCompositeFocusContribution {
     public static dependencies = [
         AuxiliaryBarServiceDIToken,

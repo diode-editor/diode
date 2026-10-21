@@ -7,15 +7,15 @@ import type { PaneCompositePartService } from "./paneCompositePartService.ts";
 import type { IPanelContainerOptions } from "./panel/panelContainerElement.ts";
 import { PanelContainerElement } from "./panel/panelContainerElement.ts";
 
-/** Клик по табу возвращается в сервис (`activateView`) — на нём висят ленивые фичи (спавн терминала). */
+/** A tab click goes back to the service (`activateView`): lazy features (terminal spawn) listen there. */
 export class PaneCompositePartComponent extends Component {
     public readonly view: PanelContainerElement;
 
-    /** Чтобы не перевешивать контент без нужды. */
+    /** Avoids re-attaching content when nothing changed. */
     private contents = new Map<string, TUIElement | null>();
     private actions = new Map<string, TUIElement | null>();
 
-    /** @param viewId стабильный селектор части для e2e и инспектора. */
+    /** @param viewId stable selector of the part for e2e and the inspector. */
     protected constructor(
         private readonly partService: PaneCompositePartService,
         commands: CommandRegistry,
@@ -26,11 +26,11 @@ export class PaneCompositePartComponent extends Component {
         super();
         this.view = new PanelContainerElement(options);
         this.view.id = viewId;
-        // Контрол уже переключил вкладку у себя — синхронизируем сервис.
+        // The control has already switched its tab; sync the service.
         this.view.onActivateView = (id) => {
             this.partService.activateView(id);
         };
-        // `×` не трогает видимость сама: та же дверь, что у кейбинда и палитры (включая `enablement`).
+        // `×` does not change visibility itself: it goes through the same command as the keybinding and palette (including `enablement`).
         this.view.onClose = () => {
             void commands.execute(closeCommandId);
         };
@@ -55,13 +55,13 @@ export class PaneCompositePartComponent extends Component {
         for (const id of [...this.contents.keys()]) {
             if (views.some((view) => view.id === id)) continue;
             this.contents.delete(id);
-            // Stryker disable next-line CallExpression: вернувшуюся вкладку узнают по contents — её actions перепишет addView-ветка ниже; сирота в карте ненаблюдаем
+            // Stryker disable next-line CallExpression: a returning tab is recognized by contents and the addView branch below overwrites its actions; an orphan in the map is unobservable
             this.actions.delete(id);
             this.view.removeView(id);
         }
         for (const view of views) {
             if (!this.contents.has(view.id)) {
-                // Вернувшийся контейнер встаёт на своё место по order, а не в хвост.
+                // A returning container takes its place by order, not at the end.
                 this.view.addView(
                     {
                         id: view.id,
@@ -80,7 +80,7 @@ export class PaneCompositePartComponent extends Component {
             this.actions.set(view.id, view.actions);
         }
         const activeId = this.partService.getActiveViewId();
-        // Stryker disable next-line ConditionalExpression: «→ true» эквивалентен — null для контрола неизвестный id, setActiveView его пропускает (охрана — ради типа)
+        // Stryker disable next-line ConditionalExpression: "→ true" is equivalent — null is an unknown id for the control and setActiveView skips it (the guard is for the type)
         if (activeId !== null) this.view.setActiveView(activeId);
     }
 }

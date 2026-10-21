@@ -20,8 +20,8 @@ const HOVER_BG = packRgb(10, 20, 30);
 
 // Layout: row 0 = top strip (`─` across), row 1 = tabs (indent 1, pad 1 → glyphs at x 2),
 // rows 2.. = content indented by 2. "PROBLEMS" (8) → tab segment [1, 11), glyphs x 2..9;
-// "OUTPUT" (6) → segment [11, 19), glyphs x 12..17. Кнопка `×` — три правые
-// колонки строки вкладок: на ширине 40 это x 37..39.
+// "OUTPUT" (6) → segment [11, 19), glyphs x 12..17. The `×` button is the three
+// rightmost columns of the tab row: at width 40 that is x 37..39.
 
 class ContainerElement extends TUIElement {
     public addChild(child: TUIElement): void {
@@ -100,7 +100,7 @@ describe("PanelContainerElement", () => {
         expect(panel.getActiveViewId()).toBe("a");
         panel.setActiveView("a");
         expect(panel.getActiveViewId()).toBe("a");
-        // Ранний выход не только про activeId — он ещё и не будит кадр зря.
+        // The early return is not just about activeId: it also avoids a needless frame.
         expect(markDirty).not.toHaveBeenCalled();
 
         panel.setActiveView("b");
@@ -109,7 +109,7 @@ describe("PanelContainerElement", () => {
         markDirty.mockRestore();
     });
 
-    /** Рисует себя в ручном `render`: без `markDirty` вкладка меняется в модели, но не на экране. */
+    /** Draws itself in a manual `render`: without `markDirty` the tab changes in the model but not on screen. */
     it("wakes a repaint on every change of the registry", () => {
         const panel = themed();
         const markDirty = vi.spyOn(panel, "markDirty");
@@ -263,8 +263,8 @@ describe("PanelContainerElement", () => {
         });
 
         /**
-         * У последней вкладки ошибка на единицу вправо не видна совсем (за ней
-         * пустая шапка), а влево — съедает её первую колонку, поэтому проверяем обе руками.
+         * For the last tab an off-by-one to the right is invisible (an empty header follows it),
+         * while one to the left eats its first column, so check both explicitly.
          */
         it("activates a tab by its FIRST column and ignores the one past its last", () => {
             const { root, panel, activated } = scene();
@@ -300,7 +300,7 @@ describe("PanelContainerElement", () => {
         });
     });
 
-    /** Своих дефолтов у наших токенов в движке нет — проверяем на живой палитре, а не на снапшоте. */
+    /** Our tokens have no engine defaults, so check against a live theme, not a snapshot. */
     it("renders on the live Dark+ palette", () => {
         const panel = new PanelContainerElement();
         panel.addView({ id: "a", title: "P", content: null, placeholder: "x" });
