@@ -7,6 +7,7 @@ import {
     filterReportToScope,
     mutantKey,
     parseArgs,
+    parseDiff,
     parseScope,
     PositionalArgumentError,
     scoreReport,
@@ -109,4 +110,27 @@ test("parseArgs: injection re-verification flags are consumed and not passed to 
     assert.deepEqual(parseArgs([]).verify, {});
     assert.throws(() => parseArgs(["--verify-jobs"]), /positive number/);
     assert.throws(() => parseArgs(["--verify-budget", "x"]), /positive number/);
+});
+
+test("parseDiff: hunks keep both sides, pure deletions and /dev/null are skipped", () => {
+    const diff = [
+        "diff --git src/a.ts src/a.ts",
+        "--- src/a.ts",
+        "+++ src/a.ts",
+        "@@ -3 +3 @@ x",
+        "-old",
+        "+new",
+        "@@ -10,2 +9,0 @@",
+        "@@ -20,0 +18,3 @@",
+        "--- src/gone.ts",
+        "+++ /dev/null",
+        "@@ -1,2 +0,0 @@",
+    ].join("\n");
+    const { scope, headers } = parseDiff(diff);
+    assert.equal(headers, 2);
+    assert.deepEqual(scope.get("src/a.ts"), [
+        { oldStart: 3, oldCount: 1, newStart: 3, newCount: 1 },
+        { oldStart: 20, oldCount: 0, newStart: 18, newCount: 3 },
+    ]);
+    assert.equal(scope.has("src/gone.ts"), false);
 });
