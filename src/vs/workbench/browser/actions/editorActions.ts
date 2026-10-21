@@ -123,8 +123,8 @@ export const cursorEndSelectAction: CommandAction = {
     },
 };
 
-// Своих pc-биндов у них нет, как в эталоне: на маке это Ctrl+A / Ctrl+E (Home/End
-// в мак-терминалах скроллят буфер), бинды — в таблице мак-дельт.
+// No PC bindings of their own, as upstream: on the Mac these are Ctrl+A / Ctrl+E (Home/End
+// scroll the buffer in Mac terminals); the bindings live in the Mac delta table.
 
 export const cursorLineStartAction: CommandAction = {
     id: "cursorLineStart",
@@ -184,9 +184,9 @@ export const cursorBottomSelectAction: CommandAction = {
     },
 };
 
-// Фолбэки БЕЗУСЛОВНЫ, а не под `tier == 'legacy'`: под tmux tier поднимается по
-// env-хинту и первой CSI-u клавише, а расширенные клавиши tmux не доставляет —
-// гейт выключал фолбэк ровно там, где он нужен (docs/arch/workbench/Keyboard.md).
+// The fallbacks are UNCONDITIONAL, not under `tier == 'legacy'`: under tmux the tier rises on
+// the env hint and the first CSI-u key, yet tmux does not deliver extended keys —
+// the gate disabled the fallback exactly where it is needed (docs/arch/workbench/Keyboard.md).
 export const cursorWordLeftAction: CommandAction = {
     id: "cursorWordLeft",
     title: "Cursor Word Left",
@@ -291,7 +291,7 @@ export const scrollLineDownAction: CommandAction = {
     },
 };
 
-// Без when, как в VS Code: переключает session-состояние сервиса, а не редактор.
+// No when, as in VS Code: it toggles the service's session state, not the editor.
 export const toggleWordWrapAction: CommandAction = {
     id: "editor.action.toggleWordWrap",
     title: "View: Toggle Word Wrap",

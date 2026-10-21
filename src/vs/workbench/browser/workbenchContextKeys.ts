@@ -30,9 +30,9 @@ import { KeybindingDispatcherDIToken } from "../services/keybinding/browser/keyb
 export const WorkbenchContextKeysDIToken = token<WorkbenchContextKeys>("WorkbenchContextKeys");
 
 /**
- * Только ключи workbench-уровня; ключи фич выставляют сами фичи
- * ({@link IContextKeyContributor}) в том же {@link update}. До {@link attachView}
- * фокуса нет — активный элемент считается `null`.
+ * Workbench-level keys only; features set their own keys
+ * ({@link IContextKeyContributor}) in the same {@link update}. Before {@link attachView}
+ * there is no focus — the active element is `null`.
  */
 export class WorkbenchContextKeys extends Disposable {
     public static dependencies = [
@@ -47,7 +47,7 @@ export class WorkbenchContextKeys extends Disposable {
     ] as const;
 
     private view: BodyElement | null = null;
-    /** Резолвятся сразу, чтобы порядок подъёма сервисов не зависел от первого нажатия. */
+    /** Resolved eagerly so the service startup order does not depend on the first keystroke. */
     private readonly contributors: readonly IContextKeyContributor[];
 
     public constructor(
@@ -74,7 +74,7 @@ export class WorkbenchContextKeys extends Disposable {
     public handleFocusChange = (_event: TUIFocusEvent): void => {
         this.dispatcher.cancelPendingChord();
         this.update();
-        // После пересчёта: подписчики (попапы редактора) видят уже освежённый контекст.
+        // After the recompute: subscribers (editor popups) already see the refreshed context.
         this.focusTracker.fire(this.activeElement());
     };
 
@@ -83,16 +83,16 @@ export class WorkbenchContextKeys extends Disposable {
         const editorCount = this.groups.activeGroup.editorCount;
 
         this.contextKeys.set("textInputFocus", active instanceof EditorElement);
-        // Шире textInputFocus по семантике when-клауз: «команде нужна каретка»
-        // против «команде нужен ввод» (мутирующие гейтятся ещё `!editorReadonly`).
+        // Broader than textInputFocus in when-clause semantics: "the command needs a cursor"
+        // vs "the command needs input" (mutating commands are also gated on `!editorReadonly`).
         this.contextKeys.set("textViewFocus", isTextViewElement(active));
-        // Upstream-имена: манифесты расширений пишут `editorTextFocus` и `editorLangId`.
+        // Upstream names: extension manifests use `editorTextFocus` and `editorLangId`.
         this.contextKeys.set("editorTextFocus", active instanceof EditorElement);
         this.contextKeys.set("editorLangId", isTextViewElement(active) ? active.viewState.document.languageId : "");
-        // Наш аналог `EditorContextKeys.writable`. Без фокуса в тексте — false,
-        // иначе ключ залипал бы от прошлого редактора.
+        // Our counterpart of `EditorContextKeys.writable`. Without text focus it is false,
+        // otherwise the key would stick from the previous editor.
         this.contextKeys.set("editorReadonly", isTextViewElement(active) && active.readOnly);
-        // Гейт Escape у `removeSecondaryCursors`: без него Escape перехватывался бы всегда.
+        // Gates Escape for `removeSecondaryCursors`: without it Escape would always be intercepted.
         this.contextKeys.set(
             "editorHasMultipleSelections",
             isTextViewElement(active) && active.viewState.selections.length > 1,
@@ -111,7 +111,7 @@ export class WorkbenchContextKeys extends Disposable {
             this.groups.activeGroup === this.groups.groups[this.groups.groups.length - 1],
         );
         this.contextKeys.set("terminalFocus", active instanceof TerminalViewElement);
-        // Upstream-ключ: команды воркспейса в палитре только при открытой папке.
+        // Upstream key: workspace commands show in the command palette only with a folder open.
         this.contextKeys.set("workbenchState", this.workspaceContext.getWorkbenchState());
         for (const contributor of this.contributors) {
             contributor.updateContextKeys(this.contextKeys, active);

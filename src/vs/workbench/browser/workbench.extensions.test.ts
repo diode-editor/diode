@@ -22,8 +22,8 @@ import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
 /**
- * Сборка — в теле теста, а не в `beforeEach`: покрытие (в том числе мутационное)
- * считается по телу, и проводка, поднятая в хуке, осталась бы «ничьей».
+ * Setup lives in the test body, not in `beforeEach`: coverage (mutation coverage included)
+ * is attributed to the body, and wiring built in a hook would belong to no test.
  */
 
 const SHOW_EXTENSIONS = "workbench.view.extensions";
@@ -90,7 +90,7 @@ describe("Workbench — магазин расширений в сайдбаре 
         ws = createTempWorkspace({ prefix: "diode-extensions-view-", files: { "a.txt": "alpha\n" } });
 
         const { container, bindApp } = createTestContainer();
-        // До первого резолва компонента: в тестовом профиле магазин — пустой NULL-сервис.
+        // Before the component is first resolved: in the test profile the marketplace is an empty null object.
         container.bind(ExtensionsWorkbenchServiceDIToken, fakeService);
 
         const workbench = container.get(WorkbenchComponentDIToken);
@@ -168,7 +168,7 @@ describe("Workbench — магазин расширений в сайдбаре 
         const shown = h.screen();
         expect(shown).toContain("Acme Tools");
         expect(shown).toContain("Readme from the registry");
-        // Вкладку фокусируют ещё до первого кадра страницы — кнопка обязана уже быть.
+        // The tab is focused before the page's first frame — the button must already exist.
         expect(shown).toContain("[ Install ]");
         expect(h.focusedId()).toBe("extensionPageButton-install");
     });

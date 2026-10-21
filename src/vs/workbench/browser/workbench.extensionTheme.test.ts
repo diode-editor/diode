@@ -14,8 +14,8 @@ import { ThemeService } from "../services/themes/common/themeService.ts";
 import { ThemeRegistryDIToken, ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 
 /**
- * Первый кадр TestApp рендерит в конструкторе, поэтому тема уходит в контейнер
- * ДО резолва WorkbenchComponent — как в порядке старта main.ts.
+ * TestApp renders the first frame in its constructor, so the theme goes into the container
+ * BEFORE WorkbenchComponent is resolved — matching the startup order in main.ts.
  */
 
 const SAMPLE_EDITOR_BG = "#101820";
@@ -37,7 +37,7 @@ async function startupThemes(colorTheme: string): Promise<{
     const registry = createBuiltinThemeRegistry();
     const logger = createLoggerSpy();
     await new ExtensionThemeContributor(assets, [ext], registry, logger).apply();
-    // Та же развилка, что в main.ts: ненайденная тема → дефолт + warning.
+    // Same branch as in main.ts: a theme that is not found → default + warning.
     let theme = registry.resolve(colorTheme);
     if (theme === undefined) {
         logger.warn(`Color theme "${colorTheme}" not found, falling back to "${DEFAULT_COLOR_THEME}"`);
@@ -72,8 +72,8 @@ describe("Workbench — тема расширения на старте (US-3)",
             },
         });
 
-        // Кадр, который бэкенд получил ПЕРВЫМ: TestApp отрендерил его при
-        // создании, никаких sendKey/render между ним и этим чтением нет.
+        // The frame the backend received FIRST: TestApp rendered it on creation,
+        // with no sendKey/render between it and this read.
         const statusBar = h.testApp.querySelector("#statusBar") as HFlexElement;
         const statusOrigin = statusBar.globalPosition;
         expect(h.testApp.backend.getBgAt(new Point(statusOrigin.x, statusOrigin.y))).toBe(packRgb(0x0a, 0x0f, 0x14));
@@ -82,8 +82,8 @@ describe("Workbench — тема расширения на старте (US-3)",
         h.testApp.render();
         const editor = h.testApp.querySelector("EditorElement") as EditorElement;
         const editorOrigin = editor.globalPosition;
-        // Вторая (пустая) строка: на первой слово под кареткой подсвечено
-        // occurrence-фоном, а не фоном редактора.
+        // The second (empty) line: on the first one the word under the cursor is
+        // highlighted with the occurrence background, not the editor background.
         const contentX = editorOrigin.x + editor.gutterWidth;
         expect(h.testApp.backend.getBgAt(new Point(contentX + 2, editorOrigin.y + 1))).toBe(packRgb(0x10, 0x18, 0x20));
         expect(h.container.get(ThemeRegistryDIToken).list().at(-1)).toEqual({ label: "Sample Dark", type: "dark" });
@@ -102,7 +102,7 @@ describe("Workbench — тема расширения на старте (US-3)",
                 container.bind(ThemeServiceDIToken, () => new ThemeService(theme!));
             },
         });
-        // Dark Modern: statusBar.background #181818 — уже в первом кадре.
+        // Dark Modern: statusBar.background #181818 — already in the first frame.
         const statusBar = h.testApp.querySelector("#statusBar") as HFlexElement;
         const statusOrigin = statusBar.globalPosition;
         expect(h.testApp.backend.getBgAt(new Point(statusOrigin.x, statusOrigin.y))).toBe(packRgb(0x18, 0x18, 0x18));

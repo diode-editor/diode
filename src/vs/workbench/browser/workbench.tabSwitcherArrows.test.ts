@@ -12,7 +12,7 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 import type { TabSwitcherComponent } from "./parts/editor/tabSwitcherComponent.ts";
 import { TabSwitcherComponentDIToken } from "./parts/editor/tabSwitcherComponent.ts";
 
-/** Длинный файл — чтобы у редактора было куда скроллиться (сценарии «стрелка не протекла»). */
+/** A long file, so the editor has room to scroll ("the arrow didn't leak" scenarios). */
 const LONG_TEXT = Array.from({ length: 60 }, (_, i) => `line ${i + 1}`).join("\n");
 
 describe("Workbench — стрелки Вверх/Вниз в видимом списке Ctrl+Tab", () => {
@@ -47,7 +47,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         return h.activeEditor().fileName;
     }
 
-    /** Позиция цикла в оверлее — номер подсвеченной строки списка. */
+    /** The cycle position in the overlay — the index of the highlighted list row. */
     function pointer(): number {
         return (switcher.view.inspectState() as { currentIndex: number }).currentIndex;
     }
@@ -119,7 +119,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
 
     it("стрелки не протекают в редактор: курсор и прокрутка на месте", () => {
         const editor = h.activeEditor();
-        editor.viewState.goToPosition(4, 0); // 0-based: Ln 5, Col 1 в статус-баре
+        editor.viewState.goToPosition(4, 0); // 0-based: Ln 5, Col 1 in the status bar
         editor.viewState.scrollTop = 0;
         h.testApp.render();
 
@@ -128,7 +128,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         for (let i = 0; i < 3; i++) h.testApp.sendKey("Ctrl+ArrowUp");
         h.testApp.render();
 
-        // Tab + 3×Вниз + 3×Вверх = тот же шаг, что дал один Tab: позиция 1 (b.ts).
+        // Tab + 3×Down + 3×Up = the same step a single Tab gave: position 1 (b.ts).
         expect(activeName()).toBe("b.ts");
         expect(switcher.isOpen()).toBe(true);
         expect(editor.viewState.scrollTop).toBe(0);
@@ -159,7 +159,7 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
         h.testApp.render();
         expect(pointer()).toBe(2);
 
-        // Shift пользователь обычно не отпускает — стрелка обязана работать и с ним.
+        // Users usually don't release Shift — the arrow must work with it held too.
         h.testApp.sendKey("Ctrl+Shift+ArrowDown");
         h.testApp.render();
         expect(pointer()).toBe(0);
@@ -270,9 +270,9 @@ describe("Workbench — стрелки Вверх/Вниз в видимом с�
             one.testApp.render();
             expect(switcherOne.isOpen()).toBe(false);
 
-            // Обход: при одной вкладке Ctrl+Tab не резолвится, и движок крутит кольцо
-            // фокуса по Tab, уводя фокус в меню-бар. Починено в tuidom#5 (0.2.2) — снять
-            // вместе с подъёмом пина.
+            // Workaround: with a single tab Ctrl+Tab doesn't resolve, and the engine cycles the focus
+            // ring on Tab, moving focus into the menu bar. Fixed in tuidom#5 (0.2.2) — remove
+            // together with the pin bump.
             one.workbench.focusEditor();
             one.activeEditor().viewState.scrollTop = 0;
             one.testApp.sendKey("Ctrl+ArrowDown");

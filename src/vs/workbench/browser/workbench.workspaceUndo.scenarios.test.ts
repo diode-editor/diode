@@ -20,7 +20,7 @@ function createWorkspace(): ITempWorkspace {
         },
     });
     fs.mkdirSync(ws.path("target"));
-    // Изолированная корзина под этот тест — удаление обратимо и не трогает ~/.local.
+    // A trash dedicated to this test — deletion is reversible and does not touch ~/.local.
     process.env.XDG_DATA_HOME = ws.path(".xdg");
     return ws;
 }
@@ -51,7 +51,7 @@ describe("Explorer undo/redo scenarios", () => {
         else process.env.XDG_DATA_HOME = savedXdg;
     });
 
-    // Удаление в корзину доступно → дефолтная кнопка ("Move to Trash") в фокусе, подтверждаем Enter.
+    // Moving to trash is available → the default button ("Move to Trash") is focused; confirm with Enter.
     function confirmDelete(): void {
         h.testApp.render();
         expect(h.testApp.querySelector("#confirmDialog")).not.toBeNull();
@@ -123,7 +123,7 @@ describe("Explorer undo/redo scenarios", () => {
         const a = ws.path("a.txt");
         const doc = ws.path("doc.txt");
 
-        // Дерево: target/(0), a.txt(1), b.txt(2), doc.txt(3).
+        // Tree: target/(0), a.txt(1), b.txt(2), doc.txt(3).
         h.testApp.sendKey("ArrowDown");
         h.commands.execute("fileOperations.cut");
         h.testApp.sendKey("ArrowUp");

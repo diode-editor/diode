@@ -83,8 +83,8 @@ describe("Workbench — integrated terminal", () => {
         h.commands.execute(NEW_TERMINAL);
         expect(panel().getActiveViewId()).toBe(TERMINAL_VIEW_ID);
         expect(terminal.hasOpenTerminals).toBe(true);
-        // Сравниваем булевым выражением, а не `toBe`: провалившийся `toBe` на узле
-        // TUI-дерева печатает весь граф и валит воркер по памяти.
+        // Compare via a boolean expression, not `toBe`: a failed `toBe` on a TUI tree
+        // node prints the whole graph and makes the worker run out of memory.
         expect(activeWidget() === firstWidget).toBe(false);
     });
 
@@ -111,7 +111,7 @@ describe("Workbench — integrated terminal", () => {
         h.commands.execute(TOGGLE_TERMINAL);
         const session = terminal.getActiveInstance()?.session as FakeTerminalSurface;
 
-        session.emitExit(0); // `exit` в шелле — вкладка остаётся с placeholder'ом
+        session.emitExit(0); // `exit` in the shell: the tab stays with a placeholder
         expect(terminal.hasOpenTerminals).toBe(false);
         expect(h.workbench.workbenchLayout.getBottomPanelVisible()).toBe(true);
 
@@ -125,12 +125,12 @@ describe("Workbench — integrated terminal", () => {
     it("activating the TERMINAL tab lazily spawns a shell", () => {
         expect(terminal.hasOpenTerminals).toBe(false);
 
-        // Клик по табу: setActiveView, затем onActivateView — на нём висит ленивый спавн TerminalService.
+        // Tab click: setActiveView, then onActivateView, which triggers the lazy TerminalService spawn.
         panel().setActiveView(TERMINAL_VIEW_ID);
         panel().onActivateView?.(TERMINAL_VIEW_ID);
 
         expect(terminal.hasOpenTerminals).toBe(true);
-        // В таб-строке рядом живут только кнопки «+» и Kill.
+        // Only the "+" and Kill buttons sit next to it in the tab row.
         expect(panel().querySelectorAll("TerminalViewElement")).toHaveLength(1);
     });
 });

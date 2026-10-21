@@ -1,4 +1,4 @@
-/** Компоненты собираются в конструкторе; async-инициализация (диск, индексация, spawn) — только у сервисов. */
+/** Components are assembled in the constructor; async initialization (disk, indexing, spawn) is for services only. */
 export interface IActivatable {
     activate(): Promise<void>;
 }

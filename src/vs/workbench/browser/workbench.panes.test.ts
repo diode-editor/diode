@@ -30,7 +30,7 @@ class TextOnlyPane implements IEditorPane {
     }
 
     public focusEditor(): void {
-        // Нечего фокусировать — панель не принимает ввод.
+        // Nothing to focus — the pane does not accept input.
     }
 
     public getSelectedTexts(): string[] {
@@ -38,8 +38,8 @@ class TextOnlyPane implements IEditorPane {
     }
 
     public dispose(): void {
-        // view не отцепляем: группа держит его как content, и setParent(null) оставил
-        // бы полуприкреплённое состояние (ловит validateTree). Отцепляет контент-слот группы.
+        // The view is not detached here: the group holds it as content, and setParent(null) would
+        // leave a half-attached state (caught by validateTree). The group's content slot detaches it.
     }
 }
 

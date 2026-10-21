@@ -22,7 +22,7 @@ interface TestQuitContext {
     commands: CommandRegistry;
 }
 
-/** `exit` — подменённый выход процесса-владельца: настоящий унёс бы раннер. */
+/** `exit` is a stubbed exit of the owning process: the real one would take the runner down. */
 function createTestContext(exit: () => void = () => undefined): TestQuitContext {
     const h = createAppTestHarness({
         containerOverrides: (container) => {
@@ -37,7 +37,7 @@ function createTestContext(exit: () => void = () => undefined): TestQuitContext 
     };
 }
 
-/** Выход ждёт confirmSave и прощание участников на микротасках — ветки надо прокрутить перед проверкой. */
+/** Quit awaits confirmSave and the participants' shutdown on microtasks — flush the branches before asserting. */
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 function quit(accessor: ServiceAccessor): void {
@@ -243,8 +243,8 @@ describe("Workbench quit with save dialog", () => {
         accessor.get(DialogServiceDIToken).getOpenConfirmSaveDialog()?.onSave?.();
         await tick();
 
-        // Сохранять некуда («no-file») — как у закрытия вкладки: вето, а не выход
-        // с потерей текста.
+        // There is nowhere to save ("no-file") — as with closing a tab: a veto, not a quit
+        // that loses the text.
         expect(exitSpy).not.toHaveBeenCalled();
         expect(accessor.get(EditorServiceDIToken).getEditors()[0].isModified).toBe(true);
     });
@@ -353,9 +353,8 @@ describe("Workbench close-tab confirm flow", () => {
 });
 
 /**
- * Метка безымянного буфера в диалоге подтверждения. Раньше эти ветки прятались под
- * `/* v8 ignore ... always have a file path *\/` (неправда — Ctrl+N их достаёт), и
- * диалог писал «untitled», расходясь с меткой вкладки `Untitled-1`.
+ * Label of an untitled buffer in the confirmation dialog: Ctrl+N reaches these branches,
+ * and the dialog must match the tab label `Untitled-1`, not say "untitled".
  */
 describe("Workbench — диалог сохранения для безымянного буфера", () => {
     function dialogText(testApp: TestApp): string {

@@ -116,13 +116,13 @@ describe("Workbench — multiple terminals", () => {
         expect(h.testApp.focusedElement).toBe(component.tabs.list);
         expect(keys.get("terminalTabsFocus")).toBe(true);
 
-        h.testApp.sendKey("ArrowUp"); // курсор на #2 — он и активный
+        h.testApp.sendKey("ArrowUp"); // cursor on #2, which is also the active one
         const victim = terminal.getInstances()[1];
         h.testApp.sendKey("Delete");
 
         expect(terminal.getInstances().includes(victim)).toBe(false);
         expect(terminal.getInstances()).toHaveLength(2);
-        // Список остался — фокус в нём (как `focusTabs()` эталона после kill).
+        // The list remains and keeps focus (like upstream's `focusTabs()` after kill).
         expect(h.testApp.focusedElement).toBe(component.tabs.list);
 
         h.testApp.sendKey("Delete");
@@ -196,7 +196,7 @@ describe("Workbench — multiple terminals", () => {
         expect(frame).toContain("1: bash");
         expect(frame).toContain("3: bash");
         expect(frame).toContain("Create New Terminal");
-        // Пикер открыт на активном (#3) — вверх на #2.
+        // The picker opens on the active one (#3) — up to #2.
         h.testApp.sendKey("ArrowUp");
         h.testApp.sendKey("Enter");
         await picked;

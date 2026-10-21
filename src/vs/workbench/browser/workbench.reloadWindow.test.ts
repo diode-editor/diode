@@ -4,9 +4,9 @@ import { createAppTestHarness } from "../../../TestUtils/AppTestHarness.ts";
 import { DialogServiceDIToken } from "../services/dialogs/browser/dialogService.ts";
 import { HostProcessDIToken } from "../services/lifecycle/common/hostProcess.ts";
 
-/** Сам перезапуск процесса — юниты `base/node/restartProcess.test.ts`, здесь шов подменён. */
+/** The process restart itself is unit-tested in `base/node/restartProcess.test.ts`; here the seam is stubbed. */
 
-/** Харнесс с подменённым швом перезагрузки: настоящий унёс бы раннер. */
+/** Harness with a stubbed reload seam: the real one would take the runner down. */
 function createHarness(): { harness: ReturnType<typeof createAppTestHarness>; reloadWindow: () => void } {
     const reloadWindow = vi.fn();
     const harness = createAppTestHarness({
@@ -17,7 +17,7 @@ function createHarness(): { harness: ReturnType<typeof createAppTestHarness>; re
     return { harness, reloadWindow };
 }
 
-/** Продолжение после ответа в диалоге и прощание участников идут микротасками (LifecycleService async). */
+/** Continuation after the dialog answer and the participants' shutdown run as microtasks (LifecycleService is async). */
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
 
 describe("Workbench — перезагрузка окна", () => {

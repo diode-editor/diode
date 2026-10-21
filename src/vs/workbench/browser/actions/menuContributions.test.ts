@@ -88,9 +88,9 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
     }
 
     it("EditorContext: состав и порядок — дословно upstream'ские", () => {
-        // Группы эталона: `1_modification` → `1_quickfix` → `9_cutcopypaste` →
-        // `z_commands` (`navigation` всегда первой, но её пункты гейтятся
-        // ключами `editorHas*Provider` — без провайдеров их тут нет).
+        // Upstream groups: `1_modification` → `1_quickfix` → `9_cutcopypaste` →
+        // `z_commands` (`navigation` always comes first, but its items are gated
+        // by `editorHas*Provider` keys — without providers they're absent here).
         expect(labels(MenuId.EditorContext)).toEqual([
             "Change All Occurrences",
             "─",
@@ -172,8 +172,8 @@ describe("MENU_CONTRIBUTIONS — итоговые встроенные меню"
     it("ViewTitle: пункты фильтруются по id view из menuContext", () => {
         const contextKeys = new ContextKeyService();
         contextKeys.set("scmViewletVisible", true);
-        // Без репозитория git-топ (Pull/Push/Checkout/Fetch) скрыт when-гейтами;
-        // Show Git Output безусловен.
+        // Without a repository the git top (Pull/Push/Checkout/Fetch) is hidden by when gates;
+        // Show Git Output is unconditional.
         expect(labels(MenuId.ViewTitle, { view: "workbench.scm.changes" }, contextKeys)).toEqual([
             "View as Tree",
             "View as List",

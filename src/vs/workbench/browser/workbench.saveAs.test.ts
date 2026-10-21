@@ -13,7 +13,7 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
-/** Вопрос о перезаписи — заголовок второго пикера диалога (эталон). */
+/** The overwrite question is the title of the dialog's second picker (upstream). */
 const overwriteQuestion = (name: string): string => `${name} already exists. Are you sure you want to overwrite it?`;
 
 describe("Workbench — Save As", () => {
@@ -42,7 +42,7 @@ describe("Workbench — Save As", () => {
         const dialog = fileDialogDriver(h);
         h.commands.execute("workbench.action.files.saveAs");
         await dialog.settle({ title: "Save As", query: filePath, items: ["..", "alpha.txt", "beta.txt"] });
-        // Имя без расширения выделено: набор заменит его, «.txt» останется.
+        // The name without the extension is selected: typing replaces it and ".txt" stays.
         expect(dialog.component.view.inputElement.inputState.selectedText).toBe("alpha");
         dialog.key("Escape");
     });
@@ -64,8 +64,8 @@ describe("Workbench — Save As", () => {
             expect(fs.readFileSync(newPath, "utf-8")).toBe("Alpha content");
         });
 
-        // Ждём и метку: атомарная запись кладёт файл раньше, чем модель объявит о
-        // сохранении, а вкладку переименовывает именно это событие.
+        // Wait for the label too: the atomic write lands the file before the model announces
+        // the save, and it is that event which renames the tab.
         const tabStrip = h.testApp.querySelector("EditorTabStripElement") as EditorTabStripElement;
         await vi.waitFor(() => {
             h.testApp.render();
@@ -192,7 +192,7 @@ describe("Workbench — Save As", () => {
         const editor = h.container.get(EditorServiceDIToken).getActiveTabEditor();
         if (editor === null) throw new Error("нет активного редактора");
         const update = vi.spyOn(h.container.get(WorkbenchContextKeysDIToken), "update");
-        // Закрытый диалог возвращает фокус редактору — это свой пересчёт, до записи.
+        // The closed dialog returns focus to the editor — that is a separate recompute, before the write.
         const saveAs = editor.saveAs.bind(editor);
         vi.spyOn(editor, "saveAs").mockImplementation((target) => {
             update.mockClear();

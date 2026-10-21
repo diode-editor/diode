@@ -22,7 +22,7 @@ import type { QuickPickElement } from "./parts/quickinput/quickPickElement.ts";
  */
 const FLUSH_TURNS = 20;
 
-/** setQuery сам имя не перепроверяет, а проверка по диску асинхронная — ждём, пока признает годным. */
+/** setQuery doesn't revalidate the name itself, and the disk check is async — wait until it accepts it. */
 async function typeInto(input: QuickPickElement, text: string): Promise<void> {
     input.setQuery(text);
     input.onQueryChange?.(text);
@@ -38,7 +38,7 @@ async function promptClosed(app: TestApp): Promise<void> {
     await flushMicrotasks(FLUSH_TURNS);
 }
 
-/** Перед показом команда асинхронно stat'ит кликнутый путь — ждём промпт. */
+/** Before showing, the command stats the clicked path asynchronously — wait for the prompt. */
 async function promptByTitle(app: TestApp, title: string): Promise<ReturnType<typeof quickPickByTitle>> {
     return vi.waitFor(() => {
         app.render();
@@ -70,7 +70,7 @@ describe("Workbench — New File / New Folder", () => {
 
         const created = ws.path("hello.ts");
         expect(fs.readFileSync(created, "utf-8")).toBe("");
-        // Вкладка открывается после reveal в дереве — а его каталоги читаются асинхронно.
+        // The tab opens after the reveal in the tree, whose directories are read asynchronously.
         await vi.waitFor(() => {
             h.testApp.render();
             expect(tabLabels(h.testApp).some((l) => l.includes("hello.ts"))).toBe(true);
@@ -207,7 +207,7 @@ describe("Workbench — New Untitled File", () => {
         dialog.replaceQuery(target);
         await dialog.settle({ query: target });
         dialog.key("Enter");
-        // Цель Save As проверяется по диску асинхронно (файловый сервис).
+        // The Save As target is checked against the disk asynchronously (file service).
         await vi.waitFor(() => {
             expect(fs.existsSync(target)).toBe(true);
         });

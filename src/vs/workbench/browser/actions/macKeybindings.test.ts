@@ -49,21 +49,21 @@ function activeEntries(
     return registry.listBindings().filter((entry) => entry.when === undefined || contextKeys.evaluate(entry.when));
 }
 
-// Ловушки мака (калибровка по перечню fresh): доедет ли часть на mac-legacy.
+// Mac traps (calibrated against the fresh editor's list): whether a part gets through on mac-legacy.
 const LETTER = /^[a-z]$/i;
 
 function isMacTrap(part: Keybinding): boolean {
-    // Option+буква на интернациональной раскладке — это символ (@ [ ] { }).
+    // Option+letter on an international layout produces a character (@ [ ] { }).
     if (part.altKey && !part.ctrlKey && !part.metaKey && LETTER.test(part.key)) return true;
-    // Ctrl+←/→ (именно без других модификаторов) забирает Mission Control.
+    // Ctrl+←/→ (with no other modifiers) is taken by Mission Control.
     const onlyCtrl = part.ctrlKey && !part.shiftKey && !part.altKey && !part.metaKey;
     if (onlyCtrl && (part.key === "ArrowLeft" || part.key === "ArrowRight")) return true;
-    // Home/End в мак-терминалах скроллят буфер.
+    // Home/End scroll the buffer in mac terminals.
     return part.key === "Home" || part.key === "End";
 }
 
 function deliverableOnMacLegacy(chord: readonly Keybinding[]): boolean {
-    // Option+Escape в legacy — это ESC ESC: неотличим от двух Escape подряд.
+    // Option+Escape in legacy is ESC ESC: indistinguishable from two Escapes in a row.
     const altEscape = chord.some((part) => part.altKey && part.key === "Escape");
     return !requiresExtendedKeys([...chord]) && !chord.some(isMacTrap) && !altEscape;
 }
@@ -114,8 +114,8 @@ describe("withMacKeybindings", () => {
     });
 
     it("условный бинд-АККОРД переносится целиком: чорд не разворачивается в одну часть", () => {
-        // Таких дефолтов сейчас нет, но форма разрешена `ConditionalKeybinding`, и ошибка
-        // молча превратила бы Ctrl+K Ctrl+E в Ctrl+K.
+        // No such defaults exist yet, but `ConditionalKeybinding` allows the shape, and a bug
+        // would silently turn Ctrl+K Ctrl+E into Ctrl+K.
         const result = withMacKeybindings(
             action({
                 id: "a",
@@ -258,8 +258,8 @@ describe("таблица мак-дельт", () => {
     });
 
     it("мак-бинд объявлен на самом низком рунге, где доезжает: legacy-комбинации не заперты выше", () => {
-        // Исключение одно: Ctrl-аккорд, который ниже cmd занят фоллбэком mod другой
-        // команды (⌃N — New File), живёт с cmd, где mod — уже Cmd.
+        // The single exception: a Ctrl chord that below cmd is taken by another command's mod
+        // fallback (⌃N — New File) lives from cmd on, where mod is already Cmd.
         const taken = modFallbackChords();
         const tooHigh = MAC_KEYBINDING_DELTAS.flatMap((delta) =>
             (delta.mac ?? [])
@@ -284,14 +284,14 @@ describe("таблица мак-дельт", () => {
     });
 });
 
-// Трекер: docs/TODO/MacKeybindings.md.
+// Tracker: docs/TODO/MacKeybindings.md.
 const PRE_EXISTING_PC_CONFLICTS = new Set([
     "ctrl+k ctrl+u: editor.action.removeCommentLine / editor.action.showHover",
     "ctrl+k ctrl+f: editor.action.formatSelection / workbench.action.navigateForward",
 ]);
 
 describe("инвариант: внутри семейства условия взаимоисключающие", () => {
-    // Резолвер идёт с конца: сматчившиеся разом pc- и мак-бинд молча решит порядок регистрации.
+    // The resolver walks from the end: if pc and mac bindings both match, registration order silently wins.
     const registry = registerBuiltins();
 
     it.each(ENVIRONMENTS.map((env) => [env.name, env] as const))("%s", (_name, env) => {
@@ -337,8 +337,8 @@ describe("mod разворачивается по рунгу", () => {
 });
 
 describe("паритет с мак-раскладкой VS Code (эталон 1.138)", () => {
-    // Мак-бинд эталона обязан действовать на mac-cmd, если его pc-пара действует в diode
-    // на pc (чего нет и на pc — дыра pc-паритета). Мак-бинды без pc-пары — всегда.
+    // An upstream mac binding must work on mac-cmd whenever its pc pair works in diode on pc
+    // (if it is missing on pc too, that is a pc-parity gap). Mac bindings without a pc pair always must.
     const registry = registerBuiltins();
     const pc: Environment = { name: "pc", tier: "kitty" };
     const macCmd: Environment = { name: "mac-cmd", tier: "kitty", rung: "cmd" };
@@ -356,10 +356,10 @@ describe("паритет с мак-раскладкой VS Code (эталон 1.
         { inputWidgetFocus: true },
         { listFocus: true },
     ];
-    // Осознанные отклонения (docs/TODO/MacKeybindings.md) и решение про копипаст.
+    // Deliberate deviations (docs/TODO/MacKeybindings.md) and the copy-paste decision.
     const DEVIATIONS = new Set([
-        "fileOperations.rename: enter", // Enter=rename требует ⌘↓=open — такой команды нет
-        "editor.action.clipboardCopyAction: meta+c", // Cmd+C/V/X — эмулятору
+        "fileOperations.rename: enter", // Enter=rename needs ⌘↓=open, and there is no such command
+        "editor.action.clipboardCopyAction: meta+c", // Cmd+C/V/X belong to the emulator
         "editor.action.clipboardCutAction: meta+x",
         "editor.action.clipboardPasteAction: meta+v",
         "input.copy: meta+c",
@@ -405,8 +405,8 @@ describe("паритет с мак-раскладкой VS Code (эталон 1.
 });
 
 describe("каждый мак-бинд таблицы действует на своём рунге и выше", () => {
-    // На всех рунгах от from до cmd обязан найтись фокус, где бинд действует, — иначе
-    // бинд потерян (как Option+← на mac-cmd под tier-условием legacy-фоллбэка).
+    // Every rung from `from` to cmd must have a focus where the binding works; otherwise the
+    // binding is lost (like Option+← on mac-cmd under the tier condition of the legacy fallback).
     const registry = registerBuiltins();
     const RUNG_ENV: Record<MacKeysRung, Environment> = {
         legacy: { name: "mac-legacy", tier: "legacy", rung: "legacy" },
@@ -446,7 +446,7 @@ describe("каждый мак-бинд таблицы действует на с
 });
 
 describe("mac-legacy: каждая топ-команда достижима доставляемой комбинацией", () => {
-    // Save All и Replace в diode пока нет — они в трекере docs/TODO/MacKeybindings.md.
+    // diode has no Save All and Replace yet; they are in the docs/TODO/MacKeybindings.md tracker.
     const TOP_COMMANDS = [
         "workbench.action.files.save",
         "workbench.action.showCommands",

@@ -36,7 +36,7 @@ describe("Tab close actions", () => {
 
     it("Close Others закрывает всё, кроме адресованной вкладки", async () => {
         openAll("a.txt", "b.txt", "c.txt");
-        // Активна c.txt (открыта последней), а адресуем b.txt.
+        // c.txt is active (opened last), while we address b.txt.
         expect(group().activeIndex).toBe(2);
 
         h.commands.execute("workbench.action.closeOtherEditors", group().id, 1);
@@ -59,16 +59,16 @@ describe("Tab close actions", () => {
         const dirty = group().getPanes()[1] as { viewState: { type(text: string): unknown } };
         dirty.viewState.type("edited");
 
-        // Адресуем a.txt: справа от неё b (грязная), c и d.
+        // Address a.txt: to its right are b (dirty), c and d.
         h.commands.execute("workbench.action.closeEditorsToTheRight", group().id, 0);
         await settle();
         const dialogs = h.container.get(DialogServiceDIToken);
         dialogs.getOpenConfirmSaveDialog()?.onCancel?.();
         await settle();
 
-        // Идя с дальнего края, d и c успевают закрыться до вопроса про b, и Cancel
-        // останавливает серию на ней. Шёл бы обход слева направо — диалог встал бы
-        // первым же шагом, и c с d остались бы открытыми.
+        // Going from the far end, d and c close before the prompt about b, and Cancel
+        // stops the series there. A left-to-right walk would hit the dialog on the
+        // very first step and leave c and d open.
         expect(labels()).toEqual(["a.txt", "b.txt"]);
     });
 
@@ -99,8 +99,8 @@ describe("Tab close actions", () => {
         dialog?.onCancel?.();
         await settle();
 
-        // Cancel в первом же диалоге останавливает всю серию: c.txt осталась, а
-        // до чистой a.txt очередь не дошла.
+        // Cancel in the very first dialog stops the whole series: c.txt stays, and
+        // the clean a.txt is never reached.
         expect(labels()).toEqual(["a.txt", "b.txt", "c.txt"]);
     });
 
@@ -115,7 +115,7 @@ describe("Tab close actions", () => {
         h.container.get(DialogServiceDIToken).getOpenConfirmSaveDialog()?.onSave?.();
         await settle();
 
-        // Сохранять некуда («no-file») — вето, как у Ctrl+W: вкладка с текстом жива.
+        // Nowhere to save ("no-file") is a veto, as with Ctrl+W: the tab with its text survives.
         expect(labels()).toEqual(["a.txt", "Untitled-1"]);
         expect(group().getPanes()[1].isModified).toBe(true);
     });
@@ -145,9 +145,9 @@ describe("Tab close actions", () => {
     });
 
     it("одно число адресом не считается — команда идёт по активной вкладке", async () => {
-        openAll("a.txt", "b.txt", "c.txt"); // активна c.txt
+        openAll("a.txt", "b.txt", "c.txt"); // c.txt is active
 
-        // Одно число адресом быть не может: иначе команда не нашла бы вкладку и молча ничего не сделала.
+        // A single number cannot be an address: otherwise the command would find no tab and silently do nothing.
         h.commands.execute("workbench.action.closeOtherEditors", 1);
         await settle();
 
@@ -173,7 +173,7 @@ describe("Tab close actions", () => {
             expect(service().editorGroups.groups.length).toBe(2);
         });
 
-        // Сплит унёс в новую группу именно a.txt — вкладку, по которой открыли меню.
+        // The split moved exactly a.txt, the tab the menu was opened on, into the new group.
         expect(labels(service().editorGroups.groups[1])).toEqual(["a.txt"]);
     });
 });

@@ -108,8 +108,8 @@ describe("Workbench — global keybindings are suppressed while an overlay owns 
         const picker = h.testApp.querySelector("QuickPickElement") as QuickPickElement;
         expect(picker).toBeTruthy();
 
-        // Ctrl+K — префикс глобального чорда «Ctrl+K S» без when: пока клавиатура у
-        // квик-пика, чорд не должен начаться, и следующая клавиша идёт в запрос.
+        // Ctrl+K is the prefix of the global "Ctrl+K S" chord without a when: while the quick pick
+        // owns the keyboard, the chord must not start, and the next key goes to the query.
         h.testApp.sendKey("Ctrl+K");
         h.testApp.sendKey("z");
         h.testApp.render();

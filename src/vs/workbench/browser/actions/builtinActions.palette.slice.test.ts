@@ -5,9 +5,9 @@ import { describe, expect, it } from "vitest";
 import { WORKBENCH_ACTIONS } from "../../workbench.common.main.ts";
 
 /**
- * Без запроса палитра показывает команды в порядке регистрации, и при равной
- * оценке он же решает ничью — порядок `WORKBENCH_ACTIONS` виден пользователю.
- * Пересобрать эталон: `UPDATE_SLICE=1 npx vitest run <этот файл>`.
+ * With an empty query the command palette lists commands in registration order, and the
+ * same order breaks ties between equal scores — so `WORKBENCH_ACTIONS` order is user-visible.
+ * Regenerate the snapshot: `UPDATE_SLICE=1 npx vitest run <this file>`.
  */
 
 const SLICE_URL = new URL("./builtinActions.palette.slice.json", import.meta.url);

@@ -3,9 +3,9 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 
-// Контракт: «клавиша съедена (defaultPrevented) ⇒ кадр грязный» — команда может
-// менять состояние мимо markDirty-сеттеров. Под damage-tracking это fallback
-// (см. workbench.damageScope.test.ts).
+// Contract: "key consumed (defaultPrevented) ⇒ frame dirty" — a command may change
+// state bypassing the markDirty setters. Under damage tracking this is a fallback
+// (see workbench.damageScope.test.ts).
 
 describe("Workbench — съеденный кейбинд помечает кадр грязным", () => {
     let h: IAppHarness;
@@ -28,8 +28,8 @@ describe("Workbench — съеденный кейбинд помечает ка�
         const event = new TUIKeyboardEvent("keydown", { key: "ArrowUp", ctrlKey: true });
         editor.dispatchEvent(event);
 
-        // scrollLineUp (ctrl+up, textInputFocus) съел клавишу — кадр грязный,
-        // хотя сама команда не дёрнула ни одного markDirty-сеттера.
+        // scrollLineUp (ctrl+up, textInputFocus) consumed the key — the frame is dirty
+        // even though the command itself called no markDirty setter.
         expect(event.defaultPrevented).toBe(true);
         expect(h.testApp.root.isLayoutDirty).toBe(true);
     });

@@ -26,7 +26,7 @@ const PROBLEMS = "workbench.panel.markers";
 const OUTPUT = "workbench.panel.output";
 const TERMINAL = "workbench.panel.terminal";
 
-/** `null` — отмена. */
+/** `null` means cancel. */
 type Chooser = (options: QuickPickOptions) => string | null;
 
 interface IScene {
@@ -39,8 +39,8 @@ interface IScene {
 }
 
 /**
- * Сайдбар: EXPLORER (explorer + outline — не переносится), EXTENSIONS (чужих
- * видов не принимает). Панель: PROBLEMS, OUTPUT (output + log), TERMINAL.
+ * Sidebar: EXPLORER (explorer + outline; not movable), EXTENSIONS (accepts no
+ * foreign views). Panel: PROBLEMS, OUTPUT (output + log), TERMINAL.
  */
 function scene(chooser: Chooser = () => null): IScene {
     const h = makeViewsHarness();

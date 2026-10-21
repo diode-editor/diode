@@ -30,8 +30,8 @@ export const showExplorerAction: CommandAction = {
     title: "View: Show Explorer",
     shortTitle: "Explorer",
     menus: [{ menuId: MenuId.MenubarViewMenu, group: "3_views", order: 10 }],
-    // Лидер-аккорд безусловен, канонический Ctrl+Shift+E — только где терминал его
-    // передаёт: иначе подсказка в меню обещала бы нерабочее.
+    // The leader chord is unconditional; the canonical Ctrl+Shift+E applies only where the terminal
+    // delivers it: otherwise the menu hint would promise something broken.
     keybinding: parseChord("ctrl+k e"),
     keybindings: [{ keys: parseKeybinding("mod+shift+e"), when: "tier != 'legacy'" }],
     run(accessor) {
@@ -53,7 +53,7 @@ export const revealActiveFileInExplorerAction: CommandAction = {
         },
     ],
     run(accessor, ...args) {
-        // Из меню вкладки — путь вкладки под курсором, а не активной.
+        // From the tab menu: the path of the tab under the pointer, not the active one.
         const filePath =
             (args[0] as string | undefined) ?? accessor.get(EditorServiceDIToken).getActiveEditor()?.absoluteFilePath;
         if (!filePath) return;
@@ -62,7 +62,7 @@ export const revealActiveFileInExplorerAction: CommandAction = {
     },
 };
 
-// Без дефолтных биндов, как increase/decreaseViewWidth VS Code.
+// No default bindings, like VS Code's increase/decreaseViewWidth.
 export const increaseSidebarWidthAction: CommandAction = {
     id: "workbench.action.increaseSidebarWidth",
     title: "View: Increase Side Bar Width",
@@ -95,7 +95,7 @@ export const resetSidebarWidthAction: CommandAction = {
 
 const PANEL_HEIGHT_STEP = 1;
 
-/** `workbench.action.increaseViewSize` эталона; как и там, без дефолтного биндинга. */
+/** Upstream's `workbench.action.increaseViewSize`; as there, no default binding. */
 export const increaseViewSizeAction: CommandAction = {
     id: "workbench.action.increaseViewSize",
     title: "View: Increase Current View Size",
@@ -125,8 +125,8 @@ export const togglePanelAction: CommandAction = {
 };
 
 /**
- * Отдельно от toggle, как в VS Code: у кнопки `×` семантика «закрыть», и
- * `enablement` по `panelVisible` гасит её в палитре на закрытой панели.
+ * Separate from toggle, as in VS Code: the `×` button means "close", and
+ * `enablement` on `panelVisible` disables it in the command palette while the panel is closed.
  */
 export const closePanelAction: CommandAction = {
     id: CLOSE_PANEL_COMMAND_ID,
@@ -146,7 +146,7 @@ export const toggleProblemsAction: CommandAction = {
     keybinding: parseChord("ctrl+k m"),
     keybindings: [{ keys: parseKeybinding("mod+shift+m"), when: "tier != 'legacy'" }],
     run(accessor) {
-        // Как VS Code: скрыть часть, если Problems уже видимый вид в ней (куда бы его ни перенесли).
+        // As VS Code: hide the part if Problems is already a visible view in it (wherever it was moved).
         const views = accessor.get(ViewsServiceDIToken);
         if (views.isViewShown(PROBLEMS_VIEW_ID)) {
             views.closeView(PROBLEMS_VIEW_ID);

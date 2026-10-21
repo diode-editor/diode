@@ -128,8 +128,8 @@ describe("Workbench — сообщения на кадре", () => {
     });
 
     it("Tab внутри тоста не набирает отступ в редакторе", async () => {
-        // Фокус в тосте, но глобальные бинды живы: не перехвати тост Tab сам —
-        // нажатие ушло бы редактору и вставило отступ в файл.
+        // Focus is in the toast, but global bindings stay live: unless the toast intercepts Tab itself,
+        // the keystroke would reach the editor and insert an indent into the file.
         notifications.show({ severity: "info", message: "Activate?", modal: false, items: ["Activate", "Free"] });
         screen();
         await h.commands.execute("notifications.focusMessage");
@@ -186,7 +186,7 @@ describe("Workbench — сообщения на кадре", () => {
         expect(left).toBeLessThan(h.testApp.root.layoutSize.width - 1 - TOAST_WIDTH);
 
         h.testApp.sendKey("Escape");
-        // Escape у модального отдаёт кнопку isCloseAffordance.
+        // Escape on a modal returns the isCloseAffordance button.
         await expect(answered.answered).resolves.toBe(1);
     });
 
@@ -229,8 +229,8 @@ describe("Workbench — сообщения на кадре", () => {
     });
 
     it("клик мимо МОДАЛЬНОГО окна до редактора не доходит, а мимо тоста — доходит", () => {
-        // modal проглатывает клик, тост пропускает насквозь (pointerPolicy); видно по
-        // фокусу: дошедший клик в дерево уводит его из редактора.
+        // A modal swallows the click, a toast lets it through (pointerPolicy); this shows in
+        // focus: a click that reaches the tree takes focus away from the editor.
         const click = (x: number, y: number): void => {
             for (const action of ["press", "release"] as const) {
                 h.testApp.backend.simulateMouse({
@@ -266,7 +266,7 @@ describe("Workbench — сообщения на кадре", () => {
         notifications.show({ severity: "info", message: "Activate?", modal: false, items: ["One"] });
         screen();
 
-        // Ctrl+B — переключатель сайдбара; сквозь тост-вопрос он обязан работать.
+        // Ctrl+B toggles the sidebar; it must work through a question toast.
         const sidebarBefore = screen().includes("EXPLORER");
         h.testApp.sendKey("Ctrl+B");
         expect(screen().includes("EXPLORER")).toBe(!sidebarBefore);
@@ -311,8 +311,8 @@ describe("Workbench — сообщения на кадре", () => {
     });
 
     it("пришедший тост не сбивает место в модальном окне", () => {
-        // Пересчёт позиций случается на КАЖДОЕ изменение набора сообщений; если
-        // он заново ставит фокус по умолчанию, человек теряет выбранную кнопку.
+        // Positions are recomputed on EVERY change to the set of messages; if that
+        // resets focus to the default, the user loses the selected button.
         notifications.show({ severity: "warn", message: "Delete?", modal: true, items: ["Delete", "Cancel"] });
         screen();
         h.testApp.sendKey("ArrowRight");
@@ -353,7 +353,7 @@ describe("Workbench — сообщения на кадре", () => {
         }
         const rows = screen().split("\n");
         const counterRow = rows.findIndex((row) => row.includes("more"));
-        // «four» ждёт места и не нарисован — сравниваем с видимым сообщением.
+        // "four" is waiting for room and not drawn — compare against a visible message.
         const messageRow = rows.findIndex((row) => row.includes("one"));
 
         expect(h.testApp.backend.getFgAt(new Point(rows[counterRow].indexOf("+"), counterRow))).not.toBe(

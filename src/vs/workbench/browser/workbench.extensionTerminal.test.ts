@@ -71,7 +71,7 @@ describe("Workbench — терминал расширения", () => {
         const tabs = screen()
             .split("\n")
             .filter((line) => line.includes("│ "));
-        // Список вкладок узкий — длинное имя срезано по ширине.
+        // The tab list is narrow — the long name is truncated to fit.
         expect(tabs.some((line) => line.includes("Bazel Build Statu"))).toBe(true);
         expect(tabs.some((line) => line.trimEnd().endsWith(" bash"))).toBe(true);
         expect(h.container.get(PanelServiceDIToken).getActiveViewId()).toBe(TERMINAL_VIEW_ID);

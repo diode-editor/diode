@@ -8,15 +8,15 @@ import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/lan
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
 /**
- * Регрессия: `refineFilter` держит последний непустой набор, попап переживал `{`,
- * и Enter (`acceptSelectedSuggestion` под `suggestWidgetVisible`) заменял `cons{`
- * на `console`.
+ * Regression: `refineFilter` keeps the last non-empty set, the popup survived `{`,
+ * and Enter (`acceptSelectedSuggestion` under `suggestWidgetVisible`) replaced `cons{`
+ * with `console`.
  */
 describe("Workbench — Enter после несловесного символа при открытом попапе", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
 
-    /** Пункты в форме tsserver: общий range у всех — граница префикса «от провайдера». */
+    /** Items shaped like tsserver's: a shared range on all of them — the prefix boundary "from the provider". */
     const ITEMS: ICoreCompletionItem[] = [
         {
             label: "console",
@@ -34,7 +34,7 @@ describe("Workbench — Enter после несловесного символа
         return h.testApp.querySelector("EditorElement") as EditorElement;
     }
 
-    /** Ждёт debounce авто-suggest'а (120 мс) и ответ источника. */
+    /** Waits for the auto-suggest debounce (120 ms) and the provider's response. */
     function settle(): Promise<void> {
         return new Promise((resolve) => setTimeout(resolve, 300));
     }

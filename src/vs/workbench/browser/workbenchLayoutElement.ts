@@ -20,10 +20,10 @@ const MIN_PANEL_HEIGHT = 3;
 const MIN_EDITOR_HEIGHT = 3;
 
 /**
- * Аналог эталона — `workbench/browser/layout.ts`. Не хватает ширины — первой
- * сжимается правая панель (у эталона — `LayoutPriority.Low`), затем левая.
- * Клампы — только при раскладке: сохранённые ширины не меняются, и временно
- * узкий терминал их не портит.
+ * Upstream counterpart: `workbench/browser/layout.ts`. When width runs short, the right
+ * panel shrinks first (upstream: `LayoutPriority.Low`), then the left one.
+ * Clamping happens only during layout: saved widths stay unchanged, so a temporarily
+ * narrow terminal does not spoil them.
  */
 export class WorkbenchLayoutElement extends TUIElement {
     private leftPanel: TUIElement | null = null;
@@ -38,15 +38,15 @@ export class WorkbenchLayoutElement extends TUIElement {
     private bottomPanelHeight = DEFAULT_PANEL_HEIGHT;
 
     private rightPanelVisible = false;
-    /** `null` — пользователь ширину не задавал: действует динамический дефолт {@link defaultRightWidth}. */
+    /** `null`: the user has not set a width, so the dynamic default {@link defaultRightWidth} applies. */
     private rightPanelWidth: number | null = null;
 
-    /** НЕ вызывается из `performLayout`: display-клампы — не действие пользователя. */
+    /** NOT called from `performLayout`: display clamps are not a user action. */
     public onDidChangeLayout?: () => void;
 
     private sash = new SashElement("vertical");
     private rightSash = new SashElement("vertical");
-    // Stryker disable next-line StringLiteral: SashElement сверяет ориентацию только с "vertical" — любая другая строка и есть горизонталь, мутант эквивалентен
+    // Stryker disable next-line StringLiteral: SashElement only checks the orientation against "vertical"; any other string means horizontal, so the mutant is equivalent
     private bottomSash = new SashElement("horizontal");
 
     public constructor() {
@@ -194,7 +194,7 @@ export class WorkbenchLayoutElement extends TUIElement {
     }
 
     /**
-     * Скрытая панель ОСТАЁТСЯ в дереве с hidden=true — root и стили доходят.
+     * A hidden panel STAYS in the tree with hidden=true so that root and styles reach it.
      * Sashes are added last so they sit on top of the neighbouring content for hit-testing.
      */
     private syncChildren(): void {
@@ -236,8 +236,8 @@ export class WorkbenchLayoutElement extends TUIElement {
     }
 
     /**
-     * Левая панель вправе оттеснить показанную правую до её минимума, но не
-     * съесть его — иначе правая пропала бы без команды пользователя.
+     * The left panel may push a shown right panel down to its minimum but not
+     * eat into it: otherwise the right panel would vanish without a user command.
      */
     private clampWidthTo(width: number, containerWidth: number): number {
         const reserved = this.isRightShown() ? MIN_RIGHT_WIDTH : 0;
@@ -246,7 +246,7 @@ export class WorkbenchLayoutElement extends TUIElement {
         return Math.min(clamped, containerWidth);
     }
 
-    /** Правая растёт только за счёт редактора, показанную левую не теснит. */
+    /** The right panel grows only at the editor's expense; it does not squeeze a shown left panel. */
     private clampRightWidth(width: number): number {
         const containerWidth = this.layoutSize.width;
         const { left } = this.computeSideWidths(containerWidth);
@@ -259,14 +259,14 @@ export class WorkbenchLayoutElement extends TUIElement {
         return Math.max(MIN_RIGHT_WIDTH, Math.min(DEFAULT_RIGHT_WIDTH, Math.floor(containerWidth / 4)));
     }
 
-    /** Не хватает и минимумов (вырожденно узкий терминал) — панели хотя бы не вылезают за контейнер. */
+    /** When even the minimums don't fit (degenerately narrow terminal), panels at least stay in the container. */
     private computeSideWidths(containerWidth: number): { left: number; right: number } {
         const showLeft = this.isLeftShown();
         const showRight = this.isRightShown();
         let left = showLeft ? Math.max(MIN_LEFT_WIDTH, this.leftPanelWidth) : 0;
         let right = showRight ? (this.rightPanelWidth ?? this.defaultRightWidth(containerWidth)) : 0;
         const budget = Math.max(0, containerWidth - MIN_CENTER_WIDTH);
-        // Stryker disable EqualityOperator: на равенстве ужатие — тождество (ширины уже не меньше минимумов), `>=` эквивалентно `>`
+        // Stryker disable EqualityOperator: at equality the shrink is an identity (widths are already at least the minimums), so `>=` is equivalent to `>`
         if (showRight && left + right > budget) right = Math.max(MIN_RIGHT_WIDTH, budget - left);
         if (showLeft && left + right > budget) left = Math.max(MIN_LEFT_WIDTH, budget - right);
         if (left + right > containerWidth) right = Math.max(0, containerWidth - left);

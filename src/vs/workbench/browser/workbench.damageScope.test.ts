@@ -3,8 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createAppTestHarness, type IAppHarness } from "../../../TestUtils/AppTestHarness.ts";
 
-// Механика — fallback страховки consumed-key (workbenchComponent.mount): команда,
-// честно пометившая виджет, даёт частичный damage вместо markDirty корня.
+// Mechanism: the consumed-key safety-net fallback (workbenchComponent.mount): a command
+// that properly marks its widget yields partial damage instead of markDirty on the root.
 
 describe("Workbench — damage клавиши в редакторе не задевает чужие панели", () => {
     let h: IAppHarness;
@@ -25,7 +25,7 @@ describe("Workbench — damage клавиши в редакторе не зад�
         const treeRenderSpy = vi.spyOn(TreeViewElement.prototype, "render");
         h.testApp.sendKey("ArrowDown");
 
-        // Кадр был (движение курсора — dirty), но дерево файлов в него не вошло.
+        // A frame happened (cursor movement is dirty), but the file tree wasn't in it.
         expect(treeRenderSpy).not.toHaveBeenCalled();
         treeRenderSpy.mockRestore();
     });

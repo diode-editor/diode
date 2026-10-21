@@ -20,11 +20,11 @@ import { ThemeServiceDIToken } from "../services/themes/common/themeTokens.ts";
 import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 
 /**
- * Ассерт — по нарисованному бару от правки буфера без сохранения: расширение
- * считало ханки по диску, и бары стояли до Ctrl+S. Роль git играет заглушка.
+ * Asserts on the bar painted for a buffer edit without saving: the extension used to
+ * compute hunks from disk, so the bars stayed until Ctrl+S. A stub plays git.
  */
 
-const BAR_DASHED = "┋"; // правка (VS Code dirty-diff рисует её пунктиром)
+const BAR_DASHED = "┋"; // modification (VS Code dirty-diff draws it dashed)
 const ORIGINAL_TEXT = "line one\nline two\nline three\n";
 const DOCUMENT_LINES = 4;
 
@@ -65,9 +65,9 @@ describe("Workbench — живой гуттер quick diff", () => {
         editors = container.get(EditorServiceDIToken);
 
         commands.execute("workbench.openFile", filePath);
-        // Как у приложения: change-bars — contribution фазы `afterRestored`, он
-        // создаётся после открытия стартовых файлов и обязан подхватить уже
-        // активный редактор.
+        // As in the app: change bars are an `afterRestored`-phase contribution; it is
+        // created after the startup files open and must pick up the already active
+        // editor.
         container.get(LifecycleServiceDIToken).setPhase("eventually");
         await settle(0);
     });
@@ -77,13 +77,13 @@ describe("Workbench — живой гуттер quick diff", () => {
         ws.dispose();
     });
 
-    /** Редактор смещён сайдбаром и tab strip'ом — берём абсолютную позицию. */
+    /** The editor is offset by the sidebar and the tab strip, so take the absolute position. */
     function barColumn(): number {
         const editor = testApp.querySelector("EditorElement") as EditorElement;
         return editor.globalPosition.x + editor.foldControlColumn - 1;
     }
 
-    /** Бары по строкам ДОКУМЕНТА (0-based), а не по строкам экрана. */
+    /** Bars by DOCUMENT lines (0-based), not screen lines. */
     function barsOnScreen(): { line: number; char: string }[] {
         const editor = testApp.querySelector("EditorElement") as EditorElement;
         const x = barColumn();
@@ -113,7 +113,7 @@ describe("Workbench — живой гуттер quick diff", () => {
         editor!.goToPosition(1, 0);
         editor!.viewState.type("X");
 
-        // Файл на диске НЕ трогаем — старый путь (git diff по диску) тут бы промолчал.
+        // Leave the file on disk alone: the old path (git diff against disk) would stay silent here.
         expect(editor!.isModified).toBe(true);
 
         await settle(300);

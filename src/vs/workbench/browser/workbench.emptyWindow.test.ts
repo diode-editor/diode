@@ -62,8 +62,8 @@ describe("Workbench — окно без воркспейса", () => {
     it("кнопка welcome ведёт в ту же команду Open Folder, что и бинд", () => {
         const button = welcomeButton();
         const ran: string[] = [];
-        // Подменяем саму команду: тест держит маршрут «кнопка → команда», а не
-        // диалог ввода пути (он проверен в fileActions).
+        // Stub the command itself: the test covers the "button → command" route, not
+        // the path input dialog (fileActions covers that).
         h.commands.register("workbench.action.files.openFolder", () => {
             ran.push("openFolder");
         });
@@ -96,7 +96,7 @@ describe("Workbench — окно без воркспейса", () => {
 
     it("GRAPH без папки — подсказка вместо пустой истории, и без второй кнопки", () => {
         h.commands.execute("workbench.view.scm");
-        // Секция свёрнута по умолчанию — без разворота её тела не видно.
+        // The section is collapsed by default; its body is hidden until expanded.
         const paneView = h.testApp.querySelector("#viewContainer-scm") as PaneViewElement;
         paneView.setCollapsed(SCM_GRAPH_VIEW_ID, false);
 
@@ -118,8 +118,8 @@ describe("Workbench — окно без воркспейса", () => {
         expect(h.testApp.querySelectorAll("TreeViewElement")).toHaveLength(0);
     });
 
-    // Нарочно без `activate()`: Open Folder его не зовёт, а `TreeViewElement` грузит
-    // узлы только через refresh() — без refresh в setWorkspaceFolder дерево пустое.
+    // Deliberately without `activate()`: Open Folder does not call it, and `TreeViewElement` loads
+    // nodes only via refresh(); without the refresh in setWorkspaceFolder the tree is empty.
     it("Open Folder из пустого окна наполняет дерево, а не просто убирает подсказку", async () => {
         h.workbench.setWorkspaceFolder(ws.dir);
         await h.workbench.fileIndexReady;
@@ -141,7 +141,7 @@ describe("Workbench — окно без воркспейса", () => {
         expect(screen()).not.toContain("To use source control, open a");
     });
 
-    // Продюсер-тест к `terminalService.setWorkingDirectory` в setWorkspaceFolder.
+    // Producer test for `terminalService.setWorkingDirectory` in setWorkspaceFolder.
     it("новые терминалы поднимаются в открытой папке, а не в cwd процесса", () => {
         const terminals = h.container.get(TerminalServiceDIToken);
         terminals.newTerminal();

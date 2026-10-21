@@ -24,8 +24,8 @@ describe("Workbench — предпросмотр вкладок из дерев�
     beforeEach(() => {
         ws = createTempWorkspace({
             prefix: "diode-preview-tabs-",
-            // Три файла без каталогов: дерево сортирует их по алфавиту, и
-            // ArrowDown шагает ровно по ним.
+            // Three files without directories: the tree sorts them alphabetically, and
+            // ArrowDown steps exactly through them.
             files: {
                 "alpha.txt": "Alpha",
                 "beta.txt": "Beta",
@@ -39,7 +39,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
         ws.dispose();
     });
 
-    /** `index` — номер файла сверху, с нуля. */
+    /** `index` is the file's zero-based position from the top. */
     async function activateInTree(index: number): Promise<void> {
         await h.workbench.activate();
         h.testApp.render();
@@ -57,7 +57,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
         if (tree === null) throw new Error("дерево не найдено");
         tree.focus();
         h.testApp.render();
-        // Курсор дерева остался после прошлой активации — сначала перегоняем его в начало.
+        // The tree's cursor stays from the previous activation — move it back to the start first.
         for (let step = 0; step < 10; step++) h.testApp.sendKey("ArrowUp");
         for (let step = 0; step < index; step++) h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("Enter");
@@ -115,7 +115,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
         boot();
         await activateInTree(0);
 
-        // Ровно тот вызов, который делают Quick Open и CLI — без `preview`.
+        // Exactly the call Quick Open and the CLI make — without `preview`.
         h.commands.execute("workbench.openFile", ws.path("beta.txt"));
         h.testApp.render();
 
@@ -130,7 +130,7 @@ describe("Workbench — предпросмотр вкладок из дерев�
         tree.focus();
         h.testApp.render();
 
-        // На этом держится `preserveFocus` у `showTextDocument` и reveal'ов.
+        // `preserveFocus` of `showTextDocument` and reveals relies on this.
         await h.container.get(EditorServiceDIToken).openUri(Uri.file(ws.path("beta.txt")), {
             preview: true,
             focus: false,

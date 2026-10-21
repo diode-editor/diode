@@ -8,9 +8,9 @@ import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import { createRange } from "../../editor/common/core/iRange.ts";
 import { MarkerSeverity } from "../../platform/markers/common/iMarker.ts";
 
-// Волна диагностик просвечивала сквозь оверлеи: непрозрачные художники не
-// сбрасывали флаги стиля частичного патча. Лечится в движке (tuidom#4,
-// @tuidom/core 0.2.1); тест сторожит кадр, а не устройство фикса.
+// The diagnostics squiggle bled through overlays: opaque painters did not
+// reset the partial-patch style flags. Fixed in the engine (tuidom#4,
+// @tuidom/core 0.2.1); the test guards the frame, not how the fix works.
 describe("Workbench — оверлей поверх подчёркнутого текста", () => {
     const SIZE = new Size(100, 30);
     let ws: ITempWorkspace;
@@ -39,8 +39,8 @@ describe("Workbench — оверлей поверх подчёркнутого �
         ws = createTempWorkspace({
             prefix: "diode-overlay-squiggle-",
             files: {
-                // Каждая строка длинная и подчёркнута целиком — пикер открывается
-                // у верхней кромки и ложится ровно на волну.
+                // Every line is long and fully underlined: the picker opens at the
+                // top edge and lands right on the squiggle.
                 "alpha.ts": Array.from({ length: 20 }, (_, i) => `const value${i} = ${i}; // lorem ipsum dolor`).join(
                     "\n",
                 ),

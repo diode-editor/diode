@@ -6,8 +6,8 @@ import { createTestConfigurationService } from "../../../TestUtils/testConfigura
 import type { InMemoryConfigurationService } from "../../platform/configuration/common/inMemoryConfigurationService.ts";
 import { KeybindingRegistryDIToken, parseKeybinding } from "../../platform/keybinding/common/keybindingRegistry.ts";
 
-// Форма бинда стокового Claude Code (`when: config.claudeCode.useTerminal`).
-// F9 вместо Ctrl+Esc: тот различим только в kitty/csi-u, а дело здесь в `when`.
+// The binding shape of the stock Claude Code extension (`when: config.claudeCode.useTerminal`).
+// F9 instead of Ctrl+Esc: the latter is distinguishable only in kitty/csi-u, and the point here is `when`.
 
 describe("Workbench — when-ключи config.*", () => {
     let ws: ITempWorkspace;

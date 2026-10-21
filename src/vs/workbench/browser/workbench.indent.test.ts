@@ -45,7 +45,7 @@ describe("Workbench — Tab / Shift+Tab indentation", () => {
 
         h.testApp.sendKey("Tab");
 
-        // Дефолты реестра, как в приложении: `editor.insertSpaces: true`, `tabSize: 4`.
+        // Registry defaults, as in the app: `editor.insertSpaces: true`, `tabSize: 4`.
         expect(editor.viewState.document.getText()).toBe("    hello");
     });
 

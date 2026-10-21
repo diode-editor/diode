@@ -12,7 +12,7 @@ import type { DefinitionProvider } from "../../editor/common/languages/iDefiniti
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 import { EditorServiceDIToken } from "../services/editor/common/editorService.ts";
 
-/** Файл из 40 строк — чтобы порог значимости (10 строк) было чем перешагнуть. */
+/** A 40-line file, so there is room to step past the significance threshold (10 lines). */
 const lines = (prefix: string): string => Array.from({ length: 40 }, (_, i) => `${prefix} ${String(i)}`).join("\n");
 
 describe("Workbench — навигационная история (Go Back / Go Forward)", () => {
@@ -36,7 +36,7 @@ describe("Workbench — навигационная история (Go Back / Go 
 
     const editors = () => h.container.get(EditorServiceDIToken);
     let definitions: IDisposable | undefined;
-    /** Единственный definition-провайдер для любого документа (снимает прежнего). */
+    /** The only definition provider for any document (replaces the previous one). */
     const useDefinitions = (provideDefinition: DefinitionProvider["provideDefinition"]): void => {
         definitions?.dispose();
         definitions = h.container
@@ -70,8 +70,8 @@ describe("Workbench — навигационная история (Go Back / Go 
 
         h.commands.execute("workbench.action.navigateBack");
 
-        // Именно точка вызова, а не начало alpha.ts: шов jump() гасит
-        // промежуточную запись «открыли файл в позиции 0:0».
+        // Exactly the call site, not the start of alpha.ts: the jump() seam suppresses
+        // the intermediate "opened the file at 0:0" entry.
         expect(caret()).toMatchObject({ uri: uri("alpha.ts"), line: 12, character: 3 });
     });
 
@@ -84,9 +84,9 @@ describe("Workbench — навигационная история (Go Back / Go 
 
         h.commands.execute("workbench.action.navigateBack");
 
-        // Две строки — меньше порога значимости, и обычную запись о таком переходе
-        // история схлопнула бы. Намеренный прыжок пишется форсом ровно поэтому:
-        // иначе Go to Definition рядом с местом вызова стал бы невозвратным.
+        // Two lines is below the significance threshold, and history would collapse a regular
+        // entry for such a jump. That's exactly why an intentional jump is written forcibly:
+        // otherwise Go to Definition near the call site would be impossible to go back from.
         expect(caret()).toMatchObject({ uri: uri("alpha.ts"), line: 12, character: 3 });
     });
 

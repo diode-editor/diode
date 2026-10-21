@@ -17,7 +17,7 @@ import type { KeybindingDispatcher } from "../services/keybinding/browser/keybin
 
 import { WorkbenchContextKeys } from "./workbenchContextKeys.ts";
 
-/** Краевые случаи, недостижимые из интеграционных Workbench-тестов: update() до attachView, хук диспетчера. */
+/** Edge cases unreachable from the Workbench integration tests: update() before attachView, the dispatcher hook. */
 function makeHarness(contributors: IContextKeyContributor[] = []) {
     const contextKeys = new ContextKeyService();
     const workspace = { state: "empty" as WorkbenchState };
@@ -66,7 +66,7 @@ describe("WorkbenchContextKeys", () => {
         expect(h.contextKeys.get("inputWidgetFocus")).toBe(false);
         expect(h.contextKeys.get("listFocus")).toBe(false);
         expect(h.contextKeys.get("terminalFocus")).toBe(false);
-        // Имя — контракт: под ним ключ ищут манифесты (`editorLangId == python`).
+        // The name is a contract: manifests look the key up by it (`editorLangId == python`).
         expect(h.contextKeys.get("editorTextFocus")).toBe(false);
         expect(h.contextKeys.get("editorLangId")).toBe("");
     });

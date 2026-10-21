@@ -19,8 +19,8 @@ import { WorkbenchComponentDIToken } from "./workbenchComponent.ts";
 import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
 /**
- * Сборка — в теле теста, а не в `beforeEach`: покрытие (в том числе мутационное)
- * считается по телу, и проводка, поднятая в хуке, осталась бы «ничьей».
+ * Setup lives in the test body, not in `beforeEach`: coverage (mutation coverage included)
+ * is attributed to the body, and wiring set up in a hook would belong to no test.
  */
 
 const FIND_REFERENCES = "references-view.findReferences";
@@ -66,7 +66,7 @@ describe("Workbench — Find All References end-to-end", () => {
         const workbenchContextKeys = container.get(WorkbenchContextKeysDIToken);
         const editors = container.get(EditorServiceDIToken);
 
-        // Объявление в defs.ts, импорт и вызов в main.ts.
+        // Declaration in defs.ts, import and call in main.ts.
         const requests: IReferenceRequest[] = [];
         container.get(LanguageFeaturesServiceDIToken).referenceProvider.register("*", {
             provideReferences: (request): Promise<readonly ICoreReference[]> => {
@@ -84,7 +84,7 @@ describe("Workbench — Find All References end-to-end", () => {
         const testApp = TestApp.create(workbench.view, new Size(120, 24));
         bindApp(testApp.app);
 
-        // Каретка на вызове `greet` в main.ts.
+        // Cursor on the `greet` call in main.ts.
         editors.openFile(workspace.path("main.ts"));
         editors.getActiveEditor()!.goToPosition(2, 15);
 
@@ -135,7 +135,7 @@ describe("Workbench — Find All References end-to-end", () => {
         expect(shown).toContain("3 results in 2 files");
         expect(shown).toContain("defs.ts");
         expect(shown).toContain("main.ts");
-        // Строки кода добраны с диска — их в буфере main.ts нет.
+        // Code lines are read from disk — they are not in the main.ts buffer.
         expect(shown).toContain("export function greet(");
         expect(shown).not.toContain("EXPLORER");
         expect(h.contextKey("referencesViewletVisible")).toBe(true);
@@ -175,7 +175,7 @@ describe("Workbench — Find All References end-to-end", () => {
         h.execute(FIND_REFERENCES);
         await h.awaitResults();
 
-        // Курсор панели стоит на первой ссылке (defs.ts) — F4 ведёт ко второй.
+        // The panel's cursor is on the first reference (defs.ts) — F4 goes to the second.
         h.execute(NEXT_REFERENCE);
         await settle(0);
 

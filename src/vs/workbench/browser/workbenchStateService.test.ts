@@ -24,7 +24,7 @@ import { ThemeService } from "../services/themes/common/themeService.ts";
 
 import { WorkbenchStateService } from "./workbenchStateService.ts";
 
-/** Смотрим, что легло в стор и что открылось, а не какие методы позвали. */
+/** Inspects what landed in the store and what opened, not which methods were called. */
 describe("WorkbenchStateService", () => {
     let ws: ITempWorkspace;
     let state: StateService;
@@ -47,7 +47,7 @@ describe("WorkbenchStateService", () => {
     });
 
     afterEach(() => {
-        // Писателя глушим ДО сноса каталога: debounced-запись после `rmSync` пересоздаёт его.
+        // Silence the writer BEFORE removing the directory: a debounced write after `rmSync` recreates it.
         state.dispose();
         editors.dispose();
         ws.dispose();
@@ -74,7 +74,7 @@ describe("WorkbenchStateService", () => {
                 {
                     files: [ws.path("a.ts"), ws.path("b.ts")],
                     activeIndex: 1,
-                    // Безымянный буфер рестарт не переживает — его нет ни в одном списке.
+                    // An untitled buffer does not survive a restart; it is in neither list.
                     editors: [fileEditor("a.ts"), fileEditor("b.ts")],
                     activeEditor: 1,
                 },
@@ -143,7 +143,7 @@ describe("WorkbenchStateService", () => {
                     { files: [], activeIndex: -1, editors: [fileEditor("c.ts")], activeEditor: 0 },
                 ],
                 weights: [1, 1, 1],
-                // Первая — не соседка последней созданной: «просто предыдущая» сюда не попадёт.
+                // The first is not adjacent to the last created group, so a naive "just the previous one" misses it.
                 activeGroup: 0,
             });
             const focused: unknown[] = [];

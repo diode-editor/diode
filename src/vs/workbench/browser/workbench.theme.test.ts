@@ -40,8 +40,8 @@ describe("Workbench — theme application", () => {
 });
 
 /**
- * Регрессия: заголовок SCM (ViewContainerHeaderElement) брал tuidom-овский
- * `titledPanel.titleForeground` (#828282) и рисовался тусклее Explorer/Search.
+ * Regression: the SCM header (ViewContainerHeaderElement) took tuidom's
+ * `titledPanel.titleForeground` (#828282) and rendered dimmer than Explorer/Search.
  */
 describe("Workbench — цвет заголовков вьюлетов", () => {
     let ws: ITempWorkspace;
@@ -57,7 +57,7 @@ describe("Workbench — цвет заголовков вьюлетов", () => {
         ws.dispose();
     });
 
-    /** Показывает вьюлет (в сайдбаре живёт только активный) и читает fg заголовка. */
+    /** Shows the viewlet (the sidebar hosts only the active one) and reads the header fg. */
     function headerFg(viewletCommand: string, selector: string): number | undefined {
         void h.commands.execute(viewletCommand);
         h.testApp.render();
@@ -67,26 +67,26 @@ describe("Workbench — цвет заголовков вьюлетов", () => {
     }
 
     it("Explorer, Search и Source Control красят заголовок одним цветом", () => {
-        // Explorer и Search — merged, заголовок несёт PaneHeaderElement;
-        // у SCM (CHANGES + GRAPH) — отдельный заголовок контейнера.
+        // Explorer and Search are merged, so PaneHeaderElement carries the header;
+        // SCM (CHANGES + GRAPH) has a separate container header.
         const explorer = headerFg("workbench.view.explorer", "#paneHeader-workbench-explorer-fileView");
         const search = headerFg("workbench.view.search", "#paneHeader-workbench-search-results");
         const scm = headerFg("workbench.view.scm", "#viewContainerHeader-scm");
 
         expect(explorer).toBe(scm);
         expect(search).toBe(scm);
-        // Dark+ задаёт sideBarTitle.foreground явно — не дефолт tuidom (#828282).
+        // Dark+ sets sideBarTitle.foreground explicitly — not tuidom's default (#828282).
         expect(scm).toBe(0xbbbbbb);
     });
 
     it("заголовки секций SCM берут sideBarSectionHeader.foreground", () => {
-        // Dark+ этот токен не задаёт — значение приходит из дефолтов реестра.
+        // Dark+ does not set this token — the value comes from the registry defaults.
         expect(headerFg("workbench.view.scm", "#paneHeader-workbench-scm-changes")).toBe(0xcccccc);
     });
 
     it("тема без заголовочных токенов не роняет заголовки на дефолт tuidom", () => {
-        // Monokai не задаёт ни sideBarTitle.foreground, ни секционный токен: без
-        // дефолтов в реестре они остались бы на #828282 движка.
+        // Monokai sets neither sideBarTitle.foreground nor the section token: without
+        // registry defaults they would stay at the engine's #828282.
         const themeService = h.container.get(ThemeServiceDIToken);
         themeService.setTheme(WorkbenchTheme.fromThemeFile({ name: "bare", type: "dark", colors: {} }));
 

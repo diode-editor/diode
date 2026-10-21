@@ -19,7 +19,7 @@ import { WorkbenchContextKeysDIToken } from "./workbenchContextKeys.ts";
 
 const SIZE = new Size(120, 24);
 
-/** Микрозадачи и таймеры нуля: выбор из списка резолвится асинхронно. */
+/** Microtasks and zero timers: picking from the list resolves asynchronously. */
 const settle = (): Promise<void> =>
     new Promise((resolve) => {
         setTimeout(resolve, 0);
@@ -115,7 +115,7 @@ describe("Workbench — перенос видов командами", () => {
         void h.commands.execute("workbench.action.moveView");
         const screen = frame(h).join("\n");
         expect(screen).toContain("Select a View to Move");
-        // Подпись группы — справа у пункта (у эталона это подпись разделителя).
+        // The group label sits on the right of the item (upstream shows it as a separator label).
         expect(screen).toContain("Panel / PROBLEMS");
         typeText(h, "PROBLEMS");
         h.testApp.sendKey("Enter");
@@ -131,7 +131,7 @@ describe("Workbench — перенос видов командами", () => {
     });
 
     it("Move Panel Views To Secondary Side Bar и обратно", () => {
-        // Активной в панели сделаем не первую вкладку — видно, что открыта именно она.
+        // Make a non-first tab active in the panel, so it's visible that exactly that one opens.
         h.container.get(PanelServiceDIToken).setActiveView(OUTPUT_VIEW_ID);
         void h.commands.execute("workbench.action.movePanelToSecondarySideBar");
         expect(panelTabs(h)).toEqual([]);

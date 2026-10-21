@@ -366,7 +366,7 @@ describe("Workbench — menu bar wiring", () => {
         expect(itemLabels(popup)).toEqual([
             "Go to File...",
             "Go to Line/Column...",
-            // Пара визуального цикла (Ctrl+PgDn/PgUp) — перед MRU-парой, как в VS Code.
+            // The visual cycle pair (Ctrl+PgDn/PgUp) comes before the MRU pair, as in VS Code.
             "Next Editor",
             "Previous Editor",
             "Next Used Editor",
@@ -515,8 +515,8 @@ describe("Workbench — editor context menu", () => {
         const labels = getEditorEntries(testApp)
             .filter((e): e is MenuItemEntry => e.type !== "separator")
             .map((e) => e.label);
-        // Пункты языковых фич гейтятся `editorHas*Provider`, а провайдеров здесь нет
-        // (их видимость — в `workbench.contextMenu.test.ts`).
+        // Language feature items are gated by `editorHas*Provider`, and there are no providers here
+        // (their visibility is covered in `workbench.contextMenu.test.ts`).
         expect(labels).toEqual(["Change All Occurrences", "Cut", "Copy", "Paste", "Command Palette..."]);
     });
 

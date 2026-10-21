@@ -35,8 +35,8 @@ interface Ctx {
     commands: CommandRegistry;
 }
 
-// Не через createAppTestHarness: контроллер читает конфиг в конструкторе, а
-// контейнер кэширует сервисы — стаб нужен до резолва Workbench.
+// Not via createAppTestHarness: the controller reads the config in its constructor, and
+// the container caches services — the stub must be in place before Workbench is resolved.
 function createApp(workspaceDir: string, config?: IConfigurationService): Ctx {
     const { container, bindApp } = createTestContainer();
     if (config) {
@@ -76,7 +76,7 @@ describe("reveal active file in explorer", () => {
         expect(ctx.testApp.backend.screenToString()).not.toContain("target.ts");
 
         ctx.workbench.openFile(nestedFile);
-        // Раскрытие до файла читает каталоги файловым сервисом асинхронно.
+        // Revealing down to the file reads directories through the file service asynchronously.
         await vi.waitFor(() => {
             ctx.testApp.render();
             expect(ctx.testApp.backend.screenToString()).toContain("deep");

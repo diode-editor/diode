@@ -18,10 +18,10 @@ import { macKeysLevel, type MacKeysRung } from "../../../platform/keybinding/com
 import { WORKBENCH_ACTIONS } from "../../workbench.common.main.ts";
 
 /**
- * Инвариант: у КАЖДОЙ встроенной команды с дефолтным биндом в окружении есть
- * бинд, который терминал этого окружения способен доставить — иначе подсказка
- * обещает нерабочее, как было под ssh + tmux без Ctrl+Shift+E и палитры (#376).
- * Критерий доставки — {@link requiresExtendedKeys}; мак-специфика — в
+ * Invariant: EVERY built-in command with a default binding in an environment has a
+ * binding that the environment's terminal can actually deliver — otherwise the hint
+ * promises something broken, as under ssh + tmux without Ctrl+Shift+E and the command palette (#376).
+ * Deliverability is decided by {@link requiresExtendedKeys}; Mac specifics live in
  * `macKeybindings.test.ts`.
  */
 
@@ -33,7 +33,7 @@ interface Environment {
     readonly rung?: MacKeysRung;
 }
 
-// Ровно те окружения, где tier не даёт расширенных клавиш.
+// Exactly the environments whose tier provides no extended keys.
 const ENVIRONMENTS: readonly Environment[] = [
     { name: "pc legacy (ssh + tmux)", tier: "legacy" },
     { name: "mac-legacy (Terminal.app)", tier: "legacy", rung: "legacy" },
@@ -53,9 +53,9 @@ function environmentValues(env: Environment): Readonly<Record<string, boolean | 
 }
 
 /**
- * Все не-средовые ключи истинны, кроме отрицаемых этим выражением. Фокус-контексты
- * не перечисляем: вопрос гейта от фокуса не зависит, а забытый контекст дал бы
- * ложную красноту.
+ * All non-environment keys are true, except those this expression negates. Focus contexts
+ * are not enumerated: the gate's question does not depend on focus, and a forgotten context
+ * would give a false failure.
  */
 function overlayFor(env: Environment, when: string | undefined): Readonly<Record<string, boolean | string | number>> {
     const negated = new Set<string>();
@@ -109,7 +109,7 @@ describe("достижимость дефолтных биндов", () => {
             const commandIds = [...new Set(active.map((entry) => entry.commandId))];
             const lying = commandIds
                 .map((id) => {
-                    // Объединение разрешительных фокусов всех биндов команды — тот же режим, что в гейте выше.
+                    // Union of the permissive focuses of all the command's bindings — the same mode as the gate above.
                     const whens = active.filter((entry) => entry.commandId === id).map((entry) => entry.when);
                     const overlay = overlayFor(env, whens.filter((when) => when !== undefined).join(" && "));
                     return { id, chord: registry.getKeybindingForCommand(id, contextKeys, overlay) };
@@ -122,8 +122,8 @@ describe("достижимость дефолтных биндов", () => {
 });
 
 describe("асимметрия tier-гейта — пользовательский контракт", () => {
-    // Канонический бинд под tier-гейтом и подпись по обе стороны: `команда | на legacy | на kitty`.
-    // Таблица собирается из самих биндов — новый гейт обязан попасть сюда осознанно.
+    // Canonical binding under the tier gate and its label on both sides: `command | on legacy | on kitty`.
+    // The table is built from the bindings themselves — a new gate must land here deliberately.
     const CONTRACT = [
         "deleteWordLeft | Alt+Backspace | Ctrl+Backspace",
         "editor.action.blockComment | Ctrl+K Alt+A | Shift+Alt+A",
@@ -192,8 +192,8 @@ describe("асимметрия tier-гейта — пользовательск�
 });
 
 describe("коллизии дефолтных биндов", () => {
-    // Нужны ИМЕННО здесь, в отличие от гейта выше: «сработают ли два бинда на одно
-    // нажатие» от фокуса зависит напрямую.
+    // Needed HERE specifically, unlike the gate above: "do two bindings fire on the same
+    // keystroke" depends directly on focus.
     const FOCUS_CONTEXTS: readonly Readonly<Record<string, boolean>>[] = [
         {},
         {
@@ -212,19 +212,19 @@ describe("коллизии дефолтных биндов", () => {
     ];
 
     /**
-     * Список — контракт: занятую букву лидер-аккорда легко не заметить, поэтому
-     * новая пара обязана попасть сюда осознанно (`resolveKey` берёт последний бинд).
+     * The list is a contract: a taken leader-chord letter is easy to miss, so a new
+     * pair must land here deliberately (`resolveKey` takes the last binding).
      */
     const KNOWN_COLLISIONS = [
-        // При открытом попапе автодополнения навигация достаётся ему, а не
-        // редактору: у suggest-экшенов вес выше.
+        // While the suggest popup is open it gets navigation, not the
+        // editor: suggest actions have higher weight.
         "ctrl+space: editor.action.triggerSuggest / toggleSuggestionDetails",
         "down: cursorDown / selectNextSuggestion",
         "pagedown: cursorPageDown / selectNextPageSuggestion",
         "pageup: cursorPageUp / selectPrevPageSuggestion",
         "tab: acceptSelectedSuggestion / editor.action.indentLines",
         "up: cursorUp / selectPrevSuggestion",
-        // Давний долг pc-раскладки, трекер — docs/TODO/MacKeybindings.md.
+        // Long-standing pc layout debt, tracked in docs/TODO/MacKeybindings.md.
         "ctrl+k ctrl+f: editor.action.formatSelection / workbench.action.navigateForward",
         "ctrl+k ctrl+u: editor.action.removeCommentLine / editor.action.showHover",
     ];
@@ -253,8 +253,8 @@ describe("коллизии дефолтных биндов", () => {
     });
 
     it("подсветка конфликтов в редакторе шорткатов не ловит дубль одной команды", () => {
-        // `findConflictingBindings` сравнивает when строками: безусловный фолбэк рядом с
-        // условным биндом ТОЙ ЖЕ команды — не конфликт, а два пути к одному.
+        // `findConflictingBindings` compares `when` as strings: an unconditional fallback next to
+        // a conditional binding of the SAME command is not a conflict but two paths to one command.
         const entries = registerBuiltins().listBindings();
         const sameCommand = [...findConflictingBindings(entries)]
             .map((index) => entries[index])

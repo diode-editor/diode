@@ -19,7 +19,7 @@ import { WorkbenchComponent, WorkbenchComponentDIToken } from "./workbenchCompon
 
 const UNKNOWN_SETTINGS = ["{", '    "editor.tabSize": 2,', '    "editor.fontSize": 12', "}"].join("\n");
 
-// Изменения маркеров доезжают до вкладки Problems через окно сведения.
+// Marker changes reach the Problems tab through a coalescing window.
 const flush = (): Promise<void> => settle(PROBLEMS_UPDATE_DELAY_MS + 10);
 
 describe("Workbench — Problems view end-to-end", () => {
@@ -66,8 +66,8 @@ describe("Workbench — Problems view end-to-end", () => {
         expect(screen).toContain("settings.json  (1)");
         expect(screen).toContain("Unknown Configuration Setting: editor.fontSize");
 
-        // E2E-шов DiagnosticsService → EditorService: маркер того же
-        // валидатора дошёл и до squiggle-декораций открытого редактора.
+        // E2E seam DiagnosticsService → EditorService: a marker from the same
+        // validator also reached the open editor's squiggle decorations.
         const editorElement = testApp.querySelector("EditorElement") as EditorElement;
         expect(editorElement.markerDecorations).toHaveLength(1);
 

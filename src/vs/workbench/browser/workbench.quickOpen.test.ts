@@ -195,8 +195,8 @@ describe("Workbench — Go to Line", () => {
 });
 
 /**
- * Проводку (DI-швы, запись в QUICK_ACCESS_PROVIDERS, экшен с биндом) видит
- * только такой тест: юнит-тесты провайдера работают со своими фейками.
+ * Only a test like this sees the wiring (DI seams, the QUICK_ACCESS_PROVIDERS entry, the action
+ * with its binding): the provider's unit tests work with their own fakes.
  */
 describe("Workbench — пикер открытых редакторов (Ctrl+K Ctrl+P)", () => {
     let ws: ITempWorkspace;

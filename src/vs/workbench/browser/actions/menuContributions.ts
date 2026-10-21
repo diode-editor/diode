@@ -3,13 +3,13 @@ import { combineWhen } from "../../../platform/actions/common/commandAction.ts";
 import type { IMenuContribution, ISubmenuContribution } from "../../../platform/actions/common/iMenuContribution.ts";
 import { MenuId } from "../../../platform/actions/common/menuId.ts";
 
-/** Label фиксируется здесь, чтобы меню не зависело от наполнения `CommandRegistry`. */
+/** The label is fixed here so that the menu does not depend on what `CommandRegistry` contains. */
 export function menuItemsOfAction(action: CommandAction): IMenuContribution[] {
     return (action.menus ?? []).map((placement) => ({
         ...placement,
         command: action.id,
         title: placement.title ?? action.shortTitle ?? action.title,
-        // Своя доступность размещения сужает экшенову (AND).
+        // The placement's own precondition narrows the action's (AND).
         enablement: combineWhen(action.enablement, placement.enablement),
     }));
 }

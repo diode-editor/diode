@@ -31,7 +31,7 @@ interface IRestoreState {
     readonly activeGroup: number;
 }
 
-/** Без него (headless-тесты) ось/доли пишутся дефолтными, а рестор не проверяет вместимость. */
+/** Without it (headless tests) orientation/weights are written as defaults and restore skips the capacity check. */
 export interface IEditorGroupsLayoutView {
     readonly orientation: "columns" | "rows";
     readonly weights: readonly number[];
@@ -40,15 +40,15 @@ export interface IEditorGroupsLayoutView {
 }
 
 /**
- * Плоский {@link OPEN_EDITORS_STATE} продолжает писаться (снимок активной
- * группы): сессия, открытая сборкой без сплитов, ничего не теряет. Layout
- * сайдбара/панели персистит `LayoutService`.
+ * The flat {@link OPEN_EDITORS_STATE} is still written (a snapshot of the active
+ * group), so a session opened by a build without splits loses nothing. The sidebar/panel
+ * layout is persisted by `LayoutService`.
  */
 export class WorkbenchStateService extends Disposable {
     public static dependencies = [StateServiceDIToken, EditorServiceDIToken, EditorGroupsServiceDIToken] as const;
 
     private layoutView: IEditorGroupsLayoutView | null = null;
-    /** Взведён на время рестора: реплей открытий не должен перезаписывать снимок. */
+    /** Set during restore: replaying the opens must not overwrite the snapshot. */
     private restoring = false;
 
     public constructor(
@@ -69,7 +69,7 @@ export class WorkbenchStateService extends Disposable {
         );
     }
 
-    /** До рестора. */
+    /** Call before restore. */
     public attachEditorLayout(view: IEditorGroupsLayoutView): void {
         this.layoutView = view;
     }
@@ -79,8 +79,8 @@ export class WorkbenchStateService extends Disposable {
     }
 
     /**
-     * Отдельно от `restoreOpenEditors`: бутстрапу пути нужны **до** открытия,
-     * чтобы прогреть грамматики и первый кадр вкладки был уже подсвеченным.
+     * Separate from `restoreOpenEditors`: bootstrap needs the paths **before** opening
+     * to warm up grammars, so the tab's first frame is already highlighted.
      */
     public getOpenEditorsToRestore(): string[] {
         const snapshot = this.groupsSnapshotToRestore();
@@ -102,9 +102,9 @@ export class WorkbenchStateService extends Disposable {
         this.restoring = true;
         try {
             for (const [index, group] of snapshot.groups.entries()) {
-                // Отказ по месту при рассинхроне с canFit даёт null — вкладки
-                // группы дольются в текущую (деградация того же смысла).
-                // Stryker disable next-line StringLiteral: позиция "" ведёт себя как "after" — эквивалентен
+                // A placement refusal on a desync with canFit yields null — the group's tabs
+                // are appended to the current one (a degradation with the same meaning).
+                // Stryker disable next-line StringLiteral: position "" behaves like "after" — equivalent
                 if (index > 0) this.groups.newGroup("after", { focus: false });
                 const target = { group: this.groups.activeGroup, focus: false };
                 for (const editor of group.editors) this.editorGroup.openSerializedEditor(editor, target);
@@ -117,7 +117,7 @@ export class WorkbenchStateService extends Disposable {
         } finally {
             this.restoring = false;
         }
-        // Фактическая полоса (с учётом слияний) и есть истина.
+        // The actual strip (after merges) is the source of truth.
         this.captureOpenEditors();
     }
 
@@ -133,7 +133,7 @@ export class WorkbenchStateService extends Disposable {
         };
         this.state.store(EDITOR_GROUPS_STATE, state);
 
-        // Совместимость со сборками до сплитов.
+        // Compatibility with builds from before splits.
         const activeSnapshot = this.snapshotGroup(this.groups.activeGroup);
         this.state.store(OPEN_EDITORS_STATE, {
             files: activeSnapshot.files,
@@ -141,7 +141,7 @@ export class WorkbenchStateService extends Disposable {
         });
     }
 
-    /** `files` — для сборок, которые `editors` не знают. */
+    /** `files` is for builds that don't know `editors`. */
     private snapshotGroup(group: EditorGroup): IEditorGroupSnapshot {
         const files: string[] = [];
         let activeIndex = -1;
@@ -161,8 +161,8 @@ export class WorkbenchStateService extends Disposable {
     }
 
     /**
-     * Неповторимые записи и пустые группы выпадают (US-42), группы сверх
-     * вместимости терминала сливаются в последнюю влезшую (US-43).
+     * Non-restorable entries and empty groups are dropped (US-42); groups beyond
+     * the terminal's capacity merge into the last one that fits (US-43).
      */
     private groupsSnapshotToRestore(): IRestoreState {
         const stored = this.state.get(EDITOR_GROUPS_STATE) ?? this.legacySnapshot();
@@ -175,7 +175,7 @@ export class WorkbenchStateService extends Disposable {
             if (editors.length === 0) continue;
             const canFitMore = this.layoutView?.canFitGroups(groups.length + 1) ?? true;
             if (groups.length > 0 && !canFitMore) {
-                // Дубли не отсеиваем: повторное открытие вкладки её лишь активирует.
+                // Duplicates are kept: reopening a tab only activates it.
                 const last = groups[groups.length - 1];
                 groups[groups.length - 1] = { editors: [...last.editors, ...editors], active: last.active };
                 continue;
@@ -199,8 +199,8 @@ export class WorkbenchStateService extends Disposable {
                 value: Uri.file(path.resolve(file)).toString(),
             }));
         const activeAt = group.editors !== undefined ? (group.activeEditor ?? -1) : group.activeIndex;
-        // `>= 0`, а не `.at` без проверки: у `.at(-1)` семантика «последняя».
-        // Stryker disable next-line EqualityOperator: `> 0` эквивалентен — без активной открывается первая, индекс 0
+        // `>= 0` instead of an unchecked `.at`: `.at(-1)` means "last".
+        // Stryker disable next-line EqualityOperator: `> 0` is equivalent — with no active editor the first opens, index 0
         return { editors, active: activeAt >= 0 ? editors.at(activeAt) : undefined };
     }
 

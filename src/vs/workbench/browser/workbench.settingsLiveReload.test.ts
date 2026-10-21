@@ -51,7 +51,7 @@ class EmittingConfig implements IConfigurationService {
     }
 }
 
-/** Харнесс сидит на теме `Dark+` (darkPlus) — стартовые значения подобраны под это. */
+/** The harness runs on the `Dark+` theme (darkPlus); the initial values are chosen for it. */
 describe("Workbench — live settings apply", () => {
     let ws: ITempWorkspace;
     let cfgWs: ITempWorkspace;

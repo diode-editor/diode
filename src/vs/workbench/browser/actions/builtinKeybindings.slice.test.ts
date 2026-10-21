@@ -23,17 +23,17 @@ import { serializeChord } from "../../../platform/keybinding/common/keybindingRe
 import { WORKBENCH_ACTIONS } from "../../workbench.common.main.ts";
 
 /**
- * Срез приоритета дефолтных биндов (F1). Пересобрать эталон:
- * `UPDATE_SLICE=1 npx vitest run <этот файл>`. Старшинство — попарное:
- * перестановка взаимоисключающих записей эталон не трогает, а в диффе видно
- * «пара X/Y перевернулась».
+ * Priority slice of the default bindings (F1). Regenerate the snapshot:
+ * `UPDATE_SLICE=1 npx vitest run <this file>`. Precedence is pairwise:
+ * reordering mutually exclusive entries leaves the snapshot intact, and the diff
+ * reads "pair X/Y flipped".
  */
 
 const SLICE_URL = new URL("./builtinKeybindings.slice.json", import.meta.url);
 
 /**
- * Подпись команды: одна на всю сетку — строкой; иначе `*` — самая частая, плюс
- * отличия по клеткам `<окружение> #<фокус-контекст>`.
+ * Command signature: a plain string when it is the same across the grid; otherwise `*` holds
+ * the most common one, plus per-cell differences keyed `<environment> #<focus context>`.
  */
 type Signature = string | Readonly<Record<string, string>>;
 
@@ -77,9 +77,9 @@ function domainsOf(exprs: readonly ContextKeyExpression[]): Map<string, ContextK
 }
 
 /**
- * Фокус у дерева один: валиден только контекст, чьи истинные фокус-ключи
- * помещаются в одну цель. Попапы над редактором гаснут с уходом фокуса — их
- * ключи живут только в цели «редактор».
+ * The tree has a single focus: a context is valid only if its true focus keys
+ * fit into one target. Popups over the editor close when focus leaves, so their
+ * keys live only in the "editor" target.
  */
 const FOCUS_TARGETS: readonly (readonly string[])[] = [
     [
@@ -108,7 +108,7 @@ function focusConsistent(values: ReadonlyMap<string, ContextKeyValue>): boolean 
     return focused.length === 0 || FOCUS_TARGETS.some((target) => focused.every((key) => target.includes(key)));
 }
 
-/** Перебор полный, если мал, иначе — детерминированная выборка. */
+/** Exhaustive enumeration when small, otherwise a deterministic sample. */
 function canBeActiveTogether(whens: readonly (string | undefined)[]): boolean {
     const exprs = whens.flatMap((when) => (when === undefined ? [] : [parseWhen(when)!]));
     const domains = [...domainsOf(exprs)];
@@ -133,7 +133,7 @@ function describeEntry(entry: IKeybindingEntrySnapshot): string {
     return entry.when === undefined ? entry.commandId : `${entry.commandId} [${entry.when}]`;
 }
 
-/** Сильнее — запись позже в `listBindings()`: резолвер отдаёт последнюю с проходящим when. */
+/** The stronger entry is the later one in `listBindings()`: the resolver returns the last one whose when passes. */
 function pairwiseSlice(registry: KeybindingRegistry): string[] {
     const groups = new Map<string, IKeybindingEntrySnapshot[]>();
     for (const entry of registry.listBindings()) {
@@ -194,7 +194,7 @@ describe("срез приоритета дефолтных биндов", () => 
     });
 
     it("старшинство в срезе — то, что реально выбирает резолвер", () => {
-        // Пары, которые сетка не накрывает, пропускаются — их проверяет попарная форма выше.
+        // Pairs the grid does not cover are skipped — the pairwise form above checks them.
         let checked = 0;
         const entries = registry.listBindings();
         for (const env of ENVIRONMENTS) {
@@ -216,8 +216,8 @@ describe("срез приоритета дефолтных биндов", () => 
         expect(checked).toBeGreaterThan(100);
     });
 
-    // Замер для F1: сколько пар держится только на порядке регистрации. После
-    // весов у семейств (F1, PR3) тест включается и обязан совпасть с эталоном.
+    // Measurement for F1: how many pairs rely only on registration order. Once families
+    // get weights (F1, PR3) the test is enabled and must match the snapshot.
     it("порядок регистрации не влияет на старшинство", () => {
         const reversed = registerBuiltins([...WORKBENCH_ACTIONS].reverse());
         expect(pairwiseSlice(reversed)).toEqual(reference.pairs);

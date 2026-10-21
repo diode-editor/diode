@@ -24,7 +24,7 @@ function appWithRules(rules: IUserKeybindingRule[]) {
     container.bind(UserKeybindingsDIToken, () => rules);
     container.get(WorkbenchComponentDIToken);
     const keybindings = container.get(KeybindingRegistryDIToken);
-    // Живые контекст-ключи: у дефолтов с `mod` (Ctrl+S и т.п.) условие по мак-рунгу.
+    // Live context keys: defaults with `mod` (Ctrl+S etc.) are conditioned on the mac rung.
     const contextKeys = container.get(ContextKeyServiceDIToken);
     return { keybindings, contextKeys };
 }

@@ -7,13 +7,13 @@ import type { NotificationService } from "../services/notification/browser/notif
 import { NotificationServiceDIToken } from "../services/notification/browser/notificationService.ts";
 
 export const OpenFailureNotificationContributionDIToken =
-    // Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+    // Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it — the string inside is only a debug label
     token<OpenFailureNotificationContribution>("OpenFailureNotificationContribution");
 
 /**
- * Молчать нельзя: открытие промахивается на недисковых ресурсах (`jdt:`,
- * `git:`), когда расширение схемы не установлено или не активировалось, — без
- * сообщения Go to Definition в библиотеку выглядит как сломанная клавиша.
+ * Failing silently is not an option: opening misses on non-disk resources (`jdt:`,
+ * `git:`) when the scheme's extension is not installed or not activated — without a
+ * message, Go to Definition into a library looks like a broken key.
  */
 export class OpenFailureNotificationContribution extends Disposable implements IWorkbenchContribution {
     public static dependencies = [EditorServiceDIToken, NotificationServiceDIToken] as const;

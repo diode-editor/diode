@@ -1,8 +1,8 @@
 import type { GroupId } from "../../services/editor/browser/editorGroupModel.ts";
 
 /**
- * Контекст открытия меню (`context` в `MenuRegistry.getMenuItems`): `EditorContext`
- * и меню-бар — `undefined`, остальные `MenuId` — интерфейсы ниже.
+ * Menu open context (`context` in `MenuRegistry.getMenuItems`): `EditorContext`
+ * and the menu bar pass `undefined`, the other `MenuId`s pass the interfaces below.
  */
 export interface ExplorerMenuContext {
     readonly path: string;
@@ -11,18 +11,18 @@ export interface ExplorerMenuContext {
 
 export const explorerPathArg = (context: unknown): readonly unknown[] => [(context as ExplorerMenuContext).path];
 
-/** Императивно, при открытии меню. */
+/** Evaluated imperatively when the menu opens. */
 export const explorerCanPaste = (context: unknown): boolean => (context as ExplorerMenuContext).canPaste;
 
 export type ScmMenuTargetKind = "resource" | "folder" | "group";
 
 /**
- * Цели множественные: выделение списка, файлы под папкой или вся группа. Группы
- * целей решают видимость stage/unstage/discard; команда сама фильтрует цели.
+ * Targets are plural: the list selection, the files under a folder or the whole group. Target
+ * groups decide stage/unstage/discard visibility; the command filters targets itself.
  */
 export interface ScmMenuContext {
     readonly kind: ScmMenuTargetKind;
-    /** Строками — аргументы команд сериализуемы. */
+    /** Strings, so command arguments stay serializable. */
     readonly uris: readonly string[];
     readonly groups: readonly string[];
 }
@@ -41,9 +41,9 @@ export const scmHasAnyGroup =
     (context: unknown): boolean =>
         (context as ScmMenuContext).groups.some((g) => groups.includes(g));
 
-/** Цель всегда одна: множественного выделения у истории нет. */
+/** Always a single target: history has no multi-selection. */
 export interface ScmGraphMenuContext {
-    /** Полный sha. */
+    /** Full SHA. */
     readonly sha: string;
     readonly shortSha: string;
     readonly subject: string;
@@ -54,8 +54,8 @@ export const scmGraphShaArg = (context: unknown): readonly unknown[] => [(contex
 export const scmGraphSubjectArg = (context: unknown): readonly unknown[] => [(context as ScmGraphMenuContext).subject];
 
 /**
- * Пункты фильтруются императивно по id секции: в сайдбаре видимы несколько
- * секций одновременно, и глобальный when-ключ их не различает.
+ * Items are filtered imperatively by section id: several sections are visible in
+ * the sidebar at once, and a global when key cannot tell them apart.
  */
 export interface ViewMenuContext {
     readonly view: string;
@@ -66,7 +66,7 @@ export const viewMenuVisible =
     (context: unknown): boolean =>
         (context as ViewMenuContext | undefined)?.view === viewId;
 
-/** Фильтрация императивная, как у секций: глобальный when-ключ контейнеры не различает. */
+/** Filtered imperatively, like sections: a global when key cannot tell containers apart. */
 export interface ViewContainerMenuContext {
     readonly container: string;
 }
@@ -77,17 +77,17 @@ export const containerMenuVisible =
         (context as ViewContainerMenuContext | undefined)?.container === containerId;
 
 /**
- * Цель — вкладка ПОД КУРСОРОМ, а не активная: правый клик её не активирует (как
- * в VS Code), поэтому команды получают адрес `(groupId, index)` аргументом.
- * Видимость пунктов — императивно по признакам, снятым при открытии: глобальные
- * контекст-ключи вкладку под курсором не различают, а disabled-пунктов нет.
+ * The target is the tab UNDER THE POINTER, not the active one: a right click does not
+ * activate it (as in VS Code), so commands receive the `(groupId, index)` address as an argument.
+ * Item visibility is imperative, from traits captured at open time: global context
+ * keys cannot tell the tab under the pointer apart, and there are no disabled items.
  */
 export interface EditorTitleMenuContext {
     readonly groupId: GroupId;
     readonly index: number;
-    /** `null` у безымянного буфера и диффа. */
+    /** `null` for an untitled buffer and a diff. */
     readonly path: string | null;
-    /** `resourceScheme` эталона. */
+    /** Upstream's `resourceScheme`. */
     readonly resourceScheme: string;
     readonly tabCount: number;
     readonly hasTabsToTheRight: boolean;
@@ -95,7 +95,7 @@ export interface EditorTitleMenuContext {
     readonly isPreview: boolean;
 }
 
-/** У каждой группы своя панель — пункт узнаёт, в какой он. */
+/** Each group has its own bar, so the item learns which one it is in. */
 export interface EditorTitleBarMenuContext {
     readonly groupId: GroupId;
 }

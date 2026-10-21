@@ -32,11 +32,11 @@ describe("Workbench — Keyboard Doctor", () => {
         expect(screen()).toContain("Шаг 1/");
         expect(screen()).not.toContain("super");
 
-        // Смена окружения на лету (увидели Cmd) перерисовывает шапку.
+        // Changing the environment on the fly (Cmd was seen) redraws the header.
         harness.container.get(TerminalEnvironmentServiceDIToken).noteSuperObserved();
         expect(screen()).toContain("super");
 
-        // Ctrl+S ищется в живом реестре: save — через mod, действует в этом окружении.
+        // Ctrl+S is looked up in the live registry: save uses mod and is active in this environment.
         testApp.sendKey("Ctrl+S");
         expect(screen()).toContain("бинд: workbench.action.files.save [when: !(macKeys >= 3)]");
 

@@ -11,8 +11,8 @@ import { CommandRegistryDIToken } from "../../platform/commands/common/commandRe
 import { SidebarServiceDIToken } from "./parts/sidebar/sidebarService.ts";
 
 /**
- * Регрессия: парный keypress гасился только над текстовым инпутом, и PageDown
- * двигал курсор списка на две страницы (команда + дефолт ListViewElement).
+ * Regression: the paired keypress was suppressed only over a text input, and PageDown
+ * moved the list cursor by two pages (the command + the ListViewElement default).
  */
 describe("Workbench — клавиша над списком срабатывает ровно один раз", () => {
     let ws: ITempWorkspace;
@@ -34,9 +34,9 @@ describe("Workbench — клавиша над списком срабатыва�
             list.appendRow(row);
         }
         list.focus();
-        // Два кадра: первый рендер после наполнения ещё меняет высоту списка
-        // (устаканивание скроллбара) — калибровка «одной страницы» должна идти
-        // по той же геометрии, что и клавиатурный путь.
+        // Two frames: the first render after filling still changes the list height
+        // (the scrollbar settles) — calibrating "one page" must use the same
+        // geometry as the keyboard path.
         h.testApp.render();
         h.testApp.render();
     });
@@ -52,7 +52,7 @@ describe("Workbench — клавиша над списком срабатыва�
     }
 
     it("PageDown двигает курсор ровно на одну страницу (не на две)", () => {
-        // Калибровка: чистый вызов команды — «одна страница» без клавиатурного пути.
+        // Calibration: a bare command call gives "one page" without the keyboard path.
         commands.execute("list.focusPageDown");
         h.testApp.render();
         const onePage = cursorIndex();

@@ -29,8 +29,8 @@ export const deleteRightAction: CommandAction = {
     },
 };
 
-// Ctrl+Backspace в legacy-потоке — байт 0x08 (Ctrl+H): бинд под tier-гейтом, а
-// досягаемый путь — Alt+Backspace. Он же канонический на маке — потому здесь, а не в мак-дельтах.
+// In the legacy stream Ctrl+Backspace is byte 0x08 (Ctrl+H): that binding sits behind a tier gate, and
+// the reachable path is Alt+Backspace. It is also canonical on macOS — hence here, not in the mac deltas.
 export const deleteWordLeftAction: CommandAction = {
     id: "deleteWordLeft",
     title: "Delete Word Left",
@@ -45,7 +45,7 @@ export const deleteWordLeftAction: CommandAction = {
     },
 };
 
-/** На маке Cmd+Backspace — бинд в таблице мак-дельт. */
+/** On macOS Cmd+Backspace is bound in the mac delta table. */
 export const deleteAllLeftAction: CommandAction = {
     id: "deleteAllLeft",
     title: "Delete All Left",
@@ -76,7 +76,7 @@ export const undoAction: CommandAction = {
     title: "Undo",
     keybinding: parseKeybinding("mod+z"),
     when: "textInputFocus && !editorReadonly",
-    // Undo в контекст-меню нет: состав EditorContext — дословно upstream'ский.
+    // No Undo in the context menu: the EditorContext set matches upstream verbatim.
     menus: [{ menuId: MenuId.MenubarEditMenu, group: "1_undo", order: 10 }],
     run(accessor) {
         accessor.get(EditorServiceDIToken).getActiveEditor()?.undo();
@@ -87,7 +87,7 @@ export const redoAction: CommandAction = {
     id: "redo",
     title: "Redo",
     keybinding: parseKeybinding("mod+shift+z"),
-    // На маке ниже cmd это единственная доставляемая комбинация redo.
+    // On macOS below cmd this is the only redo combination that gets delivered.
     keybindings: [parseKeybinding("ctrl+y")],
     when: "textInputFocus && !editorReadonly",
     menus: [{ menuId: MenuId.MenubarEditMenu, group: "1_undo", order: 20 }],
@@ -126,7 +126,7 @@ export const selectAllAction: CommandAction = {
     id: "editor.action.selectAll",
     title: "Select All",
     keybinding: parseKeybinding("mod+a"),
-    // Без гейта `!editorReadonly` и шире фокус: Ctrl+A + Ctrl+C на диффе копирует его целиком.
+    // No `!editorReadonly` gate and a wider focus: Ctrl+A + Ctrl+C on a diff copies it whole.
     when: "textViewFocus",
     menus: [{ menuId: MenuId.MenubarSelectionMenu, group: "1_select", order: 10 }],
     run(accessor) {

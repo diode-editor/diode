@@ -7,7 +7,7 @@ import type { ShutdownReason } from "../../services/lifecycle/browser/lifecycleS
 import { LifecycleServiceDIToken } from "../../services/lifecycle/browser/lifecycleService.ts";
 import { HostProcessDIToken, type IRelaunchRequest } from "../../services/lifecycle/common/hostProcess.ts";
 
-/** Cancel в диалоге confirm-save оставляет окно на месте. */
+/** Cancel in the confirm-save dialog keeps the window open. */
 function closeWindow(
     accessor: ServiceAccessor,
     reason: Extract<ShutdownReason, "quit" | "reload">,
@@ -23,9 +23,9 @@ function closeWindow(
     );
 }
 
-/** Плюс запрос на другой профиль или воркспейс для следующего окна. */
+/** Can also request a different profile or workspace for the next window. */
 export function reloadWindow(accessor: ServiceAccessor, relaunch?: IRelaunchRequest): Promise<void> {
-    // Stryker disable next-line StringLiteral: причина — литерал типа ShutdownReason; любое не-quit значение ведёт в restart
+    // Stryker disable next-line StringLiteral: a ShutdownReason literal; any non-quit value leads to restart
     return closeWindow(accessor, "reload", relaunch);
 }
 
@@ -40,8 +40,8 @@ export const quitAction: CommandAction = {
 };
 
 /**
- * Ответ на «расширение установлено, но ещё не работает»: горячей активации нет
- * (docs/TODO/Extensions.md, Phase 7). Дефолтного бинда нет: `ctrl+r` бережём под Open Recent.
+ * Answers "the extension is installed but doesn't work yet": there is no hot activation
+ * (docs/TODO/Extensions.md, Phase 7). No default binding: `ctrl+r` is reserved for Open Recent.
  */
 export const reloadWindowAction: CommandAction = {
     id: "workbench.action.reloadWindow",

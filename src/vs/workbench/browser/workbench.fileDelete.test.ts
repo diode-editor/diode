@@ -18,7 +18,7 @@ function createWorkspace(): ITempWorkspace {
             "beta.txt": "Beta content",
         },
     });
-    // Изолированная корзина под этот тест, чтобы удаление было обратимым и не трогало ~/.local.
+    // A dedicated trash for this test, so deletion is reversible and leaves ~/.local alone.
     process.env.XDG_DATA_HOME = ws.path(".xdg");
     return ws;
 }
@@ -42,7 +42,7 @@ describe("fileOperations.deleteFile command", () => {
         else process.env.XDG_DATA_HOME = savedXdg;
     });
 
-    // Корзина доступна → в фокусе дефолтная кнопка «Move to Trash».
+    // Trash is available → the default "Move to Trash" button has focus.
     function confirmDelete(): void {
         expect(h.testApp.querySelector("#confirmDialog")).not.toBeNull();
         h.testApp.sendKey("Enter");
@@ -325,15 +325,15 @@ describe("File tree context menu — right-click opens context menu", () => {
         rightClickRow(tree, 0);
         expect(h.testApp.focusedElement).not.toBe(tree);
 
-        // Copy: New File/New Folder открыли бы строковый промпт и увели фокус в него.
+        // Copy: New File/New Folder would open a string prompt and move focus into it.
         h.testApp.sendKey("ArrowDown");
         h.testApp.sendKey("ArrowDown"); // Copy
         h.testApp.sendKey("Enter");
         h.testApp.render();
 
         expect(h.testApp.querySelector("PopupMenuElement")).toBeNull();
-        // Фокус вернулся дереву, а парный keypress того же Enter не «протёк» в дерево
-        // и не открыл файл под курсором в редакторе.
+        // Focus is back on the tree, and the paired keypress of the same Enter didn't leak into the tree
+        // and open the file under the cursor in the editor.
         expect(h.testApp.focusedElement).toBe(tree);
     });
 });

@@ -9,8 +9,8 @@ import { QuickInputServiceDIToken } from "../parts/quickinput/quickInputService.
 import type { IViewContainerSnapshot, ViewContainerLocation } from "../parts/views/viewsService.ts";
 import { ViewsServiceDIToken } from "../parts/views/viewsService.ts";
 
-// Команды эталона (`layoutActions.ts`, `panelActions.ts`) с теми же id и заголовками.
-// Отступление: разделителей у нашего выбора нет — их подпись стоит справа у каждого пункта.
+// Upstream commands (`layoutActions.ts`, `panelActions.ts`) with the same ids and titles.
+// Deviation: our pick has no separators — their label sits on the right of each item.
 
 const LOCATION_GROUP_LABELS: Readonly<Record<ViewContainerLocation, string>> = {
     sidebar: "Side Bar",
@@ -29,12 +29,12 @@ const NEW_ENTRY_ITEMS: readonly { readonly location: ViewContainerLocation; read
 const NO_FOCUSED_VIEW = "There is no view currently focused.";
 const NOT_MOVABLE_VIEW = "The currently focused view is not movable.";
 
-/** Как `dialogService.error` эталона. */
+/** Like upstream's `dialogService.error`. */
 function showError(accessor: ServiceAccessor, message: string): void {
     accessor.get(NotificationServiceDIToken).show({ severity: "error", message, modal: true, items: [] });
 }
 
-/** Каким он был в момент запуска команды. */
+/** As it was when the command started. */
 function focusedViewId(accessor: ServiceAccessor): string {
     return accessor.get(ContextKeyServiceDIToken).get("focusedView") ?? "";
 }
@@ -43,7 +43,7 @@ interface IPick extends QuickPickItem {
     readonly run?: () => void;
 }
 
-/** `MoveFocusedViewAction.run` эталона. */
+/** Upstream's `MoveFocusedViewAction.run`. */
 async function pickDestinationAndMove(accessor: ServiceAccessor, viewId: string): Promise<void> {
     const views = accessor.get(ViewsServiceDIToken);
     if (viewId.trim() === "") {
@@ -57,9 +57,9 @@ async function pickDestinationAndMove(accessor: ServiceAccessor, viewId: string)
     const currentContainer = views.getViewContainerByViewId(viewId);
     const containers = views.getViewContainers();
     const current = containers.find((container) => container.id === currentContainer);
-    // Stryker disable next-line ConditionalExpression,LogicalOperator,BlockStatement: переносимый вид всегда стоит в собранном контейнере (canMoveView) — охрана только ради типов
+    // Stryker disable next-line ConditionalExpression,LogicalOperator,BlockStatement: a movable view always sits in a built container (canMoveView) — the guard is only for types
     if (currentContainer === null || current === undefined) return;
-    // Скрытой секции в снимке нет — тогда в заголовке её id.
+    // A hidden section is absent from the snapshot — then its id goes into the title.
     const title = current.views.find((view) => view.id === viewId)?.title ?? viewId;
     const solo = views.getContainerViews(current.id).length === 1;
     const items: IPick[] = [];
@@ -159,7 +159,7 @@ export const resetFocusedViewLocationAction: CommandAction = {
     run(accessor) {
         const viewId = focusedViewId(accessor);
         const views = accessor.get(ViewsServiceDIToken);
-        // Пустой и пробельный id — тоже «вида нет».
+        // An empty or whitespace id also means "no view".
         if (views.getViewContainerByViewId(viewId) === null) {
             showError(accessor, NO_FOCUSED_VIEW);
             return;
@@ -171,8 +171,8 @@ export const resetFocusedViewLocationAction: CommandAction = {
 };
 
 /**
- * `MoveViewsBetweenPanelsAction` эталона: если приёмник был пуст — в нём
- * открывается бывший активный контейнер источника.
+ * Upstream's `MoveViewsBetweenPanelsAction`: if the destination was empty, the
+ * source's previously active container opens in it.
  */
 function moveViewsBetweenParts(
     accessor: ServiceAccessor,
@@ -188,7 +188,7 @@ function moveViewsBetweenParts(
     const active = parts[source].getActiveViewId();
     for (const container of sourceContainers) views.moveViewContainerToLocation(container.id, destination);
     parts[destination].setVisible(true);
-    // Stryker disable next-line ConditionalExpression: у непустой части-источника активная вкладка есть всегда — `active !== null` охраняет только тип; условие целиком закрыто тестом «в непустую часть»
+    // Stryker disable next-line ConditionalExpression: a non-empty source part always has an active tab — `active !== null` guards only the type; the whole condition is covered by the "into a non-empty part" test
     if (active !== null && destinationWasEmpty) views.openViewContainer(active, true);
 }
 

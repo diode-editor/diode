@@ -5,7 +5,7 @@ import type { CommandAction } from "../../../platform/actions/common/commandActi
 import { parseKeybinding } from "../../../platform/keybinding/common/keybindingRegistry.ts";
 import { TuiApplicationDIToken } from "../../../platform/layout/browser/tuiApplicationDIToken.ts";
 
-// Двух классов мало, чтобы заводить общий интерфейс в tuidom.
+// Two classes are too few to justify a shared interface in tuidom.
 type ListLike = TreeViewElement<unknown> | ListViewElement;
 
 function activeList(accessor: Parameters<CommandAction["run"]>[0]): ListLike | null {

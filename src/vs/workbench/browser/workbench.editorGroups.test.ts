@@ -68,7 +68,7 @@ describe("Workbench — editor groups (сплиты)", () => {
 
     it("US-8: не влезаем — сплит молча отклонён, полоса не изменилась", () => {
         h.dispose();
-        // 30 колонок: 2 группы × 20 минимум не помещаются.
+        // 30 columns: 2 groups × 20 minimum do not fit.
         h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(30, 20) });
         h.workbench.openFile(ws.path("alpha.txt"));
 
@@ -223,8 +223,8 @@ describe("Workbench — editor groups (сплиты)", () => {
         const part = h.container.get(EditorPartComponentDIToken);
         h.commands.execute("workbench.action.splitEditorDown");
         expect(service().editorGroups.groups.length).toBe(2);
-        // Ось — не побочка сплита: именно она решает, куда ляжет следующая группа
-        // и какой поперечный сплит будет отклонён.
+        // The axis is not a side effect of the split: it decides where the next group goes
+        // and which cross-axis split is refused.
         expect(part.orientation).toBe("rows");
 
         h.commands.execute("workbench.action.splitEditorRight");
@@ -239,8 +239,8 @@ describe("Workbench — editor groups (сплиты)", () => {
         const second = service().editorGroups.activeGroup;
         expect(second.id).not.toBe(first.id);
 
-        // Поперечный сплит отклонён, но вкладка активируется — так видно, что правый
-        // клик по вкладке чужой группы фокус не забирает.
+        // The cross-axis split is refused, yet the tab is activated: this shows that a right
+        // click on another group's tab does not steal focus.
         h.commands.execute("workbench.action.splitEditorRight", first.id, 0);
 
         expect(service().editorGroups.groups.length).toBe(2);
@@ -270,7 +270,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         service().editorGroups.onDidGroupsChange(() => groupsFired++);
 
         activeFirst.dispose();
-        activeFirst.dispose(); // indexOf === -1 — второй слушатель не снят
+        activeFirst.dispose(); // indexOf === -1: the second listener stays
         groupsFirst.dispose();
         groupsFirst.dispose();
 
@@ -284,7 +284,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         h.commands.execute("workbench.action.splitEditorDown");
         h.testApp.render();
 
-        // Первая строка нижней группы — её таб-стрип: саш поверх него забирал hit-test.
+        // The bottom group's first row is its tab strip: a sash over it would steal the hit-test.
         const bottom = h.testApp.querySelector("#editorGroup-2")!;
         const tabStrip = bottom.querySelector("EditorTabStripElement")!;
         const point = new Point(tabStrip.globalPosition.x + 2, tabStrip.globalPosition.y);
@@ -326,7 +326,7 @@ describe("Workbench — editor groups (сплиты)", () => {
     it("US-16: перенос последней вкладки схлопывает группу-источник", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.commands.execute("workbench.action.splitEditor");
-        // beta, а не alpha: alpha перенос слил бы с копией в группе 2.
+        // beta, not alpha: moving alpha would merge it with its copy in group 2.
         h.commands.execute("workbench.action.focusFirstEditorGroup");
         h.workbench.openFile(ws.path("beta.txt"));
 
@@ -459,7 +459,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         h.commands.execute("workbench.action.closeEditorsInGroup");
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        // alpha открыта и в группе 1 — не последняя вкладка документа, поэтому закрывается без диалога.
+        // alpha is also open in group 1, so it is not the document's last tab and closes without a dialog.
         const dialogs = h.container.get(DialogServiceDIToken);
         expect(dialogs.getOpenConfirmSaveDialog()).toBeNull();
         expect(service().editorGroups.groups.length).toBe(1);
@@ -471,8 +471,8 @@ describe("Workbench — editor groups (сплиты)", () => {
         dialog!.onDontSave?.();
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(service().editorGroups.groups[0].editorCount).toBe(0);
-        // «Don't Save» — это именно НЕ сохранить: без проверки диска ветку сохранения
-        // можно сделать безусловной, и правка уехала бы в файл вопреки ответу.
+        // Don't Save must really not save: without the disk check the save branch could be
+        // made unconditional and the edit would reach the file against the answer.
         expect(fs.readFileSync(ws.path("alpha.txt"), "utf8")).toBe(MANY_LINES);
     });
 
@@ -729,7 +729,7 @@ describe("Workbench — editor groups (сплиты)", () => {
 
     it("US-8: узкий терминал — отказ newGroup, переносу у единственной группы и beside-фолбэк", () => {
         h.dispose();
-        // 30 колонок: 2 группы × 20 минимум не помещаются.
+        // 30 columns: 2 groups × 20 minimum do not fit.
         h = createAppTestHarness({ workspaceFolder: ws.dir, size: new Size(30, 20) });
         h.workbench.openFile(ws.path("alpha.txt"));
         h.workbench.openFile(ws.path("beta.txt"));
@@ -946,11 +946,11 @@ describe("Workbench — editor groups (сплиты)", () => {
         await vi.waitFor(() => {
             expect(dialogs.getOpenConfirmSaveDialog()).not.toBeNull();
         });
-        // Диалог обязан назвать файл, про который спрашивает: без этого «Save» и
-        // «Don't Save» — ответы вслепую.
+        // The dialog must name the file it asks about: otherwise Save and Don't Save
+        // are blind answers.
         h.testApp.render();
-        // Со знаком вопроса — иначе ассерт прошёл бы по имени вкладки в полосе,
-        // а не по подписи диалога.
+        // With the question mark: otherwise the assert would pass on the tab name in the strip
+        // rather than on the dialog caption.
         expect(h.testApp.backend.screenToString()).toContain("alpha.txt?");
 
         dialogs.getOpenConfirmSaveDialog()!.onCancel?.();
@@ -964,7 +964,7 @@ describe("Workbench — editor groups (сплиты)", () => {
         h.workbench.openFile(ws.path("alpha.txt"));
         h.workbench.openFile(ws.path("beta.txt"));
         h.workbench.openFile(ws.path("gamma.txt"));
-        // Грязная — САМАЯ ЛЕВАЯ: при обходе с хвоста очередь дойдёт до неё последней.
+        // The dirty tab is the LEFTMOST: walking from the tail reaches it last.
         const dirty = service().editorGroups.activeGroup.getPanes()[0] as {
             viewState: { type(text: string): unknown };
         };
@@ -978,9 +978,9 @@ describe("Workbench — editor groups (сплиты)", () => {
         dialogs.getOpenConfirmSaveDialog()!.onCancel?.();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        // Идя с хвоста, beta и gamma успевают закрыться до вопроса про alpha, и
-        // Cancel останавливает серию на ней. Шёл бы обход с головы — диалог встал
-        // бы первым же шагом и не закрылось бы ничего.
+        // Walking from the tail, beta and gamma close before the question about alpha, and
+        // Cancel stops the series there. Walking from the head, the dialog would come up
+        // on the very first step and nothing would close.
         expect(service().editorGroups.activeGroup.editorCount).toBe(1);
         expect(service().editorGroups.activeGroup.getPanes()[0].label).toBe("alpha.txt");
     });
@@ -1006,9 +1006,9 @@ describe("Workbench — editor groups (сплиты)", () => {
     it("US-48: Save в диалоге дожимает запись поверх внешней правки файла", async () => {
         h.workbench.openFile(ws.path("beta.txt"));
         service().getActiveEditor()!.viewState.type("saved!");
-        // Файл успели изменить снаружи. Обычное сохранение здесь отказало бы
-        // конфликтом, но диалог закрытия обязан дожать запись: иначе вкладка
-        // закроется по ответу «Save», а правка в файл не попадёт.
+        // The file was changed externally. A regular save would fail here with a
+        // conflict, but the close dialog must force the write: otherwise the tab
+        // closes on Save while the edit never reaches the file.
         fs.writeFileSync(ws.path("beta.txt"), "external", "utf8");
 
         h.commands.execute("workbench.action.closeEditorsInGroup");
@@ -1069,9 +1069,9 @@ describe("Workbench — editor groups (сплиты)", () => {
         dialogs.getOpenConfirmSaveDialog()!.onCancel?.();
         await new Promise((resolve) => setTimeout(resolve, 0));
 
-        // Cancel прекращает обход групп целиком. Возвращай серия «закрыли всё» —
-        // цикл пошёл бы на второй круг и спросил про ту же вкладку снова, поэтому
-        // проверяем не только состояние, но и что нового диалога нет.
+        // Cancel stops the walk over groups entirely. If the series returned "all closed",
+        // the loop would start a second round and ask about the same tab again, so check
+        // not only the state but also that no new dialog appears.
         expect(dialogs.getOpenConfirmSaveDialog()).toBeNull();
         expect(service().editorGroups.groups.length).toBe(2);
         expect(service().editorGroups.groups[1].editorCount).toBe(1);

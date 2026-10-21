@@ -30,14 +30,14 @@ describe("Workbench — session state persistence", () => {
     });
 
     afterEach(() => {
-        // Сначала глушим писателей, потом сносим каталоги: debounced-запись после
-        // `rmSync` пересоздаёт каталог (user-data копился в /tmp тысячами).
+        // Silence the writers first, then remove the directories: a debounced write after
+        // `rmSync` recreates the directory (user-data piled up in /tmp by the thousands).
         for (const writer of writers) writer.dispose();
         ws.dispose();
         userData.dispose();
     });
 
-    /** В дереве сайдбара лежит только активный вьюлет — сначала показываем нужный. */
+    /** The sidebar tree holds only the active viewlet — show the needed one first. */
     function paneViewOf(h: IAppHarness): PaneViewElement {
         h.container.get(SidebarServiceDIToken).showViewlet(SCM_VIEWLET_ID, false);
         const element = h.workbench.view.querySelector(`#viewContainer-${SCM_VIEWLET_ID}`);
@@ -66,7 +66,7 @@ describe("Workbench — session state persistence", () => {
 
         const state2 = newState();
         const h2: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state2 });
-        h2.workbench.restoreOpenEditors(); // main.ts вызывает это, когда в CLI нет файлов
+        h2.workbench.restoreOpenEditors(); // main.ts calls this when the CLI has no files
 
         const group = h2.container.get(EditorServiceDIToken);
         expect(group.getOpenFilePaths()).toEqual([ws.path("a.ts"), ws.path("b.ts"), ws.path("c.ts")]);
@@ -77,8 +77,8 @@ describe("Workbench — session state persistence", () => {
         h2.dispose();
     });
 
-    // Бутстрап спрашивает пути ДО открытия, чтобы успеть прогреть их грамматики:
-    // подсветка должна быть уже в первом кадре вкладки.
+    // Bootstrap asks for the paths BEFORE opening so it can warm up their grammars:
+    // highlighting must already be in the tab's first frame.
     it("reports the files restoreOpenEditors() will open — before opening them", () => {
         const state1 = newState();
         const h1: IAppHarness = createAppTestHarness({ workspaceFolder: ws.dir, stateService: state1 });
@@ -188,7 +188,7 @@ describe("Workbench — session state persistence", () => {
         state1.flushSync();
         h1.dispose();
 
-        // 50 колонок: сайдбар 30 + область ~20 — две группы по 20 не влезают.
+        // 50 columns: sidebar 30 + area ~20 — two groups of 20 don't fit.
         const state2 = newState();
         const h2: IAppHarness = createAppTestHarness({
             workspaceFolder: ws.dir,
@@ -225,14 +225,14 @@ describe("Workbench — session state persistence", () => {
             stateService: state2,
             size: new Size(140, 40),
         });
-        // a.ts живёт в обеих группах — прогреву грамматик он нужен один раз.
+        // a.ts lives in both groups — grammar warm-up needs it only once.
         expect(h2.workbench.getOpenEditorsToRestore()).toEqual([ws.path("a.ts"), ws.path("b.ts")]);
         h2.dispose();
     });
 
     it("сессия до сплитов (плоский ключ) поднимается одной группой", () => {
         const state1 = newState();
-        // Тот же ключ per-project стора, что откроет харнесс через setWorkspaceFolder.
+        // The same per-project store key the harness opens via setWorkspaceFolder.
         state1.openWorkspace(computeWorkspaceId(ws.dir));
         state1.store(OPEN_EDITORS_STATE, { files: [ws.path("a.ts"), ws.path("c.ts")], activeIndex: 1 });
         state1.flushSync();
@@ -249,9 +249,10 @@ describe("Workbench — session state persistence", () => {
     });
 
     it("битый снимок групп: недостающая доля становится 1, вместо удалённой активной вкладки — первая", () => {
-        // Снимок руками: доли короче списка групп (старая сборка или правка JSON), активный файл группы 2 удалён.
+        // Hand-made snapshot: weights shorter than the group list (old build or edited JSON),
+        // group 2's active file deleted.
         const state1 = newState();
-        // Тот же ключ per-project стора, что откроет харнесс через setWorkspaceFolder.
+        // The same per-project store key the harness opens via setWorkspaceFolder.
         state1.openWorkspace(computeWorkspaceId(ws.dir));
         state1.store(EDITOR_GROUPS_STATE, {
             orientation: "columns",
@@ -280,7 +281,7 @@ describe("Workbench — session state persistence", () => {
             ws.path("c.ts"),
         ]);
         expect(service.editorGroups.groups[1].activePane!.uri.fsPath).toBe(ws.path("a.ts"));
-        // Потерянная доля добита единицей: после нормировки группа 2 шире первой.
+        // The missing weight is filled with 1: after normalization group 2 is wider than the first.
         const part = (h2.workbench as unknown as { editorPartComponent: { weights: readonly number[] } })
             .editorPartComponent;
         expect(part.weights[1]).toBeGreaterThan(part.weights[0]);
@@ -294,7 +295,7 @@ describe("Workbench — session state persistence", () => {
         h1.commands.execute("workbench.action.openGlobalKeybindings");
         h1.workbench.openFile(ws.path("b.ts"));
         h1.container.get(EditorServiceDIToken).editorGroups.activeGroup.activateTab(1);
-        // Поле `files` — для сборок без `editors`, поэтому только файлы и activeIndex -1.
+        // The `files` field is for builds without `editors`, hence only files and activeIndex -1.
         expect(state1.get(EDITOR_GROUPS_STATE)?.groups[0]).toMatchObject({
             files: [ws.path("a.ts"), ws.path("b.ts")],
             activeIndex: -1,
@@ -307,7 +308,7 @@ describe("Workbench — session state persistence", () => {
         const focusedBefore = h2.testApp.focusedElement;
         h2.workbench.restoreOpenEditors();
 
-        // Рестор фокус не трогает — его расставляет старт.
+        // Restore leaves focus alone — startup sets it.
         expect(h2.testApp.focusedElement).toBe(focusedBefore);
         const service = h2.container.get(EditorServiceDIToken);
         expect(service.editorGroups.activeGroup.getPanes().map((pane) => pane.uri.toString())).toEqual([

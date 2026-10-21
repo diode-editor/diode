@@ -13,8 +13,8 @@ import { EditorServiceDIToken } from "../services/editor/common/editorService.ts
 const TOGGLE_READONLY = "workbench.action.files.toggleActiveEditorReadonlyInSession";
 
 /**
- * Ловит то, чего юнит-тесты ядра по устройству не видят: выставляется ли
- * `editorReadonly` и срабатывает ли when-клауза.
+ * Catches what the core unit tests can't see by design: whether
+ * `editorReadonly` is set and whether the when clause fires.
  */
 describe("Workbench — read-only editor", () => {
     let ws: ITempWorkspace;
@@ -59,8 +59,8 @@ describe("Workbench — read-only editor", () => {
         });
 
         it("сбрасывается, когда фокус ушёл из редактора", () => {
-            // Иначе ключ залипал бы от прошлого редактора и глушил команды там,
-            // где никакого read-only нет.
+            // Otherwise the key would stick from the previous editor and suppress commands
+            // where there is no read-only at all.
             h.commands.execute(TOGGLE_READONLY);
             expect(contextKeys().get("editorReadonly")).toBe(true);
 
@@ -73,8 +73,8 @@ describe("Workbench — read-only editor", () => {
     });
 
     describe("мутирующие команды не доезжают до документа", () => {
-        // Именно через реестр команд, а не прямым вызовом viewState: тест на
-        // when-клаузу, которой юнит-тесты ядра по устройству не касаются.
+        // Through the command registry rather than a direct viewState call: this tests the
+        // when clause, which the core unit tests don't touch by design.
         const mutating = [
             "deleteLeft",
             "deleteRight",
@@ -129,9 +129,9 @@ describe("Workbench — read-only editor", () => {
     });
 
     describe("вкладка помечена замком", () => {
-        // До кадра, а не до TabInfo: без подписки EditorService → syncTabs замок
-        // появлялся только при следующем переключении вкладки.
-        const LOCK = "\uea75"; // nf-cod-lock, см. editorTabItemElement.ts
+        // Down to the frame, not to TabInfo: without the EditorService → syncTabs subscription the lock
+        // appeared only on the next tab switch.
+        const LOCK = "\uea75"; // nf-cod-lock, see editorTabItemElement.ts
 
         function frame(): string {
             h.testApp.render();
@@ -152,8 +152,8 @@ describe("Workbench — read-only editor", () => {
     });
 
     describe("гейт when-клауз (слой кейбиндов)", () => {
-        // Гарды EditorViewState/TextEditorPane держат оборону сами, по документу when
-        // не увидеть — проверено: тесты выше проходят и со снятыми `&& !editorReadonly`.
+        // The EditorViewState/TextEditorPane guards hold the line on their own, so the when clause can't be
+        // observed via the document — verified: the tests above pass even with `&& !editorReadonly` removed.
         function resolve(key: string, ctrlKey = false) {
             return h.container
                 .get(KeybindingRegistryDIToken)
@@ -183,7 +183,7 @@ describe("Workbench — read-only editor", () => {
             expect(resolve("ArrowRight")).toEqual({
                 kind: "command",
                 commandId: "cursorRight",
-                // Шире, чем textInputFocus: тем же кейбиндом ходит каретка в диффе.
+                // Wider than textInputFocus: the cursor in a diff moves with the same keybinding.
                 when: "textViewFocus",
             });
             expect(resolve("c", true)).toMatchObject({
@@ -195,8 +195,8 @@ describe("Workbench — read-only editor", () => {
 
     describe("пути мимо EditorViewState", () => {
         it("undo/redo не откатывают правки, сделанные до включения флага", () => {
-            // Правки легли в undo-стек, пока редактор был writable; в read-only
-            // откат — такая же мутация документа, как и печать.
+            // The edits went to the undo stack while the editor was writable; in read-only
+            // undoing is as much a document mutation as typing.
             h.testApp.sendKey("X");
             expect(h.activeEditor().getText()).toBe("XAlpha");
 
@@ -207,8 +207,8 @@ describe("Workbench — read-only editor", () => {
         });
 
         it("applyExternalEdits не проходит — общий вход suggest, rename/bulkEdit и extension host", () => {
-            // Suggest, rename/bulkEdit и extension host сходятся в applyExternalEdits →
-            // EditorViewState.applyEdits; when-клаузы программные пути не покрывают.
+            // Suggest, rename/bulkEdit and the extension host converge on applyExternalEdits →
+            // EditorViewState.applyEdits; when clauses don't cover programmatic paths.
             h.commands.execute(TOGGLE_READONLY);
 
             h.activeEditor().applyExternalEdits([createTextEdit(createRange(0, 0, 0, 5), "Beta")], "external edit");
@@ -218,7 +218,7 @@ describe("Workbench — read-only editor", () => {
         });
 
         it("TextEditorPane сам отбивает setEol/setEncoding/redo", () => {
-            // Программные вызовы обходят и when-клаузу, и ранний выход в команде.
+            // Programmatic calls bypass both the when clause and the command's early exit.
             const editor = h.activeEditor();
             const eolBefore = editor.eol;
             const encodingBefore = editor.encoding;
@@ -253,16 +253,16 @@ describe("Workbench — read-only editor", () => {
         });
 
         it("перечитка документа не снимает read-only", async () => {
-            // rebuildForReloadedDocument пересоздаёт EditorViewState и терял флаг: после
-            // «Reopen with Encoding» вкладка молча становилась редактируемой.
+            // rebuildForReloadedDocument recreates EditorViewState and used to lose the flag: after
+            // "Reopen with Encoding" the tab silently became editable.
             const editor = h.activeEditor();
             h.commands.execute(TOGGLE_READONLY);
 
             await editor.reopenWithEncoding("windows1251");
 
             expect(editor.readOnly).toBe(true);
-            // Фокус перечитку переживает — ключ обязан остаться, иначе мутирующие команды
-            // разблокировались бы на read-only вкладке.
+            // Focus survives the reload — the key must stay, otherwise mutating commands
+            // would be unblocked on a read-only tab.
             expect(contextKeys().get("textInputFocus")).toBe(true);
             expect(contextKeys().get("editorReadonly")).toBe(true);
             expect(editor.viewState.type("X")).toBeUndefined();

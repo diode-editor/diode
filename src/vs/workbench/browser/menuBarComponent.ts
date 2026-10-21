@@ -10,7 +10,7 @@ import { Component } from "./component.ts";
 
 export const MenuBarComponentDIToken = token<MenuBarComponent>("MenuBarComponent");
 
-/** Пункты резолвятся ЛЕНИВО при открытии (геттер `entries`) — шорткаты и динамические пункты всегда актуальны. */
+/** Items resolve LAZILY on open (the `entries` getter), so shortcuts and dynamic items are always current. */
 export class MenuBarComponent extends Component {
     public static dependencies = [MenuServiceDIToken] as const;
 

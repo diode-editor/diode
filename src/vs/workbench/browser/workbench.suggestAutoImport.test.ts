@@ -8,14 +8,14 @@ import type { EditorElement } from "../../editor/browser/editorElement.ts";
 import type { ICoreCompletionItem } from "../../editor/common/languages/iCompletionSource.ts";
 import { LanguageFeaturesServiceDIToken } from "../../editor/common/services/languageFeatures.ts";
 
-/** Дефолт `editorCursor.foreground` в Dark+: так красится ВТОРИЧНАЯ каретка (первичную рисует терминал). */
+/** Default `editorCursor.foreground` in Dark+: the color of a SECONDARY cursor (the terminal draws the primary one). */
 const SECONDARY_CARET_BG = packRgb(0xae, 0xaf, 0xad);
 
 /**
- * Регрессия догфудинга: вставка пункта и правки-спутники (`import`) идут одной
- * транзакцией, и батч ставил каретку в конец каждой правки — вторая каретка
- * вставала в строку импорта. Как в эталоне (`suggestController`), каретку
- * ставит только основная вставка.
+ * Dogfooding regression: the item insertion and its additional edits (`import`) go in one
+ * transaction, and the batch put a cursor at the end of every edit — a second cursor
+ * landed on the import line. As upstream (`suggestController`), only the main insertion
+ * places the cursor.
  */
 describe("Workbench — accept автодополнения с авто-импортом", () => {
     let ws: ITempWorkspace;
@@ -28,7 +28,7 @@ describe("Workbench — accept автодополнения с авто-импо
         return h.testApp.querySelector("EditorElement") as EditorElement;
     }
 
-    /** Ждёт debounce авто-suggest'а (120 мс), ответ источника и resolve на accept. */
+    /** Waits for the auto-suggest debounce (120 ms), the provider's response and the resolve on accept. */
     function settle(): Promise<void> {
         return new Promise((resolve) => setTimeout(resolve, 300));
     }
@@ -77,8 +77,8 @@ describe("Workbench — accept автодополнения с авто-импо
 });
 
 /**
- * Каретку ставит основная вставка, а не сдвиг за правкой: при диапазоне правее
- * каретки сдвиг оставил бы её на месте набранного префикса.
+ * The main insertion places the cursor, not the shift past the edit: with a range extending
+ * right of the cursor, the shift would leave it where the typed prefix was.
  */
 describe("Workbench — accept пункта с диапазоном замены правее каретки", () => {
     let ws: ITempWorkspace;
@@ -97,7 +97,7 @@ describe("Workbench — accept пункта с диапазоном замены
         h = createAppTestHarness({ workspaceFolder: ws.dir, openFile: ws.path("a.ts") });
         h.container.get(LanguageFeaturesServiceDIToken).completionProvider.register("*", {
             triggerCharacters: [],
-            // Диапазон — от начала строки по «Xyz» за кареткой включительно.
+            // The range runs from the line start through "Xyz" after the cursor, inclusive.
             provideCompletionItems: (request) =>
                 Promise.resolve({
                     items: [
@@ -124,7 +124,7 @@ describe("Workbench — accept пункта с диапазоном замены
 
     it("каретка встаёт в конец вставки, а не на место префикса", async () => {
         for (const char of "gre") h.testApp.sendKey(char);
-        // Каретка посреди слова «greXyz» — quick suggest молчит (как в эталоне), зовём явно.
+        // The cursor is mid-word in "greXyz" — quick suggest stays silent (as upstream), so trigger it explicitly.
         h.commands.execute("editor.action.triggerSuggest");
         await settle();
         h.testApp.sendKey("Enter");
@@ -136,8 +136,8 @@ describe("Workbench — accept пункта с диапазоном замены
 });
 
 /**
- * Спутники приходят сразу в списке (у gopls нет `resolveProvider`); как в эталоне
- * («sync additional edits»), accept применяет их без resolve.
+ * Additional edits arrive right in the list (gopls has no `resolveProvider`); as upstream
+ * ("sync additional edits"), accept applies them without a resolve.
  */
 describe("Workbench — accept пункта с правками-спутниками из самого списка", () => {
     let ws: ITempWorkspace;
@@ -172,7 +172,7 @@ describe("Workbench — accept пункта с правками-спутника
         h.container.get(LanguageFeaturesServiceDIToken).completionProvider.register("*", {
             triggerCharacters: [],
             provideCompletionItems: () => Promise.resolve({ items: ITEMS, isIncomplete: false }),
-            // Молчащий resolve: ожидание его на accept упёрлось бы в таймаут без правок.
+            // A resolve that never answers: waiting for it on accept would time out with no edits.
             ...(withResolve
                 ? {
                       resolveCompletionItem: () => {
@@ -199,7 +199,7 @@ describe("Workbench — accept пункта с правками-спутника
         await settle();
         h.testApp.sendKey("Enter");
 
-        // Синхронно, без ожидания resolve: правки уже в пункте.
+        // Synchronously, without waiting for resolve: the edits are already in the item.
         expect(editor().viewState.document.getText()).toBe(`${IMPORT}ToLower\n`);
         expect(editor().viewState.selections.map((sel) => [sel.active.line, sel.active.character])).toEqual([[1, 7]]);
         expect(resolveCalls).toBe(0);

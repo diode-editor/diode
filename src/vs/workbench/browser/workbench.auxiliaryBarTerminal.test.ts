@@ -100,7 +100,7 @@ describe("Workbench — терминал во вторичной боковой 
         h.testApp.sendKey("l");
         h.testApp.sendKey("s");
         expect(sessions[0].writes.join("")).toContain("ls");
-        // Часть 30 колонок (четверть 120): колонка саша и отступ таб-строки не в счёт.
+        // The part is 30 columns (a quarter of 120): the sash column and the tab strip padding don't count.
         const cols = sessions[0].resizes.at(-1)?.cols ?? 0;
         expect(cols).toBeGreaterThan(20);
         expect(cols).toBeLessThan(part(h).layoutSize.width);
@@ -162,7 +162,7 @@ describe("Workbench — терминал во вторичной боковой 
                 .getViews()
                 .map((v) => v.title),
         ).not.toContain("TERMINAL");
-        // Как и в нижней панели, рестор шелл не спавнит — до первой активации.
+        // As in the bottom panel, restore doesn't spawn a shell until the first activation.
         expect(sessions).toHaveLength(1);
         second.h.commands.execute(TOGGLE_TERMINAL);
         expect(sessions).toHaveLength(2);
