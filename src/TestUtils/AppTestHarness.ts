@@ -26,7 +26,7 @@ export interface IAppHarnessOptions {
     readonly size?: Size;
     readonly openFile?: string;
     readonly focusEditor?: boolean;
-    /** `ready` — остановиться сразу после `mount()`, до `afterRestored`. */
+    /** `ready` stops right after `mount()`, before `afterRestored`. */
     readonly phase?: "ready" | "eventually";
     readonly stateService?: IStateService;
     readonly configurationService?: IConfigurationService;
@@ -40,14 +40,14 @@ export interface IAppHarness {
     readonly commands: CommandRegistry;
     readonly container: Container;
     activeEditor(): TextEditorPane;
-    /** Воркспейсом не владеет — его освобождает {@link createTempWorkspace}. */
+    /** Does not own the workspace — {@link createTempWorkspace} releases it. */
     dispose(): void;
 }
 
-/** Синхронный: `await workbench.activate()` и `fileIndexReady` остаются в тесте. */
+/** Synchronous: `await workbench.activate()` and `fileIndexReady` are left to the test. */
 export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarness {
     const { container, bindApp } = createTestContainer({ environment: options.environment });
-    // Перебивки — до резолва WorkbenchComponent: он читает их в конструкторе.
+    // Overrides go before WorkbenchComponent is resolved: its constructor reads them.
     if (options.stateService !== undefined) {
         const stateService = options.stateService;
         container.bind(StateServiceDIToken, () => stateService);
@@ -62,7 +62,7 @@ export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarn
         workbench.setWorkspaceFolder(options.workspaceFolder);
     }
     workbench.mount();
-    // От темы контейнера, а не фиксированный Dark+: подменённый ThemeService виден в первом кадре.
+    // From the container's theme, not a fixed Dark+: a substituted ThemeService shows up in the first frame.
     const testApp = TestApp.create(
         workbench.view,
         options.size ?? new Size(80, 24),
@@ -88,7 +88,7 @@ export function createAppTestHarness(options: IAppHarnessOptions = {}): IAppHarn
         container,
         activeEditor: () => {
             const editor = group.getActiveEditor();
-            /* v8 ignore start -- test helper: сценарий обязан открыть редактор до обращения к нему */
+            /* v8 ignore start -- test helper: the scenario must open an editor before accessing it */
             if (editor === null) throw new Error("expected an active editor");
             /* v8 ignore stop */
             return editor;

@@ -3,8 +3,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { SESSION_MARKER_ENV } from "./sessionRegistry.ts";
 
 /**
- * Зомби — мёртв: убитый лидер переподвешивается к init, а init контейнера не всегда
- * пожинает детей, и `kill(pid, 0)` отвечает «есть», хотя сессии уже нет.
+ * A zombie counts as dead: a killed leader is reparented to init, the container's init does not always
+ * reap children, and `kill(pid, 0)` reports it as present although the session is gone.
  */
 export function isAlive(pid: number): boolean {
     try {
@@ -18,10 +18,10 @@ export function isAlive(pid: number): boolean {
 function isZombie(pid: number): boolean {
     try {
         const stat = readFileSync(`/proc/${String(pid)}/stat`, "utf8");
-        // comm может содержать пробелы и скобки — состояние после последней `)`.
+        // comm may contain spaces and parentheses, so the state follows the last `)`.
         return stat.slice(stat.lastIndexOf(")") + 2, stat.lastIndexOf(")") + 3) === "Z";
     } catch {
-        return false; // не Linux или уже пожат
+        return false; // not Linux or already reaped
     }
 }
 
@@ -30,7 +30,7 @@ export interface MarkedProcess {
     readonly marker: string;
 }
 
-/** Маркер достаёт и ушедших в свою группу (`setsid`), до которых `kill(-pgid)` не дотягивается. */
+/** The marker also finds processes that left for their own group (`setsid`), out of reach of `kill(-pgid)`. */
 export function findMarkedProcesses(): MarkedProcess[] {
     if (process.platform !== "linux") return [];
     const prefix = `${SESSION_MARKER_ENV}=`;
@@ -49,7 +49,7 @@ export function findMarkedProcesses(): MarkedProcess[] {
         try {
             environ = readFileSync(`/proc/${entry}/environ`, "latin1");
         } catch {
-            continue; // чужой процесс или уже вышел
+            continue; // foreign process or already exited
         }
         for (const variable of environ.split("\0")) {
             if (variable.startsWith(prefix)) {
@@ -65,7 +65,7 @@ function signal(pid: number, sig: NodeJS.Signals): void {
     try {
         process.kill(pid, sig);
     } catch {
-        // уже вышел
+        // already exited
     }
 }
 
@@ -73,7 +73,7 @@ function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Возвращает, сколько пришлось добивать SIGKILL. */
+/** Returns how many processes had to be finished off with SIGKILL. */
 export async function killSessionProcesses(pid: number | undefined, marker: string, graceMs = 3000): Promise<number> {
     const targets = (): number[] => {
         const pids = findMarkedProcesses()
@@ -89,7 +89,7 @@ export async function killSessionProcesses(pid: number | undefined, marker: stri
     const left = targets();
     if (pid !== undefined) signal(-pid, "SIGKILL");
     for (const p of left) signal(p, "SIGKILL");
-    // SIGKILL доставляется асинхронно — подождём, пока /proc это отразит.
+    // SIGKILL is delivered asynchronously; wait until /proc reflects it.
     const killDeadline = Date.now() + 2000;
     while (targets().length > 0 && Date.now() < killDeadline) await sleep(50);
     return left.length;

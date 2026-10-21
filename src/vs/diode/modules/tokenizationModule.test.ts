@@ -21,13 +21,13 @@ import { LanguageFeaturesService } from "../../editor/common/services/languageFe
 import { createTestContainer } from "./testProfile.ts";
 import { tokenizationModule } from "./tokenizationModule.ts";
 
-/** Перепутанный аргумент даёт рабочий контейнер и редактор без подсветки и скобок. */
+/** A swapped argument yields a working container and an editor without highlighting or brackets. */
 describe("tokenizationModule", () => {
     it("отдаёт по токенам инстансы владельца приложения, а не дефолты профиля", () => {
         const { container } = createTestContainer();
         const tokenizationRegistry = new TokenizationRegistry();
-        // Конфигурации языков — единственный инстанс, отличимый от NULL-заглушки
-        // тестового профиля по ссылке.
+        // Language configuration is the only instance distinguishable by reference from the test
+        // profile's NULL stub.
         const languageConfigurationService = { ...NULL_LANGUAGE_CONFIGURATION_SERVICE };
 
         container.use(tokenizationModule, {

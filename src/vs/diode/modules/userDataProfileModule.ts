@@ -10,7 +10,7 @@ import { IUserDataProfileServiceDIToken } from "../../workbench/services/userDat
 
 export interface UserDataProfileModuleContext {
     readonly profilesService: IUserDataProfilesService;
-    /** Фиксирован на процесс. */
+    /** Fixed for the lifetime of the process. */
     readonly currentProfile: IUserDataProfile;
     readonly terminalTitle?: ITerminalTitleSink;
 }

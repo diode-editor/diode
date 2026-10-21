@@ -3,8 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-// До поддержки `-e` стоковый eslint под SEA молча не линтил ни одного файла (ERR_MODULE_NOT_FOUND
-// '<workspace>/-e'). Child-process с tsx: argv-арифметика совпадает с SEA.
+// Without `-e` support, stock eslint under SEA silently linted no files (ERR_MODULE_NOT_FOUND
+// '<workspace>/-e'). Runs a child process with tsx: its argv arithmetic matches SEA.
 
 const ENTRY = fileURLToPath(new URL("./runAsNode.testEntry.ts", import.meta.url));
 const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));

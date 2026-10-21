@@ -19,7 +19,7 @@ import {
 
 import { fileWatcherModule } from "./fileWatcherModule.ts";
 
-// Сквозняк настоящего процесса — в treeWatcherMain.integration.test.ts; здесь только проводка.
+// The real process is covered end-to-end in treeWatcherMain.integration.test.ts; here only the wiring.
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 
 const { spawn } = await import("node:child_process");
@@ -46,7 +46,7 @@ afterEach(() => {
     spawnMock.mockReset();
 });
 
-/** Обход обязан уезжать в отдельный процесс (иначе снова сядет на главный цикл), и прощание снимает именно его. */
+/** The crawl must run in a separate process (or it lands on the main loop again), and shutdown must kill that process. */
 describe("fileWatcherModule", () => {
     function setup(): { container: Container; entries: LogEntry[]; child: FakeChild; logService: LogService } {
         const child = new FakeChild();
@@ -103,7 +103,7 @@ describe("fileWatcherModule", () => {
         expect(child.killed).toBe(false);
 
         await container.get(LifecycleServiceDIToken).shutdown("reload", () => {
-            // Синхронная фаза позади: процесс уже снят до запуска нового окна.
+            // The sync phase is over: the process is killed before the new window starts.
             expect(child.killed).toBe(true);
         });
 

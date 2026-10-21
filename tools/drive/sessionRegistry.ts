@@ -2,14 +2,14 @@ import { mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "nod
 import { join } from "node:path";
 
 /**
- * Реестр — в корне checkout'а, то есть свой у каждого worktree: параллельные агенты
- * не гасят сессии друг друга, хотя у всех сессия по умолчанию `default`.
+ * The registry lives in the checkout root, so each worktree has its own: parallel agents
+ * do not kill each other's sessions, even though everyone's default session is `default`.
  */
 export interface SessionRecord {
     readonly name: string;
-    /** Лидер своей группы (`detached`). */
+    /** Leader of its own process group (`detached`). */
     readonly pid: number;
-    /** После `reloadWindow` окно — новый процесс на том же порту, лидер остаётся супервизором. */
+    /** After `reloadWindow` the window is a new process on the same port; the leader stays the supervisor. */
     readonly windowPid: number;
     readonly port: number;
     readonly root: string;
@@ -22,12 +22,12 @@ export interface SessionRecord {
     readonly startedAt: string;
     readonly stdoutFile: string;
     readonly stderrFile: string;
-    /** Не удалять корень при `stop` (пост-мортем). */
+    /** Keep the root on `stop` (post-mortem). */
     readonly keep: boolean;
     readonly marker: string;
 }
 
-/** Наследуется всеми потомками и переживает `setsid` — по нему `stop`/`gc` находят сирот. */
+/** Inherited by all descendants and survives `setsid`; `stop`/`gc` find orphans by it. */
 export const SESSION_MARKER_ENV = "DIODE_DRIVE_SESSION";
 
 export const ROOT_PREFIX = "diode-drive-";

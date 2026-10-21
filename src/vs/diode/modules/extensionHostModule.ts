@@ -105,8 +105,8 @@ function toMarkerSeverity(severity: number): MarkerSeverity {
 }
 
 /**
- * Лениво, на каждый вызов: папку выставляют уже после биндинга. Пустое окно — пустой список,
- * а не `process.cwd()`: иначе git и прочие шерстили бы случайный каталог запуска.
+ * Lazy, per call: the folder is set after binding. An empty window yields an empty list, not
+ * `process.cwd()` — otherwise git and others would crawl whatever directory diode was launched from.
  */
 export function workspaceFoldersProvider(
     workspaceContext: IWorkspaceContextService,
@@ -136,14 +136,14 @@ export function extensionHostConfigProvider(
 }
 
 export interface IExtensionHostModuleContext {
-    /** Пользовательские, затем встроенные. */
+    /** User extensions first, then built-in ones. */
     readonly extensions: readonly IExtension[];
     readonly registration: IExtensionRegistrationEnv;
 }
 
 export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> = (container, ctx) => {
     let terminalAdapter: ExtensionTerminalAdapter | undefined;
-    // Stryker disable ArrowFunction,AssignmentOperator: production-проводка модуля (один мост на хост и задачи); сквозняк — e2e-сценарии extension-terminal и extension-tasks
+    // Stryker disable ArrowFunction,AssignmentOperator: production module wiring (one bridge shared by the host and tasks); end-to-end — e2e scenarios extension-terminal and extension-tasks
     const terminals = (): ExtensionTerminalAdapter =>
         (terminalAdapter ??= new ExtensionTerminalAdapter(
             container.get(TerminalServiceDIToken),
@@ -163,13 +163,13 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         );
         const commandAdapter = new CommandServiceAdapter(container.get(CommandRegistryDIToken));
         const logService = container.get(ILogServiceDIToken);
-        // Stryker disable StringLiteral,ObjectLiteral: имена каналов и их метки — подписи в селекторе Output, поведения логирования не задают
+        // Stryker disable StringLiteral,ObjectLiteral: channel names and labels are captions in the Output picker and do not affect logging behavior
         const logger = logService.createLogger("extensions.host", { label: "Extension Host" });
         const rpcLogger = logService.createLogger("extensions.host.rpc", { label: "Extension Host (RPC)" });
         const stdoutLogger = logService.createLogger("extensions.host.stdout", { label: "Extension Host (stdout)" });
         const stderrLogger = logService.createLogger("extensions.host.stderr", { label: "Extension Host (stderr)" });
         // Stryker restore StringLiteral,ObjectLiteral
-        // Выключенный канал — поток ребёнка закрыт, а не читается впустую (и не наследуется в кадр TUI).
+        // A disabled channel closes the child's stream instead of draining it (and keeps it out of the TUI frame).
         const wantStdio = (lg: typeof stdoutLogger): typeof stdoutLogger | undefined =>
             lg.isEnabled(LogLevel.Info) ? lg : undefined;
 
@@ -200,7 +200,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
 
         const editorLayout = new EditorLayoutServiceAdapter(group, container.get(EditorGroupsServiceDIToken));
 
-        // Stryker disable ArrowFunction: production-проводка модуля; решения живут в `watcherExcludeGlobs`/`watcherIncludesUnder` и `FileWatcherAdapter` и закрыты юнитами, сквозняк — живой прогон на Bazel-воркспейсе
+        // Stryker disable ArrowFunction: production module wiring; the decisions live in `watcherExcludeGlobs`/`watcherIncludesUnder` and `FileWatcherAdapter`, covered by unit tests; end-to-end — live run on a Bazel workspace
         const fileWatcher = new FileWatcherAdapter(
             container.get(ITreeFileWatcherDIToken),
             () => watcherExcludeGlobs(configService),
@@ -213,13 +213,13 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         );
         // Stryker restore ArrowFunction
 
-        // Лениво, как `getWorkspaceFolders`: `storageUri` зависит от папки, которую выставят позже создания хоста.
-        // Stryker disable next-line ArrowFunction: production-проводка модуля; решение о корнях живёт в `extensionStorageHomes` и закрыто юнитами, сквозняк — e2e-сценарий extension-storage
+        // Lazy, like `getWorkspaceFolders`: `storageUri` depends on a folder that is set after the host is created.
+        // Stryker disable next-line ArrowFunction: production module wiring; the choice of roots lives in `extensionStorageHomes`, covered by unit tests; end-to-end — e2e scenario extension-storage
         const storageHomes = (): IExtensionStorageHomes =>
             extensionStorageHomes(environment, workspaceContext.getWorkspace().id);
 
-        // Сами значения секретов не логируются нигде и никогда.
-        // Stryker disable BlockStatement,CallExpression: production-проводка модуля (как у `storageHomes` выше) — решение о хранилище живёт в `extensionSecretsStore` и закрыто юнитами, сквозняк — e2e-сценарий extension-secrets
+        // Secret values themselves are never logged anywhere.
+        // Stryker disable BlockStatement,CallExpression: production module wiring (like `storageHomes` above) — the storage decision lives in `extensionSecretsStore`, covered by unit tests; end-to-end — e2e scenario extension-secrets
         const secrets = createFileExtensionSecretStore(environment.secretsFile, (message, err) => {
             logger.error(message, err);
         });
@@ -253,8 +253,8 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             quickInputSink: new QuickInputExtensionAdapter(container.get(QuickInputServiceDIToken)),
             notificationSink: new NotificationExtensionAdapter(container.get(NotificationServiceDIToken)),
             fileDialogSink: new FileDialogExtensionAdapter(container.get(FileDialogServiceDIToken)),
-            // Опенер берётся в момент просьбы: его регистрирует модуль workbench.
-            // Stryker disable ArrowFunction,BlockStatement,CallExpression: production-проводка модуля — решение живёт в WorkspaceFoldersExtensionAdapter и закрыто юнитами, сквозняк — extensionHost.updateWorkspaceFolders.test.ts и живой прогон golang.go («Go: Add Package to Workspace»)
+            // The opener is resolved on request: the workbench module registers it.
+            // Stryker disable ArrowFunction,BlockStatement,CallExpression: production module wiring — the decision lives in WorkspaceFoldersExtensionAdapter, covered by unit tests; end-to-end — extensionHost.updateWorkspaceFolders.test.ts and a live run of golang.go ("Go: Add Package to Workspace")
             workspaceFoldersSink: new WorkspaceFoldersExtensionAdapter(
                 (folder) => {
                     container.get(WorkspaceFolderOpenerDIToken).setWorkspaceFolder(folder);
@@ -265,7 +265,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             // Stryker restore ArrowFunction,BlockStatement,CallExpression
             clipboard: container.get(ClipboardDIToken),
             externalOpener: container.get(ExternalOpenerDIToken),
-            // Stryker disable ObjectLiteral,ArrowFunction: production-проводка модуля (как у `storageHomes`/`secrets` выше) — решение живёт в `resolveMachineId`/`EnvCustomer` и закрыто юнитами, сквозняк — e2e-сценарий status-bar-message
+            // Stryker disable ObjectLiteral,ArrowFunction: production module wiring (like `storageHomes`/`secrets` above) — the decision lives in `resolveMachineId`/`EnvCustomer`, covered by unit tests; end-to-end — e2e scenario status-bar-message
             environment: {
                 machineId: () => resolveMachineId(container.get(StateServiceDIToken)),
                 defaultShell: container.get(DefaultShellResolverDIToken),
@@ -276,7 +276,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
                 logService,
                 container.get(OutputServiceDIToken),
                 () => {
-                    // Stryker disable next-line CallExpression: production-проводка модуля (как `environment` выше) — вызов колбэка на show закрыт юнитом ExtensionOutputAdapter, показ вида там, где он стоит, — юнитами ViewsService.openView
+                    // Stryker disable next-line CallExpression: production module wiring (like `environment` above) — the show callback is covered by the ExtensionOutputAdapter unit test, revealing the view in place by ViewsService.openView unit tests
                     container.get(ViewsServiceDIToken).openView(OUTPUT_VIEW_ID);
                 },
             ),
@@ -285,7 +285,7 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             taskSink: new ExtensionTaskAdapter(
                 container.get(TaskServiceDIToken),
                 workspaceContext,
-                // Stryker disable next-line StringLiteral,ObjectLiteral: имя и подпись канала лога задач — проводка; канал «Tasks» виден в e2e-сценарии tasks
+                // Stryker disable next-line StringLiteral,ObjectLiteral: the task log channel name and label are wiring; the "Tasks" channel shows up in the tasks e2e scenario
                 logService.createLogger("tasks", { label: "Tasks" }),
             ),
         });
@@ -299,24 +299,24 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             host.didSaveTextDocument(meta);
         });
 
-        // Stryker disable next-line CallExpression: production-проводка модуля; поведение синхронизации закрыто тестами documentSyncAdapter и e2e
+        // Stryker disable next-line CallExpression: production module wiring; sync behavior is covered by documentSyncAdapter tests and e2e
         bindDocumentSync(group, container.get(EditorGroupsServiceDIToken), host);
 
-        // Stryker disable next-line ObjectLiteral,ArrowFunction: production-проводка модуля; поведение источника закрыто тестами хоста
+        // Stryker disable next-line ObjectLiteral,ArrowFunction: production module wiring; the source's behavior is covered by host tests
         group.virtualDocumentSource = {
-            // Stryker disable next-line ArrowFunction: см. выше
+            // Stryker disable next-line ArrowFunction: see above
             canProvide: (scheme) => host.hasTextContentProvider(scheme),
-            // Stryker disable next-line ArrowFunction: см. выше
+            // Stryker disable next-line ArrowFunction: see above
             provide: (uri) => host.provideTextDocumentContent(uri),
         };
-        // Stryker disable ArrowFunction,BlockStatement,CallExpression: production-проводка модуля; ExtensionTestHarness повторяет её симметрично, а поведение обеих сторон закрыто юнитами (`ExtensionHost.onDidChangeTextContent`, `EditorService.refreshVirtualDocument`) и сквозняком в тесте хоста «onDidChange провайдера перечитывает открытую вкладку»
+        // Stryker disable ArrowFunction,BlockStatement,CallExpression: production module wiring; ExtensionTestHarness mirrors it, and both sides are covered by unit tests (`ExtensionHost.onDidChangeTextContent`, `EditorService.refreshVirtualDocument`) and end-to-end by the host test where a provider's onDidChange re-reads the open tab
         host.onDidChangeTextContent((uri) => {
             group.refreshVirtualDocument(uri);
         });
         // Stryker restore ArrowFunction,BlockStatement,CallExpression
 
-        // Что не вышло за общий тайм-аут — сигналом в синхронной фазе: перезагрузка дальше
-        // блокирует event loop, и субпроцесс остался бы сиротой.
+        // Whatever outlives the shared timeout gets a signal in the sync phase: a reload then
+        // blocks the event loop, and the subprocess would be orphaned.
         const lifecycle = container.get(LifecycleServiceDIToken);
         lifecycle.onWillShutdown((event) => {
             event.join(host.shutdown());
@@ -338,24 +338,24 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
             logger,
         );
 
-        // У любой модели, а не только у активного редактора, — как `requestRichLanguageFeatures` у vscode.
-        // События до регистрации расширений сервис запоминает и проигрывает сразу за `*`.
+        // For any model, not just the active editor — like vscode's `requestRichLanguageFeatures`.
+        // Events before extensions are registered are buffered by the service and replayed right after `*`.
         container.get(LanguageServiceDIToken).onDidRequestLanguageFeatures((languageId) => {
             void service.activateByEvent(`onLanguage:${languageId}`);
             void service.activateByEvent("onLanguage");
         });
 
-        // Stryker disable next-line CallExpression: production-проводка модуля; поведение закрыто юнитами bindExtensionTasks и e2e-сценарием extension-tasks
+        // Stryker disable next-line CallExpression: production module wiring; behavior is covered by bindExtensionTasks unit tests and the extension-tasks e2e scenario
         bindExtensionTasks(
             container.get(TaskServiceDIToken),
             service,
             terminals(),
-            // Stryker disable next-line StringLiteral,ObjectLiteral: имя и подпись канала лога задач — проводка; канал «Tasks» виден в e2e-сценарии tasks
+            // Stryker disable next-line StringLiteral,ObjectLiteral: the task log channel name and label are wiring; the "Tasks" channel shows up in the tasks e2e scenario
             logService.createLogger("tasks", { label: "Tasks" }),
         );
 
-        // Работающие расширения видели старые папки и стор — субпроцесс перезапускается (как reload окна у эталона).
-        // Stryker disable CallExpression,BlockStatement,StringLiteral: production-проводка модуля (как у `storageHomes`/`secrets` выше) — решение живёт в `ExtensionHost.restartForWorkspaceChange` и закрыто его юнитами, сквозняк — e2e-сценарии activation-workspace-contains и workspaceFile
+        // Running extensions saw the old folders and storage, so the subprocess restarts (like the upstream window reload).
+        // Stryker disable CallExpression,BlockStatement,StringLiteral: production module wiring (like `storageHomes`/`secrets` above) — the decision lives in `ExtensionHost.restartForWorkspaceChange`, covered by its unit tests; end-to-end — e2e scenarios activation-workspace-contains and workspaceFile
         container.get(IWorkspaceContextServiceDIToken).onDidChangeWorkspaceFolders(() => {
             void service.restartForWorkspaceChange().catch((err: unknown) => {
                 logger.error("extension host restart on workspace change failed", err);
@@ -363,14 +363,14 @@ export const extensionHostModule: ContainerModule<IExtensionHostModuleContext> =
         });
         // Stryker restore CallExpression,BlockStatement,StringLiteral
 
-        // Как `_invalidateExtensionCollections` эталона.
-        // Stryker disable ArrowFunction,MethodExpression,ConditionalExpression,EqualityOperator,CallExpression: production-проводка модуля — решение живёт в `EnvironmentVariableService.setInstalledExtensions` и закрыто юнитами
+        // Like upstream `_invalidateExtensionCollections`.
+        // Stryker disable ArrowFunction,MethodExpression,ConditionalExpression,EqualityOperator,CallExpression: production module wiring — the decision lives in `EnvironmentVariableService.setInstalledExtensions`, covered by unit tests
         container
             .get(EnvironmentVariableServiceDIToken)
             .setInstalledExtensions((id) => ctx.extensions.some((ext) => extensionKey(ext.id) === extensionKey(id)));
         // Stryker restore ArrowFunction,MethodExpression,ConditionalExpression,EqualityOperator,CallExpression
 
-        // Stryker disable ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,CallExpression,BooleanLiteral,ArrayDeclaration: production-проводка модуля — решения живут в `ExtensionUrlHandler`/`installedExtensionDisplayName` и закрыты юнитами, сквозняк — e2e-сценарий extension-uri-handler
+        // Stryker disable ObjectLiteral,ArrowFunction,BlockStatement,StringLiteral,CallExpression,BooleanLiteral,ArrayDeclaration: production module wiring — the decisions live in `ExtensionUrlHandler`/`installedExtensionDisplayName`, covered by unit tests; end-to-end — e2e scenario extension-uri-handler
         const host = container.get(ExtensionHostDIToken);
         const notifications = container.get(NotificationServiceDIToken);
         const urlHandler = new ExtensionUrlHandler({

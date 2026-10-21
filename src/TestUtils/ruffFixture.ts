@@ -11,8 +11,8 @@ import { fetchStockVsix } from "./stockVsix.ts";
 export const RUFF_ID = "charliermarsh.ruff";
 
 /**
- * I001 (несортированные импорты), F401 (`sys`, safe-фикс) и пробелы для форматтера —
- * под дефолтный набор ruff 0.16: E711 в него больше не входит, и его фикс unsafe.
+ * I001 (unsorted imports), F401 (`sys`, safe fix) and whitespace for the formatter —
+ * tuned to the ruff 0.16 default rule set: E711 is no longer in it, and its fix is unsafe.
  */
 export const LINT_PY = 'import sys\nimport os\n\nif os.path:\n    print( "x" )\n';
 

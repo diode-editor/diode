@@ -13,9 +13,9 @@ import {
 } from "../platform/instantiation/common/instantiationTrace.ts";
 
 /**
- * Время — мс от `performance.timeOrigin`; сам `timeOrigin` (epoch-мс) тоже в файле, чтобы бенч совместил
- * лестницу с таймстемпами чёрного ящика. Трасса созданий DI — отдельным флагом: запись стоит ≈2 мс в окне DI
- * и сдвигала бы цифры бенча и перф-гейта, которые всегда идут под трассой.
+ * Times are ms since `performance.timeOrigin`; `timeOrigin` itself (epoch ms) is in the file too, so the bench can
+ * align the ladder with black-box timestamps. The DI instantiation trace has its own flag: recording costs ≈2 ms in
+ * the DI window and would skew the bench and perf-gate numbers, which always run under the trace.
  */
 
 export const STARTUP_TRACE_ENV = "DIODE_STARTUP_TRACE";
@@ -36,8 +36,8 @@ export function setupStartupTrace(env: Readonly<Record<string, string | undefine
 }
 
 /**
- * Веха — после записи в stdout (для TTY на Linux синхронной). Ставится и на кадр без изменений: бенч
- * сопоставляет кадры по вехам вокруг них, а не по номерам.
+ * The mark is set after the stdout write (synchronous for a TTY on Linux). It is set for an unchanged frame too:
+ * the bench matches frames by the marks around them, not by number.
  */
 export class TracingNodeTerminalBackend extends NodeTerminalBackend {
     private frames = 0;
@@ -51,9 +51,9 @@ export class TracingNodeTerminalBackend extends NodeTerminalBackend {
 
 export interface IStartupTrace {
     readonly pid: number;
-    /** Epoch-мс. */
+    /** Epoch ms. */
     readonly timeOrigin: number;
-    /** Мс от timeOrigin. */
+    /** Ms since timeOrigin. */
     readonly nodeTiming: Readonly<Record<string, number>>;
     readonly marks: readonly IPerformanceMark[];
     readonly instantiations: readonly IInstantiationTraceEntry[];
@@ -75,11 +75,11 @@ export function buildStartupTrace(complete: boolean): IStartupTrace {
     };
 }
 
-/** Сбой записи — не повод ронять редактор. */
+/** A write failure is no reason to crash the editor. */
 export function writeStartupTrace(path: string, complete: boolean): void {
     try {
         writeFileSync(path, JSON.stringify(buildStartupTrace(complete)) + "\n");
     } catch {
-        // трасса — диагностика; редактор от неё не зависит
+        // the trace is diagnostics; the editor doesn't depend on it
     }
 }

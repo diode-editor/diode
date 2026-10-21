@@ -1,4 +1,4 @@
-// Не VStackElement: он требует фиксированную высоту у каждого ребёнка и не умеет «занять остаток».
+// Not VStackElement: it requires a fixed height for every child and cannot "take the rest".
 
 import { BoxConstraints, Offset, Point, Rect, Size } from "@tuidom/core/common/geometryPromitives";
 import { RenderContext, TUIElement } from "@tuidom/core/dom/tuiElement";
@@ -8,7 +8,7 @@ export class HeaderBodyLayout extends TUIElement {
     private readonly body: TUIElement;
     private readonly headerHeight: number;
 
-    /** С каждой стороны — ресайз контрола без изменения окна. */
+    /** Horizontal body padding on each side: resizes the control without resizing the window. */
     public bodyPadX = 0;
 
     public constructor(header: TUIElement, body: TUIElement, headerHeight = 1) {

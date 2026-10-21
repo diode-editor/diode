@@ -24,7 +24,7 @@ const BROKEN_BUILTIN: IExtension = {
     manifest: { name: "broken", publisher: "acme", version: "1.0.0", engines: { vscode: "*" }, main: "out/e.cjs" },
 };
 
-/** Субпроцесс не поднимается — у набора нет расширений с событиями активации. */
+/** No subprocess is spawned: the set has no extensions with activation events. */
 describe("extensionHostModule — сервис расширений", () => {
     let ws: ITempWorkspace;
     let h: IAppHarness;
@@ -68,7 +68,7 @@ describe("extensionHostModule — сервис расширений", () => {
         const activate = vi.spyOn(service, "activateByEvent");
 
         h.workbench.openFile(ws.path("a.json"));
-        // Реестр без языковых паков знает только plaintext.
+        // Without language packs the registry knows only plaintext.
         expect(activate.mock.calls).toEqual([["onLanguage:plaintext"], ["onLanguage"]]);
 
         activate.mockClear();

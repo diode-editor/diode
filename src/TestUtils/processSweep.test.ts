@@ -27,9 +27,9 @@ describe("processSweep — процессы по метке в окружени�
         it("находит ровно тех, у кого метка с этим значением", () => {
             const table = fakeTable({
                 10: ["PATH=/bin", "MARK=a"],
-                11: ["MARK=ab"], // префикс значения — не совпадение
-                12: ["XMARK=a"], // суффикс имени — тоже
-                13: null, // чужой или уже вышел
+                11: ["MARK=ab"], // value prefix — not a match
+                12: ["XMARK=a"], // name suffix — neither
+                13: null, // foreign or already exited
                 14: ["MARK=a"],
             });
 
@@ -42,7 +42,7 @@ describe("processSweep — процессы по метке в окружени�
         it("себя и своих прямых детей не находит никогда — даже с меткой; внуков находит", () => {
             const table = fakeTable(
                 { [process.pid]: ["MARK=a"], 40: ["MARK=a"], 41: ["MARK=a"] },
-                { 40: process.pid, 41: 40 }, // 40 — воркер пула, 41 — запущенный им редактор
+                { 40: process.pid, 41: 40 }, // 40 is a pool worker, 41 is the editor it spawned
             );
 
             expect(findByEnv("MARK", "a", table)).toEqual([{ pid: 41, command: "cmd-41" }]);
@@ -151,18 +151,18 @@ describe("processSweep — процессы по метке в окружени�
         const children: ChildProcess[] = [];
 
         afterEach(() => {
-            // Всей группе: убитый в одиночку `sh` оставил бы `sleep` сиротой.
+            // The whole group: killing `sh` alone would orphan `sleep`.
             for (const child of children.splice(0)) {
                 try {
                     process.kill(-child.pid!, "SIGKILL");
                 } catch {
-                    // группа уже пуста
+                    // group is already empty
                 }
             }
         });
 
         function spawnMarked(value: string): ChildProcess {
-            // Внук, а не ребёнок: прямых детей поиск пропускает. `; true` не даёт `sh` сделать exec.
+            // A grandchild, not a child: the search skips direct children. `; true` keeps `sh` from exec-ing.
             const child = spawn("sh", ["-c", "sleep 30; true"], {
                 env: { ...process.env, SWEEP_TEST_MARK: value },
                 stdio: "ignore",
@@ -209,7 +209,7 @@ describe("processSweep — процессы по метке в окружени�
         it("таблица видит текущие процессы, а исчезнувший — пустой", () => {
             expect(procTable?.pids()).toContain(process.pid);
             expect(procTable?.command(process.pid)).toContain("node");
-            // За пределом pid_max (2^22).
+            // Beyond pid_max (2^22).
             const missing = 2 ** 23;
             expect(procTable?.environ(missing)).toBeNull();
             expect(procTable?.command(missing)).toBe("");

@@ -11,8 +11,8 @@ import type { IExtensionRegistration } from "../vs/workbench/services/extensions
 import { fetchStockVsix } from "./stockVsix.ts";
 
 /**
- * Точка входа стока — ESM (`"type": "module"`): обвязка обязана донести `type` до
- * регистрации, иначе хост выберет CJS-loader и проверится не тот путь, что в приложении.
+ * The stock entry point is ESM (`"type": "module"`): the wiring must carry `type` through to
+ * registration, otherwise the host picks the CJS loader and tests a different path than the app.
  */
 
 export const PRETTIER_ID = "esbenp.prettier-vscode";
@@ -20,8 +20,8 @@ export const PRETTIER_ID = "esbenp.prettier-vscode";
 const LANGUAGE_BY_EXTENSION: Partial<Record<string, string>> = {
     ".md": "markdown",
     ".json": "json",
-    // Единственный, где range-формат по-настоящему частичный (markdown его игнорирует,
-    // json расширяет до документа) — Format Selection проверяется на нём.
+    // The only one where range formatting is truly partial (markdown ignores it,
+    // json widens it to the document) — Format Selection is tested on it.
     ".js": "javascript",
 };
 
@@ -30,13 +30,13 @@ export const PRETTIER_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: (filePath) => LANGUAGE_BY_EXTENSION[path.extname(filePath)],
 };
 
-/** Формат prettier 3.x по дефолтным настройкам. */
+/** prettier 3.x formatting with default settings. */
 export const MESSY_MD = "#   Hello\n\n*  item one\n*  item two\n";
 export const FORMATTED_MD = "# Hello\n\n- item one\n- item two\n";
 export const MESSY_JSON = '{"a":1,   "b": [1,2,   3]}\n';
 export const FORMATTED_JSON = '{ "a": 1, "b": [1, 2, 3] }\n';
 
-/** Две строки: формат одной не должен тронуть другую. */
+/** Two lines: formatting one must not touch the other. */
 export const MESSY_JS = "const  a   =  1\nconst  b   =  2\n";
 
 export interface IInstalledPrettier {
@@ -44,13 +44,13 @@ export interface IInstalledPrettier {
     dispose(): void;
 }
 
-/** Манифест едет целиком: из него хост берёт `type`, а харнесс — дефолты настроек. */
+/** The whole manifest is passed: the host takes `type` from it, the harness takes setting defaults. */
 export async function installPrettier(): Promise<IInstalledPrettier> {
     const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-vsix-"));
     const { id, version } = await installVsix((await fetchStockVsix(PRETTIER_ID)).vsixPath, extensionsDir);
     const installRoot = path.join(extensionsDir, `${id}-${version}`);
     const manifest = JSON.parse(fs.readFileSync(path.join(installRoot, "package.json"), "utf8")) as IExtensionManifest;
-    /* v8 ignore start -- у стокового vsix main есть всегда; ветка достижима только на битом манифесте */
+    /* v8 ignore start -- a stock vsix always has main; the branch is reachable only with a broken manifest */
     if (manifest.main === undefined) throw new Error(`${installRoot}: в манифесте нет main`);
     /* v8 ignore stop */
     return {

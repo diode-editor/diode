@@ -12,12 +12,12 @@ import { registrationFromInstalled } from "./installedExtensionRegistration.ts";
 import { fetchStockVsix } from "./stockVsix.ts";
 
 /**
- * Go с машины (`go` в PATH): без него и в VS Code расширение не активируется, и
- * сьюты пропускаются ({@link goToolchainMissing}). gopls ставится заранее в
- * кэшируемый GOBIN, иначе каждый прогон собирал бы его по сети.
+ * Go comes from the machine (`go` in PATH): without it the extension does not activate in VS Code
+ * either, and the suites are skipped ({@link goToolchainMissing}). gopls is preinstalled into a
+ * cached GOBIN, otherwise every run would build it over the network.
  */
 
-/** Как в манифесте vsix: Open VSX пишет `golang/Go`, а клиент сверяет id с манифестом побайтно. */
+/** As in the vsix manifest: Open VSX says `golang/Go`, and the client compares ids byte for byte. */
 export const GO_ID = "golang.go";
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -25,7 +25,7 @@ const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 export const GO_SAMPLE_DIR = path.join(REPO_ROOT, "e2e", "fixtures", "goSample");
 
 export const GO_TOOLS_DIR = path.join(REPO_ROOT, "node_modules", ".cache", "diode-go-fixture");
-/** Сюда же смотрит расширение: `getBinPath` проверяет `GOBIN`. */
+/** The extension looks here too: `getBinPath` checks `GOBIN`. */
 export const GO_TOOLS_BIN = path.join(GO_TOOLS_DIR, "bin");
 
 const EXE = process.platform === "win32" ? ".exe" : "";
@@ -33,8 +33,8 @@ const EXE = process.platform === "win32" ? ".exe" : "";
 export const GO_MODCACHE = path.join(REPO_ROOT, "node_modules", ".cache", "diode-go-modcache");
 
 /**
- * Module cache Go read-only: скачанный в изолированный HOME (расширение само ставит
- * `vscgo`), он ронял уборку корня `EACCES`; `-modcacherw` расширение не пробрасывает.
+ * The Go module cache is read-only: downloaded into the isolated HOME (the extension installs
+ * `vscgo` itself), it broke root cleanup with `EACCES`; the extension does not pass `-modcacherw`.
  */
 export const GO_SESSION_ENV: Readonly<Record<string, string>> = { GOMODCACHE: GO_MODCACHE, GOTOOLCHAIN: "local" };
 
@@ -72,7 +72,7 @@ export function goToolchainMissing(): string | undefined {
         : undefined;
 }
 
-/** Версию gopls не пиним — как у стоковых vsix. */
+/** gopls version is not pinned — as with stock vsix. */
 export function ensureGopls(): string {
     const gopls = path.join(GO_TOOLS_BIN, `gopls${EXE}`);
     if (fs.existsSync(gopls)) return gopls;
@@ -88,7 +88,7 @@ export function ensureGopls(): string {
     try {
         fs.renameSync(staging, GO_TOOLS_DIR);
     } catch {
-        // Параллельный воркер успел первым — его сборка ничем не хуже.
+        // A parallel worker got there first — its build is just as good.
         fs.rmSync(staging, { recursive: true, force: true });
     }
     return gopls;

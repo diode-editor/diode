@@ -28,9 +28,9 @@ import { createLoggerSpy } from "./themeExtensionFixture.ts";
 
 export interface ITaskServiceHarnessOptions {
     readonly settings?: Readonly<Record<string, unknown>>;
-    /** `undefined` — файла нет. */
+    /** `undefined` — no file. */
     readonly tasksJson?: string;
-    /** `null` — окно без папки. */
+    /** `null` — a window without a folder. */
     readonly folder?: IWorkspaceFolder | null;
 }
 
@@ -56,7 +56,7 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         if (tasksJson === undefined) return Promise.reject(new Error(`ENOENT ${uri.fsPath}`));
         return Promise.resolve({ value: new TextEncoder().encode(tasksJson) } as IFileContent);
     });
-    // Каталог `.diode` есть, пока есть tasks.json (или его создали).
+    // The `.diode` directory exists while tasks.json does (or once it is created).
     let configFolderExists = tasksJson !== undefined;
     const exists = vi.fn(() => Promise.resolve(configFolderExists));
     const createFolder = vi.fn(() => {
@@ -78,7 +78,7 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
     let opened: IFakeOpenedEditor | null = null;
     let openFails = false;
     const openUri = vi.fn((uri: Uri) => {
-        // Не открылось — активным остаётся прежний редактор (как при сбое провайдера ресурса).
+        // Failed to open — the previous editor stays active (as when a resource provider fails).
         if (!openFails) opened = { uri, goToPosition: vi.fn(), revealRange: vi.fn() };
         return Promise.resolve();
     });
@@ -151,7 +151,7 @@ export function buildTaskServiceHarness(options: ITaskServiceHarnessOptions = {}
         contextKeys,
         logger,
         service,
-        /** По порядку показов: подпись строки или `undefined` (Escape). */
+        /** In order of display: an item label or `undefined` (Escape). */
         answerPicks: (...labels: (string | undefined)[]): void => {
             answers.push(...labels);
         },

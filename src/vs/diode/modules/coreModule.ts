@@ -8,7 +8,7 @@ export interface CoreModuleContext {
     app: TuiApplication;
 }
 
-/** `app` приходит снаружи: его жизнь начинается до DI. В тестах `TestApp` создаётся после view — см. `coreModuleLate`. */
+/** `app` comes from outside: its lifetime starts before DI. In tests `TestApp` is created after the view — see `coreModuleLate`. */
 export const coreModule: ContainerModule<CoreModuleContext> = (container, { app }) => {
     container.bind(ServiceAccessorDIToken, (): ServiceAccessor => container);
     container.bind(TuiApplicationDIToken, () => app);

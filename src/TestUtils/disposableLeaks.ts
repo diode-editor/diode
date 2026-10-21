@@ -13,8 +13,8 @@ export function throwIfLeaked(tracker: DisposableTracker): void {
 }
 
 /**
- * Как хелпер эталона (`base/test/common/utils.ts`); зовётся в начале `describe`.
- * `add` — объекты самого теста, освобождаемые после него.
+ * Like the upstream helper (`base/test/common/utils.ts`); call it at the start of `describe`.
+ * `add` registers the test's own objects, disposed after it.
  */
 export function ensureNoDisposablesAreLeakedInTestSuite(): { add<T extends IDisposable>(o: T): T } {
     let tracker = new DisposableTracker();

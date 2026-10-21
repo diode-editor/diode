@@ -45,11 +45,11 @@ class FakeHistoryGroup implements IHistoryEditorGroup {
 }
 
 /**
- * Повадки `EditorService`, от которых зависит история: синхронные события, вкладка
- * по ресурсу и отказ открыть закрытый не-`file:` ресурс (настоящий `openUri` бросает).
+ * The `EditorService` behaviors history depends on: synchronous events, a tab per resource,
+ * and refusing to open a closed non-`file:` resource (the real `openUri` throws).
  */
 export class FakeHistoryEditorSource implements IHistoryEditorSource {
-    /** Нет записи — `goToPosition` не клампит. */
+    /** No entry — `goToPosition` does not clamp. */
     public readonly lineCounts = new Map<string, number>();
     public readonly openUriCalls: string[] = [];
     public readonly providedSchemes = new Set<string>();
@@ -75,7 +75,7 @@ export class FakeHistoryEditorSource implements IHistoryEditorSource {
     public openUri(uri: Uri): void {
         this.openUriCalls.push(uri.toString());
         const existing = this.findPane(this.activeGroupValue, uri.toString());
-        // История сюда не доходит (`isReachable`); бросаем, чтобы промах был виден тестом, а не тишиной.
+        // History never gets here (`isReachable`); throw so a miss fails the test instead of passing silently.
         if (existing === null && uri.scheme !== "file") {
             throw new Error(`openUri: ресурс ${uri.toString()} закрыт и не восстановим`);
         }
@@ -113,7 +113,7 @@ export class FakeHistoryEditorSource implements IHistoryEditorSource {
         };
     }
 
-    /** В обход гейта схемы у {@link openUri}. */
+    /** Bypasses the scheme gate of {@link openUri}. */
     public open(uri: string): void {
         this.activate(this.findPane(this.activeGroupValue, uri) ?? this.insertPane(Uri.parse(uri)));
     }

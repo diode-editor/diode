@@ -33,7 +33,7 @@ describe("createTestActiveEditorService", () => {
         const service = createTestActiveEditorService(null);
 
         expect(() => service.getEditors()).toThrow(/«getEditors» вне роли/);
-        // `await service` и инспекция по символам не должны падать.
+        // `await service` and symbol-based inspection must not throw.
         expect((service as unknown as { then?: unknown }).then).toBeUndefined();
         expect((service as unknown as Record<symbol, unknown>)[Symbol.iterator]).toBeUndefined();
     });

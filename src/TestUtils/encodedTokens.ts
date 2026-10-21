@@ -3,7 +3,7 @@ import type { IState } from "../vs/editor/common/languages.ts";
 import { EncodedTokenizationResult } from "../vs/editor/common/languages.ts";
 
 export interface ITestTokenStyle {
-    /** Индекс в colorMap. */
+    /** Index into colorMap. */
     readonly foreground?: number;
     readonly background?: number;
     readonly tokenType?: StandardTokenType;
@@ -20,12 +20,12 @@ export function tokenMetadata(style: ITestTokenStyle = {}): number {
     );
 }
 
-/** Метка «какой токенизатор/проход положил токен»; читать — `lineTokens.getForeground(i)`. */
+/** A marker for "which tokenizer/pass produced the token"; read it with `lineTokens.getForeground(i)`. */
 export function markedMetadata(n: number): number {
     return tokenMetadata({ foreground: n });
 }
 
-/** Формат `tokenizeEncoded` — начала токенов. */
+/** The `tokenizeEncoded` format — token starts. */
 export function encodeTokens(tokens: readonly (readonly [startIndex: number, metadata: number])[]): Uint32Array {
     return new Uint32Array(tokens.flat());
 }
@@ -37,7 +37,7 @@ export function encodedResult(
     return new EncodedTokenizationResult(encodeTokens(tokens), [], endState);
 }
 
-/** Формат хранения (`LineTokens`) — концы токенов, а не начала. */
+/** The storage format (`LineTokens`) — token ends, not starts. */
 export function storedTokens(
     tokens: readonly (readonly [startIndex: number, metadata: number])[],
     lineLength: number,

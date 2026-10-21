@@ -1,9 +1,9 @@
 import { describe, it } from "vitest";
 
 /**
- * Mocha-глобалы для дословно перенесённых upstream-тестов (импорт вставляет
- * `scripts/import-vscode-editor.mjs`). `timeout` — пустышка: в vitest срок задаётся
- * при регистрации; не влезает фаззинг — ищем причину, а не поднимаем срок.
+ * Mocha globals for vendored copies of upstream tests (the import is inserted by
+ * `scripts/import-vscode-editor.mjs`). `timeout` is a no-op: vitest sets the timeout at
+ * registration; if fuzzing doesn't fit, find the cause instead of raising the timeout.
  */
 export interface IMochaContext {
     timeout(ms: number): void;

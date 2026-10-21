@@ -21,7 +21,7 @@ async function spawnMarked(
         detached: opts.detached ?? false,
     });
     children.push(child);
-    // Сигнал до установки обработчика убил бы «глухого» раньше времени.
+    // A signal before the handler is installed would kill the "deaf" child too early.
     await new Promise<void>((resolve) =>
         child.stdout.once("data", () => {
             resolve();
@@ -47,8 +47,8 @@ describe("isAlive", () => {
 
 describe.skipIf(process.platform !== "linux")("isAlive — зомби", () => {
     it("непожатый ребёнок после SIGKILL — мёртв, хотя kill(pid, 0) его видит", async () => {
-        // Ребёнок с `ignore`-stdio и без слушателя exit: libuv пожнёт его не сразу —
-        // ловим окно, пока он зомби, по /proc.
+        // A child with `ignore` stdio and no exit listener: libuv does not reap it right away,
+        // so catch the window while it is a zombie via /proc.
         const child = spawn(process.execPath, ["-e", "setInterval(()=>{},1000)"], { stdio: "ignore" });
         children.push(child);
         const pid = child.pid ?? -1;

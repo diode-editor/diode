@@ -3,9 +3,9 @@ import { loadLazyModule } from "../../base/node/lazyModule.ts";
 import { runExtensionHostSubprocess } from "../../workbench/services/extensions/node/extensionHostSubprocess.ts";
 
 /**
- * Общие с редактором модули кусок несёт своей копией, поэтому загрузчик ленивых кусков подставляется
- * заново: подстановка из `main.ts` попала в копию `main.cjs`, и `encoding.ts` здесь искал бы iconv
- * в node_modules, которых в упакованной сборке нет.
+ * The chunk carries its own copy of modules shared with the editor, so the lazy chunk loader is injected
+ * again: the injection from `main.ts` landed in the `main.cjs` copy, and `encoding.ts` here would look for
+ * iconv in node_modules, which the packaged build does not have.
  */
 export function runExtensionHostRole(): void {
     setLazyModuleLoader(loadLazyModule);

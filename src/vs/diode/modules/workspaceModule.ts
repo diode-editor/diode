@@ -13,9 +13,9 @@ import {
 } from "../../workbench/contrib/bulkEdit/browser/workspaceEditService.ts";
 
 /**
- * `WorkspaceEditService` биндится в `workbenchModule`: ему нужен `IBulkEditBuffers` полосы групп.
- * Два токена на один экземпляр: класс с писателем — только владельцу папки (`WorkbenchComponent`),
- * интерфейс без писателя — всем читателям.
+ * `WorkspaceEditService` is bound in `workbenchModule`: it needs the editor groups' `IBulkEditBuffers`.
+ * Two tokens for one instance: the class with the writer goes only to the folder owner (`WorkbenchComponent`),
+ * the writer-less interface to all readers.
  */
 export const workspaceModule: ContainerModule = (container) => {
     container.bind(WorkspaceContextServiceDIToken, () => new WorkspaceContextService());

@@ -30,7 +30,7 @@ export class MemoryAssets implements IAssetAccess {
     }
 }
 
-/** `themes` типизирован широко: тесты подсовывают битую запись, как сторонний манифест. */
+/** `themes` is typed loosely: tests pass broken entries, like a third-party manifest. */
 export function extensionWithThemes(id: string, themes: readonly unknown[], isBuiltin = false): IExtension {
     const dot = id.indexOf(".");
     const publisher = dot === -1 ? id : id.slice(0, dot);

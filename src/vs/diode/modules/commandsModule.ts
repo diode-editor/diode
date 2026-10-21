@@ -12,11 +12,11 @@ import { ILogServiceDIToken } from "../../platform/log/common/iLogServiceDIToken
 export const commandsModule: ContainerModule = (container) => {
     container.bind(
         CommandRegistryDIToken,
-        // Stryker disable next-line ArrowFunction,StringLiteral,ObjectLiteral: production-проводка модуля; имя канала и его метка — для панели Output, подменить её нечем наблюдаемым в юните, а поведение логирования закрыто юнитами CommandRegistry
+        // Stryker disable next-line ArrowFunction,StringLiteral,ObjectLiteral: production module wiring; the channel name and label only show in the Output panel, which a unit test cannot observe; logging behavior is covered by CommandRegistry unit tests
         () => new CommandRegistry(container.get(ILogServiceDIToken).createLogger("commands", { label: "Commands" })),
     );
     container.bind(KeybindingRegistryDIToken, () => new KeybindingRegistry());
-    // `config.*` в when — из настроек (корневой контекст эталона).
+    // `config.*` in when clauses resolves from settings (the upstream root context).
     container.bind(ContextKeyServiceDIToken, () => new ContextKeyService(container.get(IConfigurationServiceDIToken)));
     container.bind(ModifierReleaseArmoryDIToken, () => new ModifierReleaseArmory());
 };

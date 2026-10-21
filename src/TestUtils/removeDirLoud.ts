@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 
 /**
- * Не пустой `catch`: так годами копился мусор в `os.tmpdir()` — в каталог ещё писал
- * живой субпроцесс, и никто не знал. Падать нечестно, поэтому предупреждение.
+ * Not an empty `catch`: that is how garbage piled up in `os.tmpdir()` for years — a live subprocess
+ * was still writing to the directory, and nobody knew. Failing would be unfair, hence a warning.
  */
 export function removeDirLoud(dir: string, label: string): void {
     try {

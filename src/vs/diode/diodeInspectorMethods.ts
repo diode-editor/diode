@@ -2,23 +2,23 @@ import type { ICommandSnapshot } from "../platform/commands/common/commandRegist
 import type { IOutputChannelDescriptor } from "../workbench/services/output/common/output.ts";
 
 /**
- * `Diode.*` поверх протокола `TUIDom.*`: то, что агенту нужно знать о редакторе, а не о дереве.
- * Клиент — `npm run drive`. Сервисы приходят портами, без DI, — методы тестируются без контейнера.
+ * `Diode.*` on top of the `TUIDom.*` protocol: what an agent needs to know about the editor rather than the tree.
+ * Client: `npm run drive`. Services come in as ports, without DI, so the methods are testable without a container.
  */
 export const DiodeInspectorMethod = {
-    /** `{timeoutMs?}` → `{ready, pid}`; `pid` отличает новое окно после `reloadWindow` (тот же порт) от старого. */
+    /** `{timeoutMs?}` → `{ready, pid}`; `pid` tells a new window after `reloadWindow` (same port) from the old one. */
     whenReady: "Diode.whenReady",
-    /** `{id, args?, timeoutMs?}` → `{settled, result?}`: выполнить команду по id. */
+    /** `{id, args?, timeoutMs?}` → `{settled, result?}`: run a command by id. */
     executeCommand: "Diode.executeCommand",
-    /** `{}` → `{commands}`: команды с заголовком (то, что видно в палитре). */
+    /** `{}` → `{commands}`: commands with a title (what the command palette shows). */
     listCommands: "Diode.listCommands",
-    /** `{}` → `{channels}`: каналы панели Output. */
+    /** `{}` → `{channels}`: Output panel channels. */
     listOutputChannels: "Diode.listOutputChannels",
-    /** `{channel}` (id или подпись) → `{id, label, text}`: содержимое канала Output. */
+    /** `{channel}` (id or label) → `{id, label, text}`: Output channel contents. */
     getOutput: "Diode.getOutput",
-    /** `{key}` → `{value}`: значение контекст-ключа (`undefined` — не задан). */
+    /** `{key}` → `{value}`: context key value (`undefined` — not set). */
     getContextKey: "Diode.getContextKey",
-    /** `{expr}` → `{value}`: when-выражение над текущими контекст-ключами. */
+    /** `{expr}` → `{value}`: a when-expression over the current context keys. */
     evaluateWhen: "Diode.evaluateWhen",
 } as const;
 
@@ -36,14 +36,14 @@ export interface IDiodeInspectorPorts {
         getRaw(key: string): unknown;
         evaluate(when: string): boolean;
     };
-    /** Резолвится, когда старт дошёл до конца; не отклоняется. */
+    /** Resolves once startup has finished; never rejects. */
     readonly ready: Promise<void>;
     readonly pid: number;
 }
 
 export type RegisterInspectorMethod = (method: string, handler: (params: unknown) => unknown) => void;
 
-/** Команды бывают «до закрытия диалога». */
+/** A command may block until a dialog is closed. */
 export const DEFAULT_COMMAND_TIMEOUT_MS = 10_000;
 export const DEFAULT_READY_TIMEOUT_MS = 60_000;
 
@@ -59,7 +59,8 @@ export function registerDiodeInspectorMethods(register: RegisterInspectorMethod,
         const args = optionalArray(params, "args") ?? [];
         const timeoutMs = optionalNumber(params, "timeoutMs") ?? DEFAULT_COMMAND_TIMEOUT_MS;
         if (!ports.commands.has(id)) throw new Error(`unknown command: ${id}`);
-        // Не ждём дольше таймаута: quick pick резолвится только по ответу, а ответить можно лишь следующим вызовом.
+        // Don't wait past the timeout: a quick pick resolves only on an answer, and the answer can only
+        // come with the next call.
         const outcome = await settleWithin(Promise.resolve(ports.commands.execute(id, ...args)), timeoutMs);
         return outcome.settled ? { settled: true, result: toWire(outcome.value) } : { settled: false };
     });
@@ -93,7 +94,7 @@ export function registerDiodeInspectorMethods(register: RegisterInspectorMethod,
 
 type Settled<T> = { settled: true; value: T } | { settled: false };
 
-/** Отказ пробрасывается — это ответ-ошибка протокола, а не «не успел». */
+/** A rejection propagates: it is a protocol error response, not a timeout. */
 async function settleWithin<T>(promise: Promise<T>, timeoutMs: number): Promise<Settled<T>> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<Settled<T>>((resolve) => {
@@ -108,7 +109,7 @@ async function settleWithin<T>(promise: Promise<T>, timeoutMs: number): Promise<
     }
 }
 
-/** Ответ уходит через `JSON.stringify`: цикл уронил бы отправку, а `undefined` молча пропал бы. */
+/** The response goes through `JSON.stringify`: a cycle would break sending, and `undefined` would silently vanish. */
 export function toWire(value: unknown): unknown {
     if (value === undefined) return null;
     try {
@@ -132,7 +133,7 @@ function requiredString(params: unknown, name: string): string {
 function optionalNumber(params: unknown, name: string): number | undefined {
     const value = field(params, name);
     if (value === undefined) return undefined;
-    // `Number.isFinite` сам отвергает не-числа — отдельный `typeof` был бы недостижимой веткой.
+    // `Number.isFinite` already rejects non-numbers — a separate `typeof` check would be an unreachable branch.
     if (!Number.isFinite(value) || (value as number) < 0) throw new Error(`'${name}' must be a non-negative number`);
     return value as number;
 }

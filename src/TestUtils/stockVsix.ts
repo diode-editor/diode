@@ -15,7 +15,7 @@ import { sha256File } from "../vs/platform/extensionManagement/node/installFromR
 import { currentTargetPlatform } from "../vs/platform/extensionManagement/node/targetPlatform.ts";
 import { VSCODE_SHIM_VERSION } from "../vs/workbench/api/common/vscodeShimVersion.ts";
 
-/** Резолв — тем же путём, что у клиента; кэш валидируется по `sha256` из меты, а не по наличию файла. */
+/** Resolved as the client does; the cache is validated by the metadata `sha256`, not by file presence. */
 
 const REPO_ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
@@ -44,7 +44,7 @@ export async function fetchStockVsix(id: string): Promise<IStockVsix> {
     if (version === undefined) {
         throw new Error(`${id}: no version compatible with this build in the registry`);
     }
-    // Примонтированный node_modules переживает смену платформы.
+    // A mounted node_modules survives a platform change.
     const platformSuffix = version.targetPlatform === undefined ? "" : `@${version.targetPlatform}`;
     const cached = path.join(VSIX_CACHE_DIR, `${id}-${version.version}${platformSuffix}.vsix`);
     if (fs.existsSync(cached) && (await sha256File(cached)) === version.sha256) {
@@ -60,8 +60,8 @@ export async function fetchStockVsix(id: string): Promise<IStockVsix> {
             );
         }
         fs.mkdirSync(VSIX_CACHE_DIR, { recursive: true });
-        // Temp внутри кэша: rename атомарен только в пределах одной ФС. Случайный суффикс,
-        // а не только pid: воркеры vitest — потоки одного процесса, и второй падал на ENOENT.
+        // Temp inside the cache: rename is atomic only within one file system. A random suffix,
+        // not just the pid: vitest workers are threads of one process, and the second one failed with ENOENT.
         const staging = `${cached}.${String(process.pid)}.${randomBytes(6).toString("hex")}.tmp`;
         fs.copyFileSync(artifact, staging);
         fs.renameSync(staging, cached);

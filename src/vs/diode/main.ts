@@ -114,11 +114,11 @@ import { runAsNode } from "./runAsNode.ts";
 import { setupStartupTrace, TracingNodeTerminalBackend, writeStartupTrace } from "./startupTrace.ts";
 import { startWorkbench } from "./workbenchStartup.ts";
 
-// До любой роли: без node-загрузчика упакованная сборка искала бы ленивый кусок в node_modules, которых у неё нет.
+// Before any role: without the node loader the packaged build would look up lazy chunks in node_modules, which it lacks.
 setLazyModuleLoader(loadLazyModule);
 
-// Отказ входа — исключением вне промиса (стек в stderr, код 1): страховка `unhandledRejection`
-// редактора унесла бы его в лог, и процесс жил бы без UI.
+// Entry failure is thrown outside the promise (stack to stderr, exit code 1): the editor's `unhandledRejection`
+// safety net would send it to the log, and the process would live on without UI.
 function start(): void {
     main().catch((err: unknown) => {
         process.nextTick(() => {
@@ -127,8 +127,8 @@ function start(): void {
     });
 }
 
-// V8-снапшот (`useSnapshot`, scripts/build-sea.mjs): при сборке исполняется только верхний уровень
-// модулей, всё зависящее от процесса читает `start` после десериализации (docs/arch/Common.md).
+// V8 snapshot (`useSnapshot`, scripts/build-sea.mjs): the build runs only the module top level;
+// everything process-dependent reads `start` after deserialization (docs/arch/Common.md).
 if (startupSnapshot.isBuildingSnapshot()) {
     startupSnapshot.setDeserializeMainFunction(start);
 } else {
@@ -136,8 +136,8 @@ if (startupSnapshot.isBuildingSnapshot()) {
 }
 
 async function main(): Promise<void> {
-    // Node-режим — раньше ролей: language-сервер, запущенный нашим бинарём, без IPC-канала, а флаг роли
-    // может протечь к нему через env. Поэтому роль, войдя в ветку, снимает свой флаг и ставит DIODE_RUN_AS_NODE.
+    // Node mode before roles: a language server started by our binary has no IPC channel, and a role flag
+    // may leak to it through env. So a role, on entering its branch, clears its flag and sets DIODE_RUN_AS_NODE.
     if (process.env.DIODE_RUN_AS_NODE === "1") {
         runAsNode();
     } else if (process.env.DIODE_FILE_WATCHER === "1") {
@@ -152,7 +152,7 @@ async function main(): Promise<void> {
             () => import("./roles/extensionHostRole.ts"),
         );
         runExtensionHostRole();
-        // Роль возвращается сразу, а процесс живёт на IPC-канале.
+        // The role returns immediately, and the process lives on the IPC channel.
     } else {
         await runEditor();
     }
@@ -186,11 +186,11 @@ async function runEditor(): Promise<void> {
 
     if (cli.installExtension !== undefined || cli.uninstallExtension !== undefined || cli.listExtensions) {
         await runExtensionManagement(cli);
-        // Не process.exit — см. runExtensionManagement.
+        // Not process.exit — see runExtensionManagement.
         return;
     }
 
-    // Пустой набор — законный вход (пустое окно); cwd вместо папки не подставляется.
+    // An empty set is a valid input (empty window); cwd is not substituted for the folder.
     let targets: IStartupTargets;
     try {
         const cwd = logicalWorkingDirectory(process.env.PWD, process.cwd(), isSameDirectory);
@@ -219,11 +219,11 @@ async function runEditor(): Promise<void> {
         }
     }
 
-    // FileSink — только вне упаковки: гейт по isPackagedRuntime(), а не isSeaBinary(), — self-extract тоже прод, но не SEA.
+    // FileSink only outside packaging: gated on isPackagedRuntime(), not isSeaBinary() — self-extract is prod too, but not SEA.
     const logService = new LogService();
-    // До первой записи; последнее правило на тот же канал побеждает.
+    // Before the first write; the last rule for the same channel wins.
     for (const rule of cli.logLevels) logService.setLevel(rule.channel, rule.level);
-    // Подключён до подъёма UI, иначе ранние каналы пропали бы из Output.
+    // Attached before the UI comes up, otherwise early channels would be missing from Output.
     const logHistory = new RingBufferSink();
     logService.addSink(logHistory);
     if (!isPackagedRuntime()) {
@@ -234,20 +234,20 @@ async function runEditor(): Promise<void> {
     const configurationLogger = logService.createLogger("configuration", { label: "Configuration" });
     const profilesLogger = logService.createLogger("profiles", { label: "Profiles" });
 
-    // Забытый отказ «выстрелил и забыл»-команды Node считает фатальным и закрыл бы редактор с несохранёнными
-    // буферами (#361: Go to Definition в `jdt:`). Молча не гасим — в лог.
+    // Node treats a forgotten rejection of a fire-and-forget command as fatal and would close the editor with unsaved
+    // buffers (#361: Go to Definition in `jdt:`). Don't swallow it silently — log it.
     process.on("unhandledRejection", (reason: unknown) => {
         bootstrapLogger.error(`unhandled rejection: ${describeRejection(reason)}`);
     });
-    // По умолчанию они пишутся в console.error — поверх экрана TUI.
+    // By default they go to console.error — on top of the TUI screen.
     setUnexpectedErrorHandler((e: unknown) => {
         bootstrapLogger.error(`unexpected error: ${describeRejection(e)}`);
     });
 
-    // Реестр профилей — раньше всего: от него зависит каталог профиля. Резолв как у эталона:
-    // `--profile` → привязка воркспейса → Default.
+    // The profile registry comes first: the profile directory depends on it. Resolved like upstream:
+    // `--profile` → workspace binding → Default.
     const { basePaths, applicationState, profilesService } = openProfiles(cli, profilesLogger);
-    // Эталон делает эту уборку на следующем старте (`deleteExtensionsNotInProfiles`).
+    // Upstream does this cleanup on the next start (`deleteExtensionsNotInProfiles`).
     profilesService.onDidChangeProfiles((e) => {
         if (e.removed.length === 0) return;
         try {
@@ -274,7 +274,7 @@ async function runEditor(): Promise<void> {
     });
 
     const userDataPaths = resolvePathsFor(cli, activeProfile.isDefault ? undefined : activeProfile.id);
-    // Живёт всё время работы приложения; fd освобождает ОС на выходе.
+    // Lives for the whole app lifetime; the OS releases the fd on exit.
     const settingsWatcher = new ChokidarFileWatcher();
     const BUILTIN_PREFIX = "Extensions/builtin/";
     const USER_PREFIX = "UserExtensions/";
@@ -289,8 +289,8 @@ async function runEditor(): Promise<void> {
     });
 
     const builtinExtensions = await scanExtensions(assets, BUILTIN_PREFIX, { isBuiltin: true }, extensionsLogger);
-    // `--disable-extensions` гасит только пользовательские, как VS Code: со встроенными уехали бы грамматики
-    // и конфигурации языков. Профиль фиксирован на процесс: смена — перезагрузка окна и новый скан.
+    // `--disable-extensions` disables only user extensions, like VS Code: built-ins would take grammars and
+    // language configurations with them. The profile is fixed per process: switching means a window reload and a rescan.
     const profileExtensionKeys = new Set(
         createProfileExtensions({
             extensionsDir: userDataPaths.extensionsDir,
@@ -311,7 +311,7 @@ async function runEditor(): Promise<void> {
     const allExtensions = mergeExtensions(builtinExtensions, userExtensions, extensionsLogger);
     mark("main:extensions-scanned", { builtin: builtinExtensions.length, user: userExtensions.length });
 
-    // Скан расширений — до загрузки настроек: defaults-слой собирается из полного реестра.
+    // Extension scan before loading settings: the defaults layer is built from the full registry.
     const configurationRegistry = new ConfigurationRegistry(CONFIGURATION_CONTRIBUTIONS);
     new ExtensionConfigurationContributor(
         allExtensions,
@@ -319,7 +319,7 @@ async function runEditor(): Promise<void> {
         (ext) => (ext.isBuiltin ? builtinConfigInjection(ext.manifest.name) : curatedConfigInjection(ext.id)),
         extensionsLogger,
     ).apply();
-    // Папка — уже здесь: `.diode/settings.json` проекта обязан действовать с первого кадра.
+    // The folder is set here already: the project's `.diode/settings.json` must apply from the first frame.
     const configurationService = await loadConfiguration(
         userDataPaths,
         configurationLogger,
@@ -330,7 +330,7 @@ async function runEditor(): Promise<void> {
     mark("main:config-loaded");
     const userKeybindings = await loadUserKeybindings(userDataPaths.keybindingsFile, configurationLogger);
     mark("main:keybindings-loaded");
-    // Application-стор усыновляется сервисом: писатель у `storage.json` один.
+    // The service adopts the application storage: `storage.json` has a single writer.
     const stateService = loadState(userDataPaths, configurationLogger, applicationState);
     mark("main:state-loaded");
 
@@ -344,11 +344,12 @@ async function runEditor(): Promise<void> {
     const clipboard = new OscClipboard((seq) => {
         backend.writeOscSequence(seq);
     });
-    // Темы расширений — до выбора активной: первый кадр сразу в теме из `workbench.colorTheme`, без Dark Modern.
+    // Extension themes before picking the active one: the first frame is already in the `workbench.colorTheme`
+    // theme, without Dark Modern.
     const themeRegistry = createBuiltinThemeRegistry();
     const themeContributor = new ExtensionThemeContributor(assets, allExtensions, themeRegistry, extensionsLogger);
     await themeContributor.apply();
-    // Настройку не трогаем: вернётся расширение — вернётся и его тема.
+    // The setting is left alone: if the extension comes back, so does its theme.
     const colorThemeLabel = configurationService.get("workbench.colorTheme");
     let initialTheme = themeRegistry.resolve(colorThemeLabel);
     if (initialTheme === undefined) {
@@ -373,7 +374,7 @@ async function runEditor(): Promise<void> {
         extensionsLogger,
     );
     tokenizationContributor.apply();
-    // До первой токенизации: цвета токенов — индексы colorMap темы.
+    // Before the first tokenization: token colors are indices into the theme's colorMap.
     tokenizationContributor.setTheme(createTextMateTheme(initialTheme));
 
     const tokenStyleResolver = new ColorMapTokenStyleResolver(tokenizationRegistry);
@@ -401,7 +402,8 @@ async function runEditor(): Promise<void> {
         userKeybindings,
         logService,
         logHistory,
-        // Магазин берёт отсюда тот же источник и каталог, что CLI-установка, — иначе UI показывал бы не то, что поставит CLI.
+        // The marketplace takes the same source and directory as CLI install, otherwise the UI would show
+        // something other than what the CLI installs.
         environment: createEnvironmentService(userDataPaths, cli),
         extensions: {
             host: { diode: DIODE_VERSION, vscode: VSCODE_SHIM_VERSION, targetPlatform: currentTargetPlatform() },
@@ -410,7 +412,7 @@ async function runEditor(): Promise<void> {
             },
         },
         extensionHost: {
-            // Сперва пользовательские, затем встроенные.
+            // User extensions first, then built-in ones.
             extensions: [...userExtensions, ...builtinExtensions],
             registration: {
                 userPrefix: USER_PREFIX,
@@ -420,8 +422,8 @@ async function runEditor(): Promise<void> {
         },
         hostProcess: {
             exit: () => process.exit(0),
-            // Профиль следующего окна — всегда явный `--profile`: прежний флаг из argv перебил бы только что
-            // записанную привязку. Горячей перезагрузки вкладов нет — «применить» значит «начать сначала».
+            // The next window's profile is always an explicit `--profile`: the old flag from argv would override the
+            // binding just written. There is no hot reload of contributions — "apply" means "start over".
             restart: (relaunch) => {
                 const current = profileWorkspaceKey(container.get(IWorkspaceContextServiceDIToken).getWorkspace());
                 const next = relaunchArgs(process.argv.slice(2), {
@@ -435,7 +437,7 @@ async function runEditor(): Promise<void> {
         userDataProfile: {
             profilesService,
             currentProfile: activeProfile,
-            // OSC 0 напрямую, без tmux passthrough: tmux сам ставит заголовок панели.
+            // OSC 0 directly, without tmux passthrough: tmux sets the pane title itself.
             terminalTitle: (title) => {
                 backend.setWindowTitle(title);
             },
@@ -443,11 +445,11 @@ async function runEditor(): Promise<void> {
     });
     mark("main:container-created");
 
-    // Синхронная фаза прощания — в порядке, обратном подписке: субпроцессы и инспектор снимаются раньше
-    // терминала, состояние сессии уходит на диск последним.
+    // The synchronous shutdown phase runs in reverse subscription order: subprocesses and the inspector go
+    // before the terminal, session state goes to disk last.
     const lifecycle = container.get(LifecycleServiceDIToken);
 
-    // Бутстрапная папка уже прочитана выше — повторная установка той же папки no-op.
+    // The bootstrap folder was already read above — setting the same folder again is a no-op.
     const workspaceContext = container.get(IWorkspaceContextServiceDIToken);
     workspaceContext.onDidChangeWorkspaceFolders(() => {
         const current = workspaceContext.getWorkspace();
@@ -463,32 +465,32 @@ async function runEditor(): Promise<void> {
         backend.teardown();
     });
 
-    // Страховка для путей мимо прощания (SIGINT в NodeTerminalBackend): на "exit" — только синхронный I/O.
+    // Safety net for paths that bypass shutdown (SIGINT in NodeTerminalBackend): only synchronous I/O on "exit".
     process.on("exit", () => {
         try {
             stateService.flushSync();
         } catch {
-            /* на выходе делать нечего — глотаем */
+            /* nothing to do on exit — swallow */
         }
     });
 
-    // Токены несут индексы colorMap прежней темы — документы перетокенизируются, как у эталона.
+    // Tokens carry colorMap indices of the previous theme — documents are retokenized, as in upstream.
     container.get(ThemeServiceDIToken).onThemeChange((theme) => {
         tokenizationContributor.setTheme(createTextMateTheme(theme));
         semanticTokenStyleResolver.setTheme(theme.tokenTheme);
     });
 
     const app = container.get(TuiApplicationDIToken);
-    // До старта окна: его подписки запоминают события активации, пришедшие раньше регистрации.
+    // Before the window starts: its subscriptions remember activation events that arrive before registration.
     const extensionService = container.get(ExtensionServiceDIToken);
-    // Корень — до подписки на фазы ниже: в `eventually` contribution'ы инстанцируются раньше прогрева грамматик.
+    // Root before subscribing to the phases below: in `eventually` contributions are instantiated before grammar warm-up.
     container.get(WorkbenchComponentDIToken);
 
     lifecycle.onDidChangePhase((phase) => {
         if (phase === "eventually") void tokenizationContributor.preloadAll();
     });
 
-    // `Diode.whenReady` инспектора — тот же момент, что `complete: true` в трассе старта.
+    // The inspector's `Diode.whenReady` is the same moment as `complete: true` in the startup trace.
     const startupComplete = Promise.withResolvers<undefined>();
 
     await startWorkbench(
@@ -502,7 +504,7 @@ async function runEditor(): Promise<void> {
                 app.run();
             },
             afterMounted: async () => {
-                // Порт — только в logService: stderr уходит в тот же pty и портит рендер.
+                // Port only to logService: stderr goes to the same pty and corrupts the rendering.
                 if (cli.inspectTui !== undefined) {
                     const driver: InspectorDriver | undefined =
                         headlessBackend === null
@@ -515,14 +517,14 @@ async function runEditor(): Promise<void> {
                                       headlessBackend.sendPaste(text);
                                   },
                                   sendMouse: (params) => {
-                                      // Протокол — 0-based ячейки, терминальные последовательности — 1-based.
+                                      // The protocol uses 0-based cells, terminal sequences are 1-based.
                                       headlessBackend.sendMouse({ ...params, x: params.x + 1, y: params.y + 1 });
                                   },
                                   resize: (cols, rows) => {
                                       headlessBackend.resize(new Size(cols, rows));
                                   },
                                   captureFrame: async () => {
-                                      // Слить кадр, отложенный на setImmediate (scheduleRender).
+                                      // Flush the frame deferred to setImmediate (scheduleRender).
                                       await new Promise<void>((resolve) => setImmediate(resolve));
                                       return headlessBackend.captureFrame();
                                   },
@@ -535,7 +537,7 @@ async function runEditor(): Promise<void> {
                                           params,
                                       ),
                                   shutdown: () => {
-                                      // Отложенно, чтобы RPC-ответ успел уйти до выхода.
+                                      // Deferred so the RPC response gets out before exit.
                                       setImmediate(() => {
                                           void lifecycle.shutdown("inspector", () => process.exit(0));
                                       });
@@ -554,7 +556,7 @@ async function runEditor(): Promise<void> {
                             pid: process.pid,
                         },
                     );
-                    // Порт освобождается до выхода: перезагруженное окно займёт тот же.
+                    // The port is released before exit: the reloaded window takes the same one.
                     lifecycle.onShutdownSync(() => {
                         inspector.dispose();
                     });
@@ -567,13 +569,14 @@ async function runEditor(): Promise<void> {
             },
             preloadGrammars: (files) => preloadGrammarsForFiles(files, languageRegistry, tokenizationRegistry),
             startExtensions: () => {
-                // До спауна extension host'а, но не на пути к первому кадру: на холодном кэше распаковка синхронна (~20 мс).
+                // Before the extension host spawn, but off the path to the first frame: on a cold cache
+                // extraction is synchronous (~20 ms).
                 void ensureTsServer((err) => {
                     extensionsLogger.error("bundled ts-server unpack failed", err);
                 });
                 const activation = extensionService.start();
-                // `main:startup-complete` и `exthost:activated` друг друга не ждут; трасса целиком (бенч ждёт
-                // `complete: true`) — когда есть обе.
+                // `main:startup-complete` and `exthost:activated` don't wait for each other; the full trace (the bench waits
+                // for `complete: true`) is written once both have happened.
                 void Promise.all([activation, lifecycle.when("eventually")]).then(() => {
                     if (startupTraceFile !== null) writeStartupTrace(startupTraceFile, true);
                     startupComplete.resolve(undefined);
@@ -587,14 +590,14 @@ async function runEditor(): Promise<void> {
 }
 
 /**
- * Код выхода — через `process.exitCode`, а не `process.exit()`: обрыв посреди закрытия http-сокетов
- * роняет libuv на Windows (`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`).
+ * Exit code via `process.exitCode`, not `process.exit()`: aborting while http sockets are closing
+ * crashes libuv on Windows (`Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)`).
  */
 async function runExtensionManagement(cli: ICliArgs): Promise<void> {
     const { extensionsDir } = resolvePathsFor(cli);
 
     try {
-        // Без `--profile` — Default, как `cliProcessMain` эталона; привязок воркспейсов CLI не трогает.
+        // Without `--profile` it is Default, like upstream `cliProcessMain`; the CLI doesn't touch workspace bindings.
         const { profilesService } = openProfiles(cli);
         let profile: IUserDataProfile = profilesService.defaultProfile;
         if (cli.profile !== undefined) {
@@ -606,8 +609,8 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
 
         if (cli.installExtension !== undefined) {
             const target = cli.installExtension;
-            // По суффиксу `.vsix`, как VS Code, а не по ФС: файл с именем вида id в cwd молча перехватывал бы
-            // установку из реестра. Реестр нужен и `.vsix`: его зависимости едут оттуда.
+            // By the `.vsix` suffix, like VS Code, not by the FS: a file in cwd named like an id would silently hijack
+            // a registry install. `.vsix` needs the registry too: its dependencies come from there.
             const registry = (): IExtensionRegistrySource =>
                 createRegistrySource(cli.registry, (problem) => {
                     console.error(problem);
@@ -626,7 +629,7 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
                     try {
                         dependencies = await installDependenciesFromRegistry(registry(), result.id, manifest, options);
                     } catch (err) {
-                        // Как у VS Code для VSIX: сбой зависимостей — предупреждение, а не отказ установки.
+                        // Like VS Code for VSIX: a dependency failure is a warning, not a failed install.
                         console.error(`Warning: ${err instanceof Error ? err.message : String(err)}`);
                     }
                 }
@@ -635,7 +638,7 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
                 result = installed;
                 dependencies = installed;
             }
-            // В профиль — вместе с зависимостями, и с теми, что уже лежали на диске для другого профиля.
+            // Into the profile, together with dependencies, including those already on disk for another profile.
             profileExtensions.add([result.id]);
             const { id, version, previous } = result;
             console.log(`Installed ${id}@${version}`);
@@ -671,8 +674,8 @@ async function runExtensionManagement(cli: ICliArgs): Promise<void> {
 }
 
 /**
- * CLI и редактор обязаны смотреть в один каталог расширений. `profileId` — каталог профиля из реестра,
- * а не имя из `--profile`.
+ * The CLI and the editor must look at the same extensions directory. `profileId` is the profile directory
+ * from the registry, not the name from `--profile`.
  */
 function resolvePathsFor(cli: ICliArgs, profileId?: string): IUserDataPaths {
     return resolveUserDataPaths({
@@ -683,7 +686,7 @@ function resolvePathsFor(cli: ICliArgs, profileId?: string): IUserDataPaths {
     });
 }
 
-/** Сбой миграции состава — в лог: старт он не роняет. */
+/** A failure migrating the extension set goes to the log: it does not break startup. */
 function openProfiles(cli: ICliArgs, logger?: ILogger) {
     const basePaths = resolvePathsFor(cli);
     const applicationState = loadApplicationState(basePaths.applicationStateFile, logger);
@@ -722,7 +725,7 @@ function isSameDirectory(a: string, b: string): boolean {
     return statA.dev === statB.dev && statA.ino === statB.ino;
 }
 
-/** Функция, а не константа: `main()` исполняется раньше объявлений внизу модуля — `const` был бы в TDZ. */
+/** A function, not a const: `main()` runs before the declarations at the module bottom — a `const` would be in TDZ. */
 function nodeWorkspaceFileReader(): IWorkspaceFileReader {
     return {
         readText: (filePath) => fs.promises.readFile(filePath, "utf-8"),
@@ -730,7 +733,7 @@ function nodeWorkspaceFileReader(): IWorkspaceFileReader {
     };
 }
 
-/** `load()` не реджектится: сбойная грамматика оставит язык на fallback'е, старт не упадёт. */
+/** `load()` never rejects: a broken grammar leaves the language on the fallback, startup does not fail. */
 async function preloadGrammarsForFiles(
     files: readonly string[],
     languageService: ILanguageService,
@@ -745,8 +748,8 @@ async function preloadGrammarsForFiles(
 }
 
 /**
- * Пути распаковки вшитого tsserver детерминированы версией и хэшем бандла — их раздают до распаковки
- * (она — в `startExtensions`, за первыми кадрами).
+ * Extraction paths of the bundled tsserver are determined by the version and the bundle hash, so they are handed
+ * out before extraction (which happens in `startExtensions`, after the first frames).
  */
 function builtinConfigInjection(manifestName: string): Record<string, unknown> {
     if (manifestName !== "diode-lsp-typescript") return {};
@@ -755,8 +758,8 @@ function builtinConfigInjection(manifestName: string): Record<string, unknown> {
     return {
         "diode.lsp.typescript.bundledServerPath": target.serverPath,
         "diode.lsp.typescript.bundledTsserverPath": target.tsserverPath,
-        // SEA: сервер запускается нашим же бинарём в node-режиме (runAsNode.ts);
-        // dev/self-extract: process.execPath субпроцесса — настоящий node.
+        // SEA: the server runs on our own binary in node mode (runAsNode.ts);
+        // dev/self-extract: the subprocess's process.execPath is real node.
         "diode.lsp.typescript.serverRuntime": isSeaBinary() ? "diode-as-node" : "node",
     };
 }

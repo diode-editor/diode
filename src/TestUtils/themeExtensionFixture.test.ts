@@ -22,7 +22,7 @@ describe("themeExtensionFixture", () => {
         expect(extensionWithThemes("vscode.theme-defaults", [], true).location).toBe(
             "Extensions/builtin/vscode.theme-defaults-1.0.0/",
         );
-        // id без точки — не по формату, но фикстура не падает.
+        // An id without a dot is malformed, but the fixture does not throw.
         const bare = extensionWithThemes("bare", []);
         expect(bare.manifest.publisher).toBe("bare");
         expect(bare.manifest.name).toBe("bare");

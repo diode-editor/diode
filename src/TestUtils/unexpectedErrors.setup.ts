@@ -2,7 +2,7 @@ import { afterEach, beforeEach } from "vitest";
 
 import { UnexpectedErrorCollector } from "./unexpectedErrors.ts";
 
-// Тест со своим `setUnexpectedErrorHandler` перебивает сборщик — тогда собирать нечего.
+// A test with its own `setUnexpectedErrorHandler` overrides the collector — then there is nothing to collect.
 const collector = new UnexpectedErrorCollector();
 
 beforeEach(() => {

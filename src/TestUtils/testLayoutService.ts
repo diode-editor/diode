@@ -14,7 +14,7 @@ export function testLayoutService(root: BodyElement = new BodyElement()): Layout
     return service;
 }
 
-/** До `attachRoot`: обращение к `mainContainer` бросает. */
+/** Before `attachRoot`: accessing `mainContainer` throws. */
 export function detachedLayoutService(): LayoutService {
     return new LayoutService(
         NULL_STATE_SERVICE,

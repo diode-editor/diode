@@ -15,7 +15,7 @@ import { connectWithRetry } from "../../e2e/helpers/inspectorClient.ts";
 import { $, focusedLeaf } from "../../e2e/helpers/query.ts";
 import { DiodeInspectorMethod } from "../../src/vs/diode/diodeInspectorMethods.ts";
 
-/** Процессом редактора не владеет (в отличие от `HeadlessSession` e2e): сессия живёт между вызовами. */
+/** Does not own the editor process (unlike e2e `HeadlessSession`): the session lives across invocations. */
 export class DriveClient {
     private nextId = 1;
     private isClosed = false;

@@ -17,7 +17,7 @@ export const meta: StoryMeta = {
 export function fileTree(ctx: StoryContext): void {
     const rootPath = ctx.args[0] ?? path.resolve(".");
 
-    // Живого слежения у истории нет: каталоги читаются при раскрытии.
+    // The story has no live watching: directories are read on expand.
     const provider = new FileTreeDataProvider(
         rootPath,
         () => [],

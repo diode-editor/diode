@@ -5,16 +5,16 @@ import * as path from "node:path";
 import { describeKilled, killByEnv, type MarkedProcess } from "./processSweep.ts";
 
 /**
- * Корень temp на прогон: `afterEach` не доходит при SIGKILL, OOM и таймауте — так
- * накопилось 34 121 каталога `diode-*` на 11 ГБ, а сироты-процессы держали 3,3 ГБ.
- * Корень бесхозный по живости владельца, а не по возрасту: долгий мутационный
- * прогон не должен попасть под уборку соседнего.
+ * A temp root per run: `afterEach` is never reached on SIGKILL, OOM or timeout — that is how
+ * 34,121 `diode-*` directories piled up (11 GB), with orphan processes holding 3.3 GB.
+ * A root is stale by owner liveness, not by age: a long mutation run must not be cleaned
+ * up by a neighboring one.
  */
 
-// Не "diode-tests-": этот префикс у `createTestEnvironment`, его каталоги подчистка задевать не должна.
+// Not "diode-tests-": that prefix belongs to `createTestEnvironment`, and cleanup must not touch its directories.
 const ROOT_PREFIX = "diode-testrun-";
 const OWNER_FILE = "owner.pid";
-/** Наследуется всеми потомками — по нему добиваются сироты (processSweep.ts). */
+/** Inherited by all descendants — orphans are killed by it (processSweep.ts). */
 export const RUN_MARKER_ENV = "DIODE_TEST_TMP";
 
 export type KillMarked = (root: string) => MarkedProcess[];
@@ -32,7 +32,7 @@ function isAlive(pid: number): boolean {
         process.kill(pid, 0);
         return true;
     } catch (err) {
-        // EPERM — процесс есть, но чужой: считаем живым, чужое не сносим.
+        // EPERM — the process exists but is foreign: treat it as alive, never remove foreign roots.
         return (err as NodeJS.ErrnoException | null)?.code === "EPERM";
     }
 }
@@ -54,7 +54,7 @@ export function pruneStaleRoots(
         if (!entry.isDirectory() || !entry.name.startsWith(ROOT_PREFIX)) continue;
         const root = path.join(parent, entry.name);
         if (ownerAlive(root, isProcessAlive)) continue;
-        // Сироты убитого прогона ещё могут жить и писать в корень.
+        // Orphans of a killed run may still be alive and writing to the root.
         const killed = killMarked(root);
         if (killed.length > 0) {
             console.info(
@@ -65,7 +65,7 @@ export function pruneStaleRoots(
             fs.rmSync(root, { recursive: true, force: true });
             removed.push(root);
         } catch {
-            // Чужой корень без прав на снос — не наша забота.
+            // A foreign root we can't remove — not our concern.
         }
     }
     return removed;
@@ -87,7 +87,7 @@ export function setup(): () => void {
     return setupRunTmpRoot(killMarkedByRoot);
 }
 
-/** Не параметр `setup`: vitest зовёт globalSetup с аргументом (проект). */
+/** Not a `setup` parameter: vitest calls globalSetup with an argument (the project). */
 export function setupRunTmpRoot(killMarked: KillMarked): () => void {
     const parent = process.env.DIODE_TEST_TMP_PARENT ?? os.tmpdir();
     const stale = pruneStaleRoots(parent, isAlive, killMarked);
@@ -110,7 +110,7 @@ export function setupRunTmpRoot(killMarked: KillMarked): () => void {
     };
 }
 
-/** Все три, которые читает `os.tmpdir()` (posix и Windows), иначе каталоги уходят мимо уборки. */
+/** All three that `os.tmpdir()` reads (posix and Windows), otherwise directories escape cleanup. */
 export const TEMP_ENV_VARS = ["TMPDIR", "TEMP", "TMP"] as const;
 
 export default setup;

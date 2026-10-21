@@ -124,7 +124,7 @@ describe("tmpRoot — корень временных каталогов про�
 
         it.skipIf(process.platform === "win32")("корень, который не снести, не попадает в снесённые", () => {
             const stubborn = rootOwnedBy(1111);
-            // Настоящий EACCES вместо подмены fs: ESM-модуль не сконфигурировать.
+            // A real EACCES instead of mocking fs: an ESM module can't be reconfigured.
             fs.chmodSync(parent, 0o500);
             try {
                 expect(pruneStaleRoots(parent, () => false)).toEqual([]);
@@ -140,7 +140,7 @@ describe("tmpRoot — корень временных каталогов про�
                 throw Object.assign(new Error("not permitted"), { code: "EPERM" });
             });
             try {
-                // Без инъекции: разбор EPERM живёт в настоящем isAlive.
+                // No injection: EPERM handling lives in the real isAlive.
                 expect(pruneStaleRoots(parent)).toEqual([]);
             } finally {
                 kill.mockRestore();
@@ -162,7 +162,7 @@ describe("tmpRoot — корень временных каталогов про�
     });
 
     describe("setup (globalSetup vitest)", () => {
-        // `stubEnv` запоминает оригинал, даже если `setup` перезапишет переменную напрямую.
+        // `stubEnv` remembers the original even if `setup` overwrites the variable directly.
         beforeEach(() => {
             for (const name of [...TEMP_ENV_VARS, "DIODE_TEST_TMP"]) vi.stubEnv(name, process.env[name]);
         });
@@ -190,7 +190,7 @@ describe("tmpRoot — корень временных каталогов про�
 
         it("подчищает корни мёртвых прогонов и сообщает об этом", () => {
             process.env.DIODE_TEST_TMP_PARENT = parent;
-            // Выше потолка pid любой платформы: с 1111 тест падал на CI, где такой процесс иногда жив.
+            // Above any platform's pid ceiling: with 1111 it failed on CI, where such a process is sometimes alive.
             const dead = rootOwnedBy(2 ** 31 - 1);
             const info = vi.spyOn(console, "info").mockImplementation(() => undefined);
 

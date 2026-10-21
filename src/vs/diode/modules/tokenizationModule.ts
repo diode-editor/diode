@@ -18,13 +18,13 @@ import type { ContainerModule } from "../../platform/instantiation/common/diCont
 export interface TokenizationModuleContext {
     tokenizationRegistry: TokenizationRegistry;
     tokenStyleResolver: ITokenStyleResolver;
-    /** Тема для семантических токенов; без неё (тесты) — NULL: семантика не красится. */
+    /** Theme for semantic tokens; without it (tests) — NULL: semantic tokens are not colored. */
     semanticTokenStyleResolver?: ISemanticTokenStyleResolver;
     languageService: ILanguageService;
     languageConfigurationService: ILanguageConfigurationService;
 }
 
-/** Реестры языковых провайдеров модуль создаёт сам: они стартуют пустыми в любом профиле. */
+/** The module creates the language provider registries itself: they start empty in every profile. */
 export const tokenizationModule: ContainerModule<TokenizationModuleContext> = (
     container,
     {

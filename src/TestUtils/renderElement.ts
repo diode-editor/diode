@@ -15,7 +15,7 @@ function liveThemeVars(): Record<string, number> {
     return cachedVars;
 }
 
-/** `themeVars: true` — живая палитра Dark+ (код темы приложения), а не снапшот из tuidom/testing. */
+/** `themeVars: true` — the live Dark+ palette (the app's theme code), not the tuidom/testing snapshot. */
 export function renderElement(
     element: TUIElement,
     width: number,

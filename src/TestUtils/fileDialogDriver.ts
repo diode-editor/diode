@@ -5,11 +5,11 @@ import { QuickInputComponentDIToken } from "../vs/workbench/browser/parts/quicki
 
 import type { IAppHarness } from "./AppTestHarness.ts";
 
-/** Печатает клавишами, через настоящий ввод, — как человек. */
+/** Types through real key input — like a human. */
 export interface IFileDialogDriver {
     readonly component: QuickInputComponent;
     state(): Record<string, unknown>;
-    /** Подгрузка каталога асинхронна. */
+    /** Directory loading is asynchronous. */
     settle(expected: Record<string, unknown>): Promise<void>;
     replaceQuery(text: string): void;
     key(name: string): void;
