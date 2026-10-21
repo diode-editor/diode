@@ -42,24 +42,14 @@ describe("EditorElement view zones — render", () => {
         const { app } = createEditor("alpha\nbravo\ncharlie", [{ afterLine: 0, size: 2 }]);
         app.render();
 
-        expect(screenLines(app).slice(0, 5)).toEqual([
-            "  1   alpha", //
-            "",
-            "",
-            "  2   bravo",
-            "  3   charlie",
-        ]);
+        expect(screenLines(app).slice(0, 5)).toEqual(["  1   alpha", "", "", "  2   bravo", "  3   charlie"]);
     });
 
     it("zone before the first line of the file", () => {
         const { app } = createEditor("alpha\nbravo", [{ afterLine: -1, size: 1 }]);
         app.render();
 
-        expect(screenLines(app).slice(0, 3)).toEqual([
-            "", //
-            "  1   alpha",
-            "  2   bravo",
-        ]);
+        expect(screenLines(app).slice(0, 3)).toEqual(["", "  1   alpha", "  2   bravo"]);
     });
 
     it("contentHeight accounts for zones — scrolling reaches the end", () => {
