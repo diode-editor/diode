@@ -34,8 +34,8 @@ function createService(
     );
 }
 
-describe("LanguageConfigurationService — слои расширений", () => {
-    it("секция слоя заменяет секцию файла целиком, остальные — из файла", async () => {
+describe("LanguageConfigurationService: extension layers", () => {
+    it("a layer section replaces the file section entirely, the rest come from the file", async () => {
         const service = createService();
         service.register("go", { comments: { lineComment: "#" } });
         const resolved = await service.ensureLoaded("go");
@@ -47,7 +47,7 @@ describe("LanguageConfigurationService — слои расширений", () =>
         expect(resolved.autoCloseBefore).toBe(";");
     });
 
-    it("слой, пришедший до загрузки, не делает язык готовым раньше файла", async () => {
+    it("a layer that arrives before loading does not make the language ready before the file", async () => {
         const service = createService();
         service.register("go", { brackets: [["[", "]"]] });
         expect(service.get("go")).toBeUndefined();
@@ -55,7 +55,7 @@ describe("LanguageConfigurationService — слои расширений", () =>
         expect(service.get("go")?.brackets).toEqual([["[", "]"]]);
     });
 
-    it("слой после загрузки виден сразу; пары авто-закрытия выводятся из скобок слоя", async () => {
+    it("a layer after loading is visible immediately; auto-closing pairs derive from the layer's brackets", async () => {
         const service = createService();
         await service.ensureLoaded("go");
         service.register("go", { brackets: [["<", ">"]] });
@@ -63,7 +63,7 @@ describe("LanguageConfigurationService — слои расширений", () =>
         expect(service.get("go")?.surroundingPairs).toEqual([["<", ">"]]);
     });
 
-    it("поздний слой побеждает ранний; снятый слой возвращает предыдущий", async () => {
+    it("a later layer beats an earlier one; a removed layer brings back the previous one", async () => {
         const service = createService();
         await service.ensureLoaded("go");
         const first = service.register("go", { comments: { lineComment: "#" } });
@@ -78,7 +78,7 @@ describe("LanguageConfigurationService — слои расширений", () =>
         expect(service.get("go")?.comments?.lineComment).toBe("//");
     });
 
-    it("undefined-поле слоя не затирает секцию файла", async () => {
+    it("an undefined layer field does not erase the file section", async () => {
         const service = createService();
         await service.ensureLoaded("go");
         service.register("go", { comments: undefined, brackets: [["{", "}"]] });
@@ -86,7 +86,7 @@ describe("LanguageConfigurationService — слои расширений", () =>
         expect(service.get("go")?.brackets).toEqual([["{", "}"]]);
     });
 
-    it("язык без файла: со слоем — конфигурация слоя, без слоя — пустая", async () => {
+    it("a language without a file: with a layer, the layer's configuration; without, empty", async () => {
         const service = createService({ gofixture: undefined });
         expect(await service.ensureLoaded("gofixture")).toBe(EMPTY_LANGUAGE_CONFIGURATION);
         const layer = service.register("gofixture", { comments: { lineComment: "//" } });
@@ -95,7 +95,7 @@ describe("LanguageConfigurationService — слои расширений", () =>
         expect(service.get("gofixture")).toBe(EMPTY_LANGUAGE_CONFIGURATION);
     });
 
-    it("слой одного языка не трогает другой", async () => {
+    it("a layer of one language does not touch another", async () => {
         const service = createService({ go: GO_CONFIG_PATH, other: undefined });
         await service.ensureLoaded("go");
         await service.ensureLoaded("other");
@@ -104,7 +104,7 @@ describe("LanguageConfigurationService — слои расширений", () =>
         expect(service.get("other")?.comments?.lineComment).toBe(";");
     });
 
-    it("развёрнутая конфигурация кэшируется до смены слоёв", async () => {
+    it("the expanded configuration is cached until the layers change", async () => {
         const service = createService();
         await service.ensureLoaded("go");
         const before = service.get("go");

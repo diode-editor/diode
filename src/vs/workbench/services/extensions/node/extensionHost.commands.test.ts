@@ -9,7 +9,7 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import { currentCursorChangeSource } from "../../../../editor/common/core/cursorChangeSource.ts";
 
 describe("ExtensionHost — commands bridge (subprocess)", () => {
-    it("host → subprocess: ядро исполняет прокси-команду расширения через реальный RPC", async () => {
+    it("host → subprocess: core executes an extension proxy command over real RPC", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
             extensions: [extensionFixture("test.registersCommand", "registersCommand.cjs")],
@@ -27,7 +27,7 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
         }
     });
 
-    it("commandTitles из contributes.commands делают прокси видимым в палитре", async () => {
+    it("commandTitles from contributes.commands make the proxy visible in the command palette", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
             extensions: [
@@ -46,7 +46,7 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
         }
     });
 
-    it("host → subprocess: dispose расширения снимает прокси из host-реестра", async () => {
+    it("host → subprocess: extension dispose removes the proxy from the host registry", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
         });
@@ -66,7 +66,7 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
         }
     });
 
-    it("subprocess → host: fall-through executeCommand исполняет команду ядра", async () => {
+    it("subprocess → host: fall-through executeCommand runs a core command", async () => {
         // A host command runs before extension activation, so the harness has NO extensions.
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
@@ -90,7 +90,7 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
     });
 
     // Producer of `TextEditorSelectionChangeKind.Command` for a cursor moved by an extension command.
-    it("subprocess → host: команда расширения исполняется внутри области command", { timeout: 60_000 }, async () => {
+    it("subprocess → host: an extension command runs inside the command scope", { timeout: 60_000 }, async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
         });
@@ -111,7 +111,7 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
         }
     });
 
-    it("local-first: executeCommand своей команды исполняется в сабпроцессе", async () => {
+    it("local-first: executeCommand of its own command runs in the subprocess", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
             extensions: [extensionFixture("test.localFirst", "localFirstCommand.cjs")],
@@ -124,7 +124,7 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
         }
     });
 
-    it("executeCommand несуществующей команды reject'ится (маркер tabSize=3)", async () => {
+    it("executeCommand of a missing command rejects (tabSize=3 marker)", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
             extensions: [extensionFixture("test.callsMissing", "callsMissingCommand.cjs")],

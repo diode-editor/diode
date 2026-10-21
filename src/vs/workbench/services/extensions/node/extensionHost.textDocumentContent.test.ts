@@ -15,8 +15,8 @@ const FIXTURE = extensionFixture("test.providesTextDocumentContent", "providesTe
 
 const TARGET = "jdt://contents/lib.jar/pkg/Generated.java";
 
-describe("ExtensionHost — провайдеры содержимого недисковых ресурсов (subprocess)", () => {
-    it("объявляет схему и отдаёт содержимое обратным запросом", async () => {
+describe("ExtensionHost — content providers for non-disk resources (subprocess)", () => {
+    it("declares a scheme and serves content through a reverse request", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [FIXTURE],
             languageService: JAVA_LANGUAGE_SERVICE,
@@ -34,7 +34,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         }
     });
 
-    it("openUri ядра открывает read-only вкладку с исходником и языком по расширению", async () => {
+    it("core openUri opens a read-only tab with the source and the language by file extension", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [FIXTURE],
             languageService: JAVA_LANGUAGE_SERVICE,
@@ -53,7 +53,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         }
     });
 
-    it("onDidChange провайдера перечитывает открытую вкладку", async () => {
+    it("the provider's onDidChange rereads the open tab", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [FIXTURE],
             languageService: JAVA_LANGUAGE_SERVICE,
@@ -73,7 +73,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         }
     });
 
-    it("провайдер отказался отдать ресурс — вкладки нет, причина названа", async () => {
+    it("the provider refuses the resource: no tab, the reason is named", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [FIXTURE],
             languageService: JAVA_LANGUAGE_SERVICE,
@@ -91,7 +91,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         }
     });
 
-    it("провайдер сломался — отказ доезжает как причина, а не как падение процесса", async () => {
+    it("the provider breaks: the refusal arrives as a reason, not as a process crash", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [FIXTURE],
             languageService: JAVA_LANGUAGE_SERVICE,
@@ -110,7 +110,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         }
     });
 
-    it("openTextDocument расширения по такой схеме спрашивает провайдера, а не диск", async () => {
+    it("an extension's openTextDocument on such a scheme asks the provider, not the disk", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [FIXTURE],
             languageService: JAVA_LANGUAGE_SERVICE,
@@ -124,7 +124,7 @@ describe("ExtensionHost — провайдеры содержимого неди
         }
     });
 
-    it("без провайдеров ядру нечем открыть недисковый ресурс — и оно об этом говорит", async () => {
+    it("without providers the core cannot open a non-disk resource, and it says so", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.noop", "noopExtension.cjs")],
             languageService: JAVA_LANGUAGE_SERVICE,

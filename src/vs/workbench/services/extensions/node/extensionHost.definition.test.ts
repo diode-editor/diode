@@ -26,7 +26,7 @@ function requestFor(uri: string, line: number, versionId: number): IDefinitionRe
 }
 
 describe("ExtensionHost — definition providers (subprocess)", () => {
-    it("настоящий провайдер: Location и LocationLink доезжают как core-цели", async () => {
+    it("a real provider: Location and LocationLink arrive as core targets", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "const answer = compute();\nconst other = 1;\n" },
             extensions: [extensionFixture("test.providesDefinition", "providesDefinition.cjs")],
@@ -54,7 +54,7 @@ describe("ExtensionHost — definition providers (subprocess)", () => {
         }
     });
 
-    it("без subprocess'а и без провайдеров реестр definition пуст", async () => {
+    it("without a subprocess and providers the definition registry is empty", async () => {
         const lazy = await createExtensionTestHarness({
             extensions: [extensionFixture("test.providesDefinition", "providesDefinition.cjs")],
             activateEvents: [],

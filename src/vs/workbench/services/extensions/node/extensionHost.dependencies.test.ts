@@ -88,8 +88,8 @@ function errorMessages(logger: LoggerSpy): string[] {
     return logger.error.mock.calls.map((call) => String(call[0]));
 }
 
-describe("ExtensionHost — extensionDependencies активируются первыми", () => {
-    it("зависимый тянет за собой зависимость, чьё событие не наступало, и видит её exports (id без учёта регистра)", async () => {
+describe("ExtensionHost — extensionDependencies activate first", () => {
+    it("the dependent pulls in a dependency whose event never fired and sees its exports (case-insensitive id)", async () => {
         const { harness, toasts } = await start([dependent(["Test.Dep"]), dependency()]);
 
         await harness.host.activateByEvent("onLanguage:java");
@@ -100,10 +100,10 @@ describe("ExtensionHost — extensionDependencies активируются пе�
     });
 
     it.each([
-        ["зависимый зарегистрирован первым", true],
-        ["зависимость зарегистрирована первой", false],
+        ["dependent registered first", true],
+        ["dependency registered first", false],
     ])(
-        "оба подходят одному событию (%s): зависимость поднимается раньше, а не параллельно",
+        "both match one event (%s): the dependency activates earlier, not in parallel",
         async (_title, dependentFirst) => {
             const dep = { ...dependency(), activationEvents: ["onLanguage:java"] };
             const { harness } = await start(
@@ -117,7 +117,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         },
     );
 
-    it("уже активная зависимость не поднимается второй раз, зависимый встаёт", async () => {
+    it("an already active dependency is not activated twice, and the dependent activates", async () => {
         const dep = { ...dependency(), activationEvents: ["onLanguage:dep"] };
         const { harness, logger } = await start([dep, dependent(["test.dep"])]);
         await harness.host.activateByEvent("onLanguage:dep");
@@ -131,7 +131,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         ]);
     });
 
-    it("в логе видно, чьей зависимостью и по какому событию поднялась зависимость", async () => {
+    it("the log shows whose dependency it is and which event activated it", async () => {
         const { harness, logger } = await start([dependent(["test.dep"]), dependency()]);
 
         await harness.host.activateByEvent("onLanguage:java");
@@ -141,7 +141,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         );
     });
 
-    it("неизвестная зависимость: зависимый не активируется, причина в лог и тостом ошибки", async () => {
+    it("unknown dependency: the dependent does not activate, the reason goes to the log and an error toast", async () => {
         const { harness, logger, toasts } = await start([
             dependent(["x.missing"], "noopExtension.cjs", { displayName: "Bazel Java" }),
         ]);
@@ -155,7 +155,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         expect(toasts).toEqual([{ severity: "error", message, modal: false, items: [], handle: -1 }]);
     });
 
-    it("каждый тост хоста — со своим отрицательным адресом (не пересекается с show*Message субпроцесса)", async () => {
+    it("each host toast has its own negative handle (no overlap with the subprocess's show*Message)", async () => {
         const second: IExtensionRegistration = {
             ...extensionFixture("test.second", "noopExtension.cjs"),
             manifest: { name: "second", publisher: "test", version: "1.0.0", extensionDependencies: ["x.other"] },
@@ -168,7 +168,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         expect(toasts.map((toast) => toast.handle).sort()).toEqual([-1, -2]);
     });
 
-    it("отказ стока сообщений не роняет активацию — он уходит в лог", async () => {
+    it("a message sink failure does not crash activation: it goes to the log", async () => {
         const { harness, logger } = await start([dependent(["x.missing"], "noopExtension.cjs")], {
             notificationSink: {
                 showMessage: () => Promise.reject(new Error("surface is gone")),
@@ -180,7 +180,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         await expect.poll(() => errorMessages(logger)).toContain("showMessage failed: Error: surface is gone");
     });
 
-    it("без стока сообщений неизвестная зависимость — только лог, активация не падает", async () => {
+    it("without a message sink an unknown dependency is only logged, and activation does not fail", async () => {
         const { harness, logger } = await start([dependent(["x.missing"], "noopExtension.cjs")], {
             notificationSink: undefined,
         });
@@ -193,7 +193,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         ]);
     });
 
-    it("встроенного расширения VS Code (vscode.git) нет — отступление: зависимое поднимается без него, с предупреждением в лог", async () => {
+    it("a VS Code built-in extension (vscode.git) is missing, so we fall back: the dependent activates without it and logs a warning", async () => {
         // Like the stock Supermaven: Diode's git is `diode.git`.
         const { harness, logger, toasts } = await start([dependent(["vscode.git"], "noopExtension.cjs")]);
 
@@ -207,7 +207,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         expect(toasts).toEqual([]);
     });
 
-    it("декларативная зависимость (установлена, но без кода) удовлетворена сразу", async () => {
+    it("a declarative dependency (installed, but without code) is satisfied immediately", async () => {
         const { harness, logger, toasts } = await start([dependent(["Test.Grammar"], "noopExtension.cjs")]);
         harness.host.registerDeclarativeExtension("test.grammar");
 
@@ -218,7 +218,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         expect(toasts).toEqual([]);
     });
 
-    it("упавшая зависимость: зависимый не активируется, причина в лог, без тоста", async () => {
+    it("a failed dependency: the dependent does not activate, the reason is logged, no toast", async () => {
         const { harness, logger, toasts } = await start([
             dependent(["test.dep"]),
             dependency("throwsOnActivate.cjs", { displayName: "Dep Display" }),
@@ -234,7 +234,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         expect(toasts).toEqual([]);
     });
 
-    it("зависимость, упавшая раньше, тоже не даёт подняться зависимому", async () => {
+    it("a dependency that failed earlier also keeps the dependent from activating", async () => {
         const dep = { ...dependency("throwsOnActivate.cjs"), activationEvents: ["onLanguage:dep"] };
         const { harness, logger } = await start([dep, dependent(["test.dep"])]);
         await harness.host.activateByEvent("onLanguage:dep");
@@ -247,7 +247,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         );
     });
 
-    it("цикл зависимостей: участники не активируются, цикл назван в логе", async () => {
+    it("dependency cycle: the members do not activate, the cycle is named in the log", async () => {
         const a: IExtensionRegistration = {
             ...extensionFixture("test.a", "noopExtension.cjs"),
             manifest: { name: "a", publisher: "test", version: "1.0.0", extensionDependencies: ["test.b"] },
@@ -272,7 +272,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         expect(toasts).toEqual([]);
     });
 
-    it("хост выключился, пока зависимость поднималась: зависимое тихо снимается, а не ждёт оживления", async () => {
+    it("the host shuts down while the dependency activates: the dependent is dropped quietly instead of waiting for a restart", async () => {
         const marker = markerFile("DIODE_TEST_HANG_MARKER");
         const { harness, logger } = await start([dependent(["test.dep"]), dependency("hangsOnActivate.cjs")]);
 
@@ -289,7 +289,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         expect(errorMessages(logger).filter((line) => line.startsWith("Cannot activate"))).toEqual([]);
     });
 
-    it("смерть субпроцесса на активации зависимости: зависимый не считается упавшим и оживает вместе с ней", async () => {
+    it("subprocess death during dependency activation: the dependent is not considered failed and comes back with it", async () => {
         const marker = markerFile("DIODE_TEST_EXIT_MARKER");
         const { harness, logger } = await start([dependent(["test.dep"]), dependency("exitsOnFirstActivate.cjs")]);
 

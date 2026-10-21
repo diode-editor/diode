@@ -54,8 +54,8 @@ function registerFormatAction(harness: {
     return notices;
 }
 
-describe("ExtensionHost — ESM-расширение (subprocess без tsx)", () => {
-    it("активируется, видит `vscode` и отдаёт exports", async () => {
+describe("ExtensionHost — ESM extension (subprocess without tsx)", () => {
+    it("activates, sees `vscode` and returns exports", async () => {
         const harness = await createExtensionTestHarness({
             subprocessLoader: "node",
             extensions: [esmFixture()],
@@ -68,7 +68,7 @@ describe("ExtensionHost — ESM-расширение (subprocess без tsx)", (
         }
     });
 
-    it("его провайдер форматирования правит буфер (через positionAt)", async () => {
+    it("its formatting provider edits the buffer (via positionAt)", async () => {
         const harness = await createExtensionTestHarness({
             subprocessLoader: "node",
             initialFile: { name: "doc.txt", content: "alpha    beta\ngamma  delta" },
@@ -87,7 +87,7 @@ describe("ExtensionHost — ESM-расширение (subprocess без tsx)", (
         }
     });
 
-    it("CJS-расширение в том же режиме не сломано ESM-хуком", async () => {
+    it("a CJS extension in the same mode is not broken by the ESM hook", async () => {
         const harness = await createExtensionTestHarness({
             subprocessLoader: "node",
             extensions: [extensionFixture("test.registersCommand", "registersCommand.cjs")],

@@ -58,7 +58,7 @@ function registerCodeActionCommands(
 }
 
 describe("ExtensionHost — code actions (subprocess)", () => {
-    it("organizeImports применяет готовый WorkspaceEdit провайдера, undo откатывает", async () => {
+    it("organizeImports applies the provider's ready WorkspaceEdit, undo reverts it", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "list.txt", content: "pear\napple\nmango" },
             extensions: [extensionFixture("test.providesCodeActions", "providesCodeActions.cjs")],
@@ -80,7 +80,7 @@ describe("ExtensionHost — code actions (subprocess)", () => {
         }
     });
 
-    it("fixAll дорезолвливает ленивый edit через codeAction/resolve и применяет", async () => {
+    it("fixAll resolves a lazy edit through codeAction/resolve and applies it", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "list.txt", content: "quiet text" },
             extensions: [extensionFixture("test.providesCodeActions", "providesCodeActions.cjs")],
@@ -98,7 +98,7 @@ describe("ExtensionHost — code actions (subprocess)", () => {
         }
     });
 
-    it("quickFix-меню: выбранное действие проходит весь цикл до буфера", async () => {
+    it("quickFix menu: the picked action goes the whole way to the buffer", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "list.txt", content: "note" },
             extensions: [extensionFixture("test.providesCodeActions", "providesCodeActions.cjs")],
@@ -116,7 +116,7 @@ describe("ExtensionHost — code actions (subprocess)", () => {
         }
     });
 
-    it("командное действие исполняет команду субпроцесса (обратный executeCommand)", async () => {
+    it("a command action runs the subprocess command (reverse executeCommand)", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "list.txt", content: "note" },
             extensions: [extensionFixture("test.providesCodeActions", "providesCodeActions.cjs")],
@@ -141,7 +141,7 @@ describe("ExtensionHost — code actions (subprocess)", () => {
         }
     });
 
-    it("без матчащего вида — честный notice, буфер не тронут", async () => {
+    it("without a matching kind: a plain notice, the buffer is untouched", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "list.txt", content: "solo" },
             extensions: [extensionFixture("test.noop", "noopExtension.cjs")],

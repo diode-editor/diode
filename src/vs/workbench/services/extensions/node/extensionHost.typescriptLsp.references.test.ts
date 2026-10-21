@@ -60,7 +60,7 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
     }
 }
 
-describe("ExtensionHost — references от стокового typescript-language-server", () => {
+describe("ExtensionHost — references from the stock typescript-language-server", () => {
     beforeAll(async () => {
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
@@ -68,7 +68,7 @@ describe("ExtensionHost — references от стокового typescript-langua
         await buildExtensions({ repoRoot: REPO_ROOT });
     }, 120_000);
 
-    it("ссылки на символ доезжают до ядра кросс-файлово", { timeout: 180_000 }, async () => {
+    it("symbol references reach the core across files", { timeout: 180_000 }, async () => {
         const outputLines: { level: string; value: string }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: TS_LANGUAGE_SERVICE,
@@ -93,7 +93,7 @@ describe("ExtensionHost — references от стокового typescript-langua
             await harness.host.activateByEvent("onLanguage:typescript");
 
             // References come not only from the open file but also from defs.ts.
-            const references = await until("references для `greet`", async () => {
+            const references = await until("references for `greet`", async () => {
                 const found: readonly ICoreReference[] = await provideReferences(harness, {
                     uri: mainUri,
                     languageId: "typescript",

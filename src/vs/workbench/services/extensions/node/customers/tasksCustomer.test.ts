@@ -143,8 +143,8 @@ function setup() {
     };
 }
 
-describe("vscode.tasks — сквозь провод", () => {
-    it("провайдер расширения: его задачи в списке ядра с подписью «source: name», id — расширение и ключ определения", async () => {
+describe("vscode.tasks — over the wire", () => {
+    it("extension provider: its tasks are in the core list labelled `source: name`, id is the extension and the definition key", async () => {
         const s = setup();
         const registration = s.register({ provideTasks: () => [s.shellTask("ok", "echo ok")] });
         await flush();
@@ -160,7 +160,7 @@ describe("vscode.tasks — сквозь провод", () => {
         s.dispose();
     });
 
-    it("задача провайдера, запущенная из палитры: расширение видит Start/ProcessStart/ProcessEnd/End с name и source задачи", async () => {
+    it("provider task run from the palette: the extension sees Start/ProcessStart/ProcessEnd/End with the task name and source", async () => {
         const s = setup();
         s.register({ provideTasks: () => [s.shellTask("build", "make")] });
         await flush();
@@ -180,7 +180,7 @@ describe("vscode.tasks — сквозь провод", () => {
         s.dispose();
     });
 
-    it("executeTask своей задачи: в событиях — тот же объект; ядро исполняет её командой", async () => {
+    it("executeTask of its own task: the events carry the same object; the core runs it as a command", async () => {
         const s = setup();
         const own = s.owner.runAs(EXT, () => s.shellTask("own", "echo own"));
         const starts: vscode.TaskStartEvent[] = [];
@@ -196,7 +196,7 @@ describe("vscode.tasks — сквозь провод", () => {
         s.dispose();
     });
 
-    it("fetchTasks: задачи ядра с его id; исполнение такой — по id, изменённой — описанием", async () => {
+    it("fetchTasks: core tasks with core ids; running one goes by id, a modified one — by description", async () => {
         const s = setup();
         s.register({ provideTasks: () => [s.shellTask("a", "echo a")] });
         await flush();
@@ -220,7 +220,7 @@ describe("vscode.tasks — сквозь провод", () => {
         s.dispose();
     });
 
-    it("TaskExecution.terminate закрывает терминал задачи; конец приходит расширению", async () => {
+    it("TaskExecution.terminate closes the task terminal; the end reaches the extension", async () => {
         const s = setup();
         const execution = await s.owner.runAs(EXT, () => s.tasks.executeTask(s.shellTask("long", "sleep 100")));
         await flush();
@@ -236,7 +236,7 @@ describe("vscode.tasks — сквозь провод", () => {
         s.dispose();
     });
 
-    it("ProcessExecution и задача без области — процессом, область — папка", async () => {
+    it("ProcessExecution and a task without a scope run as a process, the scope is the folder", async () => {
         const s = setup();
         const task = new Task({ type: "demo", target: "p" }, "p", "demo", new ProcessExecution("node", ["x.js"]));
         await s.owner.runAs(EXT, () => s.tasks.executeTask(task));
@@ -245,7 +245,7 @@ describe("vscode.tasks — сквозь провод", () => {
         s.dispose();
     });
 
-    it("CustomExecution: колбэк с подставленным определением, pty в терминале задачи, его выход — конец задачи", async () => {
+    it("CustomExecution: callback with the resolved definition, pty in the task terminal, its exit ends the task", async () => {
         const s = setup();
         const writes = new EventEmitter<string>();
         const closes = new EventEmitter<number | undefined>();
@@ -291,7 +291,7 @@ describe("vscode.tasks — сквозь провод", () => {
         s.dispose();
     });
 
-    it("отказы: задача без исполнения, неизвестный id; запуск, не дошедший до старта, кончается у расширения", async () => {
+    it("rejections: a task without execution, an unknown id; a run that never started ends for the extension", async () => {
         const s = setup();
         await expect(
             s.tasks.executeTask(new Task({ type: "demo", target: "x" }, TaskScope.Workspace, "x", "demo")),
@@ -314,7 +314,7 @@ describe("vscode.tasks — сквозь провод", () => {
         s.dispose();
     });
 
-    it("смерть субпроцесса снимает его провайдеров", async () => {
+    it("subprocess death removes its providers", async () => {
         const s = setup();
         s.register({ provideTasks: () => [s.shellTask("a", "echo a")] });
         await flush();
@@ -324,8 +324,8 @@ describe("vscode.tasks — сквозь провод", () => {
     });
 });
 
-describe("TasksCustomer без стока", () => {
-    it("fetchTasks пуст, executeTask отклоняется", async () => {
+describe("TasksCustomer without a sink", () => {
+    it("fetchTasks is empty, executeTask rejects", async () => {
         const [a, b] = createInProcessChannelPair();
         const hostRpc = new RpcEndpoint(a) as unknown as HostRpc;
         const subRpc = new RpcEndpoint(b) as unknown as SubprocessRpc;
@@ -345,7 +345,7 @@ describe("TasksCustomer без стока", () => {
     });
 });
 
-describe("TasksCustomer — провод без субпроцесса", () => {
+describe("TasksCustomer — wire without a subprocess", () => {
     function wire(sink: IExtensionTaskSink | undefined) {
         const [a, b] = createInProcessChannelPair();
         const logger = createLoggerSpy();
@@ -375,13 +375,13 @@ describe("TasksCustomer — провод без субпроцесса", () => {
         return { sink, registrations };
     }
 
-    it("без стока tasks.fetch отвечает пустым списком", async () => {
+    it("without a sink tasks.fetch replies with an empty list", async () => {
         const { raw, attached } = wire(undefined);
         await expect(raw.request("tasks.fetch", {})).resolves.toStrictEqual([]);
         attached.dispose();
     });
 
-    it("снятие провайдера: его регистрация снимается один раз; чужой и битый handle — без ошибок", async () => {
+    it("provider removal: its registration is removed once; foreign and broken handles — no errors", async () => {
         const { sink, registrations } = fakeSink();
         const { logger, raw, attached } = wire(sink as unknown as IExtensionTaskSink);
         raw.notify("tasks.registerProvider", { handle: 1, type: "demo", extensionId: "e" });
@@ -397,7 +397,7 @@ describe("TasksCustomer — провод без субпроцесса", () => {
         attached.dispose();
     });
 
-    it("битые execute и terminate до стока не доходят", async () => {
+    it("broken execute and terminate do not reach the sink", async () => {
         const { sink } = fakeSink();
         const { logger, raw, attached } = wire(sink as unknown as IExtensionTaskSink);
         await expect(raw.request("tasks.execute", { task: { name: 1 } })).rejects.toThrow("Task is not valid");

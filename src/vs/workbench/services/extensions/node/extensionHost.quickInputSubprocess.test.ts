@@ -30,20 +30,20 @@ function makeSink(answers: {
 
 const FIXTURE = extensionFixture("test.asksForInput", "asksForInput.cjs");
 
-describe("ExtensionHost — quick input через настоящий субпроцесс", () => {
-    it("showInputBox: опции доезжают до стока, введённое — обратно в расширение", async () => {
-        const { sink, inputRequests } = makeSink({ input: () => Promise.resolve("Ада") });
+describe("ExtensionHost — quick input through a real subprocess", () => {
+    it("showInputBox: options reach the sink, the input goes back to the extension", async () => {
+        const { sink, inputRequests } = makeSink({ input: () => Promise.resolve("Ada") });
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
             extensions: [FIXTURE],
             quickInputSink: sink,
         });
         try {
-            await expect(harness.commandRegistry.execute("test.askName")).resolves.toBe("got:Ада");
+            await expect(harness.commandRegistry.execute("test.askName")).resolves.toBe("got:Ada");
             expect(inputRequests[0]).toMatchObject({
                 title: "Your name",
-                prompt: "Как к вам обращаться",
-                placeHolder: "имя",
+                prompt: "How should we address you",
+                placeHolder: "name",
                 validates: true,
             });
         } finally {
@@ -51,12 +51,12 @@ describe("ExtensionHost — quick input через настоящий субпр
         }
     });
 
-    it("валидация расширения отвечает через границу процессов", async () => {
+    it("extension validation answers across the process boundary", async () => {
         let validation: IWireValidationMessage | null | undefined;
         const { sink } = makeSink({
             input: async (request) => {
-                validation = await request.validate?.("плохо");
-                return "хорошо";
+                validation = await request.validate?.("bad");
+                return "good";
             },
         });
         const harness = await createExtensionTestHarness({
@@ -65,14 +65,14 @@ describe("ExtensionHost — quick input через настоящий субпр
             quickInputSink: sink,
         });
         try {
-            await expect(harness.commandRegistry.execute("test.askName")).resolves.toBe("got:хорошо");
-            expect(validation).toEqual({ message: "Так нельзя", severity: "error" });
+            await expect(harness.commandRegistry.execute("test.askName")).resolves.toBe("got:good");
+            expect(validation).toEqual({ message: "Not allowed", severity: "error" });
         } finally {
             await harness.dispose();
         }
     });
 
-    it("отмена показа доводит обещание расширения до undefined", async () => {
+    it("cancelling the prompt resolves the extension's promise to undefined", async () => {
         const { sink } = makeSink({ input: () => Promise.resolve(undefined) });
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
@@ -86,7 +86,7 @@ describe("ExtensionHost — quick input через настоящий субпр
         }
     });
 
-    it("showQuickPick: строки уезжают списком, выбранная возвращается расширению", async () => {
+    it("showQuickPick: strings go out as a list, the picked one returns to the extension", async () => {
         const { sink, pickRequests } = makeSink({ pick: () => Promise.resolve([2]) });
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
@@ -96,7 +96,7 @@ describe("ExtensionHost — quick input через настоящий субпр
         try {
             await expect(harness.commandRegistry.execute("test.pickFruit")).resolves.toBe("got:cherry");
             expect(pickRequests[0]).toMatchObject({
-                placeHolder: "Выберите фрукт",
+                placeHolder: "Pick a fruit",
                 canPickMany: false,
                 items: [{ label: "apple" }, { label: "banana" }, { label: "cherry" }],
                 picked: [],
@@ -106,7 +106,7 @@ describe("ExtensionHost — quick input через настоящий субпр
         }
     });
 
-    it("canPickMany: предотметки уезжают индексами, набор возвращается массивом", async () => {
+    it("canPickMany: preselections go out as indices, the selection returns as an array", async () => {
         const { sink, pickRequests } = makeSink({ pick: () => Promise.resolve([0, 2]) });
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
@@ -121,7 +121,7 @@ describe("ExtensionHost — quick input через настоящий субпр
         }
     });
 
-    it("отменённый список — undefined, а не пустой набор", async () => {
+    it("a cancelled pick is undefined, not an empty selection", async () => {
         const { sink } = makeSink({ pick: () => Promise.resolve(undefined) });
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },

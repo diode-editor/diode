@@ -16,7 +16,7 @@ describe("builtin language packs", () => {
         return scanBuiltinExtensions(assets, ROOT_PREFIX);
     }
 
-    it("сканирует все паки без потерь", async () => {
+    it("scans all packs without losses", async () => {
         const extensions = await scanAll();
         // Besides the vscode packs, builtin/ holds our own extensions (git, publisher "diode").
         const languagePacks = extensions.filter((e) => e.manifest.publisher === "vscode");
@@ -26,7 +26,7 @@ describe("builtin language packs", () => {
         }
     });
 
-    it("резолвит language id для типичных файлов", async () => {
+    it("resolves language id for typical files", async () => {
         const registry = new LanguageRegistry();
         for (const ext of await scanAll()) registry.register(ext);
 
@@ -40,7 +40,7 @@ describe("builtin language packs", () => {
         expect(registry.getLanguageIdForResource("script.sh")).toBe("shellscript");
     });
 
-    it("все файлы грамматик и language-configuration существуют", async () => {
+    it("all grammar and language-configuration files exist", async () => {
         const extensions = await scanAll();
         const missing: string[] = [];
 

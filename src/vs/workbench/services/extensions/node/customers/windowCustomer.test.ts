@@ -52,8 +52,8 @@ const WINDOW_NOTIFICATIONS: readonly [string, unknown][] = [
     ["window.statusBarItem.dispose", { handle: 2 }],
 ];
 
-describe("WindowCustomer — стоки окна", () => {
-    it("валидные нотификации доходят до своих стоков", async () => {
+describe("WindowCustomer — window sinks", () => {
+    it("valid notifications reach their sinks", async () => {
         const sinks = makeSinks();
         const { peer, rpcLogger } = attach(sinks);
 
@@ -70,11 +70,11 @@ describe("WindowCustomer — стоки окна", () => {
         expect(rpcLogger.warn).not.toHaveBeenCalled();
     });
 
-    it("мусорные параметры отбрасываются: сток не зовётся, обработчик не падает", async () => {
+    it("junk params are dropped: the sink is not called, the handler does not throw", async () => {
         const sinks = makeSinks();
         const { peer, rpcLogger } = attach(sinks);
 
-        for (const [method] of WINDOW_NOTIFICATIONS) peer.notify(method, "мусор");
+        for (const [method] of WINDOW_NOTIFICATIONS) peer.notify(method, "junk");
         await flushMicrotasks();
 
         expect(sinks.progressSink.start).not.toHaveBeenCalled();
@@ -87,7 +87,7 @@ describe("WindowCustomer — стоки окна", () => {
         expect(rpcLogger.warn).not.toHaveBeenCalled();
     });
 
-    it("без стоков всё молча отбрасывается — и на сообщениях, и на уходе субпроцесса", async () => {
+    it("without sinks everything is dropped silently — both on messages and on subprocess exit", async () => {
         const { peer, attached, rpcLogger } = attach(NO_SINKS);
 
         peer.notify("window.progress.start", { handle: 1, title: "Indexing" });

@@ -38,8 +38,8 @@ function makeHost() {
     return { host, peer, attachRpc };
 }
 
-describe("ExtensionHost — нотификации провайдеров ФС (in-process)", () => {
-    it("список схем обновляется и будит подписчиков", async () => {
+describe("ExtensionHost — FS provider notifications (in-process)", () => {
+    it("the scheme list updates and notifies subscribers", async () => {
         const { host, peer } = makeHost();
         const seen = vi.fn();
         host.onFileSystemProvidersChanged(seen);
@@ -51,19 +51,19 @@ describe("ExtensionHost — нотификации провайдеров ФС (
         expect(seen).toHaveBeenCalledTimes(1);
     });
 
-    it("нестроковые схемы отфильтровываются, не-массив даёт пустой список", async () => {
+    it("non-string schemes are filtered out, a non-array yields an empty list", async () => {
         const { host, peer } = makeHost();
 
         peer.notify("workspace.fileSystemProvidersChanged", { schemes: ["git", 42, null] });
         await flushMicrotasks();
         expect(host.getFileSystemSchemes()).toEqual(["git"]);
 
-        peer.notify("workspace.fileSystemProvidersChanged", { schemes: "не массив" });
+        peer.notify("workspace.fileSystemProvidersChanged", { schemes: "not an array" });
         await flushMicrotasks();
         expect(host.getFileSystemSchemes()).toEqual([]);
     });
 
-    it("отписка от смены схем работает", async () => {
+    it("unsubscribing from scheme changes works", async () => {
         const { host, peer } = makeHost();
         const seen = vi.fn();
         host.onFileSystemProvidersChanged(seen).dispose();
@@ -74,7 +74,7 @@ describe("ExtensionHost — нотификации провайдеров ФС (
         expect(seen).not.toHaveBeenCalled();
     });
 
-    it("изменения ресурсов доходят до подписчиков", async () => {
+    it("resource changes reach subscribers", async () => {
         const { host, peer } = makeHost();
         const seen: string[] = [];
         host.onDidChangeProvidedFile((uris) => {
@@ -87,20 +87,20 @@ describe("ExtensionHost — нотификации провайдеров ФС (
         expect(seen).toEqual(["git:/a.ts", "git:/b.ts"]);
     });
 
-    it("пустой и структурно чужой список изменений подписчиков не будит", async () => {
+    it("an empty or structurally foreign change list does not notify subscribers", async () => {
         const { host, peer } = makeHost();
         const seen = vi.fn();
         host.onDidChangeProvidedFile(seen);
 
         peer.notify("workspace.fs.didChangeFile", { uris: [] });
-        peer.notify("workspace.fs.didChangeFile", { uris: "не массив" });
+        peer.notify("workspace.fs.didChangeFile", { uris: "not an array" });
         peer.notify("workspace.fs.didChangeFile", { uris: [42] });
         await flushMicrotasks();
 
         expect(seen).not.toHaveBeenCalled();
     });
 
-    it("отписка от изменений ресурсов работает", async () => {
+    it("unsubscribing from resource changes works", async () => {
         const { host, peer } = makeHost();
         const seen = vi.fn();
         host.onDidChangeProvidedFile(seen).dispose();
@@ -111,7 +111,7 @@ describe("ExtensionHost — нотификации провайдеров ФС (
         expect(seen).not.toHaveBeenCalled();
     });
 
-    it("повторный dispose подписок безопасен", () => {
+    it("disposing subscriptions twice is safe", () => {
         // The second dispose is not a duplicate: the owner calls it both directly and via the Disposable set.
         const { host } = makeHost();
         const schemes = host.onFileSystemProvidersChanged(() => undefined);
@@ -126,22 +126,22 @@ describe("ExtensionHost — нотификации провайдеров ФС (
         }).not.toThrow();
     });
 
-    it("readProvidedFile без поднятого host'а отклоняется", async () => {
+    it("readProvidedFile rejects without a running host", async () => {
         const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {});
 
         await expect(host.readProvidedFile(Uri.parse("git:/a.ts"))).rejects.toThrow(/extension host is not running/);
     });
 
-    it("readProvidedFile уходит запросом в субпроцесс и разбирает ответ", async () => {
+    it("readProvidedFile sends a request to the subprocess and parses the response", async () => {
         const { host, peer, attachRpc } = makeHost();
         attachRpc();
         peer.handleRequest("workspace.fs.readFile", (params) => {
             expect(params).toEqual({ uri: "git:/a.ts" });
-            return { content: Buffer.from("оригинал", "utf8").toString("base64") };
+            return { content: Buffer.from("original", "utf8").toString("base64") };
         });
 
         const bytes = await host.readProvidedFile(Uri.parse("git:/a.ts"));
 
-        expect(new TextDecoder().decode(bytes)).toBe("оригинал");
+        expect(new TextDecoder().decode(bytes)).toBe("original");
     });
 });

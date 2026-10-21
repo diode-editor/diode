@@ -15,13 +15,13 @@ import {
 } from "./hostWireParsers.ts";
 
 describe("hostWireParsers — wireToCoreFoldingRegions", () => {
-    it("маппит в IFoldingRegion (несвёрнутые), kind отбрасывается", () => {
+    it("maps to IFoldingRegion (expanded), drops kind", () => {
         expect(wireToCoreFoldingRegions([{ start: 0, end: 3, kind: 3 }])).toEqual([
             { startLine: 0, endLine: 3, isCollapsed: false },
         ]);
     });
 
-    it("отбрасывает вырожденные (end <= start) и клампит start к нулю", () => {
+    it("drops degenerate ranges (end <= start) and clamps start to zero", () => {
         expect(
             wireToCoreFoldingRegions([
                 { start: 2, end: 2 }, // nothing to hide
@@ -33,7 +33,7 @@ describe("hostWireParsers — wireToCoreFoldingRegions", () => {
 });
 
 describe("hostWireParsers — parseWireEditorEdits", () => {
-    it("парсит правку с range+text; отбрасывает без range или без text", () => {
+    it("parses an edit with range+text; drops ones without range or text", () => {
         const raw = [
             null,
             42,
@@ -47,18 +47,18 @@ describe("hostWireParsers — parseWireEditorEdits", () => {
         ]);
     });
 
-    it("пустой text (delete) валиден", () => {
+    it("empty text (delete) is valid", () => {
         const raw = [{ range: { start: { line: 1, character: 0 }, end: { line: 2, character: 0 } }, text: "" }];
         expect(parseWireEditorEdits(raw)).toHaveLength(1);
     });
 
-    it("не-массив → []", () => {
+    it("non-array → []", () => {
         expect(parseWireEditorEdits(null)).toEqual([]);
     });
 });
 
 describe("hostWireParsers — parseWireCreateUntitledParams", () => {
-    it("строковые поля берёт, остальные отбрасывает по одному", () => {
+    it("takes string fields, drops the rest one by one", () => {
         expect(parseWireCreateUntitledParams({ content: "c", language: "go", encoding: "utf8" })).toEqual({
             content: "c",
             language: "go",
@@ -78,7 +78,7 @@ describe("hostWireParsers — parseWireCreateUntitledParams", () => {
         });
     });
 
-    it("не объект — пустые опции", () => {
+    it("non-object yields empty options", () => {
         expect(parseWireCreateUntitledParams(null)).toEqual({});
         expect(parseWireCreateUntitledParams("x")).toEqual({});
         expect(parseWireCreateUntitledParams(undefined)).toEqual({});
@@ -86,7 +86,7 @@ describe("hostWireParsers — parseWireCreateUntitledParams", () => {
 });
 
 describe("hostWireParsers — parseWireShowTextDocumentParams", () => {
-    it("минимальная форма — только uri; опциональные поля подхватываются", () => {
+    it("minimal form is just uri; optional fields are picked up", () => {
         expect(parseWireShowTextDocumentParams({ uri: "file:///a.ts" })).toEqual({ uri: "file:///a.ts" });
         expect(parseWireShowTextDocumentParams({ uri: "file:///a.ts", viewColumn: -2, preserveFocus: true })).toEqual({
             uri: "file:///a.ts",
@@ -95,20 +95,20 @@ describe("hostWireParsers — parseWireShowTextDocumentParams", () => {
         });
     });
 
-    it("не-объект и пустой/нестроковый uri → null", () => {
+    it("non-object and empty/non-string uri → null", () => {
         expect(parseWireShowTextDocumentParams(null)).toBeNull();
         expect(parseWireShowTextDocumentParams("file:///a.ts")).toBeNull();
         expect(parseWireShowTextDocumentParams({})).toBeNull();
         expect(parseWireShowTextDocumentParams({ uri: "" })).toBeNull();
     });
 
-    it("кривые viewColumn/preserveFocus опускаются, uri остаётся", () => {
+    it("malformed viewColumn/preserveFocus are omitted, uri stays", () => {
         expect(
             parseWireShowTextDocumentParams({ uri: "file:///a.ts", viewColumn: "beside", preserveFocus: 1 }),
         ).toEqual({ uri: "file:///a.ts" });
     });
 
-    it("selection-объект парсится в wire-выделение", () => {
+    it("selection object parses into a wire selection", () => {
         const selection = { anchorLine: 1, anchorCharacter: 2, activeLine: 3, activeCharacter: 4 };
         expect(parseWireShowTextDocumentParams({ uri: "file:///a.ts", selection })).toEqual({
             uri: "file:///a.ts",
@@ -116,7 +116,7 @@ describe("hostWireParsers — parseWireShowTextDocumentParams", () => {
         });
     });
 
-    it("selection-массив и битый selection-объект опускаются", () => {
+    it("selection array and malformed selection object are omitted", () => {
         // An array is a foreign shape (this request has exactly one selection).
         const asArray = parseWireShowTextDocumentParams({
             uri: "file:///a.ts",
@@ -127,7 +127,7 @@ describe("hostWireParsers — parseWireShowTextDocumentParams", () => {
         expect(broken?.selection).toBeUndefined();
     });
 
-    it("selection null или массив — поля нет вовсе (не `selection: undefined`)", () => {
+    it("selection null or array: the field is absent entirely (not `selection: undefined`)", () => {
         expect(parseWireShowTextDocumentParams({ uri: "file:///a.ts", selection: null })).toStrictEqual({
             uri: "file:///a.ts",
         });
@@ -141,7 +141,7 @@ describe("hostWireParsers — parseWireShowTextDocumentParams", () => {
 });
 
 describe("hostWireParsers — parseWireCloseTabsParams", () => {
-    it("парсит адресацию вкладок парами (groupId, uri)", () => {
+    it("parses tab addresses as (groupId, uri) pairs", () => {
         const raw = {
             tabs: [
                 { groupId: 1, uri: "file:///a.ts" },
@@ -151,14 +151,14 @@ describe("hostWireParsers — parseWireCloseTabsParams", () => {
         expect(parseWireCloseTabsParams(raw)).toEqual(raw);
     });
 
-    it("не-объект и tabs-не-массив → null", () => {
+    it("non-object and non-array tabs → null", () => {
         expect(parseWireCloseTabsParams(null)).toBeNull();
         expect(parseWireCloseTabsParams("junk")).toBeNull();
         expect(parseWireCloseTabsParams({})).toBeNull();
         expect(parseWireCloseTabsParams({ tabs: {} })).toBeNull();
     });
 
-    it("битая вкладка роняет весь запрос → null (закрыть не то — хуже, чем не закрыть)", () => {
+    it("a malformed tab fails the whole request → null (closing the wrong tab is worse than closing none)", () => {
         expect(parseWireCloseTabsParams({ tabs: [null] })).toBeNull();
         expect(parseWireCloseTabsParams({ tabs: [{ groupId: "x", uri: "file:///a.ts" }] })).toBeNull();
         expect(parseWireCloseTabsParams({ tabs: [{ groupId: 1, uri: 42 }] })).toBeNull();
@@ -166,12 +166,12 @@ describe("hostWireParsers — parseWireCloseTabsParams", () => {
 });
 
 describe("hostWireParsers — parseWireCloseGroupsParams", () => {
-    it("парсит массив числовых id групп", () => {
+    it("parses an array of numeric group ids", () => {
         expect(parseWireCloseGroupsParams({ groupIds: [1, 2] })).toEqual({ groupIds: [1, 2] });
         expect(parseWireCloseGroupsParams({ groupIds: [] })).toEqual({ groupIds: [] });
     });
 
-    it("не-объект, не-массив и нечисловой id → null", () => {
+    it("non-object, non-array and non-numeric id → null", () => {
         expect(parseWireCloseGroupsParams(null)).toBeNull();
         expect(parseWireCloseGroupsParams("junk")).toBeNull();
         expect(parseWireCloseGroupsParams({})).toBeNull();
@@ -181,16 +181,16 @@ describe("hostWireParsers — parseWireCloseGroupsParams", () => {
 });
 
 describe("parseWireFileStat", () => {
-    it("метаданные провайдера: type, mtime, size (ctime ядру не нужен)", () => {
+    it("provider metadata: type, mtime, size (core does not need ctime)", () => {
         expect(parseWireFileStat({ type: 1, ctime: 0, mtime: 7, size: 3 })).toEqual({ type: 1, mtime: 7, size: 3 });
     });
 
-    it("null — ресурса нет", () => {
+    it("null means no resource", () => {
         expect(parseWireFileStat(null)).toBeNull();
     });
 
-    it.each([undefined, 42, "строка", { type: 1, mtime: 1 }, { type: "1", mtime: 1, size: 1 }])(
-        "чужая форма (%s) — ошибка",
+    it.each([undefined, 42, "string", { type: 1, mtime: 1 }, { type: "1", mtime: 1, size: 1 }])(
+        "foreign shape (%s) throws",
         (raw) => {
             expect(() => parseWireFileStat(raw)).toThrow(/workspace\.fs\.stat/);
         },
@@ -198,33 +198,33 @@ describe("parseWireFileStat", () => {
 });
 
 describe("parseWireFileSystemSchemes", () => {
-    it("readonly — подмножество схем; лишнее в readonly отбрасывается", () => {
+    it("readonly is a subset of schemes; extras in readonly are dropped", () => {
         expect(parseWireFileSystemSchemes({ schemes: ["git", "_claude_fs_right"], readonly: ["git", "nope"] })).toEqual(
             { schemes: ["git", "_claude_fs_right"], readonly: ["git"] },
         );
     });
 
-    it("без поля readonly (старый субпроцесс) — все схемы только для чтения", () => {
+    it("without a readonly field (old subprocess) all schemes are read-only", () => {
         expect(parseWireFileSystemSchemes({ schemes: ["git"] })).toEqual({ schemes: ["git"], readonly: ["git"] });
         expect(parseWireFileSystemSchemes(null)).toEqual({ schemes: [], readonly: [] });
     });
 });
 
 describe("parseWireReadFileResult", () => {
-    it("разбирает base64 в байты", () => {
-        const content = Buffer.from("оригинал", "utf8").toString("base64");
-        expect(new TextDecoder().decode(parseWireReadFileResult({ content }))).toBe("оригинал");
+    it("decodes base64 into bytes", () => {
+        const content = Buffer.from("original", "utf8").toString("base64");
+        expect(new TextDecoder().decode(parseWireReadFileResult({ content }))).toBe("original");
     });
 
-    it("пустое содержимое — валидный результат", () => {
+    it("empty content is a valid result", () => {
         expect(parseWireReadFileResult({ content: "" })).toEqual(new Uint8Array());
     });
 
-    it.each([null, undefined, 42, "строка", []])("структурно чужой ответ (%s) — ошибка", (raw) => {
+    it.each([null, undefined, 42, "string", []])("structurally foreign response (%s) throws", (raw) => {
         expect(() => parseWireReadFileResult(raw)).toThrow(/workspace\.fs\.readFile/);
     });
 
-    it("нестроковый content — ошибка", () => {
+    it("non-string content throws", () => {
         expect(() => parseWireReadFileResult({ content: 42 })).toThrow(/base64 string/);
     });
 });
@@ -234,29 +234,29 @@ function fnWith(fields: Record<string, unknown>): unknown {
     return Object.assign(() => undefined, fields);
 }
 
-describe("hostWireParsers — editor.*: не-объект с нужными полями отвергается", () => {
+describe("hostWireParsers — editor.*: non-object with the right fields is rejected", () => {
     const range = { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } };
 
-    it("showTextDocument: функция с uri → null", () => {
+    it("showTextDocument: function with uri → null", () => {
         expect(parseWireShowTextDocumentParams(fnWith({ uri: "file:///a" }))).toBeNull();
     });
 
-    it("closeTabs: функция-конверт и функция-вкладка → null", () => {
+    it("closeTabs: function envelope and function tab → null", () => {
         expect(parseWireCloseTabsParams(fnWith({ tabs: [] }))).toBeNull();
         expect(parseWireCloseTabsParams({ tabs: [fnWith({ groupId: 1, uri: "file:///a" })] })).toBeNull();
     });
 
-    it("closeGroups: функция с groupIds → null", () => {
+    it("closeGroups: function with groupIds → null", () => {
         expect(parseWireCloseGroupsParams(fnWith({ groupIds: [1] }))).toBeNull();
     });
 
-    it("editorEdits: функция-правка отбрасывается", () => {
+    it("editorEdits: function edit is dropped", () => {
         expect(parseWireEditorEdits([fnWith({ range, text: "x" })])).toEqual([]);
     });
 });
 
 describe("hostWireParsers — parseWireProviderHandle", () => {
-    it("целый handle проходит, остальное — null", () => {
+    it("integer handle passes, anything else is null", () => {
         expect(parseWireProviderHandle({ handle: 3 })).toStrictEqual({ handle: 3 });
         expect(parseWireProviderHandle({ handle: 0, extra: 1 })).toStrictEqual({ handle: 0 });
         for (const raw of [null, undefined, 5, {}, { handle: "3" }, { handle: 1.5 }]) {
@@ -266,16 +266,16 @@ describe("hostWireParsers — parseWireProviderHandle", () => {
 });
 
 describe("hostWireParsers — wireToCoreSemanticTokens", () => {
-    it("null остаётся null", () => {
+    it("null stays null", () => {
         expect(wireToCoreSemanticTokens(null)).toBeNull();
     });
 
-    it("полный ответ: id строкой в resultId, данные — Uint32Array", () => {
+    it("full response: id as string in resultId, data as Uint32Array", () => {
         const result = wireToCoreSemanticTokens({ id: 7, type: "full", data: [0, 1, 2, 3, 4] });
         expect(result).toStrictEqual({ resultId: "7", data: new Uint32Array([0, 1, 2, 3, 4]) });
     });
 
-    it("дельта: правки с Uint32Array, правка без данных — data undefined", () => {
+    it("delta: edits with Uint32Array, an edit without data has data undefined", () => {
         const result = wireToCoreSemanticTokens({
             id: 0,
             type: "delta",

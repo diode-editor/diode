@@ -11,22 +11,22 @@ import { TextFileModel } from "./textFileModel.ts";
  * Without the gate the miss is silent: `fsPath` of a non-file uri returns the "path" as is. Non-disk
  * resources never reach the model; `EditorService.openUri` dispatches them.
  */
-describe("TextFileModel.openFile — гейт схемы", () => {
+describe("TextFileModel.openFile — scheme gate", () => {
     function make(): TextFileModel {
         return new TextFileModel(NULL_LANGUAGE_SERVICE, new UndoRedoService(), diskFileService());
     }
 
-    it("не-file uri отвергается с названной схемой", () => {
+    it("a non-file uri is rejected naming the scheme", () => {
         const model = make();
 
         expect(() => {
             model.openFile(Uri.parse("jdt://contents/lib.jar/pkg/Foo.java"));
-        }).toThrow(/ожидается file:-uri, получен jdt:/u);
+        }).toThrow(/expected a file: uri, got jdt:/u);
 
         model.dispose();
     });
 
-    it("отказ не оставляет модель наполовину открытой", () => {
+    it("a rejection does not leave the model half open", () => {
         const model = make();
 
         expect(() => {

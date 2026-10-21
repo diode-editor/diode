@@ -5,7 +5,7 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 
 /** A harness with `activateEvents: []` fires nothing automatically; the test drives the events itself. */
 describe("ExtensionHost — lazy activation (activationEvents)", () => {
-    it("onLanguage: неактивно до совпадающего события, затем активируется идемпотентно", async () => {
+    it("onLanguage: inactive until a matching event, then activates idempotently", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [
@@ -31,7 +31,7 @@ describe("ExtensionHost — lazy activation (activationEvents)", () => {
         }
     });
 
-    it("* активирует расширения без явных activationEvents (дефолт eager)", async () => {
+    it("* activates extensions without explicit activationEvents (eager default)", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             // No activationEvents → normalized to ["*"].
@@ -47,7 +47,7 @@ describe("ExtensionHost — lazy activation (activationEvents)", () => {
         }
     });
 
-    it("хост дефолта не додумывает: регистрация с пустым набором событий не поднимается даже на *", async () => {
+    it("the host invents no default: a registration with an empty event set does not activate even on *", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [{ ...extensionFixture("test.empty", "noopExtension.cjs"), activationEvents: [] }],
@@ -61,7 +61,7 @@ describe("ExtensionHost — lazy activation (activationEvents)", () => {
         }
     });
 
-    it("dispose до активации убирает расширение из pending", async () => {
+    it("dispose before activation removes the extension from pending", async () => {
         const harness = await createExtensionTestHarness({ activateEvents: [] });
         try {
             const disposable = harness.host.registerExtension(extensionFixture("test.disposed", "noopExtension.cjs"));
@@ -74,7 +74,7 @@ describe("ExtensionHost — lazy activation (activationEvents)", () => {
         }
     });
 
-    it("параллельные activateByEvent активируют расширение ровно один раз", async () => {
+    it("parallel activateByEvent calls activate the extension exactly once", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [extensionFixture("test.race", "noopExtension.cjs")],
@@ -88,7 +88,7 @@ describe("ExtensionHost — lazy activation (activationEvents)", () => {
         }
     });
 
-    it("сбой activate() одного расширения не роняет host и не блокирует остальных", async () => {
+    it("one extension's activate() failure does not crash the host or block the others", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
             extensions: [

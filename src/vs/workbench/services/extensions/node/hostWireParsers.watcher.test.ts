@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseWireWatcherCreate, parseWireWatcherDispose } from "./hostWireParsers.ts";
 
 describe("parseWireWatcherCreate", () => {
-    it("разбирает запрос, ignore-флаги по умолчанию выключены", () => {
+    it("parses the request, ignore flags are off by default", () => {
         expect(parseWireWatcherCreate({ id: 1, base: "/repo", pattern: "**" })).toEqual({
             id: 1,
             base: "/repo",
@@ -14,13 +14,13 @@ describe("parseWireWatcherCreate", () => {
         });
     });
 
-    it("флаги берутся только строгим true", () => {
+    it("flags are taken only on strict true", () => {
         const parsed = parseWireWatcherCreate({
             id: 1,
             base: "/repo",
             pattern: "*",
             ignoreCreateEvents: true,
-            ignoreChangeEvents: "да",
+            ignoreChangeEvents: "yes",
             ignoreDeleteEvents: 1,
         });
         expect(parsed).toMatchObject({
@@ -30,7 +30,7 @@ describe("parseWireWatcherCreate", () => {
         });
     });
 
-    it("ignoreDeleteEvents: true доходит до результата", () => {
+    it("ignoreDeleteEvents: true reaches the result", () => {
         expect(parseWireWatcherCreate({ id: 1, base: "/repo", pattern: "**", ignoreDeleteEvents: true })).toMatchObject(
             {
                 ignoreCreateEvents: false,
@@ -40,9 +40,9 @@ describe("parseWireWatcherCreate", () => {
         );
     });
 
-    it("структурно чужой запрос — null", () => {
+    it("structurally foreign request → null", () => {
         expect(parseWireWatcherCreate(null)).toBeNull();
-        expect(parseWireWatcherCreate("нет")).toBeNull();
+        expect(parseWireWatcherCreate("no")).toBeNull();
         expect(parseWireWatcherCreate({ base: "/repo", pattern: "**" })).toBeNull();
         expect(parseWireWatcherCreate({ id: 1.5, base: "/repo", pattern: "**" })).toBeNull();
         expect(parseWireWatcherCreate({ id: 1, base: "", pattern: "**" })).toBeNull();
@@ -55,11 +55,11 @@ describe("parseWireWatcherCreate", () => {
 });
 
 describe("parseWireWatcherDispose", () => {
-    it("берёт целочисленный id", () => {
+    it("takes an integer id", () => {
         expect(parseWireWatcherDispose({ id: 4 })).toBe(4);
     });
 
-    it("всё прочее — null", () => {
+    it("anything else → null", () => {
         expect(parseWireWatcherDispose(null)).toBeNull();
         expect(parseWireWatcherDispose({ id: "4" })).toBeNull();
         expect(parseWireWatcherDispose({ id: 1.5 })).toBeNull();

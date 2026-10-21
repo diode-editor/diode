@@ -8,7 +8,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { ChokidarFileWatcher } from "../../../../platform/files/node/chokidarFileWatcher.ts";
 
 /** An atomic save is a new inode (temporary sibling + rename): a real watcher must survive it. */
-describe("TextFileModel — атомарный save и настоящий наблюдатель", () => {
+describe("TextFileModel — atomic save and a real watcher", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -19,7 +19,7 @@ describe("TextFileModel — атомарный save и настоящий наб
         ws.dispose();
     });
 
-    it("своя запись — не внешнее изменение; чужая после неё — перечитывается", async () => {
+    it("our own write is not an external change; a foreign one after it is reread", async () => {
         const fp = ws.writeFile("a.txt", "one\n");
         const pane = createEditorPane();
         pane.model.fileWatcher = new ChokidarFileWatcher();

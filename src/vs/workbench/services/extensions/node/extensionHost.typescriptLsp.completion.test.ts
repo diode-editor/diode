@@ -65,7 +65,7 @@ async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs 
     }
 }
 
-describe("ExtensionHost — completion от стокового typescript-language-server", () => {
+describe("ExtensionHost — completion from the stock typescript-language-server", () => {
     beforeAll(async () => {
         const { buildExtensions } = (await import(
             new URL("../../../../../../scripts/build-extensions.mjs", import.meta.url).href
@@ -73,7 +73,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
         await buildExtensions({ repoRoot: REPO_ROOT });
     }, 120_000);
 
-    it("члены типа после точки доезжают до ядра", { timeout: 180_000 }, async () => {
+    it("type members after a dot reach the core", { timeout: 180_000 }, async () => {
         const outputLines: { level: string; value: string }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: TS_LANGUAGE_SERVICE,
@@ -109,7 +109,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
                 return result.items;
             };
 
-            const items = await until("completion после `d.`", async () => {
+            const items = await until("completion after `d.`", async () => {
                 const found = await completionAt(1, 2);
                 return found.length > 0 ? found : null;
             });
@@ -143,7 +143,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
         }
     });
 
-    it("авто-импорт приезжает правками-спутниками на resolve", { timeout: 180_000 }, async () => {
+    it("auto-import arrives as additional edits on resolve", { timeout: 180_000 }, async () => {
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: TS_LANGUAGE_SERVICE,
             activateEvents: [],
@@ -160,7 +160,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:typescript");
 
-            const greet = await until("пункт greet из соседнего модуля", async () => {
+            const greet = await until("greet item from a sibling module", async () => {
                 const result = await provideCompletions(harness, {
                     uri: mainUri,
                     languageId: "typescript",
@@ -171,7 +171,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
                 return result.items.find((item) => item.label === "greet" && item.id !== undefined) ?? null;
             });
 
-            const resolved = await until("resolve с правкой импорта", async () => {
+            const resolved = await until("resolve with an import edit", async () => {
                 const found = await harness.host.resolveCompletionItem(greet.id!);
                 return found?.additionalEdits !== undefined ? found : null;
             });

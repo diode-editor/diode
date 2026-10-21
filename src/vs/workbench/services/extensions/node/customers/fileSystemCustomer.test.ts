@@ -15,8 +15,8 @@ function attach(customer: FileSystemCustomer) {
     return { peer, attached };
 }
 
-describe("FileSystemCustomer — уход спавна", () => {
-    it("объявленные схемы умирают вместе с субпроцессом: ФС — с событием, содержимое — молча", async () => {
+describe("FileSystemCustomer — spawn exit", () => {
+    it("declared schemes die with the subprocess: file system ones with an event, content ones silently", async () => {
         const customer = new FileSystemCustomer(NULL_EXTENSION_FILE_WATCHER);
         const changed = vi.fn();
         customer.onFileSystemProvidersChanged(changed);
@@ -38,7 +38,7 @@ describe("FileSystemCustomer — уход спавна", () => {
         );
     });
 
-    it("записываемость схем — из объявления субпроцесса и уходит вместе с ним", async () => {
+    it("scheme writability comes from the subprocess declaration and goes away with it", async () => {
         const customer = new FileSystemCustomer(NULL_EXTENSION_FILE_WATCHER);
         const { peer, attached } = attach(customer);
         peer.notify("workspace.fileSystemProvidersChanged", { schemes: ["git", "rw"], readonly: ["git"] });
@@ -52,7 +52,7 @@ describe("FileSystemCustomer — уход спавна", () => {
         expect(customer.isReadonlyFileSystem("git")).toBe(false);
     });
 
-    it("stat и запись уходят запросами к субпроцессу; без спавна — отказ", async () => {
+    it("stat and write go as requests to the subprocess; without a spawn — rejected", async () => {
         const customer = new FileSystemCustomer(NULL_EXTENSION_FILE_WATCHER);
         const { peer, attached } = attach(customer);
         const writes: unknown[] = [];
@@ -68,8 +68,8 @@ describe("FileSystemCustomer — уход спавна", () => {
 
         await expect(customer.statProvidedFile(Uri.parse("rw:/a"))).resolves.toEqual({ type: 1, mtime: 2, size: 3 });
         await expect(customer.statProvidedFile(Uri.parse("rw:/b"))).resolves.toBeNull();
-        await customer.writeProvidedFile(Uri.parse("rw:/a"), new TextEncoder().encode("правка"));
-        expect(writes).toEqual([{ uri: "rw:/a", content: Buffer.from("правка").toString("base64") }]);
+        await customer.writeProvidedFile(Uri.parse("rw:/a"), new TextEncoder().encode("edit"));
+        expect(writes).toEqual([{ uri: "rw:/a", content: Buffer.from("edit").toString("base64") }]);
 
         attached.dispose();
         await expect(customer.statProvidedFile(Uri.parse("rw:/a"))).rejects.toThrow("extension host is not running");
@@ -78,7 +78,7 @@ describe("FileSystemCustomer — уход спавна", () => {
         );
     });
 
-    it("субпроцесс без схем ФС на уходе событие не порождает", () => {
+    it("a subprocess without file system schemes fires no event on exit", () => {
         const customer = new FileSystemCustomer(NULL_EXTENSION_FILE_WATCHER);
         const changed = vi.fn();
         customer.onFileSystemProvidersChanged(changed);

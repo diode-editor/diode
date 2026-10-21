@@ -32,7 +32,7 @@ function createEditorService(): EditorService {
 const OUTPUT_URI = Uri.from({ scheme: "output", path: "extensions" });
 
 describe("EditorService.openDetached", () => {
-    it("создаёт редактор с синтетическим ресурсом и пустым документом", () => {
+    it("creates an editor with a synthetic resource and an empty document", () => {
         const service = createEditorService();
 
         const pane = service.openDetached(OUTPUT_URI, "log");
@@ -43,7 +43,7 @@ describe("EditorService.openDetached", () => {
         service.dispose();
     });
 
-    it("не попадает ни в одну перечисляющую вкладки поверхность", () => {
+    it("does not appear on any surface that lists tabs", () => {
         const service = createEditorService();
 
         service.openDetached(OUTPUT_URI, "log");
@@ -54,7 +54,7 @@ describe("EditorService.openDetached", () => {
         service.dispose();
     });
 
-    it("не участвует в shutdown-протоколе даже с непустым содержимым", () => {
+    it("does not take part in the shutdown protocol even with non-empty content", () => {
         const service = createEditorService();
         const pane = service.openDetached(OUTPUT_URI, "log");
 
@@ -65,7 +65,7 @@ describe("EditorService.openDetached", () => {
         service.dispose();
     });
 
-    it("getActiveEditor не отдаёт detached, пока фокус не внутри неё", () => {
+    it("getActiveEditor does not return the detached editor until focus is inside it", () => {
         const service = createEditorService();
         service.newUntitled({ focus: false });
         const tab = service.getEditors()[0];
@@ -76,7 +76,7 @@ describe("EditorService.openDetached", () => {
         service.dispose();
     });
 
-    it("без вкладок и без фокуса активного редактора нет", () => {
+    it("without tabs and focus there is no active editor", () => {
         const service = createEditorService();
 
         service.openDetached(OUTPUT_URI, "log");
@@ -86,8 +86,8 @@ describe("EditorService.openDetached", () => {
     });
 });
 
-describe("TextFileModel: owner-write для detached", () => {
-    it("appendOwnedContent дописывает в конец и не пачкает буфер", () => {
+describe("TextFileModel: owner-write for detached", () => {
+    it("appendOwnedContent appends to the end without dirtying the buffer", () => {
         const service = createEditorService();
         const pane = service.openDetached(OUTPUT_URI, "log");
 
@@ -99,7 +99,7 @@ describe("TextFileModel: owner-write для detached", () => {
         service.dispose();
     });
 
-    it("appendOwnedContent проходит в read-only редакторе", () => {
+    it("appendOwnedContent works in a read-only editor", () => {
         // Read-only forbids user edits, but the document owner must be able to write, otherwise the log tail would stall.
         const service = createEditorService();
         const pane = service.openDetached(OUTPUT_URI, "log");
@@ -113,7 +113,7 @@ describe("TextFileModel: owner-write для detached", () => {
         service.dispose();
     });
 
-    it("пустой append — no-op", () => {
+    it("an empty append is a no-op", () => {
         const service = createEditorService();
         const pane = service.openDetached(OUTPUT_URI, "log");
         pane.model.appendContent("a\n");
@@ -125,7 +125,7 @@ describe("TextFileModel: owner-write для detached", () => {
         service.dispose();
     });
 
-    it("replaceOwnedContent меняет содержимое целиком и сохраняет язык", () => {
+    it("replaceOwnedContent replaces the whole content and keeps the language", () => {
         const service = createEditorService();
         const pane = service.openDetached(OUTPUT_URI, "log");
         pane.model.appendContent("old\n");
@@ -138,7 +138,7 @@ describe("TextFileModel: owner-write для detached", () => {
         service.dispose();
     });
 
-    it("save синтетического буфера не пишет на диск", () => {
+    it("saving a synthetic buffer does not write to disk", () => {
         const service = createEditorService();
         const pane = service.openDetached(OUTPUT_URI, "log");
 

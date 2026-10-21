@@ -94,7 +94,7 @@ describe("TextFileModel EOL", () => {
         expect(fired).toBe(2);
     });
 
-    it("dispose подписки onDidChangeEol останавливает доставку, повторный dispose — no-op", () => {
+    it("disposing an onDidChangeEol subscription stops delivery, a second dispose is a no-op", () => {
         const ctrl = createEditorPane();
         ctrl.openFile(Uri.file(writeFile("lf.txt", "a\nb")));
         let fired = 0;

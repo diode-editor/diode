@@ -32,7 +32,7 @@ function createEditorService(): EditorService {
 const REVISION_URI = Uri.from({ scheme: "git", path: "/repo/a.ts", query: '{"path":"/repo/a.ts","ref":"dev"}' });
 
 describe("EditorService.openTextSnapshot", () => {
-    it("открывает read-only вкладку с контентом, меткой и языком вызывающего", () => {
+    it("opens a read-only tab with the caller's content, label and language", () => {
         const service = createEditorService();
 
         const pane = service.openTextSnapshot(REVISION_URI, {
@@ -52,7 +52,7 @@ describe("EditorService.openTextSnapshot", () => {
         service.dispose();
     });
 
-    it("буфер не считается изменённым и не просит сохранения", () => {
+    it("the buffer is not considered modified and does not ask to be saved", () => {
         const service = createEditorService();
 
         const pane = service.openTextSnapshot(REVISION_URI, {
@@ -67,7 +67,7 @@ describe("EditorService.openTextSnapshot", () => {
         service.dispose();
     });
 
-    it("повторный вызов с тем же uri обновляет контент существующей вкладки", () => {
+    it("a repeated call with the same uri updates the existing tab's content", () => {
         const service = createEditorService();
         service.openTextSnapshot(REVISION_URI, { text: "old\n", languageId: "plaintext", label: "a.ts (dev)" });
 
@@ -83,7 +83,7 @@ describe("EditorService.openTextSnapshot", () => {
         service.dispose();
     });
 
-    it("повторный вызов с focus: false активирует вкладку, не забирая фокус", () => {
+    it("a repeated call with focus: false activates the tab without taking focus", () => {
         const service = createEditorService();
         const first = service.openTextSnapshot(REVISION_URI, { text: "a\n", languageId: "plaintext", label: "a" });
         const otherUri = Uri.from({ scheme: "git", path: "/repo/b.ts", query: '{"path":"/repo/b.ts","ref":"dev"}' });
@@ -100,7 +100,7 @@ describe("EditorService.openTextSnapshot", () => {
         service.dispose();
     });
 
-    it("другая ревизия того же файла — отдельная вкладка", () => {
+    it("another revision of the same file is a separate tab", () => {
         const service = createEditorService();
         service.openTextSnapshot(REVISION_URI, { text: "dev\n", languageId: "plaintext", label: "a.ts (dev)" });
 
@@ -112,8 +112,8 @@ describe("EditorService.openTextSnapshot", () => {
     });
 });
 
-describe("TextFileModel.openFile — гейт схемы", () => {
-    it("не-file uri не читается с диска по fsPath и не бросает наружу", async () => {
+describe("TextFileModel.openFile — scheme gate", () => {
+    it("a non-file uri is not read from disk by fsPath and does not throw", async () => {
         const service = createEditorService();
         const failures: string[] = [];
         service.onDidFailOpen(({ uri, reason }) => failures.push(`${uri.scheme}: ${reason}`));

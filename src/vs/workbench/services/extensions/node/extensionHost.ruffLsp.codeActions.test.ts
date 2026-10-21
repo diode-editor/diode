@@ -25,7 +25,7 @@ import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
 let installed: IInstalledRuff;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от стокового ruff", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions from the stock ruff", () => {
     beforeAll(async () => {
         installed = await installRuff();
     }, 120_000);
@@ -58,7 +58,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
     }
 
     async function untilSourceAction(harness: IExtensionHarness, uri: string, only: string): Promise<void> {
-        await until(`${only} action от ruff`, async () => {
+        await until(`${only} action from ruff`, async () => {
             const actions = await provideCodeActions(harness, {
                 uri,
                 languageId: "python",
@@ -70,7 +70,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
         });
     }
 
-    it("editor.action.organizeImports пересортировывает импорты правками ruff", { timeout: 240_000 }, async () => {
+    it("editor.action.organizeImports re-sorts imports with ruff's edits", { timeout: 240_000 }, async () => {
         const { harness, lintUri } = await openLintFile();
         try {
             await untilSourceAction(harness, lintUri, "source.organizeImports");
@@ -90,7 +90,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
         }
     });
 
-    it("editor.action.fixAll применяет safe-фиксы: неиспользуемый импорт удалён", { timeout: 240_000 }, async () => {
+    it("editor.action.fixAll applies safe fixes: the unused import is removed", { timeout: 240_000 }, async () => {
         const { harness, lintUri } = await openLintFile();
         try {
             await untilSourceAction(harness, lintUri, "source.fixAll");
@@ -108,14 +108,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
     });
 
     it(
-        "quickfix по диагностике F401: «Remove unused import» с isPreferred, apply правит буфер",
+        "quickfix for diagnostic F401: `Remove unused import` with isPreferred, apply edits the buffer",
         { timeout: 240_000 },
         async () => {
             const { harness, lintUri } = await openLintFile();
             try {
                 // The subprocess collects context diagnostics itself from DiagnosticCollection.
                 // Wait specifically for the quickfix set: the server may still be linting.
-                const quickfixes = await until("quickfix-набор для F401", async () => {
+                const quickfixes = await until("quickfix set for F401", async () => {
                     const actions = await provideCodeActions(harness, {
                         uri: lintUri,
                         languageId: "python",

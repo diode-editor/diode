@@ -5,36 +5,36 @@ import { parseSearchFieldGlobs } from "./textSearch.ts";
 // Expectations follow upstream `parseSearchPaths` (`queryBuilder.ts`) for a single folder.
 describe("parseSearchFieldGlobs", () => {
     it.each<[string, string, string[]]>([
-        ["пустое поле", "", []],
-        ["одни пробелы и запятые", " , ,", []],
-        ["имя — на любой глубине и всё под ним", "common", ["**/common/**", "**/common"]],
-        ["путь со слэшем — тоже на любой глубине", "nci/common", ["**/nci/common/**", "**/nci/common"]],
-        ["маска файла", "*.ts", ["**/*.ts/**", "**/*.ts"]],
-        ["`.js` — сокращение `*.js`", ".js", ["**/*.js/**", "**/*.js"]],
-        ["ведущий `**` не удваивается", "**/gen", ["**/gen/**", "**/gen"]],
-        ["хвостовой `**` не удваивается", "out/**", ["**/out/**", "**/out/**"]],
-        ["хвостовой `/` срезается", "dist/", ["**/dist/**", "**/dist"]],
-        ["хвостовой `\\` срезается", "dist\\", ["**/dist/**", "**/dist"]],
-        ["`./x` — путь от корня", "./common", ["common", "common/**"]],
-        ["`.\\x` — путь от корня в windows-форме", ".\\nci\\common", ["nci/common", "nci/common/**"]],
-        ["`./x/` — хвост срезается", "./common/", ["common", "common/**"]],
+        ["empty field", "", []],
+        ["only spaces and commas", " , ,", []],
+        ["a name: at any depth and everything under it", "common", ["**/common/**", "**/common"]],
+        ["a path with a slash: also at any depth", "nci/common", ["**/nci/common/**", "**/nci/common"]],
+        ["file mask", "*.ts", ["**/*.ts/**", "**/*.ts"]],
+        ["`.js` is short for `*.js`", ".js", ["**/*.js/**", "**/*.js"]],
+        ["a leading `**` is not doubled", "**/gen", ["**/gen/**", "**/gen"]],
+        ["a trailing `**` is not doubled", "out/**", ["**/out/**", "**/out/**"]],
+        ["a trailing `/` is stripped", "dist/", ["**/dist/**", "**/dist"]],
+        ["a trailing `\\` is stripped", "dist\\", ["**/dist/**", "**/dist"]],
+        ["`./x` is a path from the root", "./common", ["common", "common/**"]],
+        ["`.\\x` is a path from the root in windows form", ".\\nci\\common", ["nci/common", "nci/common/**"]],
+        ["`./x/`: the tail is stripped", "./common/", ["common", "common/**"]],
         // `**` would override `.gitignore` (rg's `--glob` beats ignore files)
-        ["`.` — сам корень, шаблона не даёт", ".", []],
-        ["`./` — сам корень, шаблона не даёт", "./", []],
-        ["`..` — вне корня, пропускается", "..", []],
-        ["`../x` — вне корня, пропускается", "../other", []],
-        ["абсолютный posix-путь пропускается", "/abs/path", []],
-        ["абсолютный windows-путь пропускается", "C:\\abs", []],
-        ["UNC-путь пропускается", "\\\\server\\share", []],
+        ["`.` is the root itself, gives no pattern", ".", []],
+        ["`./` is the root itself, gives no pattern", "./", []],
+        ["`..` is outside the root, skipped", "..", []],
+        ["`../x` is outside the root, skipped", "../other", []],
+        ["an absolute posix path is skipped", "/abs/path", []],
+        ["an absolute windows path is skipped", "C:\\abs", []],
+        ["a UNC path is skipped", "\\\\server\\share", []],
     ])("%s: %j", (_name, value, expected) => {
         expect(parseSearchFieldGlobs(value)).toEqual(expected);
     });
 
-    it("список через запятую, пробелы вокруг срезаются", () => {
+    it("a comma-separated list, surrounding spaces are stripped", () => {
         expect(parseSearchFieldGlobs(" *.ts ,  ./src ")).toEqual(["**/*.ts/**", "**/*.ts", "src", "src/**"]);
     });
 
-    it("запятая внутри `{…}` не делит поле", () => {
+    it("a comma inside `{…}` does not split the field", () => {
         expect(parseSearchFieldGlobs("*.{ts,js}, out")).toEqual([
             "**/*.{ts,js}/**",
             "**/*.{ts,js}",
@@ -43,7 +43,7 @@ describe("parseSearchFieldGlobs", () => {
         ]);
     });
 
-    it("пропущенный сегмент не роняет соседей", () => {
+    it("a skipped segment does not break its neighbors", () => {
         expect(parseSearchFieldGlobs("../x, common")).toEqual(["**/common/**", "**/common"]);
     });
 });

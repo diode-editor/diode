@@ -5,7 +5,7 @@ import { LogLevel } from "../../../../platform/log/common/logLevel.ts";
 import { createStderrLogger } from "./stderrLogger.ts";
 
 describe("createStderrLogger", () => {
-    it("warn и error — строкой с префиксом, аргументы через «: », ошибка со стеком", () => {
+    it("warn and error go as a prefixed line, args joined by `: `, error with its stack", () => {
         const lines: string[] = [];
         const logger = createStderrLogger((line) => lines.push(line));
         const error = new Error("boom");
@@ -19,7 +19,7 @@ describe("createStderrLogger", () => {
         ]);
     });
 
-    it("trace/debug/info молчат; включены только warn и выше", () => {
+    it("trace/debug/info are silent; only warn and above are enabled", () => {
         const lines: string[] = [];
         const logger = createStderrLogger((line) => lines.push(line));
         logger.trace("t");
@@ -33,7 +33,7 @@ describe("createStderrLogger", () => {
         ).toEqual([false, false, false, true, true]);
     });
 
-    it("по умолчанию пишет в stderr (console.error)", () => {
+    it("writes to stderr by default (console.error)", () => {
         const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
         try {
             createStderrLogger().warn("x");

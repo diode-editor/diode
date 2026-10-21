@@ -65,7 +65,7 @@ afterEach(() => {
 
 describe("ExtensionUrlHandler", () => {
     it.each(["diode://not-an-id/x", "diode:///x", "diode://a.b.c/x", "diode://-a.b/x"])(
-        "authority — не id расширения: не наш URL (%s)",
+        "authority is not an extension id: not our URL (%s)",
         async (raw) => {
             const { handler, options } = setup();
             await expect(handler.handleURL(Uri.parse(raw))).resolves.toBe(false);
@@ -73,7 +73,7 @@ describe("ExtensionUrlHandler", () => {
         },
     );
 
-    it("неустановленное расширение: человеку сказано, URL забран", async () => {
+    it("extension not installed: the user is told, URL is claimed", async () => {
         const { handler, options } = setup();
         const uri = Uri.parse("diode://other.ext/x");
         await expect(handler.handleURL(uri)).resolves.toBe(true);
@@ -82,7 +82,7 @@ describe("ExtensionUrlHandler", () => {
         expect(options.activateByEvent).not.toHaveBeenCalled();
     });
 
-    it("есть обработчик, человек согласился — URI уходит расширению строкой", async () => {
+    it("handler exists, user agrees — URI goes to the extension as a string", async () => {
         const { handler, handlers, options } = setup();
         handlers.register("pub.ext");
         await expect(handler.handleURL(URI)).resolves.toBe(true);
@@ -91,7 +91,7 @@ describe("ExtensionUrlHandler", () => {
         expect(options.activateByEvent).not.toHaveBeenCalled();
     });
 
-    it("человек отказался — URI никуда не уходит, но забран", async () => {
+    it("user declines — URI goes nowhere but is claimed", async () => {
         const { handler, handlers, options } = setup({ confirm: vi.fn(() => Promise.resolve(false)) });
         handlers.register("pub.ext");
         await expect(handler.handleURL(URI)).resolves.toBe(true);
@@ -99,7 +99,7 @@ describe("ExtensionUrlHandler", () => {
         expect(options.activateByEvent).not.toHaveBeenCalled();
     });
 
-    it("trusted-опция — без вопроса", async () => {
+    it("trusted option — no prompt", async () => {
         const { handler, handlers, options } = setup();
         handlers.register("pub.ext");
         await handler.handleURL(URI, { trusted: true });
@@ -107,7 +107,7 @@ describe("ExtensionUrlHandler", () => {
         expect(handlers.handled).toHaveLength(1);
     });
 
-    it("расширение в настройке доверия (без учёта регистра) — без вопроса", async () => {
+    it("extension in the trust setting (case-insensitive) — no prompt", async () => {
         const { handler, handlers, options } = setup({ confirmedExtensionIds: () => ["other.one", "PUB.Ext"] });
         handlers.register("pub.ext");
         await handler.handleURL(URI);
@@ -116,7 +116,7 @@ describe("ExtensionUrlHandler", () => {
     });
 
     it.each([undefined, "pub.ext", { "pub.ext": true }, [1, null]])(
-        "настройка доверия не списком строк — вопрос (%j)",
+        "trust setting is not a string list — prompt (%j)",
         async (value) => {
             const { handler, options } = setup({ confirmedExtensionIds: () => value });
             await handler.handleURL(URI);
@@ -124,19 +124,19 @@ describe("ExtensionUrlHandler", () => {
         },
     );
 
-    it("в списке доверия мусор рядом с id — id всё равно засчитан", async () => {
+    it("junk next to the id in the trust list — the id still counts", async () => {
         const { handler, options } = setup({ confirmedExtensionIds: () => [1, null, "pub.ext"] });
         await handler.handleURL(URI);
         expect(options.confirm).not.toHaveBeenCalled();
     });
 
-    it("trusted: false и чужие id в настройке — вопрос", async () => {
+    it("trusted: false and other ids in the setting — prompt", async () => {
         const { handler, options } = setup({ confirmedExtensionIds: () => ["other.one"] });
         await handler.handleURL(URI, { trusted: false });
         expect(options.confirm).toHaveBeenCalledOnce();
     });
 
-    it("обработчика ещё нет: активация onUri:<id в нижнем регистре>, буфер уходит при регистрации", async () => {
+    it("no handler yet: activates onUri:<lowercase id>, buffer is flushed on registration", async () => {
         const { handler, handlers, options } = setup();
         const uri = Uri.parse("diode://Pub.Ext/a");
         await expect(handler.handleURL(uri)).resolves.toBe(true);
@@ -152,13 +152,13 @@ describe("ExtensionUrlHandler", () => {
         expect(handlers.handled).toHaveLength(2);
     });
 
-    it("регистрация расширения без буфера — ничего не шлёт", () => {
+    it("registering an extension without a buffer sends nothing", () => {
         const { handlers } = setup();
         handlers.register("pub.ext");
         expect(handlers.handle).not.toHaveBeenCalled();
     });
 
-    it("сбой доставки из буфера — в лог, остальные URI доставлены", async () => {
+    it("buffer delivery failure is logged, other URIs are delivered", async () => {
         const { handler, handlers, options } = setup();
         await handler.handleURL(Uri.parse("diode://pub.ext/a"));
         await handler.handleURL(Uri.parse("diode://pub.ext/b"));
@@ -173,7 +173,7 @@ describe("ExtensionUrlHandler", () => {
         );
     });
 
-    it("буфер: URI старше пяти минут забывается сборкой каждые 30 с, свежие остаются", async () => {
+    it("buffer: URIs older than five minutes are dropped by a sweep every 30 s, fresh ones stay", async () => {
         vi.useFakeTimers();
         const { handler, handlers, advance } = setup();
         await handler.handleURL(Uri.parse("diode://pub.ext/old"));
@@ -184,7 +184,7 @@ describe("ExtensionUrlHandler", () => {
         expect(handlers.handled.map((h) => h.uri)).toEqual(["diode://pub.ext/fresh"]);
     });
 
-    it("сборка ровно на пятой минуте уже забывает", async () => {
+    it("a sweep at exactly five minutes already drops", async () => {
         vi.useFakeTimers();
         const { handler, handlers, advance } = setup();
         await handler.handleURL(Uri.parse("diode://pub.ext/old"));
@@ -193,7 +193,7 @@ describe("ExtensionUrlHandler", () => {
         expect(handlers.handled).toEqual([]);
     });
 
-    it("до первой сборки (меньше 30 с) буфер цел; после dispose сборки нет", async () => {
+    it("before the first sweep (under 30 s) the buffer is intact; no sweep after dispose", async () => {
         vi.useFakeTimers();
         const { handler, handlers, advance } = setup();
         await handler.handleURL(Uri.parse("diode://pub.ext/a"));
@@ -206,7 +206,7 @@ describe("ExtensionUrlHandler", () => {
 });
 
 describe("confirmMessage", () => {
-    it("короткий URI — целиком, с эталонной фразой и подсказкой про настройку", () => {
+    it("short URI — shown whole, with the upstream phrase and a hint about the setting", () => {
         expect(confirmMessage("Claude Code", Uri.parse("diode://a.b/x"))).toEqual([
             "Allow 'Claude Code' extension to open this URI?",
             "diode://a.b/x",
@@ -214,14 +214,14 @@ describe("confirmMessage", () => {
         ]);
     });
 
-    it("длиннее 40 символов — 30 первых, многоточие, 5 последних", () => {
+    it("longer than 40 characters — first 30, ellipsis, last 5", () => {
         const uri = Uri.parse("diode://anthropic.claude-code/install-plugin?name=abcdef");
         const s = uri.toString();
         expect(s.length).toBeGreaterThan(40);
         expect(confirmMessage("C", uri)[1]).toBe(`${s.substring(0, 30)}...${s.substring(s.length - 5)}`);
     });
 
-    it("ровно 40 символов — целиком", () => {
+    it("exactly 40 characters — shown whole", () => {
         const uri = Uri.parse("diode://a.b/" + "x".repeat(28));
         expect(uri.toString()).toHaveLength(40);
         expect(confirmMessage("C", uri)[1]).toBe(uri.toString());
@@ -242,7 +242,7 @@ describe("installedExtensionDisplayName", () => {
         isBuiltin: false,
     });
 
-    it("по id без учёта регистра — displayName, без него — id", () => {
+    it("case-insensitive by id — displayName, without it — id", () => {
         const extensions = [
             extension("other.ext", "Other"),
             extension("Anthropic.claude-code", "Claude Code"),
@@ -252,7 +252,7 @@ describe("installedExtensionDisplayName", () => {
         expect(installedExtensionDisplayName(extensions, "a.b")).toBe("a.b");
     });
 
-    it("неустановленное — undefined", () => {
+    it("not installed — undefined", () => {
         expect(installedExtensionDisplayName([extension("a.b")], "c.d")).toBeUndefined();
     });
 });

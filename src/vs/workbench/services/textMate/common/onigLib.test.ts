@@ -23,7 +23,7 @@ console.log(JSON.stringify({ start: match?.captureIndices[0].start, end: match?.
 `;
 
 describe("getOnigLib", () => {
-    it("движок работает, а undici и http при загрузке не будятся", () => {
+    it("the engine works, and undici and http are not woken up on load", () => {
         const out = execFileSync(process.execPath, ["--import", "tsx", "--input-type=module", "-e", SCRIPT], {
             cwd: REPO_ROOT,
             encoding: "utf8",

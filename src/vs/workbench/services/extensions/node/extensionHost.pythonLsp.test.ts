@@ -23,7 +23,7 @@ import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
 let installed: IInstalledBasedpyright;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpyright.vsix (Python LSP, сквозняк)", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock basedpyright.vsix (Python LSP, end-to-end)", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
         expect(installed.registration.id).toBe("detachhead.basedpyright");
@@ -34,7 +34,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
     });
 
     it(
-        "активация без ошибок, диагностика приезжает и уходит после несохранённой правки",
+        "activation without errors, a diagnostic arrives and goes away after an unsaved edit",
         { timeout: 240_000 },
         async () => {
             const published: { resource: string; markers: readonly WireMarker[] }[] = [];
@@ -62,7 +62,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
                 expect(harness.host.hasExtension("detachhead.basedpyright")).toBe(true);
 
                 // Diagnostics from the REAL bundled server double as the readiness signal.
-                const marker = await until("диагностика 'is not assignable' в main.py", () => {
+                const marker = await until("'is not assignable' diagnostic in main.py", () => {
                     const hit = markersFor(mainUri).find((m) => m.message.includes("is not assignable"));
                     return Promise.resolve(hit ?? null);
                 });
@@ -72,7 +72,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
                 harness.group
                     .getActiveEditor()
                     ?.applyExternalEdits([createTextEdit(createRange(2, 7, 2, 10), "str")], "fix type");
-                await until("диагностика ушла после фикса", () =>
+                await until("diagnostic gone after the fix", () =>
                     Promise.resolve(
                         markersFor(mainUri).some((m) => m.message.includes("is not assignable")) ? null : true,
                     ),
@@ -86,7 +86,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
         },
     );
 
-    it("go to definition: с вызова greet в объявление в defs.py", { timeout: 240_000 }, async () => {
+    it("go to definition: from the greet call to the declaration in defs.py", { timeout: 240_000 }, async () => {
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: PY_LANGUAGE_SERVICE,
             activateEvents: [],
@@ -102,7 +102,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
             await harness.host.activateByEvent("onLanguage:python");
 
             // Cursor on the `greet` call (line 2, inside the name) → the declaration.
-            const locations = await until("definition вызова greet", async () => {
+            const locations = await until("definition of the greet call", async () => {
                 const found = await provideDefinitions(harness, {
                     uri: mainUri,
                     languageId: "python",

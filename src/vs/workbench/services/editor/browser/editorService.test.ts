@@ -152,7 +152,7 @@ describe("EditorService", () => {
             expect(ctrl.getEditors().map((e) => ctrl.displayName(e))).toEqual(["Untitled-2", "Untitled-3"]);
         });
 
-        it("suggestedSaveName: метка + расширение языка буфера (plaintext → .txt)", () => {
+        it("suggestedSaveName: label + buffer language extension (plaintext → .txt)", () => {
             const ctrl = createEditorService({
                 languageService: {
                     ...NULL_LANGUAGE_SERVICE,
@@ -164,7 +164,7 @@ describe("EditorService", () => {
             expect(ctrl.suggestedSaveName(ctrl.getActiveEditor()!)).toBe("Untitled-1.txt");
         });
 
-        it("suggestedSaveName следует за сменой языка буфера, а не за зашитым дефолтом", () => {
+        it("suggestedSaveName follows the buffer's language change, not a hardcoded default", () => {
             const ctrl = createEditorService({
                 languageService: {
                     ...NULL_LANGUAGE_SERVICE,
@@ -179,7 +179,7 @@ describe("EditorService", () => {
             expect(ctrl.suggestedSaveName(editor)).toBe("Untitled-1.ts");
         });
 
-        it("suggestedSaveName: язык без расширения → имя без расширения", () => {
+        it("suggestedSaveName: a language without an extension → a name without an extension", () => {
             const ctrl = createEditorService(); // NULL_LANGUAGE_SERVICE → undefined
             ctrl.newUntitled();
 
@@ -412,8 +412,8 @@ describe("EditorService", () => {
         });
     });
 
-    describe("collectDirty (участник shutdown)", () => {
-        it("возвращает только несохранённые редакторы, чистые пропускает", () => {
+    describe("collectDirty (shutdown participant)", () => {
+        it("returns only unsaved editors, skips clean ones", () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("clean.ts", "a"));
             ctrl.openFile(writeFile("dirty.ts", "b"));
@@ -424,7 +424,7 @@ describe("EditorService", () => {
             expect(items.map((i) => i.name)).toEqual(["dirty.ts"]);
         });
 
-        it("isStillDirty гаснет после закрытия вкладки; save снимает isModified", async () => {
+        it("isStillDirty turns false after the tab closes; save clears isModified", async () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.ts", "a\nb"));
             const editor = ctrl.getActiveEditor()!;
@@ -440,7 +440,7 @@ describe("EditorService", () => {
             expect(item.isStillDirty()).toBe(false);
         });
 
-        it("save перезаписывает файл, изменённый на диске извне: выбор Save не теряется", async () => {
+        it("save overwrites a file changed on disk externally: the Save choice is not lost", async () => {
             const ctrl = createEditorService();
             const file = writeFile("a.ts", "a\nb");
             ctrl.openFile(file);
@@ -454,8 +454,8 @@ describe("EditorService", () => {
         });
     });
 
-    describe("saveAll (перед запуском задачи)", () => {
-        it("сохраняет несохранённые файлы по одному разу на документ, чистые не трогает", async () => {
+    describe("saveAll (before running a task)", () => {
+        it("saves unsaved files once per document, leaves clean ones alone", async () => {
             const ctrl = createEditorService();
             const dirty = writeFile("dirty.ts", "a\nb");
             const clean = writeFile("clean.ts", "c");
@@ -470,7 +470,7 @@ describe("EditorService", () => {
             expect(ctrl.collectDirty()).toStrictEqual([]);
         });
 
-        it("файл, изменённый на диске, не перезаписывает", async () => {
+        it("does not overwrite a file changed on disk", async () => {
             const ctrl = createEditorService();
             const file = writeFile("a.ts", "a\nb");
             ctrl.openFile(file);
@@ -483,7 +483,7 @@ describe("EditorService", () => {
             expect(ctrl.collectDirty()).toHaveLength(1);
         });
 
-        it("сбой записи — false и ошибка в лог, остальные файлы всё равно сохраняются", async () => {
+        it("a write failure yields false and a logged error, other files are still saved", async () => {
             const logger = createLoggerSpy();
             const ctrl = createEditorService({ logService: { createLogger: () => logger } as unknown as ILogService });
             const locked = writeFile("locked/a.ts", "a\nb");
@@ -507,7 +507,7 @@ describe("EditorService", () => {
             );
         });
 
-        it("безымянный буфер пропускается; с includeUntitled он не сохранён — false", async () => {
+        it("an untitled buffer is skipped; with includeUntitled it is not saved, so false", async () => {
             const ctrl = createEditorService();
             const file = writeFile("a.ts", "a\nb");
             ctrl.newUntitled();
@@ -523,8 +523,8 @@ describe("EditorService", () => {
         });
     });
 
-    describe("save (workspace.save расширений)", () => {
-        it("сохраняет открытый документ ресурса, даже чистый, и возвращает его ресурс", async () => {
+    describe("save (extensions' workspace.save)", () => {
+        it("saves the resource's open document, even a clean one, and returns its resource", async () => {
             const ctrl = createEditorService();
             const file = writeFile("a.ts", "a\nb");
             ctrl.openFile(file);
@@ -544,7 +544,7 @@ describe("EditorService", () => {
             expect(fs.readFileSync(file, "utf8")).toBe("a\r\nb");
         });
 
-        it("не открыт, безымянный, конфликт с диском или сбой записи — undefined", async () => {
+        it("not open, untitled, disk conflict or write failure: undefined", async () => {
             const ctrl = createEditorService();
             await expect(ctrl.save(Uri.file(path.join(tmpDir, "none.ts")))).resolves.toBeUndefined();
             // Open files don't stand in for the requested resource.
@@ -686,7 +686,7 @@ describe("EditorService", () => {
     });
 
     describe("save participant & onEditorSaved", () => {
-        it("saveParticipant виден существующим и будущим редакторам (пайплайн собирается в момент save)", async () => {
+        it("saveParticipant is visible to existing and future editors (the pipeline is built at save time)", async () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.txt", "x"));
 
@@ -708,7 +708,7 @@ describe("EditorService", () => {
             expect(saved[1]).toBe(Uri.file(bPath).toString());
         });
 
-        it("сохранение модели без вкладки (сторона диффа) тоже перерисовывает полосу", async () => {
+        it("saving a model without a tab (diff side) also redraws the strip", async () => {
             const ctrl = createEditorService();
             const ref = ctrl.textFileModels.acquire(Uri.file(writeFile("side.txt", "x")));
             let changes = 0;
@@ -720,7 +720,7 @@ describe("EditorService", () => {
             ref.dispose();
         });
 
-        it("onEditorSaved стреляет при сохранении и отписывается через dispose", async () => {
+        it("onEditorSaved fires on save and unsubscribes via dispose", async () => {
             const ctrl = createEditorService({
                 languageService: {
                     ...NULL_LANGUAGE_SERVICE,
@@ -755,7 +755,7 @@ describe("EditorService", () => {
     });
 
     describe("onDidChangeActiveEditorSelection (#194)", () => {
-        it("следует за активной вкладкой и снимается по dispose", () => {
+        it("follows the active tab and is removed on dispose", () => {
             const ctrl = createEditorService();
             const a = writeFile("a.ts", "one\ntwo");
             const b = writeFile("b.ts", "three\nfour");

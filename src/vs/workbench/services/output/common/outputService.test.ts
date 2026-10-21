@@ -35,14 +35,14 @@ function entry(overrides: Partial<LogEntry> = {}): LogEntry {
 }
 
 describe("formatOutputLine", () => {
-    it("кладёт уровень в скобки — под стоковую грамматику log", () => {
+    it("puts the level in brackets to suit the stock log grammar", () => {
         // The extensions/log grammar highlights exactly `[info]`/`[warn]`/`[error]`,
         // so the bracket form is part of the contract, not cosmetics.
         const line = formatOutputLine(entry({ level: LogLevel.Warn, message: "activationEvents empty" }));
         expect(line).toContain("[warn] activationEvents empty");
     });
 
-    it("печатает время как HH:MM:SS.mmm", () => {
+    it("prints the time as HH:MM:SS.mmm", () => {
         const timestamp = Date.UTC(2026, 0, 1, 12, 4, 31, 220);
         const d = new Date(timestamp);
         const pad = (n: number, w = 2) => String(n).padStart(w, "0");
@@ -53,12 +53,12 @@ describe("formatOutputLine", () => {
         expect(expected).toMatch(/^\d{2}:\d{2}:\d{2}\.\d{3}$/);
     });
 
-    it("дописывает args JSON-ом", () => {
+    it("appends args as JSON", () => {
         const line = formatOutputLine(entry({ message: "activate failed", args: [{ id: "git" }] }));
         expect(line).toContain('activate failed {"id":"git"}');
     });
 
-    it("ошибку в args печатает её сообщением, а не JSON-ом", () => {
+    it("prints an error in args by its message, not as JSON", () => {
         // `Error` fields are non-enumerable, so JSON would give `{}`; one received over RPC
         // has own fields, and JSON would give the internal `{"name":…,"message":…}`.
         const native = new Error("boom");
@@ -67,21 +67,21 @@ describe("formatOutputLine", () => {
         expect(line).toMatch(/failed boom from rpc$/);
     });
 
-    it("несериализуемый аргумент не роняет форматирование", () => {
+    it("a non-serializable argument does not break formatting", () => {
         const cyclic: Record<string, unknown> = {};
         cyclic.self = cyclic;
         expect(() => formatOutputLine(entry({ args: [cyclic] }))).not.toThrow();
     });
 
-    it("undefined в args не превращается в пустоту", () => {
+    it("undefined in args does not turn into nothing", () => {
         // JSON.stringify(undefined) === undefined: without the fallback the line would
         // silently lose the argument.
         expect(formatOutputLine(entry({ args: [undefined] }))).toContain("undefined");
     });
 });
 
-describe("OutputService: каналы", () => {
-    it("подхватывает каналы, писавшие до подъёма сервиса", () => {
+describe("OutputService: channels", () => {
+    it("picks up channels that wrote before the service started", () => {
         const stack = createStack();
         stack.logService.createLogger("bootstrap").info("early");
 
@@ -91,7 +91,7 @@ describe("OutputService: каналы", () => {
         service.dispose();
     });
 
-    it("первый известный канал становится активным", () => {
+    it("the first known channel becomes active", () => {
         const stack = createStack();
         stack.logService.createLogger("bootstrap").info("early");
 
@@ -101,7 +101,7 @@ describe("OutputService: каналы", () => {
         service.dispose();
     });
 
-    it("канал, появившийся в живом потоке, авторегистрируется", () => {
+    it("a channel that appears in the live stream is auto-registered", () => {
         // Loggers are created ad hoc: without auto-registration the subsystem would be missing
         // from the selector and its log unreachable.
         const stack = createStack();
@@ -114,7 +114,7 @@ describe("OutputService: каналы", () => {
         service.dispose();
     });
 
-    it("объявленный label не перетирается авторегистрацией", () => {
+    it("a declared label is not overwritten by auto-registration", () => {
         const stack = createStack();
         stack.registry.registerChannel({ id: "extensions.host", label: "Extension Host" });
         const service = createService(stack);
@@ -125,7 +125,7 @@ describe("OutputService: каналы", () => {
         service.dispose();
     });
 
-    it("метку канала даёт его создатель — каналы с метками видны до первой записи, в порядке создания", () => {
+    it("the channel label comes from its creator: labeled channels are visible before the first write, in creation order", () => {
         const stack = createStack();
         stack.logService.createLogger("bootstrap", { label: "Bootstrap" });
         stack.logService.createLogger("configuration", { label: "Configuration" });
@@ -140,7 +140,7 @@ describe("OutputService: каналы", () => {
         service.dispose();
     });
 
-    it("канал с меткой, заведённый после подъёма сервиса, попадает в реестр с меткой", () => {
+    it("a labeled channel created after the service starts enters the registry with its label", () => {
         const stack = createStack();
         const service = createService(stack);
 
@@ -152,7 +152,7 @@ describe("OutputService: каналы", () => {
         expect(stack.registry.getChannel("late")).toBeUndefined();
     });
 
-    it("канал, объявленный позже, становится активным, если активного не было", () => {
+    it("a channel declared later becomes active if there was no active one", () => {
         const stack = createStack();
         const service = createService(stack);
         expect(service.getActiveChannelId()).toBeNull();
@@ -164,7 +164,7 @@ describe("OutputService: каналы", () => {
     });
 });
 
-describe("OutputService: активный канал", () => {
+describe("OutputService: active channel", () => {
     function serviceWithTwoChannels() {
         const stack = createStack();
         stack.logService.createLogger("bootstrap").info("boot");
@@ -172,7 +172,7 @@ describe("OutputService: активный канал", () => {
         return { stack, service: createService(stack) };
     }
 
-    it("showChannel переключает и файрит событие", () => {
+    it("showChannel switches and fires the event", () => {
         const { service } = serviceWithTwoChannels();
         const seen: string[] = [];
         service.onDidChangeActiveChannel((id) => seen.push(id));
@@ -184,7 +184,7 @@ describe("OutputService: активный канал", () => {
         service.dispose();
     });
 
-    it("повторный showChannel того же канала не файрит", () => {
+    it("a repeated showChannel of the same channel does not fire", () => {
         const { service } = serviceWithTwoChannels();
         let fired = 0;
         service.onDidChangeActiveChannel(() => fired++);
@@ -195,7 +195,7 @@ describe("OutputService: активный канал", () => {
         service.dispose();
     });
 
-    it("контекст-ключ activeOutputChannel обновлён ДО рассылки события", () => {
+    it("the activeOutputChannel context key is updated BEFORE the event is dispatched", () => {
         // Selector items' `toggled` hangs on this key. When a subscriber set the key,
         // it could run after whoever re-reads the items, and the selector
         // showed the previous channel while the content had already switched.
@@ -211,20 +211,20 @@ describe("OutputService: активный канал", () => {
         service.dispose();
     });
 
-    it("ключ выставлен уже при старте — по первому каналу", () => {
+    it("the key is set already at startup, from the first channel", () => {
         const { stack, service } = serviceWithTwoChannels();
         expect(stack.contextKeys.get("activeOutputChannel")).toBe("bootstrap");
         service.dispose();
     });
 
-    it("без каналов ключ пустой, а не undefined", () => {
+    it("without channels the key is empty, not undefined", () => {
         const stack = createStack();
         const service = createService(stack);
         expect(stack.contextKeys.get("activeOutputChannel")).toBe("");
         service.dispose();
     });
 
-    it("неизвестный канал игнорируется", () => {
+    it("an unknown channel is ignored", () => {
         const { service } = serviceWithTwoChannels();
 
         service.showChannel("nope");
@@ -234,8 +234,8 @@ describe("OutputService: активный канал", () => {
     });
 });
 
-describe("OutputService: содержимое и живой хвост", () => {
-    it("renderChannel отдаёт историю канала построчно", () => {
+describe("OutputService: content and live tail", () => {
+    it("renderChannel returns the channel history line by line", () => {
         const stack = createStack();
         const logger = stack.logService.createLogger("bootstrap");
         logger.info("first");
@@ -251,14 +251,14 @@ describe("OutputService: содержимое и живой хвост", () => {
         service.dispose();
     });
 
-    it("пустой канал рендерится пустой строкой", () => {
+    it("an empty channel renders as an empty string", () => {
         const stack = createStack();
         const service = createService(stack);
         expect(service.renderChannel("nope")).toBe("");
         service.dispose();
     });
 
-    it("хвост приходит только по активному каналу", () => {
+    it("the tail comes only for the active channel", () => {
         const stack = createStack();
         stack.logService.createLogger("bootstrap").info("boot");
         stack.logService.createLogger("configuration").info("config");
@@ -273,7 +273,7 @@ describe("OutputService: содержимое и живой хвост", () => {
         service.dispose();
     });
 
-    it("после смены активного канала хвост идёт из него", () => {
+    it("after the active channel changes, the tail comes from it", () => {
         const stack = createStack();
         stack.logService.createLogger("bootstrap").info("boot");
         stack.logService.createLogger("configuration").info("config");
@@ -289,7 +289,7 @@ describe("OutputService: содержимое и живой хвост", () => {
         service.dispose();
     });
 
-    it("подписка снимается по dispose", () => {
+    it("the subscription is removed on dispose", () => {
         const stack = createStack();
         stack.logService.createLogger("bootstrap").info("boot");
         const service = createService(stack);

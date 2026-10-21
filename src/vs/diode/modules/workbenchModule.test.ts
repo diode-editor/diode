@@ -45,7 +45,7 @@ describe("workbenchModule — env.openExternal", () => {
             expect(notifications.passive()).toEqual([
                 expect.objectContaining({
                     severity: "info",
-                    message: "Ссылка скопирована в буфер обмена: https://example.com/activate?token=42",
+                    message: "Link copied to clipboard: https://example.com/activate?token=42",
                 }),
             ]);
         } finally {

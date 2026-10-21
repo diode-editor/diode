@@ -54,7 +54,7 @@ function groupWith(...paths: string[]): { group: EditorGroup; panes: IFakePane[]
 }
 
 describe("EditorGroup", () => {
-    it("контракт порядка событий activateTab: onDidChangeEditors → фокус → onDidChangeActivePane", () => {
+    it("activateTab event order contract: onDidChangeEditors → focus → onDidChangeActivePane", () => {
         const { group, panes } = groupWith("/a.ts", "/b.ts");
         const order: string[] = [];
         group.onDidChangeEditors(() => order.push("editors"));
@@ -66,14 +66,14 @@ describe("EditorGroup", () => {
         expect(order).toEqual(["editors", "focus", "active"]);
     });
 
-    it("activateTab без focus не фокусирует, но события те же", () => {
+    it("activateTab without focus does not focus, but the events are the same", () => {
         const { group, panes } = groupWith("/a.ts");
         group.activateTab(0, { focus: false });
         expect(panes[0].focused).toBe(0);
         expect(group.activePane === panes[0]).toBe(true);
     });
 
-    it("insertPane до активной сдвигает activeIndex, активная вкладка та же", () => {
+    it("insertPane before the active tab shifts activeIndex, the active tab stays the same", () => {
         const { group, panes } = groupWith("/a.ts", "/b.ts");
         group.activateTab(1);
         const inserted = makePane("/c.ts");
@@ -85,7 +85,7 @@ describe("EditorGroup", () => {
         expect(group.getPanes()[0] === inserted).toBe(true);
     });
 
-    it("closeTab активной: активной становится соседняя слева, вкладка disposed", () => {
+    it("closeTab of the active tab: the left neighbour becomes active, the tab is disposed", () => {
         const { group, panes } = groupWith("/a.ts", "/b.ts", "/c.ts");
         group.activateTab(1);
 
@@ -96,7 +96,7 @@ describe("EditorGroup", () => {
         expect(group.editorCount).toBe(2);
     });
 
-    it("closeTab последней вкладки: activePane == null, событие с null", () => {
+    it("closeTab of the last tab: activePane == null, event with null", () => {
         const { group, panes } = groupWith("/a.ts");
         group.activateTab(0);
         let observed: IEditorPane | null | undefined;
@@ -112,7 +112,7 @@ describe("EditorGroup", () => {
         expect(group.activeIndex).toBe(-1);
     });
 
-    it("closeTab после активной: активная не меняется, только перерисовка табов", () => {
+    it("closeTab after the active tab: the active one does not change, only a tabs redraw", () => {
         const { group, panes } = groupWith("/a.ts", "/b.ts");
         group.activateTab(0);
         let editorsFired = 0;
@@ -127,7 +127,7 @@ describe("EditorGroup", () => {
         expect(group.activePane === panes[0]).toBe(true);
     });
 
-    it("detachPane снимает вкладку живой и отписывается от её состояния", () => {
+    it("detachPane removes the tab alive and unsubscribes from its state", () => {
         const { group, panes } = groupWith("/a.ts", "/b.ts");
         group.activateTab(1);
         let editorsFired = 0;
@@ -143,14 +143,14 @@ describe("EditorGroup", () => {
         expect(editorsFired).toBe(before);
     });
 
-    it("detachPane с невалидным индексом — null, группа не тронута", () => {
+    it("detachPane with an invalid index returns null, the group is untouched", () => {
         const { group } = groupWith("/a.ts");
         expect(group.detachPane(-1)).toBeNull();
         expect(group.detachPane(1)).toBeNull();
         expect(group.editorCount).toBe(1);
     });
 
-    it("изменение состояния вкладки перерисовывает табы группы", () => {
+    it("a tab state change redraws the group's tabs", () => {
         const { group, panes } = groupWith("/a.ts");
         let editorsFired = 0;
         group.onDidChangeEditors(() => editorsFired++);
@@ -160,20 +160,20 @@ describe("EditorGroup", () => {
         expect(editorsFired).toBe(1);
     });
 
-    it("findPaneIndex — пер-группный дедуп по ресурсу", () => {
+    it("findPaneIndex — per-group dedup by resource", () => {
         const { group } = groupWith("/a.ts", "/b.ts");
         expect(group.findPaneIndex(Uri.file("/b.ts"))).toBe(1);
         expect(group.findPaneIndex(Uri.file("/nope.ts"))).toBe(-1);
     });
 
-    it("dispose группы диспозит оставшиеся вкладки", () => {
+    it("disposing the group disposes the remaining tabs", () => {
         const { group, panes } = groupWith("/a.ts", "/b.ts");
         group.dispose();
         expect(panes[0].disposed).toBe(true);
         expect(panes[1].disposed).toBe(true);
     });
 
-    it("повторный dispose подписок группы — no-op, чужие слушатели живы", () => {
+    it("a repeated dispose of the group's subscriptions is a no-op, other listeners stay alive", () => {
         const { group } = groupWith("/a.ts", "/b.ts");
         let editorsFired = 0;
         let paneFired = 0;
@@ -192,7 +192,7 @@ describe("EditorGroup", () => {
         expect(paneFired).toBe(1);
     });
 
-    it("MRU: серия заморожена, endMruCycle коммитит выбор", () => {
+    it("MRU: the cycle is frozen, endMruCycle commits the choice", () => {
         const { group, panes } = groupWith("/a.ts", "/b.ts", "/c.ts");
         group.activateTab(0);
         group.activateTab(1);

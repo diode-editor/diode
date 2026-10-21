@@ -41,8 +41,8 @@ function makeHost(open = true): { host: ExtensionHost; peer: RpcEndpoint } {
 
 const REQUEST: IFoldingRequest = { uri: DOCUMENT.uri, languageId: "csharp", versionId: 3 };
 
-describe("ExtensionHost — folding по handle (in-process)", () => {
-    it("вызовы прокси с одним запросом — один RPC с пачкой handle; области — по своим", async () => {
+describe("ExtensionHost — folding by handle (in-process)", () => {
+    it("proxy calls with one request make one RPC with a batch of handles; ranges go to their owners", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn((_params: unknown) => Promise.resolve([[{ start: 0, end: 2 }], [{ start: 1, end: 3 }]]));
         peer.handleRequest("languages.provideFoldingRanges", provide);
@@ -63,7 +63,7 @@ describe("ExtensionHost — folding по handle (in-process)", () => {
         expect(second).toEqual([{ startLine: 1, endLine: 3, isCollapsed: false }]);
     });
 
-    it("документ не открыт субпроцессу — пусто без RPC", async () => {
+    it("document not open in the subprocess: empty without RPC", async () => {
         const { host, peer } = makeHost(false);
         const provide = vi.fn(() => Promise.resolve([[{ start: 0, end: 2 }]]));
         peer.handleRequest("languages.provideFoldingRanges", provide);
@@ -72,7 +72,7 @@ describe("ExtensionHost — folding по handle (in-process)", () => {
         expect(provide).not.toHaveBeenCalled();
     });
 
-    it("после остановки субпроцесса запрос не уходит", async () => {
+    it("no request is sent after the subprocess stops", async () => {
         const { host, peer } = makeHost();
         const provide = vi.fn(() => Promise.resolve([[{ start: 0, end: 2 }]]));
         peer.handleRequest("languages.provideFoldingRanges", provide);
@@ -83,7 +83,7 @@ describe("ExtensionHost — folding по handle (in-process)", () => {
         expect(provide).not.toHaveBeenCalled();
     });
 
-    it("отмена ядра доезжает до токена субпроцесса (provideFoldingRanges)", async () => {
+    it("core cancellation reaches the subprocess token (provideFoldingRanges)", async () => {
         const { host, peer } = makeHost();
         let seen: ICancellationToken | null = null;
         peer.handleRequest("languages.provideFoldingRanges", (_params, token) => {

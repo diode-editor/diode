@@ -48,7 +48,7 @@ function storageFixture(id = "test.storage"): ReturnType<typeof extensionFixture
     return extensionFixture(id, "reportsStorage.cjs");
 }
 
-describe("ExtensionHost — каталоги хранения расширения", () => {
+describe("ExtensionHost — extension storage directories", () => {
     const roots: string[] = [];
     const makeRoot = (): string => {
         const root = fs.mkdtempSync(path.join(os.tmpdir(), "diode-extstorage-host-"));
@@ -60,7 +60,7 @@ describe("ExtensionHost — каталоги хранения расширени
         for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true });
     });
 
-    it("globalStorageUri / storageUri / logUri приезжают от хоста и указывают внутрь его корней", async () => {
+    it("globalStorageUri / storageUri / logUri come from the host and point inside its roots", async () => {
         const harness = await createExtensionTestHarness({ extensions: [storageFixture()] });
         try {
             const report = (await harness.commandRegistry.execute("test.storage.report")) as IStorageReport;
@@ -77,11 +77,11 @@ describe("ExtensionHost — каталоги хранения расширени
     });
 
     // Not that the field exists, but that it can be written to: the host created the parent.
-    it("расширение создаёт свой каталог и пишет в него: родитель существует до activate()", async () => {
+    it("the extension creates its directory and writes to it: the parent exists before activate()", async () => {
         const harness = await createExtensionTestHarness({ extensions: [storageFixture()] });
         try {
             const engine = path.join(harness.tmpDir, "globalStorage", "test.storage", "sm-agent");
-            expect(fs.readFileSync(engine, "utf-8")).toBe("скачанный движок");
+            expect(fs.readFileSync(engine, "utf-8")).toBe("downloaded engine");
         } finally {
             await harness.dispose();
         }
@@ -89,7 +89,7 @@ describe("ExtensionHost — каталоги хранения расширени
 
     // vscode.d.ts: «the directory might not exist … the parent directory is
     // guaranteed to be existent».
-    it("хост создаёт только РОДИТЕЛЯ, каталог расширения оставляет расширению", async () => {
+    it("the host creates only the PARENT and leaves the extension directory to the extension", async () => {
         const harness = await createExtensionTestHarness({ extensions: [storageFixture()] });
         try {
             const report = (await harness.commandRegistry.execute("test.storage.report")) as IStorageReport;
@@ -100,7 +100,7 @@ describe("ExtensionHost — каталоги хранения расширени
         }
     });
 
-    it("без открытой папки storageUri/storagePath — undefined (семантика vscode)", async () => {
+    it("without an open folder storageUri/storagePath are undefined (vscode semantics)", async () => {
         const root = makeRoot();
         const harness = await createExtensionTestHarness({
             extensions: [storageFixture()],
@@ -120,7 +120,7 @@ describe("ExtensionHost — каталоги хранения расширени
         }
     });
 
-    it("globalStorage адресуется по lowercase id — как в эталоне", async () => {
+    it("globalStorage is keyed by lowercase id, as upstream", async () => {
         const harness = await createExtensionTestHarness({ extensions: [storageFixture("Publisher.MixedCase")] });
         try {
             const report = (await harness.commandRegistry.execute("test.storage.report")) as IStorageReport;
@@ -133,11 +133,11 @@ describe("ExtensionHost — каталоги хранения расширени
         }
     });
 
-    it("не сумев создать корень, хост пишет предупреждение и активирует расширение", async () => {
+    it("when it fails to create a root, the host logs a warning and activates the extension", async () => {
         const root = makeRoot();
         // A file in place of the directory: mkdir of a path inside it is doomed.
         const blocker = path.join(root, "not-a-dir");
-        fs.writeFileSync(blocker, "не каталог");
+        fs.writeFileSync(blocker, "not a directory");
         const warnings: { message: string; detail: unknown }[] = [];
         const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
             spawnArgs: subprocessSpawnArgsForTests(),
@@ -169,10 +169,10 @@ describe("ExtensionHost — каталоги хранения расширени
         }
     });
 
-    it("хост без логгера переживает недоступный корень", async () => {
+    it("a host without a logger survives an inaccessible root", async () => {
         const root = makeRoot();
         const blocker = path.join(root, "not-a-dir");
-        fs.writeFileSync(blocker, "не каталог");
+        fs.writeFileSync(blocker, "not a directory");
         const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
             spawnArgs: subprocessSpawnArgsForTests(),
             storageHomes: (): IExtensionStorageHomes => ({
@@ -191,7 +191,7 @@ describe("ExtensionHost — каталоги хранения расширени
 
     // Roots are read on EVERY activation: an extension may activate both before
     // and after a folder is opened, and `storageUri` depends exactly on that.
-    it("папка, открытая после первой активации, доезжает до следующего расширения", async () => {
+    it("a folder opened after the first activation reaches the next extension", async () => {
         const root = makeRoot();
         let workspaceStorageHome: string | null = null;
         const harness = await createExtensionTestHarness({

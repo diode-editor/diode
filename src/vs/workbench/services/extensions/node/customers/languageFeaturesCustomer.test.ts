@@ -38,8 +38,8 @@ function setup() {
     return { customer, changed, peer, attached };
 }
 
-describe("LanguageFeaturesCustomer — реестр провайдеров спавна", () => {
-    it("регистрация и снятие меняют состав с событием; мусор и чужой handle — без события", async () => {
+describe("LanguageFeaturesCustomer — spawn provider registry", () => {
+    it("register and unregister change the set with an event; junk and a foreign handle — no event", async () => {
         const h = setup();
         h.peer.notify("languages.register", HOVER);
         h.peer.notify("languages.register", COMPLETION);
@@ -58,7 +58,7 @@ describe("LanguageFeaturesCustomer — реестр провайдеров сп�
         expect(h.changed).toHaveBeenCalledTimes(3);
     });
 
-    it("уход спавна снимает его провайдеров с событием; пустой спавн уходит молча", async () => {
+    it("spawn exit removes its providers with an event; an empty spawn exits silently", async () => {
         const h = setup();
         h.peer.notify("languages.register", HOVER);
         await flushMicrotasks();
@@ -73,7 +73,7 @@ describe("LanguageFeaturesCustomer — реестр провайдеров сп�
         expect(empty.changed).not.toHaveBeenCalled();
     });
 
-    it("getProviders отдаёт снимок, а не живую коллекцию", async () => {
+    it("getProviders returns a snapshot, not the live collection", async () => {
         const h = setup();
         h.peer.notify("languages.register", HOVER);
         await flushMicrotasks();
@@ -223,8 +223,8 @@ function setupWithSync() {
 }
 
 // No it.each: the mutation runner may not find parameterized names by the name filter.
-describe("LanguageFeaturesCustomer — запросы только по синхронизированным документам", () => {
-    it("документ не синхронизирован: пустой ответ каждого вида без RPC", async () => {
+describe("LanguageFeaturesCustomer — requests only for synced documents", () => {
+    it("document not synced: empty reply of every kind without RPC", async () => {
         const h = setupWithSync();
         for (const c of REQUEST_CASES) {
             await expect(c.call(h.customer, UNSYNCED), c.name).resolves.toEqual(c.empty);
@@ -233,7 +233,7 @@ describe("LanguageFeaturesCustomer — запросы только по синх
         expect(h.asked).toEqual(REQUEST_CASES.map(() => UNSYNCED));
     });
 
-    it("синхронизированный документ: запрос уходит с version из versionId и без text", async () => {
+    it("synced document: the request carries version from versionId and no text", async () => {
         const h = setupWithSync();
         for (const c of REQUEST_CASES) await c.call(h.customer, SYNCED);
         expect(h.requested.map((r) => r.method)).toEqual(REQUEST_CASES.map((c) => c.method));
@@ -243,7 +243,7 @@ describe("LanguageFeaturesCustomer — запросы только по синх
         }
     });
 
-    it("документ, позиция и адресация провайдера уходят по проводу в wire-форме", async () => {
+    it("document, position and provider addressing go over the wire in wire form", async () => {
         const h = setupWithSync();
         for (const c of REQUEST_CASES) await c.call(h.customer, SYNCED);
         const batched = new Set([
@@ -267,7 +267,7 @@ describe("LanguageFeaturesCustomer — запросы только по синх
         }
     });
 
-    it("срок ответа каждого запроса — из таблицы по его методу (резолв и применение — свои ключи)", async () => {
+    it("each request's reply timeout comes from the table by its method (resolve and apply have their own keys)", async () => {
         const h = setupWithSync();
         for (const c of REQUEST_CASES) await c.call(h.customer, SYNCED);
         await h.customer.resolveCompletionItem("item-1");
@@ -306,8 +306,8 @@ function emptyResult(c: IRequestCase, renameError: string): unknown {
     return c.method === "languages.provideRenameEdits" ? { applied: false, error: renameError } : c.empty;
 }
 
-describe("LanguageFeaturesCustomer — ответ субпроцесса в форме ядра", () => {
-    it("пачечные ответы выровнены по провайдерам: недостающий элемент — пусто у своего", async () => {
+describe("LanguageFeaturesCustomer — subprocess reply in core form", () => {
+    it("batched replies are aligned by provider: a missing element is empty for its provider", async () => {
         const h = setupAnswering({
             "languages.provideCompletionItems": () => [
                 { items: [{ label: "a", insertText: "a", range: CORE_RANGE }], isIncomplete: true },
@@ -338,7 +338,7 @@ describe("LanguageFeaturesCustomer — ответ субпроцесса в фо
         ]);
     });
 
-    it("одиночные ответы переводятся в форму ядра", async () => {
+    it("single replies are converted to core form", async () => {
         const h = setupAnswering({
             "languages.resolveCompletionItem": () => ({
                 detail: "d",
@@ -383,7 +383,7 @@ describe("LanguageFeaturesCustomer — ответ субпроцесса в фо
         });
     });
 
-    it("«сказать нечего» субпроцесса — пусто в форме ядра", async () => {
+    it("subprocess `nothing to say` is empty in core form", async () => {
         const empty = setupAnswering(
             Object.fromEntries(Object.entries(EMPTY_WIRE).map(([method, value]) => [method, () => value])),
         );
@@ -396,8 +396,8 @@ describe("LanguageFeaturesCustomer — ответ субпроцесса в фо
     });
 });
 
-describe("LanguageFeaturesCustomer — сбой запроса", () => {
-    it("отказ RPC — пустой ответ каждого вида; rename — отказ С сообщением", async () => {
+describe("LanguageFeaturesCustomer — request failure", () => {
+    it("RPC rejection — empty reply of every kind; rename — rejection WITH a message", async () => {
         const h = setupAnswering(
             answerAll(() => {
                 throw new Error("boom");
@@ -410,7 +410,7 @@ describe("LanguageFeaturesCustomer — сбой запроса", () => {
         expect(await h.customer.applyCodeAction("1.0")).toBe(false);
     });
 
-    it("истёкший срок — пустой ответ, человек узнаёт о несостоявшемся rename", async () => {
+    it("expired timeout — empty reply, the user learns the rename did not happen", async () => {
         const h = setupAnswering(answerAll(() => new Promise<never>(() => undefined)));
         await expect(h.customer.provideHover(1, anyRequest(SYNCED))).resolves.toBeUndefined();
         await expect(h.customer.provideRenameEdits(1, anyRequest(SYNCED), "renamed")).resolves.toEqual({
@@ -419,7 +419,7 @@ describe("LanguageFeaturesCustomer — сбой запроса", () => {
         });
     });
 
-    it("спавна нет — пустой ответ каждого вида без вопроса о синхронизации", async () => {
+    it("no spawn — empty reply of every kind without asking about sync", async () => {
         const asked: string[] = [];
         const customer = new LanguageFeaturesCustomer(
             TIMEOUTS,
@@ -438,8 +438,8 @@ describe("LanguageFeaturesCustomer — сбой запроса", () => {
     });
 });
 
-describe("LanguageFeaturesCustomer — опции запроса inline completions", () => {
-    it("срок из самого запроса и токен ядра уезжают в options; без срока — табличный", async () => {
+describe("LanguageFeaturesCustomer — inline completions request options", () => {
+    it("the request's own timeout and the core token go into options; without one — the table timeout", async () => {
         const h = setupAnswering({ "languages.provideInlineCompletions": () => [[]] });
         const caller = new CancellationTokenSource();
         await h.customer.provideInlineCompletions(
@@ -457,11 +457,11 @@ describe("LanguageFeaturesCustomer — опции запроса inline completi
     });
 });
 
-describe("LanguageFeaturesCustomer — семантические токены", () => {
+describe("LanguageFeaturesCustomer — semantic tokens", () => {
     const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7 };
     const RANGE_REQ = { ...REQ, range: CORE_RANGE };
 
-    it("документ: параметры провода, без срока; ответ — в форме ядра с resultId строкой", async () => {
+    it("document: wire params, no timeout; reply in core form with resultId as a string", async () => {
         const seen: unknown[] = [];
         const h = setupAnswering({
             "languages.provideDocumentSemanticTokens": (params) => {
@@ -490,7 +490,7 @@ describe("LanguageFeaturesCustomer — семантические токены",
         expect(h.sent.mock.calls[0][2]).toStrictEqual({ timeoutMs: undefined, token });
     });
 
-    it("диапазон: диапазон уходит по проводу; дельта в ответе — исключение Unexpected", async () => {
+    it("range: the range goes over the wire; a delta in the reply throws Unexpected", async () => {
         const seen: unknown[] = [];
         const answers: unknown[] = [
             { id: 0, type: "full", data: [1, 2, 3, 4, 5] },
@@ -518,7 +518,7 @@ describe("LanguageFeaturesCustomer — семантические токены",
         await expect(h.customer.provideDocumentRangeSemanticTokens(6, RANGE_REQ)).rejects.toThrow("Unexpected");
     });
 
-    it("отказ RPC — исключение (а не null): прежние токены остаются у потребителя", async () => {
+    it("RPC rejection throws (not null): the consumer keeps its previous tokens", async () => {
         const h = setupAnswering({
             "languages.provideDocumentSemanticTokens": () => Promise.reject(new Error("busy")),
             "languages.provideDocumentRangeSemanticTokens": () => Promise.reject(new Error("down")),
@@ -527,7 +527,7 @@ describe("LanguageFeaturesCustomer — семантические токены",
         await expect(h.customer.provideDocumentRangeSemanticTokens(1, RANGE_REQ)).rejects.toThrow("down");
     });
 
-    it("спавна нет или документ не синхронизирован — null без RPC", async () => {
+    it("no spawn or document not synced — null without RPC", async () => {
         const noHost = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         expect(await noHost.provideDocumentSemanticTokens(1, REQ, 0)).toBeNull();
         expect(await noHost.provideDocumentRangeSemanticTokens(1, RANGE_REQ)).toBeNull();
@@ -540,7 +540,7 @@ describe("LanguageFeaturesCustomer — семантические токены",
         expect(h.sent).not.toHaveBeenCalled();
     });
 
-    it("releaseDocumentSemanticTokens уходит нотификацией с handle и id", async () => {
+    it("releaseDocumentSemanticTokens goes as a notification with handle and id", async () => {
         const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         const [a, b] = createInProcessChannelPair();
         const peer = new RpcEndpoint(b);
@@ -552,7 +552,7 @@ describe("LanguageFeaturesCustomer — семантические токены",
         expect(released).toStrictEqual([{ handle: 3, resultId: 9 }]);
     });
 
-    it("onDidChangeSemanticTokens — только для объявленного handle", async () => {
+    it("onDidChangeSemanticTokens — only for a declared handle", async () => {
         const h = setup();
         const changed = vi.fn();
         h.customer.onDidChangeSemanticTokens(changed);
@@ -567,10 +567,10 @@ describe("LanguageFeaturesCustomer — семантические токены",
     });
 });
 
-describe("LanguageFeaturesCustomer — иерархии выделений", () => {
+describe("LanguageFeaturesCustomer — selection ranges", () => {
     const REQ = { uri: SYNCED, languageId: "typescript", versionId: 7, positions: [{ line: 2, character: 4 }] };
 
-    it("позиции кареток и токен уходят по проводу, ответ — как есть", async () => {
+    it("cursor positions and the token go over the wire, the reply is returned as is", async () => {
         const seen: unknown[] = [];
         const h = setupAnswering({
             "languages.provideSelectionRanges": (params) => {
@@ -586,7 +586,7 @@ describe("LanguageFeaturesCustomer — иерархии выделений", () 
         expect(h.sent.mock.calls.at(-1)?.[2]).toMatchObject({ token: caller.token });
     });
 
-    it("отказ RPC или спавна нет — иерархий нет", async () => {
+    it("RPC rejection or no spawn — no selection ranges", async () => {
         const h = setupAnswering({
             "languages.provideSelectionRanges": () => {
                 throw new Error("boom");

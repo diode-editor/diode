@@ -13,7 +13,7 @@ import { trimTrailingWhitespaceAction } from "../../../contrib/linesOperations/b
 import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
 describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
-    it("применяет trim/insert-final-newline из участника к байтам на диске + undoable", async () => {
+    it("applies trim/insert-final-newline from the participant to the bytes on disk + undoable", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "trim.txt", content: "alpha   \nbeta\t\ngamma" },
             extensions: [extensionFixture("test.willSaveTrim", "willSaveTrimEdits.cjs")],
@@ -38,7 +38,7 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
         }
     });
 
-    it("setEndOfLine из участника меняет EOL — байты на диске содержат CRLF", async () => {
+    it("setEndOfLine from the participant changes the EOL: the bytes on disk contain CRLF", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "eol.txt", content: "a\nb\n" },
             extensions: [extensionFixture("test.willSaveEol", "willSaveSetEol.cjs")],
@@ -56,7 +56,7 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
         }
     });
 
-    it("document.encoding в участнике отражает кодировку ядрового документа (#106)", async () => {
+    it("document.encoding in the participant reflects the core document's encoding (#106)", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "enc.txt", content: "body\n" },
             extensions: [extensionFixture("test.willSaveEncoding", "willSaveEchoEncoding.cjs")],
@@ -77,7 +77,7 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
         }
     });
 
-    it("делегирование встроенной команде во время will-save (вложенный executeCommand)", async () => {
+    it("delegating to a built-in command during will-save (nested executeCommand)", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "delegate.txt", content: "one  \ntwo\t\n" },
             extensions: [extensionFixture("test.willSaveDelegate", "willSaveDelegatesCommand.cjs")],
@@ -100,7 +100,7 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
         }
     });
 
-    it("onDidSaveTextDocument доезжает до расширения после записи", async () => {
+    it("onDidSaveTextDocument reaches the extension after the write", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "post.txt", content: "x\n" },
             extensions: [extensionFixture("test.reportDidSave", "reportDidSave.cjs")],
@@ -119,7 +119,7 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
         }
     });
 
-    it("без подписки onWillSave сохранение не трансформирует содержимое (гейтинг)", async () => {
+    it("without an onWillSave subscription saving does not transform the content (gating)", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "plain.txt", content: "keep   \n" },
             extensions: [extensionFixture("test.reportDidSave", "reportDidSave.cjs")],

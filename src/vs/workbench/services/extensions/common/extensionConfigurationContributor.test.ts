@@ -16,7 +16,7 @@ function recordingLogger(): ILogger & { warnings: string[] } {
 }
 
 describe("ExtensionConfigurationContributor", () => {
-    it("регистрирует contributes.configuration всех расширений, включая декларативные", () => {
+    it("registers contributes.configuration of all extensions, including declarative ones", () => {
         const registry = new ConfigurationRegistry();
         const extensions = [
             ext("acme.ruff", { "ruff.importStrategy": { default: "fromEnvironment" } }),
@@ -37,7 +37,7 @@ describe("ExtensionConfigurationContributor", () => {
         expect(registry.getExtensionConfigurationProperties().get("theme.x")?.extensionId).toBe("acme.theme");
     });
 
-    it("инъекции хоста — переопределения поверх манифестных дефолтов, в том числе чужих ключей", () => {
+    it("host injections override manifest defaults, including other extensions' keys", () => {
         const registry = new ConfigurationRegistry();
         const seen: string[] = [];
         // The first extension's injection touches the second one's key, so overrides
@@ -60,7 +60,7 @@ describe("ExtensionConfigurationContributor", () => {
         });
     });
 
-    it("contributes.configurationDefaults — переопределения дефолтов, в том числе секции языков; инъекции главнее", () => {
+    it("contributes.configurationDefaults override defaults, including language sections; injections take precedence", () => {
         const registry = new ConfigurationRegistry();
         const make = {
             id: "vscode.make",
@@ -86,7 +86,7 @@ describe("ExtensionConfigurationContributor", () => {
         });
     });
 
-    it("без логгера дубль ключа — тихий пропуск", () => {
+    it("without a logger a duplicate key is skipped silently", () => {
         const registry = new ConfigurationRegistry();
 
         expect(() => {
@@ -99,7 +99,7 @@ describe("ExtensionConfigurationContributor", () => {
         expect(registry.getDefaultConfiguration()).toEqual({ shared: { k: 1 } });
     });
 
-    it("дубль ключа — предупреждение в лог, первый владелец остаётся", () => {
+    it("duplicate key — a logged warning, the first owner stays", () => {
         const registry = new ConfigurationRegistry();
         const logger = recordingLogger();
 

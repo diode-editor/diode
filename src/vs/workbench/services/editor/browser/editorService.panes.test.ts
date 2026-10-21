@@ -76,8 +76,8 @@ class FakePane implements IEditorPane {
 
 const fakeUri = (name: string) => Uri.from({ scheme: "fake", path: `/${name}` });
 
-describe("EditorService — панели не-текстового вида", () => {
-    it("открытая панель становится вкладкой и активной", () => {
+describe("EditorService — non-text panes", () => {
+    it("an opened pane becomes a tab and active", () => {
         const service = createEditorService();
         const pane = new FakePane(fakeUri("diff"));
 
@@ -89,7 +89,7 @@ describe("EditorService — панели не-текстового вида", ()
         expect(service.displayName(pane)).toBe("/diff");
     });
 
-    it("группа получает view панели и событие перерисовки", () => {
+    it("the group gets the pane's view and a redraw event", () => {
         const service = createEditorService();
         const pane = new FakePane(fakeUri("diff"));
         const changed = vi.fn();
@@ -104,7 +104,7 @@ describe("EditorService — панели не-текстового вида", ()
         expect(changed.mock.calls.length).toBe(afterOpen + 1);
     });
 
-    it("повторное открытие того же ресурса переключает, а не заводит вторую вкладку", () => {
+    it("reopening the same resource switches to it instead of creating a second tab", () => {
         const service = createEditorService();
         service.openPane(new FakePane(fakeUri("diff")));
         service.openPane(new FakePane(fakeUri("other")));
@@ -117,7 +117,7 @@ describe("EditorService — панели не-текстового вида", ()
         expect(duplicate.disposed).toBe(true);
     });
 
-    it("закрытие вкладки утилизирует панель", () => {
+    it("closing the tab disposes the pane", () => {
         const service = createEditorService();
         const pane = new FakePane(fakeUri("diff"));
         service.openPane(pane);
@@ -129,7 +129,7 @@ describe("EditorService — панели не-текстового вида", ()
         expect(service.getActivePane()).toBeNull();
     });
 
-    it("фокус группы доходит до панели", () => {
+    it("group focus reaches the pane", () => {
         const service = createEditorService();
         const pane = new FakePane(fakeUri("diff"));
         const focus = vi.spyOn(pane, "focusEditor");
@@ -141,8 +141,8 @@ describe("EditorService — панели не-текстового вида", ()
     });
 });
 
-describe("EditorService — сужение текстовой поверхности", () => {
-    it("пока активна не-текстовая панель, текстовые геттеры дают null", () => {
+describe("EditorService — narrowing the text surface", () => {
+    it("while a non-text pane is active, text getters return null", () => {
         const service = createEditorService();
         const pane = new FakePane(fakeUri("diff"));
 
@@ -153,7 +153,7 @@ describe("EditorService — сужение текстовой поверхнос
         expect(service.getEditors()).toEqual([]);
     });
 
-    it("подписчики активного редактора видят переключение на дифф как «нет редактора»", () => {
+    it("active editor subscribers see a switch to a diff as `no editor`", () => {
         // Status bar, find, and host adapters must not get a pane without a cursor, language, and encoding.
         const service = createEditorService();
         const seen: unknown[] = [];
@@ -164,7 +164,7 @@ describe("EditorService — сужение текстовой поверхнос
         expect(seen).toEqual([null]);
     });
 
-    it("команды правки текста на не-текстовой панели — no-op, а не падение", () => {
+    it("text editing commands on a non-text pane are a no-op, not a crash", () => {
         const service = createEditorService();
         service.openPane(new FakePane(fakeUri("diff")));
 
@@ -174,7 +174,7 @@ describe("EditorService — сужение текстовой поверхнос
     });
 });
 
-describe("EditorService — смешанная группа", () => {
+describe("EditorService — mixed group", () => {
     const openMixed = () => {
         const ws = createTempWorkspace({ prefix: "diode-panes-", files: { "a.ts": "alpha\n" } });
         const service = createEditorService();
@@ -184,7 +184,7 @@ describe("EditorService — смешанная группа", () => {
         return { ws, service, pane };
     };
 
-    it("вкладки обоих видов живут рядом и переключаются", () => {
+    it("tabs of both kinds live side by side and switch", () => {
         const { ws, service, pane } = openMixed();
         try {
             expect(service.editorGroups.activeGroup.editorCount).toBe(2);
@@ -200,7 +200,7 @@ describe("EditorService — смешанная группа", () => {
         }
     });
 
-    it("MRU видит обе вкладки", () => {
+    it("MRU sees both tabs", () => {
         const { ws, service, pane } = openMixed();
         try {
             service.editorGroups.activeGroup.activateTab(0);
@@ -214,7 +214,7 @@ describe("EditorService — смешанная группа", () => {
         }
     });
 
-    it("сессия и shutdown видят только текстовые вкладки", () => {
+    it("session and shutdown see only text tabs", () => {
         const { ws, service } = openMixed();
         try {
             expect(service.getOpenFilePaths()).toEqual([ws.path("a.ts")]);

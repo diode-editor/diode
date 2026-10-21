@@ -24,8 +24,8 @@ async function harnessWithSetContext(): Promise<{
     return { harness, contextKeys };
 }
 
-describe("ExtensionHost — команда setContext", () => {
-    it("вызов из activate() доезжает до when-контекста", async () => {
+describe("ExtensionHost — setContext command", () => {
+    it("a call from activate() reaches the when context", async () => {
         const { harness, contextKeys } = await harnessWithSetContext();
         try {
             expect(contextKeys.evaluate("testExt.activated")).toBe(true);
@@ -34,7 +34,7 @@ describe("ExtensionHost — команда setContext", () => {
         }
     });
 
-    it("вызов из команды расширения переключает ключ в обе стороны", async () => {
+    it("a call from an extension command toggles the key both ways", async () => {
         const { harness, contextKeys } = await harnessWithSetContext();
         try {
             expect(contextKeys.evaluate("testExt.armed")).toBe(false);
@@ -49,7 +49,7 @@ describe("ExtensionHost — команда setContext", () => {
         }
     });
 
-    it("строковое значение сравнивается в when-выражении", async () => {
+    it("a string value is compared in a when expression", async () => {
         const { harness, contextKeys } = await harnessWithSetContext();
         try {
             await harness.commandRegistry.execute("test.setctx.setMode", "chat");

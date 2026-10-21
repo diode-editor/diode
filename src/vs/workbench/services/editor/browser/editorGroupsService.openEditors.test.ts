@@ -32,7 +32,7 @@ function createEditorService(): EditorService {
     );
 }
 
-describe("EditorGroupsService — список открытых редакторов и переход на вкладку", () => {
+describe("EditorGroupsService — open editors list and revealing a tab", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -53,7 +53,7 @@ describe("EditorGroupsService — список открытых редактор
         return ctrl.editorGroups.getOpenEditorsMru().map((pane) => pane.label);
     }
 
-    it("одна группа: вкладки в MRU-порядке, активная — первой", () => {
+    it("one group: tabs in MRU order, the active one first", () => {
         const ctrl = createEditorService();
         ctrl.openFile(writeFile("a.ts"));
         ctrl.openFile(writeFile("b.ts"));
@@ -66,7 +66,7 @@ describe("EditorGroupsService — список открытых редактор
         expect(labels(ctrl)).toEqual(["a.ts", "c.ts", "b.ts"]);
     });
 
-    it("сплит: сперва вкладки активной группы, потом остальных по полосе", () => {
+    it("split: the active group's tabs first, then the others in strip order", () => {
         const ctrl = createEditorService();
         ctrl.openFile(writeFile("a.ts"));
         ctrl.openFile(writeFile("b.ts"));
@@ -81,7 +81,7 @@ describe("EditorGroupsService — список открытых редактор
         expect(labels(ctrl)).toEqual(["b.ts", "a.ts", "c.ts", "b.ts"]);
     });
 
-    it("вкладки, слитые из чужой группы, из списка не пропадают", () => {
+    it("tabs merged from another group do not drop out of the list", () => {
         const ctrl = createEditorService();
         ctrl.openFile(writeFile("a.ts"));
         ctrl.splitActiveGroup();
@@ -94,11 +94,11 @@ describe("EditorGroupsService — список открытых редактор
         expect(labels(ctrl)).toEqual(["a.ts", "b.ts"]);
     });
 
-    it("пустая полоса — пустой список", () => {
+    it("an empty strip yields an empty list", () => {
         expect(createEditorService().editorGroups.getOpenEditorsMru()).toEqual([]);
     });
 
-    it("revealPane активирует вкладку своей группы", () => {
+    it("revealPane activates a tab in its own group", () => {
         const ctrl = createEditorService();
         ctrl.openFile(writeFile("a.ts"));
         ctrl.openFile(writeFile("b.ts"));
@@ -110,7 +110,7 @@ describe("EditorGroupsService — список открытых редактор
         expect(labels(ctrl)).toEqual(["a.ts", "b.ts"]);
     });
 
-    it("revealPane через границу группы делает её группу активной", () => {
+    it("revealPane across a group boundary makes its group active", () => {
         const ctrl = createEditorService();
         ctrl.openFile(writeFile("a.ts"));
         ctrl.splitActiveGroup();
@@ -123,7 +123,7 @@ describe("EditorGroupsService — список открытых редактор
         expect(ctrl.editorGroups.activeGroup.activePane).toBe(inFirstGroup);
     });
 
-    it("revealPane панели не из полосы (уже закрытой вкладки) — no-op", () => {
+    it("revealPane of a pane not in the strip (an already closed tab) is a no-op", () => {
         const ctrl = createEditorService();
         ctrl.openFile(writeFile("a.ts"));
         ctrl.openFile(writeFile("b.ts"));

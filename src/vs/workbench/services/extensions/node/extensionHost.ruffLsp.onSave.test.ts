@@ -27,7 +27,7 @@ function stubConfigurationService(values: Record<string, unknown>): IConfigurati
     return createTestConfigurationService(values);
 }
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с onSave-настройками и стоковым ruff", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — saving with onSave settings and the stock ruff", () => {
     beforeAll(async () => {
         installed = await installRuff();
     }, 120_000);
@@ -54,7 +54,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
     }
 
     it(
-        "codeActionsOnSave source.fixAll: save удаляет неиспользуемый импорт в буфере и на диске",
+        "codeActionsOnSave source.fixAll: save removes the unused import in the buffer and on disk",
         { timeout: 240_000 },
         async () => {
             const { harness, lintPath, lintUri } = await openLintFile({
@@ -63,7 +63,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
             try {
                 // Warm-up: wait until the server starts returning fixAll actions,
                 // otherwise the first save hits the cold start and its 5s timeouts.
-                await until("source.fixAll action от ruff", async () => {
+                await until("source.fixAll action from ruff", async () => {
                     const actions = await provideCodeActions(harness, {
                         uri: lintUri,
                         languageId: "python",
@@ -87,11 +87,11 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
         },
     );
 
-    it("formatOnSave: save прогоняет формат ruff, на диске отформатированный текст", { timeout: 240_000 }, async () => {
+    it("formatOnSave: save runs the ruff formatter, the text on disk is formatted", { timeout: 240_000 }, async () => {
         const { harness, lintPath, lintUri } = await openLintFile({ "editor.formatOnSave": true });
         try {
             // Warm-up: the client registers formatting dynamically, so wait for edits.
-            await until("formatting edits от ruff", async () => {
+            await until("formatting edits from ruff", async () => {
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: lintUri,
                     languageId: "python",

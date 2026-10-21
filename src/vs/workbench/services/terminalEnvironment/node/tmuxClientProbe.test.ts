@@ -19,7 +19,7 @@ describe("parseShowEnvironment", () => {
 });
 
 describe("queryTmuxClient", () => {
-    it("собирает client_termtype и переменные клиента одним заходом", async () => {
+    it("collects client_termtype and the client variables in one pass", async () => {
         const calls: string[] = [];
         const run: TmuxRunner = (args) => {
             calls.push(args.join(" "));
@@ -39,7 +39,7 @@ describe("queryTmuxClient", () => {
         ]);
     });
 
-    it("пустой termtype и сбои tmux — «не знаю», без исключений", async () => {
+    it("an empty termtype and tmux failures mean `unknown`, without exceptions", async () => {
         const run: TmuxRunner = (args) => Promise.resolve(args[1] === "LC_TERMINAL" ? "  \n" : undefined);
         await expect(queryTmuxClient(run)).resolves.toEqual({
             termType: undefined,
@@ -50,7 +50,7 @@ describe("queryTmuxClient", () => {
 });
 
 describe("runTmux", () => {
-    it("отдаёт stdout tmux", async () => {
+    it("returns tmux stdout", async () => {
         const dir = mkdtempSync(join(tmpdir(), "fake-tmux-"));
         writeFileSync(join(dir, "tmux"), '#!/bin/sh\necho "args:$*"\n', { mode: 0o755 });
         const saved = process.env.PATH;
@@ -63,7 +63,7 @@ describe("runTmux", () => {
         }
     });
 
-    it("отсутствующий бинарь или сервер tmux — undefined, а не исключение", async () => {
+    it("a missing tmux binary or server gives undefined, not an exception", async () => {
         const saved = process.env.PATH;
         process.env.PATH = "/nonexistent";
         try {

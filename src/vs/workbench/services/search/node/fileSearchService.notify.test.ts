@@ -10,7 +10,7 @@ import { FileSearchService } from "./fileSearchService.ts";
 // A fake `rg` prints canned paths and hangs until killed: "walk in progress, part has
 // arrived" without racing a real rg, which finishes first on a small tree.
 
-describe.skipIf(process.platform === "win32")("FileSearchService — обход в процессе (поддельный rg)", () => {
+describe.skipIf(process.platform === "win32")("FileSearchService: walk in progress (fake rg)", () => {
     let bin: ITempWorkspace;
     let service: FileSearchService | null = null;
 
@@ -44,7 +44,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         );
     }
 
-    it("индекс растёт вживую, пока rg ещё печатает", async () => {
+    it("the index grows live while rg is still printing", async () => {
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, fakeRg(["a.ts", "src/b.ts"])));
         const pending = s.activate(bin.dir);
 
@@ -57,7 +57,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         expect(s.isIndexed).toBe(false);
     });
 
-    it("debounced onIndexChanged срабатывает по таймеру посреди обхода", async () => {
+    it("debounced onIndexChanged fires on a timer mid-walk", async () => {
         vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, fakeRg(["a.ts"])));
         let fired = 0;
@@ -75,7 +75,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         await pending;
     });
 
-    it("dispose() снимает отложенный notify — подписчик его не получает", async () => {
+    it("dispose() cancels a pending notify: the subscriber does not get it", async () => {
         vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, fakeRg(["a.ts"])));
         let fired = 0;
@@ -92,7 +92,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         expect(fired).toBe(0);
     });
 
-    it("dispose() посреди обхода снимает rg — `ready` дорешивается", async () => {
+    it("dispose() mid-walk kills rg: `ready` settles", async () => {
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, fakeRg(["a.ts"])));
         const pending = s.activate(bin.dir);
         await waitForEntries(s);
@@ -103,7 +103,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         expect(s.isIndexed).toBe(false);
     });
 
-    it("новый обход снимает прежний rg и не смешивает их вывод", async () => {
+    it("a new walk kills the previous rg and does not mix their output", async () => {
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, fakeRg(["old.ts"])));
         const first = s.activate(bin.dir);
         await waitForEntries(s);
@@ -151,7 +151,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         return { second };
     }
 
-    it("конец снятого обхода не сбрасывает `indexing` идущего", async () => {
+    it("the end of a killed walk does not reset `indexing` of the running one", async () => {
         const { rg, starts } = slowExitRg();
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, rg));
         const { second } = await supersededWalk(s, starts);
@@ -167,7 +167,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         await second;
     });
 
-    it("dispose() до старта обхода rg не запускает", async () => {
+    it("dispose() before the walk starts does not launch rg", async () => {
         const { rg, starts } = slowExitRg();
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, rg));
         const pending = s.activate(bin.dir);
@@ -180,7 +180,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         expect(s.isIndexed).toBe(false);
     });
 
-    it("конец снятого обхода не забывает rg идущего — dispose его снимает", async () => {
+    it("the end of a killed walk does not forget the running rg: dispose kills it", async () => {
         const { rg, starts } = slowExitRg();
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, rg));
         const { second } = await supersededWalk(s, starts);
@@ -191,7 +191,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         expect(s.isIndexed).toBe(false);
     });
 
-    it("refreshIfStale не запускает второй обход, пока идёт первый", async () => {
+    it("refreshIfStale does not start a second walk while the first is running", async () => {
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, fakeRg(["a.ts"])));
         const pending = s.activate(bin.dir);
         await waitForEntries(s);
@@ -204,7 +204,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         await pending;
     });
 
-    it("обход кончается по `close`: строки, пришедшие после `exit`, в индексе", async () => {
+    it("the walk ends on `close`: lines that arrive after `exit` are in the index", async () => {
         // `rg` itself exits at once, while a child that inherited its stdout prints
         // a line later: `exit` has fired, `close` has not yet.
         const script = bin.writeFile("rg", "#!/bin/sh\necho a.ts\n(sleep 0.3; echo late.ts) &\nexit 0\n");
@@ -216,7 +216,7 @@ describe.skipIf(process.platform === "win32")("FileSearchService — обход 
         expect(s.search("").map((r) => r.entry.relativePath)).toEqual(["a.ts", "late.ts"]);
     });
 
-    it("пропавший rg — пустой индекс, а не отказ", async () => {
+    it("a missing rg gives an empty index, not a failure", async () => {
         const s = (service = new FileSearchService(NULL_CONFIGURATION_SERVICE, bin.path("no-such-rg")));
         await s.activate(bin.dir);
 
@@ -258,7 +258,7 @@ describe("FileSearchService — notify", () => {
         expect(fired).toBeGreaterThan(0);
     });
 
-    it("не индексирует битый симлинк", async () => {
+    it("does not index a broken symlink", async () => {
         ws.writeFile("real.ts", "");
         fs.symlinkSync(ws.path("nonexistent-target"), ws.path("dangling"));
 

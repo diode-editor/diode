@@ -20,7 +20,7 @@ function requestIn(harness: IExtensionHarness): ICompletionRequest {
 }
 
 describe("ExtensionHost — resolveCompletionItem (subprocess)", () => {
-    it("догружает detail/documentation/правки и раздаёт триггер-символы", async () => {
+    it("loads detail/documentation/edits and hands out trigger characters", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: ".editorconfig", content: "ind" },
             extensions: [extensionFixture("test.resolvesCompletion", "resolvesCompletion.cjs")],
@@ -45,7 +45,7 @@ describe("ExtensionHost — resolveCompletionItem (subprocess)", () => {
         }
     });
 
-    it("правки из самого списка доезжают до ядра и без resolve-провайдера (gopls)", async () => {
+    it("edits from the list itself reach the core even without a resolve provider (gopls)", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: ".editorconfig", content: "ind" },
             extensions: [extensionFixture("test.eagerEditsCompletion", "eagerEditsCompletion.cjs")],
@@ -64,7 +64,7 @@ describe("ExtensionHost — resolveCompletionItem (subprocess)", () => {
         }
     });
 
-    it("без провайдеров резолвить нечего → null без RPC", async () => {
+    it("no providers, nothing to resolve → null without RPC", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
         });

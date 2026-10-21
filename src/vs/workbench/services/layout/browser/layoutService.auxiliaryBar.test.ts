@@ -103,9 +103,9 @@ function setup(options: Options = {}) {
     };
 }
 
-describe("LayoutService: вторичная боковая панель", () => {
-    describe("видимость на старте (restoreLayout)", () => {
-        it("впервые открытая папка: дефолт эталона visibleInWorkspace показывает часть", () => {
+describe("LayoutService: secondary side bar", () => {
+    describe("visibility at startup (restoreLayout)", () => {
+        it("a folder opened for the first time: the upstream default visibleInWorkspace shows the part", () => {
             const { service, layout, contextKeys, auxiliaryBarService } = setup({ folder: true, views: ["a"] });
             service.restoreLayout();
             expect(layout.getRightPanelVisible()).toBe(true);
@@ -113,7 +113,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(contextKeys.get("auxiliaryBarVisible")).toBe(true);
         });
 
-        it("visibleInWorkspace в пустом окне — скрыта", () => {
+        it("visibleInWorkspace in an empty window: hidden", () => {
             const { service, layout } = setup({ folder: false, views: ["a"] });
             service.restoreLayout();
             expect(layout.getRightPanelVisible()).toBe(false);
@@ -128,13 +128,13 @@ describe("LayoutService: вторичная боковая панель", () => 
             ["maximizedInWorkspace", true, true],
             ["maximizedInWorkspace", false, false],
             ["visibleInWorkspace", true, true],
-        ])("defaultVisibility=%s, папка=%s → видима=%s", (setting, folder, visible) => {
+        ])("defaultVisibility=%s, folder=%s → visible=%s", (setting, folder, visible) => {
             const { service, layout } = setup({ defaultVisibility: setting, folder, views: ["a"] });
             service.restoreLayout();
             expect(layout.getRightPanelVisible()).toBe(visible);
         });
 
-        it("сохранённая видимость перебивает настройку", () => {
+        it("saved visibility overrides the setting", () => {
             const shown = setup({
                 defaultVisibility: "hidden",
                 views: ["a"],
@@ -152,7 +152,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(hidden.layout.getRightPanelVisible()).toBe(false);
         });
 
-        it("часть без единой вкладки не показывается, даже если сохранена видимой", () => {
+        it("a part without a single tab is not shown, even if saved as visible", () => {
             const { service, layout, auxiliaryBarService, contextKeys } = setup({
                 defaultVisibility: "visible",
                 stored: { [AUXILIARYBAR_HIDDEN_STATE.key]: false },
@@ -163,7 +163,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(contextKeys.get("auxiliaryBarVisible")).toBe(false);
         });
 
-        it("ширина и активная вкладка восстанавливаются, рестор сам ничего не пишет", () => {
+        it("width and active tab are restored, restore itself writes nothing", () => {
             const { service, layout, auxiliaryBarService, stored, writes } = setup({
                 views: ["a", "b"],
                 folder: true,
@@ -177,15 +177,15 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(writes).toEqual([]);
         });
 
-        it("без сохранённой вкладки активной остаётся та, что выбрал сервис части", () => {
+        it("without a saved tab the active one stays the one the part service chose", () => {
             const { service, auxiliaryBarService } = setup({ views: ["a", "b"], folder: true });
             service.restoreLayout();
             expect(auxiliaryBarService.getActiveViewId()).toBe("a");
         });
     });
 
-    describe("персист (write-through)", () => {
-        it("показ и скрытие пишут видимость, ширина без ресайза остаётся динамической (null)", () => {
+    describe("persistence (write-through)", () => {
+        it("show and hide write visibility, width without a resize stays dynamic (null)", () => {
             const { service, stored, layout, contextKeys } = setup({ views: ["a"] });
             service.restoreLayout();
             service.setAuxiliaryBarVisible(true);
@@ -199,7 +199,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(contextKeys.get("auxiliaryBarVisible")).toBe(false);
         });
 
-        it("ресайз с клавиатуры пишет ширину", () => {
+        it("a keyboard resize writes the width", () => {
             const { service, stored, performLayout } = setup({ views: ["a"] });
             service.restoreLayout();
             service.setAuxiliaryBarVisible(true);
@@ -209,7 +209,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(stored.get(AUXILIARYBAR_SIZE_STATE.key)).toBe(28);
         });
 
-        it("смена активной вкладки пишется сразу, во время рестора — нет", () => {
+        it("an active tab change is written immediately, but not during restore", () => {
             const { service, stored, auxiliaryBarService } = setup({
                 views: ["a", "b"],
                 stored: { [AUXILIARYBAR_ACTIVE_VIEW_STATE.key]: "b" },
@@ -220,13 +220,13 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(stored.get(AUXILIARYBAR_ACTIVE_VIEW_STATE.key)).toBe("a");
         });
 
-        it("captureLayout без вкладок пишет пустой id", () => {
+        it("captureLayout without tabs writes an empty id", () => {
             const { service, stored } = setup();
             service.captureLayout();
             expect(stored.get(AUXILIARYBAR_ACTIVE_VIEW_STATE.key)).toBe("");
         });
 
-        it("видимость меняется и до attachLayout — ключ не отстаёт", () => {
+        it("visibility changes even before attachLayout, the key keeps up", () => {
             const auxiliaryBarService = new AuxiliaryBarService();
             const contextKeys = new ContextKeyService();
             const service = new LayoutService(
@@ -243,7 +243,7 @@ describe("LayoutService: вторичная боковая панель", () => 
         });
     });
 
-    describe("часть с фокусом и ресайз по фокусу", () => {
+    describe("focused part and resize by focus", () => {
         function shown() {
             const env = setup({ views: ["a"], folder: true });
             env.service.restoreLayout();
@@ -252,7 +252,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             return env;
         }
 
-        it("getFocusedPart определяет часть по поддереву фокуса", () => {
+        it("getFocusedPart finds the part by the focus subtree", () => {
             const { service, parts, focus } = shown();
             expect(service.getFocusedPart()).toBe("editor");
             focus(parts.sidebar);
@@ -265,7 +265,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(service.getFocusedPart()).toBe("editor");
         });
 
-        it("без корня или без менеджера фокуса — редактор", () => {
+        it("without a root or a focus manager: editor", () => {
             const service = new LayoutService(
                 NULL_STATE_SERVICE,
                 new PanelService(),
@@ -281,7 +281,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(service.getFocusedPart()).toBe("editor");
         });
 
-        it("фокус во вторичной панели — меняется её ширина", () => {
+        it("focus in the secondary side bar changes its width", () => {
             const { service, parts, focus, layout } = shown();
             focus(parts.auxiliaryBar);
             service.resizeFocusedPart(3, 1);
@@ -289,7 +289,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(layout.getLeftPanelWidth()).toBe(30);
         });
 
-        it("фокус в сайдбаре — его ширина", () => {
+        it("focus in the side bar: its width", () => {
             const { service, parts, focus, layout } = shown();
             focus(parts.sidebar);
             service.resizeFocusedPart(-3, -1);
@@ -297,7 +297,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(layout.getRightPanelWidth()).toBeNull();
         });
 
-        it("фокус в панели — её высота", () => {
+        it("focus in the panel: its height", () => {
             const { service, parts, focus, layout } = shown();
             focus(parts.panel);
             service.resizeFocusedPart(3, 2);
@@ -305,7 +305,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(layout.getLeftPanelWidth()).toBe(30);
         });
 
-        it("редактор растёт за счёт вторичной панели по ширине и панели по высоте", () => {
+        it("the editor grows at the expense of the secondary side bar in width and the panel in height", () => {
             const { service, layout } = shown();
             service.resizeFocusedPart(3, 1);
             expect(layout.getRightPanelWidth()).toBe(22);
@@ -313,7 +313,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(layout.getBottomPanelHeight()).toBe(11);
         });
 
-        it("без вторичной панели редактор растёт за счёт сайдбара", () => {
+        it("without the secondary side bar the editor grows at the expense of the side bar", () => {
             const { service, layout } = shown();
             service.setAuxiliaryBarVisible(false);
             service.setPanelVisible(false);
@@ -322,7 +322,7 @@ describe("LayoutService: вторичная боковая панель", () => 
             expect(layout.getBottomPanelHeight()).toBe(12);
         });
 
-        it("без боковых частей редактору расти некуда по ширине", () => {
+        it("without side parts the editor has no room to grow in width", () => {
             const { service, layout } = shown();
             service.setAuxiliaryBarVisible(false);
             service.setSidebarVisible(false);

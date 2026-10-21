@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { parseWireConfigurationUpdate } from "./hostWireParsers.ts";
 
 describe("hostWireParsers — configuration.update", () => {
-    it("принимает ключ, значение, цель и ресурс; лишнего не добавляет", () => {
+    it("accepts key, value, target and resource; adds nothing extra", () => {
         expect(
             parseWireConfigurationUpdate({
                 key: "a.b",
@@ -27,15 +27,15 @@ describe("hostWireParsers — configuration.update", () => {
     });
 
     it.each([
-        ["не объект", "x"],
+        ["not an object", "x"],
         ["null", null],
-        ["нет ключа", { value: 1 }],
-        ["пустой ключ", { key: "", value: 1 }],
-        ["ключ не строка", { key: 1, value: 1 }],
-        ["чужая цель", { key: "a", target: "memory" }],
-        ["цель числом", { key: "a", target: 1 }],
-        ["ресурс не строка", { key: "a", resource: {} }],
-    ])("отвергает чужую форму: %s", (_name, raw) => {
+        ["no key", { value: 1 }],
+        ["empty key", { key: "", value: 1 }],
+        ["key not a string", { key: 1, value: 1 }],
+        ["unknown target", { key: "a", target: "memory" }],
+        ["numeric target", { key: "a", target: 1 }],
+        ["resource not a string", { key: "a", resource: {} }],
+    ])("rejects a foreign shape: %s", (_name, raw) => {
         expect(parseWireConfigurationUpdate(raw)).toBeNull();
     });
 });

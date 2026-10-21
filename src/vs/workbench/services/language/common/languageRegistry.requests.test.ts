@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { LanguageRegistry } from "./languageRegistry.ts";
 
-describe("LanguageRegistry — запрос фич языка", () => {
-    it("сигнал — один на язык: повторный запрос того же языка молчит", () => {
+describe("LanguageRegistry: language feature requests", () => {
+    it("one signal per language: a repeated request for the same language stays silent", () => {
         const registry = new LanguageRegistry();
         const requested: string[] = [];
         registry.onDidRequestLanguageFeatures((id) => requested.push(id));
@@ -15,7 +15,7 @@ describe("LanguageRegistry — запрос фич языка", () => {
         expect(requested).toEqual(["typescript", "json"]);
     });
 
-    it("снятый слушатель запросов не слышит, остальные слышат", () => {
+    it("a removed listener does not hear requests, the others do", () => {
         const registry = new LanguageRegistry();
         const removed: string[] = [];
         const kept: string[] = [];

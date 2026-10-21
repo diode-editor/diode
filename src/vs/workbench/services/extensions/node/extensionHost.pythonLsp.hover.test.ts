@@ -24,7 +24,7 @@ import type { ICoreHover } from "../../../../editor/common/languages/iHoverSourc
 
 let installed: IInstalledBasedpyright;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover от стокового basedpyright", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover from the stock basedpyright", () => {
     beforeAll(async () => {
         installed = await installBasedpyright();
     }, 120_000);
@@ -33,44 +33,48 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover от стоков�
         installed.dispose();
     });
 
-    it("сигнатура функции под кареткой доезжает markdown-блоком до ядра", { timeout: 240_000 }, async () => {
-        const outputLines: { level: string; value: string }[] = [];
-        const harness: IExtensionHarness = await createExtensionTestHarness({
-            languageService: PY_LANGUAGE_SERVICE,
-            activateEvents: [],
-            outputSink: {
-                append: (_channel, _label, level, value) => outputLines.push({ level, value }),
-                show: () => undefined,
-            },
-            extensions: [installed.registration],
-        });
-        try {
-            harness.writeFile("defs.py", DEFS_PY);
-            const mainPath = harness.writeFile("main.py", MAIN_PY);
-            const mainUri = Uri.file(mainPath).toString();
-
-            harness.group.openFile(mainPath);
-            await harness.host.activateByEvent("onLanguage:python");
-
-            const hovers = await until("hover над `greet`", async () => {
-                const found: readonly ICoreHover[] = await provideHovers(harness, {
-                    uri: mainUri,
-                    languageId: "python",
-                    versionId: documentVersion(harness, mainUri),
-                    line: 2,
-                    character: 15,
-                });
-                return found.length > 0 ? found : null;
+    it(
+        "the signature of the function under the cursor reaches the core as a markdown block",
+        { timeout: 240_000 },
+        async () => {
+            const outputLines: { level: string; value: string }[] = [];
+            const harness: IExtensionHarness = await createExtensionTestHarness({
+                languageService: PY_LANGUAGE_SERVICE,
+                activateEvents: [],
+                outputSink: {
+                    append: (_channel, _label, level, value) => outputLines.push({ level, value }),
+                    show: () => undefined,
+                },
+                extensions: [installed.registration],
             });
+            try {
+                harness.writeFile("defs.py", DEFS_PY);
+                const mainPath = harness.writeFile("main.py", MAIN_PY);
+                const mainUri = Uri.file(mainPath).toString();
 
-            // The text is NOT in the buffer (Suggest.md rule): the type comes from a declaration in another file.
-            const joined = hovers.flatMap((hover) => hover.contents).join("\n");
-            expect(joined).toContain("greet(name: str) -> str");
+                harness.group.openFile(mainPath);
+                await harness.host.activateByEvent("onLanguage:python");
 
-            const crashes = outputLines.filter((line) => CLIENT_CRASH_PATTERNS.test(line.value));
-            expect(crashes).toEqual([]);
-        } finally {
-            await harness.dispose();
-        }
-    });
+                const hovers = await until("hover over `greet`", async () => {
+                    const found: readonly ICoreHover[] = await provideHovers(harness, {
+                        uri: mainUri,
+                        languageId: "python",
+                        versionId: documentVersion(harness, mainUri),
+                        line: 2,
+                        character: 15,
+                    });
+                    return found.length > 0 ? found : null;
+                });
+
+                // The text is NOT in the buffer (Suggest.md rule): the type comes from a declaration in another file.
+                const joined = hovers.flatMap((hover) => hover.contents).join("\n");
+                expect(joined).toContain("greet(name: str) -> str");
+
+                const crashes = outputLines.filter((line) => CLIENT_CRASH_PATTERNS.test(line.value));
+                expect(crashes).toEqual([]);
+            } finally {
+                await harness.dispose();
+            }
+        },
+    );
 });

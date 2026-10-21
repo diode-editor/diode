@@ -41,7 +41,7 @@ function setup() {
 const COMMENTS = { comments: { lineComment: "//" } };
 
 describe("LanguageConfigurationCustomer", () => {
-    it("слой расширения — в сервис конфигураций; снятие по handle", async () => {
+    it("the extension layer goes to the configuration service; removal by handle", async () => {
         const { service, peer } = setup();
         peer.notify("languages.setLanguageConfiguration", { handle: 0, languageId: "go", configuration: COMMENTS });
         peer.notify("languages.setLanguageConfiguration", { handle: 1, languageId: "go.mod", configuration: {} });
@@ -58,7 +58,7 @@ describe("LanguageConfigurationCustomer", () => {
         expect(service.live.map((layer) => layer.languageId)).toEqual(["go.mod"]);
     });
 
-    it("повтор handle заменяет слой, а не кладёт второй поверх", async () => {
+    it("a repeated handle replaces the layer instead of stacking a second one", async () => {
         const { service, peer } = setup();
         peer.notify("languages.setLanguageConfiguration", { handle: 0, languageId: "go", configuration: COMMENTS });
         peer.notify("languages.setLanguageConfiguration", { handle: 0, languageId: "go", configuration: {} });
@@ -66,14 +66,14 @@ describe("LanguageConfigurationCustomer", () => {
         expect(service.live).toEqual([{ languageId: "go", configuration: {} }]);
     });
 
-    it("структурно чужое — игнорируется", async () => {
+    it("structurally foreign input is ignored", async () => {
         const { service, peer } = setup();
         peer.notify("languages.setLanguageConfiguration", { languageId: "go", configuration: COMMENTS });
         await flushMicrotasks();
         expect(service.live).toEqual([]);
     });
 
-    it("смерть субпроцесса снимает все его слои — уже снятые повторно не трогает", async () => {
+    it("subprocess death removes all its layers — already removed ones are not touched again", async () => {
         const { service, peer, spawn } = setup();
         peer.notify("languages.setLanguageConfiguration", { handle: 0, languageId: "go", configuration: COMMENTS });
         peer.notify("languages.setLanguageConfiguration", { handle: 1, languageId: "go", configuration: {} });
@@ -87,7 +87,7 @@ describe("LanguageConfigurationCustomer", () => {
 });
 
 describe("parseWireLanguageConfiguration", () => {
-    it("форма с handle, языком и объектом-конфигурацией", () => {
+    it("shape with handle, language and a configuration object", () => {
         expect(parseWireLanguageConfiguration({ handle: 2, languageId: "go", configuration: COMMENTS })).toEqual({
             handle: 2,
             languageId: "go",
@@ -96,14 +96,14 @@ describe("parseWireLanguageConfiguration", () => {
     });
 
     it.each([
-        ["не объект", null],
-        ["без handle", { languageId: "go", configuration: {} }],
-        ["дробный handle", { handle: 1.5, languageId: "go", configuration: {} }],
-        ["язык не строка", { handle: 1, languageId: 3, configuration: {} }],
-        ["без конфигурации", { handle: 1, languageId: "go" }],
-        ["конфигурация null", { handle: 1, languageId: "go", configuration: null }],
-        ["конфигурация-массив", { handle: 1, languageId: "go", configuration: [] }],
-        ["конфигурация-строка", { handle: 1, languageId: "go", configuration: "x" }],
+        ["not an object", null],
+        ["without handle", { languageId: "go", configuration: {} }],
+        ["fractional handle", { handle: 1.5, languageId: "go", configuration: {} }],
+        ["language not a string", { handle: 1, languageId: 3, configuration: {} }],
+        ["without configuration", { handle: 1, languageId: "go" }],
+        ["configuration null", { handle: 1, languageId: "go", configuration: null }],
+        ["configuration array", { handle: 1, languageId: "go", configuration: [] }],
+        ["configuration string", { handle: 1, languageId: "go", configuration: "x" }],
     ])("%s — null", (_what, raw) => {
         expect(parseWireLanguageConfiguration(raw)).toBeNull();
     });

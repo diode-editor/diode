@@ -28,7 +28,7 @@ const DUO_PY = 'import sys\n\nreply: int  =  "hi"\n';
 let ruff: IInstalledRuff;
 let basedpyright: IInstalledBasedpyright;
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — basedpyright + ruff одновременно", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — basedpyright + ruff together", () => {
     beforeAll(async () => {
         [ruff, basedpyright] = await Promise.all([installRuff(), installBasedpyright()]);
     }, 180_000);
@@ -38,7 +38,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — basedpyright + ruff од
         basedpyright.dispose();
     });
 
-    it("диагностики обоих серверов сливаются, формат отдаёт ruff", { timeout: 240_000 }, async () => {
+    it("diagnostics of both servers merge, ruff provides formatting", { timeout: 240_000 }, async () => {
         const published: { owner: string; resource: string; markers: readonly WireMarker[] }[] = [];
         const harness: IExtensionHarness = await createExtensionTestHarness({
             languageService: PY_LANGUAGE_SERVICE,
@@ -64,14 +64,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — basedpyright + ruff од
             };
 
             // A cold start of basedpyright takes tens of seconds; ruff is ready long before.
-            await until("F401 от ruff", () =>
+            await until("F401 from ruff", () =>
                 Promise.resolve(latestByOwner((m) => /F401|unused/.test(`${m.code ?? ""} ${m.message}`)) ?? null),
             );
-            await until("ошибка типов от basedpyright", () =>
+            await until("type error from basedpyright", () =>
                 Promise.resolve(latestByOwner((m) => m.message.includes("is not assignable")) ?? null),
             );
 
-            const edits = await until("formatting edits при двух серверах", async () => {
+            const edits = await until("formatting edits with two servers", async () => {
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: duoUri,
                     languageId: "python",

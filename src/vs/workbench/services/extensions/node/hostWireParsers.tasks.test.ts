@@ -21,7 +21,7 @@ const base = {
 };
 
 describe("parseWireTaskFromSubprocess", () => {
-    it("минимальная задача: обязательные поля и дефолты необязательных", () => {
+    it("minimal task: required fields and defaults for optional ones", () => {
         expect(
             parseWireTaskFromSubprocess({
                 name: "n",
@@ -39,7 +39,7 @@ describe("parseWireTaskFromSubprocess", () => {
         });
     });
 
-    it("полная задача: id, группа, detail, presentation (только типизированные поля), матчеры, runOptions", () => {
+    it("full task: id, group, detail, presentation (typed fields only), matchers, runOptions", () => {
         expect(
             parseWireTaskFromSubprocess({
                 ...base,
@@ -89,7 +89,7 @@ describe("parseWireTaskFromSubprocess", () => {
         });
     });
 
-    it("битые необязательные поля отбрасываются", () => {
+    it("malformed optional fields are dropped", () => {
         const parsed = parseWireTaskFromSubprocess({
             ...base,
             id: 1,
@@ -114,7 +114,7 @@ describe("parseWireTaskFromSubprocess", () => {
         ).toStrictEqual({});
     });
 
-    it("без имени, типа определения, подписи, расширения или области — null", () => {
+    it("no name, definition type, signature, extension or scope → null", () => {
         expect(parseWireTaskFromSubprocess(null)).toBeNull();
         expect(parseWireTaskFromSubprocess({ ...base, name: 1 })).toBeNull();
         expect(parseWireTaskFromSubprocess({ ...base, definition: {} })).toBeNull();
@@ -128,7 +128,7 @@ describe("parseWireTaskFromSubprocess", () => {
         expect(parseWireTaskFromSubprocess({ ...base, source: { label: "l", extensionId: "e" } })).toBeNull();
     });
 
-    it("исполнение: процесс, шелл командой с аргументами, кастомное, нераспознанное", () => {
+    it("execution: process, shell command with args, custom, unrecognized", () => {
         const execution = (value: unknown) => parseWireTaskFromSubprocess({ ...base, execution: value })?.execution;
         expect(
             execution({ process: "node", args: ["a", 1], options: { cwd: "/c", env: { A: "1", N: null, M: 2 } } }),
@@ -202,13 +202,13 @@ describe("parseWireTaskFromSubprocess", () => {
     });
 });
 
-describe("сообщения tasks.*", () => {
-    it("ответ провайдера — массив, битые выпадают; не массив — пусто", () => {
+describe("tasks.* messages", () => {
+    it("provider response is an array, malformed entries drop out; a non-array is empty", () => {
         expect(parseWireTasksFromSubprocess([base, { name: 1 }])).toHaveLength(1);
         expect(parseWireTasksFromSubprocess({})).toStrictEqual([]);
     });
 
-    it("регистрация провайдера и handle", () => {
+    it("provider registration and handle", () => {
         expect(parseWireTaskProviderRegistration({ handle: 1, type: "demo", extensionId: "e" })).toStrictEqual({
             handle: 1,
             type: "demo",
@@ -223,20 +223,20 @@ describe("сообщения tasks.*", () => {
         expect(parseWireTaskProviderHandle(undefined)).toBeNull();
     });
 
-    it("фильтр: тип строкой, иначе без типа", () => {
+    it("filter: type as string, otherwise no type", () => {
         expect(parseWireTaskFilter({ type: "npm" })).toStrictEqual({ type: "npm" });
         expect(parseWireTaskFilter({ type: 1 })).toStrictEqual({});
         expect(parseWireTaskFilter(null)).toStrictEqual({});
     });
 
-    it("execute: id, задача целиком или null", () => {
+    it("execute: id, the whole task or null", () => {
         expect(parseWireTaskExecuteRequest({ id: "x" })).toStrictEqual({ id: "x" });
         expect(parseWireTaskExecuteRequest({ task: base })).toStrictEqual({ task: { ...base } });
         expect(parseWireTaskExecuteRequest({ task: { name: 1 } })).toBeNull();
         expect(parseWireTaskExecuteRequest(undefined)).toBeNull();
     });
 
-    it("id исполнения", () => {
+    it("execution id", () => {
         expect(parseWireTaskExecutionId({ id: "x" })).toStrictEqual({ id: "x" });
         expect(parseWireTaskExecutionId({ id: 1 })).toBeNull();
         expect(parseWireTaskExecutionId(null)).toBeNull();

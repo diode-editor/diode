@@ -19,13 +19,13 @@ function resolver(theme: IEditorTokenTheme, registry = createDefaultTokenClassif
     return new SemanticTokenStyleResolver(registry, theme);
 }
 
-describe("SemanticTokenStyleResolver — фоллбэк на TextMate-скоупы темы", () => {
-    it("тип красится цветом своей пробы из tokenColors", () => {
+describe("SemanticTokenStyleResolver: fallback to theme TextMate scopes", () => {
+    it("a type gets the color of its probe from tokenColors", () => {
         const r = resolver({ rules: [{ scope: "variable", settings: { foreground: RED } }] });
         expect(r.resolve("variable", [], "ts")).toStrictEqual({ fg: parseHexColor(RED) });
     });
 
-    it("пробы по порядку: первая, давшая цвет, побеждает", () => {
+    it("probes in order: the first one that yields a color wins", () => {
         const r = resolver({
             rules: [
                 { scope: "support.type", settings: { foreground: GREEN } },
@@ -37,7 +37,7 @@ describe("SemanticTokenStyleResolver — фоллбэк на TextMate-скоуп
         expect(onlySecond.resolve("type", [], "ts")?.fg).toBe(parseHexColor(GREEN));
     });
 
-    it("внутри пробы — более длинный совпавший скоуп правила; при равенстве — поздний", () => {
+    it("within a probe, the longer matching rule scope wins; on a tie, the later one", () => {
         const r = resolver({
             rules: [
                 { scope: "entity.name.function", settings: { foreground: RED } },
@@ -48,7 +48,7 @@ describe("SemanticTokenStyleResolver — фоллбэк на TextMate-скоуп
         expect(r.resolve("method", [], "ts")?.fg).toBe(parseHexColor(BLUE));
     });
 
-    it("fontStyle правила задаёт все четыре флага; цвет и стиль берутся независимо", () => {
+    it("a rule's fontStyle sets all four flags; color and style are taken independently", () => {
         const r = resolver({
             rules: [
                 { scope: "comment", settings: { foreground: RED } },
@@ -66,7 +66,7 @@ describe("SemanticTokenStyleResolver — фоллбэк на TextMate-скоуп
         });
     });
 
-    it("правило без scope и пустой селектор не участвуют; массив scope — каждый элемент", () => {
+    it("a rule without scope and an empty selector do not take part; an array scope counts each element", () => {
         const r = resolver({
             rules: [
                 { settings: { foreground: RED } },
@@ -78,7 +78,7 @@ describe("SemanticTokenStyleResolver — фоллбэк на TextMate-скоуп
         expect(r.resolve("number", [], "ts")).toBeNull();
     });
 
-    it("TM-селектор с исключением и родителем разбирается как в эталоне", () => {
+    it("a TM selector with an exclusion and a parent parses as upstream", () => {
         const r = resolver({
             rules: [
                 { scope: "string -string.quoted", settings: { foreground: RED } },
@@ -90,7 +90,7 @@ describe("SemanticTokenStyleResolver — фоллбэк на TextMate-скоуп
         expect(r.resolve("keyword", [], "ts")).toBeNull();
     });
 
-    it("проба-путь из semanticTokenScopes: все скоупы правила найдены в пути", () => {
+    it("a path probe from semanticTokenScopes: all rule scopes are found in the path", () => {
         const registry = createDefaultTokenClassificationRegistry();
         registry.registerTokenStyleDefault(registry.parseTokenSelector("label"), {
             scopesToProbe: [["source", "entity.name.label"]],
@@ -99,12 +99,12 @@ describe("SemanticTokenStyleResolver — фоллбэк на TextMate-скоуп
         expect(r.resolve("label", [], "ts")?.fg).toBe(parseHexColor(RED));
     });
 
-    it("ничего не нашлось — null (токен не перекрывает TextMate)", () => {
+    it("nothing found: null (the token does not override TextMate)", () => {
         expect(resolver({ rules: [] }).resolve("variable", [], "ts")).toBeNull();
         expect(resolver({ rules: [] }).resolve("unknownType", ["x"], "ts")).toBeNull();
     });
 
-    it("более специфичный дефолт побеждает: variable.readonly → variable.other.constant", () => {
+    it("a more specific default wins: variable.readonly → variable.other.constant", () => {
         const r = resolver({
             rules: [
                 { scope: "variable.other.constant", settings: { foreground: RED } },
@@ -116,8 +116,8 @@ describe("SemanticTokenStyleResolver — фоллбэк на TextMate-скоуп
     });
 });
 
-describe("SemanticTokenStyleResolver — semanticTokenColors темы", () => {
-    it("правило темы перекрывает фоллбэк по заданным атрибутам и закрывает их", () => {
+describe("SemanticTokenStyleResolver: theme semanticTokenColors", () => {
+    it("a theme rule overrides the fallback for the attributes it sets and seals them", () => {
         const r = resolver({
             rules: [{ scope: "variable", settings: { foreground: RED, fontStyle: "italic" } }],
             semanticTokenRules: [{ selector: "variable", settings: { foreground: GREEN } }],
@@ -132,7 +132,7 @@ describe("SemanticTokenStyleResolver — semanticTokenColors темы", () => {
         });
     });
 
-    it("правило темы с меньшим весом всё равно сильнее дефолта с большим", () => {
+    it("a theme rule with a lower weight still beats a default with a higher one", () => {
         const r = resolver({
             rules: [{ scope: "variable.other.constant", settings: { foreground: RED } }],
             semanticTokenRules: [{ selector: "*", settings: { foreground: GREEN } }],
@@ -140,7 +140,7 @@ describe("SemanticTokenStyleResolver — semanticTokenColors темы", () => {
         expect(r.resolve("variable", ["readonly"], "ts")?.fg).toBe(parseHexColor(GREEN));
     });
 
-    it("между правилами темы: больший вес побеждает, при равном — позднее", () => {
+    it("among theme rules: the higher weight wins, on a tie the later one", () => {
         const r = resolver({
             rules: [],
             semanticTokenRules: [
@@ -153,7 +153,7 @@ describe("SemanticTokenStyleResolver — semanticTokenColors темы", () => {
         expect(r.resolve("variable", ["readonly"], "ts")).toStrictEqual({ fg: parseHexColor(RED), bold: false });
     });
 
-    it("поздний повтор селектора перекрывает только свои атрибуты (include-цепочка)", () => {
+    it("a later repeat of a selector overrides only its own attributes (include chain)", () => {
         const r = resolver({
             rules: [],
             semanticTokenRules: [
@@ -164,7 +164,7 @@ describe("SemanticTokenStyleResolver — semanticTokenColors темы", () => {
         expect(r.resolve("variable", [], "ts")).toStrictEqual({ fg: parseHexColor(GREEN), bold: true });
     });
 
-    it("fontStyle правила перекрывает отдельные булевы, пустой — сбрасывает всё", () => {
+    it("a rule's fontStyle overrides individual booleans, an empty one resets all", () => {
         const r = resolver({
             rules: [],
             semanticTokenRules: [
@@ -188,7 +188,7 @@ describe("SemanticTokenStyleResolver — semanticTokenColors темы", () => {
         expect(r.resolve("struct", [], "ts")).toStrictEqual({ italic: true, underline: false, strikethrough: true });
     });
 
-    it("языковое правило применяется только к своему языку", () => {
+    it("a language rule applies only to its own language", () => {
         const r = resolver({
             rules: [],
             semanticTokenRules: [{ selector: "method:java", settings: { foreground: RED } }],
@@ -198,14 +198,14 @@ describe("SemanticTokenStyleResolver — semanticTokenColors темы", () => {
     });
 });
 
-describe("SemanticTokenStyleResolver — матч TM-правил по пробе (resolveScopes эталона)", () => {
+describe("SemanticTokenStyleResolver: matching TM rules by probe (upstream resolveScopes)", () => {
     function probing(probes: string[][], selector = "t") {
         const registry = new TokenClassificationRegistry();
         registry.registerTokenStyleDefault(registry.parseTokenSelector(selector), { scopesToProbe: probes });
         return registry;
     }
 
-    it("правило из нескольких идентификаторов требует найти каждый, даже при длинной пробе", () => {
+    it("a rule of several identifiers requires each one to be found, even with a long probe", () => {
         const r = resolver(
             { rules: [{ scope: "meta.x entity.name", settings: { foreground: RED } }] },
             probing([["source", "entity.name.label"]]),
@@ -213,7 +213,7 @@ describe("SemanticTokenStyleResolver — матч TM-правил по проб�
         expect(r.resolve("t", [], "x")).toBeNull();
     });
 
-    it("один скоуп пробы не засчитывается за два идентификатора правила", () => {
+    it("one probe scope does not count for two rule identifiers", () => {
         const r = resolver(
             { rules: [{ scope: "string string", settings: { foreground: RED } }] },
             probing([["string"]]),
@@ -221,7 +221,7 @@ describe("SemanticTokenStyleResolver — матч TM-правил по проб�
         expect(r.resolve("t", [], "x")).toBeNull();
     });
 
-    it("вес по позиции в пробе старше длины идентификатора", () => {
+    it("weight by position in the probe outranks identifier length", () => {
         const r = resolver(
             {
                 rules: [
@@ -234,7 +234,7 @@ describe("SemanticTokenStyleResolver — матч TM-правил по проб�
         expect(r.resolve("t", [], "x")?.fg).toBe(parseHexColor(GREEN));
     });
 
-    it("префикс совпадает только по границе точки", () => {
+    it("a prefix matches only on a dot boundary", () => {
         const r = resolver(
             { rules: [{ scope: "variable.other.read", settings: { foreground: RED } }] },
             probing([["variable.other.readwrite"]]),
@@ -242,12 +242,12 @@ describe("SemanticTokenStyleResolver — матч TM-правил по проб�
         expect(r.resolve("t", [], "x")).toBeNull();
     });
 
-    it("правило без scope (глобальные настройки темы) не совпадает ни с чем", () => {
+    it("a rule without scope (theme global settings) matches nothing", () => {
         const r = resolver({ rules: [{ settings: { foreground: RED } }] }, probing([["undefined"]]));
         expect(r.resolve("t", [], "x")).toBeNull();
     });
 
-    it("отрицание даёт вес 0, и такое правило всё равно применяется", () => {
+    it("a negation gives weight 0, and such a rule still applies", () => {
         const r = resolver(
             { rules: [{ scope: "-comment", settings: { foreground: RED, fontStyle: "italic" } }] },
             probing([["string"]]),
@@ -261,7 +261,7 @@ describe("SemanticTokenStyleResolver — матч TM-правил по проб�
         });
     });
 
-    it("fontStyle: старший по весу побеждает, при равенстве — поздний; правило без fontStyle его не стирает", () => {
+    it("fontStyle: the higher weight wins, on a tie the later one; a rule without fontStyle does not erase it", () => {
         const r = resolver(
             {
                 rules: [
@@ -292,7 +292,7 @@ describe("SemanticTokenStyleResolver — матч TM-правил по проб�
         expect(tie.resolve("t", [], "x")?.underline).toBe(true);
     });
 
-    it("проба, давшая только fontStyle, — уже ответ: следующая проба не смотрится", () => {
+    it("a probe that yields only fontStyle is already the answer: the next probe is not consulted", () => {
         const r = resolver(
             {
                 rules: [
@@ -310,14 +310,14 @@ describe("SemanticTokenStyleResolver — матч TM-правил по проб�
         });
     });
 
-    it("дефолт с селектором `*` (вес 0) применяется", () => {
+    it("a default with the `*` selector (weight 0) applies", () => {
         const r = resolver({ rules: [{ scope: "string", settings: { foreground: RED } }] }, probing([["string"]], "*"));
         expect(r.resolve("anything", [], "x")?.fg).toBe(parseHexColor(RED));
     });
 });
 
-describe("SemanticTokenStyleResolver — веса атрибутов", () => {
-    it("правило темы задало только флаг — цвет добирается из фоллбэка", () => {
+describe("SemanticTokenStyleResolver: attribute weights", () => {
+    it("a theme rule set only a flag: the color is filled in from the fallback", () => {
         const r = resolver({
             rules: [{ scope: "variable", settings: { foreground: GREEN } }],
             semanticTokenRules: [{ selector: "variable", settings: { bold: true } }],
@@ -325,7 +325,7 @@ describe("SemanticTokenStyleResolver — веса атрибутов", () => {
         expect(r.resolve("variable", [], "ts")).toStrictEqual({ fg: parseHexColor(GREEN), bold: true });
     });
 
-    it("флаг от правила с большим весом не перебивается поздним правилом с меньшим", () => {
+    it("a flag from a higher-weight rule is not overridden by a later lower-weight rule", () => {
         const r = resolver({
             rules: [],
             semanticTokenRules: [
@@ -337,8 +337,8 @@ describe("SemanticTokenStyleResolver — веса атрибутов", () => {
     });
 });
 
-describe("SemanticTokenStyleResolver — жизненный цикл", () => {
-    it("ключ кэша различает наборы модификаторов `a`+`b` и `ab`", () => {
+describe("SemanticTokenStyleResolver: lifecycle", () => {
+    it("the cache key tells apart modifier sets `a`+`b` and `ab`", () => {
         const r = resolver({
             rules: [],
             semanticTokenRules: [
@@ -350,7 +350,7 @@ describe("SemanticTokenStyleResolver — жизненный цикл", () => {
         expect(r.resolve("variable", ["ab"], "ts")?.fg).toBe(parseHexColor(GREEN));
     });
 
-    it("после dispose ни реестр, ни смена темы не трогают резолвер", () => {
+    it("after dispose neither the registry nor a theme change touch the resolver", () => {
         const registry = new TokenClassificationRegistry();
         const r = resolver(
             { rules: [], semanticTokenRules: [{ selector: "type", settings: { foreground: RED } }] },
@@ -367,14 +367,14 @@ describe("SemanticTokenStyleResolver — жизненный цикл", () => {
         expect(listener).not.toHaveBeenCalled();
     });
 
-    it("semanticHighlighting — из активной темы", () => {
+    it("semanticHighlighting comes from the active theme", () => {
         const r = resolver({ rules: [], semanticHighlighting: true });
         expect(r.semanticHighlighting).toBe(true);
         r.setTheme({ rules: [] });
         expect(r.semanticHighlighting).toBe(false);
     });
 
-    it("смена темы сбрасывает кэш и фаерит onDidChange", () => {
+    it("a theme change resets the cache and fires onDidChange", () => {
         const r = resolver({ rules: [{ scope: "variable", settings: { foreground: RED } }] });
         const listener = vi.fn();
         r.onDidChange(listener);
@@ -384,7 +384,7 @@ describe("SemanticTokenStyleResolver — жизненный цикл", () => {
         expect(r.resolve("variable", [], "ts")?.fg).toBe(parseHexColor(GREEN));
     });
 
-    it("кэш по (тип, набор модификаторов, язык): порядок модификаторов не важен, язык — важен", () => {
+    it("cache by (type, modifier set, language): modifier order does not matter, language does", () => {
         const r = resolver({
             rules: [],
             semanticTokenRules: [{ selector: "variable.readonly.static:java", settings: { foreground: RED } }],
@@ -394,7 +394,7 @@ describe("SemanticTokenStyleResolver — жизненный цикл", () => {
         expect(r.resolve("variable", ["static", "readonly"], "ts")).toBeNull();
     });
 
-    it("изменение классификации пересобирает правила темы и фаерит onDidChange; dispose отписывает", () => {
+    it("a classification change rebuilds the theme rules and fires onDidChange; dispose unsubscribes", () => {
         const registry = new TokenClassificationRegistry();
         const r = resolver(
             { rules: [], semanticTokenRules: [{ selector: "type", settings: { foreground: RED } }] },
@@ -412,15 +412,15 @@ describe("SemanticTokenStyleResolver — жизненный цикл", () => {
     });
 });
 
-describe("SemanticTokenStyleResolver — встроенная Dark Modern", () => {
+describe("SemanticTokenStyleResolver: built-in Dark Modern", () => {
     const theme = WorkbenchTheme.fromThemeFile(darkModernTheme).tokenTheme;
     const r = resolver(theme);
 
-    it("тема включает семантическую подсветку", () => {
+    it("the theme enables semantic highlighting", () => {
         expect(r.semanticHighlighting).toBe(true);
     });
 
-    it("параметр, свойство, класс, функция — цвета Dark+ через фоллбэк", () => {
+    it("parameter, property, class, function: Dark+ colors via the fallback", () => {
         expect(r.resolve("parameter", [], "java")?.fg).toBe(parseHexColor("#9CDCFE"));
         expect(r.resolve("property", [], "java")?.fg).toBe(parseHexColor("#9CDCFE"));
         expect(r.resolve("class", [], "java")?.fg).toBe(parseHexColor("#4EC9B0"));
@@ -428,7 +428,7 @@ describe("SemanticTokenStyleResolver — встроенная Dark Modern", () =
         expect(r.resolve("variable", ["readonly"], "java")?.fg).toBe(parseHexColor("#4FC1FF"));
     });
 
-    it("semanticTokenColors темы: newOperator — из Dark+, перекрывший Dark VS", () => {
+    it("theme semanticTokenColors: newOperator comes from Dark+, which overrode Dark VS", () => {
         expect(r.resolve("newOperator", [], "cpp")?.fg).toBe(parseHexColor("#C586C0"));
     });
 });

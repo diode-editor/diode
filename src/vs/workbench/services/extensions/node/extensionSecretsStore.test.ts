@@ -19,20 +19,20 @@ afterEach(() => {
 });
 
 describe("createInMemoryExtensionSecretStore", () => {
-    it("хранит, отдаёт и удаляет по паре «расширение + ключ»", () => {
+    it("stores, returns and deletes by (extension, key) pair", () => {
         const store = createInMemoryExtensionSecretStore();
         expect(store.get("pub.one", "token")).toBeUndefined();
         store.store("pub.one", "token", "s3cr3t");
         expect(store.get("pub.one", "token")).toBe("s3cr3t");
         expect(store.get("pub.two", "token")).toBeUndefined();
-        store.store("pub.two", "token", "чужой");
+        store.store("pub.two", "token", "other");
         expect(store.get("pub.one", "token")).toBe("s3cr3t");
         store.delete("pub.one", "token");
         expect(store.get("pub.one", "token")).toBeUndefined();
-        expect(store.get("pub.two", "token")).toBe("чужой");
+        expect(store.get("pub.two", "token")).toBe("other");
     });
 
-    it("keys перечисляет ключи расширения и пустеет вместе с ним", () => {
+    it("keys lists the extension's keys and empties along with it", () => {
         const store = createInMemoryExtensionSecretStore();
         expect(store.keys("pub.one")).toEqual([]);
         store.store("pub.one", "token", "a");
@@ -42,25 +42,25 @@ describe("createInMemoryExtensionSecretStore", () => {
         expect(store.keys("pub.one")).toEqual(["refresh"]);
     });
 
-    it("delete несуществующего — тихий no-op", () => {
+    it("deleting a missing key is a silent no-op", () => {
         const store = createInMemoryExtensionSecretStore();
         expect(() => {
             store.delete("pub.one", "token");
         }).not.toThrow();
         store.store("pub.one", "token", "a");
-        store.delete("pub.one", "нет такого");
+        store.delete("pub.one", "no such key");
         expect(store.get("pub.one", "token")).toBe("a");
     });
 });
 
 describe("createFileExtensionSecretStore", () => {
-    it("записанное переживает пересоздание хранилища — оно лежит в файле", () => {
+    it("written data survives store re-creation: it lives in a file", () => {
         const file = path.join(makeRoot(), "User", "secrets.json");
         createFileExtensionSecretStore(file).store("pub.one", "token", "s3cr3t");
         expect(createFileExtensionSecretStore(file).get("pub.one", "token")).toBe("s3cr3t");
     });
 
-    it("удаление тоже доезжает до файла", () => {
+    it("deletion reaches the file too", () => {
         const file = path.join(makeRoot(), "secrets.json");
         const first = createFileExtensionSecretStore(file);
         first.store("pub.one", "token", "s3cr3t");
@@ -71,7 +71,7 @@ describe("createFileExtensionSecretStore", () => {
         expect(second.keys("pub.one")).toEqual(["refresh"]);
     });
 
-    it("опустевшее расширение не оставляет за собой пустой лоток", () => {
+    it("an emptied extension leaves no empty bucket behind", () => {
         const file = path.join(makeRoot(), "secrets.json");
         const store = createFileExtensionSecretStore(file);
         store.store("pub.one", "token", "s3cr3t");
@@ -79,7 +79,7 @@ describe("createFileExtensionSecretStore", () => {
         expect(JSON.parse(fs.readFileSync(file, "utf-8"))).toEqual({});
     });
 
-    it("файл создаётся с правами 0600 и остаётся таким, даже если приехал чужим", () => {
+    it("the file is created with mode 0600 and stays so even if it arrived with other permissions", () => {
         const root = makeRoot();
         const file = path.join(root, "secrets.json");
         fs.writeFileSync(file, "{}", { encoding: "utf-8", mode: 0o644 });
@@ -87,10 +87,10 @@ describe("createFileExtensionSecretStore", () => {
         expect(fs.statSync(file).mode & 0o777).toBe(0o600);
     });
 
-    it("нет файла — пустое хранилище, и это НЕ ошибка: onError молчит", () => {
+    it("a missing file yields an empty store and is NOT an error: onError stays silent", () => {
         // Logging a complaint on a clean install would be a false alarm on every first launch.
         const seen: string[] = [];
-        const store = createFileExtensionSecretStore(path.join(makeRoot(), "нет", "secrets.json"), (message) =>
+        const store = createFileExtensionSecretStore(path.join(makeRoot(), "missing", "secrets.json"), (message) =>
             seen.push(message),
         );
         expect(store.get("pub.one", "token")).toBeUndefined();
@@ -98,16 +98,16 @@ describe("createFileExtensionSecretStore", () => {
         expect(seen).toEqual([]);
     });
 
-    it("битый файл без onError — тоже пустое хранилище, а не падение", () => {
+    it("a corrupt file without onError also yields an empty store, not a crash", () => {
         // `onError` is optional (harnesses don't pass it): without a listener a failure doesn't become an exception.
         const file = path.join(makeRoot(), "secrets.json");
-        fs.writeFileSync(file, "{не json", "utf-8");
+        fs.writeFileSync(file, "{not json", "utf-8");
         const store = createFileExtensionSecretStore(file);
         expect(() => store.get("pub.one", "token")).not.toThrow();
         expect(store.keys("pub.one")).toEqual([]);
     });
 
-    it("незаписываемый путь без onError — тоже не падение", () => {
+    it("an unwritable path without onError does not crash either", () => {
         const file = path.join(makeRoot(), "secrets.json");
         fs.mkdirSync(file);
         const store = createFileExtensionSecretStore(file);
@@ -116,7 +116,7 @@ describe("createFileExtensionSecretStore", () => {
         }).not.toThrow();
     });
 
-    it("файл `null` на верхнем уровне — пустое хранилище, а не падение", () => {
+    it("a top-level `null` file yields an empty store, not a crash", () => {
         const file = path.join(makeRoot(), "secrets.json");
         fs.writeFileSync(file, "null", "utf-8");
         const store = createFileExtensionSecretStore(file);
@@ -124,9 +124,9 @@ describe("createFileExtensionSecretStore", () => {
         expect(store.keys("pub.one")).toEqual([]);
     });
 
-    it("битый JSON — пустое хранилище и сообщение об ошибке без значений", () => {
+    it("corrupt JSON yields an empty store and an error message without values", () => {
         const file = path.join(makeRoot(), "secrets.json");
-        fs.writeFileSync(file, "{не json", "utf-8");
+        fs.writeFileSync(file, "{not json", "utf-8");
         const seen: string[] = [];
         const store = createFileExtensionSecretStore(file, (message) => seen.push(message));
         expect(store.get("pub.one", "token")).toBeUndefined();
@@ -134,16 +134,16 @@ describe("createFileExtensionSecretStore", () => {
         expect(seen[0]).toContain("failed to parse");
     });
 
-    it("чужая форма файла (массив, не-объектные лотки, нестроковые значения) отбрасывается поштучно", () => {
+    it("a foreign file shape (array, non-object buckets, non-string values) is dropped piece by piece", () => {
         const file = path.join(makeRoot(), "secrets.json");
         fs.writeFileSync(
             file,
             JSON.stringify({
                 "pub.one": { token: "s3cr3t", broken: 42, alsoBroken: null },
-                "pub.array": ["не лоток"],
+                "pub.array": ["not a bucket"],
                 "pub.null": null,
                 // Without the check the string's characters would spread into "keys" "0", "1", ….
-                "pub.scalar": "строка",
+                "pub.scalar": "string",
                 "pub.empty": { onlyBroken: 1 },
             }),
             "utf-8",
@@ -157,13 +157,13 @@ describe("createFileExtensionSecretStore", () => {
         expect(store.keys("pub.empty")).toEqual([]);
     });
 
-    it("файл-массив на верхнем уровне — тоже пустое хранилище", () => {
+    it("a top-level array file also yields an empty store", () => {
         const file = path.join(makeRoot(), "secrets.json");
         fs.writeFileSync(file, "[]", "utf-8");
         expect(createFileExtensionSecretStore(file).keys("pub.one")).toEqual([]);
     });
 
-    it("НЕпустой массив на верхнем уровне не становится лотками с индексами", () => {
+    it("a NON-empty top-level array does not become index-keyed buckets", () => {
         // An array is also `typeof === "object"`: without the check its elements would become "extensions" "0", "1", ….
         const file = path.join(makeRoot(), "secrets.json");
         fs.writeFileSync(file, JSON.stringify([{ token: "s3cr3t" }, { other: "x" }]), "utf-8");
@@ -172,7 +172,7 @@ describe("createFileExtensionSecretStore", () => {
         expect(store.get("0", "token")).toBeUndefined();
     });
 
-    it("опустевший лоток не воскресает в файле при следующей записи", () => {
+    it("an emptied bucket does not reappear in the file on the next write", () => {
         const file = path.join(makeRoot(), "secrets.json");
         fs.writeFileSync(file, JSON.stringify({ "pub.gone": { onlyBroken: 1 } }), "utf-8");
         const store = createFileExtensionSecretStore(file);
@@ -180,7 +180,7 @@ describe("createFileExtensionSecretStore", () => {
         expect(JSON.parse(fs.readFileSync(file, "utf-8"))).toEqual({ "pub.other": { token: "s3cr3t" } });
     });
 
-    it("незаписываемый путь не роняет хост — беда уходит в onError", () => {
+    it("an unwritable path does not crash the host: the failure goes to onError", () => {
         // A directory in place of the file: writeFileSync on it always fails.
         const file = path.join(makeRoot(), "secrets.json");
         fs.mkdirSync(file);
@@ -193,7 +193,7 @@ describe("createFileExtensionSecretStore", () => {
         expect(store.get("pub.one", "token")).toBe("s3cr3t");
     });
 
-    it("delete отсутствующего лотка не пишет файл вовсе", () => {
+    it("deleting a missing bucket does not write the file at all", () => {
         const file = path.join(makeRoot(), "secrets.json");
         const store = createFileExtensionSecretStore(file);
         store.delete("pub.one", "token");

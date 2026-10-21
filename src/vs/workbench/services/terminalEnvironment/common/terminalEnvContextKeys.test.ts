@@ -5,14 +5,14 @@ import { ContextKeyService } from "../../../../platform/contextkey/common/contex
 import { applyTerminalEnvContextKeys, capabilityContextKey, modeContextKey } from "./terminalEnvContextKeys.ts";
 
 describe("terminalEnvContextKeys", () => {
-    it("имена ключей: capability в camelCase после cap_, мод — после mode_", () => {
+    it("key names: capability in camelCase after cap_, mode after mode_", () => {
         expect(capabilityContextKey("extended-keys")).toBe("cap_extendedKeys");
         expect(capabilityContextKey("kitty-graphics")).toBe("cap_kittyGraphics");
         expect(capabilityContextKey("osc52")).toBe("cap_osc52");
         expect(modeContextKey("ssh")).toBe("mode_ssh");
     });
 
-    it("выставляет tier/os/isX/macKeys и cap_*/mode_* со значениями из среза", () => {
+    it("sets tier/os/isX/macKeys and cap_*/mode_* with values from the snapshot", () => {
         const keys = new ContextKeyService();
         applyTerminalEnvContextKeys(keys, {
             tier: "csi-u",
@@ -34,7 +34,7 @@ describe("terminalEnvContextKeys", () => {
         expect(keys.evaluate("mode_envKeysCustom")).toBe(false);
     });
 
-    it("isLinux/isWindows следуют за os, macKeys без рунга — ноль", () => {
+    it("isLinux/isWindows follow os, macKeys without a rung is zero", () => {
         const keys = new ContextKeyService();
         const apply = (os: string): void => {
             applyTerminalEnvContextKeys(keys, {

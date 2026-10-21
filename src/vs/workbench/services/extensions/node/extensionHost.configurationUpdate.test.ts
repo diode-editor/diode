@@ -81,7 +81,7 @@ describe("ExtensionHost — WorkspaceConfiguration.update (subprocess → settin
         return JSON.parse(fs.readFileSync(file, "utf-8"));
     }
 
-    it("без цели — в .diode/settings.json папки; после await get() уже видит значение", async () => {
+    it("without a target it goes to the folder's .diode/settings.json; after await, get() already sees the value", async () => {
         await withHarness({ withFolder: true }, async (harness) => {
             // Like the Bazel plugin: `getConfiguration("bazel.projectview").update("open", false)`.
             const result = await update(harness, "test.update", "open", false, null);
@@ -91,7 +91,7 @@ describe("ExtensionHost — WorkspaceConfiguration.update (subprocess → settin
         });
     });
 
-    it("ConfigurationTarget.Global — в User/settings.json; undefined снимает ключ", async () => {
+    it("ConfigurationTarget.Global goes to User/settings.json; undefined removes the key", async () => {
         await withHarness({ withFolder: true }, async (harness) => {
             const written = await update(harness, "test.update", "notification", false, 1);
             expect(written).toEqual({ value: false, globalValue: false, workspaceValue: null, changes: [false] });
@@ -104,7 +104,7 @@ describe("ExtensionHost — WorkspaceConfiguration.update (subprocess → settin
         });
     });
 
-    it("незарегистрированный ключ — отказ текстом эталона, файла нет", async () => {
+    it("an unregistered key is rejected with the upstream text, no file", async () => {
         await withHarness({ withFolder: true }, async (harness) => {
             expect(await update(harness, "test.update", "unknown", 1, null)).toEqual({
                 error: "Unable to write to Workspace Settings because test.update.unknown is not a registered configuration.",
@@ -113,7 +113,7 @@ describe("ExtensionHost — WorkspaceConfiguration.update (subprocess → settin
         });
     });
 
-    it("окно без папки: без цели — отказ «no workspace is opened», Global — пишет", async () => {
+    it("a window without a folder: no target is rejected with `no workspace is opened`, Global writes", async () => {
         await withHarness({ withFolder: false }, async (harness) => {
             expect(await update(harness, "test.update", "open", false, null)).toEqual({
                 error: "Unable to write to Workspace Settings because no workspace is opened. Please open a workspace first and try again.",
@@ -125,7 +125,7 @@ describe("ExtensionHost — WorkspaceConfiguration.update (subprocess → settin
         });
     });
 
-    it("харнесс по умолчанию (сервис в памяти): без папки слоя воркспейса нет — тот же отказ", async () => {
+    it("default harness (in-memory service): without a folder there is no workspace layer, the same rejection", async () => {
         const fixture = extensionFixture(ID, "updatesConfiguration.cjs");
         const harness = await createExtensionTestHarness({
             extensions: [{ ...fixture, manifest: manifestWithDefaults(fixture.manifest, DEFAULTS) }],

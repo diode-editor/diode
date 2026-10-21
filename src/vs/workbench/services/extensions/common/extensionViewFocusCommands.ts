@@ -29,7 +29,7 @@ export function registerExtensionViewFocusCommands(
                 : [];
             for (const view of entries) {
                 if (typeof view.id !== "string" || view.id === "") {
-                    logger?.info(`${ext.id}: вид без id в контейнере "${container}" — пропущен`);
+                    logger?.info(`${ext.id}: view without id in container "${container}", skipped`);
                     continue;
                 }
                 const id = `${view.id}.focus`;

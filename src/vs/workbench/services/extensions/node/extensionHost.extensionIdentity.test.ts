@@ -64,8 +64,8 @@ interface IReport {
 const LOADERS: readonly SubprocessLoader[] = ["node", "tsx"];
 
 for (const loader of LOADERS) {
-    describe(`ExtensionHost — своё vscode у каждого расширения (loader: ${loader})`, () => {
-        it("CJS, ESM и builtin получают разные объекты с общими value-типами и живыми геттерами", async () => {
+    describe(`ExtensionHost — each extension gets its own vscode (loader: ${loader})`, () => {
+        it("CJS, ESM and builtin get distinct objects with shared value types and live getters", async () => {
             const harness = await createExtensionTestHarness({
                 subprocessLoader: loader,
                 extensions: [

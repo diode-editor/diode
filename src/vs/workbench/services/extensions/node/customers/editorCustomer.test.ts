@@ -74,8 +74,8 @@ function setup() {
     return { customer, editorOptions, log, peer, attachTo, activeEditor, selection, layout };
 }
 
-describe("EditorCustomer — семена и события редактора", () => {
-    it("семена: полоса групп, затем активный редактор — только живому спавну", async () => {
+describe("EditorCustomer — editor seeds and events", () => {
+    it("seeds: the group strip, then the active editor — only to a live spawn", async () => {
         const h = setup();
         h.customer.pushInitialState();
         const attached = h.attachTo();
@@ -92,7 +92,7 @@ describe("EditorCustomer — семена и события редактора",
         expect(h.log).toHaveLength(2);
     });
 
-    it("события ядра уходят субпроцессу; мета активного редактора сперва флашит полосу", async () => {
+    it("core events go to the subprocess; active editor meta flushes the strip first", async () => {
         const h = setup();
         const attached = h.attachTo();
         h.layout.fire(LAYOUT);
@@ -117,9 +117,9 @@ describe("EditorCustomer — семена и события редактора",
     });
 });
 
-describe("EditorCustomer — запросы субпроцесса", () => {
+describe("EditorCustomer — subprocess requests", () => {
     // No it.each: the mutation runner can't find names with `{}`/`"` by the name filter.
-    it("editor.setOptions чистит патч: целые положительные размеры, indentSize — алиас, мусор отброшен", async () => {
+    it("editor.setOptions sanitizes the patch: positive integer sizes, indentSize is an alias, junk is dropped", async () => {
         const cases: readonly (readonly [unknown, object])[] = [
             [
                 { tabSize: 4.7, insertSpaces: false },
@@ -146,7 +146,7 @@ describe("EditorCustomer — запросы субпроцесса", () => {
         expect(vi.mocked(h.editorOptions.setActiveEditorOptions).mock.calls).toEqual(cases.map(([, patch]) => [patch]));
     });
 
-    it("editor.getOptions отдаёт опции активного редактора", async () => {
+    it("editor.getOptions returns the active editor's options", async () => {
         const h = setup();
         h.attachTo();
         await expect(h.peer.request("editor.getOptions", undefined)).resolves.toEqual({
@@ -155,7 +155,7 @@ describe("EditorCustomer — запросы субпроцесса", () => {
         });
     });
 
-    it("editor.setSelection: выделения и группа доезжают; без строкового uri — игнор", async () => {
+    it("editor.setSelection: selections and group get through; without a string uri — ignored", async () => {
         const h = setup();
         h.attachTo();
         h.peer.notify("editor.setSelection", { uri: 7, selections: [SELECTION] });
@@ -168,7 +168,7 @@ describe("EditorCustomer — запросы субпроцесса", () => {
         ]);
     });
 
-    it("editor.applyEdit: без строкового uri — false; иначе вердикт ядра с разобранными правками", async () => {
+    it("editor.applyEdit: without a string uri — false; otherwise the core verdict with parsed edits", async () => {
         const h = setup();
         h.attachTo();
         await expect(h.peer.request("editor.applyEdit", { uri: null, edits: [] })).resolves.toBe(false);
@@ -181,7 +181,7 @@ describe("EditorCustomer — запросы субпроцесса", () => {
         ]);
     });
 
-    it("workspace.applyEdit: мусор — false без порта; валидный набор — вердикт порта", async () => {
+    it("workspace.applyEdit: junk — false without the port; a valid set — the port verdict", async () => {
         const h = setup();
         h.attachTo();
         await expect(h.peer.request("workspace.applyEdit", { ops: "x" })).resolves.toBe(false);
@@ -191,7 +191,7 @@ describe("EditorCustomer — запросы субпроцесса", () => {
         expect(h.editorOptions.applyWorkspaceEdit).toHaveBeenCalledWith(ops, { isRefactoring: false });
     });
 
-    it("workspace.applyEdit: isRefactoring доезжает до порта; не-true — не рефакторинг", async () => {
+    it("workspace.applyEdit: isRefactoring reaches the port; non-true is not a refactoring", async () => {
         const h = setup();
         h.attachTo();
         const ops = [{ kind: "delete", resource: "file:///b.ts" }];
@@ -201,7 +201,7 @@ describe("EditorCustomer — запросы субпроцесса", () => {
         expect(h.editorOptions.applyWorkspaceEdit).toHaveBeenLastCalledWith(ops, { isRefactoring: false });
     });
 
-    it("workspace.saveAll: includeUntitled доезжает до порта только как true, ответ — вердикт порта", async () => {
+    it("workspace.saveAll: includeUntitled reaches the port only as true, the reply is the port verdict", async () => {
         const h = setup();
         h.attachTo();
         await expect(h.peer.request("workspace.saveAll", {})).resolves.toBe(true);
@@ -212,7 +212,7 @@ describe("EditorCustomer — запросы субпроцесса", () => {
         expect(h.editorOptions.saveAll).toHaveBeenLastCalledWith(false);
     });
 
-    it("workspace.save: ресурс сохранённого документа или null; мусор — null без порта", async () => {
+    it("workspace.save: the saved document's resource or null; junk — null without the port", async () => {
         const h = setup();
         h.attachTo();
         await expect(h.peer.request("workspace.save", { uri: "file:///open.go" })).resolves.toStrictEqual({
@@ -233,11 +233,11 @@ describe("EditorCustomer — запросы субпроцесса", () => {
         expect(h.log).toHaveLength(2);
     }
 
-    it("editor.showTextDocument отвечает после флаша полосы; мусор — отказ", async () => {
+    it("editor.showTextDocument replies after the strip flush; junk — rejected", async () => {
         await expectFlushedReply("editor.showTextDocument", { uri: "file:///a.ts" }, "show", { viewColumn: 1 });
     });
 
-    it("editor.closeTabs отвечает после флаша полосы; мусор — отказ", async () => {
+    it("editor.closeTabs replies after the strip flush; junk — rejected", async () => {
         await expectFlushedReply(
             "editor.closeTabs",
             { tabs: [{ groupId: 1, uri: "file:///a.ts" }] },
@@ -246,11 +246,11 @@ describe("EditorCustomer — запросы субпроцесса", () => {
         );
     });
 
-    it("editor.closeGroups отвечает после флаша полосы; мусор — отказ", async () => {
+    it("editor.closeGroups replies after the strip flush; junk — rejected", async () => {
         await expectFlushedReply("editor.closeGroups", { groupIds: [1] }, "closeGroups", false);
     });
 
-    it("workspace.createUntitledDocument: опции доезжают до порта, поле не той формы отброшено", async () => {
+    it("workspace.createUntitledDocument: options reach the port, a malformed field is dropped", async () => {
         const h = setup();
         h.attachTo();
         await expect(

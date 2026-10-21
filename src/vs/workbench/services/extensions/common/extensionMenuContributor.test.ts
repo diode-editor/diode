@@ -40,25 +40,25 @@ function labels(menus: MenuRegistry, menuId: MenuId): string[] {
 }
 
 describe("parseMenuGroup", () => {
-    it("`группа@порядок` разбирается на группу и порядок", () => {
+    it("`group@order` splits into group and order", () => {
         expect(parseMenuGroup("navigation@2")).toEqual({ group: "navigation", order: 2 });
         expect(parseMenuGroup("1_modification@1.5")).toEqual({ group: "1_modification", order: 1.5 });
     });
 
-    it("без `@` — только группа; без группы — пусто", () => {
+    it("without `@` — group only; without group — empty", () => {
         expect(parseMenuGroup("navigation")).toEqual({ group: "navigation" });
         expect(parseMenuGroup(undefined)).toEqual({});
         expect(parseMenuGroup("")).toEqual({});
     });
 
-    it("нечисловой порядок отбрасывается, а не уезжает в NaN", () => {
+    it("non-numeric order is dropped instead of becoming NaN", () => {
         expect(parseMenuGroup("navigation@x")).toEqual({ group: "navigation" });
         expect(parseMenuGroup("@3")).toEqual({ order: 3 });
     });
 });
 
 describe("registerExtensionMenus", () => {
-    it("пункт расширения приезжает в контекст-меню редактора с группой и порядком", () => {
+    it("extension item lands in the editor context menu with group and order", () => {
         const { menus, commands } = makeRegistry();
         commands.register("ext.doThing", () => undefined, "Do Thing");
 
@@ -74,7 +74,7 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.EditorContext)).toEqual(["Do Thing"]);
     });
 
-    it("свой title пункта перебивает титул команды", () => {
+    it("item's own title overrides the command title", () => {
         const { menus, commands } = makeRegistry();
         commands.register("ext.organize", () => undefined, "Organize Imports");
         registerExtensionMenus(
@@ -91,7 +91,7 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.EditorContext)).toEqual(["Pyright: Organize Imports"]);
     });
 
-    it("`when` пункта — настоящий контекст-ключ", () => {
+    it("item `when` is a real context key", () => {
         const { menus, commands, contextKeys } = makeRegistry();
         commands.register("ext.doThing", () => undefined, "Do Thing");
         registerExtensionMenus(
@@ -108,7 +108,7 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.EditorContext)).toEqual(["Do Thing"]);
     });
 
-    it("порядок внутри группы — из `@`, а не из порядка в манифесте", () => {
+    it("order within a group comes from `@`, not from manifest order", () => {
         const { menus, commands } = makeRegistry();
         commands.register("ext.second", () => undefined, "Second");
         commands.register("ext.first", () => undefined, "First");
@@ -129,7 +129,7 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.EditorContext)).toEqual(["First", "Second"]);
     });
 
-    it("разные точки меню разводятся по своим реестрам", () => {
+    it("different menu points go to their own registries", () => {
         const { menus, commands } = makeRegistry();
         commands.register("ext.editor", () => undefined, "In Editor");
         commands.register("ext.explorer", () => undefined, "In Explorer");
@@ -149,7 +149,7 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.ExplorerContext)).toEqual(["In Explorer"]);
     });
 
-    it("неизвестная точка — строка в лог, остальные пункты расширения живут", () => {
+    it("unknown point — a log line, the extension's other items survive", () => {
         const { menus, commands } = makeRegistry();
         const { logger, lines } = collectLog();
         commands.register("ext.doThing", () => undefined, "Do Thing");
@@ -168,10 +168,10 @@ describe("registerExtensionMenus", () => {
         );
 
         expect(labels(menus, MenuId.EditorContext)).toEqual(["Do Thing"]);
-        expect(lines).toEqual(['test.ext: неизвестная точка меню "timeline/item/context" — пункты пропущены']);
+        expect(lines).toEqual(['test.ext: unknown menu "timeline/item/context", items skipped']);
     });
 
-    it("commandPalette называет себя отдельно: это фильтр палитры, а не точка меню", () => {
+    it("commandPalette is reported separately: it is a palette filter, not a menu point", () => {
         const { menus, commands } = makeRegistry();
         const { logger, lines } = collectLog();
         commands.register("ext.doThing", () => undefined, "Do Thing");
@@ -182,10 +182,10 @@ describe("registerExtensionMenus", () => {
             logger,
         );
 
-        expect(lines).toEqual(['test.ext: пункты "commandPalette" пока не применяются']);
+        expect(lines).toEqual(['test.ext: "commandPalette" items are not applied yet']);
     });
 
-    it("пункт без command и submenu пропускается с объяснением", () => {
+    it("item without command and submenu is skipped with an explanation", () => {
         const { menus } = makeRegistry();
         const { logger, lines } = collectLog();
 
@@ -197,12 +197,12 @@ describe("registerExtensionMenus", () => {
 
         expect(labels(menus, MenuId.EditorContext)).toEqual([]);
         expect(lines).toEqual([
-            "test.ext: пункт меню без command и submenu — пропущен",
-            "test.ext: пункт меню без command и submenu — пропущен",
+            "test.ext: menu item without command or submenu, skipped",
+            "test.ext: menu item without command or submenu, skipped",
         ]);
     });
 
-    it("submenu расширения раскрывается вложенной точкой со своими пунктами", () => {
+    it("extension submenu expands into a nested point with its own items", () => {
         const { menus, commands } = makeRegistry();
         commands.register("ext.inner", () => undefined, "Inner");
         registerExtensionMenus(
@@ -223,7 +223,7 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, submenus[0].submenu)).toEqual(["Inner"]);
     });
 
-    it("ссылка на необъявленное подменю — строка в лог, пункт пропущен", () => {
+    it("reference to an undeclared submenu — a log line, item skipped", () => {
         const { menus } = makeRegistry();
         const { logger, lines } = collectLog();
 
@@ -234,10 +234,10 @@ describe("registerExtensionMenus", () => {
         );
 
         expect(menus.getSubmenus(MenuId.EditorContext)).toEqual([]);
-        expect(lines).toEqual(['test.ext: подменю "ext.ghost" не объявлено в contributes.submenus — пункт пропущен']);
+        expect(lines).toEqual(['test.ext: submenu "ext.ghost" is not declared in contributes.submenus, item skipped']);
     });
 
-    it("одноимённые подменю разных расширений не схлопываются в одну точку", () => {
+    it("same-named submenus of different extensions do not collapse into one point", () => {
         const { menus, commands } = makeRegistry();
         commands.register("a.inner", () => undefined, "A Inner");
         commands.register("b.inner", () => undefined, "B Inner");
@@ -261,7 +261,7 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, submenus[1].submenu)).toEqual(["B Inner"]);
     });
 
-    it("dispose снимает все пункты расширений (перерегистрация состава)", () => {
+    it("dispose removes all extension items (re-registration of the extension set)", () => {
         const { menus, commands } = makeRegistry();
         commands.register("ext.doThing", () => undefined, "Do Thing");
         const registration = registerExtensionMenus(
@@ -275,7 +275,7 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.EditorContext)).toEqual([]);
     });
 
-    it("повторная регистрация того же подменю не падает на уникальности MenuId", () => {
+    it("re-registering the same submenu does not fail on MenuId uniqueness", () => {
         const first = makeRegistry();
         const second = makeRegistry();
         first.commands.register("ext.inner", () => undefined, "Inner");
@@ -296,7 +296,7 @@ describe("registerExtensionMenus", () => {
         expect(labels(second.menus, submenus[0].submenu)).toEqual(["Inner"]);
     });
 
-    it("мусор в объявлении подменю: не строковый id, пустой id и дубль — пропуск с объяснением", () => {
+    it("junk in a submenu declaration: non-string id, empty id and duplicate — skipped with an explanation", () => {
         const { menus } = makeRegistry();
         const { logger, lines } = collectLog();
 
@@ -318,13 +318,13 @@ describe("registerExtensionMenus", () => {
 
         expect(menus.getSubmenus(MenuId.EditorContext).map((entry) => entry.title)).toEqual(["First"]);
         expect(lines).toEqual([
-            "test.junk: подменю без id — объявление пропущено",
-            "test.junk: подменю без id — объявление пропущено",
-            'test.junk: подменю "more" объявлено дважды — второе пропущено',
+            "test.junk: submenu without id, declaration skipped",
+            "test.junk: submenu without id, declaration skipped",
+            'test.junk: submenu "more" declared twice, the second one skipped',
         ]);
     });
 
-    it("подменю без строкового label подписывается своим id", () => {
+    it("submenu without a string label is labelled with its id", () => {
         const { menus } = makeRegistry();
 
         registerExtensionMenus(
@@ -340,7 +340,7 @@ describe("registerExtensionMenus", () => {
         expect(menus.getSubmenus(MenuId.EditorContext).map((entry) => entry.title)).toEqual(["more"]);
     });
 
-    it("не строковые title/group/when пункта игнорируются, а не уезжают в меню как есть", () => {
+    it("non-string item title/group/when are ignored instead of going into the menu as is", () => {
         const { menus, commands } = makeRegistry();
         commands.register("ext.doThing", () => undefined, "Do Thing");
 
@@ -366,7 +366,7 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.EditorContext)).toEqual(["Do Thing"]);
     });
 
-    it("пустой title пункта — тоже не label: подписывает команда", () => {
+    it("empty item title is not a label either: the command labels it", () => {
         const { menus, commands } = makeRegistry();
         commands.register("ext.doThing", () => undefined, "Do Thing");
 
@@ -378,7 +378,7 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.EditorContext)).toEqual(["Do Thing"]);
     });
 
-    it("без логгера мусорный манифест не роняет старт — пункты просто не заводятся", () => {
+    it("without a logger a junk manifest does not crash startup — items are just not created", () => {
         const { menus } = makeRegistry();
 
         expect(() =>
@@ -404,7 +404,7 @@ describe("registerExtensionMenus", () => {
         expect(labels(menus, MenuId.EditorContext)).toEqual([]);
     });
 
-    it("расширение без contributes и без menus мост не трогает", () => {
+    it("extension without contributes and menus leaves the bridge alone", () => {
         const { menus } = makeRegistry();
         const { logger, lines } = collectLog();
 
@@ -419,7 +419,7 @@ describe("registerExtensionMenus", () => {
     });
 });
 
-describe("registerExtensionMenus — editor/title и иконки команд", () => {
+describe("registerExtensionMenus — editor/title and command icons", () => {
     function icons(menus: MenuRegistry, menuId: MenuId): Record<string, string | undefined> {
         const result: Record<string, string | undefined> = {};
         for (const entry of menus.getMenuItems(menuId)) {
@@ -428,7 +428,7 @@ describe("registerExtensionMenus — editor/title и иконки команд",
         return result;
     }
 
-    it("editor/title — панель действий группы; иконка $(codicon) — глиф, SVG и неизвестный codicon — без иконки", () => {
+    it("editor/title — editor group action bar; $(codicon) icon is a glyph, SVG and unknown codicon get no icon", () => {
         const { menus, commands } = makeRegistry();
         for (const id of ["ext.accept", "ext.open", "ext.ghost", "ext.plain"])
             commands.register(id, () => undefined, id);
@@ -466,7 +466,7 @@ describe("registerExtensionMenus — editor/title и иконки команд",
         expect(lines).toEqual([]);
     });
 
-    it("иконка — строка ровно `$(имя)` или `$(имя~модификатор)`: с текстом вокруг — не иконка", () => {
+    it("icon is exactly `$(name)` or `$(name~modifier)`: with surrounding text it is not an icon", () => {
         const { menus, commands } = makeRegistry();
         const ids = ["ext.spin", "ext.before", "ext.after", "ext.emptyModifier"];
         for (const id of ids) commands.register(id, () => undefined, id);
@@ -492,7 +492,7 @@ describe("registerExtensionMenus — editor/title и иконки команд",
         });
     });
 
-    it("иконка — у команды: пункт другого расширения и другой точки получает её же", () => {
+    it("icon belongs to the command: an item of another extension and another point gets the same one", () => {
         const { menus, commands } = makeRegistry();
         commands.register("ext.accept", () => undefined, "Accept");
         registerExtensionMenus(

@@ -59,8 +59,8 @@ function makeHost(fileWatcher: IExtensionFileWatcher) {
     return { host, peer };
 }
 
-describe("ExtensionHost — watcher'ы расширений (in-process)", () => {
-    it("создание watcher'а поднимает слежение, события уезжают субпроцессу", async () => {
+describe("ExtensionHost — extension watchers (in-process)", () => {
+    it("creating a watcher starts watching, and events go to the subprocess", async () => {
         const watcher = makeFakeWatcher();
         const { peer } = makeHost(watcher);
         const received: unknown[] = [];
@@ -78,7 +78,7 @@ describe("ExtensionHost — watcher'ы расширений (in-process)", () =>
         ]);
     });
 
-    it("пустая после фильтрации пачка через границу процесса не едет", async () => {
+    it("a batch that is empty after filtering does not cross the process boundary", async () => {
         const watcher = makeFakeWatcher();
         const { peer } = makeHost(watcher);
         const received: unknown[] = [];
@@ -92,7 +92,7 @@ describe("ExtensionHost — watcher'ы расширений (in-process)", () =>
         expect(received).toEqual([]);
     });
 
-    it("dispose снимает слежение", async () => {
+    it("dispose stops watching", async () => {
         const watcher = makeFakeWatcher();
         const { peer } = makeHost(watcher);
 
@@ -104,7 +104,7 @@ describe("ExtensionHost — watcher'ы расширений (in-process)", () =>
         expect(watcher.disposed).toEqual([0]);
     });
 
-    it("повторный id пересоздаёт watcher, не оставляя висячей подписки", async () => {
+    it("a repeated id recreates the watcher without leaving a dangling subscription", async () => {
         const watcher = makeFakeWatcher();
         const { peer } = makeHost(watcher);
 
@@ -117,11 +117,11 @@ describe("ExtensionHost — watcher'ы расширений (in-process)", () =>
         expect(watcher.calls).toHaveLength(2);
     });
 
-    it("структурно чужие параметры игнорируются", async () => {
+    it("structurally foreign params are ignored", async () => {
         const watcher = makeFakeWatcher();
         const { peer } = makeHost(watcher);
 
-        peer.notify("workspace.watcher.create", { id: "нет", base: "/repo", pattern: "**" });
+        peer.notify("workspace.watcher.create", { id: "no", base: "/repo", pattern: "**" });
         peer.notify("workspace.watcher.create", { id: 1, base: "", pattern: "**" });
         peer.notify("workspace.watcher.dispose", { id: null });
         await flushMicrotasks();
@@ -130,7 +130,7 @@ describe("ExtensionHost — watcher'ы расширений (in-process)", () =>
         expect(watcher.disposed).toEqual([]);
     });
 
-    it("dispose хоста снимает все живые watcher'ы", async () => {
+    it("host dispose removes all live watchers", async () => {
         const watcher = makeFakeWatcher();
         const { host, peer } = makeHost(watcher);
 
@@ -142,7 +142,7 @@ describe("ExtensionHost — watcher'ы расширений (in-process)", () =>
         expect(watcher.disposed).toEqual([0, 1]);
     });
 
-    it("без переданного наблюдателя watcher'ы создаются, но не стреляют", async () => {
+    it("without a supplied observer watchers are created but never fire", async () => {
         const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {});
         const [a, b] = createInProcessChannelPair();
         (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(new RpcEndpoint(a));
@@ -158,12 +158,12 @@ describe("ExtensionHost — watcher'ы расширений (in-process)", () =>
 });
 
 describe("isRecursiveWatchPattern", () => {
-    it("односегментный шаблон — только прямые дети", () => {
+    it("a single-segment pattern matches direct children only", () => {
         expect(isRecursiveWatchPattern("*")).toBe(false);
         expect(isRecursiveWatchPattern("HEAD")).toBe(false);
     });
 
-    it("globstar или разделитель — поддерево", () => {
+    it("a globstar or a separator matches the subtree", () => {
         expect(isRecursiveWatchPattern("**")).toBe(true);
         expect(isRecursiveWatchPattern("**/*.ts")).toBe(true);
         expect(isRecursiveWatchPattern("src/*.ts")).toBe(true);
@@ -180,7 +180,7 @@ describe("toWatcherEvents", () => {
         ignoreDeleteEvents: false,
     };
 
-    it("путь матчится относительно базы", () => {
+    it("the path is matched relative to the base", () => {
         expect(
             toWatcherEvents({ ...request, pattern: "src/*.ts" }, [
                 { type: "changed", path: "/repo/src/a.ts" },
@@ -189,7 +189,7 @@ describe("toWatcherEvents", () => {
         ).toEqual([{ type: "changed", uri: Uri.file("/repo/src/a.ts").toString() }]);
     });
 
-    it("события вне базы и сама база отбрасываются", () => {
+    it("events outside the base and the base itself are dropped", () => {
         expect(
             toWatcherEvents(request, [
                 { type: "changed", path: "/elsewhere/a.ts" },
@@ -198,7 +198,7 @@ describe("toWatcherEvents", () => {
         ).toEqual([]);
     });
 
-    it("ignore-флаги режут свой вид событий", () => {
+    it("ignore flags drop their kind of events", () => {
         const changes: ITreeFileChange[] = [
             { type: "created", path: "/repo/a.ts" },
             { type: "changed", path: "/repo/b.ts" },

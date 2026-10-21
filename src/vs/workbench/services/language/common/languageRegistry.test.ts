@@ -20,7 +20,7 @@ function makeExt(id: string, languages: object[], location = "Extensions/builtin
 }
 
 describe("LanguageRegistry", () => {
-    it("регистрирует язык и возвращает его по id", () => {
+    it("registers a language and returns it by id", () => {
         const registry = new LanguageRegistry();
         registry.register(makeExt("ts", [{ id: "typescript", extensions: [".ts"], aliases: ["TypeScript"] }]));
 
@@ -30,7 +30,7 @@ describe("LanguageRegistry", () => {
         expect(lang?.aliases).toEqual(["TypeScript"]);
     });
 
-    it("matches по точному filename", () => {
+    it("matches by exact filename", () => {
         const registry = new LanguageRegistry();
         registry.register(makeExt("docker", [{ id: "dockerfile", filenames: ["Dockerfile"] }]));
 
@@ -38,7 +38,7 @@ describe("LanguageRegistry", () => {
         expect(registry.getLanguageIdForResource("/some/path/dockerfile")).toBeUndefined();
     });
 
-    it("matches по filenamePatterns (glob)", () => {
+    it("matches by filenamePatterns (glob)", () => {
         const registry = new LanguageRegistry();
         registry.register(makeExt("ts", [{ id: "jsonc", filenamePatterns: ["tsconfig.*.json"] }]));
 
@@ -72,7 +72,7 @@ describe("LanguageRegistry", () => {
         }).not.toThrow();
     });
 
-    it("matches по extension case-insensitive", () => {
+    it("matches by extension case-insensitively", () => {
         const registry = new LanguageRegistry();
         registry.register(makeExt("ts", [{ id: "typescript", extensions: [".ts"] }]));
 
@@ -92,7 +92,7 @@ describe("LanguageRegistry", () => {
         expect(registry.getLanguageIdForResource("/proj/.gitignore")).toBeUndefined();
     });
 
-    it("приоритет filenames > filenamePatterns > extensions", () => {
+    it("priority filenames > filenamePatterns > extensions", () => {
         const registry = new LanguageRegistry();
         registry.register(makeExt("a", [{ id: "byext", extensions: [".json"] }]));
         registry.register(makeExt("b", [{ id: "bypattern", filenamePatterns: ["*.json"] }]));
@@ -102,7 +102,7 @@ describe("LanguageRegistry", () => {
         expect(registry.getLanguageIdForResource("/p/foo.json")).toBe("bypattern");
     });
 
-    it("возвращает undefined для незнакомого файла", () => {
+    it("returns undefined for an unknown file", () => {
         const registry = new LanguageRegistry();
         registry.register(makeExt("ts", [{ id: "typescript", extensions: [".ts"] }]));
 
@@ -110,7 +110,7 @@ describe("LanguageRegistry", () => {
         expect(registry.getLanguageIdForResource("Makefile")).toBeUndefined();
     });
 
-    it("сливает данные нескольких contribute'ов одного языка", () => {
+    it("merges the data of several contributions of one language", () => {
         const registry = new LanguageRegistry();
         registry.register(makeExt("ts-base", [{ id: "typescript", extensions: [".ts"] }]));
         registry.register(makeExt("ts-extra", [{ id: "typescript", extensions: [".cts", ".mts"] }]));
@@ -119,7 +119,7 @@ describe("LanguageRegistry", () => {
         expect(lang?.extensions).toEqual([".ts", ".cts", ".mts"]);
     });
 
-    it("dispose() удаляет contributions расширения", () => {
+    it("dispose() removes the extension's contributions", () => {
         const registry = new LanguageRegistry();
         const d = registry.register(makeExt("ts", [{ id: "typescript", extensions: [".ts"] }]));
         expect(registry.getLanguage("typescript")).toBeDefined();
@@ -128,7 +128,7 @@ describe("LanguageRegistry", () => {
         expect(registry.getLanguage("typescript")).toBeUndefined();
     });
 
-    it("dispose() одного из двух contribute'ов оставляет язык, но без вклада первого", () => {
+    it("dispose() of one of two contributions keeps the language, but without the first one's input", () => {
         const registry = new LanguageRegistry();
         const d1 = registry.register(makeExt("ts-base", [{ id: "typescript", extensions: [".ts"] }]));
         registry.register(makeExt("ts-extra", [{ id: "typescript", extensions: [".cts"] }]));
@@ -138,7 +138,7 @@ describe("LanguageRegistry", () => {
         expect(lang?.extensions).toEqual([".cts"]);
     });
 
-    it("resolveить configurationPath относительно extension.location", () => {
+    it("resolves configurationPath relative to extension.location", () => {
         const registry = new LanguageRegistry();
         registry.register(
             makeExt(
@@ -152,7 +152,7 @@ describe("LanguageRegistry", () => {
         expect(lang?.configurationPath).toBe("Extensions/builtin/typescript-basics/language-configuration.json");
     });
 
-    it("matches filenamePatterns с одиночным wildcard '?'", () => {
+    it("matches filenamePatterns with a single wildcard '?'", () => {
         const registry = new LanguageRegistry();
         registry.register(makeExt("q", [{ id: "qlang", filenamePatterns: ["file?.zzz"] }]));
 
@@ -162,7 +162,7 @@ describe("LanguageRegistry", () => {
         expect(registry.getLanguageIdForResource("/p/fileAB.zzz")).toBeUndefined();
     });
 
-    it("повторный dispose contribution'а — no-op (запись уже удалена)", () => {
+    it("a repeated dispose of a contribution is a no-op (the entry is already removed)", () => {
         const registry = new LanguageRegistry();
         const d = registry.register(makeExt("ts", [{ id: "typescript", extensions: [".ts"] }]));
 
@@ -175,7 +175,7 @@ describe("LanguageRegistry", () => {
         expect(registry.getLanguage("typescript")).toBeUndefined();
     });
 
-    it("повторный dispose не удаляет строки, которых уже нет в записи", () => {
+    it("a repeated dispose does not remove strings no longer in the entry", () => {
         const registry = new LanguageRegistry();
         const d1 = registry.register(makeExt("a", [{ id: "typescript", extensions: [".ts"] }]));
         registry.register(makeExt("b", [{ id: "typescript", extensions: [".js"] }]));
@@ -188,7 +188,7 @@ describe("LanguageRegistry", () => {
         expect(registry.getLanguage("typescript")?.extensions).toEqual([".js"]);
     });
 
-    it("allLanguages() возвращает все зарегистрированные", () => {
+    it("allLanguages() returns all registered ones", () => {
         const registry = new LanguageRegistry();
         registry.register(
             makeExt("a", [
@@ -204,14 +204,14 @@ describe("LanguageRegistry", () => {
         expect(ids).toEqual(["javascript", "plaintext", "typescript"]);
     });
 
-    it("seed'ит plaintext как core-язык", () => {
+    it("seeds plaintext as a core language", () => {
         const registry = new LanguageRegistry();
 
         expect(registry.getLanguage("plaintext")?.aliases).toEqual(["Plain Text"]);
         expect(registry.getLanguageIdForResource("notes.txt")).toBe("plaintext");
     });
 
-    it("getLanguageDisplayName возвращает первый alias", () => {
+    it("getLanguageDisplayName returns the first alias", () => {
         const registry = new LanguageRegistry();
         registry.register(makeExt("ts", [{ id: "typescript", extensions: [".ts"], aliases: ["TypeScript", "ts"] }]));
 
@@ -219,7 +219,7 @@ describe("LanguageRegistry", () => {
         expect(registry.getLanguageDisplayName("plaintext")).toBe("Plain Text");
     });
 
-    it("getLanguageDisplayName — undefined для незнакомого языка и языка без alias'ов", () => {
+    it("getLanguageDisplayName: undefined for an unknown language and a language without aliases", () => {
         const registry = new LanguageRegistry();
         registry.register(makeExt("x", [{ id: "aliasless", extensions: [".x"] }]));
 
@@ -227,7 +227,7 @@ describe("LanguageRegistry", () => {
         expect(registry.getLanguageDisplayName("aliasless")).toBeUndefined();
     });
 
-    it("getExtensionForLanguage возвращает первое расширение — обратная операция к резолву по пути", () => {
+    it("getExtensionForLanguage returns the first extension, the inverse of resolving by path", () => {
         const registry = new LanguageRegistry();
         registry.register(makeExt("ts", [{ id: "typescript", extensions: [".ts", ".tsx"], aliases: ["TypeScript"] }]));
 
@@ -236,7 +236,7 @@ describe("LanguageRegistry", () => {
         expect(registry.getExtensionForLanguage("plaintext")).toBe(".txt");
     });
 
-    it("getExtensionForLanguage — undefined для незнакомого языка и языка без расширений", () => {
+    it("getExtensionForLanguage: undefined for an unknown language and a language without extensions", () => {
         const registry = new LanguageRegistry();
         registry.register(makeExt("x", [{ id: "extensionless", aliases: ["No Ext"] }]));
 
@@ -246,7 +246,7 @@ describe("LanguageRegistry", () => {
 
     // The stock editorconfig-vscode contributes the language via `extensions: [".editorconfig"]` with empty
     // `filenames`: resolution relies on a dotfile match of the name against the "extension".
-    it("резолвит .editorconfig в 'editorconfig' по .extensions стокового расширения", () => {
+    it("resolves .editorconfig to 'editorconfig' via the stock extension's .extensions", () => {
         const registry = new LanguageRegistry();
         expect(registry.getLanguageIdForResource("/p/.editorconfig")).toBeUndefined();
 
@@ -261,7 +261,7 @@ describe("LanguageRegistry", () => {
         expect(registry.getLanguageIdForResource(".editorconfig")).toBe("editorconfig");
     });
 
-    it("при конфликте расширений побеждает зарегистрированный позже (user > builtin)", () => {
+    it("on an extension conflict the later registration wins (user > builtin)", () => {
         const registry = new LanguageRegistry();
         // The builtin ini pack (as in microsoft/vscode) registers first.
         registry.register(makeExt("ini", [{ id: "properties", extensions: [".ini", ".editorconfig"] }]));

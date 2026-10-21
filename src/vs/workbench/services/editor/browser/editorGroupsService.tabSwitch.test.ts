@@ -33,7 +33,7 @@ function createEditorService(): EditorService {
     );
 }
 
-describe("EditorGroupsService — переключение вкладок (Ctrl+PgUp/PgDn и события серии Ctrl+Tab)", () => {
+describe("EditorGroupsService — tab switching (Ctrl+PgUp/PgDn and Ctrl+Tab cycle events)", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -60,8 +60,8 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
         return ctrl.getActiveEditor()?.fileName;
     }
 
-    describe("cycleEditor — визуальный порядок, не MRU", () => {
-        it("шаг вперёд идёт к следующей вкладке по позиции, с заворотом", () => {
+    describe("cycleEditor — visual order, not MRU", () => {
+        it("a forward step goes to the next tab by position, wrapping around", () => {
             const ctrl = createEditorService();
             openThree(ctrl);
             const groupChanges: unknown[] = [];
@@ -76,7 +76,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             expect(groupChanges).toEqual([]);
         });
 
-        it("шаг назад идёт к предыдущей по позиции, с заворотом на последнюю", () => {
+        it("a backward step goes to the previous tab by position, wrapping to the last", () => {
             const ctrl = createEditorService();
             openThree(ctrl);
             ctrl.editorGroups.activeGroup.activateTab(0);
@@ -84,14 +84,14 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             expect(activeName(ctrl)).toBe("c.ts");
         });
 
-        it("каждый шаг коммитится в MRU сразу — без hold-сессии", () => {
+        it("each step commits to MRU immediately, without a hold session", () => {
             const ctrl = createEditorService();
             openThree(ctrl);
             ctrl.editorGroups.cycleEditor(1); // → a
             expect(ctrl.editorGroups.activeGroup.getMruOrder()[0]?.label).toBe("a.ts");
         });
 
-        it("одна вкладка (и пустая полоса) — no-op", () => {
+        it("a single tab (and an empty strip) is a no-op", () => {
             const ctrl = createEditorService();
             ctrl.editorGroups.cycleEditor(1);
             expect(ctrl.getActiveEditor()).toBeNull();
@@ -102,7 +102,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             expect(activeName(ctrl)).toBe("solo.ts");
         });
 
-        it("две вкладки — минимальный цикл уже работает (граница «меньше двух»)", () => {
+        it("two tabs: the minimal cycle already works (the `fewer than two` boundary)", () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.ts"));
             ctrl.openFile(writeFile("b.ts"));
@@ -110,7 +110,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             expect(activeName(ctrl)).toBe("a.ts");
         });
 
-        it("пересекает границу группы: после последней вкладки группы — первая следующей", () => {
+        it("crosses the group boundary: after the group's last tab comes the next group's first", () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.ts"));
             ctrl.openFile(writeFile("b.ts"));
@@ -127,7 +127,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             expect(groupChanges).toHaveLength(1);
         });
 
-        it("шаг назад из первой вкладки полосы уводит в последнюю вкладку последней группы", () => {
+        it("a backward step from the strip's first tab goes to the last tab of the last group", () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.ts"));
             ctrl.openFile(writeFile("b.ts"));
@@ -141,7 +141,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             expect(activeName(ctrl)).toBe("b.ts");
         });
 
-        it("у пустой активной группы «вперёд» начинает с первой вкладки полосы, «назад» — с последней", () => {
+        it("with an empty active group `forward` starts at the strip's first tab, `back` at the last", () => {
             const ctrl = createEditorService();
             openThree(ctrl);
             ctrl.editorGroups.newGroup("after");
@@ -157,14 +157,14 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
         });
     });
 
-    describe("onDidChangeMruCycle — событие для оверлея переключателя", () => {
+    describe("onDidChangeMruCycle — event for the switcher overlay", () => {
         function record(ctrl: EditorService): (MruCycleState | null)[] {
             const events: (MruCycleState | null)[] = [];
             ctrl.editorGroups.onDidChangeMruCycle((state) => events.push(state));
             return events;
         }
 
-        it("шаг серии активной группы доходит до подписчика фасада", () => {
+        it("a cycle step in the active group reaches the facade subscriber", () => {
             const ctrl = createEditorService();
             openThree(ctrl);
             const events = record(ctrl);
@@ -176,7 +176,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             expect(events[0]?.panes.map((pane) => pane.label)).toEqual(["c.ts", "b.ts", "a.ts"]);
         });
 
-        it("конец серии доходит null'ом; отписка снимает листенер", () => {
+        it("the cycle end arrives as null; unsubscribing removes the listener", () => {
             const ctrl = createEditorService();
             openThree(ctrl);
             const events: (MruCycleState | null)[] = [];
@@ -196,7 +196,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             expect(others).toHaveLength(1);
         });
 
-        it("серия группы, созданной сплитом ПОСЛЕ подписки, тоже форвардится", () => {
+        it("a cycle in a group created by a split AFTER subscribing is forwarded too", () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.ts"));
             ctrl.openFile(writeFile("b.ts"));
@@ -211,7 +211,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             expect(events.at(-1)?.panes.map((pane) => pane.label)).toEqual(["c.ts", "b.ts"]);
         });
 
-        it("уход фокуса в другую группу завершает серию прежней: null подписчику, выбор зафиксирован", () => {
+        it("focus moving to another group ends the previous one's cycle: null to the subscriber, the choice is committed", () => {
             const ctrl = createEditorService();
             openThree(ctrl);
             ctrl.splitActiveGroup();
@@ -227,7 +227,7 @@ describe("EditorGroupsService — переключение вкладок (Ctrl+
             expect(ctrl.editorGroups.groups[0].getMruOrder()[0]?.label).toBe("b.ts");
         });
 
-        it("кросс-групповой cycleEditor во время серии тоже завершает её null'ом", () => {
+        it("a cross-group cycleEditor during a cycle also ends it with null", () => {
             const ctrl = createEditorService();
             openThree(ctrl);
             ctrl.splitActiveGroup();

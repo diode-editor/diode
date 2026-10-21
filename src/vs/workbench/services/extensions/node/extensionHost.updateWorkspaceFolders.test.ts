@@ -26,8 +26,8 @@ async function setup() {
     return { harness, opened, shown };
 }
 
-describe("ExtensionHost — workspace.updateWorkspaceFolders через настоящий субпроцесс", () => {
-    it("вторая папка (форма golang.go): false и тост ошибки от имени расширения", async () => {
+describe("ExtensionHost — workspace.updateWorkspaceFolders through a real subprocess", () => {
+    it("a second folder (golang.go's shape): false and an error toast on behalf of the extension", async () => {
         const { harness, opened, shown } = await setup();
         try {
             const other = path.join(harness.tmpDir, "other");
@@ -43,7 +43,7 @@ describe("ExtensionHost — workspace.updateWorkspaceFolders через наст
         }
     });
 
-    it("замена единственной папки: true, и хост открывает новую", async () => {
+    it("replacing the only folder: true, and the host opens the new one", async () => {
         const { harness, opened, shown } = await setup();
         try {
             const other = path.join(harness.tmpDir, "other");

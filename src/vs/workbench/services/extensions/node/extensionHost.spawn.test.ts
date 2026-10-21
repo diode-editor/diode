@@ -162,8 +162,8 @@ describe("ExtensionHost — SIGKILL escalation (lines 242-247)", () => {
     });
 });
 
-describe("ExtensionHost — неудачный спавн", () => {
-    it("error без exit (EMFILE) сбрасывает host: следующая активация поднимает процесс заново", async () => {
+describe("ExtensionHost — failed spawn", () => {
+    it("error without exit (EMFILE) resets the host: the next activation starts the process again", async () => {
         const broken = new FakeChild();
         const healthy = new FakeChild();
         spawnMock.mockReturnValueOnce(broken as never).mockReturnValueOnce(healthy as never);

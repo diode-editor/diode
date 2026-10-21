@@ -48,7 +48,7 @@ async function createLoader(): Promise<TextMateGrammarLoader> {
 }
 
 describe("TextMateTokenizationSupport", () => {
-    it("getInitialState() возвращает обёртку TextMateState над INITIAL", async () => {
+    it("getInitialState() returns a TextMateState wrapper over INITIAL", async () => {
         const loader = await createLoader();
         const support = await loader.loadSupport("source.js");
         if (!support) throw new Error("source.js not loaded");
@@ -58,7 +58,7 @@ describe("TextMateTokenizationSupport", () => {
         expect(state.equals(state)).toBe(true);
     });
 
-    it("отдаёт бинарные токены tokenizeLine2: первый токен с нуля, цвет — индекс colorMap темы", async () => {
+    it("returns tokenizeLine2 binary tokens: the first token at zero, the color is a theme colorMap index", async () => {
         const loader = await createLoader();
         const theme = createTextMateTheme(darkModern());
         loader.setTheme(theme);
@@ -79,7 +79,7 @@ describe("TextMateTokenizationSupport", () => {
         expect(theme.colorMap[TokenMetadata.getForeground(numberToken?.[1] ?? 0)]).toBe("#B5CEA8");
     });
 
-    it("вид токена — из метаданных: комментарий и строка", async () => {
+    it("the token kind comes from metadata: comment and string", async () => {
         const loader = await createLoader();
         const support = await loader.loadSupport("source.js");
         if (!support) throw new Error("source.js not loaded");
@@ -90,7 +90,7 @@ describe("TextMateTokenizationSupport", () => {
         expect(TokenMetadata.getTokenType(string[1])).toBe(StandardTokenType.String);
     });
 
-    it("endState между строками внутри блока комментария стабилизируется — тот же объект", async () => {
+    it("endState between lines inside a block comment stabilizes: the same object", async () => {
         const loader = await createLoader();
         const support = await loader.loadSupport("source.js");
         if (!support) throw new Error("source.js not loaded");
@@ -105,7 +105,7 @@ describe("TextMateTokenizationSupport", () => {
         expect(r3.endState).toBe(r1.endState);
     });
 
-    it("сменившееся состояние — новый TextMateState", async () => {
+    it("a changed state is a new TextMateState", async () => {
         const loader = await createLoader();
         const support = await loader.loadSupport("source.js");
         if (!support) throw new Error("source.js not loaded");
@@ -116,7 +116,7 @@ describe("TextMateTokenizationSupport", () => {
         expect(r1.endState.equals(initial)).toBe(false);
     });
 
-    it("на сверхдлинной строке — один токен цвета по умолчанию и тот же endState", async () => {
+    it("on an overlong line: one default-color token and the same endState", async () => {
         const loader = await createLoader();
         const support = await loader.loadSupport("source.js");
         if (!support) throw new Error("source.js not loaded");
@@ -131,7 +131,7 @@ describe("TextMateTokenizationSupport", () => {
         expect(result.endState).toBe(initial);
     });
 
-    it("строка ровно на пределе длины токенизируется грамматикой", async () => {
+    it("a line exactly at the length limit is tokenized by the grammar", async () => {
         const loader = await createLoader();
         // With the theme `const` and `x…` differ in color, two tokens; without it they would merge into one.
         loader.setTheme(createTextMateTheme(darkModern()));
@@ -143,7 +143,7 @@ describe("TextMateTokenizationSupport", () => {
         expect(tokens.length).toBeGreaterThan(2);
     });
 
-    it("грамматика не уложилась во время — токены что успели и состояние начала строки", () => {
+    it("the grammar ran out of time: the tokens it produced and the line's start state", () => {
         const ruleStack = { equals: () => false, clone: () => ruleStack };
         let timeLimit: number | undefined;
         const grammar = {
@@ -162,7 +162,7 @@ describe("TextMateTokenizationSupport", () => {
         expect(result.endState).toBe(initial);
     });
 
-    it("бросает при несовместимом IState (не TextMateState)", async () => {
+    it("throws on an incompatible IState (not a TextMateState)", async () => {
         const loader = await createLoader();
         const support = await loader.loadSupport("source.js");
         if (!support) throw new Error("source.js not loaded");
@@ -170,13 +170,13 @@ describe("TextMateTokenizationSupport", () => {
         expect(() => support.tokenizeEncoded("const x = 1;", true, NULL_STATE)).toThrow(/incompatible IState/);
     });
 
-    it("loader.loadSupport для неизвестного scope возвращает null", async () => {
+    it("loader.loadSupport returns null for an unknown scope", async () => {
         const loader = await createLoader();
         const support = await loader.loadSupport("source.unknown");
         expect(support).toBeNull();
     });
 
-    it("все builtin-грамматики с language грузятся успешно", async () => {
+    it("all builtin grammars with a language load successfully", async () => {
         const loader = await createLoader();
         const extensions = await extensionsPromise;
         for (const ext of extensions) {

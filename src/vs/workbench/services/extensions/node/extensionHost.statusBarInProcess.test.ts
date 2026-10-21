@@ -54,8 +54,8 @@ function makeHost(withSink: boolean) {
     return { host, peer, updates, removed, rpcLogger };
 }
 
-describe("ExtensionHost — сток пунктов статус-бара (in-process)", () => {
-    it("валидный конверт доезжает до стока целиком", async () => {
+describe("ExtensionHost — status bar item sink (in-process)", () => {
+    it("a valid envelope reaches the sink whole", async () => {
         const h = makeHost(true);
         h.peer.notify("window.statusBarItem.update", {
             ...ITEM,
@@ -82,7 +82,7 @@ describe("ExtensionHost — сток пунктов статус-бара (in-pr
         expect(h.removed).toEqual([1]);
     });
 
-    it("битый конверт до стока не доезжает и обработчик не роняет", async () => {
+    it("a broken envelope does not reach the sink and does not crash the handler", async () => {
         const h = makeHost(true);
         h.peer.notify("window.statusBarItem.update", null);
         h.peer.notify("window.statusBarItem.update", { ...ITEM, id: "" });
@@ -96,7 +96,7 @@ describe("ExtensionHost — сток пунктов статус-бара (in-pr
         expect(h.rpcLogger.warn).not.toHaveBeenCalled();
     });
 
-    it("без стока пункты отбрасываются, обработчик не роняет", async () => {
+    it("without a sink items are dropped, and the handler does not crash", async () => {
         const h = makeHost(false);
         h.peer.notify("window.statusBarItem.update", ITEM);
         h.peer.notify("window.statusBarItem.dispose", { handle: 1 });

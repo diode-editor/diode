@@ -51,73 +51,73 @@ describe("TerminalEnvironmentModel", () => {
         });
     });
 
-    describe("resolveOs — лестница сигналов с провенансом", () => {
+    describe("resolveOs: signal ladder with provenance", () => {
         const base: OsSignals = { platform: "linux", ssh: false };
 
         it.each<[string, OsSignals, ResolvedOs]>([
-            ["сигналов нет ⇒ «не знаю», не-мак", base, { os: "linux", source: "default" }],
-            ["локальный darwin ⇒ мак", { platform: "darwin", ssh: false }, { os: "mac", source: "platform" }],
-            ["локальный win32 ⇒ windows", { platform: "win32", ssh: false }, { os: "windows", source: "platform" }],
-            ["freebsd ⇒ не-мак по умолчанию", { platform: "freebsd", ssh: false }, { os: "linux", source: "default" }],
+            ["no signals ⇒ `unknown`, non-mac", base, { os: "linux", source: "default" }],
+            ["local darwin ⇒ mac", { platform: "darwin", ssh: false }, { os: "mac", source: "platform" }],
+            ["local win32 ⇒ windows", { platform: "win32", ssh: false }, { os: "windows", source: "platform" }],
+            ["freebsd ⇒ non-mac by default", { platform: "freebsd", ssh: false }, { os: "linux", source: "default" }],
             [
-                "ssh в darwin без сигналов ⇒ не мак (могли зайти с PC)",
+                "ssh into darwin without signals ⇒ not mac (could come from a PC)",
                 { platform: "darwin", ssh: true },
                 { os: "linux", source: "default" },
             ],
             [
-                "ssh в win32 без сигналов ⇒ не-мак по умолчанию",
+                "ssh into win32 without signals ⇒ non-mac by default",
                 { platform: "win32", ssh: true },
                 { os: "linux", source: "default" },
             ],
             [
-                "LC_DIODE_PLATFORM=mac по ssh на Linux ⇒ мак",
+                "LC_DIODE_PLATFORM=mac over ssh on Linux ⇒ mac",
                 { ...base, ssh: true, envPlatform: "mac" },
                 { os: "mac", source: "env" },
             ],
-            ["LC_DIODE_PLATFORM регистронезависим", { ...base, envPlatform: " Mac " }, { os: "mac", source: "env" }],
+            ["LC_DIODE_PLATFORM is case-insensitive", { ...base, envPlatform: " Mac " }, { os: "mac", source: "env" }],
             [
-                "LC_DIODE_PLATFORM=linux перебивает darwin",
+                "LC_DIODE_PLATFORM=linux overrides darwin",
                 { platform: "darwin", ssh: false, envPlatform: "linux" },
                 { os: "linux", source: "env" },
             ],
             [
-                "мусор в LC_DIODE_PLATFORM игнорируется",
+                "garbage in LC_DIODE_PLATFORM is ignored",
                 { ...base, envPlatform: "macos" },
                 { os: "linux", source: "default" },
             ],
             [
-                "LC_TERMINAL=iTerm2 ⇒ мак",
+                "LC_TERMINAL=iTerm2 ⇒ mac",
                 { ...base, ssh: true, lcTerminal: "iTerm2" },
                 { os: "mac", source: "terminal" },
             ],
             [
-                "XTVERSION Apple_Terminal ⇒ мак",
+                "XTVERSION Apple_Terminal ⇒ mac",
                 { ...base, terminalName: "Apple_Terminal" },
                 { os: "mac", source: "terminal" },
             ],
             [
-                "XTVERSION iTerm2 с версией ⇒ мак",
+                "XTVERSION iTerm2 with a version ⇒ mac",
                 { ...base, terminalName: "iTerm2 3.5.0" },
                 { os: "mac", source: "terminal" },
             ],
             [
-                "kitty не маковский: только позитив ⇒ «не знаю»",
+                "kitty is not mac-only: positive signals only ⇒ `unknown`",
                 { ...base, terminalName: "kitty(0.45.0)" },
                 { os: "linux", source: "default" },
             ],
             [
-                "настройка перебивает всё",
+                "the setting overrides everything",
                 { platform: "darwin", ssh: false, setting: "linux", envPlatform: "mac", lcTerminal: "iTerm2" },
                 { os: "linux", source: "setting" },
             ],
-            ["настройка mac на Linux", { ...base, setting: "mac" }, { os: "mac", source: "setting" }],
+            ["setting mac on Linux", { ...base, setting: "mac" }, { os: "mac", source: "setting" }],
             [
-                "настройка auto — сигналы ниже решают",
+                "setting auto: the signals below decide",
                 { ...base, setting: "auto", envPlatform: "mac" },
                 { os: "mac", source: "env" },
             ],
             [
-                "ssh + darwin не перебивает явное",
+                "ssh + darwin does not override an explicit value",
                 { platform: "darwin", ssh: true, envPlatform: "windows" },
                 { os: "windows", source: "env" },
             ],
@@ -126,17 +126,17 @@ describe("TerminalEnvironmentModel", () => {
         });
     });
 
-    describe("canUpgradeToMac — поздний сигнал переворачивает только к маку", () => {
+    describe("canUpgradeToMac: a late signal flips only toward mac", () => {
         const mac: ResolvedOs = { os: "mac", source: "terminal" };
         it.each<[string, ResolvedOs, ResolvedOs, boolean]>([
             ["default → mac", { os: "linux", source: "default" }, mac, true],
             ["platform (win32) → mac", { os: "windows", source: "platform" }, mac, true],
-            ["mac → linux никогда", mac, { os: "linux", source: "env" }, false],
-            ["mac → mac — не изменение", { os: "mac", source: "platform" }, mac, false],
-            ["явная настройка не перебивается", { os: "linux", source: "setting" }, mac, false],
-            ["явная переменная не перебивается", { os: "linux", source: "env" }, mac, false],
+            ["mac → linux never", mac, { os: "linux", source: "env" }, false],
+            ["mac → mac is not a change", { os: "mac", source: "platform" }, mac, false],
+            ["an explicit setting is not overridden", { os: "linux", source: "setting" }, mac, false],
+            ["an explicit variable is not overridden", { os: "linux", source: "env" }, mac, false],
             [
-                "не-мак → не-мак — не переворот",
+                "non-mac → non-mac is not a flip",
                 { os: "linux", source: "default" },
                 { os: "windows", source: "env" },
                 false,
@@ -147,7 +147,7 @@ describe("TerminalEnvironmentModel", () => {
     });
 
     describe("isMacOnlyTerminal", () => {
-        it("узнаёт маковские терминалы по префиксу и не знает остальных", () => {
+        it("recognizes mac-only terminals by prefix and does not know the rest", () => {
             expect(isMacOnlyTerminal("iTerm2")).toBe(true);
             expect(isMacOnlyTerminal("  apple_terminal 455")).toBe(true);
             expect(isMacOnlyTerminal("WezTerm 20240203")).toBe(false);
@@ -156,30 +156,30 @@ describe("TerminalEnvironmentModel", () => {
         });
     });
 
-    describe("resolveMacKeysRung — таблица «окружение → рунг»", () => {
+    describe("resolveMacKeysRung: `environment → rung` table", () => {
         const none = new Set<string>(["local"]);
         const tmux = new Set<string>(["local", "tmux"]);
         it.each<[string, OsName, Partial<CapabilitySet>, ReadonlySet<string>, MacKeysRung | undefined]>([
-            ["не мак ⇒ нет рунга", "linux", { super: true, "extended-keys": true }, none, undefined],
-            ["Terminal.app: ничего ⇒ legacy", "mac", {}, none, "legacy"],
-            ["tmux дефолтный (extended-keys off) ⇒ legacy", "mac", {}, tmux, "legacy"],
+            ["not mac ⇒ no rung", "linux", { super: true, "extended-keys": true }, none, undefined],
+            ["Terminal.app: nothing ⇒ legacy", "mac", {}, none, "legacy"],
+            ["default tmux (extended-keys off) ⇒ legacy", "mac", {}, tmux, "legacy"],
             ["tmux c extended-keys ⇒ extended", "mac", { "extended-keys": true }, tmux, "extended"],
             [
-                "kitty без tmux, super ещё не видели ⇒ extended",
+                "kitty without tmux, super not seen yet ⇒ extended",
                 "mac",
                 { "extended-keys": true, "kitty-graphics": true },
                 none,
                 "extended",
             ],
             [
-                "kitty без tmux, super доезжает ⇒ cmd",
+                "kitty without tmux, super arrives ⇒ cmd",
                 "mac",
                 { "extended-keys": true, "kitty-graphics": true, super: true },
                 none,
                 "cmd",
             ],
             [
-                "kitty + tmux ⇒ Cmd выключен даже с форсированным super",
+                "kitty + tmux ⇒ Cmd off even with a forced super",
                 "mac",
                 { "extended-keys": true, "kitty-graphics": true, super: true },
                 tmux,
@@ -235,7 +235,7 @@ describe("TerminalEnvironmentModel", () => {
         // Under a multiplexer extended keys get through only if tmux itself passes
         // them; the host terminal's env flag says nothing about that. An overstated
         // hint cost both the chord (Ctrl+Shift+F arrived as Ctrl+F) and the legacy fallback.
-        it("не верит env-флагам терминала внутри tmux", () => {
+        it("does not trust the terminal's env flags inside tmux", () => {
             expect(
                 detectExtendedKeysHint({
                     TERM: "tmux-256color",
@@ -255,7 +255,7 @@ describe("TerminalEnvironmentModel", () => {
 
         // An explicit $TERM inside tmux is the user's own setting (`default-terminal`),
         // not an inherited flag, so it is trusted.
-        it("верит явному $TERM даже внутри tmux", () => {
+        it("trusts an explicit $TERM even inside tmux", () => {
             expect(detectExtendedKeysHint({ TERM: "xterm-kitty", TMUX: "/tmp/tmux-1000/default,1,0" })).toBe(true);
         });
     });

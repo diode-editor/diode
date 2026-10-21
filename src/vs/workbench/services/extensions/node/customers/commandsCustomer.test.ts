@@ -54,8 +54,8 @@ function setup(activate: (event: string) => Promise<void> = () => Promise.resolv
     return { customer, commands, log, peer, attachTo };
 }
 
-describe("CommandsCustomer — прокси команд субпроцесса", () => {
-    it("регистрация заводит прокси с подписью палитры; исполнение уходит в субпроцесс", async () => {
+describe("CommandsCustomer — subprocess command proxies", () => {
+    it("registration creates a proxy with a palette label; execution goes to the subprocess", async () => {
         const h = setup();
         h.customer.addPaletteMetadata({
             commandTitles: { "ext.run": "$(play) Run" },
@@ -73,7 +73,7 @@ describe("CommandsCustomer — прокси команд субпроцесса"
         await expect(proxy.invoke([1, 2])).resolves.toEqual({ id: "ext.run", args: [1, 2] });
     });
 
-    it("повторная регистрация заменяет прокси, снятие — снимает; мусорный id игнорируется", async () => {
+    it("re-registration replaces the proxy, unregister removes it; a junk id is ignored", async () => {
         const h = setup();
         h.attachTo();
 
@@ -90,7 +90,7 @@ describe("CommandsCustomer — прокси команд субпроцесса"
         expect(h.commands.live("ext.run")).toEqual([]);
     });
 
-    it("уход спавна снимает все его прокси", async () => {
+    it("spawn exit removes all its proxies", async () => {
         const h = setup();
         const attached = h.attachTo();
         h.peer.notify("commands.registerCommand", { id: "a" });
@@ -102,7 +102,7 @@ describe("CommandsCustomer — прокси команд субпроцесса"
         expect(h.commands.proxies.every((p) => p.disposed)).toBe(true);
     });
 
-    it("команда ядра по просьбе субпроцесса исполняется с аргументами; мусор — отказ", async () => {
+    it("a core command requested by the subprocess runs with arguments; junk — rejected", async () => {
         const h = setup();
         h.attachTo();
 
@@ -120,8 +120,8 @@ describe("CommandsCustomer — прокси команд субпроцесса"
     });
 });
 
-describe("CommandsCustomer — заглушки-активаторы onCommand", () => {
-    it("заглушка поднимает расширение и исполняет уже настоящую команду", async () => {
+describe("CommandsCustomer — onCommand activator stubs", () => {
+    it("the stub activates the extension and runs the real command", async () => {
         const events: string[] = [];
         const h = setup((event) => {
             events.push(event);
@@ -140,7 +140,7 @@ describe("CommandsCustomer — заглушки-активаторы onCommand",
         expect(stub.disposed).toBe(true);
     });
 
-    it("активация упала — ошибка в лог, команда отвечает undefined", async () => {
+    it("activation failed — error logged, the command returns undefined", async () => {
         const h = setup(() => Promise.reject(new Error("boom")));
         h.customer.arm("ext.run");
 
@@ -152,7 +152,7 @@ describe("CommandsCustomer — заглушки-активаторы onCommand",
         expect(h.commands.service.execute).not.toHaveBeenCalled();
     });
 
-    it("расширение поднялось, но команду не завело — предупреждение, без петли", async () => {
+    it("extension activated but did not register the command — warning, no loop", async () => {
         const h = setup();
         h.attachTo();
         h.customer.arm("ext.run");
@@ -162,7 +162,7 @@ describe("CommandsCustomer — заглушки-активаторы onCommand",
         expect(h.commands.service.execute).not.toHaveBeenCalled();
     });
 
-    it("активация «прошла», а спавна нет (субпроцесс ушёл) — предупреждение вместо падения", async () => {
+    it("activation `succeeded` but there is no spawn (subprocess gone) — a warning instead of a crash", async () => {
         const h = setup();
         h.customer.arm("ext.run");
 
@@ -170,7 +170,7 @@ describe("CommandsCustomer — заглушки-активаторы onCommand",
         expect(h.log.warn).toHaveBeenCalledWith('command "ext.run" is still unregistered after activation');
     });
 
-    it("заглушка не ставится поверх живого прокси и второй раз; disarm и disarmAll снимают", async () => {
+    it("a stub is not installed over a live proxy or twice; disarm and disarmAll remove it", async () => {
         const h = setup();
         h.attachTo();
         h.peer.notify("commands.registerCommand", { id: "live" });

@@ -27,29 +27,29 @@ function scores(selector: string, input: readonly string[]): number[] {
 }
 
 describe("createMatchers", () => {
-    it("одиночный скоуп и путь скоупов через пробел", () => {
+    it("a single scope and a space-separated scope path", () => {
         expect(scores("a", ["x", "a"])).toEqual([2]);
         expect(scores("a b", ["a", "b"])).toEqual([2]);
         expect(scores("a b", ["b"])).toEqual([-1]);
     });
 
-    it("запятая верхнего уровня — отдельные матчеры альтернатив", () => {
+    it("a top-level comma gives separate matchers for alternatives", () => {
         expect(scores("a, b", ["b"])).toEqual([-1, 1]);
     });
 
-    it("отрицание: совпадение даёт -1, несовпадение — 0", () => {
+    it("negation: a match gives -1, a mismatch gives 0", () => {
         expect(scores("-a", ["a"])).toEqual([-1]);
         expect(scores("-a", ["b"])).toEqual([0]);
         expect(scores("b -a", ["b"])).toEqual([0]);
         expect(scores("b -a", ["b", "a"])).toEqual([-1]);
     });
 
-    it("конъюнкция — минимум, и первый промах обрывает её", () => {
+    it("a conjunction is the minimum, and the first miss short-circuits it", () => {
         expect(scores("a b c", ["c", "b", "a"])).toEqual([1]);
         expect(scores("a z b", ["a", "b"])).toEqual([-1]);
     });
 
-    it("скобки: дизъюнкция через `|` и `,` — максимум, подряд идущие разделители схлопываются", () => {
+    it("parentheses: disjunction via `|` and `,` is the maximum, consecutive separators collapse", () => {
         expect(scores("(a | b)", ["b"])).toEqual([1]);
         expect(scores("(a , , b)", ["x", "a"])).toEqual([2]);
         expect(scores("(a | b)", ["c"])).toEqual([-1]);
@@ -58,45 +58,45 @@ describe("createMatchers", () => {
         expect(scores("(a) b", ["a", "b"])).toEqual([1]);
     });
 
-    it("приоритеты L:/R: пропускаются", () => {
+    it("L:/R: priorities are skipped", () => {
         expect(scores("L:a, R:b", ["a", "b"])).toEqual([1, 2]);
     });
 
-    it("пустые и битые селекторы не дают матчеров", () => {
+    it("empty and broken selectors give no matchers", () => {
         expect(compile("")).toEqual([]);
         expect(compile("-")).toEqual([]);
         expect(compile("()")).toEqual([]);
         expect(compile("|")).toEqual([]);
     });
 
-    it("после невалидной альтернативы разбор останавливается без запятой", () => {
+    it("after an invalid alternative parsing stops without a comma", () => {
         expect(scores("a ) b", ["a", "b"])).toEqual([1]);
     });
 
-    it("приоритет — только двухсимвольный токен с двоеточием; прочие — идентификаторы", () => {
+    it("a priority is only a two-character token with a colon; the rest are identifiers", () => {
         expect(scores("ab", ["ab"])).toEqual([1]);
         expect(scores("abc:", ["abc:"])).toEqual([1]);
     });
 
-    it("двойное отрицание: несовпадение внутреннего даёт -1", () => {
+    it("double negation: a mismatch of the inner one gives -1", () => {
         expect(scores("- -a", ["x"])).toEqual([-1]);
         expect(scores("- -a", ["a"])).toEqual([0]);
     });
 
-    it("после скобки конъюнкция продолжается: недостающий операнд — промах", () => {
+    it("after a parenthesis the conjunction continues: a missing operand is a miss", () => {
         expect(scores("(a) b", ["a"])).toEqual([-1]);
     });
 
-    it("нулевой вес отрицания не обрывает конъюнкцию: следующий промах её валит", () => {
+    it("a zero negation weight does not short-circuit the conjunction: the next miss fails it", () => {
         expect(scores("-a (b)", ["x"])).toEqual([-1]);
     });
 
-    it("в скобках обе альтернативы — и через `,`, и через повторённый `|`", () => {
+    it("inside parentheses both alternatives, via `,` and via a repeated `|`", () => {
         expect(scores("(a , b)", ["b"])).toEqual([1]);
         expect(scores("(a | | b)", ["b"])).toEqual([1]);
     });
 
-    it("идентификатор допускает точки, двоеточия и дефисы внутри", () => {
+    it("an identifier allows dots, colons and hyphens inside", () => {
         expect(scores("meta.tag-name:x", ["meta.tag-name:x"])).toEqual([1]);
     });
 });

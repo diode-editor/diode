@@ -14,17 +14,17 @@ exports.activate = function activate(context) {
         vscode.commands.registerCommand("test.askName", async function () {
             const value = await vscode.window.showInputBox({
                 title: "Your name",
-                prompt: "Как к вам обращаться",
-                placeHolder: "имя",
+                prompt: "How should we address you",
+                placeHolder: "name",
                 validateInput: function (text) {
-                    return text === "плохо" ? "Так нельзя" : null;
+                    return text === "bad" ? "Not allowed" : null;
                 },
             });
             return value === undefined ? "cancelled" : "got:" + value;
         }),
         vscode.commands.registerCommand("test.pickFruit", async function () {
             const value = await vscode.window.showQuickPick(["apple", "banana", "cherry"], {
-                placeHolder: "Выберите фрукт",
+                placeHolder: "Pick a fruit",
             });
             return value === undefined ? "cancelled" : "got:" + value;
         }),

@@ -39,8 +39,8 @@ exports.activate = function activate(context) {
 };
 `;
 
-describe("ExtensionHost — ExtensionContext стороннего расширения", () => {
-    it("context строится из extensionPath регистрации: пути, asAbsolutePath, Production-режим", async () => {
+describe("ExtensionHost — ExtensionContext of a third-party extension", () => {
+    it("context is built from the registration extensionPath: paths, asAbsolutePath, Production mode", async () => {
         const harness = await createExtensionTestHarness();
         try {
             // extensionPath is intentionally NOT the mainPath directory.
@@ -59,7 +59,7 @@ describe("ExtensionHost — ExtensionContext стороннего расшире
         }
     });
 
-    it("без extensionPath (фикстурная регистрация) — фолбэк на каталог main-модуля", async () => {
+    it("without extensionPath (fixture registration) it falls back to the main module directory", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.context", "reportsContext.cjs")],
         });
@@ -71,7 +71,7 @@ describe("ExtensionHost — ExtensionContext стороннего расшире
         }
     });
 
-    it("in-memory source (builtin): фолбэк на каталог синтетического filename", async () => {
+    it("in-memory source (builtin): falls back to the directory of the synthetic filename", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [
                 {
@@ -94,7 +94,7 @@ describe("ExtensionHost — ExtensionContext стороннего расшире
         }
     });
 
-    it("vscode.extensions: незнакомый id → undefined, all — то, что реально зарегистрировано", async () => {
+    it("vscode.extensions: unknown id → undefined, all is what is actually registered", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.context", "reportsContext.cjs")],
         });
@@ -108,7 +108,7 @@ describe("ExtensionHost — ExtensionContext стороннего расшире
         }
     });
 
-    it("context.extension — запись самого расширения из каталога: манифест, корень, isActive", async () => {
+    it("context.extension is the extension's own catalog entry: manifest, root, isActive", async () => {
         const harness = await createExtensionTestHarness();
         try {
             await registerAndActivate(harness.host, {
@@ -129,7 +129,7 @@ describe("ExtensionHost — ExtensionContext стороннего расшире
         }
     });
 
-    it("окружение детей субпроцесса: DIODE_EXTENSION_HOST снят, DIODE_RUN_AS_NODE=1", async () => {
+    it("subprocess children environment: DIODE_EXTENSION_HOST unset, DIODE_RUN_AS_NODE=1", async () => {
         const harness = await createExtensionTestHarness({
             extensions: [extensionFixture("test.context", "reportsContext.cjs")],
         });

@@ -28,8 +28,8 @@ async function setup() {
     return { harness, component, testApp, view, type };
 }
 
-describe("ExtensionHost — window.createQuickPick через настоящий субпроцесс", () => {
-    it("ленивый список (форма pickLazyEnum golang.go): предметы после показа, поиск, Enter", async () => {
+describe("ExtensionHost — window.createQuickPick through a real subprocess", () => {
+    it("a lazy list (golang.go's pickLazyEnum shape): items after show, search, Enter", async () => {
         const { harness, component, testApp, view, type } = await setup();
         try {
             const result = harness.commandRegistry.execute("test.lazyPick") as Promise<{
@@ -68,7 +68,7 @@ describe("ExtensionHost — window.createQuickPick через настоящий
         }
     });
 
-    it("Escape — onDidHide в расширении, команда получает «ничего»", async () => {
+    it("Escape fires onDidHide in the extension, the command gets `nothing`", async () => {
         const { harness, component, testApp, view } = await setup();
         try {
             const result = harness.commandRegistry.execute("test.lazyPick") as Promise<{
@@ -90,7 +90,7 @@ describe("ExtensionHost — window.createQuickPick через настоящий
         }
     });
 
-    it("множественный выбор: предотметка, разделитель не рисуется, шаги в заголовке, свои объекты обратно", async () => {
+    it("multi-select: preselection, the separator is not drawn, steps in the title, own objects come back", async () => {
         const { harness, testApp, view } = await setup();
         try {
             const result = harness.commandRegistry.execute("test.pickManyObject") as Promise<{
@@ -118,7 +118,7 @@ describe("ExtensionHost — window.createQuickPick через настоящий
         }
     });
 
-    it("hide() расширения закрывает оверлей, onDidHide — ровно один раз", async () => {
+    it("the extension's hide() closes the overlay, onDidHide fires exactly once", async () => {
         const { harness, component } = await setup();
         try {
             await harness.commandRegistry.execute("test.showForHide");

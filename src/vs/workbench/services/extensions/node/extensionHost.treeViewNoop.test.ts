@@ -6,8 +6,8 @@ import type { IOutputSink } from "../../../../workbench/api/common/iExtensionWin
 
 // Without `vscode.TreeItem` the extension module failed to load, without
 // `registerTreeDataProvider` it failed in `activate()`: the user lost the whole extension.
-describe("ExtensionHost — расширение с деревом активируется целиком", () => {
-    it("модуль с `extends vscode.TreeItem` грузится, команда после регистрации дерева исполняется", async () => {
+describe("ExtensionHost — an extension with a tree activates fully", () => {
+    it("a module with `extends vscode.TreeItem` loads, and a command after the tree registration runs", async () => {
         const output: { channel: string; level: string; value: string }[] = [];
         const outputSink: IOutputSink = {
             append: (channel, _label, level, value) => {

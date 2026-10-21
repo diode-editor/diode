@@ -27,7 +27,7 @@ import { ThemeService } from "../../themes/common/themeService.ts";
 import { EditorService, movedResource } from "./editorService.ts";
 
 /** Dogfooding bug: the tab stayed at the old path, and saving resurrected the renamed file. */
-describe("EditorService — вкладки едут за перенесённым файлом", () => {
+describe("EditorService — tabs follow a moved file", () => {
     let ws: ITempWorkspace;
     let files: FileService;
     let service: EditorService;
@@ -74,7 +74,7 @@ describe("EditorService — вкладки едут за перенесённы�
     const move = (from: string, to: string): Promise<void> =>
         files.move(Uri.file(ws.path(from)), Uri.file(ws.path(to)));
 
-    it("переименованный файл: вкладка на том же месте с новым путём, сохранение пишет туда, старый не воскресает", async () => {
+    it("renamed file: the tab stays in place with the new path, save writes there, the old one does not come back", async () => {
         service.openFile(ws.path("old.txt"));
         service.openFile(ws.path("other.txt"));
         service.editorGroups.groups[0].activateTab(0);
@@ -100,7 +100,7 @@ describe("EditorService — вкладки едут за перенесённы�
         expect(fs.existsSync(ws.path("old.txt"))).toBe(false);
     });
 
-    it("несохранённые правки переезжают: буфер по новому пути изменён, на диске — прежний текст", async () => {
+    it("unsaved edits move along: the buffer at the new path is modified, disk has the previous text", async () => {
         service.openFile(ws.path("old.txt"));
         textPane(0, 0).applyExternalEdits([createTextEdit(createRange(1, 0, 1, 3), "TWO")], "type");
 
@@ -118,7 +118,7 @@ describe("EditorService — вкладки едут за перенесённы�
         expect(fs.existsSync(ws.path("old.txt"))).toBe(false);
     });
 
-    it("файл в двух группах: обе вкладки на новом пути, общая модель, правки переехали", async () => {
+    it("a file in two groups: both tabs at the new path, a shared model, the edits moved", async () => {
         service.openFile(ws.path("old.txt"));
         textPane(0, 0).applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "!")], "type");
         service.splitActiveGroup();
@@ -141,7 +141,7 @@ describe("EditorService — вкладки едут за перенесённы�
         expect(textPane(1, 0).isModified).toBe(true);
     });
 
-    it("перенос каталога уводит вложенные вкладки, соседний каталог с общим префиксом не трогает", async () => {
+    it("moving a directory moves nested tabs, leaves a sibling directory with a shared prefix alone", async () => {
         service.openFile(ws.path("src/a.txt"));
         service.openFile(ws.path("src2/b.txt"));
 
@@ -155,7 +155,7 @@ describe("EditorService — вкладки едут за перенесённы�
         expect(service.editorGroups.groups[0].activeIndex).toBe(1);
     });
 
-    it("предпросмотр остаётся предпросмотром, приколотая — приколотой", async () => {
+    it("preview stays preview, pinned stays pinned", async () => {
         service.openFile(ws.path("other.txt"));
         await service.openUri(Uri.file(ws.path("old.txt")), { preview: true });
         const group = service.editorGroups.groups[0];
@@ -169,7 +169,7 @@ describe("EditorService — вкладки едут за перенесённы�
         expect(textPane(0, 0).uri.fsPath).toBe(ws.path("renamed.txt"));
     });
 
-    it("вкладки без файловой модели по тому же пути (снимок, панель другого вида) остаются на месте", async () => {
+    it("tabs without a file model at the same path (snapshot, pane of another kind) stay in place", async () => {
         const snapshot = service.openTextSnapshot(Uri.file(ws.path("old.txt")), {
             text: "snapshot\n",
             languageId: "plaintext",
@@ -194,7 +194,7 @@ describe("EditorService — вкладки едут за перенесённы�
         expect(service.editorGroups.groups[0].getPanes()).toEqual([snapshot, other]);
     });
 
-    it("перенос чужого файла и копирование вкладок не трогают", async () => {
+    it("moving an unrelated file and copying leave tabs alone", async () => {
         service.openFile(ws.path("old.txt"));
         const before = textPane(0, 0);
         let events = 0;
@@ -214,29 +214,29 @@ describe("movedResource", () => {
     const source = Uri.file("/repo/src");
     const target = Uri.file("/repo/lib");
 
-    it("сам перенесённый ресурс — на цель", () => {
+    it("the moved resource itself maps to the target", () => {
         expect(movedResource(Uri.file("/repo/src"), source, target)?.fsPath).toBe("/repo/lib");
     });
 
-    it("вложенный — на тот же относительный путь под целью", () => {
+    it("a nested one maps to the same relative path under the target", () => {
         expect(movedResource(Uri.file("/repo/src/deep/a.ts"), source, target)?.fsPath).toBe("/repo/lib/deep/a.ts");
     });
 
-    it("сосед с общим префиксом, родитель и файл с именем на `..` — мимо", () => {
+    it("a sibling with a shared prefix, the parent and a file named with `..` are skipped", () => {
         expect(movedResource(Uri.file("/repo/src2/a.ts"), source, target)).toBeNull();
         expect(movedResource(Uri.file("/repo"), source, target)).toBeNull();
         expect(movedResource(Uri.file("/repo/src/..x"), Uri.file("/repo/src/..x"), target)?.fsPath).toBe("/repo/lib");
         expect(movedResource(Uri.file("/repo/..hidden"), Uri.file("/repo/src"), target)).toBeNull();
     });
 
-    it("безымянный буфер — мимо, даже когда переносят текущий каталог процесса", () => {
+    it("an untitled buffer is skipped, even when the process's current directory is moved", () => {
         // The "path" of `Untitled-1` is relative: comparing by fsPath would resolve it
         // against cwd and drag the buffer along with the directory.
         const cwd = Uri.file(process.cwd());
         expect(movedResource(Uri.parse("untitled:Untitled-1"), cwd, target)).toBeNull();
     });
 
-    it("перенос в чужой схеме файловую вкладку с тем же путём не трогает", () => {
+    it("a move in another scheme leaves a file tab with the same path alone", () => {
         expect(
             movedResource(Uri.file("/repo/src/a.ts"), Uri.parse("mem:/repo/src"), Uri.parse("mem:/repo/lib")),
         ).toBeNull();

@@ -48,7 +48,7 @@ let appUri: string;
 const outputLines: { level: string; value: string }[] = [];
 const statusBarItems: IWireStatusBarItem[] = [];
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.java: фичи языка", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock redhat.java: language features", () => {
     beforeAll(async () => {
         installed = await installJava();
         project = createMavenProject();
@@ -75,7 +75,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         // Server readiness: until the project is imported, providers answer empty,
         // and the cases below would race against a half-built state.
         await until(
-            "hover отвечает (сервер готов)",
+            "hover responds (server ready)",
             async () => {
                 if (harness === undefined) return null;
                 const found = await provideHovers(harness, {
@@ -97,12 +97,12 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         installed?.dispose();
     });
 
-    it("hover над вызовом отдаёт сигнатуру из объявления", { timeout: 120_000 }, async () => {
+    it("hover over a call returns the signature from the declaration", { timeout: 120_000 }, async () => {
         expect(harness).toBeDefined();
         // Cursor on `greet(`. Via `until`: a server busy with background work answers
         // empty, so a single call flakes (verified).
         const hovers: readonly ICoreHover[] = await until(
-            "hover над `greet`",
+            "hover over `greet`",
             async () => {
                 const found = await provideHovers(harness!, {
                     uri: appUri,
@@ -121,12 +121,12 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         expect(joined).toContain("String demo.App.greet(String who)");
     });
 
-    it("автодополнение отдаёт члены типа из JDK", { timeout: 120_000 }, async () => {
+    it("completion returns type members from the JDK", { timeout: 120_000 }, async () => {
         expect(harness).toBeDefined();
         // Cursor right after `System.out.` in the buffer: request text that differs from the buffer
         // flakes on sync (red CI: the server completed `System.` with a lone `out`).
         const items = await until(
-            "completion после `System.out.`",
+            "completion after `System.out.`",
             async () => {
                 const found = await provideCompletions(harness!, {
                     uri: appUri,
@@ -145,11 +145,11 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         expect(labels).toContain("println");
     });
 
-    it("definition внутри проекта ведёт на объявление метода", { timeout: 120_000 }, async () => {
+    it("definition inside the project leads to the method declaration", { timeout: 120_000 }, async () => {
         expect(harness).toBeDefined();
         // Via `until` for the same reason as hover.
         const targets: readonly ICoreDefinitionLocation[] = await until(
-            "definition для `greet`",
+            "definition for `greet`",
             async () => {
                 const found = await provideDefinitions(harness!, {
                     uri: appUri,
@@ -168,10 +168,10 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         expect(target.range.start.line).toBe(3);
     });
 
-    it("references находит объявление и вызов", { timeout: 120_000 }, async () => {
+    it("references finds the declaration and the call", { timeout: 120_000 }, async () => {
         expect(harness).toBeDefined();
         const found = await until(
-            "references для greet",
+            "references for greet",
             async () => {
                 const refs = await provideReferences(harness!, {
                     uri: appUri,
@@ -190,11 +190,11 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         expect(lines).toContain(8);
     });
 
-    it("расширение публикует пункт статус-бара со своим состоянием", { timeout: 120_000 }, async () => {
+    it("the extension publishes a status bar item with its state", { timeout: 120_000 }, async () => {
         // The `window.statusBarItem.*` wire is ours, not the extension's: if it breaks,
         // Java keeps working but the only "server is alive" indicator disappears.
         const ready = await until(
-            "пункт статус-бара про Java",
+            "Java status bar item",
             () => Promise.resolve(statusBarItems.find((i) => i.text.includes("Java")) ?? null),
             60_000,
         );
@@ -203,7 +203,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
     });
 
     it(
-        "семантические токены: тип и модификаторы из jdt.ls, дельта на повторный запрос",
+        "semantic tokens: type and modifiers from jdt.ls, delta on a repeated request",
         { timeout: 120_000 },
         async () => {
             expect(harness).toBeDefined();
@@ -212,7 +212,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
             const request = () => ({ uri: appUri, languageId: "java", versionId: documentVersion(harness!, appUri) });
             // The server answers empty while it builds the AST; wait for a response with tokens.
             const first = await until(
-                "semantic tokens документа",
+                "document semantic tokens",
                 async () => {
                     const result = await getDocumentSemanticTokens(
                         registry,
@@ -274,7 +274,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         },
     );
 
-    it("конвертеры стокового клиента не падали молча", () => {
+    it("stock client converters did not fail silently", () => {
         const crashes = outputLines.filter((l) => CLIENT_CRASH_PATTERNS.test(l.value));
         expect(crashes).toEqual([]);
     });

@@ -80,9 +80,9 @@ function open(group: EditorGroup, name: string): FakePane {
     return pane;
 }
 
-describe("EditorGroupsService — операции полосы", () => {
+describe("EditorGroupsService — strip operations", () => {
     describe("splitActiveGroup", () => {
-        it("пустая новая группа (вкладку не повторили): нет активного вкладки, фокус в её filler по умолчанию", () => {
+        it("an empty new group (tab not duplicated): no active tab, focus in its filler by default", () => {
             const { service, events, focusedGroups, groupEvents } = setup();
             open(service.activeGroup, "a");
             events.length = 0;
@@ -94,7 +94,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(focusedGroups).toEqual([group]);
         });
 
-        it("focus: false — фокус не трогаем", () => {
+        it("focus: false leaves focus alone", () => {
             const { service, focusedGroups } = setup();
             open(service.activeGroup, "a");
 
@@ -103,7 +103,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(focusedGroups).toEqual([]);
         });
 
-        it("нет места — отказ с записью в лог", () => {
+        it("no room: refusal with a log entry", () => {
             const { service, logs } = setup();
             open(service.activeGroup, "a");
             service.canAddGroupHook = () => false;
@@ -114,7 +114,7 @@ describe("EditorGroupsService — операции полосы", () => {
     });
 
     describe("newGroup", () => {
-        it("событие добавления, «нет активной вкладки», фокус и смена группы — по порядку", () => {
+        it("add event, `no active tab`, focus and group change, in order", () => {
             const { service, events, focusedGroups, groupEvents } = setup();
 
             const group = service.newGroup("after");
@@ -124,7 +124,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(focusedGroups).toEqual([group]);
         });
 
-        it("focus: false — без фокуса", () => {
+        it("focus: false does not focus", () => {
             const { service, focusedGroups } = setup();
 
             service.newGroup("before", { focus: false });
@@ -133,7 +133,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(service.viewColumnOf(service.activeGroup)).toBe(1);
         });
 
-        it("нет места — отказ с записью в лог", () => {
+        it("no room: refusal with a log entry", () => {
             const { service, logs } = setup();
             service.canAddGroupHook = () => false;
 
@@ -143,7 +143,7 @@ describe("EditorGroupsService — операции полосы", () => {
     });
 
     describe("focusGroup", () => {
-        it("по умолчанию фокусирует содержимое, focus: false — нет", () => {
+        it("focuses the content by default, not with focus: false", () => {
             const { service, focusedGroups } = setup();
             service.newGroup("after", { focus: false });
 
@@ -155,7 +155,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(service.activeGroup).toBe(service.groups[1]);
         });
 
-        it("уже активная группа — ни событий, ни конца серии Ctrl+Tab", () => {
+        it("an already active group: no events and no end of the Ctrl+Tab cycle", () => {
             const { service, events } = setup();
             open(service.activeGroup, "a");
             events.length = 0;
@@ -165,7 +165,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(events).toEqual([]);
         });
 
-        it("фокус без хука view — в активную вкладку группы", () => {
+        it("focus without a view hook goes to the group's active tab", () => {
             const { service } = setup();
             service.focusGroupContentHook = undefined;
             const pane = open(service.activeGroup, "a");
@@ -178,7 +178,7 @@ describe("EditorGroupsService — операции полосы", () => {
     });
 
     describe("moveActiveEditorToGroup", () => {
-        it("пустая активная группа — no-op, соседка не заводится", () => {
+        it("an empty active group is a no-op, no neighbour is created", () => {
             const { service, events } = setup();
 
             service.moveActiveEditorToGroup("next");
@@ -187,7 +187,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(events).toEqual([]);
         });
 
-        it("у единственной группы заводит соседку (событие с источником) и переносит с фокусом", () => {
+        it("for a single group creates a neighbour (event with source) and moves with focus", () => {
             const { service, groupEvents, events } = setup();
             const source = service.activeGroup;
             open(source, "keep");
@@ -203,7 +203,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(events.at(-1)).toBe("group:2");
         });
 
-        it("ресурс уже в целевой группе — переносимая вкладка сливается: dispose и активация существующей", () => {
+        it("resource already in the target group: the moved tab merges, disposed and the existing one activated", () => {
             const { service } = setup();
             const left = service.activeGroup;
             open(left, "other");
@@ -221,7 +221,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(rightDup.focused).toBe(0);
         });
 
-        it("без места для соседки — отказ с записью в лог", () => {
+        it("no room for a neighbour: refusal with a log entry", () => {
             const { service, logs } = setup();
             open(service.activeGroup, "a");
             service.canAddGroupHook = () => false;
@@ -232,7 +232,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(logs).toEqual(["new group refused — not enough space"]);
         });
 
-        it("focus: false при переносе в новую соседку — фокус не едет", () => {
+        it("focus: false when moving to a new neighbour: focus stays", () => {
             const { service } = setup();
             const moved = open(service.activeGroup, "moved");
 
@@ -244,7 +244,7 @@ describe("EditorGroupsService — операции полосы", () => {
     });
 
     describe("sideGroup", () => {
-        it("заводит группу справа: событие с позицией и источником", () => {
+        it("creates a group on the right: event with position and source", () => {
             const { service, groupEvents } = setup();
             const source = service.activeGroup;
 
@@ -253,7 +253,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(groupEvents).toEqual([{ kind: "added", group: side, index: 1, source }]);
         });
 
-        it("нет места — активная группа и запись в лог", () => {
+        it("no room: the active group and a log entry", () => {
             const { service, logs } = setup();
             service.canAddGroupHook = () => false;
 
@@ -262,8 +262,8 @@ describe("EditorGroupsService — операции полосы", () => {
         });
     });
 
-    describe("слияние групп", () => {
-        it("joinTwoGroups: дубликат ресурса закрывается, уникальное переезжает", () => {
+    describe("joining groups", () => {
+        it("joinTwoGroups: a duplicate resource is closed, unique ones move", () => {
             const { service } = setup();
             const left = service.activeGroup;
             open(left, "dup");
@@ -281,7 +281,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(service.groups).toEqual([left]);
         });
 
-        it("joinAllGroups у единственной группы — no-op без событий", () => {
+        it("joinAllGroups with a single group is a no-op without events", () => {
             const { service, events } = setup();
             open(service.activeGroup, "a");
             events.length = 0;
@@ -291,7 +291,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(events).toEqual([]);
         });
 
-        it("joinAllGroups: активной остаётся вкладка бывшей активной группы, даже первая по счёту", () => {
+        it("joinAllGroups: the tab of the former active group stays active, even the first one", () => {
             const { service, events } = setup();
             const first = service.activeGroup;
             const shared = open(first, "shared");
@@ -309,7 +309,7 @@ describe("EditorGroupsService — операции полосы", () => {
     });
 
     describe("moveActiveGroup", () => {
-        it("у края полосы — no-op с обеих сторон", () => {
+        it("at the strip edge: no-op on both sides", () => {
             const { service, events } = setup();
             service.newGroup("after", { focus: false });
             events.length = 0;
@@ -326,7 +326,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(service.viewColumnOf(service.activeGroup)).toBe(1);
         });
 
-        it("перестановка — событие moved с новой позицией", () => {
+        it("reordering fires moved with the new position", () => {
             const { service, groupEvents } = setup();
             const first = service.activeGroup;
             service.newGroup("after", { focus: false });
@@ -340,8 +340,8 @@ describe("EditorGroupsService — операции полосы", () => {
         });
     });
 
-    describe("активная вкладка и схлопывание", () => {
-        it("смена вкладки неактивной группы не меняет активную вкладку полосы", () => {
+    describe("active tab and collapsing", () => {
+        it("a tab change in an inactive group does not change the strip's active tab", () => {
             const { service, events } = setup();
             const left = service.activeGroup;
             open(left, "a");
@@ -354,7 +354,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(events).toEqual([]);
         });
 
-        it("опустевшая неактивная группа схлопывается без смены активной", () => {
+        it("an emptied inactive group collapses without changing the active one", () => {
             const { service, events, groupEvents } = setup();
             const left = service.activeGroup;
             open(left, "a");
@@ -370,7 +370,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(service.activeGroup).toBe(right);
         });
 
-        it("опустевшая активная группа: соседка активна, получает фокус, события по порядку", () => {
+        it("an emptied active group: the neighbour becomes active and focused, events in order", () => {
             const { service, events, focusedGroups } = setup();
             const left = service.activeGroup;
             open(left, "a");
@@ -385,7 +385,7 @@ describe("EditorGroupsService — операции полосы", () => {
             expect(focusedGroups).toEqual([left]);
         });
 
-        it("схлопнутая группа отписана: её события больше не доходят до полосы", () => {
+        it("a collapsed group is unsubscribed: its events no longer reach the strip", () => {
             const { service, events } = setup();
             open(service.activeGroup, "a");
             service.newGroup("after", { focus: false });
@@ -403,7 +403,7 @@ describe("EditorGroupsService — операции полосы", () => {
         });
     });
 
-    it("выключение сервиса закрывает группы вместе с их вкладками", () => {
+    it("shutting down the service closes groups along with their tabs", () => {
         const { service } = setup();
         const pane = open(service.activeGroup, "a");
         service.newGroup("after", { focus: false });

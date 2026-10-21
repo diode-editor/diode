@@ -28,7 +28,7 @@ function requestIn(harness: IExtensionHarness): IFoldingRequest {
 }
 
 describe("ExtensionHost — folding bridge (subprocess)", () => {
-    it("provideFoldingRanges возвращает регионы провайдера", async () => {
+    it("provideFoldingRanges returns the provider's regions", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "Program.cs", content: CSHARP_TEXT },
             languageService: CSHARP_LANGUAGE_SERVICE,
@@ -43,7 +43,7 @@ describe("ExtensionHost — folding bridge (subprocess)", () => {
         }
     });
 
-    it("селектор другого языка → пустой результат", async () => {
+    it("a selector for another language → empty result", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "Program.cs", content: CSHARP_TEXT },
             languageService: CSHARP_LANGUAGE_SERVICE,
@@ -58,7 +58,7 @@ describe("ExtensionHost — folding bridge (subprocess)", () => {
         }
     });
 
-    it("без folding-провайдеров (нет расширений) → [] без RPC", async () => {
+    it("no folding providers (no extensions) → [] without RPC", async () => {
         const harness = await createExtensionTestHarness({});
         try {
             const regions = await provideFoldingRegions(harness, {
@@ -72,7 +72,7 @@ describe("ExtensionHost — folding bridge (subprocess)", () => {
         }
     });
 
-    it("поздняя активация: фолды подъезжают в уже открытый редактор", async () => {
+    it("late activation: folds arrive in an already open editor", async () => {
         // Like main.ts on onStartupFinished: the file is open BEFORE the extension activates.
         const harness = await createExtensionTestHarness({
             initialFile: { name: "Program.cs", content: CSHARP_TEXT },

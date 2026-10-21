@@ -31,7 +31,7 @@ function dirtyItem(name: string, overrides: Partial<IShutdownDirtyItem> = {}): I
 }
 
 describe("LifecycleService", () => {
-    it("без участников (или без грязных элементов) зовёт onQuit синхронно", async () => {
+    it("without participants (or without dirty items) calls onQuit synchronously", async () => {
         const { lifecycle } = makeServices();
         const onQuit = vi.fn();
 
@@ -42,7 +42,7 @@ describe("LifecycleService", () => {
         await request;
     });
 
-    it("участник без грязных элементов не показывает диалогов", async () => {
+    it("a participant without dirty items shows no dialogs", async () => {
         const { dialogService, lifecycle } = makeServices();
         const onQuit = vi.fn();
         lifecycle.registerShutdownParticipant({ collectDirty: () => [] });
@@ -53,7 +53,7 @@ describe("LifecycleService", () => {
         expect(onQuit).toHaveBeenCalledOnce();
     });
 
-    it("Save сохраняет элемент и продолжает; последний ответ ведёт к onQuit", async () => {
+    it("Save saves the item and continues; the last answer leads to onQuit", async () => {
         const { dialogService, lifecycle } = makeServices();
         const onQuit = vi.fn();
         const first = dirtyItem("a.txt");
@@ -76,7 +76,7 @@ describe("LifecycleService", () => {
         expect(onQuit).toHaveBeenCalledOnce();
     });
 
-    it("Save, который не сохранил, прерывает выход: onQuit не зовётся, остальных не спрашивают", async () => {
+    it("a Save that did not save aborts the exit: onQuit is not called, the others are not asked", async () => {
         const { dialogService, lifecycle } = makeServices();
         const onQuit = vi.fn();
         const second = dirtyItem("b.txt");
@@ -93,7 +93,7 @@ describe("LifecycleService", () => {
         expect(second.save).not.toHaveBeenCalled();
     });
 
-    it("Cancel прерывает выход: onQuit не зовётся, остальных не спрашивают", async () => {
+    it("Cancel aborts the exit: onQuit is not called, the others are not asked", async () => {
         const { dialogService, lifecycle } = makeServices();
         const onQuit = vi.fn();
         const second = dirtyItem("b.txt");
@@ -107,7 +107,7 @@ describe("LifecycleService", () => {
         expect(dialogService.getOpenConfirmSaveDialog()).toBeNull();
     });
 
-    it("пропускает элементы, ставшие неактуальными, пока пользователь отвечал", async () => {
+    it("skips items that became stale while the user was answering", async () => {
         const { dialogService, lifecycle } = makeServices();
         const onQuit = vi.fn();
         let secondStillDirty = true;
@@ -124,7 +124,7 @@ describe("LifecycleService", () => {
         expect(onQuit).toHaveBeenCalledOnce();
     });
 
-    it("опрашивает участников по очереди", async () => {
+    it("asks participants one by one", async () => {
         const { dialogService, lifecycle } = makeServices();
         const onQuit = vi.fn();
         lifecycle.registerShutdownParticipant({ collectDirty: () => [dirtyItem("a.txt")] });

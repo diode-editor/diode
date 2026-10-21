@@ -69,7 +69,7 @@ function makeFileSpy(): {
 }
 
 describe("ExtensionHost — decorations bridge (subprocess)", () => {
-    it("gutter change-bar декорации доезжают до редактора с резолвнутым цветом; non-gutter тип игнорируется", async () => {
+    it("gutter change-bar decorations reach the editor with a resolved color; a non-gutter type is ignored", async () => {
         const editorSpy = makeEditorSpy();
         const { resolver } = makeControllableResolver({
             "editorGutter.modifiedBackground": MODIFIED_GUTTER,
@@ -96,7 +96,7 @@ describe("ExtensionHost — decorations bridge (subprocess)", () => {
         }
     });
 
-    it("смена темы пере-резолвит и пере-push'ит держимые gutter-декорации", async () => {
+    it("a theme change re-resolves and re-pushes the held gutter decorations", async () => {
         const editorSpy = makeEditorSpy();
         const themeCtl = makeControllableResolver({ "editorGutter.modifiedBackground": MODIFIED_GUTTER });
         const harness = await createExtensionTestHarness({
@@ -117,7 +117,7 @@ describe("ExtensionHost — decorations bridge (subprocess)", () => {
         }
     });
 
-    it("dispose типа гасит его gutter-декорации в редакторе", async () => {
+    it("disposing a type clears its gutter decorations in the editor", async () => {
         const editorSpy = makeEditorSpy();
         const { resolver } = makeControllableResolver({ "editorGutter.modifiedBackground": MODIFIED_GUTTER });
         const harness = await createExtensionTestHarness({
@@ -138,7 +138,7 @@ describe("ExtensionHost — decorations bridge (subprocess)", () => {
         }
     });
 
-    it("файловые декорации проекта провайдера доезжают до дерева; снятие удаляет запись", async () => {
+    it("provider file decorations reach the tree; removal deletes the entry", async () => {
         const fileSpy = makeFileSpy();
         const themeCtl = makeControllableResolver({
             "gitDecoration.modifiedResourceForeground": MODIFIED_FILE,

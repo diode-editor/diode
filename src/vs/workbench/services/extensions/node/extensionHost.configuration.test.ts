@@ -15,7 +15,7 @@ function reg(id: string, file: string, defaults: Record<string, unknown>): IExte
 }
 
 describe("ExtensionHost — workspace.getConfiguration (subprocess)", () => {
-    it("расширение читает user-снапшот и contributed default через getConfiguration", async () => {
+    it("the extension reads the user snapshot and contributed default via getConfiguration", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.ts", content: "x\n" },
             configuration: { editor: { tabSize: 3 } },
@@ -32,7 +32,7 @@ describe("ExtensionHost — workspace.getConfiguration (subprocess)", () => {
         }
     });
 
-    it("без user-снапшота contributed default всё равно виден", async () => {
+    it("without a user snapshot the contributed default is still visible", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.ts", content: "x\n" },
             configuration: {},

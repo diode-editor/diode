@@ -30,7 +30,7 @@ function inspector(): IExtensionRegistration {
             name: "inspector",
             publisher: "test",
             version: "0.0.1",
-            displayName: "Каталог-обозреватель",
+            displayName: "Catalog Inspector",
             categories: ["Programming Languages"],
         },
     };
@@ -56,22 +56,22 @@ async function withHarness(
     }
 }
 
-describe("ExtensionHost — каталог vscode.extensions", () => {
-    it("getExtension отдаёт настоящую запись уже в activate()", async () => {
+describe("ExtensionHost — vscode.extensions catalog", () => {
+    it("getExtension returns the real entry already in activate()", async () => {
         await withHarness([inspector()], async (harness) => {
             const self = (await harness.commandRegistry.execute("test.extensions.selfAtActivate")) as IExtensionReport;
             expect(self.id).toBe("test.inspector");
             expect(self.extensionPath).toBe(EXTENSION_FIXTURES_DIR);
             expect(self.extensionUriFsPath).toBe(EXTENSION_FIXTURES_DIR);
             expect(self.packageJSONName).toBe("inspector");
-            expect(self.packageJSONDisplayName).toBe("Каталог-обозреватель");
+            expect(self.packageJSONDisplayName).toBe("Catalog Inspector");
             // Without a remote extension host, kind is always UI by contract.
             expect(self.extensionKind).toBe(1);
             expect(self.isUiKind).toBe(true);
         });
     });
 
-    it("all перечисляет все зарегистрированные расширения, а не только активные", async () => {
+    it("all lists every registered extension, not only active ones", async () => {
         const sleeping: IExtensionRegistration = {
             ...neighbour("test.sleeping"),
             activationEvents: ["onCommand:never.happens"],
@@ -83,7 +83,7 @@ describe("ExtensionHost — каталог vscode.extensions", () => {
         });
     });
 
-    it("isActive поднимается, когда сосед действительно активируется", async () => {
+    it("isActive turns on when the neighbour actually activates", async () => {
         const late: IExtensionRegistration = {
             ...neighbour("test.late"),
             activationEvents: ["onLanguage:python"],
@@ -104,7 +104,7 @@ describe("ExtensionHost — каталог vscode.extensions", () => {
         });
     });
 
-    it("getExtension не привередлив к регистру id (как ExtensionIdentifier в эталоне)", async () => {
+    it("getExtension is case-insensitive on the id (like ExtensionIdentifier upstream)", async () => {
         await withHarness([inspector()], async (harness) => {
             const found = (await harness.commandRegistry.execute(
                 "test.extensions.get",
@@ -114,13 +114,13 @@ describe("ExtensionHost — каталог vscode.extensions", () => {
         });
     });
 
-    it("незнакомый id — по-прежнему честный undefined", async () => {
+    it("an unknown id still gives a plain undefined", async () => {
         await withHarness([inspector()], async (harness) => {
             expect(await harness.commandRegistry.execute("test.extensions.get", "ms-python.python")).toBeNull();
         });
     });
 
-    it("exports активного расширения доступны соседу", async () => {
+    it("an active extension's exports are available to a neighbour", async () => {
         await withHarness([inspector()], async (harness) => {
             const self = (await harness.commandRegistry.execute(
                 "test.extensions.get",
@@ -130,7 +130,7 @@ describe("ExtensionHost — каталог vscode.extensions", () => {
         });
     });
 
-    it("activate() у активного расширения отдаёт его exports, у спящего — честный отказ", async () => {
+    it("activate() on an active extension returns its exports, on a dormant one a plain rejection", async () => {
         const sleeping: IExtensionRegistration = {
             ...neighbour("test.sleeping"),
             activationEvents: ["onCommand:never.happens"],
@@ -148,7 +148,7 @@ describe("ExtensionHost — каталог vscode.extensions", () => {
         });
     });
 
-    it("onDidChange стреляет на смену СОСТАВА, но не на активацию", async () => {
+    it("onDidChange fires on a change of the SET, not on activation", async () => {
         const late: IExtensionRegistration = {
             ...neighbour("test.late"),
             activationEvents: ["onLanguage:python"],
@@ -173,7 +173,7 @@ describe("ExtensionHost — каталог vscode.extensions", () => {
         });
     });
 
-    it("builtin из in-memory source получает extensionPath каталога своего filename", async () => {
+    it("a builtin from an in-memory source gets the extensionPath of its filename's directory", async () => {
         const builtin: IExtensionRegistration = {
             id: "test.builtin",
             manifest: { name: "builtin", publisher: "test", version: "0.0.1" },

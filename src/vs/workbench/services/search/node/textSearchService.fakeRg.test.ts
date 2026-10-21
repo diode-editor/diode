@@ -34,7 +34,7 @@ function matchLine(file: string): string {
     });
 }
 
-describe.skipIf(process.platform === "win32")("TextSearchService — против поддельного rg", () => {
+describe.skipIf(process.platform === "win32")("TextSearchService: against a fake rg", () => {
     let dir: string;
     let service: TextSearchService | null = null;
 
@@ -66,7 +66,7 @@ describe.skipIf(process.platform === "win32")("TextSearchService — проти�
         return service.search(QUERY, dir, onResult).complete;
     }
 
-    it("ровно лимит совпадений — limitHit, и не больше лимита", async () => {
+    it("exactly the match limit: limitHit, and no more than the limit", async () => {
         const lines = Array.from({ length: 10_001 }, (_, i) => matchLine(path.join(dir, `f${String(i)}.ts`)));
 
         const atLimit = await run(fakeRg({ stdoutLines: lines.slice(0, 10_000) }));
@@ -79,7 +79,7 @@ describe.skipIf(process.platform === "win32")("TextSearchService — проти�
         expect(overLimit.fileCount).toBe(10_000);
     });
 
-    it("отмена из колбэка: строки того же чанка после неё не доставляются", async () => {
+    it("cancel from the callback: lines of the same chunk after it are not delivered", async () => {
         const results: IFileMatch[] = [];
         service = new TextSearchService(
             fakeRg({ stdoutLines: [matchLine(path.join(dir, "a.ts")), matchLine(path.join(dir, "b.ts"))] }),
@@ -95,13 +95,13 @@ describe.skipIf(process.platform === "win32")("TextSearchService — проти�
         expect(complete.error).toBeUndefined();
     });
 
-    it("код 2 — ошибка rg из stderr (обрезанная); код 1 «нет совпадений» и код 0 — без ошибки", async () => {
+    it("code 2 is an rg error from stderr (truncated); code 1 `no matches` and code 0 have no error", async () => {
         expect((await run(fakeRg({ stderr: "regex parse error\n", code: 2 }))).error).toBe("regex parse error");
         expect((await run(fakeRg({ stderr: "noise\n", code: 1 }))).error).toBeUndefined();
         expect((await run(fakeRg({ stdoutLines: [matchLine(path.join(dir, "a.ts"))] }))).error).toBeUndefined();
     });
 
-    it("отменённый поиск с кодом 2 ошибкой не считается", async () => {
+    it("a cancelled search with code 2 does not count as an error", async () => {
         service = new TextSearchService(fakeRg({ stderr: "killed\n", code: 2 }));
         const handle = service.search(QUERY, dir, () => undefined);
         handle.cancel();
@@ -109,7 +109,7 @@ describe.skipIf(process.platform === "win32")("TextSearchService — проти�
         expect((await handle.complete).error).toBeUndefined();
     });
 
-    it("dispose снимает висящий rg: поиск завершается, а не ждёт его вечно", async () => {
+    it("dispose kills a hanging rg: the search completes instead of waiting for it forever", async () => {
         service = new TextSearchService(fakeRg({ hang: true }));
         const handle = service.search(QUERY, dir, () => undefined);
 

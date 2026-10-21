@@ -37,7 +37,7 @@ export class ExternalOpenerService implements IExternalOpener {
     /** The message carries the URL itself so it can be selected with the mouse even if the clipboard never reached the terminal. */
     private async handOver(url: string): Promise<boolean> {
         await this.environment.clipboard.writeText(url);
-        this.environment.showInfo(`Ссылка скопирована в буфер обмена: ${url}`);
+        this.environment.showInfo(`Link copied to clipboard: ${url}`);
         return true;
     }
 }

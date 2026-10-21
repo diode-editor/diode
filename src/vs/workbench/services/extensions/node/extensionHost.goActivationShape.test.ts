@@ -7,8 +7,8 @@ import type { IOutputSink } from "../../../api/common/iExtensionWindowSinks.ts";
 import { LanguageConfigurationService } from "../../language/common/languageConfigurationService.ts";
 
 // The `golang.go` shape: without `vscode.debug` the user lost ~60 `go.*` commands.
-describe("ExtensionHost — расширение с дебаггером и Test API активируется целиком", () => {
-    it("activate() доходит до команды; сессий нет, профили и коллекции рабочие, слой языка — в ядре", async () => {
+describe("ExtensionHost — an extension with a debugger and the Test API activates fully", () => {
+    it("activate() reaches the command; no sessions, profiles and collections work, the language layer is in the core", async () => {
         const output: { channel: string; level: string; value: string }[] = [];
         const outputSink: IOutputSink = {
             append: (channel, _label, level, value) => {

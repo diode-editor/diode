@@ -40,7 +40,7 @@ describe("TerminalEnvStatusContribution", () => {
         return { env, executed, click: () => entry()?.onClick?.(), text: () => entry()?.text ?? "" };
     }
 
-    it("pc: только tier и моды; клик открывает Keyboard Doctor", () => {
+    it("pc: only tier and modes; a click opens Keyboard Doctor", () => {
         delete process.env.LC_DIODE_PLATFORM;
         const { text, click, executed } = segment();
         expect(text()).toBe("legacy");
@@ -48,7 +48,7 @@ describe("TerminalEnvStatusContribution", () => {
         expect(executed).toEqual(["diode.keyboardDoctor"]);
     });
 
-    it("мак: рунг мак-лестницы рядом с tier и обновляется по onDidChange", () => {
+    it("mac: the mac ladder rung next to tier, updated on onDidChange", () => {
         process.env.LC_DIODE_PLATFORM = "mac";
         const { text, env } = segment();
         expect(text()).toBe("legacy · mac-legacy");

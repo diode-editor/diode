@@ -33,7 +33,7 @@ async function makeHarness(withBridge = true) {
 
 function assertRegistry(registry: CommandRegistry | null): CommandRegistry {
     /* v8 ignore next -- defensive guard: by click time the harness is already built */
-    if (registry === null) throw new Error("харнесс ещё не собран");
+    if (registry === null) throw new Error("harness is not built yet");
     return registry;
 }
 
@@ -41,8 +41,8 @@ function texts(bar: StatusBarService): string[] {
     return bar.entries().map((entry) => entry.text);
 }
 
-describe("ExtensionHost — пункт статус-бара расширения (subprocess)", () => {
-    it("пункт, созданный при активации, виден в полосе; клик исполняет команду расширения", async () => {
+describe("ExtensionHost — extension status bar item (subprocess)", () => {
+    it("an item created on activation shows in the bar; a click runs the extension command", async () => {
         const { bar, harness } = await makeHarness();
         try {
             await settle();
@@ -67,7 +67,7 @@ describe("ExtensionHost — пункт статус-бара расширени�
         }
     });
 
-    it("hide/show/dispose расширения отражаются в полосе немедленно", async () => {
+    it("the extension's hide/show/dispose are reflected in the bar immediately", async () => {
         const { bar, harness } = await makeHarness();
         try {
             await settle();
@@ -98,7 +98,7 @@ describe("ExtensionHost — пункт статус-бара расширени�
         }
     });
 
-    it("смерть субпроцесса убирает пункты расширения; следующая активация возвращает их", async () => {
+    it("subprocess death removes the extension's items; the next activation brings them back", async () => {
         const { bar, harness } = await makeHarness();
         try {
             await settle();
@@ -119,7 +119,7 @@ describe("ExtensionHost — пункт статус-бара расширени�
         }
     });
 
-    it("без стока пункты просто отбрасываются — host и расширение живы", async () => {
+    it("without a sink items are just dropped: host and extension stay alive", async () => {
         const { bar, harness } = await makeHarness(false);
         try {
             await settle();

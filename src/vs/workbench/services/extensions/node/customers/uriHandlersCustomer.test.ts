@@ -16,7 +16,7 @@ function setup() {
 }
 
 describe("UriHandlersCustomer", () => {
-    it("регистрация субпроцесса — обработчик есть (без учёта регистра) и событие с id как прислали", async () => {
+    it("subprocess registration — the handler exists (case-insensitive) and the event carries the id as sent", async () => {
         const { customer, peer } = setup();
         const registered = vi.fn();
         customer.onDidRegister(registered);
@@ -29,7 +29,7 @@ describe("UriHandlersCustomer", () => {
         expect(registered).toHaveBeenCalledExactlyOnceWith("Pub.Ext");
     });
 
-    it("структурно чужая регистрация игнорируется", async () => {
+    it("a structurally foreign registration is ignored", async () => {
         const { customer, peer } = setup();
         const registered = vi.fn();
         customer.onDidRegister(registered);
@@ -39,7 +39,7 @@ describe("UriHandlersCustomer", () => {
         expect(registered).not.toHaveBeenCalled();
     });
 
-    it("снятие убирает обработчик", async () => {
+    it("unregister removes the handler", async () => {
         const { customer, peer } = setup();
         peer.notify("window.registerUriHandler", { extensionId: "pub.ext" });
         peer.notify("window.unregisterUriHandler", { extensionId: "PUB.ext" });
@@ -47,7 +47,7 @@ describe("UriHandlersCustomer", () => {
         expect(customer.has("pub.ext")).toBe(false);
     });
 
-    it("handle отдаёт URI запросом window.handleUri и ждёт ответа", async () => {
+    it("handle sends the URI as a window.handleUri request and awaits the reply", async () => {
         const { customer, peer } = setup();
         let release!: () => void;
         const handled = vi.fn(
@@ -73,14 +73,14 @@ describe("UriHandlersCustomer", () => {
         expect(done).toBe(true);
     });
 
-    it("handle без обработчика — отказ", async () => {
+    it("handle without a handler — rejected", async () => {
         const { customer } = setup();
         await expect(customer.handle("pub.ext", "diode://pub.ext/")).rejects.toThrow(
             'no uri handler for extension "pub.ext"',
         );
     });
 
-    it("смерть спавна забывает обработчики; до первого спавна их нет", async () => {
+    it("spawn death forgets handlers; there are none before the first spawn", async () => {
         const fresh = new UriHandlersCustomer();
         expect(fresh.has("pub.ext")).toBe(false);
         await expect(fresh.handle("pub.ext", "diode://pub.ext/")).rejects.toThrow(
@@ -95,7 +95,7 @@ describe("UriHandlersCustomer", () => {
 });
 
 describe("parseWireUriHandlerRegistration", () => {
-    it("непустая строка — id, иначе null", () => {
+    it("a non-empty string is an id, otherwise null", () => {
         expect(parseWireUriHandlerRegistration({ extensionId: "a.b" })).toBe("a.b");
         expect(parseWireUriHandlerRegistration({ extensionId: "" })).toBeNull();
         expect(parseWireUriHandlerRegistration({ extensionId: 1 })).toBeNull();

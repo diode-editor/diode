@@ -6,7 +6,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 
 import { HistoryService } from "./historyService.ts";
 
-describe("HistoryService — стек навигации", () => {
+describe("HistoryService: navigation stack", () => {
     let ws: ITempWorkspace;
     let source: FakeHistoryEditorSource;
 
@@ -30,7 +30,7 @@ describe("HistoryService — стек навигации", () => {
     /** The service is created after seeding, to also check pickup of the active editor. */
     const createService = (): HistoryService => new HistoryService(source, source);
 
-    it("пустой стек: идти некуда, goBack/goForward — no-op", () => {
+    it("empty stack: nowhere to go, goBack/goForward are no-ops", () => {
         const service = createService();
 
         expect(service.canGoBack).toBe(false);
@@ -42,7 +42,7 @@ describe("HistoryService — стек навигации", () => {
         expect(service.currentIndex).toBe(-1);
     });
 
-    it("подхватывает редактор, ставший активным до создания сервиса", () => {
+    it("picks up an editor that became active before the service was created", () => {
         source.open(alpha());
         source.moveCaret(7);
 
@@ -51,7 +51,7 @@ describe("HistoryService — стек навигации", () => {
         expect(service.getEntries()).toMatchObject([{ line: 7 }]);
     });
 
-    it("кросс-файловый переход пушит запись, Back возвращает файл и позицию", () => {
+    it("a cross-file move pushes an entry, Back returns the file and position", () => {
         const service = createService();
         source.open(alpha());
         source.moveCaret(40);
@@ -64,7 +64,7 @@ describe("HistoryService — стек навигации", () => {
         expect(service.currentIndex).toBe(1);
     });
 
-    it("движение ближе порога значимости обновляет запись, а не растит стек", () => {
+    it("a move closer than the significance threshold updates the entry instead of growing the stack", () => {
         const service = createService();
         source.open(alpha());
         source.moveCaret(5);
@@ -73,7 +73,7 @@ describe("HistoryService — стек навигации", () => {
         expect(service.getEntries()).toMatchObject([{ line: 9 }]);
     });
 
-    it("движение от порога и дальше заводит новую запись", () => {
+    it("a move at the threshold or beyond adds a new entry", () => {
         const service = createService();
         source.open(alpha());
         source.moveCaret(10);
@@ -81,7 +81,7 @@ describe("HistoryService — стек навигации", () => {
         expect(service.getEntries()).toMatchObject([{ line: 0 }, { line: 10 }]);
     });
 
-    it("Back → Forward возвращает в точку, откуда ушли", () => {
+    it("Back → Forward returns to the point we left", () => {
         const service = createService();
         source.open(alpha());
         source.moveCaret(40);
@@ -97,7 +97,7 @@ describe("HistoryService — стек навигации", () => {
         expect(source.caret()).toMatchObject({ uri: beta(), line: 5 });
     });
 
-    it("мелкое движение после Back не съедает forward-хвост, значимое — отсекает", () => {
+    it("a small move after Back does not eat the forward tail, a significant one cuts it", () => {
         const service = createService();
         source.open(alpha());
         source.moveCaret(40);
@@ -113,7 +113,7 @@ describe("HistoryService — стек навигации", () => {
         expect(service.getEntries()[2].uri.toString()).toBe(alpha());
     });
 
-    it("кап стека: старейшие записи выпадают, указатель остаётся на последней", () => {
+    it("stack cap: the oldest entries drop out, the pointer stays on the last one", () => {
         const service = createService();
         source.open(alpha());
         for (let i = 1; i <= 60; i++) source.moveCaret(i * 20);
@@ -126,7 +126,7 @@ describe("HistoryService — стек навигации", () => {
         expect(service.currentIndex).toBe(49);
     });
 
-    it("восстановление позиции не пишется в стек само по себе", () => {
+    it("restoring a position is not written to the stack by itself", () => {
         const service = createService();
         source.open(alpha());
         source.moveCaret(40);
@@ -139,7 +139,7 @@ describe("HistoryService — стек навигации", () => {
         expect(service.canGoForward).toBe(true);
     });
 
-    it("позиция за границей документа переписывается фактической", () => {
+    it("a position past the end of the document is rewritten with the actual one", () => {
         const service = createService();
         source.open(beta());
         source.moveCaret(100);
@@ -153,7 +153,7 @@ describe("HistoryService — стек навигации", () => {
         expect(service.getEntries()[service.currentIndex]).toMatchObject({ line: 4 });
     });
 
-    it("невосстановимые схемы в стек не попадают", () => {
+    it("non-restorable schemes do not land on the stack", () => {
         const service = createService();
         source.open(alpha());
         source.open("output:extensions");
@@ -162,7 +162,7 @@ describe("HistoryService — стек навигации", () => {
         expect(service.getEntries()[0].uri.toString()).toBe(alpha());
     });
 
-    it("после dispose подписки сняты", () => {
+    it("after dispose the subscriptions are removed", () => {
         const service = createService();
         source.open(alpha());
         service.dispose();

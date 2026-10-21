@@ -12,7 +12,7 @@ interface IOpenOutcome {
 }
 
 describe("ExtensionHost — vscode.open (subprocess)", () => {
-    it("Uri файла открывается вкладкой в активной группе, промис резолвится без значения", async () => {
+    it("a file Uri opens as a tab in the active group, the promise resolves without a value", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "greet.go", content: "package greet\n" },
             extensions: [extensionFixture("test.open", "opensResource.cjs")],
@@ -33,7 +33,7 @@ describe("ExtensionHost — vscode.open (subprocess)", () => {
         }
     });
 
-    it("колонка вторым аргументом: Beside открывает файл в новой группе", async () => {
+    it("column as the second argument: Beside opens the file in a new group", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "greet.go", content: "package greet\n" },
             extensions: [extensionFixture("test.open", "opensResource.cjs")],
@@ -52,7 +52,7 @@ describe("ExtensionHost — vscode.open (subprocess)", () => {
         }
     });
 
-    it("невалидный ресурс — отказ промиса с текстом эталона, вкладок не прибавилось", async () => {
+    it("an invalid resource rejects the promise with the upstream text, no tabs added", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "greet.go", content: "package greet\n" },
             extensions: [extensionFixture("test.open", "opensResource.cjs")],

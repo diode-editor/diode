@@ -5,11 +5,11 @@ import { parseWireStatusBarItem, parseWireStatusBarItemDispose } from "./hostWir
 describe("parseWireStatusBarItem", () => {
     const valid = { handle: 1, id: "demo", alignment: "left", text: "Demo" };
 
-    it("разбирает минимальный конверт", () => {
+    it("parses a minimal envelope", () => {
         expect(parseWireStatusBarItem(valid)).toEqual(valid);
     });
 
-    it("разбирает полный конверт", () => {
+    it("parses a full envelope", () => {
         expect(
             parseWireStatusBarItem({
                 ...valid,
@@ -31,64 +31,64 @@ describe("parseWireStatusBarItem", () => {
         });
     });
 
-    it("пустой текст — валидное состояние пункта", () => {
+    it("empty text is a valid item state", () => {
         expect(parseWireStatusBarItem({ ...valid, text: "" })?.text).toBe("");
     });
 
     it.each([
-        ["не объект", "nope"],
+        ["not an object", "nope"],
         // A function is the only non-object value with fields: without `typeof raw === "object"` it would slip through.
-        ["функция с нужными полями", Object.assign(() => undefined, valid)],
+        ["function with the required fields", Object.assign(() => undefined, valid)],
         ["null", null],
-        ["без handle", { ...valid, handle: undefined }],
-        ["нечисловой handle", { ...valid, handle: "1" }],
-        ["бесконечный handle", { ...valid, handle: Number.POSITIVE_INFINITY }],
-        ["без id", { ...valid, id: undefined }],
-        ["пустой id", { ...valid, id: "" }],
-        ["чужой alignment", { ...valid, alignment: "top" }],
-        ["без текста", { ...valid, text: undefined }],
-    ])("отбрасывает конверт: %s", (_name, raw) => {
+        ["no handle", { ...valid, handle: undefined }],
+        ["non-numeric handle", { ...valid, handle: "1" }],
+        ["infinite handle", { ...valid, handle: Number.POSITIVE_INFINITY }],
+        ["no id", { ...valid, id: undefined }],
+        ["empty id", { ...valid, id: "" }],
+        ["foreign alignment", { ...valid, alignment: "top" }],
+        ["no text", { ...valid, text: undefined }],
+    ])("rejects the envelope: %s", (_name, raw) => {
         expect(parseWireStatusBarItem(raw)).toBeNull();
     });
 
     it.each([
-        ["нечисловой priority", { priority: "100" }],
+        ["non-numeric priority", { priority: "100" }],
         ["NaN priority", { priority: Number.NaN }],
-    ])("отбрасывает поле по отдельности: %s", (_name, patch) => {
+    ])("drops a single field: %s", (_name, patch) => {
         expect(parseWireStatusBarItem({ ...valid, ...patch })?.priority).toBeUndefined();
     });
 
-    it("пустое имя не считается именем (иначе в меню видимости встал бы безымянный пункт)", () => {
+    it("an empty name is not a name (otherwise the visibility menu would get a nameless entry)", () => {
         expect(parseWireStatusBarItem({ ...valid, name: "" })?.name).toBeUndefined();
     });
 
-    it("пустая команда не считается командой", () => {
+    it("an empty command is not a command", () => {
         expect(parseWireStatusBarItem({ ...valid, command: "" })?.command).toBeUndefined();
     });
 
-    it("нестроковое имя и команда отбрасываются", () => {
+    it("non-string name and command are dropped", () => {
         const parsed = parseWireStatusBarItem({ ...valid, name: 7, command: 7 });
 
         expect(parsed?.name).toBeUndefined();
         expect(parsed?.command).toBeUndefined();
     });
 
-    it("не-массив в arguments отбрасывается", () => {
+    it("a non-array in arguments is dropped", () => {
         expect(parseWireStatusBarItem({ ...valid, command: "c", arguments: "x" })?.arguments).toBeUndefined();
     });
 });
 
 describe("parseWireStatusBarItemDispose", () => {
-    it("разбирает handle", () => {
+    it("parses the handle", () => {
         expect(parseWireStatusBarItemDispose({ handle: 3 })).toEqual({ handle: 3 });
     });
 
     it.each([
-        ["не объект", 3],
-        ["функция с нужными полями", Object.assign(() => undefined, { handle: 3 })],
+        ["not an object", 3],
+        ["function with the required fields", Object.assign(() => undefined, { handle: 3 })],
         ["null", null],
-        ["нечисловой handle", { handle: "3" }],
-    ])("отбрасывает конверт: %s", (_name, raw) => {
+        ["non-numeric handle", { handle: "3" }],
+    ])("rejects the envelope: %s", (_name, raw) => {
         expect(parseWireStatusBarItemDispose(raw)).toBeNull();
     });
 });

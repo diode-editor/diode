@@ -14,8 +14,8 @@ async function harnessWithProvider() {
     return harness;
 }
 
-describe("ExtensionHost — провайдеры ФС расширений", () => {
-    it("субпроцесс объявляет схемы и их записываемость, хост их видит", async () => {
+describe("ExtensionHost — extension file system providers", () => {
+    it("the subprocess declares schemes and their writability, and the host sees them", async () => {
         const harness = await harnessWithProvider();
         try {
             expect(harness.host.getFileSystemSchemes()).toEqual(["demo", "memo"]);
@@ -26,7 +26,7 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
         }
     });
 
-    it("сквозь адаптер ядро пишет в пишущий провайдер: создание, перезапись, stat", async () => {
+    it("through the adapter the core writes to a writable provider: create, overwrite, stat", async () => {
         // The save chain for the right side of a proposed diff.
         const harness = await harnessWithProvider();
         const registry = new FileService();
@@ -35,19 +35,19 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
         try {
             await expect(harness.host.statProvidedFile(uri)).resolves.toBeNull();
 
-            await registry.writeFile(uri, new TextEncoder().encode("первое"));
-            const written = await registry.writeFile(uri, new TextEncoder().encode("второе"));
+            await registry.writeFile(uri, new TextEncoder().encode("first"));
+            const written = await registry.writeFile(uri, new TextEncoder().encode("second"));
 
-            await expect(harness.commandRegistry.execute("memo.read", "/repo/a.ts")).resolves.toBe("второе");
-            expect(written.size).toBe(new TextEncoder().encode("второе").length);
-            expect(new TextDecoder().decode((await registry.readFile(uri)).value)).toBe("второе");
+            await expect(harness.commandRegistry.execute("memo.read", "/repo/a.ts")).resolves.toBe("second");
+            expect(written.size).toBe(new TextEncoder().encode("second").length);
+            expect(new TextDecoder().decode((await registry.readFile(uri)).value)).toBe("second");
         } finally {
             adapter.dispose();
             await harness.dispose();
         }
     });
 
-    it("запись в read-only схему ядро отклоняет, не доходя до субпроцесса; прямой запрос — отказ", async () => {
+    it("the core rejects a write to a read-only scheme without reaching the subprocess; a direct request is refused", async () => {
         const harness = await harnessWithProvider();
         const registry = new FileService();
         const adapter = new FileSystemProviderAdapter(harness.host, registry);
@@ -62,17 +62,17 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
         }
     });
 
-    it("хост читает ресурс провайдером субпроцесса", async () => {
+    it("the host reads a resource through the subprocess provider", async () => {
         const harness = await harnessWithProvider();
         try {
             const bytes = await harness.host.readProvidedFile(Uri.parse("demo:/repo/a.ts"));
-            expect(new TextDecoder().decode(bytes)).toBe("содержимое /repo/a.ts");
+            expect(new TextDecoder().decode(bytes)).toBe("contents /repo/a.ts");
         } finally {
             await harness.dispose();
         }
     });
 
-    it("ошибка провайдера доходит до хоста отказом, а не пустым содержимым", async () => {
+    it("a provider error reaches the host as a rejection, not as empty content", async () => {
         const harness = await harnessWithProvider();
         try {
             await expect(harness.host.readProvidedFile(Uri.parse("demo:/missing"))).rejects.toThrow();
@@ -81,7 +81,7 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
         }
     });
 
-    it("чтение по незарегистрированной схеме отклоняется", async () => {
+    it("a read for an unregistered scheme is rejected", async () => {
         const harness = await harnessWithProvider();
         try {
             await expect(harness.host.readProvidedFile(Uri.parse("nope:/x"))).rejects.toThrow();
@@ -90,7 +90,7 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
         }
     });
 
-    it("onDidChangeFile из расширения доходит до хоста", async () => {
+    it("onDidChangeFile from the extension reaches the host", async () => {
         const harness = await harnessWithProvider();
         try {
             const seen: string[] = [];
@@ -107,7 +107,7 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
         }
     });
 
-    it("сквозь адаптер и реестр ядра ресурс читается end-to-end", async () => {
+    it("a resource is read end-to-end through the adapter and the core registry", async () => {
         // The chain the live gutter uses.
         const harness = await harnessWithProvider();
         const registry = new FileService();
@@ -116,14 +116,14 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
             expect(registry.hasProvider(Uri.from({ scheme: "demo", path: "/" }))).toBe(true);
 
             const bytes = (await registry.readFile(Uri.parse("demo:/repo/b.ts"))).value;
-            expect(new TextDecoder().decode(bytes)).toBe("содержимое /repo/b.ts");
+            expect(new TextDecoder().decode(bytes)).toBe("contents /repo/b.ts");
         } finally {
             adapter.dispose();
             await harness.dispose();
         }
     });
 
-    it("изменение ресурса доходит до реестра ядра", async () => {
+    it("a resource change reaches the core registry", async () => {
         const harness = await harnessWithProvider();
         const registry = new FileService();
         const adapter = new FileSystemProviderAdapter(harness.host, registry);

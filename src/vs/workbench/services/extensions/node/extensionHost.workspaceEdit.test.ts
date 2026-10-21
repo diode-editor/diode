@@ -51,7 +51,7 @@ function makeHost(applyResult: boolean) {
 const WIRE_EDIT = { range: { start: { line: 0, character: 0 }, end: { line: 0, character: 2 } }, text: "hi" };
 
 describe("ExtensionHost — workspace.applyEdit", () => {
-    it("парсит операции, отдаёт их в порт в исходном порядке и возвращает его вердикт", async () => {
+    it("parses operations, passes them to the port in the original order and returns its verdict", async () => {
         const { peer, applied } = makeHost(true);
         const result = await peer.request("workspace.applyEdit", {
             ops: [
@@ -72,7 +72,7 @@ describe("ExtensionHost — workspace.applyEdit", () => {
         ]);
     });
 
-    it("отказ порта уезжает субпроцессу как false", async () => {
+    it("a port refusal goes to the subprocess as false", async () => {
         const { peer } = makeHost(false);
         const result = await peer.request("workspace.applyEdit", {
             ops: [{ kind: "text", resource: "file:///closed.ts", edits: [WIRE_EDIT] }],
@@ -80,7 +80,7 @@ describe("ExtensionHost — workspace.applyEdit", () => {
         expect(result).toBe(false);
     });
 
-    it("мусор в параметрах — false без обращения к порту (edit all-or-nothing)", async () => {
+    it("garbage in the params gives false without calling the port (edit is all-or-nothing)", async () => {
         const { peer, applied } = makeHost(true);
         // A workspace edit cannot be applied halfway.
         const result = await peer.request("workspace.applyEdit", {
@@ -93,7 +93,7 @@ describe("ExtensionHost — workspace.applyEdit", () => {
         expect(applied).toEqual([]);
     });
 
-    it("пустой набор операций доезжает до порта (вердикт — его)", async () => {
+    it("an empty operation set reaches the port (the verdict is its own)", async () => {
         const { peer, applied } = makeHost(false);
         expect(await peer.request("workspace.applyEdit", { ops: [] })).toBe(false);
         expect(applied).toEqual([[]]);

@@ -40,8 +40,8 @@ function names(state: MruCycleState | null): string[] {
     return (state?.panes ?? []).map((pane) => pane.label);
 }
 
-describe("EditorGroup — событие серии Ctrl+Tab (onDidChangeMruCycle)", () => {
-    it("каждый шаг cycleMru шлёт замороженный MRU-список и позицию цикла", () => {
+describe("EditorGroup — Ctrl+Tab cycle event (onDidChangeMruCycle)", () => {
+    it("each cycleMru step sends the frozen MRU list and the cycle position", () => {
         const { group, events } = groupWith("/a.ts", "/b.ts", "/c.ts");
         // MRU after activating c: c, b, a.
         group.cycleMru(1);
@@ -56,47 +56,47 @@ describe("EditorGroup — событие серии Ctrl+Tab (onDidChangeMruCycl
         expect(events[1]?.pointer).toBe(2);
     });
 
-    it("шаг назад двигает позицию с заворотом по замороженному списку", () => {
+    it("a backward step moves the position, wrapping around the frozen list", () => {
         const { group, events } = groupWith("/a.ts", "/b.ts", "/c.ts");
         group.cycleMru(-1);
         expect(events[0]?.pointer).toBe(2);
     });
 
-    it("endMruCycle (отпускание Ctrl) шлёт null — оверлей гаснет", () => {
+    it("endMruCycle (Ctrl release) sends null, the overlay hides", () => {
         const { group, events } = groupWith("/a.ts", "/b.ts");
         group.cycleMru(1);
         group.endMruCycle();
         expect(events).toEqual([expect.objectContaining({ pointer: 1 }), null]);
     });
 
-    it("обычное переключение вкладки во время серии шлёт null", () => {
+    it("a regular tab switch during a cycle sends null", () => {
         const { group, events } = groupWith("/a.ts", "/b.ts", "/c.ts");
         group.cycleMru(1);
         group.activateTab(0);
         expect(events[events.length - 1]).toBeNull();
     });
 
-    it("закрытие вкладки во время серии шлёт null (замороженный список невалиден)", () => {
+    it("closing a tab during a cycle sends null (the frozen list is invalid)", () => {
         const { group, events } = groupWith("/a.ts", "/b.ts", "/c.ts");
         group.cycleMru(1);
         group.closeTab(0);
         expect(events[events.length - 1]).toBeNull();
     });
 
-    it("структурные изменения БЕЗ идущей серии подписчиков не будят", () => {
+    it("structural changes WITHOUT an ongoing cycle do not wake subscribers", () => {
         const { group, events } = groupWith("/a.ts", "/b.ts", "/c.ts");
         group.closeTab(0);
         group.activateTab(0);
         expect(events).toEqual([]);
     });
 
-    it("endMruCycle вне серии — no-op без события", () => {
+    it("endMruCycle outside a cycle is a no-op without an event", () => {
         const { group, events } = groupWith("/a.ts", "/b.ts");
         group.endMruCycle();
         expect(events).toEqual([]);
     });
 
-    it("отписка снимает листенер", () => {
+    it("unsubscribing removes the listener", () => {
         const group = new EditorGroup(1);
         for (const [index, path] of ["/a.ts", "/b.ts"].entries()) {
             group.insertPane(makePane(path));
@@ -114,7 +114,7 @@ describe("EditorGroup — событие серии Ctrl+Tab (onDidChangeMruCycl
         expect(others).toHaveLength(1);
     });
 
-    it("снимок в событии — копия: мутации серии его не меняют", () => {
+    it("the snapshot in the event is a copy: cycle mutations do not change it", () => {
         const { group, events } = groupWith("/a.ts", "/b.ts", "/c.ts");
         group.cycleMru(1);
         const first = events[0];
@@ -125,8 +125,8 @@ describe("EditorGroup — событие серии Ctrl+Tab (onDidChangeMruCycl
     });
 });
 
-describe("EditorGroup — MRU-снимок для пикера открытых редакторов (getMruPanes)", () => {
-    it("недавние первыми: активная вкладка во главе списка", () => {
+describe("EditorGroup — MRU snapshot for the open editors picker (getMruPanes)", () => {
+    it("most recent first: the active tab heads the list", () => {
         const { group } = groupWith("/a.ts", "/b.ts", "/c.ts");
 
         expect(group.getMruPanes().map((pane) => pane.label)).toEqual(["/c.ts", "/b.ts", "/a.ts"]);
@@ -136,7 +136,7 @@ describe("EditorGroup — MRU-снимок для пикера открытых 
         expect(group.getMruPanes().map((pane) => pane.label)).toEqual(["/a.ts", "/c.ts", "/b.ts"]);
     });
 
-    it("вкладка, ни разу не активированная (приехала merge'ом), всё равно в списке — хвостом", () => {
+    it("a tab never activated (arrived via merge) is still in the list, at the tail", () => {
         const { group } = groupWith("/a.ts", "/b.ts");
         // mergeGroupInto inserts foreign tabs without activation: they are not in mruOrder.
         group.insertPane(makePane("/merged.ts"));
@@ -144,7 +144,7 @@ describe("EditorGroup — MRU-снимок для пикера открытых 
         expect(group.getMruPanes().map((pane) => pane.label)).toEqual(["/b.ts", "/a.ts", "/merged.ts"]);
     });
 
-    it("закрытая вкладка из списка уходит", () => {
+    it("a closed tab leaves the list", () => {
         const { group } = groupWith("/a.ts", "/b.ts", "/c.ts");
 
         group.closeTab(2);
@@ -152,7 +152,7 @@ describe("EditorGroup — MRU-снимок для пикера открытых 
         expect(group.getMruPanes().map((pane) => pane.label)).toEqual(["/b.ts", "/a.ts"]);
     });
 
-    it("у пустой группы список пуст", () => {
+    it("an empty group has an empty list", () => {
         expect(new EditorGroup(1).getMruPanes()).toEqual([]);
     });
 });

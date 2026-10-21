@@ -38,8 +38,8 @@ function makeHost(): { host: ExtensionHost; peer: RpcEndpoint; secrets: IExtensi
     return { host, peer, secrets, changed };
 }
 
-describe("ExtensionHost — хендлеры secrets.* (in-process)", () => {
-    it("store кладёт в хранилище и оповещает субпроцесс", async () => {
+describe("ExtensionHost — secrets.* handlers (in-process)", () => {
+    it("store puts into the store and notifies the subprocess", async () => {
         const h = makeHost();
         await h.peer.request("secrets.store", { extensionId: "pub.one", key: "token", value: "s3cr3t" });
         expect(h.secrets.get("pub.one", "token")).toBe("s3cr3t");
@@ -47,7 +47,7 @@ describe("ExtensionHost — хендлеры secrets.* (in-process)", () => {
         h.host.dispose();
     });
 
-    it("get отдаёт значение, а отсутствие — как `null` (undefined через JSON не ездит)", async () => {
+    it("get returns the value, and absence as `null` (undefined does not survive JSON)", async () => {
         const h = makeHost();
         expect(await h.peer.request("secrets.get", { extensionId: "pub.one", key: "token" })).toEqual({ value: null });
         h.secrets.store("pub.one", "token", "s3cr3t");
@@ -57,7 +57,7 @@ describe("ExtensionHost — хендлеры secrets.* (in-process)", () => {
         h.host.dispose();
     });
 
-    it("delete убирает секрет и тоже оповещает", async () => {
+    it("delete removes the secret and notifies too", async () => {
         const h = makeHost();
         h.secrets.store("pub.one", "token", "s3cr3t");
         await h.peer.request("secrets.delete", { extensionId: "pub.one", key: "token" });
@@ -66,7 +66,7 @@ describe("ExtensionHost — хендлеры secrets.* (in-process)", () => {
         h.host.dispose();
     });
 
-    it("keys отдаёт ключи расширения", async () => {
+    it("keys returns the extension's keys", async () => {
         const h = makeHost();
         h.secrets.store("pub.one", "token", "a");
         h.secrets.store("pub.two", "other", "b");
@@ -79,20 +79,20 @@ describe("ExtensionHost — хендлеры secrets.* (in-process)", () => {
         ["secrets.delete", { extensionId: "pub.one" }],
         ["secrets.store", { extensionId: "pub.one", key: "token" }],
         ["secrets.keys", { extensionId: "" }],
-    ])("битая форма %s отклоняется, а не молча проглатывается", async (method, params) => {
+    ])("malformed %s is rejected, not silently swallowed", async (method, params) => {
         const h = makeHost();
         await expect(h.peer.request(method, params)).rejects.toThrow(new RegExp(method));
         h.host.dispose();
     });
 
-    it("отказ по форме не оповещает субпроцесс об изменении", async () => {
+    it("a shape rejection does not notify the subprocess of a change", async () => {
         const h = makeHost();
         await expect(h.peer.request("secrets.store", { extensionId: "pub.one", key: "token" })).rejects.toThrow();
         expect(h.changed).toEqual([]);
         h.host.dispose();
     });
 
-    it("сообщение об отказе не содержит значения секрета", async () => {
+    it("the rejection message does not contain the secret value", async () => {
         // Otherwise it would end up in the RPC log together with the error text.
         const h = makeHost();
         await expect(

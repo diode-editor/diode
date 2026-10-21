@@ -5,7 +5,7 @@ import { CancellationTokenNone } from "../../../../base/common/cancellation.ts";
 import { ProviderRequestBatcher } from "./providerRequestBatcher.ts";
 
 describe("ProviderRequestBatcher", () => {
-    it("вызовы с одним запросом в одном проходе уходят одной пачкой; ответы — по своим handle", async () => {
+    it("calls with the same request in one tick go out as one batch; replies go to their own handles", async () => {
         const send = vi.fn((handles: readonly number[]) =>
             Promise.resolve(handles.map((handle) => `r${String(handle)}`)),
         );
@@ -23,7 +23,7 @@ describe("ProviderRequestBatcher", () => {
         expect(results).toEqual(["r3", "r1", "r7"]);
     });
 
-    it("разные запросы — разные пачки, даже в одном проходе", async () => {
+    it("different requests — different batches, even in one tick", async () => {
         const send = vi.fn((handles: readonly number[]) => Promise.resolve(handles.map(() => "ok")));
         const batcher = new ProviderRequestBatcher<object, string>(send, "empty");
         const first = {};
@@ -37,7 +37,7 @@ describe("ProviderRequestBatcher", () => {
         ]);
     });
 
-    it("отправка ранней пачки не закрывает более позднюю, ещё не ушедшую", async () => {
+    it("sending an earlier batch does not close a later one not yet sent", async () => {
         const send = vi.fn((handles: readonly number[]) => Promise.resolve(handles.map(() => "ok")));
         const batcher = new ProviderRequestBatcher<object, string>(send, "empty");
         const first = {};
@@ -59,7 +59,7 @@ describe("ProviderRequestBatcher", () => {
         ]);
     });
 
-    it("тот же запрос после отправки пачки открывает новую", async () => {
+    it("the same request after a batch is sent opens a new one", async () => {
         const send = vi.fn((handles: readonly number[]) => Promise.resolve(handles.map(() => "ok")));
         const batcher = new ProviderRequestBatcher<object, string>(send, "empty");
         const request = {};
@@ -73,7 +73,7 @@ describe("ProviderRequestBatcher", () => {
         ]);
     });
 
-    it("токен первого вызова пачки уходит в отправку", async () => {
+    it("the token of the batch's first call is passed to the send", async () => {
         const send = vi.fn((handles: readonly number[], _request: object, _token: unknown) =>
             Promise.resolve(handles.map(() => "ok")),
         );
@@ -86,7 +86,7 @@ describe("ProviderRequestBatcher", () => {
         expect(send.mock.calls[0]?.[2]).toBe(token);
     });
 
-    it("не хватило результата для handle — пустой ответ", async () => {
+    it("no result left for a handle — empty reply", async () => {
         const batcher = new ProviderRequestBatcher<object, string>(() => Promise.resolve(["only"]), "empty");
         const request = {};
 

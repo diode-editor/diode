@@ -15,16 +15,16 @@ function isAlive(pid: number): boolean {
 async function waitUntilGone(pid: number, timeoutMs = 5000): Promise<void> {
     const deadline = Date.now() + timeoutMs;
     while (isAlive(pid)) {
-        if (Date.now() > deadline) throw new Error(`процесс ${pid} всё ещё жив через ${timeoutMs} мс`);
+        if (Date.now() > deadline) throw new Error(`process ${pid} is still alive after ${timeoutMs} ms`);
         await new Promise((r) => setTimeout(r, 25));
     }
 }
 
 // Language servers are GRANDCHILDREN: a signal to the direct child does not reach them. Before the group
 // kill, orphaned jdtls processes outlived the editor and wrote gigabytes into globalStorage.
-describe("ExtensionHost — потомство расширений не остаётся сиротами", () => {
+describe("ExtensionHost — extension descendants are not left orphaned", () => {
     it.skipIf(process.platform === "win32")(
-        "сервер, поднятый расширением и не закрытый им, уходит вместе с хостом",
+        "a server started by an extension and not closed by it goes away with the host",
         async () => {
             const harness = await createExtensionTestHarness({
                 extensions: [extensionFixture("test.orphans", "spawnsLanguageServer.cjs")],

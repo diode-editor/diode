@@ -82,8 +82,8 @@ function delta(uri = "file:///a.ts", version = 2): IWireDocumentChangedEvent {
     };
 }
 
-describe("DocumentsCustomer — document sync зеркалом", () => {
-    it("без спавна ничего не шлётся", async () => {
+describe("DocumentsCustomer — mirrored document sync", () => {
+    it("without a spawn nothing is sent", async () => {
         const detached = makeCustomer({ attached: false });
         detached.customer.didOpenTextDocument(snap());
         detached.customer.didChangeTextDocument(snap("b", 2));
@@ -93,7 +93,7 @@ describe("DocumentsCustomer — document sync зеркалом", () => {
         expect(detached.received).toEqual([]);
     });
 
-    it("открытие — снапшот; правки — дельтой, сразу и каждая, без подписки на изменения", async () => {
+    it("open sends a snapshot; edits go as deltas, immediately and each one, without a change subscription", async () => {
         const h = makeCustomer();
         h.customer.didOpenTextDocument(snap());
         h.customer.didChangeTextDocumentContent(delta("file:///a.ts", 2));
@@ -106,14 +106,14 @@ describe("DocumentsCustomer — document sync зеркалом", () => {
         ]);
     });
 
-    it("правки неоткрытого документа не шлются — зеркала у него нет", async () => {
+    it("edits of an unopened document are not sent — it has no mirror", async () => {
         const h = makeCustomer();
         h.customer.didChangeTextDocumentContent(delta("file:///other.ts"));
         await flushMicrotasks();
         expect(h.received).toEqual([]);
     });
 
-    it("flush открытого — снапшот в didChange; неоткрытого — открытие", async () => {
+    it("flush of an opened one — snapshot in didChange; of an unopened one — open", async () => {
         const h = makeCustomer();
         h.customer.didOpenTextDocument(snap());
         h.customer.didChangeTextDocument(snap("reloaded", 5));
@@ -131,7 +131,7 @@ describe("DocumentsCustomer — document sync зеркалом", () => {
         expect(h.received[2].params).toEqual(other);
     });
 
-    it("закрытие — только открытого, после него правки не шлются", async () => {
+    it("close — only an opened one, no edits are sent after it", async () => {
         const h = makeCustomer();
         h.customer.didCloseTextDocument("file:///a.ts");
         h.customer.didOpenTextDocument(snap());
@@ -145,7 +145,7 @@ describe("DocumentsCustomer — document sync зеркалом", () => {
         ]);
     });
 
-    it("уход спавна забывает открытые документы: новому спавну правки не шлются без открытия", async () => {
+    it("spawn exit forgets opened documents: edits are not sent to a new spawn without an open", async () => {
         const first = makeCustomer();
         first.customer.didOpenTextDocument(snap());
         first.attached?.dispose();
@@ -159,7 +159,7 @@ describe("DocumentsCustomer — document sync зеркалом", () => {
         expect(received).toEqual([]);
     });
 
-    it("слишком большой документ не открывается — и логируется; его правки не шлются", async () => {
+    it("a too-large document is not opened and is logged; its edits are not sent", async () => {
         const h = makeCustomer();
         const huge = "x".repeat(LIMIT + 1);
         h.customer.didOpenTextDocument(snap(huge));
@@ -172,7 +172,7 @@ describe("DocumentsCustomer — document sync зеркалом", () => {
         expect(h.logLines).toEqual([warning, warning]);
     });
 
-    it("flush, переросший лимит, закрывает документ субпроцессу", async () => {
+    it("a flush that outgrows the limit closes the document for the subprocess", async () => {
         const h = makeCustomer();
         h.customer.didOpenTextDocument(snap());
         h.customer.didChangeTextDocument(snap("x".repeat(LIMIT + 1), 2));
@@ -184,7 +184,7 @@ describe("DocumentsCustomer — document sync зеркалом", () => {
         ]);
     });
 
-    it("без логгера слишком большой документ тихо отбрасывается", async () => {
+    it("without a logger a too-large document is dropped silently", async () => {
         const customer = new DocumentsCustomer({
             willSaveTimeoutMs: 1000,
             openDocumentsProvider: undefined,
@@ -203,7 +203,7 @@ describe("DocumentsCustomer — document sync зеркалом", () => {
         await expect(customer.willSaveTextDocument({ ...SAVE_SNAPSHOT, text: huge })).resolves.toEqual([]);
     });
 
-    it("документ ровно на лимите ещё открывается", async () => {
+    it("a document exactly at the limit still opens", async () => {
         const h = makeCustomer();
         h.customer.didOpenTextDocument(snap("x".repeat(LIMIT)));
         await flushMicrotasks();
@@ -213,7 +213,7 @@ describe("DocumentsCustomer — document sync зеркалом", () => {
 });
 
 describe("DocumentsCustomer — isSynced", () => {
-    it("открытие — синхронизирован; закрытие — нет; чужой uri — нет", () => {
+    it("open — synced; close — not; foreign uri — not", () => {
         const h = makeCustomer();
         expect(h.customer.isSynced("file:///a.ts")).toBe(false);
         h.customer.didOpenTextDocument(snap());
@@ -223,7 +223,7 @@ describe("DocumentsCustomer — isSynced", () => {
         expect(h.customer.isSynced("file:///a.ts")).toBe(false);
     });
 
-    it("без спавна не синхронизирован ничто; уход спавна забывает открытые", () => {
+    it("without a spawn nothing is synced; spawn exit forgets opened ones", () => {
         const detached = makeCustomer({ attached: false });
         detached.customer.didOpenTextDocument(snap());
         expect(detached.customer.isSynced("file:///a.ts")).toBe(false);
@@ -237,7 +237,7 @@ describe("DocumentsCustomer — isSynced", () => {
         expect(h.customer.isSynced("file:///a.ts")).toBe(false);
     });
 
-    it("сверх порога — не синхронизирован: ни на открытии, ни после flush; flush в порог — синхронизирован", () => {
+    it("over the threshold — not synced: neither on open nor after flush; flush within the threshold — synced", () => {
         const h = makeCustomer();
         h.customer.didOpenTextDocument(snap("x".repeat(LIMIT + 1)));
         expect(h.customer.isSynced("file:///a.ts")).toBe(false);
@@ -247,14 +247,14 @@ describe("DocumentsCustomer — isSynced", () => {
         expect(h.customer.isSynced("file:///a.ts")).toBe(false);
     });
 
-    it("семя handshake синхронизирует открытые документы", () => {
+    it("the handshake seed syncs opened documents", () => {
         const h = makeCustomer({ openDocuments: () => [snap("a"), { ...snap("b"), uri: "file:///b.ts" }] });
         h.customer.pushInitialState();
         expect(h.customer.isSynced("file:///a.ts")).toBe(true);
         expect(h.customer.isSynced("file:///b.ts")).toBe(true);
     });
 
-    it("семя соблюдает порог: документ сверх него не открывается, даже если открыт до спавна", async () => {
+    it("the seed respects the threshold: a document over it is not opened, even if opened before the spawn", async () => {
         const huge = { ...snap("x".repeat(LIMIT + 1)), uri: "file:///huge.ts" };
         const h = makeCustomer({ openDocuments: () => [snap("a"), huge] });
         h.customer.pushInitialState();
@@ -264,8 +264,8 @@ describe("DocumentsCustomer — isSynced", () => {
     });
 });
 
-describe("DocumentsCustomer — семя и сохранение", () => {
-    it("семя открытых документов уходит живому спавну и открывает их для правок", async () => {
+describe("DocumentsCustomer — seed and save", () => {
+    it("the seed of opened documents goes to a live spawn and opens them for edits", async () => {
         const docs = [snap("a"), { ...snap("b"), uri: "file:///b.ts" }];
         const h = makeCustomer({ openDocuments: () => docs });
         h.customer.pushInitialState();
@@ -285,7 +285,7 @@ describe("DocumentsCustomer — семя и сохранение", () => {
         expect(noProvider.received).toHaveLength(0);
     });
 
-    it("will-save: без спавна или подписки — пусто; с подпиской — запрос с полями снапшота без текста", async () => {
+    it("will-save: without a spawn or subscription — empty; with a subscription — a request with snapshot fields without text", async () => {
         const detached = makeCustomer({ attached: false });
         await expect(detached.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
 
@@ -317,7 +317,7 @@ describe("DocumentsCustomer — семя и сохранение", () => {
         ]);
     });
 
-    it("will-save: только синхронизированному документу — неоткрытый, сверх порога и закрытый без запроса", async () => {
+    it("will-save: only for a synced document — unopened, over-threshold and closed ones get no request", async () => {
         const h = makeCustomer();
         const uris: string[] = [];
         h.peer.handleRequest("workspace.willSaveTextDocument", (params) => {
@@ -340,7 +340,7 @@ describe("DocumentsCustomer — семя и сохранение", () => {
         expect(uris).toEqual(["file:///a.ts"]);
     });
 
-    it("did-save уходит только подписанному живому спавну", async () => {
+    it("did-save goes only to a subscribed live spawn", async () => {
         const meta = { uri: "file:///a.ts", languageId: "typescript" };
         const detached = makeCustomer({ attached: false });
         detached.customer.didSaveTextDocument(meta);

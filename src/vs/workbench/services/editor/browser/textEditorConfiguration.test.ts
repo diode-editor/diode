@@ -70,7 +70,7 @@ describe("TextEditorConfiguration", () => {
     }
 
     describe("applies configuration to new editors", () => {
-        it("секция языка документа бьёт плоское значение и переприменяется при смене языка", () => {
+        it("the document language section overrides the flat value and is reapplied on language change", () => {
             const ctrl = createEditorService({
                 configurationService: stubConfigurationService({
                     "editor.detectIndentation": false,
@@ -87,7 +87,7 @@ describe("TextEditorConfiguration", () => {
             expect(editor.viewState.insertSpaces).toBe(false);
         });
 
-        it("detached-панель (Output) настраивается при создании, как вкладка", () => {
+        it("a detached pane (Output) is configured on creation, like a tab", () => {
             const ctrl = createEditorService({
                 configurationService: stubConfigurationService({ "editor.wordWrap": "on" }),
             });
@@ -97,7 +97,7 @@ describe("TextEditorConfiguration", () => {
             expect(pane.viewState.wordWrap).toBe("on");
         });
 
-        it("безымянный буфер настраивается при создании, как вкладка файла", () => {
+        it("an untitled buffer is configured on creation, like a file tab", () => {
             const ctrl = createEditorService({
                 configurationService: stubConfigurationService({ "editor.wordWrap": "on" }),
             });
@@ -107,7 +107,7 @@ describe("TextEditorConfiguration", () => {
             expect(ctrl.getActiveEditor()!.viewState.wordWrap).toBe("on");
         });
 
-        it("безымянный буфер расширения настраивается, когда его показывают", async () => {
+        it("an extension's untitled buffer is configured when shown", async () => {
             const ctrl = createEditorService({
                 configurationService: stubConfigurationService({ "editor.wordWrap": "on" }),
             });
@@ -131,7 +131,7 @@ describe("TextEditorConfiguration", () => {
             expect(editor.viewState.insertSpaces).toBe(true);
         });
 
-        it("editor.occurrencesHighlight: off гасит подсветку вхождений, дефолт — включает", () => {
+        it("editor.occurrencesHighlight: off disables occurrence highlighting, the default enables it", () => {
             const spy = vi.spyOn(TextEditorPane.prototype, "setOccurrenceHighlightEnabled");
             try {
                 createEditorService({
@@ -171,7 +171,7 @@ describe("TextEditorConfiguration", () => {
             expect(viewState.wordWrapColumn).toBe(40);
         });
 
-        it("режим on применяется как есть (не через column-ветку)", () => {
+        it("mode on is applied as is (not via the column branch)", () => {
             const ctrl = createEditorService({
                 configurationService: stubConfigurationService({
                     "editor.wordWrap": "on",
@@ -181,7 +181,7 @@ describe("TextEditorConfiguration", () => {
             expect(ctrl.getActiveEditor()!.viewState.wordWrap).toBe("on");
         });
 
-        it("невалидное значение editor.wordWrap деградирует к off", () => {
+        it("an invalid editor.wordWrap value falls back to off", () => {
             const ctrl = createEditorService({
                 configurationService: stubConfigurationService({
                     "editor.wordWrap": "sideways",
@@ -196,7 +196,7 @@ describe("TextEditorConfiguration", () => {
     });
 
     describe("toggleWordWrap (Alt+Z)", () => {
-        it("переключает off ↔ on поверх дефолтного конфига у всех открытых редакторов", () => {
+        it("toggles off ↔ on over the default config in all open editors", () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.ts", "a"));
             ctrl.openFile(writeFile("b.ts", "b"));
@@ -212,7 +212,7 @@ describe("TextEditorConfiguration", () => {
             expect(second.viewState.wordWrap).toBe("off");
         });
 
-        it("повторное включение возвращает КОНФИГУРНЫЙ режим, а не plain on", () => {
+        it("re-enabling restores the CONFIGURED mode, not plain on", () => {
             const ctrl = createEditorService({
                 configurationService: stubConfigurationService({
                     "editor.wordWrap": "wordWrapColumn",
@@ -231,7 +231,7 @@ describe("TextEditorConfiguration", () => {
             expect(viewState.wordWrapColumn).toBe(60);
         });
 
-        it("override переживает применение конфига к новому редактору", () => {
+        it("the override survives applying config to a new editor", () => {
             const ctrl = createEditorService();
             ctrl.openFile(writeFile("a.ts", "a"));
             ctrl.editorConfiguration.toggleWordWrap();
@@ -300,7 +300,7 @@ describe("TextEditorConfiguration", () => {
 
     // Registry defaults layer, as in production: its absence in stubs hid a bug — `get("editor.tabSize")`
     // returned 4 on a file with any indentation, and `setIndentOptions` suppressed detection.
-    describe("indentation: конфиг с defaults-слоем реестра", () => {
+    describe("indentation: config with the registry defaults layer", () => {
         const TWO_SPACE_FILE = "function foo() {\n  const x = 1;\n}\n";
 
         async function productionConfig(settings: string) {
@@ -322,7 +322,7 @@ describe("TextEditorConfiguration", () => {
             };
         }
 
-        it("определяет отступ по файлу, а не по дефолту editor.tabSize", async () => {
+        it("detects indentation from the file, not the editor.tabSize default", async () => {
             const { cfg, dispose } = await productionConfig("{}");
             const ctrl = createEditorService({ configurationService: cfg });
 
@@ -335,7 +335,7 @@ describe("TextEditorConfiguration", () => {
             dispose();
         });
 
-        it("видит табы, хотя дефолт editor.insertSpaces — true", async () => {
+        it("detects tabs even though the editor.insertSpaces default is true", async () => {
             const { cfg, dispose } = await productionConfig("{}");
             const ctrl = createEditorService({ configurationService: cfg });
 
@@ -347,7 +347,7 @@ describe("TextEditorConfiguration", () => {
             dispose();
         });
 
-        it("editor.detectIndentation: false возвращает власть настройкам", async () => {
+        it("editor.detectIndentation: false hands control back to the settings", async () => {
             const { cfg, dispose } = await productionConfig(
                 `{ "editor.detectIndentation": false, "editor.tabSize": 8 }`,
             );

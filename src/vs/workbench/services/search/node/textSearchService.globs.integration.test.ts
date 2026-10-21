@@ -49,7 +49,7 @@ interface ISearchSpec {
 
 // A root with a space and `+`, like a `users+name+TICKET` worktree: the `/x` anchor
 // is relative to the search root, and special characters in its path must not interfere.
-describe("TextSearchService: какие файлы находит поиск (настоящий rg, корень `diode glob+root`)", () => {
+describe("TextSearchService: which files the search finds (real rg, root `diode glob+root`)", () => {
     let ws: ITempWorkspace;
     let service: TextSearchService;
 
@@ -86,19 +86,22 @@ describe("TextSearchService: какие файлы находит поиск (н
         return files.sort();
     }
 
-    it("без шаблонов — все файлы, включая скрытые; `.gitignore` уважается", async () => {
+    it("without patterns: all files, including hidden ones; `.gitignore` is respected", async () => {
         expect(await found({})).toEqual(VISIBLE);
     });
 
-    it("`search.useIgnoreFiles: false` — находит и `.gitignore`-нутое", async () => {
+    it("`search.useIgnoreFiles: false` also finds what `.gitignore` ignores", async () => {
         expect(await found({ useIgnoreFiles: { local: false, parent: false, global: false } })).toEqual(FILES);
     });
 
-    it.skipIf(process.platform === "win32")("в симлинк на каталог не заходит (как `bazel-*` в монорепе)", async () => {
-        expect((await found({})).filter((f) => f.startsWith("linked/"))).toEqual([]);
-    });
+    it.skipIf(process.platform === "win32")(
+        "does not descend into a symlink to a directory (like `bazel-*` in a monorepo)",
+        async () => {
+            expect((await found({})).filter((f) => f.startsWith("linked/"))).toEqual([]);
+        },
+    );
 
-    describe("шаблоны настроек — от корня", () => {
+    describe("settings patterns: from the root", () => {
         it.each<[string[], string[]]>([
             // Regression: a monorepo hides the root `/common`, and `nci/common/**` vanished with it.
             [["common"], without("common/a.txt")],
@@ -115,7 +118,7 @@ describe("TextSearchService: какие файлы находит поиск (н
         });
     });
 
-    describe("поле «files to exclude» — на любой глубине", () => {
+    describe("the `files to exclude` field: at any depth", () => {
         it.each<[string, string[]]>([
             ["common", without("common/a.txt", "nci/common/ydb/T.java", "src/common/x.ts")],
             ["common/", without("common/a.txt", "nci/common/ydb/T.java", "src/common/x.ts")],
@@ -132,7 +135,7 @@ describe("TextSearchService: какие файлы находит поиск (н
         });
     });
 
-    describe("поле «files to include» — на любой глубине", () => {
+    describe("the `files to include` field: at any depth", () => {
         it.each<[string, string[]]>([
             ["common", ["common/a.txt", "nci/common/ydb/T.java", "src/common/x.ts"]],
             ["nci/common", ["nci/common/ydb/T.java"]],
@@ -151,8 +154,8 @@ describe("TextSearchService: какие файлы находит поиск (н
         });
     });
 
-    describe("наборы вместе", () => {
-        it("include и exclude из полей: `./src` без `common`", async () => {
+    describe("sets combined", () => {
+        it("include and exclude from the fields: `./src` without `common`", async () => {
             expect(await found({ include: "./src", exclude: "common" })).toEqual([
                 "src/app.css",
                 "src/app.js",
@@ -160,11 +163,11 @@ describe("TextSearchService: какие файлы находит поиск (н
             ]);
         });
 
-        it("настройка режет и то, что подходит под include", async () => {
+        it("a setting also cuts what matches include", async () => {
             expect(await found({ settings: ["src/common"], include: "*.ts" })).toEqual(["src/app.ts"]);
         });
 
-        it("настройка от корня + поле на любой глубине", async () => {
+        it("a setting from the root + a field at any depth", async () => {
             expect(await found({ settings: ["common"], exclude: ".log" })).toEqual(
                 without("build.log", "common/a.txt", "nci/build.log"),
             );

@@ -28,7 +28,7 @@ function requestFor(uri: string, line: number, versionId: number, includeDeclara
 }
 
 describe("ExtensionHost — reference providers (subprocess)", () => {
-    it("два настоящих провайдера: ссылки доезжают конкатенацией, при равном score — новый первым", async () => {
+    it("two real providers: references arrive concatenated, on equal score the newer comes first", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: TEXT },
             extensions: [extensionFixture("test.providesReferences", "providesReferences.cjs")],
@@ -64,7 +64,7 @@ describe("ExtensionHost — reference providers (subprocess)", () => {
         }
     });
 
-    it("без subprocess'а и без провайдеров реестр references пуст", async () => {
+    it("without a subprocess and without providers the references registry is empty", async () => {
         // The extension is registered but not activated, so the subprocess is not started.
         const lazy = await createExtensionTestHarness({
             extensions: [extensionFixture("test.providesReferences", "providesReferences.cjs")],

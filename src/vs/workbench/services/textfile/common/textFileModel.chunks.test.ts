@@ -39,7 +39,7 @@ function openPaths(): string[] {
  */
 const CHUNK = READ_CHUNK_SIZE;
 
-describe("TextFileModel — чтение кусками и запись снимком", () => {
+describe("TextFileModel — chunked read and snapshot write", () => {
     let ws: ITempWorkspace;
 
     beforeEach(() => {
@@ -67,17 +67,17 @@ describe("TextFileModel — чтение кусками и запись сним
 
     const CASES: { name: string; encoding: string; tail: string; before: number }[] = [
         { name: "\\r | \\n", encoding: "utf8", tail: "\r\n", before: 1 },
-        { name: "кириллица посреди", encoding: "utf8", tail: "ж", before: 1 },
-        { name: "эмодзи, 1 из 4 байт", encoding: "utf8", tail: "😀", before: 1 },
-        { name: "эмодзи, 3 из 4 байт", encoding: "utf8", tail: "😀", before: 3 },
-        { name: "utf8bom: эмодзи, 2 из 4 байт", encoding: "utf8bom", tail: "😀", before: 2 },
-        { name: "UTF-16 LE: суррогатная пара", encoding: "utf16le", tail: "😀", before: 2 },
+        { name: "Cyrillic in the middle", encoding: "utf8", tail: "\u0436", before: 1 }, // "zh"
+        { name: "emoji, 1 of 4 bytes", encoding: "utf8", tail: "😀", before: 1 },
+        { name: "emoji, 3 of 4 bytes", encoding: "utf8", tail: "😀", before: 3 },
+        { name: "utf8bom: emoji, 2 of 4 bytes", encoding: "utf8bom", tail: "😀", before: 2 },
+        { name: "UTF-16 LE: surrogate pair", encoding: "utf16le", tail: "😀", before: 2 },
         { name: "UTF-16 LE: \\r | \\n", encoding: "utf16le", tail: "\r\n", before: 2 },
-        { name: "UTF-16 BE: суррогатная пара", encoding: "utf16be", tail: "𝄞", before: 2 },
+        { name: "UTF-16 BE: surrogate pair", encoding: "utf16be", tail: "𝄞", before: 2 },
     ];
 
     for (const { name, encoding, tail, before } of CASES) {
-        it(`${name}: открытие == тексту файла, сохранение — байт в байт`, async () => {
+        it(`${name}: open equals the file text, save is byte for byte`, async () => {
             const text = await straddling(encoding, tail, before);
             const bytes = await encodeText(text, encoding);
             expect(bytes.length).toBeGreaterThan(CHUNK);
@@ -98,9 +98,9 @@ describe("TextFileModel — чтение кусками и запись сним
         });
     }
 
-    it("файл закрывается: и после открытия, и после устаревшего reopen", async () => {
+    it("the file is closed both after open and after a stale reopen", async () => {
         const filePath = ws.path("fd.txt");
-        fs.writeFileSync(filePath, iconv.encode("текст\n", "windows1251"));
+        fs.writeFileSync(filePath, iconv.encode("text\n", "windows1251"));
         const pane = createEditorPane();
         pane.openFile(Uri.file(filePath));
         expect(openPaths()).not.toContain(filePath);
@@ -113,7 +113,7 @@ describe("TextFileModel — чтение кусками и запись сним
         pane.dispose();
     });
 
-    it("пустой и отсутствующий файл — пустой документ", () => {
+    it("an empty or missing file gives an empty document", () => {
         const empty = ws.path("empty.txt");
         fs.writeFileSync(empty, "");
         for (const filePath of [empty, ws.path("missing.txt")]) {

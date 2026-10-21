@@ -12,7 +12,7 @@ function message(patch: Partial<INotificationMessage> = {}): INotificationMessag
     return { severity: "info", message: "hello", modal: false, items: [], ...patch };
 }
 
-describe("NotificationService — сообщения без кнопок", () => {
+describe("NotificationService: messages without buttons", () => {
     beforeEach(() => {
         vi.useFakeTimers();
     });
@@ -20,7 +20,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         vi.useRealTimers();
     });
 
-    it("резолвится СРАЗУ и остаётся видимым: ожидание закрытия подвесило бы расширение", async () => {
+    it("resolves IMMEDIATELY and stays visible: waiting for close would hang the extension", async () => {
         const service = new NotificationService();
         const handle = service.show(message({ severity: "error", message: "boom" }));
 
@@ -29,7 +29,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(service.current()).toBeNull();
     });
 
-    it("время жизни зависит от строгости — значения эталона", () => {
+    it("lifetime depends on severity, upstream values", () => {
         const service = new NotificationService();
         service.show(message({ severity: "info", message: "i" }));
         service.show(message({ severity: "warn", message: "w" }));
@@ -45,7 +45,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(service.passive()).toEqual([]);
     });
 
-    it("тост не уезжает раньше своего срока", () => {
+    it("a toast does not leave before its time", () => {
         const service = new NotificationService();
         service.show(message({ severity: "info" }));
 
@@ -56,7 +56,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(service.passive()).toEqual([]);
     });
 
-    it("порядок — от старого к новому (стек рисуется сверху вниз)", () => {
+    it("order is oldest to newest (the stack is drawn top to bottom)", () => {
         const service = new NotificationService();
         service.show(message({ message: "one" }));
         service.show(message({ message: "two" }));
@@ -64,7 +64,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(service.passive().map((n) => n.message)).toEqual(["one", "two"]);
     });
 
-    it("сверх лимита тосты ЖДУТ МЕСТА, а не теряются", () => {
+    it("toasts over the limit WAIT FOR A SLOT instead of getting lost", () => {
         const service = new NotificationService();
         const many = ["one", "two", "three", "four", "five"];
         for (const text of many) service.show(message({ severity: "error", message: text }));
@@ -74,7 +74,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(service.queuedPassiveCount()).toBe(many.length - MAX_VISIBLE_NOTIFICATIONS);
     });
 
-    it("время жизни ждущего тоста начинается с ПОКАЗА, а не с постановки в очередь", () => {
+    it("a waiting toast's lifetime starts at SHOW, not at enqueue", () => {
         const service = new NotificationService();
         for (const text of ["one", "two", "three", "four"]) {
             service.show(message({ severity: "info", message: text }));
@@ -91,7 +91,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(service.passive()).toEqual([]);
     });
 
-    it("закрытие видимого тоста пускает на его место ждущего", () => {
+    it("closing a visible toast lets a waiting one take its place", () => {
         const service = new NotificationService();
         const first = service.show(message({ severity: "error", message: "one" }));
         for (const text of ["two", "three", "four"]) {
@@ -105,7 +105,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(service.queuedPassiveCount()).toBe(0);
     });
 
-    it("dismiss снимает тост и ГАСИТ его таймер", () => {
+    it("dismiss removes the toast and CLEARS its timer", () => {
         const service = new NotificationService();
         const handle = service.show(message());
         expect(vi.getTimerCount()).toBe(1);
@@ -118,7 +118,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(service.passive()).toEqual([]);
     });
 
-    it("dismiss снимает ИМЕННО адресованный тост, а не первый в стеке", () => {
+    it("dismiss removes EXACTLY the addressed toast, not the first in the stack", () => {
         const service = new NotificationService();
         service.show(message({ severity: "error", message: "one" }));
         const second = service.show(message({ severity: "error", message: "two" }));
@@ -128,7 +128,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(service.passive().map((n) => n.message)).toEqual(["one"]);
     });
 
-    it("dismiss по незнакомому id ничего не снимает", () => {
+    it("dismiss by an unknown id removes nothing", () => {
         const service = new NotificationService();
         const handle = service.show(message({ severity: "error" }));
 
@@ -137,7 +137,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(service.passive()).toHaveLength(1);
     });
 
-    it("clearAll гасит таймеры всех тостов, включая ждущих места", () => {
+    it("clearAll clears the timers of all toasts, including those waiting for a slot", () => {
         const service = new NotificationService();
         for (const text of ["one", "two", "three", "four"]) service.show(message({ message: text }));
         expect(vi.getTimerCount()).toBe(MAX_VISIBLE_NOTIFICATIONS);
@@ -148,7 +148,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(service.isEmpty()).toBe(true);
     });
 
-    it("dispose убирает всё и не оставляет таймеров", () => {
+    it("dispose removes everything and leaves no timers", () => {
         const service = new NotificationService();
         service.show(message());
         expect(vi.getTimerCount()).toBe(1);
@@ -159,7 +159,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(vi.getTimerCount()).toBe(0);
     });
 
-    it("dispose доводит живой вопрос до «закрыто без выбора» — иначе спросивший ждал бы вечно", async () => {
+    it("dispose settles a live question as `closed without a choice`, otherwise the asker would wait forever", async () => {
         const service = new NotificationService();
         const handle = service.show(message({ items: ["One"] }));
 
@@ -168,7 +168,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         await expect(handle.answered).resolves.toBeUndefined();
     });
 
-    it("isEmpty различает пустоту, живой тост и живой вопрос", () => {
+    it("isEmpty tells apart empty, a live toast and a live question", () => {
         const passiveOnly = new NotificationService();
         expect(passiveOnly.isEmpty()).toBe(true);
         passiveOnly.show(message({ severity: "error" }));
@@ -180,7 +180,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(askOnly.passive()).toEqual([]);
     });
 
-    it("подписчик получает событие на показ и на гашение", () => {
+    it("a subscriber gets an event on show and on clear", () => {
         const service = new NotificationService();
         const seen = vi.fn();
         service.onDidChange(seen);
@@ -192,7 +192,7 @@ describe("NotificationService — сообщения без кнопок", () =>
         expect(seen).toHaveBeenCalledTimes(2);
     });
 
-    it("отписка перестаёт получать события", () => {
+    it("after unsubscribing no events arrive", () => {
         const service = new NotificationService();
         const seen = vi.fn();
         const subscription = service.onDidChange(seen);
@@ -203,8 +203,8 @@ describe("NotificationService — сообщения без кнопок", () =>
     });
 });
 
-describe("NotificationService — вопросы", () => {
-    it("вопрос закрывается сам, если никто не ответил: расширение не стоит вечно", async () => {
+describe("NotificationService: questions", () => {
+    it("a question closes by itself if nobody answers: the extension does not wait forever", async () => {
         vi.useFakeTimers();
         try {
             const service = new NotificationService();
@@ -222,7 +222,7 @@ describe("NotificationService — вопросы", () => {
         }
     });
 
-    it("время вопроса из очереди начинается с ПОКАЗА", async () => {
+    it("a queued question's time starts at SHOW", async () => {
         vi.useFakeTimers();
         try {
             const service = new NotificationService();
@@ -243,7 +243,7 @@ describe("NotificationService — вопросы", () => {
         }
     });
 
-    it("МОДАЛЬНОЕ сообщение таймера не имеет — окно не закрывается из-под рук", () => {
+    it("a MODAL message has no timer: the window does not close out from under the user", () => {
         vi.useFakeTimers();
         try {
             const service = new NotificationService();
@@ -257,7 +257,7 @@ describe("NotificationService — вопросы", () => {
         }
     });
 
-    it("ответ снимает таймер вопроса", () => {
+    it("an answer clears the question's timer", () => {
         vi.useFakeTimers();
         try {
             const service = new NotificationService();
@@ -272,7 +272,7 @@ describe("NotificationService — вопросы", () => {
         }
     });
 
-    it("сообщение с кнопками ждёт ответа и отдаёт индекс нажатой", async () => {
+    it("a message with buttons waits for an answer and returns the pressed index", async () => {
         const service = new NotificationService();
         const handle = service.show(message({ items: ["Activate", "Free"] }));
 
@@ -284,7 +284,7 @@ describe("NotificationService — вопросы", () => {
         expect(service.current()).toBeNull();
     });
 
-    it("закрытие без выбора отдаёт undefined", async () => {
+    it("closing without a choice returns undefined", async () => {
         const service = new NotificationService();
         const handle = service.show(message({ items: ["One"] }));
 
@@ -292,7 +292,7 @@ describe("NotificationService — вопросы", () => {
         await expect(handle.answered).resolves.toBeUndefined();
     });
 
-    it("индекс вне набора кнопок — это не ответ, а закрытие", async () => {
+    it("an index outside the button set is not an answer but a close", async () => {
         const service = new NotificationService();
         const handle = service.show(message({ items: ["One"] }));
 
@@ -300,7 +300,7 @@ describe("NotificationService — вопросы", () => {
         await expect(handle.answered).resolves.toBeUndefined();
     });
 
-    it("индекс РОВНО по размеру набора — уже за его пределами", async () => {
+    it("an index EQUAL to the set size is already out of range", async () => {
         const service = new NotificationService();
         const handle = service.show(message({ items: ["One", "Two"] }));
 
@@ -308,7 +308,7 @@ describe("NotificationService — вопросы", () => {
         await expect(handle.answered).resolves.toBeUndefined();
     });
 
-    it("отрицательный индекс — тоже закрытие", async () => {
+    it("a negative index is a close too", async () => {
         const service = new NotificationService();
         const handle = service.show(message({ items: ["One"] }));
 
@@ -316,7 +316,7 @@ describe("NotificationService — вопросы", () => {
         await expect(handle.answered).resolves.toBeUndefined();
     });
 
-    it("вопросы показываются по одному: второй ждёт ответа на первый", async () => {
+    it("questions are shown one at a time: the second waits for the first to be answered", async () => {
         const service = new NotificationService();
         const first = service.show(message({ message: "first", items: ["One"] }));
         const second = service.show(message({ message: "second", items: ["Two"] }));
@@ -333,7 +333,7 @@ describe("NotificationService — вопросы", () => {
         await expect(second.answered).resolves.toBe(0);
     });
 
-    it("ответ на вопрос из очереди доходит, не дожидаясь своего показа", async () => {
+    it("an answer to a queued question arrives without waiting for it to be shown", async () => {
         const service = new NotificationService();
         service.show(message({ message: "first", items: ["One"] }));
         const queued = service.show(message({ message: "second", items: ["Two"] }));
@@ -343,7 +343,7 @@ describe("NotificationService — вопросы", () => {
         expect(service.current()?.message).toBe("first");
     });
 
-    it("закрытие адресуется ИМЕННО своему вопросу, а не показанному", async () => {
+    it("a close is addressed to EXACTLY its own question, not the shown one", async () => {
         const service = new NotificationService();
         const showing = service.show(message({ message: "first", items: ["One"] }));
         const queued = service.show(message({ message: "second", items: ["Two"] }));
@@ -357,7 +357,7 @@ describe("NotificationService — вопросы", () => {
         await expect(showing.answered).resolves.toBe(0);
     });
 
-    it("ответ на незнакомый id — no-op", async () => {
+    it("an answer to an unknown id is a no-op", async () => {
         const service = new NotificationService();
         const handle = service.show(message({ items: ["One"] }));
 
@@ -365,7 +365,7 @@ describe("NotificationService — вопросы", () => {
         expect(service.current()?.id).toBe(handle.id);
     });
 
-    it("модальное сообщение идёт без очереди — иначе его могли бы не заметить", () => {
+    it("a modal message skips the queue, otherwise it could go unnoticed", () => {
         const service = new NotificationService();
         service.show(message({ message: "toast question", items: ["One"] }));
         service.show(message({ message: "modal", modal: true, items: ["Delete"] }));
@@ -373,7 +373,7 @@ describe("NotificationService — вопросы", () => {
         expect(service.current()?.message).toBe("modal");
     });
 
-    it("модальное без кнопок — всё равно вопрос: закрыть его человек обязан сам", async () => {
+    it("a modal without buttons is still a question: the user must close it themselves", async () => {
         const service = new NotificationService();
         const handle = service.show(message({ modal: true }));
 
@@ -391,7 +391,7 @@ describe("NotificationService — вопросы", () => {
         await expect(handle.answered).resolves.toBeUndefined();
     });
 
-    it("между модальными порядок обычный, FIFO", () => {
+    it("among modals the order is the usual FIFO", () => {
         const service = new NotificationService();
         service.show(message({ message: "modal one", modal: true }));
         service.show(message({ message: "modal two", modal: true }));
@@ -402,7 +402,7 @@ describe("NotificationService — вопросы", () => {
 });
 
 describe("NotificationService — clearAll", () => {
-    it("убирает всё и доводит живые вопросы до «закрыто без выбора»", async () => {
+    it("removes everything and settles live questions as `closed without a choice`", async () => {
         const service = new NotificationService();
         const passive = service.show(message({ severity: "error", message: "boom" }));
         const ask = service.show(message({ items: ["One"] }));
@@ -416,7 +416,7 @@ describe("NotificationService — clearAll", () => {
         await expect(queued.answered).resolves.toBeUndefined();
     });
 
-    it("работает и когда живых тостов нет, а вопрос есть", async () => {
+    it("works when there are no live toasts but a question is present", async () => {
         const service = new NotificationService();
         const ask = service.show(message({ items: ["One"] }));
 
@@ -426,7 +426,7 @@ describe("NotificationService — clearAll", () => {
         expect(service.current()).toBeNull();
     });
 
-    it("работает и когда есть тост, а вопросов нет", () => {
+    it("works when there is a toast but no questions", () => {
         const service = new NotificationService();
         service.show(message({ severity: "error" }));
 
@@ -435,7 +435,7 @@ describe("NotificationService — clearAll", () => {
         expect(service.passive()).toEqual([]);
     });
 
-    it("гасит таймер живого вопроса, а не только тостов", () => {
+    it("clears the timer of a live question, not only of toasts", () => {
         vi.useFakeTimers();
         try {
             const service = new NotificationService();
@@ -450,7 +450,7 @@ describe("NotificationService — clearAll", () => {
         }
     });
 
-    it("на пустом сервисе событие не файрит (нечего перерисовывать)", () => {
+    it("does not fire the event on an empty service (nothing to redraw)", () => {
         const service = new NotificationService();
         const seen = vi.fn();
         service.onDidChange(seen);
@@ -459,7 +459,7 @@ describe("NotificationService — clearAll", () => {
         expect(seen).not.toHaveBeenCalled();
     });
 
-    it("файрит событие, когда что-то действительно сняли", () => {
+    it("fires the event when something was actually removed", () => {
         const service = new NotificationService();
         service.show(message());
         const seen = vi.fn();

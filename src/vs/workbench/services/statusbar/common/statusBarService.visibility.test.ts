@@ -24,8 +24,8 @@ function ids(entries: readonly { id: string }[]): string[] {
     return entries.map((entry) => entry.id);
 }
 
-describe("StatusBarService — видимость записей", () => {
-    it("скрытая запись уходит из entries, но остаётся в allEntries", () => {
+describe("StatusBarService: entry visibility", () => {
+    it("a hidden entry leaves entries but stays in allEntries", () => {
         const service = new StatusBarService(memoryState());
         service.addEntry({ id: "a", name: "A", text: "A", alignment: "left", priority: 10 });
         service.addEntry({ id: "b", name: "B", text: "B", alignment: "left", priority: 5 });
@@ -37,7 +37,7 @@ describe("StatusBarService — видимость записей", () => {
         expect(service.isHidden("a")).toBe(true);
     });
 
-    it("скрытие и возврат уведомляют подписчиков", () => {
+    it("hiding and showing again notify subscribers", () => {
         const service = new StatusBarService(memoryState());
         service.addEntry({ id: "a", name: "A", text: "A", alignment: "left", priority: 10 });
         let fired = 0;
@@ -50,7 +50,7 @@ describe("StatusBarService — видимость записей", () => {
         expect(ids(service.entries())).toEqual(["a"]);
     });
 
-    it("повторное скрытие уже скрытой записи — no-op", () => {
+    it("hiding an already hidden entry is a no-op", () => {
         const service = new StatusBarService(memoryState());
         service.addEntry({ id: "a", name: "A", text: "A", alignment: "left", priority: 10 });
         service.setHidden("a", true);
@@ -62,7 +62,7 @@ describe("StatusBarService — видимость записей", () => {
         expect(fired).toBe(0);
     });
 
-    it("запись без name скрыть нельзя — её нечем вернуть из меню", () => {
+    it("an entry without name cannot be hidden: there is nothing to bring it back from the menu", () => {
         const service = new StatusBarService(memoryState());
         service.addEntry({ id: "hint", text: "hint", alignment: "left", priority: 10 });
 
@@ -72,7 +72,7 @@ describe("StatusBarService — видимость записей", () => {
         expect(ids(service.entries())).toEqual(["hint"]);
     });
 
-    it("скрытие переживает пересоздание сервиса, запись добавляется уже скрытой", () => {
+    it("hiding survives a service re-creation, the entry is added already hidden", () => {
         const state = memoryState();
         const first = new StatusBarService(state);
         first.addEntry({ id: "a", name: "A", text: "A", alignment: "left", priority: 10 });
@@ -86,7 +86,7 @@ describe("StatusBarService — видимость записей", () => {
         expect(ids(second.allEntries())).toEqual(["a"]);
     });
 
-    it("возврат записи чистит стор", () => {
+    it("showing an entry again clears the store", () => {
         const state = memoryState();
         const service = new StatusBarService(state);
         service.addEntry({ id: "a", name: "A", text: "A", alignment: "left", priority: 10 });

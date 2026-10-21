@@ -47,7 +47,7 @@ class FakeFileWatcher implements IFileWatcher {
     }
 }
 
-describe("EditorService — вкладки удалённого файла", () => {
+describe("EditorService — tabs of a deleted file", () => {
     let ws: ITempWorkspace;
     let files: FileService;
     let watcher: FakeFileWatcher;
@@ -103,8 +103,8 @@ describe("EditorService — вкладки удалённого файла", () 
         pane.applyExternalEdits([createTextEdit(createRange(0, 0, 0, 0), "!")], "type");
     };
 
-    describe("удаление изнутри редактора", () => {
-        it("через файловый сервис: чистая вкладка закрывается, грязная и чужая остаются", async () => {
+    describe("deletion from inside the editor", () => {
+        it("via the file service: a clean tab closes, dirty and unrelated ones stay", async () => {
             service.openFile(ws.path("a.txt"));
             service.openFile(ws.path("b.txt"));
             type(textPane(0, 1));
@@ -116,7 +116,7 @@ describe("EditorService — вкладки удалённого файла", () 
             expect(textPane(0, 0).isModified).toBe(true);
         });
 
-        it("каталог: закрываются вложенные вкладки, соседний каталог с общим префиксом — нет", async () => {
+        it("directory: nested tabs close, a sibling directory with a shared prefix does not", async () => {
             service.openFile(ws.path("src/c.txt"));
             service.openFile(ws.path("src2/d.txt"));
             service.openFile(ws.path("a.txt"));
@@ -126,7 +126,7 @@ describe("EditorService — вкладки удалённого файла", () 
             expect(tabs()).toEqual([ws.path("src2/d.txt"), ws.path("a.txt")]);
         });
 
-        it("мимо сервиса (корзина) — handleDeletedFile закрывает так же", () => {
+        it("bypassing the service (trash): handleDeletedFile closes the same way", () => {
             service.openFile(ws.path("src/c.txt"));
             service.openFile(ws.path("a.txt"));
 
@@ -135,7 +135,7 @@ describe("EditorService — вкладки удалённого файла", () 
             expect(tabs()).toEqual([ws.path("a.txt")]);
         });
 
-        it("файл в двух группах — чистые вкладки закрываются в обеих", async () => {
+        it("a file in two groups: clean tabs close in both", async () => {
             service.openFile(ws.path("a.txt"));
             service.splitActiveGroup();
             await Promise.resolve();
@@ -146,7 +146,7 @@ describe("EditorService — вкладки удалённого файла", () 
             expect(service.editorGroups.groups.flatMap((group) => group.getPanes())).toEqual([]);
         });
 
-        it("панель другого вида под удалённым каталогом остаётся", () => {
+        it("a pane of another kind under the deleted directory stays", () => {
             const other: IEditorPane = {
                 uri: Uri.file(ws.path("src/c.txt")),
                 label: "c.txt (preview)",
@@ -165,7 +165,7 @@ describe("EditorService — вкладки удалённого файла", () 
             expect(service.editorGroups.groups[0].getPanes()).toEqual([other]);
         });
 
-        it("вкладки без файловой модели по тому же пути (снимок) остаются", () => {
+        it("tabs without a file model at the same path (snapshot) stay", () => {
             const snapshot = service.openTextSnapshot(Uri.file(ws.path("a.txt")), {
                 text: "snapshot\n",
                 languageId: "plaintext",
@@ -177,7 +177,7 @@ describe("EditorService — вкладки удалённого файла", () 
             expect(service.editorGroups.groups[0].getPanes()).toEqual([snapshot]);
         });
 
-        it("другие операции сервиса (создание, запись) вкладок не закрывают", async () => {
+        it("other service operations (create, write) do not close tabs", async () => {
             service.openFile(ws.path("a.txt"));
 
             await files.writeFile(Uri.file(ws.path("a.txt")), new TextEncoder().encode("alpha\n"));
@@ -187,14 +187,14 @@ describe("EditorService — вкладки удалённого файла", () 
         });
     });
 
-    describe("внешнее удаление", () => {
+    describe("external deletion", () => {
         function deleteExternally(rel: string): void {
             fs.rmSync(ws.path(rel));
             watcher.fire(ws.path(rel));
             vi.advanceTimersByTime(ORPHAN_CHECK_DELAY_MS);
         }
 
-        it("по умолчанию вкладка остаётся и зачёркивается (orphaned)", () => {
+        it("by default the tab stays and is struck through (orphaned)", () => {
             vi.useFakeTimers();
             service.openFile(ws.path("a.txt"));
 
@@ -204,7 +204,7 @@ describe("EditorService — вкладки удалённого файла", () 
             expect(textPane(0, 0).isOrphaned).toBe(true);
         });
 
-        it("closeOnFileDelete: чистая вкладка закрывается, грязная остаётся зачёркнутой", () => {
+        it("closeOnFileDelete: a clean tab closes, a dirty one stays struck through", () => {
             vi.useFakeTimers();
             service.dispose();
             service = createService(true);
@@ -221,7 +221,7 @@ describe("EditorService — вкладки удалённого файла", () 
             expect(textPane(0, 0).isOrphaned).toBe(true);
         });
 
-        it("closeOnFileDelete включили, пока вкладка была зачёркнута: вернувшийся файл её не закрывает", async () => {
+        it("closeOnFileDelete enabled while the tab was struck through: the returning file does not close it", async () => {
             vi.useFakeTimers();
             service.openFile(ws.path("a.txt"));
             deleteExternally("a.txt");
@@ -234,7 +234,7 @@ describe("EditorService — вкладки удалённого файла", () 
             expect(textPane(0, 0).isOrphaned).toBe(false);
         });
 
-        it("closeOnFileDelete: вернувшийся файл вкладку не закрывает", () => {
+        it("closeOnFileDelete: a returning file does not close the tab", () => {
             vi.useFakeTimers();
             service.dispose();
             service = createService(true);

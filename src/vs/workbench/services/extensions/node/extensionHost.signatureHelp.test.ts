@@ -44,7 +44,7 @@ function requestFor(
 }
 
 describe("ExtensionHost — signature help providers (subprocess)", () => {
-    it("два настоящих провайдера: выигрывает первый непустой по реестру, контекст доезжает", async () => {
+    it("two real providers: the first non-empty one in the registry wins, the context arrives", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: TEXT },
             extensions: [extensionFixture("test.providesSignatureHelp", "providesSignatureHelp.cjs")],
@@ -84,10 +84,7 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
                         label: "greet(name: string, age: number): void",
                         // Context echo: the provider received a real SignatureHelpContext.
                         documentation: "kind=2 char=, retrigger=true active=0",
-                        parameters: [
-                            { label: "name: string", documentation: "кого приветствуем" },
-                            { label: [20, 31] },
-                        ],
+                        parameters: [{ label: "name: string", documentation: "who to greet" }, { label: [20, 31] }],
                     },
                 ],
                 activeSignature: 0,
@@ -110,7 +107,7 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
         }
     });
 
-    it("без subprocess'а и без провайдеров подсказки и триггеров нет", async () => {
+    it("without a subprocess and providers there is no help and no triggers", async () => {
         // The extension is registered but not activated, so the subprocess is not started.
         const lazy = await createExtensionTestHarness({
             extensions: [extensionFixture("test.providesSignatureHelp", "providesSignatureHelp.cjs")],

@@ -262,7 +262,7 @@ describe("TextFileModel — external change detection", () => {
             controller.dispose();
         });
 
-        it("меняет текст в том же документе: версия растёт, история отмены забыта", () => {
+        it("changes the text in the same document: the version grows, the undo history is dropped", () => {
             const undoRedo = new UndoRedoService();
             const controller = createEditorPane({ undoRedoService: undoRedo });
             const fp = writeFile("same.txt", "disk\n");
@@ -283,7 +283,7 @@ describe("TextFileModel — external change detection", () => {
             controller.dispose();
         });
 
-        it("подписчики контента и EOL видят перечитку уже чистым буфером", () => {
+        it("content and EOL subscribers see the reread as an already clean buffer", () => {
             const controller = createEditorPane();
             const fp = writeFile("eol.txt", "a\nb\n");
             controller.openFile(Uri.file(fp));
@@ -299,7 +299,7 @@ describe("TextFileModel — external change detection", () => {
             controller.dispose();
         });
 
-        it("правки безымянного буфера (без единой перечитки) доходят до подписчиков", () => {
+        it("edits of an untitled buffer (without a single reread) reach subscribers", () => {
             const controller = createEditorPane();
             let events = 0;
             controller.model.onDidChangeContent(() => events++);
@@ -310,7 +310,7 @@ describe("TextFileModel — external change detection", () => {
             controller.dispose();
         });
 
-        it("тот же EOL — события EOL нет", () => {
+        it("the same EOL fires no EOL event", () => {
             const controller = createEditorPane();
             const fp = writeFile("eol2.txt", "a\nb\n");
             controller.openFile(Uri.file(fp));

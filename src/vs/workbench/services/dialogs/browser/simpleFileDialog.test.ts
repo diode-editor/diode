@@ -61,8 +61,8 @@ async function setup(defaultFolder = "/ws") {
     return { files, dialog, component, testApp, view, type, settle };
 }
 
-describe("SimpleFileDialog — открытие", () => {
-    it("показывает каталог по умолчанию: путь в строке, «..», каталоги раньше файлов, без подсветки", async () => {
+describe("SimpleFileDialog — open", () => {
+    it("shows the default folder: path in the input, '..', folders before files, no highlight", async () => {
         const { dialog, settle, component } = await setup();
         void dialog.showOpenDialog({ title: "Open File" });
         await settle({
@@ -74,7 +74,7 @@ describe("SimpleFileDialog — открытие", () => {
         expect(component.view.placeholder).toBe("Folder path");
     });
 
-    it("стрелка дописывает имя строки выделенным — следующая буква его заменит", async () => {
+    it("arrow appends the item name selected — the next letter replaces it", async () => {
         const { dialog, settle, testApp, component } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -86,7 +86,7 @@ describe("SimpleFileDialog — открытие", () => {
         expect(component.view.inputElement.inputState.selectedText).toBe("docs");
     });
 
-    it("начало имени подсвечивает строку; Enter на каталоге — внутрь", async () => {
+    it("name prefix highlights the item; Enter on a folder goes inside", async () => {
         const { dialog, settle, testApp, type } = await setup();
         const result = dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -101,7 +101,7 @@ describe("SimpleFileDialog — открытие", () => {
         await expect(result).resolves.toEqual([Uri.file("/ws/src/b.ts")]);
     });
 
-    it("набранный путь целиком принимается, если файл есть", async () => {
+    it("a fully typed path is accepted if the file exists", async () => {
         const { dialog, settle, testApp, type } = await setup();
         const result = dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -111,7 +111,7 @@ describe("SimpleFileDialog — открытие", () => {
         await expect(result).resolves.toEqual([Uri.file("/ws/readme.md")]);
     });
 
-    it("несуществующий каталог с разделителем — подсказка эталона", async () => {
+    it("nonexistent folder with a separator shows the upstream hint", async () => {
         const { dialog, settle, type, component } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -123,7 +123,7 @@ describe("SimpleFileDialog — открытие", () => {
         });
     });
 
-    it("несуществующий файл — Enter не закрывает, а просит существующий путь", async () => {
+    it("nonexistent file: Enter does not close, asks for an existing path", async () => {
         const { dialog, settle, testApp, type, component } = await setup();
         const result = dialog.showOpenDialog();
         let settled = false;
@@ -139,7 +139,7 @@ describe("SimpleFileDialog — открытие", () => {
         expect(component.isOpen()).toBe(true);
     });
 
-    it("только папки: Enter на пути к каталогу без подсветки — этот каталог", async () => {
+    it("folders only: Enter on a folder path without highlight picks that folder", async () => {
         const { dialog, settle, testApp } = await setup();
         const result = dialog.showOpenDialog({ canSelectFolders: true, canSelectFiles: false });
         await settle({ query: "/ws/", items: ["..", "docs", "src"] });
@@ -147,7 +147,7 @@ describe("SimpleFileDialog — открытие", () => {
         await expect(result).resolves.toEqual([Uri.file("/ws")]);
     });
 
-    it("файл, когда просили папку, — «Please select a folder.»", async () => {
+    it("a file when a folder is requested shows 'Please select a folder.'", async () => {
         const { dialog, settle, testApp, type, component } = await setup();
         void dialog.showOpenDialog({ canSelectFolders: true, canSelectFiles: false });
         await settle({ query: "/ws/" });
@@ -159,7 +159,7 @@ describe("SimpleFileDialog — открытие", () => {
         expect(component.isOpen()).toBe(true);
     });
 
-    it("«~/» уводит в домашний каталог", async () => {
+    it("'~/' goes to the home folder", async () => {
         const { dialog, settle, type, testApp } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -168,7 +168,7 @@ describe("SimpleFileDialog — открытие", () => {
         await settle({ query: "/home/u/", items: ["..", "notes.txt"] });
     });
 
-    it("«..» и Enter — на уровень вверх", async () => {
+    it("'..' and Enter go one level up", async () => {
         const { dialog, settle, testApp } = await setup();
         void dialog.showOpenDialog({ defaultUri: Uri.file("/ws/src") });
         await settle({ query: "/ws/src/", items: ["..", "a.ts", "b.ts"] });
@@ -178,7 +178,7 @@ describe("SimpleFileDialog — открытие", () => {
         await settle({ query: "/ws/", items: ["..", "docs", "src", "readme.md", "report.txt"] });
     });
 
-    it("фильтры прячут чужие файлы", async () => {
+    it("filters hide non-matching files", async () => {
         const { dialog, settle } = await setup();
         void dialog.showOpenDialog({ filters: [{ name: "Markdown", extensions: ["md"] }] });
         await settle({ items: ["..", "docs", "src", "readme.md"] });
@@ -193,8 +193,8 @@ describe("SimpleFileDialog — открытие", () => {
     });
 });
 
-describe("SimpleFileDialog — сохранение", () => {
-    it("имя из defaultUri стоит в строке, курсор перед расширением; Enter — этот путь", async () => {
+describe("SimpleFileDialog — save", () => {
+    it("name from defaultUri is in the input, cursor before the extension; Enter picks that path", async () => {
         const { dialog, settle, testApp, component } = await setup();
         const result = dialog.showSaveDialog({ defaultUri: Uri.file("/ws/new.txt"), title: "Save As" });
         await settle({ query: "/ws/new.txt", title: "Save As" });
@@ -205,7 +205,7 @@ describe("SimpleFileDialog — сохранение", () => {
         await expect(result).resolves.toEqual(Uri.file("/ws/new.txt"));
     });
 
-    it("существующий файл — вопрос о перезаписи: Enter — да", async () => {
+    it("existing file asks to overwrite: Enter means yes", async () => {
         const { dialog, settle, testApp, view, component } = await setup();
         const result = dialog.showSaveDialog({ defaultUri: Uri.file("/ws/report.txt") });
         await settle({ query: "/ws/report.txt" });
@@ -217,7 +217,7 @@ describe("SimpleFileDialog — сохранение", () => {
         await expect(result).resolves.toEqual(Uri.file("/ws/report.txt"));
     });
 
-    it("отказ от перезаписи (Escape) возвращает в диалог", async () => {
+    it("declining overwrite (Escape) returns to the dialog", async () => {
         const { dialog, settle, testApp } = await setup();
         void dialog.showSaveDialog({ defaultUri: Uri.file("/ws/report.txt") });
         await settle({ query: "/ws/report.txt" });
@@ -227,7 +227,7 @@ describe("SimpleFileDialog — сохранение", () => {
         await settle({ query: "/ws/report.txt", items: ["..", "docs", "src", "readme.md", "report.txt"] });
     });
 
-    it("с фильтрами недостающее расширение дописывается", async () => {
+    it("with filters, a missing extension is appended", async () => {
         const { dialog, settle, testApp } = await setup();
         const result = dialog.showSaveDialog({
             defaultUri: Uri.file("/ws/notes"),
@@ -238,7 +238,7 @@ describe("SimpleFileDialog — сохранение", () => {
         await expect(result).resolves.toEqual(Uri.file("/ws/notes.txt"));
     });
 
-    it("каталог вместо имени — просьба дать новое имя файла", async () => {
+    it("a folder instead of a name asks for a new file name", async () => {
         const { dialog, settle, testApp, component } = await setup();
         void dialog.showSaveDialog({ defaultUri: Uri.file("/ws/docs") });
         await settle({ query: "/ws/docs/" });
@@ -250,8 +250,8 @@ describe("SimpleFileDialog — сохранение", () => {
     });
 });
 
-describe("SimpleFileDialog — набор пути", () => {
-    it("Backspace в имя каталога — список родителя, буква дальше подсвечивает каталог", async () => {
+describe("SimpleFileDialog — typing a path", () => {
+    it("Backspace into a folder name lists the parent, the next letter highlights the folder", async () => {
         const { dialog, settle, testApp, type } = await setup();
         void dialog.showOpenDialog({ defaultUri: Uri.file("/ws/src") });
         await settle({ query: "/ws/src/", items: ["..", "a.ts", "b.ts"] });
@@ -265,7 +265,7 @@ describe("SimpleFileDialog — набор пути", () => {
         await settle({ query: "/ws/src", activeIndex: 2 });
     });
 
-    it("«..» — сразу на уровень вверх, без разделителя", async () => {
+    it("'..' goes one level up at once, without a separator", async () => {
         const { dialog, settle, type } = await setup();
         void dialog.showOpenDialog({ defaultUri: Uri.file("/ws/src") });
         await settle({ query: "/ws/src/" });
@@ -276,7 +276,7 @@ describe("SimpleFileDialog — набор пути", () => {
         await settle({ query: "/ws/", items: ["..", "docs", "src", "readme.md", "report.txt"] });
     });
 
-    it("после несуществующего каталога «~» в конце уводит домой", async () => {
+    it("after a nonexistent folder, a trailing '~' goes home", async () => {
         const { dialog, settle, type, component } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -293,7 +293,7 @@ describe("SimpleFileDialog — набор пути", () => {
         expect(component.view.validationMessage).toBeNull();
     });
 
-    it("подсказка о плохом пути уходит, когда набранное снова ведёт в существующий каталог", async () => {
+    it("the bad path hint goes away when the input leads to an existing folder again", async () => {
         const { dialog, settle, type, testApp, component } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -307,7 +307,7 @@ describe("SimpleFileDialog — набор пути", () => {
         expect(component.view.validationMessage).toBeNull();
     });
 
-    it("набранное не совпадает ни с одной строкой — подсветки нет, Enter берёт набранное", async () => {
+    it("input matches no item: no highlight, Enter takes the input", async () => {
         const { dialog, settle, type, testApp, component } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -321,7 +321,7 @@ describe("SimpleFileDialog — набор пути", () => {
         });
     });
 
-    it("регистр набранного не мешает подсветке", async () => {
+    it("input case does not affect the highlight", async () => {
         const { dialog, settle, type } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -329,7 +329,7 @@ describe("SimpleFileDialog — набор пути", () => {
         await settle({ query: "/ws/RE", activeIndex: 3 });
     });
 
-    it("стрелка после набора дописывает выбранное имя целиком, на «..» дописывать нечего", async () => {
+    it("arrow after typing appends the whole selected name, nothing to append on '..'", async () => {
         const { dialog, settle, type, testApp, component } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -345,7 +345,7 @@ describe("SimpleFileDialog — набор пути", () => {
         expect(component.view.inputElement.inputState.selectedText).toBe("");
     });
 
-    it("стрелкой выбранный файл и Enter — этот файл", async () => {
+    it("file picked with arrow and Enter returns that file", async () => {
         const { dialog, settle, testApp } = await setup();
         const result = dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -355,7 +355,7 @@ describe("SimpleFileDialog — набор пути", () => {
         await expect(result).resolves.toEqual([Uri.file("/ws/readme.md")]);
     });
 
-    it("стрелкой выбранный каталог и Enter — внутрь", async () => {
+    it("folder picked with arrow and Enter goes inside", async () => {
         const { dialog, settle, testApp, type } = await setup();
         const result = dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -372,8 +372,8 @@ describe("SimpleFileDialog — набор пути", () => {
     });
 });
 
-describe("SimpleFileDialog — начальный каталог и режимы", () => {
-    it("defaultUri на файл: имя в строке, курсор в конце; Enter — этот файл", async () => {
+describe("SimpleFileDialog — initial folder and modes", () => {
+    it("defaultUri to a file: name in the input, cursor at the end; Enter picks that file", async () => {
         const { dialog, settle, testApp, component } = await setup();
         const result = dialog.showOpenDialog({ defaultUri: Uri.file("/ws/readme.md") });
         await settle({ query: "/ws/readme.md", items: ["..", "docs", "src", "readme.md", "report.txt"] });
@@ -383,19 +383,19 @@ describe("SimpleFileDialog — начальный каталог и режимы
         await expect(result).resolves.toEqual([Uri.file("/ws/readme.md")]);
     });
 
-    it("каталога по умолчанию нет — строка с ним, а в списке только «..»", async () => {
+    it("default folder is missing: input holds it, the list has only '..'", async () => {
         const { dialog, settle } = await setup("/ws/gone");
         void dialog.showOpenDialog();
         await settle({ query: "/ws/gone/", items: [".."] });
     });
 
-    it("в корне ФС «..» нет", async () => {
+    it("no '..' at the file system root", async () => {
         const { dialog, settle } = await setup("/");
         void dialog.showOpenDialog();
         await settle({ query: "/", items: ["home", "ws"] });
     });
 
-    it("файлы и папки вместе: файлы видны, Enter на набранном каталоге — он сам", async () => {
+    it("files and folders together: files are visible, Enter on a typed folder picks it", async () => {
         const { dialog, settle, testApp } = await setup();
         const result = dialog.showOpenDialog({ canSelectFiles: true, canSelectFolders: true });
         await settle({ query: "/ws/", items: ["..", "docs", "src", "readme.md", "report.txt"] });
@@ -403,7 +403,7 @@ describe("SimpleFileDialog — начальный каталог и режимы
         await expect(result).resolves.toEqual([Uri.file("/ws")]);
     });
 
-    it("только файлы: Enter на каталоге без подсветки — «Please select a file.»", async () => {
+    it("files only: Enter on a folder without highlight shows 'Please select a file.'", async () => {
         const { dialog, settle, testApp, component } = await setup();
         void dialog.showOpenDialog({ canSelectFiles: true });
         await settle({ query: "/ws/" });
@@ -415,8 +415,8 @@ describe("SimpleFileDialog — начальный каталог и режимы
     });
 });
 
-describe("SimpleFileDialog — проверки при сохранении", () => {
-    it("без defaultUri — каталог по умолчанию, курсор в конце; набранное имя сохраняется", async () => {
+describe("SimpleFileDialog — save validation", () => {
+    it("without defaultUri: default folder, cursor at the end; the typed name is saved", async () => {
         const { dialog, settle, type, testApp, component } = await setup();
         const result = dialog.showSaveDialog();
         await settle({ query: "/ws/", items: ["..", "docs", "src", "readme.md", "report.txt"] });
@@ -427,7 +427,7 @@ describe("SimpleFileDialog — проверки при сохранении", ()
         await expect(result).resolves.toEqual(Uri.file("/ws/fresh.md"));
     });
 
-    it("недопустимое имя — «Please enter a valid file name.»", async () => {
+    it("invalid name shows 'Please enter a valid file name.'", async () => {
         const { dialog, settle, type, testApp, component } = await setup();
         void dialog.showSaveDialog();
         await settle({ query: "/ws/" });
@@ -439,7 +439,7 @@ describe("SimpleFileDialog — проверки при сохранении", ()
         expect(component.isOpen()).toBe(true);
     });
 
-    it("каталога нет — вопрос: Enter создаёт его и сохраняет", async () => {
+    it("missing folder asks: Enter creates it and saves", async () => {
         const { dialog, settle, testApp, files } = await setup();
         const result = dialog.showSaveDialog({ defaultUri: Uri.file("/ws/newdir/a.txt") });
         await settle({ query: "/ws/newdir/a.txt" });
@@ -453,7 +453,7 @@ describe("SimpleFileDialog — проверки при сохранении", ()
         await expect(files.exists(Uri.file("/ws/newdir"))).resolves.toBe(true);
     });
 
-    it("каталога нет, от создания отказались — диалог остаётся, каталог не создан", async () => {
+    it("missing folder, creation declined: dialog stays, folder is not created", async () => {
         const { dialog, settle, testApp, files, component } = await setup();
         let settled = false;
         void dialog.showSaveDialog({ defaultUri: Uri.file("/ws/newdir/a.txt") }).then(() => (settled = true));
@@ -467,7 +467,7 @@ describe("SimpleFileDialog — проверки при сохранении", ()
         await expect(files.exists(Uri.file("/ws/newdir"))).resolves.toBe(false);
     });
 
-    it("в вопросе набор — это «нет»: вопрос закрывается, диалог возвращается", async () => {
+    it("typing in the prompt means 'no': the prompt closes, the dialog returns", async () => {
         const { dialog, settle, testApp, type } = await setup();
         let settled = false;
         void dialog.showSaveDialog({ defaultUri: Uri.file("/ws/report.txt") }).then(() => (settled = true));
@@ -479,7 +479,7 @@ describe("SimpleFileDialog — проверки при сохранении", ()
         expect(settled).toBe(false);
     });
 
-    it("после отказа от перезаписи Enter снова спрашивает", async () => {
+    it("after declining overwrite, Enter asks again", async () => {
         const { dialog, settle, testApp } = await setup();
         const result = dialog.showSaveDialog({ defaultUri: Uri.file("/ws/report.txt") });
         await settle({ query: "/ws/report.txt" });
@@ -493,7 +493,7 @@ describe("SimpleFileDialog — проверки при сохранении", ()
         await expect(result).resolves.toEqual(Uri.file("/ws/report.txt"));
     });
 
-    it("вместо каталога — файл: «Please enter a path that exists.»", async () => {
+    it("a file instead of a folder shows 'Please enter a path that exists.'", async () => {
         const { dialog, settle, type, testApp, component } = await setup();
         void dialog.showSaveDialog();
         await settle({ query: "/ws/" });
@@ -506,7 +506,7 @@ describe("SimpleFileDialog — проверки при сохранении", ()
         expect(component.isOpen()).toBe(true);
     });
 
-    it("каталог создать не вышло — диалог возвращается с причиной", async () => {
+    it("folder creation fails: the dialog returns with the reason", async () => {
         const { dialog, settle, testApp, files, component } = await setup();
         vi.spyOn(files, "createFolder").mockRejectedValueOnce(new Error("denied"));
         void dialog.showSaveDialog({ defaultUri: Uri.file("/ws/newdir/a.txt") });
@@ -520,7 +520,7 @@ describe("SimpleFileDialog — проверки при сохранении", ()
         expect(component.isOpen()).toBe(true);
     });
 
-    it("Enter на каталоге при сохранении входит в него, имя файла остаётся, курсор перед ним", async () => {
+    it("Enter on a folder while saving enters it, the file name stays, cursor before it", async () => {
         const { dialog, settle, testApp, component } = await setup();
         void dialog.showSaveDialog({ defaultUri: Uri.file("/ws/new.txt") });
         await settle({ query: "/ws/new.txt" });
@@ -534,7 +534,7 @@ describe("SimpleFileDialog — проверки при сохранении", ()
         });
     });
 
-    it("Escape в диалоге — undefined", async () => {
+    it("Escape in the dialog returns undefined", async () => {
         const { dialog, settle, testApp } = await setup();
         const result = dialog.showSaveDialog();
         await settle({ query: "/ws/" });
@@ -543,8 +543,8 @@ describe("SimpleFileDialog — проверки при сохранении", ()
     });
 });
 
-describe("SimpleFileDialog — только папки: создание", () => {
-    it("несуществующая папка в существующем каталоге — вопрос; Enter создаёт и выбирает её", async () => {
+describe("SimpleFileDialog — folders only: creation", () => {
+    it("nonexistent folder in an existing folder asks; Enter creates and picks it", async () => {
         const { dialog, settle, type, testApp, files } = await setup();
         const result = dialog.showOpenDialog({ canSelectFolders: true });
         await settle({ query: "/ws/" });
@@ -557,7 +557,7 @@ describe("SimpleFileDialog — только папки: создание", () =>
         await expect(files.exists(Uri.file("/ws/fresh"))).resolves.toBe(true);
     });
 
-    it("от создания отказались — папки нет, диалог открыт", async () => {
+    it("creation declined: no folder, the dialog stays open", async () => {
         const { dialog, settle, type, testApp, files, component } = await setup();
         void dialog.showOpenDialog({ canSelectFolders: true });
         await settle({ query: "/ws/" });
@@ -570,7 +570,7 @@ describe("SimpleFileDialog — только папки: создание", () =>
         await expect(files.exists(Uri.file("/ws/fresh"))).resolves.toBe(false);
     });
 
-    it("создать не вышло — сообщение с причиной", async () => {
+    it("creation fails: message with the reason", async () => {
         const { dialog, settle, type, testApp, files, component } = await setup();
         vi.spyOn(files, "createFolder").mockRejectedValueOnce(new Error("denied"));
         void dialog.showOpenDialog({ canSelectFolders: true });
@@ -585,7 +585,7 @@ describe("SimpleFileDialog — только папки: создание", () =>
         expect(component.isOpen()).toBe(true);
     });
 
-    it("не Error в отказе ФС — строкой", async () => {
+    it("a non-Error file system rejection is shown as a string", async () => {
         const { dialog, settle, type, testApp, files, component } = await setup();
         vi.spyOn(files, "createFolder").mockRejectedValueOnce("busy");
         void dialog.showOpenDialog({ canSelectFolders: true });
@@ -599,7 +599,7 @@ describe("SimpleFileDialog — только папки: создание", () =>
         });
     });
 
-    it("родителя нет — создавать не предлагает", async () => {
+    it("missing parent: does not offer to create", async () => {
         const { dialog, settle, type, testApp, component } = await setup();
         void dialog.showOpenDialog({ canSelectFolders: true });
         await settle({ query: "/ws/" });
@@ -610,7 +610,7 @@ describe("SimpleFileDialog — только папки: создание", () =>
         });
     });
 
-    it("файлы и папки: несуществующее — без вопроса, просьба о существующем пути", async () => {
+    it("files and folders: nonexistent path asks for an existing path without a prompt", async () => {
         const { dialog, settle, type, testApp, component } = await setup();
         void dialog.showOpenDialog({ canSelectFolders: true, canSelectFiles: true });
         await settle({ query: "/ws/" });
@@ -622,8 +622,8 @@ describe("SimpleFileDialog — только папки: создание", () =>
     });
 });
 
-describe("SimpleFileDialog — ход принятия", () => {
-    it("стрелка снимает сообщение проверки", async () => {
+describe("SimpleFileDialog — accept flow", () => {
+    it("arrow clears the validation message", async () => {
         const { dialog, settle, type, testApp, component } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -638,7 +638,7 @@ describe("SimpleFileDialog — ход принятия", () => {
         });
     });
 
-    it("принятый ответ закрывает диалог", async () => {
+    it("an accepted answer closes the dialog", async () => {
         const { dialog, settle, type, testApp, component } = await setup();
         const result = dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -648,7 +648,7 @@ describe("SimpleFileDialog — ход принятия", () => {
         expect(component.isOpen()).toBe(false);
     });
 
-    it("пробелы в конце набранного пути не мешают", async () => {
+    it("trailing spaces in the typed path do not matter", async () => {
         const { dialog, settle, type, testApp } = await setup();
         const result = dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -657,7 +657,7 @@ describe("SimpleFileDialog — ход принятия", () => {
         await expect(result).resolves.toEqual([Uri.file("/ws/readme.md")]);
     });
 
-    it("Escape, пока идёт неудачная проверка, — ответ undefined", async () => {
+    it("Escape during a failing validation returns undefined", async () => {
         const { dialog, settle, type, testApp, files } = await setup();
         const result = dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -680,7 +680,7 @@ describe("SimpleFileDialog — ход принятия", () => {
         await expect(result).resolves.toBeUndefined();
     });
 
-    it("второй Enter, пока идёт первый, ничего не добавляет", async () => {
+    it("a second Enter while the first is pending adds nothing", async () => {
         const { dialog, settle, testApp, component } = await setup();
         const result = dialog.showSaveDialog({ defaultUri: Uri.file("/ws/report.txt") });
         await settle({ query: "/ws/report.txt" });
@@ -693,7 +693,7 @@ describe("SimpleFileDialog — ход принятия", () => {
         expect(component.isOpen()).toBe(false);
     });
 
-    it("отказ от перезаписи, затем Escape в диалоге — undefined", async () => {
+    it("declining overwrite, then Escape in the dialog returns undefined", async () => {
         const { dialog, settle, testApp } = await setup();
         const result = dialog.showSaveDialog({ defaultUri: Uri.file("/ws/report.txt") });
         await settle({ query: "/ws/report.txt" });
@@ -705,7 +705,7 @@ describe("SimpleFileDialog — ход принятия", () => {
         await expect(result).resolves.toBeUndefined();
     });
 
-    it("стёрто дополненное — подсветка снята, следующая буква подсвечивает", async () => {
+    it("erasing the completion clears the highlight, the next letter highlights", async () => {
         const { dialog, settle, type, testApp } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -718,7 +718,7 @@ describe("SimpleFileDialog — ход принятия", () => {
         await settle({ query: "/ws/s", activeIndex: 2 });
     });
 
-    it("плохой путь: дальнейший набор подсказку не снимает, повтор разделителя её возвращает", async () => {
+    it("bad path: further typing keeps the hint, repeating the separator brings it back", async () => {
         const { dialog, settle, type, testApp, component } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -743,13 +743,13 @@ describe("SimpleFileDialog — ход принятия", () => {
         });
     });
 
-    it("каталог по умолчанию — файл: его каталог, имя в строке", async () => {
+    it("default folder is a file: its folder, name in the input", async () => {
         const { dialog, settle } = await setup("/ws/readme.md");
         void dialog.showOpenDialog();
         await settle({ query: "/ws/readme.md", items: ["..", "docs", "src", "readme.md", "report.txt"] });
     });
 
-    it("стрелка на «..» после автодополнения — курсор в конец, выделения нет", async () => {
+    it("arrow to '..' after completion moves the cursor to the end, no selection", async () => {
         const { dialog, settle, testApp, component } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -790,8 +790,8 @@ function holdFolder(files: FileService, folder: string): { started: () => Promis
     };
 }
 
-describe("SimpleFileDialog — во время подгрузки каталога", () => {
-    it("Enter сразу после набранного пути в другой каталог принимает этот путь", async () => {
+describe("SimpleFileDialog — while a folder is loading", () => {
+    it("Enter right after typing a path into another folder accepts that path", async () => {
         const { dialog, settle, type, testApp } = await setup();
         const result = dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -800,7 +800,7 @@ describe("SimpleFileDialog — во время подгрузки каталог
         await expect(result).resolves.toEqual([Uri.file("/ws/src/a.ts")]);
     });
 
-    it("Enter ждёт подгрузку и судит уже по новому каталогу", async () => {
+    it("Enter waits for loading and judges by the new folder", async () => {
         const { dialog, settle, type, testApp, files, component } = await setup();
         void dialog.showOpenDialog({ canSelectFiles: true });
         await settle({ query: "/ws/" });
@@ -816,7 +816,7 @@ describe("SimpleFileDialog — во время подгрузки каталог
         });
     });
 
-    it("допечатанное поверх подгрузки остаётся в строке", async () => {
+    it("text typed during loading stays in the input", async () => {
         const { dialog, settle, type, files } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -826,7 +826,7 @@ describe("SimpleFileDialog — во время подгрузки каталог
         await settle({ query: "/ws/src/a", items: ["..", "a.ts", "b.ts"] });
     });
 
-    it("строки прежнего каталога не подсвечиваются, пока грузится новый", async () => {
+    it("items of the previous folder are not highlighted while the new one loads", async () => {
         const { dialog, settle, type, testApp, files, view } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -843,7 +843,7 @@ describe("SimpleFileDialog — во время подгрузки каталог
         expect(view()).toMatchObject({ query: "/ws/src" });
     });
 
-    it("ответ устаревшей подгрузки не перебивает свежую", async () => {
+    it("a stale load result does not override the fresh one", async () => {
         const { dialog, settle, type, testApp, files, view } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -886,8 +886,8 @@ function holdStat(files: FileService, target: string): { started: () => Promise<
     };
 }
 
-describe("SimpleFileDialog — набор: края", () => {
-    it("в корне без подгрузок набор сразу подсвечивает, а стёртое до корня — нет", async () => {
+describe("SimpleFileDialog — typing: edge cases", () => {
+    it("at the root without loading, typing highlights at once, erasing back to the root does not", async () => {
         const { dialog, settle, type, testApp } = await setup("/");
         void dialog.showOpenDialog();
         await settle({ query: "/", items: ["home", "ws"] });
@@ -897,7 +897,7 @@ describe("SimpleFileDialog — набор: края", () => {
         await settle({ query: "/", activeIndex: -1 });
     });
 
-    it("«.» не подсвечивает «..»", async () => {
+    it("'.' does not highlight '..'", async () => {
         const { dialog, settle, type } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -907,7 +907,7 @@ describe("SimpleFileDialog — набор: края", () => {
         await settle({ activeIndex: -1 });
     });
 
-    it("«~» не в начале и не после плохого пути — просто буква", async () => {
+    it("'~' not at the start and not after a bad path is just a letter", async () => {
         const { dialog, settle, type } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -917,7 +917,7 @@ describe("SimpleFileDialog — набор: края", () => {
         await settle({ items: ["..", "docs", "src", "readme.md", "report.txt"] });
     });
 
-    it("сохранение: стрелкой выбранный файл остаётся подсвеченным, Enter — вопрос о нём", async () => {
+    it("save: a file picked with arrow stays highlighted, Enter asks about it", async () => {
         const { dialog, settle, testApp } = await setup();
         void dialog.showSaveDialog({ defaultUri: Uri.file("/ws/new.txt") });
         await settle({ query: "/ws/new.txt" });
@@ -929,7 +929,7 @@ describe("SimpleFileDialog — набор: края", () => {
         await settle({ title: "readme.md already exists. Are you sure you want to overwrite it?" });
     });
 
-    it("сохранение с именем: набор начала имени чужого файла его не подсвечивает", async () => {
+    it("save with a name: typing the prefix of another file does not highlight it", async () => {
         const { dialog, settle, type } = await setup();
         void dialog.showSaveDialog({ defaultUri: Uri.file("/ws/x") });
         await settle({ query: "/ws/x" });
@@ -940,7 +940,7 @@ describe("SimpleFileDialog — набор: края", () => {
         await settle({ activeIndex: -1 });
     });
 
-    it("сохранение: набранное имя с расширением переезжает в каталог", async () => {
+    it("save: a typed name with an extension moves into the folder", async () => {
         const { dialog, settle, type, testApp } = await setup();
         void dialog.showSaveDialog({ defaultUri: Uri.file("/ws/x") });
         await settle({ query: "/ws/x" });
@@ -954,7 +954,7 @@ describe("SimpleFileDialog — набор: края", () => {
         await settle({ query: "/ws/docs/y.md", items: [".."] });
     });
 
-    it("открытие: набранное имя с расширением в каталог не переезжает", async () => {
+    it("open: a typed name with an extension does not move into the folder", async () => {
         const { dialog, settle, type, testApp } = await setup();
         void dialog.showOpenDialog();
         await settle({ query: "/ws/" });
@@ -968,7 +968,7 @@ describe("SimpleFileDialog — набор: края", () => {
         await settle({ query: "/ws/docs/", items: [".."] });
     });
 
-    it("Enter сразу после набранного каталога — выбор этого каталога", async () => {
+    it("Enter right after a typed folder picks that folder", async () => {
         const { dialog, settle, type, testApp } = await setup();
         const result = dialog.showOpenDialog({ canSelectFolders: true });
         await settle({ query: "/ws/" });
@@ -977,7 +977,7 @@ describe("SimpleFileDialog — набор: края", () => {
         await expect(result).resolves.toEqual([Uri.file("/ws/src")]);
     });
 
-    it("Enter на несуществующем каталоге — подсказка про ~, а не проверка пути", async () => {
+    it("Enter on a nonexistent folder shows the ~ hint, not path validation", async () => {
         const { dialog, settle, type, testApp, component } = await setup();
         void dialog.showOpenDialog({ canSelectFolders: true });
         await settle({ query: "/ws/" });
@@ -993,7 +993,7 @@ describe("SimpleFileDialog — набор: края", () => {
         expect(component.isOpen()).toBe(true);
     });
 
-    it("ответ stat каталога про устаревший набор не подгружает его", async () => {
+    it("a folder stat result for stale input does not load it", async () => {
         const { dialog, settle, type, testApp, files, view } = await setup();
         void dialog.showOpenDialog({ defaultUri: Uri.file("/ws/src") });
         await settle({ query: "/ws/src/", items: ["..", "a.ts", "b.ts"] });

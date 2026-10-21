@@ -37,7 +37,7 @@ const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
 
 const CSHARP_TEXT = ["/* #region Helpers */", "int a = 1;", "int b = 2;", "/* #endregion */", "int c = 3;"].join("\n");
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.regionfolder (#194)", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock maptz.regionfolder (#194)", () => {
     let tmpRoot: string;
     let mainPath: string;
     let extVersion: string;
@@ -69,7 +69,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.r
         };
     }
 
-    it("активируется без падения и сворачивает #region в открытом csharp-файле", async () => {
+    it("activates without crashing and folds #region in an open csharp file", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "Program.cs", content: CSHARP_TEXT },
             languageService: CSHARP_LANGUAGE_SERVICE,
@@ -93,7 +93,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.r
 
     // #194: the command goes through the whole editor-write API: selection to the subprocess,
     // edits back via `editor.applyEdit` as one undoable batch.
-    it("regionfolder.wrapWithRegion оборачивает выделение в #region-теги", async () => {
+    it("regionfolder.wrapWithRegion wraps the selection in #region tags", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "Program.cs", content: CSHARP_TEXT },
             languageService: CSHARP_LANGUAGE_SERVICE,

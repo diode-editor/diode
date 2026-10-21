@@ -3,39 +3,39 @@ import { describe, expect, it } from "vitest";
 import { parseWireSchemes, parseWireTextContentResult } from "./hostWireParsers.ts";
 
 describe("parseWireTextContentResult", () => {
-    it("отдаёт строку содержимого", () => {
+    it("returns the content string", () => {
         expect(parseWireTextContentResult({ content: "class Foo {}" })).toBe("class Foo {}");
     });
 
-    it("пустая строка — валидное содержимое, а не отказ", () => {
+    it("an empty string is valid content, not a refusal", () => {
         expect(parseWireTextContentResult({ content: "" })).toBe("");
     });
 
-    it("null и отсутствие поля — отказ провайдера", () => {
+    it("null and a missing field mean the provider refused", () => {
         expect(parseWireTextContentResult({ content: null })).toBeNull();
         expect(parseWireTextContentResult({})).toBeNull();
     });
 
-    it("не-объект — сломанный канал, а не отказ", () => {
+    it("a non-object means a broken channel, not a refusal", () => {
         expect(() => parseWireTextContentResult("class Foo {}")).toThrow(/must be an object/u);
         expect(() => parseWireTextContentResult(null)).toThrow(/must be an object/u);
     });
 
-    it("content не строка — сломанный канал", () => {
+    it("a non-string content means a broken channel", () => {
         expect(() => parseWireTextContentResult({ content: 42 })).toThrow(/must be a string or null/u);
     });
 });
 
 describe("parseWireSchemes", () => {
-    it("отдаёт объявленные схемы", () => {
+    it("returns the declared schemes", () => {
         expect(parseWireSchemes({ schemes: ["jdt", "class"] })).toEqual(["jdt", "class"]);
     });
 
-    it("нестроковые элементы отбрасывает, остальные оставляет", () => {
+    it("drops non-string elements and keeps the rest", () => {
         expect(parseWireSchemes({ schemes: ["jdt", 1, null, "class"] })).toEqual(["jdt", "class"]);
     });
 
-    it("нет поля, не массив, не объект — пустой список", () => {
+    it("no field, not an array, not an object gives an empty list", () => {
         expect(parseWireSchemes({})).toEqual([]);
         expect(parseWireSchemes({ schemes: "jdt" })).toEqual([]);
         expect(parseWireSchemes(null)).toEqual([]);

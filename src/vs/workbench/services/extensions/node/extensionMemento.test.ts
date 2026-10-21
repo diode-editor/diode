@@ -17,7 +17,7 @@ function memento(overrides: Partial<IExtensionMementoOptions> = {}) {
 }
 
 describe("createExtensionMemento", () => {
-    it("get отдаёт сохранённое, дефолт — только для отсутствующего ключа", async () => {
+    it("get returns the stored value, the default only for a missing key", async () => {
         const { m } = memento();
         expect(m.get("missing")).toBeUndefined();
         expect(m.get("missing", "fallback")).toBe("fallback");
@@ -27,20 +27,20 @@ describe("createExtensionMemento", () => {
         expect(m.get("shown", "fallback")).toBe(true);
     });
 
-    it("хранит и falsy-значения — дефолт не подменяет их", async () => {
+    it("stores falsy values too: the default does not replace them", async () => {
         const { m } = memento();
         await m.update("count", 0);
         expect(m.get("count", 42)).toBe(0);
     });
 
-    it("начинает со словаря прошлых запусков", () => {
+    it("starts from the dictionary of previous runs", () => {
         const { m } = memento({ initial: { shown: true, count: 3 } });
 
         expect(m.get("shown")).toBe(true);
         expect(m.keys()).toEqual(["shown", "count"]);
     });
 
-    it("каждый update отдаёт хосту словарь целиком; update(key, undefined) удаляет ключ", async () => {
+    it("each update sends the whole dictionary to the host; update(key, undefined) deletes the key", async () => {
         const { m, persisted } = memento({ initial: { a: 1 } });
 
         await m.update("b", 2);
@@ -51,7 +51,7 @@ describe("createExtensionMemento", () => {
         expect(m.keys()).toEqual(["b"]);
     });
 
-    it("промис update — это промис записи на хосте", async () => {
+    it("the update promise is the host write promise", async () => {
         let resolveWrite!: () => void;
         const { m } = memento({
             persist: () =>
@@ -73,7 +73,7 @@ describe("createExtensionMemento", () => {
         expect(done).toBe(true);
     });
 
-    it("setKeysForSync есть только у globalState-варианта и не бросает", () => {
+    it("setKeysForSync exists only on the globalState variant and does not throw", () => {
         const globalState = memento({ withSync: true }).m;
         const workspaceState = memento({ withSync: false }).m;
         expect(workspaceState.setKeysForSync).toBeUndefined();

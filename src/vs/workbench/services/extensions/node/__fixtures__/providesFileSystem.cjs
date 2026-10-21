@@ -33,7 +33,7 @@ exports.activate = function activate(context) {
                     if (uri.path === "/missing") {
                         throw vscode.FileSystemError.FileNotFound(uri);
                     }
-                    return new TextEncoder().encode("содержимое " + uri.path);
+                    return new TextEncoder().encode("contents " + uri.path);
                 },
             },
             { isReadonly: true },

@@ -42,19 +42,19 @@ describe("bindActiveEditor", () => {
     const a: IFakeEditor = { name: "a" };
     const b: IFakeEditor = { name: "b" };
 
-    it("привязывает уже активный редактор сразу", () => {
+    it("binds the already active editor immediately", () => {
         const bound: (string | null)[] = [];
         bindActiveEditor(fakeSource(a), (editor) => bound.push(editor?.name ?? null));
         expect(bound).toEqual(["a"]);
     });
 
-    it("без активного редактора тело зовётся с null", () => {
+    it("without an active editor the body is called with null", () => {
         const bound: (string | null)[] = [];
         bindActiveEditor(fakeSource(null), (editor) => bound.push(editor?.name ?? null));
         expect(bound).toEqual([null]);
     });
 
-    it("смена редактора снимает подписки прежнего ДО привязки нового", () => {
+    it("an editor change removes the previous one's subscriptions BEFORE binding the new one", () => {
         const log: string[] = [];
         const source = fakeSource(a);
         bindActiveEditor(source, (editor, store) => {
@@ -68,7 +68,7 @@ describe("bindActiveEditor", () => {
         expect(log).toEqual(["bind a", "dispose a", "bind b", "dispose b", "bind null"]);
     });
 
-    it("dispose снимает слежение за сменой и подписки текущего редактора", () => {
+    it("dispose stops tracking changes and removes the current editor's subscriptions", () => {
         const log: string[] = [];
         const source = fakeSource(a);
         const binding = bindActiveEditor(source, (editor, store) => {

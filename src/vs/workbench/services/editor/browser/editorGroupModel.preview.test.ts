@@ -43,8 +43,8 @@ function makePane(uriPath: string, modified = false): IFakePane {
     return pane;
 }
 
-describe("EditorGroup — вкладка-предпросмотр", () => {
-    it("по умолчанию вкладка приколота, предпросмотра у группы нет", () => {
+describe("EditorGroup — preview tab", () => {
+    it("by default the tab is pinned and the group has no preview", () => {
         const group = new EditorGroup(1);
         const pane = makePane("/a.ts");
         group.insertPane(pane);
@@ -53,7 +53,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.isPinned(pane)).toBe(true);
     });
 
-    it("insertPane с preview помечает вкладку предпросмотром", () => {
+    it("insertPane with preview marks the tab as preview", () => {
         const group = new EditorGroup(1);
         const pane = makePane("/a.ts");
         group.insertPane(pane, { preview: true });
@@ -62,7 +62,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.isPinned(pane)).toBe(false);
     });
 
-    it("pinPane снимает предпросмотр и будит перерисовку табов", () => {
+    it("pinPane clears the preview and triggers a tabs redraw", () => {
         const group = new EditorGroup(1);
         const pane = makePane("/a.ts");
         group.insertPane(pane, { preview: true });
@@ -76,7 +76,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(fired).toBe(1);
     });
 
-    it("pinPane на уже приколотой вкладке — no-op без события", () => {
+    it("pinPane on an already pinned tab is a no-op without an event", () => {
         const group = new EditorGroup(1);
         const preview = makePane("/a.ts");
         const pinned = makePane("/b.ts");
@@ -91,7 +91,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.previewPane === preview).toBe(true);
     });
 
-    it("первая правка прикалывает вкладку-предпросмотр", () => {
+    it("the first edit pins the preview tab", () => {
         const group = new EditorGroup(1);
         const pane = makePane("/a.ts");
         group.insertPane(pane, { preview: true });
@@ -103,7 +103,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.isPinned(pane)).toBe(true);
     });
 
-    it("защёлка: возврат к сохранённой версии не делает вкладку предпросмотром снова", () => {
+    it("latch: returning to the saved version does not make the tab preview again", () => {
         const group = new EditorGroup(1);
         const pane = makePane("/a.ts");
         group.insertPane(pane, { preview: true });
@@ -117,7 +117,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.isPinned(pane)).toBe(true);
     });
 
-    it("смена состояния чистой вкладки предпросмотр не снимает", () => {
+    it("a state change of a clean tab does not clear the preview", () => {
         const group = new EditorGroup(1);
         const pane = makePane("/a.ts");
         group.insertPane(pane, { preview: true });
@@ -131,7 +131,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(fired).toBe(1);
     });
 
-    it("вкладка, приехавшая уже грязной, предпросмотром не становится", () => {
+    it("a tab that arrives already dirty does not become preview", () => {
         const group = new EditorGroup(1);
         // A split's duplicate of the document is dirty from birth — there is no state change to wait for.
         const pane = makePane("/a.ts", true);
@@ -142,7 +142,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.isPinned(pane)).toBe(true);
     });
 
-    it("replacePane занимает слот старой вкладки и диспозит её", () => {
+    it("replacePane takes the old tab's slot and disposes it", () => {
         const group = new EditorGroup(1);
         const pinned = makePane("/pinned.ts");
         const preview = makePane("/a.ts");
@@ -159,7 +159,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.activeIndex).toBe(1);
     });
 
-    it("replacePane не шлёт событий сам — перерисовку делает activateTab", () => {
+    it("replacePane fires no events itself; activateTab does the redraw", () => {
         const group = new EditorGroup(1);
         const preview = makePane("/a.ts");
         group.insertPane(preview, { preview: true });
@@ -171,7 +171,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(fired).toBe(0);
     });
 
-    it("замещённая вкладка больше не будит группу своими событиями", () => {
+    it("a replaced tab no longer wakes the group with its events", () => {
         const group = new EditorGroup(1);
         const preview = makePane("/a.ts");
         group.insertPane(preview, { preview: true });
@@ -187,10 +187,10 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
     });
 
     it.each([
-        ["далеко за полосой", 5],
-        ["ровно на длину полосы", 1],
-        ["отрицательный", -1],
-    ])("replacePane вне границ (%s) — no-op, без броска", (_случай, index) => {
+        ["far past the strip", 5],
+        ["exactly the strip length", 1],
+        ["negative", -1],
+    ])("replacePane out of bounds (%s) is a no-op, no throw", (_case, index) => {
         const group = new EditorGroup(1);
         const preview = makePane("/a.ts");
         group.insertPane(preview, { preview: true });
@@ -204,7 +204,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.previewPane === preview).toBe(true);
     });
 
-    it("замещение вкладки вне MRU-стека чужой стек не трогает", () => {
+    it("replacing a tab outside the MRU stack leaves another stack alone", () => {
         const group = new EditorGroup(1);
         const pinned = makePane("/pinned.ts");
         const preview = makePane("/a.ts");
@@ -221,7 +221,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.getMruOrder().map((p) => p.label)).toEqual(["/pinned.ts"]);
     });
 
-    it("закрытие ЧУЖОЙ вкладки предпросмотр группы не снимает", () => {
+    it("closing ANOTHER tab does not clear the group's preview", () => {
         const group = new EditorGroup(1);
         const pinned = makePane("/pinned.ts");
         const preview = makePane("/a.ts");
@@ -233,7 +233,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.previewPane === preview).toBe(true);
     });
 
-    it("правка ЧУЖОЙ вкладки предпросмотр группы не снимает", () => {
+    it("editing ANOTHER tab does not clear the group's preview", () => {
         const group = new EditorGroup(1);
         const preview = makePane("/a.ts");
         const other = makePane("/other.ts");
@@ -246,7 +246,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.previewPane === preview).toBe(true);
     });
 
-    it("вставка ПОСЛЕ активной её индекс не двигает, вставка НА её место — двигает", () => {
+    it("inserting AFTER the active tab keeps its index, inserting AT its position shifts it", () => {
         const group = new EditorGroup(1);
         group.insertPane(makePane("/a.ts"));
         group.insertPane(makePane("/b.ts"));
@@ -259,7 +259,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.activeIndex).toBe(1);
     });
 
-    it("replacePane без preview даёт приколотую вкладку на месте превью", () => {
+    it("replacePane without preview yields a pinned tab in the preview's place", () => {
         const group = new EditorGroup(1);
         group.insertPane(makePane("/a.ts"), { preview: true });
 
@@ -270,7 +270,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.isPinned(next)).toBe(true);
     });
 
-    it("закрытие превью-вкладки снимает предпросмотр с группы", () => {
+    it("closing the preview tab clears the group's preview", () => {
         const group = new EditorGroup(1);
         group.insertPane(makePane("/a.ts"), { preview: true });
 
@@ -279,7 +279,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.previewPane).toBe(null);
     });
 
-    it("перенос превью-вкладки в другую группу прикалывает её", () => {
+    it("moving the preview tab to another group pins it", () => {
         const source = new EditorGroup(1);
         const target = new EditorGroup(2);
         const pane = makePane("/a.ts");
@@ -294,7 +294,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(target.isPinned(pane)).toBe(true);
     });
 
-    it("dispose группы гасит предпросмотр", () => {
+    it("disposing the group clears the preview", () => {
         const group = new EditorGroup(1);
         group.insertPane(makePane("/a.ts"), { preview: true });
 
@@ -303,7 +303,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(group.previewPane).toBe(null);
     });
 
-    it("замещение гасит серию Ctrl+Tab: замороженный список стал невалидным", () => {
+    it("replacing ends the Ctrl+Tab cycle: the frozen list is now invalid", () => {
         const group = new EditorGroup(1);
         const first = makePane("/a.ts");
         const second = makePane("/b.ts");
@@ -323,7 +323,7 @@ describe("EditorGroup — вкладка-предпросмотр", () => {
         expect(cycleStates.at(-1)).toBe(null);
     });
 
-    it("замещение правит MRU: старая вкладка уходит из стека, новая активируется", () => {
+    it("replacing updates MRU: the old tab leaves the stack, the new one is activated", () => {
         const group = new EditorGroup(1);
         const pinned = makePane("/pinned.ts");
         const preview = makePane("/a.ts");

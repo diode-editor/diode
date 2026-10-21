@@ -69,8 +69,8 @@ const REQUEST: IRenameRequest = {
     character: 8,
 };
 
-describe("ExtensionHost — rename по handle (in-process)", () => {
-    it("запрос уезжает субпроцессу целиком, новое имя — отдельным полем", async () => {
+describe("ExtensionHost — rename by handle (in-process)", () => {
+    it("the request goes to the subprocess whole, the new name as a separate field", async () => {
         const { host, peer } = makeHost();
         const prepare = vi.fn((_params: unknown) => Promise.resolve({ placeholder: "value" }));
         const rename = vi.fn((_params: unknown) => Promise.resolve({ applied: true }));
@@ -85,7 +85,7 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
         expect(rename.mock.calls[0]?.[0]).toEqual({ handle: 4, ...wire, newName: "renamed" });
     });
 
-    it("отказ провайдера доезжает причиной, а не теряется", async () => {
+    it("a provider refusal arrives as a reason instead of getting lost", async () => {
         const { host, peer } = makeHost();
         peer.handleRequest("languages.prepareRename", () => Promise.resolve({ rejectReason: "not an identifier" }));
         peer.handleRequest("languages.provideRenameEdits", () =>
@@ -99,7 +99,7 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
         });
     });
 
-    it("документ не открыт субпроцессу — prepare пусто, применение отказом, без RPC", async () => {
+    it("document not open in the subprocess: prepare is empty, apply is refused, no RPC", async () => {
         const { host, peer } = makeHost({}, true, false);
         const prepare = vi.fn(() => Promise.resolve({ placeholder: "value" }));
         const rename = vi.fn(() => Promise.resolve({ applied: true }));
@@ -115,7 +115,7 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
         expect(rename).not.toHaveBeenCalled();
     });
 
-    it("документ ровно в порог синхронизации проходит, больше порога — отказ без RPC и запись в лог", async () => {
+    it("a document exactly at the sync threshold passes, above it gives a refusal without RPC and a log entry", async () => {
         const length = DOCUMENT.text.length;
         const prepare = vi.fn(() => Promise.resolve({ placeholder: "value" }));
         const rename = vi.fn(() => Promise.resolve({ applied: true }));
@@ -144,7 +144,7 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
         expect(rename).toHaveBeenCalledTimes(1);
     });
 
-    it("хост без логгера на слишком большом документе не падает, а отвечает отказом", async () => {
+    it("a host without a logger does not crash on a too-large document but answers with a refusal", async () => {
         const { host, peer } = makeHost({ maxSyncedDocumentChars: DOCUMENT.text.length - 1 }, false);
         const prepare = vi.fn(() => Promise.resolve({ placeholder: "value" }));
         const rename = vi.fn(() => Promise.resolve({ applied: true }));
@@ -160,7 +160,7 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
         expect(rename).not.toHaveBeenCalled();
     });
 
-    it("после остановки субпроцесса запросы не уходят, применение отвечает отказом", async () => {
+    it("after the subprocess stops requests are not sent, apply answers with a refusal", async () => {
         const { host, peer } = makeHost();
         const prepare = vi.fn(() => Promise.resolve({ placeholder: "value" }));
         const rename = vi.fn(() => Promise.resolve({ applied: true }));
@@ -178,7 +178,7 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
         expect(rename).not.toHaveBeenCalled();
     });
 
-    it("по истечении таймаута prepare отвечает null, применение — отказом С сообщением", async () => {
+    it("after the timeout prepare answers null, apply a refusal WITH a message", async () => {
         const { host, peer, warnings, debugs } = makeHost({
             requestTimeouts: { "languages.prepareRename": 10, "languages.provideRenameEdits": 10 },
         });

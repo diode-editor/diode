@@ -8,7 +8,7 @@ function reg(id: string): IExtensionRegistration {
 }
 
 describe("ExtensionPhases", () => {
-    it("регистрация: в каталог и в ожидание, id занят", () => {
+    it("registration: into the catalog and pending, the id is taken", () => {
         const phases = new ExtensionPhases();
         const a = reg("a");
         const b = reg("b");
@@ -24,7 +24,7 @@ describe("ExtensionPhases", () => {
         expect(phases.activeCount).toBe(0);
     });
 
-    it("активация: забрать из ожидания один раз, затем активно", () => {
+    it("activation: take from pending once, then active", () => {
         const phases = new ExtensionPhases();
         const a = reg("a");
         phases.register(a);
@@ -41,7 +41,7 @@ describe("ExtensionPhases", () => {
         expect(phases.pendingRegistrations()).toEqual([]);
     });
 
-    it("оборванная активация возвращается, только если регистрация та же", () => {
+    it("an interrupted activation returns only if the registration is the same", () => {
         const phases = new ExtensionPhases();
         const a = reg("a");
         phases.register(a);
@@ -60,7 +60,7 @@ describe("ExtensionPhases", () => {
         expect(phases.pendingRegistrations()).toEqual([]);
     });
 
-    it("снятие: каталог, ожидание и активные — каждое отвечает, было ли что снимать", () => {
+    it("removal: catalog, pending and active each report whether there was anything to remove", () => {
         const phases = new ExtensionPhases();
         const a = reg("a");
         const b = reg("b");
@@ -79,7 +79,7 @@ describe("ExtensionPhases", () => {
         expect(phases.activeCount).toBe(0);
     });
 
-    it("оживление: все активные — обратно в ожидание", () => {
+    it("revival: all active go back to pending", () => {
         const phases = new ExtensionPhases();
         const a = reg("a");
         const b = reg("b");
@@ -97,7 +97,7 @@ describe("ExtensionPhases", () => {
         expect(phases.reviveAll()).toEqual([]);
     });
 
-    it("снимок ожидания не меняется от последующих переходов", () => {
+    it("a pending snapshot does not change with later transitions", () => {
         const phases = new ExtensionPhases();
         phases.register(reg("a"));
         const snapshot = phases.pendingRegistrations();
@@ -105,7 +105,7 @@ describe("ExtensionPhases", () => {
         expect(snapshot).toHaveLength(1);
     });
 
-    it("выключение очищает всё", () => {
+    it("shutdown clears everything", () => {
         const phases = new ExtensionPhases();
         const a = reg("a");
         const b = reg("b");

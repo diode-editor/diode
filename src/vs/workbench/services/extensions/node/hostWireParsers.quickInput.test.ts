@@ -8,33 +8,33 @@ import {
 } from "./hostWireParsers.ts";
 
 describe("parseWireInputBoxRequest", () => {
-    it("разбирает полный запрос", () => {
+    it("parses a full request", () => {
         expect(
             parseWireInputBoxRequest({
                 handle: 3,
                 title: "Your name",
-                prompt: "Как к вам",
-                placeHolder: "имя",
-                value: "Ада",
+                prompt: "How should we address you",
+                placeHolder: "name",
+                value: "Ada",
                 password: true,
                 validates: true,
             }),
         ).toEqual({
             handle: 3,
             title: "Your name",
-            prompt: "Как к вам",
-            placeHolder: "имя",
-            value: "Ада",
+            prompt: "How should we address you",
+            placeHolder: "name",
+            value: "Ada",
             password: true,
             validates: true,
         });
     });
 
-    it("необязательные поля отсутствуют, а не приезжают undefined'ами", () => {
+    it("optional fields are absent rather than arriving as undefined", () => {
         expect(parseWireInputBoxRequest({ handle: 1 })).toEqual({ handle: 1, password: false, validates: false });
     });
 
-    it("не-строковые опции отбрасываются", () => {
+    it("non-string options are dropped", () => {
         expect(parseWireInputBoxRequest({ handle: 1, title: 7, prompt: null, value: {} })).toEqual({
             handle: 1,
             password: false,
@@ -42,59 +42,59 @@ describe("parseWireInputBoxRequest", () => {
         });
     });
 
-    it("без числового handle — null", () => {
-        expect(parseWireInputBoxRequest({ handle: "три" })).toBeNull();
+    it("no numeric handle gives null", () => {
+        expect(parseWireInputBoxRequest({ handle: "three" })).toBeNull();
         expect(parseWireInputBoxRequest({})).toBeNull();
         expect(parseWireInputBoxRequest(null)).toBeNull();
-        expect(parseWireInputBoxRequest("строка")).toBeNull();
+        expect(parseWireInputBoxRequest("string")).toBeNull();
     });
 
-    it("validates честно булев: любое не-true значит «валидатора нет»", () => {
-        expect(parseWireInputBoxRequest({ handle: 1, validates: "да" })?.validates).toBe(false);
+    it("validates is strictly boolean: anything but true means `no validator`", () => {
+        expect(parseWireInputBoxRequest({ handle: 1, validates: "yes" })?.validates).toBe(false);
         expect(parseWireInputBoxRequest({ handle: 1, validates: true })?.validates).toBe(true);
     });
 
-    it("password честно булев: маску включает только настоящее true", () => {
+    it("password is strictly boolean: only a real true enables the mask", () => {
         expect(parseWireInputBoxRequest({ handle: 1, password: true })?.password).toBe(true);
         // A non-empty string is truthy in JavaScript, but it doesn't turn the password
         // field on: otherwise garbage on the wire would blind a regular field.
-        expect(parseWireInputBoxRequest({ handle: 1, password: "да" })?.password).toBe(false);
+        expect(parseWireInputBoxRequest({ handle: 1, password: "yes" })?.password).toBe(false);
         expect(parseWireInputBoxRequest({ handle: 1, password: 0 })?.password).toBe(false);
     });
 });
 
 describe("parseWireQuickPickRequest", () => {
-    it("разбирает список с описаниями", () => {
+    it("parses a list with descriptions", () => {
         expect(
             parseWireQuickPickRequest({
                 handle: 2,
-                title: "Кто",
-                placeHolder: "Выберите",
+                title: "Who",
+                placeHolder: "Pick one",
                 canPickMany: true,
-                items: [{ label: "a" }, { label: "b", description: "вторая" }],
+                items: [{ label: "a" }, { label: "b", description: "second" }],
                 picked: [1],
             }),
         ).toEqual({
             handle: 2,
-            title: "Кто",
-            placeHolder: "Выберите",
+            title: "Who",
+            placeHolder: "Pick one",
             canPickMany: true,
-            items: [{ label: "a" }, { label: "b", description: "вторая" }],
+            items: [{ label: "a" }, { label: "b", description: "second" }],
             picked: [1],
         });
     });
 
-    it("пункт без лейбла остаётся пустой строкой — иначе поехали бы индексы ответа", () => {
+    it("an item without a label stays an empty string, otherwise the answer indices would shift", () => {
         const parsed = parseWireQuickPickRequest({ handle: 1, items: [{ label: 7 }, { label: "b" }], picked: [] });
         expect(parsed?.items).toEqual([{ label: "" }, { label: "b" }]);
     });
 
-    it("не-объектные пункты выбрасываются", () => {
+    it("non-object items are dropped", () => {
         const parsed = parseWireQuickPickRequest({ handle: 1, items: ["a", null, { label: "b" }], picked: [] });
         expect(parsed?.items).toEqual([{ label: "b" }]);
     });
 
-    it("предотметки вне диапазона отбрасываются", () => {
+    it("out-of-range preselections are dropped", () => {
         const parsed = parseWireQuickPickRequest({
             handle: 1,
             canPickMany: true,
@@ -104,7 +104,7 @@ describe("parseWireQuickPickRequest", () => {
         expect(parsed?.picked).toEqual([0]);
     });
 
-    it("индекс, равный длине списка, — уже за его пределами", () => {
+    it("an index equal to the list length is already out of range", () => {
         const parsed = parseWireQuickPickRequest({
             handle: 1,
             canPickMany: true,
@@ -114,18 +114,18 @@ describe("parseWireQuickPickRequest", () => {
         expect(parsed?.picked).toEqual([1]);
     });
 
-    it("без canPickMany предотметки гасятся", () => {
+    it("without canPickMany preselections are dropped", () => {
         const parsed = parseWireQuickPickRequest({ handle: 1, items: [{ label: "a" }], picked: [0] });
         expect(parsed?.picked).toEqual([]);
         expect(parsed?.canPickMany).toBe(false);
     });
 
-    it("не-массив picked — пустые предотметки", () => {
+    it("non-array picked gives empty preselections", () => {
         const parsed = parseWireQuickPickRequest({ handle: 1, canPickMany: true, items: [{ label: "a" }], picked: 7 });
         expect(parsed?.picked).toEqual([]);
     });
 
-    it("без handle или без массива items — null", () => {
+    it("no handle or no items array gives null", () => {
         expect(parseWireQuickPickRequest({ items: [] })).toBeNull();
         expect(parseWireQuickPickRequest({ handle: 1 })).toBeNull();
         expect(parseWireQuickPickRequest(null)).toBeNull();
@@ -133,38 +133,38 @@ describe("parseWireQuickPickRequest", () => {
 });
 
 describe("parseWireQuickInputCancel", () => {
-    it("разбирает handle", () => {
+    it("parses the handle", () => {
         expect(parseWireQuickInputCancel({ handle: 9 })).toBe(9);
     });
 
-    it("мусор — null", () => {
+    it("garbage gives null", () => {
         expect(parseWireQuickInputCancel({})).toBeNull();
-        expect(parseWireQuickInputCancel({ handle: "девять" })).toBeNull();
+        expect(parseWireQuickInputCancel({ handle: "nine" })).toBeNull();
         expect(parseWireQuickInputCancel(null)).toBeNull();
     });
 });
 
 describe("parseWireValidationMessage", () => {
-    it("разбирает сообщение со строгостью", () => {
-        expect(parseWireValidationMessage({ message: "ой", severity: "warning" })).toEqual({
-            message: "ой",
+    it("parses a message with severity", () => {
+        expect(parseWireValidationMessage({ message: "oops", severity: "warning" })).toEqual({
+            message: "oops",
             severity: "warning",
         });
-        expect(parseWireValidationMessage({ message: "к сведению", severity: "info" })).toEqual({
-            message: "к сведению",
+        expect(parseWireValidationMessage({ message: "for your information", severity: "info" })).toEqual({
+            message: "for your information",
             severity: "info",
         });
     });
 
-    it("незнакомая или отсутствующая строгость — ошибка", () => {
+    it("unknown or missing severity means error", () => {
         expect(parseWireValidationMessage({ message: "x" })).toEqual({ message: "x", severity: "error" });
-        expect(parseWireValidationMessage({ message: "x", severity: "фатально" })).toEqual({
+        expect(parseWireValidationMessage({ message: "x", severity: "fatal" })).toEqual({
             message: "x",
             severity: "error",
         });
     });
 
-    it("молчание или мусор — значение в порядке", () => {
+    it("silence or garbage means the value is fine", () => {
         expect(parseWireValidationMessage(null)).toBeNull();
         expect(parseWireValidationMessage({})).toBeNull();
         expect(parseWireValidationMessage({ message: 7 })).toBeNull();

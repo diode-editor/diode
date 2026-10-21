@@ -55,8 +55,8 @@ function setup(options: { pushInitialState?: boolean } = {}) {
     return { views, service, sessions, ptySessions, customer, ns, attached, hostRpc, subRpc, editorTerminals };
 }
 
-describe("терминалы расширений — сквозь провод", () => {
-    it("createTerminal → шелл во встроенном терминале; onDidOpenTerminal с тем же объектом, pid, активный", async () => {
+describe("extension terminals — over the wire", () => {
+    it("createTerminal → a shell in the integrated terminal; onDidOpenTerminal with the same object, pid, active", async () => {
         const h = setup();
         const onOpen = vi.fn();
         h.ns.onDidOpenTerminal(onOpen);
@@ -73,7 +73,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("sendText сразу после createTerminal (до opened) доходит до шелла с Enter", async () => {
+    it("sendText right after createTerminal (before opened) reaches the shell with Enter", async () => {
         // This is how the fork's cleanup writes: createTerminal + a series of sendText in one tick.
         const h = setup();
         const terminal = h.ns.createTerminal("cleanup");
@@ -84,7 +84,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("show открывает панель на вкладке TERMINAL и фокусирует; hide прячет только показанный", async () => {
+    it("show opens the panel on the TERMINAL tab and focuses it; hide hides only the shown one", async () => {
         const h = setup();
         const focus = vi.fn();
         h.service.onDidRequestFocus(focus);
@@ -114,7 +114,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("hide при чужой активной вкладке панели панель не трогает", async () => {
+    it("hide leaves the panel alone when another panel tab is active", async () => {
         const h = setup();
         h.views.panelService.addView({ id: "output", title: "OUTPUT", content: null });
         const terminal = h.ns.createTerminal("t");
@@ -127,7 +127,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("dispose расширения → инстанс закрыт, exitStatus Extension; выход шелла → Process с кодом", async () => {
+    it("extension dispose → instance closed, exitStatus Extension; shell exit → Process with the code", async () => {
         const h = setup();
         const onClose = vi.fn();
         h.ns.onDidCloseTerminal(onClose);
@@ -147,7 +147,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("Kill человеком → exitStatus User", async () => {
+    it("Kill by the user → exitStatus User", async () => {
         const h = setup();
         const terminal = h.ns.createTerminal("t");
         await flush();
@@ -157,7 +157,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("шелл человека виден в terminals; sendText расширения доходит до него", async () => {
+    it("the user's shell is visible in terminals; the extension's sendText reaches it", async () => {
         const h = setup();
         h.service.newTerminal();
         await flush();
@@ -171,7 +171,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("hideFromUser: в terminals есть, во вкладках нет; show выносит во вкладки и делает активным", async () => {
+    it("hideFromUser: present in terminals, absent from tabs; show brings it to tabs and makes it active", async () => {
         const h = setup();
         h.service.newTerminal();
         const hidden = h.ns.createTerminal({ name: "bg", hideFromUser: true });
@@ -186,7 +186,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("снимок нового субпроцесса: инстансы по порядку создания (и фоновые) и активный", async () => {
+    it("new subprocess snapshot: instances in creation order (including hidden ones) and the active one", async () => {
         const h = setup({ pushInitialState: false });
         h.service.newTerminal();
         h.service.createInstance({ name: "bg", hideFromUser: true });
@@ -204,7 +204,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("до семени не уходят ни opened, ни closed, ни activeChanged", async () => {
+    it("before the seed no opened, closed or activeChanged is sent", async () => {
         const h = setup({ pushInitialState: false });
         const sent: string[] = [];
         vi.spyOn(h.hostRpc, "notify").mockImplementation((method) => {
@@ -218,7 +218,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("после уборки спавна семени нет — RPC умершего не трогается", () => {
+    it("after spawn cleanup there is no seed — the dead spawn's RPC is not touched", () => {
         const h = setup({ pushInitialState: false });
         const sent: string[] = [];
         vi.spyOn(h.hostRpc, "notify").mockImplementation((method) => {
@@ -230,7 +230,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("поздняя уборка прежнего спавна не трогает нового", async () => {
+    it("late cleanup of the previous spawn does not touch the new one", async () => {
         const h = setup();
         const [a, b] = createInProcessChannelPair();
         const ns2 = createTerminalNamespace(new RpcEndpoint(b) as unknown as SubprocessRpc);
@@ -244,7 +244,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("смерть субпроцесса: шеллы расширения живут, метки забыты; события больше не уходят", async () => {
+    it("subprocess death: extension shells survive, labels are forgotten; no more events are sent", async () => {
         const h = setup();
         const terminal = h.ns.createTerminal("t");
         await flush();
@@ -268,7 +268,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("без стока: нотификации принимаются молча, снимка нет", async () => {
+    it("without a sink: notifications are accepted silently, no snapshot", async () => {
         const customer = new TerminalCustomer(undefined);
         const [a, b] = createInProcessChannelPair();
         const hostRpc = new RpcEndpoint(a) as unknown as HostRpc;
@@ -282,7 +282,7 @@ describe("терминалы расширений — сквозь провод"
         attached.dispose();
     });
 
-    it("location уходит хосту: колонка — вкладкой, Panel — в вид, родитель — по его месту", async () => {
+    it("location goes to the host: a column — as a tab, Panel — into the view, a parent — where the parent is", async () => {
         const h = setup();
         const beside = h.ns.createTerminal({
             name: "Claude Code",
@@ -310,7 +310,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("родитель отпущен — location пропадает, терминал встаёт по умолчанию", async () => {
+    it("parent released — location is dropped, the terminal opens in the default place", async () => {
         const h = setup();
         const parent = h.ns.createTerminal({ name: "p", location: TerminalLocation.Editor });
         parent.dispose();
@@ -320,7 +320,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("pty-терминал с location — тоже вкладкой", async () => {
+    it("pty terminal with location — also as a tab", async () => {
         const h = setup();
         const { pty } = makePty();
         h.ns.createTerminal({ name: "pty", pty, location: { viewColumn: ViewColumn.One } });
@@ -331,7 +331,7 @@ describe("терминалы расширений — сквозь провод"
         h.service.dispose();
     });
 
-    it("битые конверты субпроцесса не доходят до стока", async () => {
+    it("broken subprocess envelopes do not reach the sink", async () => {
         const calls: string[] = [];
         const sink: IExtensionTerminalSink = {
             snapshot: () => ({ terminals: [], activeId: null }),
@@ -404,8 +404,8 @@ function makePty() {
     return { pty, write, close, log };
 }
 
-describe("pty расширения — сквозь провод", () => {
-    it("createTerminal({ pty }): эмулятор без процесса, open с размером, onDidOpenTerminal, pid нет", async () => {
+describe("extension pty — over the wire", () => {
+    it("createTerminal({ pty }): emulator without a process, open with dimensions, onDidOpenTerminal, no pid", async () => {
         const h = setup();
         const p = makePty();
         const onOpen = vi.fn();
@@ -422,7 +422,7 @@ describe("pty расширения — сквозь провод", () => {
         h.service.dispose();
     });
 
-    it("sendText сразу после создания доходит до handleInput ПОСЛЕ open, эхо — в эмулятор одной склейкой", async () => {
+    it("sendText right after creation reaches handleInput AFTER open, the echo goes to the emulator in one chunk", async () => {
         // Exactly what the BJLS log does: getBazelTerminal() and sendText right away.
         const h = setup();
         const p = makePty();
@@ -442,7 +442,7 @@ describe("pty расширения — сквозь провод", () => {
         h.service.dispose();
     });
 
-    it("набор человека в виджете и ресайз виджета доходят до pty", async () => {
+    it("user typing in the widget and widget resize reach the pty", async () => {
         const h = setup();
         const p = makePty();
         h.ns.createTerminal({ name: "t", pty: p.pty });
@@ -454,7 +454,7 @@ describe("pty расширения — сквозь провод", () => {
         h.service.dispose();
     });
 
-    it("onDidClose pty: досланный вывод, затем закрытие с кодом; без кода — code undefined", async () => {
+    it("pty onDidClose: trailing output, then close with the code; without a code — code undefined", async () => {
         const h = setup();
         const a = makePty();
         const b = makePty();
@@ -474,7 +474,7 @@ describe("pty расширения — сквозь провод", () => {
         h.service.dispose();
     });
 
-    it("dispose() расширения и Kill человека закрывают pty; поздний вывод не уходит", async () => {
+    it("extension dispose() and user Kill close the pty; late output is not sent", async () => {
         const h = setup();
         const a = makePty();
         const b = makePty();
@@ -495,7 +495,7 @@ describe("pty расширения — сквозь провод", () => {
         h.service.dispose();
     });
 
-    it("close() расширения бросает — терминал всё равно закрыт и событие ушло", async () => {
+    it("extension close() throws — the terminal is closed anyway and the event is sent", async () => {
         const h = setup();
         const p = makePty();
         p.pty.close = () => {
@@ -511,7 +511,7 @@ describe("pty расширения — сквозь провод", () => {
         h.service.dispose();
     });
 
-    it("pty без onDidClose/handleInput/setDimensions: open без размеров-эха, ввод и ресайз молча", async () => {
+    it("pty without onDidClose/handleInput/setDimensions: open without dimensions echo, input and resize are silent", async () => {
         const h = setup();
         const write = new EventEmitter<string>();
         const opened: unknown[] = [];
@@ -533,7 +533,7 @@ describe("pty расширения — сквозь провод", () => {
         h.service.dispose();
     });
 
-    it("смерть субпроцесса закрывает его pty-терминалы, шеллы живут", async () => {
+    it("subprocess death closes its pty terminals, shells survive", async () => {
         const h = setup();
         h.ns.createTerminal({ name: "log", pty: makePty().pty });
         h.ns.createTerminal("shell");

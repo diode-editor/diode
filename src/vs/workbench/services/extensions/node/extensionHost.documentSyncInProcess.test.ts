@@ -31,7 +31,7 @@ const NOOP_COMMANDS = {
 const SNAPSHOT: IWireDocumentSyncSnapshot = { uri: "file:///a.ts", languageId: "typescript", version: 1, text: "x" };
 
 describe("ExtensionHost — document sync (in-process)", () => {
-    it("хост проводит открытие, правки дельтой и закрытие живому спавну", async () => {
+    it("the host forwards open, delta edits and close to the live spawn", async () => {
         const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS);
         const [a, b] = createInProcessChannelPair();
         const peer = new RpcEndpoint(b);
@@ -50,7 +50,7 @@ describe("ExtensionHost — document sync (in-process)", () => {
         expect(received).toEqual(["editor.didOpen", "editor.didChange", "editor.didChange", "editor.didClose"]);
     });
 
-    it("срок will-save — из requestTimeouts: зависший участник отпускает сохранение", async () => {
+    it("the will-save deadline comes from requestTimeouts: a hung participant releases the save", async () => {
         const host = new ExtensionHost(NOOP_EDITOR_OPTIONS, NOOP_COMMANDS, {
             requestTimeouts: { "workspace.willSaveTextDocument": 5 },
         });

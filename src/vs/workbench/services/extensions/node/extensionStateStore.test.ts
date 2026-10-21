@@ -39,7 +39,7 @@ describe("extensionStateStore", () => {
         return state;
     }
 
-    it("дескриптор: свой ключ на расширение, globalState — global, workspaceState — workspace", () => {
+    it("descriptor: a key per extension, globalState is global, workspaceState is workspace", () => {
         expect(extensionStateDescriptor("acme.ext", true)).toEqual({
             key: "extensionState/acme.ext",
             scope: "global",
@@ -48,7 +48,7 @@ describe("extensionStateStore", () => {
         expect(extensionStateDescriptor("acme.ext", false).scope).toBe("workspace");
     });
 
-    it("memento переживает перезапуск: глобальный и воркспейсный словари раздельно", () => {
+    it("memento survives a restart: global and workspace dictionaries are separate", () => {
         const p = paths();
         const project = computeWorkspaceId("/projects/alpha");
         const first = loadState(p);
@@ -66,7 +66,7 @@ describe("extensionStateStore", () => {
         expect(reopened.get("other.ext", true)).toEqual({});
     });
 
-    it("пустой словарь удаляет запись — файл не копит {}", () => {
+    it("an empty dictionary deletes the entry, so the file does not pile up {}", () => {
         const p = paths();
         const state = loadState(p);
         const store = createExtensionStateStore(state);
@@ -77,7 +77,7 @@ describe("extensionStateStore", () => {
         expect(JSON.parse(fs.readFileSync(p.globalStateFile, "utf-8"))).toEqual({});
     });
 
-    it("transient: словари пусты, записи никуда не уходят", () => {
+    it("transient: dictionaries are empty, writes go nowhere", () => {
         const store = createTransientExtensionStateStore();
         store.set("acme.ext", true, { a: 1 });
         expect(store.get("acme.ext", true)).toEqual({});

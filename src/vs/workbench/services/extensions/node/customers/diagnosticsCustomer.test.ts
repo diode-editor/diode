@@ -50,8 +50,8 @@ function publish(fire: (method: string, params: unknown) => void, owner: string,
     fire("diagnostics.publish", { owner, resource, markers });
 }
 
-describe("DiagnosticsCustomer — публикация коллекций", () => {
-    it("валидная публикация уходит стоку; битый конверт — нет", () => {
+describe("DiagnosticsCustomer — collection publishing", () => {
+    it("a valid publish goes to the sink; a broken envelope does not", () => {
         const { sink, customer } = setup();
         const { rpc, fire } = makeRpc();
         customer.attach({ rpc, logger: undefined });
@@ -63,7 +63,7 @@ describe("DiagnosticsCustomer — публикация коллекций", () =
         expect(sink).toHaveBeenCalledWith("ext:ts", MAIN, [{ severity: 0, range: RANGE, message: "Type error" }]);
     });
 
-    it("без стока и без чтения маркеров публикация молча отбрасывается", () => {
+    it("without a sink and marker reader a publish is dropped silently", () => {
         const customer = new DiagnosticsCustomer(undefined, undefined);
         const { rpc, fire, sent } = makeRpc();
         customer.attach({ rpc, logger: undefined });
@@ -75,8 +75,8 @@ describe("DiagnosticsCustomer — публикация коллекций", () =
     });
 });
 
-describe("DiagnosticsCustomer — чужие маркеры субпроцессу", () => {
-    it("семя до первого спавна — некому слать, и не падает", () => {
+describe("DiagnosticsCustomer — foreign markers to the subprocess", () => {
+    it("seed before the first spawn — no one to send to, and no crash", () => {
         const { markers, customer } = setup();
         markers.changeOne("settings", SETTINGS, [{ severity: MarkerSeverity.Warning, range: RANGE, message: "a" }]);
 
@@ -85,7 +85,7 @@ describe("DiagnosticsCustomer — чужие маркеры субпроцесс
         }).not.toThrow();
     });
 
-    it("маркер чужого владельца уходит полным набором ресурса; серьёзность — числа vscode", () => {
+    it("a foreign owner's marker goes as the resource's full set; severity uses vscode numbers", () => {
         const { markers, customer } = setup();
         const { rpc, mirrored } = makeRpc();
         customer.attach({ rpc, logger: undefined });
@@ -113,7 +113,7 @@ describe("DiagnosticsCustomer — чужие маркеры субпроцесс
         ]);
     });
 
-    it("свои маркеры не эхом: ресурс только со своими молчит, рядом с чужими — отфильтрованы", () => {
+    it("own markers are not echoed: a resource with only own markers stays silent, next to foreign ones they are filtered", () => {
         const { markers, customer } = setup();
         const { rpc, fire, mirrored } = makeRpc();
         customer.attach({ rpc, logger: undefined });
@@ -128,7 +128,7 @@ describe("DiagnosticsCustomer — чужие маркеры субпроцесс
         expect(mirrored()).toEqual([foreignOnly, foreignOnly]);
     });
 
-    it("снятые чужие сообщаются пустым набором, даже если свои остались; дальше ресурс молчит", () => {
+    it("removed foreign markers are reported as an empty set, even if own ones remain; then the resource stays silent", () => {
         const { markers, customer } = setup();
         const { rpc, fire, mirrored } = makeRpc();
         customer.attach({ rpc, logger: undefined });
@@ -141,7 +141,7 @@ describe("DiagnosticsCustomer — чужие маркеры субпроцесс
         expect(mirrored().slice(1)).toEqual([[{ resource: MAIN, markers: [] }]]);
     });
 
-    it("семя — ресурсы с чужими маркерами, по разу; свои и пустые не уходят", () => {
+    it("seed — resources with foreign markers, once each; own and empty ones are not sent", () => {
         const { markers, customer } = setup();
         const first = makeRpc();
         customer.attach({ rpc: first.rpc, logger: undefined });
@@ -169,7 +169,7 @@ describe("DiagnosticsCustomer — чужие маркеры субпроцесс
         ]);
     });
 
-    it("после ухода спавна не шлёт; новый спавн начинает с пустого зеркала, свои владельцы помнятся", () => {
+    it("after the spawn exits nothing is sent; a new spawn starts with an empty mirror, own owners are remembered", () => {
         const { markers, customer } = setup();
         const first = makeRpc();
         const attached = customer.attach({ rpc: first.rpc, logger: undefined });

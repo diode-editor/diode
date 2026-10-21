@@ -27,7 +27,7 @@ function ext(keybindings: readonly IKeybindingContribution[]): IExtension {
 }
 
 describe("registerExtensionKeybindings", () => {
-    it("регистрирует аккорд с when и командой", () => {
+    it("registers a chord with when and command", () => {
         const registry = new KeybindingRegistry();
         registerExtensionKeybindings(
             [ext([{ command: "regionfolder.wrapWithRegion", key: "ctrl+m ctrl+r", when: "editorTextFocus" }])],
@@ -46,7 +46,7 @@ describe("registerExtensionKeybindings", () => {
         return contextKeys;
     }
 
-    it("платформенный оверрайд mac/win/linux побеждает key — по контекст-ключу os, а не process.platform", () => {
+    it("mac/win/linux platform override beats key — via the os context key, not process.platform", () => {
         const registry = new KeybindingRegistry();
         registerExtensionKeybindings([ext([{ command: "cmd", key: "ctrl+a", mac: "meta+a", win: "alt+a" }])], registry);
         expect(formatKeybinding(registry.getKeybindingForCommand("cmd", contextFor("mac"))!)).toBe("Meta+A");
@@ -54,7 +54,7 @@ describe("registerExtensionKeybindings", () => {
         expect(formatKeybinding(registry.getKeybindingForCommand("cmd", contextFor("windows"))!)).toBe("Alt+A");
     });
 
-    it("варианты различаются условием os: ОС, уточнённая после старта, переключает активный", () => {
+    it("variants differ by the os condition: an OS refined after startup switches the active one", () => {
         const registry = new KeybindingRegistry();
         registerExtensionKeybindings(
             [ext([{ command: "cmd", key: "ctrl+a", mac: "meta+a", when: "textInputFocus" }])],
@@ -73,13 +73,13 @@ describe("registerExtensionKeybindings", () => {
         expect(registry.resolveKey(meta, contextKeys)).toMatchObject({ kind: "command", commandId: "cmd" });
     });
 
-    it("одинаковый ключ на всех ОС регистрируется один раз без условия по os", () => {
+    it("the same key on all OSes registers once without an os condition", () => {
         const registry = new KeybindingRegistry();
         registerExtensionKeybindings([ext([{ command: "cmd", key: "ctrl+a", linux: "ctrl+a" }])], registry);
         expect(registry.listBindings().map((b) => b.when)).toEqual([undefined]);
     });
 
-    it("оверрайд только для одной ОС без общего key — остальные ОС без привязки", () => {
+    it("override for one OS only without a common key — other OSes get no binding", () => {
         const registry = new KeybindingRegistry();
         const warn = vi.fn();
         registerExtensionKeybindings([ext([{ command: "cmd", key: "", mac: "meta+a" }])], registry, { warn } as never);
@@ -87,7 +87,7 @@ describe("registerExtensionKeybindings", () => {
         expect(warn).not.toHaveBeenCalled();
     });
 
-    it("снятие привязки (-command) снимает каждый вариант", () => {
+    it("unbinding (-command) removes every variant", () => {
         const registry = new KeybindingRegistry();
         registry.register(parseChord("ctrl+a"), "cmd");
         registry.register(parseChord("meta+a"), "cmd");
@@ -95,7 +95,7 @@ describe("registerExtensionKeybindings", () => {
         expect(registry.listBindings()).toEqual([]);
     });
 
-    it("ведущий - в command снимает существующую привязку", () => {
+    it("leading - in command removes an existing binding", () => {
         const registry = new KeybindingRegistry();
         registry.register(
             [
@@ -110,13 +110,13 @@ describe("registerExtensionKeybindings", () => {
         expect(registry.getKeybindingForCommand("editor.action.foo")).toBeUndefined();
     });
 
-    it("пустой/отсутствующий key пропускается без падения", () => {
+    it("empty/missing key is skipped without throwing", () => {
         const registry = new KeybindingRegistry();
         registerExtensionKeybindings([ext([{ command: "cmd", key: "" }])], registry);
         expect(registry.getKeybindingForCommand("cmd")).toBeUndefined();
     });
 
-    it("кривой элемент манифеста не роняет остальные (изоляция + лог)", () => {
+    it("a malformed manifest entry does not break the rest (isolation + log)", () => {
         const warn = vi.fn();
         const registry = new KeybindingRegistry();
 
@@ -134,7 +134,7 @@ describe("registerExtensionKeybindings", () => {
         expect(registry.getKeybindingForCommand("b")).toBeDefined();
     });
 
-    it("расширение без contributes.keybindings игнорируется", () => {
+    it("extension without contributes.keybindings is ignored", () => {
         const registry = new KeybindingRegistry();
         const noKb: IExtension = {
             id: "x",

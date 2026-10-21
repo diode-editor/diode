@@ -221,18 +221,18 @@ afterEach(() => {
 
 // Producer message shape: the parser on the other side drops garbage, so
 // neither the consumer unit tests nor the end-to-end test see it.
-describe("ExtensionHost — каталог расширений на проводе", () => {
+describe("ExtensionHost — extension catalog on the wire", () => {
     const catalogs = (child: FakeChild): { extensions: unknown[] }[] =>
         child.sent
             .filter((m) => m.kind === "notif" && m.method === "extensions.catalog")
             .map((m) => (m as { params: { extensions: unknown[] } }).params);
 
-    it("семя на handshake несёт ровно зарегистрированные расширения с их манифестами", async () => {
+    it("handshake seed carries exactly the registered extensions with their manifests", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         host.registerExtension({
             id: "ext.a",
-            manifest: { name: "a", publisher: "ext", version: "1.2.3", displayName: "Первое" },
+            manifest: { name: "a", publisher: "ext", version: "1.2.3", displayName: "First" },
             mainPath: "/ext-a/out/main.js",
         });
         host.registerExtension(makeReg("ext.b", "/ext-b/main.js"));
@@ -243,7 +243,7 @@ describe("ExtensionHost — каталог расширений на прово�
             {
                 id: "ext.a",
                 extensionPath: "/ext-a/out",
-                packageJSON: { name: "a", publisher: "ext", version: "1.2.3", displayName: "Первое" },
+                packageJSON: { name: "a", publisher: "ext", version: "1.2.3", displayName: "First" },
                 isActive: false,
             },
             {
@@ -256,7 +256,7 @@ describe("ExtensionHost — каталог расширений на прово�
         host.dispose();
     });
 
-    it("активация едет точечным `extensions.activated`, а не новым каталогом", async () => {
+    it("activation goes out as a targeted `extensions.activated`, not a new catalog", async () => {
         // Manifests are heavy: never resend the whole list for one flag.
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
@@ -271,7 +271,7 @@ describe("ExtensionHost — каталог расширений на прово�
         host.dispose();
     });
 
-    it("снятие расширения пере-push'ит каталог уже без него", async () => {
+    it("removing an extension re-pushes the catalog without it", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         host.registerExtension(makeReg("ext.a", "/a.js"));
@@ -284,7 +284,7 @@ describe("ExtensionHost — каталог расширений на прово�
         host.dispose();
     });
 
-    it("после смерти субпроцесса состав переезжает целиком, а активность честно обнуляется", async () => {
+    it("after subprocess death the whole set carries over and activation state is reset", async () => {
         // Nobody is active at handshake: `isActive: true` would lie to a neighbor reading
         // the catalog in `activate()`. The flag is set by `extensions.activated`.
         const child = new FakeChild();
@@ -364,7 +364,7 @@ describe("ExtensionHost — registration lifecycle", () => {
         expect(() => host.registerExtension(makeReg("ext.b", "/b.js"))).toThrow(/disposed/);
     });
 
-    it("disposeNow снимает субпроцесс сигналом — синхронно, без ожидания прощания", async () => {
+    it("disposeNow kills the subprocess with a signal, synchronously, without waiting for it to exit", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
@@ -377,7 +377,7 @@ describe("ExtensionHost — registration lifecycle", () => {
         expect(child.killed).toBe(true);
     });
 
-    it("shutdown ждёт вежливого выхода субпроцесса, а disposeNow после него никого не добивает", async () => {
+    it("shutdown waits for a graceful subprocess exit, and disposeNow afterwards kills nothing", async () => {
         const child = new FakeChild();
         child.exitOnShutdown = true;
         const host = spawnReadyHost(child, new FakeEditorOptions());
@@ -394,7 +394,7 @@ describe("ExtensionHost — registration lifecycle", () => {
         expect(child.signals).toEqual([]);
     });
 
-    it("disposeNow добивает субпроцесс, который ещё прощается после shutdown", async () => {
+    it("disposeNow kills a subprocess that is still exiting after shutdown", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
@@ -406,7 +406,7 @@ describe("ExtensionHost — registration lifecycle", () => {
         expect(child.signals).toEqual(["SIGKILL"]);
     });
 
-    it("расширения одного события активируются параллельно: соседи не ждут чужой activate()", async () => {
+    it("extensions of one event activate in parallel: siblings do not wait for each other's activate()", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         host.registerExtension(makeReg("ext.slow", "/slow.js"));
@@ -429,7 +429,7 @@ describe("ExtensionHost — registration lifecycle", () => {
         expect(host.hasExtension("ext.fast")).toBe(true);
     });
 
-    it("упавший activate() одного — в лог с id, сосед по событию активирован", async () => {
+    it("a failed activate() is logged with its id, the sibling on the same event is activated", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), { logger });
@@ -457,7 +457,7 @@ describe("ExtensionHost — registration lifecycle", () => {
         expect(logger.error).toHaveBeenCalledWith('failed to activate extension "ext.bad"', expect.anything());
     });
 
-    it("disposeNow без поднятого субпроцесса просто гасит host", () => {
+    it("disposeNow without a running subprocess just disposes the host", () => {
         const host = spawnReadyHost(new FakeChild(), new FakeEditorOptions());
 
         host.disposeNow();
@@ -797,8 +797,8 @@ function activated(child: FakeChild, id: string): boolean {
 
 const DEATH_WARNING = "extension host subprocess died — resetting host state";
 
-describe("ExtensionHost — смерть субпроцесса", () => {
-    it("подписки спавна на ядро снимаются: после респавна слушатель один, мертвецу не пишут", async () => {
+describe("ExtensionHost — subprocess death", () => {
+    it("spawn subscriptions to core are removed: one listener after respawn, nothing is sent to the dead process", async () => {
         const child = new FakeChild();
         const editorOptions = new FakeEditorOptions();
         const host = spawnReadyHost(child, editorOptions);
@@ -822,7 +822,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         host.dispose();
     });
 
-    it("смерть снимает watcher'ы расширений: дерево ядра не слушается за мертвеца", async () => {
+    it("death removes extension watchers: the core tree is not watched for the dead process", async () => {
         const child = new FakeChild();
         const watched: string[] = [];
         const disposed: string[] = [];
@@ -848,7 +848,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         host.dispose();
     });
 
-    it("активация, оборванная смертью, не теряется: расширение встаёт на следующем событии", async () => {
+    it("activation interrupted by death is not lost: the extension comes up on the next event", async () => {
         const child = new FakeChild();
         child.autoRespond = false;
         const logger = makeLogger();
@@ -873,7 +873,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         host.dispose();
     });
 
-    it("снятое за время оборванной активации расширение не оживает, соседнее — оживает (и без логгера)", async () => {
+    it("an extension removed during the interrupted activation is not revived, its sibling is (even without a logger)", async () => {
         const child = new FakeChild();
         child.autoRespond = false;
         const host = spawnReadyHost(child, new FakeEditorOptions());
@@ -894,7 +894,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         host.dispose();
     });
 
-    it("умерший субпроцесс гасит расширения, а следующее ЛЮБОЕ событие поднимает их заново", async () => {
+    it("a dead subprocess deactivates extensions, and the next event of ANY kind brings them back", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), { logger });
@@ -915,7 +915,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         expect(host.hasExtension("ext.a")).toBe(true);
     });
 
-    it("вежливое выключение смертью не считается", async () => {
+    it("graceful shutdown does not count as death", async () => {
         const child = new FakeChild();
         child.exitOnSignal = "SIGTERM";
         const logger = makeLogger();
@@ -928,7 +928,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         expect(logger.warn).not.toHaveBeenCalledWith(DEATH_WARNING);
     });
 
-    it("снятая до оживления регистрация обратно не поднимается", async () => {
+    it("a registration removed before revival is not brought back", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         const registration = await registerAndActivate(host, makeReg("ext.a", "/a.js"));
@@ -942,7 +942,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         expect(activated(next, "ext.a")).toBe(false);
     });
 
-    it("снятое расширение после смерти не воскресает", async () => {
+    it("a removed extension is not revived after death", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
@@ -956,7 +956,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         expect(activated(next, "ext.a")).toBe(false);
     });
 
-    it("не воскресает и то, что сняли между двумя смертями", async () => {
+    it("an extension removed between two deaths is not revived either", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         const a = await registerAndActivate(host, makeReg("ext.a", "/a.js"));
@@ -980,7 +980,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         expect(activated(third, "ext.a")).toBe(false);
     });
 
-    it("выключенный хост расширения не оживляет", async () => {
+    it("a shut-down host does not revive extensions", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
@@ -994,7 +994,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         expect(spawnMock).not.toHaveBeenCalled();
     });
 
-    it("прокси-команды мертвеца заменяются заглушками-активаторами: команда не исчезает", async () => {
+    it("proxy commands of the dead process are replaced by activator stubs: the command does not disappear", async () => {
         const child = new FakeChild();
         const commands = new FakeCommandService();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {}, commands);
@@ -1020,7 +1020,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         expect(activated(next, "ext.a")).toBe(true);
     });
 
-    it("workspaceContains-проход тоже оживляет — это такое же событие активации", async () => {
+    it("a workspaceContains pass also revives: it is an activation event like any other", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1044,7 +1044,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         expect(logger.info).toHaveBeenCalledWith('activated extension "ext.a" (workspaceContains)');
     });
 
-    it("без смерти субпроцесса событие проход по папкам не запускает — ни первое, ни последующие", async () => {
+    it("without subprocess death an event does not start a folder pass, neither the first nor later ones", async () => {
         const child = new FakeChild();
         let scans = 0;
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1070,7 +1070,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         host.dispose();
     });
 
-    it("событие не ждёт чужую активацию в полёте — только своих расширений", async () => {
+    it("an event waits only for in-flight activation of its own extensions, not others'", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         host.registerExtension({ ...makeReg("ext.slow", "/s.js"), activationEvents: ["onLanguage:java"] });
@@ -1082,7 +1082,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         host.dispose();
     });
 
-    it("поднятое проходом workspaceContains оживает на любом событии: журнал проигрывается вместе с проходом", async () => {
+    it("an extension activated by a workspaceContains pass revives on any event: the journal replays along with the pass", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             configuration: makeConfigProvider().provider,
@@ -1106,7 +1106,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         host.dispose();
     });
 
-    it("событие до регистрации не теряется: расширение встаёт на самой регистрации", async () => {
+    it("an event before registration is not lost: the extension activates on registration itself", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await host.activateByEvent("onLanguage:python");
@@ -1121,7 +1121,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         host.dispose();
     });
 
-    it("активация на регистрации, у которой host не поднялся, пишется в лог", async () => {
+    it("activation on registration whose host failed to start is logged", async () => {
         const logger = makeLogger();
         const host = spawnReadyHost(new FakeChild(), new FakeEditorOptions(), { logger });
         await host.activateByEvent("onLanguage:python");
@@ -1139,7 +1139,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         host.dispose();
     });
 
-    it("регистрацию сняли, пока поднимался субпроцесс, — активация тихо её пропускает", async () => {
+    it("a registration removed while the subprocess was starting is silently skipped by activation", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         const registration = host.registerExtension(makeReg("ext.a", "/a.js"));
@@ -1153,7 +1153,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         host.dispose();
     });
 
-    it("activateByEvent дожидается расширения, которое уже поднимает другой вызов", async () => {
+    it("activateByEvent waits for an extension that another call is already activating", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         host.registerExtension(makeReg("ext.a", "/a.js"));
@@ -1175,7 +1175,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         expect(host.hasExtension("ext.a")).toBe(true);
     });
 
-    it("ничего не подошло и оживлять некого — субпроцесс не поднимается", async () => {
+    it("nothing matches and nothing to revive: the subprocess is not started", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             configuration: makeConfigProvider().provider,
@@ -1214,8 +1214,8 @@ function initialFolders(child: FakeChild): unknown {
     return (init as { params: { workspaceFolders: unknown } } | undefined)?.params.workspaceFolders;
 }
 
-describe("ExtensionHost — смена воркспейса окна", () => {
-    it("живой субпроцесс перезапускается: старый прощается, новый видит новые папки и поднимает активных", async () => {
+describe("ExtensionHost — window workspace change", () => {
+    it("a live subprocess restarts: the old one exits, the new one sees the new folders and activates the active extensions", async () => {
         const child = new FakeChild();
         child.exitOnShutdown = true;
         const logger = makeLogger();
@@ -1238,7 +1238,7 @@ describe("ExtensionHost — смена воркспейса окна", () => {
         host.dispose();
     });
 
-    it("событие за время прощания поднимает новый спавн сразу, и расширение активируется в нём один раз", async () => {
+    it("an event during exit starts the new spawn right away, and the extension activates in it once", async () => {
         const child = new FakeChild();
         // The old subprocess does not exit on host.shutdown; shutdown drags on until the signal.
         child.exitOnSignal = "SIGTERM";
@@ -1265,7 +1265,7 @@ describe("ExtensionHost — смена воркспейса окна", () => {
         host.dispose();
     });
 
-    it("без субпроцесса перезапускать нечего: остаётся проход workspaceContains по новым папкам", async () => {
+    it("without a subprocess there is nothing to restart: only a workspaceContains pass over the new folders", async () => {
         const scanned: string[] = [];
         const logger = makeLogger();
         const workspace = makeSwitchableWorkspace("/old");
@@ -1295,7 +1295,7 @@ describe("ExtensionHost — смена воркспейса окна", () => {
         host.dispose();
     });
 
-    it("выключенный хост субпроцесс не поднимает", async () => {
+    it("a shut-down host does not start the subprocess", async () => {
         const child = new FakeChild();
         child.exitOnShutdown = true;
         const host = spawnReadyHost(child, new FakeEditorOptions());
@@ -1309,8 +1309,8 @@ describe("ExtensionHost — смена воркспейса окна", () => {
     });
 });
 
-describe("ExtensionHost — причина активации в логе", () => {
-    it("лог называет событие, поднявшее расширение", async () => {
+describe("ExtensionHost — activation reason in the log", () => {
+    it("the log names the event that activated the extension", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), { logger });
@@ -1322,7 +1322,7 @@ describe("ExtensionHost — причина активации в логе", () =
         host.dispose();
     });
 
-    it("у workspaceContains причина — ПОДОШЕДШИЙ паттерн, а не список объявленных", async () => {
+    it("for workspaceContains the reason is the MATCHED pattern, not the declared list", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1346,7 +1346,7 @@ describe("ExtensionHost — причина активации в логе", () =
         host.dispose();
     });
 
-    it("сканер бросил — обход считается ОБОРВАННЫМ и говорит об этом в лог", async () => {
+    it("scanner throws: the walk counts as INTERRUPTED and says so in the log", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1375,7 +1375,7 @@ describe("ExtensionHost — причина активации в логе", () =
         host.dispose();
     });
 
-    it("обход дошёл до конца — предупреждения об обрыве НЕТ", async () => {
+    it("walk completes: NO interruption warning", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1394,7 +1394,7 @@ describe("ExtensionHost — причина активации в логе", () =
         host.dispose();
     });
 
-    it("без провайдера конфигурации папок воркспейса нет — обход не начинается", async () => {
+    it("without a configuration provider there are no workspace folders: the walk does not start", async () => {
         const child = new FakeChild();
         const readDirectory = vi.fn(() => Promise.resolve([]));
         const exists = vi.fn(() => Promise.resolve(true));
@@ -1414,7 +1414,7 @@ describe("ExtensionHost — причина активации в логе", () =
         host.dispose();
     });
 
-    it("ПОВИСШИЙ обход обрывается тайм-аутом, а не ждёт ФС вечно", async () => {
+    it("a HUNG walk is cut off by a timeout instead of waiting on the FS forever", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1456,7 +1456,7 @@ describe("ExtensionHost — subprocess events", () => {
         expect(logger.error).toHaveBeenCalledWith("extension host subprocess error", expect.any(Error));
     });
 
-    it("не тревожит субпроцесс, умерший до выключения: ни host.shutdown, ни сигналов", async () => {
+    it("leaves alone a subprocess that died before shutdown: no host.shutdown, no signals", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
@@ -1495,7 +1495,7 @@ describe("ExtensionHost — readiness failures", () => {
         await expect(host.activateByEvent("*")).rejects.toThrow(/did not become ready/);
     });
 
-    it("по умолчанию ждёт host.ready 60 с, как эталон, а не списывает медленный старт", async () => {
+    it("waits 60 s for host.ready by default, like upstream, instead of giving up on a slow start", async () => {
         vi.useFakeTimers();
         try {
             const child = new FakeChild();
@@ -1518,7 +1518,7 @@ describe("ExtensionHost — readiness failures", () => {
         }
     });
 
-    it("заглушка-активатор команды не отклоняется, когда субпроцесс не поднялся", async () => {
+    it("command activator stub does not reject when the subprocess fails to start", async () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never); // ready never arrives
         const logger = makeLogger();
@@ -1540,7 +1540,7 @@ describe("ExtensionHost — readiness failures", () => {
         host.dispose();
     });
 
-    it("расширение поднялось, но команду не завело — в логе сказано именно это", async () => {
+    it("extension activated but did not register the command: the log says exactly that", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const commands = new FakeCommandService();
@@ -1554,7 +1554,7 @@ describe("ExtensionHost — readiness failures", () => {
         host.dispose();
     });
 
-    it("заглушка не отклоняется и БЕЗ логгера: гасить провал — не работа логгера", async () => {
+    it("stub does not reject WITHOUT a logger either: swallowing the failure is not the logger's job", async () => {
         const child = new FakeChild();
         spawnMock.mockReturnValue(child as never); // ready never arrives
         const commands = new FakeCommandService();
@@ -1634,8 +1634,8 @@ function makeConfigProvider() {
     return { provider, fire: (keys: readonly string[]) => cb?.(keys) };
 }
 
-describe("ExtensionHost — семена handshake", () => {
-    it("после ready и до первой активации уходят ровно эти нотификации и ровно в этом порядке", async () => {
+describe("ExtensionHost — handshake seeds", () => {
+    it("between ready and the first activation exactly these notifications go out, in exactly this order", async () => {
         const child = new FakeChild();
         const opened = { uri: Uri.file("/repo/a.ts").toString(), languageId: "typescript", version: 1, text: "a" };
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1663,7 +1663,7 @@ describe("ExtensionHost — семена handshake", () => {
         host.dispose();
     });
 
-    it("со стоком терминалов семя заканчивается снимком терминалов: все инстансы, затем активный", async () => {
+    it("with a terminal sink the seed ends with a terminal snapshot: all instances, then the active one", async () => {
         // bazel-java looks for its log in `window.terminals` in `activate()`: the snapshot
         // must land before the first activation, otherwise it creates a duplicate.
         const child = new FakeChild();
@@ -1692,8 +1692,8 @@ describe("ExtensionHost — семена handshake", () => {
     });
 });
 
-describe("ExtensionHost — провод задач (taskSink)", () => {
-    it("события задач ядра уходят субпроцессу tasks.*; регистрация провайдера субпроцесса — в сток; смерть снимает её", async () => {
+describe("ExtensionHost — task wire (taskSink)", () => {
+    it("core task events go to the subprocess as tasks.*; subprocess provider registration goes to the sink; death removes it", async () => {
         const child = new FakeChild();
         let events: IExtensionTaskEvents | null = null;
         const unregistered = vi.fn();
@@ -1776,7 +1776,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
-    it("дублирует window.showMessage в логгер по строгости — история остаётся после того, как тост погас", async () => {
+    it("mirrors window.showMessage to the logger by severity: history stays after the toast is gone", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), { logger });
@@ -1805,7 +1805,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
-    it("показ без логгера не роняет обработчик: сообщение всё равно доходит до стока", async () => {
+    it("showing without a logger does not crash the handler: the message still reaches the sink", async () => {
         const child = new FakeChild();
         const shown: string[] = [];
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1838,7 +1838,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
-    it("без стока сообщений расширение получает «закрыто без выбора», а не висит", async () => {
+    it("without a message sink the extension gets a no-choice dismissal instead of hanging", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
@@ -1856,7 +1856,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
-    it("мусорные параметры показа — тот же ответ «без выбора»", async () => {
+    it("garbage show params get the same no-choice answer", async () => {
         const child = new FakeChild();
         const shown: unknown[] = [];
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1879,7 +1879,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
-    it("сток отдаёт индекс нажатой кнопки, адрес показа минтит хост", async () => {
+    it("sink returns the clicked button index, the host mints the show handle", async () => {
         const child = new FakeChild();
         const handles: number[] = [];
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1912,7 +1912,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
-    it("поломка поверхности не отклоняет запрос расширения (иначе падает весь субпроцесс)", async () => {
+    it("a surface failure does not reject the extension request (otherwise the whole subprocess crashes)", async () => {
         const child = new FakeChild();
         const logger = makeLogger();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1940,7 +1940,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
-    it("поломка поверхности БЕЗ логгера тоже не отклоняет запрос", async () => {
+    it("a surface failure WITHOUT a logger does not reject the request either", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             notificationSink: {
@@ -1965,7 +1965,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
-    it("смерть субпроцесса гасит его живые сообщения: отвечать на них стало некому", async () => {
+    it("subprocess death dismisses its live messages: no one is left to answer them", async () => {
         const child = new FakeChild();
         const cancelled: number[] = [];
         let shownHandle = -1;
@@ -1995,7 +1995,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         expect(cancelled).toEqual([shownHandle]);
     });
 
-    it("смерть субпроцесса НЕ гасит уже отвеченные сообщения", async () => {
+    it("subprocess death does NOT dismiss already answered messages", async () => {
         // Otherwise the sink would get "dismiss" for a message shown long ago, and that
         // is not harmless: the address could already point at someone else's message.
         const child = new FakeChild();
@@ -2022,7 +2022,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         expect(cancelled).toEqual([]);
     });
 
-    it("env.clipboard: читает и пишет тот же буфер, что copy/paste ядра", async () => {
+    it("env.clipboard: reads and writes the same buffer as core copy/paste", async () => {
         const child = new FakeChild();
         const written: string[] = [];
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -2055,7 +2055,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
-    it("env.clipboard без буфера отдаёт пустую строку, а не падает", async () => {
+    it("env.clipboard without a buffer returns an empty string instead of throwing", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
@@ -2071,7 +2071,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
-    it("env.openExternal отдаёт ссылку открывателю; пустой и не-строковый uri отсекаются", async () => {
+    it("env.openExternal passes the link to the opener; empty and non-string uris are rejected", async () => {
         const child = new FakeChild();
         const opened: string[] = [];
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -2102,7 +2102,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
         host.dispose();
     });
 
-    it("env.openExternal без открывателя честно отвечает «не удалось»", async () => {
+    it("env.openExternal without an opener reports failure", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
@@ -2144,8 +2144,8 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
     });
 });
 
-describe("ExtensionHost — memento.update на проводе", () => {
-    it("чужая форма запроса — ответ ошибкой, а не тихая запись", async () => {
+describe("ExtensionHost — memento.update on the wire", () => {
+    it("a foreign request shape gets an error response, not a silent write", async () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));

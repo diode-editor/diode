@@ -65,7 +65,7 @@ async function harnessWith(file: {
     });
 }
 
-describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый prettier из магазина", () => {
+describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — stock prettier from the marketplace", () => {
     beforeAll(async () => {
         installed = await installPrettier();
         expect(installed.registration.id).toBe(PRETTIER_ID);
@@ -75,7 +75,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый prettie
         installed.dispose();
     });
 
-    it("Format Document приводит markdown к формату prettier", { timeout: 120_000 }, async () => {
+    it("Format Document brings markdown to prettier's format", { timeout: 120_000 }, async () => {
         const harness = await harnessWith({ name: "doc.md", content: MESSY_MD });
         try {
             registerFormatActions(harness);
@@ -90,7 +90,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый prettie
         }
     });
 
-    it("Format Document приводит json к формату prettier", { timeout: 120_000 }, async () => {
+    it("Format Document brings json to prettier's format", { timeout: 120_000 }, async () => {
         const harness = await harnessWith({ name: "doc.json", content: MESSY_JSON });
         try {
             registerFormatActions(harness);
@@ -105,7 +105,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый prettie
         }
     });
 
-    it("отформатированный документ повторным вызовом не трогается", { timeout: 120_000 }, async () => {
+    it("a formatted document is left untouched by a repeated call", { timeout: 120_000 }, async () => {
         const harness = await harnessWith({ name: "doc.md", content: FORMATTED_MD });
         try {
             registerFormatActions(harness);
@@ -123,7 +123,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый prettie
         }
     });
 
-    it("Format Selection правит только выделенную строку", { timeout: 120_000 }, async () => {
+    it("Format Selection edits only the selected line", { timeout: 120_000 }, async () => {
         // The language is javascript: prettier's range formatting is truly partial only
         // there (it ignores markdown, and expands json to the whole document).
         const harness = await harnessWith({ name: "doc.js", content: MESSY_JS });

@@ -39,7 +39,7 @@ let installed: IInstalledGo;
 let gopls: string;
 
 describe.skipIf(MARKETPLACE_OFFLINE || skipReason !== undefined)(
-    "ExtensionHost — стоковый golang.go (gopls, сквозняк)",
+    "ExtensionHost — stock golang.go (gopls, end to end)",
     () => {
         beforeAll(async () => {
             gopls = ensureGopls();
@@ -52,7 +52,7 @@ describe.skipIf(MARKETPLACE_OFFLINE || skipReason !== undefined)(
         });
 
         it(
-            "активация доходит до конца; диагностика, hover, F12 и save с organize imports + gofmt",
+            "activation completes; diagnostics, hover, F12 and save with organize imports + gofmt",
             { timeout: 300_000 },
             async () => {
                 const published: { resource: string; markers: readonly WireMarker[] }[] = [];
@@ -106,7 +106,7 @@ describe.skipIf(MARKETPLACE_OFFLINE || skipReason !== undefined)(
                     expect(warnings).toContainEqual(expect.stringContaining('тесты "go"'));
 
                     // Diagnostics from the REAL gopls signal that the server is ready.
-                    const unusedImport = await until("диагностика лишнего импорта os", () => {
+                    const unusedImport = await until("diagnostic for the unused os import", () => {
                         const markers = published.filter((p) => p.resource === mainUri).at(-1)?.markers ?? [];
                         return Promise.resolve(
                             markers.find((m) => m.message.includes('"os" imported and not used')) ?? null,
@@ -136,7 +136,7 @@ describe.skipIf(MARKETPLACE_OFFLINE || skipReason !== undefined)(
                     expect(definitions[0]?.range.start.line).toBe(5);
 
                     // Save warm-up: the client registers organize imports after the server starts.
-                    await until("source.organizeImports от gopls", async () => {
+                    await until("source.organizeImports from gopls", async () => {
                         const actions = await provideCodeActions(harness, {
                             uri: mainUri,
                             languageId: "go",

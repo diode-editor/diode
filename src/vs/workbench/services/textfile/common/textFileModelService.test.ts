@@ -31,7 +31,7 @@ describe("TextFileModelService", () => {
         ws.dispose();
     });
 
-    it("файл — одна модель на ресурс, get не создаёт и не держит ссылку", () => {
+    it("a file has one model per resource, get neither creates nor holds a reference", () => {
         const uri = Uri.file(ws.writeFile("a.txt", "alpha"));
         expect(service.get(uri)).toBeNull();
 
@@ -46,7 +46,7 @@ describe("TextFileModelService", () => {
         expect(service.get(uri)).toBeNull();
     });
 
-    it("безымянные буферы нумеруются сквозь весь сервис", () => {
+    it("untitled buffers are numbered across the whole service", () => {
         const a = service.createUntitledModel();
         const b = service.createUntitledModel();
 
@@ -55,7 +55,7 @@ describe("TextFileModelService", () => {
         b.dispose();
     });
 
-    it("безымянный буфер обвязан, как файл: Save As объявляет сохранение", async () => {
+    it("an untitled buffer is wired like a file: Save As announces the save", async () => {
         const model = service.createUntitledModel();
         const saved: TextFileModel[] = [];
         service.onDidSaveModel((m) => saved.push(m));
@@ -67,7 +67,7 @@ describe("TextFileModelService", () => {
         model.dispose();
     });
 
-    it("модель файла сразу под наблюдением watcher'а", () => {
+    it("a file model is watched by the watcher right away", () => {
         const watched: string[] = [];
         const watcher: IFileWatcher = {
             ...NULL_FILE_WATCHER,
@@ -86,7 +86,7 @@ describe("TextFileModelService", () => {
         watching.dispose();
     });
 
-    it("участники сохранения — в порядке регистрации; null пропускается, снятый не зовётся", async () => {
+    it("save participants run in registration order; null is skipped, a removed one is not called", async () => {
         const calls: string[] = [];
         const participant = (name: string) => () => {
             calls.push(name);
@@ -112,7 +112,7 @@ describe("TextFileModelService", () => {
         ref.dispose();
     });
 
-    it("onDidSaveModel — после перепривязки ключа реестра на новый путь", async () => {
+    it("onDidSaveModel fires after the registry key is rebound to the new path", async () => {
         const oldPath = ws.writeFile("old.txt", "x");
         const ref = service.acquire(Uri.file(oldPath));
         const newPath = ws.path("new.txt");
