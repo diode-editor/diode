@@ -43,7 +43,7 @@ describe("ExtensionHost — ExtensionContext стороннего расшире
     it("context строится из extensionPath регистрации: пути, asAbsolutePath, Production-режим", async () => {
         const harness = await createExtensionTestHarness();
         try {
-            // extensionPath намеренно НЕ равен каталогу mainPath.
+            // extensionPath is intentionally NOT the mainPath directory.
             await registerAndActivate(harness.host, {
                 ...extensionFixture("test.context", "reportsContext.cjs"),
                 extensionPath: harness.tmpDir,
@@ -100,7 +100,7 @@ describe("ExtensionHost — ExtensionContext стороннего расшире
         });
         try {
             const report = (await harness.commandRegistry.execute("test.context.report")) as IContextReport;
-            // pyright-семейство детектит Pylance через getExtension: undefined (null после RPC), а не TypeError.
+            // The pyright family detects Pylance via getExtension: undefined (null after RPC), not a TypeError.
             expect(report.pylance).toBeNull();
             expect((report.allExtensions as { id: string }[]).map((e) => e.id)).toEqual(["test.context"]);
         } finally {
@@ -117,11 +117,11 @@ describe("ExtensionHost — ExtensionContext стороннего расшире
                 extensionPath: harness.tmpDir,
             });
             const report = (await harness.commandRegistry.execute("test.context.report")) as IContextReport;
-            // Телеметрия форка bazel-java читает `packageJSON` первой строкой activate().
+            // The bazel-java fork's telemetry reads `packageJSON` on the first line of activate().
             expect(report.selfAtActivate.id).toBe("test.context");
             expect(report.selfAtActivate.packageJSON).toEqual({ name: "context", publisher: "test", version: "1.2.3" });
             expect(report.selfAtActivate.extensionPath).toBe(report.extensionPath);
-            // Как `isActivated` эталона: запись живая, не снимок.
+            // Like upstream `isActivated`: the entry is live, not a snapshot.
             expect(report.selfAtActivate.isActive).toBe(false);
             expect(report.selfIsActiveNow).toBe(true);
         } finally {
@@ -135,8 +135,8 @@ describe("ExtensionHost — ExtensionContext стороннего расшире
         });
         try {
             const report = (await harness.commandRegistry.execute("test.context.report")) as IContextReport;
-            // Иначе fork(process.execPath) из расширения под SEA ушёл бы в
-            // ext-host-ветку diode-бинаря (exit 2) вместо node-режима.
+            // Otherwise fork(process.execPath) from an extension under SEA would land in the
+            // diode binary's extension host branch (exit 2) instead of node mode.
             expect(report.envExtensionHost).toBeNull();
             expect(report.envRunAsNode).toBe("1");
         } finally {

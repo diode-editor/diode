@@ -77,7 +77,7 @@ describe("ExtensionHost — code actions по handle (in-process)", () => {
         expect(await host.provideCodeActions(3, requestOf())).toEqual([WIRE_ACTION]);
         expect(provide.mock.calls[0]?.[0]).toMatchObject({ handle: 3 });
         expect(await host.applyCodeAction("1.0")).toBe(true);
-        // Второй аргумент — токен отмены: RpcEndpoint выдаёт его всем методам.
+        // The second argument is the cancellation token: RpcEndpoint passes it to every method.
         expect(apply).toHaveBeenCalledExactlyOnceWith(
             { id: "1.0" },
             expect.objectContaining({ isCancellationRequested: false }),

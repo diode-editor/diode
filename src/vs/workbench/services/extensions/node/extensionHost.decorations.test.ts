@@ -85,7 +85,7 @@ describe("ExtensionHost — decorations bridge (subprocess)", () => {
             await settle();
             const call = editorSpy.latestFor("main.ts");
             expect(call).toBeDefined();
-            // «Плоский» тип без overviewRulerColor не проецируется вовсе.
+            // A "flat" type without overviewRulerColor is not projected at all.
             expect(call!.decorations.map((d) => ({ line: d.range.start.line, color: d.color }))).toEqual([
                 { line: 1, color: MODIFIED_GUTTER },
                 { line: 3, color: MODIFIED_GUTTER },

@@ -16,9 +16,9 @@ import type { INotificationRequest } from "../../../api/common/iExtensionWindowS
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 /**
- * Фикстура `requiresDependency.cjs` бросает, если зависимость к началу её
- * `activate()` не активна или без `exports`, так что «зависимый активен»
- * доказывает порядок, а не совпадение.
+ * The `requiresDependency.cjs` fixture throws if, when its `activate()` starts, the dependency
+ * is not active or has no `exports`, so "the dependent is active"
+ * proves the ordering, not a coincidence.
  */
 
 function dependent(
@@ -33,7 +33,7 @@ function dependent(
     };
 }
 
-/** Своё событие никогда не наступает — поднять её может только зависимый. */
+/** Its own event never fires; only the dependent can activate it. */
 function dependency(file = "exportsMarker.cjs", extra: Record<string, unknown> = {}): IExtensionRegistration {
     return {
         ...extensionFixture("test.dep", file),
@@ -74,7 +74,7 @@ async function start(
     return { harness, logger, toasts };
 }
 
-/** Звать ДО `start`: субпроцесс наследует env на старте харнесса. */
+/** Call BEFORE `start`: the subprocess inherits env when the harness starts. */
 function markerFile(name: string): string {
     const marker = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "diode-deps-")), "marker");
     vi.stubEnv(name, marker);
@@ -194,7 +194,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
     });
 
     it("встроенного расширения VS Code (vscode.git) нет — отступление: зависимое поднимается без него, с предупреждением в лог", async () => {
-        // Как стоковый Supermaven: git у Diode — `diode.git`.
+        // Like the stock Supermaven: Diode's git is `diode.git`.
         const { harness, logger, toasts } = await start([dependent(["vscode.git"], "noopExtension.cjs")]);
 
         await harness.host.activateByEvent("onLanguage:java");
@@ -277,7 +277,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
         const { harness, logger } = await start([dependent(["test.dep"]), dependency("hangsOnActivate.cjs")]);
 
         const activation = harness.host.activateByEvent("onLanguage:java");
-        // Под инструментацией Stryker субпроцесс поднимается дольше секунды поллинга по умолчанию.
+        // Under Stryker instrumentation the subprocess takes longer than the default one-second poll.
         await expect.poll(() => fs.existsSync(marker), { timeout: 10_000 }).toBe(true);
         harness.host.dispose();
         await activation;
@@ -300,7 +300,7 @@ describe("ExtensionHost — extensionDependencies активируются пе�
             'activation of "test.dependent" interrupted by extension host death — will retry',
         );
 
-        // Любое следующее событие проигрывает журнал: onLanguage:java снова поднимает зависимого.
+        // Any later event replays the journal: onLanguage:java activates the dependent again.
         await harness.host.activateByEvent("onLanguage:anything");
 
         expect(harness.host.hasExtension("test.dep")).toBe(true);

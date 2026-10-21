@@ -18,11 +18,11 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { ITextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
-// basedpyright + ruff разом: у basedpyright формат-capability нет, и «первый
-// матчащий провайдер» не должен упереться в него.
+// basedpyright + ruff together: basedpyright has no formatting capability, and the "first
+// matching provider" must not get stuck on it.
 
-// И ошибка типов (basedpyright: str в int), и криво отформатированное
-// присваивание с неиспользуемым импортом (ruff: F401 + формат).
+// Both a type error (basedpyright: str into int) and a badly formatted
+// assignment with an unused import (ruff: F401 + formatting).
 const DUO_PY = 'import sys\n\nreply: int  =  "hi"\n';
 
 let ruff: IInstalledRuff;
@@ -63,7 +63,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — basedpyright + ruff од
                 return undefined;
             };
 
-            // Холодный старт basedpyright — десятки секунд, ruff давно готов.
+            // A cold start of basedpyright takes tens of seconds; ruff is ready long before.
             await until("F401 от ruff", () =>
                 Promise.resolve(latestByOwner((m) => /F401|unused/.test(`${m.code ?? ""} ${m.message}`)) ?? null),
             );

@@ -10,7 +10,7 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Пересчёт фолдов идёт на каждую правку — запросы не должны множиться на число провайдеров.
+// Folds are recomputed on every edit, so requests must not multiply by the number of providers.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,

@@ -90,8 +90,8 @@ describe("ExtensionHost — rename от стокового typescript-language-s
             const mainPath = harness.writeFile("main.ts", MAIN_TS);
             const defsUri = Uri.file(defsPath).toString();
 
-            // Каретка на объявлении: с вызова импортированного символа tsserver (как и VS Code с
-            // `useAliasesForRenames`) переименовал бы только локальный алиас.
+            // Cursor on the declaration: from a call of an imported symbol, tsserver (like VS Code with
+            // `useAliasesForRenames`) would rename only the local alias.
             harness.group.openFile(defsPath);
             await harness.host.activateByEvent("onLanguage:typescript");
 
@@ -109,7 +109,8 @@ describe("ExtensionHost — rename от стокового typescript-language-s
             });
             expect(prepared).toEqual({ name: "greet" });
 
-            // На холодном старте tsserver отвечает по одному открытому файлу — ждём ссылок из закрытого main.ts.
+            // On a cold start tsserver answers for the single open file only,
+            // so wait for references from the closed main.ts.
             await until("сервер видит ссылки из закрытого main.ts", async () => {
                 const refs = await provideReferences(harness, { ...request, includeDeclaration: true });
                 return refs.some((ref) => ref.uri === Uri.file(mainPath).toString()) ? true : null;

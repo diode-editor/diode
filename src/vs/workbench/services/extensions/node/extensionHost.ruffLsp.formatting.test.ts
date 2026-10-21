@@ -21,8 +21,8 @@ import { formatDocumentAction } from "../../../contrib/format/browser/formatActi
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
-// Две кривые строки: формат чинит обе (кавычки ruff не трогает — стиль
-// по умолчанию double).
+// Two badly formatted lines: formatting fixes both (ruff leaves quotes alone; the default
+// style is double).
 const MESSY_PY = 'x  =  1\nprint( "x" )\n';
 
 let installed: IInstalledRuff;
@@ -48,7 +48,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — форматирован
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:python");
 
-            // Провайдер формата клиент регистрирует динамически (client/registerCapability).
+            // The client registers the formatting provider dynamically (client/registerCapability).
             const edits = await until("formatting edits от ruff", async () => {
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: mainUri,
@@ -91,8 +91,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — форматирован
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:python");
 
-            // Диапазон накрывает только вторую строку — правки обязаны прийти
-            // (ruff умеет range formatting) и не выходить за неё.
+            // The range covers only the second line: edits must arrive
+            // (ruff supports range formatting) and stay within it.
             const edits = await until("range formatting edits от ruff", async () => {
                 const found: readonly ITextEdit[] | null = await formatDocumentFor(harness, {
                     uri: mainUri,

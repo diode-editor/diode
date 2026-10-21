@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 
-// Настоящий прокси субпроцесс заводит уже после `activate()` — до него команду
-// держит заглушка. `activateEvents: []`: единственный повод активации — сама команда.
+// The subprocess installs the real proxy only after `activate()`; until then a stub
+// holds the command. `activateEvents: []`: the command itself is the only activation trigger.
 describe("ExtensionHost — активация по onCommand:<id>", () => {
     it("команда есть в реестре до активации, а её исполнение поднимает расширение", async () => {
         const harness = await createExtensionTestHarness({
@@ -57,7 +57,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
             extensions: [
                 {
                     ...extensionFixture("test.implicit", "registersCommand.cjs"),
-                    // Единственное объявленное событие не наступит никогда.
+                    // The only declared event never happens.
                     activationEvents: ["onLanguage:java"],
                     commandTitles: { "test.applyTab": "Apply Tab Size" },
                 },
@@ -106,7 +106,7 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
             ],
         });
         try {
-            // Иначе подпись в палитре «прыгнула» бы после первого запуска.
+            // Otherwise the label in the command palette would "jump" after the first run.
             expect(harness.host.hasExtension("test.category")).toBe(false);
             expect(harness.commandRegistry.listCommands()).toEqual([
                 { id: "test.applyTab", title: "Apply Tab Size", enablement: undefined, category: "Test" },
@@ -198,8 +198,8 @@ describe("ExtensionHost — активация по onCommand:<id>", () => {
     it("снятие соседа не захлопывает дверь: команду объявляют двое", async () => {
         const harness = await createExtensionTestHarness({ activateEvents: [] });
         try {
-            // Посторонний сосед первым — чтобы поиск «кто ещё объявляет эту
-            // команду» прошёл мимо непричастной регистрации, а не сразу нашёл.
+            // An unrelated neighbor goes first, so the "who else declares this
+            // command" lookup walks past an unrelated registration instead of finding it right away.
             harness.host.registerExtension({
                 ...extensionFixture("test.zero", "noopExtension.cjs"),
                 activationEvents: ["onStartupFinished"],

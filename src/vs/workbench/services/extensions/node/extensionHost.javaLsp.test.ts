@@ -16,11 +16,11 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
-// Холодный jdt_ws до первой диагностики — ~16 с (две JVM): щедрые таймауты —
-// рабочая величина, а не запас.
+// A cold jdt_ws takes ~16 s to the first diagnostic (two JVMs): the generous timeouts are
+// the working value, not a margin.
 
-// `| undefined`: при упавшем `beforeAll` безусловный `installed.dispose()` в afterAll
-// подменил бы причину падения на «Cannot read properties of undefined».
+// `| undefined`: if `beforeAll` fails, an unconditional `installed.dispose()` in afterAll
+// would mask the real cause with "Cannot read properties of undefined".
 let installed: IInstalledJava | undefined;
 
 describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.java (jdt.ls, сквозняк)", () => {
@@ -39,14 +39,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         async () => {
             const published: { resource: string; markers: readonly WireMarker[] }[] = [];
             const outputLines: { level: string; value: string }[] = [];
-            // Папка воркспейса не должна совпадать с `tmpDir` со storage расширения
-            // (почему — в javaFixture.createMavenProject).
+            // The workspace folder must differ from the `tmpDir` holding the extension storage
+            // (see javaFixture.createMavenProject for why).
             const project = createMavenProject();
             const harness: IExtensionHarness = await createExtensionTestHarness({
                 languageService: JAVA_LANGUAGE_SERVICE,
                 workspaceFolders: [project.root],
-                // Пусто: активируем руками — `workspaceContains:` читает настоящее
-                // дерево, и порядок «проект на диске → событие» тут осмысленный.
+                // Empty: we activate by hand. `workspaceContains:` reads the real tree,
+                // so the order "project on disk, then event" matters here.
                 activateEvents: [],
                 diagnosticsSink: (_owner, resource, markers) => published.push({ resource, markers }),
                 outputSink: {
@@ -62,13 +62,13 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                     published.filter((p) => p.resource === uri).at(-1)?.markers ?? [];
 
                 harness.group.openFile(appPath);
-                // Ленивая активация ровно тем событием, которое объявляет манифест
-                // vsix: ни `*`, ни `onLanguage:java` у redhat.java нет.
+                // Lazy activation by exactly the event the vsix manifest declares:
+                // redhat.java has neither `*` nor `onLanguage:java`.
                 await harness.host.activateByEvent(JAVA_ACTIVATION_EVENT);
                 expect(harness.host.hasExtension(JAVA_ID)).toBe(true);
 
-                // Диагностика от НАСТОЯЩЕГО jdt.ls — readiness-сигнал: она приходит
-                // только после того, как m2e импортировал проект и собрал его.
+                // A diagnostic from the REAL jdt.ls is the readiness signal: it arrives
+                // only after m2e has imported and built the project.
                 const mismatch = await until(
                     "диагностика Type mismatch в App.java",
                     () => {
@@ -79,10 +79,10 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                     },
                     280_000,
                 );
-                // `int broken = message;` — десятая строка фикстуры (0-based 9).
+                // `int broken = message;` is the fixture's tenth line (0-based 9).
                 expect(mismatch.range.start.line).toBe(9);
 
-                // Без сохранения: сервер обязан пере-проверить живой буфер, а не файл.
+                // No save: the server must re-check the live buffer, not the file.
                 harness.group
                     .getActiveEditor()
                     ?.applyExternalEdits([createTextEdit(createRange(9, 8, 9, 11), "String")], "fix type");

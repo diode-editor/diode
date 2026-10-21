@@ -82,7 +82,7 @@ describe("ExtensionHost — workspace.applyEdit", () => {
 
     it("мусор в параметрах — false без обращения к порту (edit all-or-nothing)", async () => {
         const { peer, applied } = makeHost(true);
-        // Применить половину workspace edit'а нельзя.
+        // A workspace edit cannot be applied halfway.
         const result = await peer.request("workspace.applyEdit", {
             ops: [
                 { kind: "text", resource: "file:///a.ts", edits: [WIRE_EDIT] },

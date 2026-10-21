@@ -84,7 +84,7 @@ class FakeEditorOptions implements IEditorOptionsService {
     public options: IEditorOptionsState | null = { tabSize: 4, insertSpaces: true };
     public lastPatch: IEditorOptionsPatch | null = null;
     public filePath: string | null = "/active.ts";
-    /** Все живые подписчики — как у настоящего события: лишние на респавне видны. */
+    /** All live subscribers, as with a real event: leftovers after a respawn are visible. */
     public readonly activeEditorListeners: ((meta: IActiveEditorMeta) => void)[] = [];
     private readonly selectionListeners: ((selections: IActiveEditorSelections) => void)[] = [];
 
@@ -155,7 +155,7 @@ function subscribe<T>(listeners: T[], listener: T): IDisposable {
 const spawnArgs = () => ({ command: "node", args: ["host.js"] });
 
 function makeReg(id: string, mainPath: string): IExtensionRegistration {
-    // Eager: дефолта `*` у регистрации нет.
+    // Eager: the registration has no default `*`.
     return { id, manifest: { name: id, publisher: "test", version: "0.0.1" }, mainPath, activationEvents: ["*"] };
 }
 
@@ -189,7 +189,7 @@ class FakeCommandService implements ICommandService {
     public readonly executed: { id: string; args: readonly unknown[] }[] = [];
     public executeResult: unknown = "core-result";
     public executeThrows: string | null = null;
-    /** Не чистится на перерегистрации — так виден dispose прежних. */
+    /** Not cleared on re-registration, so disposal of the previous ones is visible. */
     public readonly proxies: { id: string; invoke: (args: readonly unknown[]) => unknown; disposed: boolean }[] = [];
 
     public execute(id: string, args: readonly unknown[]): unknown {
@@ -219,8 +219,8 @@ afterEach(() => {
     spawnMock.mockReset();
 });
 
-// Форма сообщения продюсера: разбор на той стороне отбрасывает мусор, так что
-// ни юниты потребителя, ни сквозняк её не видят.
+// Producer message shape: the parser on the other side drops garbage, so
+// neither the consumer unit tests nor the end-to-end test see it.
 describe("ExtensionHost — каталог расширений на проводе", () => {
     const catalogs = (child: FakeChild): { extensions: unknown[] }[] =>
         child.sent
@@ -257,14 +257,14 @@ describe("ExtensionHost — каталог расширений на прово�
     });
 
     it("активация едет точечным `extensions.activated`, а не новым каталогом", async () => {
-        // Манифесты тяжёлые — гонять весь список ради одного флага нельзя.
+        // Manifests are heavy: never resend the whole list for one flag.
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         host.registerExtension(makeReg("ext.a", "/a.js"));
         const before = catalogs(child).length;
         await host.activateByEvent("*");
 
-        expect(catalogs(child).length).toBe(before + 1); // только семя на подъёме
+        expect(catalogs(child).length).toBe(before + 1); // only the seed on startup
         expect(child.sent.filter((m) => m.kind === "notif" && m.method === "extensions.activated")).toEqual([
             { kind: "notif", method: "extensions.activated", params: { id: "ext.a" } },
         ]);
@@ -285,8 +285,8 @@ describe("ExtensionHost — каталог расширений на прово�
     });
 
     it("после смерти субпроцесса состав переезжает целиком, а активность честно обнуляется", async () => {
-        // На handshake не активен никто: `isActive: true` соврал бы соседу, читающему
-        // каталог в `activate()`. Флаг возвращает `extensions.activated`.
+        // Nobody is active at handshake: `isActive: true` would lie to a neighbor reading
+        // the catalog in `activate()`. The flag is set by `extensions.activated`.
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         host.registerExtension(makeReg("ext.a", "/a.js"));
@@ -371,8 +371,8 @@ describe("ExtensionHost — registration lifecycle", () => {
 
         host.disposeNow();
 
-        // Перезагрузка окна дальше блокирует event loop: вежливое «попроси и
-        // подожди» не доехало бы, и субпроцесс остался бы жить сиротой.
+        // Reloading the window then blocks the event loop: a polite "ask and
+        // wait" would never arrive, and the subprocess would live on as an orphan.
         expect(child.signals).toEqual(["SIGKILL"]);
         expect(child.killed).toBe(true);
     });
@@ -389,7 +389,7 @@ describe("ExtensionHost — registration lifecycle", () => {
 
         expect(child.sent.some((m) => m.kind === "req" && m.method === "host.shutdown")).toBe(true);
         expect(child.exitCode).toBe(0);
-        // Синхронная фаза прощания зовёт disposeNow всегда — вышедшего по-хорошему он не трогает.
+        // The synchronous shutdown phase always calls disposeNow; it leaves a cleanly exited child alone.
         host.disposeNow();
         expect(child.signals).toEqual([]);
     });
@@ -777,7 +777,7 @@ describe("ExtensionHost — stdout/stderr piping", () => {
     });
 });
 
-/** Ребёнок следующего спавна объявит готовность сразу после подписки хоста. */
+/** The next spawned child announces readiness right after the host subscribes. */
 function armNextChild(): FakeChild {
     const child = new FakeChild();
     spawnMock.mockImplementation((() => {
@@ -906,8 +906,8 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         expect(logger.warn).toHaveBeenCalledWith(DEATH_WARNING);
         expect(host.hasExtension("ext.a")).toBe(false);
 
-        // Событие НЕ из activationEvents расширения (там `*`): своё событие
-        // давно отгорело, и без оживления расширение не вернулось бы никогда.
+        // An event NOT among the extension's activationEvents (those are `*`): its own event
+        // fired long ago, and without a revive the extension would never come back.
         const next = armNextChild();
         await host.activateByEvent("onLanguage:python");
 
@@ -960,8 +960,8 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         const a = await registerAndActivate(host, makeReg("ext.a", "/a.js"));
-        // Второе расширение держит хост живым: без него оживлять было бы нечего
-        // и второй смерти неоткуда взяться.
+        // The second extension keeps the host alive: without it there would be nothing to revive
+        // and no source of a second death.
         host.registerExtension(makeReg("ext.b", "/b.js"));
         await host.activateByEvent("*");
 
@@ -998,7 +998,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         const child = new FakeChild();
         const commands = new FakeCommandService();
         const host = spawnReadyHost(child, new FakeEditorOptions(), {}, commands);
-        // Неявный `onCommand:` считается при сборке регистрации — здесь его даёт `testRegistration`.
+        // The implicit `onCommand:` is computed when the registration is built; here `testRegistration` provides it.
         host.registerExtension(
             testRegistration({ ...makeReg("ext.a", "/a.js"), commandTitles: { "ext.a.run": "Run" } }),
         );
@@ -1008,9 +1008,9 @@ describe("ExtensionHost — смерть субпроцесса", () => {
 
         child.simulateExit(1);
 
-        // Прокси мертвеца снят, но на его месте снова живая запись: иначе
-        // команда исчезла бы из палитры вместе с единственным способом
-        // оживить расширение руками.
+        // The dead extension's proxy is removed, but a live entry is back in its place: otherwise
+        // the command would vanish from the command palette along with the only way
+        // to revive the extension by hand.
         expect(commands.proxies.filter((proxy) => !proxy.disposed)).toHaveLength(1);
         expect(commands.proxies.length).toBeGreaterThan(beforeDeath);
         expect(commands.proxies.at(-1)?.id).toBe("ext.a.run");
@@ -1026,8 +1026,8 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             logger,
             configuration: makeConfigProvider().provider,
-            // Кандидатов на workspaceContains нет — обход не начнётся, а
-            // оживление обязано случиться всё равно.
+            // No workspaceContains candidates, so the scan never starts, yet
+            // the revive must happen anyway.
             workspaceScanner: { exists: () => Promise.resolve(false), readDirectory: () => Promise.resolve([]) },
         });
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
@@ -1039,8 +1039,8 @@ describe("ExtensionHost — смерть субпроцесса", () => {
 
         expect(activated(next, "ext.a")).toBe(true);
         expect(host.hasExtension("ext.a")).toBe(true);
-        // Повод у оживлённого — сам проход, а не чей-то паттерн: своё событие
-        // у него давно отгорело.
+        // The revived extension's reason is the scan itself, not someone's pattern: its own event
+        // fired long ago.
         expect(logger.info).toHaveBeenCalledWith('activated extension "ext.a" (workspaceContains)');
     });
 
@@ -1052,7 +1052,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
             workspaceScanner: {
                 exists: () => {
                     scans++;
-                    // Совпало бы — проход поднял бы расширение.
+                    // A match would make the scan start the extension.
                     return Promise.resolve(true);
                 },
                 readDirectory: () => Promise.resolve([]),
@@ -1110,7 +1110,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions());
         await host.activateByEvent("onLanguage:python");
-        // Субпроцесс поднимется только на регистрации — ready-ответ вешаем на spawn.
+        // The subprocess starts only on registration, so the ready reply is wired to spawn.
         armNextChild();
 
         host.registerExtension({ ...makeReg("ext.py", "/py.js"), activationEvents: ["onLanguage:python"] });
@@ -1165,7 +1165,7 @@ describe("ExtensionHost — смерть субпроцесса", () => {
         const second = host.activateByEvent("*").then(() => {
             secondDone = true;
         });
-        // Даём промисам отыграть целиком (макротаск, а не один микротаск).
+        // Let the promises settle fully (a macrotask, not a single microtask).
         await new Promise((resolve) => setTimeout(resolve, 10));
         expect(secondDone).toBe(false);
 
@@ -1240,7 +1240,7 @@ describe("ExtensionHost — смена воркспейса окна", () => {
 
     it("событие за время прощания поднимает новый спавн сразу, и расширение активируется в нём один раз", async () => {
         const child = new FakeChild();
-        // Старый субпроцесс на host.shutdown не выходит — прощание тянется до сигнала.
+        // The old subprocess does not exit on host.shutdown; shutdown drags on until the signal.
         child.exitOnSignal = "SIGTERM";
         const workspace = makeSwitchableWorkspace("/old");
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1338,7 +1338,7 @@ describe("ExtensionHost — причина активации в логе", () =
             activationEvents: ["workspaceContains:pom.xml", "workspaceContains:build.gradle"],
         });
 
-        // Субпроцесс поднимется только по итогу обхода — ready-ответ вешаем на spawn.
+        // The subprocess starts only once the scan finishes, so the ready reply is wired to spawn.
         armNextChild();
         await host.activateByWorkspaceContains();
 
@@ -1365,8 +1365,8 @@ describe("ExtensionHost — причина активации в логе", () =
         await host.activateByWorkspaceContains();
 
         expect(logger.error).toHaveBeenCalledWith('workspaceContains scan for "ext.a" failed', expect.anything());
-        // Молча оборванный обход читался бы как «ничего не подошло» — а это
-        // разные вещи, и отличить их можно только по этой строке.
+        // A silently aborted scan would read as "nothing matched", but these
+        // are different things, and only this line tells them apart.
         expect(logger.warn).toHaveBeenCalledWith('workspaceContains scan for "ext.a" was cut short', {
             paths: ["pom.xml"],
             globs: [],
@@ -1420,8 +1420,8 @@ describe("ExtensionHost — причина активации в логе", () =
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
             logger,
             configuration: makeConfigProvider().provider,
-            // `readDirectory`, который не ответит НИКОГДА (сетевая ФС, отвалившийся
-            // том): флага отмены тут мало — он смотрится между каталогами.
+            // A `readDirectory` that NEVER answers (network FS, detached
+            // volume): the cancellation flag is not enough, it is only checked between directories.
             workspaceContainsTimeoutMs: 1,
             workspaceScanner: {
                 exists: () => Promise.resolve(false),
@@ -1499,7 +1499,7 @@ describe("ExtensionHost — readiness failures", () => {
         vi.useFakeTimers();
         try {
             const child = new FakeChild();
-            spawnMock.mockReturnValue(child as never); // ready не придёт никогда
+            spawnMock.mockReturnValue(child as never); // ready never arrives
             const host = new ExtensionHost(new FakeEditorOptions(), NULL_COMMAND_SERVICE, { spawnArgs });
             host.registerExtension(makeReg("ext.a", "/a.js"));
             let settled = false;
@@ -1520,7 +1520,7 @@ describe("ExtensionHost — readiness failures", () => {
 
     it("заглушка-активатор команды не отклоняется, когда субпроцесс не поднялся", async () => {
         const child = new FakeChild();
-        spawnMock.mockReturnValue(child as never); // ready не придёт никогда
+        spawnMock.mockReturnValue(child as never); // ready never arrives
         const logger = makeLogger();
         const commands = new FakeCommandService();
         const host = new ExtensionHost(new FakeEditorOptions(), commands, {
@@ -1530,8 +1530,8 @@ describe("ExtensionHost — readiness failures", () => {
         });
         host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["onCommand:ext.a.run"] });
 
-        // Команду исполняют fire-and-forget (палитра, бинд) — reject ушёл бы в
-        // unhandledRejection главного процесса, а не кому-то в руки.
+        // Commands run fire-and-forget (command palette, keybinding): a reject would end up in
+        // the main process's unhandledRejection instead of anyone's hands.
         await expect(commands.proxies.at(-1)?.invoke([])).resolves.toBeUndefined();
         expect(logger.error).toHaveBeenCalledWith(
             'failed to activate extension for command "ext.a.run"',
@@ -1556,7 +1556,7 @@ describe("ExtensionHost — readiness failures", () => {
 
     it("заглушка не отклоняется и БЕЗ логгера: гасить провал — не работа логгера", async () => {
         const child = new FakeChild();
-        spawnMock.mockReturnValue(child as never); // ready не придёт никогда
+        spawnMock.mockReturnValue(child as never); // ready never arrives
         const commands = new FakeCommandService();
         const host = new ExtensionHost(new FakeEditorOptions(), commands, { spawnArgs, readyTimeoutMs: 20 });
         host.registerExtension({ ...makeReg("ext.a", "/a.js"), activationEvents: ["onCommand:ext.a.run"] });
@@ -1593,8 +1593,8 @@ describe("ExtensionHost — shutdown", () => {
     });
 
     it("sends a single SIGTERM when the subprocess ignores both shutdown and the signal", async () => {
-        // Эскалация до SIGKILL недостижима: `kill()` взводит `child.killed`, второй гард
-        // после SIGTERM не проходит. Латентный баг, тестом сознательно не форсируем.
+        // Escalation to SIGKILL is unreachable: `kill()` sets `child.killed`, so the second guard
+        // after SIGTERM never passes. A latent bug; the test deliberately does not force it.
         const child = new FakeChild();
         const host = spawnReadyHost(child, new FakeEditorOptions(), { shutdownTimeoutMs: 10 });
         await registerAndActivate(host, makeReg("ext.a", "/a.js"));
@@ -1648,9 +1648,9 @@ describe("ExtensionHost — семена handshake", () => {
         const seeds = child.sent
             .slice(0, firstActivation)
             .map((m) => (m.kind === "notif" ? m.method : `${m.kind}:${(m as { method?: string }).method ?? ""}`));
-        // Порядок — контракт: расширение читает конфигурацию, окружение хоста
-        // (`env.machineId`/`env.shell`), раскладку, активный редактор, тему,
-        // каталог и открытые документы уже в activate().
+        // The order is a contract: the extension already reads configuration, the host environment
+        // (`env.machineId`/`env.shell`), layout, active editor, theme,
+        // catalog and open documents in activate().
         expect(seeds).toEqual([
             "workspace.initialize",
             "env.initialize",
@@ -1664,8 +1664,8 @@ describe("ExtensionHost — семена handshake", () => {
     });
 
     it("со стоком терминалов семя заканчивается снимком терминалов: все инстансы, затем активный", async () => {
-        // bazel-java в `activate()` ищет свой лог в `window.terminals` — снимок
-        // обязан успеть до первой активации, иначе он заведёт дубль.
+        // bazel-java looks for its log in `window.terminals` in `activate()`: the snapshot
+        // must land before the first activation, otherwise it creates a duplicate.
         const child = new FakeChild();
         const terminal = { id: 4, name: "bash", pid: 10, launch: { shellPath: "/bin/bash" } };
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -1906,7 +1906,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
             () => child.sent.filter((m) => m.kind === "res" && (m.id === 720 || m.id === 721)).length === 2,
         );
         expect(child.sent.find((m) => m.kind === "res" && m.id === 720)).toMatchObject({ result: { index: 1 } });
-        // Адреса разные: по ним хост гасит показы умершего субпроцесса.
+        // The addresses differ: the host uses them to dismiss a dead subprocess's shown messages.
         expect(new Set(handles).size).toBe(2);
 
         host.dispose();
@@ -1974,7 +1974,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
             notificationSink: {
                 showMessage: (request: { handle: number }) => {
                     shownHandle = request.handle;
-                    // Показ живой: обещание не резолвится до ответа человека.
+                    // The message is live: the promise does not resolve until the user answers.
                     return new Promise<number | undefined>(() => undefined);
                 },
                 cancel: (handle: number) => cancelled.push(handle),
@@ -1996,8 +1996,8 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
     });
 
     it("смерть субпроцесса НЕ гасит уже отвеченные сообщения", async () => {
-        // Иначе сток получил бы «погаси» на показ, которого давно нет, — и это
-        // не безвредно: адрес мог бы указывать уже на чужой показ.
+        // Otherwise the sink would get "dismiss" for a message shown long ago, and that
+        // is not harmless: the address could already point at someone else's message.
         const child = new FakeChild();
         const cancelled: number[] = [];
         const host = spawnReadyHost(child, new FakeEditorOptions(), {
@@ -2043,7 +2043,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
             method: "env.clipboard.writeText",
             params: { text: "written" },
         });
-        // Не-строка буфер не затирает: расширение прислало не то, что обещает тип.
+        // A non-string does not overwrite the buffer: the extension sent something other than its type promises.
         child.receiveFromHostPeer({ kind: "req", id: 752, method: "env.clipboard.writeText", params: { text: 7 } });
 
         await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 752));
@@ -2065,7 +2065,7 @@ describe("ExtensionHost — WP3 config/window bridge", () => {
 
         await waitUntil(() => child.sent.some((m) => m.kind === "res" && m.id === 761));
         expect(child.sent.find((m) => m.kind === "res" && m.id === 760)).toMatchObject({ result: { text: "" } });
-        // Запись без буфера — тоже не ошибка: отказ доехал бы до расширения.
+        // A write without a buffer is not an error either: a refusal would reach the extension.
         expect(child.sent.find((m) => m.kind === "res" && m.id === 761)).not.toHaveProperty("error");
 
         host.dispose();

@@ -4,8 +4,8 @@ import { createExtensionTestHarness, extensionFixture } from "../../../../../Tes
 import type { IQuickInputBoxRequest, IQuickInputSink } from "../../../api/common/iExtensionWindowSinks.ts";
 import type { IWireQuickPickRequest, IWireValidationMessage } from "../../../api/common/wireTypes.ts";
 
-// Сток — стаб вместо человека: оверлей закрыт тестами QuickInputExtensionAdapter,
-// предмет здесь — провод.
+// The sink is a stub instead of a human: the overlay is covered by the QuickInputExtensionAdapter tests;
+// the subject here is the wire.
 function makeSink(answers: {
     input?: (request: IQuickInputBoxRequest) => Promise<string | undefined>;
     pick?: (request: IWireQuickPickRequest) => Promise<readonly number[] | undefined>;

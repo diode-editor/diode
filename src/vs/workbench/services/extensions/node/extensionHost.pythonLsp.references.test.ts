@@ -49,7 +49,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — references от сток
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:python");
 
-            // Каретка на вызове `greet` → ссылки с includeDeclaration (как VS Code).
+            // Cursor on the `greet` call → references with includeDeclaration (like VS Code).
             const references = await until("references вызова greet", async () => {
                 const found = await provideReferences(harness, {
                     uri: mainUri,
@@ -59,12 +59,12 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — references от сток
                     character: 15,
                     includeDeclaration: true,
                 });
-                // Ждём, пока сервер соберёт ОБА файла (первым может прийти только текущий).
+                // Wait until the server has indexed BOTH files (the current one may arrive alone first).
                 const uris = new Set(found.map((ref) => ref.uri));
                 return uris.has(defsUri) && uris.has(mainUri) ? found : null;
             });
 
-            // Объявление в defs.py — имя `greet` в колонке 4 первой строки.
+            // The declaration in defs.py: the name `greet` at column 4 of the first line.
             const declaration = references.find((ref) => ref.uri === defsUri);
             expect(declaration?.range.start).toMatchObject({ line: 0, character: 4 });
             const inMain = references.filter((ref) => ref.uri === mainUri);

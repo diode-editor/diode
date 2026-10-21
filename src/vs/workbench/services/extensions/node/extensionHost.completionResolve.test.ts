@@ -12,7 +12,7 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICompletionRequest } from "../../../../editor/common/languages/iCompletionSource.ts";
 
-// НАСТОЯЩИЙ subprocess: id пункта обязан пережить сериализацию и найтись в кэше ответа.
+// A REAL subprocess: the item id must survive serialization and be found in the response cache.
 
 function requestIn(harness: IExtensionHarness): ICompletionRequest {
     const uri = Uri.file(`${harness.tmpDir}/.editorconfig`).toString();

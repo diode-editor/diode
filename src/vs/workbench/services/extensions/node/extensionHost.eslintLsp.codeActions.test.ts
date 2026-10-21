@@ -28,8 +28,8 @@ import { fixAllAction } from "../../../contrib/codeAction/browser/codeActionActi
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
-// quickfix «Fix this no-extra-semi problem» сервер матчит по контекст-диагностикам,
-// которые субпроцесс собирает из своих DiagnosticCollection.
+// The server matches the "Fix this no-extra-semi problem" quickfix by the context diagnostics
+// that the subprocess collects from its DiagnosticCollection.
 
 let installed: IInstalledEslint;
 let eslintNodeModules: string;
@@ -113,7 +113,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
 
                 const fix = quickfixes.find((a) => a.title.startsWith("Fix this no-extra-semi"));
                 expect(fix).toBeDefined();
-                // Его возьмёт Ctrl+. по умолчанию (мимо disable-rule/show-docs соседей).
+                // Ctrl+. picks it by default (skipping the neighboring disable-rule/show-docs actions).
                 expect(fix?.isPreferred).toBe(true);
 
                 const applied = await harness.host.applyCodeAction(fix!.id);

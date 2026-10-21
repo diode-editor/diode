@@ -161,33 +161,33 @@ import {
 export const ExtensionHostDIToken = token<ExtensionHost>("ExtensionHost");
 
 export interface IWorkspaceFolderInfo {
-    /** `uri.toString()`, а не путь ФС. */
+    /** `uri.toString()`, not a file system path. */
     readonly uri: string;
     readonly name: string;
     readonly index: number;
 }
 
-/** Push-модель: `getConfiguration().get()` у расширений синхронный, RPC на каждый get невозможен. */
+/** Push model: an extension's `getConfiguration().get()` is synchronous, so an RPC per get is impossible. */
 export interface IExtensionHostConfigProvider {
-    /** Субпроцесс сливает слои той же моделью — своего defaults-слоя у него нет. */
+    /** The subprocess merges layers with the same model — it has no defaults layer of its own. */
     getSnapshot(): IConfigurationData;
     getWorkspaceFolders(): readonly IWorkspaceFolderInfo[];
-    /** `undefined` — папка открыта напрямую или окно пустое. */
+    /** `undefined` when a folder is opened directly or the window is empty. */
     getWorkspaceFile(): string | undefined;
     onDidChange(cb: (affectedKeys: readonly string[]) => void): IDisposable;
-    /** К резолву промиса {@link onDidChange} уже отстрелял новым значением. */
+    /** By the time the promise resolves, {@link onDidChange} has already fired with the new value. */
     updateValue(key: string, value: unknown, target: ConfigurationTarget): Promise<void>;
     getConfigurationScopes(): ReadonlyMap<string, ConfigurationScope>;
 }
 
 export interface IExtensionHostOptions {
     readonly spawnArgs?: () => { command: string; args: string[]; env?: NodeJS.ProcessEnv };
-    /** Мс; 60000 — как `LocalProcessExtensionHost._performHandshake` эталона: опоздание списывает хост до перезапуска. */
+    /** Ms; 60000 as in upstream `LocalProcessExtensionHost._performHandshake`: missing it writes the host off until restart. */
     readonly readyTimeoutMs?: number;
     readonly shutdownTimeoutMs?: number;
     readonly logger?: ILogger;
     readonly rpcLogger?: ILogger;
-    /** Без него stdout закрыт (`"ignore"`): наследовать нельзя — терминал общий с редактором, печать попала бы в кадр. */
+    /** Without it stdout is closed (`"ignore"`): not inherited because the terminal is shared with the editor and output would land in the frame. */
     readonly stdoutLogger?: ILogger;
     readonly stderrLogger?: ILogger;
     readonly configuration?: IExtensionHostConfigProvider;
@@ -197,14 +197,14 @@ export interface IExtensionHostOptions {
     readonly diagnosticsSink?: DiagnosticsSink;
     readonly markers?: IMarkerReader;
     readonly languageConfigurations?: Pick<ILanguageConfigurationService, "register">;
-    /** При смерти субпроцесса хост сам шлёт `end` всем живым handle'ам. */
+    /** When the subprocess dies, the host itself sends `end` to all live handles. */
     readonly progressSink?: IProgressSink;
     readonly outputSink?: IOutputSink;
-    /** При смерти субпроцесса хост сам зовёт `clear()`: `dispose` от умершего расширения не придёт. */
+    /** When the subprocess dies, the host itself calls `clear()`: a dead extension never sends `dispose`. */
     readonly statusBarItemSink?: IStatusBarItemSink;
-    /** При смерти субпроцесса хост сам гасит живые показы — оверлей не остаётся без хозяина. */
+    /** When the subprocess dies, the host itself hides live pickers so no overlay is left without an owner. */
     readonly quickInputSink?: IQuickInputSink;
-    /** Им же хост сам сообщает о неизвестной зависимости — как тост `unknownDep` эталона. */
+    /** The host also reports unknown dependencies through it — like upstream's `unknownDep` toast. */
     readonly notificationSink?: INotificationSink;
     readonly fileDialogSink?: IFileDialogSink;
     readonly workspaceFoldersSink?: IWorkspaceFoldersSink;
@@ -214,20 +214,20 @@ export interface IExtensionHostOptions {
     readonly clipboard?: IClipboard;
     readonly externalOpener?: IExternalOpener;
     readonly environment?: IExtensionHostEnvironment;
-    /** Пушатся на `host.ready` до первой активации: стоковый vscode-languageclient читает реестр на `start()`. */
+    /** Pushed on `host.ready` before the first activation: stock vscode-languageclient reads the registry on `start()`. */
     readonly openDocumentsProvider?: () => IWireDocumentSyncSnapshot[];
     readonly fileWatcher?: IExtensionFileWatcher;
     readonly editorLayout?: IEditorLayoutService;
-    /** Читается на каждой активации: папка воркспейса известна позже создания хоста, а `storageUri` зависит от неё. */
+    /** Read on every activation: the workspace folder is known only after host creation, and `storageUri` depends on it. */
     readonly storageHomes?: () => IExtensionStorageHomes;
     readonly secrets?: IExtensionSecretStore;
     readonly extensionState?: IExtensionStateStore;
     readonly workspaceScanner?: IWorkspaceScanner;
-    /** Мс; по истечении расширение остаётся неактивным — как `WORKSPACE_CONTAINS_TIMEOUT` эталона. */
+    /** Ms; when it expires the extension stays inactive — like upstream `WORKSPACE_CONTAINS_TIMEOUT`. */
     readonly workspaceContainsTimeoutMs?: number;
-    /** Истёкший срок отменяет запрос и даёт пустой результат. */
+    /** An expired timeout cancels the request and yields an empty result. */
     readonly requestTimeouts?: Partial<RequestTimeouts>;
-    /** В символах; документ больше для расширений не существует (ни зеркала, ни провайдеров, ни will-save). */
+    /** In characters; a larger document doesn't exist for extensions (no mirror, no providers, no will-save). */
     readonly maxSyncedDocumentChars?: number;
 }
 
@@ -235,7 +235,7 @@ function friendlyName(reg: IExtensionRegistration): string {
     return extensionFriendlyName(reg.id, reg.manifest);
 }
 
-/** Subprocess — тот же бинарь с `DIODE_EXTENSION_HOST=1`: ранняя ветка `main.ts` уводит в `runExtensionHostSubprocess()`. */
+/** Subprocess: the same binary with `DIODE_EXTENSION_HOST=1`; an early `main.ts` branch runs `runExtensionHostSubprocess()`. */
 export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly options: Required<
         Pick<IExtensionHostOptions, "spawnArgs" | "readyTimeoutMs" | "shutdownTimeoutMs" | "workspaceContainsTimeoutMs">
@@ -248,24 +248,24 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly decorations: DecorationsCustomer;
     private readonly phases = new ExtensionPhases();
     /**
-     * Как `_allRequestedActivateEvents` эталона: пишется всегда, даже без подходящих расширений, — по нему встают
-     * зарегистрированные после своего события и оживают пережившие смерть субпроцесса. `workspaceContains:` не
-     * пишется: его повод считается по ФС.
+     * Like upstream `_allRequestedActivateEvents`: always recorded, even with no matching extensions — it activates
+     * extensions registered after their event and revives those that outlived a subprocess death.
+     * `workspaceContains:` isn't recorded: its trigger is computed from the file system.
      */
     private readonly requestedEvents = new Set<string>();
-    /** Оживление — лениво, на следующем событии, а не сразу при смерти: краш-петлю не устраиваем. */
+    /** Revival is lazy, on the next event rather than right at death, to avoid a crash loop. */
     private replayPending = false;
-    /** Ключи расширений без `main`: зависимость на них удовлетворена (как `_isResolvedExtension` эталона). */
+    /** Keys of extensions without `main`: a dependency on them is satisfied (like upstream `_isResolvedExtension`). */
     private readonly declarativeExtensions = new Set<string>();
     private readonly notificationSink: INotificationSink | undefined;
-    /** Отрицательные: не пересекаются с handle'ами `window.show*Message` субпроцесса (те растут от 1). */
+    /** Negative so they never collide with the subprocess's `window.show*Message` handles (those count up from 1). */
     private nextHostMessageHandle = -1;
-    /** Их ждут и соседние вызовы. */
+    /** Concurrent calls await these too. */
     private readonly activating = new Map<string, { reg: IExtensionRegistration; done: Promise<void> }>();
     private process: ExtensionHostProcess | null = null;
     private rpc: HostRpc | null = null;
     private readyPromise: Promise<void> | null = null;
-    /** Пересоздаётся на каждый спавн: иначе респавны копили бы слушателей, шлющих в мёртвый канал. */
+    /** Recreated on every spawn: otherwise respawns would pile up listeners sending into a dead channel. */
     private spawnStore = new DisposableStore();
     private readonly customers: readonly IExtensionHostCustomer[];
     private hostDisposed = false;
@@ -283,7 +283,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private readonly uriHandlersCustomer: UriHandlersCustomer;
     private readonly storageHomes: () => IExtensionStorageHomes;
     private readonly extensionState: IExtensionStateStore;
-    /** `workspaceState` — словарь ЭТОГО воркспейса: запись после смены папки протекла бы в чужой стор. */
+    /** `workspaceState` belongs to THIS workspace: a write after a folder change would leak into another store. */
     private readonly activationWorkspaces = new Map<string, string | null>();
     private readonly workspaceScanner: IWorkspaceScanner;
     private readonly languageFeatures: LanguageFeaturesCustomer;
@@ -370,15 +370,15 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     }
 
     /**
-     * Subprocess не поднимается; заголовки и заглушки `onCommand:` ставятся сразу — иначе видимая в палитре
-     * команда была бы no-op.
+     * Doesn't start the subprocess; titles and `onCommand:` stubs are installed right away — otherwise a command
+     * visible in the command palette would be a no-op.
      */
     public registerExtension(reg: IExtensionRegistration): IDisposable {
         if (this.hostDisposed) throw new Error("ExtensionHost disposed");
         if (this.phases.isRegistered(reg.id)) {
             throw new Error(`Extension "${reg.id}" already registered`);
         }
-        // Fail-fast; `parseActivateParams` в субпроцессе проверяет то же.
+        // Fail fast; `parseActivateParams` in the subprocess checks the same.
         if ((reg.source !== undefined) === (reg.mainPath !== undefined)) {
             throw new Error(`Extension "${reg.id}": exactly one of "source" or "mainPath" must be set`);
         }
@@ -388,15 +388,15 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         });
         this.commands.addPaletteMetadata(reg);
         this.phases.register(reg);
-        // ПОСЛЕ pending: заглушка исполняется асинхронно и обязана найти
-        // расширение в очереди, когда до неё дойдёт активация.
+        // AFTER pending: the stub runs asynchronously and must find
+        // the extension in the queue when activation reaches it.
         for (const id of readCommandActivationIds(reg)) this.commands.arm(id);
         this.pushExtensionCatalog();
-        // Событие уже звучало (как `_activateAddedExtensionIfNeeded` эталона) — повтора может и не быть.
+        // The event already fired (like upstream `_activateAddedExtensionIfNeeded`) — it may never fire again.
         const heard = readActivationEvents(reg).find((event) => this.requestedEvents.has(event));
         if (heard !== undefined) {
             void this.activateRegistrations([reg], heard).catch((err: unknown) => {
-                // Stryker disable next-line OptionalChaining: логгер необязателен (у хоста в тестах его часто нет); без него сбой глотается, а мутант кинул бы внутри `.catch` — это только unhandled rejection, не наблюдаемое поведение хоста
+                // Stryker disable next-line OptionalChaining: the logger is optional (hosts in tests often lack one); without it the failure is swallowed, and the mutant would throw inside `.catch` — just an unhandled rejection, not observable host behavior
                 this.logger?.error(`failed to activate extension "${reg.id}" on registration`, err);
             });
         }
@@ -404,11 +404,11 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             dispose: (): void => {
                 if (!this.phases.forget(reg.id)) return;
                 this.pushExtensionCatalog();
-                // Кроме объявленных кем-то ещё: id бывает общим.
+                // Except those declared by someone else: ids can be shared.
                 for (const id of readCommandActivationIds(reg)) {
                     if (!this.isCommandActivationClaimed(id)) this.commands.disarm(id);
                 }
-                if (this.phases.dropPending(reg.id)) return; // ещё не активировано (или ждёт оживления)
+                if (this.phases.dropPending(reg.id)) return; // not activated yet (or awaiting revival)
                 void this.unregisterExtension(reg.id);
             },
         };
@@ -418,7 +418,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.declarativeExtensions.add(extensionKey(id));
     }
 
-    /** Расширений без `main` здесь нет — расхождение с `extensions.all` эталона (docs/public/API-COVERAGE.md). */
+    /** Extensions without `main` aren't listed — a deviation from upstream `extensions.all` (docs/public/API-COVERAGE.md). */
     private extensionCatalog(): IWireExtensionCatalog {
         const extensions: IWireExtensionDescription[] = [];
         for (const reg of this.phases.all()) {
@@ -432,14 +432,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return { extensions };
     }
 
-    /** Без субпроцесса — no-op: каталог приедет семенем на его подъёме. */
+    /** No-op without a subprocess: the catalog arrives as a seed when it starts. */
     private pushExtensionCatalog(): void {
         this.rpc?.notify("extensions.catalog", this.extensionCatalog());
     }
 
     public async activateByEvent(event: string): Promise<void> {
         this.requestedEvents.add(event);
-        // Промис значит «расширения события активны» — поднимаемые другим вызовом тоже дождаться.
+        // The promise means "the event's extensions are active" — so also wait for those being activated by another call.
         const inFlight = [...this.activating.values()]
             .filter((activation) => readActivationEvents(activation.reg).includes(event))
             .map((activation) => activation.done);
@@ -447,7 +447,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             await Promise.all([this.replayJournal(event), ...inFlight]);
             return;
         }
-        // После dispose() `pending` пуст — до ensureSubprocess не дойдёт.
+        // After dispose() `pending` is empty, so ensureSubprocess is never reached.
         await Promise.all([this.activateRegistrations(this.pendingMatching([event]), event), ...inFlight]);
     }
 
@@ -457,7 +457,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             .filter((reg) => readActivationEvents(reg).some((event) => events.includes(event)));
     }
 
-    /** Журнал уже содержит и само `reason`; `workspaceContains:` в журнал не пишется — проход отдельно. */
+    /** The journal already contains `reason` itself; `workspaceContains:` isn't journaled — it gets a separate pass. */
     private async replayJournal(reason: string): Promise<void> {
         this.replayPending = false;
         await this.activateRegistrations(this.pendingMatching([...this.requestedEvents]), reason);
@@ -465,11 +465,11 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     }
 
     /**
-     * По расширению, а не одним событием: паттерн — аргумент события (как `checkActivateWorkspaceContainsExtension`
-     * эталона). Зовётся и при позднем открытии папки, иначе событие прогорело бы в пустоту.
+     * Per extension rather than as one event: the pattern is the event's argument (like upstream
+     * `checkActivateWorkspaceContainsExtension`). Also called when a folder opens late, or the event would be lost.
      */
     public async activateByWorkspaceContains(): Promise<void> {
-        // Проигрыш журнала сам заканчивается этим же проходом.
+        // Replaying the journal ends with this same pass.
         if (this.replayPending) {
             await this.replayJournal("workspaceContains");
             return;
@@ -477,8 +477,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         const candidates: { reg: IExtensionRegistration; patterns: IWorkspaceContainsPatterns }[] = [];
         for (const reg of this.phases.pendingRegistrations()) {
             const patterns = readWorkspaceContainsPatterns(reg);
-            // Отсев здесь экономит таймер обхода: метод зовётся на каждое открытие папки.
-            // Stryker disable next-line ConditionalExpression: фильтр — оптимизация; пустой набор паттернов и так не совпадает (см. matchWorkspaceContains), наблюдаемой разницы нет
+            // Filtering here saves a scan timer: this runs on every folder open.
+            // Stryker disable next-line ConditionalExpression: the filter is an optimization; an empty pattern set never matches anyway (see matchWorkspaceContains), no observable difference
             if (hasWorkspaceContainsPatterns(patterns)) candidates.push({ reg, patterns });
         }
         const folders = this.workspaceFolderPaths();
@@ -487,15 +487,15 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             const result = await this.matchWorkspaceContainsWithTimeout(candidate.reg.id, folders, candidate.patterns);
             if (result.pattern !== null) matched.push({ reg: candidate.reg, pattern: result.pattern });
         }
-        // По одному: в логе — причина каждого.
+        // One at a time so the log shows each one's reason.
         for (const hit of matched) {
             await this.activateRegistrations([hit.reg], `workspaceContains:${hit.pattern}`);
         }
     }
 
     /**
-     * Тайм-аут на манифест: `**` одного не съест окно соседей. Это гонка, а не только отмена токена: повисший
-     * `readdir` флагом не сдвинуть. Усечение — в лог, иначе читалось бы как «не подошло».
+     * A timeout per manifest so one `**` can't eat the others' time. It's a race, not just token cancellation: a
+     * hung `readdir` won't notice a flag. Truncation is logged, otherwise it would read as "didn't match".
      */
     private async matchWorkspaceContainsWithTimeout(
         id: string,
@@ -506,8 +506,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         const timer = setTimeout(() => {
             source.cancel();
         }, this.options.workspaceContainsTimeoutMs);
-        // Свой `catch` обязателен: проигравший в `Promise.race` иначе уронил бы процесс через unhandledRejection.
-        // Stryker disable next-line ObjectLiteral: токен здесь останавливает ФОНОВЫЙ обход после того, как гонку выиграл тайм-аут; вызывающий получает тот же ответ и без него — наблюдаемой разницы нет
+        // Own `catch` is required: otherwise the `Promise.race` loser would crash the process via unhandledRejection.
+        // Stryker disable next-line ObjectLiteral: the token here stops the BACKGROUND scan after the timeout has won the race; the caller gets the same answer without it — no observable difference
         const scan = matchWorkspaceContains(this.workspaceScanner, folders, patterns, {
             token: source.token,
         }).catch((err: unknown): IWorkspaceContainsResult => {
@@ -519,11 +519,11 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 resolve({ pattern: null, truncated: true });
             });
         });
-        // Уборка до лога: падение чужого логгера не должно оставить живой таймер.
+        // Clean up before logging: a throwing foreign logger must not leave a live timer.
         const result = await Promise.race([scan, cancelled]);
-        // Stryker disable next-line CallExpression: отыгравший таймер только будит `source.cancel()`, на который уже никто не подписан — наблюдаемой разницы нет
+        // Stryker disable next-line CallExpression: a fired timer only triggers `source.cancel()`, which nobody listens to anymore — no observable difference
         clearTimeout(timer);
-        // Stryker disable next-line CallExpression: снятие слушателей отменённого источника; ответ вызывающему уже сформирован — наблюдаемой разницы нет
+        // Stryker disable next-line CallExpression: removes listeners of a cancelled source; the caller's answer is already settled — no observable difference
         source.dispose();
         if (result.truncated) {
             this.logger?.warn(`workspaceContains scan for "${id}" was cut short`, {
@@ -534,7 +534,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return result;
     }
 
-    /** Не-`file:` папки отбрасываем: обходить их сканером нечем. */
+    /** Non-`file:` folders are dropped: the scanner can't walk them. */
     private workspaceFolderPaths(): readonly string[] {
         const paths: string[] = [];
         for (const folder of this.configuration?.getWorkspaceFolders() ?? []) {
@@ -544,20 +544,21 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return paths;
     }
 
-    /** `reason` — только в лог: расширение о поводе активации не узнаёт, как и в эталоне. */
+    /** `reason` is for the log only: the extension never learns why it was activated, same as upstream. */
     private async activateRegistrations(toActivate: readonly IExtensionRegistration[], reason: string): Promise<void> {
         if (toActivate.length === 0) return;
-        // Сбой spawn/ready — не проблема расширения, пробрасывается наверх.
+        // A spawn/ready failure isn't the extension's problem; it propagates up.
         const rpc = await this.ensureSubprocess();
-        // Параллельно (как `_activateExtensions` эталона): LSP-клиент, поднимающий сервер секундами, иначе держал бы соседей.
+        // In parallel (like upstream `_activateExtensions`): an LSP client whose server takes seconds to start
+        // would otherwise hold up the rest.
         await Promise.all(toActivate.map((reg) => this.activateRegistration(rpc, reg, reason)));
     }
 
     private activateRegistration(rpc: HostRpc, reg: IExtensionRegistration, reason: string): Promise<void> {
         if (!this.phases.takePending(reg.id)) return this.activating.get(reg.id)?.done ?? Promise.resolve();
-        // Stryker disable next-line BlockStatement: гигиена — ждать завершённую (уже резолвленную) активацию мгновенно, а заново она встаёт в карту поверх старой записи; наблюдаемой разницы нет
+        // Stryker disable next-line BlockStatement: hygiene — awaiting a finished (already resolved) activation is instant, and a new one overwrites the old map entry; no observable difference
         const done = this.activateAfterDependencies(rpc, reg, reason).finally(() => {
-            // Stryker disable next-line CallExpression: см. выше
+            // Stryker disable next-line CallExpression: see above
             this.activating.delete(reg.id);
         });
         this.activating.set(reg.id, { reg, done });
@@ -565,8 +566,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     }
 
     /**
-     * Зависимости — раньше (как `_handleActivationRequest` эталона): `activate()` вправе читать их `exports`.
-     * Не вышло — зависимое не активируется до перезагрузки окна.
+     * Dependencies go first (like upstream `_handleActivationRequest`): `activate()` may read their `exports`.
+     * If that fails, the dependent stays inactive until the window reloads.
      */
     private async activateAfterDependencies(rpc: HostRpc, reg: IExtensionRegistration, reason: string): Promise<void> {
         const outcome = await this.activateDependencies(rpc, reg, reason);
@@ -575,14 +576,14 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             return;
         }
         if (outcome === "interrupted") {
-            // Зависимое не виновато — к оживлению вместе с ними.
+            // Not the dependent's fault — it goes to revival along with them.
             if (this.phases.returnInterrupted(reg)) {
-                // Stryker disable next-line OptionalChaining: логгер необязателен (у хоста в тестах его часто нет); сценарий смерти субпроцесса проверяется с логгером, а без него строка просто не пишется
+                // Stryker disable next-line OptionalChaining: the logger is optional (hosts in tests often lack one); the subprocess-death scenario is tested with a logger, and without one the line is simply not written
                 this.logger?.warn(`activation of "${reg.id}" interrupted by extension host death — will retry`);
             }
             return;
         }
-        // Stryker disable next-line OptionalChaining: см. выше — без логгера причина не пишется, наблюдаемое (зависимое не активно) проверено с ним
+        // Stryker disable next-line OptionalChaining: see above — without a logger the reason isn't written; the observable part (dependent inactive) is tested with one
         this.logger?.error(outcome.message);
         if (outcome.notify) this.notifyHuman(outcome.message);
     }
@@ -593,7 +594,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         reason: string,
     ): Promise<"ready" | "interrupted" | { readonly message: string; readonly notify: boolean }> {
         const deps = readExtensionDependencies(reg.manifest);
-        // Stryker disable next-line ConditionalExpression: быстрый путь — без зависимостей проход ниже тоже дал бы "ready" (цикла нет, ждать нечего), только на лишний тик позже
+        // Stryker disable next-line ConditionalExpression: fast path — without dependencies the pass below would also return "ready" (no loop, nothing to wait for), just a tick later
         if (deps.length === 0) return "ready";
         const name = friendlyName(reg);
         const loop = findDependencyLoop(reg.id, (key) => {
@@ -615,8 +616,8 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             }
             if (this.declarativeExtensions.has(extensionKey(dep))) continue;
             if (isBuiltinVSCodeExtension(dep)) {
-                // Отступление: встроенного расширения VS Code у нас нет — поднимаемся без него.
-                // Stryker disable next-line OptionalChaining: логгер необязателен; без него строка просто не пишется, наблюдаемое (зависимое активно) проверено с ним
+                // Deviation: we don't ship VS Code's built-in extension, so activate without it.
+                // Stryker disable next-line OptionalChaining: the logger is optional; without it the line is simply not written; the observable part (dependent active) is tested with one
                 this.logger?.warn(
                     `"${reg.id}" depends on built-in VS Code extension "${dep}", which Diode does not ship — activating without it`,
                 );
@@ -649,18 +650,18 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     }
 
     private notifyHuman(message: string): void {
-        // Stryker disable next-line UpdateOperator: от счётчика нужна только уникальность адреса, направление шага ненаблюдаемо
+        // Stryker disable next-line UpdateOperator: the counter only needs unique handles; the step direction is unobservable
         const handle = this.nextHostMessageHandle--;
         void this.notificationSink
             ?.showMessage({ severity: "error", message, modal: false, items: [], handle })
             .catch((error: unknown) => {
-                // Stryker disable next-line OptionalChaining: без логгера отказ стока глотается; мутант бросил бы внутри `.catch` — это только unhandled rejection, не наблюдаемое поведение хоста
+                // Stryker disable next-line OptionalChaining: without a logger the sink's rejection is swallowed; the mutant would throw inside `.catch` — just an unhandled rejection, not observable host behavior
                 this.logger?.error(`showMessage failed: ${String(error)}`);
             });
     }
 
     private async requestActivation(rpc: HostRpc, reg: IExtensionRegistration, reason: string): Promise<void> {
-        // Упавший `activate()` не блокирует остальных и не роняет bootstrap (как в VS Code).
+        // A failing `activate()` doesn't block the others or crash bootstrap (as in VS Code).
         const storage = this.resolveStoragePaths(reg.id);
         this.activationWorkspaces.set(reg.id, this.storageHomes().workspaceStorageHome);
         try {
@@ -669,21 +670,21 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
                 mainPath: reg.mainPath,
                 source: reg.source,
                 filename: reg.filename,
-                // Нормализует его одна сторона — `parseActivateParams` в субпроцессе.
+                // Normalized on one side only — `parseActivateParams` in the subprocess.
                 moduleType: reg.manifest.type,
                 extensionPath: reg.extensionPath,
                 globalStoragePath: storage.globalStoragePath,
                 storagePath: storage.storagePath,
                 logPath: storage.logPath,
-                // Сразу в параметрах: `get` у расширения синхронный.
+                // Passed in the params up front: the extension's `get` is synchronous.
                 globalState: this.extensionState.get(reg.id, true),
                 workspaceState: this.extensionState.get(reg.id, false),
             });
             this.phases.markActive(reg);
-            // Точечно: манифесты тяжёлые (сотни КБ у языковых серверов), а меняется один флаг.
+            // Targeted: manifests are heavy (hundreds of KB for language servers) while only one flag changes.
             rpc.notify("extensions.activated", { id: reg.id });
         } catch (err) {
-            // Субпроцесс умер во время активации — расширение ни при чём, к оживлению.
+            // The subprocess died during activation — not the extension's fault, queue it for revival.
             if (rpc !== this.rpc && this.phases.returnInterrupted(reg)) {
                 this.logger?.warn(`activation of "${reg.id}" interrupted by extension host death — will retry`);
                 return;
@@ -691,7 +692,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
             this.logger?.error(`failed to activate extension "${reg.id}"`, err);
             return;
         }
-        // Вне try: сбой логгера не должен прикидываться сбоем активации.
+        // Outside try: a logger failure must not masquerade as an activation failure.
         this.logger?.info(`activated extension "${reg.id}" (${reason})`);
     }
 
@@ -702,7 +703,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return false;
     }
 
-    /** Родители создаются по контракту vscode.d.ts; на каждой активации — ради актуальной папки воркспейса. */
+    /** Parents are created per the vscode.d.ts contract; on every activation, to follow the current workspace folder. */
     private resolveStoragePaths(id: string): {
         globalStoragePath: string;
         storagePath: string | null;
@@ -717,7 +718,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
 
     public async unregisterExtension(id: string): Promise<void> {
         if (!this.phases.deactivate(id)) return;
-        // Снятие может прийти вторым заходом — лишний `extensions.catalog` не шлём.
+        // Removal may come a second time — don't send a redundant `extensions.catalog`.
         if (this.phases.forget(id)) this.pushExtensionCatalog();
         const rpc = this.rpc;
         /* v8 ignore start -- defensive: an extension can only be in `extensions` after ensureSubprocess set `rpc`; dispose() clears `extensions` before nulling `rpc`, so rpc is never null while the id is still registered */
@@ -900,7 +901,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         return this.fileSystem.readProvidedFile(uri);
     }
 
-    /** `null` — ресурса нет. */
+    /** `null` when the resource doesn't exist. */
     public statProvidedFile(uri: Uri): Promise<IStat | null> {
         return this.fileSystem.statProvidedFile(uri);
     }
@@ -941,21 +942,21 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         if (this.hostDisposed) return;
         this.hostDisposed = true;
         this.phases.clear();
-        // Заглушки живут в общем реестре команд ядра — после dispose их некому поднимать.
+        // Stubs live in the core's shared command registry — after dispose there's nothing left for them to activate.
         this.commands.disarmAll();
         this.shutdownDone = this.shutdownSubprocess();
         super.dispose();
     }
 
-    /** Повторный вызов отдаёт то же прощание. */
+    /** A repeated call returns the same shutdown promise. */
     public shutdown(): Promise<void> {
         this.dispose();
         return this.shutdownDone;
     }
 
     /**
-     * Для мест, где event loop дальше не крутится (перезагрузка окна): не доведённый до выхода субпроцесс
-     * снимается сигналом синхронно, иначе остался бы сиротой.
+     * For places where the event loop won't spin again (window reload): a subprocess that hasn't exited yet is
+     * killed with a signal synchronously, otherwise it would be orphaned.
      */
     public disposeNow(): void {
         this.dispose();
@@ -987,7 +988,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
 
         this.readyPromise = subprocess.waitForReady(this.options.readyTimeoutMs).then(() => {
             this.logger?.info("extension host ready");
-            // Семена — ДО первой активации: `activate()` уже читает настройки, тему, каталог (`getExtension`),
+            // Seeds go BEFORE the first activation: `activate()` already reads settings, theme, catalog (`getExtension`),
             // `workspace.textDocuments` (vscode-languageclient), `window.terminals` (bazel-java).
             this.configurationCustomer?.pushInitialState();
             this.env.pushInitialState();
@@ -1010,7 +1011,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     }
 
     /**
-     * Запись `workspaceState` из чужого воркспейса отбрасывается — страховка от записи, ушедшей в полёт до
+     * A `workspaceState` write from another workspace is dropped — a guard against a write that was in flight before
      * {@link restartForWorkspaceChange}.
      */
     private installMementoHandlers(rpc: HostRpc): void {
@@ -1037,13 +1038,13 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         this.readyPromise = null;
     }
 
-    /** Хост остаётся жив: снимает всё, что принадлежало умершему, и ставит активные расширения на оживление. */
+    /** The host stays alive: it tears down everything the dead subprocess owned and queues active extensions for revival. */
     private handleSubprocessDeath(subprocess: ExtensionHostProcess): void {
-        // Вежливое выключение уже обнулило `process` — там всё сделано.
+        // A graceful shutdown already nulled `process` and handled everything.
         if (this.process !== subprocess) return;
         this.logger?.warn("extension host subprocess died — resetting host state");
         this.endSpawn();
-        // Запросы в полёте получают отказ, а не висят: оборванная активация вернётся к оживлению.
+        // In-flight requests are rejected instead of hanging: an interrupted activation goes back to revival.
         subprocess.dispose();
         this.armRevival();
     }
@@ -1051,28 +1052,28 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
     private armRevival(): void {
         const revived = this.phases.reviveAll();
         this.replayPending = true;
-        // Заглушки вместо снятых прокси: команда и была единственным способом оживить расширение руками.
+        // Stubs replace the removed proxies: the command is the only way to revive the extension by hand.
         for (const reg of revived) {
             for (const id of readCommandActivationIds(reg)) this.commands.arm(id);
         }
     }
 
     /**
-     * У эталона это перезагрузка окна: `workspaceFolders`/`storageUri` расширение читает в `activate()` один раз.
-     * Здесь окно живёт, перезапускается только субпроцесс.
+     * Upstream reloads the window here: an extension reads `workspaceFolders`/`storageUri` once in `activate()`.
+     * Here the window lives on and only the subprocess restarts.
      */
     public async restartForWorkspaceChange(): Promise<void> {
-        // Нет спавна (и у выключенного хоста) — перезапускать нечего.
+        // No spawn (also for a disposed host) — nothing to restart.
         if (this.rpc === null) {
             await this.activateByWorkspaceContains();
             return;
         }
         this.logger?.info("workspace changed — restarting extension host");
-        // Оживление — ДО ожидания выхода: событие, пришедшее за время прощания, поднимет новый спавн, а не потеряется.
+        // Revival is armed BEFORE awaiting exit: an event arriving during shutdown starts a new spawn instead of being lost.
         const shutdown = this.shutdownSubprocess();
         this.armRevival();
         await shutdown;
-        // Stryker disable next-line ConditionalExpression: без проверки журнал проигрался бы повторно — пустой набор ожидающих и тот же проход по папкам, разница только в поводе лога
+        // Stryker disable next-line ConditionalExpression: without the check the journal would replay again — an empty pending set and the same folder pass, only the log reason differs
         if (this.replayPending) await this.replayJournal("workspaceChanged");
         else await this.activateByWorkspaceContains();
     }
@@ -1082,7 +1083,7 @@ export class ExtensionHost extends Disposable implements IDocumentSyncTarget {
         const subprocess = this.process;
         this.endSpawn();
         if (subprocess === null) {
-            // Канал без субпроцесса — у in-process тестов.
+            // A channel without a subprocess — in in-process tests.
             rpc?.dispose();
             return;
         }

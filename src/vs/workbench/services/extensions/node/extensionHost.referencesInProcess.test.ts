@@ -11,8 +11,8 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Канал сшит in-process: ветки, недостижимые через настоящий fork (документ без
-// синхронизации, дефолтный таймаут).
+// The channel is wired in-process: branches unreachable through a real fork (a document without
+// sync, the default timeout).
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -28,7 +28,7 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Запросы ходят только по документам, синхронизированным с субпроцессом. */
+/** Requests are sent only for documents synced with the subprocess. */
 const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
 
 const REF = { uri: "file:///a.ts", range: { start: { line: 1, character: 0 }, end: { line: 1, character: 3 } } };
@@ -49,7 +49,6 @@ function makeHost(
     options: {
         warn?: ILogger["warn"];
         debug?: ILogger["debug"];
-        /** Мс. */
         timeoutMs?: number;
         maxSyncedDocumentChars?: number;
         open?: boolean;
@@ -175,8 +174,8 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         const hostRpc = (host as unknown as { rpc: RpcEndpoint }).rpc;
         const request = vi.spyOn(hostRpc, "request");
         peer.handleRequest("languages.provideReferences", () => []);
-        // Срок уезжает транспорту с запросом, а не ждётся вживую: реальное
-        // ожидание в мутационном прогоне стоит секунды на каждом мутанте.
+        // The deadline travels to the transport with the request instead of being awaited live: a real
+        // wait costs seconds on every mutant in the mutation run.
         await host.provideReferences(0, requestOf());
         expect(request).toHaveBeenCalledWith("languages.provideReferences", expect.anything(), { timeoutMs: 5000 });
     });
@@ -192,7 +191,7 @@ describe("ExtensionHost — references-запрос по handle (in-process)", (
         });
 
         expect(await host.provideReferences(0, requestOf())).toEqual([]);
-        // Истёкший срок — штатный исход медленного провайдера: debug, не warn.
+        // An expired deadline is a normal outcome for a slow provider: debug, not warn.
         expect(debug).toHaveBeenCalledWith('request "languages.provideReferences" timed out after 5ms');
         await vi.waitFor(() => {
             expect(seen?.isCancellationRequested).toBe(true);

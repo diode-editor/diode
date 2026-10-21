@@ -76,8 +76,8 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
         }
     });
 
-    // Срок едет в ЗАПРОСЕ: правка настройки применяется без перезапуска. Фикстура
-    // отвечает ~300 мс — тесный срок её не дождётся, хостовой дефолт (5000 мс) дождётся.
+    // The deadline travels in the REQUEST: a settings change applies without a restart. The fixture
+    // answers in ~300 ms: a tight deadline won't wait for it, the host default (5000 ms) will.
     it("req.timeoutMs перебивает хостовой таймаут: тесный срок сдаётся, отсутствие срока — ждёт", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "function fib" },
@@ -88,7 +88,7 @@ describe("ExtensionHost — inline completion bridge (subprocess)", () => {
 
             expect(await provideInlineCompletions(harness, { ...requestIn(harness), timeoutMs: 50 })).toEqual([]);
 
-            // Срока в запросе нет → работает хостовой дефолт, ответ дожидается.
+            // No deadline in the request → the host default applies and the response arrives.
             expect(await provideInlineCompletions(harness, requestIn(harness))).toEqual([
                 { insertText: "onacci(n) {}" },
             ]);

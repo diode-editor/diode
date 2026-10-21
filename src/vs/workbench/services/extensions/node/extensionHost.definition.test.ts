@@ -18,7 +18,7 @@ const TS_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageDisplayName: () => undefined,
 };
 
-/** Ответ пустой при любой версии. */
+/** The response is empty for any version. */
 const UNOPENED_VERSION = 1;
 
 function requestFor(uri: string, line: number, versionId: number): IDefinitionRequest {
@@ -36,14 +36,14 @@ describe("ExtensionHost — definition providers (subprocess)", () => {
             const mainUri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
             const defsUri = Uri.file(`${harness.tmpDir}/defs.ts`).toString();
 
-            // Строка 0 → фикстура возвращает одиночный vscode.Location.
+            // Line 0 → the fixture returns a single vscode.Location.
             const fromLocation = await provideDefinitions(
                 harness,
                 requestFor(mainUri, 0, documentVersion(harness, mainUri)),
             );
             expect(fromLocation).toEqual([{ uri: defsUri, range: createRange(2, 4, 2, 9) }]);
 
-            // Строка 1 → массив LocationLink.
+            // Line 1 → an array of LocationLink.
             const fromLink = await provideDefinitions(
                 harness,
                 requestFor(mainUri, 1, documentVersion(harness, mainUri)),

@@ -22,11 +22,11 @@ import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Стоковый `maptz.regionfolder` из магазина на настоящем хосте (#194).
+// The stock `maptz.regionfolder` from the marketplace on a real host (#194).
 
 const EXT_ID = "maptz.regionfolder";
 
-/** Язык-сервис, размечающий всё как csharp (у maptz есть [csharp]-маркеры). */
+/** A language service that marks everything as csharp (maptz has [csharp] markers). */
 const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: () => "csharp",
     getLanguageDisplayName: () => "C#",
@@ -77,7 +77,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.r
             activateEvents: ["onStartupFinished"],
         });
         try {
-            // activate() регистрирует провайдер, фолды переподъезжают в открытый редактор.
+            // activate() registers the provider, and folds are re-delivered to the open editor.
             await harness.flushRpc(8);
             await settle();
             await harness.flushRpc(8);
@@ -91,8 +91,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.r
         }
     });
 
-    // #194: команда проходит весь путь editor-write API — выделение в субпроцесс,
-    // правки назад через `editor.applyEdit` одним undoable-батчем.
+    // #194: the command goes through the whole editor-write API: selection to the subprocess,
+    // edits back via `editor.applyEdit` as one undoable batch.
     it("regionfolder.wrapWithRegion оборачивает выделение в #region-теги", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "Program.cs", content: CSHARP_TEXT },
@@ -101,8 +101,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.r
             activateEvents: ["onStartupFinished"],
         });
         try {
-            // #196: после wrap расширение fire-and-forget зовёт formatDocument — нужна
-            // НАСТОЯЩАЯ команда, иначе вызов отклонится «command not found».
+            // #196: after wrap the extension fire-and-forgets formatDocument, so it needs
+            // the REAL command, otherwise the call is rejected with "command not found".
             const notices: string[] = [];
             const statusBar = {
                 addEntry: (entry: { text: string }) => {
@@ -135,7 +135,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый maptz.r
             expect(lines[wrapped - 1]).toContain("#region");
             expect(lines[wrapped + 1]).toContain("#endregion");
 
-            // Для csharp форматтера нет — notice значит, что команда исполнилась.
+            // There is no csharp formatter; the notice means the command ran.
             expect(notices).toEqual(["No formatter for 'csharp' installed"]);
 
             editor.undo();

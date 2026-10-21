@@ -8,7 +8,7 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 import { ExtensionHost } from "./extensionHost.ts";
 import { createInMemoryExtensionSecretStore, type IExtensionSecretStore } from "./extensionSecretsStore.ts";
 
-// Битую форму запроса живой субпроцесс не пошлёт, а отказ — граница доверия хоста.
+// A live subprocess never sends a malformed request, and the refusal is the host's trust boundary.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -93,7 +93,7 @@ describe("ExtensionHost — хендлеры secrets.* (in-process)", () => {
     });
 
     it("сообщение об отказе не содержит значения секрета", async () => {
-        // Иначе оно уехало бы в лог RPC вместе с текстом ошибки.
+        // Otherwise it would end up in the RPC log together with the error text.
         const h = makeHost();
         await expect(
             h.peer.request("secrets.store", { extensionId: "pub.one", key: 1, value: "s3cr3t" }),

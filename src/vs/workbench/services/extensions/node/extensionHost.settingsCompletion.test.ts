@@ -15,7 +15,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// `.ts`-main грузится как есть: subprocess тестов — tsx.
+// The `.ts` main is loaded as is: the test subprocess runs under tsx.
 const DIODE_SETTINGS_MAIN = fileURLToPath(
     new URL("../../../../../../extensions/diode-settings/main.ts", import.meta.url),
 );
@@ -29,7 +29,7 @@ function settingsExtension(): IExtensionRegistration {
     };
 }
 
-/** Текста в запросе нет — субпроцесс берёт его из зеркала открытого документа. */
+/** The request carries no text: the subprocess takes it from the mirror of the open document. */
 async function openDocument(
     harness: IExtensionHarness,
     name: string,
@@ -43,14 +43,14 @@ async function openDocument(
     return { uri, versionId: documentVersion(harness, uri) };
 }
 
-/** `{\n    |\n}` — каретка в теле объекта, то есть в позиции ключа. */
+/** `{\n    |\n}`: the cursor in the object body, i.e. at a key position. */
 const SETTINGS_TEXT = "{\n    \n}";
 const SETTINGS_POSITION = { languageId: "json", line: 1, character: 4 };
 
 describe("diode-settings — автодополнение ключей в settings.json", () => {
     it("активируется onLanguage:json и предлагает известные ключи настроек", async () => {
         const harness = await createExtensionTestHarness({
-            activateEvents: [], // проверяем ленивость
+            activateEvents: [], // checks laziness
             extensions: [settingsExtension()],
         });
         try {
@@ -63,7 +63,7 @@ describe("diode-settings — автодополнение ключей в settin
             const settings = await openDocument(harness, ".diode/settings.json", SETTINGS_TEXT);
             const { items } = await provideCompletions(harness, { ...settings, ...SETTINGS_POSITION });
             const labels = items.map((i) => i.label);
-            // Ключи из app-дефолтов и из contributes.configuration builtin'ов.
+            // Keys from the app defaults and from the builtins' contributes.configuration.
             expect(labels).toContain("editor.tabSize");
             expect(labels).toContain("workbench.colorTheme");
             expect(labels).toContain("git.enabled");
@@ -117,10 +117,10 @@ describe("diode-settings — автодополнение ключей в settin
     });
 });
 
-// `readRange` берёт range только через `instanceof Range`: сквозняк проверяет, что
-// расширение и хост видят один класс. Потеряйся range — кавычки удвоились бы.
+// `readRange` accepts a range only via `instanceof Range`: the end-to-end run checks that the
+// extension and the host see the same class. If the range were lost, the quotes would double.
 describe("diode-settings — кавычки и значения (e2e через subprocess)", () => {
-    /** Каретка — маркер `|`. */
+    /** The cursor is the `|` marker. */
     async function complete(marked: string) {
         const offset = marked.indexOf("|");
         if (offset === -1) throw new Error("В кейсе нет маркера каретки `|`");
@@ -149,8 +149,8 @@ describe("diode-settings — кавычки и значения (e2e через 
         const item = items.find((i) => i.label === "editor.tabSize");
 
         expect(item).toBeDefined();
-        expect(item?.insertText).toBe('"editor.tabSize"'); // виден без кавычек, вставляется в них
-        // [4,8) на строке 1 — это `"edi`, вместе с кавычкой.
+        expect(item?.insertText).toBe('"editor.tabSize"'); // shown without quotes, inserted inside them
+        // [4,8) on line 1 is `"edi`, including the quote.
         expect(item?.range).toEqual({
             start: { line: 1, character: 4 },
             end: { line: 1, character: 8 },
@@ -187,7 +187,7 @@ describe("diode-settings — кавычки и значения (e2e через 
         const auto = items.find((i) => i.label === '"auto"');
 
         expect(auto?.insertText).toBe('"auto"');
-        // [21,24) — это `"a"` целиком; вставка не оставит лишней кавычки.
+        // [21,24) is the whole `"a"`; the insertion leaves no extra quote.
         expect(auto?.range).toEqual({
             start: { line: 1, character: 21 },
             end: { line: 1, character: 24 },

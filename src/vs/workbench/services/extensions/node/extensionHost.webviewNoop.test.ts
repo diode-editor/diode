@@ -14,7 +14,10 @@ import {
     InlineCompletionTriggerKind,
 } from "../../../../editor/common/languages/iInlineCompletionSource.ts";
 
-/** Webview в TUI не будет, но без этих точек входа `activate()` расширения с чат-панелью падает целиком. */
+/**
+ * There will be no webview in a TUI, but without these entry points `activate()` of an extension
+ * with a chat panel fails entirely.
+ */
 const WEBVIEW_ENTRY_POINTS = [
     "createWebviewPanel",
     "registerWebviewViewProvider",

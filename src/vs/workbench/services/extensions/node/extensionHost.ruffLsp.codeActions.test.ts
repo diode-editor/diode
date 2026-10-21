@@ -20,8 +20,8 @@ import { fixAllAction, organizeImportsAction } from "../../../contrib/codeAction
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
-// Сервер отдаёт точные виды `source.organizeImports.ruff` / `source.fixAll.ruff` —
-// команды берут их иерархическим матчем `only`.
+// The server returns exact kinds `source.organizeImports.ruff` / `source.fixAll.ruff`;
+// the commands pick them by hierarchical `only` matching.
 
 let installed: IInstalledRuff;
 
@@ -83,7 +83,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
             const osLine = text.indexOf("import os");
             const sysLine = text.indexOf("import sys");
             expect(osLine).toBeGreaterThanOrEqual(0);
-            // Organize imports сортирует (os < sys), но НЕ удаляет неиспользуемое.
+            // Organize imports sorts (os < sys) but does NOT remove unused imports.
             expect(sysLine).toBeGreaterThan(osLine);
         } finally {
             await harness.dispose();
@@ -113,8 +113,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — code actions от сто
         async () => {
             const { harness, lintUri } = await openLintFile();
             try {
-                // Контекст-диагностики субпроцесс собирает сам из DiagnosticCollection.
-                // Ждём именно quickfix-набор: сервер мог ещё линтить.
+                // The subprocess collects context diagnostics itself from DiagnosticCollection.
+                // Wait specifically for the quickfix set: the server may still be linting.
                 const quickfixes = await until("quickfix-набор для F401", async () => {
                     const actions = await provideCodeActions(harness, {
                         uri: lintUri,

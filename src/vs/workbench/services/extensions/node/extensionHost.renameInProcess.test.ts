@@ -10,7 +10,7 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Канал сшит in-process: виден провод и ветки, недостижимые через настоящий fork.
+// The channel is wired in-process: the wire is visible, plus branches unreachable through a real fork.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -26,7 +26,7 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Запросы ходят только по документам, синхронизированным с субпроцессом. */
+/** Requests are sent only for documents synced with the subprocess. */
 const DOCUMENT = { uri: "file:///proj/main.ts", languageId: "typescript", version: 3, text: "const value = 1;\n" };
 
 function makeHost(
@@ -135,8 +135,8 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
             applied: false,
             error: "The document is not available to language extensions",
         });
-        // В логе — и повод, и чем документ не угодил: без ресурса и длины
-        // запись не отличить от соседних отказов.
+        // The log has both the reason and what was wrong with the document: without the resource and length
+        // the entry is indistinguishable from neighboring refusals.
         expect(over.warnings).toEqual([
             { message: "skipping document sync: document too large", payload: { uri: REQUEST.uri, length } },
         ]);
@@ -195,7 +195,7 @@ describe("ExtensionHost — rename по handle (in-process)", () => {
             applied: false,
             error: "Rename timed out",
         });
-        // Истёкший срок — debug с методом, не warn.
+        // An expired deadline is debug with the method, not warn.
         expect(debugs).toEqual([
             'request "languages.prepareRename" timed out after 10ms',
             'request "languages.provideRenameEdits" timed out after 10ms',

@@ -14,7 +14,7 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import type { ISemanticTokensRequest } from "../../../../editor/common/languages/iSemanticTokensSource.ts";
 
-/** Язык-сервис, размечающий всё как csharp (селектор фикстуры совпадёт). */
+/** A language service that marks everything as csharp (the fixture's selector matches). */
 const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageIdForResource: () => "csharp",
     getLanguageDisplayName: () => "C#",
@@ -26,8 +26,8 @@ const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
 const TEXT = ["class Foo", "var bar"].join("\n");
 
 /**
- * Разметка фикстуры для {@link TEXT}: «class» (variable+declaration), «Foo»
- * (class), «var» (variable+declaration), «bar» (variable).
+ * The fixture's tokens for {@link TEXT}: "class" (variable+declaration), "Foo"
+ * (class), "var" (variable+declaration), "bar" (variable).
  */
 const TOKENS = [0, 0, 5, 1, 1, 0, 6, 3, 0, 0, 1, 0, 3, 1, 1, 0, 4, 3, 1, 0];
 
@@ -110,7 +110,7 @@ describe("ExtensionHost — семантические токены (subprocess)
             provider.onDidChange?.(() => {
                 changes++;
             });
-            // Фикстура фаерит событие вскоре после первого ответа.
+            // The fixture fires the event shortly after the first response.
             await provider.provideDocumentSemanticTokens(request, null, CancellationTokenNone);
             const deadline = Date.now() + 5000;
             while (changes === 0 && Date.now() < deadline) await settle();

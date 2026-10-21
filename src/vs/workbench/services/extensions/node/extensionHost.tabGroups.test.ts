@@ -50,7 +50,7 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
         });
         try {
             await settle();
-            // Стартовый снимок уже нёс полосу с main.ts (layoutChanged до активации).
+            // The initial snapshot already carried the strip with main.ts (layoutChanged before activation).
             const initial = await snapshot(harness);
             expect(initial.groups.length).toBe(1);
             expect(initial.groups[0].tabs.map((tab) => tab.label)).toEqual(["main.ts"]);
@@ -90,7 +90,7 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
 
             expect(result).toBe(true);
             expect(harness.group.editorGroups.activeGroup.editorCount).toBe(1);
-            // Свежий снимок уехал расширению ДО ответа: вкладки в tabGroups больше нет.
+            // The fresh snapshot reached the extension BEFORE the response: the tab is gone from tabGroups.
             const after = await snapshot(harness);
             expect(after.groups[0].tabs.map((tab) => tab.label)).toEqual(["main.ts"]);
         } finally {
@@ -130,7 +130,7 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
             await settle();
             const uri = harness.group.getActiveEditor()!.uri.toString();
 
-            // Beside (-2): открывается в новой группе 2; результат несёт колонку.
+            // Beside (-2): opens in a new group 2; the result carries the column.
             const beside = (await harness.commandRegistry.execute("test.tabs.show", {
                 uri,
                 viewColumn: -2,
@@ -138,11 +138,11 @@ describe("ExtensionHost — tabGroups/layout producer (subprocess)", () => {
             expect(beside.viewColumn).toBe(2);
             expect(harness.group.editorGroups.groups.length).toBe(2);
 
-            // Повторный показ в ту же колонку — дедуп, группа не растёт.
+            // Showing again in the same column is deduplicated; the group count does not grow.
             await harness.commandRegistry.execute("test.tabs.show", { uri, viewColumn: 2 });
             expect(harness.group.editorGroups.groups[1].editorCount).toBe(1);
 
-            // preserveFocus: активная группа не меняется.
+            // preserveFocus: the active group does not change.
             harness.group.editorGroups.focusGroup({ index: 0 });
             await settle();
             await harness.commandRegistry.execute("test.tabs.show", {

@@ -6,7 +6,7 @@ import { NULL_LOGGER } from "../../../../platform/log/common/nullLogService.ts";
 import type { IOutputSink } from "../../../api/common/iExtensionWindowSinks.ts";
 import { LanguageConfigurationService } from "../../language/common/languageConfigurationService.ts";
 
-// Форма `golang.go`: без `vscode.debug` пользователь терял ~60 команд `go.*`.
+// The `golang.go` shape: without `vscode.debug` the user lost ~60 `go.*` commands.
 describe("ExtensionHost — расширение с дебаггером и Test API активируется целиком", () => {
     it("activate() доходит до команды; сессий нет, профили и коллекции рабочие, слой языка — в ядре", async () => {
         const output: { channel: string; level: string; value: string }[] = [];
@@ -16,7 +16,7 @@ describe("ExtensionHost — расширение с дебаггером и Test
             },
             show: () => undefined,
         };
-        // Язык без language-configuration.json: всё, что увидит ядро, — слой расширения.
+        // A language without language-configuration.json: everything the core sees comes from the extension layer.
         const languageConfigurations = new LanguageConfigurationService(
             { readText: () => Promise.reject(new Error("no assets")) } as never,
             { getLanguage: () => ({ configurationPath: undefined }) },

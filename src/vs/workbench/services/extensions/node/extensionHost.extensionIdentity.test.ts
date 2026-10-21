@@ -13,10 +13,10 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 /**
- * Расширения лежат в РАЗНЫХ каталогах: по корню субпроцесс узнаёт, чей модуль
- * импортирует `"vscode"`. Сравнения — внутри субпроцесса (объекты по проводу не
- * сравнить), их делает команда фикстуры «beta». Loader `"node"` — без tsx, виден
- * настоящий резолв ESM.
+ * The extensions live in DIFFERENT directories: by the root the subprocess tells whose module
+ * imports `"vscode"`. The comparisons happen inside the subprocess (objects cannot be compared
+ * over the wire); the fixture's "beta" command does them. Loader `"node"` runs without tsx, so the
+ * real ESM resolution is visible.
  */
 
 const DIR = path.join(EXTENSION_FIXTURES_DIR, "extensionIdentity");
@@ -72,7 +72,7 @@ for (const loader of LOADERS) {
                     registration("alpha", "extension.cjs"),
                     registration("esm", "extension.mjs"),
                     builtinRegistration(),
-                    // Последней: её команда читает пробы остальных.
+                    // Last: its command reads the probes of the others.
                     registration("beta", "extension.cjs"),
                 ],
             });
@@ -93,7 +93,7 @@ for (const loader of LOADERS) {
                     builtin: { distinctWindow: true, samePosition: true, sameEnv: true, activeFile: first },
                 });
 
-                // Геттер читается на каждом обращении, а не снимается при сборке оверлея.
+                // The getter is read on every access, not captured when the overlay is built.
                 const second = harness.writeFile("second.txt", "two\n");
                 harness.group.openFile(second);
                 await settle();

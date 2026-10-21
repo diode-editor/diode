@@ -57,8 +57,8 @@ describe("ExtensionHost — editor write API (subprocess)", () => {
         }
     });
 
-    // Регрессия #194: выделение уезжало только на смене активного редактора, и
-    // `activeTextEditor.selection` навсегда залипал на (0,0).
+    // Regression #194: the selection was only sent on an active editor change, and
+    // `activeTextEditor.selection` stayed stuck at (0,0) forever.
     it("расширение видит свежее выделение после движения каретки", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "hello\nworld\nagain" },
@@ -100,15 +100,15 @@ describe("ExtensionHost — editor write API (subprocess)", () => {
             await settle();
 
             const seen = (await harness.commandRegistry.execute("test.readSelection")) as { count: number };
-            // maptz выходит на `selections.length > 1`.
+            // maptz bails out on `selections.length > 1`.
             expect(seen.count).toBe(2);
         } finally {
             await harness.dispose();
         }
     });
 
-    // Регрессия #194: maptz после wrapWithRegion зовёт отсутствующую команду, RPC
-    // отклоняется, и Node убивал субпроцесс со всеми расширениями.
+    // Regression #194: after wrapWithRegion maptz calls a missing command, the RPC
+    // is rejected, and Node used to kill the subprocess with all extensions.
     it("необработанный reject в расширении не роняет extension host", async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "a.txt", content: "hello\nworld" },

@@ -19,7 +19,7 @@ import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLang
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Стоковый конвертер дёргает `new code.Hover`/`new code.MarkdownString` и безусловно пишет `supportHtml`.
+// The stock converter calls `new code.Hover`/`new code.MarkdownString` and always sets `supportHtml`.
 
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));

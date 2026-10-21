@@ -7,7 +7,7 @@ import { ExtensionStatusBarAdapter } from "../../../api/browser/extensionStatusB
 import type { IOutputSink } from "../../../api/common/iExtensionWindowSinks.ts";
 import { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 
-/** Фикстура трогает API так же, как бандл `Anthropic.claude-code`; сам `.vsix` — в e2e-сценарии. */
+/** The fixture touches the API like the `Anthropic.claude-code` bundle; the `.vsix` itself is in the e2e scenario. */
 async function makeHarness() {
     const bar = new StatusBarService(NULL_STATE_SERVICE);
     const output: { channel: string; level: string; value: string }[] = [];

@@ -22,8 +22,8 @@ import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
 /**
- * Субпроцесс — БЕЗ tsx (`subprocessLoader: "node"`): ESM-хук tsx уводит
- * незнакомый ему `"vscode"` в CJS-резолвер и прячет ровно то, что проверяет файл.
+ * The subprocess runs WITHOUT tsx (`subprocessLoader: "node"`): the tsx ESM hook sends
+ * the unfamiliar `"vscode"` to the CJS resolver and hides exactly what this file checks.
  */
 
 function esmFixture(): IExtensionRegistration {

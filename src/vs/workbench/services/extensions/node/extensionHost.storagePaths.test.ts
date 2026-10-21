@@ -76,7 +76,7 @@ describe("ExtensionHost — каталоги хранения расширени
         }
     });
 
-    // Не наличие поля, а что по нему можно писать: родителя создал хост.
+    // Not that the field exists, but that it can be written to: the host created the parent.
     it("расширение создаёт свой каталог и пишет в него: родитель существует до activate()", async () => {
         const harness = await createExtensionTestHarness({ extensions: [storageFixture()] });
         try {
@@ -125,7 +125,7 @@ describe("ExtensionHost — каталоги хранения расширени
         try {
             const report = (await harness.commandRegistry.execute("test.storage.report")) as IStorageReport;
             expect(report.globalStorageFsPath).toBe(path.join(harness.tmpDir, "globalStorage", "publisher.mixedcase"));
-            // Воркспейсный и лог-каталоги — по id как есть.
+            // The workspace and log directories use the id as is.
             expect(report.storageFsPath).toBe(path.join(harness.tmpDir, "workspaceStorage", "Publisher.MixedCase"));
             expect(report.logFsPath).toBe(path.join(harness.tmpDir, "logs", "Publisher.MixedCase"));
         } finally {
@@ -135,7 +135,7 @@ describe("ExtensionHost — каталоги хранения расширени
 
     it("не сумев создать корень, хост пишет предупреждение и активирует расширение", async () => {
         const root = makeRoot();
-        // Файл на месте каталога: mkdir по пути внутрь него обречён.
+        // A file in place of the directory: mkdir of a path inside it is doomed.
         const blocker = path.join(root, "not-a-dir");
         fs.writeFileSync(blocker, "не каталог");
         const warnings: { message: string; detail: unknown }[] = [];
@@ -162,7 +162,7 @@ describe("ExtensionHost — каталоги хранения расширени
             expect(warnings).toHaveLength(1);
             expect(warnings[0].message).toContain(path.join(blocker, "globalStorage"));
             expect(warnings[0].detail).toBeInstanceOf(Error);
-            // Соседний корень всё равно создан — одна неудача не отменяет остальные.
+            // The sibling root is still created: one failure does not cancel the others.
             expect(fs.existsSync(path.join(root, "logs"))).toBe(true);
         } finally {
             host.dispose();
@@ -189,8 +189,8 @@ describe("ExtensionHost — каталоги хранения расширени
         }
     });
 
-    // Корни читаются на КАЖДОЙ активации: расширение может активироваться и до,
-    // и после открытия папки, а `storageUri` зависит именно от неё.
+    // Roots are read on EVERY activation: an extension may activate both before
+    // and after a folder is opened, and `storageUri` depends exactly on that.
     it("папка, открытая после первой активации, доезжает до следующего расширения", async () => {
         const root = makeRoot();
         let workspaceStorageHome: string | null = null;
@@ -212,7 +212,7 @@ describe("ExtensionHost — каталоги хранения расширени
 
             workspaceStorageHome = path.join(root, "workspaceStorage", "hash");
             await harness.host.activateByEvent("late");
-            // Вторая активация перерегистрирует команду на себя — читаем её же.
+            // The second activation re-registers the command to itself, so we read that one.
             const late = (await harness.commandRegistry.execute("test.storage.report")) as IStorageReport;
             expect(late.storageFsPath).toBe(path.join(root, "workspaceStorage", "hash", "test.late"));
         } finally {

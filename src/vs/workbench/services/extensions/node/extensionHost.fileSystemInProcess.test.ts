@@ -9,7 +9,7 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// In-process пара пробивает guard-ветки на чужие параметры, которые честный субпроцесс не пришлёт.
+// The in-process pair hits guard branches on foreign params that an honest subprocess never sends.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -31,7 +31,7 @@ function makeHost() {
     const hostRpc = new RpcEndpoint(a);
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
-    // installHostHandlers не выставляет this.rpc (это делает spawn).
+    // installHostHandlers does not set this.rpc (spawn does).
     const attachRpc = () => {
         (host as unknown as { rpc: RpcEndpoint | null }).rpc = hostRpc;
     };
@@ -112,7 +112,7 @@ describe("ExtensionHost — нотификации провайдеров ФС (
     });
 
     it("повторный dispose подписок безопасен", () => {
-        // Второй dispose — не дубль: владелец зовёт его и сам, и через Disposable-набор.
+        // The second dispose is not a duplicate: the owner calls it both directly and via the Disposable set.
         const { host } = makeHost();
         const schemes = host.onFileSystemProvidersChanged(() => undefined);
         const files = host.onDidChangeProvidedFile(() => undefined);

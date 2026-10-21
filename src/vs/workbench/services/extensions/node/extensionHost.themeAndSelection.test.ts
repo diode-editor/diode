@@ -55,7 +55,7 @@ describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
         const harness = await makeHarness();
         try {
             const report = (await harness.commandRegistry.execute("test.themeSelection.report")) as IReport;
-            // Харнесс стартует на Dark+.
+            // The harness starts on Dark+.
             expect(report.themeAtActivate).toBe(ColorThemeKind.Dark);
             expect(report.isDarkAtActivate).toBe(true);
         } finally {
@@ -63,9 +63,9 @@ describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
         }
     });
 
-    // Вид, которого НЕТ среди дефолтов: у субпроцесса своё семя `Dark`, поэтому
-    // на тёмной теме «семя доехало» и «семя потерялось» выглядят одинаково.
-    // HighContrast отличает одно от другого — без handshake-пуша тест краснеет.
+    // A kind that is NOT among the defaults: the subprocess has its own `Dark` seed, so
+    // on a dark theme "the seed arrived" and "the seed was lost" look the same.
+    // HighContrast tells them apart: without the handshake push the test goes red.
     it("семя на handshake: расширение видит тему хоста, а не собственный дефолт", { timeout: 60_000 }, async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "const a = 1;\n" },
@@ -76,7 +76,7 @@ describe("ExtensionHost — window.activeColorTheme (subprocess)", () => {
             const report = (await harness.commandRegistry.execute("test.themeSelection.report")) as IReport;
             expect(report.themeAtActivate).toBe(ColorThemeKind.HighContrast);
             expect(report.isDarkAtActivate).toBe(false);
-            // Событий смены при этом не было — приехало именно семя.
+            // There were no change events, so it is the seed that arrived.
             expect(report.themeEvents).toEqual([]);
         } finally {
             await harness.dispose();
@@ -152,7 +152,7 @@ describe("ExtensionHost — window.onDidChangeTextEditorSelection (subprocess)",
             expect(event.kind).toBe(TextEditorSelectionChangeKind.Mouse);
             expect(event.isMouse).toBe(true);
             expect(event.isActiveEditor).toBe(true);
-            // Слушатель видит УЖЕ новое выделение через сам редактор.
+            // The listener sees the ALREADY updated selection through the editor itself.
             expect(event.editorSelection).toEqual([1, 6]);
         } finally {
             await harness.dispose();

@@ -4,9 +4,9 @@ import { createExtensionTestHarness } from "../../../../../TestUtils/ExtensionTe
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Скомпилированный builtin приезжает в subprocess строкой-исходником (не mainPath):
-// один CJS-файл, где `require("vscode")` подменяет стаб, node:builtins резолвятся
-// штатно, относительных require нет. Здесь эмулируем такой бандл вручную.
+// A compiled builtin reaches the subprocess as a source string (not mainPath):
+// one CJS file where `require("vscode")` is replaced by a stub, node:builtins resolve
+// normally, and there are no relative requires. Here such a bundle is emulated by hand.
 const SOURCE = `
 const vscode = require("vscode");
 exports.activate = function activate(context) {

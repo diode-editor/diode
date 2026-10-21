@@ -12,8 +12,8 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Канал сшит in-process: ветки, недостижимые через настоящий fork (документ без
-// синхронизации, дефолтный таймаут, триггер-символы в метаданных регистрации).
+// The channel is wired in-process: branches unreachable through a real fork (a document without
+// sync, the default timeout, trigger characters in the registration metadata).
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -29,7 +29,7 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Запросы ходят только по документам, синхронизированным с субпроцессом. */
+/** Requests are sent only for documents synced with the subprocess. */
 const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
 
 const HELP = {
@@ -55,7 +55,6 @@ function makeHost(
     options: {
         warn?: ILogger["warn"];
         debug?: ILogger["debug"];
-        /** Мс. */
         timeoutMs?: number;
         maxSyncedDocumentChars?: number;
         open?: boolean;
@@ -121,8 +120,8 @@ describe("ExtensionHost — подсказка параметров по handle 
             triggerKind: SignatureHelpTriggerKind.Invoke,
             isRetrigger: false,
         });
-        // Ключей `triggerCharacter`/`activeSignatureHelp` в проводе быть не должно
-        // вовсе: `{ x: undefined }` — лишний байт на каждом нажатии клавиши.
+        // The `triggerCharacter`/`activeSignatureHelp` keys must not be on the wire
+        // at all: `{ x: undefined }` is an extra byte on every keystroke.
         expect(Object.keys(seen[0] as Record<string, unknown>).sort()).toEqual([
             "character",
             "handle",
@@ -160,8 +159,8 @@ describe("ExtensionHost — подсказка параметров по handle 
         });
         await flushMicrotasks();
 
-        // Нестроковый элемент и пустая строка отброшены: «пустой символ» совпал
-        // бы с любым событием каретки без набора.
+        // A non-string element and an empty string are dropped: an "empty character" would match
+        // any cursor event without typing.
         expect(host.getLanguageProviders()).toEqual([
             {
                 handle: 2,
@@ -218,8 +217,8 @@ describe("ExtensionHost — подсказка параметров по handle 
         const hostRpc = (host as unknown as { rpc: RpcEndpoint }).rpc;
         const request = vi.spyOn(hostRpc, "request");
         peer.handleRequest("languages.provideSignatureHelp", () => null);
-        // Срок уезжает транспорту с запросом, а не ждётся вживую: реальное
-        // ожидание в мутационном прогоне стоит секунды на каждом мутанте.
+        // The deadline travels to the transport with the request instead of being awaited live: a real
+        // wait costs seconds on every mutant in the mutation run.
         await host.provideSignatureHelp(0, requestOf());
         expect(request).toHaveBeenCalledWith("languages.provideSignatureHelp", expect.anything(), { timeoutMs: 5000 });
     });
@@ -235,7 +234,7 @@ describe("ExtensionHost — подсказка параметров по handle 
         });
 
         expect(await host.provideSignatureHelp(0, requestOf())).toBeNull();
-        // Истёкший срок — штатный исход медленного провайдера: debug, не warn.
+        // An expired deadline is a normal outcome for a slow provider: debug, not warn.
         expect(debug).toHaveBeenCalledWith('request "languages.provideSignatureHelp" timed out after 5ms');
         await vi.waitFor(() => {
             expect(seen?.isCancellationRequested).toBe(true);

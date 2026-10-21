@@ -9,8 +9,8 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// In-process RPC-пара вместо форка: guard-ветки на структурно чужие параметры,
-// которые честный субпроцесс не пришлёт.
+// An in-process RPC pair instead of a fork: guard branches for structurally foreign params
+// that an honest subprocess never sends.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -32,8 +32,8 @@ function makeHost() {
     const hostRpc = new RpcEndpoint(a);
     const peer = new RpcEndpoint(b);
     (host as unknown as { installHostHandlers(rpc: RpcEndpoint): void }).installHostHandlers(hostRpc);
-    // installHostHandlers не выставляет this.rpc (это делает spawn) — для
-    // provideTextDocumentContent подставляем ту же пару вручную.
+    // installHostHandlers does not set this.rpc (spawn does), so for
+    // provideTextDocumentContent we plug in the same pair by hand.
     const attachRpc = () => {
         (host as unknown as { rpc: RpcEndpoint | null }).rpc = hostRpc;
     };
@@ -120,8 +120,8 @@ describe("ExtensionHost — провайдеры содержимого неди
         host.onDidChangeTextContent(second);
 
         subscription.dispose();
-        // Второй dispose не находит свой cb (idx = -1) — и не должен трактовать
-        // это как «снять последнего»: соседняя подписка чужая.
+        // The second dispose does not find its cb (idx = -1) and must not treat
+        // that as "remove the last one": the neighboring subscription belongs to someone else.
         subscription.dispose();
         peer.notify("workspace.textDocumentContentChanged", { uri: "jdt:/Foo.java" });
         await flushMicrotasks();

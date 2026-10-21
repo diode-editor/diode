@@ -20,7 +20,7 @@ import {
 import { Uri } from "../../../../base/common/uri.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
-// hashicorp.terraform падал на активации (TreeItem, context.extension,
+// hashicorp.terraform failed on activation (TreeItem, context.extension,
 // createTelemetryLogger, authentication).
 
 let installed: IInstalledTerraform;
@@ -55,11 +55,11 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый hashico
                 const mainPath = harness.writeFile("main.tf", MAIN_TF);
                 const mainUri = Uri.file(mainPath).toString();
                 harness.group.openFile(mainPath);
-                // Ленивая активация ровно тем событием, которое объявляет манифест vsix.
+                // Lazy activation by exactly the event the vsix manifest declares.
                 await harness.host.activateByEvent("onLanguage:terraform");
                 expect(harness.host.hasExtension(TERRAFORM_ID)).toBe(true);
 
-                // Диагностика от НАСТОЯЩЕГО terraform-ls — сигнал готовности сервера.
+                // Diagnostics from the REAL terraform-ls signal that the server is ready.
                 const unexpected = await until("диагностика bogus_attr", () => {
                     const markers = published.filter((p) => p.resource === mainUri).at(-1)?.markers ?? [];
                     return Promise.resolve(markers.find((m) => m.message.includes('"bogus_attr"')) ?? null);
@@ -74,16 +74,16 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый hashico
                     character,
                 });
 
-                // Hover над `var.region` — тип переменной из её объявления.
+                // Hover over `var.region`: the variable's type from its declaration.
                 const hovers = await provideHovers(harness, at(14, 17));
                 expect(hovers.flatMap((hover) => hover.contents).join("\n")).toContain("string");
 
-                // F12 с `var.region` — на блок `variable "region"`.
+                // F12 from `var.region` goes to the `variable "region"` block.
                 const definitions = await provideDefinitions(harness, at(14, 17));
                 expect(definitions).toEqual([expect.objectContaining({ uri: mainUri })]);
                 expect(definitions[0]?.range.start.line).toBe(8);
 
-                // Автодополнение в теле aws_instance — атрибуты из вшитой схемы AWS.
+                // Completion in the aws_instance body: attributes from the embedded AWS schema.
                 const completions = await provideCompletions(harness, at(19, 2));
                 expect(completions.items.map((item) => item.label)).toContain("ami");
 

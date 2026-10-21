@@ -27,8 +27,8 @@ describe("ExtensionHost — ExtensionContext.globalState / workspaceState", () =
     });
 
     afterEach(() => {
-        // Писателей глушим ДО сноса каталогов: debounced-запись,
-        // сработавшая после `rmSync`, пересоздаёт каталог.
+        // Silence the writers BEFORE removing the directories: a debounced write
+        // that fires after `rmSync` recreates the directory.
         for (const writer of writers) writer.dispose();
         userData.dispose();
     });
@@ -67,7 +67,7 @@ describe("ExtensionHost — ExtensionContext.globalState / workspaceState", () =
 
         const second = newState();
         await withHarness(second, async (harness) => {
-            // Значение с прошлого запуска — синхронно в activate(), без round-trip.
+            // The value from the previous run is available synchronously in activate(), with no round-trip.
             expect(await harness.commandRegistry.execute("test.memento.shownAtActivate")).toBe(true);
             expect(await harness.commandRegistry.execute("test.memento.get", false, "lastFile")).toBe("a.ts");
             expect(await harness.commandRegistry.execute("test.memento.keys", true)).toEqual(["shown"]);
@@ -92,7 +92,7 @@ describe("ExtensionHost — ExtensionContext.globalState / workspaceState", () =
         await withHarness(
             state,
             async (harness) => {
-                // Папку сменили после активации расширения.
+                // The folder changed after the extension activated.
                 workspaceHome = "/storage/beta";
                 await harness.commandRegistry.execute("test.memento.update", false, "lastFile", "b.ts");
                 await harness.commandRegistry.execute("test.memento.update", true, "shown", true);

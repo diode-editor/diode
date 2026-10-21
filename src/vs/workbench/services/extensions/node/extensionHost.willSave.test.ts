@@ -19,7 +19,7 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
             extensions: [extensionFixture("test.willSaveTrim", "willSaveTrimEdits.cjs")],
         });
         try {
-            await settle(); // дать updateSubscriptions долететь до хоста
+            await settle(); // let updateSubscriptions reach the host
             const editor = harness.group.getActiveEditor();
             expect(editor).not.toBeNull();
 
@@ -70,7 +70,7 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
             await editor?.save();
 
             const fp = path.join(harness.tmpDir, "enc.txt");
-            // Для ASCII-содержимого байты cp1251 совпадают с utf-8.
+            // For ASCII content cp1251 bytes are the same as utf-8.
             expect(fs.readFileSync(fp, "utf-8")).toBe("encoding=windows1251\nbody\n");
         } finally {
             await harness.dispose();
@@ -83,7 +83,7 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
             extensions: [extensionFixture("test.willSaveDelegate", "willSaveDelegatesCommand.cjs")],
         });
         try {
-            // НАСТОЯЩАЯ core-команда, а не тестовая копия: контракт должен ломаться здесь, если id или поведение ядра поедут.
+            // The REAL core command, not a test copy: the contract must break here if the core's id or behavior drifts.
             const accessor = new Container();
             accessor.bind(EditorServiceDIToken, () => harness.group);
             accessor.bind(LanguageFeaturesServiceDIToken, () => harness.languageFeatures);
@@ -111,7 +111,7 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
             expect(editor?.viewState.tabSize).not.toBe(42);
 
             await editor?.save();
-            await settle(); // did-save notify → расширение → editor.setOptions round-trip
+            await settle(); // did-save notify → extension → editor.setOptions round-trip
 
             expect(editor?.viewState.tabSize).toBe(42);
         } finally {
@@ -130,7 +130,8 @@ describe("ExtensionHost — onWillSaveTextDocument (save pipeline)", () => {
 
             const fp = path.join(harness.tmpDir, "plain.txt");
             expect(fs.readFileSync(fp, "utf-8")).toBe("keep   \n");
-            // Дать did-save round-trip осесть до teardown — иначе pending subprocess→host запрос ловит dispose.
+            // Let the did-save round-trip settle before teardown,
+            // otherwise the pending subprocess→host request hits dispose.
             await settle();
         } finally {
             await harness.dispose();

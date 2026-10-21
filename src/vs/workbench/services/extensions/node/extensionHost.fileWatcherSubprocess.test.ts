@@ -15,8 +15,8 @@ function realWatcher(): FileWatcherAdapter {
 }
 
 /**
- * До `ready` chokidar считает найденное начальным состоянием и с `ignoreInitial`
- * глотает — файл, созданный в первые миллисекунды, до расширения не доедет.
+ * Before `ready` chokidar treats what it finds as the initial state and swallows it with `ignoreInitial`,
+ * so a file created in the first milliseconds never reaches the extension.
  */
 async function waitUntilWatching(): Promise<void> {
     await settle(400);
@@ -59,7 +59,7 @@ describe("workspace.createFileSystemWatcher — сквозь субпроцес�
             await waitUntilWatching();
             const readme = path.join(harness.tmpDir, "readme.md");
 
-            // `*.md`-watcher заведён с ignoreChangeEvents — увидит только создание.
+            // The `*.md` watcher is created with ignoreChangeEvents, so it sees only creation.
             fs.writeFileSync(readme, "первая версия");
             await waitForEvents(harness, 1);
             fs.writeFileSync(readme, "вторая версия");

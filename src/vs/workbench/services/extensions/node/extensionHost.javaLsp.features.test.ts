@@ -38,8 +38,8 @@ import { SemanticTokenStyleResolver } from "../../themes/common/semanticTokenSty
 import { darkModernTheme } from "../../themes/common/themes/darkModern.ts";
 import { registerExtensionSemanticTokens } from "../common/extensionSemanticTokensContributor.ts";
 
-// ОДИН харнесс на все кейсы: холодный старт jdt.ls — две JVM и импорт проекта
-// (~16 с). Кейсы буфер не меняют, поэтому друг друга не портят.
+// ONE harness for all cases: a cold jdt.ls start means two JVMs plus a project import
+// (~16 s). The cases do not change the buffer, so they cannot spoil each other.
 
 let installed: IInstalledJava | undefined;
 let project: IMavenProject | undefined;
@@ -72,8 +72,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
         await harness.host.activateByEvent(JAVA_ACTIVATION_EVENT);
         expect(harness.host.hasExtension(JAVA_ID)).toBe(true);
 
-        // Готовность сервера: пока проект не импортирован, провайдеры отвечают
-        // пустым, и кейсы ниже гонялись бы по недостроенному состоянию.
+        // Server readiness: until the project is imported, providers answer empty,
+        // and the cases below would race against a half-built state.
         await until(
             "hover отвечает (сервер готов)",
             async () => {
@@ -99,8 +99,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
 
     it("hover над вызовом отдаёт сигнатуру из объявления", { timeout: 120_000 }, async () => {
         expect(harness).toBeDefined();
-        // Каретка на `greet(`. Через `until`: занятый фоновой работой сервер отвечает
-        // пустым, одиночный вызов флакует (проверено).
+        // Cursor on `greet(`. Via `until`: a server busy with background work answers
+        // empty, so a single call flakes (verified).
         const hovers: readonly ICoreHover[] = await until(
             "hover над `greet`",
             async () => {
@@ -116,15 +116,15 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
             60_000,
         );
         const joined = hovers.flatMap((h) => h.contents).join("\n");
-        // Полностью квалифицированной формы в буфере нет НИГДЕ — значит подпись
-        // действительно пришла от сервера, а не списана с видимого текста.
+        // The fully qualified form appears NOWHERE in the buffer, so the signature
+        // really came from the server, not copied from the visible text.
         expect(joined).toContain("String demo.App.greet(String who)");
     });
 
     it("автодополнение отдаёт члены типа из JDK", { timeout: 120_000 }, async () => {
         expect(harness).toBeDefined();
-        // Каретка после `System.out.` прямо в буфере: текст запроса, отличный от буфера,
-        // флакует на синхронизации (красный CI: сервер дополнял `System.` одним `out`).
+        // Cursor right after `System.out.` in the buffer: request text that differs from the buffer
+        // flakes on sync (red CI: the server completed `System.` with a lone `out`).
         const items = await until(
             "completion после `System.out.`",
             async () => {
@@ -140,14 +140,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
             60_000,
         );
         const labels = items.map((i) => i.label);
-        // `println` — член java.io.PrintStream из java.base: classpath JDK доехал
-        // до сервера, а не просто слова из текущего файла.
+        // `println` is a member of java.io.PrintStream from java.base: the JDK classpath reached
+        // the server, these are not just words from the current file.
         expect(labels).toContain("println");
     });
 
     it("definition внутри проекта ведёт на объявление метода", { timeout: 120_000 }, async () => {
         expect(harness).toBeDefined();
-        // Через `until` по той же причине, что у hover.
+        // Via `until` for the same reason as hover.
         const targets: readonly ICoreDefinitionLocation[] = await until(
             "definition для `greet`",
             async () => {
@@ -163,7 +163,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
             60_000,
         );
         const target = targets[0];
-        // Цель — файл на диске (не `jdt:`), строка объявления `static String greet`.
+        // The target is a file on disk (not `jdt:`), the line declaring `static String greet`.
         expect(target.uri).toBe(appUri);
         expect(target.range.start.line).toBe(3);
     });
@@ -185,14 +185,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
             },
             60_000,
         );
-        // Объявление (строка 3) и вызов (строка 8) — обе позиции в одном файле.
+        // Declaration (line 3) and call (line 8): both positions in the same file.
         const lines = found.map((r) => r.range.start.line).sort((a, b) => a - b);
         expect(lines).toContain(8);
     });
 
     it("расширение публикует пункт статус-бара со своим состоянием", { timeout: 120_000 }, async () => {
-        // Провод `window.statusBarItem.*` — наш, не расширения: сломается он —
-        // Java продолжит работать, а единственный индикатор «сервер жив» исчезнет.
+        // The `window.statusBarItem.*` wire is ours, not the extension's: if it breaks,
+        // Java keeps working but the only "server is alive" indicator disappears.
         const ready = await until(
             "пункт статус-бара про Java",
             () => Promise.resolve(statusBarItems.find((i) => i.text.includes("Java")) ?? null),
@@ -210,7 +210,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
             const registry = harness!.languageFeatures.documentSemanticTokensProvider;
             const target = { uri: Uri.parse(appUri), languageId: "java" };
             const request = () => ({ uri: appUri, languageId: "java", versionId: documentVersion(harness!, appUri) });
-            // Сервер отвечает пустым, пока строит AST — ждём ответа с токенами.
+            // The server answers empty while it builds the AST; wait for a response with tokens.
             const first = await until(
                 "semantic tokens документа",
                 async () => {
@@ -240,12 +240,12 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
                 }
                 return undefined;
             };
-            // `who` в `return "hello, " + who;` — параметр: TextMate этого не знает.
+            // `who` in `return "hello, " + who;` is a parameter: TextMate cannot know that.
             expect(classify(4, 27)).toMatch(/^parameter/);
-            // `greet(` в `String message = greet("world");` — статический метод.
+            // `greet(` in `String message = greet("world");` is a static method.
             expect(classify(8, 25)).toMatch(/^method\..*static/);
 
-            // Повторный запрос с resultId прошлого ответа — дельта (текст тот же — правок нет).
+            // A repeat request with the previous resultId yields a delta (same text, no edits).
             const second = await getDocumentSemanticTokens(
                 registry,
                 target,
@@ -265,8 +265,8 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый redhat.
             const darkModern = WorkbenchTheme.fromThemeFile(darkModernTheme);
             const styles = new SemanticTokenStyleResolver(theme, darkModern.tokenTheme);
             expect(styles.resolve("parameter", [], "java")?.fg).toBe(parseHexColor("#9CDCFE"));
-            // Java-тип из contributes.semanticTokenTypes/Scopes расширения:
-            // annotation красится как TextMate-скоуп `storage.type.annotation.java`.
+            // A Java type from the extension's contributes.semanticTokenTypes/Scopes:
+            // annotation is colored as the TextMate scope `storage.type.annotation.java`.
             const annotationFg = (await resolveScopesStyle(darkModern, ["source.java", "storage.type.annotation.java"]))
                 .fg;
             expect(annotationFg).toBeDefined();

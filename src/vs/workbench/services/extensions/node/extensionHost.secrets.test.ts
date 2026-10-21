@@ -68,15 +68,15 @@ describe("ExtensionHost — ExtensionContext.secrets", () => {
         await withHarness(async (harness) => {
             await harness.commandRegistry.execute("test.secrets.store", "token", "s3cr3t");
             await harness.commandRegistry.execute("test.secrets.delete", "token");
-            // Событие приходит уведомлением, а не ответом на запрос: даём ему доехать.
+            // The event arrives as a notification, not as a request response: let it arrive.
             await harness.flushRpc(4);
             expect(await harness.commandRegistry.execute("test.secrets.changes")).toEqual(["token", "token"]);
         });
     });
 
     it("секрет, уже лежащий в хранилище, доступен ПРЯМО в activate()", async () => {
-        // Именно так ведёт себя настоящий потребитель: по наличию токена он
-        // решает, спрашивать ли человека, и решает это до всякого UI.
+        // This is exactly how a real consumer behaves: it decides from the token's presence
+        // whether to ask the human, and decides that before any UI.
         const store = createFileExtensionSecretStore(path.join(makeRoot(), "secrets.json"));
         store.store("test.secrets", "token", "из прошлого запуска");
         await withHarness(async (harness) => {
@@ -100,7 +100,7 @@ describe("ExtensionHost — ExtensionContext.secrets", () => {
         await withHarness(async (harness) => {
             await harness.commandRegistry.execute("test.secrets.store", "token", "живёт дальше");
         }, createFileExtensionSecretStore(file));
-        // Новый хост, новый субпроцесс, то же user-data — как после перезапуска.
+        // New host, new subprocess, same user-data, as after a restart.
         await withHarness(async (harness) => {
             expect(await harness.commandRegistry.execute("test.secrets.tokenAtActivate")).toBe("живёт дальше");
         }, createFileExtensionSecretStore(file));

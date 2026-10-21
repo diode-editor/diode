@@ -169,8 +169,8 @@ describe("ExtensionHost — обратный путь диагностик ск�
             ]);
             await harness.flushRpc();
 
-            // Зеркало завелось семенем до активации, поэтому оно первое в наборе
-            // (у эталона — тоже порядок появления).
+            // The mirror was seeded before activation, so it comes first in the set
+            // (upstream also keeps insertion order).
             expect(await get(MAIN)).toEqual([
                 { message: "Build failed", severity: 0, code: "TS1", range: [3, 0, 3, 7] },
                 { message: "Broken type", severity: 1, source: "fixture", range: [0, 1, 0, 5] },
@@ -185,7 +185,7 @@ describe("ExtensionHost — обратный путь диагностик ск�
                     ],
                 ],
             ]);
-            // Окна событий зависят от тайминга активации — проверяем состав.
+            // Event windows depend on activation timing, so check the contents.
             await vi.waitFor(async () => {
                 const changes = (await harness.commandRegistry.execute("test.diag.changes")) as string[][];
                 expect(changes.flat()).toEqual(expect.arrayContaining([SETTINGS, MAIN]));

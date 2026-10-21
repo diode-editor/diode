@@ -113,6 +113,6 @@ describe("EditorOptionsServiceAdapter", () => {
             NO_BULK_EDITS,
         );
         expect(adapter.getActiveEditorOptions()).toBeNull();
-        adapter.setActiveEditorOptions({ tabSize: 2 }); // не должно бросать
+        adapter.setActiveEditorOptions({ tabSize: 2 }); // must not throw
     });
 });

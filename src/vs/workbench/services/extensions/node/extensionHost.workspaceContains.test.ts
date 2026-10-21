@@ -8,7 +8,10 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 
 import type { IWorkspaceScanner } from "./workspaceContainsActivation.ts";
 
-/** Фикстуры — настоящими файлами в `tmpDir` харнесса (его папка воркспейса); семантика обхода — в юнитах сканера. */
+/**
+ * Fixtures are real files in the harness `tmpDir` (its workspace folder);
+ * the walk semantics are in the scanner's unit tests.
+ */
 describe("ExtensionHost — активация по workspaceContains:", () => {
     it("паттерн-путь сошёлся с файлом в папке воркспейса → расширение активно", async () => {
         const harness = await createExtensionTestHarness({

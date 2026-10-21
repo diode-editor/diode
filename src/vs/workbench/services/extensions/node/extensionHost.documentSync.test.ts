@@ -48,7 +48,7 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
         try {
             await settle();
 
-            // Стоковый vscode-languageclient читает workspace.textDocuments уже в activate().
+            // The stock vscode-languageclient reads workspace.textDocuments already in activate().
             const activate = (await dumpLog(harness)).find((e) => e.kind === "activate");
             expect(activate?.docs).toHaveLength(1);
             expect(activate?.docs?.[0].text).toBe("const a = 1;\n");
@@ -136,8 +136,8 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
             languageService: TS_LANGUAGE_SERVICE,
         });
         try {
-            // Стоковый languageclient на start() рассылает серверу didOpen для
-            // workspace.textDocuments — обёртка с пустым текстом отравила бы сервер.
+            // On start() the stock languageclient sends didOpen to the server for
+            // workspace.textDocuments; a wrapper with empty text would poison the server.
             const fp = harness.writeFile("late.ts", "export const late = true;\n");
             harness.group.openFile(fp);
             await settle();
@@ -149,8 +149,8 @@ describe("ExtensionHost — document sync producer (subprocess)", () => {
             const activateDocs = log.find((e) => e.kind === "activate")?.docs;
             expect(activateDocs).toHaveLength(1);
             expect(activateDocs?.[0].text).toBe("export const late = true;\n");
-            // Семантика VS Code: поздний подписчик событий не получает, документы
-            // находит сам в workspace.textDocuments.
+            // VS Code semantics: a late subscriber gets no events and finds the
+            // documents itself in workspace.textDocuments.
             expect(log.filter((e) => e.kind === "open")).toHaveLength(0);
         } finally {
             await harness.dispose();
