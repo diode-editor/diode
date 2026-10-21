@@ -4,6 +4,7 @@ export interface ILanguageConfiguration {
     readonly autoClosingPairs?: readonly (CharacterPair | IAutoClosingPair)[];
     readonly autoCloseBefore?: string;
     readonly surroundingPairs?: readonly (CharacterPair | ISurroundingPair)[];
+    // Not honored yet: `resolveLanguageConfiguration` drops the sections below.
     readonly colorizedBracketPairs?: readonly CharacterPair[];
     readonly wordPattern?: string | IRegExpDefinition;
     readonly indentationRules?: IIndentationRules;

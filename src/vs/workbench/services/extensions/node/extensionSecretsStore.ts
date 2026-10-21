@@ -69,7 +69,7 @@ export function createFileExtensionSecretStore(
     const flush = (next: SecretsFile): void => {
         try {
             fs.mkdirSync(path.dirname(filePath), { recursive: true });
-            // Stryker disable next-line ObjectLiteral,StringLiteral: `mode` duplicates chmodSync on the line below, and `encoding` matches the writeFileSync default for strings; the mutant differs from the original only in the window between file creation and chmod, observable only by the OS scheduler. Creating secrets with 0600 right away is still mandatory: that is exactly the race
+            // Stryker disable next-line ObjectLiteral,StringLiteral: `encoding` is the default, `mode` is repeated by chmodSync below; it only closes the race window before chmod, which tests cannot observe
             fs.writeFileSync(filePath, JSON.stringify(next, null, 2), { encoding: "utf-8", mode: 0o600 });
             // `mode` applies only when the file is created: an existing one (from another copy
             // of user-data) would keep world-readable permissions.
@@ -98,7 +98,7 @@ function readSecretsFile(filePath: string, onError?: (message: string, err: unkn
         onError?.(`failed to parse extension secrets at "${filePath}"`, err);
         return {};
     }
-    // Stryker disable next-line ConditionalExpression: dropping the left operand is equivalent: JSON.parse returns only object/array/string/number/boolean/null, and any scalar yields the same empty result even without `typeof` (`Object.entries(42)` is empty, the bucket check below filters a string's characters). Kept to state the intent "a plain object at the top"; the neighboring `=== null` and `Array.isArray` don't tolerate mutants, tests for `null` and a non-empty array cover them
+    // Stryker disable next-line ConditionalExpression: equivalent: a JSON scalar yields an empty result anyway (`Object.entries(42)` is empty, the bucket check drops a string's characters)
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
     const result: SecretsFile = {};
     for (const [extensionId, own] of Object.entries(parsed as Record<string, unknown>)) {

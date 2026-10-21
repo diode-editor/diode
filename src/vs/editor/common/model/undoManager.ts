@@ -110,6 +110,7 @@ export class UndoManager {
             eolAfter: element.eolBefore,
         });
 
+        // Rewriting `versionAfter` is why {@link UndoStepToken} compares identity, not versions.
         if (this.undoStack.length > 0) {
             this.undoStack[this.undoStack.length - 1].versionAfter = appliedVersion;
         }
@@ -143,6 +144,7 @@ export class UndoManager {
             eolAfter: element.eolBefore,
         });
 
+        // Rewriting `versionAfter` is why {@link UndoStepToken} compares identity, not versions.
         if (this.redoStack.length > 0) {
             this.redoStack[this.redoStack.length - 1].versionAfter = appliedVersion;
         }

@@ -352,10 +352,7 @@ describe("Workbench close-tab confirm flow", () => {
     });
 });
 
-/**
- * Label of an untitled buffer in the confirmation dialog: Ctrl+N reaches these branches,
- * and the dialog must match the tab label `Untitled-1`, not say "untitled".
- */
+// The dialog must name an untitled buffer as its tab does (`Untitled-1`).
 describe("Workbench: save dialog for an untitled buffer", () => {
     function dialogText(testApp: TestApp): string {
         const dialog = testApp.querySelector("#confirmSaveDialog");
