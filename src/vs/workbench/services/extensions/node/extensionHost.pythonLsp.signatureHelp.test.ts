@@ -18,7 +18,7 @@ import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts"
 import { Uri } from "../../../../base/common/uri.ts";
 import { SignatureHelpTriggerKind } from "../../../../editor/common/languages/iSignatureHelpSource.ts";
 
-// Каретка внутри скобок вызова greet( — как после набора «(».
+// Cursor inside the parentheses of the greet( call, as after typing "(".
 const MAIN_PY = "from defs import greet\n\ngreet(\n";
 
 let installed: IInstalledBasedpyright;
@@ -65,7 +65,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — signature help от ст
                 return found !== null && found.signatures.length > 0 ? found : null;
             });
 
-            // Текст, которого нет в буфере: полная сигнатура из объявления.
+            // Text that is not in the buffer: the full signature from the declaration.
             expect(help.signatures[0].label).toContain("(name: str) -> str");
             expect(help.signatures[0].parameters.length).toBe(1);
             expect(help.activeParameter).toBe(0);

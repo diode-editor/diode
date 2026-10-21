@@ -10,8 +10,8 @@ import { Uri } from "../../../../base/common/uri.ts";
 
 const FIXTURE = extensionFixture("test.appliesWorkspaceEdit", "appliesWorkspaceEdit.cjs");
 
-// Удаление файла уходит в системную корзину (`files.enableTrash` по умолчанию
-// включён) — уводим её в tmp, чтобы прогон не писал в корзину разработчика.
+// Deleting a file goes to the system trash (`files.enableTrash` is on by default),
+// so point it at tmp to keep test runs out of the developer's trash.
 let savedXdg: string | undefined;
 
 beforeEach(() => {
@@ -90,7 +90,7 @@ describe("ExtensionHost — workspace.applyEdit (subprocess)", () => {
             expect(fs.readFileSync(closed, "utf8")).toBe("Xbeta");
             expect(active?.isModified).toBe(true);
 
-            // Шаг с закрытым файлом сначала асинхронно сверяется с диском — откат ждём.
+            // A step on a closed file first checks the disk asynchronously, so wait for the rollback.
             active?.undo();
             await vi.waitFor(() => {
                 expect(active?.getText()).toBe("alpha");

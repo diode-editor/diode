@@ -20,7 +20,7 @@ const TS_LANGUAGE_SERVICE: ILanguageService = {
 
 const TEXT = "const answer = compute();\nconst other = 1;\n";
 
-/** Версия для запросов по документу без открытого редактора: ответ пустой при любой. */
+/** Version for requests on a document without an open editor: the answer is empty for any version. */
 const UNOPENED_VERSION = 1;
 
 function requestFor(uri: string, line: number, versionId: number, includeDeclaration = true): IReferenceRequest {
@@ -38,8 +38,8 @@ describe("ExtensionHost — reference providers (subprocess)", () => {
             const mainUri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
             const otherUri = mainUri.replace("main.ts", "other.ts");
 
-            // Строка 0 → отвечают оба. Score одинаковый — позже зарегистрированный
-            // идёт первым, как в vscode.
+            // Line 0 → both answer. Equal score: the later registration
+            // comes first, as in vscode.
             expect(await provideReferences(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)))).toEqual(
                 [
                     { uri: otherUri, range: createRange(7, 2, 7, 8) },
@@ -55,7 +55,7 @@ describe("ExtensionHost — reference providers (subprocess)", () => {
                 { uri: mainUri, range: createRange(0, 6, 0, 12) },
             ]);
 
-            // Строка 1 → оба молчат: пустой ответ, не мусор.
+            // Line 1 → both stay silent: an empty answer, not garbage.
             expect(await provideReferences(harness, requestFor(mainUri, 1, documentVersion(harness, mainUri)))).toEqual(
                 [],
             );
@@ -65,7 +65,7 @@ describe("ExtensionHost — reference providers (subprocess)", () => {
     });
 
     it("без subprocess'а и без провайдеров реестр references пуст", async () => {
-        // Расширение зарегистрировано, но не активировано — subprocess не поднят.
+        // The extension is registered but not activated, so the subprocess is not started.
         const lazy = await createExtensionTestHarness({
             extensions: [extensionFixture("test.providesReferences", "providesReferences.cjs")],
             activateEvents: [],
@@ -77,7 +77,7 @@ describe("ExtensionHost — reference providers (subprocess)", () => {
             await lazy.dispose();
         }
 
-        // Subprocess поднят (noop активен), но references-провайдеров никто не регистрировал.
+        // The subprocess is up (noop is active), but no one registered references providers.
         const noProviders = await createExtensionTestHarness({
             extensions: [extensionFixture("test.noop", "noopExtension.cjs")],
             languageService: TS_LANGUAGE_SERVICE,

@@ -39,7 +39,7 @@ interface IStubSink extends IQuickInputSink {
     readonly quickPickUpdates: IWireQuickPickUpdate[];
     readonly disposedQuickPicks: number[];
     readonly emit: { current: ((event: IWireQuickPickEvent) => void) | null };
-    /** По умолчанию показ висит. */
+    /** By default the prompt stays pending. */
     settleInput(value: string | undefined): void;
     settlePick(indices: readonly number[] | undefined): void;
 }
@@ -96,7 +96,7 @@ function makeHost(sink?: IQuickInputSink) {
         sink !== undefined ? { quickInputSink: sink } : {},
     );
     const [a, b] = createInProcessChannelPair();
-    /** Исключения хендлеров нотификаций видны только здесь. */
+    /** Exceptions from notification handlers are visible only here. */
     const warnings: string[] = [];
     const rpcLogger = {
         trace: () => undefined,
@@ -483,7 +483,7 @@ describe("ExtensionHost — window.createQuickPick", () => {
 
         host.dispose();
         expect(sink.disposedQuickPicks).toEqual([9, 7]);
-        // Пикер, снятый смертью, сообщает о скрытии — в никуда.
+        // A picker torn down by the death still reports its hide, to nobody.
         sink.emit.current?.({ handle: 7, kind: "hide" });
         await flushMicrotasks();
         expect(received).toEqual([]);

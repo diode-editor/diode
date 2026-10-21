@@ -35,10 +35,10 @@ function makeHost(withSink: boolean) {
     const sink: IStatusBarItemSink = {
         update: (item) => updates.push(item),
         remove: (handle) => removed.push(handle),
-        // Не RPC, а смерть субпроцесса — её проверяет extensionHost.statusBar.test.ts.
+        // Not RPC but subprocess death, which extensionHost.statusBar.test.ts checks.
         clear: () => undefined,
     };
-    // Исключения хендлеров нотификаций RPC глотает молча — видны они только в логгере.
+    // RPC silently swallows exceptions from notification handlers; they are visible only in the logger.
     const rpcLogger = {
         trace: vi.fn(),
         debug: vi.fn(),

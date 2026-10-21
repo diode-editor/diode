@@ -24,7 +24,7 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Запросы ходят только по документам, синхронизированным с субпроцессом. */
+/** Requests are sent only for documents synced with the subprocess. */
 const DOCUMENT = { uri: "file:///proj/main.ts", languageId: "typescript", version: 3, text: "con" };
 
 const REQ = {
@@ -63,7 +63,7 @@ describe("ExtensionHost — inline completions (in-process)", () => {
 
         expect(first).toEqual([{ insertText: " = 42;" }]);
         expect(second).toEqual([{ insertText: " = 7;" }]);
-        // Второй аргумент хендлера — токен отмены от RpcEndpoint принимающей стороны.
+        // The handler's second argument is the cancellation token from the receiving RpcEndpoint.
         expect(seen).toHaveBeenCalledExactlyOnceWith(
             {
                 handles: [3, 8],
@@ -119,8 +119,8 @@ describe("ExtensionHost — inline completions (in-process)", () => {
         expect(seen!.isCancellationRequested).toBe(true);
 
         release([[{ insertText: "late" }]]);
-        // Ответ отменённого запроса extension-слой не глушит — его отбрасывает
-        // ядро (InlineCompletionsService), здесь мост просто отдаёт что пришло.
+        // The extension layer does not suppress a cancelled request's response; the core
+        // (InlineCompletionsService) discards it, here the bridge just passes on what arrived.
         expect(await pending).toEqual([{ insertText: "late" }]);
     });
 

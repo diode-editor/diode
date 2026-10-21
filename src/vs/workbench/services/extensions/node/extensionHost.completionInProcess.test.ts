@@ -158,7 +158,7 @@ describe("ExtensionHost — completion по handle (in-process)", () => {
             const pending = host.provideCompletionItems(0, REQUEST);
             void pending.then(settled);
 
-            // Минута тишины language server'а — не повод отдать «пусто»: попап открылся бы словами из буфера.
+            // A minute of language server silence is no reason to return "empty": the popup would open with buffer words.
             await vi.advanceTimersByTimeAsync(60_000);
             expect(settled).not.toHaveBeenCalled();
 

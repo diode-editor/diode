@@ -67,7 +67,7 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
     });
 
     it("subprocess → host: fall-through executeCommand исполняет команду ядра", async () => {
-        // Хостовая команда — до активации расширения, поэтому harness БЕЗ extensions.
+        // A host command runs before extension activation, so the harness has NO extensions.
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
         });
@@ -89,7 +89,7 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
         }
     });
 
-    // Продюсер `TextEditorSelectionChangeKind.Command` для каретки, сдвинутой командой расширения.
+    // Producer of `TextEditorSelectionChangeKind.Command` for a cursor moved by an extension command.
     it("subprocess → host: команда расширения исполняется внутри области command", { timeout: 60_000 }, async () => {
         const harness = await createExtensionTestHarness({
             initialFile: { name: "main.ts", content: "x\n" },
@@ -131,7 +131,7 @@ describe("ExtensionHost — commands bridge (subprocess)", () => {
         });
         try {
             await settle();
-            // Фикстура выставляет tabSize=3 только в ветке reject.
+            // The fixture sets tabSize=3 only in the reject branch.
             expect(harness.group.getActiveEditor()?.viewState.tabSize).toBe(3);
         } finally {
             await harness.dispose();

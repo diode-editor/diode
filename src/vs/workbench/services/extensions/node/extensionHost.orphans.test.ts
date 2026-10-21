@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 
-/** Живёт ли процесс: сигнал `0` ничего не делает, но проверяет существование. */
+/** Whether the process is alive: signal `0` does nothing but checks that it exists. */
 function isAlive(pid: number): boolean {
     try {
         process.kill(pid, 0);
@@ -20,8 +20,8 @@ async function waitUntilGone(pid: number, timeoutMs = 5000): Promise<void> {
     }
 }
 
-// Языковые серверы — ВНУКИ: сигнал прямому ребёнку их не касается. До группового
-// kill'а сироты jdtls переживали редактор и писали гигабайты в globalStorage.
+// Language servers are GRANDCHILDREN: a signal to the direct child does not reach them. Before the group
+// kill, orphaned jdtls processes outlived the editor and wrote gigabytes into globalStorage.
 describe("ExtensionHost — потомство расширений не остаётся сиротами", () => {
     it.skipIf(process.platform === "win32")(
         "сервер, поднятый расширением и не закрытый им, уходит вместе с хостом",

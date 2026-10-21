@@ -73,7 +73,7 @@ describe("ExtensionHost — folding bridge (subprocess)", () => {
     });
 
     it("поздняя активация: фолды подъезжают в уже открытый редактор", async () => {
-        // Как в main.ts на onStartupFinished: файл открыт ДО активации расширения.
+        // Like main.ts on onStartupFinished: the file is open BEFORE the extension activates.
         const harness = await createExtensionTestHarness({
             initialFile: { name: "Program.cs", content: CSHARP_TEXT },
             languageService: CSHARP_LANGUAGE_SERVICE,

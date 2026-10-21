@@ -18,7 +18,7 @@ const TS_LANGUAGE_SERVICE: ILanguageService = {
     getLanguageDisplayName: () => undefined,
 };
 
-/** Версия для запросов по документу без открытого редактора: ответ пустой при любой. */
+/** Version for requests on a document without an open editor: the response is empty for any version. */
 const UNOPENED_VERSION = 1;
 
 function requestFor(uri: string, line: number, versionId: number): IHoverRequest {
@@ -38,15 +38,15 @@ describe("ExtensionHost — hover providers (subprocess)", () => {
             expect(harness.languageFeatures.hoverProvider.ordered(target)).toHaveLength(2);
             expect(harness.languageFeatures.hoverProvider.has({ ...target, languageId: "markdown" })).toBe(false);
 
-            // Строка 0 → отвечают оба. Score одинаковый — позже зарегистрированный
-            // идёт первым, как в vscode.
+            // Line 0 → both answer. With equal scores the later registered one
+            // comes first, as in vscode.
             const hovers = await provideHovers(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)));
             expect(hovers).toEqual([
                 { contents: ["```ts\ncompute(): number\n```"] },
                 { contents: ["```ts\nconst answer: number\n```"], range: createRange(0, 6, 0, 12) },
             ]);
 
-            // Строка 1 → оба молчат: пустой ответ, не мусор.
+            // Line 1 → both stay silent: an empty response, not garbage.
             expect(await provideHovers(harness, requestFor(mainUri, 1, documentVersion(harness, mainUri)))).toEqual([]);
         } finally {
             await harness.dispose();
@@ -54,7 +54,7 @@ describe("ExtensionHost — hover providers (subprocess)", () => {
     });
 
     it("без subprocess'а и без провайдеров реестр hover пуст", async () => {
-        // Расширение зарегистрировано, но не активировано — subprocess не поднят.
+        // The extension is registered but not activated, so the subprocess is not started.
         const lazy = await createExtensionTestHarness({
             extensions: [extensionFixture("test.providesHover", "providesHover.cjs")],
             activateEvents: [],
@@ -66,7 +66,7 @@ describe("ExtensionHost — hover providers (subprocess)", () => {
             await lazy.dispose();
         }
 
-        // Subprocess поднят (noop активен), но hover-провайдеров никто не регистрировал.
+        // The subprocess is up (noop is active), but nobody registered hover providers.
         const noProviders = await createExtensionTestHarness({
             extensions: [extensionFixture("test.noop", "noopExtension.cjs")],
             languageService: TS_LANGUAGE_SERVICE,

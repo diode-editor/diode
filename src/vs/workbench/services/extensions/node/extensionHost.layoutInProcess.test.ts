@@ -7,7 +7,7 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Реальный субпроцесс шлёт только корректные параметры — мусор кладём через RPC-пару.
+// A real subprocess sends only valid params; garbage is pushed through the RPC pair.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,

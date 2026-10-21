@@ -29,8 +29,8 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { ILanguageConfiguration } from "../../../../platform/extensions/common/iLanguageConfiguration.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
-// golang.go обрывал `activate()` на отсутствующем `vscode.debug` (дальше —
-// `vscode.tests`, …): gopls жил, но ~60 команд `go.*` не регистрировались.
+// golang.go aborted `activate()` on the missing `vscode.debug` (and then
+// `vscode.tests`, …): gopls ran, but ~60 `go.*` commands were never registered.
 
 const skipReason = goToolchainMissing();
 if (skipReason !== undefined) console.warn(skipReason);
@@ -63,9 +63,9 @@ describe.skipIf(MARKETPLACE_OFFLINE || skipReason !== undefined)(
                     languageService: GO_LANGUAGE_SERVICE,
                     activateEvents: [],
                     logger,
-                    // gopls фикстуры — пользовательской настройкой расширения, как у человека с gopls не в GOBIN.
+                    // The fixture's gopls comes via the extension's user setting, as for a user whose gopls is not in GOBIN.
                     configuration: { go: { alternateTools: { gopls } } },
-                    // Настройки сохранения ядра: в приложении их кладёт `[go]` из configurationDefaults расширения (e2e).
+                    // Core save settings: in the app they come from the extension's `[go]` configurationDefaults (e2e).
                     configurationService: createTestConfigurationService({
                         "editor.formatOnSave": true,
                         "editor.codeActionsOnSave": { "source.organizeImports": "explicit" },
@@ -99,13 +99,13 @@ describe.skipIf(MARKETPLACE_OFFLINE || skipReason !== undefined)(
                     expect(vi.mocked(logger.info)).toHaveBeenCalledWith(
                         `activated extension "${GO_ID}" (onLanguage:go)`,
                     );
-                    // setLanguageConfiguration — последний шаг activate().
+                    // setLanguageConfiguration is the last step of activate().
                     expect(layers.map((layer) => layer.languageId)).toContain("go");
                     const warnings = outputLines.filter((line) => line.level === "warn").map((line) => line.value);
                     expect(warnings).toContainEqual(expect.stringContaining('отладка "go"'));
                     expect(warnings).toContainEqual(expect.stringContaining('тесты "go"'));
 
-                    // Диагностика от НАСТОЯЩЕГО gopls — сигнал готовности сервера.
+                    // Diagnostics from the REAL gopls signal that the server is ready.
                     const unusedImport = await until("диагностика лишнего импорта os", () => {
                         const markers = published.filter((p) => p.resource === mainUri).at(-1)?.markers ?? [];
                         return Promise.resolve(
@@ -122,11 +122,11 @@ describe.skipIf(MARKETPLACE_OFFLINE || skipReason !== undefined)(
                         character,
                     });
 
-                    // Hover над `Hello` в `greet.Hello("world")` — doc-комментарий из другого пакета.
+                    // Hover over `Hello` in `greet.Hello("world")`: a doc comment from another package.
                     const hovers = await provideHovers(harness, at(10, 15));
                     expect(hovers.flatMap((hover) => hover.contents).join("\n")).toContain("Hello returns a greeting");
 
-                    // F12 — в объявление в greet/greet.go.
+                    // F12 goes to the declaration in greet/greet.go.
                     const definitions = await provideDefinitions(harness, at(10, 15));
                     expect(definitions).toEqual([
                         expect.objectContaining({
@@ -135,7 +135,7 @@ describe.skipIf(MARKETPLACE_OFFLINE || skipReason !== undefined)(
                     ]);
                     expect(definitions[0]?.range.start.line).toBe(5);
 
-                    // Прогрев save: organize imports регистрируется клиентом после старта сервера.
+                    // Save warm-up: the client registers organize imports after the server starts.
                     await until("source.organizeImports от gopls", async () => {
                         const actions = await provideCodeActions(harness, {
                             uri: mainUri,

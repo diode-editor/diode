@@ -12,8 +12,8 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { ILanguageService } from "../../../../editor/common/languages/iLanguageService.ts";
 import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLanguageService.ts";
 
-// Save As меняет uri у ТОЙ ЖЕ модели; без close/open хост считает новый uri
-// несинхронизированным и молча отвечает пусто на каждый запрос провайдера.
+// Save As changes the uri of THE SAME model; without close/open the host treats the new uri
+// as unsynced and silently returns empty for every provider request.
 
 const CSHARP_LANGUAGE_SERVICE: ILanguageService = {
     ...NULL_LANGUAGE_SERVICE,

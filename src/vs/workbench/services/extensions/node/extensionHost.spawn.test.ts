@@ -18,7 +18,7 @@ import type { IProtocolMessage } from "../../../api/common/rpcEndpoint.ts";
 import { ExtensionHost } from "./extensionHost.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// `createRequire` замокан, чтобы вести ветку SEA-детекта в `defaultSpawnArgs`.
+// `createRequire` is mocked to drive the SEA detection branch in `defaultSpawnArgs`.
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 
 const seaState: { mode: "real" | "isSea" | "throw" } = { mode: "real" };
@@ -56,7 +56,7 @@ class FakeChild extends EventEmitter {
 
     public send(message: IProtocolMessage): boolean {
         this.sent.push(message);
-        // `host.shutdown` без ответа намеренно: выключение обязано уйти в сигналы.
+        // `host.shutdown` goes unanswered on purpose: shutdown must fall back to signals.
         if (message.kind === "req" && this.autoRespond && message.method !== "host.shutdown") {
             queueMicrotask(() => this.emit("message", { kind: "res", id: message.id, result: null }));
         }
@@ -155,7 +155,7 @@ describe("ExtensionHost — SIGKILL escalation (lines 242-247)", () => {
         });
         await registerAndActivate(host, makeReg("ext.a"));
 
-        // Выключение дожидается и последнего шага, а не только отправки сигнала.
+        // Shutdown waits for the last step too, not just for the signal to be sent.
         await host.shutdown();
 
         expect(child.signals).toEqual(["SIGTERM", "SIGKILL"]);
@@ -174,7 +174,7 @@ describe("ExtensionHost — неудачный спавн", () => {
         queueMicrotask(() => {
             broken.emit("error", Object.assign(new Error("spawn EMFILE"), { code: "EMFILE" }));
         });
-        // Первая активация падает вместе со спавном — не по минутному таймауту, а сразу.
+        // The first activation fails together with the spawn, immediately rather than after the minute-long timeout.
         await registerAndActivate(host, makeReg("ext.a")).catch(() => undefined);
 
         queueMicrotask(() => {

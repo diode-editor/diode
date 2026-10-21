@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createExtensionTestHarness, extensionFixture } from "../../../../../TestUtils/ExtensionTestHarness.ts";
 import { settle } from "../../../../../TestUtils/timing.ts";
 
-/** Харнесс с `activateEvents: []` не фаерит ничего автоматически — тест сам управляет событиями. */
+/** A harness with `activateEvents: []` fires nothing automatically; the test drives the events itself. */
 describe("ExtensionHost — lazy activation (activationEvents)", () => {
     it("onLanguage: неактивно до совпадающего события, затем активируется идемпотентно", async () => {
         const harness = await createExtensionTestHarness({
@@ -34,7 +34,7 @@ describe("ExtensionHost — lazy activation (activationEvents)", () => {
     it("* активирует расширения без явных activationEvents (дефолт eager)", async () => {
         const harness = await createExtensionTestHarness({
             activateEvents: [],
-            // Без activationEvents → нормализуется в ["*"].
+            // No activationEvents → normalized to ["*"].
             extensions: [extensionFixture("test.eager", "noopExtension.cjs")],
         });
         try {

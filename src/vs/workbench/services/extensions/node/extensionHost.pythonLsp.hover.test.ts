@@ -19,8 +19,8 @@ import { MARKETPLACE_OFFLINE } from "../../../../../TestUtils/marketplaceEnv.ts"
 import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreHover } from "../../../../editor/common/languages/iHoverSource.ts";
 
-// Конвертер стокового клиента зовёт `new code.Hover(...)` — его падение видно
-// только на чужом коде, юнит на стабе его не исполняет.
+// The stock client's converter calls `new code.Hover(...)`; its failure shows up
+// only on foreign code, a unit test against the stub never runs it.
 
 let installed: IInstalledBasedpyright;
 
@@ -63,7 +63,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — hover от стоков�
                 return found.length > 0 ? found : null;
             });
 
-            // Текста НЕТ в буфере (правило Suggest.md): тип из объявления в другом файле.
+            // The text is NOT in the buffer (Suggest.md rule): the type comes from a declaration in another file.
             const joined = hovers.flatMap((hover) => hover.contents).join("\n");
             expect(joined).toContain("greet(name: str) -> str");
 

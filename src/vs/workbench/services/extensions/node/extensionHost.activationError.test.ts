@@ -7,8 +7,8 @@ import { RingBufferSink } from "../../../../platform/log/common/ringBufferSink.t
 import { formatOutputLine } from "../../../services/output/common/outputService.ts";
 
 /**
- * Урок golang.go: без `go` в PATH он отклоняет `activate()` голым `undefined`,
- * и в логе оставалось `{"name":"Error","message":"undefined"}`.
+ * Lesson from golang.go: without `go` on PATH it rejects `activate()` with a bare `undefined`,
+ * and the log ended up with `{"name":"Error","message":"undefined"}`.
  */
 async function activationFailureLine(activateBody: string): Promise<string> {
     const logService = new LogService();

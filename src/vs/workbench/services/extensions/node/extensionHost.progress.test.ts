@@ -88,7 +88,7 @@ describe("ExtensionHost — сток прогресса (window.progress.*, in-p
         await flushMicrotasks();
 
         const ends = h.events.filter((e) => e.kind === "end").map((e) => e.handle);
-        // handle 1 закрыт расширением; handle 2 — хостом на shutdown, и только он.
+        // Handle 1 is closed by the extension; handle 2 by the host on shutdown, and only that one.
         expect(ends).toEqual([1, 2]);
     });
 });

@@ -26,8 +26,8 @@ import { formatDocumentAction, formatSelectionAction } from "../../../contrib/fo
 import { type StatusBarService, StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
-// Субпроцесс БЕЗ tsx (`subprocessLoader: "node"`): расширение — ESM, а хук tsx
-// уводит `import … from "vscode"` в CJS-резолвер и прячет настоящий путь загрузки.
+// Subprocess WITHOUT tsx (`subprocessLoader: "node"`): the extension is ESM, and the tsx hook
+// sends `import … from "vscode"` to the CJS resolver, hiding the real load path.
 let installed: IInstalledPrettier;
 
 function registerFormatActions(harness: {
@@ -115,7 +115,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый prettie
             await settle();
 
             expect(harness.group.getActiveEditor()?.getText()).toBe(FORMATTED_MD);
-            // Нечего менять — значит и шага отмены быть не должно.
+            // Nothing to change, so there must be no undo step either.
             harness.group.getActiveEditor()?.undo();
             expect(harness.group.getActiveEditor()?.getText()).toBe(FORMATTED_MD);
         } finally {
@@ -124,14 +124,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый prettie
     });
 
     it("Format Selection правит только выделенную строку", { timeout: 120_000 }, async () => {
-        // Язык — javascript: range-формат prettier по-настоящему частичный только
-        // там (markdown он игнорирует, json расширяет до всего документа).
+        // The language is javascript: prettier's range formatting is truly partial only
+        // there (it ignores markdown, and expands json to the whole document).
         const harness = await harnessWith({ name: "doc.js", content: MESSY_JS });
         try {
             registerFormatActions(harness);
             await settle();
 
-            // Выделена только вторая строка (`const  b   =  2`).
+            // Only the second line is selected (`const  b   =  2`).
             harness.group.getActiveEditor()!.viewState.selections = [createSelection(1, 0, 1, 15)];
             await harness.commandRegistry.execute("editor.action.formatSelection");
             await settle();

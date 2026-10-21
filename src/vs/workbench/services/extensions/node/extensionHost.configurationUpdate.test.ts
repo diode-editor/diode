@@ -83,7 +83,7 @@ describe("ExtensionHost — WorkspaceConfiguration.update (subprocess → settin
 
     it("без цели — в .diode/settings.json папки; после await get() уже видит значение", async () => {
         await withHarness({ withFolder: true }, async (harness) => {
-            // Как Bazel-плагин: `getConfiguration("bazel.projectview").update("open", false)`.
+            // Like the Bazel plugin: `getConfiguration("bazel.projectview").update("open", false)`.
             const result = await update(harness, "test.update", "open", false, null);
             expect(result).toEqual({ value: false, globalValue: null, workspaceValue: false, changes: [true] });
             expect(readJson(path.join(folder.dir, ".diode", "settings.json"))).toEqual({ "test.update.open": false });

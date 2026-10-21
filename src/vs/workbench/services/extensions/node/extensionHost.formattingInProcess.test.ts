@@ -12,8 +12,8 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Канал сшит in-process: ветки, недостижимые через настоящий fork (документ без
-// синхронизации, форма параметров RPC).
+// The channel is wired in-process: branches unreachable through a real fork (a document without
+// sync, the shape of RPC params).
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -29,7 +29,7 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Запросы ходят только по документам, синхронизированным с субпроцессом. */
+/** Requests are sent only for documents synced with the subprocess. */
 const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
 
 const WIRE_EDIT = { range: { start: { line: 0, character: 5 }, end: { line: 0, character: 7 } }, text: " " };

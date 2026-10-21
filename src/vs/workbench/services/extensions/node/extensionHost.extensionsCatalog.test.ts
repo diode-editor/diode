@@ -65,7 +65,7 @@ describe("ExtensionHost — каталог vscode.extensions", () => {
             expect(self.extensionUriFsPath).toBe(EXTENSION_FIXTURES_DIR);
             expect(self.packageJSONName).toBe("inspector");
             expect(self.packageJSONDisplayName).toBe("Каталог-обозреватель");
-            // Без удалённого extension host'а kind по контракту всегда UI.
+            // Without a remote extension host, kind is always UI by contract.
             expect(self.extensionKind).toBe(1);
             expect(self.isUiKind).toBe(true);
         });

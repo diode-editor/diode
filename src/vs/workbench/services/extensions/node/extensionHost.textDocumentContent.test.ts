@@ -63,8 +63,8 @@ describe("ExtensionHost — провайдеры содержимого неди
             expect(harness.group.getActiveEditor()?.getText()).toContain("// rev 1");
 
             await harness.commandRegistry.execute("fixture.bumpContent", TARGET);
-            // Уведомление провайдера и повторный запрос содержимого — два
-            // отдельных оборота настоящего IPC, микротасками их не прокачать.
+            // The provider's notification and the repeated content request are two
+            // separate round trips of real IPC; microtasks cannot pump them.
             await settle();
 
             expect(harness.group.getActiveEditor()?.getText()).toContain("// rev 2");

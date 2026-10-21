@@ -27,7 +27,7 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
     });
 
     it("сквозь адаптер ядро пишет в пишущий провайдер: создание, перезапись, stat", async () => {
-        // Цепочка сохранения правой стороны предложенного диффа.
+        // The save chain for the right side of a proposed diff.
         const harness = await harnessWithProvider();
         const registry = new FileService();
         const adapter = new FileSystemProviderAdapter(harness.host, registry);
@@ -108,7 +108,7 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
     });
 
     it("сквозь адаптер и реестр ядра ресурс читается end-to-end", async () => {
-        // Цепочка, которой пользуется живой гуттер.
+        // The chain the live gutter uses.
         const harness = await harnessWithProvider();
         const registry = new FileService();
         const adapter = new FileSystemProviderAdapter(harness.host, registry);

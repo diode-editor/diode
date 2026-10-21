@@ -32,15 +32,15 @@ describe("ExtensionHost — rename providers (subprocess)", () => {
             const mainUri = Uri.file(mainPath).toString();
             const neighbour = harness.writeFile("other.txt", "value here\n");
 
-            // `{range, placeholder}` провайдера доезжает именем символа…
+            // The provider's `{range, placeholder}` arrives as the symbol name…
             expect(await prepareRenameAt(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)))).toEqual({
                 name: "value",
             });
-            // …голый Range — именем из текста того же диапазона…
+            // …a bare Range as the name taken from the text of that range…
             expect(await prepareRenameAt(harness, requestFor(mainUri, 1, documentVersion(harness, mainUri)))).toEqual({
                 name: "value",
             });
-            // …а отказ провайдера — причиной для человека.
+            // …and a provider refusal as a human-readable reason.
             expect(await prepareRenameAt(harness, requestFor(mainUri, 2, documentVersion(harness, mainUri)))).toEqual({
                 name: null,
                 rejectReason: "You cannot rename this element.",
@@ -56,7 +56,7 @@ describe("ExtensionHost — rename providers (subprocess)", () => {
             expect(harness.group.getActiveEditor()?.getText()).toBe(
                 "const renamed = 1;\nconst other = value;\nkeyword\n",
             );
-            // ЗАКРЫТЫЙ соседний файл — записью на диск (bulk edit).
+            // A CLOSED neighboring file is changed by writing to disk (bulk edit).
             expect(fs.readFileSync(neighbour, "utf8")).toBe("renamed here\n");
         } finally {
             await harness.dispose();
@@ -78,7 +78,7 @@ describe("ExtensionHost — rename providers (subprocess)", () => {
                 applied: false,
                 error: "'class' is not a valid identifier",
             });
-            // Провайдер без правок — отказ БЕЗ сообщения (переименовывать нечего).
+            // A provider with no edits is a refusal WITHOUT a message (nothing to rename).
             expect(
                 await provideRename(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)), "nothing"),
             ).toEqual({ applied: false });

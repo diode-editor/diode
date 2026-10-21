@@ -28,7 +28,7 @@ describe("ExtensionHost — window.onDidChangeActiveTextEditor (subprocess)", ()
             await settle();
             const editor = harness.group.getActiveEditor();
             expect(editor).not.toBeNull();
-            // Фикстура ставит tabSize=77, если fileName заканчивается на .ts.
+            // The fixture sets tabSize=77 if fileName ends with .ts.
             expect(editor?.viewState.tabSize).toBe(77);
         } finally {
             await harness.dispose();
@@ -41,7 +41,7 @@ describe("ExtensionHost — window.onDidChangeActiveTextEditor (subprocess)", ()
             extensions: [extensionFixture("test.watchActiveEditor", "watchActiveEditor.cjs")],
         });
         try {
-            // На initial snapshot onDidChangeActiveTextEditor не гарантирован — переключаемся.
+            // onDidChangeActiveTextEditor is not guaranteed on the initial snapshot, so switch editors.
             const fp = harness.writeFile("other.ts", "");
             harness.group.openFile(fp);
             await settle();
@@ -53,7 +53,7 @@ describe("ExtensionHost — window.onDidChangeActiveTextEditor (subprocess)", ()
     });
 
     it("window.activeTextEditor возвращает undefined когда нет открытых файлов", async () => {
-        // Фикстура при editor === undefined делает ранний return — иначе поставила бы 8.
+        // With editor === undefined the fixture returns early; otherwise it would set 8.
         const harness = await createExtensionTestHarness({
             extensions: [
                 {
@@ -80,7 +80,7 @@ describe("ExtensionHost — window.onDidChangeActiveTextEditor (subprocess)", ()
             harness.group.openFile(fp);
             await settle();
             const editor = harness.group.getActiveEditor();
-            // Фикстура ставит 71, только если workspace.textDocuments содержит ТОТ ЖЕ объект document.
+            // The fixture sets 71 only if workspace.textDocuments contains THE SAME document object.
             expect(editor?.viewState.tabSize).toBe(71);
         } finally {
             await harness.dispose();
@@ -96,7 +96,7 @@ describe("ExtensionHost — window.onDidChangeActiveTextEditor (subprocess)", ()
             harness.group.openFile(fp);
             await settle();
             const editor = harness.group.getActiveEditor();
-            // 1 — событие пришло, fileName не на .ts.
+            // 1: the event arrived and fileName does not end with .ts.
             expect(editor?.viewState.tabSize).toBe(1);
         } finally {
             await harness.dispose();

@@ -96,7 +96,7 @@ describe("ExtensionHost — подсказка параметров от сто�
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:typescript");
 
-            // Триггер-символы приезжают от самого сервера, а не зашиты в ядре.
+            // Trigger characters come from the server itself, not hardcoded in the core.
             const document = { uri: mainUri, languageId: "typescript" };
             await until("объявленные сервером триггер-символы", async () => {
                 await settle(0);
@@ -107,7 +107,7 @@ describe("ExtensionHost — подсказка параметров от сто�
                 retriggerCharacters: [")"],
             });
 
-            // Текста с вызовом на диске нет — сервер видит его только через didChange.
+            // The text with the call is not on disk: the server sees it only through didChange.
             const editor = harness.group.getActiveEditor();
             editor?.applyExternalEdits(
                 [createTextEdit(createRange(1, 0, 1, 0), MAIN_TYPING.slice(MAIN_SAVED.length))],

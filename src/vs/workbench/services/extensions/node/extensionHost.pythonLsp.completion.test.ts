@@ -18,7 +18,7 @@ import { Uri } from "../../../../base/common/uri.ts";
 import type { ICoreCompletionItem } from "../../../../editor/common/languages/iCompletionSource.ts";
 import { CompletionTriggerKind } from "../../../../editor/common/languages/iCompletionSource.ts";
 
-// `new code.CompletionList(...)` и resolve исполняет чужой код — проверяются только сквозняком.
+// `new code.CompletionList(...)` and resolve run foreign code, so only an end-to-end run checks them.
 
 const MAIN_PY = 'text = "hi"\ntext.\n';
 
@@ -64,7 +64,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — completion от сток
                 return result.items;
             };
 
-            // Каретка сразу после `text.` — ждём членов str из typeshed-стабов.
+            // Cursor right after `text.`: expect str members from the typeshed stubs.
             const items = await until("completion после `text.`", async () => {
                 const found = await completionAt(1, 5);
                 return found.length > 0 ? found : null;
@@ -74,14 +74,14 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — completion от сток
             expect(labels).toContain("upper");
             expect(labels).toContain("startswith");
 
-            // Документация приходит только по resolve (контракт resolveSupport).
+            // Documentation arrives only on resolve (the resolveSupport contract).
             const upper = items.find((item) => item.label === "upper");
             expect(upper?.id).toBeDefined();
             const resolved = await until("resolve пункта upper", async () => {
                 const found = await harness.host.resolveCompletionItem(upper!.id!);
                 return found?.detail !== undefined || found?.documentation !== undefined ? found : null;
             });
-            // Текст, которого нет в буфере: сигнатура/докстринг str.upper из стабов.
+            // Text that is not in the buffer: the signature/docstring of str.upper from the stubs.
             expect(`${resolved.detail ?? ""}\n${resolved.documentation ?? ""}`).toContain("upper");
 
             const crashes = outputLines.filter((line) => CLIENT_CRASH_PATTERNS.test(line.value));

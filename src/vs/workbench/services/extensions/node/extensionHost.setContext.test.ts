@@ -9,14 +9,14 @@ import {
 import { ContextKeyService } from "../../../../platform/contextkey/common/contextKeyService.ts";
 import { SetContextCommandContribution } from "../../../browser/setContextCommandContribution.ts";
 
-// Стык половин пути, закрытых по отдельности: без него `setContext` отклонялся
-// «команда не найдена», и все `when` расширений были мертвы.
+// The seam between two path halves tested separately: without it `setContext` was rejected
+// with "command not found", and every extension `when` clause was dead.
 async function harnessWithSetContext(): Promise<{
     harness: IExtensionHarness;
     contextKeys: ContextKeyService;
 }> {
-    // activateEvents: [] — команда должна стоять в реестре ДО активации:
-    // расширение дёргает её прямо из activate().
+    // activateEvents: [] — the command must be in the registry BEFORE activation:
+    // the extension calls it straight from activate().
     const harness = await createExtensionTestHarness({ activateEvents: [] });
     const contextKeys = new ContextKeyService();
     new SetContextCommandContribution(harness.commandRegistry, contextKeys);

@@ -8,7 +8,7 @@ import { QuickInputExtensionAdapter } from "../../../api/browser/quickInputExten
 import { QuickInputComponent } from "../../../browser/parts/quickinput/quickInputComponent.ts";
 import { QuickInputService } from "../../../browser/parts/quickinput/quickInputService.ts";
 
-// Стаба-«человека» нет: ответ даёт настоящий виджет на клавишах.
+// No stub "human": the answer comes from the real widget driven by keys.
 
 async function setup() {
     const component = new QuickInputComponent();
@@ -36,7 +36,7 @@ describe("ExtensionHost — window.createQuickPick через настоящий
                 value: string | undefined;
                 log: string[];
             }>;
-            // Пикер открылся пустым, предметы приехали следующим диффом.
+            // The picker opened empty; the items arrived with the next diff.
             await vi.waitFor(() => {
                 expect(view()).toMatchObject({
                     title: "Lazy enum",
@@ -44,11 +44,11 @@ describe("ExtensionHost — window.createQuickPick через настоящий
                 });
             });
             expect(component.view.placeholder).toBe("Type to search modules");
-            // detail встаёт на место описания у однострочного ряда.
+            // detail takes the description's place on a single-line row.
             expect(component.view.items[0]).toMatchObject({ description: "example.com/alpha" });
 
-            // Запрос «beta»: расширение получает значение и само перезапрашивает
-            // предметы; фильтр по label хоста тоже их пропускает.
+            // Query "beta": the extension receives the value and re-requests the
+            // items itself; the host's label filter lets them through too.
             type("beta");
             await vi.waitFor(() => {
                 expect(component.view.prompt).toBe("results for beta");
@@ -59,7 +59,7 @@ describe("ExtensionHost — window.createQuickPick через настоящий
             const { value, log } = await result;
             expect(value).toBe("example.com/beta");
             expect(log).toEqual(expect.arrayContaining(["value:beta", "selection:Beta module", "accept"]));
-            // Расширение прячет пикер само — по своему hide(), а не по Enter.
+            // The extension hides the picker itself, via its own hide(), not via Enter.
             await vi.waitFor(() => {
                 expect(component.isOpen()).toBe(false);
             });
@@ -81,8 +81,8 @@ describe("ExtensionHost — window.createQuickPick через настоящий
             testApp.sendKey("Escape");
             const { value, log } = await result;
             expect(value).toBeUndefined();
-            // Два — как в эталоне: Escape даёт onDidHide, а dispose() в его
-            // обработчике (так пишет golang.go) — второй (extHostQuickPick.ts).
+            // Two, as upstream: Escape fires onDidHide, and dispose() in its
+            // handler (as golang.go does) fires the second one (extHostQuickPick.ts).
             expect(log).toEqual(["hide", "hide"]);
             expect(component.isOpen()).toBe(false);
         } finally {
@@ -107,7 +107,7 @@ describe("ExtensionHost — window.createQuickPick через настоящий
             testApp.sendKey("ArrowDown");
             testApp.sendKey("ArrowDown");
             testApp.sendKey(" ");
-            // Отметка уезжает событием — Enter должен застать её у расширения.
+            // The check mark travels as an event; Enter must find it already at the extension.
             await vi.waitFor(() => {
                 expect(view()).toMatchObject({ checked: ["two", "three"] });
             });

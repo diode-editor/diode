@@ -10,8 +10,8 @@ import type { ICommandService } from "../../../api/common/iCommandService.ts";
 import { StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 
 /**
- * Адаптер — до харнесса: пункт ставится уже в `activate()`. Реестра команд тогда
- * ещё нет, поэтому он резолвится лениво, в момент клика.
+ * The adapter comes before the harness: the item is set already in `activate()`. The command registry
+ * does not exist yet then, so it is resolved lazily, at click time.
  */
 async function makeHarness(withBridge = true) {
     const bar = new StatusBarService(NULL_STATE_SERVICE);
@@ -32,7 +32,7 @@ async function makeHarness(withBridge = true) {
 }
 
 function assertRegistry(registry: CommandRegistry | null): CommandRegistry {
-    /* v8 ignore next -- защитный гард: к моменту клика харнесс уже собран */
+    /* v8 ignore next -- defensive guard: by click time the harness is already built */
     if (registry === null) throw new Error("харнесс ещё не собран");
     return registry;
 }
@@ -85,7 +85,7 @@ describe("ExtensionHost — пункт статус-бара расширени�
             await settle();
             expect(texts(bar)).toEqual([]);
 
-            // Правка выброшенного пункта ничего не возвращает и ничего не роняет.
+            // Editing a disposed item returns nothing and breaks nothing.
             await harness.commandRegistry.execute("test.statusBar.setText", "Demo 42");
             await settle();
             expect(texts(bar)).toEqual([]);
@@ -105,12 +105,12 @@ describe("ExtensionHost — пункт статус-бара расширени�
             bar.addEntry({ id: "status.editor.encoding", text: "UTF-8", alignment: "right", priority: 30 });
             expect(texts(bar)).toEqual(["Demo", "UTF-8"]);
 
-            // `dispose` от упавшего расширения не придёт — снять пункт может только хост.
+            // `dispose` will not come from a crashed extension: only the host can remove the item.
             await harness.commandRegistry.execute("test.statusBar.kill");
             await settle(500);
             expect(texts(bar)).toEqual(["UTF-8"]);
 
-            // `*` у пережившего смерть давно отгорел — субпроцесс поднимает ЛЮБОЕ событие.
+            // `*` fired long ago for the survivor, so ANY event brings the subprocess back up.
             await harness.host.activateByEvent("onLanguage:markdown");
             await settle();
             expect(texts(bar)).toEqual(["Demo", "UTF-8"]);

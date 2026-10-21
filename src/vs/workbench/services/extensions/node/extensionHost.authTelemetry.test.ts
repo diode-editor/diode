@@ -5,8 +5,8 @@ import { settle } from "../../../../../TestUtils/timing.ts";
 import type { IOutputSink } from "../../../../workbench/api/common/iExtensionWindowSinks.ts";
 
 /**
- * Форма `hashicorp.terraform`: `env.createTelemetryLogger` и сессия входа
- * запрашиваются ещё до старта языкового сервера — без них терялось всё расширение.
+ * The `hashicorp.terraform` shape: `env.createTelemetryLogger` and the sign-in session
+ * are requested before the language server starts; without them the whole extension was lost.
  */
 describe("ExtensionHost — расширение с телеметрией и провайдером входа активируется целиком", () => {
     it("activate() доходит до команды; сессий нет, вход отклоняется с причиной, телеметрия не уходит", async () => {

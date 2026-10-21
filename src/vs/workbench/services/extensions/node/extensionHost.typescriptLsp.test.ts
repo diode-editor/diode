@@ -23,7 +23,7 @@ import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Правки НЕ сохраняются на диск: сервер обязан видеть живой буфер (didOpen/didChange), а не файл.
+// Edits are NOT saved to disk: the server must see the live buffer (didOpen/didChange), not the file.
 
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
@@ -57,7 +57,7 @@ function lspClientRegistration(): IExtensionRegistration {
     };
 }
 
-/** Опрос с дедлайном: сервер индексирует проект секундами, sleep'ы не годятся. */
+/** Polling with a deadline: the server indexes the project for seconds, sleeps won't do. */
 async function until<T>(what: string, probe: () => Promise<T | null>, timeoutMs = 60_000): Promise<T> {
     const deadline = Date.now() + timeoutMs;
     for (;;) {
@@ -80,13 +80,14 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
         "смешанный воркспейс не отравляет сервер: markdown не синхронизируется, канал без ошибок",
         { timeout: 180_000 },
         async () => {
-            // Регресс: subprocess уже жив, активный файл при спавне — markdown, ts открывается позже. Сервер получал
-            // didOpen для markdown и пустые meta-обёртки и ронял хендлеры; ошибки видны только в output-канале клиента.
+            // Regression: the subprocess is already alive, the active file at spawn is markdown, ts opens later.
+            // The server got didOpen for markdown and empty meta wrappers and its handlers crashed; the errors
+            // show only in the client's output channel.
             const published: { resource: string; markers: readonly WireMarker[] }[] = [];
             const outputLines: { level: string; value: string }[] = [];
             const harness: IExtensionHarness = await createExtensionTestHarness({
                 languageService: TS_LANGUAGE_SERVICE,
-                activateEvents: ["*"], // noop активируется сразу — subprocess жив до открытия файлов
+                activateEvents: ["*"], // noop activates immediately, so the subprocess is alive before any file opens
                 configuration: {
                     diode: { lsp: { typescript: { serverPath: SERVER_CLI, tsserverPath: TSSERVER_JS } } },
                 },
@@ -107,7 +108,8 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 harness.writeFile("defs.ts", DEFS_TS);
                 const mainUri = Uri.file(mainPath).toString();
 
-                // markdown открыт при живом subprocess до активации клиента — попадает в workspace.textDocuments.
+                // markdown opened while the subprocess is alive, before the client activates,
+                // so it lands in workspace.textDocuments.
                 harness.group.openFile(readmePath);
                 await settle();
 
@@ -186,7 +188,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             expect(started.label).toBe("TypeScript (Diode)");
             expect(started.level).toBe("info");
 
-            // Диагностика — заодно readiness-сигнал «сервер проиндексировал проект» перед go-to-definition.
+            // Diagnostics double as the readiness signal "the server indexed the project" before go-to-definition.
             const marker = await until("диагностика 'not assignable' в main.ts", () => {
                 const hit = markersFor(mainUri).find((m) => m.message.includes("not assignable to type 'number'"));
                 return Promise.resolve(hit ?? null);
@@ -209,7 +211,7 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             expect(locations[0].uri).toBe(defsUri);
             expect(locations[0].range.start).toMatchObject({ line: 0, character: 16 });
 
-            // Без сохранения на диск: сервер обязан увидеть живой буфер.
+            // No save to disk: the server must see the live buffer.
             harness.group.openFile(defsPath);
             harness.group
                 .getActiveEditor()
@@ -231,8 +233,8 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
                 Promise.resolve(markersFor(mainUri).length === 0 ? true : null),
             );
 
-            // Регрессия «Unexpected resource»: файл открыт посреди сессии — didOpen обязан дойти до сервера раньше
-            // foldingRange, иначе клиент спросит про неизвестный документ.
+            // "Unexpected resource" regression: a file opened mid-session; didOpen must reach the server before
+            // foldingRange, otherwise the client asks about an unknown document.
             const extraPath = harness.writeFile(
                 "extra.ts",
                 "export function block(): void {\n    void 0;\n    void 0;\n}\n",
@@ -249,8 +251,8 @@ describe("ExtensionHost — стоковый typescript-language-server (скв�
             });
             expect(folds[0]).toMatchObject({ startLine: 0 });
 
-            // Регрессия крэша tsserver «reading 'charCount'»: запрос с новой версией уходит в том же тике, что и
-            // правка, обгоняя коалесированный didChange; зеркало обязано править только didChange.
+            // Regression of the tsserver crash "reading 'charCount'": a request with the new version goes out in the
+            // same tick as the edit, overtaking the coalesced didChange; the mirror must be updated only by didChange.
             harness.group.openFile(mainPath);
             const editor = harness.group.getActiveEditor();
             editor?.applyExternalEdits([createTextEdit(createRange(4, 0, 4, 0), "\nconst tail = 1;\n")], "grow");

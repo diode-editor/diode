@@ -20,8 +20,9 @@ import { NULL_LANGUAGE_SERVICE } from "../../../../editor/common/languages/iLang
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Регресс: стоковый конвертер на каждый ответ делает `new code.CompletionList(...)`, а стаб `vscode` класс не
-// экспортировал — ошибка уходила только в `client.outputChannel`, попап молча пустел. Юнит на стабе такое не ловит.
+// Regression: the stock converter does `new code.CompletionList(...)` on every response, but the `vscode` stub did not
+// export the class: the error went only to `client.outputChannel` and the popup was silently empty. A unit test on
+// the stub does not catch this.
 
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
@@ -122,8 +123,8 @@ describe("ExtensionHost — completion от стокового typescript-langua
             );
             expect(conversionErrors).toEqual([]);
 
-            // tsserver отдаёт dot-accessor-пункты: range накрывает саму точку, insertText/filterText начинаются с неё
-            // (`.getTime`) — префикс считать от провайдерского range, фильтровать по `filterText`, а не по label.
+            // tsserver returns dot-accessor items: the range covers the dot itself, insertText/filterText start with
+            // it (`.getTime`), so the prefix comes from the provider's range and filtering uses `filterText`, not label.
             const getTime = items.find((item) => item.label === "getTime");
             expect(getTime?.range).toMatchObject({
                 start: { line: 1, character: 1 },
@@ -132,7 +133,7 @@ describe("ExtensionHost — completion от стокового typescript-langua
             expect(getTime?.insertText).toBe(".getTime");
             expect(getTime?.filterText).toBe(".getTime");
 
-            // Описание приходит только по resolve — контракт `resolveSupport` стокового клиента.
+            // The description arrives only on resolve: the stock client's `resolveSupport` contract.
             expect(getTime?.detail).toBeUndefined();
             expect(getTime?.id).toBeDefined();
             const resolved = await harness.host.resolveCompletionItem(getTime!.id!);

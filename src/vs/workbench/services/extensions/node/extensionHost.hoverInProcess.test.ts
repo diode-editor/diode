@@ -11,8 +11,8 @@ import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Канал сшит in-process: ветки, недостижимые через настоящий fork (чужая форма
-// нотификации, документ без синхронизации, дефолтный таймаут).
+// The channel is wired in-process: branches unreachable through a real fork (a foreign
+// notification shape, a document without sync, the default timeout).
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,
@@ -28,7 +28,7 @@ const NOOP_COMMANDS = {
     registerProxy: () => ({ dispose: () => undefined }),
 } as unknown as ICommandService;
 
-/** Запросы ходят только по документам, синхронизированным с субпроцессом. */
+/** Requests are sent only for documents synced with the subprocess. */
 const DOCUMENT = { uri: "file:///a.ts", languageId: "typescript", version: 3, text: "const a = 1;\n" };
 const REQUEST: IHoverRequest = { uri: DOCUMENT.uri, languageId: "typescript", versionId: 3, line: 0, character: 0 };
 
@@ -36,7 +36,6 @@ function makeHost(
     options: {
         warn?: ILogger["warn"];
         debug?: ILogger["debug"];
-        /** Мс. */
         timeoutMs?: number;
         maxSyncedDocumentChars?: number;
         open?: boolean;
@@ -110,7 +109,7 @@ describe("ExtensionHost — регистрации языковых провай
         const { host, peer } = makeHost();
         const kept = vi.fn();
         const removed = vi.fn();
-        // Снимаемый — первым: его индекс 0 тоже должен вычищаться.
+        // The removed one goes first: its index 0 must be cleaned up too.
         const sub = host.onLanguageProvidersChanged(removed);
         host.onLanguageProvidersChanged(kept);
         sub.dispose();
@@ -210,8 +209,8 @@ describe("ExtensionHost — hover-запрос по handle (in-process)", () => 
         const hostRpc = (host as unknown as { rpc: RpcEndpoint }).rpc;
         const request = vi.spyOn(hostRpc, "request");
         peer.handleRequest("languages.provideHover", () => null);
-        // Срок уезжает транспорту с запросом, а не ждётся вживую: реальное
-        // ожидание в мутационном прогоне стоит секунды на каждом мутанте.
+        // The deadline goes to the transport with the request instead of being awaited live: a real
+        // wait costs seconds per mutant in a mutation run.
         await host.provideHover(1, REQUEST);
         expect(request).toHaveBeenCalledWith("languages.provideHover", expect.anything(), { timeoutMs: 5000 });
     });
@@ -227,7 +226,7 @@ describe("ExtensionHost — hover-запрос по handle (in-process)", () => 
         });
 
         expect(await host.provideHover(1, REQUEST)).toBeUndefined();
-        // Истёкший срок — штатный исход медленного провайдера: debug, не warn.
+        // An expired deadline is a normal outcome for a slow provider: debug, not warn.
         expect(debug).toHaveBeenCalledWith('request "languages.provideHover" timed out after 5ms');
         await vi.waitFor(() => {
             expect(seen?.isCancellationRequested).toBe(true);

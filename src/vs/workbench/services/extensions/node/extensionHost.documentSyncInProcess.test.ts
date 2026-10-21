@@ -10,7 +10,7 @@ import type { ISaveSnapshot } from "../../textfile/common/iSaveParticipant.ts";
 
 import { ExtensionHost } from "./extensionHost.ts";
 
-// Правила document sync — в тестах DocumentsCustomer, здесь — только проводка фасада хоста к нему.
+// Document sync rules are tested in DocumentsCustomer; here only the wiring of the host facade to it.
 
 const NOOP_EDITOR_OPTIONS = {
     getActiveEditorOptions: () => null,

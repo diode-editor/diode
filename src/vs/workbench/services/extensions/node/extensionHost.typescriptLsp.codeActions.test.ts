@@ -27,10 +27,10 @@ import { EditorServiceDIToken } from "../../editor/common/editorService.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-// Quick fix «удалить неиспользуемый импорт»: сервер присылает правку ДВУМЯ смежными диапазонами на одной строке,
-// их обратные правки схлопываются в точку — на этой форме undo перемешивал текст.
-// Organize Imports в CommonJS: сервер действия не отдаёт, клиент подставляет холостое (как эталонное TS-расширение),
-// и команда молчит, а не пишет «No organize imports action».
+// Quick fix "remove unused import": the server sends the edit as TWO adjacent ranges on one line,
+// their inverse edits collapse into a point, and on this shape undo scrambled the text.
+// Organize Imports in CommonJS: the server returns no action, the client substitutes a no-op one (as the
+// upstream TS extension does), and the command stays silent instead of printing "No organize imports action".
 
 const require_ = createRequire(import.meta.url);
 const REPO_ROOT = fileURLToPath(new URL("../../../../../..", import.meta.url));
@@ -133,7 +133,7 @@ describe("ExtensionHost — code actions от стокового typescript-lang
             const alphaLine = text.indexOf('import { alpha } from "./alpha";');
             const zetaLine = text.indexOf('import { zeta } from "./zeta";');
             expect(alphaLine).toBeGreaterThanOrEqual(0);
-            expect(zetaLine).toBeGreaterThan(alphaLine); // отсортировано
+            expect(zetaLine).toBeGreaterThan(alphaLine); // sorted
             expect(text).toContain("alpha();");
         } finally {
             await harness.dispose();
@@ -231,7 +231,7 @@ describe("ExtensionHost — code actions от стокового typescript-lang
                         uri: mainUri,
                         languageId: "typescript",
                         versionId: documentVersion(harness, mainUri),
-                        range: createRange(0, 16, 0, 20), // идентификатор `zeta`
+                        range: createRange(0, 16, 0, 20), // the `zeta` identifier
                     });
                     return actions.find((a) => /unused declaration/i.test(a.title)) ?? null;
                 });

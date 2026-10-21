@@ -41,19 +41,19 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый ruff.vs
                 published.filter((p) => p.resource === uri).at(-1)?.markers ?? [];
 
             harness.group.openFile(lintPath);
-            // Ленивая активация ровно тем событием, которое объявляет манифест vsix.
+            // Lazy activation by exactly the event the vsix manifest declares.
             await harness.host.activateByEvent("onLanguage:python");
             expect(harness.host.hasExtension(RUFF_ID)).toBe(true);
 
-            // Pull-диагностика от НАСТОЯЩЕГО bundled `ruff server` — readiness-сигнал.
+            // Pull diagnostics from the REAL bundled `ruff server` serve as the readiness signal.
             const f401 = await until("диагностика F401 в lint.py", () => {
                 const hit = markersFor(lintUri).find((m) => /F401|unused/.test(`${m.code ?? ""} ${m.message}`));
                 return Promise.resolve(hit ?? null);
             });
-            // `import sys` — первая строка файла.
+            // `import sys` is the first line of the file.
             expect(f401.range.start.line).toBe(0);
 
-            // Без сохранения: клиент обязан пере-запросить pull-диагностику живого буфера.
+            // No save: the client must re-request pull diagnostics for the live buffer.
             harness.group
                 .getActiveEditor()
                 ?.applyExternalEdits([createTextEdit(createRange(0, 0, 1, 0), "")], "drop unused import");

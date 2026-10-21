@@ -92,7 +92,7 @@ describe("ExtensionHost — references от стокового typescript-langua
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:typescript");
 
-            // Ссылки не только из открытого файла, но и из defs.ts.
+            // References come not only from the open file but also from defs.ts.
             const references = await until("references для `greet`", async () => {
                 const found: readonly ICoreReference[] = await provideReferences(harness, {
                     uri: mainUri,

@@ -33,7 +33,7 @@ describe("ExtensionHost — EditorConfig.generate (workspace.fs, WP7)", () => {
         try {
             const target = path.join(harness.tmpDir, ".editorconfig");
             expect(await harness.commandRegistry.execute("EditorConfig.generate")).toBe("generated");
-            // Помечаем файл, чтобы поймать перезапись.
+            // Mark the file to catch an overwrite.
             fs.appendFileSync(target, "# sentinel\n");
 
             expect(await harness.commandRegistry.execute("EditorConfig.generate")).toBe("exists");

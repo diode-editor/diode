@@ -18,8 +18,8 @@ import { createRange } from "../../../../editor/common/core/iRange.ts";
 import { createTextEdit } from "../../../../editor/common/core/iTextEdit.ts";
 import type { WireMarker } from "../../../api/common/wireTypes.ts";
 
-// Библиотеку eslint сервер расширения резолвит из node_modules воркспейса —
-// фикстура доносит её симлинком.
+// The extension's server resolves the eslint library from the workspace node_modules;
+// the fixture provides it via a symlink.
 
 let installed: IInstalledEslint;
 let eslintNodeModules: string;
@@ -70,7 +70,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый vscode-
                 expect(extraSemi.range.start.line).toBe(0);
                 expect(markersFor(lintUri).some((m) => (m.code ?? "") === "no-unused-vars")).toBe(true);
 
-                // БЕЗ сохранения на диск: eslint.run=onType пересчитывает живой буфер.
+                // NO save to disk: eslint.run=onType re-lints the live buffer.
                 harness.group
                     .getActiveEditor()
                     ?.applyExternalEdits([createTextEdit(createRange(0, 17, 0, 18), "")], "drop extra semi");

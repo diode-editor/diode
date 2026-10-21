@@ -21,7 +21,7 @@ const TS_LANGUAGE_SERVICE: ILanguageService = {
 
 const TEXT = "greet(\nfirst(\n";
 
-/** Версия для запросов по документу без открытого редактора: ответ пустой при любой. */
+/** Version for requests on a document without an open editor: the answer is empty for any version. */
 const UNOPENED_VERSION = 1;
 
 function requestFor(
@@ -52,7 +52,7 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
         });
         try {
             const mainUri = Uri.file(`${harness.tmpDir}/main.ts`).toString();
-            // Порядок — по реестру: новая регистрация первой.
+            // Order follows the registry: the newest registration first.
             expect(signatureHelpCharacters(harness, requestFor(mainUri, 0, documentVersion(harness, mainUri)))).toEqual(
                 {
                     triggerCharacters: [",", "<", "("],
@@ -64,7 +64,7 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
                 retriggerCharacters: [],
             });
 
-            // Строка 0: первый провайдер молчит, отвечает второй.
+            // Line 0: the first provider is silent, the second answers.
             const help = await provideSignatureHelp(
                 harness,
                 requestFor(mainUri, 0, documentVersion(harness, mainUri), {
@@ -82,7 +82,7 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
                 signatures: [
                     {
                         label: "greet(name: string, age: number): void",
-                        // Эхо контекста: провайдер получил настоящий SignatureHelpContext.
+                        // Context echo: the provider received a real SignatureHelpContext.
                         documentation: "kind=2 char=, retrigger=true active=0",
                         parameters: [
                             { label: "name: string", documentation: "кого приветствуем" },
@@ -94,14 +94,14 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
                 activeParameter: 1,
             });
 
-            // Строка 1: второй молчит — очередь доходит до первого.
+            // Line 1: the second is silent, so the turn passes to the first.
             const first = await provideSignatureHelp(
                 harness,
                 requestFor(mainUri, 1, documentVersion(harness, mainUri)),
             );
             expect(first?.signatures[0].label).toBe("first(): void");
 
-            // Строка 2: молчат оба — подсказки нет, а не мусор.
+            // Line 2: both are silent: no hint rather than garbage.
             expect(
                 await provideSignatureHelp(harness, requestFor(mainUri, 2, documentVersion(harness, mainUri))),
             ).toBeNull();
@@ -111,7 +111,7 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
     });
 
     it("без subprocess'а и без провайдеров подсказки и триггеров нет", async () => {
-        // Расширение зарегистрировано, но не активировано — subprocess не поднят.
+        // The extension is registered but not activated, so the subprocess is not started.
         const lazy = await createExtensionTestHarness({
             extensions: [extensionFixture("test.providesSignatureHelp", "providesSignatureHelp.cjs")],
             activateEvents: [],
@@ -119,7 +119,7 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
         });
         try {
             expect(await provideSignatureHelp(lazy, requestFor("file:///a.ts", 0, UNOPENED_VERSION))).toBeNull();
-            // Пока провайдеров нет, ядро не должно считать «(» триггером.
+            // While there are no providers, the core must not treat "(" as a trigger.
             expect(signatureHelpCharacters(lazy, requestFor("file:///a.ts", 0, UNOPENED_VERSION))).toEqual({
                 triggerCharacters: [],
                 retriggerCharacters: [],
@@ -128,7 +128,7 @@ describe("ExtensionHost — signature help providers (subprocess)", () => {
             await lazy.dispose();
         }
 
-        // Subprocess поднят (noop активен), но провайдеров никто не регистрировал.
+        // The subprocess is up (noop is active), but no one registered providers.
         const noProviders = await createExtensionTestHarness({
             extensions: [extensionFixture("test.noop", "noopExtension.cjs")],
             languageService: TS_LANGUAGE_SERVICE,

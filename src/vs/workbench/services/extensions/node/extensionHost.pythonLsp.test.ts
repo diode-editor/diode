@@ -57,18 +57,18 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
                     published.filter((p) => p.resource === uri).at(-1)?.markers ?? [];
 
                 harness.group.openFile(mainPath);
-                // Ленивая активация ровно тем событием, которое объявляет манифест vsix.
+                // Lazy activation by exactly the event the vsix manifest declares.
                 await harness.host.activateByEvent("onLanguage:python");
                 expect(harness.host.hasExtension("detachhead.basedpyright")).toBe(true);
 
-                // Диагностика от НАСТОЯЩЕГО bundled-сервера — она же readiness-сигнал.
+                // Diagnostics from the REAL bundled server double as the readiness signal.
                 const marker = await until("диагностика 'is not assignable' в main.py", () => {
                     const hit = markersFor(mainUri).find((m) => m.message.includes("is not assignable"));
                     return Promise.resolve(hit ?? null);
                 });
                 expect(marker.range.start.line).toBe(2);
 
-                // Без сохранения: сервер обязан видеть живой буфер.
+                // No save: the server must see the live buffer.
                 harness.group
                     .getActiveEditor()
                     ?.applyExternalEdits([createTextEdit(createRange(2, 7, 2, 10), "str")], "fix type");
@@ -101,7 +101,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
             harness.group.openFile(mainPath);
             await harness.host.activateByEvent("onLanguage:python");
 
-            // Каретка на вызове `greet` (строка 2, внутри имени) → объявление.
+            // Cursor on the `greet` call (line 2, inside the name) → the declaration.
             const locations = await until("definition вызова greet", async () => {
                 const found = await provideDefinitions(harness, {
                     uri: mainUri,
@@ -113,7 +113,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — стоковый basedpy
                 return found.length > 0 ? found : null;
             });
             expect(locations[0].uri).toBe(defsUri);
-            // `def greet(...)` — имя начинается в колонке 4 первой строки.
+            // `def greet(...)`: the name starts at column 4 of the first line.
             expect(locations[0].range.start).toMatchObject({ line: 0, character: 4 });
         } finally {
             await harness.dispose();

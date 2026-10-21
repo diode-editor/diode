@@ -23,8 +23,8 @@ import { Uri } from "../../../../base/common/uri.ts";
 import { createRange } from "../../../../editor/common/core/iRange.ts";
 import type { IConfigurationService } from "../../../../platform/configuration/common/iConfigurationService.ts";
 
-// Герметичный контракт пайплайна — editorService.onSave.test.ts; здесь — что его
-// закрывает стоковое расширение (#196, #310).
+// The hermetic pipeline contract is in editorService.onSave.test.ts; here, that the stock
+// extension satisfies it (#196, #310).
 
 let installed: IInstalledEslint;
 let eslintNodeModules: string;
@@ -60,7 +60,7 @@ describe.skipIf(MARKETPLACE_OFFLINE)("ExtensionHost — сохранение с 
             harness.group.openFile(lintPath);
             await harness.host.activateByEvent("onStartupFinished");
 
-            // Прогрев: иначе первый save попадёт в холодный старт и его 5с-таймауты.
+            // Warm-up: otherwise the first save hits the cold start and its 5s timeouts.
             await until("source.fixAll action от eslint", async () => {
                 const actions = await provideCodeActions(harness, {
                     uri: lintUri,
