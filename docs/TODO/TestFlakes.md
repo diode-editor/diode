@@ -78,3 +78,13 @@ run Stryker'а идёт одним воркером с `bail: 1`, так что 
   по файлам и строкам) — `git show 3b4c91e7:docs/TODO/MutationDebtAfterLintSweep.md`; строки с тех
   пор могли уйти. Признак «закрыто» — `npm run test:mutation -- --base <ref>` по этим файлам без
   выживших.
+
+## Долг мутаций после чистки комментариев #710
+
+- [ ] #710 снял хвостовые комментарии с двух строк, и гейт отмутировал давний код: 2 выживших
+  (`real`), гейт на PR пропущен разово по решению человека, порог оставлен 100.
+  - `src/vs/workbench/contrib/files/browser/fileOperationsService.ts:270` — `if (trimmed === oldName) return`
+    → `if (false)`: вероятно, эквивалентный (переименование в то же имя и так ничего не меняет) — проверить
+    и погасить `Stryker disable` с причиной либо убить тестом.
+  - `src/vs/workbench/contrib/suggest/browser/collectWordCompletions.ts:28` — `text.length > maxBytes`
+    → `>=`: граница `maxBytesPerText` не проверена — тест на источник ровно в `maxBytes`.
