@@ -93,7 +93,7 @@ describe("resolveLanguageConfiguration", () => {
                 { open: "{", close: "}" },
                 { open: "", close: ")" },
                 { open: "(", close: "" },
-                // length-проверки такую запись пропустили бы — отсекает проверка типа.
+                // Length checks would let this entry through; the type check rejects it.
                 { open: 5, close: ")" },
                 { open: "(", close: 5 },
                 { open: "'" },

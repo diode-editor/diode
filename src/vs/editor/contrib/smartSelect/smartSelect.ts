@@ -10,7 +10,7 @@ import { type IsCodeAt, provideBracketSelectionRanges } from "./bracketSelection
 import { firstNonWhitespaceIndex, lastNonWhitespaceEnd } from "./lineText.ts";
 import { provideWordSelectionRanges } from "./wordSelections.ts";
 
-/** Настройки `editor.smartSelect.*` (upstream `SelectionRangesOptions`). */
+/** `editor.smartSelect.*` settings (upstream `SelectionRangesOptions`). */
 export interface ISelectionRangesOptions {
     readonly selectLeadingAndTrailingWhitespace: boolean;
     readonly selectSubwords: boolean;
@@ -21,16 +21,16 @@ export interface ISelectionRangesInput {
     readonly uri: string;
     readonly positions: readonly IPosition[];
     readonly providers: readonly SelectionRangeProvider[];
-    /** Для фоллбека без провайдеров. */
+    /** For the fallback when there are no providers. */
     readonly brackets: readonly CharacterPair[];
     readonly isCodeAt?: IsCodeAt;
     readonly options: ISelectionRangesOptions;
 }
 
 /**
- * Upstream `smartSelect.ts:provideSelectionRanges`: от внутреннего к внешнему,
- * каждый следующий строго содержит предыдущий. Ответ провайдера, не выровненный
- * по позициям, отбрасывается целиком.
+ * Upstream `smartSelect.ts:provideSelectionRanges`: innermost to outermost, each one
+ * strictly containing the previous. A provider answer not aligned with the positions is
+ * dropped entirely.
  */
 export async function provideSelectionRanges(
     input: ISelectionRangesInput,
@@ -72,7 +72,7 @@ function strictlyContains(outer: IRange, inner: IRange): boolean {
     return rangeContainsRange(outer, inner) && !rangesEqual(outer, inner);
 }
 
-/** Диапазон, пересекающийся с предыдущим сбоку или равный ему, выпадает. */
+/** A range that overlaps the previous one from the side, or equals it, is dropped. */
 function toChain(ranges: IRange[]): IRange[] {
     ranges.sort((a, b) => comparePositions(b.start, a.start) || comparePositions(a.end, b.end));
     const chain: IRange[] = [];
@@ -83,7 +83,7 @@ function toChain(ranges: IRange[]): IRange[] {
     return chain;
 }
 
-/** Ступени «строки без отступа» и «строки целиком» — только строго между соседями. */
+/** The "lines without indentation" and "whole lines" steps go only strictly between neighbors. */
 function withLineTrivia(document: ITextDocument, chain: readonly IRange[]): IRange[] {
     const result: IRange[] = [];
     let prev: IRange | undefined;
@@ -100,8 +100,8 @@ function withLineTrivia(document: ITextDocument, chain: readonly IRange[]): IRan
 function lineSteps(document: ITextDocument, prev: IRange, cur: IRange): IRange[] {
     const steps: IRange[] = [];
     const first = firstNonWhitespaceIndex(document.getLineContent(prev.start.line));
-    // Конец на строке из пробелов: хвост — 0, у эталона — «до начала строки».
-    // Разнятся они, только если prev кончается ровно в начале такой строки.
+    // End on an all-whitespace line: the tail is 0, upstream uses "up to the line start".
+    // They differ only if prev ends exactly at the start of such a line.
     const last = lastNonWhitespaceEnd(document.getLineContent(prev.end.line));
     const trimmed = first === -1 ? null : createRange(prev.start.line, first, prev.end.line, last);
     if (trimmed !== null && strictlyContains(trimmed, prev) && strictlyContains(cur, trimmed)) {

@@ -93,7 +93,7 @@ function openPopup(app: TestApp): PopupMenuElement | null {
     return items.length > 0 ? (items[items.length - 1].element as PopupMenuElement) : null;
 }
 
-const GUTTER = 6; // гуттер двухстрочного документа: 2 паддинга + номер + fold-маржин
+const GUTTER = 6; // gutter of a two-line document: 2 padding + line number + fold margin
 
 describe("editor/contrib/contextmenu — ContextMenuController", () => {
     it("opens the EditorContext menu on right press+release and focuses the editor", () => {
@@ -103,7 +103,7 @@ describe("editor/contrib/contextmenu — ContextMenuController", () => {
 
         const popup = openPopup(app);
         expect(popup).not.toBeNull();
-        // Пункты языковых фич гейтятся ключами `editorHas*Provider`, а провайдеров здесь нет.
+        // Language feature items are gated by `editorHas*Provider` keys, and there are no providers here.
         expect(popup?.entries.map((e) => (e.type === "separator" ? "─" : e.label))).toEqual([
             "Change All Occurrences",
             "─",
@@ -113,7 +113,7 @@ describe("editor/contrib/contextmenu — ContextMenuController", () => {
             "─",
             "Command Palette...",
         ]);
-        expect(editor.isFocused).toBe(false); // фокус на попапе, вернётся при закрытии
+        expect(editor.isFocused).toBe(false); // focus is on the popup, returns on close
     });
 
     it("moves the caret to the click position when it is outside the selection", () => {
@@ -176,7 +176,7 @@ describe("editor/contrib/contextmenu — ContextMenuController", () => {
     it("keyboard trigger falls back to the editor origin when the caret is scrolled out", () => {
         const { app, editor } = setup(Array.from({ length: 50 }, (_, i) => `line ${String(i)}`).join("\n"));
         editor.viewState.selections = [createSelection(0, 0, 0, 0)];
-        editor.viewState.scrollTop = 30; // каретка (строка 0) вне вьюпорта
+        editor.viewState.scrollTop = 30; // cursor (line 0) is outside the viewport
         app.render();
 
         keyboardTrigger(editor);

@@ -166,8 +166,8 @@ describe("sortAndMergeSelections — направление и idealColumn", () 
             createSelection(0, 4, 0, 5),
         ]);
         expect(result).toHaveLength(1);
-        // Возраст объединения — от победителя первой пары (index 1); index 2 моложе,
-        // значит направление берётся у него (прямое), а idealColumn победителя не переносится.
+        // The union's age comes from the first pair's winner (index 1); index 2 is newer, so the
+        // direction is taken from it (forward) and the winner's idealColumn is not carried over.
         expect(shape(result[0])).toEqual([0, 0, 0, 6]);
         expect(result[0].idealColumn).toBeUndefined();
     });

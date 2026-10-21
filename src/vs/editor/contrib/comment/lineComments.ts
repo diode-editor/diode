@@ -8,7 +8,7 @@ import { getLeadingWhitespace } from "../../common/languages/autoIndent.ts";
 
 export type LineCommentMode = "toggle" | "add" | "remove";
 
-/** Вставка (`delta > 0`) или удаление (`delta < 0`) `|delta|` символов начиная с `column`. */
+/** Insertion (`delta > 0`) or deletion (`delta < 0`) of `|delta|` characters starting at `column`. */
 export interface ILineShift {
     readonly line: number;
     readonly column: number;
@@ -25,7 +25,7 @@ interface ILineInfo {
     readonly indentLength: number;
     readonly isBlank: boolean;
     readonly isCommented: boolean;
-    /** С хвостовым пробелом, если он есть, — столько снимает remove. */
+    /** Includes the trailing space, if any: this is how much remove deletes. */
     readonly markerLength: number;
 }
 
@@ -37,7 +37,7 @@ function analyzeLine(content: string, token: string, line: number): ILineInfo {
     return { line, indentLength, isBlank, isCommented, markerLength };
 }
 
-/** Семантика VS Code: пустые строки пропускаются, вставка — единой колонкой минимального отступа. */
+/** VS Code semantics: blank lines are skipped; markers go in one column at the minimal indent. */
 export function planLineComments(
     getLineContent: (line: number) => string,
     lines: readonly number[],
@@ -46,8 +46,8 @@ export function planLineComments(
 ): ILineCommentPlan | null {
     const infos = lines.map((line) => analyzeLine(getLineContent(line), lineComment, line));
 
-    // «Все строки пустые → комментируем все» — только у toggle (как в VS Code:
-    // ForceAdd/ForceRemove пустые строки игнорируют всегда).
+    // "All lines blank -> comment them all" applies only to toggle (as in VS Code:
+    // ForceAdd/ForceRemove always ignore blank lines).
     const allBlank = infos.every((info) => info.isBlank);
     const considered = allBlank && mode === "toggle" ? infos : infos.filter((info) => !info.isBlank);
     if (considered.length === 0) return null;
@@ -55,8 +55,8 @@ export function planLineComments(
     const shouldRemove = mode === "remove" || (mode === "toggle" && considered.every((info) => info.isCommented));
 
     const edits: ITextEdit[] = [];
-    // Stryker disable next-line ArrayDeclaration: аккумулятор сдвигов; лишняя запись в нём
-    // не наблюдаема — у неё нет строки, и remapPositionForShifts пропускает такую (shift.line !== pos.line)
+    // Stryker disable next-line ArrayDeclaration: shift accumulator; an extra entry is unobservable:
+    // it has no line, and remapPositionForShifts skips it (shift.line !== pos.line)
     const shifts: ILineShift[] = [];
 
     if (shouldRemove) {
@@ -83,24 +83,24 @@ export function planLineComments(
 }
 
 /**
- * Конвенция `shiftIndent` из `EditorViewState`: точка на колонке 0 заякорена
- * (вставка в начало строки не утаскивает каретку с начала).
+ * Same convention as `shiftIndent` in `EditorViewState`: a point at column 0 is anchored
+ * (an insertion at line start does not drag the cursor away from it).
  */
 export function remapPositionForShifts(pos: IPosition, shifts: readonly ILineShift[]): IPosition {
     let character = pos.character;
     for (const shift of shifts) {
         if (shift.line !== pos.line) continue;
-        // Stryker disable next-line EqualityOperator: нулевой сдвиг недостижим — маркер
-        // непустой (резолв конфигурации отбрасывает пустой lineComment), так что `>= 0` эквивалентен
+        // Stryker disable next-line EqualityOperator: a zero shift is unreachable: the marker is
+        // non-empty (config resolution drops an empty lineComment), so `>= 0` is equivalent
         if (shift.delta > 0) {
             if (character !== 0 && character >= shift.column) character += shift.delta;
         } else {
             const removedEnd = shift.column - shift.delta;
-            // Stryker disable next-line ConditionalExpression,EqualityOperator: на границе
-            // (character === column) обе ветки дают column — точка прижимается туда же, где и стоит
+            // Stryker disable next-line ConditionalExpression,EqualityOperator: at the boundary
+            // (character === column) both branches yield column: the point is clamped to where it already is
             if (character > shift.column) {
-                // Stryker disable next-line EqualityOperator: при character === removedEnd обе ветки
-                // дают column (removedEnd + delta === column) — граница куска принадлежит обеим
+                // Stryker disable next-line EqualityOperator: at character === removedEnd both branches
+                // yield column (removedEnd + delta === column): the piece boundary belongs to both
                 character = character >= removedEnd ? character + shift.delta : shift.column;
             }
         }

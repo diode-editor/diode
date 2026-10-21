@@ -31,8 +31,8 @@ export function createDeleteEdit(
 }
 
 /**
- * В этом порядке `ITextDocument.applyEdits` отдаёт обратные правки — кто зипует
- * свои правки с обратными, сортирует тем же компаратором.
+ * `ITextDocument.applyEdits` returns inverse edits in this order: whoever zips their
+ * edits with the inverse ones sorts with this same comparator.
  */
 export function compareTextEditsInDocumentOrder(a: ITextEdit, b: ITextEdit): number {
     const cmp = comparePositions(a.range.start, b.range.start);
@@ -41,10 +41,10 @@ export function compareTextEditsInDocumentOrder(a: ITextEdit, b: ITextEdit): num
 }
 
 /**
- * Перекрытые правки `ITextDocument.applyEdits` применил бы по уже съеденному
- * тексту — тихая порча и сломанный undo. Батч из ненадёжного источника
- * отбивается целиком, как `Overlapping ranges are not allowed` в vscode. Стык
- * и вставки нулевой ширины в одну точку пересечением НЕ считаются.
+ * `ITextDocument.applyEdits` would apply overlapping edits to already consumed text:
+ * silent corruption and broken undo. A batch from an untrusted source is rejected
+ * whole, like `Overlapping ranges are not allowed` in vscode. Touching ranges and
+ * zero-width inserts at the same point do NOT count as overlapping.
  */
 export function hasOverlappingEdits(edits: readonly ITextEdit[]): boolean {
     const sorted = [...edits].sort((a, b) => comparePositions(a.range.start, b.range.start));

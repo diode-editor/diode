@@ -5,7 +5,7 @@ import type { IRange } from "./iRange.ts";
 export interface ISelection {
     readonly anchor: IPosition;
     readonly active: IPosition;
-    /** Колонка, запомненная для вертикальной навигации; нет — `active.character`. */
+    /** Column remembered for vertical navigation; when absent, `active.character`. */
     readonly idealColumn?: number;
 }
 

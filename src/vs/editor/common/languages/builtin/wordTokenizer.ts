@@ -55,7 +55,7 @@ const KEYWORDS = new Set([
     "enum",
 ]);
 
-/** Индексы colorMap: у демо-токенизатора темы нет, тест ставит резолверу свой colorMap. */
+/** colorMap indices: the demo tokenizer has no theme, tests give the resolver their own colorMap. */
 export const WordTokenColor = {
     keyword: 3,
     number: 4,
@@ -92,7 +92,7 @@ function isDigit(ch: string): boolean {
     return ch >= "0" && ch <= "9";
 }
 
-/** Для демо и тестов. Соседние токены одного вида склеиваются, как у `tokenizeLine2`. */
+/** For demos and tests. Adjacent tokens of the same type are merged, as in `tokenizeLine2`. */
 export class WordTokenizer implements ITokenizationSupport {
     public getInitialState(): IState {
         return NULL_STATE;
@@ -155,7 +155,7 @@ export class WordTokenizer implements ITokenizationSupport {
             tokens.push(0, TEXT);
         }
 
-        // Stryker disable next-line ArrayDeclaration: шрифтов у токенов нет, массив никто не читает
+        // Stryker disable next-line ArrayDeclaration: tokens have no fonts, nobody reads the array
         return new EncodedTokenizationResult(new Uint32Array(tokens), [], NULL_STATE);
     }
 }

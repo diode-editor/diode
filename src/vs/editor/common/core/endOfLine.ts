@@ -1,6 +1,6 @@
 /**
- * Значения — как у публичного `EndOfLine` VS Code. Документ хранит строки без
- * терминаторов; EOL применяется только на границе с диском.
+ * Values match the public VS Code `EndOfLine`. The document stores lines without
+ * terminators; EOL is applied only at the disk boundary.
  */
 export enum EndOfLine {
     LF = 1,
@@ -11,7 +11,7 @@ export function eolToSequence(eol: EndOfLine): "\n" | "\r\n" {
     return eol === EndOfLine.CRLF ? "\r\n" : "\n";
 }
 
-/** Большинство побеждает; ничья и текст без переводов строк — LF. */
+/** Majority wins; a tie or text without line breaks gives LF. */
 export function detectEndOfLine(text: string): EndOfLine {
     let crlf = 0;
     let index = text.indexOf("\r\n");

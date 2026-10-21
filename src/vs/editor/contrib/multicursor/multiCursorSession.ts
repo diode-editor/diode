@@ -9,15 +9,15 @@ import { findTextMatches } from "../find/findMatches.ts";
 
 import type { IMultiCursorFindSession, IMultiCursorSearchSpec } from "./iMultiCursorFindSession.ts";
 
-/** Ось регистра у Ctrl+D зафиксирована — см. {@link IMultiCursorSearchSpec.matchCase}. */
+/** Case sensitivity of Ctrl+D is fixed; see {@link IMultiCursorSearchSpec.matchCase}. */
 const MATCH_CASE = true;
 
 export interface IDerivedSearch extends IMultiCursorSearchSpec {
-    /** У схлопнутой каретки — слово под ней. */
+    /** For a collapsed cursor, the word under it. */
     readonly range: IRange;
 }
 
-/** Многострочное выделение — `null`: построчный сканер такое не найдёт. */
+/** `null` for a multi-line selection: the line-by-line scanner cannot find it. */
 export function deriveSearchSpec(document: ITextDocument, selection: ISelection): IDerivedSearch | null {
     const range = selectionToRange(selection);
     if (range.start.line !== range.end.line) return null;
@@ -42,7 +42,7 @@ export function deriveSearchSpec(document: ITextDocument, selection: ISelection)
     };
 }
 
-/** `idealColumn` не сравниваем: он меняется мимо курсора (вертикальная навигация) и ложно рвал бы сессию. */
+/** `idealColumn` is ignored: it changes without moving the cursor (vertical navigation) and would reset the session spuriously. */
 export function isSessionCurrent(
     session: IMultiCursorFindSession,
     selections: readonly ISelection[],
@@ -57,7 +57,7 @@ export function isSessionCurrent(
     );
 }
 
-/** Снимать сразу после присваивания выделений. */
+/** Capture right after assigning the selections. */
 export function captureSession(
     spec: IMultiCursorSearchSpec,
     lastAdded: IRange,
@@ -74,7 +74,7 @@ export function captureSession(
     };
 }
 
-/** Заворот через край и пропуск `taken` дают завершаемость: когда выделено всё, Ctrl+D — no-op. */
+/** Wrapping around and skipping `taken` guarantee termination: once everything is selected, Ctrl+D is a no-op. */
 export function findNextOccurrence(
     document: ITextDocument,
     spec: IMultiCursorSearchSpec,
@@ -86,7 +86,7 @@ export function findNextOccurrence(
         matchCase: spec.matchCase,
         wholeWord: spec.wholeWord,
     });
-    // Stryker disable next-line ConditionalExpression: ранний выход только сокращает путь — на пустом наборе оба цикла ниже не выполняются и функция всё равно вернёт null
+    // Stryker disable next-line ConditionalExpression: the early exit is only a shortcut: on an empty set both loops below do nothing and the function returns null anyway
     if (matches.length === 0) return null;
 
     const isTaken = (candidate: IRange): boolean => taken.some((range) => rangesEqual(range, candidate));
@@ -116,7 +116,7 @@ export function selectionsShareText(
         const text = document.getLineContent(range.start.line).slice(range.start.character, range.end.character);
         return matchCase ? text : text.toLowerCase();
     });
-    // Stryker disable next-line MethodExpression: сузить проверку до «все пустые» ничего не меняет — если пустой есть, но не все, то тексты заведомо не равны между собой, и проверка ниже вернёт тот же false
+    // Stryker disable next-line MethodExpression: narrowing to "all empty" changes nothing: if some but not all are empty, the texts differ anyway and the check below returns the same false
     if (texts.some((text) => text === null || text === "")) return false;
     return texts.every((text) => text === texts[0]);
 }

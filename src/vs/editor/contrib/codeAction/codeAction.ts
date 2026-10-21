@@ -6,7 +6,7 @@ import type {
     ICoreCodeAction,
 } from "../../common/languages/iCodeActionSource.ts";
 
-/** Upstream `CodeActionItem`: применяет `applyCodeAction` того же провайдера. */
+/** Upstream `CodeActionItem`: applied via `applyCodeAction` of the same provider. */
 export interface ICodeActionItem {
     readonly action: ICoreCodeAction;
     readonly provider: CodeActionProvider;

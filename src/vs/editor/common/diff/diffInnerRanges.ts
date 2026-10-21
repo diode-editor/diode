@@ -2,14 +2,14 @@ import type { DiffSide } from "./diffSide.ts";
 import type { DetailedLineRangeMapping } from "./rangeMapping.ts";
 
 /**
- * Движок отдаёт `innerChanges` 1-based и многострочными; рендеру нужны 0-based
- * отрезки в пределах одной строки. Конверсия — только здесь.
+ * The engine returns `innerChanges` 1-based and multi-line; render needs 0-based
+ * spans within a single line. The conversion happens only here.
  */
 
-/** `end` эксклюзивный. */
+/** `end` is exclusive. */
 export interface ICharSpan {
     readonly start: number;
-    /** `Number.MAX_SAFE_INTEGER` = до конца строки (рендер клампит по длине). */
+    /** `Number.MAX_SAFE_INTEGER` = to the end of the line (render clamps by length). */
     readonly end: number;
 }
 
@@ -40,7 +40,7 @@ export class DiffInnerRanges {
         for (let lineNumber = range.startLineNumber; lineNumber <= range.endLineNumber; lineNumber++) {
             const start = lineNumber === range.startLineNumber ? range.startColumn - 1 : 0;
             const end = lineNumber === range.endLineNumber ? range.endColumn - 1 : Number.MAX_SAFE_INTEGER;
-            // Пустой отрезок — точка вставки или перенос на границе многострочного диапазона.
+            // An empty span is an insertion point or a line break at the edge of a multi-line range.
             if (end <= start) continue;
             const line = lineNumber - 1;
             const spans = this.spans[side].get(line);

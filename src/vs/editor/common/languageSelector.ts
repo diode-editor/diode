@@ -2,8 +2,8 @@ import { type IRelativePattern, matchGlob, matchRelativeGlob } from "../../base/
 import type { Uri } from "../../base/common/uri.ts";
 
 /**
- * upstream `languageSelector.ts` без `hasAccessToAllModels` и `isBuiltin`.
- * `notebookType` принимается, но ноутбуков нет — фильтр с ним не матчит ничего.
+ * Upstream `languageSelector.ts` without `hasAccessToAllModels` and `isBuiltin`.
+ * `notebookType` is accepted, but there are no notebooks: a filter with it matches nothing.
  */
 export interface LanguageFilter {
     readonly language?: string;
@@ -16,15 +16,15 @@ export interface LanguageFilter {
 export type LanguageSelector = string | LanguageFilter | readonly (string | LanguageFilter)[];
 
 /**
- * 10 — точное совпадение, 5 — по `*`, 0 — не подходит. Параметра upstream
- * `candidateIsSynchronized` нет: хосту уходит любой документ.
+ * 10 for an exact match, 5 for `*`, 0 for no match. There is no upstream
+ * `candidateIsSynchronized` parameter: every document is sent to the host.
  */
 export function score(selector: LanguageSelector | undefined, candidateUri: Uri, candidateLanguage: string): number {
     if (isSelectorArray(selector)) {
         let ret = 0;
         for (const filter of selector) {
             const value = score(filter, candidateUri, candidateLanguage);
-            // Stryker disable next-line ConditionalExpression,BlockStatement: ранний выход — оптимизация; без него цикл дойдёт до того же максимума
+            // Stryker disable next-line ConditionalExpression,BlockStatement: the early exit is an optimization; without it the loop reaches the same maximum
             if (value === 10) return value;
             ret = Math.max(ret, value);
         }
@@ -47,7 +47,7 @@ function scoreFilter(filter: LanguageFilter, candidateUri: Uri, candidateLanguag
 
     let ret = 0;
 
-    // Пустые строки upstream трактует как «ограничения нет» (проверка на truthy).
+    // Upstream treats empty strings as "no constraint" (a truthy check).
     if (scheme !== undefined && scheme !== "") {
         if (scheme === candidateUri.scheme) {
             ret = 10;
@@ -85,6 +85,6 @@ function scoreFilter(filter: LanguageFilter, candidateUri: Uri, candidateLanguag
 
 export function isExclusive(selector: LanguageSelector): boolean {
     if (isSelectorArray(selector)) return selector.every(isExclusive);
-    // У строки поля `exclusive` нет: чтение даёт undefined.
+    // A string has no `exclusive` field: reading it gives undefined.
     return (selector as LanguageFilter).exclusive === true;
 }

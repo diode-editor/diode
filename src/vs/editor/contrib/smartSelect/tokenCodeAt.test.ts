@@ -11,7 +11,7 @@ import { DocumentTokenStore } from "../../common/tokens/documentTokenStore.ts";
 
 import { tokenCodeAt } from "./tokenCodeAt.ts";
 
-/** Всё от первой `"` до конца строки — строка-литерал. */
+/** Everything from the first `"` to the line end is a string literal. */
 const QUOTE_TO_END: ITokenizationSupport = {
     getInitialState: () => NULL_STATE,
     tokenizeEncoded: (line) => {
@@ -35,8 +35,8 @@ describe("tokenCodeAt — скобки не-кода по токенам", () =>
         const document = new TextDocument(TEXT);
         const store = new DocumentTokenStore(document, QUOTE_TO_END);
         store.forceTokenization(2);
-        // Правка строки 1: кэш строки 2 под ней может врать (правка могла открыть
-        // или закрыть литерал) — пока его не пересчитали, он не в счёт.
+        // Editing line 1 may make line 2's cache wrong (the edit could open or close a
+        // literal), so it doesn't count until retokenized.
         document.applyEdits([{ range: createRange(1, 0, 1, 0), text: "w" }]);
         const codeAt = tokenCodeAt(store, [createPosition(0, 0)]);
         expect([codeAt(0, 2), codeAt(2, 2)]).toEqual([false, true]);

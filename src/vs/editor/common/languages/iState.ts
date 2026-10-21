@@ -1,6 +1,6 @@
 /**
- * Состояние TextMate (стек правил) клонируется перед мутацией; равенство даёт
- * кэшу остановить перетокенизацию, когда конечное состояние совпало.
+ * TextMate state (the rule stack) is cloned before mutation; equality lets the cache
+ * stop retokenizing once the end state matches.
  */
 export interface IState {
     clone(): IState;

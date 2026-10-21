@@ -10,7 +10,7 @@ function makeState(text: string, line: number, character: number): EditorViewSta
     return new EditorViewState(new TextDocument(text), [createCursorSelection(line, character)]);
 }
 
-/** Каретка как [строка, колонка]; заодно проверяет, что выделение одно и схлопнуто. */
+/** Cursor as [line, column]; also asserts there is a single collapsed selection. */
 function caret(state: EditorViewState): number[] {
     expect(state.selections).toHaveLength(1);
     const sel = state.selections[0];
@@ -19,7 +19,7 @@ function caret(state: EditorViewState): number[] {
 }
 
 describe("moveToWordHighlight", () => {
-    // "foo bar foo\nfoo" — вхождения foo: (0,0) (0,8) (1,0).
+    // "foo bar foo\nfoo" — occurrences of foo: (0,0) (0,8) (1,0).
     const text = "foo bar foo\nfoo";
 
     it("вперёд — на начало следующего вхождения", () => {

@@ -2,47 +2,47 @@ import type { ICancellationToken } from "../../../base/common/cancellation.ts";
 import type { IRange } from "../core/iRange.ts";
 
 /**
- * Контекстные диагностики НЕ передаются: субпроцесс собирает их сам из своих
- * DiagnosticCollection — так серверу возвращаются ТЕ ЖЕ объекты (с приватным
- * `data` протокол-конвертера клиента), а не наша lossy-копия.
+ * Context diagnostics are NOT sent: the extension host collects them from its own
+ * DiagnosticCollection, so the server gets back THE SAME objects (with the client
+ * protocol converter's private `data`) rather than our lossy copy.
  */
 export interface ICodeActionRequest {
     /** `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Текст провайдер берёт из своей синхронизированной копии этой версии. */
+    /** The provider reads the text from its own synced copy of this version. */
     readonly versionId: number;
     readonly range: IRange;
-    /** LSP `CodeActionContext.only`; отсутствие — без фильтра. */
+    /** LSP `CodeActionContext.only`; absent means no filter. */
     readonly only?: string;
 }
 
 /**
- * Только метаданные: правки остаются в субпроцессе и применяются по `id` через
+ * Metadata only: edits stay in the extension host and are applied by `id` via
  * {@link CodeActionProvider.applyCodeAction}.
  */
 export interface ICoreCodeAction {
-    /** `"<cacheId>.<index>"` в кэше субпроцесса. */
+    /** `"<cacheId>.<index>"` in the extension host cache. */
     readonly id: string;
     readonly title: string;
-    /** У голых команд отсутствует. */
+    /** Absent for bare commands. */
     readonly kind?: string;
     readonly isPreferred?: boolean;
-    /** Меню показывает такое действие неактивным с причиной, авто-применение пропускает — как эталон. */
+    /** The menu shows such an action disabled with the reason, auto-apply skips it, as upstream. */
     readonly disabled?: string;
 }
 
-/** upstream `languages.CodeActionProvider` + метаданные регистрации. */
+/** upstream `languages.CodeActionProvider` + registration metadata. */
 export interface CodeActionProvider {
-    /** Пустой список — любые. */
+    /** An empty list means any kind. */
     readonly providedCodeActionKinds: readonly string[];
     provideCodeActions(request: ICodeActionRequest, token: ICancellationToken): Promise<readonly ICoreCodeAction[]>;
-    /** `false` — действие протухло (кэш вытеснен), правки не применились или команда упала. */
+    /** `false`: the action is stale (cache evicted), the edits did not apply, or the command failed. */
     applyCodeAction(id: string, options?: IApplyCodeActionOptions): Promise<boolean>;
 }
 
-/** `ApplyCodeActionReason` эталона в нужном нам объёме. */
+/** The subset of upstream `ApplyCodeActionReason` that we need. */
 export interface IApplyCodeActionOptions {
-    /** Правки не подпадают под `files.refactoring.autoSave` — как у эталона для `OnSave`. */
+    /** Edits are exempt from `files.refactoring.autoSave`, as upstream does for `OnSave`. */
     readonly onSave?: boolean;
 }

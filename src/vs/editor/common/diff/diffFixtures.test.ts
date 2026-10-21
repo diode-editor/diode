@@ -15,12 +15,12 @@ import type { DetailedLineRangeMapping, RangeMapping } from "./rangeMapping.ts";
 import { RangeMapping as RangeMappingClass } from "./rangeMapping.ts";
 
 /**
- * Фикстурный корпус upstream (`editor/test/node/diffing/fixtures.test.ts`) —
- * главный гейт качества вендоринга `vs/editor/common/diff`.
+ * Upstream fixture corpus (`editor/test/node/diffing/fixtures.test.ts`): the main quality
+ * gate for the vendored copy of `vs/editor/common/diff`.
  *
- * ОТЛИЧИЕ ОТ UPSTREAM: там раннер при расхождении ПЕРЕЗАПИСЫВАЕТ эталон, а
- * перенос не имеет права «починиться» молчаливой правкой ожиданий. Обновление —
- * только осознанное, через `UPDATE_DIFF_FIXTURES=1`.
+ * DIFFERENCE FROM UPSTREAM: there the runner OVERWRITES the expected file on mismatch, but
+ * the vendored copy must not "fix itself" by silently editing expectations. Updates are deliberate
+ * only, via `UPDATE_DIFF_FIXTURES=1`.
  */
 
 const FIXTURES_DIR = join(import.meta.dirname, "__fixtures__");
@@ -50,7 +50,7 @@ interface IDiffingResult {
     moves?: IMoveInfo[];
 }
 
-/** Эталоны сняты на LF. */
+/** Expected files were captured with LF. */
 function readNormalized(path: string): string {
     return readFileSync(path, "utf8").replaceAll("\r\n", "\n").replaceAll("\r", "\n");
 }
@@ -66,7 +66,7 @@ function toTextEdit(rangeMappings: readonly RangeMapping[], modified: AbstractTe
     );
 }
 
-/** Ловит внутренне противоречивый результат даже там, где эталон совпал бы. */
+/** Catches an internally inconsistent result even where the expected file would match. */
 function assertDiffCorrectness(diff: LinesDiff, original: string[], modified: string[]): void {
     const allInnerChanges = diff.changes.flatMap((c) => c.innerChanges ?? []);
     const edit = toTextEdit(allInnerChanges, new ArrayText(modified));
@@ -88,7 +88,7 @@ function computeResult(folder: string): IDiffingResult {
     const originalLines = firstContent.split("\n");
     const modifiedLines = secondContent.split("\n");
 
-    // Соглашение upstream: режим ignoreTrimWhitespace включает само имя папки.
+    // Upstream convention: the folder name itself turns on ignoreTrimWhitespace.
     const ignoreTrimWhitespace = folder.includes("trimws");
     const diff = new DefaultLinesDiffComputer().computeDiff(originalLines, modifiedLines, {
         ignoreTrimWhitespace,
@@ -131,7 +131,7 @@ function computeResult(folder: string): IDiffingResult {
 
 describe("diffing fixtures (upstream corpus)", () => {
     beforeEach(() => {
-        // Как в раннере upstream: нарушение инварианта в assertFn валит кейс, а не уходит в лог.
+        // As in the upstream runner: an invariant violation in assertFn fails the case instead of being logged.
         setUnexpectedErrorHandler((e) => {
             throw e instanceof Error ? e : new Error(String(e));
         });
@@ -145,7 +145,7 @@ describe("diffing fixtures (upstream corpus)", () => {
     const folders = readdirSync(FIXTURES_DIR).sort();
 
     it("корпус на месте", () => {
-        // Пустой readdir дал бы зелёный прогон, который ничего не проверил.
+        // An empty readdir would give a green run that checked nothing.
         expect(folders.length).toBeGreaterThanOrEqual(58);
     });
 

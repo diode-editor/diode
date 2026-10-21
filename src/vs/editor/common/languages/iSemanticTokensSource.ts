@@ -3,9 +3,9 @@ import type { Event } from "../../../base/common/event.ts";
 import type { IRange } from "../core/iRange.ts";
 
 /**
- * Форма upstream `languages.SemanticTokens*`. `data` — пятёрки
- * `deltaLine, deltaStartChar, length, tokenType, tokenModifiers`; тип — индекс
- * в `legend.tokenTypes`, модификаторы — биты по `legend.tokenModifiers`.
+ * Shape of upstream `languages.SemanticTokens*`. `data` is quintuples of
+ * `deltaLine, deltaStartChar, length, tokenType, tokenModifiers`; the type is an index
+ * into `legend.tokenTypes`, modifiers are bits over `legend.tokenModifiers`.
  */
 export interface ISemanticTokensLegend {
     readonly tokenTypes: readonly string[];
@@ -17,7 +17,7 @@ export interface ISemanticTokens {
     readonly data: Uint32Array;
 }
 
-/** Правка прошлого ответа: индексы — в массиве `data`, не в токенах. */
+/** Edit to the previous result: indices are into the `data` array, not tokens. */
 export interface ISemanticTokensEdit {
     readonly start: number;
     readonly deleteCount: number;
@@ -29,7 +29,7 @@ export interface ISemanticTokensEdits {
     readonly edits: readonly ISemanticTokensEdit[];
 }
 
-/** Текст провайдер берёт из своей синхронизированной копии этой версии. */
+/** The provider reads the text from its own synced copy of this version. */
 export interface ISemanticTokensRequest {
     /** `uri.toString()`. */
     readonly uri: string;
@@ -42,7 +42,7 @@ export interface IRangeSemanticTokensRequest extends ISemanticTokensRequest {
     readonly range: IRange;
 }
 
-/** `lastResultId` — прошлого ответа ЭТОГО провайдера: по нему он вправе ответить дельтой. */
+/** `lastResultId` is from THIS provider's previous result; it may answer with a delta against it. */
 export interface DocumentSemanticTokensProvider {
     readonly onDidChange?: Event<void>;
     getLegend(): ISemanticTokensLegend;
@@ -51,11 +51,11 @@ export interface DocumentSemanticTokensProvider {
         lastResultId: string | null,
         token: ICancellationToken,
     ): Promise<ISemanticTokens | ISemanticTokensEdits | null>;
-    /** Ответ `resultId` ядру больше не нужен: провайдер забывает его данные. */
+    /** The core no longer needs result `resultId`: the provider drops its data. */
     releaseDocumentSemanticTokens(resultId: string | undefined): void;
 }
 
-/** Видимая область, пока нет полного набора документа. */
+/** Visible range, until the full document set is available. */
 export interface DocumentRangeSemanticTokensProvider {
     readonly onDidChange?: Event<void>;
     getLegend(): ISemanticTokensLegend;

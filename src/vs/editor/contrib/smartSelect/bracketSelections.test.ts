@@ -58,16 +58,16 @@ describe("provideBracketSelectionRanges — bracketSelections эталона", (
     it("скобка на своей строке под заголовком той же колонки — от заголовка", () => {
         const text = "fn\n{\n  y\n}";
         expect(steps(text, 2, 2)).toEqual(["\n  y\n", "{\n  y\n}", "fn\n{\n  y\n}", "fn\n{\n  y\n}"]);
-        // Заголовок в другой колонке или пустая строка над скобкой — без «заголовка».
+        // A header in another column or a blank line above the bracket: no header step.
         expect(steps("  fn\n{\n}", 1, 1)).toEqual(["\n", "{\n}"]);
         expect(steps("\n{\n}", 1, 1)).toEqual(["\n", "{\n}"]);
     });
 
     it("скобки не-кода (строки, комментарии) пару не образуют", () => {
-        // `f(")")`: закрывающая в строке — не та.
+        // `f(")")`: the closing bracket inside the string is not the match.
         const inString: IsCodeAt = (_line, character) => character < 2 || character > 4;
         expect(steps('f(")")', 0, 4, BRACKETS, inString)).toEqual(['")"', '(")")']);
-        // Без токенов `)` в строке закрывает `(`, и каретке за ней объемлющей пары нет.
+        // Without tokens, `)` in the string closes `(`, leaving no enclosing pair for a cursor past it.
         expect(steps('f(")")', 0, 4)).toEqual([]);
     });
 

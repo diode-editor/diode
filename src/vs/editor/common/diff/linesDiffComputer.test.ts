@@ -9,7 +9,7 @@ import { MyersDiffAlgorithm } from "./defaultLinesDiffComputer/algorithms/myersD
 import { LinesSliceCharSequence } from "./defaultLinesDiffComputer/linesSliceCharSequence.ts";
 import { getLineRangeMapping, RangeMapping } from "./rangeMapping.ts";
 
-/** Порт upstream `editor/test/node/diffing/defaultLinesDiffComputer.test.ts`. */
+/** Port of upstream `editor/test/node/diffing/defaultLinesDiffComputer.test.ts`. */
 
 describe("MyersDiffAlgorithm", () => {
     it("считает посимвольный дифф двух похожих строк", () => {
@@ -18,7 +18,7 @@ describe("MyersDiffAlgorithm", () => {
 
         const result = new MyersDiffAlgorithm().compute(s1, s2);
 
-        // Отступление: upstream-версия кейса — смоук без ассертов.
+        // Deviation: the upstream version of this case is a smoke test without assertions.
         expect(result.hitTimeout).toBe(false);
         expect(result.diffs.length).toBeGreaterThan(0);
     });

@@ -6,15 +6,15 @@ export interface ISelectionRangeRequest {
     /** `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Текст провайдер берёт из своей синхронизированной копии этой версии. */
+    /** The provider reads the text from its own synced copy of this version. */
     readonly versionId: number;
-    /** 0-based; ответ выровнен по ним. */
+    /** 0-based; the result is aligned with them. */
     readonly positions: readonly IPosition[];
 }
 
 /**
- * upstream `languages.SelectionRangeProvider`. Ответ — массив диапазонов на
- * позицию, от внутреннего к внешнему (цепочка `parent`, развёрнутая субпроцессом).
+ * upstream `languages.SelectionRangeProvider`. The result is an array of ranges per
+ * position, innermost to outermost (the `parent` chain, unrolled by the extension host).
  */
 export interface SelectionRangeProvider {
     provideSelectionRanges(

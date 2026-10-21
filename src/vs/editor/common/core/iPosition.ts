@@ -25,9 +25,9 @@ export interface IPositionClampTarget {
 }
 
 /**
- * Аналог `validatePosition` в vscode — дверь для позиций из внешнего источника:
- * позиция за концом строки роняет редактор целиком (highlight вхождений
- * зовётся из render).
+ * Like `validatePosition` in vscode: the entry point for positions from external sources.
+ * A position past the end of a line crashes the whole editor (occurrence highlighting
+ * is called from render).
  */
 export function clampPositionToDocument(doc: IPositionClampTarget, position: IPosition): IPosition {
     const line = Math.min(Math.max(position.line, 0), doc.lineCount - 1);

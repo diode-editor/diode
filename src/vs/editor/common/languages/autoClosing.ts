@@ -4,12 +4,12 @@ import { isWordChar } from "../core/wordClassification.ts";
 import type { IResolvedAutoClosingPair } from "./languageConfiguration.ts";
 
 /**
- * Осознанные упрощения против VS Code:
- *  - `notIn: string/comment` не учитывается — у планировщика нет токенов;
- *    вместо него кавычка не удваивается после символа слова или той же кавычки
- *    (`don't` не даёт `don''t`);
- *  - typeover срабатывает по совпадению следующего символа, без отслеживания
- *    «этот символ вставили мы» (`autoClosingOvertype: "auto"` строже).
+ * Deliberate simplifications compared to VS Code:
+ *  - `notIn: string/comment` is ignored since the planner has no tokens; instead a quote
+ *    is not doubled after a word character or the same quote (`don't` does not become
+ *    `don''t`);
+ *  - typeover fires when the next character matches, without tracking "we inserted this
+ *    character" (`autoClosingOvertype: "auto"` is stricter).
  */
 
 export type AutoCloseDecision =
@@ -18,7 +18,7 @@ export type AutoCloseDecision =
     | { readonly kind: "plain" };
 
 export interface IAutoClosePlanParams {
-    /** Ровно один символ. */
+    /** Exactly one character. */
     readonly typedChar: string;
     readonly lineContent: string;
     readonly column: number;
@@ -26,7 +26,7 @@ export interface IAutoClosePlanParams {
     readonly autoCloseBefore: string;
 }
 
-/** Для ОДНОЙ схлопнутой каретки. */
+/** For ONE collapsed cursor. */
 export function planAutoClose(params: IAutoClosePlanParams): AutoCloseDecision {
     const { typedChar, lineContent, column, autoClosingPairs, autoCloseBefore } = params;
     const next = lineContent.at(column);
@@ -35,8 +35,8 @@ export function planAutoClose(params: IAutoClosePlanParams): AutoCloseDecision {
         return { kind: "typeover" };
     }
 
-    // Пара может открываться и несколькими символами (`/**` → ` */`): матчим
-    // хвост «текст до каретки + набранный символ», предпочитая самый длинный.
+    // A pair may open with several characters (`/**` → ` */`): match the tail of
+    // "text before the cursor + typed character", preferring the longest.
     const textWithChar = lineContent.slice(0, column) + typedChar;
     let matched: IResolvedAutoClosingPair | undefined;
     for (const pair of autoClosingPairs) {
@@ -48,7 +48,7 @@ export function planAutoClose(params: IAutoClosePlanParams): AutoCloseDecision {
     if (next !== undefined && !autoCloseBefore.includes(next)) return { kind: "plain" };
 
     if (matched.open === matched.close && matched.open.length === 1) {
-        // Индекс −1 даёт undefined; `.at(-1)` здесь нельзя — он отдал бы последний символ.
+        // Index −1 yields undefined; `.at(-1)` won't do here, it would return the last character.
         const prev = lineContent[column - 1] as string | undefined;
         if (prev !== undefined && (isWordChar(prev) || prev === typedChar)) return { kind: "plain" };
     }

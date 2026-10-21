@@ -113,7 +113,7 @@ describe("getDocumentSemanticTokens", () => {
 
     it("отказ без причины — тоже исключение", async () => {
         const registry = new LanguageFeatureRegistry<DocumentSemanticTokensProvider>();
-        // Провайдер расширения вправе отказать чем угодно, не только Error.
+        // An extension provider may reject with anything, not only an Error.
         const rejectWithoutReason = (): Promise<null> => Promise.reject(undefined as unknown as Error);
         registry.register("java", docProvider(rejectWithoutReason));
         await expect(

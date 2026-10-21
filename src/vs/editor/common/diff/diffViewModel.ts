@@ -2,9 +2,9 @@ import type { DetailedLineRangeMapping } from "./rangeMapping.ts";
 import { LineRangeMapping } from "./rangeMapping.ts";
 
 /**
- * **Модель не знает о тексте — только о номерах строк**, контент достаёт рендер:
- * так превью правки одной строки в стомегабайтном файле стоит столько же, сколько
- * в маленьком. Алгоритм upstream `diffEditorViewModel.ts`, без его `observable`.
+ * **The model knows nothing about text, only line numbers**; render fetches the content.
+ * That way previewing a one-line edit in a 100 MB file costs the same as in a small one.
+ * The algorithm is upstream `diffEditorViewModel.ts`, without its `observable`.
  */
 
 export type IDiffViewRow =
@@ -13,11 +13,11 @@ export type IDiffViewRow =
     | { readonly kind: "added"; readonly modifiedLine: number }
     | { readonly kind: "collapsed"; readonly hiddenLineCount: number; readonly regionIndex: number };
 
-/** Номера строк 0-based. */
+/** Line numbers are 0-based. */
 export interface IUnchangedRegion {
     readonly originalStartLine: number;
     readonly modifiedStartLine: number;
-    /** Включая уже раскрытые. */
+    /** Including lines already revealed. */
     readonly lineCount: number;
     readonly visibleTop: number;
     readonly visibleBottom: number;
@@ -31,7 +31,7 @@ export interface IDiffViewOptions {
     readonly revealLineCount: number;
 }
 
-/** Как `diffEditorDefaultOptions.hideUnchangedRegions` в upstream. */
+/** Like `diffEditorDefaultOptions.hideUnchangedRegions` in upstream. */
 export const DEFAULT_DIFF_VIEW_OPTIONS: IDiffViewOptions = {
     hideUnchangedRegions: false,
     contextLineCount: 3,
@@ -39,7 +39,7 @@ export const DEFAULT_DIFF_VIEW_OPTIONS: IDiffViewOptions = {
     revealLineCount: 20,
 };
 
-/** Внутри модели номера строк 1-based, как в `LineRange`. */
+/** Inside the model line numbers are 1-based, as in `LineRange`. */
 interface IRegionState {
     originalLineNumber: number;
     modifiedLineNumber: number;
@@ -85,7 +85,7 @@ export class DiffViewModel {
         }));
     }
 
-    /** Без `from` — целиком. */
+    /** Without `from`, expands the whole region. */
     public expandRegion(index: number, from?: "top" | "bottom", lineCount?: number): void {
         const state = this.regionStates.at(index);
         if (state === undefined || index < 0) return;
@@ -108,7 +108,7 @@ export class DiffViewModel {
         for (let i = 0; i < this.regionStates.length; i++) this.expandRegion(i);
     }
 
-    /** Портированный `UnchangedRegion.fromDiffs` из upstream. */
+    /** Port of upstream `UnchangedRegion.fromDiffs`. */
     private computeRegions(): IRegionState[] {
         const { contextLineCount: context, minimumHiddenLineCount: minHidden } = this.options;
         const result: IRegionState[] = [];
@@ -124,7 +124,7 @@ export class DiffViewModel {
                 modifiedLineNumber + lineCount === this.modifiedLineCount + 1;
 
             if ((atStart || atEnd) && lineCount >= context + minHidden) {
-                // У края файла контекст нужен только с внутренней стороны.
+                // At the file edge, context is needed only on the inner side.
                 if (atStart && !atEnd) lineCount -= context;
                 if (atEnd && !atStart) {
                     originalLineNumber += context;
@@ -152,7 +152,7 @@ export class DiffViewModel {
         let regionIndex = 0;
 
         const emitGap = (length: number): void => {
-            // Промежуток неизменённый, поэтому его длина одинакова с обеих сторон.
+            // The gap is unchanged, so its length is the same on both sides.
             const region = this.regionStates.at(regionIndex);
             const covered =
                 region !== undefined &&

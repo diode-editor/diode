@@ -85,7 +85,7 @@ function setup(lineCount = 100, visible: IVisibleLineRange | null = { startLine:
     return { features, configuration, provider, registration, document, ref, scroll, viewport, view };
 }
 
-/** Токен длины 2 в начале строки `line`. */
+/** A length-2 token at the start of line `line`. */
 function tokenAt(line: number): ISemanticTokens {
     return { resultId: "0", data: new Uint32Array([line, 0, 2, 0, 0]) };
 }
@@ -106,7 +106,7 @@ describe("ViewportSemanticTokens", () => {
         setUnexpectedErrorHandler((e) => {
             console.error(e);
         });
-        // Обработка ответа не бросает ни в одном сценарии.
+        // Response handling throws in no scenario.
         expect(unexpected).toEqual([]);
     });
 
@@ -144,7 +144,7 @@ describe("ViewportSemanticTokens", () => {
         await tick(150);
         provider.last().resolve({ resultId: "0", data: new Uint32Array([45, 0, 2, 0, 0]) });
         await tick();
-        // Строка 10 вне диапазона 20..69 осталась, 40 внутри — заменена пустотой.
+        // Line 10 outside 20..69 stays; line 40 inside is replaced with nothing.
         expect(ref.store.getLineTokens(10)?.tokens).toEqual([0, 1, 0, 0]);
         expect(ref.store.getLineTokens(40)).toBeUndefined();
         expect(ref.store.getLineTokens(45)?.tokens).toEqual([0, 2, 0, 0]);
@@ -214,7 +214,7 @@ describe("ViewportSemanticTokens", () => {
         provider.last().resolve(null);
         await tick();
         document.setLanguage("kotlin");
-        // Под kotlin провайдера нет — запроса нет, а подписка на старого снята.
+        // No provider for kotlin: no request, and the old provider's subscription is dropped.
         await tick(150);
         provider.changeEmitter.fire();
         await tick(150);
@@ -271,7 +271,7 @@ describe("ViewportSemanticTokens", () => {
         const late = new FakeRangeProvider();
         features.documentRangeSemanticTokensProvider.register("java", late);
         await tick(150);
-        // Провайдеры одной группы спрашиваются вместе — по запросу на каждого.
+        // Providers of one group are asked together, one request each.
         expect(late.calls).toHaveLength(1);
         for (const call of [...provider.calls, ...late.calls]) call.resolve(null);
         await tick();
@@ -300,11 +300,11 @@ describe("ViewportSemanticTokens", () => {
         await tick(1000);
         expect(listener).not.toHaveBeenCalled();
         expect(provider.calls).toHaveLength(0);
-        // Включение само будит вьюпорт — без скролла.
+        // Enabling wakes the viewport by itself, without a scroll.
         await configuration.updateValue(SEMANTIC_HIGHLIGHTING_SETTING_ID, true);
         await tick(150);
         expect(provider.calls).toHaveLength(1);
-        // Посторонняя настройка вьюпорт не будит.
+        // An unrelated setting doesn't wake the viewport.
         provider.last().resolve(tokenAt(45));
         await tick();
         await configuration.updateValue("editor.tabSize", 2);
@@ -320,7 +320,7 @@ describe("ViewportSemanticTokens", () => {
         registration.dispose();
         await tick(150);
         expect(ref.store.hasSomeSemanticTokens()).toBe(false);
-        // Стёрто как неполный набор: вернувшегося провайдера вьюпорт спрашивает снова.
+        // Cleared as an incomplete set: the viewport asks the returning provider again.
         features.documentRangeSemanticTokensProvider.register("java", provider);
         await tick(150);
         expect(provider.calls).toHaveLength(2);

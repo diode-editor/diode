@@ -2,8 +2,8 @@ import { Event } from "../../../base/common/event.ts";
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
 
 /**
- * Стиль семантического токена. `undefined` в поле — тема атрибут не задаёт, и
- * он остаётся от TextMate-токена под ним (маски `SEMANTIC_USE_*` эталона).
+ * A field set to `undefined` means the theme does not define that attribute, so it is
+ * kept from the TextMate token underneath (upstream `SEMANTIC_USE_*` masks).
  */
 export interface SemanticTokenStyle {
     readonly fg?: number;
@@ -13,12 +13,12 @@ export interface SemanticTokenStyle {
     readonly strikethrough?: boolean;
 }
 
-/** `IColorTheme.getTokenStyleMetadata` эталона. */
+/** Upstream `IColorTheme.getTokenStyleMetadata`. */
 export interface ISemanticTokenStyleResolver {
-    /** `null` — ни один атрибут не задан: токен не перекрывает TextMate. */
+    /** `null`: no attribute is set, so the token does not override TextMate. */
     resolve(type: string, modifiers: readonly string[], languageId: string): SemanticTokenStyle | null;
 
-    /** Значение `configuredByTheme` настройки. */
+    /** The `configuredByTheme` value of the setting. */
     readonly semanticHighlighting: boolean;
 
     readonly onDidChange: Event<void>;
@@ -30,5 +30,5 @@ export const NULL_SEMANTIC_TOKEN_STYLE_RESOLVER: ISemanticTokenStyleResolver = {
     onDidChange: Event.None,
 };
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference; the string is only a debug label
 export const SemanticTokenStyleResolverDIToken = token<ISemanticTokenStyleResolver>("SemanticTokenStyleResolver");

@@ -4,7 +4,7 @@ import { Uri } from "../../base/common/uri.ts";
 
 import { isExclusive, type LanguageSelector, score } from "./languageSelector.ts";
 
-/** Порт upstream `editor/test/common/modes/languageSelector.test.ts` без notebook-кейсов. */
+/** Port of upstream `editor/test/common/modes/languageSelector.test.ts` without the notebook cases. */
 describe("languageSelector.score", () => {
     const model = { language: "farboo", uri: Uri.parse("file:///testbed/file.fb") };
 
@@ -81,7 +81,7 @@ describe("languageSelector.score", () => {
     });
 
     it("pattern, равный пути буквально, матчит и с glob-символами в имени", () => {
-        // Как glob `{x}` — альтернатива: спасает только буквальное сравнение.
+        // As a glob, `{x}` is an alternation: only the literal comparison saves it.
         expect(score({ pattern: "/a/{x}.ts" }, Uri.file("/a/{x}.ts"), "typescript")).toBe(10);
     });
 

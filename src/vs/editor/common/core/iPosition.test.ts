@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { clampPositionToDocument } from "./iPosition.ts";
 
 describe("clampPositionToDocument", () => {
-    // Строки разной длины: колонка клампится по СВОЕЙ строке, уже после клампа номера.
+    // Lines differ in length: the column is clamped against its OWN line, after the line is clamped.
     const doc = { lineCount: 2, getLineLength: (line: number): number => (line === 0 ? 2 : 3) };
 
     it("позиция внутри документа не меняется", () => {

@@ -25,7 +25,7 @@ describe("FeatureDebounce", () => {
         const debounce = new FeatureDebounce(0, 100_000);
         for (const value of [600, 600, 600, 600, 600, 600]) debounce.update("a", value);
         expect(debounce.get("a")).toBe(600);
-        // Седьмой вытесняет первый: (5·600 + 1200) / 6.
+        // The seventh evicts the first: (5·600 + 1200) / 6.
         expect(debounce.update("a", 1200)).toBe(700);
         for (let i = 0; i < 5; i++) debounce.update("a", 1200);
         expect(debounce.get("a")).toBe(1200);

@@ -88,7 +88,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         const reg = new TokenizationRegistry();
         const factory = vi.fn(async () => makeStubSupport());
         reg.registerLazy("css", factory);
-        // Ровно то, что делает EditorComponent: onDidChange → applyTokenizer →
+        // Exactly what EditorComponent does: onDidChange → applyTokenizer →
         // ensureTokenizerForLanguage → load().
         reg.onDidChange((id) => void reg.load(id));
 
@@ -180,7 +180,7 @@ describe("TokenizationRegistry — lazy registration", () => {
         const handle = reg.registerLazy("css", () => gate.promise);
 
         const loading = reg.load("css");
-        handle.dispose(); // запись снята, пока фабрика ещё в полёте
+        handle.dispose(); // entry removed while the factory is still in flight
         gate.resolve(makeStubSupport());
 
         expect(await loading).toBeUndefined();

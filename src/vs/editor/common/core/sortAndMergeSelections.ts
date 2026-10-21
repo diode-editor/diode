@@ -6,19 +6,19 @@ import { createSelection, isSelectionCollapsed, selectionToRange } from "./iSele
 interface IOrderedSelection {
     readonly selection: ISelection;
     readonly range: IRange;
-    /** Индекс во входном массиве — «позже добавленный» побеждает при слиянии. */
+    /** Index in the input array: the "later added" one wins on merge. */
     readonly index: number;
 }
 
 /**
- * Аналог `CursorCollection.normalize` из VS Code. Касание сливается, только если
- * одно из пары — каретка: два выделения встык (`ab|cd`) остаются разными.
- * Направление наследуется от позже добавленного: мультикурсор дописывает новое
- * выделение в хвост, им и рулит пользователь. `idealColumn` переносится, только
- * если `active` победителя не сдвинулся — иначе он врал бы про колонку.
+ * Like VS Code `CursorCollection.normalize`. Touching merges only if one of the pair
+ * is a cursor: two adjacent selections (`ab|cd`) stay separate.
+ * Direction is inherited from the later added one: multi-cursor appends the new
+ * selection at the end, and that is the one the user is steering. `idealColumn` is carried
+ * over only if the winner's `active` did not move; otherwise it would lie about the column.
  */
 export function sortAndMergeSelections(selections: readonly ISelection[]): ISelection[] {
-    // Stryker disable next-line EqualityOperator: на одном выделении длинный путь возвращает тот же объект (сортировка и слияние на единственном элементе — no-op), так что порог — только про скорость; пустой вход обе границы отсекают одинаково
+    // Stryker disable next-line EqualityOperator: for a single selection the long path returns the same object (sort and merge on one element are no-ops), so the threshold is only about speed; both bounds reject empty input the same way
     if (selections.length <= 1) return [...selections];
 
     const ordered: IOrderedSelection[] = selections.map((selection, index) => ({
@@ -26,7 +26,7 @@ export function sortAndMergeSelections(selections: readonly ISelection[]): ISele
         range: selectionToRange(selection),
         index,
     }));
-    // Тайбрейк по `end`: слиянию нужен детерминизм, а не стабильность `sort`.
+    // Tie-break on `end`: merging needs determinism, not `sort` stability.
     ordered.sort(
         (a, b) => comparePositions(a.range.start, b.range.start) || comparePositions(a.range.end, b.range.end),
     );
@@ -53,9 +53,9 @@ function overlaps(previous: IOrderedSelection, current: IOrderedSelection): bool
 
 function mergePair(previous: IOrderedSelection, current: IOrderedSelection): IOrderedSelection {
     const start = previous.range.start;
-    // Stryker disable next-line EqualityOperator: при нулевом сравнении оба конца — одна и та же позиция, и любая из ветвей даёт равное значение
+    // Stryker disable next-line EqualityOperator: when the comparison is zero both ends are the same position, and either branch gives an equal value
     const end = comparePositions(previous.range.end, current.range.end) >= 0 ? previous.range.end : current.range.end;
-    // Stryker disable next-line EqualityOperator: index — исходная позиция в массиве, а previous и current всегда разные элементы, поэтому равенства не бывает
+    // Stryker disable next-line EqualityOperator: index is the original array position and previous and current are always different elements, so they are never equal
     const winner = current.index > previous.index ? current : previous;
     const activeIsEnd = comparePositions(winner.selection.anchor, winner.selection.active) <= 0;
     const active = activeIsEnd ? end : start;
@@ -66,7 +66,7 @@ function mergePair(previous: IOrderedSelection, current: IOrderedSelection): IOr
     return {
         selection: createSelection(anchor.line, anchor.character, active.line, active.character, idealColumn),
         range: { start, end },
-        // Каскад из трёх выделений сравнивает себя с новичками по возрасту победителя.
+        // A cascade of three selections compares itself with newcomers by the winner's age.
         index: winner.index,
     };
 }

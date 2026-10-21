@@ -5,12 +5,12 @@ import type { ILanguageFeatureTarget } from "../../common/languageFeatureRegistr
 import type { IFormattingRequest } from "../../common/languages/iFormattingSource.ts";
 import type { ILanguageFeaturesService } from "../../common/services/languageFeatures.ts";
 
-// Upstream `editor/contrib/format/browser/format.ts`: range-провайдеры — «синтетические»
-// форматтеры документа на полный диапазон. `editor.defaultFormatter` и пикер не
-// поддержаны (нужна идентичность расширения в регистрации).
+// Upstream `editor/contrib/format/browser/format.ts`: range providers act as "synthetic"
+// document formatters over the full range. `editor.defaultFormatter` and the picker are not
+// supported (they need the extension identity in the registration).
 //
-// Ответы трёхзначные: `null` — форматтера нет, пустой массив — менять нечего (или
-// провайдер сбойнул — молчаливый no-op), иначе — правки.
+// Results are three-valued: `null` means no formatter, an empty array means nothing to change
+// (or the provider failed — a silent no-op), otherwise edits.
 
 export function hasDocumentFormatter(
     languageFeatures: ILanguageFeaturesService,
@@ -22,7 +22,7 @@ export function hasDocumentFormatter(
     );
 }
 
-/** `range` — весь документ ({@link documentRange}): текста в запросе range-форматтеру нет. */
+/** `range` is the whole document ({@link documentRange}): a range formatter's request carries no text. */
 export async function formatDocument(
     languageFeatures: ILanguageFeaturesService,
     target: ILanguageFeatureTarget,
@@ -48,7 +48,7 @@ export async function formatRange(
     return provider.provideDocumentRangeFormattingEdits(request, token).catch(() => []);
 }
 
-/** `text` — LF-канонический. */
+/** `text` is LF-normalized. */
 export function documentRange(text: string): IRange {
     const lines = text.split("\n");
     const lastLine = lines.length - 1;

@@ -1,4 +1,4 @@
-/** VS Code `editor.wordSeparators` плюс пробельные. */
+/** VS Code `editor.wordSeparators` plus whitespace. */
 export const WORD_SEPARATORS = new Set(" \t\r\n`~!@#$%^&*()-=+[{]}\\|;:'\",.<>/?");
 
 /** 0 = whitespace, 1 = punctuation/separator, 2 = word character. */
@@ -8,7 +8,7 @@ export function charClass(ch: string): number {
     return 2;
 }
 
-/** Пустая строка (граница строки) — не символ слова. */
+/** An empty string (line boundary) is not a word character. */
 export function isWordChar(ch: string): boolean {
     return ch.length === 1 && charClass(ch) === 2;
 }
@@ -19,12 +19,12 @@ export interface IWordRange {
     readonly end: number;
 }
 
-/** Как `getWordAtPosition` VS Code: каретка сразу ПОСЛЕ слова (`foo|`) — тоже на слове. */
+/** Like VS Code `getWordAtPosition`: a cursor right AFTER a word (`foo|`) is also on the word. */
 export function findWordRangeAt(line: string, character: number): IWordRange | null {
     const len = line.length;
-    // Протухшая на кадр позиция роняла бы ВЕСЬ редактор: highlight вхождений
-    // зовётся из render, исключение оттуда не ловит никто. Кламп — как
-    // `validatePosition` в vscode.
+    // A position one frame stale would crash the WHOLE editor: occurrence highlighting is
+    // called from render, and nothing catches exceptions there. The clamp is like
+    // `validatePosition` in vscode.
     const caret = Math.max(0, Math.min(Math.trunc(character), len));
     let anchor: number;
     if (caret < len && isWordChar(line[caret])) {

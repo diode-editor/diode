@@ -2,18 +2,18 @@ import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { token } from "../../../platform/instantiation/common/diContainer.ts";
 
 export interface ILanguageService {
-    /** `undefined` — язык не зарегистрирован (потребитель обычно берёт `"plaintext"`). */
+    /** `undefined`: no registered language (callers usually fall back to `"plaintext"`). */
     getLanguageIdForResource(filePath: string): string | undefined;
 
-    /** Конвенция VS Code: первый alias из `contributes.languages`. */
+    /** VS Code convention: the first alias from `contributes.languages`. */
     getLanguageDisplayName(languageId: string): string | undefined;
 
-    /** С точкой (`".ts"`); первое из `contributes.languages`. */
+    /** With the dot (`".ts"`); the first one from `contributes.languages`. */
     getExtensionForLanguage(languageId: string): string | undefined;
 
     /**
-     * Аналог `requestRichLanguageFeatures` у vscode (активация по
-     * `onLanguage:<id>`). Сигнал один на язык за жизнь окна.
+     * Like vscode `requestRichLanguageFeatures` (activation on `onLanguage:<id>`).
+     * Fires once per language for the lifetime of the window.
      */
     requestLanguageFeatures(languageId: string): void;
 
@@ -28,5 +28,5 @@ export const NULL_LANGUAGE_SERVICE: ILanguageService = {
     onDidRequestLanguageFeatures: () => ({ dispose: () => undefined }),
 };
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by its reference; the string is only a debug label
 export const LanguageServiceDIToken = token<ILanguageService>("LanguageService");

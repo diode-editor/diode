@@ -4,7 +4,7 @@ import { DefaultLinesDiffComputer } from "./defaultLinesDiffComputer/defaultLine
 import type { IDiffViewOptions, IDiffViewRow } from "./diffViewModel.ts";
 import { DEFAULT_DIFF_VIEW_OPTIONS, DiffViewModel } from "./diffViewModel.ts";
 
-/** Вход — тексты и настоящий движок, а не выдуманные `LineRange`: перекат пина краснеет здесь. */
+/** Input is texts and the real engine, not made-up `LineRange`s: an upstream pin bump fails here. */
 
 const COMPUTER = new DefaultLinesDiffComputer();
 
@@ -17,7 +17,7 @@ function model(original: string[], modified: string[], options: Partial<IDiffVie
     return new DiffViewModel(diff.changes, original.length, modified.length, options);
 }
 
-/** Компактная запись строк вью: `=o/m`, `-o`, `+m`, `[⋯N#i]`. */
+/** Compact notation for view rows: `=o/m`, `-o`, `+m`, `[⋯N#i]`. */
 function sketch(rows: readonly IDiffViewRow[]): string {
     return rows
         .map((row) => {
@@ -115,7 +115,7 @@ describe("DiffViewModel — свёртка неизменённых кусков
     });
 
     it("промежуток ровно на границе минимума сворачивается, на строку короче — нет", () => {
-        // Середина: нужно contextLineCount * 2 + minimumHiddenLineCount = 9.
+        // The middle needs contextLineCount * 2 + minimumHiddenLineCount = 9.
         const gap = (n: number) => {
             const middle = lines(n).map((l) => `mid-${l}`);
             return model(["a", ...middle, "z"], ["A", ...middle, "Z"], COLLAPSED);
@@ -226,11 +226,11 @@ describe("DiffViewModel — раскрытие", () => {
 
         expect(m.regions.every((r) => r.hiddenLineCount === 0)).toBe(true);
         expect(m.rows.some((r) => r.kind === "collapsed")).toBe(false);
-        expect(m.rows).toHaveLength(modified.length + 1); // +1 — удалённая строка правки
+        expect(m.rows).toHaveLength(modified.length + 1); // +1 for the edit's deleted line
     });
 
     it("неизвестный индекс — no-op, включая отрицательный", () => {
-        // `at(-1)` вернул бы последний элемент — expandRegion(-1) раскрыл бы чужой кусок.
+        // `at(-1)` would return the last element, so expandRegion(-1) would expand another region.
         const m = build();
         const before = sketch(m.rows);
 

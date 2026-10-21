@@ -17,7 +17,7 @@ function texts(state: EditorViewState): string[] {
     return state.selections.map((sel) => state.document.getTextInRange(selectionToRange(sel)));
 }
 
-/** `[строка, начало, конец]` — все выделения однострочные. */
+/** `[line, start, end]`: all selections are single-line. */
 function spans(state: EditorViewState): number[][] {
     return state.selections.map((sel) => {
         const range = selectionToRange(sel);
@@ -49,7 +49,7 @@ describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
 
     it("после последнего вхождения заворачивается и дальше становится no-op", () => {
         const state = makeState("foo\nfoo\nfoo", 0, 0);
-        addSelectionToNextFindMatch(state); // выделило слово
+        addSelectionToNextFindMatch(state); // selects the word
         addSelectionToNextFindMatch(state);
         addSelectionToNextFindMatch(state);
         expect(state.selections).toHaveLength(3);
@@ -78,7 +78,7 @@ describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
         const state = makeState("text context text", 0, 1);
         addSelectionToNextFindMatch(state);
         addSelectionToNextFindMatch(state);
-        // `text` внутри `context` пропущено.
+        // `text` inside `context` is skipped.
         expect(spans(state)).toEqual([
             [0, 0, 4],
             [0, 13, 17],
@@ -115,10 +115,10 @@ describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
         const filler = Array.from({ length: 60 }, () => "filler").join("\n");
         const state = makeState(`${filler}\nfoo`, 60, 0);
         state.viewportHeight = 10;
-        // Каретка внизу файла, а смотрим в начало: пользователь уехал скроллом.
+        // Cursor at the bottom of the file, viewport at the top: the user scrolled away.
         state.scrollTop = 0;
 
-        addSelectionToNextFindMatch(state); // первый шаг только выделяет слово
+        addSelectionToNextFindMatch(state); // the first step only selects the word
 
         expect(spans(state)).toEqual([[60, 0, 3]]);
         expect(state.scrollTop).toBeGreaterThan(0);
@@ -130,8 +130,8 @@ describe("addSelectionToNextFindMatch (Ctrl+D)", () => {
         state.viewportHeight = 10;
         state.scrollTop = 52;
 
-        addSelectionToNextFindMatch(state); // выделило нижнее слово
-        addSelectionToNextFindMatch(state); // заворот на верхнее
+        addSelectionToNextFindMatch(state); // selects the bottom word
+        addSelectionToNextFindMatch(state); // wraps to the top one
 
         expect(state.scrollTop).toBe(0);
     });
@@ -144,7 +144,7 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
         addSelectionToNextFindMatch(state);
         expect(texts(state)).toEqual(["foo", "foo"]);
 
-        // Пользователь ушёл кареткой — сессия протухла.
+        // The user moved the cursor away: the session is stale.
         state.selections = [createCursorSelection(0, 5)];
         addSelectionToNextFindMatch(state);
         expect(texts(state)).toEqual(["bar"]);
@@ -158,7 +158,7 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
         state.selections = [createCursorSelection(1, 4)];
         state.type("X");
         addSelectionToNextFindMatch(state);
-        // Слово под кареткой после правки — `Xbar`, и оно одно.
+        // After the edit the word under the cursor is `Xbar`, and it is unique.
         expect(texts(state)).toEqual(["Xbar"]);
     });
 
@@ -203,7 +203,7 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
     });
 
     it("выделения, различающиеся регистром, общим текстом не считаются", () => {
-        // Поиск регистрозависимый — гейт общности обязан считать так же.
+        // The search is case-sensitive, so the shared-text gate must be too.
         const state = makeState("Foo foo Foo");
         state.selections = [createSelection(0, 0, 0, 3), createSelection(0, 4, 0, 7)];
 
@@ -229,7 +229,7 @@ describe("addSelectionToNextFindMatch — инвалидация сессии", 
 describe("addSelectionToPreviousFindMatch", () => {
     it("добавляет вхождение выше по документу", () => {
         const state = makeState("foo\nbar\nfoo", 2, 1);
-        addSelectionToPreviousFindMatch(state); // выделило слово
+        addSelectionToPreviousFindMatch(state); // selects the word
         addSelectionToPreviousFindMatch(state);
         expect(spans(state)).toEqual([
             [0, 0, 3],
@@ -237,13 +237,13 @@ describe("addSelectionToPreviousFindMatch", () => {
         ]);
     });
 
-    // На двух вхождениях направление не проверяется: поиск закольцован, и «вверх»
-    // от нижнего приводит туда же, куда «вниз». Нужно три вхождения и старт с
-    // середины — тогда вверх и вниз расходятся.
+    // Two occurrences cannot check direction: the search wraps, so "up" from the bottom one
+    // lands where "down" does. Three occurrences and a start in the middle make up and down
+    // diverge.
     it("идёт именно ВВЕРХ: от середины берёт вхождение над кареткой, а не под ней", () => {
         const state = makeState("foo\nfoo\nfoo", 1, 1);
 
-        addSelectionToPreviousFindMatch(state); // выделило слово под кареткой
+        addSelectionToPreviousFindMatch(state); // selects the word under the cursor
         expect(spans(state)).toEqual([[1, 0, 3]]);
 
         addSelectionToPreviousFindMatch(state);
@@ -284,18 +284,18 @@ describe("moveSelectionToNextFindMatch (Ctrl+K Ctrl+D)", () => {
         ]);
     });
 
-    // Проверка выше на трёх вхождениях направление не различает: свободным
-    // остаётся ровно одно место, и вверх с завороту и вниз ведут в него же.
-    // На четырёх вхождениях с переносом из середины пути расходятся.
+    // The check above with three occurrences cannot tell direction: exactly one spot stays free,
+    // and both up-with-wrap and down lead to it. With four occurrences and a move from the
+    // middle the paths diverge.
     it("назад — это назад: перенос из середины уходит выше, а не ниже", () => {
         const state = makeState("foo\nfoo\nfoo\nfoo", 1, 0);
-        addSelectionToNextFindMatch(state); // выделило строку 1
-        addSelectionToNextFindMatch(state); // добавило строку 2
+        addSelectionToNextFindMatch(state); // selects line 1
+        addSelectionToNextFindMatch(state); // adds line 2
 
         moveSelectionToPreviousFindMatch(state);
 
-        // Строка 1 занята соседним выделением, поэтому шаг вверх перескакивает её
-        // и садится на строку 0. Шаг вниз сел бы на строку 3.
+        // Line 1 is taken by the other selection, so the step up skips it and lands on line 0.
+        // A step down would land on line 3.
         expect(spans(state)).toEqual([
             [0, 0, 3],
             [1, 0, 3],
@@ -337,7 +337,7 @@ describe("selectHighlights (Ctrl+Shift+L)", () => {
 
     it("подхватывает живую сессию Ctrl+D вместо перезапуска от каретки", () => {
         const state = makeState("foobar foobar foobar");
-        state.selections = [createSelection(0, 0, 0, 4)]; // подстрока "foob"
+        state.selections = [createSelection(0, 0, 0, 4)]; // substring "foob"
         addSelectionToNextFindMatch(state);
 
         selectHighlights(state);

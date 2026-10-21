@@ -1,4 +1,4 @@
-/** `language-configuration.json` / `indentationRules` пока не учитываются. */
+/** `language-configuration.json` / `indentationRules` are not honored yet. */
 
 const OPEN_TO_CLOSE = new Map<string, string>([
     ["{", "}"],
@@ -16,7 +16,7 @@ export interface NewLinePlanParams {
 export interface NewLinePlan {
     /** Always starts with `"\n"`. */
     readonly editText: string;
-    /** Курсор ставится на среднюю из двух новых строк, а не в конец текста. */
+    /** The cursor goes to the middle of the two new lines, not to the end of the text. */
     readonly blockExpand: boolean;
     readonly cursorColumn: number;
 }

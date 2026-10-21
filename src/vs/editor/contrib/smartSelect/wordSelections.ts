@@ -36,12 +36,12 @@ export function provideWordSelectionRanges(
 
 const isLower = (ch: string): boolean => ch >= "a" && ch <= "z";
 const isUpper = (ch: string): boolean => ch >= "A" && ch <= "Z";
-// Stryker disable next-line ConditionalExpression,StringLiteral: `-` в слово DEFAULT_WORD_REGEXP не попадает — ветка эталона, мёртвая при нашем регексе
+// Stryker disable next-line ConditionalExpression,StringLiteral: DEFAULT_WORD_REGEXP never puts `-` in a word — an upstream branch that is dead with our regex
 const isSeparator = (ch: string): boolean => ch === "_" || ch === "-";
 
 /**
- * Upstream `_addInWordRanges` дословно, включая асимметрию (`lastCh` переживает
- * левый проход и открывает правый).
+ * Upstream `_addInWordRanges` verbatim, including its asymmetry (`lastCh` survives the
+ * left pass and seeds the right one).
  */
 function subwordAt(word: string, offset: number): { start: number; end: number } | null {
     let start = offset;
@@ -50,7 +50,7 @@ function subwordAt(word: string, offset: number): { start: number; end: number }
 
     for (; start >= 0; start--) {
         const ch = word.charAt(start);
-        if (start !== offset && isSeparator(ch)) break; // foo-bar ИЛИ foo_bar
+        if (start !== offset && isSeparator(ch)) break; // foo-bar OR foo_bar
         if (isLower(ch) && isUpper(lastCh)) break; // fooBar
         lastCh = ch;
     }
@@ -59,7 +59,7 @@ function subwordAt(word: string, offset: number): { start: number; end: number }
     for (; end < word.length; end++) {
         const ch = word.charAt(end);
         if (isUpper(ch) && isLower(lastCh)) break; // fooBar
-        if (isSeparator(ch)) break; // foo-bar ИЛИ foo_bar
+        if (isSeparator(ch)) break; // foo-bar OR foo_bar
         lastCh = ch;
     }
 

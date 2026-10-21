@@ -6,11 +6,11 @@ export interface IFormattingRequest {
     /** `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Текст провайдер берёт из своей синхронизированной копии этой версии. */
+    /** The provider reads the text from its own synced copy of this version. */
     readonly versionId: number;
     readonly tabSize: number;
     readonly insertSpaces: boolean;
-    /** 0-based, end эксклюзивен. Нет — весь документ. */
+    /** 0-based, end exclusive. Absent means the whole document. */
     readonly range?: IRange;
 }
 
@@ -23,8 +23,8 @@ export interface DocumentFormattingEditProvider {
 }
 
 /**
- * upstream `languages.DocumentRangeFormattingEditProvider`. Он же —
- * форматтер документа на полный диапазон, когда документного нет.
+ * upstream `languages.DocumentRangeFormattingEditProvider`. Also serves as the document
+ * formatter over the full range when there is no document formatter.
  */
 export interface DocumentRangeFormattingEditProvider {
     provideDocumentRangeFormattingEdits(

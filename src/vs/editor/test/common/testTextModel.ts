@@ -3,9 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/editor/test/common/testTextModel.ts
-// Для дословно перенесённых upstream-тестов PieceTree. Весь `TextModel` с DI мы не
-// переносим (docs/TODO/VscodeModel.md, ветка C) — здесь ровно путь, которым TextModel
-// эталона ведёт эти кейсы к буферу (LF по умолчанию, как `TextModel.DEFAULT_CREATION_OPTIONS`).
+// For the vendored copies of upstream PieceTree tests. We do not port the whole `TextModel`
+// with DI (docs/TODO/VscodeModel.md, branch C); this is exactly the path by which the upstream
+// TextModel takes these cases to the buffer (LF by default, like `TextModel.DEFAULT_CREATION_OPTIONS`).
 
 import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import type { Range } from "../../common/core/range.ts";

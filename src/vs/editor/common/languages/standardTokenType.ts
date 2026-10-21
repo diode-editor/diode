@@ -1,13 +1,12 @@
 import { StandardTokenType as EncodedStandardTokenType } from "../encodedTokenAttributes.ts";
 import type { LineTokens } from "../tokens/lineTokens.ts";
 
-/** upstream `StandardTokenType`; RegEx — «прочее». */
+/** upstream `StandardTokenType`; RegEx counts as "other". */
 export type StandardTokenType = "other" | "comment" | "string";
 
 /**
- * vscode-textmate берёт самый вложенный из `comment`/`string`/`regex`/
- * `meta.embedded`; последний сбрасывает вид в «прочее» — код внутри шаблонной
- * строки — код.
+ * Like vscode-textmate, takes the innermost of `comment`/`string`/`regex`/`meta.embedded`;
+ * the last one resets the type to "other", since code inside a template string is code.
  */
 export function standardTokenTypeAt(tokens: LineTokens | undefined, offset: number): StandardTokenType {
     if (tokens === undefined) return "other";

@@ -6,8 +6,8 @@ import { createCursorSelection, createSelection } from "../../common/core/iSelec
 import type { ITextEdit } from "../../common/core/iTextEdit.ts";
 import { createTextEdit } from "../../common/core/iTextEdit.ts";
 
-// VS Code `BlockCommentCommand` с `editor.comments.insertSpace: true`: токены
-// снимаются вместе со своим пробелом, если он есть.
+// VS Code `BlockCommentCommand` with `editor.comments.insertSpace: true`: tokens are
+// removed together with their adjacent space, if any.
 
 export interface IBlockCommentDocument {
     getLineContent(line: number): string;
@@ -16,7 +16,7 @@ export interface IBlockCommentDocument {
 
 export interface IBlockCommentPlan {
     readonly edits: readonly ITextEdit[];
-    /** Восстанавливается поверх дефолтного выделения после правок. */
+    /** Restored over the default selection after the edits are applied. */
     readonly selection: ISelection;
 }
 
@@ -40,7 +40,7 @@ export function planToggleBlockComment(
 function planAtCursor(doc: IBlockCommentDocument, pos: IPosition, open: string, close: string): IBlockCommentPlan {
     const enclosing = findEnclosingComment(doc.getLineContent(pos.line), pos.character, open, close);
     if (enclosing !== null) {
-        // Диапазон построен по найденной паре — проверять нечего, снятие зовём напрямую.
+        // The range is built from the found pair, so there is nothing to check: remove directly.
         const range = createRange(pos.line, enclosing.start, pos.line, enclosing.end);
         const plan = removeSurroundingTokens(range, doc.getTextInRange(range), open, close);
         return {
@@ -57,8 +57,8 @@ function planAtCursor(doc: IBlockCommentDocument, pos: IPosition, open: string, 
 }
 
 /**
- * `[start, end)` вместе с токенами. Каретка на открывающем токене и вплотную
- * за закрывающим (`/* x *\/|`) — внутри, как у парных скобок в VS Code.
+ * `[start, end)` including the tokens. A cursor on the open token or right after the
+ * close token (`/* x *\/|`) counts as inside, like bracket pairs in VS Code.
  */
 function findEnclosingComment(
     text: string,
@@ -67,19 +67,19 @@ function findEnclosingComment(
     close: string,
 ): { readonly start: number; readonly end: number } | null {
     const openIdx = text.lastIndexOf(open, character);
-    // Stryker disable next-line ConditionalExpression: ранний выход; без него диапазон поехал бы
-    // от -1, но такой текст заведомо не начинается открывающим токеном и снятие всё равно отказало бы
+    // Stryker disable next-line ConditionalExpression: early exit; without it the range would start
+    // at -1, but such text never starts with the open token, so the removal would refuse anyway
     if (openIdx === -1) return null;
-    // Закрывающий — первый, который начинается не раньше конца открывающего и
-    // ещё касается каретки своим концом.
+    // The close token is the first one that starts no earlier than the end of the open token and
+    // still touches the cursor with its end.
     const closeIdx = text.indexOf(close, Math.max(openIdx + open.length, character - close.length));
-    // Stryker disable next-line ConditionalExpression,UnaryOperator: ранний выход, как и выше —
-    // диапазон без закрывающего токена снятие отвергает; индекс 1 недостижим (поиск идёт от openIdx + длины токена ≥ 2)
+    // Stryker disable next-line ConditionalExpression,UnaryOperator: early exit, as above: the removal
+    // rejects a range without the close token; index 1 is unreachable (search starts at openIdx + token length >= 2)
     if (closeIdx === -1) return null;
     return { start: openIdx, end: closeIdx + close.length };
 }
 
-/** Координаты правок-удалений — исходные, куски не пересекаются. */
+/** Deletion edits are in original coordinates and do not overlap. */
 function characterAfterEdits(character: number, edits: readonly ITextEdit[]): number {
     let result = character;
     for (const edit of edits) {
@@ -103,20 +103,20 @@ function tryRemoveInside(
     return removeSurroundingTokens(range, text, open, close);
 }
 
-/** `text` — содержимое `range`, заведомо ограниченное токенами. */
+/** `text` is the content of `range`, known to be enclosed by the tokens. */
 function removeSurroundingTokens(range: IRange, text: string, open: string, close: string): IBlockCommentPlan {
     let openRun = open.length + (text[open.length] === " " ? 1 : 0);
     let closeRun = close.length + (text[text.length - close.length - 1] === " " ? 1 : 0);
-    // Stryker disable next-line EqualityOperator: при равенстве обе ветки снимают ровно весь
-    // текст выделения (объединение кусков — [0, length) в любом случае) и дают то же выделение
+    // Stryker disable next-line EqualityOperator: on equality both branches remove exactly the whole
+    // selected text (the union of the pieces is [0, length) either way) and yield the same selection
     if (openRun + closeRun > text.length) {
-        // `/* */`: пробел между токенами один на двоих — не снимать его дважды.
+        // `/* */`: both tokens share the single space between them; don't remove it twice.
         openRun = open.length;
         closeRun = text.length - open.length;
     }
 
-    // Токены не содержат переводов строки: открывающий кусок целиком в первой
-    // строке диапазона, закрывающий — в последней.
+    // Tokens contain no line breaks: the open piece lies entirely on the first line of the range,
+    // the close piece on the last.
     const closeStartChar = range.end.character - closeRun;
     const edits = [
         createTextEdit(

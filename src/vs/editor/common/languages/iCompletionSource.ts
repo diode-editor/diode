@@ -6,17 +6,17 @@ export interface ICompletionRequest {
     /** `uri.toString()`. */
     readonly uri: string;
     readonly languageId: string;
-    /** Текст провайдер берёт из своей синхронизированной копии этой версии. */
+    /** The provider reads the text from its own synced copy of this version. */
     readonly versionId: number;
     /** 0-based. */
     readonly line: number;
     readonly character: number;
-    /** Серверы отвечают по-разному: после `.` с `Invoke` tsserver может не дать членов вовсе. */
+    /** Servers answer differently: after `.` with `Invoke`, tsserver may return no members at all. */
     readonly triggerKind?: CompletionTriggerKind;
     readonly triggerCharacter?: string;
 }
 
-/** Значения `vscode.CompletionTriggerKind`. */
+/** Values of `vscode.CompletionTriggerKind`. */
 export const CompletionTriggerKind = {
     Invoke: 0,
     TriggerCharacter: 1,
@@ -30,32 +30,32 @@ export interface ICoreCompletionCommand {
     readonly arguments?: readonly unknown[];
 }
 
-/** `insertText` уже нормализован: fallback на `label` делает хост при сериализации. */
+/** `insertText` is already normalized: the host falls back to `label` when serializing. */
 export interface ICoreCompletionItem {
     readonly label: string;
     readonly insertText: string;
-    /** Нет id — резолвить нечего (word-based пункт, провайдер без `resolveCompletionItem`). */
+    /** No id: nothing to resolve (word-based item, provider without `resolveCompletionItem`). */
     readonly id?: string;
     /** `labelDetails.detail`. */
     readonly labelDetail?: string;
     /** `labelDetails.description`. */
     readonly labelDescription?: string;
-    /** Числовой `CompletionItemKind` VS Code (0…26). */
+    /** Numeric VS Code `CompletionItemKind` (0…26). */
     readonly kind?: number;
     readonly detail?: string;
     readonly documentation?: string;
     readonly command?: ICoreCompletionCommand;
-    /** Не задан — ядро берёт префикс. */
+    /** Absent: the core uses the prefix. */
     readonly range?: IRange;
     readonly sortText?: string;
     readonly filterText?: string;
-    /** Пришли сразу в списке (gopls) — принятие применяет их без resolve, как `suggestController` эталона. */
+    /** Sent right in the list (gopls): accepting applies them without resolve, like upstream `suggestController`. */
     readonly additionalEdits?: readonly ITextEdit[];
 }
 
 /**
- * `isIncomplete` — сервер отфильтровал список под префикс: добор символа обязан
- * перезапросить источник, а не сужать локально.
+ * `isIncomplete`: the server filtered the list for the prefix, so typing another character
+ * must re-query the source instead of narrowing locally.
  */
 export interface ICoreCompletionResult {
     readonly items: readonly ICoreCompletionItem[];
@@ -68,10 +68,10 @@ export interface ICoreResolvedCompletion {
     readonly additionalEdits?: readonly ITextEdit[];
 }
 
-/** upstream `languages.CompletionItemProvider` + метаданные регистрации. */
+/** upstream `languages.CompletionItemProvider` + registration metadata. */
 export interface CompletionItemProvider {
     readonly triggerCharacters: readonly string[];
     provideCompletionItems(request: ICompletionRequest, token: ICancellationToken): Promise<ICoreCompletionResult>;
-    /** `null` — провайдер не ответил или резолва нет; попап остаётся с тем, что есть. */
+    /** `null`: the provider did not answer or has no resolve; the popup keeps what it has. */
     resolveCompletionItem?(id: string): Promise<ICoreResolvedCompletion | null>;
 }

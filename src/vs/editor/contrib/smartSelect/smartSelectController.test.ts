@@ -20,7 +20,7 @@ function makeState(...cursors: number[]): EditorViewState {
 const texts = (state: EditorViewState): string[] =>
     state.selections.map((selection) => state.document.getTextInRange(selectionToRange(selection)));
 
-/** Иерархия «слово → внутри скобок → вызов» для любой каретки. */
+/** Hierarchy "word → inside parens → call" for any cursor. */
 const HIERARCHY: ComputeSelectionRanges = (positions) =>
     Promise.resolve(
         positions.map((position) => {
@@ -49,7 +49,7 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
         await controller.run(false, compute);
         await controller.run(false, compute);
         expect(state.selections).toEqual([createSelection(0, 7, 0, 7)]);
-        // Иерархию спросили один раз: дальше — по стеку.
+        // The hierarchy is asked once; later steps come from the stack.
         expect(compute).toHaveBeenCalledTimes(1);
         expect(compute).toHaveBeenCalledWith([createPosition(0, 7)]);
     });
@@ -78,7 +78,7 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
         const controller = new SmartSelectController(state);
         const compute = vi.fn(HIERARCHY);
         await controller.run(true, compute);
-        // Правка за кареткой выделение не сдвигает — события курсора нет, ловит версия.
+        // An edit after the cursor doesn't move the selection: no cursor event, the version catches it.
         state.document.applyEdits([{ range: createRange(0, 17, 0, 17), text: ";" }]);
         await controller.run(true, compute);
         expect(compute).toHaveBeenCalledTimes(2);
@@ -100,7 +100,7 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
 
     it("ступени только вокруг выделения целиком: уже его и задевшие один край — мимо", async () => {
         const state = makeState(7);
-        // active = 16: слово `beta` — внутри выделения и не содержит его начало.
+        // active = 16: the word `beta` is inside the selection and doesn't contain its start.
         state.selections = [createSelection(0, 5, 0, 16)];
         await new SmartSelectController(state).run(true, HIERARCHY);
         expect(texts(state)).toEqual([TEXT]);
@@ -122,7 +122,7 @@ describe("SmartSelectController — Expand/Shrink Selection", () => {
         });
         expect(state.selections).toEqual([createCursorSelection(0, 2)]);
 
-        // Правка, пока считали, — тоже протух, даже если выделение на месте.
+        // An edit during computation also makes it stale, even if the selection stays put.
         await controller.run(true, (positions) => {
             state.document.applyEdits([{ range: createRange(0, 17, 0, 17), text: ";" }]);
             return HIERARCHY(positions);

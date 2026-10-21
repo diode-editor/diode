@@ -41,7 +41,7 @@ describe("planAutoClose — вставка пары", () => {
     });
 
     it("многосимвольная открывающая матчится хвостом текста до каретки", () => {
-        // `/**` длиннее `(`/`{` — набор `*` после `/*` дописывает ` */`.
+        // `/**` is longer than `(`/`{`: typing `*` after `/*` appends ` */`.
         expect(plan("*", "/*", 2)).toEqual({ kind: "autoClose", close: " */" });
         expect(plan("*", "a", 1)).toEqual({ kind: "plain" });
     });
@@ -51,9 +51,9 @@ describe("planAutoClose — вставка пары", () => {
             { open: "ab", close: "X", notIn: [] },
             { open: "b", close: "Y", notIn: [] },
         ];
-        // Длинная объявлена раньше короткой: короткая её НЕ перебивает.
+        // Long declared before short: the short one does NOT override it.
         expect(plan("b", "a", 1, overlapping)).toEqual({ kind: "autoClose", close: "X" });
-        // И наоборот: длинная, объявленная позже, перебивает короткую.
+        // And the reverse: long declared later overrides the short one.
         expect(plan("b", "a", 1, [...overlapping].reverse())).toEqual({ kind: "autoClose", close: "X" });
     });
 
