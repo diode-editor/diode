@@ -18,10 +18,7 @@ const COLORS: Record<string, number> = {
     "gitDecoration.modifiedResourceForeground": FILE,
 };
 
-/**
- * Customer на паре in-process каналов: `peer` играет субпроцесс. `rpcLogger.warn`
- * ловит исключения обработчиков нотификаций — RpcEndpoint их глотает и пишет сюда.
- */
+/** `rpcLogger.warn` ловит исключения обработчиков нотификаций — RpcEndpoint их глотает. */
 function setup(colors: Record<string, number> = COLORS) {
     const editorCalls: { uri: string; decorations: readonly IGutterChangeDecoration[] }[] = [];
     const fileCalls: { path: string; color?: number; badge?: string }[][] = [];
@@ -151,7 +148,6 @@ describe("DecorationsCustomer — gutter-декорации редактора",
         h.peer.notify("window.disposeTextEditorDecorationType", { key: 1 });
         await flushMicrotasks(10);
 
-        // Перерисован ровно файл, где тип был.
         expect(h.editorCalls.slice(before)).toStrictEqual([{ uri: Uri.file("/a.ts").toString(), decorations: [] }]);
 
         // Снятый тип больше не рисуется, даже если субпроцесс пришлёт его набор.

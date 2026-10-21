@@ -5,7 +5,6 @@ import { NULL_STATE_SERVICE } from "../../../../platform/state/common/nullStateS
 
 import { MACHINE_ID_STATE, resolveMachineId } from "./machineIdState.ts";
 
-/** Состояние в памяти: ключ → значение, как один `storage.json`. */
 function memoryState(seed: Record<string, unknown> = {}): IStateService & { readonly data: Record<string, unknown> } {
     const data = { ...seed };
     return {

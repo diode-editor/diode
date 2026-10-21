@@ -6,15 +6,11 @@ import type { IExtensionUriHandlers } from "../../common/extensionUrlHandler.ts"
 import { parseWireUriHandlerRegistration } from "../hostWireParsers.ts";
 
 /**
- * Обработчики URI расширений на хосте (`MainThreadUrls` эталона): реестр
- * `window.registerUriHandler` субпроцесса и доставка URI запросом
- * `window.handleUri`. Решение «кому и когда» — у `ExtensionUrlHandler`.
- *
- * Реестр живёт один спавн: обработчики умершего субпроцесса уходят вместе с
- * ним, а оживлённое расширение заведёт свой заново на активации.
+ * `MainThreadUrls` эталона; решение «кому и когда» — у `ExtensionUrlHandler`.
+ * Реестр живёт один спавн: оживлённое расширение заведёт обработчик заново на активации.
  */
 export class UriHandlersCustomer extends Disposable implements IExtensionHostCustomer, IExtensionUriHandlers {
-    /** Текущий спавн: канал и зарегистрированные id (ключ — нижний регистр); `null` — спавна нет. */
+    /** id — в нижнем регистре. */
     private live: { readonly rpc: HostRpc; readonly ids: Set<string> } | null = null;
     private readonly onDidRegisterEmitter = this.register(new Emitter<string>());
 
@@ -53,7 +49,6 @@ export class UriHandlersCustomer extends Disposable implements IExtensionHostCus
                 live.ids.delete(extensionId.toLowerCase());
             }),
         );
-        // Спавн снимается до подключения следующего (`endSpawn`) — забываем его целиком.
         store.add({
             dispose: () => {
                 this.live = null;

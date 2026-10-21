@@ -7,28 +7,23 @@ import type { IProtocolMessage } from "../../../api/common/rpcEndpoint.ts";
 
 import { ExtensionHostProcess, type IExtensionHostProcessOptions } from "./extensionHostProcess.ts";
 
-// Настоящий процесс не нужен: проверяем, КАК его запускают и что делают с его
-// потоками, сигналами и событиями.
 vi.mock("node:child_process", () => ({ spawn: vi.fn() }));
 
 const { spawn } = await import("node:child_process");
 const spawnMock = vi.mocked(spawn);
 
 class FakeChild extends EventEmitter {
-    /** Как у настоящего ChildProcess: нужен для адресации ГРУППЫ процессов. */
+    /** Нужен для адресации ГРУППЫ процессов. */
     public pid: number | undefined = 4242;
     public exitCode: number | null = null;
     public killed = false;
     public stdout: PassThrough | null = null;
     public stderr: PassThrough | null = null;
     public readonly sent: IProtocolMessage[] = [];
-    /** Сигналы, пришедшие прямо ребёнку (`child.kill`). */
     public readonly signals: string[] = [];
-    /** Сигналы, пришедшие ГРУППЕ (`process.kill(-pid)`) — путь внуков. */
+    /** `process.kill(-pid)` — путь внуков. */
     public readonly groupSignals: string[] = [];
-    /** Выходит по этому сигналу; на `host.shutdown` не отвечает. */
     public exitOnSignal: string | null = null;
-    /** Через сколько мс после сигнала ребёнок действительно выходит. */
     public exitDelayMs = 0;
 
     public send(message: IProtocolMessage): boolean {
@@ -36,7 +31,6 @@ class FakeChild extends EventEmitter {
         return true;
     }
 
-    /** Сигнал группе: доходит до ребёнка так же, как прямой. */
     public signalGroup(signal: string): void {
         this.groupSignals.push(signal);
         this.receive(signal);
@@ -45,9 +39,7 @@ class FakeChild extends EventEmitter {
     public kill(signal?: string): boolean {
         const sig = signal ?? "SIGTERM";
         this.signals.push(sig);
-        // Как у настоящего ChildProcess: флаг ставит только собственный kill.
-        // Групповой `process.kill(-pid)` его НЕ выставляет — иначе эскалация
-        // сигналов остановилась бы на первом шаге.
+        // Групповой `process.kill(-pid)` флаг не выставляет — иначе эскалация сигналов остановилась бы на первом шаге.
         this.killed = true;
         this.receive(sig);
         return true;
@@ -69,11 +61,7 @@ function logger() {
     return { trace: vi.fn(), debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn(), isEnabled: () => true };
 }
 
-/**
- * Живые `FakeChild` этого кейса, по pid. `process.kill(-pid, …)` настоящего
- * кода адресует группу — здесь он доставляется ребёнку с этим pid, иначе
- * эскалация сигналов в тесте ничего бы не двигала.
- */
+/** `process.kill(-pid, …)` адресует группу — здесь доставляется ребёнку с этим pid, иначе эскалация бы не двигалась. */
 const spawned = new Map<number, FakeChild>();
 
 beforeEach(() => {
@@ -130,7 +118,6 @@ describe("ExtensionHostProcess — запуск", () => {
 
         const [inherited, explicit] = spawnMock.mock.calls.map((call) => (call[2] as { env: NodeJS.ProcessEnv }).env);
         expect(inherited).toEqual({ ...process.env, DIODE_EXTENSION_HOST: "1" });
-        // Своё окружение шва — тоже с меткой роли: без неё ребёнок не узнал бы, кем он запущен.
         expect(explicit).toEqual({ ONLY: "this", DIODE_EXTENSION_HOST: "1" });
     });
 
@@ -153,7 +140,7 @@ describe("ExtensionHostProcess — запуск", () => {
         const { onExit } = start(child, { logger: log });
 
         child.emit("error", Object.assign(new Error("spawn EMFILE"), { code: "EMFILE" }));
-        // Закрытый канал эмитит ошибку на каждый send — вторая не роняет и не дублирует конец.
+        // Закрытый канал эмитит ошибку на каждый send.
         child.emit("error", new Error("ERR_IPC_CHANNEL_CLOSED"));
 
         expect(onExit).toHaveBeenCalledExactlyOnceWith(null, null);
@@ -236,7 +223,6 @@ describe("ExtensionHostProcess — выключение", () => {
         await subprocess.shutdown(10);
 
         expect(child.sent.some((m) => m.kind === "req" && m.method === "host.shutdown")).toBe(true);
-        // Сигнал адресован ГРУППЕ — вместе с ребёнком уходят и его внуки.
         expect(child.groupSignals).toEqual(["SIGTERM"]);
     });
 
@@ -273,10 +259,8 @@ describe("ExtensionHostProcess — выключение", () => {
 });
 
 /**
- * Внуки — языковые серверы, которые поднимают сами расширения (jdtls, gopls).
- * Сигнал прямому ребёнку их не касается: пережив родителя, они продолжают
- * писать в каталоги расширения. Поэтому субпроцесс запускается лидером своей
- * группы, а сигнал адресуется ГРУППЕ.
+ * Внуки — языковые серверы расширений (jdtls, gopls): сигнал прямому ребёнку их не касается, а пережив родителя,
+ * они продолжают писать в каталоги расширения. Поэтому сигнал адресуется ГРУППЕ.
  */
 describe("ExtensionHostProcess — потомство субпроцесса", () => {
     it.skipIf(process.platform === "win32")("субпроцесс запускается лидером своей группы", () => {
@@ -292,13 +276,11 @@ describe("ExtensionHostProcess — потомство субпроцесса", (
         await subprocess.shutdown(1);
 
         expect(child.groupSignals).toEqual(["SIGTERM", "SIGKILL"]);
-        // Прямого kill не было: группа покрывает и самого ребёнка.
         expect(child.signals).toEqual([]);
     });
 
     it.skipIf(process.platform === "win32")("группы уже нет (ESRCH) — не падаем и не дублируем сигнал", () => {
-        // Ребёнок не зарегистрирован в `spawned` → мок `process.kill` отдаёт ESRCH,
-        // как настоящее ядро для несуществующей группы.
+        // Не зарегистрирован в `spawned` → мок `process.kill` отдаёт ESRCH, как ядро для несуществующей группы.
         const child = new FakeChild();
         child.pid = undefined;
         const { subprocess } = start(child);

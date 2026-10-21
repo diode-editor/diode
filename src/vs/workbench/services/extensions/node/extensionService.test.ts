@@ -25,7 +25,6 @@ const ENV: IExtensionRegistrationEnv = {
         virtualPath.includes("broken") ? Promise.reject(new Error("no such asset")) : Promise.resolve("// src"),
 };
 
-/** Промис, который резолвит тест, — «активация ещё идёт». */
 function deferred(): { promise: Promise<void>; resolve: () => void } {
     let resolve!: () => void;
     const promise = new Promise<void>((r) => {
@@ -34,7 +33,6 @@ function deferred(): { promise: Promise<void>; resolve: () => void } {
     return { promise, resolve };
 }
 
-/** Host, который записывает регистрации и события; отдельные события можно придержать. */
 class FakeHost implements IExtensionActivationHost {
     public readonly log: string[] = [];
     public readonly held = new Map<string, Promise<void>>();
@@ -108,7 +106,6 @@ describe("ExtensionService", () => {
             "workspaceContains",
             "onStartupFinished",
         ]);
-        // Декларативное не «упало при регистрации».
         expect(logger.errors).toEqual([]);
     });
 
@@ -120,7 +117,6 @@ describe("ExtensionService", () => {
         const early = service.activateByEvent("onLanguage:python").then(() => {
             resolved = true;
         });
-        // Повтор того же события до барьера — один проигрыш.
         void service.activateByEvent("onLanguage:python");
         void service.activateByEvent("onLanguage:json");
         await Promise.resolve();
@@ -173,7 +169,6 @@ describe("ExtensionService", () => {
 
         await service.start();
         await early;
-        // Перезапуска нет, проход по папкам один — стартовый.
         expect(host.log).not.toContain("restart");
         expect(host.log.filter((e) => e === "workspaceContains")).toHaveLength(1);
     });
@@ -250,7 +245,6 @@ describe("ExtensionService", () => {
         await new Promise((resolve) => setTimeout(resolve, 30));
         expect(host.log).toContain("onStartupFinished");
 
-        // Старт завершается, только когда доедет и сам `*`.
         let done = false;
         void started.then(() => {
             done = true;

@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { createExtensionMemento, type IExtensionMementoOptions } from "./extensionMemento.ts";
 
-/** Memento с записью того, что уходит хосту. */
 function memento(overrides: Partial<IExtensionMementoOptions> = {}) {
     const persisted: Record<string, unknown>[] = [];
     const m = createExtensionMemento({
@@ -66,7 +65,6 @@ describe("createExtensionMemento", () => {
             done = true;
         });
         await new Promise((resolve) => setTimeout(resolve, 0));
-        // Локально значение уже есть — get синхронный.
         expect(m.get("k")).toBe("v");
         expect(done).toBe(false);
 

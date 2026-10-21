@@ -21,15 +21,7 @@ import {
     parseWireShowTextDocumentParams,
 } from "../hostWireParsers.ts";
 
-/**
- * Редакторы для расширений: опции и выделения активного редактора, правки
- * `TextEditor.edit` и `workspace.applyEdit`, полоса групп (`tabGroups`,
- * `visibleTextEditors`) и `window.showTextDocument`. Подписки на ядро живут
- * один спавн; семена полосы и активного редактора хост шлёт на своём месте
- * последовательности handshake ({@link pushInitialState}).
- */
 export class EditorCustomer implements IExtensionHostCustomer {
-    /** Канал текущего спавна; `null` — спавна нет. */
     private rpc: HostRpc | null = null;
 
     public constructor(
@@ -38,10 +30,8 @@ export class EditorCustomer implements IExtensionHostCustomer {
     ) {}
 
     /**
-     * Семена handshake: полоса групп — ДО меты активного редактора,
-     * `visibleTextEditors`/`tabGroups` обязаны существовать к моменту активации
-     * (стоковый languageclient читает их на start()); мета активного редактора —
-     * чтобы `window.activeTextEditor` был верен до первой активации.
+     * Полоса групп — ДО меты активного редактора: стоковый languageclient читает
+     * `visibleTextEditors`/`tabGroups` на start().
      */
     public pushInitialState(): void {
         this.rpc?.notify("editor.layoutChanged", this.editorLayout.getLayoutSnapshot());
@@ -63,9 +53,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 return this.editorOptions.getActiveEditorOptions();
             }),
         );
-        // Сабпроцесс просит выставить выделения активного редактора
-        // (`TextEditor.selection(s) =`). Fire-and-forget со стороны расширения,
-        // но обрабатывается в порядке прихода (до последующего executeCommand).
+        // Fire-and-forget у расширения, но в порядке прихода — до последующего executeCommand.
         store.add(
             rpc.handleNotification("editor.setSelection", (params): void => {
                 const p: { uri?: unknown; selections?: unknown; groupId?: unknown } = params;
@@ -77,7 +65,6 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 );
             }),
         );
-        // Сабпроцесс просит применить правки `TextEditor.edit` одним undoable-батчем.
         store.add(
             rpc.handleRequest("editor.applyEdit", (params): boolean => {
                 const p: { uri?: unknown; edits?: unknown } = params;
@@ -85,9 +72,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 return this.editorOptions.applyActiveEditorEdits(p.uri, parseWireEditorEdits(p.edits));
             }),
         );
-        // Сабпроцесс просит применить workspace edit (`workspace.applyEdit`):
-        // текстовые правки по ресурсам плюс файловые операции, all-or-nothing
-        // по валидации. Мусор в параметрах — честный `false`, а не частичный edit.
+        // Мусор в параметрах — честный `false`, а не частичный edit.
         store.add(
             rpc.handleRequest("workspace.applyEdit", async (params): Promise<boolean> => {
                 const ops = parseWireApplyWorkspaceEditParams(params);
@@ -95,8 +80,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 return this.editorOptions.applyWorkspaceEdit(ops, { isRefactoring: params.isRefactoring === true });
             }),
         );
-        // `workspace.saveAll` / `workspace.save` (`$saveAll` / `$save` эталона):
-        // golang.go сохраняет всё перед `gopls.tidy` и vulncheck.
+        // `$saveAll`/`$save` эталона: golang.go сохраняет всё перед `gopls.tidy` и vulncheck.
         store.add(
             rpc.handleRequest("workspace.saveAll", (params): Promise<boolean> => {
                 return this.editorOptions.saveAll(params.includeUntitled === true);
@@ -110,18 +94,14 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 return saved === null ? null : { uri: saved };
             }),
         );
-        // Полоса групп: снимки по изменениям (коалесинг в адаптере). Инвариант
-        // порядка: layoutChanged всегда раньше связанного activeEditorChanged —
-        // подписка на layout стоит первой, а мета дополнительно флашит отложенный
-        // снимок, чтобы `visibleTextEditors` не отставал от `activeTextEditor`.
+        // Инвариант: layoutChanged раньше связанного activeEditorChanged — подписка на layout первая,
+        // а мета флашит отложенный снимок, чтобы `visibleTextEditors` не отставал от `activeTextEditor`.
         store.add(
             this.editorLayout.onDidChangeLayout((layout) => {
                 rpc.notify("editor.layoutChanged", layout);
             }),
         );
-        // `window.showTextDocument`: открыть/активировать ресурс в колонке;
-        // ответ уезжает ПОСЛЕ layoutChanged (flush перед reply) — после `await`
-        // расширение видит свежий `tabGroups`.
+        // Ответ уезжает ПОСЛЕ layoutChanged: после `await` расширение видит свежий `tabGroups`.
         store.add(
             rpc.handleRequest("editor.showTextDocument", async (params): Promise<IWireShowTextDocumentResult> => {
                 const parsed = parseWireShowTextDocumentParams(params);
@@ -131,9 +111,7 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 return result;
             }),
         );
-        // `workspace.openTextDocument({ content, language })`: документ без
-        // вкладки. `editor.didOpen` уходит синхронно внутри создания (document
-        // sync на смене состава документов) — ответ его не обгоняет.
+        // `editor.didOpen` уходит синхронно внутри создания — ответ его не обгоняет.
         store.add(
             rpc.handleRequest("workspace.createUntitledDocument", (params) =>
                 this.editorLayout.createUntitledDocument(parseWireCreateUntitledParams(params)),
@@ -163,11 +141,8 @@ export class EditorCustomer implements IExtensionHostCustomer {
                 rpc.notify("editor.activeEditorChanged", meta);
             }),
         );
-        // Движение каретки/смена выделения — отдельным сообщением, чтобы
-        // `activeTextEditor.selection` в расширении не залипал на состоянии момента
-        // открытия файла. Именно `activeEditorChanged` слать нельзя: он дёргает
-        // `onDidChangeActiveTextEditor`, и, например, встроенный git пересчитывал бы
-        // статус на каждое нажатие стрелки.
+        // Отдельное сообщение, а не `activeEditorChanged`: тот дёргает `onDidChangeActiveTextEditor`,
+        // и встроенный git пересчитывал бы статус на каждое нажатие стрелки.
         store.add(
             this.editorOptions.onActiveEditorSelectionChanged((selections) => {
                 rpc.notify("editor.selectionChanged", selections);
@@ -200,7 +175,6 @@ function sanitizeOptionsPatch(raw: unknown): IEditorOptionsPatch {
     return patch;
 }
 
-/** `Number.isFinite` не приводит типы: не-число — сразу `false`. */
 function isFiniteNumber(value: unknown): value is number {
     return Number.isFinite(value);
 }

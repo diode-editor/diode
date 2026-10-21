@@ -3,11 +3,7 @@ import type { IWorkspaceFoldersSink } from "../../../../api/common/iWorkspaceFol
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { parseWireUpdateWorkspaceFolders } from "../hostWireParsers.ts";
 
-/**
- * `workspace.updateWorkspaceFolders` расширений (upstream
- * `MainThreadWorkspace.$updateWorkspaceFolders`): просьба уходит стоку; без
- * стока — тихо, как у остальных поверхностей без проводки.
- */
+/** upstream `MainThreadWorkspace.$updateWorkspaceFolders`. */
 export class WorkspaceFoldersCustomer implements IExtensionHostCustomer {
     public constructor(private readonly sink: IWorkspaceFoldersSink | undefined) {}
 

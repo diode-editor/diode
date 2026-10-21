@@ -63,78 +63,52 @@ import {
 } from "../hostWireParsers.ts";
 import { loggingRequest, type RequestTimeouts, type TimedRequestMethod } from "../requestPolicy.ts";
 
-/** Ответ «автодополнений нет» — общий для всех ранних выходов completion. */
 const EMPTY_COMPLETION_RESULT: ICoreCompletionResult = { items: [], isIncomplete: false };
 
-/**
- * Языковой запрос хоста к субпроцессу. Срок ответа — из {@link RequestTimeouts};
- * у автодополнения его нет (см. `DEFAULT_REQUEST_TIMEOUTS`), оно ждёт ответа,
- * пока тот нужен вызывающему.
- */
 type LanguageRequestMethod =
     | Exclude<TimedRequestMethod, "workspace.willSaveTextDocument">
     | "languages.provideCompletionItems"
     | "languages.provideDocumentSemanticTokens"
     | "languages.provideDocumentRangeSemanticTokens";
 
-/** Ответ языкового запроса — форма из карты протокола. */
 type LanguageResult<K extends LanguageRequestMethod> = RequestResult<IHostToSubprocess, K>;
 
-/** Необязательное в {@link LanguageFeaturesCustomer.request}. */
 interface ILanguageRequestOptions<K extends LanguageRequestMethod> {
-    /** Ответ без спавна (субпроцесс остановлен), если он не `empty` (rename объясняет отказ). */
+    /** Ответ без спавна, если он не `empty` (rename объясняет отказ). */
     readonly noHost?: LanguageResult<K>;
-    /** Ответ по несинхронизированному документу, если он не `empty`. */
     readonly notSynced?: LanguageResult<K>;
-    /** Срок ответа вместо табличного (inline completions берут его из запроса). */
     readonly timeoutMs?: number | undefined;
-    /** Отмена «сверху»: ответ перестал быть нужен (новый запрос, закрытый попап, правка). */
     readonly token?: ICancellationToken | undefined;
     /**
-     * Отказ RPC (сбой, отмена) — исключением, а не `empty`: семантические
-     * токены по сбою оставляют прежнюю раскраску, а по пустому ответу стирают.
+     * Отказ RPC — исключением, а не `empty`: семантические токены по сбою
+     * оставляют прежнюю раскраску, а по пустому ответу стирают.
      */
     readonly rethrow?: boolean;
 }
 
-/**
- * Языковые провайдеры расширений (мост под `ILanguageFeaturesService`):
- * субпроцесс объявляет каждого с handle и селектором, ядро само решает, кого
- * спрашивать. Реестр провайдеров живёт один спавн: провайдеры умирают вместе
- * с субпроцессом, и адаптер снимает их прокси из реестра ядра.
- */
+/** Реестр провайдеров живёт один спавн: провайдеры умирают вместе с субпроцессом. */
 export class LanguageFeaturesCustomer extends Disposable implements IExtensionHostCustomer {
-    /** Провайдеры текущего спавна по handle; пусто — спавна нет или он ничего не объявил. */
     private readonly providers = new Map<number, IWireLanguageProviderRegistration>();
     private readonly onProvidersChangedEmitter = this.register(new Emitter<void>());
 
-    /** Состав провайдеров изменился: регистрация, снятие или смерть субпроцесса. */
     public readonly onProvidersChanged = this.onProvidersChangedEmitter.event;
     private readonly onDidChangeSemanticTokensEmitter = this.register(new Emitter<number>());
-    /** `onDidChangeSemanticTokens` провайдера (handle) — из `languages.didChangeSemanticTokens`. */
     public readonly onDidChangeSemanticTokens = this.onDidChangeSemanticTokensEmitter.event;
-    /** Канал текущего спавна; `null` — спавна нет. */
     private rpc: HostRpc | null = null;
-    /** Вызовы inline-прокси с одним запросом — одним RPC (см. `provideInlineCompletions`). */
     private readonly inlineCompletionsBatcher = new ProviderRequestBatcher<
         IInlineCompletionRequest,
         readonly ICoreInlineCompletionItem[]
     >((handles, req, token) => this.requestInlineCompletionsBatch(handles, req, token), []);
-    /** Вызовы folding-прокси с одним запросом — одним RPC (см. `provideFoldingRanges`). */
     private readonly foldingBatcher = new ProviderRequestBatcher<IFoldingRequest, readonly IFoldingRegion[]>(
         (handles, req, token) => this.requestFoldingBatch(handles, req, token),
         [],
     );
-    /** Вызовы completion-прокси с одним запросом — одним RPC (см. `provideCompletionItems`). */
     private readonly completionBatcher = new ProviderRequestBatcher<ICompletionRequest, ICoreCompletionResult>(
         (handles, req, token) => this.requestCompletionBatch(handles, req, token),
         EMPTY_COMPLETION_RESULT,
     );
 
-    /**
-     * @param isSynced держит ли субпроцесс документ (`DocumentsCustomer`):
-     *   запросы текста не везут, и по несинхронизированному отвечать не по чему
-     */
+    /** @param isSynced запросы текста не везут: по несинхронизированному документу отвечать не по чему */
     public constructor(
         private readonly timeouts: RequestTimeouts,
         private readonly isSynced: (uri: string) => boolean,
@@ -143,23 +117,11 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         super();
     }
 
-    /**
-     * Языковые провайдеры, объявленные субпроцессом (`languages.register`).
-     * Потребитель — адаптер, регистрирующий их прокси в реестре ядра.
-     */
     public getProviders(): readonly IWireLanguageProviderRegistration[] {
         return [...this.providers.values()];
     }
 
-    /**
-     * Запрашивает у completion-провайдера субпроцесса `handle` элементы
-     * автодополнения для позиции курсора (`languages.provideCompletionItems`).
-     * Пустой результат, если субпроцесса нет, документ субпроцессу не синхронизирован или
-     * запрос отказал. Срока ответа нет — ждём, пока вызывающий не отменит `token`
-     * (см. `DEFAULT_REQUEST_TIMEOUTS`). Зовёт его прокси из
-     * реестра ядра (`LanguageFeaturesAdapter`); вызовы прокси с одним запросом
-     * уходят одним RPC (`ProviderRequestBatcher`, токен отмены — общий у пачки).
-     */
+    /** Срока ответа нет — ждём, пока вызывающий не отменит `token` (см. `DEFAULT_REQUEST_TIMEOUTS`). */
     public provideCompletionItems(
         handle: number,
         req: ICompletionRequest,
@@ -178,46 +140,31 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             {
                 handles,
                 ...positionParams(req),
-                // Спред — про чистоту payload'а: `undefined`-ключи всё равно
-                // выбрасывает JSON-транспорт RPC.
-                // Stryker disable next-line ConditionalExpression: см. выше
+                // Stryker disable next-line ConditionalExpression: спред — про чистоту payload'а, `undefined`-ключи всё равно выбрасывает JSON-транспорт RPC
                 ...(req.triggerKind !== undefined ? { triggerKind: req.triggerKind } : {}),
-                // Stryker disable next-line ConditionalExpression: см. выше
+                // Stryker disable next-line ConditionalExpression: то же
                 ...(req.triggerCharacter !== undefined ? { triggerCharacter: req.triggerCharacter } : {}),
             },
             [],
             { token },
         );
-        // Ответ выровнен по `handles`; недостающий элемент (пустой ответ,
-        // обход пачки прерван отменой) — пусто у своего провайдера.
+        // Недостающий элемент ответа (обход пачки прерван отменой) — пусто у своего провайдера.
         return handles.map((_handle, index) => results.at(index) ?? EMPTY_COMPLETION_RESULT);
     }
 
     /**
-     * Догружает detail/documentation/additionalTextEdits пункта автодополнения
-     * (`languages.resolveCompletionItem`). У стокового LSP-стека это ЕДИНСТВЕННЫЙ
-     * путь к описанию и авто-импорту: `typescript-language-server` присылает их
-     * не в списке, а по запросу выбранного пункта. `null` — резолвить нечего или
-     * расширение не ответило за отведённый срок. `id` уникален сквозь
-     * провайдеров: кэш субпроцесса сам знает, чей это пункт.
+     * У стокового LSP-стека это ЕДИНСТВЕННЫЙ путь к описанию и авто-импорту:
+     * `typescript-language-server` присылает их только по запросу выбранного пункта.
+     * `id` уникален сквозь провайдеров.
      */
     public async resolveCompletionItem(id: string): Promise<ICoreResolvedCompletion | null> {
         return this.request("languages.resolveCompletionItem", { id }, null);
     }
 
     /**
-     * Запрашивает у inline-провайдера субпроцесса `handle` подсказки для позиции
-     * каретки (`languages.provideInlineCompletions`). Возвращает `[]`, если
-     * субпроцесса нет, документ субпроцессу не синхронизирован или расширение не ответило за
-     * отпущенный срок. Зовёт его прокси из
-     * реестра ядра (`LanguageFeaturesAdapter`); вызовы с одним запросом уходят
-     * одним RPC (`ProviderRequestBatcher`, токен отмены — общий у пачки).
-     *
-     * Срок берётся из САМОГО запроса (`req.timeoutMs` —
-     * `editor.inlineSuggest.requestTimeout`), и только в его отсутствие — из
-     * отведённый срок хоста. Асимметрия с остальным семейством
-     * таймаутов осознанная: остальные фиксируются при создании хоста, а этот
-     * человек правит в settings.json и ждёт эффекта без перезапуска.
+     * Срок — из САМОГО запроса (`editor.inlineSuggest.requestTimeout`), а не из
+     * таймаутов хоста: их фиксируют при создании хоста, а этот человек правит в
+     * settings.json и ждёт эффекта без перезапуска.
      */
     public provideInlineCompletions(
         handle: number,
@@ -232,9 +179,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         req: IInlineCompletionRequest,
         token: ICancellationToken | undefined,
     ): Promise<readonly (readonly ICoreInlineCompletionItem[])[]> {
-        // Отмена «сверху» и истёкший срок доходят до провайдера одинаково —
-        // транспорт отменяет запрос (иначе зависший LLM-вызов считал бы в
-        // пустоту до конца жизни субпроцесса).
+        // Истёкший срок транспорт тоже доносит до провайдера отменой: иначе
+        // зависший LLM-вызов считал бы в пустоту до конца жизни субпроцесса.
         const results = await this.request(
             "languages.provideInlineCompletions",
             {
@@ -245,18 +191,9 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             [],
             { timeoutMs: req.timeoutMs, token },
         );
-        // Недостающий элемент ответа — пусто у своего провайдера.
         return handles.map((_handle, index) => results.at(index) ?? []);
     }
 
-    /**
-     * Отдаёт области сворачивания folding-провайдера субпроцесса `handle` для
-     * документа (`languages.provideFoldingRanges`). Пустой массив, если
-     * субпроцесса нет, документ субпроцессу не синхронизирован или расширение не ответило за
-     * отведённый срок — ядро в этом случае остаётся на indentation-фолдах.
-     * Зовёт его прокси из реестра ядра (`LanguageFeaturesAdapter`); вызовы с
-     * одним запросом уходят одним RPC (`ProviderRequestBatcher`, токен отмены — общий у пачки).
-     */
     public provideFoldingRanges(
         handle: number,
         req: IFoldingRequest,
@@ -281,17 +218,9 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
             [],
             { token },
         );
-        // Недостающий элемент ответа (обход пачки прерван отменой) — пусто у своего провайдера.
         return handles.map((_handle, index) => wireToCoreFoldingRegions(results.at(index) ?? []));
     }
 
-    /**
-     * Запрашивает у definition-провайдера субпроцесса `handle` цели для позиции
-     * курсора (`languages.provideDefinition`). Возвращает `[]`, если субпроцесса
-     * нет, документ субпроцессу не синхронизирован или расширение не ответило за
-     * отведённый срок. Зовёт его прокси из реестра ядра
-     * (`LanguageFeaturesAdapter`).
-     */
     public async provideDefinition(
         handle: number,
         req: IDefinitionRequest,
@@ -308,13 +237,6 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
-    /**
-     * Запрашивает у hover-провайдера субпроцесса `handle` hover для позиции
-     * курсора (`languages.provideHover`). Возвращает `undefined`, если
-     * субпроцесса нет, документ субпроцессу не синхронизирован или расширение не ответило за
-     * отведённый срок. Зовёт его прокси, который `LanguageFeaturesAdapter`
-     * держит в реестре ядра.
-     */
     public async provideHover(
         handle: number,
         req: IHoverRequest,
@@ -332,13 +254,6 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         return hover ?? undefined;
     }
 
-    /**
-     * Запрашивает у references-провайдера субпроцесса `handle` ссылки на символ
-     * под курсором (`languages.provideReferences`). Возвращает `[]`, если
-     * субпроцесса нет, документ субпроцессу не синхронизирован или расширение не ответило за
-     * отведённый срок. Зовёт его прокси из реестра ядра
-     * (`LanguageFeaturesAdapter`).
-     */
     public async provideReferences(
         handle: number,
         req: IReferenceRequest,
@@ -356,13 +271,6 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
-    /**
-     * Запрашивает у провайдера подсказки параметров `handle` подсказку для
-     * позиции каретки (`languages.provideSignatureHelp`). `null`, если
-     * субпроцесса нет, документ субпроцессу не синхронизирован или расширение не ответило за
-     * отведённый срок. Зовёт его прокси из реестра ядра
-     * (`LanguageFeaturesAdapter`).
-     */
     public async provideSignatureHelp(
         handle: number,
         req: ISignatureHelpRequest,
@@ -374,9 +282,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 handle,
                 ...positionParams(req),
                 triggerKind: req.triggerKind,
-                // Оба спреда — про чистоту payload'а: `undefined`-ключи всё равно
-                // выбрасывает JSON-транспорт RPC, поэтому за границей канала
-                // разницы не видно (потому и Stryker disable).
+                // Спреды — про чистоту payload'а: `undefined`-ключи всё равно выбрасывает JSON-транспорт RPC, потому и Stryker disable.
                 // Stryker disable next-line ConditionalExpression: см. выше
                 ...(req.triggerCharacter === undefined ? {} : { triggerCharacter: req.triggerCharacter }),
                 isRetrigger: req.isRetrigger,
@@ -388,14 +294,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
-    /**
-     * Запрашивает у провайдера форматирования `handle` правки документа (без
-     * `req.range` — документный провайдер) или диапазона (с ним — range-провайдер)
-     * — `languages.provideFormattingEdits`. Пустой массив — менять нечего,
-     * субпроцесса нет, документ субпроцессу не синхронизирован или таймаут отведённый срок
-     * (молчаливый no-op). «Нет форматтера» решает ядро по реестру. Зовёт его
-     * прокси из реестра ядра (`LanguageFeaturesAdapter`).
-     */
+    /** Без `req.range` — документный провайдер, с ним — range-провайдер. */
     public async provideFormattingEdits(
         handle: number,
         req: IFormattingRequest,
@@ -410,10 +309,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 version: req.versionId,
                 tabSize: req.tabSize,
                 insertSpaces: req.insertSpaces,
-                // Спред — про чистоту payload'а: `undefined`-ключи всё равно
-                // выбрасывает JSON-транспорт RPC, поэтому за границей канала
-                // разницы не видно.
-                // Stryker disable next-line ConditionalExpression: см. выше
+                // Stryker disable next-line ConditionalExpression: спред — про чистоту payload'а, `undefined`-ключи всё равно выбрасывает JSON-транспорт RPC
                 ...(req.range === undefined ? {} : { range: req.range }),
             },
             [],
@@ -421,12 +317,6 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
-    /**
-     * Запрашивает у code-action-провайдера `handle` действия для диапазона
-     * (`languages.provideCodeActions`). Пустой массив — действий не нашлось,
-     * субпроцесса нет, документ субпроцессу не синхронизирован или таймаут. Зовёт его прокси из
-     * реестра ядра (`LanguageFeaturesAdapter`).
-     */
     public async provideCodeActions(
         handle: number,
         req: ICodeActionRequest,
@@ -440,9 +330,7 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 languageId: req.languageId,
                 version: req.versionId,
                 range: req.range,
-                // Спред — про чистоту payload'а: `undefined`-ключи всё равно
-                // выбрасывает JSON-транспорт RPC.
-                // Stryker disable next-line ConditionalExpression: см. выше
+                // Stryker disable next-line ConditionalExpression: спред — про чистоту payload'а, `undefined`-ключи всё равно выбрасывает JSON-транспорт RPC
                 ...(req.only === undefined ? {} : { only: req.only }),
             },
             [],
@@ -451,13 +339,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     }
 
     /**
-     * Просит субпроцесс применить закэшированное действие
-     * (`languages.applyCodeAction`): ленивый resolve + правки через
-     * `workspace.applyEdit` + команда действия — всё на его стороне. `false` —
-     * субпроцесса нет, действие протухло, правки не легли или таймаут
-     * отведённый срок. `id` уникален сквозь провайдеров: кэш
-     * субпроцесса сам знает, чьё это действие. `onSave` — действие применяет
-     * конвейер сохранения: его правки не сохраняются по
+     * Resolve, правки и команда действия — всё на стороне субпроцесса. `onSave` —
+     * действие применяет конвейер сохранения: его правки не сохраняются по
      * `files.refactoring.autoSave`.
      */
     public async applyCodeAction(id: string, options?: IApplyCodeActionOptions): Promise<boolean> {
@@ -468,29 +351,17 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
-    /**
-     * Спрашивает у rename-провайдера `handle` текущее имя символа в позиции
-     * каретки (`languages.prepareRename`). `null` — субпроцесса нет, документ
-     * не синхронизирован, провайдеру сказать нечего или он не ответил за
-     * отведённый срок; ядро в этом случае спрашивает следующего
-     * провайдера, а в конце добирает слово под кареткой само.
-     */
+    /** `null` — ядро спрашивает следующего провайдера, а в конце добирает слово под кареткой само. */
     public async prepareRename(handle: number, req: IRenameRequest): Promise<ICoreRenameLocation | null> {
         const prepared = await this.request("languages.prepareRename", { handle, ...positionParams(req) }, null);
         return prepared === null ? null : wireToCoreRenameLocation(prepared);
     }
 
     /**
-     * Просит rename-провайдера `handle` переименовать символ под кареткой
-     * (`languages.provideRenameEdits`): вызов провайдера и правки существующим
-     * `workspace.applyEdit` — всё на стороне субпроцесса. Отказ С СООБЩЕНИЕМ,
-     * если субпроцесса нет, документ субпроцессу не синхронизирован или расширение не
-     * ответило за отведённый срок: человек ввёл имя и обязан узнать, что
-     * ничего не произошло.
+     * В отличие от форматирования, любой отказ — С СООБЩЕНИЕМ: человек ввёл имя
+     * и обязан узнать, что ничего не произошло.
      */
     public async provideRenameEdits(handle: number, req: IRenameRequest, newName: string): Promise<ICoreRenameResult> {
-        // В отличие от форматирования, молчаливый no-op здесь неприемлем:
-        // и неответ, и несинхронизированный документ — отказ с сообщением.
         return this.request(
             "languages.provideRenameEdits",
             { handle, ...positionParams(req), newName },
@@ -502,11 +373,6 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         );
     }
 
-    /**
-     * Запрашивает у selection-range-провайдера `handle` иерархии выделений для
-     * позиций кареток (`languages.provideSelectionRanges`). `[]` — субпроцесса
-     * нет, документ ему не синхронизирован или расширение не ответило за срок.
-     */
     public async provideSelectionRanges(
         handle: number,
         req: ISelectionRangeRequest,
@@ -521,11 +387,9 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     }
 
     /**
-     * Токены документа от провайдера `handle` (`languages.provideDocumentSemanticTokens`):
-     * полный ответ или дельта к ответу `previousResultId`; `resultId` ответа —
-     * его id в субпроцессе строкой (upstream `MainThreadDocumentSemanticTokensProvider`).
-     * `null` — спрашивать некого или провайдер ничего не дал; отказ RPC —
-     * исключение. Срока нет, как в upstream: ненужный запрос отменяет токен.
+     * `resultId` ответа — его id в субпроцессе строкой (upstream
+     * `MainThreadDocumentSemanticTokensProvider`). Срока нет, как в upstream:
+     * ненужный запрос отменяет токен.
      */
     public async provideDocumentSemanticTokens(
         handle: number,
@@ -542,7 +406,6 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         return wireToCoreSemanticTokens(result);
     }
 
-    /** Токены диапазона от провайдера `handle`; ответ всегда полный. */
     public async provideDocumentRangeSemanticTokens(
         handle: number,
         req: IRangeSemanticTokensRequest,
@@ -560,21 +423,13 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         return result;
     }
 
-    /** Ответ `resultId` провайдера `handle` ядру больше не нужен. */
     public releaseDocumentSemanticTokens(handle: number, resultId: number): void {
         this.rpc?.notify("languages.releaseDocumentSemanticTokens", { handle, resultId });
     }
 
     /**
-     * Языковой запрос субпроцессу — общий путь всех `provide*`. Ответ —
-     * форма из карты протокола: её гарантирует сериализатор субпроцесса, и
-     * хост ответ своей второй половины не перепроверяет. `empty` — ответ,
-     * когда спрашивать некого (спавна нет, документ субпроцессу не
-     * синхронизирован — текста запросы не везут, отвечать не по чему) или
-     * расширение не ответило: истёк срок или отказ RPC (его пишет в лог
-     * `loggingRequest`). Срок есть у всех запросов, кроме автодополнения: его
-     * ожидание ограничивает токен вызывающего. Rename различает причины
-     * отказа сообщением (`noHost`/`notSynced` в `options`).
+     * Ответ — форма из карты протокола: её гарантирует сериализатор субпроцесса,
+     * хост его не перепроверяет. `empty` — спрашивать некого, истёк срок или отказ RPC.
      */
     private async request<K extends LanguageRequestMethod>(
         method: K,
@@ -583,10 +438,8 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
         options: ILanguageRequestOptions<K> = {},
     ): Promise<LanguageResult<K>> {
         const rpc = this.rpc;
-        // Спавн ушёл (остановлен или умер): спрашивать некого.
         if (rpc === null) return options.noHost ?? empty;
-        // Запросы по документу (все, кроме resolve/apply по id из кэша
-        // субпроцесса): документ, которого субпроцесс не держит, — без RPC.
+        // Без `uri` — resolve/apply по id из кэша субпроцесса.
         const { uri } = params as Partial<IWireDocumentParams>;
         if (uri !== undefined && !this.isSynced(uri)) return options.notSynced ?? empty;
         // Метод без строки в таблице сроков (автодополнение) ждёт без срока.
@@ -632,8 +485,6 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
                 this.onProvidersChangedEmitter.fire();
             }),
         );
-        // Провайдеры умерли вместе с субпроцессом: адаптер снимет их прокси из
-        // реестра ядра, и запросы к мёртвым handle не уйдут.
         store.add({
             dispose: () => {
                 this.rpc = null;
@@ -646,11 +497,6 @@ export class LanguageFeaturesCustomer extends Disposable implements IExtensionHo
     }
 }
 
-/**
- * Документ и позиция каретки в wire-форме — общая часть параметров всех
- * запросов с позицией (completion, inline, definition, hover, references,
- * signature help, обе rename-ручки).
- */
 function positionParams(
     req: Pick<ICompletionRequest, "uri" | "languageId" | "versionId" | "line" | "character">,
 ): IWirePositionParams {

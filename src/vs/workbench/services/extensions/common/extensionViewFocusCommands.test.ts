@@ -7,10 +7,6 @@ import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 
 import { registerExtensionViewFocusCommands } from "./extensionViewFocusCommands.ts";
 
-// Герметичный контракт `contributes.views` → команды `<вид>.focus`: синтетические
-// манифесты, настоящий реестр команд. Стоковое расширение (Supermaven, чат —
-// webview-вид) закрывает ту же дверь e2e-сценарием.
-
 function extension(id: string, manifest: Partial<IExtensionManifest>): IExtension {
     return { id, manifest: { name: id, publisher: "test", version: "0.0.1", ...manifest } } as unknown as IExtension;
 }
@@ -61,7 +57,6 @@ describe("registerExtensionViewFocusCommands", () => {
             `Acme Chat: view "chat" is a webview — webviews can't be shown in the terminal`,
             `Acme Chat: view "Outline" can't be shown — extension views aren't supported yet`,
         ]);
-        // В палитру не попадают: без заголовка (см. отступление в шапке модуля).
         expect(commands.listCommands()).toEqual([]);
     });
 

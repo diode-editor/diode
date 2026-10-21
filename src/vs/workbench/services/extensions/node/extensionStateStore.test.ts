@@ -16,7 +16,6 @@ import {
 describe("extensionStateStore", () => {
     let userData: ITempWorkspace;
 
-    /** Созданные кейсом `StateService` — гасим их в `afterEach`. */
     let writers: StateService[];
 
     beforeEach(() => {
@@ -25,8 +24,7 @@ describe("extensionStateStore", () => {
     });
 
     afterEach(() => {
-        // Писателей глушим ДО сноса каталога: debounced-запись, сработавшая
-        // после `rmSync`, пересоздаёт его.
+        // Писателей глушим до сноса каталога: debounced-запись после `rmSync` пересоздаёт его.
         for (const writer of writers) writer.dispose();
         userData.dispose();
     });
@@ -35,7 +33,6 @@ describe("extensionStateStore", () => {
         return resolveUserDataPaths({ homedir: "/never", userDataDir: userData.dir });
     }
 
-    /** `loadState` кейса: тот же контракт, плюс регистрация под `afterEach`. */
     function loadState(...args: Parameters<typeof loadStateReal>): StateService {
         const state = loadStateReal(...args);
         writers.push(state);

@@ -31,7 +31,6 @@ describe("ExtensionPhases", () => {
 
         expect(phases.takePending("a")).toBe(true);
         expect(phases.takePending("a")).toBe(false);
-        // Поднимается: ни в одной фазе, но в каталоге.
         expect(phases.isRegistered("a")).toBe(false);
         expect([...phases.all()]).toEqual([a]);
 
@@ -51,7 +50,6 @@ describe("ExtensionPhases", () => {
         expect(phases.returnInterrupted(a)).toBe(true);
         expect(phases.pendingRegistrations()).toEqual([a]);
 
-        // Сняли и зарегистрировали заново другой записью — старая не возвращается.
         phases.takePending("a");
         phases.forget("a");
         expect(phases.returnInterrupted(a)).toBe(false);

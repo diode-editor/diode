@@ -8,10 +8,9 @@ import { parseWireLanguageConfiguration } from "../hostWireParsers.ts";
 
 import { LanguageConfigurationCustomer } from "./languageConfigurationCustomer.ts";
 
-/** Регистратор слоёв: живые слои по порядку заведения. */
 function recordingService() {
     const live: { languageId: string; configuration: ILanguageConfiguration }[] = [];
-    /** Сколько раз снимали слои — повторное снятие одного слоя тоже считается. */
+    /** Повторное снятие одного слоя тоже считается. */
     const disposals = { count: 0 };
     return {
         live,
@@ -53,7 +52,6 @@ describe("LanguageConfigurationCustomer", () => {
         ]);
 
         peer.notify("languages.unsetLanguageConfiguration", { handle: 0 });
-        // Неизвестный handle и чужая форма — без последствий.
         peer.notify("languages.unsetLanguageConfiguration", { handle: 7 });
         peer.notify("languages.unsetLanguageConfiguration", { handle: "1" });
         await flushMicrotasks();

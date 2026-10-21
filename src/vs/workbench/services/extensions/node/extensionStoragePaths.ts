@@ -6,47 +6,25 @@ import { resolveWorkspaceStorageDir } from "../../../../platform/environment/nod
 import type { WorkspaceId } from "../../../../platform/workspace/common/iWorkspaceContextService.ts";
 
 /**
- * Корни приватных каталогов расширений. Их даёт ХОСТ (владелец user-data), а не
- * субпроцесс: раскладка `<user-data-dir>/user-data/...` — знание уровня
- * приложения, и выдумывать её из env субпроцессу нельзя.
- *
- * Соответствие эталону vscode (`IEnvironment` в `extensionHostProtocol.ts`):
- * `globalStorageHome` ↔ `globalStorageHome`, `workspaceStorageHome` ↔
- * `workspaceStorageHome/<workspace.id>` (тот же `IWorkspace.id`, см.
- * `resolveWorkspaceStorageDir`), `logsHome` ↔ `logsLocation`.
+ * Даёт хост — владелец раскладки user-data, а не субпроцесс. Эталон — `IEnvironment`
+ * (`extensionHostProtocol.ts`); `workspaceStorageHome` здесь уже с `/<workspace.id>`.
  */
 export interface IExtensionStorageHomes {
-    /** Родитель каталогов `globalStorageUri` (`<profileDir>/globalStorage`). */
     readonly globalStorageHome: string;
-    /**
-     * Родитель каталогов `storageUri` (`<workspaceStorageDir>/<workspaceId>`).
-     * `null` — папка/воркспейс не открыт: тогда `storageUri` у расширения
-     * `undefined`, как и в vscode.
-     */
+    /** `null` — папка не открыта: `storageUri` у расширения `undefined`, как в vscode. */
     readonly workspaceStorageHome: string | null;
-    /** Родитель каталогов `logUri` (`<userDataDir>/logs`). */
     readonly logsHome: string;
 }
 
-/** Пути одного расширения — то, что уезжает в `host.activateExtension`. */
 export interface IExtensionStoragePaths {
-    /** `ExtensionContext.globalStorageUri` / `globalStoragePath`. */
     readonly globalStoragePath: string;
-    /** `ExtensionContext.storageUri` / `storagePath`; `null` — папка не открыта. */
     readonly storagePath: string | null;
-    /** `ExtensionContext.logUri` / `logPath`. */
     readonly logPath: string;
 }
 
 /**
- * Резолвит каталоги одного расширения внутри корней. Pure, без I/O.
- *
- * Регистр id повторяет эталон дословно, включая его асимметрию:
- * `globalStorage` — по **lowercase** id (`ExtensionStoragePaths.globalValue`:
- * `identifier.value.toLowerCase()`), `workspaceStorage` и `logs` — по id как
- * есть (`workspaceValue`, `logUri`). Для нас это важно, потому что каталог с
- * уже скачанным движком AI-автодополнения ищется расширением по тому же
- * правилу, по которому мы его отдали.
+ * Регистр id — как в эталоне, с асимметрией: `globalStorage` по lowercase id, остальное как
+ * есть. Расширение ищет уже скачанное (движок AI-автодополнения) по тому же правилу.
  */
 export function resolveExtensionStoragePaths(
     homes: IExtensionStorageHomes,
@@ -59,15 +37,7 @@ export function resolveExtensionStoragePaths(
     };
 }
 
-/**
- * Создаёт РОДИТЕЛЬСКИЕ каталоги. Контракт vscode.d.ts: сам каталог расширения
- * «might not exist and creation is up to the extension», но «the parent
- * directory is guaranteed to be existent» — за эту половину отвечаем мы.
- *
- * Best effort: недоступный на запись user-data не должен рубить активацию —
- * расширение упадёт (или не упадёт) на своём `mkdir`, а остальные будут жить.
- * `onError` получает каждую неудачу (хост пишет её в свой лог-канал).
- */
+/** Родителя гарантирует vscode.d.ts, сам каталог создаёт расширение. Best effort: недоступный user-data не рубит активацию. */
 export function ensureExtensionStorageParents(
     homes: IExtensionStorageHomes,
     onError?: (dir: string, err: unknown) => void,
@@ -83,22 +53,12 @@ export function ensureExtensionStorageParents(
     }
 }
 
-/** Пути user-data, из которых собираются корни (подмножество `IUserDataPaths`). */
 export interface IExtensionStorageUserDataPaths {
     readonly globalStorageDir: string;
     readonly workspaceStorageDir: string;
     readonly logsDir: string;
 }
 
-/**
- * Собирает корни из путей user-data и идентичности ТЕКУЩЕГО воркспейса. Pure,
- * без I/O.
- *
- * Воркспейса нет (`null` — `IWorkspace.id` пустого окна) ⇒ воркспейсного корня
- * нет ⇒ `storageUri` у расширения `undefined` — семантика vscode: «The value is
- * `undefined` when no workspace nor folder has been opened». Два других корня от
- * воркспейса не зависят.
- */
 export function extensionStorageHomes(
     paths: IExtensionStorageUserDataPaths,
     workspaceId: WorkspaceId | null,
@@ -111,13 +71,7 @@ export function extensionStorageHomes(
     };
 }
 
-/**
- * Корни для {@link ExtensionHost}, поднятого без user-data (юнит-тесты,
- * харнессы, встроенные прогоны). `globalStorageUri` по API необязательным быть
- * не может, поэтому «нет хранилища» — не вариант: отдаём каталог во временных
- * файлах ОС. Воркспейсного корня тут нет — у такого хоста и папки нет, так что
- * `storageUri` честно `undefined`.
- */
+/** `globalStorageUri` по API обязателен — без user-data отдаём каталог во временных файлах ОС. */
 export function fallbackExtensionStorageHomes(): IExtensionStorageHomes {
     const root = path.join(os.tmpdir(), "diode-extension-storage");
     return {

@@ -10,9 +10,6 @@ import {
     parseWireTasksFromSubprocess,
 } from "./hostWireParsers.ts";
 
-// Разбор хостом сообщений `tasks.*` субпроцесса: описание задачи (ответ
-// провайдера, `tasks.execute`), регистрации провайдеров, фильтр, id исполнения.
-
 const base = {
     name: "build",
     definition: { type: "demo", target: "a" },

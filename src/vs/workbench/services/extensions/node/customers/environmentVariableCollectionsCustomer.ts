@@ -7,7 +7,6 @@ import type { HostRpc } from "../../../../api/common/extHostProtocol.ts";
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { parseWireSetEnvironmentVariableCollection } from "../hostWireParsers.ts";
 
-/** Хранилище без хранения — когда хосту его не дали (тесты, минимальные контейнеры). */
 export function createInMemoryEnvironmentVariableCollectionStore(): IEnvironmentVariableCollectionStore {
     const collections = new Map<string, IEnvironmentVariableCollectionWithPersistence>();
     return {
@@ -22,12 +21,8 @@ export function createInMemoryEnvironmentVariableCollectionStore(): IEnvironment
 }
 
 /**
- * Коллекции окружения расширений на хосте (часть `MainThreadTerminalService`
- * эталона): `terminal.setEnvironmentVariableCollection` субпроцесса — в
- * хранилище (пустая коллекция снимается), а на подъёме субпроцесса всё
- * хранилище уходит ему семенем `terminal.initEnvironmentVariableCollections`
- * (`$initEnvironmentVariableCollections`) — расширение видит свою коллекцию
- * такой, какой она была в прошлый запуск или до смерти субпроцесса.
+ * Часть `MainThreadTerminalService` эталона: на подъёме субпроцесса всё хранилище уходит ему
+ * семенем — расширение видит коллекцию такой, какой она была до смерти субпроцесса.
  */
 export class EnvironmentVariableCollectionsCustomer implements IExtensionHostCustomer {
     private rpc: HostRpc | null = null;
@@ -61,7 +56,7 @@ export class EnvironmentVariableCollectionsCustomer implements IExtensionHostCus
         return store;
     }
 
-    /** Семя до первой активации; пустое хранилище — семени нет (как у эталона). */
+    /** Пустое хранилище — семени нет (как у эталона). */
     public pushInitialState(): void {
         if (this.rpc === null || this.store.collections.size === 0) return;
         this.rpc.notify("terminal.initEnvironmentVariableCollections", {

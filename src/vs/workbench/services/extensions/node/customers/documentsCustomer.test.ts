@@ -9,12 +9,6 @@ import type { ISaveSnapshot } from "../../../textfile/common/iSaveParticipant.ts
 
 import { DocumentsCustomer } from "./documentsCustomer.ts";
 
-// Семантика гейтов document sync: didOpen/didClose — без гейта подписки
-// (реестр документов субпроцесса обязан нести полный текст активного ДО
-// активации клиента), но только при живом спавне и хоть одном расширении;
-// didChange — только при подписке (full-text на каждое нажатие без
-// потребителей — расточительно). «Спавна нет» — customer не подключён.
-
 function makeLogger(): { logger: ILogger; lines: string[] } {
     const lines: string[] = [];
     const log =
@@ -32,7 +26,6 @@ function makeLogger(): { logger: ILogger; lines: string[] } {
     return { logger, lines };
 }
 
-/** Порог синхронизации тестов: маленький, чтобы не гонять мегабайтные строки. */
 const LIMIT = 10;
 
 function makeCustomer(
@@ -333,19 +326,15 @@ describe("DocumentsCustomer — семя и сохранение", () => {
         });
         await subscribe(h, { willSave: true });
 
-        // Не открыт субпроцессу.
         await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
-        // Сверх порога — не синхронизирован.
         h.customer.didOpenTextDocument(snap("x".repeat(LIMIT + 1)));
         await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
         expect(uris).toEqual([]);
 
-        // Ровно на пороге — синхронизирован, запрос уходит.
         h.customer.didOpenTextDocument(snap("x".repeat(LIMIT)));
         await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
         expect(uris).toEqual(["file:///a.ts"]);
 
-        // Закрыт — снова без запроса.
         h.customer.didCloseTextDocument("file:///a.ts");
         await expect(h.customer.willSaveTextDocument(SAVE_SNAPSHOT)).resolves.toEqual([]);
         expect(uris).toEqual(["file:///a.ts"]);

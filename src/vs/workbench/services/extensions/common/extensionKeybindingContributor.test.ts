@@ -36,7 +36,6 @@ describe("registerExtensionKeybindings", () => {
         const chord = registry.getKeybindingForCommand("regionfolder.wrapWithRegion");
         expect(chord).toBeDefined();
         expect(formatKeybinding(chord!)).toBe("Ctrl+M Ctrl+R");
-        // Источник записи — "extension" (колонка Source во вкладке шорткатов).
         const entry = registry.listBindings().find((b) => b.commandId === "regionfolder.wrapWithRegion");
         expect(entry?.source).toBe("extension");
     });
@@ -85,7 +84,7 @@ describe("registerExtensionKeybindings", () => {
         const warn = vi.fn();
         registerExtensionKeybindings([ext([{ command: "cmd", key: "", mac: "meta+a" }])], registry, { warn } as never);
         expect(registry.listBindings().map((b) => b.when)).toEqual(["os == 'mac'"]);
-        expect(warn).not.toHaveBeenCalled(); // ОС без привязки пропущены, а не упали на парсинге
+        expect(warn).not.toHaveBeenCalled();
     });
 
     it("снятие привязки (-command) снимает каждый вариант", () => {
@@ -124,7 +123,6 @@ describe("registerExtensionKeybindings", () => {
         registerExtensionKeybindings(
             [
                 ext([
-                    // Манифест — чужой JSON: command не строка.
                     { command: 42 as unknown as string, key: "ctrl+a" },
                     { command: "b", key: "ctrl+b" },
                 ]),

@@ -8,7 +8,6 @@ import type { IIpcEndpoint } from "../../../api/common/ipcMessageChannel.ts";
 import { IpcMessageChannel } from "../../../api/common/ipcMessageChannel.ts";
 import { RpcEndpoint } from "../../../api/common/rpcEndpoint.ts";
 
-/** Команда и аргументы запуска субпроцесса ext host'а. */
 export interface IExtensionHostSpawnSpec {
     readonly command: string;
     readonly args: string[];
@@ -18,23 +17,14 @@ export interface IExtensionHostSpawnSpec {
 export interface IExtensionHostProcessOptions {
     readonly spawnArgs: () => IExtensionHostSpawnSpec;
     readonly logger: ILogger | undefined;
-    /** Трасса RPC-сообщений канала. */
     readonly rpcLogger: ILogger | undefined;
-    /** Куда пишется stdout ребёнка построчно; без логгера поток закрыт (`ignore`). */
     readonly stdoutLogger: ILogger | undefined;
-    /** Куда пишется stderr ребёнка построчно; без логгера поток закрыт (`ignore`). */
     readonly stderrLogger: ILogger | undefined;
 }
 
 /**
- * Один запущенный субпроцесс ext host'а: spawn, stdio, канал и RPC поверх него,
- * ожидание `host.ready` и выключение. Ничего не знает о поверхностях API —
- * обработчики на {@link rpc} ставит владелец (`ExtensionHost`), пока ребёнок
- * ещё не прислал ни одного сообщения (IPC доставляет их асинхронно).
- *
- * Аналог upstream `LocalProcessExtensionHost`
- * (`services/extensions/electron-browser/localProcessExtensionHost.ts`): только
- * процесс, handshake и выход.
+ * Обработчики на {@link rpc} владелец ставит до первого сообщения ребёнка (IPC доставляет
+ * их асинхронно). Аналог upstream `LocalProcessExtensionHost`: только процесс, handshake и выход.
  */
 export class ExtensionHostProcess {
     public readonly rpc: HostRpc;
@@ -43,10 +33,7 @@ export class ExtensionHostProcess {
     private readonly channel: IpcMessageChannel;
     private readonly logger: ILogger | undefined;
 
-    /**
-     * @param onExit ребёнок вышел — сам, по сигналу или не поднявшись (`error`
-     * без `exit`: тогда код и сигнал — `null`); зовётся один раз
-     */
+    /** @param onExit зовётся один раз; `error` без `exit` — код и сигнал `null` */
     public constructor(
         options: IExtensionHostProcessOptions,
         onExit: (code: number | null, signal: NodeJS.Signals | null) => void,
@@ -65,9 +52,8 @@ export class ExtensionHostProcess {
             stdout,
             stderr,
         });
-        // `ownProcessGroup` — чтобы сигнал выключения доставал ВНУКОВ: языковые
-        // серверы поднимает не хост, а сами расширения (jdtls, gopls, …), и
-        // сигнал прямому ребёнку их не касается. См. `killTree` ниже.
+        // Своя группа — чтобы сигнал доставал внуков: языковые серверы поднимают сами
+        // расширения (jdtls, gopls), сигнал прямому ребёнку их не касается.
         const child = spawnSelfAsRole("DIODE_EXTENSION_HOST", {
             stdout,
             stderr,
@@ -75,8 +61,6 @@ export class ExtensionHostProcess {
             env: spec.env,
             ownProcessGroup: true,
         });
-        // Правила самофорка (error через `on`, error без exit — тоже конец,
-        // слушатели на stdio) исполняет guard.
         this.guard = new GuardedChildProcess(child, { label: "extension-host", logger: this.logger });
         if (child.stdout !== null && stdoutLogger !== undefined) {
             splitLines(child.stdout, (line) => {
@@ -89,9 +73,7 @@ export class ExtensionHostProcess {
             });
         }
         this.guard.onDidEnd((end) => {
-            // Неудачный спавн (EMFILE, ENOENT) — тоже конец: `exit` после него может
-            // не прийти вовсе, а владелец обязан сбросить состояние и поднять
-            // процесс заново на следующей активации.
+            // Неудачный спавн (EMFILE, ENOENT) — тоже конец: `exit` может не прийти, а владелец обязан сбросить состояние.
             // Stryker disable next-line StringLiteral,ObjectLiteral: текст и поля лога поведения не задают
             if (end.error === undefined) this.logger?.info("extension host subprocess exited", end);
             else this.logger?.error("extension host subprocess error", end.error);
@@ -102,26 +84,17 @@ export class ExtensionHostProcess {
         this.rpc = new RpcEndpoint(this.channel, options.rpcLogger);
     }
 
-    /** Ждёт `host.ready`; отказ — ребёнок вышел раньше или не успел за `timeoutMs`. */
     public waitForReady(timeoutMs: number): Promise<void> {
         return waitForReady(this.rpc, this.guard, timeoutMs);
     }
 
-    /**
-     * Закрывает канал: запросы в полёте получают отказ. Для ребёнка, который
-     * уже вышел сам; живого выключает {@link shutdown}.
-     */
+    /** Для ребёнка, который уже вышел сам; живого выключает {@link shutdown}. */
     public dispose(): void {
         this.rpc.dispose();
         // Stryker disable next-line CallExpression: закрытый RPC канал уже не слушает — отписка канала от ребёнка ненаблюдаема
         this.channel.dispose();
     }
 
-    /**
-     * Вежливое прощание: `host.shutdown` (расширения зовут `deactivate()`) с
-     * тайм-аутом, затем SIGTERM, затем SIGKILL — каждый следующий шаг только если
-     * ребёнок ещё жив. В конце закрывает канал.
-     */
     public async shutdown(shutdownTimeoutMs: number): Promise<void> {
         const child = this.child;
         const exit = waitForExit(child);
@@ -141,24 +114,14 @@ export class ExtensionHostProcess {
         this.dispose();
     }
 
-    /**
-     * Синхронно добивает ребёнка (и его потомство) сигналом — там, где event
-     * loop дальше не крутится (перезагрузка окна). Проверять «а жив ли он» не
-     * нужно: мёртвому процессу/группе сигнал не бросает наружу, см.
-     * {@link killTree}.
-     */
+    /** Синхронно — там, где event loop дальше не крутится (перезагрузка окна). */
     public kill(): void {
         this.killTree("SIGKILL");
     }
 
     /**
-     * Снимает ребёнка ВМЕСТЕ с его потомством. Субпроцесс запущен `detached`,
-     * то есть он — лидер своей группы процессов, и отрицательный pid адресует
-     * сигнал всей группе: внуки (языковые серверы расширений) уходят вместе с
-     * ним, а не остаются сиротами.
-     *
-     * Группы может уже не быть (все вышли сами) — это не ошибка. На Windows
-     * групп процессов нет, там остаётся только прямой `kill`.
+     * Ребёнок запущен `detached` — лидер своей группы: отрицательный pid снимает и внуков
+     * (языковые серверы). На Windows групп нет, там только прямой `kill`.
      */
     private killTree(signal: NodeJS.Signals): void {
         const pid = this.child.pid;
@@ -168,8 +131,7 @@ export class ExtensionHostProcess {
                 process.kill(-pid, signal);
                 return;
             } catch (err) {
-                // Группы нет (ESRCH) — ребёнок с внуками уже вышли. Иное —
-                // пробуем прямой kill ниже, чтобы не оставить ребёнка живым.
+                // ESRCH — группа уже вышла; иное — пробуем прямой kill, чтобы не оставить ребёнка живым.
                 if (isNoSuchProcess(err)) return;
                 this.logger?.warn("group kill failed, falling back to direct kill", err);
             }
@@ -186,10 +148,6 @@ function isNoSuchProcess(err: unknown): boolean {
     return (err as NodeJS.ErrnoException).code === "ESRCH";
 }
 
-/**
- * Как запустить себя же ext-host'ом. Развилка dev/SEA общая с watcher-процессом
- * и с перезагрузкой окна — живёт в `base/node/selfSpawnArgs.ts`.
- */
 export function defaultSpawnArgs(): IExtensionHostSpawnSpec {
     return selfSpawnArgs();
 }

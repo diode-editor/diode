@@ -106,8 +106,7 @@ describe("ExtensionTokenizationContributor", () => {
         expect(registry.get("typescript")).toBeUndefined();
     });
 
-    // Регрессионный замок на eager-парсинг: 77 builtin-грамматик — это 6.6 MB
-    // JSON, и открытие одного .ts не должно их трогать.
+    // Замок на eager-парсинг: 77 builtin-грамматик — 6.6 MB JSON.
     it("apply() не читает ассеты — грамматика парсится только на load()", async () => {
         const assets = createDevAssetAccess();
         const exts = await scanBuiltinExtensions(assets, ROOT_PREFIX);
@@ -120,7 +119,6 @@ describe("ExtensionTokenizationContributor", () => {
 
         await registry.load("typescript");
         expect(readText).toHaveBeenCalled();
-        // Грузим только запрошенный язык, а не весь builtin-набор.
         expect(registry.get("css")).toBeUndefined();
 
         contributor.dispose();

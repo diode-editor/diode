@@ -10,14 +10,8 @@ import type { IExtensionSecretStore } from "../extensionSecretsStore.ts";
 import { parseWireSecretKeysRequest, parseWireSecretWrite } from "../hostWireParsers.ts";
 
 /**
- * `ExtensionContext.secrets`: субпроцесс не хранит ничего сам, а ходит сюда
- * запросами — хранилище знает только хост (он владеет user-data).
- *
  * Ни одна из этих веток НЕ логируется: в параметрах едет значение секрета, и
- * даже пара «расширение + ключ» рядом с ним в логе — уже утечка. Ошибки
- * формы отдаём исключением (RPC превратит его в reject у расширения),
- * ошибки самого хранилища — его собственным `onError` (туда уходят путь и
- * причина, но никогда значение).
+ * даже пара «расширение + ключ» рядом с ним в логе — уже утечка.
  */
 export class SecretsCustomer implements IExtensionHostCustomer {
     public constructor(private readonly secrets: IExtensionSecretStore) {}
@@ -51,8 +45,7 @@ export class SecretsCustomer implements IExtensionHostCustomer {
             rpc.handleRequest("secrets.delete", (params): null => {
                 const ref = requireSecretRef(params, "secrets.delete");
                 this.secrets.delete(ref.extensionId, ref.key);
-                // Событие — и на удаление: в эталоне `onDidChange` описывает факт
-                // изменения секрета, а не только его появление.
+                // И на удаление: в эталоне `onDidChange` — факт изменения, а не только появления.
                 rpc.notify("secrets.changed", { extensionId: ref.extensionId, key: ref.key });
                 return null;
             }),
@@ -61,10 +54,7 @@ export class SecretsCustomer implements IExtensionHostCustomer {
     }
 }
 
-/**
- * Адрес секрета из параметров запроса или исключение. Сообщение НЕ содержит
- * самих параметров: в соседнем поле того же объекта ездит значение секрета.
- */
+/** Сообщение НЕ содержит параметров: в соседнем поле того же объекта ездит значение секрета. */
 function requireSecretRef(raw: unknown, method: string): IWireSecretRef {
     const ref = parseWireSecretRef(raw);
     if (ref === null) throw new Error(`${method}: expected { extensionId, key } of non-empty strings`);

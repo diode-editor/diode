@@ -10,7 +10,6 @@ const RANGE = { start: { line: 1, character: 2 }, end: { line: 1, character: 6 }
 const MAIN = "file:///proj/main.ts";
 const SETTINGS = "file:///proj/settings.json";
 
-/** Стаб канала спавна: обработчики нотификаций субпроцесса и всё, что хост отправил. */
 function makeRpc() {
     const handlers = new Map<string, (params: unknown) => void>();
     const sent: { method: string; params: unknown }[] = [];
@@ -26,7 +25,6 @@ function makeRpc() {
     const fire = (method: string, params: unknown): void => {
         handlers.get(method)?.(params);
     };
-    /** Записи `diagnostics.markersChanged` по порядку отправки. */
     const mirrored = () =>
         sent
             .filter((m) => m.method === "diagnostics.markersChanged")
@@ -34,7 +32,6 @@ function makeRpc() {
     return { rpc, fire, sent, mirrored };
 }
 
-/** Customer поверх настоящего MarkerService со стоком-мостом, как в module. */
 function setup() {
     const markers = new MarkerService();
     const sink = vi.fn((owner: string, resource: string, wire: readonly { message: string }[]) => {

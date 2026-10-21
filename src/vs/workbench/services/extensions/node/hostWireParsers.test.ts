@@ -229,11 +229,7 @@ describe("parseWireReadFileResult", () => {
     });
 });
 
-/**
- * Функция с нужными полями — не объект провода: `typeof` у неё `"function"`, а
- * поля читаются как у объекта. Только такой вход отличает проверку
- * `typeof raw !== "object"` от проверок полей, идущих следом.
- */
+/** Только такой вход отличает проверку `typeof raw !== "object"` от проверок полей следом. */
 function fnWith(fields: Record<string, unknown>): unknown {
     return Object.assign(() => undefined, fields);
 }

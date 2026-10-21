@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { deactivateExtension, type IDeactivatableExtension } from "./extensionDeactivation.ts";
 import { createStderrLogger } from "./stderrLogger.ts";
 
-/** Логгер субпроцесса, пишущий строки stderr в массив. */
 function captureLogger(): { lines: string[]; logger: ReturnType<typeof createStderrLogger> } {
     const lines: string[] = [];
     return { lines, logger: createStderrLogger((line) => lines.push(line)) };

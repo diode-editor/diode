@@ -11,15 +11,8 @@ import {
 } from "../hostWireParsers.ts";
 
 /**
- * Задачи расширений (`MainThreadTask` эталона): регистрации провайдеров,
- * `fetchTasks`/`executeTask`/`terminate` субпроцесса уходят в сток (мост
- * `contrib/tasks` над сервисом задач), а жизнь исполнений задач ядра — всех,
- * в том числе запущенных из палитры, — возвращается субпроцессу
- * `tasks.didStart` / `didStartProcess` / `didEndProcess` / `didEnd`.
- *
- * Регистрации провайдеров принадлежат спавну: на его смерти снимаются вместе
- * с `attach`-store. Без стока задачи расширений никуда не ведут: провайдеры не
- * регистрируются, `fetchTasks` пуст, `executeTask` отклоняется.
+ * `MainThreadTask` эталона. Субпроцессу пересказываются все исполнения задач ядра,
+ * в том числе запущенные из палитры. Регистрации провайдеров принадлежат спавну.
  */
 export class TasksCustomer implements IExtensionHostCustomer {
     public constructor(private readonly sink: IExtensionTaskSink | undefined) {}
@@ -52,7 +45,6 @@ export class TasksCustomer implements IExtensionHostCustomer {
                     rpc.notify("tasks.didStartProcess", { id, processId });
                 },
                 processEnded: (id, exitCode) => {
-                    // Код есть не всегда: процесс закрыли — `exitCode` в событии `undefined`.
                     // Stryker disable next-line ConditionalExpression: эквивалентный — JSON-провод сам роняет ключ со значением undefined; ветка — для типа сообщения
                     rpc.notify("tasks.didEndProcess", { id, ...(exitCode !== undefined ? { exitCode } : {}) });
                 },

@@ -8,8 +8,6 @@ import { TextMateGrammarLoader } from "../../textMate/common/textMateGrammarLoad
 
 import { ExtensionTokenizationContributor } from "./extensionTokenizationContributor.ts";
 
-// Mock the grammar loader so we can drive loadSupport() into the null / throw branches
-// without touching real grammar assets.
 vi.mock("../../textMate/common/textMateGrammarLoader.ts", () => {
     return {
         TextMateGrammarLoader: vi.fn().mockImplementation(function () {
@@ -50,7 +48,6 @@ function makeExtWithGrammar(): IExtension {
 
 const dummyAssets = {} as IAssetAccess;
 
-/** Промис, который резолвим/реджектим снаружи — чтобы держать загрузку in-flight. */
 function deferred<T>(): { promise: Promise<T>; reject: (err: unknown) => void } {
     let reject!: (err: unknown) => void;
     const promise = new Promise<T>((_, r) => (reject = r));
@@ -98,8 +95,6 @@ describe("ExtensionTokenizationContributor — error handling", () => {
         );
     });
 
-    // dispose() роняет vscode-textmate Registry под уже летящим loadGrammar —
-    // тот предсказуемо бросает. Это не сбой грамматики, и в лог сыпать не надо.
     it("stays silent when dispose() tears the loader down under an in-flight load", async () => {
         const gate = deferred<never>();
         MockedLoader.mockImplementationOnce(function () {

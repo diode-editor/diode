@@ -20,18 +20,8 @@ import {
     parseWireWatcherDispose,
 } from "../hostWireParsers.ts";
 
-/**
- * Файловая сторона API расширений: провайдеры ФС (`git:` у встроенного git),
- * провайдеры содержимого недисковых ресурсов (`jdt:` у redhat.java) и
- * watcher'ы (`workspace.createFileSystemWatcher`). События ядру и pull-API
- * живут столько же, сколько хост; watcher'ы и канал к провайдерам — один
- * спавн субпроцесса.
- */
+/** События ядру живут столько же, сколько хост; watcher'ы и канал к провайдерам — один спавн. */
 export class FileSystemCustomer extends Disposable implements IExtensionHostCustomer {
-    /**
-     * Текущий спавн: канал к провайдерам и схемы его `TextDocumentContentProvider`'ов;
-     * `null` — спавна нет. Схемы содержимого уходят вместе со спавном.
-     */
     private live: { readonly rpc: HostRpc; textContentSchemes: readonly string[] } | null = null;
     private fileSystemSchemesValue: readonly string[] = [];
     private readonlySchemes: ReadonlySet<string> = new Set();
@@ -39,18 +29,14 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
     private readonly onDidChangeProvidedFileEmitter = this.register(new Emitter<readonly Uri[]>());
     private readonly onDidChangeTextContentEmitter = this.register(new Emitter<Uri>());
 
-    /** Набор схем провайдеров ФС изменился (расширение зарегистрировало/сняло провайдера). */
     public readonly onFileSystemProvidersChanged = this.onFileSystemProvidersChangedEmitter.event;
-    /** Содержимое ресурсов провайдера ФС изменилось снаружи. */
     public readonly onDidChangeProvidedFile = this.onDidChangeProvidedFileEmitter.event;
-    /** Провайдер объявил, что содержимое недискового ресурса изменилось. */
     public readonly onDidChangeTextContent = this.onDidChangeTextContentEmitter.event;
 
     public constructor(private readonly fileWatcher: IExtensionFileWatcher) {
         super();
     }
 
-    /** Схемы, для которых субпроцесс держит `FileSystemProvider`. */
     public getFileSystemSchemes(): readonly string[] {
         return this.fileSystemSchemesValue;
     }
@@ -61,20 +47,19 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
     }
 
     /**
-     * Читает недисковый ресурс провайдером субпроцесса. Отклоняется, если host
-     * не поднят или провайдер схемы не зарегистрирован — потребитель обязан
-     * это пережить (для гуттера «git-расширения нет» — штатная ситуация).
+     * Отклоняется, если host не поднят или провайдер схемы не зарегистрирован —
+     * потребитель обязан это пережить (для гуттера «git-расширения нет» — штатно).
      */
     public async readProvidedFile(uri: Uri): Promise<Uint8Array> {
         return parseWireReadFileResult(await this.rpc().request("workspace.fs.readFile", { uri: uri.toString() }));
     }
 
-    /** Метаданные ресурса провайдера; `null` — ресурса нет. Отклоняется, как {@link readProvidedFile}. */
+    /** `null` — ресурса нет. Отклоняется, как {@link readProvidedFile}. */
     public async statProvidedFile(uri: Uri): Promise<IStat | null> {
         return parseWireFileStat(await this.rpc().request("workspace.fs.stat", { uri: uri.toString() }));
     }
 
-    /** Пишет ресурс провайдером субпроцесса (создать или перезаписать). Отклоняется, как {@link readProvidedFile}. */
+    /** Отклоняется, как {@link readProvidedFile}. */
     public async writeProvidedFile(uri: Uri, content: Uint8Array): Promise<void> {
         await this.rpc().request("workspace.fs.writeFile", {
             uri: uri.toString(),
@@ -89,20 +74,16 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
     }
 
     /**
-     * Держит ли субпроцесс `TextDocumentContentProvider` для схемы. Ответ
-     * меняется по ходу жизни окна: расширение активируется асинхронно и
-     * регистрирует провайдера уже после того, как человек открыл первый файл, —
-     * поэтому спрашивать надо в момент открытия ресурса, а не один раз.
+     * Спрашивать в момент открытия ресурса, а не один раз: расширение активируется
+     * асинхронно и регистрирует провайдера уже после открытия первого файла.
      */
     public hasTextContentProvider(scheme: string): boolean {
         return this.live?.textContentSchemes.includes(scheme) === true;
     }
 
     /**
-     * Содержимое недискового ресурса от провайдера субпроцесса. `null` —
-     * провайдер отказался отдать ресурс. Отклоняется, если host не поднят,
-     * схема не зарегистрирована или провайдер бросил: ядру нужна причина, чтобы
-     * показать её человеку.
+     * `null` — провайдер отказался отдать ресурс. Сбой — отклонением, а не `null`:
+     * ядру нужна причина, чтобы показать её человеку.
      */
     public async provideTextDocumentContent(uri: Uri): Promise<string | null> {
         const rpc = this.live?.rpc;
@@ -117,11 +98,7 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
         const live = { rpc, textContentSchemes: [] as readonly string[] };
         this.live = live;
         const store = new DisposableStore();
-        /** Живые watcher'ы субпроцесса по id; уходят вместе со спавном. */
         const watchers = store.add(new DisposableMap<number>());
-        // Субпроцесс объявляет схемы, для которых расширения зарегистрировали
-        // FileSystemProvider (у встроенного git — `git:`). Ядро по ним читает
-        // недисковые ресурсы через IFileSystemProviderRegistry.
         store.add(
             rpc.handleNotification("workspace.fileSystemProvidersChanged", (params) => {
                 const { schemes, readonly } = parseWireFileSystemSchemes(params);
@@ -130,16 +107,13 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
                 this.onFileSystemProvidersChangedEmitter.fire();
             }),
         );
-        // То же для TextDocumentContentProvider'ов (`jdt:`/`class:` у redhat.java):
-        // это отдельный реестр — провайдер отдаёт текст, а не байты, и только на
-        // чтение. По ним ядро открывает read-only вкладки недисковых ресурсов.
+        // TextDocumentContentProvider'ы (`jdt:` у redhat.java) — отдельный реестр:
+        // провайдер отдаёт текст, а не байты, и только на чтение.
         store.add(
             rpc.handleNotification("workspace.textDocumentContentProvidersChanged", (params) => {
                 live.textContentSchemes = parseWireSchemes(params);
             }),
         );
-        // Провайдер объявил, что содержимое ресурса изменилось — открытая вкладка
-        // обязана перечитаться (`TextDocumentContentProvider.onDidChange`).
         store.add(
             rpc.handleNotification("workspace.textDocumentContentChanged", (params) => {
                 const uri: unknown = params.uri;
@@ -147,8 +121,6 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
                 this.onDidChangeTextContentEmitter.fire(Uri.parse(uri));
             }),
         );
-        // Провайдер расширения сообщил, что содержимое ресурсов изменилось
-        // (для git: — сдвинулся HEAD/индекс): потребители сбрасывают кэш.
         store.add(
             rpc.handleNotification("workspace.fs.didChangeFile", (params) => {
                 const p: { uris?: unknown } = params;
@@ -157,17 +129,14 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
                 this.onDidChangeProvidedFileEmitter.fire(raw.map((u) => Uri.parse(u)));
             }),
         );
-        // Файловые watcher'ы расширений (`workspace.createFileSystemWatcher`).
-        // Слежение за деревом ведёт ядро (оно владеет excludes и бюджетом
-        // inotify), а матчинг шаблона — здесь: субпроцессу уезжают только
-        // подошедшие события, а не весь поток по воркспейсу.
+        // Слежение за деревом ведёт ядро (оно владеет excludes и бюджетом inotify),
+        // а матчинг шаблона — здесь: субпроцессу уезжают только подошедшие события.
         store.add(
             rpc.handleNotification("workspace.watcher.create", (params) => {
                 const request = parseWireWatcherCreate(params);
                 // Stryker disable next-line ConditionalExpression: без проверки null падает на поле до вызова watcher'а — RpcEndpoint глотает исключение нотификации, наблюдаемо то же «проигнорировано»
                 if (request === null) return;
-                // Повторный id — пересоздание: `set` роняет старую подписку,
-                // иначе она осталась бы висеть без владельца.
+                // Повторный id — пересоздание: `set` роняет старую подписку.
                 watchers.set(
                     request.id,
                     this.fileWatcher.watch(request.base, isRecursiveWatchPattern(request.pattern), (changes) => {
@@ -185,10 +154,8 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
                 watchers.deleteAndDispose(id);
             }),
         );
-        // Объявленное субпроцессом умирает вместе с ним: провайдеры схем, которые
-        // он держал, отвечать больше не будут. Схемы ФС снимаются с событием —
-        // по нему адаптер убирает хост из реестра ядра (иначе `git:` указывал бы
-        // на мёртвый субпроцесс до его оживления).
+        // Схемы ФС снимаются с событием: иначе `git:` в реестре ядра указывал бы
+        // на мёртвый субпроцесс до его оживления.
         store.add({
             dispose: () => {
                 this.live = null;
@@ -203,22 +170,15 @@ export class FileSystemCustomer extends Disposable implements IExtensionHostCust
 }
 
 /**
- * Рекурсивен ли watcher с таким шаблоном. Правило VS Code: `RelativePattern`
- * с простым `*` (или другим односегментным шаблоном) следит только за прямыми
- * детьми базы, а как только в шаблоне появляется `**` или разделитель — за
- * поддеревом. Именно на этом различии держится дешёвый watcher `.git`:
+ * Правило VS Code: односегментный шаблон следит только за прямыми детьми базы,
+ * `**` или разделитель — за поддеревом. На этом держится дешёвый watcher `.git`:
  * `new RelativePattern(dotGit, "*")` не тащит за собой `.git/objects`.
  */
 export function isRecursiveWatchPattern(pattern: string): boolean {
     return pattern.includes("**") || pattern.includes("/");
 }
 
-/**
- * Фильтрует пачку изменений одного watcher'а и переводит её в wire-события:
- * отбрасывает то, что вне базы, не подошло шаблону или выключено флагами
- * `ignore*Events`. Путь матчится относительно базы в posix-форме — так шаблон
- * `RelativePattern` работает одинаково на всех платформах.
- */
+/** Путь матчится относительно базы в posix-форме — шаблон работает одинаково на всех платформах. */
 export function toWatcherEvents(request: IWireWatcherCreate, changes: readonly ITreeFileChange[]): IWireWatcherEvent[] {
     const events: IWireWatcherEvent[] = [];
     for (const change of changes) {
@@ -226,7 +186,6 @@ export function toWatcherEvents(request: IWireWatcherCreate, changes: readonly I
         if (change.type === "changed" && request.ignoreChangeEvents) continue;
         if (change.type === "deleted" && request.ignoreDeleteEvents) continue;
         const relative = path.relative(request.base, change.path);
-        // Вне базы (`..`) или сама база (пустой путь) — не наше событие.
         if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) continue;
         if (!matchGlob(request.pattern, relative.split(path.sep).join("/"))) continue;
         events.push({ type: change.type, uri: Uri.file(change.path).toString() });

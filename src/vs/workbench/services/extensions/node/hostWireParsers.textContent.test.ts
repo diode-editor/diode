@@ -2,11 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { parseWireSchemes, parseWireTextContentResult } from "./hostWireParsers.ts";
 
-/**
- * Разбор ответов `workspace.provideTextDocumentContent` и списков схем.
- * Граница с чужим процессом: «провайдер сказал нет» (`null`) и «канал отдал
- * мусор» (исключение) — разные исходы, и ядро показывает их человеку по-разному.
- */
 describe("parseWireTextContentResult", () => {
     it("отдаёт строку содержимого", () => {
         expect(parseWireTextContentResult({ content: "class Foo {}" })).toBe("class Foo {}");

@@ -8,13 +8,12 @@ import type { IWireForeignMarkers, WireMarker } from "../../../../api/common/wir
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { parseWireDiagnosticsPublish } from "../hostWireParsers.ts";
 
-/** Чтение MarkerService для обратного пути: какие ресурсы поменялись и что на них лежит. */
 export interface IMarkerReader {
     readonly onDidChangeMarkers: Event<readonly string[]>;
     read(filter?: IMarkerReadFilter): IMarker[];
 }
 
-/** `MarkerSeverity` → число `vscode.DiagnosticSeverity` (0=Error…3=Hint). */
+/** → `vscode.DiagnosticSeverity` (0=Error…3=Hint). */
 function toWireSeverity(severity: MarkerSeverity): number {
     switch (severity) {
         case MarkerSeverity.Warning:
@@ -39,30 +38,17 @@ function toWireMarker(marker: IMarker): WireMarker {
 }
 
 /**
- * Диагностики в обе стороны (`MainThreadDiagnostics` эталона). Туда: коллекции
- * расширений публикуют маркеры (`diagnostics.publish`) — они уходят стоку,
- * module ведёт его в MarkerService (squiggle + Problems). Обратно: маркеры
- * чужих владельцев (настройки, задачи) уходят субпроцессу
- * `diagnostics.markersChanged` — из них `languages.getDiagnostics` и
- * `onDidChangeDiagnostics` видят всё, что видит панель Problems.
- *
- * «Свой» — владелец, которого хоть раз публиковал субпроцесс этого хоста (у
- * эталона — `origin` маркера, id extension host'а): свои маркеры субпроцесс и
- * так держит в коллекциях. Множество живёт с хостом, а не со спавном: маркеры
- * умершего субпроцесса остаются в MarkerService, и новый спавн не должен
- * принять их за чужие.
+ * `MainThreadDiagnostics` эталона в обе стороны; обратно уходят маркеры чужих владельцев.
+ * «Свой» — владелец, которого хоть раз публиковал субпроцесс (у эталона — `origin` маркера).
+ * Множество живёт с хостом: маркеры умершего спавна остаются в MarkerService и не чужие новому.
  */
 export class DiagnosticsCustomer implements IExtensionHostCustomer {
     private readonly ownOwners = new Set<string>();
     /**
-     * Ресурсы, по которым субпроцессу ушли непустые чужие маркеры. Их
-     * исчезновение надо сообщить пустым набором; ресурс, где чужих не было, —
-     * молчать (своя публикация не эхом в зеркало). У эталона такого учёта нет:
-     * пустой набор он шлёт, только когда у ресурса не осталось маркеров
-     * вовсе, — и зеркало держит снятые чужие, пока рядом лежат свои.
+     * Ресурсы с ушедшими непустыми чужими маркерами — их исчезновение сообщается пустым набором.
+     * Отклонение: эталон шлёт пустой набор, лишь когда маркеров не осталось вовсе, и держит снятые чужие.
      */
     private readonly forwarded = new Set<string>();
-    /** Канал текущего спавна; `null` — спавна нет. */
     private rpc: HostRpc | null = null;
 
     public constructor(
@@ -70,10 +56,7 @@ export class DiagnosticsCustomer implements IExtensionHostCustomer {
         private readonly markers: IMarkerReader | undefined,
     ) {}
 
-    /**
-     * Семя — до первой активации: чужие маркеры, что легли до спавна (у
-     * эталона их нет — MainThreadDiagnostics поднимается вместе с окном).
-     */
+    /** До первой активации: чужие маркеры, что легли до спавна. */
     public pushInitialState(): void {
         if (this.markers === undefined) return;
         this.forward(
@@ -114,7 +97,6 @@ export class DiagnosticsCustomer implements IExtensionHostCustomer {
     }
 
     private forward(markers: IMarkerReader, resources: readonly string[]): void {
-        // Семя до спавна — некому слать.
         if (this.rpc === null) return;
         const entries: IWireForeignMarkers[] = [];
         for (const resource of new Set(resources)) {

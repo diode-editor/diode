@@ -5,79 +5,39 @@ import { CancellationTokenNone, type ICancellationToken } from "../../../../base
 import { matchGlob } from "../../../../base/common/glob.ts";
 import type { IWorkspaceContainsPatterns } from "../common/activationEvents.ts";
 
-/**
- * Совпадение `workspaceContains:`-паттернов расширения с содержимым открытых
- * папок воркспейса — вторая половина честного события активации (первая, разбор
- * паттернов по семантике, — в `../common/activationEvents.ts`).
- *
- * Доступ к ФС спрятан за {@link IWorkspaceScanner}: логика обхода (бюджет,
- * глубина, исключения) закрывается тестами на карте каталогов в памяти, а
- * настоящую ФС даёт {@link createNodeWorkspaceScanner}.
- */
-
-/** Запись каталога: имени и признака каталога обходу достаточно. */
 export interface IWorkspaceDirectoryEntry {
     readonly name: string;
     readonly isDirectory: boolean;
 }
 
-/**
- * Доступ к дереву воркспейса для активации. Обе операции ОБЯЗАНЫ отвечать, а не
- * бросать: активация — фоновая работа, и каталог без прав доступа не должен
- * ронять её для всех расширений сразу.
- */
+/** Обе операции отвечают, а не бросают: каталог без прав не должен ронять активацию всех расширений. */
 export interface IWorkspaceScanner {
-    /** Существует ли запись по абсолютному пути (файл ИЛИ каталог). */
     exists(absolutePath: string): Promise<boolean>;
     /** Записи каталога; недоступный/исчезнувший каталог — пустой список. */
     readDirectory(absolutePath: string): Promise<readonly IWorkspaceDirectoryEntry[]>;
 }
 
-/**
- * Каталоги, в которые обход не заходит. Совпадает с дефолтами `files.exclude`
- * эталона: в `node_modules` и `.git` `workspaceContains:`-паттерн имеет в виду
- * не то, что там найдётся (чужой `pom.xml` зависимости — не признак проекта).
- */
+/** Дефолты `files.exclude` эталона: чужой `pom.xml` в зависимости — не признак проекта. */
 export const DEFAULT_WORKSPACE_CONTAINS_EXCLUDES: ReadonlySet<string> = new Set([".git", "node_modules"]);
 
-/**
- * Сколько каталогов максимум читаем на одну папку воркспейса. Страховка от
- * гигантского дерева: без неё `workspaceContains:**\/x` на домашнем каталоге
- * держал бы старт. Обрыв по бюджету виден в {@link IWorkspaceContainsResult}.
- */
+/** Бюджет каталогов на папку: без него `workspaceContains:**\/x` на домашнем каталоге держал бы старт. */
 export const DEFAULT_MAX_DIRECTORIES = 5000;
 
 export interface IWorkspaceContainsSearchOptions {
-    /** Каталоги, в которые не заходим (по имени). По умолчанию — {@link DEFAULT_WORKSPACE_CONTAINS_EXCLUDES}. */
     readonly excludeDirectories?: ReadonlySet<string>;
-    /** Бюджет прочитанных каталогов на папку. По умолчанию — {@link DEFAULT_MAX_DIRECTORIES}. */
     readonly maxDirectories?: number;
-    /** Отмена обхода (у вызывающего — таймаут). По умолчанию не отменяется. */
     readonly token?: ICancellationToken;
 }
 
 export interface IWorkspaceContainsResult {
-    /** Подошедший паттерн (он же причина активации для лога) либо `null`. */
     readonly pattern: string | null;
-    /**
-     * Обход оборвался, не дойдя до конца — по бюджету каталогов или по отмене.
-     * `pattern === null` при `truncated` значит «не нашли», а не «нет»: причину
-     * обязан сообщить вызывающий, иначе усечение читается как полный ответ.
-     */
+    /** `pattern === null` при `truncated` — «не нашли», а не «нет»: причину обязан сообщить вызывающий. */
     readonly truncated: boolean;
 }
 
-/** Ответ «ничего не подошло, обход дошёл до конца» — самый частый. */
 const NO_MATCH: IWorkspaceContainsResult = { pattern: null, truncated: false };
 
-/**
- * Подошёл ли открытым папкам воркспейса хоть один `workspaceContains:`-паттерн.
- *
- * Порядок работы — от дешёвого к дорогому, как в эталоне: сперва проверки
- * существования по всем папкам, и только если ни одна не сошлась — поиск по
- * дереву. Возвращает ПЕРВЫЙ подошедший паттерн: расширение активируется один
- * раз, а остальные паттерны того же расширения уже ничего не решают.
- */
+/** Сперва дешёвые `exists` по всем папкам, затем обход дерева — как в эталоне. */
 export async function matchWorkspaceContains(
     scanner: IWorkspaceScanner,
     folders: readonly string[],
@@ -101,13 +61,7 @@ export async function matchWorkspaceContains(
     return { pattern: null, truncated };
 }
 
-/**
- * Обход папки в ШИРИНУ до первого файла, подошедшего одному из glob'ов.
- *
- * В ширину, а не в глубину, потому что реальные паттерны мелкие
- * (`*\/pom.xml`, `*.py`): совпадение лежит у корня, и обход не обязан
- * спускаться в первую же попавшуюся ветку целиком.
- */
+/** В ширину: реальные паттерны мелкие (`*\/pom.xml`, `*.py`), совпадение лежит у корня. */
 async function searchGlobs(
     scanner: IWorkspaceScanner,
     root: string,
@@ -128,9 +82,7 @@ async function searchGlobs(
             if (read >= maxDirectories) return { pattern: null, truncated: true };
             read++;
             for (const entry of await scanner.readDirectory(dir.absolutePath)) {
-                // Путь для матчинга — ОТНОСИТЕЛЬНЫЙ posix, от папки воркспейса:
-                // ровно так якорится `matchGlob` (`*` не переходит `/`), и
-                // ровно это имеет в виду `workspaceContains:*\/pom.xml`.
+                // Относительный posix от папки воркспейса — так якорится `matchGlob` (`*` не переходит `/`).
                 const relativePath = dir.relativePath === "" ? entry.name : `${dir.relativePath}/${entry.name}`;
                 if (entry.isDirectory) {
                     if (!excludes.has(entry.name)) {
@@ -138,9 +90,8 @@ async function searchGlobs(
                     }
                     continue;
                 }
-                // Каталоги против glob'ов не матчим: событие про «есть ФАЙЛ по
-                // паттерну». Каталог закрывается паттерном без glob-символов —
-                // он уходит в `exists` и там истинен и для каталога.
+                // Каталоги против glob'ов не матчим: событие — про ФАЙЛ; каталог закрывает
+                // паттерн без glob-символов через `exists`.
                 const hit = globs.find((glob) => matchGlob(glob, relativePath));
                 if (hit !== undefined) return { pattern: hit, truncated: false };
             }
@@ -151,13 +102,8 @@ async function searchGlobs(
 }
 
 /**
- * Глубина каталогов, глубже которой совпадения быть не может. Паттерн без `**`
- * фиксирует число сегментов пути, поэтому спускаться дальше незачем: `*.py`
- * читает только корень, `*\/pom.xml` — корень и первый уровень. `**` снимает
- * ограничение — там работает только бюджет каталогов.
- *
- * Оценка сверху: разбиение по `/` внутри `{a/b,c}` завышает число сегментов, но
- * лишний уровень обхода безопаснее пропущенного совпадения.
+ * Без `**` паттерн фиксирует число сегментов — глубже искать незачем. `/` внутри
+ * `{a/b,c}` завышает оценку: лишний уровень безопаснее пропущенного совпадения.
  */
 function maxGlobDepth(globs: readonly string[]): number {
     let depth = 0;
@@ -168,15 +114,7 @@ function maxGlobDepth(globs: readonly string[]): number {
     return depth;
 }
 
-/**
- * {@link IWorkspaceScanner} поверх настоящей ФС. Ошибки глотает по контракту
- * интерфейса: нет прав / каталог исчез по ходу обхода — это не повод сорвать
- * активацию.
- *
- * Симлинки на каталоги НЕ раскрываются (`Dirent.isDirectory()` у симлинка
- * ложный) — обход не зацикливается, а симлинк на файл остаётся кандидатом на
- * совпадение по имени.
- */
+/** Симлинки на каталоги не раскрываются (`Dirent.isDirectory()` у них ложный) — обход не зацикливается. */
 export function createNodeWorkspaceScanner(): IWorkspaceScanner {
     return {
         exists: async (absolutePath: string): Promise<boolean> => {

@@ -10,13 +10,7 @@ import type { IWireColorTheme, SerializedDecorationRenderOptions } from "../../.
 import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common/extensionHostCustomer.ts";
 import { parseDecorationRanges, parseWireFileDecorations, themeColorIdOf } from "../hostWireParsers.ts";
 
-/**
- * Декорации расширений (gutter change-bar'ы в редакторе и бейджи/цвета файлов
- * в дереве) и активная тема. Реестр типов декораций и держимые наборы живут
- * ровно один спавн: респавн начинает с чистого листа (сами поверхности
- * перерисует расширение). Подписка на смену темы — на всё время жизни хоста,
- * но пере-резолв декораций и новая тема уходят только живому спавну.
- */
+/** Типы и наборы декораций живут один спавн (респавн перерисует расширение); подписка на тему — с хостом. */
 export class DecorationsCustomer extends Disposable implements IExtensionHostCustomer {
     private live: { readonly rpc: HostRpc; readonly decorations: SpawnDecorations } | null = null;
 
@@ -26,8 +20,6 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
         private readonly themeColorResolver: IThemeColorResolver,
     ) {
         super();
-        // Смена темы → пере-резолв держимых декораций в обе поверхности + новая
-        // тема расширениям (`window.onDidChangeActiveColorTheme`).
         this.register(
             themeColorResolver.onDidChange(() => {
                 this.live?.decorations.repushAll();
@@ -36,11 +28,7 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
         );
     }
 
-    /**
-     * Шлёт субпроцессу вид активной темы. Молча ничего не делает, пока
-     * субпроцесса нет: тема приедет семенем на его подъёме, и досылать её
-     * мёртвому некому.
-     */
+    /** Без субпроцесса — no-op: тема приедет семенем на его подъёме. */
     public pushActiveColorTheme(): void {
         const theme: IWireColorTheme = { kind: this.themeColorResolver.kind() };
         this.live?.rpc.notify("window.themeChanged", theme);
@@ -50,7 +38,6 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
         const decorations = new SpawnDecorations(this.editorDecorations, this.fileDecorations, this.themeColorResolver);
         this.live = { rpc, decorations };
         const store = new DisposableStore();
-        // Субпроцесс завёл тип декорации. Регистрируем его форму: наличие
         // overviewRulerColor делает тип gutter change-bar'ом.
         store.add(
             rpc.handleNotification("window.createTextEditorDecorationType", (params) => {
@@ -62,7 +49,6 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
                 decorations.createType(p.key, options);
             }),
         );
-        // Тип снят — гасим его декорации во всех файлах и пере-push.
         store.add(
             rpc.handleNotification("window.disposeTextEditorDecorationType", (params) => {
                 const p: { key?: unknown } = params;
@@ -71,8 +57,6 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
                 decorations.disposeType(p.key);
             }),
         );
-        // Набор диапазонов типа в ресурсе. Пере-резолвим ThemeColor и проталкиваем
-        // gutter-декорации в редактор(ы) этого ресурса.
         store.add(
             rpc.handleNotification("editor.setDecorations", (params) => {
                 const p: { key?: unknown; uri?: unknown; ranges?: unknown } = params;
@@ -80,8 +64,7 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
                 decorations.setRanges(p.key, p.uri, parseDecorationRanges(p.ranges));
             }),
         );
-        // Изменившиеся файловые декорации. Мержим в держимый набор (голый uri без
-        // цвета/бейджа = снятие) и пере-push всего набора в дерево.
+        // Голый uri без цвета/бейджа — снятие.
         store.add(
             rpc.handleNotification("window.fileDecorationsChanged", (params) => {
                 const p: { decorations?: unknown } = params;
@@ -99,9 +82,8 @@ export class DecorationsCustomer extends Disposable implements IExtensionHostCus
     }
 }
 
-/** Реестр типов и держимые наборы декораций одного спавна. */
 class SpawnDecorations {
-    /** Тип декорации → id цвета gutter-бара; `undefined` — тип не красит гуттер. */
+    /** `undefined` — тип не красит гуттер. */
     private readonly types = new Map<number, string | undefined>();
     private readonly editorDecorationsByFile = new Map<string, Map<number, readonly IRange[]>>();
     private readonly fileDecorationState = new Map<
@@ -152,17 +134,12 @@ class SpawnDecorations {
         this.pushFileDecorations();
     }
 
-    /** Пере-push всех держимых декораций в обе поверхности (на смену темы). */
     public repushAll(): void {
         for (const uri of this.editorDecorationsByFile.keys()) this.pushEditorDecorations(uri);
         this.pushFileDecorations();
     }
 
-    /**
-     * Схлопывает держимые декорации файла в gutter change-bar'ы (только
-     * gutter-типы — есть overviewRulerColor) с пере-резолвом ThemeColor и
-     * проталкивает их в редактор(ы) этого ресурса. Пустой набор снимает бары.
-     */
+    /** Только gutter-типы (есть overviewRulerColor); пустой набор снимает бары. */
     private pushEditorDecorations(uri: string): void {
         const byKey = this.editorDecorationsByFile.get(uri);
         const decorations: IGutterChangeDecoration[] = [];
@@ -187,11 +164,7 @@ class SpawnDecorations {
         this.editorDecorations.setGutterChangeDecorations(uri, decorations);
     }
 
-    /**
-     * Пере-резолвит держимые файловые декорации и проталкивает полный набор в
-     * дерево. `propagate` едет как есть: всплытие к папкам считает дерево — оно
-     * знает свой корень.
-     */
+    /** `propagate` едет как есть: всплытие к папкам считает дерево — оно знает свой корень. */
     private pushFileDecorations(): void {
         const entries: { path: string; color?: number; badge?: string; propagate?: boolean }[] = [];
         for (const [path, { badge, colorId, propagate }] of this.fileDecorationState) {
@@ -209,13 +182,8 @@ class SpawnDecorations {
 }
 
 /**
- * Переводит wire-uri файловой декорации в абсолютный путь; `null` — если ресурс
- * не на диске. Субпроцесс шлёт `Uri.toString()`, разбираем тем же типом.
- *
- * Раньше не-file строки возвращались как есть («best-effort»), и схема уезжала в
- * ключ `fileDecorationState` (`git:/foo.ts?{...}`), где молча не совпадала ни с
- * одним путём дерева. Декорацию для не-file ресурса честнее отбросить: дерево
- * адресуется путями, показать там `git:`-ресурс всё равно нечем.
+ * `null` — ресурс не на диске: дерево адресуется путями, а `git:`-ресурс в ключе
+ * `fileDecorationState` молча не совпал бы ни с одним путём.
  */
 function fileUriToPath(uri: string): string | null {
     const parsed = Uri.parse(uri);

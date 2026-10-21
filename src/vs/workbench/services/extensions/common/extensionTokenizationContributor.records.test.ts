@@ -13,8 +13,6 @@ import { TextMateGrammarLoader } from "../../textMate/common/textMateGrammarLoad
 
 import { ExtensionTokenizationContributor } from "./extensionTokenizationContributor.ts";
 
-// Mock the grammar loader so we can inspect exactly which IGrammarRecord[] the
-// contributor collects (constructor arg) without touching real grammar assets.
 vi.mock("../../textMate/common/textMateGrammarLoader.ts", () => {
     return {
         TextMateGrammarLoader: vi.fn().mockImplementation(function () {
@@ -47,7 +45,6 @@ function makeExt(id: string, location: string, grammars?: readonly IGrammarContr
     } as IExtension;
 }
 
-/** Reads back the records[] passed to the (single) TextMateGrammarLoader call. */
 function collectedRecords(): readonly IGrammarRecord[] {
     expect(MockedLoader).toHaveBeenCalledTimes(1);
     return MockedLoader.mock.calls[0][1];
@@ -82,8 +79,6 @@ describe("ExtensionTokenizationContributor — record collection", () => {
         const registry = new TokenizationRegistry();
         const contributor = new ExtensionTokenizationContributor(
             dummyAssets,
-            // First ext: contributes undefined entirely (grammars === undefined branch).
-            // Second ext: one real grammar.
             [
                 makeExt("no-contributes", "Extensions/none/", undefined),
                 makeExt("ts", "Extensions/ts/", [
@@ -208,9 +203,7 @@ describe("ExtensionTokenizationContributor — record collection", () => {
 
         contributor.apply();
 
-        // Both grammars reach the loader...
         expect(collectedRecords().map((r) => r.scopeName)).toEqual(["todo.injection", "source.ts"]);
-        // ...but only the one with a `language` is registered.
         expect(await registry.load("typescript")).toBe(support);
         contributor.dispose();
     });

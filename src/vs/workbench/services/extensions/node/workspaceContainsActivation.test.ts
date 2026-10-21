@@ -14,16 +14,10 @@ import {
     matchWorkspaceContains,
 } from "./workspaceContainsActivation.ts";
 
-/**
- * Сканер поверх карты «относительный posix-путь → это каталог». Корнем считается
- * `/root`; пути от {@link matchWorkspaceContains} приходят через `path.join`, то
- * есть в нативной форме — приводим обратно к posix, чтобы карта читалась глазами.
- */
+/** Пути от {@link matchWorkspaceContains} приходят через `path.join`, в нативной форме — приводим к posix. */
 function fakeScanner(root: string, tree: Readonly<Record<string, "dir" | "file">>): IWorkspaceScanner {
     const relative = (absolutePath: string): string => path.relative(root, absolutePath).split(path.sep).join("/");
     return {
-        // `Object.hasOwn`, а не `tree[...] !== undefined`: индекс справочника с
-        // произвольным ключом для TS всегда непустой (см. AGENTS.md).
         exists: (absolutePath) => Promise.resolve(Object.hasOwn(tree, relative(absolutePath))),
         readDirectory: (absolutePath): Promise<readonly IWorkspaceDirectoryEntry[]> => {
             const prefix = relative(absolutePath);
@@ -301,7 +295,6 @@ describe("matchWorkspaceContains — бюджет и отмена", () => {
         const source = new CancellationTokenSource();
         const scanner = fakeScanner(ROOT, { a: "dir", "a/deep": "dir", "a/deep/pom.xml": "file" });
         const readDirectory = vi.spyOn(scanner, "readDirectory").mockImplementation((absolutePath) => {
-            // Корень прочитан — запрос больше никому не нужен.
             if (absolutePath === ROOT) source.cancel();
             return Promise.resolve([{ name: "a", isDirectory: true }]);
         });

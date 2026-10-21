@@ -1,62 +1,31 @@
-/**
- * Чтение `activationEvents` расширения — один разбор на всех потребителей
- * активации (`ExtensionHost`).
- *
- * Событие в манифесте — строка вида `<вид>` или `<вид>:<аргумент>`. Точным
- * сравнением закрываются только виды без аргумента (`*`, `onStartupFinished`) и
- * те, где аргумент приходит от вызывающего (`onLanguage:<id>`, `onCommand:<id>`).
- * `workspaceContains:<glob>` так не закрывается: его аргумент надо сопоставлять
- * с содержимым папок воркспейса — разбор паттернов живёт здесь, сам обход в
- * `../node/workspaceContainsActivation.ts`.
- */
+// `workspaceContains:<glob>` точным сравнением не закрывается: аргумент сопоставляется
+// с содержимым папок воркспейса (обход — `../node/workspaceContainsActivation.ts`).
 
 import type {
     IExtensionContributions,
     IExtensionManifest,
 } from "../../../../platform/extensions/common/iExtensionManifest.ts";
 
-/** «В открытой папке воркспейса есть файл по паттерну». */
 const WORKSPACE_CONTAINS_PREFIX = "workspaceContains:";
 
-/** «Исполнили команду с таким id». */
 const ON_COMMAND_PREFIX = "onCommand:";
 
-/** «Модели понадобились фичи этого языка». */
 const ON_LANGUAGE_PREFIX = "onLanguage:";
 
-/**
- * Регистрация, из которой читаются события активации: ПОЛНЫЙ набор,
- * посчитанный при её сборке ({@link computeActivationEvents}). Хост только
- * сравнивает строки и про `contributes` не знает.
- */
+/** Полный набор ({@link computeActivationEvents}): хост только сравнивает строки и про `contributes` не знает. */
 export interface IActivationEventSource {
     readonly activationEvents?: readonly string[];
 }
 
-/**
- * Генератор неявных событий одной точки расширения (как `activationEventsGenerator`
- * у дескрипторов точек эталона): из вклада `contributes.<point>` — события, по
- * которым расширение поднимается, даже если само их не объявляло.
- */
+/** Как `activationEventsGenerator` у дескрипторов точек эталона. */
 export interface IImplicitActivationEventGenerator {
     readonly point: keyof IExtensionContributions;
     generate(contributes: IExtensionContributions): Iterable<string>;
 }
 
-/** Пустой вклад — точка не заявлена. */
 const NO_CONTRIBUTIONS: readonly never[] = [];
 
-/**
- * Явный список генераторов (без синглтон-реестра с саморегистрацией):
- * - `commands` ⇒ `onCommand:<id>` — иначе видимая в палитре команда не-eager
- *   расширения была бы вечным no-op;
- * - `languages` ⇒ `onLanguage:<id>` — расширение, принёсшее язык, встаёт на нём;
- * - `taskDefinitions` ⇒ `onTaskType:<type>` — провайдер задач встаёт, когда
- *   Run Task спрашивает задачи его типа.
- *
- * Генераторы для поверхностей, которых у нас нет (`onView`, …), появятся
- * вместе с поверхностью.
- */
+/** `commands` ⇒ `onCommand:<id>`: иначе видимая в палитре команда не-eager расширения была бы вечным no-op. */
 export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationEventGenerator[] = [
     {
         point: "commands",
@@ -75,8 +44,6 @@ export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationE
         },
     },
     {
-        // Тип задачи ⇒ `onTaskType:<type>` (`activationEventsGenerator` у
-        // `taskDefinitions` эталона): Run Task поднимает провайдера по типу.
         point: "taskDefinitions",
         *generate(contributes) {
             for (const definition of contributes.taskDefinitions ?? NO_CONTRIBUTIONS) {
@@ -88,17 +55,10 @@ export const IMPLICIT_ACTIVATION_EVENT_GENERATORS: readonly IImplicitActivationE
 ];
 
 /**
- * Полный набор событий активации расширения: объявленные в манифесте плюс
- * неявные от генераторов, без повторов. Голый `onUri` манифеста становится
- * `onUri:<id расширения в нижнем регистре>` (`_readActivationEvents` эталона):
- * его зовёт обработчик URL, адресуя конкретное расширение.
- *
- * **Отклонение от эталона — дефолт `*`:** манифест без событий (пусто или нет
- * поля) считается eager. У vscode пусто значит пусто, но в нашем магазине уже
- * опубликованы расширения, которые на этот дефолт полагаются (`test.tab-setter`
- * без `activationEvents`), и эталонный дефолт молча выключил бы их у
- * пользователей. Снимается вместе с обновлением этих записей реестра (см.
- * `docs/TODO/VscodeStructureFollowUps.md`).
+ * Голый `onUri` → `onUri:<id в нижнем регистре>` (`_readActivationEvents` эталона).
+ * Отклонение: манифест без событий считается eager (`*`) — опубликованные расширения
+ * (`test.tab-setter`) на это полагаются; снимается с обновлением их записей реестра
+ * (docs/TODO/VscodeStructureFollowUps.md).
  */
 export function computeActivationEvents(
     manifest: Pick<IExtensionManifest, "activationEvents" | "contributes">,
@@ -117,16 +77,11 @@ export function computeActivationEvents(
     return events;
 }
 
-/** События активации регистрации (см. {@link IActivationEventSource}). */
 export function readActivationEvents(source: IActivationEventSource): readonly string[] {
     return source.activationEvents ?? [];
 }
 
-/**
- * id команд, по исполнению которых расширение обязано активироваться —
- * `onCommand:<id>` из манифеста плюс неявные из `contributes.commands`
- * (см. {@link computeActivationEvents}). Без дублей; порядок — манифестный.
- */
+/** Без дублей, в порядке манифеста. */
 export function readCommandActivationIds(source: IActivationEventSource): readonly string[] {
     const ids: string[] = [];
     for (const event of readActivationEvents(source)) {
@@ -138,34 +93,22 @@ export function readCommandActivationIds(source: IActivationEventSource): readon
 }
 
 /**
- * Паттерны `workspaceContains:` расширения, разведённые по СЕМАНТИКЕ. У одного
- * префикса их две (и в эталоне тоже — `checkActivateWorkspaceContainsExtension`):
- * паттерн без glob-символов — это простая проверка существования пути
- * относительно каждой папки воркспейса, паттерн с ними уходит в поиск по дереву.
- * Сводить обе к поиску нельзя: `workspaceContains:.vscode` должен срабатывать и
- * на каталоге, а `workspaceContains:pom.xml` не обязан читать дерево вообще.
+ * Две семантики одного префикса, как `checkActivateWorkspaceContainsExtension` эталона: сводить
+ * к поиску нельзя — `.vscode` срабатывает и на каталоге, а `pom.xml` не обязан читать дерево.
  */
 export interface IWorkspaceContainsPatterns {
     /** Без `*`/`?` — проверка существования пути (файл ИЛИ каталог). */
     readonly paths: readonly string[];
-    /** С `*`/`?` — поиск файла по дереву. */
     readonly globs: readonly string[];
 }
 
-/** Пустой набор — расширение про `workspaceContains:` ничего не говорило. */
 export const NO_WORKSPACE_CONTAINS_PATTERNS: IWorkspaceContainsPatterns = { paths: [], globs: [] };
 
-/** Есть ли в наборе хоть один паттерн (иначе считать нечего). */
 export function hasWorkspaceContainsPatterns(patterns: IWorkspaceContainsPatterns): boolean {
     return patterns.paths.length > 0 || patterns.globs.length > 0;
 }
 
-/**
- * Разбирает `workspaceContains:`-события источника на два стока
- * {@link IWorkspaceContainsPatterns}. Пустой паттерн (`workspaceContains:`)
- * отбрасывается: как «путь» он указывал бы на саму папку воркспейса и матчил
- * любой воркспейс.
- */
+/** Пустой паттерн отброшен: как путь он указывал бы на папку воркспейса и матчил любой воркспейс. */
 export function readWorkspaceContainsPatterns(source: IActivationEventSource): IWorkspaceContainsPatterns {
     const paths: string[] = [];
     const globs: string[] = [];

@@ -30,9 +30,6 @@ describe("resolveExtensionStoragePaths", () => {
         expect(paths.logPath).toBe(path.join(homes.logsHome, "supermaven.supermaven"));
     });
 
-    // Асимметрия эталона, а не наша вольность: ExtensionStoragePaths.globalValue
-    // берёт `identifier.value.toLowerCase()`, workspaceValue и logUri — id как есть.
-    // Расширение ищет уже скачанный движок по тому же правилу, по которому мы его отдали.
     it("globalStorage — по lowercase id, workspaceStorage и logs — по id как есть", () => {
         const paths = resolveExtensionStoragePaths(homes, "Publisher.MixedCase");
         expect(paths.globalStoragePath).toBe(path.join(homes.globalStorageHome, "publisher.mixedcase"));
@@ -43,7 +40,6 @@ describe("resolveExtensionStoragePaths", () => {
     it("без воркспейсного корня storagePath — null (папка не открыта)", () => {
         const paths = resolveExtensionStoragePaths({ ...homes, workspaceStorageHome: null }, "test.ext");
         expect(paths.storagePath).toBeNull();
-        // Остальные два — на месте: они от папки не зависят.
         expect(paths.globalStoragePath).toBe(path.join(homes.globalStorageHome, "test.ext"));
         expect(paths.logPath).toBe(path.join(homes.logsHome, "test.ext"));
     });
@@ -96,8 +92,6 @@ describe("ensureExtensionStorageParents", () => {
         expect(fs.readdirSync(tmp).sort()).toEqual(["g", "l"]);
     });
 
-    // Недоступный на запись user-data не должен рубить активацию: расширение
-    // получит путь и упадёт (или не упадёт) само, остальные продолжат жить.
     it("неудачу mkdir отдаёт в onError и идёт дальше", () => {
         const blocker = path.join(tmp, "blocker");
         fs.writeFileSync(blocker, "не каталог");
@@ -112,7 +106,6 @@ describe("ensureExtensionStorageParents", () => {
             expect(err).toBeInstanceOf(Error);
         });
         expect(failures).toEqual([homes.globalStorageHome]);
-        // Следующий корень всё равно создан.
         expect(fs.existsSync(homes.logsHome)).toBe(true);
     });
 
@@ -153,7 +146,6 @@ describe("extensionStorageHomes", () => {
         expect(homes.logsHome).toBe(paths.logsDir);
     });
 
-    // «The value is `undefined` when no workspace nor folder has been opened».
     it("без открытой папки воркспейсного корня нет, остальные два на месте", () => {
         const homes = extensionStorageHomes(paths, null);
         expect(homes.workspaceStorageHome).toBeNull();

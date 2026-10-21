@@ -7,13 +7,9 @@ import type { IExtensionRegistrationEnv } from "./extensionRegistration.ts";
 import { toExtensionRegistration } from "./extensionRegistration.ts";
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-/**
- * Сколько `onStartupFinished` ждёт eager-активацию (`*` и `workspaceContains:`),
- * прежде чем наступить без неё (`timeout(10000)` эталона).
- */
+/** `timeout(10000)` эталона: столько `onStartupFinished` ждёт eager-активацию. */
 export const STARTUP_FINISHED_TIMEOUT_MS = 10_000;
 
-/** Механика extension host'а, которой распоряжается сервис (`ExtensionHost`). */
 export interface IExtensionActivationHost {
     registerExtension(reg: IExtensionRegistration): unknown;
     /** Установленное расширение без кода: регистрации нет, но зависимость на него удовлетворена. */
@@ -23,17 +19,8 @@ export interface IExtensionActivationHost {
     restartForWorkspaceChange(): Promise<void>;
 }
 
-/**
- * Сервис расширений окна: регистрирует набор в extension host'е и ведёт
- * стартовую активацию (см. {@link IExtensionService}).
- *
- * Барьер и память событий (как `_allRequestedActivateEvents` у vscode): событие,
- * пришедшее до {@link start} (файл открылся раньше регистрации), не теряется, а
- * проигрывается сразу за `*`. Поэтому порядок «регистрация строго после
- * openFile + ручной `onLanguage:` активного редактора» больше не нужен.
- */
+/** Событие, пришедшее до {@link start}, не теряется, а проигрывается сразу за `*` (как `_allRequestedActivateEvents` эталона). */
 export class ExtensionService implements IExtensionService {
-    /** События, запрошенные до барьера, — в порядке прихода, без повторов. */
     private readonly requested: string[] = [];
     private barrierOpen = false;
     private openBarrier!: () => void;
@@ -71,22 +58,14 @@ export class ExtensionService implements IExtensionService {
     }
 
     /**
-     * Регистрация набора и стартовая активация (как `_handleEagerExtensions`
-     * эталона): `*` (за ним — события, запрошенные до регистрации, и барьер) и
-     * проход `workspaceContains:` идут параллельно; `onStartupFinished` — после
-     * них, но не позже {@link STARTUP_FINISHED_TIMEOUT_MS}: повисший `activate()`
-     * одного eager-расширения не откладывает его навсегда.
-     *
-     * Сбой регистрации одного расширения — в лог, остальные регистрируются;
-     * сбой самого host'а (субпроцесс не поднялся) — в лог, редактор работает без
-     * расширений. Барьер открывается в любом случае: ждущие не повиснут.
+     * Как `_handleEagerExtensions` эталона: `*` и `workspaceContains:` параллельно, `onStartupFinished` —
+     * после них, но не позже {@link STARTUP_FINISHED_TIMEOUT_MS}: повисший `activate()` не откладывает
+     * его навсегда. Барьер открывается при любом сбое — ждущие не повиснут.
      */
     public async start(): Promise<void> {
         for (const ext of this.extensions) {
             try {
                 const reg = await toExtensionRegistration(ext, this.registrationEnv);
-                // Без `main` регистрации нет, но хосту надо знать, что расширение
-                // установлено: `extensionDependencies` на него удовлетворены.
                 if (reg === null) this.host.registerDeclarativeExtension(ext.id);
                 else this.host.registerExtension(reg);
             } catch (err) {
@@ -109,7 +88,6 @@ export class ExtensionService implements IExtensionService {
         mark("exthost:activated");
     }
 
-    /** `*`, за ним — события, запрошенные до регистрации; затем барьер. */
     private async activateEager(): Promise<void> {
         await this.guard("*", this.host.activateByEvent("*"));
         // Живой обход: событие, пришедшее во время проигрыша, тоже проиграется.
@@ -118,7 +96,6 @@ export class ExtensionService implements IExtensionService {
         this.openBarrier();
     }
 
-    /** Сбой host'а на стартовом событии — в лог, а не в отказ всего старта. */
     private async guard(event: string, activation: Promise<void>): Promise<void> {
         try {
             await activation;
