@@ -34,8 +34,6 @@ describe("LineWidthCache", () => {
     it("caps an extreme line at the render threshold (plus the button), not its length", () => {
         const doc = new TextDocument("z".repeat(1_000_000));
         const cache = new LineWidthCache(doc, 4);
-        // Capped prefix width (10 000) + the truncation button so it stays
-        // reachable by horizontal scroll — never the full million.
         expect(cache.getMaxWidth()).toBe(STOP_RENDERING_LINE_AFTER + LONG_LINE_TRUNCATION_BADGE_WIDTH);
     });
 
@@ -60,7 +58,6 @@ describe("LineWidthCache", () => {
         const cache = new LineWidthCache(doc, 4);
         expect(cache.getMaxWidth()).toBe(23);
 
-        // Delete the whole middle line (including its trailing newline).
         doc.applyEdits([createDeleteEdit(1, 0, 2, 0)]);
         expect(cache.getMaxWidth()).toBe(5);
     });
@@ -77,15 +74,13 @@ describe("LineWidthCache", () => {
     it("appending a line only re-measures the changed lines (Output panel pattern)", () => {
         const doc = new TextDocument("line0");
         const cache = new LineWidthCache(doc, 4);
-        cache.getMaxWidth(); // prime every line
+        cache.getMaxWidth();
 
         const getLineContent = vi.spyOn(doc, "getLineContent");
-        // Simulate one appended log record.
         doc.applyEdits([createInsertEdit(0, 5, "\nline1")]);
         cache.getMaxWidth();
 
-        // Only the two lines touched by the edit are re-measured, not the whole
-        // document — this is what stops the freeze under active RPC tracing.
+        // Перемеряются только две тронутые строки — это и снимает фриз под RPC-трассировкой.
         const measuredLines = new Set(getLineContent.mock.calls.map((c) => c[0]));
         expect(measuredLines.size).toBeLessThanOrEqual(2);
     });
@@ -102,7 +97,7 @@ describe("LineWidthCache", () => {
     });
 
     it("invalidates all widths when the tab size changes", () => {
-        const doc = new TextDocument("\tx"); // one tab + x
+        const doc = new TextDocument("\tx");
         const cache = new LineWidthCache(doc, 4);
         expect(cache.getMaxWidth()).toBe(5); // tab→4 + x
 
@@ -128,21 +123,18 @@ describe("LineWidthCache", () => {
 
         cache.dispose();
         doc.applyEdits([createInsertEdit(1, 1, "\nlongerline")]);
-        // Stale by design: the disposed cache no longer tracks the document.
+        // Устаревшее значение — намеренно: освобождённый кеш документ не отслеживает.
         expect(cache.getMaxWidth()).toBe(1);
     });
 
     it("clamps to the document length if it shrank behind the cache's back", () => {
-        // A render scheduled via setImmediate can fire after the document shrank.
-        // Detach the cache from events (dispose) to force that desync, then shrink
-        // the document: getMaxWidth must clamp to the current length, not read
-        // past it and throw.
+        // dispose отцепляет кеш от событий — так воспроизводится рассинхрон после сжатия документа.
         const doc = new TextDocument("aa\nbbbb\ncccccc");
         const cache = new LineWidthCache(doc, 4);
-        expect(cache.getMaxWidth()).toBe(6); // widths array now has 3 entries
+        expect(cache.getMaxWidth()).toBe(6);
 
-        cache.dispose(); // stop tracking; the array stays at length 3
-        doc.setText("z"); // document is now a single short line
+        cache.dispose();
+        doc.setText("z");
 
         expect(() => cache.getMaxWidth()).not.toThrow();
         expect(cache.getMaxWidth()).toBe(1);

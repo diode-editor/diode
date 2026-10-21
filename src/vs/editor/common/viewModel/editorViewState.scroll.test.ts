@@ -17,7 +17,6 @@ describe("EditorViewState scrollLineDown", () => {
         const doc = new TextDocument("a\nb\nc\nd\ne\nf");
         const state = new EditorViewState(doc);
         state.viewportHeight = 4;
-        // doc has 6 lines, viewportHeight=4, maxScrollTop=2
         state.scrollTop = 2;
         state.scrollLineDown();
         expect(state.scrollTop).toBe(2);

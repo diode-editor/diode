@@ -5,8 +5,6 @@ import { createDeleteEdit, createInsertEdit, createTextEdit } from "../core/iTex
 
 import { TextDocument } from "./textDocument.ts";
 
-// ─── Construction ───────────────────────────────────────────
-
 describe("TextDocument", () => {
     it("creates from empty string", () => {
         const doc = new TextDocument("");
@@ -41,8 +39,6 @@ describe("TextDocument", () => {
         expect(() => doc.getLineContent(1)).toThrow(RangeError);
     });
 
-    // ─── Single-line Insertion ──────────────────────────────
-
     it("inserts text in the middle of a line", () => {
         const doc = new TextDocument("helo");
         doc.applyEdits([createInsertEdit(0, 2, "l")]);
@@ -61,8 +57,6 @@ describe("TextDocument", () => {
         expect(doc.getText()).toBe("hello world");
     });
 
-    // ─── Multi-line Insertion ───────────────────────────────
-
     it("inserts a newline splitting one line into two", () => {
         const doc = new TextDocument("helloworld");
         doc.applyEdits([createInsertEdit(0, 5, "\n")]);
@@ -78,15 +72,11 @@ describe("TextDocument", () => {
         expect(doc.getText()).toBe("a\nbb\nc");
     });
 
-    // ─── Single-line Deletion ───────────────────────────────
-
     it("deletes characters within a single line", () => {
         const doc = new TextDocument("abcdef");
         doc.applyEdits([createDeleteEdit(0, 2, 0, 4)]);
         expect(doc.getText()).toBe("abef");
     });
-
-    // ─── Multi-line Deletion ────────────────────────────────
 
     it("deletes across multiple lines", () => {
         const doc = new TextDocument("aaa\nbbb\nccc");
@@ -102,8 +92,6 @@ describe("TextDocument", () => {
         expect(doc.getLineContent(0)).toBe("firstsecond");
         expect(doc.getLineContent(1)).toBe("third");
     });
-
-    // ─── Replacement ────────────────────────────────────────
 
     it("replaces text within a single line", () => {
         const doc = new TextDocument("hello world");
@@ -123,8 +111,6 @@ describe("TextDocument", () => {
         expect(doc.getText()).toBe("a\nbbb\ncc");
     });
 
-    // ─── Multiple Edits ─────────────────────────────────────
-
     it("applies multiple non-overlapping edits simultaneously", () => {
         const doc = new TextDocument("abcdef");
         doc.applyEdits([createInsertEdit(0, 3, "X"), createInsertEdit(0, 0, "Y")]);
@@ -143,13 +129,12 @@ describe("TextDocument", () => {
     it("applies insert + delete edits that change line count", () => {
         const doc = new TextDocument("line1\nline2\nline3");
         doc.applyEdits([
-            createDeleteEdit(1, 0, 1, 5), // clear line2 content
-            createInsertEdit(0, 5, "\nnewLine"), // insert newLine after line1
+            createDeleteEdit(1, 0, 1, 5),
+            // Координаты обеих правок — по исходному тексту, а не после первой.
+            createInsertEdit(0, 5, "\nnewLine"),
         ]);
         expect(doc.getText()).toBe("line1\nnewLine\n\nline3");
     });
-
-    // ─── Version ID ─────────────────────────────────────────
 
     it("starts with versionId 0", () => {
         const doc = new TextDocument("hello");
@@ -170,8 +155,6 @@ describe("TextDocument", () => {
         expect(doc.versionId).toBe(0);
     });
 
-    // ─── getTextInRange ─────────────────────────────────────
-
     it("getTextInRange returns text within a single line", () => {
         const doc = new TextDocument("hello world");
         expect(doc.getTextInRange(createRange(0, 0, 0, 5))).toBe("hello");
@@ -187,8 +170,6 @@ describe("TextDocument", () => {
         const doc = new TextDocument("hello");
         expect(doc.getTextInRange(createRange(0, 3, 0, 3))).toBe("");
     });
-
-    // ─── Inverse Edits ──────────────────────────────────────
 
     it("returns inverse edits that undo a single-line insertion", () => {
         const doc = new TextDocument("hello");

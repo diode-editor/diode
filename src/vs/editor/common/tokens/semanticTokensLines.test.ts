@@ -8,7 +8,7 @@ import { countEOL, decodeSemanticTokens, SemanticTokensLines } from "./semanticT
 const LEGEND: ISemanticTokensLegend = { tokenTypes: ["a", "b"], tokenModifiers: ["m"] };
 const OTHER: ISemanticTokensLegend = { tokenTypes: ["x"], tokenModifiers: [] };
 
-/** Строки с токенами `[start, end]` (тип 1, модификаторы 2) по номерам строк. */
+/** Тип 1, модификаторы 2. */
 function linesOf(spec: Record<number, readonly (readonly [number, number])[]>, legend = LEGEND): SemanticTokensLines {
     const lines = new SemanticTokensLines();
     for (const [line, tokens] of Object.entries(spec)) {
@@ -18,7 +18,6 @@ function linesOf(spec: Record<number, readonly (readonly [number, number])[]>, l
     return lines;
 }
 
-/** Снимок: номер строки → пары `[start, end]`. */
 function dump(lines: SemanticTokensLines): Record<number, number[][]> {
     const result: Record<number, number[][]> = {};
     for (const line of lines.lineNumbers) {
@@ -105,7 +104,6 @@ describe("SemanticTokensLines — чтение и замена строк", () =
         target.replaceLines(1, 2, source);
         expect(dump(target)).toEqual({ 0: [[0, 1]], 1: [[5, 6]], 3: [[0, 1]] });
         expect(target.getLine(1)?.legend).toBe(OTHER);
-        // Копия: правка источника цель не трогает.
         source.applyEdit(createRange(1, 0, 1, 0), "zz");
         expect(dump(target)[1]).toEqual([[5, 6]]);
     });

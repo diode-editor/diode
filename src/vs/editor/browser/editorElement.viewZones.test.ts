@@ -10,13 +10,6 @@ import { createFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-/**
- * Рендер и hit-test view zones (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): виртуальная
- * строка рисуется пустой (пустой гуттер без номера, пустой контент), клики по
- * ней падают на ближайшую документную строку, скролл и высота контента зоны
- * учитывают.
- */
-
 function createEditor(
     text: string,
     zones: IViewZone[],
@@ -108,7 +101,6 @@ describe("EditorElement view zones — рендер", () => {
         const app = TestApp.createWithContent(editor, new Size(24, 8));
         app.render();
 
-        // Гайд рисуется на строках тела, строка-зона остаётся пустой.
         const lines = screenLines(app);
         expect(lines[2]).toBe("");
         expect(lines[1]).toContain("a;");

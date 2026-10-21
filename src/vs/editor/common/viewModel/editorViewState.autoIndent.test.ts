@@ -5,8 +5,7 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-// Editor default is tabs (insertSpaces = false, tabSize = 4). Force spaces for
-// readable assertions unless a test specifically exercises tabs.
+// Пробелы — ради читаемых ассертов; дефолт редактора — табы.
 function spacesState(text: string, selections: ReturnType<typeof createCursorSelection>[]): EditorViewState {
     const state = new EditorViewState(new TextDocument(text), selections);
     state.insertSpaces = true;
@@ -48,7 +47,6 @@ describe("EditorViewState.insertNewLine — auto-indent", () => {
         const state = spacesState("    foo() {}", [createCursorSelection(0, 11)]);
         state.insertNewLine();
         expect(state.document.getText()).toBe("    foo() {\n        \n    }");
-        // Cursor rests on the empty middle line, one level deeper.
         expect(state.selections[0].active).toEqual({ line: 1, character: 8 });
     });
 

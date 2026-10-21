@@ -126,8 +126,6 @@ describe("EditorElement word wrap — отрисовка фрагментов", 
         expect(app.backend.getTextAt(new Point(gw + 4, 3), LONG_LINE_TRUNCATION_BADGE.length)).toBe(
             LONG_LINE_TRUNCATION_BADGE,
         );
-        // Промежуточные фрагменты обрезанной строки плашку НЕ несут — только
-        // последний, где и лежит точка обрыва.
         expect(app.backend.getTextAt(new Point(gw, 0), 34)).not.toContain(BADGE_LABEL);
         expect(app.backend.getTextAt(new Point(gw, 2), 34)).not.toContain(BADGE_LABEL);
     });
@@ -246,10 +244,8 @@ describe("EditorElement word wrap — фолдинг", () => {
         app.render();
         const gw = editor.gutterWidth;
         const foldCol = editor.foldControlColumn;
-        // Chevron свёрнутого региона — на первом фрагменте, не на продолжении.
         expect(app.backend.getTextAt(new Point(foldCol, 0), 1)).toBe("");
         expect(app.backend.getTextAt(new Point(foldCol, 1), 1)).toBe(" ");
-        // Маркер скрытого тела — после конца текста, на последнем фрагменте.
         expect(app.backend.getTextAt(new Point(gw, 1), 10)).toContain("⋯");
         expect(app.backend.getTextAt(new Point(gw, 0), 10)).not.toContain("⋯");
     });

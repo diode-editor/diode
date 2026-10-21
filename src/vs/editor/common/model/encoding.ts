@@ -2,27 +2,13 @@ import type IconvLiteModule from "iconv-lite";
 
 import { importLazyModule } from "../../../base/common/lazyModule.ts";
 
-/**
- * Charset axis of a document: the byte representation used at the disk
- * boundary. Sibling of the EOL axis (EndOfLine.ts) — documents internally
- * always store JS strings; the encoding only matters when reading raw bytes
- * from disk and when serializing back.
- *
- * Encodings are addressed by VS Code's canonical string ids ('utf8',
- * 'utf8bom', 'windows1251', …) — the exact values the `vscode` extension API
- * exposes via `TextDocument.encoding`, so the extension bridge needs no
- * mapping.
- */
 export interface IEncodingInfo {
-    /** VS Code canonical id, e.g. "windows1251". */
+    /** Канонический id VS Code — ровно `TextDocument.encoding` API, мост расширений не мапит. */
     readonly id: string;
-    /** Full picker label, e.g. "Cyrillic (Windows 1251)". */
     readonly label: string;
-    /** Short status bar form, e.g. "Windows 1251". */
     readonly statusLabel: string;
-    /** iconv-lite codec name; differs from id only for "utf8bom". */
+    /** Отличается от id только у "utf8bom". */
     readonly iconvName: string;
-    /** BOM bytes written on encode (and recognized on decode). */
     readonly bom?: readonly number[];
 }
 
@@ -32,11 +18,7 @@ const BOM_UTF8 = [0xef, 0xbb, 0xbf] as const;
 const BOM_UTF16LE = [0xff, 0xfe] as const;
 const BOM_UTF16BE = [0xfe, 0xff] as const;
 
-/**
- * The encodings offered in the picker, in VS Code's SUPPORTED_ENCODINGS order
- * (Unicode variants first, then grouped by script). Every entry's `iconvName`
- * is covered by a test asserting `iconv.encodingExists`.
- */
+/** Порядок — как у SUPPORTED_ENCODINGS VS Code. */
 export const SUPPORTED_ENCODINGS: readonly IEncodingInfo[] = [
     { id: "utf8", label: "UTF-8", statusLabel: "UTF-8", iconvName: "utf8" },
     { id: "utf8bom", label: "UTF-8 with BOM", statusLabel: "UTF-8 with BOM", iconvName: "utf8", bom: BOM_UTF8 },
@@ -109,7 +91,6 @@ function requireEncodingInfo(id: string): IEncodingInfo {
     return info;
 }
 
-/** Resolves an encoding id to its table entry, or undefined for unknown ids. */
 export function getEncodingInfo(id: string): IEncodingInfo | undefined {
     return encodingsById.get(id);
 }
@@ -122,11 +103,7 @@ function startsWithBytes(buffer: Buffer, bytes: readonly number[]): boolean {
     return true;
 }
 
-/**
- * BOM-only encoding sniff (VS Code default behavior — no content guessing):
- * recognizes the UTF-8, UTF-16 LE and UTF-16 BE byte order marks, or null
- * when the buffer starts with none of them.
- */
+/** Только BOM, без угадывания по содержимому — дефолт VS Code. */
 export function detectEncodingByBOM(buffer: Buffer): string | null {
     if (startsWithBytes(buffer, BOM_UTF8)) return "utf8bom";
     if (startsWithBytes(buffer, BOM_UTF16LE)) return "utf16le";
@@ -134,38 +111,28 @@ export function detectEncodingByBOM(buffer: Buffer): string | null {
     return null;
 }
 
-/** Document text decoded from disk bytes plus the encoding id it was read in. */
 export interface IDecodedText {
     readonly text: string;
-    /** Table id ({@link SUPPORTED_ENCODINGS}), never an iconv name. */
+    /** Id таблицы {@link SUPPORTED_ENCODINGS}, не имя iconv. */
     readonly encoding: string;
 }
 
 export type IconvLite = typeof IconvLiteModule;
 
 /**
- * iconv-lite for the charsets the native codecs do not cover. A lazy bundle
- * chunk (docs/arch/Common.md, «Ленивые куски бандла»): 540 KB that opening a
- * utf-8 or UTF-16 file never parses. `default` is `module.exports` on every
- * path (node's `import()` of CJS, the packaged chunk loader).
+ * Ленивый кусок бандла (docs/arch/Common.md): 540 KB, которые открытие utf-8/UTF-16
+ * не парсит. `default` — `module.exports` на любом пути загрузки.
  */
 export async function loadIconv(): Promise<IconvLite> {
     return (await importLazyModule("iconv-lite", () => import("iconv-lite"))).default;
 }
 
-/**
- * Codec over node's own `Buffer`, no iconv-lite. Byte-for-byte the same as
- * iconv-lite for these charsets — iconv-lite delegates them to the very same
- * node primitives (StringDecoder, `Buffer.from`): invalid utf-8 → U+FFFD, a
- * lone surrogate → EF BF BD on utf-8 encode and the code unit as is on UTF-16,
- * an odd trailing UTF-16 byte dropped. Pinned by the "native == iconv-lite" tests.
- */
+/** Побайтно как iconv-lite: тот делегирует эти кодировки тем же примитивам node. */
 interface INativeCodec {
     decode(body: Buffer): string;
     encode(text: string): Buffer;
 }
 
-/** Native codecs by iconv name: utf-8 (both table ids) and the two UTF-16s. */
 const NATIVE_CODECS: ReadonlyMap<string, INativeCodec> = new Map<string, INativeCodec>([
     // Stryker disable next-line StringLiteral: Buffer.from с пустым именем кодировки — тоже utf-8
     ["utf8", { decode: (body) => body.toString("utf8"), encode: (text) => Buffer.from(text, "utf8") }],
@@ -173,9 +140,7 @@ const NATIVE_CODECS: ReadonlyMap<string, INativeCodec> = new Map<string, INative
     [
         "utf16be",
         {
-            // В node нет UTF-16 BE: меняем байты пар местами и читаем как LE. Копия
-            // не портит буфер вызывающего; нечётный хвостовой байт отбрасывается,
-            // как у iconv-lite.
+            // Копия не портит буфер вызывающего; нечётный хвостовой байт отбрасывается, как у iconv-lite.
             decode: (body) =>
                 Buffer.from(body.subarray(0, body.length & ~1))
                     .swap16()
@@ -185,11 +150,8 @@ const NATIVE_CODECS: ReadonlyMap<string, INativeCodec> = new Map<string, INative
     ],
 ]);
 
-/** The table entry `buffer` is decoded in (rules — {@link decodeBuffer}). */
 export function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string | undefined): IEncodingInfo {
     const sniffed = detectEncodingByBOM(buffer);
-    // По построению id всегда табличный: explicit проверен через has(),
-    // значения снифа и DEFAULT_ENCODING — элементы таблицы.
     // Stryker disable next-line ConditionalExpression: has(undefined) и так false — проверка нужна типам, не поведению
     if (explicitEncoding !== undefined && encodingsById.has(explicitEncoding)) {
         return requireEncodingInfo(explicitEncoding === "utf8" && sniffed === "utf8bom" ? "utf8bom" : explicitEncoding);
@@ -197,21 +159,16 @@ export function resolveDecodeEncoding(buffer: Buffer, explicitEncoding: string |
     return requireEncodingInfo(sniffed ?? DEFAULT_ENCODING);
 }
 
-/** The table entry text is encoded in: unknown ids defensively fall back to utf-8. */
+/** Неизвестный id — utf-8. */
 export function resolveEncodeEncoding(encoding: string): IEncodingInfo {
     return encodingsById.get(encoding) ?? requireEncodingInfo(DEFAULT_ENCODING);
 }
 
-/** `buffer` without the encoding's BOM, when it starts with one. */
 export function stripBOM(buffer: Buffer, info: IEncodingInfo): Buffer {
     return info.bom !== undefined && startsWithBytes(buffer, info.bom) ? buffer.subarray(info.bom.length) : buffer;
 }
 
-/**
- * Decodes raw disk bytes by the BOM sniff alone — opening a file, no explicit
- * encoding. Synchronous and iconv-free: the sniff only ever yields utf-8 (with
- * or without BOM) or UTF-16, all decoded natively. The BOM is stripped.
- */
+/** Синхронно и без iconv: сниф даёт только utf-8 или UTF-16. */
 export function decodeBufferByBOM(buffer: Buffer): IDecodedText {
     const info = resolveDecodeEncoding(buffer, undefined);
     const codec = NATIVE_CODECS.get(info.iconvName);
@@ -223,35 +180,20 @@ export function decodeBufferByBOM(buffer: Buffer): IDecodedText {
 }
 
 /**
- * Decodes raw disk bytes to document text.
- *
- * `explicitEncoding` (e.g. from "Reopen with Encoding") wins over the BOM
- * sniff, with one exception: explicit "utf8" on a buffer that carries a UTF-8
- * BOM is promoted to "utf8bom" so the BOM survives a later save. Unknown
- * explicit ids fall back to the sniff-or-default path. The BOM bytes are
- * stripped before decoding and never appear in the returned text.
- *
- * Asynchronous because charsets beyond utf-8 and UTF-16 need iconv-lite;
- * those two are decoded natively. Without an explicit encoding prefer the
- * synchronous {@link decodeBufferByBOM} — same result.
+ * `explicitEncoding` побеждает сниф, кроме "utf8" на буфере с BOM — тот становится
+ * "utf8bom", чтобы BOM пережил сохранение. Без явной кодировки — синхронный
+ * {@link decodeBufferByBOM}, результат тот же.
  */
 export async function decodeBuffer(buffer: Buffer, explicitEncoding?: string): Promise<IDecodedText> {
     const info = resolveDecodeEncoding(buffer, explicitEncoding);
     const body = stripBOM(buffer, info);
     const codec = NATIVE_CODECS.get(info.iconvName);
-    // Опции BOM iconv-lite не передаём: у не-Unicode кодеков они пустые (BOM
-    // понимают только utf-8/UTF-16/UTF-32, а те идут нативно), BOM снят выше.
+    // Опции BOM iconv-lite не передаём: у не-Unicode кодеков они пустые.
     const text = codec !== undefined ? codec.decode(body) : (await loadIconv()).decode(body, info.iconvName);
     return { text, encoding: info.id };
 }
 
-/**
- * Encodes document text to the bytes written to disk. BOM policy matches
- * VS Code: "utf8bom" and both UTF-16 variants always write their BOM, every
- * other encoding writes none. Unknown ids defensively fall back to utf-8.
- * Characters unrepresentable in the target charset become iconv-lite's
- * replacement ("?"). Asynchronous for the same reason as {@link decodeBuffer}.
- */
+/** BOM пишут "utf8bom" и оба UTF-16, как в VS Code; непредставимое — "?" iconv-lite. */
 export async function encodeText(text: string, encoding: string): Promise<Buffer> {
     const info = resolveEncodeEncoding(encoding);
     const codec = NATIVE_CODECS.get(info.iconvName);

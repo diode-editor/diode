@@ -98,8 +98,6 @@ describe("decodeBuffer", () => {
     });
 
     it("explicit non-utf8 encoding suppresses BOM re-detection", async () => {
-        // A windows1251 file that happens to start with the utf8 BOM bytes is
-        // still decoded as windows1251 when the user asked for it.
         const bytes = iconv.encode("ïâ", "windows1251");
         const { encoding } = await decodeBuffer(bytes, "windows1251");
         expect(encoding).toBe("windows1251");
@@ -192,8 +190,7 @@ describe("roundtrips (byte-exact)", () => {
     }
 });
 
-// Быстрый путь — именно мимо iconv: результат у них одинаковый (тесты ниже),
-// поэтому отличить можно только по тому, позвали ли iconv вообще.
+// Результат одинаковый (тесты ниже) — отличить можно только по тому, позвали ли iconv.
 describe("utf-8 и UTF-16 не идут через iconv-lite", () => {
     afterEach(() => {
         vi.restoreAllMocks();
@@ -216,8 +213,6 @@ describe("utf-8 и UTF-16 не идут через iconv-lite", () => {
     });
 });
 
-// iconv-lite — ленивый кусок бандла: utf-8 и UTF-16 его не трогают, иначе он
-// грузился бы на открытии любого файла.
 describe("iconv-lite — ленивый кусок", () => {
     let requested: string[] = [];
 
@@ -257,11 +252,7 @@ describe("iconv-lite — ленивый кусок", () => {
     });
 });
 
-/**
- * The native utf-8 / UTF-16 codecs against the iconv-lite path they replace:
- * the reference below is the pre-native implementation (BOM stripped by us,
- * the body through iconv-lite). Edge cases first, then a seeded fuzz.
- */
+// Эталон сравнения — прежняя реализация: BOM снимаем сами, тело — через iconv-lite.
 
 describe("native codecs == iconv-lite", () => {
     const UNICODE_IDS = ["utf8", "utf8bom", "utf16le", "utf16be"];
@@ -281,11 +272,7 @@ describe("native codecs == iconv-lite", () => {
         return Buffer.concat([Buffer.from(info.bom ?? []), body]);
     }
 
-    /**
-     * Every Unicode id explicitly plus the BOM sniff. The reference decodes in
-     * the encoding the result reports: explicit utf8 on a UTF-8 BOM is promoted
-     * to utf8bom, and the sniff picks its own.
-     */
+    /** Эталон декодирует в кодировке, которую сообщил результат: utf8 на BOM повышается до utf8bom. */
     async function expectDecodeMatchesIconv(buffer: Buffer): Promise<void> {
         const label = buffer.toString("hex");
         for (const id of UNICODE_IDS) {
@@ -351,8 +338,7 @@ describe("native codecs == iconv-lite", () => {
     }
 
     it("seeded fuzz: random bytes and strings", async () => {
-        // Детерминированный ГПСЧ (mulberry32): падение воспроизводимо. Байты —
-        // с перекосом в старшие и суррогатные, где кодеки и расходятся.
+        // Перекос в старшие и суррогатные байты — там кодеки и расходятся.
         let seed = 0x1c0f;
         const random = (): number => {
             seed = (seed + 0x6d2b79f5) | 0;

@@ -22,21 +22,9 @@ export interface ITokensChangedEvent {
 }
 
 /**
- * Per-document cache of line tokens — адаптер к перенесённой из эталона
- * токенизации (`model/textModelTokens.ts`), наш аналог upstream
- * `TokenizerSyntaxTokenBackend`.
- *
- * Как у эталона:
- * - **фон** — `DefaultBackgroundTokenizer` идёт по невалидным строкам кусками
- *   по ~1 мс и кладёт токены сюда ({@link onDidChangeTokens});
- * - **вьюпорт** — {@link tokenizeViewport}: строки, до которых фон уже дошёл,
- *   досчитываются точно, а вьюпорт за фронтиром красится эвристикой
- *   (стартовое состояние угадано по строкам с меньшим отступом) и
- *   перезаписывается фоном, когда тот доберётся;
- * - **каретка** — {@link forceTokenization} / {@link tokenizeIfCheap}.
- *
- * Перенесённый код живёт в координатах эталона (строки с 1); здесь — наши
- * 0-based строки. ±1 только в этом файле (docs/arch/Editor.md, «Координаты»).
+ * Адаптер к перенесённой токенизации эталона (`model/textModelTokens.ts`),
+ * аналог upstream `TokenizerSyntaxTokenBackend`. Вендор — в строках с 1, здесь
+ * 0-based: ±1 только в этом файле (docs/arch/Editor.md, «Координаты»).
  */
 export class DocumentTokenStore extends Disposable {
     private readonly document: ITextDocument;
@@ -44,34 +32,23 @@ export class DocumentTokenStore extends Disposable {
     private readonly textModel: ITextModel;
 
     /**
-     * Бинарные токены строк, как их хранит эталон (`ContiguousTokensStore`):
-     * по два числа на токен — смещение КОНЦА токена и метаданные
-     * (`encodedTokenAttributes.ts`). `undefined` — строка не токенизирована
-     * или правлена после токенизации.
+     * Как `ContiguousTokensStore` эталона: по два числа на токен — смещение КОНЦА
+     * и метаданные. `undefined` — не токенизирована или правлена после.
      */
     private cachedTokens!: (Uint32Array | undefined)[];
-    /**
-     * Языки по id мы не кодируем (`languages.ts`): в метаданных всегда 0, а
-     * обратно — язык документа.
-     */
+    /** Языки по id не кодируем: в метаданных всегда 0, обратно — язык документа. */
     private readonly languageIdCodec: ILanguageIdCodec;
     // Все три ставит resetTokenization() из конструктора.
     private tokenizer!: TokenizerWithStateStoreAndTextModel;
     private backgroundTokenizer!: DefaultBackgroundTokenizer;
     private backgroundTokenizationCompleted!: boolean;
 
-    /**
-     * Растёт на каждую правку и смену токенизатора. Ключ памяти эвристического
-     * вьюпорта: тот же вьюпорт той же версии второй раз не угадываем.
-     */
+    /** Ключ памяти эвристического вьюпорта: тот же вьюпорт той же версии второй раз не угадываем. */
     private version = 0;
     private heuristicViewport: { start: number; end: number; version: number } | undefined;
 
     private readonly onDidChangeTokensEmitter = this.register(new Emitter<ITokensChangedEvent>());
-    /**
-     * Токены строк сменились не по запросу рендера: их положил фон или
-     * {@link forceTokenization}. Вью перерисовывается, если строки на экране.
-     */
+    /** Только не по запросу рендера: фон или {@link forceTokenization}. */
     public readonly onDidChangeTokens: Event<ITokensChangedEvent> = this.onDidChangeTokensEmitter.event;
 
     public constructor(document: ITextDocument, support: ITokenizationSupport) {
@@ -92,9 +69,7 @@ export class DocumentTokenStore extends Disposable {
             getLineLength: (lineNumber) => document.getLineLength(lineNumber - 1),
             getLineFirstNonWhitespaceColumn: (lineNumber) =>
                 firstNonWhitespaceColumn(document.getLineContent(lineNumber - 1)),
-            // Стор живёт ровно столько, сколько вью (его держит EditorComponent):
-            // пока он есть, он «прикреплён». После dispose фон глушит сам
-            // DefaultBackgroundTokenizer.
+            // Стор живёт ровно столько, сколько вью; после dispose фон глушит сам DefaultBackgroundTokenizer.
             isAttachedToEditor: () => true,
         };
 
@@ -112,24 +87,16 @@ export class DocumentTokenStore extends Disposable {
         });
     }
 
-    /**
-     * Фон прошёл весь документ (upstream `BackgroundTokenizationState.Completed`).
-     * Правка позже флаг не сбрасывает — как у эталона.
-     */
+    /** Правка позже флаг не сбрасывает — как у эталона. */
     public get isBackgroundTokenizationCompleted(): boolean {
         return this.backgroundTokenizationCompleted;
     }
 
-    /**
-     * Replaces the active tokenizer (e.g. when a new language is detected).
-     * Invalidates the entire cache.
-     */
     public setTokenizationSupport(support: ITokenizationSupport): void {
         this.support = support;
         this.resetTokenization();
     }
 
-    /** Токены строки `line` (upstream `LineTokens`), `undefined` — ещё не токенизирована. */
     public getLineTokens(line: number): LineTokens | undefined {
         if (line < 0 || line >= this.document.lineCount) return undefined;
         const tokens = this.cachedTokens[line];
@@ -137,27 +104,17 @@ export class DocumentTokenStore extends Disposable {
         return new LineTokens(tokens, this.document.getLineContent(line), this.languageIdCodec);
     }
 
-    /**
-     * Externally-supplied tokens (tests): бинарные, концы токенов, последний
-     * конец — длина строки. Bypasses the registered ITokenizationSupport for
-     * that line; the next tokenization of the line overwrites it.
-     */
+    /** Последний конец токена — длина строки; следующая токенизация строки перезапишет. */
     public setLineTokens(line: number, tokens: Uint32Array): void {
         if (line < 0 || line >= this.document.lineCount) return;
         this.cachedTokens[line] = tokens;
     }
 
     /**
-     * Токены вьюпорта `[startLine .. endLine]` к кадру — upstream `refreshRange`.
-     * Синхронно и без событий: зовёт рендер, который их сейчас же и прочтёт.
-     *
-     * Дошёл фон до начала вьюпорта — строки досчитываются точно (их немного).
-     * Не дошёл — эвристика без кэша состояний, а фон просят пересчитать эти
-     * строки честно. Отличие от эталона: тот обновляет вьюпорт при смене
-     * видимых строк, а правку внутри него красит сдвигом старых токенов до
-     * прихода фона; у нас рендер тянет токены сам, правленые строки кэша пусты,
-     * поэтому зовём на каждый кадр, а повторную эвристику того же вьюпорта той
-     * же версии отсекаем.
+     * Upstream `refreshRange`, синхронно и без событий: рендер прочтёт сразу.
+     * Отличие от эталона: тот обновляет вьюпорт при смене видимых строк и красит
+     * правку сдвигом старых токенов; у нас правленые строки пусты, поэтому зовём
+     * на каждый кадр, а повторную эвристику того же вьюпорта той же версии отсекаем.
      */
     public tokenizeViewport(startLine: number, endLine: number): void {
         const lineCount = this.document.lineCount;
@@ -190,11 +147,7 @@ export class DocumentTokenStore extends Disposable {
         this.backgroundTokenizer.checkFinished();
     }
 
-    /**
-     * Точные токены до строки `line` включительно, сколько бы строк до неё ни
-     * осталось (upstream `forceTokenization`). Для каретки и явных команд, не
-     * для рендера: на большом файле за фронтиром фона это долго.
-     */
+    /** Не для рендера: на большом файле за фронтиром фона это долго. */
     public forceTokenization(line: number): void {
         const builder = new ContiguousMultilineTokensBuilder();
         this.tokenizer.updateTokensUntilLine(builder, line + 1);
@@ -202,26 +155,18 @@ export class DocumentTokenStore extends Disposable {
         this.backgroundTokenizer.checkFinished();
     }
 
-    /**
-     * {@link forceTokenization}, если до строки досчитать дёшево — она уже
-     * точна или ровно следующая за фронтиром (upstream `tokenizeIfCheap`).
-     * Иначе в кэше остаётся то, что есть (эвристика вьюпорта или пусто).
-     */
     public tokenizeIfCheap(line: number): void {
         if (this.tokenizer.isCheapToTokenize(line + 1)) this.forceTokenization(line);
     }
 
-    /** Токены строки посчитаны от точного состояния (а не эвристикой или не посчитаны). */
     public hasAccurateTokensForLine(line: number): boolean {
         return this.tokenizer.hasAccurateTokensForLine(line + 1);
     }
 
-    /** For tests: the cached end state of `line` (after tokenization). */
     public getEndState(line: number): IState | undefined {
         return this.tokenizer.store.getEndState(line + 1) ?? undefined;
     }
 
-    /** Upstream `todo_resetTokenization`: всё заново, фон — с первой строки. */
     private resetTokenization(): void {
         this.cachedTokens = [];
         this.cachedTokens.length = this.document.lineCount;
@@ -253,8 +198,7 @@ export class DocumentTokenStore extends Disposable {
         const changes: ITokensChangedEvent[] = [];
         for (const block of tokens) {
             for (let lineNumber = block.startLineNumber; lineNumber <= block.endLineNumber; lineNumber++) {
-                // Блоки от builder'а держат строки `Uint32Array` (ArrayBuffer и
-                // null у эталона бывают только после правки внутри блока).
+                // ArrayBuffer и null у эталона бывают только после правки внутри блока, не из builder'а.
                 const tokens = block.getLineTokens(lineNumber);
                 // Stryker disable next-line ConditionalExpression: null из builder'а не приходит (см. выше)
                 this.cachedTokens[lineNumber - 1] = tokens === null ? undefined : toUint32Array(tokens);
@@ -272,14 +216,12 @@ export class DocumentTokenStore extends Disposable {
         const lineDelta = newEndLine - oldEndLine;
 
         if (lineDelta > 0) {
-            // Insert `lineDelta` empty slots after `oldEndLine`.
             this.cachedTokens.splice(
                 oldEndLine + 1,
                 0,
                 ...new Array<Uint32Array | undefined>(lineDelta).fill(undefined),
             );
         } else if (lineDelta < 0) {
-            // Remove `-lineDelta` slots from the end of the changed region.
             this.cachedTokens.splice(newEndLine + 1, -lineDelta);
         }
         // Правленые строки пусты до пересчёта: старые токены легли бы на чужие
@@ -293,8 +235,7 @@ export class DocumentTokenStore extends Disposable {
     }
 }
 
-/** Upstream `getLineFirstNonWhitespaceColumn`: колонка с 1 первого не-пробела и не-таба, 0 — таких нет. */
+/** Колонка с 1; 0 — не-пробелов нет (search даёт -1). */
 function firstNonWhitespaceColumn(text: string): number {
-    // Не нашлось — search даёт -1, и колонка выходит 0.
     return text.search(/[^ \t]/) + 1;
 }

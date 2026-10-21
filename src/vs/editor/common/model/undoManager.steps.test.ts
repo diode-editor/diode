@@ -6,12 +6,6 @@ import { createTextEdit } from "../core/iTextEdit.ts";
 import { TextDocument } from "./textDocument.ts";
 import { UndoManager } from "./undoManager.ts";
 
-// Токены шагов: ими владелец (bulk edit, собирающий ОДИН шаг на несколько
-// документов) отвечает на вопрос «снимет ли следующий undo ИМЕННО мой шаг».
-// Версия документа для этого не годится — `undo` переписывает `versionAfter`
-// следующего элемента стека, и снятый снаружи снимок устаревает.
-
-/** Вставка `text` в начало документа — один шаг истории. */
 function push(manager: UndoManager, doc: TextDocument, label: string, text: string): void {
     const version = doc.versionId;
     const { appliedVersion, inverseEdits } = doc.applyEdits([createTextEdit(createRange(0, 0, 0, 0), text)]);
@@ -56,13 +50,11 @@ describe("UndoManager — токены шагов", () => {
         const first = manager.peekUndoStep()!;
         push(manager, doc, "second", "b");
 
-        // Сверху лежит `second`: следующий undo снимет не наш шаг.
         expect(manager.canUndoStep(first)).toBe(false);
         expect(manager.canUndoStep(manager.peekUndoStep())).toBe(true);
 
         manager.undo();
-        // Версия документа при этом ушла вперёд (undo — тоже правка), но
-        // менеджер подновил `versionAfter` нашего шага: он снова отменяем.
+        // Версия ушла вперёд, но менеджер подновил `versionAfter` нашего шага.
         expect(manager.canUndoStep(first)).toBe(true);
     });
 
@@ -90,7 +82,6 @@ describe("UndoManager — токены шагов", () => {
         expect(redoToken).toBeDefined();
         expect(redoToken).not.toBe(undoToken);
         expect(manager.canRedoStep(redoToken)).toBe(true);
-        // Старый токен повтору не принадлежит.
         expect(manager.canRedoStep(undoToken)).toBe(false);
     });
 

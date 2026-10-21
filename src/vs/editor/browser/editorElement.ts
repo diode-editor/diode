@@ -61,97 +61,53 @@ import {
 } from "./textViewRendering.ts";
 import { resolveSemanticTokenStyle, SemanticTokenIndex, TokenIndex } from "./tokenIndex.ts";
 
-// Find-in-file highlights: all matches get a dim background; the current match a brighter one.
 const FIND_MATCH_BG = packRgb(98, 91, 23);
 const FIND_MATCH_CURRENT_BG = packRgb(168, 109, 0);
 const NO_RANGES: readonly IRange[] = [];
 const NO_GUTTER_CHANGE_DECORATIONS: readonly IGutterChangeDecoration[] = [];
-// Change-bar glyph — VS Code's dirty-diff gutter paints a thin border; in a cell
-// grid we use the heavy box-drawing vertical so the bar sits centered in its
-// cell, one column left of the fold chevron. Modified lines use the dashed
-// variant (VS Code draws them hatched); added/deleted stay solid.
+// Тонкую рамку dirty-diff VS Code в сетке ячеек заменяет жирная вертикаль по центру
+// ячейки; modified — пунктир (у VS Code — штриховка).
 const GUTTER_CHANGE_BAR = "┃";
 const GUTTER_CHANGE_BAR_DASHED = "┋";
 const GUTTER_LEFT_PADDING = 2;
 
-// Codicon chevrons — VS Code's own folding-control glyphs. Thinner than the
-// Nerd Font fa-angle used for the file-tree arrows, so they don't crowd the text.
+// Codicon, как у VS Code: тоньше Nerd Font fa-angle дерева файлов, не теснят текст.
 const FOLD_ICON_EXPANDED = "\ueab4"; //  nf-cod-chevron_down
 const FOLD_ICON_COLLAPSED = "\ueab6"; //  nf-cod-chevron_right
-// Blank columns padding the fold chevron inside the gutter: one gap after the
-// line number and one before the text, so the chevron doesn't crowd either. The
-// chevron itself sits between them → a 3-column fold margin.
 const FOLD_GAP_LEFT = 1;
 const FOLD_GAP_RIGHT = 1;
-// Marker drawn after a collapsed region's header line, standing in for the hidden body.
-const FOLD_COLLAPSED_MARKER = "⋯"; // ⋯ horizontal ellipsis
+const FOLD_COLLAPSED_MARKER = "⋯";
 
-// Indentation guide: a vertical line drawn over a region's leading whitespace,
-// spanning the region's body.
-const INDENT_GUIDE = "│"; // U+2502 box drawings light vertical
+const INDENT_GUIDE = "│";
 
 /**
- * Ячейки направляющих отступа: экранный ряд → занятые в нём колонки. Ряд+колонка,
- * а не один числовой ключ: ключ вида `y * ширина + x` мутант-делением схлопывает
- * разные ячейки в одну, и проход маркеров начинает принимать текст за гайд.
+ * Ряд+колонка, а не ключ `y * ширина + x`: мутант-деление схлопывает разные ячейки
+ * в одну, и проход маркеров начинает принимать текст за гайд.
  */
 type IndentGuideCells = ReadonlyMap<number, ReadonlySet<number>>;
 
-/** Пустой набор — ранние выходы {@link EditorElement.paintIndentGuides} не аллоцируют Map. */
 const NO_GUIDE_CELLS: IndentGuideCells = new Map<number, ReadonlySet<number>>();
 
-/**
- * Специализированные цвета редактора (гуттер, подсветки, squiggles, контекстное
- * меню). Основные fg/bg редактора сюда не входят — они задаются через
- * `editor.style = { fg, bg }` (система наследования TUIStyle).
- */
-/**
- * TUI element that renders a text editor backed by EditorViewState.
- * Handles keyboard input (printable chars, Enter, Backspace, Delete)
- * and draws the document content with a hardware cursor.
- */
 export class EditorElement extends TUIElement implements IScrollable {
     public readonly viewState: EditorViewState;
-    /**
-     * Движок undo. По умолчанию — собственный (standalone-редакторы, демо, дифф);
-     * редактор файла получает сюда общий менеджер своего документа от
-     * `EditorComponent` — история одна на документ, сколько бы вью его ни казало.
-     */
+    /** Редактор файла кладёт сюда общий менеджер документа: история одна, сколько бы вью его ни казало. */
     public undoManager: UndoManager;
-    /**
-     * Resolves TextMate scopes to {@link ResolvedTokenStyle}. Defaults to a
-     * no-op resolver; concrete implementations live in the Theme layer (or
-     * are supplied by an LSP semantic-tokens provider).
-     */
     public tokenStyleResolver: ITokenStyleResolver = NULL_TOKEN_STYLE_RESOLVER;
 
-    /**
-     * Тема для семантических токенов ({@link EditorViewState.semanticTokens}):
-     * тип и модификаторы → стиль, перекрывающий TextMate. По умолчанию NULL —
-     * семантика не красится.
-     */
     public semanticTokenStyleResolver: ISemanticTokenStyleResolver = NULL_SEMANTIC_TOKEN_STYLE_RESOLVER;
 
     /**
-     * Источник language configuration документа для авто-закрытия скобок и
-     * auto-surround. Функция, а не снимок: язык у буфера может смениться
-     * (Save As с другим расширением), а конфигурация — доехать позже
-     * (ленивая загрузка). `undefined` из источника (нет владельца, язык ещё
-     * грузится) — обычный набор без пар, как и `null`-источник (standalone
-     * редакторы, дифф).
+     * Функция, а не снимок: язык буфера может смениться (Save As), а конфигурация —
+     * доехать позже (ленивая загрузка).
      */
     public languageConfigurationSource: (() => IResolvedLanguageConfiguration | undefined) | null = null;
 
     private readonly onDidTypeEmitter = new Emitter<string>();
 
     /**
-     * Набор печатного символа с клавиатуры (upstream `ICodeEditor.onDidType`).
-     * Приходит ПОСЛЕ правки — текст и каретка уже на месте — в том числе когда
-     * символ ушёл в пару языка: auto-close `(` (вставлено `()`), typeover `)`
-     * (правки нет, каретка перешагнула), auto-surround выделения. Вставка,
-     * Enter, undo/redo, правки расширений и read-only набором не считаются:
-     * подписчикам (триггер-символы попапов) нужен именно набор, а не «строка
-     * подросла на символ».
+     * Upstream `ICodeEditor.onDidType`: приходит ПОСЛЕ правки, в том числе для
+     * auto-close, typeover и auto-surround. Вставка, Enter, undo и правки расширений
+     * набором не считаются — подписчикам (триггер-символы попапов) нужен именно набор.
      */
     public readonly onDidType = this.onDidTypeEmitter.event;
 
@@ -163,23 +119,15 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState.tabSize = value;
     }
 
-    /** Whether to highlight occurrences of the word under the cursor (VS Code `editor.occurrencesHighlight`). */
     public occurrenceHighlightEnabled = true;
 
     /**
-     * Имя токена темы для фона гуттера; `null` — гуттер идёт за фоном самого
-     * редактора. Отдельная ручка нужна редакторам со своим фоном (Output живёт
-     * на фоне панели): тема вправе прибить `editorGutter.background` к
-     * `editor.background` (dark2026), и тогда гуттер остался бы полосой чужого
-     * цвета. Владелец вью ставит `null` — см. `EditorComponent.backgroundToken`.
+     * `null` — фон самого редактора: тема вправе прибить `editorGutter.background` к
+     * `editor.background`, и у редактора со своим фоном (Output) гуттер стал бы чужой полосой.
      */
     public gutterBackgroundToken: string | null = "editorGutter.background";
 
-    /**
-     * Diagnostic squiggle decorations for the open document (pushed by the
-     * controller). Хранит их документ: диапазоны едут вместе с текстом при
-     * правках, чтение отдаёт уже сдвинутые (см. `EditorViewState.setMarkerDecorations`).
-     */
+    /** Хранит документ: диапазоны едут вместе с текстом при правках. */
     public get markerDecorations(): readonly IMarkerDecoration[] {
         return this.viewState.getMarkerDecorations();
     }
@@ -188,16 +136,12 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState.setMarkerDecorations(decorations);
     }
 
-    /** Gutter change-bar decorations (SCM/git dirty-diff) for the open document (pushed by the controller). */
     public gutterChangeDecorations: readonly IGutterChangeDecoration[] = NO_GUTTER_CHANGE_DECORATIONS;
-    /** Внешние декорации владельца вью (дифф): фоны строк/диапазонов, маркеры, зоны. */
     public decorations: IExternalDecorations = EMPTY_EXTERNAL_DECORATIONS;
 
     private lineWidthCache: LineWidthCache | null = null;
     private occurrenceCache: { versionId: number; line: number; character: number; ranges: IRange[] } | null = null;
-    /** Текущая призрачная подсказка; `null` — не показывать. См. {@link setGhostText}. */
     private ghostTextValue: IGhostText | null = null;
-    /** Документные строки последнего кадра — фильтр {@link handleTokensChanged}. */
     private renderedDocLines: { first: number; last: number } | undefined;
 
     public get ghostText(): IGhostText | null {
@@ -205,13 +149,9 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     /**
-     * Ставит/снимает призрачную подсказку (ghost text инлайн-подсказок). Первую
-     * строку {@link render} вклеивает фантомными колонками в layout строки
-     * каретки (хвост строки уезжает вправо — см. {@link ILinePhantom}); под
-     * остальные строки элемент сам заводит view zones. Зоны редактора и внешние зоны
-     * владельца вью ({@link decorations}) взаимоисключающи: ghost ставится
-     * только на редакторе файла, где `setViewZones` больше никто не зовёт —
-     * у диффа зонами владеет `diffEditorPane2`, и ghost там выключен.
+     * Хвост подсказки (строки после первой) элемент кладёт в свои view zones. Они
+     * взаимоисключающи с зонами владельца ({@link decorations}), поэтому ghost есть только у
+     * редактора файла, а у диффа (зонами владеет `diffEditorPane2`) выключен.
      */
     public setGhostText(ghost: IGhostText | null): void {
         if (ghostTextEquals(this.ghostTextValue, ghost)) return;
@@ -231,16 +171,10 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     public get contentWidth(): number {
-        // При переносе контент по построению не шире вьюпорта: горизонтальному
-        // скроллбару нечего показывать (политика "auto" гаснет на
-        // contentSize <= viewportSize), а maxScrollLeft в handleWheel — ноль.
+        // При переносе контент не шире вьюпорта — горизонтальному скроллбару нечего показывать.
         if (this.viewState.isWordWrapActive) return this.viewState.viewportWidth;
-        // The width cache tracks edits incrementally off onDidChangeContent, so
-        // this is O(1) between edits and re-measures only changed lines after one
-        // — unlike the old per-versionId whole-document rescan that froze the
-        // editor on long lines (worst of all in the Output panel). Bound once to
-        // the document, which is fixed per EditorElement (a disk reload builds a
-        // fresh element).
+        // Кэш привязан к документу раз: документ у EditorElement не меняется (перечитка с диска
+        // строит новый элемент).
         this.lineWidthCache ??= new LineWidthCache(this.viewState.document, this.tabSize);
         this.lineWidthCache.setTabSize(this.tabSize);
         return this.lineWidthCache.getMaxWidth();
@@ -254,12 +188,6 @@ export class EditorElement extends TUIElement implements IScrollable {
         return this.viewState.scrollLeft;
     }
 
-    /**
-     * Observable editor state for the inspector — cursor, selections, readonly,
-     * scroll, folded regions, language. Lets e2e assert on data (e.g. «selection
-     * survived a live channel», «readonly gated the edit») instead of guessing
-     * from painted cells. Plain JSON, read from `viewState`.
-     */
     public override inspectState(): Record<string, unknown> {
         const vs = this.viewState;
         const selections = vs.selections.map((s) => ({
@@ -294,53 +222,34 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     public get gutterWidth(): number {
-        // Logical line count, not view line count: the gutter paints logical
-        // line numbers, so folding must not shrink the digit column (a 150-line
-        // file folded to <100 view lines would truncate "150" to "15").
+        // Логические строки, не строки вью: фолдинг не должен сужать колонку цифр
+        // (файл из 150 строк, свёрнутый до <100, обрезал бы «150» до «15»).
         const lineCount = this.viewState.document.lineCount;
         const digitCount = Math.max(1, Math.floor(Math.log10(lineCount)) + 1);
         return GUTTER_LEFT_PADDING + digitCount + this.gutterMarkerColumns + FOLD_GAP_LEFT + 1 + FOLD_GAP_RIGHT;
     }
 
-    /**
-     * Колонка под внешние гуттер-маркеры (`-`/`+` диффа) сразу после цифр —
-     * появляется только когда маркеры заданы: у обычного редактора гуттер не
-     * ширится впустую.
-     */
     private get gutterMarkerColumns(): number {
         return (this.decorations.gutterMarkers?.length ?? 0) > 0 ? 1 : 0;
     }
 
-    /** Gutter column holding the fold chevron; {@link FOLD_GAP_RIGHT} blanks follow it. */
     public get foldControlColumn(): number {
         return this.gutterWidth - 1 - FOLD_GAP_RIGHT;
     }
 
-    /**
-     * Абсолютные (экранные) координаты ячейки каретки первичного курсора, или
-     * `null`, если каретка вне видимой области. Используется для якорения
-     * completion-попапа (та же математика, что в {@link render}).
-     */
     public getCaretScreenCell(): Point | null {
         const local = caretLocalCell(this.viewState, this.gutterWidth, this.layoutSize, this.linePhantom);
         if (local === null) return null;
         return new Point(this.globalPosition.x + local.x, this.globalPosition.y + local.y);
     }
 
-    /**
-     * Фантомные колонки кадра: первая строка призрачной подсказки вклеивается в
-     * layout строки каретки, и хвост строки уезжает вправо на её ширину (как
-     * injected-text декорации upstream). Одно значение на все проходы кадра —
-     * отрисовку строки, фоны диапазонов, каретки и hit-test.
-     */
+    /** Одно значение на все проходы кадра: строка, фоны диапазонов, каретки и hit-test. */
     private get linePhantom(): ILinePhantom | null {
         const ghost = this.ghostTextValue;
         if (ghost === null) return null;
         const document = this.viewState.document;
-        // Устаревшая подсказка: строка под ней могла исчезнуть или укоротиться
-        // (правка пришла извне раньше, чем сервис погасил сессию). Инвариант
-        // «фантом стоит внутри своей строки» держит всю композитную математику
-        // кадра, поэтому кламп — здесь, а не в каждом проходе.
+        // Подсказка устарела (правка извне раньше, чем сервис погасил сессию): инвариант «фантом
+        // внутри своей строки» держит всю композитную математику кадра, поэтому кламп — здесь.
         if (ghost.line < 0 || ghost.line >= document.lineCount) return null;
         return {
             line: ghost.line,
@@ -350,14 +259,10 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     /**
-     * Единственная точка записи размеров вьюпорта во view-state — ДО render:
-     * при word wrap от ширины зависит сама проекция, а `contentHeight`
-     * (= число рядов вью) читает ScrollBarDecorator в своём layout-проходе.
-     * Декоратор решает видимость полос до layout ребёнка, то есть по проекции
-     * ПРОШЛОЙ ширины — на смене ширины дозаказываем кадр, и повторный проход с
-     * той же шириной сходится (widthChanged=false). Отложенно через microtask:
-     * markDirty прямо из layout оставил бы корень layout-грязным после кадра —
-     * тот же паттерн, что onDidChangeMode в diffEditorPane2.
+     * Размеры вьюпорта пишутся во view-state ДО render: при word wrap от ширины зависит
+     * проекция, а ScrollBarDecorator решает видимость полос по проекции ПРОШЛОЙ ширины —
+     * на смене ширины дозаказываем кадр. Через microtask: markDirty прямо из layout
+     * оставил бы корень layout-грязным после кадра.
      */
     protected override performLayout(constraints: BoxConstraints): Size {
         const size = super.performLayout(constraints);
@@ -395,16 +300,10 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.viewState = viewState;
         this.undoManager = new UndoManager(viewState.document);
 
-        // Любое движение курсора/правка (печать, paste, мышь, undo, команды —
-        // все проходят через сеттер selections) — грязный кадр. Раньше
-        // перерисовку спасала лишь побочная цепочка «selections → статус-бар →
-        // setText → markDirty», которой нет у standalone-редактора.
         this.viewState.onDidChangeCursorPosition(() => {
             this.markDirty();
         });
-        // Видимые изменения мимо курсора — скролл (scrollLine*, колесо),
-        // фолдинг, подсветка поиска и правки документа напрямую (applyEdits
-        // из расширений/bulkEdit) — тоже обязаны пометить редактор: под
+        // Скролл, фолдинг и правки мимо курсора (applyEdits расширений) — тоже: под
         // damage-tracking непомеченный виджет не перерисовывается.
         this.viewState.onDidChangeView(() => {
             this.markDirty();
@@ -413,9 +312,7 @@ export class EditorElement extends TUIElement implements IScrollable {
             this.markDirty();
         });
 
-        // Обработчики ввода объявляют источник смены каретки: мост расширений
-        // читает его синхронно и отдаёт расширению как
-        // `TextEditorSelectionChangeKind` (см. cursorChangeSource.ts).
+        // Источник смены каретки мост расширений читает синхронно (`TextEditorSelectionChangeKind`).
         this.addEventListener("keypress", (event) => {
             withCursorChangeSource("keyboard", () => {
                 this.handleKeyPress(event);
@@ -452,29 +349,18 @@ export class EditorElement extends TUIElement implements IScrollable {
         });
     }
 
-    /**
-     * Режим «только чтение» (VS Code `EditorOption.readOnly`). Истина живёт на
-     * `EditorViewState` — через него проходят все правки; здесь только чтение,
-     * чтобы `WorkbenchContextKeys` мог спросить сфокусированный виджет напрямую.
-     * Выставляют флаг через `TextEditorPane.readOnly` — он ещё и файрит событие.
-     */
+    /** Выставляют через `TextEditorPane.readOnly` — он ещё и файрит событие. */
     public get readOnly(): boolean {
         return this.viewState.readOnly;
     }
 
-    /**
-     * Токены строк `[fromLine .. toLine]` сменились вне кадра (фоновая
-     * токенизация, доводка у каретки). Перерисовываемся, только если строки
-     * были на экране: фон кладёт токены кусками по ~1 мс, и кадр на каждый
-     * кусок за экраном — впустую.
-     */
+    /** Фон кладёт токены кусками по ~1 мс: кадр на каждый кусок за экраном — впустую. */
     public handleTokensChanged(fromLine: number, toLine: number): void {
         const rendered = this.renderedDocLines;
         if (rendered === undefined || toLine < rendered.first || fromLine > rendered.last) return;
         this.markDirty();
     }
 
-    /** Единственный канал обновления цветов редактора (маппинг темы делает Workbench-мост). */
     public render(context: RenderContext): void {
         const gutterW = this.gutterWidth;
         const contentCols = this.layoutSize.width - gutterW;
@@ -494,24 +380,17 @@ export class EditorElement extends TUIElement implements IScrollable {
         const digitCount =
             gutterW - GUTTER_LEFT_PADDING - this.gutterMarkerColumns - FOLD_GAP_LEFT - 1 - FOLD_GAP_RIGHT;
         const foldFg = this.styleVar("editorGutter.foldingControlForeground");
-        // Призрачная подсказка: цвет и стиль резолвятся раз за кадр. Курсив —
-        // как ghost text VS Code (font-style: italic у .ghost-text-decoration).
+        // Курсив — как ghost text VS Code (`.ghost-text-decoration`).
         const ghost = this.ghostTextValue;
         const ghostFg = ghost !== null ? this.styleVar("editorGhostText.foreground") : 0;
-        // Первая строка подсказки — фантомные колонки внутри layout строки
-        // каретки: её хвост уезжает вправо, а не прячется под фантом.
         const phantom = this.linePhantom;
 
-        // Fold-region headers by their (logical) start line, so the gutter can draw
-        // a chevron and the header line a collapsed marker without scanning per cell.
         const foldHeaderByLine = new Map<number, boolean>();
         for (const region of this.viewState.foldedRegions) {
             foldHeaderByLine.set(region.startLine, region.isCollapsed);
         }
 
-        // Change-bar colour + style by (logical) line, flattened once per frame
-        // so each visible row is a single lookup. A deleted hunk is one boundary
-        // line (its range covers just that line).
+        // Удалённый ханк — одна граничная строка (его диапазон покрывает только её).
         const gutterChangeByLine = new Map<number, { color: number; dashed: boolean }>();
         for (const decoration of this.gutterChangeDecorations) {
             for (let line = decoration.range.start.line; line <= decoration.range.end.line; line++) {
@@ -519,11 +398,8 @@ export class EditorElement extends TUIElement implements IScrollable {
             }
         }
 
-        // Внешние декорации — flatten раз за кадр, цвета резолвятся здесь же
-        // (styleVar), чтобы строки платили за поиск токена не по разу. Токен с
-        // альфой композитится с фоном редактора один раз здесь: строку красят
-        // несколькими проходами (гуттер, текст, плашки), и полупрозрачный bg в
-        // каждом лёг бы новым слоем (правило painter'а в STYLES.md).
+        // Токен с альфой композитится с фоном редактора один раз здесь: строку красят
+        // несколькими проходами, и полупрозрачный bg лёг бы в каждом новым слоем.
         const lineBgByLine = new Map<number, number>();
         for (const decoration of this.decorations.lineBackgrounds ?? []) {
             const bg = compositeOver(this.styleVar(decoration.colorToken), editorBg);
@@ -540,12 +416,8 @@ export class EditorElement extends TUIElement implements IScrollable {
             zoneDecorationByAnchor.set(zone.afterLine, zone);
         }
 
-        // Токены вьюпорта к кадру: точные, если фон до него дошёл, иначе —
-        // эвристика (DocumentTokenStore.tokenizeViewport). Нижняя строка
-        // вьюпорта может быть зоной (у неё документной нет) — берём ближайшую
+        // Нижняя строка вьюпорта может быть зоной — docLineForViewLine берёт ближайшую
         // документную, иначе подсветка хвоста вьюпорта молча отстанет.
-        // docLineForViewLine сам зажимает строку вью в границы и всегда
-        // отдаёт валидную документную — гарды не нужны.
         const tokenStore = this.viewState.tokenStore;
         if (tokenStore && visibleLines > 0) {
             const firstDocLine = this.viewState.docLineForViewLine(scrollTop);
@@ -554,10 +426,8 @@ export class EditorElement extends TUIElement implements IScrollable {
             tokenStore.tokenizeViewport(firstDocLine, lastDocLine);
         }
 
-        // Стиль по метаданным токена; кэш стилей — у самого резолвера.
         const tokenStyleResolver = this.tokenStyleResolver;
         const resolveStyle = (metadata: number): ResolvedTokenStyle => tokenStyleResolver.resolve(metadata);
-        // То же для семантических токенов: стиль по (легенда, тип, модификаторы).
         const semanticLanguageId = this.viewState.document.languageId;
         const semanticStyleCache = new Map<ISemanticTokensLegend, Map<number, SemanticTokenStyle | null>>();
         const lookupSemanticStyle = (
@@ -587,35 +457,24 @@ export class EditorElement extends TUIElement implements IScrollable {
             return style;
         };
 
-        // Кадровый мемо DisplayLine по документной строке: при wrap N фрагментов
-        // одной строки не должны сегментировать её N раз (тот же приём, что
-        // displayLineByDocLine в paintCarets).
+        // При wrap N фрагментов одной строки не должны сегментировать её N раз.
         const dlByDocLine = new Map<number, DisplayLine>();
 
         for (let screenY = 0; screenY < visibleLines; screenY++) {
             const viewLine = scrollTop + screenY;
 
-            // --- View zone row: виртуальная строка без документной — пустой
-            // гуттер и контент от владельца зон (филлеры, плашки, а с
-            // многострочными `lines` — призраки inline-диффа). Номера строк
-            // не тратит.
+            // Строка-зона: номера строк не тратит, контент — от владельца зон.
             const zoneRow = this.viewState.zoneRowForViewLine(viewLine);
             if (zoneRow !== null) {
                 for (let x = 0; x < gutterW; x++) {
                     context.setCell(x, screenY, { char: " ", bg: gutBg });
                 }
-                // Зона призрачной подсказки: строки `lines[1..]` под строкой
-                // каретки (offset 0 зоны = lines[1]). Свои зоны редактор заводит
-                // только под ghost — конфликт с зонами владельца невозможен
-                // (см. setGhostText). Проверки якоря и offset'а держатся на
-                // инварианте setGhostText (единственная зона на ghost.line
-                // размером ровно lines.length - 1): их «ослабляющие» мутанты
-                // недостижимы — гасим с причиной.
+                // Своя зона редактора — только под ghost (см. setGhostText): единственная зона на
+                // ghost.line размером ровно lines.length - 1, поэтому «ослабляющие» мутанты
+                // проверок якоря и offset'а недостижимы.
                 // Stryker disable next-line ConditionalExpression,EqualityOperator,ArithmeticOperator: см. выше
                 if (ghost !== null && zoneRow.anchor === ghost.line && zoneRow.offset + 1 < ghost.lines.length) {
-                    // Лишняя колонка у «<=»-мутанта клиппится прямоугольником
-                    // элемента (setCell на промахе молча выходит) — гасим, как
-                    // клип-отсевы paintCarets.
+                    // Лишняя колонка «<=»-мутанта клиппится прямоугольником элемента.
                     // Stryker disable next-line EqualityOperator: см. выше
                     for (let x = 0; x < contentCols; x++) {
                         context.setCell(gutterW + x, screenY, { char: " ", fg: ghostFg, bg: editorBg });
@@ -639,8 +498,7 @@ export class EditorElement extends TUIElement implements IScrollable {
                         : zoneDecoration?.colorToken !== undefined
                           ? this.styleVar(zoneDecoration.colorToken)
                           : editorFg;
-                // Заливка и текст поверх неё — два setCell в одну ячейку, поэтому
-                // bg зоны композитится с фоном редактора один раз, до заливки.
+                // Заливка и текст поверх — два setCell в одну ячейку: bg зоны композитим один раз.
                 const zoneBg =
                     zoneLine?.bgToken !== undefined
                         ? compositeOver(this.styleVar(zoneLine.bgToken), editorBg)
@@ -659,12 +517,10 @@ export class EditorElement extends TUIElement implements IScrollable {
                 continue;
             }
 
-            // Фрагмент строки, который несёт этот ряд; ряд-продолжение (start > 0)
-            // не повторяет номер строки, chevron и маркеры — они у первого ряда.
+            // Ряд-продолжение wrap не повторяет номер строки, chevron и маркеры.
             const frag = this.viewState.viewLineRange(viewLine);
             const isContinuation = frag.start > 0;
 
-            // --- Gutter ---
             if (viewLine < viewLineCount) {
                 const logLine = this.viewState.visualToLogicalLine(viewLine);
                 const lineNumStr = isContinuation
@@ -673,31 +529,20 @@ export class EditorElement extends TUIElement implements IScrollable {
                     : String(logLine + 1).padStart(digitCount, " ");
                 const isActive = logLine === primaryLine;
                 const numFg = isActive ? lnActiveFg : lnFg;
-                // Фон диффовой строки идёт и под номером (как в VS Code) —
-                // декорация строки перекрывает фон гуттера.
                 const rowGutBg = lineBgByLine.get(logLine) ?? gutBg;
 
-                // Left padding
                 for (let x = 0; x < GUTTER_LEFT_PADDING; x++) {
                     context.setCell(x, screenY, { char: " ", fg: numFg, bg: rowGutBg });
                 }
-                // Line number digits
                 for (let d = 0; d < digitCount; d++) {
                     context.setCell(GUTTER_LEFT_PADDING + d, screenY, { char: lineNumStr[d], fg: numFg, bg: rowGutBg });
                 }
-                // Fold control column plus a blank gap before the text (the gap
-                // also separates the line number from the content). On a foldable
-                // header line the control shows a chevron (down = expanded, right
-                // = collapsed).
                 const foldCol = this.foldControlColumn;
                 for (let x = GUTTER_LEFT_PADDING + digitCount; x < gutterW; x++) {
                     context.setCell(x, screenY, { char: " ", fg: numFg, bg: rowGutBg });
                 }
-                // Внешний гуттер-маркер (`-`/`+` диффа) — в своей колонке сразу
-                // после цифр (колонка существует, только когда маркеры заданы).
-                // Гард по колонке маркеров и мапа маркеров растут из одного
-                // источника (decorations.gutterMarkers): «пустая колонка, но
-                // непустая мапа» невозможна, мутанты гарда неубиваемы.
+                // Гард по колонке и мапа маркеров растут из одного источника
+                // (decorations.gutterMarkers) — мутанты гарда неубиваемы.
                 // Stryker disable next-line ConditionalExpression,EqualityOperator: см. выше
                 if (this.gutterMarkerColumns > 0 && !isContinuation) {
                     const marker = gutterMarkerByLine.get(logLine);
@@ -709,32 +554,26 @@ export class EditorElement extends TUIElement implements IScrollable {
                         });
                     }
                 }
-                // Change bar in the left fold column (immediately left of the
-                // chevron), painted after the fold-area blanks so it survives.
-                // Modified lines get a dashed bar (VS Code dirty-diff style).
+                // После заливки fold-колонки, иначе она затрёт полосу.
                 const change = gutterChangeByLine.get(logLine);
                 if (change !== undefined && !isContinuation) {
                     const char = change.dashed ? GUTTER_CHANGE_BAR_DASHED : GUTTER_CHANGE_BAR;
                     context.setCell(foldCol - 1, screenY, { char, fg: change.color, bg: rowGutBg });
                 }
                 const foldState = isContinuation ? undefined : foldHeaderByLine.get(logLine);
-                // Collapsed regions always show their chevron; expanded ones only
-                // while the gutter is hovered (VS Code `showFoldingControls`).
                 const showChevron = foldState === true || (foldState === false && this.foldGutterHovered);
                 if (showChevron) {
                     const icon = foldState ? FOLD_ICON_COLLAPSED : FOLD_ICON_EXPANDED;
                     context.setCell(foldCol, screenY, { char: icon, fg: foldFg, bg: rowGutBg });
                 }
             } else {
-                // Past end of document — empty gutter
                 for (let x = 0; x < gutterW; x++) {
                     context.setCell(x, screenY, { char: " ", bg: gutBg });
                 }
             }
 
-            // --- Content area ---
             if (viewLine >= viewLineCount) {
-                // Past end of document — empty content area (VS Code draws no vim-style tildes)
+                // VS Code не рисует vim-тильды за концом документа.
                 for (let x = 0; x < contentCols; x++) {
                     context.setCell(gutterW + x, screenY, { char: " ", fg: editorFg, bg: editorBg });
                 }
@@ -743,15 +582,12 @@ export class EditorElement extends TUIElement implements IScrollable {
 
             const lineContent = this.viewState.getViewLine(viewLine);
             const rowLogLine = this.viewState.visualToLogicalLine(viewLine);
-            // Кэш — чистая мемоизация: без него результат тот же, только
-            // пересегментированный на каждом фрагменте. Мутанты неубиваемы.
+            // Кэш — чистая мемоизация, мутанты неубиваемы.
             // Stryker disable next-line CallExpression: см. выше
             let dl = dlByDocLine.get(rowLogLine);
             // Stryker disable next-line ConditionalExpression: см. выше
             if (dl === undefined) {
-                // Композитная строка = текст + фантомные колонки: табы и широкие
-                // символы подсказки занимают колонки от НАЧАЛА строки, как
-                // настоящий текст, а хвост считается уже за фантомом.
+                // Табы и широкие символы подсказки занимают колонки от НАЧАЛА строки, как текст.
                 dl = this.viewState.displayLineFor(composedLineContent(phantom, rowLogLine, lineContent));
                 // Stryker disable next-line CallExpression: заполнение кэша, результат не меняет
                 dlByDocLine.set(rowLogLine, dl);
@@ -760,16 +596,13 @@ export class EditorElement extends TUIElement implements IScrollable {
             const tokenIndex = lineTokens ? new TokenIndex(lineTokens, lineContent.length) : null;
             const semanticLine = this.viewState.getViewLineSemanticTokens(viewLine);
             const semanticIndex = semanticLine ? new SemanticTokenIndex(semanticLine, lookupSemanticStyle) : null;
-            // Колоночное окно фрагмента в целой строке; у последнего фрагмента
-            // правой границы нет — за концом строки и так рисуются пробелы.
             const isLastFragment = frag.end === lineContent.length;
             const fragStartCol = isContinuation
                 ? dl.offsetToColumn(composedOffset(phantom, rowLogLine, frag.start))
                 : 0;
 
-            // Фон декорированной строки должен побеждать фон токена, иначе
-            // полоса added/removed рвётся на подсвеченных словах (та же
-            // политика, что у диффовой смотрелки).
+            // Фон декорированной строки побеждает фон токена, иначе полоса added/removed
+            // рвётся на подсвеченных словах.
             const decoratedBg = lineBgByLine.get(rowLogLine);
             paintTextLine(context, {
                 displayLine: dl,
@@ -785,8 +618,6 @@ export class EditorElement extends TUIElement implements IScrollable {
                 fg: editorFg,
                 bg: decoratedBg ?? editorBg,
                 allowTokenBg: decoratedBg === undefined,
-                // Хвост подсказки (`lines[0]`) рисуется этим же проходом — серым
-                // курсивом, как ghost text VS Code (`.ghost-text-decoration`).
                 phantom:
                     phantom !== null && phantom.line === rowLogLine
                         ? {
@@ -798,16 +629,11 @@ export class EditorElement extends TUIElement implements IScrollable {
                         : null,
             });
 
-            // Extremely long line: rendering stopped at STOP_RENDERING_LINE_AFTER.
-            // Draw a labelled "Long line trimmed" button at the cut point when it
-            // is on screen, painted as a warning plaque (dark text on the warning
-            // colour) so the truncation is obvious rather than silent. При wrap
-            // плашка — на последнем фрагменте, где и лежит точка обрыва.
+            // При wrap плашка обрезанной строки — на последнем фрагменте, где точка обрыва.
             if (dl.isTruncated && isLastFragment) {
                 let badgeStartCol = dl.displayWidth - scrollLeft - fragStartCol;
-                // При wrap скролла вправо нет, а жёсткая резка кладёт точку
-                // обрыва ровно на ширину фрагмента — прижимаем плашку в видимую
-                // область, поверх хвоста последнего фрагмента.
+                // При wrap скролла вправо нет, а жёсткая резка кладёт точку обрыва ровно на
+                // ширину фрагмента — прижимаем плашку в видимую область.
                 if (this.viewState.isWordWrapActive) {
                     badgeStartCol = Math.min(badgeStartCol, contentCols - LONG_LINE_TRUNCATION_BADGE.length);
                 }
@@ -823,9 +649,6 @@ export class EditorElement extends TUIElement implements IScrollable {
                 }
             }
 
-            // Collapsed region: draw a marker after the header line's content,
-            // standing in for the hidden body (VS Code's inline "⋯"). При wrap —
-            // после конца текста, то есть на последнем фрагменте заголовка.
             if (foldHeaderByLine.get(rowLogLine) === true && isLastFragment) {
                 const markerCol = dl.displayWidth + 1 - scrollLeft - fragStartCol;
                 if (markerCol >= 0 && markerCol < contentCols) {
@@ -838,7 +661,6 @@ export class EditorElement extends TUIElement implements IScrollable {
             }
         }
 
-        // Shared geometry for the range-background highlight passes below.
         const geometry: ITextViewportGeometry = {
             scrollTop,
             scrollLeft,
@@ -849,15 +671,10 @@ export class EditorElement extends TUIElement implements IScrollable {
             phantom,
         };
 
-        // Indentation guides for folding regions, drawn over the leading
-        // whitespace before the range-highlight passes below — those set only
-        // `bg`, so a selection/search background composes over the guide glyph.
-        // Занятые гайдами ячейки забирает проход маркеров: ему нельзя красить их
-        // fg — см. {@link paintMarkerDecoration}.
+        // Гайды — до проходов подсветки: те ставят только `bg` и ложатся поверх глифа.
         const indentGuideCells = this.paintIndentGuides(context, geometry, editorBg, primaryLine);
 
-        // Intra-line подсветка диффа: яркий фон изменённого фрагмента поверх
-        // фона строки; слабее occurrence/selection — те побеждают в наложении.
+        // Порядок проходов — порядок наложения: следующий побеждает предыдущий.
         for (const decoration of this.decorations.rangeBackgrounds ?? []) {
             paintRangeBackground(
                 context,
@@ -868,14 +685,11 @@ export class EditorElement extends TUIElement implements IScrollable {
             );
         }
 
-        // Highlight all occurrences of the word under the cursor (weakest layer,
-        // painted first so selections and search matches win where they overlap).
         const occurrenceBg = this.styleVar("editor.wordHighlightBackground");
         for (const range of this.getOccurrenceHighlights()) {
             paintRangeBackground(context, this.viewState, range, occurrenceBg, geometry);
         }
 
-        // Highlight all search matches except the current one (drawn under selections).
         const searchMatches = this.viewState.searchMatches;
         const currentMatchIndex = this.viewState.currentSearchMatchIndex;
         for (let i = 0; i < searchMatches.length; i++) {
@@ -883,16 +697,13 @@ export class EditorElement extends TUIElement implements IScrollable {
             paintRangeBackground(context, this.viewState, searchMatches[i], FIND_MATCH_BG, geometry);
         }
 
-        // Highlight selections. Цвет — токен темы как есть, с альфой: патч bg
-        // ложится на уже нарисованный фон строки (смесь смеси при наложении на
-        // другие подсветки — порядок setCell, STYLES.md «Модель цвета»).
+        // Цвет выделения — с альфой как есть: патч bg ложится на уже нарисованный фон строки.
         const selectionBg = this.styleVar("editor.selectionBackground");
         for (const sel of this.viewState.selections) {
             if (isSelectionCollapsed(sel)) continue;
             paintRangeBackground(context, this.viewState, selectionToRange(sel), selectionBg, geometry);
         }
 
-        // Highlight the current search match on top (wins over other matches and selection).
         if (currentMatchIndex >= 0 && currentMatchIndex < searchMatches.length) {
             paintRangeBackground(
                 context,
@@ -903,17 +714,13 @@ export class EditorElement extends TUIElement implements IScrollable {
             );
         }
 
-        // Diagnostic squiggles on top of the content — painted last (after the
-        // background passes) so the severity colour and undercurl win.
+        // Squiggles — после фонов, чтобы цвет и undercurl победили.
         for (const decoration of this.markerDecorations) {
             this.paintMarkerDecoration(context, decoration, geometry, indentGuideCells);
         }
 
-        // Каретки ячейками — самый верхний слой (как `.cursors-layer` в VS Code): бьют и
-        // выделение, и search-match, и squiggle. Рисуем ТОЛЬКО в мультикурсоре, и сразу все,
-        // включая первичную: `gridToSvg` игнорирует аппаратный курсор, поэтому иначе демо-кадр
-        // показывал бы на одну каретку меньше и дыру на месте первичной. При одном курсоре
-        // картинка остаётся прежней — его рисует сам терминал.
+        // Каретки ячейками — только в мультикурсоре, и сразу все, включая первичную:
+        // `gridToSvg` игнорирует аппаратный курсор, и демо-кадр показал бы дыру на месте первичной.
         if (this.isFocused && this.viewState.selections.length > 1) {
             paintCarets(
                 context,
@@ -927,7 +734,6 @@ export class EditorElement extends TUIElement implements IScrollable {
             );
         }
 
-        // Position hardware cursor at the primary selection's active position
         const caret = caretLocalCell(this.viewState, gutterW, this.layoutSize, phantom);
         if (this.isFocused && caret !== null) {
             context.setCursorPosition(caret.x, caret.y);
@@ -935,19 +741,9 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     /**
-     * Draws a vertical indentation guide for every folding region: a `│` over the
-     * region's leading whitespace, at the header's indent column, spanning the
-     * region's body lines. The innermost region enclosing the cursor line is the
-     * "active" guide and uses the brighter colour (VS Code's
-     * `highlightActiveIndentation`). The guide only ever lands on a body line's
-     * leading whitespace — indentation folds satisfy that by construction, but
-     * extension-provided regions do not (a `#region` marker sits at the same
-     * indent as the code it wraps), so every cell is checked against the body
-     * line's own indent. Collapsed regions contribute nothing (their body is
-     * hidden).
-     *
-     * Возвращает ячейки кадра, на которые лёг глиф направляющей, — проход
-     * диагностик по ним не красит fg (см. {@link paintMarkerDecoration}).
+     * Гайд ложится только на ведущие пробелы строки тела: у областей расширений
+     * (`#region`) маркер стоит на одном отступе с кодом, поэтому каждую ячейку сверяем
+     * с отступом самой строки.
      */
     private paintIndentGuides(
         context: RenderContext,
@@ -964,9 +760,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         const doc = this.viewState.document;
         const tabSize = this.tabSize;
 
-        // Visible logical line → screenY (folding may hide lines, so this is sparse).
-        // Logical lines increase monotonically with screenY, so the first is the
-        // minimum and the last assigned is the maximum.
+        // Логические строки растут вместе с screenY: первая — минимум, последняя — максимум.
         const screenYByLogical = new Map<number, number>();
         let minLog = -1;
         let maxLog = -1;
@@ -974,11 +768,9 @@ export class EditorElement extends TUIElement implements IScrollable {
             const viewLine = geo.scrollTop + screenY;
             if (viewLine >= geo.viewLineCount) break;
             const logLine = this.viewState.visualToLogicalLine(viewLine);
-            // Строка-зона: документной строки нет — гайды через неё не рисуем
-            // (сентинел -1 сломал бы и мапу, и min/max).
+            // Строка-зона: сентинел -1 сломал бы и мапу, и min/max.
             if (logLine < 0) continue;
-            // Ряд-продолжение wrap: гайд лёг бы поверх текста — продолжения
-            // начинаются с колонки 0 (wrappingIndent не реализован).
+            // Продолжения wrap начинаются с колонки 0 (wrappingIndent не реализован) — гайд лёг бы на текст.
             if (this.viewState.viewLineRange(viewLine).start > 0) continue;
             screenYByLogical.set(logLine, screenY);
             if (minLog < 0) minLog = logLine;
@@ -989,9 +781,7 @@ export class EditorElement extends TUIElement implements IScrollable {
         // firstBody (≥ startLine + 1) больше lastBody, и цикл ниже ничего не рисует.
         if (maxLog < 0) return NO_GUIDE_CELLS;
 
-        // Active guide: the innermost region enclosing the cursor. `regions` is
-        // sorted by startLine and enclosing regions are strictly nested, so the
-        // last one that encloses the cursor line is the innermost.
+        // Области отсортированы по startLine и строго вложены: последняя охватывающая — самая внутренняя.
         let activeRegion: IFoldingRegion | null = null;
         for (const region of regions) {
             if (region.startLine <= primaryLine && primaryLine <= region.endLine) {
@@ -1017,15 +807,12 @@ export class EditorElement extends TUIElement implements IScrollable {
             for (let logLine = firstBody; logLine <= lastBody; logLine++) {
                 const screenY = screenYByLogical.get(logLine);
                 if (screenY === undefined) continue;
-                // Never paint over code: the header's column is only whitespace on
-                // this body line if the line is indented deeper. Blank lines (-1)
-                // carry the guide through, as in VS Code.
+                // Пустые строки (-1) несут гайд насквозь, как в VS Code.
                 const bodyIndent = computeIndentLevel(doc.getLineContent(logLine), tabSize);
                 if (bodyIndent !== -1 && bodyIndent <= col) continue;
                 context.setCell(screenX, screenY, { char: INDENT_GUIDE, fg, bg: editorBg });
                 const columns = guideCells.get(screenY);
-                // Вложенные области дают НЕСКОЛЬКО гайдов на одном ряду — набор колонок
-                // пополняем, а не заменяем.
+                // Вложенные области дают несколько гайдов на ряду — пополняем, а не заменяем.
                 if (columns === undefined) guideCells.set(screenY, new Set([screenX]));
                 else columns.add(screenX);
             }
@@ -1035,19 +822,9 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     /**
-     * Paints a diagnostic squiggle over the cells covered by a marker: sets the
-     * severity foreground colour and an undercurl (SGR 4:3, wavy underline).
-     * Terminals without undercurl support still show the colour, keeping the
-     * marker visible. `bg` is left untouched so a selection/find highlight under
-     * the squiggle survives.
-     *
-     * Ячейки направляющих отступа (`indentGuideCells`) получают только волну:
-     * fg там принадлежит гайду, и перекраска превратила бы `│` в сплошную
-     * красную полосу по всему отступу — именно так выглядел файл с ошибками на
-     * каждой строке. В VS Code направляющая живёт своим слоем (`.core-guide`),
-     * а squiggle рисуется отдельными пикселями поверх, так что цвет гайда не
-     * меняется; ячейка терминала несёт один fg, поэтому аналог — оставить цвет
-     * гайду, а диагностике отдать атрибут подчёркивания.
+     * `bg` не трогаем — подсветка под волной выживает. На ячейках гайдов — только
+     * волна: ячейка терминала несёт один fg, и перекраска превратила бы `│` в сплошную
+     * красную полосу по отступу (VS Code рисует гайд и squiggle разными слоями).
      */
     private paintMarkerDecoration(
         context: RenderContext,
@@ -1080,17 +857,8 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     /**
-     * Ranges of every occurrence of the word under the primary cursor. Empty
-     * when disabled or when the primary selection is not collapsed (no
-     * highlight while text is selected — that mirrors VS Code, where a
-     * selection switches to the separate selection-highlight feature).
-     *
-     * В мультикурсоре подсветки нет вовсе: она отвечает на вопрос «где ещё встречается
-     * слово под кареткой», а при нескольких каретках такого слова не одно — фон дрался бы
-     * с выделениями «выделить следующее вхождение».
-     *
-     * Cached by document version + caret position so re-renders triggered by
-     * unrelated changes don't rescan the document.
+     * При выделении и в мультикурсоре подсветки нет: в VS Code выделение переключает на
+     * selection-highlight, а при нескольких каретках фон дрался бы с «выделить следующее вхождение».
      */
     private getOccurrenceHighlights(): readonly IRange[] {
         if (!this.occurrenceHighlightEnabled) return NO_RANGES;
@@ -1140,9 +908,7 @@ export class EditorElement extends TUIElement implements IScrollable {
 
     private dragAnchor: { line: number; character: number } | null = null;
 
-    // Whether the mouse is currently over the gutter. Expanded regions show their
-    // fold chevron only while this holds (à la VS Code `showFoldingControls:
-    // "mouseover"`); collapsed regions always show theirs. See render().
+    // Развёрнутые области показывают chevron только при наведении (VS Code `showFoldingControls: "mouseover"`).
     private foldGutterHovered = false;
 
     private setFoldGutterHovered(value: boolean): void {
@@ -1151,24 +917,19 @@ export class EditorElement extends TUIElement implements IScrollable {
         this.markDirty();
     }
 
-    /**
-     * Документная позиция под локальной точкой (клики контроллеров: контекстное
-     * меню ставит каретку на позицию клика). Клик по гуттеру маппится в колонку 0.
-     */
+    /** Клик по гуттеру маппится в колонку 0. */
     public docPositionAt(localX: number, localY: number): { line: number; character: number } {
         return docPositionAt(this.viewState, this.gutterWidth, localX, localY, this.linePhantom);
     }
 
     private handleMouseDown(event: TUIMouseEvent): void {
-        // Правый клик каретку не трогает сам: политика (двигать ли каретку,
-        // открывать ли меню) — у editor/contrib/contextmenu по событию
-        // "contextmenu", которое движок диспатчит на отпускании кнопки.
+        // Каретку при правом клике двигает (или нет) editor/contrib/contextmenu по событию
+        // "contextmenu" — движок шлёт его на отпускании.
         if (event.button !== "left") return;
         /* v8 ignore start -- unreachable: getViewLineCount() is never 0 (document always has a line; fold headers stay visible) */
         if (this.viewState.getViewLineCount() === 0) return;
         /* v8 ignore stop */
 
-        // Click on the folding control column toggles the region on that line.
         if (this.tryToggleFoldAtGutter(event.localX, event.localY)) {
             this.markDirty();
             return;
@@ -1176,8 +937,7 @@ export class EditorElement extends TUIElement implements IScrollable {
 
         const pos = this.docPositionAt(event.localX, event.localY);
 
-        // Alt+клик ставит или снимает каретку (VS Code `multiCursorModifier: "alt"`).
-        // Раньше shift-ветки: Shift+Alt+клик — не мультикурсорный жест, а расширение выделения.
+        // Раньше shift-веток: Shift+Alt+клик — расширение выделения, а не мультикурсор.
         if (event.altKey && !event.shiftKey) {
             this.dragAnchor = null; // alt+drag выделение не тянет
             this.viewState.toggleCursorAt(pos.line, pos.character);
@@ -1194,31 +954,21 @@ export class EditorElement extends TUIElement implements IScrollable {
         }
     }
 
-    /**
-     * Double click selects the word under the cursor (VS Code behaviour). The
-     * preceding mousedown has already collapsed the selection to a caret here, so
-     * this only has to widen it.
-     */
+    /** Предшествующий mousedown уже свёл выделение к каретке — здесь его только расширяем. */
     private handleDoubleClick(event: TUIMouseEvent): void {
         if (event.button !== "left") return;
-        // The gutter is not text: docPositionAt would clamp to column 0 and
-        // select the line's first word, which is not what was clicked.
+        // docPositionAt зажал бы гуттер в колонку 0 и выделил первое слово строки.
         if (event.localX < this.gutterWidth) return;
 
         const pos = this.docPositionAt(event.localX, event.localY);
         const lineContent = this.viewState.document.getLineContent(pos.line);
         const word = findWordRangeAt(lineContent, pos.character);
-        if (word === null) return; // whitespace or punctuation — leave the caret alone
+        if (word === null) return;
 
         this.dragAnchor = null;
         this.viewState.selections = [createSelection(pos.line, word.start, pos.line, word.end)];
     }
 
-    /**
-     * If `(localX, localY)` lands on the folding control column of a foldable
-     * header line, toggles that region and returns true. Returns false otherwise
-     * (so the caller falls back to normal cursor placement).
-     */
     private tryToggleFoldAtGutter(localX: number, localY: number): boolean {
         if (localX !== this.foldControlColumn) return false;
 
@@ -1236,7 +986,6 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     private handleMouseMove(event: TUIMouseEvent): void {
-        // Reveal expanded fold chevrons whenever the mouse is over the gutter.
         this.setFoldGutterHovered(event.localX >= 0 && event.localX < this.gutterWidth);
 
         if (this.dragAnchor === null) return;
@@ -1256,7 +1005,6 @@ export class EditorElement extends TUIElement implements IScrollable {
             return;
         }
 
-        // Printable character: single char, no ctrl/alt/meta modifiers
         if (event.key.length === 1 && !event.ctrlKey && !event.altKey && !event.metaKey) {
             if (!this.tryTypePaired(event.key)) this.pushUndo(this.viewState.type(event.key));
             if (this.viewState.readOnly) return;
@@ -1266,22 +1014,15 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     /**
-     * Перехват печатного символа парами языка: auto-surround непустых
-     * выделений, typeover закрывающей и вставка авто-закрывающейся пары.
-     * `false` — символ не парный (или каретки не сошлись в решении) и должен
-     * набраться как обычно.
-     *
-     * Решение общее на все каретки: разъехавшиеся контексты (у одной typeover,
-     * у другой вставка) откатываются к обычному набору — предсказуемее, чем
-     * половинчатое срабатывание (упрощение v1 против пер-курсорных команд
-     * VS Code).
+     * Решение общее на все каретки: разъехавшиеся контексты откатываются к обычному
+     * набору — предсказуемее половинчатого срабатывания (упрощение против
+     * пер-курсорных команд VS Code).
      */
     private tryTypePaired(char: string): boolean {
         const config = this.languageConfigurationSource?.();
         if (config === undefined) return false;
         const selections = this.viewState.selections;
 
-        // Auto-surround: выделение обрамляется парой, а не затирается.
         if (selections.every((sel) => !isSelectionCollapsed(sel))) {
             const pair = findSurroundingPair(char, config.surroundingPairs);
             if (pair === undefined) return false;
@@ -1300,7 +1041,6 @@ export class EditorElement extends TUIElement implements IScrollable {
             }),
         );
         const first = decisions[0];
-        // Решение общее на все каретки: `every` по набору уже включает и `first`.
         if (decisions.every((d) => d.kind === "typeover")) {
             this.viewState.typeOverClosingChar();
             return true;
@@ -1320,13 +1060,11 @@ export class EditorElement extends TUIElement implements IScrollable {
     }
 
     private handlePaste(event: TUIPasteEvent): void {
-        // Insert the whole paste as one edit (newlines preserved) — one undo step.
         this.pushUndo(this.viewState.insertText(event.text));
     }
 
     private pushUndo(element: IUndoElement | undefined): void {
-        // `undefined` — правка не состоялась: в read-only мутаторы `EditorViewState`
-        // сразу возвращают его, и записывать в undo-стек нечего.
+        // `undefined` — в read-only правка не состоялась.
         if (element) {
             this.undoManager.pushUndoElement(element);
         }

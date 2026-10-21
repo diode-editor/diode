@@ -10,7 +10,7 @@ import { TextDocument } from "../model/textDocument.ts";
 import type { ITokensChangedEvent } from "./documentTokenStore.ts";
 import { DocumentTokenStore } from "./documentTokenStore.ts";
 
-/** Цвет токена, которым токенизатор метит входящее состояние `counter` (смещение от цветов по умолчанию). */
+/** Смещение от цветов по умолчанию. */
 const stateMark = (counter: number): number => 10 + counter;
 
 class CounterState implements IState {
@@ -26,7 +26,7 @@ class CounterState implements IState {
     }
 }
 
-/** Lines starting with `>` bump the counter; the token's foreground records the incoming state. */
+/** `>` поднимает счётчик; foreground токена — входящее состояние. */
 class StatefulTokenizer implements ITokenizationSupport {
     public constructor(private readonly onLine: () => void = () => undefined) {}
     public getInitialState(): IState {
@@ -44,9 +44,8 @@ const lines = (count: number, line = "x"): TextDocument =>
     new TextDocument(new Array<string>(count).fill(line).join("\n"));
 
 /**
- * Ждёт условия, уступая очередь фону. Срок обязателен: без него сломанный фон
- * (мутант) крутил бы цикл вечно и после таймаута теста — воркер vitest не
- * освобождается, и мутационный прогон виснет (docs/TESTING.md, «обрывай счётчиком»).
+ * Срок обязателен: без него мутант крутил бы цикл и после таймаута теста —
+ * мутационный прогон виснет (docs/TESTING.md, «обрывай счётчиком»).
  */
 async function until(condition: () => boolean): Promise<void> {
     const deadline = Date.now() + 2000;
@@ -85,8 +84,7 @@ describe("DocumentTokenStore — фоновая токенизация", () => {
 
     it("уступает между кусками: за один заход очереди — строки за ~1 мс, не весь файл", () => {
         vi.useFakeTimers();
-        // Каждая строка «стоит» 1 мс фейкового времени: кусок обрывается, как
-        // только прошло больше миллисекунды, — то есть после второй строки.
+        // Строка «стоит» 1 мс фейкового времени: кусок обрывается после второй строки.
         const doc = lines(100);
         const store = new DocumentTokenStore(
             doc,

@@ -13,7 +13,7 @@ function record(doc: TextDocument): IModelContentChangedEvent[] {
     return events;
 }
 
-/** Зеркало: применяет правки батча по одной к строкам ДО батча — как это сделает субпроцесс. */
+/** Как это сделает субпроцесс: по одной к строкам ДО батча. */
 function mirror(text: string, changes: readonly IModelContentChange[]): string {
     let lines = text.split("\n");
     for (const { range, text: inserted } of changes) {
@@ -25,7 +25,6 @@ function mirror(text: string, changes: readonly IModelContentChange[]): string {
     return lines.join("\n");
 }
 
-/** Применяет батч и проверяет главное свойство: зеркало сходится с документом. */
 function applyAndMirror(initial: string, edits: readonly ITextEdit[]): IModelContentChangedEvent {
     const doc = new TextDocument(initial);
     const events = record(doc);
@@ -98,7 +97,6 @@ describe("TextDocument.onDidChangeModelContent — батч точных пра�
     });
 
     it("свойство: зеркало сходится с документом на случайных батчах", () => {
-        // Детерминированный ГПСЧ (mulberry32): падение воспроизводимо.
         let seed = 0x2f6b;
         const random = (): number => {
             seed = (seed + 0x6d2b79f5) | 0;
@@ -112,7 +110,6 @@ describe("TextDocument.onDidChangeModelContent — батч точных пра�
             const doc = new TextDocument(["ab", "", "cde", "f"].slice(0, 1 + pick(4)).join("\n"));
             const before = doc.getText();
             const events = record(doc);
-            // Непересекающиеся правки: по одной на случайную строку, в порядке строк.
             const edits: ITextEdit[] = [];
             for (let line = 0; line < doc.lineCount; line++) {
                 if (random() < 0.5) continue;

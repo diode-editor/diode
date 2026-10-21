@@ -106,7 +106,6 @@ describe("EditorElement — семантические токены поверх
         expect(cell(0).fg).toBe(KEYWORD_FG);
         expect(cell(0).style & StyleFlags.Italic).toBe(0);
         expect(cell(0).style & StyleFlags.Underline).toBe(StyleFlags.Underline);
-        // x — без семантики: TM ничего не задал.
         expect(cell(3).style).toBe(StyleFlags.None);
     });
 

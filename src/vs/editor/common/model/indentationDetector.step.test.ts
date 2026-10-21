@@ -2,12 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import { computeIndentationStep } from "./indentationDetector.ts";
 
-// Прямые тесты на шаг отступа между парой строк. Через `detectIndentation` эта
-// функция видна только как сдвиг гистограммы, а он огрубляет: шаги 0, 1 и >8 в
-// итоговый `tabSize` не попадают вовсе, и целый пласт решений про общий префикс,
-// смешанные хвосты и выравнивание проверить оттуда нечем.
+// Напрямую: через `detectIndentation` шаги 0, 1 и >8 в `tabSize` не попадают — проверить нечем.
 
-/** `indentOf("    x")` → 4. Тесты пишут строки, а не длины отступов. */
 function indentOf(line: string): number {
     const match = /^[ \t]*/.exec(line);
     return match![0].length;
@@ -36,7 +32,6 @@ describe("computeIndentationStep — пробелы", () => {
     });
 
     it("шаг считается по хвосту после общего префикса, а не по полной ширине", () => {
-        // Общий префикс — 4 пробела; отличаются только хвосты (0 и 3).
         expect(step("    a", "       b")).toEqual({ step: 3, looksLikeAlignment: false });
     });
 
@@ -47,7 +42,6 @@ describe("computeIndentationStep — пробелы", () => {
 
 describe("computeIndentationStep — табы", () => {
     it("углубление табами при равном числе пробелов", () => {
-        // Пробелов нет ни там, ни там: делить нечего, шаг нулевой.
         expect(step("\ta", "\t\tb")).toEqual({ step: 0, looksLikeAlignment: false });
     });
 
@@ -61,8 +55,6 @@ describe("computeIndentationStep — табы", () => {
     });
 
     it("порядок не важен: пробелы в предыдущей строке, табы в текущей", () => {
-        // Зеркало кейса выше. Проверка смеси смотрит на каждую строку отдельно,
-        // и «в текущей есть табы» само по себе сигнал не отменяет.
         expect(step("    a", "\tb")).toEqual({ step: 4, looksLikeAlignment: false });
     });
 
@@ -71,7 +63,6 @@ describe("computeIndentationStep — табы", () => {
     });
 
     it("общий таб-префикс отбрасывается перед делением", () => {
-        // Общий `\t`, дальше `\t` против четырёх пробелов → 4 / 1.
         expect(step("\t\ta", "\t    b")).toEqual({ step: 4, looksLikeAlignment: false });
     });
 });
@@ -86,14 +77,11 @@ describe("computeIndentationStep — смешанные отступы", () => {
     });
 
     it("смесь в общем префиксе не считается смесью: она отброшена", () => {
-        // У обеих строк префикс `\t `, различаются только хвосты (0 и 4 пробела).
         expect(step("\t a", "\t     b")).toEqual({ step: 4, looksLikeAlignment: false });
     });
 });
 
 describe("computeIndentationStep — выровненное продолжение", () => {
-    // `foo(a, b,` / `       c);` — `c` встал под аргументом предыдущей строки,
-    // а не отступлен от неё.
     const CONTINUED = "foo(a, b,";
     const ALIGNED = "       c);";
 
@@ -106,7 +94,6 @@ describe("computeIndentationStep — выровненное продолжени
     });
 
     it("под первым символом продолжения в предыдущей строке не пробел — обычный отступ", () => {
-        // `c` встаёт под `b`, а не под пробелом перед ним.
         expect(step(CONTINUED, "        c);")).toEqual({ step: 8, looksLikeAlignment: false });
     });
 
@@ -120,8 +107,7 @@ describe("computeIndentationStep — выровненное продолжени
     });
 
     it("выравнивание проверяется только при равном числе табов", () => {
-        // Та же пара, но предыдущая строка отступлена табом: числа табов
-        // разошлись → работает ветка деления, а у неё признака выравнивания нет.
+        // Числа табов разошлись → ветка деления, а у неё признака выравнивания нет.
         expect(step("\tfoo(a, b,", ALIGNED)).toEqual({ step: 7, looksLikeAlignment: false });
     });
 });

@@ -24,7 +24,6 @@ describe("LineBreaksCache", () => {
         const cache = new LineBreaksCache(doc, 4, WIDTH);
         expect(cache.getBreaks(0)).toEqual([10]);
 
-        // Строка укоротилась и теперь влезает.
         doc.applyEdits([createDeleteEdit(0, 4, 0, 14)]);
         expect(cache.getBreaks(0)).toBeNull();
     });
@@ -44,8 +43,8 @@ describe("LineBreaksCache", () => {
         doc.applyEdits([createInsertEdit(1, 0, "inserted\n")]);
         expect(cache.getBreaks(0)).toBe(untouched);
         expect(cache.getBreaks(3)).toBe(shifted);
-        expect(cache.getBreaks(1)).toBeNull(); // "inserted"
-        expect(cache.getBreaks(2)).toBeNull(); // "zz"
+        expect(cache.getBreaks(1)).toBeNull();
+        expect(cache.getBreaks(2)).toBeNull();
     });
 
     it("удаление строки усаживает кеш splice'ом: записи ниже сдвигаются тем же экземпляром", () => {
@@ -55,11 +54,10 @@ describe("LineBreaksCache", () => {
         const shifted = cache.getBreaks(3);
         expect(shifted).toEqual([10, 20]);
 
-        // Удаляем строку 1 целиком: TWO_BREAKS поднимается на строку 2.
         doc.applyEdits([createDeleteEdit(1, 0, 2, 0)]);
         expect(cache.getBreaks(2)).toBe(shifted);
-        expect(cache.getBreaks(0)).toBeNull(); // "aa"
-        expect(cache.getBreaks(1)).toBeNull(); // "zz"
+        expect(cache.getBreaks(0)).toBeNull();
+        expect(cache.getBreaks(1)).toBeNull();
     });
 
     it("смена ширины сбрасывает кеш, повтор тех же параметров — no-op", () => {
@@ -71,11 +69,9 @@ describe("LineBreaksCache", () => {
         const after = cache.getBreaks(0);
         expect(after).toEqual([15]);
 
-        // No-op: тот же экземпляр массива — кеш не сброшен.
         cache.setParams(4, 14);
         expect(cache.getBreaks(0)).toBe(after);
 
-        // Смена tabSize — сброс (новый экземпляр).
         cache.setParams(8, 14);
         expect(cache.getBreaks(0)).not.toBe(after);
         expect(cache.getBreaks(0)).toEqual([15]);

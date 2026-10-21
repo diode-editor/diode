@@ -9,9 +9,6 @@ import { createFoldingRegion } from "../contrib/folding/iFoldingRegion.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-// Expanded fold chevrons only show while the mouse is over the gutter (à la VS
-// Code `editor.showFoldingControls: "mouseover"`); collapsed ones always show.
-
 const CHEVRON_EXPANDED = ""; //  nf-cod-chevron_down
 const CHEVRON_COLLAPSED = ""; //  nf-cod-chevron_right
 
@@ -46,7 +43,6 @@ function chevronAt(app: TestApp, editor: EditorElement, row: number): string {
 }
 
 describe("EditorElement – fold chevron hover reveal", () => {
-    // Two expanded headers on lines 0 and 3 of an 8-line document.
     const twoRegions = "a\n  b\n  c\nd\n  e\n  f\ng\nh";
 
     it("hides expanded chevrons at rest (no hover)", () => {

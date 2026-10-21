@@ -9,11 +9,6 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-/**
- * Внешние декорации (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): фоны строк и
- * диапазонов, гуттер-маркеры и наполнение зон — цвета из токенов темы.
- */
-
 const REMOVED_BG = packRgb(0x4b, 0x18, 0x18);
 const REMOVED_TEXT_BG = packRgb(0x66, 0x22, 0x22);
 const FILLER_FG = packRgb(0x41, 0x41, 0x41);
@@ -161,15 +156,11 @@ describe("EditorElement — внешние декорации", () => {
         const gutterW = editor.gutterWidth;
         expect(app.backend.getTextAt(new Point(gutterW, 1), 9)).toBe("ghost-one");
         expect(app.backend.getBgAt(new Point(gutterW + 1, 1))).toBe(REMOVED_BG);
-        // Гуттер зоны — пустой, фон гуттера (не removed).
         expect(app.backend.getBgAt(new Point(0, 1))).not.toBe(REMOVED_BG);
-        // Вторая строка обрезана по ширине контента, фон свой.
         expect(app.backend.getTextAt(new Point(gutterW, 2), 5)).toBe("ghost");
         expect(app.backend.getBgAt(new Point(gutterW + 3, 2))).toBe(REMOVED_BG);
-        // Строка зоны без своей lines-записи — пустая, без фона removed.
         expect(app.backend.getBgAt(new Point(gutterW + 1, 3))).not.toBe(REMOVED_BG);
         expect(app.backend.getTextAt(new Point(gutterW, 3), 3)).toBe("   ");
-        // Документная строка ниже зоны на месте.
         expect(app.backend.getTextAt(new Point(gutterW, 4), 5)).toBe("bravo");
     });
 });

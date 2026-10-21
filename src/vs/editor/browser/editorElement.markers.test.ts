@@ -35,10 +35,8 @@ describe("EditorElement — marker squiggle decorations", () => {
         app.render();
 
         const gw = editor.gutterWidth;
-        // Covered cells (a, b, c) take the warning colour.
         expect(app.backend.getFgAt(new Point(gw + 0, 0))).toBe(WARNING_FG);
         expect(app.backend.getFgAt(new Point(gw + 2, 0))).toBe(WARNING_FG);
-        // The cell just past the range keeps the editor foreground.
         expect(app.backend.getFgAt(new Point(gw + 3, 0))).toBe(editor.resolvedStyle.fg);
     });
 
@@ -77,23 +75,19 @@ describe("EditorElement — marker squiggle decorations", () => {
     });
 });
 
-// Догфудинг: «при редактировании подчёркивания ошибок не двигаются вместе с
-// текстом» — до новых диагностик провайдера squiggle стоял на старых
-// координатах и подчёркивал чужой текст. В эталоне маркеры — декорации модели
-// (stickiness NeverGrowsWhenTypingAtEdges) и едут вместе с правкой сразу.
+// Догфудинг: до новых диагностик провайдера squiggle стоял на старых координатах и
+// подчёркивал чужой текст. В эталоне маркеры — декорации модели и едут с правкой сразу.
 describe("EditorElement — squiggle едет вместе с текстом при правке", () => {
     const ERROR_FG = packRgb(0xf1, 0x4c, 0x4c); // default editorError.foreground
 
     function makeTracked(content: string): { app: TestApp; editor: EditorElement } {
         const editor = makeEditor(content);
-        // Ошибка на «bad» второй строки.
         editor.markerDecorations = [{ range: createRange(1, 4, 1, 7), severity: MarkerSeverity.Error }];
         const app = TestApp.createWithContent(editor, new Size(40, 6));
         app.render();
         return { app, editor };
     }
 
-    /** Ячейки строки `screenY` с волной — по одной букве. */
     function squiggledText(app: TestApp, editor: EditorElement, screenY: number): string {
         let text = "";
         for (let x = editor.gutterWidth; x < 40; x++) {
@@ -157,10 +151,8 @@ describe("EditorElement — squiggle едет вместе с текстом п�
     });
 });
 
-// Файл с ошибкой на каждой строке (стоковый eslint делает это за пару секунд)
-// красил вертикальные направляющие фолдинга в красный: squiggle ставил свой fg
-// на ВСЕ ячейки диапазона, включая отступ, где уже лежит глиф `│`. В VS Code
-// направляющая — отдельный слой, и подчёркивание её цвет не трогает.
+// Файл с ошибкой на каждой строке красил направляющие фолдинга в красный: squiggle ставил
+// fg и на ячейки отступа с глифом `│`. В VS Code направляющая — отдельный слой.
 describe("EditorElement — squiggle over indentation guides", () => {
     // Вложенные области: на строке 2 (`        return 1;`) ДВА гайда — от внешней
     // функции (колонка 0) и от `if` (колонка 4).
@@ -187,8 +179,6 @@ describe("EditorElement — squiggle over indentation guides", () => {
     it("keeps every guide glyph and colour on the marker's whitespace cells", () => {
         const { app, editor } = makeFoldedEditor();
         const gw = editor.gutterWidth;
-        // Строка 2 лежит внутри диапазона целиком; оба гайда держат свой цвет —
-        // и внешний активный, и вложенный обычный.
         expect(app.backend.getTextAt(new Point(gw, 2), 1)).toBe("│");
         expect(app.backend.getFgAt(new Point(gw, 2))).toBe(ACTIVE_GUIDE_FG);
         expect(app.backend.getTextAt(new Point(gw + 4, 2), 1)).toBe("│");
@@ -198,7 +188,6 @@ describe("EditorElement — squiggle over indentation guides", () => {
     it("still marks the guide cells with an undercurl", () => {
         const { app, editor } = makeFoldedEditor();
         const gw = editor.gutterWidth;
-        // Волна проходит через отступ — диагностика на строке видна и там.
         expect(app.app.screen.getCell(new Point(gw, 2)).style & StyleFlags.Undercurl).toBe(StyleFlags.Undercurl);
         expect(app.app.screen.getCell(new Point(gw + 4, 2)).style & StyleFlags.Undercurl).toBe(StyleFlags.Undercurl);
     });

@@ -38,6 +38,9 @@
   зелёный. Общий случай — ход «таймауты `vi.waitFor`» ниже.
 - [ ] e2e-сценарий `settings-completion` (ubuntu): `waitUntil(screen text predicate) timed out after
   4000ms` на ожидании попапа `editor.` — упал дважды (с автоповтором) на #678.
+- [ ] e2e-сценарий `explorer-compact-segments` (windows): `waitUntil(screen text predicate) timed out
+  after 10000ms` — дважды (с автоповтором) на #714 (ран 39587566978), дифф — только комментарии в
+  editor, на первом прогоне того же PR зелёный.
 
 ## Цена полного прогона
 
@@ -88,3 +91,8 @@ run Stryker'а идёт одним воркером с `bail: 1`, так что 
     и погасить `Stryker disable` с причиной либо убить тестом.
   - `src/vs/workbench/contrib/suggest/browser/collectWordCompletions.ts:28` — `text.length > maxBytes`
     → `>=`: граница `maxBytesPerText` не проверена — тест на источник ровно в `maxBytes`.
+- [ ] #714 (editor) снял хвостовой комментарий с одной строки — 2 выживших (`real`), гейт на PR
+  пропущен разово по решению человека, порог 100.
+  - `src/vs/editor/common/viewModel/editorViewState.ts:1899` — `return region.endLine > region.startLine`
+    (правка внутри свёрнутого региона) → `true` и `>=`: нет теста на правку, схлопнувшую регион в
+    пустой, — убить тестом либо погасить `Stryker disable` с причиной, если эквивалентен.

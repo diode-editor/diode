@@ -28,7 +28,6 @@ function render(editor: EditorElement): TestApp {
     return app;
 }
 
-/** The change bar lives in the fold-margin column immediately left of the chevron. */
 function barColumn(editor: EditorElement): number {
     return editor.foldControlColumn - 1;
 }
@@ -41,12 +40,10 @@ describe("EditorElement — gutter change-bars", () => {
         const app = render(editor);
         const x = barColumn(editor);
 
-        // Lines 1 and 2 carry the bar, tinted with the change colour.
         for (const y of [1, 2]) {
             expect(app.backend.getTextAt(new Point(x, y), 1)).toBe(BAR);
             expect(app.backend.getFgAt(new Point(x, y))).toBe(ADDED);
         }
-        // The lines just outside the range keep a blank fold margin (no bar).
         expect(app.backend.getTextAt(new Point(x, 0), 1)).toBe(" ");
         expect(app.backend.getTextAt(new Point(x, 3), 1)).toBe(" ");
     });
@@ -81,8 +78,6 @@ describe("EditorElement — gutter change-bars", () => {
         const app = render(editor);
         const x = barColumn(editor);
 
-        // Line number "1" sits at the left of the gutter; the bar hugs the fold
-        // margin one column left of the (here-empty) chevron column.
         expect(app.backend.getTextAt(new Point(2, 0), 1)).toBe("1");
         expect(app.backend.getTextAt(new Point(x, 0), 1)).toBe(BAR);
         expect(app.backend.getTextAt(new Point(editor.foldControlColumn, 0), 1)).toBe(" ");

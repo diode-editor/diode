@@ -9,13 +9,6 @@ import type { ResolvedTokenStyle } from "../common/languages/iTokenStyleResolver
 import type { LineTokens } from "../common/tokens/lineTokens.ts";
 import type { ISemanticLineTokens } from "../common/tokens/semanticTokensLines.ts";
 
-/**
- * Подсветка синтаксиса на уровне ячеек: общая часть редактора и дифф-вью.
- * Жила в `editorElement.ts` и экспортировалась оттуда ради диффа; вынесена в
- * свой файл, чтобы дифф не зависел от редактора целиком.
- */
-
-/** Флаги начертания из разрешённого стиля токена — в битовую маску ячейки. */
 export function packStyleFlags(style: ResolvedTokenStyle): number {
     let flags = 0;
     if (style.bold) flags |= StyleFlags.Bold;
@@ -25,14 +18,7 @@ export function packStyleFlags(style: ResolvedTokenStyle): number {
     return flags;
 }
 
-/**
- * Linear cursor over the line's binary tokens (`LineTokens`), optimised for
- * left-to-right scans (which is how the renderer walks columns). Rewinds to
- * the first token when the offset goes back.
- *
- * Exported for unit testing: the renderer only ever scans forward, so the
- * rewind path is unreachable through rendering alone.
- */
+/** Курсор под проход слева направо; запрос левее прошлого перематывает в начало. */
 export class TokenIndex {
     private readonly tokens: LineTokens;
     private readonly count: number;
@@ -45,18 +31,15 @@ export class TokenIndex {
         this.lineLength = lineLength;
     }
 
-    /** Метаданные токена `[start .. end)`, накрывающего `offset`; за концом строки — `undefined`. */
     public metadataAt(offset: number): number | undefined {
-        // Токенов нет (count 0) — getMetadata(0) и так `undefined`.
         if (offset >= this.lineLength) return undefined;
 
-        // Fast path: forward scan.
         let i = this.cursor;
         // Stryker disable next-line ConditionalExpression,EqualityOperator: «с нуля» чаще даёт тот же токен, только медленнее
         if (this.tokens.getStartOffset(i) > offset) {
-            i = 0; // rewind
+            i = 0;
         }
-        // Граница — страховка: конец последнего токена — длина строки, а offset меньше неё, и цикл встаёт раньше.
+        // Граница — страховка: конец последнего токена — длина строки, а offset меньше неё.
         // Stryker disable next-line ArithmeticOperator,EqualityOperator,ConditionalExpression: см. выше
         while (i + 1 < this.count && this.tokens.getEndOffset(i) <= offset) {
             i++;
@@ -66,7 +49,6 @@ export class TokenIndex {
     }
 }
 
-/** Стиль семантического токена по индексам легенды; `null` — токен TextMate не перекрывает. */
 export type SemanticStyleLookup = (
     legend: ISemanticTokensLegend,
     tokenType: number,
@@ -74,10 +56,8 @@ export type SemanticStyleLookup = (
 ) => SemanticTokenStyle | null;
 
 /**
- * Стиль семантического токена по легенде провайдера (`getMetadata` эталона,
- * `semanticTokensProviderStyling.ts`): индекс типа → имя (нет в легенде —
- * стиля нет), биты модификаторов → имена (биты за пределами легенды
- * игнорируются), дальше — тема.
+ * `getMetadata` эталона (`semanticTokensProviderStyling.ts`): типа нет в легенде —
+ * стиля нет, биты модификаторов за пределами легенды игнорируются.
  */
 export function resolveSemanticTokenStyle(
     resolver: ISemanticTokenStyleResolver,
@@ -97,10 +77,7 @@ export function resolveSemanticTokenStyle(
     return resolver.resolve(type, modifiers, languageId);
 }
 
-/**
- * Курсор по семантическим токенам строки (второй слой поверх {@link TokenIndex}):
- * токены разрежены, между ними TextMate не перекрывается.
- */
+/** Токены разрежены: между ними TextMate не перекрывается. */
 export class SemanticTokenIndex {
     private readonly tokens: readonly number[];
     private cursor = 0;
@@ -112,16 +89,13 @@ export class SemanticTokenIndex {
         this.tokens = line.tokens;
     }
 
-    /** Стиль токена, накрывающего `offset`; `null` — токена нет или он без стиля. */
     public styleAt(offset: number): SemanticTokenStyle | null {
         const tokens = this.tokens;
         let i = this.cursor;
-        // Перемотка в 0 и без нужды даёт тот же ответ, только медленнее; сама
-        // перемотка (запрос левее прошлого, в том числе из-за конца строки)
-        // проверена тестом.
-        // Граница `tokens[i] > offset` тоже лишь про скорость.
+        // Перемотка в 0 и без нужды даёт тот же ответ, только медленнее; граница
+        // `tokens[i] > offset` — тоже про скорость.
         // Stryker disable next-line ConditionalExpression,EqualityOperator: см. выше
-        if (i >= tokens.length || tokens[i] > offset) i = 0; // rewind
+        if (i >= tokens.length || tokens[i] > offset) i = 0;
         // За последним токеном `tokens[i + 1]` — undefined, сравнение ложно.
         while (tokens[i + 1] <= offset) i += 4;
         this.cursor = i;
@@ -130,10 +104,7 @@ export class SemanticTokenIndex {
     }
 }
 
-/**
- * Накладывает семантический стиль на стиль ячейки: заменяются только атрибуты,
- * которые семантический стиль задаёт (маски `SEMANTIC_USE_*` эталона).
- */
+/** Заменяются только атрибуты, заданные семантическим стилем (маски `SEMANTIC_USE_*` эталона). */
 export function applySemanticStyle(
     semantic: SemanticTokenStyle,
     fg: number,

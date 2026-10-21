@@ -53,7 +53,6 @@ describe("EditorElement – mouse click cursor placement", () => {
         const { editor } = createEditor("hello\nworld\nfoo", 30, 5);
         const gw = editor.gutterWidth;
 
-        // Click on row 1 (second line), after "wo" (2 chars into content)
         fireMouseDown(editor, gw + 2, 1);
 
         const sel = editor.viewState.selections[0];
@@ -75,7 +74,6 @@ describe("EditorElement – mouse click cursor placement", () => {
     it("click in gutter places cursor at beginning of that line", () => {
         const { editor } = createEditor("hello\nworld", 30, 5);
 
-        // Click in gutter (x=0)
         fireMouseDown(editor, 0, 1);
 
         const sel = editor.viewState.selections[0];
@@ -87,32 +85,28 @@ describe("EditorElement – mouse click cursor placement", () => {
         const { editor } = createEditor("hi\nworld", 30, 5);
         const gw = editor.gutterWidth;
 
-        // "hi" is 2 chars; click at column 100 far past end
         fireMouseDown(editor, gw + 100, 0);
 
         const sel = editor.viewState.selections[0];
         expect(sel.active.line).toBe(0);
-        expect(sel.active.character).toBe(2); // end of "hi"
+        expect(sel.active.character).toBe(2);
     });
 
     it("click past last line places cursor on last line", () => {
         const { editor } = createEditor("hello\nworld", 30, 3);
         const gw = editor.gutterWidth;
 
-        // Click on row 10, far beyond document (only 2 lines)
         fireMouseDown(editor, gw + 0, 10);
 
         const sel = editor.viewState.selections[0];
-        expect(sel.active.line).toBe(1); // last line
+        expect(sel.active.line).toBe(1);
     });
 
     it("shift+click extends selection from existing anchor", () => {
         const { editor } = createEditor("hello\nworld\nfoo", 30, 5);
         const gw = editor.gutterWidth;
 
-        // Place cursor at line 0, char 0
         fireMouseDown(editor, gw + 0, 0);
-        // Shift-click at line 1, char 3
         fireMouseDown(editor, gw + 3, 1, true);
 
         const sel = editor.viewState.selections[0];
@@ -126,10 +120,8 @@ describe("EditorElement – mouse click cursor placement", () => {
         const { editor } = createEditor("line0\nline1\nline2\nline3\nline4", 30, 3);
         const gw = editor.gutterWidth;
 
-        // Manually scroll down by 2 lines
         editor.viewState.scrollTop = 2;
 
-        // Click on screen row 0 now corresponds to logical line 2
         fireMouseDown(editor, gw + 0, 0);
 
         const sel = editor.viewState.selections[0];
@@ -140,10 +132,8 @@ describe("EditorElement – mouse click cursor placement", () => {
         const { editor } = createEditor("abcdefghij", 15, 3);
         const gw = editor.gutterWidth;
 
-        // Scroll right by 5 columns
         editor.viewState.scrollLeft = 5;
 
-        // Click at screen column 0 in content area → display column 5 → char offset 5
         fireMouseDown(editor, gw + 0, 0);
 
         const sel = editor.viewState.selections[0];
@@ -221,7 +211,6 @@ describe("EditorElement – double click word selection", () => {
         fireMouseDown(editor, 0, 0);
         fireDoubleClick(editor, 0, 0);
 
-        // Gutter is not text — must not select the line's first word.
         expect(isSelectionCollapsed(editor.viewState.selections[0])).toBe(true);
     });
 
@@ -241,7 +230,6 @@ describe("EditorElement – double click word selection", () => {
 
         fireMouseDown(editor, gw + 8, 0);
         fireDoubleClick(editor, gw + 8, 0);
-        // A move with no button held must not collapse the word selection.
         editor.dispatchEvent(
             new TUIMouseEvent("mousemove", { button: "none", screenX: gw + 2, screenY: 0, localX: gw + 2, localY: 0 }),
         );

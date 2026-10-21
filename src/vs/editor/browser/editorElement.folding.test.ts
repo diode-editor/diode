@@ -68,7 +68,6 @@ describe("EditorElement – folding gutter", () => {
     it("leaves a blank separator on non-foldable lines", () => {
         const { app, editor } = createEditor("a\n  b\n  c\nd", [{ start: 0, end: 2 }]);
         app.render();
-        // Line 3 ("d") is not a header.
         expect(app.backend.getTextAt(new Point(editor.foldControlColumn, 3), 1)).toBe(" ");
     });
 
@@ -78,7 +77,6 @@ describe("EditorElement – folding gutter", () => {
         const gw = editor.gutterWidth;
         // "a" occupies one column; marker sits one column further (gap of 1).
         expect(app.backend.getTextAt(new Point(gw + 2, 0), 1)).toBe(COLLAPSED_MARKER);
-        // Row 1 now shows the next visible logical line ("d"), body lines hidden.
         expect(app.backend.getTextAt(new Point(gw, 1), 1)).toBe("d");
     });
 
@@ -100,12 +98,11 @@ describe("EditorElement – folding gutter", () => {
     });
 
     it("never overwrites the header's last character with the marker", () => {
-        // The marker sits one column PAST the header, so no character is hidden by
-        // it (the user's Tab-pushes-last-char worry does not manifest here).
+        // Маркер стоит на колонку ЗА заголовком и ни одного символа не прячет.
         const { app, editor } = createEditor("abc\n  x\n  y\nz", [{ start: 0, end: 2, collapsed: true }]);
         app.render();
         const gw = editor.gutterWidth;
-        expect(app.backend.getTextAt(new Point(gw, 0), 3)).toBe("abc"); // full header
+        expect(app.backend.getTextAt(new Point(gw, 0), 3)).toBe("abc");
         expect(app.backend.getTextAt(new Point(gw + 4, 0), 1)).toBe(COLLAPSED_MARKER); // gap+marker after "abc"
     });
 
@@ -116,7 +113,6 @@ describe("EditorElement – folding gutter", () => {
         const gw = editor.gutterWidth;
         // Header "abcdef" (width 6) → marker at displayWidth+1-scrollLeft = 5 past gutter.
         expect(app.backend.getTextAt(new Point(gw + 5, 0), 1)).toBe(COLLAPSED_MARKER);
-        // Header content is scrolled, not clipped by the marker: "cdef" is visible.
         expect(app.backend.getTextAt(new Point(gw, 0), 4)).toBe("cdef");
     });
 });
@@ -142,7 +138,6 @@ describe("EditorElement – folding mouse toggle", () => {
 
     it("places the cursor normally when the gutter column is not a header", () => {
         const { editor } = createEditor("a\n  b\n  c\nd", [{ start: 0, end: 2 }]);
-        // Row 3 ("d") is not a header — clicking the fold column falls back to cursor placement.
         fireMouseDown(editor, editor.foldControlColumn, 3);
         expect(editor.viewState.foldedRegions[0].isCollapsed).toBe(false);
         expect(editor.viewState.selections[0].active.line).toBe(3);
@@ -150,7 +145,6 @@ describe("EditorElement – folding mouse toggle", () => {
 
     it("ignores a fold-column click below the last line", () => {
         const { editor } = createEditor("a\n  b\n  c\nd", [{ start: 0, end: 2 }], 20, 8);
-        // Row 6 is past the 4-line document — no region toggles, no throw.
         fireMouseDown(editor, editor.foldControlColumn, 6);
         expect(editor.viewState.foldedRegions[0].isCollapsed).toBe(false);
     });

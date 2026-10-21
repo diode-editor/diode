@@ -15,7 +15,7 @@ function setup(text: string) {
     return { doc, viewState, undoManager };
 }
 
-/** Builds a pure-EOL undo element (no text change, version unchanged). */
+/** Без правки текста, версия не меняется. */
 function eolElement(doc: TextDocument, viewState: EditorViewState, before: EndOfLine, after: EndOfLine): IUndoElement {
     const selections = [...viewState.selections];
     return {
@@ -65,30 +65,24 @@ describe("UndoManager EOL changes", () => {
         const { doc, viewState, undoManager } = setup("hello");
         viewState.selections = [createCursorSelection(0, 5)];
 
-        // 1) eol change LF -> CRLF
         doc.setEol(EndOfLine.CRLF);
         undoManager.pushUndoElement(eolElement(doc, viewState, EndOfLine.LF, EndOfLine.CRLF));
 
-        // 2) text edit
         const typeElement = viewState.type(" world");
         undoManager.pushUndoElement(typeElement!);
         expect(doc.getText()).toBe("hello world");
         expect(doc.eol).toBe(EndOfLine.CRLF);
 
-        // undo text edit -> content back, eol untouched
         expect(undoManager.undo(viewState)).toBe(true);
         expect(doc.getText()).toBe("hello");
         expect(doc.eol).toBe(EndOfLine.CRLF);
 
-        // undo eol change -> eol back to LF
         expect(undoManager.undo(viewState)).toBe(true);
         expect(doc.eol).toBe(EndOfLine.LF);
 
-        // redo eol change
         expect(undoManager.redo(viewState)).toBe(true);
         expect(doc.eol).toBe(EndOfLine.CRLF);
 
-        // redo text edit
         expect(undoManager.redo(viewState)).toBe(true);
         expect(doc.getText()).toBe("hello world");
         expect(doc.eol).toBe(EndOfLine.CRLF);

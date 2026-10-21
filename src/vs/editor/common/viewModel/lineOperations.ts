@@ -7,15 +7,7 @@ import type { ITextEdit } from "../core/iTextEdit.ts";
 import { createDeleteEdit, createInsertEdit, createTextEdit } from "../core/iTextEdit.ts";
 import type { ITextDocument } from "../model/iTextDocument.ts";
 
-/**
- * Строчные операции редактора (перенос VS Code `editor/contrib/linesOperations`
- * и клипбордной семантики `emptySelectionClipboard`) — чистые функции: по
- * документу и выделениям считают правки и итоговые выделения, ничего не
- * применяя. Применяет их {@link EditorViewState} — там документ, фолды и undo.
- *
- * Контракт входа: `selections` — нормализованный список view-state'а
- * (документный порядок, без пересечений).
- */
+/** Вход `selections` — нормализованный список view-state'а: документный порядок, без пересечений. */
 export type ILineOperationsDocument = Pick<
     ITextDocument,
     "lineCount" | "getLineContent" | "getLineLength" | "getTextInRange"
@@ -26,7 +18,7 @@ export interface ILineOperationResult {
     afterSelections: ISelection[];
 }
 
-/** Строчный блок выделения: конец на колонке 0 следующей строки её не захватывает (семантика VS Code). */
+/** Конец на колонке 0 следующей строки её не захватывает (семантика VS Code). */
 function selectionLineBlock(sel: ISelection): { startLine: number; endLine: number } {
     const range = selectionToRange(sel);
     let endLine = range.end.line;
@@ -36,7 +28,6 @@ function selectionLineBlock(sel: ISelection): { startLine: number; endLine: numb
     return { startLine: range.start.line, endLine };
 }
 
-/** Строки блока, склеенные `\n` — вставляемый текст дублирования/перемещения. */
 function blockText(doc: ILineOperationsDocument, block: { startLine: number; endLine: number }): string {
     const lines: string[] = [];
     for (let line = block.startLine; line <= block.endLine; line++) {
@@ -45,14 +36,9 @@ function blockText(doc: ILineOperationsDocument, block: { startLine: number; end
     return lines.join("\n");
 }
 
-// ─── Duplicate lines (Copy Line Up / Down) ──────────────────
-
 /**
- * Дублирование строк выделений (`editor.action.copyLinesUpAction/DownAction`).
- * Текст в обоих направлениях одинаков (копия встаёт вплотную к оригиналу);
- * различие — где остаётся выделение: Up держит его на верхней копии, Down — на
- * нижней. Два выделения, чьи блоки делят строку, не дублируют её дважды
- * (семантика VS Code: дубль делает верхнее, нижнее игнорируется).
+ * Up держит выделение на верхней копии, Down — на нижней. Блоки, делящие строку, не
+ * дублируют её дважды: дубль делает верхний (семантика VS Code).
  */
 export function computeCopyLines(
     doc: ILineOperationsDocument,
@@ -61,7 +47,6 @@ export function computeCopyLines(
 ): ILineOperationResult {
     const blocks = selections.map(selectionLineBlock);
 
-    // Отсев блоков, наступающих на строку предыдущего оставленного блока.
     const kept: boolean[] = [];
     let prevKept: { startLine: number; endLine: number } | null = null;
     for (const block of blocks) {
@@ -93,8 +78,8 @@ export function computeCopyLines(
         for (let j = 0; j < blocks.length; j++) {
             if (!kept[j]) continue;
             const size = blocks[j].endLine - blocks[j].startLine + 1;
-            // Вставка-вниз стоит В НАЧАЛЕ блока и двигает сам блок; вставка-вверх
-            // стоит в конце его последней строки и двигает только строки ниже.
+            // Вставка-вниз стоит В НАЧАЛЕ блока и двигает сам блок; вставка-вверх — в конце
+            // его последней строки и двигает только строки ниже.
             if (down ? line >= blocks[j].startLine : line > blocks[j].endLine) {
                 delta += size;
             }
@@ -114,15 +99,7 @@ export function computeCopyLines(
     return { edits, afterSelections };
 }
 
-// ─── Duplicate selection ────────────────────────────────────
-
-/**
- * Дубль выделения (`editor.action.duplicateSelection`): копия выделенного
- * текста встаёт сразу за выделением и становится новым выделением; схлопнутая
- * каретка дублирует свою строку вниз (как Copy Line Down). В отличие от
- * {@link computeCopyLines}, каретки на одной строке не схлопываются — каждая
- * вставляет свою копию (семантика VS Code).
- */
+/** В отличие от {@link computeCopyLines}, каретки на одной строке не схлопываются — каждая вставляет свою копию. */
 export function computeDuplicateSelection(
     doc: ILineOperationsDocument,
     selections: readonly ISelection[],
@@ -132,27 +109,21 @@ export function computeDuplicateSelection(
         const range = selectionToRange(sel);
         return {
             collapsed,
-            // Каретка дублирует строку целиком (вставка в её начало), выделение —
-            // свой текст (вставка сразу за ним).
             insertAt: collapsed ? { line: range.start.line, character: 0 } : range.end,
             text: collapsed ? doc.getLineContent(range.start.line) + "\n" : doc.getTextInRange(range),
             active: sel.active,
         };
     });
 
-    // Позиции переносятся ПРОГОНОМ вставок — с переносом и самих точек вставки:
-    // правка каретки встаёт в начало строки, то есть ЛЕВЕЕ правки выделения с
-    // той же строки, и накопительными дельтами «сдвиг последней тронутой
-    // строки» такой порядок не описывается. Порядок прогона не важен: сдвиги
-    // коммутируют (см. {@link shiftThroughInsert} — однострочная вставка правит
-    // только колонку, многострочная только номер строки).
+    // Позиции переносятся ПРОГОНОМ вставок вместе с точками вставки: правка каретки встаёт
+    // в начало строки, ЛЕВЕЕ правки выделения с той же строки, — накопительными дельтами
+    // такое не описать. Порядок прогона не важен: сдвиги коммутируют.
     const insertPoints = plans.map((plan) => plan.insertAt);
     const carets = plans.map((plan) => plan.active);
     for (let i = 0; i < plans.length; i++) {
         const at = insertPoints[i];
         const text = plans[i].text;
         for (let k = 0; k < plans.length; k++) {
-            // Точка собственной вставки не двигается: копия встаёт именно там.
             if (k !== i) insertPoints[k] = shiftThroughInsert(insertPoints[k], at, text);
             carets[k] = shiftThroughInsert(carets[k], at, text);
         }
@@ -160,9 +131,7 @@ export function computeDuplicateSelection(
 
     const edits = plans.map((plan) => createInsertEdit(plan.insertAt.line, plan.insertAt.character, plan.text));
     const afterSelections = plans.map((plan, i) => {
-        // Каретка остаётся у своего текста — тот съехал под копию строки.
         if (plan.collapsed) return createCursorSelection(carets[i].line, carets[i].character);
-        // Новое выделение — вставленная копия.
         const start = insertPoints[i];
         const end = shiftThroughInsert(start, start, plan.text);
         return createSelection(start.line, start.character, end.line, end.character);
@@ -172,14 +141,9 @@ export function computeDuplicateSelection(
 }
 
 /**
- * Позиция после применения одной вставки `text` в точке `at` (позиции левее
- * вставки не двигаются).
- *
- * Многострочная вставка правит только НОМЕР СТРОКИ, не колонку — это верно в
- * силу инварианта дублирования: копия кончается ровно тем, что стоит слева от
- * точки вставки (`at.character` символов её строки), поэтому хвост встаёт в ту
- * же колонку, куда указывал до вставки. Функция живёт здесь, а не в общем
- * `core/`, именно потому, что опирается на этот инвариант.
+ * Многострочная вставка правит только номер строки, не колонку — верно лишь в силу
+ * инварианта дублирования (копия кончается тем, что стоит слева от `at`), поэтому
+ * функция живёт здесь, а не в `core/`.
  */
 function shiftThroughInsert(pos: IPosition, at: IPosition, text: string): IPosition {
     if (comparePositions(pos, at) < 0) return pos;
@@ -190,20 +154,13 @@ function shiftThroughInsert(pos: IPosition, at: IPosition, text: string): IPosit
     return { line: pos.line + lineDelta, character: pos.character };
 }
 
-// ─── Move lines ─────────────────────────────────────────────
-
 interface IMergedLineBlock {
     startLine: number;
     endLine: number;
-    /** Индексы выделений, чьи блоки слились в этот. */
     memberIndices: number[];
 }
 
-/**
- * Слияние строчных блоков выделений: пересекающиеся И СМЕЖНЫЕ блоки едут/
- * удаляются одним куском — иначе их правки пересеклись бы (и VS Code сливает
- * так же: `endLineNumber + 1 >= startLineNumber` следующего).
- */
+/** Смежные блоки тоже сливаются, иначе правки пересеклись бы (VS Code: `endLineNumber + 1 >= startLineNumber`). */
 function mergeAdjacentBlocks(selections: readonly ISelection[]): IMergedLineBlock[] {
     const merged: IMergedLineBlock[] = [];
     for (let i = 0; i < selections.length; i++) {
@@ -219,12 +176,7 @@ function mergeAdjacentBlocks(selections: readonly ISelection[]): IMergedLineBloc
     return merged;
 }
 
-/**
- * Перемещение строк выделений на строку вверх/вниз
- * (`editor.action.moveLinesUpAction/DownAction`): блок меняется местами с
- * соседней строкой, выделения переезжают вместе со своим текстом. Блок,
- * упёршийся в край документа, остаётся на месте; `null` — двигать нечего.
- */
+/** Блок у края документа остаётся на месте; `null` — двигать нечего. */
 export function computeMoveLines(
     doc: ILineOperationsDocument,
     selections: readonly ISelection[],
@@ -274,14 +226,9 @@ export function computeMoveLines(
     return { edits, afterSelections };
 }
 
-// ─── Delete lines ───────────────────────────────────────────
-
 /**
- * Правка, удаляющая строки блока ЦЕЛИКОМ, вместе с ограничивающим переводом
- * строки: обычно со своим завершающим, у блока с последней строкой документа —
- * с предшествующим (завершающего нет), у блока во весь документ — только
- * содержимое (документ без единственной строки не бывает). Семантика VS Code
- * (`DeleteLinesCommand` и cut пустого выделения).
+ * С ограничивающим `\n`: обычно своим завершающим, у блока с последней строкой —
+ * предшествующим, у блока во весь документ — только содержимое (`DeleteLinesCommand`).
  */
 function deleteWholeLinesEdit(doc: ILineOperationsDocument, block: { startLine: number; endLine: number }): ITextEdit {
     if (block.endLine < doc.lineCount - 1) {
@@ -298,12 +245,7 @@ function deleteWholeLinesEdit(doc: ILineOperationsDocument, block: { startLine: 
     return createDeleteEdit(0, 0, block.endLine, doc.getLineLength(block.endLine));
 }
 
-/**
- * Удаление строк выделений (`editor.action.deleteLines`, Ctrl+Shift+K).
- * Смежные блоки сливаются в один; после удаления на месте каждого блока
- * остаётся каретка в прежней колонке (колонка первого выделения блока —
- * кламп к длине строки делает применяющая сторона).
- */
+/** Каретка блока — в колонке его первого выделения; кламп к длине строки — у применяющей стороны. */
 export function computeDeleteLines(
     doc: ILineOperationsDocument,
     selections: readonly ISelection[],
@@ -314,8 +256,7 @@ export function computeDeleteLines(
 
     for (const block of mergeAdjacentBlocks(selections)) {
         edits.push(deleteWholeLinesEdit(doc, block));
-        // Строка, вставшая на место блока. У блока с последней строкой документа
-        // такой строки нет — выражение даёт строку ЗА новым концом, и кламп
+        // У блока с последней строкой выражение даёт строку ЗА новым концом — кламп
         // применяющей стороны сажает каретку на новый конец (как в VS Code).
         afterSelections.push(
             createCursorSelection(block.startLine - removedSoFar, selections[block.memberIndices[0]].active.character),
@@ -326,24 +267,16 @@ export function computeDeleteLines(
     return { edits, afterSelections };
 }
 
-// ─── Clipboard: emptySelectionClipboard ─────────────────────
-
 export interface ITextToCopy {
-    /** Текст для буфера; пустая строка — копировать нечего. */
+    /** Пустая строка — копировать нечего. */
     text: string;
-    /**
-     * Текст пришёл из ЕДИНСТВЕННОГО пустого выделения — маркер линейной
-     * вставки: paste такой строки кладёт её строкой выше курсорной.
-     */
+    /** Из ЕДИНСТВЕННОГО пустого выделения — маркер линейной вставки строкой выше курсорной. */
     isFromEmptySelection: boolean;
 }
 
 /**
- * Текст для Copy/Cut с семантикой `emptySelectionClipboard` (VS Code
- * `getPlainTextToCopy`): пустые выделения копируют свою строку целиком (с
- * `\n`; соседние каретки на одной строке — один раз), непустые — свой текст;
- * склейка — через `\n`. При выключенной настройке пустые выделения не дают
- * ничего.
+ * VS Code `getPlainTextToCopy`: пустые выделения копируют строку целиком с `\n` (каретки
+ * на одной строке — один раз), склейка через `\n`; при выключенной настройке пустые не дают ничего.
  */
 export function computeTextToCopy(
     doc: ILineOperationsDocument,
@@ -367,8 +300,7 @@ export function computeTextToCopy(
 
     const hasEmpty = selections.some(isSelectionCollapsed);
     if (hasEmpty && emptySelectionClipboard) {
-        // Смешанный набор: пустые каретки несут строку целиком (без своего \n —
-        // разделителем служит склейка), непустые — выделенное.
+        // Пустые каретки несут строку без своего \n — разделитель даёт склейка.
         const parts: string[] = [];
         let prevLine = -1;
         for (const sel of selections) {
@@ -392,14 +324,9 @@ export function computeTextToCopy(
 }
 
 /**
- * Правки для Cut: непустые выделения удаляют свой диапазон; пустые (при
- * включённом `emptySelectionClipboard`) — свою строку целиком. Каретки
- * смежных строк сливаются в один блок ({@link mergeAdjacentBlocks}): текст и
- * итоговые каретки от слияния не меняются, а правки перестают пересекаться —
- * блок с последней строкой документа удаляет ПРЕДШЕСТВУЮЩИЙ `\n`, и без
- * слияния он спорил бы за него с правкой строки выше. Каретка на строке,
- * которую уже задевает непустое выделение, пропускается — по той же причине.
- * Порядок правок не значим: применяющая сторона сортирует сама.
+ * Каретки смежных строк сливаются ({@link mergeAdjacentBlocks}): блок с последней строкой
+ * удаляет ПРЕДШЕСТВУЮЩИЙ `\n` и без слияния спорил бы за него с правкой строки выше. Каретка
+ * на строке, задетой непустым выделением, пропускается по той же причине. Порядок правок не значим.
  */
 export function computeCutEdits(
     doc: ILineOperationsDocument,

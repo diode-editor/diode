@@ -5,14 +5,6 @@ import { setLazyModuleLoader } from "../../../base/common/lazyModule.ts";
 import { decodeBuffer, encodeText } from "./encoding.ts";
 import { decodeStream, decodeStreamByBOM, encodeChunks } from "./encodingStream.ts";
 
-/**
- * Чтение и запись по кускам (A4, docs/TODO/VscodeModel.md): файл читается
- * чанками, документ пишется снапшотом — граница куска режет что угодно
- * (многобайтовую последовательность utf-8, пару UTF-16, нечётный байт, BOM).
- * Контракт один: склеенный результат == разовому декоду/кодированию.
- */
-
-/** Все разрезы `bytes` на два куска плюс побайтовый. */
 function splits(bytes: Buffer): Buffer[][] {
     const result: Buffer[][] = [[bytes], [...bytes].map((b) => Buffer.from([b]))];
     for (let at = 0; at <= bytes.length; at++) result.push([bytes.subarray(0, at), bytes.subarray(at)]);
@@ -100,7 +92,6 @@ describe("decodeStream / decodeStreamByBOM", () => {
             }
         }
         const decoded = decodeStreamByBOM(source());
-        // Сниф взял только первый кусок.
         expect(pulled).toEqual([0]);
         // Ровно три байта — уже хватает на самый длинный BOM, второй кусок не нужен.
         pulled.length = 0;

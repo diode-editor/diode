@@ -30,7 +30,6 @@ describe("TextDocument change events", () => {
         const doc = new TextDocument("ab");
         const changes = recordChanges(doc);
         doc.applyEdits([createInsertEdit(0, 1, "X\nY\n")]);
-        // After insert: "aX", "Y", "b" — startLine=0, oldEndLine=0, newEndLine=2
         expect(changes).toEqual([{ startLine: 0, oldEndLine: 0, newEndLine: 2 }]);
     });
 
@@ -48,18 +47,9 @@ describe("TextDocument change events", () => {
         expect(changes.length).toBe(2);
     });
 
-    /**
-     * События батча летят в документном порядке и ПОСЛЕДОВАТЕЛЬНО: слушатель
-     * сдвигает свои позиции по каждому, то есть каждое следующее обязано
-     * адресовать документ, в котором предыдущие уже применены. Правки при этом
-     * применяются снизу вверх, и событие нижней правки посчитано в координатах,
-     * где верхних ещё не было — его границы сдвигаются на накопленную разницу
-     * строк. Без сдвига слушатель получал номера строк мимо документа.
-     */
     it("в батче нижнее событие приходит в координатах уже применённых верхних правок", () => {
         const doc = new TextDocument("a\nb\nc");
         const changes = recordChanges(doc);
-        // Верхняя правка добавляет строку, поэтому строка 2 («c») уезжает на 3.
         doc.applyEdits([createInsertEdit(0, 0, "X\nY"), createInsertEdit(2, 0, "Z")]);
         expect(doc.getText()).toBe("X\nYa\nb\nZc");
         expect(changes).toEqual([
@@ -71,7 +61,6 @@ describe("TextDocument change events", () => {
     it("удаление строк выше сдвигает границы последующих событий батча вверх", () => {
         const doc = new TextDocument("a\nb\nc\nd\ne");
         const changes = recordChanges(doc);
-        // Первая правка склеивает строки 0 и 1 (минус строка), вторая правит «d».
         doc.applyEdits([createDeleteEdit(0, 1, 1, 0), createInsertEdit(3, 0, "Z")]);
         expect(doc.getText()).toBe("ab\nc\nZd\ne");
         expect(changes).toEqual([
@@ -96,7 +85,6 @@ describe("TextDocument change events", () => {
         const handle = doc.onDidChangeContent((c) => changes.push(c));
 
         handle.dispose();
-        // Second dispose: indexOf returns -1, so the splice is skipped (no throw, no double-remove).
         expect(() => {
             handle.dispose();
         }).not.toThrow();

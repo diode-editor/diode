@@ -11,8 +11,6 @@ function makeState(lines: string, viewportWidth = 10): EditorViewState {
     return state;
 }
 
-// ─── Проекция: фрагменты ────────────────────────────────────
-
 describe("EditorViewState word wrap — проекция", () => {
     it("wordWrap=on разворачивает длинную строку в ряд на фрагмент", () => {
         const state = makeState("aaaa bbbb cccc\nshort");
@@ -28,7 +26,6 @@ describe("EditorViewState word wrap — проекция", () => {
         expect(state.visualToLogicalLine(0)).toBe(0);
         expect(state.visualToLogicalLine(1)).toBe(0);
         expect(state.visualToLogicalLine(2)).toBe(1);
-        // logicalToVisualLine — ПЕРВЫЙ фрагмент строки.
         expect(state.logicalToVisualLine(0)).toBe(0);
         expect(state.logicalToVisualLine(1)).toBe(2);
     });
@@ -45,13 +42,11 @@ describe("EditorViewState word wrap — проекция", () => {
         state.wordWrap = "on";
         expect(state.viewLineRange(0)).toEqual({ start: 0, end: 10 });
         expect(state.viewLineRange(1)).toEqual({ start: 10, end: 14 });
-        // За границей вью — пустой диапазон.
         expect(state.viewLineRange(5)).toEqual({ start: 0, end: 0 });
         expect(state.viewLineRange(-1)).toEqual({ start: 0, end: 0 });
     });
 
     it("viewLineStartColumn — дисплейная колонка начала фрагмента (табы считаются)", () => {
-        // Таб (4 колонки) + слова: offset и колонка начала фрагмента расходятся.
         const state = makeState("\taaaa bbb cc");
         state.wordWrap = "on";
         // "\taaaa bbb cc": таб=4 + aaaa=8, ws=9 → "bbb" не влезает → break offset 6.
@@ -65,7 +60,6 @@ describe("EditorViewState word wrap — проекция", () => {
         state.wordWrap = "on";
         expect(state.viewLineForPosition(0, 0)).toBe(0);
         expect(state.viewLineForPosition(0, 9)).toBe(0);
-        // Offset ровно на границе фрагментов — следующий ряд (без affinity).
         expect(state.viewLineForPosition(0, 10)).toBe(1);
         expect(state.viewLineForPosition(0, 14)).toBe(1);
         expect(state.viewLineForPosition(1, 0)).toBe(2);
@@ -87,8 +81,6 @@ describe("EditorViewState word wrap — проекция", () => {
     });
 });
 
-// ─── Режимы и инвалидация ───────────────────────────────────
-
 describe("EditorViewState word wrap — режимы и инвалидация", () => {
     it("режим on переносит по вьюпорту и ИГНОРИРУЕТ wordWrapColumn", () => {
         const state = makeState("aaaa bbbb cccc", 40);
@@ -107,7 +99,6 @@ describe("EditorViewState word wrap — режимы и инвалидация",
         state.wordWrap = "bounded";
         expect(state.getViewLineCount()).toBe(2);
 
-        // Колонка шире вьюпорта — перенос по вьюпорту (bounded-поведение).
         state.viewportWidth = 10;
         state.wordWrapColumn = 80;
         expect(state.getViewLineCount()).toBe(2);
@@ -154,8 +145,6 @@ describe("EditorViewState word wrap — режимы и инвалидация",
     });
 });
 
-// ─── Взаимодействие с фолдингом и зонами ────────────────────
-
 describe("EditorViewState word wrap — фолдинг и зоны", () => {
     it("свёрнутый регион прячет фрагменты скрытых строк целиком", () => {
         const state = makeState("header\naaaa bbbb cccc\ntail");
@@ -177,13 +166,10 @@ describe("EditorViewState word wrap — фолдинг и зоны", () => {
         expect(state.viewLineKind(2)).toBe("zone");
         expect(state.viewLineKind(3)).toBe("doc");
         expect(state.zoneAnchorForViewLine(2)).toBe(0);
-        // Диапазон зоны пуст, стартовая колонка — 0.
         expect(state.viewLineRange(2)).toEqual({ start: 0, end: 0 });
         expect(state.viewLineStartColumn(2)).toBe(0);
     });
 });
-
-// ─── Инвариант scrollLeft ───────────────────────────────────
 
 describe("EditorViewState word wrap — scrollLeft", () => {
     it("при активном wrap scrollLeft клампится к нулю, при off — снова свободен", () => {

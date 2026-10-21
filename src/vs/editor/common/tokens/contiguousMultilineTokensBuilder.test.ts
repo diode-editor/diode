@@ -4,7 +4,6 @@ import { markedMetadata, storedTokens } from "../../../../TestUtils/encodedToken
 
 import { ContiguousMultilineTokensBuilder } from "./contiguousMultilineTokensBuilder.ts";
 
-/** Один токен на строку длиной 1, помеченный цветом `n`. */
 const tokens = (n: number): Uint32Array => storedTokens([[0, markedMetadata(n)]], 1);
 
 describe("ContiguousMultilineTokensBuilder", () => {

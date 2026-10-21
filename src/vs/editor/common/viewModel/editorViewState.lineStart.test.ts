@@ -5,14 +5,11 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-// Мак-команды «до начала строки»: Ctrl+A (cursorLineStart) и Cmd+Backspace
-// (deleteAllLeft). В отличие от smart-home, отступ не учитывается.
-
 describe("EditorViewState.cursorLineStart", () => {
     it("идёт в колонку 0 сразу, минуя отступ", () => {
         const state = new EditorViewState(new TextDocument("    hello"), [createCursorSelection(0, 7)]);
         state.cursorLineStart();
-        expect(state.selections[0].anchor).toEqual({ line: 0, character: 0 }); // без выделения
+        expect(state.selections[0].anchor).toEqual({ line: 0, character: 0 });
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
         state.cursorLineStart(); // повторно — остаётся на месте (не smart-home toggle)
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });

@@ -8,20 +8,12 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-// Межвиджетная развязка кадра damage-tracking'ом
-// (docs/TODO/LongLinePerformance.md). Запуск: `npm run test:perf`.
+// «Сколько стоит СОСЕДНИЙ виджет» (docs/TODO/LongLinePerformance.md), `npm run test:perf`:
+// под damage-tracking поддерево устоявшегося Output не рендерится, и сплит с 10k-строкой
+// должен стоить как с короткой.
 //
-// Одна итерация = печать символа + Backspace через настоящий парсер ввода
-// (~2 полных синхронных кадра). Сравнение пары фикстур отвечает на вопрос
-// «сколько стоит СОСЕДНИЙ виджет»: до damage-tracking каждый кадр рендерил
-// оба редактора (устоявшийся Output с 10k-строкой добавлял пересегментацию
-// DisplayLine на каждый его видимый ряд), после — поддерево Output вообще
-// не рендерится, и обе фикстуры должны стоить одинаково.
-//
-// NB: фикстуры на верхнем уровне модуля — в режиме `vitest bench` тяжёлый
-// beforeAll отрабатывает некорректно (бенч не набирает сэмплов).
+// Фикстуры на верхнем уровне модуля: в `vitest bench` тяжёлый beforeAll не набирает сэмплов.
 
-/** Два редактора бок о бок: активный слева, «Output» справа. */
 class SplitElement extends TUIElement {
     public constructor(
         private readonly left: TUIElement,

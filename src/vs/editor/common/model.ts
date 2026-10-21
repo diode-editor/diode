@@ -3,16 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/editor/common/model.ts
-// Узкое извлечение (см. шапку src/vs/base/common/arrays.ts) из ~1.6k строк
-// интерфейсов модели эталона — ровно то, что нужно перенесённому коду:
-// - `ITextModel` — шесть методов под model/textModelTokens.ts. Реализация над
-//   нашим 0-based документом — адаптер `tokens/documentTokenStore.ts`;
-// - контракт текстового буфера под model/pieceTreeTextBuffer/* — объявления
-//   ниже `ITextModel` взяты из upstream дословно (порядок upstream,
-//   переформатированы под наш линт). Upstream-файл целиком тянет декорации,
-//   события модели, языки, undo — ~20 модулей, которых у нас нет.
-// Координаты upstream — строки и колонки с 1; ±1 живёт только в адаптерах
-// (docs/arch/Editor.md).
+// Узкое извлечение: `ITextModel` под model/textModelTokens.ts (адаптер —
+// tokens/documentTokenStore.ts) и контракт буфера под pieceTreeTextBuffer/*
+// дословно из upstream. Координаты — с 1; ±1 только в адаптерах (docs/arch/Editor.md).
 
 import type { Event } from "../../base/common/event.ts";
 import type { IDisposable } from "../../base/common/lifecycle.ts";
@@ -29,7 +22,7 @@ export interface ITextModel {
     getLineCount(): number;
     getLineContent(lineNumber: number): string;
     getLineLength(lineNumber: number): number;
-    /** Колонка (с 1) первого непробельного символа; 0 — строка пуста или из одних пробелов. */
+    /** 0 — строка пуста или из одних пробелов. */
     getLineFirstNonWhitespaceColumn(lineNumber: number): number;
     isAttachedToEditor(): boolean;
 }

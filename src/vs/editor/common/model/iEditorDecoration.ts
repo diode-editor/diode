@@ -1,62 +1,42 @@
 import type { IRange } from "../core/iRange.ts";
 
-/**
- * Внешние декорации редактора — их задаёт владелец вью (панель диффа), а не
- * сам редактор. Цвета — ИМЕНА ТОКЕНОВ темы: элемент резолвит их через
- * `styleVar` при отрисовке, поэтому смена темы перекрашивает декорации без
- * пересчёта у владельца (в отличие от `IGutterChangeDecoration`, где цвет
- * packed-RGB и владелец перезаливает сам).
- *
- * Главный потребитель — дифф из двух настоящих редакторов
- * (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): фоны added/removed-строк, intra-line спаны,
- * маркеры `-`/`+` в гуттере и заполнение зон-филлеров.
- */
+// Цвета — ИМЕНА ТОКЕНОВ темы, резолвятся при отрисовке: смена темы перекрашивает
+// без пересчёта у владельца (в отличие от packed-RGB `IGutterChangeDecoration`).
 
-/** Фон целых строк документа (включая гуттер), `endLine` включительно. */
+/** Включая гуттер, `endLine` включительно. */
 export interface ILineBackgroundDecoration {
     readonly startLine: number;
     readonly endLine: number;
     readonly colorToken: string;
 }
 
-/** Фон документного диапазона (intra-line подсветка). */
 export interface IRangeBackgroundDecoration {
     readonly range: IRange;
     readonly colorToken: string;
 }
 
-/** Одиночный глиф в гуттере у строки (маркеры `-`/`+` диффа). */
 export interface IGutterMarkerDecoration {
     readonly line: number;
     readonly char: string;
 }
 
-/**
- * Одна строка многострочной зоны — со своим стилем: «зоны-призраки» inline-диффа
- * несут удалённые строки original (фон removed), и плашка свёртки может жить в
- * той же зоне соседней строкой со своим цветом (зоны с одним якорем сливаются).
- */
+/** Свой стиль у строки: зоны с одним якорем сливаются, призраки и плашка свёртки соседствуют. */
 export interface IViewZoneLine {
     readonly text: string;
-    /** Токен цвета глифов; без него — цвет текста редактора. */
+    /** Без него — цвет текста редактора. */
     readonly colorToken?: string;
-    /** Токен фона строки; без него — фон редактора. */
+    /** Без него — фон редактора. */
     readonly bgToken?: string;
 }
 
-/**
- * Наполнение строк зоны с данным якорем: заполнитель на всю ширину
- * (`fillChar`, филлер ░), текст (плашка «⋯ N unchanged lines») либо
- * пер-строчное содержимое (`lines[offset]` — призраки inline-диффа);
- * `lines` побеждает `text`/`fillChar` на строках, где он задан.
- */
+/** `lines` побеждает `text`/`fillChar` на строках, где он задан. */
 export interface IViewZoneDecoration {
     readonly afterLine: number;
     readonly fillChar?: string;
     readonly text?: string;
-    /** Токен цвета глифов; без него — цвет текста редактора. */
+    /** Без него — цвет текста редактора. */
     readonly colorToken?: string;
-    /** Пер-строчное содержимое зоны по offset её строки. */
+    /** По offset строки зоны. */
     readonly lines?: readonly IViewZoneLine[];
 }
 

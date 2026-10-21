@@ -15,13 +15,7 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-/**
- * Призрачная подсказка при каретке В СЕРЕДИНЕ строки (заявка n-4): фантомные
- * колонки вставляются в отрисовку строки, а хвост строки уезжает вправо — как
- * у upstream (injected-text декорации внутри layout строки). Вместе с текстом
- * по композитной строке считают колонки и overlay-проходы этой строки: подсветка
- * токенов хвоста, волны диагностик, каретки и hit-test.
- */
+/** Каретка В СЕРЕДИНЕ строки (n-4): по композитной строке считают колонки и все overlay-проходы. */
 
 const GHOST_FG = packRgb(0x6a, 0x6a, 0x6a);
 const EDITOR_FG = packRgb(0xd4, 0xd4, 0xd4);
@@ -62,13 +56,10 @@ describe("EditorElement — ghost text в середине строки", () => 
         const { app, editor } = createEditor("call();", { line: 0, character: 5, lines: ["arg"] });
 
         const gutterW = editor.gutterWidth;
-        // Пользователь видит целую строку: набранное + серый фантом + свой хвост.
         expect(app.backend.getTextAt(new Point(gutterW, 0), 10)).toBe("call(arg);");
-        // Фантомные колонки — призрачным цветом, хвост — цветом редактора.
         expect(app.backend.getFgAt(new Point(gutterW + 5, 0))).toBe(GHOST_FG);
         expect(app.backend.getFgAt(new Point(gutterW + 7, 0))).toBe(GHOST_FG);
         expect(app.backend.getFgAt(new Point(gutterW + 8, 0))).toBe(EDITOR_FG);
-        // Документ фантом не трогает.
         expect(editor.viewState.document.getText()).toBe("call();");
     });
 
@@ -100,7 +91,6 @@ describe("EditorElement — ghost text в середине строки", () => 
     it("каретка остаётся ПЕРЕД фантомом, вторичная за ним — уезжает с хвостом", () => {
         const { app, editor } = createEditor("call();", { line: 0, character: 5, lines: ["arg"] });
         editor.setStyleVars({ ...STYLE_VARS, "editorCursor.foreground": CARET_BG });
-        // Первичная каретка — в точке вставки, вторичная — в конце строки.
         editor.viewState.selections = [createCursorSelection(0, 5), createCursorSelection(0, 7)];
         editor.focus();
         app.render();
@@ -124,7 +114,6 @@ describe("EditorElement — ghost text в середине строки", () => 
         const gutterW = editor.gutterWidth;
         expect(app.backend.getFgAt(new Point(gutterW + 8, 0))).toBe(WARNING_FG);
         expect(app.backend.getFgAt(new Point(gutterW + 9, 0))).toBe(WARNING_FG);
-        // Набранное левее подсказки волна не задела.
         expect(app.backend.getFgAt(new Point(gutterW + 4, 0))).toBe(EDITOR_FG);
     });
 
@@ -137,7 +126,6 @@ describe("EditorElement — ghost text в середине строки", () => 
         expect(editor.docPositionAt(gutterW + 9, 0)).toEqual({ line: 0, character: 6 });
         // Колонки самого фантома в документ не отображаются — отдают точку вставки.
         expect(editor.docPositionAt(gutterW + 6, 0)).toEqual({ line: 0, character: 5 });
-        // Левее фантома всё как было.
         expect(editor.docPositionAt(gutterW + 2, 0)).toEqual({ line: 0, character: 2 });
     });
 });
@@ -163,9 +151,7 @@ describe("EditorElement — подсветка токенов вокруг фа�
 
         const gutterW = editor.gutterWidth;
         expect(app.backend.getTextAt(new Point(gutterW, 0), 7)).toBe("if zz 1");
-        // Ключевое слово левее фантома — своим цветом.
         expect(app.backend.getFgAt(new Point(gutterW, 0))).toBe(KEYWORD_FG);
-        // Фантом токена не имеет.
         expect(app.backend.getFgAt(new Point(gutterW + 3, 0))).toBe(GHOST_FG);
         // Число уехало на колонку 6 и УТАЩИЛО свой токен с собой.
         expect(app.backend.getFgAt(new Point(gutterW + 6, 0))).toBe(NUMBER_FG);

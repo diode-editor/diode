@@ -42,8 +42,7 @@ describe("foldingRegionContaining", () => {
     });
 
     it("picks the innermost region regardless of array order", () => {
-        // Regions supplied inner-first (descending start) — the enclosing region
-        // comes later in iteration and must not displace the innermost match.
+        // Регионы изнутри наружу: объемлющий идёт позже и не должен вытеснить внутренний.
         const doc = new TextDocument("a\n  b\n    c\n  d\n  e\n  f\ng");
         const state = new EditorViewState(doc);
         state.setFoldingRegions([createFoldingRegion(1, 3), createFoldingRegion(0, 5)]);
@@ -56,14 +55,13 @@ describe("foldRegionContaining", () => {
         const state = stateWithRegions();
         const before = state.getViewLineCount();
         state.foldRegionContaining(2);
-        // inner region 1..3 collapses → lines 2,3 hidden
         expect(state.getViewLineCount()).toBe(before - 2);
         expect(state.foldingRegionContaining(1)?.isCollapsed).toBe(true);
     });
 
     it("folds outward on repeated calls", () => {
         const state = stateWithRegions();
-        state.foldRegionContaining(2); // inner
+        state.foldRegionContaining(2);
         state.foldRegionContaining(1); // header of inner is still visible → collapses outer
         expect(state.foldedRegions.find((r) => r.startLine === 0)?.isCollapsed).toBe(true);
     });
@@ -81,7 +79,7 @@ describe("unfoldRegionContaining", () => {
         const state = stateWithRegions();
         state.foldAll();
         const collapsedCount = state.getViewLineCount();
-        state.unfoldRegionContaining(0); // header of outer region
+        state.unfoldRegionContaining(0);
         expect(state.getViewLineCount()).toBeGreaterThan(collapsedCount);
     });
 
@@ -96,7 +94,6 @@ describe("unfoldRegionContaining", () => {
         const state = stateWithRegions();
         state.foldAll();
         state.unfoldRegionContaining(2); // covered by both outer (0..5) and inner (1..3)
-        // Inner expands; outer stays collapsed (so its body around it stays hidden).
         expect(state.foldedRegions.find((r) => r.startLine === 1)?.isCollapsed).toBe(false);
         expect(state.foldedRegions.find((r) => r.startLine === 0)?.isCollapsed).toBe(true);
     });
@@ -124,16 +121,15 @@ describe("revealRange", () => {
         const state = stateWithRegions();
         state.foldRegionContaining(2); // collapse inner (1..3) → lines 2,3 hidden
         expect(state.logicalToVisualLine(3)).toBe(-1);
-        // Range starts on the still-visible inner header (1) and ends on hidden line 3.
         state.revealRange({ start: { line: 1, character: 0 }, end: { line: 3, character: 0 } });
-        expect(state.logicalToVisualLine(3)).toBeGreaterThanOrEqual(0); // end revealed
+        expect(state.logicalToVisualLine(3)).toBeGreaterThanOrEqual(0);
     });
 });
 
 describe("goToPosition reveals a hidden target line", () => {
     it("expands a single collapsed region hiding the target", () => {
         const state = stateWithRegions();
-        state.foldRegionContaining(2); // collapse inner (1..3)
+        state.foldRegionContaining(2);
         expect(state.logicalToVisualLine(2)).toBe(-1);
         state.goToPosition(2, 0);
         expect(state.logicalToVisualLine(2)).toBeGreaterThanOrEqual(0);
@@ -142,7 +138,7 @@ describe("goToPosition reveals a hidden target line", () => {
 
     it("expands every enclosing region when the target is nested in collapsed folds", () => {
         const state = stateWithRegions();
-        state.foldAll(); // outer 0..5 and inner 1..3 both collapsed
+        state.foldAll();
         expect(state.logicalToVisualLine(2)).toBe(-1);
         state.goToPosition(2, 0);
         expect(state.logicalToVisualLine(2)).toBeGreaterThanOrEqual(0);
@@ -157,7 +153,6 @@ describe("setFoldingRegions – adversarial input", () => {
         const state = new EditorViewState(doc);
         state.setFoldingRegions([createFoldingRegion(1, 10, true)]); // endLine ≫ lineCount
         expect(() => state.getViewLineCount()).not.toThrow();
-        // Line 0 and header line 1 visible; line 2 hidden by the over-long region.
         expect(state.getViewLineCount()).toBe(2);
         expect(state.visualToLogicalLine(0)).toBe(0);
         expect(state.visualToLogicalLine(1)).toBe(1);
@@ -169,7 +164,7 @@ describe("setFoldingRegions – adversarial input", () => {
         state.setFoldingRegions([createFoldingRegion(1, 3), createFoldingRegion(1, 2)]);
         expect(() => {
             state.toggleFold(1);
-        }).not.toThrow(); // toggles the first match only
+        }).not.toThrow();
         expect(() => state.getViewLineCount()).not.toThrow();
         expect(state.visualToLogicalLine(0)).toBe(0);
     });

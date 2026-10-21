@@ -5,8 +5,6 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-// ─── Helpers ────────────────────────────────────────────────
-
 function makeState(lines: string): EditorViewState {
     return new EditorViewState(new TextDocument(lines), [createCursorSelection(0, 0)]);
 }
@@ -20,8 +18,6 @@ function sketch(state: EditorViewState): string {
     }
     return parts.join(" ");
 }
-
-// ─── Проекция ───────────────────────────────────────────────
 
 describe("EditorViewState view zones — проекция", () => {
     it("зона добавляет виртуальные строки после якоря, номера документа не тратя", () => {
@@ -139,7 +135,6 @@ describe("EditorViewState view zones — проекция", () => {
         expect(state.zoneRowForViewLine(1)).toEqual({ anchor: -1, offset: 1 });
         expect(state.zoneRowForViewLine(4)).toEqual({ anchor: 1, offset: 0 });
         expect(state.zoneRowForViewLine(6)).toEqual({ anchor: 1, offset: 2 });
-        // Документные строки и край — null.
         expect(state.zoneRowForViewLine(2)).toBeNull();
         expect(state.zoneRowForViewLine(99)).toBeNull();
         expect(state.zoneRowForViewLine(-1)).toBeNull();
@@ -165,8 +160,6 @@ describe("EditorViewState view zones — проекция", () => {
         expect(state.docLineForViewLine(0)).toBe(0);
     });
 });
-
-// ─── Событие и кэш ──────────────────────────────────────────
 
 describe("EditorViewState view zones — событие и кэш", () => {
     it("setViewZones файрит onDidChangeView один раз; повтор того же набора молчит", () => {
@@ -200,8 +193,6 @@ describe("EditorViewState view zones — событие и кэш", () => {
     });
 });
 
-// ─── Зоны и фолдинг вместе ──────────────────────────────────
-
 describe("EditorViewState view zones × folding", () => {
     it("зона на скрытом якоре выживает после заголовка свернувшего региона", () => {
         const state = makeState("h\nb1\nb2\ntail");
@@ -221,8 +212,6 @@ describe("EditorViewState view zones × folding", () => {
         expect(sketch(state)).toBe("0 1 · 2 3");
     });
 });
-
-// ─── Каретка и навигация ────────────────────────────────────
 
 describe("EditorViewState view zones — каретка", () => {
     it("зоны на краях файла: каретка с крайних строк никуда не уезжает", () => {
@@ -310,9 +299,8 @@ describe("EditorViewState — скрытая каретка на краю (ре�
     it("cursorDown со скрытой строки хвостового региона остаётся на месте", () => {
         const state = makeState("a\nh\nb1\nb2");
         state.setFoldingRegions([{ startLine: 1, endLine: 3, isCollapsed: true }]);
-        // Каретку на скрытую строку кладём напрямую: сеттер selections не
-        // выправляет её (это делает reconcile после фолд-команд) — ровно так
-        // выглядит момент между схлопыванием и выправкой.
+        // Сеттер selections скрытую каретку не выправляет (это делает reconcile после
+        // фолд-команд) — так выглядит момент между схлопыванием и выправкой.
         state.selections = [createCursorSelection(2, 0)];
 
         state.cursorDown();
@@ -320,8 +308,6 @@ describe("EditorViewState — скрытая каретка на краю (ре�
         expect(state.selections[0].active.line).toBe(2);
     });
 });
-
-// ─── Правки документа ───────────────────────────────────────
 
 describe("EditorViewState view zones — правки документа", () => {
     it("своя правка выше якоря сдвигает зону", () => {
@@ -346,7 +332,6 @@ describe("EditorViewState view zones — правки документа", () =>
     it("удаление строк с якорем клампит якорь внутрь нового диапазона", () => {
         const state = makeState("a\nb\nc\nd\ne");
         state.setViewZones([{ afterLine: 2, size: 1 }]);
-        // Выделить строки 1..3 целиком и удалить.
         state.selections = [{ anchor: { line: 1, character: 0 }, active: { line: 4, character: 0 } }];
         state.deleteLeft();
 
@@ -380,7 +365,6 @@ describe("EditorViewState view zones — правки документа", () =>
 
         // Гейт: с зонами логический сдвиг ≠ визуальному — скролл не трогаем.
         expect(state.scrollTop).toBe(15);
-        // А якорь зоны — сдвинут.
         expect(state.viewZones).toEqual([{ afterLine: 26, size: 1 }]);
     });
 });

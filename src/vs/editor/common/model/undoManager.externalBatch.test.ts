@@ -8,20 +8,13 @@ import { EditorViewState } from "../viewModel/editorViewState.ts";
 import { TextDocument } from "./textDocument.ts";
 import { UndoManager } from "./undoManager.ts";
 
-// Undo/redo внешнего батча правок — то, что приезжает workspace edit'ом от
-// code action (LSP quick fix). Такой батч кладётся в историю ОДНИМ шагом
-// (`TextFileModel.applyExternalEdits` → `EditorViewState.applyEdits` →
-// `pushUndoElement`), и Ctrl+Z обязан вернуть буфер дословно.
-//
-// Герметичный двойник сценария пользователя: quick fix «удалить
-// неиспользуемый assert» стокового typescript-language-server приходит двумя
-// смежными удалениями на одной строке (форма снята с живого сервера, см.
+// Герметичный двойник quick fix стокового typescript-language-server: два смежных
+// удаления на одной строке (форма снята с живого сервера,
 // extensionHost.typescriptLsp.codeActions.test.ts).
 
 const IMPORT_LINE = 'import { test, assert } from "./test.js";';
 const FIXED_LINE = 'import { test } from "./test.js";';
 
-/** Диапазоны ", " и "assert" внутри {@link IMPORT_LINE}. */
 const QUICK_FIX_EDITS = [createTextEdit(createRange(0, 13, 0, 15), ""), createTextEdit(createRange(0, 15, 0, 21), "")];
 
 function setup(text: string) {
@@ -31,7 +24,7 @@ function setup(text: string) {
     return { doc, viewState, undoManager };
 }
 
-/** Кладёт батч в историю одним шагом — тот же путь, что у applyExternalEdits. */
+/** Тот же путь, что у applyExternalEdits. */
 function applyExternal(
     viewState: EditorViewState,
     undoManager: UndoManager,
@@ -90,15 +83,13 @@ describe("UndoManager — внешний батч правок (quick fix)", () 
     });
 
     it("undo батча, склеившего строки, возвращает переводы строк на место", () => {
-        // Первая правка съедает перевод строки и приклеивает вторую строку к
-        // первой; вторая правка сидит на этой же склеенной строке — её
-        // обратная правка обязана уехать и по строке, И по колонке.
+        // Обратная правка второй обязана уехать и по строке, И по колонке.
         const text = 'import {\n    test, assert,\n} from "./test.js";';
         const { doc, viewState, undoManager } = setup(text);
 
         applyExternal(viewState, undoManager, [
-            createTextEdit(createRange(0, 8, 1, 4), ""), // перевод строки + отступ
-            createTextEdit(createRange(1, 8, 1, 16), ""), // ", assert"
+            createTextEdit(createRange(0, 8, 1, 4), ""),
+            createTextEdit(createRange(1, 8, 1, 16), ""),
         ]);
         expect(doc.getText()).toBe('import {test,\n} from "./test.js";');
 

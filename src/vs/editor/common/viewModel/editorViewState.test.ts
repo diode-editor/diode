@@ -5,8 +5,6 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-// ─── Construction ───────────────────────────────────────────
-
 describe("EditorViewState", () => {
     it("initializes with default cursor at 0,0", () => {
         const doc = new TextDocument("hello");
@@ -22,8 +20,6 @@ describe("EditorViewState", () => {
         const state = new EditorViewState(doc, [createCursorSelection(0, 3)]);
         expect(state.selections[0].active).toEqual({ line: 0, character: 3 });
     });
-
-    // ─── Cursor-change emitter ──────────────────────────────
 
     describe("onDidChangeCursorPosition", () => {
         it("fires on cursor movement, typing and direct assignment", () => {
@@ -58,8 +54,6 @@ describe("EditorViewState", () => {
         });
     });
 
-    // ─── Single Cursor Typing ───────────────────────────────
-
     it("types a single character", () => {
         const doc = new TextDocument("hello");
         const state = new EditorViewState(doc, [createCursorSelection(0, 5)]);
@@ -84,8 +78,6 @@ describe("EditorViewState", () => {
         expect(state.selections[0].active).toEqual({ line: 0, character: 11 });
     });
 
-    // ─── Newline ────────────────────────────────────────────
-
     it("inserts a newline", () => {
         const doc = new TextDocument("helloworld");
         const state = new EditorViewState(doc, [createCursorSelection(0, 5)]);
@@ -102,11 +94,8 @@ describe("EditorViewState", () => {
         expect(state.selections[0].active).toEqual({ line: 2, character: 3 });
     });
 
-    // ─── Typing with Selection (Replace) ────────────────────
-
     it("replaces selected text with typed character", () => {
         const doc = new TextDocument("hello world");
-        // Select "world" (chars 6-11)
         const state = new EditorViewState(doc, [createSelection(0, 6, 0, 11)]);
         state.type("universe");
         expect(doc.getText()).toBe("hello universe");
@@ -115,14 +104,11 @@ describe("EditorViewState", () => {
 
     it("replaces multi-line selection with text", () => {
         const doc = new TextDocument("aaa\nbbb\nccc");
-        // Select from middle of line 0 to middle of line 2
         const state = new EditorViewState(doc, [createSelection(0, 1, 2, 1)]);
         state.type("X");
         expect(doc.getText()).toBe("aXcc");
         expect(state.selections[0].active).toEqual({ line: 0, character: 2 });
     });
-
-    // ─── Multi-cursor Typing ────────────────────────────────
 
     it("types with two cursors on the same line", () => {
         const doc = new TextDocument("aabb");
@@ -130,7 +116,6 @@ describe("EditorViewState", () => {
         state.type("X");
         expect(doc.getText()).toBe("XaaXbb");
         expect(state.selections).toHaveLength(2);
-        // Cursors should be at positions after insertion
         expect(state.selections[0].active).toEqual({ line: 0, character: 1 });
         expect(state.selections[1].active).toEqual({ line: 0, character: 4 });
     });
@@ -143,8 +128,6 @@ describe("EditorViewState", () => {
         expect(state.selections[0].active).toEqual({ line: 0, character: 4 });
         expect(state.selections[1].active).toEqual({ line: 1, character: 4 });
     });
-
-    // ─── deleteLeft ─────────────────────────────────────────
 
     it("deletes one character to the left (backspace)", () => {
         const doc = new TextDocument("hello");
@@ -177,8 +160,6 @@ describe("EditorViewState", () => {
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
-    // ─── deleteRight ────────────────────────────────────────
-
     it("deletes one character to the right (delete)", () => {
         const doc = new TextDocument("hello");
         const state = new EditorViewState(doc, [createCursorSelection(0, 0)]);
@@ -210,8 +191,6 @@ describe("EditorViewState", () => {
         expect(state.selections[0].active).toEqual({ line: 0, character: 5 });
     });
 
-    // ─── Multi-cursor Delete ────────────────────────────────
-
     it("multi-cursor deleteLeft", () => {
         const doc = new TextDocument("aXbX");
         const state = new EditorViewState(doc, [createCursorSelection(0, 2), createCursorSelection(0, 4)]);
@@ -219,8 +198,6 @@ describe("EditorViewState", () => {
         // Deletes 'X' at index 1 (left of cursor@2) and 'X' at index 3 (left of cursor@4)
         expect(doc.getText()).toBe("ab");
     });
-
-    // ─── cursorLeft ─────────────────────────────────────
 
     it("moves cursor left within a line", () => {
         const doc = new TextDocument("hello");
@@ -243,8 +220,6 @@ describe("EditorViewState", () => {
         expect(state.selections[0].active).toEqual({ line: 0, character: 0 });
     });
 
-    // ─── cursorRight ────────────────────────────────────
-
     it("moves cursor right within a line", () => {
         const doc = new TextDocument("hello");
         const state = new EditorViewState(doc, [createCursorSelection(0, 2)]);
@@ -265,8 +240,6 @@ describe("EditorViewState", () => {
         state.cursorRight();
         expect(state.selections[0].active).toEqual({ line: 0, character: 5 });
     });
-
-    // ─── cursorUp ───────────────────────────────────────
 
     it("moves cursor up one line", () => {
         const doc = new TextDocument("hello\nworld");
@@ -289,8 +262,6 @@ describe("EditorViewState", () => {
         expect(state.selections[0].active).toEqual({ line: 0, character: 3 });
     });
 
-    // ─── cursorDown ─────────────────────────────────────
-
     it("moves cursor down one line", () => {
         const doc = new TextDocument("hello\nworld");
         const state = new EditorViewState(doc, [createCursorSelection(0, 3)]);
@@ -311,8 +282,6 @@ describe("EditorViewState", () => {
         state.cursorDown();
         expect(state.selections[0].active).toEqual({ line: 1, character: 3 });
     });
-
-    // ─── Multi-cursor movement ──────────────────────────────
 
     it("moves multiple cursors left independently", () => {
         const doc = new TextDocument("abcdef");

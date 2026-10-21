@@ -71,7 +71,6 @@ describe("EditorElement — вторичные каретки в кадре", ()
         app.render();
 
         expect(app.backend.getBgAt(new Point(gw + 1, 0))).toBe(editor.resolvedStyle.bg);
-        // Аппаратный курсор при этом на месте.
         expect(app.backend.cursorPosition.x).toBe(gw + 1);
     });
 
@@ -148,7 +147,6 @@ describe("EditorElement — каретка поверх остальных сл�
         const cell = app.app.screen.getCell(new Point(gw + 1, 0));
         expect(cell.style).toBe(StyleFlags.None);
         expect(app.backend.getFgAt(new Point(gw + 1, 0))).toBe(CARET_FG);
-        // Соседняя ячейка без каретки подчёркивание сохраняет.
         expect(app.app.screen.getCell(new Point(gw + 2, 0)).style).not.toBe(StyleFlags.None);
     });
 
@@ -162,7 +160,6 @@ describe("EditorElement — каретка поверх остальных сл�
 
         viewState.selections = [createCursorSelection(0, 1), createCursorSelection(0, 5)];
         app.render();
-        // Второе вхождение больше не подсвечено (каретки на нём нет).
         expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(editor.resolvedStyle.bg);
     });
 

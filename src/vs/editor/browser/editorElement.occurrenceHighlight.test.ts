@@ -9,7 +9,6 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 
 import { EditorElement } from "./editorElement.ts";
 
-// Default occurrence-highlight background (DEFAULT_OCCURRENCE_HIGHLIGHT_BG in EditorElement).
 const OCCURRENCE_BG = packRgb(71, 71, 71);
 
 function createEditor(
@@ -26,15 +25,12 @@ function createEditor(
 
 describe("EditorElement — occurrence highlight (word under cursor)", () => {
     it("highlights every occurrence of the word under the cursor", () => {
-        // "foo bar foo" — cursor inside the first "foo".
         const { app, viewState, gw } = createEditor("foo bar foo");
         viewState.selections = [createCursorSelection(0, 1)];
         app.render();
 
-        // First "foo" (cols 0..2).
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(OCCURRENCE_BG);
         expect(app.backend.getBgAt(new Point(gw + 2, 0))).toBe(OCCURRENCE_BG);
-        // Second "foo" (cols 8..10).
         expect(app.backend.getBgAt(new Point(gw + 8, 0))).toBe(OCCURRENCE_BG);
         expect(app.backend.getBgAt(new Point(gw + 10, 0))).toBe(OCCURRENCE_BG);
     });
@@ -44,7 +40,6 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
         viewState.selections = [createCursorSelection(0, 0)];
         app.render();
 
-        // "bar" (col 4) keeps the plain editor background.
         expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(editor.resolvedStyle.bg);
     });
 
@@ -70,11 +65,9 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
 
     it("suppresses the highlight while a selection is active", () => {
         const { app, editor, viewState, gw } = createEditor("foo bar foo");
-        // Select just the "bar" — occurrence highlighting is off while selecting.
         viewState.selections = [createSelection(0, 4, 0, 7)];
         app.render();
 
-        // The other "foo"s are not word-highlighted (col 0 stays editor bg).
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(editor.resolvedStyle.bg);
     });
 
@@ -96,11 +89,9 @@ describe("EditorElement — occurrence highlight (word under cursor)", () => {
         app.render(); // second pass with the same caret hits the cache
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(OCCURRENCE_BG);
 
-        // Move onto "bar" — the cached word is stale, so it recomputes.
         viewState.selections = [createCursorSelection(0, 4)];
         app.render();
         expect(app.backend.getBgAt(new Point(gw + 4, 0))).toBe(OCCURRENCE_BG);
-        // The former "foo" occurrences are no longer highlighted.
         expect(app.backend.getBgAt(new Point(gw + 0, 0))).toBe(editor.resolvedStyle.bg);
     });
 

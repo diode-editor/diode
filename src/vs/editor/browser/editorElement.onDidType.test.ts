@@ -18,7 +18,6 @@ const PAIRS: IResolvedLanguageConfiguration = {
     surroundingPairs: [["(", ")"]],
 };
 
-/** Редактор, который пишет каждый `onDidType` вместе с текстом на момент события. */
 function makeEditor(text: string, selections = [createCursorSelection(0, text.length)]) {
     const viewState = new EditorViewState(new TextDocument(text), selections);
     viewState.viewportWidth = 80;

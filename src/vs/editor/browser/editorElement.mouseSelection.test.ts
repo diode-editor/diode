@@ -71,9 +71,7 @@ describe("EditorElement – drag selection", () => {
         const { editor } = createEditor("hello\nworld\nfoo", 30, 5);
         const gw = editor.gutterWidth;
 
-        // Press at line 0, char 1
         fireMouseDown(editor, gw + 1, 0);
-        // Drag to line 1, char 3
         fireMouseMove(editor, gw + 3, 1);
 
         const sel = editor.viewState.selections[0];
@@ -107,10 +105,8 @@ describe("EditorElement – drag selection", () => {
         fireMouseMove(editor, gw + 3, 0);
         fireMouseUp(editor, gw + 3, 0);
 
-        // Selection frozen at this point
         const frozenActive = { ...editor.viewState.selections[0].active };
 
-        // Move mouse without pressing — should NOT change selection
         fireMouseMove(editor, gw + 5, 1);
 
         const sel = editor.viewState.selections[0];
@@ -122,9 +118,7 @@ describe("EditorElement – drag selection", () => {
         const { editor } = createEditor("hello\nworld\nfoo", 30, 5);
         const gw = editor.gutterWidth;
 
-        // Place cursor at line 0 char 2
         fireMouseDown(editor, gw + 2, 0);
-        // Shift-click at line 1 char 1 — extends from char 2 of line 0
         fireMouseDown(editor, gw + 1, 1, true);
 
         const selAfterShift = editor.viewState.selections[0];
@@ -133,7 +127,6 @@ describe("EditorElement – drag selection", () => {
         expect(selAfterShift.active.line).toBe(1);
         expect(selAfterShift.active.character).toBe(1);
 
-        // Continue dragging — anchor must stay at original position (0, 2)
         fireMouseMove(editor, gw + 4, 2);
 
         const selAfterDrag = editor.viewState.selections[0];
@@ -153,7 +146,6 @@ describe("EditorElement – drag selection", () => {
         const selExpanded = editor.viewState.selections[0];
         expect(isSelectionCollapsed(selExpanded)).toBe(false);
 
-        // Move back to anchor
         fireMouseMove(editor, gw + 2, 0);
 
         const selCollapsed = editor.viewState.selections[0];

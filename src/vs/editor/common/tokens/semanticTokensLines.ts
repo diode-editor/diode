@@ -2,9 +2,8 @@ import type { IRange } from "../core/iRange.ts";
 import type { ISemanticTokensLegend } from "../languages/iSemanticTokensSource.ts";
 
 /**
- * Семантические токены одной строки: четвёрки `[startChar, endChar, typeIdx,
- * modifierSet]` по возрастанию `startChar`, без пересечений; тип и модификаторы
- * — индексы в легенде провайдера, давшего ответ.
+ * Четвёрки `[startChar, endChar, typeIdx, modifierSet]` по возрастанию `startChar`,
+ * без пересечений; индексы — в легенде провайдера, давшего ответ.
  */
 export interface ISemanticLineTokens {
     readonly legend: ISemanticTokensLegend;
@@ -23,10 +22,7 @@ const CHAR_UPPER_Z = 90;
 const CHAR_LOWER_A = 97;
 const CHAR_LOWER_Z = 122;
 
-/**
- * `countEOL` эталона под нашу модель: вставку она режет только по `\n`
- * (`TextDocument.applyEdits`), так что и здесь перевод строки — только `\n`.
- */
+/** Только `\n`, в отличие от `countEOL` эталона: `TextDocument.applyEdits` режет вставку по `\n`. */
 export function countEOL(text: string): [eolCount: number, firstLineLength: number, lastLineLength: number] {
     const firstEol = text.indexOf("\n");
     if (firstEol === -1) return [0, text.length, text.length];
@@ -34,11 +30,8 @@ export function countEOL(text: string): [eolCount: number, firstLineLength: numb
 }
 
 /**
- * Разбор ответа провайдера (`toMultilineTokens2` эталона): пятёрки
- * `deltaLine, deltaStartChar, length, type, modifiers` → токены по строкам.
- * Токен нулевой длины и токен, налезающий на предыдущий в строке,
- * отбрасываются. Стиль здесь не считается: токен без стиля просто не перекрасит
- * TextMate при отрисовке (эталон отбрасывает его сразу).
+ * `toMultilineTokens2` эталона. Стиль здесь не считается: токен без стиля просто
+ * не перекрасит TextMate при отрисовке (эталон отбрасывает его сразу).
  */
 export function decodeSemanticTokens(data: Uint32Array, legend: ISemanticTokensLegend): SemanticTokensLines {
     const result = new SemanticTokensLines();
@@ -64,11 +57,7 @@ export function decodeSemanticTokens(data: Uint32Array, legend: ISemanticTokensL
     return result;
 }
 
-/**
- * Семантические токены документа по строкам — с переносом их через правки
- * (`SparseMultilineTokensStorage.acceptDeleteRange`/`acceptInsertText`
- * эталона, те же случаи), пока не придёт свежий ответ провайдера.
- */
+/** Перенос через правки — случаи `SparseMultilineTokensStorage.acceptDeleteRange`/`acceptInsertText` эталона. */
 export class SemanticTokensLines {
     private lines: (IMutableLine | undefined)[] = [];
 
@@ -77,7 +66,6 @@ export class SemanticTokensLines {
         return entry !== undefined && entry.tokens.length > 0 ? entry : undefined;
     }
 
-    /** Номера строк, где есть токены (для тестов и диагностики). */
     public get lineNumbers(): number[] {
         const result: number[] = [];
         this.lines.forEach((entry, index) => {
@@ -95,7 +83,6 @@ export class SemanticTokensLines {
         return entry;
     }
 
-    /** Заменяет строки `startLine..endLine` строками `source` (токены диапазона). */
     public replaceLines(startLine: number, endLine: number, source: SemanticTokensLines): void {
         for (let line = startLine; line <= endLine; line++) {
             const entry = source.lines[line];
@@ -109,7 +96,7 @@ export class SemanticTokensLines {
         }
     }
 
-    /** Правка `range` → `text` (0-based, исходные координаты). */
+    /** `range` — в исходных координатах. */
     public applyEdit(range: IRange, text: string): void {
         const [eolCount, firstLineLength, lastLineLength] = countEOL(text);
         this.acceptDeleteRange(range);
@@ -127,8 +114,6 @@ export class SemanticTokensLines {
     private acceptDeleteRange(range: IRange): void {
         const { line: startLine, character: startChar } = range.start;
         const { line: endLine, character: endChar } = range.end;
-        // Пустой диапазон отдельно не выделяем (у эталона — ранний выход): разбор
-        // ниже оставляет токены как были.
         const kept: number[] = [];
         const first = this.lines[startLine];
         // Stryker disable next-line AssignmentOperator,ConditionalExpression: шаг назад или вечное условие зацикливают — мутант виснет, а не выживает
@@ -196,8 +181,6 @@ export class SemanticTokensLines {
             }
             this.lines.splice(startLine + 1, endLine - startLine);
         }
-        // Без легенды не было токенов ни на первой, ни на последней строке:
-        // первая и так пуста.
         if (legend !== undefined) this.lines[startLine] = { legend, tokens: kept };
     }
 
@@ -256,8 +239,6 @@ export class SemanticTokensLines {
             }
         }
 
-        // Строки ниже вставки съезжают на eolCount; последняя новая строка
-        // получает перенесённые токены (пустой список — то же, что строки нет).
         // За концом известных строк splice лишь допишет пустые строки.
         if (eolCount > 0) {
             const inserted = new Array<IMutableLine | undefined>(eolCount - 1).fill(undefined);

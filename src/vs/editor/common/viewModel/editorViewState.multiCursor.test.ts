@@ -6,7 +6,6 @@ import { TextDocument } from "../model/textDocument.ts";
 
 import { EditorViewState } from "./editorViewState.ts";
 
-/** Пары «строка, символ» активных концов — компактный ассерт на набор кареток. */
 function actives(state: EditorViewState): number[][] {
     return state.selections.map((sel) => [sel.active.line, sel.active.character]);
 }
@@ -108,7 +107,6 @@ describe("EditorViewState.insertCursorBelow / insertCursorAbove", () => {
             [0, 0],
             [3, 0],
         ]);
-        // Ни одна каретка не осталась на скрытой строке.
         for (const sel of state.selections) {
             expect(state.logicalToVisualLine(sel.active.line)).toBeGreaterThanOrEqual(0);
         }

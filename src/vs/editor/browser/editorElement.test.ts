@@ -37,8 +37,6 @@ function fireMouse(
     );
 }
 
-// ─── Intrinsic size stubs ───────────────────────────────────
-
 describe("EditorElement — intrinsic sizing", () => {
     it("getMinIntrinsicWidth is always 1", () => {
         const { editor } = createEditor("hello world this is a long line");
@@ -47,7 +45,6 @@ describe("EditorElement — intrinsic sizing", () => {
 
     it("getMaxIntrinsicWidth equals content width", () => {
         const { editor } = createEditor("abcdef\nab");
-        // contentWidth = display width of the widest line ("abcdef" = 6).
         expect(editor.getMaxIntrinsicWidth(5)).toBe(editor.contentWidth);
         expect(editor.getMaxIntrinsicWidth(5)).toBe(6);
     });
@@ -64,8 +61,6 @@ describe("EditorElement — intrinsic sizing", () => {
     });
 });
 
-// ─── scrollLeft / scrollTop getters ─────────────────────────
-
 describe("EditorElement — scroll offset getters", () => {
     it("scrollLeft reflects the view state's horizontal scroll", () => {
         const { editor } = createEditor("abcdefghijklmnop", 8, 3);
@@ -79,8 +74,6 @@ describe("EditorElement — scroll offset getters", () => {
         expect(editor.scrollTop).toBe(2);
     });
 });
-
-// ─── Enter key inserts a newline ────────────────────────────
 
 describe("EditorElement — Enter key", () => {
     it("inserts a newline at the cursor on keypress Enter", () => {
@@ -105,23 +98,18 @@ describe("EditorElement — Enter key", () => {
     });
 });
 
-// ─── Mouse-up resets the drag anchor ────────────────────────
-
 describe("EditorElement — drag anchor reset on mouseup", () => {
     it("a mousemove after mouseup does not extend a selection", () => {
         const { editor } = createEditor("hello\nworld\nfoo", 30, 5);
         const gw = editor.gutterWidth;
 
-        // Begin a drag: mousedown sets the anchor at line 0 char 0.
         fireMouse(editor, "mousedown", gw + 0, 0);
-        // Drag to line 1 char 3 — selection extends.
         fireMouse(editor, "mousemove", gw + 3, 1);
 
         const duringDrag = editor.viewState.selections[0];
         expect(duringDrag.anchor).toEqual({ line: 0, character: 0 });
         expect(duringDrag.active).toEqual({ line: 1, character: 3 });
 
-        // Release the mouse — drag anchor is cleared.
         fireMouse(editor, "mouseup", gw + 3, 1);
 
         // A further mousemove must be ignored (no anchor) — selection unchanged.
@@ -137,7 +125,6 @@ describe("EditorElement — getCaretScreenCell", () => {
         const { editor } = createEditor("hello\nworld", 30, 5);
         const cell = editor.getCaretScreenCell();
         expect(cell).not.toBeNull();
-        // Каретка на строке 0 → y == globalPosition.y; x сдвинут на gutter.
         expect(cell!.y).toBe(editor.globalPosition.y);
         expect(cell!.x).toBe(editor.globalPosition.x + editor.gutterWidth);
     });

@@ -17,13 +17,10 @@ describe("EditorViewState — revealing the end of a truncated line", () => {
         const displayWidth = vs.displayLineFor(doc.getLineContent(0)).displayWidth; // == cap
         vs.cursorEnd();
 
-        // The button occupies [displayWidth, displayWidth + badgeWidth). All of it
-        // must be inside the viewport, not clipped at the right edge.
         const buttonStart = displayWidth - vs.scrollLeft;
         const buttonEnd = displayWidth + LONG_LINE_TRUNCATION_BADGE_WIDTH - 1 - vs.scrollLeft;
         expect(buttonStart).toBeGreaterThanOrEqual(0);
         expect(buttonEnd).toBeLessThan(VIEWPORT_WIDTH);
-        // Exactly enough to show the button's last cell at the right edge.
         expect(vs.scrollLeft).toBe(displayWidth + LONG_LINE_TRUNCATION_BADGE_WIDTH - VIEWPORT_WIDTH);
     });
 
