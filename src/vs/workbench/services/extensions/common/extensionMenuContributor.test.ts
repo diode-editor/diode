@@ -168,7 +168,7 @@ describe("registerExtensionMenus", () => {
         );
 
         expect(labels(menus, MenuId.EditorContext)).toEqual(["Do Thing"]);
-        expect(lines).toEqual(['test.ext: неизвестная точка меню "timeline/item/context" — пункты пропущены']);
+        expect(lines).toEqual(['test.ext: unknown menu "timeline/item/context", items skipped']);
     });
 
     it("commandPalette называет себя отдельно: это фильтр палитры, а не точка меню", () => {
@@ -182,7 +182,7 @@ describe("registerExtensionMenus", () => {
             logger,
         );
 
-        expect(lines).toEqual(['test.ext: пункты "commandPalette" пока не применяются']);
+        expect(lines).toEqual(['test.ext: "commandPalette" items are not applied yet']);
     });
 
     it("пункт без command и submenu пропускается с объяснением", () => {
@@ -197,8 +197,8 @@ describe("registerExtensionMenus", () => {
 
         expect(labels(menus, MenuId.EditorContext)).toEqual([]);
         expect(lines).toEqual([
-            "test.ext: пункт меню без command и submenu — пропущен",
-            "test.ext: пункт меню без command и submenu — пропущен",
+            "test.ext: menu item without command or submenu, skipped",
+            "test.ext: menu item without command or submenu, skipped",
         ]);
     });
 
@@ -234,7 +234,7 @@ describe("registerExtensionMenus", () => {
         );
 
         expect(menus.getSubmenus(MenuId.EditorContext)).toEqual([]);
-        expect(lines).toEqual(['test.ext: подменю "ext.ghost" не объявлено в contributes.submenus — пункт пропущен']);
+        expect(lines).toEqual(['test.ext: submenu "ext.ghost" is not declared in contributes.submenus, item skipped']);
     });
 
     it("одноимённые подменю разных расширений не схлопываются в одну точку", () => {
@@ -318,9 +318,9 @@ describe("registerExtensionMenus", () => {
 
         expect(menus.getSubmenus(MenuId.EditorContext).map((entry) => entry.title)).toEqual(["First"]);
         expect(lines).toEqual([
-            "test.junk: подменю без id — объявление пропущено",
-            "test.junk: подменю без id — объявление пропущено",
-            'test.junk: подменю "more" объявлено дважды — второе пропущено',
+            "test.junk: submenu without id, declaration skipped",
+            "test.junk: submenu without id, declaration skipped",
+            'test.junk: submenu "more" declared twice, the second one skipped',
         ]);
     });
 

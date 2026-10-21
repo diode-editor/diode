@@ -104,8 +104,8 @@ describe("registerExtensionViewFocusCommands", () => {
         expect(builtin).toEqual(["builtin"]);
         expect(messages).toEqual([]);
         expect(log).toEqual([
-            `acme.junk: вид без id в контейнере "explorer" — пропущен`,
-            `acme.junk: вид без id в контейнере "explorer" — пропущен`,
+            `acme.junk: view without id in container "explorer", skipped`,
+            `acme.junk: view without id in container "explorer", skipped`,
         ]);
         expect(commands.has(".focus")).toBe(false);
     });

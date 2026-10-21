@@ -66,7 +66,7 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
         const harness = await harnessWithProvider();
         try {
             const bytes = await harness.host.readProvidedFile(Uri.parse("demo:/repo/a.ts"));
-            expect(new TextDecoder().decode(bytes)).toBe("содержимое /repo/a.ts");
+            expect(new TextDecoder().decode(bytes)).toBe("contents /repo/a.ts");
         } finally {
             await harness.dispose();
         }
@@ -116,7 +116,7 @@ describe("ExtensionHost — провайдеры ФС расширений", () 
             expect(registry.hasProvider(Uri.from({ scheme: "demo", path: "/" }))).toBe(true);
 
             const bytes = (await registry.readFile(Uri.parse("demo:/repo/b.ts"))).value;
-            expect(new TextDecoder().decode(bytes)).toBe("содержимое /repo/b.ts");
+            expect(new TextDecoder().decode(bytes)).toBe("contents /repo/b.ts");
         } finally {
             adapter.dispose();
             await harness.dispose();

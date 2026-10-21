@@ -71,8 +71,8 @@ export function registerExtensionMenus(
                 // The palette doesn't know extension `when` yet, so the item isn't lost silently.
                 logger?.info(
                     menu === COMMAND_PALETTE_MENU
-                        ? `${ext.id}: пункты "commandPalette" пока не применяются`
-                        : `${ext.id}: неизвестная точка меню "${menu}" — пункты пропущены`,
+                        ? `${ext.id}: "commandPalette" items are not applied yet`
+                        : `${ext.id}: unknown menu "${menu}", items skipped`,
                 );
                 continue;
             }
@@ -98,11 +98,11 @@ function declaredSubmenus(
     const result = new Map<string, { menuId: MenuId; label: string }>();
     for (const declaration of declarations ?? []) {
         if (typeof declaration.id !== "string" || declaration.id === "") {
-            logger?.info(`${extensionId}: подменю без id — объявление пропущено`);
+            logger?.info(`${extensionId}: submenu without id, declaration skipped`);
             continue;
         }
         if (result.has(declaration.id)) {
-            logger?.info(`${extensionId}: подменю "${declaration.id}" объявлено дважды — второе пропущено`);
+            logger?.info(`${extensionId}: submenu "${declaration.id}" declared twice, the second one skipped`);
             continue;
         }
         result.set(declaration.id, {
@@ -130,14 +130,14 @@ function toContribution(
         const declared = submenus.get(item.submenu);
         if (declared === undefined) {
             logger?.info(
-                `${extensionId}: подменю "${item.submenu}" не объявлено в contributes.submenus — пункт пропущен`,
+                `${extensionId}: submenu "${item.submenu}" is not declared in contributes.submenus, item skipped`,
             );
             return null;
         }
         return { menuId, submenu: declared.menuId, title: declared.label, ...placement };
     }
     if (typeof item.command !== "string" || item.command === "") {
-        logger?.info(`${extensionId}: пункт меню без command и submenu — пропущен`);
+        logger?.info(`${extensionId}: menu item without command or submenu, skipped`);
         return null;
     }
     // `alt` is accepted but not rendered: our popups have no alternative action.

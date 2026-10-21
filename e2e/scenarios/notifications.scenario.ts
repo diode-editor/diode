@@ -63,7 +63,7 @@ export default defineScenario({
 
         // No browser in a container or over ssh: the URL goes to the clipboard and is shown in a message.
         await runProbeCommand(editor, "Open External");
-        await editor.waitForText((t) => t.includes("Ссылка скопирована в буфер обмена"), { timeoutMs: 20000 });
+        await editor.waitForText((t) => t.includes("Link copied to clipboard"), { timeoutMs: 20000 });
         await editor.capture("open-external-fallback");
         // The toast covers the bottom rows of Output; without clearing it the extension's new line isn't in the frame.
         await runProbeCommand(editor, "Clear All");

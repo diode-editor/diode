@@ -30,7 +30,7 @@ export function registerExtensionKeybindings(
             try {
                 rules.push(...rulesOf(kb));
             } catch (err) {
-                logger?.warn(`${ext.id}: не удалось применить keybinding "${kb.key}" → ${kb.command}`, err);
+                logger?.warn(`${ext.id}: failed to apply keybinding "${kb.key}" → ${kb.command}`, err);
             }
         }
     }

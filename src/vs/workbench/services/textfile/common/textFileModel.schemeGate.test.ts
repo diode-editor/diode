@@ -21,7 +21,7 @@ describe("TextFileModel.openFile — гейт схемы", () => {
 
         expect(() => {
             model.openFile(Uri.parse("jdt://contents/lib.jar/pkg/Foo.java"));
-        }).toThrow(/ожидается file:-uri, получен jdt:/u);
+        }).toThrow(/expected a file: uri, got jdt:/u);
 
         model.dispose();
     });

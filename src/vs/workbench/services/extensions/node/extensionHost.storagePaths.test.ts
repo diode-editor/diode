@@ -81,7 +81,7 @@ describe("ExtensionHost — каталоги хранения расширени
         const harness = await createExtensionTestHarness({ extensions: [storageFixture()] });
         try {
             const engine = path.join(harness.tmpDir, "globalStorage", "test.storage", "sm-agent");
-            expect(fs.readFileSync(engine, "utf-8")).toBe("скачанный движок");
+            expect(fs.readFileSync(engine, "utf-8")).toBe("downloaded engine");
         } finally {
             await harness.dispose();
         }

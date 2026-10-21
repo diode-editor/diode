@@ -270,7 +270,7 @@ describe("TextFileModel — ресурс провайдера ФС", () => {
         const model = service.createUntitledModel();
         expect(() => {
             model.openProvided(Uri.file("/a.ts"), encode(""));
-        }).toThrow(/ожидается ресурс провайдера, получен file:/);
+        }).toThrow(/expected a provider resource, got file:/);
         expect(() => {
             model.openProvided(Uri.from({ scheme: "untitled", path: "x" }), encode(""));
         }).toThrow(/получен untitled:/);

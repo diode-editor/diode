@@ -50,7 +50,7 @@ exports.activate = function activate(context) {
                         ),
                     );
                     signature.parameters = [
-                        new vscode.ParameterInformation("name: string", "кого приветствуем"),
+                        new vscode.ParameterInformation("name: string", "who to greet"),
                         new vscode.ParameterInformation([20, 31]),
                     ];
                     help.signatures = [signature];

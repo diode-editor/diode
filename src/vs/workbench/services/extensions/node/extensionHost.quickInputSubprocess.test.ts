@@ -42,8 +42,8 @@ describe("ExtensionHost — quick input через настоящий субпр
             await expect(harness.commandRegistry.execute("test.askName")).resolves.toBe("got:Ада");
             expect(inputRequests[0]).toMatchObject({
                 title: "Your name",
-                prompt: "Как к вам обращаться",
-                placeHolder: "имя",
+                prompt: "How should we address you",
+                placeHolder: "name",
                 validates: true,
             });
         } finally {
@@ -55,7 +55,7 @@ describe("ExtensionHost — quick input через настоящий субпр
         let validation: IWireValidationMessage | null | undefined;
         const { sink } = makeSink({
             input: async (request) => {
-                validation = await request.validate?.("плохо");
+                validation = await request.validate?.("bad");
                 return "хорошо";
             },
         });
@@ -66,7 +66,7 @@ describe("ExtensionHost — quick input через настоящий субпр
         });
         try {
             await expect(harness.commandRegistry.execute("test.askName")).resolves.toBe("got:хорошо");
-            expect(validation).toEqual({ message: "Так нельзя", severity: "error" });
+            expect(validation).toEqual({ message: "Not allowed", severity: "error" });
         } finally {
             await harness.dispose();
         }
@@ -96,7 +96,7 @@ describe("ExtensionHost — quick input через настоящий субпр
         try {
             await expect(harness.commandRegistry.execute("test.pickFruit")).resolves.toBe("got:cherry");
             expect(pickRequests[0]).toMatchObject({
-                placeHolder: "Выберите фрукт",
+                placeHolder: "Pick a fruit",
                 canPickMany: false,
                 items: [{ label: "apple" }, { label: "banana" }, { label: "cherry" }],
                 picked: [],

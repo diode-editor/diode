@@ -32,7 +32,7 @@ exports.activate = async function activate(context) {
                 return Promise.resolve([]);
             },
             createSession: function () {
-                return Promise.reject(new Error("createSession не должен вызываться"));
+                return Promise.reject(new Error("createSession must not be called"));
             },
             removeSession: function () {
                 return Promise.resolve();

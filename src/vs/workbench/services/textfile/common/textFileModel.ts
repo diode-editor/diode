@@ -182,7 +182,7 @@ export class TextFileModel extends BaseTextEditorModel {
         // Without the gate a `git:` resource would silently show the working tree and attach
         // a watcher to someone else's path. Non-file buffers go through `openSynthetic`.
         if (uri.scheme !== "file") {
-            throw new Error(`TextFileModel.openFile: ожидается file:-uri, получен ${uri.scheme}:`);
+            throw new Error(`TextFileModel.openFile: expected a file: uri, got ${uri.scheme}:`);
         }
         this.uriValue = uri;
         const filePath = uri.fsPath;
@@ -198,7 +198,7 @@ export class TextFileModel extends BaseTextEditorModel {
      */
     public openProvided(uri: Uri, bytes: Uint8Array): void {
         if (uri.scheme === "file" || uri.scheme === "untitled") {
-            throw new Error(`TextFileModel.openProvided: ожидается ресурс провайдера, получен ${uri.scheme}:`);
+            throw new Error(`TextFileModel.openProvided: expected a provider resource, got ${uri.scheme}:`);
         }
         this.uriValue = uri;
         this.applyProvided(bytes);

@@ -19,7 +19,7 @@ exports.activate = function activate(context) {
     // The very line where the extension crashed without the field.
     const engineDir = context.globalStorageUri.fsPath;
     fs.mkdirSync(engineDir, { recursive: true });
-    fs.writeFileSync(path.join(engineDir, "sm-agent"), "скачанный движок", "utf-8");
+    fs.writeFileSync(path.join(engineDir, "sm-agent"), "downloaded engine", "utf-8");
 
     context.subscriptions.push(
         vscode.commands.registerCommand("test.storage.report", function () {
