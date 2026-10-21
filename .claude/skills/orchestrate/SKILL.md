@@ -82,6 +82,6 @@ tmux-host-env tmux new-window -d -n <слаг> -c <worktree> 'claude --resume <s
 
 ## Мелочи волны
 
-- Флаки, которые ловят дети, записываются в [список флаков](../../../docs/TODO/TestRunTime.md#флаки)
+- Флаки, которые ловят дети, записываются в [список флаков](../../../docs/TODO/TestFlakes.md#флаки)
   прямо в `main`.
 - Версию после волны выпускай только по просьбе человека ([docs/RELEASE.md](../../../docs/RELEASE.md)).
