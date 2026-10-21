@@ -10,7 +10,7 @@ import { TabSwitcherElement, type TabSwitcherItem } from "./tabSwitcherElement.t
 const ICON_COLOR = packRgb(49, 120, 198);
 
 function item(label: string, overrides: Partial<TabSwitcherItem> = {}): TabSwitcherItem {
-    // ASCII-«иконка» вместо глифа nerd font — чтобы ожидаемый кадр читался.
+    // An ASCII "icon" instead of a nerd font glyph keeps the expected frame readable.
     return { icon: "T", iconColor: ICON_COLOR, label, isModified: false, ...overrides };
 }
 
@@ -45,13 +45,13 @@ describe("TabSwitcherElement — раскладка", () => {
         switcher.setItems([item("a.ts"), item("b.ts")], 1);
 
         const backend = render(switcher, 24);
-        // Строка 2 (b.ts) выделена, строка 1 — фон пикера: сравниваем между собой,
-        // чтобы не зашивать конкретные RGB темы.
+        // Row 2 (b.ts) is selected, row 1 has the picker background: compare them to each other
+        // so the test does not hardcode theme RGB values.
         const plainBg = backend.getBgAt(new Point(5, 1));
         const currentBg = backend.getBgAt(new Point(5, 2));
         expect(currentBg).not.toBe(plainBg);
-        // Невыделенная строка красится фоном пикера (как рамка), выделенная — нет:
-        // фиксируем, КАКАЯ из строк подсвечена, а не только «строки различаются».
+        // The unselected row gets the picker background (like the border), the selected one does not:
+        // this pins WHICH row is highlighted, not just that "the rows differ".
         const frameBg = backend.getBgAt(new Point(5, 0));
         expect(plainBg).toBe(frameBg);
         expect(backend.getBgAt(new Point(21, 2))).toBe(currentBg);
@@ -71,7 +71,7 @@ describe("TabSwitcherElement — раскладка", () => {
         const switcher = makeSwitcher(16);
         switcher.setItems([item("veryLongFileName.ts", { isModified: true })], 0);
 
-        // 16 колонок: рамка 2 + отступы 2 + иконка 2 + маркер 2 → метке 8.
+        // 16 columns: border 2 + padding 2 + icon 2 + marker 2 → 8 left for the label.
         expectScreen(
             render(switcher, 16),
             screen`
@@ -127,8 +127,8 @@ describe("TabSwitcherElement — раскладка", () => {
         switcher.setItems(five, 4);
         expect(switcher.inspectState()).toMatchObject({ windowStart: 2 });
 
-        // Новая серия с тремя вкладками: прежний windowStart=2 вне границ (3
-        // строк хватает целиком) — кламп по последней странице возвращает 0.
+        // A new cycle with three tabs: the old windowStart=2 is out of bounds (3 rows
+        // fit them all), so clamping to the last page brings it back to 0.
         switcher.setItems(five.slice(0, 3), 2);
         expect(switcher.inspectState()).toMatchObject({ currentIndex: 2, windowStart: 0 });
     });

@@ -12,7 +12,7 @@ import { token } from "../../../../platform/instantiation/common/diContainer.ts"
 import type { IStatusBarEntryHandle, StatusBarService } from "../../../services/statusbar/common/statusBarService.ts";
 import { StatusBarServiceDIToken } from "../../../services/statusbar/common/statusBarService.ts";
 
-/** `TextEditorPane` соответствует структурно; связывает DI-модуль. */
+/** `TextEditorPane` matches this structurally; the DI module wires them together. */
 export interface IActiveEditorStatus {
     readonly encoding: string;
     readonly eol: EndOfLine;
@@ -33,7 +33,7 @@ export interface IActiveEditorStatusSource {
 export const ActiveEditorStatusSourceDIToken = token<IActiveEditorStatusSource>("ActiveEditorStatusSource");
 export const EditorStatusContributionDIToken = token<EditorStatusContribution>("EditorStatusContribution");
 
-/** Сегменты в порядке VS Code: `Ln X, Col Y` · Indentation · Encoding · EOL · Language. */
+/** Segments in VS Code order: `Ln X, Col Y` · Indentation · Encoding · EOL · Language. */
 export class EditorStatusContribution extends Disposable {
     public static dependencies = [
         StatusBarServiceDIToken,
@@ -182,11 +182,11 @@ export class EditorStatusContribution extends Disposable {
         return viewState.insertSpaces ? `Spaces: ${tabSize}` : `Tab Size: ${tabSize}`;
     }
 
-    /** Неизвестный id (защитно) — как есть. */
+    /** An unknown id (defensive) is shown as is. */
     private encodingSegment(editor: IActiveEditorStatus | null): string | null {
         if (editor === null) return null;
         const info = getEncodingInfo(editor.encoding);
-        /* v8 ignore start -- defensive: editor.encoding всегда табличный id (setEncoding валидирует, decodeBuffer возвращает элементы SUPPORTED_ENCODINGS) */
+        /* v8 ignore start -- defensive: editor.encoding is always a table id (setEncoding validates, decodeBuffer returns SUPPORTED_ENCODINGS entries) */
         if (info === undefined) return editor.encoding;
         /* v8 ignore stop */
         return info.statusLabel;
@@ -197,7 +197,7 @@ export class EditorStatusContribution extends Disposable {
         return editor.eol === EndOfLine.CRLF ? "CRLF" : "LF";
     }
 
-    /** Без зарегистрированного алиаса — сырой id языка. */
+    /** Falls back to the raw language id when no alias is registered. */
     private languageSegment(editor: IActiveEditorStatus | null): string | null {
         if (editor === null) return null;
         const languageId = editor.languageId;
@@ -205,8 +205,8 @@ export class EditorStatusContribution extends Disposable {
     }
 
     /**
-     * Колонка — экранная с раскрытыми табами (как рисуется каретка), 1-based как и
-     * строка. В мультикурсоре — `(N selections)`, как в VS Code.
+     * The column is the screen column with tabs expanded (where the cursor is drawn), 1-based like
+     * the line. With multiple cursors appends `(N selections)`, like VS Code.
      */
     private cursorPositionText(editor: IActiveEditorStatus | null): string | null {
         if (editor === null) return null;

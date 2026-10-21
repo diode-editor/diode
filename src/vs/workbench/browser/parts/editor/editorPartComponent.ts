@@ -38,7 +38,7 @@ export class EditorPartComponent extends Component {
     public readonly view: EditorPartElement;
     private readonly groupComponents = new Map<GroupId, EditorGroupComponent>();
 
-    /** Только по действию пользователя, не при программном ресторе. */
+    /** Fires only on user action, not on a programmatic restore. */
     public onDidChangeGroupLayout?: () => void;
 
     public constructor(
@@ -64,7 +64,7 @@ export class EditorPartComponent extends Component {
         groups.focusGroupContentHook = (group) => {
             this.groupComponents.get(group.id)?.focusContent();
         };
-        // Работать в невидимой группе нельзя — максимизация следует за активной.
+        // A hidden group cannot be worked in, so maximization follows the active group.
         this.register(
             groups.onDidActiveGroupChange(() => {
                 if (this.view.maximizedIndex !== null) {
@@ -89,7 +89,7 @@ export class EditorPartComponent extends Component {
         this.view.orientation = value;
     }
 
-    /** Группы и доли сохраняются. */
+    /** Keeps the groups and their weights. */
     public toggleOrientation(): void {
         this.view.orientation = this.view.orientation === "columns" ? "rows" : "columns";
         this.onDidChangeGroupLayout?.();
@@ -103,7 +103,7 @@ export class EditorPartComponent extends Component {
         return this.view.canFit(count);
     }
 
-    /** Без событий персиста. */
+    /** Does not fire persistence events. */
     public applyPersistedLayout(orientation: EditorPartOrientation, weights: readonly number[]): void {
         this.view.orientation = orientation;
         this.view.setWeights(weights);
@@ -131,15 +131,15 @@ export class EditorPartComponent extends Component {
     }
 
     /**
-     * Сплит делит долю источника пополам с новой группой; удаление — доля уходит в
-     * нормировку; без события (первичная сборка) — поровну.
+     * A split halves the source's weight with the new group; on removal the weight is absorbed by
+     * normalization; with no event (initial build) weights are even.
      */
     private syncGroups(event: IGroupsChangeEvent | null): void {
         const groups = this.groups.groups;
-        // Прежние доли — из элемента: там же живут результаты drag'а.
+        // Previous weights come from the element, which also holds the results of dragging.
         const previousWeights = new Map<GroupId, number>();
-        // Элемент нормирует weights к числу views, а currentOrder — подмножество
-        // детей-вьюх: индекс всегда валиден.
+        // The element normalizes weights to the number of views, and currentOrder is a subset
+        // of the child views, so the index is always valid.
         for (const [i, component] of this.currentOrder().entries()) {
             previousWeights.set(component, this.view.weights[i]);
         }
@@ -170,7 +170,7 @@ export class EditorPartComponent extends Component {
             if (existing !== undefined && existing > 0) return existing;
             if (event?.kind === "added" && event.group.id === group.id && event.source !== undefined) {
                 const sourceWeight = previousWeights.get(event.source.id);
-                /* v8 ignore start -- у живого источника сплита всегда положительная нормированная доля */
+                /* v8 ignore start -- a live split source always has a positive normalized weight */
                 if (sourceWeight !== undefined && sourceWeight > 0) return sourceWeight / 2;
                 /* v8 ignore stop */
             }
@@ -179,7 +179,7 @@ export class EditorPartComponent extends Component {
         if (event?.kind === "added" && event.source !== undefined) {
             const sourceIndex = groups.indexOf(event.source);
             const sourceWeight = previousWeights.get(event.source.id);
-            /* v8 ignore start -- источник сплита жив (есть в groups) и несёт положительную нормированную долю */
+            /* v8 ignore start -- the split source is alive (present in groups) and has a positive normalized weight */
             if (sourceIndex >= 0 && sourceWeight !== undefined && sourceWeight > 0) {
                 weights[sourceIndex] = sourceWeight / 2;
             }
@@ -189,7 +189,7 @@ export class EditorPartComponent extends Component {
         this.view.setViews(
             groups.map((group) => {
                 const component = this.groupComponents.get(group.id);
-                /* v8 ignore start -- компонент создан циклом выше */
+                /* v8 ignore start -- the component is created by the loop above */
                 if (component === undefined) throw new Error("editor part: группа без контрола");
                 /* v8 ignore stop */
                 return component.view;

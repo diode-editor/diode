@@ -14,9 +14,9 @@ import type { IEditorService } from "../../../services/editor/common/editorServi
 import type { IEditorPane } from "./iEditorPane.ts";
 import { TabSwitcherComponent } from "./tabSwitcherComponent.ts";
 
-// Полный маршрут «событие модели → overlay-сессия → кадр» закрывает
-// workbench.tabSwitcher.test.ts; здесь — жизнь компонента ДО attachHost
-// (события в headless-порядке не должны ни падать, ни открывать сессию).
+// The full "model event → overlay session → frame" path is covered by
+// workbench.tabSwitcher.test.ts; this file covers the component BEFORE attachHost
+// (events in headless order must neither throw nor open a session).
 
 function makePane(label: string): IEditorPane {
     return {
@@ -67,7 +67,7 @@ describe("TabSwitcherComponent — без прикреплённого хост�
 
         fireCycle({ panes: [makePane("a.ts"), makePane("b.ts")], pointer: 1 });
         expect(component.isOpen()).toBe(false);
-        // Список тем не менее отражает состояние — сессии просто некуда открыться.
+        // The list still reflects the state; the session just has nowhere to open.
         expect(component.view.inspectState()).toMatchObject({ items: ["a.ts", "b.ts"], currentIndex: 1 });
 
         fireCycle(null);

@@ -21,8 +21,8 @@ import { computeTabLabels } from "./tabLabels.ts";
 import { TextEditorPane } from "./textEditorPane.ts";
 
 /**
- * Пустой слот занимает филлер; у пустой группы он focusable — «фокус в группе»
- * существует и без вкладок (US-4/47). Любой фокус в поддереве делает группу активной.
+ * An empty slot holds a filler; in an empty group it is focusable, so "focus in the group"
+ * exists without tabs (US-4/47). Any focus in the subtree makes the group active.
  */
 export class EditorGroupComponent extends Component {
     public readonly view: OverlayHostElement;
@@ -46,15 +46,15 @@ export class EditorGroupComponent extends Component {
             titleActions === undefined ? null : this.register(new EditorTitleActions(group.id, titleActions));
         this.titleRow.layoutStyle = { height: vflexFixed(1), width: "fill" };
         this.view = new OverlayHostElement();
-        // id группы, не ViewColumn: номер колонки пересчитывается при схлопывании.
+        // Group id, not ViewColumn: column numbers are recomputed when groups collapse.
         this.view.id = `editorGroup-${String(group.id)}`;
-        // emptyFiller наследует фон через каскад.
+        // emptyFiller inherits the background through the cascade.
         this.view.style = { fg: "editor.foreground", bg: "editor.background" };
         this.tabStrip.layoutStyle = { height: vflexFixed(1), width: "fill" };
         this.contentSlot = this.emptyFiller;
         this.syncSlot(this.emptyFiller);
         this.view.setContent(this.vflex);
-        // Capture: до того, как фокус обработают вложенные виджеты.
+        // Capture: runs before nested widgets handle the focus.
         this.view.addEventListener(
             "focus",
             () => {
@@ -66,7 +66,7 @@ export class EditorGroupComponent extends Component {
             this.group.activateTab(index);
         };
         this.tabStrip.onTabClose = (index) => {
-            // Диалог — только у последней поверхности документа: это решает сервис.
+            // Only the document's last surface gets a dialog; the service decides that.
             void this.editorService.closeEditor(this.group, index);
         };
         this.tabStrip.onTabContextMenu = (index, screenX, screenY) => {
@@ -94,14 +94,14 @@ export class EditorGroupComponent extends Component {
     }
 
     /**
-     * Цель — вкладка ПОД КУРСОРОМ: активную она не меняет (как в VS Code), поэтому
-     * её адрес уезжает в `menuContext`, откуда пункты берут аргументы и видимость.
+     * Targets the tab UNDER THE POINTER without changing the active one (like VS Code), so its
+     * address goes into `menuContext`, where the items take their arguments and visibility from.
      */
     private showTabContextMenu(index: number, screenX: number, screenY: number): void {
         const panes = this.group.getPanes();
         const pane = panes.at(index);
-        /* v8 ignore start -- индекс приходит из tab strip и всегда указывает на существующую вкладку */
-        // Stryker disable next-line ConditionalExpression: ветка недостижима по той же причине, что и для покрытия
+        /* v8 ignore start -- the index comes from the tab strip and always points to an existing tab */
+        // Stryker disable next-line ConditionalExpression: unreachable for the same reason as for coverage
         if (pane === undefined) return;
         /* v8 ignore stop */
         const menuContext: EditorTitleMenuContext = {
@@ -128,7 +128,7 @@ export class EditorGroupComponent extends Component {
         this.contentSlot = slot;
     }
 
-    /** С пустой панелью действий — tab strip как есть (дерево и кадр — как до панели). */
+    /** With an empty action bar the tab strip is used as is (same tree and frame as without the bar). */
     private syncTitleRow(): TUIElement {
         if (this.titleActions?.isVisible !== true) {
             this.tabStrip.layoutStyle = { height: vflexFixed(1), width: "fill" };
@@ -143,10 +143,10 @@ export class EditorGroupComponent extends Component {
     private syncFromGroup(): void {
         const activeView = this.group.activePane?.view ?? null;
         const next = activeView ?? this.emptyFiller;
-        // Пустая группа — легальный адресат фокуса (Ctrl+P откроет файл в неё).
+        // An empty group is a valid focus target (Ctrl+P opens the file into it).
         this.emptyFiller.focusable = this.group.editorCount === 0;
-        // replaceChildren перевешивает parent, а onDidChangeEditors файрится чаще
-        // смены активной вкладки.
+        // replaceChildren reparents, and onDidChangeEditors fires more often than
+        // the active tab changes.
         if (this.contentSlot !== next) {
             this.syncSlot(next);
         }

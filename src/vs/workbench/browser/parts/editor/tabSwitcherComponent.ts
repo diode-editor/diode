@@ -16,13 +16,13 @@ import { Component } from "../../component.ts";
 import { computeTabLabels } from "./tabLabels.ts";
 import { TabSwitcherElement, type TabSwitcherItem } from "./tabSwitcherElement.ts";
 
-// Stryker disable next-line StringLiteral: token() возвращает новый Token, и зависимости резолвятся по ссылке на него — строка внутри остаётся отладочной меткой
+// Stryker disable next-line StringLiteral: token() returns a new Token and dependencies resolve by reference to it; the string is only a debug label
 export const TabSwitcherComponentDIToken = token<TabSwitcherComponent>("TabSwitcherComponent");
 
 /**
- * Чисто реактивный: жизнью оверлея управляют события модели
- * ({@link IEditorGroupsService.onDidChangeMruCycle}), командам он неизвестен.
- * Сессия passthrough и без фокуса: ввод идёт в редактор, бинды Ctrl+Tab работают.
+ * Purely reactive: the overlay lifetime is driven by model events
+ * ({@link IEditorGroupsService.onDidChangeMruCycle}); commands don't know about it.
+ * The session is passthrough and takes no focus: input goes to the editor and Ctrl+Tab bindings keep working.
  */
 export class TabSwitcherComponent extends Component implements IContextKeyContributor {
     public static dependencies = [EditorServiceDIToken, EditorGroupsServiceDIToken] as const;
@@ -45,8 +45,8 @@ export class TabSwitcherComponent extends Component implements IContextKeyContri
                 else this.hide();
             }),
         );
-        // Смены активной группы, не завершающие серию через модель (сплит): оверлей
-        // про прежнюю группу не должен пережить уход из неё.
+        // Active group changes that don't end the cycle through the model (a split): the overlay
+        // for the previous group must not outlive leaving it.
         this.register(
             this.groups.onDidActiveGroupChange(() => {
                 this.hide();
@@ -60,20 +60,20 @@ export class TabSwitcherComponent extends Component implements IContextKeyContri
         });
     }
 
-    /** До первого показа. */
+    /** Must be called before the first show. */
     public attachHost(host: BodyElement): void {
         this.host = host;
         this.session = host.overlayLayer.createSession(this.view, new Point(0, 0), {
             visible: false,
-            // Stryker disable next-line BooleanLiteral: view не focusable — фокус не двигается ни при open, ни при close; флаг фиксирует намерение и наблюдаемого эффекта в тестах не имеет
+            // Stryker disable next-line BooleanLiteral: the view is not focusable, so focus moves neither on open nor on close; the flag states intent and has no observable effect in tests
             restoreFocus: false,
-            // Stryker disable next-line BooleanLiteral: та же причина — focusOnOpen некому отдать фокус
+            // Stryker disable next-line BooleanLiteral: same reason, focusOnOpen has nothing to give focus to
             focusOnOpen: false,
-            // Escape гасит список через конец серии в модели: закрыть оверлей сессией
-            // слоя значило бы оставить серию Ctrl+Tab живой при погасшем списке.
-            // Stryker disable next-line BooleanLiteral: оба значения дают один наблюдаемый результат — к моменту, когда слой обработал бы Escape, список уже закрыт моделью
+            // Escape hides the list by ending the cycle in the model: closing the overlay via the layer
+            // session would leave the Ctrl+Tab cycle alive with the list gone.
+            // Stryker disable next-line BooleanLiteral: both values give the same observable result, since the model has already closed the list by the time the layer would handle Escape
             closeOnEscape: false,
-            // Stryker disable next-line StringLiteral: клавиатуру гасит явный capturesKeyboard ниже, а по мыши "" ведёт себя как passthrough (не modal и не close-on-outside) — наблюдаемой разницы нет
+            // Stryker disable next-line StringLiteral: the keyboard is handled by the explicit capturesKeyboard below, and for the mouse "" behaves like passthrough (neither modal nor close-on-outside), so there is no observable difference
             pointerPolicy: "passthrough",
             capturesKeyboard: false,
         });
@@ -84,8 +84,8 @@ export class TabSwitcherComponent extends Component implements IContextKeyContri
     }
 
     /**
-     * Спрашиваем ВИДИМОСТЬ оверлея, а не состояние серии: список гаснет и помимо
-     * конца серии, а стрелки обязаны вернуться редактору ровно когда он исчез.
+     * Checks overlay VISIBILITY, not the cycle state: the list can disappear without the cycle
+     * ending, and the arrow keys must return to the editor exactly when it does.
      */
     public updateContextKeys(contextKeys: ContextKeyService): void {
         contextKeys.set("tabSwitcherVisible", this.isOpen());
@@ -111,7 +111,7 @@ export class TabSwitcherComponent extends Component implements IContextKeyContri
         if (this.session?.isOpen()) this.session.close();
     }
 
-    /** ~10% от верха экрана — как у quick pick'а. */
+    /** ~10% from the top of the screen, like the quick pick. */
     private updatePosition(): void {
         if (this.host === null) return;
 
@@ -123,7 +123,7 @@ export class TabSwitcherComponent extends Component implements IContextKeyContri
         const py = Math.max(1, Math.floor(screenH * 0.1));
 
         this.view.preferredWidth = width;
-        // Stryker disable next-line OptionalChaining: host и session ставятся вместе в attachHost, а сюда путь ведёт только через гард host !== null — ветка undefined недостижима
+        // Stryker disable next-line OptionalChaining: host and session are set together in attachHost, and the only path here goes through the host !== null guard, so the undefined branch is unreachable
         this.session?.setPosition(new Point(px, py));
     }
 }

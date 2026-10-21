@@ -10,25 +10,25 @@ import { TextLabelElement } from "@tuidom/elements/text/textLabelElement";
 
 import { CONTENT_PAD, QuickPickFrameElement } from "../quickinput/quickPickFrameElement.ts";
 
-/** Глиф плюс пробел за ним (как в quick pick). */
+/** The glyph plus a trailing space (like the quick pick). */
 const ICON_WIDTH = 2;
 const MODIFIED_MARKER = " ●";
 
 export interface TabSwitcherItem {
     readonly icon: string;
-    /** Packed RGB, как у tab strip'а. */
+    /** Packed RGB, as in the tab strip. */
     readonly iconColor: number;
     readonly label: string;
     readonly isModified: boolean;
 }
 
 /**
- * Чисто презентационный: ввода не принимает и фокуса не берёт — серию ведут команды
- * MRU-цикла. Длинный список не скроллится, а показывает скользящее окно вокруг
- * позиции цикла, без виртуализации: строк максимум десяток.
+ * Purely presentational: takes no input and no focus; the MRU cycle commands drive it.
+ * A long list does not scroll but shows a sliding window around the cycle position, with no
+ * virtualization: there are ten rows at most.
  */
 export class TabSwitcherElement extends TUIElement {
-    /** Клампится constraints'ами. */
+    /** Clamped by the constraints. */
     public preferredWidth = 48;
     public maxVisibleItems = 10;
 
@@ -47,7 +47,7 @@ export class TabSwitcherElement extends TUIElement {
         this.appendChild(this.frame);
     }
 
-    /** Двигает скользящее окно так, чтобы позиция цикла осталась видимой. */
+    /** Moves the sliding window so the cycle position stays visible. */
     public setItems(items: readonly TabSwitcherItem[], currentIndex: number): void {
         this.itemsValue = items;
         this.currentIndexValue = Math.max(0, Math.min(items.length - 1, currentIndex));
@@ -67,12 +67,12 @@ export class TabSwitcherElement extends TUIElement {
         return Math.min(this.itemsValue.length, this.maxVisibleItems) + BORDER_THICKNESS * 2;
     }
 
-    /** Заворот цикла возвращает окно к соответствующему краю. */
+    /** When the cycle wraps around, the window jumps back to the matching edge. */
     private slideWindow(): void {
         const lastStart = Math.max(0, this.itemsValue.length - this.maxVisibleItems);
-        // Stryker disable next-line EqualityOperator: на границе (current == windowStart) присваивание пишет то же значение — мутант `<=` неотличим
+        // Stryker disable next-line EqualityOperator: at the boundary (current == windowStart) the assignment writes the same value, so the `<=` mutant is indistinguishable
         if (this.currentIndexValue < this.windowStart) this.windowStart = this.currentIndexValue;
-        // Stryker disable next-line EqualityOperator: на границе (current == нижний край окна) присваивание ниже вычисляет тот же windowStart — мутант `>=` неотличим
+        // Stryker disable next-line EqualityOperator: at the boundary (current == bottom edge of the window) the assignment below computes the same windowStart, so the `>=` mutant is indistinguishable
         if (this.currentIndexValue > this.windowStart + this.maxVisibleItems - 1) {
             this.windowStart = this.currentIndexValue - this.maxVisibleItems + 1;
         }
@@ -91,7 +91,7 @@ export class TabSwitcherElement extends TUIElement {
         this.body.replaceChildren(rows);
     }
 
-    /** Иконка держит цвет своего токена и на подсвеченной строке (как в tab strip'е). */
+    /** The icon keeps its token color even on the highlighted row (as in the tab strip). */
     private buildRow(item: TabSwitcherItem, isCurrent: boolean, innerWidth: number): HFlexElement {
         const row = new HFlexElement();
         if (isCurrent) {
