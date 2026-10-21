@@ -94,7 +94,6 @@ export default defineConfig({
         "src/vs/editor/common/model/iDocumentContentChange.ts",
         "src/vs/editor/common/model/iTextDocument.ts",
         "src/vs/editor/common/model/iUndoElement.ts",
-        "src/vs/editor/common/languages/iTokenizationSupport.ts",
         "src/vs/platform/extensions/common/iExtension.ts",
         "src/vs/platform/extensions/common/iExtensionManifest.ts",
         "src/vs/platform/extensions/common/iGrammarContribution.ts",
@@ -108,8 +107,6 @@ export default defineConfig({
         "src/vs/workbench/api/common/iMessageChannel.ts",
         "src/vs/platform/theme/common/iEditorTokenTheme.ts",
         "src/vs/platform/theme/common/iThemeFile.ts",
-        "src/vs/platform/theme/common/ivsCodeThemeFile.ts",
-        "src/Theme/IWorkbenchColors.ts",
         "src/vs/base/common/equals.ts", // shim of a single IEquatable interface
 
         // --- Not unit-testable (covered by e2e) ---
