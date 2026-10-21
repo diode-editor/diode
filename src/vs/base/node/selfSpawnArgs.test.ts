@@ -76,11 +76,7 @@ describe("spawnSelfAsRole", () => {
         await new Promise((resolve) => child.once("exit", resolve));
     });
 
-    /**
-     * Ребёнок сообщает свою группу процессов. Лидер группы — тот, у кого
-     * `pgrp === pid`; иначе он сидит в группе родителя. Поля `/proc/self/stat`
-     * читаем после последней `)`: в `comm` бывают пробелы и скобки.
-     */
+    /** Поля `/proc/self/stat` читаем после последней `)`: в `comm` бывают пробелы и скобки. */
     const groupProbe = [
         'const fs = require("node:fs");',
         'const stat = fs.readFileSync("/proc/self/stat", "utf-8");',
@@ -120,7 +116,6 @@ describe("spawnSelfAsRole", () => {
     );
 });
 
-/** Группа процессов самого прогона — для сравнения с группой ребёнка. */
 function ownGroup(): number {
     const stat = readFileSync("/proc/self/stat", "utf-8");
     const fields = stat.slice(stat.lastIndexOf(")") + 2).split(" ");

@@ -1,24 +1,17 @@
 import { createRequire } from "node:module";
 
 /**
- * `require` для `node:sea`. База — `process.execPath`: абсолютный путь на любой
- * ОС. Прежняя база `"file:///"` на win32 бросала (`ERR_INVALID_FILE_URL_PATH`:
- * у файлового URL нет буквы диска), и `isSeaBinary()` на Windows-SEA молча
- * отвечал `false` — ассеты искались файлами рядом с exe.
+ * База — `process.execPath`, а не `"file:///"`: тот на win32 бросает
+ * (`ERR_INVALID_FILE_URL_PATH`: у файлового URL нет буквы диска), и `isSeaBinary()`
+ * на Windows-SEA молча отвечал бы `false` — ассеты искались бы файлами рядом с exe.
  */
 export function seaRequire(): NodeJS.Require {
     return createRequire(process.execPath);
 }
 
 /**
- * Возвращает `true`, если процесс запущен из SEA-бинаря (Single Executable
- * Application). `node:sea` доступен только через `require()` внутри SEA-сборки —
- * статический ESM-импорт падает с `ERR_UNKNOWN_BUILTIN_MODULE` даже в
- * работающем SEA exe.
- *
- * Используется кодом, который должен по-разному вести себя в dev (`tsx`/`npm`)
- * и production (`diode` SEA): выбор asset access, конфигурация log sinks,
- * spawn-аргументы extension host'а.
+ * `node:sea` доступен только через `require()` внутри SEA-сборки — статический
+ * ESM-импорт падает с `ERR_UNKNOWN_BUILTIN_MODULE` даже в работающем SEA exe.
  */
 export function isSeaBinary(): boolean {
     try {
@@ -30,10 +23,6 @@ export function isSeaBinary(): boolean {
     }
 }
 
-/**
- * Байты SEA-ассета по имени (`node:sea.getAsset`). Только внутри SEA-бинаря —
- * вне его `node:sea` недоступен, и вызов бросает.
- */
 // Stryker disable all: тело исполняется только внутри SEA-бинаря — юнитом не достать (файл исключён и из покрытия); проверяет e2e на собранном бинаре
 export function readSeaAsset(name: string): ArrayBuffer {
     const req = seaRequire();
@@ -41,11 +30,7 @@ export function readSeaAsset(name: string): ArrayBuffer {
     return sea.getAsset(name);
 }
 
-/**
- * SEA-ассет без копии (`node:sea.getRawAsset`): вид на память самого бинаря,
- * только для чтения — запись в него роняет процесс. Ассета нет — `null`.
- * Только внутри SEA-бинаря.
- */
+/** Вид на память бинаря: только чтение, запись роняет процесс. */
 export function readSeaRawAsset(name: string): ArrayBuffer | null {
     const req = seaRequire();
     const sea = req("node:sea") as { getRawAsset(key: string): ArrayBuffer };

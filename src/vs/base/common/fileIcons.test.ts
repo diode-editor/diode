@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import { getFileIcon } from "./fileIcons.ts";
 
 describe("getFileIcon", () => {
-    // Дефолтная иконка — то, что возвращается для неизвестных файлов.
     const defaultIcon = getFileIcon("file.unknownext");
 
     it("matches by exact filename", () => {
@@ -14,7 +13,6 @@ describe("getFileIcon", () => {
 
     it("matches by extension, using the last dot", () => {
         expect(getFileIcon("main.ts")).not.toEqual(defaultIcon);
-        // Несколько точек — берётся последнее расширение.
         expect(getFileIcon("a.b.json")).toEqual(getFileIcon("c.json"));
     });
 

@@ -1,14 +1,8 @@
 import { userInfo } from "node:os";
 
 /**
- * Шелл системы по умолчанию — единственная точка «какой шелл запускать» (upstream
- * `base/node/shell.ts` `getSystemShell`). Встроенный терминал спавнит его и
- * подписывает им вкладку.
- *
- * Unix: `$SHELL` → шелл учётной записи (`/etc/passwd`) → `sh`; `/bin/false`
- * (учётка без входа) заменяется на `/bin/bash`, иначе терминал сразу бы
- * завершился. Windows: `%COMSPEC%` → `cmd.exe` (обнаружение PowerShell, как у
- * upstream, — не делаем).
+ * `/bin/false` (учётка без входа) заменяется на `/bin/bash`, иначе терминал
+ * сразу бы завершился.
  */
 export function getSystemShell(
     platform: NodeJS.Platform = process.platform,
@@ -20,7 +14,6 @@ export function getSystemShell(
     return shell === "/bin/false" ? "/bin/bash" : shell;
 }
 
-/** Пустая строка в переменной окружения — то же, что её отсутствие. */
 function nonEmpty(value: string | null | undefined): string | null | undefined {
     return value === "" ? undefined : value;
 }

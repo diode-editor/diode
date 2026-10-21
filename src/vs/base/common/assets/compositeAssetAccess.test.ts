@@ -59,7 +59,6 @@ describe("CompositeAssetAccess", () => {
     it("exists delegates to the matched backend", async () => {
         const a = new FakeAccess({ "x/file.txt": "data" });
         const c = new CompositeAssetAccess({ "x/": a });
-        // Путь маршрутизируется в backend "x/" → возвращается его ответ exists().
         expect(await c.exists("x/file.txt")).toBe(true);
         expect(await c.exists("x/missing.txt")).toBe(false);
     });

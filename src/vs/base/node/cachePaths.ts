@@ -1,13 +1,7 @@
 import * as os from "node:os";
 import * as path from "node:path";
 
-/**
- * Пользовательский кэш-каталог diode для распакованных ассетов (rg, node-pty,
- * вшитый language-сервер — `packagedAssetCacheDir`): переживает ребут (в
- * отличие от `os.tmpdir()`) и уважает XDG. Раскладка совпадает с
- * кэшем self-extract-стаба (`scripts/selfextract-stub.sh`):
- * `${XDG_CACHE_HOME:-~/.cache}/diode`; на Windows — `%LOCALAPPDATA%/diode/cache`.
- */
+/** Раскладка совпадает с кэшем `scripts/selfextract-stub.sh`. */
 export function userCacheDir(
     env: NodeJS.ProcessEnv = process.env,
     platform: NodeJS.Platform = process.platform,

@@ -3,11 +3,7 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/assert.ts
-// Узкое извлечение — см. шапку src/vs/base/common/arrays.ts.
-//
-// ОТКЛОНЕНИЕ: из `assertFn` убран оператор `debugger` (upstream ставит его,
-// чтобы отладчик вставал на нарушенном инварианте). В нашем рантайме это
-// означало бы залипание TUI под инспектором; поведение без отладчика идентично.
+// Отклонение: из `assertFn` убран `debugger` upstream — под инспектором он вешал бы TUI.
 
 import { BugIndicatingError, onUnexpectedError } from "./errors.ts";
 

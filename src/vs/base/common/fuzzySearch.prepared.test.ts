@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { charMask, fuzzyMatchBest, fuzzyMatchPrepared, fuzzyMatchPreparedLower, prepareQuery } from "./fuzzySearch.ts";
 
-/** Короткая запись: подготовить запрос и сразу смэтчить его с текстом. */
 function match(query: string, text: string): ReturnType<typeof fuzzyMatchPrepared> {
     return fuzzyMatchPrepared(prepareQuery(query), text);
 }
@@ -11,8 +10,6 @@ function match(query: string, text: string): ReturnType<typeof fuzzyMatchPrepare
 function score(query: string, text: string): number {
     return match(query, text)?.score ?? Number.NaN;
 }
-
-// ─── prepareQuery: разбор строки на термы ────────────────────────────────────
 
 describe("prepareQuery — термы", () => {
     it("запрос без пробелов — один терм", () => {
@@ -54,8 +51,6 @@ describe("prepareQuery — маска символов", () => {
     });
 
     it("пробел в маску не попадает: он разделитель, а не искомый символ", () => {
-        // Иначе отсев по маске выбрасывал бы все записи без пробела в пути —
-        // ровно так запрос `src other` и не находил ничего.
         expect(prepareQuery("go line").bits).not.toBe(charMask("go line"));
         expect(prepareQuery("go line").bits & charMask(" ")).toBe(0);
     });
@@ -71,12 +66,8 @@ describe("prepareQuery — маска символов", () => {
     });
 });
 
-// ─── AND по термам ───────────────────────────────────────────────────────────
-
 describe("fuzzyMatchPrepared — все термы обязаны найтись", () => {
     it("пробел не ищется в тексте буквально", () => {
-        // Главный симптом: запрос из двух слов находил только текст, где пробел
-        // стоит ровно между ними.
         expect(match("src other", "src/other.ts")).not.toBeNull();
         expect(fuzzyMatchBest("src other", "src/other.ts")).toBeNull();
     });
@@ -124,8 +115,6 @@ describe("fuzzyMatchPrepared — пустой запрос", () => {
     });
 });
 
-// ─── Регрессия: одиночный терм — ровно прежнее поведение ─────────────────────
-
 describe("fuzzyMatchPrepared — одиночный терм не отличим от fuzzyMatchBest", () => {
     const cases: [string, string][] = [
         ["ac", "AppContainer"],
@@ -146,8 +135,6 @@ describe("fuzzyMatchPrepared — одиночный терм не отличим
     });
 });
 
-// ─── Скоринг по термам ───────────────────────────────────────────────────────
-
 describe("fuzzyMatchPrepared — скоринг", () => {
     it("очки суммируются по термам", () => {
         const text = "Go to Line/Column...";
@@ -155,7 +142,6 @@ describe("fuzzyMatchPrepared — скоринг", () => {
     });
 
     it("бонус за границу слова остаётся: пробел в ТЕКСТЕ — по-прежнему граница", () => {
-        // Разбиение запроса не отнимает бонусов: границы считаются по тексту.
         // `panel` после пробела бьёт `anel` внутри слова той же длины.
         expect(score("toggle panel", "Toggle Panel")).toBeGreaterThan(score("toggle anel", "Toggle Xanel"));
     });
@@ -165,11 +151,8 @@ describe("fuzzyMatchPrepared — скоринг", () => {
     });
 });
 
-// ─── Сведение индексов ──────────────────────────────────────────────────────
-
 describe("fuzzyMatchPrepared — индексы совпадений", () => {
     it("индексы термов сводятся в один возрастающий набор", () => {
-        // "src/other.ts": `src` → 0,1,2; `other` → 4..8.
         expect(match("src other", "src/other.ts")?.matchedIndices).toEqual([0, 1, 2, 4, 5, 6, 7, 8]);
     });
 
@@ -186,8 +169,6 @@ describe("fuzzyMatchPrepared — индексы совпадений", () => {
         expect(match("ab ab", "ab")?.matchedIndices).toEqual([0, 1]);
     });
 });
-
-// ─── *Lower-вариант: горячий путь ───────────────────────────────────────────
 
 describe("fuzzyMatchPreparedLower — паритет с обёрткой", () => {
     const cases: [string, string][] = [

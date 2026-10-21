@@ -2,11 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { commonPrefixLength, commonSuffixLength, splitLines } from "./strings.ts";
 
-/**
- * Шим `base/common/strings`. `commonPrefixLength`/`commonSuffixLength` —
- * горячая часть посимвольного диффа (обрезка совпадающих краёв перед Myers).
- */
-
 describe("commonPrefixLength", () => {
     it("считает длину общего начала", () => {
         expect(commonPrefixLength("hello", "help")).toBe(3);

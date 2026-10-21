@@ -1,43 +1,22 @@
-// Примитив жизненного цикла: `IDisposable` и всё, что умеет освобождать.
-//
-// Наш код, а не дословный перенос: по форме и именам следует
-// src/vs/base/common/lifecycle.ts эталона vscode, но берёт только ядро (без
-// ссылок со счётчиком, `DisposableSet`, промис-хелперов) и не тянет его шимы.
-// Устройство и отклонения — docs/arch/Common.md#жизненный-цикл-lifecyclets.
-//
-// ОСОЗНАННЫЕ ОТКЛОНЕНИЯ ОТ ЭТАЛОНА:
-// - `DisposableStore` (а значит, и `Disposable`) освобождает в обратном
-//   порядке (LIFO): так вёл себя прежний класс из `@tuidom/core`, и классы
-//   проекта писались под него. Эталон освобождает в порядке добавления.
-// - `register` вместо `_register`, приватный стор без подчёркивания —
-//   правило проекта про имена (AGENTS.md).
-// - Добавление в уже освобождённый стор освобождает объект сразу: владелец
-//   умер, держать объект некому. Эталон в этом случае предупреждает и оставляет
-//   объект утекать; прежний класс из `@tuidom/core` молча копил его навсегда.
-//   Типичный случай — асинхронная работа, договорившая после смерти владельца.
+// Ядро src/vs/base/common/lifecycle.ts эталона, отклонения от него
+// (docs/arch/Common.md#жизненный-цикл-lifecyclets):
+// - `DisposableStore` освобождает в обратном порядке (LIFO): классы проекта
+//   писались под так устроенный прежний класс `@tuidom/core`;
+// - добавление в освобождённый стор освобождает объект сразу, а не оставляет
+//   его утекать с предупреждением: асинхронная работа договаривает после
+//   смерти владельца.
 
-/**
- * Объект, который что-то освобождает по вызову `dispose()`: отписка
- * слушателя, снятие провайдера, закрытие ресурса.
- */
 export interface IDisposable {
     dispose(): void;
 }
 
 // #region Учёт утечек
 
-/**
- * Наблюдатель за временем жизни объектов. По умолчанию не установлен — тогда
- * каждый хук ниже стоит одной проверки на `null`.
- */
 export interface IDisposableTracker {
-    /** Объект создан. */
     trackDisposable(disposable: IDisposable): void;
-    /** У объекта сменился владелец; `null` — объект отдан из-под владельца. */
+    /** `null` — объект отдан из-под владельца. */
     setParent(child: IDisposable, parent: IDisposable | null): void;
-    /** Объект освобождён. */
     markAsDisposed(disposable: IDisposable): void;
-    /** Объект живёт до конца процесса и освобождаться не должен. */
     markAsSingleton(disposable: IDisposable): void;
 }
 
@@ -50,11 +29,8 @@ interface DisposableInfo {
 }
 
 /**
- * Трекер утечек для тестов: помнит живые объекты, созданные под ним, и их
- * владельцев. Утечка — живой объект, у которого нет живого владельца и чей
- * корень не синглтон; дети утёкшего не считаются, отчёт — по корням.
- * Включается на сьют хелпером `ensureNoDisposablesAreLeakedInTestSuite`
- * (src/TestUtils/disposableLeaks.ts); в проде трекера нет.
+ * Утечка — живой объект без живого владельца, чей корень не синглтон; отчёт —
+ * по корням. Включается хелпером `ensureNoDisposablesAreLeakedInTestSuite`.
  */
 export class DisposableTracker implements IDisposableTracker {
     private readonly living = new Map<IDisposable, DisposableInfo>();
@@ -94,7 +70,6 @@ export class DisposableTracker implements IDisposableTracker {
         return false;
     }
 
-    /** Утёкшие корни и текст отчёта со стеками создания; `undefined` — утечек нет. */
     public computeLeakingDisposables(maxReported = 10): { leaks: IDisposable[]; details: string } | undefined {
         const leaking = [...this.living.values()].filter(
             (i): i is DisposableInfo & { source: Error } => i.source !== null && !this.isUnderSingleton(i),
@@ -115,9 +90,7 @@ export class DisposableTracker implements IDisposableTracker {
     }
 }
 
-/** Стек создания без строки `Error` и кадров самого учёта. */
 function creationStack(source: Error): string {
-    // У V8 `stack` есть всегда, отдельной ветки на его отсутствие не держим.
     const lines = String(source.stack).split("\n").slice(1);
     const first = lines.findIndex((l) => !/\b(trackDisposable|DisposableTracker)\b/.test(l));
     return lines.slice(first).join("\n");
@@ -138,7 +111,6 @@ export function markAsDisposed(disposable: IDisposable): void {
     disposableTracker?.markAsDisposed(disposable);
 }
 
-/** Выводит объект из учёта утечек: он живёт до конца процесса (реестр, глобальный сервис). */
 export function markAsSingleton<T extends IDisposable>(singleton: T): T {
     disposableTracker?.markAsSingleton(singleton);
     return singleton;
@@ -150,19 +122,13 @@ function setParentOfDisposable(child: IDisposable, parent: IDisposable | null): 
 
 // #endregion
 
-/** `true`, если `thing` — объект с методом `dispose()` без аргументов. */
 export function isDisposable<E>(thing: E): thing is E & IDisposable {
     if (typeof thing !== "object" || thing === null) return false;
     const candidate = (thing as Partial<IDisposable>).dispose;
     return typeof candidate === "function" && candidate.length === 0;
 }
 
-/**
- * Освобождает значение или все значения коллекции. Упавший `dispose()` не
- * мешает освободить остальных: ошибки копятся и бросаются в конце — одна как
- * есть, несколько — `AggregateError`. Массив возвращается пустым (удобно для
- * `this.items = dispose(this.items)`), прочие коллекции — как были.
- */
+/** Упавший `dispose()` не мешает освободить остальных: ошибки бросаются в конце. */
 export function dispose<T extends IDisposable>(disposable: T): T;
 export function dispose<T extends IDisposable>(disposable: T | undefined): T | undefined;
 export function dispose<T extends IDisposable>(disposables: T[]): T[];
@@ -205,23 +171,17 @@ class FunctionDisposable implements IDisposable {
     }
 }
 
-/** Обёртка над функцией очистки; функция вызывается **не больше одного раза**. */
+/** `fn` вызывается не больше одного раза. */
 export function toDisposable(fn: () => void): IDisposable {
     return new FunctionDisposable(fn);
 }
 
-/** Одна ручка на несколько: освобождает их все (см. {@link dispose}). */
 export function combinedDisposable(...disposables: IDisposable[]): IDisposable {
     const parent = toDisposable(() => dispose(disposables));
     for (const child of disposables) setParentOfDisposable(child, parent);
     return parent;
 }
 
-/**
- * Набор освобождаемых объектов — вместо `IDisposable[]` с ручным циклом.
- * Повторное добавление того же объекта ничего не меняет; освобождение — в
- * обратном порядке добавления.
- */
 export class DisposableStore implements IDisposable {
     private readonly toDispose = new Set<IDisposable>();
     private disposed = false;
@@ -230,7 +190,6 @@ export class DisposableStore implements IDisposable {
         trackDisposable(this);
     }
 
-    /** Освобождает всё содержимое и помечает стор освобождённым. Идемпотентен. */
     public dispose(): void {
         if (this.disposed) return;
         markAsDisposed(this);
@@ -242,7 +201,6 @@ export class DisposableStore implements IDisposable {
         return this.disposed;
     }
 
-    /** Освобождает всё содержимое, но стор остаётся рабочим. */
     public clear(): void {
         const items = [...this.toDispose].reverse();
         this.toDispose.clear();
@@ -258,25 +216,18 @@ export class DisposableStore implements IDisposable {
         return o;
     }
 
-    /** Убирает объект из стора и освобождает его (даже если в сторе его не было). */
     public delete(o: IDisposable): void {
         if (o === this) throw new Error("Cannot dispose a disposable on itself!");
         this.toDispose.delete(o);
         o.dispose();
     }
 
-    /** Убирает объект из стора, не освобождая: дальше за него отвечает вызывающий. */
     public deleteAndLeak(o: IDisposable): void {
         if (this.toDispose.delete(o)) setParentOfDisposable(o, null);
     }
 }
 
-/**
- * База для классов, которые владеют подписками и ресурсами: всё, что прошло
- * через {@link register}, освобождается вместе с объектом (LIFO).
- */
 export abstract class Disposable implements IDisposable {
-    /** Ручка, которой нечего освобождать. */
     public static readonly None: IDisposable = Object.freeze<IDisposable>({ dispose: () => undefined });
 
     private readonly store = new DisposableStore();
@@ -296,20 +247,12 @@ export abstract class Disposable implements IDisposable {
         return this.store.add(o);
     }
 
-    /**
-     * {@link register} под именем эталона — его зовёт дословно перенесённый
-     * код (`model/pieceTreeTextBuffer/`), который руками не правится. Наш код
-     * зовёт `register`.
-     */
+    /** Имя эталона для дословно перенесённого кода (`model/pieceTreeTextBuffer/`); наш код зовёт `register`. */
     protected _register<T extends IDisposable>(o: T): T {
         return this.register(o);
     }
 }
 
-/**
- * Слот под одно сменяемое значение: новое значение освобождает прежнее.
- * Вместо поля `handle?: IDisposable` с ручным `handle?.dispose()`.
- */
 export class MutableDisposable<T extends IDisposable> implements IDisposable {
     private current: T | undefined;
     private disposed = false;
@@ -318,12 +261,10 @@ export class MutableDisposable<T extends IDisposable> implements IDisposable {
         trackDisposable(this);
     }
 
-    /** Текущее значение; после `dispose()` — всегда `undefined`. */
     public get value(): T | undefined {
         return this.disposed ? undefined : this.current;
     }
 
-    /** Освобождает прежнее значение и ставит новое; после `dispose()` — ничего не делает. */
     public set value(value: T | undefined) {
         if (this.disposed || value === this.current) return;
         this.current?.dispose();
@@ -331,12 +272,10 @@ export class MutableDisposable<T extends IDisposable> implements IDisposable {
         this.current = value;
     }
 
-    /** Освобождает текущее значение и оставляет слот пустым. */
     public clear(): void {
         this.value = undefined;
     }
 
-    /** Опустошает слот, не освобождая значение, и отдаёт его вызывающему. */
     public clearAndLeak(): T | undefined {
         const old = this.current;
         this.current = undefined;
@@ -352,10 +291,6 @@ export class MutableDisposable<T extends IDisposable> implements IDisposable {
     }
 }
 
-/**
- * Карта, значения которой освобождаются при перезаписи, удалении и вместе с
- * картой. Вместо `Map<K, IDisposable>` с ручным `get(k)?.dispose()`.
- */
 export class DisposableMap<K, V extends IDisposable = IDisposable> implements IDisposable {
     private readonly map = new Map<K, V>();
 
@@ -363,13 +298,11 @@ export class DisposableMap<K, V extends IDisposable = IDisposable> implements ID
         trackDisposable(this);
     }
 
-    /** Освобождает все значения и очищает карту. */
     public dispose(): void {
         markAsDisposed(this);
         this.clearAndDisposeAll();
     }
 
-    /** Освобождает все значения и очищает карту; сама карта остаётся рабочей. */
     public clearAndDisposeAll(): void {
         const values = [...this.map.values()];
         this.map.clear();
@@ -388,21 +321,18 @@ export class DisposableMap<K, V extends IDisposable = IDisposable> implements ID
         return this.map.get(key);
     }
 
-    /** Кладёт значение; прежнее под тем же ключом освобождается, если не попросили иначе. */
     public set(key: K, value: V, skipDisposeOnOverwrite = false): void {
         if (!skipDisposeOnOverwrite) this.map.get(key)?.dispose();
         this.map.set(key, value);
         setParentOfDisposable(value, this);
     }
 
-    /** Удаляет значение и освобождает его. */
     public deleteAndDispose(key: K): void {
         const value = this.map.get(key);
         this.map.delete(key);
         value?.dispose();
     }
 
-    /** Удаляет значение, не освобождая, и отдаёт его вызывающему. */
     public deleteAndLeak(key: K): V | undefined {
         const value = this.map.get(key);
         if (value) setParentOfDisposable(value, null);

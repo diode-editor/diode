@@ -16,7 +16,6 @@ import {
     SUPERVISED_ENV,
 } from "./restartProcess.ts";
 
-/** Снимок dev-запуска (`node --import tsx main.ts <файлы>`). */
 function devSnapshot(overrides: Partial<IProcessSnapshot> = {}): IProcessSnapshot {
     return {
         execPath: "/usr/bin/node",
@@ -92,7 +91,6 @@ function createHooks(
     return { hooks, spawns, written, reads };
 }
 
-/** Прогоняет перезапуск и возвращает код, с которым он вышел. */
 function runRestart(snapshot: IProcessSnapshot, hooks: IRestartHooks, userArgs?: readonly string[]): number {
     try {
         restartProcess(snapshot, hooks, userArgs);

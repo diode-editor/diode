@@ -6,10 +6,7 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { importModule } from "./importModule.ts";
 
-// Загрузка с ФС, которая обязана работать и под SEA: один и тот же приём нужен
-// `runAsNode` (language-серверы) и ESM-расширениям extension host'а. Под SEA
-// проверить это юнитом нельзя — там гейтом идёт e2e на собранном бинаре; здесь
-// закрываем сам контракт: ESM (в т.ч. с top-level await) и CJS одинаково.
+// Под SEA это проверяет только e2e на собранном бинаре; здесь — контракт: ESM (с top-level await) и CJS одинаково.
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "diode-import-module-"));
 

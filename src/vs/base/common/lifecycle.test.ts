@@ -18,7 +18,6 @@ import {
     trackDisposable,
 } from "./lifecycle.ts";
 
-/** Ручка, которая пишет своё имя в общий журнал при освобождении. */
 function logged(log: string[], name: string): IDisposable {
     return { dispose: () => log.push(name) };
 }

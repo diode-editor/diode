@@ -1,16 +1,9 @@
 import { readBundleHeader, validateVirtualPath } from "./assetBundleFormat.ts";
 import type { IAssetAccess, IAssetEntry } from "./iAssetAccess.ts";
 
-/**
- * Реализация {@link IAssetAccess} поверх запечённого SEA-bundle.
- * Принимает буфер с содержимым `diode.bundle` (полученный через
- * `node:sea.getAsset("diode.bundle")`), парсит header однократно и затем
- * отдаёт срезы.
- */
 export class BundleAssetAccess implements IAssetAccess {
     private readonly entries: ReadonlyMap<string, { offset: number; size: number }>;
     private readonly dataView: Uint8Array;
-    /** Pre-computed children sets per directory prefix (`""`, `"a/"`, `"a/b/"`). */
     private readonly childrenByPrefix: ReadonlyMap<string, Map<string, boolean>>;
 
     public constructor(bundle: Uint8Array) {
@@ -67,8 +60,7 @@ function buildPrefixIndex(paths: Iterable<string>): Map<string, Map<string, bool
                 bucket = new Map();
                 index.set(prefix, bucket);
             }
-            // Если name уже как файл, не "повышаем" до директории; если как директория,
-            // не "понижаем" до файла. Совпадающие имена бывают только при битом bundle.
+            // Одно имя как файл и как каталог бывает только при битом bundle.
             const existing = bucket.get(name);
             if (existing === undefined) bucket.set(name, isDirectory);
             else if (existing !== isDirectory) {

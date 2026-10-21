@@ -4,31 +4,14 @@ import * as path from "node:path";
 import { validateVirtualPath } from "../../common/assets/assetBundleFormat.ts";
 import type { IAssetAccess, IAssetEntry } from "../../common/assets/iAssetAccess.ts";
 
-/**
- * Маппинг виртуального prefix → абсолютный путь в реальной FS.
- * Префикс должен заканчиваться на `/` (или быть полным виртуальным путём
- * без `/` для одиночных файлов).
- *
- * Пример:
- * ```
- * {
- *   "Extensions/builtin/": "/abs/path/to/src/Extensions/builtin",
- *   "onig.wasm": "/abs/path/to/node_modules/vscode-oniguruma/release/onig.wasm",
- * }
- * ```
- */
+/** Префикс каталога кончается на `/`; без `/` — полный путь одиночного файла. */
 export type AssetMapping = Readonly<Record<string, string>>;
 
-/**
- * Реализация {@link IAssetAccess} для dev/tests: читает ассеты напрямую
- * из реальной FS по карте префиксов. Удобно использовать при запуске
- * через `tsx`/`vitest`, когда `src/Extensions/builtin/` лежит на диске.
- */
 export class FsAssetAccess implements IAssetAccess {
     private readonly mapping: readonly (readonly [string, string])[];
 
     public constructor(mapping: AssetMapping) {
-        // Сортируем префиксы по убыванию длины — иначе `""` проглотит всё.
+        // Длинные префиксы первыми — иначе `""` проглотит всё.
         this.mapping = Object.entries(mapping).sort((a, b) => b[0].length - a[0].length);
     }
 
@@ -85,9 +68,6 @@ export class FsAssetAccess implements IAssetAccess {
 
     private resolveDirToFs(virtualPrefix: string): string {
         if (virtualPrefix === "") {
-            // Слушать корень имеет смысл только если кто-то замапил "" → root,
-            // чего мы пока не делаем. Для текущих задач достаточно map по
-            // конкретному префиксу.
             for (const [prefix, root] of this.mapping) {
                 if (prefix === "") return root;
             }

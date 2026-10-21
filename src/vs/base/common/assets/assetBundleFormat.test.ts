@@ -38,7 +38,7 @@ describe("AssetBundleFormat", () => {
 
     it("rejects bundles with bad magic", () => {
         const bundle = packBundle([{ virtualPath: "x", data: bytesOf("y") }]);
-        bundle[0] = 0; // corrupt magic
+        bundle[0] = 0;
         expect(() => readBundleHeader(bundle)).toThrow(/magic mismatch/);
     });
 
@@ -50,8 +50,7 @@ describe("AssetBundleFormat", () => {
 
     it("rejects bundles whose declared header length exceeds the buffer", () => {
         const bundle = packBundle([{ virtualPath: "x", data: bytesOf("y") }]);
-        // Pass the magic + headerLen-size check, but cut off mid-header so
-        // headerEnd > buffer.length (hits the "header length exceeds buffer" guard).
+        // Проходит проверку magic + headerLen, но обрывается посреди заголовка.
         const truncated = bundle.subarray(0, 14);
         expect(() => readBundleHeader(truncated)).toThrow(/truncated: header length exceeds buffer/);
     });

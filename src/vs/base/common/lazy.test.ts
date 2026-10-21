@@ -3,10 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { safeIntl } from "./date.ts";
 import { Lazy } from "./lazy.ts";
 
-/**
- * Шимы `base/common/lazy` и `base/common/date` (`safeIntl.Segmenter`) —
- * ленивый сегментатор слов перенесённого `core/wordCharacterClassifier.ts`.
- */
+/** Потребитель — перенесённый `core/wordCharacterClassifier.ts`. */
 
 describe("Lazy", () => {
     it("считает значение один раз — при первом чтении", () => {

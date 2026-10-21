@@ -60,8 +60,6 @@ describe("BundleAssetAccess", () => {
 
     it("listEntries по неизвестному префиксу возвращает []", async () => {
         const access = new BundleAssetAccess(makeBundle());
-        // Префикс валиден (заканчивается на "/"), но в bundle нет таких записей →
-        // childrenByPrefix.get(...) === undefined → пустой список.
         expect(await access.listEntries("Nonexistent/")).toEqual([]);
     });
 
@@ -72,7 +70,6 @@ describe("BundleAssetAccess", () => {
 
     it("exists() возвращает false для невалидного виртуального пути", async () => {
         const access = new BundleAssetAccess(makeBundle());
-        // validateVirtualPath бросает на абсолютном пути → exists ловит и возвращает false.
         expect(await access.exists("/abs/path")).toBe(false);
         expect(await access.exists("")).toBe(false);
     });

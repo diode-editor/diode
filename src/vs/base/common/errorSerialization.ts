@@ -2,12 +2,8 @@
  *  Copyright (c) Microsoft Corporation. All rights reserved.
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
-// Сериализация ошибок через границу процесса (RPC extension host'а) и ошибка
-// отмены — извлечение из upstream `src/vs/base/common/errors.ts`
-// (microsoft/vscode@1.127.0): логика и имена дословно, форматирование наше.
-// Одно отличие: без `noTelemetry`/`ErrorNoTelemetry` — телеметрии у нас нет, а
-// класс потянул бы за собой свою иерархию. Отдельным модулем, а не в шиме
-// `errors.ts`: тот — узкое извлечение под перенесённый дифф.
+// Извлечение из upstream `src/vs/base/common/errors.ts` (microsoft/vscode@1.127.0):
+// логика и имена дословно, без `noTelemetry`/`ErrorNoTelemetry` — телеметрии нет.
 type ErrorWithCode = Error & {
     code: string | undefined;
 };

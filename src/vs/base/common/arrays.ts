@@ -3,17 +3,12 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 //@diode:shim microsoft/vscode@1.127.0 src/vs/base/common/arrays.ts
-// Узкое извлечение: только символы, нужные перенесённому коду в
-// src/vs/editor/common/{diff,core,model}. Полный upstream-файл тянет
-// cancellation → event → lifecycle → observableInternal (~30 файлов, диффу не
-// нужных ни строкой). Логика и имена — дословно upstream (так извлечение можно
-// сверить с оригиналом глазами), форматирование наше. Расширять по мере того,
-// как перенесённому коду понадобятся новые символы. См. AGENTS.md.
+// Узкое извлечение под перенесённый код editor/common: полный файл тянет ~30
+// файлов base/common. Логика и имена — дословно upstream, чтобы сверять глазами.
 
 export type CompareResult = number;
 
-// Слияние type + namespace — форма upstream, и менять её нельзя: перенесённый
-// код обращается и к типу `CompareResult`, и к константам `CompareResult.*`.
+// Слияние type + namespace не трогать: перенесённый код зовёт и тип, и `CompareResult.*`.
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace CompareResult {
     export function isLessThan(result: CompareResult): boolean {
@@ -94,8 +89,7 @@ export function* groupAdjacentBy<T>(
     let last: T | undefined;
     for (const item of items) {
         if (last !== undefined && shouldBeGrouped(last, item)) {
-            // `last !== undefined` наступает только после итерации, где группа была
-            // создана, — то есть здесь currentGroup гарантированно есть.
+            // `last` задан только после итерации, создавшей группу.
             // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
             currentGroup!.push(item);
         } else {
