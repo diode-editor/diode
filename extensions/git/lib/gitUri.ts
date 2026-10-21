@@ -56,6 +56,6 @@ export function fromGitUri(uri: { scheme: string; query: string }): IGitUriParam
  * `QuickDiffProvider.provideOriginalResource`). Идентификатор дублируется в
  * ядре (`contrib/scm/browser/commandOriginalResourceProvider.ts`) — это
  * контракт между расширением и ядром, и он временный: канонический путь —
- * `scm`-неймспейс, см. docs/TODO/Diff.md.
+ * `scm`-неймспейс, см. docs/TODO/Diff.md, «Долг».
  */
 export const ORIGINAL_RESOURCE_COMMAND = "diode.scm.originalResource";

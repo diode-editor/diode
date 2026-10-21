@@ -8,7 +8,7 @@ import { EditorServiceDIToken } from "../../../services/editor/common/editorServ
  * Переход по подсвеченным вхождениям слова под кареткой (upstream
  * `editor/contrib/wordHighlighter`). Вес и `when` — как у upstream. F7 в диффе
  * (`editor.action.accessibleDiffViewer.next`) у эталона висит на том же весе и
- * отличается предусловием `isInDiffEditor` — см. docs/TODO/DiffViewer.md.
+ * отличается предусловием `isInDiffEditor` — см. docs/TODO/Diff.md, «Интерактив».
  */
 
 export const nextWordHighlightAction: CommandAction = {

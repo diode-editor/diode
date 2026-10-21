@@ -5,7 +5,7 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Вкладка диффа v2 (docs/TODO/DiffEditable.md): «Git: Compare Active File with
+// Вкладка диффа v2 (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): «Git: Compare Active File with
 // HEAD» открывает пару из двух НАСТОЯЩИХ редакторов — зоны-филлеры выравнивают
 // стороны, unchanged свёрнут обычным фолдингом с парными плашками, маркеры
 // `-`/`+` в гуттерах, intra-line декорациями. Правку НЕ сохраняем — modified

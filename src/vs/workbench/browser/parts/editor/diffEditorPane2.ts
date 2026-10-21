@@ -45,7 +45,7 @@ const EOL_SPLIT = /\r\n|\n/;
 export const DIFF_RECOMPUTE_DEBOUNCE_MS = 200;
 
 /**
- * Источник стороны диффа v2 (docs/TODO/DiffEditable.md, PR-4):
+ * Источник стороны диффа v2 (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»):
  * - `"shared"` — общая модель файла из реестра `EditorService`: тот же документ,
  *   что у обычных вкладок этого файла, поэтому правки видны в обе стороны, undo
  *   общий, а «буфер побеждает диск» получается по построению. Сторона
@@ -90,7 +90,7 @@ export interface IDiffEditorPane2Input {
 const EMPTY_SIDE_LAYOUT: IDiffV2SideLayout = { zones: [], foldingRegions: [], decorations: {} };
 
 /**
- * Дифф-вкладка v2 (docs/TODO/DiffEditable.md): **композиция двух настоящих
+ * Дифф-вкладка v2 (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): **композиция двух настоящих
  * редакторов** — каждая сторона это `TextFileModel` + `EditorComponent`,
  * обёрнутые в `TextEditorPane`. Выравнивание сторон — зоны (view zones),
  * свёртка unchanged — обычный фолдинг, подсветка — внешние декорации; всю
@@ -226,7 +226,7 @@ export class DiffEditorPane2 extends Component implements IEditorPane {
         const pane = new TextEditorPane(model, component, ownership);
         pane.detached = true;
         // Стороны выравниваются по view-строкам через зоны — wrap развёл бы их
-        // (docs/TODO/WordWrap.md); wrap в диффе отложен, как и в DiffViewer.md.
+        // (docs/TODO/WordWrap.md); wrap в диффе — non-goal (docs/TODO/Diff.md).
         pane.wordWrapForcedOff = true;
         pane.labelOverride = side === "original" ? input.originalLabel : input.modifiedLabel;
         pane.readOnly = source.kind === "snapshot";

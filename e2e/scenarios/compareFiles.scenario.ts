@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { defineScenario } from "./framework.ts";
 
-// Семейство команд сравнения (docs/TODO/DiffViewer.md): «File: Compare Active
+// Семейство команд сравнения (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): «File: Compare Active
 // File With…» открывает пикер второй стороны (открытые вкладки + файлы
 // workspace), выбор — вкладку диффа `a ↔ b`; активный файл слева. Терминал
 // шире порога — кадр side-by-side.

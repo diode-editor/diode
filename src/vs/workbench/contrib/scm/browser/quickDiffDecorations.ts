@@ -5,7 +5,7 @@ import type { IGutterChangeDecoration } from "../../../../editor/common/model/iG
 /**
  * Перевод результата перенесённого из upstream diff-движка в gutter-декорации
  * ядра — **единственная точка стыка двух систем координат** (см.
- * docs/TODO/Diff.md, «Столкновение геометрий»):
+ * docs/arch/Editor.md, «Координаты: ядро 0-based, вендор 1-based»):
  *
  * | | upstream `LineRange` | наш `IRange` для гуттера |
  * |---|---|---|
@@ -14,7 +14,7 @@ import type { IGutterChangeDecoration } from "../../../../editor/common/model/iG
  *
  * Решение — адаптер здесь, а не миграция ядра на upstream-примитивы: место
  * вызова одно, а миграция затронула бы весь редактор. Долг записан в
- * docs/TODO/Diff.md.
+ * docs/TODO/Diff.md, «Долг».
  */
 
 /** Цвета баров, уже резолвнутые темой в packed-RGB. */

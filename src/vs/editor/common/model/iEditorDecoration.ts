@@ -8,7 +8,7 @@ import type { IRange } from "../core/iRange.ts";
  * packed-RGB и владелец перезаливает сам).
  *
  * Главный потребитель — дифф из двух настоящих редакторов
- * (docs/TODO/DiffEditable.md): фоны added/removed-строк, intra-line спаны,
+ * (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): фоны added/removed-строк, intra-line спаны,
  * маркеры `-`/`+` в гуттере и заполнение зон-филлеров.
  */
 

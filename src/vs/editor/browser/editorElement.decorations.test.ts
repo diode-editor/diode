@@ -10,7 +10,7 @@ import { EditorViewState } from "../common/viewModel/editorViewState.ts";
 import { EditorElement } from "./editorElement.ts";
 
 /**
- * Внешние декорации (docs/TODO/DiffEditable.md, PR-3): фоны строк и
+ * Внешние декорации (docs/arch/workbench/EditorPart.md, «Дифф-вкладка»): фоны строк и
  * диапазонов, гуттер-маркеры и наполнение зон — цвета из токенов темы.
  */
 
