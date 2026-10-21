@@ -16,13 +16,13 @@
 
 - [x] `src/vs/base` (751) — #726
 - [x] `src/vs/platform` a–e: actions…extensionManagement (1365) — #730
-- [~] `src/vs/platform` f–z: extensions…workspace (1620)
+- [x] `src/vs/platform` f–z: extensions…workspace (1620) — #731
 - [x] `src/vs/editor`: core, diff, languages, services, contrib, test (1160) — #727
 - [~] `src/vs/editor`: browser, viewModel, model, tokens (1923)
 - [x] `workbench/browser/parts` и `workbench/common` (2657) — #729
 - [~] `workbench/browser`: верхний уровень и actions (1503)
 - [~] `workbench/services/extensions/node/extensionHost.*` (1308)
-- [ ] `workbench/services/extensions`: остальное (1828)
+- [~] `workbench/services/extensions`: остальное (1828)
 - [ ] `workbench/services`: остальное (2563)
 - [ ] `workbench/api`: browser, node, common a–l (1926)
 - [ ] `workbench/api/common` m–z (1595)
