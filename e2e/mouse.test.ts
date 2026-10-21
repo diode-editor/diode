@@ -28,7 +28,7 @@ describe("SEA binary — mouse injection via the inspector", () => {
 
         const label = findNode(root, isEditLabel);
         expect(label).not.toBeNull();
-        // Координаты протокола — 0-based экранные ячейки, ровно как в `box`.
+        // Protocol coordinates are 0-based screen cells, exactly as in `box`.
         await session.click(label!.box.x, label!.box.y);
 
         const opened = await session.waitForDocument((r) => findNode(r, isPopupMenu) !== null);

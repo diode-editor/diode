@@ -18,11 +18,11 @@ import { findTextCell, frameToText } from "./helpers/frame.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Стоковый Anthropic.claude-code из магазина в SEA-бинаре. Настоящий CLI не
- * запускается (подписка, сеть): вместо него пробный клиент ide-сервера (`IdeProbe`)
- * и подставной `claude` в PATH — ровно то, по чему CLI находит IDE.
- * Кейсы идут по одной сессии последовательно (расширение 130 МБ ставится раз
- * на сьют): контекст — пока фокус в редакторе, терминалы — в конце.
+ * The stock Anthropic.claude-code extension in the SEA binary. The real CLI isn't
+ * launched (subscription, network): instead, an ide-server probe client (`IdeProbe`)
+ * and a fake `claude` on PATH — exactly what the CLI uses to find the IDE.
+ * Cases run sequentially in one session (the 130 MB extension is installed once
+ * per suite): context — while focus is in the editor, terminals — at the end.
  */
 
 const MAIN_TS = 'const reply: number = "hi";\nexport { reply };\n';
@@ -30,7 +30,7 @@ const PROPOSED_TS = 'const reply: string = "hello";\nexport { reply };\n';
 const CHECK = "\u{eab2}";
 const DISCARD = "\u{eae2}";
 
-// Только Linux: extension host + подставной `claude` на sh (docs/TODO/E2E.md).
+// Linux only: extension host + a fake `claude` in sh (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
     "SEA binary — стоковый Anthropic.claude-code (терминальный режим)",
     () => {
@@ -43,7 +43,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             app = await startHeadlessApp({
                 files: { "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }), "main.ts": MAIN_TS },
                 installVsix: [CLAUDE_CODE_ID],
-                // Папкой воркспейса и файлом в ней — как проект, где запускают `claude`.
+                // A workspace folder and a file in it — like a project where `claude` is run.
                 open: [".", "main.ts"],
                 env: claudeCodeSessionEnv(),
                 cols: 160,
@@ -69,7 +69,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
                 });
                 const { probe, serverInfo } = await IdeProbe.connect(lock);
                 probe.close();
-                // Имя сервера расширение собирает из `env.appName`.
+                // The extension builds the server name from `env.appName`.
                 expect(serverInfo.name).toBe("Claude Code Diode MCP");
             },
         );
@@ -134,13 +134,13 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
                         new_file_contents: PROPOSED_TS,
                         tab_name: tabName,
                     });
-                // Кнопки ✓/↺ — по ключу `claude-code.viewingProposedDiff`, он считается по видимой стороне.
+                // The ✓/↺ buttons are keyed by `claude-code.viewingProposedDiff`, computed from the visible side.
                 const waitForDiffTab = (title: string): Promise<unknown> =>
                     app.session.waitForText((t) => t.includes(title) && t.includes(CHECK) && t.includes(DISCARD), {
                         timeoutMs: 30_000,
                     });
                 try {
-                    // Правка правой стороны прямо в диффе и Ctrl+S — принятие с правками человека.
+                    // Editing the right side right in the diff and Ctrl+S — acceptance with the user's edits.
                     const saved = proposeDiff("[Claude Code] main.ts (save) ⧉");
                     const frame = await waitForDiffTab("main.ts (save)");
                     const right = findTextCell(frame, '"hello"');
@@ -153,13 +153,13 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
                         isError: false,
                         text: `FILE_SAVED${PROPOSED_TS.replace('"hello";', '"hello"; // ok')}`,
                     });
-                    // CLI закрывает вкладку сам: сохранение стороны + tabGroups.close, без диалога.
+                    // The CLI closes the tab itself: saving the side + tabGroups.close, no dialog.
                     expect(
                         (await probe.callTool("close_tab", { tab_name: "[Claude Code] main.ts (save) ⧉" })).text,
                     ).toBe("TAB_CLOSED");
                     await app.session.waitForText((t) => !t.includes("main.ts (save)") && !t.includes(CHECK));
 
-                    // Закрытие вкладки — отклонение; кнопки уходят вместе с ключом.
+                    // Closing the tab is a rejection; the buttons go away together with the key.
                     const closed = proposeDiff("[Claude Code] main.ts (close) ⧉");
                     await waitForDiffTab("main.ts (close)");
                     await app.session.key("Ctrl+W");
@@ -189,7 +189,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
                     ),
                 );
                 expect(text).toContain(`fake-claude port=${String(lock.port)}`);
-                // Вкладка — в группе справа от файла: в строке вкладок main.ts левее.
+                // The tab is in the group to the right of the file: main.ts is further left in the tab row.
                 const tabs = text.split("\n").find((line) => line.includes("Claude Code ×"));
                 expect(tabs?.indexOf("main.ts ×")).toBeGreaterThanOrEqual(0);
                 expect(tabs?.indexOf("main.ts ×")).toBeLessThan(tabs?.indexOf("Claude Code ×") ?? 0);
@@ -202,7 +202,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             async () => {
                 await app.session.executeCommand("workbench.action.terminal.new");
                 await app.session.waitForText((t) => t.includes("TERMINAL"), { timeoutMs: 15_000 });
-                // Набор до промпта не теряется: pty буферизует, шелл прочтёт его, поднявшись.
+                // Typing before the prompt isn't lost: the pty buffers it, the shell reads it once it starts.
                 await app.session.sendText('echo "sse=$CLAUDE_CODE_SSE_PORT"\r');
                 await app.session.waitForText((t) => t.includes(`sse=${String(lock.port)}`), { timeoutMs: 15_000 });
             },

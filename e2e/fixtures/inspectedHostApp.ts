@@ -1,6 +1,6 @@
-// Мини-хост TUIDom с инспектором на порту — фикстура для e2e-смоука инспектора.
-// Раньше эту роль играла демка tuidom/demos/inspectedHost.ts; демки уехали в
-// репозиторий tuidom и в пакеты @tuidom/* не входят, поэтому хост живёт здесь.
+// Minimal TUIDom host with an inspector on a port — the fixture for the inspector e2e smoke test.
+// The tuidom demos live in the tuidom repo and are not part of the @tuidom/* packages,
+// so the host lives here.
 //
 // Port — argv[2] (0 = ephemeral). Ctrl+C exits.
 

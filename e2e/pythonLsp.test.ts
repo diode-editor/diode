@@ -8,12 +8,12 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Клиент внутри vsix форкает вшитый сервер (TransportKind.ipc → fork process.execPath) —
- * это и есть прогон env-фикса runAsNode под SEA.
+ * The client inside the vsix forks the bundled server (TransportKind.ipc → fork process.execPath) —
+ * which is exactly what exercises the runAsNode env fix under SEA.
  */
 
 const DEFS_PY = 'def greet(name: str) -> str:\n    return "hi " + name\n';
-// Ошибка типов — для squiggle (readiness).
+// A type error — for the squiggle (readiness).
 const MAIN_PY = 'from defs import greet\n\nreply: int = greet("world")\nprint(reply)\n';
 
 const UNDERCURL = 8;
@@ -30,7 +30,7 @@ async function waitForServerReady(session: {
     );
 }
 
-// Только Linux: extension host + форк language-сервера (docs/TODO/E2E.md).
+// Linux only: extension host + a forked language server (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
     "SEA binary — стоковый basedpyright.vsix (Python LSP)",
     () => {
@@ -47,14 +47,14 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             await session.waitForNode("EditorElement");
             await waitForServerReady(session);
 
-            // Каретка на `greet` в вызове (строка 2, колонка 15) и Ctrl+K Ctrl+U.
+            // Cursor on `greet` in the call (line 2, column 15) and Ctrl+K Ctrl+U.
             await session.key("ArrowDown");
             await session.key("ArrowDown");
             for (let i = 0; i < 15; i++) await session.key("ArrowRight");
             await session.key("Ctrl+K");
             await session.key("Ctrl+U");
 
-            // Сигнатура из объявления в defs.py — в буфере main.py её нет.
+            // The signature comes from the declaration in defs.py — main.py's buffer doesn't contain it.
             await session.waitForText((text) => text.includes("greet(name: str) -> str"), {
                 timeoutMs: 60_000,
                 intervalMs: 500,
@@ -83,7 +83,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             for (let i = 0; i < 15; i++) await session.key("ArrowRight");
             await session.key("F12");
 
-            // Каретка на объявлении (0-based 0:4).
+            // Cursor on the declaration (0-based 0:4).
             await session.waitForText((text) => text.includes('return "hi " + name'), {
                 timeoutMs: 60_000,
                 intervalMs: 500,
@@ -111,11 +111,11 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             await waitForServerReady(session);
 
             await session.key("Ctrl+End");
-            // Нажатиями: триггер-символ открывает попап только набором, не вставкой.
+            // Via keypresses: a trigger character opens the popup only when typed, not pasted.
             for (const char of "reply.") await session.key(char);
 
-            // Пункты из НАЧАЛА алфавитного списка: ниже LSP-пунктов стоят word-based кандидаты
-            // буфера, и хвост (bit_length, to_bytes) — за пределами видимых строк.
+            // Items from the START of the alphabetical list: below the LSP items come word-based candidates
+            // from the buffer, and the tail (bit_length, to_bytes) is beyond the visible rows.
             await session.waitForText((text) => text.includes("as_integer_ratio") && text.includes("bit_count"), {
                 timeoutMs: 120_000,
                 intervalMs: 500,
@@ -144,7 +144,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             const { session } = await useHeadlessApp({
                 files: FILES,
                 installVsix: [BASEDPYRIGHT_ID],
-                // Вьюлет сайдбара собирается только при открытой папке (см. references.test.ts).
+                // The sidebar viewlet is built only with an open folder (see references.test.ts).
                 open: [".", "main.py"],
             });
             await session.waitForNode("EditorElement");
@@ -156,7 +156,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
             await session.key("Ctrl+K");
             await session.key("Ctrl+R");
 
-            // Строка объявления добрана из defs.py, которого нет в открытом буфере.
+            // The declaration line is pulled from defs.py, which isn't in an open buffer.
             await session.waitForText((text) => text.includes("results in 2") && text.includes("def greet"), {
                 timeoutMs: 120_000,
                 intervalMs: 500,

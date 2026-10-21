@@ -7,8 +7,8 @@ import { Resvg } from "@resvg/resvg-js";
 import type { GridSnapshot } from "@tuidom/core/rendering/gridSnapshot";
 import { gridToSvg, type GridToSvgOptions } from "@tuidom/core/rendering/gridToSvg";
 
-// Растеризация — только тулинг e2e, в бандл редактора не попадает. PNG, а не SVG: SVG в теле
-// PR GitHub не рендерит.
+// Rasterization is e2e tooling only and does not end up in the editor bundle. PNG, not SVG: GitHub does not
+// render SVG in a PR body.
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 
@@ -17,9 +17,9 @@ export const screenshotsDir = resolve(here, "..", "..", "screenshots");
 // A Nerd Font so the editor's codicon glyphs (file tree, status bar) render.
 const DEFAULT_FONT = "Hack Nerd Font Mono";
 
-// Шрифты вендорены в `e2e/fonts/`: в dev-контейнерах и на CI системных шрифтов нет (`fc-list` пуст).
-// Порядок важен — resvg берёт первый шрифт с глифом: Hack несёт текст и codicon'ы, DejaVu Sans —
-// фоллбэк (блок Брайля U+2800 спиннера); без него глиф выходит пустым `.notdef`.
+// Fonts are vendored in `e2e/fonts/`: dev containers and CI have no system fonts (`fc-list` is empty).
+// Order matters — resvg takes the first font with the glyph: Hack covers text and codicons, DejaVu Sans is
+// the fallback (the spinner's Braille block U+2800); without it the glyph renders as an empty `.notdef`.
 const fontsDir = resolve(here, "..", "fonts");
 export const BUNDLED_FONT_FILES = [
     "HackNerdFontMono-Regular.ttf",

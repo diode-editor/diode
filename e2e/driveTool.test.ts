@@ -7,8 +7,8 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
 import { getBinaryPath } from "./helpers/buildOnce.ts";
 
-// Каждый шаг — отдельный процесс CLI, сессия живёт между ними, как у агента в Bash.
-// Конец каждого сценария — ноль процессов с маркером сессии и ноль временных каталогов.
+// Each step is a separate CLI process; the session lives between them, as for an agent in Bash.
+// Each scenario ends with zero processes carrying the session marker and zero temp directories.
 
 const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 const cli = resolve(repoRoot, "tools", "drive", "cli.ts");
@@ -35,7 +35,7 @@ function ok(...args: string[]): string {
     return run.stdout;
 }
 
-/** Процессы с маркером сессии (Linux; на других ОС — пусто, как и у самого инструмента). */
+/** Processes carrying the session marker (Linux; empty on other OSes, as in the tool itself). */
 function markedPids(root: string): number[] {
     if (process.platform !== "linux") return [];
     const pids: number[] = [];
@@ -46,7 +46,7 @@ function markedPids(root: string): number[] {
                 pids.push(Number(entry));
             }
         } catch {
-            // вышел или чужой
+            // exited or not ours
         }
     }
     return pids;
@@ -81,29 +81,29 @@ describe.skipIf(process.platform === "win32")("npm run drive — живой пр
         expect(started.ready).toBe(true);
         expect(markedPids(started.root)).toContain(started.pid);
 
-        // Готовность — повторный вызов отвечает сразу.
+        // Readiness: a repeated call answers immediately.
         ok("wait", "ready", "--timeout", "5000");
         ok("wait", "text", "alpha");
         expect(ok("focus")).toMatch(/EditorElement\n$/);
 
-        // Палитра по заголовку: панель открылась.
+        // Command palette by title: the panel opened.
         ok("palette", "View: Toggle Panel Visibility");
         ok("wait", "text", "PROBLEMS");
 
-        // Команда по id меняет кадр; результат промиса доезжает.
+        // A command by id changes the frame; the promise result comes back.
         expect(ok("exec", "workbench.action.closeActiveEditor").trim()).toBe("ok");
         ok("wait", "gone", "EditorElement");
 
-        // OUTPUT: каналы и содержимое (строку о порте инспектора пишет сам старт).
+        // OUTPUT: channels and content (startup itself writes the inspector port line).
         expect(ok("output", "--list")).toContain("bootstrap\tBootstrap");
         expect(ok("output", "Bootstrap")).toContain("TUIDom inspector listening");
 
-        // Контекст-ключи и when.
+        // Context keys and when.
         const panel = JSON.parse(ok("context", "activeOutputChannel", "--json")) as { value: unknown };
         expect(typeof panel.value).toBe("string");
         expect(ok("when", "!inQuickOpen").trim()).toBe("true");
 
-        // Набор: открываем файл заново через quick open и печатаем посимвольно.
+        // Typing: reopen the file via quick open and type char by char.
         ok("key", "Ctrl+P");
         ok("wait", "node", "#quickInput");
         ok("type", "notes");
@@ -112,13 +112,13 @@ describe.skipIf(process.platform === "win32")("npm run drive — живой пр
         ok("type", "X");
         ok("wait", "text", "Xalpha");
 
-        // Ячейка и курсор: курсор стоит за набранным X.
+        // Cell and cursor: the cursor is right after the typed X.
         const cursor = ok("cursor").trim();
         expect(cursor).toMatch(/^\d+,\d+$/);
         const [cx, cy] = cursor.split(",");
         expect(ok("cell", String(Number(cx) - 1), cy)).toMatch(/"X" U\+0058 fg=(#[0-9a-f]{6}|default)/);
 
-        // Ошибки — с понятным текстом и ненулевым кодом.
+        // Errors come with a clear message and a nonzero code.
         const unknown = drive("exec", "no.such.command");
         expect(unknown.code).toBe(1);
         expect(unknown.stderr).toContain("unknown command: no.such.command");
@@ -136,7 +136,7 @@ describe.skipIf(process.platform === "win32")("npm run drive — живой пр
     it.skipIf(process.platform !== "linux")("gc после убитой сессии: потомки добиты, корень и запись убраны", () => {
         const started = JSON.parse(ok("start", "--binary-path", binary, "--json")) as { root: string; pid: number };
         const before = markedPids(started.root);
-        // Сам редактор + субпроцесс расширений как минимум.
+        // At least the editor itself + the extension subprocess.
         expect(before.length).toBeGreaterThan(1);
 
         process.kill(started.pid, "SIGKILL");

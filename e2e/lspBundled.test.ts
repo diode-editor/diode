@@ -11,18 +11,18 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * LSP из коробки: ts-server.bundle распаковывается в XDG-кэш и запускается НАШИМ
- * node-рантаймом. Окружение нарочно голое (PATH без node, без node_modules и
- * LSP-настроек) — как у пользователя без тулчейна. Оба формата: SEA и self-extract.
+ * Out-of-the-box LSP: ts-server.bundle is unpacked into the XDG cache and run by OUR
+ * node runtime. The environment is deliberately bare (PATH without node, no node_modules
+ * and no LSP settings), like a user without a toolchain. Both formats: SEA and self-extract.
  */
 
-/** PATH без node (nvm/юзер-бинарей): sh/tar/gzip для selfextract-стаба есть в /usr/bin. */
+/** PATH without node (nvm/user binaries): sh/tar/gzip for the self-extract stub are in /usr/bin. */
 const BARE_PATH = "/usr/bin:/bin";
 
 const WORKSPACE_FILES = {
     "tsconfig.json": JSON.stringify({ compilerOptions: { strict: true } }),
     "defs.ts": 'export function greet(name: string): string {\n    return "hi " + name;\n}\n',
-    // Ошибка типов — для squiggle (readiness).
+    // Type error, for the squiggle (readiness).
     "main.ts": 'import { greet } from "./defs";\n\nconst reply: number = greet("world");\n\nexport { reply };\n',
 };
 
@@ -42,8 +42,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
         }, 300_000);
 
         it("SEA: squiggle + F12 на голом окружении; кэш распакован атомарно и переиспользуется", { timeout: 300_000 }, async () => {
-            // keepRoot: кэш первого запуска нужен второму (тёплый старт);
-            // корень убирается вручную в конце.
+            // keepRoot: the second launch needs the first one's cache (warm start);
+            // the root is removed manually at the end.
             const app = await useHeadlessApp({
                 files: WORKSPACE_FILES,
                 open: ["main.ts"],
@@ -54,14 +54,14 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             const home = join(app.env.root, "home");
 
             await session.waitForNode("EditorElement");
-            // Холодный старт: фоновая распаковка ~13 МБ + спавн сервера + индексация.
+            // Cold start: background unpacking of ~13 MB + server spawn + indexing.
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
                 { describe: "undercurl squiggle от вшитого tsserver", timeoutMs: 180_000, intervalMs: 500 },
             );
 
-            // Кэш: ровно один версионированный каталог, опубликован атомарно.
+            // Cache: exactly one versioned directory, published atomically.
             const entries = tsServerCacheEntries(home);
             expect(entries).toHaveLength(1);
             expect(existsSync(join(entries[0], ".diode-ready"))).toBe(true);
@@ -70,14 +70,14 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             expect(existsSync(join(entries[0], "node_modules", "typescript", "lib", "tsserver.js"))).toBe(true);
             const readyMtime = statSync(join(entries[0], ".diode-ready")).mtimeMs;
 
-            // F12: каретка на вызов greet (2:23) → объявление в defs.ts.
+            // F12: cursor on the greet call (2:23) → declaration in defs.ts.
             await session.key("ArrowDown");
             await session.key("ArrowDown");
             for (let i = 0; i < 23; i++) await session.key("ArrowRight");
             await session.key("F12");
             await session.waitForText((t) => t.includes('return "hi " + name'), { timeoutMs: 60_000, intervalMs: 500 });
 
-            // Второй запуск с тем же кэшем — тёплый: каталог не перераспаковывается.
+            // The second launch with the same cache is warm: the directory isn't unpacked again.
             await app.dispose();
             const second = await startHeadlessApp({
                 files: WORKSPACE_FILES,
@@ -99,12 +99,12 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
         });
 
         it("workspace-версия сервера на голом PATH: JS-энтрипоинт нашим рантаймом, не .bin-шим", { timeout: 300_000 }, async () => {
-            // Регрессия реального отказа: у проекта typescript-language-server в
-            // devDeps → workspace-кандидат побеждает вшитый. Раньше кандидатом
-            // был `.bin`-шим, исполнявшийся напрямую, — его шебанг
-            // `#!/usr/bin/env node` на машине без node давал exit 127 и каскад
-            // EPIPE-рестартов клиента. Теперь кандидат — сам cli.mjs, и он
-            // запускается нашим рантаймом (SEA: diode-as-node).
+            // Regression of a real failure: the project has typescript-language-server in
+            // devDeps → the workspace candidate wins over the bundled one. A `.bin` shim
+            // executed directly as the candidate has the shebang `#!/usr/bin/env node`,
+            // which on a machine without node gives exit 127 and a cascade of client
+            // EPIPE restarts. The candidate must be cli.mjs itself, run by our runtime
+            // (SEA: diode-as-node).
             const root = mkdtempSync(join(tmpdir(), "diode-e2e-"));
             const nodeModules = join(root, "workspace", "node_modules");
             const repoModules = resolve(import.meta.dirname, "..", "node_modules");
@@ -112,7 +112,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             for (const pkg of ["typescript-language-server", "typescript"]) {
                 symlinkSync(join(repoModules, pkg), join(nodeModules, pkg));
             }
-            // Шим — как кладёт npm: симлинк на cli.mjs, исполняемый через шебанг.
+            // The shim as npm lays it out: a symlink to cli.mjs, executable via the shebang.
             symlinkSync(
                 join("..", "typescript-language-server", "lib", "cli.mjs"),
                 join(nodeModules, ".bin", "typescript-language-server"),
@@ -155,7 +155,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 const entries = tsServerCacheEntries(home);
                 expect(entries).toHaveLength(1);
                 expect(existsSync(join(entries[0], ".diode-ready"))).toBe(true);
-                // Диагностика в тексте — сервер отработал проект целиком.
+                // Diagnostics in the text: the server processed the whole project.
                 expect(frameToText(await app.session.captureFrame())).toContain("main.ts");
             } finally {
                 await app.dispose();

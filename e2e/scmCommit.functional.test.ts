@@ -59,8 +59,8 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         await session.waitForText((t) => t.includes("SOURCE CONTROL"));
         const input = await session.waitForNode("#scmCommitInput");
         expect((input.state as InputState).showsPlaceholder).toBe(true);
-        // Плейсхолдер клипуется шириной сайдбара. e2e пинуется к tier=legacy, где Ctrl+Enter —
-        // это Enter: подсказка обязана назвать досягаемый Alt+Enter.
+        // The placeholder is clipped by the sidebar width. e2e is pinned to tier=legacy, where Ctrl+Enter
+        // is just Enter: the hint must name the reachable Alt+Enter.
         expect(frameToText(await session.captureFrame())).toContain("Message (Alt+Enter");
 
         const changesHeader = await session.waitForNode("#paneHeader-workbench-scm-changes");
@@ -77,7 +77,7 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
         app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
         const { session } = app;
 
-        await session.key("Alt+M"); // workbench.scm.focus из Explorer
+        await session.key("Alt+M"); // workbench.scm.focus from Explorer
         await session.waitForText((t) => t.includes("SOURCE CONTROL"));
         await session.waitForFocus("ScmCommitInputElement");
 
@@ -90,14 +90,14 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
 
     it("US-16/US-18: Ctrl+Enter коммитит staged и очищает input; пустое сообщение — отказ", async () => {
         const repo = makeRepo();
-        gitQ(repo, "add", "-A"); // правка app.ts — в индекс
+        gitQ(repo, "add", "-A"); // stage the app.ts edit
         app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
         const { session } = app;
 
         await session.key("Alt+M");
         await session.waitForFocus("ScmCommitInputElement");
-        // Расширение активируется асинхронно: ждём публикации staged-группы,
-        // иначе Ctrl+Enter упадёт в no-op (transport-команды ещё нет).
+        // The extension activates asynchronously: wait for the staged group to be published,
+        // otherwise Ctrl+Enter is a no-op (the transport command does not exist yet).
         await session.waitForNode("#scmGroup-index");
         await session.key("Alt+Enter");
         await session.waitForText((t) => t.includes("commit message is empty"));
@@ -116,18 +116,18 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
     }, 120_000);
 
     it("US-17: пустой индекс — smart commit спрашивает и коммитит всё tracked", async () => {
-        const repo = makeRepo(); // app.ts modified, не staged
+        const repo = makeRepo(); // app.ts modified, not staged
         app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30 });
         const { session } = app;
 
         await session.key("Alt+M");
         await session.waitForFocus("ScmCommitInputElement");
-        await session.waitForNode("#scmGroup-worktree"); // расширение активно
+        await session.waitForNode("#scmGroup-worktree"); // extension is active
         await session.text("feat: smart");
         await session.key("Alt+Enter");
 
         await session.waitForText((t) => t.includes("There are no staged changes to commit."));
-        // Дефолтный фокус на Cancel, стрелка — на Commit All.
+        // Default focus is on Cancel; the arrow moves it to Commit All.
         await session.key("ArrowLeft");
         await session.key("Enter");
 
@@ -149,11 +149,11 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
 
         await session.key("Alt+M");
         await session.waitForFocus("ScmCommitInputElement");
-        // Секция GRAPH открывается свёрнутой, а до раскрытия расширение `git log` не запускает.
+        // The GRAPH section opens collapsed, and the extension does not run `git log` until it is expanded.
         await session.clickNode("#paneHeader-workbench-scm-graph", { dx: 3 });
         await session.waitForText((t) => t.includes("feat: second"));
 
-        // Amend с новым сообщением (индекс пуст — allowEmpty не нужен: --amend разрешает).
+        // Amend with a new message (the index is empty — no allowEmpty needed: --amend permits it).
         await session.text("feat: amended");
         await session.key("Alt+N");
         await session.waitForState("#scmCommitInput", (s) => (s as InputState)?.value === "");
@@ -181,7 +181,7 @@ describe("SCM commit input box (functional e2e, спека SourceControl.md)", (
             app = null;
         }
 
-        // Тот же root: user-data-dir (и workspace-стор с черновиком) переживают рестарт.
+        // Same root: user-data-dir (and the workspace store with the draft) survive the restart.
         app = await useHeadlessApp({ open: [repo], keybindings: SWITCH_KEYS, cols: 100, rows: 30, root });
         const { session } = app;
         await session.key("Alt+C");

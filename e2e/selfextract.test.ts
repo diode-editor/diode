@@ -16,13 +16,13 @@ const fixturePath = resolve(here, "fixtures", "sample.ts");
 
 const KEYWORD_FG = packRgb(0x56, 0x9c, 0xd6);
 
-// ConPTY делает посимвольные ассерты экрана ненадёжными вне Linux — тот же гард,
-// что в sea-*.test.ts. Сам стаб — POSIX sh, поэтому под Windows нет и бинаря.
+// ConPTY makes per-cell screen assertions unreliable outside Linux; same guard as
+// in sea-*.test.ts. The stub itself is POSIX sh, so there's no binary on Windows at all.
 const itLinuxOnly = process.platform === "linux" ? it : it.skip;
 
 /**
- * #144: замена сломанному SEA на Intel macOS. Главное — приложение реально стартует
- * и читает `diode.bundle` с диска fs-загрузчиком.
+ * #144: the replacement for the broken SEA on Intel macOS. The point is that the app really
+ * starts and reads `diode.bundle` from disk via the fs loader.
  */
 describe.skipIf(process.platform === "win32")("self-extract binary", () => {
     let binary = "";
@@ -30,7 +30,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
 
     beforeAll(async () => {
         binary = await getSelfExtractPath();
-        // Стаб обязан уважать XDG_CACHE_HOME: ~/.cache разработчика не трогаем.
+        // The stub must honor XDG_CACHE_HOME: the developer's ~/.cache stays untouched.
         cacheHome = mkdtempSync(join(tmpdir(), "diode-xdg-cache-"));
     }, 300_000);
 
@@ -64,7 +64,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
         for (const file of ["node", "main.cjs", "diode.bundle", "lazy/yauzl.cjs", ".ready"]) {
             expect(existsSync(join(dir, file)), `${file} должен быть распакован`).toBe(true);
         }
-        // Каталог публикуется уже готовым — маркер ставится до rename.
+        // The directory is published fully ready: the marker is written before the rename.
         expect(existsSync(join(dir, ".lock"))).toBe(false);
     });
 
@@ -80,7 +80,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
     });
 
     it("пробрасывает код возврата приложения", () => {
-        // Неизвестный флаг → CliArgsError → exit 2. `exec` в стабе отдаёт код как есть.
+        // Unknown flag → CliArgsError → exit 2. `exec` in the stub passes the code through as is.
         const result = run(["--definitely-not-a-flag"]);
 
         expect(result.status).toBe(2);
@@ -94,7 +94,7 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
 
             expect(result.status).toBe(0);
             expect(result.stdout.trim()).not.toBe("");
-            // Прод не должен сорить логом в cwd пользователя (гейт isPackagedRuntime).
+            // Production must not litter a log into the user's cwd (the isPackagedRuntime gate).
             expect(existsSync(join(cwd, "diode.log"))).toBe(false);
         } finally {
             rmSync(cwd, { recursive: true, force: true });
@@ -102,19 +102,19 @@ describe.skipIf(process.platform === "win32")("self-extract binary", () => {
     });
 
     itLinuxOnly("поднимает редактор и читает diode.bundle с диска — подсветка работает", async () => {
-        // user-data/HOME изолируем через usePtyApp, но XDG_CACHE_HOME оставляем
-        // общим (прогретым распаковкой в предыдущих `run()`), поэтому передаём его
-        // явно — extra-env перекрывает изолированный кэш.
+        // user-data/HOME are isolated by usePtyApp, but XDG_CACHE_HOME stays shared
+        // (warmed up by unpacking in the previous `run()` calls), so it's passed
+        // explicitly: the extra env overrides the isolated cache.
         const { session } = await usePtyApp({ binary, open: [fixturePath], env: { XDG_CACHE_HOME: cacheHome } });
 
-        // Кадр с текстом идёт без подсветки (токенизация — следующим кадром), ждём цветной.
+        // The first frame with text has no highlighting (tokenization lands in the next frame); wait for color.
         const screen = await session.waitFor((s) => {
             const pos = s.findText("const greeting");
             return pos !== null && s.cellAt(pos.x, pos.y).fg === KEYWORD_FG;
         });
 
-        // `const` keyword-цветом = грамматика + onig.wasm реально загрузились из
-        // приклеенного bundle'а через fs-загрузчик. Ради этого весь #144 и делался.
+        // `const` in the keyword color = the grammar + onig.wasm really loaded from
+        // the appended bundle via the fs loader. This is what all of #144 was for.
         const constPos = screen.findText("const greeting");
         expect(constPos).not.toBeNull();
         expect(screen.cellAt(constPos!.x, constPos!.y).fg).toBe(KEYWORD_FG);

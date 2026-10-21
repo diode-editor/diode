@@ -1,6 +1,6 @@
 "use strict";
 
-/** Зависимость не удовлетворена: `activate()` не должен быть вызван — вызов покажет статус-бар. */
+/** The dependency is unsatisfied: `activate()` must not be called — a call would show in the status bar. */
 exports.activate = function activate() {
     const vscode = require("vscode");
     const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);

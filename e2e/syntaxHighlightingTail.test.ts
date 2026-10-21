@@ -8,19 +8,19 @@ import type { HeadlessSession } from "./helpers/headlessSession.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
-// Баг «часть файла белая»: рендер токенизирует только до низа вьюпорта, а ранний
-// выход по сошедшемуся end-state объявлял валидным весь хвост — строки, которых
-// токенизатор не касался, оставались без цвета навсегда.
+// Bug "part of the file is white": rendering tokenizes only down to the bottom of the viewport, and the early
+// exit on a converged end-state marked the whole tail valid — lines the tokenizer
+// never touched stayed uncolored forever.
 
 const packRgb = (r: number, g: number, b: number): number => (r << 16) | (g << 8) | b;
-const KEYWORD_FG = packRgb(0x56, 0x9c, 0xd6); // `const` (storage.type) в Dark+
+const KEYWORD_FG = packRgb(0x56, 0x9c, 0xd6); // `const` (storage.type) in Dark+
 
 const LINE_COUNT = 200;
 const longFile = Array.from({ length: LINE_COUNT }, (_, i) => `const value${String(i)} = ${String(i)};`).join("\n");
 
 const cellFg = (frame: GridSnapshot, x: number, y: number): number | undefined => frame.cells[y * frame.cols + x].fg;
 
-/** Кадр, в котором грамматика уже приехала из ext-host и что-то раскрасила. */
+/** A frame in which the grammar has arrived from the ext-host and colored something. */
 async function waitForColouredFrame(session: HeadlessSession): Promise<GridSnapshot> {
     return waitUntil(
         () => session.captureFrame(),
@@ -29,14 +29,14 @@ async function waitForColouredFrame(session: HeadlessSession): Promise<GridSnaps
     );
 }
 
-/** Цвет первой ячейки вхождения `needle`. */
+/** Color of the first cell of the `needle` occurrence. */
 function fgOfText(frame: GridSnapshot, needle: string): number | undefined {
     const pos = findTextCell(frame, needle);
     expect(pos, `«${needle}» не найдено в кадре:\n${frameToText(frame)}`).not.toBeNull();
     return cellFg(frame, pos!.x, pos!.y);
 }
 
-/** Экранные строки кадра, на которых виден код файла. */
+/** Screen rows of the frame that show file code. */
 function codeRows(frame: GridSnapshot): number[] {
     const rows: number[] = [];
     for (let y = 0; y < frame.rows; y++) {
@@ -60,12 +60,12 @@ describe("Подсветка синтаксиса за пределами пер
 
         expect(fgOfText(await waitForColouredFrame(session), "const value0")).toBe(KEYWORD_FG);
 
-        // Правка верхней строки, не меняющая состояние грамматики (пробел в начало),
-        // — именно на ней срабатывает ранний выход по сошедшемуся end-state.
+        // An edit to the top line that does not change grammar state (a leading space) —
+        // exactly the case that triggers the early exit on a converged end-state.
         await session.key("Ctrl+Home");
         await session.text(" ");
 
-        // Уезжаем в конец файла: этих строк токенизатор ещё не видел.
+        // Jump to the end of the file: the tokenizer has not seen these lines yet.
         await session.key("Ctrl+End");
         const tail = await session.waitForText((t) => t.includes(`const value${String(LINE_COUNT - 1)}`));
 

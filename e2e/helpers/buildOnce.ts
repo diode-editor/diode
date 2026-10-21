@@ -10,9 +10,9 @@ const repoRoot = resolve(here, "..", "..");
 let artifacts: { binary: string; selfExtract: string | undefined } | null = null;
 
 /**
- * Под `test:e2e` путь отдаёт `globalSetup` через `DIODE_E2E_BINARY`, и воркер НЕ собирает никогда —
- * даже если файла нет. Вне прогона (screenshots, бенчи) — неизменяемая сборка из кэша по хешу
- * исходников (scripts/e2e-artifacts.mjs), а не `dist/`.
+ * Under `test:e2e` the path comes from `globalSetup` via `DIODE_E2E_BINARY`, and the worker NEVER builds —
+ * even if the file is missing. Outside a test run (screenshots, benches) — an immutable build from the
+ * cache keyed by source hash (scripts/e2e-artifacts.mjs), not `dist/`.
  */
 export function getBinaryPath(): Promise<string> {
     try {
@@ -23,8 +23,8 @@ export function getBinaryPath(): Promise<string> {
 }
 
 /**
- * Self-extracting бинарь (#144), правила те же (`DIODE_E2E_SELFEXTRACT`). `--node=host`: релизный
- * node тестам не нужен, а сеть в e2e — лишняя точка отказа. Под Windows его нет.
+ * Self-extracting binary (#144), same rules (`DIODE_E2E_SELFEXTRACT`). `--node=host`: tests do not need
+ * the release node, and the network is an extra point of failure in e2e. Not available on Windows.
  */
 export function getSelfExtractPath(): Promise<string> {
     try {
@@ -39,14 +39,14 @@ export function getSelfExtractPath(): Promise<string> {
 function fromCache(): { binary: string; selfExtract: string | undefined } {
     if (artifacts === null) {
         const built = ensureE2eArtifacts({ repoRoot });
-        // Метка «сборка используется» живёт, пока жив процесс: вытеснение её не тронет.
+        // The "build in use" mark lives as long as the process: eviction leaves it alone.
         process.once("exit", built.release);
         artifacts = built;
     }
     return artifacts;
 }
 
-/** Путь из env, если он задан; заданный, но пропавший файл — ошибка, а не пересборка. */
+/** The path from env, if set; a set but missing file is an error, not a rebuild. */
 function resolveInjected(envName: string): string | undefined {
     const injected = process.env[envName];
     if (injected === undefined || injected.length === 0) return undefined;

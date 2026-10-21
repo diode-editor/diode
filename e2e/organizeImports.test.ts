@@ -7,7 +7,7 @@ import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
-/** #196. Тишина там, где менять нечего (CommonJS), — в extensionHost.typescriptLsp.codeActions.test.ts. */
+/** #196. Silence where there's nothing to change (CommonJS) — in extensionHost.typescriptLsp.codeActions.test.ts. */
 
 const require_ = createRequire(import.meta.url);
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
@@ -20,19 +20,19 @@ const LSP_SETTINGS = {
 
 const ALPHA_IMPORT = 'import { alpha } from "./alpha";';
 const ZETA_IMPORT = 'import { zeta } from "./zeta";';
-// Импорты в обратном порядке + ошибка типов (readiness по undercurl).
+// Imports in reverse order + a type error (undercurl-based readiness).
 const MAIN_TS = `${ZETA_IMPORT}\n${ALPHA_IMPORT}\n\nconst bad: number = "oops";\n\nalpha();\nzeta();\n`;
 
 const ALPHA_JS_IMPORT = 'import { alpha } from "./alpha.js";';
 const ZETA_JS_IMPORT = 'import { zeta } from "./zeta.js";';
-// Readiness — undercurl на обращении к необъявленному (checkJs).
+// Readiness — an undercurl on a reference to an undeclared name (checkJs).
 const MAIN_JS = `${ZETA_JS_IMPORT}\n${ALPHA_JS_IMPORT}\n\nalpha();\nzeta();\nundeclaredName;\n`;
 
-/** Squiggle рисуется undercurl'ом (StyleFlags.Undercurl === 8) на диапазоне ошибки. */
+/** A squiggle is drawn with undercurl (StyleFlags.Undercurl === 8) over the error range. */
 const UNDERCURL = 8;
 
-// Extension-host subprocess + спавн language-сервера — Linux-only, как
-// gotoDefinition / formatDocument (см. docs/TODO/E2E.md).
+// Extension-host subprocess + a spawned language server — Linux-only, like
+// gotoDefinition / formatDocument (see docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
     "SEA binary — Organize Imports от стокового typescript-language-server",
     () => {
@@ -59,8 +59,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
-            // Команда — через палитру: Shift+Alt+O key-DSL не сериализует
-            // (то же ограничение, что у формат-сценария).
+            // The command goes through the command palette: the key DSL doesn't serialize Shift+Alt+O
+            // (the same limitation as the format scenario).
             await session.key("Ctrl+P");
             await session.text(">Organize Imports");
             await session.waitForText((text) => text.includes("Organize Imports"), { timeoutMs: 30_000 });

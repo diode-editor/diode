@@ -18,8 +18,8 @@ import {
     startOutputApp,
 } from "./outputPanel.shared.ts";
 
-// Фиксы шести дефектов PR #197 (255d596) трогают общую машинерию: Tab-обход дерева,
-// пересборку редактора при перечитке, пиннинг цели find, гейт read-only — смотрим на соседей.
+// The fixes for six defects in PR #197 (255d596) touch shared machinery: Tab traversal of the tree,
+// editor rebuild on reload, find target pinning, the read-only gate; these tests watch the neighbors.
 
 describe("Output panel fix — регрессии соседних механизмов", () => {
     let app: HeadlessApp | null = null;
@@ -41,13 +41,13 @@ describe("Output panel fix — регрессии соседних механи�
         const { session } = app;
         await session.waitForText((t) => t.includes("greeting"));
 
-        // Сессия 1 — по sample.ts.
+        // Session 1: in sample.ts.
         await session.key("Ctrl+F");
         await session.text("greeting");
         expect(await findRow(session)).toContain("of");
         await session.key("Escape");
 
-        // Открываем второй файл и ищем то, чего в первом нет.
+        // Open a second file and search for something the first one lacks.
         await session.key("Ctrl+P");
         await session.text("wireTypes.decorations");
         await session.key("Enter");
@@ -55,15 +55,15 @@ describe("Output panel fix — регрессии соседних механи�
 
         await session.key("Ctrl+F");
         await session.text("decoration");
-        // Если бы цель залипла на первой вкладке — было бы "No results".
+        // If the target stuck to the first tab, this would be "No results".
         expect(await findRow(session)).not.toContain("No results");
     }, 180_000);
 
     /**
-     * `it.fails` документирует известный дефект (не из #197; репро — docs/TODO/E2E.md):
-     * починят — покраснеет и попросит снять маркер. Воркспейс — герметичная папка, а не
-     * repoRoot: дефект — гонка фокуса, и на большом репозитории фоновый шум (LSP, git,
-     * сборка в `dist/`) давал флейк в обе стороны.
+     * `it.fails` documents a known defect (not from #197; repro in docs/TODO/E2E.md):
+     * once fixed, it turns red and asks for the marker to be removed. The workspace is a hermetic
+     * folder, not repoRoot: the defect is a focus race, and on a large repository background noise
+     * (LSP, git, builds into `dist/`) caused a flake both ways.
      */
     it.fails("find, оставленный открытым, переживает смену вкладки", async () => {
         const workspace = mkdtempSync(join(tmpdir(), "diode-find-focus-"));
@@ -81,7 +81,7 @@ describe("Output panel fix — регрессии соседних механи�
         await session.key("Enter");
         await session.key("Escape");
 
-        // Приложение живо; ввод должен дойти до видимого редактора.
+        // The app is alive; input must reach the visible editor.
         expect((await session.getDocument()).root).not.toBeNull();
         await session.text("REG");
         expect(frameToText(await session.captureFrame())).toContain("REG");
@@ -103,12 +103,12 @@ describe("Output panel fix — регрессии соседних механи�
         app = await startOutputApp();
         const { session } = app;
         await session.waitForText((t) => t.includes("greeting"));
-        // Курсор сразу после «greeting»: Tab там вставляет выравнивающий отступ.
+        // Cursor right after `greeting`: Tab there inserts alignment whitespace.
         await clickText(session, "const greeting", { dx: "const greeting".length });
         await session.key("Tab");
         const row = findTextRow(await session.captureFrame(), "const greeting");
-        // Каретка на видимой колонке 14, tabSize 4 (детекция по фикстуре) → два
-        // пробела ДО табстопа 16, а не четыре: Tab выравнивает по табстопам.
+        // Cursor at visible column 14, tabSize 4 (detected from the fixture) → two
+        // spaces UP TO tab stop 16, not four: Tab aligns to tab stops.
         expect(frameLine(await session.captureFrame(), row)).toContain("const greeting   = ");
         expect(await focusedType(session)).toBe("EditorElement");
     }, 180_000);
@@ -120,11 +120,11 @@ describe("Output panel fix — регрессии соседних механи�
         await clickText(session, "const greeting", { dx: "const ".length });
 
         await session.key("Alt+R"); // toggleActiveEditorReadonlyInSession
-        expect(frameLine(await session.captureFrame(), 1)).toContain("\uea75"); // nf-cod-lock на вкладке
+        expect(frameLine(await session.captureFrame(), 1)).toContain("\uea75"); // nf-cod-lock on the tab
         await session.text("NOPE");
         expect(frameToText(await session.captureFrame())).not.toContain("NOPE");
 
-        await session.key("Alt+R"); // снимаем read-only
+        await session.key("Alt+R"); // clear read-only
         expect(frameLine(await session.captureFrame(), 1)).not.toContain("\uea75");
         await session.text("YES");
         expect(frameToText(await session.captureFrame())).toContain("YES");
@@ -136,7 +136,7 @@ describe("Output panel fix — регрессии соседних механи�
         await openOutput(session);
         await pickChannel(session, "Keybindings");
 
-        // Набиваем лог сильно больше высоты панели и смотрим, что видно последнее.
+        // Fill the log well beyond the panel height and check that the latest lines are visible.
         for (let i = 0; i < 20; i++) await session.key("ArrowRight");
         const f = await session.captureFrame();
         const lineNos: number[] = [];
@@ -163,7 +163,7 @@ describe("Output panel fix — регрессии соседних механи�
         const { session } = app;
         await session.waitForText((t) => t.includes("original line"));
 
-        // Фокус — в дерево файлов; `maxX` — чтобы не попасть в одноимённую вкладку сверху.
+        // Focus the file tree; `maxX` avoids hitting the same-named tab at the top.
         await clickText(session, "watched.txt", { maxX: 20 });
         const before = await focusedType(session);
         expect(before, "фокус должен уйти из редактора").not.toBe("EditorElement");
@@ -175,7 +175,7 @@ describe("Output panel fix — регрессии соседних механи�
     }, 180_000);
 });
 
-/** -1 — не нашлось. */
+/** -1 if not found. */
 function findTextRow(frame: import("@tuidom/core/rendering/gridSnapshot").GridSnapshot, needle: string): number {
     for (let y = 0; y < frame.rows; y++) if (frameLine(frame, y).includes(needle)) return y;
     return -1;

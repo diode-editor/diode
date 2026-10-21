@@ -6,8 +6,8 @@ import WebSocket from "ws";
 
 import { waitUntil } from "./waitFor.ts";
 
-// Пробный клиент ide-сервера вместо настоящего `claude`: тот требует подписку и сеть
-// (docs/TESTING.md, «Claude Code без настоящего CLI»).
+// A probe client of the ide server instead of the real `claude`, which needs a subscription and network
+// (docs/TESTING.md, the paragraph on Claude Code without the real CLI).
 
 export const CLAUDE_CODE_ID = "Anthropic.claude-code";
 
@@ -20,14 +20,14 @@ export const FAKE_CLAUDE_BIN = resolve(
 );
 
 /**
- * Подставной `claude` первым в PATH: на машине разработчика настоящий CLI в PATH есть. Пустой
- * `CLAUDE_CONFIG_DIR` (его проверяют на истинность) уводит лок в изолированный `$HOME/.claude`.
+ * A fake `claude` first in PATH: on a developer machine the real CLI is in PATH. An empty
+ * `CLAUDE_CONFIG_DIR` (it is checked for truthiness) sends the lock to the isolated `$HOME/.claude`.
  */
 export function claudeCodeSessionEnv(): Record<string, string> {
     return { PATH: `${FAKE_CLAUDE_BIN}${delimiter}${process.env.PATH ?? ""}`, CLAUDE_CONFIG_DIR: "" };
 }
 
-/** Лок, который расширение пишет при старте ide-сервера (`~/.claude/ide/<port>.lock`). */
+/** The lock the extension writes when the ide server starts (`~/.claude/ide/<port>.lock`). */
 export interface IIdeLock {
     readonly port: number;
     readonly pid: number;
@@ -63,8 +63,8 @@ export interface IToolResult {
 }
 
 /**
- * Ходит, как CLI: порт из лока, `authToken` в `x-claude-code-ide-authorization`, MCP `initialize`.
- * Сервер держит одного клиента — новое подключение выбивает прежнее.
+ * Connects like the CLI: port from the lock, `authToken` in `x-claude-code-ide-authorization`, MCP `initialize`.
+ * The server holds a single client — a new connection kicks out the previous one.
  */
 export class IdeProbe {
     public readonly notifications: { method: string; params: Record<string, unknown> }[] = [];
@@ -122,7 +122,7 @@ export class IdeProbe {
         return { isError: result.isError === true, text: result.content.map((c) => c.text ?? "").join("") };
     }
 
-    /** Ищет и среди уже пришедших с подключения. */
+    /** Also searches notifications already received since connecting. */
     public async waitForNotification(
         method: string,
         predicate: (params: Record<string, unknown>) => boolean,

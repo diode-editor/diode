@@ -5,8 +5,8 @@ import { frameToText } from "./helpers/frame.ts";
 import type { HeadlessSession } from "./helpers/headlessSession.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// F3 работает и с закрытым виджетом — как в VS Code, где «Find Next» висит на
-// фокусе редактора (`EditorContextKeys.focus`), а не на видимости виджета.
+// F3 works with the widget closed too — as in VS Code, where "Find Next" depends on
+// editor focus (`EditorContextKeys.focus`), not on widget visibility.
 
 const files = { "notes.txt": "alpha\nbeta\nalpha\ngamma\nalpha\n" };
 
@@ -27,14 +27,14 @@ describe("Find: навигация по совпадениям", () => {
         await session.waitForText((t) => t.includes("gamma"));
         expect(await cursor(session)).toBe("1:1");
 
-        // Обычный путь: Ctrl+F, запрос, Escape. Escape оставляет курсор на текущем
-        // совпадении — первом «alpha» (строка 1).
+        // The usual path: Ctrl+F, query, Escape. Escape leaves the cursor on the current
+        // match — the first "alpha" (line 1).
         await session.key("Ctrl+F");
         await session.text("alpha");
         await session.key("Escape");
         expect(await cursor(session)).toBe("1:6");
 
-        // Виджет закрыт — F3 всё равно шагает по последнему запросу.
+        // The widget is closed — F3 still steps through the last query.
         await session.key("F3");
         await session.waitForText((t) => /Ln 3, Col 6/u.test(t));
         expect(await cursor(session)).toBe("3:6");
@@ -42,14 +42,14 @@ describe("Find: навигация по совпадениям", () => {
         await session.key("F3");
         await session.waitForText((t) => /Ln 5, Col 6/u.test(t));
 
-        // Shift+F3 возвращает назад.
+        // Shift+F3 goes back.
         await session.key("Shift+F3");
         await session.waitForText((t) => /Ln 3, Col 6/u.test(t));
     }, 120_000);
 
-    // Ctrl+Backspace доезжает только в CSI-u форме: легаси-байт 0x08 неотличим от
-    // Ctrl+H, поэтому сам бинд под tier-гейтом, а доезжающий везде путь —
-    // Alt+Backspace (`ESC 0x7f`). Окружение e2e пинуется к tier=legacy.
+    // Ctrl+Backspace arrives only in CSI-u form: the legacy byte 0x08 is indistinguishable from
+    // Ctrl+H, so the binding itself is behind a tier gate, and the path that works everywhere is
+    // Alt+Backspace (`ESC 0x7f`). The e2e environment is pinned to tier=legacy.
     it("Alt+Backspace стирает слово в поле поиска", async () => {
         const { session } = await useHeadlessApp({ files, open: ["notes.txt"], cols: 100, rows: 24 });
         await session.waitForText((t) => t.includes("gamma"));
@@ -66,7 +66,7 @@ describe("Find: навигация по совпадениям", () => {
         const { session } = await useHeadlessApp({ files, open: ["notes.txt"], cols: 100, rows: 24 });
         await session.waitForText((t) => t.includes("gamma"));
 
-        // Выделяем «alpha» в первой строке и ищем его же, не открывая виджет.
+        // Select "alpha" on the first line and search for it without opening the widget.
         for (let i = 0; i < 5; i++) await session.key("Shift+ArrowRight");
         await session.key("F3");
 

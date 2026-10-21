@@ -1,7 +1,7 @@
 "use strict";
 
-// Повторяет `go.locate.tools` у golang.go: отчёт собирается строкой, уходит в
-// безымянный markdown-документ и показывается вкладкой.
+// Mirrors `go.locate.tools` from golang.go: the report is built as a string, goes into
+// an untitled markdown document and is shown as a tab.
 exports.activate = function activate(context) {
     const vscode = require("vscode");
     context.subscriptions.push(

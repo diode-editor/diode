@@ -1,15 +1,15 @@
 /**
- * Причина в строке `activated extension "<id>" (<событие>)` канала «Extension Host» и есть ассерт
- * сценариев `workspaceContains:`/`onCommand:`. Две ловушки:
- * - тост стокового ruff про Python-окружение перекрывает хвост строки — гасим
- *   `notifications.clearAll` на КАЖДОЙ попытке: он может приехать и после первой очистки;
- * - с открытым сайдбаром хвост длинной строки не влезает (перенос в Output выключен) — прячем.
+ * The reason in the `activated extension "<id>" (<event>)` line of the "Extension Host" channel is the
+ * assertion of the `workspaceContains:`/`onCommand:` scenarios. Two pitfalls:
+ * - the stock ruff extension's Python environment toast covers the line tail — clear it with
+ *   `notifications.clearAll` on EVERY attempt: it may arrive after the first clear too;
+ * - with the sidebar open the tail of a long line doesn't fit (word wrap in Output is off) — hide it.
  *
- * Клавиши, а не палитра: палитра возвращает фокус открывшему. Буквы не совпадают с мнемониками
- * меню-бара (F/E/S/V/G/H — флак: `Alt+H` открывал Help) и с SS3 (`ESC O` — это F1, поэтому не «O»).
+ * Keys, not the command palette: the palette returns focus to whoever opened it. The letters avoid menu bar
+ * mnemonics (F/E/S/V/G/H — flake: `Alt+H` opened Help) and SS3 (`ESC O` is F1, hence no "O").
  */
 
-/** Кейбинды, которые сценарий обязан отдать в `userKeybindings`. */
+/** Keybindings the scenario must pass in `userKeybindings`. */
 export const ACTIVATION_LOG_KEYBINDINGS: readonly { key: string; command: string }[] = [
     { key: "alt+u", command: "workbench.action.output.toggleOutput" },
     { key: "alt+j", command: "workbench.action.output.show.extensions.host" },
@@ -30,21 +30,21 @@ export async function openActivationLog(ui: IActivationLogUi): Promise<void> {
     await ui.sendKey("Alt+U");
     await waitPastToasts(ui, (t) => t.includes("OUTPUT"), "вкладка OUTPUT");
     await ui.sendKey("Alt+J");
-    // Подпись канала — в ПРАВОЙ части шапки, ровно под тостом (флак CI: строка журнала была в
-    // кадре, а «Extension Host» закрывал тост ruff'а).
+    // The channel label is on the RIGHT of the header, right under the toast (CI flake: the log line was
+    // in the frame, but ruff's toast covered "Extension Host").
     await waitPastToasts(ui, (t) => t.includes("Extension Host"), "канал Extension Host");
 }
 
 export async function waitForActivationLine(ui: IActivationLogUi, needle: string): Promise<void> {
     await waitPastToasts(ui, (t) => t.includes(needle), `строка журнала «${needle}»`);
-    // Ещё одна очистка перед кадром: тост мог вернуться между проверкой и
-    // скриншотом, и демо показывало бы его вместо журнала.
+    // One more clear before the frame: the toast may return between the check and
+    // the screenshot, and the demo would show it instead of the log.
     await ui.sendKey("Alt+Y");
 }
 
 /**
- * Цикл коротких пойманных попыток, а не один длинный `waitForText`: тост приезжает асинхронно, и до
- * очистки, и после, — непойманное ожидание упало бы на первом же таком кадре.
+ * A loop of short caught attempts, not one long `waitForText`: the toast arrives asynchronously, both before
+ * and after clearing — an uncaught wait would fail on the first such frame.
  */
 async function waitPastToasts(
     ui: IActivationLogUi,
@@ -58,7 +58,7 @@ async function waitPastToasts(
             await ui.waitForText(predicate, { timeoutMs: 4000 });
             return;
         } catch {
-            // Ещё не доехало (или тост успел вернуться) — повторяем.
+            // Not there yet (or the toast came back) — retry.
         }
     }
     throw new Error(`activation log: не дождались — ${what}`);

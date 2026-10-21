@@ -1,11 +1,11 @@
-// Единственная точка, где e2e ждёт по времени: вместо `sleep()` — предикаты с диагностикой таймаута.
+// The only place where e2e waits on time: predicates with timeout diagnostics instead of `sleep()`.
 
 export interface WaitUntilOptions {
     timeoutMs?: number;
     intervalMs?: number;
-    /** Человекочитаемое «чего ждём» — попадает в сообщение об ошибке. */
+    /** Human-readable "what we are waiting for" — goes into the error message. */
     describe?: string;
-    /** Диагностика последнего наблюдения — дописывается к таймаут-ошибке. */
+    /** Diagnostics of the last observation — appended to the timeout error. */
     diagnose?: (last: unknown) => string;
 }
 

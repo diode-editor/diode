@@ -63,7 +63,7 @@ describe("SEA binary — user extensions", () => {
 
     itLinuxOnly("without --user-data-dir hello-lang grammar is not applied", async () => {
         const { session } = await usePtyApp({ open: [fixturePath] });
-        // Кадр с текстом идёт без подсветки — ждём режим языка в статус-баре.
+        // The frame with text arrives before highlighting — wait for the language mode in the status bar.
         const screen = await session.waitFor((s) => s.findText("hello") !== null && s.findText("Plain Text") !== null);
 
         const helloPos = screen.findText("hello");
@@ -73,22 +73,22 @@ describe("SEA binary — user extensions", () => {
     });
 
     itLinuxOnly("user extension с main self-spawn'ит subprocess и проставляет tabSize", async () => {
-        // tab-setter ставит tabSize=7 / insertSpaces=false через `activeTextEditor.options`;
-        // при tabSize=7 «indented» после таба — в столбце 7.
+        // tab-setter sets tabSize=7 / insertSpaces=false via `activeTextEditor.options`;
+        // with tabSize=7, "indented" after the tab is at column 7.
         const { session } = await usePtyApp({
             seedUserData: tabSetterUserDataPath,
             open: [tabbedFixturePath],
             inspect: true,
         });
-        // Предикатом по inspectState, а не по появлению текста: под нагрузкой кадр
-        // снимается раньше, чем долетит RPC.
+        // A predicate on inspectState, not on text appearing: under load the frame
+        // is captured before the RPC arrives.
         await session.waitForDocument(
             (root) => findNode(root, (n) => n.type === "EditorElement")?.state?.tabSize === 7,
             { timeoutMs: 20_000 },
         );
-        // Состояние и кадр — независимые каналы (WebSocket и PTY). Ждать слово «indented»
-        // нельзя: оно есть при ЛЮБОМ tabSize, и под голодом раннера снимался кадр до RPC
-        // (CI 37195942480: expected 4 to be 7). Ждём сам отступ.
+        // State and frame are independent channels (WebSocket and PTY). Waiting for the word "indented"
+        // does not work: it is there with ANY tabSize, and on a starved runner the frame was captured
+        // before the RPC (CI 37195942480: expected 4 to be 7). Wait for the indent itself.
         const screen = await session.waitFor((s) => tabIndentOf(s) === 7, { timeoutMs: 20_000 });
         const indentedRow = locateRow(screen, "indented");
         const indentedPos = screen.findText("indented")!;
@@ -102,8 +102,8 @@ describe("SEA binary — user extensions", () => {
     itLinuxOnly(
         "will-save участник user extension трансформирует байты при Ctrl+S (проводка saveParticipant)",
         async () => {
-            // Герметичный гейт проводки: `group.saveParticipant` обязан быть привязан к
-            // `host.willSaveTextDocument`; до него гейтом был только сетевой сьют editorconfig.
+            // Hermetic wiring gate: `group.saveParticipant` must be bound to
+            // `host.willSaveTextDocument`; before it, the only gate was the networked editorconfig suite.
             const { session, env } = await usePtyApp({
                 seedUserData: willSaveUserDataPath,
                 files: { "trim.txt": "one  \ntwo\t" },
@@ -114,9 +114,9 @@ describe("SEA binary — user extensions", () => {
                 timeoutMs: 20_000,
             });
 
-            // Ctrl+S шлётся повторно до преображения байтов: save() гоняет
-            // участника безусловно, повтор само-синхронизируется с асинхронной
-            // активацией расширения (тот же приём, что в editorconfig-stock).
+            // Ctrl+S is resent until the bytes are transformed: save() runs the
+            // participant unconditionally, so the retry self-synchronizes with the async
+            // extension activation (same trick as in editorconfig-stock).
             const fp = join(env.workspaceDir, "trim.txt");
             const deadline = Date.now() + 25_000;
             let bytes = readFileSync(fp, "utf8");
@@ -137,10 +137,10 @@ function locateRow(screen: AnsiScreen, text: string): number {
 }
 
 /**
- * Отрисованная ширина таба на фикстуре `tabbed.txt`: `indented` стоит за табом
- * в колонке 0, `end` — в колонке 0 без отступа, так что разница их экранных `x`
- * и есть tabSize, которым строка разложена. `null` — одной из строк на кадре
- * ещё нет.
+ * Rendered tab width on the `tabbed.txt` fixture: `indented` follows a tab
+ * at column 0, `end` is at column 0 with no indent, so the difference of their screen `x`
+ * is the tabSize the line was laid out with. `null` — one of the lines is not
+ * in the frame yet.
  */
 function tabIndentOf(screen: AnsiScreen): number | null {
     const indented = screen.findText("indented");

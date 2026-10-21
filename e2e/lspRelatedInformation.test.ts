@@ -8,10 +8,10 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Регресс: конвертер vscode-languageclient конструирует `new DiagnosticRelatedInformation`
- * на каждую такую диагностику, а класса в стабе не было — падала ВСЯ пачка, файл
- * оставался без подчёркиваний. Поэтому фикстура — TS2741, у которой tsserver всегда
- * шлёт related information; TS2322 соседних сьютов её не ловит.
+ * Regression: the vscode-languageclient converter constructs `new DiagnosticRelatedInformation`
+ * for every such diagnostic, and the stub lacked the class — the WHOLE batch failed and the file
+ * was left without squiggles. Hence the fixture is TS2741, for which tsserver always
+ * sends related information; the TS2322 of neighboring suites doesn't catch it.
  */
 
 const require_ = createRequire(import.meta.url);
@@ -26,7 +26,7 @@ const MAIN_TS =
 
 const UNDERCURL = 8;
 
-// Только Linux: extension host + спавн language-сервера (docs/TODO/E2E.md).
+// Linux only: extension host + language server spawn (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
     "SEA binary — диагностика с related information (stock typescript-language-server)",
     () => {
@@ -46,14 +46,14 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             });
             await session.waitForNode("EditorElement");
 
-            // Пачка диагностик пережила конвертацию.
+            // The diagnostics batch survived conversion.
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
                 { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
-            // Маркер доехал до MarkerService, а не просто «что-то подчёркнулось».
+            // The marker reached MarkerService, not just "something got underlined".
             await session.key("Ctrl+J");
             await session.waitForText((text) => /is missing/i.test(text), { timeoutMs: 60_000, intervalMs: 500 });
 

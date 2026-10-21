@@ -1,6 +1,6 @@
 "use strict";
 
-/** Форма вклада `editor/title` стокового Claude Code: accept/reject предложенного диффа под setContext-ключом. */
+/** Shape of the stock Claude Code `editor/title` contribution: accept/reject a proposed diff under a setContext key. */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 

@@ -7,12 +7,12 @@ import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 /**
- * Сьют же — гейт загрузки ESM-расширений на собранном бинаре: prettier с 12.x —
- * `"type": "module"`, и под SEA прямой `import()` из вшитого main перехватывается
- * embedder-хуком. Юнитом это не проверить.
+ * The suite also gates loading ESM extensions in the built binary: prettier since 12.x is
+ * `"type": "module"`, and under SEA a direct `import()` from the embedded main is intercepted
+ * by the embedder hook. A unit test cannot check this.
  */
 
-// Только Linux: extension host (docs/TODO/E2E.md).
+// Linux only: extension host (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin" || MARKETPLACE_OFFLINE)(
     "SEA binary — стоковый prettier.vsix (формат markdown и json)",
     () => {
@@ -27,8 +27,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin" ||
                 open: ["doc.md"],
             });
             await session.waitForNode("EditorElement");
-            // Статус-бар prettier появляется в конце activate() — это и есть
-            // readiness: провайдеры к этому моменту уже зарегистрированы.
+            // The prettier status bar item appears at the end of activate() — that is the
+            // readiness signal: by then the providers are already registered.
             await session.waitForText((text) => text.includes("Prettier"), {
                 timeoutMs: 120_000,
                 intervalMs: 500,

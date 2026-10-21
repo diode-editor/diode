@@ -5,13 +5,13 @@ import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 /**
- * VT-эмулятор — ленивый кусок `lazy/@xterm/headless.cjs`: сессия терминала создаётся
- * сразу, эмулятор — когда кусок загрузился. Здесь — гонка, которую юнит целиком не
- * воспроизводит: несколько терминалов и ввод раньше загрузки куска. Отказ кэша кода
- * куска ушёл бы в Bootstrap непредвиденной ошибкой.
+ * The VT emulator is the lazy chunk `lazy/@xterm/headless.cjs`: the terminal session is created
+ * immediately, the emulator once the chunk has loaded. This covers the race a unit test cannot fully
+ * reproduce: several terminals and input before the chunk loads. A rejected code cache for the
+ * chunk would surface in Bootstrap as an unexpected error.
  */
 
-// node-pty — только unix в нынешней упаковке (как сценарий `terminal`).
+// node-pty is unix-only in the current packaging (like the `terminal` scenario).
 const describeUnix = process.platform === "win32" ? describe.skip : describe;
 
 describeUnix("встроенный терминал сразу после старта — SEA", () => {
@@ -26,13 +26,13 @@ describeUnix("встроенный терминал сразу после ста
             env: { SHELL: "/bin/bash", PS1: "diode$ ", PROMPT_COMMAND: "" },
         });
 
-        // Инспектор поднимается до активации расширений — команды уходят в ещё
-        // не дозапустившийся редактор, без ожидания готовности и покоя рендера.
+        // The inspector comes up before extensions activate — commands go to an editor that
+        // has not finished starting, without waiting for readiness or render idle.
         await session.executeCommand("workbench.action.terminal.new");
         await session.executeCommand("workbench.action.terminal.new");
         await session.executeCommand("workbench.action.terminal.new");
-        // Маркер разорван пустой подстановкой: целиком он может появиться только в
-        // выводе шелла, а не в эхо набранной строки.
+        // The marker is split by an empty substitution: it can appear whole only in the
+        // shell output, not in the echo of the typed line.
         await session.sendText('echo lazy""-term-$((6*7))');
         await session.sendKey("Enter");
 

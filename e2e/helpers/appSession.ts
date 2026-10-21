@@ -8,40 +8,40 @@ import { HeadlessSession, type HeadlessSessionOptions } from "./headlessSession.
 import { reapSession } from "./processGroup.ts";
 import { DiodeSession } from "./runDiode.ts";
 
-// Единственная реализация изолированного запуска бинаря для e2e: без неё сьюты стартовали против
-// реального `~/.diode` (чужая сессия, чужие расширения, корзина и `diode.log` разработчика).
+// The single implementation of an isolated binary launch for e2e: without it suites started against
+// the real `~/.diode` (someone else's session and extensions, the developer's trash and `diode.log`).
 //
 //     <root>/
 //       user-data-dir/   → --user-data-dir (settings, keybindings, globalState, extensions)
-//       home/            → HOME/USERPROFILE + XDG_{DATA,CACHE,CONFIG}_HOME (корзина, кеши)
-//       workspace/       → cwd процесса (diode.log, ext-host folders) + сид-воркспейс
+//       home/            → HOME/USERPROFILE + XDG_{DATA,CACHE,CONFIG}_HOME (trash, caches)
+//       workspace/       → process cwd (diode.log, ext-host folders) + seeded workspace
 
-/** Сид-файл в изолированный воркспейс: относительный путь → текст (utf-8) или байты как есть (файл в чужой кодировке). */
+/** Seed files for the isolated workspace: relative path → text (utf-8) or raw bytes (a file in another encoding). */
 export type SeedFiles = Readonly<Record<string, string | Uint8Array>>;
 
 export interface AppEnvOptions {
-    /** Относительные пути; родители создаются. */
+    /** Relative paths; parent directories are created. */
     files?: SeedFiles;
     settings?: Readonly<Record<string, unknown>> | string;
     keybindings?: readonly { key: string; command: string; when?: string; args?: unknown }[];
-    /** Путь к `.vsix` или id из публичного магазина (различение по суффиксу, как у CLI); id ходит в сеть. */
+    /** A `.vsix` path or a public marketplace id (told apart by suffix, as in the CLI); an id hits the network. */
     installVsix?: readonly string[];
-    /** Копируется в изолированный `--user-data-dir` — чтобы сессия не писала в закоммиченную фикстуру. */
+    /** Copied into the isolated `--user-data-dir` so the session does not write into a committed fixture. */
     seedUserData?: string;
     /**
-     * Относительные пути — от изолированного воркспейса. Опущено — сам воркспейс (workspaceFolder);
-     * пустой массив — ЯВНО голый `diode`, пустое окно.
+     * Paths are relative to the isolated workspace. Omitted — the workspace itself (workspaceFolder);
+     * an empty array — EXPLICITLY bare `diode`, an empty window.
      */
     open?: readonly string[];
-    /** Кроме headless/inspect-tui — их ставит транспорт. */
+    /** Excluding headless/inspect-tui — the transport sets those. */
     extraArgs?: readonly string[];
     env?: Readonly<Record<string, string>>;
-    /** Корень прошлой сессии — тесты на рестарт. */
+    /** Root of a previous session — for restart tests. */
     root?: string;
     keepRoot?: boolean;
-    /** По умолчанию изолируем; `false` — для теста, которому нужен настоящий HOME. */
+    /** Isolated by default; `false` for a test that needs the real HOME. */
     isolateHome?: boolean;
-    /** По умолчанию — изолированный воркспейс (туда же `diode.log`); сценарии стартуют из repoRoot. */
+    /** Defaults to the isolated workspace (where `diode.log` goes too); scenarios start from repoRoot. */
     cwd?: string;
     cols?: number;
     rows?: number;
@@ -51,29 +51,29 @@ export interface AppEnv {
     readonly root: string;
     readonly userDataDir: string;
     readonly home: string;
-    /** cwd процесса и (по умолчанию) workspaceFolder. */
+    /** Process cwd and (by default) workspaceFolder. */
     readonly workspaceDir: string;
     readonly args: string[];
     readonly env: Record<string, string>;
     dispose(): void;
 }
 
-/** Зеркало раскладки `resolveUserDataPaths`. */
+/** Mirrors the `resolveUserDataPaths` layout. */
 function userProfileDir(userDataDir: string): string {
     return join(userDataDir, "user-data", "User");
 }
 
 /**
- * На Windows встроенный TS-сервер не поднимается («Server initialization failed …»), а его
- * error-тосты роняют сценарии, к LSP отношения не имеющие, — там клиент гасим. Тесту со своими
- * настройками не дописываем НИЧЕГО: такие сверяют файл дословно (`extensionTheme.test.ts`).
+ * On Windows the built-in TS server fails to start ("Server initialization failed …"), and its
+ * error toasts break scenarios unrelated to LSP — so the client is turned off there. A test with its own
+ * settings gets NOTHING appended: such tests compare the file verbatim (`extensionTheme.test.ts`).
  */
 function platformSettingDefaults(explicit: AppEnvOptions["settings"]): Record<string, unknown> {
     if (explicit !== undefined || process.platform !== "win32") return {};
     return { "diode.lsp.typescript.enabled": false };
 }
 
-/** Только готовит FS и возвращает аргументы/env для транспорта — ничего не запускает. */
+/** Only prepares the FS and returns args/env for the transport — launches nothing. */
 export async function prepareAppEnv(options: AppEnvOptions = {}): Promise<AppEnv> {
     const isolateHome = options.isolateHome !== false;
     const root = options.root ?? mkdtempSync(join(tmpdir(), "diode-e2e-"));
@@ -108,7 +108,7 @@ export async function prepareAppEnv(options: AppEnvOptions = {}): Promise<AppEnv
         }
     }
 
-    // Установка расширений — тем же CLI-путём, что у пользователя.
+    // Install extensions via the same CLI path a user takes.
     for (const vsix of options.installVsix ?? []) {
         await installExtension(userDataDir, vsix);
     }
@@ -134,14 +134,14 @@ export async function prepareAppEnv(options: AppEnvOptions = {}): Promise<AppEnv
     };
 }
 
-/** Абсолютный путь? (POSIX `/…` или Windows `C:\…`). */
+/** Absolute path? (POSIX `/…` or Windows `C:\…`). */
 function isAbsoluteLike(p: string): boolean {
     return p.startsWith("/") || /^[A-Za-z]:[\\/]/.test(p);
 }
 
 /**
- * HOME/XDG — внутрь корня. Терминальную идентичность пинует сам спаун сессии
- * ({@link import("./hermeticEnv.ts").hermeticSpawnEnv}), последним шагом мержа.
+ * HOME/XDG go inside the root. Terminal identity is pinned by the session spawn itself
+ * ({@link import("./hermeticEnv.ts").hermeticSpawnEnv}), as the last merge step.
  */
 function buildEnv(home: string, isolateHome: boolean, extra?: Readonly<Record<string, string>>): Record<string, string> {
     const env: Record<string, string> = {};
@@ -151,7 +151,7 @@ function buildEnv(home: string, isolateHome: boolean, extra?: Readonly<Record<st
     return env;
 }
 
-/** Ловят пути мимо `--user-data-dir`: корзину (`trashService`), кеш self-extract, шелл-конфиги. */
+/** Catch paths that bypass `--user-data-dir`: trash (`trashService`), self-extract cache, shell configs. */
 export function homeIsolationEnv(home: string): Record<string, string> {
     return {
         HOME: home,
@@ -163,8 +163,8 @@ export function homeIsolationEnv(home: string): Record<string, string> {
 }
 
 /**
- * Реджектит на ненулевом коде: битая фикстура должна ронять сессию, а не давать молча
- * незаряженное расширение.
+ * Rejects on a non-zero exit code: a broken fixture must fail the session rather than silently
+ * yield a session without the extension.
  */
 async function installExtension(userDataDir: string, vsix: string): Promise<void> {
     const binary = await getBinaryPath();
@@ -183,14 +183,14 @@ async function installExtension(userDataDir: string, vsix: string): Promise<void
 }
 
 /**
- * Windows отдаёт хендлы не мгновенно — `rmSync` падает с `EPERM`, отсюда `maxRetries`. Не вышло —
- * не падаем: каталог внутри корня прогона, его снесёт teardown (`src/TestUtils/tmpRoot.ts`).
+ * Windows releases handles with a delay — `rmSync` fails with `EPERM`, hence `maxRetries`. If it still
+ * fails, don't throw: the directory is inside the run root, and teardown removes it (`src/TestUtils/tmpRoot.ts`).
  */
 export function removeTempDir(dir: string): void {
     try {
         rmSync(dir, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
     } catch {
-        // best-effort: временный каталог не стоит упавшего теста
+        // best-effort: a temp directory is not worth a failed test
     }
 }
 
@@ -217,8 +217,8 @@ export async function startHeadlessApp(options: AppEnvOptions & { binary?: strin
         env,
         dispose: async () => {
             await session.dispose();
-            // Языковые серверы живут в чужой группе процессов: групповой сигнал
-            // `dispose` до них не доходит. Добиваем всё с меткой сессии.
+            // Language servers live in another process group: the group signal from
+            // `dispose` does not reach them. Kill everything with the session tag.
             await reapSession(session.sessionTag);
             env.dispose();
         },
@@ -233,7 +233,7 @@ export interface PtyApp {
 }
 
 export interface PtyAppOptions extends AppEnvOptions {
-    /** Поднять инспектор рядом с PTY (ассерты по дереву без ANSI-парсинга). */
+    /** Start the inspector alongside the PTY (tree assertions without ANSI parsing). */
     inspect?: boolean;
     binary?: string;
 }
@@ -254,8 +254,8 @@ export async function startPtyApp(options: PtyAppOptions = {}): Promise<PtyApp> 
         env,
         dispose: async () => {
             await session.dispose();
-            // Языковые серверы живут в чужой группе процессов: групповой сигнал
-            // `dispose` до них не доходит. Добиваем всё с меткой сессии.
+            // Language servers live in another process group: the group signal from
+            // `dispose` does not reach them. Kill everything with the session tag.
             await reapSession(session.sessionTag);
             env.dispose();
         },

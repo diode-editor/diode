@@ -19,15 +19,16 @@ export function treeSkeleton(root: NodeSnapshot | null, maxDepth = 40): string {
     return lines.join("\n");
 }
 
-/** Сколько пост-мортем ждёт ответа редактора на каждый свой запрос. */
+/** How long the post-mortem waits for the editor to answer each of its requests. */
 const PROBE_TIMEOUT_MS = 10_000;
 
-/** Сужено до используемого — фейкается в тесте. */
+/** Narrowed to what is used — faked in tests. */
 export type DumpableSession = Pick<HeadlessSession, "captureFrame" | "getDocument" | "getStderr">;
 
 /**
- * Ничего не бросает и не ждёт дольше `probeTimeoutMs` на запрос: зовётся из хука упавшего теста,
- * а редактор, из-за которого тест упал, может и не ответить — без срока хук молчал бы весь `hookTimeout`.
+ * Never throws and never waits longer than `probeTimeoutMs` per request: it is called from a failed test's hook,
+ * and the editor that caused the failure may not answer — without a deadline the hook would hang for the whole
+ * `hookTimeout`.
  */
 export async function dumpSession(
     session: DumpableSession,

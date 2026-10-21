@@ -15,7 +15,7 @@ import {
     waitForPanelPersisted,
 } from "./outputPanel.shared.ts";
 
-// Помеченные `[BUG-n]` падали на head PR #197 до фикса (cda7424).
+// Tests tagged `[BUG-n]` failed on the PR #197 head before the fix (cda7424).
 
 describe("Output panel (functional e2e)", () => {
     let app: HeadlessApp | null = null;
@@ -60,7 +60,7 @@ describe("Output panel (functional e2e)", () => {
         await session.key("Escape");
         await session.waitForNoNode("PopupMenuElement");
 
-        // Не TERMINAL: тот спавнит настоящий PTY.
+        // Not TERMINAL: it spawns a real PTY.
         await clickTab(session, "PROBLEMS");
         await session.waitForNoNode("SelectBoxElement");
         expect(await activeTab(session)).toBe("PROBLEMS");
@@ -69,8 +69,8 @@ describe("Output panel (functional e2e)", () => {
         await session.waitForNode("SelectBoxElement");
     }, 120_000);
 
-    // Каналы Output — contribution фазы `afterRestored`, как у эталона; у нас она приходит
-    // после кадра с подсветкой (OpenPerformance, рычаг 8).
+    // Output channels are an `afterRestored` phase contribution, as upstream; here that phase comes
+    // after the highlighted frame (OpenPerformance, lever 8).
     it("OUTPUT, открытый сразу после старта, получает селектор и команды каналов", async () => {
         app = await startOutputApp();
         const { session } = app;
@@ -110,8 +110,8 @@ describe("Output panel (functional e2e)", () => {
         expect((await outputEditor(session)).state?.readOnly).toBe(true);
 
         await session.key("Alt+R"); // toggleActiveEditorReadonlyInSession
-        await session.key("Alt+R"); // повторно — снова settle; проверяем итог
-        // Лог обязан остаться read-only, ввод не должен просочиться.
+        await session.key("Alt+R"); // again — settle once more; check the result
+        // The log must stay read-only; input must not leak through.
         await session.text("HACKED");
         expect((await outputEditor(session)).state?.readOnly).toBe(true);
         expect(frameToText(await session.captureFrame())).not.toContain("HACKED");
@@ -122,15 +122,15 @@ describe("Output panel (functional e2e)", () => {
         const { session } = app;
         await openOutput(session);
 
-        // Выделение в верхней, стабильной части лога: не зависит от длины канала и автоскролла.
-        // Контроль — статичный канал Bootstrap.
+        // Selection in the top, stable part of the log: independent of channel length and autoscroll.
+        // The control is the static Bootstrap channel.
         await pickChannel(session, "Bootstrap");
         await focusLogBody(session);
         await session.key("Ctrl+Home");
         for (let i = 0; i < 2; i++) await session.key("Shift+ArrowDown");
         expect((await focusedEditorState(session))?.hasSelection).toBe(true);
 
-        // Опыт: живой канал Keybindings пишет на каждый keydown — revealLastLine схлопывал выделение.
+        // Observed: the live Keybindings channel writes on every keydown — revealLastLine collapsed the selection.
         await pickChannel(session, "Keybindings");
         await focusLogBody(session);
         await session.key("Ctrl+Home");
@@ -145,7 +145,7 @@ describe("Output panel (functional e2e)", () => {
         await focusLogBody(session);
 
         await session.key("Ctrl+F");
-        // "starting" есть в логе (`[info] diode starting`) и отсутствует в sample.ts.
+        // "starting" is in the log (`[info] diode starting`) and absent from sample.ts.
         await session.text("starting");
         const findLine = await session.waitForText(
             (t) => t.split("\n").some((l) => l.includes("[ ↑ ]")),
@@ -170,17 +170,17 @@ describe("Output panel (functional e2e)", () => {
             await openOutput(first.session);
             await waitForPanelPersisted(root);
         } finally {
-            await first.session.dispose(); // корень НЕ удаляем (keepRoot)
+            await first.session.dispose(); // do NOT delete the root (keepRoot)
         }
 
         app = await startOutputApp({ root, keepRoot: false });
         await app.session.waitForText((t) => t.includes("greeting"), { timeoutMs: 30_000 });
-        // Восстановление панели после рестарта — тяжёлый путь (второй boot);
-        // под нагрузкой параллельного прогона даём запас по времени.
+        // Restoring the panel after a restart is a heavy path (second boot);
+        // allow extra time under parallel-run load.
         const text = await app.session
             .waitForText((t) => t.includes("OUTPUT") && !t.includes("No output yet."), { timeoutMs: 30_000 })
             .then(frameToText);
-        // Фактически до фикса: "No output yet." — контент не создавался до активации вкладки.
+        // Before the fix: "No output yet." — content was not created until the tab was activated.
         expect(text).toMatch(/\[info\] diode starting/u);
     }, 180_000);
 });

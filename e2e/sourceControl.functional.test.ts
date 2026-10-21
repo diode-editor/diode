@@ -13,7 +13,7 @@ import { getBinaryPath } from "./helpers/buildOnce.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 
-// Буквы НЕ мнемонические: F/E/S/V/G/H заняты меню-баром.
+// Letters are NOT mnemonics: F/E/S/V/G/H are taken by the menu bar.
 const SWITCH_KEYS = [
     { key: "alt+c", command: "workbench.view.scm" },
     { key: "alt+x", command: "workbench.view.explorer" },
@@ -70,7 +70,7 @@ function lineWith(frame: string, needle: string): string {
     return frame.split("\n").find((l) => l.includes(needle)) ?? "";
 }
 
-/** Текст только внутри прямоугольника узла — без соседних панелей. */
+/** Text only inside the node's rectangle — without neighboring panels. */
 function regionText(frame: string, box: { x: number; y: number; width: number; height: number }): string {
     const lines = frame.split("\n");
     const out: string[] = [];
@@ -120,13 +120,13 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
 
         await session.waitForText((t) => t.includes("app.ts"));
         await session.key("Alt+C");
-        // Ждём НАПОЛНЕННЫЙ список (расширение публикует набор асинхронно) — иначе
-        // клик по y+1 попадёт в пустой список и активации не будет.
+        // Wait for a POPULATED list (the extension publishes the set asynchronously) — otherwise
+        // the click at y+1 lands in an empty list and nothing activates.
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("app.ts"));
         const list = await session.waitForNode("#changesView");
 
-        // Двойной клик по строке app.ts: первый ряд — заголовок группы «Changes»,
-        // файл — ряд ниже. Четыре события подряд без settle — в окно двойного клика.
+        // Double-click the app.ts row: the first row is the "Changes" group header,
+        // the file is the row below. Four events in a row without settle fit the double-click window.
         const x = list.box.x + 2;
         const y = list.box.y + 1;
         await session.sendMouse({ action: "press", button: "left", x, y });
@@ -134,8 +134,8 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
 
-        // Дифф открылся ЕДИНСТВЕННОЙ вкладкой: в строке вкладок ровно одно
-        // упоминание app.ts (метка диффа), файловой вкладки нет.
+        // The diff opened as the ONLY tab: the tab bar mentions app.ts exactly once
+        // (the diff label); there is no file tab.
         const frame = await session.waitForText((t) => t.includes("↔ HEAD")).then(frameToText);
         const tabsLine = lineWith(frame, "↔ HEAD");
         expect(tabsLine.split("app.ts").length - 1).toBe(1);
@@ -151,8 +151,8 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("extra.ts"));
         const list = await session.waitForNode("#changesView");
 
-        // Строки: заголовок «Changes» и extra.ts под ним — untracked едет в общей
-        // группе (app.ts закоммичен без правок).
+        // Rows: the "Changes" header and extra.ts below it — untracked goes into the common
+        // group (app.ts is committed with no edits).
         const x = list.box.x + 2;
         const y = list.box.y + 1;
         await session.sendMouse({ action: "press", button: "left", x, y });
@@ -160,7 +160,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
 
-        // Открылся сам файл (его контент и есть «всё новое»), диффа и notice нет.
+        // The file itself opened (its content is all new); no diff and no notice.
         const frame = await session.waitForText((t) => t.includes("export const answer = 42;")).then(frameToText);
         expect(frame).not.toContain("↔ HEAD");
         expect(frame).not.toContain("No changes to compare");
@@ -176,11 +176,11 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.waitForText((t) => t.includes("SOURCE CONTROL") && t.includes("app.ts"));
         const list = await session.waitForNode("#changesList");
 
-        // Кнопка Open File раскрывается только на строке под указателем — сначала наводим мышь.
+        // The Open File button appears only on the row under the pointer — hover first.
         const rowY = list.box.y + 1;
         await session.sendMouse({ action: "move", button: "none", x: list.box.x, y: rowY });
 
-        // Кнопка `[  ]` занимает 5 колонок слева от буквы статуса (fixed 1).
+        // The `[  ]` button takes 5 columns left of the status letter (fixed 1).
         const buttonX = list.box.x + list.box.width - 1 - OPEN_FILE_BUTTON_WIDTH;
         await session.sendMouse({ action: "press", button: "left", x: buttonX, y: rowY });
         await session.sendMouse({ action: "release", button: "left", x: buttonX, y: rowY });
@@ -209,7 +209,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
                 return scm.includes("src/deep") && !scm.includes("src/deep/mod.ts") && scm.includes("mod.ts");
             })
             .then(frameToText);
-        expect(regionText(tree, box)).toContain("src/deep"); // компакт-цепочка одним узлом
+        expect(regionText(tree, box)).toContain("src/deep"); // compact chain as a single node
 
         await session.key("Alt+L");
         await session.waitForText((t) => regionText(t, box).includes("src/deep/mod.ts"));
@@ -226,7 +226,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         const list = await session.waitForNode("#changesList");
 
         const x = list.box.x + 2;
-        const y = list.box.y + 1; // файловая строка под заголовком группы
+        const y = list.box.y + 1; // file row under the group header
         await session.sendMouse({ action: "press", button: "right", x, y });
         await session.sendMouse({ action: "release", button: "right", x, y });
 
@@ -249,7 +249,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
 
         expect(await session.node("#changesView")).not.toBeNull();
         const frame = frameToText(await session.captureFrame());
-        // В SCM-вьюлете Explorer подменён, поэтому app.ts не должен фигурировать как изменение.
+        // The SCM viewlet replaces Explorer, so app.ts must not appear as a change.
         const scmSlice = frame.slice(frame.indexOf("SOURCE CONTROL"));
         expect(scmSlice).not.toContain("app.ts");
     }, 120_000);
@@ -301,7 +301,7 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
 
     it("двойной клик по удалённому файлу (status D) открывает дифф «HEAD ↔ пусто»", async () => {
         const repo = makeRepo({ committed: { "app.ts": APP_TS }, clean: true });
-        // Удаляем закоммиченный файл на диске → unstaged deletion (D).
+        // Delete the committed file on disk → unstaged deletion (D).
         execFileSync("rm", [join(repo, "app.ts")]);
         app = await open(repo);
         const { session } = app;
@@ -312,15 +312,15 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         const list = await session.waitForNode("#changesView");
 
         const x = list.box.x + 2;
-        const y = list.box.y + 1; // файловая строка под заголовком группы
+        const y = list.box.y + 1; // file row under the group header
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
         await session.sendMouse({ action: "press", button: "left", x, y });
         await session.sendMouse({ action: "release", button: "left", x, y });
 
-        // Файла на диске нет — modified-сторона пустая: вся HEAD-версия видна
-        // удалённой. На 100 колонках панель уже порога — дифф inline (PR-6):
-        // HEAD-строки показаны призраками без номеров, плюсов с текстом нет.
+        // The file is gone from disk — the modified side is empty: the whole HEAD version shows
+        // as deleted. At 100 columns the panel is below the threshold — the diff is inline (PR-6):
+        // HEAD lines are shown as ghost rows without numbers; no plus lines with text.
         const frame = await session.waitForText((t) => t.includes("↔ HEAD")).then(frameToText);
         expect(frame).toContain("export function greet");
         expect(frame).toContain("HEAD ↔ app.ts");
@@ -337,13 +337,13 @@ describe("Source Control в сайдбаре (functional e2e, PR #207)", () => {
         await session.waitForText((t) => t.includes("greet"));
         await session.key("Alt+C");
         await session.waitForText((t) => t.includes("SOURCE CONTROL"));
-        // Регион списка — чтобы имя из вкладки редактора справа не считалось за изменение.
+        // List region only — so the name in the editor tab on the right does not count as a change.
         const box = (await session.waitForNode("#changesView")).box;
         const scmBefore = regionText(frameToText(await session.captureFrame()), box);
         expect(scmBefore).not.toContain("app.ts");
 
-        // Правим и сохраняем файл через редактор — расширение пересчитает git status
-        // по onDidSaveTextDocument и опубликует новый набор.
+        // Edit and save the file through the editor — the extension recomputes git status
+        // on onDidSaveTextDocument and publishes a new set.
         await session.clickNode("EditorElement");
         await session.text("// touch\n");
         await session.key("Ctrl+S");

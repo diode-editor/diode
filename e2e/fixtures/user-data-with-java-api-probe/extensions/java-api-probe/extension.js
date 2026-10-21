@@ -1,18 +1,18 @@
 "use strict";
 
 /**
- * Поверхности API, на которых стоковый `redhat.java` не доживал до конца `activate()`; итог шагов —
- * в Output, его читает сценарий. Не настоящий `redhat.java`: его нет в нашем реестре магазина, а
- * сам он требует JDK 21 и полминуты на подъём сервера.
+ * API surfaces on which the stock `redhat.java` didn't survive to the end of `activate()`; the step results go
+ * to Output, where the scenario reads them. Not the real `redhat.java`: it isn't in our marketplace registry, and
+ * it needs JDK 21 and half a minute to bring up its server.
  *
- * Порядок шагов не случаен: `workspace.fs` сам ставит ловушку для `findFiles` и в конце её сносит.
+ * The step order is deliberate: `workspace.fs` itself plants the trap for `findFiles` and removes it at the end.
  */
 
 exports.activate = async function activate(context) {
     const vscode = require("vscode");
     const out = vscode.window.createOutputChannel("Java API Probe");
 
-    // Маркер для сценария; полоса узкая — подробности в Output.
+    // Marker for the scenario; the status bar is narrow — details go to Output.
     const status = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
     status.name = "Java API Probe";
     status.text = "java api: работает";
@@ -24,7 +24,7 @@ exports.activate = async function activate(context) {
         steps.push(step + ": ПРОВАЛ " + String(err && err.message ? err.message : err));
     };
 
-    // 1. env. Первое падение активации: `switch (env.uiKind)` → `Cannot read properties of undefined (reading 'Desktop')`.
+    // 1. env. The first activation failure: `switch (env.uiKind)` → `Cannot read properties of undefined (reading 'Desktop')`.
     try {
         const kind = vscode.env.uiKind === vscode.UIKind.Desktop ? "Desktop" : "Web";
         steps.push(
@@ -45,9 +45,9 @@ exports.activate = async function activate(context) {
     const join = (...parts) => vscode.Uri.file(parts.join("/"));
     const root = folder ? folder.uri.fsPath : "";
 
-    // 2. workspace.fs — так jdt.ls раскладывает `-configuration`; падало на `fs.createDirectory is not a function`.
-    // Ловушка — в каталоге VCS: он в дефолте `files.exclude`. `node_modules` там нет (и у эталона) —
-    // его скрывает только `search.exclude`.
+    // 2. workspace.fs — this is how jdt.ls lays out `-configuration`; failed with `fs.createDirectory is not a function`.
+    // The trap lives in a VCS directory: it's in the default `files.exclude`. `node_modules` isn't there (upstream too) —
+    // only `search.exclude` hides it.
     const decoyParent = root + "/.hg";
     const decoyDir = decoyParent + "/decoy";
     try {
@@ -68,8 +68,8 @@ exports.activate = async function activate(context) {
         fail("fs", err);
     }
 
-    // 3. findFiles — redhat.java зовёт его около десяти раз за активацию. `exclude: undefined` обязан
-    // применить `files.exclude`, и только её, как в контракте эталона.
+    // 3. findFiles — redhat.java calls it about ten times per activation. `exclude: undefined` must
+    // apply `files.exclude`, and only that, as in the upstream contract.
     try {
         const withDefaults = await vscode.workspace.findFiles("**/pom.xml");
         const withoutExcludes = await vscode.workspace.findFiles("**/pom.xml", null);
@@ -87,7 +87,7 @@ exports.activate = async function activate(context) {
         fail("findFiles", err);
     }
 
-    // Ловушку за собой убираем — заодно это проверка `delete` с recursive.
+    // Clean up the trap — this also checks `delete` with recursive.
     try {
         await vscode.workspace.fs.delete(vscode.Uri.file(decoyParent), { recursive: true });
         steps.push("fs: delete(recursive) убрал ловушку");
@@ -95,7 +95,7 @@ exports.activate = async function activate(context) {
         fail("fs.delete", err);
     }
 
-    // 4. registerCustomEditorProvider: webview в TUI не будет by design, но регистрация обязана не падать.
+    // 4. registerCustomEditorProvider: TUI won't have webviews by design, but registration must not throw.
     try {
         const registration = vscode.window.registerCustomEditorProvider("javaApiProbe.settings", {
             resolveCustomTextEditor: () => Promise.resolve(),

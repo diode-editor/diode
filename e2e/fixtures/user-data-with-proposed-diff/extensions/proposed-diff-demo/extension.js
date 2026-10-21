@@ -1,12 +1,12 @@
 "use strict";
 
 /**
- * Повторяет `openDiff` стокового Anthropic.claude-code в терминальном режиме (сверено с бандлом
- * 2.1.304): правая сторона — в своём `FileSystemProvider` в памяти (класс `iG` бандла), вкладку
- * ждут опросом `tabGroups.all`. Гонка исходов: accept/reject командой, закрытие вкладки
- * (= reject), сохранение правой стороны (= FILE_SAVED, только при `files.autoSave === "off"`).
- * `close_tab` у CLI — сохранить правую сторону и `tabGroups.close` без диалога о несохранённом.
- * У FILE_SAVED в статус-баре — последнее слово первой строки (полоса узкая), полный текст — в Output.
+ * Mirrors `openDiff` of the stock Anthropic.claude-code in terminal mode (checked against bundle
+ * 2.1.304): the right side lives in its own in-memory `FileSystemProvider` (the bundle's `iG` class),
+ * and the tab is awaited by polling `tabGroups.all`. Outcomes race: accept/reject via command, closing
+ * the tab (= reject), saving the right side (= FILE_SAVED, only with `files.autoSave === "off"`).
+ * The CLI's `close_tab` saves the right side and calls `tabGroups.close` without an unsaved-changes dialog.
+ * For FILE_SAVED the status bar shows the last word of the first line (the bar is narrow); the full text is in Output.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");

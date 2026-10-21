@@ -12,7 +12,7 @@ import { usePtyApp } from "./helpers/useApp.ts";
 const here = fileURLToPath(new URL(".", import.meta.url));
 const fixturePath = resolve(here, "fixtures", "sample.ts");
 
-const KEYWORD_FG = packRgb(0x56, 0x9c, 0xd6); // "keyword" / "storage.type" из darkPlus
+const KEYWORD_FG = packRgb(0x56, 0x9c, 0xd6); // "keyword" / "storage.type" from darkPlus
 const COMMENT_FG = packRgb(0x6a, 0x99, 0x55); // "comment"
 const NUMBER_FG = packRgb(0xb5, 0xce, 0xa8); // "constant.numeric"
 

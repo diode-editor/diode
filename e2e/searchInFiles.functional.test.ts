@@ -6,7 +6,7 @@ import { clickText } from "./outputPanel.shared.ts";
 import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
-// Виджеты Search не имеют inspectState() — наблюдаем текст кадра и узел #search.
+// Search widgets have no inspectState(), so the tests observe the frame text and the #search node.
 
 const FILES = {
     "alpha.ts": "const Foo = 1;\nconst foobar = 2;\n// FOO here\n",
@@ -18,7 +18,7 @@ const FILES = {
 const KEYS = [
     { key: "f6", command: "workbench.view.search" },
     { key: "f7", command: "workbench.view.explorer" },
-    // Настоящая клавиша — Ctrl+Shift+J, e2e-DSL её не кодирует (как и Ctrl+Shift+F).
+    // The real key is Ctrl+Shift+J, which the e2e DSL can't encode (nor Ctrl+Shift+F).
     { key: "f8", command: "workbench.action.search.toggleQueryDetails" },
 ];
 
@@ -57,7 +57,7 @@ describe("Search panel (functional e2e)", () => {
         expect(text).toContain("sub/gamma.md");
         expect(text).toContain("foo appears here");
 
-        // 4 файла из фикстуры содержат foo/Foo/FOO (case-insensitive по умолчанию).
+        // 4 fixture files contain foo/Foo/FOO (case-insensitive by default).
         expect(counts(text)).toEqual({ matches: 7, files: 4 });
     }, 120_000);
 
@@ -84,14 +84,14 @@ describe("Search panel (functional e2e)", () => {
         const before = counts(frameToText(await session.captureFrame()));
         expect(before).toEqual({ matches: 7, files: 4 });
 
-        // Клик по глифу Aa в сайдбаре (maxX ограничивает левой панелью).
+        // Click the Aa glyph in the sidebar (maxX restricts it to the left panel).
         await clickText(session, "Aa", { maxX: 40 });
         await session.waitForText((t) => {
             const c = counts(t);
             return c !== null && c.files === 1;
         });
         const after = counts(frameToText(await session.captureFrame()));
-        // Точный регистр «FOO» есть только в комментарии alpha.ts.
+        // Exact-case `FOO` occurs only in the alpha.ts comment.
         expect(after).toEqual({ matches: 1, files: 1 });
     }, 120_000);
 
@@ -115,17 +115,17 @@ describe("Search panel (functional e2e)", () => {
         const app = await openSearch();
         const { session } = app;
 
-        // Без regex «F.o» — фиксированная строка, её нет в дереве.
+        // Without regex, `F.o` is a fixed string absent from the tree.
         await session.text("F.o");
         await session.waitForText((t) => t.includes("No results"));
 
-        // Включаем regex: «F.o» матчит Foo/FOO/foo(bar) по всему дереву.
+        // With regex on, `F.o` matches Foo/FOO/foo(bar) across the tree.
         await clickText(session, ".*", { maxX: 40 });
         await session.waitForText((t) => t.includes("results in"));
         expect(counts(frameToText(await session.captureFrame()))?.matches).toBeGreaterThan(0);
     }, 120_000);
 
-    // Поля include/exclude — за «···» (F8 здесь = Ctrl+Shift+J); раскрытие уводит фокус в include.
+    // The include/exclude fields are behind "···" (F8 here = Ctrl+Shift+J); expanding moves focus to include.
     it("include-glob сужает до .txt, exclude-glob убирает .ts", async () => {
         const app = await openSearch();
         const { session } = app;
@@ -133,7 +133,7 @@ describe("Search panel (functional e2e)", () => {
         await session.text("foo");
         await session.waitForText((t) => t.includes("results in"));
 
-        // *.txt → beta.txt и unicode.txt.
+        // *.txt → beta.txt and unicode.txt.
         await session.key("F8");
         await session.waitForText((t) => t.includes("files to include"));
         await session.text("*.txt");
@@ -166,8 +166,8 @@ describe("Search panel (functional e2e)", () => {
         await session.text("foo");
         await session.waitForText((t) => t.includes("results in"));
 
-        // Раскрыть детали и вернуть фокус в строку запроса (F6 = show search),
-        // чтобы фокус в include пришёл именно от клика.
+        // Expand the details and return focus to the query box (F6 = show search),
+        // so that focus in include comes from the click itself.
         await session.key("F8");
         await session.waitForText((t) => t.includes("files to include"));
         await session.key("F6");
@@ -187,7 +187,7 @@ describe("Search panel (functional e2e)", () => {
         await session.text("Foo");
         await session.waitForText((t) => t.includes("results in"));
         const text = frameToText(await session.captureFrame());
-        // before='Привет ' inside='Foo' after=' мир' — при верном байт-сплите строка целая.
+        // The line has non-ASCII text before and after `Foo`; with a correct byte split it stays intact.
         expect(text).toContain("unicode.txt");
         expect(text).toContain("Привет Foo мир");
     }, 120_000);

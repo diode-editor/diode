@@ -3,21 +3,22 @@ import { onTestFinished } from "vitest";
 import { type AppEnvOptions, type HeadlessApp, type PtyApp, type PtyAppOptions, startHeadlessApp, startPtyApp } from "./appSession.ts";
 import { dumpSession, type DumpableSession } from "./diagnostics.ts";
 
-// Отдельно от `appSession.ts`, чтобы тот оставался свободным от vitest: его импортит
-// `runScenario`, живущий и вне раннера.
+// Separate from `appSession.ts` so that file stays free of vitest: it is imported by
+// `runScenario`, which also runs outside the test runner.
 
-/** Сессия убирается сама по окончании теста; на падении — сперва пост-мортем. */
+/** The session cleans itself up when the test ends; on failure, a post-mortem comes first. */
 export async function useHeadlessApp(options: AppEnvOptions = {}): Promise<HeadlessApp> {
     const app = await startHeadlessApp(options);
-    // Пост-мортем и уборка — ОДНИМ хуком: vitest зовёт `onTestFinished` РАНЬШЕ `onTestFailed`, и
-    // снимок из `onTestFailed` доставался уже убранной сессии, а запрос в закрытый сокет висел весь `hookTimeout`.
+    // Post-mortem and cleanup in ONE hook: vitest calls `onTestFinished` BEFORE `onTestFailed`, so the
+    // snapshot from `onTestFailed` hit an already disposed session, and the request to the closed socket hung
+    // for the whole `hookTimeout`.
     onTestFinished(async ({ task }) => {
         await finishHeadlessApp(app, task.result?.state === "fail");
     });
     return app;
 }
 
-/** Сужена, чтобы фейкаться в тесте. */
+/** Narrowed so it can be faked in tests. */
 export interface FinishableApp {
     readonly session: DumpableSession;
     readonly env: { readonly root: string };
@@ -25,8 +26,8 @@ export interface FinishableApp {
 }
 
 /**
- * Уборка — в любом случае: диагностика не должна ни маскировать исходное падение, ни оставить
- * редактор сиротой.
+ * Cleanup always runs: diagnostics must neither mask the original failure nor leave the
+ * editor orphaned.
  */
 export async function finishHeadlessApp(
     app: FinishableApp,

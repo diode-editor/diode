@@ -1,11 +1,11 @@
 "use strict";
 
 /**
- * Ответ печатается в Output: тост показывает вопрос, а доехала ли нажатая кнопка обратно в
- * расширение, видно только по его собственному следу.
+ * The answer is printed to Output: the toast shows the question, but whether the clicked button made it back to
+ * the extension is visible only by the extension's own trace.
  */
 
-/** Как печатаем ответ: закрытие без выбора — отдельный исход. */
+/** How the answer is printed: closing without a choice is a separate outcome. */
 function describe(value) {
     if (value === undefined) return "закрыто без выбора";
     if (typeof value === "string") return value;
@@ -44,15 +44,15 @@ exports.activate = function activate(context) {
         vscode.window.showInformationMessage("Message five");
     });
 
-    // Сообщение без кнопок НЕ должно подвешивать расширение: обещание резолвится
-    // сразу при показе, и эта строка появляется в Output немедленно.
+    // A message without buttons must NOT hang the extension: the promise resolves
+    // right on show, and this line appears in Output immediately.
     register("diodeNotify.awaitError", async function () {
         const answer = await vscode.window.showErrorMessage("Sticky error stays on screen");
         channel.appendLine("Await error returned: " + describe(answer));
     });
 
 
-    // Дословно случай Supermaven: единственная дверь к регистрации расширения.
+    // Verbatim the Supermaven case: the only door to the extension's sign-up.
     register("diodeNotify.ask", async function () {
         const answer = await vscode.window.showWarningMessage(
             "Thank you for installing Supermaven! Click 'Activate' to set up a Supermaven Pro subscription, or click 'Use free version' to use the Free Tier",
@@ -62,8 +62,8 @@ exports.activate = function activate(context) {
         channel.appendLine("Ask returned: " + describe(answer));
     });
 
-    // Кнопки объектами (`MessageItem`), а не строками: расширение обязано
-    // получить обратно СВОЙ объект, а не пересобранный по проводу.
+    // Buttons as objects (`MessageItem`), not strings: the extension must
+    // get back ITS OWN object, not one rebuilt over the wire.
     register("diodeNotify.askItems", async function () {
         const retry = { title: "Retry" };
         const cancel = { title: "Cancel", isCloseAffordance: true };
@@ -81,7 +81,7 @@ exports.activate = function activate(context) {
         channel.appendLine("Modal returned: " + describe(answer));
     });
 
-    // Два вопроса подряд: второй ждёт своей очереди, пока не ответили на первый.
+    // Two questions in a row: the second waits its turn until the first is answered.
     register("diodeNotify.askTwice", function () {
         void vscode.window.showInformationMessage("First question", "One").then(function (answer) {
             channel.appendLine("First returned: " + describe(answer));

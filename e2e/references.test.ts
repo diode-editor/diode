@@ -10,8 +10,8 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Почему e2e: строки кода, которых нет в открытом буфере, добирает наш слой превью,
- * читая соседний файл, — стык сервер → превью → строка списка → кадр юниты не видят.
+ * Why e2e: code lines missing from the open buffer are fetched by our preview layer, which
+ * reads the other file — unit tests do not see the server → preview → list row → frame chain.
  */
 
 const require_ = createRequire(import.meta.url);
@@ -22,12 +22,12 @@ const LSP_SETTINGS = {
 };
 
 const DEFS_TS = 'export function greet(name: string): string {\n    return "hi " + name;\n}\n';
-// Ошибка типов даёт squiggle — он же readiness-сигнал «сервер поднялся».
+// The type error yields a squiggle — which doubles as the "server is up" readiness signal.
 const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply: number = greet("world");\n\nexport { reply };\n';
 
 const UNDERCURL = 8;
 
-/** Держится ли предикат на кадре в ближайшие пару секунд (без падения по таймауту). */
+/** Whether the predicate holds on a frame within the next couple of seconds (without failing on timeout). */
 async function holdsSoon(
     session: { captureFrame(): Promise<GridSnapshot> },
     predicate: (text: string) => boolean,
@@ -54,8 +54,8 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                     "main.ts": MAIN_TS,
                 },
                 settings: LSP_SETTINGS,
-                // Вьюлеты сайдбара (в том числе REFERENCES) собираются на workspaceFolder — без папки
-                // панели нет вовсе.
+                // Sidebar viewlets (REFERENCES included) are built on workspaceFolder — without a folder
+                // there is no panel at all.
                 open: [".", "main.ts"],
             });
             await session.waitForNode("EditorElement");
@@ -66,7 +66,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
-            // Каретка на вызов `greet` (строка 3, колонка 23) и Find All References.
+            // Put the cursor on the `greet` call (line 3, column 23) and run Find All References.
             await session.key("ArrowDown");
             await session.key("ArrowDown");
             for (let i = 0; i < 23; i++) await session.key("ArrowRight");
@@ -74,13 +74,13 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             await session.key("Ctrl+R");
 
             await session.waitForText(
-                // `export function greet` есть только в defs.ts.
+                // `export function greet` exists only in defs.ts.
                 (text) => text.includes("REFERENCES") && text.includes("results in 2") && text.includes("export function greet"),
                 { timeoutMs: 120_000, intervalMs: 500 },
             );
 
-            // Порядок ссылок задаёт сервер, «первая» — не обязательно объявление: идём по F4,
-            // пока не попадём в defs.ts. Важно, что обход уводит редактор в ДРУГОЙ файл.
+            // The server decides the reference order, and the "first" one is not necessarily the declaration: step
+            // with F4 until we land in defs.ts. What matters is that navigation takes the editor to ANOTHER file.
             let reachedDefs = false;
             for (let step = 0; step < 4 && !reachedDefs; step++) {
                 await session.key(step === 0 ? "Enter" : "F4");
@@ -88,7 +88,7 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             }
             expect(reachedDefs, "обход ссылок не привёл в defs.ts").toBe(true);
 
-            // Панель на месте и после переходов: результат живёт до следующего поиска.
+            // The panel stays after navigation: the result lives until the next search.
             const frame = frameToText(await session.captureFrame());
             expect(frame).toContain("REFERENCES");
         });

@@ -6,12 +6,12 @@ import { setup as setupTmpRoot } from "../src/TestUtils/tmpRoot.ts";
 
 const repoRoot = resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
-// Бинари — неизменяемая сборка из общего кэша по хешу исходников (scripts/e2e-artifacts.mjs);
-// рабочий `dist/` прогон не трогает, ручной `build:sea` посреди e2e ничего не ломает.
-// Пути уходят воркерам через env (`DIODE_E2E_BINARY`, `DIODE_E2E_SELFEXTRACT`): форки
-// наследуют env на момент спавна, то есть после globalSetup; воркер не собирает никогда.
-// Тем же путём едет `TMPDIR`: временные каталоги прогона — в одном корне, который
-// teardown сносит вместе с живущими в нём процессами (src/TestUtils/tmpRoot.ts).
+// Binaries are an immutable build from a shared cache keyed by the source hash (scripts/e2e-artifacts.mjs);
+// the run doesn't touch the working `dist/`, so a manual `build:sea` mid-e2e breaks nothing.
+// Paths reach workers via env (`DIODE_E2E_BINARY`, `DIODE_E2E_SELFEXTRACT`): forks inherit
+// env at spawn time, i.e. after globalSetup; a worker never builds.
+// `TMPDIR` travels the same way: the run's temp directories share one root, which
+// teardown removes together with the processes living in it (src/TestUtils/tmpRoot.ts).
 export default function setup(): () => void {
     const artifacts = ensureE2eArtifacts({ repoRoot });
     const teardownTmpRoot = setupTmpRoot();

@@ -12,17 +12,17 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Extension host грузит ленивый кусок `lazy/roles/extension-host.cjs`, а общие модули у
- * куска свои, включая `base/common/lazyModule.ts`, — вход роли заново подставляет
- * загрузчик кусков. Без этого `openTextDocument` в однобайтной кодировке искал бы iconv
- * в node_modules, которых у SEA нет. Шов «кусок из куска» прочие e2e не видят.
- * Self-extract: куски — файлы рядом с `main.cjs`, и `entryDir()` в CJS-куске обязан
- * найти каталог без `import.meta` (`define` в scripts/build-lazy-chunks.mjs).
+ * The extension host loads the lazy chunk `lazy/roles/extension-host.cjs`, and the chunk has its own
+ * copies of shared modules, including `base/common/lazyModule.ts` — the role entry re-installs
+ * the chunk loader. Without that, `openTextDocument` in a single-byte encoding would look for iconv
+ * in node_modules, which the SEA doesn't have. Other e2e tests don't see the chunk-from-chunk seam.
+ * Self-extract: chunks are files next to `main.cjs`, and `entryDir()` in a CJS chunk must
+ * find the directory without `import.meta` (`define` in scripts/build-lazy-chunks.mjs).
  */
 
 const TEXT = "Привет, мир!\n";
 
-/** Синтетическое расширение: открывает cp1251.txt в windows-1251 и пишет результат в result.txt. */
+/** Synthetic extension: opens cp1251.txt as windows-1251 and writes the result to result.txt. */
 const PROBE_MAIN = `
 const vscode = require("vscode");
 const fs = require("fs");
@@ -106,7 +106,7 @@ describe("роли процесса на SEA — ленивые куски", () 
     );
 });
 
-/** Что расширение-проба записало в result.txt. */
+/** What the probe extension wrote to result.txt. */
 function probeResult(workspaceDir: string): Promise<string | null> {
     const result = join(workspaceDir, "result.txt");
     return waitUntil(

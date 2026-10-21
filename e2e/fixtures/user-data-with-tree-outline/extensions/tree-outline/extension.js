@@ -1,9 +1,9 @@
 "use strict";
 
 /**
- * Как форк bazel-java: класс узла `extends vscode.TreeItem` на уровне модуля, `activate()` СНАЧАЛА
- * регистрирует дерево. Дерево в TUI пока не рисуется, но модуль обязан загрузиться, а команда
- * `Tree Outline: List Targets` — доехать до палитры и исполниться.
+ * Like the bazel-java fork: the node class `extends vscode.TreeItem` at module top level, `activate()` registers
+ * the tree FIRST. The TUI doesn't draw trees yet, but the module must load, and the
+ * `Tree Outline: List Targets` command must reach the command palette and execute.
  */
 const vscode = require("vscode");
 

@@ -1,6 +1,6 @@
 "use strict";
 
-/** `workspace.saveAll` — как golang.go перед `gopls.tidy` и vulncheck. */
+/** `workspace.saveAll`, as golang.go calls it before `gopls.tidy` and vulncheck. */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
     const result = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);

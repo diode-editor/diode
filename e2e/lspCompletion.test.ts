@@ -8,8 +8,8 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * Почему e2e: конвертер стокового клиента падал на каждом ответе молча (ошибка только
- * в его outputChannel), и попап оставался со словами буфера — видно лишь на кадре.
+ * Why e2e: the stock client's converter failed silently on every response (the error only
+ * went to its outputChannel), and the popup kept showing buffer words — visible only in the frame.
  */
 
 const require_ = createRequire(import.meta.url);
@@ -20,7 +20,7 @@ const LSP_SETTINGS = {
 };
 
 const DEFS_TS = 'export function greet(name: string): string {\n    return "hi " + name;\n}\n';
-// Ошибка типов даёт squiggle — он же readiness-сигнал «сервер поднялся».
+// The type error yields a squiggle — it doubles as the "server is up" readiness signal.
 const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply: number = greet("world");\n\nexport { reply };\n';
 
 const UNDERCURL = 8;
@@ -50,27 +50,27 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
-            // В конец файла, новая строка, набираем `reply.`.
+            // Go to the end of the file, start a new line, type `reply.`.
             for (let i = 0; i < 6; i++) await session.key("ArrowDown");
             await session.key("End");
             await session.key("Enter");
             for (const key of ["r", "e", "p", "l", "y", "."]) await session.key(key);
 
-            // Точка — триггер-символ сервера; членов number в файле нет — это не слова буфера.
+            // The dot is a server trigger character; number members are not in the file, so these are not buffer words.
             await session.waitForText((text) => text.includes("toFixed") && text.includes("toPrecision"), {
                 timeoutMs: 120_000,
                 intervalMs: 500,
             });
 
-            // Ctrl+Space при открытом попапе — тумблер панели описания. Сигнатура
-            // приезжает отдельным resolve уже после показа списка.
+            // Ctrl+Space with the popup open toggles the details panel. The signature
+            // arrives in a separate resolve after the list is shown.
             await session.key("Ctrl+Space");
             await session.waitForText((text) => text.includes("(method)") && text.includes("Number.to"), {
                 timeoutMs: 60_000,
                 intervalMs: 500,
             });
 
-            // Панель — отдельный элемент рядом со списком, а не поверх него.
+            // The panel is a separate element beside the list, not on top of it.
             const { root } = await session.getDocument();
             const boxes: { type: string; box: { x: number; width: number } }[] = [];
             const walk = (node: { type: string; box: { x: number; width: number }; children?: unknown[] }): void => {
@@ -87,21 +87,21 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
                 details!.box.x < list!.box.x ? [details!.box, list!.box] : [list!.box, details!.box];
             expect(left.x + left.width).toBeLessThanOrEqual(right.x);
 
-            // Пока список оставался видимым, Enter забирал `acceptSelectedSuggestion` и молча
-            // заменял набранное пунктом. На живом сервере: границу префикса задал он сам
-            // (range после точки), а её нельзя пересчитывать.
+            // While the list stayed visible, Enter went to `acceptSelectedSuggestion` and silently
+            // replaced the typed text with the item. Against a live server: the server itself sets the
+            // prefix boundary (range after the dot), and it must not be recomputed.
             for (const key of ["t", "o"]) await session.key(key);
             await session.waitForText((text) => text.includes("reply.to"), { timeoutMs: 60_000 });
 
             const linesBefore = (await session.node("EditorElement"))?.state?.lineCount;
             await session.key("{");
             await session.waitForText((text) => !text.includes("toPrecision"), { timeoutMs: 60_000 });
-            // `{` — пара из language configuration языка: вставляется `{}`, каретка внутри.
+            // `{` is a pair from the language configuration: `{}` is inserted, cursor inside.
             await session.waitForText((text) => text.includes("reply.to{}"), { timeoutMs: 60_000 });
 
             await session.key("Enter");
-            // Enter между скобками разворачивает блок: закрывающая уходит на свою
-            // строку, каретка встаёт на пустую середину — отсюда +2 строки, а не +1.
+            // Enter between brackets expands the block: the closing one moves to its own
+            // line, the cursor lands on the empty middle line — hence +2 lines, not +1.
             await session.waitForState("EditorElement", (state) => state?.lineCount === (linesBefore as number) + 2, {
                 timeoutMs: 60_000,
             });

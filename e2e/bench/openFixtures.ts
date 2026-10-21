@@ -5,9 +5,9 @@ import { join } from "node:path";
 export interface SizeSpec {
     readonly key: string;
     readonly kind: "ts" | "log";
-    /** Для kind=ts — число строк; для kind=log — целевой размер в байтах. */
+    /** For kind=ts — the number of lines; for kind=log — the target size in bytes. */
     readonly amount: number;
-    /** Замеряемых прогонов (плюс один прогревочный, в статистику не идёт). */
+    /** Measured runs (plus one warm-up run that isn't counted in the stats). */
     readonly runs: number;
     readonly timeoutMs: number;
 }
@@ -19,15 +19,15 @@ export const SIZES: readonly SizeSpec[] = [
     { key: "medium", kind: "ts", amount: 2_000, runs: 11, timeoutMs: 30_000 },
     { key: "large", kind: "ts", amount: 20_000, runs: 7, timeoutMs: 60_000 },
     { key: "xlarge", kind: "ts", amount: 200_000, runs: 5, timeoutMs: 120_000 },
-    // `log500m` (500 МБ) убран: открывается 88 с и падает по OOM кучи V8 на первой правке
-    // (CI, 2026-09-27). Вернётся с этапом «Стриминг», генератор kind=log остаётся.
+    // `log500m` (500 MB) was removed: it takes 88 s to open and dies with a V8 heap OOM on the first edit
+    // (CI, 2026-09-27). It comes back with the "Streaming" stage; the kind=log generator stays.
 ];
 
-// Подсветку проверяют по цвету keyword darkPlus на ячейке `c` слова `const` (как в sea-startup),
-// поэтому строка начинается с него.
+// Highlighting is checked by the darkPlus keyword color on the `c` cell of the word `const` (as in sea-startup),
+// so the line starts with it.
 export const TS_MARKER = "benchMarker";
 export const TS_FIRST_LINE = `const ${TS_MARKER} = 42; // diode-bench`;
-// Первая строка лога; `.log` — plaintext, подсветки не существует.
+// The first log line; `.log` is plaintext, there's no highlighting.
 export const LOG_MARKER = "diode-bench-log-start";
 export const LOG_FIRST_LINE = `2026-01-01T00:00:00.000Z INFO ${LOG_MARKER}`;
 
@@ -36,7 +36,7 @@ export interface OpenFixture {
     readonly kind: "ts" | "log";
     readonly path: string;
     readonly lines: number;
-    /** Слово-маркер первой строки: по нему бенч видит текст на экране. */
+    /** Marker word of the first line: the bench uses it to see the text on screen. */
     readonly marker: string;
     lineAt(index: number): string;
 }
@@ -52,7 +52,7 @@ function logLine(i: number): string {
     return `2026-01-01T00:00:${String(i % 60).padStart(2, "0")}.${String(i % 1000).padStart(3, "0")}Z INFO worker[${String(i % 8)}] request ${String(i)} handled in ${String(i % 90)}ms path=/api/v1/items/${String(i)}`;
 }
 
-/** Пишет файл блоками через стрим — 500 МБ одной строкой не собрать. */
+/** Writes the file in blocks via a stream — 500 MB can't be built as a single string. */
 async function writeLines(path: string, lines: () => Generator<string>): Promise<void> {
     const stream = createWriteStream(path);
     let block: string[] = [];

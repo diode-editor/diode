@@ -2,8 +2,8 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { hermeticSpawnEnv } from "./hermeticEnv.ts";
 
-// Регрессия: спаун наследовал маркеры хоста (kitty ssh-kitten в tmux → tier csi-u), и
-// chord-фоллбэк палитры `when: "tier == 'legacy'"` молча умирал; на CI сценарий был зелёным.
+// Regression: the spawn inherited host markers (kitty ssh-kitten in tmux → tier csi-u), and
+// the command palette's `when: "tier == 'legacy'"` chord fallback silently died; on CI the scenario was green.
 
 const HOST_MARKERS: Record<string, string> = {
     KITTY_WINDOW_ID: "1",
@@ -51,8 +51,8 @@ describe("hermeticSpawnEnv", () => {
     it("keeps caller overrides but sanitizes them last", () => {
         pollute({ TERM: "tmux-256color" });
 
-        // Часть вызывающих спредит в extra целый process.env (selfextract) —
-        // маркеры не должны воскресать и через этот путь.
+        // Some callers spread a whole process.env into extra (selfextract) —
+        // markers must not resurrect through that path either.
         const env = hermeticSpawnEnv({ ...HOST_MARKERS, HOME: "/isolated/home" });
 
         expect(env.HOME).toBe("/isolated/home");

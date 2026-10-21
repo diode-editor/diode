@@ -1,6 +1,6 @@
 /**
- * Минимальный парсер ANSI ровно под то, что шлёт рендерер приложения: CUP (1-based), SGR
- * (стили, truecolor), очистки и скролл; DEC private modes и kitty-протокол игнорируются.
+ * A minimal ANSI parser for exactly what the app's renderer emits: CUP (1-based), SGR
+ * (styles, truecolor), clears and scrolling; DEC private modes and the kitty protocol are ignored.
  */
 
 import { DEFAULT_COLOR } from "@tuidom/core/common/colorUtils";
@@ -74,13 +74,13 @@ export class AnsiScreen {
         this.cells[this.cursorY][this.cursorX] = { char: ch, fg: this.fg, bg: this.bg, style: this.style };
         this.cursorX++;
         if (this.cursorX >= this.width) {
-            // Авто-перенос мы НЕ делаем — рендерер всегда позиционирует курсор перед
-            // каждой меняющейся ячейкой, а правую кромку обходит через CUP.
+            // We do NOT auto-wrap — the renderer always positions the cursor before
+            // each changed cell and handles the right edge via CUP.
             this.cursorX = this.width - 1;
         }
     }
 
-    /** Число съеденных байт вместе с ESC; 0 — последовательность не распознана. */
+    /** Number of consumed bytes including ESC; 0 — the sequence is not recognized. */
     private handleEscape(input: string, start: number): number {
         if (start + 1 >= input.length) return 0;
         const next = input[start + 1];
@@ -88,7 +88,7 @@ export class AnsiScreen {
         if (next === "[") {
             return this.handleCsi(input, start);
         }
-        // DCS/OSC приложение шлёт только в TMUX-обёртке, которой в e2e нет, — съедаем до ST.
+        // The app sends DCS/OSC only inside the TMUX wrapper, which e2e lacks — consume up to ST.
         if (next === "P" || next === "]" || next === "X" || next === "^" || next === "_") {
             let i = start + 2;
             while (i < input.length) {
@@ -150,7 +150,7 @@ export class AnsiScreen {
                 return consumed;
             }
             case "K": {
-                // EL: 0 — от курсора до конца строки, 1 — от начала до курсора, 2 — вся строка.
+                // EL: 0 — cursor to end of line, 1 — start of line to cursor, 2 — whole line.
                 const mode = params[0] ?? 0;
                 if (mode === 0) {
                     for (let x = this.cursorX; x < this.width; x++) {

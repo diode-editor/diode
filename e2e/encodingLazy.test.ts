@@ -10,9 +10,9 @@ import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
 /**
- * iconv-lite — ленивый кусок `lazy/iconv-lite.cjs`, грузится на первой однобайтной
- * кодировке. Сборка без куска упала бы на запасном `import("iconv-lite")` — поэтому
- * проверяется бинарь; в Bootstrap ушёл бы и отказ кэша кода куска.
+ * iconv-lite is the lazy chunk `lazy/iconv-lite.cjs`, loaded on the first single-byte
+ * encoding. A build without the chunk would fail on the fallback `import("iconv-lite")`, hence
+ * the binary is tested; a rejected code cache for the chunk would also show up in Bootstrap.
  */
 
 const TEXT = "Привет, мир!\n";

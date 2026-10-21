@@ -7,7 +7,7 @@ import { frameToText } from "./helpers/frame.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 import { waitUntil } from "./helpers/waitFor.ts";
 
-/** Ассерт ждёт текст, которого НЕТ в буфере, — грабля «слабый ассерт» (docs/TODO/Suggest.md). */
+/** The assertion waits for text that is NOT in the buffer: the "weak assertion" pitfall (docs/TODO/Suggest.md). */
 
 const require_ = createRequire(import.meta.url);
 const SERVER_CLI = require_.resolve("typescript-language-server/lib/cli.mjs");
@@ -19,12 +19,12 @@ const LSP_SETTINGS = {
 };
 
 const DEFS_TS = 'export function greet(name: string): string {\n    return "hi " + name;\n}\n';
-// Ошибка типов — для squiggle (readiness).
+// Type error, for the squiggle (readiness).
 const MAIN_TS = 'import { greet } from "./defs";\n\nconst reply: number = greet("world");\n\nexport { reply };\n';
 
 const UNDERCURL = 8;
 
-// Только Linux: extension host + спавн language-сервера (docs/TODO/E2E.md).
+// Linux only: extension host + language server spawn (docs/TODO/E2E.md).
 describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
     "SEA binary — hover от стокового typescript-language-server",
     () => {
@@ -44,27 +44,27 @@ describe.skipIf(process.platform === "win32" || process.platform === "darwin")(
             });
             await session.waitForNode("EditorElement");
 
-            // Squiggle от tsserver — readiness-сигнал «сервер проиндексировал проект».
+            // A squiggle from tsserver is the readiness signal that the server indexed the project.
             await waitUntil(
                 () => session.captureFrame(),
                 (frame) => frame.cells.some((cell) => (cell.style & UNDERCURL) !== 0),
                 { describe: "undercurl squiggle от tsserver", timeoutMs: 120_000, intervalMs: 500 },
             );
 
-            // Каретка на `greet` в вызове (строка 2, колонка 23) и Ctrl+K Ctrl+U.
+            // Cursor on `greet` in the call (line 2, column 23), then Ctrl+K Ctrl+U.
             await session.key("ArrowDown");
             await session.key("ArrowDown");
             for (let i = 0; i < 23; i++) await session.key("ArrowRight");
             await session.key("Ctrl+K");
             await session.key("Ctrl+U");
 
-            // `(alias) greet(name: string): string` в буфере main.ts нет.
+            // `(alias) greet(name: string): string` is not in the main.ts buffer.
             await session.waitForText((text) => text.includes("(alias) greet(name: string): string"), {
                 timeoutMs: 60_000,
                 intervalMs: 500,
             });
 
-            // Строка цела — ни чорд, ни Escape не просочились в редактор.
+            // The line is intact: neither the chord nor Escape leaked into the editor.
             await session.key("Escape");
             const frame = await waitUntil(
                 () => session.captureFrame(),

@@ -1,6 +1,6 @@
 "use strict";
 
-/** Расширение ленивое (`onUri`): обработчик заводится на активации. */
+/** The extension is lazy (`onUri`): the handler is registered on activation. */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 

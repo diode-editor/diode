@@ -13,20 +13,20 @@ import { createRegistryFixture } from "./helpers/registryFixture.ts";
 import { useHeadlessApp } from "./helpers/useApp.ts";
 
 /**
- * Реестр герметичен (`--registry`), но артефакты пакует продовый pack-vsix; сеть —
- * в `e2e/marketplace/`. «Работает после перезагрузки» проверяется вкладом в
- * статус-баре, а не файлом на диске.
+ * The registry is hermetic (`--registry`), but artifacts are packed by the production pack-vsix; network
+ * tests live in `e2e/marketplace/`. "Works after reload" is checked via a contribution in the
+ * status bar, not via a file on disk.
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const SAMPLE_SOURCE = resolve(here, "marketplace", "sample-extension");
 
-/** F6 — вьюлет магазина: настоящий Ctrl+Shift+X e2e-DSL не кодирует. */
+/** F6 opens the extensions viewlet: the e2e DSL cannot encode a real Ctrl+Shift+X. */
 const KEYS = [{ key: "f6", command: "workbench.view.extensions" }];
 
 const SAMPLE_FILE = "sample.diodesample";
 
-/** Карточки реестра: имена и описания, не пересекающиеся с именем языка. */
+/** Registry cards: names and descriptions that do not overlap with the language name. */
 const NAMES = {
     sample: { displayName: "Sample Lang", description: "Fixture language", readme: "Sample language readme" },
     legacy: { displayName: "Legacy Thing", description: "Needs a newer API" },
@@ -34,7 +34,7 @@ const NAMES = {
     pack: { displayName: "Lang Pack", description: "Depends on another extension" },
 } as const;
 
-/** Расширение без вкладов, зависящее от `test.sample-lang`. */
+/** An extension with no contributions that depends on `test.sample-lang`. */
 const DEPENDENT_SOURCE = resolve(here, "marketplace", "dependent-extension");
 
 let registryRoot: string;
@@ -56,7 +56,7 @@ async function openExtensions(options: { installVsix?: string[] } = {}): Promise
     return app;
 }
 
-/** Открывает страницу расширения: фильтр по запросу → Enter на первой записи. */
+/** Opens an extension page: filter by query → Enter on the first entry. */
 async function openPage(app: HeadlessApp, query: string, pageId: string): Promise<void> {
     await app.session.text(query);
     await app.session.key("Tab");
@@ -65,7 +65,7 @@ async function openPage(app: HeadlessApp, query: string, pageId: string): Promis
     await app.session.waitForNode(`#extensionPage-${pageId}`);
 }
 
-/** Кнопки страницы как их видит пользователь: подпись и доступность. */
+/** Page buttons as the user sees them: label and enablement. */
 async function pageButtons(app: HeadlessApp): Promise<{ label: string; enabled: boolean }[]> {
     const header = await app.session.node("#extensionPageHeader");
     const state = header?.state as { buttons?: { label: string; enabled: boolean }[] } | undefined;
@@ -73,8 +73,8 @@ async function pageButtons(app: HeadlessApp): Promise<{ label: string; enabled: 
 }
 
 /**
- * Каталоги установленных расширений в user-data-dir сессии. Рядом лежит
- * `extensions.json` — состав Default-профиля, он не каталог расширения.
+ * Installed extension directories in the session's user-data-dir. Next to them lies
+ * `extensions.json` — the Default profile's contents, which is not an extension directory.
  */
 function installedDirs(app: HeadlessApp): string[] {
     const dir = join(app.env.userDataDir, "extensions");
@@ -85,7 +85,7 @@ function installedDirs(app: HeadlessApp): string[] {
         .sort();
 }
 
-/** Id в составе Default-профиля (`extensions/extensions.json`) — что включено в окне. */
+/** Ids in the Default profile (`extensions/extensions.json`) — what is enabled in the window. */
 function defaultProfileIds(app: HeadlessApp): string[] {
     const file = join(app.env.userDataDir, "extensions", "extensions.json");
     const entries = JSON.parse(readFileSync(file, "utf8")) as { identifier: { id: string } }[];
@@ -97,9 +97,9 @@ describe("Extensions install (functional e2e)", () => {
         await getBinaryPath();
         registryRoot = mkdtempSync(join(tmpdir(), "diode-registry-fixture-"));
         registry = await createRegistryFixture(join(registryRoot, "registry"), [
-            // Две версии одного расширения: установка старой и обновление до новой.
-            // Имена карточек намеренно не содержат «Diode Sample»: это имя языка
-            // из вклада расширения, и по нему проверяется работа после перезагрузки.
+            // Two versions of one extension: install the old one and update to the new one.
+            // Card names deliberately do not contain "Diode Sample": that is the language name
+            // from the extension's contribution, used to check it works after reload.
             { id: "test.sample-lang", version: "0.0.1", sourceDir: SAMPLE_SOURCE, ...NAMES.sample },
             { id: "test.sample-lang", version: "0.0.2", sourceDir: SAMPLE_SOURCE, ...NAMES.sample },
             {
@@ -110,7 +110,7 @@ describe("Extensions install (functional e2e)", () => {
                 ...NAMES.legacy,
             },
             { id: "broken.artifact", version: "1.0.0", sourceDir: SAMPLE_SOURCE, corruptSha: true, ...NAMES.broken },
-            // Своих вкладов нет — только `extensionDependencies: ["test.sample-lang"]`.
+            // No contributions of its own — only `extensionDependencies: ["test.sample-lang"]`.
             { id: "test.lang-pack", version: "0.0.1", sourceDir: DEPENDENT_SOURCE, ...NAMES.pack },
         ]);
     }, 300_000);
@@ -135,27 +135,27 @@ describe("Extensions install (functional e2e)", () => {
         expect(existsSync(join(app.env.userDataDir, "extensions", "test.sample-lang-0.0.2", "package.json"))).toBe(
             true,
         );
-        // И включено в профиль окна.
+        // And enabled in the window's profile.
         expect(defaultProfileIds(app)).toEqual(["test.sample-lang"]);
-        // Сообщение о результате — в статус-баре, рядом с тем же приглашением.
+        // The result message is in the status bar, next to the same prompt.
         expect(frameToText(await app.session.captureFrame())).toContain("reload window to activate");
     });
 
     it("US-13: после перезагрузки окна вклад расширения работает", async () => {
         const app = await openExtensions();
-        // До установки язык неизвестен: `.diodesample` — обычный текст.
+        // Before install the language is unknown: `.diodesample` is plain text.
         expect(frameToText(await app.session.captureFrame())).not.toContain("Diode Sample");
 
         await openPage(app, "sample", "test-sample-lang");
         await app.session.key("Enter");
         await app.session.waitForText((t) => t.includes("Reload Window"));
 
-        // Ответ на этот ввод может и не прийти: окно уходит на перезапуск вместе с сокетом.
+        // The reply to this input may never arrive: the window restarts along with the socket.
         await app.session.sendKey("Enter").catch(() => undefined);
         await app.session.reconnect();
 
-        // Новое окно: те же аргументы, восстановленная сессия и — главное —
-        // язык из установленного расширения.
+        // New window: same arguments, restored session and — most importantly —
+        // the language from the installed extension.
         await app.session.waitForText((t) => t.includes("Diode Sample"), { timeoutMs: 60_000 });
     });
 
@@ -166,14 +166,14 @@ describe("Extensions install (functional e2e)", () => {
         await app.session.key("Enter");
         await app.session.waitForText((t) => t.includes("Installed 0.0.1"));
 
-        // Зависимость — наивысшей совместимой версии реестра.
+        // The dependency is the highest compatible version in the registry.
         expect(installedDirs(app)).toEqual(["test.lang-pack-0.0.1", "test.sample-lang-0.0.2"]);
         expect(defaultProfileIds(app)).toEqual(["test.lang-pack", "test.sample-lang"]);
 
-        // Ответ на этот ввод может и не прийти: окно уходит на перезапуск вместе с сокетом.
+        // The reply to this input may never arrive: the window restarts along with the socket.
         await app.session.sendKey("Enter").catch(() => undefined);
         await app.session.reconnect();
-        // Язык даёт только зависимость: сам Lang Pack вкладов не несёт.
+        // Only the dependency provides the language: Lang Pack itself has no contributions.
         await app.session.waitForText((t) => t.includes("Diode Sample"), { timeoutMs: 60_000 });
     });
 
@@ -190,7 +190,7 @@ describe("Extensions install (functional e2e)", () => {
         await app.session.key("Enter");
         await app.session.waitForText((t) => t.includes("Installed 0.0.2"));
 
-        // Старая версия снесена установкой — на диске ровно один каталог.
+        // The install removed the old version — exactly one directory on disk.
         expect(installedDirs(app)).toEqual(["test.sample-lang-0.0.2"]);
     });
 
@@ -199,11 +199,11 @@ describe("Extensions install (functional e2e)", () => {
             installVsix: [join(registry, "artifacts", "test.sample-lang-0.0.1.vsix")],
         });
         await openPage(app, "sample", "test-sample-lang");
-        await app.session.key("ArrowRight"); // с «Update to …» на «Uninstall»
+        await app.session.key("ArrowRight"); // from "Update to …" to "Uninstall"
         await app.session.key("Enter");
         await app.session.waitForText((t) => t.includes("Not installed"));
 
-        // Ни в одном профиле больше нет — снесено и с диска.
+        // No longer in any profile — removed from disk too.
         expect(installedDirs(app)).toEqual([]);
         expect(defaultProfileIds(app)).toEqual([]);
         expect(frameToText(await app.session.captureFrame())).toContain("reload window to apply");
@@ -216,7 +216,7 @@ describe("Extensions install (functional e2e)", () => {
         expect(await pageButtons(app)).toEqual([{ label: "Install", enabled: false }]);
         const screen = frameToText(await app.session.captureFrame());
         expect(screen).toContain("Incompatible with this build of Diode");
-        // Почему — рядом: требование записи реестра.
+        // The reason is shown alongside: the registry entry's requirement.
         expect(screen).toContain("Requires: vscode ^99.0.0");
     });
 
@@ -228,7 +228,7 @@ describe("Extensions install (functional e2e)", () => {
         await app.session.waitForText((t) => t.includes("sha256 mismatch"));
 
         expect(installedDirs(app)).toEqual([]);
-        // Кнопка снова доступна — повторить можно тут же.
+        // The button is enabled again — retrying is possible right away.
         expect(await pageButtons(app)).toEqual([{ label: "Install", enabled: true }]);
     });
 });

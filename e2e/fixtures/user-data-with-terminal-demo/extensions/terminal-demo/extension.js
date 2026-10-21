@@ -1,10 +1,10 @@
 "use strict";
 
-/** Как cleanup-команды bazel-java и Code Runner: шелл с именем, `sendText`, `show`. */
+/** Like the cleanup commands of bazel-java and Code Runner: a named shell, `sendText`, `show`. */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
-    // Три коротких пункта: у пункта статус-бара предел ширины (24 символа).
+    // Three short items: a status bar item has a width limit (24 characters).
     const item = (priority, text) => {
         const it = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, priority);
         it.text = text;
@@ -34,26 +34,26 @@ exports.activate = function activate(context) {
             demo.sendText('echo "$DEMO_GREETING from Demo Runner"');
             demo.show();
         }),
-        // Агент вкладкой справа — форма `claude-vscode.terminal.open` стокового
-        // Claude Code: терминал в области редакторов, колонка Beside.
+        // An agent in a tab on the right — the shape of the stock Claude Code's
+        // `claude-vscode.terminal.open`: a terminal in the editor area, Beside column.
         vscode.commands.registerCommand("terminalDemo.beside", () => {
             const agent = vscode.window.createTerminal({
                 name: "Demo Agent",
                 location: { viewColumn: vscode.ViewColumn.Beside },
                 isTransient: true,
             });
-            // Строки «agent ready» в самой команде нет: в узкой группе справа
-            // команда переносится по длине промпта (имя хоста раннера), и
-            // «agent ready», разрезанное переносом, ждалось бы вечно. Вывод —
-            // 11 символов — помещается в строку всегда.
+            // The command itself does not contain "agent ready": in the narrow group on the right
+            // the command wraps depending on the prompt length (the runner's hostname), and
+            // "agent ready" split by a wrap would be waited for forever. The output —
+            // 11 characters — always fits on one line.
             agent.sendText("printf 'agent %s\\n' ready");
             agent.show();
         }),
         vscode.commands.registerCommand("terminalDemo.list", () => report("list")),
         vscode.commands.registerCommand("terminalDemo.dispose", () => demo && demo.dispose()),
-        // Лог в pty-терминале — форма `getBazelTerminal()` bazel-java: найти свой
-        // терминал в window.terminals или завести с pty, писать через sendText
-        // (pty эхом перекрашивает ввод), показать.
+        // A log in a pty terminal — the shape of bazel-java's `getBazelTerminal()`: find our
+        // terminal in window.terminals or create one with a pty, write via sendText
+        // (the pty echoes the input recolored), show it.
         vscode.commands.registerCommand("terminalDemo.log", () => {
             const log = getLogTerminal(vscode);
             log.sendText("\u001b[32mlog: build started\u001b[0m");
@@ -64,7 +64,7 @@ exports.activate = function activate(context) {
 
 const LOG_NAME = "Demo Log";
 
-/** Pty в духе `BazelTerminal`: ввод (и sendText) возвращается эхом с CRLF. */
+/** A pty in the spirit of `BazelTerminal`: input (and sendText) is echoed back with CRLF. */
 function createLogPty(vscode) {
     const writeEmitter = new vscode.EventEmitter();
     return {

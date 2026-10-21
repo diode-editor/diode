@@ -9,11 +9,11 @@ import type { GridSnapshot } from "@tuidom/core/rendering/gridSnapshot";
 import { SPINNER_FRAMES } from "../../src/vs/platform/progress/common/progressService.ts";
 import { BUNDLED_FONT_FILES, renderSnapshotToPng } from "./renderScreenshot.ts";
 
-// Гейт на «тофу»: строковые ассерты в юнитах видят кадр спиннера как символ, а
-// на картинке он может выйти пустым квадратом — ровно это и случилось в #272,
-// когда единственным завендоренным шрифтом был Hack (блока U+2800 у него нет).
+// A gate against "tofu": string assertions in unit tests see a spinner frame as a character, but
+// in the image it may come out as an empty box. Exactly that happened in #272, when Hack
+// (which lacks the U+2800 block) was the only vendored font.
 
-/** Кодпоинты, покрытые шрифтом: минимальный разбор `cmap` (форматы 4 и 12). */
+/** Code points covered by the font: minimal `cmap` parsing (formats 4 and 12). */
 function fontCodePoints(path: string): Set<number> {
     const buf = readFileSync(path);
     const numTables = buf.readUInt16BE(4);
@@ -36,7 +36,7 @@ function fontCodePoints(path: string): Set<number> {
             for (let seg = 0; seg < segX2 / 2; seg++) {
                 const end = buf.readUInt16BE(ends + seg * 2);
                 const start = buf.readUInt16BE(starts + seg * 2);
-                // Замыкающий сегмент 0xFFFF–0xFFFF обязателен по спеке и пуст.
+                // The terminating 0xFFFF–0xFFFF segment is mandatory per the spec and empty.
                 if (start === 0xffff) continue;
                 for (let cp = start; cp <= end; cp++) covered.add(cp);
             }
@@ -52,7 +52,7 @@ function fontCodePoints(path: string): Set<number> {
     return covered;
 }
 
-/** Строка в один ряд: цвета дефолтные, ширина ячейки 1 — как отдаёт настоящий грид. */
+/** A single-row line: default colors, cell width 1, as the real grid returns it. */
 function snapshotOf(text: string): GridSnapshot {
     return {
         cols: [...text].length,
@@ -70,9 +70,9 @@ describe("растеризатор скриншотов", () => {
     });
 
     it("разные кадры спиннера рисуются разными глифами", () => {
-        // Если покрывающего шрифта в наборе нет, resvg рисует всем непокрытым
-        // кодпоинтам один и тот же `.notdef` — байты PNG совпадут. Отличие от
-        // пробела ловит обратный случай: шрифт есть, но глиф пустой.
+        // Without a covering font in the set, resvg draws the same `.notdef` for all
+        // uncovered code points, so the PNG bytes match. Comparing against a space
+        // catches the opposite case: the font is there but the glyph is empty.
         const [first, second] = SPINNER_FRAMES;
         const blank = renderSnapshotToPng(snapshotOf(" "));
 

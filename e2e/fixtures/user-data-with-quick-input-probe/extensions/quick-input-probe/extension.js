@@ -1,8 +1,8 @@
 "use strict";
 
-/** Полученное печатается сообщением — по нему видно, ДОЕХАЛО ли введённое до расширения. */
+/** The received value is printed as a message — it shows whether the input REACHED the extension. */
 
-/** Как печатаем ответ: отмена — отдельный исход, пустая строка — свой. */
+/** How the answer is printed: cancellation and an empty string are distinct outcomes. */
 function describe(value) {
     if (value === undefined) return "отменено";
     if (value === "") return "«»";
@@ -21,8 +21,8 @@ function delay(ms) {
 exports.activate = function activate(context) {
     const vscode = require("vscode");
 
-    // Ответ печатаем ещё и в Output: у `showInformationMessage` в Diode пока нет экранной
-    // поверхности. Панель открывается один раз при активации — фокус посреди сценария не перехватывает.
+    // The answer also goes to Output: `showInformationMessage` has no on-screen surface in Diode yet.
+    // The panel opens once on activation, so it does not steal focus mid-scenario.
     const channel = vscode.window.createOutputChannel("Diode Probe");
     context.subscriptions.push(channel);
     channel.show(true);
@@ -56,9 +56,9 @@ exports.activate = function activate(context) {
         show("Ask Name: " + describe(value));
     });
 
-    // Оверлей поднимается через 3 секунды — за это время успеваем открыть
-    // Quick Open и убедиться, что расширение перехватывает виджет, а набранное
-    // в чужой сессии в его поле не протекает.
+    // The overlay shows up after 3 seconds — enough time to open Quick Open
+    // and check that the extension takes over the widget, and text typed in
+    // the other session does not leak into its field.
     register("diodeProbe.askNameDelayed", async function () {
         await delay(DELAY_MS);
         const value = await vscode.window.showInputBox({
@@ -69,7 +69,7 @@ exports.activate = function activate(context) {
         show("Ask Name: " + describe(value));
     });
 
-    // Печатаем ДЛИНУ: секрет незачем выводить, а по длине видно, что доехали все символы.
+    // Print the LENGTH: no need to reveal the secret, and the length shows all characters arrived.
     register("diodeProbe.askSecret", async function () {
         const value = await vscode.window.showInputBox({
             title: "Secret",
@@ -80,7 +80,7 @@ exports.activate = function activate(context) {
         show("Secret length: " + (value === undefined ? "отменено" : String(value.length)));
     });
 
-    // Ошибка блокирует Enter, предупреждение — нет.
+    // An error blocks Enter, a warning does not.
     register("diodeProbe.askPort", async function () {
         const value = await vscode.window.showInputBox({
             title: "Port",
@@ -101,8 +101,8 @@ exports.activate = function activate(context) {
         show("Port: " + describe(value));
     });
 
-    // Валидатор отвечает с задержкой: проверяем, что под полем оказывается
-    // сообщение о ТЕКУЩЕМ тексте, а не об одном из промежуточных.
+    // The validator responds with a delay: checks that the message under the field
+    // is about the CURRENT text, not one of the intermediate ones.
     register("diodeProbe.askSlowValidate", async function () {
         const value = await vscode.window.showInputBox({
             title: "Slow validate",
@@ -119,7 +119,7 @@ exports.activate = function activate(context) {
         show("Slow: " + describe(value));
     });
 
-    // Расширение закрывает свой же оверлей токеном отмены.
+    // The extension closes its own overlay with a cancellation token.
     register("diodeProbe.askWithTimeout", async function () {
         const source = new vscode.CancellationTokenSource();
         const timer = setTimeout(function () {
@@ -157,7 +157,7 @@ exports.activate = function activate(context) {
         show("Kind: " + (picked === undefined ? "отменено" : picked.label));
     });
 
-    /** Отмеченное — в строку; пустой набор отличается от отмены. */
+    /** Checked items as a string; an empty set differs from cancellation. */
     function describePicked(picked) {
         if (picked === undefined) return "отменено";
         if (picked.length === 0) return "(пусто)";
@@ -199,7 +199,7 @@ exports.activate = function activate(context) {
         show("Picked: " + describePicked(picked));
     });
 
-    // Список приходит промисом: до его готовности на экране ничего не меняется.
+    // The list arrives as a promise: nothing changes on screen until it resolves.
     register("diodeProbe.pickAsync", async function () {
         const items = delay(SLOW_MS).then(function () {
             return ["считано-1", "считано-2", "считано-3"];
@@ -222,8 +222,8 @@ exports.activate = function activate(context) {
         show("Both: " + describe(name) + " / " + describe(fruit));
     });
 
-    // Форма `pickLazyEnum` golang.go (`Go: Maintain gopls`): пикер открывается пустым, предметы
-    // приезжают с задержкой на каждый запрос, как ответ сервера; Enter принимает, прячет пикер расширение.
+    // Shape of golang.go's `pickLazyEnum` (`Go: Maintain gopls`): the picker opens empty, items
+    // arrive with a delay per query, like a server response; Enter accepts, the extension hides the picker.
 
     const MODULES = [
         { name: "Alpha module", path: "example.com/alpha" },
@@ -269,7 +269,7 @@ exports.activate = function activate(context) {
         });
     });
 
-    // Форма «Go: Choose Go Environment → Choose from file browser» golang.go.
+    // Shape of golang.go's "Go: Choose Go Environment → Choose from file browser".
     register("diodeProbe.openDialog", async function () {
         const folders = vscode.workspace.workspaceFolders;
         const picked = await vscode.window.showOpenDialog({

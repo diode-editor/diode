@@ -1,4 +1,4 @@
-/** Страницу docs/public/BENCH-OPEN.md перезаписывает `bench.yml`. */
+/** The docs/public/BENCH-OPEN.md page is overwritten by `bench.yml`. */
 
 import type { OpenFixture } from "./openFixtures.ts";
 import { MiB } from "./openFixtures.ts";
@@ -14,17 +14,17 @@ export interface SizeReport {
     readonly fixtureBytes: number;
     readonly fixtureLines: number;
     readonly runs: readonly OpenRunResult[];
-    /** До текста, мс от спауна (чёрный ящик). */
+    /** Time to text, ms from spawn (black box). */
     readonly content: Stats | null;
     readonly highlight: Stats | null;
-    /** Наших мс: до текста − пол node (главная цифра). */
+    /** Our ms: time to text − node floor (the headline number). */
     readonly ours: Stats | null;
-    /** До текста − пол бинаря (`diode --version`): кухня старта без парса бандла. */
+    /** Time to text − binary floor (`diode --version`): startup internals without bundle parsing. */
     readonly overBinary: Stats | null;
     readonly peakRss: Stats | null;
-    /** Лестница вех, веха → статистика по прогонам (мс от спауна). */
+    /** Mark ladder, mark → per-run stats (ms from spawn). */
     readonly ladder: Readonly<Record<string, Stats | null>>;
-    /** Расхождение чёрного и белого ящика: до текста (PTY) − кадр с текстом (трасса). */
+    /** Black box vs white box gap: time to text (PTY) − frame with text (trace). */
     readonly boxGap: Stats | null;
     readonly workload: Readonly<Record<WorkloadStepKey, Stats | null>>;
     readonly workloadFailures: readonly string[];
@@ -45,11 +45,11 @@ export interface FullReport {
     readonly binaryVersion: string;
     readonly env: ReportEnv;
     readonly floors: {
-        /** `diode --version`: рантайм + парс SEA-бандла. */
+        /** `diode --version`: runtime + SEA bundle parsing. */
         readonly binary: FloorResult;
-        /** `node -e ""`: минимальный процесс, исполняющий JS, — от него считаем «наших мс». */
+        /** `node -e ""`: the minimal process that runs JS — "our ms" is measured from it. */
         readonly node: FloorResult;
-        /** `node --version`: для справки — отвечает до подъёма V8, полом не служит. */
+        /** `node --version`: for reference only — it answers before V8 starts, so it is not a floor. */
         readonly nodeVersion: FloorResult;
     };
     readonly sizes: readonly SizeReport[];
@@ -122,8 +122,8 @@ function medianCell(s: Stats | null | undefined): string {
 }
 
 function outcomeNote(size: SizeReport): string {
-    // Провалы считаем по всем прогонам, включая прогревочный: краш на
-    // прогреве — это не шум, а сам результат («файл не открывается»).
+    // Failures count across all runs, including the warmup: a crash during
+    // warmup is not noise but the result itself ("the file does not open").
     const failed = size.runs.filter((r) => r.outcome !== "ok");
     if (failed.length === 0) return "";
     return ` ${failed

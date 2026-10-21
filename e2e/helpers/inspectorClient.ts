@@ -28,7 +28,7 @@ export function connectWithRetry(url: string, timeoutMs: number, signal?: AbortS
         const attempt = (): void => {
             const ws = new WebSocket(url);
             ws.once("open", () => {
-                // Отменили, пока сокет открывался: он уже никому не нужен.
+                // Aborted while the socket was opening: nobody needs it anymore.
                 if (signal?.aborted === true) ws.close();
                 else resolve(ws);
             });

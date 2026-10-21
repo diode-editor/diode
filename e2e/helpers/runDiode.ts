@@ -16,13 +16,13 @@ export interface DiodeSessionOptions {
     cols?: number;
     rows?: number;
     env?: Record<string, string>;
-    /** Расширения видят его как `workspaceFolders[0]`: хост выводит папки из `process.cwd()`. */
+    /** Extensions see it as `workspaceFolders[0]`: the host derives folders from `process.cwd()`. */
     cwd?: string;
-    /** Инспектор TUIDom на свободном порту: дерево читается через {@link DiodeSession.getDocument}. */
+    /** TUIDom inspector on a free port: the tree is read via {@link DiodeSession.getDocument}. */
     inspect?: boolean;
-    /** По умолчанию — SEA (`getBinaryPath()`); self-extract-сборка — для `selfextract.test.ts`. */
+    /** Defaults to SEA (`getBinaryPath()`); the self-extract build is for `selfextract.test.ts`. */
     binary?: string;
-    /** Синхронно в момент прихода чанка: бенчи ставят таймстемпы точнее поллинга `waitFor`. */
+    /** Called synchronously when a chunk arrives: benches get more precise timestamps than `waitFor` polling. */
     onData?: (data: string) => void;
 }
 
@@ -31,7 +31,7 @@ export class DiodeSession {
     public readonly rows: number;
     /** Port the TUIDom inspector listens on, or `null` when `inspect` was not set. */
     public readonly inspectorPort: number | null;
-    /** Метка сессии в окружении — см. `HeadlessSession.sessionTag`. */
+    /** Session tag in the environment — see `HeadlessSession.sessionTag`. */
     public readonly sessionTag: string;
     private readonly term: pty.IPty;
     private buffer = "";
@@ -95,7 +95,7 @@ export class DiodeSession {
         return this.exited;
     }
 
-    /** PID процесса редактора (бенч читает `/proc/<pid>/status` ради peak RSS). */
+    /** PID of the editor process (the bench reads `/proc/<pid>/status` for peak RSS). */
     public get pid(): number {
         return this.term.pid;
     }
@@ -104,7 +104,7 @@ export class DiodeSession {
         return this.exitCode;
     }
 
-    /** Номер сигнала, убившего процесс (например 9 при OOM-kill), или null. */
+    /** Number of the signal that killed the process (e.g. 9 on OOM kill), or null. */
     public get exitSignal(): number | null {
         return this.exitSignalCode;
     }
@@ -123,7 +123,7 @@ export class DiodeSession {
         if (!this.exited) this.term.write(input);
     }
 
-    /** Резолвится, когда предикат истинен И нет новых байт `stableMs`. */
+    /** Resolves when the predicate holds AND no new bytes arrive for `stableMs`. */
     public async waitFor(
         predicate: (screen: AnsiScreen) => boolean,
         opts: { timeoutMs?: number; stableMs?: number } = {},
@@ -131,8 +131,8 @@ export class DiodeSession {
         const timeoutMs = opts.timeoutMs ?? (process.platform === "win32" ? 30_000 : 10_000);
         const stableMs = opts.stableMs ?? 150;
         const deadline = Date.now() + timeoutMs;
-        // Windows: ConPTY после resize вставляет очищающие последовательности, и дельта-рендерер теряет
-        // ячейки. До 5 циклов resize — пока полная перерисовка не ляжет ПОСЛЕ вставок ConPTY.
+        // Windows: after a resize ConPTY injects clearing sequences, and the delta renderer loses
+        // cells. Up to 5 resize cycles — until a full repaint lands AFTER the ConPTY injections.
         let winKicksLeft = process.platform === "win32" ? 5 : 0;
         let winNextKickAt = process.platform === "win32" ? Date.now() + 500 : Infinity;
 
@@ -172,7 +172,7 @@ export class DiodeSession {
         return this.inspectorWs;
     }
 
-    /** Требует `inspect: true`. */
+    /** Requires `inspect: true`. */
     public async getDocument(): Promise<GetDocumentResult> {
         const ws = await this.ensureInspector();
         return getDocument(ws);
@@ -228,8 +228,8 @@ export class DiodeSession {
             }
             await this.waitForExit(graceMs);
         }
-        // node-pty стартует редактор лидером своей сессии и группы (setsid), поэтому
-        // сигнал уходит всей группе: прямые помощники редактора не остаются сиротами.
+        // node-pty starts the editor as the leader of its own session and group (setsid), so
+        // the signal goes to the whole group: the editor's direct helpers are not orphaned.
         const group = {
             pid: this.term.pid,
             kill: (signal: NodeJS.Signals): boolean => {
@@ -254,9 +254,9 @@ export class DiodeSession {
             }
             await this.waitForExit(1000);
         }
-        // Группе — и после выхода лидера: помощники в ней сами не уходят.
+        // Signal the group even after the leader exits: helpers in it do not leave on their own.
         if (process.platform !== "win32") killGroup(group, "SIGKILL");
-        // Под Windows ConPTY может убить процесс без события exit — не оставляем вызывающих висеть.
+        // On Windows ConPTY may kill the process without an exit event — don't leave callers hanging.
         if (!this.exited) {
             this.exited = true;
             for (const w of this.waiters.splice(0)) w();

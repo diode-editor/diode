@@ -1,6 +1,6 @@
 "use strict";
 
-/** Тянется к API зависимости сразу в `activate()`, как форк bazel-java к `redhat.java`. */
+/** Reaches for the dependency's API right in `activate()`, as the bazel-java fork does with `redhat.java`. */
 exports.activate = function activate() {
     const vscode = require("vscode");
     const dep = vscode.extensions.getExtension("test.deps-provider");

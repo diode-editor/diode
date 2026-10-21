@@ -1,13 +1,13 @@
 "use strict";
 
 /**
- * Устроено как любое расширение с чатом: СНАЧАЛА поднимает webview, потом регистрирует остальное.
- * Webview в TUI нет by design, но расширение от этого умереть не должно: команда
- * `Chat Panel: Ping` обязана доехать до палитры и исполниться.
+ * Built like any chat extension: it sets up the webview FIRST, then registers everything else.
+ * The TUI has no webviews by design, but the extension must not die because of it: the
+ * `Chat Panel: Ping` command must reach the command palette and run.
  *
- * Code actions — как у стокового Supermaven («Fix with Supermaven»): без правок, только команда с
- * `vscode.Position` в аргументах. Провайдеров три (быстрый и медленный quickfix, неактивный
- * рефакторинг) — меню собирается из нескольких ответов, как рядом с tsserver.
+ * Code actions mimic the stock Supermaven ("Fix with Supermaven"): no edits, only a command with
+ * a `vscode.Position` in its arguments. There are three providers (a fast and a slow quickfix, a disabled
+ * refactoring) — the menu is assembled from several responses, as alongside tsserver.
  */
 exports.activate = function activate(context) {
     const vscode = require("vscode");
@@ -33,7 +33,7 @@ exports.activate = function activate(context) {
         }),
     );
 
-    // Как `supermaven.sendFixRequestToChat`: обработчик синхронный, `.focus` без await.
+    // Like `supermaven.sendFixRequestToChat`: the handler is synchronous, `.focus` is not awaited.
     context.subscriptions.push(
         vscode.commands.registerCommand("chatPanel.sendFix", function (request) {
             vscode.commands.executeCommand("chatPanel.chatView.focus");

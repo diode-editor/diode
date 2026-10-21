@@ -1,7 +1,7 @@
 /**
- * Пол процесса тем же путём, что и замер: спаун через node-pty с теми же cols/rows и env, до
- * первого чанка stdout (или до выхода). `spawnSync` с пайпами — другой путь и другая цена,
- * вычитать его из PTY-замера нечестно.
+ * The process floor, measured the same way as the benchmark: spawn via node-pty with the same
+ * cols/rows and env, up to the first stdout chunk (or exit). `spawnSync` with pipes is a different
+ * path at a different cost, so subtracting it from a PTY measurement would be unfair.
  */
 
 import * as pty from "node-pty";
@@ -14,7 +14,7 @@ import { median } from "./stats.ts";
 export interface FloorOptions {
     readonly cols: number;
     readonly rows: number;
-    /** Замеряемых прогонов; первый (прогрев FS-кеша) в статистику не идёт. */
+    /** Measured runs; the first one (FS cache warm-up) is excluded from the statistics. */
     readonly runs: number;
     readonly env?: Readonly<Record<string, string>>;
 }
@@ -44,7 +44,7 @@ export function measureFloorOnce(cmd: string, args: readonly string[], options: 
 }
 
 export interface FloorResult {
-    /** Что спаунили — чтобы отчёт и JSON были самоописательными. */
+    /** What was spawned, so the report and JSON are self-describing. */
     readonly command: string;
     readonly medianMs: number;
     readonly samplesMs: readonly number[];

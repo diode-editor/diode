@@ -22,34 +22,34 @@ import { findNode } from "../helpers/inspectorClient.ts";
 import { waitUntil } from "../helpers/waitFor.ts";
 
 /**
- * Чек дёргает настоящую функциональность расширения и смотрит на состояние редактора, а не на факт
- * загрузки (урок #194/#195). Таблица неполна по устройству: отсутствие чека ничего не блокирует,
- * состав решает магазин.
+ * A check exercises the extension's real functionality and inspects editor state, not the mere fact
+ * of loading (lesson #194/#195). The table is incomplete by design: a missing check blocks nothing,
+ * the marketplace decides the lineup.
  */
 
 const here = fileURLToPath(new URL(".", import.meta.url));
 const FIXTURES = resolve(here, "..", "fixtures");
 
 export interface ICheckContext {
-    /** Корень сессии; в `<root>/user-data-dir` расширение уже установлено из реестра. */
+    /** Session root; the extension is already installed from the registry into `<root>/user-data-dir`. */
     readonly root: string;
 }
 
 export interface IMarketplaceCheck {
     readonly id: string;
-    /** Пути внутри каталога установленного расширения, обязанные существовать. */
+    /** Paths inside the installed extension's directory that must exist. */
     readonly expectFiles: readonly string[];
-    /** Таймаут кейса, если стандартного мало (холодный старт language-сервера). */
+    /** Case timeout when the default is too short (language server cold start). */
     readonly timeoutMs?: number;
     /**
-     * Причина пропуска без внешнего инструмента (Go toolchain у `golang.go`), как `requires` у
-     * сценариев: в CI инструмент ставится в джобу, локально без него кейс честно пропускается.
+     * Skip reason when an external tool is missing (Go toolchain for `golang.go`), like scenario
+     * `requires`: CI installs the tool in the job, locally the case is honestly skipped without it.
      */
     requires?(): string | undefined;
     run(ctx: ICheckContext): Promise<void>;
 }
 
-/** Эффект снимается инспектором, без ввода в PTY, — поэтому чек работает на всех платформах. */
+/** The effect is read via the inspector, with no PTY input, so the check works on all platforms. */
 async function expectTabSize(ctx: ICheckContext, file: string, tabSize: number): Promise<void> {
     const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
     try {
@@ -64,13 +64,13 @@ async function expectTabSize(ctx: ICheckContext, file: string, tabSize: number):
 
 export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
     {
-        // kind: "native", декларативное: только вклад языка и грамматики — extension host для него
-        // не поднимается вовсе. Исходник и упаковщик — `sample-extension/` рядом.
+        // kind: "native", declarative: only a language and grammar contribution, no extension host
+        // is started for it at all. Source and packager live in the sibling `sample-extension/`.
         id: "test.sample-lang",
         expectFiles: ["package.json", "syntaxes/diodesample.tmGrammar.json"],
         run: async (ctx) => {
-            // Наблюдаемый эффект вклада языка — имя языка в статус-баре: файл
-            // `.diodesample` перестаёт быть Plain Text.
+            // The observable effect of the language contribution is the language name in the
+            // status bar: a `.diodesample` file is no longer Plain Text.
             const file = join(ctx.root, "sample.diodesample");
             writeFileSync(file, "sample marketplace 42\n# comment\n");
             const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
@@ -82,32 +82,32 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "native", рантайм-расширение: `main` + subprocess extension host.
+        // kind: "native", runtime extension: `main` + subprocess extension host.
         id: "test.tab-setter",
         expectFiles: ["package.json", "extension.js"],
         run: async (ctx) => {
-            // Расширение при активации ставит tabSize=7 активному редактору через
-            // `vscode.window.activeTextEditor.options` — то есть проверяется и
-            // subprocess extension host, и RPC до него.
+            // On activation the extension sets tabSize=7 on the active editor via
+            // `vscode.window.activeTextEditor.options`, so this covers both the
+            // subprocess extension host and the RPC to it.
             await expectTabSize(ctx, join(FIXTURES, "tabbed.txt"), 7);
         },
     },
     {
-        // kind: "proxy-openvsx" — чужой .vsix, скачивается с open-vsx по URL из меты.
+        // kind: "proxy-openvsx": a third-party .vsix downloaded from open-vsx by the URL in the metadata.
         id: "EditorConfig.EditorConfig",
         expectFiles: ["package.json", "out/editorConfigMain.js", "node_modules/editorconfig/lib/index.js"],
         run: async (ctx) => {
-            // `[*.tabbed] indent_size = 3` из .editorconfig проекта; проект копируем в корень сессии,
-            // чтобы прогон не зависел от .editorconfig репозитория.
+            // `[*.tabbed] indent_size = 3` from the project's .editorconfig; the project is copied into
+            // the session root so the run doesn't depend on the repository's .editorconfig.
             const project = join(ctx.root, "editorconfig-project");
             cpSync(join(FIXTURES, "editorconfig", "project"), project, { recursive: true });
             await expectTabSize(ctx, join(project, "indent.tabbed"), 3);
         },
     },
     {
-        // kind: "proxy-openvsx" — настоящий basedpyright. Активация держится на курируемом дефолте
-        // `basedpyright.importStrategy: "useBundled"` (`curatedConfigInjection`): манифестный
-        // `fromEnvironment` зовёт API ms-python.python и роняет activate().
+        // kind: "proxy-openvsx": the real basedpyright. Activation relies on the curated default
+        // `basedpyright.importStrategy: "useBundled"` (`curatedConfigInjection`): the manifest's
+        // `fromEnvironment` calls the ms-python.python API and crashes activate().
         id: "detachhead.basedpyright",
         expectFiles: [
             "package.json",
@@ -115,11 +115,11 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
             "dist/server.js",
             "dist/typeshed-fallback/stdlib/builtins.pyi",
         ],
-        // Холодный старт bundled-сервера — десятки секунд поверх скачивания
-        // 6.4 МБ артефакта: стандартных 240 с кейсу впритык.
+        // The bundled server's cold start takes tens of seconds on top of downloading
+        // the 6.4 MB artifact: the default 240 s barely suffices.
         timeoutMs: 420_000,
         run: async (ctx) => {
-            // Ошибка типов → undercurl (StyleFlags.Undercurl === 8) — readiness-сигнал наших LSP e2e.
+            // Type error → undercurl (StyleFlags.Undercurl === 8), the readiness signal of our LSP e2e.
             const file = join(ctx.root, "typed.py");
             writeFileSync(file, 'reply: int = "hi"\nprint(reply)\n');
             const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
@@ -135,14 +135,14 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx", ПЛАТФОРМЕННЫЕ vsix — настоящий ruff. Доказывает весь платформенный
-        // маршрут: `targetPlatform` машины → её артефакт → распаковка с exec-битом → spawn нативного
-        // `ruff server` → диагностика в кадре. Плюс курируемый `ruff.importStrategy: "useBundled"`.
+        // kind: "proxy-openvsx", PLATFORM-SPECIFIC vsix: the real ruff. Proves the whole platform route:
+        // machine `targetPlatform` → its artifact → unpacking with the exec bit → spawning the native
+        // `ruff server` → diagnostics in the frame. Plus the curated `ruff.importStrategy: "useBundled"`.
         id: "charliermarsh.ruff",
         expectFiles: ["package.json", "dist/extension.js", "bundled/libs/bin/ruff"],
         timeoutMs: 420_000,
         run: async (ctx) => {
-            // Неиспользуемый импорт → F401 из дефолтного набора → undercurl.
+            // Unused import → F401 from the default rule set → undercurl.
             const file = join(ctx.root, "lint.py");
             writeFileSync(file, "import sys\n\nprint(1)\n");
             const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
@@ -158,14 +158,15 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx", платформенный vsix со вшитым `terraform-ls`. Активация целиком
-        // (TreeItem, context.extension, createTelemetryLogger, authentication — без любого сервер не
-        // стартовал) до диагностики в кадре. Схемы провайдеров вшиты: terraform CLI не нужен.
+        // kind: "proxy-openvsx", platform-specific vsix with a bundled `terraform-ls`. Full activation
+        // (TreeItem, context.extension, createTelemetryLogger, authentication: without any of them the
+        // server didn't start) up to diagnostics in the frame. Provider schemas are bundled: no terraform
+        // CLI needed.
         id: "hashicorp.terraform",
         expectFiles: ["package.json", "dist/extension.js", "bin/terraform-ls"],
         timeoutMs: 420_000,
         run: async (ctx) => {
-            // Лишний атрибут ресурса → «Unexpected attribute» от сервера →
+            // Extra resource attribute → "Unexpected attribute" from the server →
             // undercurl (StyleFlags.Undercurl === 8).
             const file = join(ctx.root, "main.tf");
             writeFileSync(file, 'resource "aws_instance" "web" {\n  bogus_attr = 1\n}\n');
@@ -182,9 +183,10 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx" — стоковая тема Catppuccin (`contributes.themes`, tokenColors inline,
-        // цвета с альфой): `workbench.colorTheme` → первый же кадр в теме (фон = `editor.background`
-        // из themes/mocha.json) и тема в пикере. Runtime-часть расширения не используется.
+        // kind: "proxy-openvsx": the stock Catppuccin theme (`contributes.themes`, inline tokenColors,
+        // colors with alpha): `workbench.colorTheme` → the very first frame is themed (background =
+        // `editor.background` from themes/mocha.json) and the theme is in the picker. The extension's
+        // runtime part is unused.
         id: "Catppuccin.catppuccin-vsc",
         expectFiles: ["package.json", "themes/mocha.json", "themes/latte.json"],
         run: async (ctx) => {
@@ -195,14 +197,14 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
                 keepRoot: true,
                 open: [file],
                 settings: { "workbench.colorTheme": "Catppuccin Mocha" },
-                // Настоящий Ctrl+K Ctrl+T headless-DSL не кодирует — вешаем пикер на F8.
+                // The headless DSL can't encode a real Ctrl+K Ctrl+T, so the picker is bound to F8.
                 keybindings: [{ key: "f8", command: "workbench.action.selectTheme" }],
             });
             try {
                 const frame = await app.session.waitForText((t) => t.includes("const answer"), { timeoutMs: 40_000 });
                 const editor = findNode((await app.session.getDocument()).root, (n) => n.type === "EditorElement");
                 if (editor === null) throw new Error("EditorElement не найден в дереве");
-                // Вторая строка, у правого края: первая — под кареткой и occurrence-подсветкой.
+                // Second line, near the right edge: the first is under the cursor and occurrence highlight.
                 const cell = frame.cells[(editor.box.y + 1) * frame.cols + editor.box.x + editor.box.width - 2];
                 if (cell.bg !== 0x1e1e2e) {
                     throw new Error(
@@ -221,9 +223,9 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx" — стоковый ESLint. Библиотеку eslint он НЕ бандлит — доносим её
-        // симлинком из npm-кэша фикстуры. Ждём диагностику eslintServer, а не undercurl: builtin
-        // TS-клиент линтит и .js, и чек был бы ложно-зелёным (e2e/helpers/eslintReady.ts).
+        // kind: "proxy-openvsx": the stock ESLint. It does NOT bundle the eslint library, so we supply it
+        // as a symlink from the fixture's npm cache. We wait for eslintServer diagnostics, not undercurl:
+        // the builtin TS client lints .js too, and the check would be falsely green (e2e/helpers/eslintReady.ts).
         id: "dbaeumer.vscode-eslint",
         expectFiles: ["package.json", "client/out/extension.js", "server/out/eslintServer.js"],
         timeoutMs: 420_000,
@@ -245,17 +247,17 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx" — стоковый redhat.java. Undercurl над `int broken = message;` рисуется,
-        // только если jdt.ls поднялся, импортировал и собрал проект; заодно проверка курируемого
-        // lombokSupport (с манифестным `true` пришла бы «Internal compiler error»).
-        // `expectFiles` — только пути, общие для платформенного и universal артефактов: какой отдаст
-        // резолв, зависит от версии клиента.
+        // kind: "proxy-openvsx": the stock redhat.java. The undercurl under `int broken = message;` appears
+        // only if jdt.ls started, imported and built the project; it also checks the curated lombokSupport
+        // (the manifest's `true` would yield "Internal compiler error").
+        // `expectFiles` lists only paths shared by the platform-specific and universal artifacts: which one
+        // resolution returns depends on the client version.
         id: "redhat.java",
         expectFiles: ["package.json", "dist/extension.js", "server/config_linux/config.ini"],
         timeoutMs: 600_000,
         run: async (ctx) => {
-            // Проект — в ПОДКАТАЛОГЕ: в корне лежит `user-data-dir/` с eclipse-хозяйством расширения, и
-            // jdt.ls молча сваливается в «non-project file, only syntax errors».
+            // The project lives in a SUBDIRECTORY: the root holds `user-data-dir/` with the extension's
+            // eclipse state, and jdt.ls silently falls back to "non-project file, only syntax errors".
             const projectRoot = join(ctx.root, "javaproj");
             const file = join(projectRoot, APP_JAVA_PATH);
             mkdirSync(dirname(file), { recursive: true });
@@ -264,10 +266,10 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
             const app = await startHeadlessApp({
                 root: ctx.root,
                 keepRoot: true,
-                // Папка ПЕРВОЙ: у redhat.java есть только `workspaceContains:`-события.
+                // Folder FIRST: redhat.java only has `workspaceContains:` activation events.
                 open: [projectRoot, file],
-                // Иначе тост про телеметрию перекрывает правую часть редактора —
-                // ровно те строки, где рисуется волна, — и чек ловит гонку.
+                // Otherwise the telemetry toast covers the right part of the editor
+                // (exactly the lines where the squiggle is drawn) and the check races.
                 settings: { "redhat.telemetry.enabled": false },
             });
             try {
@@ -282,18 +284,19 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx" — стоковый golang.go: undercurl рисуется, только если его languageclient
-        // поднял gopls (своего Go-клиента у diode нет). gopls в vsix нет — кладём в GOBIN собранный
-        // фикстурой (в CI — .github/actions/go-tools); авто-установку закрывает goLsp.test.ts. Без Go
-        // toolchain расширение не активируется и в VS Code — кейс пропускается.
+        // kind: "proxy-openvsx": the stock golang.go. The undercurl appears only if its languageclient
+        // started gopls (diode has no Go client of its own). gopls isn't in the vsix, so GOBIN gets the
+        // one built by the fixture (in CI, .github/actions/go-tools); auto-install is covered by
+        // goLsp.test.ts. Without a Go toolchain the extension doesn't activate in VS Code either, so the
+        // case is skipped.
         id: "golang.go",
         expectFiles: ["package.json", "dist/goMain.js"],
         requires: goToolchainMissing,
-        // Первый локальный прогон собирает gopls внутри кейса (`ensureGopls`).
+        // The first local run builds gopls inside the case (`ensureGopls`).
         timeoutMs: 600_000,
         run: async (ctx) => {
             const gobin = dirname(ensureGopls());
-            // Модуль — в подкаталоге: в корне сессии лежит user-data-dir.
+            // The module lives in a subdirectory: the session root holds user-data-dir.
             const projectRoot = join(ctx.root, "goproj");
             cpSync(GO_SAMPLE_DIR, projectRoot, { recursive: true });
             const app = await startHeadlessApp({
@@ -314,9 +317,10 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx" — prettier, ЕДИНСТВЕННОЕ ESM-расширение в магазине: формат markdown
-        // (его не покрывает ни один наш LSP) и загрузка ESM-точки входа под SEA, где прямой `import()`
-        // из вшитого main не работает. Чорд Ctrl+K Ctrl+E шлём инспектором, как соседние чеки.
+        // kind: "proxy-openvsx": prettier, the ONLY ESM extension in the marketplace. Covers markdown
+        // formatting (none of our LSPs does) and loading an ESM entry point under SEA, where a direct
+        // `import()` from the embedded main doesn't work. The Ctrl+K Ctrl+E chord is sent via the
+        // inspector, like the neighboring checks.
         id: "esbenp.prettier-vscode",
         expectFiles: ["package.json", "dist/extension.js", "node_modules/prettier/package.json"],
         timeoutMs: 300_000,
@@ -325,13 +329,13 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
             writeFileSync(file, "#   Hello\n\n*  item one\n");
             const app = await startHeadlessApp({ root: ctx.root, keepRoot: true, open: [file] });
             try {
-                // Пункт статус-бара появляется в конце activate(): провайдеры
-                // формата к этому моменту зарегистрированы.
+                // The status bar item appears at the end of activate(): the formatting
+                // providers are registered by then.
                 await app.session.waitForText((text) => text.includes("Prettier"), { timeoutMs: 120_000 });
                 await app.session.key("Ctrl+K");
                 await app.session.key("Ctrl+E");
-                // Этого текста в файле не было — он мог появиться только правками
-                // настоящего prettier.
+                // This text wasn't in the file: it can only come from edits by
+                // the real prettier.
                 await app.session.waitForText((text) => text.includes("# Hello") && text.includes("- item one"), {
                     timeoutMs: 60_000,
                 });
@@ -341,9 +345,10 @@ export const MARKETPLACE_CHECKS: readonly IMarketplaceCheck[] = [
         },
     },
     {
-        // kind: "proxy-openvsx", платформенный vsix (~130 МБ) — стоковый Claude Code. Его работа здесь —
-        // ide-сервер: пункт «✻ Claude Code» и лок пишутся в конце activate(), MCP `initialize` отвечает
-        // `ideName` из `env.appName`. Контекст, диагностики и терминал — в e2e claudeCode.test.ts.
+        // kind: "proxy-openvsx", platform-specific vsix (~130 MB): the stock Claude Code. Its job here is
+        // the ide server: the "✻ Claude Code" item and the lock file are written at the end of activate(),
+        // MCP `initialize` answers with `ideName` from `env.appName`. Context, diagnostics and terminal are
+        // covered by the e2e claudeCode.test.ts.
         id: CLAUDE_CODE_ID,
         expectFiles: ["package.json", "extension.js"],
         run: async (ctx) => {
