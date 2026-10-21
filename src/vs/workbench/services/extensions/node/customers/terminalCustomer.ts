@@ -12,22 +12,13 @@ import {
 } from "../hostWireParsers.ts";
 
 /**
- * Терминалы для расширений (`MainThreadTerminalService` эталона):
- * нотификации `terminal.*` субпроцесса уходят в сток, а жизнь инстансов
- * встроенного терминала — всех, не только заведённых расширением, —
- * возвращается субпроцессу `terminal.opened`/`closed`/`activeChanged`.
- *
- * Пересказ начинается с {@link pushInitialState} (после `host.ready`, до первой
- * активации): до него у субпроцесса нет обработчиков, а всё случившееся раньше
- * войдёт в снимок. Без стока терминалы заводятся «в никуда»: расширение
- * получает объект, но `onDidOpenTerminal` не стреляет.
+ * `MainThreadTerminalService` эталона. Субпроцессу пересказываются все терминалы,
+ * не только заведённые расширением, — начиная с {@link pushInitialState} (после
+ * `host.ready`, до первой активации): до него у субпроцесса нет обработчиков,
+ * а всё случившееся раньше войдёт в снимок.
  */
 export class TerminalCustomer implements IExtensionHostCustomer {
-    /**
-     * Живой спавн: его RPC, сток, признак «снимок уже ушёл» и признак жизни —
-     * уборка при смерти субпроцесса закрывает его pty-терминалы, и их `closed`
-     * слать уже некому.
-     */
+    /** Признак жизни: уборка при смерти субпроцесса закрывает его pty-терминалы, и их `closed` слать уже некому. */
     private spawn: {
         readonly rpc: HostRpc;
         readonly sink: IExtensionTerminalSink;
@@ -56,9 +47,8 @@ export class TerminalCustomer implements IExtensionHostCustomer {
                 activeChanged: (id) => {
                     if (seeded()) rpc.notify("terminal.activeChanged", { id });
                 },
-                // Pty-терминал заводит только живой субпроцесс (снимок ему уже
-                // ушёл), а уборка его pty при смерти не вызывает ни старта, ни
-                // ввода, ни ресайза — гейт здесь не нужен.
+                // Гейт не нужен: pty-терминал заводит только живой субпроцесс, а уборка
+                // его pty при смерти не вызывает ни старта, ни ввода, ни ресайза.
                 ptyStart: (id, cols, rows) => {
                     rpc.notify("terminal.pty.start", { id, cols, rows });
                 },
@@ -116,21 +106,15 @@ export class TerminalCustomer implements IExtensionHostCustomer {
             dispose: () => {
                 spawn.alive = false;
                 if (this.spawn === spawn) this.spawn = null;
-                // Метки умершего субпроцесса больше ничего не значат; шеллы живут,
-                // его pty-терминалы закрываются.
                 sink.reset();
             },
         });
         return store;
     }
 
-    /**
-     * Семя субпроцесса (`$acceptTerminalOpened` по всем инстансам и активный —
-     * в конструкторе `MainThreadTerminalService` эталона); дальше — события.
-     */
+    /** Как конструктор `MainThreadTerminalService` эталона: `$acceptTerminalOpened` по всем инстансам и активный. */
     public pushInitialState(): void {
         const spawn = this.spawn;
-        // Без стока attach спавна не заводит — семени нет.
         if (spawn === null) return;
         const { terminals, activeId } = spawn.sink.snapshot();
         for (const terminal of terminals) spawn.rpc.notify("terminal.opened", terminal);

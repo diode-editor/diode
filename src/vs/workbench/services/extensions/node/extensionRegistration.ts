@@ -7,26 +7,14 @@ import { computeActivationEvents } from "../common/activationEvents.ts";
 
 import type { IExtensionRegistration } from "./iExtensionEntry.ts";
 
-/** Окружение сборки регистрации: где лежат расширения и как прочитать встроенные. */
 export interface IExtensionRegistrationEnv {
-    /** Префикс виртуального пути пользовательских расширений в ассетах (`UserExtensions/`). */
     readonly userPrefix: string;
-    /** Каталог установленных пользовательских расширений на диске. */
     readonly userExtensionsDir: string;
-    /** Исходник `main` встроенного расширения по виртуальному пути (под SEA файла на диске нет). */
+    /** Под SEA файла на диске нет. */
     readBuiltinSource(virtualPath: string): Promise<string>;
 }
 
-/**
- * Регистрация расширения в extension host'е из его записи скана — одна на
- * приложение и тестовые фикстуры, чтобы в тесте регистрация была ровно той же,
- * что в проде. `null` — у расширения нет `main` (декларативное: темы,
- * грамматики), регистрировать в host'е нечего.
- *
- * Пользовательское грузится с диска (`mainPath`/`extensionPath`), встроенное —
- * строкой-исходником из ассетов (`source`/`filename`): subprocess компилирует его
- * в памяти через `Module._compile`, без записи на диск.
- */
+/** Одна на приложение и тестовые фикстуры: тест регистрирует ровно как прод. `null` — декларативное расширение без `main`. */
 export async function toExtensionRegistration(
     ext: IExtension,
     env: IExtensionRegistrationEnv,
@@ -36,10 +24,8 @@ export async function toExtensionRegistration(
     const commandMeta = collectCommandMeta(ext.manifest.contributes?.commands);
     const common = {
         id: ext.id,
-        // Манифест целиком, а не тройка имя/издатель/версия: он же едет
-        // расширениям как `Extension.packageJSON` в `vscode.extensions`, и соседа
-        // по нему детектят не только по id (у AI-автодополнений в ходу
-        // `contributes`, `categories`, `engines`).
+        // Манифест целиком: он же едет расширениям как `Extension.packageJSON`, и соседа детектят
+        // не только по id (AI-автодополнения смотрят `contributes`, `categories`, `engines`).
         manifest: ext.manifest,
         commandTitles: commandMeta.titles,
         commandCategories: commandMeta.categories,
@@ -52,7 +38,6 @@ export async function toExtensionRegistration(
         return {
             ...common,
             source: await env.readBuiltinSource(virtualPath),
-            // Синтетический абсолютный путь-идентичность (реального файла под SEA нет).
             filename: `/${virtualPath}`,
         };
     }
@@ -61,15 +46,7 @@ export async function toExtensionRegistration(
     return { ...common, mainPath: path.resolve(extensionPath, main), extensionPath };
 }
 
-/**
- * Собирает `contributes.commands` в пару map'ов id → title и id → category:
- * заголовок нужен, чтобы прокси рантайм-команды было видно в палитре (иначе
- * команда исполнима, но не показывается), категория — чтобы палитра нарисовала
- * её префиксом подписи («Java: Switch to Standard Mode»).
- *
- * `%ключи%` здесь уже резолвнуты: манифест локализован на этапе сканирования
- * (`scanExtensions` → `localizeExtensionManifest`).
- */
+/** `%ключи%` уже резолвнуты: манифест локализован при сканировании. */
 export function collectCommandMeta(commands: readonly ICommandContribution[] | undefined): {
     titles?: Record<string, string>;
     categories?: Record<string, string>;

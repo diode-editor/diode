@@ -2,13 +2,7 @@ import { describeRejection } from "../../../../base/common/describeRejection.ts"
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 import { LogLevel } from "../../../../platform/log/common/logLevel.ts";
 
-/**
- * Логгер субпроцесса extension host'а: warn/error — строкой в stderr с
- * префиксом `[ext-host]` (host зеркалит stderr в канал `extensions.host.stderr`).
- * trace/debug/info молчат: уровня в субпроцессе нет, а трассу RPC пишет хост
- * (`extensions.host.rpc`) — дублировать каждое сообщение в stderr было бы шумом.
- * Аргументы дописываются через `: `, ошибка — со стеком.
- */
+/** trace/debug/info молчат: трассу RPC пишет хост, дубль каждого сообщения в stderr — шум. */
 export function createStderrLogger(
     write: (line: string) => void = (line) => {
         console.error(line);

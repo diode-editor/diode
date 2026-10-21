@@ -9,7 +9,6 @@ import { DEFAULT_REQUEST_TIMEOUTS, type RequestTimeouts } from "../requestPolicy
 
 import { LanguageFeaturesCustomer } from "./languageFeaturesCustomer.ts";
 
-// Короткие сроки: висящий ответ в этих тестах не должен держать прогон.
 /** Разные сроки у каждого метода: перепутанный ключ таблицы виден в опциях запроса. */
 const TIMEOUTS: RequestTimeouts = {
     ...DEFAULT_REQUEST_TIMEOUTS,
@@ -85,7 +84,6 @@ describe("LanguageFeaturesCustomer — реестр провайдеров сп�
     });
 });
 
-/** Запрос, годный любому провайдеру: лишние поля провайдеры не читают. */
 function anyRequest(uri: string): never {
     return {
         uri,
@@ -176,7 +174,6 @@ const REQUEST_CASES: readonly IRequestCase[] = [
     },
 ];
 
-/** Пустой ответ субпроцесса каждого метода в форме карты протокола. */
 const EMPTY_WIRE: Readonly<Record<string, unknown>> = {
     "languages.provideCompletionItems": [],
     "languages.resolveCompletionItem": null,
@@ -209,7 +206,6 @@ function setupWithSync() {
     const [a, b] = createInProcessChannelPair();
     const peer = new RpcEndpoint(b);
     const hostRpc: HostRpc = new RpcEndpoint(a);
-    // Опции запроса (срок) видны только на стороне хоста.
     const sent = vi.spyOn(hostRpc, "request");
     customer.attach({ rpc: hostRpc, logger: undefined });
     const requested: { method: string; params: Record<string, unknown> }[] = [];
@@ -234,7 +230,6 @@ describe("LanguageFeaturesCustomer — запросы только по синх
             await expect(c.call(h.customer, UNSYNCED), c.name).resolves.toEqual(c.empty);
         }
         expect(h.requested).toEqual([]);
-        // Спросили про документ запроса — по разу на вид.
         expect(h.asked).toEqual(REQUEST_CASES.map(() => UNSYNCED));
     });
 
@@ -251,13 +246,11 @@ describe("LanguageFeaturesCustomer — запросы только по синх
     it("документ, позиция и адресация провайдера уходят по проводу в wire-форме", async () => {
         const h = setupWithSync();
         for (const c of REQUEST_CASES) await c.call(h.customer, SYNCED);
-        // Пачечные запросы адресуют провайдеров списком, остальные — одним handle.
         const batched = new Set([
             "languages.provideCompletionItems",
             "languages.provideInlineCompletions",
             "languages.provideFoldingRanges",
         ]);
-        // Без позиции — запросы по документу или диапазону.
         const positionless = new Set([
             "languages.provideFoldingRanges",
             "languages.provideFormattingEdits",
@@ -285,18 +278,15 @@ describe("LanguageFeaturesCustomer — запросы только по синх
                 (method) => [method, TIMEOUTS[method as keyof RequestTimeouts]],
             ),
         );
-        // У автодополнения срока нет: его ожидание ограничивает только токен вызывающего.
         expect(seen).toContainEqual(["languages.provideCompletionItems", undefined]);
         expect(seen.filter(([, timeoutMs]) => timeoutMs === undefined)).toHaveLength(1);
     });
 });
 
-/** Диапазон ответов и правок на проводе — core `IRange`. */
 const CORE_RANGE = { start: { line: 2, character: 4 }, end: { line: 2, character: 9 } };
 
 type Answer = (params: unknown) => unknown;
 
-/** Customer поверх субпроцесса с заданными ответами; документ синхронизирован. */
 function setupAnswering(answers: Readonly<Record<string, Answer>>) {
     const customer = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
     const [a, b] = createInProcessChannelPair();
@@ -308,12 +298,10 @@ function setupAnswering(answers: Readonly<Record<string, Answer>>) {
     return { customer, sent };
 }
 
-/** Все языковые методы отвечают одинаково. */
 function answerAll(answer: Answer): Record<string, Answer> {
     return Object.fromEntries(Object.keys(EMPTY_WIRE).map((method) => [method, answer]));
 }
 
-/** Пустой ответ каждого вида: rename — отказ С сообщением о причине, остальные — как у несинхронизированного. */
 function emptyResult(c: IRequestCase, renameError: string): unknown {
     return c.method === "languages.provideRenameEdits" ? { applied: false, error: renameError } : c.empty;
 }
@@ -333,7 +321,7 @@ describe("LanguageFeaturesCustomer — ответ субпроцесса в фо
             ],
         });
         const c = h.customer;
-        // Пачку собирает один и тот же запрос к нескольким провайдерам.
+        // Пачку собирает только один и тот же объект запроса.
         const req = anyRequest(SYNCED);
         expect(await Promise.all([c.provideCompletionItems(1, req), c.provideCompletionItems(2, req)])).toEqual([
             { items: [{ label: "a", insertText: "a", range: CORE_RANGE }], isIncomplete: true },
@@ -464,7 +452,6 @@ describe("LanguageFeaturesCustomer — опции запроса inline completi
             { timeoutMs: 7, token: caller.token },
             { timeoutMs: TIMEOUTS["languages.provideInlineCompletions"], token: CancellationTokenNone },
         ]);
-        // Остальные запросы токена не несут — в options его ключа нет вовсе.
         await h.customer.provideHover(1, anyRequest(SYNCED));
         expect(h.sent.mock.calls.at(-1)?.[2]).toStrictEqual({ timeoutMs: TIMEOUTS["languages.provideHover"] });
     });
@@ -544,7 +531,6 @@ describe("LanguageFeaturesCustomer — семантические токены",
         const noHost = new LanguageFeaturesCustomer(TIMEOUTS, () => true, undefined);
         expect(await noHost.provideDocumentSemanticTokens(1, REQ, 0)).toBeNull();
         expect(await noHost.provideDocumentRangeSemanticTokens(1, RANGE_REQ)).toBeNull();
-        // Без спавна release молчит.
         noHost.releaseDocumentSemanticTokens(1, 2);
 
         const h = setupWithSync();

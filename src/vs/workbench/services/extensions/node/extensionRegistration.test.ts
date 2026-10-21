@@ -18,7 +18,6 @@ function extension(overrides: Partial<IExtension> & { manifest: IExtensionManife
     return { id: "acme.sample", location: "UserExtensions/acme.sample-1.2.3/", isBuiltin: false, ...overrides };
 }
 
-/** Окружение с записью чтений исходника. */
 function env(overrides: Partial<IExtensionRegistrationEnv> = {}): IExtensionRegistrationEnv & { reads: string[] } {
     const reads: string[] = [];
     return {
@@ -102,7 +101,7 @@ describe("toExtensionRegistration", () => {
             "onCommand:sample.run",
             "onLanguage:sample",
         ]);
-        // Без событий — eager `*` (отклонение от эталона, см. computeActivationEvents).
+        // Без событий — eager `*`: отклонение от эталона (computeActivationEvents).
         expect(bare?.activationEvents).toEqual(["*"]);
     });
 

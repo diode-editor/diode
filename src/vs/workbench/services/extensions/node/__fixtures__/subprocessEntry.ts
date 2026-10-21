@@ -1,11 +1,4 @@
-/**
- * Test-only subprocess entry. Используется ExtensionHost.* тестами вместо
- * `main.ts`, чтобы не запускать TUI / CLI парсер. Параметризован через
- * `spawnArgs` опции `ExtensionHost`.
- *
- * Запускается через `node --import tsx <этот файл>` (tsx loader нужен для
- * `.ts` импортов в subprocess'е). См. `subprocessSpawnArgsForTests()`.
- */
+// Вместо `main.ts`, чтобы не поднимать TUI/CLI; запуск — `node --import tsx`, см. `subprocessSpawnArgsForTests()`.
 import { runExtensionHostSubprocess } from "../extensionHostSubprocess.ts";
 
 runExtensionHostSubprocess();

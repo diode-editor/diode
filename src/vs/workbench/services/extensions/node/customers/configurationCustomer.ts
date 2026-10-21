@@ -11,15 +11,8 @@ import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common
 import type { IExtensionHostConfigProvider, IWorkspaceFolderInfo } from "../extensionHost.ts";
 import { parseWireConfigurationUpdate } from "../hostWireParsers.ts";
 
-/**
- * Настройки и папки воркспейса для расширений (push-модель: `getConfiguration`
- * в субпроцессе синхронный). Подписка на смену настроек живёт один спавн;
- * семя `workspace.initialize` хост шлёт первым в последовательности handshake
- * ({@link pushInitialState}). Запись `WorkspaceConfiguration.update` —
- * запрос `configuration.update` ({@link writeConfiguration}).
- */
+/** Push-модель: `getConfiguration` в субпроцессе синхронный. */
 export class ConfigurationCustomer implements IExtensionHostCustomer {
-    /** Канал текущего спавна; `null` — спавна нет. */
     private rpc: HostRpc | null = null;
 
     public constructor(private readonly configuration: IExtensionHostConfigProvider) {}
@@ -48,10 +41,8 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
                 });
             }),
         );
-        // Новое значение приезжает обратно обычным `configurationChanged`: сервис
-        // эмитит событие на свою же запись ДО того, как промис записи резолвится,
-        // поэтому уведомление уходит по каналу раньше ответа — после `await
-        // update()` расширение уже видит значение в `get()`, как в эталоне.
+        // Сервис эмитит событие на свою запись ДО резолва промиса записи: после `await update()`
+        // расширение уже видит значение в `get()`, как в эталоне.
         store.add(
             rpc.handleRequest("configuration.update", async (params): Promise<null> => {
                 const request = parseWireConfigurationUpdate(params);
@@ -71,12 +62,8 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
     }
 
     /**
-     * `writeConfiguration` `mainThreadConfiguration` эталона и проверки
-     * `ConfigurationEditing.validate`, которых нет у сервиса настроек: цель без
-     * явного выбора ({@link deriveConfigurationTarget}), неизвестный ключ и
-     * цель-папка. Пустое окно, application/machine-ключ в воркспейс и ключ вне
-     * `FOLDER_SCOPES` в папку отклоняет сам сервис. Отказ — rejected promise
-     * расширению без тоста (`donotNotifyError` эталона).
+     * `writeConfiguration` `mainThreadConfiguration` эталона плюс проверки `ConfigurationEditing.validate`,
+     * которых нет у сервиса настроек. Отказ — rejected promise без тоста (`donotNotifyError` эталона).
      */
     private async writeConfiguration(request: IWireConfigurationUpdate): Promise<void> {
         const { key, value } = request;
@@ -107,12 +94,7 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
         await this.configuration.updateValue(key, value, target);
     }
 
-    /**
-     * Цель записи без явного выбора (`deriveConfigurationTarget`
-     * `mainThreadConfiguration` эталона): у окна из `.code-workspace` ключ
-     * `resource`/`language-overridable` с ресурсом уходит в настройки папки, всё
-     * прочее — в воркспейс.
-     */
+    /** `deriveConfigurationTarget` `mainThreadConfiguration` эталона. */
     private deriveConfigurationTarget(
         scope: ConfigurationScope | undefined,
         resource: string | undefined,
@@ -128,7 +110,7 @@ export class ConfigurationCustomer implements IExtensionHostCustomer {
     }
 }
 
-/** Имя цели в текстах отказов (`stringifyTarget` `ConfigurationEditing` эталона). */
+/** `stringifyTarget` `ConfigurationEditing` эталона. */
 function targetLabel(target: WireConfigurationTarget): string {
     switch (target) {
         case "user":
@@ -140,7 +122,7 @@ function targetLabel(target: WireConfigurationTarget): string {
     }
 }
 
-/** Лежит ли ресурс в одной из папок воркспейса (`getWorkspaceFolder(resource)` эталона). */
+/** `getWorkspaceFolder(resource)` эталона. */
 function isInFolders(resource: string, folders: readonly IWorkspaceFolderInfo[]): boolean {
     const uri = Uri.parse(resource);
     return folders.some((folder) => {

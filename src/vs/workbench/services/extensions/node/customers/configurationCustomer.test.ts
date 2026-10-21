@@ -94,11 +94,6 @@ describe("ConfigurationCustomer", () => {
     });
 });
 
-/**
- * Запись `configuration.update` поверх настоящего сервиса в памяти: реестр с
- * ключами всех скоупов, одна папка (или пустое окно). `peer` — сторона
- * субпроцесса; `order` — что и в каком порядке до неё дошло.
- */
 function setupWrite(options: { folders?: readonly IWorkspaceFolderInfo[]; workspaceFile?: string } = {}) {
     const registry = new ConfigurationRegistry();
     registry.registerExtensionConfiguration("t.ext", {
@@ -111,7 +106,6 @@ function setupWrite(options: { folders?: readonly IWorkspaceFolderInfo[]; worksp
     });
     const folders = options.folders ?? [{ uri: Uri.file("/ws").toString(), name: "ws", index: 0 }];
     const service = new InMemoryConfigurationService(registry, {}, folders.length === 0 ? undefined : {});
-    /** Цели, с которыми запись дошла до сервиса настроек. */
     const targets: string[] = [];
     const provider: IExtensionHostConfigProvider = {
         getSnapshot: () => service.getConfigurationData(),
@@ -218,8 +212,6 @@ describe("ConfigurationCustomer — configuration.update", () => {
         expect(h.service.getConfigurationData().workspace).toMatchObject({ t: { resource: 3 } });
     });
 
-    // `deriveConfigurationTarget` эталона: у окна из `.code-workspace` ключ папки
-    // с ресурсом без явной цели уходит в настройки папки, прочее — в воркспейс.
     it("окно из .code-workspace: без цели resource/language-overridable с ресурсом — в папку", async () => {
         const h = setupWrite({ workspaceFile: Uri.file("/ws/web.code-workspace").toString() });
         const resource = Uri.file("/ws/a.ts").toString();

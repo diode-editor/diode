@@ -24,7 +24,6 @@ describe("createInMemoryExtensionSecretStore", () => {
         expect(store.get("pub.one", "token")).toBeUndefined();
         store.store("pub.one", "token", "s3cr3t");
         expect(store.get("pub.one", "token")).toBe("s3cr3t");
-        // Тот же ключ у другого расширения — другой секрет.
         expect(store.get("pub.two", "token")).toBeUndefined();
         store.store("pub.two", "token", "чужой");
         expect(store.get("pub.one", "token")).toBe("s3cr3t");
@@ -58,7 +57,6 @@ describe("createFileExtensionSecretStore", () => {
     it("записанное переживает пересоздание хранилища — оно лежит в файле", () => {
         const file = path.join(makeRoot(), "User", "secrets.json");
         createFileExtensionSecretStore(file).store("pub.one", "token", "s3cr3t");
-        // Новый экземпляр — как новый запуск редактора.
         expect(createFileExtensionSecretStore(file).get("pub.one", "token")).toBe("s3cr3t");
     });
 
@@ -84,15 +82,13 @@ describe("createFileExtensionSecretStore", () => {
     it("файл создаётся с правами 0600 и остаётся таким, даже если приехал чужим", () => {
         const root = makeRoot();
         const file = path.join(root, "secrets.json");
-        // Файл из чужой копии user-data — с мировыми правами.
         fs.writeFileSync(file, "{}", { encoding: "utf-8", mode: 0o644 });
         createFileExtensionSecretStore(file).store("pub.one", "token", "s3cr3t");
         expect(fs.statSync(file).mode & 0o777).toBe(0o600);
     });
 
     it("нет файла — пустое хранилище, и это НЕ ошибка: onError молчит", () => {
-        // Чистая установка — штатное состояние, а не беда хранилища; жалоба в
-        // лог тут была бы ложной тревогой на каждом первом запуске.
+        // Жалоба в лог на чистой установке была бы ложной тревогой на каждом первом запуске.
         const seen: string[] = [];
         const store = createFileExtensionSecretStore(path.join(makeRoot(), "нет", "secrets.json"), (message) =>
             seen.push(message),
@@ -103,8 +99,7 @@ describe("createFileExtensionSecretStore", () => {
     });
 
     it("битый файл без onError — тоже пустое хранилище, а не падение", () => {
-        // `onError` необязателен (харнессы его не передают) — отсутствие
-        // слушателя не должно превращать беду хранилища в исключение.
+        // `onError` необязателен (харнессы его не передают): без слушателя беда не становится исключением.
         const file = path.join(makeRoot(), "secrets.json");
         fs.writeFileSync(file, "{не json", "utf-8");
         const store = createFileExtensionSecretStore(file);
@@ -147,8 +142,7 @@ describe("createFileExtensionSecretStore", () => {
                 "pub.one": { token: "s3cr3t", broken: 42, alsoBroken: null },
                 "pub.array": ["не лоток"],
                 "pub.null": null,
-                // Строка вместо лотка: без проверки её символы разъехались бы
-                // по «ключам» "0", "1", … — секретами, которых никто не клал.
+                // Без проверки символы строки разъехались бы по «ключам» "0", "1", ….
                 "pub.scalar": "строка",
                 "pub.empty": { onlyBroken: 1 },
             }),
@@ -170,8 +164,7 @@ describe("createFileExtensionSecretStore", () => {
     });
 
     it("НЕпустой массив на верхнем уровне не становится лотками с индексами", () => {
-        // Массив — это `typeof === "object"`, и без явной проверки его элементы
-        // разъехались бы по «расширениям» с именами "0", "1", …
+        // Массив — тоже `typeof === "object"`: без проверки элементы стали бы «расширениями» "0", "1", ….
         const file = path.join(makeRoot(), "secrets.json");
         fs.writeFileSync(file, JSON.stringify([{ token: "s3cr3t" }, { other: "x" }]), "utf-8");
         const store = createFileExtensionSecretStore(file);
@@ -180,8 +173,6 @@ describe("createFileExtensionSecretStore", () => {
     });
 
     it("опустевший лоток не воскресает в файле при следующей записи", () => {
-        // Иначе файл копил бы пустые `{}` расширений, которые когда-то что-то
-        // хранили, — и «чей это секрет» перестало бы читаться глазами.
         const file = path.join(makeRoot(), "secrets.json");
         fs.writeFileSync(file, JSON.stringify({ "pub.gone": { onlyBroken: 1 } }), "utf-8");
         const store = createFileExtensionSecretStore(file);
@@ -199,7 +190,6 @@ describe("createFileExtensionSecretStore", () => {
             store.store("pub.one", "token", "s3cr3t");
         }).not.toThrow();
         expect(seen.some((m) => m.includes("failed to write"))).toBe(true);
-        // В памяти запись всё равно состоялась — расширение в этом сеансе живёт.
         expect(store.get("pub.one", "token")).toBe("s3cr3t");
     });
 

@@ -8,12 +8,7 @@ import { LanguageRegistry } from "../../language/common/languageRegistry.ts";
 
 const ROOT_PREFIX = "Extensions/builtin/";
 
-/**
- * Smoke-тест реального содержимого `src/Extensions/builtin/` —
- * ловит ошибки импорта паков из microsoft/vscode
- * (см. scripts/import-vscode-extensions.mjs): битые манифесты,
- * потерянные при strip'е файлы грамматик/конфигураций.
- */
+// Ловит битый импорт паков (scripts/import-vscode-extensions.mjs): манифесты, потерянные при strip'е файлы.
 describe("builtin language packs", () => {
     const assets = createDevAssetAccess();
 
@@ -23,9 +18,7 @@ describe("builtin language packs", () => {
 
     it("сканирует все паки без потерь", async () => {
         const extensions = await scanAll();
-        // Языковые паки импортированы из microsoft/vscode (publisher "vscode").
-        // Помимо них в builtin/ живут first-party Diode-расширения (напр. git,
-        // publisher "diode") — не языковые паки, поэтому исключаются из счётчика.
+        // Кроме паков vscode в builtin/ живут свои расширения (git, publisher "diode").
         const languagePacks = extensions.filter((e) => e.manifest.publisher === "vscode");
         expect(languagePacks.length).toBeGreaterThanOrEqual(48);
         for (const ext of extensions) {

@@ -2,10 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { wireToCoreRenameLocation } from "./hostWireParsers.ts";
 
-// Ответы языковых провайдеров хост не разбирает — форму гарантирует
-// сериализатор субпроцесса (languagesNamespace.*.test.ts). Здесь — только
-// перевод проволочной формы в форму ядра там, где они ещё различаются.
-
 describe("hostWireParsers — wireToCoreRenameLocation", () => {
     it("имя символа доезжает placeholder'ом", () => {
         expect(wireToCoreRenameLocation({ placeholder: "value" })).toEqual({ kind: "name", name: "value" });

@@ -11,8 +11,6 @@ import { TextMateGrammarLoader } from "../../textMate/common/textMateGrammarLoad
 
 import { ExtensionTokenizationContributor } from "./extensionTokenizationContributor.ts";
 
-// Mocked loader: preloadAll() здесь проверяется по управляемым фабрикам, без
-// реальных грамматик — нужен детерминированный контроль момента dispose().
 vi.mock("../../textMate/common/textMateGrammarLoader.ts", () => {
     return {
         TextMateGrammarLoader: vi.fn().mockImplementation(function () {
@@ -30,7 +28,6 @@ function makeStubSupport(): ITokenizationSupport {
     };
 }
 
-/** Расширение с двумя грамматиками — прогрев должен обойти оба языка. */
 function makeExtWithTwoGrammars(): IExtension {
     return {
         id: "vscode.pack",
@@ -64,7 +61,6 @@ describe("ExtensionTokenizationContributor — background preload", () => {
         const contributor = new ExtensionTokenizationContributor(dummyAssets, [makeExtWithTwoGrammars()], registry);
         contributor.apply();
 
-        // До прогрева не тронут ни один язык.
         expect(loadSupport).not.toHaveBeenCalled();
 
         await contributor.preloadAll();
@@ -111,8 +107,6 @@ describe("ExtensionTokenizationContributor — background preload", () => {
         resolveFirst(makeStubSupport());
         await preloading;
 
-        // Прогрев вышел на первой же проверке: второй язык не тронут, и ничего
-        // не осело в реестре (dispose снял регистрации).
         expect(loadSupport).toHaveBeenCalledTimes(1);
         expect(registry.get("typescript")).toBeUndefined();
         expect(registry.get("css")).toBeUndefined();

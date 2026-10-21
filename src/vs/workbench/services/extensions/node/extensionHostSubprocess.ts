@@ -29,29 +29,6 @@ import { createExtensionMemento, type IExtensionMemento } from "./extensionMemen
 import { extensionRootPath } from "./iExtensionEntry.ts";
 import { createStderrLogger } from "./stderrLogger.ts";
 
-/**
- * Сообщения protocol host -> subprocess. RPC-методы:
- *
- * - `host.activateExtension({ id, mainPath, moduleType?, extensionPath?,
- *   globalStoragePath?, storagePath?, logPath? })` -> `null`.
- *   Загружает модуль (CJS или ESM — см. `loadExtensionModule`; `moduleType` —
- *   это `"type"` из `package.json` расширения), вызывает `module.activate(context)`.
- *   Бросает на ошибках загрузки/активации. Каталоги хранения приходят ОТ ХОСТА
- *   (он владеет раскладкой user-data) — субпроцесс их не выдумывает и не создаёт.
- * - `host.deactivateExtension({ id })` -> `null`. Вызывает `deactivate()` +
- *   disposes `context.subscriptions`. Idempotent. Сбой уборки не бросается —
- *   warn с id расширения в stderr (`extensionDeactivation.ts`).
- * - `host.shutdown()` -> `null`. Снимает все расширения (`deactivate()`); выход
- *   доводит родитель сигналом сразу по ответу.
- * - `extensions.catalog` / `extensions.activated` (уведомления) — состав
- *   установленных расширений и их активность для `vscode.extensions`.
- * - `secrets.changed` (уведомление) — `SecretStorage.onDidChange`.
- *
- * Subprocess -> host RPC:
- *   `editor.setOptions`, `editor.getOptions`, `secrets.*` (см.
- *   `buildVscodeNamespace`).
- */
-
 interface ActivatedExtension {
     readonly id: string;
     readonly mod: ExtensionModule;
@@ -70,7 +47,6 @@ interface ExtensionContext {
     readonly extensionMode: ExtensionMode;
     readonly globalState: IExtensionMemento;
     readonly workspaceState: IExtensionMemento;
-    /** `ExtensionContext.secrets` — хранилище на хосте (`extensionSecrets.ts`). */
     readonly secrets: ReturnType<IExtensionSecretsFactory["create"]>;
     asAbsolutePath(relativePath: string): string;
     readonly globalStorageUri: Uri;
@@ -80,73 +56,42 @@ interface ExtensionContext {
     readonly storagePath: string | undefined;
     readonly logUri: Uri;
     readonly logPath: string;
-    /**
-     * `ExtensionContext.extension` — запись самого расширения из каталога
-     * `vscode.extensions` (типовой потребитель — телеметрия, читающая
-     * `context.extension.packageJSON.version`). Эталон строит отдельный
-     * `Extension` из описания расширения; у нас объект уже лежит в каталоге,
-     * который хост шлёт семенем ДО первой активации, — берём его.
-     */
+    /** Эталон строит отдельный `Extension`; мы берём запись каталога, который хост шлёт до первой активации. */
     readonly extension: vscode.Extension<unknown>;
     /** Коллекция окружения терминалов расширения — переживает его повторную активацию. */
     readonly environmentVariableCollection: vscode.GlobalEnvironmentVariableCollection;
 }
 
-/**
- * Точка входа в subprocess extension host'а. Вызывается из `main.ts` при
- * обнаружении env-флага `DIODE_EXTENSION_HOST=1`. НИКОГДА не возвращает в
- * нормальном режиме — процесс живёт до `host.shutdown` или `disconnect`.
- */
+/** В нормальном режиме не возвращается: процесс живёт до `host.shutdown` или `disconnect`. */
 export function runExtensionHostSubprocess(): void {
     if (typeof process.send !== "function") {
-        // Без IPC-канала смысла нет. Завершаемся, чтобы не висеть мёртвым.
-
         console.error("[ext-host] subprocess started without IPC channel; exiting");
         process.exit(2);
     }
 
-    // `localhost` → 127.0.0.1 первым, как у extension host'а VS Code
-    // (`--dns-result-order=ipv4first` в execArgv форка, localProcessExtensionHost.ts
-    // и server/node/extensionHostConnection.ts, issue #189805). С дефолтным
-    // `verbatim` Node отдаёт `::1` там, где /etc/hosts ставит его выше, и
-    // TCP-сервер расширения, слушающий `localhost`, встаёт на IPv6 — а его же
-    // языковой сервер на Java открывает `Socket("localhost", port)`, JVM берёт
-    // первым 127.0.0.1 и получает «Connection refused» (так bazel-java терял лог
-    // синхронизации). Функцией, а не флагом процесса: под SEA execArgv бинаря не
-    // наш (прецедент эталона — cliProcessMain.ts). Отступление: дети субпроцесса
-    // (`cp.fork` из расширения) порядок не наследуют, в VS Code он уезжает с execArgv.
+    // `localhost` → 127.0.0.1 первым, как у ext host'а VS Code (issue #189805): с `verbatim`
+    // TCP-сервер расширения встаёт на `::1`, а его Java-сервер стучится в 127.0.0.1 —
+    // «Connection refused» (bazel-java). Функцией, а не флагом: под SEA execArgv не наш.
+    // Отступление: дети субпроцесса порядок не наследуют, в VS Code он уезжает с execArgv.
     dns.setDefaultResultOrder("ipv4first");
 
-    // Дети этого процесса — НЕ extension host'ы. Сторонние расширения спавнят
-    // `process.execPath` в обход наших резолверов (`cp.fork` внутри
-    // vscode-languageclient при `TransportKind.ipc` — путь basedpyright); под SEA
-    // execPath — сам diode-бинарь, и унаследованный `DIODE_EXTENSION_HOST` увёл бы
-    // ребёнка в ext-host-ветку (exit 2 без IPC-регистрации). Свой флаг мы уже
-    // прочитали (иначе не были бы здесь) — снимаем его из наследуемого окружения
-    // и включаем node-режим: `main.ts` проверяет `DIODE_RUN_AS_NODE` ПЕРВЫМ,
-    // поэтому любой форк diode-бинаря отсюда работает как node (runAsNode.ts);
-    // в dev execPath — настоящий node, и флаг безвреден.
+    // Расширения форкают `process.execPath` (vscode-languageclient, basedpyright), а под SEA
+    // это сам diode-бинарь: унаследованный флаг увёл бы ребёнка в ext-host-ветку.
+    // `main.ts` проверяет `DIODE_RUN_AS_NODE` первым.
     delete process.env.DIODE_EXTENSION_HOST;
     process.env.DIODE_RUN_AS_NODE = "1";
 
-    // Расширение, забывшее поймать свой промис, не должно убивать extension host.
-    // Реальный кейс (#194): maptz.regionfolder после wrapWithRegion делает
-    // fire-and-forget `executeCommand("editor.action.formatDocument")`; такой
-    // команды у нас нет, RPC отклоняется — и без этого гарда Node роняет
-    // субпроцесс, унося с собой ВСЕ расширения (в т.ч. только что отработавший
-    // folding-провайдер). Логируем в stderr — host зеркалит его в свой лог-канал.
+    // Забытый промис расширения не должен ронять субпроцесс со всеми расширениями
+    // (#194: fire-and-forget `executeCommand` у maptz.regionfolder).
     process.on("unhandledRejection", (reason: unknown) => {
         console.error(`[ext-host] unhandled rejection in extension code: ${describeRejection(reason)}`);
     });
-    // Пойманные кодом непредвиденные ошибки (исключение слушателя Emitter) —
-    // тем же путём, с префиксом, по которому host узнаёт свои строки.
+    // Префикс `[ext-host]` — по нему host узнаёт свои строки в stderr.
     setUnexpectedErrorHandler((e: unknown) => {
         console.error(`[ext-host] unexpected error: ${describeRejection(e)}`);
     });
 
     const channel = new IpcMessageChannel(process as unknown as IIpcEndpoint);
-    // Логгер — в stderr: сбой обработчика запроса (провайдер расширения упал)
-    // и запрос без обработчика видны в канале `extensions.host.stderr`.
     const logger = createStderrLogger();
     const rpc: SubprocessRpc = new RpcEndpoint(channel, logger);
 
@@ -175,20 +120,15 @@ export function runExtensionHostSubprocess(): void {
         if (extensions.has(id)) {
             throw new Error(`Extension "${id}" already activated`);
         }
-        // Корень расширения — общее правило обеих сторон RPC (тот же путь хост
-        // кладёт в `Extension.extensionPath` каталога `vscode.extensions`). В
-        // индекс — ДО загрузки: `require("vscode")` верхнего уровня модуля
-        // должен уже знать, чьё оно.
+        // В индекс — до загрузки: `require("vscode")` верхнего уровня модуля должен уже знать, чьё оно.
         const rootPath = extensionRootPath({ extensionPath, mainPath, filename });
         paths.add(rootPath, id);
         const loaded = await loadExtensionModule({ mainPath, source, filename, moduleType });
         if (typeof loaded.activate !== "function") {
             throw new Error(`Extension "${id}" has no activate() in ${filename ?? mainPath}`);
         }
-        // Запись в каталоге есть всегда: хост шлёт `extensions.catalog` семенем
-        // на подъёме субпроцесса и на каждой регистрации — ДО активации, по
-        // тому же упорядоченному каналу. Нет записи — нарушен контракт хоста;
-        // падаем здесь с именем, а не TypeError'ом внутри `activate()` расширения.
+        // Хост шлёт `extensions.catalog` до активации по тому же каналу; нет записи — нарушен
+        // контракт хоста: падаем с именем, а не TypeError'ом внутри `activate()`.
         const extension = catalog.getExtension(id);
         if (extension === undefined) {
             throw new Error(
@@ -200,9 +140,6 @@ export function runExtensionHostSubprocess(): void {
             extensionPath: rootPath,
             extensionUri: Uri.file(rootPath),
             extensionMode: ExtensionMode.Production,
-            // Memento: словарь здесь (синхронные get/keys), хранилище — на хосте,
-            // переживает перезапуск. setKeysForSync — только у globalState, как в
-            // vscode API.
             globalState: createExtensionMemento({
                 initial: memento.globalState,
                 withSync: true,
@@ -213,14 +150,9 @@ export function runExtensionHostSubprocess(): void {
                 withSync: false,
                 persist: (value) => persistMemento(id, false, value),
             }),
-            // Секреты — тоже на хосте, но отдельным файлом 0600. Лоток
-            // адресуется id расширения.
             secrets: secrets.create(id),
             asAbsolutePath: (relativePath: string): string => path.join(rootPath, relativePath),
-            // Приватные каталоги расширения. `storageUri` отсутствует, когда папка
-            // не открыта — так же, как в vscode (`workspaceValue` там возвращает
-            // undefined без воркспейса). Сами каталоги НЕ создаём: по контракту
-            // vscode.d.ts это делает расширение, хост гарантирует только родителя.
+            // Каталоги не создаём: по контракту vscode.d.ts это делает расширение, хост гарантирует только родителя.
             globalStorageUri: Uri.file(storage.globalStoragePath),
             globalStoragePath: storage.globalStoragePath,
             storageUri: storage.storagePath === null ? undefined : Uri.file(storage.storagePath),
@@ -233,16 +165,12 @@ export function runExtensionHostSubprocess(): void {
         const active: ActivatedExtension = { id, mod: loaded, context };
         extensions.set(id, active);
         try {
-            // Возвращённое значение — публичный API расширения
-            // (`extensions.getExtension(id).exports`); больше его взять негде.
             extensionExports.set(id, await loaded.activate(context));
         } catch (err) {
             extensions.delete(id);
             extensionExports.delete(id);
-            // Отказ не-`Error` значением (golang.go без `go` в PATH отклоняет
-            // `activate()` голым `undefined`) — оборачиваем, как
-            // `ActivatedExtension._activate` эталона: само значение — в тексте
-            // сообщения, иначе в логе хоста от отказа осталась бы пустая ошибка.
+            // Отказ не-`Error` (golang.go без `go` отклоняет голым `undefined`) оборачиваем, как
+            // `ActivatedExtension._activate` эталона, — иначе в логе хоста пустая ошибка.
             if (err instanceof Error) throw err;
             throw new Error(`activate() rejected with a non-Error value: ${String(err)}`, { cause: err });
         }
@@ -254,15 +182,13 @@ export function runExtensionHostSubprocess(): void {
         const active = extensions.get(id);
         if (active === undefined) return null;
         extensions.delete(id);
-        // Снятое расширение больше не активно — его `exports` невалидны.
         extensionExports.delete(id);
         await deactivateExtension(active, logger);
         return null;
     });
 
-    // Канал здесь не закрываем: ответ на запрос уходит ПОСЛЕ обработчика, и
-    // закрытый RPC его бы проглотил — родитель ждал бы свой тайм-аут впустую.
-    // Выход доводит родитель (SIGTERM сразу по ответу) или `disconnect`.
+    // Канал не закрываем: ответ уходит после обработчика, закрытый RPC его проглотил бы.
+    // Выход доводит родитель (SIGTERM по ответу) или `disconnect`.
     rpc.handleRequest("host.shutdown", async (): Promise<null> => {
         await deactivateAll();
         return null;
@@ -283,38 +209,20 @@ export function runExtensionHostSubprocess(): void {
         const all = [...extensions.values()];
         extensions.clear();
         extensionExports.clear();
-        // Сбои уборки (с id расширения) пишет в stderr сам deactivateExtension
-        // и наружу не бросает — одно упавшее расширение не мешает остальным.
         for (const active of all) await deactivateExtension(active, logger);
     }
 
-    // Сигнал готовности parent'у: можно слать activateExtension.
     rpc.notify("host.ready", null);
 }
 
-/**
- * ESM ли точка входа расширения — правило эталона (`_isESM` в
- * `abstractExtHostExtensionService`): `.mjs` всегда модуль, `.cjs` всегда CJS, в
- * остальных случаях решает `"type"` из `package.json` расширения.
- */
+/** Правило эталона `_isESM` (`abstractExtHostExtensionService`). */
 export function isEsmEntry(mainPath: string, moduleType: string | undefined): boolean {
     if (mainPath.endsWith(".mjs")) return true;
     if (mainPath.endsWith(".cjs")) return false;
     return moduleType === "module";
 }
 
-/**
- * Загружает модуль расширения одним из трёх способов:
- *  - `mainPath` + CJS → `createRequire(mainPath)` (файл на ФС subprocess'а);
- *  - `mainPath` + ESM ({@link isEsmEntry}) → `importModule` (настоящий
- *    ESM-loader; `import … from "vscode"` резолвится ESM-хуком из
- *    `installVscodeStub`). Такие расширения уже в ходу: `esbenp.prettier-vscode`
- *    с 12.x — `"type": "module"`, и CJS-веткой он падал на
- *    `ERR_MODULE_NOT_FOUND: Cannot find package 'vscode'`;
- *  - `source` (+`filename`) → `Module._compile` в памяти (скомпилированный builtin;
- *    `require("vscode")` внутри резолвится через `installVscodeStub`, node:builtins —
- *    штатно; относительных require в бандле нет, поэтому `filename` синтетический).
- */
+/** `source` компилируется в памяти: относительных require в бандле нет, поэтому `filename` синтетический. */
 async function loadExtensionModule(spec: {
     mainPath: string | undefined;
     source: string | undefined;
@@ -385,9 +293,7 @@ function parseActivateParams(raw: unknown): {
     if (hasSource && (typeof obj.filename !== "string" || obj.filename === "")) {
         throw new Error("activateExtension: source requires a non-empty filename");
     }
-    // `globalStorageUri`/`logUri` в API необязательными не бывают — без них
-    // расширение падает на `.fsPath` в первой же строке activate(). Поэтому это
-    // не опциональные поля протокола, а требование: не приехали — виноват хост.
+    // Не опциональные: без `globalStorageUri`/`logUri` расширение падает на `.fsPath` в первой строке activate().
     const globalStoragePath = requireNonEmptyString(obj.globalStoragePath, "globalStoragePath");
     const logPath = requireNonEmptyString(obj.logPath, "logPath");
     return {
@@ -400,11 +306,9 @@ function parseActivateParams(raw: unknown): {
             typeof obj.extensionPath === "string" && obj.extensionPath !== "" ? obj.extensionPath : undefined,
         storage: {
             globalStoragePath,
-            // Отсутствие и `null` — одно и то же: папка не открыта.
             storagePath: typeof obj.storagePath === "string" && obj.storagePath !== "" ? obj.storagePath : null,
             logPath,
         },
-        // Нет сохранённого memento (или хост старше) — расширение начинает с пустого.
         memento: {
             globalState: parseWireMementoValue(obj.globalState),
             workspaceState: parseWireMementoValue(obj.workspaceState),
@@ -430,26 +334,12 @@ function parseExtensionId(raw: unknown): string {
     return obj.id;
 }
 
-/** Ключ, под которым ESM-шим достаёт API из `globalThis`. */
 const VSCODE_GLOBAL_KEY = Symbol.for(VSCODE_GLOBAL_KEY_NAME);
 
 /**
- * Регистрирует виртуальный модуль `"vscode"` для ОБОИХ loader'ов Node — и
- * раздаёт его ПО ИМПОРТЁРУ: модуль внутри корня расширения получает оверлей
- * этого расширения (`extensionApiFactory.ts`), чужой — общий namespace.
- *
- * - CJS: патч `Module._resolveFilename` отдаёт `vscode:<id>` по
- *   `parent.filename` и лениво кладёт под этот ключ в `Module._cache` API
- *   расширения. Приватные API — приём расширений Node и оригинальный приём VS Code;
- * - ESM (и `require` на Node с `module.registerHooks`: синхронные хуки видят оба
- *   loader'а): `resolve` отдаёт `diode-vscode:api/<id>` по `context.parentURL`,
- *   `load` — сгенерированный модуль с именованными export'ами этого API
- *   (`buildVscodeEsmShim`). Без хуков ESM-ветка падает на
- *   `ERR_MODULE_NOT_FOUND`: CJS-кэш ESM-loader'у не виден. Эталон держит ровно
- *   эти два механизма рядом по той же причине.
- *
- * Вся логика опознания — в покрытых модулях `api/common` (`ExtensionPaths`,
- * `ExtensionApiFactory`); здесь только проводка.
+ * Виртуальный модуль `"vscode"` по импортёру: модуль в корне расширения получает его оверлей.
+ * CJS — патч `Module._resolveFilename`, ESM — `registerHooks`: CJS-кэш ESM-loader'у не
+ * виден, эталон держит оба механизма по той же причине.
  */
 function installVscodeStub(
     rpc: SubprocessRpc,
@@ -460,17 +350,14 @@ function installVscodeStub(
     secrets: IExtensionSecretsFactory;
     environmentVariableCollections: ExtHostEnvironmentVariableCollections;
     paths: ExtensionPaths;
-    /** `vscode.extensions` общего namespace — источник `ExtensionContext.extension`. */
     extensions: typeof vscode.extensions;
 } {
     const host = buildVscodeNamespace(rpc, createNodeExtHostDisk());
     const { configStore, extensionExports, secrets, environmentVariableCollections } = host;
-    // Общий namespace, не оверлей владельца: `extensions` оверлей не перекрывает
-    // (`extensionApiFactory.ts`), объект у всех расширений один и тот же.
+    // Общий namespace: `extensions` оверлей не перекрывает.
     const extensions = host.namespace.extensions;
     const paths = new ExtensionPaths({ realpath: fs.realpathSync.native });
-    // Корни расширений — из каталога хоста (семя ДО первой активации), чтобы
-    // опознать и `require("vscode")` раньше `activate()` своего расширения.
+    // Корни — из каталога хоста, чтобы опознать `require("vscode")` раньше `activate()` своего расширения.
     const catalogSubscription = host.onDidReceiveCatalog((catalog) => {
         for (const description of catalog) paths.add(description.extensionPath, description.id);
     });
@@ -499,8 +386,7 @@ function installVscodeStub(
         return key;
     };
 
-    // ESM-ветка: сгенерированный модуль берёт API из globalThis — через
-    // замыкание его в исходник не передать.
+    // Сгенерированный ESM-модуль берёт API из globalThis: замыканием в исходник его не передать.
     (globalThis as unknown as Record<symbol, unknown>)[VSCODE_GLOBAL_KEY] = api.lookup;
     const hooks = registerHooks({
         resolve: (specifier, context, nextResolve) =>

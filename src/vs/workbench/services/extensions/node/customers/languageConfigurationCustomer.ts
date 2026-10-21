@@ -4,11 +4,9 @@ import type { IExtensionHostContext, IExtensionHostCustomer } from "../../common
 import { parseWireLanguageConfiguration, parseWireLanguageProviderUnregistration } from "../hostWireParsers.ts";
 
 /**
- * `languages.setLanguageConfiguration` расширений (upstream
- * `MainThreadLanguageFeatures.$setLanguageConfiguration`): слой поверх
- * `language-configuration.json` в сервисе конфигураций ядра. Слои живут ровно
- * один спавн — на смерти субпроцесса снимаются все, ожившее расширение
- * заведёт их заново в своём `activate()`.
+ * upstream `MainThreadLanguageFeatures.$setLanguageConfiguration`: слой поверх
+ * `language-configuration.json`. Слои живут один спавн — ожившее расширение
+ * заведёт их заново в `activate()`.
  */
 export class LanguageConfigurationCustomer implements IExtensionHostCustomer {
     public constructor(private readonly languageConfigurations: Pick<ILanguageConfigurationService, "register">) {}

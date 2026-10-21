@@ -4,18 +4,16 @@ import * as path from "node:path";
 import { extractBundleToCache } from "../../../../base/node/assets/extractBundleToCache.ts";
 import { packagedAssetCacheDirByName, readPackagedAssetView } from "../../../../base/node/assets/packagedAsset.ts";
 
-/** Имя SEA-ассета / файла рядом с main.cjs (лок-степ с scripts/pack-ts-server.mjs и build-*). */
+/** Лок-степ с scripts/pack-ts-server.mjs и build-*. */
 const ASSET_NAME = "ts-server.bundle";
 
-/** Виртуальные пути внутри бандла (лок-степ с scripts/pack-ts-server.mjs). */
+/** Лок-степ с scripts/pack-ts-server.mjs. */
 const SERVER_ENTRY = "typescript-language-server/lib/run-cli.cjs";
 const TSSERVER_ENTRY = "node_modules/typescript/lib/tsserver.js";
 
-/** Пути вшитого language-сервера, готовые к спавну node-рантаймом. */
 export interface ITsServerPaths {
-    /** Энтрипоинт сервера (CJS-шим run-cli.cjs — работает и под node, и под diode-as-node). */
+    /** CJS-шим: работает и под node, и под diode-as-node. */
     readonly serverPath: string;
-    /** tsserver.js для `initializationOptions.tsserver.path`. */
     readonly tsserverPath: string;
 }
 
@@ -28,13 +26,8 @@ let cachedSource: IBundleSource | null | undefined;
 let ensurePromise: Promise<void> | null = null;
 
 /**
- * Целевые пути вшитого сервера БЕЗ ожидания распаковки: каталог кэша
- * детерминирован (`<userCacheDir>/ts-server/<version>-<sha256(bundle)[0:12]>`),
- * поэтому пути можно раздать (дефолтами настроек расширения) до того, как
- * {@link ensureTsServer} довёз файлы; готовность проверяется `existsSync`
- * самого entry (rename публикует каталог атомарно — файл появляется только
- * целиком). В dev распаковки нет вовсе — пути ведут в node_modules репозитория.
- * `null` — вшитого сервера нет (dev без devDeps).
+ * Без ожидания распаковки: каталог кэша детерминирован, а entry появляется только целиком
+ * (rename каталога атомарен) — готовность проверяет `existsSync`. `null` — dev без devDeps.
  */
 export function bundledTsServerTarget(): ITsServerPaths | null {
     if (cachedTarget !== undefined) return cachedTarget;
@@ -42,20 +35,12 @@ export function bundledTsServerTarget(): ITsServerPaths | null {
     return cachedTarget;
 }
 
-/**
- * Довозит вшитый сервер до диска (распаковка бандла в кэш; идемпотентно,
- * конкурентно-безопасно — {@link extractBundleToCache}). В dev — no-op.
- * Ошибки не роняют вызывающего — распаковка стартует fire-and-forget перед
- * стартом extension host'а (main.ts, после первых кадров: на холодном кэше
- * она синхронно пишет файлы), сбой честно виден: bundled-кандидат резолва не
- * станет existsSync и клиент упадёт в следующий кандидат.
- */
+/** Ошибок не бросает: распаковка идёт fire-and-forget, сбой виден тем, что bundled-кандидат не станет existsSync. */
 export function ensureTsServer(onError?: (err: unknown) => void): Promise<void> {
     if (ensurePromise !== null) return ensurePromise;
     ensurePromise = (async () => {
         const source = bundleSource();
         if (source === null) return; // dev: node_modules, распаковывать нечего
-        // Вид без копии (`getRawAsset` в SEA): распаковка только читает.
         const bundle = readPackagedAssetView(ASSET_NAME);
         // Stryker disable next-line all: файл вне покрытия (источник бандла завязан на SEA/self-extract); логика источника — packagedAsset (юниты), путь целиком — e2e lspBundled
         if (bundle === null) return;
@@ -74,8 +59,7 @@ function computeTarget(): ITsServerPaths | null {
             tsserverPath: path.join(source.cacheDir, ...TSSERVER_ENTRY.split("/")),
         };
     }
-    // Dev: сервер лежит в node_modules репозитория — отдаём как есть (cli.mjs,
-    // не шим: настоящему node шим не нужен, но и не вреден — берём то, что есть).
+    // Dev: настоящему node шим не нужен — отдаём cli.mjs как есть.
     try {
         const require_ = createRequire(import.meta.url);
         return {
@@ -87,11 +71,7 @@ function computeTarget(): ITsServerPaths | null {
     }
 }
 
-/**
- * Целевой каталог кэша; `null` — packaged-бандла нет (dev). Байтов бандла не
- * читает: ключ — дайджест, посчитанный при сборке (`packagedAssetCacheDirByName`),
- * а пути раздаются на пути к первому кадру.
- */
+/** Байтов бандла не читает — ключ дайджест со сборки: пути раздаются на пути к первому кадру. */
 function bundleSource(): IBundleSource | null {
     if (cachedSource !== undefined) return cachedSource;
     // Stryker disable next-line all: файл вне покрытия (источник бандла завязан на SEA/self-extract); логика источника — packagedAsset (юниты), путь целиком — e2e lspBundled

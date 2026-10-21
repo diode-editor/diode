@@ -1,29 +1,16 @@
-/**
- * `vscode.Memento` для `ExtensionContext.globalState` / `workspaceState` на
- * стороне субпроцесса: локальный словарь (поэтому `get`/`keys` синхронны), а
- * хранилище — на хосте (`extensionStateStore.ts`). Начальный словарь приезжает
- * в параметрах `host.activateExtension`, каждый `update` отдаёт хосту словарь
- * целиком (`persist`) — memento переживает перезапуск редактора.
- */
+/** Локальный словарь (поэтому `get`/`keys` синхронны), хранилище — на хосте: `update` отдаёт ему словарь целиком. */
 export interface IExtensionMemento {
     keys(): readonly string[];
     get(key: string, defaultValue?: unknown): unknown;
     update(key: string, value: unknown): Promise<void>;
-    /** Только у globalState (см. {@link createExtensionMemento}). */
     setKeysForSync?(keys: readonly string[]): void;
 }
 
 export interface IExtensionMementoOptions {
-    /** Словарь, сохранённый с прошлых запусков. */
     readonly initial: Readonly<Record<string, unknown>>;
-    /**
-     * Добавить no-op `setKeysForSync` — он есть ТОЛЬКО у globalState
-     * (`Memento & { setKeysForSync }` в vscode API), и расширения зовут его без
-     * проверки на существование. Settings Sync у нас нет — синхронизировать
-     * нечего.
-     */
+    /** No-op `setKeysForSync` — только у globalState: расширения зовут его без проверки, Settings Sync у нас нет. */
     readonly withSync: boolean;
-    /** Отдать хосту словарь целиком; промис `update` резолвится по его ответу. */
+    /** Промис `update` резолвится по ответу хоста. */
     persist(value: Record<string, unknown>): Promise<void>;
 }
 

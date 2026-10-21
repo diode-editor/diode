@@ -12,10 +12,6 @@ import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
 
 import { parseMenuGroup, registerExtensionMenus } from "./extensionMenuContributor.ts";
 
-// Герметичный контракт моста `contributes.menus` → `MenuRegistry`: синтетические
-// манифесты, настоящий реестр. Стоковое расширение закрывает ту же дверь
-// e2e-сценарием — здесь проверяется разбор манифеста, включая мусорный.
-
 function extension(id: string, contributes: IExtensionContributions): IExtension {
     return { id, manifest: { name: id, publisher: "test", version: "0.0.1", contributes } } as unknown as IExtension;
 }
@@ -39,7 +35,6 @@ function collectLog(): { logger: ILogger; lines: string[] } {
     return { logger, lines };
 }
 
-/** Метки пунктов точки — так их увидит попап. */
 function labels(menus: MenuRegistry, menuId: MenuId): string[] {
     return menus.getMenuItems(menuId).map((entry) => (entry.type === "separator" ? "─" : entry.label));
 }
@@ -321,7 +316,6 @@ describe("registerExtensionMenus", () => {
             logger,
         );
 
-        // Выжило только первое объявление «more» — его label и стоит в пункте.
         expect(menus.getSubmenus(MenuId.EditorContext).map((entry) => entry.title)).toEqual(["First"]);
         expect(lines).toEqual([
             "test.junk: подменю без id — объявление пропущено",
@@ -426,7 +420,6 @@ describe("registerExtensionMenus", () => {
 });
 
 describe("registerExtensionMenus — editor/title и иконки команд", () => {
-    /** Иконки пунктов точки по id команды — так их увидит панель действий. */
     function icons(menus: MenuRegistry, menuId: MenuId): Record<string, string | undefined> {
         const result: Record<string, string | undefined> = {};
         for (const entry of menus.getMenuItems(menuId)) {

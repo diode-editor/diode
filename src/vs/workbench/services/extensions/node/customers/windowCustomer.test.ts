@@ -25,10 +25,7 @@ function makeSinks() {
     };
 }
 
-/**
- * Подключает customer'а к паре in-process каналов. `rpcLogger.warn` ловит
- * исключения обработчиков нотификаций: RpcEndpoint их глотает и пишет сюда.
- */
+/** `rpcLogger.warn` ловит исключения обработчиков нотификаций: RpcEndpoint их глотает и пишет сюда. */
 function attach(sinks: IWindowSinks) {
     const [a, b] = createInProcessChannelPair();
     const rpcLogger = {
@@ -93,10 +90,8 @@ describe("WindowCustomer — стоки окна", () => {
     it("без стоков всё молча отбрасывается — и на сообщениях, и на уходе субпроцесса", async () => {
         const { peer, attached, rpcLogger } = attach(NO_SINKS);
 
-        // Прогресс начат и не закончен: уход субпроцесса гасит его — без стока тихо.
         peer.notify("window.progress.start", { handle: 1, title: "Indexing" });
         peer.notify("window.progress.report", { handle: 1, message: "half", increment: 50 });
-        // Конец чужого прогресса — тоже без стока и без падения.
         peer.notify("window.progress.end", { handle: 9 });
         for (const [method, params] of WINDOW_NOTIFICATIONS.filter(([m]) => !m.startsWith("window.progress."))) {
             peer.notify(method, params);

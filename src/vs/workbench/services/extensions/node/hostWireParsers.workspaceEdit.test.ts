@@ -2,11 +2,6 @@ import { describe, expect, it } from "vitest";
 
 import { parseWireApplyWorkspaceEditParams } from "./hostWireParsers.ts";
 
-// Парсер параметров `workspace.applyEdit` (subprocess → host). Мусор с провода
-// не должен превращаться в правку — и не должен ронять хендлер. Edit
-// применяется all-or-nothing, поэтому мусорная операция отбивает ВЕСЬ набор
-// (`null`), а не выпадает из него молча.
-
 const EDIT = { range: { start: { line: 0, character: 1 }, end: { line: 2, character: 3 } }, text: "x" };
 
 describe("parseWireApplyWorkspaceEditParams", () => {
@@ -81,8 +76,7 @@ describe("parseWireApplyWorkspaceEditParams", () => {
         expect(parseWireApplyWorkspaceEditParams("junk")).toBeNull();
         expect(parseWireApplyWorkspaceEditParams({})).toBeNull();
         expect(parseWireApplyWorkspaceEditParams({ ops: "junk" })).toBeNull();
-        // Старая форма параметров (`edits`) больше не читается — именно null,
-        // а не «пустой набор, который кто-то примет за вакуумный успех».
+        // Старая форма (`edits`) — именно null, а не пустой набор, который примут за вакуумный успех.
         expect(parseWireApplyWorkspaceEditParams({ edits: [{ resource: "file:///a.ts", edits: [EDIT] }] })).toBeNull();
     });
 
@@ -108,7 +102,6 @@ describe("parseWireApplyWorkspaceEditParams", () => {
         ["rename без from", [{ kind: "rename", to: "file:///a.ts" }]],
     ])("мусорная операция (%s) отбивает весь набор", (_name, ops) => {
         expect(parseWireApplyWorkspaceEditParams({ ops })).toBeNull();
-        // ...и вместе с ней — валидные соседи.
         expect(
             parseWireApplyWorkspaceEditParams({
                 ops: [{ kind: "text", resource: "file:///ok.ts", edits: [EDIT] }, ...ops],

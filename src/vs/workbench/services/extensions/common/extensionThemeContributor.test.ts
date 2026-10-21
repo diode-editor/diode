@@ -66,7 +66,6 @@ describe("ExtensionThemeContributor — регистрация тем расши
         expect(theme?.getRequiredColor("editor.background")).toBe(packRgb(0x10, 0x18, 0x20));
         expect(theme?.getRequiredColor("statusBar.background")).toBe(packRgb(0x0a, 0x0f, 0x14));
         expect(theme?.getRequiredColor("editor.selectionBackground")).toBe(packRgba(0x93, 0x99, 0xb2, 0x40));
-        // Правило `keyword` из файла темы доходит до резолвера подсветки (US-8).
         expect((await resolveScopesStyle(theme!, ["source.ts", "keyword.control.ts"])).fg).toBe(
             packRgb(0xff, 0x00, 0xff),
         );

@@ -23,25 +23,9 @@ interface IThemeEntry {
 }
 
 /**
- * Применяет вклад расширений в цветовые темы (`contributes.themes`):
- *   - читает файл каждой темы через {@link IAssetAccess} (виртуальный путь —
- *     `joinVirtualPath(ext.location, path)`), разбирает JSONC, резолвит цепочку
- *     `include` относительно файла темы и сливает её ({@link mergeThemeFiles}),
- *   - маппит `uiTheme` → `type` и регистрирует `{ ...file, name: label }` в
- *     {@link ThemeRegistry}.
- *
- * В отличие от грамматик, файлы тем читаются на старте — **все и до первого
- * кадра**: тема — десятки килобайт, а пикеру нужен синхронный `resolve` для
- * live preview, и первый кадр обязан быть уже в теме из `workbench.colorTheme`
- * (решение 2 в docs/arch/Theme.md, «Темы расширений: решения»). Чтение параллельное, регистрация — в порядке
- * расширений (встроенные → пользовательские): последняя регистрация одного
- * `label` побеждает, о затенении — warning с обоими id.
- *
- * Ошибка одной темы (нет файла, битый JSON, цикл `include`) — ошибка в лог с
- * id расширения, label и причиной, и пропуск: ни расширение, ни старт не падают.
- *
- * `dispose()` снимает регистрации этого контрибьютора (под будущую выгрузку
- * расширений); затенённая встроенная тема при этом не восстанавливается.
+ * Темы читаются все и до первого кадра: пикеру нужен синхронный `resolve` для live preview
+ * (решение 2 в docs/arch/Theme.md). Последняя регистрация одного `label` побеждает;
+ * `dispose()` затенённую встроенную тему не восстанавливает.
  */
 export class ExtensionThemeContributor implements IDisposable {
     private readonly assets: IAssetAccess;
@@ -62,13 +46,10 @@ export class ExtensionThemeContributor implements IDisposable {
         this.logger = logger;
     }
 
-    /** Читает все темы расширений и регистрирует их в реестре. */
     public async apply(): Promise<void> {
         const entries = this.collectEntries();
         const files = await Promise.all(entries.map((entry) => this.loadTheme(entry)));
 
-        // Кто из расширений уже занял label — для warning'а о затенении между
-        // двумя расширениями (встроенную тему затеняет первое пришедшее).
         const owners = new Map<string, string>();
         entries.forEach((entry, index) => {
             const file = files[index];
@@ -93,7 +74,6 @@ export class ExtensionThemeContributor implements IDisposable {
         this.registeredLabels = [];
     }
 
-    /** Записи `contributes.themes` всех расширений; битые (без `label`/`path`) — пропуск с warning. */
     private collectEntries(): IThemeEntry[] {
         const entries: IThemeEntry[] = [];
         for (const extension of this.extensions) {
@@ -130,11 +110,7 @@ export class ExtensionThemeContributor implements IDisposable {
         }
     }
 
-    /**
-     * Файл темы с разрешённой цепочкой `include`: база читается первой и
-     * сливается под включающую тему. `chain` — уже пройденные пути, для
-     * обнаружения цикла.
-     */
+    /** База сливается под включающую тему; `chain` — пройденные пути, для обнаружения цикла. */
     private async readThemeChain(
         extension: IExtension,
         virtualPath: string,
@@ -168,20 +144,14 @@ export class ExtensionThemeContributor implements IDisposable {
 }
 
 function isThemeContribution(value: unknown): value is IThemeContribution {
-    // Опциональная цепочка покрывает и null/undefined, и примитивы (у них нет
-    // таких полей) — отдельная проверка на объект была бы избыточной.
+    // Опциональная цепочка покрывает и null, и примитивы — проверка на объект избыточна.
     const record = value as Partial<Record<"label" | "path", unknown>> | null | undefined;
     const label = record?.label;
     const path = record?.path;
     return typeof label === "string" && label.length > 0 && typeof path === "string" && path.length > 0;
 }
 
-/**
- * Путь `include` относительно файла темы, нормализованный (`.`/`..`, пустые
- * сегменты) внутри каталога расширения: `IAssetAccess` сегменты `..` не
- * пропускает, а выход за пределы расширения (`extension.location` — префикс с
- * `/` на конце) — ошибка: чужие файлы тема включать не может.
- */
+/** `IAssetAccess` не пропускает `..`, а выход за каталог расширения — ошибка. */
 function resolveIncludePath(extensionLocation: string, themePath: string, include: string): string {
     const dir = themePath.slice(0, themePath.lastIndexOf("/") + 1);
     const segments: string[] = [];

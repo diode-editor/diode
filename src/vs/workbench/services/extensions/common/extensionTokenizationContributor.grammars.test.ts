@@ -11,7 +11,6 @@ import { TextMateGrammarLoader } from "../../textMate/common/textMateGrammarLoad
 
 import { ExtensionTokenizationContributor } from "./extensionTokenizationContributor.ts";
 
-// Mock the grammar loader so we can drive loadSupport() without touching real grammar assets.
 vi.mock("../../textMate/common/textMateGrammarLoader.ts", () => {
     return {
         TextMateGrammarLoader: vi.fn().mockImplementation(function () {
@@ -46,7 +45,6 @@ function makeExtWithGrammar(): IExtension {
     } as IExtension;
 }
 
-/** Extension that contributes no grammars at all (no `contributes.grammars`). */
 function makeExtWithoutGrammar(): IExtension {
     return {
         id: "vscode.theme-only",
@@ -76,7 +74,6 @@ describe("ExtensionTokenizationContributor — grammar collection", () => {
         contributor.apply();
 
         expect(MockedLoader).not.toHaveBeenCalled();
-        // dispose() with no loader and no registrations must be safe.
         expect(() => {
             contributor.dispose();
         }).not.toThrow();
@@ -91,7 +88,6 @@ describe("ExtensionTokenizationContributor — grammar collection", () => {
         const registry = new TokenizationRegistry();
         const contributor = new ExtensionTokenizationContributor(
             dummyAssets,
-            // Mix: one extension with grammars, one without — the latter must be ignored.
             [makeExtWithoutGrammar(), makeExtWithGrammar()],
             registry,
         );
@@ -99,7 +95,6 @@ describe("ExtensionTokenizationContributor — grammar collection", () => {
         contributor.apply();
 
         expect(MockedLoader).toHaveBeenCalledTimes(1);
-        // Only one grammar record was collected (from the contributing extension).
         const records = MockedLoader.mock.calls[0][1];
         expect(records).toHaveLength(1);
         expect(records[0]).toMatchObject({ scopeName: "source.ts" });

@@ -26,7 +26,6 @@ const LAYOUT: IWireEditorLayout = { groups: [] };
 const SELECTION = { anchorLine: 1, anchorCharacter: 2, activeLine: 3, activeCharacter: 4 };
 const RANGE = { start: { line: 0, character: 0 }, end: { line: 0, character: 1 } };
 
-/** Журнал: и вызовы ядра, и нотификации, дошедшие до субпроцесса, — в одном порядке. */
 function setup() {
     const log: unknown[] = [];
     const activeEditor = new Emitter<IActiveEditorMeta>();

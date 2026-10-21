@@ -17,12 +17,7 @@ import { TERMINAL_VIEW_ID, TerminalService } from "../../../../contrib/terminal/
 
 import { TerminalCustomer } from "./terminalCustomer.ts";
 
-// Сквозняк контракта терминалов на одном процессе: `vscode.window`-часть
-// субпроцесса (`createTerminalNamespace`) ↔ настоящий RPC ↔ `TerminalCustomer`
-// ↔ `ExtensionTerminalAdapter` ↔ `TerminalService` с фейковыми сессиями. Что
-// видит расширение и что видит встроенный терминал — с обеих сторон провода.
-
-/** Дождаться доставки всех сообщений in-process пары (она шлёт через microtask). */
+/** In-process пара шлёт через microtask. */
 async function flush(): Promise<void> {
     for (let i = 0; i < 5; i++) await new Promise<void>((r) => setTimeout(r, 0));
 }
@@ -263,7 +258,6 @@ describe("терминалы расширений — сквозь провод"
         expect(h.service.getInstances().map((i) => i.title)).toStrictEqual(["t", "bash"]);
         spy.mockRestore();
 
-        // Новый спавн: старая метка ничего не адресует, снимок отдаёт оба как чужие.
         const [a, b] = createInProcessChannelPair();
         const ns2 = createTerminalNamespace(new RpcEndpoint(b) as unknown as SubprocessRpc);
         h.customer.attach({ rpc: new RpcEndpoint(a) as unknown as HostRpc, logger: undefined });
@@ -307,7 +301,6 @@ describe("терминалы расширений — сквозь провод"
             { id: childId, location: { split: besideId } },
         ]);
         expect(h.service.getInstances().map((i) => i.title)).toStrictEqual(["panel"]);
-        // Редакторный — в terminals, как и панельный.
         expect(h.ns.terminals.map((t) => t.name)).toStrictEqual(["Claude Code", "panel", "editor", "child"]);
 
         beside.show(true);
@@ -392,7 +385,7 @@ describe("терминалы расширений — сквозь провод"
     });
 });
 
-/** Pty расширения в духе `BazelTerminal` форка: эхо ввода с перекраской, журнал вызовов. */
+/** В духе `BazelTerminal` форка. */
 function makePty() {
     const write = new EventEmitter<string>();
     const close = new EventEmitter<number | undefined>();

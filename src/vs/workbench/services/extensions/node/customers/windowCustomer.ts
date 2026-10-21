@@ -49,14 +49,11 @@ export interface IWindowSinks {
 }
 
 /**
- * Поверхности окна, которые расширение держит на экране: прогресс
- * (`window.withProgress`), пункты статус-бара, output-каналы, quick input и
- * сообщения человеку. Всё, что субпроцесс показал, принадлежит
- * ему: на его смерти или выключении спиннеры гаснут, пункты полосы снимаются,
- * а оверлеи ввода и сообщения закрываются — ответить на них стало некому.
+ * Всё, что субпроцесс показал, принадлежит ему: на его смерти спиннеры гаснут,
+ * пункты полосы снимаются, оверлеи ввода и сообщения закрываются.
  */
 export class WindowCustomer implements IExtensionHostCustomer {
-    /** Счётчик адресов показов сообщений — монотонен на всё время жизни хоста. */
+    /** Монотонен на всё время жизни хоста, а не спавна. */
     private nextMessageHandle = 1;
 
     public constructor(private readonly sinks: IWindowSinks) {}
@@ -65,25 +62,16 @@ export class WindowCustomer implements IExtensionHostCustomer {
         const { progressSink, outputSink, statusBarItemSink, quickInputSink, notificationSink, fileDialogSink } =
             this.sinks;
         const store = new DisposableStore();
-        /** Живые handle'ы withProgress — на смерти всем шлётся end (спиннеры не зависают). */
         const progressHandles = new Set<number>();
-        /** Живые показы quick input'а: на смерти всем шлётся cancel. */
         const quickInputHandles = new Set<number>();
-        /** Живые показы сообщений — по той же причине, что у quick input'а. */
         const messageHandles = new Set<number>();
-        /** Живые объектные пикеры (`createQuickPick`): на смерти — снимаются. */
         const quickPickHandles = new Set<number>();
-        /**
-         * Субпроцесс ещё слушает: пикер, снятый на его смерти, сообщает о
-         * скрытии — слать это в закрытый канал некому.
-         */
+        /** Пикер, снятый на смерти субпроцесса, сообщает о скрытии — слать это в закрытый канал некому. */
         let attached = true;
         const emitQuickPickEvent = (event: IWireQuickPickEvent): void => {
             if (attached) rpc.notify("window.quickPick.event", event);
         };
 
-        // Жизненный цикл withProgress расширения — отдаём стоку (module рисует
-        // запись статус-бара со спиннером и снимает её на end).
         store.add(
             rpc.handleNotification("window.progress.start", (params) => {
                 const start = parseWireProgressStart(params);
@@ -107,8 +95,6 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 progressSink?.end(end.handle);
             }),
         );
-        // Пункт статус-бара расширения (`window.createStatusBarItem`) показан или
-        // изменён / снят — отдаём стоку (module ведёт в StatusBarService).
         // `update` — полное состояние, а не дельта: у хоста нет своей копии пункта.
         store.add(
             rpc.handleNotification("window.statusBarItem.update", (params) => {
@@ -124,8 +110,6 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 statusBarItemSink?.remove(removed.handle);
             }),
         );
-        // Строка output-канала расширения / просьба показать канал — отдаём
-        // стоку (module ведёт в реестр Output + логгер + команду show).
         store.add(
             rpc.handleNotification("output.append", (params) => {
                 const append = parseWireOutputAppend(params);
@@ -140,14 +124,11 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 outputSink?.show(show.channel, show.label);
             }),
         );
-        // ─── Quick input (ввод и выбор по просьбе расширения) ────────────────
-        // Показ адресуется handle'ом расширения. Валидацию хост спрашивает
-        // обратным запросом в тот же субпроцесс — она живёт в расширении.
+        // Валидацию хост спрашивает обратным запросом в тот же субпроцесс — она живёт в расширении.
         store.add(
             rpc.handleRequest("window.showInputBox", async (params): Promise<IWireInputBoxResult> => {
                 const request = parseWireInputBoxRequest(params);
-                // Мусорные параметры или отсутствующий сток — «человек отменил»:
-                // расширение получает undefined сразу, а не зависает навсегда.
+                // «Человек отменил» сразу, а не вечное ожидание расширения.
                 if (request === null || quickInputSink === undefined) return { value: null };
                 // Именованной константой, а не стрелкой внутри спреда: Stryker
                 // разбирает исходник своим babel'ом и на типизированной стрелке в
@@ -160,8 +141,7 @@ export class WindowCustomer implements IExtensionHostCustomer {
                         });
                         return parseWireValidationMessage(answer);
                     } catch {
-                        // Расширение упало на валидации — считаем значение годным,
-                        // а не вешаем поле навсегда.
+                        // Упавшая валидация — значение годно, а не поле, висящее навсегда.
                         return null;
                     }
                 };
@@ -190,8 +170,6 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 }
             }),
         );
-        // Токен отмены расширения стрельнул — снимаем показ, обещание расширения
-        // доводится до undefined закрытием оверлея.
         store.add(
             rpc.handleNotification("window.quickInput.cancel", (params) => {
                 const handle = parseWireQuickInputCancel(params);
@@ -200,8 +178,6 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 quickInputSink?.cancel(handle);
             }),
         );
-        // Объектный пикер (`window.createQuickPick`): состояние приходит диффом,
-        // действия человека уходят событиями обратно в тот же субпроцесс.
         store.add(
             rpc.handleNotification("window.quickPick.update", (params) => {
                 const update = parseWireQuickPickUpdate(params);
@@ -232,11 +208,6 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 return { uri: uri ?? null };
             }),
         );
-        // ─── Сообщения человеку (window.show*Message) ────────────────────────
-        // Сообщение одновременно уходит в лог расширений (история сообщений
-        // остаётся читаемой после того, как тост погас) и на поверхность стока.
-        // Ответ — индекс нажатой кнопки; без стока и на мусорных параметрах
-        // расширение получает «закрыто без выбора», а не висит.
         store.add(
             rpc.handleRequest("window.showMessage", async (params): Promise<IWireShowMessageResult> => {
                 const request = parseWireShowMessageRequest(params);
@@ -246,11 +217,8 @@ export class WindowCustomer implements IExtensionHostCustomer {
                 // Stryker disable next-line UpdateOperator: от счётчика нужна только уникальность адреса, направление шага ненаблюдаемо
                 const handle = this.nextMessageHandle++;
                 messageHandles.add(handle);
-                // `.catch` вместо try/catch: поверхность, не сумевшая показать
-                // сообщение, — это НАША поломка, и расширение за неё платить не
-                // должно. Отказ этого запроса отклонил бы его `await show*Message(...)`,
-                // а необработанный reject валит весь субпроцесс расширений (поймано
-                // живым прогоном). Отвечаем «закрыто без выбора» и пишем в лог.
+                // Сбой показа — наша поломка: отказ запроса отклонил бы `await show*Message`
+                // расширения, а необработанный reject валит весь субпроцесс (поймано живым прогоном).
                 const index = await notificationSink
                     .showMessage({ ...request, handle })
                     .catch((error: unknown): undefined => {
@@ -262,8 +230,6 @@ export class WindowCustomer implements IExtensionHostCustomer {
             }),
         );
 
-        // Субпроцесс ушёл — его `end`/`dispose`/ответы уже не придут: всё, что он
-        // держал на экране, снимаем сами.
         store.add({
             dispose: () => {
                 attached = false;
@@ -281,10 +247,7 @@ export class WindowCustomer implements IExtensionHostCustomer {
     }
 }
 
-/**
- * Дублирует сообщение расширения в лог по строгости: тост гаснет, а
- * прочитать, что расширение сказало, надо и потом.
- */
+/** Тост гаснет, а прочитать, что расширение сказало, надо и потом. */
 function logExtensionMessage(logger: ILogger | undefined, severity: WireMessageSeverity, text: string): void {
     if (severity === "error") logger?.error(`[extension] ${text}`);
     else if (severity === "warn") logger?.warn(`[extension] ${text}`);

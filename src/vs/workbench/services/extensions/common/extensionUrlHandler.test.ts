@@ -12,7 +12,6 @@ import {
     installedExtensionDisplayName,
 } from "./extensionUrlHandler.ts";
 
-/** Реестр обработчиков субпроцесса: `register` — расширение завело обработчик. */
 function fakeHandlers() {
     const registered = new Set<string>();
     const onDidRegister = new Emitter<string>();
@@ -149,7 +148,6 @@ describe("ExtensionUrlHandler", () => {
             { extensionId: "PUB.EXT", uri: "diode://pub.ext/a" },
             { extensionId: "PUB.EXT", uri: "diode://pub.ext/b" },
         ]);
-        // Буфер опустел — повторная регистрация ничего не досылает.
         handlers.register("pub.ext");
         expect(handlers.handled).toHaveLength(2);
     });
@@ -203,7 +201,6 @@ describe("ExtensionUrlHandler", () => {
         advance(10 * 60 * 1000);
         expect(vi.getTimerCount()).toBe(0);
         handlers.register("pub.ext");
-        // Подписка снята вместе с обработчиком.
         expect(handlers.handled).toEqual([]);
     });
 });

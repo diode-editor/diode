@@ -19,10 +19,6 @@ const PARAMS = {
     eol: 1,
 };
 
-/**
- * Обработчик, который никогда не отвечает, и его токен: истёкший срок обязан
- * отменить запрос и на стороне субпроцесса (`$/cancelRequest`).
- */
 function hangingHandler(): {
     handler: (params: unknown, token: ICancellationToken) => Promise<never>;
     token: () => ICancellationToken | undefined;
@@ -37,7 +33,6 @@ function hangingHandler(): {
     };
 }
 
-/** Срок истёк — запрос отменён и у обработчика субпроцесса. */
 async function expectCancelledOnPeer(hang: ReturnType<typeof hangingHandler>): Promise<void> {
     await vi.waitFor(() => {
         expect(hang.token()?.isCancellationRequested).toBe(true);

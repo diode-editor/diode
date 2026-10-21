@@ -47,7 +47,6 @@ describe("ExtensionThemeContributor — формат файла темы", () =>
         expect(dimmed?.getRequiredColor("editor.background")).toBe(packRgb(0x0b, 0x10, 0x15));
         expect(dimmed?.getRequiredColor("statusBar.background")).toBe(packRgb(0x0a, 0x0f, 0x14));
         expect((await resolveScopesStyle(dimmed!, ["source.probe", "keyword"])).fg).toBe(packRgb(0xff, 0x00, 0xff));
-        // База осталась самостоятельной темой со своим фоном.
         expect(registry.resolve("Sample Dark")?.getRequiredColor("editor.background")).toBe(packRgb(0x10, 0x18, 0x20));
     });
 

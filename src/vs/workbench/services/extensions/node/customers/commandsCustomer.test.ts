@@ -17,7 +17,6 @@ interface IProxyRecord {
     disposed: boolean;
 }
 
-/** Реестр команд ядра, который помнит каждую регистрацию прокси. */
 function fakeCommands() {
     const proxies: IProxyRecord[] = [];
     const service = {
@@ -126,7 +125,6 @@ describe("CommandsCustomer — заглушки-активаторы onCommand",
         const events: string[] = [];
         const h = setup((event) => {
             events.push(event);
-            // Расширение во время активации регистрирует команду.
             h.peer.notify("commands.registerCommand", { id: "ext.run" });
             return flushMicrotasks();
         });

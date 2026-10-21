@@ -9,10 +9,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
     return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/**
- * Проверка типа/модификатора — `validateTypeOrModifier` эталона, тексты
- * ошибок дословно.
- */
+/** `validateTypeOrModifier` эталона, тексты ошибок дословно. */
 function validateTypeOrModifier(
     contribution: unknown,
     extensionPoint: string,
@@ -39,21 +36,8 @@ function validateTypeOrModifier(
 }
 
 /**
- * Применяет `contributes.semanticTokenTypes`, `semanticTokenModifiers` и
- * `semanticTokenScopes` всех расширений к {@link TokenClassificationRegistry}
- * — аналог `TokenClassificationExtensionPoints` эталона
- * (`tokenClassificationExtensionPoint.ts`), с теми же проверками и текстами.
- *
- * Регистрация разовая, на старте, в порядке расширений (встроенные →
- * пользовательские): установка расширения требует перезапуска, как и для
- * `contributes.configuration`. Ошибка — строка в лог с id расширения и
- * пропуск элемента; старт не падает.
- *
- * `semanticTokenScopes`: каждая строка массива — отдельная проба, пробелы в ней
- * — путь скоупов (`"meta.decorator entity.name"`); `language` — язык
- * селектора (вес `+10`). Так у redhat.java Java-аннотация (`annotation`,
- * `superType: type`) красится цветом `storage.type.annotation.java`, а не
- * дефолтом типа.
+ * Аналог `TokenClassificationExtensionPoints` эталона. `semanticTokenScopes`: каждая строка —
+ * отдельная проба, пробелы — путь скоупов; `language` даёт селектору вес `+10`.
  */
 export function registerExtensionSemanticTokens(
     extensions: readonly IExtension[],

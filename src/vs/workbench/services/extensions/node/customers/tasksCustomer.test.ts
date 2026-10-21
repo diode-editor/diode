@@ -30,12 +30,7 @@ import type { IExtensionService } from "../../common/extensions.ts";
 import { TasksCustomer } from "./tasksCustomer.ts";
 import { TerminalCustomer } from "./terminalCustomer.ts";
 
-// Сквозняк контракта задач на одном процессе: `vscode.tasks` субпроцесса
-// (`createTasksNamespace` + терминальная часть для pty) ↔ настоящий RPC ↔
-// `TasksCustomer`/`TerminalCustomer` ↔ мосты ↔ настоящий `TaskService` с
-// терминалом на фейковых сессиях. Расширение — синтетическое, формой
-// провайдера bazel-java: `new Task(def, TaskScope.Workspace, name, source,
-// new ShellExecution(cmd))`.
+// Синтетическое расширение формой провайдера bazel-java.
 
 const EXT = "pub.demo";
 const FOLDER: vscode.WorkspaceFolder = { uri: Uri.file("/ws") as unknown as vscode.Uri, name: "ws", index: 0 };
@@ -158,7 +153,6 @@ describe("vscode.tasks — сквозь провод", () => {
         expect(task._id).toBe(`${EXT}.target,ok,type,demo,`);
         expect(task.source).toMatchObject({ kind: "extension", label: "demo", extensionId: EXT, scope: "folder" });
         expect(task.command).toMatchObject({ runtime: "shell", name: "echo ok" });
-        // Run Task поднял провайдеров: onCommand runTask + onTaskType типа.
         expect(s.activated).toStrictEqual(["onCommand:workbench.action.tasks.runTask", "onTaskType:demo"]);
         registration.dispose();
         await flush();
@@ -289,7 +283,6 @@ describe("vscode.tasks — сквозь провод", () => {
         closes.fire(0);
         await flush();
         expect(s.events).toStrictEqual(["start:demo/pty", "pstart:demo/pty:-1", "pend:demo/pty:0", "end:demo/pty"]);
-        // Повторный запуск — тот же терминал, новый pty.
         void s.h.service.run(task);
         await flush();
         expect(callback).toHaveBeenCalledTimes(2);
