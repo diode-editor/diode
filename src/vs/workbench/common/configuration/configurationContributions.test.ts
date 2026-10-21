@@ -65,6 +65,7 @@ const EXPECTED_SCOPES: Readonly<Record<string, ConfigurationScope>> = {
     "editor.wordBasedSuggestions": "language-overridable",
     "editor.occurrencesHighlight": "language-overridable",
     "editor.semanticHighlighting.enabled": "language-overridable",
+    "editor.experimental.asyncTokenization": "language-overridable",
     "editor.smartSelect.selectLeadingAndTrailingWhitespace": "language-overridable",
     "editor.smartSelect.selectSubwords": "language-overridable",
     "editor.codeActionsOnSave": "language-overridable",

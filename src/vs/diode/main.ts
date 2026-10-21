@@ -101,6 +101,8 @@ import { LanguageConfigurationService } from "../workbench/services/language/com
 import { LanguageRegistry } from "../workbench/services/language/common/languageRegistry.ts";
 import { LifecycleServiceDIToken } from "../workbench/services/lifecycle/browser/lifecycleService.ts";
 import { OutputServiceDIToken } from "../workbench/services/output/common/outputService.ts";
+import { ThreadedBackgroundTokenizerFactory } from "../workbench/services/textMate/common/backgroundTokenization/threadedBackgroundTokenizerFactory.ts";
+import { createTextMateWorkerSpawner } from "../workbench/services/textMate/node/textMateWorkerSpawner.ts";
 import { SemanticTokenStyleResolver } from "../workbench/services/themes/common/semanticTokenStyleResolver.ts";
 import { createTextMateTheme } from "../workbench/services/themes/common/textMateTheme.ts";
 import { createBuiltinThemeRegistry } from "../workbench/services/themes/common/themeRegistry.ts";
@@ -468,11 +470,21 @@ async function runEditor(): Promise<void> {
     const languageConfigurationService = new LanguageConfigurationService(assets, languageRegistry, extensionsLogger);
 
     const tokenizationRegistry = new TokenizationRegistry();
+    // Фон токенизации TextMate — в воркере (`worker_threads`), как у эталона;
+    // воркер поднимается при прогреве грамматик стартовых файлов.
+    const textMateLogger = logService.createLogger("textMate", { label: "TextMate" });
+    const backgroundTokenizerFactory = new ThreadedBackgroundTokenizerFactory(
+        createTextMateWorkerSpawner(textMateLogger),
+        assets,
+        () => configurationService.get("editor.experimental.asyncTokenization"),
+        textMateLogger,
+    );
     const tokenizationContributor = new ExtensionTokenizationContributor(
         assets,
         allExtensions,
         tokenizationRegistry,
         extensionsLogger,
+        backgroundTokenizerFactory,
     );
     // Только регистрация ленивых фабрик — грамматики парсятся по требованию.
     tokenizationContributor.apply();
@@ -718,7 +730,8 @@ async function runEditor(): Promise<void> {
                     });
                 }
             },
-            preloadGrammars: (files) => preloadGrammarsForFiles(files, languageRegistry, tokenizationRegistry),
+            preloadGrammars: (files) =>
+                preloadGrammarsForFiles(files, languageRegistry, tokenizationRegistry, tokenizationContributor),
             startExtensions: () => {
                 // Вшитый TS-сервер — на диск до спауна extension host'а: на холодном
                 // кэше распаковка синхронно пишет файлы (~20 мс), поэтому не на пути
@@ -936,12 +949,15 @@ async function preloadGrammarsForFiles(
     files: readonly string[],
     languageService: ILanguageService,
     tokenizationRegistry: TokenizationRegistry,
+    tokenizationContributor: ExtensionTokenizationContributor,
 ): Promise<void> {
     const languageIds = new Set<string>();
     for (const file of files) {
         const languageId = languageService.getLanguageIdForResource(file);
         if (languageId !== undefined) languageIds.add(languageId);
     }
+    // Воркер грузит те же грамматики параллельно: к открытию файла он готов.
+    tokenizationContributor.preloadBackgroundGrammars(languageIds);
     await Promise.all([...languageIds].map((languageId) => tokenizationRegistry.load(languageId)));
 }
 

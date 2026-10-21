@@ -1,9 +1,12 @@
 import { joinVirtualPath } from "../../../../base/common/assets/assetBundleFormat.ts";
 import type { IAssetAccess } from "../../../../base/common/assets/iAssetAccess.ts";
 import type { IDisposable } from "../../../../base/common/lifecycle.ts";
+import type { IBackgroundTokenizationStore } from "../../../../editor/common/languages.ts";
 import type { TokenizationRegistry } from "../../../../editor/common/languages/tokenizationRegistry.ts";
+import type { ITextDocument } from "../../../../editor/common/model/iTextDocument.ts";
 import type { IExtension } from "../../../../platform/extensions/common/iExtension.ts";
 import type { ILogger } from "../../../../platform/log/common/iLogger.ts";
+import type { ThreadedBackgroundTokenizerFactory } from "../../textMate/common/backgroundTokenization/threadedBackgroundTokenizerFactory.ts";
 import type { IGrammarRecord } from "../../textMate/common/textMateGrammarLoader.ts";
 import { TextMateGrammarLoader } from "../../textMate/common/textMateGrammarLoader.ts";
 import type { ITextMateTheme } from "../../themes/common/textMateTheme.ts";
@@ -38,17 +41,28 @@ export class ExtensionTokenizationContributor implements IDisposable {
     private theme: ITextMateTheme | undefined;
     private registrationDisposables: IDisposable[] = [];
     private disposed = false;
+    /** Фон в воркере (upstream `_threadedBackgroundTokenizerFactory`); нет — фон в главном потоке. */
+    private readonly backgroundTokenizerFactory: ThreadedBackgroundTokenizerFactory | undefined;
+    /** Язык → scope его грамматики: прогрев грамматик стартовых файлов в воркере. */
+    private readonly scopeByLanguage = new Map<string, string>();
 
     public constructor(
         assets: IAssetAccess,
         extensions: readonly IExtension[],
         tokenizationRegistry: TokenizationRegistry,
         logger?: ILogger,
+        backgroundTokenizerFactory?: ThreadedBackgroundTokenizerFactory,
     ) {
         this.assets = assets;
         this.extensions = extensions;
         this.tokenizationRegistry = tokenizationRegistry;
         this.logger = logger;
+        this.backgroundTokenizerFactory = backgroundTokenizerFactory;
+        // Воркер отказал — те же support'ы, но фон документов пересоздаётся
+        // уже в главном потоке (фабрика воркер больше не отдаёт).
+        backgroundTokenizerFactory?.onDidFail(() => {
+            this.tokenizationRegistry.handleChange([...this.scopeByLanguage.keys()]);
+        });
     }
 
     /**
@@ -63,18 +77,26 @@ export class ExtensionTokenizationContributor implements IDisposable {
         const loader = new TextMateGrammarLoader(this.assets, records);
         this.loader = loader;
         if (this.theme !== undefined) loader.setTheme(this.theme);
+        const factory = this.backgroundTokenizerFactory;
+        factory?.setGrammarDefinitions(records);
 
         for (const grammar of this.iterAllGrammars()) {
             if (grammar.language === undefined) continue;
             const languageId = grammar.language;
             const scopeName = grammar.scopeName;
+            this.scopeByLanguage.set(languageId, scopeName);
+            const createBackgroundTokenizer =
+                factory === undefined
+                    ? undefined
+                    : (document: ITextDocument, store: IBackgroundTokenizationStore) =>
+                          factory.createBackgroundTokenizer(document, store, scopeName);
             this.registrationDisposables.push(
                 // Фабрика не может стартовать после dispose(): он снимает
                 // lazy-записи из реестра, и load() до неё уже не доходит.
                 // Флаг disposed нужен только для in-flight-случая ниже.
                 this.tokenizationRegistry.registerLazy(languageId, async () => {
                     try {
-                        const support = await loader.loadSupport(scopeName);
+                        const support = await loader.loadSupport(scopeName, createBackgroundTokenizer);
                         if (support === null) {
                             this.logger?.error(`Failed to load grammar "${scopeName}" for language "${languageId}"`);
                             return null;
@@ -106,7 +128,22 @@ export class ExtensionTokenizationContributor implements IDisposable {
         if (equalsTextMateTheme(this.theme, theme)) return;
         this.theme = theme;
         this.loader?.setTheme(theme);
+        // До setColorMap: его событие пересоздаёт фон документов, и новые
+        // модели должны застать воркер уже с новой темой (сообщения по порядку).
+        this.backgroundTokenizerFactory?.acceptTheme(theme);
         this.tokenizationRegistry.setColorMap(theme.colorMap);
+    }
+
+    /**
+     * Поднять воркер и загрузить в нём грамматики языков заранее — для файлов,
+     * которые открываются на старте (наше, `ThreadedBackgroundTokenizerFactory.preloadGrammar`).
+     * Неизвестный язык и фон без воркера — ничего не делает.
+     */
+    public preloadBackgroundGrammars(languageIds: Iterable<string>): void {
+        for (const languageId of languageIds) {
+            const scopeName = this.scopeByLanguage.get(languageId);
+            if (scopeName !== undefined) this.backgroundTokenizerFactory?.preloadGrammar(scopeName);
+        }
     }
 
     /**
@@ -131,6 +168,7 @@ export class ExtensionTokenizationContributor implements IDisposable {
         this.registrationDisposables = [];
         this.loader?.dispose();
         this.loader = undefined;
+        this.backgroundTokenizerFactory?.dispose();
     }
 
     private collectGrammarRecords(): IGrammarRecord[] {

@@ -133,6 +133,16 @@ export const LAZY_CHUNKS = [
         entry: "src/vs/diode/roles/fileWatcherRole.ts",
         sharedBudgetKb: 66,
     },
+    // Воркер фоновой токенизации TextMate (`worker_threads`, docs/TODO/VscodeModel.md,
+    // B3): кусок исполняет изолят воркера, а не процесс роли. Общее с ядром — почти
+    // всё: vscode-textmate и oniguruma (главному потоку они нужны для вьюпорта),
+    // перенесённая токенизация, загрузчик грамматик. Бюджет — замер (224 КБ) плюс ~5 %.
+    {
+        id: "roles/textmate-worker",
+        reason: "воркер фоновой токенизации TextMate",
+        entry: "src/vs/workbench/services/textMate/node/textMateTokenizationWorker.workerMain.ts",
+        sharedBudgetKb: 236,
+    },
 ];
 
 /**

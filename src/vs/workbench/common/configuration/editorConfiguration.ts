@@ -56,6 +56,16 @@ export const editorConfiguration = {
             default: "configuredByTheme",
             description: "Controls whether the semanticHighlighting is shown for the languages that support it.",
         },
+        // Эталон: editorConfigurationSchema.ts (там же тег `experimental` — у нас
+        // тегов нет). Фоновая токенизация TextMate в воркере (`worker_threads`);
+        // `asyncTokenizationLogging`/`asyncTokenizationVerification` эталона не
+        // перенесены. Читается при пересоздании фона документа.
+        "editor.experimental.asyncTokenization": {
+            scope: "language-overridable",
+            type: "boolean",
+            default: true,
+            description: "Controls whether the tokenization should happen asynchronously on a web worker.",
+        },
         // Эталон: SmartSelect (editorOptions.ts) — Expand/Shrink Selection.
         "editor.smartSelect.selectLeadingAndTrailingWhitespace": {
             scope: "language-overridable",

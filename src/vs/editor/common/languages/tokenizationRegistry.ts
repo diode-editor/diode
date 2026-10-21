@@ -100,6 +100,16 @@ export class TokenizationRegistry {
         for (const languageId of this.supports.keys()) this.fireChange(languageId);
     }
 
+    /**
+     * Upstream `handleChange`: support'ы языков те же, но токенизировать
+     * документы пора заново — например, фон в воркере отказал и документам
+     * нужен фон в главном потоке. Событие — по каждому языку, как при
+     * регистрации.
+     */
+    public handleChange(languageIds: readonly string[]): void {
+        for (const languageId of languageIds) this.fireChange(languageId);
+    }
+
     /** colorMap темы ({@link setColorMap}); `null` — тему ещё не ставили. */
     public getColorMap(): readonly string[] | null {
         return this.colorMap;

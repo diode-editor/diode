@@ -67,6 +67,12 @@ export const SETTINGS_SCHEMA: readonly ISettingSchemaEntry[] = [
         description: "Controls whether copying without a selection copies the current line.",
     },
     {
+        key: "editor.experimental.asyncTokenization",
+        type: "boolean",
+        default: true,
+        description: "Controls whether the tokenization should happen asynchronously on a web worker.",
+    },
+    {
         key: "editor.formatOnSave",
         type: "boolean",
         default: false,

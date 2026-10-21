@@ -12,6 +12,7 @@
 
 import type { LanguageId } from "./encodedTokenAttributes.ts";
 import type { IState } from "./languages/iState.ts";
+import type { ITextDocument } from "./model/iTextDocument.ts";
 import type { ContiguousMultilineTokens } from "./tokens/contiguousMultilineTokens.ts";
 
 export type { IState };
@@ -74,12 +75,32 @@ export class EncodedTokenizationResult {
 
 /**
  * Построчный токенизатор. Upstream требует ещё `tokenize` (токены строками —
- * для раскраски вне модели) и умеет свой фоновый токенизатор
- * (`createBackgroundTokenizer`, воркер — B3); нам нужен бинарный путь.
+ * для раскраски вне модели); нам нужен бинарный путь.
  */
 export interface ITokenizationSupport {
     getInitialState(): IState;
     tokenizeEncoded(line: string, hasEOL: boolean, state: IState): EncodedTokenizationResult;
+
+    /**
+     * Свой фоновый токенизатор документа (TextMate — в воркере); `undefined` —
+     * фон в главном потоке (`DefaultBackgroundTokenizer`). Upstream принимает
+     * `ITextModel`, у нас — документ: контроллеру воркера нужны его текст и
+     * правки (`onDidChangeModelContent`).
+     */
+    createBackgroundTokenizer?(
+        document: ITextDocument,
+        store: IBackgroundTokenizationStore,
+    ): IBackgroundTokenizer | undefined;
+
+    /**
+     * Отступление diode (B3): токенизатор в этом потоке ещё ни разу не
+     * работал — первая строка скомпилирует regex'ы грамматики (TypeScript —
+     * ~60 мс). Пока это так, а у документа есть свой фон
+     * ({@link createBackgroundTokenizer}), `DocumentTokenStore` не красит
+     * вьюпорт сам, а ждёт первого ответа фона: ту же компиляцию воркер делает
+     * вне главного потока. Нет поля — токенизатор дешёвый.
+     */
+    readonly isCold?: boolean;
 }
 
 /**
@@ -104,6 +125,9 @@ export interface IBackgroundTokenizer {
 
 export interface IBackgroundTokenizationStore {
     setTokens(tokens: ContiguousMultilineTokens[]): void;
+
+    /** Состояние конца строки `lineNumber` (с 1), посчитанное фоном вне этого потока. */
+    setEndState(lineNumber: number, state: IState): void;
     /**
      * Should be called to indicate that the background tokenization has finished for now.
      */

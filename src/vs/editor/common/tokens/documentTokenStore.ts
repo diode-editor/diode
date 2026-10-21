@@ -1,9 +1,16 @@
+import { runWhenGlobalIdle } from "../../../base/common/async.ts";
 import type { Event } from "../../../base/common/event.ts";
 import { Emitter } from "../../../base/common/event.ts";
+import type { IDisposable } from "../../../base/common/lifecycle.ts";
 import { Disposable } from "../../../base/common/lifecycle.ts";
 import { LineRange } from "../core/ranges/lineRange.ts";
 import { LanguageId } from "../encodedTokenAttributes.ts";
-import type { ILanguageIdCodec, ITokenizationSupport } from "../languages.ts";
+import type {
+    IBackgroundTokenizationStore,
+    IBackgroundTokenizer,
+    ILanguageIdCodec,
+    ITokenizationSupport,
+} from "../languages.ts";
 import type { IState } from "../languages/iState.ts";
 import type { ITextModel } from "../model.ts";
 import type { IDocumentContentChange } from "../model/iDocumentContentChange.ts";
@@ -57,8 +64,20 @@ export class DocumentTokenStore extends Disposable {
     private readonly languageIdCodec: ILanguageIdCodec;
     // Все три ставит resetTokenization() из конструктора.
     private tokenizer!: TokenizerWithStateStoreAndTextModel;
-    private backgroundTokenizer!: DefaultBackgroundTokenizer;
+    private backgroundTokenizer!: IBackgroundTokenizer;
     private backgroundTokenizationCompleted!: boolean;
+    /** Фон в этом потоке; `undefined` — у токенизатора свой фон (воркер). */
+    private defaultBackgroundTokenizer: DefaultBackgroundTokenizer | undefined;
+    /**
+     * Свой фон токенизатора ещё ничего не прислал. Пока так, а токенизатор
+     * холодный (`ITokenizationSupport.isCold`), вьюпорт ждёт фон — см.
+     * {@link tokenizeViewport}.
+     */
+    private awaitingBackground = false;
+    /** Прогрев токенизатора этого потока после первого ответа фона — {@link scheduleWarmUp}. */
+    private warmUp: IDisposable | undefined;
+    /** Вьюпорт последнего кадра (строки с 1) — его строки и греют токенизатор. */
+    private lastViewport: { start: number; end: number } | undefined;
 
     /**
      * Растёт на каждую правку и смену токенизатора. Ключ памяти эвристического
@@ -108,6 +127,7 @@ export class DocumentTokenStore extends Disposable {
         this.register({
             dispose: () => {
                 this.backgroundTokenizer.dispose();
+                this.warmUp?.dispose();
             },
         });
     }
@@ -163,6 +183,12 @@ export class DocumentTokenStore extends Disposable {
         const lineCount = this.document.lineCount;
         const start = Math.max(1, Math.min(lineCount, startLine + 1));
         const end = Math.min(lineCount, endLine + 1);
+        this.lastViewport = { start, end };
+        // Отступление (B3): холодная грамматика скомпилировала бы здесь свои
+        // regex'ы (TypeScript — ~60 мс в кадре), а фон в воркере делает то же
+        // вне главного потока и вот-вот пришлёт эти строки. Ждём его — кадр
+        // остаётся с текстом без цвета, как до отпуска токенизаторов на старте.
+        if (this.awaitingBackground && this.support.isCold === true) return;
         const memo = this.heuristicViewport;
         if (memo?.start === start && memo.end === end && memo.version === this.version) return;
 
@@ -187,7 +213,7 @@ export class DocumentTokenStore extends Disposable {
             }
         }
 
-        this.backgroundTokenizer.checkFinished();
+        this.defaultBackgroundTokenizer?.checkFinished();
     }
 
     /**
@@ -199,7 +225,7 @@ export class DocumentTokenStore extends Disposable {
         const builder = new ContiguousMultilineTokensBuilder();
         this.tokenizer.updateTokensUntilLine(builder, line + 1);
         this.setTokens(builder.finalize(), true);
-        this.backgroundTokenizer.checkFinished();
+        this.defaultBackgroundTokenizer?.checkFinished();
     }
 
     /**
@@ -238,15 +264,59 @@ export class DocumentTokenStore extends Disposable {
             this.textModel,
             this.languageIdCodec,
         );
-        this.backgroundTokenizer = new DefaultBackgroundTokenizer(this.tokenizer, {
+        const tokenizer = this.tokenizer;
+        const store: IBackgroundTokenizationStore = {
             setTokens: (tokens) => {
+                if (this.awaitingBackground) {
+                    this.awaitingBackground = false;
+                    this.scheduleWarmUp();
+                }
                 this.setTokens(tokens, true);
+            },
+            setEndState: (lineNumber, state) => {
+                const firstInvalidEndStateLineNumber = tokenizer.store.getFirstInvalidEndStateLineNumber();
+                // Don't accept states for definitely valid states, the renderer is ahead of the worker!
+                if (firstInvalidEndStateLineNumber !== null && lineNumber >= firstInvalidEndStateLineNumber) {
+                    tokenizer.store.setEndState(lineNumber, state);
+                }
             },
             backgroundTokenizationFinished: () => {
                 this.backgroundTokenizationCompleted = true;
             },
+        };
+        const background = this.support.createBackgroundTokenizer?.(this.document, store);
+        if (background === undefined) {
+            this.defaultBackgroundTokenizer = new DefaultBackgroundTokenizer(this.tokenizer, store);
+            this.backgroundTokenizer = this.defaultBackgroundTokenizer;
+            this.awaitingBackground = false;
+            this.defaultBackgroundTokenizer.handleChanges();
+        } else {
+            this.defaultBackgroundTokenizer = undefined;
+            this.backgroundTokenizer = background;
+            this.awaitingBackground = true;
+        }
+    }
+
+    /**
+     * Фон прислал первые токены, а токенизатор этого потока так и не работал:
+     * первая же правка или прыжок за фронтир фона скомпилировали бы грамматику
+     * посреди нажатия. Греем её, как только поток свободен, на строках
+     * вьюпорта — результат никуда не кладём (`tokenizeLinesAt` кэш не трогает).
+     */
+    private scheduleWarmUp(): void {
+        if (this.support.isCold !== true) return;
+        this.warmUp?.dispose();
+        this.warmUp = runWhenGlobalIdle(() => {
+            this.warmUp = undefined;
+            const viewport = this.lastViewport;
+            if (viewport === undefined || this.support.isCold !== true) return;
+            const lines: string[] = [];
+            const end = Math.min(viewport.end, this.document.lineCount);
+            for (let lineNumber = viewport.start; lineNumber <= end; lineNumber++) {
+                lines.push(this.textModel.getLineContent(lineNumber));
+            }
+            this.tokenizer.tokenizeLinesAt(viewport.start, lines);
         });
-        this.backgroundTokenizer.handleChanges();
     }
 
     private setTokens(tokens: readonly ContiguousMultilineTokens[], fire: boolean): ITokensChangedEvent[] {
@@ -289,7 +359,7 @@ export class DocumentTokenStore extends Disposable {
         // Stryker disable next-line UpdateOperator: версии важно лишь отличаться — «--» даёт такие же
         this.version++;
         this.tokenizer.store.acceptChange(new LineRange(startLine + 1, oldEndLine + 2), newEndLine - startLine + 1);
-        this.backgroundTokenizer.handleChanges();
+        this.defaultBackgroundTokenizer?.handleChanges();
     }
 }
 
