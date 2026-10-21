@@ -27,10 +27,10 @@
 - [x] `workbench/api`: browser, node, common a–l (1926) — #737
 - [x] `workbench/api/common` m–z (1595) — #738
 - [x] `workbench/contrib`: scm, terminal, tasks (1917) — #739
-- [~] `workbench/contrib`: files, extensions, diff, search, suggest, parameterHints, inlineCompletions, quickaccess (2236)
+- [x] `workbench/contrib`: files, extensions, diff, search, suggest, parameterHints, inlineCompletions, quickaccess (2236) — #740 (+ долг мутанта в #743)
 - [x] `workbench/contrib`: остальные фичи и прочее `workbench/` (1734) — #742
 - [x] `src/vs/diode`, TestUtils, demos, StoryRunner, tools (904) — #741
-- [~] `e2e/scenarios` (1052)
+- [x] `e2e/scenarios` (1052) — #744
 - [~] `e2e`: остальное (1827)
 - [x] scripts, extensions, packaging, `.github`, конфиги (2330) — уехал в общий PR волн 1+2+3, см. ниже
 
