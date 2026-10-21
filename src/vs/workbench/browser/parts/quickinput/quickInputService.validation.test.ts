@@ -206,7 +206,7 @@ describe("QuickInputService.input — async validation", () => {
         expect(component.view.validationMessage).toBe("Already exists");
     });
 
-    it("Enter validates the text once: a check already running for it is reused", async () => {
+    it("Enter reuses the check already running for the text", async () => {
         const { service, testApp } = createService();
         const checked: string[] = [];
         const result = service.input({

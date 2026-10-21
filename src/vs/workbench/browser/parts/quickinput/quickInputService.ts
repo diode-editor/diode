@@ -108,37 +108,34 @@ export class QuickInputService {
                 }
                 view.markDirty();
             };
-            let latest: { query: string; outcome: Promise<InputValidation | null> } | undefined;
-            const runValidation = (query: string): Promise<InputValidation | null> => {
+            // Every text change starts its check at once (upstream debounces, we don't), so the latest
+            // outcome is always for the text on screen.
+            let latest: Promise<InputValidation | null>;
+            const runValidation = (query: string): void => {
                 const ticket = validation.start();
                 const raw = validate === undefined ? null : validate(query);
-                const outcome = Promise.resolve(raw);
-                latest = { query, outcome };
+                latest = Promise.resolve(raw);
                 if (!isThenable(raw)) {
                     showValidation(raw);
-                } else {
-                    void raw.then((result) => {
-                        if (ticket.isStale() || this.pendingResolve !== owner) return;
-                        showValidation(result);
-                    });
+                    return;
                 }
-                return outcome;
+                void raw.then((result) => {
+                    if (ticket.isStale() || this.pendingResolve !== owner) return;
+                    showValidation(result);
+                });
             };
-            view.onQueryChange = (query) => {
-                void runValidation(query);
-            };
-            // As upstream: Enter waits for the outcome on this exact text. The message on screen may
+            view.onQueryChange = runValidation;
+            // As upstream: Enter waits for the outcome on the accepted text. The message on screen may
             // still be the previous text's while a slow check (a disk lookup) is in flight.
             view.onAcceptValue = (value) => {
-                const outcome = latest?.query === value ? latest.outcome : runValidation(value);
-                void outcome.then((result) => {
+                void latest.then((result) => {
                     if (this.pendingResolve !== owner || blocksAccept(result)) return;
                     this.settle(value);
                 });
             };
 
             view.setQuery(opts.value ?? "");
-            void runValidation(view.getQuery());
+            runValidation(view.getQuery());
 
             this.component.show();
         });
